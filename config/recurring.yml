@@ -20,7 +20,11 @@ production:
 
   sync_alpaca_assets_job:
     class: Exchange::SyncAlpacaAssetsJob
-    schedule: "0 3 * * 1"  # At 03:00 UTC on Monday
+    schedule: "0 3 * * 1"  # At 03:00 UTC on Monday (no-op on hosted; per-user Alpaca sync only)
+
+  sync_stocks_from_deltabadger_job:
+    class: Asset::SyncStocksFromDeltabadgerJob
+    schedule: "10 3 * * *"  # Daily at 03:10 UTC (no-op off hosted; gated inside the job)
 
   evaluate_all_rules_job:
     class: Rule::EvaluateAllJob
@@ -57,7 +61,11 @@ development:
 
   sync_alpaca_assets_job:
     class: Exchange::SyncAlpacaAssetsJob
-    schedule: "0 3 * * 1"  # At 03:00 UTC on Monday
+    schedule: "0 3 * * 1"  # At 03:00 UTC on Monday (no-op on hosted; per-user Alpaca sync only)
+
+  sync_stocks_from_deltabadger_job:
+    class: Asset::SyncStocksFromDeltabadgerJob
+    schedule: "10 3 * * *"  # Daily at 03:10 UTC (no-op off hosted; gated inside the job)
 
   evaluate_all_rules_job:
     class: Rule::EvaluateAllJob

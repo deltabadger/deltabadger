@@ -296,6 +296,153 @@ class MarketData
     Result::Failure.new(e.message)
   end
 
+  # ETF and stock both map to category=Stock to preserve every existing `category == 'Stock'`
+  # gate (Alpaca routing, API-key flow, pricing). Distinct ETF UX is a future follow-up.
+  CATEGORY_BY_TYPE = { 'stock' => 'Stock', 'etf' => 'Stock' }.freeze
+
+  # data-api MarketListing rows don't carry decimals/min/max; the container has to inject
+  # Alpaca conventions or import_tickers! would skip them. Mirrors SyncAlpacaAssetsJob:55-66.
+  STOCK_TICKER_DEFAULTS = {
+    'minimum_base_size' => 0.000000001,
+    'maximum_base_size' => 100_000,
+    'minimum_quote_size' => 1,
+    'maximum_quote_size' => 10_000_000,
+    'base_decimals' => 9,
+    'quote_decimals' => 2,
+    'price_decimals' => 2
+  }.freeze
+
+  STOCK_CANONICAL_BACKFILL_FLAG = 'stock_canonical_backfill_completed_at'.freeze
+
+  def self.sync_stocks_from_deltabadger!
+    result = client.get_stocks
+    return result if result.failure?
+
+    rows = Array(result.data && result.data['data'])
+    assets = rows.filter_map do |row|
+      category = CATEGORY_BY_TYPE[row['type']]
+      unless category
+        Rails.logger.warn "[MarketData] sync_stocks: skipping unknown type #{row['type'].inspect} (external_id=#{row['external_id']})"
+        next
+      end
+      now = Time.current
+      {
+        external_id: row['external_id'],
+        symbol: row['symbol'],
+        name: row['name'],
+        category: category,
+        color: row['color'],
+        image_url: row['image_url'],
+        created_at: now,
+        updated_at: now
+      }
+    end
+
+    Asset.upsert_all(assets, unique_by: :external_id) if assets.any?
+    Result::Success.new
+  rescue StandardError => e
+    Rails.logger.error "[MarketData] Failed to sync stocks: #{e.message}"
+    Result::Failure.new(e.message)
+  end
+
+  def self.sync_alpaca_listings_from_deltabadger!
+    result = client.get_alpaca_listings
+    return result if result.failure?
+
+    listings = Array(result.data && result.data['data'])
+
+    # Invariant A: the local 'usd' Asset row must exist (the stock wizard does
+    # Asset.find_by(external_id: 'usd') at pick_buyable_assets_controller.rb:43).
+    usd = Asset.find_or_initialize_by(external_id: 'usd')
+    usd.assign_attributes(symbol: 'USD', name: 'US Dollar', category: 'Fiat')
+    if usd.color.blank?
+      usd_color = Fiat.currencies.find { |c| c[:symbol] == 'USD' }&.dig(:color)
+      usd.color = usd_color if usd_color.present?
+    end
+    usd.save!
+
+    # Belt-and-suspenders: drop fractionable=false even though the data-api endpoint already
+    # filters them. A future server-side relaxation must not silently introduce fractional
+    # defaults for non-fractionable assets.
+    listings = listings.reject { |l| l['fractionable'] == false }
+
+    # Invariant B: every Alpaca ticker's quote anchors to the local 'usd' row so the wizard's
+    # (base_asset, quote_asset) lookup finds the seeded ticker.
+    listings.each do |l|
+      l['quote_external_id'] = 'usd'
+      # Inject Alpaca-stock trading defaults — import_tickers! requires decimals.
+      STOCK_TICKER_DEFAULTS.each { |k, v| l[k] ||= v }
+    end
+
+    alpaca = Exchanges::Alpaca.first
+    return Result::Success.new unless alpaca
+
+    import_tickers!(alpaca, listings)
+
+    # Stale-ticker sweep keyed off base_asset_id. Empty-payload guard: never wipe everything
+    # when the feed is empty (mirrors SyncAlpacaAssetsJob:74 `if synced_ticker_ids.any?`).
+    external_ids = listings.flat_map { |l| [l['base_external_id'], l['quote_external_id']] }.uniq
+    asset_map = Asset.where(external_id: external_ids).pluck(:external_id, :id).to_h
+    incoming_base_asset_ids = listings.map { |l| asset_map[l['base_external_id']] }.compact.uniq
+    alpaca.tickers.where.not(base_asset_id: incoming_base_asset_ids).update_all(available: false) if incoming_base_asset_ids.any?
+
+    Result::Success.new
+  rescue StandardError => e
+    Rails.logger.error "[MarketData] Failed to sync alpaca listings: #{e.message}"
+    Result::Failure.new(e.message)
+  end
+
+  # One-time, idempotent, flag-gated rewrite of legacy `alpaca_<uuid>` Stock external_ids to
+  # data-api canonical ids (e.g. AAPL.US). FK-safe via `id` preservation. Called at the top
+  # of every Asset::SyncStocksFromDeltabadgerJob invocation so existing hosted containers
+  # auto-heal on the next recurring tick — no orchestration choreography needed.
+  def self.backfill_canonical_stock_external_ids!
+    return unless MarketDataSettings.deltabadger?
+    return if AppConfig.get(STOCK_CANONICAL_BACKFILL_FLAG).present?
+
+    result = client.get_stocks
+    if result.failure?
+      Rails.logger.warn "[MarketData] stock backfill: data-api fetch failed; leaving flag unset for retry: #{result.errors.join(', ')}"
+      return
+    end
+
+    rows = Array(result.data && result.data['data'])
+    symbol_to_external_id = rows.each_with_object({}) do |row, h|
+      Array(row['identifiers']).each do |i|
+        next unless i['scheme'] == 'alpaca'
+
+        symbol = i['value'].to_s.sub('us_equity:', '')
+        h[symbol] = row['external_id']
+      end
+    end
+
+    if symbol_to_external_id.empty?
+      Rails.logger.warn '[MarketData] stock backfill: payload has no alpaca-scheme identifiers; leaving flag unset for retry'
+      return
+    end
+
+    rewritten = 0
+    unmatched = 0
+    defensive_skip = 0
+    Asset.where(category: 'Stock').where("external_id LIKE 'alpaca_%'").find_each do |legacy|
+      canonical = symbol_to_external_id[legacy.symbol]
+      if canonical.nil?
+        unmatched += 1
+        next
+      end
+      if Asset.exists?(external_id: canonical)
+        Rails.logger.warn "[MarketData] stock backfill: canonical #{canonical} already present; leaving legacy #{legacy.external_id} alone"
+        defensive_skip += 1
+        next
+      end
+      legacy.update_columns(external_id: canonical)
+      rewritten += 1
+    end
+
+    AppConfig.set(STOCK_CANONICAL_BACKFILL_FLAG, Time.current.iso8601)
+    Rails.logger.info "[MarketData] stock backfill: rewritten=#{rewritten} unmatched=#{unmatched} defensive_skip=#{defensive_skip}"
+  end
+
   TICKER_TOMBSTONE_PREFIX = '__stale_'.freeze
 
   private_class_method def self.tombstone_value(id, value)

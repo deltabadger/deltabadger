@@ -307,3 +307,338 @@ class MarketDataStockColorsTest < ActiveSupport::TestCase
     assert_equal({}, MarketData.stock_colors)
   end
 end
+
+class MarketDataSyncStocksFromDeltabadgerTest < ActiveSupport::TestCase
+  setup do
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+    @fake = mock
+    MarketData.stubs(:client).returns(@fake)
+  end
+
+  def stock_row(external_id:, symbol:, type: 'stock', color: nil)
+    {
+      'external_id' => external_id, 'symbol' => symbol, 'name' => symbol, 'type' => type,
+      'color' => color, 'category' => (type == 'stock' ? 'Common Stock' : 'ETF'),
+      'identifiers' => [{ 'scheme' => 'alpaca', 'value' => "us_equity:#{symbol}" }]
+    }
+  end
+
+  test 'upserts stock + etf rows as category=Stock keyed by external_id' do
+    @fake.stubs(:get_stocks).returns(Result::Success.new(
+                                       'metadata' => { 'count' => 2 },
+                                       'data' => [stock_row(external_id: 'AAPL.US', symbol: 'AAPL'),
+                                                  stock_row(external_id: 'SPY.US', symbol: 'SPY', type: 'etf')]
+                                     ))
+
+    assert_difference 'Asset.count', 2 do
+      MarketData.sync_stocks_from_deltabadger!
+    end
+
+    aapl = Asset.find_by(external_id: 'AAPL.US')
+    spy = Asset.find_by(external_id: 'SPY.US')
+    assert_equal 'Stock', aapl.category, 'stock asset_type maps to category=Stock'
+    assert_equal 'Stock', spy.category, 'etf asset_type also maps to Stock (R5-F1: preserves all category==Stock gates)'
+  end
+
+  test 'applies color from payload' do
+    @fake.stubs(:get_stocks).returns(Result::Success.new(
+                                       'metadata' => { 'count' => 1 },
+                                       'data' => [stock_row(external_id: 'AAPL.US', symbol: 'AAPL', color: '#FF0000')]
+                                     ))
+
+    MarketData.sync_stocks_from_deltabadger!
+    assert_equal '#FF0000', Asset.find_by(external_id: 'AAPL.US').color
+  end
+
+  test 'is idempotent — second run does not duplicate' do
+    @fake.stubs(:get_stocks).returns(Result::Success.new(
+                                       'metadata' => { 'count' => 1 },
+                                       'data' => [stock_row(external_id: 'AAPL.US', symbol: 'AAPL')]
+                                     ))
+
+    MarketData.sync_stocks_from_deltabadger!
+    assert_no_difference 'Asset.count' do
+      MarketData.sync_stocks_from_deltabadger!
+    end
+  end
+
+  test 'skips unknown asset_type values and logs (never written through raw)' do
+    @fake.stubs(:get_stocks).returns(Result::Success.new(
+                                       'metadata' => { 'count' => 3 },
+                                       'data' => [
+                                         stock_row(external_id: 'AAPL.US', symbol: 'AAPL'),
+                                         stock_row(external_id: 'WAT.US', symbol: 'WAT', type: 'preferred_stock'),
+                                         stock_row(external_id: 'SPY.US', symbol: 'SPY', type: 'etf')
+                                       ]
+                                     ))
+
+    MarketData.sync_stocks_from_deltabadger!
+    assert_equal %w[AAPL.US SPY.US].sort, Asset.where(category: 'Stock').pluck(:external_id).sort
+    assert_nil Asset.find_by(external_id: 'WAT.US'), 'unknown asset_type must not be written through raw'
+  end
+
+  test 'returns Result::Failure and writes nothing when client fails' do
+    @fake.stubs(:get_stocks).returns(Result::Failure.new('boom'))
+    assert_no_difference 'Asset.count' do
+      result = MarketData.sync_stocks_from_deltabadger!
+      assert_predicate result, :failure?
+    end
+  end
+end
+
+class MarketDataSyncAlpacaListingsFromDeltabadgerTest < ActiveSupport::TestCase
+  setup do
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+    @alpaca = create(:alpaca_exchange)
+    @aapl = Asset.create!(external_id: 'AAPL.US', symbol: 'AAPL', name: 'Apple', category: 'Stock')
+    @spy = Asset.create!(external_id: 'SPY.US', symbol: 'SPY', name: 'SPDR S&P 500 ETF', category: 'Stock')
+    @fake = mock
+    MarketData.stubs(:client).returns(@fake)
+  end
+
+  def listing_row(base_ext:, symbol:, fractionable: true, quote_ext: 'USD.FOREX', listing_id: nil)
+    {
+      'listing_id' => listing_id || "NASDAQ:#{symbol}",
+      'base' => symbol, 'quote' => 'USD', 'ticker' => symbol,
+      'base_external_id' => base_ext, 'quote_external_id' => quote_ext,
+      'fractionable' => fractionable
+    }
+  end
+
+  test "guarantees the local 'usd' Asset row exists (Invariant A)" do
+    assert_nil Asset.find_by(external_id: 'usd')
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 1 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL')]
+                                              ))
+
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    usd = Asset.find_by(external_id: 'usd')
+    assert usd.present?, "wizard requires 'usd' row at pick_buyable_assets_controller.rb:43"
+    assert_equal 'USD', usd.symbol
+    assert_equal 'Fiat', usd.category
+  end
+
+  test "every created Ticker's quote_asset is the local 'usd' row regardless of payload quote_external_id (Invariant B)" do
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 2 },
+                                                'data' => [
+                                                  listing_row(base_ext: 'AAPL.US', symbol: 'AAPL', quote_ext: 'USD.FOREX'),
+                                                  listing_row(base_ext: 'SPY.US', symbol: 'SPY', quote_ext: 'usd')
+                                                ]
+                                              ))
+
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    @alpaca.tickers.reload.each do |t|
+      assert_equal 'usd', t.quote_asset.external_id,
+                   'every Alpaca ticker must point at the local usd row (R5-F3 / R4-F2)'
+    end
+  end
+
+  test "end-to-end picker wiring: 'usd' row + Alpaca ticker found by (base, quote_asset)" do
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 1 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL')]
+                                              ))
+
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    usd = Asset.find_by(external_id: 'usd')
+    # Same shape as app/models/bots/dca_single_asset.rb:226
+    assert @alpaca.tickers.available.trading_enabled.exists?(base_asset: @aapl, quote_asset: usd),
+           "wizard's (base_asset, quote_asset) lookup must find the seeded ticker"
+  end
+
+  test 'injects stock trading defaults (decimals + min/max sizes) since data-api MarketListing has none' do
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 1 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL')]
+                                              ))
+
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    ticker = @alpaca.tickers.find_by(base_asset: @aapl)
+    assert_equal 9, ticker.base_decimals
+    assert_equal 2, ticker.quote_decimals
+    assert_equal 2, ticker.price_decimals
+    assert_equal BigDecimal('0.000000001'), ticker.minimum_base_size
+    assert_equal BigDecimal('1'), ticker.minimum_quote_size
+    assert_equal BigDecimal('100000'), ticker.maximum_base_size
+    assert_equal BigDecimal('10000000'), ticker.maximum_quote_size
+    assert ticker.available?
+  end
+
+  test 'defensively drops fractionable: false rows even if data-api sends them' do
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 2 },
+                                                'data' => [
+                                                  listing_row(base_ext: 'AAPL.US', symbol: 'AAPL', fractionable: true),
+                                                  listing_row(base_ext: 'SPY.US', symbol: 'SPY', fractionable: false)
+                                                ]
+                                              ))
+
+    MarketData.sync_alpaca_listings_from_deltabadger!
+    assert @alpaca.tickers.where(base_asset: @aapl).exists?
+    assert_not @alpaca.tickers.where(base_asset: @spy).exists?, 'non-fractionable must be dropped client-side too (R7-F1)'
+  end
+
+  test 'sweeps stale Alpaca tickers (whose base_asset_id is absent from incoming) to available: false' do
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 2 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL'),
+                                                           listing_row(base_ext: 'SPY.US', symbol: 'SPY')]
+                                              ))
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    # Second sync drops SPY
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 1 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL')]
+                                              ))
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    spy_ticker = @alpaca.tickers.find_by(base_asset: @spy)
+    assert spy_ticker.present?, 'tickers are undeletable — must remain in the table'
+    assert_not spy_ticker.available?, 'stale ticker must be swept to available: false'
+    assert @alpaca.tickers.find_by(base_asset: @aapl).available?, 'live ticker stays available'
+  end
+
+  test 'empty payload guard: does NOT wipe existing tickers (R7-F3)' do
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 1 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL')]
+                                              ))
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    # Now a buggy/partial payload returns empty
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 0 }, 'data' => []
+                                              ))
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    assert @alpaca.tickers.find_by(base_asset: @aapl).available?,
+           'empty incoming payload must not flip every Alpaca ticker to unavailable'
+  end
+
+  test 'returns Result::Failure when client fails, no DB writes' do
+    @fake.stubs(:get_alpaca_listings).returns(Result::Failure.new('boom'))
+    assert_no_difference ['Ticker.count', 'Asset.count'] do
+      result = MarketData.sync_alpaca_listings_from_deltabadger!
+      assert_predicate result, :failure?
+    end
+  end
+end
+
+class MarketDataBackfillCanonicalStockExternalIdsTest < ActiveSupport::TestCase
+  setup do
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+    begin
+      AppConfig.delete('stock_canonical_backfill_completed_at')
+    rescue StandardError
+      nil
+    end
+    @fake = mock
+    MarketData.stubs(:client).returns(@fake)
+  end
+
+  def stocks_payload(rows)
+    Result::Success.new('metadata' => { 'count' => rows.size }, 'data' => rows)
+  end
+
+  def stock_with_alpaca_id(external_id:, symbol:)
+    { 'external_id' => external_id, 'symbol' => symbol, 'name' => symbol, 'type' => 'stock',
+      'identifiers' => [{ 'scheme' => 'alpaca', 'value' => "us_equity:#{symbol}" }] }
+  end
+
+  test 'no-op in free mode (open-source containers skip entirely)' do
+    MarketDataSettings.stubs(:deltabadger?).returns(false)
+    legacy = Asset.create!(external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', name: 'Apple', category: 'Stock')
+
+    assert_no_difference 'Asset.count' do
+      MarketData.backfill_canonical_stock_external_ids!
+    end
+    assert_equal 'alpaca_uuid-aapl', legacy.reload.external_id
+    assert_nil AppConfig.get('stock_canonical_backfill_completed_at'),
+               'flag must not be set in free mode'
+  end
+
+  test 'rewrites legacy alpaca_<uuid> external_ids to canonical, preserving id (FK-safe)' do
+    legacy = Asset.create!(external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', name: 'Apple', category: 'Stock')
+    original_id = legacy.id
+    @fake.stubs(:get_stocks).returns(stocks_payload([stock_with_alpaca_id(external_id: 'AAPL.US', symbol: 'AAPL')]))
+
+    MarketData.backfill_canonical_stock_external_ids!
+
+    legacy.reload
+    assert_equal 'AAPL.US', legacy.external_id, 'external_id must be rewritten to canonical'
+    assert_equal original_id, legacy.id, 'id must be preserved so FKs remain valid'
+  end
+
+  test 'leaves unmatched legacy rows alone (logged + counted, not deleted)' do
+    legacy = Asset.create!(external_id: 'alpaca_uuid-zzz', symbol: 'ZZZ', name: 'Mystery', category: 'Stock')
+    @fake.stubs(:get_stocks).returns(stocks_payload([stock_with_alpaca_id(external_id: 'AAPL.US', symbol: 'AAPL')]))
+
+    MarketData.backfill_canonical_stock_external_ids!
+    assert_equal 'alpaca_uuid-zzz', legacy.reload.external_id, 'unmatched legacy row left untouched'
+  end
+
+  test 'defensive skip: if canonical row already exists, leave legacy alone (no unique-index collision)' do
+    legacy = Asset.create!(external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', name: 'Apple', category: 'Stock')
+    Asset.create!(external_id: 'AAPL.US', symbol: 'AAPL', name: 'Apple', category: 'Stock')
+    @fake.stubs(:get_stocks).returns(stocks_payload([stock_with_alpaca_id(external_id: 'AAPL.US', symbol: 'AAPL')]))
+
+    assert_nothing_raised do
+      MarketData.backfill_canonical_stock_external_ids!
+    end
+    assert_equal 'alpaca_uuid-aapl', legacy.reload.external_id, 'legacy left alone; no collision'
+  end
+
+  test 'sets the completed_at flag on success' do
+    @fake.stubs(:get_stocks).returns(stocks_payload([stock_with_alpaca_id(external_id: 'AAPL.US', symbol: 'AAPL')]))
+    MarketData.backfill_canonical_stock_external_ids!
+    assert AppConfig.get('stock_canonical_backfill_completed_at').present?, 'flag must be set'
+  end
+
+  test 'idempotent: second invocation is a no-op once the flag is set' do
+    legacy = Asset.create!(external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', name: 'Apple', category: 'Stock')
+    @fake.stubs(:get_stocks).returns(stocks_payload([stock_with_alpaca_id(external_id: 'AAPL.US', symbol: 'AAPL')]))
+    MarketData.backfill_canonical_stock_external_ids!
+
+    # Simulate manual external_id change after the fact; second run must NOT touch anything.
+    legacy.update_columns(external_id: 'manually-set')
+    @fake.expects(:get_stocks).never
+    MarketData.backfill_canonical_stock_external_ids!
+    assert_equal 'manually-set', legacy.reload.external_id
+  end
+
+  test 'does NOT set the flag when client returns Result::Failure (so the next tick retries)' do
+    Asset.create!(external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', name: 'Apple', category: 'Stock')
+    @fake.stubs(:get_stocks).returns(Result::Failure.new('data-api unreachable'))
+
+    MarketData.backfill_canonical_stock_external_ids!
+    assert_nil AppConfig.get('stock_canonical_backfill_completed_at'),
+               'failed fetch must leave the flag unset so the next sync-job tick retries'
+  end
+
+  test 'does NOT set the flag when payload carries no alpaca-scheme identifiers' do
+    Asset.create!(external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', name: 'Apple', category: 'Stock')
+    # All rows present but none has the alpaca identifier scheme (treat as "data-api not ready").
+    @fake.stubs(:get_stocks).returns(stocks_payload([
+                                                      { 'external_id' => 'AAPL.US', 'symbol' => 'AAPL', 'name' => 'Apple', 'type' => 'stock',
+                                                        'identifiers' => [{ 'scheme' => 'eodhd', 'value' => 'AAPL.US' }] }
+                                                    ]))
+
+    MarketData.backfill_canonical_stock_external_ids!
+    assert_nil AppConfig.get('stock_canonical_backfill_completed_at')
+  end
+
+  test 'ignores non-Stock alpaca_<uuid> rows (only sweeps category=Stock legacy)' do
+    crypto = Asset.create!(external_id: 'alpaca_legacy_crypto', symbol: 'XYZ', name: 'XYZ', category: 'Cryptocurrency')
+    @fake.stubs(:get_stocks).returns(stocks_payload([stock_with_alpaca_id(external_id: 'AAPL.US', symbol: 'XYZ')]))
+
+    MarketData.backfill_canonical_stock_external_ids!
+    assert_equal 'alpaca_legacy_crypto', crypto.reload.external_id, 'non-stock legacy rows must not be touched'
+  end
+end

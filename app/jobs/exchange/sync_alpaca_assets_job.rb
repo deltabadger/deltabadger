@@ -3,6 +3,11 @@ class Exchange::SyncAlpacaAssetsJob < ApplicationJob
   limits_concurrency to: 1, key: 'sync_alpaca_assets', on_conflict: :discard, duration: 1.hour
 
   def perform
+    # On hosted, data-api seeds stock assets + Alpaca tickers for every container regardless
+    # of per-user credentials. Running the per-user Alpaca sync here would create duplicate
+    # alpaca_<uuid> Asset rows alongside the canonical ones, so the job becomes a no-op.
+    return if MarketDataSettings.deltabadger?
+
     api_key = AppConfig.get('alpaca_api_key')
     api_secret = AppConfig.get('alpaca_api_secret')
     return if api_key.blank? || api_secret.blank?

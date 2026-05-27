@@ -623,6 +623,27 @@ class Bots::DcaSingleAssetTest < ActiveSupport::TestCase
     assert_not_includes available, coinbase
   end
 
+  # F4 / R4-F4: on hosted, stocks behave exactly like any other exchange's assets — the picker
+  # surfaces them solely from Ticker.available.trading_enabled + Exchange.available, with no
+  # per-user ApiKey gate. Seeded Alpaca tickers must appear in the picker for a user who hasn't
+  # connected Alpaca yet (that's the whole point of out-of-box stocks for hosted subscribers).
+  test 'picker surfaces Alpaca stock tickers without requiring an Alpaca API key' do
+    aapl = Asset.create!(external_id: 'AAPL.US', symbol: 'AAPL', name: 'Apple', category: 'Stock')
+    usd = create(:asset, :usd)
+    alpaca = create(:alpaca_exchange)
+    create(:ticker, exchange: alpaca, base_asset: aapl, quote_asset: usd, available: true)
+
+    # Mirrors pick_buyable_assets_controller#new exactly: an unsaved bot with no asset/exchange
+    # selection — both base_asset_id and quote_asset_id are nil at wizard step 1.
+    bot = Bots::DcaSingleAsset.new
+    assert_nil bot.base_asset_id
+    assert_nil bot.quote_asset_id
+
+    assets = bot.available_assets_for_current_settings(asset_type: :base_asset)
+    assert_includes assets, aapl,
+                    'seeded Alpaca stock must appear in the picker without an ApiKey row'
+  end
+
   # == working? ==
 
   test 'working? returns true for scheduled status' do
