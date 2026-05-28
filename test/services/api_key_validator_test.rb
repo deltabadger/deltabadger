@@ -48,10 +48,9 @@ class ApiKeyValidatorTest < ActiveSupport::TestCase
   end
 
   test 'skips honeymaker validation in dry_run mode' do
-    Rails.configuration.dry_run = true
     Honeymaker.expects(:client).never
 
-    result = ApiKeyValidator.call(@api_key.id)
+    result = with_dry_run(true) { ApiKeyValidator.call(@api_key.id) }
 
     assert result.success?
     assert_equal 'correct', @api_key.reload.status

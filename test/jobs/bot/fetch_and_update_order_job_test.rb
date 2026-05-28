@@ -32,8 +32,9 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
     txn.stubs(:bot).returns(bot)
     bot.stubs(:get_order).returns(Result::Success.new({ status: :unknown, quote_amount_exec: 0, ticker: bot.ticker }))
 
-    assert_raises(RuntimeError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    error = assert_raises(RuntimeError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
 
+    assert_match(/status is unknown/i, error.message)
     assert Transaction.exists?(txn.id)
     assert_equal 'unknown', txn.reload.external_status
   end
@@ -73,7 +74,9 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
     txn.stubs(:bot).returns(bot)
     bot.stubs(:get_order).returns(Result::Failure.new('Kraken did not return data', data: { not_found: true }))
 
-    assert_raises(RuntimeError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    error = assert_raises(RuntimeError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+
+    assert_match(/Failed to fetch order #{txn.id}/, error.message)
     assert_equal 'unknown', txn.reload.external_status
   end
 
@@ -83,6 +86,8 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
     txn.stubs(:bot).returns(bot)
     bot.stubs(:get_order).returns(Result::Failure.new('exchange down'))
 
-    assert_raises(RuntimeError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    error = assert_raises(RuntimeError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+
+    assert_match(/exchange down/, error.message)
   end
 end
