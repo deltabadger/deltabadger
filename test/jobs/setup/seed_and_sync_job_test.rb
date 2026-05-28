@@ -7,12 +7,16 @@ class Setup::SeedAndSyncJobTest < ActiveSupport::TestCase
     Exchange.stubs(:available).returns([])
   end
 
-  test 'hosted setup enqueues Asset::SyncStocksFromDeltabadgerJob after assets/indices sync' do
+  # Post-incident 2026-05-28: setup never auto-enqueues the stocks sync job.
+  # Stock sync is opt-in via AppConfig.set('stock_sync_enabled', 'true') per container.
+  # Setup just seeds the crypto/fiat universe; nothing stock-related fires automatically.
+
+  test 'hosted setup does NOT auto-enqueue the stocks sync job (opt-in only)' do
     MarketDataSettings.stubs(:deltabadger?).returns(true)
     MarketData.stubs(:sync_assets!).returns(Result::Success.new)
     MarketData.stubs(:sync_indices!).returns(Result::Success.new)
 
-    Asset::SyncStocksFromDeltabadgerJob.expects(:perform_later).once
+    Asset::SyncStocksFromDeltabadgerJob.expects(:perform_later).never
     Setup::SeedAndSyncJob.perform_now
   end
 
