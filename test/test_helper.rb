@@ -2,7 +2,37 @@ ENV['RAILS_ENV'] ||= 'test'
 require_relative '../config/environment'
 require 'rails/test_help'
 require 'mocha/minitest'
+
+# WebMock eagerly checks every available HTTP adapter. The app currently bundles
+# curb 1.3.x indirectly, which is newer than WebMock's stated tested range and
+# produces a warning on every test boot even though these tests use Faraday/net-http.
+class WebMockRequireStderrFilter
+  def initialize(stderr)
+    @stderr = stderr
+  end
+
+  def write(message)
+    return if message.match?(/WebMock is known to work with Curb/)
+
+    @stderr.write(message)
+  end
+
+  def flush
+    @stderr.flush
+  end
+end
+
+begin
+  original_stderr = $stderr
+  $stderr = WebMockRequireStderrFilter.new(original_stderr)
+  require 'webmock/minitest'
+ensure
+  $stderr = original_stderr if original_stderr
+end
+
 require_relative 'support/exchange_mock_helpers'
+
+WebMock.disable_net_connect!(allow_localhost: true)
 
 puts "\n\e[1mDeltabadger v#{Rails.application.config.version}\e[0m\n\n"
 
@@ -16,6 +46,14 @@ module ActiveSupport
 
     # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
     self.use_transactional_tests = true
+
+    def with_dry_run(value)
+      original = Rails.configuration.dry_run
+      Rails.configuration.dry_run = value
+      yield
+    ensure
+      Rails.configuration.dry_run = original
+    end
   end
 end
 

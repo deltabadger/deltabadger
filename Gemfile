@@ -53,6 +53,7 @@ end
 
 group :test do
   gem 'mocha'
+  gem 'webmock', require: false
 end
 
 gem 'tzinfo-data', platforms: [:windows, :jruby]

@@ -129,7 +129,9 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
       params[:notional] == '100.12' && params[:type] == 'market'
     end.returns(Result::Success.new({ 'id' => 'order-1' }))
 
-    result = @exchange.send(:set_market_order, ticker: ticker, amount: 100.12345, amount_type: :quote, side: :buy)
+    result = with_dry_run(false) do
+      @exchange.send(:set_market_order, ticker: ticker, amount: 100.12345, amount_type: :quote, side: :buy)
+    end
     assert_predicate result, :success?
   end
 
@@ -142,7 +144,9 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
       params[:notional] == '40.00' && params[:type] == 'market'
     end.returns(Result::Success.new({ 'id' => 'order-1' }))
 
-    result = @exchange.send(:set_market_order, ticker: ticker, amount: BigDecimal('40.00000002825'), amount_type: :quote, side: :buy)
+    result = with_dry_run(false) do
+      @exchange.send(:set_market_order, ticker: ticker, amount: BigDecimal('40.00000002825'), amount_type: :quote, side: :buy)
+    end
     assert_predicate result, :success?
   end
 
@@ -155,7 +159,9 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
       params[:qty] == '0.12345678' && params[:type] == 'market'
     end.returns(Result::Success.new({ 'id' => 'order-1' }))
 
-    result = @exchange.send(:set_market_order, ticker: ticker, amount: 0.123456789, amount_type: :base, side: :buy)
+    result = with_dry_run(false) do
+      @exchange.send(:set_market_order, ticker: ticker, amount: 0.123456789, amount_type: :base, side: :buy)
+    end
     assert_predicate result, :success?
   end
 
@@ -167,10 +173,12 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     ticker = create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd, base_decimals: 8, price_decimals: 2)
 
     Clients::Alpaca.any_instance.stubs(:create_order).with do |params|
-      params[:qty] == '0.00200000' && params[:type] == 'limit'
+      params[:qty] == '0.00200240' && params[:type] == 'limit'
     end.returns(Result::Success.new({ 'id' => 'order-2' }))
 
-    result = @exchange.send(:set_limit_order, ticker: ticker, amount: 100.12345, amount_type: :quote, side: :buy, price: 50_000.0)
+    result = with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: 100.12345, amount_type: :quote, side: :buy, price: 50_000.0)
+    end
     assert_predicate result, :success?
   end
 
@@ -239,7 +247,6 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
   # contract is the same { orders:, missing: } shape, with missing always empty.
 
   test 'get_orders returns { orders:, missing: [] } shape' do
-    Rails.configuration.stubs(:dry_run).returns(false)
     base = begin
       create(:asset, :stock_aapl)
     rescue StandardError
@@ -258,7 +265,9 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
       )
     )
 
-    result = @exchange.get_orders(order_ids: %w[order-1 order-2])
+    result = with_dry_run(false) do
+      @exchange.get_orders(order_ids: %w[order-1 order-2])
+    end
 
     assert result.success?
     assert_equal %i[orders missing].sort, result.data.keys.sort
