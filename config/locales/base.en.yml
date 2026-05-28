@@ -487,6 +487,7 @@ en:
             limit_paused: 'Paused: %{limit} limit not met'
             execution_failed: 'Order attempt failed'
             execution_failed_with_error: 'Order attempt failed: %{error}'
+            order_abandoned: 'Order %{order_id} abandoned (exchange no longer tracks it)'
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'
             sold: 'Sold %{amount} %{base} for %{quote_amount} %{quote}'

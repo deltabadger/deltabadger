@@ -26,6 +26,8 @@ class Ticker < ApplicationRecord
     begin
       result = public_send(method, force: force)
       result.success? && result.data.to_d.positive?
+    rescue Client::TransientNetworkError
+      raise
     rescue StandardError => e
       # Returning false is normal flow (e.g. a listed-but-dead pair with no live price),
       # not an error — keep at debug so it doesn't trip the log exception scanner.

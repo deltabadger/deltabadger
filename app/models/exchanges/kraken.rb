@@ -303,7 +303,15 @@ class Exchanges::Kraken < Exchange
     return result if result.failure?
 
     order_data = result.data[order_id]
-    return Result::Failure.new("Failed to get #{name} order (order_id: #{order_id}). Order data is nil") if order_data.nil?
+    if order_data.nil?
+      # Kraken returned 200 OK but omitted the requested txid — the order has
+      # aged out of QueryOrders retention. Flag it so callers can stop polling
+      # instead of treating this as a transient failure.
+      return Result::Failure.new(
+        "Kraken did not return data for order #{order_id}",
+        data: { not_found: true, missing_ids: [order_id] }
+      )
+    end
 
     normalized_order_data = parse_order_data(order_id, order_data[:raw])
 
@@ -312,16 +320,22 @@ class Exchanges::Kraken < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each_slice(50) do |order_ids_slice|
       result = client.query_orders_info(txid: order_ids_slice.join(','))
       return result if result.failure?
 
-      result.data.each do |order_id, order_data|
-        orders[order_id] = parse_order_data(order_id, order_data[:raw])
+      order_ids_slice.each do |order_id|
+        order_data = result.data[order_id]
+        if order_data
+          orders[order_id] = parse_order_data(order_id, order_data[:raw])
+        else
+          missing << order_id
+        end
       end
     end
 
-    Result::Success.new(orders)
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)

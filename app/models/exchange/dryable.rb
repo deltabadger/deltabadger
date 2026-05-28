@@ -87,7 +87,7 @@ module Exchange::Dryable
       orders[order_id] = order_data.data
     end
 
-    Result::Success.new(orders)
+    Result::Success.new(orders: orders, missing: [])
   end
 
   def dry_withdraw(asset:, amount:, address:, network: nil, address_tag: nil)

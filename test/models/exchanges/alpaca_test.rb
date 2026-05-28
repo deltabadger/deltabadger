@@ -232,4 +232,37 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_predicate result, :success?
     assert_equal 50_000.0.to_d, result.data['BTC']
   end
+
+  # == get_orders shape contract ==
+  # Per-ID-loop pattern: Alpaca's REST API surfaces a per-order error if an ID is
+  # unknown, so the loop bails on failure rather than silently dropping. The
+  # contract is the same { orders:, missing: } shape, with missing always empty.
+
+  test 'get_orders returns { orders:, missing: [] } shape' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    base = begin
+      create(:asset, :stock_aapl)
+    rescue StandardError
+      create(:asset, symbol: 'AAPL', external_id: 'apple', name: 'Apple')
+    end
+    quote = create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: base, quote_asset: quote, base: 'AAPL', quote: 'USD', ticker: 'AAPL')
+    api_key = stub(key: 'k', secret: 's', passphrase: 'live')
+    @exchange.set_client(api_key: api_key)
+
+    Clients::Alpaca.any_instance.stubs(:get_order).returns(
+      Result::Success.new(
+        'id' => 'order-1', 'symbol' => 'AAPL', 'type' => 'market', 'side' => 'buy',
+        'status' => 'filled', 'qty' => '1', 'filled_qty' => '1', 'filled_avg_price' => '100',
+        'notional' => '100', 'limit_price' => nil
+      )
+    )
+
+    result = @exchange.get_orders(order_ids: %w[order-1 order-2])
+
+    assert result.success?
+    assert_equal %i[orders missing].sort, result.data.keys.sort
+    assert_kind_of Hash, result.data[:orders]
+    assert_equal [], result.data[:missing]
+  end
 end

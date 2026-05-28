@@ -341,6 +341,130 @@ class Bot::ActionJobQueueTest < ActiveSupport::TestCase
   end
 end
 
+class Bot::ActionJobTransientNetworkTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
+  test 'declares retry_on Client::TransientNetworkError' do
+    handler_classes = Bot::ActionJob.rescue_handlers.map(&:first)
+    assert_includes handler_classes, 'Client::TransientNetworkError',
+                    'Bot::ActionJob should declare retry_on Client::TransientNetworkError'
+  end
+
+  test 'retry handler is scoped to Bot::ActionJob and not inherited by sibling jobs' do
+    # Sibling jobs that also inherit from ApplicationJob must NOT pick up the
+    # bot-specific retry handler — otherwise the exhaustion block (which
+    # assumes job.arguments.first is a Bot) would silently swallow their
+    # transient failures.
+    base_handlers = ApplicationJob.rescue_handlers.map(&:first)
+    refute_includes base_handlers, 'Client::TransientNetworkError',
+                    'ApplicationJob must not declare retry_on Client::TransientNetworkError'
+
+    sibling_handlers = Exchange::SyncAlpacaAssetsJob.rescue_handlers.map(&:first)
+    refute_includes sibling_handlers, 'Client::TransientNetworkError',
+                    'Exchange::SyncAlpacaAssetsJob must not inherit retry_on Client::TransientNetworkError'
+  end
+
+  test 'bypass clause flips bot to :retrying and re-raises, without writing execution_failed' do
+    bot = create(:dca_single_asset, :started)
+    setup_bot_execution_mocks(bot)
+    # Bot starts in :scheduled (factory default) so the line-8 guard admits the
+    # perform. Mimic real execute_action: flip to :executing, then raise the
+    # transient error mid-flight.
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      raise Client::TransientNetworkError, 'Net::OpenTimeout: TCP open timed out'
+    end
+    bot.expects(:notify_about_error).never
+    bot.expects(:notify_end_of_funds).never
+
+    # Call #perform directly (not perform_now) so retry_on at the ActiveJob layer
+    # doesn't engage — we want to isolate the inner rescue clause.
+    assert_raises(Client::TransientNetworkError) do
+      Bot::ActionJob.new.perform(bot)
+    end
+
+    assert_equal 'retrying', bot.reload.status
+    assert_equal 0, bot.bot_activity_logs.where(event: 'execution_failed').count,
+                 'transient errors must not write an execution_failed activity'
+  end
+
+  test 'retried perform passes the line-8 guard because bypass left bot in :retrying' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    # Bot::Accountable's before_save guard requires set_missed_quote_amount to
+    # run before settings-touching saves. The real execute_action handles that;
+    # our stubbed Result::Success.new does not. The accounting plumbing is
+    # orthogonal to what this test verifies, so neutralize the guard on these
+    # bot instances only.
+    bot.define_singleton_method(:check_missed_quote_amount_was_set) { nil }
+
+    # First attempt: bot starts :scheduled (factory default). execute_action
+    # flips to :executing and then raises — the bypass clause must transition
+    # to :retrying so the retried perform passes the guard.
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      raise Client::TransientNetworkError, 'Net::OpenTimeout: x'
+    end
+    assert_raises(Client::TransientNetworkError) { Bot::ActionJob.new.perform(bot) }
+    assert_equal 'retrying', bot.reload.status
+
+    # Simulated retry: fresh perform, fresh bot instance (matches the way
+    # ActiveJob deserializes args between retries). The guard at line 8 of
+    # Bot::ActionJob#perform is `return unless bot.scheduled? || bot.retrying?`
+    # so this must run (not short-circuit) and reach a successful execute_action.
+    retried_bot = Bot.find(bot.id)
+    retried_bot.define_singleton_method(:check_missed_quote_amount_was_set) { nil }
+    setup_action_job_mocks(retried_bot)
+    retried_bot.expects(:execute_action).returns(Result::Success.new).once
+
+    Bot::ActionJob.new.perform(retried_bot)
+    assert_equal 'scheduled', retried_bot.reload.status
+  end
+
+  test 'exhaustion handoff: flips to :retrying, logs execution_failed transient_exhausted, notifies, re-enqueues, broadcasts' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    bot.exchange.stubs(:humanize_error).with('Net::OpenTimeout: persistent').returns('Connection issue')
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      raise Client::TransientNetworkError, 'Net::OpenTimeout: persistent'
+    end
+    bot.expects(:notify_about_error).with(errors: ['Connection issue']).once
+
+    job_setter = stub
+    job_setter.expects(:perform_later).with(bot).once
+    Bot::ActionJob.unstub(:set)
+    Bot::ActionJob.expects(:set).with(wait_until: bot.next_interval_checkpoint_at).returns(job_setter)
+    Bot::BroadcastAfterScheduledActionJob.unstub(:perform_later)
+    Bot::BroadcastAfterScheduledActionJob.expects(:perform_later).with(bot).once
+
+    # retry_on yields to our exhaustion block when executions >= attempts.
+    # ActiveJob tracks per-exception executions in `exception_executions`,
+    # incremented inside `executions_for`. Pre-seed that counter so the next
+    # failure pushes it past the attempts cap and the rescue chain yields to
+    # our block end-to-end (no private-API pokes).
+    job = Bot::ActionJob.new(bot)
+    job.exception_executions['[Client::TransientNetworkError]'] = 4
+
+    assert_nothing_raised { job.perform_now }
+
+    assert_equal 'retrying', bot.reload.status
+    log = bot.bot_activity_logs.where(event: 'execution_failed').last
+    assert log, 'execution_failed activity must be logged on exhaustion'
+    assert_equal 'error', log.level
+    assert_equal true, log.details['transient_exhausted']
+  end
+
+  private
+
+  def setup_action_job_mocks(bot)
+    setup_bot_execution_mocks(bot)
+    bot.stubs(:broadcast_below_minimums_warning)
+    Bot::ActionJob.stubs(:set).returns(stub(perform_later: true))
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+  end
+end
+
 class Bot::ActionJobSchedulingIntegrationTest < ActiveSupport::TestCase
   include ActiveSupport::Testing::TimeHelpers
 

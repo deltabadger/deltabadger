@@ -10,8 +10,25 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
     result = bot.get_orders(order_ids: external_order_ids)
     raise "Failed to fetch orders #{external_order_ids.to_sentence}. Result: #{result.errors}" if result.failure?
 
+    young_missing_ids = []
+    result.data[:missing].each do |missing_order_id|
+      order = bot.transactions.find_by(external_id: missing_order_id)
+      next if order.nil?
+
+      case Bot::StaleOrderResolver.resolve(order)
+      when :abandoned
+        bot.log_activity('order_abandoned', details: { order_id: missing_order_id })
+      when :too_young
+        # Symmetric with the single-order job: a fresh order the exchange
+        # silently dropped is almost certainly a real bug (wrong key,
+        # subaccount mismatch). Record and raise after we've made any
+        # legitimate progress on found/abandoned rows below.
+        young_missing_ids << missing_order_id
+      end
+    end
+
     calc_since = [bot.started_at, bot.settings_changed_at].compact.max
-    result.data.each do |order_id, order_data|
+    result.data[:orders].each do |order_id, order_data|
       order = bot.transactions.find_by(external_id: order_id)
       raise "Order #{order_id} not found" if order.nil?
       next unless order.submitted? && (order.open? || order.unknown?)
@@ -29,6 +46,8 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
         raise "Order #{order.external_id} status is unknown."
       end
     end
+
+    raise "Exchange omitted recent order(s): #{young_missing_ids.to_sentence}" if young_missing_ids.any?
   rescue StandardError => e
     if success_or_kill
       Rails.logger.warn(

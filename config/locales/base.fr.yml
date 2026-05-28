@@ -464,6 +464,7 @@ fr:
             limit_paused: 'En pause : limite %{limit} non atteinte'
             execution_failed: "Tentative d'ordre échouée"
             execution_failed_with_error: "Tentative d'ordre échouée : %{error}"
+            order_abandoned: "Ordre %{order_id} abandonné (la bourse ne le suit plus)"
         transactions:
             bought: 'Acheté %{amount} %{base} pour %{quote_amount} %{quote}'
             sold: 'Vendu %{amount} %{base} pour %{quote_amount} %{quote}'

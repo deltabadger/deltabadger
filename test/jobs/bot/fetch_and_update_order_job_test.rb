@@ -46,4 +46,43 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
 
     assert_nothing_raised { Bot::FetchAndUpdateOrderJob.new.perform(txn, success_or_kill: true) }
   end
+
+  # == stale-order handling (not_found signal from Kraken) ==
+
+  test 'marks an old order :abandoned and logs an order_abandoned activity when the exchange reports not_found' do
+    bot = create(:dca_single_asset, :started)
+    old = (Bot::StaleOrderResolver::STALE_ORDER_THRESHOLD + 1.day).ago
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown,
+                               external_id: 'TXID-STALE', created_at: old)
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Failure.new('Kraken did not return data', data: { not_found: true }))
+
+    assert_difference -> { bot.bot_activity_logs.where(event: 'order_abandoned').count }, 1 do
+      assert_nothing_raised { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    end
+
+    assert_equal 'abandoned', txn.reload.external_status
+    log = bot.bot_activity_logs.where(event: 'order_abandoned').last
+    assert_equal 'TXID-STALE', log.details['order_id']
+  end
+
+  test 'still raises on a young order with not_found so real bugs (wrong key, etc.) remain loud' do
+    bot = create(:dca_single_asset, :started)
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown,
+                               external_id: 'TXID-YOUNG', created_at: 1.day.ago)
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Failure.new('Kraken did not return data', data: { not_found: true }))
+
+    assert_raises(RuntimeError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    assert_equal 'unknown', txn.reload.external_status
+  end
+
+  test 'still raises on a generic failure without the not_found flag, preserving existing behavior' do
+    bot = create(:dca_single_asset, :started)
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: 'u1')
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Failure.new('exchange down'))
+
+    assert_raises(RuntimeError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+  end
 end
