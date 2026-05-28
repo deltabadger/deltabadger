@@ -529,6 +529,103 @@ class MarketDataSyncAlpacaListingsFromDeltabadgerTest < ActiveSupport::TestCase
       assert_predicate result, :failure?
     end
   end
+
+  # == Listing-import ambiguity guard (post-incident 2026-05-28 Phase 2.5) ==
+  # Even with the backfill ambiguity guard preserving legacy alpaca_<uuid> Asset rows,
+  # the listing import could still corrupt bots: data-api's ?venue_scheme=alpaca_exchange
+  # endpoint returns ONE listing per base_asset_id (lex-smallest listing_id). When
+  # EODHD/Alpaca have multiple symbols sharing an ISIN (IBIT and LDRC under
+  # US46438F1012), the canonical asset wins lex-smallest = "NASDAQ:IBIT" — so data-api
+  # emits a row { base: 'IBIT', base_external_id: 'LDRC.US' }. import_tickers! sees the
+  # new IBIT ticker, finds an existing IBIT ticker pointing to the legacy alpaca_<uuid>
+  # asset, and tombstones the legacy one to claim the (exchange, ticker) slot. Bot
+  # references the legacy ticker by base_asset_id — now tombstoned, unavailable.
+  #
+  # Guard: any incoming listing whose (exchange, ticker) collides with an existing local
+  # ticker pointing at a legacy alpaca_<uuid> Stock asset is DROPPED before import.
+
+  test 'listing-import ambiguity guard: IBIT/LDRC case preserves the legacy ticker' do
+    # Setup: legacy alpaca_<uuid> IBIT asset + ticker (the pre-incident state of bot 5).
+    legacy_ibit = Asset.create!(external_id: 'alpaca_uuid-ibit', symbol: 'IBIT', name: 'iShares Bitcoin Trust', category: 'Stock')
+    create(:exchange_asset, exchange: @alpaca, asset: legacy_ibit, available: true)
+    usd = Asset.find_or_create_by!(external_id: 'usd') do |a|
+      a.symbol = 'USD'
+      a.name = 'US Dollar'
+      a.category = 'Fiat'
+    end
+    create(:exchange_asset, exchange: @alpaca, asset: usd, available: true)
+    legacy_ticker = create(:ticker, exchange: @alpaca, base_asset: legacy_ibit, quote_asset: usd,
+                                    base: 'IBIT', quote: 'USD', ticker: 'IBIT', available: true)
+    # Canonical LDRC.US asset (created by sync_stocks_from_deltabadger! in real flow).
+    canonical_ldrc = Asset.create!(external_id: 'LDRC.US', symbol: 'LDRC', name: 'iShares iBonds', category: 'Stock')
+
+    # data-api payload: ONE listing per base_asset_id, lex-smallest listing_id wins. For
+    # the LDRC.US asset, "NASDAQ:IBIT" beats "NASDAQ:LDRC" lex — so the payload row's
+    # `base` is "IBIT" but `base_external_id` is "LDRC.US" — exactly the IBIT/LDRC shape.
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 1 },
+                                                'data' => [
+                                                  listing_row(base_ext: 'LDRC.US', symbol: 'IBIT', listing_id: 'NASDAQ:IBIT')
+                                                ]
+                                              ))
+
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    # The legacy ticker must be UNCHANGED — not tombstoned, still available.
+    legacy_ticker.reload
+    assert_equal 'IBIT', legacy_ticker.base, 'legacy base must not be tombstoned'
+    assert_equal 'IBIT', legacy_ticker.ticker, 'legacy ticker string must not be tombstoned'
+    assert legacy_ticker.available?, 'legacy ticker must stay available'
+    assert_equal legacy_ibit.id, legacy_ticker.base_asset_id, 'legacy ticker must still point at legacy asset'
+
+    # No NEW ticker for canonical LDRC.US with the same (exchange, ticker) slot.
+    canonical_ticker = @alpaca.tickers.where(base_asset_id: canonical_ldrc.id).first
+    assert_nil canonical_ticker,
+               'incoming listing whose ticker symbol collides with legacy must be dropped, not imported'
+  end
+
+  test 'listing-import ambiguity guard: non-colliding listings still import normally' do
+    # Standard case: no legacy alpaca_<uuid> ticker with the same symbol. Listing imports normally.
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 1 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL')]
+                                              ))
+
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    t = @alpaca.tickers.find_by(base_asset: @aapl)
+    assert t.present?, 'non-colliding listing must be imported'
+    assert t.available?
+  end
+
+  test 'listing-import ambiguity guard: stale sweep does not touch preserved legacy ticker' do
+    # Same setup as the IBIT/LDRC case + an unrelated AAPL listing in the payload.
+    legacy_ibit = Asset.create!(external_id: 'alpaca_uuid-ibit', symbol: 'IBIT', name: 'iShares Bitcoin Trust', category: 'Stock')
+    create(:exchange_asset, exchange: @alpaca, asset: legacy_ibit, available: true)
+    usd = Asset.find_or_create_by!(external_id: 'usd') do |a|
+      a.symbol = 'USD'
+      a.name = 'US Dollar'
+      a.category = 'Fiat'
+    end
+    create(:exchange_asset, exchange: @alpaca, asset: usd, available: true)
+    legacy_ticker = create(:ticker, exchange: @alpaca, base_asset: legacy_ibit, quote_asset: usd,
+                                    base: 'IBIT', quote: 'USD', ticker: 'IBIT', available: true)
+    Asset.create!(external_id: 'LDRC.US', symbol: 'LDRC', name: 'iShares iBonds', category: 'Stock')
+
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 2 },
+                                                'data' => [
+                                                  listing_row(base_ext: 'LDRC.US', symbol: 'IBIT', listing_id: 'NASDAQ:IBIT'),
+                                                  listing_row(base_ext: 'AAPL.US', symbol: 'AAPL')
+                                                ]
+                                              ))
+
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    legacy_ticker.reload
+    assert legacy_ticker.available?, 'preserved legacy ticker must not be swept'
+    assert_equal 'IBIT', legacy_ticker.base
+  end
 end
 
 class MarketDataBackfillCanonicalStockExternalIdsTest < ActiveSupport::TestCase

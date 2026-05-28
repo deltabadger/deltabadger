@@ -377,14 +377,47 @@ class MarketData
     alpaca = Exchanges::Alpaca.first
     return Result::Success.new unless alpaca
 
+    # Listing-import ambiguity guard (Phase 2.5, post-incident 2026-05-28). Drop any
+    # incoming listing whose `ticker` symbol already maps locally to a legacy
+    # alpaca_<uuid> Stock ticker on this exchange. Without this, `import_tickers!`'s
+    # conflict-reconciler would tombstone the legacy ticker to claim the
+    # (exchange, ticker) slot for an incoming canonical-asset row — breaking bots
+    # that reference the legacy ticker by base_asset_id. Worst case in production
+    # would be the IBIT/LDRC shape: data-api's payload emits { ticker: 'IBIT',
+    # base_external_id: 'LDRC.US' } (because LDRC.US is the lex-smallest canonical
+    # for that ISIN-collapsed asset); without this guard, the user's IBIT bot loses
+    # its ticker.
+    incoming_ticker_symbols = listings.map { |l| l['ticker'] }.compact.uniq
+    if incoming_ticker_symbols.any?
+      colliding = alpaca.tickers.joins(:base_asset)
+                        .where(ticker: incoming_ticker_symbols)
+                        .where("assets.external_id LIKE 'alpaca_%'")
+                        .where(assets: { category: 'Stock' })
+                        .pluck(:ticker).uniq
+      if colliding.any?
+        Rails.logger.warn "[MarketData] sync_alpaca_listings: dropping #{colliding.size} listings whose " \
+                          "ticker symbols collide with legacy alpaca_<uuid> tickers: #{colliding.join(', ')}"
+        listings = listings.reject { |l| colliding.include?(l['ticker']) }
+      end
+    end
+
     import_tickers!(alpaca, listings)
 
     # Stale-ticker sweep keyed off base_asset_id. Empty-payload guard: never wipe everything
     # when the feed is empty (mirrors SyncAlpacaAssetsJob:74 `if synced_ticker_ids.any?`).
+    # Legacy alpaca_<uuid> Stock tickers are EXCLUDED from this sweep — data-api isn't
+    # authoritative over them (they're managed by the per-user Exchange::SyncAlpacaAssetsJob,
+    # which is a no-op on hosted). Sweeping them would mark active bot tickers unavailable
+    # when their canonical equivalents share an ambiguous symbol (the IBIT/LDRC case).
     external_ids = listings.flat_map { |l| [l['base_external_id'], l['quote_external_id']] }.uniq
     asset_map = Asset.where(external_id: external_ids).pluck(:external_id, :id).to_h
     incoming_base_asset_ids = listings.map { |l| asset_map[l['base_external_id']] }.compact.uniq
-    alpaca.tickers.where.not(base_asset_id: incoming_base_asset_ids).update_all(available: false) if incoming_base_asset_ids.any?
+    if incoming_base_asset_ids.any?
+      legacy_asset_ids = Asset.where(category: 'Stock').where("external_id LIKE 'alpaca_%'").pluck(:id)
+      alpaca.tickers
+            .where.not(base_asset_id: incoming_base_asset_ids + legacy_asset_ids)
+            .update_all(available: false)
+    end
 
     Result::Success.new
   rescue StandardError => e
