@@ -24,6 +24,10 @@ class Transaction < ApplicationRecord
   # rows with external_status open OR unknown. unknown rows are persisted at placement
   # (before the first confirmation fetch) and must be treated as in-flight everywhere.
   scope :waiting, -> { submitted.where(external_status: %i[open unknown]) }
+  # Terminal rows the user can't act on anymore — explicit cancellation OR an
+  # exchange-side abandonment (e.g. Kraken stopped returning the order). Grouped
+  # under the "Cancelled" filter tab in the UI.
+  scope :cancelled_or_abandoned, -> { where(external_status: %i[cancelled abandoned]) }
 
   validates :bot, presence: true
 
@@ -34,7 +38,7 @@ class Transaction < ApplicationRecord
   ]
   enum :side, %i[buy sell]
   enum :order_type, %i[market_order limit_order]
-  enum :external_status, %i[unknown open closed cancelled]
+  enum :external_status, %i[unknown open closed cancelled abandoned]
 
   BTC = %w[XXBT XBT BTC].freeze
 

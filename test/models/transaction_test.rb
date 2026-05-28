@@ -29,4 +29,37 @@ class TransactionTest < ActiveSupport::TestCase
 
     assert_empty bot.transactions.waiting
   end
+
+  # == :abandoned external_status ==
+  # An order Kraken (or any exchange) no longer tracks. Treated like cancelled
+  # for filter/UI purposes, but emitted via a distinct lifecycle path so the
+  # activity feed can explain the difference.
+
+  test 'abandoned is a valid external_status enum value' do
+    txn = build(:transaction, status: :submitted, external_status: :abandoned, external_id: 'a1')
+    assert txn.abandoned?
+    assert_equal 'abandoned', txn.external_status
+  end
+
+  test 'waiting scope excludes abandoned rows' do
+    bot = create(:dca_single_asset)
+    abandoned_txn = create(:transaction, bot: bot, status: :submitted, external_status: :abandoned, external_id: 'a1')
+
+    assert_not_includes bot.transactions.waiting, abandoned_txn
+  end
+
+  test 'cancelled_or_abandoned scope returns both cancelled and abandoned rows but no others' do
+    bot = create(:dca_single_asset)
+    cancelled_txn = create(:transaction, bot: bot, status: :submitted, external_status: :cancelled, external_id: 'c1')
+    abandoned_txn = create(:transaction, bot: bot, status: :submitted, external_status: :abandoned, external_id: 'a1')
+    open_txn = create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'o1')
+    closed_txn = create(:transaction, bot: bot, status: :submitted, external_status: :closed, external_id: 'cl1')
+
+    rows = bot.transactions.cancelled_or_abandoned
+
+    assert_includes rows, cancelled_txn
+    assert_includes rows, abandoned_txn
+    assert_not_includes rows, open_txn
+    assert_not_includes rows, closed_txn
+  end
 end

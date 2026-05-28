@@ -129,4 +129,48 @@ class Exchanges::CoinbaseTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal false, result.data
   end
+
+  # == get_orders shape contract ==
+  # Bulk-list pattern: Coinbase fetches by IDs in batches. The contract is
+  # { orders:, missing: } so callers can react to dropped IDs uniformly.
+
+  test 'get_orders returns { orders:, missing: [] } shape when every requested ID is returned' do
+    # Stub parse_order_data so this test focuses on the shape contract,
+    # not the Coinbase-specific payload parsing.
+    @exchange.stubs(:parse_order_data).returns(stub_parsed_order)
+
+    Honeymaker::Clients::Coinbase.any_instance.stubs(:list_orders).returns(
+      Result::Success.new('orders' => [{ 'order_id' => 'order-1' }, { 'order_id' => 'order-2' }])
+    )
+
+    result = @exchange.get_orders(order_ids: %w[order-1 order-2])
+
+    assert result.success?
+    assert_equal %i[orders missing].sort, result.data.keys.sort
+    assert_equal %w[order-1 order-2].sort, result.data[:orders].keys.sort
+    assert_equal [], result.data[:missing]
+  end
+
+  test 'get_orders reports requested IDs absent from the Coinbase response under :missing' do
+    @exchange.stubs(:parse_order_data).returns(stub_parsed_order)
+
+    # Coinbase's list_orders is a bulk endpoint — if Coinbase drops/omits an ID
+    # from the response, the contract requires it to surface under :missing
+    # instead of being silently lost.
+    Honeymaker::Clients::Coinbase.any_instance.stubs(:list_orders).returns(
+      Result::Success.new('orders' => [{ 'order_id' => 'order-1' }])
+    )
+
+    result = @exchange.get_orders(order_ids: %w[order-1 order-stale])
+
+    assert result.success?
+    assert_equal %w[order-1], result.data[:orders].keys
+    assert_equal %w[order-stale], result.data[:missing]
+  end
+
+  private
+
+  def stub_parsed_order
+    { status: :closed, amount: 0.002, quote_amount: 100, side: :buy, order_type: :market_order }
+  end
 end

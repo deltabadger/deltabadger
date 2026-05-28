@@ -464,6 +464,7 @@ es:
             limit_paused: 'En pausa: límite %{limit} no alcanzado'
             execution_failed: 'Intento de orden fallido'
             execution_failed_with_error: 'Intento de orden fallido: %{error}'
+            order_abandoned: "Orden %{order_id} abandonada (el exchange ya no la registra)"
         transactions:
             bought: 'Comprado %{amount} %{base} por %{quote_amount} %{quote}'
             sold: 'Vendido %{amount} %{base} por %{quote_amount} %{quote}'

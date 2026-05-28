@@ -15,7 +15,7 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
       amount_exec: 0.002, quote_amount_exec: 100,
       ticker: bot.ticker, side: :buy, order_type: :market_order
     }
-    bot.stubs(:get_orders).returns(Result::Success.new({ 'u1' => order_data }))
+    bot.stubs(:get_orders).returns(Result::Success.new(orders: { 'u1' => order_data }, missing: []))
 
     Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot)
 
@@ -56,5 +56,79 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
     assert_raises(RuntimeError) do
       Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot)
     end
+  end
+
+  # == stale-order handling on the bulk path ==
+  # When Kraken silently drops an aged-out order ID, it now arrives in
+  # result.data[:missing]. The job hands each one to Bot::StaleOrderResolver:
+  # old → :abandoned + activity log; young → :too_young (no mutation).
+
+  test 'marks old missing orders :abandoned and logs order_abandoned in one bulk invocation' do
+    bot = create(:dca_single_asset, :started)
+    fresh = create(:transaction, bot: bot, status: :submitted, external_status: :unknown,
+                                 external_id: 'fresh', amount_exec: nil, quote_amount_exec: nil)
+    stale = create(:transaction, bot: bot, status: :submitted, external_status: :unknown,
+                                 external_id: 'stale',
+                                 created_at: (Bot::StaleOrderResolver::STALE_ORDER_THRESHOLD + 1.day).ago)
+
+    fresh_order_data = {
+      status: :closed, price: 50_000, amount: 0.002, quote_amount: 100,
+      amount_exec: 0.002, quote_amount_exec: 100,
+      ticker: bot.ticker, side: :buy, order_type: :market_order
+    }
+    bot.stubs(:get_orders).returns(
+      Result::Success.new(orders: { 'fresh' => fresh_order_data }, missing: %w[stale])
+    )
+
+    assert_difference -> { bot.bot_activity_logs.where(event: 'order_abandoned').count }, 1 do
+      Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot)
+    end
+
+    assert_equal 'closed', fresh.reload.external_status
+    assert_equal 'abandoned', stale.reload.external_status
+    log = bot.bot_activity_logs.where(event: 'order_abandoned').last
+    assert_equal 'stale', log.details['order_id']
+  end
+
+  test 'still raises loudly when a young missing ID appears in the bulk batch' do
+    # Symmetry with FetchAndUpdateOrderJob: a fresh order that the exchange
+    # silently drops is almost certainly a real bug (wrong key, subaccount
+    # mismatch), not retention drift. Surface it instead of no-opping.
+    bot = create(:dca_single_asset, :started)
+    young_missing = create(:transaction, bot: bot, status: :submitted, external_status: :unknown,
+                                         external_id: 'young_missing', created_at: 1.day.ago)
+    bot.stubs(:get_orders).returns(Result::Success.new(orders: {}, missing: %w[young_missing]))
+
+    assert_raises(RuntimeError) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
+    assert_equal 'unknown', young_missing.reload.external_status
+  end
+
+  test 'processes old missing orders and found orders before raising on young missing IDs in the same batch' do
+    # Partial-progress semantics: don't lose a fresh confirmation or block a
+    # legitimate abandonment because a different ID in the same batch is suspect.
+    bot = create(:dca_single_asset, :started)
+    fresh = create(:transaction, bot: bot, status: :submitted, external_status: :unknown,
+                                 external_id: 'fresh', amount_exec: nil, quote_amount_exec: nil)
+    stale = create(:transaction, bot: bot, status: :submitted, external_status: :unknown,
+                                 external_id: 'stale',
+                                 created_at: (Bot::StaleOrderResolver::STALE_ORDER_THRESHOLD + 1.day).ago)
+    young_missing = create(:transaction, bot: bot, status: :submitted, external_status: :unknown,
+                                         external_id: 'young_missing', created_at: 1.day.ago)
+
+    fresh_order_data = {
+      status: :closed, price: 50_000, amount: 0.002, quote_amount: 100,
+      amount_exec: 0.002, quote_amount_exec: 100,
+      ticker: bot.ticker, side: :buy, order_type: :market_order
+    }
+    bot.stubs(:get_orders).returns(
+      Result::Success.new(orders: { 'fresh' => fresh_order_data },
+                          missing: %w[stale young_missing])
+    )
+
+    assert_raises(RuntimeError) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
+
+    assert_equal 'closed', fresh.reload.external_status, 'fresh confirmation must land before the raise'
+    assert_equal 'abandoned', stale.reload.external_status, 'old missing must be abandoned before the raise'
+    assert_equal 'unknown', young_missing.reload.external_status
   end
 end

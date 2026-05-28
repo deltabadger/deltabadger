@@ -488,6 +488,7 @@ da:
             limit_paused: 'Paused: %{limit} limit not met'
             execution_failed: 'Order attempt failed'
             execution_failed_with_error: 'Order attempt failed: %{error}'
+            order_abandoned: "Ordre %{order_id} opgivet (børsen sporer den ikke længere)"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'

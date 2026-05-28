@@ -202,6 +202,33 @@ class Clients::AlpacaTest < ActiveSupport::TestCase
     assert_equal 'Internal Server Error', result.errors.first
   end
 
+  test 're-raises Net::OpenTimeout as Client::TransientNetworkError instead of swallowing it' do
+    connection = stub
+    connection.stubs(:get).raises(Net::OpenTimeout, 'TCP open timed out')
+    @client.stubs(:trading_connection).returns(connection)
+
+    err = assert_raises(Client::TransientNetworkError) { @client.get_account }
+    assert_match(/Net::OpenTimeout/, err.message)
+  end
+
+  test 're-raises Faraday::ConnectionFailed as Client::TransientNetworkError' do
+    connection = stub
+    connection.stubs(:get).raises(Faraday::ConnectionFailed, 'connection refused')
+    @client.stubs(:trading_connection).returns(connection)
+
+    err = assert_raises(Client::TransientNetworkError) { @client.get_account }
+    assert_match(/Faraday::ConnectionFailed/, err.message)
+  end
+
+  test 're-raises Faraday::TimeoutError as Client::TransientNetworkError' do
+    connection = stub
+    connection.stubs(:get).raises(Faraday::TimeoutError, 'read timed out')
+    @client.stubs(:trading_connection).returns(connection)
+
+    err = assert_raises(Client::TransientNetworkError) { @client.get_account }
+    assert_match(/Faraday::TimeoutError/, err.message)
+  end
+
   private
 
   def stub_request(_url)

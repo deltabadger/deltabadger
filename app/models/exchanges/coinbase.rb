@@ -272,18 +272,21 @@ class Exchanges::Coinbase < Exchange
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each_slice(50) do |order_ids_slice|
       result = client.list_orders(order_ids: order_ids_slice)
       return result if result.failure?
 
       order_datas = Utilities::Hash.dig_or_raise(result.data, 'orders')
+      returned_ids = order_datas.map { |order_data| Utilities::Hash.dig_or_raise(order_data, 'order_id') }
       order_datas.each do |order_data|
         order_id = Utilities::Hash.dig_or_raise(order_data, 'order_id')
         orders[order_id] = parse_order_data(order_id, order_data)
       end
+      missing.concat(order_ids_slice - returned_ids)
     end
 
-    Result::Success.new(orders)
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def cancel_order(order_id:)

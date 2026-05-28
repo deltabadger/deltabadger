@@ -120,4 +120,22 @@ class TickerTest < ActiveSupport::TestCase
   test 'tradeable? raises ArgumentError for an unsupported side' do
     assert_raises(ArgumentError) { @ticker.tradeable?(:hodl) }
   end
+
+  # == #priced? : transient network passthrough ==
+
+  test 'priced? re-raises Client::TransientNetworkError instead of degrading to false' do
+    @ticker.stubs(:get_last_price).raises(Client::TransientNetworkError, 'Net::OpenTimeout: TCP open timed out')
+    Rails.logger.expects(:debug).never
+
+    assert_raises(Client::TransientNetworkError) { @ticker.priced?(:last) }
+  end
+
+  test 'priced? still swallows other StandardErrors and logs at debug' do
+    @ticker.stubs(:get_last_price).raises(RuntimeError, 'boom')
+    Rails.logger.expects(:debug)
+         .with(regexp_matches(/Ticker#priced\? false for ticker=#{@ticker.id}/))
+         .at_least_once
+
+    assert_not @ticker.priced?(:last)
+  end
 end

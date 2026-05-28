@@ -1,4 +1,14 @@
+require 'net/http'
+
 class Client
+  class TransientNetworkError < StandardError; end
+
+  TRANSIENT_NETWORK_ERRORS = [
+    Net::OpenTimeout,
+    Faraday::ConnectionFailed,
+    Faraday::TimeoutError
+  ].freeze
+
   OPTIONS = {
     request: {
       open_timeout: 5,   # seconds to wait for the connection to open
@@ -9,6 +19,8 @@ class Client
 
   def with_rescue
     yield
+  rescue *TRANSIENT_NETWORK_ERRORS => e
+    raise TransientNetworkError, "#{e.class}: #{e.message}"
   rescue Faraday::Error => e
     body = e.response_body.presence
     error_message = if body&.match?(/<\s*html/i)
