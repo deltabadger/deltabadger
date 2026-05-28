@@ -53,9 +53,11 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
     create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'o1')
     bot.stubs(:get_orders).returns(Result::Failure.new('exchange down'))
 
-    assert_raises(RuntimeError) do
+    error = assert_raises(RuntimeError) do
       Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot)
     end
+
+    assert_match(/exchange down/, error.message)
   end
 
   # == stale-order handling on the bulk path ==
@@ -99,7 +101,10 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
                                          external_id: 'young_missing', created_at: 1.day.ago)
     bot.stubs(:get_orders).returns(Result::Success.new(orders: {}, missing: %w[young_missing]))
 
-    assert_raises(RuntimeError) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
+    error = assert_raises(RuntimeError) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
+
+    assert_match(/omitted recent order/i, error.message)
+    assert_match(/young_missing/, error.message)
     assert_equal 'unknown', young_missing.reload.external_status
   end
 
@@ -125,8 +130,10 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
                           missing: %w[stale young_missing])
     )
 
-    assert_raises(RuntimeError) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
+    error = assert_raises(RuntimeError) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
 
+    assert_match(/omitted recent order/i, error.message)
+    assert_match(/young_missing/, error.message)
     assert_equal 'closed', fresh.reload.external_status, 'fresh confirmation must land before the raise'
     assert_equal 'abandoned', stale.reload.external_status, 'old missing must be abandoned before the raise'
     assert_equal 'unknown', young_missing.reload.external_status

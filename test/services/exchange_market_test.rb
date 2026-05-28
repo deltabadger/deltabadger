@@ -131,22 +131,14 @@ class ExchangeMarketTest < ActiveSupport::TestCase
   end
 
   test 'for class method creates market from exchange_id' do
-    original = Rails.configuration.dry_run
-    Rails.configuration.dry_run = false
-    market = ExchangeMarket.for(@exchange.id)
+    market = with_dry_run(false) { ExchangeMarket.for(@exchange.id) }
 
     assert_instance_of ExchangeMarket, market
-  ensure
-    Rails.configuration.dry_run = original
   end
 
   test 'for returns fake market in dry_run mode' do
-    original = Rails.configuration.dry_run
-    Rails.configuration.dry_run = true
-    market = ExchangeMarket.for(@exchange.id)
+    market = with_dry_run(true) { ExchangeMarket.for(@exchange.id) }
 
     assert_instance_of ExchangeMarket::Fake, market
-  ensure
-    Rails.configuration.dry_run = original
   end
 end
