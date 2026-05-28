@@ -73,14 +73,18 @@ class Transaction < ApplicationRecord
   # end
 
   def update_with_order_data(order_data)
+    # base/quote are historical snapshots — captured at first set and never rewritten by
+    # subsequent order polls. Before the 2026-05-28 fix, `ticker.base_asset.symbol || base`
+    # propagated any local asset.symbol mutation into transaction history (Bot 5 tx 168/169
+    # went IBIT → LDRC this way during the stocks-rollout incident, with no Alpaca-side change).
     update({
       status: :submitted,
       external_status: order_data[:status],
       price: order_data[:price],
       amount: order_data[:amount],
       quote_amount: order_data[:quote_amount],
-      base: order_data[:ticker]&.base_asset&.symbol || base,
-      quote: order_data[:ticker]&.quote_asset&.symbol || quote,
+      base: base.presence || order_data[:ticker]&.base_asset&.symbol,
+      quote: quote.presence || order_data[:ticker]&.quote_asset&.symbol,
       side: order_data[:side],
       order_type: order_data[:order_type],
       amount_exec: order_data[:amount_exec],

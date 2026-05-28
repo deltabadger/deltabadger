@@ -1,6 +1,49 @@
 require 'test_helper'
 
 class Asset::SyncStocksFromDeltabadgerJobTest < ActiveSupport::TestCase
+  setup do
+    # Post-incident 2026-05-28 kill switch is default-disabled. The existing
+    # behavioral tests below describe post-enable behavior — opt in explicitly.
+    AppConfig.set('stock_sync_enabled', 'true')
+  end
+
+  # --- Kill switch (post-incident 2026-05-28) ----------------------------------------------
+  # Default-disabled; explicit opt-in required to run. Guards against accidental
+  # perform_later calls firing the destructive backfill in the field.
+
+  test 'kill switch: default is disabled (no AppConfig flag = no-op)' do
+    AppConfig.delete('stock_sync_enabled')
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+
+    MarketData.expects(:backfill_canonical_stock_external_ids!).never
+    MarketData.expects(:sync_stocks_from_deltabadger!).never
+    MarketData.expects(:sync_alpaca_listings_from_deltabadger!).never
+
+    Asset::SyncStocksFromDeltabadgerJob.perform_now
+  end
+
+  test "kill switch: any value other than 'true' is treated as disabled" do
+    %w[1 false enabled yes TRUE True].each do |val|
+      AppConfig.set('stock_sync_enabled', val)
+      MarketDataSettings.stubs(:deltabadger?).returns(true)
+
+      MarketData.expects(:backfill_canonical_stock_external_ids!).never
+      Asset::SyncStocksFromDeltabadgerJob.perform_now
+    end
+  end
+
+  test "kill switch: 'true' (exact match) enables the job to run" do
+    AppConfig.set('stock_sync_enabled', 'true')
+    AppConfig.set('stock_canonical_backfill_completed_at', Time.current.iso8601)
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+
+    MarketData.expects(:backfill_canonical_stock_external_ids!).once
+    MarketData.stubs(:sync_stocks_from_deltabadger!).returns(Result::Success.new)
+    MarketData.stubs(:sync_alpaca_listings_from_deltabadger!).returns(Result::Success.new)
+
+    Asset::SyncStocksFromDeltabadgerJob.perform_now
+  end
+
   test 'no-op in free mode (open-source containers)' do
     MarketDataSettings.stubs(:deltabadger?).returns(false)
 

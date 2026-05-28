@@ -48,6 +48,57 @@ class TransactionTest < ActiveSupport::TestCase
     assert_not_includes bot.transactions.waiting, abandoned_txn
   end
 
+  # == update_with_order_data: base/quote preservation (post-incident 2026-05-28) ==
+  # Before the fix, `base: order_data[:ticker]&.base_asset&.symbol || base` overwrote the
+  # historical transaction's base with the CURRENT local asset symbol on every order poll.
+  # If the local asset row's symbol mutated (e.g. via the stocks sync incident), the poll
+  # propagated that mutation retroactively into transaction history. Bot 5 tx 168/169 went
+  # from base=IBIT to base=LDRC this way, with no Alpaca-side change. Fix: only set
+  # base/quote on the first insert; preserve them on subsequent updates.
+
+  test 'update_with_order_data preserves existing base when local ticker symbol changes' do
+    bot = create(:dca_single_asset)
+    btc = Asset.where(external_id: 'bitcoin').first || create(:asset, :bitcoin)
+    usd = Asset.where(external_id: 'usd').first || create(:asset, :usd)
+    exchange = create(:kraken_exchange)
+    new_ticker = create(:ticker, exchange: exchange, base_asset: btc, quote_asset: usd, base: 'XBT', quote: 'USD', ticker: 'XBTUSD')
+
+    txn = create(:transaction, bot: bot, exchange: exchange, status: :submitted, base: 'BTC', quote: 'USD',
+                               external_id: 'tx_preserve', side: :buy)
+
+    txn.update_with_order_data(
+      status: :open, price: 1000, amount: 0.01, quote_amount: 10,
+      ticker: new_ticker, side: :buy, order_type: :market_order,
+      amount_exec: 0.01, quote_amount_exec: 10
+    )
+
+    txn.reload
+    assert_equal 'BTC', txn.base, 'historical base must not be rewritten by a mutated local ticker'
+    assert_equal 'USD', txn.quote, 'historical quote must not be rewritten by a mutated local ticker'
+  end
+
+  test 'update_with_order_data populates base/quote on first set when blank' do
+    bot = create(:dca_single_asset)
+    btc = Asset.where(external_id: 'bitcoin').first || create(:asset, :bitcoin)
+    usd = Asset.where(external_id: 'usd').first || create(:asset, :usd)
+    exchange = create(:kraken_exchange)
+    ticker = create(:ticker, exchange: exchange, base_asset: btc, quote_asset: usd, base: 'BTC', quote: 'USD', ticker: 'BTCUSD')
+
+    txn = build(:transaction, bot: bot, exchange: exchange, status: :submitted, base: nil, quote: nil,
+                              external_id: 'tx_first_set', side: :buy)
+    txn.save!(validate: false)
+
+    txn.update_with_order_data(
+      status: :open, price: 1000, amount: 0.01, quote_amount: 10,
+      ticker: ticker, side: :buy, order_type: :market_order,
+      amount_exec: 0.01, quote_amount_exec: 10
+    )
+
+    txn.reload
+    assert_equal 'BTC', txn.base, 'blank base must be populated from the ticker on first set'
+    assert_equal 'USD', txn.quote, 'blank quote must be populated from the ticker on first set'
+  end
+
   test 'cancelled_or_abandoned scope returns both cancelled and abandoned rows but no others' do
     bot = create(:dca_single_asset)
     cancelled_txn = create(:transaction, bot: bot, status: :submitted, external_status: :cancelled, external_id: 'c1')

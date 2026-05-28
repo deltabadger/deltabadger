@@ -22,9 +22,10 @@ production:
     class: Exchange::SyncAlpacaAssetsJob
     schedule: "0 3 * * 1"  # At 03:00 UTC on Monday (no-op on hosted; per-user Alpaca sync only)
 
-  sync_stocks_from_deltabadger_job:
-    class: Asset::SyncStocksFromDeltabadgerJob
-    schedule: "10 3 * * *"  # Daily at 03:10 UTC (no-op off hosted; gated inside the job)
+  # Post-incident 2026-05-28: sync_stocks_from_deltabadger_job removed from recurring schedule.
+  # Re-add only after data-api ensure_identifiers is fixed AND the backfill ambiguity guard
+  # ships in the container. Until then, stock sync is invoked manually per-container after
+  # AppConfig.set('stock_sync_enabled', 'true').
 
   evaluate_all_rules_job:
     class: Rule::EvaluateAllJob
@@ -63,9 +64,10 @@ development:
     class: Exchange::SyncAlpacaAssetsJob
     schedule: "0 3 * * 1"  # At 03:00 UTC on Monday (no-op on hosted; per-user Alpaca sync only)
 
-  sync_stocks_from_deltabadger_job:
-    class: Asset::SyncStocksFromDeltabadgerJob
-    schedule: "10 3 * * *"  # Daily at 03:10 UTC (no-op off hosted; gated inside the job)
+  # Post-incident 2026-05-28: sync_stocks_from_deltabadger_job removed from recurring schedule.
+  # Re-add only after data-api ensure_identifiers is fixed AND the backfill ambiguity guard
+  # ships in the container. Until then, stock sync is invoked manually per-container after
+  # AppConfig.set('stock_sync_enabled', 'true').
 
   evaluate_all_rules_job:
     class: Rule::EvaluateAllJob

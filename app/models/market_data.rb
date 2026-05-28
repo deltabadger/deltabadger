@@ -398,7 +398,16 @@ class MarketData
   # auto-heal on the next recurring tick — no orchestration choreography needed.
   def self.backfill_canonical_stock_external_ids!
     return unless MarketDataSettings.deltabadger?
-    return if AppConfig.get(STOCK_CANONICAL_BACKFILL_FLAG).present?
+
+    # Self-pacing: only fetch + process when there's actual legacy work to do. If no legacy
+    # alpaca_<uuid> Stock rows remain, mark the flag (so the sync-gate opens) and return.
+    # This means excluded ambiguous symbols (left as legacy by the ambiguity guard) will be
+    # reconsidered on subsequent invocations — once data-api's stale identifiers are cleaned
+    # up (Phase 3), the next tick rewrites them without operator intervention.
+    if Asset.where(category: 'Stock').where("external_id LIKE 'alpaca_%'").none?
+      AppConfig.set(STOCK_CANONICAL_BACKFILL_FLAG, Time.current.iso8601) unless AppConfig.get(STOCK_CANONICAL_BACKFILL_FLAG).present?
+      return
+    end
 
     result = client.get_stocks
     if result.failure?
@@ -407,16 +416,50 @@ class MarketData
     end
 
     rows = Array(result.data && result.data['data'])
-    symbol_to_external_id = rows.each_with_object({}) do |row, h|
+
+    # Ambiguity guard (post-incident 2026-05-28). data-api's SyncStocksJob accumulates stale
+    # `alpaca:us_equity:XXX` identifiers when securities rename (e.g. IBIT → LDRC, same ISIN),
+    # because ensure_identifiers never deletes superseded entries. Without this guard, the
+    # IBIT symbol in this map would silently point at the LDRC canonical row, and any legacy
+    # alpaca_<uuid> row whose symbol = 'IBIT' would be rewritten to LDRC.US — losing identity.
+    #
+    # Exclude any symbol matching EITHER condition (logical OR):
+    #   - the symbol resolves to >1 distinct canonical external_id across the payload, OR
+    #   - the canonical that symbol points to carries >1 alpaca identifier of its own.
+    symbol_to_canonicals = Hash.new { |h, k| h[k] = Set.new }
+    canonical_alpaca_count = Hash.new(0)
+    rows.each do |row|
+      ext = row['external_id']
       Array(row['identifiers']).each do |i|
         next unless i['scheme'] == 'alpaca'
 
         symbol = i['value'].to_s.sub('us_equity:', '')
-        h[symbol] = row['external_id']
+        symbol_to_canonicals[symbol] << ext
+        canonical_alpaca_count[ext] += 1
       end
     end
 
-    if symbol_to_external_id.empty?
+    excluded_symbols = []
+    symbol_to_external_id = {}
+    symbol_to_canonicals.each do |symbol, canonicals|
+      if canonicals.size > 1
+        excluded_symbols << "#{symbol} (resolves to #{canonicals.to_a.join(', ')})"
+        next
+      end
+      canonical = canonicals.first
+      if canonical_alpaca_count[canonical] > 1
+        excluded_symbols << "#{symbol} (canonical #{canonical} carries multiple alpaca identifiers)"
+        next
+      end
+      symbol_to_external_id[symbol] = canonical
+    end
+
+    if excluded_symbols.any?
+      Rails.logger.warn "[MarketData] stock backfill: excluded #{excluded_symbols.size} ambiguous symbols; " \
+                        "will NOT rewrite legacy rows for: #{excluded_symbols.join('; ')}"
+    end
+
+    if symbol_to_external_id.empty? && excluded_symbols.empty?
       Rails.logger.warn '[MarketData] stock backfill: payload has no alpaca-scheme identifiers; leaving flag unset for retry'
       return
     end

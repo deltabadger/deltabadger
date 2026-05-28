@@ -641,4 +641,111 @@ class MarketDataBackfillCanonicalStockExternalIdsTest < ActiveSupport::TestCase
     MarketData.backfill_canonical_stock_external_ids!
     assert_equal 'alpaca_legacy_crypto', crypto.reload.external_id, 'non-stock legacy rows must not be touched'
   end
+
+  # == Ambiguity guard (post-incident 2026-05-28) =========================================
+  # When data-api accumulates stale alpaca identifiers (the IBIT/LDRC case: one canonical
+  # asset carrying both us_equity:IBIT AND us_equity:LDRC), the symbol->canonical map can
+  # silently send the wrong canonical to a legacy alpaca_<uuid> row. Guard: exclude any
+  # symbol that matches EITHER condition (logical OR):
+  #   - symbol resolves to >1 distinct canonical external_id across the payload, OR
+  #   - the canonical that symbol points to carries >1 alpaca identifier of its own.
+
+  test 'ambiguity guard: symbol resolving to multiple canonicals is excluded from rewrite' do
+    legacy = Asset.create!(external_id: 'alpaca_uuid-ibit', symbol: 'IBIT', name: 'Mystery', category: 'Stock')
+    # Two distinct canonicals each claim us_equity:IBIT (simulated data-api regression).
+    @fake.stubs(:get_stocks).returns(stocks_payload([
+                                                      { 'external_id' => 'IBIT.US', 'symbol' => 'IBIT', 'name' => 'iShares BTC', 'type' => 'etf',
+                                                        'identifiers' => [{ 'scheme' => 'alpaca', 'value' => 'us_equity:IBIT' }] },
+                                                      { 'external_id' => 'LDRC.US', 'symbol' => 'LDRC', 'name' => 'iShares iBonds', 'type' => 'etf',
+                                                        'identifiers' => [{ 'scheme' => 'alpaca', 'value' => 'us_equity:IBIT' }] }
+                                                    ]))
+
+    MarketData.backfill_canonical_stock_external_ids!
+
+    assert_equal 'alpaca_uuid-ibit', legacy.reload.external_id, 'ambiguous symbol must NOT be rewritten'
+  end
+
+  test 'ambiguity guard: canonical with multiple alpaca identifiers excludes all of its symbols' do
+    # The real-world IBIT/LDRC shape: ONE canonical asset accumulated TWO alpaca identifiers
+    # because data-api's ensure_identifiers never removes superseded entries when a security
+    # renames at EODHD/Alpaca for the same ISIN.
+    legacy_ibit = Asset.create!(external_id: 'alpaca_uuid-ibit', symbol: 'IBIT', name: 'A', category: 'Stock')
+    legacy_ldrc = Asset.create!(external_id: 'alpaca_uuid-ldrc', symbol: 'LDRC', name: 'B', category: 'Stock')
+
+    @fake.stubs(:get_stocks).returns(stocks_payload([
+                                                      { 'external_id' => 'LDRC.US', 'symbol' => 'LDRC', 'name' => 'iShares iBonds', 'type' => 'etf',
+                                                        'identifiers' => [
+                                                          { 'scheme' => 'alpaca', 'value' => 'us_equity:IBIT' },
+                                                          { 'scheme' => 'alpaca', 'value' => 'us_equity:LDRC' }
+                                                        ] }
+                                                    ]))
+
+    MarketData.backfill_canonical_stock_external_ids!
+
+    assert_equal 'alpaca_uuid-ibit', legacy_ibit.reload.external_id,
+                 'IBIT must NOT be rewritten — its canonical carries a stale alpaca identifier'
+    assert_equal 'alpaca_uuid-ldrc', legacy_ldrc.reload.external_id,
+                 'LDRC must NOT be rewritten either — same canonical carries multiple alpaca identifiers'
+  end
+
+  test 'ambiguity guard: previously-excluded legacy rows get reconsidered when data-api is later cleaned up' do
+    Asset.create!(external_id: 'alpaca_uuid-ibit', symbol: 'IBIT', name: 'A', category: 'Stock')
+
+    # First run: LDRC.US carries both alpaca identifiers — IBIT excluded.
+    @fake.stubs(:get_stocks).returns(stocks_payload([
+                                                      { 'external_id' => 'LDRC.US', 'symbol' => 'LDRC',
+                                                        'name' => 'iShares iBonds', 'type' => 'etf',
+                                                        'identifiers' => [
+                                                          { 'scheme' => 'alpaca', 'value' => 'us_equity:IBIT' },
+                                                          { 'scheme' => 'alpaca', 'value' => 'us_equity:LDRC' }
+                                                        ] }
+                                                    ]))
+    MarketData.backfill_canonical_stock_external_ids!
+    assert_equal 'alpaca_uuid-ibit', Asset.find_by(symbol: 'IBIT').external_id
+
+    # Second run AFTER data-api cleanup: IBIT.US is now its own canonical, no stale alpaca id.
+    @fake.stubs(:get_stocks).returns(stocks_payload([
+                                                      stock_with_alpaca_id(external_id: 'IBIT.US', symbol: 'IBIT'),
+                                                      stock_with_alpaca_id(external_id: 'LDRC.US', symbol: 'LDRC')
+                                                    ]))
+    MarketData.backfill_canonical_stock_external_ids!
+    assert_equal 'IBIT.US', Asset.find_by(symbol: 'IBIT').external_id,
+                 'backfill must re-run and rewrite previously-excluded legacy row when data-api is clean'
+  end
+
+  test 'self-pacing: no legacy rows + no flag = sets flag and skips data-api fetch' do
+    # Containers that never had Alpaca configured have zero legacy rows from day one.
+    # Backfill must still mark the flag so the sync-gate opens; no HTTP call needed.
+    @fake.expects(:get_stocks).never
+
+    MarketData.backfill_canonical_stock_external_ids!
+
+    assert AppConfig.get('stock_canonical_backfill_completed_at').present?,
+           'flag must be set even with zero legacy rows, otherwise the sync-gate would never open'
+  end
+
+  test 'ambiguity guard: flag is still set when some symbols are excluded (forward progress)' do
+    Asset.create!(external_id: 'alpaca_uuid-ibit', symbol: 'IBIT', name: 'A', category: 'Stock')
+    Asset.create!(external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', name: 'Apple', category: 'Stock')
+
+    @fake.stubs(:get_stocks).returns(stocks_payload([
+                                                      # Clean: AAPL.US has one alpaca identifier
+                                                      stock_with_alpaca_id(external_id: 'AAPL.US', symbol: 'AAPL'),
+                                                      # Ambiguous: LDRC.US has both IBIT and LDRC alpaca identifiers
+                                                      { 'external_id' => 'LDRC.US', 'symbol' => 'LDRC', 'name' => 'iShares iBonds', 'type' => 'etf',
+                                                        'identifiers' => [
+                                                          { 'scheme' => 'alpaca', 'value' => 'us_equity:IBIT' },
+                                                          { 'scheme' => 'alpaca', 'value' => 'us_equity:LDRC' }
+                                                        ] }
+                                                    ]))
+
+    MarketData.backfill_canonical_stock_external_ids!
+
+    assert AppConfig.get('stock_canonical_backfill_completed_at').present?,
+           'flag must be set so the rest of the sync can proceed; ambiguous symbols are deferred for manual review'
+    assert_equal 'AAPL.US', Asset.find_by(symbol: 'AAPL').external_id,
+                 'clean symbols are rewritten as normal'
+    assert_equal 'alpaca_uuid-ibit', Asset.find_by(symbol: 'IBIT').external_id,
+                 'ambiguous symbol stays as legacy alpaca_<uuid>'
+  end
 end
