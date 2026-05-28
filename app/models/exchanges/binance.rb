@@ -344,7 +344,7 @@ class Exchanges::Binance < Exchange
       end
     end
 
-    Result::Success.new(orders)
+    Result::Success.new(orders: orders, missing: [])
   end
 
   def get_aggregated_trades_for_orders(orders)

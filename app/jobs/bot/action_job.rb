@@ -3,6 +3,21 @@ class Bot::ActionJob < BotJob
     :insufficient_funds
   ].freeze
 
+  retry_on Client::TransientNetworkError,
+           wait: :polynomially_longer,
+           attempts: 4 do |job, error|
+    # Retries exhausted. Keep the bot in :retrying, log a visible
+    # execution_failed entry, notify the user, and hand back to the bot's own
+    # scheduler so a fresh attempt fires at the next interval.
+    bot = job.arguments.first
+    bot.update!(status: :retrying)
+    bot.log_activity('execution_failed', level: :error,
+                                         details: { error: error.message, ignorable: nil, transient_exhausted: true })
+    bot.notify_about_error(errors: [bot.exchange.humanize_error(error.message)])
+    Bot::ActionJob.set(wait_until: bot.next_interval_checkpoint_at).perform_later(bot)
+    Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
+  end
+
   def perform(bot)
     action_started_at = Time.current
     return unless bot.scheduled? || bot.retrying?
@@ -39,6 +54,12 @@ class Bot::ActionJob < BotJob
       bot.update!(status: :scheduled)
       schedule_next_action_job(bot)
     end
+  rescue Client::TransientNetworkError
+    # Skip the noisy execution_failed / notify_retry path. Leaving the bot in
+    # :retrying ensures the ActiveJob retry chain (and any post-exhaustion
+    # reschedule) passes the line-8 guard on the next perform.
+    bot.update!(status: :retrying)
+    raise
   rescue StandardError => e
     Rails.logger.error("ActionJob for bot #{bot.id} failed to perform. Errors: #{e.message}")
     bot.update!(status: :retrying)

@@ -244,6 +244,8 @@ class Clients::Alpaca < Client
 
   def with_rescue
     yield
+  rescue *Client::TRANSIENT_NETWORK_ERRORS => e
+    raise Client::TransientNetworkError, "#{e.class}: #{e.message}"
   rescue Faraday::Error => e
     body = e.response_body.presence
     error_message = if body.is_a?(String) && body.match?(/<\s*html/i)

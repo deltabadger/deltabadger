@@ -278,7 +278,7 @@ class Exchanges::Bitget < Exchange
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders)
+    Result::Success.new(orders: orders, missing: [])
   end
 
   def cancel_order(order_id:)

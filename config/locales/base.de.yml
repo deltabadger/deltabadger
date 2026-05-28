@@ -464,6 +464,7 @@ de:
             limit_paused: 'Pausiert: Limit %{limit} nicht erfüllt'
             execution_failed: 'Orderversuch fehlgeschlagen'
             execution_failed_with_error: 'Orderversuch fehlgeschlagen: %{error}'
+            order_abandoned: "Order %{order_id} aufgegeben (Börse erfasst sie nicht mehr)"
         transactions:
             bought: 'Gekauft: %{amount} %{base} für %{quote_amount} %{quote}'
             sold: 'Verkauft: %{amount} %{base} für %{quote_amount} %{quote}'

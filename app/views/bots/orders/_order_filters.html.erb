@@ -1,5 +1,5 @@
 <% has_successful = bot.transactions.submitted.closed.exists? %>
-<% has_cancelled = bot.transactions.submitted.cancelled.exists? %>
+<% has_cancelled = bot.transactions.submitted.cancelled_or_abandoned.exists? %>
 <% has_waiting = bot.transactions.waiting.exists? %>
 <% has_other = bot.transactions.where(status: [:skipped, :failed]).exists? %>
 <% categories = [has_successful, has_cancelled, has_waiting, has_other].count(true) %>

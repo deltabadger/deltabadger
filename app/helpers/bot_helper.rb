@@ -31,9 +31,28 @@ module BotHelper
       else
         t('bot_activity.events.execution_failed')
       end
+    when 'order_abandoned'
+      t('bot_activity.events.order_abandoned', order_id: activity.details['order_id'])
     else
       t("bot_activity.events.#{activity.event}")
     end
+  end
+
+  # Maps a transaction to a UI filter tab ('waiting' | 'cancelled' | 'successful' | nil).
+  # nil means the row doesn't belong to any of the named tabs (e.g. failed/skipped).
+  def order_filter_type(order)
+    return 'waiting' if order.submitted? && (order.open? || order.unknown?)
+    return 'cancelled' if order.submitted? && (order.cancelled? || order.abandoned?)
+    return 'successful' if order.submitted? && order.closed?
+
+    nil
+  end
+
+  # Whether an order row should render with the dimmed/inactive style. Skipped
+  # rows are inactive at the status level; cancelled/abandoned at the external
+  # status level.
+  def inactive_order_row?(order)
+    order.skipped? || (order.submitted? && (order.cancelled? || order.abandoned?))
   end
 
   # Human sentence for a transaction in the unified "All" timeline (the Transactions
@@ -41,7 +60,7 @@ module BotHelper
   def transaction_summary(order, decimals = {})
     return transaction_failed_summary(order, decimals) if order.failed?
     return t('bot_activity.transactions.skipped') if order.skipped?
-    return t('bot_activity.transactions.cancelled') if order.cancelled?
+    return t('bot_activity.transactions.cancelled') if order.cancelled? || order.abandoned?
 
     pending = order.open? || order.unknown?
     base_amount = round_amount(display_amount(order.amount_exec, order.amount, pending:), decimals[order.base])

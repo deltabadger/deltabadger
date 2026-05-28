@@ -2,7 +2,18 @@ class Bot::FetchAndUpdateOrderJob < BotJob
   def perform(order, update_missed_quote_amount: false, success_or_kill: false)
     bot = order.bot
     result = bot.get_order(order_id: order.external_id)
-    raise "Failed to fetch order #{order.id}. Result: #{result.errors}" if result.failure?
+    if result.failure?
+      if result.data.is_a?(Hash) && result.data[:not_found]
+        case Bot::StaleOrderResolver.resolve(order)
+        when :abandoned
+          bot.log_activity('order_abandoned', details: { order_id: order.external_id })
+          return
+        when :too_young
+          # fall through and raise — likely a real bug (wrong key, etc.)
+        end
+      end
+      raise "Failed to fetch order #{order.id}. Result: #{result.errors}"
+    end
 
     calc_since = [bot.started_at, bot.settings_changed_at].compact.max
     order_data = result.data

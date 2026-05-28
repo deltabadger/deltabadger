@@ -257,7 +257,7 @@ class Exchanges::Alpaca < Exchange
       orders[order_id] = parse_order_data(result.data)
     end
 
-    Result::Success.new(orders)
+    Result::Success.new(orders: orders, missing: [])
   end
 
   def list_open_orders

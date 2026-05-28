@@ -170,4 +170,77 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
 
     assert result.success?
   end
+
+  # == get_orders shape contract ==
+  # Kraken silently omits IDs it no longer tracks (e.g. orders aged out of the
+  # QueryOrders retention window). The new contract is { orders:, missing: }
+  # so callers can act on the dropped IDs instead of polling them forever.
+
+  test 'get_orders returns { orders:, missing: } with missing: [] when Kraken returns every requested ID' do
+    base = create(:asset, :bitcoin)
+    quote = create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: base, quote_asset: quote, ticker: 'XBTUSD')
+
+    @exchange.set_client
+    @exchange.send(:client).stubs(:query_orders_info).returns(
+      Result::Success.new(
+        'TXID-A' => { raw: kraken_order_raw('XBTUSD', 'closed'), status: :closed },
+        'TXID-B' => { raw: kraken_order_raw('XBTUSD', 'closed'), status: :closed }
+      )
+    )
+
+    result = @exchange.get_orders(order_ids: %w[TXID-A TXID-B])
+
+    assert result.success?
+    assert_kind_of Hash, result.data
+    assert_equal %i[orders missing].sort, result.data.keys.sort
+    assert_equal %w[TXID-A TXID-B].sort, result.data[:orders].keys.sort
+    assert_equal [], result.data[:missing]
+  end
+
+  test 'get_order returns Result::Failure with not_found flag when Kraken returns an empty result for the txid' do
+    @exchange.set_client
+    # Kraken returned 200 OK but the requested txid is absent — the order has
+    # aged out of QueryOrders retention. Surface this distinctly so callers can
+    # stop polling instead of retrying forever.
+    @exchange.send(:client).stubs(:query_orders_info).returns(Result::Success.new({}))
+
+    result = @exchange.get_order(order_id: 'TXID-STALE')
+
+    assert result.failure?
+    assert_equal true, result.data[:not_found]
+    assert_includes Array(result.data[:missing_ids]), 'TXID-STALE'
+  end
+
+  test 'get_orders lists IDs Kraken did not return under :missing instead of silently dropping them' do
+    base = create(:asset, :bitcoin)
+    quote = create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: base, quote_asset: quote, ticker: 'XBTUSD')
+
+    @exchange.set_client
+    # Kraken returns only TXID-A; TXID-STALE has aged out of QueryOrders retention.
+    @exchange.send(:client).stubs(:query_orders_info).returns(
+      Result::Success.new('TXID-A' => { raw: kraken_order_raw('XBTUSD', 'closed'), status: :closed })
+    )
+
+    result = @exchange.get_orders(order_ids: %w[TXID-A TXID-STALE])
+
+    assert result.success?
+    assert_equal %w[TXID-A], result.data[:orders].keys
+    assert_equal %w[TXID-STALE], result.data[:missing]
+  end
+
+  private
+
+  def kraken_order_raw(pair, status)
+    {
+      'descr' => { 'pair' => pair, 'ordertype' => 'market', 'type' => 'buy', 'price' => '0' },
+      'price' => '50000',
+      'cost' => '100',
+      'vol' => '0.002',
+      'vol_exec' => '0.002',
+      'oflags' => '',
+      'status' => status
+    }
+  end
 end

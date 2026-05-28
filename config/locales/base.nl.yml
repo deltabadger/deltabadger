@@ -463,6 +463,7 @@ nl:
             limit_paused: 'Gepauzeerd: %{limit}-limiet niet bereikt'
             execution_failed: 'Orderpoging mislukt'
             execution_failed_with_error: 'Orderpoging mislukt: %{error}'
+            order_abandoned: "Order %{order_id} opgegeven (de exchange volgt deze niet meer)"
         transactions:
             bought: 'Gekocht %{amount} %{base} voor %{quote_amount} %{quote}'
             sold: 'Verkocht %{amount} %{base} voor %{quote_amount} %{quote}'
