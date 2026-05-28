@@ -3,6 +3,13 @@ class Asset::SyncStocksFromDeltabadgerJob < ApplicationJob
   limits_concurrency to: 1, key: 'sync_stocks_from_deltabadger', on_conflict: :discard, duration: 1.hour
 
   def perform
+    # Post-incident 2026-05-28 kill switch — default-disabled, explicit opt-in only.
+    # Even on hosted, this job is a no-op unless an operator has explicitly set
+    # AppConfig.set('stock_sync_enabled', 'true') for THIS container. Guards against the
+    # destructive backfill firing unsupervised after the data-api identifier-accumulation
+    # bug. To re-enable, set the flag explicitly once data-api is verified clean.
+    return if AppConfig.get('stock_sync_enabled').to_s != 'true'
+
     return unless MarketDataSettings.deltabadger?
 
     # In-process backfill on every invocation: existing hosted containers heal on the
