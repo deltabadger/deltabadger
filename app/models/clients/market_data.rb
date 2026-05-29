@@ -13,7 +13,7 @@ class Clients::MarketData < Client
 
   def get_indices
     with_rescue do
-      response = connection.get('api/v1/indices')
+      response = v2_connection.get('api/v2/indices')
       Result::Success.new(response.body)
     end
   end

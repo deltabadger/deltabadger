@@ -106,12 +106,19 @@ class MarketData
 
       coin_ids = (index.top_coins || []).first(limit)
       assets = Asset.where(external_id: coin_ids).index_by(&:external_id)
+      weights = index.weights || {}
 
       data = coin_ids.filter_map do |coin_id|
         asset = assets[coin_id]
         next unless asset
 
-        { 'id' => coin_id, 'market_cap' => asset.market_cap.to_f }
+        # Use a real market cap when we have one; otherwise fall back to the allocation weight the
+        # index carries (stocks have no Asset.market_cap). Skip a member with neither.
+        value = asset.market_cap.to_f
+        value = weights[coin_id].to_f if value <= 0
+        next if value <= 0
+
+        { 'id' => coin_id, 'market_cap' => value }
       end
 
       Result::Success.new(data)
@@ -605,6 +612,7 @@ class MarketData
       top_coins_by_exchange: index_data['top_coins_by_exchange'] || {},
       market_cap: index_data['market_cap'],
       available_exchanges: index_data['available_exchanges'] || {},
+      weights: index_data['weights'] || {},
       weight: weight,
       created_at: Time.current,
       updated_at: Time.current
