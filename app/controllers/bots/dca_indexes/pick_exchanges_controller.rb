@@ -74,7 +74,10 @@ class Bots::DcaIndexes::PickExchangesController < ApplicationController
     @index = nil # Store for view to access coin counts
 
     exchanges = if index_type == Bots::DcaIndex::INDEX_TYPE_CATEGORY && index_category_id.present?
-                  @index = Index.find_by(external_id: index_category_id, source: Index::SOURCE_COINGECKO)
+                  # Resolve regardless of source — category indices come from CoinGecko (crypto) or
+                  # the Data API (e.g. the deltabadger-sourced 'nasdaq-100' stock index). external_id
+                  # is unambiguous across sources in practice.
+                  @index = Index.find_by(external_id: index_category_id)
                   if @index&.available_exchanges.present?
                     Exchange.available.where(type: @index.available_exchanges.keys)
                   else

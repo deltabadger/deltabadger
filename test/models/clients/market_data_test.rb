@@ -62,4 +62,18 @@ class Clients::MarketDataTest < ActiveSupport::TestCase
     result = @client.get_alpaca_listings
     assert_predicate result, :failure?
   end
+
+  # Indices consumption is migrated to the v2 surface (v1/indices is being sunset).
+  test 'get_indices calls api/v2/indices' do
+    mock_response = stub(body: { 'metadata' => { 'count' => 1 },
+                                 'data' => [{ 'external_id' => 'nasdaq-100', 'source' => 'deltabadger',
+                                              'top_coins' => ['AAPL.US'], 'weights' => { 'AAPL.US' => 9.12 } }] })
+    v2 = stub
+    v2.expects(:get).with('api/v2/indices').returns(mock_response)
+    @client.stubs(:v2_connection).returns(v2)
+
+    result = @client.get_indices
+    assert_predicate result, :success?
+    assert_equal 'nasdaq-100', result.data['data'].first['external_id']
+  end
 end

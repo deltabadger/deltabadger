@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_27_002000) do
+ActiveRecord::Schema[8.1].define(version: 2026_05_29_001000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -303,6 +303,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_27_002000) do
     t.json "top_coins_by_exchange", default: {}
     t.datetime "updated_at", null: false
     t.integer "weight", default: 0, null: false
+    t.json "weights", default: {}
     t.index ["external_id", "source"], name: "index_indices_on_external_id_and_source", unique: true
     t.index ["weight"], name: "index_indices_on_weight"
   end
