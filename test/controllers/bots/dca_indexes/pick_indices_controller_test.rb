@@ -28,4 +28,14 @@ class Bots::DcaIndexes::PickIndicesControllerTest < ActionDispatch::IntegrationT
     assert_no_match 'Nasdaq 100', response.body
     assert_match 'Layer 1', response.body
   end
+
+  test 'keeps the provider filter on the invalid-submit re-render (CoinGecko-direct)' do
+    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_COINGECKO)
+
+    # No index_type/category → falls into the error branch which re-renders the picker.
+    post bots_dca_indexes_pick_index_path, params: {}
+    assert_response :unprocessable_entity
+    assert_no_match 'Nasdaq 100', response.body
+    assert_match 'Layer 1', response.body
+  end
 end

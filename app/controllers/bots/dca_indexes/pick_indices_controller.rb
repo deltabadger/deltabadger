@@ -4,12 +4,7 @@ class Bots::DcaIndexes::PickIndicesController < ApplicationController
 
   def new
     session[:bot_config] ||= {}
-    # Load internal indices first (Top Coins), then weighted/popular categories, then by market cap
-    @indices = visible_indices.order(
-      Arel.sql("CASE WHEN source = '#{Index::SOURCE_INTERNAL}' THEN 0 ELSE 1 END"),
-      weight: :desc,
-      market_cap: :desc
-    )
+    @indices = ordered_visible_indices
     @assets_by_coingecko_id = fetch_assets_for_indices(@indices)
   end
 
@@ -37,17 +32,23 @@ class Bots::DcaIndexes::PickIndicesController < ApplicationController
       redirect_to new_bots_dca_indexes_pick_exchange_path
     else
       flash.now[:alert] = t('bot.dca_index.setup.pick_index.error')
-      @indices = Index.order(
-        Arel.sql("CASE WHEN source = '#{Index::SOURCE_INTERNAL}' THEN 0 ELSE 1 END"),
-        weight: :desc,
-        market_cap: :desc
-      )
+      @indices = ordered_visible_indices
       @assets_by_coingecko_id = fetch_assets_for_indices(@indices)
       render :new, status: :unprocessable_entity
     end
   end
 
   private
+
+  # Internal indices first (Top Coins), then weighted/popular categories, then by market cap.
+  # Shared by both #new and the #create invalid-submit re-render so the provider filter can't diverge.
+  def ordered_visible_indices
+    visible_indices.order(
+      Arel.sql("CASE WHEN source = '#{Index::SOURCE_INTERNAL}' THEN 0 ELSE 1 END"),
+      weight: :desc,
+      market_cap: :desc
+    )
+  end
 
   # Deltabadger-sourced indices (e.g. the 'nasdaq-100' stock index) only make sense when the Data API
   # is the provider — the container can't serve them on CoinGecko-direct. Hiding them off-Data-API
