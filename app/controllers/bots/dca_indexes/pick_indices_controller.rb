@@ -5,7 +5,7 @@ class Bots::DcaIndexes::PickIndicesController < ApplicationController
   def new
     session[:bot_config] ||= {}
     # Load internal indices first (Top Coins), then weighted/popular categories, then by market cap
-    @indices = Index.order(
+    @indices = visible_indices.order(
       Arel.sql("CASE WHEN source = '#{Index::SOURCE_INTERNAL}' THEN 0 ELSE 1 END"),
       weight: :desc,
       market_cap: :desc
@@ -48,6 +48,15 @@ class Bots::DcaIndexes::PickIndicesController < ApplicationController
   end
 
   private
+
+  # Deltabadger-sourced indices (e.g. the 'nasdaq-100' stock index) only make sense when the Data API
+  # is the provider — the container can't serve them on CoinGecko-direct. Hiding them off-Data-API
+  # also covers a self-hosted provider switch that could otherwise leave a stale tile behind.
+  def visible_indices
+    return Index.all if MarketDataSettings.deltabadger?
+
+    Index.where.not(source: Index::SOURCE_DELTABADGER)
+  end
 
   def require_market_data_configured
     return if MarketData.configured?

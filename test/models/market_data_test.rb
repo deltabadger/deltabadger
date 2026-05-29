@@ -846,3 +846,68 @@ class MarketDataBackfillCanonicalStockExternalIdsTest < ActiveSupport::TestCase
                  'ambiguous symbol stays as legacy alpaca_<uuid>'
   end
 end
+
+class MarketDataImportIndicesWeightsTest < ActiveSupport::TestCase
+  test 'import_indices! persists the weights map' do
+    MarketData.import_indices!([
+                                 { 'external_id' => 'nasdaq-100', 'source' => 'deltabadger', 'name' => 'Nasdaq 100',
+                                   'top_coins' => %w[AAPL.US MSFT.US], 'weights' => { 'AAPL.US' => 9.12, 'MSFT.US' => 8.41 } }
+                               ])
+
+    index = Index.find_by(external_id: 'nasdaq-100', source: 'deltabadger')
+    assert_equal({ 'AAPL.US' => 9.12, 'MSFT.US' => 8.41 }, index.weights)
+  end
+
+  test 'import_indices! defaults weights to {} when absent (crypto indices)' do
+    MarketData.import_indices!([
+                                 { 'external_id' => 'layer-1', 'source' => 'coingecko', 'name' => 'Layer 1',
+                                   'top_coins' => %w[bitcoin ethereum] }
+                               ])
+
+    assert_equal({}, Index.find_by(external_id: 'layer-1').weights)
+  end
+end
+
+# The one general weight rule (no stock special-case): use Asset.market_cap when known,
+# otherwise the index-provided allocation weight, otherwise skip the member.
+class MarketDataGetTopCoinsWeightRuleTest < ActiveSupport::TestCase
+  setup do
+    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
+  end
+
+  def nasdaq_index(weights:, top_coins: nil)
+    Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER, name: 'Nasdaq 100',
+                  top_coins: top_coins || weights.keys, weights: weights)
+  end
+
+  test 'falls back to the index weight when the asset has no market cap (stocks)' do
+    nasdaq_index(weights: { 'AAPL.US' => 9.0, 'MSFT.US' => 8.0 })
+    create(:asset, external_id: 'AAPL.US', symbol: 'AAPL', market_cap: nil)
+    create(:asset, external_id: 'MSFT.US', symbol: 'MSFT', market_cap: nil)
+
+    result = MarketData.get_top_coins(index_type: 'category', category_id: 'nasdaq-100')
+    assert_predicate result, :success?
+    by_id = result.data.index_by { |c| c['id'] }
+    assert_equal 9.0, by_id['AAPL.US']['market_cap']
+    assert_equal 8.0, by_id['MSFT.US']['market_cap']
+  end
+
+  test 'prefers a real market cap over the provided weight' do
+    nasdaq_index(weights: { 'AAPL.US' => 9.0 })
+    create(:asset, external_id: 'AAPL.US', symbol: 'AAPL', market_cap: 500.0)
+
+    result = MarketData.get_top_coins(index_type: 'category', category_id: 'nasdaq-100')
+    assert_equal 500.0, result.data.find { |c| c['id'] == 'AAPL.US' }['market_cap']
+  end
+
+  test 'skips a member with neither a market cap nor a weight' do
+    nasdaq_index(weights: { 'AAPL.US' => 9.0 }, top_coins: %w[AAPL.US NOWEIGHT.US])
+    create(:asset, external_id: 'AAPL.US', symbol: 'AAPL', market_cap: nil)
+    create(:asset, external_id: 'NOWEIGHT.US', symbol: 'NOW', market_cap: nil)
+
+    result = MarketData.get_top_coins(index_type: 'category', category_id: 'nasdaq-100')
+    ids = result.data.map { |c| c['id'] }
+    assert_includes ids, 'AAPL.US'
+    assert_not_includes ids, 'NOWEIGHT.US'
+  end
+end
