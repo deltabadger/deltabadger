@@ -70,8 +70,10 @@ class Setup::SeedAndSyncJob < ApplicationJob
     result = MarketData.sync_indices!
     Rails.logger.warn "[Setup] Failed to sync indices from market data service: #{result.errors.to_sentence}" if result.failure?
 
-    # Post-incident 2026-05-28: stocks sync is opt-in via AppConfig.set('stock_sync_enabled', 'true')
-    # — setup no longer auto-enqueues. See app/jobs/asset/sync_stocks_from_deltabadger_job.rb.
+    # Stocks out-of-box for new containers. Enqueued async; the job runs the canonical backfill
+    # then the guarded stock/listings sync. Re-enabled after the 2026-05-28 incident now that
+    # data-api is FIGI-canonical; gated by the per-container emergency switch inside the job.
+    Asset::SyncStocksFromDeltabadgerJob.perform_later
   end
 
   def mark_sync_in_progress
