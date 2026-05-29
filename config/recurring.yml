@@ -22,10 +22,13 @@ production:
     class: Exchange::SyncAlpacaAssetsJob
     schedule: "0 3 * * 1"  # At 03:00 UTC on Monday (no-op on hosted; per-user Alpaca sync only)
 
-  # Post-incident 2026-05-28: sync_stocks_from_deltabadger_job removed from recurring schedule.
-  # Re-add only after data-api ensure_identifiers is fixed AND the backfill ambiguity guard
-  # ships in the container. Until then, stock sync is invoked manually per-container after
-  # AppConfig.set('stock_sync_enabled', 'true').
+  # Re-enabled after the 2026-05-28 incident: data-api is FIGI-canonical and the container
+  # backfill ships the ambiguity/defensive-skip guards. Runs after data-api's 07:00 UTC sync
+  # so containers fetch freshly-synced data. Per-container emergency off:
+  # AppConfig.set('stock_sync_enabled', 'false').
+  sync_stocks_from_deltabadger_job:
+    class: Asset::SyncStocksFromDeltabadgerJob
+    schedule: "0 10 * * *"  # Daily at 10:00 UTC (after data-api sync at 07:00)
 
   evaluate_all_rules_job:
     class: Rule::EvaluateAllJob
@@ -64,10 +67,10 @@ development:
     class: Exchange::SyncAlpacaAssetsJob
     schedule: "0 3 * * 1"  # At 03:00 UTC on Monday (no-op on hosted; per-user Alpaca sync only)
 
-  # Post-incident 2026-05-28: sync_stocks_from_deltabadger_job removed from recurring schedule.
-  # Re-add only after data-api ensure_identifiers is fixed AND the backfill ambiguity guard
-  # ships in the container. Until then, stock sync is invoked manually per-container after
-  # AppConfig.set('stock_sync_enabled', 'true').
+  # Re-enabled after the 2026-05-28 incident (see production block above for rationale).
+  sync_stocks_from_deltabadger_job:
+    class: Asset::SyncStocksFromDeltabadgerJob
+    schedule: "0 10 * * *"  # Daily at 10:00 UTC (after data-api sync at 07:00)
 
   evaluate_all_rules_job:
     class: Rule::EvaluateAllJob
