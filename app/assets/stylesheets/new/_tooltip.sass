@@ -98,16 +98,12 @@
     padding: 2rem 3rem 1.5rem 2rem
     // Explicit: inside .ticker-group--many the parent .ticker is `color: transparent`
     // (the overlap effect). The card stays a DOM descendant, so pin its own color.
+    transform: translateY(-3rem)
     color: #fff
     &:popover-open, &.is-open
         display: flex
         opacity: 1
         transform: translateY(0)
-        // entry start state → fade-in + slide down on enter
-        @starting-style
-            &
-                opacity: 0
-                transform: translateY(-3rem)
     &::before
         display: none
     &__col
