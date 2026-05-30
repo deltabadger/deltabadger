@@ -52,7 +52,7 @@
     
   </head>
 
-  <body data-controller="hotwire-animations app-wake" data-locale="<%= I18n.locale %>" <% if content_for?(:hide_chrome) %>class="hide-chrome"<% end %>>
+  <body data-controller="hotwire-animations app-wake ticker-tooltips" data-ticker-tooltips-enabled-value="<%= ticker_tooltips_enabled? %>" data-locale="<%= I18n.locale %>" <% if content_for?(:hide_chrome) %>class="hide-chrome"<% end %>>
 
     <div data-tauri-drag-region class="titlebar-drag-region"></div>
 

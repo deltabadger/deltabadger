@@ -37,6 +37,9 @@ application.register("clipboard", ClipboardController)
 import ClockController from "./clock_controller"
 application.register("clock", ClockController)
 
+import ConversationalSentenceController from "./conversational_sentence_controller"
+application.register("conversational-sentence", ConversationalSentenceController)
+
 import CountdownController from "./countdown_controller"
 application.register("countdown", CountdownController)
 
@@ -109,9 +112,6 @@ application.register("modal--open-and-submit-on-key-press", Modal__OpenAndSubmit
 import NestedLinkInButtonController from "./nested_link_in_button_controller"
 application.register("nested-link-in-button", NestedLinkInButtonController)
 
-import ConversationalSentenceController from "./conversational_sentence_controller"
-application.register("conversational-sentence", ConversationalSentenceController)
-
 import OrderFilterController from "./order_filter_controller"
 application.register("order-filter", OrderFilterController)
 
@@ -135,6 +135,9 @@ application.register("slider", SliderController)
 
 import ThreeDotsController from "./three_dots_controller"
 application.register("three-dots", ThreeDotsController)
+
+import TickerTooltipsController from "./ticker_tooltips_controller"
+application.register("ticker-tooltips", TickerTooltipsController)
 
 import TooltipController from "./tooltip_controller"
 application.register("tooltip", TooltipController)

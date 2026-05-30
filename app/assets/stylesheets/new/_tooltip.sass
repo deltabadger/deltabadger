@@ -74,3 +74,83 @@
     top: calc(100% + 1rem)
     width: 42rem
     left: -19.5rem
+
+// Asset hover-card on .ticker pills. Rendered via the Popover API (top layer), positioned
+// in JS by ticker_tooltips_controller. Reset the UA popover defaults so they don't fight the
+// JS coordinates, and drive visibility off :popover-open (with an .is-open fallback for
+// browsers without the Popover API).
+.tooltip--ticker
+    // reset UA popover chrome
+    background: var(--washed)
+    color: var(--ink) !important
+    display: none
+    opacity: 0
+    transform: translateY(-0.5rem) // also the exit target → fade-out + slide up on leave
+    // animate across the popover display toggle (allow-discrete + @starting-style below)
+    transition: opacity 0.15s ease, transform 0.15s ease, display 0.15s allow-discrete, overlay 0.15s allow-discrete
+    pointer-events: none
+    gap: 2rem
+    border: 1px solid var(--silver)
+    width: max-content
+    max-width: 30rem
+    text-align: left
+    font-weight: 400
+    padding: 2rem 3rem 1.5rem 2rem
+    // Explicit: inside .ticker-group--many the parent .ticker is `color: transparent`
+    // (the overlap effect). The card stays a DOM descendant, so pin its own color.
+    color: #fff
+    &:popover-open, &.is-open
+        display: flex
+        opacity: 1
+        transform: translateY(0)
+        // entry start state → fade-in + slide down on enter
+        @starting-style
+            &
+                opacity: 0
+                transform: translateY(-3rem)
+    &::before
+        display: none
+    &__col
+        display: flex
+        flex-direction: column
+        gap: 1rem
+    &__header
+        display: flex
+        align-items: flex-start
+        line-height: 2rem
+        height: 5rem
+        flex-direction: column
+        justify-content: center
+    &__logo
+        width: 5rem
+        height: 5rem
+        min-width: 5rem
+        border-radius: 50%
+        overflow: hidden // clip the zoomed image to the circular frame
+        display: flex
+        align-items: center
+        justify-content: center
+    &__logo-img
+        width: 100%
+        height: 100%
+        object-fit: contain
+        transform: scale(1.08) // small zoom to crop the logos' weird transparent border
+    &__logo--fallback
+        font-size: 1rem
+        font-weight: 600
+        color: #fff
+        text-transform: uppercase
+    &__name
+        font-weight: 600
+        text-overflow: ellipsis
+        white-space: nowrap
+        overflow: hidden
+        width: 20rem
+    &__symbol, &__info
+        color: var(--stone)
+        font-size: 1.5rem
+    &__symbol
+        text-transform: uppercase
+    &__price
+        color: var(--concrete)   
+        font-weight: 600
