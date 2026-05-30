@@ -7,7 +7,7 @@ module Bots::Searchable
 
   def asset_search_results(bot, query, asset_type)
     offset = params[:offset].to_i
-    all_assets = build_asset_search_results(bot, query, asset_type)
+    all_assets = filtered_asset_rows(bot, query, asset_type)
     page = all_assets[offset, ASSET_PAGE_SIZE] || []
 
     next_offset = offset + ASSET_PAGE_SIZE
@@ -17,7 +17,9 @@ module Bots::Searchable
     end
     @asset_page_offset = offset
 
-    page
+    # Exchanges are display-only, so resolve them for the page rows only — never for the full
+    # (now ~10k-asset) result set. See attach_exchanges.
+    attach_exchanges(page)
   end
 
   def render_asset_page(bot:, asset_field:)
@@ -34,19 +36,40 @@ module Bots::Searchable
     true
   end
 
-  def build_asset_search_results(bot, query, asset_type)
+  # Ranked rows for the FULL result set, without exchange data. Sorting/search use only asset
+  # fields, so we don't pay any cross-exchange cost here — exchanges are attached per page.
+  def filtered_asset_rows(bot, query, asset_type)
     available_assets = bot.available_assets_for_current_settings(asset_type: asset_type)
-    filtered_assets = filter_assets_by_query(assets: available_assets, query: query)
-                      .pluck(:id, :symbol, :name, :color, :category)
-                      .reject { |_, symbol, _| symbol.blank? }
-    exchanges_data = Exchange.available.each_with_object([]) do |exchange, list|
-      assets = exchange.exchange_assets.available.pluck(:asset_id)
-      list << [exchange.name_id, exchange.name, assets] if assets.any?
+    filter_assets_by_query(assets: available_assets, query: query)
+      .pluck(:id, :symbol, :name, :color, :category)
+      .reject { |_, symbol, _| symbol.blank? }
+  end
+
+  # Resolve the exchanges each row trades on, for the (≤ ASSET_PAGE_SIZE) page rows ONLY.
+  # Same source as before — exchange_assets.available + Exchange.available — so output is
+  # identical, but membership is a scoped `WHERE asset_id IN (…page ids)` instead of an
+  # O(assets × Σ exchange_assets) Array#include? over every asset. binance_name is derived
+  # independently of the page (Binance available + has assets), so the binance_us → binance
+  # collapse still applies on pages that contain no Binance asset.
+  def attach_exchanges(rows)
+    return rows if rows.empty?
+
+    ids = rows.map(&:first)
+    available_exchanges = Exchange.available.index_by(&:id)
+    exchanges_by_asset = Hash.new { |hash, key| hash[key] = [] }
+    ExchangeAsset.available
+                 .where(asset_id: ids, exchange_id: available_exchanges.keys)
+                 .pluck(:asset_id, :exchange_id)
+                 .each do |asset_id, exchange_id|
+      exchange = available_exchanges[exchange_id]
+      exchanges_by_asset[asset_id] << [exchange.name_id, exchange.name] if exchange
     end
-    binance_name = exchanges_data.find { |name_id, _, _| name_id == 'binance' }&.second
-    filtered_assets.map do |id, symbol, name, color, category|
-      exchanges = exchanges_data.select { |_, _, assets| assets.include?(id) }
-      [id, symbol, name, color, category, parse_exchanges(exchanges, binance_name)]
+
+    binance = available_exchanges.values.find { |exchange| exchange.name_id == 'binance' }
+    binance_name = binance.name if binance && ExchangeAsset.available.where(exchange_id: binance.id).exists?
+
+    rows.map do |id, symbol, name, color, category|
+      [id, symbol, name, color, category, parse_exchanges(exchanges_by_asset[id], binance_name)]
     end
   end
 
