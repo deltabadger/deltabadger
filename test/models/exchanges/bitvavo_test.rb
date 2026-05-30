@@ -76,4 +76,120 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal false, result.data
   end
+
+  # == get_tickers_info decimal mapping ==
+  # Bitvavo deprecated pricePrecision (now null for all markets). Price precision
+  # is governed by tickSize (always a power of ten), base/quote amounts by
+  # quantityDecimals/notionalDecimals.
+
+  test 'get_tickers_info maps decimals from tickSize/quantityDecimals/notionalDecimals' do
+    product = {
+      'market' => 'BTC-EUR', 'status' => 'trading', 'orderTypes' => %w[market limit],
+      'minOrderInBaseAsset' => '0.0001', 'minOrderInQuoteAsset' => '5',
+      'pricePrecision' => nil, 'tickSize' => '1.00',
+      'quantityDecimals' => 8, 'notionalDecimals' => 2
+    }
+    Honeymaker::Clients::Bitvavo.any_instance.stubs(:get_markets).returns(Result::Success.new([product]))
+
+    info = @exchange.get_tickers_info(force: true).data.first
+    assert_equal 'BTC-EUR', info[:ticker]
+    assert_equal 8, info[:base_decimals]
+    assert_equal 2, info[:quote_decimals]
+    assert_equal 0, info[:price_decimals] # tickSize "1.00" -> whole-number prices
+  end
+
+  test 'get_tickers_info derives price_decimals from a fractional tickSize' do
+    product = {
+      'market' => 'ADA-EUR', 'status' => 'trading', 'orderTypes' => %w[market limit],
+      'minOrderInBaseAsset' => '0.1', 'minOrderInQuoteAsset' => '5',
+      'pricePrecision' => nil, 'tickSize' => '0.0000100',
+      'quantityDecimals' => 6, 'notionalDecimals' => 2
+    }
+    Honeymaker::Clients::Bitvavo.any_instance.stubs(:get_markets).returns(Result::Success.new([product]))
+
+    info = @exchange.get_tickers_info(force: true).data.first
+    assert_equal 5, info[:price_decimals] # decimals("0.0000100") == 5
+    assert_equal 6, info[:base_decimals]
+    assert_equal 2, info[:quote_decimals]
+  end
+
+  test 'get_tickers_info falls back to 8 decimals when quantity/notional fields are absent' do
+    product = {
+      'market' => 'NEW-EUR', 'status' => 'trading', 'orderTypes' => %w[limit],
+      'minOrderInBaseAsset' => '0.1', 'minOrderInQuoteAsset' => '5',
+      'pricePrecision' => nil, 'tickSize' => '0.01'
+    }
+    Honeymaker::Clients::Bitvavo.any_instance.stubs(:get_markets).returns(Result::Success.new([product]))
+
+    info = @exchange.get_tickers_info(force: true).data.first
+    assert_equal 8, info[:base_decimals]
+    assert_equal 8, info[:quote_decimals]
+    assert_equal 2, info[:price_decimals] # decimals("0.01") == 2
+  end
+
+  # == set_limit_order sends a tick-valid price ==
+  # set_limit_order is unchanged; these confirm the corrected price_decimals
+  # flows through Ticker#adjusted_price into the outgoing place_order payload.
+
+  test 'set_limit_order floors the outgoing price onto a whole-number tick grid (buy)' do
+    ticker = create(:ticker, exchange: @exchange, price_decimals: 0)
+    client = @exchange.send(:client)
+    captured = {}
+    client.define_singleton_method(:place_order) do |**kwargs|
+      captured.merge!(kwargs)
+      Result::Success.new('orderId' => 'order-buy')
+    end
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: BigDecimal('0.5'),
+                                       amount_type: :base, side: :buy, price: BigDecimal('95234.56'))
+    end
+
+    assert_predicate result, :success?
+    assert_equal '95234.0', captured[:price] # tickSize 1.00 -> whole-number price (BigDecimal renders one trailing zero)
+  end
+
+  test 'set_limit_order floors the outgoing price to price_decimals (sell)' do
+    ticker = create(:ticker, exchange: @exchange, price_decimals: 5)
+    client = @exchange.send(:client)
+    captured = {}
+    client.define_singleton_method(:place_order) do |**kwargs|
+      captured.merge!(kwargs)
+      Result::Success.new('orderId' => 'order-sell')
+    end
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: BigDecimal('1.0'),
+                                       amount_type: :base, side: :sell, price: BigDecimal('1.234567'))
+    end
+
+    assert_predicate result, :success?
+    assert_equal '1.23456', captured[:price]
+  end
+
+  # == get_ledger uses get_raw_balance (not the nonexistent get_balance) ==
+
+  test 'get_ledger discovers markets via get_raw_balance and parses trades' do
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'k', secret: 's')
+    client_class = Honeymaker::Clients::Bitvavo
+
+    client_class.any_instance.stubs(:get_raw_balance).returns(
+      Result::Success.new([{ 'symbol' => 'BTC', 'available' => '0.5', 'inOrder' => '0' }])
+    )
+    client_class.any_instance.stubs(:get_markets).returns(
+      Result::Success.new([{ 'market' => 'BTC-EUR', 'base' => 'BTC', 'quote' => 'EUR' }])
+    )
+    client_class.any_instance.stubs(:get_trades).returns(
+      Result::Success.new([{ 'side' => 'buy', 'amount' => '0.1', 'price' => '50000',
+                             'feeCurrency' => 'EUR', 'fee' => '0.5', 'id' => 't1',
+                             'timestamp' => 1_700_000_000_000 }])
+    )
+    client_class.any_instance.stubs(:get_deposit_history).returns(Result::Success.new([]))
+    client_class.any_instance.stubs(:get_withdrawal_history).returns(Result::Success.new([]))
+
+    result = nil
+    assert_nothing_raised { result = @exchange.get_ledger(api_key: api_key) }
+    assert_predicate result, :success?
+    assert(result.data.any? { |e| e[:entry_type] == :buy && e[:base_currency] == 'BTC' })
+  end
 end
