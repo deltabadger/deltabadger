@@ -20,14 +20,16 @@ class Bots::DcaIndexes::PickIndicesController < ApplicationController
       session[:bot_config]['settings'].merge!({
                                                 'index_type' => Bots::DcaIndex::INDEX_TYPE_TOP,
                                                 'index_category_id' => nil,
-                                                'index_name' => nil
+                                                'index_name' => nil,
+                                                'index_name_prefix' => nil
                                               })
       redirect_to new_bots_dca_indexes_pick_exchange_path
     elsif index_type == Bots::DcaIndex::INDEX_TYPE_CATEGORY && index_category_id.present?
       session[:bot_config]['settings'].merge!({
                                                 'index_type' => Bots::DcaIndex::INDEX_TYPE_CATEGORY,
                                                 'index_category_id' => index_category_id,
-                                                'index_name' => index_name
+                                                'index_name' => index_name,
+                                                'index_name_prefix' => Bots::DcaIndex::COUNT_NAMED_INDEX_PREFIXES[index_category_id]
                                               })
       redirect_to new_bots_dca_indexes_pick_exchange_path
     else
@@ -40,11 +42,17 @@ class Bots::DcaIndexes::PickIndicesController < ApplicationController
 
   private
 
-  # Internal indices first (Top Coins), then weighted/popular categories, then by market cap.
-  # Shared by both #new and the #create invalid-submit re-render so the provider filter can't diverge.
+  # Stock (deltabadger-sourced) indices first, then internal Top Coins, then coingecko categories;
+  # within each group by weight desc, then market cap. Shared by both #new and the #create
+  # invalid-submit re-render so the provider filter / ordering can't diverge.
   def ordered_visible_indices
     visible_indices.order(
-      Arel.sql("CASE WHEN source = '#{Index::SOURCE_INTERNAL}' THEN 0 ELSE 1 END"),
+      Arel.sql(
+        'CASE source ' \
+        "WHEN '#{Index::SOURCE_DELTABADGER}' THEN 0 " \
+        "WHEN '#{Index::SOURCE_INTERNAL}' THEN 1 " \
+        'ELSE 2 END'
+      ),
       weight: :desc,
       market_cap: :desc
     )

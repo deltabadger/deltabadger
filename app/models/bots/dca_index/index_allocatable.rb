@@ -60,8 +60,19 @@ module Bots::DcaIndex::IndexAllocatable
   private
 
   def initialize_index_allocatable_settings
-    self.num_coins ||= 10
+    self.num_coins ||= default_num_coins
     self.allocation_flattening ||= 0.0
+  end
+
+  # A bounded (deltabadger-sourced) index starts the bot at its full universe — the user
+  # then trims down with the slider (e.g. Nasdaq 20 → "Nasdaq 7"). Crypto/category indices
+  # keep the standard starting count. Only evaluated when num_coins is unset (new bots), so
+  # no extra query on persisted-bot loads.
+  def default_num_coins
+    idx = current_index
+    return [idx.top_coins.size, Bots::DcaIndex::MAX_COINS].min if idx&.source == Index::SOURCE_DELTABADGER && idx.top_coins.present?
+
+    10
   end
 
   def fetch_top_coins_with_allocations
