@@ -9,6 +9,15 @@ module ApplicationHelper
   end
 
   def ticker_class(asset)
-    asset&.category == 'Stock' ? 'ticker ticker--stock' : 'ticker'
+    ticker_class_for(category: asset&.category, color: asset&.color)
+  end
+
+  # A stock with a real (data-API) color renders like any colored ticker; only a colorless
+  # stock keeps the distinct open-source fallback styling (.ticker--stock). Takes the RAW
+  # persisted color (nullable) — never a fallback — so "has a real color" stays distinguishable.
+  def ticker_class_for(category:, color:)
+    return 'ticker' if color.present?
+
+    category == 'Stock' ? 'ticker ticker--stock' : 'ticker'
   end
 end
