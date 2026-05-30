@@ -83,4 +83,44 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal false, result.data
   end
+
+  # == order-placement response parsing (Bug C) ==
+  # Honeymaker's client#new_order returns { order_id: "<id>", raw: {...} } (symbol keys).
+  # set_limit_order/set_market_order must read result.data[:order_id], not the string 'order_id'
+  # (which raised KeyError on a successful order).
+
+  test 'set_limit_order returns the order_id from the new_order result' do
+    ticker = create(:ticker, exchange: @exchange)
+    @exchange.set_client(api_key: nil)
+    client = @exchange.instance_variable_get(:@client)
+    client.define_singleton_method(:new_order) do |**_kwargs|
+      Result::Success.new(order_id: '12345', raw: { 'order_id' => '12345' })
+    end
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: BigDecimal('1'),
+                                       amount_type: :base, side: :buy, price: BigDecimal('100'))
+    end
+
+    assert_predicate result, :success?
+    assert_equal '12345', result.data[:order_id]
+  end
+
+  test 'set_market_order returns the order_id from the new_order result' do
+    ticker = create(:ticker, exchange: @exchange)
+    @exchange.stubs(:get_ask_price).returns(Result::Success.new(BigDecimal('100')))
+    @exchange.set_client(api_key: nil)
+    client = @exchange.instance_variable_get(:@client)
+    client.define_singleton_method(:new_order) do |**_kwargs|
+      Result::Success.new(order_id: '12345', raw: { 'order_id' => '12345' })
+    end
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_market_order, ticker: ticker, amount: BigDecimal('1'),
+                                        amount_type: :base, side: :buy)
+    end
+
+    assert_predicate result, :success?
+    assert_equal '12345', result.data[:order_id]
+  end
 end
