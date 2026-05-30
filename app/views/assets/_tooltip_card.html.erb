@@ -1,0 +1,26 @@
+<%# Asset hover-card injected into the shared popover by ticker_tooltips_controller. %>
+<% bg = ensure_contrast(asset.color || "#8A9BA8") %>
+<div class="tooltip--ticker__col">
+  <% if asset.image_url.present? %>
+    <span class="tooltip--ticker__logo">
+      <img class="tooltip--ticker__logo-img" src="<%= asset.image_url %>" alt="" loading="lazy">
+    </span>
+  <% else %>
+    <span class="tooltip--ticker__logo tooltip--ticker__logo--fallback" style="background: <%= bg %>"><%= asset.symbol.to_s[0, 2].upcase %></span>
+  <% end %>
+</div>
+<div class="tooltip--ticker__col">
+  <div class="tooltip--ticker__header">
+    <span class="tooltip--ticker__name"><%= asset.name %></span>
+    <div>
+      <span class="tooltip--ticker__symbol"><%= asset.symbol %></span>
+      <% if (label = asset_type_label(asset.category)) %>
+        <span class="tooltip--ticker__info"><%= label %></span>
+      <% end %>
+    </div>
+  </div>
+
+  <% if price %>
+    <span class="tooltip--ticker__price"><%= price %></span>
+  <% end %>
+</div>

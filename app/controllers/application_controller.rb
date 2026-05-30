@@ -5,12 +5,18 @@ class ApplicationController < ActionController::Base
   before_action :set_no_cache, if: :user_signed_in?
   around_action :switch_locale
 
-  helper_method :single_bot_mode?
+  helper_method :single_bot_mode?, :ticker_tooltips_enabled?
 
   def single_bot_mode?
     return @single_bot_mode if defined?(@single_bot_mode)
 
     @single_bot_mode = user_signed_in? && current_user.bots.not_deleted.size == 1
+  end
+
+  # The .ticker hover-card needs the data API for its data; always on in development so it
+  # can be built/styled without a data API connection.
+  def ticker_tooltips_enabled?
+    MarketDataSettings.deltabadger? || Rails.env.development?
   end
 
   def switch_locale(&action)

@@ -28,4 +28,25 @@ class ApplicationHelperTest < ActionView::TestCase
     crypto = build(:asset, category: 'Cryptocurrency', color: nil)
     assert_equal 'ticker', ticker_class(crypto)
   end
+
+  # --- asset_type_label: the tooltip hover-card's info line --------------------
+  # Maps the asset category to a friendly type label; returns nil for unknown/blank so
+  # the info line is omitted rather than mislabeled (single swappable field for a future
+  # real description).
+
+  test 'asset_type_label maps known categories to friendly labels' do
+    assert_equal 'Crypto', asset_type_label('Cryptocurrency')
+    assert_equal 'Stock', asset_type_label('Stock')
+    assert_equal 'Stock', asset_type_label('Common Stock')
+    assert_equal 'ETF', asset_type_label('ETF')
+    assert_equal 'Fund', asset_type_label('Fund')
+    assert_equal 'Cash', asset_type_label('Fiat')
+    assert_equal 'Cash', asset_type_label('Currency')
+  end
+
+  test 'asset_type_label returns nil for unknown or blank categories' do
+    assert_nil asset_type_label('Something Weird')
+    assert_nil asset_type_label(nil)
+    assert_nil asset_type_label('')
+  end
 end
