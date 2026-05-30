@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Deltabadger",
-  "version": "2.14.3",
+  "version": "2.14.4",
   "identifier": "com.deltabadger.app",
   "build": {
     "beforeDevCommand": "",
