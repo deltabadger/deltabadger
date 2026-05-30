@@ -429,7 +429,7 @@ class Exchanges::Gemini < Exchange
     )
     return result if result.failure?
 
-    order_id = Utilities::Hash.dig_or_raise(result.data, 'order_id').to_s
+    order_id = Utilities::Hash.dig_or_raise(result.data, :order_id).to_s
 
     Result::Success.new({ order_id: order_id })
   end
@@ -451,7 +451,7 @@ class Exchanges::Gemini < Exchange
     )
     return result if result.failure?
 
-    order_id = Utilities::Hash.dig_or_raise(result.data, 'order_id').to_s
+    order_id = Utilities::Hash.dig_or_raise(result.data, :order_id).to_s
 
     Result::Success.new({ order_id: order_id })
   end
