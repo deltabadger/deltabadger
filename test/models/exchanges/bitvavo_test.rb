@@ -137,7 +137,7 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     captured = {}
     client.define_singleton_method(:place_order) do |**kwargs|
       captured.merge!(kwargs)
-      Result::Success.new('orderId' => 'order-buy')
+      Result::Success.new(order_id: "#{kwargs[:market]}-abc123", raw: { 'orderId' => 'abc123', 'market' => kwargs[:market] })
     end
 
     result = with_dry_run(false) do
@@ -147,6 +147,7 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
 
     assert_predicate result, :success?
     assert_equal '95234.0', captured[:price] # tickSize 1.00 -> whole-number price (BigDecimal renders one trailing zero)
+    assert_equal "#{ticker.ticker}-abc123", result.data[:order_id]
   end
 
   test 'set_limit_order floors the outgoing price to price_decimals (sell)' do
@@ -155,7 +156,7 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     captured = {}
     client.define_singleton_method(:place_order) do |**kwargs|
       captured.merge!(kwargs)
-      Result::Success.new('orderId' => 'order-sell')
+      Result::Success.new(order_id: "#{kwargs[:market]}-abc123", raw: { 'orderId' => 'abc123', 'market' => kwargs[:market] })
     end
 
     result = with_dry_run(false) do
@@ -165,6 +166,31 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
 
     assert_predicate result, :success?
     assert_equal '1.23456', captured[:price]
+    assert_equal "#{ticker.ticker}-abc123", result.data[:order_id]
+  end
+
+  # == order-placement response parsing (Bug C) ==
+  # Honeymaker's client#place_order returns { order_id: "MARKET-<id>", raw: {...} }
+  # (symbol keys). set_limit_order/set_market_order must read result.data[:order_id],
+  # not dig_or_raise(result.data, 'orderId') which raised KeyError on success.
+
+  test 'set_market_order returns the order_id from the place_order result' do
+    ticker = create(:ticker, exchange: @exchange)
+    client = @exchange.send(:client)
+    captured = {}
+    client.define_singleton_method(:place_order) do |**kwargs|
+      captured.merge!(kwargs)
+      Result::Success.new(order_id: "#{kwargs[:market]}-abc123", raw: { 'orderId' => 'abc123', 'market' => kwargs[:market] })
+    end
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_market_order, ticker: ticker, amount: BigDecimal('25'),
+                                        amount_type: :quote, side: :buy)
+    end
+
+    assert_predicate result, :success?
+    assert_equal 'market', captured[:order_type]
+    assert_equal "#{ticker.ticker}-abc123", result.data[:order_id]
   end
 
   # == get_ledger uses get_raw_balance (not the nonexistent get_balance) ==

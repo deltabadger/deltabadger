@@ -447,9 +447,9 @@ class Exchanges::Bitvavo < Exchange
     result = client.place_order(**order_settings)
     return result if result.failure?
 
-    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'orderId')
+    # Honeymaker's client#place_order returns { order_id: "MARKET-<id>", raw: {...} }
     data = {
-      order_id: "#{ticker.ticker}-#{ext_order_id}"
+      order_id: Utilities::Hash.dig_or_raise(result.data, :order_id)
     }
 
     Result::Success.new(data)
@@ -473,9 +473,9 @@ class Exchanges::Bitvavo < Exchange
     result = client.place_order(**order_settings)
     return result if result.failure?
 
-    ext_order_id = Utilities::Hash.dig_or_raise(result.data, 'orderId')
+    # Honeymaker's client#place_order returns { order_id: "MARKET-<id>", raw: {...} }
     data = {
-      order_id: "#{ticker.ticker}-#{ext_order_id}"
+      order_id: Utilities::Hash.dig_or_raise(result.data, :order_id)
     }
 
     Result::Success.new(data)
