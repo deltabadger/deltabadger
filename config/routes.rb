@@ -86,6 +86,13 @@ Rails.application.routes.draw do
     end
 
     resources :rules, only: [:index]
+
+    # Hover-card for any .ticker pill: resolves the pill's symbol to an asset and renders
+    # the card (logo, name, type, price). Driven globally by ticker_tooltips_controller.
+    # NB: kept off the `/assets` prefix — that collides with config.assets.prefix and the
+    # web server serves `/assets/*` as static files, so it would never reach Rails.
+    get 'asset_tooltip', to: 'assets#tooltip', as: :asset_tooltip
+
     namespace :rules do
       namespace :withdrawals do
         resource :pick_asset, only: %i[new create]

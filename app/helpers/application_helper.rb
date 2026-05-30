@@ -20,4 +20,21 @@ module ApplicationHelper
 
     category == 'Stock' ? 'ticker ticker--stock' : 'ticker'
   end
+
+  # Friendly asset-type label for the tooltip info line. Returns nil for unknown/blank
+  # categories so the info line is omitted rather than mislabeled. Single swappable field:
+  # a real per-asset description can replace this later without touching the frontend.
+  TICKER_TYPE_LABELS = {
+    'Cryptocurrency' => 'Crypto',
+    'Stock' => 'Stock',
+    'Common Stock' => 'Stock',
+    'ETF' => 'ETF',
+    'Fund' => 'Fund',
+    'Fiat' => 'Cash',
+    'Currency' => 'Cash'
+  }.freeze
+
+  def asset_type_label(category)
+    TICKER_TYPE_LABELS[category.to_s]
+  end
 end
