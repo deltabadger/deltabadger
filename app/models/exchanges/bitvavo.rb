@@ -48,9 +48,9 @@ class Exchanges::Bitvavo < Exchange
           minimum_quote_size: product['minOrderInQuoteAsset'].to_d,
           maximum_base_size: nil,
           maximum_quote_size: nil,
-          base_decimals: Utilities::Hash.dig_or_raise(product, 'orderTypes').include?('market') ? (product['pricePrecision'] || 8) : 8,
-          quote_decimals: product['pricePrecision'] || 8,
-          price_decimals: product['pricePrecision'] || 8,
+          base_decimals: product['quantityDecimals'] || 8,
+          quote_decimals: product['notionalDecimals'] || 8,
+          price_decimals: Utilities::Number.decimals(Utilities::Hash.dig_or_raise(product, 'tickSize')),
           available: true,
           trading_enabled: status == 'trading'
         }
@@ -337,7 +337,7 @@ class Exchanges::Bitvavo < Exchange
 
     # Discover coins from balances, then query trades per market
     coins = Set.new
-    bal_result = hm_client.get_balance
+    bal_result = hm_client.get_raw_balance
     if bal_result.success?
       Array(bal_result.data).each { |b| coins << b['symbol'] if b['available'].to_d.positive? || b['inOrder'].to_d.positive? }
     end
