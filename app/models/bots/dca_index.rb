@@ -7,6 +7,14 @@ class Bots::DcaIndex < Bot
   INDEX_TYPE_TOP = 'top'.freeze
   INDEX_TYPE_CATEGORY = 'category'.freeze
 
+  # "Count-named" indices show as "{prefix} {num_coins}" on the user's bot (e.g. a Nasdaq bot
+  # trimmed to 7 reads "Nasdaq 7"), while the picker tile shows the full "{prefix} {TOP_N}".
+  # Explicit per index_category_id so a thematic index (S&P 500, Layer 1) never degrades to
+  # "S&P {num_coins}". Add an entry only for indices that are genuinely top-N ranked.
+  COUNT_NAMED_INDEX_PREFIXES = {
+    'nasdaq-100' => 'Nasdaq'
+  }.freeze
+
   store_accessor :settings,
                  :quote_asset_id,
                  :quote_amount,
@@ -15,7 +23,8 @@ class Bots::DcaIndex < Bot
                  :allocation_flattening,
                  :index_type,        # 'top' or 'category'
                  :index_category_id, # CoinGecko category ID (when index_type is 'category')
-                 :index_name         # Cached display name for the index
+                 :index_name,        # Cached display name for the index
+                 :index_name_prefix  # Count-named label (e.g. "Nasdaq") → "{prefix} {num_coins}"
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }
   validates :num_coins, presence: true, numericality: { greater_than_or_equal_to: MIN_COINS, less_than_or_equal_to: MAX_COINS }
@@ -29,6 +38,7 @@ class Bots::DcaIndex < Bot
   validate :validate_unchangeable_index, on: :update
   validate :validate_market_data_configured, on: :start
 
+  before_validation :clamp_num_coins_to_bounded_index
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
 
   # Trading condition concerns (only SmartIntervalable and LimitOrderable for Index bot)
@@ -292,6 +302,7 @@ class Bots::DcaIndex < Bot
   end
 
   def display_index_name
+    return "#{index_name_prefix} #{num_coins}" if index_name_prefix.present? && num_coins.present?
     return index_name if index_name.present?
 
     if index_type == INDEX_TYPE_TOP || index_type.blank?
@@ -316,6 +327,19 @@ class Bots::DcaIndex < Bot
   end
 
   private
+
+  # Server-authoritative cap: a bounded (deltabadger-sourced) index publishes its full
+  # universe in top_coins, so num_coins can never exceed it. Runs before validation and
+  # before display_index_name, so neither a save nor the bot name can show "Nasdaq 50".
+  # Crypto "Top"/coingecko categories are not bounded this way and are left untouched.
+  def clamp_num_coins_to_bounded_index
+    return if num_coins.blank?
+
+    idx = current_index
+    return unless idx&.source == Index::SOURCE_DELTABADGER && idx.top_coins.present?
+
+    self.num_coins = idx.top_coins.size if num_coins.to_i > idx.top_coins.size
+  end
 
   def validate_external_ids
     errors.add(:quote_asset_id, :invalid) unless Asset.exists?(quote_asset_id)

@@ -43,7 +43,7 @@ class Bots::DcaIndexes::PickSpendableAssetsController < ApplicationController
     session[:bot_config]['settings'] ||= {}
     session[:bot_config]['settings']['quote_amount']         ||= 100
     session[:bot_config]['settings']['interval']             ||= 'week'
-    session[:bot_config]['settings']['num_coins']            ||= 10
+    # num_coins default is owned by the model (index-aware: a bounded index starts at full size).
     session[:bot_config]['settings']['allocation_flattening'] ||= 0.0
     @bot = current_user.bots.dca_index.new(sanitized_bot_config.deep_symbolize_keys)
     @bot.set_missed_quote_amount
