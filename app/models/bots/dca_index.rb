@@ -293,6 +293,7 @@ class Bots::DcaIndex < Bot
         symbol: ticker.base_asset.symbol,
         name: ticker.base_asset.name,
         color: ticker.base_asset.color,
+        logo: ticker.base_asset.image_url,
         market_cap: coin['market_cap'].to_f,
         rank: preview.size + 1
       }
