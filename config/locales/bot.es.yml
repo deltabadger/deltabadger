@@ -22,6 +22,7 @@ es:
                     error: "Por favor, selecciona un índice"
             num_coins: "Número de monedas"
             allocation_flattening: "Aplanamiento de asignación"
+            other: "Otros"
             into_index: "en %{index_name}"
             into: en
             index_preview: "Vista Previa del Índice"

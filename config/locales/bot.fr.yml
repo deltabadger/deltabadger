@@ -22,6 +22,7 @@ fr:
                     error: "Veuillez sélectionner un indice"
             num_coins: "Nombre de cryptomonnaies"
             allocation_flattening: "Aplatissement de l'allocation"
+            other: "Autres"
             into_index: "dans %{index_name}"
             into: dans
             index_preview: "Aperçu de l'Indice"

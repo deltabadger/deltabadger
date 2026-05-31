@@ -20,6 +20,7 @@ de:
                     error: "Bitte wähle einen Index"
             num_coins: "Anzahl der Coins"
             allocation_flattening: "Allokationsabflachung"
+            other: "Andere"
             into_index: "in %{index_name}"
             into: in
             index_preview: "Index-Vorschau"

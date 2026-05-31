@@ -20,6 +20,7 @@ en:
                     error: "Please select an index"
             num_coins: "Number of coins"
             allocation_flattening: "Allocation flattening"
+            other: "Other"
             into_index: "into %{index_name}"
             into: into
             index_preview: "Index Preview"

@@ -22,6 +22,7 @@ pl:
                     error: "Proszę wybrać indeks"
             num_coins: "Liczba monet"
             allocation_flattening: "Wyrównanie alokacji"
+            other: "Pozostałe"
             into_index: "w %{index_name}"
             into: w
             index_preview: "Podgląd Indeksu"
