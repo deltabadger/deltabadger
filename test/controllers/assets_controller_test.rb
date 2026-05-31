@@ -10,7 +10,6 @@ class AssetsControllerTest < ActionDispatch::IntegrationTest
     @user = create(:user, setup_completed: true)
     sign_in @user
     create(:asset, :bitcoin, image_url: 'https://img/btc.png')
-    MarketDataSettings.stubs(:deltabadger?).returns(true)
   end
 
   test 'renders the asset card for a known symbol' do
@@ -65,13 +64,13 @@ class AssetsControllerTest < ActionDispatch::IntegrationTest
     assert_includes response.body, 'Bitcoin'
   end
 
-  test 'is inert (404) when the data API is not connected' do
-    MarketDataSettings.unstub(:deltabadger?)
-    MarketDataSettings.stubs(:deltabadger?).returns(false)
+  test 'renders the card even with no market data provider (no data-API gate)' do
+    Asset.any_instance.stubs(:get_price).returns(Result::Failure.new('No market data provider configured'))
 
     get asset_tooltip_path(symbol: 'BTC')
 
-    assert_response :not_found
+    assert_response :ok
+    assert_includes response.body, 'Bitcoin'
   end
 
   test 'returns 404 for an unknown symbol' do

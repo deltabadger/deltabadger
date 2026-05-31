@@ -5,15 +5,12 @@ import { Controller } from "@hotwired/stimulus";
 // wiring. A pill only carries its symbol text, so the server resolves that to an asset and
 // returns the card HTML. One shared popover element (top layer) is reused for all pills —
 // it escapes the pill's overflow:hidden and any transformed/clipping ancestor (e.g. the
-// asset-picker modal). Inert unless the data API is connected.
+// asset-picker modal). Card data (logo/name/symbol/type/price) comes from whatever market
+// data provider is configured (data API or CoinGecko), so it needs no gating.
 const CARD_CACHE = new Map();
 
 export default class extends Controller {
-  static values = { enabled: Boolean };
-
   connect() {
-    if (!this.enabledValue) return;
-
     this.tooltip = this.#buildTooltip();
     this.onOver = this.#onOver.bind(this);
     this.onOut = this.#onOut.bind(this);
@@ -46,7 +43,7 @@ export default class extends Controller {
   }
 
   #reveal(pill) {
-    const symbol = (pill.dataset.tickerSymbol || pill.textContent || "").trim();
+    const symbol = this.#symbolFor(pill);
     if (!symbol) return;
 
     this.#loadCard(symbol).then((html) => {
@@ -57,11 +54,17 @@ export default class extends Controller {
     });
   }
 
-  // Skip pills that aren't an asset symbol: the "+N" badge, editable inputs, and empties.
+  // Skip pills that aren't a resolvable asset: the "+N" badge, EDITABLE controls (search/amount
+  // fields), and empties. A readonly input (e.g. the wizard's filled chip) IS an asset display.
   #eligible(pill) {
     if (pill.classList.contains("ticker--more")) return false;
-    if (pill.querySelector("input, select")) return false;
-    return (pill.dataset.tickerSymbol || pill.textContent || "").trim().length > 0;
+    if (pill.querySelector("input:not([readonly]), select, textarea")) return false;
+    return this.#symbolFor(pill).length > 0;
+  }
+
+  // The symbol may live in the pill's text or in a readonly input's value (wizard chips).
+  #symbolFor(pill) {
+    return (pill.dataset.tickerSymbol || pill.textContent || pill.querySelector("input")?.value || "").trim();
   }
 
   #loadCard(symbol) {

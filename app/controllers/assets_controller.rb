@@ -2,12 +2,10 @@ class AssetsController < ApplicationController
   before_action :authenticate_user!
 
   # Hover-card for any .ticker pill. The pill only carries its symbol, so we resolve that to
-  # an asset (best match by market cap) and render the card. Inert unless the data API is
-  # connected; fail-soft on price — a non-crypto asset or a flaky upstream yields no price,
-  # never a 500.
+  # an asset (best match by market cap) and render the card. Card data comes from whatever
+  # market data provider is configured (data API or CoinGecko); fail-soft on price — a
+  # non-crypto asset, an unconfigured provider, or a flaky upstream yields no price, never a 500.
   def tooltip
-    return head :not_found unless ticker_tooltips_enabled?
-
     symbol = params[:symbol].to_s.strip
     return head :not_found if symbol.blank?
 
