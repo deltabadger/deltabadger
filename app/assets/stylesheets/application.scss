@@ -3,7 +3,6 @@
 @use "variables";
 
 @use "new/reset";
-@use "new/variables" as new-variables;
 
 @use "mixins";
 @use "styles";
@@ -56,6 +55,5 @@
 @use "animations-order";
 
 @use "new2/tauri";
-
 
 

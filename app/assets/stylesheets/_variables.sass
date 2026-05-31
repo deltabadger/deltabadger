@@ -1,5 +1,3 @@
-@use "sass:color"
-
 // Font: Montserrat (default)
 @font-face
   font-family: 'Montserrat'
@@ -35,232 +33,151 @@
 
 \:root
   --font-family: 'Montserrat', sans-serif
+  --ui-height: 6rem
+  --ui-height-xl: 7rem
+  --ui-padding: 2rem
+  --ui-radius: 1.25rem
   font-size: 8px
   font-family: var(--font-family)
+
+  @media (min-width: 768px)
+    --ui-padding: 3rem
 
 [data-locale="el"]
   --font-family: 'Google Sans', sans-serif
 
-\:root
-  --ui-padding: 2rem
-  @media (min-width: 768px)
-    --ui-padding: 3rem
-
-\:root
-  --link:                     #00f
-  --focus:                    #00f
-  --inputTextFocus:           #0D223F
-  --autocomplete:             #cde
-  --inactive:                 #abc
-  --linkInactive:             #abc
-  --navbarLink:               #00f
-  --navMenuFill:              #abc
-  --navbarMenuLink:           #fff
-  --botModalBackground:       rgba(255,255,255,.85)
-  --alertPrimaryTxt:          #122352
-  --alertPrimaryBg:           #d3d9ec
-  --alertPrimaryBorder:       #c1cae4
-  --pickExchangeItemBg:       #dbe4f0
-  --pickExchangeItemTxt:      #00f
-  --pickExchangeItemInactive: #abc
-  --pickExchangeItemSelect:   #fff
-  --headerHome:               #fff
-  --headerDevise:             #00f
-  --textPageBg:               #fff
-  --planBorder:               #dbe0e8
-  --planBg:                   #fff
-  --planBadge:                #d3d9ec
-  --planSelectedBorder:       #00f
-  --planSelectedBg:           #00f
-  --planSelectedBadge:        #00b186
-  --planSelectedTxt:          #fff
-  --boxBorder:                #dbe0e8
-  --boxBackground:            #fff
-
 @media (prefers-color-scheme: light)
-  .db-darkmode-only
-    display: none
   \:root
-    --menulink:                 #789
-    --menulink-active:          #00f
-    --menuLogo:                 #00f
-    --background:               #f5f6f8
-    --link:                     #00f
-    --focus:                    #00f
-    --inputTextFocus:           #0D223F
-    --autocomplete:             #cde
-    --inactive:                 #abc
-    --linkInactive:             #abc
-    --navbarLink:               #00f
-    --navMenuFill:              #abc
-    --navbarMenuLink:           #fff
-    --botModalBackground:       rgba(255,255,255,.85)
-    --pickExchangeItemBg:       #dbe4f0
-    --pickExchangeItemTxt:      #00f
-    --pickExchangeItemInactive: #abc
-    --pickExchangeItemSelect:   #fff
-    --headerHome:               #fff
-    --headerDevise:             #00f
-    --textPageBg:               #fff
-    --planBorder:               #dbe0e8
-    --planBg:                   #fff
-    --planBadge:                #d3d9ec
-    --planSelectedBorder:       #00f
-    --planSelectedBg:           #00f
-    --planSelectedBadge:        #00b186
-    --planSelectedTxt:          #fff
-    --boxBorder:                #dbe0e8
-    --boxBackground:            #fff
+    --sky: color(display-p3 0 0 1)
+    --link: var(--sky)
+    --ink: #001933
+    --ash: #506181
+    --stone: #738197
+    --concrete: #9CA8B8
+    --steel: #C2CAD4
+    --silver: #E2E6EB
+    --paper: #F8F9Fa
+    --washed: #FFFFFF
+    --paper-on-washed: #F5F6F8
+    --white: #FFFFFF
+    --grass: color(display-p3 0 0.7 0.45)
+    --berry: #EE0060
+    --highlight: var(--sky)
+    --autocomplete: #cde
+    --inputTextFocus: #0D223F
+    --menulink: #789
+    --menulink-active: #00f
+    --menuLogo: #00f
+    --navbarLink: #00f
+    --pickExchangeItemBg: #dbe4f0
 
-    --botInputTxtSelect:        #012
-    --botInputBg:               rgba(255,255,255,0.5)
-    --botInputBgFocus:          rgba(255,255,255,.7)
-    --botInputBgPaper:          #f1f4f7
-    --botInputBgPaperFocus:     #e5e8f2
+    --shadow-basic: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+    --shadow-strong: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.14), 0.25rem 0.25rem 1rem rgba(0,0,0,0.1)
+    --shadow-paper: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.15)
+    --shadow-paper-horizontal: 0.125rem 0 0.125rem rgba(0,0,0,0.15)
+    --shadow-indent: inset 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.15)
 
-    --alertPrimaryTxt:          #122352
-    --alertPrimaryBg:           #d3d9ec
-    --alertPrimaryBorder:       #c1cae4
+    --warning: color(display-p3 1 0.5 0)
+    --benchmark: #949db5
+    --insight-background: #8098dd77
+    --insight-warning-background: #ffd7ab
+    --slider-track: #3453B019
+    --slider-progress: #00f
+    --label: #061A4Fba
+    --label-select-inactive: #061a4f80
+    --close-hover: #ebeef2
 
-    --alertPrimaryTxtDisabled:    #678
-    --alertPrimaryBgDisabled:     transparent
-    --alertPrimaryBorderDisabled: #bcd
+    --modal-backdrop: #bcc4d338
+    --pick-bot-item-bg: #fff
+    --big-header: var(--stone)
 
-    --alertSuccessBorder:       #bae4d2
-    --alertSuccessText:         #045232
-    --alertSuccessBackground:   #cdecdf
+    --input-text-inactive: #8894B6
+    --input-border: #8894B6
+    --sinput-background: #fff
+    --sinput-text: #00f
 
-    --paginationBg:             var(--paper)
-    --paginationHover:          var(--paper)
+    --modal-background: #fff
+    --modal-search-placeholder: #8894B6
 
-    --temporaryDiscount:        #00b186
-    --addBotButton:             #00f
+    --tooltip-background: #fff
+    --tooltip-text: #061A4F
+
+    --dropdown-bg: #FFF
+    --dropdown-border: #D9E0E7
+    --dropdown-hover: #D9E0E766
+
+    --text-faded: #8b92a7
+    --widget-shadow-line: #0241
+
+    --ticker-tooltip-background: var(--washed)
+    --ticker-tooltip-border: var(--silver)
+    --ticker-tooltip-secondary: var(--stone)
 
 @media (prefers-color-scheme: dark)
-  .db-lightmode-only
-    display: none
   \:root
-    --menulink:            #3a5a81
-    --menulink-active:     #def
-    --menuLogo:             #def
-    --background:          #001933
-    --link:                #fff
-    --focus:               #fff
-    --inputTextFocus:      #fff
-    --autocomplete:        #122b49
-    --inactive:            #567
-    --linkInactive:        #567
-    --navbarLink:          #fff
-    --navMenuFill:         #abc
-    --navbarMenuLink:      #fff
-    --botModalBackground:  rgba(34,51,69,.9)
-    --pickExchangeItemBg:       #122b49
-    --pickExchangeItemTxt:      #fff
-    --pickExchangeItemInactive: #567
-    --pickExchangeItemSelect:   #fff
-    --headerHome:               #fff
-    --headerDevise:             #00f
-    --textPageBg:               #fff
-    --planBorder:               #0D223F
-    --planBg:                   #0D223F
-    --planBadge:                #122b49
-    --planSelectedBorder:       #193060
-    --planSelectedBg:           #00f
-    --planSelectedBadge:        #00b186
-    --planSelectedTxt:          #fff
-    --boxBorder:                #567
-    --boxBackground:            #0D223F
+    --sky: color(display-p3 0 0 1)
+    --link: #def
+    --ink: #def
+    --ash: #90aed7
+    --stone: #517095
+    --concrete: #4F6991
+    --steel: #1a395e
+    --silver: #021429
+    --paper: #001933
+    --washed: #0D223F
+    --paper-on-washed: #122949
+    --white: #FFFFFF
+    --grass: color(display-p3 0 0.7 0.45)
+    --berry: #EE0060
+    --highlight: var(--white)
+    --autocomplete: #122b49
+    --inputTextFocus: #fff
+    --menulink: #3a5a81
+    --menulink-active: #def
+    --menuLogo: #def
+    --navbarLink: #fff
+    --pickExchangeItemBg: #122b49
 
-    --botInputTxtSelect:        #fff
-    --botInputBg:               rgba(200,220,255,.05)
-    --botInputBgFocus:          rgba(200,220,255,.24)
-    --botInputBgPaper:          rgba(200,220,255,.05)
-    --botInputBgPaperFocus:     rgba(200,220,255,.24)
+    --shadow-basic: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.07), 0.25rem 0.25rem 1rem rgba(0,0,0,0.05)
+    --shadow-strong: 0.125rem 0.125rem 0.25rem rgba(0,0,0,0.14), 0.25rem 0.25rem 1rem rgba(0,0,0,0.1)
+    --shadow-paper: 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.1)
+    --shadow-paper-horizontal: 0.125rem 0 0.125rem rgba(0,0,0,0.15)
+    --shadow-indent: inset 0.125rem 0.125rem 0.125rem rgba(0,0,0,0.1)
 
+    --warning: color(display-p3 1 0.5 0)
+    --benchmark: #465f81
+    --insight-background: #00f77
+    --insight-warning-background: #884f00b0
+    --slider-track: #D4DAEC22
+    --slider-progress: #00f
+    --label: #B2D5FFc9
+    --label-select-inactive: #b2d5ff77
+    --close-hover: #fff1
 
-    --alertPrimaryTxt:            #def
-    --alertPrimaryBg:             #00f
-    --alertPrimaryBorder:         #00f
+    --modal-backdrop: #012b
+    --pick-bot-item-bg: #0D223F
+    --big-header: #61798d
 
-    --alertPrimaryTxtDisabled:    #678
-    --alertPrimaryBgDisabled:     transparent
-    --alertPrimaryBorderDisabled: rgba(200,220,255,.25)
+    --input-text-inactive: #8894B6
+    --input-border: #8894B6
+    --sinput-background: #0D223F
+    --sinput-text: #fff
 
-    --alertSuccessBorder:       #00b186 !important
-    --alertSuccessText:         #00b186 !important
-    --alertSuccessBackground:   transparent !important
+    --modal-background: #0d203c
+    --modal-search-placeholder: #8894B6
 
-    --paginationBg:             var(--paper)
-    --paginationHover:          var(--paper)
+    --tooltip-background: #00f
+    --tooltip-text: #fff
 
-    --temporaryDiscount:        #00b186
-    --addBotButton:             #fff
+    --dropdown-bg: #172a46
+    --dropdown-border: #313C59
+    --dropdown-hover: #00f
 
-$table-color:        #0D223F
+    --text-faded: #44648d
+    --widget-shadow-line: #0128
 
-$grid-gutter-width:    3rem
-$bot-gutter-width:     3rem
-$btn-border-width:     .2rem
-$btn-border-radius:    3rem
-$btn-border-radius-lg: 3rem
-$btn-border-radius-sm: 3rem
+    --ticker-tooltip-background: var(--steel)
+    --ticker-tooltip-border: none
+    --ticker-tooltip-secondary: var(--ash)
 
-$box-border-radius:    2rem
-$alert-border-radius:  2rem
-$input-border-radius:  1rem
-$border-radius-lg:     2rem
-$small-box-border-radius: 1.5rem
-$custom-select-border-radius: 1.6rem
-
-$modal-md:                    70rem
-$modal-inner-padding:         2rem
-$navbar-padding-y:            1.5rem
-
-$input-btn-padding-x:    0.75rem !default
-$input-btn-padding-x-sm: 0.75rem !default
-$input-btn-padding-x-lg: 1.25rem !default
-
-.fill-primary
-  fill: var(--sky) !important
-.fill-success
-  fill: var(--grass) !important
-.stroke-success
-  stroke: var(--grass) !important
-.stop-color-primary
-  stop-color: var(--sky) !important
-
-$borderColorLight:   #dbe0e8
-$bgColorLight:       #fafbfc
-$textColorLight:     #666
-$sidebarItemHeight:  5.6rem
-$sidebarItemPadding: 2rem
-
-$textColorInverted:  rgba(255,255,255,1)
-
-$bgColor:            $bgColorLight
-$bgBot:              white
-
-$navbarHeight:       8.8rem
-$navbarExtraPadding: 1.25rem
-$introBoxHeight:     60vh
-$introBoxMaxHeight:  87rem
-$introBoxMinHeight:  70rem
-
-$fontText:           var(--font-family)
-$fontBrand:          var(--font-family)
-$fontHeader:         $fontBrand
-$fontButton:         $fontBrand
-
-$boxShadowBot:   .1rem .2rem .4rem rgba(0,0,0,.05)
-$boxShadowAlert: .1rem .2rem .4rem rgba(0,0,0,.1)
-$boxShadowBox:   .1rem .2rem .4rem rgba(0,0,0,.05)
-$boxShadowHome:  .1rem .2rem .6rem rgba(0,0,0,.2)
-
-$footerHeight:       5rem
-
-
-\:root
-  --scroll: 0
-  --scrollx: 0
-  --pulsing: 0
-  --scroll-and-bouncing: 0
+$fontText: var(--font-family)
