@@ -148,3 +148,10 @@
         font-size: 1.5rem
     &__symbol
         text-transform: uppercase
+    // Live allocation %, appended (inside the info column) by ticker_tooltips_controller
+    // for pie slices. No own color → inherits the card's `--ink` (white text would
+    // vanish on the light `--washed` background in light mode).
+    &__allocation
+        font-weight: 600
+        font-size: 1.75rem
+        margin-top: 0.25rem

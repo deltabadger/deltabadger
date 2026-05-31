@@ -20,6 +20,7 @@ bg:
                     error: "Моля, изберете индекс"
             num_coins: "Брой монети"
             allocation_flattening: "Изравняване на алокацията"
+            other: "Други"
             into_index: "в %{index_name}"
             into: в
             index_preview: "Преглед на индекса"

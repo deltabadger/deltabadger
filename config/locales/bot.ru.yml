@@ -22,6 +22,7 @@ ru:
                     error: "Пожалуйста, выберите индекс"
             num_coins: "Количество монет"
             allocation_flattening: "Выравнивание распределения"
+            other: "Другие"
             into_index: "в %{index_name}"
             into: в
             index_preview: "Предпросмотр индекса"

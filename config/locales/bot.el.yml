@@ -20,6 +20,7 @@ el:
                     error: "Επίλεξε έναν δείκτη"
             num_coins: "Αριθμός νομισμάτων"
             allocation_flattening: "Εξομάλυνση κατανομής"
+            other: "Άλλα"
             into_index: "σε %{index_name}"
             into: σε
             index_preview: "Προεπισκόπηση δείκτη"
