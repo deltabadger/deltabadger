@@ -5,9 +5,16 @@ module Bot::Startable
   # which matches Date#cwday.
   WEEKDAY_MODES = %w[monday tuesday wednesday thursday friday saturday sunday].freeze
 
-  # All valid start_time_mode values: "hour", a weekday name, or "date".
+  # All valid start_time_mode values: a weekday name, "date", or "hour".
   # The weekday is encoded directly in the mode (so the UI is one flat dropdown).
-  MODES = (%w[hour] + WEEKDAY_MODES + %w[date]).freeze
+  # Order here drives the dropdown order — weekdays first (the Monday open is the
+  # default), then "date" and "hour". WEEKDAY_MODES keeps its own order untouched
+  # because that order encodes the ISO weekday math; only the MODES list is reordered.
+  MODES = (WEEKDAY_MODES + %w[date hour]).freeze
+
+  # NYSE regular session opens 09:30 local Eastern time. Using the named zone
+  # (not a fixed offset) makes the 09:30 anchor follow EST/EDT automatically.
+  NYSE_OPEN_ZONE = 'America/New_York'.freeze
 
   included do
     store_accessor :settings,
@@ -65,6 +72,21 @@ module Bot::Startable
     when 'date'
       parse_persisted_start_at
     end
+  end
+
+  # Default selection for the starting-time widget: the NYSE Monday open
+  # (09:30 ET) expressed in the bot user's local time zone. Because it's a
+  # conversion, both the weekday AND the clock time are derived locally — a user
+  # east of ~UTC+9.5 correctly defaults to Tuesday in their zone. The ET anchor
+  # follows EST/EDT, so the local clock time shifts with US daylight saving.
+  # Returns [weekday_mode, "HH:MM"].
+  def default_start_time_selection(now: Time.current)
+    et = ActiveSupport::TimeZone[NYSE_OPEN_ZONE]
+    today_et = now.in_time_zone(et).to_date
+    monday = today_et + ((1 - today_et.cwday) % 7) # upcoming Monday (incl. today)
+    open_et = et.local(monday.year, monday.month, monday.day, 9, 30)
+    local = open_et.in_time_zone(user_time_zone)
+    [WEEKDAY_MODES[local.to_date.cwday - 1], local.strftime('%H:%M')]
   end
 
   # Flips the feature off after the first scheduled execution runs. The

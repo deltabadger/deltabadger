@@ -1,6 +1,8 @@
 <% user_zone = current_user.time_zone.presence || 'UTC' %>
 <% zone_abbr = Time.current.in_time_zone(user_zone).strftime('%Z') %>
-<% mode = bot.start_time_mode.presence || 'date' %>
+<%# Default selection = NYSE Monday open (09:30 ET) translated into the user's zone. %>
+<% default_mode, default_time = bot.default_start_time_selection %>
+<% mode = bot.start_time_mode.presence || default_mode %>
 <% mode_options = Bot::Startable::MODES.map { |m| [t("bot.settings.starting_time.modes.options.#{m}"), m] } %>
 <%= form_with model: bot,
               url: path,
@@ -43,7 +45,7 @@
           <% else %>
             <%# hour or weekday mode → a time-of-day picker (user-local clock time) %>
             <%= f.time_field :start_time_of_day,
-                             value: bot.start_time_of_day.presence || (mode == 'hour' ? '00:00' : '09:00'),
+                             value: bot.start_time_of_day.presence || (mode == 'hour' ? '00:00' : default_time),
                              class: 'sinput',
                              data: { action: "change->form--submit#submit" },
                              disabled: bot.working? %>
