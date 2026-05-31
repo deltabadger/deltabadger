@@ -7,7 +7,7 @@
 <% flattening = bot.allocation_flattening || 0 %>
 <% flattening_progress = (flattening * 100).round %>
 
-<div data-controller="index-allocation">
+<div data-controller="index-allocation" data-index-allocation-bot-id-value="<%= bot.id %>" data-index-allocation-other-label-value="<%= t('bot.dca_index.other') %>">
   <%= form_with model: bot,
                 url: path,
                 method: method,
@@ -97,11 +97,14 @@
     </div>
 
     <% if index_preview.present? %>
-      <div class="index-assets" data-index-allocation-target="assets" data-total-available="<%= index_preview.size %>">
+      <div class="index-pie" data-index-allocation-target="pie" data-action="click->index-allocation#toggle">
+        <svg data-index-allocation-target="pieSvg" style="width: 100%; display: block; margin: 0 auto;"></svg>
+      </div>
+      <div class="index-assets" data-index-allocation-target="assets list" data-action="click->index-allocation#toggle" data-total-available="<%= index_preview.size %>">
         <% index_preview.each_with_index do |coin, index| %>
           <% color = ensure_contrast(coin[:color] || '#8A9BA8') %>
           <% visible = index < num_coins %>
-          <div class="index-asset" data-market-cap="<%= coin[:market_cap] %>" data-index="<%= index %>" <%= 'style="display: none;"' unless visible %>>
+          <div class="index-asset" data-color="<%= color %>" data-market-cap="<%= coin[:market_cap] %>" data-logo="<%= coin[:logo] %>" data-index="<%= index %>" <%= 'style="display: none;"' unless visible %>>
             <div class="index-asset__row">
               <div class="ticker" style="background-color: <%= color %>"><%= coin[:symbol] %></div>
               <div class="slider">
