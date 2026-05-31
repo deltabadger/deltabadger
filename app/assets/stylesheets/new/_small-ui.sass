@@ -1,6 +1,6 @@
-@use "variables" as *
+@use "../variables" as *
 
-@use "variables" as *
+@use "../variables" as *
 
 .label,.ticker,.toggle-label
     user-select: none
@@ -72,6 +72,8 @@
         text-align: center
         &[type="date"]
             max-width: 17.5rem
+    &--datetime
+        width: 23rem
     &--number
         text-align: right
         -moz-appearance: textfield
