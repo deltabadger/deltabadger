@@ -2,8 +2,7 @@ require 'test_helper'
 
 class AssetsControllerTest < ActionDispatch::IntegrationTest
   # GET /asset_tooltip?symbol=BTC — resolves a .ticker pill's symbol to an asset and renders
-  # the hover-card (logo, name, type label, current price). Gated on the data API being
-  # connected; fail-soft on price (non-crypto / flaky upstream → no price, never a 500).
+  # the hover-card (logo, name, symbol, type label).
 
   setup do
     create(:user, admin: true) # platform requires an admin to exist before authed pages render
@@ -13,20 +12,15 @@ class AssetsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test 'renders the asset card for a known symbol' do
-    Asset.any_instance.stubs(:get_price).returns(Result::Success.new(67_123.45))
-
     get asset_tooltip_path(symbol: 'BTC')
 
     assert_response :ok
     assert_includes response.body, 'Bitcoin'
     assert_includes response.body, 'BTC'
-    assert_includes response.body, 'Crypto'        # type label
-    assert_includes response.body, '67,123.45'     # formatted price
+    assert_includes response.body, 'Crypto' # type label
   end
 
   test 'symbol match is case-insensitive' do
-    Asset.any_instance.stubs(:get_price).returns(Result::Failure.new('x'))
-
     get asset_tooltip_path(symbol: 'btc')
 
     assert_response :ok
@@ -36,7 +30,6 @@ class AssetsControllerTest < ActionDispatch::IntegrationTest
   test 'when several assets share a symbol it picks the highest market cap (lowest rank)' do
     create(:asset, symbol: 'SUN', name: 'Low Cap Sun', market_cap_rank: nil)
     create(:asset, symbol: 'SUN', name: 'Big Sun', market_cap_rank: 5)
-    Asset.any_instance.stubs(:get_price).returns(Result::Failure.new('x'))
 
     get asset_tooltip_path(symbol: 'SUN')
 
@@ -45,32 +38,13 @@ class AssetsControllerTest < ActionDispatch::IntegrationTest
     refute_includes response.body, 'Low Cap Sun'
   end
 
-  test 'a non-crypto asset renders the card without a price (no error)' do
-    create(:asset, :usd) # Fiat → get_price fails
-    Asset.any_instance.stubs(:get_price).returns(Result::Failure.new('not a cryptocurrency'))
+  test 'renders the card for a non-crypto asset' do
+    create(:asset, :usd)
 
     get asset_tooltip_path(symbol: 'USD')
 
     assert_response :ok
     assert_includes response.body, 'US Dollar'
-  end
-
-  test 'a transient upstream price failure is rescued, never a 500' do
-    Asset.any_instance.stubs(:get_price).raises(Client::TransientNetworkError, 'boom')
-
-    get asset_tooltip_path(symbol: 'BTC')
-
-    assert_response :ok
-    assert_includes response.body, 'Bitcoin'
-  end
-
-  test 'renders the card even with no market data provider (no data-API gate)' do
-    Asset.any_instance.stubs(:get_price).returns(Result::Failure.new('No market data provider configured'))
-
-    get asset_tooltip_path(symbol: 'BTC')
-
-    assert_response :ok
-    assert_includes response.body, 'Bitcoin'
   end
 
   test 'returns 404 for an unknown symbol' do
