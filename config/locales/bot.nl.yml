@@ -22,6 +22,7 @@ nl:
                     error: "Selecteer alstublieft een index"
             num_coins: "Aantal munten"
             allocation_flattening: "Allocatie afvlakking"
+            other: "Overige"
             into_index: "in %{index_name}"
             into: in
             index_preview: "Index Voorbeeld"

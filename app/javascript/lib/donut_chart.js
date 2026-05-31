@@ -129,12 +129,13 @@ export function renderDonut(svg, data, opts = {}) {
   let labelEntries = slices;
   let otherEntry = null;
   if (showLabels && otherLabel) {
+    const first = slices[0]; // the first slice always keeps its own label, even below threshold
     let rest = [];
     if (otherThreshold != null) {
-      rest = slices.filter(s => s.value / total < otherThreshold);
+      rest = slices.filter(s => s !== first && s.value / total < otherThreshold);
     } else if (maxLabels < slices.length) {
       const sorted = [...slices].sort((a, b) => b.value - a.value);
-      rest = sorted.slice(maxLabels);
+      rest = sorted.slice(maxLabels).filter(s => s !== first);
     }
     if (rest.length >= 2) {
       const restSet = new Set(rest);

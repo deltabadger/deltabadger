@@ -50,6 +50,7 @@ export default class extends Controller {
       // Bail if the cursor already moved on to a different pill while fetching.
       if (!html || this.current !== pill) return;
       this.tooltip.innerHTML = html;
+      this.#appendNote(pill);
       this.#show(pill);
     });
   }
@@ -79,6 +80,21 @@ export default class extends Controller {
         return html;
       })
       .catch(() => "");
+  }
+
+  // Pills that carry a `data-ticker-note` (e.g. index pie slices) append an extra
+  // live line to the cached card — the per-symbol cache stays generic, the note doesn't.
+  #appendNote(pill) {
+    const note = pill.dataset.tickerNote;
+    if (!note) return;
+    const el = document.createElement("div");
+    el.className = "tooltip--ticker__allocation";
+    el.textContent = note;
+    // Append inside the info column (under name/symbol) so it stays within the
+    // card's width — the name column is a fixed 20rem and the popover caps at 30rem,
+    // so a separate right-aligned item would overflow off the card.
+    const col = this.tooltip.querySelector(".tooltip--ticker__col:last-of-type");
+    (col || this.tooltip).appendChild(el);
   }
 
   #show(pill) {

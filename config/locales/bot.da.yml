@@ -20,6 +20,7 @@ da:
                     error: "Vælg venligst et indeks"
             num_coins: "Antal coins"
             allocation_flattening: "Allokeringsudjævning"
+            other: "Andre"
             into_index: "i %{index_name}"
             into: i
             index_preview: "Indeksforhåndsvisning"

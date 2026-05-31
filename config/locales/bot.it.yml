@@ -20,6 +20,7 @@ it:
                     error: "Seleziona un indice"
             num_coins: "Numero di criptovalute"
             allocation_flattening: "Livellamento dell'allocazione"
+            other: "Altri"
             into_index: "in %{index_name}"
             into: in
             index_preview: "Anteprima Indice"

@@ -20,6 +20,7 @@ sk:
                     error: "Prosím vyberte index"
             num_coins: "Počet mincí"
             allocation_flattening: "Vyrovnanie alokácie"
+            other: "Ostatné"
             into_index: "do %{index_name}"
             into: do
             index_preview: "Náhľad indexu"

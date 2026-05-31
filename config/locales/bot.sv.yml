@@ -20,6 +20,7 @@ sv:
                     error: "Välj ett index"
             num_coins: "Antal mynt"
             allocation_flattening: "Allokeringsutjämning"
+            other: "Övriga"
             into_index: "i %{index_name}"
             into: i
             index_preview: "Förhandsgranskning av index"
