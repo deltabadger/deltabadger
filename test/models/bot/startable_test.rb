@@ -199,6 +199,36 @@ class Bot::StartableTest < ActiveSupport::TestCase
     assert @bot.initial_start_at.utc?
   end
 
+  # ---------- default_start_time_selection: NYSE Monday open (09:30 ET) in user zone ----------
+
+  test 'default_start_time_selection returns Monday and ET-open translated to UTC user' do
+    # now = Tuesday 2026-05-26, ET is EDT (UTC-4). NYSE opens 09:30 ET = 13:30 UTC.
+    # UTC user sees the same instant as 13:30, still Monday.
+    assert_equal %w[monday 13:30], @bot.default_start_time_selection
+  end
+
+  test 'default_start_time_selection translates the ET open into the user zone clock' do
+    update_user_time_zone('Warsaw') # CEST (UTC+2) in May
+    # 09:30 EDT = 13:30 UTC = 15:30 CEST, still Monday.
+    assert_equal %w[monday 15:30], @bot.default_start_time_selection
+  end
+
+  test 'default_start_time_selection rolls the weekday forward for far-eastern zones' do
+    update_user_time_zone('Auckland') # NZST (UTC+12) in May/June — no DST in winter
+    # 09:30 EDT Mon = 13:30 UTC Mon = 01:30 Tue in Auckland → Tuesday 01:30.
+    assert_equal %w[tuesday 01:30], @bot.default_start_time_selection
+  end
+
+  test 'default_start_time_selection honors ET DST (09:30 local year-round)' do
+    # Jump to winter: Tuesday 2026-01-06 12:00 UTC. ET is EST (UTC-5).
+    # NYSE still opens 09:30 ET, which is 14:30 UTC (vs 13:30 in summer).
+    travel_to Time.utc(2026, 1, 6, 12, 0, 0)
+    assert_equal %w[monday 14:30], @bot.default_start_time_selection
+  ensure
+    travel_back
+    travel_to @now
+  end
+
   # ---------- repeat_anchor_at: only reads persisted start_at, never recomputes ----------
 
   test 'repeat_anchor_at returns started_at when feature disabled' do

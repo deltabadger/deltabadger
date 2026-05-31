@@ -20,6 +20,22 @@ class Bots::StartingTimeTest < ActionDispatch::IntegrationTest
     assert_select "form.widget.rule select[name='bots_dca_single_asset[start_time_mode]']"
   end
 
+  test 'starting time rule defaults to the NYSE Monday open translated to user zone' do
+    travel_to Time.utc(2026, 5, 26, 12, 0, 0) do # Tuesday, ET is EDT
+      @user.update!(time_zone: 'Warsaw')
+      bot = create(:dca_single_asset, user: @user, status: :stopped)
+      get bot_path(id: bot.id)
+      assert_response :ok
+
+      # 09:30 EDT = 15:30 CEST, Monday — pre-selected before the user touches anything.
+      assert_select(
+        "form.widget.rule select[name='bots_dca_single_asset[start_time_mode]'] " \
+        'option[value=monday][selected=selected]'
+      )
+      assert_select "form.widget.rule input[type=time][name='bots_dca_single_asset[start_time_of_day]'][value='15:30']"
+    end
+  end
+
   test 'submitting date-mode settings persists start_at as UTC ISO8601' do
     bot = create(:dca_single_asset, user: @user, status: :stopped)
     patch bot_path(id: bot.id), params: {
