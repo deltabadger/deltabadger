@@ -37,9 +37,11 @@
           <% if mode == 'date' %>
             <%# Stored start_at is UTC ISO8601; render input in the user's tz so what they see matches what they typed. %>
             <% datetime_value = (Time.find_zone!('UTC').parse(bot.start_at.to_s).in_time_zone(user_zone).strftime('%Y-%m-%dT%H:%M') rescue nil) %>
+            <%# No stored value yet → prefill today's date (user zone) at the default open time. %>
+            <% datetime_value ||= "#{Time.current.in_time_zone(user_zone).strftime('%Y-%m-%d')}T#{default_time}" %>
             <%= f.datetime_field :start_at,
                                  value: datetime_value,
-                                 class: 'sinput',
+                                 class: 'sinput sinput--datetime',
                                  data: { action: "change->form--submit#submit" },
                                  disabled: bot.working? %>
           <% else %>

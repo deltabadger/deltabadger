@@ -36,6 +36,21 @@ class Bots::StartingTimeTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test 'date-mode field defaults to today (user zone) when no start_at is stored' do
+    travel_to Time.utc(2026, 5, 26, 12, 0, 0) do # 14:00 Warsaw → today is 2026-05-26
+      @user.update!(time_zone: 'Warsaw')
+      bot = create(:dca_single_asset, user: @user, status: :stopped)
+      bot.settings['start_time_mode'] = 'date' # force date mode, no start_at
+      bot.set_missed_quote_amount
+      bot.save!
+      get bot_path(id: bot.id)
+      assert_response :ok
+
+      # Today's date in the user's zone, at the translated NYSE-open time (15:30 CEST).
+      assert_select "form.widget.rule input[type='datetime-local'][value='2026-05-26T15:30']"
+    end
+  end
+
   test 'submitting date-mode settings persists start_at as UTC ISO8601' do
     bot = create(:dca_single_asset, user: @user, status: :stopped)
     patch bot_path(id: bot.id), params: {
