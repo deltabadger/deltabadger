@@ -274,4 +274,80 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_kind_of Hash, result.data[:orders]
     assert_equal [], result.data[:missing]
   end
+
+  # --- Market-data authentication ---
+  # Regression: Exchanges::Alpaca#client builds an empty-credential client unless
+  # set_client(api_key:) was called. The dashboard metric/chart reads never set one, so
+  # Alpaca market data (data.alpaca.markets) 401'd on every load — nothing cached, every
+  # page load retried the failing call. Market-data reads now resolve a trading key via a
+  # NON-MUTATING client, so account ops can never inherit that key.
+
+  def trading_key!(key: 'mk', secret: 'ms', passphrase: 'paper', status: :correct)
+    create(:api_key, exchange: @exchange, key_type: :trading, status: status,
+                     raw_key: key, raw_secret: secret, raw_passphrase: passphrase)
+  end
+
+  test 'get_tickers_prices authenticates with a resolved trading key when no client was set' do
+    trading_key!(key: 'mk', secret: 'ms', passphrase: 'paper')
+    snapshot = { 'AAPL' => { 'latestTrade' => { 'p' => 100 } } }
+    Clients::Alpaca.expects(:new).with(api_key: 'mk', api_secret: 'ms', paper: true)
+                   .returns(stub(get_snapshots: Result::Success.new(snapshot)))
+
+    result = @exchange.get_tickers_prices(symbols: ['AAPL'])
+
+    assert_predicate result, :success?
+    assert_equal 100.to_d, result.data['AAPL']
+  end
+
+  test 'get_candles authenticates with a resolved trading key when no client was set' do
+    trading_key!(key: 'mk', secret: 'ms', passphrase: 'paper')
+    ticker = create(:ticker, exchange: @exchange)
+    Clients::Alpaca.expects(:new).with(api_key: 'mk', api_secret: 'ms', paper: true)
+                   .returns(stub(get_bars: Result::Success.new({ 'bars' => [] })))
+
+    result = @exchange.get_candles(ticker: ticker, start_at: 1.day.ago, timeframe: 1.day)
+
+    assert_predicate result, :success?
+  end
+
+  test 'market-data reads are non-mutating: @api_key and @client stay untouched' do
+    trading_key!
+    Clients::Alpaca.stubs(:new).returns(stub(get_snapshots: Result::Success.new({})))
+
+    @exchange.get_tickers_prices(symbols: ['AAPL'])
+
+    assert_nil @exchange.api_key
+    assert_nil @exchange.instance_variable_get(:@client)
+  end
+
+  test 'market-data reads prefer an explicitly set api_key over a resolved one' do
+    trading_key!(key: 'resolved', secret: 'rs', passphrase: 'paper')
+    explicit = stub(key: 'explicit', secret: 'es', passphrase: 'live')
+    explicit_client = mock('explicit_client')
+    explicit_client.expects(:get_snapshots).returns(Result::Success.new({}))
+    Clients::Alpaca.stubs(:new).with(api_key: 'explicit', api_secret: 'es', paper: false)
+                   .returns(explicit_client)
+    Clients::Alpaca.stubs(:new).with(api_key: 'resolved', api_secret: 'rs', paper: true)
+                   .returns(stub(get_snapshots: Result::Success.new({})))
+
+    @exchange.set_client(api_key: explicit)
+    @exchange.get_tickers_prices(symbols: ['AAPL'], force: true)
+  end
+
+  test 'account ops use the generic (uncredentialed) client, never the resolved market-data key' do
+    trading_key!(key: 'mk', secret: 'ms')
+    Clients::Alpaca.expects(:new).with(api_key: nil, api_secret: nil, paper: true)
+                   .returns(stub(get_account: Result::Failure.new('unauthorized')))
+
+    with_dry_run(false) { @exchange.get_balances }
+  end
+
+  test 'market-data read with no trading key fails gracefully' do
+    Clients::Alpaca.expects(:new).with(api_key: nil, api_secret: nil, paper: true)
+                   .returns(stub(get_snapshots: Result::Failure.new('unauthorized')))
+
+    result = @exchange.get_tickers_prices(symbols: ['AAPL'])
+
+    assert_predicate result, :failure?
+  end
 end
