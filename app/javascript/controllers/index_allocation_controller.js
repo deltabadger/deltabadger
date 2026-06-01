@@ -182,7 +182,7 @@ export default class extends Controller {
       }
 
       const symbol = (asset.querySelector('.ticker')?.textContent || '').trim();
-      slices.push({ symbol, label: symbol, color: asset.dataset.color || '#8A9BA8', value: allocation, logo: asset.dataset.logo || null });
+      slices.push({ symbol, label: symbol, assetId: asset.dataset.assetId || null, color: asset.dataset.color || '#8A9BA8', value: allocation, logo: asset.dataset.logo || null });
     });
 
     // Feed the donut view; re-render live when it's the active view.

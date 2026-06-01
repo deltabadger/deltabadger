@@ -8,7 +8,7 @@
       <%= t('rules.withdrawals.sentence.withdraw_all') %>
       100 <%= t('rules.withdrawals.sentence.of_the_amount') %>
       <%= t('rules.withdrawals.sentence.of') %>
-      <%= link_to @asset.symbol, new_rules_withdrawals_pick_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker", style: "background: #{asset_color}" %>
+      <%= link_to @asset.symbol, new_rules_withdrawals_pick_asset_path, data: { turbo_frame: "modal_content", **ticker_data(@asset) }, class: "ticker", style: "background: #{asset_color}" %>
       <%= t('rules.withdrawals.sentence.from') %>
       <%= link_to new_rules_withdrawals_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sbutton sbutton--exchange sbutton--exchange--#{@exchange.name_id}" do %>
         <%= render "svg/exchange-#{@exchange.name_id}", title: @exchange.name %>
