@@ -290,6 +290,7 @@ class Bots::DcaIndex < Bot
       next unless ticker.present?
 
       preview << {
+        asset_id: ticker.base_asset.id,
         symbol: ticker.base_asset.symbol,
         name: ticker.base_asset.name,
         color: ticker.base_asset.color,

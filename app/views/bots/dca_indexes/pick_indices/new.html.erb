@@ -38,7 +38,7 @@
                   <% if asset.present? %>
                     <% displayed_count += 1 %>
                     <% color = ensure_contrast(asset.color || '#8A9BA8') %>
-                    <span class="ticker" style="background-color: <%= color %>"><%= asset.symbol %></span>
+                    <%= tag.span asset.symbol, class: "ticker", style: "background-color: #{color}", data: ticker_data(asset) %>
                   <% end %>
                 <% end %>
                 <% max_exchange_coins = index.available_exchanges.values.max || 0 %>

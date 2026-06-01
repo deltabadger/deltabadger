@@ -188,10 +188,12 @@ export function renderDonut(svg, data, opts = {}) {
 
     const topAttrs = { d: slicePath(a0, a1, slice.surfaceCy), fill: slice.color };
     if (tooltips) {
-      // Reuse the global `.ticker` hover-card: the controller resolves the asset from
-      // `data-ticker-symbol` and appends the allocation from `data-ticker-note`.
+      // Reuse the global `.ticker` hover-card: the controller resolves the asset from its id
+      // (disambiguates symbol collisions) — falling back to `data-ticker-symbol` — and appends the
+      // allocation from `data-ticker-note`.
       topAttrs.class = 'ticker';
       topAttrs['data-ticker-symbol'] = slice.symbol || slice.label || '';
+      if (slice.assetId) topAttrs['data-ticker-asset-id'] = slice.assetId;
       topAttrs['data-ticker-note'] = `${((slice.value / total) * 100).toFixed(2)}%`;
       topAttrs.style = 'cursor: pointer';
     }

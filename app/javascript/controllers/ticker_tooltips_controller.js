@@ -46,7 +46,7 @@ export default class extends Controller {
     const symbol = this.#symbolFor(pill);
     if (!symbol) return;
 
-    this.#loadCard(symbol).then((html) => {
+    this.#loadCard(symbol, pill.dataset.tickerAssetId).then((html) => {
       // Bail if the cursor already moved on to a different pill while fetching.
       if (!html || this.current !== pill) return;
       this.tooltip.innerHTML = html;
@@ -68,11 +68,17 @@ export default class extends Controller {
     return (pill.dataset.tickerSymbol || pill.textContent || pill.querySelector("input")?.value || "").trim();
   }
 
-  #loadCard(symbol) {
-    const key = symbol.toUpperCase();
+  // assetId disambiguates symbol collisions: a pill that renders a known asset carries its id, so
+  // the server resolves that exact row. The cache key must include the id too — otherwise stock-XYZ
+  // and crypto-XYZ would share the `sym:XYZ` entry and whichever resolved first would win for both.
+  #loadCard(symbol, assetId) {
+    const key = assetId ? `id:${assetId}` : `sym:${symbol.toUpperCase()}`;
     if (CARD_CACHE.has(key)) return Promise.resolve(CARD_CACHE.get(key));
 
-    const url = `${this.#basePath}/asset_tooltip?symbol=${encodeURIComponent(symbol)}`;
+    const params = assetId
+      ? `asset_id=${encodeURIComponent(assetId)}&symbol=${encodeURIComponent(symbol)}`
+      : `symbol=${encodeURIComponent(symbol)}`;
+    const url = `${this.#basePath}/asset_tooltip?${params}`;
     return fetch(url, { headers: { Accept: "text/html", "X-CSRF-Token": this.#csrfToken } })
       .then((response) => (response.ok ? response.text() : ""))
       .then((html) => {

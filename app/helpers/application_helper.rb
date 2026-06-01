@@ -12,6 +12,21 @@ module ApplicationHelper
     ticker_class_for(category: asset&.category, color: asset&.color)
   end
 
+  # Data attributes for a .ticker pill that renders a KNOWN asset, so the hover-card resolves to
+  # that exact row instead of guessing by symbol (symbols collide across categories — e.g. the
+  # stock XYZ vs the crypto "Xyzverse" XYZ). Merge into the pill's existing `data:` hash. Emits
+  # BOTH keys on purpose: the explicit symbol keeps ticker_tooltips_controller's eligibility/
+  # resolution robust even when the pill carries no text node (e.g. the readonly-input wizard chip).
+  def ticker_data(asset)
+    ticker_data_for(id: asset&.id, symbol: asset&.symbol)
+  end
+
+  # Same, for pills rendered from primitives (search rows, index preview) where no Asset object
+  # is in scope — only its id/symbol.
+  def ticker_data_for(id:, symbol:)
+    { ticker_symbol: symbol, ticker_asset_id: id }.compact
+  end
+
   # A stock with a real (data-API) color renders like any colored ticker; only a colorless
   # stock keeps the distinct open-source fallback styling (.ticker--stock). Takes the RAW
   # persisted color (nullable) — never a fallback — so "has a real color" stays distinguishable.

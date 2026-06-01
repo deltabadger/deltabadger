@@ -26,7 +26,7 @@
           <%= f.number_field :withdrawal_percentage, value: rule.withdrawal_percentage.presence || 100, class: 'sinput numeric-input', step: :any, min: 0.01, max: 100, size: 2, disabled: rule.scheduled?, data: { controller: "autowidth-input", action: "input->autowidth-input#resize input->form--submit-after-delay#submit", form__move_cursor_to_end_target: "input" }, style: "width: 50px;" %>
           <span><%= t('rules.withdrawals.sentence.of_the_amount') %></span>
           <span><%= t('rules.withdrawals.sentence.of') %></span>
-          <span class="ticker" style="background: <%= ensure_contrast(rule.asset.color || "#8A9BA8") %>"><%= rule.asset.symbol %></span>
+          <%= tag.span rule.asset.symbol, class: "ticker", style: "background: #{ensure_contrast(rule.asset.color || "#8A9BA8")}", data: ticker_data(rule.asset) %>
           <span><%= t('rules.withdrawals.sentence.from') %></span>
           <span class="sbutton sbutton--exchange sbutton--exchange--<%= rule.exchange.name_id %>">
             <%= render "svg/exchange-#{rule.exchange.name_id}", title: rule.exchange.name %>
