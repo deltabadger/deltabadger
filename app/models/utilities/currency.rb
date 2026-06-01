@@ -14,7 +14,10 @@ module Utilities
       'PYUSD' => 'paypal-usd'
     }.freeze
 
-    CACHE_DURATION = 60.seconds
+    # Slightly longer than the 5-minute price-cache cut + warm-job cadence, so a rate
+    # written by the warm job survives the job's own runtime + jitter until the next
+    # refresh (keeps cache-only global PnL from going FX-cold between warm runs).
+    CACHE_DURATION = 6.minutes
 
     class << self
       # Convert amount from one currency to another
@@ -22,11 +25,11 @@ module Utilities
       # @param from [String] Source currency symbol (e.g., 'EUR', 'BTC', 'USDC')
       # @param to [String] Target currency symbol, default 'USD'
       # @return [Result::Success, Result::Failure] Result with converted amount or error
-      def convert(amount, from:, to: 'USD')
+      def convert(amount, from:, to: 'USD', cache_only: false)
         return Result::Success.new(amount) if from.upcase == to.upcase
         return Result::Success.new(0.0) if amount.zero?
 
-        result = exchange_rate(from: from, to: to)
+        result = exchange_rate(from: from, to: to, cache_only: cache_only)
         return result if result.failure?
 
         Result::Success.new(amount * result.data)
@@ -36,12 +39,22 @@ module Utilities
       # @param from [String] Source currency symbol
       # @param to [String] Target currency symbol, default 'USD'
       # @return [Result::Success, Result::Failure] Result with exchange rate or error
-      def exchange_rate(from:, to: 'USD')
+      def exchange_rate(from:, to: 'USD', cache_only: false)
         from = from.upcase
         to = to.upcase
         return Result::Success.new(1.0) if from == to
 
         cache_key = "exchange_rate_#{from}_to_#{to}"
+
+        if cache_only
+          # Read-only: never trigger a live rate calculation. A cold cache means the
+          # caller (e.g. the /bots index) should treat the rate as not-yet-available.
+          cached = Rails.cache.read(cache_key)
+          return cached if cached.is_a?(Result::Success)
+
+          return Result::Failure.new("Exchange rate #{from}->#{to} not cached")
+        end
+
         Rails.cache.fetch(cache_key, expires_in: CACHE_DURATION) do
           calculate_exchange_rate(from, to)
         end
@@ -51,14 +64,14 @@ module Utilities
       # @param amounts_by_currency [Hash] Hash of { 'EUR' => 100, 'BTC' => 0.5 }
       # @param to [String] Target currency symbol, default 'USD'
       # @return [Result::Success, Result::Failure] Result with total converted amount or error
-      def batch_convert(amounts_by_currency, to: 'USD')
+      def batch_convert(amounts_by_currency, to: 'USD', cache_only: false)
         to = to.upcase
         total = 0.0
 
         amounts_by_currency.each do |currency, amount|
           next if amount.zero?
 
-          result = convert(amount, from: currency, to: to)
+          result = convert(amount, from: currency, to: to, cache_only: cache_only)
           return result if result.failure?
 
           total += result.data

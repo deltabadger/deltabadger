@@ -42,7 +42,11 @@ class BotsController < ApplicationController
       @metrics_hash[bot.id] = metrics_with_current_prices unless metrics_with_current_prices.nil?
     end
 
-    @global_pnl = current_user.global_pnl
+    # Cache-only: never make a live exchange/FX call in the index request. When the
+    # snapshot is still loading, the view fires an async global_pnl_update broadcast.
+    global_pnl_snapshot = current_user.global_pnl_snapshot(cache_only: true)
+    @global_pnl = global_pnl_snapshot[:result]
+    @global_pnl_loading = global_pnl_snapshot[:loading]
   end
 
   def new
