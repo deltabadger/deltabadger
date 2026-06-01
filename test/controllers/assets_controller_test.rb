@@ -53,6 +53,43 @@ class AssetsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
+  # asset_id disambiguates symbol collisions. A pill that renders a KNOWN asset carries both its
+  # symbol and its id, so the card resolves to that exact asset — not the highest-market-cap match
+  # for the symbol. (Real case: the stock XYZ / Block Inc on an Alpaca bot vs the crypto "Xyzverse".)
+  test 'asset_id takes precedence over a higher-ranked symbol collision' do
+    create(:asset, symbol: 'XYZ', name: 'Xyzverse', category: 'Cryptocurrency', market_cap_rank: 50)
+    stock = create(:asset, symbol: 'XYZ', name: 'Block Inc', category: 'Stock', market_cap_rank: nil)
+
+    # Both params present — exactly what a .ticker pill sends.
+    get asset_tooltip_path(asset_id: stock.id, symbol: 'XYZ')
+
+    assert_response :ok
+    assert_includes response.body, 'Block Inc'
+    assert_includes response.body, 'Stock' # type label
+    refute_includes response.body, 'Xyzverse'
+  end
+
+  # A present-but-unknown numeric id must 404, NOT fall back to the symbol guess.
+  test 'returns 404 for a nonexistent asset_id even when symbol is present' do
+    create(:asset, symbol: 'XYZ', name: 'Xyzverse', category: 'Cryptocurrency', market_cap_rank: 50)
+
+    get asset_tooltip_path(asset_id: 999_999, symbol: 'XYZ')
+
+    assert_response :not_found
+    refute_includes response.body, 'Xyzverse'
+  end
+
+  # A present-but-invalid asset_id must NOT silently fall back to a symbol guess — that would
+  # re-introduce the wrong-asset bug for any pill that fails to resolve by id.
+  test 'returns 404 for a non-numeric asset_id even when symbol is present' do
+    create(:asset, symbol: 'XYZ', name: 'Xyzverse', category: 'Cryptocurrency', market_cap_rank: 50)
+
+    get asset_tooltip_path(asset_id: 'abc', symbol: 'XYZ')
+
+    assert_response :not_found
+    refute_includes response.body, 'Xyzverse'
+  end
+
   test 'returns 404 for a blank symbol' do
     get asset_tooltip_path(symbol: '')
 

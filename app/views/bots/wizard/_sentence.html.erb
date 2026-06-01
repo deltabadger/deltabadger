@@ -59,7 +59,7 @@
       <% end %>
     <% elsif first_asset %>
       <%= form_with url: base_back_url, method: :get,
-                    data: { turbo_frame: "modal_content", wizard_dir: "back" },
+                    data: { turbo_frame: "modal_content", wizard_dir: "back", **ticker_data(first_asset) },
                     html: { class: "ticker filled", style: "background: #{first_color}" } do %>
         <input value="<%= first_asset.symbol %>" readonly tabindex="-1">
       <% end %>
@@ -78,7 +78,7 @@
       <% end %>
     <% elsif bot_kind == "dual" && second_asset %>
       <%= form_with url: base1_back_url, method: :get,
-                    data: { turbo_frame: "modal_content", wizard_dir: "back" },
+                    data: { turbo_frame: "modal_content", wizard_dir: "back", **ticker_data(second_asset) },
                     html: { class: "ticker filled", style: "background: #{second_color}" } do %>
         <input value="<%= second_asset.symbol %>" readonly tabindex="-1">
       <% end %>

@@ -23,11 +23,9 @@
         <%= f.number_field :quote_amount, value: value, class: 'numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, autofocus: bot.new_record? && bot.quote_amount.blank?, disabled: bot.working? %>
 
         <% if bot.new_record? %>
-          <%= link_to quote, new_bots_dca_indexes_pick_spendable_asset_path, data: { turbo_frame: "modal_content" }, class: "ticker" %>
+          <%= link_to quote, new_bots_dca_indexes_pick_spendable_asset_path, data: { turbo_frame: "modal_content", **ticker_data(bot.quote_asset) }, class: "ticker" %>
         <% else %>
-          <div class="ticker">
-            <%= quote %>
-          </div>
+          <%= tag.div quote, class: "ticker", data: ticker_data(bot.quote_asset) %>
         <% end %>
       </div>
       /
@@ -104,9 +102,9 @@
         <% index_preview.each_with_index do |coin, index| %>
           <% color = ensure_contrast(coin[:color] || '#8A9BA8') %>
           <% visible = index < num_coins %>
-          <div class="index-asset" data-color="<%= color %>" data-market-cap="<%= coin[:market_cap] %>" data-logo="<%= coin[:logo] %>" data-index="<%= index %>" <%= 'style="display: none;"' unless visible %>>
+          <div class="index-asset" data-color="<%= color %>" data-market-cap="<%= coin[:market_cap] %>" data-logo="<%= coin[:logo] %>" data-asset-id="<%= coin[:asset_id] %>" data-index="<%= index %>" <%= 'style="display: none;"' unless visible %>>
             <div class="index-asset__row">
-              <div class="ticker" style="background-color: <%= color %>"><%= coin[:symbol] %></div>
+              <%= tag.div coin[:symbol], class: "ticker", style: "background-color: #{color}", data: ticker_data_for(id: coin[:asset_id], symbol: coin[:symbol]) %>
               <div class="slider">
                 <div class="slider__style">
                   <div class="slider__style__track" style="border-left-color: <%= color %>; grid-template-columns: 0% auto;">
