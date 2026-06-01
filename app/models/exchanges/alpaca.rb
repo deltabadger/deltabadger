@@ -102,7 +102,7 @@ class Exchanges::Alpaca < Exchange
     symbols = symbols.sort
     cache_key = "exchange_#{id}_prices_#{Digest::MD5.hexdigest(symbols.join(','))}"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
-      result = client.get_snapshots(symbols: symbols)
+      result = market_data_client.get_snapshots(symbols: symbols)
       return result if result.failure?
 
       result.data.transform_values { |snapshot| snapshot.dig('latestTrade', 'p').to_d }
@@ -147,7 +147,7 @@ class Exchanges::Alpaca < Exchange
   def get_last_price(ticker:, force: false)
     cache_key = "exchange_#{id}_last_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = client.get_latest_trade(symbol: ticker.base)
+      result = market_data_client.get_latest_trade(symbol: ticker.base)
       return result if result.failure?
 
       price = result.data.dig('trade', 'p').to_d
@@ -162,7 +162,7 @@ class Exchanges::Alpaca < Exchange
   def get_bid_price(ticker:, force: false)
     cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = client.get_latest_quote(symbol: ticker.base)
+      result = market_data_client.get_latest_quote(symbol: ticker.base)
       return result if result.failure?
 
       price = result.data.dig('quote', 'bp').to_d
@@ -177,7 +177,7 @@ class Exchanges::Alpaca < Exchange
   def get_ask_price(ticker:, force: false)
     cache_key = "exchange_#{id}_ask_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = client.get_latest_quote(symbol: ticker.base)
+      result = market_data_client.get_latest_quote(symbol: ticker.base)
       return result if result.failure?
 
       price = result.data.dig('quote', 'ap').to_d
@@ -203,7 +203,7 @@ class Exchanges::Alpaca < Exchange
     }
     tf = alpaca_timeframes[timeframe] || '1Day'
 
-    result = client.get_bars(
+    result = market_data_client.get_bars(
       symbol: ticker.base,
       timeframe: tf,
       start_time: start_at.iso8601
@@ -332,6 +332,21 @@ class Exchanges::Alpaca < Exchange
 
   def client
     @client ||= set_client
+  end
+
+  # Market data (data.alpaca.markets) requires auth but is read-only and host-separate
+  # from trading. Build a throwaway client so these reads never mutate @client/@api_key —
+  # account ops depend on those being the caller-set key. Prefer an explicitly-set key
+  # (execution path already set one); otherwise resolve a valid trading key for this
+  # exchange (the dashboard/metrics path, where no key was set).
+  def market_data_client
+    key = api_key || market_data_api_key
+    Clients::Alpaca.new(api_key: key&.key, api_secret: key&.secret, paper: paper_mode?(key))
+  end
+
+  # Any valid trading key authenticates Alpaca market data (account-agnostic reads).
+  def market_data_api_key
+    api_keys.correct.find_by(key_type: :trading) || api_keys.find_by(key_type: :trading)
   end
 
   # Default to paper mode when passphrase is nil (safe default for testing)
