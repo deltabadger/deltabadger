@@ -52,6 +52,12 @@ production:
     class: BotActivityLog::PruneJob
     schedule: "0 4 * * *"  # Daily at 04:00 UTC
 
+  # Keeps current-price + FX caches warm so the /bots index (cache-only global PnL) and
+  # per-bot PnL broadcasts read warm caches instead of doing live exchange roundtrips.
+  warm_metrics_caches_job:
+    class: Bot::WarmMetricsCachesJob
+    schedule: "*/5 * * * *"  # Every 5 minutes, matching the price-cache 5-minute cut
+
 development:
   sync_all_tickers_and_assets_job:
     class: Exchange::SyncAllTickersAndAssetsJob
@@ -99,3 +105,9 @@ development:
   prune_bot_activity_logs_job:
     class: BotActivityLog::PruneJob
     schedule: "0 4 * * *"  # Daily at 04:00 UTC
+
+  # Keeps current-price + FX caches warm so the /bots index (cache-only global PnL) and
+  # per-bot PnL broadcasts read warm caches instead of doing live exchange roundtrips.
+  warm_metrics_caches_job:
+    class: Bot::WarmMetricsCachesJob
+    schedule: "*/5 * * * *"  # Every 5 minutes, matching the price-cache 5-minute cut

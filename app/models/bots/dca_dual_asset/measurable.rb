@@ -103,7 +103,7 @@ module Bots::DcaDualAsset::Measurable
 
   def metrics_with_current_prices_and_candles(force: false)
     Rails.cache.fetch(metrics_with_current_prices_and_candles_cache_key,
-                      expires_in: 5.seconds, # Utilities::Time.seconds_to_end_of_five_minute_cut,
+                      expires_in: Utilities::Time.seconds_to_end_of_five_minute_cut,
                       force: force) do
       metrics_with_current_prices = metrics_with_current_prices(force: force)
       return metrics_with_current_prices if metrics_with_current_prices[:chart][:labels].empty?

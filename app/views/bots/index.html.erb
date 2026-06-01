@@ -7,9 +7,10 @@
   <% end %>
   <%= render partial: 'bots/new_menu_start' %>
 <% else %>
-  <section class="dash-intro">
-    <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, loading: @loading_hash.values.any? } %>
-  </section>
+  <%= tag.section class: 'dash-intro', data: @global_pnl_loading ? { controller: "broadcast--on-connect",
+                                                                     broadcast__on_connect_method_value: "global_pnl_update" } : {} do %>
+    <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, loading: @global_pnl_loading } %>
+  <% end %>
   
   <div class="page-head page-head--bots">
     <div class="filters">

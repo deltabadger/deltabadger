@@ -17,6 +17,11 @@ class BroadcastsController < ApplicationController
     head :ok
   end
 
+  def global_pnl_update
+    User::BroadcastGlobalPnlUpdateJob.perform_later(current_user)
+    head :ok
+  end
+
   def price_limit_info_update
     bot = current_user.bots.find_by(id: params['bot_id'])
     return head(:not_found) if bot.nil?
