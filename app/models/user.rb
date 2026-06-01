@@ -73,6 +73,51 @@ class User < ApplicationRecord
     }
   end
 
+  # Cache-only global PnL for the /bots index — never makes a live exchange or FX call.
+  # Returns { result: { percent:, profit_usd: } | nil, loading: Boolean } with three states:
+  #   * ready   -> { result: {...}, loading: false }
+  #   * loading -> { result: nil,   loading: true  }   a needed bot-metric/FX cache is cold
+  #   * empty   -> { result: nil,   loading: false }   nothing invested; render nothing, no spinner
+  # Completeness only considers bots that have submitted transactions, so a user whose
+  # only bots are fresh/empty never gets a perpetual spinner.
+  def global_pnl_snapshot(cache_only: true)
+    invested_by_currency = Hash.new(0)
+    value_by_currency = Hash.new(0)
+    loading = false
+
+    bots.not_deleted.each do |bot|
+      next unless bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index? || bot.signal?
+
+      metrics = bot.metrics_with_current_prices_from_cache
+      if metrics.nil?
+        # A bot that has actually traded is expected to have a cache entry shortly (the
+        # warm job / per-bot broadcast fills it). A bot with no submitted transactions
+        # contributes nothing and must not hold the dashboard in a spinner.
+        loading = true if bot.transactions.submitted.exists?
+        next
+      end
+
+      currency = bot.quote_asset&.symbol
+      next if currency.nil?
+
+      invested_by_currency[currency] += metrics[:total_quote_amount_invested] || 0
+      value_by_currency[currency] += metrics[:total_amount_value_in_quote] || 0
+    end
+
+    invested_result = Utilities::Currency.batch_convert(invested_by_currency, to: 'USD', cache_only: cache_only)
+    value_result = Utilities::Currency.batch_convert(value_by_currency, to: 'USD', cache_only: cache_only)
+    loading ||= invested_result.failure? || value_result.failure?
+
+    # Never expose a partial total — the global-pnl partial renders any present value.
+    return { result: nil, loading: true } if loading
+
+    total_invested_usd = invested_result.data
+    return { result: nil, loading: false } if total_invested_usd.zero?
+
+    profit_usd = value_result.data - total_invested_usd
+    { result: { percent: profit_usd / total_invested_usd, profit_usd: profit_usd }, loading: false }
+  end
+
   def broadcast_global_pnl_update
     broadcast_replace_to(
       ["user_#{id}", :bot_updates],

@@ -24,6 +24,8 @@ production:
     - queues: [binance, binance_us, coinbase, kraken, bitget, kucoin, bybit, mexc, gemini, bitvavo, hyperliquid, bingx, bitrue, bitmart, alpaca]
       threads: 2
       polling_interval: 1
-    - queues: [mailers, api_keys_validation, starting_bots, low_priority, default]
+    # `default` is listed before `low_priority` so foreground work (broadcasts,
+    # on-connect fills) is polled ahead of background warmers like WarmMetricsCachesJob.
+    - queues: [mailers, api_keys_validation, starting_bots, default, low_priority]
       threads: 2
       polling_interval: 0.1
