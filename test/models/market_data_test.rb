@@ -389,6 +389,10 @@ end
 class MarketDataSyncAlpacaListingsFromDeltabadgerTest < ActiveSupport::TestCase
   setup do
     MarketDataSettings.stubs(:deltabadger?).returns(true)
+    # These behavioural tests use tiny (1-2 listing) payloads. The degraded-payload guard's
+    # absolute first-run floor would otherwise reject them, so neutralise it here; the guard
+    # itself is covered by the dedicated tests below and MarketDataAlpacaListingsDegradedTest.
+    MarketData.stubs(:min_healthy_alpaca_listings).returns(0)
     @alpaca = create(:alpaca_exchange)
     @aapl = Asset.create!(external_id: 'AAPL.US', symbol: 'AAPL', name: 'Apple', category: 'Stock')
     @spy = Asset.create!(external_id: 'SPY.US', symbol: 'SPY', name: 'SPDR S&P 500 ETF', category: 'Stock')
@@ -625,6 +629,131 @@ class MarketDataSyncAlpacaListingsFromDeltabadgerTest < ActiveSupport::TestCase
     legacy_ticker.reload
     assert legacy_ticker.available?, 'preserved legacy ticker must not be swept'
     assert_equal 'IBIT', legacy_ticker.base
+  end
+
+  # == Degraded-payload guard (incident 2026-06-02) ==
+  # The stale-ticker sweep marks unavailable every ticker absent from `incoming`. A PARTIAL
+  # data-api response (non-empty but far smaller than the real universe) passed the old
+  # `if incoming.any?` guard and blanked the whole exchange — and since the sweep only ever
+  # sets available:false (only import sets true) and the job runs once/day, there was no
+  # self-heal for ~24h. Guard: bail out of the WHOLE method (import + sweep) when the payload
+  # is implausibly small vs the persisted last-good size (or, with no baseline, an absolute floor).
+
+  test 'degraded payload far below last-good leaves availability untouched (no import, no sweep)' do
+    # Establish two live tickers via a healthy sync.
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 2 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL'),
+                                                           listing_row(base_ext: 'SPY.US', symbol: 'SPY')]
+                                              ))
+    MarketData.sync_alpaca_listings_from_deltabadger!
+    assert @alpaca.tickers.find_by(base_asset: @spy).available?
+
+    # Simulate a large steady-state universe, then a degraded run returning only AAPL.
+    AppConfig.set(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY, '100')
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 1 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL')]
+                                              ))
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    assert @alpaca.tickers.find_by(base_asset: @spy).available?,
+           'a partial payload must NOT sweep the rest of the exchange to unavailable'
+    assert_equal '100', AppConfig.get(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY),
+                 'last-good must NOT be overwritten by a degraded run'
+  end
+
+  test 'records the last-good incoming count after a healthy sync' do
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 2 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL'),
+                                                           listing_row(base_ext: 'SPY.US', symbol: 'SPY')]
+                                              ))
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    assert_equal '2', AppConfig.get(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY),
+                 'a healthy sync must persist the incoming size as the new baseline'
+  end
+
+  test 'first run with no baseline below the absolute floor skips import entirely' do
+    MarketData.stubs(:min_healthy_alpaca_listings).returns(5) # override the setup's 0
+    assert_nil AppConfig.get(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY)
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 2 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL'),
+                                                           listing_row(base_ext: 'SPY.US', symbol: 'SPY')]
+                                              ))
+
+    assert_no_difference 'Ticker.count' do
+      MarketData.sync_alpaca_listings_from_deltabadger!
+    end
+    assert_nil AppConfig.get(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY),
+               'a degraded first run must not record a (bogus) baseline'
+  end
+
+  test 'a later healthy sync re-heals availability and updates the baseline' do
+    # A ticker left stuck unavailable by a prior blanking incident.
+    usd = Asset.find_or_create_by!(external_id: 'usd') do |a|
+      a.symbol = 'USD'
+      a.name = 'US Dollar'
+      a.category = 'Fiat'
+    end
+    create(:exchange_asset, exchange: @alpaca, asset: usd, available: true)
+    stuck = create(:ticker, exchange: @alpaca, base_asset: @spy, quote_asset: usd,
+                            base: 'SPY', quote: 'USD', ticker: 'SPY', available: false)
+
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 2 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL'),
+                                                           listing_row(base_ext: 'SPY.US', symbol: 'SPY')]
+                                              ))
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    assert stuck.reload.available?, 'a healthy sync must restore availability (import sets available: true)'
+    assert_equal '2', AppConfig.get(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY)
+  end
+
+  test 'empty payload does not overwrite an existing last-good baseline' do
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 1 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL')]
+                                              ))
+    MarketData.sync_alpaca_listings_from_deltabadger!
+    assert_equal '1', AppConfig.get(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY)
+
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new('metadata' => { 'count' => 0 }, 'data' => []))
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    assert_equal '1', AppConfig.get(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY),
+                 'an empty payload must not ratchet the baseline down to 0'
+  end
+end
+
+# Pure predicate for the degraded-payload guard — no DB/fixtures, exact thresholds.
+class MarketDataAlpacaListingsDegradedTest < ActiveSupport::TestCase
+  test 'no baseline: degraded iff below the absolute floor' do
+    MarketData.stubs(:min_healthy_alpaca_listings).returns(1000)
+    assert MarketData.alpaca_listings_degraded?(999, nil)
+    assert MarketData.alpaca_listings_degraded?(0, nil)
+    assert_not MarketData.alpaca_listings_degraded?(1000, nil)
+    assert_not MarketData.alpaca_listings_degraded?(6657, nil)
+    assert_not MarketData.alpaca_listings_degraded?(6657, '') # blank baseline behaves as "none"
+  end
+
+  test 'with baseline: degraded iff below 90% of last-good' do
+    assert MarketData.alpaca_listings_degraded?(50, '6657')      # the incident shape
+    assert MarketData.alpaca_listings_degraded?(0, '6657')
+    assert MarketData.alpaca_listings_degraded?(5990, '6657')    # 5990 < 5991 (=6657*9/10)
+    assert_not MarketData.alpaca_listings_degraded?(5991, '6657')
+    assert_not MarketData.alpaca_listings_degraded?(6657, '6657') # steady state
+    assert_not MarketData.alpaca_listings_degraded?(6656, '6657') # one delisting is fine
+  end
+
+  test 'an empty/zero payload is always degraded regardless of baseline (no baseline ratchet to 0)' do
+    MarketData.stubs(:min_healthy_alpaca_listings).returns(0)
+    assert MarketData.alpaca_listings_degraded?(0, nil)
+    assert MarketData.alpaca_listings_degraded?(0, '0')
+    assert MarketData.alpaca_listings_degraded?(0, '6657')
   end
 end
 

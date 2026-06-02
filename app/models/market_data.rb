@@ -321,6 +321,32 @@ class MarketData
 
   STOCK_CANONICAL_BACKFILL_FLAG = 'stock_canonical_backfill_completed_at'.freeze
 
+  # Degraded-payload guard for sync_alpaca_listings_from_deltabadger! (incident 2026-06-02).
+  # A partial (non-empty but tiny) data-api listings response once made the stale-ticker sweep
+  # blank an entire exchange's availability, with no self-heal for ~24h (the sweep only sets
+  # available:false; only import sets true; the job runs once/day). We persist the last healthy
+  # incoming size and refuse to import/sweep when a payload is implausibly small relative to it.
+  ALPACA_LISTINGS_LAST_GOOD_KEY = 'alpaca_listings_last_good_count'.freeze
+  # Absolute floor for the first sync ever, before any baseline exists. The real Alpaca
+  # fractionable US-equity universe is ~6657; anything under 1000 is treated as degraded.
+  MIN_HEALTHY_ALPACA_LISTINGS = 1000
+
+  # Indirection so tests can stub the first-run floor without touching the constant.
+  def self.min_healthy_alpaca_listings
+    MIN_HEALTHY_ALPACA_LISTINGS
+  end
+
+  # Pure predicate: is this incoming listing count too small to safely act on? An empty payload
+  # is ALWAYS degraded (never act, never ratchet the baseline to 0). With a baseline, require
+  # ≥90% of last-good; without one, require ≥ the absolute floor.
+  def self.alpaca_listings_degraded?(incoming_count, last_good)
+    return true if incoming_count <= 0
+
+    baseline = last_good.to_i
+    threshold = baseline.positive? ? baseline * 9 / 10 : min_healthy_alpaca_listings
+    incoming_count < threshold
+  end
+
   def self.sync_stocks_from_deltabadger!
     result = client.get_stocks
     return result if result.failure?
@@ -372,6 +398,20 @@ class MarketData
     # filters them. A future server-side relaxation must not silently introduce fractional
     # defaults for non-fractionable assets.
     listings = listings.reject { |l| l['fractionable'] == false }
+
+    # Degraded-payload guard (incident 2026-06-02). Measured here — after the fractionable
+    # rejection but BEFORE the ambiguity guard below — so local legacy-collision state can't
+    # shrink the count and cause false degradation / baseline drift. A partial feed bails out of
+    # the WHOLE method (no import, no reconcile, no sweep), leaving availability at last-good;
+    # the empty-payload case stays a no-op too. The same count is persisted as the new baseline
+    # on a healthy completion.
+    incoming_count = listings.size
+    if alpaca_listings_degraded?(incoming_count, AppConfig.get(ALPACA_LISTINGS_LAST_GOOD_KEY))
+      Rails.logger.warn '[MarketData] sync_alpaca_listings: degraded/partial payload ' \
+                        "(#{incoming_count} listings; last_good=#{AppConfig.get(ALPACA_LISTINGS_LAST_GOOD_KEY).inspect}); " \
+                        'skipping import + sweep to preserve availability'
+      return Result::Success.new
+    end
 
     # Invariant B: every Alpaca ticker's quote anchors to the local 'usd' row so the wizard's
     # (base_asset, quote_asset) lookup finds the seeded ticker.
@@ -425,6 +465,11 @@ class MarketData
             .where.not(base_asset_id: incoming_base_asset_ids + legacy_asset_ids)
             .update_all(available: false)
     end
+
+    # Record the healthy universe size so the next run's degraded-payload guard has a baseline.
+    # Uses the pre-ambiguity count captured above (the real incoming universe, not the locally
+    # filtered remainder), and is only reached on the full, non-degraded success path.
+    AppConfig.set(ALPACA_LISTINGS_LAST_GOOD_KEY, incoming_count.to_s)
 
     Result::Success.new
   rescue StandardError => e
