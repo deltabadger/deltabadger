@@ -12,6 +12,10 @@ class CreateBotTool < ApplicationMCPTool
   property :interval, type: 'string', required: true, description: 'Order interval: hour, day, week, or month'
   property :allocation, type: 'number', description: 'Percentage (0-100) allocated to first base asset in dual-asset bot. Default: 50.'
   property :label, type: 'string', description: 'Custom bot label (optional)'
+  property :start_at, type: 'string',
+                      description: 'Optional ISO8601 datetime to schedule the first buy ' \
+                                   '(e.g. 2026-06-15T09:30:00Z, or 2026-06-15T09:30 in the account ' \
+                                   'time zone). Must be in the future. Omit to start immediately.'
 
   def perform
     result = BotApi::Bots::Create.call(
@@ -23,13 +27,19 @@ class CreateBotTool < ApplicationMCPTool
       quote_amount: quote_amount,
       interval: interval,
       allocation: allocation,
-      label: label
+      label: label,
+      start_at: start_at
     )
 
     return render(text: result.error_message) unless result.success?
 
     d = result.data
-    render text: "Bot '#{d[:label]}' created and started — #{d[:pair]} on #{d[:exchange]}, " \
-                 "#{quote_amount} #{quote_asset.upcase}/#{interval}."
+    pair_summary = "#{d[:pair]} on #{d[:exchange]}, #{quote_amount} #{quote_asset.upcase}/#{interval}."
+    text = if start_at.present?
+             "Bot '#{d[:label]}' created — scheduled to start #{d[:started_at]} — #{pair_summary}"
+           else
+             "Bot '#{d[:label]}' created and started — #{pair_summary}"
+           end
+    render text: text
   end
 end

@@ -118,6 +118,46 @@ class CreateBotToolTest < ActiveSupport::TestCase
     assert_equal 0.5, @user.bots.last.allocation0
   end
 
+  # --- Scheduled start (start_at) ---
+
+  test 'schedules a bot for a future start_at' do
+    travel_to Time.utc(2026, 5, 26, 12, 0, 0) do
+      Bot::ActionJob.stubs(:set).returns(stub(perform_later: true))
+      Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+      Bot::ActionJob.expects(:perform_later).never
+
+      response = CreateBotTool.new(
+        exchange_name: 'Binance',
+        base_asset: 'BTC',
+        quote_asset: 'USD',
+        quote_amount: 50.0,
+        interval: 'day',
+        start_at: '2026-06-01T09:00:00Z'
+      ).execute
+
+      assert_match(/scheduled/i, response.contents.first.text)
+      bot = @user.bots.last
+      assert_equal 'scheduled', bot.status
+      assert_equal Time.utc(2026, 6, 1, 9, 0, 0), bot.started_at
+    end
+  end
+
+  test 'returns an error for a past start_at and creates no bot' do
+    travel_to Time.utc(2026, 5, 26, 12, 0, 0) do
+      response = CreateBotTool.new(
+        exchange_name: 'Binance',
+        base_asset: 'BTC',
+        quote_asset: 'USD',
+        quote_amount: 50.0,
+        interval: 'day',
+        start_at: '2026-05-20T09:00:00Z'
+      ).execute
+
+      assert_match(/Failed to create bot/i, response.contents.first.text)
+      assert_not @user.bots.exists?, 'a bot with an invalid start_at must not be persisted'
+    end
+  end
+
   # --- Validation errors ---
 
   test 'returns error when exchange not found' do
