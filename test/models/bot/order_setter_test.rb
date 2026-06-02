@@ -420,6 +420,38 @@ class Bot::OrderSetterTest < ActiveSupport::TestCase
     end
   end
 
+  # == Bitvavo limit order sizes in base (errorCode 216 regression) ==
+  # Bitvavo limit orders accept only base amount + price. When BTC fell into a price
+  # band where calculate_best_amount_info previously selected :quote (because Bitvavo's
+  # minimum_amount_logic returned :base_or_quote for all order types), the EUR figure
+  # was shipped as a BTC quantity -> Bitvavo errorCode 216 ("insufficient balance").
+  # Limit orders must always be sized in base.
+
+  test 'single asset: Bitvavo limit order is sized in base, not quote' do
+    exchange = create(:bitvavo_exchange)
+    bot = create(:dca_single_asset, :started, exchange: exchange,
+                                              base_asset: create(:asset, :bitcoin),
+                                              quote_asset: create(:asset, :eur))
+    bot.ticker.update!(minimum_base_size: 0.00007989, minimum_quote_size: 5.0,
+                       base_decimals: 8, price_decimals: 0)
+    # Limit order with no offset, so the limit price equals the mocked price.
+    bot.update_columns(settings: bot.settings.merge('limit_ordered' => true,
+                                                    'limit_order_pcnt_distance' => 0))
+    bot.reload
+
+    setup_bot_execution_mocks(bot, price: 59_606.0)
+    bot.stubs(:broadcast_below_minimums_warning)
+
+    bot.exchange.expects(:limit_buy).with do |args|
+      # base quantity (~0.000335 BTC), NOT the 20 EUR quote amount.
+      args[:amount_type] == :base &&
+        args[:amount].to_d > BigDecimal('0.0003') &&
+        args[:amount].to_d < BigDecimal('0.0004')
+    end.returns(Result::Success.new(order_id: 'test'))
+
+    bot.set_order(order_amount_in_quote: 20.0)
+  end
+
   test 'clears missed_quote_amount on bot start' do
     bot = create(:dca_single_asset, :started)
     bot.update!(missed_quote_amount: 50.0, status: :stopped)
