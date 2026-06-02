@@ -58,6 +58,34 @@ class TrackerTest < ActionDispatch::IntegrationTest
     assert_select 'td', text: 'BTC', count: 0
   end
 
+  test 'portfolio chart renders donut + list views and drops the old pie-legend' do
+    btc = create(:asset, :bitcoin, color: '#F7931A', image_url: 'https://example.com/btc.png')
+    eth = create(:asset, external_id: 'ethereum', symbol: 'ETH', name: 'Ethereum', color: '#627EEA')
+
+    AccountBalance.create!(user: @user, exchange: @exchange, asset: btc,
+                           free: 1, locked: 0, usd_value: 60_000, synced_at: Time.current)
+    AccountBalance.create!(user: @user, exchange: @exchange, asset: eth,
+                           free: 10, locked: 0, usd_value: 20_000, synced_at: Time.current)
+
+    get tracker_path
+    assert_response :success
+
+    # Donut controller is wired with both visualizations toggling on click.
+    assert_select '.tracker-portfolio__chart[data-controller="donut-chart"]'
+    assert_select '[data-donut-chart-target="pie"][data-action*="donut-chart#toggle"] svg[data-donut-chart-target="svg"]'
+    assert_select '[data-donut-chart-target="list"][data-action*="donut-chart#toggle"]'
+
+    # The old HTML legend (with its color-picker swatches) is gone.
+    assert_select '.pie-legend', false
+
+    # List view: a ticker pill, share %, and USD value per holding.
+    assert_select '.tracker-portfolio__list .ticker', text: 'BTC'
+    assert_select '.tracker-portfolio__list .ticker', text: 'ETH'
+    assert_select '.tracker-portfolio__list', text: /75\.0%/ # 60k / 80k
+    assert_select '.tracker-portfolio__list', text: /\$60,000/
+    assert_select '.tracker-portfolio__list', text: /\$20,000/
+  end
+
   test 'sync enqueues sync jobs and shows progress' do
     post sync_tracker_path, as: :turbo_stream
     assert_response :success
