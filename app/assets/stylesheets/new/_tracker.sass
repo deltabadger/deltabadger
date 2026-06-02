@@ -77,13 +77,56 @@
         border-left-color: white
         background: rgba(255, 255, 255, 0.2)
 
+// Robust hide that author CSS on the targets can't override (kept local so the
+// pie/list toggle does not depend on _dca-index.sass being compiled first).
+.is-hidden
+    display: none !important
+
 .tracker-portfolio
     &__chart
         display: flex
-        align-items: flex-start
+        flex-direction: column
         max-width: 100rem
         margin: 2rem auto
-        .legend
-            height: 100%
-        @media (max-width: 767.9px)
-            flex-direction: column
+
+    // Donut view: slice-name labels use fill: currentColor → theme-aware.
+    &__pie
+        display: flex
+        justify-content: center
+        cursor: pointer
+        color: var(--ink)
+        svg
+            width: 100%
+        // Leader lines, % values and the "Other" label stay muted (CSS wins over
+        // the SVG presentation-attribute fallbacks set in the lib).
+        .donut-leader
+            stroke: var(--concrete)
+        .donut-value,
+        .donut-other
+            fill: var(--concrete)
+
+    // List view: one row per holding — ticker pill + proportional bar + share % + USD.
+    &__list
+        display: flex
+        flex-direction: column
+        cursor: pointer
+        // The bar fills via grid-template-columns: X% auto on the track (see _slider.sass
+        // note for the index list — the base rule no longer sets display: grid).
+        .slider__style__track
+            display: grid
+
+    &__asset
+        padding: 0.75rem 0
+
+    &__asset-row
+        display: flex
+        align-items: center
+        gap: 1.5rem
+
+        .slider
+            flex: 1
+
+    &__asset-value
+        font-weight: 500
+        min-width: 9rem
+        text-align: right

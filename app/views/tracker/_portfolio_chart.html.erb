@@ -1,13 +1,17 @@
 <%
   slices = (@portfolio_slices || []).map do |s|
+    asset = s[:asset]
     {
-      label: s[:asset].symbol,
-      symbol: s[:asset].symbol,
-      name: s[:asset].name,
+      label: asset.symbol,
+      symbol: asset.symbol,
+      name: asset.name,
       value: s[:usd_value].to_f,
-      color: s[:asset].color.presence || '#888888'
+      color: ensure_contrast(asset.color.presence || '#8A9BA8'),
+      assetId: asset.id,
+      logo: asset.image_url
     }
   end
+  slices_total = slices.sum { |s| s[:value] }
 %>
 <%= turbo_frame_tag 'tracker-portfolio-chart', class: 'tracker-portfolio' do %>
   <% if @portfolio_never_synced %>
@@ -24,10 +28,32 @@
     <% if slices.any? %>
       <div data-controller="donut-chart"
            data-donut-chart-data-value="<%= slices.to_json %>"
+           data-donut-chart-storage-key-value="tracker-portfolio-view"
+           data-donut-chart-other-label-value="<%= t('bot.dca_index.other') %>"
            class="tracker-portfolio__chart">
-        <svg data-donut-chart-target="svg"
-             style="width: 100%; display: block; margin: 0 auto;"></svg>
-        <div data-donut-chart-target="legend" class="pie-legend"></div>
+        <div class="tracker-portfolio__pie" data-donut-chart-target="pie" data-action="click->donut-chart#toggle">
+          <svg data-donut-chart-target="svg"
+               style="width: 100%; display: block; margin: 0 auto;"></svg>
+        </div>
+        <div class="tracker-portfolio__list" data-donut-chart-target="list" data-action="click->donut-chart#toggle">
+          <% slices.each do |slice| %>
+            <% pct = slices_total.positive? ? (slice[:value] / slices_total * 100) : 0 %>
+            <div class="tracker-portfolio__asset">
+              <div class="tracker-portfolio__asset-row">
+                <%= tag.div slice[:symbol], class: "ticker", style: "background-color: #{slice[:color]}", data: ticker_data_for(id: slice[:assetId], symbol: slice[:symbol]) %>
+                <div class="slider">
+                  <div class="slider__style">
+                    <div class="slider__style__track" style="border-left-color: <%= slice[:color] %>; grid-template-columns: <%= pct.round(2) %>% auto;">
+                      <div class="slider__style__progress" style="background-color: <%= slice[:color] %>;"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="allocation"><%= pct.round(1) %>%</div>
+                <div class="tracker-portfolio__asset-value"><%= number_to_currency(slice[:value], precision: 2) %></div>
+              </div>
+            </div>
+          <% end %>
+        </div>
       </div>
     <% end %>
 
