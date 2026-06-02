@@ -43,7 +43,7 @@ module Api
       def create_params
         params.permit(
           :exchange_name, :base_asset, :second_base_asset, :quote_asset,
-          :quote_amount, :interval, :allocation, :label
+          :quote_amount, :interval, :allocation, :label, :start_at
         ).to_h.symbolize_keys
       end
     end

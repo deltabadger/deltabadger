@@ -49,6 +49,16 @@ module Bot::Startable
     ActiveModel::Type::Boolean.new.cast(start_time_enabled) == true
   end
 
+  # Configure an absolute-datetime delayed first run from an API/MCP caller.
+  # `value` is an ISO8601 string (explicit offset honored; a naive value is
+  # interpreted in the user's zone). A blank/invalid value leaves start_at nil
+  # so the :start validation surfaces it instead of starting immediately.
+  def schedule_start_at(value)
+    self.start_time_enabled = true
+    self.start_time_mode = 'date'
+    self.start_at = parse_start_at_in_user_zone(value)
+  end
+
   # The user's chosen display/input time zone (from User#time_zone).
   # Defaults to UTC when the bot has no user or no zone set.
   def user_time_zone
@@ -123,13 +133,14 @@ module Bot::Startable
   # Interpret it in the user's time zone, then store as UTC ISO8601 so the DB
   # value is unambiguous across clients/zones.
   # Out-of-range input (e.g. "2026-99-99T00:00") raises ArgumentError from
-  # Time#parse; treat that as nil so it surfaces as a validation error
-  # instead of crashing the PATCH /bots/:id action.
+  # Time#parse; a non-string value (e.g. a number from a REST JSON body) raises
+  # TypeError. Treat either as nil so it surfaces as a validation error instead
+  # of crashing the PATCH /bots/:id action or the create endpoint.
   def parse_start_at_in_user_zone(value)
     return nil if value.blank?
 
     user_time_zone.parse(value)&.utc&.iso8601
-  rescue ArgumentError
+  rescue ArgumentError, TypeError
     nil
   end
 

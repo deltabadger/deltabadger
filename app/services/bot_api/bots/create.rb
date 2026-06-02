@@ -18,7 +18,7 @@ module BotApi
       # return a structured 422. Required fields are validated inside `call`.
       def initialize(user:, exchange_name: nil, base_asset: nil, quote_asset: nil,
                      quote_amount: nil, interval: nil,
-                     second_base_asset: nil, allocation: nil, label: nil)
+                     second_base_asset: nil, allocation: nil, label: nil, start_at: nil)
         @user = user
         @exchange_name = exchange_name
         @base_asset = base_asset
@@ -28,6 +28,7 @@ module BotApi
         @interval = interval
         @allocation = allocation
         @label = label
+        @start_at = start_at
       end
 
       def call
@@ -104,10 +105,20 @@ module BotApi
       end
 
       def save_and_start(bot)
+        # Distinguish "no start_at given" (nil → start immediately, the documented
+        # default) from "start_at given but blank/garbage" (→ fail validation, never
+        # fall through to an unintended immediate buy).
+        bot.schedule_start_at(@start_at) unless @start_at.nil?
         bot.set_missed_quote_amount
-        return Result.failure(:validation_failed, 'bot_invalid', "Failed to create bot: #{bot.errors.full_messages.join(', ')}") unless bot.valid?
+        # Validate on the :start context up front so an invalid scheduled date
+        # (past/blank/malformed) fails before anything is persisted. `bot.start`
+        # performs the insert itself, so a failure leaves no orphaned bot.
+        unless bot.valid?(:start)
+          return Result.failure(:validation_failed, 'bot_invalid',
+                                "Failed to create bot: #{bot.errors.full_messages.join(', ')}")
+        end
 
-        if bot.save && bot.start(start_fresh: true)
+        if bot.start(start_fresh: true)
           Result.success(serialize(bot), status: :created)
         else
           Result.failure(:validation_failed, 'bot_save_failed',
@@ -125,7 +136,8 @@ module BotApi
           pair: pair_label(bot),
           quote_asset: @quote_asset.upcase,
           quote_amount: bot.settings['quote_amount'],
-          interval: bot.settings['interval']
+          interval: bot.settings['interval'],
+          started_at: bot.started_at&.iso8601
         }
       end
 
