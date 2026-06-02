@@ -17,8 +17,14 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     assert_includes errors[:invalid_key], 'Invalid API key.'
   end
 
-  test 'minimum_amount_logic returns base_or_quote' do
-    assert_equal :base_or_quote, @exchange.minimum_amount_logic
+  test 'minimum_amount_logic returns base_or_quote for market orders' do
+    assert_equal :base_or_quote, @exchange.minimum_amount_logic(order_type: :market_order)
+  end
+
+  test 'minimum_amount_logic returns base_and_quote_in_base for limit orders' do
+    # Bitvavo limit orders accept only base amount + price (no amountQuote), so the
+    # order setter must size limit orders in base — never :quote.
+    assert_equal :base_and_quote_in_base, @exchange.minimum_amount_logic(order_type: :limit_order)
   end
 
   test 'set_client creates a Honeymaker::Clients::Bitvavo instance' do
@@ -167,6 +173,45 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     assert_predicate result, :success?
     assert_equal '1.23456', captured[:price]
     assert_equal "#{ticker.ticker}-abc123", result.data[:order_id]
+  end
+
+  # == set_limit_order converts a :quote amount to base ==
+  # Bitvavo limit orders only accept base `amount` + `price` (no amountQuote). A
+  # :quote amount must be converted to base at the adjusted limit price, otherwise
+  # a "spend 20 EUR" request is shipped as "buy 20 BTC" -> errorCode 216.
+
+  test 'set_limit_order converts a quote amount to a base amount at the limit price' do
+    ticker = create(:ticker, exchange: @exchange, price_decimals: 0, base_decimals: 8)
+    client = @exchange.send(:client)
+    captured = {}
+    client.define_singleton_method(:place_order) do |**kwargs|
+      captured.merge!(kwargs)
+      Result::Success.new(order_id: "#{kwargs[:market]}-abc123", raw: { 'orderId' => 'abc123', 'market' => kwargs[:market] })
+    end
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: BigDecimal('20'),
+                                       amount_type: :quote, side: :buy, price: BigDecimal('59606'))
+    end
+
+    assert_predicate result, :success?
+    adj_price = ticker.adjusted_price(price: BigDecimal('59606'))
+    expected  = ticker.adjusted_amount(amount: BigDecimal('20') / adj_price, amount_type: :base)
+    assert_equal expected.to_d.to_s('F'), captured[:amount]
+    assert_nil captured[:amount_quote], 'limit orders must not send amountQuote'
+    assert_operator(expected.to_d * adj_price, :<=, BigDecimal('20'), 'converted base must not over-reserve quote')
+  end
+
+  test 'set_limit_order returns a failure when the adjusted price is not positive' do
+    ticker = create(:ticker, exchange: @exchange, price_decimals: 0)
+    @exchange.send(:client).expects(:place_order).never
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: BigDecimal('20'),
+                                       amount_type: :quote, side: :buy, price: BigDecimal('0.4'))
+    end
+
+    assert_predicate result, :failure?
   end
 
   # == order-placement response parsing (Bug C) ==
