@@ -173,6 +173,41 @@ class Bot::StartableTest < ActiveSupport::TestCase
     assert_equal Time.utc(2026, 5, 26, 14, 0, 0), @bot.initial_start_at
   end
 
+  # ---------- schedule_start_at (API/MCP absolute-datetime helper) ----------
+
+  test 'schedule_start_at enables the feature in date mode with a UTC start_at' do
+    @bot.schedule_start_at('2026-11-11T15:24:00Z')
+
+    assert_equal true, @bot.start_time_enabled?
+    assert_equal 'date', @bot.start_time_mode
+    assert_equal Time.utc(2026, 11, 11, 15, 24, 0),
+                 Time.find_zone!('UTC').parse(@bot.start_at)
+  end
+
+  test 'schedule_start_at interprets a naive datetime in the user time zone' do
+    update_user_time_zone('Warsaw') # CET (UTC+1) in November
+    @bot.schedule_start_at('2026-11-11T15:24')
+
+    # 15:24 Warsaw (CET) == 14:24 UTC.
+    assert_equal Time.utc(2026, 11, 11, 14, 24, 0),
+                 Time.find_zone!('UTC').parse(@bot.start_at)
+  end
+
+  test 'schedule_start_at honors an explicit offset over the user zone' do
+    update_user_time_zone('Warsaw')
+    @bot.schedule_start_at('2026-11-11T15:24:00Z')
+
+    assert_equal Time.utc(2026, 11, 11, 15, 24, 0),
+                 Time.find_zone!('UTC').parse(@bot.start_at)
+  end
+
+  test 'schedule_start_at leaves start_at nil for a blank value' do
+    @bot.schedule_start_at('')
+
+    assert_equal 'date', @bot.start_time_mode
+    assert_nil @bot.start_at
+  end
+
   # ---------- initial_start_at: date mode ----------
 
   test 'initial_start_at (date mode) returns the stored absolute UTC moment' do

@@ -393,6 +393,57 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
     assert bot.working?
   end
 
+  test 'POST /api/v1/bots schedules a bot for a future start_at' do
+    @user.set_rest_tool_enabled('create_bot', true)
+    travel_to Time.utc(2026, 5, 26, 12, 0, 0) do
+      Bot::ActionJob.stubs(:set).returns(stub(perform_later: true))
+      Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+      Bot::ActionJob.expects(:perform_later).never
+      exchange = create(:binance_exchange)
+      btc = create(:asset, :bitcoin)
+      usd = create(:asset, :usd)
+      create(:ticker, exchange: exchange, base_asset: btc, quote_asset: usd)
+      create(:api_key, user: @user, exchange: exchange, key_type: :trading, status: :correct)
+      token = create_token(scopes: 'api')
+
+      post '/api/v1/bots',
+           params: {
+             exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD',
+             quote_amount: 100, interval: 'day', start_at: '2026-06-01T09:00:00Z'
+           },
+           headers: bearer(token), as: :json
+
+      assert_response :created
+      body = JSON.parse(response.body)
+      assert_equal 'scheduled', body['data']['status']
+      assert_equal Time.utc(2026, 6, 1, 9, 0, 0), Time.iso8601(body['data']['started_at'])
+    end
+  end
+
+  test 'POST /api/v1/bots returns 422 for a past start_at and creates no bot' do
+    @user.set_rest_tool_enabled('create_bot', true)
+    travel_to Time.utc(2026, 5, 26, 12, 0, 0) do
+      exchange = create(:binance_exchange)
+      btc = create(:asset, :bitcoin)
+      usd = create(:asset, :usd)
+      create(:ticker, exchange: exchange, base_asset: btc, quote_asset: usd)
+      create(:api_key, user: @user, exchange: exchange, key_type: :trading, status: :correct)
+      token = create_token(scopes: 'api')
+
+      assert_no_difference -> { @user.bots.count } do
+        post '/api/v1/bots',
+             params: {
+               exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD',
+               quote_amount: 100, interval: 'day', start_at: '2026-05-20T09:00:00Z'
+             },
+             headers: bearer(token), as: :json
+      end
+
+      assert_response :unprocessable_entity
+      assert_equal 'bot_invalid', JSON.parse(response.body)['error']['code']
+    end
+  end
+
   test 'POST /api/v1/bots returns 404 when the exchange is unknown' do
     @user.set_rest_tool_enabled('create_bot', true)
     token = create_token(scopes: 'api')
