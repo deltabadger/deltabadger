@@ -45,6 +45,8 @@ da:
         invalid_allocation_value: 'Ugyldig allokeringsværdi'
         exchange:
             regional_restriction: "%{exchange} begrænser handel med %{asset} i %{country}"
+            transient_nonce: "%{exchange} afviste anmodningens nonce. Hvis du også bruger denne API-nøgle i en anden app, så øg dens Nonce Window i dine %{exchange}-API-indstillinger."
+            transient_unavailable: "%{exchange} er midlertidigt utilgængelig. Botten prøver automatisk igen."
         bots:
             exchange_asset_mismatch: "Ikke alle aktiverne er noteret på %{exchange_name}"
             exchange_change_while_open_orders: "Annullér alle åbne ordrer, denne bot har på %{exchange_name}, før du skifter børs"

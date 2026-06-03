@@ -90,4 +90,68 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
 
     assert_match(/exchange down/, error.message)
   end
+
+  # == transient Kraken errors (HTTP 200 + error array) ==
+  # A Kraken transient failure must raise Client::TransientNetworkError so the
+  # job's retry_on backs it off, instead of failing the job with a bare RuntimeError.
+  # NOTE: the bot MUST be on Kraken — the default factory exchange (Binance) has no
+  # :transient known_errors, so transient_error? would return false for the wrong reason.
+
+  test 'raises Client::TransientNetworkError for a Kraken internal-error failure' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: 'u1')
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Failure.new('EGeneral:Internal error'))
+
+    error = assert_raises(Client::TransientNetworkError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    assert_match(/EGeneral:Internal error/, error.message)
+  end
+
+  test 'raises Client::TransientNetworkError for a Kraken invalid-nonce failure' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: 'u1')
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Failure.new('EAPI:Invalid nonce'))
+
+    assert_raises(Client::TransientNetworkError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+  end
+
+  test 'raises a plain RuntimeError (not TransientNetworkError) for a non-transient Kraken failure' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: 'u1')
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Failure.new('exchange down'))
+
+    error = assert_raises(RuntimeError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    refute_kind_of Client::TransientNetworkError, error
+    assert_match(/exchange down/, error.message)
+  end
+
+  test 'a Kraken transient failure does NOT short-circuit the stale not_found path' do
+    # A not_found result for an old order is still abandoned — the transient check
+    # sits AFTER the stale handling, and a not_found sentence is not a transient code.
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    old = (Bot::StaleOrderResolver::STALE_ORDER_THRESHOLD + 1.day).ago
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown,
+                               external_id: 'TXID-STALE', created_at: old)
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Failure.new('Kraken did not return data', data: { not_found: true }))
+
+    assert_nothing_raised { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    assert_equal 'abandoned', txn.reload.external_status
+  end
+
+  test 'declares retry_on Client::TransientNetworkError' do
+    handler_classes = Bot::FetchAndUpdateOrderJob.rescue_handlers.map(&:first)
+    assert_includes handler_classes, 'Client::TransientNetworkError'
+  end
+
+  test 'enqueues on the per-exchange queue from its Transaction argument' do
+    # Documents that the job's first arg is a Transaction (not a Bot); its exchange
+    # delegates so retries re-enqueue on the right per-exchange queue.
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    txn = create(:transaction, bot: bot, external_id: 'u1')
+
+    assert_equal :kraken, Bot::FetchAndUpdateOrderJob.new(txn).queue_name
+  end
 end

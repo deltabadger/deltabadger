@@ -45,6 +45,8 @@ sv:
         invalid_allocation_value: 'Ogiltigt allokeringsvärde'
         exchange:
             regional_restriction: "%{exchange} begränsar handel med %{asset} i %{country}"
+            transient_nonce: "%{exchange} avvisade förfrågans nonce. Om du även använder den här API-nyckeln i en annan app, öka dess Nonce Window i dina API-inställningar på %{exchange}."
+            transient_unavailable: "%{exchange} är tillfälligt otillgänglig. Boten försöker igen automatiskt."
         bots:
             exchange_asset_mismatch: "Alla tillgångar är inte listade på %{exchange_name}"
             exchange_change_while_open_orders: "Avbryt alla öppna ordrar som denna bot har på %{exchange_name} innan du byter börs"

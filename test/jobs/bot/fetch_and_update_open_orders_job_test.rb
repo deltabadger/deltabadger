@@ -138,4 +138,54 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
     assert_equal 'abandoned', stale.reload.external_status, 'old missing must be abandoned before the raise'
     assert_equal 'unknown', young_missing.reload.external_status
   end
+
+  # == transient Kraken errors (HTTP 200 + error array) ==
+  # On the bulk path, a Kraken transient failure must raise Client::TransientNetworkError
+  # so it funnels into ActionJob's retry_on (this job runs perform_now, inline in
+  # execute_action). NOTE: bot MUST be on Kraken (default factory exchange has no :transient).
+
+  test 'raises Client::TransientNetworkError for a Kraken transient bulk failure' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'o1')
+    bot.stubs(:get_orders).returns(Result::Failure.new('EGeneral:Internal error'))
+
+    error = assert_raises(Client::TransientNetworkError) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
+    assert_match(/EGeneral:Internal error/, error.message)
+  end
+
+  test 'still raises a plain RuntimeError (not TransientNetworkError) for a non-transient failure' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'o1')
+    bot.stubs(:get_orders).returns(Result::Failure.new('exchange down'))
+
+    error = assert_raises(RuntimeError) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
+    refute_kind_of Client::TransientNetworkError, error
+  end
+
+  test 'suppresses a transient failure under success_or_kill (controller path)' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'o1')
+    bot.stubs(:get_orders).returns(Result::Failure.new('EAPI:Invalid nonce'))
+
+    assert_nothing_raised do
+      Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot, success_or_kill: true)
+    end
+  end
+
+  test 'does not declare its own retry_on (relies on ActionJob via inline perform_now)' do
+    handler_classes = Bot::FetchAndUpdateOpenOrdersJob.rescue_handlers.map(&:first)
+    refute_includes handler_classes, 'Client::TransientNetworkError'
+  end
+
+  # End-to-end funnel: the inline sweep (limit_orderable decorator) raises the
+  # transient error OUT of execute_action, where ActionJob's rescue Client::TransientNetworkError
+  # picks it up (proven separately in action_job_test). Driving execute_action directly
+  # avoids mocking auth/market/scheduling.
+  test 'inline sweep raises a Kraken transient error out of execute_action' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'o1')
+    bot.stubs(:get_orders).returns(Result::Failure.new('EAPI:Invalid nonce'))
+
+    assert_raises(Client::TransientNetworkError) { bot.execute_action }
+  end
 end

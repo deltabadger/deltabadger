@@ -47,6 +47,8 @@ ru:
         invalid_allocation_value: 'Недопустимое значение распределения'
         exchange:
             regional_restriction: "%{exchange} ограничивает торговлю %{asset} в стране %{country}"
+            transient_nonce: "%{exchange} отклонил nonce запроса. Если вы используете этот API-ключ ещё и в другом приложении, увеличьте его Nonce Window в настройках API на %{exchange}."
+            transient_unavailable: "%{exchange} временно недоступен. Бот повторит попытку автоматически."
         bots:
             exchange_asset_mismatch: "Не все активы котируются на %{exchange_name}"
             exchange_change_while_open_orders: "Пожалуйста, отмените все открытые ордера этого бота на %{exchange_name} перед изменением биржи"
