@@ -52,6 +52,8 @@ de:
         invalid_allocation_value: 'Ungültiger Zuweisungswert'
         exchange:
             regional_restriction: "%{exchange} beschränkt den Handel mit %{asset} in %{country}"
+            transient_nonce: "%{exchange} hat den Nonce der Anfrage abgelehnt. Wenn du diesen API-Schlüssel auch in einer anderen App verwendest, erhöhe das Nonce Window in deinen %{exchange}-API-Einstellungen."
+            transient_unavailable: "%{exchange} ist vorübergehend nicht verfügbar. Der Bot versucht es automatisch erneut."
         bots:
             exchange_asset_mismatch: "Nicht alle Vermögenswerte sind auf %{exchange_name} gelistet"
             exchange_change_while_open_orders: "Alle offenen Bestellungen dieses Bots auf %{exchange_name} stornieren, bevor Sie den Exchange ändern"

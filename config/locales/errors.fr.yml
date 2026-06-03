@@ -40,6 +40,8 @@ fr:
     errors:
         exchange:
             regional_restriction: "%{exchange} restreint le trading de %{asset} en %{country}"
+            transient_nonce: "%{exchange} a rejeté le nonce de la requête. Si vous utilisez aussi cette clé API dans une autre application, augmentez sa Nonce Window dans les paramètres API de %{exchange}."
+            transient_unavailable: "%{exchange} est temporairement indisponible. Le bot réessaiera automatiquement."
         bots:
             exchange_asset_mismatch: "Tous les actifs ne sont pas répertoriés sur %{exchange_name}"
             exchange_change_while_open_orders: "Veuillez annuler toutes les commandes ouvertes de ce bot sur %{exchange_name} avant de changer l''exchange"

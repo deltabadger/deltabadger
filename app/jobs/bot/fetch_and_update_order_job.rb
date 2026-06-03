@@ -1,4 +1,10 @@
 class Bot::FetchAndUpdateOrderJob < BotJob
+  # Transient exchange-API failures (e.g. Kraken's HTTP-200 "EGeneral:Internal error"
+  # / "EAPI:Invalid nonce") are retried with backoff instead of failing the job. This
+  # job runs standalone async, so it needs its own retry_on (no exhaustion block — its
+  # first arg is a Transaction; the durable row remains for the next open-orders sweep).
+  retry_on Client::TransientNetworkError, wait: :polynomially_longer, attempts: 3
+
   def perform(order, update_missed_quote_amount: false, success_or_kill: false)
     bot = order.bot
     result = bot.get_order(order_id: order.external_id)
@@ -12,6 +18,8 @@ class Bot::FetchAndUpdateOrderJob < BotJob
           # fall through and raise — likely a real bug (wrong key, etc.)
         end
       end
+      raise Client::TransientNetworkError, result.errors.to_sentence if bot.exchange.transient_error?(result.errors)
+
       raise "Failed to fetch order #{order.id}. Result: #{result.errors}"
     end
 

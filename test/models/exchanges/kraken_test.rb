@@ -230,6 +230,42 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     assert_equal %w[TXID-STALE], result.data[:missing]
   end
 
+  # == transient_error? classification ==
+  # Kraken returns some failures as HTTP 200 with an error array (e.g.
+  # ["EGeneral:Internal error"], ["EAPI:Invalid nonce"]). These are transient and
+  # should be retried, not failed loudly. transient_error? backs the conversion to
+  # Client::TransientNetworkError in the fetch jobs, mirroring invalid_key_error?.
+
+  test 'transient_error? is true for known transient Kraken codes' do
+    assert @exchange.transient_error?(['EGeneral:Internal error'])
+    assert @exchange.transient_error?(['EAPI:Invalid nonce'])
+    assert @exchange.transient_error?(['EService:Unavailable'])
+    assert @exchange.transient_error?(['EService:Busy'])
+    assert @exchange.transient_error?(['EService:Deadline elapsed'])
+  end
+
+  test 'transient_error? matches a transient code embedded in a longer string' do
+    assert @exchange.transient_error?(['Failed to fetch orders. Result: EGeneral:Internal error'])
+  end
+
+  test 'transient_error? is false for the temporary-lockout code (retrying worsens it)' do
+    assert_not @exchange.transient_error?(['EGeneral:Temporary lockout'])
+  end
+
+  test 'transient_error? is false for non-transient codes' do
+    assert_not @exchange.transient_error?(['EAPI:Invalid key'])
+    assert_not @exchange.transient_error?(['EAPI:Insufficient funds'])
+  end
+
+  test 'transient_error? is false for the stale not_found sentence' do
+    assert_not @exchange.transient_error?(['Kraken did not return data for order TXID-STALE'])
+  end
+
+  test 'transient_error? is false for empty and nil inputs' do
+    assert_not @exchange.transient_error?([])
+    assert_not @exchange.transient_error?(nil)
+  end
+
   private
 
   def kraken_order_raw(pair, status)

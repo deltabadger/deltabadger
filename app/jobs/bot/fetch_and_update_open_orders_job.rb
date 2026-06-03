@@ -8,7 +8,13 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
     return if external_order_ids.empty?
 
     result = bot.get_orders(order_ids: external_order_ids)
-    raise "Failed to fetch orders #{external_order_ids.to_sentence}. Result: #{result.errors}" if result.failure?
+    if result.failure?
+      # Transient exchange-API failures bubble up as Client::TransientNetworkError so they
+      # funnel into ActionJob's retry_on (this job runs perform_now, inline in execute_action).
+      raise Client::TransientNetworkError, result.errors.to_sentence if bot.exchange.transient_error?(result.errors)
+
+      raise "Failed to fetch orders #{external_order_ids.to_sentence}. Result: #{result.errors}"
+    end
 
     young_missing_ids = []
     result.data[:missing].each do |missing_order_id|

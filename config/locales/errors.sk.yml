@@ -45,6 +45,8 @@ sk:
         invalid_allocation_value: 'Neplatna hodnota alokacie'
         exchange:
             regional_restriction: "%{exchange} obmedzuje obchodovanie s %{asset} v krajine %{country}"
+            transient_nonce: "%{exchange} odmietol nonce požiadavky. Ak tento API kľúč používate aj v inej aplikácii, zvýšte jeho Nonce Window v nastaveniach API na %{exchange}."
+            transient_unavailable: "%{exchange} je dočasne nedostupná. Bot to automaticky skúsi znova."
         bots:
             exchange_asset_mismatch: "Nie vsetky aktiva su dostupne na %{exchange_name}"
             exchange_change_while_open_orders: "Pred zmenou burzy zruste vsetky otvorene prikazy tohto bota na %{exchange_name}"

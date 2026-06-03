@@ -45,6 +45,8 @@ el:
         invalid_allocation_value: 'Μη έγκυρη τιμή κατανομής'
         exchange:
             regional_restriction: "Η %{exchange} περιορίζει τη διαπραγμάτευση του %{asset} σε %{country}"
+            transient_nonce: "Η %{exchange} απέρριψε το nonce του αιτήματος. Αν χρησιμοποιείτε αυτό το κλειδί API και σε άλλη εφαρμογή, αυξήστε το Nonce Window στις ρυθμίσεις API της %{exchange}."
+            transient_unavailable: "Η %{exchange} είναι προσωρινά μη διαθέσιμη. Το bot θα προσπαθήσει ξανά αυτόματα."
         bots:
             exchange_asset_mismatch: "Δεν είναι όλα τα assets διαθέσιμα στο %{exchange_name}"
             exchange_change_while_open_orders: "Ακύρωσε όλες τις ανοιχτές εντολές που έχει αυτό το bot στο %{exchange_name} πριν αλλάξεις ανταλλακτήριο"
