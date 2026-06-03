@@ -130,6 +130,53 @@ class Clients::Ibkr::OauthTest < ActiveSupport::TestCase
     assert_match(/\A\d{10}\z/, Clients::Ibkr::Oauth.timestamp)
   end
 
+  # --- prepend: decrypt access-token secret with the encryption key (the path the rest skips) ---
+  test 'prepend decrypts the access-token secret to hex, preserving leading zero bytes' do
+    plaintext = ['00ff10'].pack('H*') # leading 0x00 byte must survive
+    enc_secret = Base64.strict_encode64(
+      RSA_KEY.public_key.public_encrypt(plaintext, OpenSSL::PKey::RSA::PKCS1_PADDING)
+    )
+    oauth = Clients::Ibkr::Oauth.new(
+      consumer_key: 'C', access_token: 't', access_token_secret: enc_secret,
+      signature_key: RSA_KEY.to_pem, encryption_key: RSA_KEY.to_pem,
+      dh_prime: '00cc8f1bbe20a6993bb1e2d89f0f1b2b6f8b9b5d3a7c1e4f6079123456789abcd'
+    )
+    assert_equal '00ff10', oauth.prepend
+  end
+
+  # --- dh_challenge: g^random mod prime, against the Python-computed vector ---
+  test 'dh_challenge matches the known DH vector' do
+    assert_equal '2b66064b7cfdf414ab0d8ff44103e42b46637c7402d69bd04b2dc2d7da8a9aa',
+                 @oauth.dh_challenge('3a7f9c2d1e')
+  end
+
+  test 'dh_random is 64 hex chars' do
+    assert_match(/\A[0-9a-f]{64}\z/, Clients::Ibkr::Oauth.dh_random)
+  end
+
+  # --- request header builders ---
+  test 'live_session_token_header is an RSA-SHA256 OAuth header carrying the DH challenge' do
+    header = @oauth.live_session_token_header(
+      url: 'https://api.ibkr.com/v1/api/oauth/live_session_token',
+      dh_challenge: 'abc123', prepend: 'deadbeef'
+    )
+    assert header.start_with?('OAuth realm="limited_poa", ')
+    assert_includes header, 'diffie_hellman_challenge="abc123"'
+    assert_includes header, 'oauth_signature_method="RSA-SHA256"'
+    assert_includes header, 'oauth_consumer_key="TESTCONS"'
+    assert_match(/oauth_signature="[^"]+"/, header)
+  end
+
+  test 'signed_header is an HMAC-SHA256 OAuth header and does not leak query params' do
+    header = @oauth.signed_header(
+      method: 'GET', url: 'https://api.ibkr.com/v1/api/iserver/accounts',
+      live_session_token: 'bGl2ZXNlc3Npb250b2tlbg==', query_params: { 'fields' => 'secret_value' }
+    )
+    assert_includes header, 'oauth_signature_method="HMAC-SHA256"'
+    assert_match(/oauth_signature="[^"]+"/, header)
+    refute_includes header, 'secret_value' # query params sign the base string but aren't in the header
+  end
+
   # --- Authorization header assembly: OAuth realm + sorted key="value" pairs ---
   test 'authorization_header assembles the OAuth realm header with sorted params' do
     header = @oauth.authorization_header(

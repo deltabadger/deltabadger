@@ -16,7 +16,7 @@ require 'securerandom'
 #   - .to_byte_array zero-pads when the integer's bit length is a multiple of 8.
 class Clients::Ibkr::Oauth
   # Unreserved set per RFC3986 / Python quote_plus "always safe" chars; space handled separately.
-  UNRESERVED = /[^A-Za-z0-9\-._~ ]/.freeze
+  UNRESERVED = /[^A-Za-z0-9\-._~ ]/
 
   def initialize(consumer_key:, access_token:, access_token_secret:, signature_key:, encryption_key:,
                  dh_prime:, dh_generator: 2, realm: 'limited_poa')
@@ -49,7 +49,7 @@ class Clients::Ibkr::Oauth
   # unreserved set as upper-case %XX, and turn spaces into "+".
   def self.escape(str)
     str.to_s.b.gsub(UNRESERVED) { |c| c.bytes.map { |b| format('%%%02X', b) }.join }
-       .tr(' ', '+')
+              .tr(' ', '+')
        .force_encoding(Encoding::UTF_8)
   end
 
@@ -92,6 +92,11 @@ class Clients::Ibkr::Oauth
     Time.now.to_i.to_s
   end
 
+  # 256-bit random for the Diffie-Hellman exchange, as a hex string (no 0x).
+  def self.dh_random
+    SecureRandom.hex(32)
+  end
+
   # --- Instance methods (need the credentials/keys) ---
 
   # RSA-SHA256 signature (used to obtain the live session token): PKCS#1 v1.5 over SHA-256,
@@ -107,7 +112,51 @@ class Clients::Ibkr::Oauth
     %(OAuth realm="#{@realm}", #{pairs})
   end
 
+  # The "prepend" for the live-session-token HMAC: decrypt the access-token secret with the
+  # private encryption key (PKCS#1 v1.5) and return it as a hex string. Byte-exact — leading
+  # zero bytes are preserved by going decrypted-bytes -> hex directly (no integer round-trip).
+  def prepend
+    decrypted = @encryption_key.private_decrypt(Base64.strict_decode64(@access_token_secret),
+                                                OpenSSL::PKey::RSA::PKCS1_PADDING)
+    decrypted.unpack1('H*')
+  end
+
+  # Diffie-Hellman challenge for a given client random: g^dh_random mod dh_prime (hex).
+  def dh_challenge(dh_random)
+    @dh_generator.to_i.pow(dh_random.to_i(16), @dh_prime.to_i(16)).to_s(16)
+  end
+
+  # Authorization header for the live-session-token request (RSA-SHA256, with the DH challenge
+  # in the oauth params and the decrypted-secret `prepend` prepended to the signature base string).
+  def live_session_token_header(url:, dh_challenge:, prepend:)
+    params = base_oauth_params.merge(
+      'oauth_signature_method' => 'RSA-SHA256',
+      'diffie_hellman_challenge' => dh_challenge
+    )
+    base = self.class.base_string(method: 'POST', url: url, params: params, prepend: prepend)
+    params['oauth_signature'] = rsa_sha256_signature(base)
+    authorization_header(params)
+  end
+
+  # Authorization header for a protected-resource request (HMAC-SHA256 keyed by the live session
+  # token). Query params are part of the signature base string but NOT of the header itself.
+  def signed_header(method:, url:, live_session_token:, query_params: {})
+    params = base_oauth_params.merge('oauth_signature_method' => 'HMAC-SHA256')
+    base = self.class.base_string(method: method, url: url, params: params.merge(query_params))
+    params['oauth_signature'] = self.class.hmac_sha256_signature(base, live_session_token)
+    authorization_header(params)
+  end
+
   private
+
+  def base_oauth_params
+    {
+      'oauth_consumer_key' => @consumer_key,
+      'oauth_token' => @access_token,
+      'oauth_nonce' => self.class.nonce,
+      'oauth_timestamp' => self.class.timestamp
+    }
+  end
 
   def rsa(key)
     key.is_a?(OpenSSL::PKey::RSA) ? key : OpenSSL::PKey::RSA.new(key)
