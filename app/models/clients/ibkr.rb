@@ -14,18 +14,18 @@ class Clients::Ibkr < Client
   def initialize(api_key:, session: nil)
     super()
     @api_key = api_key
-    @session = session || Clients::Ibkr::Session.new(api_key: api_key)
+    @session = session
   end
 
   # GET the accounts available to this login (account discovery).
   def accounts
-    locked { @session.signed_request(:get, "#{API}/iserver/accounts") }
+    locked { session.signed_request(:get, "#{API}/iserver/accounts") }
   end
 
   # Resolve a symbol (optionally constrained to a currency) to an IBKR conid.
   def search_contract(symbol:, currency: nil, sec_type: 'STK')
     locked do
-      results = Array(@session.signed_request(:get, "#{API}/iserver/secdef/search", query: { symbol: symbol }))
+      results = Array(session.signed_request(:get, "#{API}/iserver/secdef/search", query: { symbol: symbol }))
       conid = pick_conid(results, currency: currency, sec_type: sec_type)
       conid ? Result::Success.new(conid) : Result::Failure.new("No #{sec_type} conid for #{symbol} #{currency}".strip)
     end
@@ -36,35 +36,39 @@ class Clients::Ibkr < Client
     order = { conid: conid.to_i, orderType: order_type, side: side.to_s.upcase, quantity: quantity, tif: tif }
     order[:price] = price if price
     locked do
-      body = @session.signed_request(:post, "#{API}/iserver/account/#{account_id}/orders", body: { orders: [order] })
+      body = session.signed_request(:post, "#{API}/iserver/account/#{account_id}/orders", body: { orders: [order] })
       Result::Success.new(resolve_replies(body))
     end
   end
 
   def order_status(order_id:)
-    locked { @session.signed_request(:get, "#{API}/iserver/account/order/status/#{order_id}") }
+    locked { session.signed_request(:get, "#{API}/iserver/account/order/status/#{order_id}") }
   end
 
   def cancel_order(account_id:, order_id:)
-    locked { @session.signed_request(:delete, "#{API}/iserver/account/#{account_id}/order/#{order_id}") }
+    locked { session.signed_request(:delete, "#{API}/iserver/account/#{account_id}/order/#{order_id}") }
   end
 
   def ledger(account_id:)
-    locked { @session.signed_request(:get, "#{API}/portfolio/#{account_id}/ledger") }
+    locked { session.signed_request(:get, "#{API}/portfolio/#{account_id}/ledger") }
   end
 
   def positions(account_id:, page: 0)
-    locked { @session.signed_request(:get, "#{API}/portfolio/#{account_id}/positions/#{page}") }
+    locked { session.signed_request(:get, "#{API}/portfolio/#{account_id}/positions/#{page}") }
   end
 
   # Market-data snapshot. IBKR often needs a "pre-flight" call before it returns fields, so the
   # caller (Exchanges::Ibkr) re-tries on an empty result.
   def snapshot(conids:, fields:)
     query = { conids: Array(conids).join(','), fields: Array(fields).join(',') }
-    locked { @session.signed_request(:get, "#{API}/iserver/marketdata/snapshot", query: query) }
+    locked { session.signed_request(:get, "#{API}/iserver/marketdata/snapshot", query: query) }
   end
 
   private
+
+  def session
+    @session ||= Clients::Ibkr::Session.new(api_key: @api_key)
+  end
 
   # Wraps the block in the per-session lock + Result/error handling. If the block already
   # returns a Result it is passed through; otherwise its value is wrapped in Result::Success.
@@ -89,7 +93,7 @@ class Clients::Ibkr < Client
       prompt = arr.find { |e| e.is_a?(Hash) && e['id'].present? && e['message'].present? }
       return arr unless prompt
 
-      body = @session.signed_request(:post, "#{API}/iserver/reply/#{prompt['id']}", body: { confirmed: true })
+      body = session.signed_request(:post, "#{API}/iserver/reply/#{prompt['id']}", body: { confirmed: true })
     end
     Array(body)
   end
