@@ -146,6 +146,20 @@ class Exchange < ApplicationRecord
     end
   end
 
+  # Heuristic: do the given errors look like a transient/retryable exchange API
+  # failure (e.g. Kraken's HTTP-200 "EGeneral:Internal error" / "EAPI:Invalid nonce")?
+  # Used by the fetch jobs to convert such failures into Client::TransientNetworkError
+  # so they flow into the existing retry-with-backoff path instead of failing loudly.
+  def transient_error?(errors)
+    transient_messages = (known_errors[:transient] || []).map(&:to_s)
+    return false if transient_messages.empty?
+
+    Array(errors).any? do |err|
+      msg = err.to_s
+      transient_messages.any? { |m| msg.include?(m) }
+    end
+  end
+
   def market_open?
     true
   end

@@ -42,4 +42,33 @@ class ExchangeHumanizeErrorTest < ActiveSupport::TestCase
     end
     assert_empty missing, "Missing translation in: #{missing.inspect}"
   end
+
+  # Integration: real Honeymaker classifier (honeymaker >= 0.9.6) + real translation.
+  # These are the exhaustion-notification messages shown after transient retries fail.
+  test 'translates a real Kraken invalid-nonce error with a Nonce Window hint' do
+    result = @exchange.humanize_error('EAPI:Invalid nonce')
+    assert_equal 'Kraken rejected the request nonce. If you also use this API key in ' \
+                 'another app, increase its Nonce Window in your Kraken API settings.', result
+  end
+
+  test 'translates a real Kraken internal/service error as temporarily unavailable' do
+    expected = 'Kraken is temporarily unavailable. The bot will retry automatically.'
+    assert_equal expected, @exchange.humanize_error('EGeneral:Internal error')
+    assert_equal expected, @exchange.humanize_error('EService:Unavailable')
+    assert_equal expected, @exchange.humanize_error('EService:Deadline elapsed')
+  end
+
+  test 'every available locale defines errors.exchange.transient_nonce' do
+    missing = I18n.available_locales.reject do |locale|
+      I18n.exists?('errors.exchange.transient_nonce', locale)
+    end
+    assert_empty missing, "Missing translation in: #{missing.inspect}"
+  end
+
+  test 'every available locale defines errors.exchange.transient_unavailable' do
+    missing = I18n.available_locales.reject do |locale|
+      I18n.exists?('errors.exchange.transient_unavailable', locale)
+    end
+    assert_empty missing, "Missing translation in: #{missing.inspect}"
+  end
 end

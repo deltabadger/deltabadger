@@ -52,6 +52,8 @@ es:
         invalid_allocation_value: 'Valor de asignación no válido'
         exchange:
             regional_restriction: "%{exchange} restringe la negociación de %{asset} en %{country}"
+            transient_nonce: "%{exchange} rechazó el nonce de la solicitud. Si también usas esta clave API en otra aplicación, aumenta su Nonce Window en los ajustes de API de %{exchange}."
+            transient_unavailable: "%{exchange} no está disponible temporalmente. El bot lo reintentará automáticamente."
         bots:
             exchange_asset_mismatch: "No todos los activos están listados en %{exchange_name}"
             exchange_change_while_open_orders: "Cancela todas las órdenes abiertas de este bot en %{exchange_name} antes de cambiar el exchange"

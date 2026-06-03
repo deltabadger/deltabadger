@@ -45,6 +45,8 @@ bg:
         invalid_allocation_value: 'Невалидна стойност на алокация'
         exchange:
             regional_restriction: "%{exchange} ограничава търговията с %{asset} в %{country}"
+            transient_nonce: "%{exchange} отхвърли nonce на заявката. Ако използвате този API ключ и в друго приложение, увеличете неговия Nonce Window в настройките за API на %{exchange}."
+            transient_unavailable: "%{exchange} е временно недостъпна. Ботът ще опита отново автоматично."
         bots:
             exchange_asset_mismatch: "Не всички активи са налични в %{exchange_name}"
             exchange_change_while_open_orders: "Преди смяна на борсата отменете всички отворени поръчки на този бот в %{exchange_name}"

@@ -35,7 +35,12 @@ class Exchanges::Kraken < Exchange
   }.freeze # the real costmin values that Kraken respects. Found by trial and error using test orders.
   ERRORS = {
     insufficient_funds: ['EAPI:Insufficient funds', 'EOrder:Insufficient funds'],
-    invalid_key: ['EGeneral:Permission denied', 'EAPI:Invalid key', 'EAPI:Invalid signature']
+    invalid_key: ['EGeneral:Permission denied', 'EAPI:Invalid key', 'EAPI:Invalid signature'],
+    # Transient/retryable HTTP-200 failures. Excludes EGeneral:Temporary lockout
+    # (retrying extends Kraken's penalty box) and rate-limit/throttle codes (need a
+    # timestamp-aware wait, not polynomial backoff).
+    transient: ['EGeneral:Internal error', 'EAPI:Invalid nonce',
+                'EService:Unavailable', 'EService:Busy', 'EService:Deadline elapsed']
   }.freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order

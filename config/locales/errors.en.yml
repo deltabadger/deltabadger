@@ -52,6 +52,8 @@ en:
         invalid_allocation_value: 'Invalid allocation value'
         exchange:
             regional_restriction: "%{exchange} restricts trading %{asset} in %{country}"
+            transient_nonce: "%{exchange} rejected the request nonce. If you also use this API key in another app, increase its Nonce Window in your %{exchange} API settings."
+            transient_unavailable: "%{exchange} is temporarily unavailable. The bot will retry automatically."
         bots:
             exchange_asset_mismatch: "Not all the assets are listed on %{exchange_name}"
             exchange_change_while_open_orders: "Cancel all open orders this bot has on %{exchange_name} before changing the exchange"

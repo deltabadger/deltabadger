@@ -52,6 +52,8 @@ nl:
         invalid_allocation_value: 'Ongeldige toewijzingswaarde'
         exchange:
             regional_restriction: "%{exchange} beperkt de handel in %{asset} in %{country}"
+            transient_nonce: "%{exchange} heeft de nonce van het verzoek geweigerd. Gebruik je deze API-sleutel ook in een andere app, verhoog dan het Nonce Window in je %{exchange}-API-instellingen."
+            transient_unavailable: "%{exchange} is tijdelijk niet beschikbaar. De bot probeert het automatisch opnieuw."
         bots:
             exchange_asset_mismatch: "Niet alle activa staan genoteerd op %{exchange_name}"
             exchange_change_while_open_orders: "Annuleer alle openstaande bestellingen van deze bot op %{exchange_name} voordat u de exchange wijzigt"
