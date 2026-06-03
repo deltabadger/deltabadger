@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_03_222643) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_03_231515) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -279,6 +279,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_06_03_222643) do
     t.date "date", null: false
     t.decimal "price", null: false
     t.index ["asset", "currency", "date"], name: "index_historical_prices_on_asset_and_currency_and_date", unique: true
+  end
+
+  create_table "ibkr_locks", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.string "key", null: false
+    t.string "owner", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "index_ibkr_locks_on_expires_at"
+    t.index ["key"], name: "index_ibkr_locks_on_key", unique: true
   end
 
   create_table "idempotency_keys", force: :cascade do |t|
