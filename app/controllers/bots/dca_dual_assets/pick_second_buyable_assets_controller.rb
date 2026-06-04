@@ -2,6 +2,7 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsController < ApplicationContro
   before_action :authenticate_user!
 
   include Bots::Searchable
+  include Bots::StockBrokerRoutable
 
   def new
     @bot = current_user.bots.dca_dual_asset.new(sanitized_bot_config)
@@ -35,8 +36,12 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsController < ApplicationContro
       base0 = Asset.find_by(id: session.dig(:bot_config, 'settings', 'base0_asset_id'))
       base1 = Asset.find_by(id: bot_params[:base1_asset_id])
       if base0&.category == 'Stock' || base1&.category == 'Stock'
-        set_stock_defaults
-        redirect_to new_bots_dca_dual_assets_add_api_key_path
+        redirect_after_stock_asset(
+          current_user.bots.dca_dual_asset.new(sanitized_bot_config),
+          picker_path: new_bots_dca_dual_assets_pick_stock_broker_path,
+          add_api_key_path: new_bots_dca_dual_assets_add_api_key_path,
+          repick_path: new_bots_dca_dual_assets_pick_second_buyable_asset_path
+        )
       else
         redirect_to new_bots_dca_dual_assets_pick_exchange_path
       end
@@ -46,13 +51,6 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsController < ApplicationContro
   end
 
   private
-
-  def set_stock_defaults
-    alpaca = Exchanges::Alpaca.first
-    usd = Asset.find_by(external_id: 'usd')
-    session[:bot_config]['exchange_id'] = alpaca.id if alpaca
-    session[:bot_config].deep_merge!({ 'settings' => { 'quote_asset_id' => usd.id } }) if usd
-  end
 
   def search_params
     params.permit(:query)

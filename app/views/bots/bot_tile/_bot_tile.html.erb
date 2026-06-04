@@ -3,7 +3,7 @@
     <div class="bot-tile__header">
       <div class="bot-tile__hgroup">
         <div class="bot-tile__title">
-          <% hide_quote = bot.exchange&.name_id == "alpaca" %>
+          <% hide_quote = bot.exchange&.stock_venue? %>
           <% if bot.dca_single_asset? && bot.quote_asset_id.present? && bot.base_asset_id.present? %>
             <% unless hide_quote %>
               <span><%= bot.quote_asset.symbol %></span>

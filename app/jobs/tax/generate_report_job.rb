@@ -6,7 +6,7 @@ class Tax::GenerateReportJob < ApplicationJob
     user = User.find(user_id)
     # Stock brokers (Alpaca, IBKR) are excluded from the crypto tax report.
     transactions = AccountTransaction.for_user(user)
-                                     .where.not(exchange_id: Exchange.where(type: ['Exchanges::Alpaca', 'Exchanges::Ibkr']).select(:id))
+                                     .where.not(exchange_id: Exchange.stock_venues.select(:id))
     report = Tax::Report.new(country: country, year: year, transactions: transactions,
                              stablecoin_as_fiat: stablecoin_as_fiat)
 

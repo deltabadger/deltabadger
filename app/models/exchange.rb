@@ -1,6 +1,13 @@
 class Exchange < ApplicationRecord
   STABLE_TYPES = %w[Exchanges::Binance Exchanges::BinanceUs Exchanges::Coinbase Exchanges::Kraken].freeze
 
+  # Stock brokers (as opposed to crypto exchanges). Stock bots route to one of these; the
+  # rest of the app (tax report, bot tile, broker picker) keys off this instead of hardcoding
+  # Exchanges::Alpaca as the sole stock venue.
+  STOCK_TYPES = %w[Exchanges::Alpaca Exchanges::Ibkr].freeze
+
+  scope :stock_venues, -> { where(type: STOCK_TYPES) }
+
   has_many :bots
   has_many :api_keys
   has_one :fee_api_key
@@ -17,6 +24,10 @@ class Exchange < ApplicationRecord
 
   def beta?
     !type.in?(STABLE_TYPES)
+  end
+
+  def stock_venue?
+    type.in?(STOCK_TYPES)
   end
 
   include Synchronizer

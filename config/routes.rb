@@ -161,6 +161,7 @@ Rails.application.routes.draw do
         resource :pick_exchange, only: [:new, :create] do
           post :promote_to_dual, on: :collection
         end
+        resource :pick_stock_broker, only: [:new, :create]
         resource :add_api_key, only: [:new, :create]
         resource :pick_spendable_asset, only: [:new, :create]
       end
@@ -170,6 +171,7 @@ Rails.application.routes.draw do
           post :demote_to_single, on: :collection
         end
         resource :pick_exchange, only: [:new, :create]
+        resource :pick_stock_broker, only: [:new, :create]
         resource :add_api_key, only: [:new, :create]
         resource :pick_spendable_asset, only: [:new, :create]
       end
