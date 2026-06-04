@@ -92,4 +92,34 @@ class Exchanges::IbkrTest < ActiveSupport::TestCase
     assert_predicate result, :success?
     assert_equal [], result.data
   end
+
+  test 'price reads are dry-safe (no IBKR snapshot call in dry-run)' do
+    @exchange.stubs(:dry_run?).returns(true)
+    @client.expects(:snapshot).never
+    result = @exchange.get_last_price(ticker: stub(base: 'AAPL', quote: 'USD', id: 1))
+    assert_predicate result, :success?
+    assert_equal BigDecimal('1'), result.data
+  end
+
+  test 'snapshot price returns a Result::Failure (never raises) on a zero/missing price' do
+    ticker = stub(base: 'AAPL', quote: 'USD', id: 1)
+    ticker.stubs(:try).with(:conid).returns(nil)
+    @client.expects(:search_contract).returns(Result::Success.new(1))
+    @client.expects(:snapshot).returns(Result::Success.new([{ 'conid' => 1, '31' => 0 }]))
+
+    result = @exchange.get_last_price(ticker: ticker)
+    assert_predicate result, :failure?
+  end
+
+  test 'market_buy fails (no fake order) when IBKR returns no order id' do
+    ticker = stub(base: 'AAPL', quote: 'USD', id: 1)
+    ticker.stubs(:try).with(:conid).returns(nil)
+    ticker.stubs(:adjusted_amount).returns(2)
+    @client.expects(:accounts).returns(Result::Success.new({ 'accounts' => ['U1'] }))
+    @client.expects(:search_contract).returns(Result::Success.new(1))
+    @client.expects(:place_order).returns(Result::Success.new([{ 'order_status' => 'Submitted' }]))
+
+    result = @exchange.market_buy(ticker: ticker, amount: 2, amount_type: :base)
+    assert_predicate result, :failure?
+  end
 end

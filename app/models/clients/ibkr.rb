@@ -37,7 +37,17 @@ class Clients::Ibkr < Client
     order[:price] = price if price
     locked do
       body = session.signed_request(:post, "#{API}/iserver/account/#{account_id}/orders", body: { orders: [order] })
-      Result::Success.new(resolve_replies(body))
+      resolved = resolve_replies(body)
+
+      # If the confirmation loop exhausted with a prompt still pending, the order was NOT placed —
+      # never report it as success (the prompt id is not an order id).
+      pending = Array(resolved).find { |e| e.is_a?(Hash) && e['id'].present? && e['message'].present? }
+      next Result::Failure.new("Order not confirmed: #{Array(pending['message']).join('; ')}") if pending
+
+      error = Array(resolved).find { |e| e.is_a?(Hash) && e['error'].present? }
+      next Result::Failure.new(error['error'].to_s) if error
+
+      Result::Success.new(resolved)
     end
   end
 
