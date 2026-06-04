@@ -224,7 +224,10 @@ class Exchanges::Ibkr < Exchange
     )
     return result if result.failure?
 
-    Result::Success.new({ order_id: extract_order_id(result.data) })
+    order_id = extract_order_id(result.data)
+    return Result::Failure.new("IBKR accepted the order but returned no order id for #{ticker.base}") if order_id.blank?
+
+    Result::Success.new({ order_id: order_id })
   end
 
   def whole_shares(ticker:, amount:, amount_type:, price:)
@@ -248,26 +251,32 @@ class Exchanges::Ibkr < Exchange
     format("%.#{ticker.price_decimals}f", ticker.adjusted_price(price: price).to_d)
   end
 
+  # Only a confirmed order ack carries order_id/orderId — never fall back to a prompt's `id`.
   def extract_order_id(data)
-    first = Array(data).find { |e| e.is_a?(Hash) }
-    first && (first['order_id'] || first['orderId'] || first['id'])&.to_s
+    ack = Array(data).find { |e| e.is_a?(Hash) && (e['order_id'] || e['orderId']) }
+    ack && (ack['order_id'] || ack['orderId']).to_s
   end
 
   def snapshot_price(ticker:, field:, label:, force:)
+    # Dry-run must NOT establish a brokerage session / hit IBKR; a placeholder keeps dry orders
+    # flowing. Real cosmetic pricing moves to the (non-IBKR) data-api feed in §7.
+    return Result::Success.new(BigDecimal('1')) if dry_run?
+
     conid = resolve_conid(ticker)
     return conid if conid.is_a?(Result)
 
     cache_key = "exchange_#{id}_#{label}_price_#{ticker.id}"
-    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = client.snapshot(conids: [conid], fields: [field])
-      return result if result.failure?
+    cached = force ? nil : Rails.cache.read(cache_key)
+    return Result::Success.new(cached) if cached
 
-      value = snapshot_field(result.data, conid, field)
-      raise "Wrong #{label} price for #{ticker.base}: #{value}" if value.zero?
+    result = client.snapshot(conids: [conid], fields: [field])
+    return result if result.failure?
 
-      value
-    end
-    Result::Success.new(price)
+    value = snapshot_field(result.data, conid, field)
+    return Result::Failure.new("Missing/zero #{label} price for #{ticker.base}") if value.zero?
+
+    Rails.cache.write(cache_key, value, expires_in: 5.seconds)
+    Result::Success.new(value)
   end
 
   def snapshot_field(data, conid, field)

@@ -21,7 +21,7 @@ production:
     - polling_interval: 1
       batch_size: 500
   workers:
-    - queues: [binance, binance_us, coinbase, kraken, bitget, kucoin, bybit, mexc, gemini, bitvavo, hyperliquid, bingx, bitrue, bitmart, alpaca]
+    - queues: [binance, binance_us, coinbase, kraken, bitget, kucoin, bybit, mexc, gemini, bitvavo, hyperliquid, bingx, bitrue, bitmart, alpaca, ibkr]
       threads: 2
       polling_interval: 1
     # `default` is listed before `low_priority` so foreground work (broadcasts,

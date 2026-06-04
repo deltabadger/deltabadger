@@ -75,4 +75,14 @@ class Clients::IbkrTest < ActiveSupport::TestCase
     @session.expects(:signed_request).raises(Faraday::TimeoutError.new('read timed out'))
     assert_raises(Client::TransientNetworkError) { @client.accounts }
   end
+
+  test 'place_order fails (not a fake success) when the confirmation loop never resolves' do
+    # order POST and every reply keep returning the same prompt
+    @session.stubs(:signed_request).returns([{ 'id' => 'p1', 'message' => ['Confirm?'] }])
+
+    result = @client.place_order(account_id: 'U1', conid: 1, side: :buy, quantity: 1)
+
+    assert_predicate result, :failure?
+    assert_match(/not confirmed/i, result.errors.first)
+  end
 end

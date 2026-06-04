@@ -10,7 +10,10 @@ class IbkrLock < ApplicationRecord
 
   THREAD_KEY = :ibkr_lock_owners
 
-  DEFAULT_TTL = 120  # seconds — comfortably above the worst-case (bounded) order/reply op
+  # Above the worst-case held op: a place_order POST + up to 5 confirmation replies + a one-shot
+  # 401 self-heal (re-mint LST + ssodh/init), each bounded by the ~30s read timeout. A crashed
+  # holder blocks others only until this TTL; live callers give up after DEFAULT_WAIT and retry.
+  DEFAULT_TTL = 300  # seconds
   DEFAULT_WAIT = 15  # seconds to wait for the lock before giving up
   POLL = 0.05        # backoff between acquire attempts
 
@@ -52,10 +55,25 @@ class IbkrLock < ApplicationRecord
       end
     end
 
-    # Owner-safe: only removes the row if it is still the one this owner inserted, so a
-    # holder whose TTL expired can never delete a newer holder's lock.
+    # Owner-safe: only removes the row if it is still the one this owner inserted, so a holder
+    # whose TTL expired can never delete a newer holder's lock. Must never raise (it runs in an
+    # ensure block) — a busy DB is retried briefly, then left for the TTL to reclaim.
     def release(key, owner)
-      where(key: key, owner: owner).delete_all
+      attempts = 0
+      begin
+        where(key: key, owner: owner).delete_all
+      rescue ActiveRecord::StatementInvalid => e
+        raise unless sqlite_busy?(e)
+
+        attempts += 1
+        if attempts < 3
+          sleep(POLL)
+          retry
+        end
+        Rails.logger.warn("[IbkrLock] release busy for #{key}, leaving it to expire: #{e.message}")
+      rescue StandardError => e
+        Rails.logger.warn("[IbkrLock] release failed for #{key}, leaving it to expire: #{e.message}")
+      end
     end
 
     private
