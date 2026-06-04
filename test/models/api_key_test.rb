@@ -62,4 +62,20 @@ class ApiKeyTest < ActiveSupport::TestCase
 
     assert_predicate api_key, :incorrect?
   end
+
+  test 'stop_dependent_bots! stops only the working bots on the key exchange' do
+    api_key = create(:api_key) # binance, trading
+    user = api_key.user
+    btc = create(:asset, :bitcoin)
+    eth = create(:asset, :ethereum)
+    usd = create(:asset, :usd)
+    create(:dca_single_asset, :started, user: user, exchange: api_key.exchange, base_asset: btc, quote_asset: usd)
+    create(:dca_single_asset, :started, user: user, exchange: create(:kraken_exchange), base_asset: eth, quote_asset: usd)
+
+    # Exactly the one bot on the key's exchange must be stopped (stub stop to dodge the
+    # Accountable save guard that fires on a freshly-loaded bot in tests).
+    Bots::DcaSingleAsset.any_instance.expects(:stop).once
+
+    api_key.stop_dependent_bots!
+  end
 end
