@@ -38,6 +38,6 @@ class Bots::Signals::AddApiKeysController < ApplicationController
   private
 
   def api_key_params
-    params.require(:api_key).permit(:key, :secret, :passphrase)
+    params.require(:api_key).permit(:key, :secret, :passphrase, :access_token, :rsa_signature_key, :rsa_encryption_key, :dh_param, :ibkr_realm)
   end
 end

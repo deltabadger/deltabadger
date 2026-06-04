@@ -23,6 +23,15 @@ class Bot::ActionJob < BotJob
     return unless bot.scheduled? || bot.retrying?
     raise "ActionJob for bot #{bot.id}: The bot already has an action job scheduled" if bot.next_action_job_at.present?
 
+    # An IBKR key registered but not yet activated by IBKR (24h–2wk). Reschedule WITHOUT touching
+    # the exchange — a pending key must never reach a live IBKR call. Ibkr::CheckActivationJob flips
+    # the key to :correct on activation, and the next run proceeds.
+    if bot.api_key&.pending_activation?
+      Rails.logger.info("ActionJob for bot #{bot.id}: api_key pending IBKR activation, rescheduling")
+      schedule_next_action_job(bot)
+      return
+    end
+
     bot.ensure_exchange_authenticated
     unless bot.exchange.market_open?
       Rails.logger.info("ActionJob for bot #{bot.id}: market closed, rescheduling to #{bot.exchange.next_market_open_at}")
