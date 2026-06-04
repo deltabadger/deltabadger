@@ -115,13 +115,6 @@ class AppConfig < ApplicationRecord
     find_by(key: key)&.destroy
   end
 
-  # IBKR is beta: enabled by default, kill-switchable via AppConfig.set('ibkr_enabled', 'false').
-  IBKR_ENABLED = 'ibkr_enabled'.freeze
-
-  def self.ibkr_enabled?
-    get(IBKR_ENABLED) != 'false'
-  end
-
   def self.coingecko_api_key
     record = find_by(key: COINGECKO_API_KEY)
     # If record exists in DB, use its value (even if empty - user explicitly cleared it)

@@ -17,20 +17,4 @@ class Bot::ActionJobPendingActivationTest < ActiveSupport::TestCase
 
     Bot::ActionJob.new.perform(bot)
   end
-
-  test 'reschedules without trading when IBKR is disabled via the ibkr_enabled kill switch' do
-    bot = create(:dca_single_asset, :started)
-    bot.update!(status: :scheduled)
-    bot.stubs(:next_action_job_at).returns(nil)
-    bot.stubs(:api_key).returns(stub(pending_activation?: false))
-    bot.stubs(:exchange).returns(Exchanges::Ibkr.new)
-    AppConfig.stubs(:ibkr_enabled?).returns(false)
-
-    bot.expects(:ensure_exchange_authenticated).never
-    bot.expects(:execute_action).never
-    Bot::ActionJob.stubs(:set).returns(stub(perform_later: true))
-    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
-
-    Bot::ActionJob.new.perform(bot)
-  end
 end
