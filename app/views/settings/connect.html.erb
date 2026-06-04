@@ -11,6 +11,7 @@
   <div class="column gap-1">
     <% if current_user.admin? %>
       <%= render partial: 'settings/widgets/stocks' %>
+      <%= render partial: 'settings/widgets/ibkr' %>
     <% end %>
 
     <%= render partial: 'settings/widgets/api_keys', locals: {

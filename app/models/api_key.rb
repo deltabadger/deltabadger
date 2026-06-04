@@ -47,6 +47,17 @@ class ApiKey < ApplicationRecord
     self
   end
 
+  # Stop the owner's still-working bots that trade on this key's exchange, before the key is
+  # deleted — otherwise they'd keep firing with no credential. Mirrors SettingsController's
+  # stop_working_bots so every key-deletion path leaves bots cleanly stopped.
+  def stop_dependent_bots!
+    return unless trading?
+
+    user.bots.not_deleted.not_stopped.each do |bot|
+      bot.stop if bot.exchange_id == exchange_id
+    end
+  end
+
   def update_status!(result)
     if result.success?
       if result.data

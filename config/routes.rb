@@ -134,6 +134,12 @@ Rails.application.routes.draw do
       delete :disconnect_market_data
       patch :update_stocks
       delete :disconnect_stocks
+      # IBKR connect wizard (dedicated controller; see Settings::IbkrConnectionsController).
+      get    'ibkr_connect',          to: 'ibkr_connections#show',     as: :ibkr_connect
+      post   'ibkr_connect',          to: 'ibkr_connections#create'
+      delete 'ibkr_connect',          to: 'ibkr_connections#destroy'
+      get    'ibkr_connect/download', to: 'ibkr_connections#download', as: :download_ibkr_connection
+      post   'ibkr_connect/activate', to: 'ibkr_connections#activate', as: :activate_ibkr_connection
       patch :update_mcp_tool_permissions
       patch :update_mcp_tool_group_permissions
       patch :update_mcp_dry_run

@@ -14,6 +14,18 @@ class Exchanges::Ibkr < Exchange
   FIELD_BID = '84'.freeze
   FIELD_ASK = '86'.freeze
 
+  # Regional first-party OAuth self-service portals, keyed by EU brokerage entity. The connect
+  # wizard sends the user to their entity's portal to register a consumer + upload the three
+  # public artifacts. EU entities only — never the US ip2loc portal. Path/query/fragment verified
+  # against the live IBIE portal; only the TLD changes per entity.
+  OAUTH_PORTAL_PATH = '/oauth/?loginType=1&action=OAUTH&clt=0&RL=1#/configuration'.freeze
+  OAUTH_PORTALS = {
+    'ibie' => { name: 'IBKR Ireland (IBIE)', url: "https://www.interactivebrokers.ie#{OAUTH_PORTAL_PATH}" },
+    'iblux' => { name: 'IBKR Luxembourg (IBLUX)', url: "https://www.interactivebrokers.lu#{OAUTH_PORTAL_PATH}" },
+    'ibce' => { name: 'IBKR Central Europe (IBCE)', url: "https://www.interactivebrokers.com.hu#{OAUTH_PORTAL_PATH}" },
+    'ibuk' => { name: 'IBKR U.K. (IBUK)', url: "https://www.interactivebrokers.co.uk#{OAUTH_PORTAL_PATH}" }
+  }.freeze
+
   include Exchange::Dryable
 
   attr_reader :api_key
