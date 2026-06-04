@@ -32,6 +32,13 @@ class Bot::ActionJob < BotJob
       return
     end
 
+    # IBKR beta kill switch: reschedule (don't error) so bots resume cleanly when re-enabled.
+    if bot.exchange.is_a?(Exchanges::Ibkr) && !AppConfig.ibkr_enabled?
+      Rails.logger.info("ActionJob for bot #{bot.id}: IBKR disabled via ibkr_enabled, rescheduling")
+      schedule_next_action_job(bot)
+      return
+    end
+
     bot.ensure_exchange_authenticated
     unless bot.exchange.market_open?
       Rails.logger.info("ActionJob for bot #{bot.id}: market closed, rescheduling to #{bot.exchange.next_market_open_at}")
