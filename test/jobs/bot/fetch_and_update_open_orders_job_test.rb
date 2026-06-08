@@ -162,6 +162,16 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
     refute_kind_of Client::TransientNetworkError, error
   end
 
+  test 'raises Client::RateLimitedError for a Kraken rate-limit failure' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'o1')
+    bot.stubs(:get_orders).returns(Result::Failure.new('EAPI:Rate limit exceeded'))
+
+    error = assert_raises(Client::RateLimitedError) { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
+    refute_kind_of Client::TransientNetworkError, error
+    assert_match(/EAPI:Rate limit exceeded/, error.message)
+  end
+
   test 'suppresses a transient failure under success_or_kill (controller path)' do
     bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
     create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'o1')
@@ -187,5 +197,15 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
     bot.stubs(:get_orders).returns(Result::Failure.new('EAPI:Invalid nonce'))
 
     assert_raises(Client::TransientNetworkError) { bot.execute_action }
+  end
+
+  # Same funnel for rate limits: the inline sweep raises Client::RateLimitedError OUT of
+  # execute_action, where ActionJob's dedicated rescue picks it up (proven in action_job_test).
+  test 'inline sweep raises a Kraken rate-limit error out of execute_action' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'o1')
+    bot.stubs(:get_orders).returns(Result::Failure.new('EAPI:Rate limit exceeded'))
+
+    assert_raises(Client::RateLimitedError) { bot.execute_action }
   end
 end

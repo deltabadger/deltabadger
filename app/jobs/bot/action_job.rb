@@ -3,19 +3,32 @@ class Bot::ActionJob < BotJob
     :insufficient_funds
   ].freeze
 
-  retry_on Client::TransientNetworkError,
-           wait: :polynomially_longer,
-           attempts: 4 do |job, error|
-    # Retries exhausted. Keep the bot in :retrying, log a visible
-    # execution_failed entry, notify the user, and hand back to the bot's own
-    # scheduler so a fresh attempt fires at the next interval.
+  # Retries exhausted. Keep the bot in :retrying, log a visible execution_failed entry,
+  # notify the user, and hand back to the bot's own scheduler so a fresh attempt fires at
+  # the next interval. `exhausted_detail` tags WHICH retry class ran out so transient and
+  # rate-limit exhaustion stay distinguishable in the activity log.
+  EXHAUSTION_HANDLER = lambda do |job, error, exhausted_detail|
     bot = job.arguments.first
     bot.update!(status: :retrying)
     bot.log_activity('execution_failed', level: :error,
-                                         details: { error: error.message, ignorable: nil, transient_exhausted: true })
+                                         details: { error: error.message, ignorable: nil }.merge(exhausted_detail))
     bot.notify_about_error(errors: [bot.exchange.humanize_error(error.message)])
     Bot::ActionJob.set(wait_until: bot.next_interval_checkpoint_at).perform_later(bot)
     Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
+  end
+
+  retry_on Client::TransientNetworkError,
+           wait: :polynomially_longer,
+           attempts: 4 do |job, error|
+    EXHAUSTION_HANDLER.call(job, error, transient_exhausted: true)
+  end
+
+  # Rate limits retry on their own longer, escalating wait (BotJob::RATE_LIMIT_WAIT) so we
+  # don't keep re-tripping the exchange's decaying counter.
+  retry_on Client::RateLimitedError,
+           wait: BotJob::RATE_LIMIT_WAIT,
+           attempts: 4 do |job, error|
+    EXHAUSTION_HANDLER.call(job, error, rate_limited_exhausted: true)
   end
 
   def perform(bot)
@@ -54,7 +67,7 @@ class Bot::ActionJob < BotJob
       bot.update!(status: :scheduled)
       schedule_next_action_job(bot)
     end
-  rescue Client::TransientNetworkError
+  rescue Client::TransientNetworkError, Client::RateLimitedError
     # Skip the noisy execution_failed / notify_retry path. Leaving the bot in
     # :retrying ensures the ActiveJob retry chain (and any post-exhaustion
     # reschedule) passes the line-8 guard on the next perform.

@@ -2,6 +2,10 @@ require 'net/http'
 
 class Client
   class TransientNetworkError < StandardError; end
+  # An exchange rate-limit / throttle response (e.g. Kraken HTTP-200 "EAPI:Rate limit
+  # exceeded"). Distinct from TransientNetworkError so it can retry on its own, longer
+  # escalating wait — retrying a rate limit too soon re-trips the decaying counter.
+  class RateLimitedError < StandardError; end
 
   TRANSIENT_NETWORK_ERRORS = [
     Net::OpenTimeout,

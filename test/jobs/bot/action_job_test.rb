@@ -455,6 +455,85 @@ class Bot::ActionJobTransientNetworkTest < ActiveSupport::TestCase
     assert_equal true, log.details['transient_exhausted']
   end
 
+  test 'declares retry_on Client::RateLimitedError' do
+    handler_classes = Bot::ActionJob.rescue_handlers.map(&:first)
+    assert_includes handler_classes, 'Client::RateLimitedError',
+                    'Bot::ActionJob should declare retry_on Client::RateLimitedError'
+  end
+
+  test 'rate-limit retry handler is scoped to Bot::ActionJob and not inherited by sibling jobs' do
+    base_handlers = ApplicationJob.rescue_handlers.map(&:first)
+    refute_includes base_handlers, 'Client::RateLimitedError',
+                    'ApplicationJob must not declare retry_on Client::RateLimitedError'
+
+    sibling_handlers = Exchange::SyncAlpacaAssetsJob.rescue_handlers.map(&:first)
+    refute_includes sibling_handlers, 'Client::RateLimitedError',
+                    'Exchange::SyncAlpacaAssetsJob must not inherit retry_on Client::RateLimitedError'
+  end
+
+  # The wait must ESCALATE between attempts (a fixed/short wait re-trips Kraken's
+  # decaying counter). Pin the shared lambda directly so a regression to a constant
+  # wait fails loudly. ActiveJob passes the 1-based attempt count.
+  test 'rate-limit retry wait escalates with each attempt' do
+    assert_equal 15.seconds, BotJob::RATE_LIMIT_WAIT.call(1)
+    assert_equal 30.seconds, BotJob::RATE_LIMIT_WAIT.call(2)
+    assert_equal 45.seconds, BotJob::RATE_LIMIT_WAIT.call(3)
+  end
+
+  # Mirror of the transient bypass clause: a rate-limit error raised mid-flight must flip
+  # the bot to :retrying and re-raise WITHOUT the noisy execution_failed / notify path,
+  # so the ActiveJob retry chain handles it quietly (the whole point of the dedicated rescue).
+  test 'rate-limit bypass clause flips bot to :retrying and re-raises, without writing execution_failed' do
+    bot = create(:dca_single_asset, :started)
+    setup_bot_execution_mocks(bot)
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      raise Client::RateLimitedError, 'EAPI:Rate limit exceeded'
+    end
+    bot.expects(:notify_about_error).never
+    bot.expects(:notify_end_of_funds).never
+
+    assert_raises(Client::RateLimitedError) do
+      Bot::ActionJob.new.perform(bot)
+    end
+
+    assert_equal 'retrying', bot.reload.status
+    assert_equal 0, bot.bot_activity_logs.where(event: 'execution_failed').count,
+                 'rate-limit errors must not write an execution_failed activity mid-retry'
+  end
+
+  # On exhaustion the handoff mirrors transient, but the activity detail must be labeled
+  # as rate-limited (NOT transient_exhausted) so the two failure modes stay distinguishable.
+  test 'rate-limit exhaustion handoff: :retrying, logs execution_failed labeled rate_limited (not transient), notifies, re-enqueues' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    bot.exchange.stubs(:humanize_error).with('EAPI:Rate limit exceeded').returns('Exchange busy, retrying')
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      raise Client::RateLimitedError, 'EAPI:Rate limit exceeded'
+    end
+    bot.expects(:notify_about_error).with(errors: ['Exchange busy, retrying']).once
+
+    job_setter = stub
+    job_setter.expects(:perform_later).with(bot).once
+    Bot::ActionJob.unstub(:set)
+    Bot::ActionJob.expects(:set).with(wait_until: bot.next_interval_checkpoint_at).returns(job_setter)
+    Bot::BroadcastAfterScheduledActionJob.unstub(:perform_later)
+    Bot::BroadcastAfterScheduledActionJob.expects(:perform_later).with(bot).once
+
+    job = Bot::ActionJob.new(bot)
+    job.exception_executions['[Client::RateLimitedError]'] = 4
+
+    assert_nothing_raised { job.perform_now }
+
+    assert_equal 'retrying', bot.reload.status
+    log = bot.bot_activity_logs.where(event: 'execution_failed').last
+    assert log, 'execution_failed activity must be logged on rate-limit exhaustion'
+    assert_equal 'error', log.level
+    assert_equal true, log.details['rate_limited_exhausted']
+    assert_nil log.details['transient_exhausted'], 'rate-limit exhaustion must not be mislabeled transient'
+  end
+
   private
 
   def setup_action_job_mocks(bot)

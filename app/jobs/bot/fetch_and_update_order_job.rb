@@ -4,6 +4,9 @@ class Bot::FetchAndUpdateOrderJob < BotJob
   # job runs standalone async, so it needs its own retry_on (no exhaustion block — its
   # first arg is a Transaction; the durable row remains for the next open-orders sweep).
   retry_on Client::TransientNetworkError, wait: :polynomially_longer, attempts: 3
+  # Rate limits retry on their own longer, escalating wait (re-trying too soon re-trips
+  # Kraken's decaying counter). The durable row remains for the next sweep if exhausted.
+  retry_on Client::RateLimitedError, wait: BotJob::RATE_LIMIT_WAIT, attempts: 4
 
   def perform(order, update_missed_quote_amount: false, success_or_kill: false)
     bot = order.bot
@@ -18,6 +21,7 @@ class Bot::FetchAndUpdateOrderJob < BotJob
           # fall through and raise — likely a real bug (wrong key, etc.)
         end
       end
+      raise Client::RateLimitedError, result.errors.to_sentence if bot.exchange.throttled_error?(result.errors)
       raise Client::TransientNetworkError, result.errors.to_sentence if bot.exchange.transient_error?(result.errors)
 
       raise "Failed to fetch order #{order.id}. Result: #{result.errors}"

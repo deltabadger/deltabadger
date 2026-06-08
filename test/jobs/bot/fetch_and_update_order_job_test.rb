@@ -1,6 +1,8 @@
 require 'test_helper'
 
 class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
+  include ActiveSupport::Testing::TimeHelpers
+
   # This is the job Finding 1 hands off to after persisting a submitted/unknown row.
   # It must fill in execution amounts on confirmation, and — critically — never
   # destroy the durable row when confirmation keeps failing.
@@ -114,6 +116,60 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
     bot.stubs(:get_order).returns(Result::Failure.new('EAPI:Invalid nonce'))
 
     assert_raises(Client::TransientNetworkError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+  end
+
+  # A Kraken rate-limit failure must raise Client::RateLimitedError (its own retry path
+  # with a longer, escalating wait) — NOT a bare RuntimeError that fails the job, and
+  # NOT a TransientNetworkError (which would back off too fast and re-trip the limit).
+  test 'raises Client::RateLimitedError for a Kraken rate-limit failure' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: 'u1')
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Failure.new('EAPI:Rate limit exceeded'))
+
+    error = assert_raises(Client::RateLimitedError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    refute_kind_of Client::TransientNetworkError, error
+    assert_match(/EAPI:Rate limit exceeded/, error.message)
+  end
+
+  # Proves the throttle check runs BEFORE the transient check: when BOTH predicates
+  # would match, rate-limit wins (RateLimitedError, with its longer wait). Without this
+  # the ordering is untestable via real codes — no code is both throttle and transient.
+  test 'throttle takes precedence over transient when both classifiers match' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: 'u1')
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Failure.new('ambiguous failure'))
+    bot.exchange.stubs(:throttled_error?).returns(true)
+    bot.exchange.stubs(:transient_error?).returns(true)
+
+    assert_raises(Client::RateLimitedError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+  end
+
+  # Proves retry_on is actually WIRED to the escalating BotJob::RATE_LIMIT_WAIT, not just
+  # that the lambda exists: the retry is rescheduled at 15s on attempt 1 and 30s on
+  # attempt 2. A hardcoded fixed `wait:` would reschedule at 15s both times and fail the
+  # 30s assertion. perform_now lets retry_on rescue + re-enqueue; this repo runs the
+  # SolidQueue adapter in tests, so inspect the persisted SolidQueue::Job (matching
+  # Bot::ActionJobSchedulingIntegrationTest's pattern) rather than the :test adapter.
+  test 'retry_on reschedules a rate-limited fetch using the escalating wait' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: 'u1')
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Failure.new('EAPI:Rate limit exceeded'))
+    relation = SolidQueue::Job.where(class_name: 'Bot::FetchAndUpdateOrderJob')
+
+    freeze_time do
+      relation.destroy_all
+      Bot::FetchAndUpdateOrderJob.new(txn).perform_now
+      assert_equal 15.seconds.from_now.to_i, relation.last.scheduled_at.to_i, 'attempt 1 → 15s'
+
+      relation.destroy_all
+      second = Bot::FetchAndUpdateOrderJob.new(txn)
+      second.exception_executions['[Client::RateLimitedError]'] = 1
+      second.perform_now
+      assert_equal 30.seconds.from_now.to_i, relation.last.scheduled_at.to_i, 'attempt 2 → 30s'
+    end
   end
 
   test 'raises a plain RuntimeError (not TransientNetworkError) for a non-transient Kraken failure' do
