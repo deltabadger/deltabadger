@@ -5,7 +5,9 @@ class Exchange::SyncAllTickersAndAssetsJob < ApplicationJob
   def perform
     return unless MarketData.configured?
 
-    Exchange.available.where.not(type: 'Exchanges::Alpaca').each_with_index do |exchange, i|
+    # Stock venues (Alpaca, IBKR) sync via their own broker-specific path, not the
+    # crypto market-data provider — so they're excluded from this loop.
+    Exchange.available.where.not(type: Exchange::STOCK_TYPES).each_with_index do |exchange, i|
       Exchange::SyncTickersAndAssetsJob.set(wait: i * 1.minute).perform_later(exchange)
     end
   end

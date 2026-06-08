@@ -20,6 +20,22 @@ class Setup::SeedAndSyncJobTest < ActiveSupport::TestCase
     Setup::SeedAndSyncJob.perform_now
   end
 
+  test 'hosted setup does not sync tickers for stock venues' do
+    kraken = create(:kraken_exchange)
+    ibkr = create(:ibkr_exchange)
+    Exchange.stubs(:available).returns([kraken, ibkr])
+
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+    MarketData.stubs(:sync_assets!).returns(Result::Success.new)
+    MarketData.stubs(:sync_indices!).returns(Result::Success.new)
+    Asset::SyncStocksFromDeltabadgerJob.stubs(:perform_later)
+
+    MarketData.expects(:sync_tickers!).with(kraken).once
+    MarketData.expects(:sync_tickers!).with(ibkr).never
+
+    Setup::SeedAndSyncJob.perform_now
+  end
+
   test 'free-mode setup does NOT enqueue the stocks sync job' do
     MarketDataSettings.stubs(:deltabadger?).returns(false)
     # Disable the rate-limit sleep in the free-mode CoinGecko branch.
