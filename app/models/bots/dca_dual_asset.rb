@@ -224,6 +224,10 @@ class Bots::DcaDualAsset < Bot
     @ticker1 ||= tickers.select { |ticker| ticker.base_asset_id == base1_asset_id }.first
   end
 
+  def tickers_for_start
+    [ticker0, ticker1]
+  end
+
   def decimals
     return {} unless ticker0.present? && ticker1.present?
 

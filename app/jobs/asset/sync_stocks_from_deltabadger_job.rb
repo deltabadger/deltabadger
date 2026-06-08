@@ -2,6 +2,12 @@ class Asset::SyncStocksFromDeltabadgerJob < ApplicationJob
   queue_as :default
   limits_concurrency to: 1, key: 'sync_stocks_from_deltabadger', on_conflict: :discard, duration: 1.hour
 
+  # Fix B: a single transient data-api timeout used to drop the whole day's sync (no retry), which —
+  # combined with a blanked availability table — stranded a container's stock bots at AV=0. Retry
+  # transient failures with backoff so one slow/timed-out call doesn't lose the tick.
+  retry_on Client::TransientNetworkError, wait: :polynomially_longer, attempts: 5
+  retry_on Client::RateLimitedError, wait: :polynomially_longer, attempts: 5
+
   def perform
     # `stock_sync_enabled` is a per-container EMERGENCY OFF SWITCH, default ON.
     # Data-api is now FIGI-canonical (no shared-ISIN collapse) and the backfill below carries
@@ -22,7 +28,15 @@ class Asset::SyncStocksFromDeltabadgerJob < ApplicationJob
     # creating canonical rows alongside untouched legacy alpaca_<uuid> ones.
     return unless AppConfig.get(MarketData::STOCK_CANONICAL_BACKFILL_FLAG).present?
 
-    MarketData.sync_stocks_from_deltabadger!
+    # Abort the tick if the stock-asset sync failed — running the listings sync against a
+    # half-synced asset table risks importing tickers whose base assets aren't there yet. Transient
+    # failures raise (caught by retry_on above); a non-transient Result::Failure stops here quietly.
+    stock_result = MarketData.sync_stocks_from_deltabadger!
+    unless stock_result.success?
+      Rails.logger.warn "[SyncStocks] stock asset sync failed, skipping listings sync: #{stock_result.errors.to_sentence}"
+      return
+    end
+
     MarketData.sync_alpaca_listings_from_deltabadger!
   end
 end

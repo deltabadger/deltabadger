@@ -55,6 +55,12 @@ class Bot::ActionJob < BotJob
       return
     end
 
+    # Market confirmed open: clear any stale market-closed flag immediately, bypassing validation
+    # (Fix C). Otherwise a separate problem — e.g. a temporarily-unavailable ticker that makes the
+    # success-path update! below raise — would leave the flag stuck and the UI showing "market
+    # closed" for a non-market issue.
+    clear_stale_market_closed_flag(bot)
+
     bot.update!(last_action_job_at: Time.current, waiting_for_market_open: nil)
     result = bot.execute_action
     if result.failure?
@@ -102,6 +108,12 @@ class Bot::ActionJob < BotJob
   end
 
   private
+
+  def clear_stale_market_closed_flag(bot)
+    return unless bot.waiting_for_market_open
+
+    bot.update_columns(transient_data: bot.transient_data.merge('waiting_for_market_open' => nil))
+  end
 
   def ignorable_error_category(bot, error)
     DO_NOT_RETRY_ERRORS.find do |category|

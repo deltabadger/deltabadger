@@ -1,4 +1,11 @@
 <%= tag.div id: dom_id(bot, :status_button) do %>
+  <%# Fix C: a disabled start button (button_to never submits) is otherwise a silent freeze. When the
+      block is a temporarily-unavailable ticker, surface the reason right next to the button. %>
+  <% if (bot.stopped? || bot.created? || bot.restarting?) && bot.start_blocked_by_unavailable_ticker? %>
+    <p class="status-button__hint" role="status">
+      <%= t('errors.bots.exchange_asset_mismatch', exchange_name: bot.exchange&.name) %>
+    </p>
+  <% end %>
   <% if !bot.stopped? && !bot.created? %>
     <%= button_to bot_stop_path(bot), method: :patch, class: "sbutton sbutton--sky sbutton--outline", data: { hw_animate_out: "animate-button-to-start-shape", turbo_frame: "_top" }, aria: { label: t('button.stop') } do %>
       <div class="animicon animicon--stop">
