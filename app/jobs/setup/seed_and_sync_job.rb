@@ -28,7 +28,7 @@ class Setup::SeedAndSyncJob < ApplicationJob
   end
 
   def sync_exchanges_from_coingecko
-    exchanges = Exchange.available.to_a
+    exchanges = syncable_exchanges
     exchanges.each_with_index do |exchange, index|
       # Skip async jobs during setup - we fetch asset data synchronously at the end
       exchange.sync_tickers_and_assets_with_external_data(skip_async_jobs: true)
@@ -40,11 +40,17 @@ class Setup::SeedAndSyncJob < ApplicationJob
   end
 
   def sync_exchanges_from_deltabadger
-    Exchange.available.each do |exchange|
+    syncable_exchanges.each do |exchange|
       MarketData.sync_tickers!(exchange)
     rescue StandardError => e
       Rails.logger.warn "[Setup] Error syncing #{exchange.name}: #{e.message}"
     end
+  end
+
+  # Stock venues (Alpaca, IBKR) sync via their own broker-specific path, not the crypto
+  # market-data provider — excluded here just like in Exchange::SyncAllTickersAndAssetsJob.
+  def syncable_exchanges
+    Exchange.available.reject(&:stock_venue?)
   end
 
   def sync_assets_with_coingecko
