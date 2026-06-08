@@ -5,7 +5,7 @@ class Bots::DcaDualAssets::AddApiKeysController < ApplicationController
     @bot = current_user.bots.dca_dual_asset.new(sanitized_bot_config)
 
     if @bot.exchange_id.blank?
-      redirect_to new_bots_dca_dual_assets_pick_exchange_path
+      redirect_to missing_exchange_path
     else
       @api_key = @bot.api_key
       # Only validate if key exists but isn't already confirmed correct
@@ -20,7 +20,7 @@ class Bots::DcaDualAssets::AddApiKeysController < ApplicationController
   def create
     @bot = current_user.bots.dca_dual_asset.new(sanitized_bot_config)
     if @bot.exchange_id.blank?
-      redirect_to new_bots_dca_dual_assets_pick_exchange_path
+      redirect_to missing_exchange_path
       return
     end
     @api_key = @bot.api_key
@@ -40,16 +40,26 @@ class Bots::DcaDualAssets::AddApiKeysController < ApplicationController
   private
 
   def api_key_params
-    params.require(:api_key).permit(:key, :secret, :passphrase)
+    params.require(:api_key).permit(:key, :secret, :passphrase, :access_token, :rsa_signature_key, :rsa_encryption_key, :dh_param, :ibkr_realm)
   end
 
   def stock_bot?
     @bot.base0_asset&.category == 'Stock' || @bot.base1_asset&.category == 'Stock'
   end
 
+  # A stock bot with no broker yet belongs in the stock-broker step, not the crypto exchange
+  # step (reachable via a stale/direct URL before a broker has been chosen).
+  def missing_exchange_path
+    if stock_bot?
+      new_bots_dca_dual_assets_pick_stock_broker_path
+    else
+      new_bots_dca_dual_assets_pick_exchange_path
+    end
+  end
+
   def after_api_key_path
-    # Stock bots get their quote asset auto-filled in set_stock_defaults, so
-    # pick_spendable_asset#new will short-circuit and persist the bot.
+    # Stock bots get their quote asset auto-filled when the broker is chosen, so
+    # pick_spendable_asset only needs the spend amount.
     new_bots_dca_dual_assets_pick_spendable_asset_path
   end
 

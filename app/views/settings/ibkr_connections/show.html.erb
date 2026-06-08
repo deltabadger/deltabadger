@@ -1,0 +1,12 @@
+<div class="page-head">
+  <div class="stitle"><%= t('settings.ibkr.title') %></div>
+</div>
+
+<%# When the background key-generation job finishes it broadcasts a replace of #ibkr-connect-wizard. %>
+<%= turbo_stream_from "user_#{current_user.id}", :ibkr_connection %>
+
+<div class="columns">
+  <div class="column gap-1">
+    <%= render 'settings/ibkr_connections/wizard', api_key: @api_key %>
+  </div>
+</div>

@@ -42,6 +42,43 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_no_match 'Binance.US', response.body
   end
 
+  test 'picking a stock asset with multiple brokers routes to the stock-broker step' do
+    alpaca = create(:alpaca_exchange)
+    ibkr = create(:ibkr_exchange)
+    aapl = create(:asset, symbol: 'AAPL', name: 'Apple Inc', category: 'Stock', external_id: 'aapl')
+    create(:ticker, exchange: alpaca, base_asset: aapl, quote_asset: @usd, base: 'AAPL', quote: 'USD')
+    create(:ticker, exchange: ibkr, base_asset: aapl, quote_asset: @usd, base: 'AAPL', quote: 'USD')
+
+    get new_bots_dca_single_assets_pick_buyable_asset_path
+    post bots_dca_single_assets_pick_buyable_asset_path,
+         params: { bots_dca_single_asset: { base_asset_id: aapl.id } }
+
+    assert_redirected_to new_bots_dca_single_assets_pick_stock_broker_path
+  end
+
+  test 'picking a stock asset with a single broker auto-selects it and skips to the api-key step' do
+    alpaca = create(:alpaca_exchange)
+    aapl = create(:asset, symbol: 'AAPL', name: 'Apple Inc', category: 'Stock', external_id: 'aapl')
+    create(:ticker, exchange: alpaca, base_asset: aapl, quote_asset: @usd, base: 'AAPL', quote: 'USD')
+
+    get new_bots_dca_single_assets_pick_buyable_asset_path
+    post bots_dca_single_assets_pick_buyable_asset_path,
+         params: { bots_dca_single_asset: { base_asset_id: aapl.id } }
+
+    assert_redirected_to new_bots_dca_single_assets_add_api_key_path
+  end
+
+  test 'picking a crypto asset still routes to the exchange step' do
+    eth = create(:asset, :ethereum)
+    create(:ticker, exchange: @binance, base_asset: eth, quote_asset: @usd)
+
+    get new_bots_dca_single_assets_pick_buyable_asset_path
+    post bots_dca_single_assets_pick_buyable_asset_path,
+         params: { bots_dca_single_asset: { base_asset_id: eth.id } }
+
+    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
+  end
+
   test 'paginates the asset list in pages of ASSET_PAGE_SIZE' do
     page_size = Bots::Searchable::ASSET_PAGE_SIZE
     total = page_size + 5

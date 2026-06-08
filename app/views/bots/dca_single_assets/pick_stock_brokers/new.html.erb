@@ -1,0 +1,12 @@
+<%= render 'layouts/modal/full_page' do %>
+  <div class="bot-creation-layout">
+    <%= render partial: 'bots/dca_single_assets/new_step_progress_bar', locals: { current_step: :exchange } %>
+
+    <div class="vt-step-body">
+      <%= render "bots/pick_exchanges/table",
+        bot: @bot,
+        exchanges: @brokers,
+        submit_url: bots_dca_single_assets_pick_stock_broker_path %>
+    </div>
+  </div>
+<% end %>
