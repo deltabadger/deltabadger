@@ -94,6 +94,9 @@ application.register("form--submit", Form__SubmitController)
 import HotwireAnimationsController from "./hotwire_animations_controller"
 application.register("hotwire-animations", HotwireAnimationsController)
 
+import IbkrConnectController from "./ibkr_connect_controller"
+application.register("ibkr-connect", IbkrConnectController)
+
 import IndexAllocationController from "./index_allocation_controller"
 application.register("index-allocation", IndexAllocationController)
 

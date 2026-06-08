@@ -95,6 +95,11 @@ FactoryBot.define do
       name { 'Alpaca' }
       type { 'Exchanges::Alpaca' }
     end
+
+    factory :ibkr_exchange, class: 'Exchanges::Ibkr' do
+      name { 'Interactive Brokers' }
+      type { 'Exchanges::Ibkr' }
+    end
   end
 
   # Asset factory with traits for common cryptocurrencies

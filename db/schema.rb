@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_05_30_000000) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_03_234747) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -125,13 +125,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_30_000000) do
   end
 
   create_table "api_keys", force: :cascade do |t|
+    t.text "access_token"
     t.datetime "created_at", precision: nil, null: false
+    t.text "dh_param"
     t.bigint "exchange_id", null: false
     t.boolean "german_trading_agreement"
+    t.string "ibkr_realm"
     t.string "key"
     t.integer "key_type", default: 0, null: false
     t.datetime "last_synced_at"
     t.string "passphrase"
+    t.text "rsa_encryption_key"
+    t.text "rsa_signature_key"
     t.string "secret"
     t.integer "status", default: 0, null: false
     t.datetime "updated_at", precision: nil, null: false
@@ -274,6 +279,16 @@ ActiveRecord::Schema[8.1].define(version: 2026_05_30_000000) do
     t.date "date", null: false
     t.decimal "price", null: false
     t.index ["asset", "currency", "date"], name: "index_historical_prices_on_asset_and_currency_and_date", unique: true
+  end
+
+  create_table "ibkr_locks", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.string "key", null: false
+    t.string "owner", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expires_at"], name: "index_ibkr_locks_on_expires_at"
+    t.index ["key"], name: "index_ibkr_locks_on_key", unique: true
   end
 
   create_table "idempotency_keys", force: :cascade do |t|

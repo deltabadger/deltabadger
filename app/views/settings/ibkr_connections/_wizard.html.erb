@@ -1,0 +1,71 @@
+<%# The whole wizard lives inside #ibkr-connect-wizard so the key-generation job can Turbo-replace
+    it in place. State is derived from the user's IBKR ApiKey. %>
+<%= tag.div id: 'ibkr-connect-wizard', class: 'widget widget--settings', data: { controller: 'ibkr-connect' } do %>
+  <h4 class="modal__title"><%= t('settings.ibkr.title') %></h4>
+
+  <% if api_key.nil? %>
+    <p><%= t('settings.ibkr.intro') %></p>
+    <%= button_to t('settings.ibkr.start'), settings_ibkr_connect_path,
+                  method: :post, class: 'button button--success button--large' %>
+
+  <% elsif api_key.correct? %>
+    <p class="text-success"><%= t('settings.ibkr.connected') %></p>
+    <%= button_to t('settings.ibkr.disconnect'), settings_ibkr_connect_path,
+                  method: :delete, class: 'button button--danger' %>
+
+  <% elsif api_key.pending_activation? %>
+    <p><%= t('settings.ibkr.activation_pending') %></p>
+    <%= button_to t('settings.ibkr.start_over'), settings_ibkr_connect_path,
+                  method: :delete, class: 'button' %>
+
+  <% elsif api_key.rsa_signature_key.blank? %>
+    <p aria-busy="true"><%= t('settings.ibkr.generating') %></p>
+
+  <% else %>
+    <ol class="ibkr-steps">
+      <li>
+        <p><%= t('settings.ibkr.download_intro') %></p>
+        <%= link_to t('settings.ibkr.signing_key'),
+                    settings_download_ibkr_connection_path(artifact: 'signing'), data: { turbo: false }, class: 'button' %>
+        <%= link_to t('settings.ibkr.encryption_key'),
+                    settings_download_ibkr_connection_path(artifact: 'encryption'), data: { turbo: false }, class: 'button' %>
+        <%= link_to t('settings.ibkr.dh_param'),
+                    settings_download_ibkr_connection_path(artifact: 'dhparam'), data: { turbo: false }, class: 'button' %>
+      </li>
+
+      <li>
+        <p><%= t('settings.ibkr.portal_intro') %></p>
+        <select data-ibkr-connect-target="entity" data-action="change->ibkr-connect#select" class="form__input">
+          <% Exchanges::Ibkr::OAUTH_PORTALS.each do |entity, portal| %>
+            <option value="<%= portal[:url] %>"><%= portal[:name] %></option>
+          <% end %>
+        </select>
+        <%= link_to t('settings.ibkr.open_portal'),
+                    Exchanges::Ibkr::OAUTH_PORTALS.values.first[:url],
+                    target: '_blank', rel: 'noopener', data: { ibkr_connect_target: 'portal' }, class: 'button' %>
+      </li>
+
+      <li>
+        <p><%= t('settings.ibkr.paste_intro') %></p>
+        <%= form_with url: settings_activate_ibkr_connection_path, method: :post, scope: :api_key, class: 'form' do |f| %>
+          <div class="form__row form__row--input">
+            <%= f.text_field :key, autocomplete: 'off', class: 'form__input form__input--large' %>
+            <%= f.label :key, t('settings.ibkr.consumer_key'), class: 'form__label' %>
+          </div>
+          <div class="form__row form__row--input">
+            <%= f.text_field :access_token, autocomplete: 'off', class: 'form__input form__input--large' %>
+            <%= f.label :access_token, t('settings.ibkr.access_token'), class: 'form__label' %>
+          </div>
+          <div class="form__row form__row--input">
+            <%= f.text_field :secret, autocomplete: 'off', class: 'form__input form__input--large' %>
+            <%= f.label :secret, t('settings.ibkr.access_token_secret'), class: 'form__label' %>
+          </div>
+          <%= f.submit t('button.connect'), class: 'button button--success button--large' %>
+        <% end %>
+      </li>
+    </ol>
+
+    <%= button_to t('settings.ibkr.start_over'), settings_ibkr_connect_path,
+                  method: :delete, class: 'button' %>
+  <% end %>
+<% end %>

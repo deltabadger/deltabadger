@@ -58,6 +58,10 @@ production:
     class: Bot::WarmMetricsCachesJob
     schedule: "*/5 * * * *"  # Every 5 minutes, matching the price-cache 5-minute cut
 
+  ibkr_check_activation_job:
+    class: Ibkr::CheckActivationJob
+    schedule: "17 */6 * * *"  # Every 6 hours — flips IBKR keys to :correct once IBKR activates them
+
 development:
   sync_all_tickers_and_assets_job:
     class: Exchange::SyncAllTickersAndAssetsJob

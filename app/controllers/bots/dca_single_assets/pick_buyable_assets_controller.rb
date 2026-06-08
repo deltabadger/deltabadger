@@ -2,6 +2,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
   before_action :authenticate_user!
 
   include Bots::Searchable
+  include Bots::StockBrokerRoutable
 
   def new
     # Idempotent: do not mutate session here. Turbo prefetches GET requests on
@@ -28,8 +29,12 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
 
       asset = Asset.find_by(id: bot_params[:base_asset_id])
       if asset&.category == 'Stock'
-        set_stock_defaults
-        redirect_to new_bots_dca_single_assets_add_api_key_path
+        redirect_after_stock_asset(
+          current_user.bots.dca_single_asset.new(sanitized_bot_config),
+          picker_path: new_bots_dca_single_assets_pick_stock_broker_path,
+          add_api_key_path: new_bots_dca_single_assets_add_api_key_path,
+          repick_path: new_bots_dca_single_assets_pick_buyable_asset_path
+        )
       else
         redirect_to new_bots_dca_single_assets_pick_exchange_path
       end
@@ -39,13 +44,6 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
   end
 
   private
-
-  def set_stock_defaults
-    alpaca = Exchanges::Alpaca.first
-    usd = Asset.find_by(external_id: 'usd')
-    session[:bot_config]['exchange_id'] = alpaca.id if alpaca
-    session[:bot_config].deep_merge!({ 'settings' => { 'quote_asset_id' => usd.id } }) if usd
-  end
 
   def search_params
     params.permit(:query)
