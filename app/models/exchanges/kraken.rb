@@ -37,10 +37,16 @@ class Exchanges::Kraken < Exchange
     insufficient_funds: ['EAPI:Insufficient funds', 'EOrder:Insufficient funds'],
     invalid_key: ['EGeneral:Permission denied', 'EAPI:Invalid key', 'EAPI:Invalid signature'],
     # Transient/retryable HTTP-200 failures. Excludes EGeneral:Temporary lockout
-    # (retrying extends Kraken's penalty box) and rate-limit/throttle codes (need a
-    # timestamp-aware wait, not polynomial backoff).
+    # (retrying extends Kraken's penalty box) and rate-limit codes (see :throttle below —
+    # they retry on a longer, escalating wait rather than the transient polynomial backoff).
     transient: ['EGeneral:Internal error', 'EAPI:Invalid nonce',
-                'EService:Unavailable', 'EService:Busy', 'EService:Deadline elapsed']
+                'EService:Unavailable', 'EService:Busy', 'EService:Deadline elapsed'],
+    # Rate-limit / throttle codes. Retryable, but on a SEPARATE, longer escalating wait
+    # (BotJob::RATE_LIMIT_WAIT) — retrying too soon re-trips Kraken's decaying counter.
+    # Scoped to the API rate-limit code only: EGeneral:Temporary lockout stays out (a
+    # sequential invalid-key lockout that calls extend), and EOrder:Rate limit exceeded
+    # is a trading-engine counter that never reaches these query-order fetch jobs.
+    throttle: ['EAPI:Rate limit exceeded']
   }.freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order

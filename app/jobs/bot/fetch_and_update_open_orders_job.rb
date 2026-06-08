@@ -9,8 +9,9 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
 
     result = bot.get_orders(order_ids: external_order_ids)
     if result.failure?
-      # Transient exchange-API failures bubble up as Client::TransientNetworkError so they
+      # Transient/rate-limit exchange-API failures bubble up as typed errors so they
       # funnel into ActionJob's retry_on (this job runs perform_now, inline in execute_action).
+      raise Client::RateLimitedError, result.errors.to_sentence if bot.exchange.throttled_error?(result.errors)
       raise Client::TransientNetworkError, result.errors.to_sentence if bot.exchange.transient_error?(result.errors)
 
       raise "Failed to fetch orders #{external_order_ids.to_sentence}. Result: #{result.errors}"

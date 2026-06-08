@@ -266,6 +266,49 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     assert_not @exchange.transient_error?(nil)
   end
 
+  # Rate-limit codes (HTTP-200 "EAPI:Rate limit exceeded") are retryable, but on a
+  # SEPARATE path from transient: they need a longer, escalating wait (retrying too
+  # soon re-trips Kraken's decaying counter). throttled_error? backs the conversion to
+  # Client::RateLimitedError in the fetch jobs, mirroring transient_error?.
+
+  # Pin the throttle set EXACTLY: a broad matcher (e.g. 'Rate limit exceeded') or an
+  # added EOrder:* code would silently widen auto-retry beyond the observed failure.
+  test 'throttle known_errors is exactly the EAPI rate-limit code' do
+    assert_equal ['EAPI:Rate limit exceeded'], @exchange.known_errors[:throttle]
+  end
+
+  test 'throttled_error? is true for the Kraken rate-limit code' do
+    assert @exchange.throttled_error?(['EAPI:Rate limit exceeded'])
+  end
+
+  # EOrder:Rate limit exceeded is a trading-engine counter that never reaches the
+  # query-order fetch jobs — it must NOT be classified as throttle here.
+  test 'throttled_error? is false for the order-engine rate-limit code' do
+    assert_not @exchange.throttled_error?(['EOrder:Rate limit exceeded'])
+  end
+
+  test 'throttled_error? matches a rate-limit code embedded in a longer string' do
+    assert @exchange.throttled_error?(['Failed to fetch order 63. Result: EAPI:Rate limit exceeded'])
+  end
+
+  # The temporary-lockout code must stay out of BOTH retry paths — Kraken extends the
+  # restriction if you keep calling while locked out (sequential invalid-key lockout).
+  test 'temporary-lockout is neither throttled nor transient (must never auto-retry)' do
+    assert_not @exchange.throttled_error?(['EGeneral:Temporary lockout'])
+    assert_not @exchange.transient_error?(['EGeneral:Temporary lockout'])
+  end
+
+  test 'throttled_error? is false for transient and other non-throttle codes' do
+    assert_not @exchange.throttled_error?(['EAPI:Invalid nonce'])
+    assert_not @exchange.throttled_error?(['EAPI:Invalid key'])
+    assert_not @exchange.throttled_error?(['exchange down'])
+  end
+
+  test 'throttled_error? is false for empty and nil inputs' do
+    assert_not @exchange.throttled_error?([])
+    assert_not @exchange.throttled_error?(nil)
+  end
+
   private
 
   def kraken_order_raw(pair, status)

@@ -160,6 +160,19 @@ class Exchange < ApplicationRecord
     end
   end
 
+  # Sibling of transient_error?: do the given errors look like an exchange rate-limit /
+  # throttle response? The fetch jobs convert these into Client::RateLimitedError so they
+  # retry on a longer, escalating wait (BotJob::RATE_LIMIT_WAIT) instead of failing loudly.
+  def throttled_error?(errors)
+    throttle_messages = (known_errors[:throttle] || []).map(&:to_s)
+    return false if throttle_messages.empty?
+
+    Array(errors).any? do |err|
+      msg = err.to_s
+      throttle_messages.any? { |m| msg.include?(m) }
+    end
+  end
+
   def market_open?
     true
   end
