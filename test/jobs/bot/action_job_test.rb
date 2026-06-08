@@ -76,6 +76,28 @@ module ActionJobBehaviorTests
       assert_nil bot.reload.waiting_for_market_open
     end
 
+    # Fix C: the misleading "market closed" UI. The flag is set on a legit market-closed skip and was
+    # only cleared by the success-path update! — which itself fails validation when the ticker is
+    # unavailable (the AV=0 strand), leaving the flag stuck. Once the market is confirmed open the
+    # flag must clear regardless, so the UI stops showing "market closed" for a non-market problem.
+    test 'clears a stale market-closed flag once the market is open even if the bot can no longer be saved' do
+      bot = create_bot
+      bot.update_columns(transient_data: bot.transient_data.merge('waiting_for_market_open' => true))
+      setup_action_job_mocks(bot)
+      bot.exchange.stubs(:market_open?).returns(true)
+      # Simulate the unavailable-ticker state: every validating save now fails validate_bot_exchange.
+      bot.exchange.tickers.update_all(available: false)
+
+      begin
+        Bot::ActionJob.new.perform(bot)
+      rescue StandardError
+        # the bot can't be persisted in this state; the flag-clear is what we're asserting
+      end
+
+      assert_nil bot.reload.waiting_for_market_open,
+                 'an open market must clear the stale market-closed flag regardless of other failures'
+    end
+
     test 'executes action when bot is retrying' do
       bot = create_bot
       bot.update!(status: :retrying)

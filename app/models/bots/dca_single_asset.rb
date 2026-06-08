@@ -189,6 +189,10 @@ class Bots::DcaSingleAsset < Bot
     @ticker ||= tickers.first
   end
 
+  def tickers_for_start
+    [ticker]
+  end
+
   def decimals
     return {} unless ticker.present?
 

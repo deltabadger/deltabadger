@@ -45,6 +45,39 @@ class MarketDataImportTickersTest < ActiveSupport::TestCase
     assert t.trading_enabled, 'defaults trading_enabled to true when payload omits it'
   end
 
+  # Fix A: the sweep in sync_alpaca_listings must key off EXACTLY what import wrote, not the raw
+  # resolved-listing set. So import_tickers! returns the post-dedup base_asset_ids it upserted.
+  test 'returns the base_asset_ids it actually upserted (post-dedup keep-set for the sweep)' do
+    data = [
+      ticker_data(base_ext_id: 'bitcoin', quote_ext_id: 'usd', base: 'BTC', quote: 'USD', ticker: 'BTCUSD'),
+      ticker_data(base_ext_id: 'ethereum', quote_ext_id: 'usd', base: 'ETH', quote: 'USD', ticker: 'ETHUSD')
+    ]
+
+    written = MarketData.import_tickers!(@exchange, data)
+
+    assert_kind_of Array, written
+    assert_equal [@btc.id, @eth.id].sort, written.sort
+  end
+
+  test 'returned keep-set excludes a listing dropped by ticker-string dedup' do
+    # Two listings collide on the same ticker string; dedup keeps the first (BTC), drops ETH.
+    data = [
+      ticker_data(base_ext_id: 'bitcoin', quote_ext_id: 'usd', base: 'BTC', quote: 'USD', ticker: 'DUPE'),
+      ticker_data(base_ext_id: 'ethereum', quote_ext_id: 'usd', base: 'ETH', quote: 'USD', ticker: 'DUPE')
+    ]
+
+    written = MarketData.import_tickers!(@exchange, data)
+
+    assert_equal [@btc.id], written, 'only the base actually upserted is returned, not the deduped-out one'
+  end
+
+  test 'returns an empty array (not nil) when nothing is imported' do
+    assert_equal [], MarketData.import_tickers!(@exchange, [])
+    assert_equal [], MarketData.import_tickers!(@exchange, [
+                                                  ticker_data(base_ext_id: 'unknown', quote_ext_id: 'usd', base: 'X', quote: 'USD', ticker: 'XUSD')
+                                                ])
+  end
+
   test 'imports trading_enabled from the payload' do
     data = [
       ticker_data(base_ext_id: 'bitcoin', quote_ext_id: 'usd', base: 'BTC', quote: 'USD', ticker: 'BTCUSD')
@@ -350,6 +383,13 @@ class MarketDataSyncStocksFromDeltabadgerTest < ActiveSupport::TestCase
     assert_equal '#FF0000', Asset.find_by(external_id: 'AAPL.US').color
   end
 
+  # Fix B: transient network errors must PROPAGATE (not be swallowed into Result::Failure) so the
+  # job's retry_on can engage. A non-transient failure still returns Result::Failure as before.
+  test 'Fix B: re-raises transient network errors so the job can retry' do
+    @fake.stubs(:get_stocks).raises(Client::TransientNetworkError, 'Faraday::TimeoutError: Net::ReadTimeout')
+    assert_raises(Client::TransientNetworkError) { MarketData.sync_stocks_from_deltabadger! }
+  end
+
   test 'is idempotent — second run does not duplicate' do
     @fake.stubs(:get_stocks).returns(Result::Success.new(
                                        'metadata' => { 'count' => 1 },
@@ -398,6 +438,14 @@ class MarketDataSyncAlpacaListingsFromDeltabadgerTest < ActiveSupport::TestCase
     @spy = Asset.create!(external_id: 'SPY.US', symbol: 'SPY', name: 'SPDR S&P 500 ETF', category: 'Stock')
     @fake = mock
     MarketData.stubs(:client).returns(@fake)
+  end
+
+  def usd_asset
+    Asset.find_or_create_by!(external_id: 'usd') do |a|
+      a.symbol = 'USD'
+      a.name = 'US Dollar'
+      a.category = 'Fiat'
+    end
   end
 
   def listing_row(base_ext:, symbol:, fractionable: true, quote_ext: 'USD.FOREX', listing_id: nil)
@@ -526,12 +574,106 @@ class MarketDataSyncAlpacaListingsFromDeltabadgerTest < ActiveSupport::TestCase
            'empty incoming payload must not flip every Alpaca ticker to unavailable'
   end
 
+  # == Fix A: availability fail-safe ==
+  # The degraded-payload guard must measure the RESOLVED (importable) universe, not the raw
+  # listings.size. A payload that looks big but whose bases no longer resolve locally (the FIGI
+  # identity-drift shape) would otherwise pass the raw-count guard, import almost nothing, and let
+  # the sweep blank every previously-available ticker — stranding a whole container at AV=0.
+  test 'fail-safe: a collapsed RESOLVED count bails out without blanking existing availability' do
+    # A previously-available ticker that is NOT present in the next payload.
+    msft = Asset.create!(external_id: 'MSFT.US', symbol: 'MSFT', name: 'Microsoft', category: 'Stock')
+    usd = usd_asset
+    create(:ticker, exchange: @alpaca, base_asset: msft, quote_asset: usd,
+                    base: 'MSFT', quote: 'USD', ticker: 'MSFT', available: true)
+
+    # Healthy baseline of 10 importable listings from a prior run.
+    AppConfig.set(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY, '10')
+
+    # Payload LOOKS healthy (10 rows) but only 1 resolves locally — 9 unknown bases.
+    rows = [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL')]
+    9.times { |i| rows << listing_row(base_ext: "UNKNOWN#{i}.US", symbol: "UNK#{i}") }
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new('metadata' => { 'count' => rows.size }, 'data' => rows))
+
+    # A degraded payload must be a full no-op: no import (not even the one resolvable row) and no sweep.
+    assert_no_difference ['Ticker.count', 'ExchangeAsset.count'] do
+      MarketData.sync_alpaca_listings_from_deltabadger!
+    end
+
+    assert_nil @alpaca.tickers.find_by(base_asset: @aapl),
+               'on a degraded bail we trust none of the payload — not even the rows that resolve'
+    assert @alpaca.tickers.find_by(base_asset: msft).available?,
+           'a payload whose importable universe collapsed must NOT blank existing availability'
+    assert_equal '10', AppConfig.get(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY),
+                 'baseline must not ratchet down on a bailed run'
+  end
+
+  test 'fail-safe: a healthy payload still imports and sweeps normally (no false bail)' do
+    AppConfig.set(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY, '2')
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 2 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL'),
+                                                           listing_row(base_ext: 'SPY.US', symbol: 'SPY')]
+                                              ))
+
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    assert @alpaca.tickers.find_by(base_asset: @aapl).available?
+    assert @alpaca.tickers.find_by(base_asset: @spy).available?
+  end
+
+  # Proves the sweep keeps EXACTLY import_tickers!'s post-dedup written set, not the raw resolved-listing
+  # set. Two listings resolve but collide on ticker string → dedup writes only the first base (AAPL); the
+  # deduped-out base (SPY) must therefore be swept unavailable. The old raw-resolved sweep would keep it.
+  test 'fail-safe: sweep keys off the post-dedup written set (deduped-out base is swept unavailable)' do
+    usd = usd_asset
+    # Pre-existing available ticker for SPY (the base that will be deduped out of the incoming batch).
+    create(:ticker, exchange: @alpaca, base_asset: @spy, quote_asset: usd,
+                    base: 'SPY', quote: 'USD', ticker: 'SPY', available: true)
+
+    collide = lambda do |base_ext|
+      { 'listing_id' => "NASDAQ:#{base_ext}", 'base' => 'SHARED', 'quote' => 'USD', 'ticker' => 'SHARED',
+        'base_external_id' => base_ext, 'quote_external_id' => 'USD.FOREX', 'fractionable' => true }
+    end
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 2 },
+                                                'data' => [collide.call('AAPL.US'), collide.call('SPY.US')]
+                                              ))
+
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    assert_not @alpaca.tickers.find_by(base_asset: @spy).available?,
+               'a base that import deduped out is NOT in the keep-set and must be swept unavailable'
+  end
+
+  # Fix A baseline semantics: ratchet the degraded-guard baseline to the RESOLVED (importable) count,
+  # not the raw listings.size. Raw rows = 3, but one base does not resolve locally → resolved = 2.
+  test 'fail-safe: baseline ratchets to the resolved count, not raw listings.size' do
+    AppConfig.set(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY, '2')
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 3 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL'),
+                                                           listing_row(base_ext: 'SPY.US', symbol: 'SPY'),
+                                                           listing_row(base_ext: 'NOPE.US', symbol: 'NOPE')]
+                                              ))
+
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    assert_equal '2', AppConfig.get(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY),
+                 'baseline must reflect importable rows (2), not the 3 raw listings'
+  end
+
   test 'returns Result::Failure when client fails, no DB writes' do
     @fake.stubs(:get_alpaca_listings).returns(Result::Failure.new('boom'))
     assert_no_difference ['Ticker.count', 'Asset.count'] do
       result = MarketData.sync_alpaca_listings_from_deltabadger!
       assert_predicate result, :failure?
     end
+  end
+
+  # Fix B: a raised transient error must propagate, not be swallowed into Result::Failure.
+  test 'Fix B: re-raises transient network errors so the job can retry' do
+    @fake.stubs(:get_alpaca_listings).raises(Client::TransientNetworkError, 'Faraday::TimeoutError: Net::ReadTimeout')
+    assert_raises(Client::TransientNetworkError) { MarketData.sync_alpaca_listings_from_deltabadger! }
   end
 
   # == Listing-import ambiguity guard (post-incident 2026-05-28 Phase 2.5) ==

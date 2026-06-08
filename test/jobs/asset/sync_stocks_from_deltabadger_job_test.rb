@@ -90,4 +90,41 @@ class Asset::SyncStocksFromDeltabadgerJobTest < ActiveSupport::TestCase
 
     Asset::SyncStocksFromDeltabadgerJob.perform_now
   end
+
+  # Fix B: a failed stock sync must abort the tick — don't run the listings sync against
+  # half-synced assets.
+  test 'Fix B: does not run listings sync when stock sync returns a failure' do
+    AppConfig.set(MarketData::STOCK_CANONICAL_BACKFILL_FLAG, Time.current.iso8601)
+    MarketData.stubs(:backfill_canonical_stock_external_ids!)
+    MarketData.stubs(:sync_stocks_from_deltabadger!).returns(Result::Failure.new('boom'))
+    MarketData.expects(:sync_alpaca_listings_from_deltabadger!).never
+
+    Asset::SyncStocksFromDeltabadgerJob.perform_now
+  end
+end
+
+# Retry behaviour needs the :test adapter (suite default is SolidQueue, which doesn't record
+# enqueue assertions), so it lives in its own class with the adapter swapped.
+class Asset::SyncStocksFromDeltabadgerJobRetryTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
+  setup do
+    @old_adapter = ActiveJob::Base.queue_adapter
+    ActiveJob::Base.queue_adapter = :test
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+    AppConfig.set(MarketData::STOCK_CANONICAL_BACKFILL_FLAG, Time.current.iso8601)
+    MarketData.stubs(:backfill_canonical_stock_external_ids!)
+  end
+
+  teardown { ActiveJob::Base.queue_adapter = @old_adapter }
+
+  # Fix B: the prod outage — a single Net::ReadTimeout dropped the whole day's sync because the job
+  # had no retry_on. It must now retry instead of dying.
+  test 'Fix B: retries on a transient network error instead of dropping the job' do
+    MarketData.stubs(:sync_stocks_from_deltabadger!).raises(Client::TransientNetworkError, 'Net::ReadTimeout')
+
+    assert_enqueued_jobs 1, only: Asset::SyncStocksFromDeltabadgerJob do
+      Asset::SyncStocksFromDeltabadgerJob.perform_now
+    end
+  end
 end

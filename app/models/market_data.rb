@@ -229,8 +229,11 @@ class MarketData
     )
   end
 
+  # Returns the post-dedup base_asset_ids actually upserted (Array, [] when nothing imported). The
+  # caller's stale-ticker sweep keys off exactly this set so import-wrote and sweep-keep can never
+  # disagree (Fix A — a base import skipped/deduped must not be treated as "kept" by the sweep).
   def self.import_tickers!(exchange, tickers_data)
-    return if tickers_data.blank?
+    return [] if tickers_data.blank?
 
     # Single query to map external_id -> asset id
     external_ids = tickers_data.flat_map { |t| [t['base_external_id'], t['quote_external_id']] }.uniq
@@ -255,7 +258,7 @@ class MarketData
 
       upsert_ticker_attributes(t, exchange_id: exchange.id, base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
     end
-    return if ticker_records.empty?
+    return [] if ticker_records.empty?
 
     # Deduplicate within the batch (keep first occurrence per constraint key)
     ticker_records.uniq! { |r| [r[:exchange_id], r[:base_asset_id], r[:quote_asset_id]] }
@@ -266,6 +269,8 @@ class MarketData
     reconcile_ticker_conflicts!(exchange, ticker_records)
 
     Ticker.upsert_all(ticker_records, unique_by: %i[exchange_id base_asset_id quote_asset_id])
+
+    ticker_records.map { |r| r[:base_asset_id] }.uniq
   end
 
   # Deltabadger Market Data Service sync methods (thin wrappers around import_*)
@@ -373,6 +378,10 @@ class MarketData
 
     Asset.upsert_all(assets, unique_by: :external_id) if assets.any?
     Result::Success.new
+  rescue Client::TransientNetworkError, Client::RateLimitedError
+    # Let transient failures propagate so SyncStocksFromDeltabadgerJob's retry_on can engage —
+    # swallowing them into a Result::Failure is what silently dropped whole days of sync (Fix B).
+    raise
   rescue StandardError => e
     Rails.logger.error "[MarketData] Failed to sync stocks: #{e.message}"
     Result::Failure.new(e.message)
@@ -399,26 +408,34 @@ class MarketData
     # defaults for non-fractionable assets.
     listings = listings.reject { |l| l['fractionable'] == false }
 
-    # Degraded-payload guard (incident 2026-06-02). Measured here — after the fractionable
-    # rejection but BEFORE the ambiguity guard below — so local legacy-collision state can't
-    # shrink the count and cause false degradation / baseline drift. A partial feed bails out of
-    # the WHOLE method (no import, no reconcile, no sweep), leaving availability at last-good;
-    # the empty-payload case stays a no-op too. The same count is persisted as the new baseline
-    # on a healthy completion.
-    incoming_count = listings.size
-    if alpaca_listings_degraded?(incoming_count, AppConfig.get(ALPACA_LISTINGS_LAST_GOOD_KEY))
-      Rails.logger.warn '[MarketData] sync_alpaca_listings: degraded/partial payload ' \
-                        "(#{incoming_count} listings; last_good=#{AppConfig.get(ALPACA_LISTINGS_LAST_GOOD_KEY).inspect}); " \
-                        'skipping import + sweep to preserve availability'
-      return Result::Success.new
-    end
-
     # Invariant B: every Alpaca ticker's quote anchors to the local 'usd' row so the wizard's
-    # (base_asset, quote_asset) lookup finds the seeded ticker.
+    # (base_asset, quote_asset) lookup finds the seeded ticker. Done BEFORE the degraded guard so
+    # the guard can measure the genuinely-importable universe (data-api now sends 'USD.FOREX').
     listings.each do |l|
       l['quote_external_id'] = 'usd'
       # Inject Alpaca-stock trading defaults — import_tickers! requires decimals.
       STOCK_TICKER_DEFAULTS.each { |k, v| l[k] ||= v }
+    end
+
+    # Degraded-payload guard (incident 2026-06-02; Fix A 2026-06-08). Measure the RESOLVED
+    # (importable) universe — listings whose base+quote resolve to local Asset rows and carry
+    # decimals — NOT the raw listings.size. A FIGI identity-drift payload can be the right SIZE yet
+    # resolve to almost nothing; the raw-count guard would pass it, import would write ~nothing, and
+    # the sweep would blank every previously-available ticker (the AV=0 strand). Measured BEFORE the
+    # ambiguity guard so local legacy-collision state can't shrink the count. A degraded feed bails
+    # out of the WHOLE method (no import, no reconcile, no sweep), leaving availability at last-good.
+    resolve_ext_ids = listings.flat_map { |l| [l['base_external_id'], l['quote_external_id']] }.uniq
+    resolve_map = Asset.where(external_id: resolve_ext_ids).pluck(:external_id, :id).to_h
+    resolved_count = listings.count do |l|
+      resolve_map[l['base_external_id']] && resolve_map[l['quote_external_id']] &&
+        l['base_decimals'] && l['quote_decimals'] && l['price_decimals']
+    end
+    if alpaca_listings_degraded?(resolved_count, AppConfig.get(ALPACA_LISTINGS_LAST_GOOD_KEY))
+      Rails.logger.warn '[MarketData] sync_alpaca_listings: degraded/partial payload ' \
+                        "(#{resolved_count} importable of #{listings.size} listings; " \
+                        "last_good=#{AppConfig.get(ALPACA_LISTINGS_LAST_GOOD_KEY).inspect}); " \
+                        'skipping import + sweep to preserve availability'
+      return Result::Success.new
     end
 
     alpaca = Exchanges::Alpaca.first
@@ -448,30 +465,31 @@ class MarketData
       end
     end
 
-    import_tickers!(alpaca, listings)
-
-    # Stale-ticker sweep keyed off base_asset_id. Empty-payload guard: never wipe everything
-    # when the feed is empty (mirrors SyncAlpacaAssetsJob:74 `if synced_ticker_ids.any?`).
-    # Legacy alpaca_<uuid> Stock tickers are EXCLUDED from this sweep — data-api isn't
-    # authoritative over them (they're managed by the per-user Exchange::SyncAlpacaAssetsJob,
-    # which is a no-op on hosted). Sweeping them would mark active bot tickers unavailable
-    # when their canonical equivalents share an ambiguous symbol (the IBIT/LDRC case).
-    external_ids = listings.flat_map { |l| [l['base_external_id'], l['quote_external_id']] }.uniq
-    asset_map = Asset.where(external_id: external_ids).pluck(:external_id, :id).to_h
-    incoming_base_asset_ids = listings.map { |l| asset_map[l['base_external_id']] }.compact.uniq
-    if incoming_base_asset_ids.any?
-      legacy_asset_ids = Asset.where(category: 'Stock').where("external_id LIKE 'alpaca_%'").pluck(:id)
-      alpaca.tickers
-            .where.not(base_asset_id: incoming_base_asset_ids + legacy_asset_ids)
-            .update_all(available: false)
+    # Import + sweep run in ONE transaction (Fix A) so a mid-sync process kill can never commit the
+    # sweep without the import — the failure mode that strands a container at AV=0. The sweep keeps
+    # EXACTLY the base_asset_ids import actually wrote (post-dedup), so import-wrote and sweep-keep
+    # can't disagree. Legacy alpaca_<uuid> Stock tickers are EXCLUDED — data-api isn't authoritative
+    # over them (managed by the per-user Exchange::SyncAlpacaAssetsJob, a no-op on hosted); sweeping
+    # them would unavailable active bot tickers sharing an ambiguous symbol (the IBIT/LDRC case).
+    # Empty written set ⇒ no sweep (never wipe everything when nothing was imported).
+    Ticker.transaction do
+      written_base_asset_ids = import_tickers!(alpaca, listings)
+      if written_base_asset_ids.any?
+        legacy_asset_ids = Asset.where(category: 'Stock').where("external_id LIKE 'alpaca_%'").pluck(:id)
+        alpaca.tickers
+              .where.not(base_asset_id: written_base_asset_ids + legacy_asset_ids)
+              .update_all(available: false)
+      end
     end
 
-    # Record the healthy universe size so the next run's degraded-payload guard has a baseline.
-    # Uses the pre-ambiguity count captured above (the real incoming universe, not the locally
-    # filtered remainder), and is only reached on the full, non-degraded success path.
-    AppConfig.set(ALPACA_LISTINGS_LAST_GOOD_KEY, incoming_count.to_s)
+    # Record the healthy IMPORTABLE universe so the next run's degraded-payload guard has a baseline.
+    # Ratcheted only here — after the import+sweep transaction commits, never on a bailed/failed run.
+    AppConfig.set(ALPACA_LISTINGS_LAST_GOOD_KEY, resolved_count.to_s)
 
     Result::Success.new
+  rescue Client::TransientNetworkError, Client::RateLimitedError
+    # Propagate transient failures for the job's retry_on (Fix B) instead of swallowing them.
+    raise
   rescue StandardError => e
     Rails.logger.error "[MarketData] Failed to sync alpaca listings: #{e.message}"
     Result::Failure.new(e.message)

@@ -853,4 +853,15 @@ class Bots::DcaSingleAssetTest < ActiveSupport::TestCase
     bot = create(:dca_single_asset, :monthly)
     assert_equal 'month', bot.interval
   end
+
+  # Fix C: drives the "temporarily unavailable" hint next to a disabled start button so a frozen
+  # toggle isn't silent. True exactly when the bot's ticker is not available/trading-enabled.
+  test 'start_blocked_by_unavailable_ticker? reflects ticker availability' do
+    bot = create(:dca_single_asset)
+    assert_not bot.start_blocked_by_unavailable_ticker?, 'available ticker → not blocked'
+
+    bot.exchange.tickers.update_all(available: false)
+    fresh = Bots::DcaSingleAsset.find(bot.id)
+    assert fresh.start_blocked_by_unavailable_ticker?, 'unavailable ticker → blocked'
+  end
 end

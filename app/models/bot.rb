@@ -22,6 +22,24 @@ class Bot < ApplicationRecord
   after_update_commit :broadcast_columns_lock_update, if: :saved_change_to_status?
   after_update_commit -> { Bot::UpdateMetricsJob.perform_later(self) if custom_exchange_id_changed? }
 
+  # Fix C: drives the "temporarily unavailable" hint shown next to a disabled start button so the
+  # frozen toggle isn't silent. True when the bot's ticker(s) aren't currently available/
+  # trading-enabled on the exchange — the usual reason validate_tickers_available blocks :start.
+  # Subtypes list their relevant tickers via #tickers_for_start; types that don't override show no hint.
+  def start_blocked_by_unavailable_ticker?
+    return false unless exchange_id?
+
+    relevant = tickers_for_start
+    return false if relevant.blank?
+
+    relevant.any? { |t| t.nil? || !t.available? || !t.trading_enabled? }
+  end
+
+  # Overridden by bot subtypes that trade specific tickers. Default: no ticker info → no hint.
+  def tickers_for_start
+    []
+  end
+
   def last_transaction
     transactions.where(transaction_type: 'REGULAR').order(created_at: :desc).limit(1).last
   end
