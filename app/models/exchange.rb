@@ -1,4 +1,9 @@
 class Exchange < ApplicationRecord
+  # Backstop for windowed candle pagination loops: well above any real fetch (the ~20y ATH
+  # lookback over daily candles is only a handful of windows) so a misbehaving API or an
+  # advance bug can never spin forever.
+  MAX_CANDLE_PAGES = 1000
+
   STABLE_TYPES = %w[Exchanges::Binance Exchanges::BinanceUs Exchanges::Coinbase Exchanges::Kraken].freeze
 
   # Stock brokers (as opposed to crypto exchanges). Stock bots route to one of these; the

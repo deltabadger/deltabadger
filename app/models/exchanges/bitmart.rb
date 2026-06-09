@@ -186,14 +186,24 @@ class Exchanges::Bitmart < Exchange
     }
     step = intervals[timeframe]
 
-    limit = 500
+    # BitMart caps a kline page at ~200 entries regardless of the requested limit, so a
+    # short page is NOT a signal that the data ended. Window the request with `before` and
+    # terminate on reaching the present instead of on page size.
+    page_size = 200
     candles = []
+    iterations = 0
     loop do
+      iterations += 1
+      break if iterations > MAX_CANDLE_PAGES
+
+      now = Time.now.utc # re-read each iteration so a slow walk still reaches the true present
+      end_at = [start_at + (page_size * timeframe), now].min
       result = client.get_klines(
         symbol: ticker.ticker,
         step: step,
         after_time: start_at.to_i,
-        limit: limit
+        before: end_at.to_i,
+        limit: page_size
       )
       if result.failure?
         error = parse_error_message(result)
@@ -201,7 +211,7 @@ class Exchanges::Bitmart < Exchange
       end
 
       items = result.data.is_a?(Hash) ? (result.data['data'] || []) : []
-      items.each do |candle|
+      items.sort_by { |c| c[0] }.each do |candle|
         candles << [
           Time.at(candle[0].to_i).utc,
           candle[1].to_d,
@@ -211,12 +221,16 @@ class Exchanges::Bitmart < Exchange
           candle[5].to_d
         ]
       end
-      break if items.empty? || items.size < limit
 
-      start_at = candles.last[0] + 1.second
+      break if end_at >= now
+
+      # Skip forward through windows that predate the listing (e.g. the ~20y ATH lookback)
+      # instead of bailing on the first empty page.
+      start_at = items.present? ? candles.last[0] + 1.second : end_at + 1.second
     end
 
-    Result::Success.new(candles)
+    # Defensive: dedupe + globally sort in case windows ever overlap at the boundaries.
+    Result::Success.new(candles.uniq { |c| c[0] }.sort_by { |c| c[0] })
   end
 
   # @param amount_type [Symbol] :base or :quote

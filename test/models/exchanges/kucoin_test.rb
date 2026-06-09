@@ -86,4 +86,67 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal false, result.data
   end
+
+  # ---- get_candles deep-history pagination (the ATH ~20y lookback) ----
+  #
+  # KuCoin requests a bounded [start_at, end_at] window. A 20-years-ago start_at
+  # predates the listing, so the first window comes back empty. The loop must skip
+  # forward through those empty windows and reach the present, not bail on the
+  # first blank page (which left "% from ATH" bots frozen forever).
+
+  test 'get_candles skips empty pre-listing windows and reaches the present' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'AVA', quote_symbol: 'USDT')
+    now = Time.now.utc
+    listing = now - 400.days
+
+    client = Object.new
+    client.define_singleton_method(:get_klines) do |**kw|
+      lo = [kw[:start_at], listing.to_i].max
+      hi = [kw[:end_at], now.to_i].min
+      data = []
+      t = lo
+      while t <= hi
+        # KuCoin candle order: [time, open, close, high, low, volume]
+        data << [t.to_s, '10', '11', '12', '9', '100']
+        t += 1.day.to_i
+      end
+      Result::Success.new({ 'data' => data })
+    end
+    @exchange.stubs(:client).returns(client)
+
+    result = @exchange.get_candles(ticker: ticker, start_at: 2900.days.ago, timeframe: 1.day)
+
+    assert_predicate result, :success?
+    assert result.data.any?, 'expected candles after skipping the empty pre-listing windows'
+    assert_operator result.data.last[0], :>=, now - 2.days, 'pagination should reach the present'
+    assert_operator result.data.first[0], :>=, listing - 2.days, 'should not fabricate pre-listing candles'
+  end
+
+  test 'get_candles dedupes and globally sorts when windows overlap at the boundary' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'AVA', quote_symbol: 'USDT')
+    now = Time.now.utc
+
+    client = Object.new
+    # Each window deliberately also returns the candle one day BEFORE its start, so adjacent
+    # windows overlap by a candle (a misbehaving-API scenario the guard must absorb).
+    client.define_singleton_method(:get_klines) do |**kw|
+      lo = kw[:start_at] - 1.day.to_i
+      hi = [kw[:end_at], now.to_i].min
+      data = []
+      t = lo
+      while t <= hi
+        data << [t.to_s, '10', '11', '12', '9', '100']
+        t += 1.day.to_i
+      end
+      Result::Success.new({ 'data' => data })
+    end
+    @exchange.stubs(:client).returns(client)
+
+    result = @exchange.get_candles(ticker: ticker, start_at: 2000.days.ago, timeframe: 1.day)
+
+    assert_predicate result, :success?
+    timestamps = result.data.map { |c| c[0] }
+    assert_equal timestamps.sort, timestamps, 'result must be globally sorted'
+    assert_equal timestamps.uniq, timestamps, 'result must not contain duplicate candles'
+  end
 end
