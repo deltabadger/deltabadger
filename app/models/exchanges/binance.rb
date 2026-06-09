@@ -8,6 +8,11 @@ class Exchanges::Binance < Exchange
     invalid_key: [-2014, -2015]
   }.freeze # https://developers.binance.com/docs/binance-spot-api-docs/errors
 
+  # Signed READS use Binance's max recvWindow so a request delayed by exchange-proxy latency isn't
+  # rejected with "Timestamp for this request is outside of the recvWindow". Order PLACEMENT keeps the
+  # honeymaker default (5000ms) — a stale placement must be rejected, not executed up to 60s late.
+  READ_RECV_WINDOW = 60_000
+
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
   attr_reader :api_key
@@ -91,7 +96,7 @@ class Exchanges::Binance < Exchange
   end
 
   def get_balances(asset_ids: nil)
-    result = client.account_information(omit_zero_balances: true)
+    result = client.account_information(omit_zero_balances: true, recv_window: READ_RECV_WINDOW)
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error) : result
@@ -266,7 +271,7 @@ class Exchanges::Binance < Exchange
   def get_order(order_id:)
     # Binance can assign same order id to different symbols
     symbol, ext_order_id = order_id.split('-')
-    result = client.query_order(symbol: symbol, order_id: ext_order_id)
+    result = client.query_order(symbol: symbol, order_id: ext_order_id, recv_window: READ_RECV_WINDOW)
     if result.failure?
       error = parse_error_message(result)
       return error.present? ? Result::Failure.new(error) : result
@@ -301,7 +306,7 @@ class Exchanges::Binance < Exchange
       100.times do |i|
         raise "Too many attempts to get #{name} orders. Adjust the number of iterations in the loop if needed." if i == 100
 
-        result = client.all_orders(symbol: symbol, order_id: ext_order_ids.min, limit: 1000)
+        result = client.all_orders(symbol: symbol, order_id: ext_order_ids.min, limit: 1000, recv_window: READ_RECV_WINDOW)
         if result.failure?
           error = parse_error_message(result)
           return error.present? ? Result::Failure.new(error) : result
@@ -356,7 +361,7 @@ class Exchanges::Binance < Exchange
       if ext_order_ids.count < 5 # request weight is 5 when passing one order id
         ext_order_ids.each do |ext_order_id|
           # we assume one order will never have more than 1000 trades
-          result = client.account_trade_list(symbol: symbol, order_id: ext_order_id, limit: limit)
+          result = client.account_trade_list(symbol: symbol, order_id: ext_order_id, limit: limit, recv_window: READ_RECV_WINDOW)
           if result.failure?
             error = parse_error_message(result)
             return error.present? ? Result::Failure.new(error) : result
@@ -371,7 +376,7 @@ class Exchanges::Binance < Exchange
         100.times do |i|
           raise "Too many attempts to get #{name} #{symbol} trades. Adjust the number of iterations in the loop if needed." if i == 100
 
-          result = client.account_trade_list(symbol: symbol, end_time: end_time, limit: limit)
+          result = client.account_trade_list(symbol: symbol, end_time: end_time, limit: limit, recv_window: READ_RECV_WINDOW)
           if result.failure?
             error = parse_error_message(result)
             return error.present? ? Result::Failure.new(error) : result
@@ -500,7 +505,7 @@ class Exchanges::Binance < Exchange
     end
 
     traded_symbols.each do |symbol|
-      result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms)
+      result = hm_client.account_trade_list(symbol: symbol, start_time: start_ms, recv_window: READ_RECV_WINDOW)
       next if result.failure?
 
       Array(result.data).each do |trade|
@@ -682,7 +687,7 @@ class Exchanges::Binance < Exchange
   def discover_traded_coins(hm_client, entries)
     coins = Set.new
     entries.each { |e| coins << e[:base_currency] }
-    result = hm_client.account_information(omit_zero_balances: true)
+    result = hm_client.account_information(omit_zero_balances: true, recv_window: READ_RECV_WINDOW)
     if result.success?
       Array(result.data['balances']).each do |bal|
         coins << bal['asset'] if bal['free'].to_d.positive? || bal['locked'].to_d.positive?

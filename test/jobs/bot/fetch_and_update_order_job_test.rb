@@ -210,4 +210,16 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
 
     assert_equal :kraken, Bot::FetchAndUpdateOrderJob.new(txn).queue_name
   end
+
+  # W2b: a proxy/network timeout (any exchange) must become a retryable Client::TransientNetworkError,
+  # not a terminal "Failed to fetch order" RuntimeError — so it retries instead of dropping the poll.
+  test 'a network timeout raises TransientNetworkError (retried), not a bare RuntimeError' do
+    bot = create(:dca_single_asset, :started) # binance — no exchange-specific :transient patterns
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: 'u1')
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Failure.new('Net::ReadTimeout with #<TCPSocket:(closed)>'))
+
+    assert_raises(Client::TransientNetworkError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    assert Transaction.exists?(txn.id), 'the durable row must survive for the next sweep'
+  end
 end

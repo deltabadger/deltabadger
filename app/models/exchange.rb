@@ -6,6 +6,20 @@ class Exchange < ApplicationRecord
   # Exchanges::Alpaca as the sole stock venue.
   STOCK_TYPES = %w[Exchanges::Alpaca Exchanges::Ibkr].freeze
 
+  # Exchange-agnostic network failures that are ALWAYS retryable — any exchange can hit these through
+  # the HTTP proxy / network (the UK proxy's latency spikes surfaced these as terminal order-fetch
+  # errors). Matched as narrow substrings of the error string the exchange returns (no broad "Timeout"/
+  # "TCPSocket" — those risk false positives on business/config messages).
+  NETWORK_TRANSIENT_PATTERNS = [
+    'Net::ReadTimeout',
+    'Net::OpenTimeout',
+    'Faraday::TimeoutError',
+    'Faraday::ConnectionFailed',
+    'execution expired',
+    'Connection reset',
+    'Errno::ECONNRESET'
+  ].freeze
+
   scope :stock_venues, -> { where(type: STOCK_TYPES) }
 
   has_many :bots
@@ -162,12 +176,13 @@ class Exchange < ApplicationRecord
   # Used by the fetch jobs to convert such failures into Client::TransientNetworkError
   # so they flow into the existing retry-with-backoff path instead of failing loudly.
   def transient_error?(errors)
-    transient_messages = (known_errors[:transient] || []).map(&:to_s)
-    return false if transient_messages.empty?
+    # Base network patterns apply to EVERY exchange (incl. those with no exchange-specific :transient
+    # set, e.g. Binance) — so this must not early-return on an empty known_errors[:transient].
+    patterns = NETWORK_TRANSIENT_PATTERNS + (known_errors[:transient] || []).map(&:to_s)
 
     Array(errors).any? do |err|
       msg = err.to_s
-      transient_messages.any? { |m| msg.include?(m) }
+      patterns.any? { |m| msg.include?(m) }
     end
   end
 
