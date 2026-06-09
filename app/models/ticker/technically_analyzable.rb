@@ -1,6 +1,13 @@
 module Ticker::TechnicallyAnalyzable
   extend ActiveSupport::Concern
 
+  # The ATH lookback is ~20 years on first computation. Exchanges that can't serve candles
+  # that far back return an empty (but successful) result, which used to leave `ath` nil
+  # forever and freeze "% from ATH" bots. When the deep fetch is empty we retry with these
+  # progressively shorter windows so the ATH still seeds from whatever history exists. The
+  # 20-year deep fetch is the primary attempt and is intentionally NOT repeated here.
+  ATH_SEED_FALLBACK_WINDOWS = [5.years, 2.years, 1.year, 90.days, 30.days, 7.days].freeze
+
   def get_rsi_value(timeframe:, period: 14)
     cache_key = "exchange_ticker_#{id}_rsi_value_#{period}_#{timeframe}"
     expires_in = Utilities::Time.seconds_to_current_candle_close(timeframe)
@@ -89,26 +96,74 @@ module Ticker::TechnicallyAnalyzable
     cache_key = "exchange_ticker_#{id}_high_of_last_#{duration}"
     is_ath = duration == Float::INFINITY.seconds
     high = Rails.cache.fetch(cache_key, expires_in: 20.seconds) do
-      duration = Time.now.utc - (ath_updated_at || 20.years.ago) if is_ath
+      unless is_ath
+        result = high_for_duration(duration)
+        return result if result.failure?
 
-      candles_timeframe = optimal_candles_timeframe_for_duration(duration)
-      since = (duration + candles_timeframe).ago
-      result = get_high(since, candles_timeframe)
-      return result if result.failure?
-
-      if is_ath
-        high = [ath, result.data].compact.max
-        update!(ath: high, ath_updated_at: Time.now.utc) if high.present?
-        high
-      else
-        result.data
+        next result.data
       end
+
+      if ath_updated_at.present?
+        # Already seeded: ath is a running maximum, so we only need the window since the
+        # last update — never the full history again.
+        result = high_for_duration(Time.now.utc - ath_updated_at)
+        return result if result.failure?
+      else
+        # First computation: skip the deep walk entirely if we've already learned this
+        # ticker has no candle history (guarded to the unseeded path, so a persisted ath
+        # is never overwritten with nil).
+        next nil if ath_seed_known_empty?
+
+        result = high_for_duration(Time.now.utc - 20.years.ago)
+        return result if result.failure?
+
+        if result.data.blank?
+          ATH_SEED_FALLBACK_WINDOWS.each do |window|
+            fallback = high_for_duration(window)
+            return fallback if fallback.failure?
+
+            if fallback.data.present?
+              result = fallback
+              break
+            end
+          end
+        end
+
+        if result.data.blank?
+          mark_ath_seed_empty!
+          next nil
+        end
+      end
+
+      # Incremental max: never downgrade a higher persisted ath (also guards the anomalous
+      # ath-without-ath_updated_at state when seeding from a shorter fallback window).
+      new_high = [ath, result.data].compact.max
+      update!(ath: new_high, ath_updated_at: Time.now.utc) if new_high.present?
+      new_high
     end
 
     Result::Success.new(high)
   end
 
   private
+
+  def high_for_duration(duration)
+    candles_timeframe = optimal_candles_timeframe_for_duration(duration)
+    since = (duration + candles_timeframe).ago
+    get_high(since, candles_timeframe)
+  end
+
+  def ath_seed_empty_cache_key
+    "exchange_ticker_#{id}_ath_seed_empty"
+  end
+
+  def ath_seed_known_empty?
+    Rails.cache.read(ath_seed_empty_cache_key).present?
+  end
+
+  def mark_ath_seed_empty!
+    Rails.cache.write(ath_seed_empty_cache_key, true, expires_in: 1.hour)
+  end
 
   def optimal_candles_timeframe_for_duration(duration)
     # These optimal timeframes are limited by Kraken's 720 candles limit

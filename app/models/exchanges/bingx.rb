@@ -186,35 +186,38 @@ class Exchanges::Bingx < Exchange
     }
     interval = intervals[timeframe]
 
+    # BingX's kline endpoint only serves the most-recent `limit` candles: older start_times
+    # return empty and paging further back (via an older end_time) also returns empty. So a
+    # forward-paging loop either bailed on the empty old-start window (leaving "% from ATH"
+    # bots frozen) or duplicated the recent window. Fetch that single most-recent page and
+    # trim it to the requested range instead. ATH over this window is the best obtainable;
+    # the stored `ath` keeps climbing via incremental-max on later ticks.
     limit = 1000
-    candles = []
-    loop do
-      result = client.get_klines(
-        symbol: ticker.ticker,
-        interval: interval,
-        start_time: start_at.to_i * 1000,
-        limit: limit
-      )
-      if result.failure?
-        error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
-      end
-
-      items = result.data.is_a?(Hash) ? (result.data['data'] || []) : result.data
-      items.each do |candle|
-        candles << [
-          Time.at(candle[0].to_i / 1000).utc,
-          candle[1].to_d,
-          candle[2].to_d,
-          candle[3].to_d,
-          candle[4].to_d,
-          candle[5].to_d
-        ]
-      end
-      break if items.empty? || items.size < limit
-
-      start_at = candles.last[0] + 1.second
+    result = client.get_klines(
+      symbol: ticker.ticker,
+      interval: interval,
+      limit: limit
+    )
+    if result.failure?
+      error = parse_error_message(result)
+      return error.present? ? Result::Failure.new(error) : result
     end
+
+    items = result.data.is_a?(Hash) ? (result.data['data'] || []) : (result.data || [])
+    start_at_i = start_at.to_i
+    candles = items.filter_map do |candle|
+      time = candle[0].to_i / 1000
+      next if time < start_at_i
+
+      [
+        Time.at(time).utc,
+        candle[1].to_d,
+        candle[2].to_d,
+        candle[3].to_d,
+        candle[4].to_d,
+        candle[5].to_d
+      ]
+    end.sort_by { |c| c[0] } # BingX can return newest-first
 
     Result::Success.new(candles)
   end

@@ -76,4 +76,35 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal false, result.data
   end
+
+  # ---- get_candles (the ATH ~20y lookback) ----
+  #
+  # BingX's kline endpoint only serves the most-recent ~1000 candles (older start_times and
+  # older end_times return empty), and it returns them newest-first. get_candles must fetch
+  # that single window and trim it to the requested range — a deep ATH start must keep the
+  # whole window (not 0, not duplicated), sorted ascending and reaching the present.
+
+  test 'get_candles returns the most-recent window, trimmed to the requested range and sorted' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    now = Time.now.utc
+    # Most-recent ~1000 daily candles, newest-first (index 0 == today), any request shape.
+    window = (0...1000).map do |i|
+      t = (now - i.days).to_i * 1000
+      [t, '10', '12', '9', '11', '100'] # [time_ms, open, high, low, close, volume]
+    end
+    client = Object.new
+    client.define_singleton_method(:get_klines) { |**_kw| Result::Success.new(window) }
+    @exchange.stubs(:client).returns(client)
+
+    deep = @exchange.get_candles(ticker: ticker, start_at: 20.years.ago, timeframe: 1.day)
+    assert_predicate deep, :success?
+    assert_equal 1000, deep.data.size, 'a deep ATH start keeps the whole recent window'
+    timestamps = deep.data.map { |c| c[0] }
+    assert_equal timestamps.sort, timestamps, 'must be sorted ascending despite newest-first API order'
+    assert_operator deep.data.last[0], :>=, now - 2.days, 'should reach the present'
+
+    recent = @exchange.get_candles(ticker: ticker, start_at: 30.days.ago, timeframe: 1.day)
+    assert_operator recent.data.size, :<=, 31, 'a recent start trims to the requested range'
+    assert(recent.data.all? { |c| c[0] >= 30.days.ago - 1.day }, 'trimmed candles stay within range')
+  end
 end

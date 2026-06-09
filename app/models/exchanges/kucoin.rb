@@ -188,8 +188,13 @@ class Exchanges::Kucoin < Exchange
     interval = intervals[timeframe]
 
     candles = []
+    iterations = 0
     loop do
-      end_at = [start_at + (1500 * timeframe), Time.now.utc].min
+      iterations += 1
+      break if iterations > MAX_CANDLE_PAGES
+
+      now = Time.now.utc # re-read each iteration so a slow walk still reaches the true present
+      end_at = [start_at + (1500 * timeframe), now].min
       result = client.get_klines(
         symbol: ticker.ticker,
         type: interval,
@@ -199,23 +204,28 @@ class Exchanges::Kucoin < Exchange
       return result if result.failure?
 
       data = result.data['data']
-      break if data.blank?
-
-      data.sort_by { |c| c[0] }.each do |candle|
-        candles << [
-          Time.at(candle[0].to_i).utc,
-          candle[1].to_d, # open
-          candle[3].to_d, # high
-          candle[4].to_d, # low
-          candle[2].to_d, # close
-          candle[5].to_d  # volume
-        ]
+      if data.present?
+        data.sort_by { |c| c[0] }.each do |candle|
+          candles << [
+            Time.at(candle[0].to_i).utc,
+            candle[1].to_d, # open
+            candle[3].to_d, # high
+            candle[4].to_d, # low
+            candle[2].to_d, # close
+            candle[5].to_d  # volume
+          ]
+        end
       end
-      break if end_at >= Time.now.utc
 
-      start_at = candles.last[0] + 1.second
+      break if end_at >= now
+
+      # Skip forward through windows that predate the listing (e.g. the ~20y ATH
+      # lookback) instead of bailing on the first empty page.
+      start_at = data.present? ? candles.last[0] + 1.second : end_at + 1.second
     end
 
+    # Defensive: dedupe + globally sort in case windows ever overlap at the boundaries.
+    candles = candles.uniq { |c| c[0] }.sort_by { |c| c[0] }
     candles = build_candles_from_candles(candles: candles, timeframe: timeframe) if timeframe.in?([3.days, 1.month])
 
     Result::Success.new(candles)
