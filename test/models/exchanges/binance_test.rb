@@ -114,4 +114,53 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal false, result.data
   end
+
+  # == W2a: recvWindow on signed READS ==
+  # Proxy latency spikes (up to ~30s) made Binance reject signed reads with "Timestamp outside the
+  # recvWindow" (default 5000ms). Reads carry the 60s max so a delayed-but-valid request isn't rejected.
+  # Order PLACEMENT stays at the default so a stale placement is rejected, not executed up to 60s late.
+  test 'get_order queries with a 60s recvWindow (tolerates proxy latency)' do
+    @exchange.set_client
+    @exchange.send(:client)
+             .expects(:query_order)
+             .with(symbol: 'BTCUSDT', order_id: '123', recv_window: 60_000)
+             .returns(Result::Failure.new('boom'))
+    @exchange.get_order(order_id: 'BTCUSDT-123')
+  end
+
+  test 'get_orders fetches with a 60s recvWindow' do
+    @exchange.set_client
+    @exchange.send(:client)
+             .expects(:all_orders)
+             .with(symbol: 'BTCUSDT', order_id: 123, limit: 1000, recv_window: 60_000)
+             .returns(Result::Failure.new('boom'))
+    @exchange.get_orders(order_ids: ['BTCUSDT-123'])
+  end
+
+  test 'get_balances reads with a 60s recvWindow' do
+    @exchange.set_client
+    @exchange.send(:client)
+             .expects(:account_information)
+             .with(omit_zero_balances: true, recv_window: 60_000)
+             .returns(Result::Failure.new('boom'))
+    @exchange.get_balances
+  end
+
+  # == W2b: network timeouts are transient (retryable), even on an exchange with no honeymaker
+  # :transient patterns (Binance has none). transient_error? must NOT early-return in that case. ==
+  test 'transient_error? treats network timeouts/resets as transient' do
+    assert @exchange.transient_error?(['Net::ReadTimeout with #<TCPSocket:(closed)>'])
+    assert @exchange.transient_error?(['Faraday::TimeoutError: read timed out'])
+    assert @exchange.transient_error?(['Faraday::ConnectionFailed: connection refused'])
+    assert @exchange.transient_error?(['Net::OpenTimeout: execution expired'])
+    assert @exchange.transient_error?(['Errno::ECONNRESET: Connection reset by peer'])
+  end
+
+  test 'transient_error? does NOT retry business/auth/rate-limit errors (no false positives)' do
+    assert_not @exchange.transient_error?(['Invalid API-key, IP, or permissions for action'])
+    assert_not @exchange.transient_error?(['Account has insufficient balance for requested action'])
+    assert_not @exchange.transient_error?(['Too many requests'])
+    assert_not @exchange.transient_error?(['Filter failure: MIN_NOTIONAL'])
+    assert_not @exchange.transient_error?(['Timestamp for this request is outside of the recvWindow'])
+  end
 end
