@@ -289,6 +289,8 @@ module Bots::DcaIndex::Measurable
         c = candle_cursors[symbol]
         c += 1 while c < asset_candles.length - 1 && asset_candles[c][0] < candle_time
         candle_cursors[symbol] = c
+        # Open price: candles are [open_time, open, high, low, close, volume] and the
+        # point is labeled with the open time, so the open keeps the pair consistent.
         total_value += amount * asset_candles[c][1]
       end
 
