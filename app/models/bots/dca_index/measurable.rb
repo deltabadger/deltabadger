@@ -266,7 +266,9 @@ module Bots::DcaIndex::Measurable
 
         # Find the candle closest to this time
         asset_candle = asset_candles.find { |c| c[0] >= candle_time } || asset_candles.last
-        price = asset_candle[1] if asset_candle # close price
+        # Open price: candles are [open_time, open, high, low, close, volume] and the
+        # point is labeled with the open time, so the open keeps the pair consistent.
+        price = asset_candle[1] if asset_candle
         total_value += amount * price if price
       end
 
