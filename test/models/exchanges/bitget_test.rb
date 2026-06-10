@@ -86,4 +86,67 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal false, result.data
   end
+
+  # Production: Bitget's v2 cancel-order returns HTTP 400 for business errors, so honeymaker's
+  # with_rescue wraps order-not-found (43001 订单不存在) as a Failure carrying the raw JSON body.
+  # The probe getting past the permission gate means the key CAN trade ⇒ valid.
+  test 'get_api_key_validity treats order-not-found Failure (HTTP 400) as a valid trading key' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret',
+                               raw_passphrase: 'test_pass')
+
+    Honeymaker::Clients::Bitget.any_instance.stubs(:cancel_order).returns(
+      Result::Failure.new('{"code":"43001","msg":"订单不存在","data":null}', data: { status: 400 })
+    )
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.success?
+    assert_equal true, result.data
+  end
+
+  test 'get_api_key_validity treats no-trade-permission Failure (HTTP 400) as an invalid trading key' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret',
+                               raw_passphrase: 'test_pass')
+
+    Honeymaker::Clients::Bitget.any_instance.stubs(:cancel_order).returns(
+      Result::Failure.new(
+        '{"code":"40014","msg":"Incorrect permissions, need spot order write permissions","data":null}',
+        data: { status: 400 }
+      )
+    )
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.success?
+    assert_equal false, result.data
+  end
+
+  test 'get_api_key_validity treats 401 auth Failure as an invalid trading key' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'bad_key', secret: 'bad_secret',
+                               raw_passphrase: 'test_pass')
+
+    Honeymaker::Clients::Bitget.any_instance.stubs(:cancel_order).returns(
+      Result::Failure.new('Invalid signature', data: { status: 401 })
+    )
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.success?
+    assert_equal false, result.data
+  end
+
+  # A genuine transport failure (no JSON body, unknown code) must propagate as a Failure so the key
+  # is left pending_validation (retryable) — not coerced into a true/false verdict.
+  test 'get_api_key_validity propagates a genuine transport failure' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret',
+                               raw_passphrase: 'test_pass')
+
+    Honeymaker::Clients::Bitget.any_instance.stubs(:cancel_order).returns(
+      Result::Failure.new('Connection timed out')
+    )
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.failure?
+  end
 end
