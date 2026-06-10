@@ -100,7 +100,10 @@ class BotsController < ApplicationController
       prices_data = @bot.metrics_with_current_prices_from_cache
       @chart_loading = combined_data.nil?
       @metrics_loading = combined_data.nil? && prices_data.nil?
-      @metrics = combined_data || prices_data || @bot.metrics
+      # Prices first: the combined cache is derived from the prices cache and is never
+      # force-refreshed (UpdateMetricsJob forces prices after transaction changes), so
+      # prices is always the at-least-as-fresh source for the balances table.
+      @metrics = prices_data || combined_data || @bot.metrics
       @chart_metrics = combined_data || @metrics
     end
   end
