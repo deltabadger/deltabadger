@@ -171,51 +171,43 @@ class Exchanges::Bitrue < Exchange
   end
 
   def get_candles(ticker:, start_at:, timeframe:)
-    intervals = {
-      1.minute => '1m',
-      5.minutes => '5m',
-      15.minutes => '15m',
-      30.minutes => '30m',
-      1.hour => '1h',
-      4.hours => '4h',
-      1.day => '1d',
-      3.days => '3d',
-      1.week => '1w',
-      1.month => '1M'
+    # Bitrue's kline endpoint serves only a recent window (it ignores startTime) and returns
+    # {"data"=>[{is,o,h,l,c,v}]} with object candles (a Hash, not a bare Array). ATH seeds from this
+    # recent window (incremental-max refines it forward). '3d' is not supported and '1M' is interpreted
+    # as one MINUTE, so those coarser timeframes are aggregated from the daily resolution.
+    native = {
+      1.minute => '1m', 5.minutes => '5m', 15.minutes => '15m', 30.minutes => '30m',
+      1.hour => '1h', 4.hours => '4h', 1.day => '1d', 1.week => '1w'
     }
-    interval = intervals[timeframe]
+    build_source = { 3.days => 1.day, 1.month => 1.day }
+    source_timeframe = native.key?(timeframe) ? timeframe : build_source[timeframe]
+    return Result::Failure.new("Unsupported timeframe #{timeframe.inspect} on #{name}") if source_timeframe.nil?
 
-    limit = 500
-    candles = []
-    loop do
-      result = client.candlestick_data(
-        symbol: ticker.ticker,
-        start_time: start_at.to_i * 1000,
-        interval: interval,
-        limit: limit
-      )
-      if result.failure?
-        error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
-      end
-
-      items = result.data.is_a?(Array) ? result.data : []
-      items.each do |candle|
-        candles << [
-          Time.at(candle[0] / 1000).utc,
-          candle[1].to_d,
-          candle[2].to_d,
-          candle[3].to_d,
-          candle[4].to_d,
-          candle[5].to_d
-        ]
-      end
-      break if items.empty? || items.size < limit
-
-      start_at = candles.last[0] + 1.second
+    result = client.candlestick_data(symbol: ticker.ticker, interval: native[source_timeframe], limit: 500)
+    if result.failure?
+      error = parse_error_message(result)
+      return error.present? ? Result::Failure.new(error) : result
     end
 
-    Result::Success.new(candles)
+    rows = result.data.is_a?(Hash) ? (result.data['data'] || []) : []
+    candles = rows.map do |row|
+      [
+        Time.at(row['is'].to_i / 1000).utc,
+        row['o'].to_d,
+        row['h'].to_d,
+        row['l'].to_d,
+        row['c'].to_d,
+        row['v'].to_d
+      ]
+    end.sort_by { |c| c[0] }
+
+    unless native.key?(timeframe)
+      return Result::Failure.new("No #{source_timeframe.inspect} source candles to build #{timeframe.inspect} on #{name}") if candles.empty?
+
+      candles = build_candles_from_candles(candles: candles, timeframe: timeframe)
+    end
+
+    Result::Success.new(candles.select { |c| c[0] >= start_at })
   end
 
   # @param amount_type [Symbol] :base or :quote

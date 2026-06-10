@@ -280,6 +280,7 @@ module Bots::DcaDualAsset::Measurable
       base0_amount_acquired = metrics_data[:chart][:extra_series][0][i]
       base1_amount_acquired = metrics_data[:chart][:extra_series][1][i]
       quote_amount_invested = metrics_data[:chart][:series][1][i]
+      # candle[1] is the OPEN price — consistent with the open-time label candle[0]
       extended_chart_data[:labels] << candle[0]
       extended_chart_data[:series][0] << [
         base0_amount_acquired * candles0[j][1],

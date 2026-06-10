@@ -123,4 +123,73 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     assert_predicate result, :success?
     assert_equal '12345', result.data[:order_id]
   end
+
+  # ---- get_candles (Gemini /v2/candles) ----
+  # The app used to return a hardcoded [] despite honeymaker having a working /v2/candles endpoint.
+  # Gemini serves a recent window, newest-first, in native resolutions only (1m/5m/15m/30m/1hr/6hr/1day);
+  # coarser timeframes (4h/3d/1w/1M) are built from a finer native resolution.
+
+  test 'get_candles maps and sorts the Gemini window, trimmed to the requested range' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'btc', quote_symbol: 'usd')
+    now = Time.now.utc
+    # newest-first Array of [ts_ms, open, high, low, close, volume]
+    window = (0...365).map { |i| [(now - i.days).to_i * 1000, 100.0 + i, 120.0 + i, 90.0 + i, 110.0 + i, 5.0] }
+    seen = {}
+    client = Object.new
+    client.define_singleton_method(:get_candles) do |**kw|
+      seen[:symbol] = kw[:symbol]
+      seen[:time_frame] = kw[:time_frame]
+      Result::Success.new(window)
+    end
+    @exchange.stubs(:client).returns(client)
+
+    deep = @exchange.get_candles(ticker: ticker, start_at: 20.years.ago, timeframe: 1.day)
+    assert_predicate deep, :success?
+    assert_equal 365, deep.data.size
+    assert_equal 'btcusd', seen[:symbol], 'must request the lowercase Gemini symbol'
+    assert_equal '1day', seen[:time_frame]
+    ts = deep.data.map { |c| c[0] }
+    assert_equal ts.sort, ts, 'sorted ascending despite newest-first API order'
+    assert_operator deep.data.last[0], :>=, now - 2.days
+    assert_equal 100.to_d, deep.data.last[1], 'open mapped from index 1'
+    assert_equal 110.to_d, deep.data.last[4], 'close mapped from index 4'
+
+    recent = @exchange.get_candles(ticker: ticker, start_at: 30.days.ago, timeframe: 1.day)
+    assert_operator recent.data.size, :<=, 31, 'a recent start trims the window'
+  end
+
+  test 'get_candles builds a coarser timeframe from a finer native resolution' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'btc', quote_symbol: 'usd')
+    now = Time.now.utc
+    daily = (0...60).map { |i| [(now - i.days).to_i * 1000, 100.0, 120.0, 90.0, 110.0, 5.0] }
+    fetched_tf = nil
+    client = Object.new
+    client.define_singleton_method(:get_candles) do |**kw|
+      fetched_tf = kw[:time_frame]
+      Result::Success.new(daily)
+    end
+    @exchange.stubs(:client).returns(client)
+
+    result = @exchange.get_candles(ticker: ticker, start_at: 20.years.ago, timeframe: 1.week)
+    assert_predicate result, :success?
+    assert_equal '1day', fetched_tf, 'weekly is built from the daily native resolution'
+    assert result.data.any?, 'built weekly candles must be non-empty (never [] -> RSI/MA crash)'
+    assert_operator result.data.size, :<, 60, 'weekly aggregation reduces the daily count'
+  end
+
+  test 'get_candles returns a failure for an unsupported timeframe (no empty-array crash)' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'btc', quote_symbol: 'usd')
+    @exchange.expects(:client).never
+    result = @exchange.get_candles(ticker: ticker, start_at: 1.day.ago, timeframe: 2.hours)
+    assert_predicate result, :failure?
+  end
+
+  test 'get_candles returns a failure when a built timeframe has no source candles' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'btc', quote_symbol: 'usd')
+    client = Object.new
+    client.define_singleton_method(:get_candles) { |**_kw| Result::Success.new([]) }
+    @exchange.stubs(:client).returns(client)
+    result = @exchange.get_candles(ticker: ticker, start_at: 20.years.ago, timeframe: 1.week)
+    assert_predicate result, :failure?
+  end
 end
