@@ -1,6 +1,10 @@
 module Bots::DcaIndex::Measurable
   extend ActiveSupport::Concern
 
+  # Bounded so 100-asset bots don't stampede the exchange/proxy; tail fetches after
+  # CandleSeriesCache are one small request each, so 6 workers keep latency flat.
+  CANDLE_FETCH_THREADS = 6
+
   def metrics(force: false)
     cache_key = "bot_#{id}_metrics"
     Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
@@ -224,16 +228,35 @@ module Bots::DcaIndex::Measurable
     asset_symbols = metrics_data[:asset_breakdown].keys
     return Result::Success.new(extended_chart_data) if asset_symbols.empty?
 
-    # Fetch candles for each asset's ticker
+    # Fetch candles for each asset's ticker, in bounded parallel batches. A raise in
+    # one worker becomes a per-symbol failure (logged) — one bad ticker must not blank
+    # the whole chart. Failed symbols are simply skipped and retried on the next
+    # 5-minute metrics cycle (no failure entry is cached).
     candles_by_symbol = {}
-    asset_symbols.each do |symbol|
-      ticker = ticker_by_symbol[symbol]
-      next unless ticker.present?
+    asset_symbols.each_slice(CANDLE_FETCH_THREADS) do |batch|
+      threads = batch.filter_map do |symbol|
+        ticker = ticker_by_symbol[symbol]
+        next unless ticker.present?
 
-      result = fetch_candle_series(ticker: ticker, since: since, timeframe: timeframe)
-      next if result.failure?
+        Thread.new do
+          Rails.application.executor.wrap do
+            result = begin
+              fetch_candle_series(ticker: ticker, since: since, timeframe: timeframe)
+            rescue StandardError => e
+              Rails.logger.error("Candle fetch failed for #{symbol}: #{e.class}: #{e.message}")
+              Result::Failure.new(e.message)
+            end
+            [symbol, result]
+          end
+        end
+      end
 
-      candles_by_symbol[symbol] = result.data if result.data.present?
+      threads.each do |thread|
+        symbol, result = thread.value
+        next if result.failure?
+
+        candles_by_symbol[symbol] = result.data if result.data.present?
+      end
     end
 
     return Result::Success.new(extended_chart_data) if candles_by_symbol.empty?
