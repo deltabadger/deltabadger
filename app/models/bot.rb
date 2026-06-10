@@ -99,12 +99,25 @@ class Bot < ApplicationRecord
       )
     end
 
+    # Each transaction occupies two rows: the sentence row for the unified "All"
+    # timeline (always) and the columnar row for the named tabs (submitted orders
+    # only) — mirroring show.turbo_stream.erb. Prepend the timeline row first so the
+    # columnar row lands on top, matching the initial-load order.
     broadcast_prepend_to(
       ["user_#{user_id}", :bot_updates],
       target: 'orders_list',
-      partial: 'bots/orders/order',
-      locals: { order:, decimals:, exchange_name: order.exchange.name, current_user: user, fetch: false }
+      partial: 'bots/orders/order_timeline',
+      locals: { order:, decimals:, current_user: user }
     )
+
+    if order.submitted?
+      broadcast_prepend_to(
+        ["user_#{user_id}", :bot_updates],
+        target: 'orders_list',
+        partial: 'bots/orders/order',
+        locals: { order:, decimals:, exchange_name: order.exchange.name, current_user: user, fetch: false }
+      )
+    end
 
     broadcast_order_filters_update
   end
@@ -126,11 +139,20 @@ class Bot < ApplicationRecord
       order.quote_asset.symbol => ticker.quote_decimals
     }
 
+    # Refresh both rows so the "All" timeline can't go stale (e.g. a filled order
+    # still showing an "open" sentence + Cancel button) — see show.turbo_stream.erb.
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
       target: dom_id(order),
       partial: 'bots/orders/order',
       locals: { order:, decimals:, exchange_name: order.exchange.name, current_user: user, fetch: false }
+    )
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: dom_id(order, :timeline),
+      partial: 'bots/orders/order_timeline',
+      locals: { order:, decimals:, current_user: user }
     )
 
     broadcast_order_filters_update
