@@ -268,6 +268,7 @@ module Bots::DcaIndex::Measurable
     primary_candles = candles_by_symbol[primary_symbol]
 
     i = 0
+    candle_cursors = Hash.new(0)
     primary_candles.each do |candle|
       candle_time = candle[0]
       i += 1 while i < metrics_data[:chart][:labels].length - 1 && metrics_data[:chart][:labels][i + 1] <= candle_time
@@ -276,16 +277,19 @@ module Bots::DcaIndex::Measurable
       asset_amounts = metrics_data[:chart][:extra_series][i] || {}
       quote_amount_invested = metrics_data[:chart][:series][1][i]
 
-      # Calculate total value using candle prices for each asset
+      # Calculate total value using candle prices for each asset. candle_time is
+      # monotonic across iterations, so a persistent cursor per symbol replaces the
+      # O(candles) `find` scan: stop at the first candle at-or-after candle_time,
+      # or stick at the last candle when none follows — same pick as before.
       total_value = 0
       asset_amounts.each do |symbol, amount|
         asset_candles = candles_by_symbol[symbol]
         next unless asset_candles.present?
 
-        # Find the candle closest to this time
-        asset_candle = asset_candles.find { |c| c[0] >= candle_time } || asset_candles.last
-        price = asset_candle[1] if asset_candle # close price
-        total_value += amount * price if price
+        c = candle_cursors[symbol]
+        c += 1 while c < asset_candles.length - 1 && asset_candles[c][0] < candle_time
+        candle_cursors[symbol] = c
+        total_value += amount * asset_candles[c][1]
       end
 
       extended_chart_data[:labels] << candle_time

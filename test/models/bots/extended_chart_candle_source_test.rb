@@ -95,4 +95,24 @@ class ExtendedChartCandleSourceTest < ActiveSupport::TestCase
     assert_predicate result, :success?
     assert_equal [5.0], result.data[:series][0] # AAA only; BAD skipped, not raised
   end
+
+  test 'candle alignment matches first-candle-at-or-after-time semantics, including gaps' do
+    t = Time.utc(2026, 1, 1)
+    bot = index_bot_with_symbols({ 'AAA' => 1.0, 'GAP' => 1.0 }, at: t)
+
+    # AAA: hourly candles 1..5; GAP: missing hours 2-3 (market closed), ends early at hour 4
+    aaa_candles = (1..5).map { |h| [t + h.hours, h.to_f, 0, 0, 0, 0] }
+    gap_candles = [1, 4].map { |h| [t + h.hours, (h * 10).to_f, 0, 0, 0, 0] }
+    stub_candle_series(bot, { 'AAA' => Result::Success.new(aaa_candles),
+                              'GAP' => Result::Success.new(gap_candles) }.freeze)
+
+    result = bot.send(:get_extended_chart_data_with_candles_data)
+    assert_predicate result, :success?
+
+    # Primary axis = AAA's candles (first available). Expected per point:
+    #   value = AAA price at that hour + GAP price from first candle >= time, else last.
+    # h1: 1 + 10; h2: 2 + 40 (first GAP candle >= h2 is h4); h3: 3 + 40;
+    # h4: 4 + 40; h5: 5 + 40 (no GAP candle >= h5 -> last = 40)
+    assert_equal [11.0, 42.0, 43.0, 44.0, 45.0], result.data[:series][0]
+  end
 end
