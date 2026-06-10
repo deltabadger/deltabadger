@@ -239,23 +239,25 @@ module Bots::DcaIndex::Measurable
         next unless ticker.present?
 
         Thread.new do
-          Rails.application.executor.wrap do
-            result = begin
+          result = begin
+            Rails.application.executor.wrap do
               fetch_candle_series(ticker: ticker, since: since, timeframe: timeframe)
-            rescue StandardError => e
-              Rails.logger.error("Candle fetch failed for #{symbol}: #{e.class}: #{e.message}")
-              Result::Failure.new(e.message)
             end
-            [symbol, result]
+          rescue StandardError => e
+            Rails.logger.error("Candle fetch failed for #{symbol}: #{e.class}: #{e.message}")
+            Result::Failure.new(e.message)
           end
+          [symbol, result]
         end
       end
 
-      threads.each do |thread|
-        symbol, result = thread.value
-        next if result.failure?
+      ActiveSupport::Dependencies.interlock.permit_concurrent_loads do
+        threads.each do |thread|
+          symbol, result = thread.value
+          next if result.failure?
 
-        candles_by_symbol[symbol] = result.data if result.data.present?
+          candles_by_symbol[symbol] = result.data if result.data.present?
+        end
       end
     end
 
