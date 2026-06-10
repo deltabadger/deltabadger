@@ -33,6 +33,28 @@ class Bots::ShowMetricsLoadingTest < ActionDispatch::IntegrationTest
     assert_select '[data-controller="broadcast--on-connect"]', 1
   end
 
+  test 'balances prefer the prices cache over a staler combined cache' do
+    # UpdateMetricsJob force-refreshes the prices cache after transaction changes but
+    # never the combined (candles) cache, so prices is always at-least-as-fresh.
+    stale = @bot.metrics.deep_dup
+    stale[:asset_values] = {
+      'OLD' => { amount: 1.0, quote_invested: 1.0, current_value: 1.0,
+                 current_price: 1.0, avg_price: 1.0, pnl_percentage: 0.0 }
+    }
+    fresh = stale.deep_dup
+    fresh[:asset_values] = stale[:asset_values].merge(
+      'NEW' => { amount: 2.0, quote_invested: 2.0, current_value: 2.0,
+                 current_price: 1.0, avg_price: 1.0, pnl_percentage: 0.0 }
+    )
+    Rails.cache.write("bot_#{@bot.id}_metrics_with_current_prices_and_candles", stale)
+    Rails.cache.write("bot_#{@bot.id}_metrics_with_current_prices", fresh)
+
+    get bot_path(id: @bot.id)
+
+    assert_response :success
+    assert_select '#assets_metrics_table tbody tr', 2 # fresh prices data, not the stale combined
+  end
+
   test 'fully cold caches keep the loading state everywhere' do
     get bot_path(id: @bot.id)
 
