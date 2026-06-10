@@ -242,34 +242,21 @@ module Bots::DcaDualAsset::Measurable
     metrics_data = metrics.deep_dup
     since = metrics_data[:chart][:labels].first + 1.second
     timeframe = optimal_candles_timeframe_for_duration(Time.now.utc - since)
-    expires_in = Utilities::Time.seconds_to_current_candle_close(timeframe)
-    candles_cache_key = "#{ticker0.id}_candles_#{since}_#{timeframe}"
-    candles0 = Rails.cache.fetch(candles_cache_key, expires_in: expires_in) do
-      result = ticker0.get_candles(
-        start_at: since,
-        timeframe: timeframe
-      )
-      return result if result.failure?
+    result = CandleSeriesCache.fetch(ticker: ticker0, since: since, timeframe: timeframe)
+    return result if result.failure?
 
-      result.data[...-1]
-    end
+    candles0 = result.data
 
-    candles_cache_key = "#{ticker1.id}_candles_#{since}_#{timeframe}"
-    candles1 = Rails.cache.fetch(candles_cache_key, expires_in: expires_in) do
-      result = ticker1.get_candles(
-        start_at: since,
-        timeframe: timeframe
-      )
-      return result if result.failure?
+    result = CandleSeriesCache.fetch(ticker: ticker1, since: since, timeframe: timeframe)
+    return result if result.failure?
 
-      result.data[...-1]
-    end
+    candles1 = result.data
 
     candles0_timestamps = candles0.map { |sublist| sublist[0] }
     candles1_timestamps = candles1.map { |sublist| sublist[0] }
     common_timestamps = candles0_timestamps & candles1_timestamps
-    candles0.select! { |timestamp, _| common_timestamps.include?(timestamp) }
-    candles1.select! { |timestamp, _| common_timestamps.include?(timestamp) }
+    candles0 = candles0.select { |c| common_timestamps.include?(c[0]) }
+    candles1 = candles1.select { |c| common_timestamps.include?(c[0]) }
 
     i = 0
     candles0.each_with_index do |candle, j|

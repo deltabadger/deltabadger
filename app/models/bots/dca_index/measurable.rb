@@ -230,15 +230,10 @@ module Bots::DcaIndex::Measurable
       ticker = ticker_by_symbol[symbol]
       next unless ticker.present?
 
-      candles_cache_key = "#{ticker.id}_candles_#{since}_#{timeframe}"
-      expires_in = Utilities::Time.seconds_to_current_candle_close(timeframe)
-      candles = Rails.cache.fetch(candles_cache_key, expires_in: expires_in) do
-        result = ticker.get_candles(start_at: since, timeframe: timeframe)
-        next nil if result.failure?
+      result = fetch_candle_series(ticker: ticker, since: since, timeframe: timeframe)
+      next if result.failure?
 
-        result.data[...-1]
-      end
-      candles_by_symbol[symbol] = candles if candles.present?
+      candles_by_symbol[symbol] = result.data if result.data.present?
     end
 
     return Result::Success.new(extended_chart_data) if candles_by_symbol.empty?
@@ -274,6 +269,10 @@ module Bots::DcaIndex::Measurable
     end
 
     Result::Success.new(extended_chart_data)
+  end
+
+  def fetch_candle_series(ticker:, since:, timeframe:)
+    CandleSeriesCache.fetch(ticker: ticker, since: since, timeframe: timeframe)
   end
 
   def calculate_pnl(from, to)

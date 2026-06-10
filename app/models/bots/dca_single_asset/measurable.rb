@@ -202,17 +202,10 @@ module Bots::DcaSingleAsset::Measurable
     metrics_data = metrics.deep_dup
     since = metrics_data[:chart][:labels].first + 1.second
     timeframe = optimal_candles_timeframe_for_duration(Time.now.utc - since)
-    candles_cache_key = "#{ticker.id}_candles_#{since}_#{timeframe}"
-    expires_in = Utilities::Time.seconds_to_current_candle_close(timeframe)
-    candles = Rails.cache.fetch(candles_cache_key, expires_in: expires_in) do
-      result = ticker.get_candles(
-        start_at: since,
-        timeframe: timeframe
-      )
-      return result if result.failure?
+    result = CandleSeriesCache.fetch(ticker: ticker, since: since, timeframe: timeframe)
+    return result if result.failure?
 
-      result.data[...-1]
-    end
+    candles = result.data
 
     i = 0
     candles.each do |candle|
