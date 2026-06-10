@@ -50,4 +50,47 @@ class ExtendedChartCandleSourceTest < ActiveSupport::TestCase
 
     assert_predicate bot.send(:get_extended_chart_data_with_candles_data), :failure?
   end
+
+  test 'index bot fetches candle series concurrently in bounded batches' do
+    t = Time.utc(2026, 1, 1)
+    symbols = ('A'..'H').map { |c| c * 3 } # 8 symbols > one batch of 6
+    bot = index_bot_with_symbols(symbols.index_with { 1.0 }, at: t)
+
+    mutex = Mutex.new
+    live = 0
+    peak = 0
+    candles = [[t + 1.hour, 5.0, 5.0, 5.0, 5.0, 1.0]]
+    bot.define_singleton_method(:fetch_candle_series) do |ticker:, since:, timeframe:| # rubocop:disable Lint/UnusedBlockArgument
+      mutex.synchronize do
+        live += 1
+        peak = [peak, live].max
+      end
+      sleep 0.02
+      mutex.synchronize { live -= 1 }
+      Result::Success.new(candles)
+    end
+
+    result = bot.send(:get_extended_chart_data_with_candles_data)
+
+    assert_predicate result, :success?
+    assert_operator peak, :>, 1,  'fetches ran serially'
+    assert_operator peak, :<=, 6, 'concurrency exceeded the bound'
+  end
+
+  test 'index bot skips symbols whose fetch raises instead of aborting the chart' do
+    t = Time.utc(2026, 1, 1)
+    bot = index_bot_with_symbols({ 'AAA' => 1.0, 'BAD' => 1.0 }, at: t)
+
+    candles = [[t + 1.hour, 5.0, 5.0, 5.0, 5.0, 1.0]]
+    bot.define_singleton_method(:fetch_candle_series) do |ticker:, since:, timeframe:| # rubocop:disable Lint/UnusedBlockArgument
+      raise 'unexpected explosion' if ticker.base == 'BAD'
+
+      Result::Success.new(candles)
+    end
+
+    result = bot.send(:get_extended_chart_data_with_candles_data)
+
+    assert_predicate result, :success?
+    assert_equal [5.0], result.data[:series][0] # AAA only; BAD skipped, not raised
+  end
 end
