@@ -96,9 +96,12 @@ class BotsController < ApplicationController
         }
       end
 
-      metrics_with_current_prices_and_candles = @bot.metrics_with_current_prices_and_candles_from_cache
-      @loading = metrics_with_current_prices_and_candles.nil?
-      @metrics = @loading ? @bot.metrics : metrics_with_current_prices_and_candles
+      combined_data = @bot.metrics_with_current_prices_and_candles_from_cache
+      prices_data = @bot.metrics_with_current_prices_from_cache
+      @chart_loading = combined_data.nil?
+      @metrics_loading = combined_data.nil? && prices_data.nil?
+      @metrics = combined_data || prices_data || @bot.metrics
+      @chart_metrics = combined_data || @metrics
     end
   end
 
