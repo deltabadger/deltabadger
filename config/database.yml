@@ -16,6 +16,8 @@ development:
     <<: *default
     database: storage/development_cache.sqlite3
     migrations_paths: db/cache_migrate
+    # headroom for DcaIndex parallel candle fetches (CANDLE_FETCH_THREADS)
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + 6 %>
   cable:
     <<: *default
     database: storage/development_cable.sqlite3
@@ -34,6 +36,8 @@ test:
     <<: *default
     database: storage/test_cache.sqlite3
     migrations_paths: db/cache_migrate
+    # headroom for DcaIndex parallel candle fetches (CANDLE_FETCH_THREADS)
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + 6 %>
   cable:
     <<: *default
     database: storage/test_cable.sqlite3
@@ -56,6 +60,8 @@ production:
     <<: *default
     database: <%= ENV.fetch("CACHE_DATABASE_PATH") { "storage/production_cache.sqlite3" } %>
     migrations_paths: db/cache_migrate
+    # headroom for DcaIndex parallel candle fetches (CANDLE_FETCH_THREADS)
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + 6 %>
     pragmas:
       cache_size: -1000
   cable:
