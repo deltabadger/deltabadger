@@ -88,6 +88,46 @@ class CandleSeriesCacheTest < ActiveSupport::TestCase
     CandleSeriesCache.fetch(ticker: @ticker, since: @since, timeframe: 1.day)
   end
 
+  test 'empty full fetch: returns empty success, caches nothing, refetches next call' do
+    @ticker.expects(:get_candles).twice.returns(Result::Success.new([]))
+
+    result = CandleSeriesCache.fetch(ticker: @ticker, since: @since, timeframe: @timeframe)
+    assert_predicate result, :success?
+    assert_empty result.data
+
+    CandleSeriesCache.fetch(ticker: @ticker, since: @since, timeframe: @timeframe) # second exchange call expected
+  end
+
+  test 'market closed: a tail of only closed candles is kept, then served without refetch' do
+    stub_full_fetch
+    CandleSeriesCache.fetch(ticker: @ticker, since: @since, timeframe: @timeframe)
+
+    travel_to Time.utc(2026, 1, 1, 8, 30)
+    # Market closed after candle(6): the tail's LAST candle is fully closed (no
+    # in-progress bar follows it) and must be kept, not dropped as "in progress".
+    @ticker.expects(:get_candles).once.returns(Result::Success.new([candle(6)]))
+
+    result = CandleSeriesCache.fetch(ticker: @ticker, since: @since, timeframe: @timeframe)
+    assert_equal @since + 6.hours, result.data.last[0] # candle(6) kept
+
+    # Within the freshness window of the new last candle: served from cache, no call.
+    travel_to Time.utc(2026, 1, 1, 7, 59)
+    @ticker.stubs(:get_candles).never
+    CandleSeriesCache.fetch(ticker: @ticker, since: @since, timeframe: @timeframe)
+  end
+
+  test 'exact freshness boundary triggers a refetch' do
+    stub_full_fetch
+    CandleSeriesCache.fetch(ticker: @ticker, since: @since, timeframe: @timeframe)
+
+    # last_open = 05:00; at exactly 05:00 + 2*1h = 07:00 candle(6) has just closed.
+    travel_to Time.utc(2026, 1, 1, 7, 0)
+    @ticker.expects(:get_candles).once.returns(Result::Success.new([candle(6)]))
+
+    result = CandleSeriesCache.fetch(ticker: @ticker, since: @since, timeframe: @timeframe)
+    assert_equal 7, result.data.length # candle(6) closed exactly now — included
+  end
+
   private
 
   def stub_full_fetch

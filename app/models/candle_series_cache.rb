@@ -46,7 +46,10 @@ class CandleSeriesCache
     result = @ticker.get_candles(start_at: start_at, timeframe: @timeframe)
     return result if result.failure?
 
-    closed = result.data[...-1] || []
+    # A candle is closed once its period has elapsed. Checking explicitly (rather than
+    # dropping the last returned candle) matters for closed markets: a weekend tail
+    # fetch returns Friday's fully-closed bar last, with no in-progress bar after it.
+    closed = result.data.select { |c| c[0] + @timeframe <= Time.now.utc }
     fresh = last_open ? closed.select { |c| c[0] > last_open } : closed
     # uniq+sort is cheap insurance against exchanges returning unordered/overlapping
     # tails; concat of two sorted disjoint ranges is already the common case.
@@ -60,6 +63,6 @@ class CandleSeriesCache
   end
 
   def cache_key
-    "ticker_#{@ticker.id}_candle_series_#{@since.to_i}_#{@timeframe.to_i}"
+    "ticker_#{@ticker.id}_candle_series_v1_#{@since.to_i}_#{@timeframe.to_i}"
   end
 end
