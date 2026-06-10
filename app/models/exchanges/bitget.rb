@@ -5,6 +5,13 @@ class Exchanges::Bitget < Exchange
     invalid_key: ['Invalid Api Key', 'Invalid ACCESS_KEY', 'Invalid signature', 'Apikey does not exist']
   }.freeze
 
+  # API-key-validity probe (fake cancel_order) classification by Bitget response code. Kept out of
+  # ERRORS (which is message-oriented — callers iterate its messages) because these match on code:
+  # order-not-found's msg is localized (订单不存在), so the code is the only stable signal.
+  ORDER_NOT_FOUND_CODES = %w[43001 43025].freeze     # probe got past the permission gate ⇒ key can trade
+  NO_TRADE_PERMISSION_CODES = %w[40014].freeze       # "Incorrect permissions, need spot order write permissions"
+  private_constant :ORDER_NOT_FOUND_CODES, :NO_TRADE_PERMISSION_CODES
+
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
   attr_reader :api_key
@@ -309,20 +316,7 @@ class Exchanges::Bitget < Exchange
                temp_client.cancel_order(symbol: 'BTCUSDT', order_id: '0')
              end
 
-    if result.success?
-      if result.data['code'] == '00000'
-        Result::Success.new(true)
-      elsif result.data.is_a?(Hash) && ERRORS[:invalid_key].any? { |msg| result.data['msg']&.include?(msg) }
-        Result::Success.new(false)
-      else
-        # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
-        api_key.withdrawal? ? Result::Success.new(false) : Result::Success.new(true)
-      end
-    elsif result.data.is_a?(Hash) && result.data[:status] == 401
-      Result::Success.new(false)
-    else
-      result
-    end
+    classify_api_key_validity(result, api_key)
   end
 
   def minimum_amount_logic(**)
@@ -433,6 +427,49 @@ class Exchanges::Bitget < Exchange
   end
 
   private
+
+  # Classifies the api-key-validity probe by Bitget's response code. The code arrives either in a
+  # Success envelope (HTTP 200) or — for v2 business errors, which come back as HTTP 4xx — inside a
+  # Failure carrying the raw JSON body string (honeymaker's with_rescue). Bitget is the lone
+  # cancel-probe exchange that previously read only the Success branch, so HTTP-400 order-not-found
+  # (the "key can trade" signal) was wrongly rejected. Mirrors Bitvavo/BingX failure-branch handling.
+  def classify_api_key_validity(result, api_key)
+    code, msg = bitget_envelope(result)
+
+    if code == '00000'
+      Result::Success.new(true)
+    elsif ORDER_NOT_FOUND_CODES.include?(code)
+      # Probe reached the order layer ⇒ the key has trade permission. Withdrawal keys still need a
+      # withdrawal-permission check (done at withdrawal time), which this probe does not prove.
+      api_key.withdrawal? ? Result::Success.new(false) : Result::Success.new(true)
+    elsif NO_TRADE_PERMISSION_CODES.include?(code) ||
+          (msg.present? && ERRORS[:invalid_key].any? { |m| msg.include?(m) }) ||
+          (result.data.is_a?(Hash) && result.data[:status] == 401)
+      Result::Success.new(false)
+    elsif result.success?
+      # Recognized envelope, unrecognized non-zero code — preserve prior lenient behavior.
+      api_key.withdrawal? ? Result::Success.new(false) : Result::Success.new(true)
+    else
+      # Genuine transport/unknown failure → surfaces as pending_validation (retryable).
+      result
+    end
+  end
+
+  # Returns [code, msg] from a Bitget probe result, whether it is a Success envelope (HTTP 200) or a
+  # Failure carrying the raw JSON body string (HTTP 4xx via honeymaker's with_rescue). Guards on the
+  # parsed value's type, not just exceptions: JSON.parse("null")/'"text"' return non-Hash without
+  # raising, so a bare rescue would not be enough.
+  def bitget_envelope(result)
+    return [result.data['code'], result.data['msg']] if result.success? && result.data.is_a?(Hash)
+
+    body = result.errors.first
+    parsed = begin
+      JSON.parse(body) if body.is_a?(String)
+    rescue JSON::ParserError
+      nil
+    end
+    parsed.is_a?(Hash) ? [parsed['code'], parsed['msg']] : [nil, body]
+  end
 
   def client
     @client ||= set_client
