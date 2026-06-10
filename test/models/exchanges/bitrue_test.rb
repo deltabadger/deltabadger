@@ -78,4 +78,73 @@ class Exchanges::BitrueTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal true, result.data
   end
+
+  # ---- get_candles (Bitrue /api/v1/market/kline) ----
+  # Bitrue returns {"symbol","scale","data"=>[{is,o,h,l,c,v}]} (Hash + object candles); the app used to
+  # parse only a bare Array -> []. It serves a recent window and ignores startTime. '3d' is unsupported and
+  # '1M' means one MINUTE on Bitrue, so 3d/1M are built from the daily resolution.
+
+  test 'get_candles parses the Bitrue hash response, trimmed and sorted' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    now = Time.now.utc
+    data = (0...500).map do |i|
+      t = (now - i.days).to_i * 1000
+      { 'i' => t / 1000, 'is' => t, 'o' => '100', 'h' => '120', 'l' => '90', 'c' => '110', 'v' => '5' }
+    end
+    seen = {}
+    client = Object.new
+    client.define_singleton_method(:candlestick_data) do |**kw|
+      seen[:interval] = kw[:interval]
+      Result::Success.new({ 'symbol' => 'BTCUSDT', 'scale' => 'KLINE_1DAY', 'data' => data })
+    end
+    @exchange.stubs(:client).returns(client)
+
+    deep = @exchange.get_candles(ticker: ticker, start_at: 20.years.ago, timeframe: 1.day)
+    assert_predicate deep, :success?
+    assert_equal 500, deep.data.size, 'must parse the hash data array (was [] before)'
+    assert_equal '1d', seen[:interval]
+    ts = deep.data.map { |c| c[0] }
+    assert_equal ts.sort, ts, 'sorted ascending'
+    assert_operator deep.data.last[0], :>=, now - 2.days
+    assert_equal 100.to_d, deep.data.last[1], 'open mapped from o'
+    assert_equal 110.to_d, deep.data.last[4], 'close mapped from c'
+
+    recent = @exchange.get_candles(ticker: ticker, start_at: 30.days.ago, timeframe: 1.day)
+    assert_operator recent.data.size, :<=, 31, 'a recent start trims the window'
+  end
+
+  test 'get_candles builds one_month from daily instead of sending the minute-colliding 1M scale' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    now = Time.now.utc
+    daily = (0...400).map { |i| { 'is' => (now - i.days).to_i * 1000, 'o' => '100', 'h' => '120', 'l' => '90', 'c' => '110', 'v' => '5' } }
+    requested = nil
+    client = Object.new
+    client.define_singleton_method(:candlestick_data) do |**kw|
+      requested = kw[:interval]
+      Result::Success.new({ 'data' => daily })
+    end
+    @exchange.stubs(:client).returns(client)
+
+    result = @exchange.get_candles(ticker: ticker, start_at: 20.years.ago, timeframe: 1.month)
+    assert_predicate result, :success?
+    assert_equal '1d', requested, "must fetch daily and build monthly, never send '1M' (= one minute on Bitrue)"
+    assert result.data.any?
+    assert_operator result.data.size, :<, 400, 'monthly aggregation reduces the daily count'
+  end
+
+  test 'get_candles returns a failure for an unsupported timeframe' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    @exchange.expects(:client).never
+    result = @exchange.get_candles(ticker: ticker, start_at: 1.day.ago, timeframe: 2.hours)
+    assert_predicate result, :failure?
+  end
+
+  test 'get_candles returns a failure when a built timeframe has no source candles' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT')
+    client = Object.new
+    client.define_singleton_method(:candlestick_data) { |**_kw| Result::Success.new({ 'data' => [] }) }
+    @exchange.stubs(:client).returns(client)
+    result = @exchange.get_candles(ticker: ticker, start_at: 20.years.ago, timeframe: 1.month)
+    assert_predicate result, :failure?
+  end
 end

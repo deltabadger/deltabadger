@@ -154,9 +154,39 @@ class Exchanges::Gemini < Exchange
   end
 
   def get_candles(ticker:, start_at:, timeframe:)
-    # Gemini does not have a candle/OHLC endpoint in v1
-    # Return empty candles as a fallback
-    Result::Success.new([])
+    # Gemini's /v2/candles serves a recent window (newest-first) in these native resolutions only, with
+    # no time-range selection. ATH therefore seeds from this recent window (incremental-max refines it
+    # forward). Coarser timeframes are aggregated from a finer native resolution (like KuCoin/Bitmart).
+    native = {
+      1.minute => '1m', 5.minutes => '5m', 15.minutes => '15m', 30.minutes => '30m',
+      1.hour => '1hr', 6.hours => '6hr', 1.day => '1day'
+    }
+    build_source = { 4.hours => 1.hour, 3.days => 1.day, 1.week => 1.day, 1.month => 1.day }
+    source_timeframe = native.key?(timeframe) ? timeframe : build_source[timeframe]
+    return Result::Failure.new("Unsupported timeframe #{timeframe.inspect} on #{name}") if source_timeframe.nil?
+
+    result = client.get_candles(symbol: ticker.ticker, time_frame: native[source_timeframe])
+    return result if result.failure?
+
+    items = result.data.is_a?(Array) ? result.data : []
+    candles = items.map do |candle|
+      [
+        Time.at(candle[0].to_i / 1000).utc,
+        candle[1].to_d,
+        candle[2].to_d,
+        candle[3].to_d,
+        candle[4].to_d,
+        candle[5].to_d
+      ]
+    end.sort_by { |c| c[0] } # Gemini returns newest-first
+
+    unless native.key?(timeframe)
+      return Result::Failure.new("No #{source_timeframe.inspect} source candles to build #{timeframe.inspect} on #{name}") if candles.empty?
+
+      candles = build_candles_from_candles(candles: candles, timeframe: timeframe)
+    end
+
+    Result::Success.new(candles.select { |c| c[0] >= start_at })
   end
 
   # @param amount_type [Symbol] :base or :quote
