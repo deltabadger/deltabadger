@@ -18,6 +18,10 @@ class Bots::Signal < Bot
 
   include Exportable
   include Bots::DcaSingleAsset::Measurable
+  # No Bot::Lifecycle: Signal is passive (no scheduling) and keeps its own thin start/stop/delete.
+  include Bot::AssetConfigurable # shared asset accessors + validations (single-pair defaults)
+
+  self.asset_id_setting_keys = %i[base_asset_id quote_asset_id]
 
   def api_key_type
     :trading
@@ -63,47 +67,12 @@ class Bots::Signal < Bot
     )
   end
 
-  def available_exchanges_for_current_settings
-    scope = Ticker.available.trading_enabled.where(exchange: Exchange.available)
-    scope = scope.where(quote_asset_id:) if quote_asset_id.present?
-    scope = scope.where(base_asset_id:) if base_asset_id.present?
-    exchange_ids = scope.pluck(:exchange_id).uniq
-    Exchange.where(id: exchange_ids)
-  end
-
-  def available_assets_for_current_settings(asset_type:, include_exchanges: false)
-    available_exchanges = exchange.present? ? [exchange] : Exchange.available
-
-    case asset_type
-    when :base_asset
-      scope = Ticker.available.trading_enabled
-                    .where(exchange: available_exchanges)
-                    .where.not(base_asset_id: [base_asset_id, quote_asset_id])
-      scope = scope.where(quote_asset_id:) if quote_asset_id.present?
-    when :quote_asset
-      scope = Ticker.available.trading_enabled
-                    .where(exchange: available_exchanges)
-                    .where.not(quote_asset_id: [base_asset_id, quote_asset_id])
-      scope = scope.where(base_asset_id:) if base_asset_id.present?
-    end
-    asset_ids = scope.pluck("#{asset_type}_id").uniq
-    include_exchanges ? Asset.includes(:exchanges).where(id: asset_ids) : Asset.where(id: asset_ids)
-  end
-
-  def assets
-    @assets ||= Asset.where(id: [base_asset_id, quote_asset_id])
-  end
-
   def base_asset
-    @base_asset ||= assets.select { |asset| asset.id == base_asset_id }.first
+    @base_asset ||= asset_with_id(base_asset_id)
   end
 
   def quote_asset
-    @quote_asset ||= assets.select { |asset| asset.id == quote_asset_id }.first
-  end
-
-  def tickers
-    @tickers ||= set_tickers
+    @quote_asset ||= asset_with_id(quote_asset_id)
   end
 
   def ticker
@@ -143,49 +112,9 @@ class Bots::Signal < Bot
 
   private
 
-  def validate_external_ids
-    errors.add(:base_asset_id, :invalid) unless Asset.exists?(base_asset_id)
-    errors.add(:quote_asset_id, :invalid) unless Asset.exists?(quote_asset_id)
-  end
-
-  def validate_bot_exchange
-    return if stopped? || deleted?
-    return if exchange.tickers.available.trading_enabled.exists?(base_asset:, quote_asset:)
-
-    errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))
-  end
-
-  def validate_unchangeable_assets
-    return unless settings_changed?
-    return unless transactions.any?
-
-    errors.add(:base_asset_id, :unchangeable) if base_asset_id_was != base_asset_id
-    errors.add(:quote_asset_id, :unchangeable) if quote_asset_id_was != quote_asset_id
-  end
-
-  def validate_unchangeable_exchange
-    return unless exchange_id_changed?
-    return unless transactions.waiting.any?
-
-    errors.add(:exchange, :unchangeable,
-               message: I18n.t('errors.bots.exchange_change_while_open_orders', exchange_name: exchange.name))
-  end
-
-  def validate_tickers_available
-    return if ticker.present? && ticker.available? && ticker.trading_enabled?
-
-    errors.add(:base_asset_id, :invalid)
-    errors.add(:quote_asset_id, :invalid)
-  end
-
   def validate_has_signals
     return if bot_signals.any?
 
     errors.add(:base, I18n.t('errors.bots.signal_required'))
-  end
-
-  def set_tickers
-    @tickers = exchange&.tickers&.where(base_asset_id:, quote_asset_id:) ||
-               Ticker.none
   end
 end

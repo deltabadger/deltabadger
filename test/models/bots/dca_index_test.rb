@@ -1,7 +1,9 @@
 require 'test_helper'
+require 'turbo/broadcastable/test_helper'
 
 class Bots::DcaIndexTest < ActiveSupport::TestCase
   include ExchangeMockHelpers
+  include Turbo::Broadcastable::TestHelper
 
   setup do
     @exchange = create(:kraken_exchange)
@@ -98,6 +100,142 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
 
     assert_not_includes symbols, 'DEAD'
     assert_includes symbols, 'AAA'
+  end
+
+  # --- Lifecycle: start/stop/delete (characterization before concern extraction) -
+
+  test 'start schedules Bot::ActionJob immediately, sets scheduled status and logs started activity' do
+    MarketData.stubs(:configured?).returns(true)
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+    Bot::ActionJob.expects(:perform_later).with(bot)
+
+    freeze_time do
+      assert_difference -> { bot.bot_activity_logs.where(event: 'started').count }, 1 do
+        assert_equal true, bot.start
+      end
+      assert_equal 'scheduled', bot.status
+      assert_equal Time.current, bot.started_at
+    end
+  end
+
+  test 'start clears stop_message_key and last_action_job_at' do
+    MarketData.stubs(:configured?).returns(true)
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    Bot::ActionJob.stubs(:perform_later)
+    bot.update!(status: :stopped, stop_message_key: 'some_key')
+    bot.last_action_job_at = Time.current
+
+    bot.start
+    assert_nil bot.stop_message_key
+    assert_nil bot.last_action_job_at
+  end
+
+  test 'start returns false and schedules nothing when market data is not configured' do
+    MarketData.stubs(:configured?).returns(false)
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    Bot::ActionJob.expects(:perform_later).never
+
+    assert_equal false, bot.start
+    assert bot.errors[:base].present?
+  end
+
+  test 'stop cancels scheduled action jobs, stores stop_message_key and logs stopped activity' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote,
+                             status: :scheduled, started_at: Time.current)
+    bot.expects(:cancel_scheduled_action_jobs)
+
+    assert_difference -> { bot.bot_activity_logs.where(event: 'stopped').count }, 1 do
+      assert_equal true, bot.stop(stop_message_key: 'manual_stop')
+    end
+    assert_equal 'stopped', bot.status
+    assert_equal 'manual_stop', bot.stop_message_key
+  end
+
+  test 'delete sets deleted status and cancels scheduled action jobs when an exchange is present' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote,
+                             status: :scheduled, started_at: Time.current)
+    bot.expects(:cancel_scheduled_action_jobs)
+
+    assert_equal true, bot.delete
+    assert_equal 'deleted', bot.status
+  end
+
+  # --- Validations: unchangeable settings (characterization) ---------------------
+
+  test 'prevents changing quote asset after transactions exist' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    create(:transaction, bot: bot, base: 'AAA', quote: 'EUR')
+    other_quote = create(:asset, :usd)
+
+    bot.set_missed_quote_amount
+    bot.quote_asset_id = other_quote.id
+    assert_not bot.valid?(:update)
+    assert bot.errors[:quote_asset_id].present?
+  end
+
+  test 'prevents changing interval while bot is running' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote,
+                             status: :scheduled, started_at: Time.current)
+
+    bot.set_missed_quote_amount
+    bot.interval = 'day'
+    assert_not bot.valid?(:update)
+    assert_includes bot.errors[:settings], 'Interval cannot be changed while the bot is running'
+  end
+
+  test 'prevents changing exchange when there are open orders' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    create(:transaction, :open, bot: bot, base: 'AAA', quote: 'EUR')
+    new_exchange = create(:binance_exchange)
+    create(:ticker, exchange: new_exchange, base_asset: @asset_a, quote_asset: @quote)
+
+    bot.exchange = new_exchange
+    assert_not bot.valid?(:update)
+    assert bot.errors[:exchange].present?
+  end
+
+  test 'prevents changing the index after transactions exist' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    create(:transaction, bot: bot, base: 'AAA', quote: 'EUR')
+
+    bot.set_missed_quote_amount
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'layer-1'
+    assert_not bot.valid?(:update)
+    assert bot.errors[:index_type].present?
+  end
+
+  # --- start: status-bar broadcast ----------------------------------------------
+
+  test 'start with an immediate first order broadcasts the scheduled status bar' do
+    MarketData.stubs(:configured?).returns(true)
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+
+    streams = capture_turbo_stream_broadcasts(["user_#{bot.user_id}", :bot_updates]) do
+      assert bot.start
+    end
+
+    assert streams.any? { |s| s['target'] == bot.dom_id(bot, :status_bar) },
+           'an immediate start enqueues no BroadcastAfterScheduledActionJob, ' \
+           'so the model itself must broadcast the "scheduled" status bar'
+  end
+
+  test 'start with a delayed first order leaves the status-bar broadcast to BroadcastAfterScheduledActionJob' do
+    MarketData.stubs(:configured?).returns(true)
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    bot.settings = bot.settings.merge('start_time_enabled' => true,
+                                      'start_time_mode' => 'date',
+                                      'start_at' => 1.day.from_now.utc.iso8601)
+    bot.set_missed_quote_amount
+    bot.save!
+
+    streams = capture_turbo_stream_broadcasts(["user_#{bot.user_id}", :bot_updates]) do
+      assert bot.start
+    end
+
+    assert_not streams.any? { |s| s['target'] == bot.dom_id(bot, :status_bar) },
+               'a delayed start must skip the immediate broadcast (the scheduled job handles it)'
   end
 
   # --- Naming (item 6) ---------------------------------------------------------

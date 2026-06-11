@@ -111,6 +111,41 @@ class Bots::SignalTest < ActiveSupport::TestCase
     assert_predicate @bot.reload, :deleted?
   end
 
+  test 'start, stop and delete never touch scheduled jobs (passive bot, no scheduling)' do
+    create(:bot_signal, bot: @bot)
+    @bot.expects(:cancel_scheduled_action_jobs).never
+
+    assert @bot.start
+    assert @bot.stop
+    assert @bot.delete
+  end
+
+  test 'passive overrides: no scheduling state' do
+    assert_not @bot.restarting?
+    assert_nil @bot.last_action_job_at
+    assert_nil @bot.next_action_job_at
+    assert_equal 0, @bot.progress_percentage
+  end
+
+  test 'prevents changing base or quote asset after transactions exist' do
+    create(:transaction, bot: @bot)
+    other = create(:asset, :ethereum)
+
+    @bot.base_asset_id = other.id
+    assert_not @bot.valid?(:update)
+    assert @bot.errors[:base_asset_id].present?
+  end
+
+  test 'prevents changing exchange when there are open orders' do
+    create(:transaction, :open, bot: @bot)
+    new_exchange = create(:kraken_exchange)
+    create(:ticker, exchange: new_exchange, base_asset: @bot.base_asset, quote_asset: @bot.quote_asset)
+
+    @bot.exchange = new_exchange
+    assert_not @bot.valid?(:update)
+    assert @bot.errors[:exchange].present?
+  end
+
   test 'available_exchanges_for_current_settings returns exchanges with matching tickers' do
     exchanges = @bot.available_exchanges_for_current_settings
     assert_includes exchanges, @bot.exchange
