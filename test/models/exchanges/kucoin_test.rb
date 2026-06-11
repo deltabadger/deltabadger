@@ -17,8 +17,14 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     assert_kind_of Array, errors[:invalid_key]
   end
 
-  test 'minimum_amount_logic returns base_or_quote' do
-    assert_equal :base_or_quote, @exchange.minimum_amount_logic
+  test 'minimum_amount_logic returns base_or_quote for market orders' do
+    assert_equal :base_or_quote, @exchange.minimum_amount_logic(order_type: :market_order)
+  end
+
+  test 'minimum_amount_logic returns base_and_quote_in_base for limit orders' do
+    # Kucoin limit orders go out base-denominated (size + price); the order setter must size
+    # them in base — never :quote — or the quote figure ships as a base quantity.
+    assert_equal :base_and_quote_in_base, @exchange.minimum_amount_logic(order_type: :limit_order)
   end
 
   test 'requires_passphrase? returns true' do
@@ -148,5 +154,44 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     timestamps = result.data.map { |c| c[0] }
     assert_equal timestamps.sort, timestamps, 'result must be globally sorted'
     assert_equal timestamps.uniq, timestamps, 'result must not contain duplicate candles'
+  end
+
+  # == set_limit_order converts a :quote amount to base ==
+  # Kucoin limit orders ship base `size` + `price`. A :quote amount must be converted to
+  # base at the adjusted limit price, else "spend 10 USDT" ships as "buy 10 base".
+
+  test 'set_limit_order converts a quote amount to base at the limit price' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT',
+                             price_decimals: 2, base_decimals: 6)
+    client = @exchange.send(:client)
+    captured = {}
+    client.define_singleton_method(:place_order) do |**kwargs|
+      captured.merge!(kwargs)
+      Result::Success.new(order_id: "#{kwargs[:symbol]}-abc123", raw: { 'orderId' => 'abc123' })
+    end
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: BigDecimal('10'),
+                                       amount_type: :quote, side: :buy, price: BigDecimal('62795'))
+    end
+
+    assert_predicate result, :success?
+    adj_price = ticker.adjusted_price(price: BigDecimal('62795'))
+    expected  = ticker.adjusted_amount(amount: BigDecimal('10') / adj_price, amount_type: :base)
+    assert_equal expected.to_d.to_s('F'), captured[:size]
+    assert_operator(expected.to_d * adj_price, :<=, BigDecimal('10'), 'converted base must not over-reserve quote')
+    assert_equal "#{ticker.ticker}-abc123", result.data[:order_id]
+  end
+
+  test 'set_limit_order returns a failure when the adjusted price is not positive' do
+    ticker = create(:ticker, exchange: @exchange, price_decimals: 0)
+    @exchange.send(:client).expects(:place_order).never
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: BigDecimal('10'),
+                                       amount_type: :quote, side: :buy, price: BigDecimal('0.4'))
+    end
+
+    assert_predicate result, :failure?
   end
 end
