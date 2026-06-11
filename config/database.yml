@@ -7,6 +7,8 @@ development:
   primary:
     <<: *default
     database: storage/development.sqlite3
+    # See production block: primary is shared by the in-Puma Solid Queue workers.
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + 5 %>
   queue:
     <<: *default
     database: storage/development_queue.sqlite3
@@ -27,6 +29,8 @@ test:
   primary:
     <<: *default
     database: storage/test.sqlite3
+    # See production block: primary is shared by the in-Puma Solid Queue workers.
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + 5 %>
   queue:
     <<: *default
     database: storage/test_queue.sqlite3
@@ -47,6 +51,10 @@ production:
   primary:
     <<: *default
     database: <%= ENV.fetch("DATABASE_PATH") { "storage/production.sqlite3" } %>
+    # Headroom for the in-Puma Solid Queue workers (SOLID_QUEUE_IN_PUMA=true), which
+    # share this pool with the web thread. Without it the pool is just RAILS_MAX_THREADS
+    # (=1 on hosted containers) and the ~30s daily stock-sync job starves /health-check.
+    pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 }.to_i + 5 %>
     pragmas:
       cache_size: -1000
   queue:
