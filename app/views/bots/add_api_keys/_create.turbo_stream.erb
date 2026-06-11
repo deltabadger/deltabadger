@@ -1,0 +1,3 @@
+<%# Shared by all bot types' add_api_keys/create.turbo_stream.erb wrappers; 'form' resolves to the rendering controller's own _form partial. %>
+<%= turbo_stream.update 'modal_content', partial: 'form', locals: { bot: @bot, api_key: @api_key } %>
+<%= turbo_stream_prepend_flash %>
