@@ -331,8 +331,10 @@ class Exchanges::Kucoin < Exchange
     end
   end
 
-  def minimum_amount_logic(**)
-    :base_or_quote
+  def minimum_amount_logic(order_type:, **)
+    # Limit orders are base-denominated on Kucoin (size + price), so they must be sized in
+    # base — never :quote. Market orders keep the cheaper-minimum choice.
+    order_type == :limit_order ? :base_and_quote_in_base : :base_or_quote
   end
 
   def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
@@ -504,8 +506,14 @@ class Exchanges::Kucoin < Exchange
   # @param side [Symbol] must be either :buy or :sell
   # @param price [Float] must be a positive number
   def set_limit_order(ticker:, amount:, amount_type:, side:, price:)
-    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
     price = ticker.adjusted_price(price: price)
+    return Result::Failure.new("Invalid limit price for #{ticker.ticker}") unless price.to_d.positive?
+
+    # Kucoin limit orders are base-denominated (size + price). Convert a :quote amount to base
+    # at the adjusted limit price so the order reserves the intended quote rather than shipping
+    # the quote figure as a base quantity.
+    base_amount = amount_type == :quote ? amount.to_d / price.to_d : amount
+    base_amount = ticker.adjusted_amount(amount: base_amount, amount_type: :base)
 
     order_settings = {
       client_oid: SecureRandom.uuid,
@@ -513,7 +521,7 @@ class Exchanges::Kucoin < Exchange
       side: side.to_s,
       type: 'limit',
       price: price.to_d.to_s('F'),
-      size: amount.to_d.to_s('F')
+      size: base_amount.to_d.to_s('F')
     }
     result = client.place_order(**order_settings)
     return result if result.failure?
