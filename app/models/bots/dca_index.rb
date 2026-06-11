@@ -94,10 +94,9 @@ class Bots::DcaIndex < Bot
       self.missed_quote_amount = nil
     end
 
-    # Skip status bar broadcast during start - BroadcastAfterScheduledActionJob will handle it
-    # after the job is actually scheduled (either immediately after ActionJob completes,
-    # or after the scheduled job is persisted)
-    @skip_status_bar_broadcast = true
+    # Skip the automatic status bar broadcast if we're scheduling a delayed job,
+    # since BroadcastAfterScheduledActionJob will handle it after the job is persisted
+    @skip_status_bar_broadcast = !set_orders_now
 
     if valid?(:start) && save
       if use_delayed_first
