@@ -32,7 +32,7 @@ class Bots::DcaIndex < Bot
   validates :index_type, presence: true, inclusion: { in: [INDEX_TYPE_TOP, INDEX_TYPE_CATEGORY] }
   validate :validate_bot_exchange, if: :exchange_id?, on: :update
   validate :validate_external_ids, on: :update
-  validate :validate_unchangeable_quote_asset, on: :update
+  validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
   validate :validate_unchangeable_exchange, on: :update
   validate :validate_unchangeable_index, on: :update
@@ -58,12 +58,14 @@ class Bots::DcaIndex < Bot
   include Bots::DcaIndex::OrderSetter
   include Bots::DcaIndex::Measurable
 
+  # Shared lifecycle + asset plumbing — keep LAST so the decorator chains above stay on top
+  include Bot::Lifecycle
+  include Bot::AssetConfigurable # the available_*/ticker queries below override the single-pair defaults
+
+  self.asset_id_setting_keys = %i[quote_asset_id]
+
   has_many :bot_index_assets, foreign_key: :bot_id, dependent: :destroy
   has_many :index_assets, through: :bot_index_assets, source: :asset
-
-  def api_key_type
-    :trading
-  end
 
   def parse_params(params)
     {
@@ -73,73 +75,6 @@ class Bots::DcaIndex < Bot
       num_coins: params[:num_coins].presence&.to_i,
       allocation_flattening: params[:allocation_flattening].presence&.to_f
     }.compact
-  end
-
-  def start(start_fresh: true)
-    computed_start_at = start_fresh && start_time_enabled? ? initial_start_at : nil
-    use_delayed_first = computed_start_at&.future?
-
-    set_orders_now = !use_delayed_first && (start_fresh || !restarting_within_interval?)
-    self.status = :scheduled
-    self.stop_message_key = nil
-    if use_delayed_first
-      settings['start_at'] = computed_start_at.iso8601
-      self.started_at = computed_start_at
-      self.last_action_job_at = nil
-      self.missed_quote_amount = nil
-      set_missed_quote_amount # settings changed → Accountable requires this before save
-    elsif start_fresh
-      self.started_at = Time.current
-      self.last_action_job_at = nil
-      self.missed_quote_amount = nil
-    end
-
-    # Skip status bar broadcast during start - BroadcastAfterScheduledActionJob will handle it
-    # after the job is actually scheduled (either immediately after ActionJob completes,
-    # or after the scheduled job is persisted)
-    @skip_status_bar_broadcast = true
-
-    if valid?(:start) && save
-      if use_delayed_first
-        Bot::ActionJob.set(wait_until: computed_start_at).perform_later(self)
-        Bot::BroadcastAfterScheduledActionJob.perform_later(self)
-      elsif set_orders_now
-        Bot::ActionJob.perform_later(self)
-      else
-        Bot::ActionJob.set(wait_until: next_interval_checkpoint_at).perform_later(self)
-        Bot::BroadcastAfterScheduledActionJob.perform_later(self)
-      end
-      log_activity('started', details: { start_fresh: start_fresh })
-      true
-    else
-      false
-    end
-  end
-
-  def stop(stop_message_key: nil)
-    if update(
-      status: :stopped,
-      stopped_at: Time.current,
-      stop_message_key:
-    )
-      cancel_scheduled_action_jobs
-      log_activity('stopped', details: { stop_message_key: stop_message_key }.compact)
-      true
-    else
-      false
-    end
-  end
-
-  def delete
-    if update(
-      status: 'deleted',
-      stopped_at: Time.current
-    )
-      cancel_scheduled_action_jobs if exchange.present?
-      true
-    else
-      false
-    end
   end
 
   def execute_action
@@ -225,24 +160,8 @@ class Bots::DcaIndex < Bot
     end
   end
 
-  def restarting?
-    stopped? && last_action_job_at.present?
-  end
-
-  def restarting_within_interval?
-    restarting? && pending_quote_amount < effective_quote_amount
-  end
-
-  def effective_quote_amount
-    quote_amount
-  end
-
   def quote_asset
     @quote_asset ||= Asset.find_by(id: quote_asset_id)
-  end
-
-  def tickers
-    @tickers ||= set_tickers
   end
 
   def decimals
@@ -343,39 +262,8 @@ class Bots::DcaIndex < Bot
     self.num_coins = idx.top_coins.size if num_coins.to_i > idx.top_coins.size
   end
 
-  def validate_external_ids
-    errors.add(:quote_asset_id, :invalid) unless Asset.exists?(quote_asset_id)
-  end
-
-  def validate_bot_exchange
-    return if stopped? || deleted?
-    return if exchange.tickers.available.trading_enabled.exists?(quote_asset_id:)
-
-    errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))
-  end
-
-  def validate_unchangeable_quote_asset
-    return unless settings_changed?
-    return unless transactions.any?
-
-    errors.add(:quote_asset_id, :unchangeable) if quote_asset_id_was != quote_asset_id
-  end
-
-  def validate_unchangeable_interval
-    return unless settings_changed?
-    return unless working?
-    return unless interval_was != interval
-
-    errors.add(:settings, :unchangeable_interval,
-               message: 'Interval cannot be changed while the bot is running')
-  end
-
-  def validate_unchangeable_exchange
-    return unless exchange_id_changed?
-    return unless transactions.waiting.any?
-
-    errors.add(:exchange, :unchangeable,
-               message: I18n.t('errors.bots.exchange_change_while_open_orders', exchange_name: exchange.name))
+  def exchange_supports_current_assets?
+    exchange.tickers.available.trading_enabled.exists?(quote_asset_id:)
   end
 
   def validate_unchangeable_index
@@ -399,13 +287,5 @@ class Bots::DcaIndex < Bot
     return Ticker.none unless exchange.present?
 
     @tickers = exchange.tickers.available.trading_enabled.where(quote_asset_id:)
-  end
-
-  def action_job_config
-    {
-      queue: exchange.name_id,
-      class: 'Bot::ActionJob',
-      args: [{ '_aj_globalid' => to_global_id.to_s }]
-    }
   end
 end

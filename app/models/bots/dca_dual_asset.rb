@@ -37,10 +37,10 @@ class Bots::DcaDualAsset < Bot
   include Bots::DcaDualAsset::MarketcapAllocatable # decorators for: parse_params
   include Bots::DcaDualAsset::OrderSetter
   include Bots::DcaDualAsset::Measurable
+  include Bot::Lifecycle         # shared start/stop/delete — keep LAST so the stop decorators above stay on top
+  include Bot::AssetConfigurable # shared asset accessors + validations (the available_*/ticker queries below override the single-pair defaults)
 
-  def api_key_type
-    :trading
-  end
+  self.asset_id_setting_keys = %i[base0_asset_id base1_asset_id quote_asset_id]
 
   def parse_params(params)
     {
@@ -51,73 +51,6 @@ class Bots::DcaDualAsset < Bot
       interval: params[:interval].presence,
       allocation0: params[:allocation0].presence&.to_f
     }.compact
-  end
-
-  def start(start_fresh: true)
-    computed_start_at = start_fresh && start_time_enabled? ? initial_start_at : nil
-    use_delayed_first = computed_start_at&.future?
-
-    # call restarting_within_interval? before setting the status to :scheduled
-    set_orders_now = !use_delayed_first && (start_fresh || !restarting_within_interval?)
-    self.status = :scheduled
-    self.stop_message_key = nil
-    if use_delayed_first
-      settings['start_at'] = computed_start_at.iso8601
-      self.started_at = computed_start_at
-      self.last_action_job_at = nil
-      self.missed_quote_amount = nil
-      set_missed_quote_amount # settings changed → Accountable requires this before save
-    elsif start_fresh
-      self.started_at = Time.current
-      self.last_action_job_at = nil
-      self.missed_quote_amount = nil
-    end
-
-    # Skip the automatic status bar broadcast if we're scheduling a delayed job,
-    # since BroadcastAfterScheduledActionJob will handle it after the job is persisted
-    @skip_status_bar_broadcast = !set_orders_now
-
-    if valid?(:start) && save
-      if use_delayed_first
-        Bot::ActionJob.set(wait_until: computed_start_at).perform_later(self)
-        Bot::BroadcastAfterScheduledActionJob.perform_later(self)
-      elsif set_orders_now
-        Bot::ActionJob.perform_later(self)
-      else
-        Bot::ActionJob.set(wait_until: next_interval_checkpoint_at).perform_later(self)
-        Bot::BroadcastAfterScheduledActionJob.perform_later(self)
-      end
-      log_activity('started', details: { start_fresh: start_fresh })
-      true
-    else
-      false
-    end
-  end
-
-  def stop(stop_message_key: nil)
-    if update(
-      status: :stopped,
-      stopped_at: Time.current,
-      stop_message_key:
-    )
-      cancel_scheduled_action_jobs
-      log_activity('stopped', details: { stop_message_key: stop_message_key }.compact)
-      true
-    else
-      false
-    end
-  end
-
-  def delete
-    if update(
-      status: 'deleted',
-      stopped_at: Time.current
-    )
-      cancel_scheduled_action_jobs if exchange.present?
-      true
-    else
-      false
-    end
   end
 
   def execute_action
@@ -184,36 +117,16 @@ class Bots::DcaDualAsset < Bot
     include_exchanges ? Asset.includes(:exchanges).where(id: asset_ids) : Asset.where(id: asset_ids)
   end
 
-  def restarting?
-    stopped? && last_action_job_at.present?
-  end
-
-  def restarting_within_interval?
-    restarting? && pending_quote_amount < effective_quote_amount
-  end
-
-  def effective_quote_amount
-    quote_amount
-  end
-
-  def assets
-    @assets ||= Asset.where(id: [base0_asset_id, base1_asset_id, quote_asset_id])
-  end
-
   def base0_asset
-    @base0_asset ||= assets.select { |asset| asset.id == base0_asset_id }.first
+    @base0_asset ||= asset_with_id(base0_asset_id)
   end
 
   def base1_asset
-    @base1_asset ||= assets.select { |asset| asset.id == base1_asset_id }.first
+    @base1_asset ||= asset_with_id(base1_asset_id)
   end
 
   def quote_asset
-    @quote_asset ||= assets.select { |asset| asset.id == quote_asset_id }.first
-  end
-
-  def tickers
-    @tickers ||= set_tickers
+    @quote_asset ||= asset_with_id(quote_asset_id)
   end
 
   def ticker0
@@ -258,44 +171,9 @@ class Bots::DcaDualAsset < Bot
 
   private
 
-  def validate_external_ids
-    errors.add(:base0_asset_id, :invalid) unless Asset.exists?(base0_asset_id)
-    errors.add(:base1_asset_id, :invalid) unless Asset.exists?(base1_asset_id)
-    errors.add(:quote_asset_id, :invalid) unless Asset.exists?(quote_asset_id)
-  end
-
-  def validate_bot_exchange
-    return if stopped? || deleted?
-    return if exchange.tickers.available.trading_enabled.exists?(base_asset: base0_asset, quote_asset:) &&
-              exchange.tickers.available.trading_enabled.exists?(base_asset: base1_asset, quote_asset:)
-
-    errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))
-  end
-
-  def validate_unchangeable_assets
-    return unless settings_changed?
-    return unless transactions.any?
-
-    errors.add(:base0_asset_id, :unchangeable) if base0_asset_id_was != base0_asset_id
-    errors.add(:base1_asset_id, :unchangeable) if base1_asset_id_was != base1_asset_id
-    errors.add(:quote_asset_id, :unchangeable) if quote_asset_id_was != quote_asset_id
-  end
-
-  def validate_unchangeable_interval
-    return unless settings_changed?
-    return unless working?
-    return unless interval_was != interval
-
-    errors.add(:settings, :unchangeable_interval,
-               message: 'Interval cannot be changed while the bot is running')
-  end
-
-  def validate_unchangeable_exchange
-    return unless exchange_id_changed?
-    return unless transactions.waiting.any?
-
-    errors.add(:exchange, :unchangeable,
-               message: I18n.t('errors.bots.exchange_change_while_open_orders', exchange_name: exchange.name))
+  def exchange_supports_current_assets?
+    exchange.tickers.available.trading_enabled.exists?(base_asset: base0_asset, quote_asset:) &&
+      exchange.tickers.available.trading_enabled.exists?(base_asset: base1_asset, quote_asset:)
   end
 
   def validate_tickers_available
@@ -315,14 +193,6 @@ class Bots::DcaDualAsset < Bot
     @tickers = exchange&.tickers&.where(base_asset_id: [base0_asset_id, base1_asset_id],
                                         quote_asset_id:) ||
                Ticker.none
-  end
-
-  def action_job_config
-    {
-      queue: exchange.name_id,
-      class: 'Bot::ActionJob',
-      args: [{ '_aj_globalid' => to_global_id.to_s }]
-    }
   end
 
   def locals_for_below_minimums_warning(first_transaction, second_transaction)
