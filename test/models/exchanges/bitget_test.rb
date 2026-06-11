@@ -17,8 +17,15 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     assert_kind_of Array, errors[:invalid_key]
   end
 
-  test 'minimum_amount_logic returns base_or_quote' do
-    assert_equal :base_or_quote, @exchange.minimum_amount_logic
+  test 'minimum_amount_logic returns base_or_quote for market orders' do
+    assert_equal :base_or_quote, @exchange.minimum_amount_logic(order_type: :market_order)
+  end
+
+  test 'minimum_amount_logic returns base_and_quote_in_base for limit orders' do
+    # Bitget limit orders are base-denominated (size + price, no quoteSize); the order
+    # setter must size them in base — never :quote — or the quote figure ships as a base
+    # quantity (-> 43012 Insufficient balance).
+    assert_equal :base_and_quote_in_base, @exchange.minimum_amount_logic(order_type: :limit_order)
   end
 
   test 'requires_passphrase? returns true' do
@@ -148,5 +155,64 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
 
     result = @exchange.get_api_key_validity(api_key: api_key)
     assert result.failure?
+  end
+
+  # == set_limit_order converts a :quote amount to base ==
+  # Bitget limit orders accept only base `size` + `price` (no quoteSize). A :quote amount
+  # must be converted to base at the adjusted limit price, else "spend 10 USDT" ships as
+  # "buy 10 BTC" -> 43012 Insufficient balance.
+
+  test 'set_limit_order converts a quote amount to base at the limit price' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT',
+                             price_decimals: 2, base_decimals: 6)
+    client = @exchange.send(:client)
+    captured = {}
+    client.define_singleton_method(:place_order) do |**kwargs|
+      captured.merge!(kwargs)
+      Result::Success.new(order_id: "#{kwargs[:symbol]}-abc123", raw: { 'orderId' => 'abc123' })
+    end
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: BigDecimal('10'),
+                                       amount_type: :quote, side: :buy, price: BigDecimal('62795'))
+    end
+
+    assert_predicate result, :success?
+    adj_price = ticker.adjusted_price(price: BigDecimal('62795'))
+    expected  = ticker.adjusted_amount(amount: BigDecimal('10') / adj_price, amount_type: :base)
+    assert_equal expected.to_d.to_s('F'), captured[:size]
+    assert_nil captured[:quote_size], 'limit orders must not send quote_size'
+    assert_operator(expected.to_d * adj_price, :<=, BigDecimal('10'), 'converted base must not over-reserve quote')
+    assert_equal "#{ticker.ticker}-abc123", result.data[:order_id]
+  end
+
+  test 'set_limit_order with a base amount is unchanged (floored to base_decimals)' do
+    ticker = create(:ticker, exchange: @exchange, base_symbol: 'BTC', quote_symbol: 'USDT',
+                             price_decimals: 2, base_decimals: 6)
+    client = @exchange.send(:client)
+    captured = {}
+    client.define_singleton_method(:place_order) do |**kwargs|
+      captured.merge!(kwargs)
+      Result::Success.new(order_id: "#{kwargs[:symbol]}-abc123", raw: { 'orderId' => 'abc123' })
+    end
+
+    with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: BigDecimal('0.00016117778'),
+                                       amount_type: :base, side: :buy, price: BigDecimal('62795'))
+    end
+
+    assert_equal '0.000161', captured[:size] # floored to base_decimals (6)
+  end
+
+  test 'set_limit_order returns a failure when the adjusted price is not positive' do
+    ticker = create(:ticker, exchange: @exchange, price_decimals: 0)
+    @exchange.send(:client).expects(:place_order).never
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: BigDecimal('10'),
+                                       amount_type: :quote, side: :buy, price: BigDecimal('0.4'))
+    end
+
+    assert_predicate result, :failure?
   end
 end
