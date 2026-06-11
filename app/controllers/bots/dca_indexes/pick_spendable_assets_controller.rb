@@ -9,13 +9,7 @@ class Bots::DcaIndexes::PickSpendableAssetsController < ApplicationController
     @api_key = @bot.api_key
 
     if @api_key.correct?
-      @bot.quote_asset_id = nil
-      @assets = asset_search_results(@bot, search_params[:query], :quote_asset)
-      # Per-currency preview of the chosen index's top base assets, keyed by
-      # quote_asset_id. The view renders this as a `.ticker-group` cell in
-      # place of the generic exchange-icons cell — same affordance as the
-      # ticker pills shown on the index tiles in step 2.
-      @top_base_assets_by_quote = @bot.top_base_assets_by_quote_for_current_setup
+      prepare_step
     else
       redirect_to new_bots_dca_indexes_add_api_key_path
     end
@@ -27,11 +21,25 @@ class Bots::DcaIndexes::PickSpendableAssetsController < ApplicationController
       session[:bot_config].deep_merge!({ settings: bot.parse_params(bot_params) }.deep_stringify_keys)
       finalise_and_redirect
     else
+      prepare_step
       render :new, status: :unprocessable_entity
     end
   end
 
   private
+
+  # View state the :new template needs — shared by `new` and the 422 re-renders
+  # in `create` (blank param) and `finalise_and_redirect` (failed save).
+  def prepare_step
+    @bot = current_user.bots.dca_index.new(sanitized_bot_config)
+    @bot.quote_asset_id = nil
+    @assets = asset_search_results(@bot, search_params[:query], :quote_asset)
+    # Per-currency preview of the chosen index's top base assets, keyed by
+    # quote_asset_id. The view renders this as a `.ticker-group` cell in
+    # place of the generic exchange-icons cell — same affordance as the
+    # ticker pills shown on the index tiles in step 2.
+    @top_base_assets_by_quote = @bot.top_base_assets_by_quote_for_current_setup
+  end
 
   # Mirrors `Bots::DcaSingleAssets::PickSpendableAssetsController#finalise_and_redirect`:
   # create the index bot in its initial (`:created`) state — not started —
@@ -52,6 +60,7 @@ class Bots::DcaIndexes::PickSpendableAssetsController < ApplicationController
       render turbo_stream: turbo_stream_redirect(bot_path(@bot))
     else
       flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
+      prepare_step
       render :new, status: :unprocessable_entity
     end
   end

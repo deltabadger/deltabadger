@@ -10,11 +10,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
     # and cause the wizard to loop back to step 1.
     session[:bot_config] ||= {}
     session[:bot_config]['label'] ||= Bots::DcaSingleAsset.new.label
-    @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
-    # Clear any previously-picked base in memory so the list isn't filtered against it —
-    # coming back to step 1 should show the full set, including the current pick.
-    @bot.base_asset_id = nil
-    @assets = asset_search_results(@bot, search_params[:query], :base_asset)
+    prepare_step
     nil if render_asset_page(bot: @bot, asset_field: :base_asset_id)
   end
 
@@ -39,11 +35,21 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
         redirect_to new_bots_dca_single_assets_pick_exchange_path
       end
     else
+      prepare_step
       render :new, status: :unprocessable_entity
     end
   end
 
   private
+
+  # View state the :new template needs — shared by `new` and `create`'s 422 re-render.
+  def prepare_step
+    @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
+    # Clear any previously-picked base in memory so the list isn't filtered against it —
+    # coming back to step 1 should show the full set, including the current pick.
+    @bot.base_asset_id = nil
+    @assets = asset_search_results(@bot, search_params[:query], :base_asset)
+  end
 
   def search_params
     params.permit(:query)

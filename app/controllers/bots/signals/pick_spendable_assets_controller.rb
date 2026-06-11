@@ -8,8 +8,7 @@ class Bots::Signals::PickSpendableAssetsController < ApplicationController
     @api_key = @bot.api_key
 
     if @api_key.correct?
-      @bot.quote_asset_id = nil
-      @assets = asset_search_results(@bot, search_params[:query], :quote_asset)
+      prepare_step
       nil if render_asset_page(bot: @bot, asset_field: :quote_asset_id)
     else
       redirect_to new_bots_signals_add_api_key_path
@@ -22,11 +21,19 @@ class Bots::Signals::PickSpendableAssetsController < ApplicationController
       session[:bot_config].deep_merge!({ settings: bot.parse_params(bot_params) }.deep_stringify_keys)
       redirect_to new_bots_signals_confirm_settings_path
     else
+      prepare_step
       render :new, status: :unprocessable_entity
     end
   end
 
   private
+
+  # View state the :new template needs — shared by `new` and `create`'s 422 re-render.
+  def prepare_step
+    @bot = current_user.bots.signal.new(sanitized_bot_config)
+    @bot.quote_asset_id = nil
+    @assets = asset_search_results(@bot, search_params[:query], :quote_asset)
+  end
 
   def search_params
     params.permit(:query)
