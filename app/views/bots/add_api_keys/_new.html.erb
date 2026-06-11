@@ -1,0 +1,4 @@
+<%# Shared by all bot types' add_api_keys/new.html.erb wrappers; 'form' resolves to the rendering controller's own _form partial. %>
+<%= render 'layouts/modal/full_page' do %>
+  <%= render partial: 'form', locals: { bot: @bot, api_key: @api_key } %>
+<% end %>
