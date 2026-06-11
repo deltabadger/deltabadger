@@ -345,6 +345,26 @@ class Bots::DcaSingleAssetTest < ActiveSupport::TestCase
     assert_equal original_started_at, bot.started_at
   end
 
+  test 'start with start_fresh false within the interval schedules at the next checkpoint, not immediately' do
+    freeze_time do
+      bot = create(:dca_single_asset, :stopped)
+      create(:transaction, bot: bot, quote_amount_exec: 100, external_status: :closed, created_at: Time.current)
+      bot.last_action_job_at = 1.hour.ago.iso8601
+      assert_predicate bot, :restarting_within_interval?
+
+      original_started_at = bot.started_at
+      delayed_job = mock('delayed_job')
+      delayed_job.expects(:perform_later).with(bot)
+      Bot::ActionJob.expects(:set).with(wait_until: bot.next_interval_checkpoint_at).returns(delayed_job)
+      Bot::ActionJob.expects(:perform_later).never
+      Bot::BroadcastAfterScheduledActionJob.expects(:perform_later).with(bot)
+
+      assert bot.start(start_fresh: false)
+      assert_equal 'scheduled', bot.status
+      assert_equal original_started_at, bot.started_at
+    end
+  end
+
   test 'start returns false when validation fails' do
     bot = create(:dca_single_asset)
     Bot::ActionJob.stubs(:perform_later)
@@ -439,6 +459,16 @@ class Bots::DcaSingleAssetTest < ActiveSupport::TestCase
     bot.stubs(:cancel_scheduled_action_jobs)
 
     assert_equal true, bot.delete
+  end
+
+  test 'delete without an exchange succeeds and does not try to cancel jobs' do
+    bot = create(:dca_single_asset)
+    bot.set_missed_quote_amount # detaching the exchange clears the *_limit_in_ticker_id settings
+    bot.update!(exchange: nil)
+    bot.expects(:cancel_scheduled_action_jobs).never
+
+    assert_equal true, bot.delete
+    assert_equal 'deleted', bot.status
   end
 
   # == Lifecycle: #execute_action ==
