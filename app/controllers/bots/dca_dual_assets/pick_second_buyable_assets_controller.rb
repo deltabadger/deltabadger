@@ -10,8 +10,7 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsController < ApplicationContro
     if @bot.base0_asset_id.blank?
       redirect_to new_bots_dca_single_assets_pick_buyable_asset_path
     else
-      @bot.base1_asset_id = nil
-      @assets = asset_search_results(@bot, search_params[:query], :base_asset)
+      prepare_step
       nil if render_asset_page(bot: @bot, asset_field: :base1_asset_id)
     end
   end
@@ -46,11 +45,19 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsController < ApplicationContro
         redirect_to new_bots_dca_dual_assets_pick_exchange_path
       end
     else
+      prepare_step
       render :new, status: :unprocessable_entity
     end
   end
 
   private
+
+  # View state the :new template needs — shared by `new` and `create`'s 422 re-render.
+  def prepare_step
+    @bot = current_user.bots.dca_dual_asset.new(sanitized_bot_config)
+    @bot.base1_asset_id = nil
+    @assets = asset_search_results(@bot, search_params[:query], :base_asset)
+  end
 
   def search_params
     params.permit(:query)

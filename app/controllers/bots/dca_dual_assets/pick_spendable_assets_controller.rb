@@ -13,8 +13,7 @@ class Bots::DcaDualAssets::PickSpendableAssetsController < ApplicationController
       return
     end
 
-    @bot.quote_asset_id = nil
-    @assets = asset_search_results(@bot, search_params[:query], :quote_asset)
+    prepare_step
     nil if render_asset_page(bot: @bot, asset_field: :quote_asset_id)
   end
 
@@ -24,11 +23,20 @@ class Bots::DcaDualAssets::PickSpendableAssetsController < ApplicationController
       session[:bot_config].deep_merge!({ settings: bot.parse_params(bot_params) }.deep_stringify_keys)
       finalise_and_redirect
     else
+      prepare_step
       render :new, status: :unprocessable_entity
     end
   end
 
   private
+
+  # View state the :new template needs — shared by `new` and the 422 re-renders
+  # in `create` (blank param) and `finalise_and_redirect` (failed save).
+  def prepare_step
+    @bot = current_user.bots.dca_dual_asset.new(sanitized_bot_config)
+    @bot.quote_asset_id = nil
+    @assets = asset_search_results(@bot, search_params[:query], :quote_asset)
+  end
 
   def finalise_and_redirect
     session[:bot_config]['settings'] ||= {}
@@ -42,6 +50,7 @@ class Bots::DcaDualAssets::PickSpendableAssetsController < ApplicationController
       render turbo_stream: turbo_stream_redirect(bot_path(@bot))
     else
       flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
+      prepare_step
       render :new, status: :unprocessable_entity
     end
   end

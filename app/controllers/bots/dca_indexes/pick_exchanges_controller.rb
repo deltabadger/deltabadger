@@ -7,11 +7,8 @@ class Bots::DcaIndexes::PickExchangesController < ApplicationController
 
   def new
     session[:bot_config] ||= {}
-    @bot = current_user.bots.dca_index.new(sanitized_bot_config)
-    @bot.exchange_id = nil
+    prepare_step
     session[:bot_config]['label'] ||= @bot.label
-    @exchanges = exchange_search_results_for_index_bot(@bot, search_params[:query])
-    load_exchange_coins_data
   end
 
   def create
@@ -19,11 +16,20 @@ class Bots::DcaIndexes::PickExchangesController < ApplicationController
       session[:bot_config].merge!({ exchange_id: bot_params[:exchange_id] }.stringify_keys)
       redirect_to new_bots_dca_indexes_add_api_key_path
     else
+      prepare_step
       render :new, status: :unprocessable_entity
     end
   end
 
   private
+
+  # View state the :new template needs — shared by `new` and `create`'s 422 re-render.
+  def prepare_step
+    @bot = current_user.bots.dca_index.new(sanitized_bot_config)
+    @bot.exchange_id = nil
+    @exchanges = exchange_search_results_for_index_bot(@bot, search_params[:query])
+    load_exchange_coins_data
+  end
 
   def require_market_data_configured
     return if MarketData.configured?
