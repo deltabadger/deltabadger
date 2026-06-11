@@ -1,7 +1,9 @@
 require 'test_helper'
+require 'turbo/broadcastable/test_helper'
 
 class Bots::DcaIndexTest < ActiveSupport::TestCase
   include ExchangeMockHelpers
+  include Turbo::Broadcastable::TestHelper
 
   setup do
     @exchange = create(:kraken_exchange)
@@ -98,6 +100,38 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
 
     assert_not_includes symbols, 'DEAD'
     assert_includes symbols, 'AAA'
+  end
+
+  # --- start: status-bar broadcast ----------------------------------------------
+
+  test 'start with an immediate first order broadcasts the scheduled status bar' do
+    MarketData.stubs(:configured?).returns(true)
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+
+    streams = capture_turbo_stream_broadcasts(["user_#{bot.user_id}", :bot_updates]) do
+      assert bot.start
+    end
+
+    assert streams.any? { |s| s['target'] == bot.dom_id(bot, :status_bar) },
+           'an immediate start enqueues no BroadcastAfterScheduledActionJob, ' \
+           'so the model itself must broadcast the "scheduled" status bar'
+  end
+
+  test 'start with a delayed first order leaves the status-bar broadcast to BroadcastAfterScheduledActionJob' do
+    MarketData.stubs(:configured?).returns(true)
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    bot.settings = bot.settings.merge('start_time_enabled' => true,
+                                      'start_time_mode' => 'date',
+                                      'start_at' => 1.day.from_now.utc.iso8601)
+    bot.set_missed_quote_amount
+    bot.save!
+
+    streams = capture_turbo_stream_broadcasts(["user_#{bot.user_id}", :bot_updates]) do
+      assert bot.start
+    end
+
+    assert_not streams.any? { |s| s['target'] == bot.dom_id(bot, :status_bar) },
+               'a delayed start must skip the immediate broadcast (the scheduled job handles it)'
   end
 
   # --- Naming (item 6) ---------------------------------------------------------
