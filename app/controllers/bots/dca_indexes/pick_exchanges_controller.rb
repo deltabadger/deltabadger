@@ -1,9 +1,9 @@
-class Bots::DcaIndexes::PickExchangesController < ApplicationController
-  before_action :authenticate_user!
+# Substantially custom step (market-data + index-selected gates, per-exchange
+# coin previews, index-aware exchange search) — subclasses the wizard base for
+# the shared create flow and overrides the rest wholesale.
+class Bots::DcaIndexes::PickExchangesController < Bots::Wizard::PickExchangesController
   before_action :require_market_data_configured
   before_action :require_index_selected
-
-  include Bots::Searchable
 
   def new
     session[:bot_config] ||= {}
@@ -11,21 +11,14 @@ class Bots::DcaIndexes::PickExchangesController < ApplicationController
     session[:bot_config]['label'] ||= @bot.label
   end
 
-  def create
-    if bot_params[:exchange_id].present?
-      session[:bot_config].merge!({ exchange_id: bot_params[:exchange_id] }.stringify_keys)
-      redirect_to new_bots_dca_indexes_add_api_key_path
-    else
-      prepare_step
-      render :new, status: :unprocessable_entity
-    end
-  end
-
   private
+
+  def bot_relation = current_user.bots.dca_index
+  def add_api_key_path = new_bots_dca_indexes_add_api_key_path
 
   # View state the :new template needs — shared by `new` and `create`'s 422 re-render.
   def prepare_step
-    @bot = current_user.bots.dca_index.new(sanitized_bot_config)
+    @bot = build_bot
     @bot.exchange_id = nil
     @exchanges = exchange_search_results_for_index_bot(@bot, search_params[:query])
     load_exchange_coins_data
@@ -41,10 +34,6 @@ class Bots::DcaIndexes::PickExchangesController < ApplicationController
     return if session.dig(:bot_config, 'settings', 'index_type').present?
 
     redirect_to new_bots_dca_indexes_pick_index_path
-  end
-
-  def search_params
-    params.permit(:query)
   end
 
   def bot_params
