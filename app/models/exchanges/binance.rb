@@ -13,6 +13,30 @@ class Exchanges::Binance < Exchange
   # honeymaker default (5000ms) — a stale placement must be rejected, not executed up to 60s late.
   READ_RECV_WINDOW = 60_000
 
+  # NEW: The order has been accepted by the engine.
+  # PENDING_NEW: The order is in a pending phase until the working order of an order list has been fully filled.
+  # PARTIALLY_FILLED: A part of the order has been filled.
+  # FILLED: The order has been completed.
+  # CANCELED: The order has been canceled by the user.
+  # PENDING_CANCEL: Currently unused
+  # REJECTED: The order was not accepted by the engine and not processed.
+  # EXPIRED: The order was canceled according to the order type's rules (e.g. LIMIT FOK orders with no fill,
+  #          LIMIT IOC or MARKET orders that partially fill) or by the exchange, (e.g. orders canceled during
+  #          liquidation, orders canceled during maintenance)
+  # EXPIRED_IN_MATCH: The order was expired by the exchange due to STP. (e.g. an order with EXPIRE_TAKER will
+  #                   match with existing orders on the book with the same account or same tradeGroupId)
+  ORDER_STATUS_MAP = {
+    'PENDING_CANCEL' => :unknown,
+    'NEW' => :open,
+    'PENDING_NEW' => :open,
+    'PARTIALLY_FILLED' => :open,
+    'FILLED' => :closed,
+    'CANCELED' => :cancelled,
+    'EXPIRED' => :cancelled,
+    'EXPIRED_IN_MATCH' => :cancelled,
+    'REJECTED' => :failed # Warning! This is not a valid external_status.
+  }.freeze
+
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
   attr_reader :api_key
@@ -1159,35 +1183,6 @@ class Exchanges::Binance < Exchange
       :limit_order
     else
       raise "Unknown #{name} order type: #{order_type}"
-    end
-  end
-
-  def parse_order_status(status)
-    # NEW: The order has been accepted by the engine.
-    # PENDING_NEW: The order is in a pending phase until the working order of an order list has been fully filled.
-    # PARTIALLY_FILLED: A part of the order has been filled.
-    # FILLED: The order has been completed.
-    # CANCELED: The order has been canceled by the user.
-    # PENDING_CANCEL: Currently unused
-    # REJECTED: The order was not accepted by the engine and not processed.
-    # EXPIRED: The order was canceled according to the order type's rules (e.g. LIMIT FOK orders with no fill,
-    #          LIMIT IOC or MARKET orders that partially fill) or by the exchange, (e.g. orders canceled during
-    #          liquidation, orders canceled during maintenance)
-    # EXPIRED_IN_MATCH: The order was expired by the exchange due to STP. (e.g. an order with EXPIRE_TAKER will
-    #                   match with existing orders on the book with the same account or same tradeGroupId)
-    case status
-    when 'PENDING_CANCEL'
-      :unknown
-    when 'NEW', 'PENDING_NEW', 'PARTIALLY_FILLED'
-      :open
-    when 'FILLED'
-      :closed
-    when 'CANCELED', 'EXPIRED', 'EXPIRED_IN_MATCH'
-      :cancelled
-    when 'REJECTED'
-      :failed # Warning! This is not a valid external_status.
-    else
-      raise "Unknown #{name} order status: #{status}"
     end
   end
 end

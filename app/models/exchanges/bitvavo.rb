@@ -4,6 +4,15 @@ class Exchanges::Bitvavo < Exchange
     insufficient_funds: ['Insufficient funds.'],
     invalid_key: ['Invalid API key.', 'Signature invalid.']
   }.freeze
+  ORDER_STATUS_MAP = {
+    'new' => :open,
+    'partiallyFilled' => :open,
+    'filled' => :closed,
+    'canceled' => :cancelled,
+    'cancelled' => :cancelled,
+    'expired' => :cancelled,
+    'rejected' => :failed
+  }.freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -521,21 +530,6 @@ class Exchanges::Bitvavo < Exchange
       :limit_order
     else
       raise "Unknown #{name} order type: #{order_type}"
-    end
-  end
-
-  def parse_order_status(status)
-    case status
-    when 'new', 'partiallyFilled'
-      :open
-    when 'filled'
-      :closed
-    when 'canceled', 'cancelled', 'expired'
-      :cancelled
-    when 'rejected'
-      :failed
-    else
-      raise "Unknown #{name} order status: #{status}"
     end
   end
 end
