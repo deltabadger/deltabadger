@@ -449,14 +449,6 @@ class Exchanges::Alpaca < Exchange
     }
   end
 
-  def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
-      h[t.base] ||= t.base_asset
-      h[t.quote] ||= t.quote_asset
-    end
-    @asset_from_symbol[symbol]
-  end
-
   def set_market_order(ticker:, amount:, amount_type:, side:)
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
 
