@@ -465,14 +465,6 @@ class Exchanges::Bingx < Exchange
     end
   end
 
-  def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
-      h[t.base] ||= t.base_asset
-      h[t.quote] ||= t.quote_asset
-    end
-    @asset_from_symbol[symbol]
-  end
-
   def get_bid_ask_price(ticker)
     cache_key = "exchange_#{id}_bid_ask_price_#{ticker.id}"
     Rails.cache.fetch(cache_key, expires_in: 1.seconds) do

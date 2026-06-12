@@ -361,14 +361,6 @@ class Exchanges::Ibkr < Exchange
     end
   end
 
-  def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
-      h[t.base] ||= t.base_asset
-      h[t.quote] ||= t.quote_asset
-    end
-    @asset_from_symbol[symbol]
-  end
-
   def asset_from_conid(conid)
     return nil if conid.blank? || !Ticker.column_names.include?('conid')
 
