@@ -4,6 +4,16 @@ class Exchanges::Bitmart < Exchange
     insufficient_funds: ['Balance not enough', 'Insufficient balance'],
     invalid_key: ['Invalid ACCESS_KEY', 'Invalid sign', 'Header X-BM-KEY Is Empty']
   }.freeze
+  ORDER_STATUS_MAP = {
+    'new' => :open,
+    'partially_filled' => :open,
+    'filled' => :closed,
+    'canceled' => :cancelled,
+    'expired' => :cancelled,
+    'partially_canceled' => :cancelled,
+    'rejected' => :failed,
+    'failed' => :failed
+  }.freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -631,21 +641,6 @@ class Exchanges::Bitmart < Exchange
       :limit_order
     else
       raise "Unknown #{name} order type: #{order_type}"
-    end
-  end
-
-  def parse_order_status(status)
-    case status
-    when 'new', 'partially_filled'
-      :open
-    when 'filled'
-      :closed
-    when 'canceled', 'expired', 'partially_canceled'
-      :cancelled
-    when 'rejected', 'failed'
-      :failed
-    else
-      raise "Unknown #{name} order status: #{status}"
     end
   end
 end

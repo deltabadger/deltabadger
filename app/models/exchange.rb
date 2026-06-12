@@ -276,6 +276,12 @@ class Exchange < ApplicationRecord
     @asset_from_symbol[symbol]
   end
 
+  def parse_order_status(status)
+    self.class::ORDER_STATUS_MAP.fetch(status) do
+      raise "Unknown #{name} order status: #{status}"
+    end
+  end
+
   def update_exchange_asset_fees!(fees, chains: {})
     updated = {}
     fees.each do |symbol, fee_string|

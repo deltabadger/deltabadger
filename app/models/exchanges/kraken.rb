@@ -48,6 +48,14 @@ class Exchanges::Kraken < Exchange
     # is a trading-engine counter that never reaches these query-order fetch jobs.
     throttle: ['EAPI:Rate limit exceeded']
   }.freeze
+  # pending, open, closed, canceled, expired
+  ORDER_STATUS_MAP = {
+    'pending' => :unknown,
+    'open' => :open,
+    'closed' => :closed,
+    'canceled' => :cancelled,
+    'expired' => :cancelled
+  }.freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -738,22 +746,6 @@ class Exchanges::Kraken < Exchange
       :limit_order
     else
       raise "Unknown #{name} order type: #{order_type}"
-    end
-  end
-
-  def parse_order_status(status)
-    # pending, open, closed, canceled, expired
-    case status
-    when 'pending'
-      :unknown
-    when 'open'
-      :open
-    when 'closed'
-      :closed
-    when 'canceled', 'expired'
-      :cancelled
-    else
-      raise "Unknown #{name} order status: #{status}"
     end
   end
 end
