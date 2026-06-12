@@ -1,5 +1,6 @@
 class Bots::DcaSingleAssets::PickExchangesController < ApplicationController
   before_action :authenticate_user!
+  before_action :redirect_if_session_expired, only: :create
 
   include Bots::Searchable
 
@@ -42,6 +43,10 @@ class Bots::DcaSingleAssets::PickExchangesController < ApplicationController
     @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
     @bot.exchange_id = nil
     @exchanges = exchange_search_results(@bot, search_params[:query])
+  end
+
+  def redirect_if_session_expired
+    render turbo_stream: turbo_stream_redirect(root_path) if session[:bot_config].blank?
   end
 
   def search_params

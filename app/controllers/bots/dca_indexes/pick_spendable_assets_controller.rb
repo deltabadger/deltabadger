@@ -1,6 +1,7 @@
 class Bots::DcaIndexes::PickSpendableAssetsController < ApplicationController
   before_action :authenticate_user!
   before_action :require_market_data_configured
+  before_action :redirect_if_session_expired, only: :create
 
   include Bots::Searchable
 
@@ -69,6 +70,10 @@ class Bots::DcaIndexes::PickSpendableAssetsController < ApplicationController
     return if MarketData.configured?
 
     redirect_to new_bots_dca_indexes_setup_coingecko_path
+  end
+
+  def redirect_if_session_expired
+    render turbo_stream: turbo_stream_redirect(root_path) if session[:bot_config].blank?
   end
 
   def search_params
