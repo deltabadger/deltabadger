@@ -18,26 +18,22 @@ class Exchanges::BinanceUs < Exchanges::Binance
   end
 
   def fetch_withdrawal_fees!
-    api_key = fee_api_key
-    return Result::Success.new({}) if api_key.blank?
+    with_authenticated_fee_client('binance_us', 'PROXY_BINANCE_US') do |hm_client|
+      result = hm_client.get_all_coins_information
+      return result if result.failure?
 
-    result = Honeymaker.client('binance_us',
-                               api_key: api_key.key,
-                               api_secret: api_key.secret,
-                               proxy: ENV['PROXY_BINANCE_US']).get_all_coins_information
-    return result if result.failure?
+      fees = {}
+      result.data.each do |coin|
+        symbol = coin['coin']
+        networks = coin['networkList'] || []
+        network = networks.find { |n| n['isDefault'] == true } || networks.first
+        next unless network
 
-    fees = {}
-    result.data.each do |coin|
-      symbol = coin['coin']
-      networks = coin['networkList'] || []
-      network = networks.find { |n| n['isDefault'] == true } || networks.first
-      next unless network
+        fees[symbol] = network['withdrawFee']
+      end
 
-      fees[symbol] = network['withdrawFee']
+      update_exchange_asset_fees!(fees)
     end
-
-    update_exchange_asset_fees!(fees)
   end
 
   def get_api_key_validity(api_key:)

@@ -282,6 +282,19 @@ class Exchange < ApplicationRecord
     end
   end
 
+  # Scaffold for fetch_withdrawal_fees! on exchanges whose fee endpoint needs an
+  # authenticated client: without a configured fee API key the fetch is skipped
+  # as an empty success, otherwise yields a proxied Honeymaker client.
+  def with_authenticated_fee_client(client_name, proxy_env)
+    api_key = fee_api_key
+    return Result::Success.new({}) if api_key.blank?
+
+    yield Honeymaker.client(client_name,
+                            api_key: api_key.key,
+                            api_secret: api_key.secret,
+                            proxy: ENV[proxy_env])
+  end
+
   def update_exchange_asset_fees!(fees, chains: {})
     updated = {}
     fees.each do |symbol, fee_string|
