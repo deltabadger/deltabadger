@@ -1,5 +1,6 @@
 class Bots::Signals::PickSpendableAssetsController < ApplicationController
   before_action :authenticate_user!
+  before_action :redirect_if_session_expired, only: :create
 
   include Bots::Searchable
 
@@ -33,6 +34,10 @@ class Bots::Signals::PickSpendableAssetsController < ApplicationController
     @bot = current_user.bots.signal.new(sanitized_bot_config)
     @bot.quote_asset_id = nil
     @assets = asset_search_results(@bot, search_params[:query], :quote_asset)
+  end
+
+  def redirect_if_session_expired
+    render turbo_stream: turbo_stream_redirect(root_path) if session[:bot_config].blank?
   end
 
   def search_params

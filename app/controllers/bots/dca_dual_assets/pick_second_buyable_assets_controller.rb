@@ -1,5 +1,6 @@
 class Bots::DcaDualAssets::PickSecondBuyableAssetsController < ApplicationController
   before_action :authenticate_user!
+  before_action :redirect_if_session_expired, only: :create
 
   include Bots::Searchable
   include Bots::StockBrokerRoutable
@@ -57,6 +58,10 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsController < ApplicationContro
     @bot = current_user.bots.dca_dual_asset.new(sanitized_bot_config)
     @bot.base1_asset_id = nil
     @assets = asset_search_results(@bot, search_params[:query], :base_asset)
+  end
+
+  def redirect_if_session_expired
+    render turbo_stream: turbo_stream_redirect(root_path) if session[:bot_config].blank?
   end
 
   def search_params

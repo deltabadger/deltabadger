@@ -11,6 +11,9 @@ class Bots::Signals::PickBuyableAssetsController < ApplicationController
   end
 
   def create
+    # First wizard step: a POST with an expired session is self-sufficient,
+    # mirroring the single-asset first step — re-initialise rather than bail.
+    session[:bot_config] ||= {}
     if bot_params[:base_asset_id].present?
       bot = current_user.bots.signal.new(sanitized_bot_config)
       session[:bot_config].deep_merge!({ settings: bot.parse_params(bot_params) }.deep_stringify_keys)
