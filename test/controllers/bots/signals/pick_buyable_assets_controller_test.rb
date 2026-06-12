@@ -52,8 +52,6 @@ class Bots::Signals::PickBuyableAssetsControllerTest < ActionDispatch::Integrati
     assert_redirected_to new_bots_signals_pick_exchange_path
   end
 
-  # NOTE: the blank-base_asset_id branch (`render :new` from #create) is NOT
-  # characterized: it 500s today because #create never sets the view ivars
-  # (@bot/@assets). Unreachable from the real form, which always posts an asset id.
-  # Same latent issue exists across the wizard's `render :new` failure branches.
+  # The blank-param 422 re-render branch is characterized in
+  # wizard_create_failure_rerender_test.rb (for every wizard step).
 end

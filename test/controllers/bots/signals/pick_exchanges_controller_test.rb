@@ -39,7 +39,6 @@ class Bots::Signals::PickExchangesControllerTest < ActionDispatch::IntegrationTe
     assert_equal @binance.id.to_s, session[:bot_config]['exchange_id'].to_s
   end
 
-  # NOTE: the blank-exchange_id branch (`render :new` from #create) is NOT
-  # characterized: it 500s today because #create never sets the view ivars.
-  # Unreachable from the real form, which always posts an exchange id.
+  # The blank-param 422 re-render branch is characterized in
+  # wizard_create_failure_rerender_test.rb (for every wizard step).
 end
