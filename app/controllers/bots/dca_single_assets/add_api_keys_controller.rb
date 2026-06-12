@@ -1,48 +1,10 @@
-class Bots::DcaSingleAssets::AddApiKeysController < ApplicationController
-  before_action :authenticate_user!
-
-  def new
-    @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
-
-    if @bot.base_asset.blank?
-      redirect_to new_bots_dca_single_assets_pick_buyable_asset_path
-    elsif @bot.exchange_id.blank?
-      redirect_to missing_exchange_path
-    else
-      @api_key = @bot.api_key
-      # Only validate if key exists but isn't already confirmed correct
-      if @api_key.key.present? && @api_key.secret.present? && !@api_key.correct?
-        result = @api_key.get_validity
-        @api_key.update_status!(result)
-      end
-      redirect_to after_api_key_path if @api_key.correct?
-    end
-  end
-
-  def create
-    @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
-    if @bot.exchange_id.blank?
-      redirect_to missing_exchange_path
-      return
-    end
-    @api_key = @bot.api_key
-    @api_key.validate_credentials!(api_key_params)
-    if @api_key.correct?
-      sync_alpaca_settings(@api_key) if @bot.exchange.is_a?(Exchanges::Alpaca)
-      render turbo_stream: turbo_stream_redirect(after_api_key_path)
-    elsif @api_key.incorrect?
-      flash.now[:alert] = t('errors.incorrect_api_key_permissions')
-      render :create, status: :unprocessable_entity
-    else
-      flash.now[:alert] = t('errors.api_key_permission_validation_failed')
-      render :create, status: :unprocessable_entity
-    end
-  end
-
+class Bots::DcaSingleAssets::AddApiKeysController < Bots::Wizard::AddApiKeysController
   private
 
-  def api_key_params
-    params.require(:api_key).permit(:key, :secret, :passphrase, :access_token, :rsa_signature_key, :rsa_encryption_key, :dh_param, :ibkr_realm)
+  def bot_relation = current_user.bots.dca_single_asset
+
+  def prerequisite_redirect_path
+    new_bots_dca_single_assets_pick_buyable_asset_path if @bot.base_asset.blank?
   end
 
   def stock_bot?
@@ -59,16 +21,11 @@ class Bots::DcaSingleAssets::AddApiKeysController < ApplicationController
     end
   end
 
-  def after_api_key_path
-    # Stock bots get their quote asset auto-filled when the broker is chosen, so
-    # pick_spendable_asset only needs the spend amount.
-    new_bots_dca_single_assets_pick_spendable_asset_path
-  end
+  # Stock bots get their quote asset auto-filled when the broker is chosen, so
+  # pick_spendable_asset only needs the spend amount.
+  def after_api_key_path = new_bots_dca_single_assets_pick_spendable_asset_path
 
-  def sync_alpaca_settings(api_key)
-    AppConfig.set('alpaca_api_key', api_key.key)
-    AppConfig.set('alpaca_api_secret', api_key.secret)
-    AppConfig.set('alpaca_mode', api_key.passphrase == 'live' ? 'live' : 'paper')
-    Exchange::SyncAlpacaAssetsJob.perform_later
+  def after_correct_api_key(api_key)
+    sync_alpaca_settings(api_key) if @bot.exchange.is_a?(Exchanges::Alpaca)
   end
 end
