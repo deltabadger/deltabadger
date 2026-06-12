@@ -618,9 +618,9 @@ class Exchanges::Bitget < Exchange
     case status
     when 'init', 'new'
       :unknown
-    when 'partial_fill', 'live'
+    when 'partially_filled', 'live'
       :open
-    when 'full_fill'
+    when 'filled'
       :closed
     when 'cancelled'
       :cancelled
