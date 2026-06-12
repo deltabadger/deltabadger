@@ -4,11 +4,7 @@ class Bots::DcaIndexes::ConfirmSettingsController < ApplicationController
   before_action :require_bot_config
 
   def new
-    session[:bot_config]['settings'] ||= {}
-    session[:bot_config]['settings']['interval'] ||= 'week'
-    session[:bot_config]['settings']['quote_amount'] ||= 100
-    # num_coins default is owned by the model (index-aware: a bounded index starts at full size).
-    session[:bot_config]['settings']['allocation_flattening'] ||= 0.0
+    Bots::WizardDefaults.apply!(session[:bot_config]['settings'] ||= {}, Bots::WizardDefaults::INDEX)
     @bot = current_user.bots.dca_index.new(sanitized_bot_config)
 
     # Fetch preview of index composition
