@@ -4,6 +4,14 @@ class Exchanges::Mexc < Exchange
     insufficient_funds: ['Insufficient balance.'],
     invalid_key: ['Invalid Api-Key ID.', 'Signature for this request is not valid.']
   }.freeze
+  ORDER_STATUS_MAP = {
+    'NEW' => :open,
+    'PARTIALLY_FILLED' => :open,
+    'FILLED' => :closed,
+    'CANCELED' => :cancelled,
+    'EXPIRED' => :cancelled,
+    'REJECTED' => :failed
+  }.freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -608,21 +616,6 @@ class Exchanges::Mexc < Exchange
       :limit_order
     else
       raise "Unknown #{name} order type: #{order_type}"
-    end
-  end
-
-  def parse_order_status(status)
-    case status
-    when 'NEW', 'PARTIALLY_FILLED'
-      :open
-    when 'FILLED'
-      :closed
-    when 'CANCELED', 'EXPIRED'
-      :cancelled
-    when 'REJECTED'
-      :failed
-    else
-      raise "Unknown #{name} order status: #{status}"
     end
   end
 end

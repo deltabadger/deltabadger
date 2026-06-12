@@ -12,6 +12,15 @@ class Exchanges::Bitget < Exchange
   NO_TRADE_PERMISSION_CODES = %w[40014].freeze       # "Incorrect permissions, need spot order write permissions"
   private_constant :ORDER_NOT_FOUND_CODES, :NO_TRADE_PERMISSION_CODES
 
+  ORDER_STATUS_MAP = {
+    'init' => :unknown,
+    'new' => :unknown,
+    'partially_filled' => :open,
+    'live' => :open,
+    'filled' => :closed,
+    'cancelled' => :cancelled
+  }.freeze
+
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
   attr_reader :api_key
@@ -599,21 +608,6 @@ class Exchanges::Bitget < Exchange
       :limit_order
     else
       raise "Unknown #{name} order type: #{order_type}"
-    end
-  end
-
-  def parse_order_status(status)
-    case status
-    when 'init', 'new'
-      :unknown
-    when 'partially_filled', 'live'
-      :open
-    when 'filled'
-      :closed
-    when 'cancelled'
-      :cancelled
-    else
-      raise "Unknown #{name} order status: #{status}"
     end
   end
 end
