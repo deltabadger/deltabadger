@@ -4,6 +4,19 @@ class Exchanges::Bybit < Exchange
     insufficient_funds: ['170131', 'Insufficient balance'],
     invalid_key: %w[10003 10004]
   }.freeze
+  # https://bybit-exchange.github.io/docs/v5/enum#orderstatus
+  ORDER_STATUS_MAP = {
+    'Created' => :unknown,
+    'Untriggered' => :unknown,
+    'New' => :open,
+    'PartiallyFilled' => :open,
+    'PartiallyFilledCanceled' => :open,
+    'Filled' => :closed,
+    'Cancelled' => :cancelled,
+    'Expired' => :cancelled,
+    'Deactivated' => :cancelled,
+    'Rejected' => :failed
+  }.freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -659,24 +672,6 @@ class Exchanges::Bybit < Exchange
       :limit_order
     else
       raise "Unknown #{name} order type: #{order_type}"
-    end
-  end
-
-  def parse_order_status(status)
-    # https://bybit-exchange.github.io/docs/v5/enum#orderstatus
-    case status
-    when 'Created', 'Untriggered'
-      :unknown
-    when 'New', 'PartiallyFilled', 'PartiallyFilledCanceled'
-      :open
-    when 'Filled'
-      :closed
-    when 'Cancelled', 'Expired', 'Deactivated'
-      :cancelled
-    when 'Rejected'
-      :failed
-    else
-      raise "Unknown #{name} order status: #{status}"
     end
   end
 end

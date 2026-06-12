@@ -8,6 +8,16 @@ class Exchanges::Coinbase < Exchange
   ERRORS = {
     insufficient_funds: ['Insufficient balance in source account']
   }.freeze
+  # UNKNOWN_ORDER_STATUS, OPEN, FILLED, CANCELLED, EXPIRED, FAILED, PENDING
+  ORDER_STATUS_MAP = {
+    'PENDING' => :unknown,
+    'UNKNOWN_ORDER_STATUS' => :unknown,
+    'OPEN' => :open,
+    'FILLED' => :closed,
+    'CANCELLED' => :cancelled,
+    'EXPIRED' => :cancelled,
+    'FAILED' => :failed # Warning! This is not a valid external_status.
+  }.freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -680,24 +690,6 @@ class Exchanges::Coinbase < Exchange
       :limit_order
     else
       raise "Unknown #{name} order type: #{order_type}"
-    end
-  end
-
-  def parse_order_status(status)
-    # UNKNOWN_ORDER_STATUS, OPEN, FILLED, CANCELLED, EXPIRED, FAILED, PENDING
-    case status
-    when 'PENDING', 'UNKNOWN_ORDER_STATUS'
-      :unknown
-    when 'OPEN'
-      :open
-    when 'FILLED'
-      :closed
-    when 'CANCELLED', 'EXPIRED'
-      :cancelled
-    when 'FAILED'
-      :failed # Warning! This is not a valid external_status.
-    else
-      raise "Unknown #{name} order status: #{status}"
     end
   end
 end
