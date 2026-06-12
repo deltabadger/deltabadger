@@ -9,6 +9,7 @@ class Bots::Wizard::PickSpendableAssetsController < ApplicationController
   before_action :redirect_if_session_expired, only: :create
 
   include Bots::Searchable
+  include Bots::WizardSessionGuard
 
   def new
     @bot = build_bot
@@ -70,10 +71,6 @@ class Bots::Wizard::PickSpendableAssetsController < ApplicationController
 
   # The index step renders its own (unpaginated) asset list.
   def paginate_asset_list? = true
-
-  def redirect_if_session_expired
-    render turbo_stream: turbo_stream_redirect(root_path) if session[:bot_config].blank?
-  end
 
   def search_params
     params.permit(:query)
