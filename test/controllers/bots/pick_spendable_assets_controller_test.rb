@@ -56,10 +56,8 @@ class Bots::DcaSingleAssets::PickSpendableAssetsControllerTest < ActionDispatch:
     assert_match bot_path(bot), response.body
   end
 
-  # NOTE: the blank-quote_asset_id 422 branch (`render :new` from #create) is NOT
-  # characterized: it 500s today because #create never sets @bot/@assets for the view
-  # (undefined method 'base_asset' for nil in bots/wizard/_sentence). Unreachable from
-  # the real form, which always posts an asset id. Kept as-is in this slice.
+  # The blank-param and failed-save 422 re-render branches are characterized in
+  # wizard_create_failure_rerender_test.rb (for every wizard step).
 
   test 'create with an expired wizard session turbo-redirects to root' do
     # No seeding: session[:bot_config] is blank.
