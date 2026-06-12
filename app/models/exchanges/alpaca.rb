@@ -330,10 +330,6 @@ class Exchanges::Alpaca < Exchange
 
   private
 
-  def client
-    @client ||= set_client
-  end
-
   # Market data (data.alpaca.markets) requires auth but is read-only and host-separate
   # from trading. Build a throwaway client so these reads never mutate @client/@api_key —
   # account ops depend on those being the caller-set key. Prefer an explicitly-set key
@@ -447,14 +443,6 @@ class Exchanges::Alpaca < Exchange
       transacted_at: Time.parse(activity['date']).utc,
       raw_data: activity
     }
-  end
-
-  def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
-      h[t.base] ||= t.base_asset
-      h[t.quote] ||= t.quote_asset
-    end
-    @asset_from_symbol[symbol]
   end
 
   def set_market_order(ticker:, amount:, amount_type:, side:)

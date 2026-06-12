@@ -564,24 +564,18 @@ class Exchanges::Kraken < Exchange
     entry&.dig(:key)
   end
 
-  def client
-    @client ||= set_client
-  end
-
   # Kraken API returns fee as either a string ("0.00015") or a hash
   # ({"aclass" => "currency", "asset" => "XETH", "fee" => "0.00014"}).
   def extract_fee(fee)
     fee.is_a?(Hash) ? fee['fee'] : fee
   end
 
+  # Kraken balances use suffixed staking symbols ("ETH.S") and legacy X/Z
+  # codes ("XXBT") that must be normalized to ticker symbols before lookup.
   def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
-      h[t.base] ||= t.base_asset
-      h[t.quote] ||= t.quote_asset
-    end
     symbol = symbol.split('.').first
     symbol = ASSET_MAP[symbol] || symbol
-    @asset_from_symbol[symbol]
+    super(symbol)
   end
 
   def get_ticker_information(ticker)

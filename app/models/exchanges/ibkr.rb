@@ -187,10 +187,6 @@ class Exchanges::Ibkr < Exchange
 
   private
 
-  def client
-    @client ||= set_client
-  end
-
   def account_id
     return @account_id if defined?(@account_id) && @account_id
 
@@ -359,14 +355,6 @@ class Exchanges::Ibkr < Exchange
 
       balances[asset.id] = { free: position['position'].to_d, locked: 0 }
     end
-  end
-
-  def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
-      h[t.base] ||= t.base_asset
-      h[t.quote] ||= t.quote_asset
-    end
-    @asset_from_symbol[symbol]
   end
 
   def asset_from_conid(conid)

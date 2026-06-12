@@ -451,10 +451,6 @@ class Exchanges::Bingx < Exchange
     end
   end
 
-  def client
-    @client ||= set_client
-  end
-
   def parse_error_message(result)
     return unless result.errors.first.present?
 
@@ -463,14 +459,6 @@ class Exchanges::Bingx < Exchange
     rescue StandardError
       nil
     end
-  end
-
-  def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
-      h[t.base] ||= t.base_asset
-      h[t.quote] ||= t.quote_asset
-    end
-    @asset_from_symbol[symbol]
   end
 
   def get_bid_ask_price(ticker)

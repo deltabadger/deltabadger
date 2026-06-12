@@ -419,10 +419,6 @@ class Exchanges::Bitrue < Exchange
 
   private
 
-  def client
-    @client ||= set_client
-  end
-
   def symbol_pair_base(symbol)
     @exchange_symbols_map&.dig(symbol, :base) || tickers.find_by(ticker: symbol)&.base || symbol
   end
@@ -439,14 +435,6 @@ class Exchanges::Bitrue < Exchange
     rescue StandardError
       nil
     end
-  end
-
-  def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
-      h[t.base] ||= t.base_asset
-      h[t.quote] ||= t.quote_asset
-    end
-    @asset_from_symbol[symbol]
   end
 
   def get_bid_ask_price(ticker)
