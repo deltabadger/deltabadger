@@ -355,30 +355,26 @@ class Exchanges::Bitrue < Exchange
   end
 
   def fetch_withdrawal_fees!
-    api_key = fee_api_key
-    return Result::Success.new({}) if api_key.blank?
+    with_authenticated_fee_client('bitrue', 'PROXY_BITRUE') do |hm_client|
+      result = hm_client.get_all_coins_information
+      return result if result.failure?
 
-    result = Honeymaker.client('bitrue',
-                               api_key: api_key.key,
-                               api_secret: api_key.secret,
-                               proxy: ENV['PROXY_BITRUE']).get_all_coins_information
-    return result if result.failure?
+      fees = {}
+      chains = {}
+      Array(result.data).each do |coin|
+        symbol = coin['coin']
+        networks = coin['networkList'] || []
+        default_net = networks.find { |n| n['isDefault'] == true } || networks.first
+        next unless default_net
 
-    fees = {}
-    chains = {}
-    Array(result.data).each do |coin|
-      symbol = coin['coin']
-      networks = coin['networkList'] || []
-      default_net = networks.find { |n| n['isDefault'] == true } || networks.first
-      next unless default_net
-
-      fees[symbol] = default_net['withdrawFee']
-      chains[symbol] = networks.map do |n|
-        { 'name' => n['network'], 'fee' => n['withdrawFee'], 'is_default' => n['isDefault'] == true }
+        fees[symbol] = default_net['withdrawFee']
+        chains[symbol] = networks.map do |n|
+          { 'name' => n['network'], 'fee' => n['withdrawFee'], 'is_default' => n['isDefault'] == true }
+        end
       end
-    end
 
-    update_exchange_asset_fees!(fees, chains: chains)
+      update_exchange_asset_fees!(fees, chains: chains)
+    end
   end
 
   def get_ledger(api_key:, start_time: nil)

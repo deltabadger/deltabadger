@@ -407,31 +407,27 @@ class Exchanges::Bybit < Exchange
   end
 
   def fetch_withdrawal_fees!
-    api_key = fee_api_key
-    return Result::Success.new({}) if api_key.blank?
+    with_authenticated_fee_client('bybit', 'PROXY_BYBIT') do |hm_client|
+      result = hm_client.get_coin_query_info
+      return result if result.failure?
 
-    result = Honeymaker.client('bybit',
-                               api_key: api_key.key,
-                               api_secret: api_key.secret,
-                               proxy: ENV['PROXY_BYBIT']).get_coin_query_info
-    return result if result.failure?
+      fees = {}
+      chain_data = {}
+      rows = result.data.dig('result', 'rows') || []
+      rows.each do |coin|
+        symbol = coin['coin']
+        coin_chains = coin['chains'] || []
+        chain = coin_chains.find { |c| c['chainDefault'] == '1' } || coin_chains.first
+        next unless chain
 
-    fees = {}
-    chain_data = {}
-    rows = result.data.dig('result', 'rows') || []
-    rows.each do |coin|
-      symbol = coin['coin']
-      coin_chains = coin['chains'] || []
-      chain = coin_chains.find { |c| c['chainDefault'] == '1' } || coin_chains.first
-      next unless chain
-
-      fees[symbol] = chain['withdrawFee']
-      chain_data[symbol] = coin_chains.map do |c|
-        { 'name' => c['chain'], 'fee' => c['withdrawFee'], 'is_default' => c['chainDefault'] == '1' }
+        fees[symbol] = chain['withdrawFee']
+        chain_data[symbol] = coin_chains.map do |c|
+          { 'name' => c['chain'], 'fee' => c['withdrawFee'], 'is_default' => c['chainDefault'] == '1' }
+        end
       end
-    end
 
-    update_exchange_asset_fees!(fees, chains: chain_data)
+      update_exchange_asset_fees!(fees, chains: chain_data)
+    end
   end
 
   def get_ledger(api_key:, start_time: nil)
