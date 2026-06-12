@@ -1,19 +1,18 @@
-class Bots::SignalsController < ApplicationController
-  before_action :authenticate_user!
+class Bots::SignalsController < Bots::Wizard::CreatesController
+  private
 
-  def create
+  def bot_relation = current_user.bots.signal
+
+  def build_bot
     signals_config = session.dig(:bot_config, 'signals') || [{ 'direction' => 'buy', 'amount' => 100 }]
-    @bot = current_user.bots.signal.new(sanitized_bot_config.deep_symbolize_keys)
+    bot = super
     signals_config.each do |wh|
-      @bot.bot_signals.build(direction: wh['direction'], amount: wh['amount'], enabled: wh.fetch('enabled', true),
-                             amount_type: wh.fetch('amount_type', 'fixed'))
+      bot.bot_signals.build(direction: wh['direction'], amount: wh['amount'], enabled: wh.fetch('enabled', true),
+                            amount_type: wh.fetch('amount_type', 'fixed'))
     end
-    if @bot.save && @bot.start(start_fresh: true)
-      session[:bot_config] = nil
-      render turbo_stream: turbo_stream_redirect(bot_path(@bot))
-    else
-      flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
-      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
-    end
+    bot
   end
+
+  # Bots::Signal does not include Accountable — no missed-quote bookkeeping.
+  def prepare_bot_for_save(_bot); end
 end
