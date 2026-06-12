@@ -1,16 +1,5 @@
-class Bots::DcaSingleAssetsController < ApplicationController
-  before_action :authenticate_user!
+class Bots::DcaSingleAssetsController < Bots::Wizard::CreatesController
+  private
 
-  def create
-    bot_config = sanitized_bot_config.deep_symbolize_keys
-    @bot = current_user.bots.dca_single_asset.new(bot_config)
-    @bot.set_missed_quote_amount
-    if @bot.save && @bot.start(start_fresh: true)
-      session[:bot_config] = nil
-      render turbo_stream: turbo_stream_redirect(bot_path(@bot))
-    else
-      flash.now[:alert] = @bot.errors.messages.values.flatten.to_sentence
-      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
-    end
-  end
+  def bot_relation = current_user.bots.dca_single_asset
 end
