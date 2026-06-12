@@ -474,24 +474,12 @@ class Exchanges::Bitget < Exchange
     parsed.is_a?(Hash) ? [parsed['code'], parsed['msg']] : [nil, body]
   end
 
-  def client
-    @client ||= set_client
-  end
-
   def symbol_pair_base(symbol)
     tickers.find_by(ticker: symbol)&.base || symbol
   end
 
   def symbol_pair_quote(symbol)
     tickers.find_by(ticker: symbol)&.quote || symbol
-  end
-
-  def asset_from_symbol(symbol)
-    @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
-      h[t.base] ||= t.base_asset
-      h[t.quote] ||= t.quote_asset
-    end
-    @asset_from_symbol[symbol]
   end
 
   def get_bid_ask_price(ticker)
