@@ -215,4 +215,47 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
 
     assert_predicate result, :failure?
   end
+
+  # == parse_order_status maps Bitget's v2 spot status enum ==
+  # Bitget migrated the spot order status enum: the live /api/v2/spot/trade/orderInfo endpoint
+  # now returns filled / partially_filled where it once returned full_fill / partial_fill. Our
+  # mapping still knew only the superseded terms, so a fully-filled order returned "filled",
+  # which raised RuntimeError("Unknown Bitget order status: filled") and crashed the polling job.
+  # Any future enum change is surfaced loudly by the else-raise rather than mapped speculatively.
+
+  test 'parse_order_status maps the modern v2 enum (filled, partially_filled, live)' do
+    assert_equal :closed, @exchange.send(:parse_order_status, 'filled')
+    assert_equal :open, @exchange.send(:parse_order_status, 'partially_filled')
+    assert_equal :open, @exchange.send(:parse_order_status, 'live')
+  end
+
+  test 'parse_order_status maps pre-orderbook and cancelled states' do
+    assert_equal :unknown, @exchange.send(:parse_order_status, 'init')
+    assert_equal :unknown, @exchange.send(:parse_order_status, 'new')
+    assert_equal :cancelled, @exchange.send(:parse_order_status, 'cancelled')
+  end
+
+  test 'parse_order_status raises on a genuinely unknown status' do
+    error = assert_raises(RuntimeError) { @exchange.send(:parse_order_status, 'something_new') }
+    assert_match(/Unknown Bitget order status: something_new/, error.message)
+  end
+
+  # End-to-end repro of the overnight crash: a filled order polled via get_order must normalize
+  # to :closed instead of raising. This is the exact path Bot::FetchAndUpdateOrderJob /
+  # Bot::FetchAndUpdateOpenOrdersJob take.
+  test 'get_order normalizes a filled order to :closed without raising' do
+    client = @exchange.send(:client)
+    client.define_singleton_method(:get_order) do |order_id:|
+      Result::Success.new(raw: {
+                            'orderId' => order_id, 'symbol' => 'BTCUSDT', 'orderType' => 'market', 'side' => 'buy',
+                            'price' => '0', 'priceAvg' => '62795.5', 'size' => '10', 'quoteSize' => '10',
+                            'baseVolume' => '0.000159', 'quoteVolume' => '9.99', 'status' => 'filled'
+                          })
+    end
+
+    result = with_dry_run(false) { @exchange.get_order(order_id: 'BTCUSDT-abc123') }
+
+    assert_predicate result, :success?
+    assert_equal :closed, result.data[:status]
+  end
 end
