@@ -395,10 +395,6 @@ class Exchanges::Gemini < Exchange
 
   private
 
-  def client
-    @client ||= set_client
-  end
-
   def get_bid_ask_price(ticker)
     cache_key = "exchange_#{id}_bid_ask_price_#{ticker.id}"
     Rails.cache.fetch(cache_key, expires_in: 1.seconds) do

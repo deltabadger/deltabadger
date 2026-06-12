@@ -187,10 +187,6 @@ class Exchanges::Ibkr < Exchange
 
   private
 
-  def client
-    @client ||= set_client
-  end
-
   def account_id
     return @account_id if defined?(@account_id) && @account_id
 

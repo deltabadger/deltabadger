@@ -295,10 +295,6 @@ class Exchanges::Hyperliquid < Exchange
 
   private
 
-  def client
-    @client ||= set_client
-  end
-
   def get_l2_book(ticker)
     cache_key = "exchange_#{id}_l2_book_#{ticker.id}"
     Rails.cache.fetch(cache_key, expires_in: 1.seconds) do

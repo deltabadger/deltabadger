@@ -465,10 +465,6 @@ class Exchanges::Mexc < Exchange
 
   private
 
-  def client
-    @client ||= set_client
-  end
-
   def symbol_pair_base(symbol)
     @exchange_symbols_map&.dig(symbol, :base) || tickers.find_by(ticker: symbol)&.base || symbol
   end

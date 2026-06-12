@@ -509,10 +509,6 @@ class Exchanges::Bybit < Exchange
 
   private
 
-  def client
-    @client ||= set_client
-  end
-
   def symbol_pair_base(symbol)
     tickers.find_by(ticker: symbol)&.base || symbol
   end
