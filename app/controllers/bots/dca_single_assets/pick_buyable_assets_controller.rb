@@ -1,7 +1,4 @@
-class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
-  before_action :authenticate_user!
-
-  include Bots::Searchable
+class Bots::DcaSingleAssets::PickBuyableAssetsController < Bots::Wizard::PickBuyableAssetsController
   include Bots::StockBrokerRoutable
 
   def new
@@ -11,48 +8,37 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
     session[:bot_config] ||= {}
     session[:bot_config]['label'] ||= Bots::DcaSingleAsset.new.label
     prepare_step
-    nil if render_asset_page(bot: @bot, asset_field: :base_asset_id)
-  end
-
-  def create
-    if bot_params[:base_asset_id].present?
-      # Re-picking the first asset means restarting the wizard: drop any
-      # downstream state (exchange, quote, second asset) before storing the new pick.
-      label = session.dig(:bot_config, 'label') || Bots::DcaSingleAsset.new.label
-      session[:bot_config] = { 'label' => label }
-      bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
-      session[:bot_config].deep_merge!({ settings: bot.parse_params(bot_params) }.deep_stringify_keys)
-
-      asset = Asset.find_by(id: bot_params[:base_asset_id])
-      if asset&.category == 'Stock'
-        redirect_after_stock_asset(
-          current_user.bots.dca_single_asset.new(sanitized_bot_config),
-          picker_path: new_bots_dca_single_assets_pick_stock_broker_path,
-          add_api_key_path: new_bots_dca_single_assets_add_api_key_path,
-          repick_path: new_bots_dca_single_assets_pick_buyable_asset_path
-        )
-      else
-        redirect_to new_bots_dca_single_assets_pick_exchange_path
-      end
-    else
-      prepare_step
-      render :new, status: :unprocessable_entity
-    end
+    render_asset_page(bot: @bot, asset_field: :base_asset_id)
   end
 
   private
 
-  # View state the :new template needs — shared by `new` and `create`'s 422 re-render.
-  def prepare_step
-    @bot = current_user.bots.dca_single_asset.new(sanitized_bot_config)
-    # Clear any previously-picked base in memory so the list isn't filtered against it —
-    # coming back to step 1 should show the full set, including the current pick.
-    @bot.base_asset_id = nil
-    @assets = asset_search_results(@bot, search_params[:query], :base_asset)
+  def bot_relation = current_user.bots.dca_single_asset
+  def asset_id_param = :base_asset_id
+
+  def clear_picked_asset(bot)
+    bot.base_asset_id = nil
   end
 
-  def search_params
-    params.permit(:query)
+  # Re-picking the first asset means restarting the wizard: drop any
+  # downstream state (exchange, quote, second asset) before storing the new pick.
+  def prepare_session_for_pick
+    label = session.dig(:bot_config, 'label') || Bots::DcaSingleAsset.new.label
+    session[:bot_config] = { 'label' => label }
+  end
+
+  def redirect_after_asset_picked
+    asset = Asset.find_by(id: bot_params[:base_asset_id])
+    if asset&.category == 'Stock'
+      redirect_after_stock_asset(
+        build_bot,
+        picker_path: new_bots_dca_single_assets_pick_stock_broker_path,
+        add_api_key_path: new_bots_dca_single_assets_add_api_key_path,
+        repick_path: new_bots_dca_single_assets_pick_buyable_asset_path
+      )
+    else
+      redirect_to new_bots_dca_single_assets_pick_exchange_path
+    end
   end
 
   def bot_params

@@ -7,6 +7,7 @@ class Bots::Wizard::PickExchangesController < ApplicationController
   before_action :redirect_if_session_expired, only: :create
 
   include Bots::Searchable
+  include Bots::WizardSessionGuard
 
   def new
     @bot = build_bot
@@ -45,10 +46,6 @@ class Bots::Wizard::PickExchangesController < ApplicationController
     @bot = build_bot
     @bot.exchange_id = nil
     @exchanges = exchange_search_results(@bot, search_params[:query])
-  end
-
-  def redirect_if_session_expired
-    render turbo_stream: turbo_stream_redirect(root_path) if session[:bot_config].blank?
   end
 
   def search_params
