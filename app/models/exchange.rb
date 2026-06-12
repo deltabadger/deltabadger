@@ -264,6 +264,10 @@ class Exchange < ApplicationRecord
 
   private
 
+  def client
+    @client ||= set_client
+  end
+
   def asset_from_symbol(symbol)
     @asset_from_symbol ||= tickers.available.includes(:base_asset, :quote_asset).each_with_object({}) do |t, h|
       h[t.base] ||= t.base_asset

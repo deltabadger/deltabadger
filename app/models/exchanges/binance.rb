@@ -604,10 +604,6 @@ class Exchanges::Binance < Exchange
 
   private
 
-  def client
-    @client ||= set_client
-  end
-
   def normalize_trade(trade, symbol)
     base_asset_symbol = symbol_pair_base(symbol)
     quote_asset_symbol = symbol_pair_quote(symbol)

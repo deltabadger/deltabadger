@@ -330,10 +330,6 @@ class Exchanges::Alpaca < Exchange
 
   private
 
-  def client
-    @client ||= set_client
-  end
-
   # Market data (data.alpaca.markets) requires auth but is read-only and host-separate
   # from trading. Build a throwaway client so these reads never mutate @client/@api_key —
   # account ops depend on those being the caller-set key. Prefer an explicitly-set key

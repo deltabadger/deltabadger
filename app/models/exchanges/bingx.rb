@@ -451,10 +451,6 @@ class Exchanges::Bingx < Exchange
     end
   end
 
-  def client
-    @client ||= set_client
-  end
-
   def parse_error_message(result)
     return unless result.errors.first.present?
 

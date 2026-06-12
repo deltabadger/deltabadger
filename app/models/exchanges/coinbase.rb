@@ -540,10 +540,6 @@ class Exchanges::Coinbase < Exchange
     end
   end
 
-  def client
-    @client ||= set_client
-  end
-
   def get_portfolio_uuid
     @get_portfolio_uuid ||= begin
       result = client.get_api_key_permissions

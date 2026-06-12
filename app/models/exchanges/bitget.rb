@@ -474,10 +474,6 @@ class Exchanges::Bitget < Exchange
     parsed.is_a?(Hash) ? [parsed['code'], parsed['msg']] : [nil, body]
   end
 
-  def client
-    @client ||= set_client
-  end
-
   def symbol_pair_base(symbol)
     tickers.find_by(ticker: symbol)&.base || symbol
   end

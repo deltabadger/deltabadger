@@ -564,10 +564,6 @@ class Exchanges::Kraken < Exchange
     entry&.dig(:key)
   end
 
-  def client
-    @client ||= set_client
-  end
-
   # Kraken API returns fee as either a string ("0.00015") or a hash
   # ({"aclass" => "currency", "asset" => "XETH", "fee" => "0.00014"}).
   def extract_fee(fee)
