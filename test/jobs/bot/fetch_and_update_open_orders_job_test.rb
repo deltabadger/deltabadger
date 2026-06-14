@@ -61,9 +61,12 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
   end
 
   # == stale-order handling on the bulk path ==
-  # When Kraken silently drops an aged-out order ID, it now arrives in
-  # result.data[:missing]. The job hands each one to Bot::StaleOrderResolver:
-  # old → :abandoned + activity log; young → :too_young (no mutation).
+  # When an exchange drops an order ID, it arrives in result.data[:missing]. The job hands
+  # each to Bot::StaleOrderResolver: old → :abandoned + activity log; young → :too_young.
+  # A young :too_young then raises ONLY for exchanges where get_orders is NOT authoritative
+  # (Exchange#authoritative_missing_orders? == false, the default — no fill-recovery fallback).
+  # For Kraken (authoritative: QueryOrders + TradesHistory) a young missing-from-both is a
+  # confirmed never-executed order, so the job does NOT raise/wedge (Decision #1, tests below).
 
   test 'marks old missing orders :abandoned and logs order_abandoned in one bulk invocation' do
     bot = create(:dca_single_asset, :started)
@@ -92,10 +95,10 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
     assert_equal 'stale', log.details['order_id']
   end
 
-  test 'still raises loudly when a young missing ID appears in the bulk batch' do
-    # Symmetry with FetchAndUpdateOrderJob: a fresh order that the exchange
-    # silently drops is almost certainly a real bug (wrong key, subaccount
-    # mismatch), not retention drift. Surface it instead of no-opping.
+  test 'still raises loudly for a young missing ID on a NON-authoritative exchange' do
+    # On an exchange without a fill-recovery fallback, a fresh order the exchange silently
+    # drops is probably a real bug (wrong key, subaccount mismatch) — surface it. (The default
+    # factory exchange is non-authoritative; Kraken is handled separately below.)
     bot = create(:dca_single_asset, :started)
     young_missing = create(:transaction, bot: bot, status: :submitted, external_status: :unknown,
                                          external_id: 'young_missing', created_at: 1.day.ago)
@@ -137,6 +140,33 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
     assert_equal 'closed', fresh.reload.external_status, 'fresh confirmation must land before the raise'
     assert_equal 'abandoned', stale.reload.external_status, 'old missing must be abandoned before the raise'
     assert_equal 'unknown', young_missing.reload.external_status
+  end
+
+  # == Decision #1: authoritative exchange (Kraken) does NOT wedge on young missing-from-both ==
+
+  test 'does NOT raise/wedge for a young missing-from-both order on an authoritative exchange' do
+    # Kraken's get_orders consults QueryOrders + TradesHistory, so a still-missing order is
+    # confirmed never-executed. Limit DCA self-heals via missed_quote_amount — operator log only.
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    young = create(:transaction, bot: bot, status: :submitted, external_status: :open,
+                                 external_id: 'young_kraken', created_at: 1.hour.ago)
+    bot.stubs(:get_orders).returns(Result::Success.new(orders: {}, missing: %w[young_kraken]))
+
+    assert_nothing_raised { Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot) }
+    assert_equal 'open', young.reload.external_status # left waiting; ages out to :abandoned at 14d
+  end
+
+  test 'abandons a >14d missing order on an authoritative exchange (unchanged)' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    old = create(:transaction, bot: bot, status: :submitted, external_status: :open,
+                               external_id: 'old_kraken',
+                               created_at: (Bot::StaleOrderResolver::STALE_ORDER_THRESHOLD + 1.day).ago)
+    bot.stubs(:get_orders).returns(Result::Success.new(orders: {}, missing: %w[old_kraken]))
+
+    assert_difference -> { bot.bot_activity_logs.where(event: 'order_abandoned').count }, 1 do
+      Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot)
+    end
+    assert_equal 'abandoned', old.reload.external_status
   end
 
   # == transient Kraken errors (HTTP 200 + error array) ==

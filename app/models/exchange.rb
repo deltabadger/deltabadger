@@ -141,6 +141,13 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement get_orders"
   end
 
+  # True only for exchanges whose get_orders exhausts every fill source (e.g. Kraken:
+  # QueryOrders + TradesHistory). When false, a missing order might be an undetected fill,
+  # so Bot::FetchAndUpdateOpenOrdersJob keeps raising loudly instead of silently proceeding.
+  def authoritative_missing_orders?
+    false
+  end
+
   def cancel_order(order_id:)
     raise NotImplementedError, "#{self.class.name} must implement cancel_order"
   end

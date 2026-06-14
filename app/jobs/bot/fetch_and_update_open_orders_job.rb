@@ -54,7 +54,19 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
       end
     end
 
-    raise "Exchange omitted recent order(s): #{young_missing_ids.to_sentence}" if young_missing_ids.any?
+    if young_missing_ids.any?
+      # Decision #1: a non-authoritative exchange (no fill-recovery fallback) might be hiding an
+      # undetected fill, so keep the loud guard. For an authoritative exchange (Kraken: QueryOrders
+      # + TradesHistory) a still-missing order is confirmed never-executed — limit DCA self-heals
+      # via missed_quote_amount, so DON'T wedge the bot or alarm the user; operator log only
+      # (a SPIKE here is the real signal: regression / key problem).
+      raise "Exchange omitted recent order(s): #{young_missing_ids.to_sentence}" unless bot.exchange.authoritative_missing_orders?
+
+      Rails.logger.warn(
+        "[orders-missing-from-source] bot_id=#{bot.id} exchange=#{bot.exchange.name_id} " \
+        "order_ids=#{young_missing_ids.join(',')}"
+      )
+    end
   rescue StandardError => e
     if success_or_kill
       Rails.logger.warn(
