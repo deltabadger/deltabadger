@@ -5,6 +5,12 @@
 /config/credentials/*.key
 /config/credentials.yml.enc
 
+# Customer data / internal planning docs — MUST NOT be committed to this public repo.
+# (Removed from history 2026-06-14 after a PII leak; keep them out for good.)
+/not_migrated_optin.csv
+/migrated_legacy_accounts.txt
+/docs/superpowers/plans/
+
 # Database
 
 *.sqlite3
