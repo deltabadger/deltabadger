@@ -323,9 +323,16 @@ class Exchanges::Kraken < Exchange
 
     order_data = result.data[order_id]
     if order_data.nil?
-      # Kraken returned 200 OK but omitted the requested txid — the order has
-      # aged out of QueryOrders retention. Flag it so callers can stop polling
-      # instead of treating this as a transient failure.
+      # QueryOrders omitted the txid — Kraken drops terminal orders within hours, not the
+      # 14d we used to assume. Try TradesHistory before declaring it not-found. recover_…
+      # returns a Result: propagate a transient/throttle failure (so FetchAndUpdateOrderJob
+      # retries) rather than mis-reporting not_found.
+      recovery = recover_missing_from_trades([order_id])
+      return recovery if recovery.failure?
+
+      recovered = recovery.data[order_id]
+      return Result::Success.new(recovered) if recovered
+
       return Result::Failure.new(
         "Kraken did not return data for order #{order_id}",
         data: { not_found: true, missing_ids: [order_id] }
@@ -354,7 +361,31 @@ class Exchanges::Kraken < Exchange
       end
     end
 
+    # Kraken's QueryOrders drops terminal orders within HOURS, so a "missing" id is
+    # usually a real fill we'd otherwise lose (and wrongly raise/abandon on). Recover
+    # executed orders from TradesHistory before returning. Only orders absent from BOTH
+    # endpoints stay missing → handled by StaleOrderResolver as never-executed.
+    if missing.any?
+      recovery = recover_missing_from_trades(missing)
+      # Propagate a TradesHistory failure rather than swallowing it: a transient/throttle
+      # blip here must funnel through the job's typed-error retry, NOT degrade to a misleading
+      # "Exchange omitted recent order(s)" hard raise.
+      return recovery if recovery.failure?
+
+      recovered = recovery.data
+      # Operator observability: watch the bug's prevalence + confirm the fix in prod.
+      Rails.logger.info("[kraken-reconcile] recovered #{recovered.size} fill(s) via TradesHistory: #{recovered.keys.join(',')}") if recovered.any?
+      orders.merge!(recovered)
+      missing -= recovered.keys
+    end
+
     Result::Success.new(orders: orders, missing: missing)
+  end
+
+  # get_orders consults BOTH QueryOrders and TradesHistory, so a still-missing order is
+  # confirmed never-executed → Bot::FetchAndUpdateOpenOrdersJob may stop wedging on it.
+  def authoritative_missing_orders?
+    true
   end
 
   def cancel_order(order_id:)
@@ -694,6 +725,46 @@ class Exchanges::Kraken < Exchange
     }
 
     Result::Success.new(data)
+  end
+
+  # honeymaker returns order_type as :limit/:market; the Transaction enum is
+  # :limit_order/:market_order, so it must be mapped before update_with_order_data.
+  TRADE_ORDER_TYPE = { limit: :limit_order, market: :market_order }.freeze
+
+  # Look up QueryOrders-missing ids in TradesHistory (authoritative for fills). Bound the
+  # lookback by the oldest missing order's creation time MINUS a buffer: a trade can be
+  # stamped slightly before our row's created_at (immediate fill / clock skew) and Kraken's
+  # `start` is an inclusive lower time bound, so too tight a bound would miss the fill.
+  # Returns a Result — a failure is PROPAGATED by the caller into the job's typed-error retry,
+  # never swallowed (so a transient/throttle blip retries instead of hard-raising).
+  def recover_missing_from_trades(missing_ids)
+    since = transactions.where(external_id: missing_ids).minimum(:created_at)
+    start = since ? (since - 1.hour).to_i : nil
+    result = client.closed_orders_from_trades(order_ids: missing_ids, start: start)
+    return result if result.failure?
+
+    Result::Success.new(result.data.transform_values { |aggregate| order_data_from_trade_aggregate(aggregate) })
+  end
+
+  # Map honeymaker's per-order trade aggregate into the same shape parse_order_data returns,
+  # so update_with_order_data records it like any other order. ticker is best-effort: the
+  # existing transaction already carries base/quote, and update_with_order_data only uses
+  # ticker as a fallback for those.
+  def order_data_from_trade_aggregate(aggregate)
+    {
+      order_id: aggregate[:order_id],
+      ticker: tickers.find_by(ticker: aggregate[:pair]),
+      price: aggregate[:price],
+      amount: nil,
+      quote_amount: nil,
+      amount_exec: aggregate[:amount_exec],
+      quote_amount_exec: aggregate[:quote_amount_exec],
+      side: aggregate[:side],
+      order_type: TRADE_ORDER_TYPE[aggregate[:order_type]],
+      error_messages: [],
+      status: :closed,
+      exchange_response: aggregate[:raw]
+    }
   end
 
   def parse_order_data(order_id, order_data)

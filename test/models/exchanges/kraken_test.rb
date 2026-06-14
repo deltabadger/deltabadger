@@ -15,6 +15,15 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     { 'error' => [], 'result' => { 'XBTUSDT' => info } }
   end
 
+  # A waiting Kraken transaction owned by @exchange (recover_missing_from_trades reads
+  # @exchange.transactions). The :started bot provisions the ticker/assets on @exchange so
+  # the transaction's broadcast_new_order callback can resolve decimals.
+  def waiting_kraken_tx(external_id, **attrs)
+    bot = create(:dca_single_asset, :started, exchange: @exchange)
+    create(:transaction, bot: bot, external_id: external_id,
+                         status: :submitted, external_status: :open, **attrs)
+  end
+
   test 'get_tickers_info marks an online pair available and trading_enabled' do
     @exchange.set_client
     @exchange.send(:client).stubs(:get_tradable_asset_pairs).returns(Result::Success.new(kraken_pairs(status: 'online')))
@@ -204,6 +213,8 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     # aged out of QueryOrders retention. Surface this distinctly so callers can
     # stop polling instead of retrying forever.
     @exchange.send(:client).stubs(:query_orders_info).returns(Result::Success.new({}))
+    # No fill in TradesHistory either → genuinely not_found.
+    @exchange.send(:client).stubs(:closed_orders_from_trades).returns(Result::Success.new({}))
 
     result = @exchange.get_order(order_id: 'TXID-STALE')
 
@@ -222,12 +233,99 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     @exchange.send(:client).stubs(:query_orders_info).returns(
       Result::Success.new('TXID-A' => { raw: kraken_order_raw('XBTUSD', 'closed'), status: :closed })
     )
+    # No fill in TradesHistory for TXID-STALE → it stays missing.
+    @exchange.send(:client).stubs(:closed_orders_from_trades).returns(Result::Success.new({}))
 
     result = @exchange.get_orders(order_ids: %w[TXID-A TXID-STALE])
 
     assert result.success?
     assert_equal %w[TXID-A], result.data[:orders].keys
     assert_equal %w[TXID-STALE], result.data[:missing]
+  end
+
+  test 'authoritative_missing_orders? is true for Kraken (QueryOrders + TradesHistory)' do
+    assert @exchange.authoritative_missing_orders?
+  end
+
+  test 'get_orders recovers a QueryOrders-missing order from TradesHistory as closed' do
+    tx = waiting_kraken_tx('ODROP', base: 'BTC', quote: 'USD')
+    @exchange.set_client
+    client = @exchange.send(:client)
+    client.stubs(:query_orders_info).returns(Result::Success.new({}))        # QueryOrders omits it
+    client.expects(:closed_orders_from_trades)
+          .with(order_ids: ['ODROP'], start: (tx.created_at - 1.hour).to_i)  # buffered bound
+          .returns(Result::Success.new('ODROP' => {
+                                         order_id: 'ODROP', status: :closed, side: :buy, order_type: :limit,
+                                         price: BigDecimal('60000'), amount: nil, quote_amount: nil,
+                                         amount_exec: BigDecimal('0.0005'), quote_amount_exec: BigDecimal('30'),
+                                         fee: BigDecimal('0.05'), pair: 'XBTUSD', trade_count: 1,
+                                         last_trade_at: 1.0, raw: { 'trades' => [] }
+                                       }))
+
+    result = @exchange.get_orders(order_ids: ['ODROP'])
+    assert result.success?
+    assert_empty result.data[:missing]
+    recovered = result.data[:orders]['ODROP']
+    assert_equal :closed, recovered[:status]
+    assert_equal :limit_order, recovered[:order_type] # mapped from :limit
+    assert_equal BigDecimal('30'), recovered[:quote_amount_exec]
+  end
+
+  test 'get_orders leaves an order missing when TradesHistory has no trades for it' do
+    waiting_kraken_tx('OGONE')
+    @exchange.set_client
+    client = @exchange.send(:client)
+    client.stubs(:query_orders_info).returns(Result::Success.new({}))
+    client.stubs(:closed_orders_from_trades).returns(Result::Success.new({}))
+
+    result = @exchange.get_orders(order_ids: ['OGONE'])
+    assert_includes result.data[:missing], 'OGONE'
+    assert_empty result.data[:orders]
+  end
+
+  test 'get_orders propagates a transient TradesHistory failure so the job can retry' do
+    waiting_kraken_tx('OERR')
+    @exchange.set_client
+    client = @exchange.send(:client)
+    client.stubs(:query_orders_info).returns(Result::Success.new({}))
+    client.stubs(:closed_orders_from_trades).returns(Result::Failure.new('EService:Unavailable'))
+
+    result = @exchange.get_orders(order_ids: ['OERR'])
+    assert result.failure? # propagated, NOT swallowed → job funnels to typed retry
+    assert_includes result.errors, 'EService:Unavailable'
+  end
+
+  test 'get_order recovers a QueryOrders-missing single order from TradesHistory' do
+    tx = waiting_kraken_tx('OSOLO')
+    @exchange.set_client
+    client = @exchange.send(:client)
+    client.stubs(:query_orders_info).returns(Result::Success.new({}))
+    client.expects(:closed_orders_from_trades)
+          .with(order_ids: ['OSOLO'], start: (tx.created_at - 1.hour).to_i)
+          .returns(Result::Success.new('OSOLO' => {
+                                         order_id: 'OSOLO', status: :closed, side: :buy, order_type: :limit,
+                                         price: BigDecimal('60000'), amount: nil, quote_amount: nil,
+                                         amount_exec: BigDecimal('0.0005'), quote_amount_exec: BigDecimal('30'),
+                                         fee: BigDecimal('0.05'), pair: 'XBTUSD', trade_count: 1, last_trade_at: 1.0,
+                                         raw: { 'trades' => [] }
+                                       }))
+
+    result = @exchange.get_order(order_id: 'OSOLO')
+    assert result.success?
+    assert_equal :closed, result.data[:status]
+    assert_equal :limit_order, result.data[:order_type] # mapped, not :limit
+  end
+
+  test 'get_order propagates a transient TradesHistory failure' do
+    waiting_kraken_tx('OSOLO2')
+    @exchange.set_client
+    client = @exchange.send(:client)
+    client.stubs(:query_orders_info).returns(Result::Success.new({}))
+    client.stubs(:closed_orders_from_trades).returns(Result::Failure.new('EService:Unavailable'))
+
+    result = @exchange.get_order(order_id: 'OSOLO2')
+    assert result.failure?
+    assert_includes result.errors, 'EService:Unavailable'
   end
 
   # == transient_error? classification ==
