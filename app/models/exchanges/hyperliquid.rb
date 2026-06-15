@@ -5,6 +5,11 @@ class Exchanges::Hyperliquid < Exchange
     invalid_key: ['Invalid API key', 'Authentication failed', 'Invalid signature']
   }.freeze
 
+  # Hyperliquid price rule: at most SIGNIFICANT_FIGURES significant figures and,
+  # for spot, at most (SPOT_MAX_DECIMALS - szDecimals) decimal places.
+  SIGNIFICANT_FIGURES = 5
+  SPOT_MAX_DECIMALS   = 8
+
   include Exchange::Dryable
 
   attr_reader :api_key
@@ -218,6 +223,22 @@ class Exchanges::Hyperliquid < Exchange
       side: :sell,
       price:
     )
+  end
+
+  # Hyperliquid rejects prices that aren't on tick size: at most 5 significant
+  # figures and, for spot, at most (8 - szDecimals) decimal places. We translate
+  # the significant-figure rule into a decimal-place count so floor/ceil/round
+  # semantics are preserved (a buy limit set below market must never round up).
+  # BigDecimal#exponent gives the power-of-ten magnitude exactly: 66.6 => 2,
+  # 3.5 => 1, 0.0234 => -1. szDecimals is stored on the ticker as base_decimals.
+  def adjusted_price(ticker:, price:, method: :floor)
+    price = price.to_d
+    return price if price.zero?
+
+    max_decimals = SPOT_MAX_DECIMALS - ticker.base_decimals.to_i
+    sig_decimals = SIGNIFICANT_FIGURES - price.exponent
+    decimals     = sig_decimals.clamp(0, max_decimals) # >=10k clamps to 0 dp; integers are always valid
+    price.public_send(method, decimals).to_d           # to_d: floor/ceil/round(0) returns an Integer
   end
 
   def get_order(order_id:)

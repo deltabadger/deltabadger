@@ -86,7 +86,7 @@ class Ticker < ApplicationRecord
   end
 
   def adjusted_price(price:, method: :floor)
-    price.send(method, price_decimals)
+    exchange.adjusted_price(ticker: self, price:, method:)
   end
 
   private
