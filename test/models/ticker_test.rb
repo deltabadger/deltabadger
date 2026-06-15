@@ -138,4 +138,16 @@ class TickerTest < ActiveSupport::TestCase
 
     assert_not @ticker.priced?(:last)
   end
+
+  # == #adjusted_price : delegates to the exchange; default = fixed decimal places ==
+
+  test 'adjusted_price floors to price_decimals for a non-Hyperliquid exchange' do
+    @ticker.update!(price_decimals: 2)
+    assert_equal BigDecimal('100.12'), @ticker.adjusted_price(price: BigDecimal('100.12999'))
+  end
+
+  test 'adjusted_price honors the :round method for a non-Hyperliquid exchange' do
+    @ticker.update!(price_decimals: 2)
+    assert_equal BigDecimal('100.13'), @ticker.adjusted_price(price: BigDecimal('100.12999'), method: :round)
+  end
 end

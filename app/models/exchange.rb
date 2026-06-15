@@ -133,6 +133,13 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement limit_sell"
   end
 
+  # Format a price to the exchange's tick rule before it is sent to the API.
+  # Default: fixed decimal places. Exchanges with significant-figure tick rules
+  # (e.g. Hyperliquid) override this.
+  def adjusted_price(ticker:, price:, method: :floor)
+    price.public_send(method, ticker.price_decimals)
+  end
+
   def get_order(order_id:)
     raise NotImplementedError, "#{self.class.name} must implement get_order"
   end

@@ -202,4 +202,106 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert_kind_of Numeric, captured[:size]
     assert_kind_of Numeric, captured[:limit_px]
   end
+
+  # == adjusted_price: Hyperliquid tick size (<=5 significant figures, <= 8 - szDecimals decimals) ==
+
+  test 'adjusted_price floors a >$10 price to 5 significant figures (HYPE regression)' do
+    ticker = hyperliquid_ticker(base_decimals: 2)
+    input = BigDecimal('66.60455877')
+    price = ticker.adjusted_price(price: input)
+
+    assert_equal BigDecimal('66.604'), price
+    assert price <= input, 'a buy limit must not be rounded up past the requested price'
+    assert_operator significant_figures(price), :<=, 5
+  end
+
+  test 'adjusted_price floors a mid-range price to 5 significant figures' do
+    ticker = hyperliquid_ticker(base_decimals: 1)
+    price = ticker.adjusted_price(price: BigDecimal('3.50882766'))
+
+    assert_equal BigDecimal('3.5088'), price
+    assert_operator significant_figures(price), :<=, 5
+  end
+
+  test 'adjusted_price keeps a sub-$1 price at 5 significant figures' do
+    ticker = hyperliquid_ticker(base_decimals: 0)
+    price = ticker.adjusted_price(price: BigDecimal('0.451865682'))
+
+    assert_equal BigDecimal('0.45186'), price
+    assert_operator significant_figures(price), :<=, 5
+  end
+
+  test 'adjusted_price respects the 8 - szDecimals decimal cap for tiny prices' do
+    ticker = hyperliquid_ticker(base_decimals: 0)
+    price = ticker.adjusted_price(price: BigDecimal('0.0233952813'))
+
+    assert_equal BigDecimal('0.023395'), price
+    assert_operator significant_figures(price), :<=, 5
+    assert_operator price.to_s('F').split('.').last.length, :<=, 8
+  end
+
+  test 'adjusted_price floors a >=$10k price to a valid integer price' do
+    ticker = hyperliquid_ticker(base_decimals: 2)
+    price = ticker.adjusted_price(price: BigDecimal('123456.78'))
+
+    assert_equal BigDecimal('123456'), price
+    assert_kind_of BigDecimal, price # integers are always valid on Hyperliquid
+  end
+
+  test 'adjusted_price with :ceil never returns below the requested price' do
+    ticker = hyperliquid_ticker(base_decimals: 2)
+    input = BigDecimal('66.60455877')
+    price = ticker.adjusted_price(price: input, method: :ceil)
+
+    assert_equal BigDecimal('66.605'), price
+    assert_operator price, :>=, input
+  end
+
+  test 'adjusted_price handles magnitude rollover at the 5-sig-fig boundary' do
+    ticker = hyperliquid_ticker(base_decimals: 2)
+    price = ticker.adjusted_price(price: BigDecimal('9999.999'), method: :round)
+
+    assert_equal BigDecimal('10000'), price
+  end
+
+  test 'adjusted_price returns zero unchanged' do
+    ticker = hyperliquid_ticker(base_decimals: 2)
+    assert_equal BigDecimal('0'), ticker.adjusted_price(price: BigDecimal('0'))
+  end
+
+  test 'limit_buy sends a tick-size-valid price to the exchange (<=5 sig figs)' do
+    @exchange.set_client
+    client = @exchange.send(:client)
+    ticker = hyperliquid_ticker(base_decimals: 2)
+
+    captured = {}
+    client.define_singleton_method(:order) do |**kwargs|
+      captured.merge!(kwargs)
+      Result::Success.new('status' => 'ok',
+                          'response' => { 'data' => { 'statuses' => [{ 'resting' => { 'oid' => 123 } }] } })
+    end
+
+    @exchange.stubs(:dry_run?).returns(false)
+    result = @exchange.limit_buy(ticker: ticker, amount: BigDecimal('0.15'),
+                                 amount_type: :base, price: BigDecimal('66.60455877'))
+
+    assert result.success?, "expected success, got #{result.inspect}"
+    assert_equal BigDecimal('66.604'), captured[:limit_px].to_d
+    assert_operator significant_figures(captured[:limit_px]), :<=, 5
+  end
+
+  private
+
+  def hyperliquid_ticker(base_decimals:)
+    usdc = create(:asset, external_id: 'usdc', symbol: 'USDC', name: 'USDC')
+    hype = create(:asset, external_id: 'hype', symbol: 'HYPE', name: 'Hype')
+    create(:ticker, exchange: @exchange, base_asset: hype, quote_asset: usdc,
+                    ticker: 'HYPE/USDC', base: 'HYPE', quote: 'USDC',
+                    base_decimals: base_decimals, price_decimals: 5)
+  end
+
+  def significant_figures(value)
+    digits = value.to_d.abs.to_s('F').delete('.').sub(/^0+/, '').sub(/0+$/, '')
+    [digits.length, 1].max
+  end
 end
