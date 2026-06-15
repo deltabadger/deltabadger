@@ -290,7 +290,81 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert_operator significant_figures(captured[:limit_px]), :<=, 5
   end
 
+  # == set_limit_order: amount_type conversion (Hyperliquid's order API takes size in base units) ==
+
+  test 'limit_buy converts a quote amount to base size before ordering' do
+    @exchange.set_client
+    client = @exchange.send(:client)
+    ticker = hyperliquid_ticker(base_decimals: 4)
+
+    captured = capture_order(client)
+    @exchange.stubs(:dry_run?).returns(false)
+
+    # Buy 10 USDC worth at a 50 limit => 0.2 HYPE of size, not 10.
+    result = @exchange.limit_buy(ticker: ticker, amount: BigDecimal('10'),
+                                 amount_type: :quote, price: BigDecimal('50'))
+
+    assert result.success?, "expected success, got #{result.inspect}"
+    assert_equal BigDecimal('0.2'), captured[:size].to_d
+    assert_equal BigDecimal('50'), captured[:limit_px].to_d
+  end
+
+  test 'limit_sell converts a quote amount to base size before ordering' do
+    @exchange.set_client
+    client = @exchange.send(:client)
+    ticker = hyperliquid_ticker(base_decimals: 4)
+
+    captured = capture_order(client)
+    @exchange.stubs(:dry_run?).returns(false)
+
+    result = @exchange.limit_sell(ticker: ticker, amount: BigDecimal('10'),
+                                  amount_type: :quote, price: BigDecimal('50'))
+
+    assert result.success?, "expected success, got #{result.inspect}"
+    assert_equal BigDecimal('0.2'), captured[:size].to_d
+  end
+
+  test 'limit_buy sends a base amount as size unchanged' do
+    @exchange.set_client
+    client = @exchange.send(:client)
+    ticker = hyperliquid_ticker(base_decimals: 4)
+
+    captured = capture_order(client)
+    @exchange.stubs(:dry_run?).returns(false)
+
+    result = @exchange.limit_buy(ticker: ticker, amount: BigDecimal('0.15'),
+                                 amount_type: :base, price: BigDecimal('50'))
+
+    assert result.success?, "expected success, got #{result.inspect}"
+    assert_equal BigDecimal('0.15'), captured[:size].to_d
+  end
+
+  test 'set_limit_order fails gracefully when the adjusted price is not positive' do
+    @exchange.set_client
+    client = @exchange.send(:client)
+    ticker = hyperliquid_ticker(base_decimals: 4)
+
+    client.define_singleton_method(:order) { |**_kwargs| raise 'order should not be called' }
+    @exchange.stubs(:dry_run?).returns(false)
+
+    result = @exchange.limit_buy(ticker: ticker, amount: BigDecimal('10'),
+                                 amount_type: :quote, price: BigDecimal('0'))
+
+    assert result.failure?
+    assert_match(/price/i, result.errors.join)
+  end
+
   private
+
+  def capture_order(client)
+    captured = {}
+    client.define_singleton_method(:order) do |**kwargs|
+      captured.merge!(kwargs)
+      Result::Success.new('status' => 'ok',
+                          'response' => { 'data' => { 'statuses' => [{ 'resting' => { 'oid' => 123 } }] } })
+    end
+    captured
+  end
 
   def hyperliquid_ticker(base_decimals:)
     usdc = create(:asset, external_id: 'usdc', symbol: 'USDC', name: 'USDC')
