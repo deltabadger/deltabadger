@@ -353,11 +353,17 @@ class Exchanges::Hyperliquid < Exchange
   def set_limit_order(ticker:, amount:, amount_type:, side:, price:)
     amount = ticker.adjusted_amount(amount:, amount_type:)
     price = ticker.adjusted_price(price:)
+    return Result::Failure.new('Hyperliquid order failed: limit price must be positive') unless price.positive?
+
+    # Hyperliquid's order API takes size in BASE units, so a quote amount must be
+    # converted at the limit price (mirrors Exchanges::Alpaca#set_limit_order).
+    size = amount_type == :quote ? (amount.to_d / price.to_d) : amount.to_d
+    size = ticker.adjusted_amount(amount: size, amount_type: :base)
 
     result = client.order(
       coin: ticker.ticker,
       is_buy: side == :buy,
-      size: amount.to_d,
+      size: size.to_d,
       limit_px: price.to_d
     )
     return result if result.failure?
