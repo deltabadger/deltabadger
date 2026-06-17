@@ -250,7 +250,7 @@ GEM
       haml (>= 4.0.6)
       railties (>= 5.1)
     hashdiff (1.2.1)
-    honeymaker (0.9.9)
+    honeymaker (0.9.10)
       bigdecimal
       faraday (~> 2.0)
       faraday-net_http_persistent (~> 2.0)
@@ -733,7 +733,7 @@ CHECKSUMS
   haml (7.2.0) sha256=87fd2b71f7feab1724337b090a7d767f5ab2d42f08c974f3ead673f18cfcd55a
   haml-rails (3.0.0) sha256=091fe496a85ca521d9cac87fb50f1ecf77a57974a99aa7e267130add81a5585f
   hashdiff (1.2.1) sha256=9c079dbc513dfc8833ab59c0c2d8f230fa28499cc5efb4b8dd276cf931457cd1
-  honeymaker (0.9.9) sha256=08ff7bca64256f2aeff714ce8b6b704494a5d035a05795ebd981ff2e5769ea1b
+  honeymaker (0.9.10) sha256=8b1879b912491d395ef9e40bed852e7a60be74826139a00e9fcb5f9cb5f8fe06
   http-2 (1.2.0) sha256=5bed923379ae67895d3bde440502219543da2885104b46ed7d604f5990efad1c
   httpx (1.8.0) sha256=10b300875be99cbc3497397278cf99632262567886f3582ee25ce492bdadbe2a
   hyperliquid-rb (0.1.1) sha256=0b02b2a17bf1eb431c76804b43d3492397dd4ff8cd308df39ecaf3459cd53087
