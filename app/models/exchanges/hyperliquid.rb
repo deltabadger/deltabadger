@@ -54,7 +54,8 @@ class Exchanges::Hyperliquid < Exchange
           base: base_token['name'],
           quote: quote_token['name'],
           minimum_base_size: 0,
-          minimum_quote_size: 0,
+          minimum_quote_size: 10, # Hyperliquid hard spot floor: orders below 10 USDC are rejected
+
           maximum_base_size: nil,
           maximum_quote_size: nil,
           base_decimals: base_token['szDecimals'] || 0,
@@ -244,22 +245,46 @@ class Exchanges::Hyperliquid < Exchange
   def get_order(order_id:)
     _coin, oid = parse_order_id(order_id)
     result = client.order_status(user: api_key&.key, oid: oid.to_i)
-    return result if result.failure?
 
-    normalized_order_data = parse_order_data(order_id, result.data[:raw])
-    Result::Success.new(normalized_order_data)
+    if result.failure?
+      # honeymaker now centralizes parsing; a not_found is the distinct unknownOid signal. Aged-out
+      # filled orders are normal on Hyperliquid → recover the fill BEFORE declaring not-found (mirrors
+      # Kraken). A non-not_found failure (transient/throttle) is propagated so the job retries.
+      return result unless result.data.is_a?(Hash) && result.data[:not_found]
+
+      return recover_order_from_fills(order_id)
+    end
+
+    Result::Success.new(build_order_data(order_id, result.data))
   end
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # not_found (incl. unknownOid with no recoverable fill) → collect under :missing for the
+        # open-orders sweep; anything else (transient/throttle) → abort the batch so the job retries.
+        if result.data.is_a?(Hash) && result.data[:not_found]
+          missing << order_id
+          next
+        end
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
+  end
+
+  # userFills exhausts Hyperliquid's fill history, so a still-missing order is confirmed
+  # never-executed → Bot::FetchAndUpdateOpenOrdersJob may stop wedging on young missing ids
+  # (limit DCA self-heals via missed_quote_amount). Same contract as Kraken.
+  def authoritative_missing_orders?
+    true
   end
 
   def cancel_order(order_id:)
@@ -387,52 +412,91 @@ class Exchanges::Hyperliquid < Exchange
     Result::Success.new(data)
   end
 
-  def parse_order_data(order_id, data)
-    order = data['order'] || {}
-    status_str = data['status']
-    fills = data['fills'] || []
+  # honeymaker returns order_type as :limit/:market; the Transaction enum is :limit_order/:market_order.
+  ORDER_TYPE_MAP = { limit: :limit_order, market: :market_order }.freeze
 
-    coin = order['coin']
-    ticker_record = tickers.find_by(ticker: coin)
-
-    side = order['side'] == 'B' ? :buy : :sell
-    order_type = :limit_order # Hyperliquid spot only has limit orders
-    limit_price = order['limitPx']&.to_d
-    ordered_size = order['sz']&.to_d
-
-    # Calculate executed amounts from fills
-    amount_exec = fills.sum { |f| f['sz'].to_d }
-    quote_amount_exec = fills.sum { |f| f['px'].to_d * f['sz'].to_d }
-    avg_price = amount_exec.positive? ? (quote_amount_exec / amount_exec) : limit_price
-
+  # Build the Transaction-shaped order_data from honeymaker's already-normalized fields, adding only
+  # what's local to this app: the resolved ticker (by the raw universe coin, e.g. "@142"), the enum
+  # order_type, empty error_messages, and the raw exchange_response. The PASSED order_id is preserved
+  # (honeymaker's id is "<raw coin>-<oid>"; ours is "<base>-<oid>").
+  def build_order_data(order_id, data)
     {
       order_id:,
-      ticker: ticker_record,
-      price: avg_price,
-      amount: ordered_size,
-      quote_amount: nil,
-      amount_exec:,
-      quote_amount_exec:,
-      side:,
-      order_type:,
+      ticker: tickers.find_by(ticker: data[:coin]),
+      price: data[:price],
+      amount: data[:amount],
+      quote_amount: data[:quote_amount],
+      amount_exec: data[:amount_exec],
+      quote_amount_exec: data[:quote_amount_exec],
+      side: data[:side],
+      order_type: ORDER_TYPE_MAP.fetch(data[:order_type], :limit_order),
       error_messages: [],
-      status: parse_order_status(status_str),
-      exchange_response: data
+      status: data[:status],
+      exchange_response: data[:raw]
     }
   end
 
+  # unknownOid is normal for aged filled/canceled orders. Recover from userFillsByTime keyed on THIS
+  # order's oid, bounding the lookback by the order's own row (mirrors Kraken's recover_missing_from_trades:
+  # userFillsByTime needs a start_time, and get_order has none). Returns a synthesized :closed when
+  # execution is proven, else a distinct not_found signal (so FetchAndUpdateOrderJob's StaleOrderResolver
+  # path fires). A transient userFills failure is propagated, NOT degraded to not_found.
+  def recover_order_from_fills(order_id)
+    _coin, oid = parse_order_id(order_id)
+    since = transactions.where(external_id: order_id).minimum(:created_at)
+    return not_found_failure(order_id) unless since
+
+    start_ms = ((since - 1.hour).to_f * 1000).to_i # ms, buffered for immediate-fill / clock skew
+    result = client.user_fills_by_time(user: api_key&.key, start_time: start_ms)
+    return result if result.failure?
+
+    fills = Array(result.data).select { |f| f['oid'].to_s == oid.to_s }
+    return not_found_failure(order_id) if fills.empty?
+
+    Result::Success.new(order_data_from_fills(order_id, fills))
+  end
+
+  def not_found_failure(order_id)
+    Result::Failure.new("Hyperliquid did not return data for order #{order_id}",
+                        data: { not_found: true, missing_ids: [order_id] })
+  end
+
+  def order_data_from_fills(order_id, fills)
+    amount_exec = fills.sum(BigDecimal('0')) { |f| f['sz'].to_d }
+    quote_amount_exec = fills.sum(BigDecimal('0')) { |f| f['px'].to_d * f['sz'].to_d }
+    {
+      order_id:,
+      ticker: tickers.find_by(ticker: fills.first['coin']),
+      price: amount_exec.positive? ? (quote_amount_exec / amount_exec) : nil,
+      amount: nil,
+      quote_amount: nil,
+      amount_exec:,
+      quote_amount_exec:,
+      side: fills.first['side'] == 'B' ? :buy : :sell,
+      order_type: :limit_order,
+      error_messages: [],
+      status: :closed,
+      exchange_response: { 'fills' => fills }
+    }
+  end
+
+  # Suffix-aware so the whole Hyperliquid cancel family maps correctly; a triggered order has fired
+  # and become a live resting order → :open. Production parsing now lives in honeymaker; this mirror is
+  # retained for the parse_order_status characterization suite. An unmapped status is logged, not raised.
   def parse_order_status(status)
     case status
-    when 'open', 'marginCanceled'
-      :open
     when 'filled'
       :closed
-    when 'canceled', 'triggered', 'rejected'
-      :cancelled
-    when 'unknownOid'
-      :unknown
+    when 'open', 'triggered'
+      :open
     else
-      :unknown
+      str = status.to_s
+      if str.match?(/cancel/i) || str.match?(/reject/i)
+        :cancelled
+      else
+        Rails.logger.warn("[Hyperliquid] Unmapped order status: #{status.inspect}")
+        :unknown
+      end
     end
   end
 end

@@ -101,10 +101,14 @@ class ExchangeParseOrderStatusTest < ActiveSupport::TestCase
       'canceled' => :cancelled, 'expired' => :cancelled, 'replaced' => :cancelled,
       'rejected' => :failed
     },
+    # Corrected (2026-06-17): a margin-cancel IS a cancel; a triggered order has fired and
+    # become a live resting order, so it is open. Matching is suffix-aware (/cancel/i, /reject/i)
+    # so the full Hyperliquid cancel family (scheduledCancel, selfTradeCanceled, …) maps correctly.
     Exchanges::Hyperliquid => {
-      'open' => :open, 'marginCanceled' => :open,
+      'open' => :open, 'triggered' => :open,
       'filled' => :closed,
-      'canceled' => :cancelled, 'triggered' => :cancelled, 'rejected' => :cancelled,
+      'canceled' => :cancelled, 'marginCanceled' => :cancelled, 'scheduledCancel' => :cancelled,
+      'selfTradeCanceled' => :cancelled, 'rejected' => :cancelled,
       'unknownOid' => :unknown
     },
     Exchanges::Ibkr => {
