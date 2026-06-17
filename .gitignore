@@ -9,7 +9,8 @@
 # (Removed from history 2026-06-14 after a PII leak; keep them out for good.)
 /not_migrated_optin.csv
 /migrated_legacy_accounts.txt
-/docs/superpowers/plans/
+/docs/
+!/docs/api.md
 
 # Database
 
