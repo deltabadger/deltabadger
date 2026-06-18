@@ -312,6 +312,24 @@ class MarketDataImportTickersTest < ActiveSupport::TestCase
     MarketData.import_tickers!(@exchange, data)
     assert_equal 2, @exchange.exchange_assets.count
   end
+
+  # Guards against the nil base_external_id regression that silently dropped these tickers
+  test 'imports Hyperliquid tokenized-stock ticker whose base_external_id is an hl:<tokenId> id' do
+    # import_tickers! resolution is exchange-agnostic; @exchange (Binance) stands in for any exchange
+    aapl = create(:asset, external_id: 'hl:0xAAA', symbol: 'AAPL', name: 'AAPL (Hyperliquid)', category: 'Tokenized Stock')
+    usdc = create(:asset, external_id: 'usd-coin', symbol: 'USDC', name: 'USD Coin', category: 'Cryptocurrency')
+
+    data = [ticker_data(base_ext_id: 'hl:0xAAA', quote_ext_id: 'usd-coin', base: 'AAPL', quote: 'USDC', ticker: '@268')]
+
+    MarketData.import_tickers!(@exchange, data)
+
+    t = @exchange.tickers.find_by(ticker: '@268')
+    assert_not_nil t, 'ticker must be created for Hyperliquid RWA pair'
+    assert_equal aapl.id, t.base_asset_id
+    assert_equal usdc.id, t.quote_asset_id
+    assert t.available, 'ticker must be available'
+    assert t.trading_enabled, 'ticker must be trading_enabled'
+  end
 end
 
 class MarketDataStockColorsTest < ActiveSupport::TestCase
