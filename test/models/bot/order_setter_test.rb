@@ -420,6 +420,35 @@ class Bot::OrderSetterTest < ActiveSupport::TestCase
     end
   end
 
+  # == Hyperliquid 10-USDC floor: skip sub-10 orders up front, don't exchange-reject ==
+  # Hyperliquid rejects orders below 10 USDC. With :base logic (minimum_base_size 0) a sub-10 order was
+  # SENT and hard-rejected ("Order must have minimum value of 10 USDC") -> Bot::ActionJob raise ->
+  # bot :retrying. :base_and_quote_in_base converts the 10-USDC quote floor into a per-order base
+  # minimum (ceil(10/price)) compared against the FLOORED base size, so the order skips up front.
+
+  test 'single asset: Hyperliquid skips an order whose value rounds below the 10 USDC floor' do
+    bot = hyperliquid_min_value_bot(price: 70.0)
+    bot.exchange.expects(:limit_buy).never
+
+    # 10 USDC / 70 = 0.142857 base -> floor(2dp) 0.14; minimum ceil(10/70) -> 0.15 -> below -> skip.
+    # (With the old :base logic this order is sent and exchange-rejected instead.)
+    assert_difference -> { bot.transactions.skipped.count }, 1 do
+      bot.set_order(order_amount_in_quote: 10.0)
+    end
+  end
+
+  test 'single asset: Hyperliquid places an order comfortably above the 10 USDC floor' do
+    bot = hyperliquid_min_value_bot(price: 70.0)
+    bot.exchange.expects(:limit_buy).with do |args|
+      args[:amount_type] == :base && args[:amount].to_d >= BigDecimal('0.2')
+    end.returns(Result::Success.new(order_id: 'test'))
+
+    # 20 USDC / 70 = 0.2857 -> 0.28 base, well above the 0.15 minimum -> placed, not skipped.
+    assert_no_difference -> { bot.transactions.skipped.count } do
+      bot.set_order(order_amount_in_quote: 20.0)
+    end
+  end
+
   # == Bitvavo limit order sizes in base (errorCode 216 regression) ==
   # Bitvavo limit orders accept only base amount + price. When BTC fell into a price
   # band where calculate_best_amount_info previously selected :quote (because Bitvavo's
@@ -459,5 +488,23 @@ class Bot::OrderSetterTest < ActiveSupport::TestCase
     bot.start
 
     assert_equal 0, bot.missed_quote_amount
+  end
+
+  private
+
+  # A started Hyperliquid (limit-only) single-asset bot with a @107-like ticker: 10-USDC quote floor,
+  # no base floor, 2 base decimals, zero limit offset (so the limit price equals the mocked price for
+  # clean min-value math).
+  def hyperliquid_min_value_bot(price:)
+    exchange = create(:hyperliquid_exchange)
+    bot = create(:dca_single_asset, :started, exchange: exchange, with_api_key: false)
+    create(:api_key, user: bot.user, exchange: exchange, key_type: :trading,
+                     raw_key: "0x#{'a' * 40}", raw_secret: 'b' * 64)
+    bot.ticker.update!(minimum_quote_size: 10, minimum_base_size: 0, base_decimals: 2, price_decimals: 5)
+    bot.update_columns(settings: bot.settings.merge('limit_ordered' => true, 'limit_order_pcnt_distance' => 0))
+    bot.reload
+    setup_bot_execution_mocks(bot, price: price)
+    bot.stubs(:broadcast_below_minimums_warning)
+    bot
   end
 end

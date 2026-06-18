@@ -307,7 +307,12 @@ class Exchanges::Hyperliquid < Exchange
   end
 
   def minimum_amount_logic(**)
-    :base
+    # Hyperliquid is limit-only spot with a hard 10-USDC order floor and no per-asset base floor
+    # (minimum_base_size stays 0). :base_and_quote_in_base converts minimum_quote_size (10) into a
+    # per-order base minimum, ceil(10 / limit_price), compared against the FLOORED base size — so an
+    # order whose value rounds below 10 (incl. dual-asset sub-orders) is skipped up front instead of
+    # being sent and hard-rejected by the exchange.
+    :base_and_quote_in_base
   end
 
   def get_ledger(api_key:, start_time: nil)

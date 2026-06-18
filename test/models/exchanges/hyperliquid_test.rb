@@ -19,9 +19,11 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert errors[:invalid_key].present?
   end
 
-  test 'minimum_amount_logic returns base' do
-    assert_equal :base, @exchange.minimum_amount_logic(side: :buy, order_type: :limit_order)
-    assert_equal :base, @exchange.minimum_amount_logic(side: :sell, order_type: :limit_order)
+  test 'minimum_amount_logic returns base_and_quote_in_base so the 10 USDC floor is enforced in base' do
+    # HL is limit-only; :base_and_quote_in_base converts minimum_quote_size (10) into a per-order base
+    # minimum (ceil(10/price)), so sub-10 orders skip up front instead of being exchange-rejected.
+    assert_equal :base_and_quote_in_base, @exchange.minimum_amount_logic(side: :buy, order_type: :limit_order)
+    assert_equal :base_and_quote_in_base, @exchange.minimum_amount_logic(side: :sell, order_type: :limit_order)
   end
 
   test 'set_client creates a Honeymaker Hyperliquid client' do
