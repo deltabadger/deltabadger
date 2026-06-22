@@ -17,6 +17,33 @@
         .slider__style__thumb
             background: #fff
             box-shadow: .125rem .25rem 1rem rgba(0, 30, 60, 0.4)
+    // When the barbell is the donut's `list` target (running bot), clicking it toggles
+    // back to the pie.
+    &[data-action*="donut-chart#toggle"]
+        cursor: pointer
+
+// While running the slider is disabled; its invisible (opacity:0) range input still
+// overlays the track, and disabled inputs don't dispatch/bubble clicks — so without this
+// the click-to-toggle on `.barbell` would never fire. Let clicks fall through to it.
+.slider--dual
+    .slider__input[disabled]
+        pointer-events: none
+
+// Pie/slider view switch for the dual-asset allocation: clicking either visualization
+// toggles to the other, so both carry a pointer cursor. Mirrors `.index-pie`.
+.barbell-pie
+    display: flex
+    justify-content: center
+    cursor: pointer
+    color: var(--ink) // slice-name labels use fill: currentColor → theme-aware
+    svg
+        width: 100%
+    // Leader lines, allocation % values, and the "Other" label in muted concrete.
+    .donut-leader
+        stroke: var(--concrete)
+    .donut-value,
+    .donut-other
+        fill: var(--concrete)
 
 .bot-extra-settings
     display: flex

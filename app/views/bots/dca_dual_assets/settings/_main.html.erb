@@ -6,6 +6,12 @@
 <% base0 = bot.base0_asset&.symbol %>
 <% base1 = bot.base1_asset&.symbol %>
 <% quote = bot.quote_asset&.symbol %>
+<%# Donut slices mirror the slider's target split; zero-value slices are dropped so a
+    100/0 allocation renders a single full slice instead of a ghost 0% leader. %>
+<% dual_slices = [
+     ({ label: base0, symbol: base0, value: bot.allocation0.to_f, color: base0_color, assetId: bot.base0_asset&.id, logo: bot.base0_asset&.image_url } if bot.allocation0.to_f.positive?),
+     ({ label: base1, symbol: base1, value: (1 - bot.allocation0).to_f, color: base1_color, assetId: bot.base1_asset&.id, logo: bot.base1_asset&.image_url } if (1 - bot.allocation0).to_f.positive?)
+   ].compact %>
 
 <%= form_with model: bot,
               url: path,
@@ -35,7 +41,21 @@
       <%= f.select :interval, bot_intervals_select_options, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
     </div>
   </div>
-  <div class="barbell">
+  <%# Donut view (target allocation) only when the bot is running: the slider is then
+      `disabled`, so click-to-toggle can't fight dragging. Reuses the generic `donut-chart`
+      controller (as the tracker portfolio pie does); no `storageKey` => default pie,
+      session-only toggle. When stopped/new, only the interactive slider renders. %>
+  <% donut = bot.working? %>
+  <% if donut %>
+    <div data-controller="donut-chart"
+         data-donut-chart-data-value="<%= dual_slices.to_json %>"
+         data-donut-chart-other-label-value="<%= t('bot.dca_index.other') %>">
+      <div class="barbell-pie" data-donut-chart-target="pie" data-action="click->donut-chart#toggle">
+        <svg data-donut-chart-target="svg" style="width: 100%; display: block; margin: 0 auto;"></svg>
+      </div>
+  <% end %>
+  <%# The whole `.barbell` is the `list` target, so toggling hides the plates + bar together. %>
+  <%= tag.div class: "barbell", data: (donut ? { donut_chart_target: "list", action: "click->donut-chart#toggle" } : {}) do %>
     <div class="barbell__plate">
       <% if bot.new_record? %>
         <%= link_to base0, new_bots_dca_single_assets_pick_buyable_asset_path, data: { turbo_frame: "modal_content", bot__barbell_allocation_target: "allocation0BackgroundColor", **ticker_data(bot.base0_asset) }, class: ticker_class(bot.base0_asset), style: "background: #{base0_color_transparent}" %>
@@ -55,7 +75,7 @@
             <% end %>
             <%= tag.div class: "slider__style__othervalue", style: "background: #{base1_color_transparent};", data: { bot__barbell_allocation_target: "allocation1SliderOthervalue" } %>
           <% end %>
-          
+
         </div>
       </div>
     </div>
@@ -68,5 +88,8 @@
       <% end %>
       <b style="color: <%= base1_color_transparent %>" data-bot--barbell-allocation-target="allocation1Color"><span data-bot--barbell-allocation-target="allocation1Text"><%= ((1 - bot.allocation0).round(2) * 100).to_i %></span>%</b>
     </div>
-  </div>
+  <% end %>
+  <% if donut %>
+    </div>
+  <% end %>
 <% end %>
