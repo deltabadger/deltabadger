@@ -126,6 +126,13 @@ Rails.application.configure do
 
   config.exceptions_app = self.routes
 
+  # Don't log already-rescued responses (4xx Rails maps to a status, e.g. a
+  # Rack::QueryParser::InvalidParameterError -> 400 from scanner probes like
+  # "?env=<invalid-utf8>"). These are inbound noise, not app errors; logging
+  # them only pollutes the exception scans (healthcheck-logs / monitor) and
+  # dilutes genuine 500s, which are unrescued and still logged.
+  config.action_dispatch.log_rescued_responses = false
+
   config.action_cable.allowed_request_origins = [app_root_url]
   config.action_cable.worker_pool_size = ENV.fetch('MAX_DB_CONNECTIONS', 4)
 
