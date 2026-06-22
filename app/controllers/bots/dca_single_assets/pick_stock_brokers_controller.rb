@@ -1,4 +1,9 @@
 class Bots::DcaSingleAssets::PickStockBrokersController < Bots::Wizard::PickStockBrokersController
+  # The stock-broker step is an asset-first-only alias of the exchange step. It
+  # includes Navigable purely so the shared progress-bar partial can read
+  # current_order (it does not use advance!/step_path navigation).
+  include Bots::Wizard::Navigable
+
   private
 
   def bot_relation = current_user.bots.dca_single_asset

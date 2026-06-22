@@ -2,6 +2,7 @@ cs:
     bot:
         setup:
             api_not_available: "API burzy není dostupné"
+            assets_syncing: "Synchronizujeme aktiva této burzy – zkus to za chvíli znovu."
             progress_steps:
                 currencies: "Vyberte aktivum"
                 currencies2: "Druhé aktivum (volitelné)"

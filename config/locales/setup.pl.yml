@@ -2,6 +2,7 @@ pl:
     bot:
         setup:
             api_not_available: 'API giełdy nie jest dostępne'
+            assets_syncing: "Synchronizujemy aktywa tej giełdy – sprawdź ponownie za chwilę."
             progress_steps:
                 currencies: "Wybierz aktywo"
                 currencies2: "Drugie aktywo (opcjonalnie)"

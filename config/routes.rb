@@ -163,6 +163,9 @@ Rails.application.routes.draw do
     namespace :bots do
       resources :dca_single_assets, only: [:create]
       namespace :dca_single_assets do
+        # POST-only order switch (asset-first ⇄ exchange-first). Never a GET —
+        # Turbo prefetches GETs on hover, which must not flip the variant.
+        resource :order, only: [:create]
         resource :pick_buyable_asset, only: [:new, :create]
         resource :pick_exchange, only: [:new, :create] do
           post :promote_to_dual, on: :collection
@@ -173,6 +176,7 @@ Rails.application.routes.draw do
       end
       resources :dca_dual_assets, only: [:create]
       namespace :dca_dual_assets do
+        resource :order, only: [:create]
         resource :pick_second_buyable_asset, only: [:new, :create] do
           post :demote_to_single, on: :collection
         end

@@ -2,6 +2,7 @@ nl:
     bot:
         setup:
             api_not_available: 'Exchange API is niet beschikbaar'
+            assets_syncing: "We synchroniseren de assets van deze exchange — kom zo even terug."
             progress_steps:
                 currencies: "Kies asset"
                 currencies2: "Tweede asset (optioneel)"

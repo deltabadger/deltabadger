@@ -1,7 +1,23 @@
 class Bots::DcaDualAssets::AddApiKeysController < Bots::Wizard::AddApiKeysController
+  include Bots::Wizard::Navigable
+
   private
 
+  def current_step = :api
   def bot_relation = current_user.bots.dca_dual_asset
+
+  # :currencies (base0) is on the SINGLE picker route; :exchange resolves to the
+  # stock-aware missing_exchange_path so a stock bot with no broker bounces to
+  # the broker picker.
+  def step_path(key)
+    case key
+    when :currencies  then new_bots_dca_single_assets_pick_buyable_asset_path
+    when :currencies2 then new_bots_dca_dual_assets_pick_second_buyable_asset_path
+    when :exchange    then missing_exchange_path
+    when :api         then new_bots_dca_dual_assets_add_api_key_path
+    when :spendable   then new_bots_dca_dual_assets_pick_spendable_asset_path
+    end
+  end
 
   def stock_bot?
     @bot.base0_asset&.category == 'Stock' || @bot.base1_asset&.category == 'Stock'
@@ -17,9 +33,9 @@ class Bots::DcaDualAssets::AddApiKeysController < Bots::Wizard::AddApiKeysContro
     end
   end
 
-  # Stock bots get their quote asset auto-filled when the broker is chosen, so
-  # pick_spendable_asset only needs the spend amount.
-  def after_api_key_path = new_bots_dca_dual_assets_pick_spendable_asset_path
+  # After (re-)validating the key, go to the first step still missing input
+  # (skips an already-chosen asset after an exchange re-pick).
+  def after_api_key_path = step_path(first_incomplete)
 
   def after_correct_api_key(api_key)
     sync_alpaca_settings(api_key) if @bot.exchange.is_a?(Exchanges::Alpaca)

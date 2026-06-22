@@ -2,6 +2,7 @@ da:
     bot:
         setup:
             api_not_available: "Børsens API er ikke tilgængeligt"
+            assets_syncing: "Vi synkroniserer aktiverne for denne børs – kig forbi igen om et øjeblik."
             progress_steps:
                 currencies: "Vælg aktiv"
                 currencies2: "Andet aktiv (valgfrit)"

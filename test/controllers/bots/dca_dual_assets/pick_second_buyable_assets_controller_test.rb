@@ -14,7 +14,7 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsControllerTest < ActionDispatc
     create(:ticker, :btc_usd, exchange: @binance, base_asset: @btc, quote_asset: @usd)
   end
 
-  test 'demote_to_single moves base0 back to base_asset_id, keeps the exchange, and returns to the single exchange step' do
+  test 'demote_to_single moves base0 back to base_asset_id, keeps the exchange, and lands on the first incomplete single step' do
     # Single flow with exchange picked, then promoted to dual.
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
@@ -23,8 +23,11 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsControllerTest < ActionDispatc
          params: { bots_dca_single_asset: { exchange_id: @binance.id } }
     post promote_to_dual_bots_dca_single_assets_pick_exchange_path
 
+    # Order-derived navigation now skips the already-answered exchange step:
+    # with base + exchange filled (and the key valid in dry-run), the first
+    # incomplete single step is :spendable.
     post demote_to_single_bots_dca_dual_assets_pick_second_buyable_asset_path
-    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
+    assert_redirected_to new_bots_dca_single_assets_pick_spendable_asset_path
 
     assert_predicate session[:bot_config]['label'], :present?
     assert_equal @btc.id, session[:bot_config].dig('settings', 'base_asset_id')

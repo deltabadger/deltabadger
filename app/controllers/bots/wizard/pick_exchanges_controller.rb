@@ -21,6 +21,7 @@ class Bots::Wizard::PickExchangesController < ApplicationController
 
   def create
     if bot_params[:exchange_id].present?
+      prepare_session_for_exchange_pick
       session[:bot_config].merge!({ exchange_id: bot_params[:exchange_id] }.stringify_keys)
       redirect_to add_api_key_path
     else
@@ -40,6 +41,11 @@ class Bots::Wizard::PickExchangesController < ApplicationController
   # An earlier-step prerequisite is missing (stale/direct URL) — subclasses
   # return a path to bounce back to; nil means proceed.
   def prerequisite_redirect_path = nil
+
+  # Hook to adjust the session before storing a (re-)picked exchange. Default
+  # no-op; single/dual override it to reset downstream picks (exchange-first
+  # re-pick clears base + quote). Index/Signals keep the no-op.
+  def prepare_session_for_exchange_pick; end
 
   # View state the :new template needs — shared by `new` and `create`'s 422 re-render.
   def prepare_step

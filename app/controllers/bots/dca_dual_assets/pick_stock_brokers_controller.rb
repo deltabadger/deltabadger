@@ -1,4 +1,8 @@
 class Bots::DcaDualAssets::PickStockBrokersController < Bots::Wizard::PickStockBrokersController
+  # See the single stock-broker controller: Navigable is included only so the
+  # progress-bar partial can read current_order.
+  include Bots::Wizard::Navigable
+
   private
 
   def bot_relation = current_user.bots.dca_dual_asset

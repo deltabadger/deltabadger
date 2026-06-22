@@ -1,3 +1,7 @@
+<%# See the single-asset partial. Dual has five steps; steps + progress come from
+    the current StepOrder, and the exchange step reads "Pick exchange". %>
+<% title = t('bot.setup.progress_steps.pick_exchange') if current_step == :exchange %>
 <%= render "bots/new_step_progress_bar",
            current_step: current_step,
-           steps: { currencies: 20, currencies2: 40, exchange: 60, api: 80, spendable: 100 } %>
+           steps: current_order.steps.index_with { |key| current_order.progress(key) },
+           title: title %>

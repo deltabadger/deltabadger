@@ -2,6 +2,7 @@ sk:
     bot:
         setup:
             api_not_available: "API burzy nie je dostupne"
+            assets_syncing: "Synchronizujeme aktíva tejto burzy – skús to o chvíľu znova."
             progress_steps:
                 currencies: "Vyberte aktivum"
                 currencies2: "Druhe aktivum (voliteľné)"

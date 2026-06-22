@@ -1,3 +1,9 @@
+<%# steps + ordering come from the current StepOrder, so the progress bar tracks
+    whichever variant (asset-first / exchange-first) is active. The exchange step
+    reads "Pick exchange" to parallel the asset step's "Pick asset". Order is
+    switched from the conversational sentence, not a header toggle. %>
+<% title = t('bot.setup.progress_steps.pick_exchange') if current_step == :exchange %>
 <%= render "bots/new_step_progress_bar",
            current_step: current_step,
-           steps: { currencies: 25, exchange: 50, api: 75, spendable: 100 } %>
+           steps: current_order.steps.index_with { |key| current_order.progress(key) },
+           title: title %>

@@ -13,6 +13,12 @@ class Bots::Wizard::PickSpendableAssetsController < ApplicationController
 
   def new
     @bot = build_bot
+
+    if (path = prerequisite_redirect_path)
+      redirect_to path
+      return
+    end
+
     @api_key = @bot.api_key
 
     unless @api_key.correct?
@@ -42,6 +48,11 @@ class Bots::Wizard::PickSpendableAssetsController < ApplicationController
   end
 
   def build_bot = bot_relation.new(sanitized_bot_config)
+
+  # An earlier-step prerequisite is missing (stale/direct URL) — subclasses
+  # return a path to bounce back to; nil means proceed. (single/dual derive this
+  # from the step order via Navigable; index/signals keep the default no-op.)
+  def prerequisite_redirect_path = nil
 
   def after_quote_asset_picked
     finalise_and_redirect

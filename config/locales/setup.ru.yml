@@ -2,6 +2,7 @@ ru:
     bot:
         setup:
             api_not_available: "API биржи недоступна"
+            assets_syncing: "Синхронизируем активы этой биржи — загляните через мгновение."
             progress_steps:
                 currencies: "Выбрать актив"
                 currencies2: "Второй актив (опционально)"

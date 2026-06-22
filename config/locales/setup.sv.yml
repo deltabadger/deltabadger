@@ -2,6 +2,7 @@ sv:
     bot:
         setup:
             api_not_available: "Börsens API är inte tillgängligt"
+            assets_syncing: "Vi synkroniserar tillgångarna för den här börsen – kom tillbaka om en stund."
             progress_steps:
                 currencies: "Välj tillgång"
                 currencies2: "Andra tillgången (valfritt)"

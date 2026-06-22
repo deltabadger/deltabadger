@@ -1,7 +1,10 @@
 <% progress = steps[current_step] || 0 %>
 
+<%# `title` optionally overrides the step heading (the DCA wizard uses it so the
+    exchange step reads "Pick exchange"). Callers that don't pass it keep the
+    per-step i18n title. %>
 <div class="process-progress">
-  <h4><%= t("bot.setup.progress_steps.#{current_step}") %></h4>
+  <h4><%= local_assigns[:title].presence || t("bot.setup.progress_steps.#{current_step}") %></h4>
   <div class="slider">
     <div class="slider__style">
       <div class="slider__style__track">

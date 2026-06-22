@@ -1,0 +1,42 @@
+@use "../variables" as *
+
+// Muted skeleton slots in the conversational sentence: a step that has not been
+// reached yet still shows its place ("Buy ___ on Binance") so the sentence stays
+// grammatical in either ordering. An unfilled asset/exchange slot also doubles
+// as the order switch (asset-first ⇄ exchange-first) — there is no header toggle.
+.conversational
+    .ticker--placeholder
+        background: var(--steel)
+        color: var(--concrete)
+        opacity: 0.55
+        display: flex
+        align-items: center
+        justify-content: center
+    // On the first step a placeholder slot doubles as the order switch.
+    .ticker--switch
+        cursor: pointer
+        transition: opacity 0.15s ease
+        input
+            cursor: pointer
+            &::placeholder
+                color: var(--concrete) !important
+        &:hover
+            opacity: 0.85
+    &__link--placeholder
+        color: var(--concrete)
+        opacity: 0.7
+    &__link--switch
+        cursor: pointer
+        transition: color 0.15s ease
+        input
+            cursor: pointer
+        &:hover input, &:hover input::placeholder
+            color: var(--link) !important
+
+// Empty-state shown in the asset picker when a chosen venue's catalog is still
+// syncing (self-hosted).
+.assets-syncing
+    padding: 4rem 2rem
+    text-align: center
+    color: var(--stone)
+    font-weight: 600

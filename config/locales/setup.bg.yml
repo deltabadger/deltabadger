@@ -2,6 +2,7 @@ bg:
     bot:
         setup:
             api_not_available: "API на борсата не е достъпно"
+            assets_syncing: "Синхронизираме активите на тази борса — проверете отново след малко."
             progress_steps:
                 currencies: "Изберете актив"
                 currencies2: "Втори актив (по избор)"

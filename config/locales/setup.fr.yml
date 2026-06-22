@@ -2,6 +2,7 @@ fr:
     bot:
         setup:
             api_not_available: 'L''API de l''exchange n''est pas disponible.'
+            assets_syncing: "Nous synchronisons les actifs de cette plateforme — reviens dans un instant."
             progress_steps:
                 currencies: "Choisir l'actif"
                 currencies2: "Second actif (facultatif)"

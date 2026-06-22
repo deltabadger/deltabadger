@@ -1,0 +1,7 @@
+<%# Friendly empty state for the buyable-asset step when a venue is chosen but
+    its asset catalog has not finished syncing yet (self-hosted Alpaca enqueues
+    the sync on key validation, so exchange-first can briefly reach an empty
+    list). Shown instead of a blank picker. %>
+<div class="assets-syncing">
+  <%= t('bot.setup.assets_syncing') %>
+</div>

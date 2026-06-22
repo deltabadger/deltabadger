@@ -2,6 +2,7 @@ el:
     bot:
         setup:
             api_not_available: "Το API του ανταλλακτηρίου δεν είναι διαθέσιμο"
+            assets_syncing: "Συγχρονίζουμε τα assets αυτού του exchange — δοκίμασε ξανά σε λίγο."
             progress_steps:
                 currencies: "Επιλογή asset"
                 currencies2: "Δεύτερο asset (προαιρετικό)"
