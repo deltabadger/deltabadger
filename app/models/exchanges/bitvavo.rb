@@ -244,34 +244,58 @@ class Exchanges::Bitvavo < Exchange
   end
 
   def get_order(order_id:)
-    # Bitvavo order_id format: "MARKET-orderId" e.g. "BTC-EUR-abc123"
-    parts = order_id.split('-')
-    market = parts[0..1].join('-')
-    ext_order_id = parts[2..].join('-')
+    # Bitvavo order_id format: "MARKET-orderId" e.g. "BTC-EUR-abc123" (market can contain a dash).
+    market, ext_order_id = split_order_id(order_id)
     result = client.get_order(market: market, order_id: ext_order_id)
-    return result if result.failure?
 
-    normalized_order_data = parse_order_data(order_id, result.data[:raw])
+    if result.failure?
+      # errorCode 240 "No active order found" is Bitvavo's order-gone signal. The order may have
+      # filled then been dropped → recover the fill from get_trades BEFORE declaring not-found
+      # (mirrors Kraken/Hyperliquid). Any OTHER failure (auth/transient/throttle) is propagated
+      # untouched so FetchAndUpdateOrderJob's typed-error / retry path is preserved.
+      return result unless bitvavo_not_found?(result)
 
-    Result::Success.new(normalized_order_data)
+      return recover_order_from_trades(order_id)
+    end
+
+    Result::Success.new(parse_order_data(order_id, result.data[:raw]))
   end
 
   def get_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
       result = get_order(order_id: order_id)
-      return result if result.failure?
+      if result.failure?
+        # not_found (incl. a 240 with no recoverable fill) → collect under :missing for the
+        # open-orders sweep; anything else (transient/throttle/auth) → abort so the job retries.
+        if result.data.is_a?(Hash) && result.data[:not_found]
+          missing << order_id
+          next
+        end
+
+        return result
+      end
 
       orders[order_id] = result.data
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    # get_order already folds any recovered fill into :orders (status :closed). Only orders absent
+    # from BOTH the order endpoint AND get_trades stay missing → StaleOrderResolver (never executed).
+    Rails.logger.info("[bitvavo-reconcile] #{missing.size} order(s) missing-from-both: #{missing.join(',')}") if missing.any?
+
+    Result::Success.new(orders: orders, missing: missing)
+  end
+
+  # get_trades exhausts Bitvavo's fill history, so an order absent from BOTH the order endpoint
+  # and get_trades is confirmed never-executed → Bot::FetchAndUpdateOpenOrdersJob may stop wedging
+  # on a young missing id (limit DCA self-heals via missed_quote_amount). Same contract as Kraken/HL.
+  def authoritative_missing_orders?
+    true
   end
 
   def cancel_order(order_id:)
-    parts = order_id.split('-')
-    market = parts[0..1].join('-')
-    ext_order_id = parts[2..].join('-')
+    market, ext_order_id = split_order_id(order_id)
     result = client.cancel_order(market: market, order_id: ext_order_id)
     return result if result.failure?
 
@@ -410,6 +434,137 @@ class Exchanges::Bitvavo < Exchange
   end
 
   private
+
+  BITVAVO_NOT_FOUND_MESSAGE = 'No active order found'.freeze # errorCode 240
+  # Faraday JSON-parses the error body to a Ruby Hash, so honeymaker surfaces its stringified form.
+  # Ruby 3.4's Hash#to_s renders `"errorCode" => 240` (spaced); earlier Rubies render `"errorCode"=>240`
+  # (no space). Match both so a Ruby upgrade can't silently break detection. The raw-JSON form
+  # ("errorCode":240) and a bare "errorCode 240" are matched too, defensively.
+  BITVAVO_NOT_FOUND_CODES   = ['"errorCode" => 240', '"errorCode"=>240', '"errorCode":240',
+                               'errorCode 240'].freeze
+  TRADES_PAGE_LIMIT  = 1000              # Bitvavo /v2/trades hard max
+  TRADES_WINDOW      = 24.hours          # Bitvavo /v2/trades: `end - start` must be <= 24h
+  TRADES_MAX_WINDOWS = 40                # safety cap (40 * 24h = 40d > 14d StaleOrder threshold)
+  TRADES_MAX_PAGES   = 50                # per-window page cap (50 * 1000 trades is far beyond DCA)
+  private_constant :BITVAVO_NOT_FOUND_MESSAGE, :BITVAVO_NOT_FOUND_CODES,
+                   :TRADES_PAGE_LIMIT, :TRADES_WINDOW, :TRADES_MAX_WINDOWS, :TRADES_MAX_PAGES
+
+  # "BTC-EUR-abc123" → ["BTC-EUR", "abc123"] (market can contain a dash; orderId can too).
+  def split_order_id(order_id)
+    parts = order_id.split('-')
+    [parts[0..1].join('-'), parts[2..].join('-')]
+  end
+
+  # Require BOTH the structured errorCode 240 AND the message: specific (won't catch a stray
+  # "240" in a price/qty field) and resilient (a tweak to either alone won't silently break it).
+  # Any non-240 failure (auth/transient/throttle) returns false → propagated untouched by get_order,
+  # so the order is NEVER mistaken for "gone" and routed into recovery/abandonment (Codex r1).
+  def bitvavo_not_found?(result)
+    msg = Array(result.errors).join(' ')
+    msg.include?(BITVAVO_NOT_FOUND_MESSAGE) && BITVAVO_NOT_FOUND_CODES.any? { |c| msg.include?(c) }
+  end
+
+  # Bitvavo dropped the order (240). Recover any execution from get_trades — authoritative for
+  # fills — keyed on this order's id, bounding the lookback by the order's own row (get_trades
+  # needs a start_time, and get_order has none) minus a 1h buffer (immediate fill / clock skew).
+  # PAGINATES the [start, now] window (Bitvavo returns newest-first, capped at TRADES_PAGE_LIMIT)
+  # so a matching trade can't hide beyond the first page on a high-volume account (Codex r1) — this
+  # is what lets authoritative_missing_orders? be true. Returns a synthesized :closed when execution
+  # is proven, else a distinct not_found signal (so FetchAndUpdateOrderJob's StaleOrderResolver path
+  # fires). A transient get_trades failure is PROPAGATED, never degraded to not_found (so the job
+  # retries instead of abandoning a real fill).
+  def recover_order_from_trades(order_id)
+    market, ext_order_id = split_order_id(order_id)
+    since = transactions.where(external_id: order_id).minimum(:created_at)
+    return not_found_failure(order_id) unless since
+
+    start_ms = ((since - 1.hour).to_f * 1000).to_i
+    result = fetch_order_trades(market, ext_order_id, start_ms)
+    return result if result.failure?
+
+    trades = result.data
+    return not_found_failure(order_id) if trades.empty?
+
+    Result::Success.new(order_data_from_trades(order_id, market, trades))
+  end
+
+  # Collect every Bitvavo trade whose orderId matches, across [start_ms, now]. Two nested loops:
+  #
+  #  * OUTER — chunk the range into <=24h windows. Bitvavo /v2/trades requires `end - start <= 24h`
+  #    (https://docs.bitvavo.com/docs/rest-api/get-trade-history), so a single call can't span an
+  #    order older than a day. We walk forward window by window until `now` (Codex r2).
+  #  * INNER — page each window newest-first using the `tradeIdTo` CURSOR, not a timestamp ceiling.
+  #    Bitvavo returns trades newest-first by sequence, and `tradeIdTo` returns trades strictly OLDER
+  #    than the given id, so cursoring by the page's LAST (oldest) id can't skip a same-millisecond
+  #    boundary trade the way an `end_ms - 1` ceiling could (Codex r2/r3). Re-query until a short
+  #    page (< limit) ends the window.
+  #
+  # Returns a Result: a page failure is PROPAGATED (so a transient blip retries, never abandons a
+  # real fill). Dedupe matched trades by `id`. DCA accounts resolve in one window / one page; the
+  # caps (TRADES_MAX_WINDOWS / TRADES_MAX_PAGES) are safety rails for pathological histories.
+  def fetch_order_trades(market, ext_order_id, start_ms)
+    matched = {} # trade id => trade
+    now_ms = (Time.current.to_f * 1000).to_i
+    window_start = start_ms
+    windows = 0
+
+    while window_start < now_ms && windows < TRADES_MAX_WINDOWS
+      windows += 1
+      window_end = [window_start + (TRADES_WINDOW.to_i * 1000), now_ms].min
+      trade_id_to = nil # newest first within the window
+      pages = 0
+
+      loop do
+        pages += 1
+        result = client.get_trades(market: market, start_time: window_start, end_time: window_end,
+                                   limit: TRADES_PAGE_LIMIT, trade_id_to: trade_id_to)
+        return result if result.failure?
+
+        page = Array(result.data)
+        break if page.empty?
+
+        page.each { |t| matched[t['id']] = t if t['orderId'].to_s == ext_order_id.to_s }
+
+        break if page.size < TRADES_PAGE_LIMIT || pages >= TRADES_MAX_PAGES
+
+        # Advance the cursor by the genuinely-oldest trade on the page. Bitvavo returns trades
+        # newest-first ordered by sequence/id, so the LAST element is the oldest — use its id, NOT
+        # min-by-timestamp (which, on a same-ms cluster, would pick the first minimum and advance
+        # by a single trade per request → could hit TRADES_MAX_PAGES before the match; Codex r3).
+        # `tradeIdTo` returns trades strictly older than this id, so we never re-fetch or skip it.
+        trade_id_to = page.last['id']
+      end
+
+      window_start = window_end # next <=24h window (window_end is the inclusive ceiling we just covered)
+    end
+
+    Result::Success.new(matched.values)
+  end
+
+  def not_found_failure(order_id)
+    Result::Failure.new("Bitvavo did not return data for order #{order_id}",
+                        data: { not_found: true, missing_ids: [order_id] })
+  end
+
+  def order_data_from_trades(order_id, market, trades)
+    amount_exec = trades.sum(BigDecimal('0')) { |t| t['amount'].to_d }
+    quote_amount_exec = trades.sum(BigDecimal('0')) { |t| t['amount'].to_d * t['price'].to_d }
+    first = trades.first
+    {
+      order_id: order_id,
+      ticker: tickers.find_by(ticker: market),
+      price: amount_exec.positive? ? (quote_amount_exec / amount_exec) : nil,
+      amount: nil,
+      quote_amount: nil,
+      amount_exec: amount_exec,
+      quote_amount_exec: quote_amount_exec,
+      side: first['side'].to_s.downcase.to_sym,
+      order_type: :limit_order, # DCA waiting orders are limit; trades don't carry orderType. See D3.
+      error_messages: [],
+      status: :closed,
+      exchange_response: { 'trades' => trades }
+    }
+  end
 
   def get_bid_ask_price(ticker)
     cache_key = "exchange_#{id}_bid_ask_price_#{ticker.id}"

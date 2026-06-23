@@ -222,4 +222,64 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
     assert_raises(Client::TransientNetworkError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
     assert Transaction.exists?(txn.id), 'the durable row must survive for the next sweep'
   end
+
+  # == single-order authority gate (Task 3) ==
+  # The bulk sweep already gates its loud raise on authoritative_missing_orders?; the single-order
+  # job did not (its :too_young branch fell straight through to the terminal raise). These pin the
+  # new gate: a confirmed-never-executed young not_found on an authoritative exchange resolves
+  # quietly; on a non-authoritative exchange it still raises loudly.
+
+  # A young genuinely-empty not_found on an AUTHORITATIVE exchange (fills already exhausted by
+  # get_order's own recovery) must NOT raise — it is confirmed never-executed. Mirrors the bulk
+  # sweep's authoritative branch. This is the case live Hyperliquid bots hit today.
+  test 'does not raise on a young not_found when the exchange is authoritative' do
+    bot = create(:dca_single_asset, :started)
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown,
+                               external_id: 'TXID-AUTH-YOUNG', created_at: 1.day.ago) # < 14d → :too_young
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(
+      Result::Failure.new('Bitvavo did not return data for order',
+                          data: { not_found: true, missing_ids: [txn.external_id] })
+    )
+    bot.exchange.stubs(:authoritative_missing_orders?).returns(true)
+
+    # Quiet resolution = same operator log the bulk sweep emits, and no raise (Codex r5 nicety).
+    Rails.logger.expects(:warn).with(regexp_matches(/\[orders-missing-from-source\]/))
+    assert_nothing_raised { Bot::FetchAndUpdateOrderJob.perform_now(txn) }
+    # order stays in its durable waiting row (not flipped to :abandoned yet — it's young), polling
+    # just stops being noisy. A later genuine fill is still reconciled by the next sweep.
+    refute_equal 'abandoned', txn.reload.external_status
+  end
+
+  # The SAME young not_found on a NON-authoritative exchange MUST still raise loudly — there a
+  # dropped order could be a live order or a real bug, and silently abandoning it hides the problem.
+  test 'still raises on a young not_found when the exchange is NOT authoritative' do
+    bot = create(:dca_single_asset, :started)
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown,
+                               external_id: 'TXID-NONAUTH-YOUNG', created_at: 1.day.ago)
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(
+      Result::Failure.new('not found', data: { not_found: true, missing_ids: [txn.external_id] })
+    )
+    bot.exchange.stubs(:authoritative_missing_orders?).returns(false)
+
+    assert_raises(RuntimeError) { Bot::FetchAndUpdateOrderJob.perform_now(txn) }
+  end
+
+  # The :abandoned-after-14d path is unchanged regardless of authority — StaleOrderResolver flips
+  # the row to :abandoned and the job returns quietly (no raise) on BOTH exchange types.
+  test 'abandons an old not_found order without raising (authority-independent)' do
+    bot = create(:dca_single_asset, :started)
+    old = (Bot::StaleOrderResolver::STALE_ORDER_THRESHOLD + 1.day).ago
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown,
+                               external_id: 'TXID-OLD-NF', created_at: old) # >= 14d → :abandoned
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(
+      Result::Failure.new('not found', data: { not_found: true, missing_ids: [txn.external_id] })
+    )
+    bot.exchange.stubs(:authoritative_missing_orders?).returns(false)
+
+    assert_nothing_raised { Bot::FetchAndUpdateOrderJob.perform_now(txn) }
+    assert_equal 'abandoned', txn.reload.external_status
+  end
 end

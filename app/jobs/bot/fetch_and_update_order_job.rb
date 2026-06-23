@@ -12,15 +12,10 @@ class Bot::FetchAndUpdateOrderJob < BotJob
     bot = order.bot
     result = bot.get_order(order_id: order.external_id)
     if result.failure?
-      if result.data.is_a?(Hash) && result.data[:not_found]
-        case Bot::StaleOrderResolver.resolve(order)
-        when :abandoned
-          bot.log_activity('order_abandoned', details: { order_id: order.external_id })
-          return
-        when :too_young
-          # fall through and raise — likely a real bug (wrong key, etc.)
-        end
-      end
+      # A not_found Result may be resolved quietly (abandoned, or confirmed-never-executed on an
+      # authoritative exchange); otherwise fall through to the typed-error / terminal-raise path.
+      return if resolve_not_found(bot, order, result) == :handled
+
       raise Client::RateLimitedError, result.errors.to_sentence if bot.exchange.throttled_error?(result.errors)
       raise Client::TransientNetworkError, result.errors.to_sentence if bot.exchange.transient_error?(result.errors)
 
@@ -45,5 +40,35 @@ class Bot::FetchAndUpdateOrderJob < BotJob
     return if success_or_kill
 
     raise e
+  end
+
+  private
+
+  # Handle a not_found Result. Returns :handled when the caller should return quietly (the order
+  # was abandoned, or it's a confirmed-never-executed young order on an authoritative exchange),
+  # or :fall_through when the caller should proceed to the typed-error / terminal-raise path
+  # (incl. any failure that is NOT a not_found signal).
+  def resolve_not_found(bot, order, result)
+    return :fall_through unless result.data.is_a?(Hash) && result.data[:not_found]
+
+    case Bot::StaleOrderResolver.resolve(order)
+    when :abandoned
+      bot.log_activity('order_abandoned', details: { order_id: order.external_id })
+      :handled
+    when :too_young
+      # An authoritative exchange (Kraken: QueryOrders + TradesHistory, Hyperliquid: userFills,
+      # Bitvavo: paginated get_trades) has already exhausted its fill source inside get_order —
+      # a still-missing order is confirmed never-executed, so resolving quietly (operator log,
+      # no raise) is correct, exactly as Bot::FetchAndUpdateOpenOrdersJob does for an authoritative
+      # young missing id. For a NON-authoritative exchange a dropped order may be a live order or a
+      # real bug (wrong key, subaccount mismatch) → fall through and raise.
+      return :fall_through unless bot.exchange.authoritative_missing_orders?
+
+      Rails.logger.warn(
+        "[orders-missing-from-source] bot_id=#{bot.id} exchange=#{bot.exchange.name_id} " \
+        "order_ids=#{order.external_id}"
+      )
+      :handled
+    end
   end
 end
