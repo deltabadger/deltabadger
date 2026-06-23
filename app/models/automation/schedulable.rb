@@ -137,6 +137,21 @@ module Automation::Schedulable
     nil
   end
 
+  # True if a job of job_class for `record` exists in ANY active Solid Queue execution state
+  # (Scheduled / Ready / Claimed / Blocked). Excludes FailedExecution by design — a dead-lettered
+  # job is NOT a live chain. Used by limit-check recovery to avoid double-enqueuing.
+  def active_limit_check_job?(job_class:, record:)
+    return false unless defined?(SolidQueue)
+
+    global_id = record.to_global_id.to_s
+    [SolidQueue::ScheduledExecution, SolidQueue::ReadyExecution,
+     SolidQueue::ClaimedExecution, SolidQueue::BlockedExecution].any? do |execution_model|
+      execution_model.joins(:job)
+                     .where(solid_queue_jobs: { class_name: job_class.to_s })
+                     .any? { |execution| job_matches_record?(execution.job, global_id) }
+    end
+  end
+
   def job_matches_record?(job, global_id)
     return false unless job&.arguments.present?
 

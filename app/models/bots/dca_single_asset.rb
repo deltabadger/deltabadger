@@ -34,6 +34,7 @@ class Bots::DcaSingleAsset < Bot
   include Bots::DcaSingleAsset::Measurable
   include Bot::Lifecycle         # shared start/stop/delete — keep LAST so the stop decorators above stay on top
   include Bot::AssetConfigurable # shared asset accessors + validations (single-pair defaults)
+  include Bot::LimitCheckable    # live limit-check job from limit_paused log (recovery/rescue)
 
   self.asset_id_setting_keys = %i[base_asset_id quote_asset_id]
 

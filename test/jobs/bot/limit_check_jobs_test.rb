@@ -35,6 +35,44 @@ module LimitCheckJobBehaviorTests
       assert_equal 'waiting', bot.reload.status
     end
 
+    test 'reschedules itself in 1 minute when the condition check RAISES a transient network error' do
+      bot = create_waiting_bot
+      bot.stubs(condition_method).raises(Client::TransientNetworkError, 'data.alpaca.markets timeout')
+
+      freeze_time do
+        job_setter = mock
+        job_setter.expects(:perform_later).with(bot)
+        job_class.expects(:set).with(wait_until: 1.minute.from_now).returns(job_setter)
+        Bot::ActionJob.expects(:perform_later).never
+
+        assert_nothing_raised { job_class.new.perform(bot) }
+      end
+      assert_equal 'waiting', bot.reload.status
+    end
+
+    test 'reschedules itself in 1 minute when the condition check RAISES a rate-limit error' do
+      bot = create_waiting_bot
+      bot.stubs(condition_method).raises(Client::RateLimitedError, 'EAPI:Rate limit exceeded')
+
+      freeze_time do
+        job_setter = mock
+        job_setter.expects(:perform_later).with(bot)
+        job_class.expects(:set).with(wait_until: 1.minute.from_now).returns(job_setter)
+        Bot::ActionJob.expects(:perform_later).never
+
+        assert_nothing_raised { job_class.new.perform(bot) }
+      end
+      assert_equal 'waiting', bot.reload.status
+    end
+
+    test 'does NOT swallow a non-transient error (still raises, dead-letters)' do
+      bot = create_waiting_bot
+      bot.stubs(condition_method).raises(StandardError, 'genuine bug')
+      job_class.expects(:set).never
+
+      assert_raises(StandardError) { job_class.new.perform(bot) }
+    end
+
     test 'transitions the bot to scheduled and enqueues ActionJob when the condition is met' do
       bot = create_waiting_bot
       bot.stubs(condition_method).returns(Result::Success.new(true))

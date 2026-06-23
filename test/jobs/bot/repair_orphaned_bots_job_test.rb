@@ -1,6 +1,14 @@
 require 'test_helper'
 
 class Bot::RepairOrphanedBotsJobTest < ActiveSupport::TestCase
+  setup do
+    # These unit tests stub the scheduled/retrying scope. The job now also runs a second
+    # :waiting-recovery pass (Bot.where(status: :waiting).where(updated_at: ..)). Stub that
+    # chained relation to return [] so the new pass is an inert no-op here; the real
+    # :waiting-recovery behaviour is exercised by the integration class below.
+    Bot.stubs(:where).with(status: :waiting).returns(stub(where: []))
+  end
+
   test 'does nothing when there are no orphaned bots' do
     Bot.stubs(:where).returns(Bot.none)
     Rails.logger.expects(:info).with(regexp_matches(/Found.*orphaned bot/)).never
@@ -295,5 +303,85 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
     Bot::RepairOrphanedBotsJob.perform_now
 
     assert bot.reload.next_action_job_at.present?
+  end
+end
+
+class Bot::RepairOrphanedWaitingBotsJobIntegrationTest < ActiveSupport::TestCase
+  setup do
+    SolidQueue::Job.destroy_all
+    SolidQueue::ScheduledExecution.destroy_all
+    SolidQueue::ReadyExecution.destroy_all
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+  end
+
+  # A :waiting limit-paused bot whose check chain died (limit_paused logged, no pending job),
+  # STABLY waiting past the WEDGE_GRACE window (backdate updated_at so the staleness guard matches).
+  def waiting_paused_bot(limit_type: :price, stale: true, **limit_attrs)
+    bot = create(:dca_single_asset, :started)
+    # limit_attrs change `settings`, which the Accountable invariant guards — set
+    # missed_quote_amount before saving (mirrors the factory's before(:create) hook).
+    limit_attrs.each { |k, v| bot.public_send("#{k}=", v) }
+    bot.status = :waiting
+    bot.last_action_job_at = Time.current # transient_data, not settings
+    bot.set_missed_quote_amount
+    bot.save!
+    bot.log_activity('limit_paused', details: { limit_type: limit_type }) # pause AFTER last run → current
+    bot.update_column(:updated_at, 5.minutes.ago) if stale # past WEDGE_GRACE (2 min)
+    bot
+  end
+
+  test 'recovers a :waiting price-limited bot whose check chain has died' do
+    bot = waiting_paused_bot(limit_type: :price, price_limited: true)
+    refute bot.pending_limit_check_job?, 'precondition: no pending check job'
+
+    Bot::RepairOrphanedBotsJob.perform_now
+
+    assert bot.reload.pending_limit_check_job?, 'a PriceLimitCheckJob should be re-enqueued'
+    assert_equal 'waiting', bot.status, 'recovery must NOT change the bot status'
+    assert_equal 1, SolidQueue::Job.where(class_name: 'Bot::PriceLimitCheckJob').count
+  end
+
+  # Codex R2 #1: a bot that limit-paused in the PAST keeps its limit_paused log forever; a momentary
+  # normal :waiting (just flipped, updated_at recent) must NOT be misread as wedged.
+  test 'does NOT sweep a bot only momentarily :waiting (within the grace window)' do
+    waiting_paused_bot(limit_type: :price, price_limited: true, stale: false) # updated_at = now
+
+    Bot::RepairOrphanedBotsJob.perform_now
+
+    assert_equal 0, SolidQueue::Job.where(class_name: 'Bot::PriceLimitCheckJob').count,
+                 'a freshly-:waiting bot is still churning — do not recover yet'
+  end
+
+  test 'does NOT touch a :waiting bot that still has a queued check job' do
+    bot = waiting_paused_bot(limit_type: :price, price_limited: true)
+    Bot::PriceLimitCheckJob.set(wait_until: 1.minute.from_now).perform_later(bot)
+    initial = SolidQueue::Job.where(class_name: 'Bot::PriceLimitCheckJob').count
+
+    Bot::RepairOrphanedBotsJob.perform_now
+
+    assert_equal initial, SolidQueue::Job.where(class_name: 'Bot::PriceLimitCheckJob').count,
+                 'must not double-enqueue a still-pending chain'
+  end
+
+  test 'does NOT recover a :waiting bot with no limit_paused log (not limit-paused)' do
+    bot = create(:dca_single_asset, :started)
+    bot.update!(status: :waiting) # waiting but never limit-paused (edge case)
+    bot.update_column(:updated_at, 5.minutes.ago)
+
+    Bot::RepairOrphanedBotsJob.perform_now
+
+    assert_equal 0, SolidQueue::Job.where('class_name LIKE ?', '%LimitCheckJob').count
+  end
+
+  # Codex High #1: indicator enabled AND satisfied, price enabled AND unmet → the decorator that
+  # paused was PRICE (it logged limit_type: :price). Recovery must re-enqueue PriceLimitCheckJob,
+  # NOT IndicatorLimitCheckJob — proving we follow the limit_paused log, not enabled-predicate order.
+  test 'recovers with the job of the limit that ACTUALLY paused, not the outermost enabled one' do
+    waiting_paused_bot(limit_type: :price, price_limited: true, indicator_limited: true)
+
+    Bot::RepairOrphanedBotsJob.perform_now
+
+    assert_equal 1, SolidQueue::Job.where(class_name: 'Bot::PriceLimitCheckJob').count
+    assert_equal 0, SolidQueue::Job.where(class_name: 'Bot::IndicatorLimitCheckJob').count
   end
 end
