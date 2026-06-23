@@ -443,15 +443,15 @@ class Bot::ActionJobTransientNetworkTest < ActiveSupport::TestCase
     assert_equal 'scheduled', retried_bot.reload.status
   end
 
-  test 'exhaustion handoff: flips to :retrying, logs execution_failed transient_exhausted, notifies, re-enqueues, broadcasts' do
+  test 'exhaustion handoff (transient): gray execution_retrying, NO email, re-enqueues, broadcasts' do
     bot = create(:dca_single_asset, :started)
     setup_action_job_mocks(bot)
-    bot.exchange.stubs(:humanize_error).with('Net::OpenTimeout: persistent').returns('Connection issue')
     bot.define_singleton_method(:execute_action) do
       update!(status: :executing)
-      raise Client::TransientNetworkError, 'Net::OpenTimeout: persistent'
+      raise Client::TransientNetworkError, 'Timestamp for this request is outside of the recvWindow'
     end
-    bot.expects(:notify_about_error).with(errors: ['Connection issue']).once
+    # Transient exhaustion is self-recovering (bot reschedules) — must NOT email "your bot failed".
+    bot.expects(:notify_about_error).never
 
     job_setter = stub
     job_setter.expects(:perform_later).with(bot).once
@@ -460,20 +460,16 @@ class Bot::ActionJobTransientNetworkTest < ActiveSupport::TestCase
     Bot::BroadcastAfterScheduledActionJob.unstub(:perform_later)
     Bot::BroadcastAfterScheduledActionJob.expects(:perform_later).with(bot).once
 
-    # retry_on yields to our exhaustion block when executions >= attempts.
-    # ActiveJob tracks per-exception executions in `exception_executions`,
-    # incremented inside `executions_for`. Pre-seed that counter so the next
-    # failure pushes it past the attempts cap and the rescue chain yields to
-    # our block end-to-end (no private-API pokes).
     job = Bot::ActionJob.new(bot)
     job.exception_executions['[Client::TransientNetworkError]'] = 4
-
     assert_nothing_raised { job.perform_now }
 
     assert_equal 'retrying', bot.reload.status
-    log = bot.bot_activity_logs.where(event: 'execution_failed').last
-    assert log, 'execution_failed activity must be logged on exhaustion'
-    assert_equal 'error', log.level
+    assert_equal 0, bot.bot_activity_logs.where(event: 'execution_failed').count,
+                 'transient exhaustion must NOT log a red execution_failed'
+    log = bot.bot_activity_logs.where(event: 'execution_retrying').last
+    assert log, 'transient exhaustion must log a calm execution_retrying activity'
+    assert_equal 'info', log.level
     assert_equal true, log.details['transient_exhausted']
   end
 
@@ -554,6 +550,43 @@ class Bot::ActionJobTransientNetworkTest < ActiveSupport::TestCase
     assert_equal 'error', log.level
     assert_equal true, log.details['rate_limited_exhausted']
     assert_nil log.details['transient_exhausted'], 'rate-limit exhaustion must not be mislabeled transient'
+  end
+
+  test 'placement -1021: gray execution_retrying, NO email, clean reschedule, NO raise, NO orphan' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      Result::Failure.new('Timestamp for this request is outside of the recvWindow.')
+    end
+    bot.expects(:notify_about_error).never
+
+    job_setter = stub
+    job_setter.expects(:perform_later).with(bot).once
+    Bot::ActionJob.unstub(:set)
+    Bot::ActionJob.expects(:set).with(wait_until: bot.next_interval_checkpoint_at).returns(job_setter)
+    Bot::BroadcastAfterScheduledActionJob.unstub(:perform_later)
+    Bot::BroadcastAfterScheduledActionJob.expects(:perform_later).with(bot).once
+
+    assert_nothing_raised { Bot::ActionJob.new.perform(bot) }
+
+    assert_equal 'retrying', bot.reload.status
+    assert_equal 0, bot.bot_activity_logs.where(event: 'execution_failed').count
+    log = bot.bot_activity_logs.where(event: 'execution_retrying').last
+    assert log, 'placement -1021 must log a calm execution_retrying activity'
+    assert_equal 'info', log.level
+  end
+
+  test 'placement: a genuine non-transient failure still raises (red path unchanged)' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      Result::Failure.new('Filter failure: MIN_NOTIONAL')
+    end
+    # The genuine-rejection path is unchanged: re-raise as today (rescue StandardError handles it).
+    assert_raises(RuntimeError) { Bot::ActionJob.new.perform(bot) }
+    assert_equal 'retrying', bot.reload.status
   end
 
   private

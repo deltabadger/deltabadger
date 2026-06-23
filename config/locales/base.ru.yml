@@ -465,6 +465,7 @@ ru:
             market_closed: 'Рынок закрыт — следующее открытие %{time}'
             limit_paused: 'Приостановлено: лимит %{limit} не достигнут'
             execution_failed: 'Попытка ордера не удалась'
+            execution_retrying: 'Временная проблема с подключением — автоматический повтор'
             execution_failed_with_error: 'Попытка ордера не удалась: %{error}'
             order_abandoned: "Ордер %{order_id} оставлен (биржа больше его не отслеживает)"
         transactions:

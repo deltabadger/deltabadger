@@ -544,6 +544,32 @@ class Bots::DcaSingleAssetTest < ActiveSupport::TestCase
     assert_predicate result, :failure?
   end
 
+  # A placement -1021 (definitive pre-trade rejection) must NOT leave a stray `failed`
+  # Transaction row — there was no order, and the bot reschedules cleanly.
+  test 'set_order does not persist a failed Transaction on a placement -1021' do
+    bot = create(:dca_single_asset, :started) # market bot; mock price + placement
+    bot.ticker.stubs(:get_ask_price).returns(Result::Success.new(50_000.to_d))
+    bot.exchange.stubs(:market_buy)
+       .returns(Result::Failure.new('Timestamp for this request is outside of the recvWindow.'))
+
+    assert_no_difference -> { bot.transactions.failed.count } do
+      result = bot.set_order(order_amount_in_quote: 100.to_d)
+      assert result.failure?
+    end
+  end
+
+  test 'set_order STILL persists a failed Transaction on a genuine placement rejection' do
+    bot = create(:dca_single_asset, :started)
+    bot.ticker.stubs(:get_ask_price).returns(Result::Success.new(50_000.to_d))
+    bot.exchange.stubs(:market_buy)
+       .returns(Result::Failure.new('Filter failure: MIN_NOTIONAL'))
+
+    assert_difference -> { bot.transactions.failed.count }, 1 do
+      result = bot.set_order(order_amount_in_quote: 100.to_d)
+      assert result.failure?
+    end
+  end
+
   # == Query methods ==
 
   test 'restarting? returns true when stopped with last_action_job_at' do

@@ -464,6 +464,7 @@ pl:
             market_closed: 'Rynek zamknięty — następne otwarcie %{time}'
             limit_paused: 'Wstrzymano: limit %{limit} nie został spełniony'
             execution_failed: 'Próba zlecenia nie powiodła się'
+            execution_retrying: 'Tymczasowy problem z połączeniem — automatyczne ponawianie'
             execution_failed_with_error: 'Próba zlecenia nie powiodła się: %{error}'
             order_abandoned: "Zlecenie %{order_id} porzucone (giełda już go nie śledzi)"
         transactions:

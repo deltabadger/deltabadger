@@ -461,6 +461,7 @@ pt:
             market_closed: 'Mercado fechado — próxima abertura %{time}'
             limit_paused: 'Em pausa: limite %{limit} não atingido'
             execution_failed: 'Tentativa de ordem falhou'
+            execution_retrying: 'Problema de ligação temporário — a repetir automaticamente'
             execution_failed_with_error: 'Tentativa de ordem falhou: %{error}'
             order_abandoned: "Ordem %{order_id} abandonada (a exchange já não a regista)"
         transactions:

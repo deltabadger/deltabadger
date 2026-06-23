@@ -17,6 +17,10 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
     assert_includes errors[:invalid_key], 'Invalid Api-Key ID.'
   end
 
+  test 'transient_error? treats timestamp/recvWindow rejections as transient' do
+    assert @exchange.transient_error?(['Timestamp for this request is outside of the recvWindow.'])
+  end
+
   test 'minimum_amount_logic returns base_and_quote for market orders' do
     assert_equal :base_and_quote, @exchange.minimum_amount_logic(order_type: :market_order)
   end

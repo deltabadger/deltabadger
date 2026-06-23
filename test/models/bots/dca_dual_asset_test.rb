@@ -597,6 +597,70 @@ class Bots::DcaDualAssetTest < ActiveSupport::TestCase
     assert_predicate result, :failure?
   end
 
+  # == Placement -1021 partial-success (Option B, double-order safety) ==
+  # set_orders places order0 then order1 and returns on the FIRST failure. Worst case for a -1021
+  # is "order0 accepted, order1 rejected". The accepted order0 is persisted (waiting), and the bot
+  # reschedules; the next tick must NOT re-buy order0.
+
+  # Part (a) — single tick: one waiting order, no failed row.
+  test 'set_orders: order0 accepted + order1 -1021 leaves one waiting order, no failed row' do
+    bot = create(:dca_dual_asset, :started)
+    setup_bot_execution_mocks(bot)
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+    bot.stubs(:broadcast_below_minimums_warning)
+    bot.exchange.unstub(:market_buy)
+    # order0 accepted, order1 rejected with -1021
+    bot.exchange.stubs(:market_buy)
+       .returns(Result::Success.new(order_id: 'OID-0'),
+                Result::Failure.new('Timestamp for this request is outside of the recvWindow.'))
+
+    assert_no_difference -> { bot.transactions.failed.count } do
+      result = bot.set_orders(total_orders_amount_in_quote: 200.to_d)
+      assert result.failure?
+    end
+    assert_equal 1, bot.transactions.where(external_id: 'OID-0').count, 'order0 persisted exactly once'
+  end
+
+  # Part (b) — the real reschedule/second tick via execute_action → pending_quote_amount.
+  # Once order0 is waiting (and, in steady state, filled), the rebalancer sees base0 at/above
+  # target so order0's offset is zero → market_buy must NOT fire again for ticker0.
+  test 'reschedule (execute_action) after order0-accepted/order1-1021 does NOT re-place order0' do
+    bot = create(:dca_dual_asset, :started)
+    setup_bot_execution_mocks(bot)
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+    Bot::FetchAndUpdateOpenOrdersJob.stubs(:perform_now)
+    bot.stubs(:broadcast_below_minimums_warning)
+
+    # Tick 1: order0 accepted (persisted waiting), order1 -1021.
+    bot.exchange.unstub(:market_buy)
+    bot.exchange.stubs(:market_buy)
+       .returns(Result::Success.new(order_id: 'OID-0'),
+                Result::Failure.new('Timestamp for this request is outside of the recvWindow.'))
+    bot.set_orders(total_orders_amount_in_quote: bot.pending_quote_amount)
+    assert_equal 1, bot.transactions.waiting.where(external_id: 'OID-0').count
+
+    # Sanity: pending_quote_amount now subtracts the waiting order0, so the next tick has less
+    # (or no) budget for order0's share.
+    waiting_quote = bot.transactions.waiting.where(external_id: 'OID-0').sum(:quote_amount)
+    assert waiting_quote.positive?, 'order0 is a waiting order with a quote amount'
+
+    # Tick 2 = the REAL reschedule path: execute_action recomputes via pending_quote_amount. With
+    # order0 now reflected in the holdings, base0 is at target → its offset is zero, so market_buy
+    # must NOT fire again for ticker0. (Steady state once order0 fills; modelled here via metrics.)
+    bot.stubs(:metrics).returns(total_base0_amount: 1_000.to_d, total_base1_amount: 0.to_d)
+    bot.exchange.unstub(:market_buy)
+    bot.exchange.expects(:market_buy)
+       .with(has_entry(ticker: bot.ticker0), anything)
+       .never
+    bot.exchange.stubs(:market_buy)
+       .with(has_entry(ticker: bot.ticker1), anything)
+       .returns(Result::Success.new(order_id: 'OID-1'))
+
+    bot.execute_action
+
+    assert_equal 1, bot.transactions.where(external_id: 'OID-0').count, 'order0 still exactly one row — not re-placed'
+  end
+
   # == Query methods ==
 
   test 'restarting? returns true when stopped with last_action_job_at' do

@@ -463,6 +463,7 @@ fr:
             market_closed: 'Marché fermé — prochaine ouverture %{time}'
             limit_paused: 'En pause : limite %{limit} non atteinte'
             execution_failed: "Tentative d'ordre échouée"
+            execution_retrying: 'Problème de connexion temporaire — nouvelle tentative automatique'
             execution_failed_with_error: "Tentative d'ordre échouée : %{error}"
             order_abandoned: "Ordre %{order_id} abandonné (la bourse ne le suit plus)"
         transactions:

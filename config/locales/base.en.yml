@@ -486,6 +486,7 @@ en:
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'
             execution_failed: 'Order attempt failed'
+            execution_retrying: 'Temporary connection issue — retrying automatically'
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: 'Order %{order_id} abandoned (exchange no longer tracks it)'
         transactions:

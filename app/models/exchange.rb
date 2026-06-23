@@ -25,6 +25,18 @@ class Exchange < ApplicationRecord
     'Errno::ECONNRESET'
   ].freeze
 
+  # Placement-SAFE transient errors: a strict allowlist of strings that each guarantee the exchange
+  # rejected the order BEFORE it reached the matching engine (no order placed → re-placing with a
+  # fresh timestamp is safe). Currently only the Binance-family -1021/timestamp rejection qualifies.
+  # This is INTENTIONALLY separate from per-exchange known_errors[:transient]: that set can contain
+  # AMBIGUOUS strings (e.g. Kraken's 'EGeneral:Internal error', 'EAPI:Invalid nonce') where the order
+  # MIGHT have hit the book — those must NEVER be treated as placement-safe. Adding a string here is a
+  # double-order-safety decision: only add errors that are provably pre-trade rejections.
+  PLACEMENT_SAFE_TRANSIENT_ERRORS = [
+    'Timestamp for this request is outside of the recvWindow',
+    'Timestamp for this request was' # "…Nms ahead of the server's time."
+  ].freeze
+
   scope :stock_venues, -> { where(type: STOCK_TYPES) }
 
   has_many :bots
@@ -203,6 +215,34 @@ class Exchange < ApplicationRecord
       msg = err.to_s
       patterns.any? { |m| msg.include?(m) }
     end
+  end
+
+  # Sibling of transient_error?, but DELIBERATELY NARROWER — for the order-PLACEMENT site only.
+  # Matches ONLY PLACEMENT_SAFE_TRANSIENT_ERRORS, and NEVER NETWORK_TRANSIENT_PATTERNS nor the broader
+  # known_errors[:transient]. Rationale: a -1021 is a definitive pre-trade rejection (the order never
+  # reached the matching engine → re-placing with a fresh timestamp is safe), whereas a placement
+  # network timeout OR an ambiguous exchange error is indistinguishable from a successful book hit, and
+  # placement has no idempotency key → it must NOT be treated as safely transient. Do not widen this.
+  def placement_transient_error?(errors)
+    Array(errors).any? do |err|
+      msg = err.to_s
+      PLACEMENT_SAFE_TRANSIENT_ERRORS.any? { |m| msg.include?(m) }
+    end
+  end
+
+  # Retry an idempotent READ that returns a Result, when it fails with a transient error
+  # (network blip / -1021 timestamp). READS ONLY — never wrap order placement or withdrawals,
+  # which must stay single-shot. Bots don't use this (they retry at the job level); this is for
+  # the rule path, which has no job-level retry.
+  def with_transient_retry(attempts: 3, base_delay: 0.5)
+    result = yield
+    tries = 1
+    while tries < attempts && result.respond_to?(:failure?) && result.failure? && transient_error?(result.errors)
+      sleep(base_delay * tries)
+      result = yield
+      tries += 1
+    end
+    result
   end
 
   # Sibling of transient_error?: do the given errors look like an exchange rate-limit /

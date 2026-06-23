@@ -494,6 +494,7 @@ sk:
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'
             execution_failed: 'Order attempt failed'
+            execution_retrying: 'Dočasný problém s pripojením — automatické opakovanie'
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Pokyn %{order_id} opustený (burza ho už nesleduje)"
         # TODO: translate transactions (English placeholders)

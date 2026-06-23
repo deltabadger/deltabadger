@@ -3,16 +3,23 @@ class Bot::ActionJob < BotJob
     :insufficient_funds
   ].freeze
 
-  # Retries exhausted. Keep the bot in :retrying, log a visible execution_failed entry,
-  # notify the user, and hand back to the bot's own scheduler so a fresh attempt fires at
-  # the next interval. `exhausted_detail` tags WHICH retry class ran out so transient and
-  # rate-limit exhaustion stay distinguishable in the activity log.
+  # Retries exhausted. Keep the bot in :retrying and reschedule a fresh attempt at the next
+  # interval. Transient (network / -1021 timestamp) exhaustion is self-recovering: log a calm,
+  # de-emphasized (:info) entry and DON'T email "your bot failed". Everything else (incl.
+  # rate-limit exhaustion) stays red (:error) + notifies. NOTE: activity rows aren't currently
+  # color-coded by level, so the user-visible lever here is the suppressed email; :info keeps it
+  # gray, not yellow, if level styling is added later.
   EXHAUSTION_HANDLER = lambda do |job, error, exhausted_detail|
     bot = job.arguments.first
     bot.update!(status: :retrying)
-    bot.log_activity('execution_failed', level: :error,
-                                         details: { error: error.message, ignorable: nil }.merge(exhausted_detail))
-    bot.notify_about_error(errors: [bot.exchange.humanize_error(error.message)])
+    if exhausted_detail[:transient_exhausted]
+      bot.log_activity('execution_retrying', level: :info,
+                                             details: { error: error.message }.merge(exhausted_detail))
+    else
+      bot.log_activity('execution_failed', level: :error,
+                                           details: { error: error.message, ignorable: nil }.merge(exhausted_detail))
+      bot.notify_about_error(errors: [bot.exchange.humanize_error(error.message)])
+    end
     Bot::ActionJob.set(wait_until: bot.next_interval_checkpoint_at).perform_later(bot)
     Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
   end
@@ -65,6 +72,17 @@ class Bot::ActionJob < BotJob
     result = bot.execute_action
     if result.failure?
       Rails.logger.error("ActionJob for bot #{bot.id} failed to execute action. Errors: #{result.errors.to_sentence}")
+      # A -1021/timestamp rejection on placement is a definitive pre-trade rejection (the order was
+      # never placed — see Exchange#placement_transient_error?). It is self-recovering: reschedule a
+      # fresh attempt at the next interval (clean — no orphan), log a calm gray entry, and send NO
+      # alarm email. Everything else stays the existing red path (raise → rescue StandardError).
+      if bot.exchange.placement_transient_error?(result.errors)
+        bot.update!(status: :retrying)
+        bot.log_activity('execution_retrying', level: :info,
+                                               details: { error: result.errors.to_sentence, placement_transient: true })
+        schedule_next_action_job(bot)
+        return
+      end
       raise result.errors.to_sentence
     end
 

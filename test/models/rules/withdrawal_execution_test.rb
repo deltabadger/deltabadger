@@ -384,4 +384,30 @@ class Rules::WithdrawalExecutionTest < ActiveSupport::TestCase
     assert result.success?
     refute result.data[:skipped]
   end
+
+  # Transient balance-fetch failure → gray :transient log, NOT red :failed, and the read is
+  # actually retried (3 attempts) — the call-count expectation proves the retry happened.
+  test 'execute logs transient (gray) and retries on a timestamp/recvWindow balance failure' do
+    transient = Result::Failure.new('Timestamp for this request is outside of the recvWindow')
+    @exchange.stubs(:sleep) # keep the backoff instant in the test
+    @exchange.expects(:get_balance).times(3).returns(transient) # default attempts: 3 → all fail
+
+    result = @rule.execute
+
+    assert result.failure?
+    log = @rule.rule_logs.last
+    assert log.transient?, "expected transient status, got #{log.status}"
+    refute log.failed?
+  end
+
+  test 'execute still logs failed (red) on a genuine, non-transient balance failure' do
+    @exchange.stubs(:get_balance).returns(Result::Failure.new('Invalid API-key, IP, or permissions for action.'))
+
+    result = @rule.execute
+
+    assert result.failure?
+    log = @rule.rule_logs.last
+    assert log.failed?
+    assert_includes log.message, 'Failed to fetch balance'
+  end
 end

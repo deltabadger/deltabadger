@@ -463,6 +463,7 @@ de:
             market_closed: 'Markt geschlossen — nächste Öffnung %{time}'
             limit_paused: 'Pausiert: Limit %{limit} nicht erfüllt'
             execution_failed: 'Orderversuch fehlgeschlagen'
+            execution_retrying: 'Vorübergehendes Verbindungsproblem — wird automatisch wiederholt'
             execution_failed_with_error: 'Orderversuch fehlgeschlagen: %{error}'
             order_abandoned: "Order %{order_id} aufgegeben (Börse erfasst sie nicht mehr)"
         transactions:

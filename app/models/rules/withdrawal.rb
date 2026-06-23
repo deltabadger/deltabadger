@@ -47,9 +47,9 @@ class Rules::Withdrawal < Rule
   end
 
   def execute
-    balance_result = with_api_key { exchange.get_balance(asset_id: asset_id) }
+    balance_result = with_api_key { exchange.with_transient_retry { exchange.get_balance(asset_id: asset_id) } }
     if balance_result.failure?
-      log_failed("Failed to fetch balance: #{balance_result.errors.first}")
+      log_read_failure('Failed to fetch balance', balance_result.errors)
       return balance_result
     end
 
@@ -58,10 +58,10 @@ class Rules::Withdrawal < Rule
 
     if min_amount.nil?
       # Fee is zero or unknown — refresh and re-check
-      refresh_fee_result = with_api_key { exchange.fetch_withdrawal_fees! }
+      refresh_fee_result = with_api_key { exchange.with_transient_retry { exchange.fetch_withdrawal_fees! } }
       if refresh_fee_result.failure?
-        log_failed("Failed to refresh withdrawal fees: #{refresh_fee_result.errors.first}",
-                   details: { free_balance: free_balance.to_s('F') })
+        log_read_failure('Failed to refresh withdrawal fees', refresh_fee_result.errors,
+                         details: { free_balance: free_balance.to_s('F') })
         return refresh_fee_result
       end
       reload # pick up updated exchange_asset
@@ -84,10 +84,10 @@ class Rules::Withdrawal < Rule
 
     # Refresh fee if stale
     unless exchange.withdrawal_fee_fresh?(asset: asset)
-      refresh_result = with_api_key { exchange.fetch_withdrawal_fees! }
+      refresh_result = with_api_key { exchange.with_transient_retry { exchange.fetch_withdrawal_fees! } }
       if refresh_result.failure?
-        log_failed("Failed to refresh withdrawal fees: #{refresh_result.errors.first}",
-                   details: { free_balance: free_balance.to_s('F') })
+        log_read_failure('Failed to refresh withdrawal fees', refresh_result.errors,
+                         details: { free_balance: free_balance.to_s('F') })
         return refresh_result
       end
       exchange.exchange_assets.reset
@@ -200,6 +200,15 @@ class Rules::Withdrawal < Rule
   end
 
   private
+
+  # Reads re-run next cycle, so a transient failure is gray (calm), a real one is red.
+  def log_read_failure(prefix, errors, details: {})
+    if exchange.transient_error?(errors)
+      log_transient("#{prefix} — temporary exchange issue, retrying on the next cycle", details:)
+    else
+      log_failed("#{prefix}: #{errors.first}", details:)
+    end
+  end
 
   def default_withdrawal_percentage
     self.withdrawal_percentage = '100' if withdrawal_percentage.blank?

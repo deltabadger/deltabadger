@@ -487,6 +487,7 @@ bg:
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'
             execution_failed: 'Order attempt failed'
+            execution_retrying: 'Временен проблем с връзката — автоматичен повторен опит'
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Поръчката %{order_id} е изоставена (борсата вече не я следи)"
         # TODO: translate transactions (English placeholders)

@@ -2,7 +2,9 @@ class Exchanges::Mexc < Exchange
   COINGECKO_ID = 'mxc'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Insufficient balance.'],
-    invalid_key: ['Invalid Api-Key ID.', 'Signature for this request is not valid.']
+    invalid_key: ['Invalid Api-Key ID.', 'Signature for this request is not valid.'],
+    # MEXC is a Binance API clone and emits the identical -1021 timestamp string. Same treatment.
+    transient: ['Timestamp for this request is outside of the recvWindow', 'Timestamp for this request was']
   }.freeze
   ORDER_STATUS_MAP = {
     'NEW' => :open,

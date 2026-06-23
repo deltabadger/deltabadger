@@ -41,7 +41,9 @@ module Bots::DcaDualAsset::OrderSetter
           "set_orders bot=#{id} event=order_failed #{order_log_fields(order_data)} " \
           "errors=#{result.errors.to_sentence}"
         )
-        create_failed_order!(order_data.merge!(error_messages: result.errors))
+        # A -1021/timestamp rejection is a no-op pre-trade rejection: no order was placed, so don't
+        # leave a misleading `failed` Transaction row. The bot reschedules cleanly (Bot::ActionJob).
+        create_failed_order!(order_data.merge!(error_messages: result.errors)) unless exchange.placement_transient_error?(result.errors)
         return result
       else
         order_id = result.data[:order_id]

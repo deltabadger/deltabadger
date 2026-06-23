@@ -154,6 +154,8 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
     assert @exchange.transient_error?(['Faraday::ConnectionFailed: connection refused'])
     assert @exchange.transient_error?(['Net::OpenTimeout: execution expired'])
     assert @exchange.transient_error?(['Errno::ECONNRESET: Connection reset by peer'])
+    assert @exchange.transient_error?(['Timestamp for this request is outside of the recvWindow.'])
+    assert @exchange.transient_error?(["Timestamp for this request was 1000ms ahead of the server's time."])
   end
 
   test 'transient_error? does NOT retry business/auth/rate-limit errors (no false positives)' do
@@ -161,6 +163,5 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
     assert_not @exchange.transient_error?(['Account has insufficient balance for requested action'])
     assert_not @exchange.transient_error?(['Too many requests'])
     assert_not @exchange.transient_error?(['Filter failure: MIN_NOTIONAL'])
-    assert_not @exchange.transient_error?(['Timestamp for this request is outside of the recvWindow'])
   end
 end

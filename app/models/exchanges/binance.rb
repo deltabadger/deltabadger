@@ -2,7 +2,10 @@ class Exchanges::Binance < Exchange
   COINGECKO_ID = 'binance'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Account has insufficient balance for requested action.'],
-    invalid_key: ['API-key format invalid.', 'Invalid API-key, IP, or permissions for action.', 'Invalid Api-Key ID.']
+    invalid_key: ['API-key format invalid.', 'Invalid API-key, IP, or permissions for action.', 'Invalid Api-Key ID.'],
+    # -1021: request timestamp outside the recvWindow. Transient — a correct, NTP-synced clock can still
+    # trip this during exchange-side clock skew or proxy latency. Retried on reads; surfaced gray, not red.
+    transient: ['Timestamp for this request is outside of the recvWindow', 'Timestamp for this request was']
   }.freeze # https://developers.binance.com/docs/binance-spot-api-docs/errors
   ERROR_CODES = {
     invalid_key: [-2014, -2015]

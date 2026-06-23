@@ -40,4 +40,10 @@ class Rule < ApplicationRecord
   def log_skipped(message, details: {})
     rule_logs.create!(status: :pending, message:, details:)
   end
+
+  # A transient, self-recovering failure (network blip / exchange timestamp rejection). Rendered
+  # gray like :pending — NOT red like :failed — because the operation re-runs on the next cycle.
+  def log_transient(message, details: {})
+    rule_logs.create!(status: :transient, message:, details:)
+  end
 end
