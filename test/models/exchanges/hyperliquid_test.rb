@@ -540,6 +540,37 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert result.data.all? { |t| t[:minimum_quote_size] == 10 }, 'every HL ticker needs the 10 USDC floor'
   end
 
+  test 'get_ledger maps the Hyperliquid pair index (coin) to the base symbol' do
+    api_key = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    usdc = create(:asset, external_id: 'usdc', symbol: 'USDC', name: 'USDC')
+    mu   = create(:asset, external_id: 'hl:0x5e28', symbol: 'MU', name: 'MU (Hyperliquid)')
+    hype = create(:asset, external_id: 'hyperliquid', symbol: 'HYPE', name: 'Hyperliquid')
+    create(:ticker, exchange: @exchange, base_asset: mu,   quote_asset: usdc, ticker: '@333', base: 'MU',   quote: 'USDC')
+    create(:ticker, exchange: @exchange, base_asset: hype, quote_asset: usdc, ticker: '@107', base: 'HYPE', quote: 'USDC')
+
+    fills = [
+      { 'coin' => '@333', 'side' => 'B', 'px' => '1063.6', 'sz' => '0.04', 'fee' => '0.01', 'tid' => 't1', 'time' => 1_700_000_000_000 },
+      { 'coin' => '@107', 'side' => 'S', 'px' => '40.0', 'sz' => '0.16', 'fee' => '0.02', 'tid' => 't2', 'time' => 1_700_000_001_000 }
+    ]
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills).returns(Result::Success.new(fills))
+
+    result = @exchange.get_ledger(api_key: api_key)
+
+    assert result.success?
+    base_currencies = result.data.map { |e| e[:base_currency] }
+    assert_equal %w[MU HYPE], base_currencies
+  end
+
+  test 'get_ledger falls back to the raw coin when the pair index is unknown' do
+    api_key = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    fills = [{ 'coin' => '@999', 'side' => 'B', 'px' => '1.0', 'sz' => '1.0', 'fee' => '0', 'tid' => 't9', 'time' => 1_700_000_000_000 }]
+    Honeymaker::Clients::Hyperliquid.any_instance.stubs(:user_fills).returns(Result::Success.new(fills))
+
+    result = @exchange.get_ledger(api_key: api_key)
+
+    assert_equal '@999', result.data.first[:base_currency]
+  end
+
   private
 
   def hyperliquid_at_ticker

@@ -327,13 +327,17 @@ class Exchanges::Hyperliquid < Exchange
              end
 
     unless result.failure?
+      # userFills returns the spot pair index (e.g. "@333"), not the token name — unlike
+      # spot_balances, which returns "MU". Map it to the human base symbol via our ticker
+      # table; fall back to the raw coin for an unknown/delisted pair.
+      base_by_ticker = tickers.pluck(:ticker, :base).to_h
       Array(result.data).each do |fill|
         coin = fill['coin']
         is_buyer = fill['side'] == 'B'
         px = fill['px'].to_d
         sz = fill['sz'].to_d
         entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: coin, base_amount: sz,
+                     base_currency: base_by_ticker[coin] || coin, base_amount: sz,
                      quote_currency: 'USDC', quote_amount: (px * sz),
                      fee_currency: 'USDC', fee_amount: fill['fee'].to_d.abs,
                      tx_id: fill['tid'].to_s, group_id: nil, description: nil,

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_06_03_234747) do
+ActiveRecord::Schema[8.1].define(version: 2026_06_24_081139) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
