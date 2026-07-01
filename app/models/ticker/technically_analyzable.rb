@@ -14,25 +14,10 @@ module Ticker::TechnicallyAnalyzable
     rsi_value = Rails.cache.fetch(cache_key, expires_in: expires_in) do
       # Although RSI only "needs" 15 candles the calculation actually accounts for previous gains/losses.
       # A slice of 10 * period candles gives a good ratio between accuracy and performance.
-      since = Time.now.utc - ((10 * period * timeframe) + (2 * timeframe))
-      result = get_candles(
-        start_at: since,
-        timeframe: timeframe
-      )
-      return result if result.failure?
+      closes = closed_candle_closes(timeframe: timeframe, lookback_multiplier: 10 * period)
+      return closes if closes.failure?
 
-      if result.data.last[0] < timeframe.ago
-        return Result::Failure.new(
-          "Failed to get #{timeframe.inspect} candles since #{since} for #{ticker}. " \
-          'The last candle has not been closed yet.'
-        )
-      end
-
-      rsi = RubyTechnicalAnalysis::RelativeStrengthIndex.new(
-        series: result.data[...-1].map { |candle| candle[4] },
-        period: period
-      )
-      return result if result.failure?
+      rsi = RubyTechnicalAnalysis::RelativeStrengthIndex.new(series: closes.data, period: period)
       return Result::Failure.new("Failed to calculate #{timeframe.inspect} RSI for #{ticker} (period: #{period})") unless rsi.valid?
 
       rsi.call.round(2)
@@ -59,25 +44,10 @@ module Ticker::TechnicallyAnalyzable
     ma_values = Rails.cache.fetch(cache_key, expires_in: expires_in) do
       # Although EMA only "needs" 21 candles the calculation actually accounts for previous gains/losses.
       # A slice of 10 * period candles gives a good ratio between accuracy and performance.
-      since = Time.now.utc - ((10 * period * timeframe) + (2 * timeframe))
-      result = get_candles(
-        start_at: since,
-        timeframe: timeframe
-      )
-      return result if result.failure?
+      closes = closed_candle_closes(timeframe: timeframe, lookback_multiplier: 10 * period)
+      return closes if closes.failure?
 
-      if result.data.last[0] < timeframe.ago
-        return Result::Failure.new(
-          "Failed to get #{timeframe.inspect} candles since #{since} for #{ticker}. " \
-          'The last candle has not been closed yet.'
-        )
-      end
-
-      moving_averages = RubyTechnicalAnalysis::MovingAverages.new(
-        series: result.data[...-1].map { |candle| candle[4] },
-        period: period
-      )
-      return result if result.failure?
+      moving_averages = RubyTechnicalAnalysis::MovingAverages.new(series: closes.data, period: period)
       unless moving_averages.valid?
         return Result::Failure.new("Failed to calculate #{timeframe.inspect} Moving Averages for #{ticker} (period: #{period})")
       end
@@ -145,12 +115,58 @@ module Ticker::TechnicallyAnalyzable
     Result::Success.new(high)
   end
 
+  # Lowest low over a FINITE trailing window. The sell-side "% rise from low" trigger is the mirror
+  # of "% drop from high", but there is no all-time-low persistence (an ATL is degenerate for selling
+  # — price sits far above it), so this only serves finite durations and never seeds a column.
+  def get_low_of_last(duration:)
+    cache_key = "exchange_ticker_#{id}_low_of_last_#{duration}"
+    low = Rails.cache.fetch(cache_key, expires_in: 20.seconds) do
+      result = low_for_duration(duration)
+      return result if result.failure?
+
+      result.data
+    end
+
+    Result::Success.new(low)
+  end
+
   private
+
+  # Closing prices of the CLOSED candles to feed an indicator (RSI / moving averages).
+  #
+  # The newest candle an exchange returns is normally the current, still-forming period, so it is
+  # dropped. On a 24/7 crypto market that is always the case. But a market that is currently closed
+  # (e.g. a stock over a weekend, a holiday, or overnight) returns a newest candle that is the last
+  # *closed* session — the correct "current" reading — so it must be kept. Rejecting it because it
+  # predates `timeframe.ago` (the previous behaviour) froze the RSI/MA readout whenever the market
+  # was closed: the indicator-limit settings spinner never resolved and the gate check failed.
+  def closed_candle_closes(timeframe:, lookback_multiplier:)
+    since = Time.now.utc - ((lookback_multiplier * timeframe) + (2 * timeframe))
+    result = get_candles(start_at: since, timeframe: timeframe)
+    return result if result.failure?
+
+    candles = result.data
+    return Result::Failure.new("Failed to get #{timeframe.inspect} candles since #{since} for #{ticker}.") if candles.blank?
+
+    candles = candles[...-1] if candle_still_forming?(candles.last, timeframe)
+    Result::Success.new(candles.map { |candle| candle[4] })
+  end
+
+  # True while the candle's period is still in progress (its close time is in the future).
+  def candle_still_forming?(candle, timeframe)
+    candle[0] + timeframe > Time.now.utc
+  end
 
   def high_for_duration(duration)
     candles_timeframe = optimal_candles_timeframe_for_duration(duration)
     since = (duration + candles_timeframe).ago
     get_high(since, candles_timeframe)
+  end
+
+  def low_for_duration(duration)
+    candles_timeframe = optimal_candles_timeframe_for_duration(duration)
+    since = (duration + candles_timeframe).ago
+    get_low(since, candles_timeframe)
   end
 
   def ath_seed_empty_cache_key
@@ -192,5 +208,17 @@ module Ticker::TechnicallyAnalyzable
     candles = result.data
     high = candles.empty? ? nil : candles.map { |candle| candle[2] }.max
     Result::Success.new(high)
+  end
+
+  def get_low(start_at, timeframe)
+    result = get_candles(
+      start_at: start_at,
+      timeframe: timeframe
+    )
+    return result if result.failure?
+
+    candles = result.data
+    low = candles.empty? ? nil : candles.map { |candle| candle[3] }.min
+    Result::Success.new(low)
   end
 end

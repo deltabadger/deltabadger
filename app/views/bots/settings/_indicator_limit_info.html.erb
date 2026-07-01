@@ -1,4 +1,6 @@
-<% if bot.id.present? && bot.indicator_limited? && bot.indicator_limit.present? %>
+<%# Active side: read the buy-side keys while buying, the sell-side mirror while selling. %>
+<% pfx = trigger_prefix(bot, 'indicator_limit') %>
+<% if bot.id.present? && bot.active_indicator_limited? && bot.public_send(pfx).present? %>
   <small id="<%= bot.new_record? ? "new-settings-indicator-limit-info" : "settings-indicator-limit-info" %>" class="small-info">
     <% if info.nil? %>
       <%= tag.div data: {
@@ -8,7 +10,7 @@
       }, class: "loader--small", style: "position: unset; float: left; margin-top: 1rem;" %>
     <% else %>
       <% ticker_select_options = ticker_select_options(bot) %>
-      <% selected_ticker_id = bot.tickers.find_by(id: bot.indicator_limit_in_ticker_id)&.id %>
+      <% selected_ticker_id = bot.tickers.find_by(id: bot.public_send("#{pfx}_in_ticker_id"))&.id %>
       <% if ticker_select_options.size > 1 %>
         <% ticker = ticker_select_options.find { |_, id| id == selected_ticker_id }&.first %>
       <% else %>
@@ -16,9 +18,9 @@
       <% end %>
       <div class="<%= info[:condition_met] ? "text-success" : "" %>">
         <%= t("bot.settings.extra_indicator_limit.info",
-              indicator: bot.indicator_limit_in_indicator.upcase,
+              indicator: bot.public_send("#{pfx}_in_indicator").upcase,
               ticker: ticker,
-              timeframe: t("bot.settings.extra_indicator_limit.timeframe.#{bot.indicator_limit_in_timeframe}"),
+              timeframe: t("bot.settings.extra_indicator_limit.timeframe.#{bot.public_send("#{pfx}_in_timeframe")}"),
               value: info[:value]) %>
       </div>
     <% end %>

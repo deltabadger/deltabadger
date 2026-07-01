@@ -89,29 +89,55 @@ module BotHelper
     }[bot.type]
   end
 
-  def price_limit_timing_condition_select_options(bot)
-    return [] unless defined?(bot.class::PRICE_LIMIT_TIMING_CONDITIONS)
-
-    bot.class::PRICE_LIMIT_TIMING_CONDITIONS.map do |condition|
-      [t("bot.settings.extra_price_limit.timing_condition.#{condition}"), condition]
-    end
-  end
-
   def price_limit_value_condition_select_options(bot)
     return [] unless defined?(bot.class::PRICE_LIMIT_VALUE_CONDITIONS)
 
+    active_timing = bot.public_send("#{trigger_prefix(bot, 'price_limit')}_timing_condition")
     bot.class::PRICE_LIMIT_VALUE_CONDITIONS.map do |condition|
-      next if condition == 'between' && bot.price_limit_timing_condition != 'while'
+      next if condition == 'between' && active_timing != 'while'
 
       [t("bot.settings.extra_price_limit.value_condition.#{condition}"), condition]
     end.compact
   end
 
-  def price_drop_limit_time_window_condition_select_options(bot)
-    return [] unless defined?(bot.class::PRICE_DROP_LIMIT_TIME_WINDOW_CONDITIONS)
+  # The active side's settings-key prefix for a trigger ("price_limit" / "sell_price_limit").
+  # selling? is false for non-reversible bot types, so they always read the buy-side keys.
+  def trigger_prefix(bot, base)
+    bot.selling? ? "sell_#{base}" : base
+  end
 
-    bot.class::PRICE_DROP_LIMIT_TIME_WINDOW_CONDITIONS.keys.map do |condition|
-      [t("bot.settings.extra_price_drop_limit.time_window_condition.#{condition}"), condition]
+  # The merged trigger "mode" select (issues #1/#2) — one direction-aware dropdown replacing the old
+  # separate action + timing dropdowns. `base` is the unprefixed trigger name ("price_limit", …).
+  #   restrict -> "Buy only"/"Sell only"   start -> "Start buying"/"Start selling"
+  #   flip     -> "Start selling"/"Start buying"   (only for reversible bots)
+  # Price-drop has no timing field and its pause latches, so it drops `restrict` (its non-flip mode is
+  # semantically a "start").
+  def trigger_mode_select_options(bot, base)
+    side = bot.selling? ? 'selling' : 'buying'
+    tokens = base == 'price_drop_limit' ? %w[start] : %w[restrict start]
+    tokens << 'flip' if bot.reversible?
+    tokens.map { |token| [t("bot.settings.trigger_mode.#{token}_#{side}"), token] }
+  end
+
+  # The mode token currently stored for the active side: flip action -> "flip"; price-drop (no
+  # timing) -> "start"; otherwise the timing maps while -> "restrict", after -> "start".
+  def trigger_mode_for(bot, base)
+    prefix = trigger_prefix(bot, base)
+    return 'flip' if %w[start_selling start_buying].include?(bot.public_send("#{prefix}_action"))
+    return 'start' if base == 'price_drop_limit'
+
+    bot.public_send("#{prefix}_timing_condition") == 'while' ? 'restrict' : 'start'
+  end
+
+  # Buying references a window high (all-time / 24h high); selling references a recent low (24h / 7d
+  # low) — ATL is dropped (degenerate for selling). Labels live under separate buy/sell namespaces.
+  def price_drop_limit_time_window_condition_select_options(bot)
+    return [] unless defined?(bot.class::PRICE_DROP_LIMIT_BUY_TIME_WINDOW_CONDITIONS)
+
+    conditions = bot.selling? ? bot.class::PRICE_DROP_LIMIT_SELL_TIME_WINDOW_CONDITIONS : bot.class::PRICE_DROP_LIMIT_BUY_TIME_WINDOW_CONDITIONS
+    namespace = bot.selling? ? 'sell_time_window_condition' : 'time_window_condition'
+    conditions.keys.map do |condition|
+      [t("bot.settings.extra_price_drop_limit.#{namespace}.#{condition}"), condition]
     end
   end
 
@@ -127,14 +153,6 @@ module BotHelper
       .map { |locale_key, _| [t("bot.settings.extra_indicator_limit.timeframe.#{locale_key}"), locale_key] }
   end
 
-  def indicator_limit_timing_condition_select_options(bot)
-    return [] unless defined?(bot.class::INDICATOR_LIMIT_TIMING_CONDITIONS)
-
-    bot.class::INDICATOR_LIMIT_TIMING_CONDITIONS.map do |condition|
-      [t("bot.settings.extra_indicator_limit.timing_condition.#{condition}"), condition]
-    end
-  end
-
   def indicator_limit_value_condition_select_options(bot)
     return [] unless defined?(bot.class::INDICATOR_LIMIT_VALUE_CONDITIONS)
 
@@ -147,14 +165,6 @@ module BotHelper
     Bot::MovingAverageLimitable::MOVING_AVERAGE_LIMIT_TIMEFRAMES
       .sort_by { |_, duration| duration }
       .map { |locale_key, _| [t("bot.settings.extra_moving_average_limit.timeframe.#{locale_key}"), locale_key] }
-  end
-
-  def moving_average_limit_timing_condition_select_options(bot)
-    return [] unless defined?(bot.class::MOVING_AVERAGE_LIMIT_TIMING_CONDITIONS)
-
-    bot.class::MOVING_AVERAGE_LIMIT_TIMING_CONDITIONS.map do |condition|
-      [t("bot.settings.extra_moving_average_limit.timing_condition.#{condition}"), condition]
-    end
   end
 
   def moving_average_limit_value_condition_select_options(bot)

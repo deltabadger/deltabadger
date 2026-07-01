@@ -1,0 +1,4 @@
+<%= turbo_stream.replace 'settings', partial: 'bots/dca_single_assets/settings', locals: { bot: @bot } %>
+<%= turbo_stream.replace dom_id(@bot, :status_button), partial: 'bots/status/status_button', locals: { bot: @bot } %>
+
+<%= turbo_stream_prepend_flash %>

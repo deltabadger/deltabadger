@@ -72,6 +72,9 @@ el:
         conversational:
             invest: "Επένδυσε"
             into: "σε"
+            sell: "Πούλησε"
+            to: "σε"
+            reverse: "Αντιστροφή κατεύθυνσης"
         utils:
             mkt_cap_adjusted_html: "Προσαρμοσμένη κεφαλαιοποίηση"
             mkt_cap_adjusted_info_html: |
@@ -188,6 +191,8 @@ el:
         next_sell: 'Επόμενη σε %{countdown}'
         next_withdrawal: 'Επόμενη σε %{countdown}'
         not_found: 'Αυτό το bot δεν υπάρχει.'
+        reverse_in_progress: 'Το bot εκτελεί εντολή αυτή τη στιγμή — δοκίμασε ξανά την αντιστροφή σε λίγο.'
+        reverse_confirm: "Η αντιστροφή θα ακυρώσει όλες τις ανοιχτές εντολές αυτού του bot. Συνέχεια;"
         price: 'η τιμή'
         price_range_buy_html: 'Αγορά μόνο στο εύρος τιμής από <split>$100</split> έως <split>$1000</split> %{quote} ανά %{base}.'
         price_range_sell_html: "Πώληση μόνο στο εύρος τιμής από <split>$100</split> έως <split>$1000</split> %{quote} ανά %{base}."
@@ -252,15 +257,33 @@ el:
             smart_intervals:
                 sentence_html: '<b>Έξυπνα διαστήματα</b> Χωρισμός <span>του</span> ποσού <span>σε</span> <span>%{amount_html} %{quote}</span> μονάδες'
                 info: "Ο χωρισμός των %{quote_amount} %{quote} / %{interval} σε μονάδες των %{amount} %{quote} θα κάνει μία επένδυση κάθε %{smart_interval}"
+                sell_sentence_html: '<b>Έξυπνα διαστήματα</b> Χωρισμός <span>του</span> ποσού <span>σε</span> <span>%{amount_html} %{base}</span> μονάδες'
+                sell_info: "Ο χωρισμός των %{base_amount} %{base} / %{interval} σε μονάδες των %{amount} %{base} θα κάνει μία πώληση κάθε %{smart_interval}"
             limit_orders:
                 sentence_html: '<b>FeeCutter</b> <span>Μείωσε τις προμήθειες</span> με εντολές <span>limit</span> <span>%{amount_html}%</span> <span>κάτω από την τιμή</span>'
+                sentence_sell_html: '<b>FeeCutter</b> <span>Μείωσε τις προμήθειες</span> με εντολές <span>limit</span> <span>%{amount_html}%</span> <span>πάνω από την τιμή</span>'
                 info: "Για να μηδενίσεις τις προμήθειες, όρισέ το στο %{maker_fee}% που είναι η προμήθεια maker του %{exchange}. Μείωσέ το για ταχύτερη εκτέλεση, ή αύξησέ το για πιθανώς καλύτερη τιμή. Παρακολούθησε την εκτέλεση στον πίνακα εντολών."
                 locked_tooltip: "Το Hyperliquid δεν υποστηρίζει εντολές market στο spot."
+            trigger_action:
+                pause: "Παύση"
+                start_selling: "Ξεκίνα πωλήσεις"
+                start_buying: "Ξεκίνα αγορές"
+            trigger_mode:
+                restrict_buying: "Αγορά μόνο"
+                restrict_selling: "Πώληση μόνο"
+                start_buying: "Ξεκίνα αγορές"
+                start_selling: "Ξεκίνα πωλήσεις"
+                flip_buying: "Ξεκίνα πωλήσεις"
+                flip_selling: "Ξεκίνα αγορές"
             extra_amount_limit:
                 sentence_html: "Μην ξοδέψεις πάνω από <span>%{value_html} %{quote}</span>"
+                sell_sentence_html: "Μην πουλήσεις πάνω από <span>%{value_html} %{base}</span>"
                 info:
                     spent: "Ολόκληρο το ποσό επενδύθηκε"
                     left: "(απομένουν %{amount} %{quote})"
+                sell_info:
+                    sold: "Ολόκληρο το ποσό πωλήθηκε"
+                    left: "(απομένουν %{amount} %{base})"
             extra_price_limit:
                 sentence_html:
                     one: "%{timing_condition_html} όταν η <span>τιμή</span> είναι <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
@@ -279,10 +302,19 @@ el:
                 sentence_html:
                     one: "Ξεκίνα αγορές όταν η τιμή πέσει <span>%{value_html}%</span> από το %{time_window_condition_html}"
                     other: "Ξεκίνα αγορές όταν η τιμή του %{base_html} πέσει <span>%{value_html}%</span> από το %{time_window_condition_html}"
+                mode_sentence_html:
+                    one: "%{mode_html} όταν η τιμή πέσει <span>%{value_html}%</span> από το %{time_window_condition_html}"
+                    other: "%{mode_html} όταν η τιμή του %{base_html} πέσει <span>%{value_html}%</span> από το %{time_window_condition_html}"
+                sell_mode_sentence_html:
+                    one: "%{mode_html} όταν η τιμή ανέβει <span>%{value_html}%</span> από το %{time_window_condition_html}"
+                    other: "%{mode_html} όταν η τιμή του %{base_html} ανέβει <span>%{value_html}%</span> από το %{time_window_condition_html}"
                 info: "Το τρέχον %{time_window_condition} του %{base} είναι %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "ιστορικό υψηλό"
                     twenty_four_hours: "υψηλό 24ώρου"
+                sell_time_window_condition:
+                    twenty_four_hours: "χαμηλό 24ώρου"
+                    seven_days: "χαμηλό 7 ημερών"
             extra_indicator_limit:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> όταν ο <span>%{indicator_html}</span> σε %{timeframe_html} <span>κεριά</span> είναι <span>%{value_condition_html} %{value_html}</span>"

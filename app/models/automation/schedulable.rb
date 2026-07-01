@@ -120,6 +120,16 @@ module Automation::Schedulable
                               .find_each do |execution|
       execution.job.destroy if job_matches_record?(execution.job, global_id)
     end
+
+    # Cancel blocked jobs. Bot jobs are per-exchange concurrency-limited (one thread per exchange
+    # queue), so an old job can sit in BlockedExecution waiting for a slot. Without this it survives a
+    # stop/reschedule/flip and later unblocks to run against the (possibly reversed) bot; the semaphore
+    # self-heals via its concurrency-duration expiry.
+    SolidQueue::BlockedExecution.joins(:job)
+                                .where(solid_queue_jobs: { class_name: job_class.to_s })
+                                .find_each do |execution|
+      execution.job.destroy if job_matches_record?(execution.job, global_id)
+    end
   end
 
   def find_next_scheduled_job_at(job_class:, record:)

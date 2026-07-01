@@ -86,7 +86,16 @@ module Bot::Lifecycle
   end
 
   def restarting_within_interval?
-    restarting? && pending_quote_amount < effective_quote_amount
+    return false unless restarting?
+
+    # The buy carry (pending_quote_amount) is frozen while selling, so the buy-amount comparison
+    # would be meaningless. Use elapsed time vs the (sell) cadence so a resumed selling bot does
+    # not immediately re-sell mid-interval. try — Lifecycle is shared with non-reversible types.
+    if try(:selling?)
+      last_action_job_at.present? && (Time.current - last_action_job_at) < effective_interval_duration
+    else
+      pending_quote_amount < effective_quote_amount
+    end
   end
 
   def effective_quote_amount

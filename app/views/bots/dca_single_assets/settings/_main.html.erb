@@ -3,6 +3,7 @@
 <% base = bot.base_asset&.symbol %>
 <% quote = bot.quote_asset&.symbol %>
 
+<div class="main-rule-host">
 <%= form_with model: bot,
               url: path,
               method: method,
@@ -11,29 +12,54 @@
                 turbo_stream: true,
                 controller: "form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations"
               } do |f| %>
-  <div class="conversational flex-justify-center">
-    <%= t('bot.conversational.invest') %>
-    <div class="ticker-input ticker-input--autoscale">
-      <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : 100 %>
-      <%= f.number_field :quote_amount, value: value, class: 'numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, autofocus: bot.new_record? && bot.quote_amount.blank?, disabled: bot.working? %>
+  <% if bot.selling? %>
+    <%# DCA-out sentence: "Sell …[base] / [period] to [quote]" — base and quote swapped vs buy. %>
+    <div class="conversational flex-justify-center">
+      <%= t('bot.conversational.sell') %>
+      <div class="ticker-input ticker-input--autoscale">
+        <% sell_value = bot.sell_amount.present? ? bot.sell_amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
+        <%= f.number_field :sell_amount, value: sell_value, class: 'numeric-input', step: :any, size: 2, placeholder: "0", data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, autofocus: bot.sell_amount.blank? %>
+
+        <%# The amount-field currency stays a plain ticker (no color) — mirrors the buying bot, whose
+            first currency (the spent asset) is also uncolored; only the destination gets its color. %>
+        <%= tag.div base, class: "ticker", data: ticker_data(bot.base_asset) %>
+      </div>
+      /
+      <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? %>">
+        <%= t("bot.#{bot.sell_interval}") %>
+        <%= f.select :sell_interval, bot_intervals_select_options, { selected: bot.sell_interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+      </div>
+      <%= t('bot.conversational.to') %>
+      <%= tag.div quote, class: "ticker", data: ticker_data(bot.quote_asset) %>
+      <%= render 'bots/settings/reverse_toggle', bot: bot %>
+    </div>
+  <% else %>
+    <div class="conversational flex-justify-center">
+      <%= t('bot.conversational.invest') %>
+      <div class="ticker-input ticker-input--autoscale">
+        <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : 100 %>
+        <%= f.number_field :quote_amount, value: value, class: 'numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, autofocus: bot.new_record? && bot.quote_amount.blank?, disabled: bot.working? %>
+
+        <% if bot.new_record? %>
+          <%= link_to quote, new_bots_dca_single_assets_pick_spendable_asset_path, data: { turbo_frame: "modal_content", **ticker_data(bot.quote_asset) }, class: "ticker" %>
+        <% else %>
+          <%= tag.div quote, class: "ticker", data: ticker_data(bot.quote_asset) %>
+        <% end %>
+      </div>
+      /
+      <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? %>">
+        <%= t("bot.#{bot.interval}") %>
+        <%= f.select :interval, bot_intervals_select_options, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+      </div>
+      <%= t('bot.conversational.into') %>
 
       <% if bot.new_record? %>
-        <%= link_to quote, new_bots_dca_single_assets_pick_spendable_asset_path, data: { turbo_frame: "modal_content", **ticker_data(bot.quote_asset) }, class: "ticker" %>
+        <%= link_to base, new_bots_dca_single_assets_pick_buyable_asset_path, data: { turbo_frame: "modal_content", **ticker_data(bot.base_asset) }, class: ticker_class(bot.base_asset), style: "background: #{base_color}" %>
       <% else %>
-        <%= tag.div quote, class: "ticker", data: ticker_data(bot.quote_asset) %>
+        <%= tag.div base, class: ticker_class(bot.base_asset), style: "background: #{base_color}", data: ticker_data(bot.base_asset) %>
       <% end %>
+      <%= render 'bots/settings/reverse_toggle', bot: bot %>
     </div>
-    /
-    <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? %>">
-      <%= t("bot.#{bot.interval}") %>
-      <%= f.select :interval, bot_intervals_select_options, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
-    </div>
-    <%= t('bot.conversational.into') %>
-
-    <% if bot.new_record? %>
-      <%= link_to base, new_bots_dca_single_assets_pick_buyable_asset_path, data: { turbo_frame: "modal_content", **ticker_data(bot.base_asset) }, class: ticker_class(bot.base_asset), style: "background: #{base_color}" %>
-    <% else %>
-      <%= tag.div base, class: ticker_class(bot.base_asset), style: "background: #{base_color}", data: ticker_data(bot.base_asset) %>
-    <% end %>
-  </div>
+  <% end %>
 <% end %>
+</div>

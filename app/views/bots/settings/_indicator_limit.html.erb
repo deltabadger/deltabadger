@@ -1,7 +1,16 @@
+<%# Active side: render the buy-side keys while buying, the sell-side mirror while selling (M5). %>
+<% pfx = trigger_prefix(bot, 'indicator_limit') %>
+<% limited_field = :"#{pfx}ed" %>
+<% active_timing = bot.public_send("#{pfx}_timing_condition") %>
+<% active_value_condition = bot.public_send("#{pfx}_value_condition") %>
+<% active_in_ticker_id = bot.public_send("#{pfx}_in_ticker_id") %>
+<% active_in_indicator = bot.public_send("#{pfx}_in_indicator") %>
+<% active_in_timeframe = bot.public_send("#{pfx}_in_timeframe") %>
+
 <%= form_with model: bot,
               url: path,
               method: method,
-              class: "widget rule #{bot.indicator_limited? ? "rule--active" : "rule--inactive"}",
+              class: "widget rule #{bot.active_indicator_limited? ? "rule--active" : "rule--inactive"}",
               data: {
                 controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations",
                 class_toggle_target: "togglable",
@@ -10,49 +19,52 @@
               } do |f| %>
   <div class="toggle-group">
     <div class="toggle">
-      <%= f.check_box :indicator_limited, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
+      <%= f.check_box limited_field, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
       <div class="toggle__style"></div>
     </div>
     <div class="toggle-group__info">
       <div class="toggle-group__info__label">
-        <%= f.label :indicator_limited, class: "conversational conversational--small conversational--disabled" do %>
+        <%= f.label limited_field, class: "conversational conversational--small conversational--disabled" do %>
+          <%# Merged mode select (issues #1/#2): Buy/Sell only · Start buying/selling · flip. %>
+          <% current_mode = trigger_mode_for(bot, 'indicator_limit') %>
           <% timing_condition_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
-            <%= t("bot.settings.extra_indicator_limit.timing_condition.#{bot.indicator_limit_timing_condition}") %>
-            <%= f.select :indicator_limit_timing_condition, indicator_limit_timing_condition_select_options(bot), { selected: bot.indicator_limit_timing_condition }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+            <%= t("bot.settings.trigger_mode.#{current_mode}_#{bot.selling? ? 'selling' : 'buying'}") %>
+            <%= f.select :"#{pfx}_mode", trigger_mode_select_options(bot, 'indicator_limit'), { selected: current_mode }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
           <% end %>
           <% ticker_select_options = ticker_select_options(bot) %>
           <% if ticker_select_options.size > 1 %>
             <% ticker_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
-              <% selected_ticker_id = bot.tickers.find_by(id: bot.indicator_limit_in_ticker_id)&.id %>
+              <% selected_ticker_id = bot.tickers.find_by(id: active_in_ticker_id)&.id %>
               <%= ticker_select_options.find { |_, id| id == selected_ticker_id }&.first %>
-              <%= f.select :indicator_limit_in_ticker_id, ticker_select_options, { selected: bot.indicator_limit_in_ticker_id }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+              <%= f.select :"#{pfx}_in_ticker_id", ticker_select_options, { selected: active_in_ticker_id }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
             <% end %>
           <% else %>
             <% ticker_html = ticker_select_options.first&.first || "" %>
           <% end %>
           <% if indicator_select_options.size > 1 %>
             <% indicator_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
-              <%= bot.indicator_limit_in_indicator&.upcase %>
-              <%= f.select :indicator_limit_in_indicator, indicator_select_options, { selected: bot.indicator_limit_in_indicator }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+              <%= active_in_indicator&.upcase %>
+              <%= f.select :"#{pfx}_in_indicator", indicator_select_options, { selected: active_in_indicator }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
             <% end %>
           <% else %>
             <% indicator_html = indicator_select_options.first.first %>
           <% end %>
           <% if indicator_limit_timeframe_select_options.size > 1 %>
             <% timeframe_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
-              <%= t("bot.settings.extra_indicator_limit.timeframe.#{bot.indicator_limit_in_timeframe}") %>
-              <%= f.select :indicator_limit_in_timeframe, indicator_limit_timeframe_select_options, { selected: bot.indicator_limit_in_timeframe }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+              <%= t("bot.settings.extra_indicator_limit.timeframe.#{active_in_timeframe}") %>
+              <%= f.select :"#{pfx}_in_timeframe", indicator_limit_timeframe_select_options, { selected: active_in_timeframe }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
             <% end %>
           <% else %>
             <% timeframe_html = indicator_limit_timeframe_select_options.first.first %>
           <% end %>
           <% value_condition_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
-            <%= t("bot.settings.extra_indicator_limit.value_condition.#{bot.indicator_limit_value_condition}") %>
-            <%= f.select :indicator_limit_value_condition, indicator_limit_value_condition_select_options(bot), { selected: bot.indicator_limit_value_condition }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+            <%= t("bot.settings.extra_indicator_limit.value_condition.#{active_value_condition}") %>
+            <%= f.select :"#{pfx}_value_condition", indicator_limit_value_condition_select_options(bot), { selected: active_value_condition }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
           <% end %>
           <% value_html = content_tag(:div) do %>
-            <% value = bot.indicator_limit.present? ? bot.indicator_limit.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
-            <%= f.number_field :indicator_limit, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+            <% limit = bot.public_send(pfx) %>
+            <% value = limit.present? ? limit.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
+            <%= f.number_field pfx.to_sym, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
           <% end %>
           <%= t("bot.settings.extra_indicator_limit.sentence_html",
                 timing_condition_html: timing_condition_html.html_safe,
@@ -68,4 +80,3 @@
     </div>
   </div>
 <% end %>
-

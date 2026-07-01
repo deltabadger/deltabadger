@@ -49,18 +49,20 @@ module Bot::QuoteAmountLimitable
     return Float::INFINITY unless quote_amount_limited?
     return Float::INFINITY if quote_amount_limit.blank?
 
-    closed_quote_amount = transactions.submitted
+    # Buy-side only: the spend cap counts what was spent buying. A sell fill also carries a positive
+    # quote_amount_exec, so without the side filter a selling bot's proceeds would count as "spent".
+    closed_quote_amount = transactions.submitted.buy
                                       .where('created_at >= ?', quote_amount_limit_enabled_at)
                                       .closed
                                       .pluck(:quote_amount_exec)
                                       .sum
 
-    open_quote_amount = transactions
-                        .where('created_at >= ?', quote_amount_limit_enabled_at)
-                        .waiting
-                        .pluck(:quote_amount, :amount, :price)
-                        .map { |quote_amount, amount, price| quote_amount || (amount * price) }
-                        .sum
+    open_quote_amount = transactions.submitted.buy
+                                    .where('created_at >= ?', quote_amount_limit_enabled_at)
+                                    .waiting
+                                    .pluck(:quote_amount, :amount, :price)
+                                    .map { |quote_amount, amount, price| quote_amount || (amount * price) }
+                                    .sum
 
     total_quote_amount_invested = closed_quote_amount + open_quote_amount
 

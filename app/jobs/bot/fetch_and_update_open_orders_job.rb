@@ -40,12 +40,17 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
       raise "Order #{order_id} not found" if order.nil?
       next unless order.submitted? && (order.open? || order.unknown?)
 
-      quote_amount_diff = order_data[:quote_amount_exec] - (order.quote_amount_exec || 0)
       case order_data[:status]
       when :open, :closed, :cancelled
+        # Capture the previous quote execution BEFORE update_with_order_data mutates it.
+        previous_quote_amount_exec = order.quote_amount_exec || 0
         raise "Failed to update order #{order.external_id}" unless order.update_with_order_data(order_data)
 
-        if update_missed_quote_amount && order.created_at >= calc_since
+        # Buy-only carry: gate on order.buy? so a sell in the open-orders sweep is inert. The diff is
+        # computed HERE (inside the buy guard) so a sell payload with a nil quote_amount_exec — base
+        # fill known, quote fill absent — never hits `nil - x` and crashes the sweep.
+        if update_missed_quote_amount && order.buy? && order.created_at >= calc_since
+          quote_amount_diff = order_data[:quote_amount_exec].to_d - previous_quote_amount_exec
           missed_quote_amount = [0, order.bot.missed_quote_amount - quote_amount_diff].max
           order.bot.update!(missed_quote_amount: missed_quote_amount)
         end

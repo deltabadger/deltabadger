@@ -42,4 +42,14 @@ class BotAlertsMailer < ApplicationMailer
 
     mail(to: @user.email, subject: t('.subject', label: @label))
   end
+
+  def stopped_by_base_amount_limit
+    @user = params[:user]
+    @label = params[:label]
+    @amount = params[:amount]
+    @base = params[:base]
+    set_locale(@user)
+
+    mail(to: @user.email, subject: t('.subject', label: @label))
+  end
 end

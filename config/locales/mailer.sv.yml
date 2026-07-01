@@ -21,3 +21,6 @@ sv:
         stopped_by_amount_limit:
             subject: "%{label} har investerat hela beloppet"
             template_html: "<p>Din bot <b>%{label}</b> nådde ditt mål och investerade hela %{amount} %{quote}.</p><p>Den har stoppats automatiskt. Stäng av beloppsgränsen för att nollställa målet.</p>"
+        stopped_by_base_amount_limit:
+            subject: "%{label} har sålt hela beloppet"
+            template_html: "<p>Din bot <b>%{label}</b> nådde ditt mål och sålde hela %{amount} %{base}.</p><p>Den har stoppats automatiskt. Stäng av beloppsgränsen för att nollställa målet.</p>"

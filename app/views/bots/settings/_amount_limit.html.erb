@@ -1,7 +1,11 @@
+<%# Buying caps quote spend ("Don't spend more than N USDT"); selling caps base sold (issue #3). %>
+<% limited_field = bot.selling? ? :base_amount_limited : :quote_amount_limited %>
+<% limit_field = bot.selling? ? :base_amount_limit : :quote_amount_limit %>
+<% active = bot.public_send(:"#{limited_field}?") %>
 <%= form_with model: bot,
               url: path,
               method: method,
-              class: "widget rule #{bot.quote_amount_limited? ? "rule--active" : "rule--inactive"}",
+              class: "widget rule #{active ? "rule--active" : "rule--inactive"}",
               data: {
                 controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations",
                 class_toggle_target: "togglable",
@@ -10,19 +14,22 @@
               } do |f| %>
   <div class="toggle-group">
     <div class="toggle">
-      <%= f.check_box :quote_amount_limited, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
+      <%= f.check_box limited_field, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
       <div class="toggle__style"></div>
     </div>
     <div class="toggle-group__info">
       <div class="toggle-group__info__label">
-        <%= f.label :quote_amount_limited, class: "conversational conversational--small conversational--disabled" do %>
+        <%= f.label limited_field, class: "conversational conversational--small conversational--disabled" do %>
           <% value_html = content_tag(:div) do %>
-            <% value = bot.quote_amount_limit.present? ? bot.quote_amount_limit.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
-            <%= f.number_field :quote_amount_limit, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+            <% current = bot.public_send(limit_field) %>
+            <% value = current.present? ? current.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
+            <%= f.number_field limit_field, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
           <% end %>
-          <%= t("bot.settings.extra_amount_limit.sentence_html",
-                value_html: value_html.html_safe,
-                quote: bot.quote_asset.symbol).html_safe %>
+          <% if bot.selling? %>
+            <%= t("bot.settings.extra_amount_limit.sell_sentence_html", value_html: value_html.html_safe, base: bot.base_asset.symbol).html_safe %>
+          <% else %>
+            <%= t("bot.settings.extra_amount_limit.sentence_html", value_html: value_html.html_safe, quote: bot.quote_asset.symbol).html_safe %>
+          <% end %>
           <%= render partial: "bots/settings/amount_limit_info", locals: { bot: bot } %>
         <% end %>
       </div>

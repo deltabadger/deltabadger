@@ -7,7 +7,9 @@ module Bot::Fundable
         result = super
         return result if result.failure?
 
-        if funds_are_low? && !notified_in_last_day?
+        # While selling, the user spends base, not quote — the quote-buffer check is meaningless
+        # and would fire spurious "out of funds" notices. Skip it (and the live balance call).
+        if !try(:selling?) && funds_are_low? && !notified_in_last_day?
           update!(last_end_of_funds_notification: Time.current)
           notify_end_of_funds
         end

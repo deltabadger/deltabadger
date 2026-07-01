@@ -1,7 +1,16 @@
+<%# Active side: render the buy-side keys while buying, the sell-side mirror while selling (M5). %>
+<% pfx = trigger_prefix(bot, 'moving_average_limit') %>
+<% limited_field = :"#{pfx}ed" %>
+<% active_timing = bot.public_send("#{pfx}_timing_condition") %>
+<% active_value_condition = bot.public_send("#{pfx}_value_condition") %>
+<% active_in_ticker_id = bot.public_send("#{pfx}_in_ticker_id") %>
+<% active_in_ma_type = bot.public_send("#{pfx}_in_ma_type") %>
+<% active_in_timeframe = bot.public_send("#{pfx}_in_timeframe") %>
+
 <%= form_with model: bot,
               url: path,
               method: method,
-              class: "widget rule #{bot.moving_average_limited? ? "rule--active" : "rule--inactive"}",
+              class: "widget rule #{bot.active_moving_average_limited? ? "rule--active" : "rule--inactive"}",
               data: {
                 controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations",
                 class_toggle_target: "togglable",
@@ -10,46 +19,48 @@
               } do |f| %>
   <div class="toggle-group">
     <div class="toggle">
-      <%= f.check_box :moving_average_limited, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
+      <%= f.check_box limited_field, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
       <div class="toggle__style"></div>
     </div>
     <div class="toggle-group__info">
       <div class="toggle-group__info__label">
-        <%= f.label :moving_average_limited, class: "conversational conversational--small conversational--disabled" do %>
+        <%= f.label limited_field, class: "conversational conversational--small conversational--disabled" do %>
+          <%# Merged mode select (issues #1/#2): Buy/Sell only · Start buying/selling · flip. %>
+          <% current_mode = trigger_mode_for(bot, 'moving_average_limit') %>
           <% timing_condition_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
-            <%= t("bot.settings.extra_moving_average_limit.timing_condition.#{bot.moving_average_limit_timing_condition}") %>
-            <%= f.select :moving_average_limit_timing_condition, moving_average_limit_timing_condition_select_options(bot), { selected: bot.moving_average_limit_timing_condition }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+            <%= t("bot.settings.trigger_mode.#{current_mode}_#{bot.selling? ? 'selling' : 'buying'}") %>
+            <%= f.select :"#{pfx}_mode", trigger_mode_select_options(bot, 'moving_average_limit'), { selected: current_mode }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
           <% end %>
           <% value_condition_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
-            <%= t("bot.settings.extra_moving_average_limit.value_condition.#{bot.moving_average_limit_value_condition}") %>
-            <%= f.select :moving_average_limit_value_condition, moving_average_limit_value_condition_select_options(bot), { selected: bot.moving_average_limit_value_condition }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+            <%= t("bot.settings.extra_moving_average_limit.value_condition.#{active_value_condition}") %>
+            <%= f.select :"#{pfx}_value_condition", moving_average_limit_value_condition_select_options(bot), { selected: active_value_condition }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
           <% end %>
           <% if moving_average_select_options.size > 1 %>
             <% ma_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
-              <%= bot.moving_average_limit_in_ma_type&.upcase %>
-              <%= f.select :moving_average_limit_in_ma_type, moving_average_select_options, { selected: bot.moving_average_limit_in_ma_type }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+              <%= active_in_ma_type&.upcase %>
+              <%= f.select :"#{pfx}_in_ma_type", moving_average_select_options, { selected: active_in_ma_type }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
             <% end %>
           <% else %>
             <% ma_html = moving_average_select_options.first.first %>
           <% end %>
           <% ma_period_html = content_tag(:div) do %>
-            <%= f.number_field :moving_average_limit_in_period, class: 'sinput numeric-input', step: 1, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+            <%= f.number_field :"#{pfx}_in_period", value: bot.public_send("#{pfx}_in_period"), class: 'sinput numeric-input', step: 1, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
           <% end %>
-          <% selected_ticker = bot.tickers.find_by(id: bot.moving_average_limit_in_ticker_id) %>
+          <% selected_ticker = bot.tickers.find_by(id: active_in_ticker_id) %>
           <% ticker_select_options = ticker_select_options(bot) %>
           <% if ticker_select_options.size > 1 %>
             <% ticker_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
               <% selected_ticker_id = selected_ticker&.id %>
               <%= ticker_select_options.find { |_, id| id == selected_ticker_id }&.first %>
-              <%= f.select :moving_average_limit_in_ticker_id, ticker_select_options, { selected: bot.moving_average_limit_in_ticker_id }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+              <%= f.select :"#{pfx}_in_ticker_id", ticker_select_options, { selected: active_in_ticker_id }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
             <% end %>
           <% else %>
             <% ticker_html = ticker_select_options.first&.first || "" %>
           <% end %>
           <% if moving_average_limit_timeframe_select_options.size > 1 %>
             <% timeframe_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
-              <%= t("bot.settings.extra_moving_average_limit.timeframe.#{bot.moving_average_limit_in_timeframe}") %>
-              <%= f.select :moving_average_limit_in_timeframe, moving_average_limit_timeframe_select_options, { selected: bot.moving_average_limit_in_timeframe }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+              <%= t("bot.settings.extra_moving_average_limit.timeframe.#{active_in_timeframe}") %>
+              <%= f.select :"#{pfx}_in_timeframe", moving_average_limit_timeframe_select_options, { selected: active_in_timeframe }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
             <% end %>
           <% else %>
             <% timeframe_html = moving_average_limit_timeframe_select_options.first.first %>
@@ -69,4 +80,3 @@
     </div>
   </div>
 <% end %>
-

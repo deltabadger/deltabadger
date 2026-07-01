@@ -28,6 +28,66 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
     assert_equal 100, txn.quote_amount_exec
   end
 
+  # The missed-quote carry is a BUY-side concept. A buy fill draws it down...
+  test 'a BUY fill draws down the buy-side missed_quote_amount carry' do
+    bot = create(:dca_single_asset, :started)
+    bot.missed_quote_amount = 100
+    bot.missed_quote_amount_was_set = true
+    bot.save!
+    txn = create(:transaction, bot: bot, side: :buy, status: :submitted, external_status: :unknown,
+                               external_id: 'b1', amount_exec: nil, quote_amount_exec: nil)
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Success.new({
+                                                        status: :closed, price: 50_000, amount: 0.0008, quote_amount: 40,
+                                                        amount_exec: 0.0008, quote_amount_exec: 40,
+                                                        ticker: bot.ticker, side: :buy, order_type: :market_order
+                                                      }))
+
+    Bot::FetchAndUpdateOrderJob.new.perform(txn, update_missed_quote_amount: true)
+
+    assert_in_delta 60, bot.reload.missed_quote_amount.to_f, 1e-6 # 100 - 40
+  end
+
+  # ...but a SELL fill must NOT touch it — gated on order.buy? at the source so the carry stays
+  # coherent regardless of which caller passed update_missed_quote_amount: true.
+  test 'a SELL fill leaves the buy-side missed_quote_amount carry untouched' do
+    bot = create(:dca_single_asset, :started)
+    bot.missed_quote_amount = 100
+    bot.missed_quote_amount_was_set = true
+    bot.save!
+    txn = create(:transaction, bot: bot, side: :sell, status: :submitted, external_status: :unknown,
+                               external_id: 's1', amount_exec: nil, quote_amount_exec: nil)
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Success.new({
+                                                        status: :closed, price: 200, amount: 0.25, quote_amount: 50,
+                                                        amount_exec: 0.25, quote_amount_exec: 50,
+                                                        ticker: bot.ticker, side: :sell, order_type: :market_order
+                                                      }))
+
+    Bot::FetchAndUpdateOrderJob.new.perform(txn, update_missed_quote_amount: true)
+
+    assert_in_delta 100, bot.reload.missed_quote_amount.to_f, 1e-6 # unchanged by the sell
+  end
+
+  # Some exchanges report a sell's base fill while the quote fill is still nil. The buy-only carry
+  # math must never run for a sell, so a nil quote_amount_exec must not crash the job (nil - x).
+  test 'a SELL fill with a nil quote_amount_exec updates the row without crashing' do
+    bot = create(:dca_single_asset, :started)
+    txn = create(:transaction, bot: bot, side: :sell, status: :submitted, external_status: :unknown,
+                               external_id: 's-nil', amount_exec: nil, quote_amount_exec: nil)
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Success.new({
+                                                        status: :closed, price: 200, amount: 0.25, quote_amount: 50,
+                                                        amount_exec: 0.25, quote_amount_exec: nil,
+                                                        ticker: bot.ticker, side: :sell, order_type: :market_order
+                                                      }))
+
+    assert_nothing_raised do
+      Bot::FetchAndUpdateOrderJob.new.perform(txn, update_missed_quote_amount: true)
+    end
+    assert_equal 'closed', txn.reload.external_status
+  end
+
   test 'raises on persistent unknown status but leaves the transaction intact' do
     bot = create(:dca_single_asset, :started)
     txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: 'u1')

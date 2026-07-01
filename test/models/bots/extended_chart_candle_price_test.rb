@@ -38,15 +38,17 @@ class ExtendedChartCandlePriceTest < ActiveSupport::TestCase
 
   test 'single-asset chart values use the candle open price at the open-time label' do
     bot = create(:dca_single_asset, user: create(:user))
+    # extra_series rows: [net_base, realized_proceeds] (locked-PnL shape). Realized 0 here, so
+    # value is still purely net_base * open price.
     bot.stubs(:metrics).returns(
-      { chart: { labels: [T0], series: [[200.to_d], [500.to_d]], extra_series: [[2.to_d]] } }
+      { chart: { labels: [T0], series: [[200.to_d], [500.to_d]], extra_series: [[2.to_d], [0.to_d]] } }
     )
     bot.stubs(:ticker).returns(ticker_stub(id: 1))
 
     data = bot.send(:get_extended_chart_data_with_candles_data).data
 
     assert_equal [CANDLE_TIME], data[:labels]
-    assert_equal [2.to_d * 100], data[:series][0] # base_amount * OPEN, not * 140 (close)
+    assert_equal [2.to_d * 100], data[:series][0] # net_base * OPEN, not * 140 (close)
     assert_equal [500.to_d], data[:series][1]
   end
 

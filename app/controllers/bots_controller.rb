@@ -3,7 +3,7 @@ class BotsController < ApplicationController
   include Bots::Botable
 
   before_action :authenticate_user!
-  before_action :set_bot, only: %i[show edit update]
+  before_action :set_bot, only: %i[show edit update reverse]
 
   def index
     non_deleted_bots = current_user.bots.not_deleted
@@ -121,13 +121,37 @@ class BotsController < ApplicationController
     end
   end
 
+  # Manual ⇄ flip: turn a single-asset DCA bot around to sell (or back to buy). Reversing
+  # only changes direction + reschedules; flip_direction! owns the Accountable guard and the
+  # reschedule. Deferred (with a notice, no error) while the bot is mid-execution or a job is
+  # claimed — flip_direction!'s cancellation cannot reach an already-claimed job.
+  def reverse
+    return head :not_found unless @bot.dca_single_asset?
+
+    if @bot.executing? || @bot.flip_blocked_by_inflight_job?
+      flash.now[:notice] = t('bot.reverse_in_progress')
+    else
+      @bot.flip_direction!
+    end
+    render :reverse
+  end
+
   private
+
+  # Virtual params for the merged trigger "mode" select (issues #1/#2). They are NOT store_accessors
+  # (so not in stored_attributes), yet must be permitted to reach parse_params, where
+  # Bot#expand_trigger_mode decodes them into the stored (timing_condition, action) pair.
+  TRIGGER_BASES = %w[price_limit price_drop_limit moving_average_limit indicator_limit].freeze
+  BUY_TRIGGER_MODE_KEYS = TRIGGER_BASES.map { |base| "#{base}_mode" }.freeze
+  SELL_TRIGGER_MODE_KEYS = TRIGGER_BASES.map { |base| "sell_#{base}_mode" }.freeze
 
   def dca_single_asset_bot_params
     params.require(:bots_dca_single_asset).permit(
       :label,
       :exchange_id,
-      *Bots::DcaSingleAsset.stored_attributes[:settings]
+      *Bots::DcaSingleAsset.stored_attributes[:settings],
+      *BUY_TRIGGER_MODE_KEYS,
+      *SELL_TRIGGER_MODE_KEYS
     )
   end
 
@@ -135,7 +159,8 @@ class BotsController < ApplicationController
     params.require(:bots_dca_dual_asset).permit(
       :label,
       :exchange_id,
-      *Bots::DcaDualAsset.stored_attributes[:settings]
+      *Bots::DcaDualAsset.stored_attributes[:settings],
+      *BUY_TRIGGER_MODE_KEYS
     )
   end
 

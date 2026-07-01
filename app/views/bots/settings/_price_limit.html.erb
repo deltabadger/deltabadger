@@ -1,9 +1,15 @@
 <% quote = bot.quote_asset.symbol %>
+<%# Active side: render the buy-side keys while buying, the sell-side mirror while selling (M5). %>
+<% pfx = trigger_prefix(bot, 'price_limit') %>
+<% limited_field = :"#{pfx}ed" %>
+<% active_timing = bot.public_send("#{pfx}_timing_condition") %>
+<% active_value_condition = bot.public_send("#{pfx}_value_condition") %>
+<% active_in_ticker_id = bot.public_send("#{pfx}_in_ticker_id") %>
 
 <%= form_with model: bot,
               url: path,
               method: method,
-              class: "widget rule #{bot.price_limited? ? "rule--active" : "rule--inactive"}",
+              class: "widget rule #{bot.active_price_limited? ? "rule--active" : "rule--inactive"}",
               data: {
                 controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations",
                 class_toggle_target: "togglable",
@@ -12,37 +18,42 @@
               } do |f| %>
   <div class="toggle-group">
     <div class="toggle">
-      <%= f.check_box :price_limited, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
+      <%= f.check_box limited_field, data: { action: "change->form--submit#submit change->class-toggle#toggle" }, disabled: bot.working? %>
       <div class="toggle__style"></div>
     </div>
     <div class="toggle-group__info">
       <div class="toggle-group__info__label">
-        <%= f.label :price_limited, class: "conversational conversational--small conversational--disabled" do %>
+        <%= f.label limited_field, class: "conversational conversational--small conversational--disabled" do %>
+          <%# Merged mode select (issues #1/#2): Buy/Sell only · Start buying/selling · flip. Leads the
+              sentence as the verb clause; decoded back into timing_condition + action in parse_params. %>
+          <% current_mode = trigger_mode_for(bot, 'price_limit') %>
           <% timing_condition_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
-            <%= t("bot.settings.extra_price_limit.timing_condition.#{bot.price_limit_timing_condition}") %>
-            <%= f.select :price_limit_timing_condition, price_limit_timing_condition_select_options(bot), { selected: bot.price_limit_timing_condition }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+            <%= t("bot.settings.trigger_mode.#{current_mode}_#{bot.selling? ? 'selling' : 'buying'}") %>
+            <%= f.select :"#{pfx}_mode", trigger_mode_select_options(bot, 'price_limit'), { selected: current_mode }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
           <% end %>
           <% base_select_options = base_select_options(bot) %>
           <% if base_select_options.size > 1 %>
             <% base_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
-              <%= base_select_options.find { |_, id| id == bot.price_limit_in_ticker_id }&.first %>
-              <%= f.select :price_limit_in_ticker_id, base_select_options, { selected: bot.price_limit_in_ticker_id }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+              <%= base_select_options.find { |_, id| id == active_in_ticker_id }&.first %>
+              <%= f.select :"#{pfx}_in_ticker_id", base_select_options, { selected: active_in_ticker_id }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
             <% end %>
           <% else %>
             <% base_html = base_select_options.first&.first || "" %>
           <% end %>
           <% value_condition_html = content_tag(:div, class: "sinput sinput--select #{'sinput--disabled' if bot.working?}") do %>
-            <%= t("bot.settings.extra_price_limit.value_condition.#{bot.price_limit_value_condition}") %>
-            <%= f.select :price_limit_value_condition, price_limit_value_condition_select_options(bot), { selected: bot.price_limit_value_condition }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+            <%= t("bot.settings.extra_price_limit.value_condition.#{active_value_condition}") %>
+            <%= f.select :"#{pfx}_value_condition", price_limit_value_condition_select_options(bot), { selected: active_value_condition }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
           <% end %>
-          <% if bot.price_limit_value_condition == 'between' %>
+          <% if active_value_condition == 'between' %>
             <% lower_bound_value_html = content_tag(:div) do %>
-              <% value = bot.price_limit_range_lower_bound.present? ? bot.price_limit_range_lower_bound.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
-              <%= f.number_field :price_limit_range_lower_bound, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+              <% lower = bot.public_send("#{pfx}_range_lower_bound") %>
+              <% value = lower.present? ? lower.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
+              <%= f.number_field :"#{pfx}_range_lower_bound", value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
             <% end %>
             <% upper_bound_value_html = content_tag(:div) do %>
-              <% value = bot.price_limit_range_upper_bound.present? ? bot.price_limit_range_upper_bound.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
-              <%= f.number_field :price_limit_range_upper_bound, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+              <% upper = bot.public_send("#{pfx}_range_upper_bound") %>
+              <% value = upper.present? ? upper.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
+              <%= f.number_field :"#{pfx}_range_upper_bound", value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
             <% end %>
             <% price_input_html = t("bot.settings.extra_price_limit.price_limit_range_input_html",
                                     lower_bound_value_html: lower_bound_value_html.html_safe,
@@ -50,8 +61,9 @@
                                     quote: quote).html_safe %>
           <% else %>
             <% value_html = content_tag(:div) do %>
-              <% value = bot.price_limit.present? ? bot.price_limit.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
-              <%= f.number_field :price_limit, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
+              <% limit = bot.public_send(pfx) %>
+              <% value = limit.present? ? limit.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
+              <%= f.number_field pfx.to_sym, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;", disabled: bot.working? %>
             <% end %>
             <% price_input_html = t("bot.settings.extra_price_limit.price_limit_input_html",
                                     value_html: value_html.html_safe,
@@ -70,4 +82,3 @@
     </div>
   </div>
 <% end %>
-

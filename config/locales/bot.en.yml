@@ -72,6 +72,9 @@ en:
         conversational:
             invest: "Invest"
             into: "into"
+            sell: "Sell"
+            to: "to"
+            reverse: "Reverse direction"
         utils:
             mkt_cap_adjusted_html: "Market Cap adjusted"
             mkt_cap_adjusted_info_html: |
@@ -191,6 +194,8 @@ en:
         price: 'the price'
         price_range_buy_html: 'Buy only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}.'
         price_range_sell_html: "Sell only in the price range from <split>$100</split> to <split>$1000</split> %{quote} per %{base}."
+        reverse_in_progress: "The bot is mid-run — try reversing again in a moment."
+        reverse_confirm: "Reversing will cancel any open orders on this bot. Continue?"
         sell: "Sell"
         buy_all: "Buy all"
         sell_all: "Sell all"
@@ -251,16 +256,34 @@ en:
                         date: "Start at"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Split <span>the</span> amount <span>into</span> <span>%{amount_html} %{quote}</span> units'
+                sell_sentence_html: '<b>Smart Intervals</b> Split <span>the</span> amount <span>into</span> <span>%{amount_html} %{base}</span> units'
                 info: "Splitting your %{quote_amount} %{quote} / %{interval} into units of %{amount} %{quote} will result in one investment every %{smart_interval}"
+                sell_info: "Splitting your %{base_amount} %{base} / %{interval} into units of %{amount} %{base} will result in one sale every %{smart_interval}"
             limit_orders:
                 sentence_html: '<b>FeeCutter</b> <span>Cut fees</span> using <span>limit</span> orders <span>%{amount_html}%</span> <span>below the price</span>'
+                sentence_sell_html: '<b>FeeCutter</b> <span>Cut fees</span> using <span>limit</span> orders <span>%{amount_html}%</span> <span>above the price</span>'
                 info: "To cut fees to zero, set it at %{maker_fee}% which is %{exchange}'s maker fee. Set it lower to get faster execution, or higher to get a potentially better deal. Track your order execution in the orders table."
                 locked_tooltip: "Hyperliquid does not support market orders on spot."
+            trigger_action:
+                pause: "Pause"
+                start_selling: "Start selling"
+                start_buying: "Start buying"
+            trigger_mode:
+                restrict_buying: "Buy only"
+                restrict_selling: "Sell only"
+                start_buying: "Start buying"
+                start_selling: "Start selling"
+                flip_buying: "Start selling"
+                flip_selling: "Start buying"
             extra_amount_limit:
                 sentence_html: "Don't spend more than <span>%{value_html} %{quote}</span>"
+                sell_sentence_html: "Don't sell more than <span>%{value_html} %{base}</span>"
                 info:
                     spent: "The whole amount has been invested"
                     left: "(%{amount} %{quote} left)"
+                sell_info:
+                    sold: "The whole amount has been sold"
+                    left: "(%{amount} %{base} left)"
             extra_price_limit:
                 sentence_html:
                     one: "%{timing_condition_html} when <span>price</span> is <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
@@ -279,7 +302,16 @@ en:
                 sentence_html:
                     one: "Start buying when price drops <span>%{value_html}%</span> from its %{time_window_condition_html}"
                     other: "Start buying when %{base_html} price drops <span>%{value_html}%</span> from its %{time_window_condition_html}"
+                mode_sentence_html:
+                    one: "%{mode_html} when price drops <span>%{value_html}%</span> from its %{time_window_condition_html}"
+                    other: "%{mode_html} when %{base_html} price drops <span>%{value_html}%</span> from its %{time_window_condition_html}"
+                sell_mode_sentence_html:
+                    one: "%{mode_html} when price rises <span>%{value_html}%</span> from its %{time_window_condition_html}"
+                    other: "%{mode_html} when %{base_html} price rises <span>%{value_html}%</span> from its %{time_window_condition_html}"
                 info: "Current %{base} %{time_window_condition} is %{condition_high} %{quote}."
+                sell_time_window_condition:
+                    twenty_four_hours: "24h low"
+                    seven_days: "7d low"
                 time_window_condition:
                     ath: "all-time high"
                     twenty_four_hours: "24h high"

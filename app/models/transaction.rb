@@ -4,6 +4,7 @@ class Transaction < ApplicationRecord
 
   before_save :round_numeric_fields
   before_save :store_previous_quote_amount_exec
+  before_save :store_previous_amount_exec
   after_create_commit -> { bot.broadcast_new_order(self) }
   after_create_commit lambda {
     api_key = ApiKey.find_by(user_id: bot.user_id, exchange_id: bot.exchange_id, key_type: :trading)
@@ -11,10 +12,17 @@ class Transaction < ApplicationRecord
   }
   after_update_commit -> { bot.broadcast_updated_order(self) }
   after_commit lambda {
-                 Bot::UpdateMetricsJob.perform_later(bot) if custom_quote_amount_exec_changed?
+                 Bot::UpdateMetricsJob.perform_later(bot) if metrics_relevant_change?
+               }, on: %i[create update]
+  # The quote spend cap is a BUY-side concept (a sell fill also changes quote_amount_exec, so guard
+  # on side to keep sells from tripping the buy stop). The base sell cap is its sell-side mirror and
+  # reacts to BASE execution, which can change while quote exec is nil/unchanged — hence its own
+  # change detector.
+  after_commit lambda {
+                 bot.handle_quote_amount_limit_update if buy? && bot.class.include?(Bot::QuoteAmountLimitable) && custom_quote_amount_exec_changed?
                }, on: %i[create update]
   after_commit lambda {
-                 bot.handle_quote_amount_limit_update if bot.class.include?(Bot::QuoteAmountLimitable) && custom_quote_amount_exec_changed?
+                 bot.handle_base_amount_limit_update if sell? && bot.class.include?(Bot::BaseAmountLimitable) && base_cap_relevant_change?
                }, on: %i[create update]
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
@@ -129,5 +137,29 @@ class Transaction < ApplicationRecord
 
   def custom_quote_amount_exec_changed?
     quote_amount_exec != @previous_quote_amount_exec && quote_amount_exec.present? && quote_amount_exec.positive?
+  end
+
+  # Metrics recompute when an order's CONTRIBUTION changes: its quote execution, or its transition to
+  # `closed`. The metrics count an order only once it is closed (via the legacy fallback even if exec
+  # amounts are still nil), so a close with no quote-exec change must still invalidate the cache —
+  # otherwise that fill would leave the 30-day metrics cache stale.
+  def metrics_relevant_change?
+    custom_quote_amount_exec_changed? || (saved_change_to_external_status? && closed?)
+  end
+
+  def store_previous_amount_exec
+    @previous_amount_exec = amount_exec_was
+  end
+
+  # Base-execution change detector — the sell cap's mirror of custom_quote_amount_exec_changed?.
+  def custom_amount_exec_changed?
+    amount_exec != @previous_amount_exec && amount_exec.present? && amount_exec.positive?
+  end
+
+  # The base cap counts a sell once it is closed (via the requested-amount fallback even if amount_exec
+  # is still nil), so a close with no amount_exec change must still re-evaluate the cap — otherwise a
+  # nil-exec close that reaches the cap would skip the stop/notification. Mirrors metrics_relevant_change?.
+  def base_cap_relevant_change?
+    custom_amount_exec_changed? || (saved_change_to_external_status? && closed?)
   end
 end

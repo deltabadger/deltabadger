@@ -1,4 +1,6 @@
-<% if bot.id.present? && bot.moving_average_limited? && bot.moving_average_limit_in_period.present? %>
+<%# Active side: read the buy-side keys while buying, the sell-side mirror while selling. %>
+<% pfx = trigger_prefix(bot, 'moving_average_limit') %>
+<% if bot.id.present? && bot.active_moving_average_limited? && bot.public_send("#{pfx}_in_period").present? %>
   <small id="<%= bot.new_record? ? "new-settings-moving-average-limit-info" : "settings-moving-average-limit-info" %>" class="small-info">
     <% if info.nil? %>
       <%= tag.div data: {
@@ -8,7 +10,7 @@
       }, class: "loader--small", style: "position: unset; float: left; margin-top: 1rem;" %>
     <% else %>
       <% ticker_select_options = ticker_select_options(bot) %>
-      <% selected_ticker = bot.tickers.find_by(id: bot.moving_average_limit_in_ticker_id) %>
+      <% selected_ticker = bot.tickers.find_by(id: bot.public_send("#{pfx}_in_ticker_id")) %>
       <% selected_ticker_id = selected_ticker&.id %>
       <% if ticker_select_options.size > 1 %>
         <% ticker = ticker_select_options.find { |_, id| id == selected_ticker_id }&.first %>
@@ -17,9 +19,9 @@
       <% end %>
       <div class="<%= info[:condition_met] ? "text-success" : "" %>">
         <%= t("bot.settings.extra_moving_average_limit.info",
-              ma_type: bot.moving_average_limit_in_ma_type.upcase,
-              ma_period: bot.moving_average_limit_in_period,
-              timeframe: t("bot.settings.extra_moving_average_limit.timeframe.#{bot.moving_average_limit_in_timeframe}"),
+              ma_type: bot.public_send("#{pfx}_in_ma_type").upcase,
+              ma_period: bot.public_send("#{pfx}_in_period"),
+              timeframe: t("bot.settings.extra_moving_average_limit.timeframe.#{bot.public_send("#{pfx}_in_timeframe")}"),
               ticker: ticker,
               value: info[:value],
               quote: selected_ticker.quote_asset.symbol) %>

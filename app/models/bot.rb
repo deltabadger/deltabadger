@@ -52,8 +52,51 @@ class Bot < ApplicationRecord
     transactions.where(status: %i[submitted skipped]).order(created_at: :desc).count
   end
 
+  # Direction defaults — bots are buy-only unless they include Bot::Reversible (DcaSingleAsset),
+  # which overrides these. Lets the shared trigger concerns read direction uniformly across bot
+  # types without each having to guard for the predicate's existence.
+  def buying?
+    true
+  end
+
+  def selling?
+    false
+  end
+
+  # Only Bot::Reversible (DcaSingleAsset) can flip direction. Trigger concerns are shared with
+  # buy-only bot types, so the flip action and the ⇄ control must be gated on this.
+  def reversible?
+    false
+  end
+
+  # Decode the merged trigger "mode" select (issues #1/#2) back into the stored
+  # (timing_condition, action) pair, for whichever side(s) the form submitted. The UI collapses the
+  # old separate action + timing dropdowns into one direction-aware select; parse_params in each
+  # limitable merges this expansion. `has_timing: false` for price-drop (no timing field — its pause
+  # latches, so only the action is written). The `…_mode` key itself is never stored.
+  #   restrict -> while + pause   start -> after + pause   flip -> after + <opposite>-side action
+  def expand_trigger_mode(params, base, has_timing:)
+    %W[#{base} sell_#{base}].each_with_object({}) do |prefix, out|
+      mode = params[:"#{prefix}_mode"].presence
+      next unless mode
+
+      flip_action = prefix.start_with?('sell_') ? 'start_buying' : 'start_selling'
+      out["#{prefix}_action"] = mode == 'flip' ? flip_action : 'pause'
+      next unless has_timing
+
+      out["#{prefix}_timing_condition"] = mode == 'restrict' ? 'while' : 'after'
+    end
+  end
+
+  # Net of the bot's CLOSED executed buys minus closed executed sells, clamped ≥ 0 (closed legacy rows
+  # with no amount_exec fall back to the requested `amount`). A net-holdings accessor for display — it
+  # is NO LONGER a sell cap: a selling bot may liquidate the whole wallet, not just what it accumulated
+  # (sellable_base_amount). Note this differs slightly from the metrics' net_base, which also counts
+  # real partial executions on non-closed rows.
   def total_amount
-    transactions.submitted.sum(:amount)
+    filled = Arel.sql('COALESCE(amount_exec, amount)')
+    net = transactions.submitted.buy.closed.sum(filled) - transactions.submitted.sell.closed.sum(filled)
+    [net, 0].max
   end
 
   def broadcast_status_bar_update

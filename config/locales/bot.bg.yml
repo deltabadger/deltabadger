@@ -72,6 +72,9 @@ bg:
         conversational:
             invest: "Инвестирай"
             into: "в"
+            sell: "Продай"
+            to: "в"
+            reverse: "Обърни посоката"
         utils:
             mkt_cap_adjusted_html: "Коригирано по пазарна капитализация"
             mkt_cap_adjusted_info_html: |
@@ -188,6 +191,8 @@ bg:
         next_sell: 'Следваща след %{countdown}'
         next_withdrawal: 'Следващо след %{countdown}'
         not_found: 'Такъв бот не съществува.'
+        reverse_in_progress: 'Ботът работи в момента — опитай да обърнеш посоката след малко.'
+        reverse_confirm: "Обръщането ще отмени всички отворени поръчки на този бот. Да продължа?"
         price: 'цена'
         price_range_buy_html: 'Купувай само в ценови диапазон от <split>100 $</split> до <split>1000 $</split> %{quote} за %{base}.'
         price_range_sell_html: "Продавай само в ценови диапазон от <split>100 $</split> до <split>1000 $</split> %{quote} за %{base}."
@@ -251,16 +256,34 @@ bg:
                         date: "Започни на"
             smart_intervals:
                 sentence_html: '<b>Умни интервали</b> Раздели <span>цялата</span> сума <span>на</span> <span>%{amount_html} %{quote}</span> единици'
+                sell_sentence_html: '<b>Умни интервали</b> Раздели <span>цялата</span> сума <span>на</span> <span>%{amount_html} %{base}</span> единици'
                 info: "Разделянето на %{quote_amount} %{quote} / %{interval} на единици по %{amount} %{quote} означава една инвестиция на всеки %{smart_interval}"
+                sell_info: "Разделянето на %{base_amount} %{base} / %{interval} на единици по %{amount} %{base} означава една продажба на всеки %{smart_interval}"
             limit_orders:
                 sentence_html: '<b>FeeCutter</b> <span>Намаляване на таксите</span> чрез <span>лимитирани</span> поръчки <span>%{amount_html}%</span> <span>под цената</span>'
+                sentence_sell_html: '<b>FeeCutter</b> <span>Намаляване на таксите</span> чрез <span>лимитирани</span> поръчки <span>%{amount_html}%</span> <span>над цената</span>'
                 info: "За намаляване на таксите до нула задайте %{maker_fee}%, което е maker таксата на %{exchange}. Задайте по-малко за по-бързо изпълнение или повече за потенциално по-добра цена. Следете изпълнението на поръчките в таблицата с поръчки."
                 locked_tooltip: "Hyperliquid не поддържа пазарни поръчки в спот."
+            trigger_action:
+                pause: "Пауза"
+                start_selling: "Започни да продаваш"
+                start_buying: "Започни да купуваш"
+            trigger_mode:
+                restrict_buying: "Купувай само"
+                restrict_selling: "Продавай само"
+                start_buying: "Започни да купуваш"
+                start_selling: "Започни да продаваш"
+                flip_buying: "Започни да продаваш"
+                flip_selling: "Започни да купуваш"
             extra_amount_limit:
                 sentence_html: "Да не се харчи повече от <span>%{value_html} %{quote}</span>"
+                sell_sentence_html: "Да не се продава повече от <span>%{value_html} %{base}</span>"
                 info:
                     spent: "Цялата сума е инвестирана"
                     left: "(остават %{amount} %{quote})"
+                sell_info:
+                    sold: "Цялата сума е продадена"
+                    left: "(остават %{amount} %{base})"
             extra_price_limit:
                 sentence_html:
                     one: "%{timing_condition_html} когато <span>цената</span> е <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
@@ -279,10 +302,19 @@ bg:
                 sentence_html:
                     one: "Започни да купуваш, когато цената падне с <span>%{value_html}%</span> от своя %{time_window_condition_html}"
                     other: "Започни да купуваш, когато цената на %{base_html} падне с <span>%{value_html}%</span> от своя %{time_window_condition_html}"
+                mode_sentence_html:
+                    one: "%{mode_html}, когато цената падне с <span>%{value_html}%</span> от своя %{time_window_condition_html}"
+                    other: "%{mode_html}, когато цената на %{base_html} падне с <span>%{value_html}%</span> от своя %{time_window_condition_html}"
+                sell_mode_sentence_html:
+                    one: "%{mode_html}, когато цената се покачи с <span>%{value_html}%</span> от своя %{time_window_condition_html}"
+                    other: "%{mode_html}, когато цената на %{base_html} се покачи с <span>%{value_html}%</span> от своя %{time_window_condition_html}"
                 info: "Текущият %{time_window_condition} на %{base} е %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "исторически максимум"
                     twenty_four_hours: "24-часов максимум"
+                sell_time_window_condition:
+                    twenty_four_hours: "24-часов минимум"
+                    seven_days: "7-дневен минимум"
             extra_indicator_limit:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> когато <span>%{indicator_html}</span> на %{timeframe_html} <span>свещи</span> е <span>%{value_condition_html} %{value_html}</span>"

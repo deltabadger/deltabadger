@@ -21,3 +21,6 @@ nl:
         stopped_by_amount_limit:
             subject: "%{label} heeft het volledige bedrag geïnvesteerd"
             template_html: "<p>Uw bot <b>%{label}</b> heeft uw doel bereikt en het volledige bedrag van %{amount} %{quote} geïnvesteerd.</p><p>De bot is automatisch gestopt. Schakel de bedragslimiet UIT om het doel te resetten.</p>"
+        stopped_by_base_amount_limit:
+            subject: "%{label} heeft het volledige bedrag verkocht"
+            template_html: "<p>Uw bot <b>%{label}</b> heeft uw doel bereikt en de volledige %{amount} %{base} verkocht.</p><p>De bot is automatisch gestopt. Schakel de bedragslimiet UIT om het doel te resetten.</p>"

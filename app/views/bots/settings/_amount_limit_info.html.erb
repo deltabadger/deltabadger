@@ -1,5 +1,19 @@
 
-<% if bot.quote_amount_limited? && bot.quote_amount_limit&.positive? %>
+<% if bot.selling? %>
+  <% if bot.base_amount_limited? && bot.base_amount_limit&.to_d&.positive? %>
+    <span id="<%= bot.new_record? ? "new-settings-amount-limit-info" : "settings-amount-limit-info" %>">
+      <% if bot.base_amount_limit_reached? %>
+        <span class="text-success">
+          <%= t("bot.settings.extra_amount_limit.sell_info.sold") %>
+        </span>
+      <% else %>
+        <%= t("bot.settings.extra_amount_limit.sell_info.left",
+              amount: bot.base_amount_available_before_limit_reached.round(bot.decimals[:base] || 8),
+              base: bot.base_asset.symbol) %>
+      <% end %>
+    </span>
+  <% end %>
+<% elsif bot.quote_amount_limited? && bot.quote_amount_limit&.positive? %>
   <span id="<%= bot.new_record? ? "new-settings-amount-limit-info" : "settings-amount-limit-info" %>">
     <% if bot.quote_amount_limit_reached? %>
       <span class="text-success">

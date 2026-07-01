@@ -21,3 +21,6 @@ sk:
         stopped_by_amount_limit:
             subject: "%{label} investoval celu sumu"
             template_html: "<p>Vas bot <b>%{label}</b> dosiahol ciel a investoval celych %{amount} %{quote}.</p><p>Bol automaticky zastaveny. Pre obnovenie ciela vypnite limit sumy.</p>"
+        stopped_by_base_amount_limit:
+            subject: "%{label} predal celu sumu"
+            template_html: "<p>Vas bot <b>%{label}</b> dosiahol ciel a predal celych %{amount} %{base}.</p><p>Bol automaticky zastaveny. Pre obnovenie ciela vypnite limit sumy.</p>"

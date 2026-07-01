@@ -125,4 +125,96 @@ class Ticker::TechnicallyAnalyzableTest < ActiveSupport::TestCase
     @ticker.reload
     assert_nil @ticker.ath
   end
+
+  # ---- low-of-last (finite windows only; the sell-side price-drop inversion: "rise from low") ----
+  #
+  # A normalized candle is [time, open, high, low, close, volume]; get_low reads index 3.
+  def normalized_candle_low(low:, at: Time.now.utc - 1.hour)
+    [at, 100.to_d, 110.to_d, low.to_d, 105.to_d, 50.to_d]
+  end
+
+  test 'get_low_of_last returns the minimum candle low over a finite window' do
+    candles = [normalized_candle_low(low: 95), normalized_candle_low(low: 88), normalized_candle_low(low: 92)]
+    @ticker.define_singleton_method(:get_candles) { |**_kw| Result::Success.new(candles) }
+
+    result = @ticker.get_low_of_last(duration: 24.hours)
+
+    assert_predicate result, :success?
+    assert_equal 88.to_d, result.data
+  end
+
+  test 'get_low_of_last propagates a candle fetch failure' do
+    @ticker.define_singleton_method(:get_candles) { |**_kw| Result::Failure.new('boom') }
+
+    assert_predicate @ticker.get_low_of_last(duration: 24.hours), :failure?
+  end
+
+  test 'get_low_of_last returns nil data when there are no candles' do
+    @ticker.define_singleton_method(:get_candles) { |**_kw| Result::Success.new([]) }
+
+    result = @ticker.get_low_of_last(duration: 24.hours)
+    assert_predicate result, :success?
+    assert_nil result.data
+  end
+
+  # ---- RSI / moving-average readings across market hours ----
+  #
+  # Indicators run on CLOSED candles: the newest candle an exchange returns is normally the
+  # current, still-forming period, so it is dropped. On a 24/7 crypto market that is always the
+  # case. But a stock market that is currently closed (weekend / holiday / overnight) returns a
+  # newest candle that is the last *closed* session — the correct "current" reading. It must be
+  # kept, and must NOT be rejected just because it predates one timeframe ago. That rejection used
+  # to freeze the RSI/MA readout for stock bots (the settings spinner never resolved).
+
+  # A zig-zag of real gains and losses so RSI/MA are well-defined (not pinned at 100/0).
+  RSI_CLOSES = (0...30).map { |i| 100 + (i % 6) - 3 }.freeze
+
+  # `closes.size` daily candles ending at `last_at`, one timeframe apart.
+  # Normalized candle: [time, open, high, low, close, volume].
+  def daily_candles(closes, last_at:)
+    closes.each_with_index.map do |close, i|
+      at = last_at - (closes.size - 1 - i).days
+      [at, close.to_d, (close + 5).to_d, (close - 5).to_d, close.to_d, 100.to_d]
+    end
+  end
+
+  test 'get_rsi_value computes from the latest closed candle when the market is closed' do
+    # Newest candle is a fully-closed session (its close time is in the past), as for a stock over
+    # a weekend. It must be included, not dropped, and not rejected as stale.
+    candles = daily_candles(RSI_CLOSES, last_at: Time.now.utc - 2.days)
+    @ticker.define_singleton_method(:get_candles) { |**_kw| Result::Success.new(candles) }
+
+    result = @ticker.get_rsi_value(timeframe: 1.day, period: 14)
+
+    expected = RubyTechnicalAnalysis::RelativeStrengthIndex.new(
+      series: RSI_CLOSES.map(&:to_d), period: 14
+    ).call.round(2)
+    assert_predicate result, :success?
+    assert_equal expected, result.data
+  end
+
+  test 'get_rsi_value drops the still-forming candle on a 24/7 market' do
+    # Newest candle is the current, in-progress period (close time in the future). It must be
+    # dropped so the RSI reflects only closed candles.
+    candles = daily_candles(RSI_CLOSES, last_at: Time.now.utc)
+    @ticker.define_singleton_method(:get_candles) { |**_kw| Result::Success.new(candles) }
+
+    result = @ticker.get_rsi_value(timeframe: 1.day, period: 14)
+
+    expected = RubyTechnicalAnalysis::RelativeStrengthIndex.new(
+      series: RSI_CLOSES[...-1].map(&:to_d), period: 14
+    ).call.round(2)
+    assert_predicate result, :success?
+    assert_equal expected, result.data
+  end
+
+  test 'get_moving_average_value keeps the latest closed candle when the market is closed' do
+    candles = daily_candles(RSI_CLOSES, last_at: Time.now.utc - 2.days)
+    @ticker.define_singleton_method(:get_candles) { |**_kw| Result::Success.new(candles) }
+
+    result = @ticker.get_sma_value(timeframe: 1.day, period: 9)
+
+    assert_predicate result, :success?
+    assert_not_nil result.data
+  end
 end

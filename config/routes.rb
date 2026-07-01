@@ -219,6 +219,7 @@ Rails.application.routes.draw do
       resource :import, only: [:create], controller: 'bots/imports'
       resources :transactions, only: [:destroy], controller: 'bots/cancel_orders'
       post :show
+      member { post :reverse }
     end
 
     namespace :broadcasts do

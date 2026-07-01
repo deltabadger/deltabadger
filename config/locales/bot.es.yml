@@ -66,6 +66,9 @@ es:
         conversational:
             invest: "Invertir"
             into: "en"
+            sell: "Vender"
+            to: "a"
+            reverse: "Invertir la dirección"
         utils:
             mkt_cap_adjusted_html: "Ajustado por cap. de mercado"
             mkt_cap_adjusted_info_html: |
@@ -171,6 +174,8 @@ es:
         next_sell: 'Siguiente venta en %{countdown}'
         next_withdrawal: 'Próxima retirada en %{countdown}'
         not_found: 'Este bot no existe.'
+        reverse_in_progress: 'El bot está ejecutándose ahora mismo. Vuelve a intentar invertir la dirección en un momento.'
+        reverse_confirm: "Invertir cancelará todas las órdenes abiertas de este bot. ¿Continuar?"
         price: 'el precio'
         price_range_buy_html: 'Pero solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} por %{base}.'
         price_range_sell_html: 'Vende solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} por %{base}.'
@@ -223,16 +228,34 @@ es:
                         date: "Empezar el"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Divide <span>la</span> cantidad <span>en</span> unidades <span>de</span> <span>%{amount_html} %{quote}</span>'
+                sell_sentence_html: '<b>Smart Intervals</b> Divide <span>la</span> cantidad <span>en</span> unidades <span>de</span> <span>%{amount_html} %{base}</span>'
                 info: "Dividir tus %{quote_amount} %{quote} / %{interval} en unidades de %{amount} %{quote} resultará en una inversión cada %{smart_interval}"
+                sell_info: "Dividir tus %{base_amount} %{base} / %{interval} en unidades de %{amount} %{base} resultará en una venta cada %{smart_interval}"
             limit_orders:
                 sentence_html: '<b>FeeCutter</b> Reduce las comisiones usando órdenes limitadas <span>%{amount_html}%</span> por debajo del precio'
+                sentence_sell_html: '<b>FeeCutter</b> Reduce las comisiones usando órdenes limitadas <span>%{amount_html}%</span> por encima del precio'
                 info: "Para eliminar las comisiones, configúralo al %{maker_fee}%, que es la comisión maker de %{exchange}. Configúralo más bajo para una ejecución más rápida, o más alto para obtener potencialmente un mejor precio. Haz seguimiento de la ejecución de tus órdenes en la tabla de órdenes."
                 locked_tooltip: "Hyperliquid no admite órdenes de mercado en spot."
+            trigger_action:
+                pause: "Pausar"
+                start_selling: "Empezar a vender"
+                start_buying: "Empezar a comprar"
+            trigger_mode:
+                restrict_buying: "Comprar solo"
+                restrict_selling: "Vender solo"
+                start_buying: "Empezar a comprar"
+                start_selling: "Empezar a vender"
+                flip_buying: "Empezar a vender"
+                flip_selling: "Empezar a comprar"
             extra_amount_limit:
                 sentence_html: "No gastar más de <span>%{value_html} %{quote}</span>"
+                sell_sentence_html: "No vender más de <span>%{value_html} %{base}</span>"
                 info:
                     spent: "Toda la cantidad ha sido invertida"
                     left: "(%{amount} %{quote} restante)"
+                sell_info:
+                    sold: "Toda la cantidad ha sido vendida"
+                    left: "(%{amount} %{base} restante)"
             extra_price_limit:
                 sentence_html:
                     one: "%{timing_condition_html} cuando el <span>precio</span> esté <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
@@ -251,10 +274,19 @@ es:
                 sentence_html:
                     one: "Empezar a comprar cuando el precio caiga un <span>%{value_html}%</span> desde su %{time_window_condition_html}"
                     other: "Empezar a comprar cuando el precio de %{base_html} caiga un <span>%{value_html}%</span> desde su %{time_window_condition_html}"
+                mode_sentence_html:
+                    one: "%{mode_html} cuando el precio caiga un <span>%{value_html}%</span> desde su %{time_window_condition_html}"
+                    other: "%{mode_html} cuando el precio de %{base_html} caiga un <span>%{value_html}%</span> desde su %{time_window_condition_html}"
+                sell_mode_sentence_html:
+                    one: "%{mode_html} cuando el precio suba un <span>%{value_html}%</span> desde su %{time_window_condition_html}"
+                    other: "%{mode_html} cuando el precio de %{base_html} suba un <span>%{value_html}%</span> desde su %{time_window_condition_html}"
                 info: "El %{time_window_condition} actual de %{base} es %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "máximo histórico"
                     twenty_four_hours: "máximo de 24h"
+                sell_time_window_condition:
+                    twenty_four_hours: "mínimo de 24h"
+                    seven_days: "mínimo de 7d"
             extra_indicator_limit:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> cuando el <span>%{indicator_html}</span> en velas %{timeframe_html} esté <span>%{value_condition_html} de %{value_html}</span>"

@@ -1,4 +1,7 @@
-<% if bot.id.present? && bot.price_drop_limited? && bot.price_drop_limit.present? %>
+<% if bot.id.present? && bot.active_price_drop_limited? %>
+  <% pdl_prefix = bot.selling? ? 'sell_price_drop_limit' : 'price_drop_limit' %>
+  <% window = bot.public_send("#{pdl_prefix}_time_window_condition") %>
+  <% window_namespace = bot.selling? ? 'sell_time_window_condition' : 'time_window_condition' %>
   <small id="<%= bot.new_record? ? "new-settings-price-drop-limit-info" : "settings-price-drop-limit-info" %>" class="small-info">
     <% if info.nil? %>
       <%= tag.div data: {
@@ -8,10 +11,12 @@
       }, class: "loader--small", style: "position: unset; float: left; margin-top: 1rem;" %>
     <% else %>
       <div class="<%= info[:condition_met] ? "text-success" : "" %>">
+        <%# Buying shows the window high (drop-from-high); selling shows the window low (rise-from-low).
+            condition_high is the existing param name (kept so non-EN `info` keeps interpolating). %>
         <%= t("bot.settings.extra_price_drop_limit.info",
               base: info[:base],
-              time_window_condition: t("bot.settings.extra_price_drop_limit.time_window_condition.#{bot.price_drop_limit_time_window_condition}"),
-              condition_high: info[:high],
+              time_window_condition: t("bot.settings.extra_price_drop_limit.#{window_namespace}.#{window}"),
+              condition_high: info[:reference],
               quote: info[:quote]) %>
       </div>
     <% end %>

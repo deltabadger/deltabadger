@@ -1,0 +1,15 @@
+<%# ⇄ flip the bot's direction (buy ⇄ sell). A link (not button_to) so it can live INSIDE the
+    settings form_with at the end of .conversational without an invalid nested <form>; Turbo turns
+    the data-turbo-method POST into a turbo_stream request handled by BotsController#reverse.
+    Reversal cancels the bot's open orders (flip_direction!), so when any are open we ask for
+    confirmation first (the app's standard data-turbo-confirm prompt). %>
+<% unless bot.new_record? %>
+  <% confirm = bot.transactions.waiting.exists? ? t('bot.reverse_confirm') : nil %>
+  <%= link_to reverse_bot_path(bot),
+              class: "reverse-toggle",
+              data: { turbo_method: :post, turbo_stream: true, turbo_confirm: confirm },
+              aria: { label: t('bot.conversational.reverse') },
+              title: t('bot.conversational.reverse') do %>
+    <%= render 'svg/24x24_reverse' %>
+  <% end %>
+<% end %>

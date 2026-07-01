@@ -21,3 +21,6 @@ da:
         stopped_by_amount_limit:
             subject: "%{label} har investeret det fulde beløb"
             template_html: "<p>Din bot <b>%{label}</b> har nået dit mål og investeret hele %{amount} %{quote}.</p><p>Den er automatisk stoppet. Slå beløbsgrænsen FRA for at nulstille målet.</p>"
+        stopped_by_base_amount_limit:
+            subject: "%{label} har solgt det fulde beløb"
+            template_html: "<p>Din bot <b>%{label}</b> har nået dit mål og solgt hele %{amount} %{base}.</p><p>Den er automatisk stoppet. Slå beløbsgrænsen FRA for at nulstille målet.</p>"

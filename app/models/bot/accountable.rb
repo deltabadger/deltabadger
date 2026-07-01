@@ -16,21 +16,34 @@ module Bot::Accountable
   end
 
   def pending_quote_amount
-    return 0 if started_at.nil? || deleted?
+    return 0 if deleted?
+
+    # The carry is a buy-side notion. While selling, freeze it: return the stored
+    # missed_quote_amount unchanged so the sell cadence never corrupts the buy carry, and the
+    # buy carry resumes intact on flip-back (invariant 3). try — Accountable is shared with
+    # non-reversible bot types that have no selling? predicate. This MUST precede the started_at
+    # guard below: a sell-side limit pause makes the decorated started_at nil, which would otherwise
+    # return 0 here and wipe the frozen buy carry on the next set_missed_quote_amount.
+    return missed_quote_amount if try(:selling?)
+
+    return 0 if started_at.nil?
 
     calc_since = [started_at, settings_changed_at].compact.max
-    closed_quote_amount = transactions.submitted
+    # The carry counts BUY investment only — a sell is divestment, not invested quote. Scope to buys
+    # so a sell inside the window (e.g. just after a flip back to buying) can't be mistaken for quote
+    # already invested and shrink the next buy. No-op for buy-only bot types (they never sell).
+    closed_quote_amount = transactions.submitted.buy
                                       .where('created_at >= ?', calc_since)
                                       .closed
                                       .pluck(:quote_amount_exec)
                                       .sum
 
-    open_quote_amount = transactions
-                        .where('created_at >= ?', calc_since)
-                        .waiting
-                        .pluck(:quote_amount, :amount, :price)
-                        .map { |quote_amount, amount, price| quote_amount || (amount * price) }
-                        .sum
+    open_quote_amount = transactions.buy
+                                    .where('created_at >= ?', calc_since)
+                                    .waiting
+                                    .pluck(:quote_amount, :amount, :price)
+                                    .map { |quote_amount, amount, price| quote_amount || (amount * price) }
+                                    .sum
 
     total_quote_amount_invested = closed_quote_amount + open_quote_amount
 

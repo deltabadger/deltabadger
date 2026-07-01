@@ -34,4 +34,14 @@ module Bot::Notifyable
       quote: quote_asset.symbol
     ).stopped_by_amount_limit.deliver_later
   end
+
+  # Sell-side mirror — denominated in BASE ("sold the whole N BTC"), not the quote-hardcoded copy.
+  def notify_stopped_by_base_amount_limit
+    BotAlertsMailer.with(
+      user: user,
+      label: label,
+      amount: base_amount_limit,
+      base: base_asset.symbol
+    ).stopped_by_base_amount_limit.deliver_later
+  end
 end

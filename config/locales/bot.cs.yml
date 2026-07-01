@@ -72,6 +72,9 @@ cs:
         conversational:
             invest: "Investovat"
             into: "do"
+            sell: "Prodat"
+            to: "za"
+            reverse: "Obrátit směr"
         utils:
             mkt_cap_adjusted_html: "Upraveno dle tržní kapitalizace"
             mkt_cap_adjusted_info_html: |
@@ -188,6 +191,8 @@ cs:
         next_sell: 'Další za %{countdown}'
         next_withdrawal: 'Další za %{countdown}'
         not_found: 'Takový bot neexistuje.'
+        reverse_in_progress: 'Bot právě pracuje — zkus otočit směr za chvíli.'
+        reverse_confirm: "Otočení zruší všechny otevřené příkazy tohoto bota. Pokračovat?"
         price: 'cena'
         price_range_buy_html: 'Nakupovat pouze v cenovém rozsahu od <split>100 $</split> do <split>1000 $</split> %{quote} za %{base}.'
         price_range_sell_html: "Prodávat pouze v cenovém rozsahu od <split>100 $</split> do <split>1000 $</split> %{quote} za %{base}."
@@ -252,15 +257,33 @@ cs:
             smart_intervals:
                 sentence_html: '<b>Chytré intervaly</b> Rozdělit <span>celou</span> částku <span>na</span> <span>%{amount_html} %{quote}</span> jednotky'
                 info: "Rozdělení %{quote_amount} %{quote} / %{interval} na jednotky po %{amount} %{quote} bude znamenat jednu investici každých %{smart_interval}"
+                sell_sentence_html: '<b>Chytré intervaly</b> Rozdělit <span>celou</span> částku <span>na</span> <span>%{amount_html} %{base}</span> jednotky'
+                sell_info: "Rozdělení %{base_amount} %{base} / %{interval} na jednotky po %{amount} %{base} bude znamenat jeden prodej každých %{smart_interval}"
             limit_orders:
                 sentence_html: '<b>FeeCutter</b> <span>Snížit poplatky</span> pomocí <span>limitních</span> příkazů <span>%{amount_html}%</span> <span>pod cenou</span>'
+                sentence_sell_html: '<b>FeeCutter</b> <span>Snížit poplatky</span> pomocí <span>limitních</span> příkazů <span>%{amount_html}%</span> <span>nad cenou</span>'
                 info: "Pro snížení poplatků na nulu nastavte %{maker_fee}%, což je maker poplatek na %{exchange}. Nastavte nižší pro rychlejší provedení, nebo vyšší pro potenciálně lepší cenu. Sledujte provedení příkazů v tabulce příkazů."
                 locked_tooltip: "Hyperliquid nepodporuje tržní příkazy na spotovém trhu."
+            trigger_action:
+                pause: "Pozastavit"
+                start_selling: "Začít prodávat"
+                start_buying: "Začít nakupovat"
+            trigger_mode:
+                restrict_buying: "Nakupovat jen"
+                restrict_selling: "Prodávat jen"
+                start_buying: "Začít nakupovat"
+                start_selling: "Začít prodávat"
+                flip_buying: "Začít prodávat"
+                flip_selling: "Začít nakupovat"
             extra_amount_limit:
                 sentence_html: "Neutratit více než <span>%{value_html} %{quote}</span>"
+                sell_sentence_html: "Neprodat více než <span>%{value_html} %{base}</span>"
                 info:
                     spent: "Celá částka byla investována"
                     left: "(zbývá %{amount} %{quote})"
+                sell_info:
+                    sold: "Celá částka byla prodána"
+                    left: "(zbývá %{amount} %{base})"
             extra_price_limit:
                 sentence_html:
                     one: "%{timing_condition_html} když je <span>cena</span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
@@ -279,10 +302,19 @@ cs:
                 sentence_html:
                     one: "Začít nakupovat, když cena klesne o <span>%{value_html}%</span> od svého %{time_window_condition_html}"
                     other: "Začít nakupovat, když cena %{base_html} klesne o <span>%{value_html}%</span> od svého %{time_window_condition_html}"
+                mode_sentence_html:
+                    one: "%{mode_html}, když cena klesne o <span>%{value_html}%</span> od svého %{time_window_condition_html}"
+                    other: "%{mode_html}, když cena %{base_html} klesne o <span>%{value_html}%</span> od svého %{time_window_condition_html}"
+                sell_mode_sentence_html:
+                    one: "%{mode_html}, když cena vzroste o <span>%{value_html}%</span> od svého %{time_window_condition_html}"
+                    other: "%{mode_html}, když cena %{base_html} vzroste o <span>%{value_html}%</span> od svého %{time_window_condition_html}"
                 info: "Aktuální %{time_window_condition} %{base} je %{condition_high} %{quote}."
                 time_window_condition:
                     ath: "historického maxima"
                     twenty_four_hours: "24h maxima"
+                sell_time_window_condition:
+                    twenty_four_hours: "24h minima"
+                    seven_days: "7d minima"
             extra_indicator_limit:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> když je <span>%{indicator_html}</span> na %{timeframe_html} <span>svíčkách</span> <span>%{value_condition_html} %{value_html}</span>"

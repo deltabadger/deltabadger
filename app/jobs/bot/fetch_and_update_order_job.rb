@@ -24,12 +24,19 @@ class Bot::FetchAndUpdateOrderJob < BotJob
 
     calc_since = [bot.started_at, bot.settings_changed_at].compact.max
     order_data = result.data
-    quote_amount_diff = order_data[:quote_amount_exec] - (order.quote_amount_exec || 0)
     case order_data[:status]
     when :open, :closed, :cancelled
+      # Capture the previously-recorded quote execution BEFORE update_with_order_data mutates it —
+      # the carry drawdown is the delta between the new and previous quote fill.
+      previous_quote_amount_exec = order.quote_amount_exec || 0
       raise "Failed to update order #{order.external_id}" unless order.update_with_order_data(order_data)
 
-      if update_missed_quote_amount && order.created_at >= calc_since
+      # The missed-quote carry is buy-only. Gate the subtraction on order.buy? at the source so
+      # a sell flowing through ANY caller (LimitOrderable, Transaction#cancel, exports) is inert. The
+      # diff is computed HERE (inside the buy guard) so a sell payload with a nil quote_amount_exec —
+      # base fill known, quote fill absent — never hits `nil - x` and crashes the job.
+      if update_missed_quote_amount && order.buy? && order.created_at >= calc_since
+        quote_amount_diff = order_data[:quote_amount_exec].to_d - previous_quote_amount_exec
         missed_quote_amount = [0, order.bot.missed_quote_amount - quote_amount_diff].max
         order.bot.update!(missed_quote_amount: missed_quote_amount)
       end

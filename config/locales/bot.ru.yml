@@ -63,6 +63,9 @@ ru:
         conversational:
             invest: "Инвестировать"
             into: "в"
+            sell: "Продать"
+            to: "в"
+            reverse: "Сменить направление"
         utils:
             mkt_cap_adjusted_html: "По рыночной кап."
             mkt_cap_adjusted_info_html: |
@@ -166,6 +169,8 @@ ru:
         next_sell: 'Следующая продажа через %{countdown}'
         next_withdrawal: 'Следующий вывод через %{countdown}'
         not_found: 'Такой бот не существует.'
+        reverse_in_progress: 'Бот сейчас выполняет ордер — попробуй сменить направление чуть позже.'
+        reverse_confirm: "Разворот отменит все открытые ордера этого бота. Продолжить?"
         price: цены
         price_range_buy_html: 'Покупать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} за %{base}.'
         price_range_sell_html: 'Продавать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} за %{base}.'
@@ -219,16 +224,34 @@ ru:
                         date: "Начать"
             smart_intervals:
                 sentence_html: '<b>Smart Intervals</b> Разделить <span>сумму</span> на единицы по <span>%{amount_html} %{quote}</span>'
+                sell_sentence_html: '<b>Smart Intervals</b> Разделить <span>сумму</span> на единицы по <span>%{amount_html} %{base}</span>'
                 info: "Разделение ваших %{quote_amount} %{quote} / %{interval} на единицы по %{amount} %{quote} приведет к одной инвестиции каждые %{smart_interval}"
+                sell_info: "Разделение ваших %{base_amount} %{base} / %{interval} на единицы по %{amount} %{base} приведет к одной продаже каждые %{smart_interval}"
             limit_orders:
                 sentence_html: '<b>FeeCutter</b> Снизить комиссии, используя лимитные ордера <span>%{amount_html}%</span> ниже цены'
+                sentence_sell_html: '<b>FeeCutter</b> Снизить комиссии, используя лимитные ордера <span>%{amount_html}%</span> выше цены'
                 info: "Чтобы снизить комиссии до нуля, установите значение %{maker_fee}%, что соответствует комиссии мейкера на %{exchange}. Установите ниже для более быстрого исполнения или выше для потенциально лучшей цены. Отслеживайте исполнение ваших ордеров в таблице ордеров."
                 locked_tooltip: "Hyperliquid не поддерживает рыночные ордера на спот-рынке."
+            trigger_action:
+                pause: "Пауза"
+                start_selling: "Начать продавать"
+                start_buying: "Начать покупать"
+            trigger_mode:
+                restrict_buying: "Покупать только"
+                restrict_selling: "Продавать только"
+                start_buying: "Начать покупать"
+                start_selling: "Начать продавать"
+                flip_buying: "Начать продавать"
+                flip_selling: "Начать покупать"
             extra_amount_limit:
                 sentence_html: "Не тратить больше чем <span>%{value_html} %{quote}</span>"
+                sell_sentence_html: "Не продавать больше чем <span>%{value_html} %{base}</span>"
                 info:
                     spent: "Вся сумма была инвестирована"
                     left: "(осталось %{amount} %{quote})"
+                sell_info:
+                    sold: "Вся сумма была продана"
+                    left: "(осталось %{amount} %{base})"
             extra_price_limit:
                 sentence_html:
                     one: "<span>%{timing_condition_html}</span> когда <span>цена</span> <span>%{value_condition_html}</span> <span>%{price_input_html}</span>"
@@ -247,7 +270,16 @@ ru:
                 sentence_html:
                     one: "Начать покупать, когда цена упадет на <span>%{value_html}%</span> от своего %{time_window_condition_html}"
                     other: "Начать покупать, когда цена %{base_html} упадет на <span>%{value_html}%</span> от своего %{time_window_condition_html}"
+                mode_sentence_html:
+                    one: "%{mode_html}, когда цена упадет на <span>%{value_html}%</span> от своего %{time_window_condition_html}"
+                    other: "%{mode_html}, когда цена %{base_html} упадет на <span>%{value_html}%</span> от своего %{time_window_condition_html}"
+                sell_mode_sentence_html:
+                    one: "%{mode_html}, когда цена вырастет на <span>%{value_html}%</span> от своего %{time_window_condition_html}"
+                    other: "%{mode_html}, когда цена %{base_html} вырастет на <span>%{value_html}%</span> от своего %{time_window_condition_html}"
                 info: "Текущий %{time_window_condition} %{base} составляет %{condition_high} %{quote}."
+                sell_time_window_condition:
+                    twenty_four_hours: "24-часового минимума"
+                    seven_days: "7-дневного минимума"
                 time_window_condition:
                     ath: "исторического максимума"
                     twenty_four_hours: "24-часового максимума"

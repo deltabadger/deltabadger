@@ -104,4 +104,54 @@ class BotHelperTest < ActionView::TestCase
     assert_not inactive_order_row?(build(:transaction, bot: bot, status: :submitted, external_status: :closed, external_id: 'cl1'))
     assert_not inactive_order_row?(build(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: 'u1'))
   end
+
+  # == merged trigger dropdown (issues #1/#2) ==
+
+  test 'a buying bot offers [Buy only, Start buying, Start selling] for a timed trigger' do
+    bot = create(:dca_single_asset) # buying
+    options = trigger_mode_select_options(bot, 'price_limit')
+
+    assert_equal %w[restrict start flip], options.map(&:last)
+    assert_equal ['Buy only', 'Start buying', 'Start selling'], options.map(&:first)
+  end
+
+  test 'a selling bot offers [Sell only, Start selling, Start buying] for a timed trigger' do
+    bot = create(:dca_single_asset)
+    bot.direction = 'selling'
+
+    assert_equal ['Sell only', 'Start selling', 'Start buying'],
+                 trigger_mode_select_options(bot, 'price_limit').map(&:first)
+  end
+
+  test 'price-drop offers only [start, flip] (no restrict — its pause latches)' do
+    bot = create(:dca_single_asset)
+
+    assert_equal %w[start flip], trigger_mode_select_options(bot, 'price_drop_limit').map(&:last)
+  end
+
+  test 'trigger_mode_for derives the current token from the stored action/timing' do
+    bot = create(:dca_single_asset)
+    bot.price_limit_timing_condition = 'while'
+    bot.price_limit_action = 'pause'
+    assert_equal 'restrict', trigger_mode_for(bot, 'price_limit')
+
+    bot.price_limit_timing_condition = 'after'
+    assert_equal 'start', trigger_mode_for(bot, 'price_limit')
+
+    bot.price_limit_action = 'start_selling'
+    assert_equal 'flip', trigger_mode_for(bot, 'price_limit')
+  end
+
+  # == FeeCutter copy inversion (issue #4) ==
+
+  test 'FeeCutter copy says below the price when buying and above when selling' do
+    bot = create(:dca_single_asset)
+    buy_html = render(partial: 'bots/settings/limit_orders', locals: { bot: bot, method: :patch, path: bot_path(id: bot.id) })
+    assert_match(/below the price/i, buy_html)
+
+    bot.direction = 'selling'
+    sell_html = render(partial: 'bots/settings/limit_orders', locals: { bot: bot, method: :patch, path: bot_path(id: bot.id) })
+    assert_match(/above the price/i, sell_html)
+    assert_no_match(/below the price/i, sell_html)
+  end
 end

@@ -113,4 +113,45 @@ class TransactionTest < ActiveSupport::TestCase
     assert_not_includes rows, open_txn
     assert_not_includes rows, closed_txn
   end
+
+  # == metrics cache invalidation ==
+  # Metrics count an order only once it is closed; a close with no quote-exec change (an exchange that
+  # closes an order with nil exec, or a legacy fill) must still invalidate the 30-day metrics cache.
+
+  test 'metrics_relevant_change? is true on the transition to closed even when exec amounts stay nil' do
+    bot = create(:dca_single_asset, :started)
+    order = create(:transaction, bot: bot, side: :buy, status: :submitted, external_status: :open,
+                                 external_id: 'o1', amount: 1, price: 100, quote_amount: 100,
+                                 amount_exec: nil, quote_amount_exec: nil)
+
+    order.update!(external_status: :closed) # closed, but exec amounts still nil
+
+    assert_not order.send(:custom_quote_amount_exec_changed?), 'quote exec did not change'
+    assert order.send(:metrics_relevant_change?), 'the close must still trigger a metrics refresh'
+  end
+
+  test 'metrics_relevant_change? is false when an unrelated field changes on an already-closed order' do
+    bot = create(:dca_single_asset, :started)
+    order = create(:transaction, bot: bot, side: :buy, status: :submitted, external_status: :closed,
+                                 external_id: 'c1', amount: 1, price: 100, quote_amount: 100,
+                                 amount_exec: 1, quote_amount_exec: 100)
+
+    order.update!(price: 101)
+
+    assert_not order.send(:metrics_relevant_change?)
+  end
+
+  # The base cap counts a sell once closed (fallback to requested amount if amount_exec is nil), so a
+  # close with no amount_exec change must still re-evaluate the cap.
+  test 'base_cap_relevant_change? is true on the transition to closed even when amount_exec stays nil' do
+    bot = create(:dca_single_asset, :started)
+    order = create(:transaction, bot: bot, side: :sell, status: :submitted, external_status: :open,
+                                 external_id: 'o1', amount: 1, price: 100, quote_amount: 100,
+                                 amount_exec: nil, quote_amount_exec: nil)
+
+    order.update!(external_status: :closed)
+
+    assert_not order.send(:custom_amount_exec_changed?), 'amount_exec did not change'
+    assert order.send(:base_cap_relevant_change?), 'the close must still re-evaluate the base cap'
+  end
 end

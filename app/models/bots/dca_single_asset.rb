@@ -20,6 +20,7 @@ class Bots::DcaSingleAsset < Bot
   include SmartIntervalable      # decorators for: parse_params, effective_quote_amount, effective_interval_duration
   include LimitOrderable         # decorators for: parse_params, execute_action
   include QuoteAmountLimitable   # decorators for: parse_params, pending_quote_amount
+  include BaseAmountLimitable    # sell-side mirror: "Don't sell more than N base" (reversible only)
   include PriceLimitable         # decorators for: parse_params, started_at, execute_action, stop
   include PriceDropLimitable     # decorators for: parse_params, started_at, execute_action, stop
   include MovingAverageLimitable # decorators for: parse_params, started_at, execute_action, stop
@@ -35,6 +36,7 @@ class Bots::DcaSingleAsset < Bot
   include Bot::Lifecycle         # shared start/stop/delete — keep LAST so the stop decorators above stay on top
   include Bot::AssetConfigurable # shared asset accessors + validations (single-pair defaults)
   include Bot::LimitCheckable    # live limit-check job from limit_paused log (recovery/rescue)
+  include Bot::Reversible        # direction (buying/selling) + manual ⇄ flip; sell-side config
 
   self.asset_id_setting_keys = %i[base_asset_id quote_asset_id]
 
@@ -43,17 +45,23 @@ class Bots::DcaSingleAsset < Bot
       base_asset_id: params[:base_asset_id].presence&.to_i,
       quote_asset_id: params[:quote_asset_id].presence&.to_i,
       quote_amount: params[:quote_amount].presence&.to_f,
-      interval: params[:interval].presence
+      interval: params[:interval].presence,
+      sell_amount: params[:sell_amount].presence&.to_f,
+      sell_interval: params[:sell_interval].presence
     }.compact
   end
 
   def execute_action
     with_api_key do
       update!(status: :executing)
-      result = set_order(
-        order_amount_in_quote: pending_quote_amount,
-        update_missed_quote_amount: true
-      )
+      result = if selling?
+                 # DCA-out: sell a fixed base amount per period. The buy carry is frozen
+                 # (Accountable) and the carry subtraction is gated to buys at the job source,
+                 # so update_missed_quote_amount is moot here — pass false for clarity.
+                 set_order(side: :sell, update_missed_quote_amount: false)
+               else
+                 set_order(order_amount_in_quote: pending_quote_amount, update_missed_quote_amount: true)
+               end
       return result if result.failure?
 
       update!(status: :waiting)

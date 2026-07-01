@@ -21,3 +21,6 @@ es:
         stopped_by_amount_limit:
             subject: "%{label} ha invertido el importe completo"
             template_html: "<p>Tu bot <b>%{label}</b> ha alcanzado tu objetivo e invertido la totalidad de %{amount} %{quote}.</p><p>Se ha detenido automáticamente. Desactiva el límite de importe para restablecer el objetivo.</p>"
+        stopped_by_base_amount_limit:
+            subject: "%{label} ha vendido el importe completo"
+            template_html: "<p>Tu bot <b>%{label}</b> ha alcanzado tu objetivo y vendido la totalidad de %{amount} %{base}.</p><p>Se ha detenido automáticamente. Desactiva el límite de importe para restablecer el objetivo.</p>"

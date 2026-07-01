@@ -22,7 +22,16 @@ module Bot::OrderSetter
 
   def calculate_best_amount_info(order_data)
     ticker = order_data[:ticker]
-    case exchange.minimum_amount_logic(side: order_data[:side], order_type: order_data[:order_type])
+    # Sells always submit a base amount (we size in base), but must still honor the exchange's
+    # quote/notional floor — expressed as its base-equivalent. That is exactly the
+    # :base_and_quote_in_base logic, so force it for sells regardless of the exchange's buy logic
+    # (never bypass quote minimums on :quote / :base_and_quote venues).
+    amount_logic = if order_data[:side] == :sell
+                     :base_and_quote_in_base
+                   else
+                     exchange.minimum_amount_logic(side: order_data[:side], order_type: order_data[:order_type])
+                   end
+    case amount_logic
     when :base_or_quote, :base_and_quote
       minimum_base_size_in_quote = ticker.adjusted_amount(
         amount: ticker.minimum_base_size * order_data[:price],
@@ -69,20 +78,22 @@ module Bot::OrderSetter
   end
 
   def create_order(order_data, amount_info)
+    sell = order_data[:side] == :sell
     case order_data[:order_type]
     when :market_order
-      market_buy(
-        ticker: order_data[:ticker],
-        amount: amount_info[:amount],
-        amount_type: amount_info[:amount_type]
-      )
+      if sell
+        market_sell(ticker: order_data[:ticker], amount: amount_info[:amount], amount_type: amount_info[:amount_type])
+      else
+        market_buy(ticker: order_data[:ticker], amount: amount_info[:amount], amount_type: amount_info[:amount_type])
+      end
     when :limit_order
-      limit_buy(
-        ticker: order_data[:ticker],
-        amount: amount_info[:amount],
-        amount_type: amount_info[:amount_type],
-        price: order_data[:price]
-      )
+      if sell
+        limit_sell(ticker: order_data[:ticker], amount: amount_info[:amount],
+                   amount_type: amount_info[:amount_type], price: order_data[:price])
+      else
+        limit_buy(ticker: order_data[:ticker], amount: amount_info[:amount],
+                  amount_type: amount_info[:amount_type], price: order_data[:price])
+      end
     end
   end
 end

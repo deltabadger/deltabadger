@@ -21,3 +21,6 @@ cs:
         stopped_by_amount_limit:
             subject: "%{label} investoval celou částku"
             template_html: "<p>Váš bot <b>%{label}</b> dosáhl cíle a investoval celých %{amount} %{quote}.</p><p>Byl automaticky zastaven. Pro obnovení cíle vypněte limit částky.</p>"
+        stopped_by_base_amount_limit:
+            subject: "%{label} prodal celou částku"
+            template_html: "<p>Váš bot <b>%{label}</b> dosáhl cíle a prodal celých %{amount} %{base}.</p><p>Byl automaticky zastaven. Pro obnovení cíle vypněte limit částky.</p>"
