@@ -4,12 +4,22 @@
     Reversal cancels the bot's open orders (flip_direction!), so when any are open we ask for
     confirmation first (the app's standard data-turbo-confirm prompt). %>
 <% unless bot.new_record? %>
-  <% confirm = bot.transactions.waiting.exists? ? t('bot.reverse_confirm') : nil %>
-  <%= link_to reverse_bot_path(bot),
-              class: "reverse-toggle",
-              data: { turbo_method: :post, turbo_stream: true, turbo_confirm: confirm },
-              aria: { label: t('bot.conversational.reverse') },
-              title: t('bot.conversational.reverse') do %>
-    <%= render 'svg/24x24_reverse' %>
+  <% if bot.working? %>
+    <%# Locked while the bot is running, like every other settings control — stop the bot to reverse.
+        A non-interactive span (no link/turbo), so reversal can't be triggered from the UI mid-run. %>
+    <%= tag.span class: "reverse-toggle reverse-toggle--disabled",
+                 aria: { label: t('bot.conversational.reverse'), disabled: true },
+                 title: t('bot.conversational.reverse') do %>
+      <%= render 'svg/24x24_reverse' %>
+    <% end %>
+  <% else %>
+    <% confirm = bot.transactions.waiting.exists? ? t('bot.reverse_confirm') : nil %>
+    <%= link_to reverse_bot_path(bot),
+                class: "reverse-toggle",
+                data: { turbo_method: :post, turbo_stream: true, turbo_confirm: confirm },
+                aria: { label: t('bot.conversational.reverse') },
+                title: t('bot.conversational.reverse') do %>
+      <%= render 'svg/24x24_reverse' %>
+    <% end %>
   <% end %>
 <% end %>

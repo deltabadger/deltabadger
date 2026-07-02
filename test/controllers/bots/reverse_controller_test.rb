@@ -18,9 +18,10 @@ class Bots::ReverseControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match 'turbo-stream', response.body
     assert_predicate bot.reload, :selling?
-    # the re-rendered settings show the sell sentence (sell_amount input) and a reverse control
+    # the re-rendered settings show the sell sentence (sell_amount input) and the reverse control —
+    # now LOCKED because the flipped bot is still running (rendered as the disabled span, no href)
     assert_match 'bots_dca_single_asset[sell_amount]', response.body
-    assert_match reverse_bot_path(id: bot.id), response.body
+    assert_match 'reverse-toggle--disabled', response.body
     # issues #1/#2: the action + timing dropdowns are merged into one per-side `…_mode` select
     assert_match 'bots_dca_single_asset[sell_price_limit_mode]', response.body
     assert_match 'bots_dca_single_asset[sell_price_drop_limit_mode]', response.body
@@ -63,10 +64,22 @@ class Bots::ReverseControllerTest < ActionDispatch::IntegrationTest
     assert_predicate bot.reload, :buying?
   end
 
-  # == confirmation before reversing while orders are open ==
+  # == locked while running ==
 
-  test 'the reverse control asks for confirmation when the bot has open orders' do
-    bot = create(:dca_single_asset, :started, user: @user)
+  test 'the reverse control is locked (no clickable link) while the bot is running' do
+    bot = create(:dca_single_asset, :started, user: @user) # working
+
+    get bot_path(id: bot.id)
+
+    assert_response :success
+    assert_match 'reverse-toggle--disabled', response.body
+    assert_no_match reverse_bot_path(id: bot.id), response.body # no reverse link/href while running
+  end
+
+  # == confirmation before reversing while orders are open (only for a non-running bot) ==
+
+  test 'the reverse control asks for confirmation when a stopped bot has open orders' do
+    bot = create(:dca_single_asset, :stopped, user: @user)
     create(:transaction, bot: bot, side: :buy, status: :submitted, external_status: :open,
                          external_id: 'o1', amount: 1, quote_amount: 100)
 
@@ -76,8 +89,8 @@ class Bots::ReverseControllerTest < ActionDispatch::IntegrationTest
     assert_match I18n.t('bot.reverse_confirm'), response.body
   end
 
-  test 'the reverse control flips without confirmation when there are no open orders' do
-    bot = create(:dca_single_asset, :started, user: @user)
+  test 'the reverse control flips without confirmation when a stopped bot has no open orders' do
+    bot = create(:dca_single_asset, :stopped, user: @user)
 
     get bot_path(id: bot.id)
 
