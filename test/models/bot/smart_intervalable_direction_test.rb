@@ -79,4 +79,54 @@ class Bot::SmartIntervalableDirectionTest < ActiveSupport::TestCase
     expected = (bot.interval_duration / (bot.quote_amount.to_f / 10.0)).to_f
     assert_in_delta expected, bot.effective_interval_duration.to_f, 1.0
   end
+
+  # == persistence: the seeded split must survive the JSON round-trip as a number ==
+  # sell_amount reads back as a BigDecimal, so the seed's `sell_amount / 10` is a BigDecimal.
+  # A BigDecimal serializes into the JSON settings column as a STRING (Rails preserves precision),
+  # so on reload the split is "0.2" — and Float math against it (effective_interval_duration) then
+  # raises `String can't be coerced into Float`. The seed must therefore store a plain number.
+  # NOTE: the value is still a BigDecimal in memory right after seeding; the bug only appears after
+  # a reload, so this test must round-trip through the database.
+
+  test 'seeding the sell base split persists it as a number, not a json string' do
+    bot = create(:dca_single_asset) # default interval 'day' => sell_amount/10 dominates the seed
+    bot.direction = 'selling'
+    bot.sell_amount = 2.0 # base split still blank => before_validation seeds it
+    bot.smart_intervaled = true
+    bot.set_missed_quote_amount
+    bot.save!
+
+    stored = bot.reload.settings['smart_interval_base_amount']
+    assert stored.present?, 'the base split should have been seeded'
+    assert_not_kind_of String, stored,
+                       'the seeded base split must persist as a number, not a JSON string'
+  end
+
+  test 'effective_interval_duration tolerates a legacy string sell base split' do
+    bot = create(:dca_single_asset)
+    bot.direction = 'selling'
+    bot.sell_amount = 2.0
+    bot.smart_intervaled = true
+    bot.smart_interval_base_amount = 0.2
+    bot.set_missed_quote_amount
+    bot.save!
+    # Simulate a row persisted before the fix, whose split was stored as a JSON string.
+    bot.update_column(:settings, bot.settings.merge('smart_interval_base_amount' => '0.2'))
+
+    assert_nothing_raised { bot.reload.effective_interval_duration }
+    assert_kind_of ActiveSupport::Duration, bot.reload.effective_interval_duration
+  end
+
+  test 'effective_interval_duration tolerates a legacy string quote split while buying' do
+    bot = create(:dca_single_asset, :started)
+    bot.smart_intervaled = true
+    bot.smart_interval_quote_amount = 10.0
+    bot.set_missed_quote_amount
+    bot.save!
+    # Mirror of the sell-side legacy row: quote split stored as a JSON string.
+    bot.update_column(:settings, bot.settings.merge('smart_interval_quote_amount' => '10.0'))
+
+    assert_nothing_raised { bot.reload.effective_interval_duration }
+    assert_kind_of ActiveSupport::Duration, bot.reload.effective_interval_duration
+  end
 end

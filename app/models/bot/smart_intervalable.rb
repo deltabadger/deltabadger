@@ -48,7 +48,7 @@ module Bot::SmartIntervalable
         # effective_interval_duration is an ActiveSupport::Duration. However, for some durations, after this
         # division, addition in other methods (e.g. Time.current + effective_interval_duration) stops working.
         # Re-converting it to seconds makes the addition work. Do NOT remove the .seconds !
-        (super / (quote_amount.to_f / smart_interval_quote_amount)).seconds
+        (super / (quote_amount / smart_interval_quote_amount.to_f)).seconds
       end
     end
 
@@ -67,7 +67,7 @@ module Bot::SmartIntervalable
                                            [
                                              quote_amount / 10,
                                              minimum_smart_interval_quote_amount * 10
-                                           ].max.round(least_precise_quote_decimals)
+                                           ].max.round(least_precise_quote_decimals).to_f
                                          end
     # The sell base split is NOT seeded here (that would write settings on load and dirty an existing
     # bot). It is seeded by before_validation :seed_smart_interval_base_amount, which only runs while
@@ -80,10 +80,13 @@ module Bot::SmartIntervalable
     return if smart_interval_base_amount.present?
     return if try(:sell_amount).blank?
 
+    # .to_f so the split persists as a plain number: sell_amount is a BigDecimal, and a BigDecimal
+    # serializes into the JSON settings column as a String (precision-preserving), which then breaks
+    # Float math in effective_interval_duration on the next load.
     self.smart_interval_base_amount = [
       sell_amount / 10,
       minimum_smart_interval_base_amount * 10
-    ].max.round(least_precise_base_decimals)
+    ].max.round(least_precise_base_decimals).to_f
   end
 
   def minimum_smart_interval_base_amount

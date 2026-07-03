@@ -26,7 +26,7 @@ module Bot::Reversible
         base_duration = Automation::Schedulable::INTERVALS[sell_interval] || super
         if smart_intervaled? && smart_interval_base_amount.present? && sell_amount.present? && sell_amount.positive?
           # .seconds re-conversion required (see SmartIntervalable) so Time + duration keeps working.
-          return (base_duration / (sell_amount.to_f / smart_interval_base_amount)).seconds
+          return (base_duration / (sell_amount / smart_interval_base_amount.to_f)).seconds
         end
 
         base_duration
