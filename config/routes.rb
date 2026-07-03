@@ -1,4 +1,8 @@
 Rails.application.routes.draw do
+  # Liveness endpoint for Kamal proxy, load balancers, and the Docker HEALTHCHECK.
+  # Rails' built-in controller bypasses app before_actions (auth, locale, setup redirects).
+  get "up" => "rails/health#show", as: :rails_health_check
+
   # OAuth 2.1 well-known endpoints (RFC 9728, RFC 8414)
   get '/.well-known/oauth-protected-resource', to: 'oauth/well_known#oauth_protected_resource'
   get '/.well-known/oauth-authorization-server', to: 'oauth/well_known#oauth_authorization_server'

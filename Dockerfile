@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1
 # Deltabadger - Multi-stage Dockerfile for Umbrel/Docker deployment
 
+# Ruby base image version, pinned in one place (matches .ruby-version).
+ARG RUBY_VERSION=3.4.8
+
 # Stage 1: Build frontend assets
 FROM oven/bun:1.3-slim AS frontend-builder
 
@@ -22,7 +25,7 @@ COPY --chown=bun:bun app/assets ./app/assets
 RUN bun run build
 
 # Stage 2: Build Ruby dependencies and compile assets
-FROM ruby:3.4.8-slim AS builder
+FROM ruby:$RUBY_VERSION-slim AS builder
 
 WORKDIR /app
 
@@ -88,7 +91,7 @@ RUN SECRET_KEY_BASE=placeholder \
     bundle exec rails assets:precompile
 
 # Stage 3: Production runtime image
-FROM ruby:3.4.8-slim AS runtime
+FROM ruby:$RUBY_VERSION-slim AS runtime
 
 LABEL maintainer="Deltabadger"
 LABEL org.opencontainers.image.title="Deltabadger"
@@ -163,7 +166,7 @@ EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:3000/health-check || exit 1
+    CMD curl -fsS http://localhost:3000/up || exit 1
 
 # Set entrypoint and default command
 ENTRYPOINT ["docker-entrypoint.sh"]
