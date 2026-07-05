@@ -1,6 +1,6 @@
 <%# The whole wizard lives inside #ibkr-connect-wizard so the key-generation job can Turbo-replace
     it in place. State is derived from the user's IBKR ApiKey. %>
-<%= tag.div id: 'ibkr-connect-wizard', class: 'widget widget--settings', data: { controller: 'ibkr-connect' } do %>
+<%= tag.div id: 'ibkr-connect-wizard', class: 'widget widget--settings' do %>
   <h4 class="modal__title"><%= t('settings.ibkr.title') %></h4>
 
   <% if api_key.nil? %>
@@ -35,14 +35,15 @@
 
       <li>
         <p><%= t('settings.ibkr.portal_intro') %></p>
-        <select data-ibkr-connect-target="entity" data-action="change->ibkr-connect#select" class="form__input">
-          <% Exchanges::Ibkr::OAUTH_PORTALS.each do |entity, portal| %>
-            <option value="<%= portal[:url] %>"><%= portal[:name] %></option>
-          <% end %>
-        </select>
         <%= link_to t('settings.ibkr.open_portal'),
-                    Exchanges::Ibkr::OAUTH_PORTALS.values.first[:url],
-                    target: '_blank', rel: 'noopener', data: { ibkr_connect_target: 'portal' }, class: 'button' %>
+                    Exchanges::Ibkr::OAUTH_PORTALS['europe'][:url],
+                    target: '_blank', rel: 'noopener', class: 'button' %>
+        <p>
+          <%= t('settings.ibkr.portal_fallback') %>
+          <%= link_to t('settings.ibkr.open_portal_fallback'),
+                      Exchanges::Ibkr::OAUTH_PORTALS['us'][:url],
+                      target: '_blank', rel: 'noopener' %>
+        </p>
       </li>
 
       <li>

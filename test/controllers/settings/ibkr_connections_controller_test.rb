@@ -2,7 +2,7 @@ require 'test_helper'
 
 # §10 connect wizard. A dedicated 2-step Settings flow:
 #   step 1: create a pending IBKR key + generate RSA/DH artifacts (bg job) -> download the 3
-#           public files + pick an entity -> regional OAuth portal.
+#           public files -> IBKR OAuth self-service portal (PUT-capable hosts only).
 #   step 2: paste consumer_key / access_token / access_token_secret -> validate
 #           -> :pending_activation (or :correct if IBKR already activated the consumer).
 class Settings::IbkrConnectionsControllerTest < ActionDispatch::IntegrationTest
@@ -75,14 +75,19 @@ class Settings::IbkrConnectionsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
-  test 'show reveals the regional portal links once keys are generated' do
+  test 'show reveals both PUT-capable portal links once keys are generated' do
     key_with_artifacts
     get settings_ibkr_connect_path
 
     assert_response :success
-    assert_includes response.body, 'interactivebrokers.ie'
-    assert_includes response.body, 'action=OAUTH'
-    refute_includes response.body, 'ip2loc=US'
+    Exchanges::Ibkr::OAUTH_PORTALS.each_value do |portal|
+      assert_select 'a[href=?]', portal[:url]
+    end
+    assert_select 'select[data-ibkr-connect-target]', count: 0 # entity picker removed
+    # The regional hosts 501 the portal's key-upload PUT — they must never reappear.
+    refute_includes response.body, 'interactivebrokers.ie'
+    refute_includes response.body, 'interactivebrokers.lu'
+    refute_includes response.body, 'interactivebrokers.com.hu'
   end
 
   test 'download serves the PUBLIC signing/encryption keys and the dhparam, never the private key' do

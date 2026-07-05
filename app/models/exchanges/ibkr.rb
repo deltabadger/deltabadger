@@ -14,16 +14,16 @@ class Exchanges::Ibkr < Exchange
   FIELD_BID = '84'.freeze
   FIELD_ASK = '86'.freeze
 
-  # Regional first-party OAuth self-service portals, keyed by EU brokerage entity. The connect
-  # wizard sends the user to their entity's portal to register a consumer + upload the three
-  # public artifacts. EU entities only — never the US ip2loc portal. Path/query/fragment verified
-  # against the live IBIE portal; only the TLD changes per entity.
+  # First-party OAuth self-service portals. The regional EU hosts (.ie/.lu/.com.hu) reject the
+  # PUT the portal SPA uses to upload the key files (Akamai edge 501 "Unsupported Request";
+  # PUT /ibcust.proxy/v1/ibcust/oauth/consumer_info — verified 2026-07-05 from US + EU IPs), so
+  # consumer registration can never complete there. Only PUT-capable hosts may be linked. The
+  # SPA is byte-identical on every host and entity-agnostic — the account's entity comes from
+  # the login, not the domain — so one European portal plus the US fallback covers everyone.
   OAUTH_PORTAL_PATH = '/oauth/?loginType=1&action=OAUTH&clt=0&RL=1#/configuration'.freeze
   OAUTH_PORTALS = {
-    'ibie' => { name: 'IBKR Ireland (IBIE)', url: "https://www.interactivebrokers.ie#{OAUTH_PORTAL_PATH}" },
-    'iblux' => { name: 'IBKR Luxembourg (IBLUX)', url: "https://www.interactivebrokers.lu#{OAUTH_PORTAL_PATH}" },
-    'ibce' => { name: 'IBKR Central Europe (IBCE)', url: "https://www.interactivebrokers.com.hu#{OAUTH_PORTAL_PATH}" },
-    'ibuk' => { name: 'IBKR U.K. (IBUK)', url: "https://www.interactivebrokers.co.uk#{OAUTH_PORTAL_PATH}" }
+    'europe' => { name: 'IBKR portal (Europe)', url: "https://www.interactivebrokers.co.uk#{OAUTH_PORTAL_PATH}" },
+    'us' => { name: 'IBKR portal (US, fallback)', url: "https://ndcdyn.interactivebrokers.com#{OAUTH_PORTAL_PATH}" }
   }.freeze
 
   include Exchange::Dryable
