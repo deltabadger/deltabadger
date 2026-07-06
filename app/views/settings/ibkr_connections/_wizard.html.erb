@@ -15,6 +15,8 @@
 
   <% elsif api_key.pending_activation? %>
     <p><%= t('settings.ibkr.activation_pending') %></p>
+    <p><%= t('settings.ibkr.reenter_intro') %></p>
+    <%= render 'settings/ibkr_connections/credentials_form' %>
     <%= button_to t('settings.ibkr.start_over'), settings_ibkr_connect_path,
                   method: :delete, class: 'button' %>
 
@@ -48,21 +50,7 @@
 
       <li>
         <p><%= t('settings.ibkr.paste_intro') %></p>
-        <%= form_with url: settings_activate_ibkr_connection_path, method: :post, scope: :api_key, class: 'form' do |f| %>
-          <div class="form__row form__row--input">
-            <%= f.text_field :key, autocomplete: 'off', class: 'form__input form__input--large' %>
-            <%= f.label :key, t('settings.ibkr.consumer_key'), class: 'form__label' %>
-          </div>
-          <div class="form__row form__row--input">
-            <%= f.text_field :access_token, autocomplete: 'off', class: 'form__input form__input--large' %>
-            <%= f.label :access_token, t('settings.ibkr.access_token'), class: 'form__label' %>
-          </div>
-          <div class="form__row form__row--input">
-            <%= f.text_field :secret, autocomplete: 'off', class: 'form__input form__input--large' %>
-            <%= f.label :secret, t('settings.ibkr.access_token_secret'), class: 'form__label' %>
-          </div>
-          <%= f.submit t('button.connect'), class: 'button button--success button--large' %>
-        <% end %>
+        <%= render 'settings/ibkr_connections/credentials_form' %>
       </li>
     </ol>
 

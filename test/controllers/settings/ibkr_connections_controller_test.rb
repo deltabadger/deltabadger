@@ -123,6 +123,50 @@ class Settings::IbkrConnectionsControllerTest < ActionDispatch::IntegrationTest
     assert_redirected_to settings_ibkr_connect_path
   end
 
+  test 'activate rejects blank or omitted credentials without touching the key' do
+    key = key_with_artifacts
+    ApiKey.any_instance.expects(:get_validity).never
+
+    [
+      { key: '', access_token: 'TOKEN456', secret: 'SECRET789' },
+      { key: 'CONSUMER12', access_token: '', secret: 'SECRET789' },
+      { key: 'CONSUMER12', access_token: 'TOKEN456', secret: '' },
+      { access_token: 'TOKEN456', secret: 'SECRET789' } # key omitted entirely
+    ].each do |params|
+      post settings_activate_ibkr_connection_path, params: { api_key: params }
+
+      assert_redirected_to settings_ibkr_connect_path
+      assert_equal I18n.t('settings.ibkr.missing_fields'), flash[:alert]
+      key.reload
+      assert key.pending_validation?, "status must not change for #{params.inspect}"
+      assert_nil key.key, 'credentials must not be assigned'
+      assert_equal SIG_KEY.to_pem, key.rsa_signature_key, 'generated artifacts untouched'
+    end
+  end
+
+  test 'blank resubmit from pending_activation keeps the key pending_activation' do
+    key = key_with_artifacts
+    key.update!(status: :pending_activation)
+    ApiKey.any_instance.expects(:get_validity).never
+
+    post settings_activate_ibkr_connection_path,
+         params: { api_key: { key: '', access_token: 'T', secret: 'S' } }
+
+    assert_equal I18n.t('settings.ibkr.missing_fields'), flash[:alert]
+    assert key.reload.pending_activation?, 'escape-hatch blank submit must not change the state'
+  end
+
+  test 'pending_activation state offers the credentials form so mistakes are correctable' do
+    key_with_artifacts.update!(status: :pending_activation)
+    get settings_ibkr_connect_path
+
+    assert_response :success
+    assert_select 'form[action=?]', settings_activate_ibkr_connection_path
+    assert_select "input[name='api_key[key]']"
+    assert_includes response.body, I18n.t('settings.ibkr.reenter_intro')
+    assert_includes response.body, I18n.t('settings.ibkr.start_over')
+  end
+
   test 'activate marks the key pending_activation and preserves the generated keys' do
     key = key_with_artifacts
     # Bypass the exchange/Dryable boundary: drive the status from the validity result directly.

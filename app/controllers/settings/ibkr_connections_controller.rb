@@ -41,9 +41,19 @@ class Settings::IbkrConnectionsController < ApplicationController
     @api_key = current_ibkr_key
     return redirect_to(settings_ibkr_connect_path) if @api_key.nil?
 
+    # Blank/omitted fields must never reach validate_credentials! — assign_credentials nils
+    # absent fields, and any client failure lands in :pending_activation, which users can't
+    # tell apart from a genuine IBKR activation wait. Check by explicit key so an omitted
+    # param is caught, not just a submitted empty string.
+    creds = activate_params
+    if %i[key access_token secret].any? { |field| creds[field].blank? }
+      flash[:alert] = t('settings.ibkr.missing_fields')
+      return redirect_to(settings_ibkr_connect_path)
+    end
+
     # assign_credentials is destructive (nils absent fields), so re-pass the generated keys to
     # keep them intact while adding the pasted consumer credentials.
-    @api_key.validate_credentials!(activate_params.merge(
+    @api_key.validate_credentials!(creds.merge(
                                      rsa_signature_key: @api_key.rsa_signature_key,
                                      rsa_encryption_key: @api_key.rsa_encryption_key,
                                      dh_param: @api_key.dh_param,
