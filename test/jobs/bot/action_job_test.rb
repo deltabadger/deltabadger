@@ -9,6 +9,35 @@ module ActionJobBehaviorTests
   # Subclasses must define #create_bot returning a started bot
 
   included do
+    # A stop from another process (user click, admin deactivation sweep) landing mid-execution
+    # must not be overwritten by the job's post-execution status writes (resurrection race).
+    test 'does not resurrect a bot stopped externally mid-execution' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.stubs(:execute_action).with do
+        Bot.where(id: bot.id).update_all(status: 'stopped')
+        true
+      end.returns(Result::Success.new)
+      Bot::ActionJob.unstub(:set)
+      Bot::ActionJob.expects(:set).never
+
+      Bot::ActionJob.new.perform(bot)
+      assert_equal 'stopped', bot.reload.status
+    end
+
+    test 'does not flip an externally stopped bot to retrying when execution raises' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.stubs(:execute_action).with do
+        Bot.where(id: bot.id).update_all(status: 'stopped')
+        true
+      end.raises(StandardError.new('boom'))
+      bot.expects(:notify_about_error).never
+
+      Bot::ActionJob.new.perform(bot) # must not raise — a stopped bot gets no retry chain
+      assert_equal 'stopped', bot.reload.status
+    end
+
     test 'executes the bot action when scheduled' do
       bot = create_bot
       setup_action_job_mocks(bot)

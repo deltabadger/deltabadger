@@ -3,6 +3,8 @@ sv:
         setup:
             api_not_available: "Börsens API är inte tillgängligt"
             assets_syncing: "Vi synkroniserar tillgångarna för den här börsen – kom tillbaka om en stund."
+            stocks_ask_admin: "Be din administratör att aktivera aktiehandel."
+            stocks_activate_cta: "Aktivera aktiehandel i inställningarna"
             progress_steps:
                 currencies: "Välj tillgång"
                 currencies2: "Andra tillgången (valfritt)"

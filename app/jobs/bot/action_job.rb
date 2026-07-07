@@ -11,7 +11,8 @@ class Bot::ActionJob < BotJob
   # gray, not yellow, if level styling is added later.
   EXHAUSTION_HANDLER = lambda do |job, error, exhausted_detail|
     bot = job.arguments.first
-    bot.update!(status: :retrying)
+    next unless Bot::ActionJob.transition_working_bot!(bot, 'retrying')
+
     if exhausted_detail[:transient_exhausted]
       bot.log_activity('execution_retrying', level: :info,
                                              details: { error: error.message }.merge(exhausted_detail))
@@ -36,6 +37,22 @@ class Bot::ActionJob < BotJob
            wait: BotJob::RATE_LIMIT_WAIT,
            attempts: 4 do |job, error|
     EXHAUSTION_HANDLER.call(job, error, rate_limited_exhausted: true)
+  end
+
+  # A stop or delete from another process (user click, admin stock deactivation sweep) can land
+  # while this job is mid-flight on a stale bot instance; Stop's cancel can't reach a Claimed
+  # (running) execution, and a check-then-update! would leave a resurrection window. The
+  # conditional UPDATE closes it: the flip only happens if no stop/delete won the race, and the
+  # caller branches on the outcome. Skipped callbacks are covered on every call site: the status
+  # bar is (re)broadcast by BroadcastAfterScheduledActionJob or explicitly, and the
+  # button/columns-lock UI does not differ between working statuses.
+  def self.transition_working_bot!(bot, status)
+    updated = Bot.where(id: bot.id).where.not(status: %w[stopped deleted])
+                 .update_all(status: status, updated_at: Time.current) == 1
+    # Sync the attribute without reload — reload would drop memoized associations; only the
+    # status column changed, and no later save runs on these paths.
+    bot.status = status if updated
+    updated
   end
 
   def perform(bot)
@@ -77,7 +94,8 @@ class Bot::ActionJob < BotJob
       # fresh attempt at the next interval (clean — no orphan), log a calm gray entry, and send NO
       # alarm email. Everything else stays the existing red path (raise → rescue StandardError).
       if bot.exchange.placement_transient_error?(result.errors)
-        bot.update!(status: :retrying)
+        return unless self.class.transition_working_bot!(bot, 'retrying')
+
         bot.log_activity('execution_retrying', level: :info,
                                                details: { error: result.errors.to_sentence, placement_transient: true })
         schedule_next_action_job(bot)
@@ -93,22 +111,27 @@ class Bot::ActionJob < BotJob
     if result.data.present? && result.data[:break_reschedule]
       Rails.logger.info("ActionJob for bot #{bot.id} reschedule disabled.")
       bot.log_activity('reschedule_disabled')
-    else
-      # Skip the automatic broadcast - BroadcastAfterScheduledActionJob will handle it
-      # after the next job is actually scheduled
-      bot.instance_variable_set(:@skip_status_bar_broadcast, true)
-      bot.update!(status: :scheduled)
+    elsif self.class.transition_working_bot!(bot, 'scheduled')
+      # No broadcast here on purpose — BroadcastAfterScheduledActionJob handles it after the
+      # next job is actually scheduled.
       schedule_next_action_job(bot)
+    else
+      Rails.logger.info("ActionJob for bot #{bot.id}: bot was stopped mid-execution, leaving it stopped")
     end
   rescue Client::TransientNetworkError, Client::RateLimitedError
     # Skip the noisy execution_failed / notify_retry path. Leaving the bot in
     # :retrying ensures the ActiveJob retry chain (and any post-exhaustion
     # reschedule) passes the line-8 guard on the next perform.
-    bot.update!(status: :retrying)
+    bot.broadcast_status_bar_update if self.class.transition_working_bot!(bot, 'retrying')
     raise
   rescue StandardError => e
     Rails.logger.error("ActionJob for bot #{bot.id} failed to perform. Errors: #{e.message}")
-    bot.update!(status: :retrying)
+    unless self.class.transition_working_bot!(bot, 'retrying')
+      Rails.logger.info("ActionJob for bot #{bot.id}: bot was stopped mid-execution, skipping retry handling")
+      return
+    end
+
+    bot.broadcast_status_bar_update
     category = ignorable_error_category(bot, e)
     # A failed order already records its own Transaction row; only log execution_failed
     # for failures that left no transaction (auth, market/API, unexpected errors).

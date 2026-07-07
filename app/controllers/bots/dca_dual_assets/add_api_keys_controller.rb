@@ -36,8 +36,4 @@ class Bots::DcaDualAssets::AddApiKeysController < Bots::Wizard::AddApiKeysContro
   # After (re-)validating the key, go to the first step still missing input
   # (skips an already-chosen asset after an exchange re-pick).
   def after_api_key_path = step_path(first_incomplete)
-
-  def after_correct_api_key(api_key)
-    sync_alpaca_settings(api_key) if @bot.exchange.is_a?(Exchanges::Alpaca)
-  end
 end

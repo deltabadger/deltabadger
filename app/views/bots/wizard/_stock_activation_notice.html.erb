@@ -1,0 +1,16 @@
+<%# Shown at the bottom of a base-asset picker when stocks could be offered but
+    no stock catalog is present (self-hosted before the admin's Alpaca
+    bootstrap sync — hosted always has one, and a previously synced catalog
+    stays active even if the credential is later removed). Skipped when a
+    venue is already chosen: in exchange-first flows stocks were never on
+    offer for a crypto venue. Admins get a CTA to the Settings activation;
+    everyone else is told to ask their admin. %>
+<% if bot.exchange_id.blank? && !StockTradingSettings.active? %>
+  <div class="assets-syncing">
+    <% if current_user.admin? %>
+      <%= link_to t('bot.setup.stocks_activate_cta'), settings_connect_path, data: { turbo_frame: '_top' } %>
+    <% else %>
+      <%= t('bot.setup.stocks_ask_admin') %>
+    <% end %>
+  </div>
+<% end %>

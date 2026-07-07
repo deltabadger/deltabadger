@@ -290,8 +290,10 @@ class AppConfig < ApplicationRecord
   end
 
   # Alpaca (stocks) configuration methods
+  # Both halves of the credential are required — the catalog sync
+  # (Exchange::SyncAlpacaAssetsJob) is a no-op with a key alone.
   def self.alpaca_configured?
-    get(ALPACA_API_KEY).present?
+    get(ALPACA_API_KEY).present? && get(ALPACA_API_SECRET).present?
   end
 
   def self.clear_alpaca_settings!

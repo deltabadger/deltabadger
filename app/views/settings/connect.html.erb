@@ -9,10 +9,12 @@
   </div>
 
   <div class="column gap-1">
+    <%# Stocks = container-global catalog activation → admin-only.
+        IBKR = per-user connection (its controller has no admin gate) → everyone. %>
     <% if current_user.admin? %>
       <%= render partial: 'settings/widgets/stocks' %>
-      <%= render partial: 'settings/widgets/ibkr' %>
     <% end %>
+    <%= render partial: 'settings/widgets/ibkr' %>
 
     <%= render partial: 'settings/widgets/api_keys', locals: {
       trading_api_keys: @trading_api_keys,

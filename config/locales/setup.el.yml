@@ -3,6 +3,8 @@ el:
         setup:
             api_not_available: "Το API του ανταλλακτηρίου δεν είναι διαθέσιμο"
             assets_syncing: "Συγχρονίζουμε τα assets αυτού του exchange — δοκίμασε ξανά σε λίγο."
+            stocks_ask_admin: "Ζήτησε από τον διαχειριστή σου να ενεργοποιήσει τις συναλλαγές μετοχών."
+            stocks_activate_cta: "Ενεργοποίησε τις συναλλαγές μετοχών στις ρυθμίσεις"
             progress_steps:
                 currencies: "Επιλογή asset"
                 currencies2: "Δεύτερο asset (προαιρετικό)"

@@ -100,16 +100,24 @@ class Bots::DcaSingleAssets::AddApiKeysControllerTest < ActionDispatch::Integrat
   end
 end
 
-# The Alpaca-sync hook is a single/dual-only delta: a correct Alpaca key also
-# persists the credentials to AppConfig and schedules an asset sync.
-class Bots::DcaSingleAssets::AddApiKeysAlpacaSyncTest < ActionDispatch::IntegrationTest
+# Container-global activation is admin/Settings-only: a per-user Alpaca connect
+# in bot creation must touch ONLY the connecting user's ApiKey.
+class Bots::DcaSingleAssets::AddApiKeysAlpacaIsolationTest < ActionDispatch::IntegrationTest
   setup do
-    @user = create(:user, admin: true, setup_completed: true)
+    # Simulate a self-hosted container the admin already activated: the
+    # container sync credential belongs to the admin.
+    AppConfig.set('alpaca_api_key', 'admin-key')
+    AppConfig.set('alpaca_api_secret', 'admin-secret')
+    AppConfig.set('alpaca_mode', 'paper')
+
+    @admin = create(:user, admin: true, setup_completed: true)
+    @user = create(:user, setup_completed: true)
     sign_in @user
+
     usd = create(:asset, :usd)
     aapl = create(:asset, symbol: 'AAPL', name: 'Apple Inc', category: 'Stock', external_id: 'aapl')
-    alpaca = create(:alpaca_exchange)
-    create(:ticker, exchange: alpaca, base_asset: aapl, quote_asset: usd, base: 'AAPL', quote: 'USD')
+    @alpaca = create(:alpaca_exchange)
+    create(:ticker, exchange: @alpaca, base_asset: aapl, quote_asset: usd, base: 'AAPL', quote: 'USD')
 
     # Single stock venue: the asset POST auto-selects Alpaca into the session.
     get new_bots_dca_single_assets_pick_buyable_asset_path
@@ -117,27 +125,54 @@ class Bots::DcaSingleAssets::AddApiKeysAlpacaSyncTest < ActionDispatch::Integrat
          params: { bots_dca_single_asset: { base_asset_id: aapl.id } }
   end
 
-  test 'create with a correct Alpaca key syncs credentials into AppConfig' do
+  test 'a non-admin Alpaca connect creates only their own ApiKey and never touches AppConfig' do
     # Let validate_credentials! assign the posted credentials for real; only the
     # remote validity check is stubbed out.
     ApiKey.any_instance.stubs(:get_validity).returns(Result::Success.new(true))
+    Exchange::SyncAlpacaAssetsJob.expects(:perform_later).never
 
     post bots_dca_single_assets_add_api_key_path,
-         params: { api_key: { key: 'alpaca-key', secret: 'alpaca-secret', passphrase: 'live' } }
+         params: { api_key: { key: 'user-key', secret: 'user-secret', passphrase: 'live' } }
 
     assert_response :success
-    assert_equal 'alpaca-key', AppConfig.get('alpaca_api_key')
-    assert_equal 'alpaca-secret', AppConfig.get('alpaca_api_secret')
-    assert_equal 'live', AppConfig.get('alpaca_mode')
-  end
-
-  test 'create with a paper Alpaca key stores paper mode' do
-    ApiKey.any_instance.stubs(:get_validity).returns(Result::Success.new(true))
-
-    post bots_dca_single_assets_add_api_key_path,
-         params: { api_key: { key: 'k', secret: 's' } }
-
+    # Container sync credential (admin's) is untouched — no last-writer-wins.
+    assert_equal 'admin-key', AppConfig.get('alpaca_api_key')
+    assert_equal 'admin-secret', AppConfig.get('alpaca_api_secret')
     assert_equal 'paper', AppConfig.get('alpaca_mode')
+    # The connecting user got their own key, in their own mode.
+    user_key = @user.api_keys.find_by(exchange: @alpaca, key_type: :trading)
+    assert_equal 'user-key', user_key.key
+    assert_equal 'live', user_key.passphrase
+    # And nothing was created for the admin.
+    assert_nil @admin.api_keys.find_by(exchange: @alpaca)
+  end
+end
+
+# Same isolation guarantee for the non-wizard "re-add key on an existing bot" flow.
+class Bots::AddApiKeysAlpacaIsolationTest < ActionDispatch::IntegrationTest
+  test 'posting Alpaca credentials for an existing bot never writes AppConfig' do
+    create(:user, admin: true, setup_completed: true) # container is set up
+    user = create(:user, setup_completed: true)
+    sign_in user
+    alpaca = create(:alpaca_exchange)
+    aapl = create(:asset, symbol: 'AAPL', name: 'Apple Inc', category: 'Stock', external_id: 'aapl')
+    usd = create(:asset, :usd)
+    bot = create(:dca_single_asset, user: user, exchange: alpaca,
+                                    base_asset: aapl, quote_asset: usd, with_api_key: false)
+    ApiKey.any_instance.stubs(:get_validity).returns(Result::Success.new(true))
+    Exchange::SyncAlpacaAssetsJob.expects(:perform_later).never
+
+    post bot_add_api_key_path(bot_id: bot.id), params: { api_key: { key: 'k', secret: 's' } }
+
+    assert_response :success
+    assert_nil AppConfig.get('alpaca_api_key')
+    assert_nil AppConfig.get('alpaca_api_secret')
+    assert_nil AppConfig.get('alpaca_mode')
+
+    # Paper-by-default: a passphrase-less connect must never persist a live-mode key
+    # (Exchanges::Alpaca#paper_mode? treats anything but 'live' as paper).
+    user_key = user.api_keys.find_by(exchange: alpaca, key_type: :trading)
+    refute_equal 'live', user_key.passphrase
   end
 end
 

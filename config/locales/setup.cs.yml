@@ -3,6 +3,8 @@ cs:
         setup:
             api_not_available: "API burzy není dostupné"
             assets_syncing: "Synchronizujeme aktiva této burzy – zkus to za chvíli znovu."
+            stocks_ask_admin: "Požádej svého administrátora o aktivaci obchodování s akciemi."
+            stocks_activate_cta: "Aktivovat obchodování s akciemi v nastavení"
             progress_steps:
                 currencies: "Vyberte aktivum"
                 currencies2: "Druhé aktivum (volitelné)"

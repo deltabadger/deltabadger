@@ -1,4 +1,7 @@
-<% user_zone = current_user.time_zone.presence || 'UTC' %>
+<%# bot.user, not current_user: this partial is also rendered from job-driven
+    Turbo broadcasts (Bot::StopJob), where no Warden/session exists. In request
+    context the two are the same — bots are scoped to their owner. %>
+<% user_zone = bot.user.time_zone.presence || 'UTC' %>
 <% zone_abbr = Time.current.in_time_zone(user_zone).strftime('%Z') %>
 <%# Default selection = NYSE Monday open (09:30 ET) translated into the user's zone. %>
 <% default_mode, default_time = bot.default_start_time_selection %>

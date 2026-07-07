@@ -3,6 +3,8 @@ nl:
         setup:
             api_not_available: 'Exchange API is niet beschikbaar'
             assets_syncing: "We synchroniseren de assets van deze exchange — kom zo even terug."
+            stocks_ask_admin: "Vraag je beheerder om aandelenhandel te activeren."
+            stocks_activate_cta: "Aandelenhandel activeren in de instellingen"
             progress_steps:
                 currencies: "Kies asset"
                 currencies2: "Tweede asset (optioneel)"

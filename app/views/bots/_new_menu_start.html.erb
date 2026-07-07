@@ -1,6 +1,17 @@
 <div class="welcome-screen">
     <p><%= t('bot.welcome.pick_asset_first') %></p>
-    <p><%= t('bot.welcome.connect_alpaca_html', settings_link: link_to(t('bot.welcome.settings_link'), settings_connect_path)) %></p>
+    <%# Stocks onboarding line, by catalog state: catalog present → nothing
+        (stocks just show up in the picker; trading keys are asked for per-user
+        in the bot-creation key step); no catalog + admin → the Settings CTA
+        (self-hosted bootstrap lives there); no catalog + non-admin → ask your
+        admin. %>
+    <% unless StockTradingSettings.active? %>
+      <% if current_user.admin? %>
+        <p><%= t('bot.welcome.connect_alpaca_html', settings_link: link_to(t('bot.welcome.settings_link'), settings_connect_path)) %></p>
+      <% else %>
+        <p><%= t('bot.setup.stocks_ask_admin') %></p>
+      <% end %>
+    <% end %>
     <div style="margin-top: 2rem; transform: scale(1.5)">
         <%= button_to new_bot_path, method: :get, class: "sbutton sbutton--sky", data: { turbo_frame: "modal" }, aria: { label: t('bot.new') } do %>
             <span class="d-none d-sm-inline"><%= t('bot.new') %></span>

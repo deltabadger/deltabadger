@@ -3,6 +3,8 @@ en:
         setup:
             api_not_available: "Exchange API is not available"
             assets_syncing: "We're syncing this exchange's assets — check back in a moment."
+            stocks_ask_admin: "Ask your admin to activate stock trading."
+            stocks_activate_cta: "Activate stock trading in Settings"
             progress_steps:
                 currencies: "Pick asset"
                 currencies2: "Second asset (optional)"

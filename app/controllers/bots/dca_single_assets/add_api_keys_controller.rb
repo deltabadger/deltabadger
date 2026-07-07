@@ -36,8 +36,4 @@ class Bots::DcaSingleAssets::AddApiKeysController < Bots::Wizard::AddApiKeysCont
   # → asset); after re-picking the exchange it skips the already-chosen asset and
   # lands on the quote.
   def after_api_key_path = step_path(first_incomplete)
-
-  def after_correct_api_key(api_key)
-    sync_alpaca_settings(api_key) if @bot.exchange.is_a?(Exchanges::Alpaca)
-  end
 end

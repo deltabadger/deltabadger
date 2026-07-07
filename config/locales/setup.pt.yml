@@ -3,6 +3,8 @@ pt:
         setup:
             api_not_available: "API do Exchange não disponível"
             assets_syncing: "Estamos a sincronizar os ativos desta exchange — volta a verificar dentro de momentos."
+            stocks_ask_admin: "Pede ao teu administrador para ativar a negociação de ações."
+            stocks_activate_cta: "Ativar a negociação de ações nas definições"
             progress_steps:
                 currencies: "Escolher ativo"
                 currencies2: "Segundo ativo (opcional)"

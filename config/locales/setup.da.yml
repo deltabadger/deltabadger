@@ -3,6 +3,8 @@ da:
         setup:
             api_not_available: "Børsens API er ikke tilgængeligt"
             assets_syncing: "Vi synkroniserer aktiverne for denne børs – kig forbi igen om et øjeblik."
+            stocks_ask_admin: "Bed din administrator om at aktivere aktiehandel."
+            stocks_activate_cta: "Aktivér aktiehandel i indstillingerne"
             progress_steps:
                 currencies: "Vælg aktiv"
                 currencies2: "Andet aktiv (valgfrit)"

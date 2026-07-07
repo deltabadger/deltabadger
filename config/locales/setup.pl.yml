@@ -3,6 +3,8 @@ pl:
         setup:
             api_not_available: 'API giełdy nie jest dostępne'
             assets_syncing: "Synchronizujemy aktywa tej giełdy – sprawdź ponownie za chwilę."
+            stocks_ask_admin: "Poproś administratora o włączenie handlu akcjami."
+            stocks_activate_cta: "Włącz handel akcjami w ustawieniach"
             progress_steps:
                 currencies: "Wybierz aktywo"
                 currencies2: "Drugie aktywo (opcjonalnie)"

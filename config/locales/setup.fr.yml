@@ -3,6 +3,8 @@ fr:
         setup:
             api_not_available: 'L''API de l''exchange n''est pas disponible.'
             assets_syncing: "Nous synchronisons les actifs de cette plateforme — reviens dans un instant."
+            stocks_ask_admin: "Demande à ton administrateur d'activer le trading d'actions."
+            stocks_activate_cta: "Activer le trading d'actions dans les paramètres"
             progress_steps:
                 currencies: "Choisir l'actif"
                 currencies2: "Second actif (facultatif)"

@@ -3,6 +3,8 @@ ru:
         setup:
             api_not_available: "API биржи недоступна"
             assets_syncing: "Синхронизируем активы этой биржи — загляните через мгновение."
+            stocks_ask_admin: "Попросите администратора включить торговлю акциями."
+            stocks_activate_cta: "Включить торговлю акциями в настройках"
             progress_steps:
                 currencies: "Выбрать актив"
                 currencies2: "Второй актив (опционально)"

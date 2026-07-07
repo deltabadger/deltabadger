@@ -5,7 +5,7 @@ bg:
         new: "Нов бот"
         welcome:
             pick_asset_first: "Първо избери актив — след това ще видиш борсите, на които е наличен."
-            connect_alpaca_html: "За да инвестираш в акции, първо свържи Alpaca в %{settings_link}."
+            connect_alpaca_html: "За да инвестирате в акции, първо свържете Alpaca в %{settings_link}."
             settings_link: "Настройки"
         dca_index:
             setup:

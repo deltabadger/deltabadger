@@ -56,6 +56,10 @@ module Bot::Lifecycle
   end
 
   def stop(stop_message_key: nil)
+    # A freshly loaded bot can carry recomputed settings defaults (after_initialize
+    # concerns), which marks settings dirty — Accountable then requires
+    # set_missed_quote_amount before any save (same guard start uses above).
+    set_missed_quote_amount if settings_was != settings
     if update(
       status: :stopped,
       stopped_at: Time.current,

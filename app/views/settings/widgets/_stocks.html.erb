@@ -1,35 +1,48 @@
 <%= turbo_frame_tag "stocks_settings" do %>
   <div class="widget widget--settings">
-    <% is_configured = AppConfig.alpaca_configured? %>
-    <h4 class="modal__title">
-      <%= t('settings.stocks.title_html') %>:
-      <% if is_configured %>
+    <% if StockTradingSettings.deltabadger? %>
+      <%# Hosted: the catalog comes from the platform; nothing to manage here.
+          Trading keys are per-user, entered in the bot-creation key step. %>
+      <h4 class="modal__title">
+        <%= t('settings.stocks.title') %>:
         <span class="text-success">ON</span>
-      <% else %>
-        <span class="text-danger">OFF</span>
-      <% end %>
-    </h4>
-
-    <% if is_configured %>
-      <p style="text-align: center; margin-top: 3rem"><%= t('settings.stocks.configured', mode: AppConfig.get('alpaca_mode')&.capitalize || 'Paper') %></p>
-      <div class="setting-form">
-        <%= link_to t('settings.stocks.disconnect'), settings_disconnect_stocks_path, data: { turbo_method: :delete, turbo_frame: "stocks_settings" }, class: "button button--danger", style: "margin-top: 0" %>
-      </div>
+      </h4>
+      <p style="text-align: center; margin-top: 3rem"><%= t('settings.stocks.deltabadger_configured', provider_name: AppConfig.market_data_env_provider_name) %></p>
     <% else %>
+      <%# Self-hosted: the badge reflects catalog state (what users actually
+          get in the pickers), not the credential — a synced catalog stays ON
+          after a disconnect; the credential only keeps it refreshing. %>
+      <% is_configured = AppConfig.alpaca_configured? %>
+      <% catalog_active = StockTradingSettings.active? %>
+      <% stored_mode = AppConfig.get('alpaca_mode') %>
+      <h4 class="modal__title">
+        <%= t('settings.stocks.title_html') %>:
+        <% if catalog_active %>
+          <span class="text-success">ON</span>
+        <% else %>
+          <span class="text-danger">OFF</span>
+        <% end %>
+      </h4>
 
-      <p class="text-center" style="text-wrap:balance; margin: 0"><%= t('settings.stocks.instructions_html') %></p>
-      
+      <% if is_configured %>
+        <p style="text-align: center; margin-top: 3rem"><%= t('settings.stocks.configured', mode: stored_mode&.capitalize || 'Paper') %></p>
+      <% elsif catalog_active %>
+        <p class="text-center" style="text-wrap:balance; margin: 0"><%= t('settings.stocks.not_refreshing') %></p>
+      <% else %>
+        <p class="text-center" style="text-wrap:balance; margin: 0"><%= t('settings.stocks.instructions_html') %></p>
+      <% end %>
+
       <%= form_with url: settings_update_stocks_path, method: :patch, data: {
         turbo_frame: "stocks_settings"
       }, class: "form" do |f| %>
         <div class="set-api__form" style="margin-top: 3rem;">
           <div class="form__radios">
             <label class="form__radio">
-              <%= radio_button_tag :alpaca_mode, 'live', true %>
+              <%= radio_button_tag :alpaca_mode, 'live', stored_mode != 'paper' %>
               <span><%= t('settings.stocks.mode_live') %></span>
             </label>
             <label class="form__radio">
-              <%= radio_button_tag :alpaca_mode, 'paper', false %>
+              <%= radio_button_tag :alpaca_mode, 'paper', stored_mode == 'paper' %>
               <span><%= t('settings.stocks.mode_paper') %></span>
             </label>
           </div>
@@ -43,6 +56,9 @@
           </div>
           <div class="setting-form">
             <%= f.submit t('button.connect'), class: "button button--success", style: "margin-top: 0" %>
+            <% if is_configured %>
+              <%= link_to t('settings.stocks.disconnect'), settings_disconnect_stocks_path, data: { turbo_method: :delete, turbo_frame: "stocks_settings" }, class: "button button--danger", style: "margin-top: 0" %>
+            <% end %>
           </div>
         </div>
       <% end %>

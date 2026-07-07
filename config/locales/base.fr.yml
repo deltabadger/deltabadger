@@ -164,6 +164,20 @@ fr:
             not_configured: 'Les notifications par e-mail ne sont pas configurées.'
             disconnect: 'Déconnecter'
             disconnected: 'Fournisseur e-mail déconnecté.'
+        stocks:
+            title: 'Actions'
+            title_html: 'Actions (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
+            deltabadger_configured: "Le catalogue d'actions est fourni par %{provider_name}. Les utilisateurs connectent leurs propres clés Alpaca lors de la création d'un bot."
+            instructions_html: 'Rends-toi sur le <a href="https://alpaca.markets" target="_blank">tableau de bord Alpaca</a> et trouve la section API Keys dans la barre latérale droite. Clique sur Generate New Keys et enregistre les identifiants API générés.'
+            enabled: 'Actions activées. Synchronisation des actifs depuis Alpaca...'
+            disconnected: "Alpaca déconnecté. Le catalogue d'actions ne sera plus actualisé ; les bots existants et les clés API ne sont pas affectés."
+            configured: "Connecté à Alpaca (%{mode}). Les actifs d'actions sont synchronisés."
+            invalid_api_key: 'Clé API Alpaca non valide. Vérifie tes identifiants.'
+            missing_credentials: 'Renseigne la clé API et le secret.'
+            not_refreshing: "Catalogue d'actions synchronisé. Connecte Alpaca pour le maintenir à jour."
+            disconnect: 'Déconnecter'
+            mode_paper: 'Papier'
+            mode_live: 'Réel'
         rest:
             title: 'API REST'
             description: 'Pilote Deltabadger depuis tes propres scripts.'

@@ -21,6 +21,7 @@
           <%= turbo_frame_tag @next_page_frame_id, src: @next_page_url, loading: :lazy %>
         <% end %>
       <% end %>
+      <%= render 'bots/wizard/stock_activation_notice', bot: @bot %>
     <% end %>
 
   </div>

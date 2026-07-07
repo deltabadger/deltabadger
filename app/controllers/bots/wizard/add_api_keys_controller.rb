@@ -1,7 +1,7 @@
 # Shared "add the exchange API key" wizard step. `new` skips ahead when a key
 # is already confirmed correct; `create` validates the submitted credentials and
-# branches on the outcome. Subclasses supply the bot relation, routes and the
-# post-validation hook as explicit overrides.
+# branches on the outcome. Subclasses supply the bot relation and routes as
+# explicit overrides.
 class Bots::Wizard::AddApiKeysController < ApplicationController
   before_action :authenticate_user!
 
@@ -32,7 +32,6 @@ class Bots::Wizard::AddApiKeysController < ApplicationController
     @api_key = @bot.api_key
     @api_key.validate_credentials!(api_key_params)
     if @api_key.correct?
-      after_correct_api_key(@api_key)
       render turbo_stream: turbo_stream_redirect(after_api_key_path)
     elsif @api_key.incorrect?
       flash.now[:alert] = t('errors.incorrect_api_key_permissions')
@@ -55,18 +54,7 @@ class Bots::Wizard::AddApiKeysController < ApplicationController
   # return a path to bounce back to; nil means proceed.
   def prerequisite_redirect_path = nil
 
-  # Hook for type-specific work once credentials are confirmed (single/dual
-  # sync Alpaca credentials into AppConfig).
-  def after_correct_api_key(_api_key); end
-
   def api_key_params
     params.require(:api_key).permit(:key, :secret, :passphrase, :access_token, :rsa_signature_key, :rsa_encryption_key, :dh_param, :ibkr_realm)
-  end
-
-  def sync_alpaca_settings(api_key)
-    AppConfig.set('alpaca_api_key', api_key.key)
-    AppConfig.set('alpaca_api_secret', api_key.secret)
-    AppConfig.set('alpaca_mode', api_key.passphrase == 'live' ? 'live' : 'paper')
-    Exchange::SyncAlpacaAssetsJob.perform_later
   end
 end

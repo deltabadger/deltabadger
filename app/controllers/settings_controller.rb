@@ -163,6 +163,11 @@ class SettingsController < ApplicationController
         flash.now[:notice] = t('settings.market_data.updated')
       end
     elsif provider == MarketDataSettings::PROVIDER_DELTABADGER
+      # The deltabadger radio only renders when the env feed exists; a crafted request (or a
+      # hosted DB later run self-hosted) must not select a provider the container can't reach —
+      # it would wedge the stocks endpoints behind their hosted 422 guard.
+      return head(:unprocessable_entity) unless MarketDataSettings.deltabadger_available?
+
       AppConfig.market_data_provider = MarketDataSettings::PROVIDER_DELTABADGER
       flash.now[:notice] = t('settings.market_data.updated')
     end
@@ -185,18 +190,18 @@ class SettingsController < ApplicationController
   end
 
   def update_stocks
+    return head :unprocessable_entity if StockTradingSettings.deltabadger?
+
     api_key = params[:alpaca_api_key]
     api_secret = params[:alpaca_api_secret]
     mode = params[:alpaca_mode] || 'paper'
 
     if api_key.blank? || api_secret.blank?
-      # Disable stocks
-      AppConfig.clear_alpaca_settings!
-      flash.now[:notice] = t('settings.stocks.disabled')
+      flash.now[:alert] = t('settings.stocks.missing_credentials')
       return render turbo_stream: [
         turbo_stream.replace('stocks_settings', partial: 'settings/widgets/stocks'),
         turbo_stream.prepend('flash', partial: 'layouts/flash')
-      ]
+      ], status: :unprocessable_entity
     end
 
     unless validate_alpaca_api_key(api_key, api_secret, mode)
@@ -211,15 +216,14 @@ class SettingsController < ApplicationController
     AppConfig.set('alpaca_api_secret', api_secret)
     AppConfig.set('alpaca_mode', mode)
 
-    # Create/update ApiKey for current user (for trading in regular DCA flow)
+    # Inherit the just-validated credentials as the admin's own trading key,
+    # but only when they have none — Settings must never mutate existing
+    # per-user keys, so credential rotation stays side-effect-free.
     exchange = Exchanges::Alpaca.first
-    if exchange
-      user_api_key = current_user.api_keys.find_or_initialize_by(exchange: exchange, key_type: :trading)
-      user_api_key.key = api_key
-      user_api_key.secret = api_secret
-      user_api_key.passphrase = mode
-      user_api_key.save!
-      user_api_key.update_status!(Result::Success.new(true))
+    if exchange && !current_user.api_keys.exists?(exchange: exchange, key_type: :trading)
+      seeded = current_user.api_keys.create!(exchange: exchange, key_type: :trading,
+                                             key: api_key, secret: api_secret, passphrase: mode)
+      seeded.update_status!(Result::Success.new(true))
     end
 
     Exchange::SyncAlpacaAssetsJob.perform_later
@@ -231,13 +235,12 @@ class SettingsController < ApplicationController
   end
 
   def disconnect_stocks
-    AppConfig.clear_alpaca_settings!
+    return head :unprocessable_entity if StockTradingSettings.deltabadger?
 
-    exchange = Exchanges::Alpaca.first
-    if exchange
-      exchange.tickers.update_all(available: false)
-      ApiKey.where(exchange: exchange).update_all(status: :pending_validation)
-    end
+    # The stored credential is only a catalog-sync bootstrap. Dropping it stops
+    # future catalog refreshes and nothing more — tickers, per-user keys, and
+    # running bots are deliberately untouched.
+    AppConfig.clear_alpaca_settings!
 
     flash.now[:notice] = t('settings.stocks.disconnected')
     render turbo_stream: [
