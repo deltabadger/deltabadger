@@ -48,4 +48,21 @@ class StockTradingSettingsTest < ActiveSupport::TestCase
 
     refute StockTradingSettings.active?
   end
+
+  test 'ibkr is available only on hosted — the IBKR catalog is data-api served' do
+    refute StockTradingSettings.ibkr_available?
+
+    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
+    assert StockTradingSettings.ibkr_available?
+  end
+
+  test 'a self-hosted Alpaca catalog activates stocks but not IBKR' do
+    exchange = create(:alpaca_exchange)
+    aapl = create(:asset, external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', name: 'Apple Inc', category: 'Stock')
+    usd = create(:asset, :usd)
+    create(:ticker, exchange: exchange, base_asset: aapl, quote_asset: usd, available: true)
+
+    assert StockTradingSettings.active?
+    refute StockTradingSettings.ibkr_available?
+  end
 end
