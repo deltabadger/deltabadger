@@ -253,6 +253,8 @@ class SettingsStocksTest < ActionDispatch::IntegrationTest
   test 'non-admin sees the IBKR widget but not the stocks widget' do
     sign_in create(:user, setup_completed: true)
     create(:ibkr_exchange)
+    # IBKR is per-user but data-api gated (see settings_ibkr_widget_test for the gate itself).
+    MarketDataSettings.stubs(:deltabadger_available?).returns(true)
 
     get settings_connect_path
 

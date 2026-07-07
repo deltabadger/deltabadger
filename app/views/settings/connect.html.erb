@@ -10,7 +10,7 @@
 
   <div class="column gap-1">
     <%# Stocks = container-global catalog activation → admin-only.
-        IBKR = per-user connection (its controller has no admin gate) → everyone. %>
+        IBKR = per-user connection → everyone, but data-api gated (see the partial). %>
     <% if current_user.admin? %>
       <%= render partial: 'settings/widgets/stocks' %>
     <% end %>

@@ -15,7 +15,7 @@ class SettingsIbkrWidgetTest < ActionDispatch::IntegrationTest
   end
 
   test 'widget shows on hosted — the data API serves the IBKR catalog' do
-    MarketDataSettings.stubs(:deltabadger?).returns(true)
+    MarketDataSettings.stubs(:deltabadger_available?).returns(true)
 
     get settings_connect_path
     assert_response :success

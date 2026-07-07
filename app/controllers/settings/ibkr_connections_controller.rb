@@ -6,6 +6,12 @@
 #   destroy  — start over (drop the in-progress key).
 class Settings::IbkrConnectionsController < ApplicationController
   before_action :authenticate_user!
+  # No IBKR catalog without the data API, so the wizard is a dead end on self-hosted:
+  # block new entries (no key -> no way in). With an existing key ALL actions stay
+  # open on purpose — the wizard talks to IBKR, not the data API, so finishing or
+  # abandoning an in-progress setup is harmless, and a partially-working show page
+  # (buttons that bounce) would be worse than letting it complete.
+  before_action :require_ibkr_available!
 
   # Maps the download param to the private-key column it is derived from (presence-guarded).
   ARTIFACT_COLUMNS = {
@@ -72,6 +78,12 @@ class Settings::IbkrConnectionsController < ApplicationController
   end
 
   private
+
+  def require_ibkr_available!
+    return if StockTradingSettings.ibkr_available? || current_ibkr_key.present?
+
+    redirect_to settings_connect_path
+  end
 
   def ibkr_exchange
     @ibkr_exchange ||= Exchanges::Ibkr.first

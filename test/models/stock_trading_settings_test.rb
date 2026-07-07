@@ -49,11 +49,20 @@ class StockTradingSettingsTest < ActiveSupport::TestCase
     refute StockTradingSettings.active?
   end
 
-  test 'ibkr is available only on hosted — the IBKR catalog is data-api served' do
+  test 'ibkr is available only with an actual data feed — the IBKR catalog is data-api served' do
     refute StockTradingSettings.ibkr_available?
 
-    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
+    MarketDataSettings.stubs(:deltabadger_available?).returns(true)
     assert StockTradingSettings.ibkr_available?
+  end
+
+  test 'a stale deltabadger provider row without the data feed does not enable IBKR' do
+    # A hosted DB later run self-hosted keeps market_data_provider='deltabadger'
+    # while MARKET_DATA_URL is gone — the wizard must stay hidden.
+    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
+
+    assert StockTradingSettings.deltabadger?
+    refute StockTradingSettings.ibkr_available?
   end
 
   test 'a self-hosted Alpaca catalog activates stocks but not IBKR' do

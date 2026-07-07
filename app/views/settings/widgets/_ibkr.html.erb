@@ -1,15 +1,19 @@
 <% ibkr_key = current_user.api_keys.joins(:exchange).find_by(exchanges: { type: 'Exchanges::Ibkr' }, key_type: 'trading') %>
-<div class="widget widget--settings">
-  <h4 class="modal__title">
-    <%= t('settings.ibkr.widget_title') %>:
-    <% if ibkr_key&.correct? %>
-      <span class="text-success">CONNECTED</span>
-    <% elsif ibkr_key&.pending_activation? %>
-      <span class="text-warning">PENDING</span>
-    <% else %>
-      <span class="text-danger">OFF</span>
-    <% end %>
-  </h4>
-  <%= link_to(ibkr_key ? t('settings.ibkr.manage') : t('settings.ibkr.connect_cta'),
-              settings_ibkr_connect_path, class: 'button button--success button--large') %>
-</div>
+<%# Hidden without the data API (no IBKR catalog source on self-hosted) — except for an
+    existing connection, which stays visible so it can be managed/disconnected. %>
+<% if StockTradingSettings.ibkr_available? || ibkr_key %>
+  <div class="widget widget--settings">
+    <h4 class="modal__title">
+      <%= t('settings.ibkr.widget_title') %>:
+      <% if ibkr_key&.correct? %>
+        <span class="text-success">CONNECTED</span>
+      <% elsif ibkr_key&.pending_activation? %>
+        <span class="text-warning">PENDING</span>
+      <% else %>
+        <span class="text-danger">OFF</span>
+      <% end %>
+    </h4>
+    <%= link_to(ibkr_key ? t('settings.ibkr.manage') : t('settings.ibkr.connect_cta'),
+                settings_ibkr_connect_path, class: 'button button--success button--large') %>
+  </div>
+<% end %>

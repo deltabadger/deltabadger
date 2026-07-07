@@ -26,7 +26,7 @@ class Settings::IbkrConnectionsControllerTest < ActionDispatch::IntegrationTest
     sign_in @user
     # The wizard lives behind the data-api gate — the IBKR catalog is data-api served, so
     # self-hosted containers hide the whole flow (re-stubbed false in the gating tests below).
-    MarketDataSettings.stubs(:deltabadger?).returns(true)
+    MarketDataSettings.stubs(:deltabadger_available?).returns(true)
   end
 
   # An IBKR key already through step 1 (artifacts generated, no creds yet).
@@ -215,7 +215,7 @@ class Settings::IbkrConnectionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test 'the wizard is gated on deltabadger market data — self-hosted users are redirected' do
-    MarketDataSettings.stubs(:deltabadger?).returns(false)
+    MarketDataSettings.stubs(:deltabadger_available?).returns(false)
     Ibkr::GenerateConnectionKeysJob.expects(:perform_later).never
 
     get settings_ibkr_connect_path
@@ -229,7 +229,7 @@ class Settings::IbkrConnectionsControllerTest < ActionDispatch::IntegrationTest
 
   test 'an existing connection stays manageable on self-hosted (show + disconnect escape hatch)' do
     key_with_artifacts
-    MarketDataSettings.stubs(:deltabadger?).returns(false)
+    MarketDataSettings.stubs(:deltabadger_available?).returns(false)
 
     get settings_ibkr_connect_path
     assert_response :success

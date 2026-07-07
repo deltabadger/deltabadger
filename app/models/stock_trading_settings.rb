@@ -14,4 +14,13 @@ class StockTradingSettings
   def self.deltabadger?
     MarketDataSettings.deltabadger?
   end
+
+  # IBKR is hosted-only: its catalog is data-api served. There is no self-hosted
+  # source (IBKR has no list-all-instruments endpoint and no free market data),
+  # so without the data API the connect wizard is a dead end. Gate on the actual
+  # feed (env), not the selected provider — a hosted DB later run self-hosted
+  # carries a stale 'deltabadger' provider row.
+  def self.ibkr_available?
+    MarketDataSettings.deltabadger_available?
+  end
 end
