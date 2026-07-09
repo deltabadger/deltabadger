@@ -58,6 +58,12 @@ Style/FormatStringToken:
 Style/HashTransformValues:
   Exclude:
     - 'app/services/exchange_api/markets/kraken/market.rb'
+# rubocop 1.88.2 widened this cop to match `list.any? { |x| target.include?(x) }`, but `include?`
+# is also a String method. Our exchange error classifiers ask "does this message CONTAIN any known
+# fragment?" — `Array#intersect?(String)` raises TypeError. The cop itself is `Safe: false` because
+# it cannot prove either side is an Array.
+Style/ArrayIntersect:
+  Enabled: false
 
 # Naming
 Naming/AccessorMethodName:
