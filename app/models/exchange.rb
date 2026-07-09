@@ -22,7 +22,14 @@ class Exchange < ApplicationRecord
     'Faraday::ConnectionFailed',
     'execution expired',
     'Connection reset',
-    'Errno::ECONNRESET'
+    'Errno::ECONNRESET',
+    # A dead exchange proxy. The net_http_persistent adapter reports this as a BARE
+    # "connection refused: HOST:PORT" (no 'Faraday::ConnectionFailed' prefix), so the class-name
+    # pattern above never matched it and every proxied bot failed loudly. Both cases are listed:
+    # net_http_persistent lowercases it, Errno::ECONNREFUSED does not.
+    'connection refused',
+    'Connection refused',
+    'Errno::ECONNREFUSED'
   ].freeze
 
   # Placement-SAFE transient errors: a strict allowlist of strings that each guarantee the exchange
