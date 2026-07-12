@@ -8,7 +8,7 @@ GIT
 
 GIT
   remote: https://github.com/doorkeeper-gem/doorkeeper.git
-  revision: 36bb03d1887995ad3ed7b218e189f0d0f736c82e
+  revision: 4720845e76e07f76cd49478ea08fe3a24febb448
   specs:
     doorkeeper (5.9.3)
       railties (>= 5)
@@ -144,7 +144,7 @@ GEM
       rexml
     crass (1.0.7)
     csv (3.3.5)
-    curb (1.3.6)
+    curb (1.3.7)
     dartsass-rails (0.5.1)
       railties (>= 6.0.0)
       sass-embedded (~> 1.63)
@@ -211,7 +211,7 @@ GEM
       ffi (>= 1.15.5)
       rake
     forwardable (1.4.0)
-    fugit (1.12.3)
+    fugit (1.13.0)
       et-orbi (~> 1.4)
       raabro (~> 1.4)
     globalid (1.4.0)
@@ -244,7 +244,7 @@ GEM
       temple (>= 0.8.2)
       thor
       tilt
-    haml-rails (3.0.0)
+    haml-rails (3.1.0)
       actionpack (>= 5.1)
       activesupport (>= 5.1)
       haml (>= 4.0.6)
@@ -279,7 +279,7 @@ GEM
     jaro_winkler (1.7.0)
     jsbundling-rails (1.3.1)
       railties (>= 6.0.0)
-    json (2.20.0)
+    json (2.21.0)
     jsonrpc-rails (0.5.4)
       railties (>= 8.0.1)
     jwt (2.10.3)
@@ -371,7 +371,7 @@ GEM
     openssl (3.3.3)
     orm_adapter (0.5.0)
     ostruct (0.6.3)
-    pagy (43.5.6)
+    pagy (43.6.0)
       json
       uri
       yaml
@@ -687,7 +687,7 @@ CHECKSUMS
   crack (1.0.1) sha256=ff4a10390cd31d66440b7524eb1841874db86201d5b70032028553130b6d4c7e
   crass (1.0.7) sha256=94868719948664c89ddcaf0a37c65048413dfcb1c869470a5f7a7ceb5390b295
   csv (3.3.5) sha256=6e5134ac3383ef728b7f02725d9872934f523cb40b961479f69cf3afa6c8e73f
-  curb (1.3.6) sha256=81c4054823a560f7bce3ab15b135f430a58a1558f76bc7a2261400a62b20599c
+  curb (1.3.7) sha256=35eec77085d8c98f1587095bd6cbd8aabe2413d0aead1ecf70fccbb73db41f3b
   dartsass-rails (0.5.1) sha256=f19510fb1b29c76c1739a06954d615f1d20ad653b6fc668dd7c68542bb303a1a
   date (3.5.1) sha256=750d06384d7b9c15d562c76291407d89e368dda4d4fff957eb94962d325a0dc0
   debug (1.11.1) sha256=2e0b0ac6119f2207a6f8ac7d4a73ca8eb4e440f64da0a3136c30343146e952b6
@@ -720,7 +720,7 @@ CHECKSUMS
   ffi (1.17.4-x86_64-linux-musl) sha256=3fdf9888483de005f8ef8d1cf2d3b20d86626af206cbf780f6a6a12439a9c49e
   ffi-compiler (1.4.2) sha256=a9d69d5d9ced6f64776ddafa535867ad90e5740ad37bed7afb4de6e450da126e
   forwardable (1.4.0) sha256=f1cd40cc9812937980e1c76f1aa053660990a7c9b6a98fc37d945468afcce838
-  fugit (1.12.3) sha256=826d77739086482a6ac2805bc32693845395da688f637890cb4ca457dede2ec2
+  fugit (1.13.0) sha256=a4f093fce740da52f216740a5041e2a594ea763cdb89e8b2754ca4399634ab18
   globalid (1.4.0) sha256=037f12fbf1d9d7a014d501c2d5c77356fd4ddd96d7a7991d6700bba96706f427
   google-protobuf (4.35.1) sha256=a3a6471331d918f58dfa4d014a8f6286f0af2cf4840216bde52fcf2ea3fe3726
   google-protobuf (4.35.1-aarch64-linux-gnu) sha256=50ca44d0eeff3f8475e630a1accdd974256f3510694d574e2c9d6119ea8bc9e1
@@ -732,7 +732,7 @@ CHECKSUMS
   h2c (0.2.1) sha256=a53b7dfeb95660c97b615235ea1b29ec8e1856edc571845685682d94b6e8e227
   haikunator (1.1.1) sha256=ec99f690b216edf20c518ea9a6d83f6bd479e86c37d89b2afc3376e752b32ca8
   haml (7.2.0) sha256=87fd2b71f7feab1724337b090a7d767f5ab2d42f08c974f3ead673f18cfcd55a
-  haml-rails (3.0.0) sha256=091fe496a85ca521d9cac87fb50f1ecf77a57974a99aa7e267130add81a5585f
+  haml-rails (3.1.0) sha256=4366474d973e4b9d5326cb216f2073150cfeff4c2a3c07fadb49a490ffdf610b
   hashdiff (1.2.1) sha256=9c079dbc513dfc8833ab59c0c2d8f230fa28499cc5efb4b8dd276cf931457cd1
   honeymaker (0.9.12) sha256=690ad2efa18e122085613d21cd7c447b919ac829c17116fca072a7d951c6939e
   http-2 (1.2.1) sha256=d290f3b7daa70b8be8cd2260306c01243c73ec4df9d598feadaf0ed26e00b9b7
@@ -744,7 +744,7 @@ CHECKSUMS
   irb (1.18.0) sha256=de9454a0703a54704b9811a5ef31a60c86949fbf4013fcf244fabc7c775248e3
   jaro_winkler (1.7.0) sha256=8daa05a5cd05bf7d27c1c65caa8ab0d47c05419d80210feaa17126db24044ada
   jsbundling-rails (1.3.1) sha256=0fa03f6d051c694cbf55a022d8be53399879f2c4cf38b2968f86379c62b1c2ca
-  json (2.20.0) sha256=9362bc6e55a952b056abf9167cf053358181c904cb70cd6eee0808ea830fc32b
+  json (2.21.0) sha256=8de199e53f93450414b9fd49811012a73f3e3265b60468c7274d1cacebde1969
   jsonrpc-rails (0.5.4) sha256=ca44e5435a39e241c576ec2f1bb63be0bb07d1410a957c0fa1b86f305e7ec3a4
   jwt (2.10.3) sha256=e4d9352fbc7309b1a7448c7dd713dfe4d8c47077af80759cdbed8f878ea0b484
   keccak (1.3.3) sha256=970dcb1e78b8c3129ba2baff8a5baa5cebf391136db1f4018e8ccc9130794557
@@ -788,7 +788,7 @@ CHECKSUMS
   openssl (3.3.3) sha256=d46902138f2987c13122fab826030a11c2bb9b8a16394215cbfc5062c5e2d335
   orm_adapter (0.5.0) sha256=aa5d0be5d540cbb46d3a93e88061f4ece6a25f6e97d6a47122beb84fe595e9b9
   ostruct (0.6.3) sha256=95a2ed4a4bd1d190784e666b47b2d3f078e4a9efda2fccf18f84ddc6538ed912
-  pagy (43.5.6) sha256=4d46d262826e055d69713fbbd2c42257cc1d0e87c13a1221764c15d30e46ff85
+  pagy (43.6.0) sha256=2ae1ff353f81a0ff8a0b20b163edfa751d7d21b786fa1aa496c4417bc1e5e7ab
   parallel (2.1.0) sha256=b35258865c2e31134c5ecb708beaaf6772adf9d5efae28e93e99260877b09356
   parser (3.3.11.1) sha256=d17ace7aabe3e72c3cc94043714be27cc6f852f104d81aa284c2281aecc65d54
   pkg-config (1.6.5) sha256=33f9f81c5322983d22b439b8b672f27777b406fea23bfec74ff14bbeb42ec733
