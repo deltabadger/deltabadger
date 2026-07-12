@@ -13,7 +13,7 @@ gem 'dotiw'
 gem 'faraday'
 gem 'mini_magick'
 gem 'faraday-manual-cache', git: 'https://github.com/dobs/faraday-manual-cache'
-gem 'haml-rails', '~> 3.0'
+gem 'haml-rails', '~> 3.1'
 gem 'jsbundling-rails'
 gem 'importmap-rails' # Required by mission_control-jobs
 gem 'net-smtp', require: false
