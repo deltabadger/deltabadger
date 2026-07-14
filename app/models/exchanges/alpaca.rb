@@ -3,6 +3,55 @@ class Exchanges::Alpaca < Exchange
     insufficient_funds: ['insufficient buying power']
   }.freeze
 
+  # Alpaca's tradable crypto universe (30+ assets as of 2026-07, growing) mapped to the
+  # canonical CoinGecko id so synced tickers resolve to the SAME Asset already used by
+  # Kraken/Binance/etc, instead of minting a duplicate identity the way stocks do. Stocks
+  # have no CoinGecko presence to collide with (alpaca_<uuid> is safe there) — crypto does,
+  # so this table exists to avoid a second, disconnected "AAVE" appearing in the
+  # tracker/portfolio.
+  # Hand-maintained, not derived: this is a SNAPSHOT — verify against a live
+  # GET /v2/assets?asset_class=crypto response before each production sync, not just when
+  # Alpaca visibly adds a pair. Keyed by the BASE symbol only (Alpaca's `symbol` field is the
+  # full pair, e.g. "AAVE/USD" — parsed before this lookup).
+  CRYPTO_COINGECKO_IDS = {
+    'AAVE' => 'aave',
+    'ADA' => 'cardano',
+    'ARB' => 'arbitrum',
+    'AVAX' => 'avalanche-2',
+    'BAT' => 'basic-attention-token',
+    'BCH' => 'bitcoin-cash',
+    'BONK' => 'bonk',
+    'BTC' => 'bitcoin',
+    'CRV' => 'curve-dao-token',
+    'DOGE' => 'dogecoin',
+    'DOT' => 'polkadot',
+    'ETH' => 'ethereum',
+    'FIL' => 'filecoin',
+    'GRT' => 'the-graph',
+    'HYPE' => 'hyperliquid',
+    'LDO' => 'lido-dao',
+    'LINK' => 'chainlink',
+    'LTC' => 'litecoin',
+    'ONDO' => 'ondo-finance',
+    'PAXG' => 'pax-gold',
+    'PEPE' => 'pepe',
+    'POL' => 'polygon-ecosystem-token',
+    'RENDER' => 'render-token',
+    'SHIB' => 'shiba-inu',
+    'SKY' => 'sky',
+    'SOL' => 'solana',
+    'SUSHI' => 'sushi',
+    'TRUMP' => 'official-trump',
+    'UNI' => 'uniswap',
+    'USDC' => 'usd-coin',
+    'USDG' => 'global-dollar',
+    'USDT' => 'tether',
+    'WIF' => 'dogwifcoin',
+    'XRP' => 'ripple',
+    'XTZ' => 'tezos',
+    'YFI' => 'yearn-finance'
+  }.freeze
+
   include Exchange::Dryable
 
   attr_reader :api_key

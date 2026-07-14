@@ -261,4 +261,148 @@ class Exchange::SyncAlpacaAssetsJobTest < ActiveSupport::TestCase
     assert Asset.find_by(external_id: 'usd').present?, "free-mode must still create 'usd' (wizard invariant)"
     assert Ticker.find_by(exchange: @exchange, base_asset: Asset.find_by(external_id: 'alpaca_uuid-aapl')).present?
   end
+
+  # --- Crypto assets (Alpaca crypto pairs mapped to canonical CoinGecko assets) -----------
+
+  test 'creates crypto tickers mapped to the canonical CoinGecko asset' do
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'us_equity')
+                   .returns(Result::Success.new([]))
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'crypto')
+                   .returns(Result::Success.new([
+                                                  { 'symbol' => 'AAVE/USD', 'tradable' => true, 'min_order_size' => '0.01',
+                                                    'min_trade_increment' => '0.001', 'price_increment' => '0.01' }
+                                                ]))
+
+    assert_difference 'Ticker.count', 1 do
+      Exchange::SyncAlpacaAssetsJob.perform_now
+    end
+
+    aave = Asset.find_by(external_id: 'aave')
+    assert aave.present?
+    assert_equal 'Cryptocurrency', aave.category
+
+    ticker = Ticker.find_by(exchange: @exchange, base_asset: aave)
+    assert_equal 'AAVE/USD', ticker.ticker
+    assert_equal 'AAVE', ticker.base
+    assert_equal 'USD', ticker.quote
+    assert_equal 3, ticker.base_decimals
+    assert_equal 2, ticker.price_decimals
+  end
+
+  test 'skips a non-USD-quoted crypto pair' do
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'us_equity')
+                   .returns(Result::Success.new([]))
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'crypto')
+                   .returns(Result::Success.new([{ 'symbol' => 'AAVE/USDT', 'tradable' => true }]))
+
+    assert_no_difference ['Asset.where(category: "Cryptocurrency").count', 'Ticker.count'] do
+      Exchange::SyncAlpacaAssetsJob.perform_now
+    end
+  end
+
+  test 'reuses an existing canonical crypto asset instead of creating a duplicate' do
+    aave = create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'us_equity')
+                   .returns(Result::Success.new([]))
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'crypto')
+                   .returns(Result::Success.new([{ 'symbol' => 'AAVE/USD', 'tradable' => true }]))
+
+    assert_no_difference 'Asset.where(category: "Cryptocurrency").count' do
+      Exchange::SyncAlpacaAssetsJob.perform_now
+    end
+
+    ticker = Ticker.find_by(exchange: @exchange, base_asset: aave)
+    assert ticker.present?
+  end
+
+  test 'skips crypto symbols not present in the CoinGecko id map' do
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'us_equity')
+                   .returns(Result::Success.new([]))
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'crypto')
+                   .returns(Result::Success.new([{ 'symbol' => 'UNKNOWNCOIN/USD', 'tradable' => true }]))
+
+    assert_no_difference ['Asset.where(category: "Cryptocurrency").count', 'Ticker.count'] do
+      Exchange::SyncAlpacaAssetsJob.perform_now
+    end
+  end
+
+  test 'skips non-tradable crypto assets' do
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'us_equity')
+                   .returns(Result::Success.new([]))
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'crypto')
+                   .returns(Result::Success.new([{ 'symbol' => 'AAVE/USD', 'tradable' => false }]))
+
+    assert_no_difference ['Asset.where(category: "Cryptocurrency").count', 'Ticker.count'] do
+      Exchange::SyncAlpacaAssetsJob.perform_now
+    end
+  end
+
+  test 'marks a delisted crypto ticker unavailable without touching others' do
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'us_equity')
+                   .returns(Result::Success.new([]))
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'crypto')
+                   .returns(Result::Success.new([
+                                                  { 'symbol' => 'AAVE/USD', 'tradable' => true },
+                                                  { 'symbol' => 'BTC/USD', 'tradable' => true }
+                                                ]))
+    Exchange::SyncAlpacaAssetsJob.perform_now
+
+    # Second sync with AAVE delisted (BTC stays, so synced ids are never empty — the
+    # zero-synced-ids guard exists to protect against a transient API glitch wiping
+    # everything, not to block a genuine single-asset delisting).
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'crypto')
+                   .returns(Result::Success.new([{ 'symbol' => 'BTC/USD', 'tradable' => true }]))
+    Exchange::SyncAlpacaAssetsJob.perform_now
+
+    aave_ticker = Ticker.find_by(exchange: @exchange, base_asset: Asset.find_by(external_id: 'aave'))
+    refute aave_ticker.available?
+
+    btc_ticker = Ticker.find_by(exchange: @exchange, base_asset: Asset.find_by(external_id: 'bitcoin'))
+    assert btc_ticker.available?
+  end
+
+  test 'does not touch existing crypto tickers when the crypto API call fails' do
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'us_equity')
+                   .returns(Result::Success.new([]))
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'crypto')
+                   .returns(Result::Success.new([{ 'symbol' => 'AAVE/USD', 'tradable' => true }]))
+    Exchange::SyncAlpacaAssetsJob.perform_now
+
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'crypto')
+                   .returns(Result::Failure.new('connection error'))
+    Exchange::SyncAlpacaAssetsJob.perform_now
+
+    aave_ticker = Ticker.find_by(exchange: @exchange, base_asset: Asset.find_by(external_id: 'aave'))
+    assert aave_ticker.available?, 'a transient crypto-endpoint failure must not mark existing crypto tickers stale'
+  end
+
+  test 'enqueues CoinGecko backfill for a newly created crypto asset' do
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'us_equity')
+                   .returns(Result::Success.new([]))
+    Clients::Alpaca.any_instance.stubs(:get_assets)
+                   .with(status: 'active', asset_class: 'crypto')
+                   .returns(Result::Success.new([{ 'symbol' => 'AAVE/USD', 'tradable' => true }]))
+
+    Asset::FetchDataFromCoingeckoJob.expects(:perform_later).at_least_once
+
+    Exchange::SyncAlpacaAssetsJob.perform_now
+  end
 end
