@@ -206,6 +206,46 @@ class Clients::Alpaca < Client
     end
   end
 
+  # https://docs.alpaca.markets/reference/cryptolatestquotes
+  # @param symbols [String, Array<String>] crypto pair symbol(s) (e.g. 'AAVE/USD')
+  def get_crypto_latest_quote(symbols:)
+    with_rescue do
+      response = data_connection.get do |req|
+        req.url '/v1beta3/crypto/us/latest/quotes'
+        req.headers = authenticated_headers
+        req.params = { symbols: Array(symbols).join(',') }
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://docs.alpaca.markets/reference/cryptolatesttrades
+  # @param symbols [String, Array<String>] crypto pair symbol(s) (e.g. 'AAVE/USD')
+  def get_crypto_latest_trade(symbols:)
+    with_rescue do
+      response = data_connection.get do |req|
+        req.url '/v1beta3/crypto/us/latest/trades'
+        req.headers = authenticated_headers
+        req.params = { symbols: Array(symbols).join(',') }
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
+  # https://docs.alpaca.markets/reference/cryptobars-1
+  # @param symbol [String] crypto pair symbol (e.g. 'AAVE/USD')
+  # @param timeframe [String] e.g., '1Day', '1Hour'
+  def get_crypto_bars(symbol:, timeframe:, start_time: nil, end_time: nil)
+    with_rescue do
+      response = data_connection.get do |req|
+        req.url '/v1beta3/crypto/us/bars'
+        req.headers = authenticated_headers
+        req.params = { symbols: symbol, timeframe: timeframe, start: start_time, end: end_time }.compact
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   # https://docs.alpaca.markets/reference/getaccountactivities
   # @param activity_type [String] filter by type (e.g., 'FILL', 'DIV', 'CSD')
   # @param after [String] ISO 8601 timestamp — only activities after this time

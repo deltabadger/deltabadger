@@ -247,6 +247,100 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_equal ticker, parsed[:ticker]
   end
 
+  # == get_last_price / get_bid_price / get_ask_price / get_candles (crypto branch) ==
+
+  test 'get_last_price uses the crypto latest-trade endpoint for a crypto ticker' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+
+    Clients::Alpaca.any_instance.stubs(:get_crypto_latest_trade).with(symbols: ['AAVE/USD'])
+                   .returns(Result::Success.new({ 'trades' => { 'AAVE/USD' => { 'p' => 100.5 } } }))
+
+    result = @exchange.get_last_price(ticker: ticker)
+    assert_predicate result, :success?
+    assert_equal 100.5.to_d, result.data
+  end
+
+  test 'get_last_price still uses the stock latest-trade endpoint for a stock ticker (regression)' do
+    aapl = create(:asset, external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', category: 'Stock')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: usd, ticker: 'AAPL')
+
+    Clients::Alpaca.any_instance.stubs(:get_latest_trade).with(symbol: 'AAPL')
+                   .returns(Result::Success.new({ 'trade' => { 'p' => 150.0 } }))
+
+    result = @exchange.get_last_price(ticker: ticker)
+    assert_predicate result, :success?
+    assert_equal 150.0.to_d, result.data
+  end
+
+  test 'get_bid_price uses the crypto latest-quote endpoint for a crypto ticker' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+
+    Clients::Alpaca.any_instance.stubs(:get_crypto_latest_quote).with(symbols: ['AAVE/USD'])
+                   .returns(Result::Success.new({ 'quotes' => { 'AAVE/USD' => { 'bp' => 99.5, 'ap' => 100.5 } } }))
+
+    result = @exchange.get_bid_price(ticker: ticker)
+    assert_predicate result, :success?
+    assert_equal 99.5.to_d, result.data
+  end
+
+  test 'get_ask_price uses the crypto latest-quote endpoint for a crypto ticker' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+
+    Clients::Alpaca.any_instance.stubs(:get_crypto_latest_quote).with(symbols: ['AAVE/USD'])
+                   .returns(Result::Success.new({ 'quotes' => { 'AAVE/USD' => { 'bp' => 99.5, 'ap' => 100.5 } } }))
+
+    result = @exchange.get_ask_price(ticker: ticker)
+    assert_predicate result, :success?
+    assert_equal 100.5.to_d, result.data
+  end
+
+  test 'get_candles uses the crypto bars endpoint for a crypto ticker' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+
+    Clients::Alpaca.any_instance.stubs(:get_crypto_bars).with do |params|
+      params[:symbol] == 'AAVE/USD' && params[:timeframe] == '1Day'
+    end.returns(Result::Success.new({ 'bars' => { 'AAVE/USD' => [
+                                      { 't' => '2026-01-01T00:00:00Z', 'o' => '1', 'h' => '2', 'l' => '0.5', 'c' => '1.5', 'v' => '10' }
+                                    ] } }))
+
+    result = @exchange.get_candles(ticker: ticker, start_at: 1.day.ago, timeframe: 1.day)
+    assert_predicate result, :success?
+    assert_equal 1, result.data.size
+  end
+
+  # == get_tickers_prices (bulk metrics pricing — partitions stock vs. crypto symbols) ==
+
+  test 'get_tickers_prices routes crypto pair symbols to the crypto endpoint and merges with stock snapshots' do
+    Clients::Alpaca.any_instance.stubs(:get_snapshots).with(symbols: ['AAPL'])
+                   .returns(Result::Success.new({ 'AAPL' => { 'latestTrade' => { 'p' => 150.0 } } }))
+    Clients::Alpaca.any_instance.stubs(:get_crypto_latest_trade).with(symbols: ['AAVE/USD'])
+                   .returns(Result::Success.new({ 'trades' => { 'AAVE/USD' => { 'p' => 100.5 } } }))
+
+    result = @exchange.get_tickers_prices(symbols: ['AAPL', 'AAVE/USD'])
+    assert_predicate result, :success?
+    assert_equal 150.0.to_d, result.data['AAPL']
+    assert_equal 100.5.to_d, result.data['AAVE/USD']
+  end
+
+  test 'get_tickers_prices with only crypto symbols never calls the stock snapshots endpoint' do
+    Clients::Alpaca.any_instance.expects(:get_snapshots).never
+    Clients::Alpaca.any_instance.stubs(:get_crypto_latest_trade).with(symbols: ['AAVE/USD'])
+                   .returns(Result::Success.new({ 'trades' => { 'AAVE/USD' => { 'p' => 100.5 } } }))
+
+    result = @exchange.get_tickers_prices(symbols: ['AAVE/USD'])
+    assert_predicate result, :success?
+    assert_equal 100.5.to_d, result.data['AAVE/USD']
+  end
+
   test 'fetch_withdrawal_fees! returns empty success' do
     result = @exchange.fetch_withdrawal_fees!
     assert_predicate result, :success?
@@ -295,7 +389,7 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
   test 'get_tickers_prices without symbols falls back to all tickers' do
     btc = Asset.find_by(symbol: 'BTC') || create(:asset, :bitcoin)
     usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
-    create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd)
+    create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd, ticker: 'BTC')
 
     snapshot_data = { 'BTC' => { 'latestTrade' => { 'p' => 50_000.0 } } }
     Clients::Alpaca.any_instance.stubs(:get_snapshots).with(symbols: %w[BTC])
@@ -366,7 +460,9 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
 
   test 'get_candles authenticates with a resolved trading key when no client was set' do
     trading_key!(key: 'mk', secret: 'ms', passphrase: 'paper')
-    ticker = create(:ticker, exchange: @exchange)
+    stock_asset = create(:asset, category: 'Stock')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: stock_asset, quote_asset: usd)
     Clients::Alpaca.expects(:new).with(api_key: 'mk', api_secret: 'ms', paper: true)
                    .returns(stub(get_bars: Result::Success.new({ 'bars' => [] })))
 

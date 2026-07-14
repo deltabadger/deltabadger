@@ -145,16 +145,50 @@ class Exchanges::Alpaca < Exchange
   end
 
   def get_tickers_prices(force: false, symbols: nil)
-    symbols ||= tickers.available.pluck(:base)
+    symbols ||= tickers.available.pluck(:ticker)
     return Result::Success.new({}) if symbols.empty?
 
-    symbols = symbols.sort
-    cache_key = "exchange_#{id}_prices_#{Digest::MD5.hexdigest(symbols.join(','))}"
+    stock_symbols, crypto_symbols = symbols.partition { |s| !s.include?('/') }
+    prices = {}
+
+    if stock_symbols.any?
+      result = get_stock_tickers_prices(stock_symbols, force: force)
+      return result if result.failure?
+
+      prices.merge!(result.data)
+    end
+
+    if crypto_symbols.any?
+      result = get_crypto_tickers_prices(crypto_symbols, force: force)
+      return result if result.failure?
+
+      prices.merge!(result.data)
+    end
+
+    Result::Success.new(prices)
+  end
+
+  def get_stock_tickers_prices(symbols, force:)
+    sorted = symbols.sort
+    cache_key = "exchange_#{id}_prices_#{Digest::MD5.hexdigest(sorted.join(','))}"
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
-      result = market_data_client.get_snapshots(symbols: symbols)
+      result = market_data_client.get_snapshots(symbols: sorted)
       return result if result.failure?
 
       result.data.transform_values { |snapshot| snapshot.dig('latestTrade', 'p').to_d }
+    end
+
+    Result::Success.new(tickers_prices)
+  end
+
+  def get_crypto_tickers_prices(symbols, force:)
+    sorted = symbols.sort
+    cache_key = "exchange_#{id}_crypto_prices_#{Digest::MD5.hexdigest(sorted.join(','))}"
+    tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
+      result = market_data_client.get_crypto_latest_trade(symbols: sorted)
+      return result if result.failure?
+
+      result.data.fetch('trades', {}).transform_values { |trade| trade['p'].to_d }
     end
 
     Result::Success.new(tickers_prices)
@@ -196,10 +230,17 @@ class Exchanges::Alpaca < Exchange
   def get_last_price(ticker:, force: false)
     cache_key = "exchange_#{id}_last_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = market_data_client.get_latest_trade(symbol: ticker.base)
-      return result if result.failure?
+      price = if crypto_ticker?(ticker)
+                result = market_data_client.get_crypto_latest_trade(symbols: [ticker.ticker])
+                return result if result.failure?
 
-      price = result.data.dig('trade', 'p').to_d
+                result.data.dig('trades', ticker.ticker, 'p').to_d
+              else
+                result = market_data_client.get_latest_trade(symbol: ticker.base)
+                return result if result.failure?
+
+                result.data.dig('trade', 'p').to_d
+              end
       raise "Wrong last price for #{ticker.base}: #{price}" if price.zero?
 
       price
@@ -211,10 +252,17 @@ class Exchanges::Alpaca < Exchange
   def get_bid_price(ticker:, force: false)
     cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = market_data_client.get_latest_quote(symbol: ticker.base)
-      return result if result.failure?
+      price = if crypto_ticker?(ticker)
+                result = market_data_client.get_crypto_latest_quote(symbols: [ticker.ticker])
+                return result if result.failure?
 
-      price = result.data.dig('quote', 'bp').to_d
+                result.data.dig('quotes', ticker.ticker, 'bp').to_d
+              else
+                result = market_data_client.get_latest_quote(symbol: ticker.base)
+                return result if result.failure?
+
+                result.data.dig('quote', 'bp').to_d
+              end
       raise "Wrong bid price for #{ticker.base}: #{price}" if price.zero?
 
       price
@@ -226,10 +274,17 @@ class Exchanges::Alpaca < Exchange
   def get_ask_price(ticker:, force: false)
     cache_key = "exchange_#{id}_ask_price_#{ticker.id}"
     price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = market_data_client.get_latest_quote(symbol: ticker.base)
-      return result if result.failure?
+      price = if crypto_ticker?(ticker)
+                result = market_data_client.get_crypto_latest_quote(symbols: [ticker.ticker])
+                return result if result.failure?
 
-      price = result.data.dig('quote', 'ap').to_d
+                result.data.dig('quotes', ticker.ticker, 'ap').to_d
+              else
+                result = market_data_client.get_latest_quote(symbol: ticker.base)
+                return result if result.failure?
+
+                result.data.dig('quote', 'ap').to_d
+              end
       raise "Wrong ask price for #{ticker.base}: #{price}" if price.zero?
 
       price
@@ -251,15 +306,17 @@ class Exchanges::Alpaca < Exchange
       1.month => '1Month'
     }
     tf = alpaca_timeframes[timeframe] || '1Day'
+    is_crypto = crypto_ticker?(ticker)
 
-    result = market_data_client.get_bars(
-      symbol: ticker.base,
-      timeframe: tf,
-      start_time: start_at.iso8601
-    )
+    result = if is_crypto
+               market_data_client.get_crypto_bars(symbol: ticker.ticker, timeframe: tf, start_time: start_at.iso8601)
+             else
+               market_data_client.get_bars(symbol: ticker.base, timeframe: tf, start_time: start_at.iso8601)
+             end
     return result if result.failure?
 
-    candles = (result.data['bars'] || []).map do |bar|
+    bars = is_crypto ? (result.data.dig('bars', ticker.ticker) || []) : (result.data['bars'] || [])
+    candles = bars.map do |bar|
       [
         Time.parse(bar['t']).utc,
         bar['o'].to_d,

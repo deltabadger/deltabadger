@@ -145,6 +145,53 @@ class Clients::AlpacaTest < ActiveSupport::TestCase
     assert_predicate result, :success?
   end
 
+  test 'get_crypto_latest_quote returns success result' do
+    mock_response = stub(body: { 'quotes' => { 'AAVE/USD' => { 'bp' => 99.5, 'ap' => 100.5 } } })
+    connection = stub
+    connection.expects(:get).yields(stub_request('/v1beta3/crypto/us/latest/quotes')).returns(mock_response)
+    @client.stubs(:data_connection).returns(connection)
+
+    result = @client.get_crypto_latest_quote(symbols: ['AAVE/USD'])
+    assert_predicate result, :success?
+    assert_equal 99.5, result.data.dig('quotes', 'AAVE/USD', 'bp')
+  end
+
+  test 'get_crypto_latest_trade returns success result for a single symbol' do
+    mock_response = stub(body: { 'trades' => { 'AAVE/USD' => { 'p' => 100.0 } } })
+    connection = stub
+    connection.expects(:get).yields(stub_request('/v1beta3/crypto/us/latest/trades')).returns(mock_response)
+    @client.stubs(:data_connection).returns(connection)
+
+    result = @client.get_crypto_latest_trade(symbols: ['AAVE/USD'])
+    assert_predicate result, :success?
+    assert_equal 100.0, result.data.dig('trades', 'AAVE/USD', 'p')
+  end
+
+  test 'get_crypto_latest_trade batches multiple symbols into one comma-joined request' do
+    mock_response = stub(body: { 'trades' => { 'AAVE/USD' => { 'p' => 100.0 }, 'BTC/USD' => { 'p' => 50_000.0 } } })
+    connection = stub
+    connection.expects(:get).yields(stub_request('/v1beta3/crypto/us/latest/trades')).returns(mock_response)
+    @client.stubs(:data_connection).returns(connection)
+
+    result = @client.get_crypto_latest_trade(symbols: %w[AAVE/USD BTC/USD])
+    assert_predicate result, :success?
+    assert_equal 100.0, result.data.dig('trades', 'AAVE/USD', 'p')
+    assert_equal 50_000.0, result.data.dig('trades', 'BTC/USD', 'p')
+  end
+
+  test 'get_crypto_bars returns success result' do
+    mock_response = stub(body: { 'bars' => { 'AAVE/USD' => [
+                           { 't' => '2026-01-01T00:00:00Z', 'o' => 1, 'h' => 2, 'l' => 0.5, 'c' => 1.5, 'v' => 10 }
+                         ] } })
+    connection = stub
+    connection.expects(:get).yields(stub_request('/v1beta3/crypto/us/bars')).returns(mock_response)
+    @client.stubs(:data_connection).returns(connection)
+
+    result = @client.get_crypto_bars(symbol: 'AAVE/USD', timeframe: '1Day')
+    assert_predicate result, :success?
+    assert_equal 1, result.data.dig('bars', 'AAVE/USD').size
+  end
+
   test 'get_account_activities returns success result' do
     mock_response = stub(body: [
                            { 'id' => 'act-1', 'activity_type' => 'FILL', 'symbol' => 'AAPL' }
