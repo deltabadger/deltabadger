@@ -370,7 +370,7 @@ class MarketData
         name: row['name'],
         category: category,
         color: row['color'],
-        image_url: row['image_url'],
+        image_url: row['image_url'].presence || absolutize_logo_url(row['logo_url']),
         created_at: now,
         updated_at: now
       }
@@ -386,6 +386,16 @@ class MarketData
     Rails.logger.error "[MarketData] Failed to sync stocks: #{e.message}"
     Result::Failure.new(e.message)
   end
+
+  # data-api's logo_url is host-relative (e.g. "/logos/1f/133-1fba5af2.png"); prefix it with
+  # data-api's browser-reachable host so it can be used directly as a piechart <image> href,
+  # the same way crypto's already-absolute CoinGecko image_url is.
+  def self.absolutize_logo_url(path)
+    return nil if path.blank?
+
+    "#{MarketDataSettings.deltabadger_public_url}#{path}"
+  end
+  private_class_method :absolutize_logo_url
 
   def self.sync_alpaca_listings_from_deltabadger!
     result = client.get_alpaca_listings

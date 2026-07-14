@@ -366,10 +366,11 @@ class MarketDataSyncStocksFromDeltabadgerTest < ActiveSupport::TestCase
     MarketData.stubs(:client).returns(@fake)
   end
 
-  def stock_row(external_id:, symbol:, type: 'stock', color: nil)
+  def stock_row(external_id:, symbol:, type: 'stock', color: nil, image_url: nil, logo_url: nil)
     {
       'external_id' => external_id, 'symbol' => symbol, 'name' => symbol, 'type' => type,
       'color' => color, 'category' => (type == 'stock' ? 'Common Stock' : 'ETF'),
+      'image_url' => image_url, 'logo_url' => logo_url,
       'identifiers' => [{ 'scheme' => 'alpaca', 'value' => "us_equity:#{symbol}" }]
     }
   end
@@ -441,6 +442,42 @@ class MarketDataSyncStocksFromDeltabadgerTest < ActiveSupport::TestCase
       result = MarketData.sync_stocks_from_deltabadger!
       assert_predicate result, :failure?
     end
+  end
+
+  test 'builds image_url from the host-relative logo_url when image_url is absent' do
+    MarketDataSettings.stubs(:deltabadger_public_url).returns('https://data.deltabadger.com')
+    @fake.stubs(:get_stocks).returns(Result::Success.new(
+                                       'metadata' => { 'count' => 1 },
+                                       'data' => [stock_row(external_id: 'AAPL.US', symbol: 'AAPL',
+                                                            logo_url: '/logos/1f/133-1fba5af2.png')]
+                                     ))
+
+    MarketData.sync_stocks_from_deltabadger!
+    assert_equal 'https://data.deltabadger.com/logos/1f/133-1fba5af2.png',
+                 Asset.find_by(external_id: 'AAPL.US').image_url
+  end
+
+  test 'prefers a present image_url over logo_url' do
+    MarketDataSettings.stubs(:deltabadger_public_url).returns('https://data.deltabadger.com')
+    @fake.stubs(:get_stocks).returns(Result::Success.new(
+                                       'metadata' => { 'count' => 1 },
+                                       'data' => [stock_row(external_id: 'AAPL.US', symbol: 'AAPL',
+                                                            image_url: 'https://cdn.example.com/aapl.png',
+                                                            logo_url: '/logos/1f/133-1fba5af2.png')]
+                                     ))
+
+    MarketData.sync_stocks_from_deltabadger!
+    assert_equal 'https://cdn.example.com/aapl.png', Asset.find_by(external_id: 'AAPL.US').image_url
+  end
+
+  test 'leaves image_url nil when neither image_url nor logo_url is present' do
+    @fake.stubs(:get_stocks).returns(Result::Success.new(
+                                       'metadata' => { 'count' => 1 },
+                                       'data' => [stock_row(external_id: 'AAPL.US', symbol: 'AAPL')]
+                                     ))
+
+    MarketData.sync_stocks_from_deltabadger!
+    assert_nil Asset.find_by(external_id: 'AAPL.US').image_url
   end
 end
 

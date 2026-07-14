@@ -33,4 +33,21 @@ class MarketDataSettings
   def self.deltabadger_available?
     ENV['MARKET_DATA_URL'].present?
   end
+
+  # Docker-internal network-alias launchpad's hosted deploy passes as MARKET_DATA_URL (see
+  # deltabadger-launchpad's config/deploy.yml) — fast for server-to-server calls but never
+  # browser-reachable. data-api's own public host (Kamal-proxied, DNS-only/grey-cloud) serves the
+  # same instance's static assets (e.g. /logos/*) directly to browsers. Any other configured
+  # MARKET_DATA_URL (self-hosted/BYO market data providers) is already public and used as-is.
+  DELTABADGER_DOCKER_HOST = 'data-api'
+  DELTABADGER_PUBLIC_URL = 'https://data.deltabadger.com'
+
+  def self.deltabadger_public_url
+    url = deltabadger_url
+    return url if url.blank?
+
+    URI(url).host == DELTABADGER_DOCKER_HOST ? DELTABADGER_PUBLIC_URL : url
+  rescue URI::InvalidURIError
+    url
+  end
 end

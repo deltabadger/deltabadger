@@ -30,4 +30,22 @@ class MarketDataSettingsTest < ActiveSupport::TestCase
     assert_nil MarketDataSettings.current_provider
     refute MarketDataSettings.configured?
   end
+
+  test 'deltabadger_public_url swaps the Docker-internal host for the public one' do
+    ENV['MARKET_DATA_URL'] = 'http://data-api:3000'
+
+    assert_equal 'https://data.deltabadger.com', MarketDataSettings.deltabadger_public_url
+  end
+
+  test 'deltabadger_public_url leaves a self-hosted/BYO public URL unchanged' do
+    ENV['MARKET_DATA_URL'] = 'https://market-data.example.com'
+
+    assert_equal 'https://market-data.example.com', MarketDataSettings.deltabadger_public_url
+  end
+
+  test 'deltabadger_public_url returns blank when MARKET_DATA_URL is not set' do
+    ENV.delete('MARKET_DATA_URL')
+
+    assert_equal '', MarketDataSettings.deltabadger_public_url
+  end
 end
