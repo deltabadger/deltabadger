@@ -182,6 +182,71 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_predicate result, :success?
   end
 
+  # == order symbol + time_in_force: pair symbol and gtc for crypto, bare symbol and day for stocks ==
+
+  test 'set_market_order sends the pair symbol and gtc time_in_force for a crypto ticker' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD',
+                             base_decimals: 8, quote_decimals: 2)
+
+    Clients::Alpaca.any_instance.stubs(:create_order).with do |params|
+      params[:symbol] == 'AAVE/USD' && params[:time_in_force] == 'gtc'
+    end.returns(Result::Success.new({ 'id' => 'order-1' }))
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_market_order, ticker: ticker, amount: 100, amount_type: :quote, side: :buy)
+    end
+    assert_predicate result, :success?
+  end
+
+  test 'set_market_order sends the bare symbol and day time_in_force for a stock ticker (regression)' do
+    aapl = create(:asset, external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', category: 'Stock')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: usd, ticker: 'AAPL',
+                             base_decimals: 9, quote_decimals: 2)
+
+    Clients::Alpaca.any_instance.stubs(:create_order).with do |params|
+      params[:symbol] == 'AAPL' && params[:time_in_force] == 'day'
+    end.returns(Result::Success.new({ 'id' => 'order-1' }))
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_market_order, ticker: ticker, amount: 100, amount_type: :quote, side: :buy)
+    end
+    assert_predicate result, :success?
+  end
+
+  test 'set_limit_order sends the pair symbol and gtc time_in_force for a crypto ticker' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD',
+                             base_decimals: 8, price_decimals: 2)
+
+    Clients::Alpaca.any_instance.stubs(:create_order).with do |params|
+      params[:symbol] == 'AAVE/USD' && params[:type] == 'limit' && params[:time_in_force] == 'gtc'
+    end.returns(Result::Success.new({ 'id' => 'order-2' }))
+
+    result = with_dry_run(false) do
+      @exchange.send(:set_limit_order, ticker: ticker, amount: 1, amount_type: :base, side: :buy, price: 100.0)
+    end
+    assert_predicate result, :success?
+  end
+
+  test 'parse_order_data looks the ticker up by ticker.ticker (pair symbol for crypto)' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+
+    order_data = {
+      'id' => 'uuid-2', 'symbol' => 'AAVE/USD', 'side' => 'buy', 'type' => 'market', 'status' => 'filled',
+      'qty' => '1.0', 'limit_price' => nil, 'filled_qty' => '1.0', 'filled_avg_price' => '100.0',
+      'notional' => nil
+    }
+
+    parsed = @exchange.send(:parse_order_data, order_data)
+    assert_equal ticker, parsed[:ticker]
+  end
+
   test 'fetch_withdrawal_fees! returns empty success' do
     result = @exchange.fetch_withdrawal_fees!
     assert_predicate result, :success?

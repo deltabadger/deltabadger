@@ -389,6 +389,10 @@ class Exchanges::Alpaca < Exchange
     Clients::Alpaca.new(api_key: key&.key, api_secret: key&.secret, paper: paper_mode?(key))
   end
 
+  def crypto_ticker?(ticker)
+    ticker&.base_asset&.category == 'Cryptocurrency'
+  end
+
   # Any valid trading key authenticates Alpaca market data (account-agnostic reads).
   def market_data_api_key
     api_keys.correct.find_by(key_type: :trading) || api_keys.find_by(key_type: :trading)
@@ -496,22 +500,23 @@ class Exchanges::Alpaca < Exchange
 
   def set_market_order(ticker:, amount:, amount_type:, side:)
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
+    tif = crypto_ticker?(ticker) ? 'gtc' : 'day'
 
     result = if amount_type == :quote
                # Use notional (dollar amount) for market orders
                client.create_order(
-                 symbol: ticker.base,
+                 symbol: ticker.ticker,
                  side: side.to_s,
                  type: 'market',
-                 time_in_force: 'day',
+                 time_in_force: tif,
                  notional: format("%.#{ticker.quote_decimals}f", amount.to_d)
                )
              else
                client.create_order(
-                 symbol: ticker.base,
+                 symbol: ticker.ticker,
                  side: side.to_s,
                  type: 'market',
-                 time_in_force: 'day',
+                 time_in_force: tif,
                  qty: format("%.#{ticker.base_decimals}f", amount.to_d)
                )
              end
@@ -535,10 +540,10 @@ class Exchanges::Alpaca < Exchange
     price = ticker.adjusted_price(price: price)
 
     result = client.create_order(
-      symbol: ticker.base,
+      symbol: ticker.ticker,
       side: side.to_s,
       type: 'limit',
-      time_in_force: 'day',
+      time_in_force: crypto_ticker?(ticker) ? 'gtc' : 'day',
       qty: format("%.#{ticker.base_decimals}f", qty.to_d),
       limit_price: format("%.#{ticker.price_decimals}f", price.to_d)
     )
@@ -549,7 +554,7 @@ class Exchanges::Alpaca < Exchange
   end
 
   def parse_order_data(order_data)
-    ticker_record = tickers.find_by(base: order_data['symbol'])
+    ticker_record = tickers.find_by(ticker: order_data['symbol'])
     order_type = order_data['type'] == 'limit' ? :limit_order : :market_order
     side = order_data['side']&.to_sym
     filled_qty = order_data['filled_qty'].to_d
