@@ -8,7 +8,7 @@ GIT
 
 GIT
   remote: https://github.com/doorkeeper-gem/doorkeeper.git
-  revision: 3d9972d442cfd1c1345fface42f678b7c24180f1
+  revision: b57415c01f88bca4e061fe6045eef185bf2c5ea9
   specs:
     doorkeeper (5.9.3)
       railties (>= 5)
