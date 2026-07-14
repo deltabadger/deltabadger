@@ -392,6 +392,36 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert @exchange.market_open?
   end
 
+  # == get_balances (crypto positions use a THIRD symbol format: compact, no slash) ==
+
+  test 'get_balances resolves a crypto position via its compact (non-pair) symbol' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+
+    Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100.0' }))
+    Clients::Alpaca.any_instance.stubs(:get_positions)
+                   .returns(Result::Success.new([{ 'symbol' => 'AAVEUSD', 'qty' => '2.5' }]))
+
+    result = with_dry_run(false) { @exchange.get_balances(asset_ids: [aave.id]) }
+    assert_predicate result, :success?
+    assert_equal 2.5.to_d, result.data[aave.id][:free]
+  end
+
+  test 'get_balances still resolves a stock position via its bare symbol (regression)' do
+    aapl = create(:asset, external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', category: 'Stock')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: usd, ticker: 'AAPL')
+
+    Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100.0' }))
+    Clients::Alpaca.any_instance.stubs(:get_positions)
+                   .returns(Result::Success.new([{ 'symbol' => 'AAPL', 'qty' => '10' }]))
+
+    result = with_dry_run(false) { @exchange.get_balances(asset_ids: [aapl.id]) }
+    assert_predicate result, :success?
+    assert_equal 10.to_d, result.data[aapl.id][:free]
+  end
+
   test 'fetch_withdrawal_fees! returns empty success' do
     result = @exchange.fetch_withdrawal_fees!
     assert_predicate result, :success?

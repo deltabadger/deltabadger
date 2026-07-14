@@ -219,9 +219,12 @@ class Exchanges::Alpaca < Exchange
       balances[usd_asset.id] = { free: cash, locked: 0 }
     end
 
-    # Stock positions
+    # Positions. Stocks resolve via the existing bare-symbol map (position symbol ==
+    # ticker.base, e.g. "AAPL"). Crypto positions come back compact-concatenated (e.g.
+    # "AAVEUSD") — a THIRD format, distinct from both that bare form and the "AAVE/USD" pair
+    # format orders/quotes use — so they need their own lookup.
     positions_result.data.each do |position|
-      asset = asset_from_symbol(position['symbol'])
+      asset = asset_from_symbol(position['symbol']) || asset_from_crypto_position_symbol(position['symbol'])
       next unless asset && asset_ids.include?(asset.id)
 
       qty = position['qty'].to_d
@@ -457,6 +460,16 @@ class Exchanges::Alpaca < Exchange
   def all_crypto?(tickers)
     list = Array(tickers)
     list.present? && list.all? { |t| crypto_ticker?(t) }
+  end
+
+  def asset_from_crypto_position_symbol(symbol)
+    crypto_position_index[symbol]&.base_asset
+  end
+
+  def crypto_position_index
+    @crypto_position_index ||= tickers.available.includes(:base_asset)
+                                      .select { |t| crypto_ticker?(t) }
+                                      .index_by { |t| "#{t.base}#{t.quote}" }
   end
 
   # Any valid trading key authenticates Alpaca market data (account-agnostic reads).
