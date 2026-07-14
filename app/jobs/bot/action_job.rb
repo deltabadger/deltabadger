@@ -70,11 +70,12 @@ class Bot::ActionJob < BotJob
     end
 
     bot.ensure_exchange_authenticated
-    unless bot.exchange.market_open?
-      Rails.logger.info("ActionJob for bot #{bot.id}: market closed, rescheduling to #{bot.exchange.next_market_open_at}")
+    bot_tickers = bot.tickers.to_a
+    unless bot.exchange.market_open?(tickers: bot_tickers)
+      Rails.logger.info("ActionJob for bot #{bot.id}: market closed, rescheduling to #{bot.exchange.next_market_open_at(tickers: bot_tickers)}")
       bot.update!(waiting_for_market_open: true)
-      bot.log_activity('market_closed', details: { next_market_open_at: bot.exchange.next_market_open_at })
-      Bot::ActionJob.set(wait_until: bot.exchange.next_market_open_at).perform_later(bot)
+      bot.log_activity('market_closed', details: { next_market_open_at: bot.exchange.next_market_open_at(tickers: bot_tickers) })
+      Bot::ActionJob.set(wait_until: bot.exchange.next_market_open_at(tickers: bot_tickers)).perform_later(bot)
       Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
       return
     end

@@ -265,11 +265,11 @@ class Exchange < ApplicationRecord
     end
   end
 
-  def market_open?
+  def market_open?(tickers: nil)
     true
   end
 
-  def next_market_open_at
+  def next_market_open_at(tickers: nil)
     Time.current
   end
 

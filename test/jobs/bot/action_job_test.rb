@@ -96,6 +96,15 @@ module ActionJobBehaviorTests
       assert bot.reload.waiting_for_market_open
     end
 
+    test 'passes the bot tickers to market_open? and next_market_open_at' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.exchange.expects(:market_open?).with(tickers: bot.tickers.to_a).returns(false)
+      bot.exchange.stubs(:next_market_open_at).with(tickers: bot.tickers.to_a).returns(1.hour.from_now)
+
+      Bot::ActionJob.new.perform(bot)
+    end
+
     test 'clears waiting_for_market_open when market is open' do
       bot = create_bot
       bot.update!(waiting_for_market_open: true)

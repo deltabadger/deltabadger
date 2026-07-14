@@ -1,6 +1,8 @@
 require 'test_helper'
 
 class Exchanges::AlpacaTest < ActiveSupport::TestCase
+  include ActiveSupport::Testing::TimeHelpers
+
   setup do
     @exchange = create(:alpaca_exchange)
   end
@@ -339,6 +341,55 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     result = @exchange.get_tickers_prices(symbols: ['AAVE/USD'])
     assert_predicate result, :success?
     assert_equal 100.5.to_d, result.data['AAVE/USD']
+  end
+
+  # == market_open? / next_market_open_at (crypto bypass) ==
+
+  test 'market_open? returns true when every ticker is crypto, without checking the clock' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+
+    Clients::Alpaca.any_instance.expects(:get_clock).never
+    assert @exchange.market_open?(tickers: [ticker])
+  end
+
+  test 'next_market_open_at returns the current time when every ticker is crypto' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+
+    freeze_time do
+      assert_equal Time.current, @exchange.next_market_open_at(tickers: [ticker])
+    end
+  end
+
+  test 'market_open? still checks the clock for a stock ticker (regression)' do
+    aapl = create(:asset, external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', category: 'Stock')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: usd, ticker: 'AAPL')
+    Clients::Alpaca.any_instance.stubs(:get_clock)
+                   .returns(Result::Success.new({ 'is_open' => false, 'next_open' => 1.hour.from_now.iso8601 }))
+
+    refute @exchange.market_open?(tickers: [ticker])
+  end
+
+  test 'market_open? checks the clock when tickers are a mix of stock and crypto (conservative default)' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    aapl = create(:asset, external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', category: 'Stock')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    crypto_ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+    stock_ticker = create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: usd, ticker: 'AAPL')
+    Clients::Alpaca.any_instance.stubs(:get_clock)
+                   .returns(Result::Success.new({ 'is_open' => false, 'next_open' => 1.hour.from_now.iso8601 }))
+
+    refute @exchange.market_open?(tickers: [crypto_ticker, stock_ticker])
+  end
+
+  test 'market_open? with no tickers still checks the clock (backward compatible)' do
+    Clients::Alpaca.any_instance.stubs(:get_clock)
+                   .returns(Result::Success.new({ 'is_open' => true, 'next_open' => 1.hour.from_now.iso8601 }))
+    assert @exchange.market_open?
   end
 
   test 'fetch_withdrawal_fees! returns empty success' do

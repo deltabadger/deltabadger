@@ -66,11 +66,11 @@ class Exchanges::Ibkr < Exchange
 
   # Fail-open for now (like Alpaca when its clock is unavailable). IBKR queues/rejects off-hours
   # orders itself; a real per-exchange equities calendar is a later refinement.
-  def market_open?
+  def market_open?(tickers: nil)
     true
   end
 
-  def next_market_open_at
+  def next_market_open_at(tickers: nil)
     Time.current
   end
 

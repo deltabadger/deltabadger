@@ -85,14 +85,18 @@ class Exchanges::Alpaca < Exchange
     :quote
   end
 
-  def market_open?
+  def market_open?(tickers: nil)
+    return true if all_crypto?(tickers)
+
     clock = get_clock_cached
     return true if clock.nil?
 
     clock['is_open'] == true
   end
 
-  def next_market_open_at
+  def next_market_open_at(tickers: nil)
+    return Time.current if all_crypto?(tickers)
+
     clock = get_clock_cached
     return Time.current if clock.nil?
 
@@ -448,6 +452,11 @@ class Exchanges::Alpaca < Exchange
 
   def crypto_ticker?(ticker)
     ticker&.base_asset&.category == 'Cryptocurrency'
+  end
+
+  def all_crypto?(tickers)
+    list = Array(tickers)
+    list.present? && list.all? { |t| crypto_ticker?(t) }
   end
 
   # Any valid trading key authenticates Alpaca market data (account-agnostic reads).
