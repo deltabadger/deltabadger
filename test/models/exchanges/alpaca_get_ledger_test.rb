@@ -133,6 +133,45 @@ class Exchanges::AlpacaGetLedgerTest < ActiveSupport::TestCase
     assert_equal 'fee-1', fee[:tx_id]
   end
 
+  test 'returns normalized crypto fee entry from CFEE activity, denominated in the crypto asset' do
+    create(:ticker, :eth_usd, exchange: @exchange)
+
+    stub_activities([
+                      {
+                        'id' => 'cfee-1', 'activity_type' => 'CFEE',
+                        'date' => '2026-03-18', 'net_amount' => '0',
+                        'symbol' => 'ETHUSD', 'qty' => '-0.000195', 'price' => '1884.5'
+                      }
+                    ])
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    assert result.success?
+    fee = result.data.find { |e| e[:entry_type] == :fee }
+    assert_not_nil fee, 'CFEE (Alpaca crypto fee) must not be silently dropped'
+    assert_equal 'ETH', fee[:base_currency]
+    assert_equal 0.000195.to_d, fee[:base_amount]
+    assert_equal 'cfee-1', fee[:tx_id]
+  end
+
+  test 'CFEE falls back to the raw compact symbol when the crypto asset cannot be resolved locally' do
+    stub_activities([
+                      {
+                        'id' => 'cfee-2', 'activity_type' => 'CFEE',
+                        'date' => '2026-03-18', 'net_amount' => '0',
+                        'symbol' => 'UNKNOWNUSD', 'qty' => '-0.5', 'price' => '10.0'
+                      }
+                    ])
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    assert result.success?
+    fee = result.data.find { |e| e[:entry_type] == :fee }
+    assert_not_nil fee
+    assert_equal 'UNKNOWNUSD', fee[:base_currency]
+    assert_equal 0.5.to_d, fee[:base_amount]
+  end
+
   test 'returns normalized interest entry from INT activity' do
     stub_activities([
                       {

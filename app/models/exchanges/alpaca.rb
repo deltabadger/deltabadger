@@ -518,6 +518,8 @@ class Exchanges::Alpaca < Exchange
       normalize_non_trade(activity, :other_income, "Dividend (#{activity['symbol']})")
     when 'FEE'
       normalize_non_trade(activity, :fee, nil)
+    when 'CFEE'
+      normalize_crypto_fee(activity)
     when 'INT'
       normalize_non_trade(activity, :other_income, nil)
     end
@@ -572,6 +574,30 @@ class Exchanges::Alpaca < Exchange
       tx_id: activity['id'],
       group_id: nil,
       description: description,
+      transacted_at: Time.parse(activity['date']).utc,
+      raw_data: activity
+    }
+  end
+
+  # CFEE (Alpaca's crypto trading fee) is NOT USD-denominated like the stock-side FEE — its
+  # net_amount is always "0" (see Alpaca's own example: description "Coin Pair Transaction Fee
+  # (Non USD)"). The real fee is `qty` (negative), charged in the base crypto asset itself, and
+  # `symbol` is the COMPACT pair format ("ETHUSD", no slash) — resolved the same way balances are
+  # (asset_from_crypto_position_symbol), not the slash-separated FILL format.
+  def normalize_crypto_fee(activity)
+    asset = asset_from_crypto_position_symbol(activity['symbol'])
+
+    {
+      entry_type: :fee,
+      base_currency: asset&.symbol || activity['symbol'],
+      base_amount: activity['qty'].to_d.abs,
+      quote_currency: nil,
+      quote_amount: nil,
+      fee_currency: nil,
+      fee_amount: nil,
+      tx_id: activity['id'],
+      group_id: nil,
+      description: nil,
       transacted_at: Time.parse(activity['date']).utc,
       raw_data: activity
     }
