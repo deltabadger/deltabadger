@@ -36,6 +36,10 @@ production:
     class: Asset::SyncStocksFromDeltabadgerJob
     schedule: "0 10 * * *"  # Daily at 10:00 UTC (after data-api sync at 07:00)
 
+  sync_alpaca_crypto_from_deltabadger_job:
+    class: Asset::SyncAlpacaCryptoFromDeltabadgerJob
+    schedule: "15 10 * * *"  # Daily at 10:15 UTC (after data-api's own sync at 07:15)
+
   evaluate_all_rules_job:
     class: Rule::EvaluateAllJob
     schedule: "0 */4 * * *"  # Every 4 hours
@@ -93,6 +97,10 @@ development:
   sync_stocks_from_deltabadger_job:
     class: Asset::SyncStocksFromDeltabadgerJob
     schedule: "0 10 * * *"  # Daily at 10:00 UTC (after data-api sync at 07:00)
+
+  sync_alpaca_crypto_from_deltabadger_job:
+    class: Asset::SyncAlpacaCryptoFromDeltabadgerJob
+    schedule: "15 10 * * *"  # Daily at 10:15 UTC (after data-api's own sync at 07:15)
 
   evaluate_all_rules_job:
     class: Rule::EvaluateAllJob
