@@ -409,6 +409,18 @@ class MarketDataSyncStocksFromDeltabadgerTest < ActiveSupport::TestCase
     assert_raises(Client::TransientNetworkError) { MarketData.sync_stocks_from_deltabadger! }
   end
 
+  test 'raises Client::RateLimitedError on a 429 so the job retry_on can engage' do
+    @fake.stubs(:get_stocks).returns(Result::Failure.new('rate limited', data: { status: 429 }))
+    assert_raises(Client::RateLimitedError) { MarketData.sync_stocks_from_deltabadger! }
+  end
+
+  test 'still returns a plain Result::Failure for a non-429 failure (unchanged behavior)' do
+    @fake.stubs(:get_stocks).returns(Result::Failure.new('server error', data: { status: 500 }))
+    result = MarketData.sync_stocks_from_deltabadger!
+    assert_predicate result, :failure?
+    assert_equal ['server error'], result.errors
+  end
+
   test 'is idempotent — second run does not duplicate' do
     @fake.stubs(:get_stocks).returns(Result::Success.new(
                                        'metadata' => { 'count' => 1 },
@@ -525,6 +537,11 @@ class MarketDataSyncAlpacaListingsFromDeltabadgerTest < ActiveSupport::TestCase
     assert usd.present?, "wizard requires 'usd' row at pick_buyable_assets_controller.rb:43"
     assert_equal 'USD', usd.symbol
     assert_equal 'Fiat', usd.category
+  end
+
+  test 'raises Client::RateLimitedError on a 429 so the job retry_on can engage' do
+    @fake.stubs(:get_alpaca_listings).returns(Result::Failure.new('rate limited', data: { status: 429 }))
+    assert_raises(Client::RateLimitedError) { MarketData.sync_alpaca_listings_from_deltabadger! }
   end
 
   test "every created Ticker's quote_asset is the local 'usd' row regardless of payload quote_external_id (Invariant B)" do
@@ -991,6 +1008,11 @@ class MarketDataSyncAlpacaCryptoListingsFromDeltabadgerTest < ActiveSupport::Tes
     assert ticker.trading_enabled?
   end
 
+  test 'raises Client::RateLimitedError on a 429 so the job retry_on can engage' do
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Failure.new('rate limited', data: { status: 429 }))
+    assert_raises(Client::RateLimitedError) { MarketData.sync_alpaca_crypto_listings_from_deltabadger! }
+  end
+
   test 'propagates trading_enabled false through to the local ticker for a still-listed-but-non-tradable pair' do
     usd = Asset.find_by(external_id: 'usd') || create(:asset, :usd)
     @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => [
@@ -1285,6 +1307,13 @@ class MarketDataBackfillCanonicalStockExternalIdsTest < ActiveSupport::TestCase
     @fake.stubs(:get_stocks).returns(stocks_payload([stock_with_alpaca_id(external_id: 'AAPL.US', symbol: 'AAPL')]))
     MarketData.backfill_canonical_stock_external_ids!
     assert AppConfig.get('stock_canonical_backfill_completed_at').present?, 'flag must be set'
+  end
+
+  test 'raises Client::RateLimitedError on a 429 so the job retry_on can engage' do
+    Asset.create!(external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', name: 'Apple', category: 'Stock')
+    @fake.stubs(:get_stocks).returns(Result::Failure.new('rate limited', data: { status: 429 }))
+
+    assert_raises(Client::RateLimitedError) { MarketData.backfill_canonical_stock_external_ids! }
   end
 
   test 'idempotent: second invocation is a no-op once the flag is set' do

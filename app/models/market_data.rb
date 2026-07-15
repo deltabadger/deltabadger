@@ -352,8 +352,18 @@ class MarketData
     incoming_count < threshold
   end
 
+  # data-api's own responses carry a real HTTP status (Client#with_rescue already extracts it
+  # into result.data[:status] for every Faraday::Error) — no per-exchange error-text pattern
+  # matching needed here, unlike Exchange#throttled_error?, which exists because raw exchange
+  # APIs format rate-limit errors inconsistently.
+  def self.rate_limited_failure?(result)
+    result.failure? && result.data.is_a?(Hash) && result.data[:status] == 429
+  end
+  private_class_method :rate_limited_failure?
+
   def self.sync_stocks_from_deltabadger!
     result = client.get_stocks
+    raise Client::RateLimitedError, result.errors.to_sentence if rate_limited_failure?(result)
     return result if result.failure?
 
     rows = Array(result.data && result.data['data'])
@@ -399,6 +409,7 @@ class MarketData
 
   def self.sync_alpaca_listings_from_deltabadger!
     result = client.get_alpaca_listings
+    raise Client::RateLimitedError, result.errors.to_sentence if rate_limited_failure?(result)
     return result if result.failure?
 
     listings = Array(result.data && result.data['data'])
@@ -543,6 +554,7 @@ class MarketData
   # Invariant B exactly.
   def self.sync_alpaca_crypto_listings_from_deltabadger!
     result = client.get_alpaca_crypto_listings
+    raise Client::RateLimitedError, result.errors.to_sentence if rate_limited_failure?(result)
     return result if result.failure?
 
     alpaca = Exchanges::Alpaca.first
@@ -658,6 +670,8 @@ class MarketData
     end
 
     result = client.get_stocks
+    raise Client::RateLimitedError, result.errors.to_sentence if rate_limited_failure?(result)
+
     if result.failure?
       Rails.logger.warn "[MarketData] stock backfill: data-api fetch failed; leaving flag unset for retry: #{result.errors.join(', ')}"
       return

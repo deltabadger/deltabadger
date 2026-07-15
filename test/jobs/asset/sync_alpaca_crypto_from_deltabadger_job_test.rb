@@ -43,4 +43,12 @@ class Asset::SyncAlpacaCryptoFromDeltabadgerJobRetryTest < ActiveSupport::TestCa
       Asset::SyncAlpacaCryptoFromDeltabadgerJob.perform_now
     end
   end
+
+  test 'retries on a rate-limited error instead of dropping the job' do
+    MarketData.stubs(:sync_alpaca_crypto_listings_from_deltabadger!).raises(Client::RateLimitedError, 'rate limited')
+
+    assert_enqueued_jobs 1, only: Asset::SyncAlpacaCryptoFromDeltabadgerJob do
+      Asset::SyncAlpacaCryptoFromDeltabadgerJob.perform_now
+    end
+  end
 end
