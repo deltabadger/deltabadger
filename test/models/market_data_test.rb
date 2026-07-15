@@ -926,6 +926,245 @@ class MarketDataSyncAlpacaListingsFromDeltabadgerTest < ActiveSupport::TestCase
   end
 end
 
+class MarketDataSyncAlpacaCryptoListingsFromDeltabadgerTest < ActiveSupport::TestCase
+  setup do
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+    @fake = mock
+    MarketData.stubs(:client).returns(@fake)
+    begin
+      AppConfig.delete(MarketData::ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY)
+    rescue StandardError
+      nil
+    end
+    MarketData.stubs(:min_healthy_alpaca_crypto_listings).returns(0)
+    @exchange = create(:alpaca_exchange)
+    @aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+  end
+
+  def crypto_listing_row(base_asset_id: 'crypto:aave', quote_asset_id: 'fiat:USD', symbol: 'AAVE/USD', trading_enabled: true, **overrides)
+    {
+      'listing_id' => "alpaca_crypto:#{symbol}", 'venue' => 'alpaca_crypto', 'venue_scheme' => 'exchange_slug',
+      'symbol' => symbol, 'native_symbol' => symbol,
+      'base_asset_id' => base_asset_id, 'quote_asset_id' => quote_asset_id,
+      'base_decimals' => 8, 'quote_decimals' => 2, 'price_decimals' => 2,
+      'minimum_base_size' => '0.01', 'minimum_quote_size' => '1',
+      'maximum_base_size' => '100000', 'maximum_quote_size' => '200000',
+      'fractionable' => true, 'trading_enabled' => trading_enabled
+    }.merge(overrides)
+  end
+
+  test 'creates a ticker resolved to the local canonical crypto asset, quote hardcoded to usd' do
+    usd = Asset.find_by(external_id: 'usd') || create(:asset, :usd)
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => [crypto_listing_row]))
+
+    result = MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+    assert_predicate result, :success?
+
+    ticker = @exchange.tickers.find_by(base_asset: @aave, quote_asset: usd)
+    assert ticker.present?
+    assert_equal 'AAVE/USD', ticker.ticker
+    assert ticker.available?
+    assert ticker.trading_enabled?
+  end
+
+  test 'propagates trading_enabled false through to the local ticker for a still-listed-but-non-tradable pair' do
+    usd = Asset.find_by(external_id: 'usd') || create(:asset, :usd)
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => [
+                                                                           crypto_listing_row(trading_enabled: false)
+                                                                         ]))
+
+    MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+
+    ticker = @exchange.tickers.find_by(base_asset: @aave, quote_asset: usd)
+    assert ticker.present?
+    refute ticker.trading_enabled?
+  end
+
+  test 'creates the local usd Asset row if missing (Invariant A, mirrors the stock sync)' do
+    Asset.where(external_id: 'usd').destroy_all
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => [crypto_listing_row]))
+
+    MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+
+    usd = Asset.find_by(external_id: 'usd')
+    assert usd.present?
+    assert_equal 'Fiat', usd.category
+  end
+
+  test 'ignores the data-api quote_asset_id value entirely — always resolves the quote to local usd' do
+    # quote_asset_id here is deliberately something that would NOT unwrap to 'usd' (it's data-api's
+    # own "fiat:USD" convention, uppercase) — proves the quote side is a hardcoded literal, not an
+    # unwrap of this field.
+    usd = Asset.find_by(external_id: 'usd') || create(:asset, :usd)
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => [
+                                                                           crypto_listing_row(quote_asset_id: 'fiat:USD')
+                                                                         ]))
+
+    MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+
+    ticker = @exchange.tickers.find_by(base_asset: @aave)
+    assert_equal usd, ticker.quote_asset
+  end
+
+  test 'skips a row whose unwrapped base external_id has no local asset match, and excludes it from the resolved count' do
+    create(:asset, :usd)
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => [
+                                                                           crypto_listing_row(base_asset_id: 'crypto:some-unknown-coin')
+                                                                         ]))
+
+    assert_no_difference '@exchange.tickers.count' do
+      MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+    end
+    assert_nil AppConfig.get(MarketData::ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY),
+               'an unresolvable row must not count toward the resolved/last-good baseline'
+  end
+
+  test 'marks a delisted crypto ticker unavailable, scoped to Cryptocurrency category only' do
+    # This test runs two syncs (2 rows, then 1), so the first sync ratchets a real baseline of 2 into
+    # AppConfig; the second sync's incoming resolved count of 1 then trips the (deliberately strict,
+    # ceil-based) relative-drop guard on its own (ceil(2 * 0.9) = 2, so losing 1-of-2 reads as a 50%
+    # collapse). The setup's min_healthy_alpaca_crypto_listings=0 stub only neutralises the absolute
+    # floor for baseline-less runs — it can't neutralise the relative check once this test's own first
+    # call has planted a baseline. This test is about the stale-sweep, not the guard (which has its own
+    # dedicated boundary tests below), so bypass the guard explicitly here.
+    MarketData.stubs(:alpaca_crypto_listings_degraded?).returns(false)
+    usd = create(:asset, :usd)
+    stock_asset = Asset.find_by(external_id: 'alpaca_uuid-aapl') || create(:asset, external_id: 'alpaca_uuid-aapl', symbol: 'AAPL', category: 'Stock')
+    stock_ticker = create(:ticker, exchange: @exchange, base_asset: stock_asset, quote_asset: usd, ticker: 'AAPL')
+    btc = create(:asset, external_id: 'bitcoin', symbol: 'BTC', category: 'Cryptocurrency')
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => [
+                                                                           crypto_listing_row, crypto_listing_row(base_asset_id: 'crypto:bitcoin',
+                                                                                                                  symbol: 'BTC/USD')
+                                                                         ]))
+    MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => [crypto_listing_row]))
+    MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+
+    btc_ticker = @exchange.tickers.find_by(base_asset: btc)
+    refute btc_ticker.available?
+    stock_ticker.reload
+    assert stock_ticker.available?, 'the stale-sweep must not touch Stock-category tickers on the same exchange'
+  end
+
+  test 'does not sweep when nothing was imported' do
+    usd = create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: @aave, quote_asset: usd, ticker: 'AAVE/USD', available: true)
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => []))
+
+    MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+
+    assert ticker.reload.available?
+  end
+
+  test 'returns a failure result when the client call fails' do
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Failure.new('boom'))
+
+    result = MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+    assert_predicate result, :failure?
+  end
+
+  # --- Degraded-payload guard: real floor, NOT stubbed to 0 in this block ------------------------
+  # Mirrors sync_alpaca_listings_from_deltabadger!'s protection against the 2026-06-02 stock
+  # incident (a partial-but-nonzero response must not let the stale-sweep wipe out most availability),
+  # scaled to crypto's ~36-pair universe. The guard measures the RESOLVED count (rows whose base
+  # external_id matches a local Asset), not the raw row count — a payload that's the right SIZE but
+  # resolves to nothing must still be caught. Boundary tests use DISTINCT local Assets per row (not
+  # the same @aave repeated) — a repeated base_asset_id collapses under `.uniq` before the resolved
+  # count is computed, silently testing "1 resolved row" instead of the intended row count.
+
+  def make_resolvable_rows(count)
+    (1..count).map do |n|
+      asset = create(:asset, external_id: "boundary-coin-#{n}", symbol: "BC#{n}", category: 'Cryptocurrency')
+      crypto_listing_row(base_asset_id: "crypto:#{asset.external_id}", symbol: "BC#{n}/USD")
+    end
+  end
+
+  test 'degraded-payload guard: 29 resolved rows (below the absolute floor of 30, no baseline) is rejected' do
+    MarketData.unstub(:min_healthy_alpaca_crypto_listings)
+    usd = create(:asset, :usd)
+    existing_ticker = create(:ticker, exchange: @exchange, base_asset: @aave, quote_asset: usd, ticker: 'AAVE/USD', available: true)
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => make_resolvable_rows(29)))
+
+    MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+
+    assert existing_ticker.reload.available?, '29 resolved rows with no baseline must be treated as degraded (floor is 30)'
+    assert_nil AppConfig.get(MarketData::ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY)
+  end
+
+  test 'degraded-payload guard: 30 resolved rows (at the absolute floor, no baseline) is accepted' do
+    MarketData.unstub(:min_healthy_alpaca_crypto_listings)
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => make_resolvable_rows(30)))
+
+    result = MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+
+    assert_predicate result, :success?
+    assert_equal '30', AppConfig.get(MarketData::ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY)
+  end
+
+  test 'degraded-payload guard: resolved count only counts rows that actually match a local Asset' do
+    usd = create(:asset, :usd)
+    existing_ticker = create(:ticker, exchange: @exchange, base_asset: @aave, quote_asset: usd, ticker: 'AAVE/USD', available: true)
+    # 40 rows, but all reference the SAME unresolvable external_id — resolved_count is 0, not 40.
+    rows = (1..40).map { |n| crypto_listing_row(base_asset_id: 'crypto:some-unknown-coin', symbol: "X#{n}/USD") }
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => rows))
+
+    MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+
+    assert existing_ticker.reload.available?
+    assert_nil AppConfig.get(MarketData::ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY)
+  end
+
+  test 'degraded-payload guard: relative (90%-of-baseline) threshold can exceed the absolute floor' do
+    MarketData.unstub(:min_healthy_alpaca_crypto_listings)
+    usd = create(:asset, :usd)
+    existing_ticker = create(:ticker, exchange: @exchange, base_asset: @aave, quote_asset: usd, ticker: 'AAVE/USD', available: true)
+    # threshold = max(30, ceil(36 * 0.9)) = max(30, 33) = 33 — the relative rule binds here (33 > 30
+    # the absolute floor), not the absolute floor alone; plain integer truncation (36*9/10 = 32) would
+    # wrongly accept 32 as healthy instead of requiring 33.
+    AppConfig.set(MarketData::ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY, '36')
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => make_resolvable_rows(32)))
+
+    MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+
+    assert existing_ticker.reload.available?, '32 resolved rows must be degraded against a threshold of 33'
+  end
+
+  test 'degraded-payload guard: at the relative threshold (33 of a 36 baseline) is accepted' do
+    MarketData.unstub(:min_healthy_alpaca_crypto_listings)
+    AppConfig.set(MarketData::ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY, '36')
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => make_resolvable_rows(33)))
+
+    result = MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+
+    assert_predicate result, :success?
+    assert_equal '33', AppConfig.get(MarketData::ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY)
+  end
+
+  test 'degraded-payload guard: the absolute floor still applies once a baseline exists, so repeated small drops cannot ratchet below it' do
+    MarketData.unstub(:min_healthy_alpaca_crypto_listings)
+    usd = create(:asset, :usd)
+    existing_ticker = create(:ticker, exchange: @exchange, base_asset: @aave, quote_asset: usd, ticker: 'AAVE/USD', available: true)
+    # threshold = max(30, ceil(31 * 0.9)) = max(30, 28) = 30 — the absolute floor wins even though
+    # 90%-of-31 (28) would otherwise have let 29 (a further legitimate-looking drop from 31) pass.
+    AppConfig.set(MarketData::ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY, '31')
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => make_resolvable_rows(29)))
+
+    MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+
+    assert existing_ticker.reload.available?, '29 must be degraded — the absolute floor (30) must not be undercut by a shrinking baseline'
+  end
+
+  test 'degraded-payload guard: an empty response is always degraded, never ratchets the baseline to 0' do
+    MarketData.unstub(:min_healthy_alpaca_crypto_listings)
+    @fake.stubs(:get_alpaca_crypto_listings).returns(Result::Success.new('data' => []))
+
+    MarketData.sync_alpaca_crypto_listings_from_deltabadger!
+
+    assert_nil AppConfig.get(MarketData::ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY)
+  end
+end
+
 # Pure predicate for the degraded-payload guard — no DB/fixtures, exact thresholds.
 class MarketDataAlpacaListingsDegradedTest < ActiveSupport::TestCase
   test 'no baseline: degraded iff below the absolute floor' do

@@ -63,6 +63,25 @@ class Clients::MarketDataTest < ActiveSupport::TestCase
     assert_predicate result, :failure?
   end
 
+  test 'get_alpaca_crypto_listings fetches the alpaca_crypto venue listings' do
+    mock_response = stub(body: { 'metadata' => { 'count' => 1 }, 'data' => [
+                           { 'listing_id' => 'alpaca_crypto:AAVE/USD', 'venue' => 'alpaca_crypto', 'venue_scheme' => 'exchange_slug',
+                             'symbol' => 'AAVE/USD', 'native_symbol' => 'AAVE/USD',
+                             'base_asset_id' => 'crypto:aave', 'quote_asset_id' => 'fiat:USD',
+                             'base_decimals' => 8, 'quote_decimals' => 2, 'price_decimals' => 2,
+                             'minimum_base_size' => '0.01', 'minimum_quote_size' => '1',
+                             'maximum_base_size' => '100000', 'maximum_quote_size' => '200000',
+                             'fractionable' => true, 'trading_enabled' => true }
+                         ] })
+    v2 = stub
+    v2.expects(:get).with('api/v2/listings', { venue: 'alpaca_crypto' }).returns(mock_response)
+    @client.stubs(:v2_connection).returns(v2)
+
+    result = @client.get_alpaca_crypto_listings
+    assert_predicate result, :success?
+    assert_equal 1, result.data['data'].size
+  end
+
   # Indices consumption is migrated to the v2 surface (v1/indices is being sunset).
   test 'get_indices calls api/v2/indices' do
     mock_response = stub(body: { 'metadata' => { 'count' => 1 },

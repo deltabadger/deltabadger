@@ -48,6 +48,15 @@ class Clients::MarketData < Client
     end
   end
 
+  def get_alpaca_crypto_listings
+    with_rescue do
+      response = v2_connection.get('api/v2/listings', { venue: 'alpaca_crypto' }) do |req|
+        req.options.timeout = BULK_READ_TIMEOUT
+      end
+      Result::Success.new(response.body)
+    end
+  end
+
   def get_tickers(exchange:)
     with_rescue do
       response = connection.get("api/v1/tickers/#{exchange}")

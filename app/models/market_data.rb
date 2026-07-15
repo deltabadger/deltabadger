@@ -505,6 +505,135 @@ class MarketData
     Result::Failure.new(e.message)
   end
 
+  # Degraded-payload guard for sync_alpaca_crypto_listings_from_deltabadger! — same class of
+  # protection as ALPACA_LISTINGS_LAST_GOOD_KEY (stocks, incident 2026-06-02), scaled to crypto's
+  # much smaller (~36-pair) universe. 30 is deliberately close to the full universe size: unlike
+  # stocks (~6657, where 1000 is a generous floor), a partial response for a tiny, well-known,
+  # essentially-fixed universe should be treated with much less tolerance.
+  ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY = 'alpaca_crypto_listings_last_good_count'.freeze
+  MIN_HEALTHY_ALPACA_CRYPTO_LISTINGS = 30
+
+  def self.min_healthy_alpaca_crypto_listings
+    MIN_HEALTHY_ALPACA_CRYPTO_LISTINGS
+  end
+
+  def self.alpaca_crypto_listings_degraded?(incoming_count, last_good)
+    return true if incoming_count <= 0
+
+    baseline = last_good.to_i
+    # max(absolute floor, 90% of baseline) — NOT plain integer division (baseline * 9 / 10 truncates,
+    # e.g. 32*9/10 = 28, only 87.5% of 32, not a genuine 90% rule). The absolute floor also applies
+    # even once a baseline exists, so a sequence of small legitimate-looking drops (36 -> 32 -> 29)
+    # can never ratchet the effective threshold down below it.
+    threshold = baseline.positive? ? [min_healthy_alpaca_crypto_listings, (baseline * 9.0 / 10).ceil].max : min_healthy_alpaca_crypto_listings
+    incoming_count < threshold
+  end
+
+  # Alpaca crypto listings resolve to ALREADY-canonical CoinGecko-identified Asset rows on the base
+  # side (unlike stocks, which need the legacy-collision machinery in sync_alpaca_listings_from_
+  # deltabadger! above) — every hosted container already has these Asset rows from its own ordinary
+  # crypto sync (or will, once data-api's SyncAssetsJob backfills the handful it doesn't yet — see
+  # Global Constraints). The generic v2 listings endpoint serializes base_asset_id/quote_asset_id as
+  # data-api's public_id ("crypto:bitcoin"/"fiat:USD"), NOT the bare external_id import_tickers!
+  # expects. The base side's public_id safely unwraps (crypto: key == external_id in data-api). The
+  # quote side does NOT — data-api's local USD fiat external_id ("USD.FOREX") has nothing to do with
+  # deltabadger's own local USD convention ("usd"); the quote is hardcoded to 'usd' instead of
+  # trusting anything from the response, mirroring sync_alpaca_listings_from_deltabadger!'s
+  # Invariant B exactly.
+  def self.sync_alpaca_crypto_listings_from_deltabadger!
+    result = client.get_alpaca_crypto_listings
+    return result if result.failure?
+
+    alpaca = Exchanges::Alpaca.first
+    return Result::Success.new unless alpaca
+
+    # Invariant A: the local 'usd' Asset row must exist for the quote side to resolve. Ordinary
+    # crypto sync already requires this for every other exchange's USD pairs, so this is defensive,
+    # not load-bearing on an already-functioning container.
+    usd = Asset.find_or_initialize_by(external_id: 'usd')
+    if usd.new_record?
+      usd.assign_attributes(symbol: 'USD', name: 'US Dollar', category: 'Fiat')
+      usd_color = Fiat.currencies.find { |c| c[:symbol] == 'USD' }&.dig(:color)
+      usd.color = usd_color if usd_color.present?
+      usd.save!
+    end
+
+    rows = Array(result.data && result.data['data'])
+    tickers_data = rows.filter_map { |row| ticker_data_from_listing_row(row) }
+
+    # Measure the RESOLVED count (base external_id actually matches a local Asset), not the raw
+    # tickers_data.size — a payload that's the right size but resolves to nothing must still be
+    # caught, mirroring the stock guard's resolved_count calculation exactly.
+    base_external_ids = tickers_data.map { |t| t['base_external_id'] }.uniq
+    resolved_count = base_external_ids.empty? ? 0 : Asset.where(external_id: base_external_ids).count
+
+    if alpaca_crypto_listings_degraded?(resolved_count, AppConfig.get(ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY))
+      Rails.logger.warn '[MarketData] sync_alpaca_crypto_listings: degraded/partial payload ' \
+                        "(#{resolved_count} resolved of #{rows.size} rows; " \
+                        "last_good=#{AppConfig.get(ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY).inspect}); " \
+                        'skipping import + sweep to preserve availability'
+      return Result::Success.new
+    end
+
+    written_base_asset_ids = import_tickers!(alpaca, tickers_data)
+    if written_base_asset_ids.any?
+      alpaca.tickers.joins(:base_asset)
+            .where(assets: { category: 'Cryptocurrency' })
+            .where.not(base_asset_id: written_base_asset_ids)
+            .update_all(available: false)
+    end
+
+    AppConfig.set(ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY, resolved_count.to_s)
+    Result::Success.new
+  rescue Client::TransientNetworkError, Client::RateLimitedError
+    raise
+  rescue StandardError => e
+    Rails.logger.error "[MarketData] Failed to sync alpaca crypto listings: #{e.message}"
+    Result::Failure.new(e.message)
+  end
+
+  def self.ticker_data_from_listing_row(row)
+    base_external_id = unwrap_public_id(row['base_asset_id'])
+    return nil unless base_external_id
+
+    base, quote = row['symbol'].to_s.split('/', 2)
+    return nil unless base.present? && quote.present?
+
+    {
+      'base_external_id' => base_external_id,
+      'quote_external_id' => 'usd', # hardcoded literal — see this method's caller comment.
+      'base' => base,
+      'quote' => quote,
+      'ticker' => row['native_symbol'] || row['symbol'],
+      'minimum_base_size' => row['minimum_base_size'],
+      'minimum_quote_size' => row['minimum_quote_size'],
+      'maximum_base_size' => row['maximum_base_size'],
+      'maximum_quote_size' => row['maximum_quote_size'],
+      'base_decimals' => row['base_decimals'],
+      'quote_decimals' => row['quote_decimals'],
+      'price_decimals' => row['price_decimals'],
+      # Propagated from data-api's own trading_enabled (which reflects Alpaca's live tradable
+      # flag for a still-listed row) — import_tickers! already supports this key (used by the
+      # generic crypto-exchange sync path). Without this, a row Alpaca marks non-tradable but
+      # still returns would silently import as trading_enabled: true (the field's default).
+      'trading_enabled' => row['trading_enabled']
+    }
+  end
+  private_class_method :ticker_data_from_listing_row
+
+  # data-api's v2 API serializes asset references as "public_id" (e.g. "crypto:bitcoin",
+  # "fiat:USD") — asset_type prefix + key, joined with ":". import_tickers! only understands the
+  # bare external_id (e.g. "bitcoin"). For CRYPTO assets, key == external_id by construction in
+  # data-api (Asset#assign_canonical_fields), so stripping the prefix always yields the correct bare
+  # external_id — used ONLY for the base side above. Do NOT use this for fiat/quote resolution: fiat
+  # key == symbol (e.g. "USD"), not its external_id ("USD.FOREX" in data-api) — the quote side is
+  # hardcoded to the literal 'usd' instead (deltabadger's own local convention), never derived from
+  # this function's output.
+  def self.unwrap_public_id(value)
+    value.to_s.split(':', 2).last.presence
+  end
+  private_class_method :unwrap_public_id
+
   # One-time, idempotent, flag-gated rewrite of legacy `alpaca_<uuid>` Stock external_ids to
   # data-api canonical ids (e.g. AAPL.US). FK-safe via `id` preservation. Called at the top
   # of every Asset::SyncStocksFromDeltabadgerJob invocation so existing hosted containers
