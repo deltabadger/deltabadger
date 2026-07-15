@@ -575,12 +575,17 @@ class MarketData
       return Result::Success.new
     end
 
-    written_base_asset_ids = import_tickers!(alpaca, tickers_data)
-    if written_base_asset_ids.any?
-      alpaca.tickers.joins(:base_asset)
-            .where(assets: { category: 'Cryptocurrency' })
-            .where.not(base_asset_id: written_base_asset_ids)
-            .update_all(available: false)
+    # Import + sweep run in ONE transaction (Fix A parity with sync_alpaca_listings_from_deltabadger!
+    # above) so a mid-sync process kill can never commit the sweep without the import having also
+    # committed — the same AV=0-strand failure mode from the 2026-06-02 incident.
+    Ticker.transaction do
+      written_base_asset_ids = import_tickers!(alpaca, tickers_data)
+      if written_base_asset_ids.any?
+        alpaca.tickers.joins(:base_asset)
+              .where(assets: { category: 'Cryptocurrency' })
+              .where.not(base_asset_id: written_base_asset_ids)
+              .update_all(available: false)
+      end
     end
 
     AppConfig.set(ALPACA_CRYPTO_LISTINGS_LAST_GOOD_KEY, resolved_count.to_s)
