@@ -486,7 +486,8 @@ class MarketData
       written_base_asset_ids = import_tickers!(alpaca, listings)
       if written_base_asset_ids.any?
         legacy_asset_ids = Asset.where(category: 'Stock').where("external_id LIKE 'alpaca_%'").pluck(:id)
-        alpaca.tickers
+        alpaca.tickers.joins(:base_asset)
+              .where(assets: { category: 'Stock' })
               .where.not(base_asset_id: written_base_asset_ids + legacy_asset_ids)
               .update_all(available: false)
       end

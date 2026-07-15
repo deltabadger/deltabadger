@@ -612,6 +612,30 @@ class MarketDataSyncAlpacaListingsFromDeltabadgerTest < ActiveSupport::TestCase
     assert @alpaca.tickers.find_by(base_asset: @aapl).available?, 'live ticker stays available'
   end
 
+  # P1 regression (2026-07): now that Alpaca crypto tickers coexist with Alpaca stock tickers on
+  # the SAME Exchanges::Alpaca row (sync_alpaca_crypto_listings_from_deltabadger! writes its own
+  # rows there too), the STOCK sweep must be scoped to Stock-category tickers only. An unscoped
+  # sweep sees every crypto ticker's base_asset_id as "absent from incoming" (the incoming payload
+  # here is stock-only) and incorrectly flips it unavailable — a recurring outage window until the
+  # crypto sync job runs again 15 minutes later.
+  test 'does not sweep Cryptocurrency-category Alpaca tickers (crypto/stock coexist on one exchange)' do
+    bitcoin = Asset.create!(external_id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', category: 'Cryptocurrency')
+    usd = usd_asset
+    btc_ticker = create(:ticker, exchange: @alpaca, base_asset: bitcoin, quote_asset: usd,
+                                 base: 'BTC', quote: 'USD', ticker: 'BTC/USD', available: true)
+
+    # Stock-only payload — deliberately does not mention bitcoin at all.
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
+                                                'metadata' => { 'count' => 1 },
+                                                'data' => [listing_row(base_ext: 'AAPL.US', symbol: 'AAPL')]
+                                              ))
+
+    MarketData.sync_alpaca_listings_from_deltabadger!
+
+    assert btc_ticker.reload.available?,
+           'the stock sweep must not touch Cryptocurrency-category tickers on the same exchange'
+  end
+
   test 'empty payload guard: does NOT wipe existing tickers (R7-F3)' do
     @fake.stubs(:get_alpaca_listings).returns(Result::Success.new(
                                                 'metadata' => { 'count' => 1 },
