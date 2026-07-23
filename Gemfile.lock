@@ -8,7 +8,7 @@ GIT
 
 GIT
   remote: https://github.com/doorkeeper-gem/doorkeeper.git
-  revision: 220724bd58a7b7f7a608cc6560b7ded78b628b1c
+  revision: da576c16e95d24de6f5c4685d1717740acdbb2fa
   specs:
     doorkeeper (6.0.0.beta1)
       railties (>= 5)
@@ -260,7 +260,7 @@ GEM
       jwt (~> 2.0)
       net-http-persistent (~> 4.0)
     http-2 (1.2.1)
-    httpx (1.8.0)
+    httpx (1.8.1)
       http-2 (>= 1.2.0)
     hyperliquid-rb (0.1.1)
       eth (~> 0.5.17)
@@ -521,7 +521,7 @@ GEM
       activejob (>= 7.2)
       activerecord (>= 7.2)
       railties (>= 7.2)
-    solid_queue (1.4.0)
+    solid_queue (1.5.0)
       activejob (>= 7.1)
       activerecord (>= 7.1)
       concurrent-ruby (>= 1.3.1)
@@ -746,7 +746,7 @@ CHECKSUMS
   hashdiff (1.2.1) sha256=9c079dbc513dfc8833ab59c0c2d8f230fa28499cc5efb4b8dd276cf931457cd1
   honeymaker (0.9.12) sha256=690ad2efa18e122085613d21cd7c447b919ac829c17116fca072a7d951c6939e
   http-2 (1.2.1) sha256=d290f3b7daa70b8be8cd2260306c01243c73ec4df9d598feadaf0ed26e00b9b7
-  httpx (1.8.0) sha256=10b300875be99cbc3497397278cf99632262567886f3582ee25ce492bdadbe2a
+  httpx (1.8.1) sha256=8d9e003019b2c1a8f582daac9371ec9da96182c23064e211386eaad70b6e12e5
   hyperliquid-rb (0.1.1) sha256=0b02b2a17bf1eb431c76804b43d3492397dd4ff8cd308df39ecaf3459cd53087
   i18n (1.15.2) sha256=00f9eb62412fe593b2a65a97daa75300d37abb8f7202ec748e94b6d46a9dd1b5
   importmap-rails (2.2.3) sha256=7101be2a4dc97cf1558fb8f573a718404c5f6bcfe94f304bf1f39e444feeb16a
@@ -855,7 +855,7 @@ CHECKSUMS
   simpleidn (0.2.3) sha256=08ce96f03fa1605286be22651ba0fc9c0b2d6272c9b27a260bc88be05b0d2c29
   solid_cable (4.0.2) sha256=084636a67679ad00d23088b33c84047e614bcf41ee559db24b414d83cdc42d03
   solid_cache (1.0.10) sha256=bc05a2fb3ac78a6f43cbb5946679cf9db67dd30d22939ededc385cb93e120d41
-  solid_queue (1.4.0) sha256=e6a18d196f0b27cb6e3c77c5b31258b05fb634f8ed64fb1866ed164047216c2a
+  solid_queue (1.5.0) sha256=329f29caab9cc68eefe489013eb5a38ea4a66708ed2bee301384dbed91890f7f
   sprockets (4.2.2) sha256=761e5a49f1c288704763f73139763564c845a8f856d52fba013458f8af1b59b1
   sprockets-rails (3.5.2) sha256=a9e88e6ce9f8c912d349aa5401509165ec42326baf9e942a85de4b76dbc4119e
   sqids (0.2.2) sha256=c2d31e0dfb6c32d17c10b59df059a299af93bef716d700ff70d77156df702d36

@@ -1,4 +1,13 @@
 ENV['RAILS_ENV'] ||= 'test'
+
+# The suite's baseline is a self-hosted container: no platform market data.
+# Tests that exercise the hosted path opt in by setting MARKET_DATA_URL themselves
+# and clear it again afterwards. A developer with these exported in their shell
+# (handy for pointing `rails server` at a real data-api) would otherwise flip the
+# whole suite into hosted mode and fail every stock/market-data assertion.
+# Same intent as WebMock.disable_net_connect! below: cut the suite off from ambient config.
+%w[MARKET_DATA_URL MARKET_DATA_TOKEN MARKET_DATA_PROVIDER_NAME].each { |key| ENV.delete(key) }
+
 require_relative '../config/environment'
 require 'rails/test_help'
 require 'mocha/minitest'
