@@ -36,8 +36,10 @@ class MarketDataSettings
 
   # Docker-internal network-alias launchpad's hosted deploy passes as MARKET_DATA_URL (see
   # deltabadger-launchpad's config/deploy.yml) — fast for server-to-server calls but never
-  # browser-reachable. data-api's own public host (Kamal-proxied, DNS-only/grey-cloud) serves the
-  # same instance's static assets (e.g. /logos/*) directly to browsers. Any other configured
+  # browser-reachable. data-api's own public host (Kamal-proxied, Cloudflare-proxied) serves the
+  # same instance's static assets (e.g. /logos/*) directly to browsers. Serving those images is the
+  # ONLY thing that host does for us — every API call goes over the Docker network — which is why
+  # fronting it with Cloudflare is right rather than a misconfiguration. Any other configured
   # MARKET_DATA_URL (self-hosted/BYO market data providers) is already public and used as-is.
   DELTABADGER_DOCKER_HOST = 'data-api'
   DELTABADGER_PUBLIC_URL = 'https://data.deltabadger.com'
