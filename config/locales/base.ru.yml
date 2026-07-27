@@ -482,6 +482,7 @@ ru:
             execution_retrying: 'Временная проблема с подключением — автоматический повтор'
             execution_failed_with_error: 'Попытка ордера не удалась: %{error}'
             order_abandoned: "Ордер %{order_id} оставлен (биржа больше его не отслеживает)"
+            placement_ambiguous: "Статус ордера не подтверждён — повтор не выполняется, чтобы избежать дублирования"
         transactions:
             bought: 'Куплено %{amount} %{base} за %{quote_amount} %{quote}'
             sold: 'Продано %{amount} %{base} за %{quote_amount} %{quote}'

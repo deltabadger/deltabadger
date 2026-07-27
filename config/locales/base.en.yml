@@ -492,6 +492,7 @@ en:
             execution_retrying: 'Temporary connection issue — retrying automatically'
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: 'Order %{order_id} abandoned (exchange no longer tracks it)'
+            placement_ambiguous: 'Order status unconfirmed — not retried, to avoid placing it twice'
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'
             sold: 'Sold %{amount} %{base} for %{quote_amount} %{quote}'

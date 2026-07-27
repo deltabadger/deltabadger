@@ -39,6 +39,29 @@ module Bot::Lifecycle
     @skip_status_bar_broadcast = !set_orders_now
 
     if valid?(:start) && save
+      # Cancel any chain that is already live before arming a new one. Without this a start leaves
+      # TWO chains for one bot, and because start_fresh also resets started_at — the anchor
+      # next_interval_checkpoint_at computes the grid from — both chains reschedule off the SAME
+      # new anchor, converge on the SAME grid point, and the bot places twice seconds apart.
+      # Observed in production on a daily bot that traded cleanly at 13:52 for a week, was
+      # restarted at 10:00:40, then placed two orders 26s apart at 10:00:43 the next day.
+      #
+      # Inside the success branch on purpose: cancelling on a failed start would silently stop a
+      # bot the user never asked to stop. Before the enqueues on purpose: after them it would
+      # destroy the job just created. Mirrors #stop (:68), Bot::Reversible (reversible.rb:116) and
+      # Bot::RepairOrphanedBotsJob#repair_bot (repair_orphaned_bots_job.rb:67) — start was the only
+      # re-enqueue site that did not do this.
+      #
+      # RESIDUAL, pre-existing and shared by every cancellation site: cancel_solid_queue_jobs
+      # (schedulable.rb:105-133) reaches Scheduled, Ready and Blocked executions but NOT Claimed
+      # ones. A job already running cannot be cancelled, so a stop-then-restart landing inside that
+      # execution window leaves the in-flight job to finish against stale in-memory state and
+      # reschedule itself — re-creating the second chain this call exists to prevent.
+      # transition_working_bot! does not close it either: it excludes stopped/deleted, but a
+      # restart has already flipped the row back to :scheduled. Closing it properly needs an
+      # execution fence (a generation counter bumped here and re-checked before the job's final
+      # writes), which is a schema change and deliberately not bolted on here.
+      cancel_scheduled_action_jobs
       if use_delayed_first
         Bot::ActionJob.set(wait_until: computed_start_at).perform_later(self)
         Bot::BroadcastAfterScheduledActionJob.perform_later(self)

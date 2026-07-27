@@ -480,6 +480,7 @@ de:
             execution_retrying: 'Vorübergehendes Verbindungsproblem — wird automatisch wiederholt'
             execution_failed_with_error: 'Orderversuch fehlgeschlagen: %{error}'
             order_abandoned: "Order %{order_id} aufgegeben (Börse erfasst sie nicht mehr)"
+            placement_ambiguous: "Orderstatus unbestätigt — kein erneuter Versuch, um eine doppelte Order zu vermeiden"
         transactions:
             bought: 'Gekauft: %{amount} %{base} für %{quote_amount} %{quote}'
             sold: 'Verkauft: %{amount} %{base} für %{quote_amount} %{quote}'

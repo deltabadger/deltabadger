@@ -480,6 +480,7 @@ fr:
             execution_retrying: 'Problème de connexion temporaire — nouvelle tentative automatique'
             execution_failed_with_error: "Tentative d'ordre échouée : %{error}"
             order_abandoned: "Ordre %{order_id} abandonné (la bourse ne le suit plus)"
+            placement_ambiguous: "Statut de l'ordre non confirmé — pas de nouvelle tentative, pour éviter un ordre en double"
         transactions:
             bought: 'Acheté %{amount} %{base} pour %{quote_amount} %{quote}'
             sold: 'Vendu %{amount} %{base} pour %{quote_amount} %{quote}'

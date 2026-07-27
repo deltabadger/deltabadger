@@ -493,6 +493,7 @@ sv:
             execution_retrying: 'Tillfälligt anslutningsproblem — försöker igen automatiskt'
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Order %{order_id} övergiven (börsen spårar den inte längre)"
+            placement_ambiguous: "Orderstatus obekräftad — försöks inte igen, för att undvika en dubbel order"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'

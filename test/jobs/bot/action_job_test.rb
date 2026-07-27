@@ -656,3 +656,312 @@ class Bot::ActionJobSchedulingIntegrationTest < ActiveSupport::TestCase
     end
   end
 end
+
+# An order placement whose outcome is UNKNOWN (the response timed out; the exchange may or may not
+# have accepted the order) must never be replayed by the job-level retry. Replaying it buys twice.
+#
+# LATENT, not observed. The 24 close-together duplicate placements found on 2026-07-27 were traced
+# to user-initiated restarts, not to this replay, and 14 of them predate retry_on existing in this
+# job (99a4558f8, 2026-05-28). These tests pin a hazard that is reachable in code and costs real
+# money if it fires — not one that has been seen firing.
+class Bot::ActionJobAmbiguousPlacementTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
+  # The regression guard. If AmbiguousPlacementError is ever added to a retry_on — directly or by
+  # being made a subclass of a retried class — the double-buy comes straight back.
+  test 'does not declare retry_on for Client::AmbiguousPlacementError' do
+    handler_classes = Bot::ActionJob.rescue_handlers.map(&:first)
+
+    refute_includes handler_classes, 'Client::AmbiguousPlacementError',
+                    'an ambiguous placement must never be retried — the order may already be live'
+  end
+
+  test 'retry_on Client::TransientNetworkError does not cover an ambiguous placement' do
+    refute Client::AmbiguousPlacementError <= Client::TransientNetworkError,
+           'retry_on matches subclasses, so AmbiguousPlacementError must not inherit from ' \
+           'TransientNetworkError'
+  end
+
+  test 'an ambiguous placement leaves the bot :retrying without re-raising' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      raise Client::AmbiguousPlacementError, 'Faraday::TimeoutError: read timeout reached'
+    end
+
+    # Must NOT raise: re-raising dead-letters the job, and the ActiveJob retry chain is exactly
+    # what we are refusing to engage here.
+    assert_nothing_raised { Bot::ActionJob.new.perform(bot) }
+
+    assert_equal 'retrying', bot.reload.status
+  end
+
+  test 'an ambiguous placement calls execute_action exactly once' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    calls = 0
+    bot.define_singleton_method(:execute_action) do
+      calls += 1
+      update!(status: :executing)
+      raise Client::AmbiguousPlacementError, 'Faraday::TimeoutError: read timeout reached'
+    end
+
+    Bot::ActionJob.new.perform(bot)
+
+    assert_equal 1, calls, 'the placement must not be attempted again within the same tick'
+  end
+
+  test 'an ambiguous placement schedules the next action job so the bot is not orphaned' do
+    bot = create(:dca_single_asset, :started)
+    setup_bot_execution_mocks(bot)
+    bot.stubs(:broadcast_below_minimums_warning)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      raise Client::AmbiguousPlacementError, 'Faraday::TimeoutError: read timeout reached'
+    end
+
+    Bot::ActionJob.expects(:set).with(wait_until: bot.next_interval_checkpoint_at)
+                  .returns(stub(perform_later: true))
+
+    Bot::ActionJob.new.perform(bot)
+  end
+
+  test 'an ambiguous placement logs a warning activity, not execution_failed' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      raise Client::AmbiguousPlacementError, 'Faraday::TimeoutError: read timeout reached'
+    end
+
+    Bot::ActionJob.new.perform(bot)
+
+    log = bot.bot_activity_logs.find_by(event: 'placement_ambiguous')
+    assert log.present?, 'an ambiguous placement must leave a visible record'
+    assert_equal 'warning', log.level
+    assert_equal 0, bot.bot_activity_logs.where(event: 'execution_failed').count,
+                 'we do not know the placement failed — recording it as a failure would be a lie'
+  end
+
+  test 'an ambiguous placement does not email the user' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      raise Client::AmbiguousPlacementError, 'Faraday::TimeoutError: read timeout reached'
+    end
+    bot.expects(:notify_about_error).never
+    bot.expects(:notify_end_of_funds).never
+
+    Bot::ActionJob.new.perform(bot)
+  end
+
+  test 'a bot stopped mid-flight is not resurrected by the ambiguous-placement path' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    bot.define_singleton_method(:execute_action) do
+      Bot.where(id: id).update_all(status: 'stopped')
+      raise Client::AmbiguousPlacementError, 'Faraday::TimeoutError: read timeout reached'
+    end
+
+    Bot::ActionJob.new.perform(bot)
+
+    assert_equal 'stopped', bot.reload.status
+  end
+
+  # The placement itself often succeeds; code that runs AFTER it can still raise a retryable error,
+  # and the retry then replays the whole job — including the placement.
+  #
+  # Reachable path: Bot::Fundable#execute_action calls `super` (which places the order) and then
+  # `funds_are_low?` -> `get_balance`, a live network read. On Alpaca and IBKR, whose clients raise
+  # instead of returning a Result, a blip on that read escapes with the order already live.
+  #
+  # These tests pin the guard's contract, which is source-agnostic: once a submitted order exists
+  # for this tick, nothing may replay the tick. Note the contract is INTRA-PERFORM — two separately
+  # enqueued jobs each placing once are a different problem and are not covered here.
+  test 'a transient error raised AFTER an order was placed this tick is not retried' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    ticker = bot.tickers.first
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      # Mimic persist_accepted_order!: the exchange accepted the order, we have a row for it.
+      transactions.create!(
+        exchange: exchange, status: :submitted, external_id: 'LIVE-1', side: :buy,
+        base: ticker.base_asset.symbol, quote: ticker.quote_asset.symbol,
+        amount: 1, quote_amount: 10, amount_exec: 0, quote_amount_exec: 0, order_type: :market_order
+      )
+      raise Client::TransientNetworkError.new('Faraday::TimeoutError: read timeout reached',
+                                              original_class: 'Faraday::TimeoutError')
+    end
+
+    # Must NOT re-raise: re-raising hands it to `retry_on Client::TransientNetworkError`, which
+    # replays perform and places a SECOND order against the same tick.
+    assert_nothing_raised { Bot::ActionJob.new.perform(bot) }
+
+    assert_equal 'retrying', bot.reload.status
+    assert_equal 1, bot.transactions.count, 'the tick must leave exactly one order'
+  end
+
+  # These two pin a DELIBERATE tradeoff rather than ideal behaviour. Clearing the one-shot start
+  # time here would be more correct — the order went through, so the scheduled run happened — but
+  # disable_starting_time! ends in save!, and transition_working_bot! has already set bot.status in
+  # memory without persisting it. A stop landing in that window would be overwritten by the save,
+  # resurrecting a bot the user just stopped. The success path disarms BEFORE the transition; these
+  # rescue paths cannot, because the transition is how the stop is detected.
+  # Residual: after such a tick a date-mode one-shot start may need reconfiguring before restart.
+  test 'a suppressed retry does not save, so it cannot resurrect a concurrently stopped bot' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    ticker = bot.tickers.first
+    bot.stubs(:start_time_enabled?).returns(true)
+    bot.expects(:disable_starting_time!).never
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      transactions.create!(
+        exchange: exchange, status: :submitted, external_id: 'LIVE-3', side: :buy,
+        base: ticker.base_asset.symbol, quote: ticker.quote_asset.symbol,
+        amount: 1, quote_amount: 10, amount_exec: 0, quote_amount_exec: 0, order_type: :market_order
+      )
+      raise Client::TransientNetworkError.new('Faraday::TimeoutError: read timeout reached',
+                                              original_class: 'Faraday::TimeoutError')
+    end
+
+    Bot::ActionJob.new.perform(bot)
+  end
+
+  # Same tradeoff on the ambiguous path, including when an earlier leg of an index/dual tick was
+  # already accepted: no save, so no resurrection window.
+  test 'an ambiguous placement after an accepted leg does not save the bot' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    ticker = bot.tickers.first
+    bot.stubs(:start_time_enabled?).returns(true)
+    bot.expects(:disable_starting_time!).never
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      transactions.create!(
+        exchange: exchange, status: :submitted, external_id: 'LEG-1', side: :buy,
+        base: ticker.base_asset.symbol, quote: ticker.quote_asset.symbol,
+        amount: 1, quote_amount: 10, amount_exec: 0, quote_amount_exec: 0, order_type: :market_order
+      )
+      raise Client::AmbiguousPlacementError, 'Faraday::TimeoutError: read timeout reached'
+    end
+
+    Bot::ActionJob.new.perform(bot)
+  end
+
+  test 'an ambiguous placement leaves the one-shot start time armed' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    bot.stubs(:start_time_enabled?).returns(true)
+    bot.expects(:disable_starting_time!).never
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      raise Client::AmbiguousPlacementError, 'Faraday::TimeoutError: read timeout reached'
+    end
+
+    Bot::ActionJob.new.perform(bot)
+  end
+
+  test 'a transient error with no order placed this tick still retries' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      raise Client::TransientNetworkError.new('Faraday::TimeoutError: read timeout reached',
+                                              original_class: 'Faraday::TimeoutError')
+    end
+
+    # Nothing was placed, so replaying is safe and still desirable — this is the path that carries
+    # bots through exchange-proxy blips. The post-placement guard must not swallow it.
+    assert_raises(Client::TransientNetworkError) { Bot::ActionJob.new.perform(bot) }
+  end
+
+  test 'an order placed by a PREVIOUS tick does not suppress the retry' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    ticker = bot.tickers.first
+    bot.transactions.create!(
+      exchange: bot.exchange, status: :submitted, external_id: 'OLD-1', side: :buy,
+      base: ticker.base_asset.symbol, quote: ticker.quote_asset.symbol,
+      amount: 1, quote_amount: 10, amount_exec: 0, quote_amount_exec: 0, order_type: :market_order,
+      created_at: 2.days.ago
+    )
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      raise Client::TransientNetworkError.new('Faraday::TimeoutError: read timeout reached',
+                                              original_class: 'Faraday::TimeoutError')
+    end
+
+    assert_raises(Client::TransientNetworkError) { Bot::ActionJob.new.perform(bot) }
+  end
+
+  # An index or dual-asset bot writes a `skipped` row for a leg that is below the exchange minimum
+  # and a `failed` row for one the exchange rejected. Neither is a live order, so neither may
+  # suppress the retry — otherwise one below-minimum allocation costs the whole tick.
+  test 'a skipped transaction this tick does not suppress the retry' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    ticker = bot.tickers.first
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      transactions.create!(
+        exchange: exchange, status: :skipped, side: :buy,
+        base: ticker.base_asset.symbol, quote: ticker.quote_asset.symbol,
+        amount: 1, quote_amount: 10, amount_exec: 0, quote_amount_exec: 0, order_type: :market_order
+      )
+      raise Client::TransientNetworkError.new('Faraday::TimeoutError: read timeout reached',
+                                              original_class: 'Faraday::TimeoutError')
+    end
+
+    assert_raises(Client::TransientNetworkError) { Bot::ActionJob.new.perform(bot) }
+  end
+
+  test 'a failed transaction this tick does not suppress the retry' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    ticker = bot.tickers.first
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      transactions.create!(
+        exchange: exchange, status: :failed, side: :buy,
+        base: ticker.base_asset.symbol, quote: ticker.quote_asset.symbol,
+        amount: 1, quote_amount: 10, amount_exec: 0, quote_amount_exec: 0, order_type: :market_order
+      )
+      raise Client::TransientNetworkError.new('Faraday::TimeoutError: read timeout reached',
+                                              original_class: 'Faraday::TimeoutError')
+    end
+
+    assert_raises(Client::TransientNetworkError) { Bot::ActionJob.new.perform(bot) }
+  end
+
+  test 'a rate limit raised after an order was placed this tick is not retried either' do
+    bot = create(:dca_single_asset, :started)
+    setup_action_job_mocks(bot)
+    ticker = bot.tickers.first
+    bot.define_singleton_method(:execute_action) do
+      update!(status: :executing)
+      transactions.create!(
+        exchange: exchange, status: :submitted, external_id: 'LIVE-2', side: :buy,
+        base: ticker.base_asset.symbol, quote: ticker.quote_asset.symbol,
+        amount: 1, quote_amount: 10, amount_exec: 0, quote_amount_exec: 0, order_type: :market_order
+      )
+      raise Client::RateLimitedError, 'slow down'
+    end
+
+    assert_nothing_raised { Bot::ActionJob.new.perform(bot) }
+    assert_equal 1, bot.transactions.count
+  end
+
+  private
+
+  def setup_action_job_mocks(bot)
+    setup_bot_execution_mocks(bot)
+    bot.stubs(:broadcast_below_minimums_warning)
+    Bot::ActionJob.stubs(:set).returns(stub(perform_later: true))
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+  end
+end

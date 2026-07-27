@@ -133,7 +133,7 @@ class Clients::Ibkr < Client
   def with_rescue
     yield
   rescue *Client::TRANSIENT_NETWORK_ERRORS => e
-    raise Client::TransientNetworkError, "#{e.class}: #{e.message}"
+    raise Client.transient_network_error(e)
   rescue Faraday::Error => e
     Result::Failure.new(extract_ibkr_message(e.response_body) || "HTTP #{e.response_status || 'error'}",
                         data: { status: e.response_status })

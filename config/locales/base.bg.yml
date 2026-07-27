@@ -493,6 +493,7 @@ bg:
             execution_retrying: 'Временен проблем с връзката — автоматичен повторен опит'
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Поръчката %{order_id} е изоставена (борсата вече не я следи)"
+            placement_ambiguous: "Статусът на поръчката е непотвърден — без повторен опит, за да не се дублира"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'

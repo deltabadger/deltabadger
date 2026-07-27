@@ -480,6 +480,7 @@ es:
             execution_retrying: 'Problema de conexión temporal — reintentando automáticamente'
             execution_failed_with_error: 'Intento de orden fallido: %{error}'
             order_abandoned: "Orden %{order_id} abandonada (el exchange ya no la registra)"
+            placement_ambiguous: "Estado de la orden sin confirmar — no se reintenta para evitar una orden duplicada"
         transactions:
             bought: 'Comprado %{amount} %{base} por %{quote_amount} %{quote}'
             sold: 'Vendido %{amount} %{base} por %{quote_amount} %{quote}'

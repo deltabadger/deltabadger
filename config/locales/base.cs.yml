@@ -500,6 +500,7 @@ cs:
             execution_retrying: 'Dočasný problém s připojením — automatické opakování'
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Pokyn %{order_id} opuštěn (burza jej již nesleduje)"
+            placement_ambiguous: "Stav pokynu nepotvrzen — bez opakování, aby nevznikl duplicitní pokyn"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'

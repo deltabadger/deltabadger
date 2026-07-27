@@ -481,6 +481,7 @@ pl:
             execution_retrying: 'Tymczasowy problem z połączeniem — automatyczne ponawianie'
             execution_failed_with_error: 'Próba zlecenia nie powiodła się: %{error}'
             order_abandoned: "Zlecenie %{order_id} porzucone (giełda już go nie śledzi)"
+            placement_ambiguous: "Status zlecenia niepotwierdzony — bez ponowienia, aby uniknąć zdublowanego zlecenia"
         transactions:
             bought: 'Kupiono %{amount} %{base} za %{quote_amount} %{quote}'
             sold: 'Sprzedano %{amount} %{base} za %{quote_amount} %{quote}'

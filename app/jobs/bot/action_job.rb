@@ -119,10 +119,95 @@ class Bot::ActionJob < BotJob
     else
       Rails.logger.info("ActionJob for bot #{bot.id}: bot was stopped mid-execution, leaving it stopped")
     end
-  rescue Client::TransientNetworkError, Client::RateLimitedError
-    # Skip the noisy execution_failed / notify_retry path. Leaving the bot in
-    # :retrying ensures the ActiveJob retry chain (and any post-exhaustion
-    # reschedule) passes the line-8 guard on the next perform.
+  rescue Client::AmbiguousPlacementError => e
+    # The order MAY be live on the exchange — the request timed out after it was sent, and
+    # placement carries no idempotency key. Re-raising would hand this to `retry_on
+    # Client::TransientNetworkError` (if it were transient) or dead-letter the job; either way the
+    # placement must never be attempted again for this tick, because a replay buys twice.
+    # Latent, not observed: the 24 close-together duplicates found on 2026-07-27 traced to
+    # user-initiated restarts, not to this path.
+    #
+    # So: no re-raise, no re-place. Record it visibly and let the next interval proceed normally.
+    # Deliberately NOT logged as execution_failed — we do not know that it failed, and saying so
+    # would be a lie.
+    #
+    # KNOWN GAP, second half: because no Transaction is written, Bot::Accountable#pending_quote_amount
+    # counts this tick as MISSED and carries its amount into the next order — so a landed-but-unseen
+    # 10 followed by a normal 20 buys 30 across two ticks. Not reserved here on purpose: reserving
+    # assumes the order landed, not reserving assumes it did not, and each is wrong half the time.
+    # A Transaction row cannot express "unknown" either — the enum is submitted/failed/skipped, and
+    # there is no external_id to reconcile against later. Client order ids fix this properly; a
+    # coin-flip reservation would just move the error.
+    #
+    # KNOWN GAP (pre-existing, not introduced here): if the order DID land, nothing reconciles it.
+    # Bots::*::OrderSetter#set_order only calls persist_accepted_order! on a successful result, so
+    # a raised placement leaves no Transaction and no external_id, and
+    # Bot::FetchAndUpdateOpenOrdersJob polls only ids drawn from bot.transactions.waiting. A landed
+    # limit order can therefore rest untracked. This code path still strictly reduces the harm —
+    # before it, the retry placed up to three MORE untracked orders — but closing the gap needs
+    # exchange-history recovery keyed on the placement window, which is deliberately not in this
+    # change.
+    Rails.logger.warn("ActionJob for bot #{bot.id}: placement outcome unknown, not retrying. #{e.message}")
+    return unless self.class.transition_working_bot!(bot, 'retrying')
+
+    bot.log_activity('placement_ambiguous', level: :warning, details: { error: e.message })
+    # NOTE: start_time_enabled is deliberately left as-is here, and in the post-placement branch
+    # below. Disarming it would be more correct when a leg was already accepted (a date-mode
+    # start_at then sits in the past and the user must reconfigure before restarting) — but
+    # disable_starting_time! ends in save!, and at this point transition_working_bot! has set
+    # bot.status in memory WITHOUT saving it. A stop landing in that window would be overwritten by
+    # the save, resurrecting a bot the user just stopped. The success path avoids this by disarming
+    # BEFORE the transition; here the transition must come first, because it is how we detect the
+    # stop. Trading a stopped-bot resurrection for a start-time tidy-up is a bad deal, so the
+    # residual stands: after an ambiguous or suppressed tick a one-shot start may need reconfiguring.
+    schedule_next_action_job(bot)
+  rescue Client::TransientNetworkError, Client::RateLimitedError => e
+    # An order ALREADY PLACED during this perform makes the retry unsafe: replaying re-runs
+    # execute_action end to end, placing a second order for the same tick.
+    #
+    # The reachable path: Bot::Fundable#execute_action calls `super` (which places the order) and
+    # THEN funds_are_low? -> get_balance, a live network read. A raise there escapes with the order
+    # already live, and retry_on replays it. That particular raise needs an APP-level client
+    # (Alpaca, IBKR); the honeymaker gem returns Result::Failure for network errors and never raises.
+    #
+    # But do NOT read that as "honeymaker venues are safe". The app converts those Results back into
+    # raises wherever it wants the retry chain — dca_single_asset/order_setter.rb:88 and :176, plus
+    # the fetch jobs — for EVERY venue. Those four sites happen to be pre-placement today, which is
+    # the only reason the replay is not already armed fleet-wide. Moving any transient_error? raise
+    # to after create_order re-arms it on all 13 honeymaker venues at once.
+    #
+    # DEFENSIVE, NOT A POSTMORTEM FIX. The 24 duplicate placements found on 2026-07-27 were
+    # investigated and attributed to user-initiated restarts, and 14 of them predate retry_on
+    # landing in this job. This guard has not been observed preventing a real duplicate; it is here
+    # because the replay is reachable and costs real money if it ever fires.
+    #
+    # Scope limit worth knowing: this is INTRA-PERFORM. It keys on action_started_at, a local of
+    # this execution, so it cannot see a placement made by a DIFFERENT job. Two separately enqueued
+    # ActionJobs each placing one order are not covered here.
+    #
+    # No activity row and no email here on purpose: from the user's side nothing failed. The order
+    # was placed and is polled as usual; only a follow-up step blipped.
+    # Scoped to :submitted — the only status meaning "sent and accepted by the exchange". A
+    # :skipped row (a below-minimum leg on an index/dual bot) or a :failed one (exchange rejected
+    # it) leaves no live order, so neither may suppress a safe retry.
+    if bot.transactions.submitted.where('created_at >= ?', action_started_at).exists?
+      Rails.logger.warn(
+        "ActionJob for bot #{bot.id}: #{e.class} after an order was already placed this tick — " \
+        "not retrying, to avoid a duplicate order. #{e.message}"
+      )
+      return unless self.class.transition_working_bot!(bot, 'retrying')
+
+      # start_time_enabled is left as-is for the resurrection reason documented on the
+      # ambiguous-placement branch above: disable_starting_time! saves, and bot.status is dirty
+      # here because transition_working_bot! wrote it via update_all without persisting the model.
+      schedule_next_action_job(bot)
+      return
+    end
+
+    # Nothing placed yet: replaying is safe, and it is what carries bots through exchange-proxy
+    # blips. Skip the noisy execution_failed / notify_retry path. Leaving the bot in :retrying
+    # ensures the ActiveJob retry chain (and any post-exhaustion reschedule) passes the line-8
+    # guard on the next perform.
     bot.broadcast_status_bar_update if self.class.transition_working_bot!(bot, 'retrying')
     raise
   rescue StandardError => e

@@ -478,6 +478,7 @@ pt:
             execution_retrying: 'Problema de ligação temporário — a repetir automaticamente'
             execution_failed_with_error: 'Tentativa de ordem falhou: %{error}'
             order_abandoned: "Ordem %{order_id} abandonada (a exchange já não a regista)"
+            placement_ambiguous: "Estado da ordem não confirmado — sem nova tentativa, para evitar uma ordem duplicada"
         transactions:
             bought: 'Comprado %{amount} %{base} por %{quote_amount} %{quote}'
             sold: 'Vendido %{amount} %{base} por %{quote_amount} %{quote}'
