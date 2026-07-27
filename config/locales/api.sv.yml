@@ -214,20 +214,3 @@ sv:
                     -   text_html: 'Kopiera och klistra in dina nya API-nycklar i formuläret ovan.'
                 private_key: 'Secret Key'
                 public_key: 'API Key'
-            bitmart:
-                instructions:
-                    -   text_html: 'Logga in på ditt %{exchange_link}-konto.'
-                    -   text_html: 'Gå till <a href="https://www.bitmart.com/api-management"><b>Account</b> → <b>API Keys</b></a>.'
-                    -   text_html: 'Klicka på <b>+ Create API Key</b>.'
-                    -   text_html: 'Namnge din nyckel (t.ex. "Deltabadger") och ange en <b>Memo</b> (lösenfras).'
-                    -   text_html: 'Ange behörigheter:'
-                        sub_instructions:
-                            -   text_html: '☑️ <b>Read-write</b>'
-                            -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Viktigt:</strong> Aktivera inte Withdraw- eller Futures-behörigheter.'
-                            -   text_html: 'IP whitelist:'
-                                sub_instructions:
-                                    -   text_html: '🔘 Vitlista %{whitelist_ip}.'
-                    -   text_html: 'Klicka på <b>Confirm</b> och slutför verifieringen.'
-                    -   text_html: 'Kopiera och klistra in din API Key, Secret Key och Memo i formuläret ovan.'
-                private_key: 'Secret Key'
-                public_key: 'API Key'

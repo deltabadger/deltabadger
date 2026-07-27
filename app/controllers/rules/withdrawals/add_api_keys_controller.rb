@@ -1,4 +1,6 @@
 class Rules::Withdrawals::AddApiKeysController < ApplicationController
+  include RetiredExchangeGuard
+
   before_action :authenticate_user!
 
   def new
@@ -10,6 +12,7 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
       redirect_to new_rules_withdrawals_pick_exchange_path
       return
     end
+    return if reject_retired_exchange(@exchange, fallback: new_rules_withdrawals_pick_exchange_path)
 
     if Rails.configuration.dry_run
       redirect_to new_rules_withdrawals_add_address_path
@@ -34,6 +37,8 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
       redirect_to new_rules_withdrawals_pick_exchange_path
       return
     end
+    return if reject_retired_exchange(@exchange, fallback: new_rules_withdrawals_pick_exchange_path)
+
     @api_key = current_user.api_keys.find_or_initialize_by(exchange: @exchange, key_type: :withdrawal)
     @api_key.validate_credentials!(api_key_params)
 

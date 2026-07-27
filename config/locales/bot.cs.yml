@@ -61,6 +61,7 @@ cs:
             mode_paper: "Papírové obchodování"
             mode_live: "Živé obchodování"
         status:
+            exchange_retired: 'Tato burza už nefunguje — přesuň bota na jinou.'
             setting_orders: "Zadávání příkazů…"
             paused: "Pozastaveno"
             next_try: "Další pokus za"

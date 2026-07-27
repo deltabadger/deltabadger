@@ -31,6 +31,7 @@ bg:
                             not_a_number: "Трябва да попълните сумата, която не може да бъде надвишена"
                             greater_than_or_equal_to: "Лимитът на сумата трябва да е по-голям или равен на %{count}"
     errors:
+        exchange_retired: 'Тази борса вече не работи. Избери друга борса, за да продължиш да търгуваш.'
         bitcoin_address_not_updated: 'Bitcoin адресът не можа да бъде обновен'
         format: '%{attribute} %{message}'
         frequency_limit: 'Превишен лимит на честотата'

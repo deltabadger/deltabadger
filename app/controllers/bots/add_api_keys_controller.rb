@@ -1,8 +1,10 @@
 class Bots::AddApiKeysController < ApplicationController
   include Bots::Botable
+  include RetiredExchangeGuard
 
   before_action :authenticate_user!
   before_action :set_bot
+  before_action :reject_retired_bot_exchange
 
   def new
     @api_key = @bot.api_key
@@ -24,6 +26,10 @@ class Bots::AddApiKeysController < ApplicationController
   end
 
   private
+
+  def reject_retired_bot_exchange
+    reject_retired_exchange(@bot&.exchange, fallback: @bot ? bot_path(@bot) : root_path)
+  end
 
   def api_key_params
     params.require(:api_key).permit(:key, :secret, :passphrase, :access_token, :rsa_signature_key, :rsa_encryption_key, :dh_param, :ibkr_realm)

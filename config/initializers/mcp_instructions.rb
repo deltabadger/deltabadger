@@ -4,7 +4,7 @@
 # list of available exchanges from the database.
 Rails.application.config.after_initialize do
   exchanges = begin
-    Exchange.where(available: true).pluck(:name).join(', ')
+    Exchange.tradeable.pluck(:name).join(', ')
   rescue StandardError
     'Binance, Kraken, Coinbase, Alpaca'
   end

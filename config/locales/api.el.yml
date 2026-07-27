@@ -214,20 +214,3 @@ el:
                     -   text_html: 'Αντέγραψε και επικόλλησε τα νέα κλειδιά API στη φόρμα παραπάνω.'
                 private_key: 'Secret Key'
                 public_key: 'API Key'
-            bitmart:
-                instructions:
-                    -   text_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
-                    -   text_html: 'Πήγαινε στο <a href="https://www.bitmart.com/api-management"><b>Account</b> → <b>API Keys</b></a>.'
-                    -   text_html: 'Πάτησε <b>+ Create API Key</b>.'
-                    -   text_html: 'Δώσε ένα όνομα στο κλειδί (π.χ. "Deltabadger") και όρισε ένα <b>Memo</b> (κωδική φράση).'
-                    -   text_html: 'Ρύθμισε τα δικαιώματα:'
-                        sub_instructions:
-                            -   text_html: '☑️ <b>Read-write</b>'
-                            -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Withdraw ή Futures.'
-                            -   text_html: 'IP whitelist:'
-                                sub_instructions:
-                                    -   text_html: '🔘 Πρόσθεσε %{whitelist_ip}.'
-                    -   text_html: 'Πάτησε <b>Confirm</b> και ολοκλήρωσε την επαλήθευση.'
-                    -   text_html: 'Αντέγραψε και επικόλλησε το API Key, Secret Key και Memo στη φόρμα παραπάνω.'
-                private_key: 'Secret Key'
-                public_key: 'API Key'

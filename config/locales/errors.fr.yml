@@ -38,6 +38,7 @@ fr:
                         start_time_of_day:
                             invalid: "doit être une heure HH:MM valide"
     errors:
+        exchange_retired: "Cette plateforme n'existe plus. Choisis une autre plateforme pour continuer à trader."
         exchange:
             regional_restriction: "%{exchange} restreint le trading de %{asset} en %{country}"
             transient_nonce: "%{exchange} a rejeté le nonce de la requête. Si vous utilisez aussi cette clé API dans une autre application, augmentez sa Nonce Window dans les paramètres API de %{exchange}."

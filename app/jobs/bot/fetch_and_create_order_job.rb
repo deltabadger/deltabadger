@@ -3,6 +3,9 @@
 # queued at deploy time still deserialize; remove it once none can be in flight.
 class Bot::FetchAndCreateOrderJob < BotJob
   def perform(bot, order_id, update_missed_quote_amount: false)
+    # A retired venue has nothing left to fetch (see Exchange::RETIRED_TYPES).
+    return if bot.exchange&.retired?
+
     existing = bot.transactions.find_by(external_id: order_id)
     if existing
       Bot::FetchAndUpdateOrderJob.perform_later(existing, update_missed_quote_amount: update_missed_quote_amount)

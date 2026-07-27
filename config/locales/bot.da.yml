@@ -61,6 +61,7 @@ da:
             mode_paper: "Papirhandel"
             mode_live: "Live handel"
         status:
+            exchange_retired: 'Denne børs findes ikke længere — flyt botten til en anden.'
             setting_orders: "Opretter ordrer…"
             paused: "Sat på pause"
             next_try: "Næste forsøg om"

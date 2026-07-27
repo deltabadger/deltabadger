@@ -214,20 +214,3 @@ en:
                     -   text_html: 'Copy and paste your new API keys into the form above.'
                 private_key: 'Secret Key'
                 public_key: 'API Key'
-            bitmart:
-                instructions:
-                    -   text_html: 'Log into your %{exchange_link} account.'
-                    -   text_html: 'Go to <a href="https://www.bitmart.com/api-management"><b>Account</b> → <b>API Keys</b></a>.'
-                    -   text_html: 'Click <b>+ Create API Key</b>.'
-                    -   text_html: 'Label your key (e.g. "Deltabadger") and set a <b>Memo</b> (passphrase).'
-                    -   text_html: 'Set permissions:'
-                        sub_instructions:
-                            -   text_html: '☑️ <b>Read-write</b>'
-                            -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Important:</strong> Do not enable Withdraw or Futures permissions.'
-                            -   text_html: 'IP whitelist:'
-                                sub_instructions:
-                                    -   text_html: '🔘 Whitelist %{whitelist_ip}.'
-                    -   text_html: 'Click <b>Confirm</b> and complete the verification.'
-                    -   text_html: 'Copy and paste your API Key, Secret Key, and Memo into the form above.'
-                private_key: 'Secret Key'
-                public_key: 'API Key'

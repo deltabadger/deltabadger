@@ -38,6 +38,7 @@ de:
                         start_time_of_day:
                             invalid: "muss eine gültige Uhrzeit (HH:MM) sein"
     errors:
+        exchange_retired: 'Diese Börse gibt es nicht mehr. Wechsle zu einer anderen Börse, um weiter zu handeln.'
         bitcoin_address_not_updated: 'Deine Bitcoin-Adresse konnte nicht aktualisiert werden'
         format: '%{attribute} %{message}'
         frequency_limit: 'Frequenzgrenze überschritten'

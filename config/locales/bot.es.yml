@@ -56,6 +56,7 @@ es:
                 title: "Signal"
                 description: "Operar con señales externas"
         status:
+            exchange_retired: 'Este exchange ya no opera: cambia el bot a otro.'
             setting_orders: "Configurando órdenes…"
             paused: "Pausado"
             next_try: "Próximo intento en"

@@ -6,6 +6,13 @@ class Exchange < ApplicationRecord
 
   STABLE_TYPES = %w[Exchanges::Binance Exchanges::BinanceUs Exchanges::Coinbase Exchanges::Kraken].freeze
 
+  # Venues that have ceased to exist. The STI class stays behind (a stub — see
+  # Exchanges::Bitmart) so an install still holding bots and trade history keeps loading and can
+  # move those bots elsewhere, but nothing may trade, connect a key, or start against them again.
+  # Listed as types rather than an `available` flag so the guards stay queryable in SQL and one
+  # constant drives them all.
+  RETIRED_TYPES = %w[Exchanges::Bitmart].freeze
+
   # Stock brokers (as opposed to crypto exchanges). Stock bots route to one of these; the
   # rest of the app (tax report, bot tile, broker picker) keys off this instead of hardcoding
   # Exchanges::Alpaca as the sole stock venue.
@@ -59,9 +66,16 @@ class Exchange < ApplicationRecord
   validates :type, uniqueness: true
 
   scope :available, -> { where(available: true) }
+  # Everywhere a user could pick or reach an exchange to trade on. `available` alone is not enough:
+  # the flag is data and can be flipped back by a sync, retirement is a property of the class.
+  scope :tradeable, -> { available.where.not(type: RETIRED_TYPES) }
 
   def beta?
     !type.in?(STABLE_TYPES)
+  end
+
+  def retired?
+    type.in?(RETIRED_TYPES)
   end
 
   def stock_venue?

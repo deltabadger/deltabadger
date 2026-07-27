@@ -54,6 +54,7 @@ de:
                 title: "Signal"
                 description: "Handeln basierend auf externen Signalen"
         status:
+            exchange_retired: 'Diese Börse gibt es nicht mehr — wechsle den Bot zu einer anderen.'
             setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
             next_try: "Nächster Versuch in"

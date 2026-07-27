@@ -38,6 +38,7 @@ pl:
                         start_time_of_day:
                             invalid: "musi być prawidłowa godzina HH:MM"
     errors:
+        exchange_retired: 'Ta giełda już nie działa. Wybierz inną giełdę, żeby dalej handlować.'
         bitcoin_address_not_updated: 'Adres bitcoinowy nie mógł zostać zaktualizowany'
         format: '%{attribute}%{message}'
         frequency_limit: 'Przekroczyłeś limit częstotliwości'

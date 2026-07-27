@@ -1,11 +1,16 @@
 class Rules::WithdrawalsController < ApplicationController
   include ActionView::RecordIdentifier
+  include RetiredExchangeGuard
 
   before_action :authenticate_user!
   before_action :set_rule, only: %i[update destroy confirm_destroy]
 
   def update
     status = update_params[:status]
+    # Rules::Withdrawal#start goes through a plain update!, so without this the model's backstop
+    # validation would surface as a RecordInvalid 500 instead of a message.
+    return if status == 'scheduled' && reject_retired_exchange(@rule.exchange, fallback: rules_path)
+
     settings_params = update_params.except(:status)
     status_changed = (status == 'scheduled' && !@rule.scheduled?) || (status == 'stopped' && !@rule.stopped?)
 

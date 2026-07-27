@@ -53,6 +53,7 @@ nl:
                 title: "Signal"
                 description: "Handelen op externe signalen"
         status:
+            exchange_retired: 'Deze exchange bestaat niet meer — zet de bot over naar een andere.'
             setting_orders: "Orders instellen…"
             paused: "Gepauzeerd"
             next_try: "Volgende poging in"

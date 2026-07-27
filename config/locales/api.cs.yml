@@ -214,20 +214,3 @@ cs:
                     -   text_html: 'Zkopírujte a vložte své nové API klíče do formuláře výše.'
                 private_key: 'Secret Key'
                 public_key: 'API Key'
-            bitmart:
-                instructions:
-                    -   text_html: 'Přihlaste se ke svému účtu na %{exchange_link}.'
-                    -   text_html: 'Přejděte na <a href="https://www.bitmart.com/api-management"><b>Account</b> → <b>API Keys</b></a>.'
-                    -   text_html: 'Klikněte na <b>+ Create API Key</b>.'
-                    -   text_html: 'Pojmenujte klíč (např. „Deltabadger") a nastavte <b>Memo</b> (heslo).'
-                    -   text_html: 'Nastavte oprávnění:'
-                        sub_instructions:
-                            -   text_html: '☑️ <b>Read-write</b>'
-                            -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Důležité:</strong> Nepovolujte oprávnění Withdraw ani Futures.'
-                            -   text_html: 'IP whitelist:'
-                                sub_instructions:
-                                    -   text_html: '🔘 Přidejte %{whitelist_ip}.'
-                    -   text_html: 'Klikněte na <b>Confirm</b> a dokončete ověření.'
-                    -   text_html: 'Zkopírujte a vložte API Key, Secret Key a Memo do formuláře výše.'
-                private_key: 'Secret Key'
-                public_key: 'API Key'

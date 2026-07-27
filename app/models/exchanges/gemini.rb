@@ -156,7 +156,7 @@ class Exchanges::Gemini < Exchange
   def get_candles(ticker:, start_at:, timeframe:)
     # Gemini's /v2/candles serves a recent window (newest-first) in these native resolutions only, with
     # no time-range selection. ATH therefore seeds from this recent window (incremental-max refines it
-    # forward). Coarser timeframes are aggregated from a finer native resolution (like KuCoin/Bitmart).
+    # forward). Coarser timeframes are aggregated from a finer native resolution (like KuCoin).
     native = {
       1.minute => '1m', 5.minutes => '5m', 15.minutes => '15m', 30.minutes => '30m',
       1.hour => '1hr', 6.hours => '6hr', 1.day => '1day'

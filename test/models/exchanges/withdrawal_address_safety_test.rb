@@ -12,7 +12,7 @@ class WithdrawalAddressSafetyTest < ActiveSupport::TestCase
 
   # ── supports_withdrawal? returns true for supported exchanges ─────────────
 
-  %w[Kraken Binance BinanceUs Bitmart Gemini Mexc].each do |exchange_class|
+  %w[Kraken Binance BinanceUs Gemini Mexc].each do |exchange_class|
     test "#{exchange_class} supports withdrawal" do
       exchange = "Exchanges::#{exchange_class}".constantize.new
       assert_predicate exchange, :supports_withdrawal?
@@ -69,47 +69,6 @@ class WithdrawalAddressSafetyTest < ActiveSupport::TestCase
 
   test 'BinanceUs inherits list_withdrawal_addresses from Binance' do
     assert Exchanges::BinanceUs.instance_method(:list_withdrawal_addresses).owner == Exchanges::Binance
-  end
-
-  # ── Bitmart list_withdrawal_addresses ─────────────────────────────────────
-
-  test 'Bitmart list_withdrawal_addresses filters by asset symbol' do
-    exchange = create_exchange(:bitmart)
-    api_key = mock_api_key(exchange)
-    exchange.set_client(api_key: api_key)
-
-    response = {
-      'code' => 1000,
-      'data' => {
-        'withdrawAddressList' => [
-          { 'currency' => 'BTC', 'address' => '1abc123', 'network' => 'BTC', 'memo' => '' },
-          { 'currency' => 'ETH', 'address' => '0xdef456', 'network' => 'ERC20', 'memo' => '' },
-          { 'currency' => 'BTC', 'address' => '3xyz789', 'network' => 'BTC', 'memo' => '' }
-        ]
-      }
-    }
-    exchange.stubs(:client).returns(stub(get_withdraw_addresses: Result::Success.new(response)))
-
-    asset = stub(id: 1)
-    exchange.stubs(:symbol_from_asset).with(asset).returns('BTC')
-
-    addresses = exchange.list_withdrawal_addresses(asset: asset)
-
-    assert_equal 2, addresses.size
-    assert_equal '1abc123', addresses.first[:name]
-    assert_includes addresses.first[:label], 'BTC'
-  end
-
-  test 'Bitmart list_withdrawal_addresses returns nil on non-1000 code' do
-    exchange = create_exchange(:bitmart)
-    api_key = mock_api_key(exchange)
-    exchange.set_client(api_key: api_key)
-
-    response = { 'code' => 50_001, 'message' => 'API key error' }
-    exchange.stubs(:client).returns(stub(get_withdraw_addresses: Result::Success.new(response)))
-    exchange.stubs(:symbol_from_asset).returns('BTC')
-
-    assert_nil exchange.list_withdrawal_addresses(asset: stub(id: 1))
   end
 
   # ── Gemini list_withdrawal_addresses ──────────────────────────────────────
@@ -204,7 +163,6 @@ class WithdrawalAddressSafetyTest < ActiveSupport::TestCase
   def create_exchange(type)
     case type
     when :binance then Exchanges::Binance.find_or_create_by!(name: 'Binance', available: true)
-    when :bitmart then Exchanges::Bitmart.find_or_create_by!(name: 'BitMart', available: true)
     when :gemini  then Exchanges::Gemini.find_or_create_by!(name: 'Gemini', available: true)
     when :mexc    then Exchanges::Mexc.find_or_create_by!(name: 'MEXC', available: true)
     end

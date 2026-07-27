@@ -15,6 +15,10 @@ class ApiKey < ApplicationRecord
 
   validate :unique_for_user_exchange_and_key_type, on: :create
   validate :hyperliquid_key_format, if: -> { exchange&.is_a?(Exchanges::Hyperliquid) }
+  # The last line of defence for a retired venue: the wizards, the tracker and legacy
+  # POST /api/api_keys all reach key creation by exchange id, so blocking it here covers every door
+  # at once. Bot#api_key only BUILDS its fallback key, so an unsaved record still renders fine.
+  validate :exchange_not_retired
 
   # :pending_activation is IBKR-specific — the consumer key is registered but IBKR hasn't
   # activated it yet (24h–2wk). Appended last so existing integer values are unchanged.
@@ -31,6 +35,13 @@ class ApiKey < ApplicationRecord
 
   def validate_credentials!(params)
     assign_credentials(params)
+    # A retired venue has no API left to ask; short-circuit before calling the stub so the caller
+    # sees the retirement rather than a generic "we couldn't verify your key".
+    if exchange&.retired?
+      self.status = :incorrect
+      return self
+    end
+
     result = get_validity
     if result.success? && result.data == :pending_activation
       # IBKR: keys registered, awaiting IBKR activation — persist so the parked bot can start later.
@@ -93,6 +104,12 @@ class ApiKey < ApplicationRecord
     return unless ApiKey.exists?(user_id: user_id, exchange_id: exchange_id, key_type: key_type)
 
     errors.add(:key, I18n.t('errors.api_key_already_exists', exchange_name: exchange.name))
+  end
+
+  def exchange_not_retired
+    return unless exchange&.retired?
+
+    errors.add(:base, I18n.t('errors.exchange_retired'))
   end
 
   def hyperliquid_key_format

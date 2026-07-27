@@ -22,6 +22,14 @@ module BotApi
                                 data: { id: rule.id, status: rule.status.to_s })
         end
 
+        # :validation_failed, not a bespoke status — Api::V1::BaseController#status_for maps
+        # unknown statuses to 500.
+        if rule.exchange&.retired?
+          return Result.failure(:validation_failed, 'exchange_retired',
+                                I18n.t('errors.exchange_retired'),
+                                data: { id: rule.id, exchange: rule.exchange.name })
+        end
+
         rule.start
         Result.success({ id: rule.id, status: rule.status.to_s })
       end

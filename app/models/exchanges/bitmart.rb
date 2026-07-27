@@ -1,646 +1,73 @@
+# BitMart shut down, and honeymaker 0.10.0 removed the exchange — there is no client left to build.
+# This class survives ONLY so an install that still holds Bitmart bots and trade history keeps
+# loading (dropping the STI class would raise ActiveRecord::SubclassNotFound on every
+# `Exchange.available` load) and can move those bots to a live venue. See Exchange::RETIRED_TYPES.
+#
+# Every call that would have reached the API returns a failure Result rather than raising. That is
+# deliberate: the callers that keep a stranded bot usable — the bot page's metrics
+# (Bots::DcaSingleAsset::Measurable#metrics_with_current_prices) and the order-fetch jobs — branch
+# on `result.failure?`, and a NotImplementedError would break the very pages this class exists to
+# keep alive.
 class Exchanges::Bitmart < Exchange
-  COINGECKO_ID = 'bitmart'.freeze # https://docs.coingecko.com/reference/exchanges-list
-  ERRORS = {
-    insufficient_funds: ['Balance not enough', 'Insufficient balance'],
-    invalid_key: ['Invalid ACCESS_KEY', 'Invalid sign', 'Header X-BM-KEY Is Empty']
-  }.freeze
-  ORDER_STATUS_MAP = {
-    'new' => :open,
-    'partially_filled' => :open,
-    'filled' => :closed,
-    'canceled' => :cancelled,
-    'expired' => :cancelled,
-    'partially_canceled' => :cancelled,
-    'rejected' => :failed,
-    'failed' => :failed
-  }.freeze
+  COINGECKO_ID = 'bitmart'.freeze
 
-  include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
-
+  # ensure_exchange_authenticated reads and writes these on every bot action, and the base class
+  # defines neither.
   attr_reader :api_key
 
   def coingecko_id
     COINGECKO_ID
   end
 
+  # Empty rather than absent: Exchange#transient_error? reads known_errors[:transient] and still
+  # applies NETWORK_TRANSIENT_PATTERNS, and #throttled_error? short-circuits on an empty list.
   def known_errors
-    ERRORS
-  end
-
-  def requires_passphrase?
-    true
+    {}
   end
 
   def set_client(api_key: nil)
     @api_key = api_key
-    @client = Honeymaker.client('bitmart',
-                                api_key: api_key&.key,
-                                api_secret: api_key&.secret,
-                                memo: api_key&.passphrase,
-                                proxy: ENV['PROXY_BITMART'])
+    @client = nil
   end
 
-  def get_tickers_info(force: false)
-    cache_key = "exchange_#{id}_tickers_info"
-    tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour, force: force) do
-      result = client.get_symbols_details
-      if result.failure?
-        error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
-      end
-
-      return Result::Failure.new(result.data['message']) if result.data['code'] != 1000
-
-      items = Utilities::Hash.dig_or_raise(result.data, 'data', 'symbols')
-      items.filter_map do |product|
-        ticker = Utilities::Hash.dig_or_raise(product, 'symbol')
-        trade_status = Utilities::Hash.dig_or_raise(product, 'trade_status')
-
-        {
-          ticker: ticker,
-          base: Utilities::Hash.dig_or_raise(product, 'base_currency'),
-          quote: Utilities::Hash.dig_or_raise(product, 'quote_currency'),
-          minimum_base_size: product['base_min_size'].to_d,
-          minimum_quote_size: product['min_buy_amount'].to_d,
-          maximum_base_size: 0.to_d,
-          maximum_quote_size: 0.to_d,
-          base_decimals: Utilities::Number.decimals(product['base_min_size']),
-          quote_decimals: Utilities::Number.decimals(product['quote_increment']),
-          price_decimals: product['price_max_precision'].to_i,
-          available: true,
-          trading_enabled: trade_status == 'trading'
-        }
-      end
-    end
-
-    Result::Success.new(tickers_info)
+  # Exchange#symbols builds an ExchangeMarket, whose initializer calls
+  # Honeymaker.exchange('bitmart') — gone in honeymaker 0.10.0.
+  def symbols
+    Result::Success.new([])
   end
 
-  def get_tickers_prices(force: false, symbols: nil)
-    cache_key = "exchange_#{id}_prices"
-    tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force: force) do
-      result = client.get_ticker
-      if result.failure?
-        error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
-      end
+  def get_tickers_info(force: false) = retired_failure
+  def get_tickers_prices(force: false, symbols: nil) = retired_failure
+  def get_balances(asset_ids: nil) = retired_failure
+  def get_last_price(ticker:, force: false) = retired_failure
+  def get_bid_price(ticker:, force: false) = retired_failure
+  def get_ask_price(ticker:, force: false) = retired_failure
+  def get_candles(ticker:, start_at:, timeframe:) = retired_failure
+  def get_order(order_id:) = retired_failure
+  def get_orders(order_ids:) = retired_failure
+  def cancel_order(order_id:) = retired_failure
+  def get_api_key_validity(api_key:) = retired_failure
+  def market_buy(ticker:, amount:, amount_type:) = retired_failure
+  def market_sell(ticker:, amount:, amount_type:) = retired_failure
+  def limit_buy(ticker:, amount:, amount_type:, price:) = retired_failure
+  def limit_sell(ticker:, amount:, amount_type:, price:) = retired_failure
+  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil) = retired_failure
+  def fetch_withdrawal_fees! = retired_failure
+  def get_ledger(api_key:, start_time: nil) = retired_failure
 
-      return Result::Failure.new(result.data['message']) if result.data['code'] != 1000
-
-      items = Utilities::Hash.dig_or_raise(result.data, 'data')
-      items.each_with_object({}) do |item, prices_hash|
-        ticker = Utilities::Hash.dig_or_raise(item, 'symbol')
-        price = Utilities::Hash.dig_or_raise(item, 'last').to_d
-        prices_hash[ticker] = price
-      end
-    end
-
-    Result::Success.new(tickers_prices)
-  end
-
-  def get_balances(asset_ids: nil)
-    result = client.get_wallet
-    if result.failure?
-      error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
-    end
-
-    return Result::Failure.new(result.data['message']) if result.data['code'] != 1000
-
-    asset_ids ||= assets.pluck(:id)
-    balances = asset_ids.to_h do |asset_id|
-      [asset_id, { free: 0, locked: 0 }]
-    end
-
-    raw_balances = Utilities::Hash.dig_or_raise(result.data, 'data', 'wallet')
-    raw_balances.each do |balance|
-      asset = asset_from_symbol(balance['id'])
-      next unless asset.present?
-      next unless asset_ids.include?(asset.id)
-
-      free = Utilities::Hash.dig_or_raise(balance, 'available').to_d
-      locked = Utilities::Hash.dig_or_raise(balance, 'frozen').to_d
-      balances[asset.id] = { free: free, locked: locked }
-    end
-
-    Result::Success.new(balances)
-  end
-
-  def get_last_price(ticker:, force: false)
-    cache_key = "exchange_#{id}_last_price_#{ticker.id}"
-    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = client.get_ticker(symbol: ticker.ticker)
-      if result.failure?
-        error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
-      end
-
-      return Result::Failure.new(result.data['message']) if result.data['code'] != 1000
-
-      item = Utilities::Hash.dig_or_raise(result.data, 'data')
-      price = Utilities::Hash.dig_or_raise(item, 'last').to_d
-      raise "Wrong last price for #{ticker.ticker}: #{price}" if price.zero?
-
-      price
-    end
-
-    Result::Success.new(price)
-  end
-
-  def get_bid_price(ticker:, force: false)
-    cache_key = "exchange_#{id}_bid_price_#{ticker.id}"
-    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_bid_ask_price(ticker)
-      if result.failure?
-        error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
-      end
-
-      price = result.data[:bid][:price]
-      raise "Wrong bid price for #{ticker.ticker}: #{price}" if price.zero?
-
-      price
-    end
-
-    Result::Success.new(price)
-  end
-
-  def get_ask_price(ticker:, force: false)
-    cache_key = "exchange_#{id}_ask_price_#{ticker.id}"
-    price = Rails.cache.fetch(cache_key, expires_in: 5.seconds, force: force) do
-      result = get_bid_ask_price(ticker)
-      return result if result.failure?
-
-      price = result.data[:ask][:price]
-      raise "Wrong ask price for #{ticker.ticker}: #{price}" if price.zero?
-
-      price
-    end
-
-    Result::Success.new(price)
-  end
-
-  def get_candles(ticker:, start_at:, timeframe:)
-    # Bitmart kline steps are in minutes
-    intervals = {
-      1.minute => 1,
-      5.minutes => 5,
-      15.minutes => 15,
-      30.minutes => 30,
-      1.hour => 60,
-      4.hours => 240,
-      1.day => 1440,
-      3.days => 4320,
-      1.week => 10_080,
-      1.month => 43_200
-    }
-    step = intervals[timeframe]
-
-    # BitMart caps a kline page at ~200 entries regardless of the requested limit, so a
-    # short page is NOT a signal that the data ended. Window the request with `before` and
-    # terminate on reaching the present instead of on page size.
-    page_size = 200
-    candles = []
-    iterations = 0
-    loop do
-      iterations += 1
-      break if iterations > MAX_CANDLE_PAGES
-
-      now = Time.now.utc # re-read each iteration so a slow walk still reaches the true present
-      end_at = [start_at + (page_size * timeframe), now].min
-      result = client.get_klines(
-        symbol: ticker.ticker,
-        step: step,
-        after_time: start_at.to_i,
-        before: end_at.to_i,
-        limit: page_size
-      )
-      if result.failure?
-        error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
-      end
-
-      items = result.data.is_a?(Hash) ? (result.data['data'] || []) : []
-      items.sort_by { |c| c[0] }.each do |candle|
-        candles << [
-          Time.at(candle[0].to_i).utc,
-          candle[1].to_d,
-          candle[2].to_d,
-          candle[3].to_d,
-          candle[4].to_d,
-          candle[5].to_d
-        ]
-      end
-
-      break if end_at >= now
-
-      # Skip forward through windows that predate the listing (e.g. the ~20y ATH lookback)
-      # instead of bailing on the first empty page.
-      start_at = items.present? ? candles.last[0] + 1.second : end_at + 1.second
-    end
-
-    # Defensive: dedupe + globally sort in case windows ever overlap at the boundaries.
-    Result::Success.new(candles.uniq { |c| c[0] }.sort_by { |c| c[0] })
-  end
-
-  # @param amount_type [Symbol] :base or :quote
-  def market_buy(ticker:, amount:, amount_type:)
-    set_market_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
-      side: :buy
-    )
-  end
-
-  # @param amount_type [Symbol] :base or :quote
-  def market_sell(ticker:, amount:, amount_type:)
-    set_market_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
-      side: :sell
-    )
-  end
-
-  # @param amount_type [Symbol] :base or :quote
-  def limit_buy(ticker:, amount:, amount_type:, price:)
-    set_limit_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
-      side: :buy,
-      price: price
-    )
-  end
-
-  # @param amount_type [Symbol] :base or :quote
-  def limit_sell(ticker:, amount:, amount_type:, price:)
-    set_limit_order(
-      ticker: ticker,
-      amount: amount,
-      amount_type: amount_type,
-      side: :sell,
-      price: price
-    )
-  end
-
-  def get_order(order_id:)
-    result = client.get_order(order_id: order_id)
-    if result.failure?
-      error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
-    end
-
-    normalized_order_data = parse_order_data(order_id, result.data[:raw])
-
-    Result::Success.new(normalized_order_data)
-  end
-
-  def get_orders(order_ids:)
-    orders = {}
-    order_ids.each do |order_id|
-      result = get_order(order_id: order_id)
-      return result if result.failure?
-
-      orders[order_id] = result.data
-    end
-
-    Result::Success.new(orders: orders, missing: [])
-  end
-
-  def cancel_order(order_id:)
-    # Need to find the symbol for the order
-    get_result = client.get_order(order_id: order_id)
-    if get_result.failure?
-      error = parse_error_message(get_result)
-      return error.present? ? Result::Failure.new(error) : get_result
-    end
-
-    symbol = get_result.data[:raw]['symbol']
-    result = client.cancel_order(symbol: symbol, order_id: order_id)
-    if result.failure?
-      error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
-    end
-
-    Result::Success.new(order_id)
-  end
-
-  def get_api_key_validity(api_key:)
-    temp_client = Honeymaker.client('bitmart',
-                                    api_key: api_key.key,
-                                    api_secret: api_key.secret,
-                                    memo: api_key.passphrase,
-                                    proxy: ENV['PROXY_BITMART'])
-
-    result = if api_key.withdrawal?
-               temp_client.get_wallet
-             else
-               temp_client.cancel_order(symbol: 'BTC_USDT', order_id: '0')
-             end
-
-    return check_bitmart_api_key_error(result) unless result.success?
-    return Result::Success.new(true) if result.data['code'] == 1000
-
-    error_msg = result.data['message']
-    return Result::Success.new(false) if ERRORS[:invalid_key].any? { |msg| error_msg&.include?(msg) }
-
-    # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
-    api_key.withdrawal? ? Result::Failure.new(error_msg) : Result::Success.new(true)
+  # These two are NOT Result-returning contracts — their callers expect a plain value, and a
+  # Result::Failure would read as a truthy address list / amount rule.
+  def list_withdrawal_addresses(asset:)
+    nil
   end
 
   def minimum_amount_logic(**)
-    :base_and_quote
-  end
-
-  def list_withdrawal_addresses(asset:)
-    symbol = symbol_from_asset(asset)
-    return nil if symbol.blank?
-
-    result = client.get_withdraw_addresses
-    return nil if result.failure?
-    return nil if result.data['code'] != 1000
-
-    all_addresses = result.data.dig('data', 'withdrawAddressList') || []
-    all_addresses.filter_map do |addr|
-      next unless addr['currency'] == symbol
-
-      address = addr['address']
-      label_parts = [address, addr['network']].compact_blank
-      { name: address, label: label_parts.join(' - ') }
-    end
-  end
-
-  def withdraw(asset:, amount:, address:, network: nil, address_tag: nil)
-    symbol = symbol_from_asset(asset)
-    return Result::Failure.new("Unknown symbol for asset #{asset.symbol}") if symbol.blank?
-
-    result = client.withdraw(currency: symbol, amount: amount.to_d.to_s('F'),
-                             address: address, address_memo: address_tag)
-    if result.failure?
-      error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
-    end
-
-    return Result::Failure.new(result.data['message']) if result.data['code'] != 1000
-
-    withdrawal_id = result.data.dig('data', 'withdraw_id')
-    Result::Success.new({ withdrawal_id: withdrawal_id })
-  end
-
-  def fetch_withdrawal_fees!
-    result = Honeymaker.client('bitmart').get_currencies
-    return result if result.failure?
-
-    return Result::Failure.new(result.data['message']) if result.data['code'] != 1000
-
-    fees = {}
-    chains = {}
-    currencies = result.data.dig('data', 'currencies') || []
-    currencies.each do |currency|
-      symbol = currency['currency']
-      networks = currency['network'] || []
-      default_net = networks.first
-      next unless default_net
-
-      fees[symbol] = default_net['withdraw_minfee']
-      chains[symbol] = networks.map.with_index do |n, i|
-        { 'name' => n['network'], 'fee' => n['withdraw_minfee'], 'is_default' => i.zero? }
-      end
-    end
-
-    update_exchange_asset_fees!(fees, chains: chains)
-  end
-
-  def get_ledger(api_key:, start_time: nil)
-    hm_client = Honeymaker.client('bitmart', api_key: api_key.key, api_secret: api_key.secret,
-                                             memo: api_key.passphrase, proxy: ENV['PROXY_BITMART'])
-    start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
-    entries = []
-
-    # Deposits first (to discover coins)
-    result = hm_client.deposit_list
-    unless result.failure?
-      records = result.data.dig('data', 'records') || []
-      records.each do |dep|
-        next unless dep['status'].to_i == 3 # completed
-        next if start_time && Time.at(dep['arrival_amount_time'].to_i / 1000.0) < start_time
-
-        entries << { entry_type: :deposit, base_currency: dep['currency'], base_amount: dep['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
-                     tx_id: dep['tx_id'], group_id: nil, description: nil,
-                     transacted_at: Time.at(dep['arrival_amount_time'].to_i / 1000.0).utc, raw_data: dep }
-      end
-    end
-
-    # Withdrawals
-    result = hm_client.withdraw_list
-    unless result.failure?
-      records = result.data.dig('data', 'records') || []
-      records.each do |wd|
-        next unless wd['status'].to_i.zero? # completed
-        next if start_time && Time.at(wd['create_time'].to_i / 1000.0) < start_time
-
-        entries << { entry_type: :withdrawal, base_currency: wd['currency'], base_amount: wd['amount'].to_d,
-                     quote_currency: nil, quote_amount: nil,
-                     fee_currency: wd['currency'], fee_amount: wd['fee'].to_d,
-                     tx_id: wd['tx_id'] || wd['withdraw_id'], group_id: nil, description: nil,
-                     transacted_at: Time.at(wd['create_time'].to_i / 1000.0).utc, raw_data: wd }
-      end
-    end
-
-    # Discover coins from deposits/withdrawals + balances
-    coins = Set.new
-    entries.each { |e| coins << e[:base_currency] }
-    wallet_result = hm_client.get_wallet
-    if wallet_result.success?
-      Array(wallet_result.data.dig('data', 'wallet')).each do |w|
-        coins << w['id'] if w['available'].to_d.positive? || w['frozen'].to_d.positive?
-      end
-    end
-
-    # Load exchange symbols
-    symbols_result = hm_client.get_symbols_details
-    symbol_map = {}
-    if symbols_result.success?
-      Array(symbols_result.data.dig('data', 'symbols')).each do |s|
-        symbol_map[s['symbol']] = { base: s['base_currency'], quote: s['quote_currency'] }
-      end
-    end
-
-    traded_symbols = symbol_map.keys.select { |sym| coins.include?(symbol_map[sym][:base]) }
-    traded_symbols.each do |symbol|
-      result = hm_client.get_trades(symbol: symbol, start_time: start_ms)
-      next if result.failure?
-
-      (result.data['data'] || []).each do |trade|
-        base = symbol_map.dig(symbol, :base) || symbol.split('_')[0]
-        quote = symbol_map.dig(symbol, :quote) || symbol.split('_')[1]
-        is_buyer = trade['side']&.downcase == 'buy'
-        entries << { entry_type: is_buyer ? :buy : :sell,
-                     base_currency: base, base_amount: trade['size'].to_d,
-                     quote_currency: quote, quote_amount: trade['notional'].to_d,
-                     fee_currency: quote, fee_amount: trade['fee'].to_d.abs,
-                     tx_id: trade['tradeId'] || trade['orderId'], group_id: nil, description: nil,
-                     transacted_at: Time.at(trade['createTime'].to_i / 1000.0).utc, raw_data: trade }
-      end
-    end
-
-    Result::Success.new(entries)
+    :base
   end
 
   private
 
-  def check_bitmart_api_key_error(result)
-    error = parse_error_message(result)
-    if error.present? && ERRORS[:invalid_key].any? { |msg| error.include?(msg) }
-      Result::Success.new(false)
-    else
-      result
-    end
-  end
-
-  def parse_error_message(result)
-    return unless result.errors.first.present?
-
-    begin
-      JSON.parse(result.errors.first)['message']
-    rescue StandardError
-      nil
-    end
-  end
-
-  def get_bid_ask_price(ticker)
-    cache_key = "exchange_#{id}_bid_ask_price_#{ticker.id}"
-    Rails.cache.fetch(cache_key, expires_in: 1.seconds) do
-      result = client.get_depth(symbol: ticker.ticker, limit: 1)
-      if result.failure?
-        error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
-      end
-
-      return Result::Failure.new(result.data['message']) if result.data['code'] != 1000
-
-      book = Utilities::Hash.dig_or_raise(result.data, 'data')
-      bids = Utilities::Hash.dig_or_raise(book, 'bids')
-      asks = Utilities::Hash.dig_or_raise(book, 'asks')
-
-      formatted = {
-        bid: {
-          price: bids.first[0].to_d,
-          size: bids.first[1].to_d
-        },
-        ask: {
-          price: asks.first[0].to_d,
-          size: asks.first[1].to_d
-        }
-      }
-      Result::Success.new(formatted)
-    end
-  end
-
-  # @param amount [Float] must be a positive number
-  # @param amount_type [Symbol] :base or :quote
-  # @param side [Symbol] must be either :buy or :sell
-  def set_market_order(ticker:, amount:, amount_type:, side:)
-    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
-
-    order_settings = {
-      symbol: ticker.ticker,
-      side: side.to_s,
-      type: 'market',
-      notional: amount_type == :quote ? amount.to_d.to_s('F') : nil,
-      size: amount_type == :base ? amount.to_d.to_s('F') : nil
-    }
-    result = client.submit_order(**order_settings)
-    if result.failure?
-      error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
-    end
-
-    data = {
-      order_id: result.data[:order_id]
-    }
-
-    Result::Success.new(data)
-  end
-
-  # @param amount [Float] must be a positive number
-  # @param amount_type [Symbol] :base or :quote
-  # @param side [Symbol] must be either :buy or :sell
-  # @param price [Float] must be a positive number
-  def set_limit_order(ticker:, amount:, amount_type:, side:, price:)
-    amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
-    price = ticker.adjusted_price(price: price)
-
-    order_settings = {
-      symbol: ticker.ticker,
-      side: side.to_s,
-      type: 'limit',
-      price: price.to_d.to_s('F'),
-      size: amount_type == :base ? amount.to_d.to_s('F') : nil
-    }
-    result = client.submit_order(**order_settings)
-    if result.failure?
-      error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
-    end
-
-    data = {
-      order_id: result.data[:order_id]
-    }
-
-    Result::Success.new(data)
-  end
-
-  def parse_order_data(order_id, order_data)
-    symbol = Utilities::Hash.dig_or_raise(order_data, 'symbol')
-    ticker = tickers.find_by(ticker: symbol)
-    order_type = parse_order_type(Utilities::Hash.dig_or_raise(order_data, 'type'))
-    side = Utilities::Hash.dig_or_raise(order_data, 'side').downcase.to_sym
-    amount = order_data['size'].to_d
-    amount = nil if amount.zero?
-    quote_amount = order_data['notional']&.to_d
-    quote_amount = nil if quote_amount.nil? || quote_amount.zero?
-    amount_exec = order_data['filled_size'].to_d
-    quote_amount_exec = order_data['filled_notional'].to_d
-    quote_amount_exec = nil if quote_amount_exec.negative?
-    status = parse_order_status(Utilities::Hash.dig_or_raise(order_data, 'status'))
-    price = order_data['price'].to_d
-    if price.zero? &&
-       quote_amount_exec.present? &&
-       quote_amount_exec.positive? &&
-       amount_exec.positive?
-      price = quote_amount_exec / amount_exec
-      price = ticker.adjusted_price(price: price, method: :round) if ticker.present?
-    end
-    price = nil if price.zero?
-
-    {
-      order_id: order_id,
-      ticker: ticker,
-      price: price,
-      amount: amount,
-      quote_amount: quote_amount,
-      amount_exec: amount_exec,
-      quote_amount_exec: quote_amount_exec,
-      side: side,
-      order_type: order_type,
-      error_messages: [],
-      status: status,
-      exchange_response: order_data
-    }
-  end
-
-  def parse_order_type(order_type)
-    case order_type
-    when 'market'
-      :market_order
-    when 'limit'
-      :limit_order
-    else
-      raise "Unknown #{name} order type: #{order_type}"
-    end
+  def retired_failure
+    Result::Failure.new(I18n.t('errors.exchange_retired'))
   end
 end

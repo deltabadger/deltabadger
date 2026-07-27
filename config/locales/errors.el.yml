@@ -31,6 +31,7 @@ el:
                             not_a_number: "Πρέπει να ορίσεις ποιο ποσό δεν μπορεί να ξεπεραστεί"
                             greater_than_or_equal_to: "Το όριο ποσού πρέπει να είναι μεγαλύτερο ή ίσο με %{count}"
     errors:
+        exchange_retired: 'Αυτό το ανταλλακτήριο δεν λειτουργεί πλέον. Διάλεξε άλλο ανταλλακτήριο για να συνεχίσεις τις συναλλαγές.'
         bitcoin_address_not_updated: 'Η διεύθυνση Bitcoin δεν μπόρεσε να ενημερωθεί'
         format: '%{attribute} %{message}'
         frequency_limit: 'Υπέρβαση ορίου συχνότητας'

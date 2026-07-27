@@ -1,5 +1,8 @@
 class Bot::FetchAndUpdateOpenOrdersJob < BotJob
   def perform(bot, update_missed_quote_amount: false, success_or_kill: false)
+    # A retired venue has nothing left to poll (see Exchange::RETIRED_TYPES).
+    return if bot.exchange&.retired?
+
     # TODO: The imported filter may be removed in the future once all users have re-exported
     # from the old app (which now correctly excludes unfilled orders from export)
     external_order_ids = bot.transactions.waiting

@@ -31,6 +31,7 @@ cs:
                             not_a_number: "Musíte vyplnit částku, kterou nelze překročit"
                             greater_than_or_equal_to: "Limit částky musí být větší nebo roven %{count}"
     errors:
+        exchange_retired: 'Tato burza už nefunguje. Přejdi na jinou burzu, ať můžeš dál obchodovat.'
         bitcoin_address_not_updated: 'Bitcoin adresu se nepodařilo aktualizovat'
         format: '%{attribute} %{message}'
         frequency_limit: 'Překročen limit četnosti'

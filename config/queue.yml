@@ -21,6 +21,12 @@ production:
     - polling_interval: 1
       batch_size: 500
   workers:
+    # `bitmart` is a RETIRED venue (Exchange::RETIRED_TYPES) and is kept here on purpose.
+    # BotJob#queue_name is the bot's exchange name_id, and the retirement migration stops those
+    # bots with raw SQL, which cannot cancel Solid Queue executions the way Bot::Lifecycle#stop
+    # does. Keeping the queue lets any job still scheduled for a Bitmart bot be claimed and no-op
+    # (Bot::ActionJob#perform returns early unless the bot is scheduled/retrying); dropping it
+    # would strand those jobs in the queue database forever.
     - queues: [binance, binance_us, coinbase, kraken, bitget, kucoin, bybit, mexc, gemini, bitvavo, hyperliquid, bingx, bitrue, bitmart, alpaca, ibkr]
       threads: 2
       polling_interval: 1

@@ -31,6 +31,7 @@ da:
                             not_a_number: "Du skal udfylde, hvilket beløb der ikke må overskrides"
                             greater_than_or_equal_to: "Beløbsgrænsen skal være større end eller lig med %{count}"
     errors:
+        exchange_retired: 'Denne børs findes ikke længere. Skift til en anden børs for at handle videre.'
         bitcoin_address_not_updated: 'Bitcoin-adresse kunne ikke opdateres'
         format: '%{attribute} %{message}'
         frequency_limit: 'Frekvensgrænse overskredet'

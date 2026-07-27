@@ -214,20 +214,3 @@ bg:
                     -   text_html: 'Копирайте и поставете новите си API ключове във формуляра по-горе.'
                 private_key: 'Secret Key'
                 public_key: 'API Key'
-            bitmart:
-                instructions:
-                    -   text_html: 'Влезте в акаунта си в %{exchange_link}.'
-                    -   text_html: 'Отидете на <a href="https://www.bitmart.com/api-management"><b>Account</b> → <b>API Keys</b></a>.'
-                    -   text_html: 'Натиснете <b>+ Create API Key</b>.'
-                    -   text_html: 'Дайте име на ключа (напр. „Deltabadger") и задайте <b>Memo</b> (парола).'
-                    -   text_html: 'Задайте разрешения:'
-                        sub_instructions:
-                            -   text_html: '☑️ <b>Read-write</b>'
-                            -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Важно:</strong> Не активирайте разрешения за Withdraw и Futures.'
-                            -   text_html: 'IP whitelist:'
-                                sub_instructions:
-                                    -   text_html: '🔘 Добавете %{whitelist_ip}.'
-                    -   text_html: 'Натиснете <b>Confirm</b> и завършете проверката.'
-                    -   text_html: 'Копирайте и поставете API Key, Secret Key и Memo във формуляра по-горе.'
-                private_key: 'Secret Key'
-                public_key: 'API Key'

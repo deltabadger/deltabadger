@@ -54,6 +54,7 @@ it:
                 title: "Signal"
                 description: "Opera con segnali esterni"
         status:
+            exchange_retired: 'Questo exchange non esiste più — sposta il bot su un altro.'
             setting_orders: "Impostazione ordini…"
             paused: "In pausa"
             next_try: "Prossimo tentativo in"

@@ -31,6 +31,7 @@ sk:
                             not_a_number: "Musite vyplnit sumu, ktoru nemozno prekrocit"
                             greater_than_or_equal_to: "Limit sumy musi byt vacsi alebo rovny %{count}"
     errors:
+        exchange_retired: 'Táto burza už nefunguje. Prejdi na inú burzu, aby si mohol ďalej obchodovať.'
         bitcoin_address_not_updated: 'Bitcoin adresu sa nepodarilo aktualizovat'
         format: '%{attribute} %{message}'
         frequency_limit: 'Prekroceny limit frekvencie'

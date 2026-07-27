@@ -38,6 +38,7 @@ it:
                         start_time_of_day:
                             invalid: "deve essere un orario HH:MM valido"
     errors:
+        exchange_retired: 'Questo exchange non esiste più. Passa a un altro exchange per continuare a operare.'
         bitcoin_address_not_updated: 'L indirizzo Bitcoin non può essere aggiornato'
         format: '%{attribute} %{message}'
         frequency_limit: 'Limite di frequenza superato'

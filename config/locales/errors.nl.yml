@@ -38,6 +38,7 @@ nl:
                         start_time_of_day:
                             invalid: "moet een geldige HH:MM-tijd zijn"
     errors:
+        exchange_retired: 'Deze exchange bestaat niet meer. Kies een andere exchange om te blijven handelen.'
         bitcoin_address_not_updated: 'Bitcoin-adres kon niet worden bijgewerkt'
         format: '%{attribute}%{message}'
         frequency_limit: 'Frequentiegrens overschreden'

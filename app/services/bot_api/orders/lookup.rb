@@ -9,15 +9,18 @@ module BotApi
     module Lookup
       module_function
 
+      # Retired venues resolve to nil so the caller emits the ordinary not-found error, which lists
+      # what IS available. These lookups are by name with no scope, so a retired exchange stays
+      # reachable here long after it has left every picker in the UI.
       def find_exchange(name)
         return nil if name.blank?
 
-        Exchange.where('LOWER(name) = ?', name.to_s.downcase).first
+        Exchange.where('LOWER(name) = ?', name.to_s.downcase).where.not(type: Exchange::RETIRED_TYPES).first
       end
 
       def exchange_not_found(name)
         Result.failure(:not_found, 'exchange_not_found',
-                       "Exchange '#{name}' not found. Available: #{Exchange.where(available: true).pluck(:name).join(', ')}")
+                       "Exchange '#{name}' not found. Available: #{Exchange.tradeable.pluck(:name).join(', ')}")
       end
 
       def find_api_key(user, exchange)

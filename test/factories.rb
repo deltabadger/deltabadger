@@ -293,8 +293,11 @@ FactoryBot.define do
     end
 
     after(:create) do |bot, evaluator|
-      # Create API key after bot is created (so user is persisted)
-      if evaluator.with_api_key && !ApiKey.exists?(user: bot.user, exchange: bot.exchange, key_type: :trading)
+      # Create API key after bot is created (so user is persisted). A retired exchange never gets
+      # one — ApiKey refuses to persist a key for a venue that no longer exists, so a bot stranded
+      # on one is always in the disconnected state.
+      if evaluator.with_api_key && !bot.exchange&.retired? &&
+         !ApiKey.exists?(user: bot.user, exchange: bot.exchange, key_type: :trading)
         create(:api_key, user: bot.user, exchange: bot.exchange)
       end
     end

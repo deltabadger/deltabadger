@@ -61,6 +61,7 @@ sv:
             mode_paper: "Pappershandel"
             mode_live: "Riktig handel"
         status:
+            exchange_retired: 'Den här börsen finns inte längre — flytta boten till en annan.'
             setting_orders: "Lägger ordrar…"
             paused: "Pausad"
             next_try: "Nästa försök om"

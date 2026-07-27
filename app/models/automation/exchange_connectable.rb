@@ -3,6 +3,13 @@ module Automation::ExchangeConnectable
 
   included do
     belongs_to :exchange, optional: true
+
+    # ONE registration on purpose. ActiveSupport::Callbacks keys callbacks by filter, so declaring
+    # the same method twice (once `on: :start`, once with an `if:`) would silently replace the
+    # first rather than stack — and both triggers are needed: bots run valid?(:start) through
+    # Bot::Lifecycle#start, while Rules::Withdrawal#start calls a plain update! that never enters
+    # the :start context.
+    validate :validate_exchange_not_retired
   end
 
   def api_key
@@ -15,6 +22,15 @@ module Automation::ExchangeConnectable
   end
 
   private
+
+  # Stopping and deleting stay possible — neither status is `working?` — so a stranded automation
+  # can still be wound down or moved to a live exchange.
+  def validate_exchange_not_retired
+    return unless exchange&.retired?
+    return unless validation_context == :start || (will_save_change_to_status? && working?)
+
+    errors.add(:base, I18n.t('errors.exchange_retired'))
+  end
 
   def with_api_key
     ensure_exchange_authenticated

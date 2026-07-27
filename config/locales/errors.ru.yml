@@ -33,6 +33,7 @@ ru:
                         start_time_of_day:
                             invalid: "должно быть корректное время HH:MM"
     errors:
+        exchange_retired: 'Эта биржа больше не работает. Выберите другую биржу, чтобы продолжить торговлю.'
         bitcoin_address_not_updated: 'Биткоин-адрес не может быть обновлен'
         format: '%{attribute}%{message}'
         frequency_limit: 'Превышено ограничение частоты'

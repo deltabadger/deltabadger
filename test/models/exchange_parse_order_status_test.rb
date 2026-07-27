@@ -35,12 +35,6 @@ class ExchangeParseOrderStatusTest < ActiveSupport::TestCase
       'filled' => :closed,
       'cancelled' => :cancelled
     },
-    Exchanges::Bitmart => {
-      'new' => :open, 'partially_filled' => :open,
-      'filled' => :closed,
-      'canceled' => :cancelled, 'expired' => :cancelled, 'partially_canceled' => :cancelled,
-      'rejected' => :failed, 'failed' => :failed
-    },
     Exchanges::Bitrue => {
       'NEW' => :open, 'PARTIALLY_FILLED' => :open,
       'FILLED' => :closed,

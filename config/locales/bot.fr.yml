@@ -56,6 +56,7 @@ fr:
                 title: "Signal"
                 description: "Trader sur signaux externes"
         status:
+            exchange_retired: "Cette plateforme n'existe plus — bascule le bot vers une autre."
             setting_orders: "Configuration des commandes…"
             paused: "En pause"
             next_try: "Prochain essai dans"

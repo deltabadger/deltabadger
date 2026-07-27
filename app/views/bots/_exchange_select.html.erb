@@ -6,16 +6,19 @@
     </div>
     <% if bot.stopped? %>
       <% other_exchanges = bot.available_exchanges_for_current_settings.where.not(id: bot.exchange_id) %>
-      <% has_dropdown_items = bot.api_key.correct? || other_exchanges.any? %>
+      <%# A retired venue can never be reconnected — offering "reconnect" would send the user into a
+          key wizard that only refuses them. The list of other exchanges is what they need here. %>
+      <% can_reconnect = bot.api_key.correct? && !bot.exchange.retired? %>
+      <% has_dropdown_items = can_reconnect || other_exchanges.any? %>
       <% if has_dropdown_items %>
         <div class="dropdown dropdown--exchanges">
-          <% if bot.api_key.correct? %>
+          <% if can_reconnect %>
             <%= link_to new_bot_add_api_key_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } do %>
               <%= t('button.reconnect') %>
             <% end %>
           <% end %>
           <% if other_exchanges.any? %>
-            <% if bot.api_key.correct? %>
+            <% if can_reconnect %>
               <div class="dropdown__item dropdown__item--divider"></div>
             <% end %>
             <% exchanges_with_keys = bot.user.api_keys.correct.where(exchange: other_exchanges).pluck(:exchange_id).to_set %>
@@ -32,7 +35,9 @@
     <% end %>
   </div>
 
-  <% if bot.exchange.present? && !bot.api_key.correct? %>
+  <% if bot.exchange&.retired? %>
+    <span class="text-warning"><%= t('bot.status.exchange_retired') %></span>
+  <% elsif bot.exchange.present? && !bot.api_key.correct? %>
     <%= link_to t('button.connect'), new_bot_add_api_key_path(bot), class: "sbutton sbutton--success", data: { turbo_frame: "modal" } %>
   <% end %>
 <% end %>

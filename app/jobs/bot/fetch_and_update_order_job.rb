@@ -9,6 +9,13 @@ class Bot::FetchAndUpdateOrderJob < BotJob
   retry_on Client::RateLimitedError, wait: BotJob::RATE_LIMIT_WAIT, attempts: 4
 
   def perform(order, update_missed_quote_amount: false, success_or_kill: false)
+    # Keyed off the ORDER's venue, not the bot's: bot.exchange is mutable, so once a stranded bot
+    # is moved to a live exchange, a job still queued for the old order would otherwise ask the new
+    # venue about an order id it has never seen. transactions.exchange_id records where the order
+    # was actually placed. Nothing is fetchable from a venue that no longer exists, and the failure
+    # path below raises rather than degrading, so this has to no-op.
+    return if order.exchange&.retired?
+
     bot = order.bot
     result = bot.get_order(order_id: order.external_id)
     if result.failure?

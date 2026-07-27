@@ -37,7 +37,10 @@ module BotApi
 
         return invalid_interval unless VALID_INTERVALS.include?(@interval)
 
-        exchange = Exchange.where('LOWER(name) = ?', @exchange_name.to_s.downcase).first
+        # Retired venues are excluded here rather than left to the missing-key check: the lookup is
+        # unscoped by name, so a retired exchange is still reachable by REST/MCP.
+        exchange = Exchange.where('LOWER(name) = ?', @exchange_name.to_s.downcase)
+                           .where.not(type: Exchange::RETIRED_TYPES).first
         return exchange_not_found unless exchange
 
         api_key = @user.api_keys.find_by(exchange: exchange, key_type: :trading, status: :correct)
@@ -171,7 +174,7 @@ module BotApi
       end
 
       def exchange_not_found
-        available = Exchange.where(available: true).pluck(:name).join(', ')
+        available = Exchange.tradeable.pluck(:name).join(', ')
         Result.failure(:not_found, 'exchange_not_found',
                        "Exchange '#{@exchange_name}' not found. Available: #{available}")
       end

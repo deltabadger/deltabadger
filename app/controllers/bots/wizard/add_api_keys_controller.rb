@@ -3,10 +3,15 @@
 # branches on the outcome. Subclasses supply the bot relation and routes as
 # explicit overrides.
 class Bots::Wizard::AddApiKeysController < ApplicationController
+  include RetiredExchangeGuard
+
   before_action :authenticate_user!
 
   def new
     @bot = build_bot
+    # The bot is built inside the action (from the wizard session), so this can't be a
+    # before_action — the exchange isn't known until here.
+    return if reject_retired_exchange(@bot.exchange, fallback: missing_exchange_path)
 
     if (path = prerequisite_redirect_path)
       redirect_to path
@@ -25,6 +30,8 @@ class Bots::Wizard::AddApiKeysController < ApplicationController
 
   def create
     @bot = build_bot
+    return if reject_retired_exchange(@bot.exchange, fallback: missing_exchange_path)
+
     if @bot.exchange_id.blank?
       redirect_to missing_exchange_path
       return

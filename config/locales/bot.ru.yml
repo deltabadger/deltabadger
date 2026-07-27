@@ -53,6 +53,7 @@ ru:
                 title: "Signal"
                 description: "Торговля по внешним сигналам"
         status:
+            exchange_retired: 'Эта биржа больше не работает — переведите бота на другую.'
             setting_orders: "Настройка ордеров…"
             paused: "На паузе"
             next_try: "Следующая попытка через"

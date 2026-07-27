@@ -33,9 +33,12 @@ module BotApi
 
       private
 
+      # A retired venue resolves to nil, so the caller's "exchange not found" path answers instead
+      # of the request reaching a stub that can only fail.
       def resolve_exchange
-        return Exchange.find_by(id: @exchange_id.to_i) if @exchange_id.present?
-        return Exchange.where('LOWER(name) = ?', @exchange_name.to_s.downcase).first if @exchange_name.present?
+        scope = Exchange.where.not(type: Exchange::RETIRED_TYPES)
+        return scope.find_by(id: @exchange_id.to_i) if @exchange_id.present?
+        return scope.where('LOWER(name) = ?', @exchange_name.to_s.downcase).first if @exchange_name.present?
 
         nil
       end
@@ -59,7 +62,7 @@ module BotApi
       def exchange_not_found
         identifier = @exchange_name.presence || @exchange_id
         Result.failure(:not_found, 'exchange_not_found',
-                       "Exchange '#{identifier}' not found. Available exchanges: #{Exchange.where(available: true).pluck(:name).join(', ')}")
+                       "Exchange '#{identifier}' not found. Available exchanges: #{Exchange.tradeable.pluck(:name).join(', ')}")
       end
 
       def api_key_missing(exchange)

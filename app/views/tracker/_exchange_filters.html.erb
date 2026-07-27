@@ -4,7 +4,10 @@
       <% if @exchanges.any? %>
         <%= link_to t('tracker.filters.all'), tracker_path(from: params[:from], to: params[:to]), class: ['sbutton sbutton--multi', ('sbutton--multi--active' unless params[:exchange_id].present?)] %>
         <% @exchanges.each do |exchange| %>
-          <% if @exchanges_with_valid_keys.include?(exchange.id) %>
+          <%# @exchanges comes from api_keys PLUS account_transactions, so a retired venue still
+              shows up for its history. It filters like any other, but must never offer to
+              reconnect — there is nothing left to connect to. %>
+          <% if @exchanges_with_valid_keys.include?(exchange.id) || exchange.retired? %>
             <%= link_to exchange.name, tracker_path(exchange_id: exchange.id, from: params[:from], to: params[:to]), class: ['sbutton sbutton--multi', ('sbutton--multi--active' if params[:exchange_id].to_s == exchange.id.to_s)] %>
           <% else %>
             <%= link_to new_tracker_add_api_key_path(exchange_id: exchange.id), class: 'sbutton sbutton--multi sbutton--broken', data: { turbo_frame: 'modal' } do %>

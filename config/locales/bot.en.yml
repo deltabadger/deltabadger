@@ -61,6 +61,7 @@ en:
             mode_paper: "Paper trading"
             mode_live: "Live trading"
         status:
+            exchange_retired: 'This exchange no longer operates — switch the bot to another one.'
             setting_orders: "Setting orders…"
             paused: "Paused"
             next_try: "Next try in"

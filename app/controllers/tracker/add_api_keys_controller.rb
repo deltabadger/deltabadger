@@ -1,4 +1,6 @@
 class Tracker::AddApiKeysController < ApplicationController
+  include RetiredExchangeGuard
+
   before_action :authenticate_user!
 
   def new
@@ -6,6 +8,7 @@ class Tracker::AddApiKeysController < ApplicationController
       redirect_to new_tracker_pick_exchange_path
       return
     end
+    return if reject_retired_exchange(tracker_exchange, fallback: tracker_path)
 
     @exchange = tracker_exchange
     @api_key = find_or_build_api_key
@@ -24,6 +27,7 @@ class Tracker::AddApiKeysController < ApplicationController
       redirect_to new_tracker_pick_exchange_path
       return
     end
+    return if reject_retired_exchange(@exchange, fallback: tracker_path)
 
     @api_key = find_or_build_api_key
     @api_key.validate_credentials!(api_key_params)
