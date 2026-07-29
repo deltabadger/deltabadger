@@ -82,6 +82,39 @@ class Clients::MarketDataTest < ActiveSupport::TestCase
     assert_equal 1, result.data['data'].size
   end
 
+  # --- Bulk READ timeout ------------------------------------------------------------------
+  #
+  # Faraday resolves the socket read timeout as `options[:read_timeout] || options[:timeout]`
+  # (Faraday::Adapter#request_timeout). Client::OPTIONS sets a CONNECTION-level read_timeout of
+  # 30s, so a per-request `req.options.timeout = 60` is never consulted and the request still dies
+  # at 30s — which is exactly what production did every day at 10:00 UTC: 38 of 92 containers hit
+  # Net::ReadTimeout at 30.1s while BULK_READ_TIMEOUT claimed to allow 60. These assert the
+  # EFFECTIVE value under Faraday's own resolution rule, not merely that some option was set.
+
+  BULK_ENDPOINTS = {
+    get_stocks: '/api/v2/assets',
+    get_alpaca_listings: '/api/v2/listings',
+    get_alpaca_crypto_listings: '/api/v2/listings'
+  }.freeze
+
+  BULK_ENDPOINTS.each do |method, path|
+    test "#{method} widens the effective read timeout to BULK_READ_TIMEOUT" do
+      env = capture_request_env(path) { @client.public_send(method) }
+
+      assert_equal Clients::MarketData::BULK_READ_TIMEOUT, effective_read_timeout(env)
+    end
+  end
+
+  # Guards the test above from passing for the wrong reason: if the connection-level read_timeout
+  # were ever dropped from Client::OPTIONS, a per-request `timeout` would start working again and
+  # the bulk assertions would pass while trading clients silently lost their tighter budget.
+  test 'non-bulk reads keep the tighter global read timeout' do
+    env = capture_request_env('/api/v1/exchange_rates') { @client.get_exchange_rates }
+
+    assert_equal 30, Client::OPTIONS.dig(:request, :read_timeout)
+    assert_equal Client::OPTIONS.dig(:request, :read_timeout), effective_read_timeout(env)
+  end
+
   # Indices consumption is migrated to the v2 surface (v1/indices is being sunset).
   test 'get_indices calls api/v2/indices' do
     mock_response = stub(body: { 'metadata' => { 'count' => 1 },
@@ -94,5 +127,36 @@ class Clients::MarketDataTest < ActiveSupport::TestCase
     result = @client.get_indices
     assert_predicate result, :success?
     assert_equal 'nasdaq-100', result.data['data'].first['external_id']
+  end
+
+  private
+
+  # Mirrors Faraday::Adapter#request_timeout(:read, options).
+  def effective_read_timeout(env)
+    env.request[:read_timeout] || env.request[:timeout]
+  end
+
+  # A real Faraday stack (so per-request option merging happens for real) carrying the same
+  # connection-level Client::OPTIONS as Clients::MarketData#build_connection, with the network
+  # swapped for the test adapter.
+  def capture_request_env(path)
+    captured = nil
+    stubs = Faraday::Adapter::Test::Stubs.new do |stub|
+      stub.get(path) do |env|
+        captured = env
+        [200, { 'Content-Type' => 'application/json' }, '{"metadata":{"count":0},"data":[]}']
+      end
+    end
+    connection = Faraday.new(url: 'http://data-api:3000', **Client::OPTIONS) do |config|
+      config.response :json
+      config.adapter :test, stubs
+    end
+    @client.stubs(:connection).returns(connection)
+    @client.stubs(:v2_connection).returns(connection)
+
+    yield
+
+    stubs.verify_stubbed_calls
+    captured
   end
 end

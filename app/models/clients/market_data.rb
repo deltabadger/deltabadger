@@ -25,15 +25,22 @@ class Clients::MarketData < Client
     end
   end
 
-  # The two bulk stock endpoints return large payloads (~11.6k assets / ~6.7k listings). Give them a
-  # longer read window than the 30s default (Fix B) so a slow cold response doesn't time out; trading
-  # clients keep the tighter global timeout. Server-side caching (data-api Fix D) makes the warm path fast.
+  # The bulk stock endpoints return large payloads (~11.6k assets / ~6.7k listings, ~12 MB on the
+  # wire). Give them a longer read window than the 30s default (Fix B) so a slow response under the
+  # fleet-wide 10:00 UTC burst doesn't time out; trading clients keep the tighter global timeout.
+  # Server-side caching (data-api Fix D) makes the warm path fast.
+  #
+  # MUST be applied as `read_timeout`, not `timeout`. Faraday resolves the socket read budget as
+  # `options[:read_timeout] || options[:timeout]` (Faraday::Adapter#request_timeout), so the
+  # CONNECTION-level read_timeout of 30 in Client::OPTIONS wins over a per-request `timeout` and
+  # silently discards it. That is how this widening sat dead from 2026-06-08 until 2026-07-29,
+  # when 38 of 92 containers were still failing daily at exactly 30.1s.
   BULK_READ_TIMEOUT = 60
 
   def get_stocks
     with_rescue do
       response = v2_connection.get('api/v2/assets', { type: 'stock,etf', include: 'identifiers' }) do |req|
-        req.options.timeout = BULK_READ_TIMEOUT
+        req.options.read_timeout = BULK_READ_TIMEOUT
       end
       Result::Success.new(response.body)
     end
@@ -42,7 +49,7 @@ class Clients::MarketData < Client
   def get_alpaca_listings
     with_rescue do
       response = v2_connection.get('api/v2/listings', { venue_scheme: 'alpaca_exchange' }) do |req|
-        req.options.timeout = BULK_READ_TIMEOUT
+        req.options.read_timeout = BULK_READ_TIMEOUT
       end
       Result::Success.new(response.body)
     end
@@ -51,7 +58,7 @@ class Clients::MarketData < Client
   def get_alpaca_crypto_listings
     with_rescue do
       response = v2_connection.get('api/v2/listings', { venue: 'alpaca_crypto' }) do |req|
-        req.options.timeout = BULK_READ_TIMEOUT
+        req.options.read_timeout = BULK_READ_TIMEOUT
       end
       Result::Success.new(response.body)
     end

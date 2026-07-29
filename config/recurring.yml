@@ -32,9 +32,14 @@ production:
   # backfill ships the ambiguity/defensive-skip guards. Runs after data-api's 07:00 UTC sync
   # so containers fetch freshly-synced data. Per-container emergency off:
   # AppConfig.set('stock_sync_enabled', 'false').
+  # `jitter: true` makes the cron tick SCHEDULE the sync at a random offset instead of running it
+  # inline — every container shares this minute, and the two bulk data-api pulls are ~12 MB each.
+  # See Asset::SyncStocksFromDeltabadgerJob::JITTER_WINDOW; the window is sized to stay clear of
+  # the 10:30 index sync above.
   sync_stocks_from_deltabadger_job:
     class: Asset::SyncStocksFromDeltabadgerJob
     schedule: "0 10 * * *"  # Daily at 10:00 UTC (after data-api sync at 07:00)
+    args: [{ jitter: true }]
 
   sync_alpaca_crypto_from_deltabadger_job:
     class: Asset::SyncAlpacaCryptoFromDeltabadgerJob
@@ -94,9 +99,11 @@ development:
     schedule: "0 3 * * 1"  # At 03:00 UTC on Monday (no-op on hosted; per-user Alpaca sync only)
 
   # Re-enabled after the 2026-05-28 incident (see production block above for rationale).
+  # `jitter: true` — see the production block above.
   sync_stocks_from_deltabadger_job:
     class: Asset::SyncStocksFromDeltabadgerJob
     schedule: "0 10 * * *"  # Daily at 10:00 UTC (after data-api sync at 07:00)
+    args: [{ jitter: true }]
 
   sync_alpaca_crypto_from_deltabadger_job:
     class: Asset::SyncAlpacaCryptoFromDeltabadgerJob
