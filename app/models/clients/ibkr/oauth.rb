@@ -49,7 +49,7 @@ class Clients::Ibkr::Oauth
   # unreserved set as upper-case %XX, and turn spaces into "+".
   def self.escape(str)
     str.to_s.b.gsub(UNRESERVED) { |c| c.bytes.map { |b| format('%%%02X', b) }.join }
-              .tr(' ', '+')
+       .tr(' ', '+')
        .force_encoding(Encoding::UTF_8)
   end
 

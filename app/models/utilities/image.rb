@@ -24,10 +24,10 @@ module Utilities
       # return desired quantity
       frequencies
         .map.with_index { |f, i| [f / total_frequencies, hex_values[i]] }
-            .sort { |a, b| b[0] - a[0] }
-            .select { |r| r[0] > threshold }
-            .map { |r| r[1][0..6] }
-            .slice(0, quantity)
+        .sort { |a, b| b[0] - a[0] }
+        .select { |r| r[0] > threshold }
+        .map { |r| r[1][0..6] }
+        .slice(0, quantity)
     end
 
     def self.most_vivid_color(hex_colors)

@@ -79,7 +79,7 @@ class Exchanges::Hyperliquid < Exchange
       # Filter to only tickers we have in our DB
       available_tickers = tickers.available.pluck(:ticker)
       result.data.select { |ticker, _| ticker.in?(available_tickers) }
-                 .transform_values(&:to_d)
+            .transform_values(&:to_d)
     end
 
     Result::Success.new(tickers_prices)
