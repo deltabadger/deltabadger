@@ -72,9 +72,15 @@ class Users::SessionsController < Devise::SessionsController
   # the account's own preference. Carry it on the redirect, or the second-factor page
   # renders in the default locale for everyone. Nil for the default locale, so the path
   # stays unprefixed exactly as `default_url_options` would leave it.
+  # The route's locale segment is regex-constrained on incoming requests only, never on
+  # generation, so a value the app no longer ships — a column left behind by a change to
+  # available_locales, say — would build a path that 404s on arrival and dead-end every
+  # login for that account. Anything unroutable falls back to the unprefixed path.
   def pending_sign_in_locale(user)
     locale = params[:locale].presence || user.locale.presence
-    locale unless locale == I18n.default_locale.to_s
+    return if locale.blank? || locale == I18n.default_locale.to_s
+
+    locale if I18n.available_locales.any? { |available| available.to_s == locale }
   end
 
   def pending_sign_in_live?
