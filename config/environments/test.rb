@@ -41,6 +41,11 @@ Rails.application.configure do
   # Raises error for missing translations
   # config.action_view.raise_on_missing_translations = true
   config.action_mailer.default_url_options = { host: 'localhost', port: 3000 }
+  # ApplicationMailer#default_url_options replaces the inherited one rather than merging
+  # it, so the line above never reaches a mailer view's *_url helper. Development and
+  # production supply the host through the route set; test needs the same, or any test
+  # that delivers a mail containing a link dies with "Missing host to link to!".
+  routes.default_url_options = { host: 'localhost', port: 3000 }
 
   config.dry_run = true
 end
