@@ -111,19 +111,19 @@ class ApiKey < ApplicationRecord
 
   private
 
-  # Assigns whatever credential params were submitted. Crypto exchanges send key/secret/passphrase;
-  # the IBKR wizard additionally sends the OAuth fields. Uses indifferent `params[...]` (works for
-  # both ActionController::Parameters and plain hashes); absent keys assign nil, which is a no-op
-  # for exchanges that don't use them.
+  CREDENTIAL_FIELDS = %i[
+    key secret passphrase access_token
+    rsa_signature_key rsa_encryption_key dh_param ibkr_realm
+  ].freeze
+
+  # Assigns only the credential fields actually present in the submitted params. The generic
+  # add-api-key forms send key/secret alone; assigning the whole set would NULL the IBKR RSA
+  # material and DH param, which IBKR only lets a user register once. An explicitly-supplied
+  # nil still clears the field.
   def assign_credentials(params)
-    self.key = params[:key]
-    self.secret = params[:secret]
-    self.passphrase = params[:passphrase]
-    self.access_token = params[:access_token]
-    self.rsa_signature_key = params[:rsa_signature_key]
-    self.rsa_encryption_key = params[:rsa_encryption_key]
-    self.dh_param = params[:dh_param]
-    self.ibkr_realm = params[:ibkr_realm]
+    CREDENTIAL_FIELDS.each do |field|
+      self[field] = params[field] if params.key?(field)
+    end
   end
 
   def unique_for_user_exchange_and_key_type

@@ -168,4 +168,26 @@ class ApiKeyTest < ActiveSupport::TestCase
 
     assert key.reload.incorrect?
   end
+
+  # --- assign_credentials must not wipe fields the submitter never sent -------------------------
+
+  test 'submitting only key and secret does not wipe stored IBKR material' do
+    key = create(:api_key)
+    key.update_columns(rsa_signature_key: 'SIGKEY', dh_param: 'DHPARAM')
+
+    key.send(:assign_credentials, { key: 'new-key', secret: 'new-secret' })
+
+    assert_equal 'new-key', key.key
+    assert_equal 'SIGKEY', key.rsa_signature_key, 'omitted fields must be untouched'
+    assert_equal 'DHPARAM', key.dh_param
+  end
+
+  test 'an explicitly nil field is still cleared' do
+    key = create(:api_key)
+    key.update_columns(passphrase: 'OLD')
+
+    key.send(:assign_credentials, { key: 'k', passphrase: nil })
+
+    assert_nil key.passphrase
+  end
 end
