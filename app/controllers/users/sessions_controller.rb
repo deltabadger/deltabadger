@@ -44,6 +44,7 @@ class Users::SessionsController < Devise::SessionsController
     return abandon_pending_sign_in unless pending_sign_in_live?
 
     self.resource = User.find(session[:pending_user_id])
+    resource.unlock_access_if_lock_expired!
     return abandon_pending_sign_in if resource.access_locked?
     return render :two_factor unless params.dig(:user, :otp_code_token).present?
 

@@ -204,4 +204,46 @@ class Users::PasswordsControllerTwoFactorTest < ActionDispatch::IntegrationTest
     assert @user.reload.valid_password?('Old!Password1'),
            'the lock must hold on the reset path, not only on sign-in'
   end
+
+  # Forgetting the password is exactly how an account gets locked, and resetting it is what
+  # the app then tells the user to do. Blaming the authenticator for a lock the password
+  # stage applied sends them off to re-pair a device that is working fine.
+  test 'a locked account is told it is locked, not that its code is wrong' do
+    @user.lock_access!
+
+    put '/password', params: {
+      user: { reset_password_token: @raw_token, otp_code_token: ROTP::TOTP.new(@user.otp_secret_key).now,
+              password: 'New!Password1', password_confirmation: 'New!Password1' }
+    }
+
+    assert_response :unprocessable_entity
+    assert @user.reload.valid_password?('Old!Password1'), 'the refusal itself must stand'
+    assert_includes response.body, I18n.t('devise.failure.locked')
+    refute_includes response.body, I18n.t('errors.messages.bad_2fa_code')
+  end
+
+  # Devise's own credential path opens with `unlock_access! if lock_expired?`
+  # (Devise::Models::Lockable#valid_for_authentication?). Nothing runs it for the counter
+  # kept here, so without an explicit reset an expired lock still holds a spent budget and
+  # the first wrong code re-locks the account for another unlock_in.
+  test 'an expired lock restores the whole attempt budget' do
+    Devise.maximum_attempts.times do
+      put '/password', params: {
+        user: { reset_password_token: @raw_token, otp_code_token: '000000',
+                password: 'New!Password1', password_confirmation: 'New!Password1' }
+      }
+    end
+    assert @user.reload.access_locked?
+
+    travel(Devise.unlock_in + 1.minute) do
+      put '/password', params: {
+        user: { reset_password_token: @raw_token, otp_code_token: '000000',
+                password: 'New!Password1', password_confirmation: 'New!Password1' }
+      }
+
+      @user.reload
+      assert_equal 1, @user.failed_attempts, 'the expired lock must clear the counter before this guess'
+      refute @user.access_locked?, 'one wrong code must not re-lock an account whose lock has expired'
+    end
+  end
 end

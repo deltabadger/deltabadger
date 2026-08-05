@@ -37,9 +37,15 @@ class Users::PasswordsController < Devise::PasswordsController
     # Expired or unknown token: hand straight to Devise, which owns that error copy.
     return super unless user.reset_password_period_valid?
 
+    user.unlock_access_if_lock_expired!
+
     # A locked account must not get further OTP attempts here, or the lock only guards
-    # the sign-in path while password reset keeps accepting guesses.
-    return abort_update_for(user, t('errors.messages.bad_2fa_code')) if user.access_locked?
+    # the sign-in path while password reset keeps accepting guesses. Say that it is the
+    # lock: forgetting the password is how an account gets locked in the first place, and
+    # resetting it is what the app then tells the user to do, so blaming the authenticator
+    # here sends them off to re-pair a device that is working fine. This is the only
+    # surface on the reset path that can tell them the truth.
+    return abort_update_for(user, t('devise.failure.locked')) if user.access_locked?
 
     return abort_update_for(user, t('errors.messages.empty_two_fa_token')) if submitted_otp.blank?
 
@@ -79,7 +85,7 @@ class Users::PasswordsController < Devise::PasswordsController
 
   def ensure_valid_token
     original_token = params[:reset_password_token]
-    reset_password_token = Devise.token_generator.digest(self, :reset_password_token, original_token)
+    reset_password_token = Devise.token_generator.digest(User, :reset_password_token, original_token)
     user = User.find_or_initialize_with_errors([:reset_password_token], reset_password_token:)
     @user_email = user.email
     @two_fa_enabled = user.otp_module_enabled?

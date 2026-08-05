@@ -28,6 +28,18 @@ class User < ApplicationRecord
   validate :password_complexity, if: -> { password.present? }
   validates :time_zone, inclusion: { in: ActiveSupport::TimeZone.all.map(&:name), allow_nil: true }
 
+  # Devise hands the whole attempt budget back the moment a lock ages out:
+  # Devise::Models::Lockable#valid_for_authentication? opens with `unlock_access! if
+  # lock_expired?` before it counts anything. Credential checks that never reach Warden —
+  # the second factor on sign-in, the OTP on password reset — have to run it themselves, or
+  # an expired lock keeps a spent counter and the next single wrong code re-locks the
+  # account for another unlock_in, indefinitely, on an instance with no operator to
+  # unlock anyone. `lock_expired?` is protected, hence the spelling: access_locked? is
+  # `locked_at present && !lock_expired?`, so this predicate is exactly lock_expired?.
+  def unlock_access_if_lock_expired!
+    unlock_access! if locked_at? && !access_locked?
+  end
+
   def global_pnl(use_cache: true)
     invested_by_currency = Hash.new(0)
     value_by_currency = Hash.new(0)
