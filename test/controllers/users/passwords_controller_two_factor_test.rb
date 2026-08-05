@@ -1,7 +1,18 @@
 require 'test_helper'
 
 class Users::PasswordsControllerTwoFactorTest < ActionDispatch::IntegrationTest
+  # The clock is frozen for the whole class. Users::VerifyOtp verifies through ROTP with
+  # its defaults (drift_ahead: 0, drift_behind: 0), so a code is only accepted inside the
+  # exact 30-second step it was minted in. On a live clock that step can tick over between
+  # ROTP::TOTP#now and the request carrying the code, failing a test for a reason that has
+  # nothing to do with what it asserts — worst for the tests that carry one code across two
+  # request cycles. Rails restores the clock in after_teardown.
+  #
+  # This does not soften the replay checks below: Users::VerifyOtp records last_otp_at and
+  # verifies with `after:`, and ROTP keeps only timecodes strictly greater than that one, so
+  # a code consumed by an earlier request is still rejected on the retry even at a standstill.
   setup do
+    freeze_time
     create(:user, admin: true, setup_completed: true)
     @user = create(:user, password: 'Old!Password1', setup_completed: true)
     @user.update!(otp_secret_key: ROTP::Base32.random, otp_module: :enabled)

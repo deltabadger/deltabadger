@@ -1,7 +1,13 @@
 require 'test_helper'
 
 class Users::SessionsControllerTwoFactorTest < ActionDispatch::IntegrationTest
+  # The clock is frozen for the whole class. Users::VerifyOtp verifies through ROTP with its
+  # defaults (drift_ahead: 0, drift_behind: 0), so a code is only accepted inside the exact
+  # 30-second step it was minted in, and on a live clock that step can tick over between
+  # ROTP::TOTP#now and the request carrying the code. Rails restores the clock in
+  # after_teardown, and the expiry test below still travels explicitly from this baseline.
   setup do
+    freeze_time
     create(:user, admin: true, setup_completed: true)
     @password = 'Sup3rSecret!pass'
     @user = create(:user, password: @password, setup_completed: true)
