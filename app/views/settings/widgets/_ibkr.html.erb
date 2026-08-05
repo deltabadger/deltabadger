@@ -7,6 +7,10 @@
       <%= t('settings.ibkr.widget_title') %>:
       <% if ibkr_key&.correct? %>
         <span class="text-success">CONNECTED</span>
+      <%# Checked before pending_activation? — past the deadline the wizard has given up on this
+          registration, and a PENDING badge here would contradict it. %>
+      <% elsif ibkr_key&.activation_stalled? %>
+        <span class="text-danger">ACTION NEEDED</span>
       <% elsif ibkr_key&.pending_activation? %>
         <span class="text-warning">PENDING</span>
       <% else %>

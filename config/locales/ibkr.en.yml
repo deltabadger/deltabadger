@@ -1,3 +1,10 @@
+# Two rules for this file:
+#   1. Anything IBKR itself puts on screen — field labels (Consumer Key), error text, hostnames —
+#      is quoted VERBATIM and must stay verbatim in any future locale. We are telling users what to
+#      look for in IBKR's interface; a translated label is a label they cannot find. Translate the
+#      sentence around it, never the thing being pointed at.
+#   2. Use typographic apostrophes (’) and quotes (“ ”). Straight ones are HTML-escaped to &#39;
+#      / &quot; in the rendered page.
 en:
     settings:
         ibkr:
@@ -7,16 +14,22 @@ en:
             connected: 'Interactive Brokers is connected.'
             disconnect: 'Disconnect'
             activation_pending: 'Credentials submitted — IBKR is activating your consumer key (this can take 24h–2 weeks). Your bot starts automatically once it is active.'
+            activation_failed: 'IBKR has not activated your consumer key in %{duration}. A registration that has waited this long will not activate — it is most likely invalid, or it was replaced when the portal form was saved again.'
+            activation_failed_fix: 'Start over to generate fresh keys and register once more. If you have just re-registered in the portal, re-enter your credentials below instead.'
             start_over: 'Start over'
             generating: 'Generating your secure keys… this can take a moment and will refresh automatically.'
             download_intro: 'Download these three files — you will upload them when you register a consumer at IBKR:'
             signing_key: 'Signing public key'
             encryption_key: 'Encryption public key'
             dh_param: 'Diffie-Hellman params'
-            portal_intro: 'Open the IBKR OAuth self-service portal and register a consumer — pick a consumer key of exactly 9 letters (A–Z):'
+            portal_intro: 'Register your key on IBKR’s OAuth self-service portal — pick a consumer key of exactly 9 letters (A–Z). Follow these three steps in order; this is where almost every failed setup goes wrong:'
+            portal_step_private_window: 'Open the portal in a private/incognito window, and log in to the IBKR account you want to connect — not another account you happen to have.'
+            portal_step_check_address: 'Once you are logged in, look at your browser’s address bar. It has to read %{recommended} or %{alternative}. IBKR sometimes redirects you elsewhere while you log in — if the address is any other interactivebrokers.* domain, close the tab and open the other portal link below. The file upload only works on those two.'
+            portal_step_register: 'Set your Consumer Key, upload the three files you downloaded above, then come back here and paste the credentials IBKR gives you.'
             open_portal: 'Open IBKR portal'
-            portal_fallback: 'If the key upload fails there, use the US portal instead — your account works on both:'
-            open_portal_fallback: 'Open US portal (fallback)'
+            open_portal_alternative: 'Open the other portal'
+            portal_error_501: '“Failed to set Key - failed to put consumer info” (error 501) means you are on an IBKR server that blocks the upload — not that you did anything wrong. Go back and use the other portal link.'
+            single_key_warning: 'IBKR keeps only ONE key registration per login. Saving the portal form again later replaces it and breaks the connection you already have — once you are connected, do not reopen the portal.'
             paste_intro: 'Paste the Consumer Key, Access Token and Access Token Secret IBKR gives you:'
             consumer_key: 'Consumer key'
             consumer_key_hint: 'The 9-letter key (A–Z) you chose and saved in the portal’s Consumer Key box — it stays saved on your IBKR account and is shown at the top of the portal’s Configuration page.'

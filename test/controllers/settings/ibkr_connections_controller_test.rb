@@ -87,10 +87,95 @@ class Settings::IbkrConnectionsControllerTest < ActionDispatch::IntegrationTest
       assert_select 'a[href=?]', portal[:url]
     end
     assert_select 'select[data-ibkr-connect-target]', count: 0 # entity picker removed
-    # The regional hosts 501 the portal's key-upload PUT — they must never reappear.
-    refute_includes response.body, 'interactivebrokers.ie'
-    refute_includes response.body, 'interactivebrokers.lu'
-    refute_includes response.body, 'interactivebrokers.com.hu'
+    # Every host whose edge 501s the key-upload PUT. The bare IBKR host keeps its `www.` prefix
+    # so the assertion cannot trip over the recommended ndcdyn.interactivebrokers.com.
+    %w[www.interactivebrokers.com interactivebrokers.ie interactivebrokers.lu
+       interactivebrokers.com.hu interactivebrokers.com.au].each do |blocked|
+      refute_includes response.body, blocked, "#{blocked} rejects the key upload — never link it"
+    end
+  end
+
+  # --- step 2: the portal instructions ---------------------------------------------------------
+  # Every failed setup we have had to unpick went wrong inside IBKR's portal, not in our app, so
+  # this step has to be prescriptive rather than descriptive.
+
+  test 'portal step offers both portals with the CDN-bypassing one first' do
+    key_with_artifacts
+    get settings_ibkr_connect_path
+
+    portal_links = css_select('a').filter_map { |a| a['href'] }.select { |href| href.include?('action=OAUTH') }
+    assert_equal [Exchanges::Ibkr::OAUTH_PORTALS['recommended'][:url],
+                  Exchanges::Ibkr::OAUTH_PORTALS['alternative'][:url]],
+                 portal_links,
+                 'the reliable portal must be the first thing the user reaches for'
+  end
+
+  test 'portal step demands a private window and an address-bar check naming both allowed hosts' do
+    key_with_artifacts
+    get settings_ibkr_connect_path
+
+    assert_includes response.body, I18n.t('settings.ibkr.portal_step_private_window')
+    # Hosts come from the constant, so the copy cannot drift away from the links.
+    assert_includes response.body,
+                    I18n.t('settings.ibkr.portal_step_check_address',
+                           recommended: Exchanges::Ibkr::OAUTH_PORTALS['recommended'][:host],
+                           alternative: Exchanges::Ibkr::OAUTH_PORTALS['alternative'][:host])
+    assert_includes response.body, I18n.t('settings.ibkr.portal_step_register')
+  end
+
+  test 'portal step explains the 501 upload failure as a wrong-host problem' do
+    key_with_artifacts
+    get settings_ibkr_connect_path
+
+    assert_includes response.body, I18n.t('settings.ibkr.portal_error_501')
+  end
+
+  test 'portal step warns that IBKR keeps only one key registration per login' do
+    key_with_artifacts
+    get settings_ibkr_connect_path
+
+    assert_includes response.body, I18n.t('settings.ibkr.single_key_warning')
+  end
+
+  test 'the connected state repeats the single-key warning — that is where re-saving bites' do
+    key_with_artifacts.update!(status: :correct)
+    get settings_ibkr_connect_path
+
+    assert_includes response.body, I18n.t('settings.ibkr.connected')
+    assert_includes response.body, I18n.t('settings.ibkr.single_key_warning')
+  end
+
+  # --- the activation wait, and its dead end ---------------------------------------------------
+
+  test 'a fresh pending_activation still shows the activation wait' do
+    key = key_with_artifacts
+    key.update!(status: :pending_activation)
+    key.update_column(:updated_at, 3.days.ago)
+
+    get settings_ibkr_connect_path
+
+    assert_includes response.body, I18n.t('settings.ibkr.activation_pending')
+    refute_includes response.body, I18n.t('settings.ibkr.activation_failed_fix')
+  end
+
+  test 'a pending_activation past the deadline fails out and points at the way forward' do
+    freeze_time do
+      key = key_with_artifacts
+      key.update!(status: :pending_activation)
+      submitted_at = ApiKey::ACTIVATION_DEADLINE.ago - 6.days
+      key.update_column(:updated_at, submitted_at)
+
+      get settings_ibkr_connect_path
+
+      waited = ActionController::Base.helpers.distance_of_time_in_words(submitted_at, Time.current)
+      assert_includes response.body, I18n.t('settings.ibkr.activation_failed', duration: waited)
+      assert_includes response.body, I18n.t('settings.ibkr.activation_failed_fix')
+      refute_includes response.body, I18n.t('settings.ibkr.activation_pending'),
+                      'promising an activation that is never coming is the bug being fixed'
+      # Both exits stay reachable: start over (the fix) and re-enter credentials (the retry).
+      assert_includes response.body, I18n.t('settings.ibkr.start_over')
+      assert_select 'form[action=?]', settings_activate_ibkr_connection_path
+    end
   end
 
   test 'download serves the PUBLIC signing/encryption keys and the dhparam, never the private key' do

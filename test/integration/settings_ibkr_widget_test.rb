@@ -35,4 +35,25 @@ class SettingsIbkrWidgetTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select 'a[href=?]', settings_ibkr_connect_path
   end
+
+  test 'widget shows PENDING while IBKR is still activating the consumer key' do
+    @user.api_keys.create!(exchange: @ibkr, key_type: :trading, status: :pending_activation)
+
+    get settings_connect_path
+    assert_response :success
+    assert_includes response.body, '>PENDING<'
+    refute_includes response.body, 'ACTION NEEDED'
+  end
+
+  test 'widget flags a registration that never activated, matching the wizard' do
+    key = @user.api_keys.create!(exchange: @ibkr, key_type: :trading, status: :pending_activation)
+    key.update_column(:updated_at, ApiKey::ACTIVATION_DEADLINE.ago - 1.day)
+
+    get settings_connect_path
+    assert_response :success
+    # Leaving this on PENDING would contradict the wizard, which by now says the registration
+    # is dead and the user has to start over.
+    assert_includes response.body, 'ACTION NEEDED'
+    refute_includes response.body, '>PENDING<'
+  end
 end
