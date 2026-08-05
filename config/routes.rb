@@ -116,7 +116,8 @@ Rails.application.routes.draw do
 
     namespace :settings do
       get '/', to: redirect { |params, request|
-        locale = request.params[:locale]
+        locale = request.params[:locale].to_s
+        locale = nil unless I18n.available_locales.map(&:to_s).include?(locale)
         locale ? "/#{locale}/settings/connect" : "/settings/connect"
       }
       get :connect
@@ -161,7 +162,9 @@ Rails.application.routes.draw do
     end
 
     get :dashboard, to: redirect { |params, request|
-      "/#{request.params[:locale] || I18n.default_locale}/bots"
+      locale = request.params[:locale].to_s
+      locale = I18n.default_locale.to_s unless I18n.available_locales.map(&:to_s).include?(locale)
+      "/#{locale}/bots"
     }
 
     namespace :bots do
