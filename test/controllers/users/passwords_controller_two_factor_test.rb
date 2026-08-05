@@ -45,6 +45,19 @@ class Users::PasswordsControllerTwoFactorTest < ActionDispatch::IntegrationTest
     assert @user.reload.valid_password?('Old!Password1')
   end
 
+  # This is also the ONLY live guard on the `user.reload` in the pre-check. Users::VerifyOtp
+  # calls user.update, which persists every dirty attribute, so an un-reloaded record carries
+  # the assigned password into that write. Devise's Recoverable then clears the reset token in
+  # a before_update — encrypted_password changed while a token was present — and the token
+  # lookup in `super` no longer matches. The account ends up with the NEW password on a request
+  # that reports failure.
+  #
+  # A separate state-only test for that is not possible, so don't add one: every failing branch
+  # reloads before anything can flush the dirty password (Devise's increment_failed_attempts is
+  # increment_counter plus reload, and Users::VerifyOtp returns false before its update on a bad
+  # code), which leaves the successful reset as the only reachable case — and there the persisted
+  # end state is identical with or without the reload. The response status is the only observable
+  # that separates them, which is why the message below carries the diagnosis.
   test 'changes the password with a correct OTP' do
     code = ROTP::TOTP.new(@user.otp_secret_key).now
     put '/password', params: {
@@ -52,36 +65,14 @@ class Users::PasswordsControllerTwoFactorTest < ActionDispatch::IntegrationTest
               password: 'New!Password1', password_confirmation: 'New!Password1' }
     }
 
-    assert_response :redirect, 'a successful reset must redirect, not re-render the form'
+    assert_response :redirect,
+                    'a successful reset must redirect, not re-render the form. A 422 here means ' \
+                    'the new password was written through Users::VerifyOtp before Devise validated ' \
+                    'the token, clearing the token so `super` found nothing: the account has been ' \
+                    'changed while the user is told the request failed'
     @user.reload
     assert @user.valid_password?('New!Password1')
     assert_nil @user.reset_password_token, 'Devise must consume the token on success'
-  end
-
-  # Guards the `user.reload` in the pre-check. Users::VerifyOtp calls user.update, which
-  # persists every dirty attribute, so an un-reloaded record carries the assigned password
-  # into that write. Devise's Recoverable then clears the reset token in a before_update
-  # (encrypted_password changed while a token was present), and the token lookup in `super`
-  # no longer matches — the account ends up with the NEW password on a request that reports
-  # failure.
-  #
-  # That combination is only reachable on the path that actually succeeds: on every failing
-  # path Devise's own increment_failed_attempts reloads the record first, which masks the
-  # dirty password. So the assertions below deliberately pair the account state with the
-  # response — either one alone is identical whether or not the reload is present.
-  test 'the OTP pre-check does not write the password behind Devise' do
-    code = ROTP::TOTP.new(@user.otp_secret_key).now
-
-    put '/password', params: {
-      user: { reset_password_token: @raw_token, otp_code_token: code,
-              password: 'New!Password1', password_confirmation: 'New!Password1' }
-    }
-
-    assert @user.reload.valid_password?('New!Password1'), 'the reset must take effect'
-    assert_response :redirect,
-                    'the account password was changed but the request failed: the pre-check ' \
-                    'wrote it through VerifyOtp, Devise cleared the reset token on that write, ' \
-                    'and the token lookup in `super` then found nothing'
   end
 
   # A request that omits the password key leaves password_required? false on a persisted
