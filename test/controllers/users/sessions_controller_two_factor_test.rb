@@ -152,9 +152,12 @@ class Users::SessionsControllerTwoFactorTest < ActionDispatch::IntegrationTest
   # The route's locale segment is constrained on the way in but not on generation, so a
   # locale the app no longer ships would build a path that 404s on arrival — dead-ending
   # every login for that account, not just one.
+  # Seeded past the model validation on purpose: the row this guards against is one that
+  # became unroutable without being written, which is what config drift does — drop a locale
+  # from the available list and every row still carrying it is suddenly out of range.
   test 'an unroutable account locale falls back to the unprefixed path' do
     refute_includes I18n.available_locales.map(&:to_s), 'xx'
-    @user.update!(locale: 'xx')
+    @user.update_column(:locale, 'xx')
     start_2fa
 
     assert_redirected_to verify_two_factor_path

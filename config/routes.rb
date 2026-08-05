@@ -118,7 +118,7 @@ Rails.application.routes.draw do
       get '/', to: redirect { |params, request|
         locale = request.params[:locale].to_s
         locale = nil unless I18n.available_locales.map(&:to_s).include?(locale)
-        locale ? "/#{locale}/settings/connect" : "/settings/connect"
+        locale.presence ? "/#{locale}/settings/connect" : "/settings/connect"
       }
       get :connect
       get :account
