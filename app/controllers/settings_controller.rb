@@ -1,4 +1,6 @@
 class SettingsController < ApplicationController
+  include AdminOnly
+
   before_action :authenticate_user!
   before_action :require_admin!, only: %i[
     update_registration
@@ -411,10 +413,6 @@ class SettingsController < ApplicationController
   end
 
   private
-
-  def require_admin!
-    head(:forbidden) unless current_user.admin?
-  end
 
   def validate_coingecko_api_key(api_key)
     return false if api_key.blank?

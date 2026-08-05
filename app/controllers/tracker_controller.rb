@@ -1,5 +1,8 @@
 class TrackerController < ApplicationController
+  include AdminOnly
+
   before_action :authenticate_user!
+  before_action :require_admin!, only: :setup_coingecko
 
   def index
     exchange_ids = (current_user.api_keys.pluck(:exchange_id) +
