@@ -38,10 +38,8 @@ end
 # host. It does NOT by itself make Cloudflare's edge address resolve to the real
 # client: that needs Cloudflare's published ranges in
 # `config.action_dispatch.trusted_proxies`, which this app does not set. Until it does,
-# hosted traffic arriving through the CDN may share one throttle key. That is a
-# known, accepted limitation of this task, tracked in Deferred item 8 — it is strictly
-# better than the current `req.ip`, and the per-account Devise lockout (Task 5) is the
-# control that does not depend on IP attribution at all.
+# hosted traffic arriving through the CDN may share one throttle key. Still strictly
+# better than the previous `req.ip`.
 def (Rack::Attack).client_ip(req)
   req.env['action_dispatch.remote_ip']&.to_s.presence || req.ip
 end
