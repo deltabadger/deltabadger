@@ -13,7 +13,7 @@ class Users::PasswordsControllerTwoFactorTest < ActionDispatch::IntegrationTest
   # instead — pinning the baseline too, in case setup ever stops starting from nil.
   def assert_otp_clock_unchanged(before)
     assert_nil before, 'baseline: the account must start with an unspent OTP clock'
-    assert_nil @user.last_otp_at, 'the code must not have been consumed'
+    assert_nil @user.reload.last_otp_at, 'the code must not have been consumed'
   end
 
   test 'does not change the password when the OTP is missing' do
@@ -58,21 +58,68 @@ class Users::PasswordsControllerTwoFactorTest < ActionDispatch::IntegrationTest
     assert_nil @user.reset_password_token, 'Devise must consume the token on success'
   end
 
-  # Users::VerifyOtp calls user.update, which persists every dirty attribute. If the
-  # pre-check leaves the assigned password on the object, the password is written
-  # before Devise validates the token — and Devise then rejects the consumed token,
-  # leaving the account changed but the request failed.
+  # Guards the `user.reload` in the pre-check. Users::VerifyOtp calls user.update, which
+  # persists every dirty attribute, so an un-reloaded record carries the assigned password
+  # into that write. Devise's Recoverable then clears the reset token in a before_update
+  # (encrypted_password changed while a token was present), and the token lookup in `super`
+  # no longer matches — the account ends up with the NEW password on a request that reports
+  # failure.
+  #
+  # That combination is only reachable on the path that actually succeeds: on every failing
+  # path Devise's own increment_failed_attempts reloads the record first, which masks the
+  # dirty password. So the assertions below deliberately pair the account state with the
+  # response — either one alone is identical whether or not the reload is present.
   test 'the OTP pre-check does not write the password behind Devise' do
     code = ROTP::TOTP.new(@user.otp_secret_key).now
-    @user.update!(reset_password_sent_at: (Devise.reset_password_within + 1.hour).ago)
 
     put '/password', params: {
       user: { reset_password_token: @raw_token, otp_code_token: code,
               password: 'New!Password1', password_confirmation: 'New!Password1' }
     }
 
-    assert @user.reload.valid_password?('Old!Password1'),
-           'an expired token must leave the password untouched, not saved by VerifyOtp'
+    assert @user.reload.valid_password?('New!Password1'), 'the reset must take effect'
+    assert_response :redirect,
+                    'the account password was changed but the request failed: the pre-check ' \
+                    'wrote it through VerifyOtp, Devise cleared the reset token on that write, ' \
+                    'and the token lookup in `super` then found nothing'
+  end
+
+  # A request that omits the password key leaves password_required? false on a persisted
+  # record, so `valid?` waves it through — and the code would be spent on a request Devise
+  # rejects as blank immediately afterwards.
+  test 'does not consume the OTP when the request carries no password at all' do
+    before_otp_at = @user.last_otp_at
+    code = ROTP::TOTP.new(@user.otp_secret_key).now
+
+    put '/password', params: { user: { reset_password_token: @raw_token, otp_code_token: code } }
+
+    assert @user.reload.valid_password?('Old!Password1')
+    assert_otp_clock_unchanged(before_otp_at)
+
+    # The same code must still work once a password is actually supplied.
+    put '/password', params: {
+      user: { reset_password_token: @raw_token, otp_code_token: code,
+              password: 'New!Password1', password_confirmation: 'New!Password1' }
+    }
+    assert @user.reload.valid_password?('New!Password1')
+  end
+
+  # `update` now intercepts every reset, 2FA or not, so the ordinary path needs a guard of
+  # its own: a regression in user_from_reset_token or the otp_module_enabled? check would
+  # break password reset for the majority of accounts.
+  test 'an account without 2FA can still complete a password reset' do
+    plain_user = create(:user, password: 'Old!Password1', setup_completed: true)
+    token = plain_user.send_reset_password_instructions
+
+    put '/password', params: {
+      user: { reset_password_token: token,
+              password: 'New!Password1', password_confirmation: 'New!Password1' }
+    }
+
+    assert_response :redirect
+    plain_user.reload
+    assert plain_user.valid_password?('New!Password1')
+    assert_nil plain_user.reset_password_token, 'Devise must consume the token on success'
   end
 
   # Users::VerifyOtp advances last_otp_at, so a code checked before Devise validates
