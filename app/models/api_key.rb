@@ -32,6 +32,13 @@ class ApiKey < ApplicationRecord
   ACTIVATION_DEADLINE = 14.days
   enum :key_type, %i[trading withdrawal]
 
+  # Fields assign_credentials will touch, checked against both `ActionController::Parameters`
+  # (string-keyed once permitted) and symbol-keyed hashes from direct/test callers.
+  CREDENTIAL_FIELDS = %i[
+    key secret passphrase access_token
+    rsa_signature_key rsa_encryption_key dh_param ibkr_realm
+  ].freeze
+
   scope :for_bot, lambda { |user_id, exchange_id, key_type = 'trading'|
     where(user_id: user_id, exchange_id: exchange_id, key_type: key_type)
   }
@@ -111,18 +118,16 @@ class ApiKey < ApplicationRecord
 
   private
 
-  CREDENTIAL_FIELDS = %i[
-    key secret passphrase access_token
-    rsa_signature_key rsa_encryption_key dh_param ibkr_realm
-  ].freeze
-
   # Assigns only the credential fields actually present in the submitted params. The generic
   # add-api-key forms send key/secret alone; assigning the whole set would NULL the IBKR RSA
   # material and DH param, which IBKR only lets a user register once. An explicitly-supplied
-  # nil still clears the field.
+  # nil still clears the field. Accepts either a symbol or string key for each field so a
+  # string-keyed hash doesn't silently skip every assignment and leave get_validity checking
+  # stale, previously-stored credentials instead of what was just submitted.
   def assign_credentials(params)
     CREDENTIAL_FIELDS.each do |field|
-      self[field] = params[field] if params.key?(field)
+      submitted_key = [field, field.to_s].find { |name| params.key?(name) }
+      self[field] = params[submitted_key] if submitted_key
     end
   end
 
