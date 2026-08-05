@@ -46,7 +46,19 @@ class LocaleHelperTest < ActionView::TestCase
   test 'an id query param cannot repoint a member route' do
     request_for({ controller: 'bots', action: 'show', id: '1', locale: 'en' }, 'id=999')
 
-    assert_includes locale_switch_path('de'), '/bots/1'
+    assert_equal '/de/bots/1?id=999', locale_switch_path('de')
+  end
+
+  # /setup has no :locale route segment (config/routes.rb defines it outside the
+  # `(:locale)` scope), so path_parameters carries no :locale key at all. A stale
+  # query-string locale must not survive alongside the new one — url_for would
+  # otherwise emit BOTH as separate locale= pairs (symbol :locale from the routing
+  # option, string "locale" from params:), and Rack's last-wins query parsing means
+  # whichever sorts later wins the render, not whichever the user actually clicked.
+  test 'a stale locale query param does not survive alongside the new one on an unscoped route' do
+    request_for({ controller: 'setup', action: 'new' }, 'locale=fr')
+
+    assert_equal '/setup?locale=de', locale_switch_path('de')
   end
 
   test 'preserves genuine query params' do
