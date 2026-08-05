@@ -45,6 +45,11 @@ class Users::PasswordsController < Devise::PasswordsController
 
     # Would Devise reject the new password anyway? Check before spending the code.
     #
+    # Presence has to be tested separately: a request that omits the password key leaves
+    # `password_required?` false on a persisted record, so `valid?` alone returns true and
+    # the code gets burned on a request Devise rejects as blank a moment later.
+    return super if params.dig(:user, :password).blank?
+
     # CRITICAL: reload afterwards. Users::VerifyOtp calls `user.update(last_otp_at:)`,
     # and `update` on a dirty record persists EVERY dirty attribute — so leaving the
     # assigned password on the object would save the new password here, behind Devise's
