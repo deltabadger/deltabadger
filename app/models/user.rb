@@ -27,6 +27,7 @@ class User < ApplicationRecord
   validate :validate_email, if: -> { new_record? || email_changed? }
   validate :password_complexity, if: -> { password.present? }
   validates :time_zone, inclusion: { in: ActiveSupport::TimeZone.all.map(&:name), allow_nil: true }
+  validates :locale, inclusion: { in: ->(_) { I18n.available_locales.map(&:to_s) } }, allow_blank: true
 
   # Devise hands the whole attempt budget back the moment a lock ages out:
   # Devise::Models::Lockable#valid_for_authentication? opens with `unlock_access! if
