@@ -46,12 +46,23 @@ module RackAttackPaths
   AUTHORIZE   = %r{\A/oauth/authorize#{FORMAT}\z}
 end
 
-# NOTE ON THE THROTTLE KEY. `action_dispatch.remote_ip` applies Rails' trusted-proxy
-# handling, which strips RFC1918/loopback hops — enough for kamal-proxy on the same host.
-# It does NOT by itself make Cloudflare's edge address resolve to the real client: that
-# needs Cloudflare's published ranges in `config.action_dispatch.trusted_proxies`, which
-# this app does not set. Until it does, hosted traffic arriving through the CDN may share
-# one throttle key.
+# NOTE ON THE THROTTLE KEY. `action_dispatch.remote_ip` prefers a forwarded-for hop over
+# REMOTE_ADDR, using Rails' trusted-proxy list — loopback, private and link-local ranges by
+# default — to decide which hops to discard. This app configures no `trusted_proxies`, and
+# that cuts both ways.
+#
+# Coarse: Cloudflare's published ranges are not in the default list, so hosted traffic
+# arriving through the CDN may collapse onto one throttle key.
+#
+# Weak, and the direction that matters more: the key is only as trustworthy as whatever
+# writes the forwarded-for header. On a deployment that publishes the container port
+# straight to the network — how the README documents running this — nothing upstream sets
+# or sanitises that header, so the value keyed on here originates with the client and the
+# per-IP limits can be evaded. Behind a proxy that writes the header itself, the key
+# reflects what that proxy saw.
+#
+# The bound that does not depend on IP attribution at all is the per-account one: sign-in,
+# the second factor and password reset are limited on the user row by :lockable.
 def (Rack::Attack).client_ip(req)
   req.env['action_dispatch.remote_ip']&.to_s.presence || req.ip
 end
