@@ -133,4 +133,39 @@ class ApiKeyTest < ActiveSupport::TestCase
       refute_predicate api_key, :activation_stalled?
     end
   end
+
+  test 'update_status! keeps a pending IBKR key pending' do
+    key = create(:api_key, status: :pending_activation)
+
+    key.update_status!(Result::Success.new(:pending_activation))
+
+    assert key.reload.pending_activation?, 'a pending key must not be marked correct'
+  end
+
+  test 'update_status! does not restart the IBKR activation deadline on a passive re-poll' do
+    key = create(:api_key, status: :pending_activation)
+    key.update_column(:updated_at, 30.days.ago)
+
+    key.update_status!(Result::Success.new(:pending_activation))
+
+    key.reload
+    assert key.pending_activation?
+    assert key.activation_stalled?, 'a passive re-poll must not restart the IBKR activation deadline'
+  end
+
+  test 'update_status! still marks a genuinely valid key correct' do
+    key = create(:api_key, status: :pending_validation)
+
+    key.update_status!(Result::Success.new(true))
+
+    assert key.reload.correct?
+  end
+
+  test 'update_status! marks an invalid key incorrect' do
+    key = create(:api_key, status: :pending_validation)
+
+    key.update_status!(Result::Success.new(false))
+
+    assert key.reload.incorrect?
+  end
 end
