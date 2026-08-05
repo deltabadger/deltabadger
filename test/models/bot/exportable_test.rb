@@ -275,6 +275,30 @@ class Bot::ExportableTest < ActiveSupport::TestCase
     assert_equal 'USD', imported.quote
   end
 
+  test 'export then import preserves an asset symbol beginning with a formula leader' do
+    hostile_asset = create(:asset, symbol: '@G', external_id: 'graphite-network')
+    hostile_bot = create(:dca_single_asset, exchange: @bot.exchange, base_asset: hostile_asset,
+                                            quote_asset: @bot.quote_asset)
+
+    create(:transaction, bot: hostile_bot,
+                         external_id: 'original-1', order_type: :market_order, side: :buy,
+                         amount: 0.001, amount_exec: 0.001,
+                         quote_amount: 50, quote_amount_exec: 50,
+                         price: 50_000, base: hostile_asset.symbol, quote: hostile_bot.quote_asset.symbol,
+                         external_status: :closed, status: :submitted)
+
+    csv_content = hostile_bot.reload.orders_csv
+    other_bot = create(:dca_single_asset, user: hostile_bot.user, exchange: hostile_bot.exchange,
+                                          base_asset: hostile_bot.base_asset, quote_asset: hostile_bot.quote_asset)
+    file = StringIO.new(csv_content)
+
+    result = other_bot.import_orders_csv(file)
+
+    assert result[:success]
+    assert_equal 1, result[:imported_count]
+    assert_equal '@G', other_bot.transactions.last.base
+  end
+
   # == Dual asset bot ==
 
   test 'import accepts both base assets for dual asset bot' do
