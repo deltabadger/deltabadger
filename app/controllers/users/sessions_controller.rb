@@ -32,7 +32,7 @@ class Users::SessionsController < Devise::SessionsController
       session[:pending_user_id] = user.id
       session[:remember_me] = params[:user][:remember_me]
       session[:pending_started_at] = Time.current.to_i
-      redirect_to verify_two_factor_path
+      redirect_to verify_two_factor_path(locale: pending_sign_in_locale(user))
     else
       allow_params_authentication!
       self.resource = warden.authenticate!(auth_options)
@@ -66,6 +66,16 @@ class Users::SessionsController < Devise::SessionsController
   end
 
   private
+
+  # `switch_locale` is an around_action, so it picks the locale before #create has decided
+  # anything — and nobody is signed in at that point, so `default_url_options` cannot see
+  # the account's own preference. Carry it on the redirect, or the second-factor page
+  # renders in the default locale for everyone. Nil for the default locale, so the path
+  # stays unprefixed exactly as `default_url_options` would leave it.
+  def pending_sign_in_locale(user)
+    locale = params[:locale].presence || user.locale.presence
+    locale unless locale == I18n.default_locale.to_s
+  end
 
   def pending_sign_in_live?
     return false if session[:pending_user_id].blank?
