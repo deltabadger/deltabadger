@@ -89,11 +89,19 @@ class ApiKey < ApplicationRecord
 
   def update_status!(result)
     if result.success?
-      if result.data
-        update!(status: :correct)
-      else
+      case result.data
+      when :pending_activation
+        # This runs on a passive GET re-poll (the wizard/tracker/withdrawal "new" actions check
+        # the key's validity on every page view), not a credential submission — do not bump
+        # updated_at here, or activation_stalled? could never fire: a user revisiting the page
+        # would keep restarting its own deadline. Marking :correct here would also defeat
+        # Bot::ActionJob's guard against trading on a key IBKR has not activated yet.
+        update!(status: :pending_activation)
+      when nil, false
         Rails.logger.warn("[#{exchange.name}] API key validation: incorrect key")
         update!(status: :incorrect)
+      else
+        update!(status: :correct)
       end
     else
       Rails.logger.warn("[#{exchange.name}] API key validation failed: #{result.errors.join(', ')}")
