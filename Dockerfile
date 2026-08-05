@@ -76,7 +76,7 @@ COPY . .
 RUN mkdir -p /app/tmp/cache/assets /app/tmp/pids /app/log
 
 # Precompile assets - all ENV.fetch calls need placeholder values during build
-RUN SECRET_KEY_BASE=placeholder \
+RUN SECRET_KEY_BASE_DUMMY=1 \
     RAILS_ENV=production \
     APP_ROOT_URL=http://localhost:3000 \
     HOME_PAGE_URL=http://localhost:3000 \
