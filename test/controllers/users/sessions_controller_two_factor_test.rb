@@ -99,6 +99,26 @@ class Users::SessionsControllerTwoFactorTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # The route accepts GET as well as POST so that #create can redirect to the form. Only
+  # the POST is throttled, and GET is exempt from CSRF, so an action that verified on GET
+  # would let a cross-site navigation burn a victim's attempts unthrottled — and would put
+  # the code in browser history and the Referer.
+  test 'a GET carrying a code does not spend an attempt' do
+    start_2fa
+    get '/verify_two_factor', params: { user: { otp_code_token: '000000' } }
+
+    assert_response :success
+    assert_equal 0, @user.reload.failed_attempts
+  end
+
+  test 'a GET carrying a correct code does not complete the sign-in' do
+    start_2fa
+    get '/verify_two_factor', params: { user: { otp_code_token: ROTP::TOTP.new(@user.otp_secret_key).now } }
+
+    assert_response :success
+    assert_nil @user.reload.last_otp_at, 'the code must not be consumed'
+  end
+
   test 'a locked account cannot even start the 2FA flow' do
     @user.lock_access!
     start_2fa
