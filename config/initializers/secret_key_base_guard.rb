@@ -1,6 +1,7 @@
 # secret_key_base is the sole root of ActiveRecord Encryption in this app (see
 # config/initializers/active_record_encryption.rb), so a weak one means every stored
-# exchange credential is decryptable and session cookies are forgeable. Refuse to boot.
+# exchange credential is decryptable and session cookies are forgeable. So warn loudly
+# on every production boot; see the note above the check below for why this must not abort.
 module SecretKeyBaseGuard
   # EXACT matches only. A substring match would abort every Umbrel container, which
   # legitimately runs on "${APP_SEED}-secret-key-base" (deltabadger/docker-compose.yml:24).
@@ -17,8 +18,8 @@ module SecretKeyBaseGuard
   MINIMUM_LENGTH = 32
 
   # This message is read by self-hosters in a terminal. It must NOT hand them a
-  # rotation recipe until one has actually been built and exercised (see Deferred
-  # item 7) — a half-right procedure here costs them their 2FA access.
+  # rotation recipe until one has actually been built and exercised — a half-right
+  # procedure here costs them their 2FA access.
   WARNING = <<~MESSAGE
     ================================ SECURITY WARNING ================================
     SECRET_KEY_BASE is blank, too short, or a value published in the public repository.
@@ -46,10 +47,8 @@ module SecretKeyBaseGuard
   end
 end
 
-# WARN, do not abort — see the disclosure-ordering section. An existing install running
-# on the weak secret still has readable data; aborting its boot would strand it with no
-# way to run the migration. Release B flips this to `abort` once the rotation path has
-# been exercised.
+# WARN, do not abort. An existing install running on the weak secret still has
+# readable data; aborting its boot would strand it with no way to migrate.
 #
 # Skipped during `assets:precompile`, which Rails runs with a generated dummy secret.
 if Rails.env.production? && ENV['SECRET_KEY_BASE_DUMMY'].blank?
