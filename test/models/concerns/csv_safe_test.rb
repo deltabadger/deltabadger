@@ -10,7 +10,11 @@ class CsvSafeTest < ActiveSupport::TestCase
   end
 
   test 'neutralises leading control characters' do
-    assert_equal "'\tx", CsvSafe.cell("\tx")
+    ["\t", "\r", "\n"].each { |c| assert_equal "'#{c}x", CsvSafe.cell("#{c}x") }
+  end
+
+  test 'neutralises a formula leader hidden behind leading whitespace' do
+    assert_equal "' =1+1", CsvSafe.cell(' =1+1')
   end
 
   test 'leaves ordinary text alone' do
@@ -34,5 +38,27 @@ class CsvSafeTest < ActiveSupport::TestCase
 
     assert_includes csv, "'=cmd|calc"
     refute_includes csv, "\n=cmd|calc"
+  end
+
+  test 'add_row and puts escape exactly like << instead of bypassing it' do
+    csv = CsvSafe.generate do |out|
+      out.add_row(['=evil'])
+      out.puts(['=evil2'])
+    end
+
+    assert_includes csv, "'=evil\n"
+    assert_includes csv, "'=evil2\n"
+  end
+
+  test 'unescape reverses a single leading quote' do
+    assert_equal '=1+1', CsvSafe.unescape("'=1+1")
+  end
+
+  test 'unescape leaves a value with no escape prefix alone' do
+    assert_equal 'BTC', CsvSafe.unescape('BTC')
+  end
+
+  test 'unescape passes non-strings through' do
+    assert_nil CsvSafe.unescape(nil)
   end
 end

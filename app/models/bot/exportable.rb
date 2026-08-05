@@ -68,8 +68,8 @@ module Bot::Exportable
     records = []
 
     rows.each do |row|
-      csv_base = row['Base Asset']&.strip&.upcase
-      csv_quote = row['Quote Asset']&.strip&.upcase
+      csv_base = CsvSafe.unescape(row['Base Asset'])&.strip&.upcase
+      csv_quote = CsvSafe.unescape(row['Quote Asset'])&.strip&.upcase
 
       # Skip rows where currencies don't match
       # For index bots (bot_base_symbols is nil), accept any base asset as long as quote matches
@@ -79,7 +79,7 @@ module Bot::Exportable
         next
       end
 
-      original_order_id = row['Order ID']
+      original_order_id = CsvSafe.unescape(row['Order ID'])
 
       # Generate a unique external_id for the imported transaction
       # This allows importing the same orders to different bots
@@ -92,13 +92,13 @@ module Bot::Exportable
       end
 
       # Only import closed/finalized orders
-      status = row['Status']&.strip&.downcase
+      status = CsvSafe.unescape(row['Status'])&.strip&.downcase
       next unless status == 'closed'
 
       # Parse values
       timestamp = Time.zone.parse(row['Timestamp'])
-      order_type = "#{row['Type'].downcase}_order"
-      side = row['Side'].downcase
+      order_type = "#{CsvSafe.unescape(row['Type']).downcase}_order"
+      side = CsvSafe.unescape(row['Side']).downcase
       amount = row['Amount'].to_d
       value = row['Value'].to_d
       price = row['Price'].to_d
