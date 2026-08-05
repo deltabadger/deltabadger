@@ -24,4 +24,5 @@ en:
     syncing_message: "Syncing assets…"
     syncing_hint: "It may take a few minutes"
     invalid_coingecko_api_key: "Invalid CoinGecko API key. Please check your key and try again."
+    coingecko_admin_only: "The CoinGecko API key is managed by your instance admin. Ask them to add it under Settings → Connect."
     retry: "Try Again"

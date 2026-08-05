@@ -50,7 +50,21 @@ class MarketDataAdminGateTest < ActionDispatch::IntegrationTest
     sign_out @member
     sign_in User.find_by(admin: true)
 
-    post '/bots/dca_indexes/setup_coingecko', params: { api_key: 'real-key' }
-    refute_equal 403, response.status
+    assert_changes -> { AppConfig.coingecko_api_key } do
+      post '/bots/dca_indexes/setup_coingecko', params: { api_key: 'real-key' }
+    end
+    assert_response :redirect
+  end
+
+  test 'a non-admin does not see the CoinGecko key form on the tracker export modal' do
+    get '/tracker/export_modal'
+    assert_response :success
+    assert_select 'input[name="api_key"]', count: 0
+  end
+
+  test 'a non-admin does not see the CoinGecko key form on the index wizard' do
+    get '/bots/dca_indexes/setup_coingecko/new'
+    assert_response :success
+    assert_select 'input[name="api_key"]', count: 0
   end
 end
