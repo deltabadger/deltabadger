@@ -36,7 +36,7 @@ module Bot::Exportable
                           :external_status
                         )
 
-    CSV.generate do |csv|
+    CsvSafe.generate do |csv|
       csv << headers
       parsed_csv_values(transactions_data).each { |row| csv << row }
     end

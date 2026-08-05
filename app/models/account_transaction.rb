@@ -34,7 +34,7 @@ class AccountTransaction < ApplicationRecord
   end
 
   def self.to_csv(records)
-    CSV.generate do |csv|
+    CsvSafe.generate do |csv|
       csv << csv_headers
       records.order(transacted_at: :asc).each do |record|
         csv << record.to_csv_row

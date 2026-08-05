@@ -47,7 +47,7 @@ module Tax
       end
 
       I18n.with_locale(jurisdiction[:locale]) do
-        CSV.generate do |csv|
+        CsvSafe.generate do |csv|
           csv << csv_headers
           if results.empty?
             csv << [I18n.t('tax_report.no_taxable_transactions')]
