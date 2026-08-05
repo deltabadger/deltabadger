@@ -1,5 +1,8 @@
 class Bots::DcaIndexes::SetupCoingeckosController < ApplicationController
+  include AdminOnly
+
   before_action :authenticate_user!
+  before_action :require_admin!, only: :create
 
   def new
     # Skip to pick index if market data is already configured
