@@ -185,22 +185,28 @@ class Oauth::DynamicRegistrationControllerTest < ActionDispatch::IntegrationTest
     assert_response :bad_request
   end
 
-  # javascript: currently reaches Doorkeeper's validator through create!, which raises
-  # RecordInvalid and surfaces as an unhandled 500. It must be a clean 400.
-  test 'a javascript redirect_uri is a 400, not a 500' do
+  # javascript: has scheme "javascript", not http(s), so absolute_http_uri? rejects it
+  # before Doorkeeper's own validator (and create!) is ever reached.
+  test 'a javascript redirect_uri is rejected as invalid_redirect_uri' do
     post '/oauth/register', params: {
       redirect_uris: ['javascript:alert(1)'], client_name: 'X'
     }, as: :json
 
     assert_response :bad_request
+    assert_equal 'invalid_redirect_uri', response.parsed_body['error']
   end
 
-  test 'a fragment in the redirect_uri is a 400, not a 500' do
+  # A fragment passes our own absolute_http_uri? check (scheme/host are fine), so this
+  # is the one case that reaches create! and depends on the RecordInvalid rescue: without
+  # it, Doorkeeper's own validator rejection would surface as an unhandled 422, not a
+  # clean 400.
+  test 'a fragment in the redirect_uri is a clean 400 via the RecordInvalid rescue' do
     post '/oauth/register', params: {
       redirect_uris: ['https://example.test/cb#x'], client_name: 'X'
     }, as: :json
 
     assert_response :bad_request
+    assert_equal 'invalid_redirect_uri', response.parsed_body['error']
   end
 
   test 'caps the number of redirect_uris' do

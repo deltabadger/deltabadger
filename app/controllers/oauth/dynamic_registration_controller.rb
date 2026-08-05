@@ -47,7 +47,7 @@ module Oauth
         }, status: :bad_request
       end
 
-      redirect_uri = Array(redirect_uris).join("\n")
+      redirect_uri = redirect_uris.join("\n")
       client_name = params[:client_name].to_s.strip.presence&.first(MAX_CLIENT_NAME_LENGTH) || 'MCP Client'
 
       application = begin
