@@ -18,7 +18,9 @@ Deltabadger is an open-source Dollar Cost Averaging (DCA) bot for cryptocurrency
 - After every change in dependencies or deployment look check Docker and Tauri if they need updates
 - Environment variables: see `.env.example`
 - Run `bin/rails test` after every change
-- Never push to the repo yourself, never create PRs yourself
+- Push and open PRs only when asked — and always under the repo owner's authorship. Never add
+  assistant/model attribution: no `Co-Authored-By: Claude` trailer, no "Generated with Claude Code"
+  footer, no bot as PR author. Write commit and PR text in the owner's voice, first person.
 
 ## Core Domain Models
 
