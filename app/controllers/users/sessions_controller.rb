@@ -1,6 +1,18 @@
 # frozen_string_literal: true
 
 class Users::SessionsController < Devise::SessionsController
+  # The pending window is short so an abandoned half-sign-in cannot be resumed days
+  # later from a stolen cookie. It is NOT the attempt bound — the session is
+  # client-side (:cookie_store), so the bound lives on the user row via :lockable.
+  PENDING_TTL = 5.minutes
+
+  # Devise turns params authentication on in a prepended callback, so the first
+  # `user_signed_in?` later in the filter chain authenticates the submitted credentials
+  # outright. That is a real sign-in, and Devise's :lockable hook clears the failure
+  # counter on it — both before #create gets to decide whether a second factor is owed.
+  # Turn it on inside #create instead, at the point where a sign-in is actually intended.
+  skip_before_action :allow_params_authentication!, only: :create
+
   def new
     super do
       set_new_instance_variables
@@ -12,34 +24,38 @@ class Users::SessionsController < Devise::SessionsController
     user = User.find_for_authentication(email: params[:user][:email])
 
     if user&.otp_module_enabled? && user.valid_password?(params[:user][:password])
+      # A locked account must not get a second-factor prompt at all — otherwise the
+      # lock only guards the password stage and TOTP guessing continues through it.
+      return redirect_to(new_user_session_path, alert: t('devise.failure.locked')) if user.access_locked?
+
       sign_out(resource)
       session[:pending_user_id] = user.id
       session[:remember_me] = params[:user][:remember_me]
+      session[:pending_started_at] = Time.current.to_i
       redirect_to verify_two_factor_path
     else
+      allow_params_authentication!
       self.resource = warden.authenticate!(auth_options)
       continue_sign_in(resource_name, resource)
     end
   end
 
   def verify_two_factor
-    return unless session[:pending_user_id]
+    return abandon_pending_sign_in unless pending_sign_in_live?
 
     self.resource = User.find(session[:pending_user_id])
+    return abandon_pending_sign_in if resource.access_locked?
     return render :two_factor unless params.dig(:user, :otp_code_token).present?
 
     if Users::VerifyOtp.call(resource, params[:user][:otp_code_token])
-
       # manually set the remember_me cookie because it's unset after sign_out()
       custom_remember_me(resource) if session[:remember_me] == '1'
 
-      session.delete(:pending_user_id)
-      session.delete(:remember_me)
-
+      resource.reset_failed_attempts!
+      clear_pending_sign_in
       continue_sign_in(resource_name, resource)
     else
-      flash.now[:alert] = t('errors.messages.bad_2fa_code')
-      render :two_factor, status: :unprocessable_entity
+      register_failed_otp_attempt
     end
   end
 
@@ -50,6 +66,39 @@ class Users::SessionsController < Devise::SessionsController
   end
 
   private
+
+  def pending_sign_in_live?
+    return false if session[:pending_user_id].blank?
+
+    started_at = session[:pending_started_at].to_i
+    started_at.positive? && Time.current.to_i - started_at < PENDING_TTL.to_i
+  end
+
+  # Devise's :lockable state is persisted on the user row, so it survives the attacker
+  # replaying an older session cookie or restarting the login flow — neither of which a
+  # session-held counter would survive.
+  def register_failed_otp_attempt
+    resource.increment_failed_attempts
+
+    if resource.failed_attempts >= Devise.maximum_attempts
+      resource.lock_access!
+      return abandon_pending_sign_in
+    end
+
+    flash.now[:alert] = t('errors.messages.bad_2fa_code')
+    render :two_factor, status: :unprocessable_entity
+  end
+
+  def clear_pending_sign_in
+    session.delete(:pending_user_id)
+    session.delete(:remember_me)
+    session.delete(:pending_started_at)
+  end
+
+  def abandon_pending_sign_in
+    clear_pending_sign_in
+    redirect_to new_user_session_path, alert: t('errors.messages.bad_2fa_code')
+  end
 
   def continue_sign_in(resource_name, resource)
     sign_in(resource_name, resource)
