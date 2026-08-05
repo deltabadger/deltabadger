@@ -41,6 +41,18 @@ class Users::SessionsControllerTwoFactorTest < ActionDispatch::IntegrationTest
     assert @user.reload.access_locked?
   end
 
+  # Pins the boundary in both directions: locking one guess early would silently
+  # shrink the budget, and locking one guess late would leave a free attempt.
+  test 'the lock trips on the last attempt of the budget and not before' do
+    start_2fa
+    (Devise.maximum_attempts - 1).times { guess }
+
+    refute @user.reload.access_locked?, 'the budget must not be spent early'
+
+    guess
+    assert @user.reload.access_locked?, 'the last attempt of the budget must lock'
+  end
+
   test 'a correct code is refused once the account is locked' do
     start_2fa
     Devise.maximum_attempts.times { guess }
@@ -65,8 +77,30 @@ class Users::SessionsControllerTwoFactorTest < ActionDispatch::IntegrationTest
     @user.lock_access!
     start_2fa
 
+    # The absence of a pending id is what proves the password stage refused to hand out
+    # a second-factor prompt. The redirect below alone would also be satisfied by the
+    # gate inside verify_two_factor.
+    assert_nil session[:pending_user_id], 'the password stage must not open a pending sign-in'
+
     guess(ROTP::TOTP.new(@user.otp_secret_key).now)
     assert_redirected_to new_user_session_path
+  end
+
+  test 'the second-factor prompt keeps the account locale when the URL carries none' do
+    @user.update!(locale: 'pl')
+    start_2fa
+
+    assert_redirected_to verify_two_factor_path(locale: 'pl')
+    refute_includes response.headers['Location'].to_s, 'locale=',
+                    'the locale belongs in the path segment, not a query param'
+  end
+
+  test 'a locale already in the URL wins over the account preference and is not doubled up' do
+    @user.update!(locale: 'de')
+    post '/pl/login', params: { user: { email: @user.email, password: @password } }
+
+    assert_redirected_to verify_two_factor_path(locale: 'pl')
+    refute_includes response.headers['Location'].to_s, 'locale='
   end
 
   test 'the pending state expires' do
