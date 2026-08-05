@@ -78,4 +78,59 @@ class ApiKeyTest < ActiveSupport::TestCase
 
     api_key.stop_dependent_bots!
   end
+
+  # --- IBKR activation staleness -------------------------------------------------------------
+  # IBKR activates a self-service consumer key on its weekend server restart. A registration still
+  # pending after ACTIVATION_DEADLINE has sat through several restarts and will never activate, so
+  # the wizard has to stop promising an activation that is not coming. Time is frozen throughout:
+  # updated_at is only second-precise, and a boundary assertion against an independently evaluated
+  # Time.current is flaky.
+
+  test 'activation_stalled? only applies to keys actually awaiting IBKR activation' do
+    freeze_time do
+      exchange = create(:binance_exchange) # one exchange, one key per user — both are unique-scoped
+      %i[pending_validation correct incorrect].each do |status|
+        api_key = create(:api_key, exchange: exchange, user: create(:user), status: status)
+        api_key.update_column(:updated_at, 1.year.ago)
+
+        refute_predicate api_key, :activation_stalled?, "#{status} is not an activation wait"
+      end
+    end
+  end
+
+  test 'activation_stalled? flips once the registration waits past the deadline' do
+    freeze_time do
+      api_key = create(:api_key, status: :pending_activation)
+
+      api_key.update_column(:updated_at, ApiKey::ACTIVATION_DEADLINE.ago + 1.day)
+      refute_predicate api_key, :activation_stalled?, 'still inside the activation window'
+
+      api_key.update_column(:updated_at, ApiKey::ACTIVATION_DEADLINE.ago)
+      assert_predicate api_key, :activation_stalled?, 'exactly at the deadline counts as stalled'
+
+      api_key.update_column(:updated_at, ApiKey::ACTIVATION_DEADLINE.ago - 1.day)
+      assert_predicate api_key, :activation_stalled?
+    end
+  end
+
+  test 'resubmitting identical credentials restarts the IBKR activation clock' do
+    freeze_time do
+      api_key = create(:api_key, exchange: create(:ibkr_exchange), status: :pending_activation,
+                                 raw_key: 'CONSUMERAB', raw_secret: 'SECRET789')
+      api_key.update!(access_token: 'TOKEN456')
+      api_key.update_column(:updated_at, 30.days.ago)
+      assert_predicate api_key, :activation_stalled?
+      api_key.exchange.stubs(:get_api_key_validity).returns(Result::Success.new(:pending_activation))
+
+      # Exactly the values the row already holds — the real fix path is re-registering the SAME
+      # consumer key on a working portal host and resubmitting. Nothing is dirty, so without an
+      # explicit timestamp bump Active Record issues no UPDATE and the expired clock survives the
+      # retry, leaving the wizard shouting "failed" at a user who just did the right thing.
+      api_key.validate_credentials!(key: 'CONSUMERAB', secret: 'SECRET789', access_token: 'TOKEN456')
+
+      assert_predicate api_key.reload, :pending_activation?
+      assert_in_delta Time.current, api_key.updated_at, 1.second
+      refute_predicate api_key, :activation_stalled?
+    end
+  end
 end

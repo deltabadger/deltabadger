@@ -14,17 +14,26 @@ class Exchanges::Ibkr < Exchange
   FIELD_BID = '84'.freeze
   FIELD_ASK = '86'.freeze
 
-  # First-party OAuth self-service portals. The regional EU hosts (.ie/.lu/.com.hu) reject the
-  # PUT the portal SPA uses to upload the key files (Akamai edge 501 "Unsupported Request";
-  # PUT /ibcust.proxy/v1/ibcust/oauth/consumer_info — verified 2026-07-05 from US + EU IPs), so
-  # consumer registration can never complete there. Only PUT-capable hosts may be linked. The
-  # SPA is byte-identical on every host and entity-agnostic — the account's entity comes from
-  # the login, not the domain — so one European portal plus the US fallback covers everyone.
+  # First-party OAuth self-service portals, listed in RELIABILITY order — deliberately not a
+  # regional choice. The portal SPA uploads the key files with a
+  # PUT /ibcust.proxy/v1/ibcust/oauth/consumer_info, and the Akamai edge fronting IBKR's regional
+  # web hosts (.com, .ie, .lu, .com.hu, .com.au) rejects every PUT with 501 "Unsupported Request":
+  # saving the key NAME works there, uploading the FILES never does, so consumer registration can
+  # never complete (verified from US + EU IPs).
+  #
+  # ndcdyn goes first because it bypasses that CDN edge entirely. IBKR's own login can redirect a
+  # user off www.interactivebrokers.co.uk onto a blocked regional host mid-flow, and the upload
+  # then 501s on a link we called good — which is why the wizard tells users to check the address
+  # bar AFTER logging in rather than to trust the link they clicked.
+  #
+  # The SPA is byte-identical on every host and entity-agnostic — the account's entity comes from
+  # the login, not the domain — so either host serves everyone. `url` is derived from `host` so the
+  # wizard copy, which names the two hosts, cannot drift away from the links themselves.
   OAUTH_PORTAL_PATH = '/oauth/?loginType=1&action=OAUTH&clt=0&RL=1#/configuration'.freeze
   OAUTH_PORTALS = {
-    'europe' => { name: 'IBKR portal (Europe)', url: "https://www.interactivebrokers.co.uk#{OAUTH_PORTAL_PATH}" },
-    'us' => { name: 'IBKR portal (US, fallback)', url: "https://ndcdyn.interactivebrokers.com#{OAUTH_PORTAL_PATH}" }
-  }.freeze
+    'recommended' => { host: 'ndcdyn.interactivebrokers.com' },
+    'alternative' => { host: 'www.interactivebrokers.co.uk' }
+  }.transform_values { |portal| portal.merge(url: "https://#{portal[:host]}#{OAUTH_PORTAL_PATH}").freeze }.freeze
 
   include Exchange::Dryable
 

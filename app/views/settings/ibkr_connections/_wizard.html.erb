@@ -10,8 +10,22 @@
 
   <% elsif api_key.correct? %>
     <p class="text-success"><%= t('settings.ibkr.connected') %></p>
+    <%= render 'settings/ibkr_connections/single_key_warning' %>
     <%= button_to t('settings.ibkr.disconnect'), settings_ibkr_connect_path,
                   method: :delete, class: 'button button--danger' %>
+
+  <%# A registration IBKR never activated is indistinguishable from a slow one until the wait gets
+      absurd — past ApiKey::ACTIVATION_DEADLINE it is dead, so stop promising activation and make
+      starting over the obvious move. Nothing is auto-deleted; both exits stay the user's call. %>
+  <% elsif api_key.activation_stalled? %>
+    <p class="text-danger">
+      <%= t('settings.ibkr.activation_failed',
+            duration: distance_of_time_in_words(api_key.updated_at, Time.current)) %>
+    </p>
+    <p><%= t('settings.ibkr.activation_failed_fix') %></p>
+    <%= button_to t('settings.ibkr.start_over'), settings_ibkr_connect_path,
+                  method: :delete, class: 'button button--success button--large' %>
+    <%= render 'settings/ibkr_connections/credentials_form' %>
 
   <% elsif api_key.pending_activation? %>
     <p><%= t('settings.ibkr.activation_pending') %></p>
@@ -35,17 +49,29 @@
                     settings_download_ibkr_connection_path(artifact: 'dhparam'), data: { turbo: false }, class: 'button' %>
       </li>
 
+      <%# Every setup failure we have had to unpick happened inside IBKR's portal: a login redirect
+          onto a host whose edge 501s the key-file upload, or a second save wiping the first
+          registration. Hence a prescriptive sequence, with the allowed hosts read straight off
+          OAUTH_PORTALS so the instructions and the links cannot disagree. %>
       <li>
         <p><%= t('settings.ibkr.portal_intro') %></p>
+        <ol>
+          <li><%= t('settings.ibkr.portal_step_private_window') %></li>
+          <li>
+            <%= t('settings.ibkr.portal_step_check_address',
+                  recommended: Exchanges::Ibkr::OAUTH_PORTALS['recommended'][:host],
+                  alternative: Exchanges::Ibkr::OAUTH_PORTALS['alternative'][:host]) %>
+          </li>
+          <li><%= t('settings.ibkr.portal_step_register') %></li>
+        </ol>
         <%= link_to t('settings.ibkr.open_portal'),
-                    Exchanges::Ibkr::OAUTH_PORTALS['europe'][:url],
+                    Exchanges::Ibkr::OAUTH_PORTALS['recommended'][:url],
+                    target: '_blank', rel: 'noopener', class: 'button button--success' %>
+        <%= link_to t('settings.ibkr.open_portal_alternative'),
+                    Exchanges::Ibkr::OAUTH_PORTALS['alternative'][:url],
                     target: '_blank', rel: 'noopener', class: 'button' %>
-        <p>
-          <%= t('settings.ibkr.portal_fallback') %>
-          <%= link_to t('settings.ibkr.open_portal_fallback'),
-                      Exchanges::Ibkr::OAUTH_PORTALS['us'][:url],
-                      target: '_blank', rel: 'noopener' %>
-        </p>
+        <p class="form__info"><%= t('settings.ibkr.portal_error_501') %></p>
+        <%= render 'settings/ibkr_connections/single_key_warning' %>
       </li>
 
       <li>

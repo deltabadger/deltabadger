@@ -1,0 +1,4 @@
+<%# IBKR stores one consumer-key registration per login, so re-saving the portal form silently
+    replaces whatever is registered. Shown on the instruction step (so users don't register twice)
+    and in the connected state (where re-saving would break a working connection). %>
+<p class="text-danger"><%= t('settings.ibkr.single_key_warning') %></p>

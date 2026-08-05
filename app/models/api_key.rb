@@ -23,6 +23,13 @@ class ApiKey < ApplicationRecord
   # :pending_activation is IBKR-specific — the consumer key is registered but IBKR hasn't
   # activated it yet (24h–2wk). Appended last so existing integer values are unchanged.
   enum :status, %i[pending_validation correct incorrect pending_activation]
+
+  # IBKR activates a self-service consumer key on its weekend server restart. A registration still
+  # pending after this long has sat through several of those restarts and is never going to
+  # activate — it is invalid, or it was replaced by a later save in IBKR's portal (which keeps only
+  # one registration per login). Past this point the wizard stops promising activation and offers a
+  # way out instead.
+  ACTIVATION_DEADLINE = 14.days
   enum :key_type, %i[trading withdrawal]
 
   scope :for_bot, lambda { |user_id, exchange_id, key_type = 'trading'|
@@ -31,6 +38,13 @@ class ApiKey < ApplicationRecord
 
   def get_validity
     exchange.get_api_key_validity(api_key: self)
+  end
+
+  # Anchored on updated_at, which on a key awaiting IBKR activation moves only when the user
+  # submits credentials: Ibkr::CheckActivationJob writes only on success, and the nightly balance
+  # and transaction syncs both scope to :correct, so nothing else touches the row.
+  def activation_stalled?
+    pending_activation? && updated_at <= ACTIVATION_DEADLINE.ago
   end
 
   def validate_credentials!(params)
@@ -45,7 +59,11 @@ class ApiKey < ApplicationRecord
     result = get_validity
     if result.success? && result.data == :pending_activation
       # IBKR: keys registered, awaiting IBKR activation — persist so the parked bot can start later.
-      update!(status: :pending_activation)
+      # updated_at is bumped explicitly even when nothing else changed: activation_stalled? reads it
+      # as "when the user last submitted credentials", and resubmitting IDENTICAL credentials — the
+      # real fix for a registration redone on a working portal host — dirties nothing, so Active
+      # Record would issue no UPDATE and the already-expired clock would survive the retry.
+      update!(status: :pending_activation, updated_at: Time.current)
     elsif result.success? && result.data
       update!(status: :correct)
     elsif result.success?
