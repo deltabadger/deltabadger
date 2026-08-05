@@ -178,6 +178,7 @@ class ApiKeyTest < ActiveSupport::TestCase
     key.send(:assign_credentials, { key: 'new-key', secret: 'new-secret' })
 
     assert_equal 'new-key', key.key
+    assert_equal 'new-secret', key.secret
     assert_equal 'SIGKEY', key.rsa_signature_key, 'omitted fields must be untouched'
     assert_equal 'DHPARAM', key.dh_param
   end
@@ -189,5 +190,16 @@ class ApiKeyTest < ActiveSupport::TestCase
     key.send(:assign_credentials, { key: 'k', passphrase: nil })
 
     assert_nil key.passphrase
+  end
+
+  test 'a string-keyed hash still assigns submitted fields and preserves omitted ones' do
+    key = create(:api_key)
+    key.update_columns(rsa_signature_key: 'SIGKEY')
+
+    key.send(:assign_credentials, { 'key' => 'new-key', 'secret' => 'new-secret' })
+
+    assert_equal 'new-key', key.key, 'a submitted string-keyed field must be assigned'
+    assert_equal 'new-secret', key.secret
+    assert_equal 'SIGKEY', key.rsa_signature_key, 'omitted fields must be untouched'
   end
 end
