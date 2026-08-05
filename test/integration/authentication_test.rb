@@ -1,7 +1,16 @@
 require 'test_helper'
 
 class AuthenticationTest < ActionDispatch::IntegrationTest
+  # The clock is frozen for the whole class. Users::VerifyOtp verifies through ROTP with its
+  # defaults (drift_ahead: 0, drift_behind: 0), so a code is only accepted inside the exact
+  # 30-second step it was minted in, and the OTP tests below carry one code across request
+  # cycles. A step rolling over mid-test would fail them for a reason unrelated to what they
+  # assert, and — now that a wrong code increments the persisted counter — could carry that
+  # failure into the next test in the class. Nothing here needs the clock to move on its own;
+  # the lockout tests travel explicitly, which still works from a frozen base. Rails restores
+  # the clock in after_teardown.
   setup do
+    freeze_time
     @admin = create(:user, admin: true)
   end
 
@@ -161,6 +170,41 @@ class AuthenticationTest < ActionDispatch::IntegrationTest
     post user_session_path, params: {
       user: { email: user.email, password: 'SecurePass1!' }
     }
+
+    assert_response :redirect
+    follow_redirect!
+    assert_equal user, controller.current_user
+  end
+
+  # The 2FA mirror of the test above. That one is carried by Warden, which unlocks an
+  # expired lock before it counts anything; the second-factor stage never reaches Warden,
+  # so it needs its own guarantee that the budget comes back whole.
+  test 'unlocks a 2FA account after 15 minutes' do
+    user = create(:user, password: 'SecurePass1!', otp_module: :enabled)
+    user.otp_regenerate_secret
+    user.save!
+
+    Devise.maximum_attempts.times do
+      post user_session_path, params: {
+        user: { email: user.email, password: 'SecurePass1!' }
+      }
+      post verify_two_factor_path, params: { user: { otp_code_token: '000000' } }
+    end
+
+    user.reload
+    assert user.access_locked?
+
+    travel 16.minutes
+
+    post user_session_path, params: {
+      user: { email: user.email, password: 'SecurePass1!' }
+    }
+    assert_redirected_to verify_two_factor_path
+
+    post verify_two_factor_path, params: { user: { otp_code_token: '000000' } }
+    refute user.reload.access_locked?, 'one wrong code must not re-lock an account whose lock has expired'
+
+    post verify_two_factor_path, params: { user: { otp_code_token: user.otp_code } }
 
     assert_response :redirect
     follow_redirect!

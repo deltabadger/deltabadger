@@ -79,6 +79,26 @@ class Users::SessionsControllerTwoFactorTest < ActionDispatch::IntegrationTest
     assert_equal 0, @user.reload.failed_attempts
   end
 
+  # Devise's own credential path opens with `unlock_access! if lock_expired?`
+  # (Devise::Models::Lockable#valid_for_authentication?), so an expired lock hands the
+  # account its whole budget back. This flow never reaches Warden, so nothing else does
+  # it: leave the counter at the maximum and the first wrong code re-locks for another
+  # unlock_in, forever, on an instance with no operator to unlock anyone.
+  test 'an expired lock restores the whole attempt budget' do
+    start_2fa
+    Devise.maximum_attempts.times { guess }
+    assert @user.reload.access_locked?
+
+    travel(Devise.unlock_in + 1.minute) do
+      start_2fa
+      guess
+
+      @user.reload
+      assert_equal 1, @user.failed_attempts, 'the expired lock must clear the counter before this guess'
+      refute @user.access_locked?, 'one wrong code must not re-lock an account whose lock has expired'
+    end
+  end
+
   test 'a locked account cannot even start the 2FA flow' do
     @user.lock_access!
     start_2fa
