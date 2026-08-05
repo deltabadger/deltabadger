@@ -22,9 +22,38 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     assert_response :too_many_requests
   end
 
+  # Before the throttles matched real routed paths the login rule never fired, so
+  # rack-attack's bare default response was unreachable. It reaches humans on an auth page
+  # now, and it has to be the same response whatever tripped it — a rule that named the
+  # endpoint would tell an attacker which of their guesses was worth repeating.
+  test 'a throttled request says what happened' do
+    11.times { post '/login', params: { user: { email: 'a@b.test', password: 'wrong' } } }
+
+    assert_response :too_many_requests
+    assert_equal I18n.t('errors.throttled'), response.body.strip
+    assert response.headers['retry-after'].to_i.positive?, 'the response must say how long to wait'
+    login_body = response.body
+
+    6.times { post '/password', params: { user: { email: 'a@b.test' } } }
+
+    assert_response :too_many_requests
+    assert_equal login_body, response.body, 'the response must not identify which rule tripped'
+  end
+
   test 'throttles POST /en/login under the locale scope' do
     11.times { post '/en/login', params: { user: { email: 'a@b.test', password: 'wrong' } } }
     assert_response :too_many_requests
+  end
+
+  # Every locale the app ships routes, so every locale has to be covered. Asserting the
+  # whole set rather than one example: the list the patterns are built from is not this
+  # app's list unless it is read from the right place, and a hole is invisible until
+  # someone tries the locale it left out.
+  test 'no shipped locale escapes the login throttle' do
+    I18n.available_locales.each do |locale|
+      assert RackAttackPaths::LOGIN.match?("/#{locale}/login"),
+             "POST /#{locale}/login is a routed path the login throttle does not match"
+    end
   end
 
   test 'throttles POST /verify_two_factor' do
