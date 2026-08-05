@@ -46,7 +46,14 @@ class Users::SessionsController < Devise::SessionsController
     self.resource = User.find(session[:pending_user_id])
     resource.unlock_access_if_lock_expired!
     return abandon_pending_sign_in if resource.access_locked?
-    return render :two_factor unless params.dig(:user, :otp_code_token).present?
+
+    # The route takes GET as well as POST so that #create can redirect here to render the
+    # form (the form itself is method: :post). Only the POST is throttled, and GET is exempt
+    # from CSRF, so verifying on GET would let a cross-site top-level navigation — which
+    # SameSite=Lax allows — spend a victim's attempts unthrottled, and would leave the code
+    # in browser history and in the Referer. Discriminate here rather than in the throttle,
+    # which closes the CSRF-free path as well.
+    return render :two_factor unless request.post? && params.dig(:user, :otp_code_token).present?
 
     if Users::VerifyOtp.call(resource, params[:user][:otp_code_token])
       # manually set the remember_me cookie because it's unset after sign_out()
