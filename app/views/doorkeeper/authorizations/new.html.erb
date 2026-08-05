@@ -14,6 +14,20 @@
 
     <p class="text-center"><%= t('settings.mcp.authorize_description_html', client_name: @pre_auth.client.name) %></p>
 
+    <p class="consent__warning"><%= t('settings.mcp.authorize_unverified') %></p>
+
+    <p class="consent__label"><%= t('settings.mcp.authorize_scopes_label') %></p>
+    <ul class="consent__scopes">
+      <% @pre_auth.scopes.to_a.each do |scope| %>
+        <li><%= t("settings.mcp.scope_#{scope}", default: scope) %></li>
+      <% end %>
+    </ul>
+
+    <p class="consent__label">
+      <%= t('settings.mcp.authorize_redirect_label') %>
+      <code><%= URI.parse(@pre_auth.redirect_uri).host rescue @pre_auth.redirect_uri %></code>
+    </p>
+
     <div class="buttons buttons--row--2" style="margin-top: 1rem;">
       <%= form_tag oauth_authorization_path, method: :delete do %>
         <%= hidden_field_tag :client_id, @pre_auth.client.uid %>

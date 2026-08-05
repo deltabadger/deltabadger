@@ -6,14 +6,36 @@ module Oauth
 
     ALLOWED_SCOPES = %w[mcp api].freeze
     DEFAULT_SCOPE = 'mcp'
+    MAX_CLIENT_NAME_LENGTH = 100
+    MAX_REDIRECT_URIS = 5
+    MAX_REDIRECT_URI_LENGTH = 2_000
 
     # RFC 7591: Dynamic Client Registration
     # POST /oauth/register — no auth required (per spec)
     def create
-      redirect_uris = params[:redirect_uris]
+      redirect_uris = Array(params[:redirect_uris])
 
       if redirect_uris.blank?
-        return render json: { error: 'invalid_client_metadata', error_description: 'redirect_uris is required' },
+        return render json: { error: 'invalid_client_metadata',
+                              error_description: 'redirect_uris is required' },
+                      status: :bad_request
+      end
+
+      if redirect_uris.size > MAX_REDIRECT_URIS
+        return render json: { error: 'invalid_client_metadata',
+                              error_description: "at most #{MAX_REDIRECT_URIS} redirect_uris" },
+                      status: :bad_request
+      end
+
+      if redirect_uris.any? { |uri| uri.to_s.length > MAX_REDIRECT_URI_LENGTH }
+        return render json: { error: 'invalid_client_metadata',
+                              error_description: "each redirect_uri must be at most #{MAX_REDIRECT_URI_LENGTH} characters" },
+                      status: :bad_request
+      end
+
+      unless redirect_uris.all? { |uri| absolute_http_uri?(uri) }
+        return render json: { error: 'invalid_redirect_uri',
+                              error_description: 'redirect_uris must be absolute http(s) URLs' },
                       status: :bad_request
       end
 
@@ -26,18 +48,23 @@ module Oauth
       end
 
       redirect_uri = Array(redirect_uris).join("\n")
-      client_name = params[:client_name].presence || 'MCP Client'
+      client_name = params[:client_name].to_s.strip.presence&.first(MAX_CLIENT_NAME_LENGTH) || 'MCP Client'
 
-      application = Doorkeeper::Application.create!(
-        name: client_name,
-        redirect_uri: redirect_uri,
-        confidential: false,
-        scopes: scopes,
-        registration_access_token: SecureRandom.hex(32),
-        token_endpoint_auth_method: 'none',
-        grant_types: 'authorization_code',
-        response_types: 'code'
-      )
+      application = begin
+        Doorkeeper::Application.create!(
+          name: client_name,
+          redirect_uri: redirect_uri,
+          confidential: false,
+          scopes: scopes,
+          registration_access_token: SecureRandom.hex(32),
+          token_endpoint_auth_method: 'none',
+          grant_types: 'authorization_code',
+          response_types: 'code'
+        )
+      rescue ActiveRecord::RecordInvalid => e
+        return render json: { error: 'invalid_redirect_uri', error_description: e.record.errors.full_messages.join(', ') },
+                      status: :bad_request
+      end
 
       render json: {
         client_id: application.uid,
@@ -65,6 +92,17 @@ module Oauth
       # Canonical order: stable across `'api mcp'` vs `'mcp api'` so storage
       # and reflected response match regardless of input order.
       tokens.sort.join(' ')
+    end
+
+    # Doorkeeper's own validator already rejects javascript:, data:, relative URIs and
+    # fragments, but it ACCEPTS custom and native schemes (myapp://cb, com.evil.app:/cb,
+    # urn:ietf:wg:oauth:2.0:oob). This app's clients are web clients, and the host is
+    # what the owner is shown on the consent screen, so require a real http(s) URL.
+    def absolute_http_uri?(value)
+      uri = URI.parse(value.to_s)
+      uri.absolute? && %w[http https].include?(uri.scheme) && uri.host.present?
+    rescue URI::InvalidURIError
+      false
     end
   end
 end

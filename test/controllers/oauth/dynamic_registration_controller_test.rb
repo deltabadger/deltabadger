@@ -150,4 +150,81 @@ class Oauth::DynamicRegistrationControllerTest < ActionDispatch::IntegrationTest
     json = JSON.parse(response.body)
     assert_equal 'invalid_client_metadata', json['error']
   end
+
+  # ---- client metadata bounds ---------------------------------------------
+
+  test 'truncates an oversized client_name' do
+    post '/oauth/register', params: {
+      redirect_uris: ['https://example.test/cb'],
+      client_name: 'A' * 5_000
+    }, as: :json
+
+    assert_response :created
+    assert_equal Oauth::DynamicRegistrationController::MAX_CLIENT_NAME_LENGTH,
+                 Doorkeeper::Application.last.name.length
+  end
+
+  # Doorkeeper's own validator ALREADY rejects javascript:, data:, relative URIs and
+  # fragments — verified against the pinned gem. Testing those would prove nothing about
+  # our change. What it ACCEPTS today, and what the http(s) allowlist actually closes,
+  # is custom/native schemes: myapp://cb, com.evil.app:/cb, urn:ietf:wg:oauth:2.0:oob.
+  test 'rejects a custom-scheme redirect_uri that Doorkeeper would otherwise accept' do
+    post '/oauth/register', params: {
+      redirect_uris: ['myapp://cb'], client_name: 'X'
+    }, as: :json
+
+    assert_response :bad_request
+    assert_equal 'invalid_redirect_uri', response.parsed_body['error']
+  end
+
+  test 'rejects an oob redirect_uri' do
+    post '/oauth/register', params: {
+      redirect_uris: ['urn:ietf:wg:oauth:2.0:oob'], client_name: 'X'
+    }, as: :json
+
+    assert_response :bad_request
+  end
+
+  # javascript: currently reaches Doorkeeper's validator through create!, which raises
+  # RecordInvalid and surfaces as an unhandled 500. It must be a clean 400.
+  test 'a javascript redirect_uri is a 400, not a 500' do
+    post '/oauth/register', params: {
+      redirect_uris: ['javascript:alert(1)'], client_name: 'X'
+    }, as: :json
+
+    assert_response :bad_request
+  end
+
+  test 'a fragment in the redirect_uri is a 400, not a 500' do
+    post '/oauth/register', params: {
+      redirect_uris: ['https://example.test/cb#x'], client_name: 'X'
+    }, as: :json
+
+    assert_response :bad_request
+  end
+
+  test 'caps the number of redirect_uris' do
+    post '/oauth/register', params: {
+      redirect_uris: Array.new(30) { |i| "https://example.test/cb#{i}" }, client_name: 'X'
+    }, as: :json
+
+    assert_response :bad_request
+  end
+
+  test 'caps the length of a single redirect_uri' do
+    post '/oauth/register', params: {
+      redirect_uris: ["https://example.test/#{'a' * 5_000}"], client_name: 'X'
+    }, as: :json
+
+    assert_response :bad_request
+  end
+
+  test 'still accepts a well-formed registration' do
+    assert_difference -> { Doorkeeper::Application.count }, 1 do
+      post '/oauth/register', params: {
+        redirect_uris: ['https://example.test/cb'], client_name: 'Claude', scope: 'mcp'
+      }, as: :json
+    end
+    assert_response :created
+  end
 end
