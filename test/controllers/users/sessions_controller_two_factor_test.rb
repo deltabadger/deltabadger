@@ -103,6 +103,19 @@ class Users::SessionsControllerTwoFactorTest < ActionDispatch::IntegrationTest
     refute_includes response.headers['Location'].to_s, 'locale='
   end
 
+  # The route's locale segment is constrained on the way in but not on generation, so a
+  # locale the app no longer ships would build a path that 404s on arrival — dead-ending
+  # every login for that account, not just one.
+  test 'an unroutable account locale falls back to the unprefixed path' do
+    refute_includes I18n.available_locales.map(&:to_s), 'xx'
+    @user.update!(locale: 'xx')
+    start_2fa
+
+    assert_redirected_to verify_two_factor_path
+    follow_redirect!
+    assert_response :success
+  end
+
   test 'the pending state expires' do
     start_2fa
     travel(Users::SessionsController::PENDING_TTL + 1.minute) do
