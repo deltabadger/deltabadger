@@ -7,7 +7,7 @@
 module RackAttackPaths
   # Read the CONFIGURED locales, not I18n.available_locales. The i18n railtie applies
   # config.i18n.available_locales after config/initializers have run, so at this point
-  # I18n reports whatever the gems on the load path have registered — 74 locales, and not
+  # I18n reports whatever the gems on the load path have registered — 75 locales, and not
   # a superset of ours: it omits :el, which routes fine and would have gone unthrottled.
   # routes.rb constrains the :locale segment with the same list, because by the time routes
   # load I18n has caught up.
