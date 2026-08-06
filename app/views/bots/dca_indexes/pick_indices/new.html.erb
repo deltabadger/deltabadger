@@ -25,7 +25,7 @@
                   data-index-order="<%= idx %>"
                   data-index-name="<%= index.name %>"
                   data-index-description="<%= index.description %>"
-                  onclick="this.form.querySelector('#index_category_id').value='<%= index.external_id %>'; this.form.querySelector('#index_name').value='<%= j(index.name) %>';">
+                  onclick="this.form.querySelector('#index_category_id').value='<%= j(index.external_id) %>'; this.form.querySelector('#index_name').value='<%= j(index.name) %>';">
             <h4><%= index.name %></h4>
             <p><%= truncate(index.description, length: 150) %></p>
             <% if index.top_coins.present? %>
