@@ -103,9 +103,10 @@ module SecretKeyBaseGuard
   # test and quietly tell an operator with a short private secret that their database is
   # readable by anyone.
   #
-  # `if logger` rather than `logger&.error` — safe navigation on this module has bitten us
-  # before, where `logger&.silence do ... end` made the whole expression nil and the block
-  # never ran, so the work it guarded silently did not happen.
+  # `if logger` rather than `logger&.error` — no behavioral difference on this single call,
+  # but safe navigation on a logger elsewhere in this codebase has previously produced a
+  # silent no-op, so the explicit conditional is preferred here as a matter of habit. Being
+  # explicit costs nothing.
   def self.emit_warning!(secret, logger: Rails.logger)
     warning = warning_for(secret)
     return nil if warning.nil?
