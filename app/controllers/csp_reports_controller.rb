@@ -1,18 +1,20 @@
 # frozen_string_literal: true
 
-# Browsers POST Content-Security-Policy violations here as application/csp-report. It takes
-# no session and no CSRF token, because a browser sends neither with a report — so anyone at
-# all can reach it, and everything it writes is text a stranger chose. All it does is log a
-# fixed set of fields, each of them bounded and neutralised first.
+# Browsers POST Content-Security-Policy violations here as application/csp-report. A browser
+# sends a report on its own, carrying neither session nor CSRF token — so anyone at all can
+# reach it, and everything it writes is text a stranger chose. All it does is log a fixed set
+# of fields, each of them bounded and neutralised first.
 #
-# ActionController::Base rather than ApplicationController is required, not just tidy:
-# ApplicationController's redirect_to_setup_if_needed would 302 every report to /setup until
-# an admin exists, and switch_locale would touch the database once per report.
-# HealthCheckController and Oauth::DynamicRegistrationController inherit it for the same
-# reason.
-class CspReportsController < ActionController::Base
-  skip_forgery_protection
-
+# ActionController::API is what that shape asks for, and both halves of the choice matter.
+# Not ApplicationController: redirect_to_setup_if_needed would 302 every report to /setup
+# until an admin exists, and switch_locale would touch the database once per report. Not
+# ActionController::Base either: Base carries request forgery protection, cookies, sessions,
+# flash and view rendering, and this action reads the raw body, writes one line and returns
+# 204 — it touches none of them. Forgery protection is the one that would have had to be
+# turned back off by hand, since a report arrives with no token and a token check would 422
+# every real one; under API the module is not there to disable. Api::V1::BaseController
+# inherits API already.
+class CspReportsController < ActionController::API
   # Read cap on the request body. Anything larger is refused and said so, rather than read
   # to the cap and left to fail as truncated JSON — real reports do exceed this (long
   # blocked-uris, deep source-file paths), and those are the interesting ones, so they must
