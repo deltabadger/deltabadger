@@ -92,7 +92,16 @@
     color: var(--stone) !important
     display: flex
     gap: .5rem
-    overflow-wrap: anywhere
+    &--wrap
+        height: auto
+        line-height: 1.4
+        white-space: normal
+        text-overflow: clip
+        overflow: visible
+        overflow-wrap: anywhere
+        text-align: left
+        justify-content: flex-start
+        padding: .75rem 1.5rem
     &--address,&--copy
         text-overflow: ellipsis
         overflow: hidden

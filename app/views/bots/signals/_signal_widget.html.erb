@@ -85,7 +85,7 @@
             </div>
             <span data-form--select-toggle-target="section" data-select-toggle-value="percentage" style="<%= 'display:none' unless signal.percentage? %>"><%= t('bot.signal.of_the_balance') %></span>
             <span><%= t('bot.signal.when_triggered') %></span>
-            <span class="tag"><%= request.base_url %><%= signal.webhook_url %></span>
+            <span class="tag tag--wrap"><%= request.base_url %><%= signal.webhook_url %></span>
           </div>
         </div>
       </div>

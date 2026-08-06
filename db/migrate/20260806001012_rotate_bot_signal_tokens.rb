@@ -5,14 +5,35 @@
 # Raw SQL throughout, not the BotSignal model: the app models keep changing, and this
 # migration needs to keep running unmodified on every self-hosted install for years.
 class RotateBotSignalTokens < ActiveRecord::Migration[8.1]
-  def up
-    used_tokens = select_values('SELECT token FROM bot_signals')
+  BATCH_SIZE = 1000
 
-    select_values('SELECT id FROM bot_signals').each do |id|
-      token = unused_token(used_tokens)
-      used_tokens << token
-      execute("UPDATE bot_signals SET token = #{quote(token)} WHERE id = #{id.to_i}")
+  def up
+    rotated = 0
+
+    # Bare quote/execute calls resolve through Migration#method_missing, which logs its
+    # arguments via say_with_time -- including the token itself. suppress_messages keeps every
+    # token, old or new, out of the migration log; only a final count is reported.
+    suppress_messages do
+      used_tokens = Set.new(select_values('SELECT token FROM bot_signals'))
+      last_id = 0
+
+      loop do
+        ids = select_values(<<~SQL.squish).map(&:to_i)
+          SELECT id FROM bot_signals WHERE id > #{last_id} ORDER BY id LIMIT #{BATCH_SIZE}
+        SQL
+        break if ids.empty?
+
+        ids.each do |id|
+          token = unused_token(used_tokens)
+          used_tokens << token
+          execute("UPDATE bot_signals SET token = #{quote(token)} WHERE id = #{id}")
+          rotated += 1
+        end
+        last_id = ids.last
+      end
     end
+
+    say "Rotated #{rotated} token(s)"
   end
 
   def down
@@ -28,5 +49,11 @@ class RotateBotSignalTokens < ActiveRecord::Migration[8.1]
       token = SecureRandom.urlsafe_base64(32)
       return token unless used_tokens.include?(token)
     end
+  end
+
+  # Defined locally rather than delegated through method_missing, so a call site here can never
+  # end up in the verbose migration log even if suppress_messages is ever removed above.
+  def quote(value)
+    ActiveRecord::Base.connection.quote(value)
   end
 end
