@@ -123,12 +123,31 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
     assert_match(/revoke/i, warning)
   end
 
-  test 'the short-secret warning does not tell the operator to revoke' do
+  # short? is length alone, and length alone distinguishes nothing: a randomly generated
+  # 31-character secret and the word "password1" both land here. So this warning has to hold
+  # two lines at once, and each assertion below pins one of them.
+  #
+  # Under-warning is the expensive failure. A human-chosen key is cheap to brute-force from
+  # one encrypted database value or a captured session cookie, which yields every stored
+  # credential and a forgeable session — so the warning must name the condition under which
+  # this operator should treat their secret as compromised and revoke. It previously claimed
+  # the opposite outright ("This is not an exposure ... there is no urgency"), which is a
+  # statement about the value's provenance that nothing in the value supports.
+  #
+  # Over-warning still has a real cost, which is why the flat compromise language stays
+  # barred here: it would send an operator whose secret genuinely never left the machine
+  # through a recovery that destroys IBKR credentials taking days to replace.
+  test 'the short-secret warning neither claims the data has leaked nor claims there is nothing to do' do
     warning = SecretKeyBaseGuard.warning_for("#{SecureRandom.hex(15)}a")
 
     assert warning, 'a short secret must still warn'
-    assert_no_match(/revoke/i, warning)
-    assert_no_match(/anyone/i, warning)
+    assert_not_equal SecretKeyBaseGuard::PUBLISHED_WARNING, warning
+    assert_no_match(/anyone with a copy/i, warning)
+    assert_no_match(/can already read/i, warning)
+    assert_no_match(/no urgency/i, warning)
+    assert_no_match(/nothing to revoke/i, warning)
+    assert_match(/compromised/i, warning)
+    assert_match(/revok/i, warning) # revoke / revoking
   end
 
   test 'a strong secret produces no warning' do
@@ -138,12 +157,11 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
   # The four tests above exercise the selector. These exercise what production actually
   # runs: without them the boot branch could regress to weak? + PUBLISHED_WARNING and every
   # test above would still pass, reinstating the exact harmful message for short secrets.
-  test 'a short private secret emits the non-incident warning at boot' do
+  test 'a short secret emits the short-secret warning at boot, not the compromise one' do
     _out, err = capture_io { SecretKeyBaseGuard.emit_warning!("#{SecureRandom.hex(15)}a", logger: nil) }
 
     assert_equal SecretKeyBaseGuard::SHORT_WARNING, err
-    assert_no_match(/revoke/i, err)
-    assert_no_match(/anyone/i, err)
+    assert_no_match(/anyone with a copy/i, err)
   end
 
   test 'the published secret emits the compromise warning at boot' do

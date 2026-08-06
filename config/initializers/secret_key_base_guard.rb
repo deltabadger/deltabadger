@@ -79,21 +79,37 @@ module SecretKeyBaseGuard
     ==================================================================================
   MESSAGE
 
-  # Reached only by a secret that is merely SHORT — privately generated, never published.
-  # Nothing is known to be exposed, so this must not read like an incident: no "anyone can
-  # read your data", no instruction to revoke. The fix is the same procedure, at leisure.
+  # Reached by a secret that is merely SHORT. "Short" is all we actually know: the check is
+  # length, and a random 31-character value and the word "password1" both land here. So this
+  # must not assert either way. It cannot say the data has leaked — that would send an
+  # operator whose secret never left the machine through a recovery that destroys IBKR
+  # credentials taking days to replace. It also cannot say nothing leaked, which is what it
+  # used to say: absence from KNOWN_PLACEHOLDERS is not evidence a value was randomly
+  # generated. So it states the risk, and hands the operator the one test they can apply and
+  # we cannot — did a person choose this, and has it been anywhere public.
   SHORT_WARNING = <<~MESSAGE.freeze
     ================================ SECURITY NOTICE =================================
     SECRET_KEY_BASE is shorter than #{MINIMUM_LENGTH} characters.
 
-    It is the encryption key for everything encrypted in this instance, and a short one
-    is easier to guess than it should be. This is not an exposure — your value was not
-    published anywhere — so there is no urgency.
+    It is the encryption key for everything encrypted in this instance — exchange API
+    keys, your two-factor secret, withdrawal addresses — and it also signs and encrypts
+    session cookies. A short key is cheap to brute-force offline from a single encrypted
+    value or one captured cookie, and recovering it yields both the stored credentials
+    and the ability to sign in as you.
 
-    When convenient, move to a stronger secret. Because every encrypted field derives
-    from it, you cannot simply change the value: see the recovery steps in the README
-    under "Moving to a new SECRET_KEY_BASE". They clear the stored credentials, which
-    you then re-enter.
+    Whether that is a live incident depends on where the value came from, which cannot
+    be told from the value itself. Only you know:
+
+      * If a person chose it, or it has ever appeared anywhere public — a repository,
+        an issue, a paste, a screenshot, a support thread — treat it as compromised.
+        Follow the full procedure in the README under "Moving to a new SECRET_KEY_BASE",
+        including revoking every credential at its source, and do it now.
+      * If it was randomly generated and has never left this machine, nothing here is
+        known to be exposed. Move to a stronger secret at your convenience, using that
+        same procedure.
+
+    Either way you cannot simply change the value: every encrypted field derives from it,
+    so changing it alone makes your two-factor secret unreadable and locks you out.
     ==================================================================================
   MESSAGE
 
@@ -103,7 +119,8 @@ module SecretKeyBaseGuard
     KNOWN_PLACEHOLDERS.include?(secret.to_s)
   end
 
-  # Shorter than we would like, but privately generated. Worth improving, not an incident.
+  # Shorter than we would like. Says nothing about how the value was chosen — see
+  # SHORT_WARNING for why that distinction is left to the operator rather than guessed here.
   def self.short?(secret)
     secret.to_s.length < MINIMUM_LENGTH
   end

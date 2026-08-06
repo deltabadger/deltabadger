@@ -129,12 +129,20 @@ is derived from it, so changing the value in place makes all of them unreadable 
 locks you out. The steps below clear the stored credentials under the old key and let
 you re-enter them under the new one.
 
-**Only some readers need step 4.** If this install's `SECRET_KEY_BASE` was ever the
-placeholder value shipped in `.env.docker.example`, or another value published
-somewhere public, treat it as compromised: anyone holding a copy of your database can
-already read every credential in it, and step 4 (revoke) is not optional. If your
-secret was privately generated and merely shorter than recommended, nobody else has
-it — follow the same steps at your convenience, but skip step 4.
+**Who needs step 4.** Treat your credentials as compromised, and step 4 (revoke) as
+not optional, if either of these is true:
+
+- This install's `SECRET_KEY_BASE` was ever one of the placeholder values shipped in
+  this repository, or any other value that has appeared somewhere public. Anyone
+  holding a copy of your database can already read every credential in it.
+- A person chose the value rather than generating it randomly. A short or
+  human-chosen key is cheap to brute-force offline from a single encrypted database
+  value or one captured session cookie, which yields the same result. A value not
+  being on our placeholder list says nothing about how it was chosen.
+
+Only if your secret was randomly generated and has never left the machine is nothing
+here known to be exposed. Then follow the same steps at your convenience and skip
+step 4. If you are unsure, revoke.
 
 Follow this order exactly. Back up only after stopping the app — a copy taken while
 it is still writing is not consistent, and it is the only way back. Run the report
