@@ -46,25 +46,39 @@ module RackAttackPaths
   AUTHORIZE   = %r{\A/oauth/authorize#{FORMAT}\z}
 end
 
-# NOTE ON THE THROTTLE KEY. `action_dispatch.remote_ip` prefers a forwarded-for hop over
-# REMOTE_ADDR, using Rails' trusted-proxy list — loopback, private and link-local ranges by
-# default — to decide which hops to discard. This app configures no `trusted_proxies`, and
-# that cuts both ways.
+# NOTE ON THE THROTTLE KEY. The key is REMOTE_ADDR — the address the connection was
+# accepted from — unless the deployment declares that something in front of it writes the
+# forwarded-for header, in which case that header is what tells callers apart and is read
+# instead. Which of the two applies is Deltabadger::Application.behind_proxy_from_env.
 #
-# Coarse: Cloudflare's published ranges are not in the default list, so hosted traffic
-# arriving through the CDN may collapse onto one throttle key.
+# The choice has to be made here rather than by configuring trusted proxies, because
+# ActionDispatch::RemoteIp has no way to express "ignore the header". calculate_ip ends on
 #
-# Weak, and the direction that matters more: the key is only as trustworthy as whatever
-# writes the forwarded-for header. On a deployment that publishes the container port
-# straight to the network — how the README documents running this — nothing upstream sets
-# or sanitises that header, so the value keyed on here originates with the client and the
-# per-IP limits can be evaded. Behind a proxy that writes the header itself, the key
-# reflects what that proxy saw.
+#   filter_proxies(ips + [remote_addr]).first || ips.last || remote_addr
+#
+# and the trusted list only decides which hops that first call rejects, never whether the
+# header is read. A forwarded address the list does not cover survives the filter and is
+# returned by `.first`, so whatever that list holds, a caller supplies a value outside it
+# and is keyed on its own input. Widening the list does not help: once it also covers
+# REMOTE_ADDR the array empties and `ips.last` hands the forwarded address back regardless.
+# RemoteIp's own header comment says as much — without a proxy the remedy is to drop or
+# ignore these headers before it runs, not to tune the list. Forwarded-for is also not the
+# only header calculate_ip consults, and reading REMOTE_ADDR closes them together rather
+# than one at a time. req.ip is not a usable fallback either: it parses the same headers,
+# less strictly, and will hand back a value that is not an address at all.
+#
+# What that buys is a key the request itself cannot restate. What it does not buy is a key
+# per person: where a proxy is declared the key is only as good as that proxy, and behind a
+# CDN it names the edge that relayed the request rather than whoever sent it. If REMOTE_ADDR
+# is somehow absent the key is a shared constant rather than nil, because a throttle block
+# returning nil makes rack-attack skip the rule outright, so it has to fail closed.
 #
 # The bound that does not depend on IP attribution at all is the per-account one: sign-in,
 # the second factor and password reset are limited on the user row by :lockable.
 def (Rack::Attack).client_ip(req)
-  req.env['action_dispatch.remote_ip']&.to_s.presence || req.ip
+  return req.env['REMOTE_ADDR'].presence || 'unattributed' unless Deltabadger::Application.behind_proxy_from_env
+
+  req.env['action_dispatch.remote_ip']&.to_s.presence || req.env['REMOTE_ADDR'].presence || 'unattributed'
 end
 
 # rack-attack's default response is a bare "Retry later". These rules now match paths this

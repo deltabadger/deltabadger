@@ -37,24 +37,51 @@ module Deltabadger
     config.time_zone = 'UTC'
     config.active_record.default_timezone = :utc
 
+    # ENV carries a setting as free text, so a resolver has to rule on what a spelling meant.
+    # The spellings are listed out rather than run through ActiveModel::Type::Boolean
+    # because that cast has no verdict for an unrecognised value: its false list is closed,
+    # so 'no' — and every typo — comes back true. Neither setting below may have an
+    # unrecognised value mean on, so nothing is guessed here: anything unrecognised returns
+    # nil and the caller falls through to what it can infer about the deployment. One list,
+    # so the two resolvers cannot drift into disagreeing about what an operator wrote.
+    def self.env_boolean(value)
+      case value.to_s.strip.downcase
+      when '1', 't', 'true', 'y', 'yes', 'on' then true
+      when '0', 'f', 'false', 'n', 'no', 'off' then false
+      end
+    end
+
     # Deployments that terminate TLS in front of the app do not necessarily pass FORCE_SSL,
     # so the configured root URL is the signal: if the app is reached over https then https
     # is what it must insist on. A plain-http self-hosted or LAN install keeps its plain
     # http, and FORCE_SSL overrides the inference in either direction.
     #
-    # The spellings are listed out rather than run through ActiveModel::Type::Boolean
-    # because that cast has no verdict for an unrecognised value: its false list is closed,
-    # so 'no' — and every typo — comes back true. On this setting an unrecognised value
-    # must never be able to mean on. Turning SSL on for a plain-http install points every
-    # redirect and every generated URL at a host with no TLS listener, which is a site the
-    # browser cannot reach at all. Anything unrecognised falls through to the root URL,
-    # which is the branch that is secure by default without guessing.
+    # Turning SSL on for a plain-http install points every redirect and every generated URL
+    # at a host with no TLS listener, which is a site the browser cannot reach at all — so
+    # anything unrecognised falls through to the root URL, which is the branch that is
+    # secure by default without guessing.
     def self.force_ssl_from_env(env = ENV)
-      explicit = env['FORCE_SSL'].to_s.strip.downcase
-      return true if %w[1 t true y yes on].include?(explicit)
-      return false if %w[0 f false n no off].include?(explicit)
+      explicit = env_boolean(env['FORCE_SSL'])
+      return explicit unless explicit.nil?
 
       env['APP_ROOT_URL'].to_s.start_with?('https://')
+    end
+
+    # Whether something in front of this deployment writes the forwarded-for header, and so
+    # whether that header describes the caller or is only what the caller typed. The
+    # rack-attack throttle key turns on the answer.
+    #
+    # That is the same fact about the deployment force_ssl reads, so it reads the same
+    # signals: nothing here binds Puma to TLS, so an https root URL — or an explicit
+    # FORCE_SSL — means TLS terminates in front, and whatever terminates it is what writes
+    # the header. README's deployment advice is to put nginx or Traefik there for exactly
+    # that reason. BEHIND_PROXY is for the installs where the two facts come apart: true for
+    # a proxy that terminates plain http, false for one that serves TLS from Ruby itself.
+    def self.behind_proxy_from_env(env = ENV)
+      explicit = env_boolean(env['BEHIND_PROXY'])
+      return explicit unless explicit.nil?
+
+      force_ssl_from_env(env)
     end
 
     #cookie
