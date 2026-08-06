@@ -5,9 +5,22 @@
 module SecretKeyBaseGuard
   # EXACT matches only. A substring match would abort every Umbrel container, which
   # legitimately runs on "${APP_SEED}-secret-key-base" (deltabadger/docker-compose.yml:24).
+  #
+  # The first three are every literal SECRET_KEY_BASE value this repository has ever
+  # shipped, from a sweep of every blob in its history: "dev-secret-key-not-for-production"
+  # and "your_secret_key_base_here" in .env.docker.example, "placeholder" in the Dockerfile's
+  # asset-precompile step. Length is not a substitute for this list —
+  # "your_secret_key_base_here" is 25 characters, so without an entry the guard would call
+  # it merely short and tell its operator that nothing had leaked.
+  #
+  # "-secret-key-base" is what umbrel/deltabadger/docker-compose.yml expands to when
+  # APP_SEED is unset, which is any use of that file outside Umbrel. A real Umbrel secret
+  # is "<seed>-secret-key-base" and is unaffected, because the match is exact.
   KNOWN_PLACEHOLDERS = %w[
     dev-secret-key-not-for-production
+    your_secret_key_base_here
     placeholder
+    -secret-key-base
     changeme
     secret
   ].freeze
