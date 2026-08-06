@@ -10,28 +10,35 @@ class RotateBotSignalTokens < ActiveRecord::Migration[8.1]
   def up
     rotated = 0
 
-    # Bare quote/execute calls resolve through Migration#method_missing, which logs its
-    # arguments via say_with_time -- including the token itself. suppress_messages keeps every
-    # token, old or new, out of the migration log; only a final count is reported. quote and
-    # execute are also overridden locally below, bypassing method_missing's logging entirely, so
-    # neither can print a token even without suppress_messages.
+    # Two independent logging paths can print a token, and both need closing. Bare quote/execute
+    # calls resolve through Migration#method_missing, which logs its arguments via
+    # say_with_time; suppress_messages keeps that path silent, reporting only a final count.
+    # quote and execute are also overridden locally below, bypassing method_missing's logging
+    # entirely, so neither call site here can reach the verbose migration log even if
+    # suppress_messages is ever removed. Neither guard touches ActiveRecord's own adapter
+    # logging, though: connection.execute fires the sql.active_record notification regardless,
+    # and at :debug (development's default, which a debug build of the desktop app runs under)
+    # that logs the full UPDATE statement, token included. logger.silence raises the effective
+    # level past :debug for the duration, closing that path too.
     suppress_messages do
-      used_tokens = Set.new(select_values('SELECT token FROM bot_signals'))
-      last_id = 0
+      ActiveRecord::Base.logger&.silence do
+        used_tokens = Set.new(select_values('SELECT token FROM bot_signals'))
+        last_id = 0
 
-      loop do
-        ids = select_values(<<~SQL.squish).map(&:to_i)
-          SELECT id FROM bot_signals WHERE id > #{last_id} ORDER BY id LIMIT #{BATCH_SIZE}
-        SQL
-        break if ids.empty?
+        loop do
+          ids = select_values(<<~SQL.squish).map(&:to_i)
+            SELECT id FROM bot_signals WHERE id > #{last_id} ORDER BY id LIMIT #{BATCH_SIZE}
+          SQL
+          break if ids.empty?
 
-        ids.each do |id|
-          token = unused_token(used_tokens)
-          used_tokens << token
-          execute("UPDATE bot_signals SET token = #{quote(token)} WHERE id = #{id}")
-          rotated += 1
+          ids.each do |id|
+            token = unused_token(used_tokens)
+            used_tokens << token
+            execute("UPDATE bot_signals SET token = #{quote(token)} WHERE id = #{id}")
+            rotated += 1
+          end
+          last_id = ids.last
         end
-        last_id = ids.last
       end
     end
 
