@@ -12,7 +12,9 @@ class RotateBotSignalTokens < ActiveRecord::Migration[8.1]
 
     # Bare quote/execute calls resolve through Migration#method_missing, which logs its
     # arguments via say_with_time -- including the token itself. suppress_messages keeps every
-    # token, old or new, out of the migration log; only a final count is reported.
+    # token, old or new, out of the migration log; only a final count is reported. quote and
+    # execute are also overridden locally below, bypassing method_missing's logging entirely, so
+    # neither can print a token even without suppress_messages.
     suppress_messages do
       used_tokens = Set.new(select_values('SELECT token FROM bot_signals'))
       last_id = 0
@@ -51,9 +53,15 @@ class RotateBotSignalTokens < ActiveRecord::Migration[8.1]
     end
   end
 
-  # Defined locally rather than delegated through method_missing, so a call site here can never
-  # end up in the verbose migration log even if suppress_messages is ever removed above.
+  # quote and execute are defined locally rather than delegated through method_missing, so
+  # neither call site here can end up in the verbose migration log even if suppress_messages is
+  # ever removed above -- method_missing (and its say_with_time wrapper) is only reached for
+  # methods the class does not already implement.
   def quote(value)
-    ActiveRecord::Base.connection.quote(value)
+    connection.quote(value)
+  end
+
+  def execute(sql)
+    connection.execute(sql)
   end
 end
