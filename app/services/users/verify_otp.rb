@@ -11,18 +11,23 @@ module Users
       # Replay protection is unchanged: `after:` keeps only steps strictly later than the one
       # last consumed, so a spent code stays spent. What does change is that a step ahead of the
       # current one can be consumed, taking the steps in between with it. rotp records the last
-      # candidate that matched, which is usually the submitted code's own step — a fast device's,
-      # say — but when two of the three candidate steps render the same digits, on the order of one
-      # submission in a million, the later of them is recorded instead. A correct clock can trigger
-      # that, and a slow device can end up two steps past the code it actually sent.
+      # candidate that matched, which is usually the submitted code's own step; when that step is
+      # ahead of real time the sender is a fast device, and with no drift its code would simply
+      # have been refused — the widening turned a refusal into a sign-in, which is the point of
+      # it. The exception is a collision, on the order of one submission in a million: when the
+      # submitted code's step is one of two candidates rendering the same digits, the later of
+      # them is recorded. It has to be the submitted step that collides — two other candidates
+      # matching each other changes nothing. A correct clock can trigger it, and a slow device
+      # can land two steps past the code it actually sent.
       #
-      # None of it can wedge an account, and that is the property worth holding on to: what gets
-      # recorded is never more than one step past the step real time was in, and a device inside
-      # the tolerated skew always shows a code within one step of real time, so the clock alone
-      # clears it — no operator, no reset. How long that takes is deliberately not written down
-      # here. Every attempt to put a number on it has been wrong: it turns on the direction of the
-      # skew and on which of the candidate steps collided, and a freshly displayed code is not
-      # automatically an acceptable one.
+      # None of it can wedge an account. Two facts bound the wait, both readable off the call
+      # below: the recorded step is never more than one past the step real time was in, because
+      # the candidate list stops there; and a device inside the tolerated skew never shows a code
+      # more than one step from real time, so its own code is always a candidate. Once real time
+      # is two steps past the record, that code sorts later than the record and is accepted — so
+      # the third step after the spend, at the worst, whatever the digits collide with. The clock
+      # alone clears it: no operator, no reset. That is arithmetic on the two facts rather than a
+      # promise; note also that a freshly displayed code is not automatically an acceptable one.
       drift = totp.interval
       last_otp_at = totp.verify(code, after: user.last_otp_at, drift_behind: drift, drift_ahead: drift)
       return false if last_otp_at.nil?
