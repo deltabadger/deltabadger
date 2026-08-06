@@ -299,6 +299,23 @@ class Bot::ExportableTest < ActiveSupport::TestCase
     assert_equal '@G', other_bot.transactions.last.base
   end
 
+  test 'import treats a literal leading apostrophe as significant, not a collision with the bare id' do
+    csv = generate_csv([
+                         ['2025-01-15 12:00:00', "'abc", 'Market', 'Buy', '0.001', '50', '50000',
+                          'BTC', 'USD', 'closed'],
+                         ['2025-01-15 12:00:00', 'abc', 'Market', 'Buy', '0.001', '50', '50000',
+                          'BTC', 'USD', 'closed']
+                       ])
+
+    result = @bot.import_orders_csv(csv)
+
+    assert result[:success]
+    assert_equal 2, result[:imported_count]
+    assert_equal result[:imported_count], @bot.transactions.count
+    assert_equal ["imported_#{@bot.id}_'abc", "imported_#{@bot.id}_abc"].sort,
+                 @bot.transactions.pluck(:external_id).sort
+  end
+
   # == Dual asset bot ==
 
   test 'import accepts both base assets for dual asset bot' do

@@ -61,4 +61,16 @@ class CsvSafeTest < ActiveSupport::TestCase
   test 'unescape passes non-strings through' do
     assert_nil CsvSafe.unescape(nil)
   end
+
+  test 'a literal leading apostrophe round-trips through cell and unescape intact' do
+    assert_equal "'abc", CsvSafe.unescape(CsvSafe.cell("'abc"))
+  end
+
+  test 'unescape leaves a literal leading apostrophe alone when nothing formula-leading follows' do
+    assert_equal "'abc", CsvSafe.unescape("'abc")
+  end
+
+  test 'a formula-leading value still round-trips through cell and unescape intact' do
+    assert_equal '=1+1', CsvSafe.unescape(CsvSafe.cell('=1+1'))
+  end
 end
