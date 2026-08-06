@@ -145,4 +145,73 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     2.times { post '/oauth//register', params: { redirect_uris: ['https://e.test/cb'] }, as: :json }
     assert_response :too_many_requests
   end
+
+  # The throttle key used to be action_dispatch.remote_ip unconditionally, which prefers a
+  # forwarded-for hop over REMOTE_ADDR. On a deployment with nothing in front of it that hop
+  # is written by the caller, so the caller chooses its own bucket and the per-IP limit
+  # bounds nothing. Keyed on REMOTE_ADDR the bucket is whatever the TCP connection came
+  # from, which the caller cannot restate.
+  test 'a rotating forwarded-for header does not mint a fresh bucket per request' do
+    declare_proxy(false)
+    11.times { |i| post_login('REMOTE_ADDR' => '198.18.0.5', 'HTTP_X_FORWARDED_FOR' => "203.0.113.#{i + 1}") }
+
+    assert_response :too_many_requests, 'the limit must hold however the forwarded header varies'
+  end
+
+  # Client-Ip reaches calculate_ip by the same route as X-Forwarded-For, so a fix that only
+  # closed the better-known header would leave an identical second way in.
+  test 'a rotating client-ip header does not mint a fresh bucket per request' do
+    declare_proxy(false)
+    11.times { |i| post_login('REMOTE_ADDR' => '198.18.0.5', 'HTTP_CLIENT_IP' => "203.0.113.#{i + 1}") }
+
+    assert_response :too_many_requests, 'the limit must hold however the client-ip header varies'
+  end
+
+  # The other direction: keying on REMOTE_ADDR must not collapse everyone into one bucket,
+  # or the limit becomes a way for one caller to lock out the rest.
+  test 'distinct REMOTE_ADDRs keep independent budgets' do
+    declare_proxy(false)
+    11.times { post_login('REMOTE_ADDR' => '198.18.0.5') }
+    assert_response :too_many_requests
+
+    post_login('REMOTE_ADDR' => '198.18.0.6')
+    refute_equal 429, response.status, 'a second address must not inherit the first address budget'
+  end
+
+  # Behind a proxy that writes the header, the header is the only thing that distinguishes
+  # callers — REMOTE_ADDR is the proxy for all of them. This pins that the declared branch
+  # still reads it, so hosted and reverse-proxied installs keep per-caller buckets.
+  test 'a declared proxy still keys on the forwarded header' do
+    declare_proxy(true)
+    11.times { post_login('REMOTE_ADDR' => '172.16.0.2', 'HTTP_X_FORWARDED_FOR' => '203.0.113.1') }
+    assert_response :too_many_requests
+
+    post_login('REMOTE_ADDR' => '172.16.0.2', 'HTTP_X_FORWARDED_FOR' => '203.0.113.2')
+    refute_equal 429, response.status, 'a second forwarded caller must not inherit the first budget'
+  end
+
+  # Rack::Attack::Throttle#matched_by? opens with `return false unless discriminator`, so a
+  # nil key does not mean "one shared bucket", it means the rule does not run at all. An
+  # environment with no REMOTE_ADDR must therefore still produce a key.
+  test 'the throttle key is never nil' do
+    request = Rack::Attack::Request.new({})
+
+    declare_proxy(false)
+    assert Rack::Attack.client_ip(request).present?, 'a missing REMOTE_ADDR must not switch the rule off'
+
+    declare_proxy(true)
+    assert Rack::Attack.client_ip(request).present?, 'a missing REMOTE_ADDR must not switch the rule off'
+  end
+
+  private
+
+  # Stub rather than set BEHIND_PROXY: ENV is process-wide and shared with every other test
+  # in this process, and mocha restores this in teardown whichever way the test exits.
+  def declare_proxy(declared)
+    Deltabadger::Application.stubs(:behind_proxy_from_env).returns(declared)
+  end
+
+  def post_login(headers)
+    post '/login', params: { user: { email: 'a@b.test', password: 'wrong' } }, headers: headers
+  end
 end
