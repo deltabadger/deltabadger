@@ -5,9 +5,11 @@ class AuthenticationTest < ActionDispatch::IntegrationTest
   # step of drift either side, so a code survives one 30-second rollover but not two, and the
   # OTP tests below carry one code across request cycles. Enough rollovers mid-test would fail
   # them for a reason unrelated to what they assert, and — now that a wrong code increments the
-  # persisted counter — could carry that failure into the next test in the class. Nothing here
-  # needs the clock to move on its own; the lockout tests travel explicitly, which still works
-  # from a frozen base. Rails restores the clock in after_teardown.
+  # persisted counter — would spend an attempt from the budget the lockout tests are counting.
+  # It goes no further than the test it happens in: use_transactional_tests rolls the counter
+  # back and each test builds its own user. Nothing here needs the clock to move on its own;
+  # the lockout tests travel explicitly, which still works from a frozen base. Rails restores
+  # the clock in after_teardown.
   setup do
     freeze_time
     @admin = create(:user, admin: true)

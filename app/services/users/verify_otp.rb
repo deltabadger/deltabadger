@@ -9,12 +9,16 @@ module Users
       # larger one reaches two steps away near a step boundary.
       #
       # Replay protection is unchanged: `after:` keeps only steps strictly later than the one
-      # last consumed, so a spent code stays spent. Note that this makes an accepted ahead code
-      # spend the current step AND the next one, since it is the code's own step that is
-      # recorded. The device that produced it runs fast, so it keeps showing the spent code into
-      # part of the following step, where it is refused; the next code it shows is accepted the
-      # moment it appears, one rotation after the code was spent. Only an attempt that would
-      # have been refused outright before can spend a step this way.
+      # last consumed, so a spent code stays spent. What does change is that a step ahead of the
+      # current one can be consumed, which spends the current one along with it. rotp records the
+      # last candidate that matched, so that is usually the submitted code's own step — a fast
+      # device's — but on the roughly one-in-a-million occasion that two adjacent steps render the
+      # same digits, an ordinary current code records the later of the two.
+      #
+      # The cost is bounded either way: at most one interval passes between spending a step and
+      # the next accepted code, and that code is accepted the second it appears. Outside the
+      # collision case, spending a step ahead takes an attempt that would have been refused
+      # outright before.
       drift = totp.interval
       last_otp_at = totp.verify(code, after: user.last_otp_at, drift_behind: drift, drift_ahead: drift)
       return false if last_otp_at.nil?
