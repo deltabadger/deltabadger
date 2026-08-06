@@ -10,6 +10,28 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
     assert SecretKeyBaseGuard.weak?('placeholder')
   end
 
+  # Every literal SECRET_KEY_BASE value this repository has ever shipped, from a sweep of
+  # every blob in history. All three must be published?, not merely weak?: at 25 characters
+  # "your_secret_key_base_here" is under MINIMUM_LENGTH, so without an entry it would be
+  # classified as a privately generated short secret and its operator told nothing leaked.
+  test 'treats every literal secret this repository has ever shipped as published' do
+    %w[
+      dev-secret-key-not-for-production
+      placeholder
+      your_secret_key_base_here
+    ].each do |value|
+      assert SecretKeyBaseGuard.published?(value), "#{value.inspect} was shipped in this repository"
+    end
+  end
+
+  # umbrel/deltabadger/docker-compose.yml sets "${APP_SEED}-secret-key-base". Under Umbrel
+  # APP_SEED is a per-device secret and the result is fine; run anywhere else APP_SEED is
+  # unset and compose expands it to this bare literal, which is published here verbatim.
+  test 'treats the Umbrel template expanded with an empty APP_SEED as published' do
+    assert SecretKeyBaseGuard.published?('-secret-key-base')
+    assert_not SecretKeyBaseGuard.published?("#{SecureRandom.hex(32)}-secret-key-base")
+  end
+
   test 'rejects anything shorter than 32 characters' do
     assert SecretKeyBaseGuard.weak?('a' * 31)
   end
