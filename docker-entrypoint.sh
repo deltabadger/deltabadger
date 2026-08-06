@@ -202,6 +202,16 @@ main() {
             exec bundle exec rails console
             ;;
 
+        rake)
+            # One-shot maintenance commands, run against a stopped stack with
+            # `docker compose run --rm --no-deps`. The catch-all branch below execs
+            # without loading /app/storage/.secrets, so an install that keeps its
+            # secret there would fail to boot. Load them first.
+            shift
+            setup_secrets
+            exec bundle exec rails "$@"
+            ;;
+
         shell)
             echo "Starting shell..."
             exec /bin/bash
