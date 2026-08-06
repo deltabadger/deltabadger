@@ -2,9 +2,10 @@ module Api
   class ApiKeysController < Api::BaseController
     def create
       keys_params = api_key_params.merge(user: current_user)
-      # prevent JSON parse errors like reading "\n" as "\\n"
-      keys_params[:key] = JSON.parse("{\"content\": \"#{keys_params[:key]}\"}")['content']
-      keys_params[:secret] = JSON.parse("{\"content\": \"#{keys_params[:secret]}\"}")['content']
+      # A pasted Coinbase CDP PEM secret arrives with literal \n sequences instead of real
+      # newlines; unescape them so OpenSSL::PKey::EC can parse the key.
+      keys_params[:key] = keys_params[:key].to_s.gsub('\n', "\n")
+      keys_params[:secret] = keys_params[:secret].to_s.gsub('\n', "\n")
       api_key = current_user.api_keys
                             .find_by(exchange_id: keys_params[:exchange_id], key_type: keys_params[:key_type])
 
