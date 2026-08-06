@@ -212,7 +212,22 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     assert Rack::Attack.client_ip(request).present?, 'a missing REMOTE_ADDR must not switch the rule off'
   end
 
+  # /csp-report takes an unauthenticated POST and writes a line to the log, so it is a
+  # log-flooding vector. The 3 + 28 split is what proves both spellings land in ONE bucket:
+  # against a limit of 30 neither half reaches the limit alone, so a rule matching only the
+  # bare path or only the suffixed one would leave this green at 204.
+  test 'throttles the CSP report endpoint, format suffix included' do
+    3.times { post_csp_report('/csp-report') }
+    28.times { post_csp_report('/csp-report.json') }
+
+    assert_response :too_many_requests
+  end
+
   private
+
+  def post_csp_report(path)
+    post path, params: '{}', headers: { 'CONTENT_TYPE' => 'application/csp-report' }
+  end
 
   # Stub rather than set BEHIND_PROXY: ENV is process-wide and shared with every other test
   # in this process, and mocha restores this in teardown whichever way the test exits.
