@@ -68,6 +68,15 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
     assert branch, 'expected a `rake)` case in docker-entrypoint.sh'
     assert_includes branch, 'setup_secrets'
     assert_includes branch, 'exec bundle exec rails "$@"'
+
+    # Without `shift`, "$@" still starts with the literal word "rake", so rails would
+    # receive "rake" as its first argument instead of the real task name. No container
+    # has ever run this branch to catch that in practice — docker is unavailable in this
+    # environment — so this line is the only thing standing between a missing `shift` and
+    # every one-shot rake invocation silently doing the wrong thing.
+    assert_includes branch, 'shift'
+    assert_operator branch.index('setup_secrets'), :<, branch.index('exec bundle exec rails "$@"'),
+                    'setup_secrets must run before exec, or the secrets it loads never reach rails'
   end
 
   test 'a published placeholder is treated as compromised' do
