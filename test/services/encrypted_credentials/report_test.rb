@@ -99,6 +99,36 @@ module EncryptedCredentials
       assert_nil untouched.reload.read_attribute_before_type_cast(:otp_secret_key)
     end
 
+    # The predicate that answers "was this database written under a key other than the one
+    # we are running now" — the only evidence available on an install whose operator has
+    # already rotated their secret. It reports what it observes and nothing more; deciding
+    # that a rotation means the old key was published is the caller's job.
+    test 'does not claim another key was used when everything decrypts under the current one' do
+      create(:api_key, user: @user, exchange: @exchange)
+      @user.update!(otp_module: :enabled, otp_secret_key: 'SECRET123')
+      withdrawal_rule
+
+      assert_not Report.new.data_written_under_another_key?
+    end
+
+    test 'detects data written under another key' do
+      rule = withdrawal_rule
+      write_raw(Rule, rule.id, 'address', ciphertext_under_foreign_key('wallet-one'))
+
+      assert Report.new.data_written_under_another_key?
+    end
+
+    # Sampling one column would miss this operator entirely: withdrawal rules are optional
+    # and most installs have none, so the check has to look across every covered attribute
+    # rather than the first one it thinks of.
+    test 'detects data written under another key from an attribute other than the address' do
+      key = create(:api_key, user: @user, exchange: @exchange)
+      write_raw(ApiKey, key.id, 'secret', ciphertext_under_foreign_key('sk-live-secret'))
+
+      assert_equal 0, Rules::Withdrawal.count
+      assert Report.new.data_written_under_another_key?
+    end
+
     test 'changes nothing' do
       create(:api_key, user: @user, exchange: @exchange)
       AppConfig.set(AppConfig::COINGECKO_API_KEY, 'cg-key')

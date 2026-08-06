@@ -1,7 +1,10 @@
 require 'test_helper'
 require 'rake'
+require_relative '../../support/encrypted_credentials_test_helpers'
 
 class EncryptionRakeTest < ActiveSupport::TestCase
+  include EncryptedCredentialsTestHelpers
+
   # `load` rather than Rake.application.rake_require: rake_require records the file in
   # $LOADED_FEATURES, so with a fresh Rake::Application per test every run after the first
   # would silently get an application with no tasks defined, and the order would matter.
@@ -17,6 +20,17 @@ class EncryptionRakeTest < ActiveSupport::TestCase
     Rake.application = nil
     ENV.delete('CONFIRM')
     ENV.delete('CONFIRM_IBKR')
+    ENV.delete('PUBLISHED')
+  end
+
+  # Puts a credential in the database that this install's key cannot read — the state of an
+  # operator who already replaced their SECRET_KEY_BASE. published? is stubbed false because
+  # that is the truth for them: the value they are running now is strong. The old one, which
+  # actually encrypted this row, may well have been the published placeholder.
+  def stored_under_another_key!
+    key = create(:api_key, user: @user, exchange: @exchange)
+    write_raw(ApiKey, key.id, 'key', ciphertext_under_foreign_key('sk-live-key'))
+    SecretKeyBaseGuard.stubs(:published?).returns(false)
   end
 
   test 'reset refuses without confirmation and changes nothing' do
@@ -111,6 +125,60 @@ class EncryptionRakeTest < ActiveSupport::TestCase
     _out, err = capture_io { assert_raises(SystemExit) { Rake::Task['deltabadger:encryption:reset'].invoke } }
 
     assert_no_match(/revoke/i, err)
+  end
+
+  # The operator this whole recovery most needs to reach is the one who already changed
+  # their secret: the stored ciphertext is unreadable, two-factor sign-in is broken, and they
+  # cannot get into the UI at all. Classifying from Rails.application.secret_key_base alone
+  # reads their NEW strong value, finds it unpublished, and reassures the one person whose
+  # database is most likely to be sitting on a published key.
+  test 'report demands revocation when the stored data was written under another key' do
+    stored_under_another_key!
+
+    out, = capture_io { Rake::Task['deltabadger:encryption:report'].invoke }
+
+    assert_match(/revoke/i, out)
+  end
+
+  test "reset's confirmation prompt demands revocation when the stored data was written under another key" do
+    stored_under_another_key!
+
+    _out, err = capture_io { assert_raises(SystemExit) { Rake::Task['deltabadger:encryption:reset'].invoke } }
+
+    assert_match(/revoke/i, err)
+  end
+
+  # Also pins the ordering: the reset destroys the very evidence this classification reads,
+  # so a check made after the clear would find a spotless database and print the reassuring
+  # summary to the operator who most needs the other one.
+  test 'reset demands revocation in its post-run summary when the stored data was written under another key' do
+    stored_under_another_key!
+    ENV['CONFIRM'] = 'clear-credentials'
+
+    out, = capture_io { Rake::Task['deltabadger:encryption:reset'].invoke }
+
+    assert_match(/revoke/i, out)
+  end
+
+  # The escape hatch for what neither check can see: an operator who knows the secret their
+  # data was written under was published, but whose database happens to decrypt cleanly —
+  # they are still running that key, or they re-encrypted before asking.
+  test 'PUBLISHED=yes forces the compromised path' do
+    create(:api_key, user: @user, exchange: @exchange)
+    SecretKeyBaseGuard.stubs(:published?).returns(false)
+    ENV['PUBLISHED'] = 'yes'
+
+    out, = capture_io { Rake::Task['deltabadger:encryption:report'].invoke }
+
+    assert_match(/revoke/i, out)
+  end
+
+  # An operator who cannot run the report cannot follow the procedure, so the abort has to
+  # name the override itself rather than leaving it to the README.
+  test "reset's confirmation prompt documents the PUBLISHED override" do
+    _out, err = capture_io { assert_raises(SystemExit) { Rake::Task['deltabadger:encryption:reset'].invoke } }
+
+    assert_match(/PUBLISHED=yes/, err)
   end
 
   test 'reset does not demand revocation in its post-run summary when the secret was never published' do
