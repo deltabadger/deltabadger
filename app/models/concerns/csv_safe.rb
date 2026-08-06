@@ -18,11 +18,20 @@ module CsvSafe
 
   # Inverse of cell: strips the single leading quote it adds, so a value round-tripped
   # through an export and back (e.g. Bot::Exportable#import_orders_csv) matches the
-  # original. Only ever removes one leading apostrophe, matching what cell adds.
+  # original. cell only ever adds that quote ahead of a formula leader, so only strip it
+  # here when the remainder is itself formula-leading -- otherwise a value that legitimately
+  # starts with an apostrophe (never touched by cell, since "'" isn't a formula leader) would
+  # be corrupted on the way back in. This isn't a perfect inverse: cell("=1+1") and the literal
+  # string "'=1+1" both export as "'=1+1", so that one case stays ambiguous. Every other case
+  # -- an apostrophe followed by a non-formula character, which is the overwhelmingly common
+  # one -- now round-trips correctly, where before this stripped every leading apostrophe
+  # unconditionally.
   def self.unescape(value)
     return value unless value.is_a?(String)
+    return value unless value.start_with?("'")
 
-    value.delete_prefix("'")
+    remainder = value.delete_prefix("'")
+    leading_char?(remainder) ? remainder : value
   end
 
   # Minimal wrapper around CSV.generate: takes only a block, escaping every row written
