@@ -44,8 +44,13 @@ module EncryptedCredentials
 
     # Bots carry no encrypted attributes, and cancel_scheduled_action_jobs matches Solid
     # Queue rows by job class and record, so loading them here decrypts nothing. The status
-    # write is update_all rather than Bot#stop, which runs validations and callbacks that
-    # do reach into the exchange credential.
+    # write is update_all rather than Bot#stop because Bot#stop runs set_missed_quote_amount,
+    # full validations, activity logging and broadcasts spread across a dozen concerns. None
+    # of that reaches a credential today, but this service's contract is that it touches no
+    # encrypted attribute at all, and that contract can't rest on every current and future
+    # bot callback staying credential-free. The same discipline is why stop_rules below is
+    # update_all too, not Rule#stop: Rules::Withdrawal#stop is an update! that would raise on
+    # an already-nulled address.
     #
     # Automation::Schedulable is included by the DCA subclasses, not by Bot — Bots::Signal
     # is a perfectly ordinary working bot without it. Calling the method unconditionally
