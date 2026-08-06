@@ -11,7 +11,19 @@ class BotSignalTest < ActiveSupport::TestCase
     assert_nil signal.token
     signal.save!
     assert_not_nil signal.token
-    assert_equal 6, signal.token.length # urlsafe_base64(4) produces 6 chars
+    assert_equal 43, signal.token.length # urlsafe_base64(32) produces 43 chars
+  end
+
+  test 'mints a high-entropy token' do
+    signal = create(:bot_signal, bot: @bot)
+
+    assert signal.token.length >= 43,
+           "expected >= 256 bits of token, got #{signal.token.length} chars"
+  end
+
+  test 'tokens are unique' do
+    tokens = Array.new(20) { create(:bot_signal, bot: @bot).token }
+    assert_equal 20, tokens.uniq.length
   end
 
   test 'does not overwrite existing token on create' do

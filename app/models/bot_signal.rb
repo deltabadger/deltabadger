@@ -20,7 +20,7 @@ class BotSignal < ApplicationRecord
     return if token.present?
 
     loop do
-      self.token = SecureRandom.urlsafe_base64(4)
+      self.token = SecureRandom.urlsafe_base64(32)
       break unless BotSignal.exists?(token: token)
     end
   end
