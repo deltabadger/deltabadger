@@ -139,10 +139,20 @@ not optional, if either of these is true:
   human-chosen key is cheap to brute-force offline from a single encrypted database
   value or one captured session cookie, which yields the same result. A value not
   being on our placeholder list says nothing about how it was chosen.
+- You have already changed `SECRET_KEY_BASE` and can no longer sign in. The stored
+  credentials were written under the *previous* key, and the strong value you are
+  running now tells you nothing about whether that previous one was published.
 
 Only if your secret was randomly generated and has never left the machine is nothing
 here known to be exposed. Then follow the same steps at your convenience and skip
 step 4. If you are unsure, revoke.
+
+The report and the reset make this call for themselves, and say which way they went:
+they treat the data as compromised if the secret currently in use is one published in
+this repository, or if anything stored will not decrypt under it — the signature of
+that third case. Neither test can see a key you have already replaced and discarded,
+so if you know the key that wrote this data was published, add `PUBLISHED=yes` to both
+commands to force the compromised wording.
 
 Follow this order exactly. Back up only after stopping the app — a copy taken while
 it is still writing is not consistent, and it is the only way back. Run the report

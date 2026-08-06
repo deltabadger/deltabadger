@@ -38,7 +38,32 @@ module EncryptedCredentials
       )
     end
 
+    # True when some stored encrypted value cannot be decrypted with the key this process is
+    # running on, which proves that value was written under a DIFFERENT key.
+    #
+    # Named for what it observes, not for what a caller concludes. It does not know whether
+    # the other key was published — only that the current secret says nothing about the data
+    # sitting in this database, which is precisely the situation of an operator who has
+    # already rotated and can no longer sign in.
+    #
+    # Looks across every attribute in COVERAGE rather than sampling one. A withdrawal
+    # address, a passphrase, an access token: each is legitimately null on most installs, so
+    # a single column would answer "no" for an operator whose API keys are unreadable.
+    # Short-circuits on the first hit.
+    def data_written_under_another_key?
+      COVERAGE.any? do |model_name, entry|
+        model = model_name.constantize
+        entry[:attributes].any? { |attribute| unreadable_values?(model, attribute) }
+      end
+    end
+
     private
+
+    def unreadable_values?(model, attribute)
+      model.where.not(attribute => nil)
+           .find_each
+           .any? { |record| readable(record.public_send(attribute)) == UNREADABLE }
+    end
 
     def api_keys
       ApiKey.includes(:exchange, :user).map do |key|
