@@ -181,15 +181,36 @@ class CspReportsControllerTest < ActionDispatch::IntegrationTest
     assert_includes lines.first, 'wiped', 'the value still has to be readable'
   end
 
-  # A character cap is not a byte cap: one four-byte codepoint is a single character, so
-  # nine fields capped by character reach four times the byte budget the cap reads as. The
-  # cap is on bytes, and truncation has to land on a character boundary rather than
-  # splitting one and producing the invalid encoding the test above is about.
+  # A character cap is not a byte cap: one four-byte codepoint is a single character, so a
+  # character cap admits a bigger line than it reads as — bounded in practice by the
+  # MAX_BODY read cap rather than by itself, measured at about 4 KB against the 2.4 KB the
+  # byte cap gives. The cap is on bytes, and truncation has to land on a character boundary
+  # rather than splitting one and producing the invalid encoding the tests above are about.
   test 'the line is bounded in bytes, not just in characters' do
     lines = violations { report('csp-report' => { 'violated-directive' => '𝔘' * 800 }) }
 
     directive = lines.first[/violated-directive=(\S*)/, 1]
     assert_operator directive.bytesize, :<=, CspReportsController::MAX_FIELD
     assert directive.valid_encoding?, 'truncation must not split a multi-byte character'
+  end
+
+  # One Unicode category across from the control characters above, and [[:cntrl:]] matches
+  # none of it: U+202E reverses the display of everything after it, so a value carrying one
+  # rewrites how the rest of the line reads to whoever is looking at the log in a terminal.
+  # It cannot forge or split a line the way a CR can, which is why it is a smaller problem
+  # than that one and a real one anyway. Built from codepoints deliberately: a literal RLO
+  # committed into this file would reverse the source that follows it, here and in review.
+  test 'unicode format characters are stripped as well' do
+    lines = violations do
+      rlo = 0x202E.chr(Encoding::UTF_8) # right-to-left override
+      zwj = 0x200D.chr(Encoding::UTF_8) # zero-width joiner
+      bom = 0xFEFF.chr(Encoding::UTF_8)
+
+      report('csp-report' => { 'violated-directive' => "script-src #{rlo}reversed#{zwj}#{bom}" })
+    end
+
+    assert_equal 1, lines.size
+    refute_match(/\p{Cf}/, lines.first)
+    assert_includes lines.first, 'reversed', 'the value still has to be readable'
   end
 end
