@@ -5,6 +5,12 @@
 # enough detail — which user, which exchange, which key type — to go and revoke every one
 # of them upstream.
 #
+# Unlike Reset, this deliberately DOES decrypt — that is the point, since the operator
+# needs to read the withdrawal addresses back out. It is safe to do so here: readable
+# guards every decrypt behind ActiveRecord::Encryption.encryptor.encrypted?, so a value
+# this install's key cannot decrypt prints as <unreadable> instead of raising or leaking
+# ciphertext.
+#
 # Prints withdrawal addresses in full; they are public destinations, and retyping one from
 # memory is how funds go to the wrong place. Prints only the KEYS of app configs, never
 # their values, which include SMTP and exchange credentials.
