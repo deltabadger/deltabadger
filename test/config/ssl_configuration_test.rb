@@ -162,12 +162,20 @@ class SslConfigurationTest < ActiveSupport::TestCase
 
   # A nil value is how IO.popen unsets an inherited variable: SECRET_KEY_BASE_DUMMY is
   # consulted ahead of SECRET_KEY_BASE, so an inherited one would win over the real key.
+  #
+  # FORCE_SSL and BEHIND_PROXY are unset for the same reason and a sharper one: they are the
+  # two variables these tests exist to measure, and they are also the two this repo now tells
+  # operators to export. A developer with either set in their shell would otherwise have it
+  # inherited by the boot below and watch tests fail over their own environment rather than
+  # over the code. Same intent as the deletions at the top of test_helper.rb.
   def boot_env(dir)
     { 'RAILS_ENV' => 'production',
       'BOOT_FILE' => Rails.root.join('config/environment').to_s,
       'RAILS_LOG_TO_STDOUT' => 'true',
       'SECRET_KEY_BASE' => SecureRandom.hex(64),
       'SECRET_KEY_BASE_DUMMY' => nil,
+      'FORCE_SSL' => nil,
+      'BEHIND_PROXY' => nil,
       'DATABASE_PATH' => File.join(dir, 'production.sqlite3'),
       'QUEUE_DATABASE_PATH' => File.join(dir, 'production_queue.sqlite3'),
       'CACHE_DATABASE_PATH' => File.join(dir, 'production_cache.sqlite3'),

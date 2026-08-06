@@ -7,7 +7,7 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     # Every test below spends its requests against one throttle counter, and rack-attack
     # counts into a window aligned to the wall clock rather than to the first request:
     # Rack::Attack::Cache#key_and_expiry keys each counter on (Time.now.to_i / period), and
-    # all seven rules use period: 60. A test whose requests straddle a minute boundary is
+    # all eight rules use period: 60. A test whose requests straddle a minute boundary is
     # therefore counted as two short runs, neither of which reaches the limit, and it fails
     # having done nothing wrong. Freezing the clock mid-window puts every request in one
     # bucket. It is the window these tests need pinned, not one they are measuring — none of

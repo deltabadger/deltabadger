@@ -21,8 +21,9 @@ class CspReportsController < ActionController::Base
   # Per-value cap in BYTES, applied before the values are joined, so one field cannot spend
   # the whole line and push the rest out. Bytes rather than characters because that is the
   # unit the log is measured and rotated in, and the two are not interchangeable here: a
-  # four-byte codepoint is one character, so a character cap over these nine fields would
-  # admit four times the line it appears to promise. The line is bounded by construction —
+  # four-byte codepoint is one character, so a character cap reads as a far smaller line
+  # than it admits — in practice as much as the MAX_BODY read cap leaves room for, measured
+  # at about 4 KB against the 2.4 KB this one gives. The line is bounded by construction —
   # a fixed set of nine field names, each value at most this many bytes.
   MAX_FIELD = 256
 
@@ -104,7 +105,12 @@ class CspReportsController < ActionController::Base
 
   # Control characters go first: the log is read line by line, so a lone CR in a report
   # would be enough to make one logged violation look like two lines, or to overwrite the
-  # one being written.
+  # one being written, and an ESC sequence can rewrite the line of whoever is reading it in
+  # a terminal. Unicode format characters (category Cf) go with them: they cannot forge or
+  # split a line, but U+202E reverses the display of everything after it, which is the same
+  # harm one category across. The cost is that an emoji ZWJ sequence loses its joiners and
+  # renders as its separate parts; ordinary URIs, non-ASCII paths and percent-encoding are
+  # untouched, which is what these values actually contain.
   def sanitize(value)
     value.to_s
          # Defense in depth, in the same idiom as RackAttackPaths.normalize: text() already
@@ -113,7 +119,7 @@ class CspReportsController < ActionController::Base
          # needing it today. It is here because that is a property of inspect rather than of
          # this class, and because the gsubs below are what raise when it stops being true.
          .scrub('?')
-         .gsub(/[[:cntrl:]]+/, ' ')
+         .gsub(/[[:cntrl:]\p{Cf}]+/, ' ')
          .gsub(CONSTANT_SHAPE, &:downcase)
          .truncate_bytes(MAX_FIELD)
   end
