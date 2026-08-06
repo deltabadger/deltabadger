@@ -40,11 +40,19 @@ module Deltabadger
     # Deployments that terminate TLS in front of the app do not necessarily pass FORCE_SSL,
     # so the configured root URL is the signal: if the app is reached over https then https
     # is what it must insist on. A plain-http self-hosted or LAN install keeps its plain
-    # http. FORCE_SSL stays as an explicit override and is cast the way every other boolean
-    # env var in Rails is, so '1' and 'on' mean on rather than "not the string 'true'".
+    # http, and FORCE_SSL overrides the inference in either direction.
+    #
+    # The spellings are listed out rather than run through ActiveModel::Type::Boolean
+    # because that cast has no verdict for an unrecognised value: its false list is closed,
+    # so 'no' — and every typo — comes back true. On this setting an unrecognised value
+    # must never be able to mean on. Turning SSL on for a plain-http install points every
+    # redirect and every generated URL at a host with no TLS listener, which is a site the
+    # browser cannot reach at all. Anything unrecognised falls through to the root URL,
+    # which is the branch that is secure by default without guessing.
     def self.force_ssl_from_env(env = ENV)
-      explicit = ActiveModel::Type::Boolean.new.cast(env['FORCE_SSL'])
-      return explicit unless explicit.nil?
+      explicit = env['FORCE_SSL'].to_s.strip.downcase
+      return true if %w[1 t true y yes on].include?(explicit)
+      return false if %w[0 f false n no off].include?(explicit)
 
       env['APP_ROOT_URL'].to_s.start_with?('https://')
     end
