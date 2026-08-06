@@ -1,10 +1,10 @@
 require 'test_helper'
 
 class Users::PasswordsControllerTwoFactorTest < ActionDispatch::IntegrationTest
-  # The clock is frozen for the whole class. Users::VerifyOtp verifies through ROTP with
-  # its defaults (drift_ahead: 0, drift_behind: 0), so a code is only accepted inside the
-  # exact 30-second step it was minted in. On a live clock that step can tick over between
-  # ROTP::TOTP#now and the request carrying the code, failing a test for a reason that has
+  # The clock is frozen for the whole class. Users::VerifyOtp verifies through ROTP with one
+  # step of drift either side, so a code survives one 30-second rollover between ROTP::TOTP#now
+  # and the request carrying it, and is refused once a second rollover passes. On a live clock
+  # nothing bounds how many a slow run crosses, which would fail a test for a reason that has
   # nothing to do with what it asserts — worst for the tests that carry one code across two
   # request cycles. Rails restores the clock in after_teardown.
   #

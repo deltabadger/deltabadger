@@ -11,8 +11,10 @@ module Users
       # Replay protection is unchanged: `after:` keeps only steps strictly later than the one
       # last consumed, so a spent code stays spent. Note that this makes an accepted ahead code
       # spend the current step AND the next one, since it is the code's own step that is
-      # recorded. A device fast enough to show that code only shows it during the current step,
-      # so the user still waits exactly one code rotation, as they would with no drift at all.
+      # recorded. The device that produced it runs fast, so it keeps showing the spent code into
+      # part of the following step, where it is refused; the next code it shows is accepted the
+      # moment it appears, one rotation after the code was spent. Only an attempt that would
+      # have been refused outright before can spend a step this way.
       drift = totp.interval
       last_otp_at = totp.verify(code, after: user.last_otp_at, drift_behind: drift, drift_ahead: drift)
       return false if last_otp_at.nil?
