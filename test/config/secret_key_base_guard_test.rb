@@ -55,4 +55,18 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
     assert_equal "RUN SECRET_KEY_BASE_DUMMY=1 \\\n", line,
                  'asset precompile must use SECRET_KEY_BASE_DUMMY, not a real SECRET_KEY_BASE value'
   end
+
+  # The credential reset runs against a STOPPED stack via `docker compose run`, which means
+  # it does not inherit a loaded environment. The catch-all `*)` branch execs the command
+  # directly without calling setup_secrets, so an install whose secret lives in
+  # /app/storage/.secrets rather than .env.docker would fail to boot. This case exists to
+  # load them first.
+  test 'the entrypoint runs one-shot rails commands with secrets loaded' do
+    script = File.read(Rails.root.join('docker-entrypoint.sh'))
+    branch = script[/^\s*rake\).*?;;/m]
+
+    assert branch, 'expected a `rake)` case in docker-entrypoint.sh'
+    assert_includes branch, 'setup_secrets'
+    assert_includes branch, 'exec bundle exec rails "$@"'
+  end
 end
