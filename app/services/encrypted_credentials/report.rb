@@ -40,12 +40,11 @@ module EncryptedCredentials
       end.sort_by { |row| [row[:exchange].to_s, row[:key_type].to_s] }
     end
 
-    # Matches Reset#disable_two_factor, which clears any non-null seed regardless of the
-    # module flag. Reporting only `otp_module: enabled` would under-report the destruction.
+    # User.with_two_factor_material is shared with Reset#disable_two_factor so the two can't
+    # drift onto different definitions of what counts as two-factor material: this report
+    # exists to enumerate exactly what the reset clears.
     def two_factor_users
-      User.where.not(otp_secret_key: nil)
-          .or(User.where.not(otp_module: User.otp_modules[:disabled]))
-          .pluck(:email).sort
+      User.with_two_factor_material.pluck(:email).sort
     end
 
     def withdrawal_addresses

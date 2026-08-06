@@ -67,11 +67,36 @@ module EncryptedCredentials
     end
 
     # Reset clears any non-null seed regardless of the module flag, so the report has to
-    # match that scope or it under-reports what is about to be destroyed.
+    # select the same rows or it under-reports what is about to be destroyed.
     test 'lists users whose two-factor is off but who still hold a seed' do
       @user.update!(otp_module: :disabled, otp_secret_key: 'SECRET123')
 
       assert_equal [@user.email], Report.new.call.two_factor_users
+    end
+
+    # Report and Reset share one scope precisely so they can't silently drift apart. This
+    # doesn't just re-check that scope in isolation — it runs the real Reset against the
+    # report's own output, so a change to either side that stops matching the other fails
+    # here even though each service's other tests still pass on their own.
+    #
+    # has_one_time_password's before_create hook auto-generates an otp_secret_key for every
+    # user at signup, active or not, so a truly bare account is not the state a real signup
+    # starts in — it's constructed here with update_column (bypassing that hook) purely to
+    # exercise the scope's boundary: disabled-with-a-seed must be reported, disabled-with-no-
+    # seed must not.
+    test 'lists exactly the users whose two-factor material Reset actually clears' do
+      @user.update_column(:otp_secret_key, nil)
+      cleared = create(:user, otp_module: :disabled, otp_secret_key: 'SECRET123')
+      untouched = create(:user, otp_module: :disabled)
+      untouched.update_column(:otp_secret_key, nil)
+
+      reported = Report.new.call.two_factor_users
+      Reset.new.call
+
+      assert_equal [cleared.email], reported
+      assert_nil cleared.reload.read_attribute_before_type_cast(:otp_secret_key)
+      assert_predicate cleared, :otp_module_disabled?
+      assert_nil untouched.reload.read_attribute_before_type_cast(:otp_secret_key)
     end
 
     test 'changes nothing' do

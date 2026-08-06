@@ -81,9 +81,7 @@ module EncryptedCredentials
     end
 
     def disable_two_factor
-      User.where.not(otp_secret_key: nil)
-          .or(User.where.not(otp_module: User.otp_modules[:disabled]))
-          .update_all(otp_secret_key: nil, otp_module: User.otp_modules[:disabled])
+      User.with_two_factor_material.update_all(otp_secret_key: nil, otp_module: User.otp_modules[:disabled])
     end
   end
 end
