@@ -21,12 +21,14 @@ class CspReportsControllerTest < ActionDispatch::IntegrationTest
     lines.grep(/\[csp-violation\]/)
   end
 
-  # allow_forgery_protection is false in the test environment, so a test that only posts a
-  # report and checks the status stays green with skip_forgery_protection deleted — and a
-  # browser sends no CSRF token with a violation report, so in production that deletion
-  # would 422 every one of them. Turning protection back on for the duration is what makes
-  # this cover the production path. The log assertion is the second half: a controller that
-  # did nothing but `head :no_content` would satisfy the status on its own.
+  # A browser sends no CSRF token with a violation report, so any token check here would 422
+  # every real one. allow_forgery_protection is false in the test environment, which would
+  # hide a controller that had grown one — so it is turned back on for the duration, and the
+  # 204 below is the production path rather than a test-environment courtesy. The controller
+  # inherits ActionController::API, which carries no forgery protection for that switch to
+  # reach; the switch stays because the property has to hold whatever the base class is. The
+  # log assertion is the second half: a controller that did nothing but `head :no_content`
+  # would satisfy the status on its own.
   test 'accepts a report with no session and no CSRF token, and logs it' do
     ActionController::Base.allow_forgery_protection = true
 
