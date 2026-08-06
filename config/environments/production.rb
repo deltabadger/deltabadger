@@ -40,10 +40,11 @@ Rails.application.configure do
 
   # Force all access to the app over SSL, use Strict-Transport-Security, and use secure
   # cookies. Derived from the configured root URL, so a plain-http self-hosted deployment
-  # is untouched, and FORCE_SSL overrides that inference in either direction. It overrides
-  # the transport only: the mailer, route and asset URLs further down still follow
-  # APP_ROOT_URL, since those describe how the app is reached rather than how this process
-  # is spoken to.
+  # is untouched, and FORCE_SSL overrides that inference in either direction. It reaches
+  # further than the transport: the mailer, route and asset URLs below take their protocol
+  # from APP_ROOT_URL, and FORCE_SSL=true raises that to https as well — so a plain-http
+  # install told to force SSL also emits https links. It is only ever raised, never
+  # lowered: an https APP_ROOT_URL keeps https links whatever FORCE_SSL says.
   #
   # assume_ssl has to move with it. TLS is terminated by the proxy in front of the app, so
   # the two liveness probes reach the app over plain http with no X-Forwarded-Proto: the
