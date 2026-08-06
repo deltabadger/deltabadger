@@ -4,6 +4,12 @@ require Rails.root.join('db/migrate/20260806001012_rotate_bot_signal_tokens.rb')
 # The migration handles a secret column, so its two logging surfaces both need coverage: the
 # migration log (Migration#say/say_with_time) and ActiveRecord's own adapter-level SQL log,
 # which are silenced by two independent mechanisms and can regress independently.
+#
+# Two tests below reassign ActiveRecord::Base.logger, a global class_attribute, for the
+# duration of a migration run. That's only safe because this suite parallelizes across
+# processes (test_helper.rb's `parallelize(workers: :number_of_processors)`), each with its own
+# process-wide state; it would race under `parallelize(with: :threads)`, where every thread
+# shares one process's class_attribute.
 class RotateBotSignalTokensTest < ActiveSupport::TestCase
   test 'rotates every token to a new, distinct 43-character value' do
     bot = create(:signal_bot)
@@ -30,6 +36,19 @@ class RotateBotSignalTokensTest < ActiveSupport::TestCase
 
     refute_includes log, signal.reload.token
     refute_match(/UPDATE bot_signals SET token/, log)
+  end
+
+  test 'still rotates the token when ActiveRecord::Base.logger is nil' do
+    signal = create(:bot_signal)
+    original_token = signal.token
+    original_logger = ActiveRecord::Base.logger
+    ActiveRecord::Base.logger = nil
+
+    migrate!
+
+    assert_not_equal original_token, signal.reload.token
+  ensure
+    ActiveRecord::Base.logger = original_logger
   end
 
   private
