@@ -22,10 +22,10 @@ module CsvSafe
   # here when the remainder is itself formula-leading -- otherwise a value that legitimately
   # starts with an apostrophe (never touched by cell, since "'" isn't a formula leader) would
   # be corrupted on the way back in. This isn't a perfect inverse: cell("=1+1") and the literal
-  # string "'=1+1" both export as "'=1+1", so that one case stays ambiguous. Every other case
-  # -- an apostrophe followed by a non-formula character, which is the overwhelmingly common
-  # one -- now round-trips correctly, where before this stripped every leading apostrophe
-  # unconditionally.
+  # string "'=1+1" both export as "'=1+1", so a literal apostrophe followed by a formula leader
+  # ('-5, '@G, '+1, '\tx, ' =1+1, ...) stays ambiguous. Every other case -- an apostrophe
+  # followed by a non-formula character, which is the overwhelmingly common one -- now
+  # round-trips correctly, where before this stripped every leading apostrophe unconditionally.
   def self.unescape(value)
     return value unless value.is_a?(String)
     return value unless value.start_with?("'")

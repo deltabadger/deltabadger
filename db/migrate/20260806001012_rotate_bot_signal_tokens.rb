@@ -18,10 +18,10 @@ class RotateBotSignalTokens < ActiveRecord::Migration[8.1]
     # suppress_messages is ever removed. Neither guard touches ActiveRecord's own adapter
     # logging, though: connection.execute fires the sql.active_record notification regardless,
     # and at :debug (development's default, which a debug build of the desktop app runs under)
-    # that logs the full UPDATE statement, token included. logger.silence raises the effective
-    # level past :debug for the duration, closing that path too.
+    # that logs the full UPDATE statement, token included. without_sql_logging closes that path
+    # too, without making the rotation itself depend on a logger being configured.
     suppress_messages do
-      ActiveRecord::Base.logger&.silence do
+      without_sql_logging do
         used_tokens = Set.new(select_values('SELECT token FROM bot_signals'))
         last_id = 0
 
@@ -50,6 +50,17 @@ class RotateBotSignalTokens < ActiveRecord::Migration[8.1]
   end
 
   private
+
+  # ActiveRecord::Base.logger&.silence would make the whole expression nil, block included, when
+  # the logger is nil -- silently skipping the entire rotation instead of running it unlogged.
+  # A self-hosted install with its logger nilled out (a common way to quiet SQL logging) would
+  # have every token untouched forever, since migrations run once. Nil is already leak-free on
+  # its own -- ActiveSupport::LogSubscriber#call only calls through when a logger is present --
+  # so the work only needs to run either way, not be gated on a logger existing.
+  def without_sql_logging(&block)
+    logger = ActiveRecord::Base.logger
+    logger ? logger.silence(&block) : block.call
+  end
 
   # Regenerates on collision rather than trusting 256 bits of entropy blindly: the column
   # carries a unique index, and a duplicate would otherwise abort the migration outright.
