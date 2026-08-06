@@ -44,6 +44,10 @@ module RackAttackPaths
   REGISTER    = %r{\A/oauth/register#{FORMAT}\z}
   TOKEN       = %r{\A/oauth/token#{FORMAT}\z}
   AUTHORIZE   = %r{\A/oauth/authorize#{FORMAT}\z}
+  # The CSP report endpoint is outside the locale scope for the same reason, and takes a
+  # format suffix like everything else. Built here rather than as a literal string so
+  # /csp-report.json lands in the same bucket instead of becoming a free bypass.
+  CSP_REPORT  = %r{\A/csp-report#{FORMAT}\z}
 end
 
 # NOTE ON THE THROTTLE KEY. The key is REMOTE_ADDR — the address the connection was
@@ -126,4 +130,13 @@ end
 
 Rack::Attack.throttle('setup', limit: 5, period: 60) do |req|
   Rack::Attack.client_ip(req) if req.post? && RackAttackPaths::SETUP.match?(RackAttackPaths.normalize(req.path))
+end
+
+# The CSP report endpoint takes an unauthenticated POST and writes a line to the log, so
+# without a bound it is a way to fill the disk and drown everything else in it. What this
+# limit does not do is bound the fleet: behind a CDN the key names the edge that relayed
+# the request, so hosted containers can share one budget of 30 and lose reports to it.
+# Losing reports is the acceptable failure here, and enforcement does not depend on them.
+Rack::Attack.throttle('csp-report', limit: 30, period: 60) do |req|
+  Rack::Attack.client_ip(req) if req.post? && RackAttackPaths::CSP_REPORT.match?(RackAttackPaths.normalize(req.path))
 end

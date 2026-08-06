@@ -249,5 +249,9 @@ Rails.application.routes.draw do
   get '/sitemap', to: 'sitemap#index', defaults: {format: 'xml'}
   get '/health-check', to: 'health_check#index', as: :health_check
 
+  # Outside the locale scope: a browser posts a CSP violation report to the report-uri
+  # verbatim, with no session and no locale of its own.
+  post '/csp-report', to: 'csp_reports#create'
+
   # get '*path', to: redirect("/#{I18n.default_locale}")
 end
