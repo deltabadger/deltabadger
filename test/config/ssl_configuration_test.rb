@@ -34,22 +34,49 @@ class SslConfigurationTest < ActiveSupport::TestCase
   # 'true' reads every other spelling as "explicitly off" and silently downgrades an https
   # deployment — the exact opposite of what was asked for.
   test 'an explicit FORCE_SSL accepts the usual spellings of on' do
-    %w[true TRUE 1 yes on t].each do |value|
+    %w[true True TRUE 1 t y yes YES on ON].each do |value|
       assert force_ssl_for('FORCE_SSL' => value, 'APP_ROOT_URL' => 'http://localhost:3000'),
              "FORCE_SSL=#{value} must enable SSL"
     end
   end
 
   test 'an explicit FORCE_SSL accepts the usual spellings of off' do
-    %w[false FALSE 0 off f].each do |value|
+    %w[false False FALSE 0 f n no NO off OFF].each do |value|
       refute force_ssl_for('FORCE_SSL' => value, 'APP_ROOT_URL' => 'https://x.test'),
              "FORCE_SSL=#{value} must disable SSL"
     end
   end
 
+  # 'no' is the one that bites. It is missing from Rails' boolean FALSE_VALUES, so a cast
+  # reads it as on — and on a plain-http install that is not a degraded site but a dead
+  # one: with the connection assumed secure, every redirect and every *_url helper points
+  # at https on a host with no TLS listener, so the browser cannot connect at all.
+  test 'an explicit FORCE_SSL=no keeps a plain-http install on plain http' do
+    %w[no No NO n].each do |value|
+      refute force_ssl_for('FORCE_SSL' => value, 'APP_ROOT_URL' => 'http://192.168.1.10:3737'),
+             "FORCE_SSL=#{value} must not turn SSL on"
+    end
+  end
+
+  # An unrecognised value carries no intent to honour, so it must not decide either way.
+  # It falls through to the root URL — the secure-by-default branch. Reading it as false
+  # would be the mirror image of the bug above.
+  test 'an unrecognised FORCE_SSL falls through to the root URL' do
+    %w[maybe oui 2 -1].each do |value|
+      assert force_ssl_for('FORCE_SSL' => value, 'APP_ROOT_URL' => 'https://x.test'),
+             "FORCE_SSL=#{value} must not override an https root URL"
+      refute force_ssl_for('FORCE_SSL' => value, 'APP_ROOT_URL' => 'http://x.test'),
+             "FORCE_SSL=#{value} must not override a plain-http root URL"
+    end
+  end
+
   test 'a blank FORCE_SSL falls through to the root URL' do
-    assert force_ssl_for('FORCE_SSL' => '', 'APP_ROOT_URL' => 'https://x.test')
-    refute force_ssl_for('FORCE_SSL' => '', 'APP_ROOT_URL' => 'http://x.test')
+    ['', '   '].each do |value|
+      assert force_ssl_for('FORCE_SSL' => value, 'APP_ROOT_URL' => 'https://x.test'),
+             "FORCE_SSL=#{value.inspect} must not override an https root URL"
+      refute force_ssl_for('FORCE_SSL' => value, 'APP_ROOT_URL' => 'http://x.test'),
+             "FORCE_SSL=#{value.inspect} must not override a plain-http root URL"
+    end
   end
 
   # Rack::Test will not replay a Secure cookie over http, so an https root URL in a local
