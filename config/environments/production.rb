@@ -38,9 +38,20 @@ Rails.application.configure do
   # config.action_dispatch.x_sendfile_header = 'X-Sendfile' # for Apache
   # config.action_dispatch.x_sendfile_header = 'X-Accel-Redirect' # for NGINX
 
-  # Force all access to the app over SSL, use Strict-Transport-Security, and use secure cookies.
-  # For self-hosted deployments, SSL can be disabled by not setting FORCE_SSL=true
-  config.force_ssl = ENV['FORCE_SSL'] == 'true'
+  # Force all access to the app over SSL, use Strict-Transport-Security, and use secure
+  # cookies. Derived from the configured root URL, so a plain-http self-hosted deployment
+  # is untouched and FORCE_SSL=false remains the escape hatch.
+  #
+  # assume_ssl has to move with it. TLS is terminated by the proxy in front of the app, so
+  # the two liveness probes reach the app over plain http with no X-Forwarded-Proto: the
+  # container's own HEALTHCHECK (curl http://localhost:3000/up) and the routing proxy's
+  # /health-check probe. force_ssl on its own answers both with a 301 — which `curl -fsS`
+  # reports as success, so the container looks healthy while the proxy refuses to route to
+  # it. Treating the connection as already-secure applies HSTS and the secure cookie flag
+  # without ever redirecting, and the http-to-https redirect already happens at the proxy.
+  ssl_enabled = Deltabadger::Application.force_ssl_from_env
+  config.assume_ssl = ssl_enabled
+  config.force_ssl = ssl_enabled
 
   # Use the lowest log level to ensure availability of diagnostic information
   # when problems arise.
@@ -88,10 +99,11 @@ Rails.application.configure do
   # Do not dump schema after migrations.
   config.active_record.dump_schema_after_migration = false
 
-  # Determine protocol from APP_ROOT_URL or use FORCE_SSL setting
+  # Determine protocol from APP_ROOT_URL, or from the same SSL signal as above so that a
+  # FORCE_SSL of any spelling still produces https links.
   app_root_url = ENV.fetch('APP_ROOT_URL', 'http://localhost:3000')
   default_protocol = app_root_url.start_with?('https://') ? 'https' : 'http'
-  default_protocol = 'https' if ENV['FORCE_SSL'] == 'true'
+  default_protocol = 'https' if ssl_enabled
 
   # Extract host from URL (remove protocol)
   app_host = app_root_url.gsub(/^https?:\/\//, '').gsub(/\/.*$/, '')
