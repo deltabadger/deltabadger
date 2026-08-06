@@ -8,7 +8,7 @@ GIT
 
 GIT
   remote: https://github.com/doorkeeper-gem/doorkeeper.git
-  revision: 34a3b2523a8ba55c8d9041178f9f8b42582da78b
+  revision: 043596666b6d35a06993df2fc1da4a7fa2564484
   specs:
     doorkeeper (6.0.0.beta1)
       railties (>= 5)
@@ -52,7 +52,7 @@ GEM
       activesupport (= 8.1.3.1)
       mail (>= 2.8.0)
       rails-dom-testing (~> 2.2)
-    actionmcp (0.200.0)
+    actionmcp (0.200.1)
       activejob (>= 8.1.0)
       activerecord (>= 8.1.0)
       addressable (>= 2.8)
@@ -169,7 +169,7 @@ GEM
       i18n
     drb (2.2.3)
     ecdsa (1.2.0)
-    erb (6.0.6)
+    erb (6.0.7)
     erubi (1.13.1)
     et-orbi (1.4.1)
       tzinfo
@@ -321,7 +321,7 @@ GEM
       net-pop
       net-smtp
     marcel (1.2.1)
-    mini_magick (5.3.2)
+    mini_magick (5.3.3)
       logger
     mini_mime (1.1.5)
     mini_portile2 (2.8.9)
@@ -664,7 +664,7 @@ CHECKSUMS
   actioncable (8.1.3.1) sha256=e318528295c878a3efdfe25f0f2267c80cb7a76eba41bb5f64d44aa380a3d91b
   actionmailbox (8.1.3.1) sha256=5f704972097d843ade8e435e93694a1dac732b926df1717aceba1f3840082b1c
   actionmailer (8.1.3.1) sha256=88ea441b28ff02a0c6c006468892642a3d9942affce9d294e81a74504aa5c43c
-  actionmcp (0.200.0) sha256=9b317a4ee1172a0db3139a7d8e371685ecf39e8bea769b0cef35af09c36a6f43
+  actionmcp (0.200.1) sha256=4b8a6a7d707c90bfb8237cfcc04216d5ee49e2f48ddded84583e1bee884f4521
   actionpack (8.1.3.1) sha256=974cb7154548e81f470b1b0f247b99cb38e87825899dca58610596e2817723d0
   actiontext (8.1.3.1) sha256=5da729d833d1a29cddb1eee938878e55e503d2613e00e735f5daf58c2ba98af2
   actionview (8.1.3.1) sha256=2da68b8414c47b43bfbed1ce69c5afe1c04f78c267aacb5660a4cab5ca12cfb6
@@ -703,7 +703,7 @@ CHECKSUMS
   dotiw (5.5.0) sha256=afa6ff5f2f1348c777fbb2822f34e32de758f17eb6943676fe30a60ad3493782
   drb (2.2.3) sha256=0b00d6fdb50995fe4a45dea13663493c841112e4068656854646f418fda13373
   ecdsa (1.2.0) sha256=b8f7c9541b6c587cbe37e705a1b76be6dc1e85336aa23ac3cf2f07b038bcec55
-  erb (6.0.6) sha256=a9b24986700f5bf127c4f297c5403c3ca41b83b0a316c0cd09a096b56e644ae5
+  erb (6.0.7) sha256=c5ca6dc25b0ef974a44dc8f59fe847577122483b1968a38dec305c60bf91ee92
   erubi (1.13.1) sha256=a082103b0885dbc5ecf1172fede897f9ebdb745a4b97a5e8dc63953db1ee4ad9
   et-orbi (1.4.1) sha256=007e2685b1d873415a7587ef889336c6dcdf8a47fc9c9a63547582b21660a11b
   eth (0.5.17) sha256=5be9caa85b0643613010ae33c92e746a02ce376a35245e6eb5f491e80531f137
@@ -767,7 +767,7 @@ CHECKSUMS
   loofah (2.25.2) sha256=2007f746959ac65552456e04b433e83deb22759ab38c838b4445c70e43425918
   mail (2.9.1) sha256=06574eca475253d6c18145dd70af80d0eb970182d55053497c5f4d797ea160e8
   marcel (1.2.1) sha256=1678e9360e32f9eafa917c80029e2f6d10b2715c66a4b87b6d0da9b9cd1f859f
-  mini_magick (5.3.2) sha256=a7ef54b480b15283c396eb8343d9e088471f54b31d9974cb7e523cc57598609f
+  mini_magick (5.3.3) sha256=b3beed8a8cef36bd03666365f14b89cd344da0ecd373af53e617c71bfd426aab
   mini_mime (1.1.5) sha256=8681b7e2e4215f2a159f9400b5816d85e9d8c6c6b491e96a12797e798f8bccef
   mini_portile2 (2.8.9) sha256=0cd7c7f824e010c072e33f68bc02d85a00aeb6fce05bb4819c03dfd3c140c289
   minitest (6.0.6) sha256=153ea36d1d987a62942382b61075745042a2b3123b1cd48f4c3675af9cc7d6f1
