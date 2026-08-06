@@ -69,4 +69,74 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
     assert_includes branch, 'setup_secrets'
     assert_includes branch, 'exec bundle exec rails "$@"'
   end
+
+  test 'a published placeholder is treated as compromised' do
+    assert SecretKeyBaseGuard.published?('dev-secret-key-not-for-production')
+    assert SecretKeyBaseGuard.weak?('dev-secret-key-not-for-production')
+  end
+
+  # 31 random characters is weaker than we want, but it was never published. Telling this
+  # operator their database is readable by anyone would be false, and the recovery it
+  # points at destroys IBKR credentials that take days to replace.
+  test 'a short but private secret is not treated as compromised' do
+    secret = "#{SecureRandom.hex(15)}a" # 31 characters
+
+    assert SecretKeyBaseGuard.short?(secret)
+    assert SecretKeyBaseGuard.weak?(secret)
+    assert_not SecretKeyBaseGuard.published?(secret)
+  end
+
+  test 'the compromised warning tells the operator to revoke' do
+    warning = SecretKeyBaseGuard.warning_for('dev-secret-key-not-for-production')
+
+    assert_match(/revoke/i, warning)
+  end
+
+  test 'the short-secret warning does not tell the operator to revoke' do
+    warning = SecretKeyBaseGuard.warning_for("#{SecureRandom.hex(15)}a")
+
+    assert warning, 'a short secret must still warn'
+    assert_no_match(/revoke/i, warning)
+    assert_no_match(/anyone/i, warning)
+  end
+
+  test 'a strong secret produces no warning' do
+    assert_nil SecretKeyBaseGuard.warning_for(SecureRandom.hex(64))
+  end
+
+  # The four tests above exercise the selector. These exercise what production actually
+  # runs: without them the boot branch could regress to weak? + PUBLISHED_WARNING and every
+  # test above would still pass, reinstating the exact harmful message for short secrets.
+  test 'a short private secret emits the non-incident warning at boot' do
+    _out, err = capture_io { SecretKeyBaseGuard.emit_warning!("#{SecureRandom.hex(15)}a", logger: nil) }
+
+    assert_equal SecretKeyBaseGuard::SHORT_WARNING, err
+    assert_no_match(/revoke/i, err)
+    assert_no_match(/anyone/i, err)
+  end
+
+  test 'the published secret emits the compromise warning at boot' do
+    _out, err = capture_io do
+      SecretKeyBaseGuard.emit_warning!('dev-secret-key-not-for-production', logger: nil)
+    end
+
+    assert_equal SecretKeyBaseGuard::PUBLISHED_WARNING, err
+    assert_match(/revoke/i, err)
+  end
+
+  test 'a strong secret emits nothing at boot' do
+    _out, err = capture_io { SecretKeyBaseGuard.emit_warning!(SecureRandom.hex(64), logger: nil) }
+
+    assert_empty err
+  end
+
+  # emit_warning! is only worth testing if the initializer actually calls it. Same
+  # file-content approach as the Dockerfile assertion above.
+  test 'the production boot branch goes through emit_warning!' do
+    source = File.read(Rails.root.join('config/initializers/secret_key_base_guard.rb'))
+    branch = source[/if Rails\.env\.production\?.*\Z/m]
+
+    assert branch, 'expected a production boot branch in the initializer'
+    assert_includes branch, 'SecretKeyBaseGuard.emit_warning!'
+  end
 end
