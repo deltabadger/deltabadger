@@ -24,6 +24,16 @@ module EncryptedCredentials
         user: @user, exchange: @exchange, asset: @asset, address: 'wallet-one',
         threshold_type: 'fee_percentage', max_fee_percentage: '1.0', status: :scheduled
       )
+      # Both branches of stop_bots' respond_to?(:cancel_scheduled_action_jobs) split:
+      # Automation::Schedulable is included by the DCA subclasses but not by Bots::Signal.
+      # Without a bot of each kind here, Bot.working is empty and stop_bots runs unexercised
+      # in a test that is supposed to guard the whole service's core property. base/quote are
+      # shared explicitly because each factory otherwise creates its own :bitcoin/:usd pair,
+      # colliding on the asset's unique external_id.
+      base_asset = create(:asset, :bitcoin)
+      quote_asset = create(:asset, :usd)
+      create(:dca_single_asset, user: @user, exchange: @exchange, base_asset:, quote_asset:, status: :scheduled)
+      create(:signal_bot, user: @user, exchange: @exchange, base_asset:, quote_asset:, status: :scheduled)
     end
 
     # THE core property. Asserted at the encryption boundary rather than by observing the
