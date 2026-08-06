@@ -50,6 +50,18 @@ class User < ApplicationRecord
     unlock_access! if locked_at? && !access_locked?
   end
 
+  # active_model_otp seeds otp_secret_key in a before_create hook and nowhere else, so a
+  # user whose seed was cleared has no way to get another one — the QR code renders empty
+  # and the enable flow dies inside ROTP. Regenerate on demand, and only when it is
+  # actually missing: rotating a seed a user has already scanned would lock them out of
+  # their authenticator.
+  def ensure_two_factor_secret!
+    return if otp_secret_key.present?
+
+    otp_regenerate_secret
+    save!
+  end
+
   def global_pnl(use_cache: true)
     invested_by_currency = Hash.new(0)
     value_by_currency = Hash.new(0)

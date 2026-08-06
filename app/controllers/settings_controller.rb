@@ -98,6 +98,7 @@ class SettingsController < ApplicationController
   end
 
   def edit_two_fa
+    current_user.ensure_two_factor_secret!
     set_edit_two_fa_instance_variables
   end
 

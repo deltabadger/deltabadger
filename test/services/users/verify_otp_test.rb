@@ -99,4 +99,13 @@ class Users::VerifyOtpTest < ActiveSupport::TestCase
     assert Users::VerifyOtp.call(@user, @totp.at(30.seconds.from_now)),
            'the next code a fast device displays must be accepted'
   end
+
+  test 'verifying a code against a cleared seed fails instead of raising' do
+    user = create(:user)
+    User.where(id: user.id).update_all(otp_secret_key: nil)
+
+    assert_nothing_raised do
+      assert_not Users::VerifyOtp.call(user.reload, '123456')
+    end
+  end
 end
