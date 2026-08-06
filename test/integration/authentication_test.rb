@@ -211,6 +211,26 @@ class AuthenticationTest < ActionDispatch::IntegrationTest
     assert_equal user, controller.current_user
   end
 
+  test 'does not disclose that an account is locked' do
+    user = create(:user, password: 'SecurePass1!')
+
+    5.times do
+      post user_session_path, params: {
+        user: { email: user.email, password: 'wrongpassword' }
+      }
+    end
+
+    user.reload
+    assert user.access_locked?
+
+    post user_session_path, params: {
+      user: { email: user.email, password: 'SecurePass1!' }
+    }
+
+    assert_response :unprocessable_content
+    assert_equal 'Invalid email or password.', flash[:alert]
+  end
+
   # == Logout ==
 
   test 'signs out the user' do
