@@ -1,14 +1,13 @@
 require 'test_helper'
 
 class AuthenticationTest < ActionDispatch::IntegrationTest
-  # The clock is frozen for the whole class. Users::VerifyOtp verifies through ROTP with its
-  # defaults (drift_ahead: 0, drift_behind: 0), so a code is only accepted inside the exact
-  # 30-second step it was minted in, and the OTP tests below carry one code across request
-  # cycles. A step rolling over mid-test would fail them for a reason unrelated to what they
-  # assert, and — now that a wrong code increments the persisted counter — could carry that
-  # failure into the next test in the class. Nothing here needs the clock to move on its own;
-  # the lockout tests travel explicitly, which still works from a frozen base. Rails restores
-  # the clock in after_teardown.
+  # The clock is frozen for the whole class. Users::VerifyOtp verifies through ROTP with one
+  # step of drift either side, so a code survives one 30-second rollover but not two, and the
+  # OTP tests below carry one code across request cycles. Enough rollovers mid-test would fail
+  # them for a reason unrelated to what they assert, and — now that a wrong code increments the
+  # persisted counter — could carry that failure into the next test in the class. Nothing here
+  # needs the clock to move on its own; the lockout tests travel explicitly, which still works
+  # from a frozen base. Rails restores the clock in after_teardown.
   setup do
     freeze_time
     @admin = create(:user, admin: true)
