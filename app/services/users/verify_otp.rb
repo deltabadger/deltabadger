@@ -10,15 +10,19 @@ module Users
       #
       # Replay protection is unchanged: `after:` keeps only steps strictly later than the one
       # last consumed, so a spent code stays spent. What does change is that a step ahead of the
-      # current one can be consumed, which spends the current one along with it. rotp records the
-      # last candidate that matched, so that is usually the submitted code's own step — a fast
-      # device's — but on the roughly one-in-a-million occasion that two adjacent steps render the
-      # same digits, an ordinary current code records the later of the two.
+      # current one can be consumed, taking the steps in between with it. rotp records the last
+      # candidate that matched, which is usually the submitted code's own step — a fast device's,
+      # say — but when two of the three candidate steps render the same digits, on the order of one
+      # submission in a million, the later of them is recorded instead. A correct clock can trigger
+      # that, and a slow device can end up two steps past the code it actually sent.
       #
-      # The cost is bounded either way: at most one interval passes between spending a step and
-      # the next accepted code, and that code is accepted the second it appears. Outside the
-      # collision case, spending a step ahead takes an attempt that would have been refused
-      # outright before.
+      # None of it can wedge an account, and that is the property worth holding on to: what gets
+      # recorded is never more than one step past the step real time was in, and a device inside
+      # the tolerated skew always shows a code within one step of real time, so the clock alone
+      # clears it — no operator, no reset. How long that takes is deliberately not written down
+      # here. Every attempt to put a number on it has been wrong: it turns on the direction of the
+      # skew and on which of the candidate steps collided, and a freshly displayed code is not
+      # automatically an acceptable one.
       drift = totp.interval
       last_otp_at = totp.verify(code, after: user.last_otp_at, drift_behind: drift, drift_ahead: drift)
       return false if last_otp_at.nil?
