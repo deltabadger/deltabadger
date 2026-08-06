@@ -133,4 +133,63 @@ class CspReportsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 1, lines.size
     assert_match(/discarded/, lines.first)
   end
+
+  # JSON.parse hands back a String tagged UTF-8 whose bytes need not be valid UTF-8: a lone
+  # surrogate escape is legal JSON, and the body carrying one is pure ASCII, so nothing
+  # upstream rejects it. Every blank? and every regex the controller runs then raises
+  # ArgumentError. That is worse here than ordinary fragility — it is the inverse of the
+  # neutralising above: a caller who cannot forge an exception through the sanitised path
+  # would instead raise a real one, and each 500 writes a backtrace into the very log this
+  # controller exists to keep tidy. Every logged field is probed, plus a key that is not
+  # one, because any of them can carry it.
+  test 'a field whose bytes are not valid UTF-8 does not raise' do
+    logged = CspReportsController::SAFE_FIELDS + CspReportsController::URI_FIELDS
+
+    (logged + ['not-a-field']).each do |field|
+      lines = violations { post_body(%({"csp-report":{"#{field}":"x\\ud800y"}})) }
+
+      assert_response :no_content, "an invalid byte sequence in #{field} must not raise"
+      assert_equal(logged.include?(field) ? 1 : 0, lines.size,
+                   "#{field} produced the wrong number of log lines")
+      refute_match(/[[:cntrl:]]/, lines.first.to_s)
+    end
+  end
+
+  # The other way in. A raw invalid byte in the body is not rejected either: JSON.parse
+  # accepts it and hands back the same invalid-encoding String.
+  test 'a raw invalid byte in the request body does not raise' do
+    lines = violations do
+      post_body(%({"csp-report":{"blocked-uri":"x\xFFy","violated-directive":"script-src"}}).b)
+    end
+
+    assert_response :no_content
+    assert_equal 1, lines.size
+    assert_includes lines.first, 'violated-directive=script-src'
+  end
+
+  # CR and LF are themselves control characters, so a test that injects only those and then
+  # asserts no control character survived is equally satisfied by a scrub that knows about
+  # nothing else. NUL, ESC, BEL and DEL are what tell the two apart — and an ESC sequence
+  # in a logged value can rewrite the line of whoever is reading the log in a terminal.
+  test 'control characters beyond CR and LF are stripped too' do
+    lines = violations do
+      report('csp-report' => { 'violated-directive' => "script-src \e[2Kwiped" })
+    end
+
+    assert_equal 1, lines.size
+    refute_match(/[[:cntrl:]]/, lines.first)
+    assert_includes lines.first, 'wiped', 'the value still has to be readable'
+  end
+
+  # A character cap is not a byte cap: one four-byte codepoint is a single character, so
+  # nine fields capped by character reach four times the byte budget the cap reads as. The
+  # cap is on bytes, and truncation has to land on a character boundary rather than
+  # splitting one and producing the invalid encoding the test above is about.
+  test 'the line is bounded in bytes, not just in characters' do
+    lines = violations { report('csp-report' => { 'violated-directive' => '𝔘' * 800 }) }
+
+    directive = lines.first[/violated-directive=(\S*)/, 1]
+    assert_operator directive.bytesize, :<=, CspReportsController::MAX_FIELD
+    assert directive.valid_encoding?, 'truncation must not split a multi-byte character'
+  end
 end

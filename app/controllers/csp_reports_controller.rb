@@ -18,9 +18,12 @@ class CspReportsController < ActionController::Base
   # blocked-uris, deep source-file paths), and those are the interesting ones, so they must
   # not disappear without a trace.
   MAX_BODY = 4_000
-  # Per-value cap, applied before the values are joined, so one field cannot spend the whole
-  # line and push the rest out. The line is bounded by construction: a fixed set of nine
-  # field names, each value at most this long.
+  # Per-value cap in BYTES, applied before the values are joined, so one field cannot spend
+  # the whole line and push the rest out. Bytes rather than characters because that is the
+  # unit the log is measured and rotated in, and the two are not interchangeable here: a
+  # four-byte codepoint is one character, so a character cap over these nine fields would
+  # admit four times the line it appears to promise. The line is bounded by construction —
+  # a fixed set of nine field names, each value at most this many bytes.
   MAX_FIELD = 256
 
   # Never log the whole report body. Per the CSP reporting algorithm the browser strips the
@@ -43,10 +46,11 @@ class CspReportsController < ActionController::Base
     report = parsed_report
     return head :no_content if report.blank?
 
-    fields = SAFE_FIELDS.index_with { |field| report[field] }
-                        .merge(URI_FIELDS.index_with { |field| strip_query(report[field]) })
+    fields = SAFE_FIELDS.index_with { |field| text(report[field]) }
+                        .merge(URI_FIELDS.index_with { |field| strip_query(text(report[field])) })
                         .compact_blank
                         .transform_values { |value| sanitize(value) }
+    return head :no_content if fields.empty?
 
     Rails.logger.warn("[csp-violation] #{fields.map { |name, value| "#{name}=#{value}" }.join(' ')}")
     head :no_content
@@ -74,6 +78,18 @@ class CspReportsController < ActionController::Base
     nil
   end
 
+  # JSON.parse returns Strings tagged UTF-8 whose bytes need not BE valid UTF-8: a lone
+  # surrogate escape (\uD800) is legal JSON carried in a pure-ASCII body, and a raw \xFF
+  # byte in the body is accepted too. Every blank? and every regex below raises
+  # ArgumentError on such a String, which from an unauthenticated endpoint is a way to put
+  # a real backtrace into the log on demand — the same log this class is careful about, and
+  # the inverse of the neutralising in sanitize. So nothing inspects a value before this
+  # has run. Only a String can carry the bad bytes; containers reach the log through
+  # inspect, which escapes them.
+  def text(value)
+    value.is_a?(String) ? value.scrub('?') : value
+  end
+
   # Keep scheme, host and path; drop the query and fragment entirely.
   def strip_query(value)
     return nil if value.blank?
@@ -91,8 +107,14 @@ class CspReportsController < ActionController::Base
   # one being written.
   def sanitize(value)
     value.to_s
+         # Defense in depth, in the same idiom as RackAttackPaths.normalize: text() already
+         # covers every String, and a value that is still a container here reaches the log
+         # through inspect, which escapes invalid bytes — so no input reaches this scrub
+         # needing it today. It is here because that is a property of inspect rather than of
+         # this class, and because the gsubs below are what raise when it stops being true.
+         .scrub('?')
          .gsub(/[[:cntrl:]]+/, ' ')
          .gsub(CONSTANT_SHAPE, &:downcase)
-         .truncate(MAX_FIELD)
+         .truncate_bytes(MAX_FIELD)
   end
 end
