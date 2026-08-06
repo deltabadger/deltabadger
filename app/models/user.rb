@@ -9,6 +9,15 @@ class User < ApplicationRecord
   encrypts :otp_secret_key
   has_one_time_password
   enum :otp_module, %i[disabled enabled], prefix: true
+
+  # Shared by EncryptedCredentials::Report and EncryptedCredentials::Reset. The report's
+  # whole purpose is to enumerate exactly what the reset is about to clear, so the two must
+  # never be allowed to drift onto separate definitions of "has two-factor material" — hence
+  # one scope instead of the same where.not(...).or(...) written twice. Matches on a non-null
+  # seed rather than the module flag alone: a user can end up with otp_module: disabled and a
+  # seed still sitting in the column, and that seed is exactly what the reset destroys.
+  scope :with_two_factor_material, -> { where.not(otp_secret_key: nil).or(where.not(otp_module: otp_modules[:disabled])) }
+
   has_many :api_keys
   has_many :account_transactions
   has_many :exchanges, through: :api_keys
