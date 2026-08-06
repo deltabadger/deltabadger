@@ -1,6 +1,10 @@
 module Users
   class VerifyOtp < BaseService
     def call(user, code)
+      # ROTP raises on a nil secret rather than refusing the code, which would surface as a
+      # 500 on a form post from a session that never loaded the setup page.
+      return false if user.otp_secret_key.blank?
+
       totp = ROTP::TOTP.new(user.otp_secret_key)
       # Tolerate one step of clock skew either side of now, so a device whose clock is off by
       # up to half a minute can still sign in. rotp's drift is in SECONDS, not steps, and it is
