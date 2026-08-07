@@ -62,6 +62,9 @@ module SecretKeyBaseGuard
          If you changed to a bind mount, copy that host directory instead. On a
          default install this copy includes /app/storage/.secrets — the key
          itself — so it decrypts itself. Keep it as carefully as the database.
+         If your key comes from .env.docker or a compose file it is NOT in this
+         copy, and step 6 overwrites it: save that value too, or this backup
+         cannot be restored.
       3. List what is stored:
            docker compose run --rm --no-deps deltabadger \\
              rake deltabadger:encryption:report
@@ -84,10 +87,12 @@ module SecretKeyBaseGuard
          A new one is written only when that file is absent; an existing one is
          never overwritten.
          If your value comes from a compose file instead — the Umbrel app
-         definition sets it from APP_SEED — put a freshly generated value there
-         rather than blanking it:  openssl rand -hex 64
-         That file runs web and jobs off one volume, and each container generates
-         its own key when it finds none, so blanking would split them onto two.
+         definition sets it from APP_SEED — put a freshly generated value in
+         both service blocks rather than blanking it:  openssl rand -hex 64
+         That file sets the key twice, under web and under jobs, and each
+         container's own environment beats the generated file. Use the same
+         value in both: change one and they run on different keys, and neither
+         can read what the other wrote.
       7. Recreate the container so it picks up the edited value:
            docker compose up -d --force-recreate
          Starting the stopped container instead would bring it back with the old

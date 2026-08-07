@@ -127,7 +127,9 @@ namespace :deltabadger do
           and wait for IBKR to activate it — which has taken days. Everything else here
           takes minutes to restore.
 
-          If you accept that, re-run with CONFIRM_IBKR=yes as well.
+          If you accept that, re-run with CONFIRM_IBKR=yes as well — as
+          -e CONFIRM_IBKR=yes if you are running this through docker compose run,
+          where a variable set in your own shell never reaches the container.
 
         MESSAGE
       end

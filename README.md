@@ -177,7 +177,9 @@ definition calls that service `web` — substitute it if you run from that file.
    If you changed `docker-compose.yml` to use a bind mount, copy that host directory
    instead. On a default install this copy includes `/app/storage/.secrets` — the key
    itself — so the backup decrypts itself. Keep it as carefully as the database, and
-   do not put it anywhere shared.
+   do not put it anywhere shared. If your key comes from `.env.docker` or a compose
+   file it is *not* in this copy, and step 6 overwrites it — save that value too, or
+   this backup cannot be restored.
 3. List what is stored:
    ```bash
    docker compose run --rm --no-deps deltabadger \
@@ -203,13 +205,15 @@ definition calls that service `web` — substitute it if you run from that file.
    only when that file is absent; an existing one is never overwritten.
 
    If your value comes from a compose file instead — the Umbrel app definition sets it
-   from `APP_SEED` — put a freshly generated value there rather than blanking it:
+   from `APP_SEED` — put a freshly generated value in **both service blocks** rather
+   than blanking it:
    ```bash
    openssl rand -hex 64
    ```
-   That file runs `web` and `jobs` off one storage volume, and each container generates
-   its own key when it finds none, so blanking it could leave the two halves of the app
-   running on different keys.
+   That file sets `SECRET_KEY_BASE` twice, once under `web` and once under `jobs`, and
+   each container's own environment beats the generated file. Use the same value in
+   both: change one and the two halves of the app run on different keys, and neither
+   can read what the other wrote.
 7. Recreate the container so it picks up the edited value:
    ```bash
    docker compose up -d --force-recreate
