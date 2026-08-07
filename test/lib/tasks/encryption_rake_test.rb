@@ -200,6 +200,18 @@ class EncryptionRakeTest < ActiveSupport::TestCase
     assert_match(/REST API and MCP tokens:\s+1/, out)
   end
 
+  # Same defect as the PUBLISHED override, in the abort the operator hits first. Every documented
+  # invocation is a `docker compose run`, so CONFIRM_IBKR set in the host shell never reaches the
+  # one-shot container and the task aborts again on exactly the same message.
+  test 'the IBKR confirmation is shown in a form the documented commands can pass' do
+    create(:api_key, user: @user, exchange: create(:ibkr_exchange), raw_key: 'ibkr-consumer')
+    ENV['CONFIRM'] = 'clear-credentials'
+
+    _out, err = capture_io { assert_raises(SystemExit) { Rake::Task['deltabadger:encryption:reset'].invoke } }
+
+    assert_match(/-e CONFIRM_IBKR=yes/, err)
+  end
+
   # The last thing the operator reads after the destructive step, in a terminal, often with
   # no README open. It said "blank the SECRET_KEY_BASE value in .env.docker and start the
   # app again" — which permits `docker compose start`, reusing the stopped container's

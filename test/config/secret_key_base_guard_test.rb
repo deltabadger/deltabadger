@@ -227,8 +227,12 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
     # so the backup, the report and the reset are all unrunnable as written for the same
     # operator. Fixing only step 6 would leave them stuck three steps earlier.
     assert_match(/^  web:$/, compose, 'the Umbrel definition calls its app service web')
-    assert_match(/\bweb\b/, SecretKeyBaseGuard::PUBLISHED_WARNING,
-                 'the commands name the docker-compose.yml service; this operator must be told theirs differs')
+    # Anchored on the substitution sentence itself, not on any mention of "web". A later commit
+    # added "That file runs web and jobs off one volume" to step 6, which satisfied a bare
+    # /\bweb\b/ on its own — so this assertion silently stopped guarding the sentence its message
+    # names, and the substitution note could have been deleted with the suite still green.
+    assert_includes SecretKeyBaseGuard::PUBLISHED_WARNING, 'calls that service web',
+                    'the commands name the docker-compose.yml service; this operator must be told theirs differs'
   end
 
   # short? is length alone, and length alone distinguishes nothing: a randomly generated
@@ -321,6 +325,40 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
 
     assert_match(/openssl rand -hex 64/, SecretKeyBaseGuard::PUBLISHED_WARNING)
     assert_match(/openssl rand -hex 64/, readme_recovery_section)
+  end
+
+  # deltabadger/docker-compose.yml declares SECRET_KEY_BASE TWICE — once under web, once under
+  # jobs — and each container's own environment beats /app/storage/.secrets, so a remedy applied
+  # to one block leaves the other running on the old key. That is precisely the split-key state
+  # the previous fix was written to prevent, reached by half-following its own instruction: web
+  # boots on the new value, jobs keeps the published one, and support_unencrypted_data turns the
+  # mismatch into ciphertext-read-as-plaintext rather than an error.
+  #
+  # The sentence next to it does name web and jobs, but only to explain why blanking is unsafe —
+  # it issues no instruction — and the substitution note upstream actively primes the reader to
+  # treat web as "the" service. So the remedy has to say every declaration, in words.
+  test 'the compose-file remedy says to change every declaration, not one' do
+    compose = File.read(Rails.root.join('deltabadger/docker-compose.yml'))
+    declarations = compose.scan(/^\s*SECRET_KEY_BASE:/).size
+
+    assert_operator declarations, :>, 1,
+                    'this test exists because that file sets the key in more than one service block'
+    assert_includes SecretKeyBaseGuard::PUBLISHED_WARNING, 'both service blocks'
+    assert_includes readme_recovery_section, 'both service blocks'
+  end
+
+  # The preamble calls the backup "the only way back", and on a default install it is — the copy
+  # includes .secrets. For an install whose key comes from .env.docker or a compose file it is
+  # not: that copy holds only the dormant unused .secrets, step 6 edits the sole copy of the real
+  # key in place, and step 7 discards the container that had it baked in. Rolling back then means
+  # restoring an encrypted database with no key that can read it.
+  test 'the backup step preserves a key that lives outside the volume' do
+    backup_step = SecretKeyBaseGuard::PUBLISHED_WARNING[/2\. Back up.*?(?=  3\.)/m]
+
+    assert backup_step, 'expected the backup step in the warning'
+    assert_includes backup_step, 'save that value too',
+                    'a key supplied by env or compose is not in the volume, and step 6 overwrites it'
+    assert_includes readme_recovery_section, 'save that value too'
   end
 
   # Every command in the procedure is a `docker compose run`, where an environment variable
