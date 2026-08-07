@@ -156,11 +156,24 @@ namespace :deltabadger do
         puts 'only cleared credentials because the encryption key is changing.'
       end
 
-      puts "\nNext: blank the SECRET_KEY_BASE value in .env.docker and start the app again."
-      puts 'A strong per-install secret is generated for you. Issue the replacement'
-      puts 'credentials, re-enable two-factor, re-issue your REST API token, reconnect your'
-      puts 'MCP clients, and restart your bots and rules — until the app is running there is'
-      puts "nowhere to store the new credentials.\n\n"
+      # The operator is in a terminal here, often with no README open, and this is the last
+      # thing they read before acting. It has to carry both halves of the rotation: the
+      # secret can live in .env.docker, in a compose file, or — on a default install, where
+      # .env.docker ships blank — in /app/storage/.secrets, which is reused verbatim unless
+      # it is deleted. And the container has to be recreated, because compose bakes the
+      # environment in at create time.
+      puts "\nNext: point this install at a new key. Blank the SECRET_KEY_BASE value in"
+      puts '.env.docker — or in your compose file, if that is where it is set — and delete'
+      puts 'the generated key, which is a separate file:'
+      puts '  docker compose run --rm --no-deps deltabadger rm -f /app/storage/.secrets'
+      puts 'On a default install that file is where your key actually is, and a new one is'
+      puts 'written only when it is absent. Then recreate the container, which is what'
+      puts 'picks up the change:'
+      puts '  docker compose up -d --force-recreate'
+      puts 'Starting the stopped container instead brings the old value back with it.'
+      puts "\nIssue the replacement credentials, re-enable two-factor, re-issue your REST"
+      puts 'API token, reconnect your MCP clients, and restart your bots and rules — until'
+      puts "the app is running there is nowhere to store the new credentials.\n\n"
 
       if summary.ibkr_credentials_destroyed
         puts 'Interactive Brokers: once the app is back up, run the connect wizard again to'

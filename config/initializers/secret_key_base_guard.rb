@@ -59,7 +59,9 @@ module SecretKeyBaseGuard
       2. Back up your data, now that nothing is writing to it. The default deployment
          uses a named volume, not a host directory:
            docker compose cp deltabadger:/app/storage ./storage-backup
-         If you changed to a bind mount, copy that host directory instead.
+         If you changed to a bind mount, copy that host directory instead. This
+         copy includes /app/storage/.secrets, so it carries its own decryption
+         key — keep it as carefully as the database itself.
       3. List what is stored:
            docker compose run --rm --no-deps deltabadger \\
              rake deltabadger:encryption:report
@@ -73,9 +75,16 @@ module SecretKeyBaseGuard
          This also deletes your REST API token and every MCP client's token, which is
          what actually invalidates them: they are bearer tokens stored in the clear
          and derived from nothing, so changing the secret alone leaves them trading.
-      6. Blank the SECRET_KEY_BASE line in .env.docker. If your install gets the
-         value from a compose file instead — the Umbrel app definition sets it
-         from APP_SEED — blank it there, in that file's environment: block.
+      6. Point this install at a new key. Blank the SECRET_KEY_BASE line in
+         .env.docker — or, if your install gets the value from a compose file, in
+         that file's environment: block; the Umbrel app definition sets it from
+         APP_SEED. Then delete the generated key, a separate file in the volume:
+           docker compose run --rm --no-deps deltabadger \\
+             rm -f /app/storage/.secrets
+         On a default install .env.docker is already blank and .secrets is where
+         your key actually is, so this deletion is what rotates anything at all.
+         A new one is written only when that file is absent; an existing one is
+         never overwritten.
       7. Recreate the container so it picks up the edited value:
            docker compose up -d --force-recreate
          Starting the stopped container instead would bring it back with the old

@@ -173,7 +173,9 @@ definition calls that service `web` — substitute it if you run from that file.
    docker compose cp deltabadger:/app/storage ./storage-backup
    ```
    If you changed `docker-compose.yml` to use a bind mount, copy that host directory
-   instead.
+   instead. This copy includes `/app/storage/.secrets`, so it carries its own
+   decryption key — keep it as carefully as the database itself, and do not put it
+   anywhere shared.
 3. List what is stored:
    ```bash
    docker compose run --rm --no-deps deltabadger \
@@ -188,9 +190,17 @@ definition calls that service `web` — substitute it if you run from that file.
    docker compose run --rm --no-deps -e CONFIRM=clear-credentials \
      deltabadger rake deltabadger:encryption:reset
    ```
-6. Blank the `SECRET_KEY_BASE` line in `.env.docker`. If your install gets the value
-   from a compose file instead — the Umbrel app definition sets it from `APP_SEED` —
-   blank it there, in that file's `environment:` block.
+6. Point this install at a new key. Blank the `SECRET_KEY_BASE` line in `.env.docker` —
+   or, if your install gets the value from a compose file, in that file's `environment:`
+   block; the Umbrel app definition sets it from `APP_SEED`. Then delete the generated
+   key, which is a separate file inside the volume:
+   ```bash
+   docker compose run --rm --no-deps deltabadger \
+     rm -f /app/storage/.secrets
+   ```
+   On a default install `.env.docker` is already blank and `.secrets` is where your key
+   actually is, so this deletion is what rotates anything at all. A new one is written
+   only when that file is absent; an existing one is never overwritten.
 7. Recreate the container so it picks up the edited value:
    ```bash
    docker compose up -d --force-recreate

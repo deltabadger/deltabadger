@@ -154,11 +154,55 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
   # README.md carries the same procedure for the same operator; the warning is only what
   # someone who never opens the README sees. Both are edited by hand and have drifted before.
   test 'the README procedure recreates the container too' do
-    section = File.read(Rails.root.join('README.md'))[/### Moving to a new SECRET_KEY_BASE.*?\n### /m]
+    section = readme_recovery_section
 
     assert section, 'expected the recovery section in README.md'
     assert_match(/docker compose up -d --force-recreate/, section)
     assert_no_match(/docker compose start/, section)
+  end
+
+  # Blanking the env file is only half a rotation, and on the documented default it is none
+  # of one. .env.docker ships EMPTY: the entrypoint generates a key into
+  # /app/storage/.secrets on first boot, and load_secrets falls back to that file whenever
+  # the environment is empty. generate_secrets returns early when the file already exists,
+  # so it is never overwritten — deleting it is the only thing that rotates a default
+  # install. Without this the operator blanks an already-blank line, recreates the container
+  # onto the identical key, and has destroyed every credential to arrive back where they
+  # started, having waited days for IBKR on the way.
+  #
+  # The entrypoint is read rather than trusted so that if that reuse behaviour ever changes,
+  # this fails and the prose gets revisited instead of quietly going stale.
+  test 'the compromised procedure rotates the generated key file, not only the env file' do
+    generate = File.read(Rails.root.join('docker-entrypoint.sh'))[/^generate_secrets\(\).*?\n\}/m]
+
+    assert generate, 'expected a generate_secrets function in docker-entrypoint.sh'
+    assert_match(/if \[ -f "\$SECRETS_FILE" \]/, generate,
+                 'this test exists because an existing .secrets is reused, never regenerated')
+
+    warning = SecretKeyBaseGuard::PUBLISHED_WARNING
+    assert_match(%r{/app/storage/\.secrets}, warning)
+    assert_match(%r{/app/storage/\.secrets}, readme_recovery_section)
+
+    # Deleting it before the report would take the withdrawal addresses with it — the report
+    # is the one step that reads encrypted values back, and it needs the old key to do it.
+    # Anchored on the deletion, not on any mention: the backup step names the same path, and
+    # that one legitimately comes first.
+    assert_includes warning, 'rm -f /app/storage/.secrets'
+    assert_operator warning.index('encryption:report'), :<, warning.index('rm -f /app/storage/.secrets'),
+                    'the report reads withdrawal addresses back under the old key'
+  end
+
+  # The backup copies /app/storage to the operator's host, and .secrets lives inside it, so
+  # the copy carries its own decryption key. An operator not told that will reasonably drop
+  # it in a synced folder or attach it to a support thread — the branch's own threat model
+  # says a database plus its key is total credential disclosure.
+  test 'the compromised procedure says the backup carries the key with it' do
+    backup_step = SecretKeyBaseGuard::PUBLISHED_WARNING[/2\. Back up.*?(?=  3\.)/m]
+
+    assert backup_step, 'expected the backup step in the warning'
+    assert_match(/\.secrets/, backup_step, 'the operator must be told the backup decrypts itself')
+    assert_match(/\.secrets/, readme_recovery_section[/2\. Back up.*?(?=\n3\.)/m].to_s,
+                 'the README backup step must say so too')
   end
 
   # deltabadger/docker-compose.yml is the Umbrel app definition, and it supplies the secret
@@ -251,5 +295,14 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
 
     assert branch, 'expected a production boot branch in the initializer'
     assert_includes branch, 'SecretKeyBaseGuard.emit_warning!'
+  end
+
+  private
+
+  # Defined after the tests on purpose: `private` applies to what follows it, and the test
+  # helper defines its blocks as methods, so putting this earlier would make them private
+  # and silently unrunnable.
+  def readme_recovery_section
+    File.read(Rails.root.join('README.md'))[/### Moving to a new SECRET_KEY_BASE.*?\n### /m]
   end
 end
