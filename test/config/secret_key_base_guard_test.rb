@@ -361,13 +361,20 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
     assert_includes readme_recovery_section, 'save that value too'
   end
 
-  # Every command in the procedure is a `docker compose run`, where an environment variable
-  # has to arrive via -e — as step 5 already does with -e CONFIRM=clear-credentials. Told to
-  # "add PUBLISHED=yes", an operator appends it bare, it does not reach the container, and
-  # they get the reassuring wording they were explicitly trying to override.
+  # Every command in the procedure is a `docker compose run`, and only some ways of setting a
+  # variable survive that. Measured against a real container:
+  #
+  #   docker compose run ... -e PUBLISHED=yes ... rake <task>   reaches it
+  #   docker compose run ... rake <task> PUBLISHED=yes          reaches it (rake parses NAME=VALUE)
+  #   PUBLISHED=yes docker compose run ... rake <task>          does NOT — it stays in your shell
+  #
+  # The third is the one an unqualified "add PUBLISHED=yes to both commands" invites, because
+  # prefixing a variable onto a command is the ordinary way to set one for a single run. It
+  # fails silently: the operator gets the reassuring wording they were trying to override, with
+  # nothing to indicate the flag was ignored. Showing -e removes the choice.
   test 'the compromised override is shown in a form the documented commands can pass' do
     assert_match(/-e PUBLISHED=yes/, readme_recovery_section,
-                 'a bare VAR=value never reaches a container started by docker compose run')
+                 'shell-prefixed variables do not reach a container started by docker compose run')
   end
 
   # assume_compromised tests two things, and neither is provenance: whether the current secret
