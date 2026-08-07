@@ -138,7 +138,9 @@ not optional, if either of these is true:
 - A person chose the value rather than generating it randomly. A short or
   human-chosen key is cheap to brute-force offline from a single encrypted database
   value or one captured session cookie, which yields the same result. A value not
-  being on our placeholder list says nothing about how it was chosen.
+  being on our placeholder list says nothing about how it was chosen, and neither
+  check below can see how it was chosen either — add `-e PUBLISHED=yes` to the
+  commands in steps 3 and 5 so they say so too.
 - You have already changed `SECRET_KEY_BASE` and can no longer sign in. The stored
   credentials were written under the *previous* key, and the strong value you are
   running now tells you nothing about whether that previous one was published.
@@ -147,12 +149,12 @@ Only if your secret was randomly generated and has never left the machine is not
 here known to be exposed. Then follow the same steps at your convenience and skip
 step 4. If you are unsure, revoke.
 
-The report and the reset make this call for themselves, and say which way they went:
+The report and the reset make this call where they can, and say which way they went:
 they treat the data as compromised if the secret currently in use is one published in
 this repository, or if anything stored will not decrypt under it — the signature of
-that third case. Neither test can see a key you have already replaced and discarded,
-so if you know the key that wrote this data was published, add `PUBLISHED=yes` to both
-commands to force the compromised wording.
+that third case. Neither check can see how a value was chosen, nor a key you have
+already replaced and discarded. Those two are your call to make: add `-e PUBLISHED=yes`
+to the report and reset commands to force the compromised wording.
 
 Follow this order exactly. Back up only after stopping the app — a copy taken while
 it is still writing is not consistent, and it is the only way back. Run the report
@@ -173,9 +175,9 @@ definition calls that service `web` — substitute it if you run from that file.
    docker compose cp deltabadger:/app/storage ./storage-backup
    ```
    If you changed `docker-compose.yml` to use a bind mount, copy that host directory
-   instead. This copy includes `/app/storage/.secrets`, so it carries its own
-   decryption key — keep it as carefully as the database itself, and do not put it
-   anywhere shared.
+   instead. On a default install this copy includes `/app/storage/.secrets` — the key
+   itself — so the backup decrypts itself. Keep it as carefully as the database, and
+   do not put it anywhere shared.
 3. List what is stored:
    ```bash
    docker compose run --rm --no-deps deltabadger \
@@ -190,10 +192,8 @@ definition calls that service `web` — substitute it if you run from that file.
    docker compose run --rm --no-deps -e CONFIRM=clear-credentials \
      deltabadger rake deltabadger:encryption:reset
    ```
-6. Point this install at a new key. Blank the `SECRET_KEY_BASE` line in `.env.docker` —
-   or, if your install gets the value from a compose file, in that file's `environment:`
-   block; the Umbrel app definition sets it from `APP_SEED`. Then delete the generated
-   key, which is a separate file inside the volume:
+6. Point this install at a new key. Blank the `SECRET_KEY_BASE` line in `.env.docker`,
+   then delete the generated key, which is a separate file inside the volume:
    ```bash
    docker compose run --rm --no-deps deltabadger \
      rm -f /app/storage/.secrets
@@ -201,6 +201,15 @@ definition calls that service `web` — substitute it if you run from that file.
    On a default install `.env.docker` is already blank and `.secrets` is where your key
    actually is, so this deletion is what rotates anything at all. A new one is written
    only when that file is absent; an existing one is never overwritten.
+
+   If your value comes from a compose file instead — the Umbrel app definition sets it
+   from `APP_SEED` — put a freshly generated value there rather than blanking it:
+   ```bash
+   openssl rand -hex 64
+   ```
+   That file runs `web` and `jobs` off one storage volume, and each container generates
+   its own key when it finds none, so blanking it could leave the two halves of the app
+   running on different keys.
 7. Recreate the container so it picks up the edited value:
    ```bash
    docker compose up -d --force-recreate
