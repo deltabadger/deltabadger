@@ -200,6 +200,20 @@ class EncryptionRakeTest < ActiveSupport::TestCase
     assert_match(/REST API and MCP tokens:\s+1/, out)
   end
 
+  # The last thing the operator reads after the destructive step, in a terminal, often with
+  # no README open. It said "blank the SECRET_KEY_BASE value in .env.docker and start the
+  # app again" — which permits `docker compose start`, reusing the stopped container's
+  # baked-in environment, and says nothing about /app/storage/.secrets, which is where the
+  # key actually lives on a default install. Following it verbatim rotates nothing.
+  test 'reset tells the operator to recreate the container and rotate the stored key' do
+    ENV['CONFIRM'] = 'clear-credentials'
+
+    out, = capture_io { Rake::Task['deltabadger:encryption:reset'].invoke }
+
+    assert_match(/docker compose up -d --force-recreate/, out)
+    assert_match(%r{/app/storage/\.secrets}, out)
+  end
+
   test 'reset does not demand revocation in its post-run summary when the secret was never published' do
     create(:api_key, user: @user, exchange: @exchange)
     ENV['CONFIRM'] = 'clear-credentials'
