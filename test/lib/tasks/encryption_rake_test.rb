@@ -212,6 +212,9 @@ class EncryptionRakeTest < ActiveSupport::TestCase
 
     assert_match(/docker compose up -d --force-recreate/, out)
     assert_match(%r{/app/storage/\.secrets}, out)
+    # A compose-file install must not be told to blank and let the containers regenerate:
+    # that file runs two services off one volume and each would generate its own key.
+    assert_match(/openssl rand -hex 64/, out)
   end
 
   test 'reset does not demand revocation in its post-run summary when the secret was never published' do

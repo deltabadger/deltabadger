@@ -297,6 +297,55 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
     assert_includes branch, 'SecretKeyBaseGuard.emit_warning!'
   end
 
+  # deltabadger/docker-compose.yml runs web and jobs off one image sharing one /app/storage,
+  # and generate_secrets checks for the file and then writes it with no lock in between. So
+  # telling that operator to blank their compose value AND delete .secrets puts both
+  # containers into generate-and-load at once, where each can find the file absent and end up
+  # on a different key. web then writes credentials the jobs container reads as
+  # ciphertext-as-plaintext, because support_unencrypted_data is on — the silent corruption
+  # this entire procedure exists to avoid, introduced by the procedure itself.
+  #
+  # A compose-file install is therefore told to SET a generated value, not to blank one and
+  # let two containers race to invent it. The single-service default has no second writer, so
+  # it keeps the delete-and-regenerate path.
+  test 'a multi-service install is told to set a key, not to race two containers into one' do
+    compose = File.read(Rails.root.join('deltabadger/docker-compose.yml'))
+    services = compose.scan(/^  (\w+):$/).flatten - ['app_proxy']
+    generate = File.read(Rails.root.join('docker-entrypoint.sh'))[/^generate_secrets\(\).*?\n\}/m]
+
+    assert_operator services.size, :>, 1, 'this test exists because that file runs more than one service'
+    assert_equal services.size, compose.scan(%r{:/app/storage$}).size,
+                 'every one of them mounts the same storage volume'
+    assert_no_match(/flock|noclobber|mkdir .*lock/, generate,
+                    'generate_secrets is an unlocked check-then-write; if that is ever fixed, revisit this')
+
+    assert_match(/openssl rand -hex 64/, SecretKeyBaseGuard::PUBLISHED_WARNING)
+    assert_match(/openssl rand -hex 64/, readme_recovery_section)
+  end
+
+  # Every command in the procedure is a `docker compose run`, where an environment variable
+  # has to arrive via -e — as step 5 already does with -e CONFIRM=clear-credentials. Told to
+  # "add PUBLISHED=yes", an operator appends it bare, it does not reach the container, and
+  # they get the reassuring wording they were explicitly trying to override.
+  test 'the compromised override is shown in a form the documented commands can pass' do
+    assert_match(/-e PUBLISHED=yes/, readme_recovery_section,
+                 'a bare VAR=value never reaches a container started by docker compose run')
+  end
+
+  # assume_compromised tests two things, and neither is provenance: whether the current secret
+  # is a known placeholder, and whether anything fails to decrypt under it. A person-chosen
+  # secret that was never published and still decrypts passes both, so the tasks print "nothing
+  # needs revoking" to the one operator the README classifies as compromised. The tasks cannot
+  # close that gap — only the operator knows — so the bullet that makes the accusation has to
+  # be the one that hands over the override.
+  test 'the README tells a human-chosen secret how to force the compromised wording' do
+    bullet = readme_recovery_section[/- A person chose the value.*?(?=\n- |\n\n)/m]
+
+    assert bullet, 'expected the human-chosen-secret bullet in the README'
+    assert_match(/PUBLISHED=yes/, bullet,
+                 'neither check in the tasks can see provenance, so this operator must be told to override')
+  end
+
   private
 
   # Defined after the tests on purpose: `private` applies to what follows it, and the test

@@ -163,12 +163,13 @@ namespace :deltabadger do
       # it is deleted. And the container has to be recreated, because compose bakes the
       # environment in at create time.
       puts "\nNext: point this install at a new key. Blank the SECRET_KEY_BASE value in"
-      puts '.env.docker — or in your compose file, if that is where it is set — and delete'
-      puts 'the generated key, which is a separate file:'
+      puts '.env.docker and delete the generated key, which is a separate file:'
       puts '  docker compose run --rm --no-deps deltabadger rm -f /app/storage/.secrets'
       puts 'On a default install that file is where your key actually is, and a new one is'
-      puts 'written only when it is absent. Then recreate the container, which is what'
-      puts 'picks up the change:'
+      puts 'written only when it is absent. If your value comes from a compose file instead,'
+      puts 'put a freshly generated one there (openssl rand -hex 64) rather than blanking it:'
+      puts 'that file runs two services off one volume, and each would generate its own.'
+      puts 'Then recreate the container, which is what picks up the change:'
       puts '  docker compose up -d --force-recreate'
       puts 'Starting the stopped container instead brings the old value back with it.'
       puts "\nIssue the replacement credentials, re-enable two-factor, re-issue your REST"
