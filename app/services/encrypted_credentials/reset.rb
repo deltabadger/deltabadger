@@ -1,4 +1,6 @@
-# Clears every encrypted credential in the install.
+# Clears every credential the install stores: every encrypted attribute, plus the OAuth
+# bearer tokens for the app's own REST and MCP surfaces, which are not encrypted but are
+# stored in the clear and grant trading.
 #
 # Never decrypts: every write goes through update_all/delete_all on raw columns. That is
 # what lets this run on an instance whose secret_key_base has already been changed — where
@@ -16,7 +18,7 @@ module EncryptedCredentials
     Summary = Struct.new(
       :bots_stopped, :rules_stopped, :withdrawal_addresses_cleared,
       :api_keys_deleted, :fee_api_keys_deleted, :app_configs_deleted,
-      :two_factor_disabled, :ibkr_credentials_destroyed,
+      :two_factor_disabled, :oauth_tokens_deleted, :ibkr_credentials_destroyed,
       keyword_init: true
     )
 
@@ -35,6 +37,7 @@ module EncryptedCredentials
           fee_api_keys_deleted: FeeApiKey.delete_all,
           app_configs_deleted: AppConfig.delete_all,
           two_factor_disabled: disable_two_factor,
+          oauth_tokens_deleted: delete_oauth_tokens,
           ibkr_credentials_destroyed: had_ibkr
         )
       end
@@ -82,6 +85,32 @@ module EncryptedCredentials
 
     def disable_two_factor
       User.with_two_factor_material.update_all(otp_secret_key: nil, otp_module: User.otp_modules[:disabled])
+    end
+
+    # The REST API and MCP bearer tokens. Not encrypted attributes — so absent from COVERAGE
+    # by design, and its parity test is unaffected — but credentials all the same:
+    # Doorkeeper.config.token_secret_strategy is SecretStoring::Plain (measured; the
+    # initializer sets none), so they sit in this database in the clear, and both surfaces
+    # place orders. Nothing about them derives from secret_key_base, so moving to a new
+    # secret leaves every one of them working. Deleting them is the only thing that stops
+    # them, and doing it here rather than in the operator's hands closes the window between
+    # the restart and their remembering to rotate by hand.
+    #
+    # The oauth_applications rows are deliberately kept. Nothing in one is a usable secret:
+    # every application this app creates is public — token_endpoint_auth_method "none",
+    # confidential false — and the only enabled grant flow is authorization_code (measured),
+    # so the stored client secret authenticates nothing without a resource owner signing in
+    # and consenting. registration_access_token is written and echoed once at registration
+    # and read by no route; POST /oauth/register is the only registration endpoint. Keeping
+    # them lets a client reconnect under the client_id it already has, and leaves the
+    # personal-token row that Settings → REST API mints the replacement into.
+    #
+    # Instantiates nothing: delete_all issues one DELETE per table, so this stays inside the
+    # never-decrypts contract even though these rows carry no encrypted attribute to read.
+    # Both models share ApplicationRecord's connection pool (measured), so the surrounding
+    # transaction does cover them.
+    def delete_oauth_tokens
+      Doorkeeper::AccessToken.delete_all + Doorkeeper::AccessGrant.delete_all
     end
   end
 end

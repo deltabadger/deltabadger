@@ -148,6 +148,59 @@ module EncryptedCredentials
       assert_equal 1, summary.app_configs_deleted
     end
 
+    def oauth_application(personal: false)
+      Doorkeeper::Application.create!(
+        name: personal ? 'Personal API token' : 'Test MCP Client',
+        redirect_uri: 'https://localhost/callback', confidential: false,
+        scopes: personal ? 'api' : 'mcp',
+        personal_access_token: personal, personal_owner_id: personal ? @user.id : nil
+      )
+    end
+
+    def issue_token(application)
+      Doorkeeper::AccessToken.create!(
+        application: application, resource_owner_id: @user.id,
+        token: SecureRandom.hex(32), scopes: application.scopes.to_s, expires_in: nil
+      )
+    end
+
+    # Doorkeeper is configured with no token_secret_strategy, so it stores these unhashed:
+    # a copy of this database hands over working bearer tokens for the REST and MCP surfaces,
+    # both of which place orders. Changing SECRET_KEY_BASE does nothing to them — they are
+    # matched by value, not derived from the secret — so the reset is the only thing that can
+    # stop them, and the window between restart and the operator remembering to rotate them
+    # by hand is a window in which they still trade.
+    test 'deletes REST API and MCP tokens and grants' do
+      application = oauth_application
+      issue_token(application)
+      Doorkeeper::AccessGrant.create!(
+        application: application, resource_owner_id: @user.id, token: SecureRandom.hex(32),
+        redirect_uri: application.redirect_uri, expires_in: 600, scopes: 'mcp'
+      )
+
+      summary = Reset.new.call
+
+      assert_equal 0, Doorkeeper::AccessToken.count
+      assert_equal 0, Doorkeeper::AccessGrant.count
+      assert_equal 2, summary.oauth_tokens_deleted
+    end
+
+    # The application rows themselves stay. Every one this app creates is public
+    # (token_endpoint_auth_method "none"), so the stored client secret authenticates nothing,
+    # and no route consumes registration_access_token — POST /oauth/register is the only
+    # registration endpoint. Deleting them would buy nothing and would take away the row that
+    # Settings → REST API mints the operator's replacement token into.
+    test 'keeps the OAuth applications so replacement tokens have somewhere to go' do
+      personal = oauth_application(personal: true)
+      issue_token(personal)
+
+      Reset.new.call
+
+      assert Doorkeeper::Application.exists?(personal.id)
+      assert_empty @user.reload.oauth_access_tokens
+      assert_not_nil @user.ensure_personal_api_token!, 'a fresh token must be issuable afterwards'
+    end
+
     test 'reports whether irreplaceable IBKR credentials were destroyed' do
       ibkr = create(:ibkr_exchange)
       create(:api_key, user: @user, exchange: ibkr, raw_key: 'ibkr-consumer')

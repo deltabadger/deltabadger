@@ -181,6 +181,25 @@ class EncryptionRakeTest < ActiveSupport::TestCase
     assert_match(/PUBLISHED=yes/, err)
   end
 
+  # The REST and MCP tokens are a credential the operator cannot see being destroyed
+  # anywhere else: they are not in the report's inventory, because they are not encrypted
+  # attributes. The count is how they learn to reconnect their clients afterwards.
+  test 'reset reports how many REST API and MCP tokens it deleted' do
+    application = Doorkeeper::Application.create!(
+      name: 'Test MCP Client', redirect_uri: 'https://localhost/callback',
+      confidential: false, scopes: 'mcp'
+    )
+    Doorkeeper::AccessToken.create!(
+      application: application, resource_owner_id: @user.id,
+      token: SecureRandom.hex(32), scopes: 'mcp', expires_in: nil
+    )
+    ENV['CONFIRM'] = 'clear-credentials'
+
+    out, = capture_io { Rake::Task['deltabadger:encryption:reset'].invoke }
+
+    assert_match(/REST API and MCP tokens:\s+1/, out)
+  end
+
   test 'reset does not demand revocation in its post-run summary when the secret was never published' do
     create(:api_key, user: @user, exchange: @exchange)
     ENV['CONFIRM'] = 'clear-credentials'

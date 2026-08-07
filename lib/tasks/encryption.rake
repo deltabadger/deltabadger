@@ -77,20 +77,26 @@ namespace :deltabadger do
       compromised = assume_compromised.call
 
       unless ENV['CONFIRM'] == confirmation
+        # Wrapped by hand, with the continuation indent the heredoc's own numbered steps use.
+        # Interpolated content is not reflowed by <<~, so a single long string renders as one
+        # line in a block where every other line stops at column 82. The indent trails each
+        # segment rather than leading the next because Layout/LineContinuationLeadingSpace
+        # wants it there; the rendered result is the same either way.
         revoke_step = if compromised
-                        'REVOKE every credential it listed, at its source. Do not create the ' \
-                          'replacements yet — there is nowhere to store them until the app is ' \
-                          'running again.'
+                        "REVOKE every credential it listed, at its source. Do not create\n     " \
+                          "the replacements yet — there is nowhere to store them until\n     " \
+                          'the app is running again.'
                       else
-                        'Nothing here is known to be exposed — this clears credentials because ' \
-                          'the encryption key is changing, not because anything leaked.'
+                        "Nothing here is known to be exposed — this clears credentials\n     " \
+                          "because the encryption key is changing, not because anything\n     " \
+                          'leaked.'
                       end
 
         abort <<~MESSAGE
 
-          This deletes every stored API key, disables two-factor authentication, clears
-          withdrawal addresses, resets settings, and stops every working bot and rule. It
-          cannot be undone.
+          This deletes every stored API key, every REST API and MCP token, disables
+          two-factor authentication, clears withdrawal addresses, resets settings, and stops
+          every working bot and rule. It cannot be undone.
 
           Do these first, in order:
             1. Stop the app. A job a worker has already picked up cannot be cancelled and
@@ -134,6 +140,10 @@ namespace :deltabadger do
       puts "  Settings cleared:            #{summary.app_configs_deleted}"
       puts "  Withdrawal addresses:        #{summary.withdrawal_addresses_cleared}"
       puts "  Two-factor seed cleared for: #{summary.two_factor_disabled} user(s)"
+      # Not in the report's inventory — it lists encrypted attributes, and these are not one.
+      # Printing the count here is the only place the operator sees that the REST API token
+      # and every MCP connection are gone, which is what step 8 asks them to restore.
+      puts "  REST API and MCP tokens:     #{summary.oauth_tokens_deleted}"
       puts "  Bots stopped:                #{summary.bots_stopped}"
       puts "  Rules stopped:               #{summary.rules_stopped}"
 
@@ -148,8 +158,9 @@ namespace :deltabadger do
 
       puts "\nNext: blank the SECRET_KEY_BASE value in .env.docker and start the app again."
       puts 'A strong per-install secret is generated for you. Issue the replacement'
-      puts 'credentials, re-enable two-factor, and restart your bots and rules — until the'
-      puts "app is running there is nowhere to store the new credentials.\n\n"
+      puts 'credentials, re-enable two-factor, re-issue your REST API token, reconnect your'
+      puts 'MCP clients, and restart your bots and rules — until the app is running there is'
+      puts "nowhere to store the new credentials.\n\n"
 
       if summary.ibkr_credentials_destroyed
         puts 'Interactive Brokers: once the app is back up, run the connect wizard again to'
