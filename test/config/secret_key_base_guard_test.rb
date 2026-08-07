@@ -24,7 +24,7 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
     end
   end
 
-  # umbrel/deltabadger/docker-compose.yml sets "${APP_SEED}-secret-key-base". Under Umbrel
+  # deltabadger/docker-compose.yml sets "${APP_SEED}-secret-key-base". Under Umbrel
   # APP_SEED is a per-device secret and the result is fine; run anywhere else APP_SEED is
   # unset and compose expands it to this bare literal, which is published here verbatim.
   test 'treats the Umbrel template expanded with an empty APP_SEED as published' do
@@ -121,6 +121,70 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
     warning = SecretKeyBaseGuard.warning_for('dev-secret-key-not-for-production')
 
     assert_match(/revoke/i, warning)
+  end
+
+  # The step that blanks SECRET_KEY_BASE edits .env.docker, and docker-compose.yml loads it
+  # through `env_file`, which Compose resolves when the container is CREATED. So
+  # `docker compose start` — the natural pair for the `docker compose stop` this procedure
+  # opens with — brings the OLD container back up with its baked-in environment. The
+  # published key stays live, and every credential the operator reissues afterwards is
+  # encrypted under it again, which is the one outcome this whole procedure exists to
+  # prevent. The restart has to recreate the container.
+  #
+  # This cannot be fixed by opening with `docker compose down` instead: the backup step
+  # copies out with `docker compose cp`, which needs the container to still exist. Stop,
+  # copy, recreate at the end is the only order that works, so the ordering is pinned here
+  # too — otherwise the obvious fix to the first assertion silently breaks the backup.
+  #
+  # Unverified against a running stack: docker is not available in this environment, so this
+  # rests on Compose's documented env_file-at-create-time behaviour, not on an observed run.
+  test 'the compromised procedure recreates the container rather than restarting it' do
+    warning = SecretKeyBaseGuard::PUBLISHED_WARNING
+
+    assert_match(/docker compose up -d --force-recreate/, warning)
+    assert_no_match(/docker compose start/, warning)
+    assert_includes warning, 'docker compose stop',
+                    'the app must be stopped, not removed — the backup copies out of the container'
+    assert_operator warning.index('docker compose stop'), :<, warning.index('docker compose cp'),
+                    'the backup copies out of the stopped container, so it must still exist'
+    assert_operator warning.index('docker compose cp'), :<, warning.index('--force-recreate'),
+                    'recreating discards the container the backup reads'
+  end
+
+  # README.md carries the same procedure for the same operator; the warning is only what
+  # someone who never opens the README sees. Both are edited by hand and have drifted before.
+  test 'the README procedure recreates the container too' do
+    section = File.read(Rails.root.join('README.md'))[/### Moving to a new SECRET_KEY_BASE.*?\n### /m]
+
+    assert section, 'expected the recovery section in README.md'
+    assert_match(/docker compose up -d --force-recreate/, section)
+    assert_no_match(/docker compose start/, section)
+  end
+
+  # deltabadger/docker-compose.yml is the Umbrel app definition, and it supplies the secret
+  # through `environment:` from APP_SEED — that deployment has no .env.docker at all. Run it
+  # outside Umbrel and APP_SEED is unset, so the value expands to the bare "-secret-key-base"
+  # this guard treats as published: exactly that operator gets PUBLISHED_WARNING, and it
+  # tells them to blank a line in a file they do not have. Same defect as the rest of this
+  # procedure was fixed for — a step that cannot be performed.
+  #
+  # Read from the compose file rather than hardcoded, so that if the Umbrel definition is
+  # ever dropped this test is what says the paragraph can go with it.
+  test 'the compromised procedure covers a secret supplied outside .env.docker' do
+    compose = File.read(Rails.root.join('deltabadger/docker-compose.yml'))
+
+    assert_match(/SECRET_KEY_BASE:\s*\$\{APP_SEED\}/, compose,
+                 'this test exists because the Umbrel definition sets the secret by environment')
+    assert_match(/APP_SEED/, SecretKeyBaseGuard::PUBLISHED_WARNING,
+                 'an operator whose secret comes from APP_SEED must be told where to change it')
+
+    # Where the secret lives is only half of it. Every command in the procedure names the
+    # service from docker-compose.yml, and this file does not have a service by that name,
+    # so the backup, the report and the reset are all unrunnable as written for the same
+    # operator. Fixing only step 6 would leave them stuck three steps earlier.
+    assert_match(/^  web:$/, compose, 'the Umbrel definition calls its app service web')
+    assert_match(/\bweb\b/, SecretKeyBaseGuard::PUBLISHED_WARNING,
+                 'the commands name the docker-compose.yml service; this operator must be told theirs differs')
   end
 
   # short? is length alone, and length alone distinguishes nothing: a randomly generated
