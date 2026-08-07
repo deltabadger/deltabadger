@@ -163,6 +163,9 @@ the restart — a replacement has nowhere to be stored until the app is running 
 and for Interactive Brokers, registering a new key early hands them a public key
 whose private half the reset then deletes.
 
+The commands below use the service name from `docker-compose.yml`. The Umbrel app
+definition calls that service `web` — substitute it if you run from that file.
+
 1. Stop the app.  `docker compose stop`
 2. Back up your data, now that nothing is writing to it. The default deployment uses a
    named volume, not a host directory:
@@ -185,8 +188,17 @@ whose private half the reset then deletes.
    docker compose run --rm --no-deps -e CONFIRM=clear-credentials \
      deltabadger rake deltabadger:encryption:reset
    ```
-6. Blank the `SECRET_KEY_BASE` line in `.env.docker`.
-7. Start the app. A strong per-install secret is generated for you.
+6. Blank the `SECRET_KEY_BASE` line in `.env.docker`. If your install gets the value
+   from a compose file instead — the Umbrel app definition sets it from `APP_SEED` —
+   blank it there, in that file's `environment:` block.
+7. Recreate the container so it picks up the edited value:
+   ```bash
+   docker compose up -d --force-recreate
+   ```
+   Starting the stopped container instead would bring it back with the old value
+   still baked in: Compose reads `env_file` and `environment:` when a container is
+   *created*, not when it starts, so editing the file does not reach a container
+   that already exists. A strong per-install secret is generated for you.
 8. Sign in, issue fresh credentials, add them, re-enable two-factor, re-issue your REST
    API token, reconnect your MCP clients, and restart your bots and rules — the reset
    cleared and stopped all of them.
