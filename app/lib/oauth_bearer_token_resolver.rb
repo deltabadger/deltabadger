@@ -11,10 +11,11 @@
 #   )
 #   result.success?       # => true
 #   result.user           # => #<User ...>
+#   result.access_token   # => #<Doorkeeper::AccessToken ...> — carries the client
 #   result.error          # => nil | :missing | :invalid | :revoked
 #                         #    | :expired | :insufficient_scope | :user_not_found
 class OauthBearerTokenResolver
-  Result = Data.define(:user, :error) do
+  Result = Data.define(:user, :access_token, :error) do
     def success? = error.nil?
   end
 
@@ -42,7 +43,7 @@ class OauthBearerTokenResolver
     user = User.find_by(id: access_token.resource_owner_id)
     return failure(:user_not_found) unless user
 
-    Result.new(user: user, error: nil)
+    Result.new(user: user, access_token: access_token, error: nil)
   end
 
   private
@@ -61,6 +62,6 @@ class OauthBearerTokenResolver
   end
 
   def failure(error)
-    Result.new(user: nil, error: error)
+    Result.new(user: nil, access_token: nil, error: error)
   end
 end

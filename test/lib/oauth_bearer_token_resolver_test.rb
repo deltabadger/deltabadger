@@ -297,4 +297,34 @@ class OauthBearerTokenResolverTest < ActiveSupport::TestCase
       }.merge(attrs)
     )
   end
+
+  test 'returns the access token so callers can identify the client' do
+    user = create(:user)
+    application = Doorkeeper::Application.create!(
+      name: 'Test client', redirect_uri: 'http://localhost/callback',
+      confidential: false, scopes: 'api'
+    )
+    token = Doorkeeper::AccessToken.create!(
+      application: application, resource_owner_id: user.id,
+      token: SecureRandom.hex(32), scopes: 'api', expires_in: 3600
+    )
+
+    result = OauthBearerTokenResolver.call(
+      authorization_header: "Bearer #{token.token}", required_scope: 'api'
+    )
+
+    assert result.success?
+    assert_equal token, result.access_token
+    assert_equal application, result.access_token.application
+  end
+
+  test 'a failed resolution carries no access token' do
+    result = OauthBearerTokenResolver.call(
+      authorization_header: 'Bearer nope', required_scope: 'api'
+    )
+
+    assert_not result.success?
+    assert_nil result.access_token
+    assert_nil result.user
+  end
 end
