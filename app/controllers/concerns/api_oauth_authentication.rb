@@ -27,7 +27,7 @@ module ApiOauthAuthentication
 
   included do
     before_action :authenticate_api_user!
-    attr_reader :current_user
+    attr_reader :current_user, :current_oauth_application
   end
 
   private
@@ -40,6 +40,7 @@ module ApiOauthAuthentication
 
     if result.success?
       @current_user = result.user
+      @current_oauth_application = result.access_token.application
       return
     end
 

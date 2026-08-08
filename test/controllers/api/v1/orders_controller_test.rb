@@ -9,6 +9,10 @@ class Api::V1::OrdersControllerTest < ActionDispatch::IntegrationTest
       name: 'Test', redirect_uri: 'http://localhost/callback',
       confidential: false, scopes: 'api'
     )
+    ConnectedClient.create!(
+      user: @user, oauth_application: @oauth_app,
+      rest_tools: AppConfig::REST_TOOL_DEFAULTS.keys
+    )
     @exchange = create(:binance_exchange)
     @btc = create(:asset, :bitcoin)
     @usd = create(:asset, :usd)
