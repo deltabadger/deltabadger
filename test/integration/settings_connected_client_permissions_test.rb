@@ -164,6 +164,18 @@ class SettingsConnectedClientPermissionsTest < ActionDispatch::IntegrationTest
     assert_empty theirs.reload.granted_mcp_tools
   end
 
+  test 'toggling two groups in sequence accumulates rather than clobbering' do
+    # The action rewrites the whole JSON column, so it re-reads under a row lock.
+    # If it ever went back to writing a snapshot taken before the lock, the second
+    # request would drop the first group.
+    patch update_path, params: { surface: 'mcp', group: 'tax', enabled: '1' }
+    patch update_path, params: { surface: 'mcp', group: 'control', enabled: '1' }
+
+    granted = @client.reload.granted_mcp_tools
+    assert_includes granted, 'download_tax_report'
+    assert_equal AppConfig::MCP_TOOL_GROUPS['read'], granted & AppConfig::MCP_TOOL_GROUPS['read']
+  end
+
   # ---- revoke -------------------------------------------------------------
 
   test 'revoking disconnects this user only and leaves other users connected' do

@@ -109,14 +109,19 @@ module EncryptedCredentials
     # never-decrypts contract even though these rows carry no encrypted attribute to read.
     # Both models share ApplicationRecord's connection pool (measured), so the surrounding
     # transaction does cover them.
-    # connected_clients goes too. The Settings list is credential-derived, so it is
-    # already correct without this — but the application rows are deliberately kept
-    # above, and if one of those clients is ever reconnected, RecordConsent's
-    # find_or_initialize_by would find the stale grant and its "leave a surface the
-    # new grant does not carry alone" rule would hand back a REST grant nobody
-    # re-consented to.
+    # connected_clients goes too, but deliberately outside the returned count: that
+    # number is printed as "REST API and MCP tokens", and a token, its grant and its
+    # client-permission row are one credential, not three.
+    #
+    # The Settings list is credential-derived, so it is already correct without this
+    # — but the application rows are deliberately kept above, and if one of those
+    # clients is ever reconnected, RecordConsent's find_or_initialize_by would find
+    # the stale grant and its "leave a surface the new grant does not carry alone"
+    # rule would hand back a REST grant nobody re-consented to.
     def delete_oauth_tokens
-      Doorkeeper::AccessToken.delete_all + Doorkeeper::AccessGrant.delete_all + ConnectedClient.delete_all
+      deleted = Doorkeeper::AccessToken.delete_all + Doorkeeper::AccessGrant.delete_all
+      ConnectedClient.delete_all
+      deleted
     end
   end
 end
