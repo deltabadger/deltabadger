@@ -28,6 +28,7 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
   test 'mcp widget shows client when one exists' do
     app = Doorkeeper::Application.create!(name: 'Test Client', redirect_uri: 'http://localhost/callback', confidential: false)
     Doorkeeper::AccessToken.create!(application: app, resource_owner_id: @admin.id, token: SecureRandom.hex(32), expires_in: 3600)
+    ConnectedClient.create!(user: @admin, oauth_application: app, mcp_tools: AppConfig::MCP_TOOL_GROUPS['read'])
 
     get settings_connect_path
     assert_response :success
@@ -38,12 +39,19 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
     app = Doorkeeper::Application.create!(name: 'Test Client', redirect_uri: 'http://localhost/callback', confidential: false)
     Doorkeeper::AccessToken.create!(application: app, resource_owner_id: @admin.id, token: SecureRandom.hex(32), expires_in: 3600)
 
+    # Capture first: destroying the application cascades its tokens away, so
+    # asserting `.all?(&:revoked?)` over the relation afterwards would be asserting
+    # nothing at all — [].all? is true.
+    token_ids = Doorkeeper::AccessToken.where(application_id: app.id).pluck(:id)
+    assert_not_empty token_ids
+
     assert_difference 'Doorkeeper::Application.count', -1 do
       delete settings_revoke_mcp_client_path(id: app.id)
     end
 
     assert_response :success
-    assert Doorkeeper::AccessToken.where(application_id: app.id).all?(&:revoked?)
+    assert_empty Doorkeeper::AccessToken.where(id: token_ids),
+                 'destroying the application cascades its tokens away'
   end
 
   test 'user cannot revoke another users client' do

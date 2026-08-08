@@ -155,6 +155,8 @@ Rails.application.routes.draw do
       patch :update_advanced_bots
       get 'confirm_revoke_mcp_client/:id', action: :confirm_revoke_mcp_client, as: :confirm_revoke_mcp_client
       delete 'revoke_mcp_client/:id', action: :revoke_mcp_client, as: :revoke_mcp_client
+      patch 'update_client_tool_permissions/:id', action: :update_client_tool_permissions,
+            as: :update_client_tool_permissions
       patch :update_registration
       patch :update_email_notifications
       post :send_test_email

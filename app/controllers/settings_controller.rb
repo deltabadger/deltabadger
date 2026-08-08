@@ -1,6 +1,15 @@
 class SettingsController < ApplicationController
   include AdminOnly
 
+  CLIENT_PERMISSION_SURFACES = {
+    'mcp' => { groups: AppConfig::MCP_TOOL_GROUPS, column: :mcp_tools, reader: :granted_mcp_tools,
+               enabled: :enabled_mcp_tool_names },
+    'rest' => { groups: AppConfig::REST_TOOL_GROUPS, column: :rest_tools, reader: :granted_rest_tools,
+                enabled: :enabled_rest_tool_names }
+  }.freeze
+
+  helper_method :connected_applications
+
   before_action :authenticate_user!
   before_action :require_admin!, only: %i[
     update_registration
@@ -380,14 +389,54 @@ class SettingsController < ApplicationController
     render turbo_stream: turbo_stream.replace('advanced_bots', partial: 'settings/widgets/advanced_bots')
   end
 
+  def update_client_tool_permissions
+    surface = CLIENT_PERMISSION_SURFACES[params[:surface]]
+    group = params[:group]
+
+    return head :unprocessable_entity if surface.nil? || !surface[:groups].key?(group)
+
+    application = connected_application!(params[:id])
+    client = ConnectedClient.find_or_create_by!(user_id: current_user.id, oauth_application_id: application.id)
+
+    tools = surface[:groups].fetch(group)
+    granted = client.public_send(surface[:reader])
+
+    # A client can never be granted more than the user has on: the intersection
+    # would drop it on read anyway, and storing it would make the widget lie.
+    # Revoking, by contrast, subtracts unconditionally — a grant left over from
+    # before the user switched a tool off must stay removable.
+    client.update!(
+      surface[:column] => if params[:enabled] == '1'
+                            granted | (current_user.public_send(surface[:enabled]) & tools)
+                          else
+                            granted - tools
+                          end
+    )
+
+    render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
+  end
+
   def confirm_revoke_mcp_client
-    @mcp_client = current_user.mcp_applications.find(params[:id])
+    @mcp_client = connected_application!(params[:id])
   end
 
   def revoke_mcp_client
-    application = current_user.mcp_applications.find(params[:id])
-    Doorkeeper::AccessToken.where(application: application, resource_owner_id: current_user.id).update_all(revoked_at: Time.current)
-    application.destroy!
+    application = connected_application!(params[:id])
+
+    ActiveRecord::Base.transaction do
+      live_tokens.where(application_id: application.id, resource_owner_id: current_user.id)
+                 .update_all(revoked_at: Time.current)
+      Doorkeeper::AccessGrant.where(application_id: application.id, resource_owner_id: current_user.id,
+                                    revoked_at: nil).update_all(revoked_at: Time.current)
+      ConnectedClient.where(user_id: current_user.id, oauth_application_id: application.id).destroy_all
+
+      # A client registered over DCR is a global row: two users can connect the
+      # same one, and destroying it cascades away everybody's tokens. Ask about
+      # live credentials rather than grant records — a user whose grant record is
+      # missing still holds a working refresh token.
+      application.destroy! unless other_users_connected?(application)
+    end
+
     flash.now[:notice] = t('settings.mcp.client_revoked')
 
     render turbo_stream: [
@@ -414,6 +463,51 @@ class SettingsController < ApplicationController
   end
 
   private
+
+  # The single definition of "this user is connected to this client". Both the
+  # Settings list and every per-client route authorize through it, so a client can
+  # never be visible-but-not-revokable or revokable-but-not-visible.
+  #
+  # Keyed on the application, not the ConnectedClient, so a client that somehow has
+  # no grant record is still listed and still revokable — it holds a working refresh
+  # token either way. `User#mcp_applications` alone is not enough: it joins through
+  # oauth_access_tokens with no revoked filter, so it keeps listing a client that
+  # already revoked itself via POST /oauth/revoke.
+  def connected_applications(user = current_user)
+    owned = Doorkeeper::Application.where(personal_access_token: [false, nil])
+
+    owned.where(id: live_tokens.where(resource_owner_id: user.id).select(:application_id))
+         .or(owned.where(id: live_grants.where(resource_owner_id: user.id).select(:application_id)))
+  end
+
+  def connected_application!(id)
+    connected_applications.find_by(id: id) || raise(ActiveRecord::RecordNotFound)
+  end
+
+  # Asks about live credentials only, never about grant records. The two sets can
+  # diverge, and a user whose ConnectedClient is missing still holds a working
+  # refresh token — deleting the application would take it, and everyone else's,
+  # with it through Doorkeeper's `dependent: :delete_all`.
+  #
+  # Uses the same two scopes as the list, so a client can never be absent from
+  # Settings yet still counted as a reason to keep the application row alive.
+  def other_users_connected?(application)
+    live_tokens.where(application_id: application.id).exists? ||
+      live_grants.where(application_id: application.id).exists?
+  end
+
+  # An access token is live while unrevoked, whatever its expiry — it refreshes
+  # indefinitely, and the refresh flow checks only revocation. An authorization code
+  # is live only until it expires, so it needs both conditions.
+  def live_tokens
+    Doorkeeper::AccessToken.where(revoked_at: nil)
+  end
+
+  def live_grants
+    Doorkeeper::AccessGrant
+      .where(revoked_at: nil)
+      .where('datetime(created_at, \'+\' || expires_in || \' seconds\') > ?', Time.current.utc)
+  end
 
   def validate_coingecko_api_key(api_key)
     return false if api_key.blank?
