@@ -157,6 +157,15 @@ Content-Type: application/json
 }
 ```
 
+`tool_disabled` covers two separate refusals: the tool is switched off for your
+account, **or** it was not granted to the client whose token you are using. Both
+are changed under **Settings → Connect** — the account-wide toggles, and the
+per-client toggles on the connected client itself. A tool has to pass both.
+Granting is a snapshot taken when you connect a client, so a tool you enable
+account-wide later is not handed to an already-connected client automatically.
+The personal API token below is exempt: it is yours, not a third party's, so your
+account-wide toggles are the whole answer for it.
+
 Enable toggles from **Settings → Connect → REST API**. Toggles are grouped
 (`read`, `control`, `trade`); each row is independent. REST toggles are
 **isolated from MCP** — enabling `list_bots` for REST does not affect MCP
@@ -336,7 +345,8 @@ Custom headers:
 - `404 no_transactions` — no rows matched the filters
 - `404 exchange_not_found` — unknown `exchange_id`
 - `422 invalid_date` — bad `from_date`/`to_date` (use `YYYY-MM-DD`)
-- `403 tool_disabled` — REST toggle off for `export_transactions_csv`
+- `403 tool_disabled` — REST toggle off for `export_transactions_csv`, or not
+  granted to this client
 
 ---
 
