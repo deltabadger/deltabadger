@@ -26,6 +26,19 @@ Doorkeeper.configure do
     false
   end
 
+  # The personal API token's application exists only so User#mint_personal_token!
+  # has something to hang a token on. It is a public client with a real redirect URI,
+  # and Doorkeeper does not check an application's grant_types against the requested
+  # response type, so nothing else keeps it out of the authorization flow.
+  #
+  # It has to stay out. ToolAccess reads a token on a personal application as the user
+  # acting as themselves, which is only ever true of the one mint_personal_token!
+  # issues, and such a token would appear in no connected-clients list. This
+  # application has no legitimate OAuth flow: refuse it every one.
+  allow_grant_flow_for_client do |_grant_flow, client|
+    !client.respond_to?(:personal_access_token?) || !client.personal_access_token?
+  end
+
   # Custom base controller to avoid ApplicationController filters
   base_controller 'Oauth::BaseController'
 
