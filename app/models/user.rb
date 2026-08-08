@@ -30,6 +30,7 @@ class User < ApplicationRecord
   has_one :personal_api_application,
           -> { where(personal_access_token: true) },
           class_name: 'Doorkeeper::Application', foreign_key: :personal_owner_id, dependent: :destroy
+  has_many :connected_clients, dependent: :destroy
 
   validates :name, presence: true, if: -> { new_record? }
   validate :validate_name, if: -> { new_record? || name_changed? }

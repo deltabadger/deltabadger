@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_06_001012) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_08_225248) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -238,6 +238,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_06_001012) do
     t.bigint "user_id"
     t.index ["exchange_id"], name: "index_bots_on_exchange_id"
     t.index ["user_id"], name: "index_bots_on_user_id"
+  end
+
+  create_table "connected_clients", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.json "mcp_tools", default: [], null: false
+    t.integer "oauth_application_id", null: false
+    t.json "rest_tools", default: [], null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["oauth_application_id"], name: "index_connected_clients_on_oauth_application_id"
+    t.index ["user_id", "oauth_application_id"], name: "index_connected_clients_on_user_and_application", unique: true
+    t.index ["user_id"], name: "index_connected_clients_on_user_id"
   end
 
   create_table "exchange_assets", force: :cascade do |t|
@@ -517,6 +529,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_06_001012) do
   add_foreign_key "bot_signals", "bots"
   add_foreign_key "bots", "exchanges"
   add_foreign_key "bots", "users"
+  add_foreign_key "connected_clients", "oauth_applications", on_delete: :cascade
+  add_foreign_key "connected_clients", "users"
   add_foreign_key "exchange_assets", "assets"
   add_foreign_key "exchange_assets", "exchanges"
   add_foreign_key "fee_api_keys", "exchanges"
