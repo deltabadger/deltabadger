@@ -16,19 +16,69 @@
 
     <p class="consent__warning"><%= t('settings.mcp.authorize_unverified') %></p>
 
-    <div class="consent__section">
-      <p class="consent__label"><%= t('settings.mcp.authorize_scopes_label') %></p>
-      <ul class="consent__scopes">
-        <% @pre_auth.scopes.to_a.each do |scope| %>
-          <li><%= t("settings.mcp.scope_#{scope}", default: scope) %></li>
-        <% end %>
-      </ul>
-    </div>
+    <%
+      existing = ConnectedClient.for(user: current_user, application: @pre_auth.client.application)
+      surfaces = {
+        'mcp' => [AppConfig::MCP_TOOL_GROUPS, 'granted_mcp_groups', existing&.granted_mcp_tools,
+                  current_user.enabled_mcp_tool_names],
+        'api' => [AppConfig::REST_TOOL_GROUPS, 'granted_rest_groups', existing&.granted_rest_tools,
+                  current_user.enabled_rest_tool_names]
+      }
+      # Read and tax only look; control and trade move money and change bots, so
+      # they start unticked even for a user who has them on for their own use.
+      prechecked = { 'mcp' => %w[read tax], 'api' => %w[read] }
+    %>
 
-    <p class="consent__label">
-      <%= t('settings.mcp.authorize_redirect_label') %>
-      <code><%= URI.parse(@pre_auth.redirect_uri).host.presence || @pre_auth.redirect_uri rescue @pre_auth.redirect_uri %></code>
-    </p>
+    <%= form_tag oauth_authorization_path, method: :post, id: 'consent_approve' do %>
+      <%= hidden_field_tag :client_id, @pre_auth.client.uid %>
+      <%= hidden_field_tag :redirect_uri, @pre_auth.redirect_uri %>
+      <%= hidden_field_tag :state, @pre_auth.state %>
+      <%= hidden_field_tag :response_type, @pre_auth.response_type %>
+      <%= hidden_field_tag :scope, @pre_auth.scope %>
+      <%= hidden_field_tag :code_challenge, @pre_auth.code_challenge %>
+      <%= hidden_field_tag :code_challenge_method, @pre_auth.code_challenge_method %>
+
+      <div class="consent__section">
+        <p class="consent__label"><%= t('settings.mcp.authorize_scopes_label') %></p>
+        <ul class="consent__scopes">
+          <% @pre_auth.scopes.to_a.each do |scope| %>
+            <li><%= t("settings.mcp.scope_#{scope}", default: scope) %></li>
+          <% end %>
+        </ul>
+      </div>
+
+      <% surfaces.each do |scope, (groups, field, granted, user_enabled)| %>
+        <% next unless @pre_auth.scopes.exists?(scope) %>
+        <div class="consent__section">
+          <p class="consent__label"><%= t("settings.mcp.authorize_groups_label_#{scope}") %></p>
+          <% groups.each do |group, tools| %>
+            <%
+              # On re-consent a group is only pre-ticked when the existing grant already
+              # covers everything the user currently has enabled in it. A PARTIAL grant
+              # renders unticked: ticking a group grants the whole group, so pre-ticking a
+              # partial one would silently widen it — including to tools enabled globally
+              # since the client was connected. Unticked-and-approved narrows, which is the
+              # safe direction and is visible on screen.
+              if granted
+                available = user_enabled & tools
+                checked = available.any? && (available - granted).empty?
+              else
+                checked = prechecked.fetch(scope).include?(group)
+              end
+            %>
+            <label class="consent__group">
+              <%= check_box_tag "#{field}[]", group, checked, id: "#{field}_#{group}" %>
+              <span><%= t("settings.mcp.tools_#{group}") %></span>
+            </label>
+          <% end %>
+        </div>
+      <% end %>
+
+      <p class="consent__label">
+        <%= t('settings.mcp.authorize_redirect_label') %>
+        <code><%= URI.parse(@pre_auth.redirect_uri).host.presence || @pre_auth.redirect_uri rescue @pre_auth.redirect_uri %></code>
+      </p>
+    <% end %>
 
     <div class="buttons buttons--row--2" style="margin-top: 1rem;">
       <%= form_tag oauth_authorization_path, method: :delete do %>
@@ -42,16 +92,7 @@
         <%= submit_tag t('button.cancel'), class: 'button button--outline button--large' %>
       <% end %>
 
-      <%= form_tag oauth_authorization_path, method: :post do %>
-        <%= hidden_field_tag :client_id, @pre_auth.client.uid %>
-        <%= hidden_field_tag :redirect_uri, @pre_auth.redirect_uri %>
-        <%= hidden_field_tag :state, @pre_auth.state %>
-        <%= hidden_field_tag :response_type, @pre_auth.response_type %>
-        <%= hidden_field_tag :scope, @pre_auth.scope %>
-        <%= hidden_field_tag :code_challenge, @pre_auth.code_challenge %>
-        <%= hidden_field_tag :code_challenge_method, @pre_auth.code_challenge_method %>
-        <%= submit_tag t('button.connect'), class: 'button button--sky button--large' %>
-      <% end %>
+      <%= submit_tag t('button.connect'), form: 'consent_approve', class: 'button button--sky button--large' %>
     </div>
   </div>
 </body>

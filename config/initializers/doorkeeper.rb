@@ -43,4 +43,19 @@ Doorkeeper.configure do
   base_controller 'Oauth::BaseController'
 
   allow_blank_redirect_uri false
+
+  # Fires after the authorization code has been created. Gated to POST because the
+  # same hook also runs on the GET auto-approve path, where the parameters are the
+  # *client's* query string rather than our consent form — a client could otherwise
+  # name its own permission groups in the authorize URL. The token endpoint calls
+  # this hook too, with a response that has no `auth`, so RecordConsent no-ops there.
+  after_successful_authorization do |controller, context|
+    if controller.request.post?
+      ConnectedClients::RecordConsent.call(
+        grant: context.auth.try(:auth).try(:token),
+        mcp_groups: controller.params[:granted_mcp_groups],
+        rest_groups: controller.params[:granted_rest_groups]
+      )
+    end
+  end
 end

@@ -177,6 +177,8 @@ en:
             authorize_title: 'Authorize access'
             authorize_description_html: '<b>%{client_name}</b> wants to access your Deltabadger server.'
             authorize_scopes_label: 'This will be able to:'
+            authorize_groups_label_mcp: 'Choose what it may use over MCP:'
+            authorize_groups_label_api: 'Choose what it may use over the REST API:'
             authorize_redirect_label: 'Sends you back to:'
             authorize_unverified: 'This application registered itself. Deltabadger has not verified it. Only continue if you started this yourself.'
             scope_mcp: 'Read your portfolio, balances and transactions, and use the trading tools you have enabled'
