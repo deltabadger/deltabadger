@@ -185,6 +185,21 @@ module EncryptedCredentials
       assert_equal 2, summary.oauth_tokens_deleted
     end
 
+    # The per-client grant is not a credential. It goes with the tokens — leaving it
+    # would let a reconnecting client inherit a REST grant nobody re-consented to —
+    # but it must not inflate the count the rake task prints as "REST API and MCP
+    # tokens", or one credential reads as two.
+    test 'clears per-client grants without counting them as tokens' do
+      application = oauth_application
+      issue_token(application)
+      ConnectedClient.create!(user: @user, oauth_application: application, mcp_tools: %w[list_bots])
+
+      summary = Reset.new.call
+
+      assert_equal 0, ConnectedClient.count
+      assert_equal 1, summary.oauth_tokens_deleted
+    end
+
     # The application rows themselves stay. Every one this app creates is public
     # (token_endpoint_auth_method "none"), so the stored client secret authenticates nothing,
     # and no route consumes registration_access_token — POST /oauth/register is the only

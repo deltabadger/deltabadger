@@ -399,19 +399,27 @@ class SettingsController < ApplicationController
     client = ConnectedClient.find_or_create_by!(user_id: current_user.id, oauth_application_id: application.id)
 
     tools = surface[:groups].fetch(group)
-    granted = client.public_send(surface[:reader])
 
-    # A client can never be granted more than the user has on: the intersection
-    # would drop it on read anyway, and storing it would make the widget lie.
-    # Revoking, by contrast, subtracts unconditionally — a grant left over from
-    # before the user switched a tool off must stay removable.
-    client.update!(
-      surface[:column] => if params[:enabled] == '1'
-                            granted | (current_user.public_send(surface[:enabled]) & tools)
-                          else
-                            granted - tools
-                          end
-    )
+    # Read-modify-write on a whole JSON column, so it has to happen under a row
+    # lock: the widget submits on change and a client has seven toggles, so two
+    # in-flight requests would otherwise both read the same array and the slower one
+    # would write its stale copy back — silently restoring a group just revoked.
+    # with_lock re-reads inside the transaction.
+    client.with_lock do
+      granted = client.public_send(surface[:reader])
+
+      # A client can never be granted more than the user has on: the intersection
+      # would drop it on read anyway, and storing it would make the widget lie.
+      # Revoking, by contrast, subtracts unconditionally — a grant left over from
+      # before the user switched a tool off must stay removable.
+      client.update!(
+        surface[:column] => if params[:enabled] == '1'
+                              granted | (current_user.public_send(surface[:enabled]) & tools)
+                            else
+                              granted - tools
+                            end
+      )
+    end
 
     render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
   end
