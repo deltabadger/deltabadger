@@ -13,6 +13,10 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
       confidential: false,
       scopes: 'api mcp'
     )
+    ConnectedClient.create!(
+      user: @user, oauth_application: @oauth_app,
+      rest_tools: AppConfig::REST_TOOL_DEFAULTS.keys
+    )
   end
 
   teardown do
@@ -155,6 +159,9 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
   test 'returns 401 user_not_found when the bearer token outlives its user' do
     token = create_token(scopes: 'api')
     # Bypass dependent: :destroy so the token survives but the user is gone.
+    # connected_clients has a real FK to users, so it has to go first — the point
+    # of the test is an orphaned token, not an orphaned grant.
+    ConnectedClient.where(user_id: @user.id).delete_all
     User.where(id: @user.id).delete_all
 
     get '/api/v1/bots', headers: bearer(token)
@@ -527,6 +534,70 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :forbidden
     assert_equal 'tool_disabled', JSON.parse(response.body)['error']['code']
+  end
+
+  # ---- per-client grants --------------------------------------------------
+
+  test 'refuses a tool the user enabled but this client was not granted' do
+    @user.set_rest_tool_enabled('list_bots', true)
+    ConnectedClient.find_or_create_by!(user: @user, oauth_application: @oauth_app).update!(rest_tools: [])
+
+    get '/api/v1/bots', headers: bearer(create_token(scopes: 'api'))
+
+    assert_response :forbidden
+    assert_equal 'tool_disabled', response.parsed_body.dig('error', 'code')
+  end
+
+  test 'allows a tool the user enabled and this client was granted' do
+    @user.set_rest_tool_enabled('list_bots', true)
+    ConnectedClient.find_or_create_by!(user: @user, oauth_application: @oauth_app).update!(rest_tools: %w[list_bots])
+
+    get '/api/v1/bots', headers: bearer(create_token(scopes: 'api'))
+
+    assert_response :success
+  end
+
+  test 'refuses a granted tool the user has turned off' do
+    @user.set_rest_tool_enabled('list_bots', false)
+    ConnectedClient.find_or_create_by!(user: @user, oauth_application: @oauth_app).update!(rest_tools: %w[list_bots])
+
+    get '/api/v1/bots', headers: bearer(create_token(scopes: 'api'))
+
+    assert_response :forbidden
+  end
+
+  test 'refuses everything when the client has no grant record' do
+    @user.set_rest_tool_enabled('list_bots', true)
+    ConnectedClient.where(user: @user, oauth_application: @oauth_app).delete_all
+
+    get '/api/v1/bots', headers: bearer(create_token(scopes: 'api'))
+
+    assert_response :forbidden
+  end
+
+  test 'a second client of the same user gets its own grant' do
+    @user.set_rest_tool_enabled('list_bots', true)
+    ConnectedClient.find_or_create_by!(user: @user, oauth_application: @oauth_app).update!(rest_tools: %w[list_bots])
+    other_app = Doorkeeper::Application.create!(
+      name: 'Other', redirect_uri: 'http://localhost/other', confidential: false, scopes: 'api'
+    )
+    ConnectedClient.create!(user: @user, oauth_application: other_app, rest_tools: [])
+    other_token = Doorkeeper::AccessToken.create!(
+      application: other_app, resource_owner_id: @user.id,
+      token: SecureRandom.hex(32), scopes: 'api', expires_in: 3600
+    )
+
+    get '/api/v1/bots', headers: bearer(other_token)
+
+    assert_response :forbidden
+  end
+
+  test 'the personal api token is not restricted by a grant record' do
+    @user.set_rest_tool_enabled('list_bots', true)
+
+    get '/api/v1/bots', headers: bearer(@user.personal_api_token)
+
+    assert_response :success
   end
 
   private

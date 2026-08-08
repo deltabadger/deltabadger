@@ -12,12 +12,16 @@ module Api
       private
 
       def require_rest_tool!(tool_name)
-        return if current_user.rest_tool_enabled?(tool_name)
+        return if tool_access.rest_enabled?(tool_name)
 
         render json: {
           data: nil,
           error: { code: 'tool_disabled', message: "Tool '#{tool_name}' is disabled for this user." }
         }, status: :forbidden
+      end
+
+      def tool_access
+        @tool_access ||= ToolAccess.new(user: current_user, application: current_oauth_application)
       end
 
       def render_result(result, success_status: nil)
