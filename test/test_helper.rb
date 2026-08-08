@@ -45,10 +45,35 @@ WebMock.disable_net_connect!(allow_localhost: true)
 
 puts "\n\e[1mDeltabadger v#{Rails.application.config.version}\e[0m\n\n"
 
+# A tool only ever runs inside an authenticated MCP request, where the bearer token
+# names both the user and the OAuth client. Unit tests have to supply both or the
+# per-call gate refuses the tool — which is exactly what production does.
+#
+# The default grant is the user's own enabled set, matching what RecordConsent can
+# actually produce. Granting the whole catalogue instead would make the intersection
+# a no-op in every test that uses this, and the client half of the rule could then be
+# deleted with the suite still green.
+module MCPToolTestHelper
+  def stub_mcp_client(user, mcp_tools: nil)
+    application = Doorkeeper::Application.create!(
+      name: 'Test client', redirect_uri: 'http://localhost/callback',
+      confidential: false, scopes: 'mcp'
+    )
+    ConnectedClient.create!(
+      user: user, oauth_application: application,
+      mcp_tools: mcp_tools || user.enabled_mcp_tool_names
+    )
+    ActionMCP::Current.stubs(:user).returns(user)
+    OauthClientContext.oauth_application = application
+    application
+  end
+end
+
 module ActiveSupport
   class TestCase
     include FactoryBot::Syntax::Methods
     include ExchangeMockHelpers
+    include MCPToolTestHelper
 
     # Run tests in parallel with specified workers
     parallelize(workers: :number_of_processors)

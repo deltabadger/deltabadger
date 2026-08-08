@@ -12,8 +12,8 @@ class CreateBotToolTest < ActiveSupport::TestCase
     @ticker_btc = create(:ticker, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
     @ticker_eth = create(:ticker, exchange: @exchange, base_asset: @eth, quote_asset: @usd)
     @api_key = create(:api_key, user: @user, exchange: @exchange, key_type: :trading, status: :correct)
-    ActionMCP::Current.user = @user
     @user.set_mcp_tool_enabled('create_bot', true)
+    stub_mcp_client(@user)
   end
 
   teardown do

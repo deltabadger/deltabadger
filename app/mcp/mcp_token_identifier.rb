@@ -21,8 +21,14 @@ class MCPTokenIdentifier < ActionMCP::GatewayIdentifier
       required_scope: 'mcp'
     )
 
-    return result.user if result.success?
+    unless result.success?
+      OauthClientContext.oauth_application = nil
+      raise Unauthorized, ERROR_MESSAGES.fetch(result.error, 'Unauthorized')
+    end
 
-    raise Unauthorized, ERROR_MESSAGES.fetch(result.error, 'Unauthorized')
+    # The gateway can only hand one identity to ActionMCP, and it has to be the
+    # user. The client rides here instead, for the rest of this request.
+    OauthClientContext.oauth_application = result.access_token.application
+    result.user
   end
 end

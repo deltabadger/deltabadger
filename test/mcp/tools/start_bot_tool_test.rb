@@ -6,8 +6,8 @@ class StartBotToolTest < ActiveSupport::TestCase
   setup do
     @user = create(:user, admin: true)
     @bot = create(:dca_single_asset, user: @user, status: :stopped)
-    ActionMCP::Current.user = @user
     @user.set_mcp_tool_enabled('start_bot', true)
+    stub_mcp_client(@user)
   end
 
   teardown do

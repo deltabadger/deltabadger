@@ -3,7 +3,7 @@ require 'test_helper'
 class ListExchangesToolTest < ActiveSupport::TestCase
   setup do
     @user = create(:user, admin: true)
-    ActionMCP::Current.stubs(:user).returns(@user)
+    stub_mcp_client(@user)
   end
 
   test 'lists connected exchanges' do

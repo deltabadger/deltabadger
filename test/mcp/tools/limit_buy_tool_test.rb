@@ -10,8 +10,8 @@ class LimitBuyToolTest < ActiveSupport::TestCase
     @usd = create(:asset, :usd)
     @ticker = create(:ticker, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
     @api_key = create(:api_key, user: @user, exchange: @exchange, key_type: :trading, status: :correct)
-    ActionMCP::Current.user = @user
     @user.set_mcp_tool_enabled('limit_buy', true)
+    stub_mcp_client(@user)
   end
 
   teardown do

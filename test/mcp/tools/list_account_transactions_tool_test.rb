@@ -3,7 +3,7 @@ require 'test_helper'
 class ListAccountTransactionsToolTest < ActiveSupport::TestCase
   setup do
     @user = create(:user, admin: true)
-    ActionMCP::Current.stubs(:user).returns(@user)
+    stub_mcp_client(@user)
     @exchange = create(:binance_exchange)
     @api_key = create(:api_key, user: @user, exchange: @exchange, status: :correct)
   end

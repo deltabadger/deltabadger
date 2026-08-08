@@ -3,7 +3,7 @@ require 'test_helper'
 class GetTaxReportStatusToolTest < ActiveSupport::TestCase
   setup do
     @user = create(:user, admin: true)
-    ActionMCP::Current.stubs(:user).returns(@user)
+    stub_mcp_client(@user)
   end
 
   test 'returns ready when report file exists' do

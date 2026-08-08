@@ -3,7 +3,7 @@ require 'test_helper'
 class ListBotsToolTest < ActiveSupport::TestCase
   setup do
     @user = create(:user, admin: true)
-    ActionMCP::Current.stubs(:user).returns(@user)
+    stub_mcp_client(@user)
   end
 
   test 'lists bots with status, type, pair, and exchange' do

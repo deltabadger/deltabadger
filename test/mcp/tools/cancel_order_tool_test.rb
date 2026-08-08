@@ -7,8 +7,8 @@ class CancelOrderToolTest < ActiveSupport::TestCase
     @user = create(:user, admin: true)
     @bot = create(:dca_single_asset, user: @user)
     @exchange = @bot.exchange
-    ActionMCP::Current.user = @user
     @user.set_mcp_tool_enabled('cancel_order', true)
+    stub_mcp_client(@user)
   end
 
   teardown do
