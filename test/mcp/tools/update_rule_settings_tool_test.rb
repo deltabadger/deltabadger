@@ -15,8 +15,8 @@ class UpdateRuleSettingsToolTest < ActiveSupport::TestCase
       status: :stopped,
       settings: { 'max_fee_percentage' => '5', 'threshold_type' => 'max_fee_percentage' }
     )
-    ActionMCP::Current.user = @user
     @user.set_mcp_tool_enabled('update_rule_settings', true)
+    stub_mcp_client(@user)
   end
 
   teardown do

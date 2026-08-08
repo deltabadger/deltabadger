@@ -10,8 +10,8 @@ class CancelOrderDryRunTest < ActiveSupport::TestCase
     @transaction = create(:transaction, bot: @bot, exchange: @exchange, status: :submitted, external_status: :open,
                                         side: :buy, order_type: :limit_order, base: 'BTC', quote: 'USD',
                                         amount: 0.5, price: 50_000, external_id: 'order-dry-123')
-    ActionMCP::Current.user = @user
     @user.set_mcp_tool_enabled('cancel_order', true)
+    stub_mcp_client(@user)
   end
 
   teardown do

@@ -3,7 +3,7 @@ require 'test_helper'
 class GenerateTaxReportToolTest < ActiveSupport::TestCase
   setup do
     @user = create(:user, admin: true)
-    ActionMCP::Current.stubs(:user).returns(@user)
+    stub_mcp_client(@user)
     MarketData.stubs(:configured?).returns(true)
   end
 

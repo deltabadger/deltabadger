@@ -5,7 +5,7 @@ class GetExchangeBalancesToolTest < ActiveSupport::TestCase
     @user = create(:user, admin: true)
     @exchange = create(:binance_exchange)
     @api_key = create(:api_key, user: @user, exchange: @exchange, status: :correct)
-    ActionMCP::Current.stubs(:user).returns(@user)
+    stub_mcp_client(@user)
   end
 
   test 'fetches balances from exchange' do
