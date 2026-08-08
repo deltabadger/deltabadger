@@ -72,4 +72,21 @@ class OauthConsentScreenTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_includes response.body, '<code>myapp:/cb</code>'
   end
+
+  # The personal API application must never be usable at /oauth/authorize: ToolAccess
+  # reads a token on it as the user acting as themselves, and it would appear in no
+  # connected-clients list.
+  test 'the personal api application cannot be driven through the oauth flow' do
+    personal = @user.personal_api_token.application
+
+    get '/oauth/authorize', params: {
+      client_id: personal.uid, redirect_uri: 'https://localhost/personal-access-token',
+      response_type: 'code', scope: 'api',
+      code_challenge: 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM',
+      code_challenge_method: 'S256'
+    }
+
+    assert_not_equal 200, response.status, 'the consent screen must not render'
+    assert_no_match(/#{Regexp.escape(I18n.t('settings.mcp.authorize_title'))}/, response.body)
+  end
 end
