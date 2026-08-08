@@ -47,14 +47,10 @@
 
     <div id="mcp_connected_clients" class="mcp-connected-clients" >
       <h3 class="mcp-tool-permissions__group-title" style="margin: 2rem 0"><%= t('settings.mcp.connected_clients') %></h3>
-      <% clients = current_user.mcp_applications.order(created_at: :desc) %>
+      <% clients = connected_applications.order(created_at: :desc) %>
       <% if clients.any? %>
-        <% clients.each do |client| %>
-          <div>
-            <b><%= client.name %></b>
-            <small><%= l(client.created_at, format: :short) %></small> 
-            <%= link_to t('settings.mcp.revoke_client'), settings_confirm_revoke_mcp_client_path(client), data: { turbo_frame: "modal" }, class: "text-danger" %>
-          </div>
+        <% clients.each do |application| %>
+          <%= render 'settings/widgets/connected_client', application: application %>
         <% end %>
       <% else %>
         <p class="text--secondary text-center"><%= t('settings.mcp.no_clients') %></p>

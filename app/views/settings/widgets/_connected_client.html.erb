@@ -1,0 +1,50 @@
+<%
+  client = ConnectedClient.for(user: current_user, application: application)
+  scopes = application.scopes
+  surfaces = []
+  surfaces << ['mcp', AppConfig::MCP_TOOL_GROUPS, client&.granted_mcp_tools || [], current_user.enabled_mcp_tool_names] if scopes.exists?('mcp')
+  surfaces << ['rest', AppConfig::REST_TOOL_GROUPS, client&.granted_rest_tools || [], current_user.enabled_rest_tool_names] if scopes.exists?('api')
+%>
+<div class="mcp-connected-clients__client">
+  <b><%= application.name %></b>
+  <small><%= l(application.created_at, format: :short) %></small>
+  <%= link_to t('settings.mcp.revoke_client'), settings_confirm_revoke_mcp_client_path(application), data: { turbo_frame: "modal" }, class: "text-danger" %>
+
+  <p class="mcp-tool-permissions__description"><%= t('settings.mcp.client_permissions_hint') %></p>
+
+  <% surfaces.each do |surface, groups, granted, user_enabled| %>
+    <% groups.each do |group, tools| %>
+      <%
+        granted_here = granted & tools
+        available = user_enabled & tools
+        # ON only when everything the user has in this group is granted; PARTIAL
+        # while some of it is. Never derived from `available` alone — a grant left
+        # behind after a global switch-off must still render, and still be removable.
+        state = if granted_here.empty?
+                  :off
+                elsif (available - granted_here).empty?
+                  :on
+                else
+                  :partial
+                end
+      %>
+      <%= form_with url: settings_update_client_tool_permissions_path(application), method: :patch,
+                    data: { controller: "form--submit", turbo_frame: "mcp_settings" }, class: "toggle-group" do |f| %>
+        <%= f.hidden_field :surface, value: surface %>
+        <%= f.hidden_field :group, value: group %>
+        <%= f.hidden_field :enabled, value: granted_here.any? ? '0' : '1' %>
+        <label class="toggle-group__label <%= 'toggle-group__label--active' if state != :off %>">
+          <div class="toggle">
+            <input type="checkbox" <%= 'checked' if state != :off %> data-action="change->form--submit#submit" />
+            <div class="toggle__style"></div>
+          </div>
+          <span>
+            <%= t("settings.mcp.tools_#{group}") %>
+            <% if surface == 'rest' %><small><%= t('settings.mcp.client_surface_rest') %></small><% end %>
+            <% if state == :partial %><small><%= t('settings.mcp.client_group_partial') %></small><% end %>
+          </span>
+        </label>
+      <% end %>
+    <% end %>
+  <% end %>
+</div>
