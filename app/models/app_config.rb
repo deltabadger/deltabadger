@@ -25,6 +25,11 @@ class AppConfig < ApplicationRecord
   ALPACA_MODE = 'alpaca_mode'.freeze # 'paper' or 'live'
 
   # MCP (Model Context Protocol) settings
+  #
+  # These names are permanent identifiers: they are stored verbatim in each
+  # ConnectedClient's grant. Retiring a name is fine — stale grants are filtered out
+  # on read — but NEVER reuse one for a different capability, or every old grant
+  # that mentioned it silently comes back pointing at the new tool.
   MCP_TOOL_DEFAULTS = {
     'list_bots' => true,
     'get_bot_details' => true,
