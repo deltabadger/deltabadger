@@ -399,4 +399,82 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
   def readme_recovery_section
     File.read(Rails.root.join('README.md'))[/### Moving to a new SECRET_KEY_BASE.*?\n### /m]
   end
+
+  test 'data is exposed when no independent keys are configured' do
+    assert SecretKeyBaseGuard.data_exposed_by?('dev-secret-key-not-for-production', {})
+  end
+
+  # Values taken FROM the secret are exactly as recoverable as the secret itself.
+  test 'data is exposed when the configured keys were taken from this secret' do
+    secret = 'dev-secret-key-not-for-production'
+    env = { EncryptionKeys::PRIMARY_KEY_VAR => EncryptionKeys.derived_primary_key(secret),
+            EncryptionKeys::SALT_VAR => EncryptionKeys.derived_salt(secret) }
+
+    assert SecretKeyBaseGuard.data_exposed_by?(secret, env)
+  end
+
+  test 'data is not exposed when the configured keys are independent' do
+    env = { EncryptionKeys::PRIMARY_KEY_VAR => SecureRandom.hex(32),
+            EncryptionKeys::SALT_VAR => SecureRandom.hex(32) }
+
+    assert_not SecretKeyBaseGuard.data_exposed_by?('dev-secret-key-not-for-production', env)
+  end
+
+  test 'a published secret with exposed data gets the full recovery procedure' do
+    assert_equal SecretKeyBaseGuard::PUBLISHED_WARNING,
+                 SecretKeyBaseGuard.warning_for('dev-secret-key-not-for-production', {})
+  end
+
+  test 'a published secret with independent keys gets the shorter procedure' do
+    env = { EncryptionKeys::PRIMARY_KEY_VAR => SecureRandom.hex(32),
+            EncryptionKeys::SALT_VAR => SecureRandom.hex(32) }
+
+    assert_equal SecretKeyBaseGuard::PUBLISHED_SESSIONS_WARNING,
+                 SecretKeyBaseGuard.warning_for('dev-secret-key-not-for-production', env)
+  end
+
+  # Telling an operator to revoke every exchange key is expensive and, where the data was
+  # never derivable from this secret, wrong.
+  test 'the shorter procedure does not send the operator to revoke exchange keys' do
+    assert_not_includes SecretKeyBaseGuard::PUBLISHED_SESSIONS_WARNING, 'exchange'
+    assert_includes SecretKeyBaseGuard::PUBLISHED_WARNING, 'REVOKE'
+  end
+
+  # Bearer tokens are stored in the clear and survive the replacement, so someone who could
+  # forge a session may have minted one that outlives it.
+  test 'the shorter procedure still says to revoke API and MCP tokens' do
+    assert_match(/MCP/, SecretKeyBaseGuard::PUBLISHED_SESSIONS_WARNING)
+  end
+
+  # Password-reset and confirmation links are signed with this value, so they stop working.
+  test 'the shorter procedure warns that pending email links stop working' do
+    assert_match(/password/i, SecretKeyBaseGuard::PUBLISHED_SESSIONS_WARNING)
+  end
+
+  test 'a short secret with independent keys gets the shorter notice' do
+    env = { EncryptionKeys::PRIMARY_KEY_VAR => SecureRandom.hex(32),
+            EncryptionKeys::SALT_VAR => SecureRandom.hex(32) }
+
+    assert_equal SecretKeyBaseGuard::SHORT_SESSIONS_WARNING,
+                 SecretKeyBaseGuard.warning_for('a' * 10, env)
+  end
+
+  test 'a strong secret still warns about nothing' do
+    assert_nil SecretKeyBaseGuard.warning_for(SecureRandom.hex(64), {})
+  end
+
+  # An operator who set the derived pair has it overriding the new secret. Without this, the
+  # credentials they enter at the end of the recovery are encrypted under the same key they
+  # were recovering from, and the whole procedure achieves nothing.
+  test 'the full recovery says to clear the encryption key variables too' do
+    assert_includes SecretKeyBaseGuard::PUBLISHED_WARNING, EncryptionKeys::PRIMARY_KEY_VAR
+    assert_includes SecretKeyBaseGuard::PUBLISHED_WARNING, EncryptionKeys::SALT_VAR
+  end
+
+  # An install with a database is never handed a generated pair, so promising one would leave
+  # the operator re-coupled to SECRET_KEY_BASE without knowing it.
+  test 'the full recovery does not promise a pair that will not be generated' do
+    assert_no_match(/generated for you/i, SecretKeyBaseGuard::PUBLISHED_WARNING)
+    assert_includes SecretKeyBaseGuard::PUBLISHED_WARNING, 'deltabadger:encryption:derived_keys'
+  end
 end

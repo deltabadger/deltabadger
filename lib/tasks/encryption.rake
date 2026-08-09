@@ -174,6 +174,22 @@ namespace :deltabadger do
       puts 'Then recreate the container, which is what picks up the change:'
       puts '  docker compose up -d --force-recreate'
       puts 'Starting the stopped container instead brings the old value back with it.'
+
+      # Left set, these override the new secret, so the replacement credentials issued below
+      # would be encrypted under exactly the key this reset exists to get away from.
+      if EncryptionKeys.independent?
+        puts "\nThis install also sets its own encryption keys. Remove both lines wherever"
+        puts "they are set — #{EncryptionKeys::PRIMARY_KEY_VAR} and"
+        puts "#{EncryptionKeys::SALT_VAR} — or the credentials you enter next"
+        puts 'are encrypted under the same key you are replacing.'
+        puts 'The container will not create a replacement pair: that happens only for an'
+        puts 'install with no database, and yours has one. Once it is back up on the new'
+        puts 'secret, run'
+        puts '  rake deltabadger:encryption:derived_keys'
+        puts 'and set what it prints, BEFORE entering the replacement credentials. Otherwise'
+        puts 'this install goes back to deriving its encryption keys from SECRET_KEY_BASE,'
+        puts 'and the next time that changes you lose the new credentials the same way.'
+      end
       puts "\nIssue the replacement credentials, re-enable two-factor, re-issue your REST"
       puts 'API token, reconnect your MCP clients, and restart your bots and rules — until'
       puts "the app is running there is nowhere to store the new credentials.\n\n"
@@ -183,6 +199,73 @@ namespace :deltabadger do
         puts 'generate a fresh key pair, register it in their portal, and wait for IBKR to'
         puts "activate it.\n\n"
       end
+    end
+
+    # Reports, never writes. The entrypoint owns /app/storage/.secrets, and where the value
+    # has to go differs per deployment — that file, .env.docker, or every service block of a
+    # compose file. Writing here would also report success for something that only takes
+    # effect on the next container create.
+    desc 'Print the encryption keys this install derives from SECRET_KEY_BASE (read-only)'
+    task derived_keys: :environment do
+      # These are derived from the CURRENT secret. If what is stored cannot be read, that
+      # secret is not the one that wrote it, so they are not the keys in use and setting them
+      # would make the loss permanent. An indeterminate check is treated the same way: it says
+      # nothing about which keys are right, and unlike a boot, refusing here costs nothing —
+      # this is one command, and it can be re-run.
+      if EncryptionKeyCheck.readability != :readable
+        puts <<~MESSAGE
+
+          Whether this instance can read what it has stored could not be confirmed, so the
+          values this command derives may not be the ones that encrypted your data. They are
+          not printed: setting the wrong pair would replace a recoverable state with an
+          unrecoverable one.
+
+          Restore the SECRET_KEY_BASE, or the encryption keys, that this data was written
+          under, then run this again.
+
+          To see what is stored:  rake deltabadger:encryption:report
+        MESSAGE
+        next
+      end
+
+      if EncryptionKeys.independent?
+        puts <<~MESSAGE
+
+          This install already keeps its encryption keys separate from SECRET_KEY_BASE. There
+          is nothing to do: SECRET_KEY_BASE can be replaced without affecting stored data.
+
+          The keys in use are not printed here, and the values this command would otherwise
+          derive are NOT the ones encrypting your data — putting those in would make all of it
+          unreadable.
+        MESSAGE
+        next
+      end
+
+      secret = Rails.application.secret_key_base
+
+      puts <<~MESSAGE
+
+        These are the ActiveRecord Encryption keys this install currently derives from its
+        SECRET_KEY_BASE. Setting them explicitly changes nothing on its own — they are the
+        values already in use — but once they are set, SECRET_KEY_BASE no longer determines
+        them and can be replaced without making stored data unreadable.
+
+          #{EncryptionKeys::PRIMARY_KEY_VAR}=#{EncryptionKeys.derived_primary_key(secret)}
+          #{EncryptionKeys::SALT_VAR}=#{EncryptionKeys.derived_salt(secret)}
+
+        Set BOTH. A key used against a different salt reads nothing this install has stored,
+        and the app refuses to start with only one of them.
+
+        Put them where this install's environment comes from — /app/storage/.secrets, or
+        .env.docker, or the compose file. If your compose file defines more than one service,
+        set them in every service block: they share one database, so different values leave
+        each unable to read what the other wrote.
+
+        Then recreate the container so the values are picked up:
+          docker compose up -d --force-recreate
+
+        Nothing has been written. Copy the two lines above yourself.
+      MESSAGE
     end
   end
 end

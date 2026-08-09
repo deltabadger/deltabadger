@@ -86,6 +86,16 @@ module SecretKeyBaseGuard
          your key actually is, so this deletion is what rotates anything at all.
          A new one is written only when that file is absent; an existing one is
          never overwritten.
+         If you set ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY and
+         ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT — anywhere: that file,
+         .env.docker, or a compose file — remove both lines as well. They override
+         the new key, so leaving them in place means the credentials you add at
+         step 8 are encrypted under the same one you are replacing. No pair is
+         written for you here, since that happens only for an install with no
+         database, so once you are back up run
+         `rake deltabadger:encryption:derived_keys` and set what it prints BEFORE
+         step 8. Skip that and this install goes back to deriving them from
+         SECRET_KEY_BASE, with the same exposure the next time it changes.
          If your value comes from a compose file instead — the Umbrel app
          definition sets it from APP_SEED — put a freshly generated value in
          both service blocks rather than blanking it:  openssl rand -hex 64
@@ -146,6 +156,60 @@ module SecretKeyBaseGuard
     ==================================================================================
   MESSAGE
 
+  # Reached when the secret is weak but the encryption keys are kept separately, so nothing
+  # stored derives from it. Sessions are still forgeable, which is enough to be signed in as
+  # the operator — but the stored credentials are not readable from this value, and sending
+  # someone to revoke every exchange key over it would be wrong.
+  PUBLISHED_SESSIONS_WARNING = <<~MESSAGE.freeze
+    ================================ SECURITY WARNING ================================
+    SECRET_KEY_BASE is a value published in the public repository.
+
+    This instance keeps its encryption keys separately, so what is stored here does not
+    derive from this value and is not readable from it. What this value does do is sign
+    and encrypt session cookies: anyone who can reach this instance can sign into it as
+    you, without needing the database.
+
+    Replace it. Because the encryption keys are kept separately, stored data is
+    unaffected:
+
+      1. Revoke this instance's own REST API token and every connected MCP client, under
+         Settings. They are bearer tokens that do not derive from this value, so
+         replacing it does not end them, and anyone who signed in as you could have
+         issued one.
+      2. Put a fresh value in place of the published one, wherever this install takes it
+         from — /app/storage/.secrets, .env.docker, or your compose file:
+           openssl rand -hex 64
+         Leave the two encryption key variables exactly as they are.
+      3. Recreate the container:
+           docker compose up -d --force-recreate
+      4. Sign in again. Every session ends, which is the point. Any password reset or
+         confirmation email already sent stops working — request a new one.
+    ==================================================================================
+  MESSAGE
+
+  # As above, for a secret that is merely short. See SHORT_WARNING for why this cannot assert
+  # whether the value ever leaked.
+  SHORT_SESSIONS_WARNING = <<~MESSAGE.freeze
+    ================================ SECURITY NOTICE =================================
+    SECRET_KEY_BASE is shorter than #{MINIMUM_LENGTH} characters.
+
+    This instance keeps its encryption keys separately, so stored credentials do not
+    derive from this value. It still signs and encrypts session cookies, and a short one
+    is cheap to brute-force offline from a single captured cookie, which yields the
+    ability to sign in as you.
+
+    Replacing it leaves stored data untouched. Put a fresh value wherever this install
+    takes it from, leaving the encryption key variables as they are:
+      openssl rand -hex 64
+    then `docker compose up -d --force-recreate` and sign in again. Any password reset
+    or confirmation email already sent stops working.
+
+    If this value has ever been anywhere public, also revoke this instance's REST API
+    token and its connected MCP clients: those do not derive from it and outlive the
+    replacement.
+    ==================================================================================
+  MESSAGE
+
   # Published in this repository, so every install that copied it shares one key that
   # anybody can read. This is a compromise, not a weakness.
   def self.published?(secret)
@@ -162,9 +226,21 @@ module SecretKeyBaseGuard
     published?(secret) || short?(secret)
   end
 
-  def self.warning_for(secret)
-    return PUBLISHED_WARNING if published?(secret)
-    return SHORT_WARNING if short?(secret)
+  # Whether a weak secret also exposes what is stored. True when the encryption keys derive
+  # from it, and equally true when they were taken from it — those are exactly as recoverable
+  # as the secret itself. False only when they were generated independently, in which case a
+  # weak secret costs sessions rather than credentials.
+  def self.data_exposed_by?(secret, env = ENV)
+    return true unless EncryptionKeys.independent?(env)
+
+    EncryptionKeys.derived_from_secret?(env, secret: secret)
+  end
+
+  def self.warning_for(secret, env = ENV)
+    exposed = data_exposed_by?(secret, env)
+
+    return exposed ? PUBLISHED_WARNING : PUBLISHED_SESSIONS_WARNING if published?(secret)
+    return exposed ? SHORT_WARNING : SHORT_SESSIONS_WARNING if short?(secret)
 
     nil
   end
