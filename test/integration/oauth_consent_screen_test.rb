@@ -89,4 +89,59 @@ class OauthConsentScreenTest < ActionDispatch::IntegrationTest
     assert_not_equal 200, response.status, 'the consent screen must not render'
     assert_no_match(/#{Regexp.escape(I18n.t('settings.mcp.authorize_title'))}/, response.body)
   end
+
+  test 'the unused client-management pages are not routed' do
+    # recognize_path raises directly rather than going through a full request, which
+    # matters here: this suite's test environment renders routing errors as a debug
+    # page instead of letting them propagate through `get` (see
+    # bots/exchange_first_creation_test.rb for the same pattern already in use).
+    routes = Rails.application.routes
+    assert_raises(ActionController::RoutingError) { routes.recognize_path('/oauth/applications') }
+    assert_raises(ActionController::RoutingError) { routes.recognize_path('/oauth/authorized_applications') }
+  end
+
+  test 'the authorization endpoints still route' do
+    assert_recognizes({ controller: 'doorkeeper/authorizations', action: 'new' }, '/oauth/authorize')
+    assert_recognizes({ controller: 'doorkeeper/tokens', action: 'create' },
+                      path: '/oauth/token', method: :post)
+  end
+
+  # form_post renders a page whose script submits a form to the client's
+  # redirect_uri, which form-action 'self' does not permit. The metadata this app
+  # publishes advertises query and fragment only, so refusing it is what the
+  # metadata already says.
+  test 'form_post is refused rather than rendered' do
+    get '/oauth/authorize', params: {
+      client_id: @application.uid,
+      redirect_uri: @application.redirect_uri,
+      response_type: 'code',
+      response_mode: 'form_post',
+      code_challenge: 'a' * 43,
+      code_challenge_method: 'S256',
+      scope: 'mcp',
+      state: 'xyz'
+    }
+
+    # handle_auth_errors defaults to :render, so this renders rather than redirects.
+    assert_response :bad_request
+    assert_select 'form[name=redirect_form]', false, 'the auto-submitting page must not render'
+    assert_includes response.body, 'does not support this response mode'
+  end
+
+  # Companion to the refusal test above: proves the same parameter set reaches the
+  # consent screen when response_mode is absent, so the refusal above is actually
+  # about response_mode and not some other malformed parameter.
+  test 'the same request without a response mode reaches consent' do
+    get '/oauth/authorize', params: {
+      client_id: @application.uid,
+      redirect_uri: @application.redirect_uri,
+      response_type: 'code',
+      code_challenge: 'a' * 43,
+      code_challenge_method: 'S256',
+      scope: 'mcp',
+      state: 'xyz'
+    }
+
+    assert_response :success
+  end
 end

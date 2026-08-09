@@ -11,7 +11,11 @@ Rails.application.routes.draw do
   post '/oauth/register', to: 'oauth/dynamic_registration#create'
 
   # Doorkeeper OAuth routes (/oauth/authorize, /oauth/token, /oauth/revoke)
-  use_doorkeeper
+  # The app has its own connected-clients UI in Settings and registers clients
+  # dynamically, so Doorkeeper's own management pages are surface with no use.
+  use_doorkeeper do
+    skip_controllers :applications, :authorized_applications
+  end
 
   # MCP endpoint (OAuth-protected)
   mount ActionMCP::Engine, at: '/mcp'

@@ -1,5 +1,28 @@
 # frozen_string_literal: true
 
+# The authorization-server metadata this app publishes lists no
+# response_modes_supported, so RFC 8414's default is what it advertises: query and
+# fragment. form_post is neither, and its response posts a form to the client's
+# redirect_uri — which form-action 'self' does not permit, so it could not complete
+# even if the page rendered. Narrowing the flow lets Doorkeeper refuse it through
+# its own validation, so the condition is reported with the library's own error and
+# localized message rather than one hand-rolled here, and there is no controller
+# code to keep in step with its validation order.
+#
+# The delete comes first because the registry warns when it overrides a registered
+# flow, and this runs on every boot. `flows` is a public accessor. Everything else
+# mirrors the gem's own registration; `query` stays first, so the default response
+# mode is unchanged.
+Doorkeeper::GrantFlow.flows.delete(:authorization_code)
+Doorkeeper::GrantFlow.register(
+  :authorization_code,
+  response_type_matches: 'code',
+  response_type_strategy: Doorkeeper::Request::Code,
+  grant_type_matches: 'authorization_code',
+  grant_type_strategy: Doorkeeper::Request::AuthorizationCode,
+  response_mode_matches: %w[query fragment]
+)
+
 Doorkeeper.configure do
   orm :active_record
 
