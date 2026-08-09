@@ -238,4 +238,97 @@ class EncryptionRakeTest < ActiveSupport::TestCase
 
     assert_no_match(/revoke/i, out)
   end
+
+  test 'derived_keys prints both variables with the values this install derives' do
+    output = capture_io { Rake::Task['deltabadger:encryption:derived_keys'].invoke }.first
+    secret = Rails.application.secret_key_base
+
+    assert_includes output, "#{EncryptionKeys::PRIMARY_KEY_VAR}=#{EncryptionKeys.derived_primary_key(secret)}"
+    assert_includes output, "#{EncryptionKeys::SALT_VAR}=#{EncryptionKeys.derived_salt(secret)}"
+  end
+
+  # The values it prints have to be the ones the initializer resolves, or setting them would
+  # change the key and make everything stored unreadable.
+  test 'derived_keys matches what the initializer resolves with nothing configured' do
+    output = capture_io { Rake::Task['deltabadger:encryption:derived_keys'].invoke }.first
+    secret = Rails.application.secret_key_base
+
+    assert_includes output, EncryptionKeys.primary_key({}, secret: secret)
+    assert_includes output, EncryptionKeys.key_derivation_salt({}, secret: secret)
+  end
+
+  # On an install that already has its own keys, the derived values are NOT the ones
+  # encrypting its data. Printing them next to an instruction to copy them in would replace
+  # working keys with wrong ones.
+  test 'derived_keys prints no values once the install has its own keys' do
+    EncryptionKeys.stubs(:independent?).returns(true)
+    output = capture_io { Rake::Task['deltabadger:encryption:derived_keys'].invoke }.first
+    secret = Rails.application.secret_key_base
+
+    assert_not_includes output, EncryptionKeys.derived_primary_key(secret)
+    assert_not_includes output, EncryptionKeys.derived_salt(secret)
+    assert_match(/already/i, output)
+  end
+
+  # The common failure is SECRET_KEY_BASE replaced on an install with no configured pair.
+  # independent? is false there, so without this guard the task would print keys derived from
+  # the NEW, wrong secret and describe them as the values already in use.
+  test 'derived_keys prints no values when stored data cannot be read' do
+    EncryptionKeyCheck.stubs(:readability).returns(:unreadable)
+    output = capture_io { Rake::Task['deltabadger:encryption:derived_keys'].invoke }.first
+
+    assert_not_includes output, EncryptionKeys.derived_primary_key(Rails.application.secret_key_base)
+    assert_match(/not printed/i, output)
+  end
+
+  # Same for a check that could not complete. A locked or damaged database says nothing about
+  # which keys are right, and printing a pair on that basis is what makes a loss permanent.
+  test 'derived_keys prints no values when readability could not be determined' do
+    EncryptionKeyCheck.stubs(:readability).returns(:indeterminate)
+    output = capture_io { Rake::Task['deltabadger:encryption:derived_keys'].invoke }.first
+
+    assert_not_includes output, EncryptionKeys.derived_primary_key(Rails.application.secret_key_base)
+    assert_match(/not printed/i, output)
+  end
+
+  # The entrypoint owns the secrets file. A task that wrote it would be a second writer with
+  # no coordination, and on a compose-supplied install would write to a file that governs
+  # nothing.
+  test 'derived_keys writes nothing' do
+    File.expects(:write).never
+    File.expects(:open).never
+
+    capture_io { Rake::Task['deltabadger:encryption:derived_keys'].invoke }
+  end
+
+  # The reset output is the authoritative copy of this procedure — an operator in a terminal
+  # is not reading the README. Left set, these re-encrypt the replacement credentials under
+  # the key the reset exists to get away from.
+  test 'reset tells an install with its own encryption keys to clear them' do
+    EncryptionKeys.stubs(:independent?).returns(true)
+    ENV['CONFIRM'] = 'clear-credentials'
+    output = capture_io { Rake::Task['deltabadger:encryption:reset'].invoke }.first
+
+    assert_includes output, EncryptionKeys::PRIMARY_KEY_VAR
+    assert_includes output, EncryptionKeys::SALT_VAR
+  end
+
+  # An install with a database is never handed a generated pair, so promising one would leave
+  # the operator re-coupled to SECRET_KEY_BASE without knowing it.
+  test 'reset does not promise a pair that will not be generated' do
+    EncryptionKeys.stubs(:independent?).returns(true)
+    ENV['CONFIRM'] = 'clear-credentials'
+    output = capture_io { Rake::Task['deltabadger:encryption:reset'].invoke }.first
+
+    assert_no_match(/will be generated|generated for you/i, output)
+    assert_includes output, 'deltabadger:encryption:derived_keys'
+  end
+
+  test 'reset says nothing about them on an install that does not set them' do
+    EncryptionKeys.stubs(:independent?).returns(false)
+    ENV['CONFIRM'] = 'clear-credentials'
+    output = capture_io { Rake::Task['deltabadger:encryption:reset'].invoke }.first
+
+    assert_not_includes output, EncryptionKeys::PRIMARY_KEY_VAR
+  end
 end
