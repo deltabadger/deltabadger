@@ -24,8 +24,10 @@ class InlineJavascriptTest < ActiveSupport::TestCase
   # is never adjacent.
   IGNORED_NAMES = %w[only once one].freeze
 
-  # A literal block in ERB or HAML, the HAML filter, and the helper that builds one.
-  SCRIPT = /<script\b|%script|:javascript\b|javascript_tag/i
+  # A literal block in ERB or HAML, the HAML filter, the helper that builds one,
+  # and the two tag-builder forms that emit the same element: content_tag(:script,
+  # …) and tag.script.
+  SCRIPT = /<script\b|%script|:javascript\b|javascript_tag|content_tag\(\s*:script\b|tag\.script\b/i
 
   # A javascript: URL is inline script wearing a URL, and script-src refuses it on
   # the same grounds. Attribute forms only — quoted, unquoted, HAML hash and string
