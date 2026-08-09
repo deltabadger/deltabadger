@@ -7,18 +7,27 @@ class EncryptionKeyCheckTest < ActiveSupport::TestCase
                                 .stubs(:data_written_under_another_key?).returns(!value)
   end
 
+  # capture_io on every emit_warning! call: the banner goes to stderr whatever the logger is,
+  # so an uncaptured call prints it into the test output. Capturing also lets these assert the
+  # thing that matters — that the operator sees it — rather than only what the caller gets back.
   test 'says nothing when everything stored decrypts' do
     stored_data_readable!(true)
 
     assert_equal :readable, EncryptionKeyCheck.readability(logger: nil)
-    assert_nil EncryptionKeyCheck.emit_warning!(logger: nil)
+    _out, err = capture_io { assert_nil EncryptionKeyCheck.emit_warning!(logger: nil) }
+
+    assert_empty err
   end
 
   test 'warns when something stored cannot be read' do
     stored_data_readable!(false)
-
     assert_equal :unreadable, EncryptionKeyCheck.readability(logger: nil)
-    assert_equal EncryptionKeyCheck::WARNING, EncryptionKeyCheck.emit_warning!(logger: nil)
+
+    emitted = nil
+    _out, err = capture_io { emitted = EncryptionKeyCheck.emit_warning!(logger: nil) }
+
+    assert_equal EncryptionKeyCheck::WARNING, emitted
+    assert_equal EncryptionKeyCheck::WARNING, err
   end
 
   # A database that is not ready is the normal state during db:prepare, not a fault. It must
@@ -29,7 +38,11 @@ class EncryptionKeyCheckTest < ActiveSupport::TestCase
                                 .raises(ActiveRecord::StatementInvalid, 'no such table: rules')
 
     assert_equal :indeterminate, EncryptionKeyCheck.readability(logger: nil)
-    assert_nothing_raised { assert_nil EncryptionKeyCheck.emit_warning!(logger: nil) }
+    _out, err = capture_io do
+      assert_nothing_raised { assert_nil EncryptionKeyCheck.emit_warning!(logger: nil) }
+    end
+
+    assert_empty err
   end
 
   # ...but it is not reported as health either.
@@ -49,7 +62,7 @@ class EncryptionKeyCheckTest < ActiveSupport::TestCase
     [true, false].each do |readable|
       stored_data_readable!(readable)
 
-      assert_nothing_raised { EncryptionKeyCheck.emit_warning!(logger: nil) }
+      capture_io { assert_nothing_raised { EncryptionKeyCheck.emit_warning!(logger: nil) } }
     end
   end
 
