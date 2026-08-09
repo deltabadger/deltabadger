@@ -36,11 +36,7 @@ class InlineJavascriptTest < ActiveSupport::TestCase
   JAVASCRIPT_URL = /(?:href|src|action)["']?\s*(?:=>|[:=])\s*["']?\s*javascript:/i
 
   # Views still carrying inline JavaScript. This list only ever shrinks.
-  REMAINING = [
-    'layouts/application.html.erb',
-    'layouts/devise.html.erb',
-    'layouts/guest.html.erb'
-  ].freeze
+  REMAINING = [].freeze
 
   test 'no view carries inline JavaScript beyond the recorded remainder' do
     assert_equal REMAINING, offending_views,

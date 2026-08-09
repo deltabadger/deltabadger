@@ -1,11 +1,11 @@
 if (window.__IS_TAURI__) {
     (async () => {
+        document.documentElement.classList.add('tauri');
+
         const { open } = await import('@tauri-apps/plugin-shell');
         const { getCurrentWindow } = await import('@tauri-apps/api/window');
         const { save } = await import('@tauri-apps/plugin-dialog');
         const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-
-        document.documentElement.classList.add('tauri');
 
         const appWindow = getCurrentWindow();
 

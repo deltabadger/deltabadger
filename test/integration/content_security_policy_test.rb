@@ -82,4 +82,25 @@ class ContentSecurityPolicyTest < ActionDispatch::IntegrationTest
 
     assert_includes response.headers['Content-Security-Policy-Report-Only'], "form-action 'self'"
   end
+
+  test 'the signed-in layout ships no inline script block' do
+    sign_in @admin
+    get '/en/bots'
+
+    assert_response :success
+    assert_select 'script:not([src])', false, 'the application layout still has an inline block'
+  end
+
+  test 'the signed-out layout ships no inline script block' do
+    get '/en/login'
+
+    assert_response :success
+    assert_select 'script:not([src])', false, 'the devise layout still has an inline block'
+  end
+
+  test 'the desktop class is set by a script the policy allows' do
+    get '/en/login'
+
+    assert_select 'script[src*=?]', 'tauri_boot'
+  end
 end
