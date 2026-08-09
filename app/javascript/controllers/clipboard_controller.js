@@ -1,26 +1,17 @@
 import { Controller } from "@hotwired/stimulus"
 
 // Connects to data-controller="clipboard"
+// Copies a literal value to the clipboard.
+//
+// <span data-controller="clipboard"
+//       data-clipboard-text-value="https://example.com"
+//       data-action="click->clipboard#copy">
 export default class extends Controller {
-  static targets = ["input", "alert"];
+  static values = { text: String }
 
   copy() {
-    const input = this.inputTarget;
-
-    try {
-      navigator.clipboard.writeText(input.value);
-      this.#showAlert();
-    } catch (error) {
-      console.error("Clipboard copy failed", error);
-    }
-  }
-
-  #showAlert() {
-    const alert = this.alertTarget;
-    alert.style.visibility = "visible";
-
-    setTimeout(() => {
-      alert.style.visibility = "hidden";
-    }, 2000);
+    navigator.clipboard.writeText(this.textValue).catch((error) => {
+      console.error("Clipboard copy failed", error)
+    })
   }
 }

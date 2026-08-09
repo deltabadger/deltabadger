@@ -74,4 +74,14 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select 'turbo-frame#mcp_settings'
   end
+
+  test 'the MCP url copies through a Stimulus action, not an inline handler' do
+    get settings_connect_path
+
+    assert_response :success
+    assert_select '#mcp_url_display[data-controller=?][data-action=?]',
+                  'clipboard', 'click->clipboard#copy'
+    assert_select '#mcp_url_display[data-clipboard-text-value=?]', AppConfig.mcp_url
+    assert_select '#mcp_url_display[onclick]', false, 'an inline handler cannot run under the policy'
+  end
 end
