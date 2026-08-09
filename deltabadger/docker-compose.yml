@@ -21,6 +21,10 @@ services:
       QUEUE_DATABASE_PATH: /app/storage/production_queue.sqlite3
       CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
       CABLE_DATABASE_PATH: /app/storage/production_cable.sqlite3
+      # Setting ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY and
+      # ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT here holds stored data independent of
+      # this value. Both services share one database, so both blocks need the same values
+      # or neither can read what the other wrote.
       SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
       HOME_PAGE_URL: http://${DEVICE_DOMAIN_NAME}:3737
       APP_ROOT_URL: http://${DEVICE_DOMAIN_NAME}:3737
@@ -41,6 +45,10 @@ services:
       QUEUE_DATABASE_PATH: /app/storage/production_queue.sqlite3
       CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
       CABLE_DATABASE_PATH: /app/storage/production_cache.sqlite3
+      # Setting ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY and
+      # ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT here holds stored data independent of
+      # this value. Both services share one database, so both blocks need the same values
+      # or neither can read what the other wrote.
       SECRET_KEY_BASE: ${APP_SEED}-secret-key-base
       HOME_PAGE_URL: http://${DEVICE_DOMAIN_NAME}:3737
       APP_ROOT_URL: http://${DEVICE_DOMAIN_NAME}:3737
