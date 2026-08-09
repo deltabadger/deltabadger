@@ -8,13 +8,7 @@
     <title><%= content_for?(:title) ? yield(:title) : t('meta.title') %></title>
     <%= render 'application/favicon' %>
 
-    <script>
-      // Tauri detection - add class to html element for CSS targeting
-      if (window.__TAURI__) {
-        document.documentElement.classList.add('tauri');
-      }
-    </script>
-
+    <%= javascript_include_tag "tauri_boot" %>
     <%= stylesheet_link_tag 'application', media: 'all', "data-turbo-track": "reload" %>
     <%= javascript_include_tag "application", "data-turbo-track": "reload", defer: true %>
 
@@ -22,17 +16,6 @@
     <%= csp_meta_tag %>
 
     <%= yield(:head) %>
-
-    <script>
-      let root = document.documentElement;
-
-      window.addEventListener("scroll", function() {
-        const distance = window.scrollY;
-        if (distance > 10) {
-          root.classList.add("has-been-scrolled");
-        }
-      });
-    </script>
   </head>
 
   <body data-controller="hotwire-animations">

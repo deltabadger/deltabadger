@@ -127,6 +127,9 @@ application.register("progress-bar", ProgressBarController)
 import RemovalsController from "./removals_controller"
 application.register("removals", RemovalsController)
 
+import RevealChromeController from "./reveal_chrome_controller"
+application.register("reveal-chrome", RevealChromeController)
+
 import RuleToggleController from "./rule_toggle_controller"
 application.register("rule-toggle", RuleToggleController)
 
