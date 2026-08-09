@@ -4,7 +4,17 @@ import { Controller } from "@hotwired/stimulus"
 // Filters index tiles based on search input matching name or description
 // Prioritizes name matches over description-only matches
 export default class extends Controller {
-  static targets = ["input", "tile", "empty", "container"]
+  static targets = ["input", "tile", "empty", "container", "categoryIdField", "nameField"]
+
+  // The tiles are submit buttons, so the form posts either way; this is what
+  // gives the post its subject. Click handlers run before submission, so the
+  // fields are populated by the time the form leaves.
+  select(event) {
+    const tile = event.currentTarget
+
+    this.categoryIdFieldTarget.value = tile.dataset.indexCategoryId || ""
+    this.nameFieldTarget.value = tile.dataset.indexName || ""
+  }
 
   filter() {
     const query = this.inputTarget.value.toLowerCase().trim()

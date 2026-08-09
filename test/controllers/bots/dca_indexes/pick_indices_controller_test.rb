@@ -67,14 +67,14 @@ class Bots::DcaIndexes::PickIndicesControllerTest < ActionDispatch::IntegrationT
     assert_match 'Layer 1', response.body
   end
 
-  test 'escapes a quote in the external id used by the tile onclick handler' do
+  test 'escapes a quote in the external id carried by the tile data attribute' do
     Index.create!(external_id: "ev'il", source: Index::SOURCE_COINGECKO,
                   name: 'Evil Index', weight: 1)
     MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_COINGECKO)
 
     get new_bots_dca_indexes_pick_index_path
     assert_response :success
-    assert_match "value='ev\\&#39;il'", response.body
-    assert_no_match "value='ev&#39;il'", response.body
+    assert_match 'data-index-category-id="ev&#39;il"', response.body
+    assert_no_match 'data-index-category-id="ev\'il"', response.body
   end
 end

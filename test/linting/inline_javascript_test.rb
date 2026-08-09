@@ -37,7 +37,6 @@ class InlineJavascriptTest < ActiveSupport::TestCase
 
   # Views still carrying inline JavaScript. This list only ever shrinks.
   REMAINING = [
-    'bots/dca_indexes/pick_indices/new.html.erb',
     'layouts/application.html.erb',
     'layouts/devise.html.erb',
     'layouts/guest.html.erb'
