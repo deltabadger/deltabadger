@@ -5,22 +5,26 @@
 # See the Securing Rails Applications Guide for more information:
 # https://guides.rubyonrails.org/security.html#content-security-policy-header
 #
-# THIS POLICY DOES NOT YET DEFEND AGAINST INJECTED SCRIPT. It ships report-only, and
-# script-src still carries 'unsafe-inline' to keep the app's inline event handlers and
-# inline <script> blocks working. That combination reports; it enforces nothing. It is here
-# to measure real traffic and size the work, and it becomes protection only once the inline
-# handlers have moved into the bundle, 'unsafe-inline' is gone from script-src, and
-# CSP_ENFORCE=true is set.
+# script-src no longer concedes 'unsafe-inline'. No view in this app renders script
+# inline: handlers are Stimulus actions and blocks live in the bundle, which
+# test/linting/inline_javascript_test.rb keeps true for every file under app/views.
 #
-# Do NOT restore config.content_security_policy_nonce_generator, which the commented-out
-# default this replaced carried two lines below the policy. A nonce-source or hash-source
-# anywhere in a source list makes browsers ignore 'unsafe-inline' (CSP3, "does element match
-# source list for type and source": allow-all-inline returns "Does Not Allow" when a nonce
-# or hash is present), so adding one would break every inline handler, every inline <script>
-# and every style="" attribute in the app at once, plus the <style> Turbo injects for its
-# progress bar on each navigation. Enabling the policy does make csp_meta_tag start
-# rendering in the three layouts; with no generator it renders an empty tag, which Turbo
-# reads as "no nonce" and ignores.
+# The nonce below exists for the inline <script> elements this app does not write.
+# The jobs dashboard's import map is rendered by its engine, which already asks for
+# a nonce and gets an empty one without a generator; Turbo stamps the same nonce on
+# scripts it injects during stream and morph renders, reading it from csp_meta_tag.
+# Neither can be moved into a bundle, and both are refused once the policy enforces.
+#
+# The nonce is confined to script-src. Rails defaults nonce_directives to script-src
+# AND style-src, and a nonce-source anywhere in a source list makes browsers ignore
+# 'unsafe-inline' in that same list (CSP3, "does element match source list for type
+# and source": allow-all-inline returns "Does Not Allow" when a nonce is present).
+# style-src keeps 'unsafe-inline' on purpose — style="" attributes are used all over
+# the app and Turbo injects a <style> for its progress bar — so letting the nonce
+# reach it would unstyle every page at once.
+#
+# Still report-only: the header below is final, and shipping it in this disposition
+# is what lets real traffic report anything the inventory missed before it enforces.
 Rails.application.configure do
   config.content_security_policy do |policy|
     policy.default_src     :self
@@ -37,7 +41,7 @@ Rails.application.configure do
     # still closes something — an injected <form action="https://evil/">.
     policy.form_action     :self
 
-    policy.script_src      :self, :unsafe_inline
+    policy.script_src      :self
     policy.style_src       :self, :unsafe_inline
 
     # No wss: or ws: on purpose. 'self' already matches wss:// from an https page and ws://
@@ -67,5 +71,28 @@ Rails.application.configure do
   # frame-src is deliberately absent. The app embeds no iframes, so it would guard nothing
   # today, and leaving default-src to catch a future embed is what surfaces one in the
   # reports rather than letting it through unnoticed.
-  config.content_security_policy_report_only = ENV['CSP_ENFORCE'] != 'true'
+  #
+  # Report-only, unconditionally. This release ships the final header and nothing
+  # else; the whole value of the stage is that it cannot break a page, and a
+  # disposition an environment variable can flip is not that. Enforcement is the
+  # next release's single change.
+  config.content_security_policy_report_only = true
+
+  # A per-request nonce, for the inline <script> elements the app does not render
+  # itself: the jobs dashboard's import map, and Turbo's own injected scripts,
+  # both of which already look for one. Random per response rather than derived
+  # from the session: a nonce that is constant for a session is guessable from any
+  # page the holder can see, and putting the session identifier in the markup is
+  # worse than the problem it solves. Safe against caching because no HTML
+  # response here is cached.
+  config.content_security_policy_nonce_generator = ->(_request) { SecureRandom.base64(16) }
+
+  # script-src ONLY. Rails defaults this to %w[script-src style-src], and a
+  # nonce-source anywhere in a source list makes browsers ignore 'unsafe-inline'
+  # in that same list (CSP3, "does element match source list for type and
+  # source": allow-all-inline returns "Does Not Allow" when a nonce is present).
+  # style-src keeps 'unsafe-inline' because style="" attributes are used
+  # throughout the app and Turbo injects a <style> for its progress bar, so a
+  # nonce reaching this directive unstyles every page at once.
+  config.content_security_policy_nonce_directives = %w[script-src]
 end
