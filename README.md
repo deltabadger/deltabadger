@@ -120,6 +120,32 @@ For production deployments:
 - Use a reverse proxy (nginx, Traefik) for HTTPS
 - Set `APP_ROOT_URL` and `HOME_PAGE_URL` to your domain in `.env.docker`
 
+### Replacing SECRET_KEY_BASE without losing data
+
+An install that sets `ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY` and
+`ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT` keeps its stored data encrypted under those,
+not under `SECRET_KEY_BASE`. Replacing `SECRET_KEY_BASE` there ends every session and leaves
+stored data untouched — no credentials to re-enter, no two-factor to re-enrol. Password reset
+and confirmation emails already sent stop working, and your REST API and MCP tokens are
+unaffected, so revoke those separately if the old value was ever exposed.
+
+Installs created from scratch after these keys existed already have them. To check:
+
+```bash
+docker compose run --rm --no-deps deltabadger \
+  rake deltabadger:encryption:derived_keys
+```
+
+If your install does not have them yet, that command prints the two values it currently
+derives. Put both wherever this install's environment comes from, recreate the container with
+`docker compose up -d --force-recreate`, and confirm it starts and your credentials still
+read. `SECRET_KEY_BASE` is free to change from then on.
+
+If your compose file defines more than one service, set them in **every** service block. They
+share one database, and different values leave each unable to read the other's writes.
+
+Only ever set them to the values that command prints. Any others make stored data unreadable.
+
 ### Moving to a new SECRET_KEY_BASE
 
 `SECRET_KEY_BASE` is the encryption key for everything encrypted in this instance —
