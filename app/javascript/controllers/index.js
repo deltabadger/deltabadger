@@ -49,6 +49,9 @@ application.register("donut-chart", DonutChartController)
 import DropdownController from "./dropdown_controller"
 application.register("dropdown", DropdownController)
 
+import FilePickerController from "./file_picker_controller"
+application.register("file-picker", FilePickerController)
+
 import FlatpickrController from "./flatpickr_controller"
 application.register("flatpickr", FlatpickrController)
 
