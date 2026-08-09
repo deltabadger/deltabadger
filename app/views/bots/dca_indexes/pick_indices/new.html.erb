@@ -24,8 +24,9 @@
                   data-index-filter-target="tile"
                   data-index-order="<%= idx %>"
                   data-index-name="<%= index.name %>"
+                  data-index-category-id="<%= index.external_id %>"
                   data-index-description="<%= index.description %>"
-                  onclick="this.form.querySelector('#index_category_id').value='<%= j(index.external_id) %>'; this.form.querySelector('#index_name').value='<%= j(index.name) %>';">
+                  data-action="click->index-filter#select">
             <h4><%= index.name %></h4>
             <p><%= truncate(index.description, length: 150) %></p>
             <% if index.top_coins.present? %>
@@ -50,8 +51,8 @@
           </button>
         <% end %>
       <% end %>
-      <%= hidden_field_tag :index_category_id, '', id: 'index_category_id' %>
-      <%= hidden_field_tag :index_name, '', id: 'index_name' %>
+      <%= hidden_field_tag :index_category_id, '', id: 'index_category_id', data: { index_filter_target: 'categoryIdField' } %>
+      <%= hidden_field_tag :index_name, '', id: 'index_name', data: { index_filter_target: 'nameField' } %>
     <% end %>
 
     <div class="index-search__empty" data-index-filter-target="empty" style="display: none;">
