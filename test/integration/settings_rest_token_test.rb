@@ -128,4 +128,15 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
     assert_not_equal my_token_before, @user.reload.personal_api_token.token
     assert_equal other_token, other.reload.personal_api_token.token
   end
+
+  test 'the REST url and token copy through a Stimulus action, not an inline handler' do
+    get settings_connect_path
+
+    assert_response :success
+    assert_select '#rest_api_url_display[data-controller=?][data-action=?][data-clipboard-text-value=?]',
+                  'clipboard', 'click->clipboard#copy', AppConfig.api_url
+    assert_select '.tag--copy[data-controller=?][data-action=?][data-clipboard-text-value=?]',
+                  'clipboard', 'click->clipboard#copy', @user.personal_api_token.token
+    assert_select '.tag--copy[onclick]', false, 'an inline handler cannot run under the policy'
+  end
 end

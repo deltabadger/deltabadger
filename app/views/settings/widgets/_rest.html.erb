@@ -11,10 +11,10 @@
     </p>
 
     <div class="mcp-tool-permissions__group">
-      <span class="tag tag--copy" id="rest_api_url_display" data-url="<%= AppConfig.api_url %>" onclick="navigator.clipboard.writeText(this.dataset.url)" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= AppConfig.api_url&.sub(%r{\Ahttps?://}, '') %></span>
+      <span class="tag tag--copy" id="rest_api_url_display" data-controller="clipboard" data-clipboard-text-value="<%= AppConfig.api_url %>" data-action="click->clipboard#copy" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= AppConfig.api_url&.sub(%r{\Ahttps?://}, '') %></span>
       <% token = current_user.personal_api_token %>
       <div class="rest-api-token">
-        <span class="tag tag--copy" data-token="<%= token.token %>" onclick="navigator.clipboard.writeText(this.dataset.token)" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= token.token %></span>
+        <span class="tag tag--copy" data-controller="clipboard" data-clipboard-text-value="<%= token.token %>" data-action="click->clipboard#copy" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= token.token %></span>
         <%= button_to t('settings.rest.regenerate_token'),
           settings_regenerate_api_token_path,
           method: :post,

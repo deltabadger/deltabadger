@@ -41,9 +41,7 @@ class InlineJavascriptTest < ActiveSupport::TestCase
     'bots/orders/_export.html.erb',
     'layouts/application.html.erb',
     'layouts/devise.html.erb',
-    'layouts/guest.html.erb',
-    'settings/widgets/_mcp.html.erb',
-    'settings/widgets/_rest.html.erb'
+    'layouts/guest.html.erb'
   ].freeze
 
   test 'no view carries inline JavaScript beyond the recorded remainder' do

@@ -3,7 +3,7 @@
     <h4 class="modal__title"><%= t('settings.mcp.title') %></h4>
 
     <p class="text-center" style="text-wrap: balance"><%= t('settings.mcp.description') %></p>
-    <span class="tag tag--copy" id="mcp_url_display" data-url="<%= AppConfig.mcp_url %>" onclick="navigator.clipboard.writeText(this.dataset.url)" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= AppConfig.mcp_url&.sub(%r{\Ahttps?://}, '') %></span>
+    <span class="tag tag--copy" id="mcp_url_display" data-controller="clipboard" data-clipboard-text-value="<%= AppConfig.mcp_url %>" data-action="click->clipboard#copy" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= AppConfig.mcp_url&.sub(%r{\Ahttps?://}, '') %></span>
 
     <div id="mcp_tool_permissions" class="mcp-tool-permissions">
 
