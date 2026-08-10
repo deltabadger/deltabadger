@@ -144,4 +144,25 @@ class OauthConsentScreenTest < ActionDispatch::IntegrationTest
 
     assert_response :success
   end
+  # A first consent decides what a careless Approve costs. `read` stays pre-ticked: it is
+  # the baseline that makes a connected client useful, and the screen names the client
+  # asking. `tax` does not — it grants download_tax_report, export_transactions_csv and
+  # list_account_transactions, a complete financial export that nothing in the ordinary
+  # "connect a client and ask about my portfolio" flow needs. Handing that over by default
+  # to whoever the owner clicked through is the disproportionate half.
+  test 'a first consent pre-ticks read but not the financial export' do
+    authorize!
+
+    assert_response :success
+    assert_select 'input[name=?][value=?][checked]', 'granted_mcp_groups[]', 'read'
+    assert_select 'input[name=?][value=?][checked]', 'granted_mcp_groups[]', 'tax', false,
+                  'the tax group must not be granted by a single click'
+  end
+
+  test 'a first consent still pre-ticks neither trade nor control' do
+    authorize!
+
+    assert_select 'input[name=?][value=?][checked]', 'granted_mcp_groups[]', 'trade', false
+    assert_select 'input[name=?][value=?][checked]', 'granted_mcp_groups[]', 'control', false
+  end
 end

@@ -26,7 +26,13 @@
       }
       # Read and tax only look; control and trade move money and change bots, so
       # they start unticked even for a user who has them on for their own use.
-      prechecked = { 'mcp' => %w[read tax], 'api' => %w[read] }
+      # What a single Approve costs. `read` stays: it is the baseline that makes a
+      # connected client useful at all, and the screen names the client asking for it.
+      # `tax` does not — it grants download_tax_report, export_transactions_csv and
+      # list_account_transactions, a complete financial export that the ordinary "connect
+      # a client and ask about my portfolio" flow never needs. A grant that heavy should
+      # cost a deliberate tick rather than ride along with the useful one.
+      prechecked = { 'mcp' => %w[read], 'api' => %w[read] }
     %>
 
     <%= form_tag oauth_authorization_path, method: :post, id: 'consent_approve' do %>
