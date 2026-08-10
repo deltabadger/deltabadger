@@ -37,6 +37,20 @@ module Deltabadger
     config.time_zone = 'UTC'
     config.active_record.default_timezone = :utc
 
+    # ActionDispatch::RemoteIp raises IpSpoofAttackError when a request carries Client-IP and
+    # a disagreeing X-Forwarded-For. That raise happens inside Rails::Rack::Logger, which runs
+    # ABOVE the middleware that turns exceptions into responses and above Rack::Attack — so
+    # two headers on any path, from anyone, produce a 500 that no throttle can bound and no
+    # rescue_from can catch.
+    #
+    # Turning the check off costs nothing here, because nothing downstream trusts what it
+    # inspects. Rack::Attack.client_ip reads REMOTE_ADDR outright unless the deployment
+    # declares a proxy, and where one is declared the address comes from that proxy. The check
+    # does not decide either of those; all it does is decide whether to raise. Compare
+    # disabling it with the alternative of listing trusted proxies: that list changes which
+    # hops are filtered, never whether the headers are read, so it would not stop this raise.
+    config.action_dispatch.ip_spoofing_check = false
+
     # ENV carries a setting as free text, so a resolver has to rule on what a spelling meant.
     # The spellings are listed out rather than run through ActiveModel::Type::Boolean
     # because that cast has no verdict for an unrecognised value: its false list is closed,
