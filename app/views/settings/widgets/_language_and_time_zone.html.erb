@@ -38,7 +38,7 @@
           <%= f.select :time_zone, sorted_time_zone_options, { selected: current_user.time_zone }, data: { action: "change->form--submit#submit" } %>
         </div>
         <small data-controller="clock" data-clock-time-zone-value="<%= ActiveSupport::TimeZone[current_user.time_zone].tzinfo.identifier %>">
-          <%= t('settings.language_and_timezone.timezone.current_time_is') %> <b data-clock-target="timestamp"><%= Time.current.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></b>
+          <%= t('settings.language_and_timezone.current_time_is') %> <b data-clock-target="timestamp"><%= Time.current.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></b>
         </small>
       <% end %>
     <% end %>

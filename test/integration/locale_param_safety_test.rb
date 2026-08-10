@@ -52,7 +52,10 @@ class LocaleParamSafetyTest < ActionDispatch::IntegrationTest
 
     patch settings_update_locale_path, params: { user: { locale: 'zz' } }
 
-    assert_response :success
+    # 422, not the 2xx this asserted before: the rejection used to fall through to an implicit
+    # render, which answers a PATCH with 204 — indistinguishable from success to Turbo, which
+    # drops it silently. The action now says so.
+    assert_response :unprocessable_entity
     assert_equal 'en', user.reload.locale
   end
 end

@@ -20,8 +20,30 @@ class UserTest < ActiveSupport::TestCase
     user = build(:user, locale: nil)
     assert_predicate user, :valid?
 
+    # "" is still a legal thing to submit — it clears the preference — but it is normalised
+    # to nil rather than stored, so the column only ever holds a locale a reader can use.
     user.locale = ''
     assert_predicate user, :valid?
+    assert_nil user.locale
+  end
+
+  # The counterpart to the locale rule above, with the identity value each column declares:
+  # locale is nullable so "no preference" is nil; time_zone is `null: false default "UTC"`,
+  # so "no preference" is UTC itself. A wrong zone is still a wrong zone.
+  test 'no time zone preference falls back to the default' do
+    user = build(:user, time_zone: nil)
+    assert_predicate user, :valid?
+    assert_equal 'UTC', user.time_zone
+
+    user.time_zone = ''
+    assert_equal 'UTC', user.time_zone
+  end
+
+  test 'a junk time zone is rejected and not persisted' do
+    user = create(:user, time_zone: 'Warsaw')
+
+    refute user.update(time_zone: 'Mars/Olympus_Mons')
+    assert_equal 'Warsaw', user.reload.time_zone
   end
 
   test 'generates a two-factor secret when the seed was cleared' do

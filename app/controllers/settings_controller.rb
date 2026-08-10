@@ -63,18 +63,22 @@ class SettingsController < ApplicationController
   end
 
   def update_time_zone
-    return unless current_user.update(update_time_zone_params)
-
-    flash[:notice] = t('settings.language_and_timezone.timezone.updated')
-    render turbo_stream: turbo_stream_page_refresh
+    if current_user.update(update_time_zone_params)
+      flash[:notice] = t('settings.language_and_timezone.updated')
+      render turbo_stream: turbo_stream_page_refresh
+    else
+      render_preference_error
+    end
   end
 
   def update_locale
-    return unless current_user.update(update_locale_params)
-
-    flash[:notice] = I18n.t('settings.language_and_timezone.language_updated', locale: current_user.locale)
-    new_locale = current_user.locale == I18n.default_locale.to_s ? nil : current_user.locale
-    render turbo_stream: turbo_stream_redirect(settings_account_path(locale: new_locale))
+    if current_user.update(update_locale_params)
+      flash[:notice] = I18n.t('settings.language_and_timezone.language_updated', locale: current_user.locale)
+      new_locale = current_user.locale == I18n.default_locale.to_s ? nil : current_user.locale
+      render turbo_stream: turbo_stream_redirect(settings_account_path(locale: new_locale))
+    else
+      render_preference_error
+    end
   end
 
   def update_password
@@ -471,6 +475,19 @@ class SettingsController < ApplicationController
   end
 
   private
+
+  # Both preference selects offer only valid options, so a rejection means a crafted request —
+  # but the actions still have to answer one. Falling through to an implicit render answered a
+  # PATCH with 204, which Turbo drops on the floor: the picker kept the value it was sent while
+  # nothing was saved and nothing was said.
+  #
+  # messages.values rather than full_messages: the locale files translate the inclusion message
+  # but carry no activerecord.attributes.user entry for time_zone or locale, so full_messages
+  # would post an English field name into a translated flash.
+  def render_preference_error
+    flash.now[:alert] = current_user.errors.messages.values.flatten.to_sentence
+    render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+  end
 
   # The single definition of "this user is connected to this client". Both the
   # Settings list and every per-client route authorize through it, so a client can
