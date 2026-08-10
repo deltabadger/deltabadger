@@ -9,6 +9,9 @@ module Utilities
     MAX_BYTES = 5_000_000
     TIMEOUT = 5
 
+    class SizeLimitExceeded < StandardError
+    end
+
     ALLOWED_HOSTS = %w[coin-images.coingecko.com assets.coingecko.com].freeze
 
     # Content sniffed from the first bytes rather than trusted from the URL or the
@@ -53,14 +56,33 @@ module Utilities
       end
     end
 
+    # Counted while the body arrives, not after. Checking afterwards still lets a peer that
+    # answers with an unbounded stream have the whole of it buffered first, which is the
+    # allocation the cap exists to prevent — so the request is abandoned the moment the
+    # running total passes it.
     def self.fetch(url)
-      response = Faraday.new(request: { timeout: TIMEOUT, open_timeout: TIMEOUT }) do |f|
-        f.response :raise_error
-      end.get(url)
+      buffer = +''
+      overflowed = false
 
-      body = response.body.to_s
-      body.bytesize > MAX_BYTES ? nil : body
-    rescue Faraday::Error, StandardError
+      connection = Faraday.new(request: { timeout: TIMEOUT, open_timeout: TIMEOUT }) do |f|
+        f.response :raise_error
+      end
+
+      connection.get(url) do |req|
+        req.options.on_data = proc do |chunk, _overall|
+          next if overflowed
+
+          buffer << chunk
+          if buffer.bytesize > MAX_BYTES
+            overflowed = true
+            buffer.clear
+            raise SizeLimitExceeded
+          end
+        end
+      end
+
+      overflowed ? nil : buffer
+    rescue SizeLimitExceeded, Faraday::Error, StandardError
       nil
     end
 
