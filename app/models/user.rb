@@ -36,8 +36,22 @@ class User < ApplicationRecord
   validate :validate_name, if: -> { new_record? || name_changed? }
   validate :validate_email, if: -> { new_record? || email_changed? }
   validate :password_complexity, if: -> { password.present? }
-  validates :time_zone, inclusion: { in: ActiveSupport::TimeZone.all.map(&:name), allow_nil: true }
-  validates :locale, inclusion: { in: ->(_) { I18n.available_locales.map(&:to_s) } }, allow_blank: true
+  # Absent and wrong are different answers, and only the validators may speak for "wrong".
+  # Each preference column gets exactly one spelling for "no preference", and it differs
+  # because the schemas differ: locale is nullable, so nil means "use I18n's default";
+  # time_zone is `null: false default "UTC"`, so there UTC *is* the absence of a preference.
+  # Left to the validators alone the two disagreed with their own columns — a blank locale
+  # persisted and then made I18n.t(locale: "") raise InvalidLocale, and a nil time_zone got
+  # past allow_nil only to hit the NOT NULL constraint, both 500s from a crafted form post.
+  #
+  # apply_to_nil on time_zone because nil is precisely the case being caught; normalizes
+  # skips nil by default, which would leave this doing nothing. Not needed for locale,
+  # where nil is already the answer.
+  normalizes :locale, with: lambda(&:presence)
+  normalizes :time_zone, with: ->(zone) { zone.presence || 'UTC' }, apply_to_nil: true
+
+  validates :time_zone, inclusion: { in: ActiveSupport::TimeZone.all.map(&:name) }
+  validates :locale, inclusion: { in: ->(_) { I18n.available_locales.map(&:to_s) } }, allow_nil: true
 
   # Devise hands the whole attempt budget back the moment a lock ages out:
   # Devise::Models::Lockable#valid_for_authentication? opens with `unlock_access! if
@@ -309,10 +323,6 @@ class User < ApplicationRecord
   end
 
   # ------------------------------------------------------------------------
-
-  def set_default_time_zone
-    self.time_zone = 'UTC' if time_zone.blank?
-  end
 
   def validate_name
     valid_name = name =~ Regexp.new(Name::PATTERN)
