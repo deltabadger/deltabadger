@@ -40,6 +40,7 @@ da:
         api_key_permission_validation_failed: 'Kunne ikke validere API-nøgletilladelser'
         api_key_already_exists: 'En API-nøgle for %{exchange_name} findes allerede'
         withdrawal_rule_already_exists: 'En udbetalingsregel for %{asset_symbol} på %{exchange_name} findes allerede'
+        withdrawal_address_not_listed: 'Adressen står ikke på børsens liste over godkendte udbetalingsadresser'
         incorrect_api_key_permissions: 'Forkerte API-nøgletilladelser'
         unable_to_get_risk_free_rate: 'Kan ikke hente den risikofrie rente for %{risk_free_rate_name}. Data API-serveren kan ikke nås.'
         invalid_number_of_allocations: 'Ugyldigt antal allokeringer'

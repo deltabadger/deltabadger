@@ -47,6 +47,7 @@ nl:
         api_key_permission_validation_failed: 'API-sleutelmachtigingen konden niet worden gevalideerd'
         api_key_already_exists: 'Er bestaat al een API-sleutel voor %{exchange_name}'
         withdrawal_rule_already_exists: 'Er bestaat al een opnameregel voor %{asset_symbol} op %{exchange_name}'
+        withdrawal_address_not_listed: 'Dit adres staat niet op de lijst met toegestane opnameadressen van de exchange'
         incorrect_api_key_permissions: 'Onjuiste API-sleutelmachtigingen'
         unable_to_get_risk_free_rate: 'Kan de risicovrije rente voor %{risk_free_rate_name} niet ophalen. De Data API-server is niet bereikbaar.'
         invalid_number_of_allocations: 'Ongeldig aantal toewijzingen'

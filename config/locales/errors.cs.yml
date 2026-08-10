@@ -40,6 +40,7 @@ cs:
         api_key_permission_validation_failed: 'Nepodařilo se ověřit oprávnění API klíče'
         api_key_already_exists: 'API klíč pro %{exchange_name} již existuje'
         withdrawal_rule_already_exists: 'Pravidlo pro výběr %{asset_symbol} na %{exchange_name} již existuje'
+        withdrawal_address_not_listed: 'Tato adresa není na seznamu povolených adres pro výběr na burze'
         incorrect_api_key_permissions: 'Nesprávná oprávnění API klíče'
         unable_to_get_risk_free_rate: 'Nepodařilo se získat bezrizikovou sazbu pro %{risk_free_rate_name}. Server Data API je nedostupný.'
         invalid_number_of_allocations: 'Neplatný počet alokací'

@@ -47,6 +47,7 @@ pt:
         api_key_permission_validation_failed: 'Falha na validação das permissões da chave API'
         api_key_already_exists: 'Já existe uma chave API para %{exchange_name}'
         withdrawal_rule_already_exists: 'Já existe uma regra de levantamento para %{asset_symbol} na %{exchange_name}'
+        withdrawal_address_not_listed: 'Esse endereço não está na lista de endereços de saque autorizados da corretora'
         incorrect_api_key_permissions: 'Permissões de chave API incorretas'
         unable_to_get_risk_free_rate: 'Não é possível obter a taxa livre de risco para %{risk_free_rate_name}. O servidor da API de dados está inacessível.'
         invalid_number_of_allocations: 'Número de alocações inválido'

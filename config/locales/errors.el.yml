@@ -40,6 +40,7 @@ el:
         api_key_permission_validation_failed: 'Αποτυχία επαλήθευσης δικαιωμάτων κλειδιού API'
         api_key_already_exists: 'Υπάρχει ήδη κλειδί API για %{exchange_name}'
         withdrawal_rule_already_exists: 'Υπάρχει ήδη κανόνας ανάληψης για %{asset_symbol} στο %{exchange_name}'
+        withdrawal_address_not_listed: 'Αυτή η διεύθυνση δεν βρίσκεται στη λίστα εγκεκριμένων διευθύνσεων ανάληψης του ανταλλακτηρίου'
         incorrect_api_key_permissions: 'Λανθασμένα δικαιώματα κλειδιού API'
         unable_to_get_risk_free_rate: 'Αδυναμία λήψης του risk free rate για %{risk_free_rate_name}. Ο server Data API δεν ανταποκρίνεται.'
         invalid_number_of_allocations: 'Μη έγκυρος αριθμός κατανομών'
