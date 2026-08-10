@@ -138,7 +138,11 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
     @rule.network = config['network'] || @chains.find { |c| c['is_default'] }&.dig('name') || @chains.first&.dig('name')
   end
 
+  # :address is deliberately absent. The destination is settled at the address step, which
+  # is where it is checked against the exchange's own allowlist, and it travels from there
+  # in the session. Permitting it here would let a request that never visited that step name
+  # its own destination, which is exactly what this form must not decide.
   def rule_params
-    params.permit(:withdrawal_percentage, :threshold_type, :max_fee_percentage, :min_amount, :max_interval, :network, :address)
+    params.permit(:withdrawal_percentage, :threshold_type, :max_fee_percentage, :min_amount, :max_interval, :network)
   end
 end
