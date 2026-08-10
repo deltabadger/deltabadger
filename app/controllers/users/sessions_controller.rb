@@ -20,7 +20,13 @@ class Users::SessionsController < Devise::SessionsController
   end
 
   def create
-    params[:user][:password] = trim_long_password(params[:user][:password])
+    # This endpoint takes whatever an unauthenticated caller sends, and both levels are read
+    # directly below: a request with no user key, no password, or user as a scalar raised out
+    # of here rather than failing to sign in. Normalising first lets a malformed attempt fail
+    # as the failed attempt it is, which is also what keeps it inside the throttle and out of
+    # the exception log.
+    params[:user] = ActionController::Parameters.new unless params[:user].is_a?(ActionController::Parameters)
+    params[:user][:password] = trim_long_password(params[:user][:password].to_s)
     user = User.find_for_authentication(email: params[:user][:email])
 
     if user&.otp_module_enabled? && user.valid_password?(params[:user][:password])
