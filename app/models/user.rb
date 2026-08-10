@@ -268,22 +268,6 @@ class User < ApplicationRecord
     end
   end
 
-  # Devise delivers its own mail with deliver_now, inside the request that triggered it.
-  # Two of the actions that trigger it — the password reset and the confirmation resend —
-  # need no session, and the container runs a single thread (RAILS_MAX_THREADS=1), so each
-  # such request holds the only thread for as long as the SMTP peer takes to answer. Queue
-  # it instead: Solid Queue runs in-process (SOLID_QUEUE_IN_PUMA=true), so this is a handoff
-  # rather than a new dependency, and the thread goes back to serving.
-  #
-  # Queueing moves the raw token out of the call and into a job argument, which is a
-  # different exposure: ActiveJob logs its arguments, the production log level is :info, and
-  # parameter filtering does not reach positional job arguments. So argument logging is off
-  # for the delivery job — see config/initializers/action_mailer_job_logging.rb. A reset
-  # token in a log is the same token in the URL the mail carries.
-  def send_devise_notification(notification, *args)
-    devise_mailer.send(notification, self, *args).deliver_later
-  end
-
   private
 
   # ---- personal API token helpers ----------------------------------------
