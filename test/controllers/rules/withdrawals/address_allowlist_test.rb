@@ -10,6 +10,7 @@ class Rules::Withdrawals::AddressAllowlistTest < ActionDispatch::IntegrationTest
   include Devise::Test::IntegrationHelpers
 
   ALLOWED   = 'allowlisted-address'
+  SECOND    = 'second-allowlisted-address'
   ARBITRARY = 'attacker-chosen-address'
 
   setup do
@@ -32,15 +33,33 @@ class Rules::Withdrawals::AddressAllowlistTest < ActionDispatch::IntegrationTest
     assert_equal @exchange.id.to_s, session.dig('withdrawal_rule_config', 'exchange_id').to_s
   end
 
-  test 'the confirmation step does not accept an address at all' do
+  # The confirmation screen is where the destination is chosen, from a select built out of
+  # the exchange's own allowlist — so this step has to keep accepting an address, and has to
+  # check the one it is given.
+  test 'the confirmation step refuses an address the exchange does not hold' do
     post rules_withdrawals_confirm_settings_path, params: {
       address: ARBITRARY, withdrawal_percentage: 100, threshold_type: 'min_amount', min_amount: 1
     }
 
+    assert_redirected_to new_rules_withdrawals_add_address_path
+    assert_nil @user.rules.find_by(type: 'Rules::Withdrawal'),
+               'a rule must not be created for an address the exchange never listed'
+  end
+
+  # The half that a params-only fix would have broken: with several allowlisted addresses the
+  # user picks one here, and that choice has to reach the rule rather than the first default.
+  test 'the confirmation step honours the allowlisted address the user picked' do
+    Exchanges::Binance.any_instance.unstub(:list_withdrawal_addresses)
+    Exchanges::Binance.any_instance.stubs(:list_withdrawal_addresses)
+                      .returns([{ name: ALLOWED, network: 'BTC' }, { name: SECOND, network: 'BTC' }])
+
+    post rules_withdrawals_confirm_settings_path, params: {
+      address: SECOND, withdrawal_percentage: 100, threshold_type: 'min_amount', min_amount: 1
+    }
+
     rule = @user.rules.find_by(type: 'Rules::Withdrawal')
 
-    assert_not_equal ARBITRARY, rule&.address,
-                     'an address supplied to the confirmation step must be ignored'
+    assert_equal SECOND, rule&.address, 'the rule must pay out to the address that was chosen'
   end
 
   # The wizard step that does take an address has to be the one that checks it, because

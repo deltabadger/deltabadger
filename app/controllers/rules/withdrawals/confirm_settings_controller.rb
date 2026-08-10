@@ -42,6 +42,9 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
 
     @asset = Asset.find_by(id: config['asset_id'])
     @exchange = Exchange.find_by(id: config['exchange_id'])
+    @address = config['address']
+
+    return redirect_to new_rules_withdrawals_add_address_path unless allowlisted_address?(@address)
 
     existing = current_user.rules.find_by(type: 'Rules::Withdrawal', asset: @asset, exchange: @exchange)
     if existing && !existing.deleted?
@@ -138,11 +141,32 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
     @rule.network = config['network'] || @chains.find { |c| c['is_default'] }&.dig('name') || @chains.first&.dig('name')
   end
 
-  # :address is deliberately absent. The destination is settled at the address step, which
-  # is where it is checked against the exchange's own allowlist, and it travels from there
-  # in the session. Permitting it here would let a request that never visited that step name
-  # its own destination, which is exactly what this form must not decide.
+  # :address stays permitted: the confirmation screen is where the destination is chosen,
+  # from a select built out of the exchange's own allowlist (_rule_preview.html.erb), and
+  # dropping it here would pin every rule to whichever address happened to be auto-selected
+  # first. What it must not be is trusted because a screen offered it — see
+  # allowlisted_address?, which every write path now passes through.
   def rule_params
-    params.permit(:withdrawal_percentage, :threshold_type, :max_fee_percentage, :min_amount, :max_interval, :network)
+    params.permit(:withdrawal_percentage, :threshold_type, :max_fee_percentage, :min_amount, :max_interval, :network, :address)
+  end
+
+  # The membership test used to run only while preparing this screen, so it bounded what the
+  # screen offered rather than what the app accepted, and #create never called it.
+  #
+  # Fails closed. An exchange that cannot be asked has not told us this address is allowed,
+  # and on a path that moves funds that is the safe way to be wrong: a legitimate user
+  # reached this screen through a successful listing, so refusing here costs them a retry
+  # rather than a wrong destination.
+  def allowlisted_address?(address)
+    return false if address.blank? || @asset.blank? || @exchange.blank?
+
+    api_key = current_user.api_keys.find_by(exchange: @exchange, key_type: :withdrawal)
+    return false unless api_key&.correct?
+
+    @exchange.set_client(api_key: api_key)
+    addresses = @exchange.list_withdrawal_addresses(asset: @asset)
+    return false if addresses.blank?
+
+    addresses.any? { |candidate| candidate[:name] == address }
   end
 end
