@@ -39,6 +39,9 @@ module RackAttackPaths
   LOGIN       = build('/login')
   TWO_FACTOR  = build('/verify_two_factor')
   PASSWORD    = build('/password')
+  # Same shape as PASSWORD: an unauthenticated POST that makes the app send mail to an
+  # address the caller names. It was the one of the pair without a bound.
+  CONFIRMATION = build('/confirmation')
   SETUP       = build('/setup')
   # The OAuth endpoints live outside the locale scope, but still take a format suffix.
   REGISTER    = %r{\A/oauth/register#{FORMAT}\z}
@@ -126,6 +129,12 @@ Rack::Attack.throttle('users/password', limit: 5, period: 60) do |req|
   if %w[POST PATCH PUT].include?(req.request_method) && RackAttackPaths::PASSWORD.match?(RackAttackPaths.normalize(req.path))
     Rack::Attack.client_ip(req)
   end
+end
+
+# Resending a confirmation costs an SMTP round trip on the request thread of a
+# single-threaded server, to an address the caller chose.
+Rack::Attack.throttle('users/confirmation', limit: 5, period: 60) do |req|
+  Rack::Attack.client_ip(req) if req.post? && RackAttackPaths::CONFIRMATION.match?(RackAttackPaths.normalize(req.path))
 end
 
 Rack::Attack.throttle('setup', limit: 5, period: 60) do |req|

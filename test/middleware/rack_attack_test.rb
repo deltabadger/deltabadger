@@ -223,6 +223,27 @@ class RackAttackTest < ActionDispatch::IntegrationTest
     assert_response :too_many_requests
   end
 
+  # /password is throttled; /confirmation was not, and it is the same shape — an
+  # unauthenticated POST that makes the app send mail to an address the caller names.
+  test 'throttles POST /confirmation' do
+    6.times { post '/confirmation', params: { user: { email: 'a@b.test' } } }
+
+    assert_response :too_many_requests
+  end
+
+  test 'throttles POST /confirmation under a locale prefix' do
+    6.times { post '/pl/confirmation', params: { user: { email: 'a@b.test' } } }
+
+    assert_response :too_many_requests
+  end
+
+  test 'a format suffix does not bypass the confirmation throttle' do
+    3.times { post '/confirmation', params: { user: { email: 'a@b.test' } } }
+    3.times { post '/confirmation.json', params: { user: { email: 'a@b.test' } } }
+
+    assert_response :too_many_requests
+  end
+
   private
 
   def post_csp_report(path)
