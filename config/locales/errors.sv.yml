@@ -40,6 +40,7 @@ sv:
         api_key_permission_validation_failed: 'Kunde inte validera API-nyckelns behörigheter'
         api_key_already_exists: 'En API-nyckel för %{exchange_name} finns redan'
         withdrawal_rule_already_exists: 'En uttagsregel för %{asset_symbol} på %{exchange_name} finns redan'
+        withdrawal_address_not_listed: 'Adressen finns inte på börsens lista över godkända uttagsadresser'
         incorrect_api_key_permissions: 'Felaktiga API-nyckelbehörigheter'
         unable_to_get_risk_free_rate: 'Kunde inte hämta den riskfria räntan för %{risk_free_rate_name}. Data API-servern går inte att nå.'
         invalid_number_of_allocations: 'Ogiltigt antal allokeringar'

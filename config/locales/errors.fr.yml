@@ -60,6 +60,7 @@ fr:
         api_key_permission_validation_failed: 'Échec de la validation des autorisations de clé API'
         api_key_already_exists: 'Une clé API pour %{exchange_name} existe déjà'
         withdrawal_rule_already_exists: 'Une règle de retrait pour %{asset_symbol} sur %{exchange_name} existe déjà'
+        withdrawal_address_not_listed: 'Cette adresse ne figure pas dans la liste des adresses de retrait autorisées de la plateforme'
         incorrect_api_key_permissions: 'Autorisations de clé API incorrectes'
         unable_to_get_risk_free_rate: 'Impossible d''obtenir le taux sans risque pour %{risk_free_rate_name}. Le serveur de l''API de données est inaccessible.'
         invalid_number_of_allocations: 'Nombre d''allocations non valide'

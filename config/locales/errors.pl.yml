@@ -47,6 +47,7 @@ pl:
         api_key_permission_validation_failed: 'Nie udało się zweryfikować uprawnień klucza API'
         api_key_already_exists: 'Klucz API dla %{exchange_name} już istnieje'
         withdrawal_rule_already_exists: 'Reguła wypłaty dla %{asset_symbol} na %{exchange_name} już istnieje'
+        withdrawal_address_not_listed: 'Tego adresu nie ma na liście dozwolonych adresów wypłat na giełdzie'
         incorrect_api_key_permissions: 'Nieprawidłowe uprawnienia klucza API'
         unable_to_get_risk_free_rate: 'Nie można uzyskać stopy wolnej od ryzyka dla %{risk_free_rate_name}. Serwer API danych jest nieosiągalny.'
         invalid_number_of_allocations: 'Nieprawidłowa liczba alokacji'

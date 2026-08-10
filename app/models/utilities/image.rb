@@ -17,12 +17,25 @@ module Utilities
     # Content sniffed from the first bytes rather than trusted from the URL or the
     # Content-Type header, and anything unrecognised is refused — so a payload dressed as an
     # image (an MSL script, an SVG carrying an external entity) never reaches convert.
+    #
+    # SVG is deliberately absent: it is a document format that ImageMagick parses, which is
+    # the class of input this is here to keep away from it. The market data carries a handful
+    # of them, and they get no colour rather than a parser.
     MAGIC = {
       "\x89PNG\r\n\x1A\n".b => 'png',
       "\xFF\xD8\xFF".b => 'jpg',
       'GIF87a'.b => 'gif',
       'GIF89a'.b => 'gif'
     }.freeze
+
+    # WebP does not fit the prefix table: the marker sits at byte 8, after RIFF's length
+    # field. The provider already serves these, so missing it would leave those assets
+    # permanently colourless — the inference job only runs when the URL changes.
+    def self.coder_for(bytes)
+      return 'webp' if bytes.byteslice(0, 4) == 'RIFF'.b && bytes.byteslice(8, 4) == 'WEBP'.b
+
+      MAGIC.find { |magic, _| bytes.start_with?(magic) }&.last
+    end
 
     def self.allowed_source?(url)
       uri = URI.parse(url.to_s)
@@ -46,7 +59,7 @@ module Utilities
       return nil unless allowed_source?(url)
 
       bytes = fetch(url)
-      coder = bytes && MAGIC.find { |magic, _| bytes.start_with?(magic) }&.last
+      coder = bytes.present? ? coder_for(bytes) : nil
       return nil if coder.nil?
 
       Tempfile.create(['asset-image', ".#{coder}"], binmode: true) do |file|

@@ -40,6 +40,7 @@ bg:
         api_key_permission_validation_failed: 'Не можахме да проверим разрешенията на API ключа'
         api_key_already_exists: 'API ключ за %{exchange_name} вече съществува'
         withdrawal_rule_already_exists: 'Правило за теглене на %{asset_symbol} в %{exchange_name} вече съществува'
+        withdrawal_address_not_listed: 'Този адрес не е в списъка с разрешени адреси за теглене в борсата'
         incorrect_api_key_permissions: 'Неправилни разрешения на API ключа'
         unable_to_get_risk_free_rate: 'Не можахме да получим безрисковата лихва за %{risk_free_rate_name}. Сървърът Data API е недостъпен.'
         invalid_number_of_allocations: 'Невалиден брой алокации'

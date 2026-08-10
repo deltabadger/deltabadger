@@ -47,6 +47,7 @@ es:
         api_key_permission_validation_failed: 'Error al validar los permisos de la clave API'
         api_key_already_exists: 'Ya existe una clave API para %{exchange_name}'
         withdrawal_rule_already_exists: 'Ya existe una regla de retiro para %{asset_symbol} en %{exchange_name}'
+        withdrawal_address_not_listed: 'Esa dirección no está en la lista de direcciones de retiro autorizadas del exchange'
         incorrect_api_key_permissions: 'Permisos de clave API incorrectos'
         unable_to_get_risk_free_rate: 'No se puede obtener la tasa libre de riesgo para %{risk_free_rate_name}. El servidor de la API de datos no está disponible.'
         invalid_number_of_allocations: 'Número de asignaciones no válido'

@@ -40,6 +40,7 @@ sk:
         api_key_permission_validation_failed: 'Nepodarilo sa overit opravnenia API kluca'
         api_key_already_exists: 'API kluc pre %{exchange_name} uz existuje'
         withdrawal_rule_already_exists: 'Pravidlo pre vyber %{asset_symbol} na %{exchange_name} uz existuje'
+        withdrawal_address_not_listed: 'Táto adresa nie je na zozname povolených adries na výber na burze'
         incorrect_api_key_permissions: 'Nespravne opravnenia API kluca'
         unable_to_get_risk_free_rate: 'Nepodarilo sa ziskat bezrizikovu sadzbu pre %{risk_free_rate_name}. Server Data API je nedostupny.'
         invalid_number_of_allocations: 'Neplatny pocet alokacii'

@@ -16,7 +16,12 @@ class Rules::WithdrawalsController < ApplicationController
 
     if settings_params.present?
       @rule.parse_params(settings_params)
-      resolve_address_name if settings_params[:address].present?
+
+      if settings_params[:address].present? && !resolve_address_name
+        flash.now[:alert] = t('errors.withdrawal_address_not_listed')
+        return render turbo_stream: [turbo_stream_prepend_flash, turbo_stream_page_refresh], status: :unprocessable_entity
+      end
+
       unless @rule.save
         flash.now[:alert] = @rule.errors.full_messages.to_sentence
         return render turbo_stream: [turbo_stream_prepend_flash, turbo_stream_page_refresh], status: :unprocessable_entity
@@ -72,12 +77,18 @@ class Rules::WithdrawalsController < ApplicationController
     rule.exchange.list_withdrawal_addresses(asset: rule.asset)
   end
 
+  # Editing a rule is a write path for the destination just as the wizard is, so the same
+  # rule applies: an address is only acceptable if the exchange itself lists it. Returns
+  # whether it does, and fails closed — an exchange that cannot be asked has not said yes.
   def resolve_address_name
     addresses = fetch_withdrawal_addresses(@rule)
-    return unless addresses.is_a?(Array)
+    return false unless addresses.is_a?(Array)
 
     selected = addresses.find { |a| a[:name] == @rule.address }
-    @rule.address_name = selected ? selected[:key] : nil
+    return false if selected.nil?
+
+    @rule.address_name = selected[:key]
+    true
   end
 
   def update_params

@@ -47,6 +47,7 @@ de:
         api_key_permission_validation_failed: 'Überprüfung der API-Schlüsselberechtigungen fehlgeschlagen'
         api_key_already_exists: 'Ein API-Schlüssel für %{exchange_name} existiert bereits'
         withdrawal_rule_already_exists: 'Eine Auszahlungsregel für %{asset_symbol} auf %{exchange_name} existiert bereits'
+        withdrawal_address_not_listed: 'Diese Adresse steht nicht auf der Liste der freigegebenen Auszahlungsadressen der Börse'
         incorrect_api_key_permissions: 'Falsche API-Schlüsselberechtigungen'
         unable_to_get_risk_free_rate: 'Der risikofreie Zinssatz für %{risk_free_rate_name} kann nicht abgerufen werden. Daten-API-Server ist nicht erreichbar.'
         invalid_number_of_allocations: 'Ungültige Anzahl von Zuordnungen'

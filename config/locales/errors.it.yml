@@ -47,6 +47,7 @@ it:
         api_key_permission_validation_failed: 'Impossibile convalidare le autorizzazioni della chiave API'
         api_key_already_exists: 'Una chiave API per %{exchange_name} esiste già'
         withdrawal_rule_already_exists: 'Una regola di prelievo per %{asset_symbol} su %{exchange_name} esiste già'
+        withdrawal_address_not_listed: 'Questo indirizzo non è nell''elenco degli indirizzi di prelievo autorizzati dell''exchange'
         incorrect_api_key_permissions: 'Autorizzazioni della chiave API non corrette'
         unable_to_get_risk_free_rate: 'Impossibile ottenere il tasso privo di rischio per %{risk_free_rate_name}. Il server API dei dati non è raggiungibile.'
         invalid_number_of_allocations: 'Numero di allocazioni non valido'
