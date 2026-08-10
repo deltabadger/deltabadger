@@ -148,10 +148,12 @@ class Asset < ApplicationRecord
 
     return if image_url.blank?
 
-    # some images have single quotes in the url that ImageMagick doesn't like
-    parsed_image_url = image_url.gsub("'", '%27')
+    # The URL is checked, fetched and written to a local file before ImageMagick sees it —
+    # see Utilities::Image. Nothing to escape here any more: the quote-swapping this
+    # replaced only mattered while the URL itself was the argument.
+    colors = Utilities::Image.dominant_colors_from_url(image_url)
+    return if colors.blank?
 
-    colors = Utilities::Image.extract_dominant_colors(parsed_image_url)
     update!(color: Utilities::Image.most_vivid_color(colors))
   end
 

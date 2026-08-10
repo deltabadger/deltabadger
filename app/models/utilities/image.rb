@@ -1,5 +1,69 @@
 module Utilities
   module Image
+    # The image URL is a field in the market-data provider's JSON — upstream text, not
+    # something this app chose. ImageMagick treats its input argument as a specification
+    # rather than a filename: a remote URL makes IT fetch the bytes, from inside the
+    # container network, and a `coder:` prefix changes what it does with them. So the URL is
+    # checked here, the bytes are fetched with the app's own HTTP stack, and only a path on
+    # this filesystem is ever handed to convert.
+    MAX_BYTES = 5_000_000
+    TIMEOUT = 5
+
+    ALLOWED_HOSTS = %w[coin-images.coingecko.com assets.coingecko.com].freeze
+
+    # Content sniffed from the first bytes rather than trusted from the URL or the
+    # Content-Type header, and anything unrecognised is refused — so a payload dressed as an
+    # image (an MSL script, an SVG carrying an external entity) never reaches convert.
+    MAGIC = {
+      "\x89PNG\r\n\x1A\n".b => 'png',
+      "\xFF\xD8\xFF".b => 'jpg',
+      'GIF87a'.b => 'gif',
+      'GIF89a'.b => 'gif'
+    }.freeze
+
+    def self.allowed_source?(url)
+      uri = URI.parse(url.to_s)
+
+      uri.is_a?(URI::HTTPS) && uri.host.present? && allowed_hosts.include?(uri.host.downcase)
+    rescue URI::Error, ArgumentError
+      false
+    end
+
+    def self.allowed_hosts
+      configured = begin
+        URI.parse(MarketDataSettings.deltabadger_public_url.to_s).host
+      rescue URI::Error
+        nil
+      end
+
+      ALLOWED_HOSTS + [configured&.downcase].compact
+    end
+
+    def self.dominant_colors_from_url(url, quantity = 5, threshold = 0.01)
+      return nil unless allowed_source?(url)
+
+      bytes = fetch(url)
+      coder = bytes && MAGIC.find { |magic, _| bytes.start_with?(magic) }&.last
+      return nil if coder.nil?
+
+      Tempfile.create(['asset-image', ".#{coder}"], binmode: true) do |file|
+        file.write(bytes)
+        file.flush
+        extract_dominant_colors("#{coder}:#{file.path}", quantity, threshold)
+      end
+    end
+
+    def self.fetch(url)
+      response = Faraday.new(request: { timeout: TIMEOUT, open_timeout: TIMEOUT }) do |f|
+        f.response :raise_error
+      end.get(url)
+
+      body = response.body.to_s
+      body.bytesize > MAX_BYTES ? nil : body
+    rescue Faraday::Error, StandardError
+      nil
+    end
+
     def self.extract_dominant_colors(image_path, quantity = 5, threshold = 0.01)
       # Get image histogram using the convert tool
       result = MiniMagick.convert do |convert|
