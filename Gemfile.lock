@@ -8,9 +8,9 @@ GIT
 
 GIT
   remote: https://github.com/doorkeeper-gem/doorkeeper.git
-  revision: 0a676fb22f3f09a0368cd8241ff5082ba2754b1f
+  revision: 6ba1065ff6945b8319db7b165e0bc41fb22826d2
   specs:
-    doorkeeper (6.0.0.beta1)
+    doorkeeper (6.0.0.beta2)
       railties (>= 5)
 
 GIT
@@ -125,7 +125,7 @@ GEM
     bcrypt (3.1.22)
     bigdecimal (3.3.1)
     bindex (0.8.1)
-    bls12-381 (0.3.1)
+    bls12-381 (0.4.0)
       bigdecimal
       h2c (>= 0.2.1, < 0.3)
     bootsnap (1.25.0)
@@ -274,7 +274,7 @@ GEM
       actionpack (>= 6.0.0)
       activesupport (>= 6.0.0)
       railties (>= 6.0.0)
-    io-console (0.9.1)
+    io-console (0.9.2)
     irb (1.18.0)
       pp (>= 0.6.0)
       prism (>= 1.3.0)
@@ -374,7 +374,7 @@ GEM
       racc (~> 1.4)
     nokogiri (1.19.4-x86_64-linux-musl)
       racc (~> 1.4)
-    oj (3.17.5)
+    oj (3.17.6)
       bigdecimal (>= 3.0)
       ostruct (>= 0.2)
     openssl (3.3.3)
@@ -535,14 +535,14 @@ GEM
       activesupport (>= 6.1)
       sprockets (>= 3.0.0)
     sqids (0.2.2)
-    sqlite3 (2.9.5-aarch64-linux-gnu)
-    sqlite3 (2.9.5-aarch64-linux-musl)
-    sqlite3 (2.9.5-arm-linux-gnu)
-    sqlite3 (2.9.5-arm-linux-musl)
-    sqlite3 (2.9.5-arm64-darwin)
-    sqlite3 (2.9.5-x86_64-darwin)
-    sqlite3 (2.9.5-x86_64-linux-gnu)
-    sqlite3 (2.9.5-x86_64-linux-musl)
+    sqlite3 (2.9.6-aarch64-linux-gnu)
+    sqlite3 (2.9.6-aarch64-linux-musl)
+    sqlite3 (2.9.6-arm-linux-gnu)
+    sqlite3 (2.9.6-arm-linux-musl)
+    sqlite3 (2.9.6-arm64-darwin)
+    sqlite3 (2.9.6-x86_64-darwin)
+    sqlite3 (2.9.6-x86_64-linux-gnu)
+    sqlite3 (2.9.6-x86_64-linux-musl)
     state_machines (0.202.0)
     state_machines-activemodel (0.200.0)
       activemodel (>= 7.2)
@@ -681,7 +681,7 @@ CHECKSUMS
   bcrypt (3.1.22) sha256=1f0072e88c2d705d94aff7f2c5cb02eb3f1ec4b8368671e19112527489f29032
   bigdecimal (3.3.1) sha256=eaa01e228be54c4f9f53bf3cc34fe3d5e845c31963e7fcc5bedb05a4e7d52218
   bindex (0.8.1) sha256=7b1ecc9dc539ed8bccfc8cb4d2732046227b09d6f37582ff12e50a5047ceb17e
-  bls12-381 (0.3.1) sha256=d1525cd319c53f14178d54f355dfe1b4c572fbf5625965c1afccdc425b9896dc
+  bls12-381 (0.4.0) sha256=b05e35b997acc5400b226d91f8b35e8e1fd88a34966ad1ca32de66bb3d539f46
   bootsnap (1.25.0) sha256=41059e7d0f9cb4023a33465d095f64b913fc9d1b808d6524c307da945fbcffcf
   builder (3.3.0) sha256=497918d2f9dca528fdca4b88d84e4ef4387256d984b8154e9d5d3fe5a9c8835f
   bundle-audit (0.2.0) sha256=cb499708f7fbc56d2d2e8bab09a1184f8f5b548bdbd628b757e5a1856874ca12
@@ -698,7 +698,7 @@ CHECKSUMS
   date (3.5.1) sha256=750d06384d7b9c15d562c76291407d89e368dda4d4fff957eb94962d325a0dc0
   debug (1.11.1) sha256=2e0b0ac6119f2207a6f8ac7d4a73ca8eb4e440f64da0a3136c30343146e952b6
   devise (5.0.4) sha256=d605f2b85854e74e56ee789e2d398702bc2d06e6bcd894717a670a3199c74cc1
-  doorkeeper (6.0.0.beta1)
+  doorkeeper (6.0.0.beta2)
   dotenv (3.2.0) sha256=e375b83121ea7ca4ce20f214740076129ab8514cd81378161f11c03853fe619d
   dotenv-rails (3.2.0) sha256=657e25554ba622ffc95d8c4f1670286510f47f2edda9f68293c3f661b303beab
   dotiw (5.5.0) sha256=afa6ff5f2f1348c777fbb2822f34e32de758f17eb6943676fe30a60ad3493782
@@ -747,7 +747,7 @@ CHECKSUMS
   hyperliquid-rb (0.1.1) sha256=0b02b2a17bf1eb431c76804b43d3492397dd4ff8cd308df39ecaf3459cd53087
   i18n (1.15.2) sha256=00f9eb62412fe593b2a65a97daa75300d37abb8f7202ec748e94b6d46a9dd1b5
   importmap-rails (2.2.3) sha256=7101be2a4dc97cf1558fb8f573a718404c5f6bcfe94f304bf1f39e444feeb16a
-  io-console (0.9.1) sha256=34b5d65a6ed934d9d79d28c0d78ae6a547aa04fa75ba185b2996e1bd2c92d6e6
+  io-console (0.9.2) sha256=efa74f891dd03c0939a931dfc6e74c2813d904763d456ea9762b0525e748db08
   irb (1.18.0) sha256=de9454a0703a54704b9811a5ef31a60c86949fbf4013fcf244fabc7c775248e3
   jaro_winkler (1.7.0) sha256=8daa05a5cd05bf7d27c1c65caa8ab0d47c05419d80210feaa17126db24044ada
   jsbundling-rails (1.3.1) sha256=0fa03f6d051c694cbf55a022d8be53399879f2c4cf38b2968f86379c62b1c2ca
@@ -792,7 +792,7 @@ CHECKSUMS
   nokogiri (1.19.4-x86_64-darwin) sha256=7fd17057d3e1f00e9954a74b3cd76595d3d4a5ef233b7ed9599047c204f70551
   nokogiri (1.19.4-x86_64-linux-gnu) sha256=379fae440b28915e3f19d752ce2dcf8465ed2b2fbefd2a7ca0dd497bc981a06a
   nokogiri (1.19.4-x86_64-linux-musl) sha256=17dfb7c1fa194ae02fbf7c51a7afc8d278045ab3fdacfd86f91d02d7b274470b
-  oj (3.17.5) sha256=2f2150c335f53d19350394bcbb3d3d5de1a65f19963908d10c969cb27477efa2
+  oj (3.17.6) sha256=f511257e01a12030c3ceb8023cd2e96fca924ea9c741f57ea366816f1fd8e68c
   openssl (3.3.3) sha256=d46902138f2987c13122fab826030a11c2bb9b8a16394215cbfc5062c5e2d335
   orm_adapter (0.5.0) sha256=aa5d0be5d540cbb46d3a93e88061f4ece6a25f6e97d6a47122beb84fe595e9b9
   ostruct (0.6.3) sha256=95a2ed4a4bd1d190784e666b47b2d3f078e4a9efda2fccf18f84ddc6538ed912
@@ -855,14 +855,14 @@ CHECKSUMS
   sprockets (4.2.2) sha256=761e5a49f1c288704763f73139763564c845a8f856d52fba013458f8af1b59b1
   sprockets-rails (3.5.2) sha256=a9e88e6ce9f8c912d349aa5401509165ec42326baf9e942a85de4b76dbc4119e
   sqids (0.2.2) sha256=c2d31e0dfb6c32d17c10b59df059a299af93bef716d700ff70d77156df702d36
-  sqlite3 (2.9.5-aarch64-linux-gnu) sha256=78075b6337d3d182c6d2b4691049ed45cd220826160c9ea18946bf6a1de200dc
-  sqlite3 (2.9.5-aarch64-linux-musl) sha256=18c801185deb4adc01ddb281e8f672a39e3d1729979ca91e39439cd3eac0402d
-  sqlite3 (2.9.5-arm-linux-gnu) sha256=1bdfca0c7d63998c60b0f4a8e3c8df2d33800ccc4abd2d612eddbbbc92a4c48b
-  sqlite3 (2.9.5-arm-linux-musl) sha256=bae1109d12b2e9f588455967729b008e1ff4feb7761749df695019c9079913c6
-  sqlite3 (2.9.5-arm64-darwin) sha256=d0cf444a70fc9395d513cfbcc1e6719e224aa645314e3824cb0474c721425aa2
-  sqlite3 (2.9.5-x86_64-darwin) sha256=8e9caae38bd7ebb29cbeee3e7ab1d12dc2327d9a1b92c7fcf0dda05589627a81
-  sqlite3 (2.9.5-x86_64-linux-gnu) sha256=233dbcb6714148dd23bc5aeb33e8efd6eac974969564ddd5794c23d5f52b231e
-  sqlite3 (2.9.5-x86_64-linux-musl) sha256=e7d3a7474e8af0f96150c21abc203fbab5437206bfcdf11deab7741c0ca516f2
+  sqlite3 (2.9.6-aarch64-linux-gnu) sha256=d8b1f7d23efd7abac285775a9566562fc7debfef79d594e3a20354406fb7907c
+  sqlite3 (2.9.6-aarch64-linux-musl) sha256=3579e1c98cdc7ff5c3722847bb63ed4e1efb7ff675cb5e1e48ef2d4da5fb3bc9
+  sqlite3 (2.9.6-arm-linux-gnu) sha256=33541500e3615da02afe54a9cc38b17a6985d3cf9d8b76d6d0a83002f114e7ec
+  sqlite3 (2.9.6-arm-linux-musl) sha256=c5490af48bb228fefa54314e9541375c3907e70f8109f3881b5ff97e1c93ae33
+  sqlite3 (2.9.6-arm64-darwin) sha256=849b5d7f795e60fe25076d62c72dd722beb45b3850b516ad978d60ee848ec15b
+  sqlite3 (2.9.6-x86_64-darwin) sha256=b5842fea77781c14da03fa7bc0feb82db03a69e135affcb6f5399cbd2797a5f3
+  sqlite3 (2.9.6-x86_64-linux-gnu) sha256=613188ce02f614126ddbc38c5e217ccffd6306d0dcd9adca9764547aa890a634
+  sqlite3 (2.9.6-x86_64-linux-musl) sha256=d493b11818a3573387a1d56e1ee8fa00da23a683a7a1cc063e7a0feeed843abf
   state_machines (0.202.0) sha256=20db5367b4541155fc6d764f8ba54182ba6d49ceac7d917598709a61143a16e1
   state_machines-activemodel (0.200.0) sha256=c0216f5730b00ee240a6370d59138e8d5d966752089a749ae015410185ec953e
   state_machines-activerecord (0.200.0) sha256=a53a1c09b478f05be9385af59e09a7a84a818c6a66651e432bfa4650d5917d85
