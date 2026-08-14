@@ -182,7 +182,7 @@ class SettingsController < ApplicationController
       # The deltabadger radio only renders when the env feed exists; a crafted request (or a
       # hosted DB later run self-hosted) must not select a provider the container can't reach —
       # it would wedge the stocks endpoints behind their hosted 422 guard.
-      return head(:unprocessable_entity) unless MarketDataSettings.deltabadger_available?
+      return head(:unprocessable_entity) unless MarketDataSettings.deltabadger_credentials_available?
 
       AppConfig.market_data_provider = MarketDataSettings::PROVIDER_DELTABADGER
       flash.now[:notice] = t('settings.market_data.updated')

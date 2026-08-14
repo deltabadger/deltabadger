@@ -299,7 +299,7 @@ fn prepare_launch(
     }
 
     let bundled_ruby = bundled_ruby_path(&resource_dir);
-    let (app_dir, command) = if bundled_ruby.is_file() {
+    let (app_dir, command, rails_env) = if bundled_ruby.is_file() {
         let bundled_app = resource_dir.join("app");
         if !bundled_app.join("bin/rails").is_file() {
             return Err(format!(
@@ -308,17 +308,16 @@ fn prepare_launch(
             ));
         }
         log::info!("Using bundled Ruby at {:?}", bundled_ruby);
-        (bundled_app, RailsCommand::Bundled(bundled_ruby))
+        (
+            bundled_app,
+            RailsCommand::Bundled(bundled_ruby),
+            "production",
+        )
     } else {
         log::info!("Bundled Ruby not found; using the system bundle exec fallback");
-        (fallback_app_dir, RailsCommand::System)
+        (fallback_app_dir, RailsCommand::System, "development")
     };
 
-    let rails_env = if cfg!(debug_assertions) {
-        "development"
-    } else {
-        "production"
-    };
     let database_path = database_dir.join("production.sqlite3");
     let mut env = HashMap::from([
         ("RAILS_ENV".to_string(), rails_env.to_string()),
@@ -373,9 +372,11 @@ fn prepare_launch(
         ),
     ]);
 
-    // Development keeps using its existing tmp/local_secret.txt and development database.
-    // Generating independent keys there could make an existing dev database unreadable.
-    if !cfg!(debug_assertions) {
+    // The system fallback is the development loop: it keeps using its existing
+    // tmp/local_secret.txt and development database. Generating independent keys there could
+    // make an existing dev database unreadable. A bundled Ruby is production by construction,
+    // including when the desktop executable was compiled with debug assertions.
+    if rails_env == "production" {
         env.extend(setup_secrets(&app_data_dir, &database_path)?);
     }
 
@@ -737,4 +738,68 @@ pub fn run() {
                 stop_rails_server(app);
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temporary_directory(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("the system clock should be after the Unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "deltabadger-{label}-{}-{nonce}",
+            std::process::id()
+        ))
+    }
+
+    fn create_file(path: &Path) {
+        fs::create_dir_all(path.parent().expect("test file should have a parent")).unwrap();
+        fs::write(path, "").unwrap();
+    }
+
+    #[test]
+    fn bundled_ruby_launches_rails_in_production_even_in_a_debug_build() {
+        let root = temporary_directory("bundled-launch");
+        let fallback_app_dir = root.join("fallback-app");
+        let resource_dir = root.join("resources");
+        let app_data_dir = root.join("data");
+        create_file(&bundled_ruby_path(&resource_dir));
+        create_file(&resource_dir.join("app/bin/rails"));
+
+        let launch = prepare_launch(fallback_app_dir, resource_dir.clone(), app_data_dir.clone(), 3010)
+            .expect("bundled launch should be prepared");
+
+        assert!(matches!(launch.command, RailsCommand::Bundled(_)));
+        assert_eq!(launch.app_dir, resource_dir.join("app"));
+        assert_eq!(launch.env.get("RAILS_ENV").map(String::as_str), Some("production"));
+        assert_eq!(
+            launch.env.get("DATABASE_PATH").map(String::as_str),
+            Some(app_data_dir.join("db/production.sqlite3").to_string_lossy().as_ref())
+        );
+        assert!(app_data_dir.join(".secrets").is_file());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn system_bundle_fallback_keeps_the_development_environment() {
+        let root = temporary_directory("system-launch");
+        let fallback_app_dir = root.join("fallback-app");
+        let resource_dir = root.join("resources");
+        let app_data_dir = root.join("data");
+
+        let launch = prepare_launch(fallback_app_dir.clone(), resource_dir, app_data_dir.clone(), 3011)
+            .expect("system launch should be prepared");
+
+        assert!(matches!(launch.command, RailsCommand::System));
+        assert_eq!(launch.app_dir, fallback_app_dir);
+        assert_eq!(launch.env.get("RAILS_ENV").map(String::as_str), Some("development"));
+        assert!(!app_data_dir.join(".secrets").exists());
+
+        fs::remove_dir_all(root).unwrap();
+    }
 }

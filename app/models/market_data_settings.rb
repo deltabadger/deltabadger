@@ -49,6 +49,11 @@ class MarketDataSettings
     ENV['MARKET_DATA_URL'].present?
   end
 
+  def self.deltabadger_credentials_available?
+    deltabadger_available? ||
+      (AppConfig.platform_connected? && deltabadger_url.present? && deltabadger_token.present?)
+  end
+
   # Docker-internal network-alias launchpad's hosted deploy passes as MARKET_DATA_URL (see
   # deltabadger-launchpad's config/deploy.yml) — fast for server-to-server calls but never
   # browser-reachable. data-api's own public host (Kamal-proxied, Cloudflare-proxied) serves the

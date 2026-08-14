@@ -6,7 +6,27 @@ on:
       - 'v*'
 
 jobs:
+  validate-updater-key:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify updater public key
+        shell: bash
+        run: |
+          set -euo pipefail
+          pubkey=$(jq -r '.plugins.updater.pubkey // empty' src-tauri/tauri.conf.json)
+          if [ -z "$pubkey" ] || [ "$pubkey" = 'REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY' ]; then
+            echo '::error file=src-tauri/tauri.conf.json::Updater public key is not configured. Run "tauri signer generate" and replace the updater pubkey with the generated public key.'
+            exit 1
+          fi
+
   build:
+    needs: validate-updater-key
     strategy:
       fail-fast: false
       matrix:

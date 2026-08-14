@@ -76,6 +76,28 @@ class Settings::PlatformConnectionsControllerTest < ActionDispatch::IntegrationT
     assert_select "a[href='#{settings_platform_connection_path}']", text: I18n.t('settings.platform.disconnect')
   end
 
+  test 'a connected install can reselect Deltabadger with its stored claim credentials' do
+    configure_deltabadger_market_data
+    AppConfig.set('platform_connected_at', Time.current.iso8601)
+    AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
+    original_url = AppConfig.market_data_url
+    original_token = AppConfig.market_data_token
+
+    get settings_connect_path
+
+    assert_response :success
+    assert_select 'input[type=radio][name=market_data_provider][value=deltabadger]' \
+                  '[data-action="form--market-data#selectConnectedDeltabadger"]'
+
+    patch settings_update_market_data_path,
+          params: { market_data_provider: MarketDataSettings::PROVIDER_DELTABADGER }, as: :turbo_stream
+
+    assert_response :success
+    assert_equal MarketDataSettings::PROVIDER_DELTABADGER, AppConfig.market_data_provider
+    assert_equal original_url, AppConfig.market_data_url
+    assert_equal original_token, AppConfig.market_data_token
+  end
+
   test 'platform status says proxies are unavailable when the claim wrote none' do
     AppConfig.set('platform_connected_at', Time.current.iso8601)
 

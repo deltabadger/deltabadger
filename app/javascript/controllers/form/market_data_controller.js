@@ -20,6 +20,11 @@ export default class extends Controller {
     if (this.hasDeltabadgerButtonsTarget) this.deltabadgerButtonsTarget.style.display = 'flex'
   }
 
+  selectConnectedDeltabadger(event) {
+    this.#hideCoinGeckoForm()
+    this.providerFormTarget.requestSubmit()
+  }
+
   #hideCoinGeckoForm() {
     if (this.hasCoinGeckoFieldsTarget) this.coingeckoFieldsTarget.style.display = 'none'
     if (this.hasCoinGeckoButtonsTarget) this.coingeckoButtonsTarget.style.display = 'none'

@@ -7,6 +7,7 @@
     <% is_configured = MarketData.configured? %>
     <% show_coingecko_form = @show_coingecko_form || false %>
     <% show_platform_form = @show_platform_form || false %>
+    <% deltabadger_action = is_platform_connected ? 'form--market-data#selectConnectedDeltabadger' : 'form--market-data#selectDeltabadger' %>
     <h4 class="modal__title">
       <%= t('settings.index.resync_assets_section') %>:
       <% if is_configured %>
@@ -39,7 +40,7 @@
           </label>
 
           <label class="form__radio">
-            <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_DELTABADGER, is_deltabadger_configured || show_platform_form, data: { action: "form--market-data#selectDeltabadger" } %>
+            <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_DELTABADGER, is_deltabadger_configured || show_platform_form, data: { action: deltabadger_action } %>
             <span><%= t('settings.platform.option') %></span>
           </label>
         <% end %>
