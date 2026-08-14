@@ -77,11 +77,29 @@ module MCPToolTestHelper
   end
 end
 
+module MarketDataTestHelper
+  def configure_deltabadger_market_data
+    AppConfig.market_data_provider = MarketDataSettings::PROVIDER_DELTABADGER
+    AppConfig.market_data_url = 'https://market-data.example.com'
+    AppConfig.market_data_token = 'test_market_data_token'
+  end
+
+  def clear_market_data_configuration
+    keys = [
+      AppConfig::MARKET_DATA_PROVIDER,
+      AppConfig::MARKET_DATA_URL,
+      AppConfig::MARKET_DATA_TOKEN
+    ]
+    AppConfig.where(key: keys).delete_all
+  end
+end
+
 module ActiveSupport
   class TestCase
     include FactoryBot::Syntax::Methods
     include ExchangeMockHelpers
     include MCPToolTestHelper
+    include MarketDataTestHelper
 
     # Run tests in parallel with specified workers
     parallelize(workers: :number_of_processors)

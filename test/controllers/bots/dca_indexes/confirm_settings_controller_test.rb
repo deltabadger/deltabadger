@@ -9,7 +9,7 @@ class Bots::DcaIndexes::ConfirmSettingsControllerTest < ActionDispatch::Integrat
   setup do
     @user = create(:user, admin: true, setup_completed: true)
     sign_in @user
-    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
+    configure_deltabadger_market_data
     @kraken = create(:kraken_exchange)
   end
 

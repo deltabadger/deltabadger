@@ -53,7 +53,7 @@ class WizardSessionExpiredTest < ActionDispatch::IntegrationTest
   end
 
   test 'index pick_spendable_assets cold create turbo-redirects to root' do
-    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
+    configure_deltabadger_market_data
     post bots_dca_indexes_pick_spendable_asset_path,
          params: { bots_dca_index: { quote_asset_id: @usd.id } }
     assert_turbo_redirect_to_root

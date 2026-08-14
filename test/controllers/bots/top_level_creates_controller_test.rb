@@ -124,7 +124,7 @@ class Bots::DcaIndexesControllerTest < ActionController::TestCase
   include TopLevelCreateBehavior
 
   setup do
-    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
+    configure_deltabadger_market_data
   end
 
   private

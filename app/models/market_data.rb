@@ -37,11 +37,12 @@ class MarketData
   end
 
   def self.client
-    @client = nil if @client_url != MarketDataSettings.deltabadger_url
-    @client_url = MarketDataSettings.deltabadger_url
+    configuration = [MarketDataSettings.deltabadger_url, MarketDataSettings.deltabadger_token]
+    @client = nil if @client_configuration != configuration
+    @client_configuration = configuration
     @client ||= Clients::MarketData.new(
-      url: MarketDataSettings.deltabadger_url,
-      token: MarketDataSettings.deltabadger_token
+      url: configuration.first,
+      token: configuration.last
     )
   end
 

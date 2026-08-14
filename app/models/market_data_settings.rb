@@ -10,8 +10,23 @@ class MarketDataSettings
     AppConfig.market_data_provider
   end
 
+  # A DB-selected deltabadger provider with no credentials behind it is the stale-hosted-DB
+  # case: a container database carried over to a self-hosted install, still claiming a feed it
+  # can no longer reach. Reporting it as configured sends every caller into a Result::Failure
+  # instead of the CoinGecko setup step.
+  #
+  # Scoped to the non-ENV path on purpose. When MARKET_DATA_URL is injected the container is
+  # hosted and this is not a question worth re-deciding — widening the check there would flip
+  # a token-less tenant from "401s from the feed" to "back through the setup wizard", which is
+  # a fleet-wide behavior change this does not need to make.
   def self.configured?
+    return deltabadger_url.present? && deltabadger_token.present? if db_selected_deltabadger?
+
     current_provider.present?
+  end
+
+  def self.db_selected_deltabadger?
+    !deltabadger_available? && current_provider == PROVIDER_DELTABADGER
   end
 
   def self.coingecko?

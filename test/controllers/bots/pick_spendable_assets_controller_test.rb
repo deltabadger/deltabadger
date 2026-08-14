@@ -122,7 +122,7 @@ class Bots::DcaIndexes::PickSpendableAssetsControllerTest < ActionDispatch::Inte
   setup do
     @user = create(:user, admin: true, setup_completed: true)
     sign_in @user
-    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
+    configure_deltabadger_market_data
     @eur = create(:asset, :eur)
     @kraken = create(:kraken_exchange)
     btc = create(:asset, :bitcoin)
@@ -154,7 +154,7 @@ class Bots::DcaIndexes::PickSpendableAssetsControllerTest < ActionDispatch::Inte
   end
 
   test 'new redirects to coingecko setup when market data is not configured' do
-    MarketDataSettings.unstub(:current_provider)
+    clear_market_data_configuration
     get new_bots_dca_indexes_pick_spendable_asset_path
     assert_redirected_to new_bots_dca_indexes_setup_coingecko_path
   end

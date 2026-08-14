@@ -31,6 +31,29 @@ class MarketDataSettingsTest < ActiveSupport::TestCase
     refute MarketDataSettings.configured?
   end
 
+  test 'a stale db deltabadger provider with blank credentials is not configured' do
+    ENV.delete('MARKET_DATA_URL')
+    AppConfig.market_data_provider = MarketDataSettings::PROVIDER_DELTABADGER
+    AppConfig.market_data_url = ''
+    AppConfig.market_data_token = ''
+
+    assert MarketDataSettings.deltabadger?
+    refute MarketDataSettings.configured?
+    refute MarketData.configured?
+  end
+
+  test 'a complete claimed db deltabadger configuration is configured and keeps its public URL' do
+    ENV.delete('MARKET_DATA_URL')
+    AppConfig.market_data_provider = MarketDataSettings::PROVIDER_DELTABADGER
+    AppConfig.market_data_url = 'https://market-data.example.com'
+    AppConfig.market_data_token = 'dbi_token'
+
+    assert MarketDataSettings.deltabadger?
+    assert MarketDataSettings.configured?
+    assert MarketData.configured?
+    assert_equal 'https://market-data.example.com', MarketDataSettings.deltabadger_public_url
+  end
+
   test 'deltabadger_public_url swaps the Docker-internal host for the public one' do
     ENV['MARKET_DATA_URL'] = 'http://data-api:3000'
 
