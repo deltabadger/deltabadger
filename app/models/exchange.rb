@@ -126,6 +126,13 @@ class Exchange < ApplicationRecord
     Result::Success.new(result.data[asset_id])
   end
 
+  # What an account can actually spend, which is not always its settled balance — margin venues
+  # let a bot spend against borrowed buying power. Takes an already-fetched balance hash, so
+  # asking costs no extra network read. Overridden by the venues where the two differ.
+  def spendable_balance(balance, tickers: nil)
+    balance[:free]
+  end
+
   def get_last_price(ticker:, force: false)
     raise NotImplementedError, "#{self.class.name} must implement get_last_price"
   end

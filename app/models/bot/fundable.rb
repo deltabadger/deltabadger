@@ -24,8 +24,9 @@ module Bot::Fundable
     result = get_balance(asset_id: quote_asset_id)
     return false if result.failure?
 
-    quote_balance = result.data
-    quote_balance[:free] < required_balance_buffer
+    # Not the settled balance: on a margin venue a bot spends buying power, and which figure
+    # applies depends on what it trades, so the exchange picks.
+    exchange.spendable_balance(result.data, tickers: tickers) < required_balance_buffer
   end
 
   private

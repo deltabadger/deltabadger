@@ -422,6 +422,74 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_equal 10.to_d, result.data[aapl.id][:free]
   end
 
+  # == get_balances spend figures (margin: cash is not what the venue checks) ==
+
+  test 'get_balances reports settled cash as free and carries both buying-power figures' do
+    usd = usd_with_ticker
+
+    Clients::Alpaca.any_instance.stubs(:get_account).returns(
+      Result::Success.new({ 'cash' => '0.0', 'buying_power' => '5000.0',
+                            'non_marginable_buying_power' => '250.0' })
+    )
+    Clients::Alpaca.any_instance.stubs(:get_positions).returns(Result::Success.new([]))
+
+    result = with_dry_run(false) { @exchange.get_balances(asset_ids: [usd.id]) }
+    assert_predicate result, :success?
+
+    balance = result.data[usd.id]
+    # :free stays cash — AccountBalance::Sync values the portfolio from it, and buying power is
+    # borrowed money, not a holding.
+    assert_equal 0.to_d, balance[:free]
+    assert_equal 5000.to_d, balance[:buying_power]
+    assert_equal 250.to_d, balance[:non_marginable_buying_power]
+  end
+
+  # nil.to_d is 0, so a plain .to_d would turn an absent field into a hard zero and make every
+  # account look broke. Absence has to survive as nil for #spendable_balance to fall back.
+  test 'get_balances leaves an omitted buying-power field nil rather than zero' do
+    usd = usd_with_ticker
+
+    Clients::Alpaca.any_instance.stubs(:get_account).returns(Result::Success.new({ 'cash' => '100.0' }))
+    Clients::Alpaca.any_instance.stubs(:get_positions).returns(Result::Success.new([]))
+
+    result = with_dry_run(false) { @exchange.get_balances(asset_ids: [usd.id]) }
+    assert_predicate result, :success?
+
+    balance = result.data[usd.id]
+    assert_equal 100.to_d, balance[:free]
+    assert_nil balance[:buying_power]
+    assert_nil balance[:non_marginable_buying_power]
+  end
+
+  # == spendable_balance ==
+
+  test 'spendable_balance returns buying power for a stock ticker' do
+    aapl = create(:asset, external_id: 'alpaca_uuid-aapl2', symbol: 'AAPL', category: 'Stock')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: usd, ticker: 'AAPL')
+    balance = { free: 0.to_d, buying_power: 5000.to_d, non_marginable_buying_power: 0.to_d }
+
+    assert_equal 5000.to_d, @exchange.spendable_balance(balance, tickers: [ticker])
+  end
+
+  test 'spendable_balance returns non-marginable buying power for a crypto ticker' do
+    btc = create(:asset, :bitcoin)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd, ticker: 'BTC/USD')
+    balance = { free: 0.to_d, buying_power: 5000.to_d, non_marginable_buying_power: 250.to_d }
+
+    assert_equal 250.to_d, @exchange.spendable_balance(balance, tickers: [ticker])
+  end
+
+  test 'spendable_balance falls back to free when the figure it wants is absent' do
+    btc = create(:asset, :bitcoin)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd, ticker: 'BTC/USD')
+    balance = { free: 100.to_d, buying_power: 5000.to_d }
+
+    assert_equal 100.to_d, @exchange.spendable_balance(balance, tickers: [ticker])
+  end
+
   test 'fetch_withdrawal_fees! returns empty success' do
     result = @exchange.fetch_withdrawal_fees!
     assert_predicate result, :success?
@@ -525,6 +593,15 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
   def trading_key!(key: 'mk', secret: 'ms', passphrase: 'paper', status: :correct)
     create(:api_key, exchange: @exchange, key_type: :trading, status: status,
                      raw_key: key, raw_secret: secret, raw_passphrase: passphrase)
+  end
+
+  # USD resolves through a ticker's quote side (Exchange#asset_from_symbol), so the balance
+  # branch only runs when the exchange has one.
+  def usd_with_ticker
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    base = create(:asset, external_id: 'alpaca_uuid-msft', symbol: 'MSFT', category: 'Stock')
+    create(:ticker, exchange: @exchange, base_asset: base, quote_asset: usd, ticker: 'MSFT')
+    usd
   end
 
   test 'get_tickers_prices authenticates with a resolved trading key when no client was set' do

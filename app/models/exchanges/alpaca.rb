@@ -94,6 +94,21 @@ class Exchanges::Alpaca < Exchange
     clock['is_open'] == true
   end
 
+  # Margin accounts run settled cash at or below zero by design; buying power is what Alpaca
+  # checks when an order lands, so cash alone false-alarms every margin user.
+  #
+  # ponytail: all_crypto? is approximate — non-marginable equities aren't flagged in our catalog,
+  # DcaIndex#tickers is every quote-matching ticker rather than the bot's allocations, and a mixed
+  # dual bot has both. All three then resolve to :buying_power, i.e. a missed warning, never the
+  # false alarm this fixes. any_crypto? would invert that and keep false-alarming index bots.
+  # Upgrade path: persist Alpaca's `marginable` flag on Ticker/ExchangeAsset (it's venue metadata)
+  # and give bots a funding_tickers that reports real allocations.
+  def spendable_balance(balance, tickers: nil)
+    # Crypto is non-marginable at Alpaca — it spends settled cash, not stock-backed leverage.
+    key = all_crypto?(tickers) ? :non_marginable_buying_power : :buying_power
+    balance[key] || balance[:free]
+  end
+
   def next_market_open_at(tickers: nil)
     return Time.current if all_crypto?(tickers)
 
@@ -212,11 +227,19 @@ class Exchanges::Alpaca < Exchange
       [asset_id, { free: 0, locked: 0 }]
     end
 
-    # USD cash
+    # USD cash. :free stays settled cash — AccountBalance::Sync values the portfolio from it, and
+    # buying power is borrowed, not owned. The spend figures ride along for #spendable_balance.
+    # &.to_d, not .to_d: nil.to_d is 0, which would turn an absent field into a hard zero and make
+    # every account look broke.
     usd_asset = asset_from_symbol('USD')
     if usd_asset && asset_ids.include?(usd_asset.id)
-      cash = account_result.data['cash'].to_d
-      balances[usd_asset.id] = { free: cash, locked: 0 }
+      account = account_result.data
+      balances[usd_asset.id] = {
+        free: account['cash'].to_d,
+        locked: 0,
+        buying_power: account['buying_power']&.to_d,
+        non_marginable_buying_power: account['non_marginable_buying_power']&.to_d
+      }
     end
 
     # Positions. Stocks resolve via the existing bare-symbol map (position symbol ==
