@@ -31,7 +31,7 @@ class Exchanges::Hyperliquid < Exchange
     @client = Honeymaker.client('hyperliquid',
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
-                                proxy: ENV['PROXY_HYPERLIQUID'])
+                                proxy: ExchangeProxy.for('hyperliquid'))
   end
 
   def get_tickers_info(force: false)
@@ -299,7 +299,7 @@ class Exchanges::Hyperliquid < Exchange
     result = Honeymaker.client('hyperliquid',
                                api_key: api_key.key,
                                api_secret: api_key.secret,
-                               proxy: ENV['PROXY_HYPERLIQUID']).validate(:trading)
+                               proxy: ExchangeProxy.for('hyperliquid')).validate(:trading)
     Result::Success.new(result.success?)
   rescue StandardError
     # Network errors, etc. — don't fail the validation
@@ -316,7 +316,8 @@ class Exchanges::Hyperliquid < Exchange
   end
 
   def get_ledger(api_key:, start_time: nil)
-    hm_client = Honeymaker.client('hyperliquid', api_key: api_key.key, api_secret: api_key.secret)
+    hm_client = Honeymaker.client('hyperliquid', api_key: api_key.key, api_secret: api_key.secret,
+                                                 proxy: ExchangeProxy.for('hyperliquid'))
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 

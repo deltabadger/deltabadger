@@ -3,7 +3,7 @@ require 'test_helper'
 # Characterization tests for the fetch_withdrawal_fees! scaffold shared by the
 # authenticated-client exchanges (Binance, Binance.US, BingX, Bitrue, Bybit):
 # fee_api_key blank-guard, Honeymaker.client construction (name string, key,
-# secret, PROXY_* env var), failure passthrough, parse + fee update.
+# secret, resolved exchange proxy), failure passthrough, parse + fee update.
 # The other implementations (public-endpoint clients, Kraken's memoized client,
 # the empty stubs) are covered in exchange_withdrawal_fees_test.rb or untouched.
 class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
@@ -26,11 +26,11 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
     ENV[key] = old
   end
 
-  def stub_fee_client(name, proxy_env, endpoint, result)
+  def stub_fee_client(name, proxy, endpoint, result)
     hm_client = mock('honeymaker_client')
     hm_client.stubs(endpoint).returns(result)
     Honeymaker.expects(:client)
-              .with(name, api_key: 'fee_key', api_secret: 'fee_secret', proxy: ENV[proxy_env])
+              .with(name, api_key: 'fee_key', api_secret: 'fee_secret', proxy: proxy)
               .returns(hm_client)
   end
 
@@ -67,7 +67,7 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
     FeeApiKey.create!(exchange: exchange, key: 'fee_key', secret: 'fee_secret')
 
     with_env('PROXY_BINANCE', 'http://uk-proxy.test:8100') do
-      stub_fee_client('binance', 'PROXY_BINANCE', :get_all_coins_information,
+      stub_fee_client('binance', 'http://uk-proxy.test:8100', :get_all_coins_information,
                       Result::Success.new(binance_style_payload(asset.symbol)))
 
       result = exchange.fetch_withdrawal_fees!
@@ -88,7 +88,7 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
     failure = Result::Failure.new('boom')
 
     with_env('PROXY_BINANCE', 'http://uk-proxy.test:8100') do
-      stub_fee_client('binance', 'PROXY_BINANCE', :get_all_coins_information, failure)
+      stub_fee_client('binance', 'http://uk-proxy.test:8100', :get_all_coins_information, failure)
 
       result = exchange.fetch_withdrawal_fees!
 
@@ -106,7 +106,7 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
     ea.update!(withdrawal_chains: [{ 'name' => 'OLD', 'fee' => '1', 'is_default' => true }])
 
     with_env('PROXY_BINANCE_US', 'http://uk-proxy.test:8100') do
-      stub_fee_client('binance_us', 'PROXY_BINANCE_US', :get_all_coins_information,
+      stub_fee_client('binance_us', 'http://uk-proxy.test:8100', :get_all_coins_information,
                       Result::Success.new(binance_style_payload(asset.symbol)))
 
       result = exchange.fetch_withdrawal_fees!
@@ -127,7 +127,7 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
     payload = { 'data' => binance_style_payload(asset.symbol) }
 
     with_env('PROXY_BINGX', 'http://uk-proxy.test:8100') do
-      stub_fee_client('bingx', 'PROXY_BINGX', :get_all_coins_info,
+      stub_fee_client('bingx', 'http://uk-proxy.test:8100', :get_all_coins_info,
                       Result::Success.new(payload))
 
       result = exchange.fetch_withdrawal_fees!
@@ -146,7 +146,7 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
     FeeApiKey.create!(exchange: exchange, key: 'fee_key', secret: 'fee_secret')
 
     with_env('PROXY_BITRUE', 'http://uk-proxy.test:8100') do
-      stub_fee_client('bitrue', 'PROXY_BITRUE', :get_all_coins_information,
+      stub_fee_client('bitrue', 'http://uk-proxy.test:8100', :get_all_coins_information,
                       Result::Success.new(binance_style_payload(asset.symbol)))
 
       result = exchange.fetch_withdrawal_fees!
@@ -178,7 +178,7 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
     }
 
     with_env('PROXY_BYBIT', 'http://uk-proxy.test:8100') do
-      stub_fee_client('bybit', 'PROXY_BYBIT', :get_coin_query_info,
+      stub_fee_client('bybit', 'http://uk-proxy.test:8100', :get_coin_query_info,
                       Result::Success.new(payload))
 
       result = exchange.fetch_withdrawal_fees!

@@ -22,7 +22,7 @@ class Exchanges::Gemini < Exchange
     @client = Honeymaker.client('gemini',
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
-                                proxy: ENV['PROXY_GEMINI'])
+                                proxy: ExchangeProxy.for('gemini'))
   end
 
   def get_tickers_info(force: false)
@@ -263,7 +263,7 @@ class Exchanges::Gemini < Exchange
     temp_client = Honeymaker.client('gemini',
                                     api_key: api_key.key,
                                     api_secret: api_key.secret,
-                                    proxy: ENV['PROXY_GEMINI'])
+                                    proxy: ExchangeProxy.for('gemini'))
 
     result = if api_key.withdrawal?
                temp_client.get_balances
@@ -350,7 +350,8 @@ class Exchanges::Gemini < Exchange
   end
 
   def get_ledger(api_key:, start_time: nil)
-    hm_client = Honeymaker.client('gemini', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_GEMINI'])
+    hm_client = Honeymaker.client('gemini', api_key: api_key.key, api_secret: api_key.secret,
+                                            proxy: ExchangeProxy.for('gemini'))
     ts_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 

@@ -31,7 +31,7 @@ class Exchanges::Kucoin < Exchange
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
                                 passphrase: api_key&.passphrase,
-                                proxy: ENV['PROXY_KUCOIN'])
+                                proxy: ExchangeProxy.for('kucoin'))
   end
 
   def get_tickers_info(force: false)
@@ -306,7 +306,7 @@ class Exchanges::Kucoin < Exchange
                                     api_key: api_key.key,
                                     api_secret: api_key.secret,
                                     passphrase: api_key.passphrase,
-                                    proxy: ENV['PROXY_KUCOIN'])
+                                    proxy: ExchangeProxy.for('kucoin'))
 
     result = if api_key.withdrawal?
                temp_client.get_accounts(type: 'trade')
@@ -344,7 +344,7 @@ class Exchanges::Kucoin < Exchange
     # Use provided network or determine the default chain
     chain_name = network
     if chain_name.blank?
-      currencies_result = Honeymaker.client('kucoin', proxy: ENV['PROXY_KUCOIN']).get_currencies
+      currencies_result = Honeymaker.client('kucoin', proxy: ExchangeProxy.for('kucoin')).get_currencies
       return currencies_result if currencies_result.failure?
 
       coin_data = Array(currencies_result.data['data']).find { |c| c['currency'] == symbol }
@@ -364,7 +364,7 @@ class Exchanges::Kucoin < Exchange
   end
 
   def fetch_withdrawal_fees!
-    result = Honeymaker.client('kucoin', proxy: ENV['PROXY_KUCOIN']).get_currencies
+    result = Honeymaker.client('kucoin', proxy: ExchangeProxy.for('kucoin')).get_currencies
     return result if result.failure?
 
     fees = {}
@@ -386,7 +386,7 @@ class Exchanges::Kucoin < Exchange
 
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('kucoin', api_key: api_key.key, api_secret: api_key.secret,
-                                            passphrase: api_key.passphrase, proxy: ENV['PROXY_KUCOIN'])
+                                            passphrase: api_key.passphrase, proxy: ExchangeProxy.for('kucoin'))
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 

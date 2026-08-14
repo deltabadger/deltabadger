@@ -34,7 +34,7 @@ class Exchanges::Bitrue < Exchange
     @client = Honeymaker.client('bitrue',
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
-                                proxy: ENV['PROXY_BITRUE'])
+                                proxy: ExchangeProxy.for('bitrue'))
   end
 
   def get_tickers_info(force: false)
@@ -300,7 +300,7 @@ class Exchanges::Bitrue < Exchange
     result = Honeymaker.client('bitrue',
                                api_key: api_key.key,
                                api_secret: api_key.secret,
-                               proxy: ENV['PROXY_BITRUE']).account_information
+                               proxy: ExchangeProxy.for('bitrue')).account_information
 
     if result.success?
       valid = api_key.withdrawal? || result.data['canTrade'] == true
@@ -378,7 +378,8 @@ class Exchanges::Bitrue < Exchange
   end
 
   def get_ledger(api_key:, start_time: nil)
-    hm_client = Honeymaker.client('bitrue', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_BITRUE'])
+    hm_client = Honeymaker.client('bitrue', api_key: api_key.key, api_secret: api_key.secret,
+                                            proxy: ExchangeProxy.for('bitrue'))
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 

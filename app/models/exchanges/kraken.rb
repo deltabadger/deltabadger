@@ -74,7 +74,7 @@ class Exchanges::Kraken < Exchange
     @client = Honeymaker.client('kraken',
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
-                                proxy: ENV['PROXY_KRAKEN'])
+                                proxy: ExchangeProxy.for('kraken'))
   end
 
   def get_tickers_info(force: false)
@@ -402,7 +402,7 @@ class Exchanges::Kraken < Exchange
     temp_client = Honeymaker.client('kraken',
                                     api_key: api_key.key,
                                     api_secret: api_key.secret,
-                                    proxy: ENV['PROXY_KRAKEN'])
+                                    proxy: ExchangeProxy.for('kraken'))
 
     result = if api_key.withdrawal?
                temp_client.get_extended_balance
@@ -529,7 +529,7 @@ class Exchanges::Kraken < Exchange
     hm_client = Honeymaker.client('kraken',
                                   api_key: api_key.key,
                                   api_secret: api_key.secret,
-                                  proxy: ENV['PROXY_KRAKEN'])
+                                  proxy: ExchangeProxy.for('kraken'))
     start_unix = start_time&.to_i
     entries = []
 

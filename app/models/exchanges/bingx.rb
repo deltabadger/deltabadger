@@ -36,7 +36,7 @@ class Exchanges::Bingx < Exchange
     @client = Honeymaker.client('bingx',
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
-                                proxy: ENV['PROXY_BINGX'])
+                                proxy: ExchangeProxy.for('bingx'))
   end
 
   def get_tickers_info(force: false)
@@ -314,7 +314,7 @@ class Exchanges::Bingx < Exchange
     temp_client = Honeymaker.client('bingx',
                                     api_key: api_key.key,
                                     api_secret: api_key.secret,
-                                    proxy: ENV['PROXY_BINGX'])
+                                    proxy: ExchangeProxy.for('bingx'))
 
     result = if api_key.withdrawal?
                temp_client.get_raw_balances
@@ -396,7 +396,8 @@ class Exchanges::Bingx < Exchange
   end
 
   def get_ledger(api_key:, start_time: nil)
-    hm_client = Honeymaker.client('bingx', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_BINGX'])
+    hm_client = Honeymaker.client('bingx', api_key: api_key.key, api_secret: api_key.secret,
+                                           proxy: ExchangeProxy.for('bingx'))
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 

@@ -14,7 +14,7 @@ class Exchanges::BinanceUs < Exchanges::Binance
     @client = Honeymaker.client('binance_us',
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
-                                proxy: ENV['PROXY_BINANCE_US'])
+                                proxy: ExchangeProxy.for('binance_us'))
   end
 
   def fetch_withdrawal_fees!
@@ -40,7 +40,7 @@ class Exchanges::BinanceUs < Exchanges::Binance
     result = Honeymaker.client('binance_us',
                                api_key: api_key.key,
                                api_secret: api_key.secret,
-                               proxy: ENV['PROXY_BINANCE_US']).api_description
+                               proxy: ExchangeProxy.for('binance_us')).api_description
 
     if result.success?
       common_checks = result.data['ipRestrict'] == true &&
