@@ -87,5 +87,4 @@ namespace :release do
     # starts its native builds, and it publishes only after both arches finish.
     system("git push origin v#{version}") || abort('git tag push failed')
   end
-
 end
