@@ -12,6 +12,8 @@ use tauri::{
     tray::TrayIconBuilder,
     ActivationPolicy, Manager, WebviewUrl, WebviewWindowBuilder,
 };
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+use tauri_plugin_updater::UpdaterExt;
 
 const RAILS_PORT: u16 = 3000;
 const RAILS_HOST: &str = "127.0.0.1";
@@ -462,12 +464,65 @@ fn stop_rails_server<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     let _ = child.wait();
 }
 
+async fn check_for_updates(app: tauri::AppHandle) -> Result<(), String> {
+    let Some(update) = app
+        .updater()
+        .map_err(|error| format!("Failed to initialize updater: {error}"))?
+        .check()
+        .await
+        .map_err(|error| format!("Failed to check for updates: {error}"))?
+    else {
+        log::info!("Deltabadger is up to date");
+        return Ok(());
+    };
+
+    let version = update.version.clone();
+    let (answer, answered) = tokio::sync::oneshot::channel();
+    app.dialog()
+        .message(format!(
+            "Deltabadger {version} is available. Install it now and restart?"
+        ))
+        .title("Update available")
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Install and restart".to_string(),
+            "Later".to_string(),
+        ))
+        .show(move |install| {
+            let _ = answer.send(install);
+        });
+
+    if !answered
+        .await
+        .map_err(|error| format!("Update prompt was closed unexpectedly: {error}"))?
+    {
+        log::info!("Update {version} deferred by the user");
+        return Ok(());
+    }
+
+    log::info!("Downloading and installing update {version}");
+    update
+        .download_and_install(
+            |chunk_length, content_length| {
+                log::debug!(
+                    "Downloaded {chunk_length} update bytes (total size: {content_length:?})"
+                );
+            },
+            || log::info!("Update download finished"),
+        )
+        .await
+        .map_err(|error| format!("Failed to install update {version}: {error}"))?;
+
+    log::info!("Update {version} installed; restarting");
+    app.restart();
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(RailsServer(Mutex::new(None)))
         .setup(|app| {
             // Set up logging in debug mode
@@ -619,6 +674,17 @@ pub fn run() {
                     log::error!("Failed to start Rails server: {}", e);
                     return Err(e.into());
                 }
+            }
+
+            // Packaged apps check after startup so development never contacts the
+            // production update endpoint or requires a real updater public key.
+            if !cfg!(debug_assertions) {
+                let app_handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = check_for_updates(app_handle).await {
+                        log::error!("{error}");
+                    }
+                });
             }
 
             Ok(())

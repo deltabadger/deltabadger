@@ -62,9 +62,8 @@ namespace :release do
 
     update_files(old_version, new_version)
     commit_tag_push(new_version)
-    create_github_release(new_version)
 
-    puts "\nReleased v#{new_version}"
+    puts "\nPushed v#{new_version}; GitHub Actions is creating the release and desktop artifacts"
   end
 
   def update_files(_old_version, new_version)
@@ -84,11 +83,9 @@ namespace :release do
     system('git push origin main') || abort('git push failed')
     system('git push origin main:nightly') || abort('git push to nightly failed')
     system("git tag -s v#{version} -m 'v#{version}'") || abort('git tag failed')
+    # desktop-release.yml is the sole GitHub release creator. The tag push
+    # starts its native builds, and it publishes only after both arches finish.
     system("git push origin v#{version}") || abort('git tag push failed')
   end
 
-  def create_github_release(version)
-    tag = "v#{version}"
-    system("gh release create #{tag} --title #{tag} --generate-notes") || abort('gh release create failed')
-  end
 end
