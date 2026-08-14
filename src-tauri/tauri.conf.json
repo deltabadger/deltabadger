@@ -5,7 +5,7 @@
   "identifier": "com.deltabadger.app",
   "build": {
     "beforeDevCommand": "",
-    "beforeBuildCommand": "npm run build && bundle exec rails assets:precompile"
+    "beforeBuildCommand": "./scripts/bundle_desktop.sh"
   },
   "app": {
     "windows": [],
@@ -29,9 +29,11 @@
       "minimumSystemVersion": "10.15",
       "infoPlist": "Info.plist"
     },
-    "resources": [
-      "icons/tray-icon.png"
-    ],
+    "resources": {
+      "../_bundle/app": "app",
+      "../_bundle/ruby": "ruby",
+      "icons/tray-icon.png": "icons/tray-icon.png"
+    },
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"
