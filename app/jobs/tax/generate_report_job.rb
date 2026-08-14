@@ -18,7 +18,7 @@ class Tax::GenerateReportJob < ApplicationJob
       end
     end
 
-    file_path = tax_report_path(user_id, country, year)
+    file_path = AppPaths.tax_report(user_id, country, year)
     FileUtils.mkdir_p(File.dirname(file_path))
     File.write(file_path, csv_data)
 
@@ -39,10 +39,6 @@ class Tax::GenerateReportJob < ApplicationJob
   end
 
   private
-
-  def tax_report_path(user_id, country, year)
-    Rails.root.join('tmp', 'tax_reports', "#{user_id}_#{country}_#{year}.csv").to_s
-  end
 
   def broadcast_progress(user_id, percent)
     Turbo::StreamsChannel.broadcast_replace_to(

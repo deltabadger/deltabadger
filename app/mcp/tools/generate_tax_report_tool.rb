@@ -20,7 +20,7 @@ class GenerateTaxReportTool < ApplicationMCPTool
       return
     end
 
-    file_path = Rails.root.join('tmp', 'tax_reports', "#{current_user.id}_#{country}_#{year.to_i}.csv")
+    file_path = AppPaths.tax_report(current_user.id, country, year.to_i)
     if File.exist?(file_path)
       render text: "A tax report for #{jurisdiction[:name]} (#{year.to_i}) is already available. " \
                    "Use 'download_tax_report' to retrieve it, or 'generate_tax_report' again after downloading."

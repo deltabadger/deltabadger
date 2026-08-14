@@ -102,7 +102,7 @@ class TrackerController < ApplicationController
   def download_tax_report
     country = params[:country]
     year = params[:year].to_i
-    file_path = Rails.root.join('tmp', 'tax_reports', "#{current_user.id}_#{country}_#{year}.csv")
+    file_path = AppPaths.tax_report(current_user.id, country, year)
 
     if File.exist?(file_path)
       csv_data = File.read(file_path)
@@ -147,7 +147,7 @@ class TrackerController < ApplicationController
     year = settings['year']
     return unless country && year
 
-    file_path = Rails.root.join('tmp', 'tax_reports', "#{current_user.id}_#{country}_#{year}.csv")
+    file_path = AppPaths.tax_report(current_user.id, country, year)
     return unless File.exist?(file_path)
 
     # File exists — report finished while user was away. Set flag for auto-download.

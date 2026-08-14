@@ -1,0 +1,13 @@
+# frozen_string_literal: true
+
+class AppPaths
+  class << self
+    def tmp
+      ENV['APP_TMP_DIR'].presence || Rails.root.join('tmp')
+    end
+
+    def tax_report(user_id, country, year)
+      Pathname(tmp).join('tax_reports', "#{user_id}_#{country}_#{year}.csv")
+    end
+  end
+end
