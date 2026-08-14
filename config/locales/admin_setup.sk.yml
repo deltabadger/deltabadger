@@ -2,6 +2,11 @@ sk:
   setup:
     title: "Vitajte v Deltabadger"
     admin_account: "Administrátorský účet"
+    platform:
+      prompt: "Máte predplatné Deltabadger.com?"
+      code: "Kód pripojenia"
+      connect: "Pripojiť"
+      connected: "Pripojené ✓ — trhové dáta a proxy servery búrz sú aktívne"
     validations:
       name_required: "Meno je povinné"
       email_required: "E-mail je povinný"

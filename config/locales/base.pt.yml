@@ -144,6 +144,13 @@ pt:
             deltabadger_configured: 'Conectado a %{provider_name} para dados de mercado em tempo real.'
             disconnect: 'Desconectar'
             disconnected: 'Fornecedor de dados de mercado desconectado.'
+        platform:
+            option: 'Deltabadger.com — cole o código de ligação'
+            code: 'Código de ligação'
+            connect: 'Ligar'
+            connected: 'Ligado ao Deltabadger.com para obter dados de mercado e usar proxies das bolsas.'
+            disconnect: 'Desligar'
+            disconnected: 'Deltabadger.com desligado.'
         email_notifications:
             none: 'Nenhum'
             smtp_host: 'Servidor SMTP'

@@ -146,6 +146,13 @@ bg:
             deltabadger_configured: 'Свързано с %{provider_name} за актуални пазарни данни.'
             disconnect: 'Прекъсни'
             disconnected: 'Доставчикът на пазарни данни е прекъснат.'
+        platform:
+            option: 'Deltabadger.com — поставете кода за свързване'
+            code: 'Код за свързване'
+            connect: 'Свързване'
+            connected: 'Deltabadger.com е свързан за пазарни данни и прокси сървъри за борсите.'
+            disconnect: 'Прекъсване'
+            disconnected: 'Връзката с Deltabadger.com е прекъсната.'
         stocks:
             title: 'Акции'
             title_html: 'Акции (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'

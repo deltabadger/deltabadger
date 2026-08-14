@@ -147,6 +147,13 @@ sk:
             deltabadger_configured: 'Pripojené k %{provider_name} pre aktuálne trhové dáta.'
             disconnect: 'Odpojiť'
             disconnected: 'Poskytovateľ trhových dát bol odpojený.'
+        platform:
+            option: 'Deltabadger.com — vložte kód pripojenia'
+            code: 'Kód pripojenia'
+            connect: 'Pripojiť'
+            connected: 'Pripojené k Deltabadger.com pre trhové dáta a proxy servery búrz.'
+            disconnect: 'Odpojiť'
+            disconnected: 'Deltabadger.com bol odpojený.'
         stocks:
             title: 'Akcie'
             title_html: 'Akcie (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'

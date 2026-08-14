@@ -2,6 +2,11 @@ da:
   setup:
     title: "Velkommen til Deltabadger"
     admin_account: "Administratorkonto"
+    platform:
+      prompt: "Har du et Deltabadger.com-abonnement?"
+      code: "Forbindelseskode"
+      connect: "Opret forbindelse"
+      connected: "Forbundet ✓ — markedsdata og børsproxyer er aktive"
     validations:
       name_required: "Navn er påkrævet"
       email_required: "E-mail er påkrævet"

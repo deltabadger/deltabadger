@@ -2,6 +2,11 @@ el:
   setup:
     title: "Καλωσήρθες στο Deltabadger"
     admin_account: "Λογαριασμός διαχειριστή"
+    platform:
+      prompt: "Έχετε συνδρομή στο Deltabadger.com;"
+      code: "Κωδικός σύνδεσης"
+      connect: "Σύνδεση"
+      connected: "Συνδέθηκε ✓ — τα δεδομένα αγοράς και οι διακομιστές μεσολάβησης των ανταλλακτηρίων είναι ενεργά"
     validations:
       name_required: "Το όνομα είναι υποχρεωτικό"
       email_required: "Το email είναι υποχρεωτικό"

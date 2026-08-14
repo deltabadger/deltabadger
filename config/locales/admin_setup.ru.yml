@@ -2,6 +2,11 @@ ru:
   setup:
     title: "Добро пожаловать в Deltabadger"
     admin_account: "Учетная запись администратора"
+    platform:
+      prompt: "У вас есть подписка Deltabadger.com?"
+      code: "Код подключения"
+      connect: "Подключить"
+      connected: "Подключено ✓ — рыночные данные и прокси бирж активны"
     validations:
       name_required: "Имя обязательно"
       email_required: "E-mail обязателен"

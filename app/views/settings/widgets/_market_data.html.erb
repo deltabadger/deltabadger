@@ -1,8 +1,11 @@
 <%= turbo_frame_tag "market_data_settings" do %>
-  <div class="widget widget--settings">
+  <div class="widget widget--settings" data-controller="form--market-data">
     <% is_coingecko_configured = MarketDataSettings.coingecko? %>
     <% is_deltabadger_configured = MarketDataSettings.deltabadger? %>
+    <% is_deltabadger_available = MarketDataSettings.deltabadger_available? %>
     <% is_configured = MarketData.configured? %>
+    <% show_coingecko_form = @show_coingecko_form || false %>
+    <% show_platform_form = @show_platform_form || false %>
     <h4 class="modal__title">
       <%= t('settings.index.resync_assets_section') %>:
       <% if is_configured %>
@@ -13,12 +16,11 @@
     </h4>
 
     <%= form_with url: settings_update_market_data_path, method: :patch, data: {
-      controller: "form--market-data",
+      form__market_data_target: "providerForm",
       turbo_frame: "market_data_settings"
     } do |f| %>
-      <% show_coingecko_form = @show_coingecko_form || false %>
       <div class="form__radios" style="display: flex; justify-content: center;">
-        <% if MarketDataSettings.deltabadger_available? %>
+        <% if is_deltabadger_available %>
           <%# Platform-provided market data is available. Lock to it — no other choices, no toggling. %>
           <label class="form__radio">
             <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_DELTABADGER, true, disabled: true %>
@@ -26,7 +28,7 @@
           </label>
         <% else %>
           <label class="form__radio">
-            <%= radio_button_tag :market_data_provider, '', !is_configured && !show_coingecko_form, data: { action: "form--market-data#selectNone" } %>
+            <%= radio_button_tag :market_data_provider, '', !is_configured && !show_coingecko_form && !show_platform_form, data: { action: "form--market-data#selectNone" } %>
             <span><%= t('settings.market_data.none') %></span>
           </label>
 
@@ -34,19 +36,33 @@
             <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_COINGECKO, is_coingecko_configured || show_coingecko_form, data: { action: "form--market-data#selectCoinGecko" } %>
             <span>CoinGecko</span>
           </label>
+
+          <label class="form__radio">
+            <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_DELTABADGER, is_deltabadger_configured || show_platform_form, data: { action: "form--market-data#selectDeltabadger" } %>
+            <span><%= t('settings.platform.option') %></span>
+          </label>
         <% end %>
       </div>
 
-      <% if MarketDataSettings.deltabadger_available? %>
+      <% if is_deltabadger_available %>
         <%# Platform provider is the only option; no further UI needed — the
             green ON indicator already reflects the active state via
             MarketDataSettings.current_provider. %>
+      <% elsif is_deltabadger_configured %>
+        <p style="text-align: center; margin-top: 3rem"><%= t('settings.platform.connected') %></p>
+        <div class="setting-form">
+          <%= link_to t('settings.platform.disconnect'), settings_platform_connection_path,
+                      data: { turbo_method: :delete, turbo_frame: "market_data_settings" },
+                      class: "button button--danger", style: "margin-top: 0" %>
+        </div>
       <% elsif is_coingecko_configured %>
         <%# CoinGecko configured: show status and actions %>
-        <p style="text-align: center; margin-top: 3rem"><%= t('settings.market_data.coingecko_configured') %></p>
-        <div class="setting-form">
-          <%= button_to t('settings.resync_assets.button'), settings_resync_assets_path, method: :post, class: "button button--outline", data: { turbo_frame: "_top" } %>
-          <%= link_to t('settings.market_data.disconnect'), settings_disconnect_market_data_path, data: { turbo_method: :delete, turbo_frame: "market_data_settings" }, class: "button button--danger", style: "margin-top: 0" %>
+        <div data-form--market-data-target="coingeckoFields">
+          <p style="text-align: center; margin-top: 3rem"><%= t('settings.market_data.coingecko_configured') %></p>
+          <div class="setting-form">
+            <%= button_to t('settings.resync_assets.button'), settings_resync_assets_path, method: :post, class: "button button--outline", data: { turbo_frame: "_top" } %>
+            <%= link_to t('settings.market_data.disconnect'), settings_disconnect_market_data_path, data: { turbo_method: :delete, turbo_frame: "market_data_settings" }, class: "button button--danger", style: "margin-top: 0" %>
+          </div>
         </div>
       <% elsif AppConfig.coingecko_api_key.present? %>
         <%# CoinGecko key exists but not active provider - include hidden field for auto-submit %>
@@ -68,8 +84,26 @@
           <%= f.submit t('setup.submit'), class: "button button--success", style: "margin-top: 0" %>
         </div>
       <% end %>
+    <% end %>
 
-      <%# API provider: no additional UI needed — green ON indicator is sufficient %>
+    <% unless is_deltabadger_available || is_deltabadger_configured %>
+      <div class="setting-form" data-form--market-data-target="deltabadgerButtons"
+           style="display: <%= show_platform_form ? 'flex' : 'none' %>; margin-top: 2rem;">
+        <%= form_with url: settings_platform_connection_path, method: :post,
+                      class: 'setting-form', data: { turbo_frame: 'market_data_settings',
+                                                    controller: 'form--html5-validations form--label-animations' } do |form| %>
+          <% if @platform_errors.present? %>
+            <div class="form__info form__info--alert" role="alert"><%= @platform_errors.to_sentence %></div>
+          <% end %>
+
+          <div class="form__row form__row--input">
+            <%= text_field_tag :claim_code, nil, class: 'form__input', required: true, autocomplete: 'off' %>
+            <%= label_tag :claim_code, t('settings.platform.code'), class: 'form__label' %>
+          </div>
+
+          <%= form.submit t('settings.platform.connect'), class: 'button button--success', style: 'margin-top: 0' %>
+        <% end %>
+      </div>
     <% end %>
   </div>
 <% end %>

@@ -2,6 +2,11 @@ nl:
   setup:
     title: "Welkom bij Deltabadger"
     admin_account: "Beheerdersaccount"
+    platform:
+      prompt: "Heb je een Deltabadger.com-abonnement?"
+      code: "Verbindingscode"
+      connect: "Verbinden"
+      connected: "Verbonden ✓ — marktgegevens en beursproxy's zijn actief"
     validations:
       name_required: "Naam is verplicht"
       email_required: "E-mail is verplicht"

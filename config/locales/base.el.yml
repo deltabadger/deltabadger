@@ -146,6 +146,13 @@ el:
             deltabadger_configured: 'Συνδεδεμένο στο %{provider_name} για ζωντανά δεδομένα αγοράς.'
             disconnect: 'Αποσύνδεση'
             disconnected: 'Ο πάροχος δεδομένων αγοράς αποσυνδέθηκε.'
+        platform:
+            option: 'Deltabadger.com — επικολλήστε τον κωδικό σύνδεσης'
+            code: 'Κωδικός σύνδεσης'
+            connect: 'Σύνδεση'
+            connected: 'Συνδεθήκατε στο Deltabadger.com για δεδομένα αγοράς και διακομιστές μεσολάβησης ανταλλακτηρίων.'
+            disconnect: 'Αποσύνδεση'
+            disconnected: 'Το Deltabadger.com αποσυνδέθηκε.'
         stocks:
             title: 'Μετοχές'
             title_html: 'Μετοχές (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'

@@ -1,0 +1,26 @@
+<%= turbo_frame_tag 'setup_platform_connection', style: 'width: 100%;' do %>
+  <% if connected %>
+    <p class="form__info form__info--notice" style="text-align: center;"><%= t('setup.platform.connected') %></p>
+  <% else %>
+    <%= tag.details open: (true if errors.present?) do %>
+      <summary><%= t('setup.platform.prompt') %></summary>
+
+      <%= form_with url: setup_platform_connection_path, method: :post,
+                    style: 'min-height: auto; margin-top: 2rem;',
+                    data: { turbo_frame: 'setup_platform_connection',
+                            controller: 'form--html5-validations form--label-animations' } do |form| %>
+        <% if errors.present? %>
+          <div class="form__info form__info--alert" role="alert"><%= errors.to_sentence %></div>
+        <% end %>
+
+        <div class="form__row form__row--input">
+          <%= text_field_tag :claim_code, nil, class: 'form__input form__input--large', required: true,
+                                              autocomplete: 'off' %>
+          <%= label_tag :claim_code, t('setup.platform.code'), class: 'form__label' %>
+        </div>
+
+        <%= form.submit t('setup.platform.connect'), class: 'button button--success button--large' %>
+      <% end %>
+    <% end %>
+  <% end %>
+<% end %>

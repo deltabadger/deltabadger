@@ -2,6 +2,11 @@ it:
   setup:
     title: "Benvenuto in Deltabadger"
     admin_account: "Account amministratore"
+    platform:
+      prompt: "Hai un abbonamento Deltabadger.com?"
+      code: "Codice di connessione"
+      connect: "Connetti"
+      connected: "Connesso ✓ — i dati di mercato e i proxy degli exchange sono attivi"
     validations:
       name_required: "Il nome è obbligatorio"
       email_required: "L'e-mail è obbligatoria"

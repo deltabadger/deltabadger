@@ -2,22 +2,22 @@ import { Controller } from "@hotwired/stimulus"
 
 // Connects to data-controller="form--market-data"
 export default class extends Controller {
-  static targets = ["coingeckoFields", "coingeckoButtons", "deltabadgerButtons"]
+  static targets = ["providerForm", "coingeckoFields", "coingeckoButtons", "deltabadgerButtons"]
 
   selectNone(event) {
     this.#hideCoinGeckoForm()
     this.#hideDeltabadgerButtons()
-    this.element.requestSubmit()
+    this.providerFormTarget.requestSubmit()
   }
 
   selectCoinGecko(event) {
     this.#hideDeltabadgerButtons()
-    this.element.requestSubmit()
+    this.providerFormTarget.requestSubmit()
   }
 
   selectDeltabadger(event) {
     this.#hideCoinGeckoForm()
-    this.element.requestSubmit()
+    if (this.hasDeltabadgerButtonsTarget) this.deltabadgerButtonsTarget.style.display = 'flex'
   }
 
   #hideCoinGeckoForm() {

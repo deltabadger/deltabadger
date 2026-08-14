@@ -2,6 +2,11 @@ cs:
   setup:
     title: "Vítejte v Deltabadger"
     admin_account: "Administrátorský účet"
+    platform:
+      prompt: "Máte předplatné Deltabadger.com?"
+      code: "Připojovací kód"
+      connect: "Připojit"
+      connected: "Připojeno ✓ — tržní data a proxy servery burz jsou aktivní"
     validations:
       name_required: "Jméno je povinné"
       email_required: "E-mail je povinný"
