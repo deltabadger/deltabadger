@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use std::fs::{self, File, OpenOptions};
-use std::io::{Read, Write};
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
@@ -82,9 +82,8 @@ fn nonblank_environment_value(name: &str) -> Option<String> {
 
 fn random_hex(byte_count: usize) -> Result<String, String> {
     let mut bytes = vec![0_u8; byte_count];
-    File::open("/dev/urandom")
-        .and_then(|mut source| source.read_exact(&mut bytes))
-        .map_err(|error| format!("Failed to read secure random bytes: {error}"))?;
+    getrandom::fill(&mut bytes)
+        .map_err(|error| format!("Failed to generate secure random bytes: {error}"))?;
 
     let mut encoded = String::with_capacity(byte_count * 2);
     for byte in bytes {
@@ -92,6 +91,31 @@ fn random_hex(byte_count: usize) -> Result<String, String> {
         write!(&mut encoded, "{byte:02x}").expect("writing to a String cannot fail");
     }
     Ok(encoded)
+}
+
+#[cfg(windows)]
+fn bundled_ruby_path(resource_dir: &Path) -> PathBuf {
+    resource_dir.join("ruby").join("bin").join("rubyw.exe")
+}
+
+#[cfg(not(windows))]
+fn bundled_ruby_path(resource_dir: &Path) -> PathBuf {
+    resource_dir.join("ruby/bin/ruby")
+}
+
+#[cfg(windows)]
+fn desktop_app_data_dir(_default: PathBuf) -> Result<PathBuf, String> {
+    std::env::var_os("APPDATA")
+        .filter(|value| !value.is_empty())
+        .map(|value| PathBuf::from(value).join("Deltabadger"))
+        .ok_or_else(|| {
+            "APPDATA is not set; cannot resolve the Deltabadger data directory".to_string()
+        })
+}
+
+#[cfg(not(windows))]
+fn desktop_app_data_dir(default: PathBuf) -> Result<PathBuf, String> {
+    Ok(default)
 }
 
 #[cfg(unix)]
@@ -274,7 +298,7 @@ fn prepare_launch(
         })?;
     }
 
-    let bundled_ruby = resource_dir.join("ruby/bin/ruby");
+    let bundled_ruby = bundled_ruby_path(&resource_dir);
     let (app_dir, command) = if bundled_ruby.is_file() {
         let bundled_app = resource_dir.join("app");
         if !bundled_app.join("bin/rails").is_file() {
@@ -565,10 +589,11 @@ pub fn run() {
                 .path()
                 .resource_dir()
                 .map_err(|error| format!("Failed to resolve resource directory: {error}"))?;
-            let app_data_dir = app
+            let default_app_data_dir = app
                 .path()
                 .app_data_dir()
                 .map_err(|error| format!("Failed to resolve app data directory: {error}"))?;
+            let app_data_dir = desktop_app_data_dir(default_app_data_dir)?;
             let launch = prepare_launch(app_dir, resource_dir, app_data_dir, port)?;
             log::info!("App directory: {:?}", launch.app_dir);
 

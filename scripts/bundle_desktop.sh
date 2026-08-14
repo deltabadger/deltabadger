@@ -36,7 +36,7 @@ esac
 [ "$host_arch" = "$target_arch" ] || fail \
   "cannot build $target_arch on $host_arch: rbsecp256k1 is compiled for the build host"
 
-for command_name in file install_name_tool lipo npm otool python3 rsync ruby-build; do
+for command_name in file install_name_tool lipo npm otool python3 ruby ruby-build; do
   require_command "$command_name"
 done
 
@@ -58,45 +58,9 @@ echo "Building frontend assets..."
 # _bundle is generated output. Rebuild it from scratch so stale gems or assets
 # cannot leak from an earlier architecture/build.
 rm -rf "$bundle_dir"
-mkdir -p "$app_dir"
 
 echo "Copying the Rails application..."
-rsync -a \
-  --exclude='/.bundle/' \
-  --exclude='/.claude/' \
-  --exclude='/.cursor/' \
-  --exclude='/.desktop-ruby-cache/' \
-  --exclude='/.git/' \
-  --exclude='/.github/' \
-  --exclude='/.ruby-lsp/' \
-  --exclude='/.vscode/' \
-  --exclude='/_bundle/' \
-  --exclude='/coverage/' \
-  --exclude='/docs/' \
-  --exclude='/graphify-out/' \
-  --exclude='/log/' \
-  --exclude='/node_modules/' \
-  --exclude='/public/assets/' \
-  --exclude='/spec/' \
-  --exclude='/src-tauri/' \
-  --exclude='/storage/' \
-  --exclude='/test/' \
-  --exclude='/tmp/' \
-  --exclude='/vendor/' \
-  --exclude='.env*' \
-  --exclude='*.sqlite3*' \
-  --exclude='config/master.key' \
-  --exclude='config/credentials/*.key' \
-  --exclude='config/credentials.yml.enc' \
-  --exclude='migrated_legacy_accounts.txt' \
-  --exclude='not_migrated_optin.csv' \
-  "$repo_dir/" "$app_dir/"
-
-# Rails reads the desktop version from this file at boot. Keep only the file it
-# needs rather than copying Rust sources and build artifacts into app resources.
-mkdir -p "$app_dir/src-tauri" "$app_dir/log" "$app_dir/storage" \
-  "$app_dir/tmp/cache" "$app_dir/tmp/pids"
-cp "$repo_dir/src-tauri/Cargo.toml" "$app_dir/src-tauri/Cargo.toml"
+ruby "$repo_dir/scripts/copy_desktop_app.rb" "$repo_dir" "$app_dir"
 
 echo "Building relocatable Ruby $RUBY_VERSION for $target_arch..."
 RUBY_CONFIGURE_OPTS="${RUBY_CONFIGURE_OPTS:-} --enable-load-relative" \
