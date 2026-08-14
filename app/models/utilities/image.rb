@@ -127,6 +127,12 @@ module Utilities
         .select { |r| r[0] > threshold }
         .map { |r| r[1][0..6] }
         .slice(0, quantity)
+    rescue StandardError => e
+      # Desktop bundles deliberately do not carry ImageMagick's large executable/module/
+      # delegate tree. Colour inference is cosmetic, so a missing or unusable convert
+      # command must not abort the asset sync that discovered the image.
+      Rails.logger.warn("Image colour extraction unavailable: #{e.class}: #{e.message}")
+      nil
     end
 
     def self.most_vivid_color(hex_colors)
