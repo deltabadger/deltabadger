@@ -204,6 +204,7 @@ sv:
         every_time: "varje gång"
         name: "Namn:"
         fees: "Avgifter"
+        hyperliquid_trading_unavailable: "Det går ännu inte att lägga order på Hyperliquid i Windows. Saldon och transaktionshistorik fungerar fortfarande."
         maker_fee: "Maker"
         taker_fee: "Taker"
         withdrawal_fee: "Uttag"

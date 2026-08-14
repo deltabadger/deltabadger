@@ -75,4 +75,21 @@ class Bots::DcaSingleAssets::PickExchangesControllerTest < ActionDispatch::Integ
     follow_redirect!
     assert_not_equal new_bots_dca_single_assets_pick_buyable_asset_path, request.path
   end
+
+  test 'exchange picker disables Hyperliquid ordering with an explanation when its trading gem is unavailable' do
+    btc = create(:asset, :bitcoin)
+    usd = create(:asset, :usd)
+    hyperliquid = create(:hyperliquid_exchange)
+    create(:ticker, :btc_usd, exchange: hyperliquid, base_asset: btc, quote_asset: usd)
+    Exchanges::Hyperliquid.any_instance.stubs(:order_placement_available?).returns(false)
+
+    get new_bots_dca_single_assets_pick_buyable_asset_path
+    post bots_dca_single_assets_pick_buyable_asset_path,
+         params: { bots_dca_single_asset: { base_asset_id: btc.id } }
+    get new_bots_dca_single_assets_pick_exchange_path
+
+    assert_response :success
+    assert_select "button.exchange-grid__item[value='#{hyperliquid.id}'][disabled]"
+    assert_select '.exchange-grid__unavailable-note', text: I18n.t('bot.hyperliquid_trading_unavailable')
+  end
 end

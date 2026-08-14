@@ -82,6 +82,12 @@ class Exchange < ApplicationRecord
     type.in?(STOCK_TYPES)
   end
 
+  # Some exchange adapters have an optional write-side dependency. Read APIs remain useful when
+  # that dependency is not part of this installation, so callers gate only order placement.
+  def order_placement_available?
+    true
+  end
+
   include Synchronizer
   include CandleBuilder
 

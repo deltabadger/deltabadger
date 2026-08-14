@@ -204,6 +204,7 @@ bg:
         every_time: "всеки път"
         name: "Име:"
         fees: "Такси"
+        hyperliquid_trading_unavailable: "Поставянето на поръчки в Hyperliquid все още не е достъпно под Windows. Балансите и историята на транзакциите продължават да работят."
         maker_fee: "Maker"
         taker_fee: "Taker"
         withdrawal_fee: "Теглене"

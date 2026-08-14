@@ -204,6 +204,7 @@ da:
         every_time: "hver gang"
         name: "Navn:"
         fees: "Gebyrer"
+        hyperliquid_trading_unavailable: "Det er endnu ikke muligt at afgive ordrer på Hyperliquid i Windows. Saldi og transaktionshistorik fungerer stadig."
         maker_fee: "Maker"
         taker_fee: "Taker"
         withdrawal_fee: "Udbetaling"

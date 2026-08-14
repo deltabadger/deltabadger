@@ -186,6 +186,7 @@ it:
         every_time: "ogni volta"
         name: "Nome:"
         fees: "Commissioni"
+        hyperliquid_trading_unavailable: "L’inserimento di ordini su Hyperliquid non è ancora disponibile su Windows. I saldi e la cronologia delle transazioni continuano a funzionare."
         maker_fee: "Maker"
         taker_fee: "Taker"
         withdrawal_fee: "Prelievo"

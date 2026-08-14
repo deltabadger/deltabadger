@@ -9,6 +9,8 @@ class Exchanges::Hyperliquid < Exchange
   # for spot, at most (SPOT_MAX_DECIMALS - szDecimals) decimal places.
   SIGNIFICANT_FIGURES = 5
   SPOT_MAX_DECIMALS   = 8
+  ORDER_PLACEMENT_AVAILABLE = Gem.loaded_specs.key?('hyperliquid-rb')
+  ORDER_PLACEMENT_UNAVAILABLE_ERROR = 'Hyperliquid order placement is not available on this installation'.freeze
 
   include Exchange::Dryable
 
@@ -24,6 +26,13 @@ class Exchanges::Hyperliquid < Exchange
 
   def supports_withdrawal?
     false
+  end
+
+  # Bundler activates specifications without loading their feature files. This distinguishes an
+  # installed hyperliquid-rb (whose Hyperliquid constant is still intentionally undefined) from
+  # the Windows bundle, where the conditional Gemfile entry is absent altogether.
+  def order_placement_available?
+    ORDER_PLACEMENT_AVAILABLE
   end
 
   def set_client(api_key: nil)
@@ -288,6 +297,8 @@ class Exchanges::Hyperliquid < Exchange
   end
 
   def cancel_order(order_id:)
+    return Result::Failure.new(ORDER_PLACEMENT_UNAVAILABLE_ERROR) unless order_placement_available?
+
     coin, oid = parse_order_id(order_id)
     result = client.cancel(coin: "#{coin}/USDC", oid: oid.to_i)
     return result if result.failure?
@@ -386,6 +397,8 @@ class Exchanges::Hyperliquid < Exchange
   end
 
   def set_limit_order(ticker:, amount:, amount_type:, side:, price:)
+    return Result::Failure.new(ORDER_PLACEMENT_UNAVAILABLE_ERROR) unless order_placement_available?
+
     amount = ticker.adjusted_amount(amount:, amount_type:)
     price = ticker.adjusted_price(price:)
     return Result::Failure.new('Hyperliquid order failed: limit price must be positive') unless price.positive?
