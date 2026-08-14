@@ -6,7 +6,8 @@ en:
       prompt: "Have a Deltabadger.com subscription?"
       code: "Connect code"
       connect: "Connect"
-      connected: "Connected ✓ — market data and exchange proxies active"
+      connected_with_proxies: "Connected ✓ — market data and exchange proxies active"
+      connected_without_proxies: "Connected ✓ — market data active; exchange proxies unavailable"
     validations:
       name_required: "Name is required"
       email_required: "Email is required"

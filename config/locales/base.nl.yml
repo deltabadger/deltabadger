@@ -149,7 +149,8 @@ nl:
             option: 'Deltabadger.com — plak de verbindingscode'
             code: 'Verbindingscode'
             connect: 'Verbinden'
-            connected: "Verbonden met Deltabadger.com voor marktgegevens en beursproxy's."
+            connected_with_proxies: "Verbonden met Deltabadger.com voor marktgegevens en beursproxy's."
+            connected_without_proxies: "Verbonden met Deltabadger.com voor marktgegevens. Beursproxy's zijn niet beschikbaar."
             disconnect: 'Ontkoppelen'
             disconnected: 'Deltabadger.com is ontkoppeld.'
         email_notifications:

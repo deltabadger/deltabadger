@@ -150,7 +150,8 @@ el:
             option: 'Deltabadger.com — επικολλήστε τον κωδικό σύνδεσης'
             code: 'Κωδικός σύνδεσης'
             connect: 'Σύνδεση'
-            connected: 'Συνδεθήκατε στο Deltabadger.com για δεδομένα αγοράς και διακομιστές μεσολάβησης ανταλλακτηρίων.'
+            connected_with_proxies: 'Συνδεθήκατε στο Deltabadger.com για δεδομένα αγοράς και διακομιστές μεσολάβησης ανταλλακτηρίων.'
+            connected_without_proxies: 'Συνδεθήκατε στο Deltabadger.com για δεδομένα αγοράς. Οι διακομιστές μεσολάβησης ανταλλακτηρίων δεν είναι διαθέσιμοι.'
             disconnect: 'Αποσύνδεση'
             disconnected: 'Το Deltabadger.com αποσυνδέθηκε.'
         stocks:

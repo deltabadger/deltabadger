@@ -150,7 +150,8 @@ da:
             option: 'Deltabadger.com — indsæt forbindelseskoden'
             code: 'Forbindelseskode'
             connect: 'Opret forbindelse'
-            connected: 'Forbundet til Deltabadger.com for markedsdata og børsproxyer.'
+            connected_with_proxies: 'Forbundet til Deltabadger.com for markedsdata og børsproxyer.'
+            connected_without_proxies: 'Forbundet til Deltabadger.com for markedsdata. Børsproxyer er ikke tilgængelige.'
             disconnect: 'Afbryd'
             disconnected: 'Forbindelsen til Deltabadger.com er afbrudt.'
         stocks:

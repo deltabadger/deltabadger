@@ -33,6 +33,20 @@ class SetupTest < ActionDispatch::IntegrationTest
     assert_includes response.body, 'Owner'
   end
 
+  test 'keeps a pasted claim identity across a setup reload' do
+    Platform::RedeemClaim.expects(:call).with(code: 'dbc_manual').returns(
+      Result::Success.new(email: 'owner@example.com', name: 'Owner')
+    )
+
+    post setup_platform_connection_path, params: { claim_code: 'dbc_manual' }, as: :turbo_stream
+    AppConfig.set('platform_connected_at', Time.current.iso8601)
+    get new_setup_path(locale: :de)
+
+    assert_response :success
+    assert_select 'input#user_name[value=?]', 'Owner'
+    assert_select 'input#user_email[value=?]', 'owner@example.com'
+  end
+
   test 'shows a claim failure inline without replacing the setup identity fields' do
     Platform::RedeemClaim.expects(:call).with(code: 'expired').returns(
       Result::Failure.new('That claim code is invalid or has expired.')
@@ -71,6 +85,16 @@ class SetupTest < ActionDispatch::IntegrationTest
 
     assert_response :ok
     assert_select 'turbo-frame#setup_platform_connection .form__info--notice'
+  end
+
+  test 'connected setup copy distinguishes a claim without proxies' do
+    AppConfig.set('platform_connected_at', Time.current.iso8601)
+
+    get new_setup_path
+
+    assert_response :ok
+    assert_includes response.body, I18n.t('setup.platform.connected_without_proxies')
+    assert_not_includes response.body, I18n.t('setup.platform.connected_with_proxies')
   end
 
   test 'a failed CLAIM_TOKEN is dismissable and does not block independent setup' do
@@ -131,6 +155,18 @@ class SetupTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_content
     assert_equal 0, User.count
+  end
+
+  test 'failed admin signup keeps a connected install connected in the rendered form' do
+    AppConfig.set('platform_connected_at', Time.current.iso8601)
+
+    post setup_path, params: {
+      user: { name: '', email: 'invalid', password: 'weak' }
+    }
+
+    assert_response :unprocessable_content
+    assert_select 'turbo-frame#setup_platform_connection .form__info--notice'
+    assert_select "form[action='#{setup_platform_connection_path}']", count: 0
   end
 
   test 'rejects missing password during setup' do

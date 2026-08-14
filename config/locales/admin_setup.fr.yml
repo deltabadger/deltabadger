@@ -6,7 +6,8 @@ fr:
       prompt: "Vous avez un abonnement Deltabadger.com ?"
       code: "Code de connexion"
       connect: "Connecter"
-      connected: "Connecté ✓ — les données de marché et les proxys des plateformes d’échange sont actifs"
+      connected_with_proxies: "Connecté ✓ — les données de marché et les proxys des plateformes d’échange sont actifs"
+      connected_without_proxies: "Connecté ✓ — les données de marché sont actives ; les proxys des plateformes d’échange ne sont pas disponibles"
     validations:
       name_required: "Le nom est requis"
       email_required: "L'e-mail est requis"

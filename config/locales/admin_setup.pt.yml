@@ -6,7 +6,8 @@ pt:
       prompt: "Tem uma subscrição Deltabadger.com?"
       code: "Código de ligação"
       connect: "Ligar"
-      connected: "Ligado ✓ — os dados de mercado e os proxies das corretoras estão ativos"
+      connected_with_proxies: "Ligado ✓ — os dados de mercado e os proxies das corretoras estão ativos"
+      connected_without_proxies: "Ligado ✓ — os dados de mercado estão ativos; os proxies das corretoras não estão disponíveis"
     validations:
       name_required: "O nome é obrigatório"
       email_required: "O e-mail é obrigatório"

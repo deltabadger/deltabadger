@@ -8,7 +8,8 @@ class Settings::PlatformConnectionsController < ApplicationController
     result = Platform::RedeemClaim.call(code: params[:claim_code])
 
     if result.success?
-      flash.now[:notice] = t('settings.platform.connected')
+      suffix = AppConfig.platform_proxies_configured? ? 'with_proxies' : 'without_proxies'
+      flash.now[:notice] = t("settings.platform.connected_#{suffix}")
       render_market_data_widget
     else
       @platform_errors = result.errors
@@ -19,10 +20,11 @@ class Settings::PlatformConnectionsController < ApplicationController
 
   def destroy
     ApplicationRecord.transaction do
-      AppConfig.clear_market_data_settings!
-      proxy_keys = AppConfig.pluck(:key).select { |key| key.start_with?('proxy_') }
+      AppConfig.delete(AppConfig::MARKET_DATA_PROVIDER) if MarketDataSettings.deltabadger?
+      AppConfig.where(key: [AppConfig::MARKET_DATA_URL, AppConfig::MARKET_DATA_TOKEN]).delete_all
+      proxy_keys = AppConfig.pluck(:key).select { |key| key.start_with?(AppConfig::PLATFORM_PROXY_PREFIX) }
       AppConfig.where(key: proxy_keys).delete_all
-      AppConfig.delete('platform_connected_at')
+      AppConfig.delete(AppConfig::PLATFORM_CONNECTED_AT)
     end
 
     flash.now[:notice] = t('settings.platform.disconnected')

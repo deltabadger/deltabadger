@@ -40,15 +40,56 @@ class Clients::LaunchpadTest < ActiveSupport::TestCase
     assert_equal({ status: 401 }, result.data)
   end
 
-  test 'claim converts a timeout into a failure result' do
+  test 'claim tells the user a read timeout may have consumed the one-time code' do
     connection = stub
-    connection.stubs(:post).raises(Faraday::TimeoutError, 'execution expired')
+    timeout = Faraday::TimeoutError.new('execution expired')
+    timeout.stubs(:cause).returns(Net::ReadTimeout.new('read timed out'))
+    connection.stubs(:post).raises(timeout)
     @client.stubs(:connection).returns(connection)
 
     result = @client.claim('dbc_instance_secret')
 
     assert_predicate result, :failure?
-    assert_equal ['Unable to reach Deltabadger. Please try again.'], result.errors
+    assert_equal [Clients::Launchpad::AMBIGUOUS_CLAIM_MESSAGE], result.errors
+  end
+
+  test 'claim says to retry after a definitely pre-send connection failure' do
+    connection = stub
+    failure = Faraday::ConnectionFailed.new('connection refused')
+    failure.stubs(:cause).returns(Errno::ECONNREFUSED.new)
+    connection.stubs(:post).raises(failure)
+    @client.stubs(:connection).returns(connection)
+
+    result = @client.claim('dbc_instance_secret')
+
+    assert_predicate result, :failure?
+    assert_equal [Clients::Launchpad::RETRYABLE_CLAIM_MESSAGE], result.errors
+  end
+
+  test 'claim says to retry after an open timeout' do
+    connection = stub
+    timeout = Faraday::TimeoutError.new('open timed out')
+    timeout.stubs(:cause).returns(Net::OpenTimeout.new('open timed out'))
+    connection.stubs(:post).raises(timeout)
+    @client.stubs(:connection).returns(connection)
+
+    result = @client.claim('dbc_instance_secret')
+
+    assert_predicate result, :failure?
+    assert_equal [Clients::Launchpad::RETRYABLE_CLAIM_MESSAGE], result.errors
+  end
+
+  test 'claim says to retry after a DNS failure' do
+    connection = stub
+    failure = Faraday::ConnectionFailed.new('name resolution failed')
+    failure.stubs(:cause).returns(SocketError.new('getaddrinfo failed'))
+    connection.stubs(:post).raises(failure)
+    @client.stubs(:connection).returns(connection)
+
+    result = @client.claim('dbc_instance_secret')
+
+    assert_predicate result, :failure?
+    assert_equal [Clients::Launchpad::RETRYABLE_CLAIM_MESSAGE], result.errors
   end
 
   test 'uses the launchpad-specific connection timeouts' do

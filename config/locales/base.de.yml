@@ -149,7 +149,8 @@ de:
             option: 'Deltabadger.com — Verbindungscode einfügen'
             code: 'Verbindungscode'
             connect: 'Verbinden'
-            connected: 'Mit Deltabadger.com für Marktdaten und Börsen-Proxys verbunden.'
+            connected_with_proxies: 'Mit Deltabadger.com für Marktdaten und Börsen-Proxys verbunden.'
+            connected_without_proxies: 'Mit Deltabadger.com für Marktdaten verbunden. Börsen-Proxys sind nicht verfügbar.'
             disconnect: 'Trennen'
             disconnected: 'Verbindung zu Deltabadger.com getrennt.'
         email_notifications:

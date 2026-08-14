@@ -6,7 +6,8 @@ sv:
       prompt: "Har du en Deltabadger.com-prenumeration?"
       code: "Anslutningskod"
       connect: "Anslut"
-      connected: "Ansluten ✓ — marknadsdata och börsproxyservrar är aktiva"
+      connected_with_proxies: "Ansluten ✓ — marknadsdata och börsproxyservrar är aktiva"
+      connected_without_proxies: "Ansluten ✓ — marknadsdata är aktiva; börsproxyservrar är inte tillgängliga"
     validations:
       name_required: "Namn krävs"
       email_required: "E-post krävs"

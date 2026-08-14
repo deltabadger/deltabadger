@@ -21,7 +21,7 @@ module Platform
         (payload[:proxies] || {}).each do |key, value|
           AppConfig.set("proxy_#{key.to_s.downcase}", value)
         end
-        AppConfig.set('platform_connected_at', Time.current.iso8601)
+        AppConfig.set(AppConfig::PLATFORM_CONNECTED_AT, Time.current.iso8601)
         AppConfig.setup_sync_status = AppConfig::SYNC_STATUS_PENDING
       end
 

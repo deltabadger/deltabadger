@@ -148,7 +148,8 @@ pt:
             option: 'Deltabadger.com — cole o código de ligação'
             code: 'Código de ligação'
             connect: 'Ligar'
-            connected: 'Ligado ao Deltabadger.com para obter dados de mercado e usar proxies das bolsas.'
+            connected_with_proxies: 'Ligado ao Deltabadger.com para obter dados de mercado e usar proxies das bolsas.'
+            connected_without_proxies: 'Ligado ao Deltabadger.com para obter dados de mercado. Os proxies das bolsas não estão disponíveis.'
             disconnect: 'Desligar'
             disconnected: 'Deltabadger.com desligado.'
         email_notifications:

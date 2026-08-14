@@ -42,6 +42,50 @@ class Settings::PlatformConnectionsControllerTest < ActionDispatch::IntegrationT
     assert_select 'turbo-stream[action=prepend][target=flash]'
   end
 
+  test 'switching away from claimed market data keeps the platform status and disconnect control' do
+    configure_deltabadger_market_data
+    AppConfig.set('platform_connected_at', Time.current.iso8601)
+    AppConfig.set('proxy_binance', 'https://proxy.example.com')
+
+    patch settings_update_market_data_path, params: { market_data_provider: '' }, as: :turbo_stream
+
+    assert_response :success
+    assert_nil AppConfig.market_data_provider
+    assert_equal 'https://proxy.example.com', AppConfig.get('proxy_binance')
+    assert_select "a[href='#{settings_platform_connection_path}']", text: I18n.t('settings.platform.disconnect')
+    assert_includes response.body, I18n.t('settings.platform.connected_with_proxies')
+  end
+
+  test 'switching from claimed market data to CoinGecko preserves and submits the saved key' do
+    configure_deltabadger_market_data
+    AppConfig.set('platform_connected_at', Time.current.iso8601)
+    AppConfig.coingecko_api_key = 'saved-key'
+
+    get settings_connect_path
+
+    assert_response :success
+    assert_select 'input[type=hidden][name=coingecko_api_key][value=saved-key]'
+
+    patch settings_update_market_data_path,
+          params: { market_data_provider: MarketDataSettings::PROVIDER_COINGECKO,
+                    coingecko_api_key: 'saved-key' }, as: :turbo_stream
+
+    assert_response :success
+    assert_equal MarketDataSettings::PROVIDER_COINGECKO, AppConfig.market_data_provider
+    assert_equal 'saved-key', AppConfig.coingecko_api_key
+    assert_select "a[href='#{settings_platform_connection_path}']", text: I18n.t('settings.platform.disconnect')
+  end
+
+  test 'platform status says proxies are unavailable when the claim wrote none' do
+    AppConfig.set('platform_connected_at', Time.current.iso8601)
+
+    get settings_connect_path
+
+    assert_response :success
+    assert_includes response.body, I18n.t('settings.platform.connected_without_proxies')
+    assert_not_includes response.body, I18n.t('settings.platform.connected_with_proxies')
+  end
+
   test 'claim failure stays in the market data widget' do
     Platform::RedeemClaim.expects(:call).with(code: 'expired').returns(
       Result::Failure.new('That claim code is invalid or has expired.')
@@ -110,9 +154,28 @@ class Settings::PlatformConnectionsControllerTest < ActionDispatch::IntegrationT
     assert_equal 'http://claimed-binance.example.com', AppConfig.get('proxy_binance')
   end
 
+  test 'platform disconnect preserves a separately selected CoinGecko feed and its key' do
+    AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
+    AppConfig.market_data_url = 'https://claimed-data.example.com'
+    AppConfig.market_data_token = 'dbi_claimed'
+    AppConfig.coingecko_api_key = 'saved-key'
+    AppConfig.set('platform_connected_at', Time.current.iso8601)
+    AppConfig.set('proxy_binance', 'http://claimed-binance.example.com')
+
+    delete settings_platform_connection_path, as: :turbo_stream
+
+    assert_response :success
+    assert_equal MarketDataSettings::PROVIDER_COINGECKO, AppConfig.market_data_provider
+    assert_equal 'saved-key', AppConfig.coingecko_api_key
+    assert_nil AppConfig.find_by(key: AppConfig::MARKET_DATA_URL)
+    assert_nil AppConfig.find_by(key: AppConfig::MARKET_DATA_TOKEN)
+    assert_nil AppConfig.find_by(key: 'platform_connected_at')
+    assert_nil AppConfig.find_by(key: 'proxy_binance')
+  end
+
   test 'platform connection copy exists in every locale' do
-    settings_keys = %w[option code connect connected disconnect disconnected]
-    setup_keys = %w[prompt code connect connected]
+    settings_keys = %w[option code connect connected_with_proxies connected_without_proxies disconnect disconnected]
+    setup_keys = %w[prompt code connect connected_with_proxies connected_without_proxies]
 
     I18n.available_locales.each do |locale|
       settings_keys.each do |key|

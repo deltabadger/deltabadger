@@ -151,7 +151,8 @@ sk:
             option: 'Deltabadger.com — vložte kód pripojenia'
             code: 'Kód pripojenia'
             connect: 'Pripojiť'
-            connected: 'Pripojené k Deltabadger.com pre trhové dáta a proxy servery búrz.'
+            connected_with_proxies: 'Pripojené k Deltabadger.com pre trhové dáta a proxy servery búrz.'
+            connected_without_proxies: 'Pripojené k Deltabadger.com pre trhové dáta. Proxy servery búrz nie sú k dispozícii.'
             disconnect: 'Odpojiť'
             disconnected: 'Deltabadger.com bol odpojený.'
         stocks:

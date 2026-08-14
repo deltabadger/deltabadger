@@ -150,7 +150,8 @@ bg:
             option: 'Deltabadger.com — поставете кода за свързване'
             code: 'Код за свързване'
             connect: 'Свързване'
-            connected: 'Deltabadger.com е свързан за пазарни данни и прокси сървъри за борсите.'
+            connected_with_proxies: 'Deltabadger.com е свързан за пазарни данни и прокси сървъри за борсите.'
+            connected_without_proxies: 'Deltabadger.com е свързан за пазарни данни. Прокси сървърите за борсите не са налични.'
             disconnect: 'Прекъсване'
             disconnected: 'Връзката с Deltabadger.com е прекъсната.'
         stocks:

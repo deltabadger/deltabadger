@@ -152,7 +152,8 @@ ru:
             option: 'Deltabadger.com — вставьте код подключения'
             code: 'Код подключения'
             connect: 'Подключить'
-            connected: 'Deltabadger.com подключён для получения рыночных данных и использования прокси бирж.'
+            connected_with_proxies: 'Deltabadger.com подключён для получения рыночных данных и использования прокси бирж.'
+            connected_without_proxies: 'Deltabadger.com подключён для получения рыночных данных. Прокси бирж недоступны.'
             disconnect: 'Отключить'
             disconnected: 'Deltabadger.com отключён.'
         email_notifications:

@@ -6,7 +6,8 @@ sk:
       prompt: "Máte predplatné Deltabadger.com?"
       code: "Kód pripojenia"
       connect: "Pripojiť"
-      connected: "Pripojené ✓ — trhové dáta a proxy servery búrz sú aktívne"
+      connected_with_proxies: "Pripojené ✓ — trhové dáta a proxy servery búrz sú aktívne"
+      connected_without_proxies: "Pripojené ✓ — trhové dáta sú aktívne; proxy servery búrz nie sú k dispozícii"
     validations:
       name_required: "Meno je povinné"
       email_required: "E-mail je povinný"

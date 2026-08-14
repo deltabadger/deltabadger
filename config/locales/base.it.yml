@@ -149,7 +149,8 @@ it:
             option: 'Deltabadger.com — incolla il codice di connessione'
             code: 'Codice di connessione'
             connect: 'Connetti'
-            connected: 'Connesso a Deltabadger.com per i dati di mercato e i proxy degli exchange.'
+            connected_with_proxies: 'Connesso a Deltabadger.com per i dati di mercato e i proxy degli exchange.'
+            connected_without_proxies: 'Connesso a Deltabadger.com per i dati di mercato. I proxy degli exchange non sono disponibili.'
             disconnect: 'Disconnetti'
             disconnected: 'Deltabadger.com disconnesso.'
         email_notifications:

@@ -150,7 +150,8 @@ sv:
             option: 'Deltabadger.com — klistra in anslutningskoden'
             code: 'Anslutningskod'
             connect: 'Anslut'
-            connected: 'Ansluten till Deltabadger.com för marknadsdata och börsproxyservrar.'
+            connected_with_proxies: 'Ansluten till Deltabadger.com för marknadsdata och börsproxyservrar.'
+            connected_without_proxies: 'Ansluten till Deltabadger.com för marknadsdata. Börsproxyservrar är inte tillgängliga.'
             disconnect: 'Koppla från'
             disconnected: 'Deltabadger.com har kopplats från.'
         stocks:

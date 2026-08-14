@@ -10,6 +10,8 @@ class AppConfig < ApplicationRecord
   MARKET_DATA_PROVIDER = 'market_data_provider'.freeze # 'coingecko' or 'deltabadger'
   MARKET_DATA_URL = 'market_data_url'.freeze
   MARKET_DATA_TOKEN = 'market_data_token'.freeze
+  PLATFORM_CONNECTED_AT = 'platform_connected_at'.freeze
+  PLATFORM_PROXY_PREFIX = 'proxy_'.freeze
 
   SYNC_STATUS_PENDING = 'pending'.freeze
   SYNC_STATUS_IN_PROGRESS = 'in_progress'.freeze
@@ -135,6 +137,14 @@ class AppConfig < ApplicationRecord
 
   def self.coingecko_configured?
     coingecko_api_key.present?
+  end
+
+  def self.platform_connected?
+    get(PLATFORM_CONNECTED_AT).present?
+  end
+
+  def self.platform_proxies_configured?
+    pluck(:key).any? { |key| key.start_with?(PLATFORM_PROXY_PREFIX) }
   end
 
   def self.setup_completed?

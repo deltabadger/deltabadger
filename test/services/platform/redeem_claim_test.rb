@@ -22,6 +22,8 @@ class Platform::RedeemClaimTest < ActiveSupport::TestCase
       assert_equal 'https://binance-proxy.example.com', AppConfig.get('proxy_binance')
       assert_equal 'https://kraken-proxy.example.com', AppConfig.get('proxy_kraken')
       assert_equal '2026-08-14T12:00:00Z', AppConfig.get('platform_connected_at')
+      assert_predicate AppConfig, :platform_connected?
+      assert_predicate AppConfig, :platform_proxies_configured?
       assert_equal AppConfig::SYNC_STATUS_PENDING, AppConfig.setup_sync_status
     end
   end
@@ -78,6 +80,8 @@ class Platform::RedeemClaimTest < ActiveSupport::TestCase
     assert_equal MarketDataSettings::PROVIDER_DELTABADGER, AppConfig.market_data_provider
     assert_nil AppConfig.get('proxy_binance')
     assert_nil AppConfig.get('proxy_kraken')
+    assert_predicate AppConfig, :platform_connected?
+    refute_predicate AppConfig, :platform_proxies_configured?
   end
 
   test 'rolls back every configuration write when a later write fails' do

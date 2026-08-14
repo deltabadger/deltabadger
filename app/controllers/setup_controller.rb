@@ -14,7 +14,9 @@ class SetupController < ApplicationController
     result = Platform::RedeemClaim.call(code: params[:claim_code])
 
     if result.success?
-      @user = User.new(platform_identity_attributes(result.data))
+      identity = platform_identity_attributes(result.data)
+      session[:platform_identity] = identity
+      @user = User.new(identity)
       @platform_connected = true
       set_form_instance_variables
       render turbo_stream: [
@@ -32,6 +34,7 @@ class SetupController < ApplicationController
 
   # Step 1: Create admin account
   def create
+    @platform_connected = AppConfig.platform_connected?
     @user = User.new(admin_params)
     @user.admin = true
     @user.confirmed_at = Time.current
@@ -39,6 +42,7 @@ class SetupController < ApplicationController
     @user.locale = I18n.locale.to_s
 
     if @user.save
+      session.delete(:platform_identity)
       sign_in(@user)
       session[:auto_open_bot_wizard] = true
       redirect_to bots_path
@@ -59,12 +63,15 @@ class SetupController < ApplicationController
   end
 
   def redeem_claim_token
-    @platform_connected = AppConfig.get('platform_connected_at').present?
+    @user.assign_attributes(platform_identity_attributes(session[:platform_identity]))
+    @platform_connected = AppConfig.platform_connected?
     return if @platform_connected || ENV['CLAIM_TOKEN'].blank?
 
     result = Platform::RedeemClaim.call(code: ENV['CLAIM_TOKEN'])
     if result.success?
-      @user.assign_attributes(platform_identity_attributes(result.data))
+      identity = platform_identity_attributes(result.data)
+      session[:platform_identity] = identity
+      @user.assign_attributes(identity)
       @platform_connected = true
     else
       flash.now[:alert] = result.errors.to_sentence

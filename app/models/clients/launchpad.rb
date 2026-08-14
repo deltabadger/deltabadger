@@ -1,4 +1,14 @@
 class Clients::Launchpad < Client
+  RETRYABLE_CLAIM_MESSAGE = 'Unable to reach Deltabadger. Please try again.'.freeze
+  AMBIGUOUS_CLAIM_MESSAGE = 'Deltabadger may already have used this one-time code. ' \
+                            'Generate a fresh code from the dashboard and try again.'.freeze
+  PRE_SEND_FAILURES = [
+    'Net::OpenTimeout',
+    'Errno::ECONNREFUSED',
+    'SocketError',
+    'Socket::ResolutionError'
+  ].freeze
+
   OPTIONS = {
     request: {
       open_timeout: 5,
@@ -36,7 +46,12 @@ class Clients::Launchpad < Client
   # Result they can display rather than a retry-signalling exception.
   def with_rescue
     super
-  rescue Client::TransientNetworkError
-    Result::Failure.new('Unable to reach Deltabadger. Please try again.')
+  rescue Client::TransientNetworkError => e
+    message = definitely_pre_send?(e) ? RETRYABLE_CLAIM_MESSAGE : AMBIGUOUS_CLAIM_MESSAGE
+    Result::Failure.new(message)
+  end
+
+  def definitely_pre_send?(error)
+    PRE_SEND_FAILURES.include?(error.original_class) || error.original_class&.start_with?('Resolv::')
   end
 end

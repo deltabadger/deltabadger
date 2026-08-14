@@ -6,7 +6,8 @@ pl:
       prompt: "Masz subskrypcję Deltabadger.com?"
       code: "Kod połączenia"
       connect: "Połącz"
-      connected: "Połączono ✓ — dane rynkowe i serwery proxy giełd są aktywne"
+      connected_with_proxies: "Połączono ✓ — dane rynkowe i serwery proxy giełd są aktywne"
+      connected_without_proxies: "Połączono ✓ — dane rynkowe są aktywne; serwery proxy giełd są niedostępne"
     validations:
       name_required: "Imię jest wymagane"
       email_required: "E-mail jest wymagany"

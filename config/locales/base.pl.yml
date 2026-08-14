@@ -151,7 +151,8 @@ pl:
             option: 'Deltabadger.com — wklej kod połączenia'
             code: 'Kod połączenia'
             connect: 'Połącz'
-            connected: 'Połączono z Deltabadger.com, aby korzystać z danych rynkowych i serwerów proxy giełd.'
+            connected_with_proxies: 'Połączono z Deltabadger.com, aby korzystać z danych rynkowych i serwerów proxy giełd.'
+            connected_without_proxies: 'Połączono z Deltabadger.com, aby korzystać z danych rynkowych. Serwery proxy giełd są niedostępne.'
             disconnect: 'Odłącz'
             disconnected: 'Odłączono Deltabadger.com.'
         email_notifications:

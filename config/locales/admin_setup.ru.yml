@@ -6,7 +6,8 @@ ru:
       prompt: "У вас есть подписка Deltabadger.com?"
       code: "Код подключения"
       connect: "Подключить"
-      connected: "Подключено ✓ — рыночные данные и прокси бирж активны"
+      connected_with_proxies: "Подключено ✓ — рыночные данные и прокси бирж активны"
+      connected_without_proxies: "Подключено ✓ — рыночные данные активны; прокси бирж недоступны"
     validations:
       name_required: "Имя обязательно"
       email_required: "E-mail обязателен"

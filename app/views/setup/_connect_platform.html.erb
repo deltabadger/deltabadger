@@ -1,6 +1,9 @@
 <%= turbo_frame_tag 'setup_platform_connection', style: 'width: 100%;' do %>
   <% if connected %>
-    <p class="form__info form__info--notice" style="text-align: center;"><%= t('setup.platform.connected') %></p>
+    <% proxy_suffix = AppConfig.platform_proxies_configured? ? 'with_proxies' : 'without_proxies' %>
+    <p class="form__info form__info--notice" style="text-align: center;">
+      <%= t("setup.platform.connected_#{proxy_suffix}") %>
+    </p>
   <% else %>
     <%= tag.details open: (true if errors.present?) do %>
       <summary><%= t('setup.platform.prompt') %></summary>
