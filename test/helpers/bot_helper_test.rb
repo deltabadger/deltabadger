@@ -1,6 +1,12 @@
 require 'test_helper'
 
 class BotHelperTest < ActionView::TestCase
+  test 'whitelist ip comes from the claimed exchange proxy' do
+    AppConfig.set('proxy_binance', 'http://user:secret@claimed-proxy.test:8101')
+
+    assert_equal 'claimed-proxy.test', whitelist_ip_for('binance')
+  end
+
   # Regression: a pending (open, unfilled) limit order has amount_exec == 0.0 (not nil),
   # which broke the old `amount_exec || amount` fallback and rendered "Buying 0.0 X for 0.0 Y".
   # It should now show the requested amounts with open-order wording.

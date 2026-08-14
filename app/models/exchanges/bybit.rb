@@ -39,7 +39,7 @@ class Exchanges::Bybit < Exchange
     @client = Honeymaker.client('bybit',
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
-                                proxy: ENV['PROXY_BYBIT'])
+                                proxy: ExchangeProxy.for('bybit'))
   end
 
   def get_tickers_info(force: false)
@@ -340,7 +340,7 @@ class Exchanges::Bybit < Exchange
     temp_client = Honeymaker.client('bybit',
                                     api_key: api_key.key,
                                     api_secret: api_key.secret,
-                                    proxy: ENV['PROXY_BYBIT'])
+                                    proxy: ExchangeProxy.for('bybit'))
 
     result = if api_key.withdrawal?
                temp_client.wallet_balance(account_type: 'UNIFIED')
@@ -431,7 +431,8 @@ class Exchanges::Bybit < Exchange
   end
 
   def get_ledger(api_key:, start_time: nil)
-    hm_client = Honeymaker.client('bybit', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_BYBIT'])
+    hm_client = Honeymaker.client('bybit', api_key: api_key.key, api_secret: api_key.secret,
+                                           proxy: ExchangeProxy.for('bybit'))
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 

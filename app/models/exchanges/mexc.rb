@@ -32,7 +32,7 @@ class Exchanges::Mexc < Exchange
     @client = Honeymaker.client('mexc',
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
-                                proxy: ENV['PROXY_MEXC'])
+                                proxy: ExchangeProxy.for('mexc'))
   end
 
   def get_tickers_info(force: false)
@@ -308,7 +308,7 @@ class Exchanges::Mexc < Exchange
     result = Honeymaker.client('mexc',
                                api_key: api_key.key,
                                api_secret: api_key.secret,
-                               proxy: ENV['PROXY_MEXC']).account_information
+                               proxy: ExchangeProxy.for('mexc')).account_information
 
     if result.success?
       valid = api_key.withdrawal? || result.data['canTrade'] == true
@@ -357,7 +357,7 @@ class Exchanges::Mexc < Exchange
     # Use provided network or determine the default
     network_name = network
     if network_name.blank?
-      coins_result = Honeymaker.client('mexc', proxy: ENV['PROXY_MEXC']).get_all_coins_information
+      coins_result = Honeymaker.client('mexc', proxy: ExchangeProxy.for('mexc')).get_all_coins_information
       return coins_result if coins_result.failure?
 
       coin_data = Array(coins_result.data).find { |c| c['coin'] == symbol }
@@ -380,7 +380,7 @@ class Exchanges::Mexc < Exchange
   end
 
   def fetch_withdrawal_fees!
-    result = Honeymaker.client('mexc', proxy: ENV['PROXY_MEXC']).get_all_coins_information
+    result = Honeymaker.client('mexc', proxy: ExchangeProxy.for('mexc')).get_all_coins_information
     return result if result.failure?
 
     fees = {}
@@ -401,7 +401,8 @@ class Exchanges::Mexc < Exchange
   end
 
   def get_ledger(api_key:, start_time: nil)
-    hm_client = Honeymaker.client('mexc', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_MEXC'])
+    hm_client = Honeymaker.client('mexc', api_key: api_key.key, api_secret: api_key.secret,
+                                          proxy: ExchangeProxy.for('mexc'))
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 

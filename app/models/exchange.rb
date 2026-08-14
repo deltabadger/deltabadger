@@ -367,7 +367,7 @@ class Exchange < ApplicationRecord
     yield Honeymaker.client(client_name,
                             api_key: api_key.key,
                             api_secret: api_key.secret,
-                            proxy: ENV[proxy_env])
+                            proxy: ExchangeProxy.for(proxy_env.delete_prefix('PROXY_')))
   end
 
   def update_exchange_asset_fees!(fees, chains: {})
