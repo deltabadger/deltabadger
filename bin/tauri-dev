@@ -19,6 +19,11 @@ if [ -f "$PIDFILE" ]; then
   fi
 fi
 
+# tauri-build refuses to configure when a declared bundle resource is missing, so a dev run
+# needs _bundle/ to exist even though it stays empty here. lib.rs falls back to the system
+# `bundle exec` when it finds no Ruby inside it.
+"$PROJECT_ROOT/scripts/bundle_skeleton.sh"
+
 echo "==> Preparing assets..."
 npm run build
 bundle exec rails dartsass:build
