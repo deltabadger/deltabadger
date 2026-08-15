@@ -8,7 +8,11 @@ class TransferMatcher
   def self.run!(user)
     linked_deposit_ids = AccountTransaction.for_user(user).where.not(linked_transaction_id: nil)
                                            .pluck(:linked_transaction_id)
-    AccountTransaction.for_user(user).withdrawal.where(linked_transaction_id: nil).find_each do |withdrawal|
+    # transfer_link_rejected is set when the user unlinks a pair in the tracker. Without it the very
+    # next sync would re-link what they just undid, since an unlinked withdrawal still passes the
+    # same 72h/2% test that matched it the first time.
+    AccountTransaction.for_user(user).withdrawal
+                      .where(linked_transaction_id: nil, transfer_link_rejected: false).find_each do |withdrawal|
       withdrawal_amount = withdrawal.base_amount.to_d
       minimum_amount = withdrawal_amount * ('1'.to_d - TOLERANCE)
       candidate = AccountTransaction.for_user(user).deposit

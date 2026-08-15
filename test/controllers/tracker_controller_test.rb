@@ -20,6 +20,9 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal deposit.id, withdrawal.reload.linked_transaction_id
+    # A wrong dom_id target is a silent no-op in the browser, so pin both rows of the pair.
+    assert_match(/target="account_transaction_#{withdrawal.id}"/, @response.body)
+    assert_match(/target="account_transaction_#{deposit.id}"/, @response.body)
   end
 
   test 'unlinks a linked pair from the withdrawal' do
@@ -29,6 +32,27 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_nil withdrawal.reload.linked_transaction_id
+  end
+
+  test 'unlinking sticks: the matcher must not re-link it on the next sync' do
+    withdrawal, = create_linked_pair
+
+    patch toggle_transfer_tracker_transaction_path(withdrawal)
+    TransferMatcher.run!(@user)
+
+    assert_nil withdrawal.reload.linked_transaction_id
+    assert_predicate withdrawal, :transfer_link_rejected?
+  end
+
+  test 'linking again clears the rejection so the matcher can maintain the pair' do
+    withdrawal = create_transaction(:withdrawal, base_amount: 1, transacted_at: @transacted_at)
+    deposit = create_transaction(:deposit, base_amount: 0.999, transacted_at: @transacted_at + 2.days)
+    withdrawal.update!(transfer_link_rejected: true)
+
+    patch toggle_transfer_tracker_transaction_path(withdrawal)
+
+    assert_equal deposit.id, withdrawal.reload.linked_transaction_id
+    assert_not_predicate withdrawal, :transfer_link_rejected?
   end
 
   test 'unlinks a linked pair from the deposit' do

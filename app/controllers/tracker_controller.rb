@@ -1,6 +1,8 @@
 class TrackerController < ApplicationController
   include AdminOnly
 
+  # Changing this also means editing the 15 tracker.transfer_no_candidate translations, which spell
+  # "14 days" out rather than interpolating it.
   TRANSFER_LINK_WINDOW = 14.days
 
   before_action :authenticate_user!
@@ -42,14 +44,15 @@ class TrackerController < ApplicationController
     if transaction.linked?
       withdrawal = transaction.withdrawal? ? transaction : transaction.inverse_link
       partner = withdrawal.linked_transaction
-      withdrawal.update!(linked_transaction_id: nil)
+      # Sticky, or TransferMatcher re-links the pair on the next sync and the undo silently undoes itself.
+      withdrawal.update!(linked_transaction_id: nil, transfer_link_rejected: true)
       flash.now[:notice] = t('tracker.transfer_unlinked')
       rows = [withdrawal, partner]
     else
       candidates = transfer_candidates(transaction)
       if candidates.size == 1
         withdrawal, deposit = transaction.withdrawal? ? [transaction, candidates.first] : [candidates.first, transaction]
-        withdrawal.update!(linked_transaction_id: deposit.id)
+        withdrawal.update!(linked_transaction_id: deposit.id, transfer_link_rejected: false)
         flash.now[:notice] = t('tracker.transfer_linked')
         rows = [withdrawal, deposit]
       else

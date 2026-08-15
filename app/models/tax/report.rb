@@ -29,7 +29,12 @@ module Tax
         on_progress&.call(100, 100)
       else
         enriched = @price_service.enrich(scoped_transactions, currency: currency, &on_progress)
-        @assumed_deposits = enriched.select { |tx| tx[:entry_type].to_s == 'deposit' && !tx[:linked] }
+        # Fiat deposits are bank funding: no cost basis to assume and no withdrawal to link them to.
+        # Naming them would bury the crypto rows this warning exists to surface.
+        @assumed_deposits = enriched.select do |tx|
+          tx[:entry_type].to_s == 'deposit' && !tx[:linked] &&
+            !Tax::PriceService::FIAT_CURRENCIES.include?(tx[:base_currency])
+        end
         results = method_class.new.calculate(enriched, **calculation_options)
       end
 
