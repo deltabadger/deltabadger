@@ -56,7 +56,7 @@ class Tax::BrokerReportCsvTest < ActiveSupport::TestCase
     assert broker_report.result[:complete]
     assert_empty broker_report.result[:warnings]
 
-    rows = CSV.parse(broker_report.to_csv)
+    rows = CSV.parse(Tax::BrokerReportCsv.new(broker_report.result).to_csv)
 
     refute_includes rows, ['SUMMARY — ANLAGE KAP']
     refute_includes rows, ['SUMMARY — ANLAGE KAP-INV']
@@ -145,6 +145,14 @@ class Tax::BrokerReportCsvTest < ActiveSupport::TestCase
     assert_includes rows, ['ZUSAMMENFASSUNG — ANLAGE KAP-INV']
     assert_includes rows, ['Zeile', 'Fondskategorie', 'Position', 'Betrag (EUR)']
     assert_includes rows, ['13', 'Sonstige Fonds', 'Vorabpauschale (vor Teilfreistellung)', '0.0']
+  end
+
+  test 'BrokerReport renders German even when the caller locale is Polish' do
+    csv = I18n.with_locale(:pl) do
+      Tax::BrokerReport.new(user: @user, year: 2024, exchange: @exchange).to_csv
+    end
+
+    assert_includes csv, 'Ausländische Kapitalerträge'
   end
 
   # A fund category with no Zeile mapping has no place to go on the form. Skipping it would drop a
@@ -247,7 +255,8 @@ class Tax::BrokerReportCsvTest < ActiveSupport::TestCase
   end
 
   def report(year)
-    Tax::BrokerReport.new(user: @user, year: year, exchange: @exchange).to_csv
+    result = Tax::BrokerReport.new(user: @user, year: year, exchange: @exchange).result
+    Tax::BrokerReportCsv.new(result).to_csv
   end
 
   def classify(symbol, kind:, fund_category: nil)

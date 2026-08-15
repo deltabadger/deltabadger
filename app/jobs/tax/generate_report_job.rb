@@ -1,28 +1,26 @@
 class Tax::GenerateReportJob < ApplicationJob
+  SCOPES = %w[crypto broker].freeze
+
   queue_as :low_priority
   limits_concurrency to: 1, key: ->(user_id, *) { "tax_report_#{user_id}" }, on_conflict: :discard, duration: 10.minutes
 
-  def perform(user_id, country, year, stablecoin_as_fiat = false) # rubocop:disable Style/OptionalBooleanParameter
+  # The one place a report filename is built. `country` and `report_scope` arrive from user params,
+  # so they are sanitized here rather than at each of the four call sites.
+  def self.report_path(user_id, country, year, report_scope = 'crypto')
+    scope = SCOPES.include?(report_scope.to_s) ? report_scope.to_s : 'crypto'
+    country = country.to_s.gsub(/[^A-Za-z]/, '').upcase
+    Rails.root.join('tmp', 'tax_reports', "#{user_id.to_i}_#{country}_#{year.to_i}_#{scope}.csv").to_s
+  end
+
+  def perform(user_id, country, year, stablecoin_as_fiat = false, report_scope = 'crypto') # rubocop:disable Style/OptionalBooleanParameter
     user = User.find(user_id)
-    # Stock brokers (Alpaca, IBKR) are excluded from the crypto tax report.
-    transactions = AccountTransaction.for_user(user)
-                                     .where.not(exchange_id: Exchange.stock_venues.select(:id))
-    # Stock-venue sync failures cannot hide transactions from a report that excludes those venues.
-    sync_issues = user.api_keys.includes(:exchange)
-                      .where.not(exchange_id: Exchange.stock_venues.select(:id))
-                      .filter_map(&:sync_issue)
-    report = Tax::Report.new(country: country, year: year, transactions: transactions,
-                             stablecoin_as_fiat: stablecoin_as_fiat, sync_issues: sync_issues)
+    csv_data = if report_scope.to_s == 'broker'
+                 broker_csv(user, country, year)
+               else
+                 crypto_csv(user, country, year, stablecoin_as_fiat)
+               end
 
-    last_percent = 0
-    csv_data = report.to_csv do |percent, _total|
-      if percent != last_percent
-        last_percent = percent
-        broadcast_progress(user_id, percent)
-      end
-    end
-
-    file_path = tax_report_path(user_id, country, year)
+    file_path = self.class.report_path(user_id, country, year, report_scope)
     FileUtils.mkdir_p(File.dirname(file_path))
     File.write(file_path, csv_data)
 
@@ -32,7 +30,7 @@ class Tax::GenerateReportJob < ApplicationJob
       "user_#{user_id}", :tax_report,
       target: 'tax-report-progress',
       partial: 'tracker/report_ready',
-      locals: { country: country, year: year }
+      locals: { country: country, year: year, report_scope: report_scope.to_s }
     )
   rescue StandardError => e
     Turbo::StreamsChannel.broadcast_remove_to(
@@ -44,8 +42,49 @@ class Tax::GenerateReportJob < ApplicationJob
 
   private
 
-  def tax_report_path(user_id, country, year)
-    Rails.root.join('tmp', 'tax_reports', "#{user_id}_#{country}_#{year}.csv").to_s
+  def broker_csv(user, country, year)
+    unless country == Tax::BrokerReport::COUNTRY && Tax::BrokerReport::SUPPORTED_YEARS.cover?(year.to_i)
+      raise ArgumentError, "Unsupported broker report country #{country.inspect} and year #{year.inspect}"
+    end
+
+    exchange_ids = (user.api_keys.pluck(:exchange_id) +
+      user.account_transactions.distinct.pluck(:exchange_id)).uniq
+    # Alpaca's activity feed is the only broker ledger this report models.
+    exchange = Exchanges::Alpaca.find_by(id: exchange_ids)
+    raise ArgumentError, "No Alpaca broker ledger found for user #{user.id}" unless exchange
+
+    Tax::BrokerReport.new(user: user, year: year, exchange: exchange).to_csv
+  end
+
+  def crypto_csv(user, country, year, stablecoin_as_fiat)
+    transactions = crypto_transactions(user)
+    # A stock venue can now contribute crypto rows, so a failed sync there can hide them, and a
+    # failed sync is exactly when we cannot know whether it did. A spurious banner costs a glance;
+    # a missing one costs a wrong filing.
+    sync_issues = user.api_keys.includes(:exchange).filter_map(&:sync_issue)
+    report = Tax::Report.new(country: country, year: year, transactions: transactions,
+                             stablecoin_as_fiat: stablecoin_as_fiat, sync_issues: sync_issues)
+
+    last_percent = 0
+    report.to_csv do |percent, _total|
+      if percent != last_percent
+        last_percent = percent
+        broadcast_progress(user.id, percent)
+      end
+    end
+  end
+
+  # A stock venue is not a crypto-free venue — Alpaca trades roughly 35 coins — so the venue does
+  # not decide the scope. The asset does, through the same predicate the broker report uses, which
+  # keeps the two reports exact complements.
+  def crypto_transactions(user)
+    stock_venue_ids = Exchange.stock_venues.select(:id)
+    all = AccountTransaction.for_user(user)
+    scope = Tax::CryptoScope.new(user: user)
+    crypto_symbols = all.where(exchange_id: stock_venue_ids).distinct.pluck(:base_currency)
+                        .select { |symbol| scope.crypto?(symbol) }
+    all.where.not(exchange_id: stock_venue_ids)
+       .or(all.where(exchange_id: stock_venue_ids, base_currency: crypto_symbols))
   end
 
   def broadcast_progress(user_id, percent)

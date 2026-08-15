@@ -8,8 +8,13 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     @user = create(:user, setup_completed: true)
     @api_key = create(:api_key, user: @user)
     @transacted_at = Time.zone.parse('2026-08-01 12:00:00')
+    @report_paths = []
     self.default_url_options = { locale: nil }
     sign_in @user
+  end
+
+  teardown do
+    @report_paths.each { |path| FileUtils.rm_f(path) }
   end
 
   test 'links a withdrawal to its only eligible deposit' do
@@ -139,7 +144,70 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     assert_includes @response.body, toggle_transfer_tracker_transaction_path(withdrawal)
   end
 
+  test 'downloads the broker report with the broker filename' do
+    write_report(country: 'DE', year: 2024, report_scope: 'broker', contents: 'broker report')
+
+    get download_tax_report_tracker_path(country: 'DE', year: 2024, report_scope: 'broker')
+
+    assert_response :success
+    assert_equal 'broker report', response.body
+    assert_match(/filename="deltabadger-broker-tax-report-de-2024\.csv"/,
+                 response.headers['Content-Disposition'])
+  end
+
+  test 'downloads the default crypto report with the existing filename' do
+    write_report(country: 'DE', year: 2024, contents: 'crypto report')
+
+    get download_tax_report_tracker_path(country: 'DE', year: 2024)
+
+    assert_response :success
+    assert_equal 'crypto report', response.body
+    assert_match(/filename="deltabadger-tax-report-de-2024\.csv"/,
+                 response.headers['Content-Disposition'])
+  end
+
+  test 'index auto-downloads a pending broker report with its scope' do
+    @user.update!(tracker_settings: {
+                    'export_type' => 'tax_report', 'country' => 'DE', 'year' => 2024, 'report_scope' => 'broker'
+                  })
+    write_report(country: 'DE', year: 2024, report_scope: 'broker', contents: 'broker report')
+
+    get tracker_path
+
+    assert_response :success
+    assert_includes response.body, 'report_scope=broker'
+  end
+
+  test 'tax report persists and enqueues the broker scope' do
+    base_adapter = ActiveJob::Base.queue_adapter
+    job_adapter = Tax::GenerateReportJob.queue_adapter
+    test_adapter = ActiveJob::QueueAdapters::TestAdapter.new
+    ActiveJob::Base.queue_adapter = test_adapter
+    Tax::GenerateReportJob.queue_adapter = test_adapter
+
+    assert_enqueued_with(
+      job: Tax::GenerateReportJob,
+      args: [@user.id, 'DE', 2024, false, 'broker']
+    ) do
+      get tax_report_tracker_path(country: 'DE', year: 2024, report_scope: 'broker')
+    end
+
+    assert_response :success
+    assert_equal 'broker', @user.reload.tracker_settings['report_scope']
+  ensure
+    Tax::GenerateReportJob.queue_adapter = job_adapter
+    ActiveJob::Base.queue_adapter = base_adapter
+  end
+
   private
+
+  def write_report(country:, year:, contents:, report_scope: 'crypto')
+    path = Tax::GenerateReportJob.report_path(@user.id, country, year, report_scope)
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, contents)
+    @report_paths << path
+    path
+  end
 
   def create_transaction(entry_type, **attributes)
     create(:account_transaction, entry_type, api_key: @api_key, **attributes)

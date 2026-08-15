@@ -29,7 +29,7 @@ module Tax
     private
 
     def append_head(csv)
-      csv << [t('tax_report.broker.title'), @result[:exchange], @result[:year]]
+      csv << [t('tax_report.broker.title'), @result[:exchange_name], @result[:year]]
       csv << [warn_prefixed(t('tax_report.broker.unclassified_banner'))] unless @result[:summaries_available]
       csv << [warn_prefixed(t('tax_report.broker.incomplete_banner'))] unless @result[:complete]
     end
