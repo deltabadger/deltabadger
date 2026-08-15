@@ -29,7 +29,6 @@ module Tax
       @year = year
       @exchange = exchange
       @api_key = api_key || exchange.api_keys.where(user: user).correct.first || exchange.api_keys.find_by(user: user)
-      Tax::EcbFxRates.ensure_loaded!
     end
 
     def result
@@ -44,9 +43,21 @@ module Tax
       end
     end
 
+    # The classification panel's to-do list. Same universe, same symbol resolver and the same
+    # FundClassification proposals a full run uses — a second query would disagree with the
+    # report's own refusal. Deliberately stops before the walk: nothing here reads an FX rate
+    # or a price, so it is cheap enough to render a modal with.
+    def classification_rows
+      initialize_calculation
+      @records = universe.reject { |record| cryptocurrency?(instrument_symbol(record)) }
+      build_symbol_states
+      symbol_rows
+    end
+
     private
 
     def calculate
+      Tax::EcbFxRates.ensure_loaded!
       initialize_calculation
       @records = universe.reject { |record| cryptocurrency?(instrument_symbol(record)) }
       build_symbol_states

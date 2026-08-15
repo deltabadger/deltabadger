@@ -91,6 +91,17 @@ class TrackerController < ApplicationController
     user_transactions = AccountTransaction.for_user(current_user)
     @earliest_date = user_transactions.minimum(:transacted_at)&.to_date&.iso8601
     @latest_date = user_transactions.maximum(:transacted_at)&.to_date&.iso8601 || Date.current.iso8601
+    # The panel classifies against the widest supported year: `Tax::BrokerReport`'s universe is
+    # cumulative (everything before the year ends), so the newest supported year is a superset of
+    # every earlier one — one render covers whichever year the user then picks.
+    @broker_exchange = Tax::GenerateReportJob.broker_exchange(current_user)
+    @fund_classification_rows = if @broker_exchange
+                                  Tax::BrokerReport.new(user: current_user,
+                                                        year: Tax::BrokerReport::SUPPORTED_YEARS.max,
+                                                        exchange: @broker_exchange).classification_rows
+                                else
+                                  []
+                                end
     render layout: false
   end
 
@@ -112,9 +123,28 @@ class TrackerController < ApplicationController
 
   def save_export_settings
     settings = (current_user.tracker_settings || {}).merge(
-      params.permit(:export_type, :country, :year).to_h.compact_blank
+      params.permit(:export_type, :country, :year, :report_scope).to_h.compact_blank
     )
     current_user.update(tracker_settings: settings)
+    head :ok
+  end
+
+  def fund_classifications
+    rows = params.permit(classifications: %i[symbol kind fund_category])[:classifications] || []
+
+    rows.each do |row|
+      symbol = row[:symbol]
+      next if symbol.blank? || !FundClassification.kinds.key?(row[:kind])
+
+      # Stored exactly as the ledger spells it. Upcasing or stripping here would make every later
+      # FundClassification.resolve lookup miss and read the security back as unclassified.
+      record = current_user.fund_classifications.find_or_initialize_by(symbol: symbol)
+      record.kind = row[:kind]
+      category = row[:fund_category]
+      record.fund_category = (category if record.fund? && FundClassification.fund_categories.key?(category))
+      record.save
+    end
+
     head :ok
   end
 

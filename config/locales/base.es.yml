@@ -431,6 +431,10 @@ es:
         export_modal:
             title: 'Generar informe'
             tax_report: 'Informe fiscal'
+            broker_tax_report: 'Informe fiscal del bróker (Alemania — Anlage KAP / KAP-INV)'
+            classification_title: 'Clasificar valores'
+            classification_hint: 'Asigna un tipo a cada valor antes de generar el informe.'
+            classification_select: 'Seleccionar…'
             tax_disclaimer: 'Herramienta de ayuda para el cálculo, no asesoramiento fiscal. Comprueba las cifras antes de presentar la declaración.'
             transactions: 'Todo'
             country: 'País'
@@ -456,6 +460,8 @@ es:
                 DK: 'Dinamarca'
                 CZ: 'Chequia'
                 SK: 'Eslovaquia'
+        tax_report:
+            failed: 'No se ha podido generar el informe. Comprueba la configuración seleccionada e inténtalo de nuevo.'
         filters:
             all: 'Todos'
         columns:

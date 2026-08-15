@@ -433,6 +433,10 @@ ru:
         export_modal:
             title: 'Создать отчёт'
             tax_report: 'Налоговый отчёт'
+            broker_tax_report: 'Налоговый отчёт брокера (Германия — Anlage KAP / KAP-INV)'
+            classification_title: 'Классификация ценных бумаг'
+            classification_hint: 'Укажите тип каждой ценной бумаги перед формированием отчёта.'
+            classification_select: 'Выберите…'
             tax_disclaimer: 'Вспомогательный расчёт, а не налоговая консультация. Проверьте суммы перед подачей декларации.'
             transactions: 'Все'
             country: 'Страна'
@@ -458,6 +462,8 @@ ru:
                 DK: 'Дания'
                 CZ: 'Чехия'
                 SK: 'Словакия'
+        tax_report:
+            failed: 'Не удалось сформировать отчёт. Проверьте выбранные настройки и повторите попытку.'
         filters:
             all: 'Все'
         columns:

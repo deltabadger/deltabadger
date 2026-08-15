@@ -434,6 +434,10 @@ en:
         export_modal:
             title: 'Generate Report'
             tax_report: 'Tax Report'
+            broker_tax_report: 'Broker tax report (Germany — Anlage KAP / KAP-INV)'
+            classification_title: 'Classify securities'
+            classification_hint: 'Assign a type to every security before generating the report.'
+            classification_select: 'Select…'
             tax_disclaimer: 'Calculation aid, not tax advice. Verify figures before filing.'
             transactions: 'All'
             country: 'Country'
@@ -467,6 +471,7 @@ en:
             expired: 'Tax report has expired. Please generate a new one.'
             generating: 'Generating tax report...'
             download_ready: 'Tax report is ready. Click to download.'
+            failed: 'The report could not be generated. Check the selected settings and try again.'
         filters:
             all: 'All'
         columns:

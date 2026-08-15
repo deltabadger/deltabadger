@@ -144,6 +144,103 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     assert_includes @response.body, toggle_transfer_tracker_transaction_path(withdrawal)
   end
 
+  test 'export modal hides the broker report without an Alpaca ledger' do
+    MarketData.stubs(:configured?).returns(true)
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    assert_not_includes @response.body, 'value="broker_tax_report"'
+  end
+
+  test 'export modal shows the broker classification panel with exact ledger symbols' do
+    MarketData.stubs(:configured?).returns(true)
+    alpaca = create(:alpaca_exchange)
+    alpaca_key = create(:api_key, user: @user, exchange: alpaca)
+    create(:asset, symbol: 'Brk.B', category: 'Stock', instrument_type: 'stock')
+    create(
+      :account_transaction,
+      user: @user,
+      api_key: alpaca_key,
+      exchange: alpaca,
+      base_currency: 'Brk.B',
+      transacted_at: Time.utc(2024, 3, 1)
+    )
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    assert_includes @response.body, 'value="broker_tax_report"'
+    assert_includes @response.body, 'data-tracker-export-target="classificationPanel"'
+    assert_includes @response.body, 'data-symbol="Brk.B"'
+    assert_no_match(/translation_missing/, @response.body)
+  end
+
+  test 'creates fund classifications for the signed-in user' do
+    patch fund_classifications_tracker_path, params: {
+      classifications: [
+        { symbol: 'AAPL', kind: 'share' },
+        { symbol: 'VT', kind: 'fund', fund_category: 'other_fund' }
+      ]
+    }, as: :json
+
+    assert_response :success
+    assert_equal 'share', @user.fund_classifications.find_by!(symbol: 'AAPL').kind
+    fund = @user.fund_classifications.find_by!(symbol: 'VT')
+    assert_equal 'fund', fund.kind
+    assert_equal 'other_fund', fund.fund_category
+  end
+
+  test 'stores a fund classification symbol exactly as given' do
+    patch fund_classifications_tracker_path, params: {
+      classifications: [{ symbol: 'Brk.B', kind: 'share' }]
+    }, as: :json
+
+    assert_response :success
+    # The resolver uses the ledger's exact spelling, so normalising this value would make it miss.
+    assert_equal 'Brk.B', @user.fund_classifications.pick(:symbol)
+  end
+
+  test "does not update another user's fund classification" do
+    other_user = create(:user, setup_completed: true)
+    other = FundClassification.create!(user: other_user, symbol: 'AAPL', kind: :share)
+
+    patch fund_classifications_tracker_path, params: {
+      classifications: [{ symbol: 'AAPL', kind: 'fund', fund_category: 'other_fund' }]
+    }, as: :json
+
+    assert_response :success
+    assert_equal 'share', other.reload.kind
+    assert_nil other.fund_category
+    own = @user.fund_classifications.find_by!(symbol: 'AAPL')
+    assert_equal 'fund', own.kind
+    assert_equal 'other_fund', own.fund_category
+  end
+
+  test 'updating a fund classification clears a stale fund category' do
+    classification = FundClassification.create!(
+      user: @user, symbol: 'VT', kind: :fund, fund_category: :equity_fund
+    )
+
+    patch fund_classifications_tracker_path, params: {
+      classifications: [{ symbol: 'VT', kind: 'share' }]
+    }, as: :json
+
+    assert_response :success
+    assert_equal 'share', classification.reload.kind
+    assert_nil classification.fund_category
+  end
+
+  test 'skips an unknown fund classification kind' do
+    assert_no_difference('FundClassification.count') do
+      patch fund_classifications_tracker_path, params: {
+        classifications: [{ symbol: 'AAPL', kind: 'unknown' }]
+      }, as: :json
+    end
+
+    assert_response :success
+  end
+
   # tmp/tax_reports is shared by every parallel worker, user ids repeat across their databases, and the
   # runner splits tests rather than files — so each of these fixtures needs a year of its own.
   test 'downloads the broker report with the broker filename' do

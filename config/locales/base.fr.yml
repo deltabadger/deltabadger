@@ -431,6 +431,10 @@ fr:
         export_modal:
             title: 'Générer le rapport'
             tax_report: 'Rapport fiscal'
+            broker_tax_report: 'Rapport fiscal du courtier (Allemagne — Anlage KAP / KAP-INV)'
+            classification_title: 'Classer les titres'
+            classification_hint: 'Attribuez un type à chaque titre avant de générer le rapport.'
+            classification_select: 'Sélectionner…'
             tax_disclaimer: 'Outil d’aide au calcul, pas un conseil fiscal. Vérifiez les montants avant de déposer votre déclaration.'
             transactions: 'Tout'
             country: 'Pays'
@@ -456,6 +460,8 @@ fr:
                 DK: 'Danemark'
                 CZ: 'Tchéquie'
                 SK: 'Slovaquie'
+        tax_report:
+            failed: 'Le rapport n’a pas pu être généré. Vérifiez les paramètres sélectionnés et réessayez.'
         filters:
             all: 'Tous'
         columns:
