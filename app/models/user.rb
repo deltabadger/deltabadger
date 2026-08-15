@@ -20,6 +20,7 @@ class User < ApplicationRecord
 
   has_many :api_keys
   has_many :account_transactions
+  has_many :fund_classifications, dependent: :destroy
   has_many :exchanges, through: :api_keys
   has_many :bots
   has_many :transactions, through: :bots
