@@ -49,4 +49,20 @@ class Tax::PriceServiceFxTest < ActiveSupport::TestCase
     assert_equal 150.to_d, disposal[4].to_d # 300 USD * (1 / 2.00)
     assert_equal 80.to_d, disposal[5].to_d  # 100 USD * (1 / 1.25)
   end
+
+  test 'cached zero FX fallback marks every transaction sharing the broken pair incomplete' do
+    Tax::EcbFxRates.expects(:rate).once.raises(Tax::EcbFxRates::MissingRate)
+    timestamp = Time.utc(2025, 1, 10)
+    transactions = 2.times.map do
+      create(:account_transaction, user: @user, api_key: @api_key, exchange: @api_key.exchange,
+                                   base_currency: 'ETH', base_amount: 1,
+                                   quote_currency: 'USD', quote_amount: 100,
+                                   transacted_at: timestamp)
+    end
+
+    enriched = Tax::PriceService.new.enrich(transactions, currency: 'EUR')
+
+    assert_equal [0.to_d, 0.to_d], enriched.pluck(:fiat_value)
+    assert_equal [true, true], enriched.pluck(:price_missing)
+  end
 end

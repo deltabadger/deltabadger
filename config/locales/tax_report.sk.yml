@@ -22,7 +22,7 @@ sk:
             term_long: 'Dlhodobý'
         no_taxable_transactions: 'Za toto obdobie neboli nájdené žiadne zdaniteľné transakcie.'
         incomplete_banner_prefix: 'UPOZORNENIE'
-        incomplete_banner: 'Chýbajúce hodnoty: %{missing} — prehľad je neúplný, takto ho nepodávajte'
+        incomplete_banner: 'Chýbajú hodnoty (%{missing}) — prehľad je neúplný, takto ho nepodávajte'
         summary:
             total_gains: 'Celkové zisky'
             total_losses: 'Celkové straty'

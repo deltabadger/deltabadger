@@ -80,7 +80,7 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
     assert_equal 5_000.to_d, disposals[1][:gain_loss]
   end
 
-  test 'an unpriced acquisition marks every later disposal of that asset incomplete' do
+  test 'an unpriced acquisition contaminates every later disposal portfolio-wide' do
     @price_service.stubs(:price_at).returns(1_000.to_d)
 
     transactions = [
@@ -105,6 +105,30 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
     eth_disposal = disposals.find { |disposal| disposal[:asset] == 'ETH' }
 
     assert_equal [true, true], btc_flags
-    assert_equal false, eth_disposal[:data_incomplete]
+    # The ETH sale is allocated from the same portfolio-wide acquisition pool understated by the unpriced BTC buy.
+    assert_equal true, eth_disposal[:data_incomplete]
+  end
+
+  test 'a zero-priced portfolio holding marks the disposal incomplete' do
+    @price_service.stubs(:price_at)
+                  .with(asset: 'BTC', currency: 'EUR', timestamp: anything)
+                  .returns(0.to_d)
+    @price_service.stubs(:price_at)
+                  .with(asset: 'ETH', currency: 'EUR', timestamp: anything)
+                  .returns(2_000.to_d)
+
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 1_000.to_d, price_missing: false, transacted_at: Time.utc(2024, 1, 1) },
+      { entry_type: :buy, base_currency: 'ETH', base_amount: 1.to_d,
+        fiat_value: 1_000.to_d, price_missing: false, transacted_at: Time.utc(2024, 1, 2) },
+      { entry_type: :sell, base_currency: 'ETH', base_amount: 0.5.to_d,
+        fiat_value: 1_000.to_d, price_missing: false, quote_currency: 'EUR',
+        transacted_at: Time.utc(2024, 2, 1) }
+    ]
+
+    disposals = @pvct.calculate(transactions, price_service: @price_service, currency: 'EUR')
+
+    assert_equal true, disposals.first[:data_incomplete]
   end
 end

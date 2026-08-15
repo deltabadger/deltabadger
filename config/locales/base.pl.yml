@@ -534,4 +534,4 @@ pl:
             matching_rule: 'Reguła dopasowania'
         no_taxable_transactions: 'Nie znaleziono transakcji podlegających opodatkowaniu dla tego okresu.'
         incomplete_banner_prefix: 'OSTRZEŻENIE'
-        incomplete_banner: 'Brakuje %{missing} wartości — raport niekompletny, nie składaj go w tej postaci'
+        incomplete_banner: 'Brakuje %{missing} wartości — raport niekompletny, nie należy go składać w tej postaci'

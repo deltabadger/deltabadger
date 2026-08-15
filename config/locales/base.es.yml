@@ -532,4 +532,4 @@ es:
             matching_rule: 'Regla de asignación'
         no_taxable_transactions: 'No se encontraron transacciones sujetas a impuestos para este período.'
         incomplete_banner_prefix: 'ADVERTENCIA'
-        incomplete_banner: 'Faltan %{missing} valores — informe incompleto, no lo presentes tal cual'
+        incomplete_banner: 'Faltan %{missing} valores — informe incompleto, no presentarlo tal cual'

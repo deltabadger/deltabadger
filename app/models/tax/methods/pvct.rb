@@ -19,9 +19,10 @@ module Tax
         @stablecoin_as_fiat = options.fetch(:stablecoin_as_fiat, false)
         @price_service = options[:price_service]
         @currency = options.fetch(:currency, 'EUR')
+        # PVCT has no lots: one missing acquisition understates the portfolio-wide cost pool used by every later disposal.
+        @contaminated = false
 
         balances = Hash.new(0.to_d) # asset => amount held
-        incomplete = Set.new
         total_acquisition_cost = 0.to_d
         disposals = []
 
@@ -35,11 +36,11 @@ module Tax
           when :buy, :deposit, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
             balances[asset] += amount
             total_acquisition_cost += fiat_value
-            incomplete << asset if tx[:price_missing]
+            @contaminated = true if tx[:price_missing]
 
           when :swap_in
             balances[asset] += amount
-            incomplete << asset if tx[:price_missing]
+            @contaminated = true if tx[:price_missing]
             # No acquisition cost added — crypto-to-crypto doesn't change total cost
 
           when :swap_out
@@ -68,7 +69,7 @@ module Tax
                 portfolio_value: portfolio_value,
                 gain_loss: gain,
                 fee: tx[:fee_fiat_value] || 0.to_d,
-                data_incomplete: tx[:price_missing] ? true : incomplete.include?(asset),
+                data_incomplete: tx[:price_missing] ? true : @contaminated,
                 tx_id: tx[:tx_id],
                 exchange: tx[:exchange]
               }
@@ -112,9 +113,11 @@ module Tax
           if STABLECOINS.include?(asset)
             # Stablecoins valued at USD rate
             rate = @price_service&.convert_fiat(amount: 1.to_d, from: 'USD', to: @currency, timestamp: timestamp) || 1.to_d
+            @contaminated = true if rate.zero?
             total += amount * rate
           else
             price = @price_service&.price_at(asset: asset, currency: @currency, timestamp: timestamp) || 0.to_d
+            @contaminated = true if price.zero?
             total += amount * price
           end
         end
