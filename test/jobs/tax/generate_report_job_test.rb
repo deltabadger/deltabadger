@@ -1,4 +1,5 @@
 require 'test_helper'
+require 'csv'
 
 class Tax::GenerateReportJobTest < ActiveSupport::TestCase
   # A report that omits a whole exchange must say so on its face. Anything less lets a user file a
@@ -8,7 +9,7 @@ class Tax::GenerateReportJobTest < ActiveSupport::TestCase
     create(:api_key, user: user, exchange: create(:binance_exchange),
                      last_synced_at: 1.day.ago, last_sync_error: 'StandardError: API error')
 
-    rows = generate(user, 'DE', 2024)
+    rows = generate(user, 'DE', 2020)
 
     assert_includes rows[1].first, 'Binance'
   end
@@ -17,23 +18,97 @@ class Tax::GenerateReportJobTest < ActiveSupport::TestCase
     user = create(:user)
     create(:api_key, user: user, exchange: create(:kraken_exchange), last_synced_at: nil)
 
-    rows = generate(user, 'DE', 2023)
+    rows = generate(user, 'DE', 2021)
 
     assert_includes rows[1].first, 'Kraken'
   end
 
-  test 'healthy, withdrawal-only and stock-venue keys leave the report unbannered' do
+  test 'healthy and withdrawal-only keys stay unbannered while a failed stock venue banners' do
     user = create(:user)
     create(:api_key, user: user, exchange: create(:binance_exchange), last_synced_at: 1.day.ago)
     create(:api_key, user: user, exchange: create(:kraken_exchange), key_type: :withdrawal, last_synced_at: nil)
-    # Stock venues are excluded from the crypto report, so a broken Alpaca key cannot hide data in it.
+    # Alpaca crypto reaches this report, so a failed Alpaca sync can now hide reportable rows.
     create(:api_key, user: user, exchange: create(:alpaca_exchange),
                      last_synced_at: nil, last_sync_error: 'StandardError: API error')
 
     rows = generate(user, 'DE', 2022)
+    report_text = rows.flatten.compact.join(' ')
 
-    assert_not_includes rows.flatten.compact.join(' '), 'Alpaca'
-    assert_equal 2, rows.size, 'headers plus the no-transactions line, with no warning banner'
+    assert_includes report_text, 'Alpaca'
+    assert_not_includes report_text, 'Binance'
+    assert_not_includes report_text, 'Kraken'
+    assert_equal 3, rows.size, 'headers, the Alpaca warning, and the no-transactions line'
+  end
+
+  test 'broker scope writes a German KAP report to the broker path' do
+    user = create(:user)
+    exchange = create(:alpaca_exchange)
+    create(:api_key, user: user, exchange: exchange, last_synced_at: 1.day.ago)
+    file_path = Tax::GenerateReportJob.report_path(user.id, 'DE', 2023, 'broker')
+
+    Tax::GenerateReportJob.perform_now(user.id, 'DE', 2023, false, 'broker')
+
+    assert File.exist?(file_path)
+    first_row = CSV.parse(File.read(file_path)).first
+    assert_includes first_row, 'Anlage KAP / KAP-INV — Berechnungsgrundlage'
+    assert_includes first_row, 'Alpaca'
+    assert_not_includes first_row, 'alpaca'
+  end
+
+  test 'broker scope rejects unsupported countries and years' do
+    user = create(:user)
+    exchange = create(:alpaca_exchange)
+    create(:api_key, user: user, exchange: exchange, last_synced_at: 1.day.ago)
+
+    assert_raises(ArgumentError) do
+      Tax::GenerateReportJob.perform_now(user.id, 'PL', 2024, false, 'broker')
+    end
+    assert_raises(ArgumentError) do
+      Tax::GenerateReportJob.perform_now(user.id, 'DE', 2022, false, 'broker')
+    end
+  end
+
+  test 'Alpaca crypto disposals enter the crypto report while Alpaca shares do not' do
+    user = create(:user)
+    exchange = create(:alpaca_exchange)
+    api_key = create(:api_key, user: user, exchange: exchange, last_synced_at: 1.day.ago)
+    create(:asset, symbol: 'AAVE', external_id: 'aave', category: 'Cryptocurrency')
+    create(:asset, symbol: 'AAPL', external_id: 'AAPL.US', category: 'Stock', instrument_type: 'stock')
+    buy_at = Time.utc(2024, 1, 10)
+    sell_at = Time.utc(2024, 6, 1)
+    HistoricalPrice.create!(asset: 'AAVE', currency: 'EUR', date: buy_at.to_date, price: 100.to_d)
+    create(:account_transaction, user: user, exchange: exchange, api_key: api_key,
+                                 base_currency: 'AAVE', base_amount: 1,
+                                 quote_currency: nil, quote_amount: nil, transacted_at: buy_at)
+    create(:account_transaction, :sell, user: user, exchange: exchange, api_key: api_key,
+                                        base_currency: 'AAVE', base_amount: 1,
+                                        quote_currency: 'EUR', quote_amount: 150, transacted_at: sell_at)
+    create(:account_transaction, user: user, exchange: exchange, api_key: api_key,
+                                 base_currency: 'AAPL', base_amount: 1,
+                                 quote_currency: 'EUR', quote_amount: 100, transacted_at: buy_at)
+    create(:account_transaction, :sell, user: user, exchange: exchange, api_key: api_key,
+                                        base_currency: 'AAPL', base_amount: 1,
+                                        quote_currency: 'EUR', quote_amount: 150, transacted_at: sell_at)
+
+    rows = generate(user, 'DE', 2024)
+
+    assert(rows.any? { |row| row[2] == 'AAVE' })
+    assert_not(rows.any? { |row| row[2] == 'AAPL' })
+  end
+
+  test 'report ready broadcast includes the scoped download URL' do
+    user = create(:user)
+    exchange = create(:alpaca_exchange)
+    create(:api_key, user: user, exchange: exchange, last_synced_at: 1.day.ago)
+    stream = Turbo::StreamsChannel.send(:stream_name_from, ["user_#{user.id}", :tax_report])
+    pubsub = ActionCable.server.pubsub
+    pubsub.clear_messages(stream)
+
+    Tax::GenerateReportJob.perform_now(user.id, 'DE', 2025, false, 'broker')
+
+    broadcast = pubsub.broadcasts(stream).last
+    assert broadcast
+    assert_includes ActiveSupport::JSON.decode(broadcast), 'report_scope=broker'
   end
 
   private
@@ -42,6 +117,6 @@ class Tax::GenerateReportJobTest < ActiveSupport::TestCase
   # (user_id, country, year) would clobber each other's file. One year per test keeps them apart.
   def generate(user, country, year)
     Tax::GenerateReportJob.perform_now(user.id, country, year)
-    CSV.parse(File.read(Rails.root.join('tmp', 'tax_reports', "#{user.id}_#{country}_#{year}.csv")))
+    CSV.parse(File.read(Tax::GenerateReportJob.report_path(user.id, country, year)))
   end
 end

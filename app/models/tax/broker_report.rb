@@ -14,6 +14,11 @@ module Tax
   # dividends, interest and withholding live. Values are unrounded BigDecimal end to end; the
   # renderer rounds once.
   class BrokerReport
+    # The annex verified the form line numbers against Germany's Anlage KAP and KAP-INV.
+    COUNTRY = 'DE'.freeze
+    # The annex verified 2023–2025; extend this range when a new year's form is verified.
+    SUPPORTED_YEARS = (2023..2025)
+
     REFUSAL_REASON_ORDER = %i[
       uncovered_disposal unsupported_activity pre_2018_fund_lot missing_price missing_fx missing_basiszins
     ].freeze
@@ -31,9 +36,12 @@ module Tax
       @result ||= calculate
     end
 
-    # Rendering lives in its own class so this one stays the pure calculation its header promises.
+    # Zeile labels transcribe a German form the user is copying into, so they follow that form's
+    # language rather than the UI's, as Tax::Report#to_csv already does via its jurisdiction locale.
     def to_csv
-      Tax::BrokerReportCsv.new(result).to_csv
+      I18n.with_locale(Tax::Jurisdictions.for(COUNTRY)[:locale]) do
+        Tax::BrokerReportCsv.new(result).to_csv
+      end
     end
 
     private
@@ -52,7 +60,6 @@ module Tax
     end
 
     def initialize_calculation
-      @asset_cache = {}
       @record_symbols = {}
       @record_fx_rates = {}
       @fx_rate_cache = {}
@@ -86,32 +93,18 @@ module Tax
       end
     end
 
-    # Exclusion drops a security from the report entirely — no summary, no worksheet, no symbol row —
-    # so it is the one decision here that refusal-first cannot make safe. `symbol` is NOT unique on
-    # assets (only `external_id` is), and a user with any crypto exchange connected carries thousands
-    # of CoinGecko rows, so a stock ticker colliding with a coin would silently understate a signed
-    # form. Hence three ways out before excluding anything.
     def cryptocurrency?(symbol)
-      return false unless symbol
+      crypto_scope.crypto?(symbol) do |categories|
+        add_warning(code: :ambiguous_symbol, symbol: symbol, detail: categories)
+      end
+    end
 
-      assets = assets_for(symbol)
-      return false if assets.empty?
-
-      categories = assets.filter_map(&:category).uniq.sort
-      # One ticker resolving to two asset categories is worth the user's eye even when the tie-breaks
-      # below settle it, so warn before them, not after — a mis-resolved ticker is not a small error.
-      add_warning(code: :ambiguous_symbol, symbol: symbol, detail: categories) if categories.size > 1
-
-      # The user telling us this is a share or a fund outranks any catalogue guess.
-      return false if classified_symbols.include?(symbol)
-      # A stock or ETF row for the same ticker means the crypto row is the collision, not the holding.
-      return false if assets.any? { |asset| asset.instrument_type.in?(%w[stock etf]) }
-
-      categories == ['Cryptocurrency']
+    def crypto_scope
+      @crypto_scope ||= Tax::CryptoScope.new(user: @user)
     end
 
     def assets_for(symbol)
-      @asset_cache[symbol] ||= Asset.where(symbol: symbol).to_a
+      crypto_scope.assets_for(symbol)
     end
 
     # The stock/ETF row is the one that carries an `instrument_type` for FundClassification to
@@ -119,10 +112,6 @@ module Tax
     def asset_for(symbol)
       assets = assets_for(symbol)
       assets.find { |asset| asset.instrument_type.in?(%w[stock etf]) } || assets.first
-    end
-
-    def classified_symbols
-      @classified_symbols ||= @user.fund_classifications.pluck(:symbol).to_set
     end
 
     def build_symbol_states
@@ -628,7 +617,7 @@ module Tax
 
       result = {
         year: @year,
-        exchange: @exchange.name_id,
+        exchange_name: @exchange.name,
         summaries_available: summaries_available,
         kap: (aggregate_kap if summaries_available),
         kap_inv: (aggregate_kap_inv if summaries_available),

@@ -121,6 +121,7 @@ class TrackerController < ApplicationController
   def tax_report
     country = params[:country]
     year = params[:year].to_i
+    report_scope = Tax::GenerateReportJob::SCOPES.include?(params[:report_scope]) ? params[:report_scope] : 'crypto'
     jurisdiction = Tax::Jurisdictions.for(country)
 
     unless jurisdiction
@@ -129,11 +130,11 @@ class TrackerController < ApplicationController
     end
 
     current_user.update(tracker_settings: (current_user.tracker_settings || {}).merge(
-      'export_type' => 'tax_report', 'country' => country, 'year' => year
+      'export_type' => 'tax_report', 'country' => country, 'year' => year, 'report_scope' => report_scope
     ))
 
     stablecoin_as_fiat = params[:stablecoin_as_fiat] == 'true'
-    Tax::GenerateReportJob.perform_later(current_user.id, country, year, stablecoin_as_fiat)
+    Tax::GenerateReportJob.perform_later(current_user.id, country, year, stablecoin_as_fiat, report_scope)
 
     render turbo_stream: turbo_stream.append('flash', partial: 'tracker/report_progress')
   end
@@ -141,12 +142,14 @@ class TrackerController < ApplicationController
   def download_tax_report
     country = params[:country]
     year = params[:year].to_i
-    file_path = Rails.root.join('tmp', 'tax_reports', "#{current_user.id}_#{country}_#{year}.csv")
+    report_scope = params[:report_scope]
+    file_path = Tax::GenerateReportJob.report_path(current_user.id, country, year, report_scope)
 
     if File.exist?(file_path)
       csv_data = File.read(file_path)
       File.delete(file_path)
-      filename = "deltabadger-tax-report-#{country.downcase}-#{year}.csv"
+      report_name = report_scope == 'broker' ? 'broker-tax-report' : 'tax-report'
+      filename = "deltabadger-#{report_name}-#{country.downcase}-#{year}.csv"
       send_data csv_data, filename: filename, type: 'text/csv; charset=utf-8'
     else
       redirect_to tracker_path, alert: t('tracker.tax_report.expired')
@@ -209,13 +212,14 @@ class TrackerController < ApplicationController
 
     country = settings['country']
     year = settings['year']
+    report_scope = settings['report_scope'].presence || 'crypto'
     return unless country && year
 
-    file_path = Rails.root.join('tmp', 'tax_reports', "#{current_user.id}_#{country}_#{year}.csv")
+    file_path = Tax::GenerateReportJob.report_path(current_user.id, country, year, report_scope)
     return unless File.exist?(file_path)
 
     # File exists — report finished while user was away. Set flag for auto-download.
-    @pending_report = { country: country, year: year }
+    @pending_report = { country: country, year: year, report_scope: report_scope }
   end
 
   def validate_coingecko_api_key(api_key)
