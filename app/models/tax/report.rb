@@ -393,8 +393,10 @@ module Tax
     ACQUISITION_ENTRY_TYPES = %w[buy deposit swap_in staking_reward lending_interest airdrop mining other_income].freeze
 
     def apply_danish_wash_sale(disposals, enriched)
+      # A linked deposit is the far end of the user's own transfer, not a repurchase — counting it
+      # here would deny a real loss because the coins moved between two of their own accounts.
       buys_by_asset = enriched
-                      .select { |tx| ACQUISITION_ENTRY_TYPES.include?(tx[:entry_type].to_s) }
+                      .select { |tx| ACQUISITION_ENTRY_TYPES.include?(tx[:entry_type].to_s) && !tx[:linked] }
                       .group_by { |tx| tx[:base_currency] }
 
       disposals.each do |d|

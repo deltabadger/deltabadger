@@ -5,6 +5,9 @@ class AccountTransaction < ApplicationRecord
   belongs_to :api_key, optional: true
   belongs_to :exchange
   belongs_to :bot_transaction, class_name: 'Transaction', foreign_key: 'transaction_id', optional: true
+  belongs_to :linked_transaction, class_name: 'AccountTransaction', optional: true
+  has_one :inverse_link, class_name: 'AccountTransaction', foreign_key: :linked_transaction_id,
+                         inverse_of: :linked_transaction, dependent: :nullify
 
   enum :entry_type, {
     buy: 0, sell: 1, swap_in: 2, swap_out: 3,
@@ -17,6 +20,7 @@ class AccountTransaction < ApplicationRecord
   validates :base_amount, presence: true
   validates :transacted_at, presence: true
   validates :tx_id, uniqueness: { scope: :exchange_id }, allow_nil: true
+  validate :linked_transaction_is_valid, if: -> { linked_transaction_id.present? }
 
   scope :for_user, ->(user) { where(user_id: user.id) }
   scope :for_exchange, ->(exchange) { where(exchange_id: exchange.id) }
@@ -57,5 +61,19 @@ class AccountTransaction < ApplicationRecord
       group_id,
       description
     ]
+  end
+
+  def linked? = linked_transaction_id.present? || inverse_link.present?
+
+  private
+
+  def linked_transaction_is_valid
+    linked = linked_transaction
+    return errors.add(:linked_transaction, 'must exist') unless linked
+
+    errors.add(:linked_transaction, 'must belong to the same user') unless linked.user_id == user_id
+    errors.add(:linked_transaction, 'must use the same base currency') unless linked.base_currency == base_currency
+    errors.add(:linked_transaction, 'must link a withdrawal to a deposit') unless withdrawal? && linked.deposit?
+    errors.add(:linked_transaction, 'must not be before the withdrawal') if transacted_at.present? && linked.transacted_at < transacted_at
   end
 end

@@ -33,10 +33,20 @@ module Tax
           entry = tx[:entry_type].to_sym
 
           case entry
-          when :buy, :deposit, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
+          when :buy, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
             balances[asset] += amount
             total_acquisition_cost += fiat_value
             @contaminated = true if tx[:price_missing]
+
+          when :deposit
+            # The balance goes up either way; only an unlinked deposit adds cost. A linked one's
+            # withdrawal never removed any, so crediting market value here would fabricate basis
+            # — and its own price is then never read, so a missing one cannot contaminate anything.
+            balances[asset] += amount
+            next if tx[:linked]
+
+            total_acquisition_cost += fiat_value
+            @contaminated = true # basis assumed at market value until the user links the deposit
 
           when :swap_in
             balances[asset] += amount
@@ -48,7 +58,13 @@ module Tax
             balances[asset] = 0.to_d if balances[asset].negative?
             # No disposal — crypto-to-crypto not taxable
 
-          when :sell, :withdrawal
+          when :withdrawal
+            # A transfer changes the tracked balance, but is not a French taxable disposal and
+            # does not remove anything from the portfolio-wide acquisition-cost pool.
+            balances[asset] -= amount
+            balances[asset] = 0.to_d if balances[asset].negative?
+
+          when :sell
             if fiat_disposal?(tx)
               portfolio_value = calculate_portfolio_value(balances, tx[:transacted_at])
 

@@ -131,4 +131,62 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
 
     assert_equal true, disposals.first[:data_incomplete]
   end
+
+  test 'withdrawal emits no disposal and leaves aggregate acquisition cost unchanged' do
+    @price_service.stubs(:price_at).returns(20_000.to_d)
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, transacted_at: Time.utc(2024, 1, 1), quote_currency: 'EUR' },
+      { entry_type: :withdrawal, base_currency: 'BTC', base_amount: '0.2'.to_d,
+        fiat_value: 5_000.to_d, transacted_at: Time.utc(2024, 2, 1), quote_currency: nil },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: '0.8'.to_d,
+        fiat_value: 16_000.to_d, transacted_at: Time.utc(2024, 3, 1), quote_currency: 'EUR', tx_id: 'sell-1' }
+    ]
+
+    disposals = @pvct.calculate(transactions, price_service: @price_service, currency: 'EUR')
+
+    assert_equal 1, disposals.size
+    assert_equal 'sell-1', disposals.first[:tx_id]
+    assert_equal 10_000.to_d, disposals.first[:total_acquisition_cost]
+  end
+
+  test 'linked deposit adds no aggregate cost while unlinked deposit adds assumed cost' do
+    @price_service.stubs(:price_at).returns(20_000.to_d)
+    transactions = [
+      { entry_type: :deposit, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 20_000.to_d, price_missing: false, linked: true, transacted_at: Time.utc(2024, 1, 1) },
+      { entry_type: :deposit, base_currency: 'BTC', base_amount: '0.5'.to_d,
+        fiat_value: 5_000.to_d, price_missing: false, linked: false, transacted_at: Time.utc(2024, 1, 2) },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: '0.1'.to_d,
+        fiat_value: 2_000.to_d, price_missing: false, quote_currency: 'EUR', transacted_at: Time.utc(2024, 2, 1) }
+    ]
+
+    disposal = @pvct.calculate(transactions, price_service: @price_service, currency: 'EUR').first
+
+    assert_equal 5_000.to_d, disposal[:total_acquisition_cost]
+    assert_equal 30_000.to_d, disposal[:portfolio_value]
+    assert_equal true, disposal[:data_incomplete]
+  end
+
+  # An unpriceable acquisition understates the cost pool, which is why it contaminates the report.
+  # A linked deposit's price is never read at all, so it has nothing to understate — flagging it
+  # would tell the user their return is unreliable over a number the engine never touched.
+  test 'a linked deposit with no price does not contaminate the report' do
+    @price_service.stubs(:price_at).returns(20_000.to_d)
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, price_missing: false, transacted_at: Time.utc(2024, 1, 1), quote_currency: 'EUR' },
+      { entry_type: :withdrawal, base_currency: 'BTC', base_amount: 1.to_d, linked: true,
+        transfer_fee_amount: 0.to_d, price_missing: true, transacted_at: Time.utc(2024, 2, 1) },
+      { entry_type: :deposit, base_currency: 'BTC', base_amount: 1.to_d, linked: true,
+        fiat_value: 0.to_d, price_missing: true, transacted_at: Time.utc(2024, 2, 1, 1) },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 30_000.to_d, price_missing: false, quote_currency: 'EUR', transacted_at: Time.utc(2024, 3, 1) }
+    ]
+
+    disposal = @pvct.calculate(transactions, price_service: @price_service, currency: 'EUR').first
+
+    assert_equal 10_000.to_d, disposal[:total_acquisition_cost]
+    assert_equal false, disposal[:data_incomplete]
+  end
 end

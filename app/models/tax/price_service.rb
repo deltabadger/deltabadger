@@ -82,6 +82,9 @@ module Tax
         on_progress&.call(percent, 100)
       end
 
+      links = transactions.filter_map { |tx| [tx.id, tx.linked_transaction_id] if tx.linked_transaction_id }.to_h
+      linked_deposit_ids = links.values.to_set
+      deposit_amounts = AccountTransaction.where(id: links.values).pluck(:id, :base_amount).to_h
       total = transactions.size
       transactions.each_with_index.map do |tx, index|
         warnings_before = @warnings.size
@@ -105,7 +108,9 @@ module Tax
           tx_id: tx.tx_id,
           group_id: tx.group_id,
           price_missing: price_missing,
-          exchange: tx.exchange.name_id
+          exchange: tx.exchange.name_id,
+          linked: links.key?(tx.id) || linked_deposit_ids.include?(tx.id),
+          transfer_fee_amount: transfer_fee_amount(tx, links, deposit_amounts)
         }
       end
     end
@@ -195,6 +200,16 @@ module Tax
         price = price_at(asset: record.fee_currency, currency: currency, timestamp: record.transacted_at)
         price * record.fee_amount.to_d
       end
+    end
+
+    def transfer_fee_amount(transaction, links, deposit_amounts)
+      deposit_id = links[transaction.id]
+      return unless transaction.withdrawal? && deposit_id
+
+      deposit_amount = deposit_amounts[deposit_id]
+      return unless deposit_amount
+
+      transaction.base_amount.to_d - deposit_amount.to_d
     end
 
     def fetch_single_price(asset:, currency:, timestamp:)

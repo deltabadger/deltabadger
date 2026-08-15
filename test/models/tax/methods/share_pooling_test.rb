@@ -73,4 +73,30 @@ class Tax::Methods::SharePoolingTest < ActiveSupport::TestCase
 
     assert_equal true, disposal[:data_incomplete]
   end
+
+  test 'withdrawal emits no disposal' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, transacted_at: Time.utc(2024, 1, 1) },
+      { entry_type: :withdrawal, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1) }
+    ]
+
+    assert_empty @sp.calculate(transactions)
+  end
+
+  test 'unlinked deposit enters the Section 104 pool with assumed basis' do
+    transactions = [
+      { entry_type: :deposit, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 20_000.to_d, price_missing: false, linked: false, transacted_at: Time.utc(2024, 1, 1) },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 30_000.to_d, price_missing: false, transacted_at: Time.utc(2024, 6, 1) }
+    ]
+
+    disposal = @sp.calculate(transactions).first
+
+    assert_equal 20_000.to_d, disposal[:cost_basis]
+    assert_equal 'section104', disposal[:matching_rule]
+    assert_equal true, disposal[:data_incomplete]
+  end
 end

@@ -4,6 +4,7 @@ class AccountTransaction::SyncJob < ApplicationJob
 
   def perform(api_key)
     AccountTransactionSync.new(api_key).sync!
+    TransferMatcher.run!(api_key.user)
 
     sleep 0.5
     broadcast_done(api_key.user_id)

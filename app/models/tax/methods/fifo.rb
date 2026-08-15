@@ -23,7 +23,7 @@ module Tax
           entry = tx[:entry_type].to_sym
 
           case entry
-          when :buy, :deposit, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
+          when :buy, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
             cost_per_unit = amount.positive? ? (fiat_value / amount) : 0.to_d
             lots[asset] << {
               amount: amount,
@@ -31,6 +31,13 @@ module Tax
               date: tx[:transacted_at],
               basis_assumed: tx[:price_missing]
             }
+
+          when :deposit
+            next if tx[:linked] # matching withdrawal kept the lots; nothing to add
+
+            cost_per_unit = amount.positive? ? (fiat_value / amount) : 0.to_d
+            lots[asset] << { amount: amount, cost_per_unit: cost_per_unit, date: tx[:transacted_at],
+                             basis_assumed: true }
 
           when :swap_in
             add_swap_in_lot(lots, transferred_cost, tx, asset, amount, fiat_value)
@@ -51,8 +58,13 @@ module Tax
               record_disposal(lots, disposals, tx, asset, amount, fiat_value)
             end
 
-          when :sell, :withdrawal
+          when :sell
             record_disposal(lots, disposals, tx, asset, amount, fiat_value)
+
+          when :withdrawal
+            shrink_pool_for_transfer_fee(lots[asset], tx) if tx[:linked]
+            # Unlinked withdrawal: assume self-transfer to an unsynced wallet — lots stay,
+            # a later synced sale dequeues them. Never a fabricated disposal.
           end
         end
 
@@ -143,6 +155,14 @@ module Tax
         return true if basis_assumed
 
         !has_lots
+      end
+
+      # Network fee on a linked transfer: the fee slice leaves the pool at zero gain.
+      def shrink_pool_for_transfer_fee(asset_lots, transaction)
+        fee_amount = transaction[:transfer_fee_amount]
+        return unless fee_amount&.positive?
+
+        dequeue_cost(asset_lots, fee_amount)
       end
 
       def dequeue_cost(lots, amount_to_sell)

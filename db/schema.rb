@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_15_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_15_130000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -40,6 +40,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_15_120000) do
     t.decimal "fee_amount"
     t.string "fee_currency"
     t.string "group_id"
+    t.integer "linked_transaction_id"
     t.decimal "quote_amount"
     t.string "quote_currency"
     t.json "raw_data", default: {}
@@ -53,6 +54,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_15_120000) do
     t.index ["exchange_id", "tx_id"], name: "index_account_transactions_on_exchange_id_and_tx_id", unique: true, where: "tx_id IS NOT NULL"
     t.index ["exchange_id"], name: "index_account_transactions_on_exchange_id"
     t.index ["group_id"], name: "index_account_transactions_on_group_id"
+    t.index ["linked_transaction_id"], name: "index_account_transactions_on_linked_transaction_id", unique: true
     t.index ["transacted_at"], name: "index_account_transactions_on_transacted_at"
     t.index ["transaction_id"], name: "index_account_transactions_on_transaction_id"
     t.index ["user_id"], name: "index_account_transactions_on_user_id"
