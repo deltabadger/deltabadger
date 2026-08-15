@@ -420,6 +420,12 @@ en:
         filter: 'Filter'
         bot: 'Bot'
         no_results: 'No transactions found for the selected filters.'
+        transfer_badge: 'Transfer'
+        transfer_link: 'Mark as transfer'
+        transfer_unlink: 'Not a transfer'
+        transfer_linked: 'Linked as a transfer between your own accounts.'
+        transfer_unlinked: 'No longer treated as a transfer.'
+        transfer_no_candidate: 'No single matching transaction found within 14 days, so nothing was linked.'
         connect_exchange: 'Connect exchange'
         import_from: 'Import transactions from'
         search_exchange: 'Search exchange...'
@@ -518,6 +524,8 @@ en:
         warnings:
             missing_prices: Missing historical prices for
             upgrade_hint: Upgrade your CoinGecko plan or use deltabadger.com for full historical data.
+            deposit_basis_assumed: Cost basis assumed at market value for these unlinked deposits
+            deposit_basis_assumed_hint: Link each one to its matching withdrawal in the tracker to use the real cost basis.
         values:
             term_long: Long-term
             term_short: Short-term

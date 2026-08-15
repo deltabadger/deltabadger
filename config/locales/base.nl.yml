@@ -416,6 +416,12 @@ nl:
         get_report: 'Rapport ophalen'
         filter: 'Filteren'
         no_results: 'Geen transacties gevonden voor de geselecteerde filters.'
+        transfer_badge: 'Overboeking'
+        transfer_link: 'Markeren als overboeking'
+        transfer_unlink: 'Geen overboeking'
+        transfer_linked: 'Gekoppeld als overboeking tussen je eigen rekeningen.'
+        transfer_unlinked: 'Wordt niet langer als overboeking behandeld.'
+        transfer_no_candidate: 'Binnen 14 dagen is niet precies één overeenkomende transactie gevonden, dus er is niets gekoppeld.'
         connect_exchange: 'Exchange verbinden'
         import_from: 'Transacties importeren van'
         search_exchange: 'Exchange zoeken...'
@@ -506,6 +512,8 @@ nl:
         warnings:
             missing_prices: Historische prijzen ontbreken voor
             upgrade_hint: Upgrade je CoinGecko-abonnement of gebruik deltabadger.com voor volledige historische data.
+            deposit_basis_assumed: Aanschafkosten voor deze ongekoppelde stortingen vastgesteld op de marktwaarde
+            deposit_basis_assumed_hint: Koppel elke storting in de Tracker aan de bijbehorende opname om de werkelijke aanschafkosten te gebruiken.
         headers:
             date: 'Datum'
             asset: 'Activum'

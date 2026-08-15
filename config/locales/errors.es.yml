@@ -7,6 +7,15 @@ es:
                 password: "Contraseña"
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "debe existir"
+                            different_user: "debe pertenecer al mismo usuario"
+                            different_currency: "debe usar la misma moneda base"
+                            wrong_direction: "debe vincular un retiro con un depósito"
+                            before_withdrawal: "no debe ser anterior al retiro"
+                            larger_than_withdrawal: "no debe tener un importe superior al del retiro"
                 bot:
                     attributes:
                         smart_interval_quote_amount:

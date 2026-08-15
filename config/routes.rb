@@ -88,6 +88,7 @@ Rails.application.routes.draw do
     get    '/tracker/tax_report',           to: 'tracker#tax_report',           as: :tax_report_tracker
     get    '/tracker/download_tax_report',  to: 'tracker#download_tax_report',  as: :download_tax_report_tracker
     patch  '/tracker/save_export_settings', to: 'tracker#save_export_settings', as: :save_export_settings_tracker
+    patch  '/tracker/transactions/:id/toggle_transfer', to: 'tracker#toggle_transfer', as: :toggle_transfer_tracker_transaction
     namespace :tracker do
       resource :pick_exchange, only: %i[new create]
       resource :add_api_key, only: %i[new create]

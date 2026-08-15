@@ -417,6 +417,12 @@ fr:
         filter: 'Filtrer'
         bot: 'Bot'
         no_results: 'Aucune transaction trouvée pour les filtres sélectionnés.'
+        transfer_badge: 'Transfert'
+        transfer_link: 'Marquer comme transfert'
+        transfer_unlink: 'Pas un transfert'
+        transfer_linked: 'La transaction a été identifiée comme un transfert entre tes comptes.'
+        transfer_unlinked: 'Cette opération n’est plus considérée comme un transfert.'
+        transfer_no_candidate: 'Il n’a pas été possible d’identifier une seule transaction correspondante dans un délai de 14 jours ; rien n’a donc été associé.'
         connect_exchange: 'Connecter une plateforme'
         import_from: 'Importer les transactions de'
         search_exchange: 'Rechercher une plateforme...'
@@ -507,6 +513,8 @@ fr:
         warnings:
             missing_prices: Prix historiques manquants pour
             upgrade_hint: Passez à un plan CoinGecko supérieur ou utilisez deltabadger.com pour l'historique complet.
+            deposit_basis_assumed: Coût d’acquisition estimé à la valeur de marché pour ces dépôts non associés
+            deposit_basis_assumed_hint: Associe chaque dépôt au retrait correspondant dans le Tracker pour utiliser le coût d’acquisition réel.
         summary:
             total_gains: Plus-values totales
             total_losses: Moins-values totales

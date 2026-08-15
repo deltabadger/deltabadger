@@ -7,6 +7,15 @@ sv:
                 password: "Lösenord"
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "måste finnas"
+                            different_user: "måste tillhöra samma användare"
+                            different_currency: "måste använda samma basvaluta"
+                            wrong_direction: "måste koppla ett uttag till en insättning"
+                            before_withdrawal: "får inte vara tidigare än uttaget"
+                            larger_than_withdrawal: "får inte ha ett större belopp än uttaget"
                 bot:
                     attributes:
                         smart_interval_quote_amount:

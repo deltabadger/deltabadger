@@ -109,6 +109,22 @@ class AccountTransactionTest < ActiveSupport::TestCase
     assert_equal ['must not be larger than the withdrawal'], withdrawal.errors[:linked_transaction]
   end
 
+  test 'linked transaction validation message is localized' do
+    withdrawal_time = Time.utc(2024, 5, 2)
+    deposit = create(:account_transaction, :deposit, api_key: @api_key, exchange: @exchange,
+                                                     base_amount: 5, transacted_at: withdrawal_time + 1.hour)
+    withdrawal = build(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange,
+                                                          base_amount: 1, linked_transaction: deposit,
+                                                          transacted_at: withdrawal_time)
+
+    I18n.with_locale(:de) do
+      assert_not withdrawal.valid?
+      assert_equal I18n.t(
+        'activerecord.errors.models.account_transaction.attributes.linked_transaction.larger_than_withdrawal'
+      ), withdrawal.errors[:linked_transaction].sole
+    end
+  end
+
   test 'valid linked transfer pair saves and is linked from both sides' do
     withdrawal_time = Time.utc(2024, 5, 2)
     deposit = create(:account_transaction, :deposit,

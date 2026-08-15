@@ -7,6 +7,15 @@ pt:
                 password: "Senha"
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "tem de existir"
+                            different_user: "tem de pertencer ao mesmo utilizador"
+                            different_currency: "tem de usar a mesma moeda base"
+                            wrong_direction: "tem de associar um levantamento a um depósito"
+                            before_withdrawal: "não pode ser anterior ao levantamento"
+                            larger_than_withdrawal: "não pode ter um montante superior ao do levantamento"
                 bot:
                     attributes:
                         smart_interval_quote_amount:

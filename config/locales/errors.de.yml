@@ -7,6 +7,15 @@ de:
                 password: "Passwort"
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "muss existieren"
+                            different_user: "muss zum selben Benutzer gehören"
+                            different_currency: "muss dieselbe Basiswährung verwenden"
+                            wrong_direction: "muss eine Auszahlung mit einer Einzahlung verknüpfen"
+                            before_withdrawal: "darf nicht vor der Auszahlung liegen"
+                            larger_than_withdrawal: "darf keinen höheren Betrag als die Auszahlung haben"
                 bot:
                     attributes:
                         smart_interval_quote_amount:

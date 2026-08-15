@@ -2,6 +2,15 @@ ru:
     activerecord:
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "должна существовать"
+                            different_user: "должна принадлежать тому же пользователю"
+                            different_currency: "должна использовать ту же базовую валюту"
+                            wrong_direction: "должна связывать вывод с пополнением"
+                            before_withdrawal: "не должна предшествовать выводу"
+                            larger_than_withdrawal: "не должна иметь сумму больше суммы вывода"
                 bot:
                     attributes:
                         smart_interval_quote_amount:

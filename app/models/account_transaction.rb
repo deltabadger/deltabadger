@@ -69,16 +69,16 @@ class AccountTransaction < ApplicationRecord
 
   def linked_transaction_is_valid
     linked = linked_transaction
-    return errors.add(:linked_transaction, 'must exist') unless linked
+    return errors.add(:linked_transaction, :not_found) unless linked
 
-    errors.add(:linked_transaction, 'must belong to the same user') unless linked.user_id == user_id
-    errors.add(:linked_transaction, 'must use the same base currency') unless linked.base_currency == base_currency
-    errors.add(:linked_transaction, 'must link a withdrawal to a deposit') unless withdrawal? && linked.deposit?
-    errors.add(:linked_transaction, 'must not be before the withdrawal') if transacted_at.present? && linked.transacted_at < transacted_at
+    errors.add(:linked_transaction, :different_user) unless linked.user_id == user_id
+    errors.add(:linked_transaction, :different_currency) unless linked.base_currency == base_currency
+    errors.add(:linked_transaction, :wrong_direction) unless withdrawal? && linked.deposit?
+    errors.add(:linked_transaction, :before_withdrawal) if transacted_at.present? && linked.transacted_at < transacted_at
     # A transfer can only shrink by its network fee. Were the deposit bigger, it would contribute no
     # lot while the withdrawal shrank nothing, silently vaporising the difference in cost basis.
     return unless base_amount.present? && linked.base_amount > base_amount
 
-    errors.add(:linked_transaction, 'must not be larger than the withdrawal')
+    errors.add(:linked_transaction, :larger_than_withdrawal)
   end
 end
