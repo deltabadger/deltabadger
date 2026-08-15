@@ -37,7 +37,7 @@ class RenormalizeAlpacaActivityRows < ActiveRecord::Migration[8.1]
           quote_currency = json_extract(raw_data, '$.symbol'),
           quote_amount = NULL,
           description = 'Dividend (' || json_extract(raw_data, '$.symbol') || ')'
-      WHERE #{alpaca_rows} AND #{activity_type_in(DIVIDEND_INCOME_TYPES)}
+      WHERE #{alpaca_rows} AND #{activity_type_in(DIVIDEND_INCOME_TYPES)} AND #{not_canceled}
     SQL
 
     # Foreign tax withheld is a credit, not income. Stored as other_income it was ADDED to Zeile 19
@@ -49,7 +49,7 @@ class RenormalizeAlpacaActivityRows < ActiveRecord::Migration[8.1]
           quote_currency = json_extract(raw_data, '$.symbol'),
           quote_amount = NULL,
           description = 'Withholding (' || COALESCE(json_extract(raw_data, '$.symbol'), 'interest') || ')'
-      WHERE #{alpaca_rows} AND #{activity_type_in(WITHHOLDING_TYPES)}
+      WHERE #{alpaca_rows} AND #{activity_type_in(WITHHOLDING_TYPES)} AND #{not_canceled}
     SQL
 
     # A capital distribution reduces basis; as income it was taxed and the basis never moved.
@@ -63,6 +63,7 @@ class RenormalizeAlpacaActivityRows < ActiveRecord::Migration[8.1]
           description = 'Return of capital (' || json_extract(raw_data, '$.symbol') || ')'
       WHERE #{alpaca_rows}
         AND json_extract(raw_data, '$.activity_type') = 'DIVROC'
+        AND #{not_canceled}
         AND json_extract(raw_data, '$.symbol') IS NOT NULL
         AND json_extract(raw_data, '$.qty') IS NOT NULL
     SQL
@@ -74,7 +75,7 @@ class RenormalizeAlpacaActivityRows < ActiveRecord::Migration[8.1]
           quote_currency = NULL,
           quote_amount = NULL,
           description = NULL
-      WHERE #{alpaca_rows} AND #{activity_type_in(INTEREST_TYPES)}
+      WHERE #{alpaca_rows} AND #{activity_type_in(INTEREST_TYPES)} AND #{not_canceled}
     SQL
 
     # A crypto fill kept the raw pair as its base currency ("BTC/USD" or the compact "BTCUSD"), and
@@ -123,6 +124,13 @@ class RenormalizeAlpacaActivityRows < ActiveRecord::Migration[8.1]
 
   def alpaca_rows
     "exchange_id IN (SELECT id FROM exchanges WHERE type = 'Exchanges::Alpaca')"
+  end
+
+  # `normalize_activity` drops a canceled activity outright, but the OLD normalizer had no such
+  # check, so a legacy canceled dividend is stored as if it had paid. Restating it would turn a row
+  # the current importer would never create into a well-formed KAP-INV entry; leave it malformed.
+  def not_canceled
+    "COALESCE(json_extract(raw_data, '$.status'), '') <> 'canceled'"
   end
 
   def activity_type_in(types)

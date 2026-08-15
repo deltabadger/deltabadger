@@ -95,15 +95,20 @@ class Exchange < ApplicationRecord
     self.class.name.demodulize.underscore
   end
 
-  # How far back `AccountTransactionSync` may put a ledger window's start. It is a MAXIMUM staleness,
-  # not a minimum depth: the adapters send `startTime` with no `endTime`, and every capped endpoint
-  # returns a window measured FROM `startTime`. Parked further back than the cap, that window ends in
+  # How far back `AccountTransactionSync` may put a ledger window's start, or `nil` for no limit.
+  #
+  # Declare it ONLY on a venue whose endpoint caps the returned window. Those endpoints measure the
+  # cap FROM `startTime`, so a start parked further back than the cap returns a window that ends in
   # the past and the account goes silently blind — nothing new arrives, so the data-derived watermark
-  # can never advance to un-blind it. Shortening it can only cost history the endpoint could not have
-  # returned anyway. 80 days is the ~90-day family (Binance, MEXC, Bitget); override where it is less.
-  def ledger_window
-    80.days
-  end
+  # can never advance to un-blind it. There, clamping to the cap costs no history the endpoint would
+  # have returned anyway.
+  #
+  # On an UNCAPPED venue the same clamp is pure data loss. Alpaca, Kraken, Coinbase and Hyperliquid
+  # all paginate a cursor from `start_time` to the present, and there is no recurring ledger sync —
+  # a sync only happens when the user opens the tracker. So a clamp here means a buy-and-hold user
+  # who visits in January and again in August never fetches the months in between, the watermark then
+  # advances past them, and nothing banners. `nil` is the safe default; a cap is the exception.
+  def ledger_window = nil
 
   def coingecko_id
     raise NotImplementedError, "#{self.class.name} must implement coingecko_id"

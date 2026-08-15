@@ -141,18 +141,23 @@ weekday and returns `{}` on failure — a boundary price is never guessed, the s
 - The watermark is **derived from the fetched data** (`max transacted_at`), never `Time.current` —
   a clock watermark silently drops whatever the fetch did not return.
 - It is **clamped behind the earliest row that failed to save**, so one malformed entry cannot become
-  a permanent hole — but only **within the window floor below**. A skipped row older than the floor
-  is never re-fetched, because the next window cannot start before it.
-- The window is floored at `Exchange#ledger_window` (`[last_synced_at - 25.hours,
-  exchange.ledger_window.ago].max`), 80 days by default. Binance, MEXC and Bitget cap history at
-  ~90 days *measured from start_time*, so a data-derived watermark parked at a quiet account's last
-  trade would eventually query a window ending before today and the account would go blind. The
-  floor is a **maximum staleness, not a minimum depth**: Bybit's `/v5/execution/list` and KuCoin's
-  `/api/v1/fills` serve only 7 days from `startTime` and override it to `7.days`. Shortening a
-  window can only cost history the endpoint would not have returned anyway.
-  - Residual: Bybit's deposit/withdrawal records cap at 30 days, so on a quiet Bybit account a
-    transfer between 7 and 30 days old still falls outside every window. Fixing that needs chunked
-    `endTime` requests, not a floor.
+  a permanent hole — on an uncapped venue. On a capped one the clamp only reaches back as far as
+  `ledger_window`; a row skipped before that is never re-fetched.
+- The window start is floored at `Exchange#ledger_window` — **`nil` by default, i.e. no floor**.
+  Declare it only where the endpoint caps the window it returns: Binance/MEXC/Bitget `80.days`
+  (~90-day cap), Bybit and KuCoin `7.days` (`/v5/execution/list`, `/api/v1/fills`). Those caps are
+  measured *from start_time*, so a watermark parked at a quiet account's last trade would query a
+  window ending before today and the account would go blind.
+  - **The default must stay `nil`.** Alpaca, Kraken, Coinbase and Hyperliquid paginate a cursor from
+    `start_time` to the present, and **there is no recurring ledger sync** — `AccountTransactionSync`
+    runs only from `TrackerController#index` and `Transaction#after_create`. A floor there would drop
+    every month between two tracker visits, and the watermark would then advance past them.
+  - Residual on a capped venue: anchoring at the present costs everything between the cap and an
+    older watermark. On a Bybit or KuCoin account quiet for longer than 7 days, **any row in that
+    gap — fills included, not just transfers** — falls outside every window, and Bybit's 30-day
+    deposit/withdraw cap does not help because the window now starts 7 days ago. Anchoring at the
+    present is still right: the alternative is an account that never sees anything new again.
+    Closing the gap needs chunked `endTime` requests, not a floor.
 - Dedup is by `tx_id` scoped to **(user, exchange)**; a blank id is read as `nil` and dedups on
   (api_key, type, currency, amount, timestamp) instead. `ApiKey#sync_issue` (never synced / last
   error) banners at the top of the crypto report — a report that silently omits an exchange is the

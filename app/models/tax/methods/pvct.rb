@@ -97,17 +97,21 @@ module Tax
             if fiat_disposal?(tx)
               portfolio_value = calculate_portfolio_value(balances, tx[:transacted_at])
 
+              # Art. 150 VH bis defines the prix de cession NET of the frais of that cession, and
+              # that same net figure is the numerator of the allocation ratio — the formula is
+              # (C-f)(1 - A/V), not C - A·C/V - f. Subtracting the fee only from the gain leaves
+              # `allocated_cost` computed on the gross price, which understates the gain by f·A/V
+              # and carries the gross-based figure into every later disposal through the pool.
+              fee = tx[:fee_fiat_value] || 0.to_d
+              net_cession = fiat_value - fee
+
               allocated_cost = if portfolio_value.positive?
-                                 total_acquisition_cost * fiat_value / portfolio_value
+                                 total_acquisition_cost * net_cession / portfolio_value
                                else
                                  0.to_d
                                end
 
-              # Art. 150 VH bis reduces the prix de cession by the frais of that cession, exactly as
-              # every other engine deducts a disposal fee. Capitalising the acquisition-side fee
-              # without this made PVCT the sole engine that printed a fee it never subtracted.
-              fee = tx[:fee_fiat_value] || 0.to_d
-              gain = fiat_value - allocated_cost - fee
+              gain = net_cession - allocated_cost
 
               disposals << {
                 date: tx[:transacted_at],

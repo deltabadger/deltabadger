@@ -333,9 +333,10 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
     assert_equal 10_000.to_d, disposals.first[:total_acquisition_cost]
     assert_equal 20_000.to_d, disposals.first[:portfolio_value]
   end
-  # Art. 150 VH bis reduces the prix de cession by the frais of that cession. PVCT printed the fee
-  # in its own column and never subtracted it, while every other engine did.
-  test 'a disposal fee is deducted from the PVCT gain' do
+  # Art. 150 VH bis defines the prix de cession net of the frais of that cession, and that net figure
+  # is also the numerator of the allocation ratio: (C-f)(1 - A/V), never C - A·C/V - f. PVCT printed
+  # the fee in its own column and subtracted it from neither.
+  test 'a disposal fee is deducted from the prix de cession, not just from the gain' do
     @price_service.stubs(:price_at).with(asset: 'BTC', currency: 'EUR', timestamp: anything).returns(50_000.to_d)
     @price_service.stubs(:convert_fiat).returns(1.to_d)
 
@@ -352,7 +353,9 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
     disposal = @pvct.calculate(transactions, price_service: @price_service, currency: 'EUR').first
 
     assert_equal 78.to_d, disposal[:fee]
-    # 25 000 - (10 000 * 25 000 / 50 000) - 78
-    assert_equal 19_922.to_d, disposal[:gain_loss]
+    # net cession 25 000 - 78 = 24 922; allocated cost 10 000 * 24 922 / 50 000 = 4 984.40
+    assert_equal '19937.6'.to_d, disposal[:gain_loss]
+    # Gross proceeds stay in their own column; only the allocation and the gain go net.
+    assert_equal 25_000.to_d, disposal[:proceeds]
   end
 end

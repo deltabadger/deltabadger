@@ -148,6 +148,23 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_operator captured, :<, 79.days.ago
   end
 
+  # Alpaca, Kraken, Coinbase and Hyperliquid all paginate a cursor from start_time to the present,
+  # and nothing syncs on a schedule — a sync only happens when the user opens the tracker. Flooring
+  # an uncapped venue would silently drop every month between two visits, and the watermark would
+  # then advance past them.
+  test 'an uncapped exchange is never clamped, however old the watermark' do
+    exchange = create(:kraken_exchange)
+    last_sync = 200.days.ago.change(usec: 0)
+    api_key = create(:api_key, user: @user, exchange: exchange, last_synced_at: last_sync)
+
+    assert_nil exchange.ledger_window
+    exchange.expects(:get_ledger)
+            .with(api_key: api_key, start_time: last_sync - 25.hours)
+            .returns(Result::Success.new([]))
+
+    AccountTransactionSync.new(api_key).sync!
+  end
+
   # Bybit's execution list and KuCoin's fills serve 7 days measured FROM startTime, so an 80-day-old
   # start returns a window that ended 73 days ago: a deposit made today is never seen, and nothing
   # new can arrive to advance the watermark past it.
