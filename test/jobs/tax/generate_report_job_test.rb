@@ -119,6 +119,23 @@ class Tax::GenerateReportJobTest < ActiveSupport::TestCase
     assert_includes ActiveSupport::JSON.decode(broadcast), 'report_scope=broker'
   end
 
+  # `country` reaches this builder straight from user params at four call sites (the controller
+  # download, check_pending_report and three MCP tools), and the filename is served as an attachment.
+  # The strip is the only thing between those params and both path traversal and a
+  # Content-Disposition header injection.
+  test 'a hostile country param cannot escape the report directory or the scope suffix' do
+    traversal = Tax::GenerateReportJob.report_path(1, '../../../etc/passwd', 2024, '../broker')
+
+    assert traversal.start_with?(Rails.root.join('tmp', 'tax_reports').to_s), traversal
+    assert traversal.end_with?('_crypto.csv'), traversal
+    assert_equal 'ETCPASSWD', Tax::GenerateReportJob.report_country('../../../etc/passwd')
+
+    crlf = Tax::GenerateReportJob.report_path(1, "DE\r\nX-Injected: 1", 2024)
+
+    assert_equal 1, crlf.lines.size
+    assert_equal Rails.root.join('tmp', 'tax_reports', '1_DEXINJECTED_2024_crypto.csv').to_s, crlf
+  end
+
   private
 
   # Parallel workers each get their own database but share tmp/, so two tests generating the same

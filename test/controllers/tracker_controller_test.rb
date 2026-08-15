@@ -176,6 +176,39 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/translation_missing/, @response.body)
   end
 
+  # The disclaimer is about the tax report; it sat outside the toggled block and so was shown over
+  # the plain transactions export too.
+  test 'the tax disclaimer is inside the tax-only options block' do
+    MarketData.stubs(:configured?).returns(true)
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    disclaimer = Nokogiri::HTML(@response.body).at_css("p:contains('#{I18n.t('tracker.export_modal.tax_disclaimer')}')")
+    assert disclaimer, 'the disclaimer paragraph is missing'
+    assert_equal 'taxOptions', disclaimer['data-tracker-export-target']
+  end
+
+  # A sync failure is persisted on the key but the banner was only ever broadcast, so a user who
+  # reloaded the page saw a tracker that looked healthy while an exchange contributed nothing.
+  test 'a persisted sync failure banners on page load' do
+    @api_key.update_column(:last_sync_error, 'StandardError: API error')
+
+    get tracker_path
+
+    assert_response :success
+    assert_includes @response.body, I18n.t('tracker.sync_failed_for', exchanges: @api_key.exchange.name)
+  end
+
+  test 'a healthy never-synced key does not banner a sync failure' do
+    @api_key.update!(last_synced_at: nil, last_sync_error: nil)
+
+    get tracker_path
+
+    assert_response :success
+    assert_not_includes @response.body, I18n.t('tracker.sync_failed_for', exchanges: @api_key.exchange.name)
+  end
+
   test 'creates fund classifications for the signed-in user' do
     patch fund_classifications_tracker_path, params: {
       classifications: [
