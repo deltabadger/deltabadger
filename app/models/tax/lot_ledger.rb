@@ -22,7 +22,10 @@ module Tax
     end
 
     def acquire(units:, cost_eur:, date:, meta: {})
-      meta[:vap_per_unit] ||= 0.to_d
+      # Copy so two lots opened from one caller-held hash never alias and double-count VAP, and
+      # coerce rather than seed: a Float reaching the per-unit VAP would launder into every figure.
+      meta = meta.dup
+      meta[:vap_per_unit] = (meta[:vap_per_unit] || 0).to_d
       lot = Lot.new(units.to_d, cost_eur.to_d, date, meta, @splits)
       @lots << lot
       lot
@@ -49,12 +52,12 @@ module Tax
       excess = 0.to_d
 
       @lots.each do |lot|
-        next unless lot.units.positive?
-
-        cost_per_unit = lot.cost_eur / lot.units
+        # Multiplying the rate up beats dividing to a per-unit cost and multiplying back: the stored
+        # basis stays exact instead of picking up a division remainder. A zero-unit lot reduces by 0.
+        reduction = lot.units * per_unit
         # Basis cannot become negative; any distribution it cannot absorb is current income.
-        excess += lot.units * [per_unit - cost_per_unit, 0.to_d].max
-        lot.cost_eur = lot.units * [cost_per_unit - per_unit, 0.to_d].max
+        excess += [reduction - lot.cost_eur, 0.to_d].max
+        lot.cost_eur = [lot.cost_eur - reduction, 0.to_d].max
       end
       excess
     end
@@ -94,7 +97,7 @@ module Tax
           units_taken: taken,
           cost_eur: taken_cost,
           acquired_on: lot.acquired_on,
-          vap_eur: taken * lot.meta[:vap_per_unit].to_d,
+          vap_eur: taken * lot.meta[:vap_per_unit],
           disposed_on: date
         }
         remaining -= taken

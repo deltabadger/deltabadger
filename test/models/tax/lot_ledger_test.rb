@@ -130,6 +130,49 @@ class Tax::LotLedgerTest < ActiveSupport::TestCase
     assert_equal '230'.to_d, lot.units * lot.meta[:vap_per_unit]
   end
 
+  test 'a degenerate adjust leaves lots and recorded splits untouched' do
+    ledger = Tax::LotLedger.new
+
+    # With nothing held there is no pool to restate, so this records no factor and cannot divide by 0.
+    assert_nothing_raised { ledger.adjust(delta: 10.to_d, date: Date.new(2023, 6, 1)) }
+    assert_empty ledger.open_lots
+
+    lot = ledger.acquire(units: 10.to_d, cost_eur: '1000'.to_d, date: Date.new(2023, 1, 15))
+
+    # A delta that zeroes the pool gives factor (10 - 10) / 10 = 0 — not a split.
+    ledger.adjust(delta: -10.to_d, date: Date.new(2023, 7, 1))
+    # A delta that overdraws the pool gives factor (10 - 15) / 10 = -0.5 — not a split.
+    ledger.adjust(delta: -15.to_d, date: Date.new(2023, 8, 1))
+
+    # Holdings survive intact: a bogus corporate action leaves a later oversell to surface as
+    # `uncovered` rather than silently erasing the symbol's basis.
+    assert_equal [lot], ledger.open_lots
+    assert_equal 10.to_d, lot.units
+    assert_equal '1000'.to_d, lot.cost_eur
+    # No factor was recorded by any of the three calls, so every earlier date still reads 10 units.
+    assert_equal 10.to_d, lot.units_in_terms_of(Date.new(2022, 12, 31))
+  end
+
+  test 'acquire copies the caller metadata and coerces the vorabpauschale rate' do
+    ledger = Tax::LotLedger.new
+    shared_meta = { vap_per_unit: 1.5 }
+
+    first_lot = ledger.acquire(units: 10.to_d, cost_eur: '1000'.to_d, date: Date.new(2023, 1, 10), meta: shared_meta)
+    second_lot = ledger.acquire(units: 10.to_d, cost_eur: '1000'.to_d, date: Date.new(2023, 2, 10), meta: shared_meta)
+
+    # A Float rate is coerced on the way in; nothing but BigDecimal reaches the arithmetic.
+    assert_equal '1.5'.to_d, first_lot.meta[:vap_per_unit]
+    assert_instance_of BigDecimal, first_lot.meta[:vap_per_unit]
+
+    first_lot.meta[:vap_per_unit] += 1.to_d
+
+    # The lots hold independent copies, so accruing on one leaves the other at 1.5 EUR per unit.
+    assert_equal '2.5'.to_d, first_lot.meta[:vap_per_unit]
+    assert_equal '1.5'.to_d, second_lot.meta[:vap_per_unit]
+    # The caller's own hash is never mutated.
+    assert_equal({ vap_per_unit: 1.5 }, shared_meta)
+  end
+
   test 'units in terms of across one split' do
     ledger = Tax::LotLedger.new
     lot = ledger.acquire(units: 10.to_d, cost_eur: '1000'.to_d, date: Date.new(2023, 1, 15))
@@ -179,6 +222,19 @@ class Tax::LotLedgerTest < ActiveSupport::TestCase
     assert_equal 0.to_d, second_lot.cost_eur
     # The unabsorbed reduction is 10 * (5 - 3) = 20 EUR.
     assert_equal '20'.to_d, excess
+
+    # A unit count that does not divide the basis evenly: routing through a per-unit cost would
+    # return 84.999999999999999999999999999999 here. The stored basis must stay exactly 85 EUR.
+    indivisible_ledger = Tax::LotLedger.new
+    indivisible_lot = indivisible_ledger.acquire(units: 3.to_d, cost_eur: '100'.to_d, date: Date.new(2023, 1, 10))
+
+    indivisible_excess = indivisible_ledger.reduce_basis(per_unit_eur: 5.to_d)
+
+    # 100 - 3 * 5 = 85 EUR exactly.
+    assert_equal '85'.to_d, indivisible_lot.cost_eur
+    assert_equal '85.0', indivisible_lot.cost_eur.to_s('F')
+    # The basis absorbs the whole reduction, so no excess is booked as income.
+    assert_equal 0.to_d, indivisible_excess
   end
 
   test 'reduce basis total absorbs fifo and returns excess' do
