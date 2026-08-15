@@ -50,6 +50,10 @@ module Tax
             disposals_raw << tx.merge(remaining: amount)
 
           when :withdrawal
+            # Considered and accepted: this shrinks the S104 pool but not `acquisitions`, so a
+            # same-day or bed-and-breakfast match can still consume a unit already burned as a
+            # network fee. Bounded by the matcher's 2% tolerance, and the two lists already
+            # double-count by design (a same-day match never decrements the pool either).
             shrink_pool_for_transfer_fee(pools[asset], tx) if tx[:linked]
           end
         end

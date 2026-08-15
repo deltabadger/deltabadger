@@ -26,7 +26,36 @@ class TransferMatcherTest < ActiveSupport::TestCase
                                transacted_at: Time.utc(2024, 5, 1, 2), tx_id: 'm5')
     AccountTransaction.create!(user: user, exchange: kraken, entry_type: :deposit,
                                base_currency: 'BTC', base_amount: 1, transacted_at: Time.utc(2024, 5, 5), tx_id: 'm6')
+    # A deposit another withdrawal already claimed. Without this, one deposit could relieve two
+    # withdrawals' basis — and the unique index would blow the sync job up with RecordNotUnique.
+    claimed = AccountTransaction.create!(user: user, exchange: kraken, entry_type: :deposit,
+                                         base_currency: 'BTC', base_amount: '0.995'.to_d,
+                                         transacted_at: Time.utc(2024, 5, 1, 3), tx_id: 'm7')
+    AccountTransaction.create!(user: user, exchange: binance, entry_type: :withdrawal,
+                               base_currency: 'BTC', base_amount: 1, transacted_at: Time.utc(2024, 5, 1),
+                               tx_id: 'm8', linked_transaction_id: claimed.id)
     TransferMatcher.run!(user)
     assert_nil w.reload.linked_transaction_id
+  end
+
+  test 'never overwrites a manual link, even when a better candidate exists' do
+    user = create(:user)
+    binance = create(:binance_exchange)
+    kraken = create(:kraken_exchange)
+    withdrawal = AccountTransaction.create!(user: user, exchange: binance, entry_type: :withdrawal,
+                                            base_currency: 'BTC', base_amount: 1,
+                                            transacted_at: Time.utc(2024, 5, 1), tx_id: 'mm1')
+    # Deliberately the worse match: further out in time and a bigger shrink than the decoy below.
+    manual = AccountTransaction.create!(user: user, exchange: kraken, entry_type: :deposit,
+                                        base_currency: 'BTC', base_amount: '0.98'.to_d,
+                                        transacted_at: Time.utc(2024, 5, 2), tx_id: 'mm2')
+    withdrawal.update!(linked_transaction_id: manual.id)
+    AccountTransaction.create!(user: user, exchange: kraken, entry_type: :deposit,
+                               base_currency: 'BTC', base_amount: '0.999'.to_d,
+                               transacted_at: Time.utc(2024, 5, 1, 1), tx_id: 'mm3')
+
+    TransferMatcher.run!(user)
+
+    assert_equal manual.id, withdrawal.reload.linked_transaction_id
   end
 end

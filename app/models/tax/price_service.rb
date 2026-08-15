@@ -17,6 +17,7 @@ module Tax
       coins_needed = {}
 
       transactions.each do |tx|
+        next if skip_pricing?(tx)
         next if tx.quote_currency == currency && tx.quote_amount.present?
         next if tx.quote_currency.present? && tx.quote_amount.present? &&
                 (STABLECOINS.include?(tx.quote_currency) || FIAT_CURRENCIES.include?(tx.quote_currency))
@@ -88,8 +89,11 @@ module Tax
       total = transactions.size
       transactions.each_with_index.map do |tx, index|
         warnings_before = @warnings.size
-        fiat_value = resolve_fiat_value(tx, currency)
-        fee_fiat_value = resolve_fee_fiat_value(tx, currency)
+        fiat_value, fee_fiat_value = if skip_pricing?(tx)
+                                       [0.to_d, 0.to_d]
+                                     else
+                                       [resolve_fiat_value(tx, currency), resolve_fee_fiat_value(tx, currency)]
+                                     end
         price_missing = @warnings.size > warnings_before
 
         enrich_percent = total.positive? ? 21 + ((index + 1).to_f / total * 79).to_i : 100
@@ -116,6 +120,15 @@ module Tax
     end
 
     private
+
+    # Since transfers stopped being disposals, no engine reads a withdrawal's fiat value — the
+    # FIFO family and PVCT branch on `linked` and `transfer_fee_amount`, both derived from base
+    # amounts, and the wealth snapshot never sees enriched rows at all. Pricing one can therefore
+    # only fail, and a failure would raise a missing-price warning that banners the whole report as
+    # incomplete over a number nothing consumes — corroding the very signal that banner exists for.
+    def skip_pricing?(transaction)
+      transaction.withdrawal?
+    end
 
     def add_coin_date(coins, symbol, timestamp)
       return if symbol.blank? || FIAT_CURRENCIES.include?(symbol)

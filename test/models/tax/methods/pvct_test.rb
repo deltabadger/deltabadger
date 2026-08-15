@@ -148,6 +148,29 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
     assert_equal 1, disposals.size
     assert_equal 'sell-1', disposals.first[:tx_id]
     assert_equal 10_000.to_d, disposals.first[:total_acquisition_cost]
+    # The withdrawn 0.2 is still held, so the portfolio is a whole BTC: allocated cost is
+    # 10 000 x 16 000 / 20 000 = 8 000, not the 10 000 a shrunken denominator would allocate.
+    assert_equal 20_000.to_d, disposals.first[:portfolio_value]
+    assert_equal 8_000.to_d, disposals.first[:gain_loss]
+  end
+
+  # Leaving the cost in the pool while dropping the coins from the portfolio value would inflate
+  # every later sale's allocated cost — trading F1's over-taxation for under-taxation.
+  test 'an unlinked withdrawal keeps its coins in the portfolio value used to prorate cost' do
+    @price_service.stubs(:price_at).returns(30_000.to_d)
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, transacted_at: Time.utc(2024, 1, 1), quote_currency: 'EUR' },
+      { entry_type: :withdrawal, base_currency: 'BTC', base_amount: '0.9'.to_d,
+        transacted_at: Time.utc(2024, 2, 1), quote_currency: nil },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: '0.1'.to_d,
+        fiat_value: 3_000.to_d, transacted_at: Time.utc(2024, 3, 1), quote_currency: 'EUR', tx_id: 'sell-1' }
+    ]
+
+    disposal = @pvct.calculate(transactions, price_service: @price_service, currency: 'EUR').first
+
+    assert_equal 30_000.to_d, disposal[:portfolio_value] # the full BTC, not the 0.1 left on the exchange
+    assert_equal 2_000.to_d, disposal[:gain_loss]        # 3 000 - (10 000 x 3 000 / 30 000)
   end
 
   test 'linked deposit adds no aggregate cost while unlinked deposit adds assumed cost' do
