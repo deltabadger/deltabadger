@@ -96,6 +96,7 @@ class Exchanges::KrakenGetLedgerTest < ActiveSupport::TestCase
     assert_equal 0.5.to_d, btc_entry[:base_amount]
     assert_nil btc_entry[:fee_currency]
     assert_nil btc_entry[:fee_amount]
+    assert_equal :sell, eur_entry[:entry_type]
     assert_equal 10_000.to_d, eur_entry[:base_amount]
     assert_equal 'EUR', eur_entry[:fee_currency]
     assert_equal 26.to_d, eur_entry[:fee_amount]

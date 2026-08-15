@@ -122,4 +122,25 @@ class Tax::Methods::WeightedAverageTest < ActiveSupport::TestCase
     assert_equal '9.99'.to_d, disposal[:amount]
     assert_equal 1_000.to_d, disposal[:cost_basis].round(0) # 9.99-unit pool retains the full 1 000 quote cost
   end
+
+  test 'fee paid in another crypto capitalises its value and consumes its pool' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BNB', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'cross-1' },
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 30_000.to_d, fee_currency: 'BNB', fee_amount: '0.01'.to_d, fee_fiat_value: 1.to_d,
+        transacted_at: Time.utc(2024, 1, 2), tx_id: 'cross-2' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 40_000.to_d, transacted_at: Time.utc(2024, 3, 1), tx_id: 'cross-3' },
+      { entry_type: :sell, base_currency: 'BNB', base_amount: '9.99'.to_d,
+        fiat_value: 2_000.to_d, transacted_at: Time.utc(2024, 4, 1), tx_id: 'cross-4' }
+    ]
+
+    disposals = @wa.calculate(transactions)
+    btc_disposal = disposals.find { |disposal| disposal[:asset] == 'BTC' }
+    bnb_disposal = disposals.find { |disposal| disposal[:asset] == 'BNB' }
+
+    assert_equal 30_001.to_d, btc_disposal[:cost_basis]
+    assert_equal 999.to_d, bnb_disposal[:cost_basis]
+  end
 end

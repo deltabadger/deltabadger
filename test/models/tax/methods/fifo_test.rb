@@ -165,6 +165,36 @@ class Tax::Methods::FifoTest < ActiveSupport::TestCase
     assert_equal 1_000.to_d, d[:cost_basis].round(0) # full quote cost survives in the shrunken lot, nothing double-counted
   end
 
+  test 'unlinked deposit fee in the deposited asset shrinks only the lot quantity' do
+    transactions = [
+      { entry_type: :deposit, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, fee_currency: 'BTC', fee_amount: '0.001'.to_d,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'deposit-fee' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: '0.999'.to_d,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'deposit-sale' }
+    ]
+
+    disposal = @fifo.calculate(transactions).first
+
+    assert_equal '0.999'.to_d, disposal[:amount]
+    assert_equal 10_000.to_d, disposal[:cost_basis].round(0)
+  end
+
+  test 'taxable swap_in fee in the received asset shrinks only the lot quantity' do
+    transactions = [
+      { entry_type: :swap_in, base_currency: 'ETH', base_amount: 10.to_d,
+        fiat_value: 20_000.to_d, fee_currency: 'ETH', fee_amount: '0.1'.to_d,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'swap-in-fee' },
+      { entry_type: :sell, base_currency: 'ETH', base_amount: '9.9'.to_d,
+        fiat_value: 30_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'swap-in-sale' }
+    ]
+
+    disposal = @fifo.calculate(transactions).first
+
+    assert_equal '9.9'.to_d, disposal[:amount]
+    assert_equal 20_000.to_d, disposal[:cost_basis].round(0)
+  end
+
   test 'fee paid in another crypto capitalises its value and consumes its inventory' do
     txs = [
       { entry_type: :buy, base_currency: 'BNB', base_amount: 10.to_d, fiat_value: 1_000.to_d,
@@ -174,7 +204,7 @@ class Tax::Methods::FifoTest < ActiveSupport::TestCase
         transacted_at: Time.utc(2024, 1, 2), tx_id: 'cross-2' },
       { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d, fiat_value: 40_000.to_d,
         transacted_at: Time.utc(2024, 3, 1), tx_id: 'cross-3' },
-      { entry_type: :sell, base_currency: 'BNB', base_amount: 10.to_d, fiat_value: 2_000.to_d,
+      { entry_type: :sell, base_currency: 'BNB', base_amount: '9.99'.to_d, fiat_value: 2_000.to_d,
         transacted_at: Time.utc(2024, 4, 1), tx_id: 'cross-4' }
     ]
 
@@ -183,6 +213,28 @@ class Tax::Methods::FifoTest < ActiveSupport::TestCase
     bnb_disposal = disposals.find { |disposal| disposal[:asset] == 'BNB' }
 
     assert_equal 30_001.to_d, btc_disposal[:cost_basis] # 30 000 purchase + 1 BNB-fee value
+    assert_equal '9.99'.to_d, bnb_disposal[:amount]
     assert_equal 999.to_d, bnb_disposal[:cost_basis]    # 9.99 BNB remain at 100 each after the 0.01 fee
+  end
+
+  test 'fee paid in quote currency is capitalised without consuming quote inventory' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'USDT', base_amount: 1_000.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'quote-1' },
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d, quote_currency: 'USDT',
+        fiat_value: 30_000.to_d, fee_currency: 'USDT', fee_amount: 25.to_d, fee_fiat_value: 25.to_d,
+        transacted_at: Time.utc(2024, 1, 2), tx_id: 'quote-2' },
+      { entry_type: :sell, base_currency: 'USDT', base_amount: 1_000.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 3, 1), tx_id: 'quote-3' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 40_000.to_d, transacted_at: Time.utc(2024, 4, 1), tx_id: 'quote-4' }
+    ]
+
+    disposals = @fifo.calculate(transactions)
+    btc_disposal = disposals.find { |disposal| disposal[:asset] == 'BTC' }
+    usdt_disposal = disposals.find { |disposal| disposal[:asset] == 'USDT' }
+
+    assert_equal 30_025.to_d, btc_disposal[:cost_basis]
+    assert_equal 1_000.to_d, usdt_disposal[:cost_basis]
   end
 end

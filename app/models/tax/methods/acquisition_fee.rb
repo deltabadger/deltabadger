@@ -20,8 +20,9 @@ module Tax
           return [net.negative? ? 0.to_d : net, fiat_value]
         end
 
-        if fee_amount.present? && fee_amount.to_d.positive? && crypto_fee_asset?(transaction[:fee_currency])
+        if fee_amount.present? && fee_amount.to_d.positive? && crypto_fee_asset?(transaction)
           consume_fee_asset(store, transaction[:fee_currency], fee_amount.to_d)
+          return [amount, fiat_value + third_asset_fee_cost(transaction)]
         end
 
         [amount, fiat_value + (transaction[:fee_fiat_value] || 0.to_d)]
@@ -29,9 +30,19 @@ module Tax
 
       private
 
-      # Fiat fees are a no-op: fiat "holdings" are never disposed.
-      def crypto_fee_asset?(fee_currency)
-        fee_currency.present? && Tax::PriceService::FIAT_CURRENCIES.exclude?(fee_currency)
+      # Lot- and pool-based engines take the fee asset's basis out of its own holdings as this
+      # acquisition's basis grows, so the fee's value has to be added here. PVCT overrides this.
+      def third_asset_fee_cost(transaction)
+        transaction[:fee_fiat_value] || 0.to_d
+      end
+
+      # A fee in fiat, or in the entry's own quote currency, leaves no holdings of its own to consume:
+      # fiat "holdings" are never disposed, and the quote leg of a single-entry trade is never tracked.
+      def crypto_fee_asset?(transaction)
+        fee_currency = transaction[:fee_currency]
+        fee_currency.present? &&
+          fee_currency != transaction[:quote_currency] &&
+          Tax::PriceService::FIAT_CURRENCIES.exclude?(fee_currency)
       end
     end
   end

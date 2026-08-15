@@ -19,6 +19,27 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
     assert_equal 10_050.to_d, disposal[5].to_d
   end
 
+  test 'German report attaches a Kraken quote-row fee to the grouped BTC acquisition' do
+    user = create(:user)
+    exchange = create(:kraken_exchange)
+    buy_at = Time.utc(2024, 1, 10)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: buy_at.to_date, price: 20_000.to_d)
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :buy, base_currency: 'BTC',
+                               base_amount: '0.5'.to_d, group_id: 'R1',
+                               transacted_at: buy_at, tx_id: 'kraken-btc')
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :sell, base_currency: 'EUR',
+                               base_amount: 10_000, group_id: 'R1', fee_currency: 'EUR', fee_amount: 26,
+                               transacted_at: buy_at, tx_id: 'kraken-eur')
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :sell, base_currency: 'BTC',
+                               base_amount: '0.5'.to_d, quote_currency: 'EUR', quote_amount: 30_000,
+                               transacted_at: Time.utc(2024, 6, 1), tx_id: 'kraken-btc-sale')
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    disposal = CSV.parse(csv, headers: true).find { |row| row[2] == 'BTC' }
+
+    assert_equal 10_026.to_d, disposal[5].to_d
+  end
+
   # AT: crypto->crypto not taxable; basis must chain through the swap via group_id.
   test 'austrian swap chains cost basis end to end' do
     user = create(:user)

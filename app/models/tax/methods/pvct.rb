@@ -128,6 +128,13 @@ module Tax
         balances[fee_asset] = 0.to_d if balances[fee_asset].negative?
       end
 
+      # PVCT has one aggregate acquisition-cost pool and only a taxable cession ever removes anything
+      # from it, so the fee asset's own purchase cost is still in the numerator after the fee is paid.
+      # Adding the fee's value on top would count the same euros twice and understate every later gain.
+      def third_asset_fee_cost(_transaction)
+        0.to_d
+      end
+
       def fiat_disposal?(transaction)
         quote = transaction[:quote_currency]
         return true if quote.blank? # sell without quote = assumed fiat
