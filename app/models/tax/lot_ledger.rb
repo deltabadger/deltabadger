@@ -110,9 +110,5 @@ module Tax
       end
       matches
     end
-
-    def units_held_on(date)
-      @lots.sum(0.to_d) { |lot| lot.units_in_terms_of(date) }
-    end
   end
 end

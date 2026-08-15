@@ -126,6 +126,49 @@ module Tax
       entries
     end
 
+    def stock_price_range(exchange:, api_key:, symbol:, from:, to:)
+      # Stocks and crypto share this table, so the namespace prevents identical symbols from
+      # silently borrowing one another's prices.
+      asset = "stock:#{symbol}"
+      db_prices = HistoricalPrice.where(asset: asset, currency: 'USD', date: from..to)
+
+      if db_prices.none?
+        ticker = exchange.tickers.find_by(base: symbol)
+        return {} unless ticker
+
+        # A delisted ticker, an expired key or a broker outage must leave the symbol without a
+        # boundary price — the broker report refuses that symbol rather than valuing it at zero.
+        # Scoped to the network call on purpose: a wider rescue would launder a real bug into the
+        # same silent refusal.
+        result = begin
+          exchange.set_client(api_key: api_key)
+          exchange.get_candles(ticker: ticker, start_at: from.to_time(:utc), timeframe: 1.day)
+        rescue StandardError
+          return {}
+        end
+        return {} if result.failure?
+
+        stored_dates = HistoricalPrice.where(asset: asset, currency: 'USD', date: from..to).pluck(:date).to_set
+        records = result.data.filter_map do |candle|
+          date = candle[0].to_date
+          next unless (from..to).cover?(date)
+          next if stored_dates.include?(date)
+
+          stored_dates << date
+          { asset: asset, currency: 'USD', date: date, price: candle[4].to_d }
+        end
+        HistoricalPrice.bulk_store(records)
+        db_prices = HistoricalPrice.where(asset: asset, currency: 'USD', date: from..to)
+      end
+
+      db_prices.filter_map do |historical_price|
+        usd_per_eur = Tax::EcbFxRates.rate(from: 'EUR', to: 'USD', date: historical_price.date)
+        [historical_price.date, historical_price.price.to_d / usd_per_eur]
+      rescue Tax::EcbFxRates::MissingRate
+        nil
+      end.to_h
+    end
+
     private
 
     # Since transfers stopped being disposals, no engine reads a withdrawal's fiat value — the
