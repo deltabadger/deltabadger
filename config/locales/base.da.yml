@@ -408,6 +408,7 @@ da:
         welcome:
             connect_and_track: "Tilslut din børs og begynd at følge din portefølje."
         sync_key_error_html: 'Synkronisering med <strong>%{exchange}</strong> mislykkedes: %{message}. Opdatér API-nøglen nedenfor.'
+        sync_failed_for: 'Synkroniseringen med %{exchanges} mislykkedes. Der kan mangle transaktioner derfra — rapporter, der oprettes nu, kan derfor være ufuldstændige.'
         pricing_warning_html: Saldi synkroniseret, men USD-priser er ikke tilgængelige lige nu (%{message}). Diagrammet bruger de sidst kendte priser, indtil prissætningen er genoprettet.
         portfolio:
             never_synced: Klik på „Synkronisér" for at indlæse din portefølje.
@@ -433,6 +434,7 @@ da:
         export_modal:
             title: 'Generér rapport'
             tax_report: 'Skatterapport'
+            tax_disclaimer: 'Beregningshjælp, ikke skatterådgivning. Kontrollér tallene, før du indsender din skatteangivelse.'
             transactions: 'Alle'
             country: 'Land'
             year: 'År'
@@ -542,6 +544,8 @@ da:
             upgrade_hint: Opgradér dit CoinGecko-abonnement, eller brug deltabadger.com for fuld historik.
             deposit_basis_assumed: Kostpris ansat til markedsværdien for disse ikke-tilknyttede indbetalinger
             deposit_basis_assumed_hint: Knyt hver indbetaling til den tilsvarende udbetaling i Tracker for at bruge den faktiske kostpris.
+            exchange_sync_failed: 'Data fra %{exchange} kan mangle, fordi den seneste synkronisering mislykkedes. Synkronisér igen i Tracker, og opret rapporten på ny.'
+            exchange_never_synced: '%{exchange} er aldrig blevet synkroniseret — ingen transaktioner derfra er med i rapporten. Synkronisér i Tracker, og opret rapporten på ny.'
         headers:
             date: 'Dato'
             asset: 'Aktiv'

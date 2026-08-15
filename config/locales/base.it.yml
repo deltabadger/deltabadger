@@ -405,6 +405,7 @@ it:
         welcome:
             connect_and_track: "Collega il tuo exchange e inizia a tracciare il tuo portafoglio."
         sync_key_error_html: 'Sincronizzazione con <strong>%{exchange}</strong> fallita: %{message}. Aggiorna la chiave API qui sotto.'
+        sync_failed_for: 'Sincronizzazione con %{exchanges} non riuscita. Alcune transazioni potrebbero mancare, quindi i report generati ora potrebbero essere incompleti.'
         pricing_warning_html: Saldi sincronizzati, ma i prezzi in USD non sono disponibili al momento (%{message}). Il grafico userà gli ultimi prezzi noti finché il servizio non sarà ripristinato.
         portfolio:
             never_synced: Clicca su Sincronizza per caricare il portafoglio.
@@ -429,6 +430,7 @@ it:
         export_modal:
             title: 'Genera report'
             tax_report: 'Report fiscale'
+            tax_disclaimer: 'Strumento di supporto al calcolo, non consulenza fiscale. Verifica i dati prima di presentare la dichiarazione.'
             transactions: 'Tutto'
             country: 'Paese'
             year: 'Anno'
@@ -528,6 +530,8 @@ it:
             upgrade_hint: Aggiorna il tuo piano CoinGecko o usa deltabadger.com per dati storici completi.
             deposit_basis_assumed: Costo di acquisto stimato al valore di mercato per questi depositi non collegati
             deposit_basis_assumed_hint: Collega ogni deposito al prelievo corrispondente nel Tracker per utilizzare il costo di acquisto reale.
+            exchange_sync_failed: 'Potrebbero mancare dati di %{exchange}: l’ultima sincronizzazione non è riuscita. Sincronizza di nuovo nel Tracker e rigenera il report.'
+            exchange_never_synced: '%{exchange} non è mai stato sincronizzato: nessuna delle sue transazioni è inclusa in questo report. Sincronizzalo nel Tracker e rigenera il report.'
         summary:
             total_gains: Plusvalenze totali
             total_losses: Minusvalenze totali

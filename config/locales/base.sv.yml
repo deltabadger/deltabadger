@@ -408,6 +408,7 @@ sv:
         welcome:
             connect_and_track: "Anslut din börs och börja spåra din portfölj."
         sync_key_error_html: 'Synkroniseringen med <strong>%{exchange}</strong> misslyckades: %{message}. Uppdatera API-nyckeln nedan.'
+        sync_failed_for: 'Synkroniseringen med %{exchanges} misslyckades. Transaktioner därifrån kan saknas — rapporter som skapas nu kan därför vara ofullständiga.'
         pricing_warning_html: Saldon synkade, men USD-priser är inte tillgängliga just nu (%{message}). Diagrammet använder de senast kända priserna tills prissättningen är återställd.
         portfolio:
             never_synced: Klicka på „Synka" för att ladda din portfölj.
@@ -433,6 +434,7 @@ sv:
         export_modal:
             title: 'Generera rapport'
             tax_report: 'Skatterapport'
+            tax_disclaimer: 'Beräkningshjälp, inte skatterådgivning. Kontrollera uppgifterna innan du lämnar in deklarationen.'
             transactions: 'Alla'
             country: 'Land'
             year: 'År'
@@ -542,6 +544,8 @@ sv:
             upgrade_hint: Uppgradera ditt CoinGecko-abonnemang eller använd deltabadger.com för fullständig historik.
             deposit_basis_assumed: Anskaffningsvärde antaget till marknadsvärdet för dessa olänkade insättningar
             deposit_basis_assumed_hint: Länka varje insättning till motsvarande uttag i Tracker för att använda det verkliga anskaffningsvärdet.
+            exchange_sync_failed: 'Data från %{exchange} kan saknas eftersom den senaste synkroniseringen misslyckades. Synkronisera igen i Tracker och skapa rapporten på nytt.'
+            exchange_never_synced: '%{exchange} har aldrig synkroniserats — inga transaktioner därifrån finns med i rapporten. Synkronisera i Tracker och skapa rapporten på nytt.'
         headers:
             date: 'Datum'
             asset: 'Tillgång'

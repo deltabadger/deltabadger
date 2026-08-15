@@ -64,6 +64,24 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal 10_000.0, deposit.base_amount
   end
 
+  test 'a completed run clears the stored sync error' do
+    @api_key.update_column(:last_sync_error, 'StandardError: API error')
+    @exchange.stubs(:get_ledger).returns(Result::Success.new(@ledger_entries))
+
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_nil @api_key.reload.last_sync_error
+  end
+
+  test 'a failed fetch leaves the stored sync error for the caller to write' do
+    @api_key.update_column(:last_sync_error, 'StandardError: API error')
+    @exchange.stubs(:get_ledger).returns(Result::Failure.new('API down'))
+
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_equal 'StandardError: API error', @api_key.reload.last_sync_error
+  end
+
   test 'skips duplicate entries by tx_id' do
     @exchange.stubs(:get_ledger).returns(Result::Success.new(@ledger_entries))
 
@@ -372,6 +390,7 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
   test 'logs an error and continues past unsavable Alpaca activities, holding the watermark back' do
     alpaca = create(:alpaca_exchange)
     alpaca_key = create(:api_key, user: @user, exchange: alpaca, passphrase: 'live')
+    alpaca_key.update_column(:last_sync_error, 'StandardError: API error')
     activities = [
       {
         'id' => 'split-missing-symbol', 'activity_type' => 'SPLIT',
@@ -403,6 +422,10 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     # Clamped to the earliest skipped row, not the newest fetched one: advancing to 05-18 would put
     # the failed 05-16 entry outside every future window, making one bad row a permanent hole.
     assert_equal Time.utc(2026, 5, 16), alpaca_key.reload.last_synced_at
+    # A skipped row is our importer's bug, not a failed sync: the run completed, the watermark is
+    # held back so the row is retried, and only the error log calls it out. Keeping the sync error
+    # set here would stamp a permanent "data missing" banner on every future tax report.
+    assert_nil alpaca_key.last_sync_error
   end
 
   test 'the nil tx_id fallback does not swallow rows from another key on the same exchange' do

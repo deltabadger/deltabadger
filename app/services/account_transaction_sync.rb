@@ -86,7 +86,7 @@ class AccountTransactionSync
     # every future window, turning one malformed entry into a permanent hole.
     max_seen = entries.filter_map { |entry| entry[:transacted_at] }.max
     watermark = [max_seen, min_skipped].compact.min
-    @api_key.update!(last_synced_at: watermark || @api_key.last_synced_at)
+    @api_key.update!(last_synced_at: watermark || @api_key.last_synced_at, last_sync_error: nil)
     Result::Success.new(imported)
   end
 

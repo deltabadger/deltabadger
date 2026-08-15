@@ -405,6 +405,7 @@ nl:
         welcome:
             connect_and_track: "Koppel je exchange en begin met het volgen van je portfolio."
         sync_key_error_html: 'Synchroniseren met <strong>%{exchange}</strong> mislukt: %{message}. Werk de API-sleutel hieronder bij.'
+        sync_failed_for: 'Synchronisatie met %{exchanges} is mislukt. Mogelijk ontbreken transacties van deze handelsplatformen — rapporten die nu worden aangemaakt, kunnen onvolledig zijn.'
         pricing_warning_html: Saldi gesynchroniseerd, maar USD-prijzen zijn nu niet beschikbaar (%{message}). De grafiek gebruikt de laatst bekende prijzen tot de prijsbepaling is hersteld.
         portfolio:
             never_synced: Klik op Synchroniseren om je portefeuille te laden.
@@ -429,6 +430,7 @@ nl:
         export_modal:
             title: 'Rapport genereren'
             tax_report: 'Belastingrapport'
+            tax_disclaimer: 'Rekenhulp, geen fiscaal advies. Controleer de cijfers voordat u aangifte doet.'
             transactions: 'Alles'
             country: 'Land'
             year: 'Jaar'
@@ -528,6 +530,8 @@ nl:
             upgrade_hint: Upgrade je CoinGecko-abonnement of gebruik deltabadger.com voor volledige historische data.
             deposit_basis_assumed: Aanschafkosten voor deze ongekoppelde stortingen vastgesteld op de marktwaarde
             deposit_basis_assumed_hint: Koppel elke storting in de Tracker aan de bijbehorende opname om de werkelijke aanschafkosten te gebruiken.
+            exchange_sync_failed: 'Gegevens van %{exchange} kunnen ontbreken: de laatste synchronisatie is mislukt. Synchroniseer opnieuw in de Tracker en maak dit rapport opnieuw aan.'
+            exchange_never_synced: '%{exchange} is nog nooit gesynchroniseerd — geen enkele transactie van dit platform staat in dit rapport. Synchroniseer het in de Tracker en maak het rapport opnieuw aan.'
         headers:
             date: 'Datum'
             asset: 'Activum'

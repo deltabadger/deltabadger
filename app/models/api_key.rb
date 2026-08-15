@@ -1,4 +1,6 @@
 class ApiKey < ApplicationRecord
+  SYNC_ERROR_LIMIT = 200
+
   belongs_to :exchange
   belongs_to :user
   has_many :account_transactions, dependent: :nullify
@@ -45,6 +47,23 @@ class ApiKey < ApplicationRecord
 
   def get_validity
     exchange.get_api_key_validity(api_key: self)
+  end
+
+  def record_sync_error!(error)
+    text = error.is_a?(Exception) ? "#{error.class}: #{error.message}" : error.to_s
+
+    update_column(:last_sync_error, sanitize_sync_error(text))
+  end
+
+  # A report that silently omits an exchange is the worst outcome for a tax document, so the
+  # report asks every trading key whether its data can be trusted before it renders a single row.
+  def sync_issue
+    return nil unless trading?
+    return { exchange: exchange.name, reason: :failed } if last_sync_error.present?
+    return { exchange: exchange.name, reason: :never_synced } if correct? && last_synced_at.nil?
+
+    # Data-derived watermarks can lag for quiet, healthy accounts, so their age is deliberately ignored.
+    nil
   end
 
   # Anchored on updated_at, which on a key awaiting IBKR activation moves only when the user
@@ -117,6 +136,16 @@ class ApiKey < ApplicationRecord
   end
 
   private
+
+  # Credentials and PII must never land in this user-visible-adjacent diagnostics column.
+  def sanitize_sync_error(text)
+    text
+      .gsub(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i, '[redacted]')
+      .gsub(%r{(https?://\S+?)\?\S*}, '\\1?[redacted]')
+      .gsub(/(?<![A-Za-z0-9_-])(?=[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-]))(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]+/,
+            '[redacted]')
+      .gsub(/\d{9,}/, '[redacted]')[0, SYNC_ERROR_LIMIT]
+  end
 
   # Assigns only the credential fields actually present in the submitted params. The generic
   # add-api-key forms send key/secret alone; assigning the whole set would NULL the IBKR RSA
