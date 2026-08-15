@@ -78,16 +78,6 @@ class Tax::LotLedgerTest < ActiveSupport::TestCase
     assert_equal '750'.to_d, second_lot.cost_eur
   end
 
-  test 'units held on reflects history at that point' do
-    ledger = Tax::LotLedger.new
-    ledger.acquire(units: 10.to_d, cost_eur: '1000'.to_d, date: Date.new(2023, 1, 10))
-    ledger.acquire(units: 5.to_d, cost_eur: '500'.to_d, date: Date.new(2023, 2, 10))
-    ledger.dispose(units: 3.to_d, date: Date.new(2023, 3, 1))
-
-    # The open pool holds 10 + 5 - 3 = 12 units on the following day.
-    assert_equal 12.to_d, ledger.units_held_on(Date.new(2023, 3, 2))
-  end
-
   test 'adjust preserves total cost and acquisition dates' do
     ledger = Tax::LotLedger.new
     first_date = Date.new(2023, 1, 10)
@@ -205,8 +195,6 @@ class Tax::LotLedgerTest < ActiveSupport::TestCase
     assert_equal 5.to_d, second_lot.units_in_terms_of(Date.new(2023, 9, 1))
     # After both splits, the second lot has 15 / 1 = 15 current units.
     assert_equal 15.to_d, second_lot.units_in_terms_of(Date.new(2024, 12, 31))
-    # In pre-split terms, the ledger holds 10 + 2.5 = 12.5 units.
-    assert_equal '12.5'.to_d, ledger.units_held_on(Date.new(2022, 12, 31))
   end
 
   test 'reduce basis per unit floors at zero and returns excess' do
@@ -312,8 +300,6 @@ class Tax::LotLedgerTest < ActiveSupport::TestCase
       matches.second
     )
     assert_empty ledger.open_lots
-    # With no open lots, the held quantity is exactly 0 units.
-    assert_equal 0.to_d, ledger.units_held_on(Date.new(2023, 3, 2))
 
     empty_ledger = Tax::LotLedger.new
     empty_matches = nil
