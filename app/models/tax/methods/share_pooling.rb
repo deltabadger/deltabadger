@@ -20,20 +20,37 @@ module Tax
           fiat_value = tx[:fiat_value] || 0.to_d
 
           case tx[:entry_type].to_sym
-          when :buy, :swap_in, :deposit, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
+          when :buy, :swap_in, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
             acquisitions[asset] << {
               amount: amount,
               cost: fiat_value,
               date: tx[:transacted_at],
               matched: 0.to_d,
-              price_missing: tx[:price_missing]
+              basis_assumed: tx[:price_missing]
             }
             pools[asset][:total_amount] += amount
             pools[asset][:total_cost] += fiat_value
             pools[asset][:assumed] = true if tx[:price_missing]
 
-          when :sell, :swap_out, :withdrawal
+          when :deposit
+            next if tx[:linked]
+
+            acquisitions[asset] << {
+              amount: amount,
+              cost: fiat_value,
+              date: tx[:transacted_at],
+              matched: 0.to_d,
+              basis_assumed: true
+            }
+            pools[asset][:total_amount] += amount
+            pools[asset][:total_cost] += fiat_value
+            pools[asset][:assumed] = true
+
+          when :sell, :swap_out
             disposals_raw << tx.merge(remaining: amount)
+
+          when :withdrawal
+            shrink_pool_for_transfer_fee(pools[asset], tx) if tx[:linked]
           end
         end
 
@@ -112,6 +129,17 @@ module Tax
 
       private
 
+      def shrink_pool_for_transfer_fee(pool, transaction)
+        fee_amount = transaction[:transfer_fee_amount]
+        return unless fee_amount&.positive?
+
+        avg_cost_per_unit = pool[:total_amount].positive? ? (pool[:total_cost] / pool[:total_amount]) : 0.to_d
+        pool[:total_amount] -= fee_amount
+        pool[:total_cost] -= fee_amount * avg_cost_per_unit
+        pool[:total_amount] = 0.to_d if pool[:total_amount].negative?
+        pool[:total_cost] = 0.to_d if pool[:total_cost].negative?
+      end
+
       def match_and_record(disposals, acq_list, remaining, total_amount, proceeds, fee_fiat, transaction, asset, rule)
         matched_amount = 0.to_d
         matched_cost = 0.to_d
@@ -126,7 +154,7 @@ module Tax
           cost_per_unit = acq[:amount].positive? ? (acq[:cost] / acq[:amount]) : 0.to_d
           matched_cost += take * cost_per_unit
           matched_amount += take
-          matched_assumed = true if acq[:price_missing]
+          matched_assumed = true if acq[:basis_assumed]
           acq[:matched] += take
           remaining -= take
           matched_date ||= acq[:date]

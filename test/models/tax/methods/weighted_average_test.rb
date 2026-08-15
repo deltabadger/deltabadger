@@ -67,4 +67,34 @@ class Tax::Methods::WeightedAverageTest < ActiveSupport::TestCase
 
     assert_equal true, disposal[:data_incomplete]
   end
+
+  test 'withdrawal emits no disposal' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, transacted_at: Time.utc(2024, 1, 1) },
+      { entry_type: :withdrawal, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1) }
+    ]
+
+    assert_empty @wa.calculate(transactions)
+  end
+
+  test 'linked withdrawal removes only its fee slice at average cost' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, transacted_at: Time.utc(2024, 1, 1) },
+      { entry_type: :withdrawal, base_currency: 'BTC', base_amount: 1.to_d, linked: true,
+        transfer_fee_amount: '0.001'.to_d, fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1) },
+      { entry_type: :deposit, base_currency: 'BTC', base_amount: '0.999'.to_d, linked: true,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1, 1) },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: '0.999'.to_d,
+        fiat_value: 30_000.to_d, transacted_at: Time.utc(2024, 3, 1), tx_id: 'sell-1' }
+    ]
+
+    disposals = @wa.calculate(transactions)
+
+    assert_equal 1, disposals.size
+    assert_equal 'sell-1', disposals.first[:tx_id]
+    assert_equal 9_990.to_d, disposals.first[:cost_basis]
+  end
 end

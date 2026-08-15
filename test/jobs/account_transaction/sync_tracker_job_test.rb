@@ -32,4 +32,23 @@ class AccountTransaction::SyncTrackerJobTest < ActiveSupport::TestCase
 
     AccountTransaction::SyncTrackerJob.perform_now(@user.id, [@api_key_binance.id, @api_key_kraken.id])
   end
+
+  test 'matches transfers for the tracked user after syncing' do
+    withdrawal = AccountTransaction.create!(user: @user, exchange: @binance, entry_type: :withdrawal,
+                                            base_currency: 'BTC', base_amount: 1,
+                                            transacted_at: Time.utc(2024, 5, 1), tx_id: 'tracker-job-w')
+    deposit = AccountTransaction.create!(user: @user, exchange: @kraken, entry_type: :deposit,
+                                         base_currency: 'BTC', base_amount: '0.995'.to_d,
+                                         transacted_at: Time.utc(2024, 5, 1, 1), tx_id: 'tracker-job-d')
+    sync_binance = mock('sync_binance')
+    sync_binance.expects(:sync!).once.returns(Result::Success.new(1))
+    AccountTransactionSync.expects(:new).with(@api_key_binance).returns(sync_binance)
+    sync_kraken = mock('sync_kraken')
+    sync_kraken.expects(:sync!).once.returns(Result::Success.new(1))
+    AccountTransactionSync.expects(:new).with(@api_key_kraken).returns(sync_kraken)
+
+    AccountTransaction::SyncTrackerJob.perform_now(@user.id, [@api_key_binance.id, @api_key_kraken.id])
+
+    assert_equal deposit.id, withdrawal.reload.linked_transaction_id
+  end
 end

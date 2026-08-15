@@ -53,6 +53,63 @@ class AccountTransactionTest < ActiveSupport::TestCase
     assert second.valid?
   end
 
+  test 'linked transaction must belong to the same user' do
+    other_user = create(:user)
+    other_exchange = create(:kraken_exchange)
+    other_api_key = create(:api_key, user: other_user, exchange: other_exchange)
+    deposit = create(:account_transaction, :deposit, api_key: other_api_key, exchange: other_exchange)
+    withdrawal = build(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange,
+                                                          linked_transaction: deposit)
+
+    assert_not withdrawal.valid?
+    assert_includes withdrawal.errors[:linked_transaction], 'must belong to the same user'
+  end
+
+  test 'linked transaction must use the same base currency' do
+    deposit = create(:account_transaction, :deposit,
+                     api_key: @api_key, exchange: @exchange, base_currency: 'ETH')
+    withdrawal = build(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange,
+                                                          base_currency: 'BTC', linked_transaction: deposit)
+
+    assert_not withdrawal.valid?
+    assert_includes withdrawal.errors[:linked_transaction], 'must use the same base currency'
+  end
+
+  test 'linked transaction must go from withdrawal to deposit' do
+    linked_withdrawal = create(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange)
+    deposit = build(:account_transaction, :deposit, api_key: @api_key, exchange: @exchange,
+                                                    linked_transaction: linked_withdrawal)
+
+    assert_not deposit.valid?
+    assert_includes deposit.errors[:linked_transaction], 'must link a withdrawal to a deposit'
+  end
+
+  test 'linked deposit must not be before the withdrawal' do
+    withdrawal_time = Time.utc(2024, 5, 2)
+    deposit = create(:account_transaction, :deposit,
+                     api_key: @api_key, exchange: @exchange, transacted_at: withdrawal_time - 1.hour)
+    withdrawal = build(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange,
+                                                          linked_transaction: deposit,
+                                                          transacted_at: withdrawal_time)
+
+    assert_not withdrawal.valid?
+    assert_includes withdrawal.errors[:linked_transaction], 'must not be before the withdrawal'
+  end
+
+  test 'valid linked transfer pair saves and is linked from both sides' do
+    withdrawal_time = Time.utc(2024, 5, 2)
+    deposit = create(:account_transaction, :deposit,
+                     api_key: @api_key, exchange: @exchange, transacted_at: withdrawal_time + 1.hour)
+    withdrawal = build(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange,
+                                                          linked_transaction: deposit,
+                                                          transacted_at: withdrawal_time)
+
+    assert withdrawal.save
+    assert withdrawal.linked?
+    assert deposit.reload.linked?
+    assert_equal withdrawal, deposit.inverse_link
+  end
+
   # --- Enums ---
 
   test 'entry_type enum has all expected values' do

@@ -10,6 +10,7 @@ class AccountTransaction::SyncTrackerJob < ApplicationJob
     api_keys.each do |api_key|
       sync_exchange(user_id, api_key)
     end
+    TransferMatcher.run!(User.find(user_id))
 
     sleep 0.5
     broadcast_done(user_id)

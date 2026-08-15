@@ -17,12 +17,19 @@ module Tax
           pool = pools[asset]
 
           case tx[:entry_type].to_sym
-          when :buy, :swap_in, :deposit, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
+          when :buy, :swap_in, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
             pool[:total_amount] += amount
             pool[:total_cost] += fiat_value
             pool[:assumed] = true if tx[:price_missing]
 
-          when :sell, :swap_out, :withdrawal
+          when :deposit
+            next if tx[:linked]
+
+            pool[:total_amount] += amount
+            pool[:total_cost] += fiat_value
+            pool[:assumed] = true
+
+          when :sell, :swap_out
             has_pool = pool[:total_amount].positive?
             avg_cost_per_unit = has_pool ? (pool[:total_cost] / pool[:total_amount]) : 0.to_d
             cost_basis = avg_cost_per_unit * amount
@@ -47,10 +54,26 @@ module Tax
             pool[:total_cost] -= cost_basis
             pool[:total_amount] = 0.to_d if pool[:total_amount].negative?
             pool[:total_cost] = 0.to_d if pool[:total_cost].negative?
+
+          when :withdrawal
+            shrink_pool_for_transfer_fee(pool, tx) if tx[:linked]
           end
         end
 
         disposals
+      end
+
+      private
+
+      def shrink_pool_for_transfer_fee(pool, transaction)
+        fee_amount = transaction[:transfer_fee_amount]
+        return unless fee_amount&.positive?
+
+        avg_cost_per_unit = pool[:total_amount].positive? ? (pool[:total_cost] / pool[:total_amount]) : 0.to_d
+        pool[:total_amount] -= fee_amount
+        pool[:total_cost] -= fee_amount * avg_cost_per_unit
+        pool[:total_amount] = 0.to_d if pool[:total_amount].negative?
+        pool[:total_cost] = 0.to_d if pool[:total_cost].negative?
       end
     end
   end

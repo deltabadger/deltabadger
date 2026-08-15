@@ -124,4 +124,21 @@ class Tax::Methods::FifoTest < ActiveSupport::TestCase
     assert_equal 20_000.to_d, btc_disposal[:gain_loss]
     assert_equal 10_000.to_d, eth_disposal[:gain_loss]
   end
+
+  test 'withdrawal emits no disposal and leaves its lot for a later sale' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'buy-1', exchange: 'binance' },
+      { entry_type: :withdrawal, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'withdrawal-1', exchange: 'binance' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 30_000.to_d, transacted_at: Time.utc(2024, 3, 1), tx_id: 'sell-1', exchange: 'kraken' }
+    ]
+
+    disposals = @fifo.calculate(transactions)
+
+    assert_equal 1, disposals.size
+    assert_equal 'sell-1', disposals.first[:tx_id]
+    assert_equal 10_000.to_d, disposals.first[:cost_basis]
+  end
 end
