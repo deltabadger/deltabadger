@@ -9,9 +9,10 @@ module Tax
     # SDMX csvdata endpoint. NEVER use the bare eurofxref-hist.csv URL — it serves stale
     # dummy data with HTTP 200 (research annex). Bundesbank REST is the fallback source.
     CURRENCIES = %w[USD GBP CHF SEK DKK CZK PLN NOK HUF RON BGN].freeze
-    HISTORY_URL = "https://data-api.ecb.europa.eu/service/data/EXR/D.#{CURRENCIES.join('+')}.EUR.SP00.A?format=csvdata&startPeriod=2017-01-01".freeze
+    HISTORY_URL = "https://data-api.ecb.europa.eu/service/data/EXR/D.#{CURRENCIES.join('+')}.EUR.SP00.A?format=csvdata&startPeriod=1999-01-01".freeze
     LOOKBACK_DAYS = 7
     SDMX_HEADER = "CURRENCY,TIME_PERIOD,OBS_VALUE\n".freeze
+    TIMEOUT = 15
 
     class << self
       # Multiplier semantics: amount_in_to = amount_in_from * rate(from:, to:, date:).
@@ -25,18 +26,14 @@ module Tax
 
       # Loads the full ECB history into fx_rates. One HTTP fetch, upsert_all, idempotent.
       # Simple staleness rule: refetch whenever the newest stored USD row is older than
-      # yesterday (covers both first run and daily top-up; the fetch is one small request).
+      # yesterday, which covers both the first run and the daily top-up. The history goes
+      # back to 1999 because FIFO cost basis reaches acquisitions far older than the
+      # report year, and per_eur only looks back a week.
       def ensure_loaded!
         newest = FxRate.where(currency: 'USD').maximum(:date)
         return if newest && newest >= last_expected_publication_date
 
-        csv = begin
-          fetch_history_csv
-        rescue StandardError => e
-          Rails.logger.warn("[TaxReport] Failed to load ECB FX rates: #{e.class}: #{e.message}")
-          return
-        end
-
+        csv = fetch_history_csv
         rows = []
         CSV.parse(csv, headers: true) do |line|
           value = line['OBS_VALUE']
@@ -45,6 +42,9 @@ module Tax
           rows << { currency: line['CURRENCY'], date: Date.parse(line['TIME_PERIOD']), rate: value.to_d }
         end
         rows.each_slice(5_000) { |slice| FxRate.upsert_all(slice, unique_by: %i[currency date]) }
+      rescue StandardError => e
+        Rails.logger.warn("[TaxReport] Failed to load ECB FX rates: #{e.class}: #{e.message}")
+        nil
       end
 
       private
@@ -62,7 +62,7 @@ module Tax
       end
 
       def fetch_history_csv
-        response = Faraday.get(HISTORY_URL)
+        response = connection.get(HISTORY_URL)
         return response.body if response.success? && response.body.include?('OBS_VALUE')
 
         fetch_bundesbank_fallback
@@ -75,9 +75,15 @@ module Tax
       def fetch_bundesbank_fallback
         SDMX_HEADER + CURRENCIES.map do |currency|
           url = "https://api.statistiken.bundesbank.de/rest/download/BBEX3/D.#{currency}.EUR.BB.AC.000?format=csv&lang=en"
-          body = Faraday.get(url).body
+          body = connection.get(url).body
           bundesbank_to_sdmx(body, currency)
         end.join
+      end
+
+      # Bounded: this runs inline in a user-facing report job, and the Bundesbank
+      # fallback fires one request per currency in sequence.
+      def connection
+        @connection ||= Faraday.new(request: { open_timeout: TIMEOUT, timeout: TIMEOUT })
       end
 
       # Bundesbank ships a metadata preamble and uses "." for unpublished days, so keep only

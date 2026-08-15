@@ -1,19 +1,18 @@
 module Tax
   class PriceService
     STABLECOINS = %w[USDT USDC BUSD DAI FDUSD TUSD PYUSD RLUSD].freeze
-    FIAT_CURRENCIES = %w[USD EUR GBP CHF SEK PLN DKK CZK].freeze
+    FIAT_CURRENCIES = %w[USD EUR GBP CHF SEK PLN DKK CZK BGN].freeze
 
     attr_reader :warnings
 
     def initialize
+      Tax::EcbFxRates.ensure_loaded!
       @price_cache = {}
       @warnings = []
     end
 
     # Pre-fetches all needed prices in bulk: one API call per coin instead of per day.
     def prefetch(transactions, currency:, &on_progress)
-      Tax::EcbFxRates.ensure_loaded!
-
       coins_needed = {}
 
       transactions.each do |tx|
