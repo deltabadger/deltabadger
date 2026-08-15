@@ -104,7 +104,7 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
   end
 
   test 'passes start_time from last_synced_at' do
-    last_sync = Time.utc(2026, 3, 22, 12, 0, 0)
+    last_sync = 2.days.ago.change(usec: 0)
     @api_key.update!(last_synced_at: last_sync)
 
     @exchange.expects(:get_ledger)
@@ -112,6 +112,22 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
              .returns(Result::Success.new([]))
 
     AccountTransactionSync.new(@api_key).sync!
+  end
+
+  # Binance, Bybit, MEXC, KuCoin and Bitget cap a history query at ~90 days FROM start_time. Without
+  # a floor, a quiet account's data-derived watermark stops reaching the present and goes blind.
+  test 'floors start_time so a long-quiet account still queries up to the present' do
+    @api_key.update!(last_synced_at: 2.years.ago)
+    captured = nil
+    @exchange.stubs(:get_ledger).with do |args|
+      captured = args[:start_time]
+      true
+    end.returns(Result::Success.new([]))
+
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_operator captured, :>, 81.days.ago
+    assert_operator captured, :<, 79.days.ago
   end
 
   test 'passes nil start_time when the watermark is nil even if transactions already exist' do
@@ -315,7 +331,10 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal ['split-remove-1'], AccountTransaction.pluck(:tx_id)
   end
 
-  test 'skips a merged adjustment when one of its legs was already imported standalone' do
+  # The deliberate asymmetry: only the STORED side is expanded to merged legs. Skipping the merged
+  # row here would leave the ledger permanently one-legged (-20 where the truth is +10-20), a wrong
+  # share count that reads as data. A visible double count is the lesser, correctable error.
+  test 'still imports a merged adjustment when one of its legs was already imported standalone' do
     transacted_at = Time.utc(2026, 5, 2)
     standalone_entry = {
       entry_type: :adjustment,
@@ -346,11 +365,11 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
 
     result = AccountTransactionSync.new(@api_key).sync!
 
-    assert_equal 0, result.data
-    assert_equal ['split-add-2'], AccountTransaction.pluck(:tx_id)
+    assert_equal 1, result.data
+    assert_equal %w[split-add-2 split-remove-2], AccountTransaction.pluck(:tx_id).sort
   end
 
-  test 'warns and continues past unsavable Alpaca activities' do
+  test 'logs an error and continues past unsavable Alpaca activities, holding the watermark back' do
     alpaca = create(:alpaca_exchange)
     alpaca_key = create(:api_key, user: @user, exchange: alpaca, passphrase: 'live')
     activities = [
@@ -374,13 +393,44 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     client = mock('alpaca_client')
     client.stubs(:get_account_activities).returns(Result::Success.new(activities))
     alpaca.stubs(:client).returns(client)
-    Rails.logger.expects(:warn).times(3)
+    Rails.logger.expects(:error).at_least(3)
 
     result = AccountTransactionSync.new(alpaca_key).sync!
 
     assert_instance_of Result::Success, result
     assert_equal 1, result.data
     assert_equal ['good-interest'], AccountTransaction.where(api_key: alpaca_key).pluck(:tx_id)
-    assert_equal Time.utc(2026, 5, 18), alpaca_key.reload.last_synced_at
+    # Clamped to the earliest skipped row, not the newest fetched one: advancing to 05-18 would put
+    # the failed 05-16 entry outside every future window, making one bad row a permanent hole.
+    assert_equal Time.utc(2026, 5, 16), alpaca_key.reload.last_synced_at
+  end
+
+  test 'the nil tx_id fallback does not swallow rows from another key on the same exchange' do
+    # ApiKey allows one key per (user, exchange, key_type), so a second key on the same exchange is
+    # reachable today; the callers pass arbitrary key ids to the sync, not just trading ones.
+    second_key = create(:api_key, user: @user, exchange: @exchange, key_type: :withdrawal)
+    entry = {
+      entry_type: :staking_reward,
+      base_currency: 'ETH',
+      base_amount: '0.02'.to_d,
+      quote_currency: nil,
+      quote_amount: nil,
+      fee_currency: nil,
+      fee_amount: nil,
+      tx_id: nil,
+      group_id: nil,
+      description: 'Staking reward',
+      transacted_at: Time.utc(2026, 4, 9, 6, 0, 0),
+      raw_data: {}
+    }
+    @exchange.stubs(:get_ledger).returns(Result::Success.new([entry]))
+
+    first_result = AccountTransactionSync.new(@api_key).sync!
+    second_result = AccountTransactionSync.new(second_key).sync!
+
+    assert_equal 1, first_result.data
+    assert_equal 1, second_result.data
+    assert_equal [@api_key.id, second_key.id].sort,
+                 AccountTransaction.where(tx_id: nil).pluck(:api_key_id).sort
   end
 end
