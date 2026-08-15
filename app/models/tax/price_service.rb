@@ -97,8 +97,10 @@ module Tax
           quote_amount: tx.quote_amount&.to_d,
           fiat_value: fiat_value,
           fee_fiat_value: fee_fiat_value,
+          fee_currency: tx.fee_currency,
           transacted_at: tx.transacted_at,
           tx_id: tx.tx_id,
+          group_id: tx.group_id,
           exchange: tx.exchange.name_id
         }
       end
