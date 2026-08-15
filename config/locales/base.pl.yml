@@ -511,6 +511,16 @@ pl:
             failed_sell: 'Nieudana próba sprzedaży %{amount} %{base} za %{quote_amount} %{quote}'
             skipped: 'Pominięto (poniżej minimum)'
     tax_report:
+        income:
+            header: 'Otrzymane przychody (sposób opodatkowania zależy od rodzaju przychodu i właściwych przepisów podatkowych — nie są ujęte w wykazanych powyżej zyskach)'
+            total: 'Łącznie — %{type}'
+            not_included: 'Otrzymane przychody (nagrody ze stakingu, odsetki z pożyczek, airdropy i przychody z miningu) nie są ujęte w niniejszym raporcie. Podlegają opodatkowaniu jako przychód i wymagają odrębnego wykazania w zeznaniu podatkowym.'
+            types:
+                staking_reward: 'nagrody ze stakingu'
+                lending_interest: 'odsetki z pożyczek'
+                airdrop: 'airdropy'
+                mining: 'przychody z miningu'
+                other_income: 'pozostałe przychody (dywidendy, odsetki i zwroty opłat)'
         warnings:
             missing_prices: Brak historycznych cen dla
             upgrade_hint: Zaktualizuj plan CoinGecko lub użyj deltabadger.com, aby uzyskać pełne dane historyczne.

@@ -314,4 +314,131 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
     assert_equal 20_000.to_d, row[5].to_d
     assert_equal 'true', row[I18n.t('tax_report.headers.data_incomplete', locale: :de)]
   end
+
+  test 'the report lists income received with a per-type total' do
+    user = create(:user)
+    exchange = create(:binance_exchange)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: Date.new(2024, 3, 1), price: 20_000.to_d)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: Date.new(2024, 4, 1), price: 20_000.to_d)
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :buy, base_currency: 'BTC',
+                               base_amount: 1, quote_currency: 'EUR', quote_amount: 10_000,
+                               transacted_at: Time.utc(2024, 1, 1))
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :sell, base_currency: 'BTC',
+                               base_amount: 1, quote_currency: 'EUR', quote_amount: 30_000,
+                               transacted_at: Time.utc(2024, 6, 1), tx_id: 'income-sell')
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :staking_reward,
+                               base_currency: 'BTC', base_amount: '0.1'.to_d,
+                               transacted_at: Time.utc(2024, 3, 1))
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :staking_reward,
+                               base_currency: 'BTC', base_amount: '0.1'.to_d,
+                               transacted_at: Time.utc(2024, 4, 1))
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    rows = CSV.parse(csv)
+    income_header = I18n.t('tax_report.income.header', locale: :de)
+    staking_label = I18n.t('tax_report.income.types.staking_reward', locale: :de)
+
+    assert_includes rows, [income_header]
+    income_rows = rows.select { |row| row[1] == staking_label && row[2] == 'BTC' }
+    assert_equal 2, income_rows.size
+    amounts = income_rows.map { |row| row[3].to_d }
+    values = income_rows.map { |row| row[4].to_d }
+    currencies = income_rows.map { |row| row[5] }
+
+    assert_equal %w[2024-03-01 2024-04-01], income_rows.map(&:first)
+    assert_equal ['0.1'.to_d, '0.1'.to_d], amounts
+    assert_equal [2_000.to_d, 2_000.to_d], values
+    assert_equal %w[EUR EUR], currencies
+
+    total_label = I18n.t('tax_report.income.total', type: staking_label, locale: :de)
+    total_rows = rows.select { |row| row[1] == total_label }
+    assert_equal 1, total_rows.size
+    assert_equal 4_000.to_d, total_rows.first&.[](4)&.to_d
+
+    disposal_rows = CSV.parse(csv, headers: true)
+    disposal = disposal_rows.find do |row|
+      row[I18n.t('tax_report.headers.tx_id', locale: :de)] == 'income-sell'
+    end
+    assert_equal 20_000.to_d, disposal[I18n.t('tax_report.headers.gain_loss', locale: :de)].to_d
+  end
+
+  test 'a USD-denominated dividend is reported as income' do
+    user = create(:user)
+    exchange = create(:alpaca_exchange)
+    FxRate.create!(currency: 'USD', date: Date.new(2024, 5, 2), rate: '1.25'.to_d)
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :other_income,
+                               base_currency: 'USD', base_amount: '12.5'.to_d,
+                               transacted_at: Time.utc(2024, 5, 2), tx_id: 'usd-dividend')
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    rows = CSV.parse(csv)
+    other_income_label = I18n.t('tax_report.income.types.other_income', locale: :de)
+    income_row = rows.find { |row| row[1] == other_income_label && row[2] == 'USD' }
+
+    assert income_row, 'expected a USD other-income row'
+    assert_equal 10.to_d, income_row&.[](4)&.to_d
+    assert_equal 'EUR', income_row&.[](5)
+
+    # Report#taxable_entries drops every fiat-base row before the engines, and income rows are
+    # frequently fiat-base (Alpaca dividends/`INT`, Kraken `dividend`), so an income section built
+    # from the filtered array would silently lose every dividend.
+    disposal_block = rows.take_while(&:present?)
+    disposal_csv = CSV.generate { |block| disposal_block.each { |row| block << row } }
+    disposal_rows = CSV.parse(disposal_csv, headers: true)
+    asset_header = I18n.t('tax_report.headers.asset', locale: :de)
+    assert_empty(disposal_rows.select { |row| row[asset_header] == 'USD' })
+  end
+
+  test 'income received outside the report year is not listed' do
+    user = create(:user)
+    exchange = create(:binance_exchange)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: Date.new(2023, 3, 1), price: 20_000.to_d)
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :staking_reward,
+                               base_currency: 'BTC', base_amount: '0.1'.to_d,
+                               transacted_at: Time.utc(2023, 3, 1))
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+
+    refute_includes csv, I18n.t('tax_report.income.header', locale: :de)
+  end
+
+  test 'income is listed even when there are no disposals' do
+    user = create(:user)
+    exchange = create(:binance_exchange)
+    HistoricalPrice.create!(asset: 'UNI', currency: 'EUR', date: Date.new(2024, 2, 2), price: 5.to_d)
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :airdrop,
+                               base_currency: 'UNI', base_amount: 100.to_d,
+                               transacted_at: Time.utc(2024, 2, 2))
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    rows = CSV.parse(csv)
+    income_header = I18n.t('tax_report.income.header', locale: :de)
+    airdrop_label = I18n.t('tax_report.income.types.airdrop', locale: :de)
+
+    assert_includes csv, I18n.t('tax_report.no_taxable_transactions', locale: :de)
+    assert_includes rows, [income_header]
+    income_row = rows.find { |row| row[1] == airdrop_label && row[2] == 'UNI' }
+    assert_equal 500.to_d, income_row&.[](4)&.to_d
+  end
+
+  test 'the Swiss report discloses that income is taxed separately' do
+    user = create(:user)
+    exchange = create(:kraken_exchange)
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :buy, base_currency: 'BTC',
+                               base_amount: 1.to_d, quote_currency: 'EUR', quote_amount: 10_000.to_d,
+                               transacted_at: Time.utc(2024, 1, 1))
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :staking_reward,
+                               base_currency: 'BTC', base_amount: '0.1'.to_d,
+                               transacted_at: Time.utc(2024, 3, 1))
+
+    transactions = AccountTransaction.for_user(user)
+    swiss_csv = Tax::Report.new(country: 'CH', year: 2024, transactions: transactions).to_csv
+    german_csv = Tax::Report.new(country: 'DE', year: 2024, transactions: transactions).to_csv
+    not_included = I18n.t('tax_report.income.not_included', locale: :de)
+    income_header = I18n.t('tax_report.income.header', locale: :de)
+
+    assert_includes swiss_csv, not_included
+    refute_includes swiss_csv, income_header
+    refute_includes german_csv, not_included
+  end
 end

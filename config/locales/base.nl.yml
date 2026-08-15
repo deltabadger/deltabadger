@@ -509,6 +509,16 @@ nl:
             failed_sell: 'Mislukte verkooppoging van %{amount} %{base} voor %{quote_amount} %{quote}'
             skipped: 'Overgeslagen (onder minimum)'
     tax_report:
+        income:
+            header: 'Ontvangen inkomsten (de belastingheffing hangt af van het soort inkomsten en de toepasselijke fiscale regels — niet opgenomen in de hierboven vermelde winsten)'
+            total: 'Totaal — %{type}'
+            not_included: 'Ontvangen inkomsten (stakingbeloningen, rente uit leningen, airdrops en opbrengsten uit mining) zijn niet in dit rapport opgenomen. Deze inkomsten worden afzonderlijk belast en moeten apart worden aangegeven.'
+            types:
+                staking_reward: 'stakingbeloningen'
+                lending_interest: 'rente uit leningen'
+                airdrop: 'airdrops'
+                mining: 'opbrengsten uit mining'
+                other_income: 'overige inkomsten (dividend, rente en retourprovisies)'
         warnings:
             missing_prices: Historische prijzen ontbreken voor
             upgrade_hint: Upgrade je CoinGecko-abonnement of gebruik deltabadger.com voor volledige historische data.

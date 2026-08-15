@@ -521,6 +521,16 @@ en:
             failed_sell: 'Failed attempt to sell %{amount} %{base} for %{quote_amount} %{quote}'
             skipped: 'Skipped (below minimum)'
     tax_report:
+        income:
+            header: 'Income received (taxation depends on income type and jurisdiction — not included in gains above)'
+            total: 'Total %{type}'
+            not_included: 'Income received (staking, lending interest, airdrops, mining) is not included in this report — it is taxed as income and must be declared separately.'
+            types:
+                staking_reward: 'Staking rewards'
+                lending_interest: 'Lending interest'
+                airdrop: 'Airdrops'
+                mining: 'Mining'
+                other_income: 'Other income (dividends, interest, rebates)'
         warnings:
             missing_prices: Missing historical prices for
             upgrade_hint: Upgrade your CoinGecko plan or use deltabadger.com for full historical data.

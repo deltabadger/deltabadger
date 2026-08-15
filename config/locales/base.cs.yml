@@ -530,6 +530,16 @@ cs:
             failed_sell: 'Failed attempt to sell %{amount} %{base} for %{quote_amount} %{quote}'
             skipped: 'Skipped (below minimum)'
     tax_report:
+        income:
+            header: 'Přijaté příjmy (způsob zdanění závisí na druhu příjmu a příslušných daňových předpisech — nejsou zahrnuty ve výše uvedených ziscích)'
+            total: 'Celkem — %{type}'
+            not_included: 'Přijaté příjmy (odměny ze stakingu, úroky z půjček, airdropy a příjmy z miningu) nejsou zahrnuty v tomto daňovém přehledu. Podléhají zdanění jako příjem a v daňovém přiznání musí být uvedeny samostatně.'
+            types:
+                staking_reward: 'odměny ze stakingu'
+                lending_interest: 'úroky z půjček'
+                airdrop: 'airdropy'
+                mining: 'příjmy z miningu'
+                other_income: 'ostatní příjmy (dividendy, úroky a vratky poplatků)'
         warnings:
             missing_prices: Chybějí historické ceny pro
             upgrade_hint: Aktualizuj svůj CoinGecko plán nebo použij deltabadger.com pro kompletní historická data.
