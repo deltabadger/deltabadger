@@ -82,7 +82,8 @@ module Tax
       if wealth_snapshot?
         return %w[reference_date asset amount value currency].map { |k| I18n.t("tax_report.headers.#{k}") }
       elsif pvct?
-        keys = %w[date asset amount proceeds total_acquisition_cost portfolio_value gain_loss currency fee exchange tx_id]
+        keys = %w[date asset amount proceeds total_acquisition_cost portfolio_value gain_loss currency fee exchange tx_id
+                  data_incomplete]
       elsif weighted_average?
         keys = %w[date asset amount proceeds cost_basis gain_loss currency fee exchange tx_id cost_basis_complete
                   data_incomplete]
@@ -122,7 +123,8 @@ module Tax
           currency,
           disposal[:fee]&.round(2),
           disposal[:exchange],
-          disposal[:tx_id]
+          disposal[:tx_id],
+          disposal[:data_incomplete]
         ]
       else
         row = [

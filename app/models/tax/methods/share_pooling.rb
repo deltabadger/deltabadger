@@ -153,6 +153,7 @@ module Tax
             fee: row_fee,
             gain_loss: row_proceeds - matched_cost - row_fee,
             holding_days: holding_days,
+            cost_basis_complete: true,
             data_incomplete: transaction[:price_missing] ? true : matched_assumed,
             matching_rule: rule.to_s,
             tx_id: transaction[:tx_id],

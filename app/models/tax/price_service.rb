@@ -9,6 +9,7 @@ module Tax
       Tax::EcbFxRates.ensure_loaded!
       @price_cache = {}
       @warnings = []
+      @warned_fx_keys = Set.new
     end
 
     # Pre-fetches all needed prices in bulk: one API call per coin instead of per day.
@@ -226,14 +227,19 @@ module Tax
 
     def fiat_exchange_rate(from:, to:, timestamp:)
       fx_key = "FX/#{from}/#{to}/#{timestamp.to_date}"
+      warning = "FX #{from}/#{to} #{timestamp.to_date}"
+      # An approximated pair is cached like any other rate, but its warning has to fire again for
+      # every record that leans on it: price_missing is a per-record warning delta, so a silent
+      # cache hit would un-flag records 2..N of a report sharing one broken currency pair.
+      @warnings << warning if @warned_fx_keys.include?(fx_key)
       cached = @price_cache[fx_key]
       return cached if cached
 
       @price_cache[fx_key] = Tax::EcbFxRates.rate(from: from, to: to, date: timestamp.to_date)
     rescue Tax::EcbFxRates::MissingRate
-      @warnings << "FX #{from}/#{to} #{timestamp.to_date}"
-      # Rescue-path approximations are deliberately not cached, so every affected record is warned.
-      fallback_fx_rate(from: from, to: to, timestamp: timestamp)
+      @warned_fx_keys << fx_key
+      @warnings << warning
+      @price_cache[fx_key] = fallback_fx_rate(from: from, to: to, timestamp: timestamp)
     end
 
     def fallback_fx_rate(from:, to:, timestamp:)

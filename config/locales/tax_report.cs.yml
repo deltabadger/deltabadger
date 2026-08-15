@@ -19,7 +19,7 @@ cs:
             exempt_reason: 'Důvod osvobození'
         no_taxable_transactions: 'Za toto období nebyly nalezeny žádné zdanitelné transakce.'
         incomplete_banner_prefix: 'VAROVÁNÍ'
-        incomplete_banner: 'Chybějící hodnoty: %{missing} — přehled je neúplný, takto jej nepodávejte'
+        incomplete_banner: 'Chybí hodnoty (%{missing}) — přehled je neúplný, takto jej nepodávejte'
         summary:
             total_gains: 'Celkové zisky'
             total_losses: 'Celkové ztráty'
