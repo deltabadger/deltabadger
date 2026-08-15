@@ -110,4 +110,25 @@ class Tax::Methods::Fifo4WeekTest < ActiveSupport::TestCase
     assert_equal 19, disposal[:holding_days]
     assert_equal 500.to_d, disposal[:cost_basis]
   end
+  # Two equal fills of one order are byte-identical lot hashes. `Array#delete` deletes by `==`, so
+  # consuming one of them destroyed both and a whole lot's basis vanished.
+  test 'a 4-week match consumes one of two identical lots, not both' do
+    buy_at = Time.utc(2024, 6, 1)
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d, fiat_value: 20_000.to_d,
+        transacted_at: buy_at, tx_id: 'fill-a', exchange: 'kraken' },
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d, fiat_value: 20_000.to_d,
+        transacted_at: buy_at, tx_id: 'fill-b', exchange: 'kraken' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d, fiat_value: 25_000.to_d,
+        transacted_at: Time.utc(2024, 6, 10), tx_id: 'sell-first', exchange: 'kraken' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d, fiat_value: 26_000.to_d,
+        transacted_at: Time.utc(2024, 6, 20), tx_id: 'sell-second', exchange: 'kraken' }
+    ]
+
+    disposals = @engine.calculate(transactions)
+
+    assert_equal 20_000.to_d, disposals[0][:cost_basis]
+    assert_equal 20_000.to_d, disposals[1][:cost_basis]
+    assert disposals[1][:cost_basis_complete]
+  end
 end

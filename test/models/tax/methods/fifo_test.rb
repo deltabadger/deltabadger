@@ -448,4 +448,28 @@ class Tax::Methods::FifoTest < ActiveSupport::TestCase
     # The fee burned 1 ETH at 2_000, so only 9 ETH of basis is left for the sale.
     assert_equal 18_000.to_d, disposals.first[:cost_basis]
   end
+  # `apply_acquisition_fee` takes a third-asset fee out of that asset's holdings; a disposal has to
+  # do the same, or the fee asset's inventory stays overstated and a later sale of it dequeues lots
+  # that should not exist.
+  test 'a third-asset fee on a disposal leaves that asset inventory' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BNB', base_amount: 10.to_d, fiat_value: 1_000.to_d,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'bnb-buy', exchange: 'binance' },
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d, fiat_value: 20_000.to_d,
+        transacted_at: Time.utc(2024, 2, 1), tx_id: 'btc-buy', exchange: 'binance' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d, fiat_value: 30_000.to_d,
+        quote_currency: 'EUR', fee_currency: 'BNB', fee_amount: 2.to_d, fee_fiat_value: 200.to_d,
+        transacted_at: Time.utc(2024, 3, 1), tx_id: 'btc-sell', exchange: 'binance' },
+      { entry_type: :sell, base_currency: 'BNB', base_amount: 10.to_d, fiat_value: 3_000.to_d,
+        quote_currency: 'EUR', transacted_at: Time.utc(2024, 4, 1), tx_id: 'bnb-sell',
+        exchange: 'binance' }
+    ]
+
+    disposals = Tax::Methods::Fifo.new.calculate(transactions)
+    bnb_disposal = disposals.find { |disposal| disposal[:asset] == 'BNB' }
+
+    # The 2 BNB fee left the pool at 100 each, so only 8 of the 10 BNB sold carry basis.
+    assert_equal 800.to_d, bnb_disposal[:cost_basis]
+    assert_equal 2_200.to_d, bnb_disposal[:gain_loss]
+  end
 end

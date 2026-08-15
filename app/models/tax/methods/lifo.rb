@@ -11,6 +11,7 @@ module Tax
         has_lots = lots[asset].any?
         latest_date = lots[asset].last&.dig(:date)
         cost_basis, basis_assumed = dequeue_cost(lots[asset], amount)
+        consume_disposal_fee(lots, transaction)
         holding_days = latest_date ? ((transaction[:transacted_at] - latest_date) / 1.day).to_i : 0
 
         disposal = {

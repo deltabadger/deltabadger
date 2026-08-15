@@ -133,6 +133,7 @@ module Tax
         earliest_date = first_lot&.dig(:date)
         holding_ref_date = first_lot&.dig(:holding_start) || earliest_date
         cost_basis, basis_assumed = dequeue_cost(lots[asset], amount)
+        consume_disposal_fee(lots, transaction)
         holding_days = holding_ref_date ? ((transaction[:transacted_at] - holding_ref_date) / 1.day).to_i : 0
 
         disposal = {
