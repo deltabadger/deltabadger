@@ -149,7 +149,8 @@ class TrackerController < ApplicationController
       csv_data = File.read(file_path)
       File.delete(file_path)
       report_name = report_scope == 'broker' ? 'broker-tax-report' : 'tax-report'
-      filename = "deltabadger-#{report_name}-#{country.downcase}-#{year}.csv"
+      report_country = Tax::GenerateReportJob.report_country(params[:country]).downcase
+      filename = "deltabadger-#{report_name}-#{report_country}-#{year}.csv"
       send_data csv_data, filename: filename, type: 'text/csv; charset=utf-8'
     else
       redirect_to tracker_path, alert: t('tracker.tax_report.expired')

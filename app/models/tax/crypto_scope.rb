@@ -4,10 +4,10 @@ module Tax
   # report's refusal-first design cannot make safe. `symbol` is NOT unique on
   # assets (only `external_id` is), and a user with any crypto exchange connected carries thousands
   # of CoinGecko rows, so a stock ticker colliding with a coin would silently understate a signed
-  # form. Hence three ways out before excluding anything. Both scopes use this predicate — the broker
-  # report to decide what to drop and `Tax::GenerateReportJob` to decide what a stock venue contributes
-  # to the crypto report — because they must be exact complements: a second, subtly different lookup
-  # would either double-count a security or lose it from both reports.
+  # form. Hence three ways out before excluding anything. Both scopes ask this one predicate, so no
+  # security is crypto to one report and not the other. The job asks it about `base_currency`, while
+  # the broker report asks it about the resolved instrument symbol, so a dividend-family row booked
+  # against a crypto holding would be claimed by neither, which no Alpaca activity type produces today.
   class CryptoScope
     def initialize(user:)
       @user = user
