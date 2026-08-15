@@ -95,6 +95,16 @@ class Exchange < ApplicationRecord
     self.class.name.demodulize.underscore
   end
 
+  # How far back `AccountTransactionSync` may put a ledger window's start. It is a MAXIMUM staleness,
+  # not a minimum depth: the adapters send `startTime` with no `endTime`, and every capped endpoint
+  # returns a window measured FROM `startTime`. Parked further back than the cap, that window ends in
+  # the past and the account goes silently blind — nothing new arrives, so the data-derived watermark
+  # can never advance to un-blind it. Shortening it can only cost history the endpoint could not have
+  # returned anyway. 80 days is the ~90-day family (Binance, MEXC, Bitget); override where it is less.
+  def ledger_window
+    80.days
+  end
+
   def coingecko_id
     raise NotImplementedError, "#{self.class.name} must implement coingecko_id"
   end

@@ -430,6 +430,11 @@ class Exchanges::Bybit < Exchange
     end
   end
 
+  # `/v5/execution/list` returns startTime → startTime+7d and rejects a wider explicit range, so a
+  # start older than a week can never reach today. Deposit and withdrawal records cap at 30 days; the
+  # narrowest cap wins, and a 7-day window is well inside theirs.
+  def ledger_window = 7.days
+
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bybit', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_BYBIT'])
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
