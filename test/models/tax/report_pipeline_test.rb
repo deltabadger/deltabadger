@@ -2,6 +2,23 @@ require 'test_helper'
 
 # End-to-end pipeline coverage for real AccountTransaction records through Tax::Report.
 class Tax::ReportPipelineTest < ActiveSupport::TestCase
+  test 'German report capitalises a fiat acquisition fee end to end' do
+    user = create(:user)
+    exchange = create(:binance_exchange)
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :buy, base_currency: 'BTC',
+                               base_amount: 1, quote_currency: 'EUR', quote_amount: 10_000,
+                               fee_currency: 'EUR', fee_amount: 50,
+                               transacted_at: Time.utc(2024, 1, 1), tx_id: 'fee-pipeline-buy')
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :sell, base_currency: 'BTC',
+                               base_amount: 1, quote_currency: 'EUR', quote_amount: 30_000,
+                               transacted_at: Time.utc(2024, 6, 1), tx_id: 'fee-pipeline-sell')
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    disposal = CSV.parse(csv, headers: true).find { |row| row[2] == 'BTC' }
+
+    assert_equal 10_050.to_d, disposal[5].to_d
+  end
+
   # AT: crypto->crypto not taxable; basis must chain through the swap via group_id.
   test 'austrian swap chains cost basis end to end' do
     user = create(:user)

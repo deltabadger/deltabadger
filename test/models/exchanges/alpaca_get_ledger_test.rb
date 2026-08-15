@@ -37,6 +37,27 @@ class Exchanges::AlpacaGetLedgerTest < ActiveSupport::TestCase
     assert_equal 'fill-1', buy[:tx_id]
   end
 
+  test 'trade fee is reported separately and base_amount stays gross' do
+    stub_activities([
+                      {
+                        'id' => 'fill-gross', 'activity_type' => 'FILL',
+                        'symbol' => 'AAPL', 'side' => 'buy',
+                        'qty' => '10', 'price' => '150.00',
+                        'transaction_time' => '2026-03-20T14:30:00Z'
+                      }
+                    ])
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    assert result.success?
+    fill = result.data.find { |entry| entry[:entry_type] == :buy }
+    assert_not_nil fill
+    # The tax engine capitalises acquisition fees and would double-count if base_amount ever became net.
+    assert_equal 10.to_d, fill[:base_amount]
+    assert_nil fill[:fee_currency]
+    assert_nil fill[:fee_amount]
+  end
+
   test 'returns normalized sell entry from FILL activity' do
     stub_activities([
                       {

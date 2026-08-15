@@ -99,4 +99,19 @@ class Tax::Methods::SharePoolingTest < ActiveSupport::TestCase
     assert_equal 'section104', disposal[:matching_rule]
     assert_equal true, disposal[:data_incomplete]
   end
+
+  test 'buy fee increases Section 104 pool cost' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, fee_currency: 'EUR', fee_fiat_value: 50.to_d,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'fee-buy' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 6, 1), tx_id: 'fee-sell' }
+    ]
+
+    disposal = @sp.calculate(transactions).first
+
+    assert_equal 'section104', disposal[:matching_rule]
+    assert_equal 10_050.to_d, disposal[:cost_basis]
+  end
 end

@@ -108,6 +108,7 @@ module Tax
           fiat_value: fiat_value,
           fee_fiat_value: fee_fiat_value,
           fee_currency: tx.fee_currency,
+          fee_amount: tx.fee_amount&.to_d,
           transacted_at: tx.transacted_at,
           tx_id: tx.tx_id,
           group_id: tx.group_id,

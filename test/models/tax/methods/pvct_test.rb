@@ -34,6 +34,28 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
     assert_equal 20_000.to_d, d[:gain_loss]
   end
 
+  test 'applies PVCT formula with an acquisition fee in total cost' do
+    # Buy 1 BTC for 10 000 EUR plus a 50 EUR fee, portfolio grows to 50 000.
+    # Sell 0.5 BTC for 25 000 EUR.
+    # gain = 25 000 - (10 050 * 25 000 / 50 000) = 25 000 - 5 025 = 19 975
+    @price_service.stubs(:price_at).with(asset: 'BTC', currency: 'EUR', timestamp: anything).returns(50_000.to_d)
+    @price_service.stubs(:convert_fiat).returns(1.to_d)
+
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'buy-fee', exchange: 'binance',
+        quote_currency: 'EUR', fee_currency: 'EUR', fee_amount: 50.to_d, fee_fiat_value: 50.to_d },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 0.5.to_d,
+        fiat_value: 25_000.to_d, transacted_at: Time.utc(2024, 6, 1), tx_id: 'sell-fee', exchange: 'binance',
+        quote_currency: 'EUR', fee_fiat_value: 0 }
+    ]
+
+    disposal = @pvct.calculate(transactions, price_service: @price_service, currency: 'EUR').first
+
+    assert_equal 10_050.to_d, disposal[:total_acquisition_cost]
+    assert_equal 19_975.to_d, disposal[:gain_loss]
+  end
+
   test 'crypto-to-crypto swaps are not taxable' do
     @price_service.stubs(:price_at).returns(0.to_d)
 

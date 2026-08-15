@@ -55,4 +55,18 @@ class Tax::Methods::Fifo4WeekTest < ActiveSupport::TestCase
     assert_equal 'initial', disposals[0][:period]
     assert_equal 'later', disposals[1][:period]
   end
+
+  test 'buy fee increases cost basis for a 4-week match' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 20_000.to_d, fee_currency: 'EUR', fee_fiat_value: 50.to_d,
+        transacted_at: Time.utc(2024, 6, 10), tx_id: 'fee-buy' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 50_000.to_d, transacted_at: Time.utc(2024, 6, 15), tx_id: 'fee-sell' }
+    ]
+
+    disposal = @engine.calculate(transactions).first
+
+    assert_equal 20_050.to_d, disposal[:cost_basis]
+  end
 end

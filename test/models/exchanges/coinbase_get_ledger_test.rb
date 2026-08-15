@@ -40,6 +40,39 @@ class Exchanges::CoinbaseGetLedgerTest < ActiveSupport::TestCase
     assert_equal 25.0, trade[:fee_amount]
   end
 
+  test 'trade fee is reported separately and base_amount stays gross' do
+    honeymaker_client = mock('honeymaker_client')
+    Honeymaker.stubs(:client).returns(honeymaker_client)
+
+    honeymaker_client.stubs(:list_fills).returns(
+      Result::Success.new({
+                            'fills' => [
+                              {
+                                'trade_id' => 't-gross',
+                                'product_id' => 'BTC-USD',
+                                'side' => 'BUY',
+                                'price' => '50000',
+                                'size' => '0.5',
+                                'commission' => '25',
+                                'trade_time' => '2026-03-20T10:00:00Z'
+                              }
+                            ],
+                            'cursor' => ''
+                          })
+    )
+    honeymaker_client.stubs(:list_accounts).returns(Result::Success.new({ 'accounts' => [] }))
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    assert result.success?
+    trade = result.data.find { |entry| entry[:entry_type] == :buy }
+    assert_not_nil trade
+    # The tax engine capitalises acquisition fees and would double-count if base_amount ever became net.
+    assert_equal 0.5.to_d, trade[:base_amount]
+    assert_equal 'USD', trade[:fee_currency]
+    assert_equal 25.to_d, trade[:fee_amount]
+  end
+
   test 'returns deposit entries from account transactions' do
     honeymaker_client = mock('honeymaker_client')
     Honeymaker.stubs(:client).returns(honeymaker_client)

@@ -64,6 +64,30 @@ class Exchanges::BinanceGetLedgerTest < ActiveSupport::TestCase
     assert_equal 25.0, trade[:fee_amount]
   end
 
+  test 'trade fee is reported separately and base_amount stays gross' do
+    hm_client = mock('honeymaker_client')
+    stub_common(hm_client, extra_coins: %w[BTC])
+
+    hm_client.stubs(:account_trade_list).with(has_entry(symbol: 'BTCUSDT')).returns(
+      Result::Success.new([{
+                            'symbol' => 'BTCUSDT', 'id' => 124, 'orderId' => 457,
+                            'price' => '50000.00', 'qty' => '0.5', 'quoteQty' => '25000.00',
+                            'commission' => '0.0005', 'commissionAsset' => 'BTC',
+                            'time' => 1_710_936_000_000, 'isBuyer' => true
+                          }])
+    )
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    assert result.success?
+    trade = result.data.find { |entry| entry[:entry_type] == :buy }
+    assert_not_nil trade
+    # The tax engine capitalises acquisition fees and would double-count if base_amount ever became net.
+    assert_equal 0.5.to_d, trade[:base_amount]
+    assert_equal 'BTC', trade[:fee_currency]
+    assert_equal '0.0005'.to_d, trade[:fee_amount]
+  end
+
   test 'returns normalized deposit entries' do
     hm_client = mock('honeymaker_client')
     stub_common(hm_client)

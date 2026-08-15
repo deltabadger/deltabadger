@@ -97,4 +97,29 @@ class Tax::Methods::WeightedAverageTest < ActiveSupport::TestCase
     assert_equal 'sell-1', disposals.first[:tx_id]
     assert_equal 9_990.to_d, disposals.first[:cost_basis]
   end
+
+  test 'buy fees update weighted-average cost and base-asset quantity' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 30_000.to_d, fee_currency: 'EUR', fee_fiat_value: 50.to_d,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'fiat-fee-buy' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 50_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'fiat-fee-sell' }
+    ]
+
+    disposal = @wa.calculate(transactions).first
+    assert_equal 30_050.to_d, disposal[:cost_basis]
+
+    transactions = [
+      { entry_type: :buy, base_currency: 'BNB', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, fee_currency: 'BNB', fee_amount: '0.01'.to_d, fee_fiat_value: 1.to_d,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'base-fee-buy' },
+      { entry_type: :sell, base_currency: 'BNB', base_amount: '9.99'.to_d,
+        fiat_value: 2_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'base-fee-sell' }
+    ]
+
+    disposal = @wa.calculate(transactions).first
+    assert_equal '9.99'.to_d, disposal[:amount]
+    assert_equal 1_000.to_d, disposal[:cost_basis].round(0) # 9.99-unit pool retains the full 1 000 quote cost
+  end
 end
