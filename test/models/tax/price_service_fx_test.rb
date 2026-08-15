@@ -85,4 +85,19 @@ class Tax::PriceServiceFxTest < ActiveSupport::TestCase
     assert_equal [0.to_d, 0.to_d], enriched.pluck(:fiat_value)
     assert_equal [true, true], enriched.pluck(:price_missing)
   end
+
+  test 'enrich carries raw data through without dropping existing keys' do
+    Tax::EcbFxRates.stubs(:ensure_loaded!)
+    transaction = create(:account_transaction, user: @user, api_key: @api_key, exchange: @api_key.exchange,
+                                               entry_type: :return_of_capital, base_currency: 'X',
+                                               base_amount: 20.to_d, quote_currency: 'EUR', quote_amount: 160.to_d,
+                                               raw_data: { 'per_share_amount' => '8' },
+                                               transacted_at: Time.utc(2025, 3, 1))
+
+    enriched = Tax::PriceService.new.enrich([transaction], currency: 'EUR').sole
+
+    assert_equal({ 'per_share_amount' => '8' }, enriched[:raw_data])
+    assert enriched.key?(:fiat_value)
+    assert_equal 160.to_d, enriched[:fiat_value]
+  end
 end

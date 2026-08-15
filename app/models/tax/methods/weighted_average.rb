@@ -2,6 +2,7 @@ module Tax
   module Methods
     class WeightedAverage
       include AcquisitionFee
+      include ReturnOfCapital
       include PooledHoldings
 
       # Calculates gains/losses using weighted average cost method.
@@ -10,6 +11,8 @@ module Tax
       #
       # Used by: France ("prix moyen pondéré"), Sweden ("genomsnittsmetoden")
       def calculate(transactions, **_options)
+        @excess_roc = 0.to_d
+
         pools = Hash.new { |h, k| h[k] = { total_amount: 0.to_d, total_cost: 0.to_d, assumed: false } }
         disposals = []
 
@@ -60,8 +63,22 @@ module Tax
             pool[:total_amount] = 0.to_d if pool[:total_amount].negative?
             pool[:total_cost] = 0.to_d if pool[:total_cost].negative?
 
+          when :adjustment
+            apply_pool_split(pool, amount)
+
+          when :return_of_capital
+            absorb_roc(pool, tx)
+
+          when :fee
+            # A fee paid in kind (Alpaca's CFEE) leaves the pool at zero proceeds and zero gain.
+            shrink_pool(pool, amount) unless Tax::PriceService::FIAT_CURRENCIES.include?(asset)
+
           when :withdrawal
             shrink_pool_for_transfer_fee(pool, tx) if tx[:linked]
+
+            # :withholding_tax and :unsupported_activity fall through deliberately. Withholding is a
+            # cash event that changes no holding, and a merger, spinoff or option leg half-applied
+            # would corrupt share counts silently — the report flags those symbols instead.
           end
         end
 

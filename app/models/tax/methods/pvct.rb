@@ -2,6 +2,7 @@ module Tax
   module Methods
     class Pvct
       include AcquisitionFee
+      include ReturnOfCapital
 
       # French PVCT (Plus-Value de Cession de Titres) calculator
       # Article 150 VH bis of the General Tax Code
@@ -21,6 +22,7 @@ module Tax
         @stablecoin_as_fiat = options.fetch(:stablecoin_as_fiat, false)
         @price_service = options[:price_service]
         @currency = options.fetch(:currency, 'EUR')
+        @excess_roc = 0.to_d
         # PVCT has no lots: one missing acquisition understates the portfolio-wide cost pool used by every later disposal.
         @contaminated = false
 
@@ -64,6 +66,20 @@ module Tax
             balances[asset] -= amount
             balances[asset] = 0.to_d if balances[asset].negative?
             # No disposal — crypto-to-crypto not taxable
+
+          when :adjustment
+            # A split restates the holding in more (or fewer) units. Only the balance moves: the
+            # aggregate acquisition cost bought the same investment either way.
+            balances[asset] += amount
+            balances[asset] = 0.to_d if balances[asset].negative?
+
+          when :return_of_capital
+            # A capital distribution gives back part of what the portfolio cost, so it leaves the
+            # numerator of `allocated_cost`. The balance is untouched because no units moved.
+            reduction = [roc_reduction(tx, balances[asset]), 0.to_d].max
+            absorbed = total_acquisition_cost.clamp(0.to_d, reduction)
+            total_acquisition_cost -= absorbed
+            @excess_roc += reduction - absorbed
 
           when :withdrawal
             # A transfer is not a cession: no disposal, and nothing leaves the acquisition-cost pool.
@@ -115,6 +131,10 @@ module Tax
             # Fees reduce balance but don't affect acquisition cost
             balances[asset] -= amount
             balances[asset] = 0.to_d if balances[asset].negative?
+
+            # :withholding_tax and :unsupported_activity fall through deliberately. Withholding is a
+            # cash event that changes no holding, and a merger, spinoff or option leg half-applied
+            # would corrupt share counts silently — the report flags those symbols instead.
           end
         end
 

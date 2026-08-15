@@ -107,6 +107,7 @@ module Tax
           base_amount: tx.base_amount.to_d,
           quote_currency: tx.quote_currency,
           quote_amount: tx.quote_amount&.to_d,
+          raw_data: tx.raw_data,
           fiat_value: fiat_value,
           fee_fiat_value: fee_fiat_value,
           fee_currency: tx.fee_currency,
