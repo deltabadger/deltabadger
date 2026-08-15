@@ -491,6 +491,10 @@ sv:
             fee: 'Avgift'
             other_income: 'Inkomst'
             lost: 'Förlorad'
+            withholding_tax: 'Källskatt'
+            return_of_capital: 'Kapitalåterbetalning'
+            adjustment: 'Justering'
+            unsupported_activity: 'Övrig aktivitet'
     order_filters:
         all: 'Alla'
         successful: 'Lyckade'

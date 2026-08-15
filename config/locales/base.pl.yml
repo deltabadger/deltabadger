@@ -481,6 +481,10 @@ pl:
             fee: 'Opłata'
             other_income: 'Dochód'
             lost: 'Utracone'
+            withholding_tax: 'Podatek u źródła'
+            return_of_capital: 'Zwrot kapitału'
+            adjustment: 'Korekta'
+            unsupported_activity: 'Inna operacja'
     order_filters:
         all: 'Wszystkie'
         successful: 'Zrealizowane'

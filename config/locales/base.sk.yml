@@ -498,6 +498,10 @@ sk:
             fee: 'Poplatok'
             other_income: 'Príjem'
             lost: 'Strata'
+            withholding_tax: 'Zrážková daň'
+            return_of_capital: 'Vrátenie kapitálu'
+            adjustment: 'Úprava'
+            unsupported_activity: 'Iná operácia'
     order_filters:
         all: 'Všetky'
         successful: 'Úspešné'

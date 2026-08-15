@@ -491,6 +491,10 @@ da:
             fee: 'Gebyr'
             other_income: 'Indkomst'
             lost: 'Tabt'
+            withholding_tax: 'Kildeskat'
+            return_of_capital: 'Kapitaltilbagebetaling'
+            adjustment: 'Justering'
+            unsupported_activity: 'Anden aktivitet'
     order_filters:
         all: 'Alle'
         successful: 'Gennemført'

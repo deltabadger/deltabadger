@@ -491,6 +491,10 @@ en:
             fee: 'Fee'
             other_income: 'Income'
             lost: 'Lost'
+            withholding_tax: 'Withholding tax'
+            return_of_capital: 'Return of capital'
+            adjustment: 'Adjustment'
+            unsupported_activity: 'Other activity'
     order_filters:
         all: 'All'
         successful: 'Successful'

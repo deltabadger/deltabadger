@@ -480,6 +480,10 @@ de:
             fee: 'Gebühr'
             other_income: 'Einkommen'
             lost: 'Verloren'
+            withholding_tax: 'Quellensteuer'
+            return_of_capital: 'Kapitalrückzahlung'
+            adjustment: 'Anpassung'
+            unsupported_activity: 'Andere Aktivität'
     order_filters:
         all: 'Alle'
         successful: 'Erfolgreich'

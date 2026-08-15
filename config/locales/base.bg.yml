@@ -491,6 +491,10 @@ bg:
             fee: 'Такса'
             other_income: 'Приход'
             lost: 'Загуба'
+            withholding_tax: 'Данък при източника'
+            return_of_capital: 'Връщане на капитал'
+            adjustment: 'Корекция'
+            unsupported_activity: 'Друга операция'
     order_filters:
         all: 'Всички'
         successful: 'Успешни'

@@ -479,6 +479,10 @@ it:
             fee: 'Commissione'
             other_income: 'Reddito'
             lost: 'Perso'
+            withholding_tax: 'Ritenuta'
+            return_of_capital: 'Rimborso di capitale'
+            adjustment: 'Rettifica'
+            unsupported_activity: 'Altra attività'
     order_filters:
         all: 'Tutti'
         successful: 'Riusciti'

@@ -13,7 +13,9 @@ class AccountTransaction < ApplicationRecord
     buy: 0, sell: 1, swap_in: 2, swap_out: 3,
     deposit: 4, withdrawal: 5, staking_reward: 6,
     lending_interest: 7, airdrop: 8, mining: 9,
-    fee: 10, other_income: 11, lost: 12
+    fee: 10, other_income: 11, lost: 12,
+    withholding_tax: 13, return_of_capital: 14,
+    adjustment: 15, unsupported_activity: 16
   }
 
   validates :base_currency, presence: true

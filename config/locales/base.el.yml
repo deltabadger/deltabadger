@@ -491,6 +491,10 @@ el:
             fee: 'Προμήθεια'
             other_income: 'Έσοδα'
             lost: 'Απώλεια'
+            withholding_tax: 'Παρακράτηση φόρου'
+            return_of_capital: 'Επιστροφή κεφαλαίου'
+            adjustment: 'Προσαρμογή'
+            unsupported_activity: 'Άλλη δραστηριότητα'
     order_filters:
         all: 'Όλες'
         successful: 'Επιτυχημένες'
