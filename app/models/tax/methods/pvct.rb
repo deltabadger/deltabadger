@@ -21,22 +21,25 @@ module Tax
         @currency = options.fetch(:currency, 'EUR')
 
         balances = Hash.new(0.to_d) # asset => amount held
+        incomplete = Set.new
         total_acquisition_cost = 0.to_d
         disposals = []
 
         transactions.each do |tx|
           asset = tx[:base_currency]
           amount = tx[:base_amount]
-          fiat_value = tx[:fiat_value] || 0
+          fiat_value = tx[:fiat_value] || 0.to_d
           entry = tx[:entry_type].to_sym
 
           case entry
           when :buy, :deposit, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
             balances[asset] += amount
             total_acquisition_cost += fiat_value
+            incomplete << asset if tx[:price_missing]
 
           when :swap_in
             balances[asset] += amount
+            incomplete << asset if tx[:price_missing]
             # No acquisition cost added — crypto-to-crypto doesn't change total cost
 
           when :swap_out
@@ -64,7 +67,8 @@ module Tax
                 total_acquisition_cost: total_acquisition_cost,
                 portfolio_value: portfolio_value,
                 gain_loss: gain,
-                fee: tx[:fee_fiat_value] || 0,
+                fee: tx[:fee_fiat_value] || 0.to_d,
+                data_incomplete: tx[:price_missing] ? true : incomplete.include?(asset),
                 tx_id: tx[:tx_id],
                 exchange: tx[:exchange]
               }

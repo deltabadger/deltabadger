@@ -13,10 +13,13 @@ cs:
             exchange: 'Burza'
             tx_id: 'ID transakce'
             cost_basis_complete: 'Pořizovací cena kompletní'
+            data_incomplete: 'Neúplná data'
             acquisition_date: 'Datum pořízení'
             tax_exempt: 'Osvobozeno'
             exempt_reason: 'Důvod osvobození'
         no_taxable_transactions: 'Za toto období nebyly nalezeny žádné zdanitelné transakce.'
+        incomplete_banner_prefix: 'VAROVÁNÍ'
+        incomplete_banner: 'Chybějící hodnoty: %{missing} — přehled je neúplný, takto jej nepodávejte'
         summary:
             total_gains: 'Celkové zisky'
             total_losses: 'Celkové ztráty'

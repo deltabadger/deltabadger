@@ -11,19 +11,26 @@ module Tax
       # Each matching portion outputs as a separate row for auditability.
       def calculate(transactions, **_options)
         acquisitions = Hash.new { |h, k| h[k] = [] }
-        pools = Hash.new { |h, k| h[k] = { total_amount: 0.to_d, total_cost: 0.to_d } }
+        pools = Hash.new { |h, k| h[k] = { total_amount: 0.to_d, total_cost: 0.to_d, assumed: false } }
         disposals_raw = []
 
         transactions.each do |tx|
           asset = tx[:base_currency]
           amount = tx[:base_amount]
-          fiat_value = tx[:fiat_value] || 0
+          fiat_value = tx[:fiat_value] || 0.to_d
 
           case tx[:entry_type].to_sym
           when :buy, :swap_in, :deposit, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
-            acquisitions[asset] << { amount: amount, cost: fiat_value, date: tx[:transacted_at], matched: 0.to_d }
+            acquisitions[asset] << {
+              amount: amount,
+              cost: fiat_value,
+              date: tx[:transacted_at],
+              matched: 0.to_d,
+              price_missing: tx[:price_missing]
+            }
             pools[asset][:total_amount] += amount
             pools[asset][:total_cost] += fiat_value
+            pools[asset][:assumed] = true if tx[:price_missing]
 
           when :sell, :swap_out, :withdrawal
             disposals_raw << tx.merge(remaining: amount)
@@ -35,8 +42,8 @@ module Tax
           asset = tx[:base_currency]
           remaining = tx[:remaining]
           total_amount = tx[:base_amount]
-          proceeds = tx[:fiat_value] || 0
-          fee_fiat = tx[:fee_fiat_value] || 0
+          proceeds = tx[:fiat_value] || 0.to_d
+          fee_fiat = tx[:fee_fiat_value] || 0.to_d
 
           # 1. Same-day match
           same_day = acquisitions[asset].select do |a|
@@ -65,7 +72,7 @@ module Tax
           next unless remaining.positive?
 
           pool = pools[asset]
-          proportion = total_amount.positive? ? (remaining / total_amount) : 0
+          proportion = total_amount.positive? ? (remaining / total_amount) : 0.to_d
           row_proceeds = proceeds * proportion
           row_fee = fee_fiat * proportion
 
@@ -93,6 +100,7 @@ module Tax
             gain_loss: row_proceeds - cost - row_fee,
             holding_days: nil,
             cost_basis_complete: has_pool,
+            data_incomplete: tx[:price_missing] ? true : pool[:assumed] || !has_pool,
             matching_rule: 'section104',
             tx_id: tx[:tx_id],
             exchange: tx[:exchange]
@@ -108,22 +116,24 @@ module Tax
         matched_amount = 0.to_d
         matched_cost = 0.to_d
         matched_date = nil
+        matched_assumed = false
 
         acq_list.each do |acq|
           break unless remaining.positive?
 
           available = acq[:amount] - acq[:matched]
           take = [available, remaining].min
-          cost_per_unit = acq[:amount].positive? ? (acq[:cost] / acq[:amount]) : 0
+          cost_per_unit = acq[:amount].positive? ? (acq[:cost] / acq[:amount]) : 0.to_d
           matched_cost += take * cost_per_unit
           matched_amount += take
+          matched_assumed = true if acq[:price_missing]
           acq[:matched] += take
           remaining -= take
           matched_date ||= acq[:date]
         end
 
         if matched_amount.positive?
-          proportion = total_amount.positive? ? (matched_amount / total_amount) : 0
+          proportion = total_amount.positive? ? (matched_amount / total_amount) : 0.to_d
           row_proceeds = proceeds * proportion
           row_fee = fee_fiat * proportion
           holding_days = matched_date ? ((transaction[:transacted_at] - matched_date) / 1.day).to_i.abs : nil
@@ -143,6 +153,7 @@ module Tax
             fee: row_fee,
             gain_loss: row_proceeds - matched_cost - row_fee,
             holding_days: holding_days,
+            data_incomplete: transaction[:price_missing] ? true : matched_assumed,
             matching_rule: rule.to_s,
             tx_id: transaction[:tx_id],
             exchange: transaction[:exchange]

@@ -519,6 +519,7 @@ nl:
             exchange: 'Exchange'
             tx_id: 'Transactie-ID'
             cost_basis_complete: 'Aanschafkosten volledig'
+            data_incomplete: 'Gegevens onvolledig'
             acquisition_date: 'Aanschafdatum'
             old_stock: 'Oud bezit'
             tax_exempt: 'Vrijgesteld'
@@ -527,6 +528,8 @@ nl:
             value: 'Waarde'
             reference_date: 'Peildatum'
         no_taxable_transactions: 'Geen belastbare transacties gevonden voor deze periode.'
+        incomplete_banner_prefix: 'WAARSCHUWING'
+        incomplete_banner: '%{missing} waarden ontbreken — rapport onvolledig, dien het zo niet in'
         summary:
             tax_percent: Belasting (%{pct}%)
             total_value: 'Totale waarde'

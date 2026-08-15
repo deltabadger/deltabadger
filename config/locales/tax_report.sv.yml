@@ -12,7 +12,10 @@ sv:
             exchange: 'Börs'
             tx_id: 'Transaktions-ID'
             cost_basis_complete: 'Omkostnadsbelopp komplett'
+            data_incomplete: 'Ofullständiga data'
         no_taxable_transactions: 'Inga skattepliktiga transaktioner hittades för denna period.'
+        incomplete_banner_prefix: 'VARNING'
+        incomplete_banner: '%{missing} värden saknas — rapporten är ofullständig, lämna inte in den som den är'
         summary:
             total_gains: 'Totala vinster'
             total_losses: 'Totala förluster'

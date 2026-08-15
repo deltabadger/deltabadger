@@ -9,7 +9,6 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
     t0 = Time.utc(2024, 1, 10)
     swap_at = t0 + 30.days
     sell_at = t0 + 60.days
-    FxRate.create!(currency: 'USD', date: t0.to_date, rate: 1.to_d) # 1:1 keeps arithmetic readable
     # Swap-date market prices: 20 ETH is worth 40 000 EUR here, so market value at the swap and
     # the 10 000 chained basis are different numbers. Seeded locally so no price is ever missing.
     HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: swap_at.to_date, price: 40_000.to_d)
@@ -22,9 +21,43 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
     ].each { |attrs| AccountTransaction.create!(user: user, exchange: exchange, **attrs) }
 
     csv = Tax::Report.new(country: 'AT', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    refute_includes csv, I18n.t('tax_report.incomplete_banner_prefix', locale: :de)
     # Headers: date, acquisition_date, asset, amount, proceeds, cost_basis, gain_loss, ...
     row = CSV.parse(csv, headers: true).find { |r| r[2] == 'ETH' } # asset column
     assert_equal 10_000.to_d, row[5].to_d  # cost basis chained from the BTC purchase
     assert_equal 60_000.to_d, row[6].to_d  # gain 70k - 10k, not 70k - market-at-swap
+    assert_equal 'false', row[I18n.t('tax_report.headers.data_incomplete', locale: :de)]
+  end
+
+  test 'missing price produces a banner row and flags the disposal, not silent zeros' do
+    user = create(:user)
+    exchange = create(:binance_exchange)
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :buy, base_currency: 'ZZZUNKNOWN',
+                               base_amount: 1, transacted_at: Time.utc(2024, 2, 1), tx_id: 'q1')
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :sell, base_currency: 'ZZZUNKNOWN',
+                               base_amount: 1, transacted_at: Time.utc(2024, 3, 1), tx_id: 'q2')
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    rows = CSV.parse(csv, headers: true)
+    assert_includes rows.first[0], I18n.t('tax_report.incomplete_banner_prefix', locale: :de)
+    disposal = rows.find { |r| r[2] == 'ZZZUNKNOWN' }
+    assert_equal 'true', disposal[I18n.t('tax_report.headers.data_incomplete', locale: :de)]
+  end
+
+  # The flag has to survive on the LOT, not just on the entry that carried the missing price:
+  # here only the buy is unpriced, so a disposal-level check alone would let this sale look clean.
+  test 'an unpriced acquisition keeps its lot flagged so a later fully priced sale is still incomplete' do
+    user = create(:user)
+    exchange = create(:binance_exchange)
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :buy, base_currency: 'ZZZUNKNOWN',
+                               base_amount: 1, transacted_at: Time.utc(2024, 2, 1), tx_id: 'q1')
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :sell, base_currency: 'ZZZUNKNOWN',
+                               base_amount: 1, quote_currency: 'EUR', quote_amount: 1_000,
+                               transacted_at: Time.utc(2024, 3, 1), tx_id: 'q2')
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    disposal = CSV.parse(csv, headers: true).find { |row| row[2] == 'ZZZUNKNOWN' }
+
+    assert_equal 1_000.to_d, disposal[4].to_d # the sale itself priced fine, so the flag came off the lot
+    assert_equal 'true', disposal[I18n.t('tax_report.headers.data_incomplete', locale: :de)]
   end
 end

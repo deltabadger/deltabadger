@@ -83,8 +83,10 @@ module Tax
 
       total = transactions.size
       transactions.each_with_index.map do |tx, index|
+        warnings_before = @warnings.size
         fiat_value = resolve_fiat_value(tx, currency)
         fee_fiat_value = resolve_fee_fiat_value(tx, currency)
+        price_missing = @warnings.size > warnings_before
 
         enrich_percent = total.positive? ? 21 + ((index + 1).to_f / total * 79).to_i : 100
         on_progress&.call(enrich_percent, 100)
@@ -101,6 +103,7 @@ module Tax
           transacted_at: tx.transacted_at,
           tx_id: tx.tx_id,
           group_id: tx.group_id,
+          price_missing: price_missing,
           exchange: tx.exchange.name_id
         }
       end
@@ -223,17 +226,23 @@ module Tax
 
     def fiat_exchange_rate(from:, to:, timestamp:)
       fx_key = "FX/#{from}/#{to}/#{timestamp.to_date}"
-      @price_cache[fx_key] ||= begin
-        Tax::EcbFxRates.rate(from: from, to: to, date: timestamp.to_date)
-      rescue Tax::EcbFxRates::MissingRate
-        @warnings << "FX #{from}/#{to} #{timestamp.to_date}"
-        btc_cross_rate(from: from, to: to, timestamp: timestamp)
-      end
+      cached = @price_cache[fx_key]
+      return cached if cached
+
+      @price_cache[fx_key] = Tax::EcbFxRates.rate(from: from, to: to, date: timestamp.to_date)
+    rescue Tax::EcbFxRates::MissingRate
+      @warnings << "FX #{from}/#{to} #{timestamp.to_date}"
+      # Rescue-path approximations are deliberately not cached, so every affected record is warned.
+      fallback_fx_rate(from: from, to: to, timestamp: timestamp)
     end
 
-    # Interim fallback until Task 3 makes a missing report-currency rate fatal at the disposal.
-    # Inaccurate (two crypto quotes an hour apart imply an FX rate), but it raises rather than
-    # returning the 1.0 this used to default to, which silently fabricated tax figures.
+    def fallback_fx_rate(from:, to:, timestamp:)
+      btc_cross_rate(from: from, to: to, timestamp: timestamp)
+    rescue Tax::EcbFxRates::MissingRate
+      0.to_d
+    end
+
+    # A BTC cross is only an approximation; its warning marks the affected record as incomplete.
     def btc_cross_rate(from:, to:, timestamp:)
       btc_from = price_at(asset: 'BTC', currency: from, timestamp: timestamp)
       btc_to = price_at(asset: 'BTC', currency: to, timestamp: timestamp)

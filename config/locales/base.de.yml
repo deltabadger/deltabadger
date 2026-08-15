@@ -521,6 +521,7 @@ de:
             exchange: 'Börse'
             tx_id: 'Transaktions-ID'
             cost_basis_complete: 'Anschaffungskosten vollständig'
+            data_incomplete: 'Daten unvollständig'
             acquisition_date: 'Anschaffungsdatum'
             tax_exempt: 'Steuerfrei'
             old_stock: 'Altbestand'
@@ -529,6 +530,8 @@ de:
             value: 'Wert'
             reference_date: 'Stichtag'
         no_taxable_transactions: 'Keine steuerpflichtigen Transaktionen für diesen Zeitraum gefunden.'
+        incomplete_banner_prefix: 'WARNUNG'
+        incomplete_banner: '%{missing} Werte fehlen — Bericht unvollständig, so nicht einreichen'
         summary:
             tax_percent: Steuer (%{pct}%)
             total_value: 'Gesamtwert'

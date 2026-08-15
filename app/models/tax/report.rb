@@ -49,6 +49,7 @@ module Tax
       I18n.with_locale(jurisdiction[:locale]) do
         CsvSafe.generate do |csv|
           csv << csv_headers
+          csv << [incomplete_banner] if @price_service.warnings.any?
           if results.empty?
             csv << [I18n.t('tax_report.no_taxable_transactions')]
           else
@@ -83,10 +84,11 @@ module Tax
       elsif pvct?
         keys = %w[date asset amount proceeds total_acquisition_cost portfolio_value gain_loss currency fee exchange tx_id]
       elsif weighted_average?
-        keys = %w[date asset amount proceeds cost_basis gain_loss currency fee exchange tx_id cost_basis_complete]
+        keys = %w[date asset amount proceeds cost_basis gain_loss currency fee exchange tx_id cost_basis_complete
+                  data_incomplete]
       else
         keys = %w[date acquisition_date asset amount proceeds cost_basis gain_loss currency holding_days fee exchange tx_id
-                  cost_basis_complete]
+                  cost_basis_complete data_incomplete]
         keys << 'tax_exempt' if jurisdiction[:holding_exemption]
         keys << 'old_stock' if jurisdiction[:old_stock_cutoff]
         keys << 'term' if jurisdiction[:short_long_term]
@@ -136,7 +138,8 @@ module Tax
           disposal[:fee]&.round(2),
           disposal[:exchange],
           disposal[:tx_id],
-          disposal[:cost_basis_complete]
+          disposal[:cost_basis_complete],
+          disposal[:data_incomplete]
         ]
         row << disposal[:tax_exempt] if jurisdiction[:holding_exemption]
         row << disposal[:old_stock] if jurisdiction[:old_stock_cutoff]
@@ -188,7 +191,8 @@ module Tax
         disposal[:fee]&.round(2),
         disposal[:exchange],
         disposal[:tx_id],
-        disposal[:cost_basis_complete]
+        disposal[:cost_basis_complete],
+        disposal[:data_incomplete]
       ]
     end
 
@@ -421,6 +425,12 @@ module Tax
                 "#{(rate * 100).to_i}% #{I18n.t('tax_report.summary.deduction')}", deduction]
         csv << ["  #{I18n.t('tax_report.summary.denied_losses')}", denied_losses.round(2)] if denied_losses.positive?
       end
+    end
+
+    # First data row, not a header row, so CSV.parse(csv, headers: true) still sees the real columns.
+    def incomplete_banner
+      "#{I18n.t('tax_report.incomplete_banner_prefix')}: " \
+        "#{I18n.t('tax_report.incomplete_banner', missing: @price_service.warnings.uniq.size)}"
     end
 
     def append_warnings(csv)

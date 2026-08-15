@@ -534,6 +534,7 @@ en:
             exchange: 'Exchange'
             tx_id: 'Transaction ID'
             cost_basis_complete: 'Cost Basis Complete'
+            data_incomplete: 'Data Incomplete'
             acquisition_date: 'Acquisition Date'
             tax_exempt: 'Tax Exempt'
             old_stock: 'Old Stock'
@@ -547,6 +548,8 @@ en:
             reference_date: 'Reference Date'
             period: 'Period'
         no_taxable_transactions: 'No taxable transactions found for this period.'
+        incomplete_banner_prefix: 'WARNING'
+        incomplete_banner: '%{missing} values missing — report incomplete, do not file as-is'
         summary:
             annual_exemption: Annual exemption
             taxable_gains: Taxable gains
