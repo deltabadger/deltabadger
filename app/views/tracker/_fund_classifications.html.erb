@@ -16,7 +16,7 @@
         <tr data-tracker-export-target="classificationRow" data-symbol="<%= row[:symbol] %>">
           <td><%= row[:symbol] %></td>
           <td>
-            <select data-tracker-export-target="kindSelect"
+            <select data-role="kind"
                     data-action="change->tracker-export#changeClassification">
               <option value=""><%= t('tracker.export_modal.classification_select') %></option>
               <% FundClassification.kinds.each_key do |kind| %>
@@ -26,7 +26,7 @@
           </td>
           <td>
             <div class="<%= 'hidden' unless row[:kind] == :fund %>">
-              <select data-tracker-export-target="categorySelect"
+              <select data-role="category"
                       data-action="change->tracker-export#changeClassification">
                 <option value=""><%= t('tracker.export_modal.classification_select') %></option>
                 <% FundClassification.fund_categories.each_key do |category| %>

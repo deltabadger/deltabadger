@@ -231,6 +231,27 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     assert_nil classification.fund_category
   end
 
+  test 'reports a fund classification that failed validation instead of a silent ok' do
+    assert_no_difference('FundClassification.count') do
+      patch fund_classifications_tracker_path, params: {
+        classifications: [{ symbol: 'VT', kind: 'fund' }] # fund with no category — invalid
+      }, as: :json
+    end
+
+    assert_response :unprocessable_entity
+  end
+
+  # A hand-crafted request can send `classifications` as a numeric-keyed hash, which `permit`
+  # keeps as Parameters whose `each` yields [key, value] pairs — indexing those used to 500.
+  test 'ignores a malformed classifications shape' do
+    assert_no_difference('FundClassification.count') do
+      patch fund_classifications_tracker_path,
+            params: { classifications: { '0' => { symbol: 'AAPL', kind: 'share' } } }
+    end
+
+    assert_response :success
+  end
+
   test 'skips an unknown fund classification kind' do
     assert_no_difference('FundClassification.count') do
       patch fund_classifications_tracker_path, params: {

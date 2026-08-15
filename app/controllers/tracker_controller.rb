@@ -130,22 +130,13 @@ class TrackerController < ApplicationController
   end
 
   def fund_classifications
-    rows = params.permit(classifications: %i[symbol kind fund_category])[:classifications] || []
-
-    rows.each do |row|
-      symbol = row[:symbol]
-      next if symbol.blank? || !FundClassification.kinds.key?(row[:kind])
-
-      # Stored exactly as the ledger spells it. Upcasing or stripping here would make every later
-      # FundClassification.resolve lookup miss and read the security back as unclassified.
-      record = current_user.fund_classifications.find_or_initialize_by(symbol: symbol)
-      record.kind = row[:kind]
-      category = row[:fund_category]
-      record.fund_category = (category if record.fund? && FundClassification.fund_categories.key?(category))
-      record.save
-    end
-
-    head :ok
+    # Anything but a list of rows is a hand-crafted request, not the panel: a numeric-keyed hash
+    # survives `permit` as Parameters, whose `each` yields [key, value] pairs rather than rows.
+    rows = params.permit(classifications: %i[symbol kind fund_category])[:classifications]
+    rows = [] unless rows.is_a?(Array)
+    # `reject`, not `all?` — a failing row must not stop the rows after it from being written.
+    failures = rows.reject { |row| upsert_fund_classification(row) }
+    head failures.any? ? :unprocessable_entity : :ok
   end
 
   def tax_report
@@ -188,6 +179,25 @@ class TrackerController < ApplicationController
   end
 
   private
+
+  # True when there was nothing to write or the write succeeded. A row we cannot interpret (wrong
+  # shape from a hand-crafted request, blank symbol, unknown kind) is skipped — but a row we DID
+  # try to write and failed validation on must not be reported back as :ok, or the endpoint claims
+  # a write it never performed.
+  def upsert_fund_classification(row)
+    return true unless row.is_a?(ActionController::Parameters)
+
+    symbol = row[:symbol]
+    return true if symbol.blank? || !FundClassification.kinds.key?(row[:kind])
+
+    # Stored exactly as the ledger spells it. Upcasing or stripping here would make every later
+    # FundClassification.resolve lookup miss and read the security back as unclassified.
+    record = current_user.fund_classifications.find_or_initialize_by(symbol: symbol)
+    record.kind = row[:kind]
+    category = row[:fund_category]
+    record.fund_category = (category if record.fund? && FundClassification.fund_categories.key?(category))
+    record.save
+  end
 
   def transfer_candidates(transaction)
     scope = AccountTransaction.for_user(current_user).where(base_currency: transaction.base_currency)
