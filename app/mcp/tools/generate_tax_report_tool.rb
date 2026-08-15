@@ -37,8 +37,10 @@ class GenerateTaxReportTool < ApplicationMCPTool
 
     Tax::GenerateReportJob.perform_later(current_user.id, country, year.to_i, stablecoin_as_fiat || false)
 
+    # So the tracker auto-downloads it when the user next opens the page. The pending report's
+    # identity only — an MCP call is not the user editing the export form's preferences.
     current_user.update(tracker_settings: (current_user.tracker_settings || {}).merge(
-      'export_type' => 'tax_report', 'country' => country, 'year' => year.to_i
+      'pending_report' => { 'country' => country, 'year' => year.to_i, 'report_scope' => 'crypto' }
     ))
 
     render text: "Tax report generation started for #{jurisdiction[:name]} (#{year.to_i}). " \

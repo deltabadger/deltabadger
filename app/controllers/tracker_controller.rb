@@ -150,8 +150,11 @@ class TrackerController < ApplicationController
       return
     end
 
+    # Only the pending report's identity, never the export preferences. The sibling `country`,
+    # `year` and `report_scope` keys are what the user picked in the crypto form; a broker run
+    # writing DE into them left the next crypto report pre-set to the wrong jurisdiction.
     current_user.update(tracker_settings: (current_user.tracker_settings || {}).merge(
-      'export_type' => 'tax_report', 'country' => country, 'year' => year, 'report_scope' => report_scope
+      'pending_report' => { 'country' => country, 'year' => year, 'report_scope' => report_scope }
     ))
 
     stablecoin_as_fiat = params[:stablecoin_as_fiat] == 'true'
@@ -247,13 +250,15 @@ class TrackerController < ApplicationController
                               !AccountBalance.for_user(current_user).exists?
   end
 
+  # Reads the pending report's own key, not the export preferences: toggling a radio in the modal
+  # rewrites preferences, and a report already generating must not become unfindable because of it.
   def check_pending_report
-    settings = current_user.tracker_settings || {}
-    return unless settings['export_type'] == 'tax_report'
+    pending = (current_user.tracker_settings || {})['pending_report']
+    return unless pending.is_a?(Hash)
 
-    country = settings['country']
-    year = settings['year']
-    report_scope = settings['report_scope'].presence || 'crypto'
+    country = pending['country']
+    year = pending['year']
+    report_scope = pending['report_scope'].presence || 'crypto'
     return unless country && year
 
     file_path = Tax::GenerateReportJob.report_path(current_user.id, country, year, report_scope)

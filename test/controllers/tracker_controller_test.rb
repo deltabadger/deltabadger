@@ -288,7 +288,7 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
 
   test 'index auto-downloads a pending broker report with its scope' do
     @user.update!(tracker_settings: {
-                    'export_type' => 'tax_report', 'country' => 'DE', 'year' => 1993, 'report_scope' => 'broker'
+                    'pending_report' => { 'country' => 'DE', 'year' => 1993, 'report_scope' => 'broker' }
                   })
     write_report(country: 'DE', year: 1993, report_scope: 'broker', contents: 'broker report')
 
@@ -296,6 +296,35 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_includes response.body, 'report_scope=broker'
+  end
+
+  # A broker run is always DE. Writing that into the shared preference keys left the crypto form
+  # pre-selected on Germany, so the next Generate silently filed the wrong jurisdiction.
+  test 'generating a broker report leaves the crypto export preferences alone' do
+    Tax::GenerateReportJob.stubs(:perform_later)
+    @user.update!(tracker_settings: { 'export_type' => 'tax_report', 'country' => 'FR', 'year' => 2026 })
+
+    get tax_report_tracker_path(country: 'DE', year: 2024, report_scope: 'broker')
+
+    assert_response :success
+    settings = @user.reload.tracker_settings
+    assert_equal 'FR', settings['country']
+    assert_equal 2026, settings['year']
+  end
+
+  # Toggling the modal's radio rewrites preferences. A crypto report already generating must still
+  # be found afterwards, or the finished file never auto-downloads and the user is told nothing.
+  test 'switching the modal to the broker scope does not lose an in-flight crypto report' do
+    Tax::GenerateReportJob.stubs(:perform_later)
+    get tax_report_tracker_path(country: 'FR', year: 1989)
+    write_report(country: 'FR', year: 1989, contents: 'crypto report')
+
+    patch save_export_settings_tracker_path, params: { export_type: 'tax_report', report_scope: 'broker' }
+    get tracker_path
+
+    assert_response :success
+    assert_includes CGI.unescapeHTML(response.body),
+                    download_tax_report_tracker_path(country: 'FR', year: 1989, report_scope: 'crypto')
   end
 
   test 'tax report persists and enqueues the broker scope' do
@@ -313,7 +342,8 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     end
 
     assert_response :success
-    assert_equal 'broker', @user.reload.tracker_settings['report_scope']
+    assert_equal({ 'country' => 'DE', 'year' => 2024, 'report_scope' => 'broker' },
+                 @user.reload.tracker_settings['pending_report'])
   ensure
     Tax::GenerateReportJob.queue_adapter = job_adapter
     ActiveJob::Base.queue_adapter = base_adapter
