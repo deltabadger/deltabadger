@@ -92,9 +92,13 @@ class ApiKey < ApplicationRecord
       # as "when the user last submitted credentials", and resubmitting IDENTICAL credentials — the
       # real fix for a registration redone on a working portal host — dirties nothing, so Active
       # Record would issue no UPDATE and the already-expired clock would survive the retry.
-      update!(status: :pending_activation, updated_at: Time.current)
+      # `last_sync_error` is cleared on both success paths: it describes credentials that have just
+      # been replaced, and nothing else clears it until a sync succeeds. Left behind it keeps
+      # `sync_issue` bannering the tax report for an exchange that is fine — and since a sync only
+      # runs when the user opens the tracker, "until the next sync" can be months.
+      update!(status: :pending_activation, updated_at: Time.current, last_sync_error: nil)
     elsif result.success? && result.data
-      update!(status: :correct)
+      update!(status: :correct, last_sync_error: nil)
     elsif result.success?
       self.status = :incorrect
       Rails.logger.warn("[#{exchange.name}] API key validation: incorrect key")

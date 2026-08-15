@@ -486,6 +486,11 @@ class Exchanges::Binance < Exchange
 
   FIAT_CURRENCIES = %w[USD EUR GBP AUD CAD JPY CHF TRY BRL PLN UAH CZK SEK NOK DKK HUF RON BGN ZAR NGN KES].freeze
 
+  # `/api/v3/myTrades` and the fiat/deposit history endpoints serve at most ~90 days measured from
+  # `startTime`, so a start older than that returns a window that already ended. Inherited by
+  # Binance.US.
+  def ledger_window = 80.days
+
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('binance', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_BINANCE'])
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil

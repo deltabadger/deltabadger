@@ -54,6 +54,31 @@ class ApiKeyTest < ActiveSupport::TestCase
     assert_predicate api_key.reload, :correct?
   end
 
+  # A sync failure writes `last_sync_error` and flips the key to :incorrect. Replacing the
+  # credentials flips it back but used to leave the error behind, so `sync_issue` kept bannering the
+  # tax report for a healthy exchange — and since a sync only runs when the user opens the tracker,
+  # "until the next sync" can be months.
+  test 'validate_credentials! clears a stale sync error once the new credentials check out' do
+    api_key = create(:api_key, :pending, last_synced_at: 1.day.ago, last_sync_error: 'StandardError: API error')
+    api_key.exchange.stubs(:get_api_key_validity).returns(Result::Success.new(true))
+
+    api_key.validate_credentials!(key: 'k', secret: 's')
+
+    assert_predicate api_key.reload, :correct?
+    assert_nil api_key.last_sync_error
+    assert_nil api_key.sync_issue
+  end
+
+  test 'validate_credentials! keeps the sync error when the new credentials are rejected' do
+    api_key = create(:api_key, :pending, last_sync_error: 'StandardError: API error')
+    api_key.exchange.stubs(:get_api_key_validity).returns(Result::Success.new(false))
+
+    api_key.validate_credentials!(key: 'k', secret: 's')
+
+    assert_equal 'StandardError: API error', api_key.reload.last_sync_error
+    assert_equal :failed, api_key.sync_issue[:reason]
+  end
+
   test 'validate_credentials! still maps a falsey validity to incorrect (regression)' do
     api_key = create(:api_key, :pending)
     api_key.exchange.stubs(:get_api_key_validity).returns(Result::Success.new(false))

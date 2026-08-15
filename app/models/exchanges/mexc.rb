@@ -400,6 +400,9 @@ class Exchanges::Mexc < Exchange
     update_exchange_asset_fees!(fees, chains: chains)
   end
 
+  # MEXC caps a history query at ~90 days measured from `startTime`.
+  def ledger_window = 80.days
+
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('mexc', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_MEXC'])
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil

@@ -68,6 +68,27 @@ class RenormalizeAlpacaActivityRowsTest < ActiveSupport::TestCase
     assert_equal %w[AAPL USD], [stock.reload.base_currency, stock.quote_currency]
   end
 
+  # `normalize_activity` drops a canceled activity; the old normalizer did not. Restating one would
+  # promote a row the current importer would never create into a well-formed KAP-INV entry.
+  # `normalize_fill` runs BEFORE that check, so a canceled FILL is still imported today and its
+  # base currency is repaired like any other.
+  test 'a canceled legacy activity is left malformed rather than restated' do
+    dividend = legacy(entry_type: :other_income, base_currency: 'USD', base_amount: 9, quote_currency: nil,
+                      raw: { 'activity_type' => 'DIV', 'symbol' => 'AAPL', 'net_amount' => '9',
+                             'status' => 'canceled' })
+    withheld = legacy(entry_type: :other_income, base_currency: 'USDx', base_amount: 2, quote_currency: nil,
+                      raw: { 'activity_type' => 'DIVNRA', 'symbol' => 'AAPL', 'net_amount' => '-2',
+                             'status' => 'canceled' })
+    fill = legacy(entry_type: :buy, base_currency: 'ETH/USD', base_amount: 1, quote_currency: nil,
+                  raw: { 'activity_type' => 'FILL', 'symbol' => 'ETH/USD', 'status' => 'canceled' })
+
+    migrate!
+
+    assert_nil dividend.reload.quote_currency
+    assert_equal 'other_income', withheld.reload.entry_type
+    assert_equal 'ETH', fill.reload.base_currency
+  end
+
   test 'other venues and already-normalized rows are untouched, and a second run changes nothing' do
     binance = AccountTransaction.create!(user: @user, exchange: create(:binance_exchange),
                                          base_currency: 'BTC', base_amount: 1, entry_type: :buy,

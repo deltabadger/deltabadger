@@ -384,6 +384,9 @@ class Exchanges::Bitget < Exchange
     update_exchange_asset_fees!(fees, chains: chain_data)
   end
 
+  # Bitget caps a history query at ~90 days measured from `startTime`.
+  def ledger_window = 80.days
+
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bitget', api_key: api_key.key, api_secret: api_key.secret,
                                             passphrase: api_key.passphrase, proxy: ENV['PROXY_BITGET'])
