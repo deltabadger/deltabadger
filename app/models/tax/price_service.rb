@@ -12,6 +12,8 @@ module Tax
 
     # Pre-fetches all needed prices in bulk: one API call per coin instead of per day.
     def prefetch(transactions, currency:, &on_progress)
+      Tax::EcbFxRates.ensure_loaded!
+
       coins_needed = {}
 
       transactions.each do |tx|
@@ -40,8 +42,6 @@ module Tax
                           from: info[:min], to: info[:max])
         on_progress&.call(index + 1, total_coins)
       end
-
-      prefetch_fiat_rates(currency) if currency != 'USD'
     end
 
     def price_at(asset:, currency:, timestamp:)
@@ -163,21 +163,6 @@ module Tax
       HistoricalPrice.bulk_store(records_to_store)
     end
 
-    def prefetch_fiat_rates(currency)
-      # BTC prices in both USD and target currency should already be cached from prefetch
-      # Build cross rates for all cached BTC/USD dates
-      usd_prices = @price_cache.select { |k, _| k.start_with?('BTC/USD/') }
-      target_prices = @price_cache.select { |k, _| k.start_with?("BTC/#{currency}/") }
-
-      usd_prices.each do |key, usd_price|
-        date = key.split('/').last
-        target_price = target_prices["BTC/#{currency}/#{date}"]
-        next unless target_price && usd_price.positive?
-
-        @price_cache["FX/USD/#{currency}/#{date}"] = target_price / usd_price
-      end
-    end
-
     def resolve_fiat_value(record, currency)
       return record.quote_amount.to_d if record.quote_currency == currency && record.quote_amount.present?
 
@@ -237,20 +222,23 @@ module Tax
 
     def fiat_exchange_rate(from:, to:, timestamp:)
       fx_key = "FX/#{from}/#{to}/#{timestamp.to_date}"
-      return @price_cache[fx_key] if @price_cache[fx_key]
+      @price_cache[fx_key] ||= begin
+        Tax::EcbFxRates.rate(from: from, to: to, date: timestamp.to_date)
+      rescue Tax::EcbFxRates::MissingRate
+        @warnings << "FX #{from}/#{to} #{timestamp.to_date}"
+        btc_cross_rate(from: from, to: to, timestamp: timestamp)
+      end
+    end
 
-      # Derive from BTC cross rate
+    # Interim fallback until Task 3 makes a missing report-currency rate fatal at the disposal.
+    # Inaccurate (two crypto quotes an hour apart imply an FX rate), but it raises rather than
+    # returning the 1.0 this used to default to, which silently fabricated tax figures.
+    def btc_cross_rate(from:, to:, timestamp:)
       btc_from = price_at(asset: 'BTC', currency: from, timestamp: timestamp)
       btc_to = price_at(asset: 'BTC', currency: to, timestamp: timestamp)
+      raise Tax::EcbFxRates::MissingRate, "#{from}/#{to} #{timestamp.to_date}" unless btc_from.positive? && btc_to.positive?
 
-      rate = if btc_from.positive? && btc_to.positive?
-               btc_to / btc_from
-             else
-               1.to_d
-             end
-
-      @price_cache[fx_key] = rate
-      rate
+      btc_to / btc_from
     end
 
     def asset_to_coingecko_id(symbol)

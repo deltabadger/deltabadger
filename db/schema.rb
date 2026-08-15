@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_10_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_15_120000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -283,6 +283,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_10_120000) do
     t.string "passphrase"
     t.string "secret"
     t.index ["exchange_id"], name: "index_fee_api_keys_on_exchange_id"
+  end
+
+  create_table "fx_rates", force: :cascade do |t|
+    t.string "currency", null: false
+    t.date "date", null: false
+    t.decimal "rate", null: false
+    t.index ["currency", "date"], name: "index_fx_rates_on_currency_and_date", unique: true
   end
 
   create_table "historical_prices", force: :cascade do |t|

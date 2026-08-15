@@ -1,0 +1,2 @@
+class FxRate < ApplicationRecord
+end
