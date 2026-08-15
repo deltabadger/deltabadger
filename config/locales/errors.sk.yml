@@ -7,6 +7,15 @@ sk:
                 password: "Heslo"
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "musí existovať"
+                            different_user: "musí patriť rovnakému používateľovi"
+                            different_currency: "musí používať rovnakú základnú menu"
+                            wrong_direction: "musí prepájať výber s vkladom"
+                            before_withdrawal: "nesmie predchádzať výberu"
+                            larger_than_withdrawal: "nesmie mať vyššiu sumu ako suma výberu"
                 bot:
                     attributes:
                         smart_interval_quote_amount:

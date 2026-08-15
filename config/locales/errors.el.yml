@@ -7,6 +7,15 @@ el:
                 password: "Κωδικός"
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "πρέπει να υπάρχει"
+                            different_user: "πρέπει να ανήκει στον ίδιο χρήστη"
+                            different_currency: "πρέπει να χρησιμοποιεί το ίδιο νόμισμα βάσης"
+                            wrong_direction: "πρέπει να συνδέει μια ανάληψη με μια κατάθεση"
+                            before_withdrawal: "δεν πρέπει να προηγείται της ανάληψης"
+                            larger_than_withdrawal: "δεν πρέπει να έχει μεγαλύτερο ποσό από την ανάληψη"
                 bot:
                     attributes:
                         smart_interval_quote_amount:

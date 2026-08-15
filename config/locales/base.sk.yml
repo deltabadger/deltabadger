@@ -427,6 +427,12 @@ sk:
         filter: 'Filter'
         bot: 'Bot'
         no_results: 'Pre vybrané filtre neboli nájdené žiadne transakcie.'
+        transfer_badge: 'Prevod'
+        transfer_link: 'Označiť ako prevod'
+        transfer_unlink: 'Nie je to prevod'
+        transfer_linked: 'Prepojené ako prevod medzi tvojimi vlastnými účtami.'
+        transfer_unlinked: 'Transakcia sa už nepovažuje za prevod.'
+        transfer_no_candidate: 'V priebehu 14 dní sa nepodarilo nájsť práve jednu zodpovedajúcu transakciu, preto sa nič neprepojilo.'
         connect_exchange: 'Pripojiť burzu'
         import_from: 'Importovať transakcie z'
         search_exchange: 'Hľadať burzu...'
@@ -527,6 +533,8 @@ sk:
         warnings:
             missing_prices: Chýbajú historické ceny pre
             upgrade_hint: Aktualizuj svoj plán CoinGecko alebo použi deltabadger.com pre kompletné historické dáta.
+            deposit_basis_assumed: Obstarávacia cena týchto neprepojených vkladov odhadnutá podľa trhovej hodnoty
+            deposit_basis_assumed_hint: Prepoj každý vklad so zodpovedajúcim výberom v Trackeri, aby sa použila skutočná obstarávacia cena.
         headers:
             date: 'Dátum'
             asset: 'Aktívum'

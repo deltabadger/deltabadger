@@ -420,6 +420,12 @@ sv:
         filter: 'Filter'
         bot: 'Bot'
         no_results: 'Inga transaktioner hittades för de valda filtren.'
+        transfer_badge: 'Överföring'
+        transfer_link: 'Markera som överföring'
+        transfer_unlink: 'Ingen överföring'
+        transfer_linked: 'Länkad som en överföring mellan dina egna konton.'
+        transfer_unlinked: 'Behandlas inte längre som en överföring.'
+        transfer_no_candidate: 'Det gick inte att hitta exakt en matchande transaktion inom 14 dagar, så ingenting länkades.'
         connect_exchange: 'Anslut börs'
         import_from: 'Importera transaktioner från'
         search_exchange: 'Sök börs...'
@@ -520,6 +526,8 @@ sv:
         warnings:
             missing_prices: Historiska priser saknas för
             upgrade_hint: Uppgradera ditt CoinGecko-abonnemang eller använd deltabadger.com för fullständig historik.
+            deposit_basis_assumed: Anskaffningsvärde antaget till marknadsvärdet för dessa olänkade insättningar
+            deposit_basis_assumed_hint: Länka varje insättning till motsvarande uttag i Tracker för att använda det verkliga anskaffningsvärdet.
         headers:
             date: 'Datum'
             asset: 'Tillgång'

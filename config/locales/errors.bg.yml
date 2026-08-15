@@ -7,6 +7,15 @@ bg:
                 password: "Парола"
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "трябва да съществува"
+                            different_user: "трябва да принадлежи на същия потребител"
+                            different_currency: "трябва да използва същата базова валута"
+                            wrong_direction: "трябва да свързва теглене с депозит"
+                            before_withdrawal: "не трябва да бъде преди тегленето"
+                            larger_than_withdrawal: "не трябва да е с по-голяма сума от тегленето"
                 bot:
                     attributes:
                         smart_interval_quote_amount:

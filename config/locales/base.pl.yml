@@ -418,6 +418,12 @@ pl:
         get_report: 'Pobierz raport'
         filter: 'Filtruj'
         no_results: 'Nie znaleziono transakcji dla wybranych filtrów.'
+        transfer_badge: 'Transfer'
+        transfer_link: 'Oznacz jako transfer'
+        transfer_unlink: 'To nie jest transfer'
+        transfer_linked: 'Połączono jako transfer między twoimi kontami.'
+        transfer_unlinked: 'Ta transakcja nie jest już traktowana jako transfer.'
+        transfer_no_candidate: 'W ciągu 14 dni nie znaleziono dokładnie jednej pasującej transakcji, dlatego niczego nie połączono.'
         connect_exchange: 'Połącz giełdę'
         import_from: 'Importuj transakcje z'
         search_exchange: 'Szukaj giełdy...'
@@ -508,6 +514,8 @@ pl:
         warnings:
             missing_prices: Brak historycznych cen dla
             upgrade_hint: Zaktualizuj plan CoinGecko lub użyj deltabadger.com, aby uzyskać pełne dane historyczne.
+            deposit_basis_assumed: Koszt nabycia dla tych niepołączonych wpłat przyjęty według wartości rynkowej
+            deposit_basis_assumed_hint: Połącz każdą wpłatę z odpowiadającą jej wypłatą w Trackerze, aby zastosować rzeczywisty koszt nabycia.
         summary:
             total_gains: Łączne zyski
             total_losses: Łączne straty

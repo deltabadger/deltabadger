@@ -427,6 +427,12 @@ cs:
         filter: 'Filtr'
         bot: 'Bot'
         no_results: 'Pro vybrané filtry nebyly nalezeny žádné transakce.'
+        transfer_badge: 'Převod'
+        transfer_link: 'Označit jako převod'
+        transfer_unlink: 'Není to převod'
+        transfer_linked: 'Propojeno jako převod mezi tvými vlastními účty.'
+        transfer_unlinked: 'Transakce už není považována za převod.'
+        transfer_no_candidate: 'Během 14 dnů se nepodařilo najít právě jednu odpovídající transakci, takže se nic nepropojilo.'
         connect_exchange: 'Připojit burzu'
         import_from: 'Importovat transakce z'
         search_exchange: 'Hledat burzu...'
@@ -527,6 +533,8 @@ cs:
         warnings:
             missing_prices: Chybějí historické ceny pro
             upgrade_hint: Aktualizuj svůj CoinGecko plán nebo použij deltabadger.com pro kompletní historická data.
+            deposit_basis_assumed: Pořizovací cena těchto nepropojených vkladů odhadnutá podle tržní hodnoty
+            deposit_basis_assumed_hint: Propoj každý vklad s odpovídajícím výběrem v Trackeru, aby se použila skutečná pořizovací cena.
         headers:
             date: 'Datum'
             asset: 'Aktivum'

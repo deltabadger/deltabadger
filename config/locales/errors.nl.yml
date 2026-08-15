@@ -7,6 +7,15 @@ nl:
                 password: "Wachtwoord"
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "moet bestaan"
+                            different_user: "moet bij dezelfde gebruiker horen"
+                            different_currency: "moet dezelfde basisvaluta gebruiken"
+                            wrong_direction: "moet een opname aan een storting koppelen"
+                            before_withdrawal: "mag niet vóór de opname plaatsvinden"
+                            larger_than_withdrawal: "mag geen hoger bedrag hebben dan de opname"
                 bot:
                     attributes:
                         smart_interval_quote_amount:

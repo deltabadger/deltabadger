@@ -1,6 +1,8 @@
 class TrackerController < ApplicationController
   include AdminOnly
 
+  TRANSFER_LINK_WINDOW = 14.days
+
   before_action :authenticate_user!
   before_action :require_admin!, only: :setup_coingecko
 
@@ -14,7 +16,9 @@ class TrackerController < ApplicationController
     user_transactions = AccountTransaction.for_user(current_user)
     @date_from = params[:from].presence || user_transactions.minimum(:transacted_at)&.to_date&.iso8601
     @date_to = params[:to].presence || Date.current.iso8601
-    @account_transactions = filtered_transactions.by_date.includes(:exchange, :bot_transaction)
+    @account_transactions = filtered_transactions.by_date.includes(
+      :exchange, :bot_transaction, :linked_transaction, :inverse_link
+    )
     load_portfolio
     check_pending_report
   end
@@ -30,6 +34,38 @@ class TrackerController < ApplicationController
     render turbo_stream: turbo_stream.append(
       'flash', partial: 'tracker/sync_progress', locals: { exchange_name: exchange_names }
     )
+  end
+
+  def toggle_transfer
+    transaction = AccountTransaction.for_user(current_user).find(params[:id])
+
+    if transaction.linked?
+      withdrawal = transaction.withdrawal? ? transaction : transaction.inverse_link
+      partner = withdrawal.linked_transaction
+      withdrawal.update!(linked_transaction_id: nil)
+      flash.now[:notice] = t('tracker.transfer_unlinked')
+      rows = [withdrawal, partner]
+    else
+      candidates = transfer_candidates(transaction)
+      if candidates.size == 1
+        withdrawal, deposit = transaction.withdrawal? ? [transaction, candidates.first] : [candidates.first, transaction]
+        withdrawal.update!(linked_transaction_id: deposit.id)
+        flash.now[:notice] = t('tracker.transfer_linked')
+        rows = [withdrawal, deposit]
+      else
+        flash.now[:alert] = t('tracker.transfer_no_candidate')
+        rows = [transaction]
+      end
+    end
+
+    streams = rows.compact.map do |row|
+      turbo_stream.replace(
+        helpers.dom_id(row),
+        partial: 'tracker/transaction_row',
+        locals: { at: row.reload }
+      )
+    end
+    render turbo_stream: streams + [turbo_stream_prepend_flash]
   end
 
   def export
@@ -115,6 +151,31 @@ class TrackerController < ApplicationController
   end
 
   private
+
+  def transfer_candidates(transaction)
+    scope = AccountTransaction.for_user(current_user).where(base_currency: transaction.base_currency)
+    at = transaction.transacted_at
+
+    # A user-asserted link gets 14 days (not the auto-matcher's 72 hours) and no 2% tolerance.
+    if transaction.withdrawal?
+      # Claimed deposits must be excluded before update! reaches the unique index.
+      claimed = AccountTransaction.for_user(current_user).where.not(linked_transaction_id: nil)
+                                  .select(:linked_transaction_id)
+      scope.deposit
+           .where(transacted_at: at..(at + TRANSFER_LINK_WINDOW))
+           .where(base_amount: ..transaction.base_amount)
+           .where.not(id: claimed)
+           .limit(2).to_a
+    elsif transaction.deposit?
+      scope.withdrawal
+           .where(linked_transaction_id: nil)
+           .where(transacted_at: (at - TRANSFER_LINK_WINDOW)..at)
+           .where(base_amount: transaction.base_amount..)
+           .limit(2).to_a
+    else
+      []
+    end
+  end
 
   def load_portfolio
     base = AccountBalance.for_user(current_user).nonzero.includes(:asset)

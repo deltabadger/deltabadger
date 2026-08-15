@@ -420,6 +420,12 @@ da:
         filter: 'Filtrér'
         bot: 'Bot'
         no_results: 'Ingen transaktioner fundet for de valgte filtre.'
+        transfer_badge: 'Overførsel'
+        transfer_link: 'Markér som overførsel'
+        transfer_unlink: 'Ikke en overførsel'
+        transfer_linked: 'Knyttet sammen som en overførsel mellem dine egne konti.'
+        transfer_unlinked: 'Behandles ikke længere som en overførsel.'
+        transfer_no_candidate: 'Der blev ikke fundet præcis én matchende transaktion inden for 14 dage, så intet blev knyttet sammen.'
         connect_exchange: 'Forbind børs'
         import_from: 'Importér transaktioner fra'
         search_exchange: 'Søg børs...'
@@ -520,6 +526,8 @@ da:
         warnings:
             missing_prices: Manglende historiske priser for
             upgrade_hint: Opgradér dit CoinGecko-abonnement, eller brug deltabadger.com for fuld historik.
+            deposit_basis_assumed: Kostpris ansat til markedsværdien for disse ikke-tilknyttede indbetalinger
+            deposit_basis_assumed_hint: Knyt hver indbetaling til den tilsvarende udbetaling i Tracker for at bruge den faktiske kostpris.
         headers:
             date: 'Dato'
             asset: 'Aktiv'

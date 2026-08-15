@@ -115,6 +115,42 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
     assert_equal '40', disposals.first[8]
   end
 
+  test 'unlinked deposit adds a warning naming its asset and date' do
+    user = create(:user)
+    exchange = create(:binance_exchange)
+    deposit_at = Time.utc(2023, 12, 10)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: deposit_at.to_date, price: 20_000.to_d)
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :deposit, base_currency: 'BTC',
+                               base_amount: 1, transacted_at: deposit_at, tx_id: 'warning-1')
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :sell, base_currency: 'BTC',
+                               base_amount: 1, quote_currency: 'EUR', quote_amount: 30_000,
+                               transacted_at: Time.utc(2024, 2, 1), tx_id: 'warning-2')
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    warning = I18n.t('tax_report.warnings.deposit_basis_assumed', locale: :de)
+
+    assert_includes csv, "WARNING: #{warning}:"
+    assert CSV.parse(csv).any? { |row| row.first&.start_with?('BTC ') && row.first.end_with?(' 2023-12-10') },
+           'expected the warning block to name the BTC deposit and its original date'
+  end
+
+  test 'linked transfer deposit does not add an assumed-basis warning' do
+    user = create(:user)
+    binance = create(:binance_exchange)
+    kraken = create(:kraken_exchange)
+    withdrawal = AccountTransaction.create!(user: user, exchange: binance, entry_type: :withdrawal,
+                                            base_currency: 'BTC', base_amount: 1,
+                                            transacted_at: Time.utc(2024, 1, 10), tx_id: 'linked-warning-1')
+    deposit = AccountTransaction.create!(user: user, exchange: kraken, entry_type: :deposit,
+                                         base_currency: 'BTC', base_amount: 1,
+                                         transacted_at: Time.utc(2024, 1, 10, 1), tx_id: 'linked-warning-2')
+    withdrawal.update!(linked_transaction_id: deposit.id)
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+
+    refute_includes csv, I18n.t('tax_report.warnings.deposit_basis_assumed', locale: :de)
+  end
+
   test 'an unlinked deposit keeps market-value basis but flags the later sale as assumed' do
     # We cannot see where these coins came from. Zero basis would fabricate a maximal gain, so we
     # assume market value at the deposit — and say so, via the same basis_assumed -> data_incomplete

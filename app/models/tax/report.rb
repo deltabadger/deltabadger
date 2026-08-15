@@ -29,6 +29,7 @@ module Tax
         on_progress&.call(100, 100)
       else
         enriched = @price_service.enrich(scoped_transactions, currency: currency, &on_progress)
+        @assumed_deposits = enriched.select { |tx| tx[:entry_type].to_s == 'deposit' && !tx[:linked] }
         results = method_class.new.calculate(enriched, **calculation_options)
       end
 
@@ -62,6 +63,7 @@ module Tax
             append_czech_summary(csv, results) if jurisdiction[:czech_exemptions]
           end
           append_warnings(csv) if @price_service.warnings.any?
+          append_deposit_basis_warnings(csv) if @assumed_deposits.present?
         end
       end
     end
@@ -442,6 +444,18 @@ module Tax
       csv << ["WARNING: #{I18n.t('tax_report.warnings.missing_prices')}:"]
       @price_service.warnings.uniq.each { |w| csv << [w] }
       csv << [I18n.t('tax_report.warnings.upgrade_hint')]
+    end
+
+    # An unlinked deposit's cost basis is the market value on the day it arrived — a disclosed
+    # assumption, not a fact. Naming the rows lets the user link each one to its withdrawal in
+    # the tracker and get the real basis.
+    def append_deposit_basis_warnings(csv)
+      csv << []
+      csv << ["WARNING: #{I18n.t('tax_report.warnings.deposit_basis_assumed')}:"]
+      @assumed_deposits.each do |tx|
+        csv << ["#{tx[:base_currency]} #{tx[:base_amount]} #{tx[:transacted_at].utc.strftime('%Y-%m-%d')}"]
+      end
+      csv << [I18n.t('tax_report.warnings.deposit_basis_assumed_hint')]
     end
   end
 end

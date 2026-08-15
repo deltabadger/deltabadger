@@ -7,6 +7,15 @@ pl:
                 password: "Hasło"
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "musi istnieć"
+                            different_user: "musi należeć do tego samego użytkownika"
+                            different_currency: "musi używać tej samej waluty bazowej"
+                            wrong_direction: "musi łączyć wypłatę z wpłatą"
+                            before_withdrawal: "nie może być wcześniejsza niż wypłata"
+                            larger_than_withdrawal: "nie może mieć kwoty większej niż kwota wypłaty"
                 bot:
                     attributes:
                         smart_interval_quote_amount:
