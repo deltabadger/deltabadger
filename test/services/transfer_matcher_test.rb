@@ -58,4 +58,19 @@ class TransferMatcherTest < ActiveSupport::TestCase
 
     assert_equal manual.id, withdrawal.reload.linked_transaction_id
   end
+
+  test 'never re-links a pair the user unlinked in the tracker' do
+    user = create(:user)
+    # The pair the matcher would happily match again: same asset, 1h apart, 0.5% shrink.
+    withdrawal = AccountTransaction.create!(user: user, exchange: create(:binance_exchange), entry_type: :withdrawal,
+                                            base_currency: 'BTC', base_amount: 1, transacted_at: Time.utc(2024, 5, 1),
+                                            tx_id: 'r1', transfer_link_rejected: true)
+    AccountTransaction.create!(user: user, exchange: create(:kraken_exchange), entry_type: :deposit,
+                               base_currency: 'BTC', base_amount: '0.995'.to_d,
+                               transacted_at: Time.utc(2024, 5, 1, 1), tx_id: 'r2')
+
+    TransferMatcher.run!(user)
+
+    assert_nil withdrawal.reload.linked_transaction_id
+  end
 end

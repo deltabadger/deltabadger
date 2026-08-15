@@ -534,7 +534,7 @@ sk:
             missing_prices: Chýbajú historické ceny pre
             upgrade_hint: Aktualizuj svoj plán CoinGecko alebo použi deltabadger.com pre kompletné historické dáta.
             deposit_basis_assumed: Obstarávacia cena týchto neprepojených vkladov odhadnutá podľa trhovej hodnoty
-            deposit_basis_assumed_hint: Prepoj každý vklad so zodpovedajúcim výberom v Trackeri, aby sa použila skutočná obstarávacia cena.
+            deposit_basis_assumed_hint: Prepojte každý vklad so zodpovedajúcim výberom v Trackeri, aby sa použila skutočná obstarávacia cena.
         headers:
             date: 'Dátum'
             asset: 'Aktívum'

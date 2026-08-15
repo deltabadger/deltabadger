@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_15_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_15_140000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -46,6 +46,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_15_130000) do
     t.json "raw_data", default: {}
     t.datetime "transacted_at", null: false
     t.integer "transaction_id"
+    t.boolean "transfer_link_rejected", default: false, null: false
     t.string "tx_id"
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false

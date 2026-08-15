@@ -134,6 +134,24 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
            'expected the warning block to name the BTC deposit and its original date'
   end
 
+  test 'a fiat deposit is not named in the assumed-basis warning' do
+    user = create(:user)
+    exchange = create(:binance_exchange)
+    deposit_at = Time.utc(2023, 12, 10)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: deposit_at.to_date, price: 20_000.to_d)
+    # Bank funding: nothing to link it to and no cost basis to assume.
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :deposit, base_currency: 'EUR',
+                               base_amount: 5000, transacted_at: deposit_at, tx_id: 'fiat-warning-1')
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :deposit, base_currency: 'BTC',
+                               base_amount: 1, transacted_at: deposit_at, tx_id: 'fiat-warning-2')
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    named = CSV.parse(csv).map(&:first).compact.grep(/\A(BTC|EUR) /)
+
+    assert_equal 1, named.size, "expected only the BTC deposit to be named, got #{named.inspect}"
+    assert named.first.start_with?('BTC ')
+  end
+
   test 'linked transfer deposit does not add an assumed-basis warning' do
     user = create(:user)
     binance = create(:binance_exchange)

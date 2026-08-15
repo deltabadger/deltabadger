@@ -534,7 +534,7 @@ cs:
             missing_prices: Chybějí historické ceny pro
             upgrade_hint: Aktualizuj svůj CoinGecko plán nebo použij deltabadger.com pro kompletní historická data.
             deposit_basis_assumed: Pořizovací cena těchto nepropojených vkladů odhadnutá podle tržní hodnoty
-            deposit_basis_assumed_hint: Propoj každý vklad s odpovídajícím výběrem v Trackeru, aby se použila skutečná pořizovací cena.
+            deposit_basis_assumed_hint: Propojte každý vklad s odpovídajícím výběrem v Trackeru, aby se použila skutečná pořizovací cena.
         headers:
             date: 'Datum'
             asset: 'Aktivum'
