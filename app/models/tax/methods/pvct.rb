@@ -1,6 +1,8 @@
 module Tax
   module Methods
     class Pvct
+      include AcquisitionFee
+
       # French PVCT (Plus-Value de Cession de Titres) calculator
       # Article 150 VH bis of the General Tax Code
       #
@@ -34,18 +36,23 @@ module Tax
 
           case entry
           when :buy, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
-            balances[asset] += amount
-            total_acquisition_cost += fiat_value
+            acquired, cost = apply_acquisition_fee(balances, tx, amount, fiat_value)
+            balances[asset] += acquired
+            total_acquisition_cost += cost
             @contaminated = true if tx[:price_missing]
 
           when :deposit
             # The balance goes up either way; only an unlinked deposit adds cost. A linked one's
             # withdrawal never removed any, so crediting market value here would fabricate basis
             # — and its own price is then never read, so a missing one cannot contaminate anything.
-            balances[asset] += amount
-            next if tx[:linked]
+            if tx[:linked]
+              balances[asset] += amount
+              next
+            end
 
-            total_acquisition_cost += fiat_value
+            acquired, cost = apply_acquisition_fee(balances, tx, amount, fiat_value)
+            balances[asset] += acquired
+            total_acquisition_cost += cost
             @contaminated = true # basis assumed at market value until the user links the deposit
 
           when :swap_in
@@ -115,6 +122,11 @@ module Tax
       end
 
       private
+
+      def consume_fee_asset(balances, fee_asset, fee_amount)
+        balances[fee_asset] -= fee_amount
+        balances[fee_asset] = 0.to_d if balances[fee_asset].negative?
+      end
 
       def fiat_disposal?(transaction)
         quote = transaction[:quote_currency]

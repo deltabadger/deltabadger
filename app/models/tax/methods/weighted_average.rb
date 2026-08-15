@@ -1,6 +1,8 @@
 module Tax
   module Methods
     class WeightedAverage
+      include AcquisitionFee
+
       # Calculates gains/losses using weighted average cost method.
       # On each acquisition, the average cost per unit is recalculated.
       # On disposal, gain = proceeds - (average_cost × amount_sold).
@@ -18,15 +20,17 @@ module Tax
 
           case tx[:entry_type].to_sym
           when :buy, :swap_in, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
-            pool[:total_amount] += amount
-            pool[:total_cost] += fiat_value
+            add_amount, add_cost = apply_acquisition_fee(pools, tx, amount, fiat_value)
+            pool[:total_amount] += add_amount
+            pool[:total_cost] += add_cost
             pool[:assumed] = true if tx[:price_missing]
 
           when :deposit
             next if tx[:linked]
 
-            pool[:total_amount] += amount
-            pool[:total_cost] += fiat_value
+            add_amount, add_cost = apply_acquisition_fee(pools, tx, amount, fiat_value)
+            pool[:total_amount] += add_amount
+            pool[:total_cost] += add_cost
             pool[:assumed] = true
 
           when :sell, :swap_out
@@ -66,12 +70,19 @@ module Tax
       private
 
       def shrink_pool_for_transfer_fee(pool, transaction)
-        fee_amount = transaction[:transfer_fee_amount]
-        return unless fee_amount&.positive?
+        shrink_pool(pool, transaction[:transfer_fee_amount])
+      end
+
+      def consume_fee_asset(pools, fee_asset, fee_amount)
+        shrink_pool(pools[fee_asset], fee_amount)
+      end
+
+      def shrink_pool(pool, amount)
+        return unless amount&.positive?
 
         avg_cost_per_unit = pool[:total_amount].positive? ? (pool[:total_cost] / pool[:total_amount]) : 0.to_d
-        pool[:total_amount] -= fee_amount
-        pool[:total_cost] -= fee_amount * avg_cost_per_unit
+        pool[:total_amount] -= amount
+        pool[:total_cost] -= amount * avg_cost_per_unit
         pool[:total_amount] = 0.to_d if pool[:total_amount].negative?
         pool[:total_cost] = 0.to_d if pool[:total_cost].negative?
       end

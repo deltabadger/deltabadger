@@ -1,6 +1,8 @@
 module Tax
   module Methods
     class Fifo
+      include AcquisitionFee
+
       STABLECOINS = Tax::PriceService::STABLECOINS
 
       # @param transactions [Array<Hash>] sorted by date
@@ -24,9 +26,10 @@ module Tax
 
           case entry
           when :buy, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
-            cost_per_unit = amount.positive? ? (fiat_value / amount) : 0.to_d
+            lot_amount, lot_cost = apply_acquisition_fee(lots, tx, amount, fiat_value)
+            cost_per_unit = lot_amount.positive? ? (lot_cost / lot_amount) : 0.to_d
             lots[asset] << {
-              amount: amount,
+              amount: lot_amount,
               cost_per_unit: cost_per_unit,
               date: tx[:transacted_at],
               basis_assumed: tx[:price_missing]
@@ -35,8 +38,9 @@ module Tax
           when :deposit
             next if tx[:linked] # matching withdrawal kept the lots; nothing to add
 
-            cost_per_unit = amount.positive? ? (fiat_value / amount) : 0.to_d
-            lots[asset] << { amount: amount, cost_per_unit: cost_per_unit, date: tx[:transacted_at],
+            lot_amount, lot_cost = apply_acquisition_fee(lots, tx, amount, fiat_value)
+            cost_per_unit = lot_amount.positive? ? (lot_cost / lot_amount) : 0.to_d
+            lots[asset] << { amount: lot_amount, cost_per_unit: cost_per_unit, date: tx[:transacted_at],
                              basis_assumed: true }
 
           when :swap_in
@@ -105,9 +109,10 @@ module Tax
 
       def add_swap_in_lot(lots, transferred_cost, transaction, asset, amount, fiat_value)
         if @crypto_to_crypto_taxable
-          cost_per_unit = amount.positive? ? (fiat_value / amount) : 0.to_d
+          lot_amount, lot_cost = apply_acquisition_fee(lots, transaction, amount, fiat_value)
+          cost_per_unit = lot_amount.positive? ? (lot_cost / lot_amount) : 0.to_d
           lots[asset] << {
-            amount: amount,
+            amount: lot_amount,
             cost_per_unit: cost_per_unit,
             date: transaction[:transacted_at],
             basis_assumed: transaction[:price_missing]
@@ -155,6 +160,11 @@ module Tax
         return true if basis_assumed
 
         !has_lots
+      end
+
+      # A fee paid in a third crypto asset consumes that asset's lots at zero gain.
+      def consume_fee_asset(lots, fee_asset, fee_amount)
+        dequeue_cost(lots[fee_asset], fee_amount)
       end
 
       # Network fee on a linked transfer: the fee slice leaves the pool at zero gain.
