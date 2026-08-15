@@ -49,6 +49,9 @@ class ApiKey < ApplicationRecord
     exchange.get_api_key_validity(api_key: self)
   end
 
+  # `update_column` is load-bearing, not a shortcut: `activation_stalled?` anchors on `updated_at`,
+  # and a failed sync must not look like the user touching their IBKR activation. Do not "clean this
+  # up" to `update!`.
   def record_sync_error!(error)
     text = error.is_a?(Exception) ? "#{error.class}: #{error.message}" : error.to_s
 

@@ -148,6 +148,24 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_operator captured, :<, 79.days.ago
   end
 
+  # Bybit's execution list and KuCoin's fills serve 7 days measured FROM startTime, so an 80-day-old
+  # start returns a window that ended 73 days ago: a deposit made today is never seen, and nothing
+  # new can arrive to advance the watermark past it.
+  test 'floors start_time at the exchange own ledger window, not the 80-day default' do
+    exchange = create(:bybit_exchange)
+    api_key = create(:api_key, user: @user, exchange: exchange, last_synced_at: 2.years.ago)
+    captured = nil
+    exchange.stubs(:get_ledger).with do |args|
+      captured = args[:start_time]
+      true
+    end.returns(Result::Success.new([]))
+
+    AccountTransactionSync.new(api_key).sync!
+
+    assert_operator captured, :>, 8.days.ago
+    assert_operator captured, :<, 6.days.ago
+  end
+
   test 'passes nil start_time when the watermark is nil even if transactions already exist' do
     create(:account_transaction, api_key: @api_key, exchange: @exchange,
                                  transacted_at: Time.utc(2026, 3, 10, 9, 0, 0))

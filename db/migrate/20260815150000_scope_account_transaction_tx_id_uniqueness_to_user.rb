@@ -7,6 +7,9 @@ class ScopeAccountTransactionTxIdUniquenessToUser < ActiveRecord::Migration[8.1]
               unique: true, where: 'tx_id IS NOT NULL'
   end
 
+  # Best effort. The old key is NARROWER, so it will refuse exactly the rows the new one permits —
+  # two users holding the same exchange tx_id. If that has happened since, this raises and the data
+  # has to be reconciled by hand; there is no correct automatic answer.
   def down
     remove_index :account_transactions, column: %i[user_id exchange_id tx_id]
     add_index :account_transactions, %i[exchange_id tx_id], unique: true, where: 'tx_id IS NOT NULL'

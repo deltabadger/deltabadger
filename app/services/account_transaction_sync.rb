@@ -9,11 +9,13 @@ class AccountTransactionSync
     # the dedup guard absorbs the repeats. A nil watermark means full history, never "since the newest
     # row we happen to hold" — otherwise a watermark reset would silently resume from truncated data.
     #
-    # The 80-day floor keeps the window reaching the present. Binance, Bybit, MEXC, KuCoin and Bitget
-    # cap a history query at ~90 days measured FROM start_time, so a data-derived watermark parked at
-    # a quiet account's last trade would eventually query a window that ends before today — and the
-    # account would go silently blind, since nothing new could arrive to advance the watermark.
-    start_time = @api_key.last_synced_at && [@api_key.last_synced_at - 25.hours, 80.days.ago].max
+    # The floor keeps the window reaching the present. Binance, Bybit, MEXC, KuCoin and Bitget cap a
+    # history query at a fixed span measured FROM start_time, so a data-derived watermark parked at a
+    # quiet account's last trade would eventually query a window that ends before today — and the
+    # account would go silently blind, since nothing new could arrive to advance the watermark. The
+    # span is per-exchange (`Exchange#ledger_window`): Bybit's execution list and KuCoin's fills serve
+    # 7 days, not the ~90 the constant was written for.
+    start_time = @api_key.last_synced_at && [@api_key.last_synced_at - 25.hours, @exchange.ledger_window.ago].max
     result = @exchange.get_ledger(api_key: @api_key, start_time: start_time)
     return result if result.failure?
 

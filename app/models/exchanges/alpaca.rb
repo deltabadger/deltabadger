@@ -637,6 +637,10 @@ class Exchanges::Alpaca < Exchange
     }
   end
 
+  # `.abs` throws away the sign, which matters for a withholding debit — Alpaca books it negative.
+  # It is deliberate and compensated: `Tax::BrokerReport#handle_withholding` reads the magnitude
+  # (`record.base_amount.to_d.abs`) and adds it to the Zeile 41 CREDIT, so the sign would have to be
+  # re-flipped there anyway. Change one and you must change the other.
   def normalize_non_trade(activity, entry_type, description, quote_currency: nil)
     {
       entry_type: entry_type,

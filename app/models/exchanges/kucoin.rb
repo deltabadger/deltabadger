@@ -384,6 +384,10 @@ class Exchanges::Kucoin < Exchange
     update_exchange_asset_fees!(fees, chains: chain_data)
   end
 
+  # `/api/v1/fills` serves at most a 7-day range and measures it from `startAt`, so a start older
+  # than a week returns a window that already ended.
+  def ledger_window = 7.days
+
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('kucoin', api_key: api_key.key, api_secret: api_key.secret,
                                             passphrase: api_key.passphrase, proxy: ENV['PROXY_KUCOIN'])

@@ -141,11 +141,18 @@ weekday and returns `{}` on failure — a boundary price is never guessed, the s
 - The watermark is **derived from the fetched data** (`max transacted_at`), never `Time.current` —
   a clock watermark silently drops whatever the fetch did not return.
 - It is **clamped behind the earliest row that failed to save**, so one malformed entry cannot become
-  a permanent hole.
-- The window is floored at **80 days** (`[last_synced_at - 25.hours, 80.days.ago].max`). Binance,
-  Bybit, MEXC, KuCoin and Bitget cap history at ~90 days *measured from start_time*, so a data-derived
-  watermark parked at a quiet account's last trade would eventually query a window ending before
-  today and the account would go blind.
+  a permanent hole — but only **within the window floor below**. A skipped row older than the floor
+  is never re-fetched, because the next window cannot start before it.
+- The window is floored at `Exchange#ledger_window` (`[last_synced_at - 25.hours,
+  exchange.ledger_window.ago].max`), 80 days by default. Binance, MEXC and Bitget cap history at
+  ~90 days *measured from start_time*, so a data-derived watermark parked at a quiet account's last
+  trade would eventually query a window ending before today and the account would go blind. The
+  floor is a **maximum staleness, not a minimum depth**: Bybit's `/v5/execution/list` and KuCoin's
+  `/api/v1/fills` serve only 7 days from `startTime` and override it to `7.days`. Shortening a
+  window can only cost history the endpoint would not have returned anyway.
+  - Residual: Bybit's deposit/withdrawal records cap at 30 days, so on a quiet Bybit account a
+    transfer between 7 and 30 days old still falls outside every window. Fixing that needs chunked
+    `endTime` requests, not a floor.
 - Dedup is by `tx_id` scoped to **(user, exchange)**; a blank id is read as `nil` and dedups on
   (api_key, type, currency, amount, timestamp) instead. `ApiKey#sync_issue` (never synced / last
   error) banners at the top of the crypto report — a report that silently omits an exchange is the
@@ -202,8 +209,22 @@ to refuse, and an all-refused report still returns an all-zero KAP.
 ## Known Limitations (deliberate)
 
 - Alpaca non-trade activities carry `status` `executed`/`correct`/`canceled`. Canceled are skipped at
-  import, but id-based dedup does not apply a later `correct` restatement incrementally. A full
-  re-sync heals it: set the key's `last_synced_at` to `NULL`.
+  import, but id-based dedup does not apply a later `correct` restatement incrementally.
+  **A full re-sync does NOT heal it.** Nulling `last_synced_at` re-fetches the history, and
+  `AccountTransactionSync` then skips every row whose `tx_id` is already stored — `next if
+  duplicate?`, never an update. Repairing a stored row means a data migration that restates it from
+  `raw_data`, as `20260815150050_renormalize_alpaca_activity_rows.rb` does, or deleting the rows
+  first.
+- A sync run that **skipped invalid rows still clears `last_sync_error`**, so `ApiKey#sync_issue`
+  reports nothing and the report's banner does not fire for them. Deliberate: the run did succeed,
+  and a banner nothing can clear is worse than none. The **error log is the only signal** —
+  `healthcheck-logs` picks up the `Account transaction sync skipped invalid entry` line.
+- **A disposal spanning lots of different ages is emitted as one row**, and the holding-period
+  exemption is decided from the oldest lot alone (`fifo.rb#record_disposal`). Selling 2 BTC where
+  one lot is over a year old and one is not reports the whole gain as §23 exempt. Same shape drives
+  US short/long, SK 19%/7%, IT `old_stock?` and the Danish wash-sale date. Pre-existing, not
+  introduced with the broker report. `LotLedger#dispose` already returns the per-lot match shape a
+  fix would need.
 - `wealth_snapshot.rb` is the only engine that still removes an **unlinked withdrawal's** coins from
   the holding, so NL box-3 and CH wealth may understate. For a gains engine keeping the coins merely
   defers tax; in a wealth snapshot it would tax them every year.
@@ -215,6 +236,12 @@ to refuse, and an all-refused report still returns an all-zero KAP.
   `DIVFT` gross-up applied to dividends.
 - **USD cash-balance FX gains** are out of scope (§20(2) Nr.7, BMF 14.05.2025 Rz 131) and disclosed
   verbatim in the report footer, along with the US-ETF default, the FX source and the fee treatment.
+- **Vorabpauschale start value** is the prior year's last price, not "der erste im Kalenderjahr
+  festgesetzte Rücknahmepreis" (BMF 21.05.2019 Tz 18.4). The chosen convention makes the year chain
+  continuous (start N ≡ end N−1); the effect is a fraction of a percent of a ~1.75% base. Disclosed.
+- **Z41 claims the full amount withheld.** Alpaca withholds 30% without a W-8BEN while only 15% is
+  creditable under the DE-US treaty, the rest being an IRS reclaim. No input tells the report which
+  applies, so it discloses rather than guesses.
 - Alpaca's daily regulatory **fee aggregate** cannot be attributed to a disposal, so it is disclosed
   as a standalone total rather than deducted under §20(4).
 - **MCP tax tools are crypto-only.** No `report_scope` property, and none without a product decision:
