@@ -96,6 +96,19 @@ class AccountTransactionTest < ActiveSupport::TestCase
     assert_includes withdrawal.errors[:linked_transaction], 'must not be before the withdrawal'
   end
 
+  test 'linked deposit must not be larger than the withdrawal' do
+    withdrawal_time = Time.utc(2024, 5, 2)
+    deposit = create(:account_transaction, :deposit, api_key: @api_key, exchange: @exchange,
+                                                     base_amount: 5, transacted_at: withdrawal_time + 1.hour)
+    withdrawal = build(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange,
+                                                          base_amount: 1, linked_transaction: deposit,
+                                                          transacted_at: withdrawal_time)
+
+    assert_not withdrawal.valid?
+    # Otherwise a valid pair, so the amount rule is the only thing that can reject it.
+    assert_equal ['must not be larger than the withdrawal'], withdrawal.errors[:linked_transaction]
+  end
+
   test 'valid linked transfer pair saves and is linked from both sides' do
     withdrawal_time = Time.utc(2024, 5, 2)
     deposit = create(:account_transaction, :deposit,

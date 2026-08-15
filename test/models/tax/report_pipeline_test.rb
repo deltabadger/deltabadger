@@ -76,6 +76,9 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
     csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
 
     assert_empty(CSV.parse(csv, headers: true).select { |row| row[2] == 'BTC' })
+    # ...and the unpriceable withdrawal raises no missing-price banner either: no engine reads that
+    # value any more, so warning about it would only erode the banner's credibility.
+    refute_includes csv, I18n.t('tax_report.incomplete_banner_prefix', locale: :de)
   end
 
   test 'linked transfer pair keeps basis and later sale uses it' do
@@ -106,6 +109,10 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
     assert_equal 1, disposals.size          # exactly one disposal: the sale
     assert_equal 'l4', disposals.first[11]  # ...and it is the sale, not the transfer
     assert_equal '0.999'.to_d * 10_000, disposals.first[5].to_d.round(1) # basis from the original buy, minus the fee slice
+    # Half the point of not disposing on transfer: the clock still runs from the original purchase,
+    # which is what the German one-year §23 exemption is measured against.
+    assert_equal '2024-01-10T00:00:00Z', disposals.first[1]
+    assert_equal '40', disposals.first[8]
   end
 
   test 'an unlinked deposit keeps market-value basis but flags the later sale as assumed' do

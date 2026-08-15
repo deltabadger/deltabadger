@@ -75,5 +75,10 @@ class AccountTransaction < ApplicationRecord
     errors.add(:linked_transaction, 'must use the same base currency') unless linked.base_currency == base_currency
     errors.add(:linked_transaction, 'must link a withdrawal to a deposit') unless withdrawal? && linked.deposit?
     errors.add(:linked_transaction, 'must not be before the withdrawal') if transacted_at.present? && linked.transacted_at < transacted_at
+    # A transfer can only shrink by its network fee. Were the deposit bigger, it would contribute no
+    # lot while the withdrawal shrank nothing, silently vaporising the difference in cost basis.
+    return unless base_amount.present? && linked.base_amount > base_amount
+
+    errors.add(:linked_transaction, 'must not be larger than the withdrawal')
   end
 end

@@ -59,8 +59,14 @@ module Tax
             # No disposal — crypto-to-crypto not taxable
 
           when :withdrawal
-            # A transfer changes the tracked balance, but is not a French taxable disposal and
-            # does not remove anything from the portfolio-wide acquisition-cost pool.
+            # A transfer is not a cession: no disposal, and nothing leaves the acquisition-cost pool.
+            # An UNLINKED withdrawal must not leave the balance either. The pool is the numerator and
+            # the portfolio value is the denominator of `allocated_cost`; dropping coins we still hold
+            # from only the denominator inflates the cost allocated to every later sale and fabricates
+            # losses. The premise of leaving the cost in place — the coins are still the user's, in a
+            # wallet we do not sync — is the same premise that keeps them in the portfolio value.
+            next unless tx[:linked]
+
             balances[asset] -= amount
             balances[asset] = 0.to_d if balances[asset].negative?
 
