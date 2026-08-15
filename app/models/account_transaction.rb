@@ -21,7 +21,7 @@ class AccountTransaction < ApplicationRecord
   validates :base_currency, presence: true
   validates :base_amount, presence: true
   validates :transacted_at, presence: true
-  validates :tx_id, uniqueness: { scope: :exchange_id }, allow_nil: true
+  validates :tx_id, uniqueness: { scope: %i[user_id exchange_id] }, allow_nil: true
   validate :linked_transaction_is_valid, if: -> { linked_transaction_id.present? }
 
   scope :for_user, ->(user) { where(user_id: user.id) }

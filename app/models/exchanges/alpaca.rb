@@ -453,7 +453,10 @@ class Exchanges::Alpaca < Exchange
       # token that fetched it. If it isn't, the cursor was ignored and we'd re-fetch the same
       # page forever — stop instead of hanging the sync on an unbounded loop.
       next_token = activities.last['id']
-      break if next_token == page_token
+      if next_token == page_token
+        Rails.logger.warn("[#{name_id}] Alpaca ledger pagination stalled at page token #{page_token}")
+        break
+      end
 
       activities.each do |activity|
         entry = normalize_activity(activity)

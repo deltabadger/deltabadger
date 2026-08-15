@@ -98,6 +98,7 @@ class Exchanges::AlpacaGetLedgerTest < ActiveSupport::TestCase
     client.expects(:get_account_activities).twice.returns(Result::Success.new(page))
     @exchange.stubs(:client).returns(client)
     @exchange.instance_variable_set(:@client, client)
+    Rails.logger.expects(:warn).with { |message| message.include?('stuck-page-100') }
 
     result = @exchange.get_ledger(api_key: @api_key)
 
