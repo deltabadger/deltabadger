@@ -2,9 +2,9 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = [
-    "typeRadio", "taxOptions", "transactionsOptions", "country", "year",
+    "typeRadio", "taxOptions", "transactionsOptions", "country", "countryRow", "year",
     "downloadBtn", "stablecoinOption", "stablecoinCheckbox", "dateFrom", "dateTo",
-    "classificationPanel", "classificationRow", "kindSelect", "categorySelect"
+    "classificationPanel", "classificationRow"
   ]
 
   connect() {
@@ -40,21 +40,28 @@ export default class extends Controller {
 
   updateScope() {
     const scope = this.isBroker ? "broker" : "crypto"
+    // Narrowing the range must not rewrite the crypto choice underneath it: a user who clicks the
+    // broker radio to look at it and clicks back would otherwise file their next crypto report for
+    // whatever year the broker range allowed. Stash on the way in, restore on the way out.
+    if (this.isBroker && this.cryptoYear === undefined) this.cryptoYear = this.yearTarget.value
+
     Array.from(this.yearTarget.options).forEach(option => {
       option.disabled = option.hidden = !option.dataset.scopes.split(" ").includes(scope)
     })
+
+    if (!this.isBroker && this.cryptoYear !== undefined) {
+      this.yearTarget.value = this.cryptoYear
+      this.cryptoYear = undefined
+    }
 
     if (this.yearTarget.selectedOptions[0]?.disabled) {
       const firstEnabled = Array.from(this.yearTarget.options).find(option => !option.disabled)
       if (firstEnabled) this.yearTarget.value = firstEnabled.value
     }
 
-    if (this.isBroker) {
-      this.countryTarget.value = "DE"
-      this.countryTarget.disabled = true
-    } else {
-      this.countryTarget.disabled = false
-    }
+    // The broker report is always DE and both `download()` and `save()` hardcode it, so the select
+    // is hidden rather than pinned — writing "DE" into it clobbered the user's crypto jurisdiction.
+    if (this.hasCountryRowTarget) this.countryRowTarget.classList.toggle("hidden", this.isBroker)
   }
 
   updateStablecoinVisibility() {
@@ -70,45 +77,43 @@ export default class extends Controller {
   }
 
   changeClassification(event) {
-    if (!this.hasClassificationRowTarget || !this.hasKindSelectTarget || !this.hasCategorySelectTarget) return
-
     const row = event.target.closest('[data-tracker-export-target~="classificationRow"]')
     if (!row) return
 
-    const kindSelect = row.querySelector('[data-tracker-export-target~="kindSelect"]')
-    const categorySelect = row.querySelector('[data-tracker-export-target~="categorySelect"]')
-    const isFund = kindSelect.value === "fund"
-    categorySelect.parentElement.classList.toggle("hidden", !isFund)
-    if (!isFund) categorySelect.value = ""
+    const category = row.querySelector('[data-role="category"]')
+    const isFund = row.querySelector('[data-role="kind"]').value === "fund"
+    category.parentElement.classList.toggle("hidden", !isFund)
+    if (!isFund) category.value = ""
 
-    this.saveClassifications()
+    this.saveClassification(row)
     this.updateGenerateAvailability()
   }
 
-  saveClassifications() {
-    if (!this.hasClassificationRowTarget || !this.hasKindSelectTarget || !this.hasCategorySelectTarget) return
-
-    const rows = this.classificationRowTargets.map(row => {
-      const kind = row.querySelector('[data-tracker-export-target~="kindSelect"]').value
-      const category = row.querySelector('[data-tracker-export-target~="categorySelect"]').value
-      if (!kind) return null
-      return { symbol: row.dataset.symbol, kind: kind, fund_category: category }
-    }).filter(row => row)
+  // Only the row the user touched. Every other row still shows FundClassification.resolve's
+  // *proposal*, and persisting a proposal would record a §20(4) election the taxpayer never made.
+  saveClassification(row) {
+    const kind = row.querySelector('[data-role="kind"]').value
+    if (!kind) return
 
     fetch(this.downloadBtnTarget.dataset.fundClassificationsUrl, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", "X-CSRF-Token": this.csrfToken },
-      body: JSON.stringify({ classifications: rows })
+      body: JSON.stringify({
+        classifications: [{
+          symbol: row.dataset.symbol,
+          kind: kind,
+          fund_category: row.querySelector('[data-role="category"]').value
+        }]
+      })
     })
   }
 
   get classificationsComplete() {
     if (!this.hasClassificationRowTarget) return true
-    if (!this.hasKindSelectTarget || !this.hasCategorySelectTarget) return false
 
     return this.classificationRowTargets.every(row => {
-      const kind = row.querySelector('[data-tracker-export-target~="kindSelect"]').value
-      const category = row.querySelector('[data-tracker-export-target~="categorySelect"]').value
+      const kind = row.querySelector('[data-role="kind"]').value
+      const category = row.querySelector('[data-role="category"]').value
       return kind && (kind !== "fund" || category)
     })
   }
@@ -176,11 +181,18 @@ export default class extends Controller {
       export_type: this.isTaxReport ? "tax_report" : "transactions"
     })
 
-    if (this.isTaxReport) {
-      params.set("country", this.isBroker ? "DE" : this.countryTarget.value)
+    if (this.isBroker) {
+      // Scope only. The broker report is always DE and picks its year at generate time, and
+      // tracker_settings keeps ONE country/year pair — persisting them here would overwrite what
+      // the crypto report remembers just because the user looked at this radio.
+      // ponytail: generating a broker report still rewrites that shared pair through #tax_report,
+      // which check_pending_report needs to find the file; give the broker its own keys if it bites.
+      params.set("report_scope", "broker")
+    } else if (this.isTaxReport) {
+      params.set("country", this.countryTarget.value)
       params.set("year", this.yearTarget.value)
-      params.set("report_scope", this.isBroker ? "broker" : "crypto")
-      if (!this.isBroker && this.hasStablecoinCheckboxTarget) {
+      params.set("report_scope", "crypto")
+      if (this.hasStablecoinCheckboxTarget) {
         params.set("stablecoin_as_fiat", this.stablecoinCheckboxTarget.checked)
       }
     }

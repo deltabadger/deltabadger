@@ -1,5 +1,13 @@
 # frozen_string_literal: true
 
+# Deliberately crypto-only: there is no `report_scope` property here, and none should be added
+# without a product decision. The German broker report cannot be produced until every security
+# carries a FundClassification, and that is not a lookup — it is a §20(4) InvStG election the
+# taxpayer signs for and bears the burden of proof on (see FundClassification.resolve). Exposing
+# `report_scope: 'broker'` without a classification tool would emit an all-zero Anlage KAP that
+# looks finished; adding one would let a chat assistant make the election on the user's behalf.
+# The classification UI in the export modal is the intended gate. This omission is not a gap to
+# close as routine plumbing.
 class GenerateTaxReportTool < ApplicationMCPTool
   tool_name 'generate_tax_report'
   description 'Generate a tax report for a specific country and year. Runs in the background — use get_tax_report_status to check when ready.'

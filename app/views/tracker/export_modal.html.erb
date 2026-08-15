@@ -35,7 +35,7 @@
       </div>
 
       <div data-tracker-export-target="taxOptions" class="flex-row full-width <%= 'hidden' if @settings['export_type'] == 'transactions' %>">
-        <div class="form__row form__row--input">
+        <div class="form__row form__row--input" data-tracker-export-target="countryRow">
           <select name="country" class="form__input" data-tracker-export-target="country" data-action="change->tracker-export#changeCountry">
             <% @jurisdictions.each do |code, config| %>
               <option value="<%= code %>" <%= 'selected' if @settings['country'] == code %> data-stablecoin-ambiguous="<%= config.fetch(:stablecoin_ambiguous, false) %>"><%= t("tracker.export_modal.countries.#{code}") %></option>
