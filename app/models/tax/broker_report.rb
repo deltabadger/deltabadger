@@ -31,6 +31,11 @@ module Tax
       @result ||= calculate
     end
 
+    # Rendering lives in its own class so this one stays the pure calculation its header promises.
+    def to_csv
+      Tax::BrokerReportCsv.new(result).to_csv
+    end
+
     private
 
     def calculate
