@@ -58,6 +58,7 @@ module Tax
             # This disposal is priced in the second pass, so it has to survive whatever restates the
             # pool in between: `pool_scale` and `basis_credit` carry those corrections.
             disposals_raw << tx.merge(remaining: amount, pool_scale: 1.to_d, basis_credit: 0.to_d)
+            consume_disposal_fee(pools, tx)
 
           when :adjustment
             # The acquisitions list stays unchanged: same-day/bed-and-breakfast matching cannot reach pre-split buys.

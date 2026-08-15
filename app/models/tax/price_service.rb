@@ -1,9 +1,15 @@
 module Tax
   class PriceService
     STABLECOINS = %w[USDT USDC BUSD DAI FDUSD TUSD PYUSD RLUSD].freeze
-    FIAT_CURRENCIES = %w[USD EUR GBP CHF SEK PLN DKK CZK BGN].freeze
-    ACQUISITION_TYPES = %w[buy swap_in].freeze
-    private_constant :ACQUISITION_TYPES
+    # Settlement currencies of the venues this app syncs — Kraken books AUD, CAD, JPY and AED, and
+    # every entry here is a row the engines must NOT treat as a crypto disposal. Only add a code a
+    # venue actually settles in: a symbol listed here is dropped from the report, so a token sharing
+    # a fiat ticker would vanish from a signed form.
+    FIAT_CURRENCIES = %w[USD EUR GBP CHF SEK PLN DKK CZK BGN AUD CAD JPY AED].freeze
+    # A Kraken trade books its fee on whichever leg paid it, in either direction, so the crypto leg
+    # of a sale needs the same treatment as the crypto leg of a buy.
+    TRADE_TYPES = %w[buy swap_in sell swap_out].freeze
+    private_constant :TRADE_TYPES
 
     attr_reader :warnings
 
@@ -52,11 +58,17 @@ module Tax
       return stablecoin_rate(currency, timestamp) if STABLECOINS.include?(asset)
 
       cache_key = "#{asset}/#{currency}/#{timestamp.to_date}"
-      return @price_cache[cache_key] if @price_cache[cache_key]
+      cached = @price_cache[cache_key]
+      # A zero is never a price, it is a failed lookup wearing one. `nil.to_d` is `0.0`, so a single
+      # null in an upstream prices array becomes a zero here — and a zero that gets past this point
+      # reports the entire proceeds as gain on a row marked complete. Treat it as missing wherever it
+      # comes from, so an already-poisoned historical_prices row heals on the next report instead of
+      # reproducing the wrong number forever.
+      return cached if cached && !cached.to_d.zero?
 
       # Check DB
       db_price = HistoricalPrice.lookup(asset: asset, currency: currency, date: timestamp.to_date)
-      if db_price
+      if db_price && !db_price.to_d.zero?
         @price_cache[cache_key] = db_price
         return db_price
       end
@@ -229,6 +241,11 @@ module Tax
 
       records_to_store = []
       prices.each do |timestamp_ms, price|
+        # A null in the array arrives as nil and `nil.to_d` is 0 — neither cache nor store it, or the
+        # missing-price guard in `price_at` never sees the gap and the row reports full proceeds as
+        # gain. `insert_all` bypasses the presence validation, so this is the only place to stop it.
+        next if price.to_d.zero?
+
         date = Time.at(timestamp_ms / 1000.0).utc.to_date
         cache_key = "#{symbol}/#{currency}/#{date}"
         next if @price_cache[cache_key] # already from DB
@@ -278,15 +295,17 @@ module Tax
     end
 
     # Kraken reports a trade as one ledger row per asset, with the fee on the row that paid it: a
-    # EUR-funded BTC buy carries the whole fee on the EUR row, so the BTC lot would never see it.
-    # Move such a fee onto the crypto acquisition it belongs to, when the pairing is unambiguous.
+    # EUR-funded BTC buy carries the whole fee on the EUR row, so the BTC lot would never see it,
+    # and a BTC sale settled in EUR carries it on the EUR row the proceeds arrive on, so no engine
+    # would deduct it from the gain. Move such a fee onto the crypto leg — in either direction —
+    # when the pairing is unambiguous.
     def attribute_quote_row_fees(entries)
       entries.group_by { |entry| entry[:group_id] }.each do |group_id, group|
         next if group_id.blank? || group.size < 2
 
         donors = group.select { |entry| FIAT_CURRENCIES.include?(entry[:base_currency]) && entry[:fee_amount].present? }
         targets = group.select do |entry|
-          ACQUISITION_TYPES.include?(entry[:entry_type].to_s) && FIAT_CURRENCIES.exclude?(entry[:base_currency])
+          TRADE_TYPES.include?(entry[:entry_type].to_s) && FIAT_CURRENCIES.exclude?(entry[:base_currency])
         end
         next unless donors.one? && targets.one?
 
@@ -327,6 +346,10 @@ module Tax
       return nil if prices.blank?
 
       price = prices.first[1].to_d
+      # Same reason as `fetch_price_range`: `insert` skips the presence validation, so a zero stored
+      # here would be read back as a valid price by every future report.
+      return nil if price.zero?
+
       @price_cache["#{asset}/#{currency}/#{timestamp.to_date}"] = price
       HistoricalPrice.store(asset: asset, currency: currency, date: timestamp.to_date, price: price)
       price

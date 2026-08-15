@@ -72,6 +72,77 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
     assert_empty(rows.select { |row| row[2] == 'EUR' })
   end
 
+  # Kraken books the fee of a SALE on the EUR row the proceeds arrive on. Restricting the fee move
+  # to acquisitions left that fee reaching no engine at all — deductible under §20(4) EStG.
+  test 'German report deducts a Kraken quote-row fee booked on a sale' do
+    user = create(:user)
+    exchange = create(:kraken_exchange)
+    buy_at = Time.utc(2024, 1, 10)
+    sell_at = Time.utc(2024, 6, 1)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: buy_at.to_date, price: 20_000.to_d)
+    [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: '0.5'.to_d, group_id: 'R1',
+        transacted_at: buy_at, tx_id: 'kraken-sellfee-btc-buy' },
+      { entry_type: :sell, base_currency: 'EUR', base_amount: 10_000.to_d, group_id: 'R1',
+        transacted_at: buy_at, tx_id: 'kraken-sellfee-eur-sell' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: '0.5'.to_d,
+        quote_currency: 'EUR', quote_amount: 30_000.to_d, group_id: 'R2',
+        transacted_at: sell_at, tx_id: 'kraken-sellfee-btc-sell' },
+      { entry_type: :buy, base_currency: 'EUR', base_amount: 30_000.to_d, group_id: 'R2',
+        fee_currency: 'EUR', fee_amount: 78.to_d, transacted_at: sell_at, tx_id: 'kraken-sellfee-eur-buy' }
+    ].each { |attrs| AccountTransaction.create!(user: user, exchange: exchange, **attrs) }
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    disposal = CSV.parse(csv, headers: true).find { |row| row[2] == 'BTC' }
+
+    assert_equal 78.to_d, disposal[9].to_d
+    assert_equal 19_922.to_d, disposal[6].to_d
+  end
+
+  # Kraken settles in AUD, CAD, JPY and AED too. Off the fiat list, the funding leg of an AUD-funded
+  # buy arrives as a `sell` of AUD priced at 0 against lots the user never had.
+  test 'German report ignores a Kraken AUD settlement row' do
+    user = create(:user)
+    exchange = create(:kraken_exchange)
+    buy_at = Time.utc(2024, 1, 10)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: buy_at.to_date, price: 20_000.to_d)
+    [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: '0.5'.to_d, group_id: 'R1',
+        transacted_at: buy_at, tx_id: 'kraken-aud-btc-buy' },
+      { entry_type: :sell, base_currency: 'AUD', base_amount: 16_000.to_d, group_id: 'R1',
+        transacted_at: buy_at, tx_id: 'kraken-aud-fiat-sell' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: '0.5'.to_d,
+        quote_currency: 'EUR', quote_amount: 30_000.to_d,
+        transacted_at: Time.utc(2024, 6, 1), tx_id: 'kraken-aud-btc-sell' }
+    ].each { |attrs| AccountTransaction.create!(user: user, exchange: exchange, **attrs) }
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+
+    assert_empty(CSV.parse(csv, headers: true).select { |row| row[2] == 'AUD' })
+    refute_includes csv, I18n.t('tax_report.incomplete_banner_prefix', locale: :de)
+  end
+
+  # `insert_all`/`insert` bypass HistoricalPrice's presence validation, so a null in an upstream
+  # prices array (nil.to_d == 0) can persist as a zero and be read back forever as a valid price.
+  # The whole proceeds then become gain on a row that claims to be complete.
+  test 'a stored zero price is treated as missing, not as a free acquisition' do
+    user = create(:user)
+    exchange = create(:binance_exchange)
+    buy_at = Time.utc(2024, 1, 10)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: buy_at.to_date, price: 0.to_d)
+    [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        transacted_at: buy_at, tx_id: 'zero-price-buy' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        quote_currency: 'EUR', quote_amount: 30_000.to_d,
+        transacted_at: Time.utc(2024, 6, 1), tx_id: 'zero-price-sell' }
+    ].each { |attrs| AccountTransaction.create!(user: user, exchange: exchange, **attrs) }
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+
+    assert_includes csv, I18n.t('tax_report.incomplete_banner_prefix', locale: :de)
+  end
+
   # PVCT has no lots: the EUR leg of a sale would swell the portfolio-wide acquisition-cost pool,
   # and the EUR leg of a purchase would drain it as a cession, corrupting every later disposal.
   test 'French report ignores Kraken fiat ledger rows in the acquisition cost pool' do

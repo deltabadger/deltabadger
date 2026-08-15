@@ -333,4 +333,26 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
     assert_equal 10_000.to_d, disposals.first[:total_acquisition_cost]
     assert_equal 20_000.to_d, disposals.first[:portfolio_value]
   end
+  # Art. 150 VH bis reduces the prix de cession by the frais of that cession. PVCT printed the fee
+  # in its own column and never subtracted it, while every other engine did.
+  test 'a disposal fee is deducted from the PVCT gain' do
+    @price_service.stubs(:price_at).with(asset: 'BTC', currency: 'EUR', timestamp: anything).returns(50_000.to_d)
+    @price_service.stubs(:convert_fiat).returns(1.to_d)
+
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'cession-buy',
+        exchange: 'kraken', quote_currency: 'EUR' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: '0.5'.to_d,
+        fiat_value: 25_000.to_d, transacted_at: Time.utc(2024, 6, 1), tx_id: 'cession-sell',
+        exchange: 'kraken', quote_currency: 'EUR', fee_currency: 'EUR', fee_amount: 78.to_d,
+        fee_fiat_value: 78.to_d }
+    ]
+
+    disposal = @pvct.calculate(transactions, price_service: @price_service, currency: 'EUR').first
+
+    assert_equal 78.to_d, disposal[:fee]
+    # 25 000 - (10 000 * 25 000 / 50 000) - 78
+    assert_equal 19_922.to_d, disposal[:gain_loss]
+  end
 end

@@ -103,7 +103,11 @@ module Tax
                                  0.to_d
                                end
 
-              gain = fiat_value - allocated_cost
+              # Art. 150 VH bis reduces the prix de cession by the frais of that cession, exactly as
+              # every other engine deducts a disposal fee. Capitalising the acquisition-side fee
+              # without this made PVCT the sole engine that printed a fee it never subtracted.
+              fee = tx[:fee_fiat_value] || 0.to_d
+              gain = fiat_value - allocated_cost - fee
 
               disposals << {
                 date: tx[:transacted_at],
@@ -113,7 +117,7 @@ module Tax
                 total_acquisition_cost: total_acquisition_cost,
                 portfolio_value: portfolio_value,
                 gain_loss: gain,
-                fee: tx[:fee_fiat_value] || 0.to_d,
+                fee: fee,
                 data_incomplete: tx[:price_missing] ? true : @contaminated,
                 tx_id: tx[:tx_id],
                 exchange: tx[:exchange]
@@ -126,6 +130,7 @@ module Tax
 
             balances[asset] -= amount
             balances[asset] = 0.to_d if balances[asset].negative?
+            consume_disposal_fee(balances, tx)
 
           when :fee
             # Fees reduce balance but don't affect acquisition cost

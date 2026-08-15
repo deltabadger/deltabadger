@@ -33,6 +33,7 @@ module Tax
           matching_rule = 'fifo'
         end
 
+        consume_disposal_fee(lots, transaction)
         period = transaction[:transacted_at].month == 12 ? 'later' : 'initial'
 
         disposal = {
@@ -62,7 +63,9 @@ module Tax
         if target_lot[:amount] <= amount_to_sell
           cost = target_lot[:amount] * target_lot[:cost_per_unit]
           remaining = amount_to_sell - target_lot[:amount]
-          lots.delete(target_lot)
+          # By identity, not by `==`: two equal fills of one order are byte-identical hashes, and
+          # `Array#delete` would destroy both, silently losing a whole lot's basis.
+          lots.delete_at(lots.index { |lot| lot.equal?(target_lot) })
           # If more to sell, continue with FIFO for the remainder
           if remaining.positive?
             remainder_cost, remainder_assumed = dequeue_cost(lots, remaining)

@@ -62,6 +62,7 @@ module Tax
             pool[:total_cost] -= cost_basis
             pool[:total_amount] = 0.to_d if pool[:total_amount].negative?
             pool[:total_cost] = 0.to_d if pool[:total_cost].negative?
+            consume_disposal_fee(pools, tx)
 
           when :adjustment
             apply_pool_split(pool, amount)
