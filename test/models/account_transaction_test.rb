@@ -32,18 +32,28 @@ class AccountTransactionTest < ActiveSupport::TestCase
     assert_includes at.errors[:transacted_at], "can't be blank"
   end
 
-  test 'tx_id must be unique per exchange' do
+  test 'tx_id must be unique for the same user and exchange' do
     create(:account_transaction, api_key: @api_key, exchange: @exchange, tx_id: 'order-123')
     duplicate = build(:account_transaction, api_key: @api_key, exchange: @exchange, tx_id: 'order-123')
     assert_not duplicate.valid?
     assert_includes duplicate.errors[:tx_id], 'has already been taken'
   end
 
-  test 'tx_id uniqueness is scoped to exchange' do
+  test 'the same user may reuse a tx_id on a different exchange' do
     other_exchange = create(:kraken_exchange)
     other_api_key = create(:api_key, user: @user, exchange: other_exchange)
     create(:account_transaction, api_key: @api_key, exchange: @exchange, tx_id: 'order-123')
     other = build(:account_transaction, api_key: other_api_key, exchange: other_exchange, tx_id: 'order-123')
+    assert other.valid?
+  end
+
+  test 'different users may reuse a tx_id on the same exchange' do
+    other_user = create(:user)
+    other_api_key = create(:api_key, user: other_user, exchange: @exchange)
+    create(:account_transaction, api_key: @api_key, exchange: @exchange, tx_id: 'shared-order-123')
+
+    other = build(:account_transaction, api_key: other_api_key, exchange: @exchange, tx_id: 'shared-order-123')
+
     assert other.valid?
   end
 

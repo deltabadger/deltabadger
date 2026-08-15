@@ -68,3 +68,6 @@ Data-driven jurisdiction config (`Tax::Jurisdictions::REGISTRY`) + pluggable cal
 - `crypto_to_crypto_taxable: false` makes FIFO chain cost basis through swaps via `group_id`
 - Wealth snapshot engines skip per-transaction price enrichment entirely
 - Historical prices persisted permanently (immutable reference data)
+- Known limitation: Alpaca non-trade activities carry `status` values `executed`, `correct`, or `canceled`.
+  Canceled activities are skipped at import, but id-based dedup does not apply a later `correct` restatement
+  incrementally. A full re-sync heals it; reset the affected `api_keys.last_synced_at` to `NULL` to trigger one.
