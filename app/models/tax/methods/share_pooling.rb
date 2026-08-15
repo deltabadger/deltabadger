@@ -55,18 +55,19 @@ module Tax
             pools[asset][:assumed] = true
 
           when :sell, :swap_out
-            disposals_raw << tx.merge(remaining: amount)
+            # This disposal is priced in the second pass, so it has to survive whatever restates the
+            # pool in between: `pool_scale` and `basis_credit` carry those corrections.
+            disposals_raw << tx.merge(remaining: amount, pool_scale: 1.to_d, basis_credit: 0.to_d)
 
           when :adjustment
             # The acquisitions list stays unchanged: same-day/bed-and-breakfast matching cannot reach pre-split buys.
-            apply_pool_split(pools[asset], amount)
+            apply_pool_split(pools[asset], amount, pending: pending_disposals(disposals_raw, asset))
 
           when :return_of_capital
-            absorb_roc(pools[asset], tx)
+            absorb_roc(pools[asset], tx, pending: pending_disposals(disposals_raw, asset))
 
           when :fee
-            # A fee paid in kind (Alpaca's CFEE) leaves the pool at zero proceeds and zero gain.
-            shrink_pool(pools[asset], amount) unless Tax::PriceService::FIAT_CURRENCIES.include?(asset)
+            consume_fee_in_kind(pools[asset], asset, amount)
 
           when :withdrawal
             # Considered and accepted: this shrinks the S104 pool but not `acquisitions`, so a
@@ -121,9 +122,14 @@ module Tax
           row_fee = fee_fiat * proportion
 
           if pool[:total_amount].positive?
+            # A split or a return of capital that landed after this sale restated the pool but not
+            # the sale. `pool_scale` puts its units in the pool's current terms and `basis_credit`
+            # gives back the cost the distribution took out from under it; the split factor cancels
+            # against the rescaled cost per unit, so an untouched disposal is priced exactly as before.
+            units = remaining * tx[:pool_scale]
             pool_cost_per_unit = pool[:total_cost] / pool[:total_amount]
-            cost = pool_cost_per_unit * remaining
-            pool[:total_amount] -= remaining
+            cost = (pool_cost_per_unit * units) + (tx[:basis_credit] * proportion)
+            pool[:total_amount] -= units
             pool[:total_cost] -= cost
             pool[:total_amount] = 0.to_d if pool[:total_amount].negative?
             pool[:total_cost] = 0.to_d if pool[:total_cost].negative?
@@ -155,6 +161,11 @@ module Tax
       end
 
       private
+
+      # Disposals of this asset already collected but not yet priced — they still hold pool units.
+      def pending_disposals(disposals_raw, asset)
+        disposals_raw.select { |disposal| disposal[:base_currency] == asset }
+      end
 
       def match_and_record(disposals, acq_list, remaining, total_amount, proceeds, fee_fiat, transaction, asset, rule)
         matched_amount = 0.to_d

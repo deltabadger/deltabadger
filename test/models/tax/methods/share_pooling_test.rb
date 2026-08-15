@@ -176,4 +176,47 @@ class Tax::Methods::SharePoolingTest < ActiveSupport::TestCase
     assert_equal 'section104', disposal[:matching_rule]
     assert_equal 0.to_d, disposal[:cost_basis]
   end
+
+  test 'a split after a sale does not restate the basis of the sale' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'NVDA', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'stale-buy',
+        exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'NVDA', base_amount: 5.to_d,
+        fiat_value: 800.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'stale-sell',
+        exchange: 'alpaca' },
+      { entry_type: :adjustment, base_currency: 'NVDA', base_amount: 45.to_d,
+        fiat_value: 0.to_d, transacted_at: Time.utc(2024, 6, 1), tx_id: 'stale-adjustment',
+        exchange: 'alpaca' }
+    ]
+
+    disposal = Tax::Methods::SharePooling.new.calculate(transactions).first
+
+    # Sold 5 of 10 units bought at 100 each, months before a 10:1 split touched the 5 still held.
+    assert_equal 'section104', disposal[:matching_rule]
+    assert_equal 5.to_d, disposal[:amount]
+    assert_equal 500.to_d, disposal[:cost_basis]
+  end
+
+  test 'a return of capital after a sale does not reach the basis of the sale' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'NVDA', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'stale-roc-buy',
+        exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'NVDA', base_amount: 5.to_d,
+        fiat_value: 800.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'stale-roc-sell',
+        exchange: 'alpaca' },
+      { entry_type: :return_of_capital, base_currency: 'NVDA', base_amount: 5.to_d,
+        quote_currency: 'USD', quote_amount: 200.to_d, fiat_value: 200.to_d,
+        raw_data: { 'per_share_amount' => '40' }, transacted_at: Time.utc(2024, 6, 1),
+        tx_id: 'stale-roc', exchange: 'alpaca' }
+    ]
+    engine = Tax::Methods::SharePooling.new
+
+    disposal = engine.calculate(transactions).first
+
+    # 40 per unit on the 5 units still held = 200, all of it absorbed by their 500 of basis.
+    assert_equal 500.to_d, disposal[:cost_basis]
+    assert_equal 0.to_d, engine.excess_roc
+  end
 end

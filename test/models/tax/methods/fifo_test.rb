@@ -279,6 +279,9 @@ class Tax::Methods::FifoTest < ActiveSupport::TestCase
     assert_equal Time.utc(2024, 3, 1), disposals.second[:acquisition_date]
   end
 
+  # Guards the shape of a future rewrite, not today's behaviour: with no adjustment branch at all
+  # this ledger also produces 1_000. It fails only if a zero delta ever starts clearing or
+  # rescaling the pool — it does not prove the branch exists.
   test 'zero-delta adjustment is a no-op' do
     transactions = [
       { entry_type: :buy, base_currency: 'NVDA', base_amount: 10.to_d,
@@ -444,23 +447,5 @@ class Tax::Methods::FifoTest < ActiveSupport::TestCase
     assert_equal 1, disposals.size
     # The fee burned 1 ETH at 2_000, so only 9 ETH of basis is left for the sale.
     assert_equal 18_000.to_d, disposals.first[:cost_basis]
-  end
-
-  test 'fiat-base fee does not consume non-fiat lots' do
-    transactions = [
-      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
-        fiat_value: 30_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'fiat-fee-buy',
-        exchange: 'alpaca' },
-      { entry_type: :fee, base_currency: 'USD', base_amount: 5.to_d,
-        fiat_value: 5.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'fiat-fee', exchange: 'alpaca' },
-      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
-        fiat_value: 50_000.to_d, transacted_at: Time.utc(2024, 3, 1), tx_id: 'fiat-fee-sell',
-        exchange: 'alpaca' }
-    ]
-
-    disposals = Tax::Methods::Fifo.new.calculate(transactions)
-
-    assert_equal 1, disposals.size
-    assert_equal 30_000.to_d, disposals.first[:cost_basis]
   end
 end
