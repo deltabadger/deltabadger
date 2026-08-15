@@ -39,9 +39,13 @@ module Tax
         # fiat-base (Alpaca books dividends and `INT` as `other_income` with `base_currency: 'USD'`,
         # Kraken maps `dividend` the same way), so filtering here would silently drop every dividend and
         # interest payment from the report.
-        @income_entries = enriched.select do |tx|
+        income_entries = enriched.select do |tx|
           INCOME_TYPES.include?(tx[:entry_type].to_s) && tx[:transacted_at].utc.year == year
         end
+        # Value them here rather than at render time: a fiat income row's FX lookup is the only place
+        # a missing rate for it can surface (enrich short-circuits a fiat base to zero), and the
+        # incomplete banner is decided — and counted — before the income section is ever written.
+        @income_rows = income_entries.map { |tx| [tx, income_value(tx)] }
         results = method_class.new.calculate(taxable_entries(enriched), **calculation_options)
       end
 
@@ -74,7 +78,7 @@ module Tax
             append_danish_summary(csv, results) if jurisdiction[:per_asset_summary]
             append_czech_summary(csv, results) if jurisdiction[:czech_exemptions]
           end
-          append_income_section(csv) if @income_entries.present?
+          append_income_section(csv) if @income_rows.present?
           append_warnings(csv) if @price_service.warnings.any?
           append_deposit_basis_warnings(csv) if @assumed_deposits.present?
           append_income_disclosure(csv) if jurisdiction[:income_taxed_separately]
@@ -485,15 +489,13 @@ module Tax
     # sale. The engines only ever emit disposals, so without this section an entire category of
     # taxable income leaves no trace in the report.
     def append_income_section(csv)
-      valued = @income_entries.map { |tx| [tx, income_value(tx)] }
-
       csv << []
       csv << [I18n.t('tax_report.income.header')]
-      valued.each do |tx, value|
+      @income_rows.each do |tx, value|
         csv << [tx[:transacted_at].utc.strftime('%Y-%m-%d'), income_type_label(tx), tx[:base_currency],
                 tx[:base_amount], value.round(2), currency]
       end
-      valued.group_by { |tx, _value| tx[:entry_type].to_s }.each_value do |rows|
+      @income_rows.group_by { |tx, _value| tx[:entry_type].to_s }.each_value do |rows|
         csv << [nil, I18n.t('tax_report.income.total', type: income_type_label(rows.first.first)), nil, nil,
                 rows.sum { |_tx, value| value }.round(2), currency]
       end

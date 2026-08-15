@@ -332,11 +332,17 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
     AccountTransaction.create!(user: user, exchange: exchange, entry_type: :staking_reward,
                                base_currency: 'BTC', base_amount: '0.1'.to_d,
                                transacted_at: Time.utc(2024, 4, 1))
+    # A second income type in the same report: the totals must stay separate, not merge into one.
+    HistoricalPrice.create!(asset: 'UNI', currency: 'EUR', date: Date.new(2024, 5, 1), price: 10.to_d)
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :airdrop,
+                               base_currency: 'UNI', base_amount: 50.to_d,
+                               transacted_at: Time.utc(2024, 5, 1))
 
     csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
     rows = CSV.parse(csv)
     income_header = I18n.t('tax_report.income.header', locale: :de)
     staking_label = I18n.t('tax_report.income.types.staking_reward', locale: :de)
+    airdrop_label = I18n.t('tax_report.income.types.airdrop', locale: :de)
 
     assert_includes rows, [income_header]
     income_rows = rows.select { |row| row[1] == staking_label && row[2] == 'BTC' }
@@ -350,10 +356,14 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
     assert_equal [2_000.to_d, 2_000.to_d], values
     assert_equal %w[EUR EUR], currencies
 
-    total_label = I18n.t('tax_report.income.total', type: staking_label, locale: :de)
-    total_rows = rows.select { |row| row[1] == total_label }
-    assert_equal 1, total_rows.size
-    assert_equal 4_000.to_d, total_rows.first&.[](4)&.to_d
+    staking_total = I18n.t('tax_report.income.total', type: staking_label, locale: :de)
+    airdrop_total = I18n.t('tax_report.income.total', type: airdrop_label, locale: :de)
+    total_rows = rows.select { |row| [staking_total, airdrop_total].include?(row[1]) }
+    total_labels = total_rows.map { |row| row[1] }
+    total_values = total_rows.map { |row| row[4].to_d }
+
+    assert_equal [staking_total, airdrop_total], total_labels
+    assert_equal [4_000.to_d, 500.to_d], total_values
 
     disposal_rows = CSV.parse(csv, headers: true)
     disposal = disposal_rows.find do |row|
@@ -387,6 +397,28 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
     disposal_rows = CSV.parse(disposal_csv, headers: true)
     asset_header = I18n.t('tax_report.headers.asset', locale: :de)
     assert_empty(disposal_rows.select { |row| row[asset_header] == 'USD' })
+  end
+
+  # A fiat income row is the ONLY place a missing FX rate for it can surface: enrich short-circuits a
+  # fiat base to zero without touching FX. Value the section before the banner is decided, or a report
+  # whose only defect is that gap prints a clean header over a warning footer.
+  test 'an unpriceable fiat income row reaches the incomplete banner' do
+    user = create(:user)
+    exchange = create(:alpaca_exchange)
+    # No FxRate seeded on purpose: USD/EUR cannot be resolved for this date.
+    AccountTransaction.create!(user: user, exchange: exchange, entry_type: :other_income,
+                               base_currency: 'USD', base_amount: '12.5'.to_d,
+                               transacted_at: Time.utc(2024, 5, 2), tx_id: 'unpriceable-dividend')
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    rows = CSV.parse(csv)
+    warnings_start = rows.index(["WARNING: #{I18n.t('tax_report.warnings.missing_prices', locale: :de)}:"])
+    listed = rows[(warnings_start + 1)..].take_while { |row| row != [I18n.t('tax_report.warnings.upgrade_hint', locale: :de)] }
+    banner = rows[1].first
+
+    assert_includes listed.flatten, 'FX USD/EUR 2024-05-02'
+    assert_equal "#{I18n.t('tax_report.incomplete_banner_prefix', locale: :de)}: " \
+                 "#{I18n.t('tax_report.incomplete_banner', missing: listed.size, locale: :de)}", banner
   end
 
   test 'income received outside the report year is not listed' do
