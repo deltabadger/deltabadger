@@ -323,6 +323,38 @@ class Tax::BrokerReportTest < ActiveSupport::TestCase
     end)
   end
 
+  test 'an interest reversal is subtracted from the KAP saldo rather than added to it' do
+    seed_fx(Date.new(2024, 5, 2), '1.00')
+    seed_fx(Date.new(2024, 10, 7), '1.00')
+    tx(entry_type: :other_income, base_currency: 'USD', base_amount: '50', at: Time.utc(2024, 5, 2),
+       raw_data: { 'activity_type' => 'INT', 'net_amount' => '50' })
+    # INT routes through the same normaliser as DIV, so a correction arrives sign-stripped too.
+    tx(entry_type: :other_income, base_currency: 'USD', base_amount: '20', at: Time.utc(2024, 10, 7),
+       raw_data: { 'activity_type' => 'INT', 'net_amount' => '-20' })
+
+    result = report(2024)
+
+    # The taxpayer received 50 - 20 = 30 EUR; the absolute value would declare 70.
+    assert_equal '30'.to_d, result[:kap][:z19_saldo]
+  end
+
+  test 'a computation year with no published Basiszins refuses the symbol' do
+    [Date.new(2026, 12, 31), Date.new(2027, 1, 5), Date.new(2027, 12, 31)].each { |date| seed_fx(date, '1.00') }
+    classify('FNDX', kind: :fund, fund_category: :other_fund)
+    seed_stock_price('FNDX', Date.new(2026, 12, 31), '10.00')
+    seed_stock_price('FNDX', Date.new(2027, 12, 31), '12.00')
+    tx(entry_type: :buy, base_currency: 'FNDX', base_amount: '100', quote_currency: 'USD',
+       quote_amount: '1000', at: Time.utc(2027, 1, 5))
+
+    result = report(2028)
+
+    # The 2027 rate is not published yet, and a silent 0 would be indistinguishable from a
+    # legitimately zero Vorabpauschale.
+    assert_includes result[:symbols].sole[:refusal_reasons], :missing_basiszins
+    assert_empty result[:kap_inv]
+    assert_not result[:complete]
+  end
+
   test 'a stock ticker colliding with a crypto asset is never silently dropped' do
     seed_fx(Date.new(2024, 2, 1), '1.00')
     seed_fx(Date.new(2024, 8, 1), '1.00')

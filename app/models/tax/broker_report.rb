@@ -154,13 +154,13 @@ module Tax
       @distribution_gross_usd = {}
       @distribution_scale = {}
       distributions.group_by { |record| [instrument_symbol(record), record_date(record)] }.each do |key, records|
-        net_total = records.sum(0.to_d) { |record| distribution_usd(record) }
+        net_total = records.sum(0.to_d) { |record| signed_usd(record) }
         divft_total = divft_by_key.fetch(key, 0.to_d)
         scale = net_total.zero? ? 1.to_d : (net_total + divft_total) / net_total
         gross_remaining = net_total + divft_total
 
         records.each_with_index do |record, index|
-          gross = index == records.length - 1 ? gross_remaining : distribution_usd(record) * scale
+          gross = index == records.length - 1 ? gross_remaining : signed_usd(record) * scale
           @distribution_gross_usd[record.id] = gross
           @distribution_scale[record.id] = scale
           gross_remaining -= gross
@@ -366,7 +366,7 @@ module Tax
 
     def handle_distribution(state, record)
       rate = @record_fx_rates[record.id]
-      gross_usd = @distribution_gross_usd.fetch(record.id) { distribution_usd(record) }
+      gross_usd = @distribution_gross_usd.fetch(record.id) { signed_usd(record) }
       gross_eur = usd_to_eur(gross_usd, rate)
       scale = @distribution_scale.fetch(record.id, 1.to_d)
       raw_per_share = raw_data(record)['per_share_amount']
@@ -455,7 +455,7 @@ module Tax
 
     def handle_interest(record)
       rate = @record_fx_rates[record.id]
-      usd_amount = record.base_amount.to_d
+      usd_amount = signed_usd(record)
       eur_amount = usd_to_eur(usd_amount, rate)
       return unless report_year?(record)
 
@@ -620,22 +620,13 @@ module Tax
         state[:symbol] unless state[:classification].kind.present?
       end.sort
       summaries_available = unclassified.empty?
-      # Built before the hash so the warnings aggregate_kap raises are already in @warnings when
-      # `complete` reads it, rather than depending on hash-literal evaluation order.
-      kap = aggregate_kap if summaries_available
-      kap_inv = aggregate_kap_inv if summaries_available
 
-      {
+      result = {
         year: @year,
         exchange: @exchange.name_id,
         summaries_available: summaries_available,
-        # `summaries_available` is about classification alone. `complete` is the one to banner on: a
-        # cash leg has no symbol to refuse, so a missing rate on it leaves Z19 short with nothing but
-        # a warning to show for it, and a report whose every security is refused still returns an
-        # all-zero KAP. Keying a renderer on `summaries_available` would print both as finished.
-        complete: @warnings.empty?,
-        kap: kap,
-        kap_inv: kap_inv,
+        kap: (aggregate_kap if summaries_available),
+        kap_inv: (aggregate_kap_inv if summaries_available),
         symbols: symbol_rows,
         unclassified_symbols: unclassified,
         refused_symbols: @refusals.select { |_symbol, reasons| reasons.any? }.keys.sort,
@@ -644,6 +635,17 @@ module Tax
         fee_total_eur: @fee_total_eur,
         warnings: @warnings
       }
+
+      # `summaries_available` is about classification alone. `complete` is the one to banner on: a
+      # cash leg has no symbol to refuse, so a missing rate on it leaves Z19 short with nothing but a
+      # warning to show for it, and a report whose every security is refused still returns an
+      # all-zero KAP. Keying a renderer on `summaries_available` would print both as finished.
+      #
+      # Assigned after the literal, never inside it: aggregators append warnings (aggregate_kap
+      # does), so computing this in place would freeze it before the last warning landed — silently,
+      # and only for whichever aggregator someone adds next.
+      result[:complete] = @warnings.empty?
+      result
     end
 
     def aggregate_kap
@@ -741,11 +743,14 @@ module Tax
     end
 
     # `Exchanges::Alpaca#normalize_non_trade` stores an absolute `base_amount` — right for the
-    # tracker's display and harmless to the crypto engines, but it strips the sign off a dividend
-    # reversal, and a reversal added to Z19 as income is a wrong figure on a signed form. The
-    # activity's own net_amount keeps it. Read here rather than changing the ledger's semantics:
-    # this report is the first place the sign reaches a tax figure.
-    def distribution_usd(record)
+    # tracker's display and harmless to the crypto engines, but it strips the sign off a correction,
+    # and a reversal added to Z19 as income is a wrong figure on a signed form. Every row that method
+    # normalises is affected, so this is used by BOTH income legs of Z19: dividends and interest
+    # (`INT`/`PTR` route through the same normaliser). The activity's own net_amount keeps the sign.
+    # Read here rather than changing the ledger's semantics: this report is the first place the sign
+    # reaches a tax figure. Withholding and fees deliberately keep `.abs` — a credit and a
+    # disclosed-only aggregate are unsigned by nature.
+    def signed_usd(record)
       net_amount = raw_data(record)['net_amount']
       net_amount.present? ? net_amount.to_d : record.base_amount.to_d
     end
