@@ -70,8 +70,7 @@ module Tax
             absorb_roc(pool, tx)
 
           when :fee
-            # A fee paid in kind (Alpaca's CFEE) leaves the pool at zero proceeds and zero gain.
-            shrink_pool(pool, amount) unless Tax::PriceService::FIAT_CURRENCIES.include?(asset)
+            consume_fee_in_kind(pool, asset, amount)
 
           when :withdrawal
             shrink_pool_for_transfer_fee(pool, tx) if tx[:linked]

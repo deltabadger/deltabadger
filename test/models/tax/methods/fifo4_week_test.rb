@@ -87,4 +87,27 @@ class Tax::Methods::Fifo4WeekTest < ActiveSupport::TestCase
 
     assert_equal 500.to_d, disposal[:cost_basis]
   end
+
+  test 'the 4-week rule still matches a lot a split rescaled' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'NVDA', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 6, 1), tx_id: 'recent-buy',
+        exchange: 'alpaca' },
+      { entry_type: :adjustment, base_currency: 'NVDA', base_amount: 90.to_d,
+        fiat_value: 0.to_d, transacted_at: Time.utc(2024, 6, 10), tx_id: 'recent-adjustment',
+        exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'NVDA', base_amount: 50.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 6, 20), tx_id: 'recent-sell',
+        exchange: 'alpaca' }
+    ]
+
+    disposal = Tax::Methods::Fifo4Week.new.calculate(transactions).first
+
+    # The split kept the lot's own date, so the sale 19 days later still matches it: 50 of the
+    # 100 post-split units at 10 each.
+    assert_equal '4_week_rule', disposal[:matching_rule]
+    assert_equal Time.utc(2024, 6, 1), disposal[:acquisition_date]
+    assert_equal 19, disposal[:holding_days]
+    assert_equal 500.to_d, disposal[:cost_basis]
+  end
 end
