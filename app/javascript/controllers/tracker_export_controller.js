@@ -182,11 +182,8 @@ export default class extends Controller {
     })
 
     if (this.isBroker) {
-      // Scope only. The broker report is always DE and picks its year at generate time, and
-      // tracker_settings keeps ONE country/year pair — persisting them here would overwrite what
-      // the crypto report remembers just because the user looked at this radio.
-      // ponytail: generating a broker report still rewrites that shared pair through #tax_report,
-      // which check_pending_report needs to find the file; give the broker its own keys if it bites.
+      // Scope only. The persisted country/year are the crypto form's preferences and the broker
+      // report has no use for them: it is always DE and picks its year at generate time.
       params.set("report_scope", "broker")
     } else if (this.isTaxReport) {
       params.set("country", this.countryTarget.value)
