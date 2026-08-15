@@ -76,4 +76,30 @@ class Tax::Methods::WealthSnapshotTest < ActiveSupport::TestCase
     assert_equal 100_000.0, total[:value]
     assert_equal 40_643.0, taxable[:value] # 100000 - 59357
   end
+
+  test 'adjustment adds to balance while withholding and unsupported activity do not' do
+    @price_service.stubs(:price_at).returns(10.to_d)
+    transactions = [
+      { entry_type: :buy, base_currency: 'NVDA', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2025, 1, 1), tx_id: 'split-buy',
+        exchange: 'alpaca' },
+      { entry_type: :adjustment, base_currency: 'NVDA', base_amount: 90.to_d,
+        fiat_value: 0.to_d, transacted_at: Time.utc(2025, 3, 1), tx_id: 'split-adjustment',
+        exchange: 'alpaca' },
+      { entry_type: :withholding_tax, base_currency: 'NVDA', base_amount: 5.to_d,
+        fiat_value: 50.to_d, transacted_at: Time.utc(2025, 4, 1), tx_id: 'split-tax',
+        exchange: 'alpaca' },
+      { entry_type: :unsupported_activity, base_currency: 'NVDA', base_amount: 7.to_d,
+        fiat_value: 70.to_d, transacted_at: Time.utc(2025, 5, 1), tx_id: 'split-unsupported',
+        exchange: 'alpaca' }
+    ]
+
+    results = @engine.calculate(
+      transactions, price_service: @price_service, currency: 'EUR', year: 2026
+    )
+    holding = results.find { |row| row[:type] == :holding && row[:asset] == 'NVDA' }
+
+    assert_equal 100.to_d, holding[:amount]
+    assert_equal 1_000.to_d, holding[:value]
+  end
 end

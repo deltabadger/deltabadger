@@ -143,4 +143,84 @@ class Tax::Methods::WeightedAverageTest < ActiveSupport::TestCase
     assert_equal 30_001.to_d, btc_disposal[:cost_basis]
     assert_equal 999.to_d, bnb_disposal[:cost_basis]
   end
+
+  test 'split scales pool quantity while keeping its cost' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'NVDA', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'split-buy',
+        exchange: 'alpaca' },
+      { entry_type: :adjustment, base_currency: 'NVDA', base_amount: 90.to_d,
+        fiat_value: 0.to_d, transacted_at: Time.utc(2024, 6, 1), tx_id: 'split-adjustment',
+        exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'NVDA', base_amount: 100.to_d,
+        fiat_value: 2_000.to_d, transacted_at: Time.utc(2024, 7, 1), tx_id: 'split-sell',
+        exchange: 'alpaca' }
+    ]
+
+    disposal = Tax::Methods::WeightedAverage.new.calculate(transactions).first
+
+    assert_equal 1_000.to_d, disposal[:cost_basis]
+  end
+
+  test 'per-share return of capital reduces pool cost and reports excess' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'X', base_amount: 10.to_d,
+        fiat_value: 50.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'roc-buy', exchange: 'alpaca' },
+      { entry_type: :return_of_capital, base_currency: 'X', base_amount: 10.to_d,
+        quote_currency: 'USD', quote_amount: 80.to_d, fiat_value: 80.to_d,
+        raw_data: { 'per_share_amount' => '8' }, transacted_at: Time.utc(2024, 3, 1),
+        tx_id: 'roc', exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'X', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 4, 1), tx_id: 'roc-sell', exchange: 'alpaca' }
+    ]
+    engine = Tax::Methods::WeightedAverage.new
+
+    disposal = engine.calculate(transactions).first
+
+    assert_equal 30.to_d, engine.excess_roc
+    assert_equal 0.to_d, disposal[:cost_basis]
+  end
+
+  test 'withholding tax and unsupported activity leave the pool unchanged' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 30_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'noop-buy',
+        exchange: 'alpaca' },
+      { entry_type: :withholding_tax, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'noop-tax',
+        exchange: 'alpaca' },
+      { entry_type: :unsupported_activity, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 2_000.to_d, transacted_at: Time.utc(2024, 3, 1), tx_id: 'noop-unsupported',
+        exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 50_000.to_d, transacted_at: Time.utc(2024, 4, 1), tx_id: 'noop-sell',
+        exchange: 'alpaca' }
+    ]
+
+    disposals = Tax::Methods::WeightedAverage.new.calculate(transactions)
+
+    assert_equal 1, disposals.size
+    assert_equal 30_000.to_d, disposals.first[:cost_basis]
+  end
+
+  test 'fee in the pooled asset shrinks quantity at average cost' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'ETH', base_amount: 10.to_d,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'fee-buy-1',
+        exchange: 'alpaca' },
+      { entry_type: :fee, base_currency: 'ETH', base_amount: 1.to_d,
+        fiat_value: 0.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'fee-kind', exchange: 'alpaca' },
+      { entry_type: :buy, base_currency: 'ETH', base_amount: 1.to_d,
+        fiat_value: 4_000.to_d, transacted_at: Time.utc(2024, 3, 1), tx_id: 'fee-buy-2',
+        exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'ETH', base_amount: 10.to_d,
+        fiat_value: 30_000.to_d, transacted_at: Time.utc(2024, 4, 1), tx_id: 'fee-sell',
+        exchange: 'alpaca' }
+    ]
+
+    disposals = Tax::Methods::WeightedAverage.new.calculate(transactions)
+
+    assert_equal 1, disposals.size
+    assert_equal 22_000.to_d, disposals.first[:cost_basis]
+  end
 end

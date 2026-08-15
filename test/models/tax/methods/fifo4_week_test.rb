@@ -69,4 +69,22 @@ class Tax::Methods::Fifo4WeekTest < ActiveSupport::TestCase
 
     assert_equal 20_050.to_d, disposal[:cost_basis]
   end
+
+  test 'split before disposal preserves cost basis' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'NVDA', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'split-buy',
+        exchange: 'alpaca' },
+      { entry_type: :adjustment, base_currency: 'NVDA', base_amount: 90.to_d,
+        fiat_value: 0.to_d, transacted_at: Time.utc(2024, 6, 1), tx_id: 'split-adjustment',
+        exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'NVDA', base_amount: 50.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 7, 1), tx_id: 'split-sell',
+        exchange: 'alpaca' }
+    ]
+
+    disposal = Tax::Methods::Fifo4Week.new.calculate(transactions).first
+
+    assert_equal 500.to_d, disposal[:cost_basis]
+  end
 end

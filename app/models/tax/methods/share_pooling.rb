@@ -2,6 +2,7 @@ module Tax
   module Methods
     class SharePooling
       include AcquisitionFee
+      include ReturnOfCapital
       include PooledHoldings
 
       # UK Section 104 share pooling with same-day and 30-day bed-and-breakfast matching.
@@ -13,6 +14,8 @@ module Tax
       #
       # Each matching portion outputs as a separate row for auditability.
       def calculate(transactions, **_options)
+        @excess_roc = 0.to_d
+
         acquisitions = Hash.new { |h, k| h[k] = [] }
         pools = Hash.new { |h, k| h[k] = { total_amount: 0.to_d, total_cost: 0.to_d, assumed: false } }
         disposals_raw = []
@@ -54,12 +57,27 @@ module Tax
           when :sell, :swap_out
             disposals_raw << tx.merge(remaining: amount)
 
+          when :adjustment
+            # The acquisitions list stays unchanged: same-day/bed-and-breakfast matching cannot reach pre-split buys.
+            apply_pool_split(pools[asset], amount)
+
+          when :return_of_capital
+            absorb_roc(pools[asset], tx)
+
+          when :fee
+            # A fee paid in kind (Alpaca's CFEE) leaves the pool at zero proceeds and zero gain.
+            shrink_pool(pools[asset], amount) unless Tax::PriceService::FIAT_CURRENCIES.include?(asset)
+
           when :withdrawal
             # Considered and accepted: this shrinks the S104 pool but not `acquisitions`, so a
             # same-day or bed-and-breakfast match can still consume a unit already burned as a
             # network fee. Bounded by the matcher's 2% tolerance, and the two lists already
             # double-count by design (a same-day match never decrements the pool either).
             shrink_pool_for_transfer_fee(pools[asset], tx) if tx[:linked]
+
+            # :withholding_tax and :unsupported_activity fall through deliberately. Withholding is a
+            # cash event that changes no holding, and a merger, spinoff or option leg half-applied
+            # would corrupt share counts silently — the report flags those symbols instead.
           end
         end
 

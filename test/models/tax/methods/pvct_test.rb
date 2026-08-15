@@ -262,4 +262,75 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
     assert_equal 10_000.to_d, disposal[:total_acquisition_cost]
     assert_equal false, disposal[:data_incomplete]
   end
+
+  test 'adjustment increases balance without changing total acquisition cost' do
+    @price_service.stubs(:price_at).returns(20.to_d)
+    transactions = [
+      { entry_type: :buy, base_currency: 'NVDA', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 1, 1), quote_currency: 'EUR',
+        tx_id: 'split-buy', exchange: 'alpaca' },
+      { entry_type: :adjustment, base_currency: 'NVDA', base_amount: 90.to_d,
+        fiat_value: 0.to_d, transacted_at: Time.utc(2024, 3, 1), quote_currency: nil,
+        tx_id: 'split-adjustment', exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'NVDA', base_amount: 10.to_d,
+        fiat_value: 200.to_d, transacted_at: Time.utc(2024, 7, 1), quote_currency: 'EUR',
+        tx_id: 'split-sell', exchange: 'alpaca' }
+    ]
+
+    disposal = Tax::Methods::Pvct.new.calculate(
+      transactions, price_service: @price_service, currency: 'EUR'
+    ).first
+
+    assert_equal 1_000.to_d, disposal[:total_acquisition_cost]
+    assert_equal 2_000.to_d, disposal[:portfolio_value]
+  end
+
+  test 'return of capital reduces total acquisition cost and reports excess' do
+    @price_service.stubs(:price_at).returns(10.to_d)
+    transactions = [
+      { entry_type: :buy, base_currency: 'X', base_amount: 10.to_d,
+        fiat_value: 50.to_d, transacted_at: Time.utc(2024, 1, 1), quote_currency: 'EUR',
+        tx_id: 'roc-buy', exchange: 'alpaca' },
+      { entry_type: :return_of_capital, base_currency: 'X', base_amount: 10.to_d,
+        quote_currency: 'USD', quote_amount: 80.to_d, fiat_value: 80.to_d,
+        raw_data: { 'per_share_amount' => '8' }, transacted_at: Time.utc(2024, 3, 1),
+        tx_id: 'roc', exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'X', base_amount: 10.to_d,
+        fiat_value: 100.to_d, transacted_at: Time.utc(2024, 7, 1), quote_currency: 'EUR',
+        tx_id: 'roc-sell', exchange: 'alpaca' }
+    ]
+    engine = Tax::Methods::Pvct.new
+
+    disposal = engine.calculate(transactions, price_service: @price_service, currency: 'EUR').first
+
+    assert_equal 0.to_d, disposal[:total_acquisition_cost]
+    assert_equal 100.to_d, disposal[:portfolio_value]
+    assert_equal 30.to_d, engine.excess_roc
+  end
+
+  test 'withholding tax and unsupported activity leave balance and cost unchanged' do
+    @price_service.stubs(:price_at).returns(20_000.to_d)
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, transacted_at: Time.utc(2024, 1, 1), quote_currency: 'EUR',
+        tx_id: 'noop-buy', exchange: 'alpaca' },
+      { entry_type: :withholding_tax, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 2, 1), quote_currency: 'EUR',
+        tx_id: 'noop-tax', exchange: 'alpaca' },
+      { entry_type: :unsupported_activity, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 2_000.to_d, transacted_at: Time.utc(2024, 3, 1), quote_currency: nil,
+        tx_id: 'noop-unsupported', exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 4, 1), quote_currency: 'EUR',
+        tx_id: 'noop-sell', exchange: 'alpaca' }
+    ]
+
+    disposals = Tax::Methods::Pvct.new.calculate(
+      transactions, price_service: @price_service, currency: 'EUR'
+    )
+
+    assert_equal 1, disposals.size
+    assert_equal 10_000.to_d, disposals.first[:total_acquisition_cost]
+    assert_equal 20_000.to_d, disposals.first[:portfolio_value]
+  end
 end

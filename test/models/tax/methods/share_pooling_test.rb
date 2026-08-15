@@ -137,4 +137,43 @@ class Tax::Methods::SharePoolingTest < ActiveSupport::TestCase
     assert_equal 999.to_d, bnb_disposal[:cost_basis]
     assert_equal 'section104', bnb_disposal[:matching_rule]
   end
+
+  test 'split scales the Section 104 pool quantity while keeping its cost' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'NVDA', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'split-buy',
+        exchange: 'alpaca' },
+      { entry_type: :adjustment, base_currency: 'NVDA', base_amount: 90.to_d,
+        fiat_value: 0.to_d, transacted_at: Time.utc(2024, 3, 1), tx_id: 'split-adjustment',
+        exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'NVDA', base_amount: 100.to_d,
+        fiat_value: 2_000.to_d, transacted_at: Time.utc(2024, 7, 1), tx_id: 'split-sell',
+        exchange: 'alpaca' }
+    ]
+
+    disposal = Tax::Methods::SharePooling.new.calculate(transactions).first
+
+    assert_equal 'section104', disposal[:matching_rule]
+    assert_equal 1_000.to_d, disposal[:cost_basis]
+  end
+
+  test 'return of capital reduces the Section 104 pool cost and reports excess' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'X', base_amount: 10.to_d,
+        fiat_value: 50.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'roc-buy', exchange: 'alpaca' },
+      { entry_type: :return_of_capital, base_currency: 'X', base_amount: 10.to_d,
+        quote_currency: 'USD', quote_amount: 80.to_d, fiat_value: 80.to_d,
+        raw_data: { 'per_share_amount' => '8' }, transacted_at: Time.utc(2024, 3, 1),
+        tx_id: 'roc', exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'X', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 7, 1), tx_id: 'roc-sell', exchange: 'alpaca' }
+    ]
+    engine = Tax::Methods::SharePooling.new
+
+    disposal = engine.calculate(transactions).first
+
+    assert_equal 30.to_d, engine.excess_roc
+    assert_equal 'section104', disposal[:matching_rule]
+    assert_equal 0.to_d, disposal[:cost_basis]
+  end
 end

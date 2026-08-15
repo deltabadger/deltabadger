@@ -54,6 +54,8 @@ module Tax
             balances[asset] += amount
           when :sell, :swap_out, :withdrawal, :fee
             balances[asset] -= amount
+          when :adjustment
+            balances[asset] += amount # A split contributes only its signed net delta.
           end
         end
 

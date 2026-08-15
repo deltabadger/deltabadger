@@ -2,6 +2,7 @@ module Tax
   module Methods
     class Fifo
       include AcquisitionFee
+      include ReturnOfCapital
 
       STABLECOINS = Tax::PriceService::STABLECOINS
 
@@ -13,6 +14,7 @@ module Tax
         @stablecoin_as_fiat = options.fetch(:stablecoin_as_fiat, false)
         @old_stock_cutoff = options[:old_stock_cutoff]
         @swap_resets_holding_period = options.fetch(:swap_resets_holding_period, false)
+        @excess_roc = 0.to_d
 
         lots = Hash.new { |h, k| h[k] = [] }
         disposals = []
@@ -65,10 +67,23 @@ module Tax
           when :sell
             record_disposal(lots, disposals, tx, asset, amount, fiat_value)
 
+          when :adjustment
+            apply_split(lots[asset], amount, tx)
+
+          when :return_of_capital
+            @excess_roc += reduce_lot_basis(lots[asset], tx)
+
+          when :fee
+            consume_fee_in_kind(lots[asset], asset, amount)
+
           when :withdrawal
             shrink_pool_for_transfer_fee(lots[asset], tx) if tx[:linked]
             # Unlinked withdrawal: assume self-transfer to an unsynced wallet — lots stay,
             # a later synced sale dequeues them. Never a fabricated disposal.
+
+            # :withholding_tax and :unsupported_activity fall through deliberately. Withholding is a
+            # cash event that changes no holding, and a merger, spinoff or option leg half-applied
+            # would corrupt share counts silently — the report flags those symbols instead.
           end
         end
 
@@ -76,6 +91,40 @@ module Tax
       end
 
       private
+
+      # A split restates the same investment in a different number of shares: every lot keeps its
+      # total cost and its acquisition date, or every holding-period exemption silently resets.
+      # `amount` is the signed net delta the ledger merged from the remove/add pair — never the
+      # raw quantity of a single leg.
+      def apply_split(asset_lots, amount, transaction)
+        pool = asset_lots.sum(0.to_d) { |lot| lot[:amount] }
+        factor = pool.positive? ? (pool + amount) / pool : 0.to_d
+
+        if amount.nonzero? && pool.positive? && factor.positive?
+          asset_lots.each do |lot|
+            lot[:cost_per_unit] /= factor
+            lot[:amount] *= factor
+          end
+        elsif amount.negative? && !factor.positive?
+          # Defensive: an adjustment that zeroes or overdraws the pool is not a real split. Clear
+          # rather than corrupt — downstream disposals then read as incomplete.
+          asset_lots.clear
+        elsif amount.positive? && pool.zero?
+          # Defensive: a split delta with no prior pool. Open a zero-cost lot, marked so every
+          # disposal that consumes it reports data_incomplete.
+          asset_lots << { amount: amount, cost_per_unit: 0.to_d, date: transaction[:transacted_at],
+                          basis_assumed: true }
+        end
+      end
+
+      # A standalone fee entry paid in kind (Alpaca's CFEE) leaves inventory at zero proceeds and
+      # zero gain — it is not a disposal. A fiat-denominated fee row has no lots to consume.
+      def consume_fee_in_kind(asset_lots, asset, amount)
+        return if Tax::PriceService::FIAT_CURRENCIES.include?(asset)
+        return unless amount&.positive? && asset_lots.any?
+
+        dequeue_cost(asset_lots, amount)
+      end
 
       def record_disposal(lots, disposals, transaction, asset, amount, fiat_value)
         fee_fiat = transaction[:fee_fiat_value] || 0.to_d
