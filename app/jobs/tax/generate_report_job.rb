@@ -7,8 +7,12 @@ class Tax::GenerateReportJob < ApplicationJob
     # Stock brokers (Alpaca, IBKR) are excluded from the crypto tax report.
     transactions = AccountTransaction.for_user(user)
                                      .where.not(exchange_id: Exchange.stock_venues.select(:id))
+    # Stock-venue sync failures cannot hide transactions from a report that excludes those venues.
+    sync_issues = user.api_keys.includes(:exchange)
+                      .where.not(exchange_id: Exchange.stock_venues.select(:id))
+                      .filter_map(&:sync_issue)
     report = Tax::Report.new(country: country, year: year, transactions: transactions,
-                             stablecoin_as_fiat: stablecoin_as_fiat)
+                             stablecoin_as_fiat: stablecoin_as_fiat, sync_issues: sync_issues)
 
     last_percent = 0
     csv_data = report.to_csv do |percent, _total|

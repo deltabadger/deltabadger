@@ -202,4 +202,36 @@ class ApiKeyTest < ActiveSupport::TestCase
     assert_equal 'new-secret', key.secret
     assert_equal 'SIGKEY', key.rsa_signature_key, 'omitted fields must be untouched'
   end
+
+  test 'a recorded sync error keeps credentials, emails and account ids out of the column' do
+    key = create(:api_key)
+
+    key.record_sync_error!(
+      StandardError.new('rejected key AKIA1234567890ABCDEFG for jan@example.com account 123456789012 ' \
+                        'at https://api.exchange.com/v3/ledger?apiKey=abc123def456ghi789jkl&sig=zz')
+    )
+
+    stored = key.reload.last_sync_error
+    assert_includes stored, 'StandardError'
+    assert_not_includes stored, 'AKIA1234567890ABCDEFG'
+    assert_not_includes stored, 'jan@example.com'
+    assert_not_includes stored, '123456789012'
+    assert_not_includes stored, 'abc123def456ghi789jkl'
+  end
+
+  test 'a recorded sync error is truncated so a huge exchange body cannot land in the column' do
+    key = create(:api_key)
+
+    key.record_sync_error!(StandardError.new('a' * 5000))
+
+    assert_operator key.reload.last_sync_error.length, :<=, ApiKey::SYNC_ERROR_LIMIT
+  end
+
+  test 'a recorded sync error accepts a plain exchange error string' do
+    key = create(:api_key)
+
+    key.record_sync_error!('Invalid API-key')
+
+    assert_equal 'Invalid API-key', key.reload.last_sync_error
+  end
 end

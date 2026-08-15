@@ -407,6 +407,7 @@ pl:
         welcome:
             connect_and_track: "Podłącz giełdę i zacznij śledzić swoje portfolio."
         sync_key_error_html: 'Synchronizacja z <strong>%{exchange}</strong> nie powiodła się: %{message}. Zaktualizuj klucz API poniżej.'
+        sync_failed_for: 'Synchronizacja z %{exchanges} nie powiodła się. Może brakować transakcji z tych giełd — raporty wygenerowane teraz mogą być niekompletne.'
         pricing_warning_html: Salda zsynchronizowane, ale ceny w USD są chwilowo niedostępne (%{message}). Wykres użyje ostatnich znanych cen do czasu przywrócenia wyceny.
         portfolio:
             never_synced: Kliknij „Synchronizuj", aby załadować portfel.
@@ -431,6 +432,7 @@ pl:
         export_modal:
             title: 'Generuj raport'
             tax_report: 'Raport podatkowy'
+            tax_disclaimer: 'Narzędzie pomocnicze do obliczeń, nie doradztwo podatkowe. Przed złożeniem deklaracji sprawdź wszystkie kwoty.'
             transactions: 'Wszystko'
             country: 'Kraj'
             year: 'Rok'
@@ -530,6 +532,8 @@ pl:
             upgrade_hint: Zaktualizuj plan CoinGecko lub użyj deltabadger.com, aby uzyskać pełne dane historyczne.
             deposit_basis_assumed: Koszt nabycia dla tych niepołączonych wpłat przyjęty według wartości rynkowej
             deposit_basis_assumed_hint: Połącz każdą wpłatę z odpowiadającą jej wypłatą w Trackerze, aby zastosować rzeczywisty koszt nabycia.
+            exchange_sync_failed: 'Może brakować danych z %{exchange} — ostatnia synchronizacja nie powiodła się. Ponownie zsynchronizuj dane w Trackerze i wygeneruj raport jeszcze raz.'
+            exchange_never_synced: 'Giełda %{exchange} nie została jeszcze zsynchronizowana — w tym raporcie nie ma żadnych jej transakcji. Zsynchronizuj ją w Trackerze i wygeneruj raport ponownie.'
         summary:
             total_gains: Łączne zyski
             total_losses: Łączne straty

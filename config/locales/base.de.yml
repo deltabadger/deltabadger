@@ -405,6 +405,7 @@ de:
         welcome:
             connect_and_track: "Verbinde deine Börse und beginne, dein Portfolio zu tracken."
         sync_key_error_html: 'Synchronisierung mit <strong>%{exchange}</strong> fehlgeschlagen: %{message}. Bitte API-Schlüssel unten aktualisieren.'
+        sync_failed_for: 'Synchronisierung mit %{exchanges} fehlgeschlagen. Möglicherweise fehlen Transaktionen von dort — jetzt erstellte Berichte können unvollständig sein.'
         pricing_warning_html: Guthaben synchronisiert, aber USD-Preise sind gerade nicht verfügbar (%{message}). Das Diagramm nutzt die zuletzt bekannten Preise, bis die Preisermittlung wiederhergestellt ist.
         portfolio:
             never_synced: Auf „Sync" klicken, um dein Portfolio zu laden.
@@ -430,6 +431,7 @@ de:
         export_modal:
             title: 'Bericht erstellen'
             tax_report: 'Steuerbericht'
+            tax_disclaimer: 'Berechnungshilfe, keine Steuerberatung. Angaben vor Abgabe der Steuererklärung prüfen.'
             transactions: 'Alle'
             country: 'Land'
             year: 'Jahr'
@@ -530,6 +532,8 @@ de:
             upgrade_hint: Aktualisiere deinen CoinGecko-Plan oder nutze deltabadger.com für vollständige historische Daten.
             deposit_basis_assumed: Anschaffungskosten für diese nicht verknüpften Einzahlungen zum Marktwert angesetzt
             deposit_basis_assumed_hint: Verknüpfe jede Einzahlung im Tracker mit der passenden Auszahlung, um die tatsächlichen Anschaffungskosten zu verwenden.
+            exchange_sync_failed: 'Daten von %{exchange} könnten fehlen — die letzte Synchronisierung ist fehlgeschlagen. Synchronisiere die Daten im Tracker erneut und erstelle diesen Bericht neu.'
+            exchange_never_synced: '%{exchange} wurde noch nie synchronisiert — daher enthält dieser Bericht keine Transaktionen dieser Börse. Synchronisiere sie im Tracker und erstelle den Bericht neu.'
         headers:
             date: 'Datum'
             asset: 'Vermögenswert'

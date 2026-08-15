@@ -4,7 +4,7 @@ module Tax
   class Report
     attr_reader :country_code, :jurisdiction, :year, :transactions
 
-    def initialize(country:, year:, transactions:, stablecoin_as_fiat: false)
+    def initialize(country:, year:, transactions:, stablecoin_as_fiat: false, sync_issues: [])
       @country_code = country
       @jurisdiction = Tax::Jurisdictions.for(country)
       raise ArgumentError, "Unknown country: #{country}" unless @jurisdiction
@@ -12,6 +12,7 @@ module Tax
       @year = year
       @transactions = transactions
       @stablecoin_as_fiat = stablecoin_as_fiat
+      @sync_issues = sync_issues
     end
 
     def to_csv(&on_progress)
@@ -66,6 +67,7 @@ module Tax
       I18n.with_locale(jurisdiction[:locale]) do
         CsvSafe.generate do |csv|
           csv << csv_headers
+          @sync_issues.each { |issue| csv << [sync_issue_banner(issue)] }
           csv << [incomplete_banner] if @price_service.warnings.any?
           if results.empty?
             csv << [I18n.t('tax_report.no_taxable_transactions')]
@@ -91,6 +93,15 @@ module Tax
     end
 
     private
+
+    def sync_issue_banner(issue)
+      message = if issue[:reason] == :never_synced
+                  I18n.t('tax_report.warnings.exchange_never_synced', exchange: issue[:exchange])
+                else
+                  I18n.t('tax_report.warnings.exchange_sync_failed', exchange: issue[:exchange])
+                end
+      "#{I18n.t('tax_report.incomplete_banner_prefix')}: #{message}"
+    end
 
     def scoped_transactions
       # Include all transactions up to end of year (for cost basis from prior years)

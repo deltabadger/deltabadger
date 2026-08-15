@@ -408,6 +408,7 @@ en:
         welcome:
             connect_and_track: "Connect your exchange and start tracking your portfolio."
         sync_key_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please update the API key below."
+        sync_failed_for: 'Sync failed for %{exchanges}. Transactions from there may be missing — reports generated now can be incomplete.'
         pricing_warning_html: Balances synced, but USD pricing is unavailable right now (%{message}). The chart will use the last known prices until pricing is restored.
         portfolio:
             never_synced: Click Sync to load your portfolio.
@@ -433,6 +434,7 @@ en:
         export_modal:
             title: 'Generate Report'
             tax_report: 'Tax Report'
+            tax_disclaimer: 'Calculation aid, not tax advice. Verify figures before filing.'
             transactions: 'All'
             country: 'Country'
             year: 'Year'
@@ -540,6 +542,8 @@ en:
             upgrade_hint: Upgrade your CoinGecko plan or use deltabadger.com for full historical data.
             deposit_basis_assumed: Cost basis assumed at market value for these unlinked deposits
             deposit_basis_assumed_hint: Link each one to its matching withdrawal in the tracker to use the real cost basis.
+            exchange_sync_failed: '%{exchange} data may be missing — its last sync failed. Re-sync in the tracker and regenerate this report.'
+            exchange_never_synced: '%{exchange} has never been synced — none of its transactions are in this report. Sync it in the tracker and regenerate.'
         values:
             term_long: Long-term
             term_short: Short-term

@@ -415,6 +415,7 @@ cs:
         welcome:
             connect_and_track: "Připoj svou burzu a začni sledovat své portfolio."
         sync_key_error_html: 'Synchronizace s <strong>%{exchange}</strong> selhala: %{message}. Aktualizuj API klíč níže.'
+        sync_failed_for: 'Synchronizace s %{exchanges} se nezdařila. Některé transakce z těchto burz mohou chybět — nyní vygenerované přehledy proto nemusí být úplné.'
         pricing_warning_html: Zůstatky synchronizovány, ale ceny v USD teď nejsou dostupné (%{message}). Graf použije poslední známé ceny, dokud se služba neobnoví.
         portfolio:
             never_synced: Klikni na „Synchronizovat", abys načetl své portfolio.
@@ -440,6 +441,7 @@ cs:
         export_modal:
             title: 'Generovat přehled'
             tax_report: 'Daňový přehled'
+            tax_disclaimer: 'Pomůcka pro výpočet, nikoli daňové poradenství. Před podáním přiznání údaje zkontrolujte.'
             transactions: 'Vše'
             country: 'Země'
             year: 'Rok'
@@ -549,6 +551,8 @@ cs:
             upgrade_hint: Aktualizuj svůj CoinGecko plán nebo použij deltabadger.com pro kompletní historická data.
             deposit_basis_assumed: Pořizovací cena těchto nepropojených vkladů odhadnutá podle tržní hodnoty
             deposit_basis_assumed_hint: Propojte každý vklad s odpovídajícím výběrem v Trackeru, aby se použila skutečná pořizovací cena.
+            exchange_sync_failed: 'Údaje z %{exchange} mohou chybět — poslední synchronizace se nezdařila. Proveďte novou synchronizaci v Trackeru a přehled vygenerujte znovu.'
+            exchange_never_synced: 'Burza %{exchange} dosud nebyla synchronizována — tento přehled neobsahuje žádné její transakce. Synchronizujte ji v Trackeru a přehled vygenerujte znovu.'
         headers:
             date: 'Datum'
             asset: 'Aktivum'
