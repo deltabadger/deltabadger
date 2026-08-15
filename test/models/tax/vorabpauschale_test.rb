@@ -1,6 +1,25 @@
 require 'test_helper'
 
 class Tax::VorabpauschaleTest < ActiveSupport::TestCase
+  test 'basiszins table matches the BMF row and is frozen' do
+    # The BMF Basiszins row specifies these nine annual rates.
+    assert_equal(
+      {
+        2018 => '0.0087'.to_d,
+        2019 => '0.0052'.to_d,
+        2020 => '0.0007'.to_d,
+        2021 => '-0.0045'.to_d,
+        2022 => '-0.0005'.to_d,
+        2023 => '0.0255'.to_d,
+        2024 => '0.0229'.to_d,
+        2025 => '0.0253'.to_d,
+        2026 => '0.0320'.to_d
+      },
+      Tax::Vorabpauschale::BASISZINS
+    )
+    assert_predicate Tax::Vorabpauschale::BASISZINS, :frozen?
+  end
+
   test 'full year lot is capped by the positive basisertrag' do
     result = Tax::Vorabpauschale.for_lot(
       computation_year: 2023,
@@ -25,6 +44,20 @@ class Tax::VorabpauschaleTest < ActiveSupport::TestCase
 
     # Three full months precede April: 89.25 * (12 - 3) / 12 = 66.9375 EUR.
     assert_equal '66.9375'.to_d, result
+  end
+
+  test 'december acquisition reduces basisertrag to one twelfth exactly' do
+    result = Tax::Vorabpauschale.for_lot(
+      computation_year: 2023,
+      acquired_on: Date.new(2023, 12, 1),
+      start_value_eur: '5000'.to_d,
+      end_value_eur: '6000'.to_d,
+      distributions_eur: '0'.to_d
+    )
+
+    # Eleven full months precede December: 89.25 * (12 - 11) / 12 = 89.25 / 12 = 7.4375 EUR
+    # exactly; the 1 000 EUR Mehrbetrag does not bind.
+    assert_equal '7.4375'.to_d, result
   end
 
   test 'acquisition in an earlier year is never reduced by month' do
