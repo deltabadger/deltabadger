@@ -144,33 +144,35 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     assert_includes @response.body, toggle_transfer_tracker_transaction_path(withdrawal)
   end
 
+  # tmp/tax_reports is shared by every parallel worker, user ids repeat across their databases, and the
+  # runner splits tests rather than files — so each of these fixtures needs a year of its own.
   test 'downloads the broker report with the broker filename' do
-    write_report(country: 'DE', year: 2024, report_scope: 'broker', contents: 'broker report')
+    write_report(country: 'DE', year: 1991, report_scope: 'broker', contents: 'broker report')
 
-    get download_tax_report_tracker_path(country: 'DE', year: 2024, report_scope: 'broker')
+    get download_tax_report_tracker_path(country: 'DE', year: 1991, report_scope: 'broker')
 
     assert_response :success
     assert_equal 'broker report', response.body
-    assert_match(/filename="deltabadger-broker-tax-report-de-2024\.csv"/,
+    assert_match(/filename="deltabadger-broker-tax-report-de-1991\.csv"/,
                  response.headers['Content-Disposition'])
   end
 
   test 'downloads the default crypto report with the existing filename' do
-    write_report(country: 'DE', year: 2024, contents: 'crypto report')
+    write_report(country: 'DE', year: 1992, contents: 'crypto report')
 
-    get download_tax_report_tracker_path(country: 'DE', year: 2024)
+    get download_tax_report_tracker_path(country: 'DE', year: 1992)
 
     assert_response :success
     assert_equal 'crypto report', response.body
-    assert_match(/filename="deltabadger-tax-report-de-2024\.csv"/,
+    assert_match(/filename="deltabadger-tax-report-de-1992\.csv"/,
                  response.headers['Content-Disposition'])
   end
 
   test 'index auto-downloads a pending broker report with its scope' do
     @user.update!(tracker_settings: {
-                    'export_type' => 'tax_report', 'country' => 'DE', 'year' => 2024, 'report_scope' => 'broker'
+                    'export_type' => 'tax_report', 'country' => 'DE', 'year' => 1993, 'report_scope' => 'broker'
                   })
-    write_report(country: 'DE', year: 2024, report_scope: 'broker', contents: 'broker report')
+    write_report(country: 'DE', year: 1993, report_scope: 'broker', contents: 'broker report')
 
     get tracker_path
 

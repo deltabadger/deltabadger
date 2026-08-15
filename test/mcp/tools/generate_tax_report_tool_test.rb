@@ -90,7 +90,7 @@ class GenerateTaxReportToolTest < ActiveSupport::TestCase
   private
 
   def report_path(country, year)
-    Rails.root.join('tmp', 'tax_reports', "#{@user.id}_#{country}_#{year}.csv")
+    Tax::GenerateReportJob.report_path(@user.id, country, year)
   end
 
   def cleanup_report(country, year)

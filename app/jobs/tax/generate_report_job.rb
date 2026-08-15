@@ -2,14 +2,25 @@ class Tax::GenerateReportJob < ApplicationJob
   SCOPES = %w[crypto broker].freeze
 
   queue_as :low_priority
-  limits_concurrency to: 1, key: ->(user_id, *) { "tax_report_#{user_id}" }, on_conflict: :discard, duration: 10.minutes
+  # One report per scope, so a broker run and a crypto run do not cancel each other.
+  limits_concurrency(
+    to: 1,
+    key: ->(user_id, _country = nil, _year = nil, _stablecoin = nil,
+            report_scope = 'crypto') { "tax_report_#{user_id}_#{report_scope}" },
+    on_conflict: :discard,
+    duration: 10.minutes
+  )
 
   # The one place a report filename is built. `country` and `report_scope` arrive from user params,
   # so they are sanitized here rather than at each of the four call sites.
   def self.report_path(user_id, country, year, report_scope = 'crypto')
     scope = SCOPES.include?(report_scope.to_s) ? report_scope.to_s : 'crypto'
-    country = country.to_s.gsub(/[^A-Za-z]/, '').upcase
+    country = report_country(country)
     Rails.root.join('tmp', 'tax_reports', "#{user_id.to_i}_#{country}_#{year.to_i}_#{scope}.csv").to_s
+  end
+
+  def self.report_country(country)
+    country.to_s.gsub(/[^A-Za-z]/, '').upcase
   end
 
   def perform(user_id, country, year, stablecoin_as_fiat = false, report_scope = 'crypto') # rubocop:disable Style/OptionalBooleanParameter
@@ -58,10 +69,11 @@ class Tax::GenerateReportJob < ApplicationJob
 
   def crypto_csv(user, country, year, stablecoin_as_fiat)
     transactions = crypto_transactions(user)
-    # A stock venue can now contribute crypto rows, so a failed sync there can hide them, and a
-    # failed sync is exactly when we cannot know whether it did. A spurious banner costs a glance;
-    # a missing one costs a wrong filing.
-    sync_issues = user.api_keys.includes(:exchange).filter_map(&:sync_issue)
+    # Alpaca contributes crypto rows, so its failed sync can hide them; IBKR is stock-only and never can.
+    crypto_free_venues = Exchange.stock_venues.where.not(type: 'Exchanges::Alpaca').select(:id)
+    sync_issues = user.api_keys.includes(:exchange)
+                      .where.not(exchange_id: crypto_free_venues)
+                      .filter_map(&:sync_issue)
     report = Tax::Report.new(country: country, year: year, transactions: transactions,
                              stablecoin_as_fiat: stablecoin_as_fiat, sync_issues: sync_issues)
 

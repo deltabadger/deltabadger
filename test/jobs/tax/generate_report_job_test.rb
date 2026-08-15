@@ -30,6 +30,8 @@ class Tax::GenerateReportJobTest < ActiveSupport::TestCase
     # Alpaca crypto reaches this report, so a failed Alpaca sync can now hide reportable rows.
     create(:api_key, user: user, exchange: create(:alpaca_exchange),
                      last_synced_at: nil, last_sync_error: 'StandardError: API error')
+    create(:api_key, user: user, exchange: create(:ibkr_exchange),
+                     last_synced_at: nil, last_sync_error: 'StandardError: API error')
 
     rows = generate(user, 'DE', 2022)
     report_text = rows.flatten.compact.join(' ')
@@ -37,6 +39,7 @@ class Tax::GenerateReportJobTest < ActiveSupport::TestCase
     assert_includes report_text, 'Alpaca'
     assert_not_includes report_text, 'Binance'
     assert_not_includes report_text, 'Kraken'
+    assert_not_includes report_text, 'Interactive Brokers'
     assert_equal 3, rows.size, 'headers, the Alpaca warning, and the no-transactions line'
   end
 
