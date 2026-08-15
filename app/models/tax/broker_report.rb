@@ -81,14 +81,43 @@ module Tax
       end
     end
 
+    # Exclusion drops a security from the report entirely — no summary, no worksheet, no symbol row —
+    # so it is the one decision here that refusal-first cannot make safe. `symbol` is NOT unique on
+    # assets (only `external_id` is), and a user with any crypto exchange connected carries thousands
+    # of CoinGecko rows, so a stock ticker colliding with a coin would silently understate a signed
+    # form. Hence three ways out before excluding anything.
     def cryptocurrency?(symbol)
-      symbol && asset_for(symbol)&.category == 'Cryptocurrency'
+      return false unless symbol
+
+      assets = assets_for(symbol)
+      return false if assets.empty?
+
+      categories = assets.filter_map(&:category).uniq.sort
+      # One ticker resolving to two asset categories is worth the user's eye even when the tie-breaks
+      # below settle it, so warn before them, not after — a mis-resolved ticker is not a small error.
+      add_warning(code: :ambiguous_symbol, symbol: symbol, detail: categories) if categories.size > 1
+
+      # The user telling us this is a share or a fund outranks any catalogue guess.
+      return false if classified_symbols.include?(symbol)
+      # A stock or ETF row for the same ticker means the crypto row is the collision, not the holding.
+      return false if assets.any? { |asset| asset.instrument_type.in?(%w[stock etf]) }
+
+      categories == ['Cryptocurrency']
     end
 
-    def asset_for(symbol)
-      return @asset_cache[symbol] if @asset_cache.key?(symbol)
+    def assets_for(symbol)
+      @asset_cache[symbol] ||= Asset.where(symbol: symbol).to_a
+    end
 
-      @asset_cache[symbol] = Asset.find_by(symbol: symbol)
+    # The stock/ETF row is the one that carries an `instrument_type` for FundClassification to
+    # propose from, so a collision must not hand the resolver a coin instead.
+    def asset_for(symbol)
+      assets = assets_for(symbol)
+      assets.find { |asset| asset.instrument_type.in?(%w[stock etf]) } || assets.first
+    end
+
+    def classified_symbols
+      @classified_symbols ||= @user.fund_classifications.pluck(:symbol).to_set
     end
 
     def build_symbol_states
@@ -125,13 +154,13 @@ module Tax
       @distribution_gross_usd = {}
       @distribution_scale = {}
       distributions.group_by { |record| [instrument_symbol(record), record_date(record)] }.each do |key, records|
-        net_total = records.sum(0.to_d) { |record| record.base_amount.to_d }
+        net_total = records.sum(0.to_d) { |record| distribution_usd(record) }
         divft_total = divft_by_key.fetch(key, 0.to_d)
         scale = net_total.zero? ? 1.to_d : (net_total + divft_total) / net_total
         gross_remaining = net_total + divft_total
 
         records.each_with_index do |record, index|
-          gross = index == records.length - 1 ? gross_remaining : record.base_amount.to_d * scale
+          gross = index == records.length - 1 ? gross_remaining : distribution_usd(record) * scale
           @distribution_gross_usd[record.id] = gross
           @distribution_scale[record.id] = scale
           gross_remaining -= gross
@@ -337,7 +366,7 @@ module Tax
 
     def handle_distribution(state, record)
       rate = @record_fx_rates[record.id]
-      gross_usd = @distribution_gross_usd.fetch(record.id, record.base_amount.to_d)
+      gross_usd = @distribution_gross_usd.fetch(record.id) { distribution_usd(record) }
       gross_eur = usd_to_eur(gross_usd, rate)
       scale = @distribution_scale.fetch(record.id, 1.to_d)
       raw_per_share = raw_data(record)['per_share_amount']
@@ -393,9 +422,10 @@ module Tax
                end
       return unless report_year?(record)
 
-      excess_usd = excess && rate ? excess * rate : nil
+      # The excess is a EUR residue of a basis reduction, not a broker-stated amount. Back-converting
+      # it would put a derived number in a column that is a source figure on every other income row.
       add_income_row(state: state, record: record, bucket: :return_of_capital_excess,
-                     usd_amount: excess_usd, eur_amount: excess, fx_rate: rate)
+                     usd_amount: nil, eur_amount: excess, fx_rate: rate)
       return unless excess&.positive?
 
       if state[:kind] == :fund
@@ -496,27 +526,33 @@ module Tax
 
       year_start = Date.new(computation_year, 1, 1)
       year_end = Date.new(computation_year, 12, 31)
-      accruals = begin
-        state[:ledger].open_lots.filter_map do |lot|
-          # Vorabpauschale treats an out-of-year acquisition as a full-year lot, so this explicit
-          # guard prevents a future lot from fabricating positive income at an earlier boundary.
-          next if lot.acquired_on > year_end
+      accruals = state[:ledger].open_lots.filter_map do |lot|
+        # Vorabpauschale treats an out-of-year acquisition as a full-year lot, so this explicit
+        # guard prevents a future lot from fabricating positive income at an earlier boundary.
+        next if lot.acquired_on > year_end
 
-          # A mid-year lot deliberately uses year-start share terms without an acquisition-date
-          # filter. Its §18(2) month fraction, not a false zero start value, captures the short year.
-          start_value_eur = lot.units_in_terms_of(year_start) * start_price_eur
-          end_value_eur = lot.units_in_terms_of(year_end) * end_price_eur
-          distributions_eur = lot_distributions_eur(state, lot, computation_year)
-          vap = Tax::Vorabpauschale.for_lot(
+        # A mid-year lot deliberately uses year-start share terms without an acquisition-date
+        # filter. Its §18(2) month fraction, not a false zero start value, captures the short year.
+        start_value_eur = lot.units_in_terms_of(year_start) * start_price_eur
+        end_value_eur = lot.units_in_terms_of(year_end) * end_price_eur
+        distributions_eur = lot_distributions_eur(state, lot, computation_year)
+        vap = begin
+          Tax::Vorabpauschale.for_lot(
             computation_year: computation_year,
             acquired_on: lot.acquired_on,
             start_value_eur: start_value_eur,
             end_value_eur: end_value_eur,
             distributions_eur: distributions_eur
           )
-          [lot, vap]
+        rescue KeyError
+          # Only the Basiszins lookup raises this. Scoped to the one call so an unrelated KeyError
+          # elsewhere in the block can never be reported to the taxpayer as an unsupported year.
+          break :missing_basiszins
         end
-      rescue KeyError
+        [lot, vap]
+      end
+
+      if accruals == :missing_basiszins
         refuse_symbol(symbol, :missing_basiszins, detail: computation_year)
         return
       end
@@ -584,15 +620,25 @@ module Tax
         state[:symbol] unless state[:classification].kind.present?
       end.sort
       summaries_available = unclassified.empty?
+      # Built before the hash so the warnings aggregate_kap raises are already in @warnings when
+      # `complete` reads it, rather than depending on hash-literal evaluation order.
+      kap = aggregate_kap if summaries_available
+      kap_inv = aggregate_kap_inv if summaries_available
 
       {
         year: @year,
         exchange: @exchange.name_id,
         summaries_available: summaries_available,
-        kap: summaries_available ? aggregate_kap : nil,
-        kap_inv: summaries_available ? aggregate_kap_inv : nil,
+        # `summaries_available` is about classification alone. `complete` is the one to banner on: a
+        # cash leg has no symbol to refuse, so a missing rate on it leaves Z19 short with nothing but
+        # a warning to show for it, and a report whose every security is refused still returns an
+        # all-zero KAP. Keying a renderer on `summaries_available` would print both as finished.
+        complete: @warnings.empty?,
+        kap: kap,
+        kap_inv: kap_inv,
         symbols: symbol_rows,
         unclassified_symbols: unclassified,
+        refused_symbols: @refusals.select { |_symbol, reasons| reasons.any? }.keys.sort,
         disposals: @disposals,
         income: @income,
         fee_total_eur: @fee_total_eur,
@@ -602,10 +648,28 @@ module Tax
 
     def aggregate_kap
       total = @cash_kap.dup
-      @states.each_value do |state|
-        next if refused?(state[:symbol])
+      credited_despite_refusal = []
 
-        total.each_key { |key| total[key] += state[:kap][key] }
+      @states.each_value do |state|
+        unless refused?(state[:symbol])
+          total.each_key { |key| total[key] += state[:kap][key] }
+          next
+        end
+
+        # A refused symbol's basis figures are unsafe, but its withholding is not: a §56 transition
+        # gap or an unmodelled corporate action says nothing about whether foreign tax was withheld.
+        # Z41 is a locked sum over every withholding entry, and dropping a credit costs the taxpayer
+        # money in the one direction they cannot detect. The entry's own leg is still the gate —
+        # handle_withholding only accrues when that leg's rate resolved.
+        next unless state[:kap][:z41_withholding_tax].nonzero?
+
+        total[:z41_withholding_tax] += state[:kap][:z41_withholding_tax]
+        credited_despite_refusal << state[:symbol]
+      end
+
+      if credited_despite_refusal.any?
+        add_warning(code: :withholding_credited_for_refused_symbol, symbol: nil,
+                    detail: credited_despite_refusal.sort)
       end
       total
     end
@@ -674,6 +738,16 @@ module Tax
     # the whole report down over a description field.
     def raw_data(record)
       record.raw_data || {}
+    end
+
+    # `Exchanges::Alpaca#normalize_non_trade` stores an absolute `base_amount` — right for the
+    # tracker's display and harmless to the crypto engines, but it strips the sign off a dividend
+    # reversal, and a reversal added to Z19 as income is a wrong figure on a signed form. The
+    # activity's own net_amount keeps it. Read here rather than changing the ledger's semantics:
+    # this report is the first place the sign reaches a tax figure.
+    def distribution_usd(record)
+      net_amount = raw_data(record)['net_amount']
+      net_amount.present? ? net_amount.to_d : record.base_amount.to_d
     end
 
     def record_date(record)
