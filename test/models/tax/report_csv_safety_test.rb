@@ -7,10 +7,6 @@ require 'test_helper'
 # no VCR/webmock scaffolding needed.
 class Tax::ReportCsvSafetyTest < ActiveSupport::TestCase
   test 'an asset symbol beginning with a formula leader comes out escaped in a real report' do
-    # A current rate row is all it takes to keep PriceService#prefetch off the network:
-    # Tax::EcbFxRates.ensure_loaded! sees fresh data and skips the ECB fetch. The rate itself
-    # is never read — this report quotes in USD and converts nothing.
-    FxRate.create!(currency: 'USD', date: Date.current, rate: '1.05'.to_d)
     user = create(:user)
     api_key = create(:api_key, user: user)
 
