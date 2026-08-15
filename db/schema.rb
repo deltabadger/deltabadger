@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_15_160000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_15_170100) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -166,6 +166,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_15_160000) do
     t.datetime "created_at", null: false
     t.string "external_id", null: false
     t.string "image_url"
+    t.string "instrument_type"
     t.string "isin"
     t.bigint "market_cap"
     t.integer "market_cap_rank"
@@ -287,6 +288,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_15_160000) do
     t.string "passphrase"
     t.string "secret"
     t.index ["exchange_id"], name: "index_fee_api_keys_on_exchange_id"
+  end
+
+  create_table "fund_classifications", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "fund_category"
+    t.string "isin"
+    t.integer "kind", null: false
+    t.string "symbol", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["user_id", "symbol"], name: "index_fund_classifications_on_user_id_and_symbol", unique: true
   end
 
   create_table "fx_rates", force: :cascade do |t|
@@ -545,6 +557,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_15_160000) do
   add_foreign_key "exchange_assets", "assets"
   add_foreign_key "exchange_assets", "exchanges"
   add_foreign_key "fee_api_keys", "exchanges"
+  add_foreign_key "fund_classifications", "users"
   add_foreign_key "idempotency_keys", "users"
   add_foreign_key "oauth_applications", "users", column: "personal_owner_id"
   add_foreign_key "rule_logs", "rules"
