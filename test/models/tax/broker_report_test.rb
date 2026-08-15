@@ -31,6 +31,9 @@ class Tax::BrokerReportTest < ActiveSupport::TestCase
     assert_equal '589'.to_d, result[:kap][:z19_saldo]
     # A positive round trip contributes no share-loss magnitude: 0 EUR.
     assert_equal '0'.to_d, result[:kap][:z23_share_losses]
+    # Nothing was refused or approximated, so a renderer may present the summary as final.
+    assert result[:complete]
+    assert_empty result[:refused_symbols]
   end
 
   test 'losses land in the form bucket selected by instrument kind' do
@@ -110,6 +113,13 @@ class Tax::BrokerReportTest < ActiveSupport::TestCase
     assert_nil result[:kap_inv]
     assert_equal ['UNK'], result[:unclassified_symbols]
     assert_predicate result[:disposals], :present?
+    # The to-do row Task 13 renders: nothing to propose and nothing decided yet.
+    todo = result[:symbols].sole
+    assert_equal 'UNK', todo[:symbol]
+    assert_not todo[:classified]
+    assert_not todo[:persisted]
+    assert_nil todo[:kind]
+    assert_nil todo[:fund_category]
   end
 
   test 'report year declares prior-year VAP and deducts it from a later fund sale' do
@@ -163,6 +173,11 @@ class Tax::BrokerReportTest < ActiveSupport::TestCase
     # The same refused 500 EUR cannot leak into the Z19 saldo.
     assert_equal '0'.to_d, result[:kap][:z19_saldo]
     assert result[:disposals].sole[:refused]
+    # An all-zero KAP is not a finished one: `summaries_available` only covers classification, so a
+    # renderer keying its banner on that alone would present this as complete.
+    assert result[:summaries_available]
+    assert_not result[:complete]
+    assert_equal ['ZQX'], result[:refused_symbols]
   end
 
   test 'missing FX refuses only the affected symbol' do
@@ -290,6 +305,8 @@ class Tax::BrokerReportTest < ActiveSupport::TestCase
        quote_amount: '1000', at: Time.utc(2017, 6, 1))
     tx(entry_type: :sell, base_currency: 'FNDX', base_amount: '10', quote_currency: 'USD',
        quote_amount: '1500', at: Time.utc(2024, 8, 1))
+    tx(entry_type: :withholding_tax, base_currency: 'USD', base_amount: '30', quote_currency: 'FNDX',
+       at: Time.utc(2024, 8, 1), raw_data: { 'activity_type' => 'DIVNRA' })
 
     result = report(2024)
     symbol = result[:symbols].find { |entry| entry[:symbol] == 'FNDX' }
@@ -298,7 +315,73 @@ class Tax::BrokerReportTest < ActiveSupport::TestCase
     assert_includes symbol[:refusal_reasons], :pre_2018_fund_lot
     # A refused fund contributes no speculative 1 500 - 1 000 = 500 EUR category, so the key is absent.
     refute_includes result[:kap_inv].keys, :other_fund
-    assert(result[:warnings].any? { |warning| warning[:symbol] == 'FNDX' })
+    # The §56 gap is about basis, not about whether tax was withheld, so the credit survives it:
+    # 30 / 1.00 = 30 EUR. Dropping it would cost the taxpayer money invisibly.
+    assert_equal '30'.to_d, result[:kap][:z41_withholding_tax]
+    assert(result[:warnings].any? do |warning|
+      warning[:code] == :withholding_credited_for_refused_symbol && warning[:detail] == ['FNDX']
+    end)
+  end
+
+  test 'a stock ticker colliding with a crypto asset is never silently dropped' do
+    seed_fx(Date.new(2024, 2, 1), '1.00')
+    seed_fx(Date.new(2024, 8, 1), '1.00')
+    # `symbol` is not unique on assets, so any CoinGecko coin sharing a ticker used to shadow the
+    # real holding and remove it from the report with no warning and no refusal.
+    create(:asset, symbol: 'ZQX', external_id: 'zqx-coin', category: 'Cryptocurrency')
+    classify('ZQX', kind: :share)
+    tx(entry_type: :buy, base_currency: 'ZQX', base_amount: '10', quote_currency: 'USD',
+       quote_amount: '1000', at: Time.utc(2024, 2, 1))
+    tx(entry_type: :sell, base_currency: 'ZQX', base_amount: '10', quote_currency: 'USD',
+       quote_amount: '1500', at: Time.utc(2024, 8, 1))
+
+    result = report(2024)
+
+    # The user's own classification outranks the catalogue: 1 500 - 1 000 = 500 EUR still declared.
+    assert_equal '500'.to_d, result[:kap][:z20_share_gains]
+    assert_equal ['ZQX'], result[:symbols].map { |entry| entry[:symbol] }.sort
+    # A single category is not a collision the user needs to look at.
+    assert result[:complete]
+  end
+
+  test 'a ticker spanning two asset categories is reported and flagged for the user' do
+    seed_fx(Date.new(2024, 2, 1), '1.00')
+    seed_fx(Date.new(2024, 8, 1), '1.00')
+    create(:asset, symbol: 'ZQX', external_id: 'zqx-coin', category: 'Cryptocurrency')
+    create(:asset, symbol: 'ZQX', external_id: 'zqx-stock', category: 'Stock', instrument_type: 'stock')
+    tx(entry_type: :buy, base_currency: 'ZQX', base_amount: '10', quote_currency: 'USD',
+       quote_amount: '1000', at: Time.utc(2024, 2, 1))
+    tx(entry_type: :sell, base_currency: 'ZQX', base_amount: '10', quote_currency: 'USD',
+       quote_amount: '1500', at: Time.utc(2024, 8, 1))
+
+    result = report(2024)
+
+    # The stock row resolves the ticker, so the 500 EUR gain is declared and proposed as a share.
+    assert_equal '500'.to_d, result[:kap][:z20_share_gains]
+    assert_equal :share, result[:symbols].sole[:kind]
+    assert(result[:warnings].any? do |warning|
+      warning[:code] == :ambiguous_symbol && warning[:symbol] == 'ZQX' &&
+        warning[:detail] == %w[Cryptocurrency Stock]
+    end)
+    assert_not result[:complete]
+  end
+
+  test 'a dividend reversal is subtracted from the KAP saldo rather than added to it' do
+    seed_fx(Date.new(2024, 6, 3), '1.00')
+    seed_fx(Date.new(2024, 9, 4), '1.00')
+    classify('ZQX', kind: :share)
+    tx(entry_type: :other_income, base_currency: 'USD', base_amount: '100', quote_currency: 'ZQX',
+       at: Time.utc(2024, 6, 3), raw_data: { 'activity_type' => 'DIV', 'net_amount' => '100' })
+    # Alpaca books a correction as a negative net_amount, but the ledger stores base_amount absolute.
+    tx(entry_type: :other_income, base_currency: 'USD', base_amount: '40', quote_currency: 'ZQX',
+       at: Time.utc(2024, 9, 4), raw_data: { 'activity_type' => 'DIV', 'net_amount' => '-40' })
+
+    result = report(2024)
+
+    # Reading the signed net_amount gives (100 - 40) / 1.00 = 60 EUR; the absolute value would
+    # have declared 140 EUR of income the user never received.
+    assert_equal '60'.to_d, result[:kap][:z19_saldo]
+    assert_equal '-40'.to_d, result[:income].last[:eur_amount]
   end
 
   test 'return of capital beyond basis becomes income in the instrument-specific bucket' do
@@ -378,6 +461,26 @@ class Tax::BrokerReportTest < ActiveSupport::TestCase
     assert_equal({ Date.new(2024, 6, 3) => '12.25'.to_d, Date.new(2024, 6, 4) => '13.50'.to_d }, stored)
     assert_nil HistoricalPrice.find_by(asset: 'stock:FNDX', currency: 'USD', date: Date.new(2024, 6, 5))
     assert_nil HistoricalPrice.find_by(asset: 'FNDX', currency: 'USD')
+  end
+
+  test 'a partially stored price window is refetched instead of settling on an early price' do
+    seed_fx(Date.new(2024, 12, 23), '1.00')
+    seed_fx(Date.new(2024, 12, 31), '1.00')
+    # A truncated earlier fetch left only the start of the window behind.
+    seed_stock_price('FNDX', Date.new(2024, 12, 23), '9.00')
+    base_asset = create(:asset, symbol: 'FNDX', category: 'Stock')
+    create(:ticker, exchange: @exchange, base_asset: base_asset, quote_asset: create(:asset, :usd),
+                    base: 'FNDX', quote: 'USD', ticker: 'FNDXUSD')
+    @exchange.expects(:get_candles).returns(Result::Success.new([candle(Time.utc(2024, 12, 31), close: '12.00')]))
+
+    prices = Tax::PriceService.new.stock_price_range(
+      exchange: @exchange, api_key: @api_key, symbol: 'FNDX',
+      from: Date.new(2024, 12, 22), to: Date.new(2024, 12, 31)
+    )
+
+    # Gating the refetch on "any row at all" would leave the window ending on 23 December, and a
+    # Vorabpauschale would take 9.00 EUR as the year-end value instead of 12.00.
+    assert_equal '12.00'.to_d, prices[Date.new(2024, 12, 31)]
   end
 
   test 'stock price range returns empty when a delisted symbol has no ticker' do
