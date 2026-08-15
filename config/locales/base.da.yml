@@ -434,6 +434,10 @@ da:
         export_modal:
             title: 'Generér rapport'
             tax_report: 'Skatterapport'
+            broker_tax_report: 'Skatterapport fra mægler (Tyskland — Anlage KAP / KAP-INV)'
+            classification_title: 'Klassificér værdipapirer'
+            classification_hint: 'Tildel hvert værdipapir en type, før du genererer rapporten.'
+            classification_select: 'Vælg…'
             tax_disclaimer: 'Beregningshjælp, ikke skatterådgivning. Kontrollér tallene, før du indsender din skatteangivelse.'
             transactions: 'Alle'
             country: 'Land'
@@ -467,6 +471,7 @@ da:
             expired: 'Skatterapport er udløbet. Generér venligst en ny.'
             generating: 'Genererer skatterapport...'
             download_ready: 'Skatterapport er klar. Klik for at downloade.'
+            failed: 'Rapporten kunne ikke genereres. Kontrollér de valgte indstillinger, og prøv igen.'
         filters:
             all: 'Alle'
         columns:

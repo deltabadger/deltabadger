@@ -122,6 +122,27 @@ class Tax::BrokerReportTest < ActiveSupport::TestCase
     assert_nil todo[:fund_category]
   end
 
+  test 'classification rows use the report resolver and exclude Alpaca crypto' do
+    create(:asset, symbol: 'CRYP', category: 'Cryptocurrency')
+    create(:asset, symbol: 'ETFX', category: 'Stock', instrument_type: 'etf')
+    create(:asset, symbol: 'OVR', category: 'Stock', instrument_type: 'etf')
+    classify('OVR', kind: :share)
+    %w[CRYP ETFX OVR].each do |symbol|
+      tx(entry_type: :buy, base_currency: symbol, base_amount: '1', quote_currency: 'USD',
+         quote_amount: '100', at: Time.utc(2024, 3, 1))
+    end
+
+    rows = Tax::BrokerReport.new(user: @user, year: 2024, exchange: @exchange).classification_rows
+
+    refute_includes rows.pluck(:symbol), 'CRYP'
+    proposal = rows.find { |row| row[:symbol] == 'ETFX' }
+    assert_equal({ classified: true, persisted: false, kind: :fund, fund_category: :other_fund },
+                 proposal.slice(:classified, :persisted, :kind, :fund_category))
+    persisted = rows.find { |row| row[:symbol] == 'OVR' }
+    assert_equal({ classified: true, persisted: true, kind: :share, fund_category: nil },
+                 persisted.slice(:classified, :persisted, :kind, :fund_category))
+  end
+
   test 'report year declares prior-year VAP and deducts it from a later fund sale' do
     [
       Date.new(2023, 12, 29), Date.new(2024, 2, 1), Date.new(2024, 4, 15),

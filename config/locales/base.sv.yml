@@ -434,6 +434,10 @@ sv:
         export_modal:
             title: 'Generera rapport'
             tax_report: 'Skatterapport'
+            broker_tax_report: 'Skatterapport från mäklare (Tyskland — Anlage KAP / KAP-INV)'
+            classification_title: 'Klassificera värdepapper'
+            classification_hint: 'Tilldela varje värdepapper en typ innan du genererar rapporten.'
+            classification_select: 'Välj…'
             tax_disclaimer: 'Beräkningshjälp, inte skatterådgivning. Kontrollera uppgifterna innan du lämnar in deklarationen.'
             transactions: 'Alla'
             country: 'Land'
@@ -467,6 +471,7 @@ sv:
             expired: 'Skatterapporten har gått ut. Generera en ny.'
             generating: 'Genererar skatterapport...'
             download_ready: 'Skatterapporten är klar. Klicka för att ladda ner.'
+            failed: 'Rapporten kunde inte genereras. Kontrollera de valda inställningarna och försök igen.'
         filters:
             all: 'Alla'
         columns:

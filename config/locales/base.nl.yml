@@ -430,6 +430,10 @@ nl:
         export_modal:
             title: 'Rapport genereren'
             tax_report: 'Belastingrapport'
+            broker_tax_report: 'Belastingrapport van de broker (Duitsland — Anlage KAP / KAP-INV)'
+            classification_title: 'Effecten classificeren'
+            classification_hint: 'Wijs elk effect een type toe voordat u het rapport genereert.'
+            classification_select: 'Selecteren…'
             tax_disclaimer: 'Rekenhulp, geen fiscaal advies. Controleer de cijfers voordat u aangifte doet.'
             transactions: 'Alles'
             country: 'Land'
@@ -455,6 +459,8 @@ nl:
                 DK: 'Denemarken'
                 CZ: 'Tsjechië'
                 SK: 'Slowakije'
+        tax_report:
+            failed: 'Het rapport kon niet worden gegenereerd. Controleer de geselecteerde instellingen en probeer het opnieuw.'
         filters:
             all: 'Alle'
         columns:

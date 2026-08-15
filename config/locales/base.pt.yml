@@ -429,6 +429,10 @@ pt:
         export_modal:
             title: 'Gerar relatório'
             tax_report: 'Relatório fiscal'
+            broker_tax_report: 'Relatório fiscal da corretora (Alemanha — Anlage KAP / KAP-INV)'
+            classification_title: 'Classificar títulos'
+            classification_hint: 'Atribua um tipo a cada título antes de gerar o relatório.'
+            classification_select: 'Selecionar…'
             tax_disclaimer: 'Ferramenta de apoio ao cálculo, não aconselhamento fiscal. Confirme os valores antes de entregar a declaração.'
             transactions: 'Tudo'
             country: 'País'
@@ -454,6 +458,8 @@ pt:
                 DK: 'Dinamarca'
                 CZ: 'Chéquia'
                 SK: 'Eslováquia'
+        tax_report:
+            failed: 'Não foi possível gerar o relatório. Verifique as definições selecionadas e tente novamente.'
         filters:
             all: 'Todos'
         columns:

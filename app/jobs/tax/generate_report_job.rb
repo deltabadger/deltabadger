@@ -23,6 +23,15 @@ class Tax::GenerateReportJob < ApplicationJob
     country.to_s.gsub(/[^A-Za-z]/, '').upcase
   end
 
+  # The one Alpaca lookup: the job and the classification panel must agree on which ledger the
+  # broker report reads, or the panel's to-do list is for a different exchange than the report's.
+  def self.broker_exchange(user)
+    exchange_ids = (user.api_keys.pluck(:exchange_id) +
+      user.account_transactions.distinct.pluck(:exchange_id)).uniq
+    # Alpaca's activity feed is the only broker ledger this report models.
+    Exchanges::Alpaca.find_by(id: exchange_ids)
+  end
+
   def perform(user_id, country, year, stablecoin_as_fiat = false, report_scope = 'crypto') # rubocop:disable Style/OptionalBooleanParameter
     user = User.find(user_id)
     csv_data = if report_scope.to_s == 'broker'
@@ -44,9 +53,11 @@ class Tax::GenerateReportJob < ApplicationJob
       locals: { country: country, year: year, report_scope: report_scope.to_s }
     )
   rescue StandardError => e
-    Turbo::StreamsChannel.broadcast_remove_to(
+    # The queue still gets the exception; the person still gets a message.
+    Turbo::StreamsChannel.broadcast_replace_to(
       "user_#{user_id}", :tax_report,
-      target: 'tax-report-progress'
+      target: 'tax-report-progress',
+      partial: 'tracker/report_failed'
     )
     raise e
   end
@@ -58,10 +69,7 @@ class Tax::GenerateReportJob < ApplicationJob
       raise ArgumentError, "Unsupported broker report country #{country.inspect} and year #{year.inspect}"
     end
 
-    exchange_ids = (user.api_keys.pluck(:exchange_id) +
-      user.account_transactions.distinct.pluck(:exchange_id)).uniq
-    # Alpaca's activity feed is the only broker ledger this report models.
-    exchange = Exchanges::Alpaca.find_by(id: exchange_ids)
+    exchange = self.class.broker_exchange(user)
     raise ArgumentError, "No Alpaca broker ledger found for user #{user.id}" unless exchange
 
     Tax::BrokerReport.new(user: user, year: year, exchange: exchange).to_csv

@@ -66,6 +66,11 @@ class Tax::GenerateReportJobTest < ActiveSupport::TestCase
     assert_raises(ArgumentError) do
       Tax::GenerateReportJob.perform_now(user.id, 'PL', 2024, false, 'broker')
     end
+    Turbo::StreamsChannel.expects(:broadcast_replace_to).with(
+      "user_#{user.id}", :tax_report,
+      target: 'tax-report-progress',
+      partial: 'tracker/report_failed'
+    )
     assert_raises(ArgumentError) do
       Tax::GenerateReportJob.perform_now(user.id, 'DE', 2022, false, 'broker')
     end

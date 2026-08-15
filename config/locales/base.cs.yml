@@ -441,6 +441,10 @@ cs:
         export_modal:
             title: 'Generovat přehled'
             tax_report: 'Daňový přehled'
+            broker_tax_report: 'Daňový přehled brokera (Německo — Anlage KAP / KAP-INV)'
+            classification_title: 'Klasifikace cenných papírů'
+            classification_hint: 'Před vygenerováním přehledu přiřaďte každému cennému papíru typ.'
+            classification_select: 'Vyberte…'
             tax_disclaimer: 'Pomůcka pro výpočet, nikoli daňové poradenství. Před podáním přiznání údaje zkontrolujte.'
             transactions: 'Vše'
             country: 'Země'
@@ -474,6 +478,7 @@ cs:
             expired: 'Daňový přehled vypršel. Vygenerujte prosím nový.'
             generating: 'Generuji daňový přehled...'
             download_ready: 'Daňový přehled je připraven. Klikněte pro stažení.'
+            failed: 'Přehled se nepodařilo vygenerovat. Zkontrolujte vybraná nastavení a zkuste to znovu.'
         filters:
             all: 'Vše'
         columns:

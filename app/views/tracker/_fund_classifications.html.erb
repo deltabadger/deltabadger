@@ -1,0 +1,42 @@
+<%# Locals: rows (from Tax::BrokerReport#classification_rows) %>
+<div data-tracker-export-target="classificationPanel" class="form__row hidden">
+  <h2><%= t('tracker.export_modal.classification_title') %></h2>
+  <p><%= t('tracker.export_modal.classification_hint') %></p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th><%= t('tax_report.broker.headers.symbol') %></th>
+        <th><%= t('tax_report.broker.headers.kind') %></th>
+        <th><%= t('tax_report.broker.headers.fund_category') %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% rows.each do |row| %>
+        <%# The ledger's exact symbol spelling is what FundClassification.resolve looks up. %>
+        <tr data-tracker-export-target="classificationRow" data-symbol="<%= row[:symbol] %>">
+          <td><%= row[:symbol] %></td>
+          <td>
+            <select data-tracker-export-target="kindSelect"
+                    data-action="change->tracker-export#changeClassification">
+              <option value=""><%= t('tracker.export_modal.classification_select') %></option>
+              <% FundClassification.kinds.each_key do |kind| %>
+                <option value="<%= kind %>" <%= 'selected' if row[:kind] == kind.to_sym %>><%= t("tax_report.broker.kinds.#{kind}") %></option>
+              <% end %>
+            </select>
+          </td>
+          <td>
+            <div class="<%= 'hidden' unless row[:kind] == :fund %>">
+              <select data-tracker-export-target="categorySelect"
+                      data-action="change->tracker-export#changeClassification">
+                <option value=""><%= t('tracker.export_modal.classification_select') %></option>
+                <% FundClassification.fund_categories.each_key do |category| %>
+                  <option value="<%= category %>" <%= 'selected' if row[:fund_category] == category.to_sym %>><%= t("tax_report.broker.fund_categories.#{category}") %></option>
+                <% end %>
+              </select>
+            </div>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>

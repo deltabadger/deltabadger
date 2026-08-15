@@ -432,6 +432,10 @@ pl:
         export_modal:
             title: 'Generuj raport'
             tax_report: 'Raport podatkowy'
+            broker_tax_report: 'Raport podatkowy brokera (Niemcy — Anlage KAP / KAP-INV)'
+            classification_title: 'Klasyfikuj papiery wartościowe'
+            classification_hint: 'Przypisz typ każdemu papierowi wartościowemu przed wygenerowaniem raportu.'
+            classification_select: 'Wybierz…'
             tax_disclaimer: 'Narzędzie pomocnicze do obliczeń, nie doradztwo podatkowe. Przed złożeniem deklaracji sprawdź wszystkie kwoty.'
             transactions: 'Wszystko'
             country: 'Kraj'
@@ -457,6 +461,8 @@ pl:
                 DK: 'Dania'
                 CZ: 'Czechy'
                 SK: 'Słowacja'
+        tax_report:
+            failed: 'Nie udało się wygenerować raportu. Sprawdź wybrane ustawienia i spróbuj ponownie.'
         filters:
             all: 'Wszystkie'
         columns:

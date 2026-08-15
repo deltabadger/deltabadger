@@ -431,6 +431,10 @@ de:
         export_modal:
             title: 'Bericht erstellen'
             tax_report: 'Steuerbericht'
+            broker_tax_report: 'Broker-Steuerbericht (Deutschland — Anlage KAP / KAP-INV)'
+            classification_title: 'Wertpapiere klassifizieren'
+            classification_hint: 'Ordne jedem Wertpapier einen Typ zu, bevor du den Bericht erstellst.'
+            classification_select: 'Auswählen…'
             tax_disclaimer: 'Berechnungshilfe, keine Steuerberatung. Angaben vor Abgabe der Steuererklärung prüfen.'
             transactions: 'Alle'
             country: 'Land'
@@ -456,6 +460,8 @@ de:
                 DK: 'Dänemark'
                 CZ: 'Tschechien'
                 SK: 'Slowakei'
+        tax_report:
+            failed: 'Der Bericht konnte nicht erstellt werden. Prüfe die ausgewählten Einstellungen und versuche es erneut.'
         filters:
             all: 'Alle'
         columns:
