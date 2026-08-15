@@ -35,9 +35,96 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
                                transacted_at: Time.utc(2024, 6, 1), tx_id: 'kraken-btc-sale')
 
     csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
-    disposal = CSV.parse(csv, headers: true).find { |row| row[2] == 'BTC' }
+    rows = CSV.parse(csv, headers: true)
 
-    assert_equal 10_026.to_d, disposal[5].to_d
+    assert_equal 10_026.to_d, rows.find { |row| row[2] == 'BTC' }[5].to_d
+    assert_empty(rows.select { |row| row[2] == 'EUR' }) # the donor row funded the fee, it did not dispose of anything
+  end
+
+  # Kraken books a trade as one signed ledger row per asset, so a EUR-funded BTC buy arrives as a
+  # `sell` of EUR. Priced at 1.0 against lots the user never had, that fiat leg used to be reported
+  # as a disposal of the entire funding amount at zero cost.
+  test 'German report ignores Kraken fiat ledger rows without losing the attributed fee' do
+    user = create(:user)
+    exchange = create(:kraken_exchange)
+    buy_at = Time.utc(2024, 1, 10)
+    sell_at = Time.utc(2024, 6, 1)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: buy_at.to_date, price: 20_000.to_d)
+    [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: '0.5'.to_d, group_id: 'R1',
+        transacted_at: buy_at, tx_id: 'kraken-de-btc-buy' },
+      { entry_type: :sell, base_currency: 'EUR', base_amount: 10_000.to_d, group_id: 'R1',
+        fee_currency: 'EUR', fee_amount: 26.to_d, transacted_at: buy_at, tx_id: 'kraken-de-eur-sell' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: '0.5'.to_d,
+        quote_currency: 'EUR', quote_amount: 30_000.to_d, group_id: 'R2',
+        transacted_at: sell_at, tx_id: 'kraken-de-btc-sell' },
+      { entry_type: :buy, base_currency: 'EUR', base_amount: 30_000.to_d, group_id: 'R2',
+        transacted_at: sell_at, tx_id: 'kraken-de-eur-buy' }
+    ].each { |attrs| AccountTransaction.create!(user: user, exchange: exchange, **attrs) }
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    rows = CSV.parse(csv, headers: true)
+    btc_disposals = rows.select { |row| row[2] == 'BTC' }
+
+    assert_equal 1, btc_disposals.size
+    assert_equal 10_026.to_d, btc_disposals.first[5].to_d # Kraken's EUR-row fee is still capitalised
+    assert_equal 19_974.to_d, btc_disposals.first[6].to_d
+    assert_empty(rows.select { |row| row[2] == 'EUR' })
+  end
+
+  # PVCT has no lots: the EUR leg of a sale would swell the portfolio-wide acquisition-cost pool,
+  # and the EUR leg of a purchase would drain it as a cession, corrupting every later disposal.
+  test 'French report ignores Kraken fiat ledger rows in the acquisition cost pool' do
+    user = create(:user)
+    exchange = create(:kraken_exchange)
+    buy_at = Time.utc(2024, 1, 10)
+    sell_at = Time.utc(2024, 6, 1)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: buy_at.to_date, price: 20_000.to_d)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: sell_at.to_date, price: 60_000.to_d)
+    [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: '0.5'.to_d, group_id: 'R1',
+        transacted_at: buy_at, tx_id: 'kraken-fr-btc-buy' },
+      { entry_type: :sell, base_currency: 'EUR', base_amount: 10_000.to_d, group_id: 'R1',
+        transacted_at: buy_at, tx_id: 'kraken-fr-eur-sell' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: '0.5'.to_d,
+        quote_currency: 'EUR', quote_amount: 30_000.to_d, group_id: 'R2',
+        transacted_at: sell_at, tx_id: 'kraken-fr-btc-sell' },
+      { entry_type: :buy, base_currency: 'EUR', base_amount: 30_000.to_d, group_id: 'R2',
+        transacted_at: sell_at, tx_id: 'kraken-fr-eur-buy' }
+    ].each { |attrs| AccountTransaction.create!(user: user, exchange: exchange, **attrs) }
+
+    csv = Tax::Report.new(country: 'FR', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+    rows = CSV.parse(csv, headers: true)
+    btc_cessions = rows.select { |row| row[1] == 'BTC' }
+
+    assert_equal 1, btc_cessions.size
+    assert_equal 30_000.to_d, btc_cessions.first[3].to_d
+    assert_equal 10_000.to_d, btc_cessions.first[4].to_d
+    assert_equal 20_000.to_d, btc_cessions.first[6].to_d
+    assert_empty(rows.select { |row| row[1] == 'EUR' })
+  end
+
+  # A fiat base outside the report currency is still unused; trying to price it used to fabricate
+  # a missing-price warning and banner an otherwise complete report.
+  test 'German report ignores a Kraken USD ledger row without a missing-price warning' do
+    user = create(:user)
+    exchange = create(:kraken_exchange)
+    buy_at = Time.utc(2024, 1, 10)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: buy_at.to_date, price: 20_000.to_d)
+    [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: '0.5'.to_d, group_id: 'R1',
+        transacted_at: buy_at, tx_id: 'kraken-usd-btc-buy' },
+      { entry_type: :sell, base_currency: 'USD', base_amount: 10_000.to_d, group_id: 'R1',
+        transacted_at: buy_at, tx_id: 'kraken-usd-fiat-sell' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: '0.5'.to_d,
+        quote_currency: 'EUR', quote_amount: 30_000.to_d,
+        transacted_at: Time.utc(2024, 6, 1), tx_id: 'kraken-usd-btc-sell' }
+    ].each { |attrs| AccountTransaction.create!(user: user, exchange: exchange, **attrs) }
+
+    csv = Tax::Report.new(country: 'DE', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+
+    assert_empty(CSV.parse(csv, headers: true).select { |row| row[2] == 'USD' })
+    refute_includes csv, I18n.t('tax_report.incomplete_banner_prefix', locale: :de)
   end
 
   # AT: crypto->crypto not taxable; basis must chain through the swap via group_id.
