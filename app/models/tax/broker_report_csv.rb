@@ -60,6 +60,11 @@ module Tax
         t('tax_report.broker.headers.amount_eur')
       ]
 
+      # A category with no Zeile mapping would silently vanish from a signed form. This report
+      # refuses rather than under-reports everywhere else; it must not make an exception here.
+      unmapped = @result[:kap_inv].keys - KAP_INV_ZEILEN.keys
+      raise ArgumentError, "No KAP-INV Zeile mapping for fund category: #{unmapped.join(', ')}" if unmapped.any?
+
       KAP_INV_ZEILEN.each do |category, positions|
         values = @result[:kap_inv][category]
         next unless values
@@ -87,7 +92,7 @@ module Tax
 
     def disposal_headers
       %w[
-        symbol kind fund_category sold_on units proceeds_usd fx_rate proceeds_eur fee_eur cost_eur
+        symbol kind fund_category date units proceeds_usd fx_rate proceeds_eur fee_eur cost_eur
         vorabpauschale_eur gain_eur status
       ].map { |header| t("tax_report.broker.headers.#{header}") }
     end
@@ -98,9 +103,9 @@ module Tax
         translated_value('kinds', disposal[:kind]),
         translated_value('fund_categories', disposal[:fund_category]),
         disposal[:sold_on]&.to_s,
-        num(disposal[:units]),
+        disposal[:units],
         eur(disposal[:proceeds_usd]),
-        num(disposal[:fx_rate]),
+        disposal[:fx_rate],
         eur(disposal[:proceeds_eur]),
         eur(disposal[:fee_eur]),
         eur(disposal[:cost_eur]),
@@ -116,9 +121,9 @@ module Tax
         t('tax_report.broker.rows.lot'),
         nil,
         match[:acquired_on]&.to_s,
-        num(match[:units]),
+        match[:units],
         nil,
-        num(match[:fx_rate]),
+        match[:fx_rate],
         nil,
         nil,
         eur(match[:cost_eur]),
@@ -148,7 +153,7 @@ module Tax
         income[:activity_type],
         t("tax_report.broker.buckets.#{income[:bucket]}"),
         eur(income[:usd_amount]),
-        num(income[:fx_rate]),
+        income[:fx_rate],
         eur(income[:eur_amount]),
         income[:refused] ? t('tax_report.broker.status.refused') : nil
       ]
@@ -205,12 +210,12 @@ module Tax
       "#{t('tax_report.incomplete_banner_prefix')}: #{text}"
     end
 
+    # BigDecimal straight into the cell, as `Tax::Report` does. It is a non-String, so `CsvSafe`
+    # leaves it alone and a negative amount stays a number instead of being escaped into text —
+    # and it never round-trips through a binary float, which would print a unit count below
+    # 0.0001 as `1.0e-05`. Rounding happens here and nowhere earlier.
     def eur(value)
-      value&.round(2)&.to_f
-    end
-
-    def num(value)
-      value&.to_f
+      value&.round(2)
     end
 
     def t(key, **options)

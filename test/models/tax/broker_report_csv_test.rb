@@ -13,8 +13,8 @@ class Tax::BrokerReportCsvTest < ActiveSupport::TestCase
 
     rows = CSV.parse(report(2024))
 
-    assert_equal(['19', 'Foreign investment income (net balance)', '589.0'], rows.find { |row| row[0] == '19' })
-    assert_equal(['20', 'Including gains from the disposal of shares', '589.0'], rows.find { |row| row[0] == '20' })
+    assert_equal(['19', 'Foreign investment income', '589.0'], rows.find { |row| row[0] == '19' })
+    assert_equal(['20', 'Gains from the disposal of shares included in line 19', '589.0'], rows.find { |row| row[0] == '20' })
 
     disposal = rows.find { |row| row[0] == 'ZQX' && row[3] == '2024-09-02' }
     assert_equal '589.0', disposal[11]
@@ -37,8 +37,8 @@ class Tax::BrokerReportCsvTest < ActiveSupport::TestCase
     rows = CSV.parse(report(2024))
 
     assert_includes rows, ['WARNING: Report incomplete — review the warnings below; do not file as-is']
-    assert_equal(['19', 'Foreign investment income (net balance)', '0.0'], rows.find { |row| row[0] == '19' })
-    assert_equal(['20', 'Including gains from the disposal of shares', '0.0'], rows.find { |row| row[0] == '20' })
+    assert_equal(['19', 'Foreign investment income', '0.0'], rows.find { |row| row[0] == '19' })
+    assert_equal(['20', 'Gains from the disposal of shares included in line 19', '0.0'], rows.find { |row| row[0] == '20' })
 
     disposal = rows.find { |row| row[0] == 'ZQX' && row[3] == '2024-09-02' }
     assert_equal 'Not included in the summary — see warnings', disposal[12]
@@ -94,7 +94,7 @@ class Tax::BrokerReportCsvTest < ActiveSupport::TestCase
     rows = CSV.parse(report(2024))
 
     assert_includes rows, ['WARNING: Report incomplete — review the warnings below; do not file as-is']
-    assert_equal(['20', 'Including gains from the disposal of shares', '589.0'], rows.find { |row| row[0] == '20' })
+    assert_equal(['20', 'Gains from the disposal of shares included in line 19', '589.0'], rows.find { |row| row[0] == '20' })
     assert_includes rows, [nil, 'No ECB reference rate available for 2024-11-20 — the affected amount is missing from the summary.']
   end
 
@@ -147,6 +147,36 @@ class Tax::BrokerReportCsvTest < ActiveSupport::TestCase
     assert_includes rows, ['13', 'Sonstige Fonds', 'Vorabpauschale (vor Teilfreistellung)', '0.0']
   end
 
+  # A fund category with no Zeile mapping has no place to go on the form. Skipping it would drop a
+  # whole category out of a signed summary with no banner, which is the failure this report exists
+  # to prevent — so it must be loud. The hash is edited directly because the enum has all five today.
+  test 'a fund category with no Zeile mapping raises rather than vanishing from the summary' do
+    seed_fx(Date.new(2024, 6, 3), '1.00')
+    classify('FNDX', kind: :fund, fund_category: :other_fund)
+    tx(entry_type: :other_income, base_currency: 'USD', base_amount: '200', quote_currency: 'FNDX',
+       at: Time.utc(2024, 6, 3), raw_data: { 'activity_type' => 'DIV' })
+    result = Tax::BrokerReport.new(user: @user, year: 2024, exchange: @exchange).result
+    result[:kap_inv][:infrastructure_fund] = { distributions: 1.to_d, vorabpauschale: 0.to_d, sale_result: 0.to_d }
+
+    error = assert_raises(ArgumentError) { Tax::BrokerReportCsv.new(result).to_csv }
+
+    assert_includes error.message, 'infrastructure_fund'
+  end
+
+  # The lot rows put an ACQUISITION date in the same column as the sale row's disposal date, so the
+  # header has to be neutral. A column headed "Disposal date" over an acquisition date is the kind
+  # of contradiction that costs someone an hour beside the printed form.
+  test 'the disposal date column is headed neutrally because lot rows put an acquisition date in it' do
+    clean_share_round_trip
+
+    rows = CSV.parse(report(2024))
+    headers = rows.find { |row| row[0] == 'Security' }
+
+    assert_equal 'Date', headers[3]
+    assert_equal '2024-09-02', rows.find { |row| row[0] == 'ZQX' }[3]
+    assert_equal '2024-03-01', rows.find { |row| row[1] == 'of which: acquisition' }[3]
+  end
+
   # The renderer takes a plain hash, so a warning code added to the engine later arrives here with
   # no translation. It must degrade to a readable line rather than printing the Ruby symbol at a
   # taxpayer. The hash is edited directly because the engine cannot emit an unknown code by design.
@@ -182,8 +212,8 @@ class Tax::BrokerReportCsvTest < ActiveSupport::TestCase
     assert_equal '1363.64', disposal[7]
     assert_equal '-636.36', disposal[11]
     # Z23 takes the loss as a positive magnitude; Z19 keeps it signed.
-    assert_equal(['19', 'Foreign investment income (net balance)', '-636.36'], rows.find { |row| row[0] == '19' })
-    assert_equal(['23', 'Including losses from the disposal of shares', '636.36'], rows.find { |row| row[0] == '23' })
+    assert_equal(['19', 'Foreign investment income', '-636.36'], rows.find { |row| row[0] == '19' })
+    assert_equal(['23', 'Losses from the disposal of shares included in line 19', '636.36'], rows.find { |row| row[0] == '23' })
     refute_includes csv, "'-"
   end
 
