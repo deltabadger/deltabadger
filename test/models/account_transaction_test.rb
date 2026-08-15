@@ -142,8 +142,35 @@ class AccountTransactionTest < ActiveSupport::TestCase
   # --- Enums ---
 
   test 'entry_type enum has all expected values' do
-    expected = %w[buy sell swap_in swap_out deposit withdrawal staking_reward lending_interest airdrop mining fee other_income lost]
+    expected = %w[
+      buy sell swap_in swap_out deposit withdrawal staking_reward lending_interest airdrop mining fee other_income lost
+      withholding_tax return_of_capital adjustment unsupported_activity
+    ]
     assert_equal expected.sort, AccountTransaction.entry_types.keys.sort
+  end
+
+  test 'entry_type enum integer mapping is append-only' do
+    expected = {
+      'buy' => 0,
+      'sell' => 1,
+      'swap_in' => 2,
+      'swap_out' => 3,
+      'deposit' => 4,
+      'withdrawal' => 5,
+      'staking_reward' => 6,
+      'lending_interest' => 7,
+      'airdrop' => 8,
+      'mining' => 9,
+      'fee' => 10,
+      'other_income' => 11,
+      'lost' => 12,
+      'withholding_tax' => 13,
+      'return_of_capital' => 14,
+      'adjustment' => 15,
+      'unsupported_activity' => 16
+    }
+
+    assert_equal expected, AccountTransaction.entry_types
   end
 
   test 'entry_type can be set and queried' do

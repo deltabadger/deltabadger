@@ -479,6 +479,10 @@ nl:
             fee: 'Kosten'
             other_income: 'Inkomen'
             lost: 'Verloren'
+            withholding_tax: 'Bronbelasting'
+            return_of_capital: 'Kapitaalterugbetaling'
+            adjustment: 'Aanpassing'
+            unsupported_activity: 'Overige activiteit'
     order_filters:
         all: 'Alle'
         successful: 'Geslaagd'

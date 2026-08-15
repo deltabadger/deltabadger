@@ -478,6 +478,10 @@ pt:
             fee: 'Taxa'
             other_income: 'Rendimento'
             lost: 'Perdido'
+            withholding_tax: 'Retenção na fonte'
+            return_of_capital: 'Devolução de capital'
+            adjustment: 'Ajuste'
+            unsupported_activity: 'Outra atividade'
     order_filters:
         all: 'Todos'
         successful: 'Bem-sucedidos'

@@ -480,6 +480,10 @@ fr:
             fee: 'Frais'
             other_income: 'Revenu'
             lost: 'Perdu'
+            withholding_tax: 'Retenue à la source'
+            return_of_capital: 'Remboursement de capital'
+            adjustment: 'Ajustement'
+            unsupported_activity: 'Autre activité'
     order_filters:
         all: 'Tous'
         successful: 'Réussis'

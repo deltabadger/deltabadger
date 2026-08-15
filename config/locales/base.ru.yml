@@ -482,6 +482,10 @@ ru:
             fee: 'Комиссия'
             other_income: 'Доход'
             lost: 'Потеряно'
+            withholding_tax: 'Налог у источника'
+            return_of_capital: 'Возврат капитала'
+            adjustment: 'Корректировка'
+            unsupported_activity: 'Прочая операция'
     order_filters:
         all: 'Все'
         successful: 'Выполненные'

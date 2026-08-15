@@ -480,6 +480,10 @@ es:
             fee: 'Comisión'
             other_income: 'Ingreso'
             lost: 'Perdido'
+            withholding_tax: 'Retención'
+            return_of_capital: 'Devolución de capital'
+            adjustment: 'Ajuste'
+            unsupported_activity: 'Otra actividad'
     order_filters:
         all: 'Todos'
         successful: 'Exitosos'
