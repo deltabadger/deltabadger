@@ -193,6 +193,11 @@ module Tax
     end
 
     def resolve_fiat_value(record, currency)
+      # `prefetch`/`add_coin_date` already refuses to price a fiat base. Report drops fiat rows before
+      # the engines, so nothing reads this value; pricing it can only fabricate a missing-price warning
+      # that marks the report incomplete over a number nobody consumes.
+      return 0.to_d if FIAT_CURRENCIES.include?(record.base_currency)
+
       return record.quote_amount.to_d if record.quote_currency == currency && record.quote_amount.present?
 
       if record.quote_currency.present? && STABLECOINS.include?(record.quote_currency) && record.quote_amount.present?

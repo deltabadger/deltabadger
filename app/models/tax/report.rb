@@ -35,7 +35,7 @@ module Tax
           tx[:entry_type].to_s == 'deposit' && !tx[:linked] &&
             !Tax::PriceService::FIAT_CURRENCIES.include?(tx[:base_currency])
         end
-        results = method_class.new.calculate(enriched, **calculation_options)
+        results = method_class.new.calculate(taxable_entries(enriched), **calculation_options)
       end
 
       unless wealth_snapshot?
@@ -83,6 +83,14 @@ module Tax
       # Include all transactions up to end of year (for cost basis from prior years)
       # but only report disposals within the target year
       transactions.where(transacted_at: ..Time.utc(year + 1)).order(transacted_at: :asc)
+    end
+
+    # A fiat ledger row is one leg of a trade or bank funding, never a disposal or a lot. Kraken
+    # emits one signed row per asset, so a EUR-funded buy arrives as a `sell` of EUR; every engine
+    # priced it at 1.0 against lots the user never had. Filter after enrichment on purpose: the fiat
+    # row carries the trade's fee, which PriceService#attribute_quote_row_fees moves onto the crypto leg first.
+    def taxable_entries(enriched)
+      enriched.reject { |tx| Tax::PriceService::FIAT_CURRENCIES.include?(tx[:base_currency]) }
     end
 
     def csv_headers
