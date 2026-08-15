@@ -61,7 +61,14 @@
           reads as a bug. The broker radio still shows; the report simply has no securities to refuse. %>
       <%= render 'tracker/fund_classifications', rows: @fund_classification_rows if @fund_classification_rows.any? %>
 
-      <p class="form__row"><%= t('tracker.export_modal.tax_disclaimer') %></p>
+      <%# Same target as the option row above, so it hides with them: this disclaimer is about the tax
+          report and used to be shown over the plain transactions export too. %>
+      <p class="form__row <%= 'hidden' if @settings['export_type'] == 'transactions' %>"
+         data-tracker-export-target="taxOptions"><%= t('tracker.export_modal.tax_disclaimer') %></p>
+
+      <p class="form__row salert salert--danger hidden" data-tracker-export-target="saveError">
+        <%= t('tracker.export_modal.classification_save_failed') %>
+      </p>
 
       <div data-tracker-export-target="stablecoinOption" class="form__row hidden">
         <label class="form__checkbox-group">

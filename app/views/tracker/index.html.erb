@@ -1,6 +1,6 @@
 <%= turbo_stream_from "user_#{current_user.id}", :tax_report %>
 <%= turbo_stream_from "user_#{current_user.id}", :sync %>
-<%= render 'sync_warning', exchanges: [] %>
+<%= render 'sync_warning', exchanges: @sync_failures %>
 <% if @pending_report %>
   <div data-controller="auto-download" data-auto-download-url-value="<%= download_tax_report_tracker_path(country: @pending_report[:country], year: @pending_report[:year], report_scope: @pending_report[:report_scope]) %>"></div>
 <% end %>

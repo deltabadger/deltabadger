@@ -195,8 +195,13 @@ module Tax
     def append_disclosures(csv)
       csv << []
       csv << [t('tax_report.broker.sections.disclosures')]
+      # `vorabpauschale_start_value` and `withholding_credit_limit` are deliberate deviations, not
+      # bugs: the first is a statutory convention (BMF 21.05.2019 Tz 18.4 wants the year's first
+      # redemption price), the second over-claims a credit unless the taxpayer filed a W-8BEN. Both
+      # are disclosed rather than guessed at, since neither has an input this report can read.
       %w[
-        not_tax_advice usd_balance_fx us_etf_default fx_source interest_withholding_net regulatory_fees
+        not_tax_advice usd_balance_fx us_etf_default vorabpauschale_start_value fx_source
+        interest_withholding_net withholding_credit_limit regulatory_fees
       ].each do |disclosure|
         csv << [t("tax_report.broker.disclosures.#{disclosure}")]
       end

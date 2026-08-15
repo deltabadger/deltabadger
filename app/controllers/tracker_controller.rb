@@ -21,6 +21,13 @@ class TrackerController < ApplicationController
     @account_transactions = filtered_transactions.by_date.includes(
       :exchange, :bot_transaction, :linked_transaction, :inverse_link
     )
+    # A sync failure survives the page it was broadcast onto, so the banner has to be rebuilt on
+    # load — otherwise a persisted failure is invisible until the next sync. Only `:failed`: a
+    # never-synced key is `sync_issue`'s other reason and is not a failure to shout about here.
+    @sync_failures = current_user.api_keys.includes(:exchange).filter_map do |api_key|
+      issue = api_key.sync_issue
+      issue[:exchange] if issue && issue[:reason] == :failed
+    end
     load_portfolio
     check_pending_report
   end
