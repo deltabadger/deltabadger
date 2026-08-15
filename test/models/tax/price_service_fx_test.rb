@@ -50,6 +50,26 @@ class Tax::PriceServiceFxTest < ActiveSupport::TestCase
     assert_equal 80.to_d, disposal[5].to_d  # 100 USD * (1 / 1.25)
   end
 
+  test 'DE report converts a foreign-fiat acquisition fee without a missing-price warning' do
+    buy_at = Time.utc(2025, 1, 10)
+    FxRate.create!(currency: 'USD', date: buy_at.to_date, rate: '1.25'.to_d)
+    create(:account_transaction, user: @user, api_key: @api_key, exchange: @api_key.exchange,
+                                 entry_type: :buy, base_currency: 'BTC', base_amount: 1,
+                                 quote_currency: 'USD', quote_amount: 100,
+                                 fee_currency: 'USD', fee_amount: 10, transacted_at: buy_at)
+    create(:account_transaction, user: @user, api_key: @api_key, exchange: @api_key.exchange,
+                                 entry_type: :sell, base_currency: 'BTC', base_amount: 1,
+                                 quote_currency: 'EUR', quote_amount: 300,
+                                 transacted_at: Time.utc(2025, 6, 10))
+
+    csv = Tax::Report.new(country: 'DE', year: 2025,
+                          transactions: AccountTransaction.for_user(@user)).to_csv
+    disposal = CSV.parse(csv, headers: true).find { |row| row[2] == 'BTC' }
+
+    assert_equal 88.to_d, disposal[5].to_d # (100 USD + 10 USD) / 1.25 USD per EUR
+    refute_includes csv, I18n.t('tax_report.incomplete_banner_prefix', locale: :de)
+  end
+
   test 'cached zero FX fallback marks every transaction sharing the broken pair incomplete' do
     Tax::EcbFxRates.expects(:rate).once.raises(Tax::EcbFxRates::MissingRate)
     timestamp = Time.utc(2025, 1, 10)

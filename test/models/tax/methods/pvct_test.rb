@@ -56,6 +56,34 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
     assert_equal 19_975.to_d, disposal[:gain_loss]
   end
 
+  test 'cross-asset acquisition fee does not duplicate cost already in the PVCT numerator' do
+    @price_service.stubs(:price_at)
+                  .with(asset: 'BTC', currency: 'EUR', timestamp: anything)
+                  .returns(40_000.to_d)
+    @price_service.stubs(:price_at)
+                  .with(asset: 'BNB', currency: 'EUR', timestamp: anything)
+                  .returns(100.to_d)
+    @price_service.stubs(:convert_fiat).returns(1.to_d)
+
+    transactions = [
+      { entry_type: :buy, base_currency: 'BNB', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 1, 1), quote_currency: 'EUR' },
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 30_000.to_d, fee_currency: 'BNB', fee_amount: '0.01'.to_d, fee_fiat_value: 1.to_d,
+        transacted_at: Time.utc(2024, 1, 2), quote_currency: 'EUR' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 40_000.to_d, fee_fiat_value: 0.to_d,
+        transacted_at: Time.utc(2024, 6, 1), quote_currency: 'EUR' }
+    ]
+
+    disposal = @pvct.calculate(transactions, price_service: @price_service, currency: 'EUR').first
+
+    # The BNB purchase cost is already in the aggregate: 1 000 + 30 000, not 31 001.
+    assert_equal 31_000.to_d, disposal[:total_acquisition_cost]
+    # Before the sale: 1 BTC at 40 000 plus 9.99 BNB at 100 = 40 999.
+    assert_equal 40_999.to_d, disposal[:portfolio_value]
+  end
+
   test 'crypto-to-crypto swaps are not taxable' do
     @price_service.stubs(:price_at).returns(0.to_d)
 

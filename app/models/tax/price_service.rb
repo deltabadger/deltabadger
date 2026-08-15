@@ -2,6 +2,8 @@ module Tax
   class PriceService
     STABLECOINS = %w[USDT USDC BUSD DAI FDUSD TUSD PYUSD RLUSD].freeze
     FIAT_CURRENCIES = %w[USD EUR GBP CHF SEK PLN DKK CZK BGN].freeze
+    ACQUISITION_TYPES = %w[buy swap_in].freeze
+    private_constant :ACQUISITION_TYPES
 
     attr_reader :warnings
 
@@ -87,7 +89,7 @@ module Tax
       linked_deposit_ids = links.values.to_set
       deposit_amounts = AccountTransaction.where(id: links.values).pluck(:id, :base_amount).to_h
       total = transactions.size
-      transactions.each_with_index.map do |tx, index|
+      entries = transactions.each_with_index.map do |tx, index|
         warnings_before = @warnings.size
         fiat_value, fee_fiat_value = if skip_pricing?(tx)
                                        [0.to_d, 0.to_d]
@@ -118,6 +120,9 @@ module Tax
           transfer_fee_amount: transfer_fee_amount(tx, links, deposit_amounts)
         }
       end
+
+      attribute_quote_row_fees(entries)
+      entries
     end
 
     private
@@ -208,11 +213,37 @@ module Tax
 
       if record.fee_currency == currency
         record.fee_amount.to_d
+      elsif FIAT_CURRENCIES.include?(record.fee_currency)
+        convert_fiat(amount: record.fee_amount.to_d, from: record.fee_currency, to: currency,
+                     timestamp: record.transacted_at)
       elsif STABLECOINS.include?(record.fee_currency)
         convert_fiat(amount: record.fee_amount.to_d, from: 'USD', to: currency, timestamp: record.transacted_at)
       else
         price = price_at(asset: record.fee_currency, currency: currency, timestamp: record.transacted_at)
         price * record.fee_amount.to_d
+      end
+    end
+
+    # Kraken reports a trade as one ledger row per asset, with the fee on the row that paid it: a
+    # EUR-funded BTC buy carries the whole fee on the EUR row, so the BTC lot would never see it.
+    # Move such a fee onto the crypto acquisition it belongs to, when the pairing is unambiguous.
+    def attribute_quote_row_fees(entries)
+      entries.group_by { |entry| entry[:group_id] }.each do |group_id, group|
+        next if group_id.blank? || group.size < 2
+
+        donors = group.select { |entry| FIAT_CURRENCIES.include?(entry[:base_currency]) && entry[:fee_amount].present? }
+        targets = group.select do |entry|
+          ACQUISITION_TYPES.include?(entry[:entry_type].to_s) && FIAT_CURRENCIES.exclude?(entry[:base_currency])
+        end
+        next unless donors.one? && targets.one?
+
+        target = targets.first
+        # A target with a fee of its own is a shape this model cannot merge (a quantity-shrinking
+        # same-asset fee and a cost-adding fiat fee at once), so leave both rows alone.
+        next if target[:fee_currency].present?
+
+        target.merge!(donors.first.slice(:fee_currency, :fee_amount, :fee_fiat_value))
+        donors.first.merge!(fee_currency: nil, fee_amount: nil, fee_fiat_value: 0.to_d)
       end
     end
 
