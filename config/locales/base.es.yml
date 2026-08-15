@@ -510,6 +510,16 @@ es:
             failed_sell: 'Intento fallido de venta de %{amount} %{base} por %{quote_amount} %{quote}'
             skipped: 'Omitido (por debajo del mínimo)'
     tax_report:
+        income:
+            header: 'Rendimientos percibidos (su tributación depende de su naturaleza y de la jurisdicción fiscal — no incluidos en las ganancias patrimoniales indicadas anteriormente)'
+            total: 'Total de %{type}'
+            not_included: 'Los rendimientos percibidos (recompensas por staking, intereses de préstamos, airdrops y rendimientos de minería) no se incluyen en este informe. Tributan como renta y deben declararse por separado.'
+            types:
+                staking_reward: 'recompensas por staking'
+                lending_interest: 'intereses de préstamos'
+                airdrop: 'airdrops'
+                mining: 'rendimientos de minería'
+                other_income: 'otros rendimientos (dividendos, intereses y bonificaciones)'
         warnings:
             missing_prices: Faltan precios históricos para
             upgrade_hint: Actualiza tu plan de CoinGecko o usa deltabadger.com para datos históricos completos.

@@ -511,6 +511,16 @@ de:
             skipped: 'Übersprungen (unter Minimum)'
 
     tax_report:
+        income:
+            header: 'Erhaltene Einkünfte (Besteuerung je nach Einkunftsart und maßgeblichem Steuerrecht — nicht in den oben ausgewiesenen Veräußerungsgewinnen enthalten)'
+            total: 'Summe %{type}'
+            not_included: 'Erhaltene Einkünfte (Staking-Erträge, Lending-Zinsen, Airdrops und Mining-Erträge) sind in diesem Bericht nicht enthalten. Sie unterliegen der Einkommensteuer und müssen gesondert erklärt werden.'
+            types:
+                staking_reward: 'Staking-Erträge'
+                lending_interest: 'Lending-Zinsen'
+                airdrop: 'Airdrops'
+                mining: 'Mining-Erträge'
+                other_income: 'Sonstige Einkünfte (Dividenden, Zinsen, Rückvergütungen)'
         warnings:
             missing_prices: Historische Preise fehlen für
             upgrade_hint: Aktualisiere deinen CoinGecko-Plan oder nutze deltabadger.com für vollständige historische Daten.

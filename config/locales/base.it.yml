@@ -509,6 +509,16 @@ it:
             failed_sell: 'Tentativo di vendita fallito di %{amount} %{base} per %{quote_amount} %{quote}'
             skipped: 'Saltato (sotto il minimo)'
     tax_report:
+        income:
+            header: 'Redditi percepiti (il trattamento fiscale dipende dalla tipologia di reddito e dalla giurisdizione applicabile — non inclusi nelle plusvalenze sopra indicate)'
+            total: 'Totale — %{type}'
+            not_included: 'I redditi percepiti (ricompense da staking, interessi da lending, airdrop e proventi da mining) non sono inclusi nel presente rapporto. Concorrono alla formazione del reddito imponibile e devono essere dichiarati separatamente.'
+            types:
+                staking_reward: 'ricompense da staking'
+                lending_interest: 'interessi da lending'
+                airdrop: 'airdrop'
+                mining: 'proventi da mining'
+                other_income: 'altri redditi (dividendi, interessi e rimborsi)'
         warnings:
             missing_prices: Prezzi storici mancanti per
             upgrade_hint: Aggiorna il tuo piano CoinGecko o usa deltabadger.com per dati storici completi.

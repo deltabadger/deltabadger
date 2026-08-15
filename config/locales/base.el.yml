@@ -523,6 +523,16 @@ el:
             failed_sell: 'Failed attempt to sell %{amount} %{base} for %{quote_amount} %{quote}'
             skipped: 'Skipped (below minimum)'
     tax_report:
+        income:
+            header: 'Εισοδήματα που αποκτήθηκαν (η φορολογική μεταχείριση εξαρτάται από το είδος του εισοδήματος και την αρμόδια φορολογική δικαιοδοσία — δεν περιλαμβάνονται στα παραπάνω κέρδη)'
+            total: 'Σύνολο — %{type}'
+            not_included: 'Τα εισοδήματα που αποκτήθηκαν (ανταμοιβές από staking, τόκοι από δανεισμό, airdrops και έσοδα από mining) δεν περιλαμβάνονται στην παρούσα αναφορά. Φορολογούνται ως εισόδημα και πρέπει να δηλωθούν χωριστά.'
+            types:
+                staking_reward: 'ανταμοιβές από staking'
+                lending_interest: 'τόκοι από δανεισμό'
+                airdrop: 'airdrops'
+                mining: 'έσοδα από mining'
+                other_income: 'λοιπά εισοδήματα (μερίσματα, τόκοι και επιστροφές προμηθειών)'
         warnings:
             missing_prices: Λείπουν ιστορικές τιμές για
             upgrade_hint: Αναβάθμισε το πρόγραμμα CoinGecko ή χρησιμοποίησε το deltabadger.com για πλήρη ιστορικά δεδομένα.

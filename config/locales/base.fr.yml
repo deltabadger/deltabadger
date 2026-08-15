@@ -510,6 +510,16 @@ fr:
             failed_sell: 'Échec de la vente de %{amount} %{base} pour %{quote_amount} %{quote}'
             skipped: 'Ignoré (sous le minimum)'
     tax_report:
+        income:
+            header: 'Revenus perçus (leur imposition dépend de leur nature et de la juridiction fiscale — ils ne sont pas inclus dans les plus-values indiquées ci-dessus)'
+            total: 'Total des %{type}'
+            not_included: 'Les revenus perçus (récompenses de staking, intérêts de prêt, airdrops et revenus du minage) ne sont pas compris dans ce rapport. Ils sont imposables au titre des revenus et doivent faire l’objet d’une déclaration distincte.'
+            types:
+                staking_reward: 'récompenses de staking'
+                lending_interest: 'intérêts de prêt'
+                airdrop: 'airdrops'
+                mining: 'revenus du minage'
+                other_income: 'autres revenus (dividendes, intérêts et ristournes)'
         warnings:
             missing_prices: Prix historiques manquants pour
             upgrade_hint: Passez à un plan CoinGecko supérieur ou utilisez deltabadger.com pour l'historique complet.

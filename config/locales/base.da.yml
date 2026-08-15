@@ -523,6 +523,16 @@ da:
             failed_sell: 'Failed attempt to sell %{amount} %{base} for %{quote_amount} %{quote}'
             skipped: 'Skipped (below minimum)'
     tax_report:
+        income:
+            header: 'Modtagne indtægter (beskatningen afhænger af indtægtstypen og de gældende skatteregler — ikke medregnet i gevinsterne ovenfor)'
+            total: 'I alt — %{type}'
+            not_included: 'Modtagne indtægter (stakingbelønninger, renteindtægter fra udlån, airdrops og indtægter fra mining) er ikke medtaget i denne rapport. De beskattes som indkomst og skal oplyses særskilt.'
+            types:
+                staking_reward: 'stakingbelønninger'
+                lending_interest: 'renteindtægter fra udlån'
+                airdrop: 'airdrops'
+                mining: 'indtægter fra mining'
+                other_income: 'andre indtægter (udbytter, renter og gebyrrefusioner)'
         warnings:
             missing_prices: Manglende historiske priser for
             upgrade_hint: Opgradér dit CoinGecko-abonnement, eller brug deltabadger.com for fuld historik.

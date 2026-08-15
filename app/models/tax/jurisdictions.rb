@@ -24,7 +24,7 @@ module Tax
                 crypto_to_crypto_taxable: false,
                 holding_exemption: 1.year, swap_resets_holding_period: true },
       'CH' => { name: 'Switzerland', method: :wealth_snapshot, currency: 'CHF', locale: :de,
-                snapshot_date: :end_of_year, summary_only_total: true },
+                snapshot_date: :end_of_year, summary_only_total: true, income_taxed_separately: true },
       'PL' => { name: 'Poland', method: :fifo, currency: 'PLN', locale: :pl,
                 crypto_to_crypto_taxable: false },
       'GB' => { name: 'United Kingdom', method: :share_pooling, currency: 'GBP', locale: :en },
