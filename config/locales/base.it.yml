@@ -523,6 +523,7 @@ it:
             exchange: 'Exchange'
             tx_id: 'ID transazione'
             cost_basis_complete: 'Costo di acquisto completo'
+            data_incomplete: 'Dati incompleti'
             acquisition_date: 'Data di acquisto'
             old_stock: 'Vecchio stock'
             tax_exempt: 'Esente'
@@ -531,3 +532,5 @@ it:
             tax_rate: 'Aliquota'
             exempt: 'Esente (soglia)'
         no_taxable_transactions: 'Nessuna transazione imponibile trovata per questo periodo.'
+        incomplete_banner_prefix: 'AVVISO'
+        incomplete_banner: '%{missing} valori mancanti — report incompleto, non presentarlo così com''è'

@@ -79,4 +79,32 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
     # allocated = 5000 * 10000 / 10000 = 5000. gain = 10000 - 5000 = 5000
     assert_equal 5_000.to_d, disposals[1][:gain_loss]
   end
+
+  test 'an unpriced acquisition marks every later disposal of that asset incomplete' do
+    @price_service.stubs(:price_at).returns(1_000.to_d)
+
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 2.to_d,
+        fiat_value: 0.to_d, price_missing: true, transacted_at: Time.utc(2024, 1, 1) },
+      { entry_type: :buy, base_currency: 'ETH', base_amount: 1.to_d,
+        fiat_value: 1_000.to_d, price_missing: false, transacted_at: Time.utc(2024, 1, 2) },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 1_000.to_d, price_missing: false, quote_currency: 'EUR',
+        transacted_at: Time.utc(2024, 2, 1) },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 1_000.to_d, price_missing: false, quote_currency: 'EUR',
+        transacted_at: Time.utc(2024, 3, 1) },
+      { entry_type: :sell, base_currency: 'ETH', base_amount: 1.to_d,
+        fiat_value: 1_000.to_d, price_missing: false, quote_currency: 'EUR',
+        transacted_at: Time.utc(2024, 4, 1) }
+    ]
+
+    disposals = @pvct.calculate(transactions, price_service: @price_service, currency: 'EUR')
+    btc_disposals = disposals.select { |disposal| disposal[:asset] == 'BTC' }
+    btc_flags = btc_disposals.map { |disposal| disposal[:data_incomplete] }
+    eth_disposal = disposals.find { |disposal| disposal[:asset] == 'ETH' }
+
+    assert_equal [true, true], btc_flags
+    assert_equal false, eth_disposal[:data_incomplete]
+  end
 end

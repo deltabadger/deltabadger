@@ -7,24 +7,26 @@ module Tax
       #
       # Used by: France ("prix moyen pondéré"), Sweden ("genomsnittsmetoden")
       def calculate(transactions, **_options)
-        pools = Hash.new { |h, k| h[k] = { total_amount: 0.to_d, total_cost: 0.to_d } }
+        pools = Hash.new { |h, k| h[k] = { total_amount: 0.to_d, total_cost: 0.to_d, assumed: false } }
         disposals = []
 
         transactions.each do |tx|
           asset = tx[:base_currency]
           amount = tx[:base_amount]
-          fiat_value = tx[:fiat_value] || 0
+          fiat_value = tx[:fiat_value] || 0.to_d
           pool = pools[asset]
 
           case tx[:entry_type].to_sym
           when :buy, :swap_in, :deposit, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
             pool[:total_amount] += amount
             pool[:total_cost] += fiat_value
+            pool[:assumed] = true if tx[:price_missing]
 
           when :sell, :swap_out, :withdrawal
-            avg_cost_per_unit = pool[:total_amount].positive? ? (pool[:total_cost] / pool[:total_amount]) : 0
+            has_pool = pool[:total_amount].positive?
+            avg_cost_per_unit = has_pool ? (pool[:total_cost] / pool[:total_amount]) : 0.to_d
             cost_basis = avg_cost_per_unit * amount
-            fee_fiat = tx[:fee_fiat_value] || 0
+            fee_fiat = tx[:fee_fiat_value] || 0.to_d
 
             disposals << {
               date: tx[:transacted_at],
@@ -35,7 +37,8 @@ module Tax
               fee: fee_fiat,
               gain_loss: fiat_value - cost_basis - fee_fiat,
               holding_days: nil,
-              cost_basis_complete: pool[:total_amount].positive?,
+              cost_basis_complete: has_pool,
+              data_incomplete: tx[:price_missing] ? true : pool[:assumed] || !has_pool,
               tx_id: tx[:tx_id],
               exchange: tx[:exchange]
             }

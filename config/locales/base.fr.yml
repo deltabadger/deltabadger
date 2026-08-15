@@ -524,6 +524,7 @@ fr:
             exchange: 'Plateforme'
             tx_id: 'ID de transaction'
             cost_basis_complete: 'Coût d''acquisition complet'
+            data_incomplete: 'Données incomplètes'
             acquisition_date: 'Date d''acquisition'
             old_stock: 'Ancien stock'
             tax_exempt: 'Exonéré'
@@ -532,3 +533,5 @@ fr:
             total_acquisition_cost: 'Coût total d''acquisition'
             portfolio_value: 'Valeur globale du portefeuille'
         no_taxable_transactions: 'Aucune transaction imposable trouvée pour cette période.'
+        incomplete_banner_prefix: 'AVERTISSEMENT'
+        incomplete_banner: '%{missing} valeurs manquantes — rapport incomplet, ne pas déclarer en l''état'

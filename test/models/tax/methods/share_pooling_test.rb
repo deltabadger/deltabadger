@@ -60,4 +60,17 @@ class Tax::Methods::SharePoolingTest < ActiveSupport::TestCase
     assert_equal 5_000.to_d, disposals.first[:gain_loss]
     assert_includes disposals.first[:matching_rule], 'section104'
   end
+
+  test 'an unpriced acquisition contaminates the Section 104 pool' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 0.to_d, price_missing: true, transacted_at: Time.utc(2024, 1, 1) },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 50_000.to_d, price_missing: false, transacted_at: Time.utc(2024, 6, 1) }
+    ]
+
+    disposal = @sp.calculate(transactions).first
+
+    assert_equal true, disposal[:data_incomplete]
+  end
 end

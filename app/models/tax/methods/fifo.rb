@@ -14,18 +14,23 @@ module Tax
 
         lots = Hash.new { |h, k| h[k] = [] }
         disposals = []
-        transferred_cost = {} # group_id => { total_cost:, earliest_date: }
+        transferred_cost = {} # group_id => { total_cost:, earliest_date:, basis_assumed: }
 
         transactions.each do |tx|
           asset = tx[:base_currency]
           amount = tx[:base_amount]
-          fiat_value = tx[:fiat_value] || 0
+          fiat_value = tx[:fiat_value] || 0.to_d
           entry = tx[:entry_type].to_sym
 
           case entry
           when :buy, :deposit, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
-            cost_per_unit = amount.positive? ? (fiat_value / amount) : 0
-            lots[asset] << { amount: amount, cost_per_unit: cost_per_unit, date: tx[:transacted_at] }
+            cost_per_unit = amount.positive? ? (fiat_value / amount) : 0.to_d
+            lots[asset] << {
+              amount: amount,
+              cost_per_unit: cost_per_unit,
+              date: tx[:transacted_at],
+              basis_assumed: tx[:price_missing]
+            }
 
           when :swap_in
             add_swap_in_lot(lots, transferred_cost, tx, asset, amount, fiat_value)
@@ -34,8 +39,14 @@ module Tax
             if !@crypto_to_crypto_taxable && !fiat_disposal?(tx)
               # Not taxable — transfer cost basis to paired swap_in
               earliest_date = lots[asset].first&.dig(:date)
-              cost = dequeue_cost(lots[asset], amount)
-              transferred_cost[tx[:group_id]] = { total_cost: cost, earliest_date: earliest_date } if tx[:group_id]
+              cost, basis_assumed = dequeue_cost(lots[asset], amount)
+              if tx[:group_id]
+                transferred_cost[tx[:group_id]] = {
+                  total_cost: cost,
+                  earliest_date: earliest_date,
+                  basis_assumed: basis_assumed || tx[:price_missing]
+                }
+              end
             else
               record_disposal(lots, disposals, tx, asset, amount, fiat_value)
             end
@@ -51,12 +62,12 @@ module Tax
       private
 
       def record_disposal(lots, disposals, transaction, asset, amount, fiat_value)
-        fee_fiat = transaction[:fee_fiat_value] || 0
+        fee_fiat = transaction[:fee_fiat_value] || 0.to_d
         has_lots = lots[asset].any?
         first_lot = lots[asset].first
         earliest_date = first_lot&.dig(:date)
         holding_ref_date = first_lot&.dig(:holding_start) || earliest_date
-        cost_basis = dequeue_cost(lots[asset], amount)
+        cost_basis, basis_assumed = dequeue_cost(lots[asset], amount)
         holding_days = holding_ref_date ? ((transaction[:transacted_at] - holding_ref_date) / 1.day).to_i : 0
 
         disposal = {
@@ -70,6 +81,7 @@ module Tax
           gain_loss: fiat_value - cost_basis - fee_fiat,
           holding_days: holding_days,
           cost_basis_complete: has_lots,
+          data_incomplete: data_incomplete?(transaction, has_lots, basis_assumed),
           tx_id: transaction[:tx_id],
           exchange: transaction[:exchange]
         }
@@ -81,8 +93,13 @@ module Tax
 
       def add_swap_in_lot(lots, transferred_cost, transaction, asset, amount, fiat_value)
         if @crypto_to_crypto_taxable
-          cost_per_unit = amount.positive? ? (fiat_value / amount) : 0
-          lots[asset] << { amount: amount, cost_per_unit: cost_per_unit, date: transaction[:transacted_at] }
+          cost_per_unit = amount.positive? ? (fiat_value / amount) : 0.to_d
+          lots[asset] << {
+            amount: amount,
+            cost_per_unit: cost_per_unit,
+            date: transaction[:transacted_at],
+            basis_assumed: transaction[:price_missing]
+          }
         else
           xfer = transferred_cost[transaction[:group_id]]
           cost_per_unit = if xfer && amount.positive?
@@ -90,10 +107,15 @@ module Tax
                           elsif amount.positive?
                             fiat_value / amount
                           else
-                            0
+                            0.to_d
                           end
           acq_date = xfer&.dig(:earliest_date) || transaction[:transacted_at]
-          lot = { amount: amount, cost_per_unit: cost_per_unit, date: acq_date }
+          lot = {
+            amount: amount,
+            cost_per_unit: cost_per_unit,
+            date: acq_date,
+            basis_assumed: transaction[:price_missing] || xfer&.dig(:basis_assumed)
+          }
           lot[:holding_start] = transaction[:transacted_at] if @swap_resets_holding_period
           lots[asset] << lot
         end
@@ -114,12 +136,23 @@ module Tax
         earliest_date.to_date < @old_stock_cutoff && holding_days > 365
       end
 
+      # A disposal is incomplete when its own proceeds could not be priced, when it consumed a lot
+      # whose cost was assumed, or when there is no acquisition history to consume at all.
+      def data_incomplete?(transaction, has_lots, basis_assumed)
+        return true if transaction[:price_missing]
+        return true if basis_assumed
+
+        !has_lots
+      end
+
       def dequeue_cost(lots, amount_to_sell)
         remaining = amount_to_sell
-        total_cost = 0
+        total_cost = 0.to_d
+        any_assumed = false
 
         while remaining.positive? && lots.any?
           lot = lots.first
+          any_assumed = true if lot[:basis_assumed]
           if lot[:amount] <= remaining
             total_cost += lot[:amount] * lot[:cost_per_unit]
             remaining -= lot[:amount]
@@ -131,7 +164,7 @@ module Tax
           end
         end
 
-        total_cost
+        [total_cost, any_assumed]
       end
     end
   end

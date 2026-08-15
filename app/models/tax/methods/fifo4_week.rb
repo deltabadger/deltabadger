@@ -8,7 +8,7 @@ module Tax
       private
 
       def record_disposal(lots, disposals, transaction, asset, amount, fiat_value)
-        fee_fiat = transaction[:fee_fiat_value] || 0
+        fee_fiat = transaction[:fee_fiat_value] || 0.to_d
         has_lots = lots[asset].any?
 
         # Check for 4-week rule: any lot acquired within 28 days before this disposal?
@@ -19,7 +19,7 @@ module Tax
 
         if recent_lot
           # 4-week rule applies — match against this specific lot
-          cost_basis = dequeue_specific_lot(lots[asset], recent_lot, amount)
+          cost_basis, basis_assumed = dequeue_specific_lot(lots[asset], recent_lot, amount)
           holding_days = ((transaction[:transacted_at] - recent_lot[:date]) / 1.day).to_i
           matching_rule = '4_week_rule'
           acquisition_date = recent_lot[:date]
@@ -28,7 +28,7 @@ module Tax
           first_lot = lots[asset].first
           acquisition_date = first_lot&.dig(:date)
           holding_ref = first_lot&.dig(:holding_start) || acquisition_date
-          cost_basis = dequeue_cost(lots[asset], amount)
+          cost_basis, basis_assumed = dequeue_cost(lots[asset], amount)
           holding_days = holding_ref ? ((transaction[:transacted_at] - holding_ref) / 1.day).to_i : 0
           matching_rule = 'fifo'
         end
@@ -46,6 +46,7 @@ module Tax
           gain_loss: fiat_value - cost_basis - fee_fiat,
           holding_days: holding_days,
           cost_basis_complete: has_lots,
+          data_incomplete: data_incomplete?(transaction, has_lots, basis_assumed),
           matching_rule: matching_rule,
           period: period,
           tx_id: transaction[:tx_id],
@@ -56,17 +57,24 @@ module Tax
       end
 
       def dequeue_specific_lot(lots, target_lot, amount_to_sell)
+        basis_assumed = target_lot[:basis_assumed] ? true : false
+
         if target_lot[:amount] <= amount_to_sell
           cost = target_lot[:amount] * target_lot[:cost_per_unit]
           remaining = amount_to_sell - target_lot[:amount]
           lots.delete(target_lot)
           # If more to sell, continue with FIFO for the remainder
-          cost += dequeue_cost(lots, remaining) if remaining.positive?
+          if remaining.positive?
+            remainder_cost, remainder_assumed = dequeue_cost(lots, remaining)
+            cost += remainder_cost
+            basis_assumed ||= remainder_assumed
+          end
         else
           cost = amount_to_sell * target_lot[:cost_per_unit]
           target_lot[:amount] -= amount_to_sell
         end
-        cost
+
+        [cost, basis_assumed]
       end
     end
   end

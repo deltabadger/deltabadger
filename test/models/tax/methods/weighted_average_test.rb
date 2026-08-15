@@ -54,4 +54,17 @@ class Tax::Methods::WeightedAverageTest < ActiveSupport::TestCase
     assert_equal 13_000.to_d, disposals.first[:cost_basis]
     assert_equal 2_000.to_d, disposals.first[:gain_loss]
   end
+
+  test 'an unpriced acquisition contaminates the average-cost pool' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 0.to_d, price_missing: true, transacted_at: Time.utc(2024, 1, 1) },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 50_000.to_d, price_missing: false, transacted_at: Time.utc(2024, 6, 1) }
+    ]
+
+    disposal = @wa.calculate(transactions).first
+
+    assert_equal true, disposal[:data_incomplete]
+  end
 end
