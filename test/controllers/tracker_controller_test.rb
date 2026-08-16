@@ -283,6 +283,9 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     assert_includes row.text, I18n.t('tracker.export_modal.classification_fund_hint')
     assert_includes row.text,
                     I18n.t('tracker.export_modal.classification_refusal_reasons.pre_2018_fund_lot')
+    # Both sentences, composed: the figures are withheld from this report AND the category is still
+    # our 0% default. A hint to reach for 30% is noise without the disclosure of what we picked.
+    assert_includes @response.body, I18n.t('tracker.export_modal.classification_why_fund_html')
   end
 
   # A symbol can be refused and unclassified at once. Unclassified wins: it is the one that still
@@ -302,6 +305,10 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     row = pending.sole
     assert_equal 'ZZZ', row['data-symbol']
     assert row.at_css('select[data-role="kind"]')
+    # Rendered once, but both facts about it are still stated.
+    assert_includes row.text, I18n.t('tracker.export_modal.classification_why_unclassified')
+    assert_includes row.text,
+                    I18n.t('tracker.export_modal.classification_refusal_reasons.missing_price')
   end
 
   # `classificationsComplete` reads `[data-role="kind"]` and `[data-role="category"]` on every row
