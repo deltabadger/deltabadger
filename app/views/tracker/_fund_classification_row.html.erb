@@ -44,16 +44,18 @@
         <% end %>
       </span>
       <span class="fund-classification__symbol"><%= row[:symbol] %></span>
-      <p class="fund-classification__why">
-        <% if group == :unclassified %>
-          <%= t('tracker.export_modal.classification_why_unclassified') %>
-        <% elsif group == :proposed_fund %>
-          <%= t('tracker.export_modal.classification_why_fund_html') %>
-        <% else %>
-          <% reasons = row[:refusal_reasons].map { |reason| t("tracker.export_modal.classification_refusal_reasons.#{reason}") } %>
-          <%= (reasons + [t('tracker.export_modal.classification_why_refused')]).join(' ') %>
-        <% end %>
-      </p>
+      <%# One sentence per true statement, not one per group: a refused fund is both withheld from
+          this report AND still sitting on our 0% default, and its category outlives this report. %>
+      <% if row[:kind].nil? %>
+        <p class="fund-classification__why"><%= t('tracker.export_modal.classification_why_unclassified') %></p>
+      <% end %>
+      <% if row[:refused] %>
+        <% reasons = row[:refusal_reasons].map { |reason| t("tracker.export_modal.classification_refusal_reasons.#{reason}") } %>
+        <p class="fund-classification__why"><%= (reasons + [t('tracker.export_modal.classification_why_refused')]).join(' ') %></p>
+      <% end %>
+      <% if row[:kind] == :fund && !row[:persisted] %>
+        <p class="fund-classification__why"><%= t('tracker.export_modal.classification_why_fund_html') %></p>
+      <% end %>
     </div>
     <div class="fund-classification__control">
       <%# Static only where the value really is settled: the user decided it and the refusal is not
