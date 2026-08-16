@@ -2,7 +2,11 @@ class Exchanges::Kucoin < Exchange
   COINGECKO_ID = 'kucoin'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Balance insufficient!', 'Insufficient balance'],
-    invalid_key: ['Invalid API-Key', 'Invalid KC-API-SIGN', 'Invalid passphrase'],
+    # 'The API key does not exist or site mismatch.' is code 400003, captured from a live probe —
+    # the message a revoked or wrong-environment key actually returns. Without it a dead KuCoin key
+    # was never flagged :incorrect, so the user saw failures with no prompt to replace it.
+    invalid_key: ['Invalid API-Key', 'Invalid KC-API-SIGN', 'Invalid passphrase',
+                  'The API key does not exist or site mismatch.'],
     # 400002: the signed timestamp fell outside KuCoin's window. Same class as Binance's -1021 —
     # a correct, NTP-synced clock still trips it whenever a request stalls behind a slow exchange
     # proxy for longer than the window. Retried, surfaced gray, no "your bot failed" email.

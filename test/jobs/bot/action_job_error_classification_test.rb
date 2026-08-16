@@ -25,7 +25,12 @@ class Bot::ActionJobErrorClassificationTest < ActiveSupport::TestCase
     kucoin_exchange: 'KuCoin API error 200004: Balance insufficient!',
     # Observed in production 2026-08-16. The venue says "spot balance", and hyperliquid.rb
     # wraps every rejection with a prefix.
-    hyperliquid_exchange: 'Hyperliquid order failed: Insufficient spot balance asset=10266'
+    hyperliquid_exchange: 'Hyperliquid order failed: Insufficient spot balance asset=10266',
+    # Captured production body — errorCode 216. The configured 'Insufficient funds.' appears
+    # nowhere in it, so substring matching alone did not revive Bitvavo.
+    bitvavo_exchange: '{"errorCode":216,"error":"You do not have sufficient balance to complete this operation."}',
+    # Alpaca sends the bare message on some paths and this envelope on others; both must classify.
+    alpaca_exchange: '{"buying_power":"0","code":40310000,"cost_basis":"10","message":"insufficient buying power"}'
   }.freeze
 
   # message => must NOT be swallowed as insufficient_funds. A false positive here parks the bot
@@ -66,6 +71,49 @@ class Bot::ActionJobErrorClassificationTest < ActiveSupport::TestCase
 
     assert_nil Bot::ActionJob.new.send(:ignorable_error_category, stub(exchange: exchange),
                                        RuntimeError.new('some unrelated explosion'))
+  end
+
+  # Exchange#invalid_key_error? decides whether a live failure flips the key to :incorrect and
+  # shows the user a "broken key" button. Same failure mode as the funds classifier: a string that
+  # does not appear in any real response means a dead key is never flagged, and the user is left
+  # with a bot that fails silently forever.
+  #
+  # Every body below was captured from the venue — from a failed-transaction row in production, or
+  # by calling a read-only endpoint with deliberately invalid credentials.
+  INVALID_KEY = {
+    # Probe: deadbeef key/secret.
+    kucoin_exchange: '{"code":"400003","msg":"The API key does not exist or site mismatch."}',
+    bitget_exchange: '{"code":"40037","msg":"Apikey does not exist","requestTime":1786905567776,"data":null}',
+    gemini_exchange: '{"result":"error","reason":"InvalidApiKey","message":"Invalid API key"}',
+    mexc_exchange: '{"code":10072,"msg":"Api key info invalid"}',
+    bitvavo_exchange: '{"errorCode":305,"error":"No active API key found."}',
+    # Production failed-transaction rows.
+    binance_exchange: 'Invalid API-key, IP, or permissions for action.',
+    bybit_exchange: 'Invalid API-key, IP, or permissions for action.',
+    kraken_exchange: 'EAPI:Invalid key'
+  }.freeze
+
+  # Real failures that are NOT a key problem. Flagging the key here would tell the user to replace
+  # a perfectly good key and hide the actual cause.
+  NOT_INVALID_KEY = {
+    # Geo restriction, not a credential problem.
+    kraken_exchange: 'EAccount:Invalid permissions:USDT trading restricted for DE.',
+    bitvavo_exchange: '{"errorCode":216,"error":"You do not have sufficient balance to complete this operation."}',
+    bitget_exchange: '{"code":"43012","msg":"Insufficient balance","requestTime":1781165647492,"data":null}'
+  }.freeze
+
+  INVALID_KEY.each do |factory, body|
+    test "#{factory} recognises its real invalid-key response" do
+      assert create(factory).invalid_key_error?([body]),
+             "#{factory}: a dead key must be flagged, not left failing silently"
+    end
+  end
+
+  NOT_INVALID_KEY.each do |factory, body|
+    test "#{factory} does not flag the key on #{body.truncate(48).inspect}" do
+      assert_not create(factory).invalid_key_error?([body]),
+                 "#{factory}: a non-credential failure must not condemn a working key"
+    end
   end
 
   private

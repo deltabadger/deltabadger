@@ -17,7 +17,10 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     # can never appear in a message — it only added substring-collision risk.
     assert_includes errors[:insufficient_funds], 'Insufficient balance'
     assert_not_includes errors[:insufficient_funds], '170131'
-    assert_includes errors[:invalid_key], '10003'
+    # Messages only. The retCode digits live in INVALID_KEY_CODES, because this list is
+    # substring-matched against error text and a bare number matches any id that contains it.
+    assert_includes errors[:invalid_key], 'Invalid API-key, IP, or permissions for action.'
+    assert_not_includes errors[:invalid_key], '10003'
   end
 
   test 'minimum_amount_logic returns base_or_quote for market orders' do
