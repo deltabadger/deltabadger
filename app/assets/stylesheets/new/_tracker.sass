@@ -133,3 +133,102 @@
         font-weight: 500
         min-width: 9rem
         text-align: right
+
+// Classification panel in the export modal: one card per security that still needs a decision,
+// the settled ones folded into the <details> table below them. Root font-size is 8px, so 1rem = 8px.
+.fund-classification
+    display: flex
+    flex-direction: column
+    gap: 1.25rem
+
+    &__card
+        display: grid
+        grid-template-columns: 1fr
+        gap: 1.25rem 2rem
+        align-items: start
+        border: 1px solid var(--silver)
+        border-left-width: 3px
+        border-radius: 1rem
+        padding: 1.5rem 1.75rem
+
+        @media (min-width: 768px)
+            grid-template-columns: 1fr auto
+
+    &__card--unclassified
+        border-left-color: var(--berry)
+
+        .fund-classification__eyebrow
+            color: var(--berry)
+
+    &__card--proposed-fund
+        border-left-color: var(--sky)
+
+        .fund-classification__eyebrow
+            color: var(--sky)
+
+    &__card--refused
+        border-left-color: var(--warning)
+
+        .fund-classification__eyebrow
+            color: var(--warning)
+
+    &__id
+        display: flex
+        flex-direction: column
+        gap: 0.4rem
+        min-width: 0
+
+    &__eyebrow
+        font-size: 1.3rem
+        letter-spacing: 0.08em
+        text-transform: uppercase
+        font-weight: 700
+
+    &__symbol
+        font-size: 1.75rem
+        font-weight: 600
+        color: var(--ink)
+
+    &__why
+        font-size: 1.5rem
+        color: var(--stone)
+        margin: 0
+
+    &__control
+        display: flex
+        flex-direction: column
+        gap: 0.6rem
+        align-items: flex-start
+
+        @media (min-width: 768px)
+            align-items: flex-end
+
+    &__static
+        font-size: 1.6rem
+        color: var(--stone)
+
+        b
+            color: var(--ink)
+
+    &__hint
+        font-size: 1.4rem
+        color: var(--stone)
+
+        @media (min-width: 768px)
+            text-align: right
+
+    &__settled
+        margin-top: 2rem
+        padding: 0 1.75rem
+        border: 1px solid var(--silver)
+        border-radius: 1rem
+        background: var(--paper-on-washed)
+
+        &[open]
+            padding-bottom: 1.4rem
+
+        > summary
+            cursor: pointer
+            padding: 1.4rem 0
+            font-size: 1.6rem
+            font-weight: 600

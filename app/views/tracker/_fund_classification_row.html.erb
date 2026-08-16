@@ -1,0 +1,77 @@
+<%# Locals: row (a Tax::BrokerReport#classification_rows entry), group (see _fund_classifications) %>
+<%# A row renders an editable control only for the thing it is asking about; where it shows a value
+    as text instead, a hidden input carries it, because the Generate gate reads `[data-role="kind"]`
+    and `[data-role="category"]` on every row and a missing one is `null.value`. %>
+<% kind_select = capture do %>
+  <select data-role="kind"
+          data-action="change->tracker-export#changeClassification">
+    <option value=""><%= t('tracker.export_modal.classification_select') %></option>
+    <% FundClassification.kinds.each_key do |kind| %>
+      <option value="<%= kind %>" <%= 'selected' if row[:kind] == kind.to_sym %>><%= t("tax_report.broker.kinds.#{kind}") %></option>
+    <% end %>
+  </select>
+<% end %>
+<%# The wrapper div is what changeClassification toggles, so it must stay the select's parent. %>
+<% category_select = capture do %>
+  <div class="<%= 'hidden' unless row[:kind] == :fund %>">
+    <select data-role="category"
+            data-action="change->tracker-export#changeClassification">
+      <option value=""><%= t('tracker.export_modal.classification_select') %></option>
+      <% FundClassification.fund_categories.each_key do |category| %>
+        <option value="<%= category %>" <%= 'selected' if row[:fund_category] == category.to_sym %>><%= t("tax_report.broker.fund_categories.#{category}") %></option>
+      <% end %>
+    </select>
+  </div>
+<% end %>
+<%# The ledger's exact symbol spelling is what FundClassification.resolve looks up. %>
+<% if group == :settled %>
+  <tr data-tracker-export-target="classificationRow" data-symbol="<%= row[:symbol] %>">
+    <td><%= row[:symbol] %></td>
+    <td><%= kind_select %></td>
+    <td><%= category_select %></td>
+  </tr>
+<% else %>
+  <div class="fund-classification__card fund-classification__card--<%= group.to_s.tr('_', '-') %>"
+       data-tracker-export-target="classificationRow" data-symbol="<%= row[:symbol] %>">
+    <div class="fund-classification__id">
+      <span class="fund-classification__eyebrow">
+        <% if group == :unclassified %>
+          <%= t('tracker.export_modal.classification_eyebrow_unclassified') %>
+        <% elsif group == :proposed_fund %>
+          <%= t('tracker.export_modal.classification_eyebrow_fund') %>
+        <% else %>
+          <%= t('tracker.export_modal.classification_eyebrow_refused') %>
+        <% end %>
+      </span>
+      <span class="fund-classification__symbol"><%= row[:symbol] %></span>
+      <p class="fund-classification__why">
+        <% if group == :unclassified %>
+          <%= t('tracker.export_modal.classification_why_unclassified') %>
+        <% elsif group == :proposed_fund %>
+          <%= t('tracker.export_modal.classification_why_fund_html') %>
+        <% else %>
+          <% reasons = row[:refusal_reasons].map { |reason| t("tracker.export_modal.classification_refusal_reasons.#{reason}") } %>
+          <%= (reasons + [t('tracker.export_modal.classification_why_refused')]).join(' ') %>
+        <% end %>
+      </p>
+    </div>
+    <div class="fund-classification__control">
+      <% if group == :unclassified %>
+        <%= kind_select %>
+        <%= category_select %>
+      <% elsif group == :proposed_fund %>
+        <span class="fund-classification__static"><%= t('tax_report.broker.headers.kind') %>: <b><%= t('tax_report.broker.kinds.fund') %></b></span>
+        <input type="hidden" data-role="kind" value="fund">
+        <%= category_select %>
+        <span class="fund-classification__hint"><%= t('tracker.export_modal.classification_fund_hint') %></span>
+      <% else %>
+        <span class="fund-classification__static"><%= t('tax_report.broker.headers.kind') %>: <b><%= t("tax_report.broker.kinds.#{row[:kind]}") %></b></span>
+        <% if row[:fund_category] %>
+          <span class="fund-classification__static"><%= t("tax_report.broker.fund_categories.#{row[:fund_category]}") %></span>
+        <% end %>
+        <input type="hidden" data-role="kind" value="<%= row[:kind] %>">
+        <input type="hidden" data-role="category" value="<%= row[:fund_category] %>">
+      <% end %>
+    </div>
+  </div>
+<% end %>
