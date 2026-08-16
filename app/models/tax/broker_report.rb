@@ -51,6 +51,10 @@ module Tax
       initialize_calculation
       @records = universe.reject { |record| cryptocurrency?(instrument_symbol(record)) }
       build_symbol_states
+      # The two refusals the panel can afford: `prepare_refusals` reads only the records already in
+      # memory. The other four are raised by the walk, which prices and converts, and stay a matter
+      # for the report's own warnings.
+      prepare_refusals
       symbol_rows
     end
 
