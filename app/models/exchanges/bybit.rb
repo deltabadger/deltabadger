@@ -1,7 +1,10 @@
 class Exchanges::Bybit < Exchange
   COINGECKO_ID = 'bybit_spot'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
-    insufficient_funds: ['170131', 'Insufficient balance'],
+    # '170131' removed: the client returns retMsg only (Clients::Bybit#create_order/#get_order)
+    # and parse_error_message re-strips the code, so the digits never reach a message — while as
+    # a substring they would match any id or epoch that happens to contain them.
+    insufficient_funds: ['Insufficient balance'],
     invalid_key: %w[10003 10004]
   }.freeze
   # https://bybit-exchange.github.io/docs/v5/enum#orderstatus

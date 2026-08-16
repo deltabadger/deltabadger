@@ -13,7 +13,10 @@ class Exchanges::BybitTest < ActiveSupport::TestCase
     errors = @exchange.known_errors
     assert errors[:insufficient_funds].present?
     assert errors[:invalid_key].present?
-    assert_includes errors[:insufficient_funds], '170131'
+    # Not '170131': the client hands us retMsg with the code already stripped, so a bare code
+    # can never appear in a message — it only added substring-collision risk.
+    assert_includes errors[:insufficient_funds], 'Insufficient balance'
+    assert_not_includes errors[:insufficient_funds], '170131'
     assert_includes errors[:invalid_key], '10003'
   end
 

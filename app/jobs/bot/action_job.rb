@@ -242,16 +242,31 @@ class Bot::ActionJob < BotJob
     bot.update_columns(transient_data: bot.transient_data.merge('waiting_for_market_open' => nil))
   end
 
+  # Substring, not equality — the same rule as its four siblings (Exchange#invalid_key_error?,
+  # #transient_error?, #placement_transient_error?, #throttled_error?). Exact equality only ever
+  # worked for the venues whose model happens to unwrap the response to a bare `msg` (Binance and
+  # its clones, Kraken, Coinbase). Everywhere else the raised string is a JSON envelope
+  # ({"code":"43012","msg":"Insufficient balance",…}) or carries a prefix ("Hyperliquid order
+  # failed: …", "Failed to read BTC balance for bot 88: …"), so a genuine out-of-funds rejection
+  # was never recognised: the bot took the red path — retry storm, "your bot failed" email — and
+  # notify_end_of_funds could not fire.
+  #
+  # The trade is a false positive silencing a real error, so the patterns must stay whole phrases.
+  # Blank ones are dropped: "".include? is true for every message and would file every failure on
+  # that venue as out-of-funds.
   def ignorable_error_category(bot, error)
     DO_NOT_RETRY_ERRORS.find do |category|
-      messages = Array(bot.exchange.known_errors[category]).compact
-      error.message.in?(messages)
+      messages = Array(bot.exchange.known_errors[category]).map(&:to_s).reject(&:blank?)
+      messages.any? { |m| error.message.include?(m) }
     end
   end
 
+  # notify_end_of_funds always names the QUOTE asset (Bot::Notifyable), but a selling bot spends
+  # base — so for a sell it would tell the user to top up the asset that did not run out.
+  # Bot::Fundable skips its own low-funds check while selling for exactly this reason. The
+  # classification still stands (don't retry-storm a balance rejection); only the wording changes.
   def notify_ignorable(bot, category, error)
-    case category
-    when :insufficient_funds
+    if category == :insufficient_funds && !bot.selling?
       bot.notify_end_of_funds
     else
       bot.notify_about_error(errors: humanized_errors(bot, error))

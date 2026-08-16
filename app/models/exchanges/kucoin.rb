@@ -2,7 +2,15 @@ class Exchanges::Kucoin < Exchange
   COINGECKO_ID = 'kucoin'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Balance insufficient!', 'Insufficient balance'],
-    invalid_key: ['Invalid API-Key', 'Invalid KC-API-SIGN', 'Invalid passphrase']
+    invalid_key: ['Invalid API-Key', 'Invalid KC-API-SIGN', 'Invalid passphrase'],
+    # 400002: the signed timestamp fell outside KuCoin's window. Same class as Binance's -1021 —
+    # a correct, NTP-synced clock still trips it whenever a request stalls behind a slow exchange
+    # proxy for longer than the window. Retried, surfaced gray, no "your bot failed" email.
+    transient: ['Invalid KC-API-TIMESTAMP'],
+    # Listed again, deliberately: 400002 is raised while verifying the signature (the timestamp is
+    # part of the signed payload), so the order never reached the book and re-placing it next
+    # interval cannot double-buy. See Exchange#placement_transient_error?.
+    placement_safe_transient: ['Invalid KC-API-TIMESTAMP']
   }.freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
@@ -100,7 +108,11 @@ class Exchanges::Kucoin < Exchange
     return result if result.failure?
 
     data = result.data['data']
-    return Result::Failure.new("Failed to get #{name} balances") if data.nil?
+    # This path calls get_accounts directly, so it never sees the client's own code check —
+    # a rejected read arrives as a 200 envelope with no 'data'. Carry the venue's reason through:
+    # invalid_key_error? reads this text to decide whether to flag the key, and a bare
+    # "Failed to get KuCoin balances" tells it (and an operator) nothing.
+    return Result::Failure.new("Failed to get #{name} balances: #{result.data.values_at('code', 'msg').compact.join(' ')}") if data.nil?
 
     asset_ids ||= assets.pluck(:id)
     balances = asset_ids.to_h do |asset_id|

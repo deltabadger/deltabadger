@@ -17,6 +17,29 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     assert_kind_of Array, errors[:invalid_key]
   end
 
+  # 40008 is a stalled request, not a broken bot: retry it like Binance's -1021 instead of
+  # failing the run loudly. Observed in production 2026-08-16 while the UK exchange proxy hung.
+  test 'transient_error? recognises an expired request timestamp' do
+    assert @exchange.transient_error?(
+      ['{"code":"40008","msg":"Request timestamp expired","requestTime":1786893362617,"data":null}']
+    )
+  end
+
+  test 'transient_error? does not swallow an ordinary rejection' do
+    assert_not @exchange.transient_error?(['{"code":"43012","msg":"Insufficient balance"}'])
+  end
+
+  # 40008 is rejected during signature verification, so the order never reached the book —
+  # re-placing it next interval cannot double-buy. Without this, a placement rejected by a
+  # stalled proxy still writes a phantom `failed` transaction and emails the user.
+  test 'placement_transient_error? treats an expired timestamp as a pre-trade rejection' do
+    assert @exchange.placement_transient_error?(['{"code":"40008","msg":"Request timestamp expired"}'])
+  end
+
+  test 'placement_transient_error? stays false for an ambiguous failure' do
+    assert_not @exchange.placement_transient_error?(['{"code":"43012","msg":"Insufficient balance"}'])
+  end
+
   test 'minimum_amount_logic returns base_or_quote for market orders' do
     assert_equal :base_or_quote, @exchange.minimum_amount_logic(order_type: :market_order)
   end
