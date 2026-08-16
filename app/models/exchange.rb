@@ -266,10 +266,19 @@ class Exchange < ApplicationRecord
   # reached the matching engine → re-placing with a fresh timestamp is safe), whereas a placement
   # network timeout OR an ambiguous exchange error is indistinguishable from a successful book hit, and
   # placement has no idempotency key → it must NOT be treated as safely transient. Do not widen this.
+  #
+  # A venue may add its own strings via known_errors[:placement_safe_transient], scoped to itself so
+  # one venue's wording can never vouch for another's. The bar is unchanged and deliberately high:
+  # the string must guarantee a PRE-TRADE rejection. Signed-timestamp rejections qualify because the
+  # timestamp is part of the signed payload — failing it fails authentication, and an unauthenticated
+  # request never reaches the matching engine. That is the same proof that admitted Binance's -1021.
+  # Note this is opt-in separately from known_errors[:transient]: being retryable on a READ says
+  # nothing about being safe to RE-PLACE, so the string must be listed twice, on purpose.
   def placement_transient_error?(errors)
+    patterns = PLACEMENT_SAFE_TRANSIENT_ERRORS + (known_errors[:placement_safe_transient] || []).map(&:to_s)
     Array(errors).any? do |err|
       msg = err.to_s
-      PLACEMENT_SAFE_TRANSIENT_ERRORS.any? { |m| msg.include?(m) }
+      patterns.any? { |m| msg.include?(m) }
     end
   end
 

@@ -17,6 +17,27 @@ class Exchanges::KucoinTest < ActiveSupport::TestCase
     assert_kind_of Array, errors[:invalid_key]
   end
 
+  # 400002 is a stalled request, not a broken bot: retry it like Binance's -1021 instead of
+  # failing the run loudly. Observed in production 2026-08-16 while the UK exchange proxy hung.
+  test 'transient_error? recognises a stale KC-API-TIMESTAMP rejection' do
+    assert @exchange.transient_error?(['{"code":"400002","msg":"Invalid KC-API-TIMESTAMP."}'])
+  end
+
+  test 'transient_error? does not swallow an ordinary rejection' do
+    assert_not @exchange.transient_error?(['KuCoin API error 200004: Balance insufficient!'])
+  end
+
+  # 400002 is rejected during signature verification, so the order never reached the book —
+  # re-placing it next interval cannot double-buy. Without this, a placement rejected by a
+  # stalled proxy still writes a phantom `failed` transaction and emails the user.
+  test 'placement_transient_error? treats a stale timestamp as a pre-trade rejection' do
+    assert @exchange.placement_transient_error?(['{"code":"400002","msg":"Invalid KC-API-TIMESTAMP."}'])
+  end
+
+  test 'placement_transient_error? stays false for an ambiguous failure' do
+    assert_not @exchange.placement_transient_error?(['KuCoin API error 200004: Balance insufficient!'])
+  end
+
   test 'minimum_amount_logic returns base_or_quote for market orders' do
     assert_equal :base_or_quote, @exchange.minimum_amount_logic(order_type: :market_order)
   end

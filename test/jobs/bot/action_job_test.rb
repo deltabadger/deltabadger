@@ -214,6 +214,22 @@ module ActionJobBehaviorTests
       end
     end
 
+    # end_of_funds always names the QUOTE asset (Bot::Notifyable#notify_end_of_funds). A selling
+    # bot spends base, so that mail would tell the user to top up the asset that did not run out.
+    # Bot::Fundable already skips its low-funds check while selling for the same reason.
+    test 'a selling bot out of base gets the real error, not the quote-asset end_of_funds mail' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.stubs(:selling?).returns(true)
+      bot.stubs(:execute_action).returns(Result::Failure.new('insufficient buying power'))
+      bot.exchange.stubs(:known_errors).returns(insufficient_funds: ['insufficient buying power'])
+      bot.expects(:notify_end_of_funds).never
+      bot.expects(:notify_about_error).once
+
+      Bot::ActionJob.new.perform(bot)
+      assert_equal 'retrying', bot.reload.status
+    end
+
     test 'does not schedule next job when break_reschedule is true' do
       bot = create_bot
       setup_action_job_mocks(bot)
