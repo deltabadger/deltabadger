@@ -176,6 +176,135 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/translation_missing/, @response.body)
   end
 
+  # A hundred holdings used to render a hundred rows, and the user had to scroll all of them to
+  # discover that none needed a decision. Only the rows that ask something render up front.
+  test 'the classification panel renders only the rows that need a decision' do
+    MarketData.stubs(:configured?).returns(true)
+    broker_ledger('AAPL' => 'stock', 'VT' => 'etf', 'MYSTERY' => nil)
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    pending, settled = classification_rows_by_visibility
+    # Unclassified first — it blocks the report — then the fund we guessed at 0% Teilfreistellung.
+    assert_equal %w[MYSTERY VT], symbols_of(pending)
+    assert_equal %w[AAPL], symbols_of(settled)
+    assert_no_match(/translation_missing/, @response.body)
+  end
+
+  test 'a portfolio of nothing but shares asks for nothing and folds into the disclosure' do
+    MarketData.stubs(:configured?).returns(true)
+    broker_ledger('AAPL' => 'stock', 'MSFT' => 'stock')
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    pending, settled = classification_rows_by_visibility
+    assert_empty pending
+    assert_equal %w[AAPL MSFT], symbols_of(settled)
+    assert_includes @response.body, I18n.t('tracker.export_modal.classification_settled', count: 2)
+  end
+
+  # The disclosure stays the only place a classification can be changed, so its selects — including
+  # the Type one, the only route to `other_security` — must still be there.
+  test 'a fund the user has already decided sits in the disclosure, still editable' do
+    MarketData.stubs(:configured?).returns(true)
+    broker_ledger('VT' => 'etf')
+    FundClassification.create!(user: @user, symbol: 'VT', kind: :fund, fund_category: :equity_fund)
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    pending, settled = classification_rows_by_visibility
+    assert_empty pending
+    row = settled.sole
+    assert row.at_css('select[data-role="kind"] option[value="other_security"]')
+    assert_equal 'equity_fund', row.at_css('select[data-role="category"] option[selected]')['value']
+  end
+
+  # Type is already known on a proposed fund; the money question is the category.
+  test 'a proposed fund asks only for the category' do
+    MarketData.stubs(:configured?).returns(true)
+    broker_ledger('VT' => 'etf')
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    pending, = classification_rows_by_visibility
+    row = pending.sole
+    assert_nil row.at_css('select[data-role="kind"]')
+    assert_equal 'fund', row.at_css('input[type="hidden"][data-role="kind"]')['value']
+    assert row.at_css('select[data-role="category"]')
+  end
+
+  # Refusals are computed by the full report run, not by `classification_rows`, so the panel cannot
+  # produce one today — this pins the rendering for when it can.
+  test 'a refused row is read-only and names its refusal reason' do
+    MarketData.stubs(:configured?).returns(true)
+    broker_ledger('AAPL' => 'stock')
+    stub_classification_rows(
+      classification_row(symbol: 'AAPL', kind: :share, persisted: true,
+                         refusal_reasons: %i[unsupported_activity])
+    )
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    pending, = classification_rows_by_visibility
+    row = pending.sole
+    assert_empty row.css('select')
+    assert_equal 'share', row.at_css('input[type="hidden"][data-role="kind"]')['value']
+    assert_includes row.text,
+                    I18n.t('tracker.export_modal.classification_refusal_reasons.unsupported_activity')
+    assert_no_match(/translation_missing/, @response.body)
+  end
+
+  # A symbol can be refused and unclassified at once. Unclassified wins: it is the one that still
+  # needs an answer, and a row rendered twice would let two controls disagree about one symbol.
+  test 'a row that is both unclassified and refused renders once, asking for the type' do
+    MarketData.stubs(:configured?).returns(true)
+    broker_ledger('AAPL' => 'stock')
+    stub_classification_rows(
+      classification_row(symbol: 'ZZZ', kind: nil, refusal_reasons: %i[missing_price])
+    )
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    pending, settled = classification_rows_by_visibility
+    assert_empty settled
+    row = pending.sole
+    assert_equal 'ZZZ', row['data-symbol']
+    assert row.at_css('select[data-role="kind"]')
+  end
+
+  # `classificationsComplete` reads `[data-role="kind"]` and `[data-role="category"]` on every row
+  # it finds. A row rendered without one is a TypeError that takes out the Generate button, in the
+  # browser, where nothing else in this suite would see it.
+  test 'every rendered row carries the two controls the completeness gate reads' do
+    MarketData.stubs(:configured?).returns(true)
+    broker_ledger('AAPL' => 'stock', 'VT' => 'etf', 'MYSTERY' => nil)
+    FundClassification.create!(user: @user, symbol: 'AAPL', kind: :share)
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    rows = classification_rows_by_visibility.flatten
+    assert_equal 3, rows.size
+    rows.each do |row|
+      kind = row.at_css('[data-role="kind"]')
+      category = row.at_css('[data-role="category"]')
+      assert kind, "#{row['data-symbol']} has no kind control"
+      assert category, "#{row['data-symbol']} has no category control"
+      # Mirrors the gate: a fund is complete only with a category behind it.
+      value = kind.name == 'select' ? kind.at_css('option[selected]')&.[]('value') : kind['value']
+      next unless value == 'fund'
+
+      selected = category.at_css('option[selected]')&.[]('value') || category['value']
+      assert selected.present?, "#{row['data-symbol']} is a fund with no category"
+    end
+  end
+
   # The disclaimer is about the tax report; it sat outside the toggled block and so was shown over
   # the plain transactions export too.
   test 'the tax disclaimer is inside the tax-only options block' do
@@ -401,5 +530,39 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     deposit = create_transaction(:deposit, base_amount: 0.999, transacted_at: @transacted_at + 2.days)
     withdrawal.update!(linked_transaction: deposit)
     [withdrawal, deposit]
+  end
+
+  # An Alpaca ledger holding each symbol once. `instrument_type` is what FundClassification.resolve
+  # proposes from: 'stock' → share, 'etf' → fund/other_fund, nil → no asset row at all, which is
+  # what an unclassified symbol looks like.
+  def broker_ledger(symbols)
+    alpaca = Exchanges::Alpaca.first || create(:alpaca_exchange)
+    key = @user.api_keys.find_by(exchange: alpaca) || create(:api_key, user: @user, exchange: alpaca)
+
+    symbols.each do |symbol, instrument_type|
+      create(:asset, symbol: symbol, category: 'Stock', instrument_type: instrument_type) if instrument_type
+      create(:account_transaction, user: @user, api_key: key, exchange: alpaca,
+                                   base_currency: symbol, transacted_at: Time.utc(2024, 3, 1))
+    end
+  end
+
+  # [rows the panel renders directly, rows folded into the <details> disclosure].
+  def classification_rows_by_visibility
+    Nokogiri::HTML(@response.body)
+            .css('[data-tracker-export-target="classificationRow"]')
+            .partition { |row| row.ancestors('details').empty? }
+  end
+
+  def symbols_of(rows)
+    rows.map { |row| row['data-symbol'] }
+  end
+
+  def stub_classification_rows(*rows)
+    Tax::BrokerReport.any_instance.stubs(:classification_rows).returns(rows)
+  end
+
+  def classification_row(symbol:, kind:, fund_category: nil, persisted: false, refusal_reasons: [])
+    { symbol: symbol, kind: kind, fund_category: fund_category, classified: !kind.nil?,
+      persisted: persisted, refused: refusal_reasons.any?, refusal_reasons: refusal_reasons }
   end
 end
