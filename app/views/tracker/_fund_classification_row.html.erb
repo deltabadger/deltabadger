@@ -1,7 +1,7 @@
 <%# Locals: row (a Tax::BrokerReport#classification_rows entry), group (see _fund_classifications) %>
-<%# A row renders an editable control only for the thing it is asking about; where it shows a value
-    as text instead, a hidden input carries it, because the Generate gate reads `[data-role="kind"]`
-    and `[data-role="category"]` on every row and a missing one is `null.value`. %>
+<%# Where a row shows a value as text instead of a control, a hidden input carries it, because the
+    Generate gate reads `[data-role="kind"]` and `[data-role="category"]` on every row and a missing
+    one is `null.value` — a TypeError that disables the button silently, in the browser. %>
 <% kind_select = capture do %>
   <select data-role="kind"
           data-action="change->tracker-export#changeClassification">
@@ -56,21 +56,22 @@
       </p>
     </div>
     <div class="fund-classification__control">
-      <% if group == :unclassified %>
-        <%= kind_select %>
-        <%= category_select %>
-      <% elsif group == :proposed_fund %>
-        <span class="fund-classification__static"><%= t('tax_report.broker.headers.kind') %>: <b><%= t('tax_report.broker.kinds.fund') %></b></span>
-        <input type="hidden" data-role="kind" value="fund">
-        <%= category_select %>
-        <span class="fund-classification__hint"><%= t('tracker.export_modal.classification_fund_hint') %></span>
-      <% else %>
+      <%# Static only where the value really is settled: the user decided it and the refusal is not
+          theirs to lift. Everywhere else the value is our guess, so it stays changeable — including
+          on a refused fund, whose category outlives this report even though its figures are withheld. %>
+      <% if group == :refused && row[:persisted] %>
         <span class="fund-classification__static"><%= t('tax_report.broker.headers.kind') %>: <b><%= t("tax_report.broker.kinds.#{row[:kind]}") %></b></span>
         <% if row[:fund_category] %>
           <span class="fund-classification__static"><%= t("tax_report.broker.fund_categories.#{row[:fund_category]}") %></span>
         <% end %>
         <input type="hidden" data-role="kind" value="<%= row[:kind] %>">
         <input type="hidden" data-role="category" value="<%= row[:fund_category] %>">
+      <% else %>
+        <%= kind_select %>
+        <%= category_select %>
+        <% if row[:kind] == :fund && !row[:persisted] %>
+          <span class="fund-classification__hint"><%= t('tracker.export_modal.classification_fund_hint') %></span>
+        <% end %>
       <% end %>
     </div>
   </div>

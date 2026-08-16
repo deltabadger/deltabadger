@@ -143,6 +143,29 @@ class Tax::BrokerReportTest < ActiveSupport::TestCase
                  persisted.slice(:classified, :persisted, :kind, :fund_category))
   end
 
+  # The panel is the only place a user is told a security's figures will be withheld, and the two
+  # refusals that need no price and no FX rate are cheap enough to compute for a modal.
+  test 'classification rows carry the refusals that cost nothing to compute' do
+    create(:asset, symbol: 'FNDX', category: 'Stock', instrument_type: 'etf')
+    classify('ZQX', kind: :share)
+    tx(entry_type: :buy, base_currency: 'ZQX', base_amount: '10', quote_currency: 'USD',
+       quote_amount: '1000', at: Time.utc(2024, 2, 1))
+    tx(entry_type: :unsupported_activity, base_currency: 'ZQX', base_amount: '1',
+       at: Time.utc(2024, 5, 1), raw_data: { 'activity_type' => 'OPEXC' })
+    tx(entry_type: :buy, base_currency: 'FNDX', base_amount: '10', quote_currency: 'USD',
+       quote_amount: '1000', at: Time.utc(2017, 6, 1))
+
+    rows = Tax::BrokerReport.new(user: @user, year: 2024, exchange: @exchange).classification_rows
+
+    refused = rows.find { |row| row[:symbol] == 'ZQX' }
+    assert refused[:refused]
+    assert_equal [:unsupported_activity], refused[:refusal_reasons]
+    # §56 InvStG lots are found from the proposed classification alone — no price, no FX rate.
+    old_lot = rows.find { |row| row[:symbol] == 'FNDX' }
+    assert old_lot[:refused]
+    assert_equal [:pre_2018_fund_lot], old_lot[:refusal_reasons]
+  end
+
   test 'report year declares prior-year VAP and deducts it from a later fund sale' do
     [
       Date.new(2023, 12, 29), Date.new(2024, 2, 1), Date.new(2024, 4, 15),

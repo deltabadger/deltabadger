@@ -222,8 +222,10 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     assert_equal 'equity_fund', row.at_css('select[data-role="category"] option[selected]')['value']
   end
 
-  # Type is already known on a proposed fund; the money question is the category.
-  test 'a proposed fund asks only for the category' do
+  # Both values on this card are our guess from the market-data catalogue, so both stay changeable.
+  # Re-typing a mis-catalogued ETN must not cost a save of `kind=fund` first — that would persist the
+  # §20(4) election the taxpayer never made.
+  test 'a proposed fund offers the type as well as the category' do
     MarketData.stubs(:configured?).returns(true)
     broker_ledger('VT' => 'etf')
 
@@ -232,14 +234,13 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     pending, = classification_rows_by_visibility
     row = pending.sole
-    assert_nil row.at_css('select[data-role="kind"]')
-    assert_equal 'fund', row.at_css('input[type="hidden"][data-role="kind"]')['value']
-    assert row.at_css('select[data-role="category"]')
+    assert_equal 'fund', row.at_css('select[data-role="kind"] option[selected]')['value']
+    assert row.at_css('select[data-role="kind"] option[value="other_security"]')
+    assert_equal 'other_fund', row.at_css('select[data-role="category"] option[selected]')['value']
   end
 
-  # Refusals are computed by the full report run, not by `classification_rows`, so the panel cannot
-  # produce one today — this pins the rendering for when it can.
-  test 'a refused row is read-only and names its refusal reason' do
+  # Nothing left to decide: the user already stated the type, and the refusal is not theirs to lift.
+  test 'a refused row the user has decided is read-only and names its refusal reason' do
     MarketData.stubs(:configured?).returns(true)
     broker_ledger('AAPL' => 'stock')
     stub_classification_rows(
@@ -254,9 +255,34 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     row = pending.sole
     assert_empty row.css('select')
     assert_equal 'share', row.at_css('input[type="hidden"][data-role="kind"]')['value']
+    # Both halves ride along, or the gate reads `null.value` off the row and kills Generate.
+    assert_equal '', row.at_css('input[type="hidden"][data-role="category"]')['value']
     assert_includes row.text,
                     I18n.t('tracker.export_modal.classification_refusal_reasons.unsupported_activity')
     assert_no_match(/translation_missing/, @response.body)
+  end
+
+  # A refusal withholds this year's figures; it does not withdraw the user's right to state the
+  # category. Locking the row at our pessimistic 0% default would show them the expensive answer and
+  # deny them the correction — and the classification outlives this report.
+  test 'a refused fund we proposed keeps both selects' do
+    MarketData.stubs(:configured?).returns(true)
+    broker_ledger('VT' => 'etf')
+    stub_classification_rows(
+      classification_row(symbol: 'VT', kind: :fund, fund_category: :other_fund,
+                         refusal_reasons: %i[pre_2018_fund_lot])
+    )
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    pending, = classification_rows_by_visibility
+    row = pending.sole
+    assert_equal 'other_fund', row.at_css('select[data-role="category"] option[selected]')['value']
+    assert row.at_css('select[data-role="kind"]')
+    assert_includes row.text, I18n.t('tracker.export_modal.classification_fund_hint')
+    assert_includes row.text,
+                    I18n.t('tracker.export_modal.classification_refusal_reasons.pre_2018_fund_lot')
   end
 
   # A symbol can be refused and unclassified at once. Unclassified wins: it is the one that still
