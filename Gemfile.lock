@@ -621,7 +621,7 @@ DEPENDENCIES
   faraday-net_http_persistent (~> 2.3.0)
   haikunator (~> 1.1)
   haml-rails (~> 3.0)
-  honeymaker (~> 0.11.0)
+  honeymaker (~> 0.11.1)
   hyperliquid-rb
   importmap-rails
   jaro_winkler (~> 1.7)
