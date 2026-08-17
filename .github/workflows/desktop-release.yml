@@ -36,7 +36,9 @@ jobs:
             asset_id: darwin-aarch64
             installer_name: Deltabadger_darwin-aarch64.dmg
             updater_name: Deltabadger_darwin-aarch64.app.tar.gz
-          - runner: macos-13
+          # macos-13 was the Intel image until GitHub retired it on 2025-12-04. macos-15-intel is
+          # the standard-runner replacement; Intel macOS hosting ends with that image in 2027.
+          - runner: macos-15-intel
             target: x86_64-apple-darwin
             asset_id: darwin-x86_64
             installer_name: Deltabadger_darwin-x86_64.dmg

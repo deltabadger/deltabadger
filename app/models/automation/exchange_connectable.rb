@@ -10,6 +10,7 @@ module Automation::ExchangeConnectable
     # Bot::Lifecycle#start, while Rules::Withdrawal#start calls a plain update! that never enters
     # the :start context.
     validate :validate_exchange_not_retired
+    validate :validate_exchange_order_placement_available
   end
 
   def api_key
@@ -30,6 +31,17 @@ module Automation::ExchangeConnectable
     return unless validation_context == :start || (will_save_change_to_status? && working?)
 
     errors.add(:base, I18n.t('errors.exchange_retired'))
+  end
+
+  # The Windows bundle ships without hyperliquid-rb, so its order placement fails on every
+  # interval. The exchange picker disables the button, but that is a view: the REST API, the MCP
+  # tools and a crafted wizard post all reach the same models. Same trigger shape as the retired
+  # guard — a bot may exist, it may not be put to work.
+  def validate_exchange_order_placement_available
+    return if exchange.nil? || exchange.order_placement_available?
+    return unless validation_context == :start || (will_save_change_to_status? && working?)
+
+    errors.add(:base, I18n.t('bot.hyperliquid_trading_unavailable'))
   end
 
   def with_api_key

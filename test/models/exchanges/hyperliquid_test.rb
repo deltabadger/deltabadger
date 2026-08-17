@@ -230,6 +230,22 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert_match(/not available/i, result.errors.join)
   end
 
+  # The picker's disabled button is a view. The REST API, the MCP tools and a crafted wizard post
+  # all reach the model, so the model is where a bot that could never trade has to be refused.
+  test 'a bot cannot be started on an exchange whose order placement is unavailable' do
+    bot = create(:dca_single_asset, user: create(:user), exchange: @exchange, with_api_key: false)
+    Exchanges::Hyperliquid.any_instance.stubs(:order_placement_available?).returns(false)
+
+    refute bot.valid?(:start)
+    assert_includes bot.errors.full_messages.to_sentence, I18n.t('bot.hyperliquid_trading_unavailable')
+  end
+
+  test 'a bot starts normally while order placement is available' do
+    bot = create(:dca_single_asset, user: create(:user), exchange: @exchange, with_api_key: false)
+
+    assert bot.valid?(:start)
+  end
+
   # == adjusted_price: Hyperliquid tick size (<=5 significant figures, <= 8 - szDecimals decimals) ==
 
   test 'adjusted_price floors a >$10 price to 5 significant figures (HYPE regression)' do
