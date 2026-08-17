@@ -84,8 +84,8 @@ class Bot::ExchangeUserPlacementTest < ActiveSupport::TestCase
   # --- failures that provably happened BEFORE the request was sent stay retryable ------------
   # Ambiguity is the whole justification for refusing the retry. A connection that was never
   # established carries no ambiguity: nothing reached the exchange, so retrying cannot double-buy.
-  # Converting those too would cost a bot a full interval — up to a month — every time the AWS
-  # exchange proxy is down, which is a documented recurring outage (Errno::ECONNREFUSED on :8100).
+  # Converting those too would cost a bot a full interval — up to a month — every time a
+  # configured exchange proxy refuses the connection.
 
   test 'a connect timeout during placement stays retryable' do
     @bot.exchange.stubs(:market_buy).raises(
@@ -100,7 +100,7 @@ class Bot::ExchangeUserPlacementTest < ActiveSupport::TestCase
 
   test 'a refused connection during placement stays retryable' do
     @bot.exchange.stubs(:market_buy).raises(
-      Client::TransientNetworkError.new('Faraday::ConnectionFailed: connection refused: 18.132.181.159:8100',
+      Client::TransientNetworkError.new('Faraday::ConnectionFailed: connection refused: 203.0.113.10:9100',
                                         original_class: 'Errno::ECONNREFUSED')
     )
 
@@ -242,7 +242,7 @@ class Bot::ExchangeUserPlacementTest < ActiveSupport::TestCase
           raise Errno::ECONNREFUSED, 'connection refused'
         rescue StandardError
           # net_http_persistent's wrapper, which Faraday then wraps again.
-          raise Faraday::ConnectionFailed, RuntimeError.new('connection refused: 1.2.3.4:8100')
+          raise Faraday::ConnectionFailed, RuntimeError.new('connection refused: 203.0.113.11:9100')
         end
       end
     end.new
@@ -254,7 +254,7 @@ class Bot::ExchangeUserPlacementTest < ActiveSupport::TestCase
 
   test 'a bare adapter connection refusal during placement stays retryable' do
     @bot.exchange.stubs(:market_buy).raises(
-      Client::TransientNetworkError.new('Faraday::ConnectionFailed: connection refused: 18.132.181.159:8100',
+      Client::TransientNetworkError.new('Faraday::ConnectionFailed: connection refused: 203.0.113.10:9100',
                                         original_class: 'Net::HTTP::Persistent::Error')
     )
 

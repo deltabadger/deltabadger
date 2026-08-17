@@ -10,18 +10,18 @@ class ExchangeProxyTest < ActiveSupport::TestCase
   end
 
   test 'AppConfig proxy wins over ENV' do
-    AppConfig.set('proxy_binance', 'http://claimed-proxy.test:8101')
+    AppConfig.set('proxy_binance', 'http://claimed-proxy.test:9000')
 
-    with_env('PROXY_BINANCE', 'http://fleet-proxy.test:8100') do
-      assert_equal 'http://claimed-proxy.test:8101', ExchangeProxy.for('binance')
+    with_env('PROXY_BINANCE', 'http://env-proxy.test:9100') do
+      assert_equal 'http://claimed-proxy.test:9000', ExchangeProxy.for('binance')
     end
   end
 
   test 'blank AppConfig proxy falls through to ENV' do
     AppConfig.set('proxy_binance', '')
 
-    with_env('PROXY_BINANCE', 'http://fleet-proxy.test:8100') do
-      assert_equal 'http://fleet-proxy.test:8100', ExchangeProxy.for(:binance)
+    with_env('PROXY_BINANCE', 'http://env-proxy.test:9100') do
+      assert_equal 'http://env-proxy.test:9100', ExchangeProxy.for(:binance)
     end
   end
 
@@ -43,16 +43,16 @@ class ExchangeProxyTest < ActiveSupport::TestCase
     env_client = mock('env_client')
     claimed_client = mock('claimed_client')
 
-    with_env('PROXY_BINANCE', 'http://fleet-proxy.test:8100') do
+    with_env('PROXY_BINANCE', 'http://env-proxy.test:9100') do
       Honeymaker.expects(:client)
-                .with('binance', api_key: nil, api_secret: nil, proxy: 'http://fleet-proxy.test:8100')
+                .with('binance', api_key: nil, api_secret: nil, proxy: 'http://env-proxy.test:9100')
                 .returns(env_client)
       assert_same env_client, build(:binance_exchange).send(:client)
 
-      AppConfig.set('proxy_binance', 'http://claimed-proxy.test:8101')
+      AppConfig.set('proxy_binance', 'http://claimed-proxy.test:9000')
 
       Honeymaker.expects(:client)
-                .with('binance', api_key: nil, api_secret: nil, proxy: 'http://claimed-proxy.test:8101')
+                .with('binance', api_key: nil, api_secret: nil, proxy: 'http://claimed-proxy.test:9000')
                 .returns(claimed_client)
       assert_same claimed_client, build(:binance_exchange).send(:client)
     end

@@ -66,8 +66,8 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
     exchange, asset, ea = build_exchange(:binance_exchange)
     FeeApiKey.create!(exchange: exchange, key: 'fee_key', secret: 'fee_secret')
 
-    with_env('PROXY_BINANCE', 'http://uk-proxy.test:8100') do
-      stub_fee_client('binance', 'http://uk-proxy.test:8100', :get_all_coins_information,
+    with_env('PROXY_BINANCE', 'http://proxy.test:9100') do
+      stub_fee_client('binance', 'http://proxy.test:9100', :get_all_coins_information,
                       Result::Success.new(binance_style_payload(asset.symbol)))
 
       result = exchange.fetch_withdrawal_fees!
@@ -87,8 +87,8 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
     FeeApiKey.create!(exchange: exchange, key: 'fee_key', secret: 'fee_secret')
     failure = Result::Failure.new('boom')
 
-    with_env('PROXY_BINANCE', 'http://uk-proxy.test:8100') do
-      stub_fee_client('binance', 'http://uk-proxy.test:8100', :get_all_coins_information, failure)
+    with_env('PROXY_BINANCE', 'http://proxy.test:9100') do
+      stub_fee_client('binance', 'http://proxy.test:9100', :get_all_coins_information, failure)
 
       result = exchange.fetch_withdrawal_fees!
 
@@ -105,8 +105,8 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
     FeeApiKey.create!(exchange: exchange, key: 'fee_key', secret: 'fee_secret')
     ea.update!(withdrawal_chains: [{ 'name' => 'OLD', 'fee' => '1', 'is_default' => true }])
 
-    with_env('PROXY_BINANCE_US', 'http://uk-proxy.test:8100') do
-      stub_fee_client('binance_us', 'http://uk-proxy.test:8100', :get_all_coins_information,
+    with_env('PROXY_BINANCE_US', 'http://proxy.test:9100') do
+      stub_fee_client('binance_us', 'http://proxy.test:9100', :get_all_coins_information,
                       Result::Success.new(binance_style_payload(asset.symbol)))
 
       result = exchange.fetch_withdrawal_fees!
@@ -126,8 +126,8 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
     FeeApiKey.create!(exchange: exchange, key: 'fee_key', secret: 'fee_secret')
     payload = { 'data' => binance_style_payload(asset.symbol) }
 
-    with_env('PROXY_BINGX', 'http://uk-proxy.test:8100') do
-      stub_fee_client('bingx', 'http://uk-proxy.test:8100', :get_all_coins_info,
+    with_env('PROXY_BINGX', 'http://proxy.test:9100') do
+      stub_fee_client('bingx', 'http://proxy.test:9100', :get_all_coins_info,
                       Result::Success.new(payload))
 
       result = exchange.fetch_withdrawal_fees!
@@ -145,8 +145,8 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
     exchange, asset, ea = build_exchange(:bitrue_exchange)
     FeeApiKey.create!(exchange: exchange, key: 'fee_key', secret: 'fee_secret')
 
-    with_env('PROXY_BITRUE', 'http://uk-proxy.test:8100') do
-      stub_fee_client('bitrue', 'http://uk-proxy.test:8100', :get_all_coins_information,
+    with_env('PROXY_BITRUE', 'http://proxy.test:9100') do
+      stub_fee_client('bitrue', 'http://proxy.test:9100', :get_all_coins_information,
                       Result::Success.new(binance_style_payload(asset.symbol)))
 
       result = exchange.fetch_withdrawal_fees!
@@ -177,8 +177,8 @@ class ExchangeFetchWithdrawalFeesTest < ActiveSupport::TestCase
       }
     }
 
-    with_env('PROXY_BYBIT', 'http://uk-proxy.test:8100') do
-      stub_fee_client('bybit', 'http://uk-proxy.test:8100', :get_coin_query_info,
+    with_env('PROXY_BYBIT', 'http://proxy.test:9100') do
+      stub_fee_client('bybit', 'http://proxy.test:9100', :get_coin_query_info,
                       Result::Success.new(payload))
 
       result = exchange.fetch_withdrawal_fees!

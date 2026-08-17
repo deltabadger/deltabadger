@@ -86,28 +86,28 @@ class ExchangeTransientRetryTest < ActiveSupport::TestCase
   # proxy then failed loudly (red execution_failed + "your bot failed" email) instead of taking
   # the gray, self-healing transient path.
   test 'transient_error? matches a dead HTTP proxy (bare connection refused)' do
-    assert @exchange.transient_error?(['connection refused: 18.132.181.159:8100'])
+    assert @exchange.transient_error?(['connection refused: 203.0.113.10:9100'])
     assert @exchange.transient_error?(['Errno::ECONNREFUSED: Connection refused - connect(2)'])
     assert @exchange.transient_error?(
-      ['Failed to open TCP connection to 18.132.181.159:8100 (Connection refused - connect(2))']
+      ['Failed to open TCP connection to 203.0.113.10:9100 (Connection refused - connect(2))']
     )
   end
 
   test 'transient_error? matches a dead proxy for an exchange with its own :transient set' do
     kraken = create(:kraken_exchange)
-    assert kraken.transient_error?(['connection refused: 18.132.181.159:8100'])
+    assert kraken.transient_error?(['connection refused: 203.0.113.10:9100'])
   end
 
   # The order-fetch job wraps the whole failure list in its own sentence; the predicate must still
   # match on substring, because that is exactly the string the job hands it.
   test 'transient_error? matches connection refused inside a wrapped error list' do
-    assert @exchange.transient_error?(['Failed to fetch orders OMFR74-QGU2N-FCQUKL. Result: ["connection refused: 18.132.181.159:8100"]'])
+    assert @exchange.transient_error?(['Failed to fetch orders OMFR74-QGU2N-FCQUKL. Result: ["connection refused: 203.0.113.10:9100"]'])
   end
 
   # Double-order safety: a refused TCP connect never reached the matching engine, but placement
   # stays keyed to PLACEMENT_SAFE_TRANSIENT_ERRORS. Widening the READ patterns must not leak here.
   test 'placement_transient_error? NEVER matches a dead proxy (double-order safety)' do
-    refute @exchange.placement_transient_error?(['connection refused: 18.132.181.159:8100'])
+    refute @exchange.placement_transient_error?(['connection refused: 203.0.113.10:9100'])
     refute @exchange.placement_transient_error?(['Errno::ECONNREFUSED: Connection refused - connect(2)'])
   end
 

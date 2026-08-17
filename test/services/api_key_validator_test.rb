@@ -79,14 +79,14 @@ class ApiKeyValidatorTest < ActiveSupport::TestCase
   end
 
   test 'uses the exchange proxy when validating an api key' do
-    AppConfig.set('proxy_binance', 'http://claimed-proxy.test:8101')
+    AppConfig.set('proxy_binance', 'http://claimed-proxy.test:9000')
     mock_client = mock('honeymaker_client')
     mock_client.expects(:validate).with(:trading).returns(Honeymaker::Result::Success.new(true))
     Honeymaker.expects(:client).with(
       'binance',
       api_key: @api_key.key,
       api_secret: @api_key.secret,
-      proxy: 'http://claimed-proxy.test:8101'
+      proxy: 'http://claimed-proxy.test:9000'
     ).returns(mock_client)
 
     result = ApiKeyValidator.call(@api_key.id)
