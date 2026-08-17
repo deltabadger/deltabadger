@@ -2,7 +2,7 @@ require 'test_helper'
 
 class BotHelperTest < ActionView::TestCase
   test 'whitelist ip comes from the claimed exchange proxy' do
-    AppConfig.set('proxy_binance', 'http://user:secret@claimed-proxy.test:8101')
+    AppConfig.set('proxy_binance', 'http://user:secret@claimed-proxy.test:9000')
 
     assert_equal 'claimed-proxy.test', whitelist_ip_for('binance')
   end

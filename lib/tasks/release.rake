@@ -9,11 +9,10 @@
 # behind by this task, and the resulting tagged commit can ship broken
 # code that references files which don't exist in the image.
 #
-# Past incident (v2.11.0): a model file added `include Bot::Startable`
+# This has happened (v2.11.0): a model file added `include Bot::Startable`
 # but the new `app/models/bot/startable.rb` was untracked when the
-# release commit was made. The Docker image built fine but crashed on
-# boot with `uninitialized constant Bot::Startable`, taking out every
-# container the launchpad's update rolled to that version.
+# release commit was made. The Docker image built fine and then crashed on
+# boot with `uninitialized constant Bot::Startable`.
 
 RELEASE_VERSION_FILES = {
   'src-tauri/Cargo.toml' => /^(version = ")[\d.]+(")/,

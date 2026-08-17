@@ -10,15 +10,13 @@ class MarketDataSettings
     AppConfig.market_data_provider
   end
 
-  # A DB-selected deltabadger provider with no credentials behind it is the stale-hosted-DB
-  # case: a container database carried over to a self-hosted install, still claiming a feed it
-  # can no longer reach. Reporting it as configured sends every caller into a Result::Failure
-  # instead of the CoinGecko setup step.
+  # A database can name the deltabadger provider with no URL or token behind it — a database
+  # copied from an install that had credentials to one that does not. Calling that configured
+  # sends every caller into a Result::Failure instead of offering the CoinGecko setup step.
   #
-  # Scoped to the non-ENV path on purpose. When MARKET_DATA_URL is injected the container is
-  # hosted and this is not a question worth re-deciding — widening the check there would flip
-  # a token-less tenant from "401s from the feed" to "back through the setup wizard", which is
-  # a fleet-wide behavior change this does not need to make.
+  # Only when the provider comes from the database. MARKET_DATA_URL in the environment is a
+  # deliberate choice by whoever started the process, and second-guessing it here would send an
+  # install with a URL but no token back through the setup wizard.
   def self.configured?
     return deltabadger_url.present? && deltabadger_token.present? if db_selected_deltabadger?
 
@@ -54,13 +52,9 @@ class MarketDataSettings
       (AppConfig.platform_connected? && deltabadger_url.present? && deltabadger_token.present?)
   end
 
-  # Docker-internal network-alias launchpad's hosted deploy passes as MARKET_DATA_URL (see
-  # deltabadger-launchpad's config/deploy.yml) — fast for server-to-server calls but never
-  # browser-reachable. data-api's own public host (Kamal-proxied, Cloudflare-proxied) serves the
-  # same instance's static assets (e.g. /logos/*) directly to browsers. Serving those images is the
-  # ONLY thing that host does for us — every API call goes over the Docker network — which is why
-  # fronting it with Cloudflare is right rather than a misconfiguration. Any other configured
-  # MARKET_DATA_URL (self-hosted/BYO market data providers) is already public and used as-is.
+  # MARKET_DATA_URL may be a Docker network alias, which is reachable from this process but not
+  # from a browser. Asset URLs handed to the browser (e.g. /logos/*) are rewritten to the public
+  # host instead. Any other configured URL is already public and used as-is.
   DELTABADGER_DOCKER_HOST = 'data-api'
   DELTABADGER_PUBLIC_URL = 'https://data.deltabadger.com'
 

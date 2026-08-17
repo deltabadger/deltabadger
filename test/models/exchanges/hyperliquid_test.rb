@@ -648,14 +648,14 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
 
   test 'get_ledger builds its client with the exchange proxy' do
     api_key = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
-    AppConfig.set('proxy_hyperliquid', 'http://claimed-proxy.test:8101')
+    AppConfig.set('proxy_hyperliquid', 'http://claimed-proxy.test:9000')
     hm_client = mock('honeymaker_client')
     hm_client.expects(:user_fills).returns(Result::Success.new([]))
     Honeymaker.expects(:client).with(
       'hyperliquid',
       api_key: api_key.key,
       api_secret: api_key.secret,
-      proxy: 'http://claimed-proxy.test:8101'
+      proxy: 'http://claimed-proxy.test:9000'
     ).returns(hm_client)
 
     result = @exchange.get_ledger(api_key: api_key)

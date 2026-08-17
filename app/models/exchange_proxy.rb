@@ -1,6 +1,6 @@
 class ExchangeProxy
-  # AppConfig (platform-claimed, self-hosted) beats ENV (container-injected, hosted).
-  # A hosted container never has the AppConfig rows, so fleet behavior is unchanged.
+  # A proxy stored in AppConfig wins over PROXY_<EXCHANGE> in the environment, so a claimed
+  # subscription overrides whatever the container was started with. Neither is required.
   def self.for(exchange)
     exchange_name = exchange.to_s
     AppConfig.get("proxy_#{exchange_name.downcase}").presence ||
