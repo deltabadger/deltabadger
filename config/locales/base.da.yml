@@ -146,6 +146,14 @@ da:
             deltabadger_configured: 'Forbundet til %{provider_name} for live markedsdata.'
             disconnect: 'Afbryd'
             disconnected: 'Markedsdataudbyder afbrudt.'
+        platform:
+            option: 'Deltabadger.com — indsæt forbindelseskoden'
+            code: 'Forbindelseskode'
+            connect: 'Opret forbindelse'
+            connected_with_proxies: 'Forbundet til Deltabadger.com for markedsdata og børsproxyer.'
+            connected_without_proxies: 'Forbundet til Deltabadger.com for markedsdata. Børsproxyer er ikke tilgængelige.'
+            disconnect: 'Afbryd'
+            disconnected: 'Forbindelsen til Deltabadger.com er afbrudt.'
         stocks:
             title: 'Aktier'
             title_html: 'Aktier (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'

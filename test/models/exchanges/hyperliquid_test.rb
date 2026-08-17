@@ -206,6 +206,46 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert_kind_of Numeric, captured[:limit_px]
   end
 
+  test 'limit_buy fails without loading the trading client when order placement is unavailable' do
+    ticker = hyperliquid_ticker(base_decimals: 2)
+    @exchange.set_client
+    @exchange.stubs(:order_placement_available?).returns(false)
+    @exchange.send(:client).expects(:order).never
+
+    result = @exchange.limit_buy(ticker:, amount: BigDecimal('0.2'),
+                                 amount_type: :base, price: BigDecimal('50'))
+
+    assert result.failure?
+    assert_match(/not available/i, result.errors.join)
+  end
+
+  test 'cancel_order fails without loading the trading client when order placement is unavailable' do
+    @exchange.set_client
+    @exchange.stubs(:order_placement_available?).returns(false)
+    @exchange.send(:client).expects(:cancel).never
+
+    result = @exchange.cancel_order(order_id: 'HYPE-123')
+
+    assert result.failure?
+    assert_match(/not available/i, result.errors.join)
+  end
+
+  # The picker's disabled button is a view. The REST API, the MCP tools and a crafted wizard post
+  # all reach the model, so the model is where a bot that could never trade has to be refused.
+  test 'a bot cannot be started on an exchange whose order placement is unavailable' do
+    bot = create(:dca_single_asset, user: create(:user), exchange: @exchange, with_api_key: false)
+    Exchanges::Hyperliquid.any_instance.stubs(:order_placement_available?).returns(false)
+
+    refute bot.valid?(:start)
+    assert_includes bot.errors.full_messages.to_sentence, I18n.t('bot.hyperliquid_trading_unavailable')
+  end
+
+  test 'a bot starts normally while order placement is available' do
+    bot = create(:dca_single_asset, user: create(:user), exchange: @exchange, with_api_key: false)
+
+    assert bot.valid?(:start)
+  end
+
   # == adjusted_price: Hyperliquid tick size (<=5 significant figures, <= 8 - szDecimals decimals) ==
 
   test 'adjusted_price floors a >$10 price to 5 significant figures (HYPE regression)' do
@@ -540,6 +580,41 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert result.data.all? { |t| t[:minimum_quote_size] == 10 }, 'every HL ticker needs the 10 USDC floor'
   end
 
+  test 'ticker balance and ledger reads remain available when order placement is unavailable' do
+    @exchange.stubs(:order_placement_available?).returns(false)
+    @exchange.set_client
+    client = @exchange.send(:client)
+    api_key = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    usdc = create(:asset, external_id: 'usdc', symbol: 'USDC', name: 'USDC')
+    hype = create(:asset, external_id: 'hype', symbol: 'HYPE', name: 'Hype')
+    create(:ticker, exchange: @exchange, base_asset: hype, quote_asset: usdc,
+                    ticker: '@107', base: 'HYPE', quote: 'USDC')
+    spot_meta = {
+      'tokens' => [
+        { 'name' => 'HYPE', 'index' => 1, 'szDecimals' => 2 },
+        { 'name' => 'USDC', 'index' => 0, 'szDecimals' => 2 }
+      ],
+      'universe' => [{ 'name' => '@107', 'tokens' => [1, 0], 'index' => 107 }]
+    }
+    client.expects(:spot_meta).returns(Result::Success.new(spot_meta))
+    client.expects(:spot_balances).returns(Result::Success.new(
+                                             'balances' => [{ 'coin' => 'HYPE', 'total' => '2', 'hold' => '0.5' }]
+                                           ))
+    Honeymaker::Clients::Hyperliquid.any_instance
+                                    .expects(:user_fills)
+                                    .returns(Result::Success.new([]))
+
+    tickers_result = @exchange.get_tickers_info(force: true)
+    balances_result = @exchange.get_balances
+    ledger_result = @exchange.get_ledger(api_key:)
+
+    assert tickers_result.success?
+    assert_equal '@107', tickers_result.data.first[:ticker]
+    assert balances_result.success?
+    assert_equal BigDecimal('1.5'), balances_result.data[hype.id][:free]
+    assert ledger_result.success?
+  end
+
   test 'get_ledger maps the Hyperliquid pair index (coin) to the base symbol' do
     api_key = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
     usdc = create(:asset, external_id: 'usdc', symbol: 'USDC', name: 'USDC')
@@ -569,6 +644,23 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     result = @exchange.get_ledger(api_key: api_key)
 
     assert_equal '@999', result.data.first[:base_currency]
+  end
+
+  test 'get_ledger builds its client with the exchange proxy' do
+    api_key = create(:api_key, exchange: @exchange, raw_key: VALID_WALLET, raw_secret: VALID_AGENT_KEY)
+    AppConfig.set('proxy_hyperliquid', 'http://claimed-proxy.test:8101')
+    hm_client = mock('honeymaker_client')
+    hm_client.expects(:user_fills).returns(Result::Success.new([]))
+    Honeymaker.expects(:client).with(
+      'hyperliquid',
+      api_key: api_key.key,
+      api_secret: api_key.secret,
+      proxy: 'http://claimed-proxy.test:8101'
+    ).returns(hm_client)
+
+    result = @exchange.get_ledger(api_key: api_key)
+
+    assert result.success?
   end
 
   private

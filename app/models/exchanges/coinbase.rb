@@ -40,7 +40,7 @@ class Exchanges::Coinbase < Exchange
     @client = Honeymaker.client('coinbase',
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
-                                proxy: ENV['PROXY_COINBASE'])
+                                proxy: ExchangeProxy.for('coinbase'))
   end
 
   def get_tickers_info(force: false)
@@ -315,7 +315,7 @@ class Exchanges::Coinbase < Exchange
     client = Honeymaker.client('coinbase',
                                api_key: api_key.key,
                                api_secret: api_key.secret,
-                               proxy: ENV['PROXY_COINBASE'])
+                               proxy: ExchangeProxy.for('coinbase'))
 
     result = client.get_api_key_permissions
 
@@ -377,7 +377,7 @@ class Exchanges::Coinbase < Exchange
     hm_client = Honeymaker.client('coinbase',
                                   api_key: api_key.key,
                                   api_secret: api_key.secret,
-                                  proxy: ENV['PROXY_COINBASE'])
+                                  proxy: ExchangeProxy.for('coinbase'))
     entries = []
 
     # Fills (trade history)

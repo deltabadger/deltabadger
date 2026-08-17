@@ -204,6 +204,7 @@ el:
         every_time: "κάθε φορά"
         name: "Όνομα:"
         fees: "Προμήθειες"
+        hyperliquid_trading_unavailable: "Η καταχώριση εντολών στο Hyperliquid δεν είναι ακόμη διαθέσιμη στα Windows. Τα υπόλοιπα και το ιστορικό συναλλαγών παραμένουν διαθέσιμα."
         maker_fee: "Maker"
         taker_fee: "Taker"
         withdrawal_fee: "Ανάληψη"

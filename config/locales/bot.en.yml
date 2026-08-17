@@ -204,6 +204,7 @@ en:
         every_time: "every time"
         name: "Name:"
         fees: "Fees"
+        hyperliquid_trading_unavailable: "Hyperliquid order placement is not available on Windows yet. Balances and transaction history still work."
         maker_fee: "Maker"
         taker_fee: "Taker"
         withdrawal_fee: "Withdrawal"

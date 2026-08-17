@@ -155,7 +155,7 @@ class DcaIndexWizardCreateFailureTest < ActionDispatch::IntegrationTest
   setup do
     @user = create(:user, admin: true, setup_completed: true)
     sign_in @user
-    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
+    configure_deltabadger_market_data
     @eur = create(:asset, :eur)
     @kraken = create(:kraken_exchange)
     # EUR only qualifies as an index quote currency with >= MINIMUM_SUPPORTED_COINS pairs.

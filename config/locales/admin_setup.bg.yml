@@ -2,6 +2,12 @@ bg:
   setup:
     title: "Добре дошли в Deltabadger"
     admin_account: "Администраторски акаунт"
+    platform:
+      prompt: "Имате абонамент за Deltabadger.com?"
+      code: "Код за свързване"
+      connect: "Свързване"
+      connected_with_proxies: "Свързано ✓ — пазарните данни и прокси сървърите за борсите са активни"
+      connected_without_proxies: "Свързано ✓ — пазарните данни са активни; прокси сървърите за борсите не са налични"
     validations:
       name_required: "Името е задължително"
       email_required: "Имейлът е задължителен"

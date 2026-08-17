@@ -2,6 +2,7 @@ pl:
     bot:
         add_api_keys: "Dodaj klucze API dla %{exchange}"
         fees: "Opłaty"
+        hyperliquid_trading_unavailable: "Składanie zleceń na Hyperliquid nie jest jeszcze dostępne w systemie Windows. Salda i historia transakcji nadal działają."
         withdrawal_fee: "Wypłata"
         bot_name: "Nazwa bota"
         new: "Nowy bot"

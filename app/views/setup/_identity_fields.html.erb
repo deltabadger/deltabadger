@@ -1,0 +1,15 @@
+<div id="setup_identity_fields" style="display: contents;">
+  <div class="form__row form__row--input">
+    <%= text_field_tag 'user[name]', user.name, class: "form__input form__input--large", required: true,
+                                          pattern: @name_pattern, id: "user_name",
+                                          data: { html5_error_message: t('setup.validations.name_required') } %>
+    <%= label_tag :user_name, t('activerecord.attributes.user.name'), class: "form__label" %>
+  </div>
+
+  <div class="form__row form__row--input">
+    <%= email_field_tag 'user[email]', user.email, autocomplete: "username", class: "form__input form__input--large",
+                                            required: true, pattern: @email_address_pattern, id: "user_email",
+                                            data: { html5_error_message: t('setup.validations.email_required') } %>
+    <%= label_tag :user_email, t('activerecord.attributes.user.email'), class: "form__label" %>
+  </div>
+</div>

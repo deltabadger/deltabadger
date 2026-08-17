@@ -2,6 +2,12 @@ de:
   setup:
     title: "Willkommen bei Deltabadger"
     admin_account: "Admin-Konto"
+    platform:
+      prompt: "Hast du ein Deltabadger.com-Abonnement?"
+      code: "Verbindungscode"
+      connect: "Verbinden"
+      connected_with_proxies: "Verbunden ✓ — Marktdaten und Börsen-Proxys sind aktiv"
+      connected_without_proxies: "Verbunden ✓ — Marktdaten sind aktiv; Börsen-Proxys sind nicht verfügbar"
     validations:
       name_required: "Name ist erforderlich"
       email_required: "E-Mail ist erforderlich"

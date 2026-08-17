@@ -64,7 +64,7 @@ namespace :release do
     commit_tag_push(new_version)
     create_github_release(new_version)
 
-    puts "\nReleased v#{new_version}"
+    puts "\nReleased v#{new_version}; GitHub Actions is attaching the desktop artifacts"
   end
 
   def update_files(_old_version, new_version)
@@ -87,6 +87,11 @@ namespace :release do
     system("git push origin v#{version}") || abort('git tag push failed')
   end
 
+  # The release exists as soon as the tag is pushed, whatever the desktop build does.
+  # desktop-release.yml adopts this release (`gh release view || gh release create`) and uploads
+  # its DMG, installer and updater manifest into it once every arch has finished — so a tag meant
+  # only for the Docker image still gets its notes, and a desktop build that fails or is skipped
+  # costs the assets, not the release.
   def create_github_release(version)
     tag = "v#{version}"
     system("gh release create #{tag} --title #{tag} --generate-notes") || abort('gh release create failed')

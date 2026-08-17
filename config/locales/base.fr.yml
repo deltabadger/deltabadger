@@ -146,6 +146,14 @@ fr:
             deltabadger_configured: 'Connecté à %{provider_name} pour les données de marché en direct.'
             disconnect: 'Déconnecter'
             disconnected: 'Fournisseur de données de marché déconnecté.'
+        platform:
+            option: 'Deltabadger.com — collez le code de connexion'
+            code: 'Code de connexion'
+            connect: 'Connecter'
+            connected_with_proxies: 'Connecté à Deltabadger.com pour les données de marché et les proxys des plateformes d’échange.'
+            connected_without_proxies: 'Connecté à Deltabadger.com pour les données de marché. Les proxys des plateformes d’échange ne sont pas disponibles.'
+            disconnect: 'Déconnecter'
+            disconnected: 'Deltabadger.com a été déconnecté.'
         email_notifications:
             none: 'Aucune'
             smtp_host: 'Hôte SMTP'

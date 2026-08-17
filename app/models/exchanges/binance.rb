@@ -57,7 +57,7 @@ class Exchanges::Binance < Exchange
     @client = Honeymaker.client('binance',
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
-                                proxy: ENV['PROXY_BINANCE'])
+                                proxy: ExchangeProxy.for('binance'))
   end
 
   def get_tickers_info(force: false)
@@ -445,7 +445,7 @@ class Exchanges::Binance < Exchange
     result = Honeymaker.client('binance',
                                api_key: api_key.key,
                                api_secret: api_key.secret,
-                               proxy: ENV['PROXY_BINANCE']).api_description
+                               proxy: ExchangeProxy.for('binance')).api_description
 
     if result.success?
       common_checks = result.data['ipRestrict'] == true &&
@@ -492,7 +492,8 @@ class Exchanges::Binance < Exchange
   def ledger_window = 80.days
 
   def get_ledger(api_key:, start_time: nil)
-    hm_client = Honeymaker.client('binance', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_BINANCE'])
+    hm_client = Honeymaker.client('binance', api_key: api_key.key, api_secret: api_key.secret,
+                                             proxy: ExchangeProxy.for('binance'))
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 

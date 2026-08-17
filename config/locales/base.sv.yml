@@ -146,6 +146,14 @@ sv:
             deltabadger_configured: 'Ansluten till %{provider_name} för marknadsdata i realtid.'
             disconnect: 'Koppla från'
             disconnected: 'Marknadsdataleverantör frånkopplad.'
+        platform:
+            option: 'Deltabadger.com — klistra in anslutningskoden'
+            code: 'Anslutningskod'
+            connect: 'Anslut'
+            connected_with_proxies: 'Ansluten till Deltabadger.com för marknadsdata och börsproxyservrar.'
+            connected_without_proxies: 'Ansluten till Deltabadger.com för marknadsdata. Börsproxyservrar är inte tillgängliga.'
+            disconnect: 'Koppla från'
+            disconnected: 'Deltabadger.com har kopplats från.'
         stocks:
             title: 'Aktier'
             title_html: 'Aktier (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'

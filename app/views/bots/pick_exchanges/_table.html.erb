@@ -2,12 +2,18 @@
   <%= form_with model: bot, url: submit_url, method: :post do |f| %>
     <div class="exchange-grid">
       <% exchanges.each do |exchange| %>
-        <%= button_tag name: "#{bot.model_name.param_key}[exchange_id]",
-                       value: exchange.id, type: :submit,
-                       class: "exchange-grid__item",
-                       data: { arrow_keys_navigation_target: "item button", turbo_frame: "modal_content" } do %>
-          <%= render "svg/exchanges/#{exchange.name_id}" %>
-        <% end %>
+        <div class="exchange-grid__option">
+          <%= button_tag name: "#{bot.model_name.param_key}[exchange_id]",
+                         value: exchange.id, type: :submit,
+                         class: "exchange-grid__item",
+                         disabled: !exchange.order_placement_available?,
+                         data: { arrow_keys_navigation_target: "item button", turbo_frame: "modal_content" } do %>
+            <%= render "svg/exchanges/#{exchange.name_id}" %>
+          <% end %>
+          <% unless exchange.order_placement_available? %>
+            <p class="exchange-grid__unavailable-note"><%= t('bot.hyperliquid_trading_unavailable') %></p>
+          <% end %>
+        </div>
       <% end %>
     </div>
   <% end %>

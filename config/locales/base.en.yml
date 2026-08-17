@@ -146,6 +146,14 @@ en:
             deltabadger_configured: 'Connected to %{provider_name} for live market data.'
             disconnect: 'Disconnect'
             disconnected: 'Market data provider disconnected.'
+        platform:
+            option: 'Deltabadger.com — paste connect code'
+            code: 'Connect code'
+            connect: 'Connect'
+            connected_with_proxies: 'Connected to Deltabadger.com for market data and exchange proxies.'
+            connected_without_proxies: 'Connected to Deltabadger.com for market data. Exchange proxies are unavailable.'
+            disconnect: 'Disconnect'
+            disconnected: 'Deltabadger.com disconnected.'
         stocks:
             title: 'Stocks'
             title_html: 'Stocks (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'

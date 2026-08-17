@@ -26,6 +26,7 @@ class ApiKeyValidator < BaseService
     exchange_name = api_key.exchange.name_id
     client_params = { api_key: api_key.key, api_secret: api_key.secret }
     client_params[:passphrase] = api_key.passphrase if api_key.passphrase.present?
+    client_params[:proxy] = ExchangeProxy.for(exchange_name)
 
     result = Honeymaker.client(exchange_name, **client_params).validate(:trading)
     result.success?

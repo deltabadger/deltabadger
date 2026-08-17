@@ -55,7 +55,7 @@ class Exchanges::Bitget < Exchange
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
                                 passphrase: api_key&.passphrase,
-                                proxy: ENV['PROXY_BITGET'])
+                                proxy: ExchangeProxy.for('bitget'))
   end
 
   def get_tickers_info(force: false)
@@ -328,7 +328,7 @@ class Exchanges::Bitget < Exchange
                                     api_key: api_key.key,
                                     api_secret: api_key.secret,
                                     passphrase: api_key.passphrase,
-                                    proxy: ENV['PROXY_BITGET'])
+                                    proxy: ExchangeProxy.for('bitget'))
 
     result = if api_key.withdrawal?
                temp_client.get_account_assets
@@ -353,7 +353,7 @@ class Exchanges::Bitget < Exchange
     # Use provided network or determine the default chain
     chain_name = network
     if chain_name.blank?
-      coins_result = Honeymaker.client('bitget', proxy: ENV['PROXY_BITGET']).get_coins
+      coins_result = Honeymaker.client('bitget', proxy: ExchangeProxy.for('bitget')).get_coins
       return coins_result if coins_result.failure?
 
       coin_data = Array(coins_result.data['data']).find { |c| c['coin'] == symbol }
@@ -375,7 +375,7 @@ class Exchanges::Bitget < Exchange
   end
 
   def fetch_withdrawal_fees!
-    result = Honeymaker.client('bitget', proxy: ENV['PROXY_BITGET']).get_coins
+    result = Honeymaker.client('bitget', proxy: ExchangeProxy.for('bitget')).get_coins
     return result if result.failure?
 
     fees = {}
@@ -400,7 +400,7 @@ class Exchanges::Bitget < Exchange
 
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bitget', api_key: api_key.key, api_secret: api_key.secret,
-                                            passphrase: api_key.passphrase, proxy: ENV['PROXY_BITGET'])
+                                            passphrase: api_key.passphrase, proxy: ExchangeProxy.for('bitget'))
     start_ms = start_time ? (start_time.to_f * 1000).to_i.to_s : nil
     entries = []
 

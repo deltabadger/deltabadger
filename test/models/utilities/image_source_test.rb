@@ -87,6 +87,12 @@ class Utilities::ImageSourceTest < ActiveSupport::TestCase
     assert_nil Utilities::Image.dominant_colors_from_url(ALLOWED)
   end
 
+  test 'a missing ImageMagick executable yields no colors rather than aborting asset sync' do
+    MiniMagick.stubs(:convert).raises(Errno::ENOENT, 'magick')
+
+    assert_nil Utilities::Image.extract_dominant_colors('/tmp/asset.png')
+  end
+
   # A hostile peer that answers with an unbounded body would otherwise be copied into the
   # container's disk and memory.
   test 'the download is bounded by a size cap' do

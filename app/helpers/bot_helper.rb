@@ -204,7 +204,7 @@ module BotHelper
   def whitelist_ip_for(exchange)
     return nil unless exchange.present?
 
-    proxy_url = ENV["PROXY_#{exchange.to_s.upcase}"]
+    proxy_url = ExchangeProxy.for(exchange)
     return nil unless proxy_url.present?
 
     URI.parse(proxy_url).host

@@ -12,7 +12,7 @@ class Bots::DcaIndexes::PickIndicesControllerTest < ActionDispatch::IntegrationT
   end
 
   test 'shows the Nasdaq (deltabadger) index when the Data API is the provider' do
-    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
+    configure_deltabadger_market_data
 
     get new_bots_dca_indexes_pick_index_path
     assert_response :success
@@ -32,7 +32,7 @@ class Bots::DcaIndexes::PickIndicesControllerTest < ActionDispatch::IntegrationT
   test 'orders stock (deltabadger) indices first, then internal Top Coins, then coingecko' do
     Index.create!(external_id: Index::TOP_COINS_EXTERNAL_ID, source: Index::SOURCE_INTERNAL,
                   name: 'Top Coins', weight: 50)
-    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
+    configure_deltabadger_market_data
 
     get new_bots_dca_indexes_pick_index_path
     assert_response :success
@@ -46,7 +46,7 @@ class Bots::DcaIndexes::PickIndicesControllerTest < ActionDispatch::IntegrationT
   end
 
   test 'selecting a count-named index stores its name prefix; switching to Top Coins clears it' do
-    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
+    configure_deltabadger_market_data
 
     post bots_dca_indexes_pick_index_path,
          params: { index_type: 'category', index_category_id: 'nasdaq-100', index_name: 'Nasdaq 20' }

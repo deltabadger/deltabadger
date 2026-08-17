@@ -2,6 +2,7 @@ nl:
     bot:
         add_api_keys: "API-sleutels toevoegen voor %{exchange}"
         fees: "Kosten"
+        hyperliquid_trading_unavailable: "Orders plaatsen op Hyperliquid is nog niet beschikbaar in Windows. Saldi en transactiegeschiedenis blijven werken."
         withdrawal_fee: "Opname"
         bot_name: 'Bot naam'
         new: "Nieuwe bot"

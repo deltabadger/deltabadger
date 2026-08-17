@@ -16,7 +16,8 @@ class Tax::GenerateReportJob < ApplicationJob
   def self.report_path(user_id, country, year, report_scope = 'crypto')
     scope = SCOPES.include?(report_scope.to_s) ? report_scope.to_s : 'crypto'
     country = report_country(country)
-    Rails.root.join('tmp', 'tax_reports', "#{user_id.to_i}_#{country}_#{year.to_i}_#{scope}.csv").to_s
+    # AppPaths.tmp, not Rails.root: a signed desktop bundle's Rails tree is read-only.
+    Pathname(AppPaths.tmp).join('tax_reports', "#{user_id.to_i}_#{country}_#{year.to_i}_#{scope}.csv").to_s
   end
 
   def self.report_country(country)

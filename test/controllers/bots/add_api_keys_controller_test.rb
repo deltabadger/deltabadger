@@ -216,11 +216,11 @@ class Bots::DcaIndexes::AddApiKeysControllerTest < ActionDispatch::IntegrationTe
   include AddApiKeyStepBranchTests
 
   setup do
-    MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
+    configure_deltabadger_market_data
   end
 
   test 'new redirects to coingecko setup when market data is not configured' do
-    MarketDataSettings.unstub(:current_provider)
+    clear_market_data_configuration
     get new_bots_dca_indexes_add_api_key_path
     assert_redirected_to new_bots_dca_indexes_setup_coingecko_path
   end

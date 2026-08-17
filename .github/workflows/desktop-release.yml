@@ -1,0 +1,290 @@
+name: Build and Publish Desktop Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  validate-updater-key:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify updater public key
+        shell: bash
+        run: |
+          set -euo pipefail
+          pubkey=$(jq -r '.plugins.updater.pubkey // empty' src-tauri/tauri.conf.json)
+          if [ -z "$pubkey" ] || [ "$pubkey" = 'REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY' ]; then
+            echo '::error file=src-tauri/tauri.conf.json::Updater public key is not configured. Run "tauri signer generate" and replace the updater pubkey with the generated public key.'
+            exit 1
+          fi
+
+  build:
+    needs: validate-updater-key
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            asset_id: darwin-aarch64
+            installer_name: Deltabadger_darwin-aarch64.dmg
+            updater_name: Deltabadger_darwin-aarch64.app.tar.gz
+          # macos-13 was the Intel image until GitHub retired it on 2025-12-04. macos-15-intel is
+          # the standard-runner replacement; Intel macOS hosting ends with that image in 2027.
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            asset_id: darwin-x86_64
+            installer_name: Deltabadger_darwin-x86_64.dmg
+            updater_name: Deltabadger_darwin-x86_64.app.tar.gz
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset_id: windows-x86_64
+            installer_name: Deltabadger_windows-x86_64-setup.exe
+            updater_name: Deltabadger_windows-x86_64.nsis.zip
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        shell: bash
+        run: npm ci
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install Rust target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Verify native runner architecture
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          case "$TARGET" in
+            aarch64-apple-darwin) expected=arm64 ;;
+            x86_64-apple-darwin) expected=x86_64 ;;
+            *) exit 1 ;;
+          esac
+          test "$(uname -m)" = "$expected"
+
+      - name: Verify native Windows runner architecture
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          if ($env:TARGET -ne 'x86_64-pc-windows-msvc') {
+            throw "Unexpected Windows target: $env:TARGET"
+          }
+          $architecture = [Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+          if ($architecture -ne 'X64') {
+            throw "The Windows bundle requires a native x64 runner; found $architecture"
+          }
+
+      - name: Install desktop bundle prerequisites
+        if: runner.os == 'macOS'
+        shell: bash
+        run: brew install ruby-build
+
+      # This host Ruby supplies the RubyInstaller-compatible MSYS2/UCRT toolchain for the gems
+      # that do not publish prebuilts. The shipped runtime still comes from the checksummed 7z.
+      - name: Install Windows native-gem toolchain
+        if: runner.os == 'Windows'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.4.8'
+          bundler-cache: false
+
+      - name: Build signed and notarized macOS app
+        if: runner.os == 'macOS'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          args: --target ${{ matrix.target }} --bundles app,dmg
+
+      - name: Build Windows NSIS app and updater
+        if: runner.os == 'Windows'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          args: --target ${{ matrix.target }} --bundles nsis
+
+      - name: Stage architecture-specific macOS release assets
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          INSTALLER_NAME: ${{ matrix.installer_name }}
+          TARGET: ${{ matrix.target }}
+          UPDATER_NAME: ${{ matrix.updater_name }}
+        run: |
+          set -euo pipefail
+          bundle_dir="src-tauri/target/$TARGET/release/bundle"
+          dmg=$(find "$bundle_dir/dmg" -maxdepth 1 -type f -name '*.dmg' -print -quit)
+          archive=$(find "$bundle_dir/macos" -maxdepth 1 -type f -name '*.app.tar.gz' -print -quit)
+          test -n "$dmg"
+          test -n "$archive"
+          test -f "$archive.sig"
+          mkdir -p release-assets
+          cp "$dmg" "release-assets/$INSTALLER_NAME"
+          cp "$archive" "release-assets/$UPDATER_NAME"
+          cp "$archive.sig" "release-assets/$UPDATER_NAME.sig"
+
+      - name: Stage architecture-specific Windows release assets
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          INSTALLER_NAME: ${{ matrix.installer_name }}
+          TARGET: ${{ matrix.target }}
+          UPDATER_NAME: ${{ matrix.updater_name }}
+        run: |
+          $bundleDir = "src-tauri/target/$env:TARGET/release/bundle/nsis"
+          $installers = @(Get-ChildItem -Path $bundleDir -Filter '*.exe' -File)
+          $archives = @(Get-ChildItem -Path $bundleDir -Filter '*.nsis.zip' -File)
+          if ($installers.Count -ne 1) {
+            throw "Expected one NSIS installer, found $($installers.Count)"
+          }
+          if ($archives.Count -ne 1) {
+            throw "Expected one NSIS updater archive, found $($archives.Count)"
+          }
+          if (-not (Test-Path -PathType Leaf "$($archives[0].FullName).sig")) {
+            throw "Missing updater signature for $($archives[0].FullName)"
+          }
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+          Copy-Item $installers[0].FullName "release-assets/$env:INSTALLER_NAME"
+          Copy-Item $archives[0].FullName "release-assets/$env:UPDATER_NAME"
+          Copy-Item "$($archives[0].FullName).sig" "release-assets/$env:UPDATER_NAME.sig"
+
+      - name: Upload architecture-specific release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.asset_id }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download desktop release assets
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: desktop-*
+          merge-multiple: true
+
+      - name: Validate tag and release assets
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          cargo_version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' src-tauri/Cargo.toml | head -1)
+          config_version=$(jq -r '.version' src-tauri/tauri.conf.json)
+          test "$TAG" = "v$cargo_version"
+          test "$TAG" = "v$config_version"
+          test -f release-assets/Deltabadger_darwin-aarch64.dmg
+          test -f release-assets/Deltabadger_darwin-aarch64.app.tar.gz
+          test -s release-assets/Deltabadger_darwin-aarch64.app.tar.gz.sig
+          test -f release-assets/Deltabadger_darwin-x86_64.dmg
+          test -f release-assets/Deltabadger_darwin-x86_64.app.tar.gz
+          test -s release-assets/Deltabadger_darwin-x86_64.app.tar.gz.sig
+          test -f release-assets/Deltabadger_windows-x86_64-setup.exe
+          test -f release-assets/Deltabadger_windows-x86_64.nsis.zip
+          test -s release-assets/Deltabadger_windows-x86_64.nsis.zip.sig
+
+      - name: Create merged updater manifest
+        shell: bash
+        env:
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version=${TAG#v}
+          release_url="https://github.com/$REPOSITORY/releases/download/$TAG"
+          arm_signature=$(<release-assets/Deltabadger_darwin-aarch64.app.tar.gz.sig)
+          intel_signature=$(<release-assets/Deltabadger_darwin-x86_64.app.tar.gz.sig)
+          windows_signature=$(<release-assets/Deltabadger_windows-x86_64.nsis.zip.sig)
+          jq -n \
+            --arg version "$version" \
+            --arg pub_date "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --arg arm_url "$release_url/Deltabadger_darwin-aarch64.app.tar.gz" \
+            --arg arm_signature "$arm_signature" \
+            --arg intel_url "$release_url/Deltabadger_darwin-x86_64.app.tar.gz" \
+            --arg intel_signature "$intel_signature" \
+            --arg windows_url "$release_url/Deltabadger_windows-x86_64.nsis.zip" \
+            --arg windows_signature "$windows_signature" \
+            '{
+              version: $version,
+              pub_date: $pub_date,
+              platforms: {
+                "darwin-aarch64": {
+                  url: $arm_url,
+                  signature: $arm_signature
+                },
+                "darwin-x86_64": {
+                  url: $intel_url,
+                  signature: $intel_signature
+                },
+                "windows-x86_64": {
+                  url: $windows_url,
+                  signature: $windows_signature
+                }
+              }
+            }' > release-assets/latest.json
+
+      - name: Create GitHub release and upload assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --verify-tag --title "$TAG" --generate-notes
+          fi
+          gh release upload "$TAG" release-assets/* --clobber
+          if [ "$(gh release view "$TAG" --json isDraft --jq '.isDraft')" = true ]; then
+            gh release edit "$TAG" --draft=false --latest
+          fi

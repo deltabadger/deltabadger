@@ -184,6 +184,7 @@ de:
         every_time: "Jede Bestellung"
         name: "Name:"
         fees: "Gebühren"
+        hyperliquid_trading_unavailable: "Das Platzieren von Orders bei Hyperliquid ist unter Windows noch nicht verfügbar. Guthaben und Transaktionsverlauf funktionieren weiterhin."
         maker_fee: "Maker"
         taker_fee: "Taker"
         withdrawal_fee: "Auszahlung"

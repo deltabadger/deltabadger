@@ -43,7 +43,7 @@ class Exchanges::Bitvavo < Exchange
     @client = Honeymaker.client('bitvavo',
                                 api_key: api_key&.key,
                                 api_secret: api_key&.secret,
-                                proxy: ENV['PROXY_BITVAVO'])
+                                proxy: ExchangeProxy.for('bitvavo'))
   end
 
   def get_tickers_info(force: false)
@@ -314,7 +314,7 @@ class Exchanges::Bitvavo < Exchange
     temp_client = Honeymaker.client('bitvavo',
                                     api_key: api_key.key,
                                     api_secret: api_key.secret,
-                                    proxy: ENV['PROXY_BITVAVO'])
+                                    proxy: ExchangeProxy.for('bitvavo'))
 
     result = if api_key.withdrawal?
                temp_client.get_raw_balance
@@ -358,7 +358,7 @@ class Exchanges::Bitvavo < Exchange
   end
 
   def fetch_withdrawal_fees!
-    result = Honeymaker.client('bitvavo', proxy: ENV['PROXY_BITVAVO']).get_assets
+    result = Honeymaker.client('bitvavo', proxy: ExchangeProxy.for('bitvavo')).get_assets
     return result if result.failure?
 
     fees = {}
@@ -375,7 +375,8 @@ class Exchanges::Bitvavo < Exchange
   end
 
   def get_ledger(api_key:, start_time: nil)
-    hm_client = Honeymaker.client('bitvavo', api_key: api_key.key, api_secret: api_key.secret, proxy: ENV['PROXY_BITVAVO'])
+    hm_client = Honeymaker.client('bitvavo', api_key: api_key.key, api_secret: api_key.secret,
+                                             proxy: ExchangeProxy.for('bitvavo'))
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 

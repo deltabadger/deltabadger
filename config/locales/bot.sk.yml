@@ -204,6 +204,7 @@ sk:
         every_time: "zakaždým"
         name: "Názov:"
         fees: "Poplatky"
+        hyperliquid_trading_unavailable: "Zadávanie príkazov na Hyperliquid zatiaľ nie je vo Windowse dostupné. Zostatky a história transakcií naďalej fungujú."
         maker_fee: "Maker"
         taker_fee: "Taker"
         withdrawal_fee: "Výber"

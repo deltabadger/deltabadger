@@ -1,16 +1,40 @@
 class SetupController < ApplicationController
   layout 'devise'
 
-  before_action :ensure_no_admin_exists, only: %i[new create]
+  before_action :ensure_no_admin_exists, only: %i[new create connect_platform]
 
   # Step 1: Show admin account creation form
   def new
     @user = User.new
+    redeem_claim_token
     set_form_instance_variables
+  end
+
+  def connect_platform
+    result = Platform::RedeemClaim.call(code: params[:claim_code])
+
+    if result.success?
+      identity = platform_identity_attributes(result.data)
+      session[:platform_identity] = identity
+      @user = User.new(identity)
+      @platform_connected = true
+      set_form_instance_variables
+      render turbo_stream: [
+        turbo_stream.replace('setup_platform_connection', partial: 'setup/connect_platform',
+                                                          locals: { connected: true, errors: [] }),
+        turbo_stream.replace('setup_identity_fields', partial: 'setup/identity_fields', locals: { user: @user })
+      ]
+    else
+      render turbo_stream: turbo_stream.replace(
+        'setup_platform_connection', partial: 'setup/connect_platform',
+                                     locals: { connected: false, errors: result.errors }
+      ), status: :unprocessable_entity
+    end
   end
 
   # Step 1: Create admin account
   def create
+    @platform_connected = AppConfig.platform_connected?
     @user = User.new(admin_params)
     @user.admin = true
     @user.confirmed_at = Time.current
@@ -18,6 +42,7 @@ class SetupController < ApplicationController
     @user.locale = I18n.locale.to_s
 
     if @user.save
+      session.delete(:platform_identity)
       sign_in(@user)
       session[:auto_open_bot_wizard] = true
       redirect_to bots_path
@@ -35,6 +60,28 @@ class SetupController < ApplicationController
 
   def ensure_no_admin_exists
     redirect_to root_path if User.exists?(admin: true)
+  end
+
+  def redeem_claim_token
+    @user.assign_attributes(platform_identity_attributes(session[:platform_identity]))
+    @platform_connected = AppConfig.platform_connected?
+    return if @platform_connected || ENV['CLAIM_TOKEN'].blank?
+
+    result = Platform::RedeemClaim.call(code: ENV['CLAIM_TOKEN'])
+    if result.success?
+      identity = platform_identity_attributes(result.data)
+      session[:platform_identity] = identity
+      @user.assign_attributes(identity)
+      @platform_connected = true
+    else
+      flash.now[:alert] = result.errors.to_sentence
+    end
+  end
+
+  def platform_identity_attributes(identity)
+    return {} unless identity.is_a?(Hash)
+
+    identity.to_h.with_indifferent_access.slice(:name, :email)
   end
 
   def set_form_instance_variables

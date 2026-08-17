@@ -148,6 +148,14 @@ ru:
             deltabadger_configured: 'Подключено к %{provider_name} для получения рыночных данных в реальном времени.'
             disconnect: 'Отключить'
             disconnected: 'Поставщик рыночных данных отключен.'
+        platform:
+            option: 'Deltabadger.com — вставьте код подключения'
+            code: 'Код подключения'
+            connect: 'Подключить'
+            connected_with_proxies: 'Deltabadger.com подключён для получения рыночных данных и использования прокси бирж.'
+            connected_without_proxies: 'Deltabadger.com подключён для получения рыночных данных. Прокси бирж недоступны.'
+            disconnect: 'Отключить'
+            disconnected: 'Deltabadger.com отключён.'
         email_notifications:
             none: 'Нет'
             smtp_host: 'SMTP-сервер'

@@ -147,6 +147,14 @@ pl:
             deltabadger_configured: 'Połączono z %{provider_name} w celu pobierania danych rynkowych na żywo.'
             disconnect: 'Odłącz'
             disconnected: 'Dostawca danych rynkowych został odłączony.'
+        platform:
+            option: 'Deltabadger.com — wklej kod połączenia'
+            code: 'Kod połączenia'
+            connect: 'Połącz'
+            connected_with_proxies: 'Połączono z Deltabadger.com, aby korzystać z danych rynkowych i serwerów proxy giełd.'
+            connected_without_proxies: 'Połączono z Deltabadger.com, aby korzystać z danych rynkowych. Serwery proxy giełd są niedostępne.'
+            disconnect: 'Odłącz'
+            disconnected: 'Odłączono Deltabadger.com.'
         email_notifications:
             none: 'Brak'
             smtp_host: 'Serwer SMTP'

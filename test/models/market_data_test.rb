@@ -1,5 +1,24 @@
 require 'test_helper'
 
+class MarketDataClientTest < ActiveSupport::TestCase
+  teardown do
+    MarketData.instance_variable_set(:@client, nil)
+    MarketData.instance_variable_set(:@client_configuration, nil)
+  end
+
+  test 'rebuilds the client when the token changes but the URL does not' do
+    AppConfig.market_data_url = 'https://market-data.example.com'
+    AppConfig.market_data_token = 'original_token'
+
+    original_client = MarketData.client
+    AppConfig.market_data_token = 'rotated_token'
+    rotated_client = MarketData.client
+
+    refute_same original_client, rotated_client
+    assert_equal 'rotated_token', rotated_client.instance_variable_get(:@token)
+  end
+end
+
 class MarketDataImportTickersTest < ActiveSupport::TestCase
   setup do
     @exchange = create(:binance_exchange)
