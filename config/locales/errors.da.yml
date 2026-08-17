@@ -7,6 +7,15 @@ da:
                 password: "Adgangskode"
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "skal findes"
+                            different_user: "skal tilhøre den samme bruger"
+                            different_currency: "skal bruge den samme basisvaluta"
+                            wrong_direction: "skal knytte en udbetaling til en indbetaling"
+                            before_withdrawal: "må ikke ligge før udbetalingen"
+                            larger_than_withdrawal: "må ikke have et større beløb end udbetalingen"
                 bot:
                     attributes:
                         smart_interval_quote_amount:

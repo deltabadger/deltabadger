@@ -413,6 +413,7 @@ de:
         welcome:
             connect_and_track: "Verbinde deine Börse und beginne, dein Portfolio zu tracken."
         sync_key_error_html: 'Synchronisierung mit <strong>%{exchange}</strong> fehlgeschlagen: %{message}. Bitte API-Schlüssel unten aktualisieren.'
+        sync_failed_for: 'Synchronisierung mit %{exchanges} fehlgeschlagen. Möglicherweise fehlen Transaktionen von dort — jetzt erstellte Berichte können unvollständig sein.'
         pricing_warning_html: Guthaben synchronisiert, aber USD-Preise sind gerade nicht verfügbar (%{message}). Das Diagramm nutzt die zuletzt bekannten Preise, bis die Preisermittlung wiederhergestellt ist.
         portfolio:
             never_synced: Auf „Sync" klicken, um dein Portfolio zu laden.
@@ -425,6 +426,12 @@ de:
         filter: 'Filtern'
         bot: 'Bot'
         no_results: 'Keine Transaktionen für die ausgewählten Filter gefunden.'
+        transfer_badge: 'Transfer'
+        transfer_link: 'Als Transfer markieren'
+        transfer_unlink: 'Kein Transfer'
+        transfer_linked: 'Als Transfer zwischen deinen eigenen Konten verknüpft.'
+        transfer_unlinked: 'Wird nicht mehr als Transfer behandelt.'
+        transfer_no_candidate: 'Innerhalb von 14 Tagen wurde keine eindeutige passende Transaktion gefunden, daher wurde nichts verknüpft.'
         connect_exchange: 'Börse verbinden'
         import_from: 'Transaktionen importieren von'
         search_exchange: 'Börse suchen...'
@@ -432,6 +439,29 @@ de:
         export_modal:
             title: 'Bericht erstellen'
             tax_report: 'Steuerbericht'
+            broker_tax_report: 'Broker-Steuerbericht (Deutschland — Anlage KAP / KAP-INV)'
+            classification_title: 'Wertpapiere klassifizieren'
+            classification_hint: 'Wir haben anhand der Marktdaten eingetragen, was möglich war — prüfe alles unten, bevor du den Bericht erstellst.'
+            classification_settled:
+                one: '1 Wertpapier automatisch klassifiziert — prüfen'
+                other: '%{count} Wertpapiere automatisch klassifiziert — prüfen'
+            classification_eyebrow_unclassified: 'Blockiert den Bericht'
+            classification_eyebrow_fund: 'Standardwert angewendet'
+            classification_eyebrow_refused: 'Beträge nicht berücksichtigt'
+            classification_why_unclassified: 'Nicht in unseren Marktdaten enthalten, daher können wir den Typ nicht bestimmen.'
+            classification_why_fund_html: 'Ein Fonds. Wir haben standardmäßig Sonstige Fonds — <b>0% Teilfreistellung</b> — gewählt, weil US-Fonds keine Angaben nach dem InvStG veröffentlichen. Ändere die Auswahl, wenn du die Aktienquote des Fonds nachweisen kannst.'
+            classification_fund_hint: 'Bei Aktienfonds wären es 30%'
+            classification_why_refused: 'Dieses Wertpapier wird nicht geschätzt, sondern aus der Zusammenfassung ausgeschlossen; seine Arbeitsblattzeilen werden weiterhin angezeigt.'
+            classification_refusal_reasons:
+                uncovered_disposal: 'Eine Veräußerung, die wir den Anschaffungen nicht vollständig zuordnen können.'
+                unsupported_activity: 'Ein nicht unterstützter Transaktionstyp, etwa eine Fusion oder Abspaltung.'
+                pre_2018_fund_lot: 'Vor 2018 erworbene Fondsanteile, bei denen die fiktive Veräußerung nach §56 InvStG nicht abgebildet ist.'
+                missing_price: 'Kein Rücknahmepreis zum Jahresende, daher kann die Vorabpauschale nicht berechnet werden.'
+                missing_fx: 'Für eines der Daten fehlt der EZB-Referenzkurs.'
+                missing_basiszins: 'Für dieses Jahr wurde noch kein Basiszins veröffentlicht.'
+            classification_save_failed: 'Deine Zuordnung konnte nicht gespeichert werden. Lade die Seite neu und versuche es erneut.'
+            classification_select: 'Auswählen…'
+            tax_disclaimer: 'Berechnungshilfe, keine Steuerberatung. Angaben vor Abgabe der Steuererklärung prüfen.'
             transactions: 'Alle'
             country: 'Land'
             year: 'Jahr'
@@ -456,6 +486,8 @@ de:
                 DK: 'Dänemark'
                 CZ: 'Tschechien'
                 SK: 'Slowakei'
+        tax_report:
+            failed: 'Der Bericht konnte nicht erstellt werden. Prüfe die ausgewählten Einstellungen und versuche es erneut.'
         filters:
             all: 'Alle'
         columns:
@@ -482,6 +514,10 @@ de:
             fee: 'Gebühr'
             other_income: 'Einkommen'
             lost: 'Verloren'
+            withholding_tax: 'Quellensteuer'
+            return_of_capital: 'Kapitalrückzahlung'
+            adjustment: 'Anpassung'
+            unsupported_activity: 'Andere Aktivität'
     order_filters:
         all: 'Alle'
         successful: 'Erfolgreich'
@@ -513,9 +549,23 @@ de:
             skipped: 'Übersprungen (unter Minimum)'
 
     tax_report:
+        income:
+            header: 'Erhaltene Einkünfte (Besteuerung je nach Einkunftsart und maßgeblichem Steuerrecht — nicht in den oben ausgewiesenen Veräußerungsgewinnen enthalten)'
+            total: 'Summe %{type}'
+            not_included: 'Erhaltene Einkünfte (Staking-Erträge, Lending-Zinsen, Airdrops und Mining-Erträge) sind in diesem Bericht nicht enthalten. Sie unterliegen der Einkommensteuer und müssen gesondert erklärt werden.'
+            types:
+                staking_reward: 'Staking-Erträge'
+                lending_interest: 'Lending-Zinsen'
+                airdrop: 'Airdrops'
+                mining: 'Mining-Erträge'
+                other_income: 'Sonstige Einkünfte (Dividenden, Zinsen, Rückvergütungen)'
         warnings:
             missing_prices: Historische Preise fehlen für
             upgrade_hint: Aktualisiere deinen CoinGecko-Plan oder nutze deltabadger.com für vollständige historische Daten.
+            deposit_basis_assumed: Anschaffungskosten für diese nicht verknüpften Einzahlungen zum Marktwert angesetzt
+            deposit_basis_assumed_hint: Verknüpfe jede Einzahlung im Tracker mit der passenden Auszahlung, um die tatsächlichen Anschaffungskosten zu verwenden.
+            exchange_sync_failed: 'Daten von %{exchange} könnten fehlen — die letzte Synchronisierung ist fehlgeschlagen. Synchronisiere die Daten im Tracker erneut und erstelle diesen Bericht neu.'
+            exchange_never_synced: '%{exchange} wurde noch nie synchronisiert — daher enthält dieser Bericht keine Transaktionen dieser Börse. Synchronisiere sie im Tracker und erstelle den Bericht neu.'
         headers:
             date: 'Datum'
             asset: 'Vermögenswert'
@@ -529,6 +579,7 @@ de:
             exchange: 'Börse'
             tx_id: 'Transaktions-ID'
             cost_basis_complete: 'Anschaffungskosten vollständig'
+            data_incomplete: 'Daten unvollständig'
             acquisition_date: 'Anschaffungsdatum'
             tax_exempt: 'Steuerfrei'
             old_stock: 'Altbestand'
@@ -537,6 +588,8 @@ de:
             value: 'Wert'
             reference_date: 'Stichtag'
         no_taxable_transactions: 'Keine steuerpflichtigen Transaktionen für diesen Zeitraum gefunden.'
+        incomplete_banner_prefix: 'WARNUNG'
+        incomplete_banner: '%{missing} Werte fehlen — Bericht unvollständig, so nicht einreichen'
         summary:
             tax_percent: Steuer (%{pct}%)
             total_value: 'Gesamtwert'
@@ -544,3 +597,89 @@ de:
             taxable_wealth: 'Steuerbares Vermögen'
             deemed_return: 'Pauschalertrag'
             tax: 'Steuer'
+        broker:
+            title: 'Anlage KAP / KAP-INV — Berechnungsgrundlage'
+            incomplete_banner: 'Bericht unvollständig — bitte die Hinweise unten beachten; so nicht einreichen'
+            unclassified_banner: 'Zusammenfassungen nicht erstellt — es sind noch nicht alle Wertpapiere zugeordnet; siehe Hinweise unten'
+            sections:
+                kap: 'ZUSAMMENFASSUNG — ANLAGE KAP'
+                kap_inv: 'ZUSAMMENFASSUNG — ANLAGE KAP-INV'
+                disposals: 'AUFSTELLUNG — VERÄUSSERUNGEN'
+                income: 'AUFSTELLUNG — ERTRÄGE'
+                warnings: 'HINWEISE'
+                disclosures: 'RECHTLICHE HINWEISE'
+            kap:
+                z19: 'Ausländische Kapitalerträge'
+                z20: 'In Zeile 19 enthaltene Gewinne aus der Veräußerung von Aktien'
+                z22: 'In Zeile 19 enthaltene Verluste ohne Verluste aus der Veräußerung von Aktien'
+                z23: 'In Zeile 19 enthaltene Verluste aus der Veräußerung von Aktien'
+                z41: 'Anrechenbare noch nicht angerechnete ausländische Steuern'
+            kap_inv:
+                distributions: 'Ausschüttungen (vor Teilfreistellung)'
+                vorabpauschale: 'Vorabpauschale (vor Teilfreistellung)'
+                sale_result: 'Ergebnis aus Veräußerung (vor Teilfreistellung)'
+            kinds:
+                share: 'Aktie'
+                fund: 'Fonds'
+                other_security: 'Sonstiges Wertpapier'
+            fund_categories:
+                equity_fund: 'Aktienfonds'
+                mixed_fund: 'Mischfonds'
+                real_estate_fund: 'Immobilienfonds'
+                foreign_real_estate_fund: 'Auslands-Immobilienfonds'
+                other_fund: 'Sonstige Fonds'
+            buckets:
+                kap_dividend: 'Dividende (Anlage KAP)'
+                kap_interest: 'Zinsen (Anlage KAP)'
+                fund_distribution: 'Fondsausschüttung (Anlage KAP-INV)'
+                withholding_tax: 'Quellensteuer (Anlage KAP, Zeile 41)'
+                return_of_capital_excess: 'Kapitalrückzahlung über die Anschaffungskosten hinaus'
+            headers:
+                zeile: 'Zeile'
+                description: 'Bezeichnung'
+                amount_eur: 'Betrag (EUR)'
+                fund_category: 'Fondskategorie'
+                position: 'Position'
+                symbol: 'Wertpapier'
+                kind: 'Art'
+                units: 'Stück'
+                proceeds_usd: 'Erlös (USD)'
+                fx_rate: 'EZB-Kurs (USD je EUR)'
+                proceeds_eur: 'Erlös (EUR)'
+                fee_eur: 'Vom Erlös abgezogene Gebühren (EUR)'
+                cost_eur: 'Anschaffungskosten (EUR)'
+                vorabpauschale_eur: 'Vorabpauschale (EUR)'
+                gain_eur: 'Gewinn/Verlust (EUR)'
+                status: 'Status'
+                date: 'Datum'
+                activity_type: 'Buchungsart'
+                bucket: 'Zuordnung'
+                amount_usd: 'Betrag (USD)'
+                amount_eur_income: 'Betrag (EUR)'
+            rows:
+                lot: 'davon Zugang'
+                fee_total: 'Regulatorische Gebühren (nur nachrichtlich, nicht abgezogen)'
+            status:
+                refused: 'Nicht in der Zusammenfassung enthalten — siehe Hinweise'
+                uncovered: 'Zugang nicht belegt'
+            warnings:
+                summaries_blocked: 'Die Zusammenfassungen zu Anlage KAP und KAP-INV werden erst erstellt, wenn alle Wertpapiere zugeordnet sind.'
+                unclassified: 'Noch nicht zugeordnet — bitte Art des Wertpapiers festlegen (Aktie, Fonds oder sonstiges Wertpapier).'
+                uncovered_disposal: 'Veräußerung am %{detail} ohne vollständig belegten Bestand — die Werte dieses Wertpapiers fließen nicht in die Zusammenfassung ein.'
+                unsupported_activity: 'Nicht abgebildete Buchung (%{detail}) — die Werte dieses Wertpapiers fließen nicht in die Zusammenfassung ein.'
+                pre_2018_fund_lot: 'Fondsanteile vor 2018 erworben (%{detail}) — die fiktive Veräußerung nach §56 InvStG ist nicht abgebildet, daher bleibt dieser Fonds aus der Anlage KAP-INV ausgenommen.'
+                missing_price: 'Kein Rücknahmepreis zum Jahreswechsel %{detail} verfügbar — die Vorabpauschale lässt sich nicht berechnen, daher bleibt dieser Fonds aus der Zusammenfassung ausgenommen.'
+                missing_fx: 'Kein EZB-Referenzkurs für den %{detail} verfügbar — der betroffene Betrag fehlt in der Zusammenfassung.'
+                missing_basiszins: 'Für %{detail} ist noch kein Basiszins veröffentlicht — die Vorabpauschale lässt sich nicht berechnen, daher bleibt dieser Fonds aus der Zusammenfassung ausgenommen.'
+                ambiguous_symbol: 'Dieses Kürzel ist mehreren Anlageklassen zugeordnet (%{detail}) — bitte prüfen, ob die Zuordnung stimmt.'
+                withholding_credited_for_refused_symbol: 'Für %{detail} wird die Quellensteuer in Zeile 41 angerechnet, obwohl die übrigen Werte dieser Wertpapiere nicht ausgewiesen werden.'
+                unknown: 'Hinweis %{code}: %{detail}'
+            disclosures:
+                not_tax_advice: 'Dieser Bericht ist eine Rechenhilfe und keine Steuerberatung. Prüfen Sie alle Beträge, bevor Sie sie in die Steuererklärung übernehmen.'
+                usd_balance_fx: 'Währungsgewinne aus dem verzinsten USD-Verrechnungskonto sind Einkünfte nach §20 Abs. 2 Nr. 7 EStG (BMF-Schreiben vom 14.05.2025, Rz. 131). Sie sind in diesem Bericht nicht enthalten.'
+                us_etf_default: 'In den USA aufgelegte ETFs gelten hier ohne Nachweis nach §20 Abs. 4 InvStG als sonstige Fonds (0 % Teilfreistellung). Wer eine andere Fondskategorie wählt, trägt die Nachweispflicht für die Kapitalbeteiligungsquote selbst.'
+                vorabpauschale_start_value: 'Als Vorabpauschale-Startwert wird der letzte Kurs des Vorjahres angesetzt und nicht der erste im Kalenderjahr festgesetzte Rücknahmepreis (BMF 21.05.2019, Tz 18.4). Dadurch schließt jedes Jahr lückenlos an das vorherige an; die Abweichung beträgt einen Bruchteil eines Prozents des Basisertrags.'
+                withholding_credit_limit: 'Zeile 41 weist die volle einbehaltene Quellensteuer aus. Ohne W-8BEN behält Alpaca 30 % ein, während nach dem deutsch-amerikanischen Doppelbesteuerungsabkommen nur 15 % anrechenbar sind; der Überhang ist beim IRS zurückzufordern und hier nicht anrechenbar.'
+                fx_source: 'Umrechnung zu den Euro-Referenzkursen der EZB; für Tage ohne Kurs gilt der Kurs des vorherigen Bankarbeitstags.'
+                interest_withholding_net: 'Zinsen, die bereits um ausländische Quellensteuer gekürzt gutgeschrieben wurden, werden netto in Zeile 19 ausgewiesen, während die Quellensteuer in Zeile 41 angerechnet wird — für Zinsen liefert die Bank keine Bruttoangabe. Bei Dividenden wird dagegen auf den Bruttobetrag hochgerechnet.'
+                regulatory_fees: 'Regulatorische Sammelgebühren lassen sich keiner einzelnen Veräußerung zurechnen und werden deshalb von keinem Betrag abgezogen; sie sind nur nachrichtlich ausgewiesen.'

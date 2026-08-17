@@ -4,7 +4,7 @@ module Tax
   class Report
     attr_reader :country_code, :jurisdiction, :year, :transactions
 
-    def initialize(country:, year:, transactions:, stablecoin_as_fiat: false)
+    def initialize(country:, year:, transactions:, stablecoin_as_fiat: false, sync_issues: [])
       @country_code = country
       @jurisdiction = Tax::Jurisdictions.for(country)
       raise ArgumentError, "Unknown country: #{country}" unless @jurisdiction
@@ -12,6 +12,7 @@ module Tax
       @year = year
       @transactions = transactions
       @stablecoin_as_fiat = stablecoin_as_fiat
+      @sync_issues = sync_issues
     end
 
     def to_csv(&on_progress)
@@ -29,7 +30,24 @@ module Tax
         on_progress&.call(100, 100)
       else
         enriched = @price_service.enrich(scoped_transactions, currency: currency, &on_progress)
-        results = method_class.new.calculate(enriched, **calculation_options)
+        # Fiat deposits are bank funding: no cost basis to assume and no withdrawal to link them to.
+        # Naming them would bury the crypto rows this warning exists to surface.
+        @assumed_deposits = enriched.select do |tx|
+          tx[:entry_type].to_s == 'deposit' && !tx[:linked] &&
+            !Tax::PriceService::FIAT_CURRENCIES.include?(tx[:base_currency])
+        end
+        # `taxable_entries` drops every fiat-base row before the engines, and income rows are frequently
+        # fiat-base (Alpaca books dividends and `INT` as `other_income` with `base_currency: 'USD'`,
+        # Kraken maps `dividend` the same way), so filtering here would silently drop every dividend and
+        # interest payment from the report.
+        income_entries = enriched.select do |tx|
+          INCOME_TYPES.include?(tx[:entry_type].to_s) && tx[:transacted_at].utc.year == year
+        end
+        # Value them here rather than at render time: a fiat income row's FX lookup is the only place
+        # a missing rate for it can surface (enrich short-circuits a fiat base to zero), and the
+        # incomplete banner is decided — and counted — before the income section is ever written.
+        @income_rows = income_entries.map { |tx| [tx, income_value(tx)] }
+        results = method_class.new.calculate(taxable_entries(enriched), **calculation_options)
       end
 
       unless wealth_snapshot?
@@ -49,6 +67,8 @@ module Tax
       I18n.with_locale(jurisdiction[:locale]) do
         CsvSafe.generate do |csv|
           csv << csv_headers
+          @sync_issues.each { |issue| csv << [sync_issue_banner(issue)] }
+          csv << [incomplete_banner] if @price_service.warnings.any?
           if results.empty?
             csv << [I18n.t('tax_report.no_taxable_transactions')]
           else
@@ -60,7 +80,10 @@ module Tax
             append_danish_summary(csv, results) if jurisdiction[:per_asset_summary]
             append_czech_summary(csv, results) if jurisdiction[:czech_exemptions]
           end
+          append_income_section(csv) if @income_rows.present?
           append_warnings(csv) if @price_service.warnings.any?
+          append_deposit_basis_warnings(csv) if @assumed_deposits.present?
+          append_income_disclosure(csv) if jurisdiction[:income_taxed_separately]
         end
       end
     end
@@ -71,22 +94,41 @@ module Tax
 
     private
 
+    def sync_issue_banner(issue)
+      message = if issue[:reason] == :never_synced
+                  I18n.t('tax_report.warnings.exchange_never_synced', exchange: issue[:exchange])
+                else
+                  I18n.t('tax_report.warnings.exchange_sync_failed', exchange: issue[:exchange])
+                end
+      "#{I18n.t('tax_report.incomplete_banner_prefix')}: #{message}"
+    end
+
     def scoped_transactions
       # Include all transactions up to end of year (for cost basis from prior years)
       # but only report disposals within the target year
       transactions.where(transacted_at: ..Time.utc(year + 1)).order(transacted_at: :asc)
     end
 
+    # A fiat ledger row is one leg of a trade or bank funding, never a disposal or a lot. Kraken
+    # emits one signed row per asset, so a EUR-funded buy arrives as a `sell` of EUR; every engine
+    # priced it at 1.0 against lots the user never had. Filter after enrichment on purpose: the fiat
+    # row carries the trade's fee, which PriceService#attribute_quote_row_fees moves onto the crypto leg first.
+    def taxable_entries(enriched)
+      enriched.reject { |tx| Tax::PriceService::FIAT_CURRENCIES.include?(tx[:base_currency]) }
+    end
+
     def csv_headers
       if wealth_snapshot?
         return %w[reference_date asset amount value currency].map { |k| I18n.t("tax_report.headers.#{k}") }
       elsif pvct?
-        keys = %w[date asset amount proceeds total_acquisition_cost portfolio_value gain_loss currency fee exchange tx_id]
+        keys = %w[date asset amount proceeds total_acquisition_cost portfolio_value gain_loss currency fee exchange tx_id
+                  data_incomplete]
       elsif weighted_average?
-        keys = %w[date asset amount proceeds cost_basis gain_loss currency fee exchange tx_id cost_basis_complete]
+        keys = %w[date asset amount proceeds cost_basis gain_loss currency fee exchange tx_id cost_basis_complete
+                  data_incomplete]
       else
         keys = %w[date acquisition_date asset amount proceeds cost_basis gain_loss currency holding_days fee exchange tx_id
-                  cost_basis_complete]
+                  cost_basis_complete data_incomplete]
         keys << 'tax_exempt' if jurisdiction[:holding_exemption]
         keys << 'old_stock' if jurisdiction[:old_stock_cutoff]
         keys << 'term' if jurisdiction[:short_long_term]
@@ -120,7 +162,8 @@ module Tax
           currency,
           disposal[:fee]&.round(2),
           disposal[:exchange],
-          disposal[:tx_id]
+          disposal[:tx_id],
+          disposal[:data_incomplete]
         ]
       else
         row = [
@@ -136,7 +179,8 @@ module Tax
           disposal[:fee]&.round(2),
           disposal[:exchange],
           disposal[:tx_id],
-          disposal[:cost_basis_complete]
+          disposal[:cost_basis_complete],
+          disposal[:data_incomplete]
         ]
         row << disposal[:tax_exempt] if jurisdiction[:holding_exemption]
         row << disposal[:old_stock] if jurisdiction[:old_stock_cutoff]
@@ -188,7 +232,8 @@ module Tax
         disposal[:fee]&.round(2),
         disposal[:exchange],
         disposal[:tx_id],
-        disposal[:cost_basis_complete]
+        disposal[:cost_basis_complete],
+        disposal[:data_incomplete]
       ]
     end
 
@@ -385,10 +430,13 @@ module Tax
     end
 
     ACQUISITION_ENTRY_TYPES = %w[buy deposit swap_in staking_reward lending_interest airdrop mining other_income].freeze
+    INCOME_TYPES = %w[staking_reward lending_interest airdrop mining other_income].freeze
 
     def apply_danish_wash_sale(disposals, enriched)
+      # A linked deposit is the far end of the user's own transfer, not a repurchase — counting it
+      # here would deny a real loss because the coins moved between two of their own accounts.
       buys_by_asset = enriched
-                      .select { |tx| ACQUISITION_ENTRY_TYPES.include?(tx[:entry_type].to_s) }
+                      .select { |tx| ACQUISITION_ENTRY_TYPES.include?(tx[:entry_type].to_s) && !tx[:linked] }
                       .group_by { |tx| tx[:base_currency] }
 
       disposals.each do |d|
@@ -423,11 +471,66 @@ module Tax
       end
     end
 
+    # First data row, not a header row, so CSV.parse(csv, headers: true) still sees the real columns.
+    def incomplete_banner
+      "#{I18n.t('tax_report.incomplete_banner_prefix')}: " \
+        "#{I18n.t('tax_report.incomplete_banner', missing: @price_service.warnings.uniq.size)}"
+    end
+
     def append_warnings(csv)
       csv << []
       csv << ["WARNING: #{I18n.t('tax_report.warnings.missing_prices')}:"]
       @price_service.warnings.uniq.each { |w| csv << [w] }
       csv << [I18n.t('tax_report.warnings.upgrade_hint')]
+    end
+
+    # An unlinked deposit's cost basis is the market value on the day it arrived — a disclosed
+    # assumption, not a fact. Naming the rows lets the user link each one to its withdrawal in
+    # the tracker and get the real basis.
+    def append_deposit_basis_warnings(csv)
+      csv << []
+      csv << ["WARNING: #{I18n.t('tax_report.warnings.deposit_basis_assumed')}:"]
+      @assumed_deposits.each do |tx|
+        csv << ["#{tx[:base_currency]} #{tx[:base_amount]} #{tx[:transacted_at].utc.strftime('%Y-%m-%d')}"]
+      end
+      csv << [I18n.t('tax_report.warnings.deposit_basis_assumed_hint')]
+    end
+
+    # Staking, interest, airdrops and mining are taxable when received, on top of any gain on a later
+    # sale. The engines only ever emit disposals, so without this section an entire category of
+    # taxable income leaves no trace in the report.
+    def append_income_section(csv)
+      csv << []
+      csv << [I18n.t('tax_report.income.header')]
+      @income_rows.each do |tx, value|
+        csv << [tx[:transacted_at].utc.strftime('%Y-%m-%d'), income_type_label(tx), tx[:base_currency],
+                tx[:base_amount], value.round(2), currency]
+      end
+      @income_rows.group_by { |tx, _value| tx[:entry_type].to_s }.each_value do |rows|
+        csv << [nil, I18n.t('tax_report.income.total', type: income_type_label(rows.first.first)), nil, nil,
+                rows.sum { |_tx, value| value }.round(2), currency]
+      end
+    end
+
+    # A wealth snapshot has no enriched rows to list income from, but Switzerland taxes that income
+    # all the same — say so rather than let the omission read as "nothing to declare".
+    def append_income_disclosure(csv)
+      csv << []
+      csv << [I18n.t('tax_report.income.not_included')]
+    end
+
+    def income_type_label(entry)
+      I18n.t("tax_report.income.types.#{entry[:entry_type]}")
+    end
+
+    # PriceService zeroes `fiat_value` for a fiat base on purpose — no engine consumes it and pricing
+    # it could only fabricate a missing-price warning. An income row often IS fiat-based (a USD
+    # dividend), and here the amount is the whole point, so convert it at the day's FX rate.
+    def income_value(entry)
+      return entry[:fiat_value] unless Tax::PriceService::FIAT_CURRENCIES.include?(entry[:base_currency])
+
+      @price_service.convert_fiat(amount: entry[:base_amount], from: entry[:base_currency],
+                                  to: currency, timestamp: entry[:transacted_at])
     end
   end
 end

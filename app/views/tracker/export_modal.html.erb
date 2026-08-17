@@ -13,9 +13,18 @@
           <input type="radio" name="export_type" value="tax_report"
                  data-action="tracker-export#toggle"
                  data-tracker-export-target="typeRadio"
-                 <%= 'checked' unless @settings['export_type'] == 'transactions' %>>
+                 <%= 'checked' if @settings['export_type'] != 'transactions' && (!@broker_exchange || @settings['report_scope'] != 'broker') %>>
           <span><%= t('tracker.export_modal.tax_report') %></span>
         </label>
+        <% if @broker_exchange %>
+          <label class="form__radio-group">
+            <input type="radio" name="export_type" value="broker_tax_report"
+                   data-action="tracker-export#toggle"
+                   data-tracker-export-target="typeRadio"
+                   <%= 'checked' if @settings['export_type'] != 'transactions' && @settings['report_scope'] == 'broker' %>>
+            <span><%= t('tracker.export_modal.broker_tax_report') %></span>
+          </label>
+        <% end %>
         <label class="form__radio-group">
           <input type="radio" name="export_type" value="transactions"
                  data-action="tracker-export#toggle"
@@ -26,7 +35,7 @@
       </div>
 
       <div data-tracker-export-target="taxOptions" class="flex-row full-width <%= 'hidden' if @settings['export_type'] == 'transactions' %>">
-        <div class="form__row form__row--input">
+        <div class="form__row form__row--input" data-tracker-export-target="countryRow">
           <select name="country" class="form__input" data-tracker-export-target="country" data-action="change->tracker-export#changeCountry">
             <% @jurisdictions.each do |code, config| %>
               <option value="<%= code %>" <%= 'selected' if @settings['country'] == code %> data-stablecoin-ambiguous="<%= config.fetch(:stablecoin_ambiguous, false) %>"><%= t("tracker.export_modal.countries.#{code}") %></option>
@@ -37,13 +46,29 @@
 
         <div class="form__row form__row--input">
           <select name="year" class="form__input" data-tracker-export-target="year" data-action="change->tracker-export#changeYear">
-            <% ((Date.current.year - 5)..Date.current.year).to_a.reverse.each do |y| %>
-              <option value="<%= y %>" <%= 'selected' if (@settings['year']&.to_i || Date.current.year - 1) == y %>><%= y %></option>
+            <% crypto_years = ((Date.current.year - 5)..Date.current.year) %>
+            <% broker_years = Tax::BrokerReport::SUPPORTED_YEARS %>
+            <% (crypto_years.to_a | broker_years.to_a).sort.reverse.each do |y| %>
+              <% scopes = [('crypto' if crypto_years.cover?(y)), ('broker' if broker_years.cover?(y))].compact %>
+              <option value="<%= y %>" data-scopes="<%= scopes.join(' ') %>" <%= 'selected' if (@settings['year']&.to_i || Date.current.year - 1) == y %>><%= y %></option>
             <% end %>
           </select>
           <label class="form__label form__label--active"><%= t('tracker.export_modal.year') %></label>
         </div>
       </div>
+
+      <%# No rows means nothing to classify — an empty table under "assign a type to every security"
+          reads as a bug. The broker radio still shows; the report simply has no securities to refuse. %>
+      <%= render 'tracker/fund_classifications', rows: @fund_classification_rows if @fund_classification_rows.any? %>
+
+      <%# Same target as the option row above, so it hides with them: this disclaimer is about the tax
+          report and used to be shown over the plain transactions export too. %>
+      <p class="form__row <%= 'hidden' if @settings['export_type'] == 'transactions' %>"
+         data-tracker-export-target="taxOptions"><%= t('tracker.export_modal.tax_disclaimer') %></p>
+
+      <p class="form__row salert salert--danger hidden" data-tracker-export-target="saveError">
+        <%= t('tracker.export_modal.classification_save_failed') %>
+      </p>
 
       <div data-tracker-export-target="stablecoinOption" class="form__row hidden">
         <label class="form__checkbox-group">
@@ -73,6 +98,7 @@
          data-tracker-export-target="downloadBtn"
          data-transactions-url="<%= export_tracker_path %>"
          data-tax-report-url="<%= tax_report_tracker_path %>"
+         data-fund-classifications-url="<%= fund_classifications_tracker_path %>"
          data-label-generate="<%= t('tracker.export_modal.generate') %>"
          data-label-download="<%= t('tracker.export_modal.download_label') %>">
         <%= @settings['export_type'] == 'transactions' ? t('tracker.export_modal.download_label') : t('tracker.export_modal.generate') %>

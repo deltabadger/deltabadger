@@ -413,6 +413,7 @@ fr:
         welcome:
             connect_and_track: "Connecte ta plateforme d'échange et commence à suivre ton portefeuille."
         sync_key_error_html: 'Échec de la synchronisation avec <strong>%{exchange}</strong> : %{message}. Veuillez mettre à jour la clé API ci-dessous.'
+        sync_failed_for: 'La synchronisation avec %{exchanges} a échoué. Certaines transactions peuvent manquer — les rapports générés maintenant risquent donc d’être incomplets.'
         pricing_warning_html: Soldes synchronisés, mais les prix en USD sont indisponibles pour le moment (%{message}). Le graphique utilisera les derniers prix connus en attendant le rétablissement du service.
         portfolio:
             never_synced: Cliquez sur Synchroniser pour charger votre portefeuille.
@@ -425,6 +426,12 @@ fr:
         filter: 'Filtrer'
         bot: 'Bot'
         no_results: 'Aucune transaction trouvée pour les filtres sélectionnés.'
+        transfer_badge: 'Transfert'
+        transfer_link: 'Marquer comme transfert'
+        transfer_unlink: 'Pas un transfert'
+        transfer_linked: 'La transaction a été identifiée comme un transfert entre tes comptes.'
+        transfer_unlinked: 'Cette opération n’est plus considérée comme un transfert.'
+        transfer_no_candidate: 'Il n’a pas été possible d’identifier une seule transaction correspondante dans un délai de 14 jours ; rien n’a donc été associé.'
         connect_exchange: 'Connecter une plateforme'
         import_from: 'Importer les transactions de'
         search_exchange: 'Rechercher une plateforme...'
@@ -432,6 +439,29 @@ fr:
         export_modal:
             title: 'Générer le rapport'
             tax_report: 'Rapport fiscal'
+            broker_tax_report: 'Rapport fiscal du courtier (Allemagne — Anlage KAP / KAP-INV)'
+            classification_title: 'Classer les titres'
+            classification_hint: 'Nous avons renseigné ce que permettaient les données de marché — vérifiez les éléments ci-dessous avant de générer le rapport.'
+            classification_settled:
+                one: '1 valeur mobilière classée automatiquement — vérifier'
+                other: '%{count} valeurs mobilières classées automatiquement — vérifier'
+            classification_eyebrow_unclassified: 'Empêche de générer le rapport'
+            classification_eyebrow_fund: 'Valeur par défaut appliquée'
+            classification_eyebrow_refused: 'Montants non pris en compte'
+            classification_why_unclassified: 'Absent de nos données de marché, nous ne pouvons donc pas déterminer sa nature.'
+            classification_why_fund_html: 'Il s’agit d’un fonds. Nous avons choisi par défaut sonstige Fonds — <b>0% Teilfreistellung</b> — car les fonds américains ne publient pas les conditions prévues par l’InvStG. Modifiez ce choix si vous pouvez justifier la part en actions du fonds.'
+            classification_fund_hint: 'Avec Aktienfonds, ce serait 30%'
+            classification_why_refused: 'Ce titre est exclu du récapitulatif plutôt que de faire l’objet d’une estimation ; ses lignes restent affichées dans les feuilles de calcul.'
+            classification_refusal_reasons:
+                uncovered_disposal: 'Une cession que nous ne pouvons pas rattacher entièrement aux acquisitions.'
+                unsupported_activity: 'Un type de transaction que nous ne prenons pas en charge, par exemple une fusion ou une scission.'
+                pre_2018_fund_lot: 'Des parts de fonds acquises avant 2018, pour lesquelles la cession réputée réalisée au titre du §56 InvStG n’est pas modélisée.'
+                missing_price: 'Aucun prix de rachat en fin d’année ; la Vorabpauschale ne peut donc pas être calculée.'
+                missing_fx: 'Aucun taux de référence de la BCE pour l’une des dates.'
+                missing_basiszins: 'Aucun Basiszins n’a encore été publié pour cette année.'
+            classification_save_failed: 'Votre classification n’a pas pu être enregistrée. Rechargez la page et réessayez.'
+            classification_select: 'Sélectionner…'
+            tax_disclaimer: 'Outil d’aide au calcul, pas un conseil fiscal. Vérifiez les montants avant de déposer votre déclaration.'
             transactions: 'Tout'
             country: 'Pays'
             year: 'Année'
@@ -456,6 +486,8 @@ fr:
                 DK: 'Danemark'
                 CZ: 'Tchéquie'
                 SK: 'Slovaquie'
+        tax_report:
+            failed: 'Le rapport n’a pas pu être généré. Vérifiez les paramètres sélectionnés et réessayez.'
         filters:
             all: 'Tous'
         columns:
@@ -482,6 +514,10 @@ fr:
             fee: 'Frais'
             other_income: 'Revenu'
             lost: 'Perdu'
+            withholding_tax: 'Retenue à la source'
+            return_of_capital: 'Remboursement de capital'
+            adjustment: 'Ajustement'
+            unsupported_activity: 'Autre activité'
     order_filters:
         all: 'Tous'
         successful: 'Réussis'
@@ -512,9 +548,23 @@ fr:
             failed_sell: 'Échec de la vente de %{amount} %{base} pour %{quote_amount} %{quote}'
             skipped: 'Ignoré (sous le minimum)'
     tax_report:
+        income:
+            header: 'Revenus perçus (leur imposition dépend de leur nature et de la juridiction fiscale — ils ne sont pas inclus dans les plus-values indiquées ci-dessus)'
+            total: 'Total des %{type}'
+            not_included: 'Les revenus perçus (récompenses de staking, intérêts de prêt, airdrops et revenus du minage) ne sont pas compris dans ce rapport. Ils sont imposables au titre des revenus et doivent faire l’objet d’une déclaration distincte.'
+            types:
+                staking_reward: 'récompenses de staking'
+                lending_interest: 'intérêts de prêt'
+                airdrop: 'airdrops'
+                mining: 'revenus du minage'
+                other_income: 'autres revenus (dividendes, intérêts et ristournes)'
         warnings:
             missing_prices: Prix historiques manquants pour
             upgrade_hint: Passez à un plan CoinGecko supérieur ou utilisez deltabadger.com pour l'historique complet.
+            deposit_basis_assumed: Coût d’acquisition estimé à la valeur de marché pour ces dépôts non associés
+            deposit_basis_assumed_hint: Associe chaque dépôt au retrait correspondant dans le Tracker pour utiliser le coût d’acquisition réel.
+            exchange_sync_failed: 'Des données de %{exchange} peuvent manquer : la dernière synchronisation a échoué. Relancez-la dans le Tracker, puis générez à nouveau ce rapport.'
+            exchange_never_synced: 'La plateforme %{exchange} n’a jamais été synchronisée — aucune de ses transactions ne figure dans ce rapport. Synchronisez-la dans le Tracker, puis générez à nouveau le rapport.'
         summary:
             total_gains: Plus-values totales
             total_losses: Moins-values totales
@@ -532,6 +582,7 @@ fr:
             exchange: 'Plateforme'
             tx_id: 'ID de transaction'
             cost_basis_complete: 'Coût d''acquisition complet'
+            data_incomplete: 'Données incomplètes'
             acquisition_date: 'Date d''acquisition'
             old_stock: 'Ancien stock'
             tax_exempt: 'Exonéré'
@@ -540,3 +591,91 @@ fr:
             total_acquisition_cost: 'Coût total d''acquisition'
             portfolio_value: 'Valeur globale du portefeuille'
         no_taxable_transactions: 'Aucune transaction imposable trouvée pour cette période.'
+        incomplete_banner_prefix: 'AVERTISSEMENT'
+        incomplete_banner: '%{missing} valeurs manquantes — rapport incomplet, ne pas déclarer en l''état'
+        broker:
+            title: 'Anlage KAP / KAP-INV — base de calcul'
+            incomplete_banner: 'Rapport incomplet — consultez les avertissements ci-dessous ; ne le déposez pas en l''état'
+            unclassified_banner: 'Récapitulatifs non produits — toutes les valeurs mobilières ne sont pas encore classées ; consultez les avertissements ci-dessous'
+            sections:
+                kap: 'RÉCAPITULATIF — ANLAGE KAP'
+                kap_inv: 'RÉCAPITULATIF — ANLAGE KAP-INV'
+                disposals: 'DÉTAIL — CESSIONS'
+                income: 'DÉTAIL — REVENUS'
+                warnings: 'AVERTISSEMENTS'
+                disclosures: 'MENTIONS LÉGALES'
+            kap:
+                z19: 'Revenus de capitaux étrangers'
+                z20: 'Plus-values de cession d''actions incluses à la ligne 19'
+                z22: 'Pertes autres que celles provenant de la cession d''actions incluses à la ligne 19'
+                z23: 'Pertes provenant de la cession d''actions incluses à la ligne 19'
+                z41: 'Impôts étrangers imputables non encore imputés'
+            kap_inv:
+                distributions: 'Distributions (avant Teilfreistellung)'
+                vorabpauschale: 'Vorabpauschale (avant Teilfreistellung)'
+                sale_result: 'Résultat de cession (avant Teilfreistellung)'
+            kinds:
+                share: 'Action'
+                fund: 'Fonds'
+                other_security: 'Autre valeur mobilière'
+            fund_categories:
+                equity_fund: 'Fonds actions'
+                mixed_fund: 'Fonds mixtes'
+                real_estate_fund: 'Fonds immobiliers'
+                foreign_real_estate_fund: 'Fonds immobiliers étrangers'
+                other_fund: 'Autres fonds'
+            buckets:
+                kap_dividend: 'Dividende (Anlage KAP)'
+                kap_interest: 'Intérêts (Anlage KAP)'
+                fund_distribution: 'Distribution de fonds (Anlage KAP-INV)'
+                withholding_tax: 'Retenue à la source (Anlage KAP, ligne 41)'
+                return_of_capital_excess: 'Remboursement de capital dépassant le coût d''acquisition'
+            headers:
+                zeile: 'Ligne'
+                description: 'Libellé'
+                amount_eur: 'Montant (EUR)'
+                fund_category: 'Catégorie de fonds'
+                position: 'Poste'
+                symbol: 'Valeur mobilière'
+                kind: 'Type'
+                units: 'Nombre de parts'
+                proceeds_usd: 'Produit de cession (USD)'
+                fx_rate: 'Cours BCE (USD par EUR)'
+                proceeds_eur: 'Produit de cession (EUR)'
+                fee_eur: 'Frais déduits du produit de cession (EUR)'
+                cost_eur: 'Coût d''acquisition (EUR)'
+                vorabpauschale_eur: 'Vorabpauschale (EUR)'
+                gain_eur: 'Gain/perte (EUR)'
+                status: 'Statut'
+                date: 'Date'
+                activity_type: 'Type d''opération'
+                bucket: 'Affectation'
+                amount_usd: 'Montant (USD)'
+                amount_eur_income: 'Montant (EUR)'
+            rows:
+                lot: 'dont acquisition'
+                fee_total: 'Frais réglementaires (à titre informatif uniquement, non déduits)'
+            status:
+                refused: 'Non inclus dans le récapitulatif — voir les avertissements'
+                uncovered: 'Acquisition non justifiée'
+            warnings:
+                summaries_blocked: 'Les récapitulatifs Anlage KAP et Anlage KAP-INV seront produits une fois toutes les valeurs mobilières classées.'
+                unclassified: 'Non classée — indiquez le type de valeur mobilière (action, fonds ou autre valeur mobilière).'
+                uncovered_disposal: 'Cession du %{detail} sans position intégralement justifiée — les montants de cette valeur mobilière ne figurent pas dans le récapitulatif.'
+                unsupported_activity: 'Opération non prise en charge (%{detail}) — les montants de cette valeur mobilière ne figurent pas dans le récapitulatif.'
+                pre_2018_fund_lot: 'Parts de fonds acquises avant 2018 (%{detail}) — la cession fictive prévue par le §56 InvStG n''est pas prise en charge ; ce fonds est donc exclu de l''Anlage KAP-INV.'
+                missing_price: 'Aucun prix de rachat disponible à la clôture de l''exercice %{detail} — la Vorabpauschale ne peut pas être calculée ; ce fonds est donc exclu du récapitulatif.'
+                missing_fx: 'Aucun cours de référence de la BCE disponible pour le %{detail} — le montant concerné manque dans le récapitulatif.'
+                missing_basiszins: 'Aucun Basiszins n''a encore été publié pour %{detail} — la Vorabpauschale ne peut pas être calculée ; ce fonds est donc exclu du récapitulatif.'
+                ambiguous_symbol: 'Ce symbole correspond à plusieurs catégories d''actifs (%{detail}) — vérifiez que son classement est correct.'
+                withholding_credited_for_refused_symbol: 'La retenue à la source relative à %{detail} est imputée à la ligne 41, bien que les autres montants de ces valeurs mobilières ne soient pas déclarés.'
+                unknown: 'Avertissement %{code} : %{detail}'
+            disclosures:
+                not_tax_advice: 'Ce rapport est un outil de calcul et ne constitue pas un conseil fiscal. Vérifiez tous les montants avant de les reporter dans votre déclaration fiscale.'
+                usd_balance_fx: 'Les gains de change du compte espèces en USD rémunéré constituent des revenus au sens du §20, al. 2, no 7 EStG (lettre du BMF du 14.05.2025, point 131). Ils ne sont pas inclus dans ce rapport.'
+                us_etf_default: 'Faute de justificatif, les ETF domiciliés aux États-Unis sont traités ici comme d''autres fonds au sens du §20, al. 4 InvStG (Teilfreistellung de 0 %). Quiconque choisit une autre catégorie de fonds doit justifier lui-même le taux de participation en capital.'
+                vorabpauschale_start_value: 'La valeur de départ de la Vorabpauschale correspond au dernier cours de l’année précédente et non au premier prix de rachat fixé dans l’année civile (BMF 21.05.2019, Tz 18.4). Chaque année s’enchaîne ainsi sans rupture avec la précédente ; l’écart représente une fraction de pour cent du rendement de base.'
+                withholding_credit_limit: 'La ligne 41 indique la totalité de la retenue à la source. Sans formulaire W-8BEN, Alpaca retient 30 %, alors que la convention fiscale germano-américaine n’en rend que 15 % imputables ; l’excédent doit être réclamé à l’IRS et non imputé ici.'
+                fx_source: 'Conversion aux cours de référence de l''euro publiés par la BCE ; lorsqu''aucun cours n''est publié, le cours du jour ouvré bancaire précédent s''applique.'
+                interest_withholding_net: 'Les intérêts crédités après déduction d''une retenue à la source étrangère sont inscrits pour leur montant net à la ligne 19, tandis que la retenue est imputée à la ligne 41 — la banque ne fournit aucun montant brut pour les intérêts. Les dividendes sont en revanche reconstitués en brut.'
+                regulatory_fees: 'Les frais réglementaires groupés ne peuvent pas être rattachés à une cession précise et ne sont donc déduits d''aucun montant ; ils sont indiqués uniquement à titre informatif.'

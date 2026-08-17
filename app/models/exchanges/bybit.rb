@@ -1,9 +1,24 @@
 class Exchanges::Bybit < Exchange
   COINGECKO_ID = 'bybit_spot'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
-    insufficient_funds: ['170131', 'Insufficient balance'],
-    invalid_key: %w[10003 10004]
+    # '170131' removed: the client returns retMsg only (Clients::Bybit#create_order/#get_order)
+    # and parse_error_message re-strips the code, so the digits never reach a message — while as
+    # a substring they would match any id or epoch that happens to contain them.
+    insufficient_funds: ['Insufficient balance'],
+    # Messages, not codes — this list is substring-matched against error text by
+    # Exchange#invalid_key_error?. It previously held the bare codes 10003/10004, which no message
+    # ever contains, so a dead Bybit key was never flagged. The string below is Bybit's actual
+    # wording, taken from recorded failures on this venue; it reads like Binance's because Bybit
+    # reuses that phrasing. The codes moved to INVALID_KEY_CODES, which is what the retCode branch
+    # of get_api_key_validity actually needs.
+    invalid_key: ['Invalid API-key, IP, or permissions for action.']
   }.freeze
+
+  # Matched against the parsed retCode, never against a message — keeping them out of ERRORS stops
+  # a bare number being substring-matched into any id or timestamp that happens to contain it.
+  # Same split Bitget already uses for its probe codes.
+  INVALID_KEY_CODES = %w[10003 10004].freeze
+  private_constant :INVALID_KEY_CODES
   # https://bybit-exchange.github.io/docs/v5/enum#orderstatus
   ORDER_STATUS_MAP = {
     'Created' => :unknown,
@@ -352,7 +367,7 @@ class Exchanges::Bybit < Exchange
       ret_code = result.data['retCode']
       if ret_code.zero?
         Result::Success.new(true)
-      elsif ret_code.to_s.in?(ERRORS[:invalid_key])
+      elsif ret_code.to_s.in?(INVALID_KEY_CODES)
         Result::Success.new(false)
       else
         # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
@@ -429,6 +444,11 @@ class Exchanges::Bybit < Exchange
       update_exchange_asset_fees!(fees, chains: chain_data)
     end
   end
+
+  # `/v5/execution/list` returns startTime → startTime+7d and rejects a wider explicit range, so a
+  # start older than a week can never reach today. Deposit and withdrawal records cap at 30 days; the
+  # narrowest cap wins, and a 7-day window is well inside theirs.
+  def ledger_window = 7.days
 
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bybit', api_key: api_key.key, api_secret: api_key.secret,

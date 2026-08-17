@@ -416,6 +416,7 @@ da:
         welcome:
             connect_and_track: "Tilslut din børs og begynd at følge din portefølje."
         sync_key_error_html: 'Synkronisering med <strong>%{exchange}</strong> mislykkedes: %{message}. Opdatér API-nøglen nedenfor.'
+        sync_failed_for: 'Synkroniseringen med %{exchanges} mislykkedes. Der kan mangle transaktioner derfra — rapporter, der oprettes nu, kan derfor være ufuldstændige.'
         pricing_warning_html: Saldi synkroniseret, men USD-priser er ikke tilgængelige lige nu (%{message}). Diagrammet bruger de sidst kendte priser, indtil prissætningen er genoprettet.
         portfolio:
             never_synced: Klik på „Synkronisér" for at indlæse din portefølje.
@@ -428,6 +429,12 @@ da:
         filter: 'Filtrér'
         bot: 'Bot'
         no_results: 'Ingen transaktioner fundet for de valgte filtre.'
+        transfer_badge: 'Overførsel'
+        transfer_link: 'Markér som overførsel'
+        transfer_unlink: 'Ikke en overførsel'
+        transfer_linked: 'Knyttet sammen som en overførsel mellem dine egne konti.'
+        transfer_unlinked: 'Behandles ikke længere som en overførsel.'
+        transfer_no_candidate: 'Der blev ikke fundet præcis én matchende transaktion inden for 14 dage, så intet blev knyttet sammen.'
         connect_exchange: 'Forbind børs'
         import_from: 'Importér transaktioner fra'
         search_exchange: 'Søg børs...'
@@ -435,6 +442,29 @@ da:
         export_modal:
             title: 'Generér rapport'
             tax_report: 'Skatterapport'
+            broker_tax_report: 'Skatterapport fra mægler (Tyskland — Anlage KAP / KAP-INV)'
+            classification_title: 'Klassificér værdipapirer'
+            classification_hint: 'Vi udfyldte det, vi kunne ud fra markedsdata — kontrollér alt nedenfor, før du genererer rapporten.'
+            classification_settled:
+                one: '1 værdipapir klassificeret automatisk — gennemse'
+                other: '%{count} værdipapirer klassificeret automatisk — gennemse'
+            classification_eyebrow_unclassified: 'Blokerer rapporten'
+            classification_eyebrow_fund: 'Standardvalg anvendt'
+            classification_eyebrow_refused: 'Beløb udeladt'
+            classification_why_unclassified: 'Findes ikke i vores markedsdata, så vi kan ikke afgøre, hvad det er.'
+            classification_why_fund_html: 'En fond. Vi valgte som standard sonstige Fonds — <b>0% Teilfreistellung</b> — fordi amerikanske fonde ikke offentliggør vilkår efter InvStG. Skift valget, hvis du kan dokumentere fondens aktieandel.'
+            classification_fund_hint: 'Aktienfonds ville give 30%'
+            classification_why_refused: 'Dette værdipapir udelades fra oversigten i stedet for at blive anslået; dets rækker vises stadig i arbejdsarkene.'
+            classification_refusal_reasons:
+                uncovered_disposal: 'Et salg, som vi ikke fuldt ud kan matche med køb.'
+                unsupported_activity: 'En transaktionstype, vi ikke modellerer, f.eks. en fusion eller udskillelse.'
+                pre_2018_fund_lot: 'Fondsandele købt før 2018, hvor det fiktive salg efter §56 InvStG ikke er modelleret.'
+                missing_price: 'Der mangler en indløsningskurs ved årets udgang, så Vorabpauschale kan ikke beregnes.'
+                missing_fx: 'Der mangler en ECB-referencekurs for en af datoerne.'
+                missing_basiszins: 'Der er endnu ikke offentliggjort en Basiszins for det år.'
+            classification_save_failed: 'Din klassificering kunne ikke gemmes. Genindlæs siden, og prøv igen.'
+            classification_select: 'Vælg…'
+            tax_disclaimer: 'Beregningshjælp, ikke skatterådgivning. Kontrollér tallene, før du indsender din skatteangivelse.'
             transactions: 'Alle'
             country: 'Land'
             year: 'År'
@@ -467,6 +497,7 @@ da:
             expired: 'Skatterapport er udløbet. Generér venligst en ny.'
             generating: 'Genererer skatterapport...'
             download_ready: 'Skatterapport er klar. Klik for at downloade.'
+            failed: 'Rapporten kunne ikke genereres. Kontrollér de valgte indstillinger, og prøv igen.'
         filters:
             all: 'Alle'
         columns:
@@ -493,6 +524,10 @@ da:
             fee: 'Gebyr'
             other_income: 'Indkomst'
             lost: 'Tabt'
+            withholding_tax: 'Kildeskat'
+            return_of_capital: 'Kapitaltilbagebetaling'
+            adjustment: 'Justering'
+            unsupported_activity: 'Anden aktivitet'
     order_filters:
         all: 'Alle'
         successful: 'Gennemført'
@@ -525,9 +560,23 @@ da:
             failed_sell: 'Failed attempt to sell %{amount} %{base} for %{quote_amount} %{quote}'
             skipped: 'Skipped (below minimum)'
     tax_report:
+        income:
+            header: 'Modtagne indtægter (beskatningen afhænger af indtægtstypen og de gældende skatteregler — ikke medregnet i gevinsterne ovenfor)'
+            total: 'I alt — %{type}'
+            not_included: 'Modtagne indtægter (stakingbelønninger, renteindtægter fra udlån, airdrops og indtægter fra mining) er ikke medtaget i denne rapport. De beskattes som indkomst og skal oplyses særskilt.'
+            types:
+                staking_reward: 'stakingbelønninger'
+                lending_interest: 'renteindtægter fra udlån'
+                airdrop: 'airdrops'
+                mining: 'indtægter fra mining'
+                other_income: 'andre indtægter (udbytter, renter og gebyrrefusioner)'
         warnings:
             missing_prices: Manglende historiske priser for
             upgrade_hint: Opgradér dit CoinGecko-abonnement, eller brug deltabadger.com for fuld historik.
+            deposit_basis_assumed: Kostpris ansat til markedsværdien for disse ikke-tilknyttede indbetalinger
+            deposit_basis_assumed_hint: Knyt hver indbetaling til den tilsvarende udbetaling i Tracker for at bruge den faktiske kostpris.
+            exchange_sync_failed: 'Data fra %{exchange} kan mangle, fordi den seneste synkronisering mislykkedes. Synkronisér igen i Tracker, og opret rapporten på ny.'
+            exchange_never_synced: '%{exchange} er aldrig blevet synkroniseret — ingen transaktioner derfra er med i rapporten. Synkronisér i Tracker, og opret rapporten på ny.'
         headers:
             date: 'Dato'
             asset: 'Aktiv'
@@ -568,3 +617,89 @@ da:
             total_gains: 'Samlede gevinster'
             total_losses: 'Samlede tab'
             deductible: 'fradragsberettiget'
+        broker:
+            title: 'Anlage KAP / KAP-INV — beregningsgrundlag'
+            incomplete_banner: 'Rapporten er ufuldstændig — gennemgå advarslerne nedenfor; indsend den ikke i denne form'
+            unclassified_banner: 'Oversigterne er ikke udarbejdet — endnu er ikke alle værdipapirer klassificeret; se advarslerne nedenfor'
+            sections:
+                kap: 'OVERSIGT — ANLAGE KAP'
+                kap_inv: 'OVERSIGT — ANLAGE KAP-INV'
+                disposals: 'OPGØRELSE — SALG'
+                income: 'OPGØRELSE — INDTÆGTER'
+                warnings: 'ADVARSLER'
+                disclosures: 'JURIDISKE OPLYSNINGER'
+            kap:
+                z19: 'Udenlandske kapitalindkomster'
+                z20: 'Gevinster ved salg af aktier medtaget på linje 19'
+                z22: 'Andre tab end tab ved salg af aktier medtaget på linje 19'
+                z23: 'Tab ved salg af aktier medtaget på linje 19'
+                z41: 'Modregningsberettigede udenlandske skatter, som endnu ikke er modregnet'
+            kap_inv:
+                distributions: 'Udlodninger (før Teilfreistellung)'
+                vorabpauschale: 'Vorabpauschale (før Teilfreistellung)'
+                sale_result: 'Resultat ved salg (før Teilfreistellung)'
+            kinds:
+                share: 'Aktie'
+                fund: 'Fond'
+                other_security: 'Andet værdipapir'
+            fund_categories:
+                equity_fund: 'Aktiefonde'
+                mixed_fund: 'Blandede fonde'
+                real_estate_fund: 'Ejendomsfonde'
+                foreign_real_estate_fund: 'Udenlandske ejendomsfonde'
+                other_fund: 'Øvrige fonde'
+            buckets:
+                kap_dividend: 'Udbytte (Anlage KAP)'
+                kap_interest: 'Renter (Anlage KAP)'
+                fund_distribution: 'Fondsudlodning (Anlage KAP-INV)'
+                withholding_tax: 'Kildeskat (Anlage KAP, linje 41)'
+                return_of_capital_excess: 'Tilbagebetaling af kapital ud over anskaffelsessummen'
+            headers:
+                zeile: 'Linje'
+                description: 'Beskrivelse'
+                amount_eur: 'Beløb (EUR)'
+                fund_category: 'Fondskategori'
+                position: 'Post'
+                symbol: 'Værdipapir'
+                kind: 'Type'
+                units: 'Antal'
+                proceeds_usd: 'Provenu (USD)'
+                fx_rate: 'ECB-kurs (USD pr. EUR)'
+                proceeds_eur: 'Provenu (EUR)'
+                fee_eur: 'Gebyrer fratrukket provenuet (EUR)'
+                cost_eur: 'Anskaffelsessum (EUR)'
+                vorabpauschale_eur: 'Vorabpauschale (EUR)'
+                gain_eur: 'Gevinst/tab (EUR)'
+                status: 'Status'
+                date: 'Dato'
+                activity_type: 'Posteringstype'
+                bucket: 'Placering'
+                amount_usd: 'Beløb (USD)'
+                amount_eur_income: 'Beløb (EUR)'
+            rows:
+                lot: 'heraf anskaffelse'
+                fee_total: 'Regulatoriske gebyrer (kun til orientering, ikke fratrukket)'
+            status:
+                refused: 'Ikke medtaget i oversigten — se advarslerne'
+                uncovered: 'Anskaffelsen er ikke dokumenteret'
+            warnings:
+                summaries_blocked: 'Oversigterne Anlage KAP og Anlage KAP-INV udarbejdes, når alle værdipapirer er klassificeret.'
+                unclassified: 'Endnu ikke klassificeret — angiv typen af værdipapir (aktie, fond eller andet værdipapir).'
+                uncovered_disposal: 'Salg den %{detail} uden fuldt dokumenteret beholdning — beløbene for dette værdipapir medtages ikke i oversigten.'
+                unsupported_activity: 'Ikke-understøttet postering (%{detail}) — beløbene for dette værdipapir medtages ikke i oversigten.'
+                pre_2018_fund_lot: 'Fondsandele anskaffet før 2018 (%{detail}) — det fiktive salg efter §56 InvStG behandles ikke, og fonden er derfor udeladt af Anlage KAP-INV.'
+                missing_price: 'Der findes ingen indløsningskurs ved udgangen af %{detail} — Vorabpauschale kan ikke beregnes, og fonden er derfor udeladt af oversigten.'
+                missing_fx: 'Der findes ingen ECB-referencekurs for %{detail} — det berørte beløb mangler i oversigten.'
+                missing_basiszins: 'Der er endnu ikke offentliggjort en Basiszins for %{detail} — Vorabpauschale kan ikke beregnes, og fonden er derfor udeladt af oversigten.'
+                ambiguous_symbol: 'Dette symbol er knyttet til flere aktivklasser (%{detail}) — kontrollér, at klassificeringen er korrekt.'
+                withholding_credited_for_refused_symbol: 'Kildeskatten for %{detail} modregnes på linje 41, selv om de øvrige beløb for disse værdipapirer ikke oplyses.'
+                unknown: 'Advarsel %{code}: %{detail}'
+            disclosures:
+                not_tax_advice: 'Denne rapport er et beregningsværktøj og udgør ikke skatterådgivning. Kontrollér alle beløb, før de overføres til selvangivelsen.'
+                usd_balance_fx: 'Valutagevinster på den rentebærende USD-konto er indkomst efter §20, stk. 2, nr. 7 EStG (BMF-skrivelse af 14.05.2025, pkt. 131). De er ikke medtaget i denne rapport.'
+                us_etf_default: 'ETF''er hjemmehørende i USA behandles her uden dokumentation som øvrige fonde efter §20, stk. 4 InvStG (0% Teilfreistellung). Den, der vælger en anden fondskategori, skal selv dokumentere kapitalandelen.'
+                vorabpauschale_start_value: 'Startværdien for Vorabpauschale er sidste kurs i det foregående år og ikke den første indløsningskurs, der fastsættes i kalenderåret (BMF 21.05.2019, Tz 18.4). Dermed hænger hvert år sammen med det foregående; afvigelsen udgør en brøkdel af en procent af basisafkastet.'
+                withholding_credit_limit: 'Linje 41 angiver hele den indeholdte kildeskat. Uden W-8BEN indeholder Alpaca 30 %, mens den tysk-amerikanske dobbeltbeskatningsoverenskomst kun giver credit for 15 %; det overskydende skal søges tilbage hos IRS og ikke modregnes her.'
+                fx_source: 'Omregning efter ECB''s euroreferencekurser; på dage uden kurs anvendes kursen fra den foregående bankdag.'
+                interest_withholding_net: 'Renter, der er krediteret efter fradrag af udenlandsk kildeskat, opføres netto på linje 19, mens kildeskatten modregnes på linje 41 — banken oplyser ikke et bruttobeløb for renter. Udbytter omregnes derimod til bruttobeløbet.'
+                regulatory_fees: 'Samlede regulatoriske gebyrer kan ikke henføres til et enkelt salg og fratrækkes derfor ikke noget beløb; de vises kun til orientering.'

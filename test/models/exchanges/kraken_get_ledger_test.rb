@@ -47,6 +47,61 @@ class Exchanges::KrakenGetLedgerTest < ActiveSupport::TestCase
     assert_equal 'R1', trade[:group_id]
   end
 
+  test 'trade fee is reported separately and base_amount stays gross' do
+    honeymaker_client = mock('honeymaker_client')
+    Honeymaker.stubs(:client).returns(honeymaker_client)
+
+    honeymaker_client.stubs(:get_ledgers).returns(
+      Result::Success.new({
+                            'error' => [],
+                            'result' => {
+                              'ledger' => {
+                                'L-BTC' => {
+                                  'refid' => 'R-GROSS',
+                                  'time' => 1_710_936_000.0,
+                                  'type' => 'trade',
+                                  'subtype' => '',
+                                  'aclass' => 'currency',
+                                  'asset' => 'XXBT',
+                                  'amount' => '0.5',
+                                  'fee' => '0',
+                                  'balance' => '1.0'
+                                },
+                                'L-EUR' => {
+                                  'refid' => 'R-GROSS',
+                                  'time' => 1_710_936_000.0,
+                                  'type' => 'trade',
+                                  'subtype' => '',
+                                  'aclass' => 'currency',
+                                  'asset' => 'ZEUR',
+                                  'amount' => '-10000',
+                                  'fee' => '26',
+                                  'balance' => '5000.0'
+                                }
+                              },
+                              'count' => 2
+                            }
+                          })
+    )
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    assert result.success?
+    btc_entry = result.data.find { |entry| entry[:base_currency] == 'BTC' }
+    eur_entry = result.data.find { |entry| entry[:base_currency] == 'EUR' }
+    assert_not_nil btc_entry
+    assert_not_nil eur_entry
+    # The tax engine capitalises acquisition fees and would double-count if base_amount ever became net.
+    assert_equal :buy, btc_entry[:entry_type]
+    assert_equal 0.5.to_d, btc_entry[:base_amount]
+    assert_nil btc_entry[:fee_currency]
+    assert_nil btc_entry[:fee_amount]
+    assert_equal :sell, eur_entry[:entry_type]
+    assert_equal 10_000.to_d, eur_entry[:base_amount]
+    assert_equal 'EUR', eur_entry[:fee_currency]
+    assert_equal 26.to_d, eur_entry[:fee_amount]
+  end
+
   test 'returns deposit entries' do
     honeymaker_client = mock('honeymaker_client')
     Honeymaker.stubs(:client).returns(honeymaker_client)

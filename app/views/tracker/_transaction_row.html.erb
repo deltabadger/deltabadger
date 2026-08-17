@@ -1,0 +1,27 @@
+<tr id="<%= dom_id(at) %>" class="tracker-row tracker-row--<%= at.entry_type %>">
+  <td class="tracker-exchange-icon"><%= render "svg/exchange-#{at.exchange.name_id}", title: at.exchange.name %></td>
+  <td  class="text-left"><%= at.transacted_at.in_time_zone(current_user.time_zone).strftime('%Y/%m/%d %H:%M:%S') %></td>
+  <td>
+    <span class="tracker-type tracker-type--<%= at.entry_type %>"><%= t("tracker.types.#{at.entry_type}") %></span>
+    <% if at.linked? %>
+      <span class="tracker-type tracker-type--transfer"><%= t('tracker.transfer_badge') %></span>
+    <% end %>
+    <% if at.withdrawal? || at.deposit? %>
+      <%= button_to at.linked? ? t('tracker.transfer_unlink') : t('tracker.transfer_link'),
+                    toggle_transfer_tracker_transaction_path(at),
+                    method: :patch, class: 'sinput sinput--small' %>
+    <% end %>
+  </td>
+  <td><%= at.base_currency %></td>
+  <td><%= at.base_amount %></td>
+  <td><%= at.quote_currency || '-' %></td>
+  <td><%= at.quote_amount.present? ? at.quote_amount : '-' %></td>
+  <td><%= at.fee_amount.present? ? "#{at.fee_amount} #{at.fee_currency}" : '-' %></td>
+  <td>
+    <% if at.bot_transaction.present? %>
+      <%= link_to at.bot_transaction.bot.label || t('tracker.bot'), bot_path(at.bot_transaction.bot) %>
+    <% else %>
+      -
+    <% end %>
+  </td>
+</tr>

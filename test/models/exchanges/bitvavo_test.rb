@@ -13,8 +13,10 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     errors = @exchange.known_errors
     assert errors[:insufficient_funds].present?
     assert errors[:invalid_key].present?
-    assert_includes errors[:insufficient_funds], 'Insufficient funds.'
-    assert_includes errors[:invalid_key], 'Invalid API key.'
+    # Matched against Bitvavo's captured prose (errorCode 216 / 305), not the strings this venue
+    # was previously configured with — none of which appear in any real response.
+    assert_includes errors[:insufficient_funds], 'sufficient balance to complete'
+    assert_includes errors[:invalid_key], 'No active API key found'
   end
 
   test 'minimum_amount_logic returns base_or_quote for market orders' do

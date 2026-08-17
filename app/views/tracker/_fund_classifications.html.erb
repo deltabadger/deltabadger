@@ -1,0 +1,50 @@
+<%# Locals: rows (from Tax::BrokerReport#classification_rows) %>
+<%
+  grouped_rows = rows.group_by do |row|
+    if row[:kind].nil?
+      :unclassified
+    elsif row[:refused]
+      :refused
+    elsif row[:kind] == :fund && !row[:persisted]
+      :proposed_fund
+    else
+      :settled
+    end
+  end
+  # First match wins: a symbol that is both refused and unclassified is asked for its type, once.
+  direct_groups = %i[unclassified refused proposed_fund]
+  direct_count = direct_groups.sum { |group| grouped_rows.fetch(group, []).size }
+  settled_rows = grouped_rows.fetch(:settled, [])
+%>
+<div data-tracker-export-target="classificationPanel" class="form__row hidden">
+  <h2><%= t('tracker.export_modal.classification_title') %></h2>
+  <p><%= t('tracker.export_modal.classification_hint') %></p>
+  <% if direct_count.positive? %>
+    <div class="fund-classification">
+      <% direct_groups.each do |group| %>
+        <%= render partial: 'tracker/fund_classification_row',
+                   collection: grouped_rows.fetch(group, []), as: :row,
+                   locals: { group: group } %>
+      <% end %>
+    </div>
+  <% end %>
+  <% if settled_rows.any? %>
+    <%# Collapsed rows stay in the DOM because the completeness gate scans every classification. %>
+    <details class="fund-classification__settled">
+      <summary><%= t('tracker.export_modal.classification_settled', count: settled_rows.size) %></summary>
+      <table class="table">
+        <thead>
+          <tr>
+            <th><%= t('tax_report.broker.headers.symbol') %></th>
+            <th><%= t('tax_report.broker.headers.kind') %></th>
+            <th><%= t('tax_report.broker.headers.fund_category') %></th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= render partial: 'tracker/fund_classification_row', collection: settled_rows,
+                     as: :row, locals: { group: :settled } %>
+        </tbody>
+      </table>
+    </details>
+  <% end %>
+</div>

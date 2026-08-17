@@ -1,7 +1,8 @@
 <%= turbo_stream_from "user_#{current_user.id}", :tax_report %>
 <%= turbo_stream_from "user_#{current_user.id}", :sync %>
+<%= render 'sync_warning', exchanges: @sync_failures %>
 <% if @pending_report %>
-  <div data-controller="auto-download" data-auto-download-url-value="<%= download_tax_report_tracker_path(country: @pending_report[:country], year: @pending_report[:year]) %>"></div>
+  <div data-controller="auto-download" data-auto-download-url-value="<%= download_tax_report_tracker_path(country: @pending_report[:country], year: @pending_report[:year], report_scope: @pending_report[:report_scope]) %>"></div>
 <% end %>
 <% if @exchanges.empty? && @account_transactions.empty? %>
   <div class="welcome-screen">
@@ -66,23 +67,7 @@
       </thead>
       <tbody>
         <% @account_transactions.each do |at| %>
-          <tr class="tracker-row tracker-row--<%= at.entry_type %>">
-            <td class="tracker-exchange-icon"><%= render "svg/exchange-#{at.exchange.name_id}", title: at.exchange.name %></td>
-            <td  class="text-left"><%= at.transacted_at.in_time_zone(current_user.time_zone).strftime('%Y/%m/%d %H:%M:%S') %></td>
-            <td><span class="tracker-type tracker-type--<%= at.entry_type %>"><%= t("tracker.types.#{at.entry_type}") %></span></td>
-            <td><%= at.base_currency %></td>
-            <td><%= at.base_amount %></td>
-            <td><%= at.quote_currency || '-' %></td>
-            <td><%= at.quote_amount.present? ? at.quote_amount : '-' %></td>
-            <td><%= at.fee_amount.present? ? "#{at.fee_amount} #{at.fee_currency}" : '-' %></td>
-            <td>
-              <% if at.bot_transaction.present? %>
-                <%= link_to at.bot_transaction.bot.label || t('tracker.bot'), bot_path(at.bot_transaction.bot) %>
-              <% else %>
-                -
-              <% end %>
-            </td>
-          </tr>
+          <%= render 'transaction_row', at: at %>
         <% end %>
       </tbody>
     </table>

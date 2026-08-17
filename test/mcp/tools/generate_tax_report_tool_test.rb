@@ -75,22 +75,23 @@ class GenerateTaxReportToolTest < ActiveSupport::TestCase
     FileUtils.rm_f(path)
   end
 
-  test 'updates tracker_settings' do
+  test 'records the pending report so the tracker auto-downloads it' do
     cleanup_report('DE', 2025)
     Tax::GenerateReportJob.stubs(:perform_later)
 
     GenerateTaxReportTool.call('country' => 'DE', 'year' => 2025)
     @user.reload
 
-    assert_equal 'tax_report', @user.tracker_settings['export_type']
-    assert_equal 'DE', @user.tracker_settings['country']
-    assert_equal 2025, @user.tracker_settings['year']
+    assert_equal({ 'country' => 'DE', 'year' => 2025, 'report_scope' => 'crypto' },
+                 @user.tracker_settings['pending_report'])
+    # The export form's own preferences are the user's, not an MCP call's, to set.
+    assert_nil @user.tracker_settings['country']
   end
 
   private
 
   def report_path(country, year)
-    Rails.root.join('tmp', 'tax_reports', "#{@user.id}_#{country}_#{year}.csv")
+    Tax::GenerateReportJob.report_path(@user.id, country, year)
   end
 
   def cleanup_report(country, year)

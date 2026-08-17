@@ -1,4 +1,6 @@
 class ApiKey < ApplicationRecord
+  SYNC_ERROR_LIMIT = 200
+
   belongs_to :exchange
   belongs_to :user
   has_many :account_transactions, dependent: :nullify
@@ -47,6 +49,26 @@ class ApiKey < ApplicationRecord
     exchange.get_api_key_validity(api_key: self)
   end
 
+  # `update_column` is load-bearing, not a shortcut: `activation_stalled?` anchors on `updated_at`,
+  # and a failed sync must not look like the user touching their IBKR activation. Do not "clean this
+  # up" to `update!`.
+  def record_sync_error!(error)
+    text = error.is_a?(Exception) ? "#{error.class}: #{error.message}" : error.to_s
+
+    update_column(:last_sync_error, sanitize_sync_error(text))
+  end
+
+  # A report that silently omits an exchange is the worst outcome for a tax document, so the
+  # report asks every trading key whether its data can be trusted before it renders a single row.
+  def sync_issue
+    return nil unless trading?
+    return { exchange: exchange.name, reason: :failed } if last_sync_error.present?
+    return { exchange: exchange.name, reason: :never_synced } if correct? && last_synced_at.nil?
+
+    # Data-derived watermarks can lag for quiet, healthy accounts, so their age is deliberately ignored.
+    nil
+  end
+
   # Anchored on updated_at, which on a key awaiting IBKR activation moves only when the user
   # submits credentials: Ibkr::CheckActivationJob writes only on success, and the nightly balance
   # and transaction syncs both scope to :correct, so nothing else touches the row.
@@ -70,9 +92,13 @@ class ApiKey < ApplicationRecord
       # as "when the user last submitted credentials", and resubmitting IDENTICAL credentials — the
       # real fix for a registration redone on a working portal host — dirties nothing, so Active
       # Record would issue no UPDATE and the already-expired clock would survive the retry.
-      update!(status: :pending_activation, updated_at: Time.current)
+      # `last_sync_error` is cleared on both success paths: it describes credentials that have just
+      # been replaced, and nothing else clears it until a sync succeeds. Left behind it keeps
+      # `sync_issue` bannering the tax report for an exchange that is fine — and since a sync only
+      # runs when the user opens the tracker, "until the next sync" can be months.
+      update!(status: :pending_activation, updated_at: Time.current, last_sync_error: nil)
     elsif result.success? && result.data
-      update!(status: :correct)
+      update!(status: :correct, last_sync_error: nil)
     elsif result.success?
       self.status = :incorrect
       Rails.logger.warn("[#{exchange.name}] API key validation: incorrect key")
@@ -117,6 +143,16 @@ class ApiKey < ApplicationRecord
   end
 
   private
+
+  # Credentials and PII must never land in this user-visible-adjacent diagnostics column.
+  def sanitize_sync_error(text)
+    text
+      .gsub(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i, '[redacted]')
+      .gsub(%r{(https?://\S+?)\?\S*}, '\\1?[redacted]')
+      .gsub(/(?<![A-Za-z0-9_-])(?=[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-]))(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]+/,
+            '[redacted]')
+      .gsub(/\d{9,}/, '[redacted]')[0, SYNC_ERROR_LIMIT]
+  end
 
   # Assigns only the credential fields actually present in the submitted params. The generic
   # add-api-key forms send key/secret alone; assigning the whole set would NULL the IBKR RSA

@@ -1,8 +1,16 @@
 class Exchanges::Bitvavo < Exchange
   COINGECKO_ID = 'bitvavo'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
-    insufficient_funds: ['Insufficient funds.'],
-    invalid_key: ['Invalid API key.', 'Signature invalid.']
+    # Bitvavo returns a JSON envelope and its own prose, neither of which contained the strings
+    # previously configured here ('Insufficient funds.', 'Invalid API key.', 'Signature invalid.') —
+    # so nothing on this venue was ever classified. These are matched against captured bodies:
+    #   216 {"errorCode":216,"error":"You do not have sufficient balance to complete this operation."}
+    #   305 {"errorCode":305,"error":"No active API key found."}
+    #   301 {"errorCode":301,"error":"API Key must be of length 64."}
+    # Matched on the prose rather than the code so the pattern cannot collide with an unrelated
+    # number elsewhere in the payload (a timestamp, a quantity, an order id).
+    insufficient_funds: ['sufficient balance to complete'],
+    invalid_key: ['No active API key found', 'API Key must be of length']
   }.freeze
   ORDER_STATUS_MAP = {
     'new' => :open,

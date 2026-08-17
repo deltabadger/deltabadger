@@ -14,7 +14,10 @@ bg:
             exchange: 'Борса'
             tx_id: 'Идентификатор'
             cost_basis_complete: 'Пълна цена на придобиване'
+            data_incomplete: 'Непълни данни'
         no_taxable_transactions: 'Няма облагаеми транзакции за този период.'
+        incomplete_banner_prefix: 'ВНИМАНИЕ'
+        incomplete_banner: 'Липсват %{missing} стойности — отчетът е непълен, не го подавайте в този вид'
         summary:
             total_gains: 'Общи печалби'
             total_losses: 'Общи загуби'

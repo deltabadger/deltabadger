@@ -415,6 +415,7 @@ pl:
         welcome:
             connect_and_track: "Podłącz giełdę i zacznij śledzić swoje portfolio."
         sync_key_error_html: 'Synchronizacja z <strong>%{exchange}</strong> nie powiodła się: %{message}. Zaktualizuj klucz API poniżej.'
+        sync_failed_for: 'Synchronizacja z %{exchanges} nie powiodła się. Może brakować transakcji z tych giełd — raporty wygenerowane teraz mogą być niekompletne.'
         pricing_warning_html: Salda zsynchronizowane, ale ceny w USD są chwilowo niedostępne (%{message}). Wykres użyje ostatnich znanych cen do czasu przywrócenia wyceny.
         portfolio:
             never_synced: Kliknij „Synchronizuj", aby załadować portfel.
@@ -426,6 +427,12 @@ pl:
         get_report: 'Pobierz raport'
         filter: 'Filtruj'
         no_results: 'Nie znaleziono transakcji dla wybranych filtrów.'
+        transfer_badge: 'Transfer'
+        transfer_link: 'Oznacz jako transfer'
+        transfer_unlink: 'To nie jest transfer'
+        transfer_linked: 'Połączono jako transfer między twoimi kontami.'
+        transfer_unlinked: 'Ta transakcja nie jest już traktowana jako transfer.'
+        transfer_no_candidate: 'W ciągu 14 dni nie znaleziono dokładnie jednej pasującej transakcji, dlatego niczego nie połączono.'
         connect_exchange: 'Połącz giełdę'
         import_from: 'Importuj transakcje z'
         search_exchange: 'Szukaj giełdy...'
@@ -433,6 +440,31 @@ pl:
         export_modal:
             title: 'Generuj raport'
             tax_report: 'Raport podatkowy'
+            broker_tax_report: 'Raport podatkowy brokera (Niemcy — Anlage KAP / KAP-INV)'
+            classification_title: 'Klasyfikuj papiery wartościowe'
+            classification_hint: 'Uzupełniliśmy to, co dało się ustalić na podstawie danych rynkowych — przed wygenerowaniem raportu sprawdź wszystko poniżej.'
+            classification_settled:
+                one: '1 papier wartościowy sklasyfikowany automatycznie — sprawdź'
+                few: '%{count} papiery wartościowe sklasyfikowane automatycznie — sprawdź'
+                many: '%{count} papierów wartościowych sklasyfikowanych automatycznie — sprawdź'
+                other: '%{count} papierów wartościowych sklasyfikowanych automatycznie — sprawdź'
+            classification_eyebrow_unclassified: 'Blokuje wygenerowanie raportu'
+            classification_eyebrow_fund: 'Zastosowano wartość domyślną'
+            classification_eyebrow_refused: 'Kwoty nieuwzględnione'
+            classification_why_unclassified: 'Nie ma go w naszych danych rynkowych, dlatego nie możemy określić jego rodzaju.'
+            classification_why_fund_html: 'To fundusz. Domyślnie wybraliśmy sonstige Fonds — <b>0% Teilfreistellung</b> — ponieważ fundusze z USA nie publikują warunków wymaganych przez InvStG. Zmień wybór, jeśli możesz udokumentować udział akcji w funduszu.'
+            classification_fund_hint: 'Dla Aktienfonds byłoby to 30%'
+            classification_why_refused: 'Ten papier wartościowy jest pomijany w podsumowaniu, zamiast być szacowany; jego wiersze nadal są widoczne w arkuszu.'
+            classification_refusal_reasons:
+                uncovered_disposal: 'Zbycie, którego nie możemy w pełni powiązać z nabyciami.'
+                unsupported_activity: 'Rodzaj transakcji, którego nie obsługujemy, na przykład połączenie spółek lub wydzielenie.'
+                pre_2018_fund_lot: 'Jednostki funduszu nabyte przed 2018 rokiem, dla których nie modelujemy fikcyjnego zbycia zgodnie z §56 InvStG.'
+                missing_price: 'Brak ceny wykupu na koniec roku, dlatego nie można obliczyć Vorabpauschale.'
+                missing_fx: 'Brak kursu referencyjnego EBC dla jednej z dat.'
+                missing_basiszins: 'Dla tego roku nie opublikowano jeszcze Basiszins.'
+            classification_save_failed: 'Nie udało się zapisać klasyfikacji. Odśwież stronę i spróbuj ponownie.'
+            classification_select: 'Wybierz…'
+            tax_disclaimer: 'Narzędzie pomocnicze do obliczeń, nie doradztwo podatkowe. Przed złożeniem deklaracji sprawdź wszystkie kwoty.'
             transactions: 'Wszystko'
             country: 'Kraj'
             year: 'Rok'
@@ -457,6 +489,8 @@ pl:
                 DK: 'Dania'
                 CZ: 'Czechy'
                 SK: 'Słowacja'
+        tax_report:
+            failed: 'Nie udało się wygenerować raportu. Sprawdź wybrane ustawienia i spróbuj ponownie.'
         filters:
             all: 'Wszystkie'
         columns:
@@ -483,6 +517,10 @@ pl:
             fee: 'Opłata'
             other_income: 'Dochód'
             lost: 'Utracone'
+            withholding_tax: 'Podatek u źródła'
+            return_of_capital: 'Zwrot kapitału'
+            adjustment: 'Korekta'
+            unsupported_activity: 'Inna operacja'
     order_filters:
         all: 'Wszystkie'
         successful: 'Zrealizowane'
@@ -513,9 +551,23 @@ pl:
             failed_sell: 'Nieudana próba sprzedaży %{amount} %{base} za %{quote_amount} %{quote}'
             skipped: 'Pominięto (poniżej minimum)'
     tax_report:
+        income:
+            header: 'Otrzymane przychody (sposób opodatkowania zależy od rodzaju przychodu i właściwych przepisów podatkowych — nie są ujęte w wykazanych powyżej zyskach)'
+            total: 'Łącznie — %{type}'
+            not_included: 'Otrzymane przychody (nagrody ze stakingu, odsetki z pożyczek, airdropy i przychody z miningu) nie są ujęte w niniejszym raporcie. Podlegają opodatkowaniu jako przychód i wymagają odrębnego wykazania w zeznaniu podatkowym.'
+            types:
+                staking_reward: 'nagrody ze stakingu'
+                lending_interest: 'odsetki z pożyczek'
+                airdrop: 'airdropy'
+                mining: 'przychody z miningu'
+                other_income: 'pozostałe przychody (dywidendy, odsetki i zwroty opłat)'
         warnings:
             missing_prices: Brak historycznych cen dla
             upgrade_hint: Zaktualizuj plan CoinGecko lub użyj deltabadger.com, aby uzyskać pełne dane historyczne.
+            deposit_basis_assumed: Koszt nabycia dla tych niepołączonych wpłat przyjęty według wartości rynkowej
+            deposit_basis_assumed_hint: Połącz każdą wpłatę z odpowiadającą jej wypłatą w Trackerze, aby zastosować rzeczywisty koszt nabycia.
+            exchange_sync_failed: 'Może brakować danych z %{exchange} — ostatnia synchronizacja nie powiodła się. Ponownie zsynchronizuj dane w Trackerze i wygeneruj raport jeszcze raz.'
+            exchange_never_synced: 'Giełda %{exchange} nie została jeszcze zsynchronizowana — w tym raporcie nie ma żadnych jej transakcji. Zsynchronizuj ją w Trackerze i wygeneruj raport ponownie.'
         summary:
             total_gains: Łączne zyski
             total_losses: Łączne straty
@@ -534,9 +586,98 @@ pl:
             exchange: 'Giełda'
             tx_id: 'ID transakcji'
             cost_basis_complete: 'Koszt nabycia kompletny'
+            data_incomplete: 'Dane niekompletne'
             acquisition_date: 'Data nabycia'
             old_stock: 'Stary zasób'
             tax_exempt: 'Zwolniony'
             term: 'Okres'
             matching_rule: 'Reguła dopasowania'
         no_taxable_transactions: 'Nie znaleziono transakcji podlegających opodatkowaniu dla tego okresu.'
+        incomplete_banner_prefix: 'OSTRZEŻENIE'
+        incomplete_banner: 'Brakuje %{missing} wartości — raport niekompletny, nie należy go składać w tej postaci'
+        broker:
+            title: 'Anlage KAP / KAP-INV — podstawa obliczeń'
+            incomplete_banner: 'Raport jest niekompletny — zapoznaj się z ostrzeżeniami poniżej; nie składaj go w tej postaci'
+            unclassified_banner: 'Podsumowania nie zostały sporządzone — nie wszystkie papiery wartościowe są jeszcze sklasyfikowane; zobacz ostrzeżenia poniżej'
+            sections:
+                kap: 'PODSUMOWANIE — ANLAGE KAP'
+                kap_inv: 'PODSUMOWANIE — ANLAGE KAP-INV'
+                disposals: 'ZESTAWIENIE — ZBYCIA'
+                income: 'ZESTAWIENIE — DOCHODY'
+                warnings: 'OSTRZEŻENIA'
+                disclosures: 'INFORMACJE PRAWNE'
+            kap:
+                z19: 'Zagraniczne przychody kapitałowe'
+                z20: 'Zyski ze zbycia akcji uwzględnione w wierszu 19'
+                z22: 'Straty inne niż straty ze zbycia akcji uwzględnione w wierszu 19'
+                z23: 'Straty ze zbycia akcji uwzględnione w wierszu 19'
+                z41: 'Zagraniczne podatki podlegające zaliczeniu, które nie zostały jeszcze zaliczone'
+            kap_inv:
+                distributions: 'Wypłaty (przed Teilfreistellung)'
+                vorabpauschale: 'Vorabpauschale (przed Teilfreistellung)'
+                sale_result: 'Wynik ze zbycia (przed Teilfreistellung)'
+            kinds:
+                share: 'Akcja'
+                fund: 'Fundusz'
+                other_security: 'Inny papier wartościowy'
+            fund_categories:
+                equity_fund: 'Fundusze akcyjne'
+                mixed_fund: 'Fundusze mieszane'
+                real_estate_fund: 'Fundusze nieruchomości'
+                foreign_real_estate_fund: 'Zagraniczne fundusze nieruchomości'
+                other_fund: 'Pozostałe fundusze'
+            buckets:
+                kap_dividend: 'Dywidenda (Anlage KAP)'
+                kap_interest: 'Odsetki (Anlage KAP)'
+                fund_distribution: 'Wypłata z funduszu (Anlage KAP-INV)'
+                withholding_tax: 'Podatek u źródła (Anlage KAP, wiersz 41)'
+                return_of_capital_excess: 'Zwrot kapitału przekraczający koszt nabycia'
+            headers:
+                zeile: 'Wiersz'
+                description: 'Opis'
+                amount_eur: 'Kwota (EUR)'
+                fund_category: 'Kategoria funduszu'
+                position: 'Pozycja'
+                symbol: 'Papier wartościowy'
+                kind: 'Rodzaj'
+                units: 'Liczba jednostek'
+                proceeds_usd: 'Przychód (USD)'
+                fx_rate: 'Kurs EBC (USD za EUR)'
+                proceeds_eur: 'Przychód (EUR)'
+                fee_eur: 'Opłaty potrącone z przychodu (EUR)'
+                cost_eur: 'Koszt nabycia (EUR)'
+                vorabpauschale_eur: 'Vorabpauschale (EUR)'
+                gain_eur: 'Zysk/strata (EUR)'
+                status: 'Status'
+                date: 'Data'
+                activity_type: 'Rodzaj operacji'
+                bucket: 'Przypisanie'
+                amount_usd: 'Kwota (USD)'
+                amount_eur_income: 'Kwota (EUR)'
+            rows:
+                lot: 'w tym nabycie'
+                fee_total: 'Opłaty regulacyjne (wyłącznie informacyjnie, nieodliczone)'
+            status:
+                refused: 'Nieuwzględnione w podsumowaniu — zobacz ostrzeżenia'
+                uncovered: 'Nabycie nieudokumentowane'
+            warnings:
+                summaries_blocked: 'Podsumowania Anlage KAP i Anlage KAP-INV zostaną sporządzone po sklasyfikowaniu wszystkich papierów wartościowych.'
+                unclassified: 'Jeszcze niesklasyfikowany — wskaż rodzaj papieru wartościowego (akcja, fundusz lub inny papier wartościowy).'
+                uncovered_disposal: 'Zbycie w dniu %{detail} bez w pełni udokumentowanego stanu posiadania — kwoty dotyczące tego papieru wartościowego nie są uwzględniane w podsumowaniu.'
+                unsupported_activity: 'Nieobsługiwana operacja (%{detail}) — kwoty dotyczące tego papieru wartościowego nie są uwzględniane w podsumowaniu.'
+                pre_2018_fund_lot: 'Jednostki funduszu nabyte przed 2018 r. (%{detail}) — fikcyjne zbycie zgodnie z §56 InvStG nie jest obsługiwane, dlatego fundusz pozostaje poza Anlage KAP-INV.'
+                missing_price: 'Brak ceny wykupu na koniec roku %{detail} — nie można obliczyć Vorabpauschale, dlatego fundusz pozostaje poza podsumowaniem.'
+                missing_fx: 'Brak kursu referencyjnego EBC dla dnia %{detail} — odpowiedniej kwoty brakuje w podsumowaniu.'
+                missing_basiszins: 'Dla roku %{detail} nie opublikowano jeszcze Basiszins — nie można obliczyć Vorabpauschale, dlatego fundusz pozostaje poza podsumowaniem.'
+                ambiguous_symbol: 'Ten symbol przypisano do kilku klas aktywów (%{detail}) — sprawdź poprawność klasyfikacji.'
+                withholding_credited_for_refused_symbol: 'Podatek u źródła dotyczący %{detail} jest zaliczany w wierszu 41, mimo że pozostałe kwoty dotyczące tych papierów wartościowych nie są wykazywane.'
+                unknown: 'Ostrzeżenie %{code}: %{detail}'
+            disclosures:
+                not_tax_advice: 'Ten raport jest pomocą obliczeniową i nie stanowi porady podatkowej. Sprawdź wszystkie kwoty przed przeniesieniem ich do zeznania podatkowego.'
+                usd_balance_fx: 'Zyski kursowe z oprocentowanego rachunku pieniężnego w USD są przychodem zgodnie z §20 ust. 2 pkt 7 EStG (pismo BMF z 14.05.2025 r., pkt 131). Nie są uwzględnione w tym raporcie.'
+                us_etf_default: 'ETF-y z siedzibą w Stanach Zjednoczonych są tu bez dodatkowych dowodów traktowane zgodnie z §20 ust. 4 InvStG jako pozostałe fundusze (0% Teilfreistellung). Osoba wybierająca inną kategorię funduszu musi samodzielnie udokumentować udział kapitałowy.'
+                vorabpauschale_start_value: 'Wartością początkową Vorabpauschale jest ostatni kurs roku poprzedniego, a nie pierwsza cena odkupu ustalona w danym roku kalendarzowym (BMF 21.05.2019, Tz 18.4). Dzięki temu każdy rok łączy się bez luk z poprzednim; odchylenie wynosi ułamek procenta dochodu bazowego.'
+                withholding_credit_limit: 'Wiersz 41 wykazuje pełną kwotę pobranego podatku u źródła. Bez formularza W-8BEN Alpaca pobiera 30%, podczas gdy umowa o unikaniu podwójnego opodatkowania między Niemcami a USA pozwala zaliczyć tylko 15%; nadwyżkę należy odzyskać od IRS, a nie zaliczać tutaj.'
+                fx_source: 'Przeliczenie według referencyjnych kursów euro EBC; dla dni bez kursu stosuje się kurs z poprzedniego bankowego dnia roboczego.'
+                interest_withholding_net: 'Odsetki zaksięgowane po potrąceniu zagranicznego podatku u źródła są wykazywane netto w wierszu 19, a podatek u źródła jest zaliczany w wierszu 41 — bank nie podaje kwoty brutto odsetek. Dywidendy są natomiast ubruttawiane.'
+                regulatory_fees: 'Zbiorczych opłat regulacyjnych nie można przypisać do konkretnego zbycia, dlatego nie są odliczane od żadnej kwoty; wykazuje się je wyłącznie informacyjnie.'

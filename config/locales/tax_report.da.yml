@@ -13,10 +13,13 @@ da:
             exchange: 'Børs'
             tx_id: 'Transaktions-ID'
             cost_basis_complete: 'Anskaffelsespris komplet'
+            data_incomplete: 'Ufuldstændige data'
             acquisition_date: 'Anskaffelsesdato'
             tax_exempt: 'Skattefri'
             loss_denied: 'Tab af fradrag'
         no_taxable_transactions: 'Ingen skattepligtige transaktioner fundet for denne periode.'
+        incomplete_banner_prefix: 'ADVARSEL'
+        incomplete_banner: '%{missing} værdier mangler — rapporten er ufuldstændig, indberet den ikke som den er'
         summary:
             total_gains: 'Samlede gevinster'
             total_losses: 'Samlede tab'

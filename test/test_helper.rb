@@ -51,6 +51,17 @@ require_relative 'support/exchange_mock_helpers'
 
 WebMock.disable_net_connect!(allow_localhost: true)
 
+# Tax::EcbFxRates.ensure_loaded! runs from every Tax::PriceService.new, so any test that builds a
+# tax report reaches for the ECB feed. Its `rescue StandardError` cannot absorb that here —
+# WebMock::NetConnectNotAllowedError descends from Exception, not StandardError — so the suite is
+# shielded with a stub instead of a wider rescue in production code. The body is the SDMX header
+# and no data rows: rates import as a no-op, and tests that need rates seed fx_rates or re-stub.
+ActiveSupport::TestCase.setup do
+  headers_only = "CURRENCY,TIME_PERIOD,OBS_VALUE\n"
+  WebMock.stub_request(:get, %r{https://data-api\.ecb\.europa\.eu}).to_return(status: 200, body: headers_only)
+  WebMock.stub_request(:get, %r{https://api\.statistiken\.bundesbank\.de}).to_return(status: 200, body: headers_only)
+end
+
 puts "\n\e[1mDeltabadger v#{Rails.application.config.version}\e[0m\n\n"
 
 # A tool only ever runs inside an authenticated MCP request, where the bearer token

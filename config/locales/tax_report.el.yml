@@ -14,7 +14,10 @@ el:
             exchange: 'Ανταλλακτήριο'
             tx_id: 'Αναγνωριστικό συναλλαγής'
             cost_basis_complete: 'Πλήρες κόστος κτήσης'
+            data_incomplete: 'Ελλιπή δεδομένα'
         no_taxable_transactions: 'Δεν βρέθηκαν φορολογητέες συναλλαγές για αυτήν την περίοδο.'
+        incomplete_banner_prefix: 'ΠΡΟΕΙΔΟΠΟΙΗΣΗ'
+        incomplete_banner: 'Λείπουν %{missing} τιμές — η αναφορά είναι ελλιπής, μην την υποβάλετε ως έχει'
         summary:
             total_gains: 'Συνολικά κέρδη'
             total_losses: 'Συνολικές ζημίες'

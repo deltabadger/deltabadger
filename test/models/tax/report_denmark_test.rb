@@ -25,6 +25,24 @@ class Tax::ReportDenmarkTest < ActiveSupport::TestCase
     assert_equal true, disposals.first[:loss_denied]
   end
 
+  test 'wash sale not triggered by a linked deposit, which is the user moving their own coins' do
+    enriched = [
+      { entry_type: 'buy', base_currency: 'BTC', base_amount: 1.to_d, transacted_at: Time.utc(2024, 1, 1) },
+      { entry_type: 'deposit', base_currency: 'BTC', base_amount: 1.to_d, linked: true,
+        transacted_at: Time.utc(2024, 3, 1) },
+      { entry_type: 'sell', base_currency: 'BTC', base_amount: 1.to_d, transacted_at: Time.utc(2024, 6, 1) }
+    ]
+
+    disposals = [
+      { asset: 'BTC', acquisition_date: Time.utc(2024, 1, 1), date: Time.utc(2024, 6, 1),
+        gain_loss: -5_000.to_d }
+    ]
+
+    @report.send(:apply_danish_wash_sale, disposals, enriched)
+
+    assert_not disposals.first[:loss_denied]
+  end
+
   test 'wash sale not triggered when no intervening buy' do
     enriched = [
       { entry_type: 'buy', base_currency: 'BTC', base_amount: 1.to_d, transacted_at: Time.utc(2024, 1, 1) },

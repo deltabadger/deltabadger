@@ -1,7 +1,11 @@
 class Exchanges::Hyperliquid < Exchange
   COINGECKO_ID = 'hyperliquid-spot'.freeze
   ERRORS = {
-    insufficient_funds: ['Insufficient balance', 'Not enough balance'],
+    # 'Insufficient spot balance' is the wording observed in production (2026-08-16): the venue
+    # says "Insufficient spot balance asset=10266", so neither of the two generic entries below
+    # is a substring of it. Every rejection also arrives behind a "Hyperliquid order failed: "
+    # prefix (see set_order), which is why exact matching could never have worked here.
+    insufficient_funds: ['Insufficient spot balance', 'Insufficient balance', 'Not enough balance'],
     invalid_key: ['Invalid API key', 'Authentication failed', 'Invalid signature']
   }.freeze
 

@@ -32,18 +32,28 @@ class AccountTransactionTest < ActiveSupport::TestCase
     assert_includes at.errors[:transacted_at], "can't be blank"
   end
 
-  test 'tx_id must be unique per exchange' do
+  test 'tx_id must be unique for the same user and exchange' do
     create(:account_transaction, api_key: @api_key, exchange: @exchange, tx_id: 'order-123')
     duplicate = build(:account_transaction, api_key: @api_key, exchange: @exchange, tx_id: 'order-123')
     assert_not duplicate.valid?
     assert_includes duplicate.errors[:tx_id], 'has already been taken'
   end
 
-  test 'tx_id uniqueness is scoped to exchange' do
+  test 'the same user may reuse a tx_id on a different exchange' do
     other_exchange = create(:kraken_exchange)
     other_api_key = create(:api_key, user: @user, exchange: other_exchange)
     create(:account_transaction, api_key: @api_key, exchange: @exchange, tx_id: 'order-123')
     other = build(:account_transaction, api_key: other_api_key, exchange: other_exchange, tx_id: 'order-123')
+    assert other.valid?
+  end
+
+  test 'different users may reuse a tx_id on the same exchange' do
+    other_user = create(:user)
+    other_api_key = create(:api_key, user: other_user, exchange: @exchange)
+    create(:account_transaction, api_key: @api_key, exchange: @exchange, tx_id: 'shared-order-123')
+
+    other = build(:account_transaction, api_key: other_api_key, exchange: @exchange, tx_id: 'shared-order-123')
+
     assert other.valid?
   end
 
@@ -53,11 +63,124 @@ class AccountTransactionTest < ActiveSupport::TestCase
     assert second.valid?
   end
 
+  test 'linked transaction must belong to the same user' do
+    other_user = create(:user)
+    other_exchange = create(:kraken_exchange)
+    other_api_key = create(:api_key, user: other_user, exchange: other_exchange)
+    deposit = create(:account_transaction, :deposit, api_key: other_api_key, exchange: other_exchange)
+    withdrawal = build(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange,
+                                                          linked_transaction: deposit)
+
+    assert_not withdrawal.valid?
+    assert_includes withdrawal.errors[:linked_transaction], 'must belong to the same user'
+  end
+
+  test 'linked transaction must use the same base currency' do
+    deposit = create(:account_transaction, :deposit,
+                     api_key: @api_key, exchange: @exchange, base_currency: 'ETH')
+    withdrawal = build(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange,
+                                                          base_currency: 'BTC', linked_transaction: deposit)
+
+    assert_not withdrawal.valid?
+    assert_includes withdrawal.errors[:linked_transaction], 'must use the same base currency'
+  end
+
+  test 'linked transaction must go from withdrawal to deposit' do
+    linked_withdrawal = create(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange)
+    deposit = build(:account_transaction, :deposit, api_key: @api_key, exchange: @exchange,
+                                                    linked_transaction: linked_withdrawal)
+
+    assert_not deposit.valid?
+    assert_includes deposit.errors[:linked_transaction], 'must link a withdrawal to a deposit'
+  end
+
+  test 'linked deposit must not be before the withdrawal' do
+    withdrawal_time = Time.utc(2024, 5, 2)
+    deposit = create(:account_transaction, :deposit,
+                     api_key: @api_key, exchange: @exchange, transacted_at: withdrawal_time - 1.hour)
+    withdrawal = build(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange,
+                                                          linked_transaction: deposit,
+                                                          transacted_at: withdrawal_time)
+
+    assert_not withdrawal.valid?
+    assert_includes withdrawal.errors[:linked_transaction], 'must not be before the withdrawal'
+  end
+
+  test 'linked deposit must not be larger than the withdrawal' do
+    withdrawal_time = Time.utc(2024, 5, 2)
+    deposit = create(:account_transaction, :deposit, api_key: @api_key, exchange: @exchange,
+                                                     base_amount: 5, transacted_at: withdrawal_time + 1.hour)
+    withdrawal = build(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange,
+                                                          base_amount: 1, linked_transaction: deposit,
+                                                          transacted_at: withdrawal_time)
+
+    assert_not withdrawal.valid?
+    # Otherwise a valid pair, so the amount rule is the only thing that can reject it.
+    assert_equal ['must not be larger than the withdrawal'], withdrawal.errors[:linked_transaction]
+  end
+
+  test 'linked transaction validation message is localized' do
+    withdrawal_time = Time.utc(2024, 5, 2)
+    deposit = create(:account_transaction, :deposit, api_key: @api_key, exchange: @exchange,
+                                                     base_amount: 5, transacted_at: withdrawal_time + 1.hour)
+    withdrawal = build(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange,
+                                                          base_amount: 1, linked_transaction: deposit,
+                                                          transacted_at: withdrawal_time)
+
+    I18n.with_locale(:de) do
+      assert_not withdrawal.valid?
+      assert_equal I18n.t(
+        'activerecord.errors.models.account_transaction.attributes.linked_transaction.larger_than_withdrawal'
+      ), withdrawal.errors[:linked_transaction].sole
+    end
+  end
+
+  test 'valid linked transfer pair saves and is linked from both sides' do
+    withdrawal_time = Time.utc(2024, 5, 2)
+    deposit = create(:account_transaction, :deposit,
+                     api_key: @api_key, exchange: @exchange, transacted_at: withdrawal_time + 1.hour)
+    withdrawal = build(:account_transaction, :withdrawal, api_key: @api_key, exchange: @exchange,
+                                                          linked_transaction: deposit,
+                                                          transacted_at: withdrawal_time)
+
+    assert withdrawal.save
+    assert withdrawal.linked?
+    assert deposit.reload.linked?
+    assert_equal withdrawal, deposit.inverse_link
+  end
+
   # --- Enums ---
 
   test 'entry_type enum has all expected values' do
-    expected = %w[buy sell swap_in swap_out deposit withdrawal staking_reward lending_interest airdrop mining fee other_income lost]
+    expected = %w[
+      buy sell swap_in swap_out deposit withdrawal staking_reward lending_interest airdrop mining fee other_income lost
+      withholding_tax return_of_capital adjustment unsupported_activity
+    ]
     assert_equal expected.sort, AccountTransaction.entry_types.keys.sort
+  end
+
+  test 'entry_type enum integer mapping is append-only' do
+    expected = {
+      'buy' => 0,
+      'sell' => 1,
+      'swap_in' => 2,
+      'swap_out' => 3,
+      'deposit' => 4,
+      'withdrawal' => 5,
+      'staking_reward' => 6,
+      'lending_interest' => 7,
+      'airdrop' => 8,
+      'mining' => 9,
+      'fee' => 10,
+      'other_income' => 11,
+      'lost' => 12,
+      'withholding_tax' => 13,
+      'return_of_capital' => 14,
+      'adjustment' => 15,
+      'unsupported_activity' => 16
+    }
+
+    assert_equal expected, AccountTransaction.entry_types
   end
 
   test 'entry_type can be set and queried' do

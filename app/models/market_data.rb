@@ -380,6 +380,7 @@ class MarketData
         symbol: row['symbol'],
         name: row['name'],
         category: category,
+        instrument_type: row['type'],
         color: row['color'],
         image_url: row['image_url'].presence || absolutize_logo_url(row['logo_url']),
         created_at: now,

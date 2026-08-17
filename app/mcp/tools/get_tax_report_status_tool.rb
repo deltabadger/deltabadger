@@ -9,7 +9,7 @@ class GetTaxReportStatusTool < ApplicationMCPTool
   property :year, type: 'number', required: true, description: 'Tax year'
 
   def perform
-    file_path = AppPaths.tax_report(current_user.id, country, year.to_i)
+    file_path = Tax::GenerateReportJob.report_path(current_user.id, country, year)
 
     if File.exist?(file_path)
       render text: "Report for #{country} (#{year.to_i}) is ready. Use 'download_tax_report' to retrieve it."

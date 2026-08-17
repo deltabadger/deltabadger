@@ -54,4 +54,173 @@ class Tax::Methods::WeightedAverageTest < ActiveSupport::TestCase
     assert_equal 13_000.to_d, disposals.first[:cost_basis]
     assert_equal 2_000.to_d, disposals.first[:gain_loss]
   end
+
+  test 'an unpriced acquisition contaminates the average-cost pool' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 0.to_d, price_missing: true, transacted_at: Time.utc(2024, 1, 1) },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 50_000.to_d, price_missing: false, transacted_at: Time.utc(2024, 6, 1) }
+    ]
+
+    disposal = @wa.calculate(transactions).first
+
+    assert_equal true, disposal[:data_incomplete]
+  end
+
+  test 'withdrawal emits no disposal' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, transacted_at: Time.utc(2024, 1, 1) },
+      { entry_type: :withdrawal, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1) }
+    ]
+
+    assert_empty @wa.calculate(transactions)
+  end
+
+  test 'linked withdrawal removes only its fee slice at average cost' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 10_000.to_d, transacted_at: Time.utc(2024, 1, 1) },
+      { entry_type: :withdrawal, base_currency: 'BTC', base_amount: 1.to_d, linked: true,
+        transfer_fee_amount: '0.001'.to_d, fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1) },
+      { entry_type: :deposit, base_currency: 'BTC', base_amount: '0.999'.to_d, linked: true,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 2, 1, 1) },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: '0.999'.to_d,
+        fiat_value: 30_000.to_d, transacted_at: Time.utc(2024, 3, 1), tx_id: 'sell-1' }
+    ]
+
+    disposals = @wa.calculate(transactions)
+
+    assert_equal 1, disposals.size
+    assert_equal 'sell-1', disposals.first[:tx_id]
+    assert_equal 9_990.to_d, disposals.first[:cost_basis]
+  end
+
+  test 'buy fees update weighted-average cost and base-asset quantity' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 30_000.to_d, fee_currency: 'EUR', fee_fiat_value: 50.to_d,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'fiat-fee-buy' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 50_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'fiat-fee-sell' }
+    ]
+
+    disposal = @wa.calculate(transactions).first
+    assert_equal 30_050.to_d, disposal[:cost_basis]
+
+    transactions = [
+      { entry_type: :buy, base_currency: 'BNB', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, fee_currency: 'BNB', fee_amount: '0.01'.to_d, fee_fiat_value: 1.to_d,
+        transacted_at: Time.utc(2024, 1, 1), tx_id: 'base-fee-buy' },
+      { entry_type: :sell, base_currency: 'BNB', base_amount: '9.99'.to_d,
+        fiat_value: 2_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'base-fee-sell' }
+    ]
+
+    disposal = @wa.calculate(transactions).first
+    assert_equal '9.99'.to_d, disposal[:amount]
+    assert_equal 1_000.to_d, disposal[:cost_basis].round(0) # 9.99-unit pool retains the full 1 000 quote cost
+  end
+
+  test 'fee paid in another crypto capitalises its value and consumes its pool' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BNB', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'cross-1' },
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 30_000.to_d, fee_currency: 'BNB', fee_amount: '0.01'.to_d, fee_fiat_value: 1.to_d,
+        transacted_at: Time.utc(2024, 1, 2), tx_id: 'cross-2' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 40_000.to_d, transacted_at: Time.utc(2024, 3, 1), tx_id: 'cross-3' },
+      { entry_type: :sell, base_currency: 'BNB', base_amount: '9.99'.to_d,
+        fiat_value: 2_000.to_d, transacted_at: Time.utc(2024, 4, 1), tx_id: 'cross-4' }
+    ]
+
+    disposals = @wa.calculate(transactions)
+    btc_disposal = disposals.find { |disposal| disposal[:asset] == 'BTC' }
+    bnb_disposal = disposals.find { |disposal| disposal[:asset] == 'BNB' }
+
+    assert_equal 30_001.to_d, btc_disposal[:cost_basis]
+    assert_equal 999.to_d, bnb_disposal[:cost_basis]
+  end
+
+  test 'split scales pool quantity while keeping its cost' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'NVDA', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'split-buy',
+        exchange: 'alpaca' },
+      { entry_type: :adjustment, base_currency: 'NVDA', base_amount: 90.to_d,
+        fiat_value: 0.to_d, transacted_at: Time.utc(2024, 6, 1), tx_id: 'split-adjustment',
+        exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'NVDA', base_amount: 100.to_d,
+        fiat_value: 2_000.to_d, transacted_at: Time.utc(2024, 7, 1), tx_id: 'split-sell',
+        exchange: 'alpaca' }
+    ]
+
+    disposal = Tax::Methods::WeightedAverage.new.calculate(transactions).first
+
+    assert_equal 1_000.to_d, disposal[:cost_basis]
+  end
+
+  test 'per-share return of capital reduces pool cost and reports excess' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'X', base_amount: 10.to_d,
+        fiat_value: 50.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'roc-buy', exchange: 'alpaca' },
+      { entry_type: :return_of_capital, base_currency: 'X', base_amount: 10.to_d,
+        quote_currency: 'USD', quote_amount: 80.to_d, fiat_value: 80.to_d,
+        raw_data: { 'per_share_amount' => '8' }, transacted_at: Time.utc(2024, 3, 1),
+        tx_id: 'roc', exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'X', base_amount: 10.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 4, 1), tx_id: 'roc-sell', exchange: 'alpaca' }
+    ]
+    engine = Tax::Methods::WeightedAverage.new
+
+    disposal = engine.calculate(transactions).first
+
+    assert_equal 30.to_d, engine.excess_roc
+    assert_equal 0.to_d, disposal[:cost_basis]
+  end
+
+  test 'withholding tax and unsupported activity leave the pool unchanged' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 30_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'noop-buy',
+        exchange: 'alpaca' },
+      { entry_type: :withholding_tax, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 1_000.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'noop-tax',
+        exchange: 'alpaca' },
+      { entry_type: :unsupported_activity, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 2_000.to_d, transacted_at: Time.utc(2024, 3, 1), tx_id: 'noop-unsupported',
+        exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'BTC', base_amount: 1.to_d,
+        fiat_value: 50_000.to_d, transacted_at: Time.utc(2024, 4, 1), tx_id: 'noop-sell',
+        exchange: 'alpaca' }
+    ]
+
+    disposals = Tax::Methods::WeightedAverage.new.calculate(transactions)
+
+    assert_equal 1, disposals.size
+    assert_equal 30_000.to_d, disposals.first[:cost_basis]
+  end
+
+  test 'fee in the pooled asset shrinks quantity at average cost' do
+    transactions = [
+      { entry_type: :buy, base_currency: 'ETH', base_amount: 10.to_d,
+        fiat_value: 20_000.to_d, transacted_at: Time.utc(2024, 1, 1), tx_id: 'fee-buy-1',
+        exchange: 'alpaca' },
+      { entry_type: :fee, base_currency: 'ETH', base_amount: 1.to_d,
+        fiat_value: 0.to_d, transacted_at: Time.utc(2024, 2, 1), tx_id: 'fee-kind', exchange: 'alpaca' },
+      { entry_type: :buy, base_currency: 'ETH', base_amount: 1.to_d,
+        fiat_value: 4_000.to_d, transacted_at: Time.utc(2024, 3, 1), tx_id: 'fee-buy-2',
+        exchange: 'alpaca' },
+      { entry_type: :sell, base_currency: 'ETH', base_amount: 10.to_d,
+        fiat_value: 30_000.to_d, transacted_at: Time.utc(2024, 4, 1), tx_id: 'fee-sell',
+        exchange: 'alpaca' }
+    ]
+
+    disposals = Tax::Methods::WeightedAverage.new.calculate(transactions)
+
+    assert_equal 1, disposals.size
+    assert_equal 22_000.to_d, disposals.first[:cost_basis]
+  end
 end

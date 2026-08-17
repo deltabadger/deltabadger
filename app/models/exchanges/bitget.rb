@@ -2,7 +2,15 @@ class Exchanges::Bitget < Exchange
   COINGECKO_ID = 'bitget'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Insufficient balance', 'Insufficient account balance'],
-    invalid_key: ['Invalid Api Key', 'Invalid ACCESS_KEY', 'Invalid signature', 'Apikey does not exist']
+    invalid_key: ['Invalid Api Key', 'Invalid ACCESS_KEY', 'Invalid signature', 'Apikey does not exist'],
+    # 40008: the signed timestamp fell outside Bitget's window — same class as KuCoin's 400002
+    # and Binance's -1021, and it fires for the same reason (a request stalled behind a slow
+    # exchange proxy, not a drifting clock). Retried instead of failing the bot loudly.
+    transient: ['Request timestamp expired'],
+    # Listed again, deliberately: 40008 is raised while verifying the signature (the timestamp is
+    # part of the signed payload), so the order never reached the book and re-placing it next
+    # interval cannot double-buy. See Exchange#placement_transient_error?.
+    placement_safe_transient: ['Request timestamp expired']
   }.freeze
 
   # API-key-validity probe (fake cancel_order) classification by Bitget response code. Kept out of
@@ -114,7 +122,10 @@ class Exchanges::Bitget < Exchange
     return result if result.failure?
 
     data = result.data['data']
-    return Result::Failure.new("Failed to get #{name} balances") if data.nil?
+    # As in Exchanges::Kucoin: this path calls get_account_assets directly and so bypasses the
+    # client's code check. Carry the venue's reason through instead of flattening it, or
+    # invalid_key_error? has nothing to read on the tracker-sync path.
+    return Result::Failure.new("Failed to get #{name} balances: #{result.data.values_at('code', 'msg').compact.join(' ')}") if data.nil?
 
     asset_ids ||= assets.pluck(:id)
     balances = asset_ids.to_h do |asset_id|
@@ -383,6 +394,9 @@ class Exchanges::Bitget < Exchange
 
     update_exchange_asset_fees!(fees, chains: chain_data)
   end
+
+  # Bitget caps a history query at ~90 days measured from `startTime`.
+  def ledger_window = 80.days
 
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('bitget', api_key: api_key.key, api_secret: api_key.secret,

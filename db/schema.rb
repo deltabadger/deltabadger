@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_10_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_15_170100) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -40,21 +40,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_10_120000) do
     t.decimal "fee_amount"
     t.string "fee_currency"
     t.string "group_id"
+    t.integer "linked_transaction_id"
     t.decimal "quote_amount"
     t.string "quote_currency"
     t.json "raw_data", default: {}
     t.datetime "transacted_at", null: false
     t.integer "transaction_id"
+    t.boolean "transfer_link_rejected", default: false, null: false
     t.string "tx_id"
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.index ["api_key_id", "transacted_at"], name: "index_account_transactions_on_api_key_id_and_transacted_at"
     t.index ["api_key_id"], name: "index_account_transactions_on_api_key_id"
-    t.index ["exchange_id", "tx_id"], name: "index_account_transactions_on_exchange_id_and_tx_id", unique: true, where: "tx_id IS NOT NULL"
     t.index ["exchange_id"], name: "index_account_transactions_on_exchange_id"
     t.index ["group_id"], name: "index_account_transactions_on_group_id"
+    t.index ["linked_transaction_id"], name: "index_account_transactions_on_linked_transaction_id", unique: true
     t.index ["transacted_at"], name: "index_account_transactions_on_transacted_at"
     t.index ["transaction_id"], name: "index_account_transactions_on_transaction_id"
+    t.index ["user_id", "exchange_id", "tx_id"], name: "index_account_transactions_on_user_exchange_tx_id", unique: true, where: "tx_id IS NOT NULL"
     t.index ["user_id"], name: "index_account_transactions_on_user_id"
   end
 
@@ -133,6 +136,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_10_120000) do
     t.string "ibkr_realm"
     t.string "key"
     t.integer "key_type", default: 0, null: false
+    t.string "last_sync_error"
     t.datetime "last_synced_at"
     t.string "passphrase"
     t.text "rsa_encryption_key"
@@ -162,6 +166,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_10_120000) do
     t.datetime "created_at", null: false
     t.string "external_id", null: false
     t.string "image_url"
+    t.string "instrument_type"
     t.string "isin"
     t.bigint "market_cap"
     t.integer "market_cap_rank"
@@ -283,6 +288,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_10_120000) do
     t.string "passphrase"
     t.string "secret"
     t.index ["exchange_id"], name: "index_fee_api_keys_on_exchange_id"
+  end
+
+  create_table "fund_classifications", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.integer "fund_category"
+    t.string "isin"
+    t.integer "kind", null: false
+    t.string "symbol", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["user_id", "symbol"], name: "index_fund_classifications_on_user_id_and_symbol", unique: true
+  end
+
+  create_table "fx_rates", force: :cascade do |t|
+    t.string "currency", null: false
+    t.date "date", null: false
+    t.decimal "rate", null: false
+    t.index ["currency", "date"], name: "index_fx_rates_on_currency_and_date", unique: true
   end
 
   create_table "historical_prices", force: :cascade do |t|
@@ -534,6 +557,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_10_120000) do
   add_foreign_key "exchange_assets", "assets"
   add_foreign_key "exchange_assets", "exchanges"
   add_foreign_key "fee_api_keys", "exchanges"
+  add_foreign_key "fund_classifications", "users"
   add_foreign_key "idempotency_keys", "users"
   add_foreign_key "oauth_applications", "users", column: "personal_owner_id"
   add_foreign_key "rule_logs", "rules"

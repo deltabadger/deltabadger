@@ -412,6 +412,7 @@ pt:
         welcome:
             connect_and_track: "Liga a tua exchange e começa a acompanhar a tua carteira."
         sync_key_error_html: 'Falha ao sincronizar <strong>%{exchange}</strong>: %{message}. Atualiza a chave API em baixo.'
+        sync_failed_for: 'A sincronização com %{exchanges} falhou. Podem faltar transações dessas plataformas — os relatórios gerados agora podem ficar incompletos.'
         pricing_warning_html: Saldos sincronizados, mas os preços em USD não estão disponíveis de momento (%{message}). O gráfico usará os últimos preços conhecidos até o serviço ser restabelecido.
         portfolio:
             never_synced: Clica em Sincronizar para carregar a tua carteira.
@@ -423,6 +424,12 @@ pt:
         get_report: 'Obter relatório'
         filter: 'Filtrar'
         no_results: 'Nenhuma transação encontrada para os filtros selecionados.'
+        transfer_badge: 'Transferência'
+        transfer_link: 'Marcar como transferência'
+        transfer_unlink: 'Não é uma transferência'
+        transfer_linked: 'As transações foram associadas como uma transferência entre as tuas contas.'
+        transfer_unlinked: 'Deixou de ser tratada como uma transferência.'
+        transfer_no_candidate: 'Não foi encontrada uma única transação correspondente num período de 14 dias, por isso nada foi associado.'
         connect_exchange: 'Conectar exchange'
         import_from: 'Importar transações de'
         search_exchange: 'Pesquisar exchange...'
@@ -430,6 +437,29 @@ pt:
         export_modal:
             title: 'Gerar relatório'
             tax_report: 'Relatório fiscal'
+            broker_tax_report: 'Relatório fiscal da corretora (Alemanha — Anlage KAP / KAP-INV)'
+            classification_title: 'Classificar títulos'
+            classification_hint: 'Preenchemos o que foi possível com base nos dados de mercado — verifique tudo o que aparece abaixo antes de gerar o relatório.'
+            classification_settled:
+                one: '1 título classificado automaticamente — rever'
+                other: '%{count} títulos classificados automaticamente — rever'
+            classification_eyebrow_unclassified: 'Impede a geração do relatório'
+            classification_eyebrow_fund: 'Predefinição aplicada'
+            classification_eyebrow_refused: 'Valores excluídos'
+            classification_why_unclassified: 'Não consta dos nossos dados de mercado, por isso não conseguimos determinar de que se trata.'
+            classification_why_fund_html: 'É um fundo. Aplicámos por predefinição sonstige Fonds — <b>0% Teilfreistellung</b> — porque os fundos dos EUA não publicam as condições previstas no InvStG. Altere a opção se conseguir comprovar a percentagem de ações do fundo.'
+            classification_fund_hint: 'Com Aktienfonds, seriam 30%'
+            classification_why_refused: 'Este título fica fora do resumo em vez de ser estimado; as respetivas linhas da folha de cálculo continuam a aparecer.'
+            classification_refusal_reasons:
+                uncovered_disposal: 'Uma alienação que não conseguimos associar totalmente às aquisições.'
+                unsupported_activity: 'Um tipo de transação que não modelamos, como uma fusão ou cisão.'
+                pre_2018_fund_lot: 'Unidades de fundos adquiridas antes de 2018, para as quais a alienação presumida ao abrigo do §56 InvStG não está modelada.'
+                missing_price: 'Não existe um preço de resgate no final do ano, pelo que não é possível calcular a Vorabpauschale.'
+                missing_fx: 'Não existe uma taxa de referência do BCE para uma das datas.'
+                missing_basiszins: 'Ainda não foi publicado nenhum Basiszins para esse ano.'
+            classification_save_failed: 'Não foi possível guardar a sua classificação. Recarregue a página e tente novamente.'
+            classification_select: 'Selecionar…'
+            tax_disclaimer: 'Ferramenta de apoio ao cálculo, não aconselhamento fiscal. Confirme os valores antes de entregar a declaração.'
             transactions: 'Tudo'
             country: 'País'
             year: 'Ano'
@@ -454,6 +484,8 @@ pt:
                 DK: 'Dinamarca'
                 CZ: 'Chéquia'
                 SK: 'Eslováquia'
+        tax_report:
+            failed: 'Não foi possível gerar o relatório. Verifique as definições selecionadas e tente novamente.'
         filters:
             all: 'Todos'
         columns:
@@ -480,6 +512,10 @@ pt:
             fee: 'Taxa'
             other_income: 'Rendimento'
             lost: 'Perdido'
+            withholding_tax: 'Retenção na fonte'
+            return_of_capital: 'Devolução de capital'
+            adjustment: 'Ajuste'
+            unsupported_activity: 'Outra atividade'
     order_filters:
         all: 'Todos'
         successful: 'Bem-sucedidos'
@@ -510,9 +546,23 @@ pt:
             failed_sell: 'Tentativa falhada de venda de %{amount} %{base} por %{quote_amount} %{quote}'
             skipped: 'Ignorado (abaixo do mínimo)'
     tax_report:
+        income:
+            header: 'Rendimentos recebidos (a tributação depende da natureza do rendimento e da jurisdição fiscal — não incluídos nas mais-valias acima indicadas)'
+            total: 'Total de %{type}'
+            not_included: 'Os rendimentos recebidos (recompensas de staking, juros de empréstimos, airdrops e rendimentos de mineração) não estão incluídos neste relatório. São tributados como rendimentos e devem ser declarados separadamente.'
+            types:
+                staking_reward: 'recompensas de staking'
+                lending_interest: 'juros de empréstimos'
+                airdrop: 'airdrops'
+                mining: 'rendimentos de mineração'
+                other_income: 'outros rendimentos (dividendos, juros e bonificações)'
         warnings:
             missing_prices: Faltam preços históricos para
             upgrade_hint: Atualiza o teu plano CoinGecko ou usa deltabadger.com para dados históricos completos.
+            deposit_basis_assumed: Custo de aquisição estimado pelo valor de mercado para estes depósitos não associados
+            deposit_basis_assumed_hint: Associa cada depósito ao levantamento correspondente no Tracker para usar o custo de aquisição real.
+            exchange_sync_failed: 'Podem faltar dados da plataforma %{exchange}: a última sincronização falhou. Volte a sincronizar no Tracker e gere novamente este relatório.'
+            exchange_never_synced: 'A plataforma %{exchange} nunca foi sincronizada — nenhuma das respetivas transações consta deste relatório. Sincronize-a no Tracker e volte a gerar o relatório.'
         summary:
             total_gains: Ganhos totais
             total_losses: Perdas totais
@@ -530,9 +580,98 @@ pt:
             exchange: 'Exchange'
             tx_id: 'ID de transação'
             cost_basis_complete: 'Custo de aquisição completo'
+            data_incomplete: 'Dados incompletos'
             acquisition_date: 'Data de aquisição'
             old_stock: 'Stock antigo'
             tax_exempt: 'Isento'
             term: 'Prazo'
             matching_rule: 'Regra de correspondência'
         no_taxable_transactions: 'Nenhuma transação tributável encontrada para este período.'
+        incomplete_banner_prefix: 'AVISO'
+        incomplete_banner: 'Faltam %{missing} valores — relatório incompleto, não entregar assim'
+        broker:
+            title: 'Anlage KAP / KAP-INV — base de cálculo'
+            incomplete_banner: 'Relatório incompleto — consulte os avisos abaixo; não o entregue neste estado'
+            unclassified_banner: 'Resumos não produzidos — ainda há valores mobiliários por classificar; consulte os avisos abaixo'
+            sections:
+                kap: 'RESUMO — ANLAGE KAP'
+                kap_inv: 'RESUMO — ANLAGE KAP-INV'
+                disposals: 'MAPA — ALIENAÇÕES'
+                income: 'MAPA — RENDIMENTOS'
+                warnings: 'AVISOS'
+                disclosures: 'INFORMAÇÕES LEGAIS'
+            kap:
+                z19: 'Rendimentos de capitais estrangeiros'
+                z20: 'Ganhos com a alienação de ações incluídos na linha 19'
+                z22: 'Perdas não resultantes da alienação de ações incluídas na linha 19'
+                z23: 'Perdas resultantes da alienação de ações incluídas na linha 19'
+                z41: 'Impostos estrangeiros creditáveis ainda não creditados'
+            kap_inv:
+                distributions: 'Distribuições (antes da Teilfreistellung)'
+                vorabpauschale: 'Vorabpauschale (antes da Teilfreistellung)'
+                sale_result: 'Resultado da alienação (antes da Teilfreistellung)'
+            kinds:
+                share: 'Ação'
+                fund: 'Fundo'
+                other_security: 'Outro valor mobiliário'
+            fund_categories:
+                equity_fund: 'Fundos de ações'
+                mixed_fund: 'Fundos mistos'
+                real_estate_fund: 'Fundos imobiliários'
+                foreign_real_estate_fund: 'Fundos imobiliários estrangeiros'
+                other_fund: 'Outros fundos'
+            buckets:
+                kap_dividend: 'Dividendo (Anlage KAP)'
+                kap_interest: 'Juros (Anlage KAP)'
+                fund_distribution: 'Distribuição de fundo (Anlage KAP-INV)'
+                withholding_tax: 'Retenção na fonte (Anlage KAP, linha 41)'
+                return_of_capital_excess: 'Reembolso de capital acima do custo de aquisição'
+            headers:
+                zeile: 'Linha'
+                description: 'Descrição'
+                amount_eur: 'Montante (EUR)'
+                fund_category: 'Categoria do fundo'
+                position: 'Rubrica'
+                symbol: 'Valor mobiliário'
+                kind: 'Tipo'
+                units: 'Unidades'
+                proceeds_usd: 'Receita (USD)'
+                fx_rate: 'Taxa BCE (USD por EUR)'
+                proceeds_eur: 'Receita (EUR)'
+                fee_eur: 'Comissões deduzidas da receita (EUR)'
+                cost_eur: 'Custo de aquisição (EUR)'
+                vorabpauschale_eur: 'Vorabpauschale (EUR)'
+                gain_eur: 'Ganho/perda (EUR)'
+                status: 'Estado'
+                date: 'Data'
+                activity_type: 'Tipo de movimento'
+                bucket: 'Afetação'
+                amount_usd: 'Montante (USD)'
+                amount_eur_income: 'Montante (EUR)'
+            rows:
+                lot: 'dos quais, aquisição'
+                fee_total: 'Comissões regulamentares (apenas informativas, não deduzidas)'
+            status:
+                refused: 'Não incluído no resumo — consulte os avisos'
+                uncovered: 'Aquisição não comprovada'
+            warnings:
+                summaries_blocked: 'Os resumos Anlage KAP e Anlage KAP-INV serão produzidos quando todos os valores mobiliários estiverem classificados.'
+                unclassified: 'Ainda não classificado — indique o tipo de valor mobiliário (ação, fundo ou outro valor mobiliário).'
+                uncovered_disposal: 'Alienação em %{detail} sem uma posição totalmente comprovada — os montantes deste valor mobiliário não entram no resumo.'
+                unsupported_activity: 'Movimento não suportado (%{detail}) — os montantes deste valor mobiliário não entram no resumo.'
+                pre_2018_fund_lot: 'Unidades de fundo adquiridas antes de 2018 (%{detail}) — a alienação fictícia prevista no §56 InvStG não é contemplada, pelo que o fundo fica excluído do Anlage KAP-INV.'
+                missing_price: 'Não existe preço de resgate no fecho do exercício %{detail} — não é possível calcular a Vorabpauschale, pelo que o fundo fica excluído do resumo.'
+                missing_fx: 'Não existe taxa de referência do BCE para %{detail} — o montante afetado não consta do resumo.'
+                missing_basiszins: 'Ainda não foi publicado o Basiszins de %{detail} — não é possível calcular a Vorabpauschale, pelo que o fundo fica excluído do resumo.'
+                ambiguous_symbol: 'Este símbolo está associado a várias classes de ativos (%{detail}) — confirme se a classificação está correta.'
+                withholding_credited_for_refused_symbol: 'A retenção relativa a %{detail} é creditada na linha 41, embora os restantes montantes destes valores mobiliários não sejam declarados.'
+                unknown: 'Aviso %{code}: %{detail}'
+            disclosures:
+                not_tax_advice: 'Este relatório é um auxiliar de cálculo e não constitui aconselhamento fiscal. Confirme todos os montantes antes de os incluir na declaração de rendimentos.'
+                usd_balance_fx: 'Os ganhos cambiais da conta remunerada em USD constituem rendimentos nos termos do §20, n.º 7 do n.º 2 EStG (ofício do BMF de 14.05.2025, ponto 131). Não estão incluídos neste relatório.'
+                us_etf_default: 'Sem documentação comprovativa, os ETF domiciliados nos Estados Unidos são tratados como outros fundos nos termos do §20, n.º 4 InvStG (Teilfreistellung de 0 %). Quem escolher outra categoria de fundo terá de comprovar a percentagem de participação no capital.'
+                vorabpauschale_start_value: 'O valor inicial da Vorabpauschale é a última cotação do ano anterior e não o primeiro preço de resgate fixado no ano civil (BMF 21.05.2019, Tz 18.4). Assim cada ano liga-se sem falhas ao anterior; o desvio corresponde a uma fração de ponto percentual do rendimento base.'
+                withholding_credit_limit: 'A linha 41 indica a totalidade da retenção efetuada. Sem formulário W-8BEN, a Alpaca retém 30 %, ao passo que a convenção de dupla tributação entre a Alemanha e os Estados Unidos apenas permite creditar 15 %; o excedente tem de ser reclamado junto do IRS e não creditado aqui.'
+                fx_source: 'Conversão às taxas de referência do euro publicadas pelo BCE; nos dias sem taxa aplica-se a do dia útil bancário anterior.'
+                interest_withholding_net: 'Os juros creditados depois de deduzida a retenção estrangeira são declarados pelo valor líquido na linha 19, enquanto a retenção é creditada na linha 41 — o banco não fornece um montante bruto para os juros. Já os dividendos são recalculados pelo valor bruto.'
+                regulatory_fees: 'As comissões regulamentares agregadas não podem ser atribuídas a uma alienação concreta e, por isso, não são deduzidas de qualquer montante; são apresentadas apenas a título informativo.'

@@ -416,6 +416,7 @@ sv:
         welcome:
             connect_and_track: "Anslut din börs och börja spåra din portfölj."
         sync_key_error_html: 'Synkroniseringen med <strong>%{exchange}</strong> misslyckades: %{message}. Uppdatera API-nyckeln nedan.'
+        sync_failed_for: 'Synkroniseringen med %{exchanges} misslyckades. Transaktioner därifrån kan saknas — rapporter som skapas nu kan därför vara ofullständiga.'
         pricing_warning_html: Saldon synkade, men USD-priser är inte tillgängliga just nu (%{message}). Diagrammet använder de senast kända priserna tills prissättningen är återställd.
         portfolio:
             never_synced: Klicka på „Synka" för att ladda din portfölj.
@@ -428,6 +429,12 @@ sv:
         filter: 'Filter'
         bot: 'Bot'
         no_results: 'Inga transaktioner hittades för de valda filtren.'
+        transfer_badge: 'Överföring'
+        transfer_link: 'Markera som överföring'
+        transfer_unlink: 'Ingen överföring'
+        transfer_linked: 'Länkad som en överföring mellan dina egna konton.'
+        transfer_unlinked: 'Behandlas inte längre som en överföring.'
+        transfer_no_candidate: 'Det gick inte att hitta exakt en matchande transaktion inom 14 dagar, så ingenting länkades.'
         connect_exchange: 'Anslut börs'
         import_from: 'Importera transaktioner från'
         search_exchange: 'Sök börs...'
@@ -435,6 +442,29 @@ sv:
         export_modal:
             title: 'Generera rapport'
             tax_report: 'Skatterapport'
+            broker_tax_report: 'Skatterapport från mäklare (Tyskland — Anlage KAP / KAP-INV)'
+            classification_title: 'Klassificera värdepapper'
+            classification_hint: 'Vi fyllde i det vi kunde utifrån marknadsdata — kontrollera allt nedan innan du genererar rapporten.'
+            classification_settled:
+                one: '1 värdepapper klassificerat automatiskt — granska'
+                other: '%{count} värdepapper klassificerade automatiskt — granska'
+            classification_eyebrow_unclassified: 'Blockerar rapporten'
+            classification_eyebrow_fund: 'Standardval tillämpat'
+            classification_eyebrow_refused: 'Belopp undantagna'
+            classification_why_unclassified: 'Finns inte i våra marknadsdata, så vi kan inte avgöra vad det är.'
+            classification_why_fund_html: 'En fond. Vi valde sonstige Fonds — <b>0% Teilfreistellung</b> — som standard eftersom amerikanska fonder inte publicerar villkor enligt InvStG. Ändra valet om du kan styrka fondens aktieandel.'
+            classification_fund_hint: 'Aktienfonds skulle ge 30%'
+            classification_why_refused: 'Det här värdepappret lämnas utanför sammanställningen i stället för att uppskattas; dess rader visas fortfarande i arbetsbladen.'
+            classification_refusal_reasons:
+                uncovered_disposal: 'En försäljning som vi inte helt kan matcha mot förvärv.'
+                unsupported_activity: 'En transaktionstyp som vi inte modellerar, till exempel en fusion eller avknoppning.'
+                pre_2018_fund_lot: 'Fondandelar som köptes före 2018 och där den fiktiva försäljningen enligt §56 InvStG inte modelleras.'
+                missing_price: 'Det saknas ett inlösenpris vid årets slut, så Vorabpauschale kan inte beräknas.'
+                missing_fx: 'Det saknas en ECB-referenskurs för ett av datumen.'
+                missing_basiszins: 'Ingen Basiszins har ännu publicerats för det året.'
+            classification_save_failed: 'Din klassificering kunde inte sparas. Ladda om sidan och försök igen.'
+            classification_select: 'Välj…'
+            tax_disclaimer: 'Beräkningshjälp, inte skatterådgivning. Kontrollera uppgifterna innan du lämnar in deklarationen.'
             transactions: 'Alla'
             country: 'Land'
             year: 'År'
@@ -467,6 +497,7 @@ sv:
             expired: 'Skatterapporten har gått ut. Generera en ny.'
             generating: 'Genererar skatterapport...'
             download_ready: 'Skatterapporten är klar. Klicka för att ladda ner.'
+            failed: 'Rapporten kunde inte genereras. Kontrollera de valda inställningarna och försök igen.'
         filters:
             all: 'Alla'
         columns:
@@ -493,6 +524,10 @@ sv:
             fee: 'Avgift'
             other_income: 'Inkomst'
             lost: 'Förlorad'
+            withholding_tax: 'Källskatt'
+            return_of_capital: 'Kapitalåterbetalning'
+            adjustment: 'Justering'
+            unsupported_activity: 'Övrig aktivitet'
     order_filters:
         all: 'Alla'
         successful: 'Lyckade'
@@ -525,9 +560,23 @@ sv:
             failed_sell: 'Failed attempt to sell %{amount} %{base} for %{quote_amount} %{quote}'
             skipped: 'Skipped (below minimum)'
     tax_report:
+        income:
+            header: 'Mottagna inkomster (beskattningen beror på inkomstslag och tillämpliga skatteregler — ingår inte i vinsterna ovan)'
+            total: 'Totalt — %{type}'
+            not_included: 'Mottagna inkomster (stakingbelöningar, ränteinkomster från utlåning, airdrops och inkomster från mining) ingår inte i denna rapport. De beskattas som inkomst och måste deklareras separat.'
+            types:
+                staking_reward: 'stakingbelöningar'
+                lending_interest: 'ränteinkomster från utlåning'
+                airdrop: 'airdrops'
+                mining: 'inkomster från mining'
+                other_income: 'övriga inkomster (utdelningar, ränta och avgiftsåterbäring)'
         warnings:
             missing_prices: Historiska priser saknas för
             upgrade_hint: Uppgradera ditt CoinGecko-abonnemang eller använd deltabadger.com för fullständig historik.
+            deposit_basis_assumed: Anskaffningsvärde antaget till marknadsvärdet för dessa olänkade insättningar
+            deposit_basis_assumed_hint: Länka varje insättning till motsvarande uttag i Tracker för att använda det verkliga anskaffningsvärdet.
+            exchange_sync_failed: 'Data från %{exchange} kan saknas eftersom den senaste synkroniseringen misslyckades. Synkronisera igen i Tracker och skapa rapporten på nytt.'
+            exchange_never_synced: '%{exchange} har aldrig synkroniserats — inga transaktioner därifrån finns med i rapporten. Synkronisera i Tracker och skapa rapporten på nytt.'
         headers:
             date: 'Datum'
             asset: 'Tillgång'
@@ -564,3 +613,89 @@ sv:
             total_gains: 'Totala vinster'
             total_losses: 'Totala förluster'
             deductible: 'avdragsgill'
+        broker:
+            title: 'Anlage KAP / KAP-INV — beräkningsunderlag'
+            incomplete_banner: 'Rapporten är ofullständig — gå igenom varningarna nedan; lämna inte in den i detta skick'
+            unclassified_banner: 'Sammanställningarna har inte tagits fram — alla värdepapper är ännu inte klassificerade; se varningarna nedan'
+            sections:
+                kap: 'SAMMANSTÄLLNING — ANLAGE KAP'
+                kap_inv: 'SAMMANSTÄLLNING — ANLAGE KAP-INV'
+                disposals: 'SPECIFIKATION — FÖRSÄLJNINGAR'
+                income: 'SPECIFIKATION — INKOMSTER'
+                warnings: 'VARNINGAR'
+                disclosures: 'RÄTTSLIG INFORMATION'
+            kap:
+                z19: 'Utländska kapitalinkomster'
+                z20: 'Vinster vid försäljning av aktier som ingår på rad 19'
+                z22: 'Andra förluster än förluster vid försäljning av aktier som ingår på rad 19'
+                z23: 'Förluster vid försäljning av aktier som ingår på rad 19'
+                z41: 'Avräkningsbara utländska skatter som ännu inte har avräknats'
+            kap_inv:
+                distributions: 'Utdelningar (före Teilfreistellung)'
+                vorabpauschale: 'Vorabpauschale (före Teilfreistellung)'
+                sale_result: 'Resultat vid försäljning (före Teilfreistellung)'
+            kinds:
+                share: 'Aktie'
+                fund: 'Fond'
+                other_security: 'Annat värdepapper'
+            fund_categories:
+                equity_fund: 'Aktiefonder'
+                mixed_fund: 'Blandfonder'
+                real_estate_fund: 'Fastighetsfonder'
+                foreign_real_estate_fund: 'Utländska fastighetsfonder'
+                other_fund: 'Övriga fonder'
+            buckets:
+                kap_dividend: 'Utdelning (Anlage KAP)'
+                kap_interest: 'Ränta (Anlage KAP)'
+                fund_distribution: 'Fondutdelning (Anlage KAP-INV)'
+                withholding_tax: 'Källskatt (Anlage KAP, rad 41)'
+                return_of_capital_excess: 'Återbetalning av kapital utöver anskaffningsvärdet'
+            headers:
+                zeile: 'Rad'
+                description: 'Beskrivning'
+                amount_eur: 'Belopp (EUR)'
+                fund_category: 'Fondkategori'
+                position: 'Post'
+                symbol: 'Värdepapper'
+                kind: 'Typ'
+                units: 'Antal'
+                proceeds_usd: 'Försäljningsintäkt (USD)'
+                fx_rate: 'ECB-kurs (USD per EUR)'
+                proceeds_eur: 'Försäljningsintäkt (EUR)'
+                fee_eur: 'Avgifter som dragits av från försäljningsintäkten (EUR)'
+                cost_eur: 'Anskaffningsvärde (EUR)'
+                vorabpauschale_eur: 'Vorabpauschale (EUR)'
+                gain_eur: 'Vinst/förlust (EUR)'
+                status: 'Status'
+                date: 'Datum'
+                activity_type: 'Transaktionstyp'
+                bucket: 'Fördelning'
+                amount_usd: 'Belopp (USD)'
+                amount_eur_income: 'Belopp (EUR)'
+            rows:
+                lot: 'varav anskaffning'
+                fee_total: 'Regulatoriska avgifter (endast som information, inte avdragna)'
+            status:
+                refused: 'Ingår inte i sammanställningen — se varningarna'
+                uncovered: 'Anskaffningen är inte styrkt'
+            warnings:
+                summaries_blocked: 'Sammanställningarna Anlage KAP och Anlage KAP-INV tas fram när alla värdepapper har klassificerats.'
+                unclassified: 'Ännu inte klassificerat — ange typen av värdepapper (aktie, fond eller annat värdepapper).'
+                uncovered_disposal: 'Försäljning den %{detail} utan ett fullständigt styrkt innehav — beloppen för detta värdepapper ingår inte i sammanställningen.'
+                unsupported_activity: 'Transaktion som inte stöds (%{detail}) — beloppen för detta värdepapper ingår inte i sammanställningen.'
+                pre_2018_fund_lot: 'Fondandelar anskaffade före 2018 (%{detail}) — den fiktiva försäljningen enligt §56 InvStG hanteras inte, och fonden undantas därför från Anlage KAP-INV.'
+                missing_price: 'Det saknas inlösenpris vid utgången av %{detail} — Vorabpauschale kan inte beräknas, och fonden undantas därför från sammanställningen.'
+                missing_fx: 'Det saknas en referenskurs från ECB för %{detail} — det berörda beloppet saknas i sammanställningen.'
+                missing_basiszins: 'Någon Basiszins har ännu inte publicerats för %{detail} — Vorabpauschale kan inte beräknas, och fonden undantas därför från sammanställningen.'
+                ambiguous_symbol: 'Symbolen är kopplad till flera tillgångsslag (%{detail}) — kontrollera att klassificeringen är korrekt.'
+                withholding_credited_for_refused_symbol: 'Källskatten för %{detail} avräknas på rad 41 trots att övriga belopp för dessa värdepapper inte redovisas.'
+                unknown: 'Varning %{code}: %{detail}'
+            disclosures:
+                not_tax_advice: 'Rapporten är ett beräkningsunderlag och utgör inte skatterådgivning. Kontrollera alla belopp innan du för över dem till deklarationen.'
+                usd_balance_fx: 'Valutavinster på det räntebärande USD-kontot är inkomster enligt §20 stycke 2 punkt 7 EStG (BMF-skrivelse av den 14.05.2025, punkt 131). De ingår inte i denna rapport.'
+                us_etf_default: 'ETF:er med hemvist i USA behandlas här utan underlag som övriga fonder enligt §20 stycke 4 InvStG (0% Teilfreistellung). Den som väljer en annan fondkategori måste själv styrka kapitalandelen.'
+                vorabpauschale_start_value: 'Startvärdet för Vorabpauschale är föregående års sista kurs och inte det första inlösenpris som fastställs under kalenderåret (BMF 21.05.2019, Tz 18.4). Varje år ansluter därmed sömlöst till det föregående; avvikelsen utgör en bråkdel av en procent av basavkastningen.'
+                withholding_credit_limit: 'Rad 41 anger hela den innehållna källskatten. Utan W-8BEN håller Alpaca inne 30 %, medan det tysk-amerikanska dubbelbeskattningsavtalet endast medger avräkning med 15 %; det överskjutande beloppet ska återkrävas från IRS och inte avräknas här.'
+                fx_source: 'Omräkning enligt ECB:s referenskurser för euro; för dagar utan kurs används kursen från föregående bankdag.'
+                interest_withholding_net: 'Ränta som krediterats efter avdrag för utländsk källskatt redovisas netto på rad 19, medan källskatten avräknas på rad 41 — banken anger inget bruttobelopp för ränta. Utdelningar räknas däremot upp till bruttobelopp.'
+                regulatory_fees: 'Samlade regulatoriska avgifter kan inte hänföras till en enskild försäljning och dras därför inte av från något belopp; de visas endast som information.'

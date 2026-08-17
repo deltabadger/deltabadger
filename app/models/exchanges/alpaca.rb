@@ -94,6 +94,21 @@ class Exchanges::Alpaca < Exchange
     clock['is_open'] == true
   end
 
+  # Margin accounts run settled cash at or below zero by design; buying power is what Alpaca
+  # checks when an order lands, so cash alone false-alarms every margin user.
+  #
+  # ponytail: all_crypto? is approximate — non-marginable equities aren't flagged in our catalog,
+  # DcaIndex#tickers is every quote-matching ticker rather than the bot's allocations, and a mixed
+  # dual bot has both. All three then resolve to :buying_power, i.e. a missed warning, never the
+  # false alarm this fixes. any_crypto? would invert that and keep false-alarming index bots.
+  # Upgrade path: persist Alpaca's `marginable` flag on Ticker/ExchangeAsset (it's venue metadata)
+  # and give bots a funding_tickers that reports real allocations.
+  def spendable_balance(balance, tickers: nil)
+    # Crypto is non-marginable at Alpaca — it spends settled cash, not stock-backed leverage.
+    key = all_crypto?(tickers) ? :non_marginable_buying_power : :buying_power
+    balance[key] || balance[:free]
+  end
+
   def next_market_open_at(tickers: nil)
     return Time.current if all_crypto?(tickers)
 
@@ -212,11 +227,19 @@ class Exchanges::Alpaca < Exchange
       [asset_id, { free: 0, locked: 0 }]
     end
 
-    # USD cash
+    # USD cash. :free stays settled cash — AccountBalance::Sync values the portfolio from it, and
+    # buying power is borrowed, not owned. The spend figures ride along for #spendable_balance.
+    # &.to_d, not .to_d: nil.to_d is 0, which would turn an absent field into a hard zero and make
+    # every account look broke.
     usd_asset = asset_from_symbol('USD')
     if usd_asset && asset_ids.include?(usd_asset.id)
-      cash = account_result.data['cash'].to_d
-      balances[usd_asset.id] = { free: cash, locked: 0 }
+      account = account_result.data
+      balances[usd_asset.id] = {
+        free: account['cash'].to_d,
+        locked: 0,
+        buying_power: account['buying_power']&.to_d,
+        non_marginable_buying_power: account['non_marginable_buying_power']&.to_d
+      }
     end
 
     # Positions. Stocks resolve via the existing bare-symbol map (position symbol ==
@@ -415,19 +438,35 @@ class Exchanges::Alpaca < Exchange
   def get_ledger(api_key:, start_time: nil)
     set_client(api_key: api_key)
 
-    params = { direction: 'asc', page_size: 100 }
-    params[:after] = start_time.iso8601 if start_time
-
-    result = client.get_account_activities(**params)
-    return result if result.failure?
-
     entries = []
-    result.data.each do |activity|
-      entry = normalize_activity(activity)
-      entries << entry if entry
+    page_token = nil
+    loop do
+      params = { direction: 'asc', page_size: 100, page_token: page_token }.compact
+      params[:after] = start_time.iso8601 if start_time
+      result = client.get_account_activities(**params)
+      return result if result.failure?
+
+      activities = Array(result.data)
+      break if activities.empty?
+
+      # page_token is an EXCLUSIVE cursor on id, so the last id of a page is always past the
+      # token that fetched it. If it isn't, the cursor was ignored and we'd re-fetch the same
+      # page forever — stop instead of hanging the sync on an unbounded loop.
+      next_token = activities.last['id']
+      if next_token == page_token
+        Rails.logger.warn("[#{name_id}] Alpaca ledger pagination stalled at page token #{page_token}")
+        break
+      end
+
+      activities.each do |activity|
+        entry = normalize_activity(activity)
+        entries << entry if entry
+      end
+      page_token = next_token
+      break if activities.size < 100
     end
 
-    Result::Success.new(entries)
+    Result::Success.new(merge_split_entries(entries))
   end
 
   def search_assets(query)
@@ -502,38 +541,74 @@ class Exchanges::Alpaca < Exchange
     end
   end
 
-  DIVIDEND_TYPES = %w[DIV DIVCGL DIVFT DIVNRA DIVROC DIVTXEX].freeze
+  DIVIDEND_INCOME_TYPES = %w[DIV DIVCGL DIVCGS CGD DIVTXEX].freeze
+  WITHHOLDING_TYPES = %w[DIVNRA DIVFT DIVTW INTNRA INTTW].freeze
+  CASH_FEE_TYPES = %w[FEE DIVFEE PTC].freeze
+  CASH_JOURNAL_TYPES = %w[JNLC OCT ACATC].freeze
+  SPLIT_TYPES = %w[SPLIT SSP].freeze
 
   def normalize_activity(activity)
     type = activity['activity_type']
+    return normalize_fill(activity) if type == 'FILL'
+    return nil if activity['status'] == 'canceled'
 
     case type
-    when 'FILL'
-      normalize_fill(activity)
     when 'CSD'
       normalize_cash_transfer(activity, :deposit)
     when 'CSW'
       normalize_cash_transfer(activity, :withdrawal)
-    when *DIVIDEND_TYPES
-      normalize_non_trade(activity, :other_income, "Dividend (#{activity['symbol']})")
-    when 'FEE'
+    when *CASH_JOURNAL_TYPES
+      entry_type = activity['net_amount'].to_d.negative? ? :withdrawal : :deposit
+      normalize_cash_transfer(activity, entry_type)
+    when *DIVIDEND_INCOME_TYPES
+      normalize_non_trade(
+        activity,
+        :other_income,
+        "Dividend (#{activity['symbol']})",
+        quote_currency: activity['symbol']
+      )
+    when *WITHHOLDING_TYPES
+      symbol = activity['symbol']
+      normalize_non_trade(
+        activity,
+        :withholding_tax,
+        "Withholding (#{symbol || 'interest'})",
+        quote_currency: symbol
+      )
+    when 'DIVROC'
+      normalize_return_of_capital(activity)
+    when *CASH_FEE_TYPES
       normalize_non_trade(activity, :fee, nil)
     when 'CFEE'
       normalize_crypto_fee(activity)
-    when 'INT'
+    when 'INT', 'PTR'
       normalize_non_trade(activity, :other_income, nil)
+    when *SPLIT_TYPES
+      normalize_split(activity)
+    else
+      # Multi-leg mergers, spinoffs, and option events must never half-mutate share counts.
+      # Keep them and future activity types inert and verbatim so reports can flag incomplete symbols.
+      normalize_unsupported_activity(activity)
     end
   end
 
   def normalize_fill(activity)
     qty = activity['qty'].to_d
     price = activity['price'].to_d
+    symbol = activity['symbol']
+    base_currency, quote_currency = if symbol&.include?('/')
+                                      symbol.split('/', 2)
+                                    elsif (ticker = crypto_position_index[symbol])
+                                      [ticker.base, ticker.quote]
+                                    else
+                                      [symbol, 'USD']
+                                    end
 
     {
       entry_type: activity['side'] == 'buy' ? :buy : :sell,
-      base_currency: activity['symbol'],
+      base_currency: base_currency,
       base_amount: qty,
-      quote_currency: 'USD',
+      quote_currency: quote_currency,
       quote_amount: qty * price,
       fee_currency: nil,
       fee_amount: nil,
@@ -555,28 +630,108 @@ class Exchanges::Alpaca < Exchange
       fee_currency: nil,
       fee_amount: nil,
       tx_id: activity['id'],
-      group_id: nil,
+      group_id: activity['group_id'],
       description: nil,
-      transacted_at: Time.parse(activity['date']).utc,
+      transacted_at: non_trade_timestamp(activity),
       raw_data: activity
     }
   end
 
-  def normalize_non_trade(activity, entry_type, description)
+  # `.abs` throws away the sign, which matters for a withholding debit — Alpaca books it negative.
+  # It is deliberate and compensated: `Tax::BrokerReport#handle_withholding` reads the magnitude
+  # (`record.base_amount.to_d.abs`) and adds it to the Zeile 41 CREDIT, so the sign would have to be
+  # re-flipped there anyway. Change one and you must change the other.
+  def normalize_non_trade(activity, entry_type, description, quote_currency: nil)
     {
       entry_type: entry_type,
       base_currency: 'USD',
       base_amount: activity['net_amount'].to_d.abs,
+      quote_currency: quote_currency,
+      quote_amount: nil,
+      fee_currency: nil,
+      fee_amount: nil,
+      tx_id: activity['id'],
+      group_id: activity['group_id'],
+      description: description,
+      transacted_at: non_trade_timestamp(activity),
+      raw_data: activity
+    }
+  end
+
+  def normalize_return_of_capital(activity)
+    {
+      entry_type: :return_of_capital,
+      base_currency: activity['symbol'],
+      base_amount: activity['qty'].to_d,
+      quote_currency: 'USD',
+      quote_amount: activity['net_amount'].to_d,
+      fee_currency: nil,
+      fee_amount: nil,
+      tx_id: activity['id'],
+      group_id: activity['group_id'],
+      description: "Return of capital (#{activity['symbol']})",
+      transacted_at: non_trade_timestamp(activity),
+      raw_data: activity
+    }
+  end
+
+  def normalize_split(activity)
+    {
+      entry_type: :adjustment,
+      base_currency: activity['symbol'],
+      base_amount: activity['qty'].to_d,
       quote_currency: nil,
       quote_amount: nil,
       fee_currency: nil,
       fee_amount: nil,
       tx_id: activity['id'],
-      group_id: nil,
-      description: description,
-      transacted_at: Time.parse(activity['date']).utc,
+      group_id: activity['group_id'],
+      description: "Split (#{activity['symbol']})",
+      transacted_at: non_trade_timestamp(activity),
       raw_data: activity
     }
+  end
+
+  def normalize_unsupported_activity(activity)
+    {
+      entry_type: :unsupported_activity,
+      base_currency: activity['symbol'] || 'USD',
+      base_amount: activity['qty'].to_d,
+      quote_currency: nil,
+      quote_amount: activity['net_amount']&.to_d,
+      fee_currency: nil,
+      fee_amount: nil,
+      tx_id: activity['id'],
+      group_id: activity['group_id'],
+      description: activity['activity_type'],
+      transacted_at: non_trade_timestamp(activity),
+      raw_data: activity
+    }
+  end
+
+  def non_trade_timestamp(activity)
+    timestamp = activity['date'] || activity['transaction_time']
+    timestamp && Time.zone.parse(timestamp).utc
+  end
+
+  def merge_split_entries(entries)
+    # Alpaca ships splits as remove-old-qty + add-new-qty pairs; engines need one signed net delta.
+    entries.chunk_while do |previous, current|
+      SPLIT_TYPES.include?(previous.dig(:raw_data, 'activity_type')) &&
+        SPLIT_TYPES.include?(current.dig(:raw_data, 'activity_type')) &&
+        previous[:base_currency] == current[:base_currency] &&
+        previous.dig(:raw_data, 'date') == current.dig(:raw_data, 'date')
+    end.map do |group|
+      next group.first if group.one?
+
+      first = group.first
+      first.merge(
+        base_amount: group.sum { |entry| entry[:base_amount] },
+        raw_data: first[:raw_data].merge(
+          'merged_activity_ids' => group.map { |entry| entry[:raw_data]['id'] }
+        )
+      )
+    end
   end
 
   # CFEE (Alpaca's crypto trading fee) is NOT USD-denominated like the stock-side FEE — its
@@ -596,9 +751,9 @@ class Exchanges::Alpaca < Exchange
       fee_currency: nil,
       fee_amount: nil,
       tx_id: activity['id'],
-      group_id: nil,
+      group_id: activity['group_id'],
       description: nil,
-      transacted_at: Time.parse(activity['date']).utc,
+      transacted_at: non_trade_timestamp(activity),
       raw_data: activity
     }
   end

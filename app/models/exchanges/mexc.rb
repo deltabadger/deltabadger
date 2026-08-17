@@ -2,7 +2,9 @@ class Exchanges::Mexc < Exchange
   COINGECKO_ID = 'mxc'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['Insufficient balance.'],
-    invalid_key: ['Invalid Api-Key ID.', 'Signature for this request is not valid.'],
+    # 'Api key info invalid' is code 10072, captured from a live probe. The two Binance-clone
+    # strings below it are kept but unproven — MEXC never emitted either in any recorded failure.
+    invalid_key: ['Api key info invalid', 'Invalid Api-Key ID.', 'Signature for this request is not valid.'],
     # MEXC is a Binance API clone and emits the identical -1021 timestamp string. Same treatment.
     transient: ['Timestamp for this request is outside of the recvWindow', 'Timestamp for this request was']
   }.freeze
@@ -399,6 +401,9 @@ class Exchanges::Mexc < Exchange
 
     update_exchange_asset_fees!(fees, chains: chains)
   end
+
+  # MEXC caps a history query at ~90 days measured from `startTime`.
+  def ledger_window = 80.days
 
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('mexc', api_key: api_key.key, api_secret: api_key.secret,

@@ -7,10 +7,11 @@ module Tax
       private
 
       def record_disposal(lots, disposals, transaction, asset, amount, fiat_value)
-        fee_fiat = transaction[:fee_fiat_value] || 0
+        fee_fiat = transaction[:fee_fiat_value] || 0.to_d
         has_lots = lots[asset].any?
         latest_date = lots[asset].last&.dig(:date)
-        cost_basis = dequeue_cost(lots[asset], amount)
+        cost_basis, basis_assumed = dequeue_cost(lots[asset], amount)
+        consume_disposal_fee(lots, transaction)
         holding_days = latest_date ? ((transaction[:transacted_at] - latest_date) / 1.day).to_i : 0
 
         disposal = {
@@ -24,6 +25,7 @@ module Tax
           gain_loss: fiat_value - cost_basis - fee_fiat,
           holding_days: holding_days,
           cost_basis_complete: has_lots,
+          data_incomplete: data_incomplete?(transaction, has_lots, basis_assumed),
           tx_id: transaction[:tx_id],
           exchange: transaction[:exchange]
         }
@@ -35,10 +37,12 @@ module Tax
 
       def dequeue_cost(lots, amount_to_sell)
         remaining = amount_to_sell
-        total_cost = 0
+        total_cost = 0.to_d
+        any_assumed = false
 
         while remaining.positive? && lots.any?
           lot = lots.last
+          any_assumed = true if lot[:basis_assumed]
           if lot[:amount] <= remaining
             total_cost += lot[:amount] * lot[:cost_per_unit]
             remaining -= lot[:amount]
@@ -50,7 +54,7 @@ module Tax
           end
         end
 
-        total_cost
+        [total_cost, any_assumed]
       end
     end
   end

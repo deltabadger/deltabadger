@@ -7,6 +7,15 @@ en:
                 password: "Password"
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "must exist"
+                            different_user: "must belong to the same user"
+                            different_currency: "must use the same base currency"
+                            wrong_direction: "must link a withdrawal to a deposit"
+                            before_withdrawal: "must not be before the withdrawal"
+                            larger_than_withdrawal: "must not be larger than the withdrawal"
                 bot:
                     attributes:
                         smart_interval_quote_amount:

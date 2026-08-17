@@ -15,7 +15,7 @@ class TaxReportWritablePathTest < ActionDispatch::IntegrationTest
     Dir.mktmpdir do |tmp_dir|
       with_env('APP_TMP_DIR', tmp_dir) do
         generate_report
-        report_path = Pathname(tmp_dir).join('tax_reports', "#{@user.id}_#{COUNTRY}_#{YEAR}.csv")
+        report_path = Pathname(tmp_dir).join('tax_reports', "#{@user.id}_#{COUNTRY}_#{YEAR}_crypto.csv")
 
         assert_equal CSV_DATA, report_path.read
         assert_mcp_readers_find_report
@@ -24,7 +24,7 @@ class TaxReportWritablePathTest < ActionDispatch::IntegrationTest
       end
     end
   ensure
-    FileUtils.rm_f(Rails.root.join('tmp', 'tax_reports', "#{@user.id}_#{COUNTRY}_#{YEAR}.csv"))
+    FileUtils.rm_f(Rails.root.join('tmp', 'tax_reports', "#{@user.id}_#{COUNTRY}_#{YEAR}_crypto.csv"))
   end
 
   private
@@ -53,13 +53,13 @@ class TaxReportWritablePathTest < ActionDispatch::IntegrationTest
   end
 
   def assert_tracker_finds_pending_report
-    settings = { 'export_type' => 'tax_report', 'country' => COUNTRY, 'year' => YEAR }
+    settings = { 'pending_report' => { 'country' => COUNTRY, 'year' => YEAR, 'report_scope' => 'crypto' } }
     @user.update!(tracker_settings: settings)
 
     get tracker_path
 
     assert_response :success
-    expected_path = download_tax_report_tracker_path(country: COUNTRY, year: YEAR)
+    expected_path = download_tax_report_tracker_path(country: COUNTRY, year: YEAR, report_scope: 'crypto')
     assert_select '[data-controller="auto-download"]' do |elements|
       assert(elements.any? { |element| element['data-auto-download-url-value'] == expected_path })
     end

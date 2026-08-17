@@ -423,6 +423,7 @@ cs:
         welcome:
             connect_and_track: "Připoj svou burzu a začni sledovat své portfolio."
         sync_key_error_html: 'Synchronizace s <strong>%{exchange}</strong> selhala: %{message}. Aktualizuj API klíč níže.'
+        sync_failed_for: 'Synchronizace s %{exchanges} se nezdařila. Některé transakce z těchto burz mohou chybět — nyní vygenerované přehledy proto nemusí být úplné.'
         pricing_warning_html: Zůstatky synchronizovány, ale ceny v USD teď nejsou dostupné (%{message}). Graf použije poslední známé ceny, dokud se služba neobnoví.
         portfolio:
             never_synced: Klikni na „Synchronizovat", abys načetl své portfolio.
@@ -435,6 +436,12 @@ cs:
         filter: 'Filtr'
         bot: 'Bot'
         no_results: 'Pro vybrané filtry nebyly nalezeny žádné transakce.'
+        transfer_badge: 'Převod'
+        transfer_link: 'Označit jako převod'
+        transfer_unlink: 'Není to převod'
+        transfer_linked: 'Propojeno jako převod mezi tvými vlastními účty.'
+        transfer_unlinked: 'Transakce už není považována za převod.'
+        transfer_no_candidate: 'Během 14 dnů se nepodařilo najít právě jednu odpovídající transakci, takže se nic nepropojilo.'
         connect_exchange: 'Připojit burzu'
         import_from: 'Importovat transakce z'
         search_exchange: 'Hledat burzu...'
@@ -442,6 +449,30 @@ cs:
         export_modal:
             title: 'Generovat přehled'
             tax_report: 'Daňový přehled'
+            broker_tax_report: 'Daňový přehled brokera (Německo — Anlage KAP / KAP-INV)'
+            classification_title: 'Klasifikace cenných papírů'
+            classification_hint: 'Vyplnili jsme, co bylo možné zjistit z tržních dat — před vygenerováním přehledu zkontrolujte vše níže.'
+            classification_settled:
+                one: '1 cenný papír byl klasifikován automaticky — zkontrolovat'
+                few: '%{count} cenné papíry byly klasifikovány automaticky — zkontrolovat'
+                other: '%{count} cenných papírů bylo klasifikováno automaticky — zkontrolovat'
+            classification_eyebrow_unclassified: 'Blokuje přehled'
+            classification_eyebrow_fund: 'Použita výchozí hodnota'
+            classification_eyebrow_refused: 'Částky nezahrnuty'
+            classification_why_unclassified: 'V našich tržních datech není, takže nedokážeme určit, o jaký typ jde.'
+            classification_why_fund_html: 'Jde o fond. Ve výchozím nastavení jsme zvolili sonstige Fonds — <b>0% Teilfreistellung</b> — protože americké fondy nezveřejňují podmínky InvStG. Volbu změňte, pokud můžete doložit podíl akcií ve fondu.'
+            classification_fund_hint: 'U Aktienfonds by to bylo 30%'
+            classification_why_refused: 'Tento cenný papír je ze souhrnu vynechán, místo aby se jeho hodnoty odhadovaly; jeho řádky se v pracovních listech nadále zobrazují.'
+            classification_refusal_reasons:
+                uncovered_disposal: 'Prodej, který nedokážeme plně přiřadit k nákupům.'
+                unsupported_activity: 'Typ transakce, který nemodelujeme, například fúze nebo odštěpení.'
+                pre_2018_fund_lot: 'Podíly ve fondu pořízené před rokem 2018, u nichž není modelován domnělý prodej podle §56 InvStG.'
+                missing_price: 'Chybí odkupní cena na konci roku, takže Vorabpauschale nelze vypočítat.'
+                missing_fx: 'Pro jedno z dat chybí referenční kurz ECB.'
+                missing_basiszins: 'Pro daný rok dosud nebyl zveřejněn Basiszins.'
+            classification_save_failed: 'Klasifikaci se nepodařilo uložit. Načtěte stránku znovu a zkuste to znovu.'
+            classification_select: 'Vyberte…'
+            tax_disclaimer: 'Pomůcka pro výpočet, nikoli daňové poradenství. Před podáním přiznání údaje zkontrolujte.'
             transactions: 'Vše'
             country: 'Země'
             year: 'Rok'
@@ -474,6 +505,7 @@ cs:
             expired: 'Daňový přehled vypršel. Vygenerujte prosím nový.'
             generating: 'Generuji daňový přehled...'
             download_ready: 'Daňový přehled je připraven. Klikněte pro stažení.'
+            failed: 'Přehled se nepodařilo vygenerovat. Zkontrolujte vybraná nastavení a zkuste to znovu.'
         filters:
             all: 'Vše'
         columns:
@@ -500,6 +532,10 @@ cs:
             fee: 'Poplatek'
             other_income: 'Příjem'
             lost: 'Ztráta'
+            withholding_tax: 'Srážková daň'
+            return_of_capital: 'Vrácení kapitálu'
+            adjustment: 'Úprava'
+            unsupported_activity: 'Jiná operace'
     order_filters:
         all: 'Vše'
         successful: 'Úspěšné'
@@ -532,9 +568,23 @@ cs:
             failed_sell: 'Failed attempt to sell %{amount} %{base} for %{quote_amount} %{quote}'
             skipped: 'Skipped (below minimum)'
     tax_report:
+        income:
+            header: 'Přijaté příjmy (způsob zdanění závisí na druhu příjmu a příslušných daňových předpisech — nejsou zahrnuty ve výše uvedených ziscích)'
+            total: 'Celkem — %{type}'
+            not_included: 'Přijaté příjmy (odměny ze stakingu, úroky z půjček, airdropy a příjmy z miningu) nejsou zahrnuty v tomto daňovém přehledu. Podléhají zdanění jako příjem a v daňovém přiznání musí být uvedeny samostatně.'
+            types:
+                staking_reward: 'odměny ze stakingu'
+                lending_interest: 'úroky z půjček'
+                airdrop: 'airdropy'
+                mining: 'příjmy z miningu'
+                other_income: 'ostatní příjmy (dividendy, úroky a vratky poplatků)'
         warnings:
             missing_prices: Chybějí historické ceny pro
             upgrade_hint: Aktualizuj svůj CoinGecko plán nebo použij deltabadger.com pro kompletní historická data.
+            deposit_basis_assumed: Pořizovací cena těchto nepropojených vkladů odhadnutá podle tržní hodnoty
+            deposit_basis_assumed_hint: Propojte každý vklad s odpovídajícím výběrem v Trackeru, aby se použila skutečná pořizovací cena.
+            exchange_sync_failed: 'Údaje z %{exchange} mohou chybět — poslední synchronizace se nezdařila. Proveďte novou synchronizaci v Trackeru a přehled vygenerujte znovu.'
+            exchange_never_synced: 'Burza %{exchange} dosud nebyla synchronizována — tento přehled neobsahuje žádné její transakce. Synchronizujte ji v Trackeru a přehled vygenerujte znovu.'
         headers:
             date: 'Datum'
             asset: 'Aktivum'
@@ -579,3 +629,89 @@ cs:
             total_gains: 'Celkové zisky'
             total_losses: 'Celkové ztráty'
             deductible: 'odečitatelné'
+        broker:
+            title: 'Anlage KAP / KAP-INV — podklad pro výpočet'
+            incomplete_banner: 'Výkaz není úplný — projděte si upozornění níže; v této podobě jej nepodávejte'
+            unclassified_banner: 'Souhrny nebyly vytvořeny — dosud nejsou klasifikovány všechny cenné papíry; viz upozornění níže'
+            sections:
+                kap: 'SHRNUTÍ — ANLAGE KAP'
+                kap_inv: 'SHRNUTÍ — ANLAGE KAP-INV'
+                disposals: 'PŘEHLED — PRODEJE'
+                income: 'PŘEHLED — PŘÍJMY'
+                warnings: 'UPOZORNĚNÍ'
+                disclosures: 'PRÁVNÍ INFORMACE'
+            kap:
+                z19: 'Zahraniční kapitálové příjmy'
+                z20: 'Zisky z prodeje akcií zahrnuté na řádku 19'
+                z22: 'Ztráty jiné než ztráty z prodeje akcií zahrnuté na řádku 19'
+                z23: 'Ztráty z prodeje akcií zahrnuté na řádku 19'
+                z41: 'Započitatelné zahraniční daně, které dosud nebyly započteny'
+            kap_inv:
+                distributions: 'Výplaty (před Teilfreistellung)'
+                vorabpauschale: 'Vorabpauschale (před Teilfreistellung)'
+                sale_result: 'Výsledek prodeje (před Teilfreistellung)'
+            kinds:
+                share: 'Akcie'
+                fund: 'Fond'
+                other_security: 'Jiný cenný papír'
+            fund_categories:
+                equity_fund: 'Akciové fondy'
+                mixed_fund: 'Smíšené fondy'
+                real_estate_fund: 'Nemovitostní fondy'
+                foreign_real_estate_fund: 'Zahraniční nemovitostní fondy'
+                other_fund: 'Ostatní fondy'
+            buckets:
+                kap_dividend: 'Dividenda (Anlage KAP)'
+                kap_interest: 'Úroky (Anlage KAP)'
+                fund_distribution: 'Výplata z fondu (Anlage KAP-INV)'
+                withholding_tax: 'Srážková daň (Anlage KAP, řádek 41)'
+                return_of_capital_excess: 'Vrácení kapitálu nad pořizovací cenu'
+            headers:
+                zeile: 'Řádek'
+                description: 'Popis'
+                amount_eur: 'Částka (EUR)'
+                fund_category: 'Kategorie fondu'
+                position: 'Položka'
+                symbol: 'Cenný papír'
+                kind: 'Druh'
+                units: 'Počet kusů'
+                proceeds_usd: 'Výnos (USD)'
+                fx_rate: 'Kurz ECB (USD za EUR)'
+                proceeds_eur: 'Výnos (EUR)'
+                fee_eur: 'Poplatky odečtené od výnosu (EUR)'
+                cost_eur: 'Pořizovací cena (EUR)'
+                vorabpauschale_eur: 'Vorabpauschale (EUR)'
+                gain_eur: 'Zisk/ztráta (EUR)'
+                status: 'Stav'
+                date: 'Datum'
+                activity_type: 'Druh operace'
+                bucket: 'Zařazení'
+                amount_usd: 'Částka (USD)'
+                amount_eur_income: 'Částka (EUR)'
+            rows:
+                lot: 'z toho pořízení'
+                fee_total: 'Regulatorní poplatky (pouze informativně, neodečtené)'
+            status:
+                refused: 'Není zahrnuto do souhrnu — viz upozornění'
+                uncovered: 'Pořízení není doloženo'
+            warnings:
+                summaries_blocked: 'Souhrny Anlage KAP a Anlage KAP-INV budou vytvořeny po klasifikaci všech cenných papírů.'
+                unclassified: 'Dosud neklasifikováno — určete druh cenného papíru (akcie, fond nebo jiný cenný papír).'
+                uncovered_disposal: 'Prodej dne %{detail} bez plně doložené pozice — částky tohoto cenného papíru nejsou zahrnuty do souhrnu.'
+                unsupported_activity: 'Nepodporovaná operace (%{detail}) — částky tohoto cenného papíru nejsou zahrnuty do souhrnu.'
+                pre_2018_fund_lot: 'Podíly fondu pořízené před rokem 2018 (%{detail}) — fiktivní prodej podle §56 InvStG není zpracován, a fond je proto vyloučen z Anlage KAP-INV.'
+                missing_price: 'Ke konci roku %{detail} není k dispozici odkupní cena — Vorabpauschale nelze vypočítat, a fond je proto vyloučen ze souhrnu.'
+                missing_fx: 'Pro %{detail} není k dispozici referenční kurz ECB — příslušná částka v souhrnu chybí.'
+                missing_basiszins: 'Pro rok %{detail} dosud nebyl zveřejněn Basiszins — Vorabpauschale nelze vypočítat, a fond je proto vyloučen ze souhrnu.'
+                ambiguous_symbol: 'Tento symbol je přiřazen k několika třídám aktiv (%{detail}) — ověřte správnost klasifikace.'
+                withholding_credited_for_refused_symbol: 'Srážková daň pro %{detail} se započítává na řádku 41, přestože ostatní částky těchto cenných papírů nejsou vykázány.'
+                unknown: 'Upozornění %{code}: %{detail}'
+            disclosures:
+                not_tax_advice: 'Tento výkaz je pomůckou pro výpočet a nepředstavuje daňové poradenství. Před převzetím do daňového přiznání všechny částky zkontrolujte.'
+                usd_balance_fx: 'Kurzové zisky z úročeného peněžního účtu v USD jsou příjmem podle §20 odst. 2 bodu 7 EStG (dopis BMF ze dne 14. 5. 2025, bod 131). V tomto výkazu nejsou zahrnuty.'
+                us_etf_default: 'ETF se sídlem v USA se zde bez doložení považují podle §20 odst. 4 InvStG za ostatní fondy (0% Teilfreistellung). Kdo zvolí jinou kategorii fondu, musí podíl kapitálové účasti doložit sám.'
+                vorabpauschale_start_value: 'Počáteční hodnotou Vorabpauschale je poslední kurz předchozího roku, nikoli první odkupní cena stanovená v kalendářním roce (BMF 21.05.2019, Tz 18.4). Každý rok tak plynule navazuje na předchozí; odchylka činí zlomek procenta základního výnosu.'
+                withholding_credit_limit: 'Řádek 41 uvádí celou sraženou srážkovou daň. Bez formuláře W-8BEN sráží Alpaca 30 %, zatímco německo-americká smlouva o zamezení dvojího zdanění umožňuje započíst jen 15 %; přeplatek je nutné vymáhat od IRS, nikoli započítat zde.'
+                fx_source: 'Přepočet podle referenčních kurzů eura ECB; pro dny bez kurzu se použije kurz z předchozího bankovního pracovního dne.'
+                interest_withholding_net: 'Úroky připsané po odečtení zahraniční srážkové daně se vykazují v čisté výši na řádku 19, zatímco srážková daň se započítává na řádku 41 — banka u úroků neposkytuje hrubou částku. Dividendy se naproti tomu dopočítávají na hrubou částku.'
+                regulatory_fees: 'Souhrnné regulatorní poplatky nelze přiřadit jednotlivému prodeji, proto se neodečítají od žádné částky a uvádějí se pouze informativně.'

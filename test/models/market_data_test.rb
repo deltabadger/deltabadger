@@ -411,6 +411,23 @@ class MarketDataSyncStocksFromDeltabadgerTest < ActiveSupport::TestCase
     assert_equal 'Stock', spy.category, 'etf asset_type also maps to Stock (R5-F1: preserves all category==Stock gates)'
   end
 
+  test 'writes instrument type without replacing the Stock category' do
+    @fake.stubs(:get_stocks).returns(Result::Success.new(
+                                       'metadata' => { 'count' => 2 },
+                                       'data' => [stock_row(external_id: 'AAPL.US', symbol: 'AAPL'),
+                                                  stock_row(external_id: 'SPY.US', symbol: 'SPY', type: 'etf')]
+                                     ))
+
+    MarketData.sync_stocks_from_deltabadger!
+
+    aapl = Asset.find_by(external_id: 'AAPL.US')
+    spy = Asset.find_by(external_id: 'SPY.US')
+    assert_equal 'stock', aapl.instrument_type
+    assert_equal 'Stock', aapl.category
+    assert_equal 'etf', spy.instrument_type
+    assert_equal 'Stock', spy.category
+  end
+
   test 'applies color from payload' do
     @fake.stubs(:get_stocks).returns(Result::Success.new(
                                        'metadata' => { 'count' => 1 },

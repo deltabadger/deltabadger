@@ -416,6 +416,7 @@ en:
         welcome:
             connect_and_track: "Connect your exchange and start tracking your portfolio."
         sync_key_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please update the API key below."
+        sync_failed_for: 'Sync failed for %{exchanges}. Transactions from there may be missing — reports generated now can be incomplete.'
         pricing_warning_html: Balances synced, but USD pricing is unavailable right now (%{message}). The chart will use the last known prices until pricing is restored.
         portfolio:
             never_synced: Click Sync to load your portfolio.
@@ -428,6 +429,12 @@ en:
         filter: 'Filter'
         bot: 'Bot'
         no_results: 'No transactions found for the selected filters.'
+        transfer_badge: 'Transfer'
+        transfer_link: 'Mark as transfer'
+        transfer_unlink: 'Not a transfer'
+        transfer_linked: 'Linked as a transfer between your own accounts.'
+        transfer_unlinked: 'No longer treated as a transfer.'
+        transfer_no_candidate: 'No single matching transaction found within 14 days, so nothing was linked.'
         connect_exchange: 'Connect exchange'
         import_from: 'Import transactions from'
         search_exchange: 'Search exchange...'
@@ -435,6 +442,29 @@ en:
         export_modal:
             title: 'Generate Report'
             tax_report: 'Tax Report'
+            broker_tax_report: 'Broker tax report (Germany — Anlage KAP / KAP-INV)'
+            classification_title: 'Classify securities'
+            classification_hint: 'We typed what we could from market data — check anything below before generating the report.'
+            classification_settled:
+                one: '1 security classified automatically — review'
+                other: '%{count} securities classified automatically — review'
+            classification_eyebrow_unclassified: 'Blocks the report'
+            classification_eyebrow_fund: 'Default applied'
+            classification_eyebrow_refused: 'Figures withheld'
+            classification_why_unclassified: 'Not in our market data, so we cannot tell what it is.'
+            classification_why_fund_html: 'A fund. We defaulted to sonstige Fonds — <b>0% Teilfreistellung</b> — because US funds publish no InvStG terms. Change it if you can show the fund''s equity quota.'
+            classification_fund_hint: 'Aktienfonds would be 30%'
+            classification_why_refused: 'This security is left out of the summary rather than guessed at; its worksheet rows still appear.'
+            classification_refusal_reasons:
+                uncovered_disposal: 'A disposal we cannot fully match to acquisitions.'
+                unsupported_activity: 'A transaction type we do not model, such as a merger or a spin-off.'
+                pre_2018_fund_lot: 'Fund units bought before 2018, where the deemed disposal under §56 InvStG is not modelled.'
+                missing_price: 'No year-end redemption price, so the Vorabpauschale cannot be calculated.'
+                missing_fx: 'No ECB reference rate for one of its dates.'
+                missing_basiszins: 'No Basiszins has been published for that year yet.'
+            classification_save_failed: 'Your classification could not be saved. Reload the page and try again.'
+            classification_select: 'Select…'
+            tax_disclaimer: 'Calculation aid, not tax advice. Verify figures before filing.'
             transactions: 'All'
             country: 'Country'
             year: 'Year'
@@ -467,6 +497,7 @@ en:
             expired: 'Tax report has expired. Please generate a new one.'
             generating: 'Generating tax report...'
             download_ready: 'Tax report is ready. Click to download.'
+            failed: 'The report could not be generated. Check the selected settings and try again.'
         filters:
             all: 'All'
         columns:
@@ -493,6 +524,10 @@ en:
             fee: 'Fee'
             other_income: 'Income'
             lost: 'Lost'
+            withholding_tax: 'Withholding tax'
+            return_of_capital: 'Return of capital'
+            adjustment: 'Adjustment'
+            unsupported_activity: 'Other activity'
     order_filters:
         all: 'All'
         successful: 'Successful'
@@ -523,9 +558,23 @@ en:
             failed_sell: 'Failed attempt to sell %{amount} %{base} for %{quote_amount} %{quote}'
             skipped: 'Skipped (below minimum)'
     tax_report:
+        income:
+            header: 'Income received (taxation depends on income type and jurisdiction — not included in gains above)'
+            total: 'Total %{type}'
+            not_included: 'Income received (staking, lending interest, airdrops, mining) is not included in this report — it is taxed as income and must be declared separately.'
+            types:
+                staking_reward: 'Staking rewards'
+                lending_interest: 'Lending interest'
+                airdrop: 'Airdrops'
+                mining: 'Mining'
+                other_income: 'Other income (dividends, interest, rebates)'
         warnings:
             missing_prices: Missing historical prices for
             upgrade_hint: Upgrade your CoinGecko plan or use deltabadger.com for full historical data.
+            deposit_basis_assumed: Cost basis assumed at market value for these unlinked deposits
+            deposit_basis_assumed_hint: Link each one to its matching withdrawal in the tracker to use the real cost basis.
+            exchange_sync_failed: '%{exchange} data may be missing — its last sync failed. Re-sync in the tracker and regenerate this report.'
+            exchange_never_synced: '%{exchange} has never been synced — none of its transactions are in this report. Sync it in the tracker and regenerate.'
         values:
             term_long: Long-term
             term_short: Short-term
@@ -542,6 +591,7 @@ en:
             exchange: 'Exchange'
             tx_id: 'Transaction ID'
             cost_basis_complete: 'Cost Basis Complete'
+            data_incomplete: 'Data Incomplete'
             acquisition_date: 'Acquisition Date'
             tax_exempt: 'Tax Exempt'
             old_stock: 'Old Stock'
@@ -555,6 +605,8 @@ en:
             reference_date: 'Reference Date'
             period: 'Period'
         no_taxable_transactions: 'No taxable transactions found for this period.'
+        incomplete_banner_prefix: 'WARNING'
+        incomplete_banner: '%{missing} values missing — report incomplete, do not file as-is'
         summary:
             annual_exemption: Annual exemption
             taxable_gains: Taxable gains
@@ -581,3 +633,89 @@ en:
             total_gains: 'Total gains'
             total_losses: 'Total losses'
             deductible: 'deductible'
+        broker:
+            title: 'Anlage KAP / KAP-INV — calculation basis'
+            incomplete_banner: 'Report incomplete — review the warnings below; do not file as-is'
+            unclassified_banner: 'Summaries not produced — not all securities are classified yet; see the warnings below'
+            sections:
+                kap: 'SUMMARY — ANLAGE KAP'
+                kap_inv: 'SUMMARY — ANLAGE KAP-INV'
+                disposals: 'WORKSHEET — DISPOSALS'
+                income: 'WORKSHEET — INCOME'
+                warnings: 'WARNINGS'
+                disclosures: 'LEGAL NOTICES'
+            kap:
+                z19: 'Foreign investment income'
+                z20: 'Gains from the disposal of shares included in line 19'
+                z22: 'Losses other than losses from the disposal of shares included in line 19'
+                z23: 'Losses from the disposal of shares included in line 19'
+                z41: 'Creditable foreign taxes not yet credited'
+            kap_inv:
+                distributions: 'Distributions (before Teilfreistellung)'
+                vorabpauschale: 'Vorabpauschale (before Teilfreistellung)'
+                sale_result: 'Result from disposal (before Teilfreistellung)'
+            kinds:
+                share: 'Share'
+                fund: 'Fund'
+                other_security: 'Other security'
+            fund_categories:
+                equity_fund: 'Equity funds'
+                mixed_fund: 'Mixed funds'
+                real_estate_fund: 'Real estate funds'
+                foreign_real_estate_fund: 'Foreign real estate funds'
+                other_fund: 'Other funds'
+            buckets:
+                kap_dividend: 'Dividend (Anlage KAP)'
+                kap_interest: 'Interest (Anlage KAP)'
+                fund_distribution: 'Fund distribution (Anlage KAP-INV)'
+                withholding_tax: 'Withholding tax (Anlage KAP, line 41)'
+                return_of_capital_excess: 'Return of capital exceeding acquisition cost'
+            headers:
+                zeile: 'Line'
+                description: 'Description'
+                amount_eur: 'Amount (EUR)'
+                fund_category: 'Fund category'
+                position: 'Position'
+                symbol: 'Security'
+                kind: 'Type'
+                units: 'Units'
+                proceeds_usd: 'Proceeds (USD)'
+                fx_rate: 'ECB rate (USD per EUR)'
+                proceeds_eur: 'Proceeds (EUR)'
+                fee_eur: 'Fees deducted from proceeds (EUR)'
+                cost_eur: 'Acquisition cost (EUR)'
+                vorabpauschale_eur: 'Vorabpauschale (EUR)'
+                gain_eur: 'Gain/loss (EUR)'
+                status: 'Status'
+                date: 'Date'
+                activity_type: 'Activity type'
+                bucket: 'Allocation'
+                amount_usd: 'Amount (USD)'
+                amount_eur_income: 'Amount (EUR)'
+            rows:
+                lot: 'of which: acquisition'
+                fee_total: 'Regulatory fees (for information only, not deducted)'
+            status:
+                refused: 'Not included in the summary — see warnings'
+                uncovered: 'Acquisition not substantiated'
+            warnings:
+                summaries_blocked: 'The Anlage KAP and KAP-INV summaries will be generated once all securities have been classified.'
+                unclassified: 'Not yet classified — specify the security type (share, fund, or other security).'
+                uncovered_disposal: 'Disposal on %{detail} without fully substantiated holdings — this security''s amounts are not included in the summary.'
+                unsupported_activity: 'Unsupported transaction (%{detail}) — this security''s amounts are not included in the summary.'
+                pre_2018_fund_lot: 'Fund units acquired before 2018 (%{detail}) — the deemed disposal under §56 InvStG is not modelled, so this fund is excluded from Anlage KAP-INV.'
+                missing_price: 'No redemption price available at the %{detail} year-end — Vorabpauschale cannot be calculated, so this fund is excluded from the summary.'
+                missing_fx: 'No ECB reference rate available for %{detail} — the affected amount is missing from the summary.'
+                missing_basiszins: 'No Basiszins has been published for %{detail} yet — Vorabpauschale cannot be calculated, so this fund is excluded from the summary.'
+                ambiguous_symbol: 'This symbol is assigned to multiple asset classes (%{detail}) — verify that its classification is correct.'
+                withholding_credited_for_refused_symbol: 'Withholding tax for %{detail} is credited on line 41 even though these securities'' other amounts are not reported.'
+                unknown: 'Warning %{code}: %{detail}'
+            disclosures:
+                not_tax_advice: 'This report is a calculation aid and does not constitute tax advice. Check all amounts before entering them in your tax return.'
+                usd_balance_fx: 'Currency gains from the interest-bearing USD cash account are income under §20(2) no. 7 EStG (BMF letter dated 14 May 2025, para. 131). They are not included in this report.'
+                us_etf_default: 'US-domiciled ETFs are treated here as other funds under §20(4) InvStG unless evidence is provided (0% Teilfreistellung). Anyone selecting a different fund category is responsible for substantiating the equity participation ratio.'
+                vorabpauschale_start_value: 'The Vorabpauschale start value is the last price of the preceding year rather than the first redemption price set in the calendar year (BMF 21.05.2019, Tz 18.4). This keeps each year continuous with the one before it; the deviation amounts to a fraction of a percent of the base return.'
+                withholding_credit_limit: 'Zeile 41 states the full amount withheld. Without a W-8BEN, Alpaca withholds 30%, while the German-US double taxation treaty allows only 15% to be credited; the excess has to be reclaimed from the IRS rather than credited here.'
+                fx_source: 'Converted using ECB euro reference rates; on days without a rate, the previous banking day''s rate applies.'
+                interest_withholding_net: 'Interest credited net of foreign withholding tax is reported net on line 19, while the withholding tax is credited on line 41 — the bank does not provide a gross amount for interest. Dividends, by contrast, are grossed up.'
+                regulatory_fees: 'Aggregate regulatory fees cannot be attributed to an individual disposal and are therefore not deducted from any amount; they are shown for information only.'

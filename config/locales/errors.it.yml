@@ -7,6 +7,15 @@ it:
                 password: "Password"
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "deve esistere"
+                            different_user: "deve appartenere allo stesso utente"
+                            different_currency: "deve usare la stessa valuta di base"
+                            wrong_direction: "deve collegare un prelievo a un deposito"
+                            before_withdrawal: "non deve precedere il prelievo"
+                            larger_than_withdrawal: "non deve avere un importo superiore a quello del prelievo"
                 bot:
                     attributes:
                         smart_interval_quote_amount:

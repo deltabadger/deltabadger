@@ -413,6 +413,7 @@ nl:
         welcome:
             connect_and_track: "Koppel je exchange en begin met het volgen van je portfolio."
         sync_key_error_html: 'Synchroniseren met <strong>%{exchange}</strong> mislukt: %{message}. Werk de API-sleutel hieronder bij.'
+        sync_failed_for: 'Synchronisatie met %{exchanges} is mislukt. Mogelijk ontbreken transacties van deze handelsplatformen — rapporten die nu worden aangemaakt, kunnen onvolledig zijn.'
         pricing_warning_html: Saldi gesynchroniseerd, maar USD-prijzen zijn nu niet beschikbaar (%{message}). De grafiek gebruikt de laatst bekende prijzen tot de prijsbepaling is hersteld.
         portfolio:
             never_synced: Klik op Synchroniseren om je portefeuille te laden.
@@ -424,6 +425,12 @@ nl:
         get_report: 'Rapport ophalen'
         filter: 'Filteren'
         no_results: 'Geen transacties gevonden voor de geselecteerde filters.'
+        transfer_badge: 'Overboeking'
+        transfer_link: 'Markeren als overboeking'
+        transfer_unlink: 'Geen overboeking'
+        transfer_linked: 'Gekoppeld als overboeking tussen je eigen rekeningen.'
+        transfer_unlinked: 'Wordt niet langer als overboeking behandeld.'
+        transfer_no_candidate: 'Binnen 14 dagen is niet precies één overeenkomende transactie gevonden, dus er is niets gekoppeld.'
         connect_exchange: 'Exchange verbinden'
         import_from: 'Transacties importeren van'
         search_exchange: 'Exchange zoeken...'
@@ -431,6 +438,29 @@ nl:
         export_modal:
             title: 'Rapport genereren'
             tax_report: 'Belastingrapport'
+            broker_tax_report: 'Belastingrapport van de broker (Duitsland — Anlage KAP / KAP-INV)'
+            classification_title: 'Effecten classificeren'
+            classification_hint: 'We hebben ingevuld wat we uit de marktgegevens konden halen — controleer alles hieronder voordat u het rapport genereert.'
+            classification_settled:
+                one: '1 effect automatisch geclassificeerd — controleren'
+                other: '%{count} effecten automatisch geclassificeerd — controleren'
+            classification_eyebrow_unclassified: 'Blokkeert het rapport'
+            classification_eyebrow_fund: 'Standaardwaarde toegepast'
+            classification_eyebrow_refused: 'Bedragen niet meegenomen'
+            classification_why_unclassified: 'Komt niet voor in onze marktgegevens, waardoor we niet kunnen bepalen wat voor effect het is.'
+            classification_why_fund_html: 'Een fonds. We hebben standaard sonstige Fonds — <b>0% Teilfreistellung</b> — gekozen, omdat Amerikaanse fondsen geen voorwaarden volgens het InvStG publiceren. Wijzig dit als u het aandelenpercentage van het fonds kunt aantonen.'
+            classification_fund_hint: 'Bij Aktienfonds zou dit 30% zijn'
+            classification_why_refused: 'Dit effect wordt buiten het overzicht gelaten in plaats van geschat; de bijbehorende werkbladregels blijven zichtbaar.'
+            classification_refusal_reasons:
+                uncovered_disposal: 'Een verkoop die we niet volledig aan aankopen kunnen koppelen.'
+                unsupported_activity: 'Een transactietype dat we niet modelleren, zoals een fusie of afsplitsing.'
+                pre_2018_fund_lot: 'Fondseenheden die vóór 2018 zijn gekocht en waarvoor de fictieve verkoop volgens §56 InvStG niet is gemodelleerd.'
+                missing_price: 'Er is geen terugkoopprijs aan het einde van het jaar, waardoor de Vorabpauschale niet kan worden berekend.'
+                missing_fx: 'Voor een van de datums ontbreekt een ECB-referentiekoers.'
+                missing_basiszins: 'Voor dat jaar is nog geen Basiszins gepubliceerd.'
+            classification_save_failed: 'Uw classificatie kon niet worden opgeslagen. Laad de pagina opnieuw en probeer het nog eens.'
+            classification_select: 'Selecteren…'
+            tax_disclaimer: 'Rekenhulp, geen fiscaal advies. Controleer de cijfers voordat u aangifte doet.'
             transactions: 'Alles'
             country: 'Land'
             year: 'Jaar'
@@ -455,6 +485,8 @@ nl:
                 DK: 'Denemarken'
                 CZ: 'Tsjechië'
                 SK: 'Slowakije'
+        tax_report:
+            failed: 'Het rapport kon niet worden gegenereerd. Controleer de geselecteerde instellingen en probeer het opnieuw.'
         filters:
             all: 'Alle'
         columns:
@@ -481,6 +513,10 @@ nl:
             fee: 'Kosten'
             other_income: 'Inkomen'
             lost: 'Verloren'
+            withholding_tax: 'Bronbelasting'
+            return_of_capital: 'Kapitaalterugbetaling'
+            adjustment: 'Aanpassing'
+            unsupported_activity: 'Overige activiteit'
     order_filters:
         all: 'Alle'
         successful: 'Geslaagd'
@@ -511,9 +547,23 @@ nl:
             failed_sell: 'Mislukte verkooppoging van %{amount} %{base} voor %{quote_amount} %{quote}'
             skipped: 'Overgeslagen (onder minimum)'
     tax_report:
+        income:
+            header: 'Ontvangen inkomsten (de belastingheffing hangt af van het soort inkomsten en de toepasselijke fiscale regels — niet opgenomen in de hierboven vermelde winsten)'
+            total: 'Totaal — %{type}'
+            not_included: 'Ontvangen inkomsten (stakingbeloningen, rente uit leningen, airdrops en opbrengsten uit mining) zijn niet in dit rapport opgenomen. Deze inkomsten worden afzonderlijk belast en moeten apart worden aangegeven.'
+            types:
+                staking_reward: 'stakingbeloningen'
+                lending_interest: 'rente uit leningen'
+                airdrop: 'airdrops'
+                mining: 'opbrengsten uit mining'
+                other_income: 'overige inkomsten (dividend, rente en retourprovisies)'
         warnings:
             missing_prices: Historische prijzen ontbreken voor
             upgrade_hint: Upgrade je CoinGecko-abonnement of gebruik deltabadger.com voor volledige historische data.
+            deposit_basis_assumed: Aanschafkosten voor deze ongekoppelde stortingen vastgesteld op de marktwaarde
+            deposit_basis_assumed_hint: Koppel elke storting in de Tracker aan de bijbehorende opname om de werkelijke aanschafkosten te gebruiken.
+            exchange_sync_failed: 'Gegevens van %{exchange} kunnen ontbreken: de laatste synchronisatie is mislukt. Synchroniseer opnieuw in de Tracker en maak dit rapport opnieuw aan.'
+            exchange_never_synced: '%{exchange} is nog nooit gesynchroniseerd — geen enkele transactie van dit platform staat in dit rapport. Synchroniseer het in de Tracker en maak het rapport opnieuw aan.'
         headers:
             date: 'Datum'
             asset: 'Activum'
@@ -527,6 +577,7 @@ nl:
             exchange: 'Exchange'
             tx_id: 'Transactie-ID'
             cost_basis_complete: 'Aanschafkosten volledig'
+            data_incomplete: 'Gegevens onvolledig'
             acquisition_date: 'Aanschafdatum'
             old_stock: 'Oud bezit'
             tax_exempt: 'Vrijgesteld'
@@ -535,6 +586,8 @@ nl:
             value: 'Waarde'
             reference_date: 'Peildatum'
         no_taxable_transactions: 'Geen belastbare transacties gevonden voor deze periode.'
+        incomplete_banner_prefix: 'WAARSCHUWING'
+        incomplete_banner: '%{missing} waarden ontbreken — rapport onvolledig, dien het zo niet in'
         summary:
             tax_percent: Belasting (%{pct}%)
             total_value: 'Totale waarde'
@@ -542,3 +595,89 @@ nl:
             taxable_wealth: 'Belastbaar vermogen'
             deemed_return: 'Forfaitair rendement'
             tax: 'Belasting'
+        broker:
+            title: 'Anlage KAP / KAP-INV — berekeningsgrondslag'
+            incomplete_banner: 'Rapport onvolledig — bekijk de waarschuwingen hieronder; dien het niet in deze vorm in'
+            unclassified_banner: 'Samenvattingen niet opgesteld — nog niet alle effecten zijn geclassificeerd; zie de waarschuwingen hieronder'
+            sections:
+                kap: 'SAMENVATTING — ANLAGE KAP'
+                kap_inv: 'SAMENVATTING — ANLAGE KAP-INV'
+                disposals: 'SPECIFICATIE — VERKOPEN'
+                income: 'SPECIFICATIE — INKOMSTEN'
+                warnings: 'WAARSCHUWINGEN'
+                disclosures: 'JURIDISCHE MEDEDELINGEN'
+            kap:
+                z19: 'Buitenlandse inkomsten uit vermogen'
+                z20: 'Winst uit de verkoop van aandelen opgenomen in regel 19'
+                z22: 'Andere verliezen dan verliezen uit de verkoop van aandelen opgenomen in regel 19'
+                z23: 'Verliezen uit de verkoop van aandelen opgenomen in regel 19'
+                z41: 'Verrekenbare buitenlandse belastingen die nog niet zijn verrekend'
+            kap_inv:
+                distributions: 'Uitkeringen (vóór Teilfreistellung)'
+                vorabpauschale: 'Vorabpauschale (vóór Teilfreistellung)'
+                sale_result: 'Resultaat uit verkoop (vóór Teilfreistellung)'
+            kinds:
+                share: 'Aandeel'
+                fund: 'Fonds'
+                other_security: 'Overig effect'
+            fund_categories:
+                equity_fund: 'Aandelenfondsen'
+                mixed_fund: 'Gemengde fondsen'
+                real_estate_fund: 'Vastgoedfondsen'
+                foreign_real_estate_fund: 'Buitenlandse vastgoedfondsen'
+                other_fund: 'Overige fondsen'
+            buckets:
+                kap_dividend: 'Dividend (Anlage KAP)'
+                kap_interest: 'Rente (Anlage KAP)'
+                fund_distribution: 'Fondsuitkering (Anlage KAP-INV)'
+                withholding_tax: 'Bronbelasting (Anlage KAP, regel 41)'
+                return_of_capital_excess: 'Terugbetaling van kapitaal boven de aanschafkosten'
+            headers:
+                zeile: 'Regel'
+                description: 'Omschrijving'
+                amount_eur: 'Bedrag (EUR)'
+                fund_category: 'Fondscategorie'
+                position: 'Post'
+                symbol: 'Effect'
+                kind: 'Type'
+                units: 'Stuks'
+                proceeds_usd: 'Opbrengst (USD)'
+                fx_rate: 'ECB-koers (USD per EUR)'
+                proceeds_eur: 'Opbrengst (EUR)'
+                fee_eur: 'Van de opbrengst afgetrokken kosten (EUR)'
+                cost_eur: 'Aanschafkosten (EUR)'
+                vorabpauschale_eur: 'Vorabpauschale (EUR)'
+                gain_eur: 'Winst/verlies (EUR)'
+                status: 'Status'
+                date: 'Datum'
+                activity_type: 'Boekingstype'
+                bucket: 'Toewijzing'
+                amount_usd: 'Bedrag (USD)'
+                amount_eur_income: 'Bedrag (EUR)'
+            rows:
+                lot: 'waarvan aankoop'
+                fee_total: 'Toezichtskosten (alleen ter informatie, niet afgetrokken)'
+            status:
+                refused: 'Niet opgenomen in de samenvatting — zie de waarschuwingen'
+                uncovered: 'Aankoop niet onderbouwd'
+            warnings:
+                summaries_blocked: 'De samenvattingen voor Anlage KAP en Anlage KAP-INV worden opgesteld zodra alle effecten zijn geclassificeerd.'
+                unclassified: 'Nog niet geclassificeerd — geef het type effect op (aandeel, fonds of overig effect).'
+                uncovered_disposal: 'Verkoop op %{detail} zonder volledig onderbouwde positie — de bedragen voor dit effect worden niet in de samenvatting opgenomen.'
+                unsupported_activity: 'Niet-ondersteunde boeking (%{detail}) — de bedragen voor dit effect worden niet in de samenvatting opgenomen.'
+                pre_2018_fund_lot: 'Fondsdeelbewijzen verworven vóór 2018 (%{detail}) — de fictieve verkoop volgens §56 InvStG wordt niet verwerkt; dit fonds blijft daarom buiten Anlage KAP-INV.'
+                missing_price: 'Geen terugkoopprijs beschikbaar bij het einde van boekjaar %{detail} — de Vorabpauschale kan niet worden berekend; dit fonds blijft daarom buiten de samenvatting.'
+                missing_fx: 'Geen ECB-referentiekoers beschikbaar voor %{detail} — het betrokken bedrag ontbreekt in de samenvatting.'
+                missing_basiszins: 'Voor %{detail} is nog geen Basiszins gepubliceerd — de Vorabpauschale kan niet worden berekend; dit fonds blijft daarom buiten de samenvatting.'
+                ambiguous_symbol: 'Dit symbool is aan meerdere activaklassen gekoppeld (%{detail}) — controleer of de classificatie juist is.'
+                withholding_credited_for_refused_symbol: 'De bronbelasting voor %{detail} wordt verrekend op regel 41, hoewel de overige bedragen voor deze effecten niet worden vermeld.'
+                unknown: 'Waarschuwing %{code}: %{detail}'
+            disclosures:
+                not_tax_advice: 'Dit rapport is een rekenhulpmiddel en geen belastingadvies. Controleer alle bedragen voordat u ze in uw belastingaangifte overneemt.'
+                usd_balance_fx: 'Valutawinsten op de rentedragende USD-geldrekening zijn inkomsten volgens §20 lid 2 nr. 7 EStG (BMF-brief van 14-05-2025, randnummer 131). Ze zijn niet in dit rapport opgenomen.'
+                us_etf_default: 'ETF''s met vestigingsplaats in de Verenigde Staten worden hier zonder bewijs volgens §20 lid 4 InvStG als overige fondsen behandeld (0% Teilfreistellung). Wie een andere fondscategorie kiest, moet het aandelenbelang zelf onderbouwen.'
+                vorabpauschale_start_value: 'De startwaarde van de Vorabpauschale is de laatste koers van het voorgaande jaar en niet de eerste in het kalenderjaar vastgestelde terugnameprijs (BMF 21.05.2019, Tz 18.4). Zo sluit elk jaar naadloos aan op het vorige; de afwijking bedraagt een fractie van een procent van het basisrendement.'
+                withholding_credit_limit: 'Regel 41 vermeldt de volledige ingehouden bronbelasting. Zonder W-8BEN houdt Alpaca 30% in, terwijl het Duits-Amerikaanse belastingverdrag slechts 15% verrekenbaar maakt; het meerdere moet bij de IRS worden teruggevraagd en is hier niet verrekenbaar.'
+                fx_source: 'Omrekening tegen de euroreferentiekoersen van de ECB; voor dagen zonder koers geldt de koers van de vorige bankwerkdag.'
+                interest_withholding_net: 'Rente die na aftrek van buitenlandse bronbelasting is bijgeschreven, wordt netto op regel 19 vermeld, terwijl de bronbelasting op regel 41 wordt verrekend — voor rente verstrekt de bank geen brutobedrag. Dividenden worden daarentegen naar bruto herleid.'
+                regulatory_fees: 'Gebundelde toezichtskosten kunnen niet aan één verkoop worden toegerekend en worden daarom van geen enkel bedrag afgetrokken; ze worden uitsluitend ter informatie vermeld.'

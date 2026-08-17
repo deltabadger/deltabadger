@@ -73,4 +73,4 @@ gem 'ruby-technical-analysis', git: 'https://github.com/guillemap/ruby-technical
 install_if -> { !Gem.win_platform? } do
   gem 'hyperliquid-rb'
 end
-gem 'honeymaker', '~> 0.10.0'
+gem 'honeymaker', '~> 0.11.1'

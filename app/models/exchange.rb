@@ -101,6 +101,21 @@ class Exchange < ApplicationRecord
     self.class.name.demodulize.underscore
   end
 
+  # How far back `AccountTransactionSync` may put a ledger window's start, or `nil` for no limit.
+  #
+  # Declare it ONLY on a venue whose endpoint caps the returned window. Those endpoints measure the
+  # cap FROM `startTime`, so a start parked further back than the cap returns a window that ends in
+  # the past and the account goes silently blind — nothing new arrives, so the data-derived watermark
+  # can never advance to un-blind it. There, clamping to the cap costs no history the endpoint would
+  # have returned anyway.
+  #
+  # On an UNCAPPED venue the same clamp is pure data loss. Alpaca, Kraken, Coinbase and Hyperliquid
+  # all paginate a cursor from `start_time` to the present, and there is no recurring ledger sync —
+  # a sync only happens when the user opens the tracker. So a clamp here means a buy-and-hold user
+  # who visits in January and again in August never fetches the months in between, the watermark then
+  # advances past them, and nothing banners. `nil` is the safe default; a cap is the exception.
+  def ledger_window = nil
+
   def coingecko_id
     raise NotImplementedError, "#{self.class.name} must implement coingecko_id"
   end
@@ -130,6 +145,13 @@ class Exchange < ApplicationRecord
     return result if result.failure?
 
     Result::Success.new(result.data[asset_id])
+  end
+
+  # What an account can actually spend, which is not always its settled balance — margin venues
+  # let a bot spend against borrowed buying power. Takes an already-fetched balance hash, so
+  # asking costs no extra network read. Overridden by the venues where the two differ.
+  def spendable_balance(balance, tickers: nil)
+    balance[:free]
   end
 
   def get_last_price(ticker:, force: false)
@@ -250,10 +272,19 @@ class Exchange < ApplicationRecord
   # reached the matching engine → re-placing with a fresh timestamp is safe), whereas a placement
   # network timeout OR an ambiguous exchange error is indistinguishable from a successful book hit, and
   # placement has no idempotency key → it must NOT be treated as safely transient. Do not widen this.
+  #
+  # A venue may add its own strings via known_errors[:placement_safe_transient], scoped to itself so
+  # one venue's wording can never vouch for another's. The bar is unchanged and deliberately high:
+  # the string must guarantee a PRE-TRADE rejection. Signed-timestamp rejections qualify because the
+  # timestamp is part of the signed payload — failing it fails authentication, and an unauthenticated
+  # request never reaches the matching engine. That is the same proof that admitted Binance's -1021.
+  # Note this is opt-in separately from known_errors[:transient]: being retryable on a READ says
+  # nothing about being safe to RE-PLACE, so the string must be listed twice, on purpose.
   def placement_transient_error?(errors)
+    patterns = PLACEMENT_SAFE_TRANSIENT_ERRORS + (known_errors[:placement_safe_transient] || []).map(&:to_s)
     Array(errors).any? do |err|
       msg = err.to_s
-      PLACEMENT_SAFE_TRANSIENT_ERRORS.any? { |m| msg.include?(m) }
+      patterns.any? { |m| msg.include?(m) }
     end
   end
 

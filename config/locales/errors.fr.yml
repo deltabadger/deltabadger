@@ -7,6 +7,15 @@ fr:
                 password: "Mot de passe"
         errors:
             models:
+                account_transaction:
+                    attributes:
+                        linked_transaction:
+                            not_found: "doit exister"
+                            different_user: "doit appartenir au même utilisateur"
+                            different_currency: "doit utiliser la même devise de base"
+                            wrong_direction: "doit relier un retrait à un dépôt"
+                            before_withdrawal: "ne doit pas précéder le retrait"
+                            larger_than_withdrawal: "ne doit pas avoir un montant supérieur à celui du retrait"
                 bot:
                     attributes:
                         smart_interval_quote_amount:

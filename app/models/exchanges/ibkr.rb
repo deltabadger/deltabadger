@@ -3,7 +3,14 @@ class Exchanges::Ibkr < Exchange
   # login/expired-LST blip must NEVER flip a valid key to :incorrect (ApiKeyFailureHandling). We
   # only add genuine credential-rejection strings here once observed in the staging logs.
   ERRORS = {
-    insufficient_funds: ['insufficient', 'buying power'],
+    # Deliberately empty. These were the bare tokens 'insufficient' and 'buying power', which
+    # never matched under the old exact-equality classifier and are far too loose for the
+    # substring one: IBKR reports market-data subscription, trading-permission and short-locate
+    # problems in prose containing "insufficient", and our own Clients::Ibkr#place_order wraps an
+    # unanswered precautionary prompt as "Order not confirmed: …" — those prompts routinely
+    # mention buying power. Any of those would park the bot and email "add funds" for a problem
+    # funding cannot fix. Populate from a captured rejection body, not from a guess.
+    insufficient_funds: [],
     invalid_key: [],
     transient: ['not authenticated', 'competing', 'session', 'Please query /accounts first',
                 'live session token', 'Bad Request: no bridge']
