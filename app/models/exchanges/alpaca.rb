@@ -1,13 +1,19 @@
 class Exchanges::Alpaca < Exchange
   ERRORS = {
     insufficient_funds: ['insufficient buying power'],
-    # A rejected key arrives in two shapes: the trading host's JSON body {"message":"unauthorized."}
-    # and, when the market-data host answers with an HTML error page, Clients::Alpaca's "HTTP 401"
-    # fallback. Both had to be listed for the key to be condemnable at all — Exchange#invalid_key_error?
-    # returns false on an empty :invalid_key list, so before this a revoked key kept reading `correct`
-    # in the tracker while every call on it 401'd. Matched as substrings, so the trailing period on
-    # Alpaca's message is not load-bearing.
-    invalid_key: ['unauthorized', 'HTTP 401']
+    # Alpaca's OWN word for a rejected key, from the trading host's JSON body
+    # {"message":"unauthorized."} — this is the string production recorded in ApiKey#last_sync_error
+    # while the key still read `correct`, because the list used to be empty and
+    # Exchange#invalid_key_error? returns false on an empty one. Matched as a substring, so the
+    # trailing period is not load-bearing.
+    #
+    # Clients::Alpaca's "HTTP 401" fallback (its HTML-body case, which is how the same rejection
+    # arrives from the market-data host) is deliberately NOT listed: that string is synthesised from
+    # the status by our own client, so a WAF or edge 401 would produce it just as readily, and
+    # condemning on it would be the bare-status rule wearing a costume. It still SURFACES through
+    # Exchange#invalid_key_error?(status:) — the bot error stays truthful either way; only the
+    # persistent :incorrect flip waits for Alpaca to say it.
+    invalid_key: ['unauthorized']
   }.freeze
 
   # Alpaca's tradable crypto universe (30+ assets as of 2026-07, growing) mapped to the

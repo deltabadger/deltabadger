@@ -68,7 +68,10 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
   # not an unknown: it is a definite answer, and the bot must fail on it here, before any trading
   # work, rather than at some later call that has no idea why nothing has a price.
   test 'market_open? raises instead of failing open when the clock call is rejected as unauthorized' do
-    Clients::Alpaca.any_instance.stubs(:get_clock).returns(Result::Failure.new('HTTP 401'))
+    # Shaped like the real client: Clients::Alpaca#with_rescue attaches the status to every failure,
+    # and the HTML body of Alpaca's 401 is what becomes the bare "HTTP 401" text.
+    Clients::Alpaca.any_instance.stubs(:get_clock)
+                   .returns(Result::Failure.new('HTTP 401', data: { status: 401 }))
 
     error = assert_raises(RuntimeError) { @exchange.market_open? }
     assert_match 'rejected the API key', error.message
@@ -76,7 +79,8 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
   end
 
   test 'next_market_open_at raises on a rejected key rather than returning Time.current' do
-    Clients::Alpaca.any_instance.stubs(:get_clock).returns(Result::Failure.new('unauthorized.'))
+    Clients::Alpaca.any_instance.stubs(:get_clock)
+                   .returns(Result::Failure.new('unauthorized.', data: { status: 401 }))
 
     assert_raises(RuntimeError) { @exchange.next_market_open_at }
   end
@@ -699,8 +703,16 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert @exchange.invalid_key_error?(['unauthorized.'])
   end
 
-  test 'invalid_key_error? recognises an HTML 401 from the market-data host' do
-    assert @exchange.invalid_key_error?(['HTTP 401'])
+  # The HTML-body case arrives as Clients::Alpaca's synthesised "HTTP 401". It surfaces through the
+  # status — the bot error stays truthful — but it must never condemn the key on its own: our client
+  # builds that string from the status, so a WAF or edge 401 would produce it just as readily.
+  test 'an HTML 401 surfaces as a credential failure but does not condemn on its own' do
+    assert @exchange.invalid_key_error?(['HTTP 401'], status: 401)
+    assert_not @exchange.condemning_invalid_key_error?(['HTTP 401'])
+  end
+
+  test 'the JSON unauthorized body is Alpaca own word, and does condemn' do
+    assert @exchange.condemning_invalid_key_error?(['unauthorized.'])
   end
 
   test 'invalid_key_error? ignores a failure that is not about credentials' do
