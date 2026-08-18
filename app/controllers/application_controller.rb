@@ -4,6 +4,8 @@ class ApplicationController < ActionController::Base
   before_action :redirect_to_setup_if_needed
   before_action :set_no_cache, if: :user_signed_in?
   around_action :switch_locale
+  # after_action, so signing in counts as activity straight away.
+  after_action :mark_web_activity, if: :user_signed_in?
 
   helper_method :single_bot_mode?
 
@@ -32,6 +34,14 @@ class ApplicationController < ActionController::Base
 
   def set_no_cache
     response.headers['Cache-Control'] = 'no-store'
+  end
+
+  # Lets the recurring metrics warm-up follow real use instead of running around the clock.
+  # Signed-in only: the sign-in page is reachable by anyone, and a crawler hitting it must
+  # not hold the window open forever. Liveness probes never reach here — they deliberately
+  # bypass ApplicationController.
+  def mark_web_activity
+    Bot::WarmMetricsCachesJob.mark_activity!
   end
 
   def user_signing_out?

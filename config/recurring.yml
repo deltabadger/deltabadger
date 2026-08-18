@@ -63,6 +63,8 @@ production:
 
   # Keeps current-price + FX caches warm so the /bots index (cache-only global PnL) and
   # per-bot PnL broadcasts read warm caches instead of doing live exchange roundtrips.
+  # The tick is unconditional but the job is not: it warms only inside the activity window
+  # a signed-in request opens, so an unused instance makes no exchange calls at all.
   warm_metrics_caches_job:
     class: Bot::WarmMetricsCachesJob
     schedule: "*/5 * * * *"  # Every 5 minutes, matching the price-cache 5-minute cut
@@ -127,6 +129,8 @@ development:
 
   # Keeps current-price + FX caches warm so the /bots index (cache-only global PnL) and
   # per-bot PnL broadcasts read warm caches instead of doing live exchange roundtrips.
+  # The tick is unconditional but the job is not: it warms only inside the activity window
+  # a signed-in request opens, so an unused instance makes no exchange calls at all.
   warm_metrics_caches_job:
     class: Bot::WarmMetricsCachesJob
     schedule: "*/5 * * * *"  # Every 5 minutes, matching the price-cache 5-minute cut
