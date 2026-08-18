@@ -54,6 +54,14 @@ class Exchanges::Ibkr < Exchange
     ERRORS
   end
 
+  # The same reasoning as the empty :invalid_key list above, applied to the status rule every other
+  # venue now follows: IBKR answers a competing login, an expired live session token and a key still
+  # awaiting activation with the SAME 401 as a revoked one. Condemning on the status would strand
+  # users whose credentials are fine, so IBKR keeps classifying by its own prose (:transient).
+  def ambiguous_unauthorized?
+    true
+  end
+
   def set_client(api_key: nil)
     @api_key = api_key
     @account_id = nil
@@ -130,6 +138,7 @@ class Exchanges::Ibkr < Exchange
 
   def cancel_order(order_id:)
     acct = account_id
+    return acct if acct.is_a?(Result)
     return Result::Failure.new('No IBKR account available') if acct.blank?
 
     result = client.cancel_order(account_id: acct, order_id: order_id)
@@ -142,6 +151,7 @@ class Exchanges::Ibkr < Exchange
 
   def get_balances(asset_ids: nil)
     acct = account_id
+    return acct if acct.is_a?(Result)
     return Result::Failure.new('No IBKR account available') if acct.blank?
 
     ledger = client.ledger(account_id: acct)
@@ -187,7 +197,16 @@ class Exchanges::Ibkr < Exchange
 
   def get_api_key_validity(api_key:)
     result = Clients::Ibkr.new(api_key: api_key).accounts
-    return Result::Success.new(:pending_activation) if result.failure? # registered but not yet usable
+    # A 401 here IS genuinely ambiguous — a key still awaiting activation and a revoked one answer
+    # identically — so it keeps meaning "registered, not yet usable". Anything else is not ambiguous
+    # at all: a 500 or a lock timeout used to tell the user IBKR was activating their key and reset
+    # the 14-day activation clock (ApiKey#activation_stalled?) over a blip.
+    if result.failure?
+      return Result::Success.new(:pending_activation) if http_status(result).nil? ||
+                                                         http_status(result) == UNAUTHORIZED_STATUS
+
+      return result
+    end
 
     Result::Success.new(extract_accounts(result.data).any? || :pending_activation)
   rescue Client::TransientNetworkError => e
@@ -203,13 +222,19 @@ class Exchanges::Ibkr < Exchange
 
   private
 
+  # Returns the account id, or the FAILED RESULT when discovery itself failed — the same
+  # `is_a?(Result)` shape resolve_conid uses, and callers branch on it the same way. It used to
+  # return a bare nil, so all three callers reported 'No IBKR account available': the user was told
+  # their brokerage account was gone when IBKR had actually said "competing live session", and that
+  # rewrite also hid the text from Exchange#transient_error?, which classifies on exactly those
+  # strings. Reserve the 'no account' message for a SUCCESSFUL call that lists none.
   def account_id
     return @account_id if defined?(@account_id) && @account_id
 
     result = client.accounts
     if result.failure?
       Rails.logger.warn("[IBKR] account discovery failed: #{result.errors.to_sentence}")
-      return nil
+      return result
     end
     @account_id = extract_accounts(result.data).first
   end
@@ -240,6 +265,7 @@ class Exchanges::Ibkr < Exchange
     return conid if conid.is_a?(Result) # search_contract failure
 
     acct = account_id
+    return acct if acct.is_a?(Result)
     return Result::Failure.new('No IBKR account available') if acct.blank?
 
     result = client.place_order(

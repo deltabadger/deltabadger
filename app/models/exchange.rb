@@ -3,6 +3,9 @@ class Exchange < ApplicationRecord
   # lookback over daily candles is only a handful of windows) so a misbehaving API or an
   # advance bug can never spin forever.
   MAX_CANDLE_PAGES = 1000
+  # "We do not accept these credentials", in the one status every venue agrees on. See
+  # #invalid_key_error?; Exchanges::Ibkr opts out via #ambiguous_unauthorized?.
+  UNAUTHORIZED_STATUS = 401
 
   STABLE_TYPES = %w[Exchanges::Binance Exchanges::BinanceUs Exchanges::Coinbase Exchanges::Kraken].freeze
 
@@ -241,7 +244,15 @@ class Exchange < ApplicationRecord
   # Heuristic: does the given errors array look like an invalid-key / auth error?
   # Used by sync jobs to decide whether to flip an API key's status to :incorrect
   # when a live call (get_balances, get_ledger, etc.) fails.
-  def invalid_key_error?(errors)
+  def invalid_key_error?(errors, status: nil)
+    # HTTP 401 is the one vocabulary every venue shares for "these credentials are not accepted",
+    # and it is what makes this classifiable WITHOUT inventing message substrings. Alpaca and
+    # Coinbase carry no usable string at all, so their revoked keys could never be condemned — the
+    # status closes that for all of them at once. Honeymaker::Client#with_rescue and Clients::Alpaca
+    # both already attach it; venues that answer over HTTP 200 (Kraken's EAPI:Invalid key) still
+    # need the strings below, which is why this is an addition and not a replacement.
+    return true if status == UNAUTHORIZED_STATUS && !ambiguous_unauthorized?
+
     invalid_messages = (known_errors[:invalid_key] || []).map(&:to_s)
     return false if invalid_messages.empty?
 
@@ -252,15 +263,31 @@ class Exchange < ApplicationRecord
   end
 
   # Raise on a credential rejection, wherever a failed call would otherwise be flattened into a
-  # benign answer — "no price", "market state unknown". Those flattenings are right for a pair with
-  # no liquidity or a clock blip; for a rejected key they are a lie that hides the one thing the
-  # user has to act on, and they hid it for six weeks. Single phrase, single place: the venue's own
-  # text can be as bare as "HTTP 401", so the exchange is named here. The localized, actionable copy
-  # stays the tracker's sync-key banner, which the same classification drives.
-  def raise_on_invalid_key!(errors)
-    return unless invalid_key_error?(errors)
+  # benign answer — "no price", "market state unknown", "condition not met". Those flattenings are
+  # right for a pair with no liquidity, a clock blip or a price that simply has not moved; for a
+  # rejected key they are a lie that hides the one thing the user has to act on, and they hid it for
+  # six weeks. Single phrase, single place: the venue's own text can be as bare as "HTTP 401", so
+  # the exchange is named here. The localized, actionable copy stays the tracker's sync-key banner,
+  # which the same classification drives.
+  def raise_on_invalid_key!(result)
+    return if result.success?
+    return unless invalid_key_error?(result.errors, status: http_status(result))
 
-    raise "#{name} rejected the API key: #{Array(errors).to_sentence}"
+    raise "#{name} rejected the API key: #{Array(result.errors).to_sentence}"
+  end
+
+  # The venue's HTTP status when the client attached one (both honeymaker and the app's own clients
+  # carry it as data: { status: }), nil when the failure never had one — a Kraken HTTP-200 rejection
+  # or an error we raised ourselves.
+  def http_status(result)
+    result.data[:status] if result.data.is_a?(Hash)
+  end
+
+  # Does a 401 from this venue mean anything OTHER than "your key is no longer valid"? Only where
+  # it does may a venue refuse the status rule — see Exchanges::Ibkr, whose competing-login and
+  # not-yet-activated sessions 401 exactly like a revoked key.
+  def ambiguous_unauthorized?
+    false
   end
 
   # Heuristic: do the given errors say the credentials are fine but lack a SCOPE the call needed

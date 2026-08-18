@@ -40,7 +40,7 @@ class Ticker < ApplicationRecord
     # lie — "No matching coins found on Alpaca for the index" — while the real fault is the key.
     # One such bot failed that way on every tick for six weeks. Escapes like a transient error
     # does, and for the same reason: the caller must be able to tell the difference.
-    exchange.raise_on_invalid_key!(result.errors) if result.failure?
+    exchange.raise_on_invalid_key!(result)
 
     result.success? && result.data.to_d.positive?
   end

@@ -27,7 +27,11 @@ module BotApi
         exchange_rows = exchange_orders(db_external_ids)
         rows = db_rows + exchange_rows
 
-        Result.success({ count: rows.size, orders: rows })
+        # `unavailable` is what stops "no open orders" from being asserted about an exchange we could
+        # not reach. Orders placed through this API have no local row, so for them this listing is
+        # the only source — silently dropping a 401'd exchange told the user their money was where it
+        # was not.
+        Result.success({ count: rows.size, orders: rows, unavailable: @unavailable.to_a })
       end
 
       private
@@ -56,15 +60,22 @@ module BotApi
       end
 
       def exchange_orders(db_external_ids)
+        @unavailable = []
         exchanges_to_query.flat_map do |ex|
           next [] unless ex.respond_to?(:list_open_orders)
 
           api_key = Lookup.find_api_key(@user, ex)
-          next [] unless api_key
+          if api_key.nil?
+            @unavailable << { exchange: ex.name, error: 'no usable trading key' }
+            next []
+          end
 
           ex.set_client(api_key: api_key)
           result = ex.list_open_orders
-          next [] if result.failure?
+          if result.failure?
+            @unavailable << { exchange: ex.name, error: result.errors.to_sentence }
+            next []
+          end
 
           map_exchange_rows(ex, result.data, db_external_ids)
         end
