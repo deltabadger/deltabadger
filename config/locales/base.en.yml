@@ -416,6 +416,12 @@ en:
         welcome:
             connect_and_track: "Connect your exchange and start tracking your portfolio."
         sync_key_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please update the API key below."
+        sync_permission_error_html: "<strong>%{exchange}</strong> could not sync: this API key is missing the permission needed to read %{capability}. Update the key's permissions on %{exchange}, or create a new key with every permission listed in its setup steps."
+        sync_transient_error_html: "<strong>%{exchange}</strong> is temporarily unavailable. Try syncing again in a few minutes."
+        sync_generic_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please try again."
+        capabilities:
+            transactions: "your transaction history"
+            balances: "your balances"
         sync_failed_for: 'Sync failed for %{exchanges}. Transactions from there may be missing — reports generated now can be incomplete.'
         pricing_warning_html: Balances synced, but USD pricing is unavailable right now (%{message}). The chart will use the last known prices until pricing is restored.
         portfolio:

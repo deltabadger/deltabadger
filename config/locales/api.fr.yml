@@ -59,7 +59,10 @@ fr:
                                     -   text_html: '<b>Consulter les ordres et transactions ouverts</b>'
                                     -   text_html: '<b>Consulter les ordres et les transactions fermés</b>'
                                     -   text_html: '<b>Créer et modifier des ordres</b>'
-                                    -   text_html: '<b>Annuler et clôturer les ordres</b><br><strong>⚠️ Important :</strong> Les clés ne fonctionneront pas si vous ajoutez plus d''autorisations.'
+                                    -   text_html: '<b>Annuler et clôturer les ordres</b>'
+                            -   text_html: 'Données :'
+                                sub_instructions:
+                                    -   text_html: '<b>Consulter les entrées du grand livre</b> (Query ledger entries) — nécessaire au suivi de portefeuille.<br><strong>⚠️ Important :</strong> Par sécurité, n''activez que les permissions indiquées ci-dessus.'
                             -   text_html: 'Restriction d''adresse IP'
                                 sub_instructions:
                                     -   text_html: '🔘 Ajoutez %{whitelist_ip}.'

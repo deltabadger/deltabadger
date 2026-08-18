@@ -59,7 +59,10 @@ bg:
                                     -   text_html: '<b>Query open orders & trades</b>'
                                     -   text_html: '<b>Query closed orders & trades</b>'
                                     -   text_html: '<b>Create & modify orders</b>'
-                                    -   text_html: '<b>Cancel & close orders</b><br><strong>⚠️ Важно:</strong> Ключовете няма да работят, ако активирате допълнителни разрешения.'
+                                    -   text_html: '<b>Cancel & close orders</b>'
+                            -   text_html: 'Data:'
+                                sub_instructions:
+                                    -   text_html: '<b>Query ledger entries</b> — необходимо за тракера на портфолиото.<br><strong>⚠️ Важно:</strong> За сигурност активирайте само изброените по-горе разрешения.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
                                     -   text_html: '🔘 Добавете %{whitelist_ip}.'

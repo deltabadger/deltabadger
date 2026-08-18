@@ -93,6 +93,13 @@ class SettingsController < ApplicationController
     end
   end
 
+  # The permissions a key is expected to carry, readable at any time — not only while pasting a new
+  # one. Without this the only place that lists them is the add-key form, so a user whose sync
+  # started failing has no way to check what their key is missing (issue #153).
+  def api_key_permissions
+    @api_key = current_user.api_keys.find(params[:id])
+  end
+
   def confirm_destroy_api_key
     @api_key = current_user.api_keys.find(params[:id])
   end

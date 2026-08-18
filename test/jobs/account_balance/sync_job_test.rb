@@ -28,6 +28,40 @@ class AccountBalance::SyncJobTest < ActiveSupport::TestCase
     AccountBalance::SyncJob.perform_now(@user.id, [@key_binance.id, @key_kraken.id])
   end
 
+  # The other ApiKeyFailureHandling caller. It names a different capability, and it is the one
+  # whose locale no request has set (AccountBalance::SyncAllJob is a scheduled fan-out).
+  test 'a permission failure names the balances capability and leaves the key usable' do
+    sync_k = mock
+    sync_k.expects(:sync!).once.returns(Result::Failure.new('EGeneral:Permission denied'))
+    AccountBalance::Sync.expects(:new).with(@key_kraken).returns(sync_k)
+
+    Turbo::StreamsChannel.expects(:broadcast_append_to).with(
+      "user_#{@user.id}", :sync,
+      target: 'flash',
+      partial: 'tracker/sync_key_error',
+      locals: { exchange_name: 'Kraken', message: 'EGeneral:Permission denied',
+                reason: :permission, capability: :balances }
+    )
+    Turbo::StreamsChannel.expects(:broadcast_refresh_to).with("user_#{@user.id}", :sync)
+
+    AccountBalance::SyncJob.perform_now(@user.id, [@key_kraken.id])
+
+    assert_equal 'correct', @key_kraken.reload.status
+    assert_equal 'EGeneral:Permission denied', @key_kraken.last_sync_error,
+                 'this job also runs unattended — without a durable trace the balances just stop updating'
+  end
+
+  test 'an exception during a balance sync is recorded too' do
+    sync_k = mock
+    sync_k.expects(:sync!).once.raises(StandardError, 'boom')
+    AccountBalance::Sync.expects(:new).with(@key_kraken).returns(sync_k)
+    Turbo::StreamsChannel.expects(:broadcast_refresh_to).with("user_#{@user.id}", :sync)
+
+    AccountBalance::SyncJob.perform_now(@user.id, [@key_kraken.id])
+
+    assert_equal 'StandardError: boom', @key_kraken.reload.last_sync_error
+  end
+
   test 'broadcasts pricing warning flash when pricing fully fails' do
     sync_b = mock
     sync_b.expects(:sync!).once.returns(ok_summary(priced_fresh: 0, unpriced: 2, pricing_error: 'CG down'))

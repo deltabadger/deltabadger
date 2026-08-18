@@ -59,7 +59,10 @@ sk:
                                     -   text_html: '<b>Query open orders & trades</b>'
                                     -   text_html: '<b>Query closed orders & trades</b>'
                                     -   text_html: '<b>Create & modify orders</b>'
-                                    -   text_html: '<b>Cancel & close orders</b><br><strong>⚠️ Dôležité:</strong> Kľúče nebudú fungovať, ak povolíte ďalšie oprávnenia.'
+                                    -   text_html: '<b>Cancel & close orders</b>'
+                            -   text_html: 'Data:'
+                                sub_instructions:
+                                    -   text_html: '<b>Query ledger entries</b> — potrebné pre sledovanie portfólia.<br><strong>⚠️ Dôležité:</strong> Z bezpečnostných dôvodov povoľte iba oprávnenia uvedené vyššie.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
                                     -   text_html: '🔘 Pridajte %{whitelist_ip}.'

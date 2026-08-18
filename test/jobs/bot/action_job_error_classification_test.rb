@@ -95,12 +95,17 @@ class Bot::ActionJobErrorClassificationTest < ActiveSupport::TestCase
 
   # Real failures that are NOT a key problem. Flagging the key here would tell the user to replace
   # a perfectly good key and hide the actual cause.
-  NOT_INVALID_KEY = {
+  # An array of pairs, not a Hash: one venue can have several such failures, and a Hash keyed by
+  # factory silently drops all but the last.
+  NOT_INVALID_KEY = [
     # Geo restriction, not a credential problem.
-    kraken_exchange: 'EAccount:Invalid permissions:USDT trading restricted for DE.',
-    bitvavo_exchange: '{"errorCode":216,"error":"You do not have sufficient balance to complete this operation."}',
-    bitget_exchange: '{"code":"43012","msg":"Insufficient balance","requestTime":1781165647492,"data":null}'
-  }.freeze
+    [:kraken_exchange, 'EAccount:Invalid permissions:USDT trading restricted for DE.'],
+    # Missing scope, not a bad credential: this key trades fine and fails only the endpoint whose
+    # permission it lacks (issue #153). See Exchange#permission_error?.
+    [:kraken_exchange, 'EGeneral:Permission denied'],
+    [:bitvavo_exchange, '{"errorCode":216,"error":"You do not have sufficient balance to complete this operation."}'],
+    [:bitget_exchange, '{"code":"43012","msg":"Insufficient balance","requestTime":1781165647492,"data":null}']
+  ].freeze
 
   INVALID_KEY.each do |factory, body|
     test "#{factory} recognises its real invalid-key response" do
@@ -109,7 +114,7 @@ class Bot::ActionJobErrorClassificationTest < ActiveSupport::TestCase
     end
   end
 
-  NOT_INVALID_KEY.each do |factory, body|
+  NOT_INVALID_KEY.each do |(factory, body)|
     test "#{factory} does not flag the key on #{body.truncate(48).inspect}" do
       assert_not create(factory).invalid_key_error?([body]),
                  "#{factory}: a non-credential failure must not condemn a working key"

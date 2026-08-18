@@ -87,6 +87,29 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     assert_equal false, result.data
   end
 
+  # Permission denied is no longer an invalid-key error (issue #153) — but a key the validation
+  # probe itself cannot get past is still unusable, so key SUBMISSION must keep answering
+  # "incorrect" rather than degrading to :pending_validation.
+  test 'get_api_key_validity returns incorrect for permission denied on trading key' do
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'bad_key', secret: 'dGVzdF9zZWNyZXQ=')
+
+    Honeymaker::Clients::Kraken.any_instance.stubs(:add_order).returns(
+      Result::Failure.new('EGeneral:Permission denied')
+    )
+
+    result = @exchange.get_api_key_validity(api_key: api_key)
+    assert result.success?
+    assert_equal false, result.data
+  end
+
+  test 'permission denied is classified as a scope problem, not a dead credential' do
+    assert @exchange.permission_error?(['EGeneral:Permission denied'])
+    assert_not @exchange.invalid_key_error?(['EGeneral:Permission denied']),
+               'flipping the key to :incorrect drops it from every correct-scoped sync'
+    assert @exchange.invalid_key_error?(['EAPI:Invalid key'])
+    assert_not @exchange.permission_error?(['EAPI:Invalid key'])
+  end
+
   test 'get_api_key_validity returns incorrect for permission denied on withdrawal key' do
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'bad_key', secret: 'dGVzdF9zZWNyZXQ=')
 

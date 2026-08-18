@@ -423,6 +423,12 @@ cs:
         welcome:
             connect_and_track: "Připoj svou burzu a začni sledovat své portfolio."
         sync_key_error_html: 'Synchronizace s <strong>%{exchange}</strong> selhala: %{message}. Aktualizuj API klíč níže.'
+        sync_permission_error_html: "<strong>%{exchange}</strong> se nepodařilo synchronizovat: tento API klíč nemá oprávnění potřebné ke čtení %{capability}. Uprav oprávnění klíče na %{exchange}, nebo vytvoř nový klíč se všemi oprávněními uvedenými v návodu."
+        sync_transient_error_html: "<strong>%{exchange}</strong> je dočasně nedostupná. Zkus synchronizaci znovu za pár minut."
+        sync_generic_error_html: "Synchronizace s <strong>%{exchange}</strong> selhala: %{message}. Zkus to prosím znovu."
+        capabilities:
+            transactions: "tvé historie transakcí"
+            balances: "tvých zůstatků"
         sync_failed_for: 'Synchronizace s %{exchanges} se nezdařila. Některé transakce z těchto burz mohou chybět — nyní vygenerované přehledy proto nemusí být úplné.'
         pricing_warning_html: Zůstatky synchronizovány, ale ceny v USD teď nejsou dostupné (%{message}). Graf použije poslední známé ceny, dokud se služba neobnoví.
         portfolio:

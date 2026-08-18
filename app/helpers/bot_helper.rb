@@ -201,6 +201,23 @@ module BotHelper
     render_instructions_from('withdrawal_api', exchange)
   end
 
+  def render_api_key_instructions(api_key)
+    if api_key.withdrawal?
+      render_withdrawal_api_key_instructions(api_key.exchange)
+    else
+      render_api_key_instructions_for(api_key.exchange)
+    end
+  end
+
+  # Whether there is anything to show — Alpaca, IBKR and retired venues have no instruction list,
+  # and a link to an empty modal is worse than no link. Same I18n.exists? probe the renderer uses,
+  # EN fallback included on purpose: withdrawal_api exists only in English, and an English list
+  # beats hiding the link from everyone else.
+  def api_key_instructions?(api_key)
+    prefix = api_key.withdrawal? ? 'withdrawal_api' : 'bot.api'
+    I18n.exists?("#{prefix}.#{api_key.exchange.name_id}.instructions")
+  end
+
   def whitelist_ip_for(exchange)
     return nil unless exchange.present?
 

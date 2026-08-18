@@ -59,7 +59,10 @@ de:
                                     -   text_html: '<b>Offene Order und Trades abfragen</b>'
                                     -   text_html: '<b>Abfrage geschlossener Order & Trades</b>'
                                     -   text_html: '<b>Orders erstellen und ändern</b>'
-                                    -   text_html: '<b>Orders stornieren und schließen</b><br><strong>⚠️ Wichtig:</strong> Die Schlüssel funktionieren nicht, wenn Sie weitere Berechtigungen hinzufügen.'
+                                    -   text_html: '<b>Orders stornieren und schließen</b>'
+                            -   text_html: 'Daten:'
+                                sub_instructions:
+                                    -   text_html: '<b>Hauptbucheinträge abfragen</b> (Query ledger entries) — wird vom Portfolio-Tracker benötigt.<br><strong>⚠️ Wichtig:</strong> Aktivieren Sie aus Sicherheitsgründen nur die oben aufgeführten Berechtigungen.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
                                     -   text_html: '🔘 Fügen Sie %{whitelist_ip} hinzu.'

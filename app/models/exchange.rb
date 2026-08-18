@@ -251,6 +251,25 @@ class Exchange < ApplicationRecord
     end
   end
 
+  # Heuristic: do the given errors say the credentials are fine but lack a SCOPE the call needed
+  # (e.g. Kraken's "EGeneral:Permission denied" on Ledgers when the key has no Query Ledger
+  # Entries)? Deliberately separate from invalid_key_error?: the key is valid and may be trading
+  # happily, so condemning it — which removes it from every :correct-scoped sync — is both too
+  # harsh and useless, since re-pasting the same credentials cannot add a permission.
+  #
+  # Only venues that emit an UNAMBIGUOUS scope error populate :permission_denied. Binance and
+  # Bybit's "Invalid API-key, IP, or permissions for action." stays in :invalid_key: the venue
+  # conflates revoked key, wrong IP and missing scope, and "replace the key" fits all three.
+  def permission_error?(errors)
+    permission_messages = (known_errors[:permission_denied] || []).map(&:to_s)
+    return false if permission_messages.empty?
+
+    Array(errors).any? do |err|
+      msg = err.to_s
+      permission_messages.any? { |m| msg.include?(m) }
+    end
+  end
+
   # Heuristic: do the given errors look like a transient/retryable exchange API
   # failure (e.g. Kraken's HTTP-200 "EGeneral:Internal error" / "EAPI:Invalid nonce")?
   # Used by the fetch jobs to convert such failures into Client::TransientNetworkError

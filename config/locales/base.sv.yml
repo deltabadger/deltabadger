@@ -416,6 +416,12 @@ sv:
         welcome:
             connect_and_track: "Anslut din börs och börja spåra din portfölj."
         sync_key_error_html: 'Synkroniseringen med <strong>%{exchange}</strong> misslyckades: %{message}. Uppdatera API-nyckeln nedan.'
+        sync_permission_error_html: "<strong>%{exchange}</strong> kunde inte synkroniseras: den här API-nyckeln saknar behörigheten som krävs för att läsa %{capability}. Uppdatera nyckelns behörigheter på %{exchange}, eller skapa en ny nyckel med alla behörigheter som anges i instruktionerna."
+        sync_transient_error_html: "<strong>%{exchange}</strong> är tillfälligt otillgänglig. Försök synkronisera igen om några minuter."
+        sync_generic_error_html: "Synkroniseringen med <strong>%{exchange}</strong> misslyckades: %{message}. Försök igen."
+        capabilities:
+            transactions: "din transaktionshistorik"
+            balances: "dina saldon"
         sync_failed_for: 'Synkroniseringen med %{exchanges} misslyckades. Transaktioner därifrån kan saknas — rapporter som skapas nu kan därför vara ofullständiga.'
         pricing_warning_html: Saldon synkade, men USD-priser är inte tillgängliga just nu (%{message}). Diagrammet använder de senast kända priserna tills prissättningen är återställd.
         portfolio:

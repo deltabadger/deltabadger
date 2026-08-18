@@ -413,6 +413,12 @@ fr:
         welcome:
             connect_and_track: "Connecte ta plateforme d'échange et commence à suivre ton portefeuille."
         sync_key_error_html: 'Échec de la synchronisation avec <strong>%{exchange}</strong> : %{message}. Veuillez mettre à jour la clé API ci-dessous.'
+        sync_permission_error_html: "Impossible de synchroniser <strong>%{exchange}</strong> : cette clé API n'a pas la permission nécessaire pour lire %{capability}. Mettez à jour les permissions de la clé sur %{exchange}, ou créez une nouvelle clé avec toutes les permissions indiquées dans les instructions."
+        sync_transient_error_html: "<strong>%{exchange}</strong> est temporairement indisponible. Réessayez la synchronisation dans quelques minutes."
+        sync_generic_error_html: "Échec de la synchronisation avec <strong>%{exchange}</strong> : %{message}. Veuillez réessayer."
+        capabilities:
+            transactions: "votre historique de transactions"
+            balances: "vos soldes"
         sync_failed_for: 'La synchronisation avec %{exchanges} a échoué. Certaines transactions peuvent manquer — les rapports générés maintenant risquent donc d’être incomplets.'
         pricing_warning_html: Soldes synchronisés, mais les prix en USD sont indisponibles pour le moment (%{message}). Le graphique utilisera les derniers prix connus en attendant le rétablissement du service.
         portfolio:

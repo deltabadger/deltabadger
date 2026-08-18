@@ -35,7 +35,13 @@ class Exchanges::Kraken < Exchange
   }.freeze # the real costmin values that Kraken respects. Found by trial and error using test orders.
   ERRORS = {
     insufficient_funds: ['EAPI:Insufficient funds', 'EOrder:Insufficient funds'],
-    invalid_key: ['EGeneral:Permission denied', 'EAPI:Invalid key', 'EAPI:Invalid signature'],
+    invalid_key: ['EAPI:Invalid key', 'EAPI:Invalid signature'],
+    # NOT an invalid key — the credentials are accepted, they just lack the permission this
+    # endpoint needs. Kraken returns it per-endpoint: a key without Data → Query Ledger Entries
+    # trades all day and fails only the tracker's Ledgers call. It lived in :invalid_key until
+    # 2026-08 and condemned working keys (issue #153). An expired or disabled key returns
+    # EAPI:Invalid key instead, so nothing is lost by moving it out.
+    permission_denied: ['EGeneral:Permission denied'],
     # Transient/retryable HTTP-200 failures. Excludes EGeneral:Temporary lockout
     # (retrying extends Kraken's penalty box) and rate-limit codes (see :throttle below —
     # they retry on a longer, escalating wait rather than the transient polynomial backoff).
@@ -48,6 +54,10 @@ class Exchanges::Kraken < Exchange
     # is a trading-engine counter that never reaches these query-order fetch jobs.
     throttle: ['EAPI:Rate limit exceeded']
   }.freeze
+  # What get_api_key_validity treats as "this key is unusable, tell the user it is incorrect".
+  # Both buckets, because at KEY-SUBMISSION time the distinction the sync path cares about does
+  # not apply: a key the validation probe cannot get past is no use whichever reason Kraken gives.
+  CREDENTIAL_REJECTED = (ERRORS[:invalid_key] + ERRORS[:permission_denied]).freeze
   # pending, open, closed, canceled, expired
   ORDER_STATUS_MAP = {
     'pending' => :unknown,
@@ -422,7 +432,7 @@ class Exchanges::Kraken < Exchange
         errors = Utilities::Hash.dig_or_raise(result.data, 'error')
         if errors.empty?
           Result::Success.new(true)
-        elsif errors.first.in?(ERRORS[:invalid_key])
+        elsif errors.first.in?(CREDENTIAL_REJECTED)
           Result::Success.new(false)
         else
           Result::Failure.new(*errors)
@@ -432,7 +442,7 @@ class Exchanges::Kraken < Exchange
       end
     else
       error_msg = result.errors.first
-      if error_msg.in?(ERRORS[:invalid_key])
+      if error_msg.in?(CREDENTIAL_REJECTED)
         Result::Success.new(false)
       else
         result

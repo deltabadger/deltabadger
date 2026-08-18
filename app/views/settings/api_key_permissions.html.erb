@@ -1,0 +1,13 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+      <h1 class="modal__title"><%= t('bot.setup.how_to_get_keys', exchange: @api_key.exchange.name) %></h1>
+    </div>
+    <div class="modal__body">
+      <%= render_api_key_instructions(@api_key) %>
+    </div>
+  </div>
+<% end %>

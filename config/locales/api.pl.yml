@@ -59,7 +59,10 @@ pl:
                                     -   text_html: '<b>Zapytanie o otwarte zlecenia i transakcje</b>'
                                     -   text_html: '<b>Zapytanie o zamknięte zlecenia i transakcje</b>'
                                     -   text_html: '<b>Twórz i modyfikuj zlecenia</b>'
-                                    -   text_html: '<b>Anuluj i zamknij zlecenia</b><br><strong>⚠️ Ważne:</strong> Klucze nie będą działać, jeśli dodasz więcej uprawnień.'
+                                    -   text_html: '<b>Anuluj i zamknij zlecenia</b>'
+                            -   text_html: 'Dane:'
+                                sub_instructions:
+                                    -   text_html: '<b>Zapytanie o wpisy księgi</b> (Query ledger entries) — wymagane przez tracker portfela.<br><strong>⚠️ Ważne:</strong> Ze względów bezpieczeństwa włącz tylko uprawnienia wymienione powyżej.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
                                     -   text_html: '🔘 Dodaj %{whitelist_ip}.'
