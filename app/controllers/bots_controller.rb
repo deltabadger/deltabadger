@@ -121,8 +121,8 @@ class BotsController < ApplicationController
     end
   end
 
-  # Manual ⇄ flip: turn a single-asset DCA bot around to sell (or back to buy). Reversing
-  # only changes direction + reschedules; flip_direction! owns the Accountable guard and the
+  # Manual ⇄ rotation: buy → sell N base → sell for N quote → buy. Rotating only changes the
+  # direction/denomination + reschedules; flip_direction! owns the Accountable guard and the
   # reschedule. Deferred (with a notice, no error) while the bot is mid-execution or a job is
   # claimed — flip_direction!'s cancellation cannot reach an already-claimed job.
   def reverse
@@ -131,7 +131,7 @@ class BotsController < ApplicationController
     if @bot.executing? || @bot.flip_blocked_by_inflight_job?
       flash.now[:notice] = t('bot.reverse_in_progress')
     else
-      @bot.flip_direction!
+      @bot.rotate_direction!
     end
     render :reverse
   end

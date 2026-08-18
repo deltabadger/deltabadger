@@ -11,18 +11,20 @@ module Bot::SmartIntervalable
     # The sell base split can't be seeded at load when sell_amount is still blank (e.g. just after a
     # flip). Seed it the moment a sell amount exists — before validation — so entering the sell amount
     # in the main sentence never trips the base-split presence check.
-    before_validation :seed_smart_interval_base_amount, if: -> { smart_intervaled? && selling? }
+    before_validation :seed_smart_interval_base_amount, if: -> { smart_intervaled? && sells_base_amount? }
 
     validates :smart_intervaled, inclusion: { in: [true, false] }
-    # Quote split governs buying; base split governs selling. Direction-gate so a selling bot is never
-    # blocked by a missing quote amount (and vice versa). The base check additionally waits for a sell
-    # amount, so flipping a smart-on bot with no sell sentence yet can't fail validation.
+    # Quote split governs buying; base split governs BASE-denominated selling. Direction-gate so a
+    # selling bot is never blocked by a missing quote amount (and vice versa). The base check
+    # additionally waits for a sell amount, so flipping a smart-on bot with no sell sentence yet
+    # can't fail validation. A quote-denominated sell validates NEITHER split — the rule is not
+    # offered in that mode (see Bot::Reversible#effective_interval_duration).
     validates :smart_interval_quote_amount,
               numericality: { greater_than_or_equal_to: :minimum_smart_interval_quote_amount },
               if: -> { smart_intervaled? && !selling? }
     validates :smart_interval_base_amount,
               numericality: { greater_than_or_equal_to: :minimum_smart_interval_base_amount },
-              if: -> { smart_intervaled? && selling? && try(:sell_amount).present? }
+              if: -> { smart_intervaled? && sells_base_amount? && sell_amount.present? }
 
     decorators = Module.new do
       def parse_params(params)

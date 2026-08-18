@@ -16,7 +16,7 @@
     <div class="toggle-group__info">
       <div class="toggle-group__info__label">
         <%= f.label :smart_intervaled, class: "conversational conversational--small conversational--disabled" do %>
-          <% if bot.selling? %>
+          <% if bot.sells_base_amount? %>
             <%# Selling splits the SELL amount into base units (issue #5), the mirror of the buy split. %>
             <% amount_html = content_tag(:div) do %>
               <% min_amount = bot.send(:minimum_smart_interval_base_amount) %>

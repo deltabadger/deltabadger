@@ -34,13 +34,18 @@ class Bots::ReverseControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/⇄/, response.body)
   end
 
-  test 'POST reverse flips a selling bot back to buying' do
+  test 'POST reverse moves a base-selling bot on to quote-selling, then back to buying' do
+    # The manual control rotates through three states, so a selling bot needs two POSTs to return
+    # to buying (a TRIGGER flip is still a straight two-state flip — see Bot::RotationTest).
     bot = create(:dca_single_asset, :started, user: @user)
     bot.flip_direction!
-    assert_predicate bot.reload, :selling?
+    assert_predicate bot.reload, :sells_base_amount?
 
     post reverse_bot_path(id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+    assert_response :success
+    assert_predicate bot.reload, :sells_quote_amount?
 
+    post reverse_bot_path(id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
     assert_response :success
     assert_predicate bot.reload, :buying?
   end
@@ -97,5 +102,30 @@ class Bots::ReverseControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_match reverse_bot_path(id: bot.id), response.body
     assert_no_match I18n.t('bot.reverse_confirm'), response.body
+  end
+
+  # == three-state rotation (buy → sell N base → sell for N quote → buy) ==
+
+  test 'three POSTs rotate the sentence through all three states' do
+    bot = create(:dca_single_asset, :stopped, user: @user)
+
+    post reverse_bot_path(id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+    assert_response :success
+    assert_match 'bots_dca_single_asset[sell_amount]', response.body
+    assert_no_match 'bots_dca_single_asset[sell_quote_amount]', response.body
+
+    post reverse_bot_path(id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+    assert_response :success
+    assert_predicate bot.reload, :sells_quote_amount?
+    assert_match 'bots_dca_single_asset[sell_quote_amount]', response.body
+    assert_no_match 'bots_dca_single_asset[sell_amount]"', response.body
+    # Smart Intervals has no quote-sell form yet, so the rule is not offered in that mode
+    assert_no_match 'bots_dca_single_asset[smart_intervaled]', response.body
+
+    post reverse_bot_path(id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+    assert_response :success
+    assert_predicate bot.reload, :buying?
+    assert_match 'bots_dca_single_asset[quote_amount]', response.body
+    assert_match 'bots_dca_single_asset[smart_intervaled]', response.body
   end
 end

@@ -73,6 +73,17 @@ class Bot < ApplicationRecord
     false
   end
 
+  # How a sell tick is sized. Both false for buy-only types, so Bot::SmartIntervalable and the
+  # settings partials it shares with DcaDualAsset / DcaIndex can read them unguarded, exactly like
+  # selling? above. Bot::Reversible overrides them.
+  def sells_base_amount?
+    false
+  end
+
+  def sells_quote_amount?
+    false
+  end
+
   # Only Bot::Reversible (DcaSingleAsset) can flip direction. Trigger concerns are shared with
   # buy-only bot types, so the flip action and the ⇄ control must be gated on this.
   def reversible?
