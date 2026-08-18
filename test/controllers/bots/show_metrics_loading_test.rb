@@ -3,8 +3,9 @@
 require 'test_helper'
 
 # When the combined (candles) cache is cold but the prices cache is warm — the common
-# case, since Bot::WarmMetricsCachesJob warms prices every 5 minutes — the balances
-# table must render real values immediately; only the chart shows the loading state.
+# case, since Bot::WarmMetricsCachesJob warms prices every 5 minutes while the app is in
+# use — the balances table must render real values immediately; only the chart shows the
+# loading state.
 class Bots::ShowMetricsLoadingTest < ActionDispatch::IntegrationTest
   setup do
     create(:user, admin: true, setup_completed: true) # satisfies the onboarding gate
