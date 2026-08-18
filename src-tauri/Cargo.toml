@@ -25,8 +25,9 @@ tauri-plugin-shell = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-updater = "2"
-cocoa = "0.26"
-objc = "0.2"
+# cocoa and objc were here unconditionally and referenced nowhere in src/, which pulled
+# core-graphics onto the Windows target for no reason. Removed rather than cfg-gated: nothing
+# uses them.
 tokio = { version = "1", features = ["process", "time", "sync"] }
 reqwest = { version = "0.12", features = ["blocking"] }
 port_check = "0.2"

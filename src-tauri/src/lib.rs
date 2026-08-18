@@ -10,8 +10,12 @@ use tauri::{
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::TrayIconBuilder,
-    ActivationPolicy, Manager, WebviewUrl, WebviewWindowBuilder,
+    Manager, WebviewUrl, WebviewWindowBuilder,
 };
+// Tauri re-exports this only for macOS, and all three call sites are already cfg-gated — an
+// unconditional import is what breaks the Windows and Linux builds.
+#[cfg(target_os = "macos")]
+use tauri::ActivationPolicy;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_updater::UpdaterExt;
 
@@ -620,20 +624,27 @@ pub fn run() {
 
                         // Create the main window pointing to Rails
                         let url = format!("http://{}:{}", RAILS_HOST, port);
-                        WebviewWindowBuilder::new(
+                        let window_builder = WebviewWindowBuilder::new(
                             app,
                             "main",
                             WebviewUrl::External(url.parse().unwrap()),
                         )
                         .title("Deltabadger")
-                        .title_bar_style(tauri::TitleBarStyle::Overlay)
-                        .hidden_title(true)
                         .inner_size(1280.0, 800.0)
                         .min_inner_size(320.0, 600.0)
                         .center()
                         .devtools(true)
-                        .initialization_script("window.__TAURI_INTERNALS__ = true; window.__IS_TAURI__ = true;")
-                        .build()?;
+                        .initialization_script("window.__TAURI_INTERNALS__ = true; window.__IS_TAURI__ = true;");
+
+                        // The overlay title bar is the macOS look; both builder methods exist only
+                        // on macOS in Tauri 2, so calling them unconditionally does not compile
+                        // anywhere else. Other platforms get their native title bar.
+                        #[cfg(target_os = "macos")]
+                        let window_builder = window_builder
+                            .title_bar_style(tauri::TitleBarStyle::Overlay)
+                            .hidden_title(true);
+
+                        window_builder.build()?;
 
                         // Set up system tray
                         let show_item = MenuItemBuilder::with_id("show", "Show Deltabadger").build(app)?;

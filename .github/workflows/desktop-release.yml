@@ -6,27 +6,56 @@ on:
       - 'v*'
 
 jobs:
-  validate-updater-key:
+  # Desktop releases are not configured yet, and every version tag also builds the Docker image —
+  # so a hard failure here paints every ordinary release red for a leg that has never once run.
+  # This reports what is missing and skips instead. It turns itself on: the day the keypair and the
+  # signing secrets exist, the build runs, with no workflow edit to remember.
+  preflight:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify updater public key
+      - name: Check the desktop release is configured
+        id: check
         shell: bash
+        env:
+          # Read as env rather than inline, so a missing secret is an empty string here instead of
+          # an empty expression in the middle of a shell script.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
+          missing=""
           pubkey=$(jq -r '.plugins.updater.pubkey // empty' src-tauri/tauri.conf.json)
           if [ -z "$pubkey" ] || [ "$pubkey" = 'REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY' ]; then
-            echo '::error file=src-tauri/tauri.conf.json::Updater public key is not configured. Run "tauri signer generate" and replace the updater pubkey with the generated public key.'
-            exit 1
+            missing="$missing updater-pubkey(tauri.conf.json)"
+          fi
+          # Signing is mandatory, not optional: createUpdaterArtifacts is v1Compatible, and Tauri
+          # reads the Apple variables with var_os — an empty secret is still *set*, so it takes the
+          # certificate-import branch and fails on a zero-byte .p12 rather than skipping signing.
+          for name in TAURI_SIGNING_PRIVATE_KEY APPLE_CERTIFICATE APPLE_ID APPLE_TEAM_ID; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+
+          if [ -n "$missing" ]; then
+            echo "::notice::Desktop release skipped — not configured yet. Missing:$missing"
+            echo "::notice::Set up with 'tauri signer generate', put the public key in tauri.conf.json and the private key plus the Apple secrets in repository secrets."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
   build:
-    needs: validate-updater-key
+    needs: preflight
+    if: needs.preflight.outputs.ready == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -56,18 +85,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # This repository has no package-lock.json — only bun.lock, the same one the Dockerfile
+      # installs from. `npm ci` requires a lockfile it does not have and would fail on every leg,
+      # as would `cache: npm`. Bun comes first because the install now depends on it.
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Install frontend dependencies
         shell: bash
-        run: npm ci
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        run: bun install --frozen-lockfile
 
       - name: Install Rust target
         uses: dtolnay/rust-toolchain@stable
