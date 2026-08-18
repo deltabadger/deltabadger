@@ -1,4 +1,9 @@
 <div id="metrics" style="display: flex; flex-direction: column; gap: 1rem;">
+  <% if metrics[:prices_stale] %>
+    <p class="status-button__hint" role="status">
+      <%= t('bot.details.stats.exchange_unavailable_html') %>
+    </p>
+  <% end %>
   <div class="widget data-grid data-grid--two-columns">
     <%= render partial: "bots/dca_single_assets/metrics_item", locals: {
       label: t('data_labels.invested'),

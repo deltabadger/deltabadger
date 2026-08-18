@@ -84,10 +84,10 @@ module Bots::DcaSingleAsset::Measurable
       return metrics_data if metrics_data[:chart][:labels].empty? || ticker.nil?
 
       result = exchange.get_tickers_prices(symbols: [ticker.ticker])
-      return metrics_data if result.failure?
+      return stale(metrics_data) if result.failure?
 
       price = result.data[ticker.ticker]
-      return metrics_data unless price.present?
+      return stale(metrics_data) unless price.present?
 
       metrics_data[:total_amount_value_in_quote] =
         (metrics_data[:total_realized_proceeds] || 0) + (metrics_data[:total_base_amount] * price)
