@@ -415,6 +415,12 @@ pl:
         welcome:
             connect_and_track: "Podłącz giełdę i zacznij śledzić swoje portfolio."
         sync_key_error_html: 'Synchronizacja z <strong>%{exchange}</strong> nie powiodła się: %{message}. Zaktualizuj klucz API poniżej.'
+        sync_permission_error_html: "Nie udało się zsynchronizować <strong>%{exchange}</strong>: ten klucz API nie ma uprawnienia potrzebnego do odczytu %{capability}. Zaktualizuj uprawnienia klucza na %{exchange} lub utwórz nowy klucz ze wszystkimi uprawnieniami z instrukcji."
+        sync_transient_error_html: "<strong>%{exchange}</strong> jest chwilowo niedostępna. Spróbuj zsynchronizować ponownie za kilka minut."
+        sync_generic_error_html: "Synchronizacja z <strong>%{exchange}</strong> nie powiodła się: %{message}. Spróbuj ponownie."
+        capabilities:
+            transactions: "Twojej historii transakcji"
+            balances: "Twoich sald"
         sync_failed_for: 'Synchronizacja z %{exchanges} nie powiodła się. Może brakować transakcji z tych giełd — raporty wygenerowane teraz mogą być niekompletne.'
         pricing_warning_html: Salda zsynchronizowane, ale ceny w USD są chwilowo niedostępne (%{message}). Wykres użyje ostatnich znanych cen do czasu przywrócenia wyceny.
         portfolio:

@@ -34,7 +34,7 @@ class AccountTransaction::SyncTrackerJob < ApplicationJob
     end
     return if result.success?
 
-    handle_api_key_failure(api_key, result)
+    handle_api_key_failure(api_key, result, capability: :transactions)
     api_key.record_sync_error!(Array(result.errors).first.to_s)
     exchange_name
   rescue StandardError => e

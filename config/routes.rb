@@ -136,6 +136,7 @@ Rails.application.routes.draw do
       patch :update_locale
       get :edit_two_fa
       patch :update_two_fa
+      get 'api_key_permissions/:id', action: :api_key_permissions, as: :api_key_permissions
       get 'confirm_destroy_api_key/:id', action: :confirm_destroy_api_key, as: :confirm_destroy_api_key
       delete 'destroy_api_key/:id', action: :destroy_api_key, as: :destroy_api_key
       post :resync_assets

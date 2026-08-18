@@ -413,6 +413,12 @@ de:
         welcome:
             connect_and_track: "Verbinde deine Börse und beginne, dein Portfolio zu tracken."
         sync_key_error_html: 'Synchronisierung mit <strong>%{exchange}</strong> fehlgeschlagen: %{message}. Bitte API-Schlüssel unten aktualisieren.'
+        sync_permission_error_html: "<strong>%{exchange}</strong> konnte nicht synchronisiert werden: diesem API-Schlüssel fehlt die Berechtigung zum Lesen %{capability}. Bitte die Berechtigungen des Schlüssels auf %{exchange} anpassen oder einen neuen Schlüssel mit allen in der Anleitung genannten Berechtigungen erstellen."
+        sync_transient_error_html: "<strong>%{exchange}</strong> ist vorübergehend nicht erreichbar. Bitte in ein paar Minuten erneut synchronisieren."
+        sync_generic_error_html: "Synchronisierung mit <strong>%{exchange}</strong> fehlgeschlagen: %{message}. Bitte erneut versuchen."
+        capabilities:
+            transactions: "Ihrer Transaktionshistorie"
+            balances: "Ihrer Guthaben"
         sync_failed_for: 'Synchronisierung mit %{exchanges} fehlgeschlagen. Möglicherweise fehlen Transaktionen von dort — jetzt erstellte Berichte können unvollständig sein.'
         pricing_warning_html: Guthaben synchronisiert, aber USD-Preise sind gerade nicht verfügbar (%{message}). Das Diagramm nutzt die zuletzt bekannten Preise, bis die Preisermittlung wiederhergestellt ist.
         portfolio:

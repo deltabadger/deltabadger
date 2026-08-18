@@ -413,6 +413,12 @@ it:
         welcome:
             connect_and_track: "Collega il tuo exchange e inizia a tracciare il tuo portafoglio."
         sync_key_error_html: 'Sincronizzazione con <strong>%{exchange}</strong> fallita: %{message}. Aggiorna la chiave API qui sotto.'
+        sync_permission_error_html: "Impossibile sincronizzare <strong>%{exchange}</strong>: questa chiave API non ha il permesso necessario per leggere %{capability}. Aggiorna i permessi della chiave su %{exchange}, oppure crea una nuova chiave con tutti i permessi elencati nelle istruzioni."
+        sync_transient_error_html: "<strong>%{exchange}</strong> è temporaneamente non disponibile. Riprova a sincronizzare tra qualche minuto."
+        sync_generic_error_html: "Sincronizzazione con <strong>%{exchange}</strong> fallita: %{message}. Riprova."
+        capabilities:
+            transactions: "la tua cronologia delle transazioni"
+            balances: "i tuoi saldi"
         sync_failed_for: 'Sincronizzazione con %{exchanges} non riuscita. Alcune transazioni potrebbero mancare, quindi i report generati ora potrebbero essere incompleti.'
         pricing_warning_html: Saldi sincronizzati, ma i prezzi in USD non sono disponibili al momento (%{message}). Il grafico userà gli ultimi prezzi noti finché il servizio non sarà ripristinato.
         portfolio:

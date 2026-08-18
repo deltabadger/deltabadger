@@ -423,6 +423,12 @@ sk:
         welcome:
             connect_and_track: "Pripoj svoju burzu a začni sledovať svoje portfólio."
         sync_key_error_html: 'Synchronizácia s <strong>%{exchange}</strong> zlyhala: %{message}. Aktualizuj API kľúč nižšie.'
+        sync_permission_error_html: "<strong>%{exchange}</strong> sa nepodarilo synchronizovať: tento API kľúč nemá oprávnenie potrebné na čítanie %{capability}. Aktualizuj oprávnenia kľúča na %{exchange} alebo vytvor nový kľúč so všetkými oprávneniami z návodu."
+        sync_transient_error_html: "<strong>%{exchange}</strong> je dočasne nedostupná. Skús synchronizáciu znova o pár minút."
+        sync_generic_error_html: "Synchronizácia s <strong>%{exchange}</strong> zlyhala: %{message}. Skús to znova."
+        capabilities:
+            transactions: "tvojej histórie transakcií"
+            balances: "tvojich zostatkov"
         sync_failed_for: 'Synchronizácia s %{exchanges} zlyhala. Niektoré transakcie z týchto búrz môžu chýbať — prehľady vygenerované teraz preto nemusia byť úplné.'
         pricing_warning_html: Zostatky synchronizované, ale ceny v USD nie sú momentálne dostupné (%{message}). Graf použije posledné známe ceny, kým sa služba neobnoví.
         portfolio:

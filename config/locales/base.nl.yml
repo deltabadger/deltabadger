@@ -413,6 +413,12 @@ nl:
         welcome:
             connect_and_track: "Koppel je exchange en begin met het volgen van je portfolio."
         sync_key_error_html: 'Synchroniseren met <strong>%{exchange}</strong> mislukt: %{message}. Werk de API-sleutel hieronder bij.'
+        sync_permission_error_html: "<strong>%{exchange}</strong> kon niet synchroniseren: deze API-sleutel mist het recht dat nodig is om %{capability} te lezen. Werk de rechten van de sleutel bij op %{exchange}, of maak een nieuwe sleutel met alle rechten uit de instructies."
+        sync_transient_error_html: "<strong>%{exchange}</strong> is tijdelijk niet beschikbaar. Probeer over een paar minuten opnieuw te synchroniseren."
+        sync_generic_error_html: "Synchroniseren met <strong>%{exchange}</strong> mislukt: %{message}. Probeer het opnieuw."
+        capabilities:
+            transactions: "je transactiegeschiedenis"
+            balances: "je saldi"
         sync_failed_for: 'Synchronisatie met %{exchanges} is mislukt. Mogelijk ontbreken transacties van deze handelsplatformen — rapporten die nu worden aangemaakt, kunnen onvolledig zijn.'
         pricing_warning_html: Saldi gesynchroniseerd, maar USD-prijzen zijn nu niet beschikbaar (%{message}). De grafiek gebruikt de laatst bekende prijzen tot de prijsbepaling is hersteld.
         portfolio:

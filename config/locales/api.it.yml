@@ -59,7 +59,10 @@ it:
                                     -   text_html: '<b>Esegui query su ordini e trade aperti</b>'
                                     -   text_html: '<b>Esegui query su ordini e trade chiusi</b>'
                                     -   text_html: '<b>Crea e modifica ordini</b>'
-                                    -   text_html: '<b>Annulla e chiudi ordini</b><br><strong>⚠️ Importante:</strong> Le chiavi non funzioneranno se aggiungi più permessi.'
+                                    -   text_html: '<b>Annulla e chiudi ordini</b>'
+                            -   text_html: 'Dati:'
+                                sub_instructions:
+                                    -   text_html: '<b>Consulta voci del registro</b> (Query ledger entries) — necessario per il tracker di portafoglio.<br><strong>⚠️ Importante:</strong> Per sicurezza, attiva solo i permessi elencati sopra.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
                                     -   text_html: '🔘 Aggiungi %{whitelist_ip}.'

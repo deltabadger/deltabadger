@@ -1,5 +1,10 @@
 <div class="tag">
-  <%= api_key.exchange.name %>
+  <% if api_key_instructions?(api_key) %>
+    <%= link_to api_key.exchange.name, settings_api_key_permissions_path(id: api_key.id),
+                data: { turbo_frame: "modal" } %>
+  <% else %>
+    <%= api_key.exchange.name %>
+  <% end %>
   <%= link_to settings_confirm_destroy_api_key_path(id: api_key.id), data: { turbo_frame: "modal" } do %>
     <%= render 'svg/16x16_close' %>
   <% end %>

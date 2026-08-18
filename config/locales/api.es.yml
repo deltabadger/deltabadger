@@ -52,14 +52,17 @@ es:
                     -   text_html: 'Establece permisos para:'
                         sub_instructions:
                             -   text_html: 'Permisos de fondos:'
-                        sub_instructions:
-                            -   text_html: '<b>Consulta</b>'
+                                sub_instructions:
+                                    -   text_html: '<b>Consulta</b>'
                             -   text_html: 'Órdenes y Operaciones:'
                                 sub_instructions:
                                     -   text_html: '<b>Consultar Órdenes Abiertas y Operaciones</b>'
                                     -   text_html: '<b>Consultar Órdenes Cerradas y Operaciones</b>'
                                     -   text_html: '<b>Crear y modificar órdenes</b>'
-                                    -   text_html: '<b>Cancelar y cerrar órdenes</b><br><strong>⚠️ Importante:</strong> Las claves no funcionarán si añades más permisos.'
+                                    -   text_html: '<b>Cancelar y cerrar órdenes</b>'
+                            -   text_html: 'Datos:'
+                                sub_instructions:
+                                    -   text_html: '<b>Consultar entradas del libro mayor</b> (Query ledger entries) — necesario para el tracker de cartera.<br><strong>⚠️ Importante:</strong> Por seguridad, activa solo los permisos indicados arriba.'
                             -   text_html: 'Restricción de dirección IP:'
                                 sub_instructions:
                                     -   text_html: '🔘 Añade %{whitelist_ip}.'

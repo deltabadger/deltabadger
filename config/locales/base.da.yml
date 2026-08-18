@@ -416,6 +416,12 @@ da:
         welcome:
             connect_and_track: "Tilslut din børs og begynd at følge din portefølje."
         sync_key_error_html: 'Synkronisering med <strong>%{exchange}</strong> mislykkedes: %{message}. Opdatér API-nøglen nedenfor.'
+        sync_permission_error_html: "<strong>%{exchange}</strong> kunne ikke synkronisere: denne API-nøgle mangler den tilladelse, der skal til for at læse %{capability}. Opdatér nøglens tilladelser på %{exchange}, eller opret en ny nøgle med alle tilladelserne fra vejledningen."
+        sync_transient_error_html: "<strong>%{exchange}</strong> er midlertidigt utilgængelig. Prøv at synkronisere igen om et par minutter."
+        sync_generic_error_html: "Synkronisering med <strong>%{exchange}</strong> mislykkedes: %{message}. Prøv venligst igen."
+        capabilities:
+            transactions: "din transaktionshistorik"
+            balances: "dine saldi"
         sync_failed_for: 'Synkroniseringen med %{exchanges} mislykkedes. Der kan mangle transaktioner derfra — rapporter, der oprettes nu, kan derfor være ufuldstændige.'
         pricing_warning_html: Saldi synkroniseret, men USD-priser er ikke tilgængelige lige nu (%{message}). Diagrammet bruger de sidst kendte priser, indtil prissætningen er genoprettet.
         portfolio:
