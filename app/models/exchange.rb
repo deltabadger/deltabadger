@@ -3,8 +3,9 @@ class Exchange < ApplicationRecord
   # lookback over daily candles is only a handful of windows) so a misbehaving API or an
   # advance bug can never spin forever.
   MAX_CANDLE_PAGES = 1000
-  # "We do not accept these credentials", in the one status every venue agrees on. See
-  # #invalid_key_error?; Exchanges::Ibkr opts out via #ambiguous_unauthorized?.
+  # "We do not accept these credentials", in the one status every venue agrees on. It SURFACES a
+  # credential failure (#invalid_key_error?) but never condemns a stored key on its own
+  # (#condemning_invalid_key_error?). Exchanges::Ibkr opts out entirely via #ambiguous_unauthorized?.
   UNAUTHORIZED_STATUS = 401
 
   STABLE_TYPES = %w[Exchanges::Binance Exchanges::BinanceUs Exchanges::Coinbase Exchanges::Kraken].freeze
@@ -245,12 +246,19 @@ class Exchange < ApplicationRecord
   # Used by sync jobs to decide whether to flip an API key's status to :incorrect
   # when a live call (get_balances, get_ledger, etc.) fails.
   def invalid_key_error?(errors, status: nil)
-    # HTTP 401 is the one vocabulary every venue shares for "these credentials are not accepted",
-    # and it is what makes this classifiable WITHOUT inventing message substrings. Alpaca and
-    # Coinbase carry no usable string at all, so their revoked keys could never be condemned — the
-    # status closes that for all of them at once. Honeymaker::Client#with_rescue and Clients::Alpaca
-    # both already attach it; venues that answer over HTTP 200 (Kraken's EAPI:Invalid key) still
-    # need the strings below, which is why this is an addition and not a replacement.
+    # HTTP 401 is the one vocabulary every venue shares for "these credentials are not accepted", and
+    # it is the only signal some venues give: Coinbase carries no usable message string at all, so
+    # without it a rejected Coinbase key produces a domain-shaped lie downstream and nothing else.
+    # Honeymaker::Client#with_rescue and Clients::Alpaca both attach it; venues that reject over
+    # HTTP 200 (Kraken's EAPI:Invalid key) still need the strings below, so this is an addition.
+    #
+    # SURFACING ONLY. A bare 401 is deliberately NOT enough to condemn a stored key — see
+    # #condemning_invalid_key_error?. Coinbase signs each request with a two-minute JWT built from
+    # local time, so clock skew rejects a perfectly good key; our own authenticated exchange proxy
+    # answers a wrong password with 401 as well. Saying "the venue rejected our credentials" in a bot
+    # error is reversible and self-correcting when either of those is the real cause. Flipping the
+    # key to :incorrect is not: it drops the key from every :correct-scoped sync until the user
+    # pastes new credentials that were never the problem.
     return true if status == UNAUTHORIZED_STATUS && !ambiguous_unauthorized?
 
     invalid_messages = (known_errors[:invalid_key] || []).map(&:to_s)
@@ -281,6 +289,15 @@ class Exchange < ApplicationRecord
   # or an error we raised ourselves.
   def http_status(result)
     result.data[:status] if result.data.is_a?(Hash)
+  end
+
+  # Enough to CONDEMN the stored key — persistent, and only the user can undo it. Deliberately
+  # narrower than #invalid_key_error?: the venue's own words, never a bare status. Every 401 we
+  # cannot attribute (Coinbase's JWT clock skew, a proxy rejecting its own credential, a WAF) would
+  # otherwise strand a user whose key is fine, and "replace your API key" is advice they cannot act
+  # on. Alpaca's two observed rejection bodies are listed as strings for exactly this reason.
+  def condemning_invalid_key_error?(errors)
+    invalid_key_error?(errors)
   end
 
   # Does a 401 from this venue mean anything OTHER than "your key is no longer valid"? Only where
