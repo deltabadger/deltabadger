@@ -251,6 +251,18 @@ class Exchange < ApplicationRecord
     end
   end
 
+  # Raise on a credential rejection, wherever a failed call would otherwise be flattened into a
+  # benign answer — "no price", "market state unknown". Those flattenings are right for a pair with
+  # no liquidity or a clock blip; for a rejected key they are a lie that hides the one thing the
+  # user has to act on, and they hid it for six weeks. Single phrase, single place: the venue's own
+  # text can be as bare as "HTTP 401", so the exchange is named here. The localized, actionable copy
+  # stays the tracker's sync-key banner, which the same classification drives.
+  def raise_on_invalid_key!(errors)
+    return unless invalid_key_error?(errors)
+
+    raise "#{name} rejected the API key: #{Array(errors).to_sentence}"
+  end
+
   # Heuristic: do the given errors say the credentials are fine but lack a SCOPE the call needed
   # (e.g. Kraken's "EGeneral:Permission denied" on Ledgers when the key has no Query Ledger
   # Entries)? Deliberately separate from invalid_key_error?: the key is valid and may be trading
