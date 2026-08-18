@@ -45,6 +45,16 @@ module Automation::Schedulable
     )
   end
 
+  # Does a live ActionJob exist for this record in ANY active Solid Queue state?
+  #
+  # Broader than `next_action_job_at`, which only ever sees a SCHEDULED execution: a job that is due
+  # now (ready), one a worker has already claimed, and one blocked on the per-exchange concurrency
+  # semaphore all report nil there while being very much alive. Bot::RepairOrphanedBotsJob asks this
+  # instead, so it stops "repairing" bots that are mid-tick and enqueueing a second job for the tick.
+  def pending_action_job?
+    active_job?(job_class: action_job_config[:class], record: self)
+  end
+
   def next_interval_checkpoint_at
     return Time.current if effective_interval_duration.zero?
 
@@ -149,8 +159,8 @@ module Automation::Schedulable
 
   # True if a job of job_class for `record` exists in ANY active Solid Queue execution state
   # (Scheduled / Ready / Claimed / Blocked). Excludes FailedExecution by design — a dead-lettered
-  # job is NOT a live chain. Used by limit-check recovery to avoid double-enqueuing.
-  def active_limit_check_job?(job_class:, record:)
+  # job is NOT a live chain. Used by limit-check and orphan recovery to avoid double-enqueuing.
+  def active_job?(job_class:, record:)
     return false unless defined?(SolidQueue)
 
     global_id = record.to_global_id.to_s

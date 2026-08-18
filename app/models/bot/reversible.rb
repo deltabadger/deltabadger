@@ -126,7 +126,7 @@ module Bot::Reversible
   #       stale state — this catches the window where the worker has claimed the job but not
   #       yet flipped status to :executing, which a status-only check would miss;
   #   (b) a claimed Bot::*LimitCheckJob could enqueue an ActionJob that races the fresh one.
-  # Claimed-only (narrower than active_limit_check_job?, which also counts merely-scheduled
+  # Claimed-only (narrower than active_job?, which also counts merely-scheduled
   # jobs and would over-block the common limit-paused case).
   def flip_blocked_by_inflight_job?
     return false unless defined?(SolidQueue)

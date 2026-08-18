@@ -23,7 +23,7 @@ class Bot::RepairOrphanedBotsJobTest < ActiveSupport::TestCase
       id: 1,
       class: Bots::DcaSingleAsset,
       exchange: exchange,
-      next_action_job_at: nil,
+      pending_action_job?: false,
       next_interval_checkpoint_at: 1.hour.from_now,
       cancel_scheduled_action_jobs: true
     )
@@ -44,7 +44,7 @@ class Bot::RepairOrphanedBotsJobTest < ActiveSupport::TestCase
       id: 1,
       class: Bots::DcaSingleAsset,
       exchange: exchange,
-      next_action_job_at: nil,
+      pending_action_job?: false,
       next_interval_checkpoint_at: 1.hour.from_now,
       cancel_scheduled_action_jobs: true
     )
@@ -68,7 +68,7 @@ class Bot::RepairOrphanedBotsJobTest < ActiveSupport::TestCase
       id: 1,
       class: Bots::DcaSingleAsset,
       exchange: exchange,
-      next_action_job_at: nil,
+      pending_action_job?: false,
       next_interval_checkpoint_at: 1.hour.from_now
     )
     job_setter = stub('ConfiguredJob', perform_later: true)
@@ -87,7 +87,7 @@ class Bot::RepairOrphanedBotsJobTest < ActiveSupport::TestCase
       'Bots::DcaSingleAsset',
       id: 1,
       exchange: exchange,
-      next_action_job_at: 1.hour.from_now
+      pending_action_job?: true
     )
 
     Bot.stubs(:where).with(status: %i[scheduled retrying]).returns([bot])
@@ -116,7 +116,7 @@ class Bot::RepairOrphanedBotsJobTest < ActiveSupport::TestCase
       id: 1,
       class: Bots::DcaSingleAsset,
       exchange: exchange,
-      next_action_job_at: nil,
+      pending_action_job?: false,
       next_interval_checkpoint_at: 1.hour.from_now
     )
     bot2 = stub(
@@ -124,7 +124,7 @@ class Bot::RepairOrphanedBotsJobTest < ActiveSupport::TestCase
       id: 2,
       class: Bots::DcaSingleAsset,
       exchange: exchange,
-      next_action_job_at: nil,
+      pending_action_job?: false,
       next_interval_checkpoint_at: 2.hours.from_now,
       cancel_scheduled_action_jobs: true
     )
@@ -189,6 +189,39 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
   test 'does not repair single asset bot that already has a scheduled job' do
     bot = create(:dca_single_asset, :started, status: :scheduled)
     Bot::ActionJob.set(wait_until: 1.hour.from_now).perform_later(bot)
+    initial_job_count = SolidQueue::Job.where(class_name: 'Bot::ActionJob').count
+
+    Bot::RepairOrphanedBotsJob.perform_now
+
+    assert_equal initial_job_count, SolidQueue::Job.where(class_name: 'Bot::ActionJob').count
+  end
+
+  # Only a SCHEDULED execution carries a scheduled_at, so `next_action_job_at` reads nil for a job
+  # that is due now and waiting for a worker, one a worker has already claimed, and one blocked on
+  # the per-exchange concurrency semaphore. None of those bots is orphaned: each already owns a live
+  # job, and enqueueing a second one puts two ActionJobs on the same tick — the duplicate then dies
+  # on ActionJob's "already has an action job scheduled" guard.
+  test 'does not repair a bot whose ActionJob is queued and waiting for a worker' do
+    bot = create(:dca_single_asset, :started, status: :scheduled)
+    Bot::ActionJob.perform_later(bot)
+    assert_nil bot.next_action_job_at, 'a ready job has no scheduled_at — that is the trap'
+    live_job = SolidQueue::Job.find_by!(class_name: 'Bot::ActionJob')
+
+    Bot::RepairOrphanedBotsJob.perform_now
+
+    assert SolidQueue::Job.exists?(live_job.id),
+           'the due job was cancelled and replaced, delaying a tick that was about to run'
+    assert_equal 1, SolidQueue::Job.where(class_name: 'Bot::ActionJob').count
+  end
+
+  test 'does not repair a bot whose ActionJob a worker has already claimed' do
+    bot = create(:dca_single_asset, :started, status: :scheduled)
+    Bot::ActionJob.perform_later(bot)
+    process = SolidQueue::Process.create!(kind: 'Worker', pid: 42, name: 'test-worker',
+                                          last_heartbeat_at: Time.current)
+    SolidQueue::ReadyExecution.claim('*', 10, process.id)
+    assert_equal 1, SolidQueue::ClaimedExecution.count, 'test setup: the job must be claimed'
+    assert_nil bot.next_action_job_at
     initial_job_count = SolidQueue::Job.where(class_name: 'Bot::ActionJob').count
 
     Bot::RepairOrphanedBotsJob.perform_now

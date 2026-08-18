@@ -54,7 +54,7 @@ module Bot::LimitCheckable
     klass = live_limit_check_job_class
     return false unless klass
 
-    active_limit_check_job?(job_class: klass.name, record: self)
+    active_job?(job_class: klass.name, record: self)
   end
 
   # Re-enqueue the live check job at its type-specific next check time. No-op if no paused type.

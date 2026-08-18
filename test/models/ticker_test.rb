@@ -20,6 +20,18 @@ class TickerTest < ActiveSupport::TestCase
     assert_not @ticker.priced?(:last)
   end
 
+  # A rejected API key makes EVERY ticker on the exchange look unpriced, so a caller that only sees
+  # `false` reports a domain-shaped lie ("No matching coins found for the index") while the real
+  # fault is the credentials. Auth failures must escape, the way transient ones already do.
+  test 'priced? raises when the price lookup fails because the key is rejected' do
+    @ticker.stubs(:get_last_price).returns(Result::Failure.new('EAPI:Invalid key'))
+
+    error = assert_raises(RuntimeError) { @ticker.priced?(:last) }
+    assert_match 'EAPI:Invalid key', error.message
+    assert_match 'rejected the API key', error.message,
+                 'the venue text can be as bare as "HTTP 401" — the message must name what happened'
+  end
+
   test 'priced? returns false when last price is zero' do
     stub_ticker_last_price(@ticker, price: BigDecimal('0'))
     assert_not @ticker.priced?(:last)
