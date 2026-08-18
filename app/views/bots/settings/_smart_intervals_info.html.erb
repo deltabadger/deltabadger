@@ -1,4 +1,4 @@
-<% if bot.selling? %>
+<% if bot.sells_base_amount? %>
   <% if bot.smart_intervaled? && bot.smart_interval_base_amount&.to_d&.positive? && bot.sell_amount&.positive? %>
     <small id="<%= bot.new_record? ? "new-settings-smart-intervals-info" : "settings-smart-intervals-info" %>" class="small-info">
       <%= t("bot.settings.smart_intervals.sell_info",

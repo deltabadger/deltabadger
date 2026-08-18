@@ -15,15 +15,28 @@ module Bots::DcaSingleAsset::OrderSetter
     )
 
     if side == :sell
-      sellable = sellable_base_amount
+      # A quote-denominated sell is sized in quote, so it needs the price BEFORE it can know how much
+      # base to sell — and it must be the same price the order is placed at, or "sell for 100 USD"
+      # would not deliver 100 USD (most visibly for limit orders, priced off the last trade rather
+      # than the bid). Base-denominated sells keep the original shape: an unconfigured amount or an
+      # exhausted cap still makes no exchange call at all.
+      price = nil
+      if sells_quote_amount? && effective_sell_quote_amount.positive?
+        price_result = fetch_order_price(:sell)
+        return price_result if price_result.failure?
+
+        price = price_result.data
+      end
+
+      sellable = sellable_base_amount(price: price)
       if sellable.zero?
         # Genuinely nothing to sell (a balance-read FAILURE raises instead of reaching here). Log the
         # reason so a permanently-idle selling bot is greppable in healthcheck-logs.
-        Rails.logger.info("set_order bot=#{id} event=sell_skipped reason=#{sell_skip_reason}")
+        Rails.logger.info("set_order bot=#{id} event=sell_skipped reason=#{sell_skip_reason(price: price)}")
         return Result::Success.new # nothing to sell yet — skip, keep running
       end
 
-      result = get_order_data(side: :sell, base_amount: sellable)
+      result = get_order_data(side: :sell, base_amount: sellable, price: price)
     else
       validate_order_amount!(order_amount_in_quote)
       return Result::Success.new if order_amount_in_quote.zero?
@@ -78,7 +91,27 @@ module Bots::DcaSingleAsset::OrderSetter
     raise 'Order quote_amount must be positive' if order_amount_in_quote.negative?
   end
 
-  def get_order_data(side:, order_amount_in_quote: nil, base_amount: nil)
+  def get_order_data(side:, order_amount_in_quote: nil, base_amount: nil, price: nil)
+    if price.nil?
+      result = fetch_order_price(side)
+      return result if result.failure?
+
+      price = result.data
+    end
+
+    order_data = calculate_order_data(
+      side: side,
+      price: price,
+      order_amount_in_quote: order_amount_in_quote,
+      base_amount: base_amount,
+      order_type: limit_ordered? ? :limit_order : :market_order
+    )
+    Result::Success.new(order_data)
+  end
+
+  # The price the order will actually be placed at: the reference price plus the limit-order
+  # adjustment. Extracted so a quote-denominated sell can size itself off the very same value.
+  def fetch_order_price(side)
     result = reference_price(side)
     if result.failure?
       # A transient/throttle price read must retry via Bot::ActionJob's typed-error chain, not leave
@@ -92,14 +125,7 @@ module Bots::DcaSingleAsset::OrderSetter
       return result
     end
 
-    order_data = calculate_order_data(
-      side: side,
-      price: order_price(side, result.data),
-      order_amount_in_quote: order_amount_in_quote,
-      base_amount: base_amount,
-      order_type: limit_ordered? ? :limit_order : :market_order
-    )
-    Result::Success.new(order_data)
+    Result::Success.new(order_price(side, result.data))
   end
 
   # Market price tracks the side of the spread we cross: buys take the ask, sells take the bid.
@@ -141,8 +167,8 @@ module Bots::DcaSingleAsset::OrderSetter
   # The bot only sells what it accumulated and only as much as is actually free on the exchange:
   # min(per-tick desired, net executed holdings, live free base balance, remaining cap allowance).
   # Below the exchange minimum it flows through the existing below-minimum skip path. Never oversell.
-  def sellable_base_amount
-    desired = effective_base_amount
+  def sellable_base_amount(price: nil)
+    desired = effective_base_amount(price: price)
     return 0.to_d if desired <= 0
 
     # A selling bot may liquidate the WHOLE wallet, not just what it accumulated, so net holdings
@@ -157,12 +183,30 @@ module Bots::DcaSingleAsset::OrderSetter
     [cap, live_free_base_balance].min
   end
 
-  # The per-tick sell size: while Smart Intervals is on, the base split; otherwise the full
+  # The per-tick sell size in BASE. Quote-denominated: the configured quote amount converted at the
+  # order price. Base-denominated: the base split while Smart Intervals is on, else the full
   # configured sell amount. (Quote-side splitting is the buy-only effective_quote_amount.)
-  def effective_base_amount
-    return smart_interval_base_amount.to_d if selling? && smart_intervaled? && smart_interval_base_amount.present?
+  def effective_base_amount(price: nil)
+    if sells_quote_amount?
+      return 0.to_d if price.nil? || price <= 0
+
+      return effective_sell_quote_amount / price
+    end
+
+    # The split only subdivides a sell amount that still exists — without the sell_amount guard a
+    # bot whose sell sentence was cleared would keep selling the stale split.
+    if sells_base_amount? && smart_intervaled? && smart_interval_base_amount.present? &&
+       sell_amount.present? && sell_amount.positive?
+      return smart_interval_base_amount.to_d
+    end
 
     sell_amount || 0
+  end
+
+  # The per-tick sell size in QUOTE. No smart split: Smart Intervals is not offered in this mode
+  # (see Bot::Reversible#effective_interval_duration).
+  def effective_sell_quote_amount
+    sell_quote_amount || 0
   end
 
   # The live free base balance. A failed read must NOT be coerced to 0 — that would make a transient
@@ -183,8 +227,8 @@ module Bots::DcaSingleAsset::OrderSetter
 
   # Why a sell tick found nothing to sell — for healthcheck-logs observability (NOT a balance failure,
   # which raises before we get here).
-  def sell_skip_reason
-    return 'unconfigured_sell_amount' if effective_base_amount <= 0
+  def sell_skip_reason(price: nil)
+    return 'unconfigured_sell_amount' if effective_base_amount(price: price) <= 0
     return 'cap_reached' if base_amount_limited? && base_amount_available_before_limit_reached <= 0
 
     'no_holdings'

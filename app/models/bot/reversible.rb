@@ -2,14 +2,19 @@ module Bot::Reversible
   extend ActiveSupport::Concern
 
   DIRECTIONS = %w[buying selling].freeze
+  # How a sell tick is sized: a fixed amount of base ("Sell 0.01 BTC / Day to USD") or a fixed
+  # amount of quote ("Sell BTC for 100 USD / Day").
+  SELL_DENOMINATIONS = %w[base quote].freeze
 
   included do
-    store_accessor :settings, :direction, :sell_amount, :sell_interval
+    store_accessor :settings, :direction, :sell_amount, :sell_interval, :sell_denomination, :sell_quote_amount
 
     validates :direction, inclusion: { in: DIRECTIONS }, allow_nil: true
+    validates :sell_denomination, inclusion: { in: SELL_DENOMINATIONS }, allow_nil: true
     # Blank stays valid (sell sentence not filled yet — a no-op skip); reject negative/garbage so a
     # bad value can't silently disable selling.
     validates :sell_amount, numericality: { greater_than: 0 }, allow_nil: true
+    validates :sell_quote_amount, numericality: { greater_than: 0 }, allow_nil: true
     # The reader falls back to a valid buy interval, so this validates the effective value and
     # rejects only a corrupted stored value (which would crash scheduling on the flip).
     validates :sell_interval, inclusion: { in: Automation::Schedulable::INTERVALS.keys }
@@ -24,7 +29,12 @@ module Bot::Reversible
         return super unless selling?
 
         base_duration = Automation::Schedulable::INTERVALS[sell_interval] || super
-        if smart_intervaled? && smart_interval_base_amount.present? && sell_amount.present? && sell_amount.positive?
+        # ponytail: Smart Intervals only subdivides a BASE-denominated sell. Quote-denominated
+        # selling would need its own quote split (the buy-side one belongs to the buy sentence and
+        # is validated against it), so the rule is simply not offered in that mode — see the
+        # settings partial. Add a dedicated smart_interval_sell_quote_amount if it's ever wanted.
+        if sells_base_amount? && smart_intervaled? && smart_interval_base_amount.present? &&
+           sell_amount.present? && sell_amount.positive?
           # .seconds re-conversion required (see SmartIntervalable) so Time + duration keeps working.
           return (base_duration / (sell_amount / smart_interval_base_amount.to_f)).seconds
         end
@@ -38,7 +48,10 @@ module Bot::Reversible
       # did not submit the field leaves it untouched.
       def parse_params(params)
         result = super
-        result[:sell_amount] = params[:sell_amount].presence&.to_f if params.respond_to?(:key?) && params.key?(:sell_amount)
+        return result unless params.respond_to?(:key?)
+
+        result[:sell_amount] = params[:sell_amount].presence&.to_f if params.key?(:sell_amount)
+        result[:sell_quote_amount] = params[:sell_quote_amount].presence&.to_f if params.key?(:sell_quote_amount)
         result
       end
     end)
@@ -65,6 +78,27 @@ module Bot::Reversible
     value.presence&.to_d
   end
 
+  # Same reader-fallback rule as `direction`: an existing row has no key, and reading the default
+  # must not dirty settings.
+  def sell_denomination
+    super.presence || 'base'
+  end
+
+  # The quote-denominated sell size ("Sell BTC for N USD"). Blank until the user fills that
+  # sentence, exactly like sell_amount.
+  def sell_quote_amount
+    value = super
+    value.presence&.to_d
+  end
+
+  def sells_base_amount?
+    selling? && sell_denomination == 'base'
+  end
+
+  def sells_quote_amount?
+    selling? && sell_denomination == 'quote'
+  end
+
   def buying?
     direction == 'buying'
   end
@@ -75,6 +109,23 @@ module Bot::Reversible
 
   def reversible?
     true
+  end
+
+  # The manual ⇄ control rotates through THREE states rather than flipping between two:
+  #   buying → selling (N base) → selling (for N quote) → buying
+  # Only the controller calls this. Trigger flips call flip_direction! directly, which leaves
+  # sell_denomination alone so an automated flip preserves the sell mode the user configured.
+  # Returning to buying resets the denomination so the cycle is fully determined by the icon.
+  def rotate_direction!
+    if buying?
+      flip_direction!(to_direction: 'selling', to_denomination: 'base')
+    elsif sells_base_amount?
+      # Not a direction change, but the open sell was sized under the old basis — run the full
+      # mechanism so it is cancelled and the cadence re-anchored.
+      flip_direction!(to_direction: 'selling', to_denomination: 'quote')
+    else
+      flip_direction!(to_direction: 'buying', to_denomination: 'base')
+    end
   end
 
   # The single choke point for both the manual ⇄ flip and (later) the trigger flips.
@@ -94,7 +145,10 @@ module Bot::Reversible
   #   3. Re-broadcast via Bot::BroadcastAfterScheduledActionJob.
   # Pure mechanism — the manual path (controller) gates on flip_blocked_by_inflight_job? first;
   # trigger flips (M5) call this directly from inside the running (working) ActionJob.
-  def flip_direction!
+  #
+  # to_direction / to_denomination let the manual rotation name its target explicitly; both nil
+  # (the trigger path) means "flip the direction, leave the denomination alone".
+  def flip_direction!(to_direction: nil, to_denomination: nil)
     leaving_buy_side = buying?
     set_missed_quote_amount
     cancelled_buy_reserve = cancel_unfilled_orders
@@ -104,15 +158,17 @@ module Bot::Reversible
     if leaving_buy_side && cancelled_buy_reserve.positive?
       self.missed_quote_amount = [missed_quote_amount + cancelled_buy_reserve, effective_quote_amount].min
     end
-    flipped = (selling? ? 'buying' : 'selling')
+    clamp_smart_interval_splits
+    attrs = { direction: to_direction || (selling? ? 'buying' : 'selling') }
+    attrs[:sell_denomination] = to_denomination if to_denomination
 
     unless working?
-      update!(direction: flipped)
+      update!(**attrs)
       reset_trigger_condition_timestamps
       return
     end
 
-    update!(direction: flipped, status: :scheduled, started_at: Time.current)
+    update!(**attrs, status: :scheduled, started_at: Time.current)
     cancel_scheduled_action_jobs
     cancel_scheduled_limit_check_jobs
     reset_trigger_condition_timestamps
@@ -167,6 +223,25 @@ module Bot::Reversible
                    level: :warning, details: { order_id: order.external_id })
     end
     cancelled_buy_reserve
+  end
+
+  # Each smart-interval split is validated only while ITS side is active (the quote split while
+  # buying, the base split while selling), so the inactive one can drift below its minimum — raise
+  # the buy amount through the API while the bot sells and the stored quote split is suddenly too
+  # small. Entering that side would then make the update! above raise RecordInvalid and 500 the
+  # flip, so clamp instead. Runs after set_missed_quote_amount, which satisfies the Accountable
+  # guard for the settings write. .to_f because a BigDecimal serialises into the JSON settings
+  # column as a String, which breaks the Float division in effective_interval_duration.
+  def clamp_smart_interval_splits
+    return unless smart_intervaled?
+
+    minimum_quote = minimum_smart_interval_quote_amount.to_d
+    self.smart_interval_quote_amount = minimum_quote.to_f if smart_interval_quote_amount.to_d < minimum_quote
+
+    minimum_base = minimum_smart_interval_base_amount.to_d
+    return unless sell_amount.present? && smart_interval_base_amount.to_d < minimum_base
+
+    self.smart_interval_base_amount = minimum_base.to_f
   end
 
   # Parity with validate_unchangeable_interval: the sell cadence is fixed while it is the
