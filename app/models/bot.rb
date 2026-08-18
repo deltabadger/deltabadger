@@ -40,6 +40,16 @@ class Bot < ApplicationRecord
     []
   end
 
+  # Mark a metrics payload that had to fall back to the last executed transaction price because the
+  # live read failed. Every bot type does that fallback — it is better than a blank page — but the
+  # view then renders a carried-over number as "Portfolio value" with nothing to distinguish it from
+  # a live one, and with a rejected key it simply stops moving for weeks. The flag drives the
+  # already-translated `bot.details.stats.exchange_unavailable_html` notice.
+  def stale(metrics_data)
+    metrics_data[:prices_stale] = true
+    metrics_data
+  end
+
   def last_transaction
     transactions.where(transaction_type: 'REGULAR').order(created_at: :desc).limit(1).last
   end
