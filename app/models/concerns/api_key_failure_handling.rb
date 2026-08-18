@@ -23,7 +23,7 @@ module ApiKeyFailureHandling
 
     Rails.logger.warn("[SyncKeyFailure] #{exchange.name} api_key=#{api_key.id}: #{message}")
 
-    reason = failure_reason(exchange, errors, status: exchange.http_status(result))
+    reason = failure_reason(exchange, errors)
     api_key.update!(status: :incorrect) if reason == :invalid
 
     # Both the wrapper copy and humanize_error resolve I18n immediately, so both belong inside
@@ -42,9 +42,11 @@ module ApiKeyFailureHandling
 
   private
 
-  def failure_reason(exchange, errors, status: nil)
+  # The status is deliberately NOT consulted here — only #condemning_invalid_key_error? decides what
+  # may flip a key to :incorrect, and it wants the venue's own words. See Exchange#invalid_key_error?.
+  def failure_reason(exchange, errors)
     return :permission if exchange.permission_error?(errors)
-    return :invalid if exchange.invalid_key_error?(errors, status: status)
+    return :invalid if exchange.condemning_invalid_key_error?(errors)
     return :transient if exchange.transient_error?(errors)
 
     :failed
