@@ -530,10 +530,18 @@ class Exchanges::Alpaca < Exchange
     api_key.passphrase != 'live'
   end
 
+  # nil means "could not ask", which #market_open? deliberately reads as open — a clock blip must not
+  # pause everyone's trading. A rejected key is NOT that: it fails every tick forever, so fail-open
+  # turned a dead key into "the market is open" at 04:00 UTC and sent the bot on to work that could
+  # only fail. Raise it here, at the first call the job makes, instead of somewhere downstream that
+  # cannot tell why nothing has a price. Nothing is cached on either path.
   def get_clock_cached
     Rails.cache.fetch("exchange_#{id}_clock", expires_in: 1.minute) do
       result = client.get_clock
-      return nil if result.failure?
+      if result.failure?
+        raise_on_invalid_key!(result.errors)
+        return nil
+      end
 
       result.data
     end

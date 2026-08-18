@@ -62,6 +62,25 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_predicate @exchange, :market_open?
   end
 
+  # The fail-open above is deliberate for a BLIP — but a rejected key fails the clock call on every
+  # tick forever, and "we could not ask" then became "the market is open", so a bot woke at 04:00
+  # UTC, ran a full index refresh against a dead key and blamed the index. A credential failure is
+  # not an unknown: it is a definite answer, and the bot must fail on it here, before any trading
+  # work, rather than at some later call that has no idea why nothing has a price.
+  test 'market_open? raises instead of failing open when the clock call is rejected as unauthorized' do
+    Clients::Alpaca.any_instance.stubs(:get_clock).returns(Result::Failure.new('HTTP 401'))
+
+    error = assert_raises(RuntimeError) { @exchange.market_open? }
+    assert_match 'rejected the API key', error.message
+    assert_match 'HTTP 401', error.message
+  end
+
+  test 'next_market_open_at raises on a rejected key rather than returning Time.current' do
+    Clients::Alpaca.any_instance.stubs(:get_clock).returns(Result::Failure.new('unauthorized.'))
+
+    assert_raises(RuntimeError) { @exchange.next_market_open_at }
+  end
+
   test 'set_client defaults to paper mode when passphrase is nil' do
     api_key = stub(key: 'test_key', secret: 'test_secret', passphrase: nil)
     @exchange.set_client(api_key: api_key)
