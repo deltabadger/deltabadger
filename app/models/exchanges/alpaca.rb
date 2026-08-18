@@ -1,6 +1,13 @@
 class Exchanges::Alpaca < Exchange
   ERRORS = {
-    insufficient_funds: ['insufficient buying power']
+    insufficient_funds: ['insufficient buying power'],
+    # A rejected key arrives in two shapes: the trading host's JSON body {"message":"unauthorized."}
+    # and, when the market-data host answers with an HTML error page, Clients::Alpaca's "HTTP 401"
+    # fallback. Both had to be listed for the key to be condemnable at all — Exchange#invalid_key_error?
+    # returns false on an empty :invalid_key list, so before this a revoked key kept reading `correct`
+    # in the tracker while every call on it 401'd. Matched as substrings, so the trailing period on
+    # Alpaca's message is not load-bearing.
+    invalid_key: ['unauthorized', 'HTTP 401']
   }.freeze
 
   # Alpaca's tradable crypto universe (30+ assets as of 2026-07, growing) mapped to the

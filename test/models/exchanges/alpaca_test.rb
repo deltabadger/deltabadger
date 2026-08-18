@@ -669,4 +669,22 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
 
     assert_predicate result, :failure?
   end
+
+  # == invalid-key classification ==
+  #
+  # A rejected Alpaca key arrives in two shapes: the JSON body {"message":"unauthorized."} from the
+  # trading host, and Clients::Alpaca's "HTTP <status>" fallback when the market-data host answers
+  # with an HTML error page. With no :invalid_key list at all, Exchange#invalid_key_error? early
+  # returns false, so nothing ever condemns the key and the tracker keeps showing it as correct.
+  test 'invalid_key_error? recognises the JSON unauthorized body' do
+    assert @exchange.invalid_key_error?(['unauthorized.'])
+  end
+
+  test 'invalid_key_error? recognises an HTML 401 from the market-data host' do
+    assert @exchange.invalid_key_error?(['HTTP 401'])
+  end
+
+  test 'invalid_key_error? ignores a failure that is not about credentials' do
+    assert_not @exchange.invalid_key_error?(['insufficient buying power'])
+  end
 end

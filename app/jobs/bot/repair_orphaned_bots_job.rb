@@ -38,9 +38,14 @@ class Bot::RepairOrphanedBotsJob < ApplicationJob
     end
   end
 
+  # `pending_action_job?`, not `next_action_job_at.nil?`: only a SCHEDULED execution carries a
+  # scheduled_at, so a bot whose ActionJob is running right now (claimed), due now (ready), or
+  # queued behind the per-exchange concurrency semaphore (blocked) read as orphaned — and got a
+  # SECOND job for the same tick, since cancel_scheduled_action_jobs cannot cancel a claimed one.
+  # The duplicate then died on ActionJob's "already has an action job scheduled" guard.
   def find_orphaned_bots
     Bot.where(status: %i[scheduled retrying]).select do |bot|
-      bot.exchange.present? && bot.next_action_job_at.nil?
+      bot.exchange.present? && !bot.pending_action_job?
     end
   end
 
