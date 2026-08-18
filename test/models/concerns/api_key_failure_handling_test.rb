@@ -72,6 +72,45 @@ class ApiKeyFailureHandlingTest < ActiveSupport::TestCase
     assert_equal :en, I18n.locale, 'the wrapper must not leak the user locale into the caller'
   end
 
+  # Alpaca and Coinbase carry no usable invalid-key STRING, and invalid_key_error? returns false on
+  # an empty list — so a revoked key on either could never be condemned and kept reading `correct`
+  # while every call 401'd. HTTP 401 is the one vocabulary every venue shares, and both
+  # Honeymaker::Client#with_rescue and Clients::Alpaca already attach it to every failure.
+  test 'a 401 condemns the key on a venue that has no invalid-key strings' do
+    coinbase = create(:coinbase_exchange)
+    key = create(:api_key, user: @user, exchange: coinbase)
+    Turbo::StreamsChannel.stubs(:broadcast_append_to)
+
+    @host.handle_api_key_failure(key, Result::Failure.new('Unauthorized', data: { status: 401 }),
+                                 capability: :balances)
+
+    assert_equal 'incorrect', key.reload.status
+  end
+
+  test 'a 403 is a permission problem, not a rejected key, and leaves the key usable' do
+    coinbase = create(:coinbase_exchange)
+    key = create(:api_key, user: @user, exchange: coinbase)
+    Turbo::StreamsChannel.stubs(:broadcast_append_to)
+
+    @host.handle_api_key_failure(key, Result::Failure.new('Forbidden', data: { status: 403 }),
+                                 capability: :balances)
+
+    assert_equal 'correct', key.reload.status
+  end
+
+  # IBKR answers a competing login with the same 401 as a revoked key. Condemning on that would
+  # strand a user whose credentials are fine, so IBKR opts out and keeps its own transient handling.
+  test 'IBKR is exempt from the 401 rule because its 401 is ambiguous' do
+    ibkr = create(:ibkr_exchange)
+    key = create(:api_key, user: @user, exchange: ibkr)
+    Turbo::StreamsChannel.stubs(:broadcast_append_to)
+
+    @host.handle_api_key_failure(key, Result::Failure.new('not authenticated', data: { status: 401 }),
+                                 capability: :balances)
+
+    assert_equal 'correct', key.reload.status
+  end
+
   test 'nothing is broadcast for a successful result' do
     Turbo::StreamsChannel.expects(:broadcast_append_to).never
 

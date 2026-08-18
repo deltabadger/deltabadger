@@ -11,7 +11,7 @@ class ListOpenOrdersTool < ApplicationMCPTool
     result = BotApi::Orders::ListOpen.call(user: current_user, exchange_name: exchange_name)
     return render(text: result.error_message) unless result.success?
 
-    if result.data[:count].zero?
+    if result.data[:count].zero? && result.data[:unavailable].blank?
       render text: 'No open orders found.'
       return
     end
@@ -25,7 +25,15 @@ class ListOpenOrdersTool < ApplicationMCPTool
     lines = data[:orders].map do |order|
       order[:source] == 'db' ? db_line(order) : exchange_line(order)
     end
-    "Open orders (#{data[:count]}):\n#{lines.join("\n")}"
+    header = data[:count].zero? ? 'No open orders found on the exchanges that answered.' : "Open orders (#{data[:count]}):"
+    ([header] + lines + unavailable_lines(data)).join("\n")
+  end
+
+  # Never silently. An exchange we could not ask is not an exchange with nothing on it.
+  def unavailable_lines(data)
+    Array(data[:unavailable]).map do |entry|
+      "! #{entry[:exchange]}: could not be checked (#{entry[:error]}) — open orders there are not listed"
+    end
   end
 
   def db_line(order)

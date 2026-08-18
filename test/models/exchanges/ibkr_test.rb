@@ -81,6 +81,38 @@ class Exchanges::IbkrTest < ActiveSupport::TestCase
     assert_equal :pending_activation, result.data
   end
 
+  # A 401 from IBKR really is ambiguous — an unactivated key and a revoked one look identical — so
+  # :pending_activation stays the answer there. Everything else is not: a 500 or a lock timeout told
+  # the user "IBKR is activating your key, 24h-2wk" and started a fresh 14-day activation clock over
+  # a transient blip.
+  test 'get_api_key_validity keeps :pending_activation for a 401' do
+    Clients::Ibkr.any_instance.expects(:accounts)
+                 .returns(Result::Failure.new('not authenticated', data: { status: 401 }))
+    result = @exchange.get_api_key_validity(api_key: stub(id: 1, key: 'C'))
+    assert_equal :pending_activation, result.data
+  end
+
+  test 'get_api_key_validity surfaces a server error instead of calling it pending activation' do
+    Clients::Ibkr.any_instance.expects(:accounts)
+                 .returns(Result::Failure.new('Internal Server Error', data: { status: 500 }))
+    result = @exchange.get_api_key_validity(api_key: stub(id: 1, key: 'C'))
+    assert_predicate result, :failure?
+  end
+
+  # account_id returning a bare nil made all three callers substitute "No IBKR account available" —
+  # telling the user their brokerage account is gone, and hiding the real text from
+  # Exchange#transient_error?, which classifies on exactly the strings IBKR sends here.
+  test 'a failed account discovery surfaces IBKR own error rather than "no account"' do
+    @client.expects(:accounts).returns(Result::Failure.new('competing live session'))
+
+    result = @exchange.get_balances
+
+    assert_predicate result, :failure?
+    assert_match 'competing live session', result.errors.to_sentence
+    assert @exchange.transient_error?(result.errors),
+           'the venue text must survive so the transient classifier can still see it'
+  end
+
   test 'get_api_key_validity returns true when accounts come back' do
     Clients::Ibkr.any_instance.expects(:accounts).returns(Result::Success.new({ 'accounts' => ['U1'] }))
     result = @exchange.get_api_key_validity(api_key: stub(id: 1, key: 'C'))

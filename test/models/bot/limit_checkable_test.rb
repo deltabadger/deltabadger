@@ -134,4 +134,26 @@ class Bot::LimitCheckableTest < ActiveSupport::TestCase
     Bot::PriceLimitCheckJob.expects(:set).never
     @bot.enqueue_limit_check_job
   end
+
+  # == limit_condition_met? ==
+  #
+  # A failed condition read is NOT "the condition is not met". With a rejected key it is the same
+  # answer on every tick, so the bot parks itself and the feed says "Paused: price limit not met" —
+  # the market simply has not reached your price — while the truth is that we cannot ask at all. It
+  # then polls forever and never trades again, with no error and no email.
+  test 'limit_condition_met? raises when the read failed because the key was rejected' do
+    result = Result::Failure.new('Invalid API-key, IP, or permissions for action.')
+
+    error = assert_raises(RuntimeError) { @bot.limit_condition_met?(result) }
+    assert_match 'rejected the API key', error.message
+  end
+
+  test 'limit_condition_met? still reads any other failure as not-met, so a blip only waits' do
+    assert_not @bot.limit_condition_met?(Result::Failure.new('connection reset'))
+  end
+
+  test 'limit_condition_met? passes a successful condition through' do
+    assert @bot.limit_condition_met?(Result::Success.new(true))
+    assert_not @bot.limit_condition_met?(Result::Success.new(false))
+  end
 end

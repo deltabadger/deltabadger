@@ -539,7 +539,7 @@ class Exchanges::Alpaca < Exchange
     Rails.cache.fetch("exchange_#{id}_clock", expires_in: 1.minute) do
       result = client.get_clock
       if result.failure?
-        raise_on_invalid_key!(result.errors)
+        raise_on_invalid_key!(result)
         return nil
       end
 

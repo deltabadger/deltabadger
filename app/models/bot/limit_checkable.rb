@@ -20,6 +20,18 @@ module Bot::LimitCheckable
                     ->(bot) { Time.now.utc + Utilities::Time.seconds_to_current_candle_close(bot.indicator_limit_in_timeframe_duration) }]
   }.freeze
 
+  # A failed condition read is NOT "the condition is not met". Every gate below used to flatten a
+  # Result::Failure to false, which reads as "the market has not reached your price" — so a bot whose
+  # key the venue rejects parks itself, tells the user it is waiting for a price, polls forever and
+  # never trades again, with no error and no email. A credential rejection is the same answer on
+  # every tick, so it must escape; every other failure keeps the old conservative behaviour (wait —
+  # never trade on a read we could not make), which the check jobs already reschedule.
+  def limit_condition_met?(result)
+    exchange.raise_on_invalid_key!(result)
+
+    result.success? && result.data
+  end
+
   # The limit type CURRENTLY pausing this bot, or nil. "Currently" — not "ever": a bot keeps its
   # limit_paused logs forever, so we must distinguish a bot resting on a live limit pause from one
   # that limit-paused in the past but has since run a normal cycle. Signal: the latest limit_paused
