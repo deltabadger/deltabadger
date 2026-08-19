@@ -32,6 +32,7 @@
       <table class="table">
         <thead>
           <tr>
+            <th scope="col" class="table__logo"></th>
             <th scope="col"><%= t('bot.dca_index.asset') %></th>
             <th scope="col"><%= t('bot.dca_index.amount') %></th>
             <th scope="col"><%= t('bot.dca_index.avg_price') %></th>
@@ -40,9 +41,14 @@
           </tr>
         </thead>
         <tbody id="assets_metrics_list">
+          <%# Resolve the row's base symbol through the exchange's tickers, the same way the
+              metrics do — bot_index_assets only holds the CURRENT index, so anything the bot
+              still holds after a rotation isn't in it. %>
+          <% logo_assets = bot.exchange.tickers.where(base: metrics[:asset_values].keys).includes(:base_asset).index_by(&:base) %>
           <% metrics[:asset_values].each do |symbol, data| %>
             <% pnl_pct = data[:pnl_percentage] || 0 %>
             <tr>
+              <td class="table__logo"><%= render 'assets/logo', asset: logo_assets[symbol]&.base_asset %></td>
               <td scope="row"><%= symbol %></td>
               <td><%= number_with_precision(data[:amount] || 0, precision: 6, strip_insignificant_zeros: true) %></td>
               <td><%= number_with_precision(data[:avg_price] || 0, precision: 2, delimiter: ',') %></td>

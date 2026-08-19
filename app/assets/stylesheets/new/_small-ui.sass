@@ -11,7 +11,8 @@
     white-space: nowrap
     overflow: hidden
     text-overflow: ellipsis
-    font-size: 1.75rem
+    font-size: 1.5rem
+    text-transform: uppercase
     &--select
         color: var(--link)
     &__value
@@ -43,6 +44,7 @@
         background: #f041 !important
 
 .sinput
+    font-size: 1.75rem
     font-weight: 600
     background: var(--sinput-background)
     color: var(--sinput-text)
@@ -160,3 +162,13 @@ select
             &--icon
                 path
                     fill: var(--stone)
+.asset-logo
+    display: block
+    width: 2.5rem
+    height: 2.5rem
+    box-shadow: var(--shadow-basic)
+    // The global `img { max-width: 100% }` reset resolves against the shrink-wrapped
+    // table cell (content box 0), which flattens the logo to 0px wide. Opt out.
+    max-width: none
+    border-radius: 50%
+    object-fit: contain
