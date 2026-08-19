@@ -17,6 +17,8 @@ ru:
         authorize: 'Авторизовать'
         disable: 'Выключить'
         delete: 'Удалить'
+        archive: 'В архив'
+        reactivate: 'Восстановить'
         duplicate: 'Дублировать'
         copy: 'Копировать'
         submit: 'Отправить'
@@ -352,6 +354,7 @@ ru:
         all: 'Все'
         active: 'Активные'
         inactive: 'Неактивные'
+        archived: 'В архиве'
     rules:
         index:
             title: 'Правила'

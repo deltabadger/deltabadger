@@ -17,6 +17,8 @@ nl:
         authorize: 'Autoriseren'
         disable: 'Uitschakelen'
         delete: 'Verwijderen'
+        archive: 'Archiveren'
+        reactivate: 'Heractiveren'
         duplicate: 'Dupliceren'
         copy: 'Kopiëren'
         submit: 'Verzenden'
@@ -349,6 +351,7 @@ nl:
         all: 'Alle'
         active: 'Actief'
         inactive: 'Inactief'
+        archived: 'Gearchiveerd'
     rules:
         index:
             title: 'Regels'

@@ -64,6 +64,7 @@ da:
             exchange_retired: 'Denne børs findes ikke længere — flyt botten til en anden.'
             setting_orders: "Opretter ordrer…"
             paused: "Sat på pause"
+            archived: "Arkiveret"
             next_try: "Næste forsøg om"
             waiting: "Venter på, at alle betingelser opfyldes"
             listening: "Lytter"
@@ -172,6 +173,7 @@ da:
         limit_sell: 'Limitsalg'
         messages:
             do_you_want_to_delete: 'Vil du slette denne bot?'
+            do_you_want_to_archive: 'Vil du arkivere denne bot?'
             symbol_not_supported: "%{symbol} understøttes ikke"
             specify_percentage_limit_order: "Angiv en procentdel for limitordrer"
             smart_intervals_above_minimum: "Smarte intervallers værdi skal være større end %{minimum}"

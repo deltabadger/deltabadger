@@ -48,6 +48,10 @@ class Bots::Signal < Bot
   end
 
   def stop(stop_message_key: nil)
+    # A stop that lands after archiving — a queued Bot::StopJob, a stale tab — must not write
+    # :stopped over :archived and drop the bot back into Inactive. It is already stopped.
+    return true if archived?
+
     if update(
       status: :stopped,
       stopped_at: Time.current,

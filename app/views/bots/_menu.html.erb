@@ -1,0 +1,15 @@
+<%# Its own partial with its own id: archiving and reactivating swap the Archive entry in and out,
+    and the archive response replaces this along with the status widgets. %>
+<%= tag.div class: "flex-row", id: dom_id(bot, :menu) do %>
+  <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
+    <%= render "svg/24x24_dot_menu" %>
+    <div class="dropdown">
+      <%= link_to t('utils.change_name'), edit_bot_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } %>
+      <% unless bot.archived? %>
+        <%= link_to t('button.archive'), edit_bot_archive_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } %>
+      <% end %>
+      <div class="dropdown__item dropdown__item--divider"></div>
+      <%= link_to t('button.delete'), edit_bot_delete_path(bot), class: "dropdown__item dropdown__item--danger", data: { turbo_frame: "modal" } %>
+    </div>
+  </div>
+<% end %>

@@ -17,6 +17,8 @@ sk:
         authorize: 'Autorizovať'
         disable: 'Vypnúť'
         delete: 'Zmazať'
+        archive: 'Archivovať'
+        reactivate: 'Obnoviť'
         duplicate: 'Duplikovať'
         copy: 'Kopírovať'
         submit: 'Odoslať'
@@ -357,6 +359,7 @@ sk:
         all: 'Všetky'
         active: 'Aktívne'
         inactive: 'Neaktívne'
+        archived: 'Archivované'
     rules:
         index:
             title: 'Pravidlá'

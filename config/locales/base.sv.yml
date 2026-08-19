@@ -17,6 +17,8 @@ sv:
         authorize: 'Auktorisera'
         disable: 'Inaktivera'
         delete: 'Ta bort'
+        archive: 'Arkivera'
+        reactivate: 'Återaktivera'
         duplicate: 'Duplicera'
         copy: 'Kopiera'
         submit: 'Skicka'
@@ -350,6 +352,7 @@ sv:
         all: 'Alla'
         active: 'Aktiva'
         inactive: 'Inaktiva'
+        archived: 'Arkiverade'
     rules:
         index:
             title: 'Regler'

@@ -60,6 +60,7 @@ pt:
             exchange_retired: 'Esta exchange já não opera — muda o bot para outra.'
             setting_orders: "Configurando ordens…"
             paused: "Pausado"
+            archived: "Arquivado"
             next_try: "Próxima tentativa em"
             waiting: "À espera que todas as condições sejam cumpridas"
             listening: "A escutar"
@@ -158,6 +159,7 @@ pt:
         limit_sell: 'Limitar venda'
         messages:
             do_you_want_to_delete: 'Quer eliminar este bot?'
+            do_you_want_to_archive: 'Quer arquivar este bot?'
             symbol_not_supported: "%{symbol} não é suportado"
             specify_percentage_limit_order: "Especifique a porcentagem ao criar uma ordem limitada"
             smart_intervals_above_minimum: "O valor dos intervalos inteligentes deve ser maior que %{minimum}"

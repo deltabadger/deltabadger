@@ -60,6 +60,7 @@ da:
             transient_unavailable: "%{exchange} er midlertidigt utilgængelig. Botten prøver automatisk igen."
         bots:
             exchange_asset_mismatch: "Ikke alle aktiverne er noteret på %{exchange_name}"
+            archived: "Genaktivér denne bot, før du starter den"
             exchange_change_while_open_orders: "Annullér alle åbne ordrer, denne bot har på %{exchange_name}, før du skifter børs"
             destroy_success: "Bot %{bot_label} er slettet"
             api_key_success: "API-nøgler gemt"

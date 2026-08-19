@@ -115,7 +115,7 @@ class ApiKey < ApplicationRecord
   def stop_dependent_bots!
     return unless trading?
 
-    user.bots.not_deleted.not_stopped.each do |bot|
+    user.bots.working.each do |bot|
       bot.stop if bot.exchange_id == exchange_id
     end
   end

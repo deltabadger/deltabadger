@@ -17,6 +17,8 @@ fr:
         authorize: 'Autoriser'
         disable: 'Désactiver'
         delete: 'Supprimer'
+        archive: 'Archiver'
+        reactivate: 'Réactiver'
         duplicate: 'Dupliquer'
         copy: 'Copier'
         submit: 'Soumettre'
@@ -349,6 +351,7 @@ fr:
         all: 'Tous'
         active: 'Actifs'
         inactive: 'Inactifs'
+        archived: 'Archivés'
     rules:
         index:
             title: 'Règles'

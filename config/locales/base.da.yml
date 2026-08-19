@@ -17,6 +17,8 @@ da:
         authorize: 'Godkend'
         disable: 'Deaktivér'
         delete: 'Slet'
+        archive: 'Arkivér'
+        reactivate: 'Genaktivér'
         duplicate: 'Duplikér'
         copy: 'Kopiér'
         submit: 'Send'
@@ -350,6 +352,7 @@ da:
         all: 'Alle'
         active: 'Aktive'
         inactive: 'Inaktive'
+        archived: 'Arkiverede'
     rules:
         index:
             title: 'Regler'

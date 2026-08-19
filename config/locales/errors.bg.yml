@@ -60,6 +60,7 @@ bg:
             transient_unavailable: "%{exchange} е временно недостъпна. Ботът ще опита отново автоматично."
         bots:
             exchange_asset_mismatch: "Не всички активи са налични в %{exchange_name}"
+            archived: "Възстановете този бот, преди да го стартирате"
             exchange_change_while_open_orders: "Преди смяна на борсата отменете всички отворени поръчки на този бот в %{exchange_name}"
             destroy_success: "Ботът %{bot_label} е изтрит успешно"
             api_key_success: "API ключовете са запазени успешно"

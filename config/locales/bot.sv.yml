@@ -64,6 +64,7 @@ sv:
             exchange_retired: 'Den här börsen finns inte längre — flytta boten till en annan.'
             setting_orders: "Lägger ordrar…"
             paused: "Pausad"
+            archived: "Arkiverad"
             next_try: "Nästa försök om"
             waiting: "Väntar på att alla villkor ska uppfyllas"
             listening: "Lyssnar"
@@ -172,6 +173,7 @@ sv:
         limit_sell: 'Limitsälj'
         messages:
             do_you_want_to_delete: 'Vill du ta bort denna bot?'
+            do_you_want_to_archive: 'Vill du arkivera denna bot?'
             symbol_not_supported: "%{symbol} stöds inte"
             specify_percentage_limit_order: "Ange procentsats vid limitorder"
             smart_intervals_above_minimum: "Smarta intervall-beloppet måste vara större än %{minimum}"

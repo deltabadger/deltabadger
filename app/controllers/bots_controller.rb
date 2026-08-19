@@ -16,19 +16,22 @@ class BotsController < ApplicationController
     end
 
     @filter = params[:filter] || 'all'
-    @bots = non_deleted_bots.includes(:exchange)
-    case @filter
-    when 'active'
-      @bots = @bots.working
-    when 'inactive'
-      @bots = @bots.where(status: %i[created stopped])
-    end
+    scope = non_deleted_bots.includes(:exchange)
+    @bots = case @filter
+            when 'active' then scope.working
+            when 'inactive' then scope.where(status: %i[created stopped])
+            when 'archived' then scope.archived
+            else scope.not_archived
+            end
     @bots = @bots.order(label: :asc)
 
-    @total_bots = current_user.bots.not_deleted.size
+    @total_bots = current_user.bots.not_deleted.not_archived.size
     @has_active = current_user.bots.not_deleted.working.exists?
     @has_inactive = current_user.bots.not_deleted.where(status: %i[created stopped]).exists?
-    @show_filters = @total_bots > 1 && @has_active && @has_inactive
+    @has_archived = current_user.bots.archived.exists?
+    # Archived bots are reachable through their own filter only, so its presence alone has to be
+    # enough to show the row — otherwise archiving would put a bot somewhere with no way back.
+    @show_filters = (@total_bots > 1 && @has_active && @has_inactive) || @has_archived
 
     @pnl_hash = {}
     @loading_hash = {}
@@ -64,7 +67,7 @@ class BotsController < ApplicationController
       permitted_params = params.require(:decimals).permit(*Asset.all.pluck(:symbol))
       @decimals = permitted_params.transform_values(&:to_i)
     else
-      @other_bots = current_user.bots.not_deleted.order(label: :asc).where.not(id: @bot.id).pluck(:id, :label, :type)
+      @other_bots = current_user.bots.not_deleted.not_archived.order(label: :asc).where.not(id: @bot.id).pluck(:id, :label, :type)
 
       # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
       if @bot.dca_single_asset?

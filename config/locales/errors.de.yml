@@ -67,6 +67,7 @@ de:
             transient_unavailable: "%{exchange} ist vorübergehend nicht verfügbar. Der Bot versucht es automatisch erneut."
         bots:
             exchange_asset_mismatch: "Nicht alle Vermögenswerte sind auf %{exchange_name} gelistet"
+            archived: "Reaktiviere diesen Bot, bevor du ihn startest"
             exchange_change_while_open_orders: "Alle offenen Bestellungen dieses Bots auf %{exchange_name} stornieren, bevor Sie den Exchange ändern"
             destroy_success: "Bot %{bot_label} erfolgreich gelöscht"
             api_key_success: "API-Schlüssel erfolgreich gespeichert"

@@ -62,6 +62,7 @@ ru:
             transient_unavailable: "%{exchange} временно недоступен. Бот повторит попытку автоматически."
         bots:
             exchange_asset_mismatch: "Не все активы котируются на %{exchange_name}"
+            archived: "Восстановите этого бота, прежде чем запускать"
             exchange_change_while_open_orders: "Пожалуйста, отмените все открытые ордера этого бота на %{exchange_name} перед изменением биржи"
             destroy_success: "Бот %{bot_label} успешно удален"
             api_key_success: "Ключи API успешно сохранены"

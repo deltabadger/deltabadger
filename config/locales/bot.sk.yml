@@ -64,6 +64,7 @@ sk:
             exchange_retired: 'Táto burza už nefunguje — presuň bota na inú.'
             setting_orders: "Zadávanie príkazov…"
             paused: "Pozastavené"
+            archived: "Archivované"
             next_try: "Ďalší pokus za"
             waiting: "Čakanie na splnenie všetkých podmienok"
             listening: "Počúvam"
@@ -172,6 +173,7 @@ sk:
         limit_sell: 'Limitný predaj'
         messages:
             do_you_want_to_delete: 'Chcete zmazať tohto bota?'
+            do_you_want_to_archive: 'Chcete archivovať tohto bota?'
             symbol_not_supported: "%{symbol} nie je podporovaný"
             specify_percentage_limit_order: "Pri vytváraní limitného príkazu zadajte percento"
             smart_intervals_above_minimum: "Hodnota inteligentných intervalov musí byť vyššia ako %{minimum}"

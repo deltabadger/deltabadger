@@ -60,6 +60,7 @@ sv:
             transient_unavailable: "%{exchange} är tillfälligt otillgänglig. Boten försöker igen automatiskt."
         bots:
             exchange_asset_mismatch: "Alla tillgångar är inte listade på %{exchange_name}"
+            archived: "Återaktivera denna bot innan du startar den"
             exchange_change_while_open_orders: "Avbryt alla öppna ordrar som denna bot har på %{exchange_name} innan du byter börs"
             destroy_success: "Bot %{bot_label} har tagits bort"
             api_key_success: "API-nycklar sparade"
