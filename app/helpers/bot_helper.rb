@@ -19,7 +19,10 @@ module BotHelper
   # Selling needs no special case: proceeds stay inside `value` as realized cash while
   # `invested` holds its level, so a locked-in gain goes on reading as a gain.
   def chart_pnl_series(values, invested)
-    values.each_with_index.map { |value, i| value.to_f - invested[i].to_f }
+    # Subtracted in decimal: production metrics are BigDecimal, and going through Float first
+    # would turn 100.005 - 100.00 into 0.004999…, which rounds to 0.00 on a two-decimal quote
+    # while the headline — rounded from the same source series — says +0.01.
+    values.each_with_index.map { |value, i| value.to_d - (invested[i] || 0).to_d }
   end
 
   # Per-exchange label for the API key field, with a generic translated fallback.

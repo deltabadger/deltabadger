@@ -15,7 +15,8 @@
       <% end %>
     </div>
   <% else %>
-    <% pnl_series = chart_pnl_series(metrics[:chart][:series][0], metrics[:chart][:series][1]).map { |amount| amount.round(bot.decimals[:quote] || 8) } %>
+    <%# Subtracted in decimal, serialized as numbers: a BigDecimal ships as a JSON string. %>
+    <% pnl_series = chart_pnl_series(metrics[:chart][:series][0], metrics[:chart][:series][1]).map { |amount| amount.round(bot.decimals[:quote] || 8).to_f } %>
     <%= tag.div data: {
       controller: "bot--chart",
       bot__chart_bot_value: bot.id,

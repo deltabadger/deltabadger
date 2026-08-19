@@ -354,6 +354,9 @@ export default class extends Controller {
         // crosses zero, or a curve that spent months in profit would be drawn red because it
         // happens to end a hair under water — with a green ribbon underneath it.
         ...this.#lineDataset(curve.at(-1).y >= 0 ? up : down, curve, points),
+        // The ring follows the HOVERED point, not the end state, or hovering a loss on a chart
+        // that ends in profit would draw a green ring around a red section.
+        pointHoverBorderColor: (ctx) => ((ctx.parsed?.y ?? 0) >= 0 ? up : down),
         // Coloured by the side the segment mostly lies on. Chart.js resolves this once per
         // segment, so one that straddles zero takes a single colour either way; the midpoint
         // picks the larger half instead of whichever end happens to be second.
