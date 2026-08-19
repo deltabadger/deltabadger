@@ -164,16 +164,15 @@ class BotHelperTest < ActionView::TestCase
   # == chart_pnl_series (the PnL mode of the bot chart) ==
   #
   # The VALUE curve always climbs for a DCA bot, because the money going in climbs — the shape
-  # is dominated by deposits rather than by performance. PnL divides that out the plainest way
-  # there is: the invested line becomes zero, and the curve is how far ahead of it you are.
-  # Same number as the headline, no indexing convention, no caption.
+  # is deposits rather than performance. PnL makes the invested line the zero line, so the curve
+  # is the distance from it, in the quote currency.
 
   test 'the curve is how far ahead of what was put in' do
-    assert_equal [0.1], chart_pnl_series([110.0], [100.0])
+    assert_equal [10.0], chart_pnl_series([110.0], [100.0])
   end
 
   test 'behind is below the line' do
-    assert_equal [-0.2], chart_pnl_series([80.0], [100.0])
+    assert_equal [-20.0], chart_pnl_series([80.0], [100.0])
   end
 
   # A DCA bot's first points sit on zero because the money just spent has not moved yet.
@@ -181,22 +180,21 @@ class BotHelperTest < ActionView::TestCase
     assert_equal [0.0, 0.0], chart_pnl_series([100.0, 200.0], [100.0, 200.0])
   end
 
-  # Deposits are exactly what this mode removes: doubling the position with no price move
-  # leaves the curve where it was, where the VALUE curve would step up.
-  test 'money going in does not move the curve' do
-    assert_equal [0.1, 0.1], chart_pnl_series([110.0, 220.0], [100.0, 200.0])
+  # THE reason this is absolute and not a percentage of what has been invested so far. A deposit
+  # adds the same amount to both terms, so it must move the curve by nothing — as a ratio it
+  # moves the denominator, and a flat market would draw +10% falling to +5%.
+  test 'a deposit does not move the curve in a flat market' do
+    assert_equal [10.0, 10.0], chart_pnl_series([110.0, 210.0], [100.0, 200.0])
   end
 
   # Selling turns holdings into proceeds inside the same envelope: value holds its level and
   # invested does not move, so a locked-in gain goes on reading as a gain.
   test 'a locked-in gain stays a gain' do
-    assert_equal [0.2, 0.2], chart_pnl_series([120.0, 120.0], [100.0, 100.0])
+    assert_equal [20.0, 20.0], chart_pnl_series([120.0, 120.0], [100.0, 100.0])
   end
 
-  # Same length as the labels: a point with nothing invested has no percentage, and dropping it
-  # would shift every later point onto the wrong date.
-  test 'points with nothing invested yet are gaps, not dropped' do
-    assert_equal [nil, 0.05], chart_pnl_series([0.0, 105.0], [0.0, 100.0])
+  test 'the curve is as long as the labels, with nothing dropped' do
+    assert_equal [0.0, 5.0], chart_pnl_series([0.0, 105.0], [0.0, 100.0])
   end
 
   test 'no transactions, no curve' do

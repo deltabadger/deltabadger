@@ -37,8 +37,9 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
   end
 
   # PnL is derived server-side from the two series the chart already draws: how far ahead of
-  # what was put in, at every point. Here 200 invested is worth 260, so the curve ends at +30%
-  # — the same number the headline shows, which is why the switch needs no caption.
+  # what was put in, at every point, in the quote currency. Here 200 invested is worth 260, so
+  # the curve ends at +60 — the same number the headline shows, which is why the switch needs
+  # no caption. Absolute, so a deposit moves both terms together and does not move the curve.
   test 'chart hands over the pnl curve alongside the value one' do
     data = @bot.metrics.deep_dup
     data[:chart][:labels] = [Time.utc(2026, 1, 1), Time.utc(2026, 2, 1)]
@@ -48,12 +49,12 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     get bot_path(id: @bot.id)
 
     assert_select '#chart [data-controller="bot--chart"]', 1 do |chart|
-      assert_equal [0.0, 0.3], JSON.parse(chart.first['data-bot--chart-pnl-value'])
+      assert_equal [0.0, 60.0], JSON.parse(chart.first['data-bot--chart-pnl-value'])
     end
   end
 
-  # A bot that never had anything invested has no curve, so the switch would have one usable
-  # side. Nothing to switch between, no switch.
+  # Nothing invested, nothing to be ahead or behind of. A switch with one usable side is
+  # furniture.
   test 'a chart with no pnl curve offers no switch' do
     data = @bot.metrics.deep_dup
     data[:chart][:labels] = [Time.utc(2026, 1, 1), Time.utc(2026, 2, 1)]
