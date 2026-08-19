@@ -140,7 +140,7 @@ sv:
                 bought: Köpt
                 chart:
                     modes: 'Diagramläge'
-                    pnl: 'Vinst/förlust'
+                    pnl: 'P/L'
                     total_invested: 'Totalt investerat'
                     value: Värde
                 csv_download_html: 'Tabellen ovan visar bara de senaste tio transaktionerna. Den fullständiga rapporten kan laddas ner i CSV-format nedan.'

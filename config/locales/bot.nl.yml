@@ -132,7 +132,7 @@ nl:
                 bought: Gekocht
                 chart:
                     modes: 'Grafiekmodus'
-                    pnl: 'Winst/verlies'
+                    pnl: 'P/L'
                     total_invested: 'Totaal geïnvesteerd'
                     value: Waarde
                 csv_download_html: 'Bovenstaande tabel toont enkel de laatste tien transacties. Het volledige rapport is hieronder beschikbaar om te downloaden in CSV-formaat.'
