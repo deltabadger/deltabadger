@@ -2,15 +2,15 @@
 
 require 'test_helper'
 
-# Pins the candle field used for extended-chart interpolation across all bot types.
+# Pins the candle field the chart's price grid is built from, across all bot types.
 #
 # Exchange get_candles implementations normalize candles to
 # [open_time, open, high, low, close, volume] (verified: Binance, Kraken, KuCoin).
-# The extended chart labels each point with candle[0] — the candle's OPEN time —
-# so the value must use candle[1], the OPEN price, to keep the (time, price) pair
-# consistent. Using close (candle[4]) would plot end-of-period prices at
-# start-of-period timestamps, one candle out of alignment with the live
-# current-price point appended at Time.current.
+# A grid mark is (candle[0], candle[1]) — the OPEN time and the OPEN price — so the
+# pair refers to one instant. Using close (candle[4]) would put end-of-period prices
+# at start-of-period timestamps, one candle out of alignment with the live mark
+# appended at Time.current, and every interpolation between them would inherit the
+# skew.
 class ExtendedChartCandlePriceTest < ActiveSupport::TestCase
   T0 = Time.utc(2026, 1, 1, 12, 0, 0)
   NOW = T0 + 14.days # duration > 300h -> 1.day chart timeframe
@@ -45,11 +45,9 @@ class ExtendedChartCandlePriceTest < ActiveSupport::TestCase
     )
     bot.stubs(:ticker).returns(ticker_stub(id: 1))
 
-    data = bot.send(:get_extended_chart_data_with_candles_data).data
+    grid = bot.send(:chart_price_grids, bot.metrics)['BTC']
 
-    assert_equal [CANDLE_TIME], data[:labels]
-    assert_equal [2.to_d * 100], data[:series][0] # net_base * OPEN, not * 140 (close)
-    assert_equal [500.to_d], data[:series][1]
+    assert_equal [CANDLE_TIME, 100.to_d], grid.first # the OPEN, not the 140 close
   end
 
   test 'dual-asset chart values use both candle open prices at the open-time label' do
@@ -58,14 +56,13 @@ class ExtendedChartCandlePriceTest < ActiveSupport::TestCase
       { chart: { labels: [T0], series: [[230.to_d], [500.to_d]], extra_series: [[2.to_d], [3.to_d]] } }
     )
     bot.stubs(:ticker0).returns(ticker_stub(id: 1))
-    bot.stubs(:ticker1).returns(ticker_stub(id: 2, scale: 10))
+    bot.stubs(:ticker1).returns(ticker_stub(id: 2, base: 'ETH', scale: 10))
 
-    data = bot.send(:get_extended_chart_data_with_candles_data).data
+    grids = bot.send(:chart_price_grids, bot.metrics)
 
-    assert_equal [CANDLE_TIME], data[:labels]
-    # 2 * open0 (100) + 3 * open1 (1000), not the closes (140 / 1400)
-    assert_equal [(2.to_d * 100) + (3.to_d * 1000)], data[:series][0]
-    assert_equal [500.to_d], data[:series][1]
+    # Both legs get their own grid, each on its OPEN (100 / 1000), not its close (140 / 1400).
+    assert_equal [CANDLE_TIME, 100.to_d], grids['BTC'].first
+    assert_equal [CANDLE_TIME, 1000.to_d], grids['ETH'].first
   end
 
   test 'index chart values use the candle open price at the open-time label' do
@@ -78,10 +75,8 @@ class ExtendedChartCandlePriceTest < ActiveSupport::TestCase
     )
     bot.stubs(:tickers).returns([ticker_stub(id: 1)])
 
-    data = bot.send(:get_extended_chart_data_with_candles_data).data
+    grid = bot.send(:chart_price_grids, bot.metrics)['BTC']
 
-    assert_equal [CANDLE_TIME], data[:labels]
-    assert_equal [2.to_d * 100], data[:series][0] # amount * OPEN, not * 140 (close)
-    assert_equal [500.to_d], data[:series][1]
+    assert_equal [CANDLE_TIME, 100.to_d], grid.first # the OPEN, not the 140 close
   end
 end

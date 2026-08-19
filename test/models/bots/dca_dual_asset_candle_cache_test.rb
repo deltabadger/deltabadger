@@ -15,13 +15,13 @@ class DcaDualAssetCandleCacheTest < ActiveSupport::TestCase
     Rails.stubs(:cache).returns(store)
 
     bot = create(:dca_dual_asset, user: create(:user))
+    label = Time.current
     bot.stubs(:metrics_with_current_prices).returns(
-      { chart: { labels: [Time.current], series: [[1.0], [1.0]] } }
+      { chart: { labels: [label], series: [[1.0], [1.0]], extra_series: [[1.0], [1.0]] } }
     )
     # The expensive live candle fetch must happen ONCE, then be served from cache.
-    bot.expects(:get_extended_chart_data_with_candles_data)
-       .once
-       .returns(Result::Success.new({ labels: [], series: [[], []] }))
+    grids = { bot.ticker0.base => [[label, 1.to_d]], bot.ticker1.base => [[label, 1.to_d]] }
+    bot.expects(:chart_price_grids).once.returns(grids)
 
     # Freeze on a 5-minute boundary so the cut-aligned TTL is deterministic (~5 min with
     # the fix, 5 s without). 30 s is unambiguously past the old debug TTL and well within
