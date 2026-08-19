@@ -2,22 +2,48 @@ import { Controller } from "@hotwired/stimulus";
 
 // Connects to data-controller="broadcast--on-connect"
 export default class extends Controller {
-  static values = { method: String, methodArgs: Object };
+  // retryWhile: a selector that is present ONLY while the answer has not arrived (the global
+  // PnL's spinner). Opt-in, because this controller also drives broadcasts that must fire once.
+  static values = {
+    method: String,
+    methodArgs: Object,
+    retryWhile: String,
+    retryAfter: { type: Number, default: 8000 },
+    retryLimit: { type: Number, default: 3 },
+  };
 
   connect() {
-    // console.log("broadcast--on-connect controller connected");
+    this.attempts = 0;
     this.checkConnectionInterval = setInterval(() => {
       if (this.#isConnectedToTurboStreamsChannel()) {
         this.#triggerBroadcast();
         clearInterval(this.checkConnectionInterval);
-      } else {
-        // console.log("Client is not connected to Turbo::StreamsChannel");
       }
     }, 100);
   }
 
+  disconnect() {
+    clearInterval(this.checkConnectionInterval);
+    clearTimeout(this.retryTimeout);
+  }
+
+  // The request can fail, the job can error, and a broadcast can land during a disconnect —
+  // none of which this page would otherwise notice. Until this existed, the only thing clearing
+  // a stuck spinner was one of the N per-bot jobs broadcasting the total as a side effect, which
+  // is precisely the work that made a large dashboard quadratic.
+  #scheduleRetry() {
+    if (!this.hasRetryWhileValue || this.attempts >= this.retryLimitValue) return;
+
+    this.retryTimeout = setTimeout(() => {
+      if (!document.querySelector(this.retryWhileValue)) return; // the answer arrived
+
+      this.#triggerBroadcast();
+    }, this.retryAfterValue);
+  }
+
   #triggerBroadcast() {
-    // console.log("triggerBroadcast", this.methodValue);
+    this.attempts += 1;
+    this.#scheduleRetry();
     fetch(`/${this.#getLocaleFromUrl()}/broadcasts/${this.methodValue}`, {
       method: "POST",
       headers: {

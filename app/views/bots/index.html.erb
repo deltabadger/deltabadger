@@ -7,8 +7,12 @@
   <% end %>
   <%= render partial: 'bots/new_menu_start' %>
 <% else %>
+  <%# The total is asked for ONCE per page load, and asked again only while its spinner is still
+      there — a lost request, a failed job or a broadcast that landed during a disconnect. The
+      per-bot tile jobs no longer broadcast it as a side effect. %>
   <%= tag.section class: 'dash-intro', data: @global_pnl_loading ? { controller: "broadcast--on-connect",
-                                                                     broadcast__on_connect_method_value: "global_pnl_update" } : {} do %>
+                                                                     broadcast__on_connect_method_value: "global_pnl_update",
+                                                                     broadcast__on_connect_retry_while_value: "#global-pnl .loader--small" } : {} do %>
     <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, loading: @global_pnl_loading } %>
   <% end %>
   
