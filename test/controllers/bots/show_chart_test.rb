@@ -36,11 +36,10 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     end
   end
 
-  # RETURN is derived server-side from the two series the chart already draws — 100 grown by
-  # the price moves alone, with the money that arrived divided out. Here 200 invested is worth
-  # 260 (+30% on the money), of which the second point brought 100 of fresh cash: the asset
-  # itself did +60%.
-  test 'chart hands over the return curve alongside the value one' do
+  # PnL is derived server-side from the two series the chart already draws: how far ahead of
+  # what was put in, at every point. Here 200 invested is worth 260, so the curve ends at +30%
+  # — the same number the headline shows, which is why the switch needs no caption.
+  test 'chart hands over the pnl curve alongside the value one' do
     data = @bot.metrics.deep_dup
     data[:chart][:labels] = [Time.utc(2026, 1, 1), Time.utc(2026, 2, 1)]
     data[:chart][:series] = [[100.0, 260.0], [100.0, 200.0]]
@@ -49,13 +48,13 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     get bot_path(id: @bot.id)
 
     assert_select '#chart [data-controller="bot--chart"]', 1 do |chart|
-      assert_equal [100.0, 160.0], JSON.parse(chart.first['data-bot--chart-return-value'])
+      assert_equal [0.0, 0.3], JSON.parse(chart.first['data-bot--chart-pnl-value'])
     end
   end
 
-  # A bot that never held anything has no index to grow, so the switch would have one usable
+  # A bot that never had anything invested has no curve, so the switch would have one usable
   # side. Nothing to switch between, no switch.
-  test 'a chart with no return curve offers no switch' do
+  test 'a chart with no pnl curve offers no switch' do
     data = @bot.metrics.deep_dup
     data[:chart][:labels] = [Time.utc(2026, 1, 1), Time.utc(2026, 2, 1)]
     data[:chart][:series] = [[0.0, 0.0], [0.0, 0.0]]
@@ -81,7 +80,7 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     assert_select '#chart [role="radiogroup"]', 1
     assert_select '#chart [role="radio"]', 2
     assert_select '#chart [role="radio"][data-value="value"][aria-checked="true"][tabindex="0"]', 1
-    assert_select '#chart [role="radio"][data-value="return"][aria-checked="false"][tabindex="-1"]', 1
+    assert_select '#chart [role="radio"][data-value="pnl"][aria-checked="false"][tabindex="-1"]', 1
     # The shared control owns the chip and the aria; the chart only listens for the choice.
     assert_select '#chart [data-action="segmented:change->bot--chart#mode"]', 1
     assert_select '#chart .segmented--fluid', 0, 'the two labels are near enough in width to share a column'

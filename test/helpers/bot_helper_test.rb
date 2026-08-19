@@ -161,48 +161,45 @@ class BotHelperTest < ActionView::TestCase
     assert_no_match(/below the price/i, sell_html)
   end
 
-  # == chart_return_series (the RETURN mode of the bot chart) ==
+  # == chart_pnl_series (the PnL mode of the bot chart) ==
   #
-  # Time-weighted return — "growth of 100". The value curve cannot tell a bot that keeps
-  # buying from a bot that is winning; this one divides the deposits out. `invested` is the
-  # running cost basis (never falls), so its rise on any point is exactly the new money that
-  # arrived there — the one thing time-weighting has to remove.
+  # The VALUE curve always climbs for a DCA bot, because the money going in climbs — the shape
+  # is dominated by deposits rather than by performance. PnL divides that out the plainest way
+  # there is: the invested line becomes zero, and the curve is how far ahead of it you are.
+  # Same number as the headline, no indexing convention, no caption.
 
-  test 'return series indexes to 100 and follows price when no money arrives' do
-    assert_equal [100.0, 110.0], chart_return_series([100.0, 110.0], [100.0, 100.0])
+  test 'the curve is how far ahead of what was put in' do
+    assert_equal [0.1], chart_pnl_series([110.0], [100.0])
   end
 
-  test 'a pure deposit does not move the return' do
-    assert_equal [100.0, 100.0], chart_return_series([100.0, 200.0], [100.0, 200.0])
+  test 'behind is below the line' do
+    assert_equal [-0.2], chart_pnl_series([80.0], [100.0])
   end
 
-  test 'a deposit plus a gain reads as the gain alone' do
-    assert_equal [100.0, 110.0], chart_return_series([100.0, 210.0], [100.0, 200.0])
+  # A DCA bot's first points sit on zero because the money just spent has not moved yet.
+  test 'a fresh buy sits on the line' do
+    assert_equal [0.0, 0.0], chart_pnl_series([100.0, 200.0], [100.0, 200.0])
+  end
+
+  # Deposits are exactly what this mode removes: doubling the position with no price move
+  # leaves the curve where it was, where the VALUE curve would step up.
+  test 'money going in does not move the curve' do
+    assert_equal [0.1, 0.1], chart_pnl_series([110.0, 220.0], [100.0, 200.0])
   end
 
   # Selling turns holdings into proceeds inside the same envelope: value holds its level and
-  # invested does not move, so a locked-in gain must go on being a gain instead of decaying.
-  test 'selling locks the gain in rather than flattening it' do
-    assert_equal [100.0, 120.0, 120.0],
-                 chart_return_series([100.0, 120.0, 120.0], [100.0, 100.0, 100.0])
+  # invested does not move, so a locked-in gain goes on reading as a gain.
+  test 'a locked-in gain stays a gain' do
+    assert_equal [0.2, 0.2], chart_pnl_series([120.0, 120.0], [100.0, 100.0])
   end
 
-  test 'a loss goes below the baseline' do
-    assert_equal [100.0, 80.0], chart_return_series([100.0, 80.0], [100.0, 100.0])
-  end
-
-  test 'the index compounds across points rather than measuring from the start' do
-    assert_equal [100.0, 110.0, 121.0],
-                 chart_return_series([100.0, 110.0, 121.0], [100.0, 100.0, 100.0])
-  end
-
-  # Same length as the labels, always: the chart pairs the two by index, so a point that
-  # cannot be indexed has to be a gap, not a missing element that shifts every later date.
-  test 'points before the bot holds anything are gaps, not dropped' do
-    assert_equal [nil, 100.0, 110.0], chart_return_series([0.0, 100.0, 110.0], [0.0, 100.0, 100.0])
+  # Same length as the labels: a point with nothing invested has no percentage, and dropping it
+  # would shift every later point onto the wrong date.
+  test 'points with nothing invested yet are gaps, not dropped' do
+    assert_equal [nil, 0.05], chart_pnl_series([0.0, 105.0], [0.0, 100.0])
   end
 
   test 'no transactions, no curve' do
-    assert_equal [], chart_return_series([], [])
+    assert_equal [], chart_pnl_series([], [])
   end
 end
