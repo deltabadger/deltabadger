@@ -46,5 +46,8 @@ class Bots::PnlBroadcastScopeTest < ActiveSupport::TestCase
     assert_equal 1, job.concurrency_limit
     assert_equal :discard, job.concurrency_on_conflict
     assert_equal 'global_pnl_user_7', job.concurrency_key.call(User.new(id: 7))
+    # Long enough to outlast a cold pass over a large account — Solid Queue can drop a semaphore
+    # whose duration has elapsed while its holder is still running.
+    assert_operator job.concurrency_duration, :>=, 5.minutes
   end
 end

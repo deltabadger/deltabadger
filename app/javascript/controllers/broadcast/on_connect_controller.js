@@ -9,11 +9,11 @@ export default class extends Controller {
     methodArgs: Object,
     retryWhile: String,
     retryAfter: { type: Number, default: 8000 },
-    retryLimit: { type: Number, default: 3 },
+    retryFor: { type: Number, default: 90000 },
   };
 
   connect() {
-    this.attempts = 0;
+    this.deadline = Date.now() + this.retryForValue;
     this.checkConnectionInterval = setInterval(() => {
       if (this.#isConnectedToTurboStreamsChannel()) {
         this.#triggerBroadcast();
@@ -31,8 +31,14 @@ export default class extends Controller {
   // none of which this page would otherwise notice. Until this existed, the only thing clearing
   // a stuck spinner was one of the N per-bot jobs broadcasting the total as a side effect, which
   // is precisely the work that made a large dashboard quadratic.
+  //
+  // Bounded by a DEADLINE, not by a count of attempts: on a cold eighty-bot account the first
+  // pass can outlast several checks, and those checks are discarded server-side by the job's
+  // per-user concurrency lock — counting them would spend the whole budget waiting for a pass
+  // that is still running, leaving nothing for the failure the retry exists to cover. A discarded
+  // request is cheap; a stuck spinner is not.
   #scheduleRetry() {
-    if (!this.hasRetryWhileValue || this.attempts >= this.retryLimitValue) return;
+    if (!this.hasRetryWhileValue || Date.now() >= this.deadline) return;
 
     this.retryTimeout = setTimeout(() => {
       if (!document.querySelector(this.retryWhileValue)) return; // the answer arrived
@@ -42,7 +48,6 @@ export default class extends Controller {
   }
 
   #triggerBroadcast() {
-    this.attempts += 1;
     this.#scheduleRetry();
     fetch(`/${this.#getLocaleFromUrl()}/broadcasts/${this.methodValue}`, {
       method: "POST",
