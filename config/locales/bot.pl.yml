@@ -134,6 +134,9 @@ pl:
                 average_price: 'Średnia cena'
                 bought: Zakupione
                 chart:
+                    modes: 'Tryb wykresu'
+                    return: 'Stopa zwrotu'
+                    return_note: 'Wzrost 100, niezależnie od wielkości zakupów'
                     total_invested: 'Zainwestowana suma'
                     value: Wartość
                 csv_download_html: 'Powyższa tabela przedstawia tylko dziesięć ostatnich transakcji. Pełny raport jest dostępny do pobrania w formacie CSV poniżej.'

@@ -1,41 +1,53 @@
-<% quote = bot.quote_asset.symbol %>
-
 <div id="chart" class="widget widget--chart">
-  <% if loading %>
-    <div class="data-grid__item">
-      <div class="label">&nbsp;</div>
-      <div class="data-grid__item__value">&nbsp;</div>
+  <% if loading || metrics[:chart][:labels].empty? %>
+    <div class="widget--chart__head">
+      <div class="widget--chart__summary">
+        <div class="widget--chart__date">&nbsp;</div>
+        <div class="widget--chart__pnl">&nbsp;</div>
+        <div class="widget--chart__percent">&nbsp;</div>
+      </div>
     </div>
-    <div style="width: 100%; aspect-ratio: 10 / 3;">
-      <div class="loader" style="position: relative; left: calc(50% - 2rem); top: calc(50% - 6rem);"></div>
-    </div>
-  <% elsif metrics[:chart][:labels].empty? %>
-    <div class="data-grid__item">
-      <div class="label">&nbsp;</div>
-      <div class="data-grid__item__value">&nbsp;</div>
-    </div>
-    <div style="width: 100%; aspect-ratio: 10 / 3;">
-      <%= render 'svg/landscape_empty' %>
-    </div>
-  <% else %>
-    <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-      <div class="label"><%= t('utils.pnl') %></div>
-      <%= tag.div class: "data-grid__item__value", style: "color: var(--#{metrics[:pnl].negative? ? 'berry' : 'grass'})" do %>
-        <%= sprintf('%+.2f', (metrics[:pnl] * 100)) + '%' %>
+    <div class="widget--chart__plot">
+      <% if loading %>
+        <div class="loader" style="position: relative; left: calc(50% - 2rem); top: calc(50% - 6rem);"></div>
+      <% else %>
+        <%= render 'svg/landscape_empty' %>
       <% end %>
     </div>
+  <% else %>
+    <% return_series = chart_return_series(metrics[:chart][:series][0], metrics[:chart][:series][1]) %>
     <%= tag.div data: {
       controller: "bot--chart",
-      bot__chart_names_value: [
-        t('data_labels.value_symbol', symbol: quote),
-        t('data_labels.invested_symbol', symbol: quote)
-      ],
-      bot__chart_labels_value: [metrics[:chart][:labels].map { |label| label.in_time_zone(current_user.time_zone) }],
-      bot__chart_series_value: [
-        metrics[:chart][:series].map { |serie| serie.map { |amount| amount.round(bot.decimals[:quote] || 8) } }
-      ]
-    }, style: "width: 100%; aspect-ratio: 10 / 3;" do %>
-      <canvas data-bot--chart-target="analyzerChart" width="10" height="3"></canvas>
+      bot__chart_bot_value: bot.id,
+      bot__chart_quote_value: bot.quote_asset.symbol,
+      bot__chart_decimals_value: bot.decimals[:quote] || 8,
+      bot__chart_labels_value: metrics[:chart][:labels].map { |label| label.in_time_zone(current_user.time_zone) },
+      bot__chart_series_value: metrics[:chart][:series].map { |serie| serie.map { |amount| amount.round(bot.decimals[:quote] || 8) } },
+      bot__chart_return_value: return_series,
+      bot__chart_return_note_value: t('bot.details.stats.chart.return_note')
+    } do %>
+      <%# The switch sits on the date line, opposite it: one row across the top of the plot. A
+          bot with nothing to index — no point where it held anything — has no RETURN to offer,
+          and a switch with one usable side is furniture. %>
+      <div class="widget--chart__head">
+        <div class="widget--chart__modes" data-action="segmented:change->bot--chart#mode">
+          <% if return_series.compact.any? %>
+          <%= render 'shared/segmented',
+                     label: t('bot.details.stats.chart.modes'),
+                     options: [{ value: 'value', label: t('bot.details.stats.chart.value'), active: true },
+                               { value: 'return', label: t('bot.details.stats.chart.return') }] %>
+          <% end %>
+        </div>
+        <div class="widget--chart__summary" data-bot--chart-target="summary">
+          <div class="widget--chart__date" data-bot--chart-target="date">&nbsp;</div>
+          <div class="widget--chart__pnl" data-bot--chart-target="pnl">&nbsp;</div>
+          <div class="widget--chart__percent" data-bot--chart-target="percent">&nbsp;</div>
+        </div>
+      </div>
+      <div class="widget--chart__plot">
+        <canvas data-bot--chart-target="analyzerChart" width="10" height="2"></canvas>
+      </div>
+
     <% end %>
   <% end %>
 </div>

@@ -130,6 +130,9 @@ de:
                 average_price: Durchschnittspreis
                 bought: Gekauft
                 chart:
+                    modes: 'Diagrammmodus'
+                    return: 'Rendite'
+                    return_note: 'Wachstum von 100, unabhängig von der Kaufhöhe'
                     total_invested: 'Insgesamt investiert'
                     value: Wert
                 csv_download_html: 'Die obige Tabelle zeigt nur die letzten zehn Transaktionen. Der vollständige Bericht steht unten im CSV-Format zum Download bereit.'

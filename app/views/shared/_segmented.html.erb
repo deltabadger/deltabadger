@@ -1,0 +1,41 @@
+<%# A segmented control: one track, one sliding chip, one option selected.
+
+    locals:
+      options - [{ value:, label:, active:, href: (optional), data: (optional) }]
+      label   - what the group is, for a screen reader
+      fluid   - false (default): identical columns, right when the labels are the same length and
+                a chip that changed width would read as a glitch (VALUE / RETURN).
+                true: every option takes the width of its own label and the chip follows — the
+                only honest sizing when the labels differ ("All" vs "Transactions") or when the
+                number of options depends on the data.
+
+    Options carrying an href are NAVIGATION and render as links with aria-current; options
+    without one are a single-choice control and render as radios in a radiogroup. The chip is
+    positioned by the `segmented` Stimulus controller, which measures the selected option — the
+    same code for both sizings, since measuring an equal column is measuring a column. %>
+<% fluid = local_assigns.fetch(:fluid, false) %>
+<% links = options.any? { |option| option[:href].present? } %>
+
+<%= tag.div class: ['segmented', ('segmented--fluid' if fluid)],
+            role: (links ? nil : 'radiogroup'),
+            aria: { label: label },
+            data: { controller: 'segmented' }.merge(local_assigns[:data] || {}) do %>
+  <span class="segmented__thumb" data-segmented-target="thumb"></span>
+  <% options.each do |option| %>
+    <% classes = ['segmented__option', ('is-on' if option[:active])] %>
+    <% shared = { value: option[:value] }.merge(option[:data] || {}).merge('segmented-target': 'option') %>
+    <% if links %>
+      <%# No select/arrow actions on a link: the server decides what is current, and moving
+          `is-on` on a cmd-click — which opens a new tab and leaves this page as it was —
+          would put the chip on an option that aria-current still says is not the one. %>
+      <%= link_to option[:label], option[:href], class: classes,
+                                                 aria: { current: ('page' if option[:active]) },
+                                                 data: shared %>
+    <% else %>
+      <%= tag.button option[:label], type: 'button', class: classes, role: 'radio',
+                                     aria: { checked: option[:active].present? },
+                                     tabindex: option[:active] ? 0 : -1,
+                                     data: shared.merge(action: 'segmented#select keydown->segmented#keys') %>
+    <% end %>
+  <% end %>
+<% end %>

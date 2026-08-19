@@ -131,6 +131,9 @@ nl:
                 average_price: 'Gemiddelde prijs'
                 bought: Gekocht
                 chart:
+                    modes: 'Grafiekmodus'
+                    return: 'Rendement'
+                    return_note: 'Groei van 100, ongeacht hoeveel er is gekocht'
                     total_invested: 'Totaal geïnvesteerd'
                     value: Waarde
                 csv_download_html: 'Bovenstaande tabel toont enkel de laatste tien transacties. Het volledige rapport is hieronder beschikbaar om te downloaden in CSV-formaat.'

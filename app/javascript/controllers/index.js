@@ -136,6 +136,9 @@ application.register("rule-toggle", RuleToggleController)
 import ScrollStateController from "./scroll_state_controller"
 application.register("scroll-state", ScrollStateController)
 
+import SegmentedController from "./segmented_controller"
+application.register("segmented", SegmentedController)
+
 import SliderController from "./slider_controller"
 application.register("slider", SliderController)
 
