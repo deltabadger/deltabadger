@@ -14,10 +14,14 @@
   
   <div class="page-head page-head--bots">
     <div class="filters">
+      <%# Fluid: "All" and "Inactive" are nowhere near the same width, so equal columns would
+          pad the short label out of proportion. %>
       <% if @show_filters %>
-        <%= link_to t('bot_filters.all'), bots_path(filter: 'all'), class: ["sbutton sbutton--multi", ("sbutton--multi--active" if @filter == 'all')] %>
-        <%= link_to t('bot_filters.active'), bots_path(filter: 'active'), class: ["sbutton sbutton--multi", ("sbutton--multi--active" if @filter == 'active')] %>
-        <%= link_to t('bot_filters.inactive'), bots_path(filter: 'inactive'), class: ["sbutton sbutton--multi", ("sbutton--multi--active" if @filter == 'inactive')] %>
+        <%= render 'shared/segmented', fluid: true, label: t('bot_filters.all'),
+                   options: %w[all active inactive].map { |filter|
+                     { value: filter, label: t("bot_filters.#{filter}"),
+                       href: bots_path(filter: filter), active: @filter == filter }
+                   } %>
       <% end %>
     </div>
 

@@ -6,17 +6,20 @@
 <% show_filters = categories > 1 %>
 
 <% order_filter = params[:order_filter] || 'all' %>
-<div id="<%= dom_id(bot, :order_filters) %>" class="filters" data-order-filter-target="filterContainer">
+<%# Fluid: the option COUNT depends on what the bot actually has (a bot with no cancelled orders
+    gets no cancelled tab), and the labels differ in width, so equal columns would resize the
+    whole control from bot to bot. The order-filter controller still does the filtering; it just
+    hears about the choice through the segmented control's event now. %>
+<% tabs = [['all', t('order_filters.all'), true],
+           ['successful', t('order_filters.transactions'), has_successful],
+           ['cancelled', t('order_filters.cancelled'), has_cancelled],
+           ['waiting', t('order_filters.waiting'), has_waiting]] %>
+<div id="<%= dom_id(bot, :order_filters) %>" class="filters" data-order-filter-target="filterContainer"
+     data-action="segmented:change->order-filter#filter">
   <% if show_filters %>
-    <%= link_to t('order_filters.all'), "#", class: ["sbutton sbutton--multi", ("sbutton--multi--active" if order_filter == 'all')], data: { order_filter_target: "filter", filter_type: "all", action: "click->order-filter#filter" } %>
-    <% if has_successful %>
-      <%= link_to t('order_filters.transactions'), "#", class: ["sbutton sbutton--multi", ("sbutton--multi--active" if order_filter == 'successful')], data: { order_filter_target: "filter", filter_type: "successful", action: "click->order-filter#filter" } %>
-    <% end %>
-    <% if has_cancelled %>
-      <%= link_to t('order_filters.cancelled'), "#", class: ["sbutton sbutton--multi", ("sbutton--multi--active" if order_filter == 'cancelled')], data: { order_filter_target: "filter", filter_type: "cancelled", action: "click->order-filter#filter" } %>
-    <% end %>
-    <% if has_waiting %>
-      <%= link_to t('order_filters.waiting'), "#", class: ["sbutton sbutton--multi", ("sbutton--multi--active" if order_filter == 'waiting')], data: { order_filter_target: "filter", filter_type: "waiting", action: "click->order-filter#filter" } %>
-    <% end %>
+    <%= render 'shared/segmented', fluid: true, label: t('order_filters.all'),
+               options: tabs.select(&:last).map { |value, label, _|
+                 { value: value, label: label, active: order_filter == value }
+               } %>
   <% end %>
 </div>

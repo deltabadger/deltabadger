@@ -19,7 +19,7 @@
     display: flex
     flex-direction: column
     gap: 3rem
-    border-radius: 2rem
+    border-radius: 1rem
     box-shadow: var(--shadow-basic)
     &--settings
         padding: 2rem 4rem 4rem 4rem
@@ -32,7 +32,7 @@
             .button
                 width: 100%
     &__placeholder
-        aspect-ratio: 10 / 3
+        aspect-ratio: 10 / 2
         align-self: center
         justify-self: center
         opacity: 0.2
@@ -48,19 +48,71 @@
         padding-top: 0.5em
         display: block
         width: 100%
-    &.widget--chart
-        max-width: 100%
     &.data-grid
-        border-radius: 2rem
         padding: 0
     &--thin
         padding: 1.5rem 2rem
     &--chart
+        max-width: 100%
         gap: 0
-        .data-grid__item
-            height: auto
-            background: none
+        background: none
+        box-shadow: none
+        @media (min-width: 768px)
+            padding: calc(var(--ui-padding)/1.33) var(--ui-padding)
+            
+        // The switch and the readout share one row across the top of the plot: the switch on
+        // the left, on the same line as the date range, the numbers stacked on the right.
+        &__head
+            display: flex
+            align-items: flex-start
+            justify-content: space-between
+            gap: 2rem
+        &__summary
+            display: flex
+            flex-direction: column
+            gap: 0.5rem
+            text-align: right
             padding: 0
+            margin-left: auto
+        &__date
+            color: var(--concrete)
+            font-size: 1.5rem
+            font-weight: 600
+            text-transform: uppercase
+        &__pnl
+            font-size: 3rem
+            line-height: 3rem
+            font-weight: 600
+            @media (min-width: 768px)
+                font-size: 4.5rem
+                line-height: 4.5rem
+        &__percent
+            font-size: 2rem
+            line-height: 2rem
+            font-weight: 600
+            @media (min-width: 768px)
+                font-size: 2.5rem
+                line-height: 2.5rem
+        &__plot
+            width: 100%
+            aspect-ratio: 10 / 2
+        // Spacing only — the control itself is .segmented. The switch is 4rem tall and the date
+        // line beside it is 1.5rem at line-height 1.5 (2.25rem), so lifting it by half the
+        // difference puts the two centre lines on the same row.
+        &__modes
+            display: flex
+            flex-shrink: 0
+            margin-top: calc((2.25rem - 4rem) / 2)
+        // RETURN has no money to print, so the small line under the big number captions the
+        // mode instead. Sized down and muted so it reads as a caption, not as a second figure.
+        &__summary--return
+            .widget--chart__percent
+                font-size: 1.5rem
+                font-weight: 500
+                line-height: 2rem
+                color: var(--concrete)
+                @media (min-width: 768px)
+                    font-size: 1.75rem
     .main-rule
         padding-top: 4rem
         padding-bottom: 4rem
@@ -84,11 +136,15 @@
         table
             margin-bottom: 0
             border-collapse: collapse
+            border-top: 1rem solid var(--washed)
+            border-bottom: 1.5rem solid var(--washed)
         thead
             position: sticky
             top: 0
             background-color: var(--washed)
-            box-shadow: 0 0.25rem var(--widget-shadow-line)
+            line-height: 1.5rem
+
+            z-index: 1
         tbody
             overflow-y: auto
             height: 0
@@ -96,18 +152,11 @@
             color: var(--concrete)
             font-weight: 600
             z-index: 1
-        thead
-            z-index: 1
-        th
-            padding: 1.5rem 0 1rem var(--ui-padding)
+            font-size: 1.5rem
+            text-transform: uppercase
+            padding: 1.5rem 0 1rem  var(--ui-padding)
         td
             padding: 0.75rem 0 0.75rem var(--ui-padding)
-        tr:first-child
-            th,td
-                padding-top: calc(var(--ui-padding)/1.5)
-        tr:last-child
-            th,td
-                padding-bottom: calc(var(--ui-padding)/1.5)
         td, th
             text-align: right
             border: none
@@ -115,6 +164,14 @@
                 text-align: left
             &:last-child
                 padding-right: var(--ui-padding)
+        // Shrink-to-fit: the column is the logo, nothing more. The cell keeps the table's
+        // left gutter and hands the next column a tighter one, so symbol sits by its logo.
+        .table__logo
+            width: 1px
+            padding-right: 0
+            + td, + th
+                text-align: left
+                padding-left: 1rem
         .tooltip-info-icon
             width: 3rem
             float: right

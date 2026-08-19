@@ -5,10 +5,25 @@ import { Controller } from "@hotwired/stimulus"
 // (successful/waiting/cancelled) show the columnar rows of that type. The columnar
 // Amount/Value headers are hidden while the timeline is shown.
 export default class extends Controller {
-  static targets = ["row", "filter", "columnHeader"]
+  static targets = ["row", "columnHeader", "filterContainer"]
   static values = { current: { type: String, default: "all" } }
 
   connect() {
+    this.updateHeader()
+  }
+
+  // The filter row is broadcast-replaced whenever an order changes (Bot#broadcast_order_filters_update)
+  // and comes back rendered on "all", while this controller — which lives on an ancestor and
+  // survives — is still filtering. Re-select what the user actually chose; if that tab no longer
+  // exists (its last order changed category), fall back to the "all" the server just rendered.
+  filterContainerTargetConnected(container) {
+    if (this.currentValue === "all") return
+
+    const option = container.querySelector(`[data-value="${this.currentValue}"]`)
+    if (option) return option.click()
+
+    this.currentValue = "all"
+    this.updateVisibility()
     this.updateHeader()
   }
 
@@ -16,19 +31,12 @@ export default class extends Controller {
     this.updateVisibility()
   }
 
+  // Fired by the shared `segmented` control, which owns the chip and the pressed state. This
+  // only decides what the list shows.
   filter(event) {
-    event.preventDefault()
-    this.currentValue = event.currentTarget.dataset.filterType
-    this.updateActiveButton()
+    this.currentValue = event.detail.value
     this.updateVisibility()
     this.updateHeader()
-  }
-
-  updateActiveButton() {
-    this.filterTargets.forEach(button => {
-      const isActive = button.dataset.filterType === this.currentValue
-      button.classList.toggle("sbutton--multi--active", isActive)
-    })
   }
 
   updateVisibility() {

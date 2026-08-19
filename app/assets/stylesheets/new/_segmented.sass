@@ -1,0 +1,70 @@
+@use "../variables" as *
+
+// Segmented control: a recessed track, a raised chip, one option selected.
+//
+// Two sizings. The DEFAULT splits the track into identical columns — right when the labels are
+// the same length, where a chip that changed width would read as a glitch. --fluid lets every
+// option take the width of its own label and the chip follows it, which is the only honest
+// sizing when the labels differ or when the option count depends on the data.
+//
+// The chip's left and width are set in pixels by the `segmented` controller, which measures the
+// selected option. Both sizings therefore share one code path; the CSS difference is a single
+// column rule.
+.segmented
+    position: relative
+    display: grid
+    grid-auto-flow: column
+    grid-auto-columns: 1fr
+    align-items: stretch
+    height: 4rem
+    width: fit-content
+    padding: 0.375rem
+    background: var(--silver)
+    border-radius: 1.25rem
+    box-shadow: var(--shadow-indent)
+    &--fluid
+        grid-auto-columns: auto
+
+// No border: the chip is lighter than the track it sits in, and a hairline around a fill that
+// already separates itself adds a line and no information.
+.segmented__thumb
+    position: absolute
+    top: 0.375rem
+    bottom: 0.375rem
+    left: 0.375rem
+    border-radius: 1rem
+    background: var(--washed)
+    box-shadow: var(--shadow-paper)
+    // The reset already stops every transition under prefers-reduced-motion.
+    transition: left 0.18s cubic-bezier(0.22, 0.61, 0.36, 1), width 0.18s cubic-bezier(0.22, 0.61, 0.36, 1)
+
+// Weight is CONSTANT across states: a heavier selected label would change the option's width and
+// make the chip lurch on every switch. Colour carries the selection.
+.segmented__option
+    position: relative
+    z-index: 1
+    display: flex
+    align-items: center
+    justify-content: center
+    padding: 0 1.5rem
+    font-family: inherit
+    font-size: 1.5rem
+    font-weight: 600
+    // back in the middle of its slot.
+    text-indent: 0.1em
+    text-transform: uppercase
+    white-space: nowrap
+    color: var(--stone)
+    text-decoration: none
+    background: none
+    border: 0
+    border-radius: 1rem
+    cursor: pointer
+    transition: color 0.11s ease-out
+    &:hover
+        color: var(--ink)
+    &.is-on
+        color: var(--ink)
+    &:focus-visible
+        outline: 2px solid var(--link)
+        outline-offset: 2px

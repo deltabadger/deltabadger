@@ -134,6 +134,9 @@ fr:
                 average_price: 'Prix moyen'
                 bought: 'Acheté'
                 chart:
+                    modes: 'Mode du graphique'
+                    return: 'Rendement'
+                    return_note: 'Croissance de 100, indépendamment des montants achetés'
                     total_invested: 'Total investi'
                     value: 'Valeur'
                 csv_download_html: 'Le tableau ci-dessus ne montre que les dix dernières transactions. Le rapport complet peut être téléchargé au format CSV ci-dessous.'

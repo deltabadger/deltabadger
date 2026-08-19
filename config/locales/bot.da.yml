@@ -139,6 +139,9 @@ da:
                 average_price: 'Gennemsnitspris'
                 bought: Købt
                 chart:
+                    modes: 'Diagramtilstand'
+                    return: 'Afkast'
+                    return_note: 'Vækst af 100, uanset hvor meget der er købt'
                     total_invested: 'Samlet investeret'
                     value: Værdi
                 csv_download_html: 'Tabellen ovenfor viser kun de seneste ti transaktioner. Den fulde rapport kan downloades i CSV-format nedenfor.'

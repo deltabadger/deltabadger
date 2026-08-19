@@ -160,4 +160,49 @@ class BotHelperTest < ActionView::TestCase
     assert_match(/above the price/i, sell_html)
     assert_no_match(/below the price/i, sell_html)
   end
+
+  # == chart_return_series (the RETURN mode of the bot chart) ==
+  #
+  # Time-weighted return — "growth of 100". The value curve cannot tell a bot that keeps
+  # buying from a bot that is winning; this one divides the deposits out. `invested` is the
+  # running cost basis (never falls), so its rise on any point is exactly the new money that
+  # arrived there — the one thing time-weighting has to remove.
+
+  test 'return series indexes to 100 and follows price when no money arrives' do
+    assert_equal [100.0, 110.0], chart_return_series([100.0, 110.0], [100.0, 100.0])
+  end
+
+  test 'a pure deposit does not move the return' do
+    assert_equal [100.0, 100.0], chart_return_series([100.0, 200.0], [100.0, 200.0])
+  end
+
+  test 'a deposit plus a gain reads as the gain alone' do
+    assert_equal [100.0, 110.0], chart_return_series([100.0, 210.0], [100.0, 200.0])
+  end
+
+  # Selling turns holdings into proceeds inside the same envelope: value holds its level and
+  # invested does not move, so a locked-in gain must go on being a gain instead of decaying.
+  test 'selling locks the gain in rather than flattening it' do
+    assert_equal [100.0, 120.0, 120.0],
+                 chart_return_series([100.0, 120.0, 120.0], [100.0, 100.0, 100.0])
+  end
+
+  test 'a loss goes below the baseline' do
+    assert_equal [100.0, 80.0], chart_return_series([100.0, 80.0], [100.0, 100.0])
+  end
+
+  test 'the index compounds across points rather than measuring from the start' do
+    assert_equal [100.0, 110.0, 121.0],
+                 chart_return_series([100.0, 110.0, 121.0], [100.0, 100.0, 100.0])
+  end
+
+  # Same length as the labels, always: the chart pairs the two by index, so a point that
+  # cannot be indexed has to be a gap, not a missing element that shifts every later date.
+  test 'points before the bot holds anything are gaps, not dropped' do
+    assert_equal [nil, 100.0, 110.0], chart_return_series([0.0, 100.0, 110.0], [0.0, 100.0, 100.0])
+  end
+
+  test 'no transactions, no curve' do
+    assert_equal [], chart_return_series([], [])
+  end
 end
