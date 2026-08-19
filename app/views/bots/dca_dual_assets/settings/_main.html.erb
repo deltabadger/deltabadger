@@ -9,8 +9,8 @@
 <%# Donut slices mirror the slider's target split; zero-value slices are dropped so a
     100/0 allocation renders a single full slice instead of a ghost 0% leader. %>
 <% dual_slices = [
-     ({ label: base0, symbol: base0, value: bot.allocation0.to_f, color: base0_color, assetId: bot.base0_asset&.id, logo: bot.base0_asset&.image_url } if bot.allocation0.to_f.positive?),
-     ({ label: base1, symbol: base1, value: (1 - bot.allocation0).to_f, color: base1_color, assetId: bot.base1_asset&.id, logo: bot.base1_asset&.image_url } if (1 - bot.allocation0).to_f.positive?)
+     ({ label: base0, symbol: base0, value: bot.allocation0.to_f, color: base0_color, assetId: bot.base0_asset&.id } if bot.allocation0.to_f.positive?),
+     ({ label: base1, symbol: base1, value: (1 - bot.allocation0).to_f, color: base1_color, assetId: bot.base1_asset&.id } if (1 - bot.allocation0).to_f.positive?)
    ].compact %>
 
 <%= form_with model: bot,

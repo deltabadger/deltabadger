@@ -96,13 +96,13 @@
 
     <% if index_preview.present? %>
       <div class="index-pie" data-index-allocation-target="pie" data-action="click->index-allocation#toggle">
-        <svg data-index-allocation-target="pieSvg" style="width: 100%; display: block; margin: 0 auto;"></svg>
+        <svg data-index-allocation-target="pieSvg" style="width: 100%; display: block; margin: -4rem auto -2rem;"></svg>
       </div>
       <div class="index-assets" data-index-allocation-target="assets list" data-action="click->index-allocation#toggle" data-total-available="<%= index_preview.size %>">
         <% index_preview.each_with_index do |coin, index| %>
           <% color = ensure_contrast(coin[:color] || '#8A9BA8') %>
           <% visible = index < num_coins %>
-          <div class="index-asset" data-color="<%= color %>" data-market-cap="<%= coin[:market_cap] %>" data-logo="<%= coin[:logo] %>" data-asset-id="<%= coin[:asset_id] %>" data-index="<%= index %>" <%= 'style="display: none;"' unless visible %>>
+          <div class="index-asset" data-color="<%= color %>" data-market-cap="<%= coin[:market_cap] %>" data-asset-id="<%= coin[:asset_id] %>" data-index="<%= index %>" <%= 'style="display: none;"' unless visible %>>
             <div class="index-asset__row">
               <%= tag.div coin[:symbol], class: "ticker", style: "background-color: #{color}", data: ticker_data_for(id: coin[:asset_id], symbol: coin[:symbol]) %>
               <div class="slider">

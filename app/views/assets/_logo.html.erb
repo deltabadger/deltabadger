@@ -1,0 +1,6 @@
+<%# Small round asset logo; falls back to the asset's own colour when it has no image. %>
+<% if asset&.image_url.present? %>
+  <img class="asset-logo" src="<%= asset.image_url %>" alt="" loading="lazy">
+<% else %>
+  <span class="asset-logo" style="background: <%= ensure_contrast(asset&.color || '#8A9BA8') %>"></span>
+<% end %>

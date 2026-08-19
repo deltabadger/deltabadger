@@ -23,6 +23,7 @@
       <table class="table">
         <thead>
           <tr>
+            <th scope="col" class="table__logo"></th>
             <th scope="col"><%= t('data_labels.asset') %></th>
             <th scope="col"><%= t('data_labels.amount') %></th>
             <th scope="col"><%= t('data_labels.avg_price') %></th>
@@ -33,6 +34,7 @@
         <tbody id="assets_metrics_list">
           <% if bot.base_asset %>
             <tr>
+              <td class="table__logo"><%= render 'assets/logo', asset: bot.base_asset %></td>
               <td scope="row"><%= bot.base_asset.symbol %></td>
               <td><%= metrics[:total_base_amount].round(bot.decimals[:base] || 8) %></td>
               <td><%= metrics[:average_buy_price].present? ? metrics[:average_buy_price].round(bot.decimals[:base_price] || 8) : '-' %></td>

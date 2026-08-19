@@ -7,8 +7,7 @@
       name: asset.name,
       value: s[:usd_value].to_f,
       color: ensure_contrast(asset.color.presence || '#8A9BA8'),
-      assetId: asset.id,
-      logo: asset.image_url
+      assetId: asset.id
     }
   end
   slices_total = slices.sum { |s| s[:value] }

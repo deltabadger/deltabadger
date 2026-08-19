@@ -1,6 +1,7 @@
 @use "../variables" as *
 
 .data-grid
+    text-align: right
     display: grid
     gap: 0
     grid-template-columns: repeat(2, 50%)
@@ -23,11 +24,11 @@
         background-size: 100% 100%, 100% 100%, 100% 100%, 100% calc(11.8rem + 0.25rem)
         background-repeat: no-repeat, no-repeat, no-repeat, repeat-y
     &__item
-        padding: var(--ui-padding)
+        padding: calc(var(--ui-padding)/1.33) var(--ui-padding)
         position: relative
         display: flex
         flex-direction: column
-        gap: 1.5rem
+        gap: 0.5rem
         .label
             line-height: 2rem
         &__value
@@ -38,7 +39,7 @@
             min-height: 3rem
             font-weight: 600
             @media (max-width: 549.9px)
-                min-height: 6.5rem
+                min-height: 5redm
             path
                 fill: var(--stone)
             svg
