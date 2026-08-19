@@ -164,12 +164,11 @@ class Bots::DcaIndex < Bot
     @quote_asset ||= Asset.find_by(id: quote_asset_id)
   end
 
+  # Memoized WHOLE, guard included: `tickers` is an unloaded relation, so `any?` is an EXISTS
+  # query every call — and the chart reads this once per data point, which turned one render
+  # into 1457 identical queries.
   def decimals
-    return {} unless tickers.any?
-
-    @decimals ||= {
-      quote: tickers.pluck(:quote_decimals).compact.min
-    }
+    @decimals ||= tickers.any? ? { quote: tickers.pluck(:quote_decimals).compact.min } : {}
   end
 
   # Returns the highest minimum_quote_size among all index tickers.
