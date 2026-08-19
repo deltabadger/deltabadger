@@ -60,6 +60,7 @@ sk:
             transient_unavailable: "%{exchange} je dočasne nedostupná. Bot to automaticky skúsi znova."
         bots:
             exchange_asset_mismatch: "Nie vsetky aktiva su dostupne na %{exchange_name}"
+            archived: "Než tohto bota spustíte, obnovte ho"
             exchange_change_while_open_orders: "Pred zmenou burzy zruste vsetky otvorene prikazy tohto bota na %{exchange_name}"
             destroy_success: "Bot %{bot_label} bol uspesne vymazany"
             api_key_success: "API kluce boli uspesne ulozene"

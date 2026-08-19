@@ -17,6 +17,8 @@ el:
         authorize: 'Εξουσιοδότηση'
         disable: 'Απενεργοποίηση'
         delete: 'Διαγραφή'
+        archive: 'Αρχειοθέτηση'
+        reactivate: 'Επαναφορά'
         duplicate: 'Αντιγραφή'
         copy: 'Αντιγραφή'
         submit: 'Υποβολή'
@@ -350,6 +352,7 @@ el:
         all: 'Όλα'
         active: 'Ενεργά'
         inactive: 'Ανενεργά'
+        archived: 'Αρχειοθετημένα'
     rules:
         index:
             title: 'Κανόνες'

@@ -17,6 +17,8 @@ bg:
         authorize: 'Оторизирай'
         disable: 'Изключи'
         delete: 'Изтрий'
+        archive: 'Архивирай'
+        reactivate: 'Възстанови'
         duplicate: 'Дублирай'
         copy: 'Копирай'
         submit: 'Изпрати'
@@ -350,6 +352,7 @@ bg:
         all: 'Всички'
         active: 'Активни'
         inactive: 'Неактивни'
+        archived: 'Архивирани'
     rules:
         index:
             title: 'Правила'

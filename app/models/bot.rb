@@ -17,6 +17,10 @@ class Bot < ApplicationRecord
   belongs_to :user
   has_many :transactions, dependent: :destroy
 
+  # Every start path — the button, a stale tab, BotApi::Bots::Start — goes through valid?(:start),
+  # so one validation is the whole gate: an archived bot is reactivated first or not at all.
+  validate :not_archived, on: :start
+
   before_save :store_previous_exchange_id
   after_update_commit :broadcast_status_bar_update, if: -> { saved_change_to_status? && !@skip_status_bar_broadcast }
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
@@ -49,6 +53,33 @@ class Bot < ApplicationRecord
   def stale(metrics_data)
     metrics_data[:prices_stale] = true
     metrics_data
+  end
+
+  # Hidden from the list, keeps its history, trades nothing. Archiving goes through #stop so the
+  # job cancellation and the settings-dirty guard stay in one place — an archived bot must never
+  # leave a tick scheduled behind it.
+  def archive
+    stop && update(status: :archived)
+  end
+
+  # status_was, not archived?: both #start implementations assign :scheduled before they validate,
+  # so the only place the archive is still visible at validation time is the persisted value.
+  def not_archived
+    errors.add(:status, :archived, message: I18n.t('errors.bots.archived')) if status_was == 'archived'
+  end
+
+  # Always :stopped, never :created — a never-run bot renders identically either way (no
+  # last_action_job_at, so a plain fresh Start), while :created is the one status that would put
+  # the bot back under validate_bot_exchange and refuse to reactivate a delisted pair. Reading
+  # started_at to tell the two apart would not work anyway: the limit concerns decorate it.
+  #
+  # Idempotent on purpose: a stale second Reactivate (double click, retried request) must not
+  # write :stopped over a bot that has since been started again — that would halt it without
+  # cancelling its scheduled tick.
+  def unarchive
+    return true unless archived?
+
+    update(status: :stopped)
   end
 
   def last_transaction

@@ -67,6 +67,7 @@ nl:
             transient_unavailable: "%{exchange} is tijdelijk niet beschikbaar. De bot probeert het automatisch opnieuw."
         bots:
             exchange_asset_mismatch: "Niet alle activa staan genoteerd op %{exchange_name}"
+            archived: "Heractiveer deze bot voordat je hem start"
             exchange_change_while_open_orders: "Annuleer alle openstaande bestellingen van deze bot op %{exchange_name} voordat u de exchange wijzigt"
             destroy_success: "Bot %{bot_label} succesvol verwijderd"
             api_key_success: "API-sleutels succesvol opgeslagen"

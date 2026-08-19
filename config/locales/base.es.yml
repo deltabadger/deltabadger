@@ -17,6 +17,8 @@ es:
         authorize: 'Autorizar'
         disable: 'Desactivar'
         delete: 'Eliminar'
+        archive: 'Archivar'
+        reactivate: 'Reactivar'
         duplicate: 'Duplicar'
         copy: 'Copiar'
         submit: 'Enviar'
@@ -349,6 +351,7 @@ es:
         all: 'Todos'
         active: 'Activos'
         inactive: 'Inactivos'
+        archived: 'Archivados'
     rules:
         index:
             title: 'Reglas'

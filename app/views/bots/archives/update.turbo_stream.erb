@@ -1,0 +1,5 @@
+<%# Archiving and reactivating both change nothing but the two status widgets — the bot page and
+    every tile render them from the same partials. %>
+<%= turbo_stream.replace dom_id(@bot, :status_bar), partial: 'bots/status/status_bar', locals: { bot: @bot } %>
+<%= turbo_stream.replace dom_id(@bot, :status_button), partial: 'bots/status/status_button', locals: { bot: @bot } %>
+<%= turbo_stream.replace dom_id(@bot, :menu), partial: 'bots/menu', locals: { bot: @bot } %>

@@ -17,6 +17,8 @@ en:
         authorize: 'Authorize'
         disable: 'Disable'
         delete: 'Delete'
+        archive: 'Archive'
+        reactivate: 'Reactivate'
         duplicate: 'Duplicate'
         copy: 'Copy'
         submit: 'Submit'
@@ -350,6 +352,7 @@ en:
         all: 'All'
         active: 'Active'
         inactive: 'Inactive'
+        archived: 'Archived'
     rules:
         index:
             title: 'Rules'

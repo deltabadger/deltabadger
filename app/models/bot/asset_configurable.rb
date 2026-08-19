@@ -104,7 +104,7 @@ module Bot::AssetConfigurable
   end
 
   def validate_bot_exchange
-    return if stopped? || deleted?
+    return if stopped? || deleted? || archived?
     return if exchange_supports_current_assets?
 
     errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))

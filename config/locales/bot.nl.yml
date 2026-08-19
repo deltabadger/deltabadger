@@ -57,6 +57,7 @@ nl:
             exchange_retired: 'Deze exchange bestaat niet meer — zet de bot over naar een andere.'
             setting_orders: "Orders instellen…"
             paused: "Gepauzeerd"
+            archived: "Gearchiveerd"
             next_try: "Volgende poging in"
             waiting: "Wachten tot aan alle voorwaarden is voldaan"
             listening: "Luistert"
@@ -157,6 +158,7 @@ nl:
         limit_sell: 'Limiet verkoop'
         messages:
             do_you_want_to_delete: 'Wil je deze bot verwijderen?'
+            do_you_want_to_archive: 'Wil je deze bot archiveren?'
             symbol_not_supported: "%{symbol} wordt niet ondersteund"
             specify_percentage_limit_order: "Geef het percentage op bij het maken van een limietorder"
             smart_intervals_above_minimum: "De waarde van slimme intervallen moet groter zijn dan %{minimum}"

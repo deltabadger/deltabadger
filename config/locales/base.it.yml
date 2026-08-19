@@ -17,6 +17,8 @@ it:
         authorize: 'Autorizza'
         disable: 'Disabilita'
         delete: 'Elimina'
+        archive: 'Archivia'
+        reactivate: 'Riattiva'
         duplicate: 'Duplica'
         copy: 'Copia'
         submit: 'Invia'
@@ -349,6 +351,7 @@ it:
         all: 'Tutti'
         active: 'Attivi'
         inactive: 'Inattivi'
+        archived: 'Archiviati'
     rules:
         index:
             title: 'Regole'

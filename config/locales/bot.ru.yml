@@ -57,6 +57,7 @@ ru:
             exchange_retired: 'Эта биржа больше не работает — переведите бота на другую.'
             setting_orders: "Настройка ордеров…"
             paused: "На паузе"
+            archived: "В архиве"
             next_try: "Следующая попытка через"
             waiting: "Ожидание выполнения всех условий"
             listening: "Ожидание сигнала"
@@ -155,6 +156,7 @@ ru:
         limit_sell: 'Лимитная продажа'
         messages:
             do_you_want_to_delete: 'Вы хотите удалить этого бота?'
+            do_you_want_to_archive: 'Вы хотите архивировать этого бота?'
             symbol_not_supported: "%{symbol} не поддерживается"
             specify_percentage_limit_order: "Укажите процент при создании лимитного ордера"
             smart_intervals_above_minimum: "Значение умных интервалов должно быть больше, чем %{minimum}"

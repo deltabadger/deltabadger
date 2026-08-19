@@ -17,6 +17,8 @@ de:
         authorize: 'Autorisieren'
         disable: 'Deaktivieren'
         delete: 'Löschen'
+        archive: 'Archivieren'
+        reactivate: 'Reaktivieren'
         duplicate: 'Duplizieren'
         copy: 'Kopieren'
         submit: 'Senden'
@@ -349,6 +351,7 @@ de:
         all: 'Alle'
         active: 'Aktiv'
         inactive: 'Inaktiv'
+        archived: 'Archiviert'
     rules:
         index:
             title: 'Regeln'

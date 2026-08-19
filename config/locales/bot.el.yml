@@ -64,6 +64,7 @@ el:
             exchange_retired: 'Αυτό το ανταλλακτήριο δεν λειτουργεί πλέον — μετέφερε το bot σε άλλο.'
             setting_orders: "Ρύθμιση εντολών…"
             paused: "Σε παύση"
+            archived: "Αρχειοθετημένο"
             next_try: "Επόμενη προσπάθεια σε"
             waiting: "Αναμονή για πλήρωση όλων των συνθηκών"
             listening: "Σε ακρόαση"
@@ -172,6 +173,7 @@ el:
         limit_sell: 'Πώληση limit'
         messages:
             do_you_want_to_delete: 'Θέλεις να διαγράψεις αυτό το bot;'
+            do_you_want_to_archive: 'Θέλεις να αρχειοθετήσεις αυτό το bot;'
             symbol_not_supported: "Το %{symbol} δεν υποστηρίζεται"
             specify_percentage_limit_order: "Όρισε ποσοστό κατά τη δημιουργία εντολής limit"
             smart_intervals_above_minimum: "Η τιμή των έξυπνων διαστημάτων πρέπει να είναι μεγαλύτερη από %{minimum}"

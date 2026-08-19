@@ -60,6 +60,7 @@ pl:
             exchange_retired: 'Ta giełda już nie działa — przenieś bota na inną.'
             setting_orders: "Ustawianie zleceń…"
             paused: "Wstrzymany"
+            archived: "Zarchiwizowany"
             next_try: "Następna próba za"
             waiting: "Oczekiwanie na spełnienie wszystkich warunków"
             listening: "Nasłuchiwanie"
@@ -160,6 +161,7 @@ pl:
         limit_sell: 'Sprzedaj z limitem'
         messages:
             do_you_want_to_delete: 'Czy chcesz usunąć tego bota?'
+            do_you_want_to_archive: 'Czy chcesz zarchiwizować tego bota?'
             symbol_not_supported: "%{symbol} nie jest obsługiwany"
             specify_percentage_limit_order: "Podaj procent przy tworzeniu zlecenia z limitem"
             smart_intervals_above_minimum: "Wartość inteligentnych interwałów powinna być większa niż %{minimum}"

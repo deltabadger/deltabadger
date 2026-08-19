@@ -17,6 +17,8 @@ pl:
         authorize: 'Autoryzuj'
         disable: 'Wyłącz'
         delete: 'Usuń'
+        archive: 'Archiwizuj'
+        reactivate: 'Przywróć'
         duplicate: 'Duplikuj'
         copy: 'Kopiuj'
         submit: 'Wyślij'
@@ -351,6 +353,7 @@ pl:
         all: 'Wszystkie'
         active: 'Aktywne'
         inactive: 'Nieaktywne'
+        archived: 'Zarchiwizowane'
     rules:
         index:
             title: 'Reguły'

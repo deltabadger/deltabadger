@@ -33,7 +33,8 @@ module BotApi
           total: bots.size,
           working: bots.count(&:working?),
           stopped: bots.where(status: :stopped).count,
-          created: bots.where(status: :created).count
+          created: bots.where(status: :created).count,
+          archived: bots.where(status: :archived).count
         }
       end
 
