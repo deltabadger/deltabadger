@@ -8,8 +8,11 @@ export default class extends Controller {
     method: String,
     methodArgs: Object,
     retryWhile: String,
-    retryAfter: { type: Number, default: 8000 },
-    retryFor: { type: Number, default: 90000 },
+    retryAfter: { type: Number, default: 15000 },
+    // Must OUTLAST the job's own concurrency lock (10 minutes). While a pass is in flight every
+    // retry is discarded server-side, so a horizon shorter than the lock would run out before the
+    // pass could even fail — and a pass that fails after the last retry leaves the loader forever.
+    retryFor: { type: Number, default: 660000 },
   };
 
   connect() {
