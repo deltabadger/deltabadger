@@ -70,7 +70,7 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
 
   # A radiogroup, not two independently-pressable toggles: the chart is in one mode at a time.
   # VALUE is the one showing, so it is the one checked and the only one in the tab order.
-  test 'chart offers the value/return switch with value selected' do
+  test 'chart offers the value/pnl switch with value selected' do
     data = @bot.metrics.deep_dup
     data[:chart][:labels] = [Time.utc(2026, 1, 1), Time.utc(2026, 2, 1)]
     data[:chart][:series] = [[100.0, 260.0], [100.0, 200.0]]
@@ -84,7 +84,9 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     assert_select '#chart [role="radio"][data-value="pnl"][aria-checked="false"][tabindex="-1"]', 1
     # The shared control owns the chip and the aria; the chart only listens for the choice.
     assert_select '#chart [data-action="segmented:change->bot--chart#mode"]', 1
-    assert_select '#chart .segmented--fluid', 0, 'the two labels are near enough in width to share a column'
+    # Fluid: "Value" and the locales' Profit/Loss wording are nowhere near the same width, and
+    # equal columns would give both the width of the longer one.
+    assert_select '#chart .segmented--fluid', 1
   end
 
   test 'chart shows the placeholder while metrics are still loading' do

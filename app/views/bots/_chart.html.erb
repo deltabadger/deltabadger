@@ -15,15 +15,20 @@
       <% end %>
     </div>
   <% else %>
-    <%# Subtracted in decimal, serialized as numbers: a BigDecimal ships as a JSON string. %>
-    <% pnl_series = chart_pnl_series(metrics[:chart][:series][0], metrics[:chart][:series][1]).map { |amount| amount.round(bot.decimals[:quote] || 8).to_f } %>
+    <%# Rounded ONCE, and the curve is derived from the same rounded values the summary
+        subtracts — otherwise 100.004 - 99.999 ships a curve at 0.01 while the headline, built
+        from two values that both rounded to 100.00, says 0.00. Serialized as numbers because a
+        BigDecimal ships into the page as a JSON string. %>
+    <% decimals = bot.decimals[:quote] || 8 %>
+    <% series = metrics[:chart][:series].map { |serie| serie.map { |amount| amount.round(decimals) } } %>
+    <% pnl_series = chart_pnl_series(series[0], series[1]).map(&:to_f) %>
     <%= tag.div data: {
       controller: "bot--chart",
       bot__chart_bot_value: bot.id,
       bot__chart_quote_value: bot.quote_asset.symbol,
-      bot__chart_decimals_value: bot.decimals[:quote] || 8,
+      bot__chart_decimals_value: decimals,
       bot__chart_labels_value: metrics[:chart][:labels].map { |label| label.in_time_zone(current_user.time_zone) },
-      bot__chart_series_value: metrics[:chart][:series].map { |serie| serie.map { |amount| amount.round(bot.decimals[:quote] || 8) } },
+      bot__chart_series_value: series,
       bot__chart_pnl_value: pnl_series
     } do %>
       <%# The switch sits on the date line, opposite it: one row across the top of the plot.
@@ -35,7 +40,10 @@
       <div class="widget--chart__head">
         <div class="widget--chart__modes" data-action="segmented:change->bot--chart#mode">
           <% if metrics[:chart][:series][1].any? { |spent| spent.to_f.positive? } %>
-          <%= render 'shared/segmented',
+          <%# Fluid: "Value" and the locales' Profit/Loss wording are nowhere near the same
+              width, and equal columns would give both the width of the longer one — wide
+              enough to push the header off a phone. %>
+          <%= render 'shared/segmented', fluid: true,
                      label: t('bot.details.stats.chart.modes'),
                      options: [{ value: 'value', label: t('bot.details.stats.chart.value'), active: true },
                                { value: 'pnl', label: t('bot.details.stats.chart.pnl') }] %>

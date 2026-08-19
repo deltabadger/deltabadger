@@ -66,6 +66,9 @@
             display: flex
             align-items: flex-start
             justify-content: space-between
+            // Wraps rather than overflowing: a long locale label plus a long quote symbol can
+            // outgrow a phone.
+            flex-wrap: wrap
             gap: 2rem
         &__summary
             display: flex
