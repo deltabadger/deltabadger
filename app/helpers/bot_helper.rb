@@ -3,46 +3,27 @@ module BotHelper
     Automation::Schedulable::INTERVALS.keys.map { |interval| [t("bot.#{interval}"), interval] }
   end
 
-  # The RETURN curve of the bot chart: 100 grown by the bot's own performance, with the size
-  # and the timing of its buys divided out. Where the VALUE curve answers "what is this worth",
-  # this answers "how well did it do" — a bot that only climbs because money keeps arriving
-  # reads as flat here, which is the entire reason the mode exists.
+  # The PnL curve of the bot chart: how far ahead of what was put in, at every point.
   #
-  # A pure function of the two series the chart already draws. `invested` is a running cost
-  # basis that never falls, so its rise at any point is exactly the new money that arrived
-  # there, which is the one thing time-weighting has to divide out:
+  # The VALUE curve always climbs for a DCA bot, because the money going in climbs — its shape
+  # is deposits, not performance. This divides that out the plainest way there is: the invested
+  # line becomes zero and the curve is the distance from it, which is the same number the
+  # headline already shows and needs no caption to read.
   #
-  #   r(t)     = (value(t) - flow(t)) / value(t-1) - 1
-  #   index(t) = index(t-1) * (1 + r(t))
+  # Money going in moves both terms together and so does not move the curve. Selling needs no
+  # special case: proceeds stay inside `value` as realized cash while `invested` holds its
+  # level, so a locked-in gain goes on reading as a gain.
   #
-  # Selling needs no special case and must not get one: proceeds stay inside `value` as
-  # realized cash while `invested` holds its level, so r is zero and a locked-in gain goes on
-  # being a gain instead of decaying into a flat stretch of nothing.
-  #
-  # The result is as long as the labels. A point before the bot holds anything is a gap (nil),
-  # never a dropped element — the chart pairs the two by index, and dropping one would plot
-  # every later point against the wrong date. Full precision is carried between points and
-  # only rounded on the way out, so a long curve never accumulates its own rounding.
-  def chart_return_series(values, invested)
-    index = nil
-    previous_value = nil
-    previous_invested = nil
-
+  # As long as the labels: a point with nothing invested has no percentage, and dropping it
+  # would shift every later point onto the wrong date.
+  def chart_pnl_series(values, invested)
     values.each_with_index.map do |value, i|
-      value = value.to_f
       spent = invested[i].to_f
+      next nil unless spent.positive?
 
-      if index.nil?
-        next nil unless value.positive?
-
-        index = 100.0
-      elsif previous_value.positive?
-        index *= (value - (spent - previous_invested)) / previous_value
-      end
-
-      previous_value = value
-      previous_invested = spent
-      index.round(4)
+      # Rounded: the chart cannot draw 17 significant digits and the series is serialized into
+      # the page, where 0.10000000000000009 costs bytes to say 0.1.
+      ((value.to_f / spent) - 1).round(6)
     end
   end
 

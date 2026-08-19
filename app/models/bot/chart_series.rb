@@ -6,7 +6,7 @@
 # no prices of its own — so a transaction point used to re-price the WHOLE position at that one
 # fill, while the candle points around it priced the same holdings at market. Two rulers on one
 # line: a fill away from market showed as a dip at the exact moment the bot got a good fill, and
-# RETURN, which reads every step as performance, compounded the teeth instead of averaging them.
+# every buy became a sawtooth vertex.
 #
 # Here the grid is the ruler: the venue's candle opens, plus the live price as a final mark.
 #

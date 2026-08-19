@@ -11,8 +11,7 @@ export default class extends Controller {
     quote: String,
     decimals: Number,
     bot: Number,
-    return: Array,
-    returnNote: String,
+    pnl: Array,
   };
 
   connect() {
@@ -44,8 +43,8 @@ export default class extends Controller {
     this.resizeObserver.observe(this.element);
 
     // After the child control has connected, so the chip moves with it.
-    if (this.#returnMode) {
-      requestAnimationFrame(() => this.element.querySelector('[data-value="return"]')?.click());
+    if (this.#pnlMode) {
+      requestAnimationFrame(() => this.element.querySelector('[data-value="pnl"]')?.click());
     }
   }
 
@@ -59,7 +58,7 @@ export default class extends Controller {
     }
   }
 
-  // --- VALUE / RETURN switch -----------------------------------------------------------
+  // --- VALUE / PnL switch -----------------------------------------------------------
   //
   // The control itself (chip, aria, arrow keys) is the `segmented` controller's; this only
   // reacts to the choice. Both curves are already here, so a mode change is a redraw and
@@ -80,7 +79,7 @@ export default class extends Controller {
 
   #storedMode() {
     try {
-      return sessionStorage.getItem(this.#storageKey) === "return" ? "return" : "value";
+      return sessionStorage.getItem(this.#storageKey) === "pnl" ? "pnl" : "value";
     } catch {
       return "value"; // storage can be denied outright (private mode, embedded webview)
     }
@@ -94,10 +93,9 @@ export default class extends Controller {
     }
   }
 
-  // Requires an actual curve: the plot falls back to VALUE when there is none, and the summary
-  // has to fall back with it or the page would caption a value curve as a return.
-  get #returnMode() {
-    return this.currentMode === "return" && this.returnValue?.some((index) => index !== null);
+  // Requires an actual curve: the plot falls back to VALUE when there is none.
+  get #pnlMode() {
+    return this.currentMode === "pnl" && this.pnlValue?.some((point) => point !== null);
   }
 
   // --- summary above the chart: date, PnL in quote currency, PnL in % ------------------
@@ -139,10 +137,11 @@ export default class extends Controller {
 
   // Without a hovered point: the full date range and the bot's current PnL — which is the
   // last chart point, the same numbers the balances widget shows.
+  //
+  // The SAME in both modes, deliberately: PnL redraws the curve, it does not change what the
+  // bot made. That is what lets the switch go uncaptioned — the reader sees one headline and
+  // two ways of drawing the history behind it.
   #renderSummary(point = null) {
-    this.summaryTarget.classList.toggle("widget--chart__summary--return", this.#returnMode);
-    if (this.#returnMode) return this.#renderReturnSummary(point);
-
     const value = this.seriesValue[0];
     const invested = this.seriesValue[1];
     if (!value?.length) return;
@@ -162,35 +161,19 @@ export default class extends Controller {
     this.summaryTarget.classList.toggle("text-success", pnl >= 0);
   }
 
-  // RETURN carries no money: the index is a ratio, so the big line is the growth it stands for
-  // and the small line captions the mode instead of printing the same number a second time.
-  #renderReturnSummary(point = null) {
-    const curve = this.returnValue;
-    if (!curve?.length) return;
-
-    const timestamps = this.#timestamps();
-    const last = curve.length - 1;
-    const at = point || { x: timestamps[last], index: curve[last] };
-    if (at.index === null || at.index === undefined) return;
-
-    const growth = Number(at.index) / 100 - 1;
-    const first = this.#date(timestamps[0]);
-    const on = this.#date(at.x);
-
-    this.dateTarget.textContent = point || first === on ? on : `${first} – ${on}`;
-    this.pnlTarget.textContent = this.#percent(growth);
-    this.percentTarget.textContent = this.returnNoteValue;
-    this.summaryTarget.classList.toggle("text-danger", growth < 0);
-    this.summaryTarget.classList.toggle("text-success", growth >= 0);
-  }
-
   #updateSummary(tooltip) {
     if (!tooltip.getActiveElements().length) return this.#renderSummary();
 
     const points = tooltip.dataPoints;
-    if (this.#returnMode) {
+    if (this.#pnlMode) {
       const parsed = points[0]?.parsed;
-      return parsed && this.#renderSummary({ x: parsed.x, index: parsed.y });
+      // One dataset in this mode, and its y is a ratio — the money behind it comes from the
+      // source series at that timestamp, so the headline stays identical to VALUE mode.
+      return parsed && this.#renderSummary({
+        x: parsed.x,
+        value: this.#valueAt(parsed.x),
+        invested: this.#investedAt(parsed.x),
+      });
     }
 
     const value = points.find((p) => p.datasetIndex === 0)?.parsed;
@@ -203,9 +186,17 @@ export default class extends Controller {
     this.#renderSummary({ x: value.x, value: value.y, invested: this.#investedAt(value.x) });
   }
 
+  #valueAt(timestamp) {
+    return Number(this.seriesValue[0][this.#indexAt(timestamp)]);
+  }
+
   // The invested total in force at a timestamp: the last transaction at or before it. Binary
   // search — the labels are sorted and this runs on every pointer move.
   #investedAt(timestamp) {
+    return Number(this.seriesValue[1][this.#indexAt(timestamp)]);
+  }
+
+  #indexAt(timestamp) {
     const timestamps = this.#timestamps();
     let low = 0;
     let high = timestamps.length - 1;
@@ -214,7 +205,7 @@ export default class extends Controller {
       if (timestamps[middle] <= timestamp) low = middle;
       else high = middle - 1;
     }
-    return Number(this.seriesValue[1][low]);
+    return low;
   }
 
   #buildChart() {
@@ -232,12 +223,12 @@ export default class extends Controller {
       type: "line",
       plugins: [
         {
-          // The 100 line the return curve is read against, under the datasets so the curve and
-          // its ribbon sit on top of it. VALUE has no baseline — its own capital curve is one.
+          // The zero line the PnL curve is read against, under the datasets so the curve and its
+          // ribbon sit on top of it. VALUE has no baseline — its own invested curve is one.
           beforeDatasetsDraw: (chart) => {
             if (!plot.baseline) return;
 
-            const y = chart.scales.y.getPixelForValue(100);
+            const y = chart.scales.y.getPixelForValue(plot.baseline.value);
             const ctx = chart.ctx;
             ctx.save();
             ctx.beginPath();
@@ -245,7 +236,7 @@ export default class extends Controller {
             ctx.moveTo(chart.chartArea.left, y);
             ctx.lineTo(chart.chartArea.right, y);
             ctx.lineWidth = 1;
-            ctx.strokeStyle = plot.baseline;
+            ctx.strokeStyle = plot.baseline.color;
             ctx.stroke();
             ctx.restore();
           },
@@ -316,8 +307,8 @@ export default class extends Controller {
   // survive decimation, and (RETURN only) the colour of the 100 line. Falls back to VALUE when
   // there is no return curve to show — a bot that never held anything has no return.
   #plot(labels) {
-    const curve = this.#returnMode ? this.#returnPoints(labels) : [];
-    return curve.length ? this.#returnPlot(curve) : this.#valuePlot(labels);
+    const curve = this.#pnlMode ? this.#pnlPoints(labels) : [];
+    return curve.length ? this.#pnlPlot(curve) : this.#valuePlot(labels);
   }
 
   #valuePlot(labels) {
@@ -342,39 +333,43 @@ export default class extends Controller {
     };
   }
 
-  // No block of committed capital to sit on, so the fill IS the reading: the ribbon between the
-  // curve and its 100 line, green above and red below, which is the only thing separating a
-  // winning window from a losing one.
-  #returnPlot(curve) {
+  // The invested line becomes the zero line, so the curve IS the distance from it, and the
+  // fill is the reading: the ribbon between the curve and zero, green above and red below.
+  #pnlPlot(curve) {
     const ys = curve.map((point) => point.y);
-    // 100 stays in frame whether or not the curve reaches it: the line is what the curve means.
-    const low = Math.min(100, ...ys);
-    const high = Math.max(100, ...ys);
-    const pad = (high - low) * 0.1 || 1;
-    const color = curve.at(-1).y >= 100 ? this.#color("--grass") : this.#color("--berry");
+    // Zero stays in frame whether or not the curve reaches it: the line is what the curve means.
+    const low = Math.min(0, ...ys);
+    const high = Math.max(0, ...ys);
+    const pad = (high - low) * 0.1 || 0.01;
+    const up = this.#color("--grass");
+    const down = this.#color("--berry");
     const points = Math.min(this.maxPointsToDraw, curve.length);
 
     return {
       points,
-      baseline: this.#color("--benchmark"),
+      baseline: { value: 0, color: this.#color("--benchmark") },
       y: { display: false, min: low - pad, max: high + pad },
       datasets: [{
-        ...this.#lineDataset(color, curve, points),
+        // The dot and the hover ring take the end state; the LINE changes colour where it
+        // crosses zero, or a curve that spent months in profit would be drawn red because it
+        // happens to end a hair under water — with a green ribbon underneath it.
+        ...this.#lineDataset(curve.at(-1).y >= 0 ? up : down, curve, points),
+        segment: { borderColor: (ctx) => (ctx.p1.parsed.y >= 0 ? up : down) },
         fill: {
-          value: 100,
-          above: this.#setTransparency(this.#color("--grass"), 0.12),
-          below: this.#setTransparency(this.#color("--berry"), 0.12),
+          value: 0,
+          above: this.#setTransparency(up, 0.12),
+          below: this.#setTransparency(down, 0.12),
         },
       }],
     };
   }
 
-  // Points from before the bot held anything arrive as nulls, so the curve stays aligned with
-  // the labels. They are dropped here — every point carries its own timestamp, and decimation
-  // cannot sample around a hole.
-  #returnPoints(labels) {
-    return this.returnValue
-      .map((index, i) => ({ x: labels[i], y: index === null ? null : Number(index) }))
+  // Points before the bot had anything invested arrive as nulls, so the curve stays aligned
+  // with the labels. They are dropped here — every point carries its own timestamp, and
+  // decimation cannot sample around a hole.
+  #pnlPoints(labels) {
+    return this.pnlValue
+      .map((point, i) => ({ x: labels[i], y: point === null ? null : Number(point) }))
       .filter((point) => point.y !== null);
   }
 

@@ -140,8 +140,7 @@ sk:
                 bought: Nakúpené
                 chart:
                     modes: 'Režim grafu'
-                    return: 'Výnos'
-                    return_note: 'Rast 100 bez ohľadu na výšku nákupov'
+                    pnl: 'PnL'
                     total_invested: 'Celkom investované'
                     value: Hodnota
                 csv_download_html: 'Tabuľka vyššie zobrazuje iba posledných desať transakcií. Celý prehľad si môžete stiahnuť vo formáte CSV nižšie.'

@@ -8,8 +8,7 @@ require 'test_helper'
 # `metrics` can only mark at the fill — it has no prices of its own — so a transaction point
 # used to re-price the WHOLE position at that one fill while the candle points around it
 # priced the same holdings at market. One line, two rulers: a fill away from market showed as
-# a dip at the exact moment the bot got a good fill, and a time-weighted RETURN (which reads
-# every step as performance) compounded the teeth instead of averaging them out.
+# a dip at the exact moment the bot got a good fill, and every buy a sawtooth vertex.
 #
 # Here the candle series is the ruler. A transaction point keeps its place in time — it is a
 # valuation boundary and time-weighting needs it — but its holdings are marked on the grid.
@@ -185,7 +184,7 @@ class ChartMarketMarkingTest < ActiveSupport::TestCase
     assert_equal 90.to_d, value_at(data, T0)
   end
 
-  # == invariants the view and chart_return_series depend on ==
+  # == invariants the view and chart_pnl_series depend on ==
 
   test 'labels stay ascending and the three arrays stay the same length' do
     data = chart(single_bot)

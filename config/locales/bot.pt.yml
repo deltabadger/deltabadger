@@ -133,8 +133,7 @@ pt:
                 bought: Comprado
                 chart:
                     modes: 'Modo do gráfico'
-                    return: 'Rentabilidade'
-                    return_note: 'Crescimento de 100, independentemente do valor comprado'
+                    pnl: 'PnL'
                     total_invested: 'Total investido'
                     value: 'Valor'
                 csv_download_html: 'A tabela acima mostra apenas as últimas 10 transações. O relatório completo está disponível para transferência no formato CSV, abaixo.'

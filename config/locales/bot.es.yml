@@ -135,8 +135,7 @@ es:
                 bought: Comprado
                 chart:
                     modes: 'Modo del gráfico'
-                    return: 'Rentabilidad'
-                    return_note: 'Crecimiento de 100, sin contar cuánto se compró'
+                    pnl: 'PnL'
                     total_invested: 'Total invertido'
                     value: Valor
                 csv_download_html: 'La tabla anterior muestra solo las diez últimas transacciones. El informe completo se puede descargar en formato CSV a continuación.'
