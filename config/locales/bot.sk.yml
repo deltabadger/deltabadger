@@ -140,7 +140,7 @@ sk:
                 bought: Nakúpené
                 chart:
                     modes: 'Režim grafu'
-                    pnl: 'Zisk/Strata'
+                    pnl: 'P/L'
                     total_invested: 'Celkom investované'
                     value: Hodnota
                 csv_download_html: 'Tabuľka vyššie zobrazuje iba posledných desať transakcií. Celý prehľad si môžete stiahnuť vo formáte CSV nižšie.'

@@ -135,7 +135,7 @@ pl:
                 bought: Zakupione
                 chart:
                     modes: 'Tryb wykresu'
-                    pnl: 'Zysk/Strata'
+                    pnl: 'P/L'
                     total_invested: 'Zainwestowana suma'
                     value: Wartość
                 csv_download_html: 'Powyższa tabela przedstawia tylko dziesięć ostatnich transakcji. Pełny raport jest dostępny do pobrania w formacie CSV poniżej.'
