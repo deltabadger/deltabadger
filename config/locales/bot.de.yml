@@ -132,7 +132,7 @@ de:
                 chart:
                     modes: 'Diagrammmodus'
                     return: 'Rendite'
-                    return_note: 'Wachstum von 100, unabhängig von der Kaufhöhe'
+                    return_note: "Wie sich deine Positionen entwickelt haben, unabhängig vom Kaufzeitpunkt"
                     total_invested: 'Insgesamt investiert'
                     value: Wert
                 csv_download_html: 'Die obige Tabelle zeigt nur die letzten zehn Transaktionen. Der vollständige Bericht steht unten im CSV-Format zum Download bereit.'

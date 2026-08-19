@@ -134,7 +134,7 @@ it:
                 chart:
                     modes: 'Modalità grafico'
                     return: 'Rendimento'
-                    return_note: 'Crescita di 100, a prescindere dagli importi acquistati'
+                    return_note: "Come si sono mosse le tue posizioni, a prescindere da quando hai comprato"
                     total_invested: 'Totale investito'
                     value: Valore
                 csv_download_html: 'La tabella sopra mostra solo le ultime dieci transazioni. Il report completo è disponibile per il download in formato CSV qui sotto.'

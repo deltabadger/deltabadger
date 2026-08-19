@@ -141,7 +141,7 @@ en:
                 chart:
                     modes: 'Chart mode'
                     return: Return
-                    return_note: 'Growth of 100, ignoring how much was bought'
+                    return_note: "How your holdings moved, regardless of when you bought"
                     total_invested: 'Total invested'
                     value: Value
                 csv_download_html: 'The table above shows only the last ten transactions. The full report is available to download in CSV format below.'

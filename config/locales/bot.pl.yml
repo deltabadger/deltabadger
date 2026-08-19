@@ -136,7 +136,7 @@ pl:
                 chart:
                     modes: 'Tryb wykresu'
                     return: 'Stopa zwrotu'
-                    return_note: 'Wzrost 100, niezależnie od wielkości zakupów'
+                    return_note: "Jak zachowały się twoje aktywa, niezależnie od tego, kiedy kupowałeś"
                     total_invested: 'Zainwestowana suma'
                     value: Wartość
                 csv_download_html: 'Powyższa tabela przedstawia tylko dziesięć ostatnich transakcji. Pełny raport jest dostępny do pobrania w formacie CSV poniżej.'

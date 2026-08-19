@@ -141,7 +141,7 @@ sv:
                 chart:
                     modes: 'Diagramläge'
                     return: 'Avkastning'
-                    return_note: 'Tillväxt av 100, oavsett hur mycket som köpts'
+                    return_note: "Hur ditt innehav rört sig, oavsett när du köpte"
                     total_invested: 'Totalt investerat'
                     value: Värde
                 csv_download_html: 'Tabellen ovan visar bara de senaste tio transaktionerna. Den fullständiga rapporten kan laddas ner i CSV-format nedan.'

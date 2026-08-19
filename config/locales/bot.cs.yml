@@ -141,7 +141,7 @@ cs:
                 chart:
                     modes: 'Režim grafu'
                     return: 'Výnos'
-                    return_note: 'Růst 100 bez ohledu na výši nákupů'
+                    return_note: "Jak se vyvíjela tvá aktiva, bez ohledu na to, kdy jsi nakupoval"
                     total_invested: 'Celkem investováno'
                     value: Hodnota
                 csv_download_html: 'Tabulka výše ukazuje pouze posledních deset transakcí. Celý přehled si můžete stáhnout ve formátu CSV níže.'
