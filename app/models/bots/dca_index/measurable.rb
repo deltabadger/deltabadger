@@ -83,6 +83,12 @@ module Bots::DcaIndex::Measurable
       ticker_prices = result.data
       total_value = 0
 
+      # Raw per-symbol marks for the chart's price grid (see Bot::ChartSeries). Only symbols
+      # that actually priced land here: a symbol missing from this hash has no upper endpoint,
+      # so the chart leaves those points on their fill marks instead of marking a portfolio
+      # that is silently missing an asset.
+      live_prices = {}
+
       # Calculate current value for each asset
       asset_values = {}
       metrics_data[:asset_breakdown].each do |symbol, asset_data|
@@ -92,6 +98,7 @@ module Bots::DcaIndex::Measurable
         price = ticker_prices[ticker.ticker]
         next unless price.present?
 
+        live_prices[symbol] = price
         value = asset_data[:amount] * price
         total_value += value
         avg_price = asset_data[:amount].positive? ? asset_data[:quote_invested] / asset_data[:amount] : 0
@@ -112,6 +119,9 @@ module Bots::DcaIndex::Measurable
       metrics_data[:chart][:series][0] << total_value
       metrics_data[:chart][:series][1] << metrics_data[:total_quote_amount_invested]
       metrics_data[:chart][:labels] << Time.current
+      # extra_series stays parallel with labels — the chart reads holdings by index.
+      metrics_data[:chart][:extra_series] << metrics_data[:asset_breakdown].transform_values { |data| data[:amount] }
+      metrics_data[:live_prices] = live_prices
 
       metrics_data
     end
@@ -121,24 +131,25 @@ module Bots::DcaIndex::Measurable
     Rails.cache.fetch(metrics_with_current_prices_and_candles_cache_key,
                       expires_in: Utilities::Time.seconds_to_end_of_five_minute_cut,
                       force: force) do
-      metrics_with_current_prices_data = metrics_with_current_prices(force: force)
-      return metrics_with_current_prices_data if metrics_with_current_prices_data[:chart][:labels].empty?
+      metrics_data = metrics_with_current_prices(force: force).deep_dup
+      return metrics_data if metrics_data[:chart][:labels].empty?
 
-      result = get_extended_chart_data_with_candles_data
-      return metrics_with_current_prices_data if result.failure?
+      grids = chart_price_grids(metrics_data)
+      return metrics_data if grids.blank?
 
-      metrics_data = metrics_with_current_prices_data.deep_dup
-      extended_chart_data = result.data
-      return metrics_data if extended_chart_data[:labels].empty?
-
-      sorted_series = Utilities::Array.sort_arrays_by_first_array(
-        metrics_data[:chart][:labels].concat(extended_chart_data[:labels]),
-        metrics_data[:chart][:series][0].concat(extended_chart_data[:series][0]),
-        metrics_data[:chart][:series][1].concat(extended_chart_data[:series][1])
+      # Only symbols the bot can price at all take part. An index rotates its composition and
+      # never sells, so it goes on holding assets it no longer tracks — those have no ticker,
+      # and `metrics_with_current_prices` already leaves them out of the live value. Demanding
+      # candle coverage for them would leave almost every point uncovered (28 held symbols, 20
+      # tickered, on a real bot) while the headline priced only the 20. A symbol that HAS a
+      # ticker but no candles still blocks: there the chart would disagree with a headline that
+      # prices it live.
+      priceable = tickers.map(&:base)
+      metrics_data[:chart] = chart_marked_at_market(
+        metrics_data[:chart], grids,
+        holdings: ->(i) { (metrics_data[:chart][:extra_series][i] || {}).slice(*priceable) },
+        cash: ->(_i) { 0 } # an index bot only accumulates; nothing is realized to cash
       )
-      metrics_data[:chart][:labels] = sorted_series[0]
-      metrics_data[:chart][:series][0] = sorted_series[1]
-      metrics_data[:chart][:series][1] = sorted_series[2]
 
       metrics_data
     end
@@ -208,32 +219,23 @@ module Bots::DcaIndex::Measurable
     end
   end
 
-  def get_extended_chart_data_with_candles_data
-    extended_chart_data = { labels: [], series: [[], []] }
-    return Result::Success.new(extended_chart_data) if tickers.empty?
+  # The price grid every held symbol is marked on: its candle opens plus its live price.
+  # A symbol whose candles fail to fetch simply gets no grid, and Bot::ChartSeries then leaves
+  # every point where that symbol is held on its fill mark — one bad ticker must not blank the
+  # chart, and it must not silently price a held asset at zero either.
+  def chart_price_grids(metrics_data)
+    return nil if tickers.empty?
 
-    metrics_data = metrics.deep_dup
-    return Result::Success.new(extended_chart_data) if metrics_data[:chart][:labels].empty?
+    symbols = metrics_data[:asset_breakdown].keys
+    return nil if symbols.empty?
 
-    since = metrics_data[:chart][:labels].first + 1.second
-    timeframe = optimal_candles_timeframe_for_duration(Time.now.utc - since)
+    since, timeframe = chart_candle_window(metrics_data[:chart])
+    ticker_by_symbol = tickers.index_by(&:base)
+    grids = {}
 
-    # Build a map of symbol -> ticker for quick lookup
-    ticker_by_symbol = {}
-    tickers.each do |ticker|
-      ticker_by_symbol[ticker.base] = ticker
-    end
-
-    # Get unique asset symbols from transactions
-    asset_symbols = metrics_data[:asset_breakdown].keys
-    return Result::Success.new(extended_chart_data) if asset_symbols.empty?
-
-    # Fetch candles for each asset's ticker, in bounded parallel batches. A raise in
-    # one worker becomes a per-symbol failure (logged) — one bad ticker must not blank
-    # the whole chart. Failed symbols are simply skipped and retried on the next
-    # 5-minute metrics cycle (no failure entry is cached).
-    candles_by_symbol = {}
-    asset_symbols.each_slice(CANDLE_FETCH_THREADS) do |batch|
+    # Bounded parallel batches. A raise in one worker becomes a per-symbol failure (logged);
+    # failed symbols are skipped and retried on the next 5-minute metrics cycle.
+    symbols.each_slice(CANDLE_FETCH_THREADS) do |batch|
       threads = batch.filter_map do |symbol|
         ticker = ticker_by_symbol[symbol]
         next unless ticker.present?
@@ -254,52 +256,16 @@ module Bots::DcaIndex::Measurable
       ActiveSupport::Dependencies.interlock.permit_concurrent_loads do
         threads.each do |thread|
           symbol, result = thread.value
-          next if result.failure?
+          next if result.failure? || result.data.blank?
 
-          candles_by_symbol[symbol] = result.data if result.data.present?
+          marks = result.data.map { |candle| [candle[0], candle[1]] } +
+                  chart_live_marks(metrics_data, symbol)
+          grids[symbol] = marks.sort_by(&:first)
         end
       end
     end
 
-    return Result::Success.new(extended_chart_data) if candles_by_symbol.empty?
-
-    # Use the candles from the first available ticker as the time axis
-    primary_symbol = candles_by_symbol.keys.first
-    primary_candles = candles_by_symbol[primary_symbol]
-
-    i = 0
-    candle_cursors = Hash.new(0)
-    primary_candles.each do |candle|
-      candle_time = candle[0]
-      i += 1 while i < metrics_data[:chart][:labels].length - 1 && metrics_data[:chart][:labels][i + 1] <= candle_time
-
-      # Get asset amounts at this point in time
-      asset_amounts = metrics_data[:chart][:extra_series][i] || {}
-      quote_amount_invested = metrics_data[:chart][:series][1][i]
-
-      # Calculate total value using candle prices for each asset. candle_time is
-      # monotonic across iterations, so a persistent cursor per symbol replaces the
-      # O(candles) `find` scan: stop at the first candle at-or-after candle_time,
-      # or stick at the last candle when none follows — same pick as before.
-      total_value = 0
-      asset_amounts.each do |symbol, amount|
-        asset_candles = candles_by_symbol[symbol]
-        next unless asset_candles.present?
-
-        c = candle_cursors[symbol]
-        c += 1 while c < asset_candles.length - 1 && asset_candles[c][0] < candle_time
-        candle_cursors[symbol] = c
-        # Open price: candles are [open_time, open, high, low, close, volume] and the
-        # point is labeled with the open time, so the open keeps the pair consistent.
-        total_value += amount * asset_candles[c][1]
-      end
-
-      extended_chart_data[:labels] << candle_time
-      extended_chart_data[:series][0] << total_value
-      extended_chart_data[:series][1] << quote_amount_invested
-    end
-
-    Result::Success.new(extended_chart_data)
+    grids
   end
 
   def fetch_candle_series(ticker:, since:, timeframe:)

@@ -35,9 +35,14 @@ class Bots::StalePricesFlagTest < ActiveSupport::TestCase
 
   # Only the keys the fallback path reads before returning: a non-empty chart (an empty one returns
   # earlier, before any price call) plus the accumulators each type touches on the way through.
+  #
+  # extra_series is one of them: the live point appends the holdings it was built from, so that
+  # the chart can read holdings by index (see Bot::ChartSeries). Two rows covers single-asset
+  # (net_base, realized) and dual-asset (base0, base1); the index type reads it as a hash per
+  # point and appends its own.
   def minimal_metrics
     {
-      chart: { labels: [Time.current], series: [[1.0], [1.0]] },
+      chart: { labels: [Time.current], series: [[1.0], [1.0]], extra_series: [[1.0], [0.0]] },
       asset_breakdown: {},
       total_base_amount: 1.to_d,
       total_base0_amount: 1.to_d,

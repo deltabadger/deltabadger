@@ -12,6 +12,7 @@ class Bot < ApplicationRecord
   include Notifyable
   include ExchangeUser
   include ActivityLoggable
+  include ChartSeries # chart marked at market (candle grid), shared by every measurable
 
   belongs_to :user
   has_many :transactions, dependent: :destroy

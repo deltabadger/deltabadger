@@ -2,7 +2,7 @@
 
 require 'test_helper'
 
-# The extended chart must source candles through CandleSeriesCache (durable + tail
+# The chart's price grid must source candles through CandleSeriesCache (durable + tail
 # fetch) instead of the old expire-at-candle-close inline cache.
 #
 # Index-bot tests stub the bot's fetch_candle_series seam with PLAIN RUBY singleton
@@ -37,20 +37,22 @@ class ExtendedChartCandleSourceTest < ActiveSupport::TestCase
     stub_candle_series(bot, { 'AAA' => Result::Success.new(candles),
                               'BBB' => Result::Failure.new('boom') }.freeze)
 
-    result = bot.send(:get_extended_chart_data_with_candles_data)
+    grids = bot.send(:chart_price_grids, bot.metrics)
 
-    assert_predicate result, :success?
-    # AAA contributes 1.0 * 5.0; BBB skipped (failed) — chart still renders
-    assert_equal [5.0], result.data[:series][0]
+    # AAA gets a grid; BBB failed and simply has none — the chart still renders, and
+    # Bot::ChartSeries then leaves every point where BBB is held on its fill mark rather
+    # than pricing a held asset at zero.
+    assert_equal ['AAA'], grids.keys
+    assert_equal [[t + 1.hour, 5.0]], grids['AAA']
   end
 
-  test 'single-asset bot aborts the extended chart when the candle fetch fails' do
+  test 'single-asset bot has no price grid when the candle fetch fails' do
     bot = create(:dca_single_asset, user: create(:user))
-    bot.stubs(:metrics).returns({ chart: { labels: [Time.utc(2026, 1, 1)],
-                                           series: [[1.0], [1.0]], extra_series: [[1.0]] } })
+    metrics = { chart: { labels: [Time.utc(2026, 1, 1)], series: [[1.0], [1.0]], extra_series: [[1.0], [0.0]] } }
+    bot.stubs(:metrics).returns(metrics)
     CandleSeriesCache.expects(:fetch).returns(Result::Failure.new('boom'))
 
-    assert_predicate bot.send(:get_extended_chart_data_with_candles_data), :failure?
+    assert_nil bot.send(:chart_price_grids, metrics)
   end
 
   test 'index bot fetches candle series concurrently in bounded batches' do
@@ -72,9 +74,8 @@ class ExtendedChartCandleSourceTest < ActiveSupport::TestCase
       Result::Success.new(candles)
     end
 
-    result = bot.send(:get_extended_chart_data_with_candles_data)
+    bot.send(:chart_price_grids, bot.metrics)
 
-    assert_predicate result, :success?
     assert_operator peak, :>, 1,  'fetches ran serially'
     assert_operator peak, :<=, 6, 'concurrency exceeded the bound'
   end
@@ -90,29 +91,27 @@ class ExtendedChartCandleSourceTest < ActiveSupport::TestCase
       Result::Success.new(candles)
     end
 
-    result = bot.send(:get_extended_chart_data_with_candles_data)
+    grids = bot.send(:chart_price_grids, bot.metrics)
 
-    assert_predicate result, :success?
-    assert_equal [5.0], result.data[:series][0] # AAA only; BAD skipped, not raised
+    assert_equal ['AAA'], grids.keys # BAD skipped, not raised
   end
 
-  test 'candle alignment matches first-candle-at-or-after-time semantics, including gaps' do
+  # One ruler for every symbol and every point: a gapped symbol is INTERPOLATED across its gap
+  # rather than jumped forward to its next candle. The old at-or-after alignment priced a gap at
+  # a future candle, which is a different price for the same instant than the interpolation used
+  # at a transaction point — two rulers again, in miniature.
+  test 'a gapped symbol is interpolated across its gap and uncovered past its last candle' do
     t = Time.utc(2026, 1, 1)
-    bot = index_bot_with_symbols({ 'AAA' => 1.0, 'GAP' => 1.0 }, at: t)
+    bot = index_bot_with_symbols({ 'GAP' => 1.0 }, at: t)
 
-    # AAA: hourly candles 1..5; GAP: missing hours 2-3 (market closed), ends early at hour 4
-    aaa_candles = (1..5).map { |h| [t + h.hours, h.to_f, 0, 0, 0, 0] }
-    gap_candles = [1, 4].map { |h| [t + h.hours, (h * 10).to_f, 0, 0, 0, 0] }
-    stub_candle_series(bot, { 'AAA' => Result::Success.new(aaa_candles),
-                              'GAP' => Result::Success.new(gap_candles) }.freeze)
+    # Candles at hour 1 (price 10) and hour 4 (price 40); hours 2-3 are missing.
+    gap_candles = [1, 4].map { |h| [t + h.hours, (h * 10).to_d, 0, 0, 0, 0] }
+    stub_candle_series(bot, { 'GAP' => Result::Success.new(gap_candles) }.freeze)
 
-    result = bot.send(:get_extended_chart_data_with_candles_data)
-    assert_predicate result, :success?
+    grid = bot.send(:chart_price_grids, bot.metrics)['GAP']
 
-    # Primary axis = AAA's candles (first available). Expected per point:
-    #   value = AAA price at that hour + GAP price from first candle >= time, else last.
-    # h1: 1 + 10; h2: 2 + 40 (first GAP candle >= h2 is h4); h3: 3 + 40;
-    # h4: 4 + 40; h5: 5 + 40 (no GAP candle >= h5 -> last = 40)
-    assert_equal [11.0, 42.0, 43.0, 44.0, 45.0], result.data[:series][0]
+    assert_equal 20.to_d, bot.send(:chart_grid_price, grid, t + 2.hours) # 1/3 of the way from 10 to 40
+    assert_equal 30.to_d, bot.send(:chart_grid_price, grid, t + 3.hours)
+    assert_nil bot.send(:chart_grid_price, grid, t + 5.hours) # past the last mark: uncovered, not frozen
   end
 end

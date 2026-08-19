@@ -96,6 +96,11 @@ module Bots::DcaDualAsset::Measurable
       metrics_data[:chart][:series][0] << metrics_data[:total_amount_value_in_quote]
       metrics_data[:chart][:series][1] << metrics_data[:total_quote_amount_invested]
       metrics_data[:chart][:labels] << Time.current
+      # extra_series stays parallel with labels — the chart reads holdings by index.
+      metrics_data[:chart][:extra_series][0] << metrics_data[:total_base0_amount]
+      metrics_data[:chart][:extra_series][1] << metrics_data[:total_base1_amount]
+      # Raw per-symbol marks for the chart's price grid (see Bot::ChartSeries).
+      metrics_data[:live_prices] = { ticker0.base => price0, ticker1.base => price1 }
 
       metrics_data
     end
@@ -105,22 +110,20 @@ module Bots::DcaDualAsset::Measurable
     Rails.cache.fetch(metrics_with_current_prices_and_candles_cache_key,
                       expires_in: Utilities::Time.seconds_to_end_of_five_minute_cut,
                       force: force) do
-      metrics_with_current_prices = metrics_with_current_prices(force: force)
-      return metrics_with_current_prices if metrics_with_current_prices[:chart][:labels].empty?
+      metrics_data = metrics_with_current_prices(force: force).deep_dup
+      return metrics_data if metrics_data[:chart][:labels].empty?
 
-      result = get_extended_chart_data_with_candles_data
-      return metrics_with_current_prices if result.failure?
+      grids = chart_price_grids(metrics_data)
+      return metrics_data if grids.blank?
 
-      metrics_data = metrics_with_current_prices.deep_dup
-      extended_chart_data = result.data
-      sorted_series = Utilities::Array.sort_arrays_by_first_array(
-        metrics_data[:chart][:labels].concat(extended_chart_data[:labels]),
-        metrics_data[:chart][:series][0].concat(extended_chart_data[:series][0]),
-        metrics_data[:chart][:series][1].concat(extended_chart_data[:series][1])
+      metrics_data[:chart] = chart_marked_at_market(
+        metrics_data[:chart], grids,
+        holdings: lambda { |i|
+          { ticker0.base => metrics_data[:chart][:extra_series][0][i],
+            ticker1.base => metrics_data[:chart][:extra_series][1][i] }
+        },
+        cash: ->(_i) { 0 } # dual-asset only accumulates; nothing is realized to cash
       )
-      metrics_data[:chart][:labels] = sorted_series[0]
-      metrics_data[:chart][:series][0] = sorted_series[1]
-      metrics_data[:chart][:series][1] = sorted_series[2]
 
       metrics_data
     end
@@ -235,45 +238,22 @@ module Bots::DcaDualAsset::Measurable
     end
   end
 
-  def get_extended_chart_data_with_candles_data
-    extended_chart_data = { labels: [], series: [[], []] }
-    return Result::Success.new(extended_chart_data) if ticker0.nil? || ticker1.nil?
+  # The price grid both legs are marked on: each ticker's candle opens plus its live price.
+  # Only the range where BOTH have marks can be re-marked — the every-symbol coverage rule in
+  # Bot::ChartSeries takes care of that, so no explicit intersection is needed here.
+  def chart_price_grids(metrics_data)
+    return nil if ticker0.nil? || ticker1.nil?
 
-    metrics_data = metrics.deep_dup
-    since = metrics_data[:chart][:labels].first + 1.second
-    timeframe = optimal_candles_timeframe_for_duration(Time.now.utc - since)
-    result = CandleSeriesCache.fetch(ticker: ticker0, since: since, timeframe: timeframe)
-    return result if result.failure?
+    since, timeframe = chart_candle_window(metrics_data[:chart])
+    grids = {}
+    [ticker0, ticker1].each do |ticker|
+      result = fetch_candle_series(ticker: ticker, since: since, timeframe: timeframe)
+      return nil if result.failure? || result.data.blank?
 
-    candles0 = result.data
-
-    result = CandleSeriesCache.fetch(ticker: ticker1, since: since, timeframe: timeframe)
-    return result if result.failure?
-
-    candles1 = result.data
-
-    candles0_timestamps = candles0.map { |sublist| sublist[0] }
-    candles1_timestamps = candles1.map { |sublist| sublist[0] }
-    common_timestamps = candles0_timestamps & candles1_timestamps
-    candles0 = candles0.select { |c| common_timestamps.include?(c[0]) }
-    candles1 = candles1.select { |c| common_timestamps.include?(c[0]) }
-
-    i = 0
-    candles0.each_with_index do |candle, j|
-      i += 1 while i < metrics_data[:chart][:labels].length - 1 && metrics_data[:chart][:labels][i + 1] <= candle[0]
-
-      base0_amount_acquired = metrics_data[:chart][:extra_series][0][i]
-      base1_amount_acquired = metrics_data[:chart][:extra_series][1][i]
-      quote_amount_invested = metrics_data[:chart][:series][1][i]
-      # candle[1] is the OPEN price — consistent with the open-time label candle[0]
-      extended_chart_data[:labels] << candle[0]
-      extended_chart_data[:series][0] << [
-        base0_amount_acquired * candles0[j][1],
-        base1_amount_acquired * candles1[j][1]
-      ].sum
-      extended_chart_data[:series][1] << quote_amount_invested
+      marks = result.data.map { |candle| [candle[0], candle[1]] } +
+              chart_live_marks(metrics_data, ticker.base)
+      grids[ticker.base] = marks.sort_by(&:first)
     end
-
-    Result::Success.new(extended_chart_data)
+    grids
   end
 end

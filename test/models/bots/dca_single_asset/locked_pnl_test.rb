@@ -71,18 +71,23 @@ class Bots::DcaSingleAsset::LockedPnlTest < ActiveSupport::TestCase
     assert_in_delta 200, m[:chart][:extra_series][1][1].to_f, 1e-9
   end
 
-  test 'candle interpolation recomputes value = realized_proceeds + net_base * candle_open' do
+  # Realized proceeds are cash: they stay put while the market moves. Marking the chart at
+  # market (Bot::ChartSeries) must therefore float only the still-held base.
+  test 'market marking floats net_base and leaves realized proceeds alone' do
     bot = create(:dca_single_asset, :started)
     buy(bot, price: 100, amount: 1, at: 3.days.ago)
     sell(bot, price: 200, amount: 1, at: 2.days.ago)
     bot.metrics(force: true)
-    # a candle after the sell: net_base 0, realized 200 → value 200 regardless of the open price
-    CandleSeriesCache.stubs(:fetch).returns(Result::Success.new([[1.day.ago, 50.to_d]]))
+    # Two marks around the points, at a price that has nothing to do with either fill: after the
+    # sell net_base is 0, so the value is the 200 of locked-in cash whatever the market does.
+    candles = [[4.days.ago, 50.to_d, 50.to_d, 50.to_d, 50.to_d, 1.to_d],
+               [1.day.ago, 50.to_d, 50.to_d, 50.to_d, 50.to_d, 1.to_d]]
+    CandleSeriesCache.stubs(:fetch).returns(Result::Success.new(candles))
+    bot.exchange.stubs(:get_tickers_prices).returns(Result::Success.new({ bot.ticker.ticker => 50.to_d }))
 
-    result = bot.send(:get_extended_chart_data_with_candles_data)
+    chart = bot.metrics_with_current_prices_and_candles(force: true)[:chart]
 
-    assert_predicate result, :success?
-    assert_in_delta 200, result.data[:series][0].last.to_f, 1e-9
+    assert_in_delta 200, chart[:series][0].last.to_f, 1e-9
   end
 
   test 'average_buy_price weights buys only (a sell does not skew it)' do
@@ -181,17 +186,19 @@ class Bots::DcaSingleAsset::LockedPnlTest < ActiveSupport::TestCase
     assert_in_delta 0,    m[:pnl], 1e-9
   end
 
-  test 'candle interpolation carries the stepped-up invested line after an excess sell' do
+  test 'market marking carries the stepped-up invested line after an excess sell' do
     bot = create(:dca_single_asset, :started)
     buy(bot, price: 100, amount: 1, at: 3.days.ago)
     sell(bot, price: 200, amount: 3, at: 2.days.ago)
     bot.metrics(force: true)
-    CandleSeriesCache.stubs(:fetch).returns(Result::Success.new([[1.day.ago, 50.to_d]]))
+    candles = [[4.days.ago, 50.to_d, 50.to_d, 50.to_d, 50.to_d, 1.to_d],
+               [1.day.ago, 50.to_d, 50.to_d, 50.to_d, 50.to_d, 1.to_d]]
+    CandleSeriesCache.stubs(:fetch).returns(Result::Success.new(candles))
+    bot.exchange.stubs(:get_tickers_prices).returns(Result::Success.new({ bot.ticker.ticker => 50.to_d }))
 
-    result = bot.send(:get_extended_chart_data_with_candles_data)
+    chart = bot.metrics_with_current_prices_and_candles(force: true)[:chart]
 
-    assert_predicate result, :success?
-    assert_in_delta 600, result.data[:series][0].last.to_f, 1e-9 # value: 600 realized + 0*50
-    assert_in_delta 500, result.data[:series][1].last.to_f, 1e-9 # invested carries the stepped 500
+    assert_in_delta 600, chart[:series][0].last.to_f, 1e-9 # value: 600 realized + 0 base
+    assert_in_delta 500, chart[:series][1].last.to_f, 1e-9 # invested carries the stepped 500
   end
 end
