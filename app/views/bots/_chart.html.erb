@@ -15,7 +15,7 @@
       <% end %>
     </div>
   <% else %>
-    <% pnl_series = chart_pnl_series(metrics[:chart][:series][0], metrics[:chart][:series][1]) %>
+    <% pnl_series = chart_pnl_series(metrics[:chart][:series][0], metrics[:chart][:series][1]).map { |amount| amount.round(bot.decimals[:quote] || 8) } %>
     <%= tag.div data: {
       controller: "bot--chart",
       bot__chart_bot_value: bot.id,
@@ -33,7 +33,7 @@
           and a switch with one usable side is furniture. %>
       <div class="widget--chart__head">
         <div class="widget--chart__modes" data-action="segmented:change->bot--chart#mode">
-          <% if pnl_series.compact.any? %>
+          <% if metrics[:chart][:series][1].any? { |spent| spent.to_f.positive? } %>
           <%= render 'shared/segmented',
                      label: t('bot.details.stats.chart.modes'),
                      options: [{ value: 'value', label: t('bot.details.stats.chart.value'), active: true },

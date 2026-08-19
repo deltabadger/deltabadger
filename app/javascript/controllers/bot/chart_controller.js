@@ -354,7 +354,10 @@ export default class extends Controller {
         // crosses zero, or a curve that spent months in profit would be drawn red because it
         // happens to end a hair under water — with a green ribbon underneath it.
         ...this.#lineDataset(curve.at(-1).y >= 0 ? up : down, curve, points),
-        segment: { borderColor: (ctx) => (ctx.p1.parsed.y >= 0 ? up : down) },
+        // Coloured by the side the segment mostly lies on. Chart.js resolves this once per
+        // segment, so one that straddles zero takes a single colour either way; the midpoint
+        // picks the larger half instead of whichever end happens to be second.
+        segment: { borderColor: (ctx) => ((ctx.p0.parsed.y + ctx.p1.parsed.y) / 2 >= 0 ? up : down) },
         fill: {
           value: 0,
           above: this.#setTransparency(up, 0.12),

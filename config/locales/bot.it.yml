@@ -133,7 +133,7 @@ it:
                 bought: Acquistato
                 chart:
                     modes: 'Modalità grafico'
-                    pnl: 'PnL'
+                    pnl: 'Profitto/Perdita'
                     total_invested: 'Totale investito'
                     value: Valore
                 csv_download_html: 'La tabella sopra mostra solo le ultime dieci transazioni. Il report completo è disponibile per il download in formato CSV qui sotto.'

@@ -131,7 +131,7 @@ de:
                 bought: Gekauft
                 chart:
                     modes: 'Diagrammmodus'
-                    pnl: 'PnL'
+                    pnl: 'Gewinn/Verlust'
                     total_invested: 'Insgesamt investiert'
                     value: Wert
                 csv_download_html: 'Die obige Tabelle zeigt nur die letzten zehn Transaktionen. Der vollständige Bericht steht unten im CSV-Format zum Download bereit.'

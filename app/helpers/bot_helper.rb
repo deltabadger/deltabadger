@@ -3,28 +3,23 @@ module BotHelper
     Automation::Schedulable::INTERVALS.keys.map { |interval| [t("bot.#{interval}"), interval] }
   end
 
-  # The PnL curve of the bot chart: how far ahead of what was put in, at every point.
+  # The PnL curve of the bot chart: how far ahead of what was put in, at every point, in the
+  # quote currency.
   #
   # The VALUE curve always climbs for a DCA bot, because the money going in climbs — its shape
-  # is deposits, not performance. This divides that out the plainest way there is: the invested
-  # line becomes zero and the curve is the distance from it, which is the same number the
-  # headline already shows and needs no caption to read.
+  # is deposits, not performance. This makes the invested line the zero line, so the curve is
+  # the distance from it and the shape is performance alone.
   #
-  # Money going in moves both terms together and so does not move the curve. Selling needs no
-  # special case: proceeds stay inside `value` as realized cash while `invested` holds its
-  # level, so a locked-in gain goes on reading as a gain.
+  # ABSOLUTE, not a percentage of what has been invested so far. A deposit adds the same amount
+  # to both terms, so it moves this curve by nothing — while as a ratio it moves the
+  # DENOMINATOR: buying 100 into a 110/100 position gives 210/200, and a flat market would draw
+  # a drop from +10% to +5%. That is the deposit sawtooth this mode exists to remove, so the
+  # curve cannot be the one that has it.
   #
-  # As long as the labels: a point with nothing invested has no percentage, and dropping it
-  # would shift every later point onto the wrong date.
+  # Selling needs no special case: proceeds stay inside `value` as realized cash while
+  # `invested` holds its level, so a locked-in gain goes on reading as a gain.
   def chart_pnl_series(values, invested)
-    values.each_with_index.map do |value, i|
-      spent = invested[i].to_f
-      next nil unless spent.positive?
-
-      # Rounded: the chart cannot draw 17 significant digits and the series is serialized into
-      # the page, where 0.10000000000000009 costs bytes to say 0.1.
-      ((value.to_f / spent) - 1).round(6)
-    end
+    values.each_with_index.map { |value, i| value.to_f - invested[i].to_f }
   end
 
   # Per-exchange label for the API key field, with a generic translated fallback.
