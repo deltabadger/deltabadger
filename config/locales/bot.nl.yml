@@ -210,7 +210,7 @@ nl:
             rebalance:
                 sentence_html: "Herbalanceer wanneer een asset meer dan <span>%{value_html} %</span> van zijn doel afwijkt"
                 note: "Blijft werken terwijl het DCA-schema gestopt is."
-                drift: "(nu %{drift} % van het doel)"
+                drift: "De portefeuille zit %{drift} % van zijn doelverdeling af"
                 paused: "Herbalanceren gepauzeerd — controleer je exchange"
                 resume: "Hervatten"
                 resume_confirm: "Ga alleen verder als je je exchange hebt gecontroleerd en er geen herbalanceringsorder meer openstaat."
