@@ -30,6 +30,9 @@ it:
             asset: "Asset"
             amount: "Importo"
             avg_price: "Prezzo Medio"
+            realised_pnl: "P/P realizzato"
+            realised_pnl_note: "Dalla vendita di asset usciti dall’indice. Il ribilanciamento non conta."
+            left_the_index: "Fuori dall’indice"
             value: "Valore"
             pl: "P/L"
             warning:
@@ -221,6 +224,17 @@ it:
                 other: "Gli importi mancanti sono stati messi in buffer e verranno utilizzati con i prossimi ordini programmati, assicurando che la tua pianificazione e allocazione siano mantenute il più vicino possibile ai minimi dell'exchange."
             title: "Congratulazioni! Il tuo bot è in esecuzione."
             general_note: "I minimi dell'exchange e gli importi di ribilanciamento richiesti possono cambiare. Gli ordini potrebbero a volte sembrare irregolari, ma il bot mira sempre all'allocazione e alla pianificazione desiderate, quindi non è necessario alcun lavoro aggiuntivo."
+        liquidation:
+            sell: "Vendi"
+            sell_confirm: "Vendere tutto ciò che è uscito dall’indice? Le posizioni si chiudono al prezzo di mercato."
+            started: "Sto vendendo gli asset usciti dall’indice."
+            market_closed: "Il mercato è chiuso in questo momento. Riprova all’apertura."
+            unsupported: "Solo i bot indice possono detenere asset usciti da un indice."
+            halted: "Vendita non confermata — controlla il tuo exchange"
+            resolve: "Azzera"
+            resolve_confirm: "Continua solo se hai controllato il tuo exchange e nessun ordine di vendita è ancora aperto."
+            still_open: "L’ordine %{order_id} è ancora aperto sul tuo exchange. Aspetta che si regoli."
+            resolved: "Vendita non confermata azzerata."
         settings:
             rebalance:
                 sentence_html: "Ribilancia quando un asset si discosta di più di <span>%{value_html} %</span> dal suo obiettivo"

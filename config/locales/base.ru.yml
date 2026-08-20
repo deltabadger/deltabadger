@@ -543,6 +543,14 @@ ru:
             rebalance_ambiguous: 'Статус ордера ребалансировки не подтверждён — приостановлено, чтобы не разместить дважды'
             rebalance_manually_resolved: 'Ребалансировка возобновлена вручную'
             dca_skipped_rebalance_pending: 'Взнос пропущен — ребалансировка ещё идёт'
+            liquidation_requested: "Продаём активы, покинувшие индекс"
+            liquidation_placed: "Продаём актив, покинувший индекс"
+            liquidation_skipped: "Актив, покинувший индекс, продать не удалось — остаётся в портфеле"
+            liquidation_ambiguous: "Статус ордера на продажу не подтверждён — пауза, чтобы не разместить его дважды"
+            liquidation_manually_resolved: "Неподтверждённая продажа сброшена вручную"
+            liquidation_market_closed: "Рынок закрыт — ничего не продано"
+            liquidation_not_started: "Ничего не продано — бот был занят или индекс не удалось обновить"
+            dca_skipped_liquidation_pending: "Взнос пропущен — продажа ещё выполняется"
             started: 'Бот запущен'
             stopped: 'Бот остановлен'
             reschedule_disabled: 'Автопланирование приостановлено'

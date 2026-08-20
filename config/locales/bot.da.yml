@@ -30,6 +30,9 @@ da:
             asset: "Aktiv"
             amount: "Beløb"
             avg_price: "Gns. pris"
+            realised_pnl: "Realiseret gevinst/tab"
+            realised_pnl_note: "Fra salg af aktiver, der har forladt indekset. Rebalancering tæller ikke med."
+            left_the_index: "Forladt indekset"
             value: "Værdi"
             pl: "G/T"
             warning:
@@ -240,6 +243,17 @@ da:
                 other: "De manglende beløb er bufferet og bruges ved de næste planlagte ordrer, så din tidsplan og allokering holdes så tæt på børsminimum som muligt."
             title: "Tillykke! Din bot kører."
             general_note: "Børsminimum og nødvendige rebalanceringsbeløb ændrer sig. Transaktioner kan nogle gange se uregelmæssige ud, men botten sigter altid efter din ønskede allokering og tidsplan, så der kræves ingen ekstra indsats."
+        liquidation:
+            sell: "Sælg"
+            sell_confirm: "Sælge alt, der har forladt indekset? Positionerne lukkes til markedspris."
+            started: "Sælger de aktiver, der har forladt indekset."
+            market_closed: "Markedet er lukket lige nu. Prøv igen, når det åbner."
+            unsupported: "Kun indeksbots kan have aktiver, der har forladt et indeks."
+            halted: "Salget er ubekræftet — tjek din børs"
+            resolve: "Ryd"
+            resolve_confirm: "Fortsæt kun, hvis du har tjekket din børs, og ingen salgsordre stadig er åben."
+            still_open: "Ordre %{order_id} er stadig åben på din børs. Vent, til den er afregnet."
+            resolved: "Ubekræftet salg ryddet."
         settings:
             rebalance:
                 sentence_html: "Rebalancér når et aktiv afviger mere end <span>%{value_html} %</span> fra sit mål"

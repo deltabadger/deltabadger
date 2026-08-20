@@ -559,6 +559,14 @@ sk:
             rebalance_ambiguous: 'Stav rebalansovacieho pokynu nepotvrdený — pozastavené, aby nebol zadaný dvakrát'
             rebalance_manually_resolved: 'Rebalansovanie ručne obnovené'
             dca_skipped_rebalance_pending: 'Príspevok preskočený — rebalansovanie stále prebieha'
+            liquidation_requested: "Predávam aktíva, ktoré opustili index"
+            liquidation_placed: "Predávam aktívum, ktoré opustilo index"
+            liquidation_skipped: "Aktívum, ktoré opustilo index, sa nepodarilo predať — zostáva"
+            liquidation_ambiguous: "Stav predajného pokynu nepotvrdený — pozastavené, aby nebol zadaný dvakrát"
+            liquidation_manually_resolved: "Nepotvrdený predaj vymazaný ručne"
+            liquidation_market_closed: "Trh zatvorený — nič sa nepredalo"
+            liquidation_not_started: "Nič sa nepredalo — bot bol zaneprázdnený alebo sa index nepodarilo obnoviť"
+            dca_skipped_liquidation_pending: "Príspevok preskočený — stále prebieha predaj"
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'

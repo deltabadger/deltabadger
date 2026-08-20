@@ -33,6 +33,9 @@ es:
             asset: "Activo"
             amount: "Cantidad"
             avg_price: "Precio Promedio"
+            realised_pnl: "P/G realizada"
+            realised_pnl_note: "De la venta de activos que salieron del índice. El rebalanceo no cuenta."
+            left_the_index: "Fuera del índice"
             value: "Valor"
             pl: "G/P"
             warning:
@@ -212,6 +215,17 @@ es:
                 other: "Las cantidades que no se pudieron usar se han guardado y se usarán con las próximas órdenes programadas, asegurando que tu programación y asignación se mantengan lo más cerca posible de los mínimos del exchange."
             title: "¡Enhorabuena! Tu bot está en marcha."
             general_note: "Los mínimos del exchange y las cantidades requeridas para el rebalanceo pueden cambiar. Las transacciones a veces pueden parecer irregulares, pero el bot siempre apunta a tu asignación y programación deseadas, así que no necesitas hacer nada más."
+        liquidation:
+            sell: "Vender"
+            sell_confirm: "¿Vender todo lo que salió del índice? Las posiciones se cierran a precio de mercado."
+            started: "Vendiendo los activos que salieron del índice."
+            market_closed: "El mercado está cerrado ahora mismo. Inténtalo cuando abra."
+            unsupported: "Solo los bots de índice pueden tener activos que salieron de un índice."
+            halted: "Venta sin confirmar — revisa tu exchange"
+            resolve: "Limpiar"
+            resolve_confirm: "Continúa solo si has revisado tu exchange y ninguna orden de venta sigue abierta."
+            still_open: "La orden %{order_id} sigue abierta en tu exchange. Espera a que se liquide."
+            resolved: "Venta sin confirmar limpiada."
         settings:
             rebalance:
                 sentence_html: "Reequilibrar cuando un activo se desvíe más de <span>%{value_html} %</span> de su objetivo"

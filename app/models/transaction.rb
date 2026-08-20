@@ -32,6 +32,13 @@ class Transaction < ApplicationRecord
   # rows with external_status open OR unknown. unknown rows are persisted at placement
   # (before the first confirmation fetch) and must be treated as in-flight everywhere.
   scope :waiting, -> { submitted.where(external_status: %i[open unknown]) }
+  # The row-level twin of the scope. Bot has a `waiting?` status predicate and Transaction did not,
+  # so `transaction.waiting?` raised NoMethodError — on the refuse paths of the resolution
+  # controllers, which is exactly where an order still being live has to be reported rather than
+  # blowing up.
+  def waiting?
+    submitted? && external_status.in?(%w[open unknown])
+  end
   # Terminal rows the user can't act on anymore — explicit cancellation OR an
   # exchange-side abandonment (e.g. Kraken stopped returning the order).
   scope :cancelled_or_abandoned, -> { where(external_status: %i[cancelled abandoned]) }
@@ -44,6 +51,9 @@ class Transaction < ApplicationRecord
   # contribution the user never made and eat their "don't spend more than N" cap.
   scope :regular, -> { where(transaction_type: 'REGULAR') }
   scope :rebalance, -> { where(transaction_type: 'REBALANCE') }
+  # Selling off an asset the index dropped. Like a rebalance it moves no new money in, but unlike a
+  # rebalance nothing buys the proceeds back — so it is the one sell that realizes P/L.
+  scope :liquidation, -> { where(transaction_type: 'LIQUIDATION') }
 
   validates :bot, presence: true
 

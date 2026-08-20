@@ -30,6 +30,9 @@ en:
             asset: "Asset"
             amount: "Amount"
             avg_price: "Avg. Price"
+            realised_pnl: "Realised P/L"
+            realised_pnl_note: "From selling assets that left the index. Rebalancing is not counted."
+            left_the_index: "Left the index"
             value: "Value"
             pl: "P/L"
             warning:
@@ -240,6 +243,17 @@ en:
                 other: "The missed amounts have been buffered and will be used with the next scheduled orders, ensuring your schedule and allocation are maintained as closely as exchange minimums allow."
             title: "Congratulations! Your bot is running."
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
+        liquidation:
+            sell: "Sell"
+            sell_confirm: "Sell everything that left the index? The positions are closed at market price."
+            started: "Selling the assets that left the index."
+            market_closed: "The market is closed right now. Try again once it opens."
+            unsupported: "Only index bots can hold assets that left an index."
+            halted: "Sale unconfirmed — check your exchange"
+            resolve: "Clear"
+            resolve_confirm: "Only continue if you have checked your exchange and no sell order is still open."
+            still_open: "Order %{order_id} is still open on your exchange. Wait for it to settle first."
+            resolved: "Unconfirmed sale cleared."
         settings:
             rebalance:
                 sentence_html: "Rebalance when an asset drifts more than <span>%{value_html} %</span> from its target"

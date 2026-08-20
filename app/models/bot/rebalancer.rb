@@ -313,9 +313,6 @@ module Bot::Rebalancer
 
   # Buy back into the MOST underweight asset. Read fresh rather than remembered, so a resumed buy
   # stays correct if the market moved while the sell was resting.
-  #
-  # An asset that has left the index carries target 0, so its deviation is its whole value — always
-  # positive, never the minimum. Such an asset can therefore never be bought back into, only sold.
   def rebalance_buy_order_data(quote_amount:)
     return nil if quote_amount.nil? || quote_amount <= 0
 

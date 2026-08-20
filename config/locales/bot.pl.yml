@@ -33,6 +33,9 @@ pl:
             asset: "Aktywo"
             amount: "Ilość"
             avg_price: "Średnia Cena"
+            realised_pnl: "Zrealizowany wynik"
+            realised_pnl_note: "Ze sprzedaży aktywów, które opuściły indeks. Rebalansowanie nie jest wliczane."
+            left_the_index: "Poza indeksem"
             value: "Wartość"
             pl: "Z/S"
             warning:
@@ -212,6 +215,17 @@ pl:
                 other: "Pominięte kwoty zostały zbuforowane i zostaną użyte przy kolejnych zaplanowanych zleceniach, dzięki czemu Twój harmonogram i alokacja będą utrzymane jak najbliżej giełdowych minimów."
             title: "Gratulacje! Twój bot działa."
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
+        liquidation:
+            sell: "Sprzedaj"
+            sell_confirm: "Sprzedać wszystko, co opuściło indeks? Pozycje zostaną zamknięte po cenie rynkowej."
+            started: "Sprzedaję aktywa, które opuściły indeks."
+            market_closed: "Rynek jest teraz zamknięty. Spróbuj ponownie po otwarciu."
+            unsupported: "Tylko boty indeksowe mogą trzymać aktywa, które opuściły indeks."
+            halted: "Sprzedaż niepotwierdzona — sprawdź swoją giełdę"
+            resolve: "Wyczyść"
+            resolve_confirm: "Kontynuuj tylko wtedy, gdy sprawdziłeś giełdę i żadne zlecenie sprzedaży nie jest już otwarte."
+            still_open: "Zlecenie %{order_id} jest wciąż otwarte na Twojej giełdzie. Poczekaj, aż się rozliczy."
+            resolved: "Niepotwierdzona sprzedaż wyczyszczona."
         settings:
             rebalance:
                 sentence_html: "Rebalansuj, gdy aktywo odchyli się o więcej niż <span>%{value_html} %</span> od celu"

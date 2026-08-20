@@ -12,64 +12,64 @@ module Bots::DcaIndex::Rebalancer
   # holding constituents the index has dropped and never buying the ones it has added.
   #
   # Best effort: a failed refresh leaves the stored composition in place rather than stopping a
-  # rebalance that is probably still correct.
+  # rebalance that is probably still correct. (Bots::DcaIndex::Liquidatable is stricter, because
+  # there a stale composition would SELL an asset that may have re-entered.)
   def before_rebalance
     result = refresh_index_composition
     Rails.logger.warn("rebalance composition refresh failed bot=#{id}: #{result.errors.to_sentence}") if result.failure?
   end
 
-  # Every asset the bot holds, plus every asset the index currently wants — the union, because both
-  # sides matter: an asset held but no longer in the index has to be sellable, and an asset newly
-  # admitted to the index has to be buyable before the bot owns any of it.
+  # Only assets the index currently wants. Rebalancing tracks the index, so an asset that has LEFT it
+  # is not a constituent to steer toward a weight — it is a position to close, and closing it is the
+  # user's call (Bots::DcaIndex::Liquidatable), not a side effect of some other asset breaching the
+  # band.
   #
-  # Assets that have LEFT the index carry target 0. That makes them maximally overweight, so
-  # rebalancing liquidates them and redistributes the proceeds — which is what tracking an index
-  # means once its composition changes. Until rebalancing is switched on they are simply held, as
-  # before: the DCA leg stopped buying them the moment they exited.
+  # Excluded from the DENOMINATOR too, not just the candidates: the weights describe the index, so a
+  # holding outside the index must not dilute them. Leaving quitters in with target 0 also made them
+  # permanently the most-overweight entry, which sold them automatically — and a coin that left at
+  # 0.1% of the portfolio never tripped a 5-point band at all, so it was never sold either. Neither
+  # behaviour was wanted.
   def rebalance_targets
     data = metrics_with_current_prices
     return nil if data[:prices_stale]
 
     values = data[:asset_values] || {}
     tickers_by_symbol = tickers.index_by(&:base)
-    # A bulk price response can come back successful but incomplete, and metrics_with_current_prices
-    # simply skips a symbol it could not price — WITHOUT raising the stale flag. Valuing such a
-    # holding at zero would manufacture drift out of nothing: the bot would read the asset as
-    # worthless, sell others to fund it and buy more of it. Defer instead.
-    #
-    # Scoped to symbols that still have a tradeable ticker, so a genuinely delisted holding — which
-    # can never be priced again — does not wedge rebalancing forever.
-    unpriced = (data[:asset_breakdown] || {}).any? do |symbol, holding|
-      holding[:amount].to_d.positive? && !values.key?(symbol) && tickers_by_symbol.key?(symbol)
-    end
-    return nil if unpriced
+    index_assets = bot_index_assets.in_index.includes(:asset).to_a
+    return nil if index_assets.empty?
 
-    targets_by_asset_id = bot_index_assets.in_index.pluck(:asset_id, :target_allocation).to_h
+    in_index_symbols = index_assets.to_set { |bia| bia.asset.symbol }
+    return nil if unpriced_holding?(data, values, tickers_by_symbol, in_index_symbols)
 
-    entries = bot_index_assets.includes(:asset).map do |bia|
+    entries = index_assets.map do |bia|
       symbol = bia.asset.symbol
-      weight = targets_by_asset_id[bia.asset_id]
       {
         ticker: tickers_by_symbol[symbol],
         value: values.dig(symbol, :current_value).to_d,
-        # nil weight while still IN the index means we do not know what this asset is supposed to
-        # be — resolved below to "whatever it currently is", never to 0. Only an asset that has
-        # actually LEFT gets target 0, because only there is liquidation the intended answer.
-        target: targets_by_asset_id.key?(bia.asset_id) ? weight&.to_d : 0.to_d
+        # nil weight means we do not know what this asset is supposed to be — resolved below to
+        # "whatever it currently is", never to 0.
+        target: bia.target_allocation&.to_d
       }
     end
 
-    # Holdings from a composition the bot no longer tracks at all (an asset whose BotIndexAsset row
-    # predates a change, or a symbol the breakdown knows and the index does not) still belong to the
-    # portfolio, so they count toward the total and are sellable at target 0.
-    known = entries.filter_map { |entry| entry[:ticker]&.base }.to_set
-    values.each do |symbol, asset_data|
-      next if known.include?(symbol)
-
-      entries << { ticker: tickers_by_symbol[symbol], value: asset_data[:current_value].to_d, target: 0.to_d }
-    end
-
     resolve_unknown_targets(entries)
+  end
+
+  # A bulk price response can come back successful but incomplete, and metrics_with_current_prices
+  # simply skips a symbol it could not price — WITHOUT raising the stale flag. Valuing such a holding
+  # at zero would manufacture drift out of nothing: the bot would read the asset as worthless, sell
+  # others to fund it and buy more of it. Defer instead.
+  #
+  # Scoped to IN-INDEX symbols that still have a tradeable ticker. A quitter no longer takes part in
+  # the arithmetic, so its price is nobody's business here; and a genuinely delisted holding — which
+  # can never be priced again — must not wedge rebalancing forever.
+  def unpriced_holding?(data, values, tickers_by_symbol, in_index_symbols)
+    (data[:asset_breakdown] || {}).any? do |symbol, holding|
+      in_index_symbols.include?(symbol) &&
+        holding[:amount].to_d.positive? &&
+        !values.key?(symbol) &&
+        tickers_by_symbol.key?(symbol)
+    end
   end
 
   # An in-index asset whose weight the composition never wrote gets its own current share, so it

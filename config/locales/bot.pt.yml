@@ -33,6 +33,9 @@ pt:
             asset: "Ativo"
             amount: "Montante"
             avg_price: "Preço Médio"
+            realised_pnl: "L/P realizado"
+            realised_pnl_note: "Da venda de ativos que saíram do índice. O rebalanceamento não conta."
+            left_the_index: "Fora do índice"
             value: "Valor"
             pl: "G/P"
             warning:
@@ -203,6 +206,17 @@ pt:
                 other: "As quantidades perdidas foram armazenadas em buffer e serão usadas com as próximas ordens agendadas, garantindo que seu cronograma e alocação sejam mantidos o mais próximo possível dos mínimos da exchange."
             title: "Parabéns! Seu bot está em execução."
             general_note: "Os mínimos da exchange e as quantidades de rebalanceamento necessárias podem mudar. As ordens podem parecer irregulares às vezes, mas o bot sempre visa sua alocação e cronograma desejados, portanto, nenhum trabalho extra é necessário."
+        liquidation:
+            sell: "Vender"
+            sell_confirm: "Vender tudo o que saiu do índice? As posições são fechadas ao preço de mercado."
+            started: "A vender os ativos que saíram do índice."
+            market_closed: "O mercado está fechado neste momento. Tenta de novo quando abrir."
+            unsupported: "Só os bots de índice podem ter ativos que saíram de um índice."
+            halted: "Venda por confirmar — verifica a tua exchange"
+            resolve: "Limpar"
+            resolve_confirm: "Continua apenas se verificaste a tua exchange e nenhuma ordem de venda continua aberta."
+            still_open: "A ordem %{order_id} continua aberta na tua exchange. Espera que seja liquidada."
+            resolved: "Venda por confirmar limpa."
         settings:
             rebalance:
                 sentence_html: "Reequilibrar quando um ativo se afastar mais de <span>%{value_html} %</span> do seu alvo"

@@ -33,6 +33,9 @@ nl:
             asset: "Activa"
             amount: "Bedrag"
             avg_price: "Gem. Prijs"
+            realised_pnl: "Gerealiseerde W/V"
+            realised_pnl_note: "Uit de verkoop van assets die de index hebben verlaten. Herbalanceren telt niet mee."
+            left_the_index: "Uit de index"
             value: "Waarde"
             pl: "W/V"
             warning:
@@ -209,6 +212,17 @@ nl:
                 other: "De gemiste bedragen zijn gebufferd en zullen worden gebruikt bij de volgende geplande orders, zodat je schema en allocatie zo goed mogelijk volgens de exchange-minimums worden aangehouden."
             title: "Gefeliciteerd! Je bot is actief."
             general_note: "Minimale bedragen van exchanges en vereiste herbalanceringsbedragen kunnen veranderen. Orders kunnen er soms onregelmatig uitzien, maar de bot streeft altijd naar de gewenste toewijzing en schema, dus er is geen extra werk nodig."
+        liquidation:
+            sell: "Verkopen"
+            sell_confirm: "Alles verkopen wat de index heeft verlaten? De posities worden tegen marktprijs gesloten."
+            started: "Bezig met verkopen van de assets die de index hebben verlaten."
+            market_closed: "De markt is nu gesloten. Probeer het opnieuw zodra die opent."
+            unsupported: "Alleen indexbots kunnen assets houden die een index hebben verlaten."
+            halted: "Verkoop onbevestigd — controleer je exchange"
+            resolve: "Wissen"
+            resolve_confirm: "Ga alleen verder als je je exchange hebt gecontroleerd en er geen verkooporder meer openstaat."
+            still_open: "Order %{order_id} staat nog open op je exchange. Wacht tot die is afgewikkeld."
+            resolved: "Onbevestigde verkoop gewist."
         settings:
             rebalance:
                 sentence_html: "Herbalanceer wanneer een asset meer dan <span>%{value_html} %</span> van zijn doel afwijkt"

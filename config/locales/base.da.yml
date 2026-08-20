@@ -551,6 +551,14 @@ da:
             rebalance_ambiguous: 'Rebalanceringsordrens status ubekræftet — sat på pause, så den ikke placeres to gange'
             rebalance_manually_resolved: 'Rebalancering genoptaget manuelt'
             dca_skipped_rebalance_pending: 'Indbetaling sprunget over — en rebalancering er stadig i gang'
+            liquidation_requested: "Sælger de aktiver, der har forladt indekset"
+            liquidation_placed: "Sælger et aktiv, der har forladt indekset"
+            liquidation_skipped: "Et aktiv, der har forladt indekset, kunne ikke sælges — beholdes"
+            liquidation_ambiguous: "Salgsordrens status er ubekræftet — sat på pause, så den ikke placeres to gange"
+            liquidation_manually_resolved: "Ubekræftet salg ryddet manuelt"
+            liquidation_market_closed: "Markedet er lukket — intet solgt"
+            liquidation_not_started: "Intet blev solgt — botten var optaget, eller indekset kunne ikke opdateres"
+            dca_skipped_liquidation_pending: "Indbetaling sprunget over — et salg er stadig i gang"
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'

@@ -543,6 +543,14 @@ pl:
             rebalance_ambiguous: 'Status zlecenia rebalansującego niepotwierdzony — wstrzymano, by nie złożyć go dwa razy'
             rebalance_manually_resolved: 'Rebalansowanie wznowione ręcznie'
             dca_skipped_rebalance_pending: 'Wpłata pominięta — rebalansowanie wciąż trwa'
+            liquidation_requested: "Sprzedaję aktywa, które opuściły indeks"
+            liquidation_placed: "Sprzedaję aktywo, które opuściło indeks"
+            liquidation_skipped: "Nie udało się sprzedać aktywa, które opuściło indeks — pozostaje w portfelu"
+            liquidation_ambiguous: "Status zlecenia sprzedaży niepotwierdzony — wstrzymano, aby nie złożyć go dwa razy"
+            liquidation_manually_resolved: "Niepotwierdzona sprzedaż wyczyszczona ręcznie"
+            liquidation_market_closed: "Rynek zamknięty — nic nie sprzedano"
+            liquidation_not_started: "Nic nie sprzedano — bot był zajęty albo nie udało się odświeżyć indeksu"
+            dca_skipped_liquidation_pending: "Wpłata pominięta — trwa jeszcze sprzedaż"
             started: 'Bot uruchomiony'
             stopped: 'Bot zatrzymany'
             reschedule_disabled: 'Automatyczne planowanie wstrzymane'

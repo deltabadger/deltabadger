@@ -15,6 +15,10 @@
 module Bot::Rebalanceable
   extend ActiveSupport::Concern
 
+  # Included here rather than per bot type so the stand-down guards below can always ask. The
+  # dual-asset bot can never have a quitter to liquidate, but it must still answer the question.
+  include Bot::LiquidationState
+
   PENDING_KEY = 'rebalance_pending'.freeze
 
   PHASE_SELLING = 'selling'.freeze
@@ -45,6 +49,20 @@ module Bot::Rebalanceable
       def execute_action
         if rebalance_pending?
           log_activity('dca_skipped_rebalance_pending', level: :info)
+          return Result::Success.new
+        end
+        # A resting liquidation sell is a live claim on those coins, and a quitter can re-enter the
+        # index while it rests — so without this the DCA leg could buy the very asset the bot is
+        # selling.
+        #
+        # liquidation_blocks_trading? SWEEPS AND PROMOTES before answering, and that is the whole
+        # point of asking it here rather than reading the state directly. This decorator is prepended
+        # ahead of Bot::LimitOrderable, so returning early skips the open-order sweep that would
+        # otherwise advance the very order we are waiting on — the bot would stand down forever on a
+        # row nothing ever polls. Same for a `placing` intent left by a dead worker: the clock is the
+        # reliable trigger for surfacing it, not the user happening to open the widget.
+        if liquidation_blocks_trading?
+          log_activity('dca_skipped_liquidation_pending', level: :info)
           return Result::Success.new
         end
 
@@ -105,6 +123,10 @@ module Bot::Rebalanceable
   def rebalance_due?
     return false unless rebalance_enabled?
     return false if rebalance_pending?
+    # Same reason the DCA leg stands down: a resting liquidation sell must not be bought against.
+    # Guards NEW work only — Bot::Rebalancer#rebalance! resumes a swap already mid-flight regardless,
+    # because that one owes its buy.
+    return false if liquidation_blocks_trading?
 
     drift = rebalance_drift
     drift.present? && drift > rebalance_threshold
