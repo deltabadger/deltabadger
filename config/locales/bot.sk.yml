@@ -241,7 +241,7 @@ sk:
             rebalance:
                 sentence_html: "Rebalansovať, keď sa aktívum odchýli o viac než <span>%{value_html} %</span> od cieľa"
                 note: "Beží ďalej, aj keď je plán DCA zastavený."
-                drift: "Portfólio je %{drift} % od cieľového rozdelenia"
+                drift: "(teraz %{drift} % od cieľa)"
                 paused: "Rebalansovanie pozastavené — skontroluj svoju burzu"
                 resume: "Pokračovať"
                 resume_confirm: "Pokračuj len vtedy, ak si skontroloval burzu a žiadny rebalansovací pokyn už nie je otvorený."

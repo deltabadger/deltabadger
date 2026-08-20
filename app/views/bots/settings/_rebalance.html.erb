@@ -14,8 +14,6 @@
               } do |f| %>
   <div class="toggle-group">
     <div class="toggle">
-      <%# Not `disabled: bot.working?` like its siblings, on purpose: this leg is independent of the
-          DCA schedule, so locking it while the bot runs would defeat the point of it. %>
       <%= f.check_box :rebalance_enabled, data: { action: "change->form--submit#submit change->class-toggle#toggle" } %>
       <div class="toggle__style"></div>
     </div>

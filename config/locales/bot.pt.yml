@@ -204,7 +204,7 @@ pt:
             rebalance:
                 sentence_html: "Reequilibrar quando um ativo se afastar mais de <span>%{value_html} %</span> do seu alvo"
                 note: "Continua a funcionar mesmo com o agendamento de DCA parado."
-                drift: "A carteira está a %{drift} % da sua divisão-alvo"
+                drift: "(agora %{drift} % do alvo)"
                 paused: "Reequilíbrio em pausa — verifica a tua exchange"
                 resume: "Retomar"
                 resume_confirm: "Continua apenas se verificaste a tua exchange e nenhuma ordem de reequilíbrio continua aberta."
