@@ -43,7 +43,6 @@ ru:
         value_symbol: "Стоимость (%{symbol})"
         invested_symbol: "Вложено (%{symbol})"
         date: "Дата"
-        asset: "Актив"
         amount: "Количество"
         avg_price: "Ср. цена"
         price: "Цена"

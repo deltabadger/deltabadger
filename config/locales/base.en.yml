@@ -44,7 +44,6 @@ en:
         value_symbol: "Value (%{symbol})"
         invested_symbol: "Invested (%{symbol})"
         date: "Date"
-        asset: "Asset"
         amount: "Amount"
         avg_price: "Avg. Price"
         price: "Price"

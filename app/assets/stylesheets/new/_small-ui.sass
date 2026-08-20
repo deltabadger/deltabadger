@@ -166,9 +166,13 @@ select
     display: block
     width: 2.5rem
     height: 2.5rem
-    box-shadow: var(--shadow-basic)
+    background: #fff
+    box-shadow: var(--shadow-paper) !important
     // The global `img { max-width: 100% }` reset resolves against the shrink-wrapped
     // table cell (content box 0), which flattens the logo to 0px wide. Opt out.
     max-width: none
     border-radius: 50%
     object-fit: contain
+    // Crop 2.5% off each side of the source: ~5% zoom, so logos with baked-in
+    // whitespace fill the circle. Ignored by browsers without object-view-box.
+    object-view-box: inset(2.5%)

@@ -44,7 +44,6 @@ cs:
         value_symbol: "Hodnota (%{symbol})"
         invested_symbol: "Investováno (%{symbol})"
         date: "Datum"
-        asset: "Aktivum"
         amount: "Množství"
         avg_price: "Prům. cena"
         price: "Cena"

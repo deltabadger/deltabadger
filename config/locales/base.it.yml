@@ -43,7 +43,6 @@ it:
         value_symbol: "Valore (%{symbol})"
         invested_symbol: "Investito (%{symbol})"
         date: "Data"
-        asset: "Asset"
         amount: "Importo"
         avg_price: "Prezzo medio"
         price: "Prezzo"

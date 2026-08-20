@@ -44,7 +44,6 @@ sk:
         value_symbol: "Hodnota (%{symbol})"
         invested_symbol: "Investované (%{symbol})"
         date: "Dátum"
-        asset: "Aktívum"
         amount: "Množstvo"
         avg_price: "Priem. cena"
         price: "Cena"

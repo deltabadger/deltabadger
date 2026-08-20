@@ -43,7 +43,6 @@ nl:
         value_symbol: "Waarde (%{symbol})"
         invested_symbol: "Geïnvesteerd (%{symbol})"
         date: "Datum"
-        asset: "Activa"
         amount: "Bedrag"
         avg_price: "Gem. prijs"
         price: "Prijs"

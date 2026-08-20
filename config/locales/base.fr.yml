@@ -43,7 +43,6 @@ fr:
         value_symbol: "Valeur (%{symbol})"
         invested_symbol: "Investi (%{symbol})"
         date: "Date"
-        asset: "Actif"
         amount: "Montant"
         avg_price: "Prix moy."
         price: "Prix"

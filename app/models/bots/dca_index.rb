@@ -223,6 +223,21 @@ class Bots::DcaIndex < Bot
     preview
   end
 
+  # The index the bot *tracks*, top-weighted first — its desired composition. Deliberately not
+  # bot_index_assets: those rows only exist once the bot has run its first composition refresh,
+  # so a freshly created bot would have nothing to show.
+  def desired_index_assets(limit = 3)
+    return [] if exchange.blank? || quote_asset_id.blank?
+
+    coin_ids = Rails.cache.fetch(['dca_index_top_coins', index_type, index_category_id], expires_in: 1.hour) do
+      result = MarketData.get_top_coins(index_type: index_type, category_id: index_category_id, limit: 150)
+      result.success? ? result.data.map { |coin| coin['id'] } : []
+    end
+    tradeable = exchange.tickers.available.trading_enabled.where(quote_asset_id: quote_asset_id).select(:base_asset_id)
+    assets = Asset.where(external_id: coin_ids, id: tradeable).index_by(&:external_id)
+    coin_ids.filter_map { |coin_id| assets[coin_id] }.first([limit, num_coins.to_i].min)
+  end
+
   def display_index_name
     return "#{index_name_prefix} #{num_coins}" if index_name_prefix.present? && num_coins.present?
     return index_name if index_name.present?
