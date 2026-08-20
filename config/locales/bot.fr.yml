@@ -56,6 +56,9 @@ fr:
             signal:
                 title: "Signal"
                 description: "Trader sur signaux externes"
+        exchange_menu:
+            no_alternative: 'Aucune autre plateforme prise en charge ne propose %{assets}.'
+            locked_while_running: 'Arrête le bot pour le déplacer vers une autre plateforme.'
         status:
             exchange_retired: "Cette plateforme n'existe plus — bascule le bot vers une autre."
             setting_orders: "Configuration des commandes…"

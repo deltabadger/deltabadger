@@ -56,6 +56,9 @@ pl:
             signal:
                 title: "Signal"
                 description: "Handluj na podstawie zewnętrznych sygnałów"
+        exchange_menu:
+            no_alternative: 'Żadna inna obsługiwana giełda nie oferuje %{assets}.'
+            locked_while_running: 'Zatrzymaj bota, żeby przenieść go na inną giełdę.'
         status:
             exchange_retired: 'Ta giełda już nie działa — przenieś bota na inną.'
             setting_orders: "Ustawianie zleceń…"

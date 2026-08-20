@@ -56,6 +56,9 @@ pt:
             signal:
                 title: "Signal"
                 description: "Negociar com sinais externos"
+        exchange_menu:
+            no_alternative: 'Nenhuma outra exchange suportada oferece %{assets}.'
+            locked_while_running: 'Para o bot para o mudares para outra exchange.'
         status:
             exchange_retired: 'Esta exchange já não opera — muda o bot para outra.'
             setting_orders: "Configurando ordens…"

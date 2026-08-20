@@ -60,6 +60,9 @@ en:
             stock_not_found: "Stock not found on Alpaca"
             mode_paper: "Paper trading"
             mode_live: "Live trading"
+        exchange_menu:
+            no_alternative: 'No other supported exchange lists %{assets}.'
+            locked_while_running: 'Stop the bot to move it to another exchange.'
         status:
             exchange_retired: 'This exchange no longer operates — switch the bot to another one.'
             setting_orders: "Setting orders…"

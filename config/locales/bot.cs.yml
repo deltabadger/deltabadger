@@ -60,6 +60,9 @@ cs:
             stock_not_found: "Akcie nebyla nalezena na Alpaca"
             mode_paper: "Papírové obchodování"
             mode_live: "Živé obchodování"
+        exchange_menu:
+            no_alternative: 'Žádná jiná podporovaná burza nenabízí %{assets}.'
+            locked_while_running: 'Zastav bota, abys ho přesunul na jinou burzu.'
         status:
             exchange_retired: 'Tato burza už nefunguje — přesuň bota na jinou.'
             setting_orders: "Zadávání příkazů…"

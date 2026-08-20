@@ -53,6 +53,9 @@ ru:
             signal:
                 title: "Signal"
                 description: "Торговля по внешним сигналам"
+        exchange_menu:
+            no_alternative: 'Ни одна другая поддерживаемая биржа не предлагает %{assets}.'
+            locked_while_running: 'Останови бота, чтобы перенести его на другую биржу.'
         status:
             exchange_retired: 'Эта биржа больше не работает — переведите бота на другую.'
             setting_orders: "Настройка ордеров…"

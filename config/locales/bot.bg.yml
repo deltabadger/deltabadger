@@ -60,6 +60,9 @@ bg:
             stock_not_found: "Акцията не е намерена в Alpaca"
             mode_paper: "Хартиена търговия"
             mode_live: "Реална търговия"
+        exchange_menu:
+            no_alternative: 'Никоя друга поддържана борса не предлага %{assets}.'
+            locked_while_running: 'Спри бота, за да го преместиш на друга борса.'
         status:
             exchange_retired: 'Тази борса вече не работи — прехвърли бота към друга.'
             setting_orders: "Подаване на поръчки…"
