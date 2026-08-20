@@ -240,7 +240,7 @@ da:
         settings:
             rebalance:
                 sentence_html: "Rebalancér når et aktiv afviger mere end <span>%{value_html} %</span> fra sit mål"
-                note: "Kører videre, selv når DCA-planen er stoppet."
+                note: "Kører videre, selv når DCA-planen er stoppet. Bruger altid markedsordrer."
                 drift: "Porteføljen er %{drift} % fra sin målfordeling"
                 below_minimum: "— for lille til denne børs’ minimum"
                 paused: "Rebalancering sat på pause — tjek din børs"

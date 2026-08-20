@@ -209,7 +209,7 @@ nl:
         settings:
             rebalance:
                 sentence_html: "Herbalanceer wanneer een asset meer dan <span>%{value_html} %</span> van zijn doel afwijkt"
-                note: "Blijft werken terwijl het DCA-schema gestopt is."
+                note: "Blijft werken terwijl het DCA-schema gestopt is. Gebruikt altijd marktorders."
                 drift: "De portefeuille zit %{drift} % van zijn doelverdeling af"
                 below_minimum: "— te klein voor het minimum van deze exchange"
                 paused: "Herbalanceren gepauzeerd — controleer je exchange"

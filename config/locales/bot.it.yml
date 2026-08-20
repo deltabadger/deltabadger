@@ -221,7 +221,7 @@ it:
         settings:
             rebalance:
                 sentence_html: "Ribilancia quando un asset si discosta di più di <span>%{value_html} %</span> dal suo obiettivo"
-                note: "Continua a funzionare anche quando la pianificazione DCA è ferma."
+                note: "Continua a funzionare anche quando la pianificazione DCA è ferma. Usa sempre ordini a mercato."
                 drift: "Il portafoglio è a %{drift} % dalla sua ripartizione obiettivo"
                 below_minimum: "— troppo piccolo per il minimo di questo exchange"
                 paused: "Ribilanciamento in pausa — controlla il tuo exchange"

@@ -212,7 +212,7 @@ es:
         settings:
             rebalance:
                 sentence_html: "Reequilibrar cuando un activo se desvíe más de <span>%{value_html} %</span> de su objetivo"
-                note: "Sigue funcionando aunque el calendario de DCA esté detenido."
+                note: "Sigue funcionando aunque el calendario de DCA esté detenido. Usa siempre órdenes de mercado."
                 drift: "La cartera está a %{drift} % de su reparto objetivo"
                 below_minimum: "— demasiado pequeño para el mínimo de este exchange"
                 paused: "Reequilibrio en pausa — revisa tu exchange"

@@ -240,7 +240,7 @@ cs:
         settings:
             rebalance:
                 sentence_html: "Rebalancovat, když se aktivum odchýlí o více než <span>%{value_html} %</span> od cíle"
-                note: "Běží dál, i když je plán DCA zastavený."
+                note: "Běží dál, i když je plán DCA zastavený. Vždy používá tržní pokyny."
                 drift: "Portfolio je %{drift} % od cílového rozdělení"
                 below_minimum: "— příliš málo na minimum této burzy"
                 paused: "Rebalancování pozastaveno — zkontroluj svou burzu"
