@@ -40,6 +40,17 @@ class Bots::RebalanceSettingsTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test 'the standing note comes before the live readout' do
+    enable_rebalancing
+    stub_drift(0.169)
+
+    get bot_path(id: @bot.id)
+
+    lines = css_select('#settings-rebalance-info div').map(&:text).map(&:strip)
+    assert_match(/DCA schedule is stopped/, lines.first)
+    assert_match(/off its target split/, lines.second)
+  end
+
   test 'the drift readout goes green once the criteria are met' do
     enable_rebalancing(threshold: 0.05)
     stub_drift(0.169)
