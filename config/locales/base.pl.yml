@@ -538,6 +538,12 @@ pl:
         waiting: 'Oczekujące'
     bot_activity:
         events:
+            rebalance_sell_placed: 'Rebalansowanie — sprzedaż nadreprezentowanego aktywa'
+            rebalance_buy_placed: 'Rebalansowanie — dokupienie niedoreprezentowanego aktywa'
+            rebalance_dust: 'Zbyt mała reszta, by rebalansować — zostaje w gotówce'
+            rebalance_ambiguous: 'Status zlecenia rebalansującego niepotwierdzony — wstrzymano, by nie złożyć go dwa razy'
+            rebalance_manually_resolved: 'Rebalansowanie wznowione ręcznie'
+            dca_skipped_rebalance_pending: 'Wpłata pominięta — rebalansowanie wciąż trwa'
             started: 'Bot uruchomiony'
             stopped: 'Bot zatrzymany'
             reschedule_disabled: 'Automatyczne planowanie wstrzymane'

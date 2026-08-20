@@ -546,6 +546,12 @@ bg:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            rebalance_sell_placed: 'Ребалансиране — продажба на надтегления актив'
+            rebalance_buy_placed: 'Ребалансиране — обратна покупка на подтегления актив'
+            rebalance_dust: 'Остатъкът е твърде малък за ребалансиране — остава в брой'
+            rebalance_ambiguous: 'Статусът на поръчката за ребалансиране е непотвърден — спряно, за да не се подаде два пъти'
+            rebalance_manually_resolved: 'Ребалансирането е възобновено ръчно'
+            dca_skipped_rebalance_pending: 'Вноската е пропусната — ребалансиране още тече'
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'

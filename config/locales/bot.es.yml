@@ -210,6 +210,15 @@ es:
             title: "¡Enhorabuena! Tu bot está en marcha."
             general_note: "Los mínimos del exchange y las cantidades requeridas para el rebalanceo pueden cambiar. Las transacciones a veces pueden parecer irregulares, pero el bot siempre apunta a tu asignación y programación deseadas, así que no necesitas hacer nada más."
         settings:
+            rebalance:
+                sentence_html: "Reequilibrar cuando un activo se desvíe más de <span>%{value_html} %</span> de su objetivo"
+                note: "Sigue funcionando aunque el calendario de DCA esté detenido."
+                drift: "(ahora %{drift} % del objetivo)"
+                paused: "Reequilibrio en pausa — revisa tu exchange"
+                resume: "Reanudar"
+                resume_confirm: "Continúa solo si has revisado tu exchange y no queda ninguna orden de reequilibrio abierta."
+                still_open: "La orden %{order_id} sigue abierta en tu exchange. Espera a que se liquide."
+                resolved: "Reequilibrio reanudado."
             starting_time:
                 modes:
                     options:

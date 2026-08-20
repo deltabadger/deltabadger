@@ -934,7 +934,7 @@ class Bots::DcaDualAssetTest < ActiveSupport::TestCase
     assert_equal 70, bot.pending_quote_amount
   end
 
-  test 'metrics handles submitted orders whose execution amounts are not confirmed yet' do
+  test 'metrics does not count an accepted-but-unconfirmed order as holdings' do
     bot = create(:dca_dual_asset, :started)
     create(
       :transaction,
@@ -952,8 +952,12 @@ class Bots::DcaDualAssetTest < ActiveSupport::TestCase
 
     metrics = nil
     assert_nothing_raised { metrics = bot.metrics(force: true) }
-    assert_equal 0.001, metrics[:total_base0_amount]
-    assert_equal 50, metrics[:total_quote_amount_invested]
+    # The "null exec means it filled for the requested amount" fallback is only sound for CONFIRMED
+    # rows. This order is :unknown — it may never fill, or fill for less. Counting it invents a
+    # position the user does not hold, which the rebalance leg would then trade against. Single-asset
+    # metrics has always drawn the line here; dual-asset now does too.
+    assert_equal 0, metrics[:total_base0_amount]
+    assert_equal 0, metrics[:total_quote_amount_invested]
   end
 
   test 'set_missed_quote_amount caps at effective_quote_amount' do

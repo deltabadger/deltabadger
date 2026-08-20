@@ -211,6 +211,15 @@ fr:
             title: "Félicitations ! Votre bot est en cours d'exécution."
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
         settings:
+            rebalance:
+                sentence_html: "Rééquilibrer quand un actif s’écarte de plus de <span>%{value_html} %</span> de sa cible"
+                note: "Continue de fonctionner même si le calendrier DCA est arrêté."
+                drift: "(actuellement %{drift} % de l’objectif)"
+                paused: "Rééquilibrage en pause — vérifie ta plateforme"
+                resume: "Reprendre"
+                resume_confirm: "Ne continue que si tu as vérifié ta plateforme et qu’aucun ordre de rééquilibrage n’est encore ouvert."
+                still_open: "L’ordre %{order_id} est encore ouvert sur ta plateforme. Attends qu’il soit réglé."
+                resolved: "Rééquilibrage repris."
             starting_time:
                 modes:
                     options:

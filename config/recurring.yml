@@ -49,6 +49,13 @@ production:
     class: Rule::EvaluateAllJob
     schedule: "0 */4 * * *"  # Every 4 hours
 
+  # The rebalance leg's only clock — it has no scheduled per-bot job of its own. Also the rate
+  # floor: a successful rebalance moves all the way to target, so this cadence caps how often a
+  # drifting portfolio can trade.
+  evaluate_rebalancers_job:
+    class: Bot::EvaluateRebalancersJob
+    schedule: "30 */4 * * *"  # Every 4 hours, offset from the rules fan-out
+
   sync_all_account_transactions_job:
     class: AccountTransaction::SyncAllJob
     schedule: "0 2 * * *"  # Daily at 2 AM
@@ -114,6 +121,13 @@ development:
   evaluate_all_rules_job:
     class: Rule::EvaluateAllJob
     schedule: "0 */4 * * *"  # Every 4 hours
+
+  # The rebalance leg's only clock — it has no scheduled per-bot job of its own. Also the rate
+  # floor: a successful rebalance moves all the way to target, so this cadence caps how often a
+  # drifting portfolio can trade.
+  evaluate_rebalancers_job:
+    class: Bot::EvaluateRebalancersJob
+    schedule: "30 */4 * * *"  # Every 4 hours, offset from the rules fan-out
 
   sync_all_account_transactions_job:
     class: AccountTransaction::SyncAllJob

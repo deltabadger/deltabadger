@@ -51,13 +51,13 @@ module Bot::QuoteAmountLimitable
 
     # Buy-side only: the spend cap counts what was spent buying. A sell fill also carries a positive
     # quote_amount_exec, so without the side filter a selling bot's proceeds would count as "spent".
-    closed_quote_amount = transactions.submitted.buy
+    closed_quote_amount = transactions.submitted.buy.regular
                                       .where('created_at >= ?', quote_amount_limit_enabled_at)
                                       .closed
                                       .pluck(:quote_amount_exec)
                                       .sum
 
-    open_quote_amount = transactions.submitted.buy
+    open_quote_amount = transactions.submitted.buy.regular
                                     .where('created_at >= ?', quote_amount_limit_enabled_at)
                                     .waiting
                                     .pluck(:quote_amount, :amount, :price)

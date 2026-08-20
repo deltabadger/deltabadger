@@ -535,6 +535,12 @@ fr:
         waiting: 'Programmés'
     bot_activity:
         events:
+            rebalance_sell_placed: 'Rééquilibrage — vente de l’actif surpondéré'
+            rebalance_buy_placed: 'Rééquilibrage — rachat de l’actif sous-pondéré'
+            rebalance_dust: 'Reliquat trop faible pour rééquilibrer — laissé en liquidités'
+            rebalance_ambiguous: 'Statut de l’ordre de rééquilibrage non confirmé — en pause pour éviter un doublon'
+            rebalance_manually_resolved: 'Rééquilibrage repris manuellement'
+            dca_skipped_rebalance_pending: 'Versement ignoré — un rééquilibrage est en cours'
             started: 'Bot démarré'
             stopped: 'Bot arrêté'
             reschedule_disabled: 'Planification automatique en pause'

@@ -36,6 +36,11 @@ class Transaction < ApplicationRecord
   # exchange-side abandonment (e.g. Kraken stopped returning the order). Grouped
   # under the "Cancelled" filter tab in the UI.
   scope :cancelled_or_abandoned, -> { where(external_status: %i[cancelled abandoned]) }
+  # Contribution accounting counts REGULAR rows only. A rebalance swaps assets the bot already
+  # owns — the quote it spends was never new money, so counting it would satisfy a scheduled
+  # contribution the user never made and eat their "don't spend more than N" cap.
+  scope :regular, -> { where(transaction_type: 'REGULAR') }
+  scope :rebalance, -> { where(transaction_type: 'REBALANCE') }
 
   validates :bot, presence: true
 
