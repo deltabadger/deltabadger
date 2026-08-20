@@ -1,9 +1,10 @@
 import { Controller } from "@hotwired/stimulus"
 
 // Connects to data-controller="order-filter"
-// "all" shows the unified timeline rows (order_type "timeline"); the other tabs
-// (successful/waiting/cancelled) show the columnar rows of that type. The columnar
-// Amount/Value headers are hidden while the timeline is shown.
+// Every row carries the tabs it belongs to in data-order-type: the sentence rows are
+// "all" (plus "other" for cancelled/skipped/failed, which have no columnar row), the
+// columnar rows are "successful" or "waiting". Filtering is a membership test, and the
+// Amount/Value headers only make sense for the two columnar tabs.
 export default class extends Controller {
   static targets = ["row", "columnHeader", "filterContainer"]
   static values = { current: { type: String, default: "all" } }
@@ -40,17 +41,16 @@ export default class extends Controller {
   }
 
   updateVisibility() {
-    const timeline = this.currentValue === "all"
     this.rowTargets.forEach(row => {
-      const orderType = row.dataset.orderType
-      const visible = timeline ? orderType === "timeline" : orderType === this.currentValue
-      row.style.display = visible ? "" : "none"
+      // A row with no tabs at all (the columnar row of a cancelled order) shows nowhere.
+      const tabs = (row.dataset.orderType || "").split(" ")
+      row.style.display = tabs.includes(this.currentValue) ? "" : "none"
     })
   }
 
   updateHeader() {
-    const timeline = this.currentValue === "all"
-    this.columnHeaderTargets.forEach(th => { th.style.display = timeline ? "none" : "" })
+    const sentences = this.currentValue === "all" || this.currentValue === "other"
+    this.columnHeaderTargets.forEach(th => { th.style.display = sentences ? "none" : "" })
   }
 
 }

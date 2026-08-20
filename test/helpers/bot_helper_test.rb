@@ -59,16 +59,6 @@ class BotHelperTest < ActionView::TestCase
 
   # == order_filter_type — used by _order.html.erb to tag the row with its tab ==
 
-  test 'order_filter_type maps abandoned to the cancelled tab' do
-    assert_equal 'cancelled',
-                 order_filter_type(build(:transaction, status: :submitted, external_status: :abandoned, external_id: 'a1'))
-  end
-
-  test 'order_filter_type maps cancelled to the cancelled tab' do
-    assert_equal 'cancelled',
-                 order_filter_type(build(:transaction, status: :submitted, external_status: :cancelled, external_id: 'c1'))
-  end
-
   test 'order_filter_type maps open and unknown to the waiting tab' do
     bot = create(:dca_single_asset)
     assert_equal 'waiting',
@@ -82,10 +72,13 @@ class BotHelperTest < ActionView::TestCase
                  order_filter_type(build(:transaction, status: :submitted, external_status: :closed, external_id: 'cl1'))
   end
 
-  test 'order_filter_type is nil for failed and skipped rows so they stay out of the cancelled tab' do
-    # Matches existing view behavior: failed/skipped rows show under "All" / "Other"
-    # but must not leak into the cancelled, successful, or waiting filters.
+  test 'order_filter_type is nil for every row the Other tab owns' do
+    # Cancelled, abandoned, skipped and failed rows are shown as sentence rows under
+    # "Other", so their columnar row belongs to no tab and must never leak into
+    # Transactions or Scheduled.
     bot = create(:dca_single_asset)
+    assert_nil order_filter_type(build(:transaction, bot: bot, status: :submitted, external_status: :cancelled, external_id: 'c1'))
+    assert_nil order_filter_type(build(:transaction, bot: bot, status: :submitted, external_status: :abandoned, external_id: 'a1'))
     assert_nil order_filter_type(build(:transaction, bot: bot, status: :failed, external_id: 'f1'))
     assert_nil order_filter_type(build(:transaction, bot: bot, status: :skipped, external_id: 's1'))
   end

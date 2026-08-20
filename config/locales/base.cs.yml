@@ -549,8 +549,8 @@ cs:
         all: 'Vše'
         successful: 'Úspěšné'
         transactions: 'Transactions' # TODO: translate (English placeholder)
-        cancelled: 'Zrušené'
         waiting: 'Naplánované'
+        other: 'Ostatní'
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:

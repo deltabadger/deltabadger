@@ -10,6 +10,19 @@
 // The chip's left and width are set in pixels by the `segmented` controller, which measures the
 // selected option. Both sizings therefore share one code path; the CSS difference is a single
 // column rule.
+.rbutton
+    height: 4rem
+    width: fit-content
+    border-radius: 1rem
+    border: none
+    background: var(--washed)
+    box-shadow: var(--shadow-basic)
+    text-transform: uppercase
+    font-size: 1.5rem
+    font-weight: 600
+    color: var(--link)
+    padding: 1rem 1.5rem
+
 .segmented
     position: relative
     display: grid
@@ -24,6 +37,65 @@
     box-shadow: var(--shadow-indent)
     &--fluid
         grid-auto-columns: auto
+    // Collapsed: the same track and the same chip, folded down to the selected label with a caret
+    // to say the rest are one tap away. The controller trips it by MEASURING — the labels are
+    // translated and the option count depends on the data, so the width that stops fitting is not
+    // a number anyone could write into a breakpoint.
+    &--collapsed
+        display: flex
+        align-items: center
+        gap: 0.25rem
+        cursor: pointer
+        .segmented__thumb
+            position: static
+            align-self: stretch
+            display: flex
+            align-items: center
+            padding: 0 1.5rem
+            font-size: 1.5rem
+            font-weight: 600
+            text-indent: 0.1em
+            text-transform: uppercase
+            white-space: nowrap
+            color: var(--ink)
+            transition: none
+        .segmented__caret
+            display: flex
+            align-items: center
+            padding-right: 0.5rem
+            color: var(--stone)
+        .segmented__menu
+            display: none
+            position: absolute
+            top: 4.5rem
+            left: 0
+            z-index: 1000
+            flex-direction: column
+            min-width: 100%
+            padding: 0.75rem
+            background: var(--dropdown-bg)
+            border-radius: 1rem
+            box-shadow: 0 0 0 0.125rem var(--dropdown-border) inset, 0 0.5rem 1rem 0 rgba(6, 26, 79, 0.10)
+        // The selected option is already the trigger, wearing the chip. Listing it again would
+        // offer the reader the thing they are looking at.
+        .segmented__option
+            justify-content: flex-start
+            line-height: 3.5rem
+            &.is-on
+                display: none
+        &.is-open
+            .segmented__menu
+                display: flex
+
+// display: contents, so the expanded control is laid out exactly as it was — the options are
+// still the track's own grid items. The wrapper only becomes a box once it becomes a menu.
+.segmented__menu
+    display: contents
+
+.segmented__caret
+    display: none
+    path
+        fill: currentColor
 
 // No border: the chip is lighter than the track it sits in, and a hairline around a fill that
 // already separates itself adds a line and no information.
@@ -68,3 +140,10 @@
     &:focus-visible
         outline: 2px solid var(--link)
         outline-offset: 2px
+
+// The control collapses when its options outgrow the room its PARENT gives it, so that parent
+// needs a width of its own. One that shrink-wraps to the collapsed trigger would report the
+// trigger's width as the room available and never let the control open back up.
+.filters:has(> .segmented)
+    flex: 1
+    min-width: 0

@@ -38,10 +38,10 @@ class Bots::SegmentedFiltersTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select '.segmented.segmented--fluid', 1
-    # all + transactions + cancelled; no waiting row exists, so no waiting option
+    # all + transactions + other; no waiting row exists, so no waiting option
     assert_select 'button.segmented__option', 3
     assert_select '[data-value="all"].is-on', 1
-    assert_select 'button[data-value="cancelled"]', 1
+    assert_select 'button[data-value="other"]', 1
   end
 
   test 'a bot with only one category of orders shows no filter at all' do

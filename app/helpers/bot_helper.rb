@@ -60,11 +60,12 @@ module BotHelper
     end
   end
 
-  # Maps a transaction to a UI filter tab ('waiting' | 'cancelled' | 'successful' | nil).
-  # nil means the row doesn't belong to any of the named tabs (e.g. failed/skipped).
+  # The tab a COLUMNAR row belongs to ('waiting' | 'successful' | nil). nil is every
+  # Transaction#other? row — cancelled, abandoned, skipped, failed: they have no
+  # columnar home and show under "Other" as their sentence row, so the columnar row,
+  # where one was rendered at all, belongs to no tab and stays hidden.
   def order_filter_type(order)
     return 'waiting' if order.submitted? && (order.open? || order.unknown?)
-    return 'cancelled' if order.submitted? && (order.cancelled? || order.abandoned?)
     return 'successful' if order.submitted? && order.closed?
 
     nil

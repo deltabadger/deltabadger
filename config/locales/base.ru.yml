@@ -534,8 +534,8 @@ ru:
         all: 'Все'
         successful: 'Выполненные'
         transactions: 'Транзакции'
-        cancelled: 'Отмененные'
         waiting: 'Ожидающие'
+        other: 'Прочие'
     bot_activity:
         events:
             rebalance_sell_placed: 'Ребалансировка — продажа перевешенного актива'

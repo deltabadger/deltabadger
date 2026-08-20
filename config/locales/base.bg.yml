@@ -541,8 +541,8 @@ bg:
         all: 'Всички'
         successful: 'Успешни'
         transactions: 'Transactions' # TODO: translate (English placeholder)
-        cancelled: 'Отменени'
         waiting: 'Насрочени'
+        other: 'Други'
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:

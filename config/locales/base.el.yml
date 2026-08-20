@@ -541,8 +541,8 @@ el:
         all: 'Όλες'
         successful: 'Επιτυχημένες'
         transactions: 'Transactions' # TODO: translate (English placeholder)
-        cancelled: 'Ακυρωμένες'
         waiting: 'Προγραμματισμένες'
+        other: 'Άλλες'
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:

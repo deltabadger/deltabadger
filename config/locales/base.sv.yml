@@ -541,8 +541,8 @@ sv:
         all: 'Alla'
         successful: 'Lyckade'
         transactions: 'Transactions' # TODO: translate (English placeholder)
-        cancelled: 'Avbrutna'
         waiting: 'Schemalagda'
+        other: 'Övriga'
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:

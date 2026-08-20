@@ -531,8 +531,8 @@ es:
         all: 'Todos'
         successful: 'Exitosos'
         transactions: 'Transacciones'
-        cancelled: 'Cancelados'
         waiting: 'Programados'
+        other: 'Otros'
     bot_activity:
         events:
             rebalance_sell_placed: 'Reequilibrio — vendiendo el activo sobreponderado'

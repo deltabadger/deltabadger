@@ -541,8 +541,8 @@ en:
         all: 'All'
         successful: 'Successful'
         transactions: 'Transactions'
-        cancelled: 'Cancelled'
         waiting: 'Scheduled'
+        other: 'Other'
     bot_activity:
         events:
             rebalance_sell_placed: 'Rebalancing — selling the overweight asset'

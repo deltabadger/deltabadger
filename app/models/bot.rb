@@ -196,9 +196,10 @@ class Bot < ApplicationRecord
     end
 
     # Each transaction occupies two rows: the sentence row for the unified "All"
-    # timeline (always) and the columnar row for the named tabs (submitted orders
-    # only) — mirroring show.turbo_stream.erb. Prepend the timeline row first so the
-    # columnar row lands on top, matching the initial-load order.
+    # timeline (always, and it is also what the "Other" tab shows) and the columnar
+    # row for the named tabs (submitted orders only) — mirroring show.turbo_stream.erb.
+    # Prepend the timeline row first so the columnar row lands on top, matching the
+    # initial-load order.
     broadcast_prepend_to(
       ["user_#{user_id}", :bot_updates],
       target: 'orders_list',
@@ -211,7 +212,7 @@ class Bot < ApplicationRecord
         ["user_#{user_id}", :bot_updates],
         target: 'orders_list',
         partial: 'bots/orders/order',
-        locals: { order:, decimals:, exchange_name: order.exchange.name, current_user: user, fetch: false }
+        locals: { order:, decimals:, current_user: user }
       )
     end
 
@@ -241,7 +242,7 @@ class Bot < ApplicationRecord
       ["user_#{user_id}", :bot_updates],
       target: dom_id(order),
       partial: 'bots/orders/order',
-      locals: { order:, decimals:, exchange_name: order.exchange.name, current_user: user, fetch: false }
+      locals: { order:, decimals:, current_user: user }
     )
 
     broadcast_replace_to(

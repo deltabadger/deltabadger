@@ -21,42 +21,6 @@
         <%= button_to t('bot.cancel_order'), bot_transaction_path(order.bot, order), method: :delete, class: 'sinput sinput--small sinput--hover-warning', data: { class_toggle_target: "togglable", action: "click->class-toggle#toggle" } %>
         <div class="loader--small hidden" style="position: unset; float: right; margin-right: 0.5rem;" data-class-toggle-target="togglable" ></div>
       </div>
-    <% elsif order.failed? %>
-      <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
-        <div class="tooltip-icon--off">
-          <%= render 'svg/24x24_info' %>
-        </div>
-        <div class="tooltip-icon--on">
-          <%= render 'svg/24x24_info-filled' %>
-        </div>
-        <div class="tooltip tooltip--smart-allocation">
-          <%= t('bot.messages.failed_tooltip_explanation', error_message: order.error_messages.to_sentence) %>
-        </div>
-      </div>
-    <% elsif order.skipped? %>
-      <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
-        <div class="tooltip-icon--off">
-          <%= render 'svg/24x24_info' %>
-        </div>
-        <div class="tooltip-icon--on">
-          <%= render 'svg/24x24_info-filled' %>
-        </div>
-        <div class="tooltip tooltip--smart-allocation">
-          <%= t('bot.messages.skipped_tooltip_explanation', exchange_name: exchange_name) %>
-        </div>
-      </div>
-    <% elsif order.cancelled? %>
-      <div class="tooltip-info-icon" data-controller="tooltip" data-action="click->tooltip#toggle">
-        <div class="tooltip-icon--off">
-          <%= render 'svg/24x24_info' %>
-        </div>
-        <div class="tooltip-icon--on">
-          <%= render 'svg/24x24_info-filled' %>
-        </div>
-        <div class="tooltip tooltip--smart-allocation">
-          <%= t('bot.messages.cancelled_tooltip_explanation') %>
-        </div>
-      </div>
     <% end %>
   </td>
 <% end %>

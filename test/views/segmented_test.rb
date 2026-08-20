@@ -57,6 +57,14 @@ class SegmentedTest < ActionView::TestCase
     assert_select 'a[href="/bots/active"][aria-current]', 0
   end
 
+  # Without this the chip only ever teleports: the click leaves the page and the next one places
+  # its chip from scratch. Arrow keys stay off a link group — those are tabbed through.
+  test 'a link still moves the chip on the way out, so the switch animates' do
+    render_segmented(options: [{ value: 'all', label: 'All', href: '/bots/all', active: true }])
+
+    assert_select 'a[data-action="segmented#select"]', 1
+  end
+
   test 'the label names the group for a screen reader' do
     render_segmented(options: buttons, label: 'Chart mode')
 

@@ -541,8 +541,8 @@ da:
         all: 'Alle'
         successful: 'Gennemført'
         transactions: 'Transactions' # TODO: translate (English placeholder)
-        cancelled: 'Annulleret'
         waiting: 'Planlagt'
+        other: 'Andre'
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:

@@ -534,8 +534,8 @@ pl:
         all: 'Wszystkie'
         successful: 'Zrealizowane'
         transactions: 'Transakcje'
-        cancelled: 'Anulowane'
         waiting: 'Oczekujące'
+        other: 'Inne'
     bot_activity:
         events:
             rebalance_sell_placed: 'Rebalansowanie — sprzedaż nadreprezentowanego aktywa'
