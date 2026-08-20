@@ -2,22 +2,7 @@
   <%= link_to bot_path(bot) do %>
     <div class="bot-tile__header">
       <div class="bot-tile__hgroup">
-        <% logo_assets = if bot.dca_index?
-                           bot.desired_index_assets(5)
-                         elsif bot.dca_dual_asset?
-                           [bot.base0_asset, bot.base1_asset]
-                         else
-                           [bot.base_asset]
-                         end.compact %>
-        <% if logo_assets.any? %>
-          <div class="bot-tile__logos">
-            <% logo_assets.each_with_index do |logo_asset, i| %>
-              <%= render "assets/logo", asset: logo_asset, color_only: i.positive? %>
-            <% end %>
-          </div>
-        <% end %>
         <div class="bot-tile__title">
-          <% hide_quote = bot.exchange&.stock_venue? %>
           <% if bot.dca_single_asset? && bot.quote_asset_id.present? && bot.base_asset_id.present? %>
             <span><%= bot.base_asset.symbol %></span>
           <% elsif bot.dca_dual_asset? && bot.quote_asset_id.present? && bot.base0_asset_id.present? && bot.base1_asset_id.present? %>
@@ -41,10 +26,6 @@
       <% end %>
     </div>
     <div class="bot-tile__subtitle">
-      <% unless hide_quote %>
-        <span><%= bot.quote_asset.symbol %></span>
-      <% end %>
-      &middot;
       <%= bot.label %>
     </div>
   <% end %>
