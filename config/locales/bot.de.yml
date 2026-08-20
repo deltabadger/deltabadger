@@ -53,6 +53,9 @@ de:
             signal:
                 title: "Signal"
                 description: "Handeln basierend auf externen Signalen"
+        exchange_menu:
+            no_alternative: 'Keine andere unterstützte Börse führt %{assets}.'
+            locked_while_running: 'Stoppe den Bot, um ihn zu einer anderen Börse zu verschieben.'
         status:
             exchange_retired: 'Diese Börse gibt es nicht mehr — wechsle den Bot zu einer anderen.'
             setting_orders: "Orders werden erstellt…"

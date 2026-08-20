@@ -60,6 +60,9 @@ da:
             stock_not_found: "Aktie ikke fundet på Alpaca"
             mode_paper: "Papirhandel"
             mode_live: "Live handel"
+        exchange_menu:
+            no_alternative: 'Ingen anden understøttet børs udbyder %{assets}.'
+            locked_while_running: 'Stop botten for at flytte den til en anden børs.'
         status:
             exchange_retired: 'Denne børs findes ikke længere — flyt botten til en anden.'
             setting_orders: "Opretter ordrer…"

@@ -60,6 +60,9 @@ sk:
             stock_not_found: "Akcia nebola nájdená na Alpaca"
             mode_paper: "Papierové obchodovanie"
             mode_live: "Živé obchodovanie"
+        exchange_menu:
+            no_alternative: 'Žiadna iná podporovaná burza neponúka %{assets}.'
+            locked_while_running: 'Zastav bota, aby si ho presunul na inú burzu.'
         status:
             exchange_retired: 'Táto burza už nefunguje — presuň bota na inú.'
             setting_orders: "Zadávanie príkazov…"

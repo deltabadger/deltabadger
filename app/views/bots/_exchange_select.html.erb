@@ -1,42 +1,45 @@
-<%= form_with model: bot, url: bot_path(bot), method: :patch, id: "exchange_select", class: "flex-row", data: { controller: "form--submit" } do |f| %>
+<%= form_with model: bot, url: bot_path(bot), method: :patch, id: "exchange_select", class: "sbutton sbutton--exchange-group", data: { controller: "form--submit" } do |f| %>
   <%# Not-working, not stopped: a bot that has never been started is `created`, and that is exactly
       where a user lands after the wizard or after a key is rejected. Gating on stopped? left them
       unable to move off the venue they could not connect to. %>
   <% switchable = !bot.working? %>
+  <% other_exchanges = switchable ? bot.available_exchanges_for_current_settings.where.not(id: bot.exchange_id) : Exchange.none %>
+  <%# A retired venue can never be reconnected — offering "reconnect" would send the user into a
+      key wizard that only refuses them. The list of other exchanges is what they need here. %>
+  <% can_reconnect = switchable && bot.api_key.correct? && !bot.exchange.retired? %>
+  <%# The menu always opens, because "nothing to offer" is itself the answer the user came for.
+      Rendering no menu at all left the chip looking like a control someone else was blocking —
+      and the two reasons are different, so a single empty state would lie about one of them. %>
+  <% note = if !switchable
+              t('bot.exchange_menu.locked_while_running')
+            elsif other_exchanges.none?
+              t('bot.exchange_menu.no_alternative', assets: bot.assets.pluck(:symbol).to_sentence)
+            end %>
   <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="dropdown-wrapper">
     <div class="sbutton sbutton--exchange sbutton--exchange--<%= bot.exchange.name_id %> <%= 'sinput--disabled' unless switchable %>">
       <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
       <span class="hide-on-mobile"><%= bot.exchange&.name || t('bot.pick_exchange') %></span>
     </div>
-    <% if switchable %>
-      <% other_exchanges = bot.available_exchanges_for_current_settings.where.not(id: bot.exchange_id) %>
-      <%# A retired venue can never be reconnected — offering "reconnect" would send the user into a
-          key wizard that only refuses them. The list of other exchanges is what they need here. %>
-      <% can_reconnect = bot.api_key.correct? && !bot.exchange.retired? %>
-      <% has_dropdown_items = can_reconnect || other_exchanges.any? %>
-      <% if has_dropdown_items %>
-        <div class="dropdown dropdown--exchanges">
-          <% if can_reconnect %>
-            <%= link_to new_bot_add_api_key_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } do %>
-              <%= t('button.reconnect') %>
-            <% end %>
-          <% end %>
-          <% if other_exchanges.any? %>
-            <% if can_reconnect %>
-              <div class="dropdown__item dropdown__item--divider"></div>
-            <% end %>
-            <% exchanges_with_keys = bot.user.api_keys.correct.where(exchange: other_exchanges).pluck(:exchange_id).to_set %>
-            <% other_exchanges.each do |exchange| %>
-              <% highlight = exchanges_with_keys.include?(exchange.id) ? " dropdown__item--highlight" : "" %>
-              <%= f.button name: "#{bot.model_name.param_key}[exchange_id]", value: exchange.id, type: :submit, class: "dropdown__item#{highlight}" do %>
-                <%= render "svg/exchange-#{exchange.name_id}" %>
-                <%= exchange.name.capitalize %>
-              <% end %>
-            <% end %>
-          <% end %>
-        </div>
+    <div class="dropdown dropdown--exchanges">
+      <% if can_reconnect %>
+        <%= link_to new_bot_add_api_key_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } do %>
+          <%= t('button.reconnect') %>
+        <% end %>
+        <div class="dropdown__item dropdown__item--divider"></div>
       <% end %>
-    <% end %>
+      <% if note %>
+        <p class="dropdown__item dropdown__item--note"><%= note %></p>
+      <% else %>
+        <% exchanges_with_keys = bot.user.api_keys.correct.where(exchange: other_exchanges).pluck(:exchange_id).to_set %>
+        <% other_exchanges.each do |exchange| %>
+          <% highlight = exchanges_with_keys.include?(exchange.id) ? " dropdown__item--highlight" : "" %>
+          <%= f.button name: "#{bot.model_name.param_key}[exchange_id]", value: exchange.id, type: :submit, class: "dropdown__item#{highlight}" do %>
+            <%= render "svg/exchange-#{exchange.name_id}" %>
+            <%= exchange.name.capitalize %>
+          <% end %>
+        <% end %>
+      <% end %>
+    </div>
   </div>
 
   <% if bot.exchange&.retired? %>

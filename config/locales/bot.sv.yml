@@ -60,6 +60,9 @@ sv:
             stock_not_found: "Aktien hittades inte på Alpaca"
             mode_paper: "Pappershandel"
             mode_live: "Riktig handel"
+        exchange_menu:
+            no_alternative: 'Ingen annan börs som stöds erbjuder %{assets}.'
+            locked_while_running: 'Stoppa boten för att flytta den till en annan börs.'
         status:
             exchange_retired: 'Den här börsen finns inte längre — flytta boten till en annan.'
             setting_orders: "Lägger ordrar…"

@@ -30,12 +30,15 @@ class ExchangeSwitcherTest < ActionDispatch::IntegrationTest
     assert_match @kraken.name, response.body
   end
 
-  test 'a working bot offers no switcher' do
+  # Still not switchable, but no longer silent about it: rendering nothing left the chip taking
+  # the click and showing an empty page tint, which reads as something else blocking the control.
+  test 'a working bot is told to stop rather than handed a menu that never opens' do
     bot = bot_with(status: :started, with_api_key: true)
 
     get bot_path(id: bot.id)
 
     assert_response :success
-    refute_match 'dropdown--exchanges', response.body
+    assert_match I18n.t('bot.exchange_menu.locked_while_running'), response.body
+    refute_match '[exchange_id]', response.body
   end
 end

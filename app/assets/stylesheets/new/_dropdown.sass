@@ -55,8 +55,8 @@
     background: var(--dropdown-bg)
     border-radius: 1rem
     box-shadow: 0 0 0 0.125rem var(--dropdown-border) inset, 0 0.5rem 1rem 0 rgba(6, 26, 79, 0.10)
-    font-size: 2rem
-    font-weight: 500
+    font-size: 1.75rem
+    font-weight: 600
     padding-top: calc(1rem + 0.125rem)
     padding-bottom: calc(1rem + 0.125rem)
     top: 4.5rem
@@ -109,14 +109,14 @@
     &__item
         display: grid
         cursor: pointer
-        line-height: 4rem
+        line-height: 3rem
         padding: 0.5rem 4rem 0.5rem 2.5rem
         text-align: left
         text-decoration: none !important
         border: none     // <button>
         background: none // <button>
         width: 100%      // <button>
-        color: var(--dropdown-link)
+        color: var(--ash)
         &--danger
             color: var(--berry)
             &:hover
@@ -126,6 +126,14 @@
             padding: 0
             margin: 1rem 0
             border-bottom: 0.125rem solid var(--dropdown-border)
+            cursor: default !important
+            &:hover
+                background: none !important
+        // Why the menu has nothing to offer. Not a choice, so it takes none of the choosing
+        // affordances — no hand, no hover.
+        &--note
+            color: var(--stone)
+            white-space: normal
             cursor: default !important
             &:hover
                 background: none !important

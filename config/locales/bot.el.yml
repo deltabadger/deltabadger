@@ -60,6 +60,9 @@ el:
             stock_not_found: "Η μετοχή δεν βρέθηκε στο Alpaca"
             mode_paper: "Εικονικές συναλλαγές"
             mode_live: "Πραγματικές συναλλαγές"
+        exchange_menu:
+            no_alternative: 'Κανένα άλλο υποστηριζόμενο ανταλλακτήριο δεν προσφέρει %{assets}.'
+            locked_while_running: 'Σταμάτα το bot για να το μεταφέρεις σε άλλο ανταλλακτήριο.'
         status:
             exchange_retired: 'Αυτό το ανταλλακτήριο δεν λειτουργεί πλέον — μετέφερε το bot σε άλλο.'
             setting_orders: "Ρύθμιση εντολών…"

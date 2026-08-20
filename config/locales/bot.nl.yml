@@ -53,6 +53,9 @@ nl:
             signal:
                 title: "Signal"
                 description: "Handelen op externe signalen"
+        exchange_menu:
+            no_alternative: 'Geen andere ondersteunde exchange biedt %{assets} aan.'
+            locked_while_running: 'Stop de bot om hem naar een andere exchange te verplaatsen.'
         status:
             exchange_retired: 'Deze exchange bestaat niet meer — zet de bot over naar een andere.'
             setting_orders: "Orders instellen…"
