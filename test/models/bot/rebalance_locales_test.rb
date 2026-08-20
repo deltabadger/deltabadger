@@ -5,7 +5,7 @@ require 'yaml'
 # missing key through English and reports true for every locale — so the obvious version of this test
 # passes while half the languages render in English.
 class Bot::RebalanceLocalesTest < ActiveSupport::TestCase
-  KEYS = %w[sentence_html note drift paused resume resume_confirm still_open resolved].freeze
+  KEYS = %w[sentence_html note drift below_minimum paused resume resume_confirm still_open resolved].freeze
 
   # Activity rows with no explicit message render through bot_activity.events.<event>, so every
   # event the rebalance leg emits needs a key or the feed shows raw translation-missing text.

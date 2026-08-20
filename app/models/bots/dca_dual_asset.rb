@@ -39,7 +39,7 @@ class Bots::DcaDualAsset < Bot
   include Bot::Rebalanceable
   include Bots::DcaDualAsset::MarketcapAllocatable # decorators for: parse_params
   include Bots::DcaDualAsset::OrderSetter
-  include Bots::DcaDualAsset::Rebalancer
+  include Bot::Rebalancer
   include Bots::DcaDualAsset::Measurable
   include Bot::Lifecycle         # shared start/stop/delete — keep LAST so the stop decorators above stay on top
   include Bot::AssetConfigurable # shared asset accessors + validations (the available_*/ticker queries below override the single-pair defaults)
@@ -59,15 +59,6 @@ class Bots::DcaDualAsset < Bot
   end
 
   def execute_action
-    # Stand down while a rebalance is mid-flight. The per-exchange semaphore prevents the two legs
-    # OVERLAPPING, not one following the other: a DCA tick landing between the rebalance's sell and
-    # buy would spend the sale proceeds on its own order, and the rebalance buy would then find no
-    # cash. The contribution is not lost — missed_quote_amount carries it into the next tick.
-    if rebalance_pending?
-      log_activity('dca_skipped_rebalance_pending', level: :info)
-      return Result::Success.new
-    end
-
     update!(status: :executing)
     result = set_orders(
       total_orders_amount_in_quote: pending_quote_amount,
@@ -165,6 +156,18 @@ class Bots::DcaDualAsset < Bot
       base0_price: ticker0&.price_decimals,
       base1_price: ticker1&.price_decimals
     }
+  end
+
+  # The two sides of the pair, for the shared rebalance machinery (Bot::Rebalancer). Two assets
+  # whose targets sum to 1, so exactly one of them can ever be overweight.
+  def rebalance_targets
+    data = metrics_with_current_prices
+    return nil if data[:prices_stale]
+
+    [
+      { ticker: ticker0, value: data[:total_base0_amount_value_in_quote].to_d, target: allocation0.to_d },
+      { ticker: ticker1, value: data[:total_base1_amount_value_in_quote].to_d, target: 1.to_d - allocation0.to_d }
+    ]
   end
 
   def broadcast_below_minimums_warning

@@ -20,7 +20,7 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     data = @bot.metrics.deep_dup
     data[:chart][:labels] = [Time.utc(2026, 1, 1), Time.utc(2026, 2, 1)]
     data[:chart][:series] = [[100.0, 260.0], [100.0, 200.0]]
-    Rails.cache.write("bot_#{@bot.id}_metrics_with_current_prices_and_candles", data)
+    Rails.cache.write(@bot.send(:metrics_with_current_prices_and_candles_cache_key), data)
 
     get bot_path(id: @bot.id)
 
@@ -44,7 +44,7 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     data = @bot.metrics.deep_dup
     data[:chart][:labels] = [Time.utc(2026, 1, 1), Time.utc(2026, 2, 1)]
     data[:chart][:series] = [[100.0, 260.0], [100.0, 200.0]]
-    Rails.cache.write("bot_#{@bot.id}_metrics_with_current_prices_and_candles", data)
+    Rails.cache.write(@bot.send(:metrics_with_current_prices_and_candles_cache_key), data)
 
     get bot_path(id: @bot.id)
 
@@ -59,7 +59,7 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     data = @bot.metrics.deep_dup
     data[:chart][:labels] = [Time.utc(2026, 1, 1), Time.utc(2026, 2, 1)]
     data[:chart][:series] = [[0.0, 0.0], [0.0, 0.0]]
-    Rails.cache.write("bot_#{@bot.id}_metrics_with_current_prices_and_candles", data)
+    Rails.cache.write(@bot.send(:metrics_with_current_prices_and_candles_cache_key), data)
 
     get bot_path(id: @bot.id)
 
@@ -74,7 +74,7 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     data = @bot.metrics.deep_dup
     data[:chart][:labels] = [Time.utc(2026, 1, 1), Time.utc(2026, 2, 1)]
     data[:chart][:series] = [[100.0, 260.0], [100.0, 200.0]]
-    Rails.cache.write("bot_#{@bot.id}_metrics_with_current_prices_and_candles", data)
+    Rails.cache.write(@bot.send(:metrics_with_current_prices_and_candles_cache_key), data)
 
     get bot_path(id: @bot.id)
 

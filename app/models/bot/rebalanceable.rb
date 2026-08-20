@@ -35,6 +35,22 @@ module Bot::Rebalanceable
     # Prepended so this parse_params decorator is outermost: the inner decorators each .compact
     # their result, which would strip a deliberate "unchecked" false back to nothing.
     prepend(Module.new do
+      # The DCA leg stands down while a rebalance is mid-flight. The per-exchange semaphore prevents
+      # the two legs OVERLAPPING, not one following the other: a DCA tick landing between the
+      # rebalance's sell and buy would spend the sale proceeds on its own order, leaving the owed buy
+      # underfunded. Lives here rather than in each bot type so a type cannot forget it — the index
+      # bot did exactly that when this guard was per-class.
+      #
+      # The contribution is not lost: missed_quote_amount carries it into the next tick.
+      def execute_action
+        if rebalance_pending?
+          log_activity('dca_skipped_rebalance_pending', level: :info)
+          return Result::Success.new
+        end
+
+        super
+      end
+
       def parse_params(params)
         result = super
         return result unless params.respond_to?(:key?)
@@ -61,23 +77,29 @@ module Bot::Rebalanceable
     value.presence&.to_d || DEFAULT_THRESHOLD
   end
 
-  # How far the portfolio has drifted from its target split, as a fraction (0.2 == 20 points off).
-  # Symmetric for two assets — base1's drift is identical — so "either asset drifted more than X" is
-  # this one comparison.
+  # How far the portfolio has drifted from its targets, as a fraction (0.2 == 20 points off): the
+  # LARGEST deviation any single asset shows. For two assets the two deviations are equal and
+  # opposite, so this is exactly the old |value0/total - allocation0|; for an index it is the one
+  # asset furthest from where it should be, which is what "an asset drifted more than X" says.
   #
   # Measured on LIVE value, never on cost basis: an asset that doubled is overweight regardless of
   # what it cost. nil when there is nothing to measure (no holdings) or nothing trustworthy to
-  # measure it with (stale prices).
+  # measure it with (stale prices) — see each type's #rebalance_targets.
   def rebalance_drift
-    data = metrics_with_current_prices
-    return nil if data[:prices_stale]
+    entries = rebalance_targets
+    return nil if entries.blank?
 
-    value0 = data[:total_base0_amount_value_in_quote].to_d
-    value1 = data[:total_base1_amount_value_in_quote].to_d
-    total = value0 + value1
+    total = entries.sum { |entry| entry[:value].to_d }
     return nil unless total.positive?
 
-    ((value0 / total) - allocation0.to_d).abs
+    entries.map { |entry| ((entry[:value].to_d / total) - entry[:target].to_d).abs }.max
+  end
+
+  # [{ ticker:, value: <in quote>, target: <weight 0..1> }, ...], or nil when the portfolio cannot
+  # be valued right now. The ONE thing a bot type has to supply — drift, which asset to sell and
+  # which to buy all follow from it (see Bot::Rebalancer).
+  def rebalance_targets
+    raise NotImplementedError, "#{self.class.name} must implement rebalance_targets"
   end
 
   def rebalance_due?
@@ -130,5 +152,32 @@ module Bot::Rebalanceable
 
   def clear_rebalance_pending!
     update_columns(transient_data: transient_data.except(PENDING_KEY))
+  end
+
+  # --- "drifted, but no trade is big enough" -------------------------------------------------
+  # With two assets, a correction below the venue minimum just means the drift is tiny, so staying
+  # silent is right. With more, the drift that TRIPS the band and the trade that FIXES it are
+  # different numbers: one asset can be 8 points light while the excess sits spread across the other
+  # forty-nine, each a rounding error. The largest single sale is then below the floor and nothing
+  # ever happens — while the widget paints the breached drift green, meaning "criteria met".
+  #
+  # A flag rather than an activity log: this repeats every poll for as long as it lasts, so a log
+  # entry would be spam. Cleared as soon as a rebalance places anything.
+  BELOW_MINIMUM_KEY = 'rebalance_below_minimum_at'.freeze
+
+  def rebalance_below_minimum?
+    transient_data[BELOW_MINIMUM_KEY].present?
+  end
+
+  def flag_rebalance_below_minimum!
+    return if rebalance_below_minimum?
+
+    update_columns(transient_data: transient_data.merge(BELOW_MINIMUM_KEY => Time.current.iso8601))
+  end
+
+  def clear_rebalance_below_minimum!
+    return unless rebalance_below_minimum?
+
+    update_columns(transient_data: transient_data.except(BELOW_MINIMUM_KEY))
   end
 end

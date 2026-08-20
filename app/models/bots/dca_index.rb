@@ -54,8 +54,10 @@ class Bots::DcaIndex < Bot
   include Exportable
 
   # Type-specific concerns
+  include Bot::Rebalanceable # decorators for: parse_params — keep AFTER the limitables
   include Bots::DcaIndex::IndexAllocatable
   include Bots::DcaIndex::OrderSetter
+  include Bots::DcaIndex::Rebalancer
   include Bots::DcaIndex::Measurable
 
   # Shared lifecycle + asset plumbing — keep LAST so the decorator chains above stay on top
