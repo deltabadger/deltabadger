@@ -7,6 +7,9 @@
     deliberately silent, since they repeat every poll for as long as the drift lasts. %>
 <% if bot.id.present? && bot.rebalance_enabled? %>
   <small id="<%= bot.new_record? ? "new-settings-rebalance-info" : "settings-rebalance-info" %>" class="small-info">
+    <%# The standing explanation first, then the live readout under it: the note describes what the
+        rule IS, the readout is what it happens to say right now. %>
+    <div><%= t("bot.settings.rebalance.note") %></div>
     <% if bot.rebalance_ambiguous? %>
       <div class="text-error">
         <%= t("bot.settings.rebalance.paused") %>
@@ -25,6 +28,5 @@
         </div>
       <% end %>
     <% end %>
-    <div><%= t("bot.settings.rebalance.note") %></div>
   </small>
 <% end %>
