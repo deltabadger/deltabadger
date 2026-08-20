@@ -34,8 +34,12 @@ class Bots::DcaDualAsset < Bot
   include OrderCreator
   include Accountable
   include Exportable
+  # decorators for: parse_params — keep AFTER the limitables so its parse_params decorator stays
+  # outermost (theirs .compact away a deliberate false)
+  include Bot::Rebalanceable
   include Bots::DcaDualAsset::MarketcapAllocatable # decorators for: parse_params
   include Bots::DcaDualAsset::OrderSetter
+  include Bots::DcaDualAsset::Rebalancer
   include Bots::DcaDualAsset::Measurable
   include Bot::Lifecycle         # shared start/stop/delete — keep LAST so the stop decorators above stay on top
   include Bot::AssetConfigurable # shared asset accessors + validations (the available_*/ticker queries below override the single-pair defaults)
@@ -55,6 +59,15 @@ class Bots::DcaDualAsset < Bot
   end
 
   def execute_action
+    # Stand down while a rebalance is mid-flight. The per-exchange semaphore prevents the two legs
+    # OVERLAPPING, not one following the other: a DCA tick landing between the rebalance's sell and
+    # buy would spend the sale proceeds on its own order, and the rebalance buy would then find no
+    # cash. The contribution is not lost — missed_quote_amount carries it into the next tick.
+    if rebalance_pending?
+      log_activity('dca_skipped_rebalance_pending', level: :info)
+      return Result::Success.new
+    end
+
     update!(status: :executing)
     result = set_orders(
       total_orders_amount_in_quote: pending_quote_amount,

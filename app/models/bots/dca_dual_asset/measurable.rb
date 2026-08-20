@@ -2,7 +2,9 @@ module Bots::DcaDualAsset::Measurable
   extend ActiveSupport::Concern
 
   def metrics(force: false)
-    cache_key = "bot_#{id}_metrics"
+    # _v2: side-aware accounting. The old shape lives up to 30 days in the cache, so the key must
+    # change or every existing bot serves pre-rebalance numbers after deploy.
+    cache_key = "bot_#{id}_metrics_v2"
     Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
       transactions_array = transactions.submitted.order(created_at: :asc).pluck(:created_at,
@@ -10,7 +12,10 @@ module Bots::DcaDualAsset::Measurable
                                                                                 :amount_exec,
                                                                                 :quote_amount_exec,
                                                                                 :amount,
-                                                                                :base)
+                                                                                :base,
+                                                                                :side,
+                                                                                :external_status,
+                                                                                :transaction_type)
       return data if transactions_array.empty?
 
       # TODO: When transactions point to real asset ids, we can use the asset ids directly
@@ -20,38 +25,53 @@ module Bots::DcaDualAsset::Measurable
       }
 
       totals = initialize_totals_data
-      transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, amount, base|
-        # Workaround for old legacy transactions in which we could not fetch the real executed amounts
-        quote_amount_exec ||= price * amount
-        amount_exec ||= amount
+      transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, amount, base, side, external_status, transaction_type|
+        # The "null exec == filled for the requested amount" fallback covers legacy rows that were
+        # never backfilled, and is only valid for CONFIRMED ones. An accepted-but-unfilled order
+        # (open/unknown) or a cancelled one must not be assumed filled, or its requested amount
+        # becomes phantom holdings.
+        if external_status == 'closed'
+          quote_amount_exec ||= price * amount
+          amount_exec ||= amount
+        end
         next if price.blank? || quote_amount_exec.blank? || amount_exec.blank?
         next if quote_amount_exec.zero? || amount_exec.zero?
 
-        # chart data
+        asset_id = asset_symbol_to_id[base]
+        next if asset_id.nil?
+
         data[:chart][:labels] << created_at
-        totals[:total_quote_amount_invested][asset_symbol_to_id[base]] += quote_amount_exec
-        totals[:total_base_amount_acquired][asset_symbol_to_id[base]] += amount_exec
-        data[:chart][:series][1] << totals[:total_quote_amount_invested].values.sum
-        totals[:current_value_in_quote][asset_symbol_to_id[base]] =
-          totals[:total_base_amount_acquired][asset_symbol_to_id[base]] * price
-        data[:chart][:series][0] << totals[:current_value_in_quote].values.sum
+
+        if side == 'sell'
+          apply_sell(totals, asset_id:, amount_exec:, quote_amount_exec:)
+        elsif transaction_type == 'REBALANCE'
+          apply_rebalance_buy(totals, asset_id:, amount_exec:, quote_amount_exec:)
+        else
+          apply_regular_buy(totals, asset_id:, amount_exec:, price:, quote_amount_exec:)
+        end
+
+        data[:chart][:series][1] << invested_total(totals)
+        totals[:current_value_in_quote][asset_id] =
+          totals[:total_base_amount_acquired][asset_id] * price
+        data[:chart][:series][0] << portfolio_value(totals)
         data[:chart][:extra_series][0] << totals[:total_base_amount_acquired][base0_asset_id]
         data[:chart][:extra_series][1] << totals[:total_base_amount_acquired][base1_asset_id]
-
-        # metrics data
-        totals[:prices][asset_symbol_to_id[base]] << price
-        totals[:amounts][asset_symbol_to_id[base]] << amount_exec
       end
 
       data[:total_base0_amount] = totals[:total_base_amount_acquired][base0_asset_id]
       data[:total_base1_amount] = totals[:total_base_amount_acquired][base1_asset_id]
       data[:base0_total_quote_amount_invested] = totals[:total_quote_amount_invested][base0_asset_id]
       data[:base1_total_quote_amount_invested] = totals[:total_quote_amount_invested][base1_asset_id]
-      data[:total_quote_amount_invested] = data[:base0_total_quote_amount_invested] + data[:base1_total_quote_amount_invested]
+      data[:total_quote_amount_invested] = invested_total(totals)
       data[:total_base0_amount_value_in_quote] = totals[:current_value_in_quote][base0_asset_id]
       data[:total_base1_amount_value_in_quote] = totals[:current_value_in_quote][base1_asset_id]
+      # Cash realized by a sell whose buy has not landed yet is still the user's money. Leaving it
+      # out would show an artificial loss for the whole window between the two legs — and forever, if
+      # the remainder ended as dust.
+      data[:rebalance_cash] = totals[:cash_in_flight]
       data[:total_amount_value_in_quote] =
-        data[:total_base0_amount_value_in_quote] + data[:total_base1_amount_value_in_quote]
+        data[:total_base0_amount_value_in_quote] + data[:total_base1_amount_value_in_quote] +
+        data[:rebalance_cash]
       data[:base0_pnl] = calculate_pnl(data[:base0_total_quote_amount_invested], data[:total_base0_amount_value_in_quote])
       data[:base1_pnl] = calculate_pnl(data[:base1_total_quote_amount_invested], data[:total_base1_amount_value_in_quote])
       data[:pnl] = calculate_pnl(data[:total_quote_amount_invested], data[:total_amount_value_in_quote])
@@ -87,7 +107,8 @@ module Bots::DcaDualAsset::Measurable
       metrics_data[:total_base0_amount_value_in_quote] = metrics_data[:total_base0_amount] * price0
       metrics_data[:total_base1_amount_value_in_quote] = metrics_data[:total_base1_amount] * price1
       metrics_data[:total_amount_value_in_quote] =
-        metrics_data[:total_base0_amount_value_in_quote] + metrics_data[:total_base1_amount_value_in_quote]
+        metrics_data[:total_base0_amount_value_in_quote] + metrics_data[:total_base1_amount_value_in_quote] +
+        metrics_data[:rebalance_cash].to_d
       metrics_data[:base0_pnl] =
         calculate_pnl(metrics_data[:base0_total_quote_amount_invested], metrics_data[:total_base0_amount_value_in_quote])
       metrics_data[:base1_pnl] =
@@ -172,17 +193,65 @@ module Bots::DcaDualAsset::Measurable
   private
 
   def metrics_with_current_prices_cache_key
-    "bot_#{id}_metrics_with_current_prices"
+    "bot_#{id}_metrics_with_current_prices_v2"
   end
 
   def metrics_with_current_prices_and_candles_cache_key
-    "bot_#{id}_metrics_with_current_prices_and_candles"
+    "bot_#{id}_metrics_with_current_prices_and_candles_v2"
   end
 
   def calculate_pnl(from, to)
     return 0.0 if from.zero?
 
     (to - from).to_f / from
+  end
+
+  # A rebalance is a SWAP, not a contribution: the cash never left the portfolio, so the total cost
+  # basis must not move. What does move is which asset carries it — otherwise base0 keeps a full
+  # basis against shrunken holdings and shows a fake loss while base1 shows a fake gain.
+  #
+  # The released basis is parked in :basis_in_flight rather than deducted, so the TOTAL is conserved
+  # even in the window between the sell and the buy (or forever, if the buy ends as dust).
+  def apply_sell(totals, asset_id:, amount_exec:, quote_amount_exec:)
+    held = totals[:total_base_amount_acquired][asset_id]
+    if held.positive?
+      sold_fraction = [amount_exec / held, 1].min
+      released = totals[:total_quote_amount_invested][asset_id] * sold_fraction
+      totals[:total_quote_amount_invested][asset_id] -= released
+      totals[:basis_in_flight] += released
+    else
+      # Selling base the bot never bought (seeded by hand, or a legacy row): it carries no basis of
+      # ours, so value it at what it fetched.
+      totals[:basis_in_flight] += quote_amount_exec
+    end
+    totals[:total_base_amount_acquired][asset_id] = [held - amount_exec, 0].max
+    # The cash the sell realized. Held here until the buy spends it, so portfolio value does not dip
+    # by the proceeds for the whole window between the two legs.
+    totals[:cash_in_flight] += quote_amount_exec
+  end
+
+  def apply_rebalance_buy(totals, asset_id:, amount_exec:, quote_amount_exec:)
+    totals[:total_quote_amount_invested][asset_id] += totals[:basis_in_flight]
+    totals[:basis_in_flight] = 0
+    totals[:cash_in_flight] = [totals[:cash_in_flight] - quote_amount_exec, 0].max
+    totals[:total_base_amount_acquired][asset_id] += amount_exec
+    # Deliberately NOT fed into :prices/:amounts — average_buy_price is an average ENTRY price, and a
+    # swap is not an entry.
+  end
+
+  def apply_regular_buy(totals, asset_id:, amount_exec:, price:, quote_amount_exec:)
+    totals[:total_quote_amount_invested][asset_id] += quote_amount_exec
+    totals[:total_base_amount_acquired][asset_id] += amount_exec
+    totals[:prices][asset_id] << price
+    totals[:amounts][asset_id] << amount_exec
+  end
+
+  def invested_total(totals)
+    totals[:total_quote_amount_invested].values.sum + totals[:basis_in_flight]
+  end
+
+  def portfolio_value(totals)
+    totals[:current_value_in_quote].values.sum + totals[:cash_in_flight]
   end
 
   def initialize_metrics_data
@@ -205,6 +274,7 @@ module Bots::DcaDualAsset::Measurable
       total_quote_amount_invested: 0,
       total_base0_amount_value_in_quote: 0,
       total_base1_amount_value_in_quote: 0,
+      rebalance_cash: 0,
       total_amount_value_in_quote: 0,
       base0_pnl: nil,
       base1_pnl: nil,
@@ -220,7 +290,13 @@ module Bots::DcaDualAsset::Measurable
       total_base_amount_acquired: { base0_asset_id => 0, base1_asset_id => 0 },
       current_value_in_quote: { base0_asset_id => 0, base1_asset_id => 0 },
       prices: { base0_asset_id => [], base1_asset_id => [] },
-      amounts: { base0_asset_id => [], base1_asset_id => [] }
+      amounts: { base0_asset_id => [], base1_asset_id => [] },
+      # Cost basis released by a rebalance sell, waiting for its buy. Counted in the total so a
+      # half-finished rebalance never makes the portfolio look cheaper than it was.
+      basis_in_flight: 0,
+      # The matching cash: realized by the sell, not yet spent by the buy. Counted in portfolio VALUE
+      # for the same reason.
+      cash_in_flight: 0
     }
   end
 

@@ -534,6 +534,12 @@ nl:
         waiting: 'Gepland'
     bot_activity:
         events:
+            rebalance_sell_placed: 'Herbalanceren — de overwogen asset verkopen'
+            rebalance_buy_placed: 'Herbalanceren — terugkopen in de onderwogen asset'
+            rebalance_dust: 'Te weinig over om te herbalanceren — blijft als cash staan'
+            rebalance_ambiguous: 'Status van de herbalanceringsorder onbevestigd — gepauzeerd om dubbel plaatsen te voorkomen'
+            rebalance_manually_resolved: 'Herbalanceren handmatig hervat'
+            dca_skipped_rebalance_pending: 'Inleg overgeslagen — er loopt nog een herbalancering'
             started: 'Bot gestart'
             stopped: 'Bot gestopt'
             reschedule_disabled: 'Automatische planning gepauzeerd'

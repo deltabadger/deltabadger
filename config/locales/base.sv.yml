@@ -546,6 +546,12 @@ sv:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            rebalance_sell_placed: 'Rebalansering — säljer den överviktade tillgången'
+            rebalance_buy_placed: 'Rebalansering — köper tillbaka i den underviktade tillgången'
+            rebalance_dust: 'För lite kvar för att rebalansera — lämnas som kontanter'
+            rebalance_ambiguous: 'Rebalanseringsorderns status obekräftad — pausad så den inte läggs två gånger'
+            rebalance_manually_resolved: 'Rebalansering återupptagen manuellt'
+            dca_skipped_rebalance_pending: 'Insättning hoppades över — en rebalansering pågår fortfarande'
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'

@@ -534,6 +534,12 @@ it:
         waiting: 'Programmati'
     bot_activity:
         events:
+            rebalance_sell_placed: 'Ribilanciamento — vendita dell’asset sovrappesato'
+            rebalance_buy_placed: 'Ribilanciamento — riacquisto dell’asset sottopesato'
+            rebalance_dust: 'Resto troppo piccolo per ribilanciare — lasciato in liquidità'
+            rebalance_ambiguous: 'Stato dell’ordine di ribilanciamento non confermato — in pausa per non duplicarlo'
+            rebalance_manually_resolved: 'Ribilanciamento ripreso manualmente'
+            dca_skipped_rebalance_pending: 'Versamento saltato — un ribilanciamento è ancora in corso'
             started: 'Bot avviato'
             stopped: 'Bot arrestato'
             reschedule_disabled: 'Pianificazione automatica in pausa'

@@ -535,6 +535,12 @@ de:
         waiting: 'Geplant'
     bot_activity:
         events:
+            rebalance_sell_placed: 'Rebalancing — Verkauf des übergewichteten Werts'
+            rebalance_buy_placed: 'Rebalancing — Rückkauf in den untergewichteten Wert'
+            rebalance_dust: 'Zu wenig Rest zum Rebalancing — bleibt als Guthaben'
+            rebalance_ambiguous: 'Status der Rebalancing-Order unbestätigt — pausiert, damit sie nicht doppelt platziert wird'
+            rebalance_manually_resolved: 'Rebalancing manuell fortgesetzt'
+            dca_skipped_rebalance_pending: 'Beitrag übersprungen — ein Rebalancing läuft noch'
             started: 'Bot gestartet'
             stopped: 'Bot gestoppt'
             reschedule_disabled: 'Automatische Planung pausiert'

@@ -217,6 +217,15 @@ de:
             title: "Glückwunsch! Dein Bot läuft."
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
         settings:
+            rebalance:
+                sentence_html: "Rebalancing, wenn ein Wert um mehr als <span>%{value_html} %</span> vom Ziel abweicht"
+                note: "Läuft weiter, auch wenn der DCA-Zeitplan gestoppt ist."
+                drift: "(aktuell %{drift} % vom Ziel entfernt)"
+                paused: "Rebalancing pausiert — prüfe deine Börse"
+                resume: "Fortsetzen"
+                resume_confirm: "Fahre nur fort, wenn du deine Börse geprüft hast und keine Rebalancing-Order mehr offen ist."
+                still_open: "Order %{order_id} ist an deiner Börse noch offen. Warte, bis sie abgerechnet ist."
+                resolved: "Rebalancing fortgesetzt."
             starting_time:
                 modes:
                     options:

@@ -32,13 +32,13 @@ module Bot::Accountable
     # The carry counts BUY investment only — a sell is divestment, not invested quote. Scope to buys
     # so a sell inside the window (e.g. just after a flip back to buying) can't be mistaken for quote
     # already invested and shrink the next buy. No-op for buy-only bot types (they never sell).
-    closed_quote_amount = transactions.submitted.buy
+    closed_quote_amount = transactions.submitted.buy.regular
                                       .where('created_at >= ?', calc_since)
                                       .closed
                                       .pluck(:quote_amount_exec)
                                       .sum
 
-    open_quote_amount = transactions.buy
+    open_quote_amount = transactions.buy.regular
                                     .where('created_at >= ?', calc_since)
                                     .waiting
                                     .pluck(:quote_amount, :amount, :price)

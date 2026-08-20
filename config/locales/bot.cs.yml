@@ -238,6 +238,15 @@ cs:
             title: "Gratulujeme! Váš bot běží."
             general_note: "Minimální velikosti příkazů a potřebné částky pro rebalancování se mění. Transakce mohou občas vypadat nepravidelně, ale bot vždy směřuje k vaší požadované alokaci a rozvrhu, takže není potřeba nic dalšího dělat."
         settings:
+            rebalance:
+                sentence_html: "Rebalancovat, když se aktivum odchýlí o více než <span>%{value_html} %</span> od cíle"
+                note: "Běží dál, i když je plán DCA zastavený."
+                drift: "(nyní %{drift} % od cíle)"
+                paused: "Rebalancování pozastaveno — zkontroluj svou burzu"
+                resume: "Pokračovat"
+                resume_confirm: "Pokračuj jen tehdy, pokud jsi zkontroloval burzu a žádný rebalancovací pokyn už není otevřený."
+                still_open: "Pokyn %{order_id} je na burze stále otevřený. Počkej, až se vypořádá."
+                resolved: "Rebalancování obnoveno."
             starting_time:
                 modes:
                     options:

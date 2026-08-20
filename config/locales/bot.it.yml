@@ -219,6 +219,15 @@ it:
             title: "Congratulazioni! Il tuo bot è in esecuzione."
             general_note: "I minimi dell'exchange e gli importi di ribilanciamento richiesti possono cambiare. Gli ordini potrebbero a volte sembrare irregolari, ma il bot mira sempre all'allocazione e alla pianificazione desiderate, quindi non è necessario alcun lavoro aggiuntivo."
         settings:
+            rebalance:
+                sentence_html: "Ribilancia quando un asset si discosta di più di <span>%{value_html} %</span> dal suo obiettivo"
+                note: "Continua a funzionare anche quando la pianificazione DCA è ferma."
+                drift: "(ora %{drift} % dall’obiettivo)"
+                paused: "Ribilanciamento in pausa — controlla il tuo exchange"
+                resume: "Riprendi"
+                resume_confirm: "Continua solo se hai controllato il tuo exchange e nessun ordine di ribilanciamento è ancora aperto."
+                still_open: "L’ordine %{order_id} è ancora aperto sul tuo exchange. Attendi che venga regolato."
+                resolved: "Ribilanciamento ripreso."
             starting_time:
                 modes:
                     options:

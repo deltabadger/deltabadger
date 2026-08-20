@@ -201,6 +201,15 @@ pt:
             title: "Parabéns! Seu bot está em execução."
             general_note: "Os mínimos da exchange e as quantidades de rebalanceamento necessárias podem mudar. As ordens podem parecer irregulares às vezes, mas o bot sempre visa sua alocação e cronograma desejados, portanto, nenhum trabalho extra é necessário."
         settings:
+            rebalance:
+                sentence_html: "Reequilibrar quando um ativo se afastar mais de <span>%{value_html} %</span> do seu alvo"
+                note: "Continua a funcionar mesmo com o agendamento de DCA parado."
+                drift: "(agora %{drift} % do alvo)"
+                paused: "Reequilíbrio em pausa — verifica a tua exchange"
+                resume: "Retomar"
+                resume_confirm: "Continua apenas se verificaste a tua exchange e nenhuma ordem de reequilíbrio continua aberta."
+                still_open: "A ordem %{order_id} ainda está aberta na tua exchange. Espera que seja liquidada."
+                resolved: "Reequilíbrio retomado."
             starting_time:
                 modes:
                     options:

@@ -238,6 +238,15 @@ en:
             title: "Congratulations! Your bot is running."
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
         settings:
+            rebalance:
+                sentence_html: "Rebalance when an asset drifts more than <span>%{value_html} %</span> from its target"
+                note: "Keeps running while the DCA schedule is stopped."
+                drift: "(now %{drift} % off target)"
+                paused: "Rebalancing paused — check your exchange"
+                resume: "Resume"
+                resume_confirm: "Only continue if you have checked your exchange and no rebalancing order is still open."
+                still_open: "Order %{order_id} is still open on your exchange. Wait for it to settle first."
+                resolved: "Rebalancing resumed."
             starting_time:
                 modes:
                     options:

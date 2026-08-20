@@ -238,6 +238,15 @@ da:
             title: "Tillykke! Din bot kører."
             general_note: "Børsminimum og nødvendige rebalanceringsbeløb ændrer sig. Transaktioner kan nogle gange se uregelmæssige ud, men botten sigter altid efter din ønskede allokering og tidsplan, så der kræves ingen ekstra indsats."
         settings:
+            rebalance:
+                sentence_html: "Rebalancér når et aktiv afviger mere end <span>%{value_html} %</span> fra sit mål"
+                note: "Kører videre, selv når DCA-planen er stoppet."
+                drift: "(nu %{drift} % fra målet)"
+                paused: "Rebalancering sat på pause — tjek din børs"
+                resume: "Genoptag"
+                resume_confirm: "Fortsæt kun, hvis du har tjekket din børs, og ingen rebalanceringsordre stadig er åben."
+                still_open: "Ordre %{order_id} er stadig åben på din børs. Vent til den er afviklet."
+                resolved: "Rebalancering genoptaget."
             starting_time:
                 modes:
                     options:

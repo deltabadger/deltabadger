@@ -545,6 +545,12 @@ en:
         waiting: 'Scheduled'
     bot_activity:
         events:
+            rebalance_sell_placed: 'Rebalancing — selling the overweight asset'
+            rebalance_buy_placed: 'Rebalancing — buying back into the underweight asset'
+            rebalance_dust: 'Too little left over to rebalance — leaving it as cash'
+            rebalance_ambiguous: 'Rebalance order status unconfirmed — paused so it cannot be placed twice'
+            rebalance_manually_resolved: 'Rebalancing resumed manually'
+            dca_skipped_rebalance_pending: 'Contribution skipped — a rebalance is still in progress'
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'

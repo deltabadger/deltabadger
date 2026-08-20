@@ -1,0 +1,23 @@
+<%# Two jobs. The note explains the one thing about this widget that surprises people: it is not
+    tied to the schedule, so stopping the bot does not stop it. The drift readout is the only place
+    a below-minimum rebalance is visible — those are deliberately silent (they repeat every poll),
+    so without this the user would see nothing happening and assume it was broken. %>
+<span id="<%= bot.new_record? ? "new-settings-rebalance-info" : "settings-rebalance-info" %>">
+  <% if bot.rebalance_ambiguous? %>
+    <span class="text-error"><%= t("bot.settings.rebalance.paused") %></span>
+    <%# A link, not button_to: this partial renders INSIDE the settings form_with, and button_to's
+        nested <form> would be dropped by the browser, leaving the button wired to the settings
+        route. %>
+    <%= link_to t("bot.settings.rebalance.resume"),
+                bot_rebalance_resolutions_path(bot_id: bot.id),
+                class: "button button--link",
+                data: { turbo_method: :post,
+                        turbo_confirm: t("bot.settings.rebalance.resume_confirm") } %>
+  <% elsif bot.rebalance_enabled? && !bot.new_record? %>
+    <% drift = bot.rebalance_drift %>
+    <% if drift.present? %>
+      <%= t("bot.settings.rebalance.drift", drift: (drift * 100).round(1)) %>
+    <% end %>
+  <% end %>
+  <small class="text-muted"><%= t("bot.settings.rebalance.note") %></small>
+</span>

@@ -238,6 +238,15 @@ sv:
             title: "Grattis! Din bot körs."
             general_note: "Börsminiminivåer och nödvändiga ombalanseringsbelopp ändras. Transaktioner kan ibland se oregelbundna ut, men boten siktar alltid på din önskade allokering och schema, så inget extra arbete behövs."
         settings:
+            rebalance:
+                sentence_html: "Rebalansera när en tillgång avviker mer än <span>%{value_html} %</span> från sitt mål"
+                note: "Fortsätter köra även när DCA-schemat är stoppat."
+                drift: "(nu %{drift} % från målet)"
+                paused: "Rebalansering pausad — kontrollera din börs"
+                resume: "Återuppta"
+                resume_confirm: "Fortsätt bara om du har kontrollerat din börs och ingen rebalanseringsorder fortfarande är öppen."
+                still_open: "Order %{order_id} är fortfarande öppen på din börs. Vänta tills den har avräknats."
+                resolved: "Rebalansering återupptagen."
             starting_time:
                 modes:
                     options:
