@@ -58,7 +58,7 @@
         background: none
         box-shadow: none
         @media (min-width: 768px)
-            padding: calc(var(--ui-padding)/1.33) var(--ui-padding)
+            padding: calc(var(--ui-padding)*2) var(--ui-padding) var(--ui-padding)
             
         // The switch and the readout share one row across the top of the plot: the switch on
         // the left, on the same line as the date range, the numbers stacked on the right.
@@ -105,7 +105,8 @@
         &__modes
             display: flex
             flex-shrink: 0
-            margin-top: calc((2.25rem - 4rem) / 2)
+            @media (min-width: 768px)
+                margin-top: calc((2.25rem - 4rem) / 2)
     .main-rule
         padding-top: 4rem
         padding-bottom: 4rem
