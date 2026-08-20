@@ -43,7 +43,6 @@ pt:
         value_symbol: "Valor (%{symbol})"
         invested_symbol: "Investido (%{symbol})"
         date: "Data"
-        asset: "Ativo"
         amount: "Quantidade"
         avg_price: "Preço méd."
         price: "Preço"

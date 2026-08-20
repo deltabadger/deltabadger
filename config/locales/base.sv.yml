@@ -44,7 +44,6 @@ sv:
         value_symbol: "Värde (%{symbol})"
         invested_symbol: "Investerat (%{symbol})"
         date: "Datum"
-        asset: "Tillgång"
         amount: "Belopp"
         avg_price: "Snittpris"
         price: "Pris"

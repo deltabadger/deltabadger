@@ -44,7 +44,6 @@ bg:
         value_symbol: "Стойност (%{symbol})"
         invested_symbol: "Инвестирано (%{symbol})"
         date: "Дата"
-        asset: "Актив"
         amount: "Количество"
         avg_price: "Средна цена"
         price: "Цена"

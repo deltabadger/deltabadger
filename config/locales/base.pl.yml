@@ -43,7 +43,6 @@ pl:
         value_symbol: "Wartość (%{symbol})"
         invested_symbol: "Zainwestowano (%{symbol})"
         date: "Data"
-        asset: "Aktywo"
         amount: "Ilość"
         avg_price: "Śr. cena"
         price: "Cena"

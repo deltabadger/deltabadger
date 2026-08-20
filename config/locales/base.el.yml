@@ -44,7 +44,6 @@ el:
         value_symbol: "Αξία (%{symbol})"
         invested_symbol: "Επένδυση (%{symbol})"
         date: "Ημερομηνία"
-        asset: "Asset"
         amount: "Ποσό"
         avg_price: "Μ.Ο. τιμής"
         price: "Τιμή"

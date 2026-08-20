@@ -44,7 +44,6 @@ da:
         value_symbol: "Værdi (%{symbol})"
         invested_symbol: "Investeret (%{symbol})"
         date: "Dato"
-        asset: "Aktiv"
         amount: "Beløb"
         avg_price: "Gns. pris"
         price: "Pris"

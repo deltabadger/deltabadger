@@ -43,7 +43,6 @@ es:
         value_symbol: "Valor (%{symbol})"
         invested_symbol: "Invertido (%{symbol})"
         date: "Fecha"
-        asset: "Activo"
         amount: "Cantidad"
         avg_price: "Precio prom."
         price: "Precio"

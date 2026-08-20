@@ -43,7 +43,6 @@ de:
         value_symbol: "Wert (%{symbol})"
         invested_symbol: "Investiert (%{symbol})"
         date: "Datum"
-        asset: "Anlagewert"
         amount: "Menge"
         avg_price: "Durchschn. Preis"
         price: "Preis"
