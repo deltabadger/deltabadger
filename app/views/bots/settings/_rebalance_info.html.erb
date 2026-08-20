@@ -23,8 +23,14 @@
     <% else %>
       <% drift = bot.rebalance_drift %>
       <% if drift.present? %>
-        <div class="<%= drift > bot.rebalance_threshold ? "text-success" : "" %>">
+        <% tripped = drift > bot.rebalance_threshold %>
+        <%# Green means "this will act". A band that is breached but cannot produce a trade above the
+            venue minimum must not read as criteria met — on a many-asset index that state can last
+            indefinitely, and painting it green is how it goes unnoticed. %>
+        <% blocked = tripped && bot.rebalance_below_minimum? %>
+        <div class="<%= "text-success" if tripped && !blocked %>">
           <%= t("bot.settings.rebalance.drift", drift: (drift * 100).round(1)) %>
+          <%= t("bot.settings.rebalance.below_minimum") if blocked %>
         </div>
       <% end %>
     <% end %>

@@ -1,11 +1,20 @@
-# The rebalance leg's execution: sell the overweight asset, buy the underweight one with the
-# proceeds. Kept apart from OrderSetter (the DCA leg) because the two legs share only their target
-# weights — the DCA leg spends new money and never sells, this one spends nothing and must sell.
+# The rebalance leg's execution, shared by every multi-asset bot type: sell the overweight asset,
+# buy the underweight one with the proceeds. Kept apart from the OrderSetter concerns (the DCA leg)
+# because the two legs share only their target weights — the DCA leg spends new money and never
+# sells, this one spends nothing and must sell.
 #
 # Placement is a two-step flow across a network, so it is written as a resumable state machine
 # rather than a straight line. See Bot::Rebalanceable for the state itself and why a pending
 # rebalance blocks a new one.
-module Bots::DcaDualAsset::Rebalancer
+#
+# EVERYTHING here is shape-agnostic. A bot type joins in by implementing one method:
+#
+#   rebalance_targets => [{ ticker:, value: <in quote>, target: <weight 0..1> }, ...]
+#             or nil when the portfolio cannot be valued right now (stale prices, no holdings)
+#
+# From that list the drift, the asset to sell and the asset to buy all follow, so a two-asset bot
+# and a fifty-asset index bot run the identical machine.
+module Bot::Rebalancer
   extend ActiveSupport::Concern
 
   include Bot::OrderSetter
@@ -13,6 +22,7 @@ module Bots::DcaDualAsset::Rebalancer
   # Entry point for Bot::RebalanceJob. Resume always wins: while state exists the only legal move is
   # to finish it, whatever the current drift says.
   def rebalance!
+    before_rebalance
     return resume_rebalance! if rebalance_pending?
     return Result::Success.new(skipped: :not_due) unless rebalance_due?
 
@@ -20,6 +30,9 @@ module Bots::DcaDualAsset::Rebalancer
   end
 
   private
+
+  # Types whose asset set can change under them refresh it here. A fixed pair has nothing to do.
+  def before_rebalance; end
 
   def start_rebalance!
     order_data = rebalance_sell_order_data
@@ -63,7 +76,7 @@ module Bots::DcaDualAsset::Rebalancer
     return Result::Success.new(skipped: :proceeds_unknown) if proceeds.nil?
 
     # A cancelled sell can still carry a partial fill. Clearing it would strand that cash invisibly
-    # and hand the next poll a drift reading that makes it sell the OTHER asset.
+    # and hand the next poll a drift reading that makes it sell a DIFFERENT asset.
     return clear_and_succeed!(:nothing_sold) unless proceeds.positive?
 
     set_rebalance_pending!(
@@ -168,6 +181,7 @@ module Bots::DcaDualAsset::Rebalancer
     # Accepted but no usable id: the venue may hold a live order we can never look up again.
     return halt_ambiguous!('placement returned no order id') if order_id.blank?
 
+    clear_rebalance_below_minimum!
     transaction = persist_accepted_order!(order_data, order_id)
     carry_pending_forward(phase:, transaction:)
     Bot::FetchAndUpdateOrderJob.perform_later(transaction, update_missed_quote_amount: false)
@@ -203,6 +217,10 @@ module Bots::DcaDualAsset::Rebalancer
     if phase == Bot::Rebalanceable::PHASE_BUYING
       log_activity('rebalance_dust', level: :info,
                                      details: order_log_details(order_data))
+    else
+      # Silent, but not invisible: the widget reads this to explain why a breached band is not
+      # producing trades.
+      flag_rebalance_below_minimum!
     end
     clear_rebalance_pending!
     Result::Success.new(skipped: :below_minimum)
@@ -265,23 +283,23 @@ module Bots::DcaDualAsset::Rebalancer
 
   # --- order data ---------------------------------------------------------------------------
 
-  # Sell the overweight asset down to its target. Sized to target rather than to the band edge, so
-  # one correction ends the excursion instead of leaving it hovering on the threshold.
+  # Sell the MOST overweight asset down to its target, rather than only to the band edge.
+  #
+  # With two assets that single correction ends the excursion outright, because the excess it frees
+  # is exactly the other side's shortfall. With more assets it does not: one poll fixes one pair,
+  # and a portfolio far from its weights converges over several polls. Taking the largest excess
+  # first is what makes that convergence as quick as one-pair-at-a-time allows.
+  # ponytail: one sell + one buy per evaluation. Aggregating across the top-K overweights would
+  # converge in a single pass, but it means several sell transactions under one pending state; the
+  # shape to change is the state machine's single sell_transaction_id.
   def rebalance_sell_order_data
-    data = metrics_with_current_prices
-    return nil if data[:prices_stale]
+    entry, total = extreme_rebalance_entry(:max)
+    return nil if entry.nil?
 
-    value0 = data[:total_base0_amount_value_in_quote].to_d
-    value1 = data[:total_base1_amount_value_in_quote].to_d
-    total = value0 + value1
-    return nil unless total.positive?
-
-    target0 = total * allocation0.to_d
-    overweight0 = value0 > target0
-    ticker = overweight0 ? ticker0 : ticker1
-    excess_in_quote = overweight0 ? value0 - target0 : value1 - (total - target0)
+    excess_in_quote = entry[:value] - (total * entry[:target])
     return nil unless excess_in_quote.positive?
 
+    ticker = entry[:ticker]
     price = side_price(ticker, :sell)
     return nil if price.nil? || price <= 0
 
@@ -290,34 +308,77 @@ module Bots::DcaDualAsset::Rebalancer
     amount = [excess_in_quote / price, live_free_balance(ticker.base_asset_id)].min
     return nil unless amount.positive?
 
-    order_data(ticker:, price:, amount:, quote_amount: amount * price, side: :sell)
+    rebalance_order_data(ticker:, price:, amount:, quote_amount: amount * price, side: :sell)
   end
 
+  # Buy back into the MOST underweight asset. Read fresh rather than remembered, so a resumed buy
+  # stays correct if the market moved while the sell was resting.
+  #
+  # An asset that has left the index carries target 0, so its deviation is its whole value — always
+  # positive, never the minimum. Such an asset can therefore never be bought back into, only sold.
   def rebalance_buy_order_data(quote_amount:)
     return nil if quote_amount.nil? || quote_amount <= 0
 
-    data = metrics_with_current_prices
-    value0 = data[:total_base0_amount_value_in_quote].to_d
-    value1 = data[:total_base1_amount_value_in_quote].to_d
-    total = value0 + value1
-    # Buy back into whichever side is now light. After a sell that is the other asset by
-    # construction, but reading it fresh keeps a resumed buy correct if the market moved meanwhile.
-    ticker = value0 < (total * allocation0.to_d) ? ticker0 : ticker1
+    entry, total = extreme_rebalance_entry(:min)
+    return nil if entry.nil?
 
+    # The cash-inclusive total is what the portfolio will be worth once this money is deployed, so
+    # the shortfall is measured against the same denominator the next drift reading will use.
+    prospective_total = total + quote_amount.to_d
+    shortfall = (entry[:target].to_d * prospective_total) - entry[:value].to_d
+    # Nothing is under target — the most underweight asset is not actually underweight. Buying here
+    # would put the proceeds straight back into something already over its weight, most likely the
+    # asset just sold. Hold the cash and let a later poll place it.
+    return nil unless shortfall.positive?
+
+    ticker = entry[:ticker]
     price = side_price(ticker, :buy)
     return nil if price.nil? || price <= 0
 
-    # Capped by the live quote balance: fees make the actual proceeds a little less than the gross
-    # exec amount, and without the cap the buy would quietly dip into the DCA leg's cash.
+    # Capped THREE ways, and the middle one is why an index bot does not churn: spending the whole
+    # proceeds into one asset only lands exactly on target when there are two assets, because there
+    # excess(overweight) == shortfall(underweight) identically. With three or more they are
+    # unrelated, so an uncapped buy overshoots and the next poll sells back what this one just
+    # bought — a round trip costing two fees and a taxable disposal for no change in allocation.
+    # Whatever is left over rides remaining_quote_amount and resume_buying! places it into the
+    # next-most-underweight asset. For two assets shortfall == the owed amount, so this cap is a
+    # no-op and the pair bot's behaviour is unchanged.
+    #
+    # The live quote balance is the third cap: fees make the actual proceeds a little less than the
+    # gross exec amount, and without it the buy would quietly dip into the DCA leg's cash.
     # ponytail: the residual fee-sized imprecision is left uncorrected — exact net proceeds would
     # need per-venue fee data, and it self-corrects at the next rebalance.
-    spend = [quote_amount.to_d, live_free_balance(quote_asset_id)].min
+    spend = [quote_amount.to_d, shortfall, live_free_balance(quote_asset_id)].min
     return nil unless spend.positive?
 
-    order_data(ticker:, price:, amount: spend / price, quote_amount: spend, side: :buy)
+    rebalance_order_data(ticker:, price:, amount: spend / price, quote_amount: spend, side: :buy)
   end
 
-  def order_data(ticker:, price:, amount:, quote_amount:, side:)
+  # The entry furthest from its target, in quote terms, plus the portfolio total it was measured
+  # against. :max is the most overweight, :min the most underweight.
+  def extreme_rebalance_entry(direction)
+    entries = rebalance_targets
+    return [nil, 0] if entries.blank?
+
+    total = entries.sum { |entry| entry[:value].to_d }
+    return [nil, 0] unless total.positive?
+
+    # Availability is checked HERE rather than in Bot::RebalanceJob because that guard reads
+    # tickers_for_start, which the index bot does not implement (it would answer [] and pass
+    # vacuously). Checking the asset actually about to trade is both type-agnostic and stricter: a
+    # delisted or halted asset drops out of the candidates while the rest of the portfolio still
+    # rebalances around it.
+    tradeable = entries.select do |entry|
+      entry[:ticker].present? && entry[:ticker].available? && entry[:ticker].trading_enabled?
+    end
+    return [nil, total] if tradeable.empty?
+
+    deviation = ->(entry) { entry[:value].to_d - (total * entry[:target].to_d) }
+    entry = direction == :max ? tradeable.max_by(&deviation) : tradeable.min_by(&deviation)
+    [entry, total]
+  end
+
+  def rebalance_order_data(ticker:, price:, amount:, quote_amount:, side:)
     {
       ticker: ticker,
       price: price,

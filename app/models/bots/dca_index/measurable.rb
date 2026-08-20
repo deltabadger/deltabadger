@@ -1,12 +1,18 @@
 module Bots::DcaIndex::Measurable
   extend ActiveSupport::Concern
 
+  # The fill arithmetic is shared with the dual-asset bot so the two can never disagree about what a
+  # rebalance does to holdings, cost basis and realized cash.
+  include Bot::RebalanceAccounting
+
   # Bounded so 100-asset bots don't stampede the exchange/proxy; tail fetches after
   # CandleSeriesCache are one small request each, so 6 workers keep latency flat.
   CANDLE_FETCH_THREADS = 6
 
   def metrics(force: false)
-    cache_key = "bot_#{id}_metrics"
+    # _v2: side-aware accounting. The old shape lives up to 30 days in the cache, so the key must
+    # change or every existing bot serves pre-rebalance numbers after deploy.
+    cache_key = "bot_#{id}_metrics_v2"
     Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
       transactions_array = transactions.submitted.order(created_at: :asc).pluck(
@@ -15,56 +21,55 @@ module Bots::DcaIndex::Measurable
         :amount_exec,
         :quote_amount_exec,
         :amount,
-        :base
+        :base,
+        :side,
+        :external_status,
+        :transaction_type
       )
       return data if transactions_array.empty?
 
       totals = initialize_totals_data
-      asset_totals = Hash.new { |h, k| h[k] = { amount: 0, quote_invested: 0 } }
+      ledger = Hash.new { |hash, key| hash[key] = { amount: 0, invested: 0 } }
+      flight = new_rebalance_flight
       asset_prices = {} # Track last known price for each asset
 
-      transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, amount, base|
-        quote_amount_exec ||= price * amount
-        amount_exec ||= amount
+      transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, amount, base, side, external_status, transaction_type|
+        amount_exec, quote_amount_exec =
+          confirmed_exec_amounts(external_status, price, amount, amount_exec, quote_amount_exec)
         next if price.blank? || quote_amount_exec.blank? || amount_exec.blank?
         next if quote_amount_exec.zero? || amount_exec.zero?
 
-        # Track per-asset totals and prices
-        asset_totals[base][:amount] += amount_exec
-        asset_totals[base][:quote_invested] += quote_amount_exec
+        branch = apply_fill(ledger, flight, key: base, side:, transaction_type:,
+                                            amount_exec:, quote_amount_exec:)
         asset_prices[base] = price
-
-        # Calculate current portfolio value using last known prices
-        current_value = asset_totals.sum do |symbol, asset_data|
-          asset_price = asset_prices[symbol] || 0
-          asset_data[:amount] * asset_price
-        end
 
         # Chart data
         data[:chart][:labels] << created_at
-        totals[:total_quote_amount_invested] += quote_amount_exec
-        data[:chart][:series][0] << current_value
-        data[:chart][:series][1] << totals[:total_quote_amount_invested]
+        data[:chart][:series][0] << portfolio_value(ledger_value(ledger, asset_prices), flight)
+        data[:chart][:series][1] << invested_total(ledger, flight)
 
         # Store snapshot of per-asset amounts for candle interpolation
-        data[:chart][:extra_series] << {}.merge(asset_totals).transform_values { |v| v[:amount] }
+        data[:chart][:extra_series] << ledger.transform_values { |entry| entry[:amount] }
+        (data[:chart][:cash_series] ||= []) << flight[:cash]
 
-        # Metrics data
-        totals[:prices] << price
-        totals[:amounts] << amount_exec
+        # Metrics data — average entry price is over REGULAR buys only; a swap is not an entry.
+        if branch == :regular_buy
+          totals[:prices] << price
+          totals[:amounts] << amount_exec
+        end
       end
 
-      # Calculate final estimated value using last known prices
-      estimated_value = asset_totals.sum do |symbol, asset_data|
-        asset_price = asset_prices[symbol] || 0
-        asset_data[:amount] * asset_price
+      data[:total_quote_amount_invested] = invested_total(ledger, flight)
+      # Cash realized by a rebalance sell whose buy has not landed yet is still the user's money.
+      data[:rebalance_cash] = flight[:cash]
+      data[:total_amount_value_in_quote] = portfolio_value(ledger_value(ledger, asset_prices), flight)
+      data[:pnl] = calculate_pnl(data[:total_quote_amount_invested], data[:total_amount_value_in_quote])
+      # Public shape kept as-is (:quote_invested, not the ledger's :invested) — the order setter, the
+      # live-price pass and the chart all read it. Plain hash: a default proc will not cache.
+      data[:asset_breakdown] = ledger.each_with_object({}) do |(symbol, entry), acc|
+        acc[symbol] = { amount: entry[:amount], quote_invested: entry[:invested] }
       end
-
-      data[:total_quote_amount_invested] = totals[:total_quote_amount_invested]
-      data[:total_amount_value_in_quote] = estimated_value
-      data[:pnl] = calculate_pnl(data[:total_quote_amount_invested], estimated_value)
-      data[:asset_breakdown] = {}.merge(asset_totals) # Create plain hash without default proc for caching
-      data[:num_assets] = asset_totals.keys.size
+      data[:num_assets] = ledger.count { |_symbol, entry| entry[:amount].positive? }
 
       data
     end
@@ -92,6 +97,11 @@ module Bots::DcaIndex::Measurable
       # Calculate current value for each asset
       asset_values = {}
       metrics_data[:asset_breakdown].each do |symbol, asset_data|
+        # A fully liquidated holding keeps its ledger row (the chart reads holdings by index and the
+        # series must stay parallel) but has nothing left to show. Without this an index bot that
+        # rebalances accumulates a zero row per asset it has ever rotated out of.
+        next unless asset_data[:amount].positive?
+
         ticker = tickers.find { |t| t.base == symbol }
         next unless ticker.present?
 
@@ -113,6 +123,7 @@ module Bots::DcaIndex::Measurable
         }
       end
 
+      total_value += metrics_data[:rebalance_cash].to_d
       metrics_data[:total_amount_value_in_quote] = total_value
       metrics_data[:pnl] = calculate_pnl(metrics_data[:total_quote_amount_invested], total_value)
       metrics_data[:asset_values] = asset_values
@@ -121,6 +132,7 @@ module Bots::DcaIndex::Measurable
       metrics_data[:chart][:labels] << Time.current
       # extra_series stays parallel with labels — the chart reads holdings by index.
       metrics_data[:chart][:extra_series] << metrics_data[:asset_breakdown].transform_values { |data| data[:amount] }
+      (metrics_data[:chart][:cash_series] ||= []) << metrics_data[:rebalance_cash].to_d
       metrics_data[:live_prices] = live_prices
 
       metrics_data
@@ -137,8 +149,9 @@ module Bots::DcaIndex::Measurable
       grids = chart_price_grids(metrics_data)
       return metrics_data if grids.blank?
 
-      # Only symbols the bot can price at all take part. An index rotates its composition and
-      # never sells, so it goes on holding assets it no longer tracks — those have no ticker,
+      # Only symbols the bot can price at all take part. An index rotates its composition, so it can
+      # hold assets it no longer tracks (rebalancing liquidates them, but only once it is switched on
+      # and only while they are still listed) — a DELISTED one has no ticker,
       # and `metrics_with_current_prices` already leaves them out of the live value. Demanding
       # candle coverage for them would leave almost every point uncovered (28 held symbols, 20
       # tickered, on a real bot) while the headline priced only the 20. A symbol that HAS a
@@ -148,7 +161,9 @@ module Bots::DcaIndex::Measurable
       metrics_data[:chart] = chart_marked_at_market(
         metrics_data[:chart], grids,
         holdings: ->(i) { (metrics_data[:chart][:extra_series][i] || {}).slice(*priceable) },
-        cash: ->(_i) { 0 } # an index bot only accumulates; nothing is realized to cash
+        # Cash a rebalance sell realized but its buy has not spent yet — and, when a remainder ends
+        # as dust, permanently. Marking those points at zero would draw a loss that never happened.
+        cash: ->(i) { (metrics_data[:chart][:cash_series] || [])[i] || 0 }
       )
 
       metrics_data
@@ -197,12 +212,18 @@ module Bots::DcaIndex::Measurable
 
   private
 
+  # Holdings valued at the last price each asset traded at. Used for the chart's running value and
+  # for the fallback headline when the live read fails.
+  def ledger_value(ledger, asset_prices)
+    ledger.sum { |symbol, entry| entry[:amount] * (asset_prices[symbol] || 0) }
+  end
+
   def metrics_with_current_prices_cache_key
-    "bot_#{id}_metrics_with_current_prices"
+    "bot_#{id}_metrics_with_current_prices_v2"
   end
 
   def metrics_with_current_prices_and_candles_cache_key
-    "bot_#{id}_metrics_with_current_prices_and_candles"
+    "bot_#{id}_metrics_with_current_prices_and_candles_v2"
   end
 
   def optimal_candles_timeframe_for_duration(duration)
@@ -289,10 +310,12 @@ module Bots::DcaIndex::Measurable
           [], # value
           []  # invested
         ],
-        extra_series: []
+        extra_series: [],
+        cash_series: [] # rebalance proceeds realized but not yet redeployed
       },
       total_quote_amount_invested: 0,
       total_amount_value_in_quote: 0,
+      rebalance_cash: 0,
       pnl: nil,
       asset_breakdown: {},
       asset_values: {},

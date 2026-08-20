@@ -18,10 +18,13 @@ class Bot::EvaluateRebalancersJob < ApplicationJob
   # the feature: the trigger is independent of the DCA schedule. Only deleted and archived bots are
   # out, and a bot with pending state is in regardless of its switch, because an owed buy must
   # complete even after the user turns rebalancing off.
+  # Every multi-asset type — a single-asset bot has no allocation to drift.
+  REBALANCEABLE_TYPES = %w[Bots::DcaDualAsset Bots::DcaIndex].freeze
+
   def candidates
-    Bots::DcaDualAsset
-      .where.not(status: %i[deleted archived])
-      .where("json_extract(settings, '$.rebalance_enabled') IN (1, 'true') " \
-             "OR json_extract(transient_data, '$.rebalance_pending') IS NOT NULL")
+    Bot.where(type: REBALANCEABLE_TYPES)
+       .where.not(status: %i[deleted archived])
+       .where("json_extract(settings, '$.rebalance_enabled') IN (1, 'true') " \
+              "OR json_extract(transient_data, '$.rebalance_pending') IS NOT NULL")
   end
 end

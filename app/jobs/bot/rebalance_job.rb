@@ -38,6 +38,9 @@ class Bot::RebalanceJob < BotJob
     return false unless bot.rebalance_enabled? || bot.rebalance_pending?
     return false if bot.api_key&.pending_activation?
 
+    # A cheap pre-check for the fixed-pair types. The index bot answers [] here (it has no fixed
+    # pair), so the real per-asset availability check lives in Bot::Rebalancer#extreme_rebalance_entry,
+    # which sees the asset that is actually about to trade.
     bot.tickers_for_start.all? { |ticker| ticker.present? && ticker.available? && ticker.trading_enabled? }
   end
 

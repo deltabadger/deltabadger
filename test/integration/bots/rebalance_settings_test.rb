@@ -83,6 +83,31 @@ class Bots::RebalanceSettingsTest < ActionDispatch::IntegrationTest
     assert_select '#settings-rebalance-info form', count: 0
   end
 
+  # == The index bot runs the same widget off the same shared concern ==
+
+  test 'the widget renders on the index panel too' do
+    index = create(:dca_index, user: @user, status: :stopped)
+
+    get bot_path(id: index.id)
+
+    assert_select 'input[name=?]', 'bots_dca_index[rebalance_enabled]'
+    assert_select 'input[name=?]', 'bots_dca_index[rebalance_threshold]'
+  end
+
+  test 'an active index rule shows the same small-info block' do
+    index = create(:dca_index, user: @user, status: :stopped)
+    index.update_columns(settings: index.settings.merge('rebalance_enabled' => true,
+                                                        'rebalance_threshold' => 0.05))
+    Bots::DcaIndex.any_instance.stubs(:rebalance_drift).returns(0.12.to_d)
+
+    get bot_path(id: index.id)
+
+    assert_select 'small#settings-rebalance-info.small-info' do
+      assert_select 'div', text: /DCA schedule is stopped/
+      assert_select 'div.text-success', text: /off its target split/
+    end
+  end
+
   private
 
   def enable_rebalancing(threshold: 0.05)

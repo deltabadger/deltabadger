@@ -221,6 +221,7 @@ de:
                 sentence_html: "Rebalancing, wenn ein Wert um mehr als <span>%{value_html} %</span> vom Ziel abweicht"
                 note: "Läuft weiter, auch wenn der DCA-Zeitplan gestoppt ist."
                 drift: "Das Portfolio liegt %{drift} % neben seiner Zielaufteilung"
+                below_minimum: "— zu klein für das Minimum dieser Börse"
                 paused: "Rebalancing pausiert — prüfe deine Börse"
                 resume: "Fortsetzen"
                 resume_confirm: "Fahre nur fort, wenn du deine Börse geprüft hast und keine Rebalancing-Order mehr offen ist."
