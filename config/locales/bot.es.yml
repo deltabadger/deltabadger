@@ -213,7 +213,7 @@ es:
             rebalance:
                 sentence_html: "Reequilibrar cuando un activo se desvíe más de <span>%{value_html} %</span> de su objetivo"
                 note: "Sigue funcionando aunque el calendario de DCA esté detenido."
-                drift: "(ahora %{drift} % del objetivo)"
+                drift: "La cartera está a %{drift} % de su reparto objetivo"
                 paused: "Reequilibrio en pausa — revisa tu exchange"
                 resume: "Reanudar"
                 resume_confirm: "Continúa solo si has revisado tu exchange y no queda ninguna orden de reequilibrio abierta."

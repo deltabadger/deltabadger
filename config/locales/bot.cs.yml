@@ -241,7 +241,7 @@ cs:
             rebalance:
                 sentence_html: "Rebalancovat, když se aktivum odchýlí o více než <span>%{value_html} %</span> od cíle"
                 note: "Běží dál, i když je plán DCA zastavený."
-                drift: "(nyní %{drift} % od cíle)"
+                drift: "Portfolio je %{drift} % od cílového rozdělení"
                 paused: "Rebalancování pozastaveno — zkontroluj svou burzu"
                 resume: "Pokračovat"
                 resume_confirm: "Pokračuj jen tehdy, pokud jsi zkontroloval burzu a žádný rebalancovací pokyn už není otevřený."
