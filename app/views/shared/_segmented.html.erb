@@ -19,23 +19,30 @@
 <%= tag.div class: ['segmented', ('segmented--fluid' if fluid)],
             role: (links ? nil : 'radiogroup'),
             aria: { label: label },
-            data: { controller: 'segmented' }.merge(local_assigns[:data] || {}) do %>
+            data: { controller: 'segmented', action: 'click->segmented#toggle' }.merge(local_assigns[:data] || {}) do %>
   <span class="segmented__thumb" data-segmented-target="thumb"></span>
-  <% options.each do |option| %>
-    <% classes = ['segmented__option', ('is-on' if option[:active])] %>
-    <% shared = { value: option[:value] }.merge(option[:data] || {}).merge('segmented-target': 'option') %>
-    <% if links %>
-      <%# No select/arrow actions on a link: the server decides what is current, and moving
-          `is-on` on a cmd-click — which opens a new tab and leaves this page as it was —
-          would put the chip on an option that aria-current still says is not the one. %>
-      <%= link_to option[:label], option[:href], class: classes,
-                                                 aria: { current: ('page' if option[:active]) },
-                                                 data: shared %>
-    <% else %>
-      <%= tag.button option[:label], type: 'button', class: classes, role: 'radio',
-                                     aria: { checked: option[:active].present? },
-                                     tabindex: option[:active] ? 0 : -1,
-                                     data: shared.merge(action: 'segmented#select keydown->segmented#keys') %>
+  <%# display: contents while the control is expanded, a menu box once it has collapsed. %>
+  <div class="segmented__menu">
+    <% options.each do |option| %>
+      <% classes = ['segmented__option', ('is-on' if option[:active])] %>
+      <% shared = { value: option[:value] }.merge(option[:data] || {}).merge('segmented-target': 'option') %>
+      <% if links %>
+        <%# Select but no arrow actions: a link group is tabbed through, not arrowed through, and
+            the server still decides what is current — this only moves the chip while the click
+            navigates, so the switch animates instead of teleporting with the new page. The
+            controller ignores a modified click, which opens a new tab and changes nothing here. %>
+        <%= link_to option[:label], option[:href], class: classes,
+                                                   aria: { current: ('page' if option[:active]) },
+                                                   data: shared.merge(action: 'segmented#select') %>
+      <% else %>
+        <%= tag.button option[:label], type: 'button', class: classes, role: 'radio',
+                                       aria: { checked: option[:active].present? },
+                                       tabindex: option[:active] ? 0 : -1,
+                                       data: shared.merge(action: 'segmented#select keydown->segmented#keys') %>
+      <% end %>
     <% end %>
+  </div>
+  <%= tag.span class: 'segmented__caret', aria: { hidden: true } do %>
+    <%= render 'svg/16x16_down' %>
   <% end %>
 <% end %>

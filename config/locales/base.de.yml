@@ -531,8 +531,8 @@ de:
         all: 'Alle'
         successful: 'Erfolgreich'
         transactions: 'Transaktionen'
-        cancelled: 'Storniert'
         waiting: 'Geplant'
+        other: 'Sonstige'
     bot_activity:
         events:
             rebalance_sell_placed: 'Rebalancing — Verkauf des übergewichteten Werts'

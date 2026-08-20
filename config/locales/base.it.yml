@@ -530,8 +530,8 @@ it:
         all: 'Tutti'
         successful: 'Riusciti'
         transactions: 'Transazioni'
-        cancelled: 'Annullati'
         waiting: 'Programmati'
+        other: 'Altri'
     bot_activity:
         events:
             rebalance_sell_placed: 'Ribilanciamento — vendita dell’asset sovrappesato'

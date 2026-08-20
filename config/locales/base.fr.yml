@@ -531,8 +531,8 @@ fr:
         all: 'Tous'
         successful: 'Réussis'
         transactions: 'Transactions'
-        cancelled: 'Annulés'
         waiting: 'Programmés'
+        other: 'Autres'
     bot_activity:
         events:
             rebalance_sell_placed: 'Rééquilibrage — vente de l’actif surpondéré'

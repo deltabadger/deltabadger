@@ -33,9 +33,12 @@ class Transaction < ApplicationRecord
   # (before the first confirmation fetch) and must be treated as in-flight everywhere.
   scope :waiting, -> { submitted.where(external_status: %i[open unknown]) }
   # Terminal rows the user can't act on anymore — explicit cancellation OR an
-  # exchange-side abandonment (e.g. Kraken stopped returning the order). Grouped
-  # under the "Cancelled" filter tab in the UI.
+  # exchange-side abandonment (e.g. Kraken stopped returning the order).
   scope :cancelled_or_abandoned, -> { where(external_status: %i[cancelled abandoned]) }
+  # Everything the "Other" filter tab collects: rows with nothing to show in the
+  # Amount/Value/Price columns — cancelled or abandoned, skipped, failed. The log
+  # shows them as their message sentence instead of a columnar row.
+  scope :other, -> { cancelled_or_abandoned.or(where(status: %i[skipped failed])) }
   # Contribution accounting counts REGULAR rows only. A rebalance swaps assets the bot already
   # owns — the quote it spends was never new money, so counting it would satisfy a scheduled
   # contribution the user never made and eat their "don't spend more than N" cap.
@@ -107,6 +110,11 @@ class Transaction < ApplicationRecord
 
   def imported?
     external_id&.start_with?('imported_')
+  end
+
+  # Row-level twin of the `other` scope — see it for what "other" means.
+  def other?
+    !submitted? || cancelled? || abandoned?
   end
 
   def cancel

@@ -1,9 +1,10 @@
 <%= turbo_stream.append 'orders_list' do %>
   <% @feed_items.each do |item| %>
     <% if item.is_a?(Transaction) %>
-      <%# columnar row for the Transactions/Waiting/Cancelled tabs (submitted orders only) %>
+      <%# columnar row for the Transactions/Scheduled tabs (submitted orders only; a
+          cancelled or abandoned one belongs to no tab and stays hidden) %>
       <% if item.submitted? %>
-        <%= render partial: "bots/orders/order", locals: { order: item, decimals: @decimals, exchange_name: @bot.exchange.name, fetch: item.open? } %>
+        <%= render partial: "bots/orders/order", locals: { order: item, decimals: @decimals } %>
       <% end %>
       <%# sentence row for the "All" timeline %>
       <%= render partial: "bots/orders/order_timeline", locals: { order: item, decimals: @decimals } %>

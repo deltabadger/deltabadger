@@ -530,8 +530,8 @@ nl:
         all: 'Alle'
         successful: 'Geslaagd'
         transactions: 'Transacties'
-        cancelled: 'Geannuleerd'
         waiting: 'Gepland'
+        other: 'Overige'
     bot_activity:
         events:
             rebalance_sell_placed: 'Herbalanceren — de overwogen asset verkopen'

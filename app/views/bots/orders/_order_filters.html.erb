@@ -1,19 +1,20 @@
 <% has_successful = bot.transactions.submitted.closed.exists? %>
-<% has_cancelled = bot.transactions.submitted.cancelled_or_abandoned.exists? %>
 <% has_waiting = bot.transactions.waiting.exists? %>
-<% has_other = bot.transactions.where(status: [:skipped, :failed]).exists? %>
-<% categories = [has_successful, has_cancelled, has_waiting, has_other].count(true) %>
+<% has_other = bot.transactions.other.exists? %>
+<% categories = [has_successful, has_waiting, has_other].count(true) %>
 <% show_filters = categories > 1 %>
 
 <% order_filter = params[:order_filter] || 'all' %>
-<%# Fluid: the option COUNT depends on what the bot actually has (a bot with no cancelled orders
-    gets no cancelled tab), and the labels differ in width, so equal columns would resize the
+<%# Fluid: the option COUNT depends on what the bot actually has (a bot that never skipped a
+    contribution gets no Other tab), and the labels differ in width, so equal columns would resize the
     whole control from bot to bot. The order-filter controller still does the filtering; it just
     hears about the choice through the segmented control's event now. %>
+<%# "Other" last: it is the catch-all for what the named tabs don't want — cancelled,
+    skipped, failed — and it shows those rows as their message, not as columns. %>
 <% tabs = [['all', t('order_filters.all'), true],
            ['successful', t('order_filters.transactions'), has_successful],
-           ['cancelled', t('order_filters.cancelled'), has_cancelled],
-           ['waiting', t('order_filters.waiting'), has_waiting]] %>
+           ['waiting', t('order_filters.waiting'), has_waiting],
+           ['other', t('order_filters.other'), has_other]] %>
 <div id="<%= dom_id(bot, :order_filters) %>" class="filters" data-order-filter-target="filterContainer"
      data-action="segmented:change->order-filter#filter">
   <% if show_filters %>
