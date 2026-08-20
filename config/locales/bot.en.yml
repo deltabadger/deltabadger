@@ -241,7 +241,7 @@ en:
             rebalance:
                 sentence_html: "Rebalance when an asset drifts more than <span>%{value_html} %</span> from its target"
                 note: "Keeps running while the DCA schedule is stopped."
-                drift: "(now %{drift} % off target)"
+                drift: "The portfolio is %{drift} % off its target split"
                 paused: "Rebalancing paused — check your exchange"
                 resume: "Resume"
                 resume_confirm: "Only continue if you have checked your exchange and no rebalancing order is still open."

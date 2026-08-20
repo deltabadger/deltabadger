@@ -214,7 +214,7 @@ fr:
             rebalance:
                 sentence_html: "Rééquilibrer quand un actif s’écarte de plus de <span>%{value_html} %</span> de sa cible"
                 note: "Continue de fonctionner même si le calendrier DCA est arrêté."
-                drift: "(actuellement %{drift} % de l’objectif)"
+                drift: "Le portefeuille est à %{drift} % de sa répartition cible"
                 paused: "Rééquilibrage en pause — vérifie ta plateforme"
                 resume: "Reprendre"
                 resume_confirm: "Ne continue que si tu as vérifié ta plateforme et qu’aucun ordre de rééquilibrage n’est encore ouvert."

@@ -241,7 +241,7 @@ sv:
             rebalance:
                 sentence_html: "Rebalansera när en tillgång avviker mer än <span>%{value_html} %</span> från sitt mål"
                 note: "Fortsätter köra även när DCA-schemat är stoppat."
-                drift: "(nu %{drift} % från målet)"
+                drift: "Portföljen är %{drift} % från sin målfördelning"
                 paused: "Rebalansering pausad — kontrollera din börs"
                 resume: "Återuppta"
                 resume_confirm: "Fortsätt bara om du har kontrollerat din börs och ingen rebalanseringsorder fortfarande är öppen."

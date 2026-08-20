@@ -241,7 +241,7 @@ da:
             rebalance:
                 sentence_html: "Rebalancér når et aktiv afviger mere end <span>%{value_html} %</span> fra sit mål"
                 note: "Kører videre, selv når DCA-planen er stoppet."
-                drift: "(nu %{drift} % fra målet)"
+                drift: "Porteføljen er %{drift} % fra sin målfordeling"
                 paused: "Rebalancering sat på pause — tjek din børs"
                 resume: "Genoptag"
                 resume_confirm: "Fortsæt kun, hvis du har tjekket din børs, og ingen rebalanceringsordre stadig er åben."
