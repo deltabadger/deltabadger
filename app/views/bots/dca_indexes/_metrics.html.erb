@@ -1,10 +1,15 @@
+<% exited = bot.exited_holdings(metrics) %>
+<% realised = metrics[:realised_pnl].to_d %>
 <div id="metrics" style="display: flex; flex-direction: column; gap: 1rem;">
   <% if metrics[:prices_stale] %>
     <p class="status-button__hint" role="status">
       <%= t('bot.details.stats.exchange_unavailable_html') %>
     </p>
   <% end %>
-  <div class="widget data-grid data-grid--two-columns">
+  <%# Two columns until there is a third figure to show. Realised P/L only exists once the user has
+      liquidated something, and an empty third cell on every other bot is worse than the grid's own
+      responsive columns. %>
+  <div class="widget data-grid <%= 'data-grid--two-columns' if realised.zero? %>">
     <div class="data-grid__item" data-controller="tooltip">
       <div class="label"><%= t('bot.details.stats.total_invested') %></div>
       <div class="data-grid__item__value">
@@ -25,41 +30,66 @@
         <% end %>
       </div>
     </div>
+    <% unless realised.zero? %>
+      <div class="data-grid__item">
+        <div class="label"><%= t('bot.dca_index.realised_pnl') %></div>
+        <div class="data-grid__item__value <%= realised.negative? ? 'text-danger' : 'text-success' %>">
+          <% if loading %>
+            <span class="loading-placeholder">...</span>
+          <% else %>
+            <%= realised.negative? ? '' : '+' %><%= number_with_precision(realised, precision: 2, delimiter: ',') %>
+          <% end %>
+        </div>
+        <%# Says what is in the figure, because "realised" invites a tax reading it will not support:
+            a rebalance is a swap, so it stays P/L-neutral and contributes nothing here. %>
+        <small class="label"><%= t('bot.dca_index.realised_pnl_note') %></small>
+      </div>
+    <% end %>
   </div>
 
+  <% exited_symbols = exited.map { |holding| holding[:symbol] }.to_set %>
+  <%# Resolve the row's base symbol through the exchange's tickers, the same way the
+      metrics do — bot_index_assets only holds the CURRENT index, so anything the bot
+      still holds after a rotation isn't in it. %>
+  <% logo_assets = bot.exchange.tickers.where(base: (metrics[:asset_values] || {}).keys).includes(:base_asset).index_by(&:base) %>
   <% if metrics[:asset_values].present? %>
-    <div id="assets_metrics_table" class="widget widget--table">
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col" class="table__logo"></th>
-            <th scope="col"><%= t('bot.dca_index.asset') %></th>
-            <th scope="col"><%= t('bot.dca_index.amount') %></th>
-            <th scope="col"><%= t('bot.dca_index.avg_price') %></th>
-            <th scope="col"><%= t('bot.dca_index.value') %></th>
-            <th scope="col"><%= t('bot.dca_index.pl') %></th>
-          </tr>
-        </thead>
-        <tbody id="assets_metrics_list">
-          <%# Resolve the row's base symbol through the exchange's tickers, the same way the
-              metrics do — bot_index_assets only holds the CURRENT index, so anything the bot
-              still holds after a rotation isn't in it. %>
-          <% logo_assets = bot.exchange.tickers.where(base: metrics[:asset_values].keys).includes(:base_asset).index_by(&:base) %>
-          <% metrics[:asset_values].each do |symbol, data| %>
-            <% pnl_pct = data[:pnl_percentage] || 0 %>
-            <tr>
-              <td class="table__logo"><%= render 'assets/logo', asset: logo_assets[symbol]&.base_asset %></td>
-              <td scope="row"><%= symbol %></td>
-              <td><%= number_with_precision(data[:amount] || 0, precision: 6, strip_insignificant_zeros: true) %></td>
-              <td><%= number_with_precision(data[:avg_price] || 0, precision: 2, delimiter: ',') %></td>
-              <td><%= number_with_precision(data[:current_value] || 0, precision: 2, delimiter: ',') %></td>
-              <td class="<%= pnl_pct >= 0 ? 'text-success' : 'text-danger' %>">
-                <b><%= pnl_pct >= 0 ? '+' : '' %><%= number_with_precision(pnl_pct * 100, precision: 1) %>%</b>
-              </td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
+    <% index_values = metrics[:asset_values].reject { |symbol, _| exited_symbols.include?(symbol) } %>
+    <% if index_values.present? %>
+      <div id="assets_metrics_table" class="widget widget--table">
+        <%= render 'bots/dca_indexes/assets_table', values: index_values, logo_assets: logo_assets, body_id: 'assets_metrics_list' %>
+      </div>
+    <% end %>
+  <% end %>
+
+  <%# NOT nested under asset_values: a failed live price read empties that hash, and it is exactly
+      the network trouble that produces an unresolved placement in the first place. The Clear action
+      has to survive it — resolving an untracked order needs no prices at all. %>
+  <% if exited.any? || bot.liquidation_ambiguous? %>
+    <div id="exited_metrics_table" class="widget widget--table">
+      <div class="exited-header">
+        <span class="label"><%= t('bot.dca_index.left_the_index') %></span>
+        <% if bot.liquidation_ambiguous? %>
+          <%# A halted liquidation is the one thing that must not be re-run: the outcome of the last
+              placement is unknown, so selling again could sell coins that are already gone. %>
+          <span class="text-error"><%= t('bot.liquidation.halted') %></span>
+          <%= button_to t('bot.liquidation.resolve'),
+                        bot_liquidation_resolutions_path(bot_id: bot.id, intent_id: bot.liquidation_pending[:id]),
+                        class: 'rbutton',
+                        form: { data: { turbo_confirm: t('bot.liquidation.resolve_confirm') } } %>
+        <%# An archived or deleted bot still renders its page, but it cannot trade — offering Sell
+            there is a button whose only outcome is a refusal in the log. %>
+        <% elsif exited.any? && !bot.archived? && !bot.deleted? %>
+          <%= button_to t('bot.liquidation.sell'),
+                        bot_liquidation_path(bot_id: bot.id),
+                        class: 'rbutton',
+                        form: { data: { turbo_confirm: t('bot.liquidation.sell_confirm') } } %>
+        <% end %>
+      </div>
+      <% if exited.any? %>
+        <%= render 'bots/dca_indexes/assets_table',
+                   values: exited.index_by { |holding| holding[:symbol] },
+                   logo_assets: logo_assets, body_id: 'exited_metrics_list' %>
+      <% end %>
     </div>
   <% end %>
 </div>

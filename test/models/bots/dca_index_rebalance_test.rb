@@ -24,27 +24,30 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     assert_in_delta 0.2, targets['CCC'][:target].to_f, 0.0001
   end
 
-  test 'an asset that has left the index carries target zero' do
-    # Not an oversight — target 0 is what makes rebalancing liquidate it. Tracking an index means
-    # following its composition changes, and the DCA leg already stopped buying this one.
+  test 'an asset that has left the index is not a rebalance target at all' do
+    # Rebalancing tracks the index, and a quitter is not in it. Closing that position is the user's
+    # call (Bots::DcaIndex::Liquidatable), not a side effect of some other asset breaching the band.
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
     exited('CCC')
     stub_values({ 'AAA' => 40, 'BBB' => 40, 'CCC' => 20 })
 
-    targets = @bot.send(:rebalance_targets).index_by { |t| t[:ticker].base }
+    bases = @bot.send(:rebalance_targets).map { |t| t[:ticker].base }
 
-    assert_in_delta 0, targets['CCC'][:target].to_f, 0.0001
+    assert_equal %w[AAA BBB], bases.sort
   end
 
-  test 'an exited holding still counts toward the portfolio total' do
-    # Leaving it out would understate the portfolio and make every other asset look overweight.
+  test 'an exited holding is out of the denominator, not just the candidates' do
+    # The weights describe the INDEX, so a holding outside it must not dilute them. With CCC in the
+    # total, AAA at 40 of 100 would read 10 points light against its 50 % target and trade for
+    # nothing.
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
     exited('CCC')
     stub_values({ 'AAA' => 40, 'BBB' => 40, 'CCC' => 20 })
 
     total = @bot.send(:rebalance_targets).sum { |t| t[:value] }
 
-    assert_in_delta 100, total.to_f, 0.0001
+    assert_in_delta 80, total.to_f, 0.0001
+    assert_in_delta 0, @bot.rebalance_drift.to_f, 0.0001, 'the index half is perfectly balanced'
   end
 
   test 'drift is the largest single-asset deviation, not an average' do
@@ -55,13 +58,14 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     assert_in_delta 0.26, @bot.rebalance_drift.to_f, 0.001
   end
 
-  test 'an exited holding drives drift by its whole weight' do
+  test 'an exited holding does not drive drift' do
+    # It used to carry target 0, which made its whole value read as drift — so it was liquidated the
+    # moment anything tripped the band, churning a coin that merely hovers at the index boundary.
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
     exited('CCC')
     stub_values({ 'AAA' => 45, 'BBB' => 45, 'CCC' => 10 })
 
-    # CCC is 10 % of the portfolio against a 0 % target.
-    assert_in_delta 0.10, @bot.rebalance_drift.to_f, 0.001
+    assert_in_delta 0, @bot.rebalance_drift.to_f, 0.001
   end
 
   test 'the most overweight asset is the one sold' do
@@ -76,16 +80,17 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     assert_equal 'AAA', order.base
   end
 
-  test 'an exited asset outranks a merely overweight one and is sold first' do
-    # Its whole holding is excess, so it is almost always the largest single correction available.
+  test 'an exited asset is never the one sold, however large it has grown' do
+    # Under the old target-0 rule its whole holding was excess, so it outranked every genuine
+    # correction and was liquidated without the user ever asking.
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
     exited('CCC')
-    stub_values({ 'AAA' => 34, 'BBB' => 26, 'CCC' => 40 })
+    stub_values({ 'AAA' => 70, 'BBB' => 30, 'CCC' => 40 })
     enable_rebalancing
 
     @bot.rebalance!
 
-    assert_equal 'CCC', @bot.transactions.last.base
+    assert_equal 'AAA', @bot.transactions.last.base, 'the overweight INDEX asset, not the quitter'
   end
 
   test 'the proceeds go to the most underweight in-index asset' do
@@ -100,7 +105,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
   end
 
   test 'an exited asset is never bought back into' do
-    # Its target is 0, so its deviation is its entire value — always positive, never the minimum.
+    # It is not in the target list, so it can be neither the most underweight nor a buy candidate.
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
     exited('CCC')
     stub_values({ 'AAA' => 50, 'BBB' => 10, 'CCC' => 40 })
@@ -124,8 +129,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
   end
 
   test 'a delisted asset drops out of the candidates instead of blocking the rebalance' do
-    index_membership('AAA' => 0.5, 'BBB' => 0.5)
-    exited('CCC')
+    index_membership('AAA' => 0.5, 'BBB' => 0.5, 'CCC' => 0.0)
     @assets['CCC'][:ticker].update!(available: false)
     stub_values({ 'AAA' => 70, 'BBB' => 10, 'CCC' => 20 })
     enable_rebalancing
@@ -136,7 +140,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
   end
 
   test 'an in-index asset with no weight is treated as on target, not as a liquidation' do
-    # Only LEAVING the index means target 0. A missing number must never be read as "sell it all".
+    # A missing number must never be read as "sell it all".
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
     BotIndexAsset.create!(bot: @bot, asset: @assets['CCC'][:asset], ticker: @assets['CCC'][:ticker],
                           target_allocation: nil, in_index: true, entered_at: Time.current)

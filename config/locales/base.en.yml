@@ -550,6 +550,14 @@ en:
             rebalance_ambiguous: 'Rebalance order status unconfirmed — paused so it cannot be placed twice'
             rebalance_manually_resolved: 'Rebalancing resumed manually'
             dca_skipped_rebalance_pending: 'Contribution skipped — a rebalance is still in progress'
+            liquidation_requested: "Selling the assets that left the index"
+            liquidation_placed: "Selling an asset that left the index"
+            liquidation_skipped: "An asset that left the index could not be sold — left in place"
+            liquidation_ambiguous: "Sell order status unconfirmed — paused so it cannot be placed twice"
+            liquidation_manually_resolved: "Unconfirmed sale cleared manually"
+            liquidation_market_closed: "Market closed — nothing sold"
+            liquidation_not_started: "Nothing was sold — the bot was busy, or the index could not be refreshed"
+            dca_skipped_liquidation_pending: "Contribution skipped — a sale is still in progress"
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'

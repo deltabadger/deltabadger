@@ -551,6 +551,14 @@ el:
             rebalance_ambiguous: 'Η κατάσταση της εντολής επανεξισορρόπησης δεν επιβεβαιώθηκε — σε παύση ώστε να μην σταλεί δύο φορές'
             rebalance_manually_resolved: 'Η επανεξισορρόπηση συνεχίστηκε χειροκίνητα'
             dca_skipped_rebalance_pending: 'Η εισφορά παραλείφθηκε — μια επανεξισορρόπηση είναι σε εξέλιξη'
+            liquidation_requested: "Πουλάμε τα στοιχεία που έφυγαν από τον δείκτη"
+            liquidation_placed: "Πουλάμε ένα στοιχείο που έφυγε από τον δείκτη"
+            liquidation_skipped: "Ένα στοιχείο που έφυγε από τον δείκτη δεν πουλήθηκε — παραμένει"
+            liquidation_ambiguous: "Η κατάσταση της εντολής πώλησης δεν επιβεβαιώθηκε — σε παύση για να μην σταλεί δύο φορές"
+            liquidation_manually_resolved: "Η ανεπιβεβαίωτη πώληση εκκαθαρίστηκε χειροκίνητα"
+            liquidation_market_closed: "Η αγορά είναι κλειστή — δεν πουλήθηκε τίποτα"
+            liquidation_not_started: "Δεν πουλήθηκε τίποτα — το bot ήταν απασχολημένο ή ο δείκτης δεν ανανεώθηκε"
+            dca_skipped_liquidation_pending: "Η εισφορά παραλείφθηκε — μια πώληση είναι ακόμη σε εξέλιξη"
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'

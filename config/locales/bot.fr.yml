@@ -33,6 +33,9 @@ fr:
             asset: "Actif"
             amount: "Montant"
             avg_price: "Prix Moyen"
+            realised_pnl: "P/P réalisé"
+            realised_pnl_note: "Issu de la vente d’actifs sortis de l’indice. Le rééquilibrage n’est pas compté."
+            left_the_index: "Sortis de l’indice"
             value: "Valeur"
             pl: "G/P"
             warning:
@@ -213,6 +216,17 @@ fr:
                 other: "Les montants manqués ont été mis en mémoire tampon et seront utilisés avec les prochaines commandes programmées, garantissant que votre calendrier et votre allocation sont maintenus aussi près que possible des minimums de l'échange."
             title: "Félicitations ! Votre bot est en cours d'exécution."
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
+        liquidation:
+            sell: "Vendre"
+            sell_confirm: "Vendre tout ce qui est sorti de l’indice ? Les positions sont clôturées au prix du marché."
+            started: "Vente des actifs sortis de l’indice en cours."
+            market_closed: "Le marché est fermé pour le moment. Réessaie à l’ouverture."
+            unsupported: "Seuls les bots indiciels peuvent détenir des actifs sortis d’un indice."
+            halted: "Vente non confirmée — vérifie ta plateforme"
+            resolve: "Effacer"
+            resolve_confirm: "Continue seulement si tu as vérifié ta plateforme et qu’aucun ordre de vente n’est encore ouvert."
+            still_open: "L’ordre %{order_id} est encore ouvert sur ta plateforme. Attends qu’il soit réglé."
+            resolved: "Vente non confirmée effacée."
         settings:
             rebalance:
                 sentence_html: "Rééquilibrer quand un actif s’écarte de plus de <span>%{value_html} %</span> de sa cible"

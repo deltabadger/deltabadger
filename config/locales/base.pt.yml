@@ -538,6 +538,14 @@ pt:
             rebalance_ambiguous: 'Estado da ordem de reequilíbrio por confirmar — em pausa para não duplicar'
             rebalance_manually_resolved: 'Reequilíbrio retomado manualmente'
             dca_skipped_rebalance_pending: 'Contribuição ignorada — há um reequilíbrio em curso'
+            liquidation_requested: "A vender os ativos que saíram do índice"
+            liquidation_placed: "A vender um ativo que saiu do índice"
+            liquidation_skipped: "Não foi possível vender um ativo que saiu do índice — mantido"
+            liquidation_ambiguous: "Estado da ordem de venda por confirmar — em pausa para não ser colocada duas vezes"
+            liquidation_manually_resolved: "Venda por confirmar limpa manualmente"
+            liquidation_market_closed: "Mercado fechado — nada vendido"
+            liquidation_not_started: "Nada foi vendido — o bot estava ocupado ou não foi possível atualizar o índice"
+            dca_skipped_liquidation_pending: "Contribuição ignorada — ainda decorre uma venda"
             started: 'Bot iniciado'
             stopped: 'Bot parado'
             reschedule_disabled: 'Agendamento automático em pausa'

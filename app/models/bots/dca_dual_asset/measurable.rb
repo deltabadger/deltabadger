@@ -6,9 +6,10 @@ module Bots::DcaDualAsset::Measurable
   include Bot::RebalanceAccounting
 
   def metrics(force: false)
-    # _v2: side-aware accounting. The old shape lives up to 30 days in the cache, so the key must
+    # _v3: realised P/L and the contributed/ledger split. The old shape lives up to 30 days in the
+    # cache, so the key must
     # change or every existing bot serves pre-rebalance numbers after deploy.
-    cache_key = "bot_#{id}_metrics_v2"
+    cache_key = "bot_#{id}_metrics_v3"
     Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
       transactions_array = transactions.submitted.order(created_at: :asc).pluck(:created_at,
@@ -30,7 +31,7 @@ module Bots::DcaDualAsset::Measurable
 
       totals = initialize_totals_data
       ledger = totals[:ledger]
-      flight = totals[:flight]
+      books = totals[:books]
       transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, amount, base, side, external_status, transaction_type|
         amount_exec, quote_amount_exec =
           confirmed_exec_amounts(external_status, price, amount, amount_exec, quote_amount_exec)
@@ -42,32 +43,33 @@ module Bots::DcaDualAsset::Measurable
 
         data[:chart][:labels] << created_at
 
-        branch = apply_fill(ledger, flight, key: asset_id, side:, transaction_type:,
-                                            amount_exec:, quote_amount_exec:)
+        branch = apply_fill(ledger, books, key: asset_id, side:, transaction_type:,
+                                           amount_exec:, quote_amount_exec:)
         if branch == :regular_buy
           totals[:prices][asset_id] << price
           totals[:amounts][asset_id] << amount_exec
         end
 
-        data[:chart][:series][1] << invested_total(ledger, flight)
+        data[:chart][:series][1] << invested_total(books)
         totals[:current_value_in_quote][asset_id] = ledger[asset_id][:amount] * price
-        data[:chart][:series][0] << portfolio_value(totals[:current_value_in_quote].values.sum, flight)
+        data[:chart][:series][0] << portfolio_value(totals[:current_value_in_quote].values.sum, books)
         data[:chart][:extra_series][0] << ledger[base0_asset_id][:amount]
         data[:chart][:extra_series][1] << ledger[base1_asset_id][:amount]
-        (data[:chart][:cash_series] ||= []) << flight[:cash]
+        (data[:chart][:cash_series] ||= []) << uninvested_cash(books)
       end
 
       data[:total_base0_amount] = ledger[base0_asset_id][:amount]
       data[:total_base1_amount] = ledger[base1_asset_id][:amount]
       data[:base0_total_quote_amount_invested] = ledger[base0_asset_id][:invested]
       data[:base1_total_quote_amount_invested] = ledger[base1_asset_id][:invested]
-      data[:total_quote_amount_invested] = invested_total(ledger, flight)
+      data[:total_quote_amount_invested] = invested_total(books)
       data[:total_base0_amount_value_in_quote] = totals[:current_value_in_quote][base0_asset_id]
       data[:total_base1_amount_value_in_quote] = totals[:current_value_in_quote][base1_asset_id]
       # Cash realized by a sell whose buy has not landed yet is still the user's money. Leaving it
       # out would show an artificial loss for the whole window between the two legs — and forever, if
       # the remainder ended as dust.
-      data[:rebalance_cash] = flight[:cash]
+      data[:rebalance_cash] = uninvested_cash(books)
+      data[:realised_pnl] = realised_pnl(books)
       data[:total_amount_value_in_quote] =
         data[:total_base0_amount_value_in_quote] + data[:total_base1_amount_value_in_quote] +
         data[:rebalance_cash]
@@ -195,11 +197,11 @@ module Bots::DcaDualAsset::Measurable
   private
 
   def metrics_with_current_prices_cache_key
-    "bot_#{id}_metrics_with_current_prices_v2"
+    "bot_#{id}_metrics_with_current_prices_v3"
   end
 
   def metrics_with_current_prices_and_candles_cache_key
-    "bot_#{id}_metrics_with_current_prices_and_candles_v2"
+    "bot_#{id}_metrics_with_current_prices_and_candles_v3"
   end
 
   def calculate_pnl(from, to)
@@ -230,6 +232,7 @@ module Bots::DcaDualAsset::Measurable
       total_base0_amount_value_in_quote: 0,
       total_base1_amount_value_in_quote: 0,
       rebalance_cash: 0,
+      realised_pnl: 0,
       total_amount_value_in_quote: 0,
       base0_pnl: nil,
       base1_pnl: nil,
@@ -245,12 +248,13 @@ module Bots::DcaDualAsset::Measurable
       prices: { base0_asset_id => [], base1_asset_id => [] },
       amounts: { base0_asset_id => [], base1_asset_id => [] },
       # Shared ledger shape (see Bot::RebalanceAccounting): holdings + cost basis per asset, plus
-      # the basis and cash in flight between a rebalance's two legs.
+      # the off-ledger scalars — basis and cash in flight between a rebalance's two legs, lifetime
+      # contributions, and realised liquidation cash and P/L.
       ledger: {
         base0_asset_id => { amount: 0, invested: 0 },
         base1_asset_id => { amount: 0, invested: 0 }
       },
-      flight: new_rebalance_flight
+      books: new_rebalance_books
     }
   end
 

@@ -10,9 +10,9 @@ module Bots::DcaIndex::Measurable
   CANDLE_FETCH_THREADS = 6
 
   def metrics(force: false)
-    # _v2: side-aware accounting. The old shape lives up to 30 days in the cache, so the key must
-    # change or every existing bot serves pre-rebalance numbers after deploy.
-    cache_key = "bot_#{id}_metrics_v2"
+    # _v3: realised P/L and the contributed/ledger split. The old shape lives up to 30 days in the
+    # cache, so the key must change or every existing bot serves pre-realisation numbers after deploy.
+    cache_key = "bot_#{id}_metrics_v3"
     Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
       transactions_array = transactions.submitted.order(created_at: :asc).pluck(
@@ -30,7 +30,7 @@ module Bots::DcaIndex::Measurable
 
       totals = initialize_totals_data
       ledger = Hash.new { |hash, key| hash[key] = { amount: 0, invested: 0 } }
-      flight = new_rebalance_flight
+      books = new_rebalance_books
       asset_prices = {} # Track last known price for each asset
 
       transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, amount, base, side, external_status, transaction_type|
@@ -39,18 +39,18 @@ module Bots::DcaIndex::Measurable
         next if price.blank? || quote_amount_exec.blank? || amount_exec.blank?
         next if quote_amount_exec.zero? || amount_exec.zero?
 
-        branch = apply_fill(ledger, flight, key: base, side:, transaction_type:,
-                                            amount_exec:, quote_amount_exec:)
+        branch = apply_fill(ledger, books, key: base, side:, transaction_type:,
+                                           amount_exec:, quote_amount_exec:)
         asset_prices[base] = price
 
         # Chart data
         data[:chart][:labels] << created_at
-        data[:chart][:series][0] << portfolio_value(ledger_value(ledger, asset_prices), flight)
-        data[:chart][:series][1] << invested_total(ledger, flight)
+        data[:chart][:series][0] << portfolio_value(ledger_value(ledger, asset_prices), books)
+        data[:chart][:series][1] << invested_total(books)
 
         # Store snapshot of per-asset amounts for candle interpolation
         data[:chart][:extra_series] << ledger.transform_values { |entry| entry[:amount] }
-        (data[:chart][:cash_series] ||= []) << flight[:cash]
+        (data[:chart][:cash_series] ||= []) << uninvested_cash(books)
 
         # Metrics data — average entry price is over REGULAR buys only; a swap is not an entry.
         if branch == :regular_buy
@@ -59,10 +59,12 @@ module Bots::DcaIndex::Measurable
         end
       end
 
-      data[:total_quote_amount_invested] = invested_total(ledger, flight)
-      # Cash realized by a rebalance sell whose buy has not landed yet is still the user's money.
-      data[:rebalance_cash] = flight[:cash]
-      data[:total_amount_value_in_quote] = portfolio_value(ledger_value(ledger, asset_prices), flight)
+      data[:total_quote_amount_invested] = invested_total(books)
+      # Cash realized by a sell whose buy has not landed yet — or by a liquidation the bot has not
+      # re-spent — is still the user's money.
+      data[:rebalance_cash] = uninvested_cash(books)
+      data[:realised_pnl] = realised_pnl(books)
+      data[:total_amount_value_in_quote] = portfolio_value(ledger_value(ledger, asset_prices), books)
       data[:pnl] = calculate_pnl(data[:total_quote_amount_invested], data[:total_amount_value_in_quote])
       # Public shape kept as-is (:quote_invested, not the ledger's :invested) — the order setter, the
       # live-price pass and the chart all read it. Plain hash: a default proc will not cache.
@@ -150,8 +152,8 @@ module Bots::DcaIndex::Measurable
       return metrics_data if grids.blank?
 
       # Only symbols the bot can price at all take part. An index rotates its composition, so it can
-      # hold assets it no longer tracks (rebalancing liquidates them, but only once it is switched on
-      # and only while they are still listed) — a DELISTED one has no ticker,
+      # hold assets it no longer tracks (the user liquidates them by hand — see
+      # Bots::DcaIndex::Liquidatable) — a DELISTED one has no ticker,
       # and `metrics_with_current_prices` already leaves them out of the live value. Demanding
       # candle coverage for them would leave almost every point uncovered (28 held symbols, 20
       # tickered, on a real bot) while the headline priced only the 20. A symbol that HAS a
@@ -219,11 +221,11 @@ module Bots::DcaIndex::Measurable
   end
 
   def metrics_with_current_prices_cache_key
-    "bot_#{id}_metrics_with_current_prices_v2"
+    "bot_#{id}_metrics_with_current_prices_v3"
   end
 
   def metrics_with_current_prices_and_candles_cache_key
-    "bot_#{id}_metrics_with_current_prices_and_candles_v2"
+    "bot_#{id}_metrics_with_current_prices_and_candles_v3"
   end
 
   def optimal_candles_timeframe_for_duration(duration)
@@ -316,6 +318,7 @@ module Bots::DcaIndex::Measurable
       total_quote_amount_invested: 0,
       total_amount_value_in_quote: 0,
       rebalance_cash: 0,
+      realised_pnl: 0,
       pnl: nil,
       asset_breakdown: {},
       asset_values: {},

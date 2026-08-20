@@ -30,6 +30,9 @@ de:
             asset: "Asset"
             amount: "Betrag"
             avg_price: "Ø Preis"
+            realised_pnl: "Realisierter G/V"
+            realised_pnl_note: "Aus dem Verkauf von Werten, die den Index verlassen haben. Rebalancing zählt nicht."
+            left_the_index: "Nicht mehr im Index"
             value: "Wert"
             pl: "Gewinn/Verlust"
             warning:
@@ -219,6 +222,17 @@ de:
                 other: "Die verpassten Beträge wurden gepuffert und werden mit den nächsten geplanten Orders verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
             title: "Glückwunsch! Dein Bot läuft."
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
+        liquidation:
+            sell: "Verkaufen"
+            sell_confirm: "Alles verkaufen, was den Index verlassen hat? Die Positionen werden zum Marktpreis geschlossen."
+            started: "Verkaufe die Werte, die den Index verlassen haben."
+            market_closed: "Der Markt ist gerade geschlossen. Versuch es nach der Eröffnung erneut."
+            unsupported: "Nur Index-Bots können Werte halten, die einen Index verlassen haben."
+            halted: "Verkauf unbestätigt — prüfe deine Börse"
+            resolve: "Zurücksetzen"
+            resolve_confirm: "Fahre nur fort, wenn du deine Börse geprüft hast und keine Verkaufsorder mehr offen ist."
+            still_open: "Order %{order_id} ist an deiner Börse noch offen. Warte, bis sie abgerechnet ist."
+            resolved: "Unbestätigter Verkauf zurückgesetzt."
         settings:
             rebalance:
                 sentence_html: "Rebalancing, wenn ein Wert um mehr als <span>%{value_html} %</span> vom Ziel abweicht"

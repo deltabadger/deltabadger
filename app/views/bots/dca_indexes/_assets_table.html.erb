@@ -1,0 +1,29 @@
+<%# One table shape for both the index's own holdings and the ones that left it — the quitters are
+    the same asset with the same columns, just no longer part of the index. %>
+<table class="table">
+  <thead>
+    <tr>
+      <th scope="col" class="table__logo"></th>
+      <th scope="col"><%= t('bot.dca_index.asset') %></th>
+      <th scope="col"><%= t('bot.dca_index.amount') %></th>
+      <th scope="col"><%= t('bot.dca_index.avg_price') %></th>
+      <th scope="col"><%= t('bot.dca_index.value') %></th>
+      <th scope="col"><%= t('bot.dca_index.pl') %></th>
+    </tr>
+  </thead>
+  <tbody id="<%= body_id %>">
+    <% values.each do |symbol, data| %>
+      <% pnl_pct = data[:pnl_percentage] || 0 %>
+      <tr>
+        <td class="table__logo"><%= render 'assets/logo', asset: logo_assets[symbol]&.base_asset %></td>
+        <td scope="row"><%= symbol %></td>
+        <td><%= number_with_precision(data[:amount] || 0, precision: 6, strip_insignificant_zeros: true) %></td>
+        <td><%= number_with_precision(data[:avg_price] || 0, precision: 2, delimiter: ',') %></td>
+        <td><%= number_with_precision(data[:current_value] || 0, precision: 2, delimiter: ',') %></td>
+        <td class="<%= pnl_pct >= 0 ? 'text-success' : 'text-danger' %>">
+          <b><%= pnl_pct >= 0 ? '+' : '' %><%= number_with_precision(pnl_pct * 100, precision: 1) %>%</b>
+        </td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

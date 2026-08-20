@@ -30,6 +30,9 @@ cs:
             asset: "Aktivum"
             amount: "Množství"
             avg_price: "Prům. cena"
+            realised_pnl: "Realizovaný zisk/ztráta"
+            realised_pnl_note: "Z prodeje aktiv, která opustila index. Rebalancování se nepočítá."
+            left_the_index: "Mimo index"
             value: "Hodnota"
             pl: "Z/Z"
             warning:
@@ -240,6 +243,17 @@ cs:
                 other: "Zameškané částky byly uloženy do zásobníku a budou použity s dalšími plánovanými příkazy, aby byly váš rozvrh a alokace dodrženy co nejpřesněji v rámci minimálních velikostí příkazů."
             title: "Gratulujeme! Váš bot běží."
             general_note: "Minimální velikosti příkazů a potřebné částky pro rebalancování se mění. Transakce mohou občas vypadat nepravidelně, ale bot vždy směřuje k vaší požadované alokaci a rozvrhu, takže není potřeba nic dalšího dělat."
+        liquidation:
+            sell: "Prodat"
+            sell_confirm: "Prodat vše, co opustilo index? Pozice se uzavřou za tržní cenu."
+            started: "Prodávám aktiva, která opustila index."
+            market_closed: "Trh je právě zavřený. Zkus to znovu po otevření."
+            unsupported: "Aktiva, která opustila index, mohou držet jen indexoví boti."
+            halted: "Nepotvrzený prodej — zkontroluj svou burzu"
+            resolve: "Vymazat"
+            resolve_confirm: "Pokračuj jen tehdy, pokud jsi zkontroloval burzu a žádný prodejní pokyn už není otevřený."
+            still_open: "Pokyn %{order_id} je na tvé burze stále otevřený. Počkej, až se vypořádá."
+            resolved: "Nepotvrzený prodej vymazán."
         settings:
             rebalance:
                 sentence_html: "Rebalancovat, když se aktivum odchýlí o více než <span>%{value_html} %</span> od cíle"

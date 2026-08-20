@@ -539,6 +539,14 @@ nl:
             rebalance_ambiguous: 'Status van de herbalanceringsorder onbevestigd — gepauzeerd om dubbel plaatsen te voorkomen'
             rebalance_manually_resolved: 'Herbalanceren handmatig hervat'
             dca_skipped_rebalance_pending: 'Inleg overgeslagen — er loopt nog een herbalancering'
+            liquidation_requested: "Bezig met verkopen van de assets die de index hebben verlaten"
+            liquidation_placed: "Een asset verkopen die de index heeft verlaten"
+            liquidation_skipped: "Een asset die de index heeft verlaten kon niet worden verkocht — blijft staan"
+            liquidation_ambiguous: "Status van de verkooporder onbevestigd — gepauzeerd zodat die niet dubbel wordt geplaatst"
+            liquidation_manually_resolved: "Onbevestigde verkoop handmatig gewist"
+            liquidation_market_closed: "Markt gesloten — niets verkocht"
+            liquidation_not_started: "Er is niets verkocht — de bot was bezig of de index kon niet worden ververst"
+            dca_skipped_liquidation_pending: "Inleg overgeslagen — er loopt nog een verkoop"
             started: 'Bot gestart'
             stopped: 'Bot gestopt'
             reschedule_disabled: 'Automatische planning gepauzeerd'

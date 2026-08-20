@@ -559,6 +559,14 @@ cs:
             rebalance_ambiguous: 'Stav rebalancovacího pokynu nepotvrzen — pozastaveno, aby nebyl zadán dvakrát'
             rebalance_manually_resolved: 'Rebalancování ručně obnoveno'
             dca_skipped_rebalance_pending: 'Příspěvek přeskočen — rebalancování stále probíhá'
+            liquidation_requested: "Prodávám aktiva, která opustila index"
+            liquidation_placed: "Prodávám aktivum, které opustilo index"
+            liquidation_skipped: "Aktivum, které opustilo index, se nepodařilo prodat — zůstává"
+            liquidation_ambiguous: "Stav prodejního pokynu nepotvrzen — pozastaveno, aby nebyl zadán dvakrát"
+            liquidation_manually_resolved: "Nepotvrzený prodej vymazán ručně"
+            liquidation_market_closed: "Trh zavřený — nic se neprodalo"
+            liquidation_not_started: "Nic se neprodalo — bot byl zaneprázdněný nebo se index nepodařilo obnovit"
+            dca_skipped_liquidation_pending: "Příspěvek přeskočen — stále probíhá prodej"
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'

@@ -539,6 +539,14 @@ it:
             rebalance_ambiguous: 'Stato dell’ordine di ribilanciamento non confermato — in pausa per non duplicarlo'
             rebalance_manually_resolved: 'Ribilanciamento ripreso manualmente'
             dca_skipped_rebalance_pending: 'Versamento saltato — un ribilanciamento è ancora in corso'
+            liquidation_requested: "Sto vendendo gli asset usciti dall’indice"
+            liquidation_placed: "Sto vendendo un asset uscito dall’indice"
+            liquidation_skipped: "Non è stato possibile vendere un asset uscito dall’indice — resta in portafoglio"
+            liquidation_ambiguous: "Stato dell’ordine di vendita non confermato — in pausa per non inviarlo due volte"
+            liquidation_manually_resolved: "Vendita non confermata azzerata manualmente"
+            liquidation_market_closed: "Mercato chiuso — niente venduto"
+            liquidation_not_started: "Non è stato venduto nulla — il bot era occupato o l’indice non si è aggiornato"
+            dca_skipped_liquidation_pending: "Contributo saltato — una vendita è ancora in corso"
             started: 'Bot avviato'
             stopped: 'Bot arrestato'
             reschedule_disabled: 'Pianificazione automatica in pausa'

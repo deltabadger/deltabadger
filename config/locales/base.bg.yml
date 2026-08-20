@@ -551,6 +551,14 @@ bg:
             rebalance_ambiguous: 'Статусът на поръчката за ребалансиране е непотвърден — спряно, за да не се подаде два пъти'
             rebalance_manually_resolved: 'Ребалансирането е възобновено ръчно'
             dca_skipped_rebalance_pending: 'Вноската е пропусната — ребалансиране още тече'
+            liquidation_requested: "Продаваме активите, напуснали индекса"
+            liquidation_placed: "Продаваме актив, напуснал индекса"
+            liquidation_skipped: "Актив, напуснал индекса, не можа да бъде продаден — остава"
+            liquidation_ambiguous: "Статусът на поръчката за продажба е непотвърден — на пауза, за да не се подаде два пъти"
+            liquidation_manually_resolved: "Непотвърдената продажба е изчистена ръчно"
+            liquidation_market_closed: "Пазарът е затворен — нищо не е продадено"
+            liquidation_not_started: "Нищо не беше продадено — ботът беше зает или индексът не можа да се обнови"
+            dca_skipped_liquidation_pending: "Вноската е пропусната — все още тече продажба"
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'
