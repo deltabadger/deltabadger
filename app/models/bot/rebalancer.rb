@@ -385,30 +385,29 @@ module Bot::Rebalancer
       amount: amount,
       quote_amount: quote_amount,
       side: side,
-      order_type: limit_ordered? ? :limit_order : :market_order,
+      # ALWAYS a market order, never FeeCutter's limit. FeeCutter is a DCA setting and its premise —
+      # "waiting is free" — is false here. A rebalance order's size is derived from a SNAPSHOT of the
+      # allocation, so a resting order executes against a picture that is hours stale. Worse, it is
+      # adversely selected: a sell parked above the market fills only if the overweight asset kept
+      # rising, which is exactly when the amount we computed was too small. Both legs systematically
+      # under-correct, and when the price moves the other way the order never fills at all — which
+      # wedges the rule, because a pending rebalance blocks every future one.
+      order_type: :market_order,
       # Not a contribution. Keeps rebalance fills out of the DCA carry, the spend cap and
       # Bot#last_transaction.
       transaction_type: 'REBALANCE'
     }
   end
 
-  # Market orders cross the spread on the side they trade; limit orders sit behind it. The DCA path
-  # only ever needed the buy side of this, so both directions live here.
+  # The price a market order will realistically execute at, asked of the venue rather than assumed:
+  # on venues with no native market order type this is also the price actually submitted, so sizing
+  # and the venue-minimum check have to use exactly this number or the order is built against one
+  # price and sent at another.
   def side_price(ticker, side)
-    result = if limit_ordered?
-               ticker.get_last_price
-             elsif side == :sell
-               ticker.get_bid_price
-             else
-               ticker.get_ask_price
-             end
+    result = exchange.market_price_for(ticker: ticker, side: side)
     return nil if result.failure?
 
-    return result.data unless limit_ordered?
-
-    distance = limit_order_pcnt_distance_decimal
-    multiplier = side == :sell ? (1.to_d + distance) : (1.to_d - distance)
-    ticker.adjusted_price(price: result.data * multiplier)
+    result.data
   end
 
   def live_free_balance(asset_id)

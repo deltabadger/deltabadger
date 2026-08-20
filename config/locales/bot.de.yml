@@ -219,7 +219,7 @@ de:
         settings:
             rebalance:
                 sentence_html: "Rebalancing, wenn ein Wert um mehr als <span>%{value_html} %</span> vom Ziel abweicht"
-                note: "Läuft weiter, auch wenn der DCA-Zeitplan gestoppt ist."
+                note: "Läuft weiter, auch wenn der DCA-Zeitplan gestoppt ist. Nutzt immer Market-Orders."
                 drift: "Das Portfolio liegt %{drift} % neben seiner Zielaufteilung"
                 below_minimum: "— zu klein für das Minimum dieser Börse"
                 paused: "Rebalancing pausiert — prüfe deine Börse"

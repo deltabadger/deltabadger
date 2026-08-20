@@ -178,6 +178,21 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement get_ask_price"
   end
 
+  # The price a MARKET order on this venue will realistically execute at — the touch by default.
+  #
+  # Callers must size against this and test venue minimums against it, because on venues with no
+  # native market order type it is also the price actually submitted. When those three disagree the
+  # failures are ugly and silent: an order sized at the touch but submitted 1% away asks for more
+  # quote than the balance it was capped to, and a notional that clears the minimum at the touch is
+  # rejected by the venue at the crossed price. Both land in a terminal ambiguous halt.
+  def market_price_for(ticker:, side:)
+    # Read through the ticker, which is how every other price read in the app reaches the venue.
+    result = side == :sell ? ticker.get_bid_price : ticker.get_ask_price
+    return result if result.failure?
+
+    Result::Success.new(ticker.adjusted_price(price: result.data.to_d))
+  end
+
   def get_candles(ticker:, start_at:, timeframe:)
     raise NotImplementedError, "#{self.class.name} must implement get_candles"
   end

@@ -212,7 +212,7 @@ pl:
         settings:
             rebalance:
                 sentence_html: "Rebalansuj, gdy aktywo odchyli się o więcej niż <span>%{value_html} %</span> od celu"
-                note: "Działa nadal, gdy harmonogram DCA jest zatrzymany."
+                note: "Działa nadal, gdy harmonogram DCA jest zatrzymany. Zawsze używa zleceń rynkowych."
                 drift: "Portfel jest %{drift} % od docelowego podziału"
                 below_minimum: "— zbyt mało, by zlecić przy minimum tej giełdy"
                 paused: "Rebalansowanie wstrzymane — sprawdź swoją giełdę"

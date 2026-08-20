@@ -209,14 +209,40 @@ class Exchanges::Hyperliquid < Exchange
     Result::Success.new(candles)
   end
 
-  # Hyperliquid spot has no native market orders — limit orders are always used.
-  # The LimitOrderable concern handles this by always using limit orders.
-  def market_buy(**)
-    raise 'Hyperliquid does not support market orders on spot. Use limit orders instead.'
+  # Hyperliquid spot has no native market order type, so one is emulated with a limit priced THROUGH
+  # the touch — the same trick Exchanges::Gemini uses. Crossing the book takes the resting liquidity
+  # immediately instead of queueing behind it, which is the whole point of asking for a market order.
+  #
+  # These used to raise, because the only caller was the DCA leg and Bot::LimitOrderable forces
+  # limit orders here anyway. Rebalancing is the caller that genuinely needs immediacy: its order
+  # size comes from a snapshot of the portfolio, so an order that rests is an order sized against a
+  # picture that has since changed.
+  #
+  # MARKET_CROSS is also a slippage bound, which a true market order does not have — worth having on
+  # thin spot books.
+  # ponytail: GTC, so an unfilled remainder rests rather than cancelling. Hyperliquid supports
+  # immediate-or-cancel (`order_type: {limit: {tif: "Ioc"}}`), but our client wrapper does not expose
+  # it — that is a honeymaker change. The remainder is handled: the rebalance state machine already
+  # treats a resting order as pending and reconciles partial fills.
+  MARKET_CROSS = BigDecimal('0.01')
+
+  def market_buy(ticker:, amount:, amount_type:)
+    set_crossing_order(ticker:, amount:, amount_type:, side: :buy)
   end
 
-  def market_sell(**)
-    raise 'Hyperliquid does not support market orders on spot. Use limit orders instead.'
+  def market_sell(ticker:, amount:, amount_type:)
+    set_crossing_order(ticker:, amount:, amount_type:, side: :sell)
+  end
+
+  # Buy above the ask / sell below the bid, so an order crosses and fills against what is resting.
+  # Overridden here rather than applied at placement time so that whoever SIZED the order used this
+  # same number — see Exchange#market_price_for.
+  def market_price_for(ticker:, side:)
+    result = super
+    return result if result.failure?
+
+    multiplier = side == :buy ? (1 + MARKET_CROSS) : (1 - MARKET_CROSS)
+    Result::Success.new(ticker.adjusted_price(price: result.data.to_d * multiplier))
   end
 
   def limit_buy(ticker:, amount:, amount_type:, price:)
@@ -398,6 +424,13 @@ class Exchanges::Hyperliquid < Exchange
   def parse_order_id(order_id)
     parts = order_id.split('-', 2)
     [parts[0], parts[1]]
+  end
+
+  def set_crossing_order(ticker:, amount:, amount_type:, side:)
+    result = market_price_for(ticker: ticker, side: side)
+    return result if result.failure?
+
+    set_limit_order(ticker:, amount:, amount_type:, side:, price: result.data)
   end
 
   def set_limit_order(ticker:, amount:, amount_type:, side:, price:)

@@ -61,18 +61,29 @@ class Bots::DcaDualAssetRebalanceTest < ActiveSupport::TestCase
     assert_equal 90, @bot.transactions.last.price.to_f, 'crossing the spread on a sell means the bid'
   end
 
-  test 'a limit-order bot places a limit sell above the last price' do
-    # Hyperliquid raises on market orders, so forcing market here would crash every HL dual bot.
+  test 'FeeCutter does not apply — a rebalance is always a market order' do
+    # FeeCutter is a DCA setting and its premise, that waiting is free, is false here. A rebalance
+    # order's size comes from a snapshot of the allocation, so an order left resting executes
+    # against a picture that has since changed — and it fills precisely when the drift got worse,
+    # because a sell parked above the market only trades if the overweight asset kept rising.
     @bot.stubs(:limit_ordered?).returns(true)
-    @bot.exchange.stubs(:limit_sell).returns(Result::Success.new(order_id: 'limit-sell-1'))
-    @bot.exchange.expects(:market_sell).never
+    @bot.exchange.expects(:limit_sell).never
     stub_values(base0: 70, base1: 30)
 
     @bot.rebalance!
 
-    order = @bot.transactions.last
-    assert_equal 'limit_order', order.order_type
-    assert_operator order.price.to_f, :>, 100, 'a limit sell sits above the last price, not below it'
+    assert_equal 'market_order', @bot.transactions.last.order_type
+  end
+
+  test 'a market sell is sized off the bid even with FeeCutter on' do
+    @bot.stubs(:limit_ordered?).returns(true)
+    stub_ticker_bid_price(@bot.ticker0, price: 90)
+    stub_ticker_last_price(@bot.ticker0, price: 100)
+    stub_values(base0: 70, base1: 30)
+
+    @bot.rebalance!
+
+    assert_equal 90, @bot.transactions.last.price.to_f, 'the last price is a FeeCutter notion'
   end
 
   test 'drift too small to trade places nothing at all' do
@@ -133,6 +144,23 @@ class Bots::DcaDualAssetRebalanceTest < ActiveSupport::TestCase
     @bot.rebalance!
 
     assert @bot.reload.rebalance_ambiguous?
+  end
+
+  test 'a buy is sized at the price it will actually be submitted at' do
+    # On a venue with no native market order the sizing price IS the submission price. Sizing at the
+    # touch while submitting 1 % away asks for more quote than the balance the buy was capped to —
+    # an insufficient-funds rejection, which is not a placement-safe error, so it halts the rule
+    # permanently rather than retrying.
+    @bot.exchange.stubs(:market_price_for).with(has_entries(side: :buy)).returns(Result::Success.new(101.to_d))
+    @bot.exchange.stubs(:market_price_for).with(has_entries(side: :sell)).returns(Result::Success.new(99.to_d))
+    stub_values(base0: 70, base1: 30)
+    @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_BUYING, remaining_quote_amount: 20)
+
+    @bot.rebalance!
+
+    buy = @bot.transactions.where(side: :buy).last
+    assert_in_delta 20, (buy.amount.to_f * buy.price.to_f), 0.01,
+                    'notional at the submitted price must equal the cash on hand, not exceed it'
   end
 
   private

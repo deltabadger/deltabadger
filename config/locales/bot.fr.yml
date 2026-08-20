@@ -213,7 +213,7 @@ fr:
         settings:
             rebalance:
                 sentence_html: "Rééquilibrer quand un actif s’écarte de plus de <span>%{value_html} %</span> de sa cible"
-                note: "Continue de fonctionner même si le calendrier DCA est arrêté."
+                note: "Continue de fonctionner même si le calendrier DCA est arrêté. Utilise toujours des ordres au marché."
                 drift: "Le portefeuille est à %{drift} % de sa répartition cible"
                 below_minimum: "— trop petit pour le minimum de cette plateforme"
                 paused: "Rééquilibrage en pause — vérifie ta plateforme"

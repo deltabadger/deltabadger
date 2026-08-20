@@ -1,4 +1,6 @@
 class Exchanges::Gemini < Exchange
+  MARKET_CROSS = BigDecimal('0.01')
+
   COINGECKO_ID = 'gemini'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['InsufficientFunds', 'Insufficient Funds'],
@@ -190,6 +192,15 @@ class Exchanges::Gemini < Exchange
   end
 
   # @param amount_type [Symbol] :base or :quote
+  # Buy above the ask / sell below the bid, so the IOC order crosses instead of expiring unfilled.
+  def market_price_for(ticker:, side:)
+    result = super
+    return result if result.failure?
+
+    multiplier = side == :buy ? (1 + MARKET_CROSS) : (1 - MARKET_CROSS)
+    Result::Success.new(ticker.adjusted_price(price: result.data.to_d * multiplier))
+  end
+
   def market_buy(ticker:, amount:, amount_type:)
     set_market_order(
       ticker: ticker,
@@ -422,14 +433,12 @@ class Exchanges::Gemini < Exchange
   # @param amount_type [Symbol] :base or :quote
   # @param side [Symbol] must be either :buy or :sell
   def set_market_order(ticker:, amount:, amount_type:, side:)
-    # Gemini doesn't support true market orders; use IOC limit order at aggressive price
-    result = side == :buy ? get_ask_price(ticker: ticker) : get_bid_price(ticker: ticker)
+    # Gemini doesn't support true market orders; use IOC limit order at aggressive price.
+    # market_price_for carries the cross, so the caller that sized this order used the same price.
+    result = market_price_for(ticker: ticker, side: side)
     return result if result.failure?
 
-    current_price = result.data
-    # Set price 1% above ask for buy, 1% below bid for sell to ensure fill
-    aggressive_price = side == :buy ? (current_price * 1.01) : (current_price * 0.99)
-    aggressive_price = ticker.adjusted_price(price: aggressive_price)
+    aggressive_price = result.data
 
     amount = ticker.adjusted_amount(amount: amount, amount_type: amount_type)
     # Convert quote amount to base using aggressive price

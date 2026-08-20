@@ -203,7 +203,7 @@ pt:
         settings:
             rebalance:
                 sentence_html: "Reequilibrar quando um ativo se afastar mais de <span>%{value_html} %</span> do seu alvo"
-                note: "Continua a funcionar mesmo com o agendamento de DCA parado."
+                note: "Continua a funcionar mesmo com o agendamento de DCA parado. Usa sempre ordens a mercado."
                 drift: "A carteira está a %{drift} % da sua divisão-alvo"
                 below_minimum: "— demasiado pequeno para o mínimo desta exchange"
                 paused: "Reequilíbrio em pausa — verifica a tua exchange"
