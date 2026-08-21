@@ -34,16 +34,25 @@ class BotsController < ApplicationController
     @show_filters = (@total_bots > 1 && @has_active && @has_inactive) || @has_archived
 
     @pnl_hash = {}
+    @profit_usd_hash = {}
     @loading_hash = {}
-    @metrics_hash = {}
+    rates = {} # one FX lookup per currency for the whole page, not per tile
     @bots.each do |bot|
       next unless bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index? || bot.signal?
 
       metrics_with_current_prices = bot.metrics_with_current_prices_from_cache
-      @pnl_hash[bot.id] = metrics_with_current_prices[:pnl] unless metrics_with_current_prices.nil?
       @loading_hash[bot.id] = metrics_with_current_prices.nil?
-      @metrics_hash[bot.id] = metrics_with_current_prices unless metrics_with_current_prices.nil?
+      next if metrics_with_current_prices.nil?
+
+      @pnl_hash[bot.id] = metrics_with_current_prices[:pnl]
+      @profit_usd_hash[bot.id] = bot.profit_in_usd(metrics_with_current_prices, rates: rates)
     end
+
+    # A tile whose FX rate was cold renders its percent but no amount. Ask for the same async
+    # refresh a cold-metrics tile gets: that job runs outside the request and may fetch the
+    # rate, so the amount fills in instead of staying blank until the next page load.
+    @tile_refresh_ids = @loading_hash.select { |_, loading| loading }.keys +
+                        @profit_usd_hash.select { |_, usd| usd.nil? }.keys
 
     # Cache-only: never make a live exchange/FX call in the index request. When the
     # snapshot is still loading, the view fires an async global_pnl_update broadcast.

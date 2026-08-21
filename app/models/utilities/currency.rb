@@ -19,6 +19,14 @@ module Utilities
     # refresh (keeps cache-only global PnL from going FX-cold between warm runs).
     CACHE_DURATION = 6.minutes
 
+    # Fiat and stablecoin rates barely move, and these rates feed ONE thing: the USD figures
+    # on the dashboard. Nothing here sizes an order or files a tax report. So hold them long
+    # enough that a EUR or USDT tile always has its amount, instead of blanking every time the
+    # short window lapses between warm passes.
+    #
+    # Volatile quotes keep the short cut: for a BTC-quoted bot this "rate" IS the BTC price.
+    STABLE_CACHE_DURATION = 12.hours
+
     class << self
       # Convert amount from one currency to another
       # @param amount [Numeric] The amount to convert
@@ -45,19 +53,25 @@ module Utilities
         return Result::Success.new(1.0) if from == to
 
         cache_key = "exchange_rate_#{from}_to_#{to}"
+        cached = Rails.cache.read(cache_key)
+        return cached if cached.is_a?(Result::Success)
 
-        if cache_only
-          # Read-only: never trigger a live rate calculation. A cold cache means the
-          # caller (e.g. the /bots index) should treat the rate as not-yet-available.
-          cached = Rails.cache.read(cache_key)
-          return cached if cached.is_a?(Result::Success)
+        # Read-only: never trigger a live rate calculation. A cold cache means the
+        # caller (e.g. the /bots index) should treat the rate as not-yet-available.
+        return Result::Failure.new("Exchange rate #{from}->#{to} not cached") if cache_only
 
-          return Result::Failure.new("Exchange rate #{from}->#{to} not cached")
-        end
+        result = calculate_exchange_rate(from, to)
+        # Only an answer is worth keeping. A cached failure stops every reader from retrying
+        # for the whole window — and that window is now measured in hours.
+        Rails.cache.write(cache_key, result, expires_in: cache_duration_for(from: from, to: to)) if result.success?
+        result
+      end
 
-        Rails.cache.fetch(cache_key, expires_in: CACHE_DURATION) do
-          calculate_exchange_rate(from, to)
-        end
+      # How long a rate may be held: hours for slow movers, minutes for anything volatile.
+      def cache_duration_for(from:, to:)
+        slow = ->(symbol) { FIAT_SYMBOLS.include?(symbol.upcase) || STABLECOIN_IDS.key?(symbol.upcase) }
+
+        slow.call(from) && slow.call(to) ? STABLE_CACHE_DURATION : CACHE_DURATION
       end
 
       # Batch convert multiple amounts efficiently (single API call for rates)

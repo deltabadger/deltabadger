@@ -115,3 +115,12 @@ $values: 1 2 3 4 5
     @each $value in $values
       .#{$side}#{$direction}-#{$value}
         #{$side}#{$side-suffix}-#{$dir-name}: #{$value}rem
+// PnL format switch (pnl_format_controller.js): percent by default, amounts when <html> carries
+// the class. Both formats are always in the markup so a turbo broadcast cannot reset the choice.
+.pnl-amount
+  display: none
+.show-pnl-amount
+  .pnl-amount
+    display: inline
+  .pnl-percent
+    display: none

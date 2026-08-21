@@ -186,22 +186,6 @@ module Bots::DcaIndex::Measurable
     )
   end
 
-  def broadcast_pnl_update
-    metrics_data = metrics_with_current_prices
-
-    broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
-      target: dom_id(self, :pnl),
-      partial: 'bots/bot_tile/bot_tile_pnl',
-      locals: { bot: self, pnl: metrics_data[:pnl] || '', loading: false }
-    )
-    # NOT the account total. `User#global_pnl` walks every bot the user owns, and the dashboard
-    # fires one of these jobs per bot — N bots did N x N bots' worth of work, ending in two live
-    # FX conversions each (17.7s warm / 158s cold for fifteen bots). The total is owned by
-    # User::BroadcastGlobalPnlUpdateJob, which the page requests once and which does not depend
-    # on these jobs having run.
-  end
-
   def metrics_with_current_prices_from_cache
     Rails.cache.read(metrics_with_current_prices_cache_key)
   end
