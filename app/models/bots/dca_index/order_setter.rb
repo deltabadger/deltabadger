@@ -79,16 +79,48 @@ module Bots::DcaIndex::OrderSetter
       ticker = alloc[:ticker]
       next unless ticker.present?
 
-      price_result = if limit_ordered?
-                       ticker.get_last_price
-                     else
-                       ticker.get_ask_price
-                     end
+      price_result = begin
+        limit_ordered? ? ticker.get_last_price : ticker.get_ask_price
+      rescue Client::TransientNetworkError, Client::RateLimitedError
+        # Already the right class, and TransientNetworkError already carries original_class — the
+        # provenance the placement guard reads to tell a request that never left from one that may
+        # have landed. Re-wrapping would erase it.
+        raise
+      rescue StandardError => e
+        # The concrete clients raise on a zero book ("Wrong ask price for X: 0.0") rather than
+        # returning a Failure. Ticker#priced? has always rescued that; this path used to let it
+        # escape as a bare RuntimeError. Same shape, so both arrive at the branch below.
+        Result::Failure.new(e.message)
+      end
 
       if price_result.failure?
         Rails.logger.error("set_orders for index bot #{id} failed to get price for #{alloc[:symbol]}. Errors: #{price_result.errors.to_sentence}")
-        create_failed_order!(ticker: ticker, error_messages: price_result.errors)
-        return price_result
+        # A constituent we cannot price stops the tick — but as something retryable, not as a dead
+        # bot. This became load-bearing when incumbents stopped being price-probed during the
+        # refresh: that probe used to double as a pre-flight filter here, dropping an unpriceable
+        # coin from the composition moments before this ran. Now it keeps its seat, so a blip
+        # arrives here instead.
+        #
+        # Skipping it and buying the rest is not on offer. Step 2 below builds total_current_value
+        # from the coins that priced, so dropping one understates the portfolio by its whole held
+        # value; on a bot whose holdings dwarf one contribution every survivor's target then falls
+        # below its current value, every offset clamps to zero at Step 4, and the tick buys NOTHING.
+        # Valuing it from somewhere else means trading nine coins at weights derived from a price we
+        # had to invent. Not acting on a price we do not have is the answer
+        # Rebalancer#unpriced_holding? already gives the rebalance leg.
+        #
+        # No create_failed_order!: nothing was placed, so a `failed` row would claim an order was
+        # attempted and rejected (the reasoning Exchange#placement_transient_error? already
+        # encodes) — and it doubles as the flag that suppresses Bot::ActionJob's execution_failed
+        # log, so the tick used to die twice over in silence.
+        #
+        # Raised, not returned: Bot::ActionJob turns a Failure into a bare string raise that matches
+        # neither retry_on, leaving the bot in :retrying with nothing queued. As a transient it
+        # retries four times and then reschedules at the next interval with a gray log and no alarm.
+        # Safe here because this is Step 1 — no order has been placed this tick, so the job's
+        # already-placed guard has nothing to suppress.
+        raise Client::TransientNetworkError,
+              "No price for #{alloc[:symbol]}: #{price_result.errors.to_sentence}"
       end
 
       price = if limit_ordered?
