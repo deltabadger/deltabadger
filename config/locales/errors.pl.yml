@@ -66,6 +66,11 @@ pl:
             transient_nonce: "%{exchange} odrzucił nonce żądania. Jeśli używasz tego klucza API także w innej aplikacji, zwiększ jego Nonce Window w ustawieniach API na %{exchange}."
             transient_unavailable: "%{exchange} jest chwilowo niedostępny. Bot automatycznie ponowi próbę."
         bots:
+            multi_asset:
+                min_assets: "Minimalna liczba aktywów w portfelu: %{min}."
+                max_assets: "Maksymalna liczba aktywów w portfelu: %{max}."
+                pair_missing: "Na giełdzie %{exchange_name} nie można handlować aktywami %{assets} względem wybranego aktywa kwotowanego."
+                locked_while_running: "Nie można zmieniać aktywów ani wag portfela, gdy bot działa."
             exchange_asset_mismatch: "Nie wszystkie aktywa są notowane na %{exchange_name}"
             archived: "Przywróć tego bota, zanim go uruchomisz"
             exchange_change_while_open_orders: "Anuluj wszystkie otwarte zlecenia tego bot na %{exchange_name} przed zmianą exchange"

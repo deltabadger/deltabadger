@@ -14,6 +14,9 @@ module Bot::Typeable
     scope :dca_index, -> { where(type: 'Bots::DcaIndex') }
     scope :not_dca_index, -> { where.not(type: 'Bots::DcaIndex') }
 
+    scope :dca_multi_asset, -> { where(type: 'Bots::DcaMultiAsset') }
+    scope :not_dca_multi_asset, -> { where.not(type: 'Bots::DcaMultiAsset') }
+
     scope :signal, -> { where(type: 'Bots::Signal') }
     scope :not_signal, -> { where.not(type: 'Bots::Signal') }
   end
@@ -28,6 +31,10 @@ module Bot::Typeable
 
   def dca_index?
     type == 'Bots::DcaIndex'
+  end
+
+  def dca_multi_asset?
+    type == 'Bots::DcaMultiAsset'
   end
 
   def signal?

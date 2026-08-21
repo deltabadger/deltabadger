@@ -473,6 +473,60 @@ FactoryBot.define do
     end
   end
 
+  factory :dca_multi_asset, class: 'Bots::DcaMultiAsset' do
+    user
+    type { 'Bots::DcaMultiAsset' }
+    status { :created }
+
+    transient do
+      base_assets { nil }
+      quote_asset { nil }
+      allocations { nil }
+      with_api_key { true }
+    end
+
+    after(:build) do |bot, evaluator|
+      bases = evaluator.base_assets || [create(:asset, :bitcoin), create(:asset, :ethereum)]
+      quote = evaluator.quote_asset || create(:asset, :usd)
+      bot.exchange ||= create(:binance_exchange)
+      bases.each do |base|
+        unless Ticker.exists?(exchange: bot.exchange, base_asset: base, quote_asset: quote)
+          create(:ticker, exchange: bot.exchange, base_asset: base, quote_asset: quote)
+        end
+      end
+
+      weights = if evaluator.allocations
+                  evaluator.allocations.to_h { |asset, weight| [asset.id.to_s, weight] }
+                else
+                  bases.to_h { |base| [base.id.to_s, 1.0 / bases.size] }
+                end
+      bot.settings = bot.settings.merge(
+        'quote_asset_id' => quote.id,
+        'quote_amount' => 100.0,
+        'interval' => 'day',
+        'allocations' => bot.normalize_allocations(weights)
+      )
+    end
+
+    before(:create) { |bot, _| bot.set_missed_quote_amount }
+
+    after(:create) do |bot, evaluator|
+      if evaluator.with_api_key && !ApiKey.exists?(user: bot.user, exchange: bot.exchange, key_type: :trading)
+        create(:api_key, user: bot.user, exchange: bot.exchange)
+      end
+    end
+
+    trait(:started) do
+      status { :scheduled }
+      started_at { Time.current }
+    end
+    trait(:stopped) do
+      status { :stopped }
+      started_at { 1.day.ago }
+      stopped_at { Time.current }
+    end
+  end
+
   # DCA Index bot factory
   factory :dca_index, class: 'Bots::DcaIndex' do
     user
