@@ -2,15 +2,15 @@
   <% if global_pnl.present? %>
     <% pnl_percent = global_pnl[:percent] %>
     <% profit_usd = global_pnl[:profit_usd] %>
-    <% color_class = pnl_percent.negative? ? 'text-danger' : pnl_percent.positive? ? 'text-success' : '' %>
+    <%# Switches every PnL on the page — this one and each bot tile — see pnl_format_controller.js. %>
     <h1 class="header header--1"
-        data-controller="value-toggle"
-        data-action="click->value-toggle#toggle"
+        data-controller="pnl-format"
+        data-action="click->pnl-format#toggle"
         style="cursor: pointer;">
-      <span data-value-toggle-target="primary">
+      <span class="pnl-percent">
         <%= pnl_percent.positive? ? '+' : '' %><%= format_percent(pnl_percent, precision: 2) %>
       </span>
-      <span data-value-toggle-target="secondary" class="d-none">
+      <span class="pnl-amount">
         <%= profit_usd.positive? ? '+' : '' %><%= number_to_currency(profit_usd, precision: 0) %>
       </span>
     </h1>

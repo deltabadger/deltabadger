@@ -121,6 +121,9 @@ application.register("order-filter", OrderFilterController)
 import PieChartController from "./pie_chart_controller"
 application.register("pie-chart", PieChartController)
 
+import PnlFormatController from "./pnl_format_controller"
+application.register("pnl-format", PnlFormatController)
+
 import ProgressBarController from "./progress_bar_controller"
 application.register("progress-bar", ProgressBarController)
 
@@ -156,9 +159,6 @@ application.register("tracker-export", TrackerExportController)
 
 import TurboFrameTriggerController from "./turbo_frame_trigger_controller"
 application.register("turbo-frame-trigger", TurboFrameTriggerController)
-
-import ValueToggleController from "./value_toggle_controller"
-application.register("value-toggle", ValueToggleController)
 
 import ZarazController from "./zaraz_controller"
 application.register("zaraz", ZarazController)

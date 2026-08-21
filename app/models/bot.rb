@@ -152,6 +152,53 @@ class Bot < ApplicationRecord
     [net, 0].max
   end
 
+  # A tile's profit in USD — every tile reads in the same currency as the account total, so
+  # the two formats stay comparable across bots quoted in EUR, USDT or anything else.
+  #
+  # `rates` memoizes one lookup per currency across a page of tiles: the cache is Solid Cache,
+  # so each lookup is a query, and this page renders eighty tiles off one or two currencies.
+  #
+  # nil when the rate is not cached and the caller won't fetch one — the index never makes a
+  # live FX call, and in exactly that case the account total is sitting in its spinner too.
+  def profit_in_usd(metrics, rates: {}, cache_only: true)
+    return nil if metrics.blank?
+
+    profit = (metrics[:total_amount_value_in_quote] || 0).to_d - (metrics[:total_quote_amount_invested] || 0).to_d
+    return profit if profit.zero? # nothing is nothing in every currency — no rate needed
+
+    currency = quote_asset&.symbol
+    return nil if currency.nil?
+
+    rate = (rates[currency] ||= Utilities::Currency.exchange_rate(from: currency, to: 'USD',
+                                                                  cache_only: cache_only))
+    return nil if rate.failure?
+
+    profit * rate.data.to_d
+  end
+
+  # One tile's PnL, in both formats — the partial renders percent and USD amount side by side
+  # and the page-level class picks one. Shared by every measurable bot type: they all replaced
+  # the same target with the same partial.
+  #
+  # This runs in a background job, so it may fetch a rate; the index may not.
+  #
+  # NOT the account total. `User#global_pnl` walks every bot the user owns, and the dashboard
+  # fires one of these jobs per bot — N bots did N x N bots' worth of work, ending in two live
+  # FX conversions each (17.7s warm / 158s cold for fifteen bots). The total is owned by
+  # User::BroadcastGlobalPnlUpdateJob, which the page requests once and which does not depend
+  # on these jobs having run.
+  def broadcast_pnl_update
+    metrics_data = metrics_with_current_prices
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: dom_id(self, :pnl),
+      partial: 'bots/bot_tile/bot_tile_pnl',
+      locals: { bot: self, pnl: metrics_data[:pnl],
+                profit_usd: profit_in_usd(metrics_data, cache_only: false), loading: false }
+    )
+  end
+
   def broadcast_status_bar_update
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
