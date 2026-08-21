@@ -68,8 +68,11 @@ module ExchangeMockHelpers
   def setup_bot_execution_mocks(bot, price: 50_000, order_id: nil)
     order_id ||= "test-order-#{SecureRandom.hex(8)}"
 
-    # Handle both single asset (ticker) and dual asset (ticker0, ticker1) bots
-    tickers = if bot.respond_to?(:ticker) && bot.ticker.present?
+    # Composition bots expose only the members they trade; their full ticker catalogue also keeps
+    # removed holdings priceable.
+    tickers = if bot.respond_to?(:composition_tickers)
+                bot.composition_tickers
+              elsif bot.respond_to?(:ticker) && bot.ticker.present?
                 [bot.ticker]
               elsif bot.respond_to?(:ticker0) && bot.respond_to?(:ticker1)
                 [bot.ticker0, bot.ticker1].compact
@@ -87,8 +90,9 @@ module ExchangeMockHelpers
     # Stub market buy (used by default for DCA)
     stub_market_buy_success(bot.exchange, order_id: order_id)
 
-    # Stub balance checks - handle both single and dual asset bots
+    # Stub balance checks for the quote and every base the selected tickers represent.
     balances = { bot.quote_asset_id => { free: 10_000, locked: 0 } }
+    tickers.each { |ticker| balances[ticker.base_asset_id] = { free: 1.0, locked: 0 } }
     balances[bot.base_asset_id] = { free: 1.0, locked: 0 } if bot.respond_to?(:base_asset_id)
     balances[bot.base0_asset_id] = { free: 1.0, locked: 0 } if bot.respond_to?(:base0_asset_id)
     balances[bot.base1_asset_id] = { free: 1.0, locked: 0 } if bot.respond_to?(:base1_asset_id)

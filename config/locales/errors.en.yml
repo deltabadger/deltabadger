@@ -67,6 +67,12 @@ en:
             transient_nonce: "%{exchange} rejected the request nonce. If you also use this API key in another app, increase its Nonce Window in your %{exchange} API settings."
             transient_unavailable: "%{exchange} is temporarily unavailable. The bot will retry automatically."
         bots:
+            multi_asset:
+                min_assets: "A portfolio needs at least %{min} assets."
+                max_assets: "A portfolio can hold up to %{max} assets."
+                pair_missing: "%{assets} cannot be traded against the selected quote asset on %{exchange_name}."
+                locked_while_running: "Portfolio assets and allocations cannot be changed while the bot is running."
+                unbalanced: "Allocations add up to %{sum}%, not 100%."
             exchange_asset_mismatch: "Not all the assets are listed on %{exchange_name}"
             archived: "Reactivate this bot before starting it"
             exchange_change_while_open_orders: "Cancel all open orders this bot has on %{exchange_name} before changing the exchange"

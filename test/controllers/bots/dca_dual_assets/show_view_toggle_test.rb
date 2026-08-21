@@ -9,7 +9,7 @@ require 'test_helper'
 # toggling is conflict-free. A stopped/created bot shows the interactive barbell slider
 # alone: no donut, no toggle. The generic `donut-chart` controller is reused with
 # server-computed slices and no `storageKey` (default pie, session-only toggle).
-class Bots::DcaDualAssets::ShowViewToggleTest < ActionDispatch::IntegrationTest
+class DcaDualAssetShowViewToggleTest < ActionDispatch::IntegrationTest
   setup do
     @user = create(:user, admin: true, setup_completed: true)
     sign_in @user

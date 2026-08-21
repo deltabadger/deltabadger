@@ -21,7 +21,7 @@ class Bot::ResyncIndexCompositionJob < ApplicationJob
   retry_on Client::TransientNetworkError, wait: :polynomially_longer, attempts: 3
 
   def perform(bot)
-    bot.refresh_index_composition
+    bot.refresh_composition
     # The tables only, not Bot::BroadcastMetricsUpdateJob: that one also re-renders the chart, whose
     # candle series a composition change cannot alter — and waiting on it is what made the split
     # arrive with the chart redraw rather than on its own. Broadcast either way, since a failed

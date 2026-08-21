@@ -38,7 +38,7 @@ class BotsController < ApplicationController
     @loading_hash = {}
     rates = {} # one FX lookup per currency for the whole page, not per tile
     @bots.each do |bot|
-      next unless bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index? || bot.signal?
+      next unless bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index? || bot.dca_multi_asset? || bot.signal?
 
       metrics_with_current_prices = bot.metrics_with_current_prices_from_cache
       @loading_hash[bot.id] = metrics_with_current_prices.nil?
@@ -94,16 +94,11 @@ class BotsController < ApplicationController
           @bot.quote_asset.symbol => @bot.decimals[:quote]
         }
       elsif @bot.dca_index?
-        @decimals = {}
-        @decimals[@bot.quote_asset.symbol] = @bot.decimals[:quote] if @bot.quote_asset.present?
-        # Add decimals for all index assets
-        @bot.bot_index_assets.in_index.includes(:ticker).each do |bia|
-          next unless bia.ticker.present?
-
-          @decimals[bia.ticker.base] = bia.ticker.base_decimals
-        end
+        @decimals = composition_decimals(@bot)
         # Build index preview from bot's current state
         @index_preview = @bot.current_index_preview
+      elsif @bot.dca_multi_asset?
+        @decimals = composition_decimals(@bot)
       elsif @bot.signal?
         @decimals = {
           @bot.base_asset.symbol => @bot.decimals[:base],
@@ -126,7 +121,7 @@ class BotsController < ApplicationController
   def edit; end
 
   def update
-    @bot.set_missed_quote_amount if @bot.dca_single_asset? || @bot.dca_dual_asset? || @bot.dca_index?
+    @bot.set_missed_quote_amount if @bot.dca_single_asset? || @bot.dca_dual_asset? || @bot.dca_index? || @bot.dca_multi_asset?
 
     if @bot.update(update_params)
       # flash.now[:notice] = t('alert.bot.bot_updated')
@@ -187,6 +182,18 @@ class BotsController < ApplicationController
     )
   end
 
+  def dca_multi_asset_bot_params
+    params.require(:bots_dca_multi_asset).permit(
+      :label,
+      :exchange_id,
+      :add_asset_id,
+      :remove_asset_id,
+      :normalize_allocations,
+      *(Bots::DcaMultiAsset.stored_attributes[:settings] - %i[allocations base_asset_ids]),
+      allocations: {}
+    )
+  end
+
   def signal_bot_params
     params.require(:bots_signal).permit(
       :label,
@@ -220,6 +227,14 @@ class BotsController < ApplicationController
         exchange_id: dca_index_bot_params[:exchange_id],
         label: dca_index_bot_params[:label].presence
       }.compact
+    elsif @bot.dca_multi_asset?
+      {
+        settings: @bot.settings.merge(
+          @bot.parse_params(dca_multi_asset_bot_params).stringify_keys
+        ),
+        exchange_id: dca_multi_asset_bot_params[:exchange_id],
+        label: dca_multi_asset_bot_params[:label].presence
+      }.compact
     elsif @bot.signal?
       {
         settings: @bot.settings.merge(
@@ -231,5 +246,17 @@ class BotsController < ApplicationController
     else
       raise "Unknown bot type: #{@bot.type}"
     end
+  end
+
+  def composition_decimals(bot)
+    decimals = {}
+    decimals[bot.quote_asset.symbol] = bot.decimals[:quote] if bot.quote_asset.present?
+    # Exited holdings still appear in the orders feed and need their ticker precision.
+    bot.bot_index_assets.includes(:ticker).each do |membership|
+      next unless membership.ticker.present?
+
+      decimals[membership.ticker.base] = membership.ticker.base_decimals
+    end
+    decimals
   end
 end

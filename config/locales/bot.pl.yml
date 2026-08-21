@@ -10,6 +10,18 @@ pl:
             pick_asset_first: "Najpierw wybierz aktywo — potem zobaczysz giełdy, na których jest dostępne."
             connect_alpaca_html: "Żeby inwestować w akcje, najpierw podłącz Alpaca w %{settings_link}."
             settings_link: "Ustawieniach"
+        dca_multi_asset:
+            invest_on: "Inwestuj na"
+            add_asset: "Dodaj aktywo"
+            add_another_asset: "Dodaj kolejne aktywo…"
+            remove_asset: "Usuń"
+            max_assets_reached: "Możesz posiadać maksymalnie %{max} aktywów."
+            min_assets: "Portfel musi zawierać co najmniej %{min} aktywów."
+            no_common_exchange: "Ta kombinacja aktywów nie jest dostępna na żadnej obsługiwanej giełdzie."
+            removed_from_portfolio: "Usunięte z portfela"
+            allocation_sum: "Łącznie"
+            normalize: "Normalizuj"
+            unbalanced_hint: "Suma alokacji wynosi %{sum}% — przed uruchomieniem bota musi wynosić 100%."
         dca_index:
             setup:
                 step_index: "Indeks"
@@ -31,7 +43,7 @@ pl:
             num_assets: "Aktywa w indeksie"
             asset_breakdown: "Podział Aktywów"
             realised_pnl: "Zrealizowany wynik"
-            realised_pnl_note: "Ze sprzedaży aktywów, które opuściły indeks. Rebalansowanie nie jest wliczane."
+            realised_pnl_note: "Ze sprzedaży aktywów usuniętych z portfela. Rebalansowanie nie jest wliczane."
             left_the_index: "Poza indeksem"
             warning:
                 intro: "Niektóre zlecenia (%{skipped_count}) były poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Oto jak bot to obsługuje:"
@@ -57,6 +69,7 @@ pl:
         exchange_menu:
             no_alternative: 'Żadna inna obsługiwana giełda nie oferuje %{assets}.'
             locked_while_running: 'Zatrzymaj bota, żeby przenieść go na inną giełdę.'
+            locked_while_rebalancing: 'Równoważenie portfela nadal trwa — giełdę będzie można zmienić po jego zakończeniu.'
         status:
             exchange_retired: 'Ta giełda już nie działa — przenieś bota na inną.'
             setting_orders: "Ustawianie zleceń…"
@@ -212,10 +225,10 @@ pl:
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
         liquidation:
             sell: "Sprzedaj"
-            sell_confirm: "Sprzedać wszystko, co opuściło indeks? Pozycje zostaną zamknięte po cenie rynkowej."
-            started: "Sprzedaję aktywa, które opuściły indeks."
+            sell_confirm: "Sprzedać tę pozycję? Zostanie zamknięta po cenie rynkowej."
+            started: "Sprzedaję pozycję."
             market_closed: "Rynek jest teraz zamknięty. Spróbuj ponownie po otwarciu."
-            unsupported: "Tylko boty indeksowe mogą trzymać aktywa, które opuściły indeks."
+            unsupported: "Ten bot nie ma usuniętych aktywów do sprzedaży."
             halted: "Sprzedaż niepotwierdzona — sprawdź swoją giełdę"
             resolve: "Wyczyść"
             resolve_confirm: "Kontynuuj tylko wtedy, gdy sprawdziłeś giełdę i żadne zlecenie sprzedaży nie jest już otwarte."

@@ -77,7 +77,7 @@ class DcaSingleAssetWizardCreateFailureTest < ActionDispatch::IntegrationTest
   end
 end
 
-class DcaDualAssetWizardCreateFailureTest < ActionDispatch::IntegrationTest
+class DcaMultiAssetWizardCreateFailureTest < ActionDispatch::IntegrationTest
   setup do
     @user = create(:user, admin: true, setup_completed: true)
     sign_in @user
@@ -89,19 +89,10 @@ class DcaDualAssetWizardCreateFailureTest < ActionDispatch::IntegrationTest
     create(:ticker, :eth_usd, exchange: @binance, base_asset: @eth, quote_asset: @usd)
   end
 
-  test 'pick_second_buyable_assets create with a blank second base re-renders the asset list with 422' do
-    seed_promoted_to_dual
-    post bots_dca_dual_assets_pick_second_buyable_asset_path,
-         params: { bots_dca_dual_asset: { base1_asset_id: '' } }
-
-    assert_response :unprocessable_entity
-    assert_match 'ETH', response.body
-  end
-
   test 'pick_exchanges create with a blank exchange re-renders the exchange list with 422' do
-    seed_through_second_asset
-    post bots_dca_dual_assets_pick_exchange_path,
-         params: { bots_dca_dual_asset: { exchange_id: '' } }
+    seed_assets
+    post bots_dca_multi_assets_pick_exchange_path,
+         params: { bots_dca_multi_asset: { exchange_id: '' } }
 
     assert_response :unprocessable_entity
     assert_match(/value="#{@binance.id}"/, response.body)
@@ -109,8 +100,8 @@ class DcaDualAssetWizardCreateFailureTest < ActionDispatch::IntegrationTest
 
   test 'pick_spendable_assets create with a blank quote re-renders the asset list with 422' do
     seed_through_exchange
-    post bots_dca_dual_assets_pick_spendable_asset_path,
-         params: { bots_dca_dual_asset: { quote_asset_id: '' } }
+    post bots_dca_multi_assets_pick_spendable_asset_path,
+         params: { bots_dca_multi_asset: { quote_asset_id: '' } }
 
     assert_response :unprocessable_entity
     assert_match 'USD', response.body
@@ -118,11 +109,11 @@ class DcaDualAssetWizardCreateFailureTest < ActionDispatch::IntegrationTest
 
   test 'pick_spendable_assets create re-renders the asset list with 422 when the bot fails to save' do
     seed_through_exchange
-    Bots::DcaDualAsset.any_instance.stubs(:save).returns(false)
+    Bots::DcaMultiAsset.any_instance.stubs(:save).returns(false)
 
     assert_no_difference -> { Bot.count } do
-      post bots_dca_dual_assets_pick_spendable_asset_path,
-           params: { bots_dca_dual_asset: { quote_asset_id: @usd.id } }
+      post bots_dca_multi_assets_pick_spendable_asset_path,
+           params: { bots_dca_multi_asset: { quote_asset_id: @usd.id } }
     end
 
     assert_response :unprocessable_entity
@@ -131,23 +122,20 @@ class DcaDualAssetWizardCreateFailureTest < ActionDispatch::IntegrationTest
 
   private
 
-  def seed_promoted_to_dual
+  def seed_assets
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: @btc.id } }
-    post promote_to_dual_bots_dca_single_assets_pick_exchange_path
-  end
-
-  def seed_through_second_asset
-    seed_promoted_to_dual
-    post bots_dca_dual_assets_pick_second_buyable_asset_path,
-         params: { bots_dca_dual_asset: { base1_asset_id: @eth.id } }
+    post promote_to_multi_bots_dca_single_assets_pick_exchange_path
+    post bots_dca_multi_assets_pick_assets_path,
+         params: { bots_dca_multi_asset: { base_asset_id: @eth.id } }
+    post advance_bots_dca_multi_assets_pick_assets_path
   end
 
   def seed_through_exchange
-    seed_through_second_asset
-    post bots_dca_dual_assets_pick_exchange_path,
-         params: { bots_dca_dual_asset: { exchange_id: @binance.id } }
+    seed_assets
+    post bots_dca_multi_assets_pick_exchange_path,
+         params: { bots_dca_multi_asset: { exchange_id: @binance.id } }
   end
 end
 

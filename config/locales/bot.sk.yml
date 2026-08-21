@@ -7,6 +7,18 @@ sk:
             pick_asset_first: "Najprv si vyber aktívum — potom uvidíš burzy, kde je dostupné."
             connect_alpaca_html: "Ak chceš investovať do akcií, najprv prepoj Alpaca v %{settings_link}."
             settings_link: "Nastaveniach"
+        dca_multi_asset:
+            invest_on: "Investovať na"
+            add_asset: "Pridať aktívum"
+            add_another_asset: "Pridať ďalšie aktívum…"
+            remove_asset: "Odstrániť"
+            max_assets_reached: "V portfóliu môžete mať najviac %{max} aktív."
+            min_assets: "Portfólio musí obsahovať aspoň %{min} aktíva."
+            no_common_exchange: "Táto kombinácia aktív nie je dostupná na žiadnej podporovanej burze."
+            removed_from_portfolio: "Odstránené z portfólia"
+            allocation_sum: "Celkom"
+            normalize: "Normalizovať"
+            unbalanced_hint: "Súčet alokácií je %{sum}% — pred spustením bota musí byť 100%."
         dca_index:
             setup:
                 step_index: "Index"
@@ -28,7 +40,7 @@ sk:
             num_assets: "Aktíva v indexe"
             asset_breakdown: "Rozloženie aktív"
             realised_pnl: "Realizovaný zisk/strata"
-            realised_pnl_note: "Z predaja aktív, ktoré opustili index. Rebalansovanie sa nepočíta."
+            realised_pnl_note: "Z predaja aktív odstránených z portfólia. Rebalansovanie sa nepočíta."
             left_the_index: "Mimo indexu"
             warning:
                 intro: "Niektoré príkazy (%{skipped_count}) boli pod minimálnou veľkosťou príkazu na %{exchange_name}. Takto to bot rieši:"
@@ -61,6 +73,7 @@ sk:
         exchange_menu:
             no_alternative: 'Žiadna iná podporovaná burza neponúka %{assets}.'
             locked_while_running: 'Zastav bota, aby si ho presunul na inú burzu.'
+            locked_while_rebalancing: 'Vyvažovanie stále prebieha — burzu bude možné zmeniť po jeho dokončení.'
         status:
             exchange_retired: 'Táto burza už nefunguje — presuň bota na inú.'
             setting_orders: "Zadávanie príkazov…"
@@ -240,10 +253,10 @@ sk:
             general_note: "Minimálne veľkosti príkazov a potrebné čiastky na rebalancovanie sa menia. Transakcie môžu občas vyzerať nepravidelne, ale bot vždy smeruje k vašej požadovanej alokácii a rozvrhu, takže nie je potrebné nič ďalšie robiť."
         liquidation:
             sell: "Predať"
-            sell_confirm: "Predať všetko, čo opustilo index? Pozície sa uzavrú za trhovú cenu."
-            started: "Predávam aktíva, ktoré opustili index."
+            sell_confirm: "Predať túto pozíciu? Uzavrie sa za trhovú cenu."
+            started: "Pozícia sa predáva."
             market_closed: "Trh je práve zatvorený. Skús to znova po otvorení."
-            unsupported: "Aktíva, ktoré opustili index, môžu držať len indexové boty."
+            unsupported: "Tento bot nemá žiadne odstránené aktíva na predaj."
             halted: "Nepotvrdený predaj — skontroluj svoju burzu"
             resolve: "Vymazať"
             resolve_confirm: "Pokračuj len vtedy, ak si skontroloval burzu a žiadny predajný pokyn už nie je otvorený."

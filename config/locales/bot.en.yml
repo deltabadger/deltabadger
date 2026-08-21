@@ -7,6 +7,18 @@ en:
             pick_asset_first: "Pick an asset first — then see the exchanges that support it."
             connect_alpaca_html: "To invest in stocks, connect Alpaca in %{settings_link} first."
             settings_link: "Settings"
+        dca_multi_asset:
+            invest_on: "Invest on"
+            add_asset: "Add asset"
+            add_another_asset: "Add another asset…"
+            remove_asset: "Remove"
+            max_assets_reached: "You can hold up to %{max} assets."
+            min_assets: "A portfolio needs at least %{min} assets."
+            no_common_exchange: "This combination of assets doesn't exist on any supported exchange."
+            removed_from_portfolio: "Removed from portfolio"
+            allocation_sum: "Total"
+            normalize: "Normalize"
+            unbalanced_hint: "Allocations add up to %{sum}% — they must add up to 100% before the bot can start."
         dca_index:
             setup:
                 step_index: "Index"
@@ -28,7 +40,7 @@ en:
             num_assets: "Assets in index"
             asset_breakdown: "Asset Breakdown"
             realised_pnl: "Realised P/L"
-            realised_pnl_note: "From selling assets that left the index. Rebalancing is not counted."
+            realised_pnl_note: "From selling assets removed from the portfolio. Rebalancing is not counted."
             left_the_index: "Left the index"
             warning:
                 intro: "Some orders (%{skipped_count}) were below the %{exchange_name} minimum order size. Here's how the bot handles it:"
@@ -61,6 +73,7 @@ en:
         exchange_menu:
             no_alternative: 'No other supported exchange lists %{assets}.'
             locked_while_running: 'Stop the bot to move it to another exchange.'
+            locked_while_rebalancing: 'A rebalance is still in progress — the exchange can change once it completes.'
         status:
             exchange_retired: 'This exchange no longer operates — switch the bot to another one.'
             setting_orders: "Setting orders…"
@@ -240,10 +253,10 @@ en:
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
         liquidation:
             sell: "Sell"
-            sell_confirm: "Sell everything that left the index? The positions are closed at market price."
-            started: "Selling the assets that left the index."
+            sell_confirm: "Sell this position? It is closed at market price."
+            started: "Selling the position."
             market_closed: "The market is closed right now. Try again once it opens."
-            unsupported: "Only index bots can hold assets that left an index."
+            unsupported: "This bot has no removed assets to sell."
             halted: "Sale unconfirmed — check your exchange"
             resolve: "Clear"
             resolve_confirm: "Only continue if you have checked your exchange and no sell order is still open."

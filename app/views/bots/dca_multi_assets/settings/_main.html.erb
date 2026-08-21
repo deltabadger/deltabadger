@@ -1,0 +1,93 @@
+<% quote = bot.quote_asset&.symbol || 'USD' %>
+<% base_assets = bot.base_assets %>
+<% composition_locked = bot.composition_locked? %>
+<% allocations_balanced = bot.allocations_balanced? %>
+<% allocation_sum = number_with_precision(bot.allocations_total * 100, precision: 2) %>
+
+<%= form_with model: bot,
+              url: path,
+              method: method,
+              class: "widget main-rule main-rule--multi-asset",
+              data: {
+                turbo_stream: true,
+                controller: "form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations bot--allocation"
+              } do |f| %>
+  <div class="conversational flex-justify-center">
+    <%= t('bot.conversational.invest') %>
+    <div class="ticker-input ticker-input--autoscale">
+      <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : 100 %>
+      <%= f.number_field :quote_amount, value: value, class: 'numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, disabled: bot.working? %>
+      <%= tag.div quote, class: "ticker", data: ticker_data(bot.quote_asset) %>
+    </div>
+    /
+    <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? %>">
+      <%= t("bot.#{bot.interval}") %>
+      <%= f.select :interval, bot_intervals_select_options, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+    </div>
+  </div>
+
+  <div class="asset-allocations">
+    <% base_assets.each do |asset| %>
+      <% color = ensure_contrast(asset.color || '#8A9BA8') %>
+      <% pct = (bot.allocation_for(asset.id) * 100).round(2) %>
+      <div class="index-asset asset-allocation"
+           data-bot--allocation-target="row"
+           style="--slider-progress: <%= color %>">
+        <div class="index-asset__row">
+          <%= tag.div asset.symbol, class: ticker_class(asset), style: "background-color: #{color}", data: ticker_data(asset) %>
+          <div class="slider">
+            <input type="range"
+                   name="bots_dca_multi_asset[allocations][<%= asset.id %>]"
+                   min="0"
+                   max="100"
+                   step="0.01"
+                   value="<%= pct %>"
+                   class="slider__input"
+                   data-bot--allocation-target="input"
+                   data-action="input->bot--allocation#update change->form--submit#submit"
+                   <%= 'disabled' if composition_locked %>>
+            <div class="slider__style">
+              <div class="slider__style__track"
+                   data-bot--allocation-target="track"
+                   style="border-left-color: <%= color %>; grid-template-columns: <%= pct %>% auto;">
+                <div class="slider__style__progress" style="background-color: <%= color %>;">
+                  <div class="slider__style__thumb"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="allocation" data-bot--allocation-target="percent"><%= number_with_precision(pct, precision: 2) %>%</div>
+          <% if !composition_locked && base_assets.size > Bots::DcaMultiAsset::MIN_ASSETS %>
+            <%# This stays inside the PATCH form so a removal preserves every slider value posted
+                with the click; a second form here would be invalid HTML and lose those edits. %>
+            <%= button_tag '×', type: :submit, name: 'bots_dca_multi_asset[remove_asset_id]', value: asset.id,
+                               class: 'rbutton rbutton--small asset-allocation__remove',
+                               title: t('bot.dca_multi_asset.remove_asset') %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="asset-allocations__total<%= ' asset-allocations__total--off' unless allocations_balanced %>"
+       data-bot--allocation-target="totalRow">
+    <span>
+      <%= t('bot.dca_multi_asset.allocation_sum') %>
+      <span data-bot--allocation-target="total"><%= allocation_sum %>%</span>
+    </span>
+    <% unless composition_locked %>
+      <%= button_tag t('bot.dca_multi_asset.normalize'), type: :submit,
+                     name: 'bots_dca_multi_asset[normalize_allocations]', value: '1',
+                     class: 'rbutton rbutton--small asset-allocations__normalize',
+                     hidden: allocations_balanced %>
+      <%= tag.small t('bot.dca_multi_asset.unbalanced_hint', sum: allocation_sum),
+                    class: 'asset-allocations__hint', hidden: allocations_balanced %>
+    <% end %>
+  </div>
+
+  <% if !composition_locked && base_assets.size < Bots::DcaMultiAsset::MAX_ASSETS %>
+    <%= link_to "+ #{t('bot.dca_multi_asset.add_asset')}",
+                edit_bot_asset_search_path(bot_id: bot.id, asset_field: :add_asset_id),
+                class: 'sbutton sbutton--link asset-allocation__add', data: { turbo_frame: 'modal' } %>
+  <% end %>
+<% end %>

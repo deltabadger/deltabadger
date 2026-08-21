@@ -10,6 +10,18 @@ fr:
             pick_asset_first: "Choisis d'abord un actif — tu verras ensuite les plateformes qui le proposent."
             connect_alpaca_html: "Pour investir en actions, connecte d'abord Alpaca dans les %{settings_link}."
             settings_link: "Réglages"
+        dca_multi_asset:
+            invest_on: "Investir sur"
+            add_asset: "Ajouter un actif"
+            add_another_asset: "Ajouter un autre actif…"
+            remove_asset: "Retirer"
+            max_assets_reached: "Vous pouvez détenir jusqu’à %{max} actifs."
+            min_assets: "Un portefeuille doit contenir au moins %{min} actifs."
+            no_common_exchange: "Cette combinaison d’actifs n’existe sur aucune plateforme prise en charge."
+            removed_from_portfolio: "Retirés du portefeuille"
+            allocation_sum: "Total des allocations"
+            normalize: "Normaliser"
+            unbalanced_hint: "La somme des allocations est de %{sum} % — elle doit atteindre 100 % avant de pouvoir démarrer le bot."
         dca_index:
             setup:
                 step_index: "Indice"
@@ -31,7 +43,7 @@ fr:
             num_assets: "Actifs dans l'indice"
             asset_breakdown: "Ventilation des Actifs"
             realised_pnl: "P/P réalisé"
-            realised_pnl_note: "Issu de la vente d’actifs sortis de l’indice. Le rééquilibrage n’est pas compté."
+            realised_pnl_note: "Issu de la vente d’actifs retirés du portefeuille. Le rééquilibrage n’est pas compté."
             left_the_index: "Sortis de l’indice"
             warning:
                 intro: "Certaines ordres (%{skipped_count}) étaient en dessous de la taille minimale de commande de %{exchange_name}. Voici comment le bot le gère :"
@@ -57,6 +69,7 @@ fr:
         exchange_menu:
             no_alternative: 'Aucune autre plateforme prise en charge ne propose %{assets}.'
             locked_while_running: 'Arrête le bot pour le déplacer vers une autre plateforme.'
+            locked_while_rebalancing: 'Un rééquilibrage est toujours en cours — la plateforme pourra être changée une fois celui-ci terminé.'
         status:
             exchange_retired: "Cette plateforme n'existe plus — bascule le bot vers une autre."
             setting_orders: "Configuration des commandes…"
@@ -213,10 +226,10 @@ fr:
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
         liquidation:
             sell: "Vendre"
-            sell_confirm: "Vendre tout ce qui est sorti de l’indice ? Les positions sont clôturées au prix du marché."
-            started: "Vente des actifs sortis de l’indice en cours."
+            sell_confirm: "Vendre cette position ? Elle sera clôturée au prix du marché."
+            started: "Vente de la position en cours."
             market_closed: "Le marché est fermé pour le moment. Réessaie à l’ouverture."
-            unsupported: "Seuls les bots indiciels peuvent détenir des actifs sortis d’un indice."
+            unsupported: "Ce bot n’a aucun actif retiré à vendre."
             halted: "Vente non confirmée — vérifie ta plateforme"
             resolve: "Effacer"
             resolve_confirm: "Continue seulement si tu as vérifié ta plateforme et qu’aucun ordre de vente n’est encore ouvert."

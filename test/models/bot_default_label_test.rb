@@ -43,6 +43,14 @@ class BotDefaultLabelTest < ActiveSupport::TestCase
     assert_equal 'BTC, ETH', bot.label
   end
 
+  test 'a multi-asset bot is named by its first three tickers and the count of the rest' do
+    xrp = create(:asset, symbol: 'XRP', name: 'XRP', external_id: 'ripple')
+    sol = create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana')
+    bot = create(:dca_multi_asset, user: @user, base_assets: [@btc, @eth, xrp, sol], quote_asset: @usd)
+
+    assert_equal 'BTC, ETH, XRP + 1', bot.label
+  end
+
   test 'a basket names its first three assets and counts the rest' do
     xrp = create(:asset, symbol: 'XRP', name: 'XRP', external_id: 'ripple')
     sol = create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana')

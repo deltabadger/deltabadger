@@ -6,8 +6,8 @@ cs:
             stocks_ask_admin: "Požádej svého administrátora o aktivaci obchodování s akciemi."
             stocks_activate_cta: "Aktivovat obchodování s akciemi v nastavení"
             progress_steps:
+                assets: "Aktiva"
                 currencies: "Vyberte aktivum"
-                currencies2: "Druhé aktivum (volitelné)"
                 exchange: "Burza"
                 spendable: "Měna"
                 api: "Připojit burzu"

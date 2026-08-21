@@ -1,0 +1,63 @@
+@use "../variables" as *
+
+.wizard-assets
+    width: 100rem
+    max-width: calc(100vw - 2rem)
+    display: flex
+    flex-direction: column
+    gap: 2rem
+
+    &__list
+        width: 100%
+        border-bottom: 1px solid var(--silver)
+
+    &__row
+        display: grid
+        grid-template-columns: 14rem 1fr auto
+        align-items: center
+        font-size: 1.75rem
+
+        &:hover
+            background: var(--silver)
+
+        .modal--search__cell
+            padding: 1rem 0.25rem 1rem 2rem
+
+            &:first-child
+                padding-left: 4rem
+
+        .wizard-assets__action
+            display: flex
+            justify-content: flex-end
+            align-items: center
+            padding-right: 2rem
+
+    &__warning
+        padding: 0 2rem 0 4rem
+        color: var(--berry)
+
+    .modal--search
+        width: 100%
+
+@media (max-width: 767px)
+    .wizard-assets
+        &__row
+            grid-template-columns: 11.25rem 1fr auto
+
+            .modal--search__cell:first-child
+                padding-left: 2rem
+
+        &__warning
+            padding-left: 2rem
+
+.wizard-asset-list
+    display: flex
+    flex-wrap: wrap
+    justify-content: center
+    gap: 0.75rem
+    text-decoration: none
+
+    .ticker
+        display: flex
+        align-items: center
+        justify-content: center

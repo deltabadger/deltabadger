@@ -59,6 +59,12 @@ sv:
             transient_nonce: "%{exchange} avvisade förfrågans nonce. Om du även använder den här API-nyckeln i en annan app, öka dess Nonce Window i dina API-inställningar på %{exchange}."
             transient_unavailable: "%{exchange} är tillfälligt otillgänglig. Boten försöker igen automatiskt."
         bots:
+            multi_asset:
+                min_assets: "En portfölj måste innehålla minst %{min} tillgångar."
+                max_assets: "En portfölj kan innehålla högst %{max} tillgångar."
+                pair_missing: "%{assets} kan inte handlas mot den valda noteringstillgången på %{exchange_name}."
+                locked_while_running: "Portföljens tillgångar och viktningar kan inte ändras medan boten körs."
+                unbalanced: "Allokeringarna blir totalt %{sum}%, inte 100%."
             exchange_asset_mismatch: "Alla tillgångar är inte listade på %{exchange_name}"
             archived: "Återaktivera denna bot innan du startar den"
             exchange_change_while_open_orders: "Avbryt alla öppna ordrar som denna bot har på %{exchange_name} innan du byter börs"

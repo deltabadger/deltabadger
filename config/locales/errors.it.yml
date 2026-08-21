@@ -66,6 +66,12 @@ it:
             transient_nonce: "%{exchange} ha rifiutato il nonce della richiesta. Se usi questa chiave API anche in un'altra app, aumenta la Nonce Window nelle impostazioni API di %{exchange}."
             transient_unavailable: "%{exchange} è temporaneamente non disponibile. Il bot riproverà automaticamente."
         bots:
+            multi_asset:
+                min_assets: "Un portafoglio deve contenere almeno %{min} attività."
+                max_assets: "Un portafoglio può contenere al massimo %{max} attività."
+                pair_missing: "%{assets} non possono essere negoziati contro l’attività di quotazione selezionata su %{exchange_name}."
+                locked_while_running: "Le attività e le ponderazioni del portafoglio non possono essere modificate mentre il bot è in esecuzione."
+                unbalanced: "La somma delle allocazioni è %{sum}%, non 100%."
             exchange_asset_mismatch: "Non tutte le attività sono quotate su %{exchange_name}"
             archived: "Riattiva questo bot prima di avviarlo"
             exchange_change_while_open_orders: "Annulla tutte le ordini aperti di questo bot su %{exchange_name} prima di cambiare l'exchange"

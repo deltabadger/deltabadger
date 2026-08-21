@@ -49,6 +49,27 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     assert_not_predicate queued(Bot::LiquidateExitedJob), :exists?
   end
 
+  test 'a multi-asset bot can sell a removed asset' do
+    members = %w[AAA BBB CCC].map do |symbol|
+      create(:asset, symbol: symbol, name: "Coin #{symbol}", external_id: "multi-#{symbol.downcase}")
+    end
+    @bot = create(:dca_multi_asset, user: @user, base_assets: members)
+    removed = members.last
+    @bot.allocations = @bot.allocations_removing(removed.id)
+    @bot.set_missed_quote_amount
+    @bot.save!
+    warm_prices('AAA' => 50, 'BBB' => 30, 'CCC' => 20)
+
+    get new_bot_liquidation_path(bot_id: @bot.id, symbol: removed.symbol)
+
+    assert_response :success
+    assert_select '.modal__title', text: I18n.t(@bot.exited_title_key)
+
+    post bot_liquidation_path(bot_id: @bot.id, symbol: removed.symbol)
+
+    assert_predicate queued(Bot::LiquidateExitedJob), :exists?
+  end
+
   test "another user's bot is not reachable" do
     stranger = create(:dca_single_asset, user: create(:user))
 

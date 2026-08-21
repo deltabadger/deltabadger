@@ -7,6 +7,18 @@ sv:
             pick_asset_first: "Välj en tillgång först — sedan ser du börserna där den finns."
             connect_alpaca_html: "För att investera i aktier, anslut först Alpaca i %{settings_link}."
             settings_link: "Inställningar"
+        dca_multi_asset:
+            invest_on: "Investera på"
+            add_asset: "Lägg till tillgång"
+            add_another_asset: "Lägg till ytterligare en tillgång…"
+            remove_asset: "Ta bort"
+            max_assets_reached: "Du kan ha upp till %{max} tillgångar."
+            min_assets: "En portfölj måste innehålla minst %{min} tillgångar."
+            no_common_exchange: "Den här kombinationen av tillgångar finns inte på någon börs som stöds."
+            removed_from_portfolio: "Borttagna från portföljen"
+            allocation_sum: "Totalt"
+            normalize: "Normalisera"
+            unbalanced_hint: "Allokeringarna blir totalt %{sum}% — de måste bli 100% innan boten kan starta."
         dca_index:
             setup:
                 step_index: "Index"
@@ -28,7 +40,7 @@ sv:
             num_assets: "Tillgångar i index"
             asset_breakdown: "Tillgångsfördelning"
             realised_pnl: "Realiserad vinst/förlust"
-            realised_pnl_note: "Från försäljning av tillgångar som lämnat indexet. Ombalansering räknas inte."
+            realised_pnl_note: "Från försäljning av tillgångar som tagits bort från portföljen. Ombalansering räknas inte."
             left_the_index: "Lämnat indexet"
             warning:
                 intro: "Vissa ordrar (%{skipped_count}) var under %{exchange_name}s minsta orderstorlek. Så här hanterar boten det:"
@@ -61,6 +73,7 @@ sv:
         exchange_menu:
             no_alternative: 'Ingen annan börs som stöds erbjuder %{assets}.'
             locked_while_running: 'Stoppa boten för att flytta den till en annan börs.'
+            locked_while_rebalancing: 'En ombalansering pågår fortfarande — börsen kan bytas när den är klar.'
         status:
             exchange_retired: 'Den här börsen finns inte längre — flytta boten till en annan.'
             setting_orders: "Lägger ordrar…"
@@ -240,10 +253,10 @@ sv:
             general_note: "Börsminiminivåer och nödvändiga ombalanseringsbelopp ändras. Transaktioner kan ibland se oregelbundna ut, men boten siktar alltid på din önskade allokering och schema, så inget extra arbete behövs."
         liquidation:
             sell: "Sälj"
-            sell_confirm: "Sälja allt som lämnat indexet? Positionerna stängs till marknadspris."
-            started: "Säljer tillgångarna som lämnat indexet."
+            sell_confirm: "Sälja den här positionen? Den stängs till marknadspris."
+            started: "Säljer positionen."
             market_closed: "Marknaden är stängd just nu. Försök igen när den öppnar."
-            unsupported: "Bara indexbottar kan hålla tillgångar som lämnat ett index."
+            unsupported: "Den här botten har inga borttagna tillgångar att sälja."
             halted: "Försäljningen är obekräftad — kontrollera din börs"
             resolve: "Rensa"
             resolve_confirm: "Fortsätt bara om du har kontrollerat din börs och ingen säljorder fortfarande är öppen."

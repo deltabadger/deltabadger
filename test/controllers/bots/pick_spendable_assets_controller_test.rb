@@ -69,7 +69,7 @@ class Bots::DcaSingleAssets::PickSpendableAssetsControllerTest < ActionDispatch:
   end
 end
 
-class Bots::DcaDualAssets::PickSpendableAssetsControllerTest < ActionDispatch::IntegrationTest
+class Bots::DcaMultiAssets::PickSpendableAssetsControllerTest < ActionDispatch::IntegrationTest
   setup do
     @user = create(:user, admin: true, setup_completed: true)
     sign_in @user
@@ -85,34 +85,37 @@ class Bots::DcaDualAssets::PickSpendableAssetsControllerTest < ActionDispatch::I
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: @btc.id } }
-    post promote_to_dual_bots_dca_single_assets_pick_exchange_path
-    post bots_dca_dual_assets_pick_second_buyable_asset_path,
-         params: { bots_dca_dual_asset: { base1_asset_id: @eth.id } }
-    post bots_dca_dual_assets_pick_exchange_path,
-         params: { bots_dca_dual_asset: { exchange_id: @binance.id } }
+    post promote_to_multi_bots_dca_single_assets_pick_exchange_path
+    post bots_dca_multi_assets_pick_assets_path,
+         params: { bots_dca_multi_asset: { base_asset_id: @eth.id } }
+    post advance_bots_dca_multi_assets_pick_assets_path
+    post bots_dca_multi_assets_pick_exchange_path,
+         params: { bots_dca_multi_asset: { exchange_id: @binance.id } }
   end
 
-  test 'create finalises an unstarted bot with 100/week defaults and allocation0 0.5' do
+  test 'create finalises an unstarted bot with equal allocations and 100/week defaults' do
     seed_wizard_session
-    assert_difference -> { @user.bots.count }, 1 do
-      post bots_dca_dual_assets_pick_spendable_asset_path,
-           params: { bots_dca_dual_asset: { quote_asset_id: @usd.id } }
-    end
-    assert_response :success
 
+    assert_difference -> { @user.bots.count }, 1 do
+      post bots_dca_multi_assets_pick_spendable_asset_path,
+           params: { bots_dca_multi_asset: { quote_asset_id: @usd.id } }
+    end
+
+    assert_response :success
     bot = @user.bots.order(:id).last
-    assert_instance_of Bots::DcaDualAsset, bot
+    assert_instance_of Bots::DcaMultiAsset, bot
     assert_predicate bot, :created?
     assert_equal 100, bot.quote_amount
     assert_equal 'week', bot.interval
-    assert_equal 0.5, bot.allocation0
+    assert_equal({ @btc.id.to_s => 0.5, @eth.id.to_s => 0.5 }, bot.allocations)
     assert_nil session[:bot_config]
     assert_match bot_path(bot), response.body
   end
 
   test 'create with an expired wizard session turbo-redirects to root' do
-    post bots_dca_dual_assets_pick_spendable_asset_path,
-         params: { bots_dca_dual_asset: { quote_asset_id: @usd.id } }
+    post bots_dca_multi_assets_pick_spendable_asset_path,
+         params: { bots_dca_multi_asset: { quote_asset_id: @usd.id } }
+
     assert_response :success
     assert_match %(action="redirect"), response.body
   end

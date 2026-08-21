@@ -87,12 +87,12 @@ class Bots::DcaSingleAssetsControllerTest < ActionController::TestCase
   end
 end
 
-class Bots::DcaDualAssetsControllerTest < ActionController::TestCase
+class Bots::DcaMultiAssetsControllerTest < ActionController::TestCase
   include TopLevelCreateBehavior
 
   private
 
-  def expected_bot_class = Bots::DcaDualAsset
+  def expected_bot_class = Bots::DcaMultiAsset
 
   def valid_bot_config
     btc = create(:asset, :bitcoin)
@@ -105,11 +105,9 @@ class Bots::DcaDualAssetsControllerTest < ActionController::TestCase
       'label' => 'Test Bot',
       'exchange_id' => binance.id,
       'settings' => {
-        'base0_asset_id' => btc.id,
-        'base1_asset_id' => eth.id,
+        'base_asset_ids' => [btc.id, eth.id],
         'quote_asset_id' => usd.id,
         'quote_amount' => 100,
-        'allocation0' => 0.5,
         'interval' => 'week'
       }
     }

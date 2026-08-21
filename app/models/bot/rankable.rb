@@ -80,8 +80,8 @@ module Bot::Rankable
     end
 
     def dca_index_bots_hash
-      all_bots_hash = BotIndexAsset.joins(:bot)
-                                   .where(bots: { type: 'Bots::DcaIndex',
+      all_bots_hash = BotIndexAsset.in_index.joins(:bot)
+                                   .where(bots: { type: %w[Bots::DcaIndex Bots::DcaMultiAsset],
                                                   status: Bot.statuses.values_at(:scheduled, :executing, :retrying, :waiting) })
                                    .group(:asset_id)
                                    .count

@@ -4,7 +4,7 @@
       <%= render partial: 'svg/24x24_close' %>
     <% end %>
     <div class="modal__header">
-      <h1 class="modal__title"><%= t('bot.dca_index.left_the_index') %></h1>
+      <h1 class="modal__title"><%= t(@bot.exited_title_key) %></h1>
     </div>
     <div class="modal__body">
       <p class="text-center"><%= t('bot.liquidation.sell_confirm') %></p>
@@ -15,7 +15,7 @@
           gone cold, which is why the sale never depends on it. %>
       <% if @holding %>
         <div class="widget widget--table">
-          <%= render 'bots/dca_indexes/assets_table',
+          <%= render 'bots/composition/assets_table',
                      values: { @holding[:symbol] => @holding },
                      logo_assets: { @holding[:symbol] => @holding[:ticker] },
                      body_id: 'liquidation_confirm_list' %>

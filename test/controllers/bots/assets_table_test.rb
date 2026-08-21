@@ -14,17 +14,18 @@ class Bots::AssetsTableTest < ActionDispatch::IntegrationTest
     Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
   end
 
-  test 'single, dual and index render the same columns' do
+  test 'single, dual, index and multi render the same columns' do
     btc = create(:asset, :bitcoin)
     eth = create(:asset, :ethereum)
     usd = create(:asset, :usd)
     binance = create(:binance_exchange)
     bots = [create(:dca_single_asset, user: @user, exchange: binance, base_asset: btc, quote_asset: usd),
             create(:dca_dual_asset, user: @user, exchange: binance, base0_asset: btc, base1_asset: eth, quote_asset: usd),
-            create(:dca_index, user: @user, quote_asset: usd)]
+            create(:dca_index, user: @user, quote_asset: usd),
+            create(:dca_multi_asset, user: @user, exchange: binance, base_assets: [btc, eth], quote_asset: usd)]
 
     headers = bots.map do |bot|
-      warm_index_prices(bot) if bot.is_a?(Bots::DcaIndex)
+      warm_composition_prices(bot) if bot.respond_to?(:composition_tickers)
 
       get bot_path(id: bot.id)
 
@@ -41,7 +42,7 @@ class Bots::AssetsTableTest < ActionDispatch::IntegrationTest
   test 'every holding row carries the symbol the chart draws it by' do
     usd = create(:asset, :usd)
     bot = create(:dca_index, user: @user, quote_asset: usd)
-    warm_index_prices(bot)
+    warm_composition_prices(bot)
 
     get bot_path(id: bot.id)
 
@@ -59,10 +60,11 @@ class Bots::AssetsTableTest < ActionDispatch::IntegrationTest
 
   private
 
-  def warm_index_prices(bot)
+  def warm_composition_prices(bot)
     data = bot.metrics.deep_dup
-    data[:asset_values] = { 'AAA' => { amount: 1, quote_invested: 100, current_value: 110,
-                                       current_price: 110, avg_price: 100, pnl_percentage: 0.1 } }
+    symbol = bot.dca_multi_asset? ? bot.base_assets.first.symbol : 'AAA'
+    data[:asset_values] = { symbol => { amount: 1, quote_invested: 100, current_value: 110,
+                                        current_price: 110, avg_price: 100, pnl_percentage: 0.1 } }
     Rails.cache.write(bot.send(:metrics_with_current_prices_cache_key), data)
   end
 end

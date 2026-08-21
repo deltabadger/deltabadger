@@ -59,6 +59,12 @@ bg:
             transient_nonce: "%{exchange} отхвърли nonce на заявката. Ако използвате този API ключ и в друго приложение, увеличете неговия Nonce Window в настройките за API на %{exchange}."
             transient_unavailable: "%{exchange} е временно недостъпна. Ботът ще опита отново автоматично."
         bots:
+            multi_asset:
+                min_assets: "Портфейлът трябва да съдържа поне %{min} актива."
+                max_assets: "Портфейлът може да съдържа най-много %{max} актива."
+                pair_missing: "За %{assets} няма двойка с избрания котировъчен актив на %{exchange_name}."
+                locked_while_running: "Активите и разпределенията в портфейла не могат да се променят, докато ботът работи."
+                unbalanced: "Разпределенията са общо %{sum}%, а не 100%."
             exchange_asset_mismatch: "Не всички активи са налични в %{exchange_name}"
             archived: "Възстановете този бот, преди да го стартирате"
             exchange_change_while_open_orders: "Преди смяна на борсата отменете всички отворени поръчки на този бот в %{exchange_name}"

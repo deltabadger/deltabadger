@@ -1,0 +1,40 @@
+@use "../variables" as *
+
+.asset-allocations
+    display: flex
+    flex-direction: column
+    gap: 0.75rem
+
+    &__total
+        display: flex
+        align-items: center
+        justify-content: flex-end
+        flex-wrap: wrap
+        gap: 1rem
+        color: var(--concrete)
+
+        &--off [data-bot--allocation-target="total"]
+            color: var(--berry)
+
+    &__hint
+        font-size: 1.25rem
+        color: var(--concrete)
+
+    &__normalize
+        flex: 0 0 auto
+
+.asset-allocation
+    .slider__style__track
+        display: grid
+
+    &__remove
+        flex: 0 0 auto
+        color: var(--concrete)
+
+    &__add
+        margin-top: 1rem
+
+.bot-locked
+    .asset-allocation__remove,
+    .asset-allocation__add
+        display: none

@@ -10,6 +10,18 @@ pt:
             pick_asset_first: "Escolhe primeiro um ativo — depois vês as exchanges onde está disponível."
             connect_alpaca_html: "Para investires em ações, liga primeiro a Alpaca nas %{settings_link}."
             settings_link: "Definições"
+        dca_multi_asset:
+            invest_on: "Investir na"
+            add_asset: "Adicionar ativo"
+            add_another_asset: "Adicionar outro ativo…"
+            remove_asset: "Remover"
+            max_assets_reached: "Pode deter até %{max} ativos."
+            min_assets: "Um portefólio precisa de, pelo menos, %{min} ativos."
+            no_common_exchange: "Esta combinação de ativos não existe em nenhuma corretora compatível."
+            removed_from_portfolio: "Removidos do portefólio"
+            allocation_sum: "Total das alocações"
+            normalize: "Normalizar"
+            unbalanced_hint: "As alocações somam %{sum}% — têm de somar 100% antes de o bot poder iniciar."
         dca_index:
             setup:
                 step_index: "Índice"
@@ -31,7 +43,7 @@ pt:
             num_assets: "Ativos no índice"
             asset_breakdown: "Detalhamento de Ativos"
             realised_pnl: "L/P realizado"
-            realised_pnl_note: "Da venda de ativos que saíram do índice. O rebalanceamento não conta."
+            realised_pnl_note: "Da venda de ativos removidos da carteira. O rebalanceamento não conta."
             left_the_index: "Fora do índice"
             warning:
                 intro: "Algumas ordens (%{skipped_count}) estavam abaixo do tamanho mínimo de ordem de %{exchange_name}. Veja como o bot lida com isso:"
@@ -57,6 +69,7 @@ pt:
         exchange_menu:
             no_alternative: 'Nenhuma outra exchange suportada oferece %{assets}.'
             locked_while_running: 'Para o bot para o mudares para outra exchange.'
+            locked_while_rebalancing: 'Ainda está a decorrer um rebalanceamento — poderás mudar de exchange quando terminar.'
         status:
             exchange_retired: 'Esta exchange já não opera — muda o bot para outra.'
             setting_orders: "Configurando ordens…"
@@ -203,10 +216,10 @@ pt:
             general_note: "Os mínimos da exchange e as quantidades de rebalanceamento necessárias podem mudar. As ordens podem parecer irregulares às vezes, mas o bot sempre visa sua alocação e cronograma desejados, portanto, nenhum trabalho extra é necessário."
         liquidation:
             sell: "Vender"
-            sell_confirm: "Vender tudo o que saiu do índice? As posições são fechadas ao preço de mercado."
-            started: "A vender os ativos que saíram do índice."
+            sell_confirm: "Vender esta posição? Será fechada ao preço de mercado."
+            started: "A vender a posição."
             market_closed: "O mercado está fechado neste momento. Tenta de novo quando abrir."
-            unsupported: "Só os bots de índice podem ter ativos que saíram de um índice."
+            unsupported: "Este bot não tem ativos removidos para vender."
             halted: "Venda por confirmar — verifica a tua exchange"
             resolve: "Limpar"
             resolve_confirm: "Continua apenas se verificaste a tua exchange e nenhuma ordem de venda continua aberta."

@@ -187,17 +187,18 @@ Rails.application.routes.draw do
         resource :order, only: [:create]
         resource :pick_buyable_asset, only: [:new, :create]
         resource :pick_exchange, only: [:new, :create] do
-          post :promote_to_dual, on: :collection
+          post :promote_to_multi, on: :collection
         end
         resource :pick_stock_broker, only: [:new, :create]
         resource :add_api_key, only: [:new, :create]
         resource :pick_spendable_asset, only: [:new, :create]
       end
-      resources :dca_dual_assets, only: [:create]
-      namespace :dca_dual_assets do
+      resources :dca_multi_assets, only: [:create]
+      namespace :dca_multi_assets do
         resource :order, only: [:create]
-        resource :pick_second_buyable_asset, only: [:new, :create] do
-          post :demote_to_single, on: :collection
+        resource :pick_assets, only: [:new, :create] do
+          post :remove, on: :collection
+          post :advance, on: :collection
         end
         resource :pick_exchange, only: [:new, :create]
         resource :pick_stock_broker, only: [:new, :create]

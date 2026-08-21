@@ -26,7 +26,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
 
   test 'an asset that has left the index is not a rebalance target at all' do
     # Rebalancing tracks the index, and a quitter is not in it. Closing that position is the user's
-    # call (Bots::DcaIndex::Liquidatable), not a side effect of some other asset breaching the band.
+    # call (Bot::Composition::Liquidatable), not a side effect of some other asset breaching the band.
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
     exited('CCC')
     stub_values({ 'AAA' => 40, 'BBB' => 40, 'CCC' => 20 })
@@ -223,7 +223,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     enable_rebalancing
     @bot.update_columns(status: Bot.statuses[:stopped])
 
-    @bot.expects(:refresh_index_composition).returns(Result::Success.new)
+    @bot.expects(:refresh_composition).returns(Result::Success.new)
     @bot.rebalance!
   end
 

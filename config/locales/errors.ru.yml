@@ -61,6 +61,12 @@ ru:
             transient_nonce: "%{exchange} отклонил nonce запроса. Если вы используете этот API-ключ ещё и в другом приложении, увеличьте его Nonce Window в настройках API на %{exchange}."
             transient_unavailable: "%{exchange} временно недоступен. Бот повторит попытку автоматически."
         bots:
+            multi_asset:
+                min_assets: "В портфеле должно быть не менее %{min} активов."
+                max_assets: "В портфеле может быть не более %{max} активов."
+                pair_missing: "На бирже %{exchange_name} активы %{assets} нельзя торговать за выбранный котируемый актив."
+                locked_while_running: "Нельзя менять активы и их доли в портфеле, пока бот работает."
+                unbalanced: "Сумма долей составляет %{sum}%, а не 100%."
             exchange_asset_mismatch: "Не все активы котируются на %{exchange_name}"
             archived: "Восстановите этого бота, прежде чем запускать"
             exchange_change_while_open_orders: "Пожалуйста, отмените все открытые ордера этого бота на %{exchange_name} перед изменением биржи"

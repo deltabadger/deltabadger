@@ -53,6 +53,15 @@ class Bot::WarmMetricsCachesJobTest < ActiveJob::TestCase
     Bot::WarmMetricsCachesJob.perform_now
   end
 
+  test 'warms multi-asset bots' do
+    bot = create(:dca_multi_asset, user: create(:user))
+    create(:transaction, bot: bot)
+
+    Bots::DcaMultiAsset.any_instance.expects(:metrics_with_current_prices).with(force: true).once
+
+    Bot::WarmMetricsCachesJob.perform_now
+  end
+
   test 'pre-warms the FX rate a non-USD bot needs' do
     user = create(:user)
     eur = create(:asset, :eur)

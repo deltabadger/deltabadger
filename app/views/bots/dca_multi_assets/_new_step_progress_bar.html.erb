@@ -1,0 +1,5 @@
+<% title = t('bot.setup.progress_steps.pick_exchange') if current_step == :exchange %>
+<%= render "bots/new_step_progress_bar",
+           current_step: current_step,
+           steps: current_order.steps.index_with { |key| current_order.progress(key) },
+           title: title %>

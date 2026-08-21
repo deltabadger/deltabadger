@@ -27,7 +27,7 @@ class Bots::LiquidationResolutionsController < ApplicationController
 
   def set_bot
     @bot = current_user.bots.find(params[:bot_id])
-    redirect_back fallback_location: bots_path, alert: t('bot.liquidation.unsupported') unless @bot.is_a?(Bots::DcaIndex)
+    redirect_back fallback_location: bots_path, alert: t('bot.liquidation.unsupported') unless @bot.respond_to?(:exited_symbols)
   end
 
   # Refreshed first, so a fill that landed since the halt is seen before we clear on top of it.
