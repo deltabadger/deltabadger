@@ -43,4 +43,16 @@ class Bot::BroadcastPnlFormatTest < ActiveSupport::TestCase
 
     assert_includes tile_html, '+$27.50'
   end
+
+  # The broadcast renders outside a request, so it cannot read the account's currency off
+  # `current_user` — it has to take it from the bot's owner.
+  test 'the tile broadcast reads in the owner account currency' do
+    @bot.user.update!(display_currency: 'PLN')
+    Utilities::Currency.stubs(:exchange_rate).with(from: 'USD', to: 'USD', cache_only: false)
+                       .returns(Result::Success.new(1.0))
+    Utilities::Currency.stubs(:exchange_rate).with(from: 'USD', to: 'PLN')
+                       .returns(Result::Success.new(4.0))
+
+    assert_includes tile_html, '+100.00 zł'
+  end
 end

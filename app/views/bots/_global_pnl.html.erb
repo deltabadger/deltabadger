@@ -11,7 +11,7 @@
         <%= pnl_percent.positive? ? '+' : '' %><%= format_percent(pnl_percent, precision: 2) %>
       </span>
       <span class="pnl-amount">
-        <%= profit_usd.positive? ? '+' : '' %><%= number_to_currency(profit_usd, precision: 0) %>
+        <%= profit_usd.positive? ? '+' : '' %><%= denomination.format(profit_usd, precision: 0) %>
       </span>
     </h1>
   <% elsif loading %>

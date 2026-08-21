@@ -41,11 +41,21 @@
         </div>
       <% end %>
     <% end %>
+
+    <%= turbo_frame_tag "update_display_currency_form" do %>
+      <%= form_with model: current_user, url: settings_update_display_currency_path, method: :patch, data: { controller: "form--submit", turbo_frame: "update_display_currency_form" } do |f| %>
+        <div class="sinput sinput--select">
+          <%= current_user.display_currency %>
+          <%= f.select :display_currency, User::DISPLAY_CURRENCIES, { selected: current_user.display_currency }, data: { action: "change->form--submit#submit" } %>
+        </div>
+      <% end %>
+    <% end %>
   </div>
 
   <div class="settings-prefs__notes">
     <small data-controller="clock" data-clock-time-zone-value="<%= ActiveSupport::TimeZone[current_user.time_zone].tzinfo.identifier %>">
       <%= t('settings.language_and_timezone.current_time_is') %> <b data-clock-target="timestamp"><%= Time.current.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></b>
     </small>
+    <small><%= t('settings.language_and_timezone.currency_is_used_for') %></small>
   </div>
 </div>

@@ -17,7 +17,7 @@
 <% if @portfolio_total_usd && @portfolio_total_usd.positive? %>
   <section class="dash-intro">
     <h1 class="header header--1">
-      <%= number_to_currency(@portfolio_total_usd, precision: 2) %>
+      <%= @denomination.format(@portfolio_total_usd, precision: 2) %>
     </h1>
   </section>
 <% end %>

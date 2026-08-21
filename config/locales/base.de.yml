@@ -104,10 +104,12 @@ de:
             title: Erweiterte Bots
             toggle_label: Erweiterte Bots anzeigen
         language_and_timezone:
-            title: 'Sprache & Zeitzone'
+            title: 'Sprache, Zeitzone & Währung'
             language_updated: 'Ihre Sprache wurde aktualisiert.'
             updated: 'Ihre Zeitzone wurde aktualisiert.'
             current_time_is: 'Diese Zeitzone wird in den Bot-Logs verwendet. Nach ihr ist die aktuelle Uhrzeit'
+            currency_updated: "Ihre Anzeigewährung wurde aktualisiert."
+            currency_is_used_for: "Gewinne und Portfoliosummen werden in dieser Währung angezeigt. Bots handeln weiterhin in ihrem eigenen Quote-Asset."
         name:
             updated: 'Ihr Name wurde aktualisiert.'
         two_fa:

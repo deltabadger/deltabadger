@@ -128,4 +128,33 @@ class Bots::IndexPnlFormatTest < ActionDispatch::IntegrationTest
 
     assert_response :ok
   end
+
+  # The account's fiat denominator is a display step, not a different sum: everything stays
+  # computed in USD and one rate turns it into the chosen currency for the whole page.
+  test 'the header total and the tiles read in the account currency' do
+    @user.update!(display_currency: 'PLN')
+    Utilities::Currency.stubs(:exchange_rate).with(from: 'USD', to: 'USD', cache_only: true)
+                       .returns(Result::Success.new(1.0))
+    Utilities::Currency.stubs(:exchange_rate).with(from: 'USD', to: 'PLN')
+                       .returns(Result::Success.new(4.0))
+
+    get bots_path
+
+    assert_select '#global-pnl .pnl-amount', text: /\+100 zł/
+    assert_select "#{tile_pnl} .pnl-amount", text: /\+100\.00 zł/
+  end
+
+  # One rate for the page, whatever it is: the tiles are already careful about this and the
+  # denominator must not undo it.
+  test 'the chosen currency costs one FX lookup for the whole page' do
+    @user.update!(display_currency: 'PLN')
+    Utilities::Currency.stubs(:exchange_rate).with(from: 'USD', to: 'USD', cache_only: true)
+                       .returns(Result::Success.new(1.0))
+    Utilities::Currency.expects(:exchange_rate).with(from: 'USD', to: 'PLN')
+                       .once.returns(Result::Success.new(4.0))
+
+    get bots_path
+
+    assert_response :ok
+  end
 end

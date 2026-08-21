@@ -105,10 +105,12 @@ sv:
             title: Avancerade bots
             toggle_label: Visa avancerade bots
         language_and_timezone:
-            title: 'Språk och tidszon'
+            title: 'Språk, tidszon och valuta'
             language_updated: "Ditt språk har uppdaterats."
             updated: "Din tidszon har uppdaterats."
             current_time_is: "Denna tidszon används i botloggen. Enligt den är klockan nu"
+            currency_updated: "Din visningsvaluta har uppdaterats."
+            currency_is_used_for: "Vinster och portföljsummor visas i denna valuta. Botarna handlar fortfarande i sin egen noteringstillgång."
         name:
             updated: "Ditt namn har uppdaterats."
         two_fa:

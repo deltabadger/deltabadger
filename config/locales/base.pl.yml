@@ -106,10 +106,12 @@ pl:
             title: Zaawansowane boty
             toggle_label: Pokaż zaawansowane boty
         language_and_timezone:
-            title: 'Język i strefa czasowa'
+            title: 'Język, strefa czasowa i waluta'
             language_updated: 'Twój język został zaktualizowany.'
             updated: 'Twoja strefa czasowa została zaktualizowana.'
             current_time_is: 'Ta strefa czasowa będzie używana w logach bota. Zgodnie z nią, aktualna godzina to'
+            currency_updated: "Twoja waluta wyświetlania została zaktualizowana."
+            currency_is_used_for: "Zyski i sumy portfela są pokazywane w tej walucie. Boty nadal handlują w swoim własnym aktywie rozliczeniowym."
         name:
             updated: 'Twoje imię zostało zaktualizowane.'
         two_fa:
