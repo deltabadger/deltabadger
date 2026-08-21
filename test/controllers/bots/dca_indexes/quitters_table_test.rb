@@ -1,11 +1,21 @@
 # frozen_string_literal: true
 
 require 'test_helper'
+require 'turbo/broadcastable/test_helper'
 
 # The index page splits its holdings in two: what the index currently wants, and what has left it.
 # Before this they were one undifferentiated table, so a coin the index dropped was indistinguishable
 # from a current constituent.
 class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
+  include ActiveJob::TestHelper
+  include Turbo::Broadcastable::TestHelper
+
+  # The app pins the SolidQueue adapter, and ActiveJob::TestHelper leaves a configured adapter
+  # alone — so ask for the test one explicitly, or perform_enqueued_jobs has nothing to perform.
+  def queue_adapter_for_test
+    ActiveJob::QueueAdapters::TestAdapter.new
+  end
+
   setup do
     create(:user, admin: true, setup_completed: true) # onboarding gate
     @user = create(:user)
@@ -106,7 +116,67 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
     assert_select '#exited_metrics_table form[action*="liquidation_resolutions"]', 1
   end
 
+  # == the tables follow the slider ==
+  #
+  # The donut is drawn live from the preview, so it moved with the slider while both tables under it
+  # went on describing the index as it stood at the last buy.
+
+  test 'raising the coin count takes a quitter back into the index table' do
+    in_index('AAA')
+    exited('CCC')
+    warm_prices({ 'AAA' => 100, 'CCC' => 20 })
+    stub_top_coins(%w[coin-aaa coin-ccc])
+
+    patch_num_coins(2)
+
+    get bot_path(id: @bot.id)
+    assert_select '#assets_metrics_table tbody tr', 2
+    assert_select '#exited_metrics_table', 0
+  end
+
+  test 'lowering the coin count moves what the slider cut into the quitters table' do
+    bbb = create(:asset, symbol: 'BBB', name: 'Coin BBB', external_id: 'coin-bbb')
+    @assets['BBB'] = { asset: bbb, ticker: create(:ticker, exchange: @bot.exchange, base_asset: bbb, quote_asset: @bot.quote_asset) }
+    in_index('AAA', 'BBB', 'CCC')
+    warm_prices({ 'AAA' => 100, 'BBB' => 50, 'CCC' => 20 })
+    stub_top_coins(%w[coin-aaa coin-bbb coin-ccc])
+
+    patch_num_coins(2)
+
+    get bot_path(id: @bot.id)
+    assert_select '#assets_metrics_table tbody tr', 2
+    assert_select '#exited_metrics_table tbody tr', 1
+    assert_select '#exited_metrics_table', /CCC/
+  end
+
+  test 'the tables are pushed to the open page on their own, not behind the chart' do
+    # One broadcast, the tables. The chart waits on a candle series a composition change cannot
+    # alter, and riding along with it is what made the new split arrive with the chart redraw.
+    in_index('AAA')
+    exited('CCC')
+    warm_prices({ 'AAA' => 100, 'CCC' => 20 })
+    stub_top_coins(%w[coin-aaa coin-ccc])
+
+    assert_turbo_stream_broadcasts(["user_#{@user.id}", :bot_updates], count: 1) do
+      patch_num_coins(2)
+    end
+  end
+
   private
+
+  # The resync runs inline; the metrics broadcast it schedules stays enqueued.
+  def patch_num_coins(count)
+    perform_enqueued_jobs(only: Bot::ResyncIndexCompositionJob) do
+      patch bot_path(id: @bot.id), params: { bots_dca_index: { num_coins: count } }, as: :turbo_stream
+    end
+    assert_response :success
+  end
+
+  def stub_top_coins(external_ids)
+    coins = external_ids.each_with_index.map { |id, i| { 'id' => id, 'market_cap' => (100 - i).to_f, 'current_price' => 1.0 } }
+    MarketData.stubs(:get_top_coins).returns(Result::Success.new(coins))
+    Exchanges::Kraken.any_instance.stubs(:get_ask_price).returns(Result::Success.new(BigDecimal('100')))
+  end
 
   def in_index(*symbols)
     symbols.each do |symbol|

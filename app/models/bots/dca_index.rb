@@ -41,6 +41,14 @@ class Bots::DcaIndex < Bot
   before_validation :clamp_num_coins_to_bounded_index
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
 
+  # The composition is DERIVED from these, and used to be re-derived only at the next buy or
+  # rebalance. So moving the coins slider redrew the donut — which is live, straight from the
+  # preview — and left both tables under it describing the old index: a coin the slider had just
+  # taken back in went on sitting under "Left the index" with a Sell button over it, for up to a
+  # whole interval. Re-derive it now, then push the tables the split they now belong on.
+  after_update_commit :resync_index_composition,
+                      if: -> { index_definition_changed? || custom_exchange_id_changed? }
+
   # Trading condition concerns (only SmartIntervalable and LimitOrderable for Index bot)
   include SmartIntervalable      # decorators for: parse_params, effective_quote_amount, effective_interval_duration
   include LimitOrderable         # decorators for: parse_params, execute_action
@@ -266,6 +274,23 @@ class Bots::DcaIndex < Bot
 
   def exchange_supports_current_assets?
     exchange.tickers.available.trading_enabled.exists?(quote_asset_id:)
+  end
+
+  # Everything the derivation reads to decide MEMBERSHIP. limit_ordered belongs here because it
+  # picks which side a candidate has to quote on to count (index_allocatable.rb: priced?(:last)
+  # against priced?(:ask)). allocation_flattening does not: it moves the WEIGHTS, and both tables
+  # read holdings, not targets — the rebalancer re-derives its own targets before it acts.
+  INDEX_DEFINITION_KEYS = %w[num_coins index_type index_category_id quote_asset_id limit_ordered].freeze
+
+  # Not saved_change_to_settings?: with store_accessor the settings column is written on every save
+  # whether or not a value moved (see Automation::Configurable), so the keys have to be compared.
+  def index_definition_changed?
+    before, after = saved_changes['settings']
+    before.present? && INDEX_DEFINITION_KEYS.any? { |key| before[key] != after[key] }
+  end
+
+  def resync_index_composition
+    Bot::ResyncIndexCompositionJob.perform_later(self)
   end
 
   def validate_unchangeable_index
