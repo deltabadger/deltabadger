@@ -6,7 +6,7 @@ require 'test_helper'
 # presenting it as current. The fallback itself is right (a stale number beats a blank one); saying
 # nothing about it is not.
 class Bots::StalePricesFlagTest < ActiveSupport::TestCase
-  FACTORIES = %i[dca_single_asset dca_dual_asset dca_index].freeze
+  FACTORIES = %i[dca_single_asset dca_dual_asset dca_index dca_multi_asset].freeze
 
   FACTORIES.each do |factory|
     test "#{factory}: metrics are marked stale when the price read fails" do

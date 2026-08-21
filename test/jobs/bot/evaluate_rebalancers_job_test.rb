@@ -71,6 +71,20 @@ class Bot::EvaluateRebalancersJobTest < ActiveSupport::TestCase
     Bot::EvaluateRebalancersJob.perform_now
   end
 
+  test 'multi-asset bots with rebalancing on are evaluated' do
+    multi = create(:dca_multi_asset, user: create(:user), exchange: @bot.exchange,
+                                     base_assets: [@bot.base0_asset, @bot.base1_asset],
+                                     quote_asset: @bot.quote_asset)
+    multi.update_columns(
+      settings: multi.settings.merge('rebalance_enabled' => true, 'rebalance_threshold' => 0.05),
+      status: Bot.statuses[:stopped]
+    )
+    @bot.update_columns(settings: @bot.settings.merge('rebalance_enabled' => false))
+
+    Bot::RebalanceJob.expects(:perform_later).with(multi)
+    Bot::EvaluateRebalancersJob.perform_now
+  end
+
   test 'single-asset bots are never evaluated — they have no allocation to drift' do
     # Reuses the pair bot's assets — a fresh set would collide on external ids.
     single = create(:dca_single_asset, user: create(:user), exchange: @bot.exchange,

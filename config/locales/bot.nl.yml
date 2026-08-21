@@ -10,6 +10,8 @@ nl:
             pick_asset_first: "Kies eerst een asset — daarna zie je op welke exchanges die beschikbaar is."
             connect_alpaca_html: "Wil je in aandelen beleggen? Koppel eerst Alpaca via %{settings_link}."
             settings_link: "Instellingen"
+        dca_multi_asset:
+            removed_from_portfolio: "Verwijderd uit de portefeuille"
         dca_index:
             setup:
                 step_index: "Index"

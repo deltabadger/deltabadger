@@ -10,6 +10,8 @@ pt:
             pick_asset_first: "Escolhe primeiro um ativo — depois vês as exchanges onde está disponível."
             connect_alpaca_html: "Para investires em ações, liga primeiro a Alpaca nas %{settings_link}."
             settings_link: "Definições"
+        dca_multi_asset:
+            removed_from_portfolio: "Removidos do portefólio"
         dca_index:
             setup:
                 step_index: "Índice"

@@ -1,0 +1,104 @@
+# frozen_string_literal: true
+
+require 'test_helper'
+
+class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
+  setup do
+    @user = create(:user, admin: true, setup_completed: true)
+    sign_in @user
+    @bot = create(:dca_multi_asset, user: @user)
+    @first, @second = @bot.base_assets
+  end
+
+  test 'PATCH allocations saves normalised weights and rewrites the composition rows' do
+    patch_allocations(@first.id => '70', @second.id => '30')
+
+    assert_response :success
+    assert_equal({ @first.id.to_s => 0.7, @second.id.to_s => 0.3 }, @bot.reload.allocations)
+    assert_equal({ @first.id => 0.7, @second.id => 0.3 }, composition_weights)
+  end
+
+  test 'PATCH add_asset_id admits a third asset at a third' do
+    third = create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana')
+    create(:ticker, exchange: @bot.exchange, base_asset: third, quote_asset: @bot.quote_asset)
+
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { add_asset_id: third.id } }, as: :turbo_stream
+
+    assert_response :success
+    assert_equal [@first.id, @second.id, third.id], @bot.reload.base_asset_ids
+    assert_equal [0.3333, 0.3333, 0.3334], @bot.allocations.values.sort
+    assert_equal 3, @bot.bot_index_assets.in_index.count
+  end
+
+  test 'PATCH add_asset_id of an asset the exchange does not trade is refused' do
+    unsupported = create(:asset, symbol: 'NOPE', name: 'Unsupported Asset', external_id: 'unsupported')
+
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { add_asset_id: unsupported.id } }, as: :turbo_stream
+
+    assert_response :unprocessable_entity
+    assert_includes flash[:alert], unsupported.symbol
+    assert_equal [@first.id, @second.id], @bot.reload.base_asset_ids
+  end
+
+  test 'PATCH remove_asset_id below two assets is refused with 422' do
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { remove_asset_id: @second.id } }, as: :turbo_stream
+
+    assert_response :unprocessable_entity
+    assert_equal [@first.id, @second.id], @bot.reload.base_asset_ids
+  end
+
+  test 'PATCH allocations that do not sum to 100 is repaired, not refused' do
+    patch_allocations(@first.id => '70', @second.id => '70')
+
+    assert_response :success
+    assert_equal({ @first.id.to_s => 0.5, @second.id.to_s => 0.5 }, @bot.reload.allocations)
+  end
+
+  test 'PATCH on a working bot refuses composition changes and allows quote_amount' do
+    @bot.update_columns(status: Bot.statuses[:waiting])
+
+    patch_allocations(@first.id => '60', @second.id => '40')
+    assert_response :unprocessable_entity
+    assert_equal({ @first.id.to_s => 0.5, @second.id.to_s => 0.5 }, @bot.reload.allocations)
+
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { quote_amount: '125' } }, as: :turbo_stream
+    assert_response :success
+    assert_equal 125.0, @bot.reload.quote_amount
+  end
+
+  test 'the show page renders the multi-asset settings and metrics partials' do
+    get bot_path(id: @bot.id)
+
+    assert_response :success
+    assert_select '#settings'
+    assert_select "#settings form[action='#{bot_path(id: @bot.id)}']"
+    assert_select '#metrics'
+  end
+
+  test 'the tile names the first three symbols' do
+    sol = create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana')
+    ada = create(:asset, symbol: 'ADA', name: 'Cardano', external_id: 'cardano')
+    [sol, ada].each do |asset|
+      create(:ticker, exchange: @bot.exchange, base_asset: asset, quote_asset: @bot.quote_asset)
+    end
+    @bot.set_missed_quote_amount
+    @bot.update!(allocations: @bot.equal_allocations([@first.id, @second.id, sol.id, ada.id]))
+    create(:dca_single_asset, user: @user, exchange: @bot.exchange,
+                              base_asset: @first, quote_asset: @bot.quote_asset)
+
+    get bots_path
+
+    assert_response :success
+    assert_select '.bot-tile__title', /BTC, ETH, SOL \+1/
+  end
+
+  private
+
+  def patch_allocations(allocations)
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { allocations: allocations } }, as: :turbo_stream
+  end
+
+  def composition_weights
+    @bot.bot_index_assets.in_index.pluck(:asset_id, :target_allocation).to_h
+  end
+end

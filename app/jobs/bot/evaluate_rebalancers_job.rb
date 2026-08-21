@@ -19,7 +19,7 @@ class Bot::EvaluateRebalancersJob < ApplicationJob
   # out, and a bot with pending state is in regardless of its switch, because an owed buy must
   # complete even after the user turns rebalancing off.
   # Every multi-asset type — a single-asset bot has no allocation to drift.
-  REBALANCEABLE_TYPES = %w[Bots::DcaDualAsset Bots::DcaIndex].freeze
+  REBALANCEABLE_TYPES = %w[Bots::DcaDualAsset Bots::DcaIndex Bots::DcaMultiAsset].freeze
 
   def candidates
     Bot.where(type: REBALANCEABLE_TYPES)

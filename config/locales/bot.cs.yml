@@ -7,6 +7,8 @@ cs:
             pick_asset_first: "Nejdřív vyber aktivum — pak uvidíš burzy, kde je dostupné."
             connect_alpaca_html: "Pokud chceš investovat do akcií, nejdřív připoj Alpacu v %{settings_link}."
             settings_link: "Nastavení"
+        dca_multi_asset:
+            removed_from_portfolio: "Odebráno z portfolia"
         dca_index:
             setup:
                 step_index: "Index"

@@ -229,7 +229,7 @@ token).
 | Method | Path | Tool | Notes |
 |---|---|---|---|
 | GET | `/bots` | `list_bots` | Optional `?status=` filter |
-| GET | `/bots/:id` | `get_bot_details` | Includes metrics if available |
+| GET | `/bots/:id` | `get_bot_details` | Includes metrics if available; a multi-asset bot reports its members as `pair` (`BTC+ETH/USD`) plus `allocations` (`{symbol: weight}`) |
 | POST | `/bots` | `create_bot` | 201 on success; required: `exchange_name`, `base_asset`, `quote_asset`, `quote_amount`, `interval` |
 | PATCH | `/bots/:id` | `update_bot_settings` | Accepts `quote_amount`, `label`; rule must be stopped |
 | POST | `/bots/:id/start` | `start_bot` | 409 if already running |

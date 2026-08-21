@@ -10,6 +10,8 @@ ru:
             pick_asset_first: "Сначала выбери актив — потом увидишь биржи, на которых он доступен."
             connect_alpaca_html: "Чтобы инвестировать в акции, сначала подключите Alpaca в %{settings_link}."
             settings_link: "Настройках"
+        dca_multi_asset:
+            removed_from_portfolio: "Удалены из портфеля"
         dca_index:
             setup:
                 step_index: "Индекс"

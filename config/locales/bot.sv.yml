@@ -7,6 +7,8 @@ sv:
             pick_asset_first: "Välj en tillgång först — sedan ser du börserna där den finns."
             connect_alpaca_html: "För att investera i aktier, anslut först Alpaca i %{settings_link}."
             settings_link: "Inställningar"
+        dca_multi_asset:
+            removed_from_portfolio: "Borttagna från portföljen"
         dca_index:
             setup:
                 step_index: "Index"

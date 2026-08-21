@@ -7,6 +7,8 @@ el:
             pick_asset_first: "Διάλεξε πρώτα ένα asset — μετά θα δεις τα exchanges όπου είναι διαθέσιμο."
             connect_alpaca_html: "Για να επενδύσεις σε μετοχές, σύνδεσε πρώτα το Alpaca στις %{settings_link}."
             settings_link: "Ρυθμίσεις"
+        dca_multi_asset:
+            removed_from_portfolio: "Αφαιρέθηκαν από το χαρτοφυλάκιο"
         dca_index:
             setup:
                 step_index: "Δείκτης"

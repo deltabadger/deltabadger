@@ -7,6 +7,7 @@ class Bot::WarmMetricsCachesJob < ApplicationJob
     Bots::DcaSingleAsset
     Bots::DcaDualAsset
     Bots::DcaIndex
+    Bots::DcaMultiAsset
     Bots::Signal
   ].freeze
 
