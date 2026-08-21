@@ -25,6 +25,18 @@ class BotApi::Bots::CreateTest < ActiveSupport::TestCase
       quote_amount: 100, interval: 'day' }
   end
 
+  # ---------- naming ----------
+
+  test 'a bot created without a label is named like one made in the wizard' do
+    Bot::ActionJob.stubs(:perform_later)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+
+    result = BotApi::Bots::Create.call(user: @user, **base_params)
+
+    assert result.success?
+    assert_equal 'Bitcoin', @user.bots.last.label
+  end
+
   # ---------- immediate start (unchanged behavior) ----------
 
   test 'without start_at the bot starts immediately' do

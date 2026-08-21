@@ -2,7 +2,6 @@ class Bots::Signals::PickBuyableAssetsController < Bots::Wizard::PickBuyableAsse
   def new
     session[:bot_config] ||= {}
     prepare_step
-    session[:bot_config]['label'] ||= @bot.label
     render_asset_page(bot: @bot, asset_field: :base_asset_id)
   end
 

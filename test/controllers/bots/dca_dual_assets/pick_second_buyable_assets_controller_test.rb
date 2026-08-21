@@ -29,7 +29,6 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsControllerTest < ActionDispatc
     post demote_to_single_bots_dca_dual_assets_pick_second_buyable_asset_path
     assert_redirected_to new_bots_dca_single_assets_pick_spendable_asset_path
 
-    assert_predicate session[:bot_config]['label'], :present?
     assert_equal @btc.id, session[:bot_config].dig('settings', 'base_asset_id')
     assert_nil session[:bot_config].dig('settings', 'base0_asset_id')
     assert_equal @binance.id.to_s, session[:bot_config]['exchange_id'].to_s

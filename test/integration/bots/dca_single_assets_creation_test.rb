@@ -45,6 +45,7 @@ class Bots::DcaSingleAssetsCreationTest < ActionDispatch::IntegrationTest
     assert_response :ok
 
     bot = Bots::DcaSingleAsset.last
+    assert_equal 'Bitcoin', bot.label
     assert_equal @bitcoin, bot.base_asset
     assert_equal @usd, bot.quote_asset
     assert_equal @exchange, bot.exchange

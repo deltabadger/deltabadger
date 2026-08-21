@@ -122,6 +122,11 @@ class Bots::DcaDualAsset < Bot
     include_exchanges ? Asset.includes(:exchanges).where(id: asset_ids) : Asset.where(id: asset_ids)
   end
 
+  # Named after what it holds: "BTC, ETH".
+  def default_label
+    basket_label(base0_asset_id, base1_asset_id)
+  end
+
   def base0_asset
     @base0_asset ||= asset_with_id(base0_asset_id)
   end

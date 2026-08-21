@@ -75,6 +75,10 @@ class Bots::Signal < Bot
     @base_asset ||= asset_with_id(base_asset_id)
   end
 
+  def default_label
+    Asset.find_by(id: base_asset_id)&.name
+  end
+
   def quote_asset
     @quote_asset ||= asset_with_id(quote_asset_id)
   end

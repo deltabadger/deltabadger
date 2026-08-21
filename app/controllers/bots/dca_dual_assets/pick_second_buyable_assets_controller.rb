@@ -26,7 +26,6 @@ class Bots::DcaDualAssets::PickSecondBuyableAssetsController < Bots::Wizard::Pic
     settings = cfg['settings'] || {}
     base = settings['base0_asset_id'] || settings['base_asset_id']
     session[:bot_config] = {
-      'label' => Bots::DcaSingleAsset.new.label,
       'flow' => cfg['flow'],
       'exchange_id' => cfg['exchange_id'],
       'settings' => { 'base_asset_id' => base }.compact

@@ -1,7 +1,7 @@
 # Shared "pick the exchange" wizard step. Subclasses supply the bot relation,
 # routes and params as explicit overrides; the index step overrides `new`,
-# the view state and the search wholesale (market-data/index gates, label
-# init, per-exchange coin previews) and shares only the create flow.
+# the view state and the search wholesale (market-data/index gates,
+# per-exchange coin previews) and shares only the create flow.
 class Bots::Wizard::PickExchangesController < ApplicationController
   before_action :authenticate_user!
   before_action :redirect_if_session_expired, only: :create

@@ -10,7 +10,6 @@ class Bots::DcaSingleAssets::PickExchangesController < Bots::Wizard::PickExchang
     settings = cfg['settings'] || {}
     base = settings.delete('base_asset_id') || settings['base0_asset_id']
     session[:bot_config] = {
-      'label' => Bots::DcaDualAsset.new.label,
       'flow' => cfg['flow'],
       'exchange_id' => cfg['exchange_id'],
       'settings' => { 'base0_asset_id' => base }.compact
