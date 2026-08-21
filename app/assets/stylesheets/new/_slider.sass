@@ -54,6 +54,10 @@
             top: -0.75rem
             right: -1rem
             width: 2rem
+            box-shadow: 0 0 0 0 color-mix(in srgb, var(--slider-progress) 10%, transparent)
+            transition: box-shadow 160ms ease
+            .slider:hover &
+                box-shadow: 0 0 0 1rem color-mix(in srgb, var(--slider-progress) 10%, transparent)
     &--dual
         .slider__style__track
             display: grid
