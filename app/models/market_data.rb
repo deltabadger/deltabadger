@@ -813,7 +813,9 @@ class MarketData
       symbol: asset_data['symbol'],
       name: asset_data['name'],
       category: asset_data['category'],
-      image_url: asset_data['image_url'],
+      # Tokenized securities have no CoinGecko image; they share the captured logo of whatever they
+      # track, served host-relative. Same fallback the stock path uses (see sync_stocks).
+      image_url: asset_data['image_url'].presence || absolutize_logo_url(asset_data['logo_url']),
       color: asset_data['color'],
       market_cap_rank: asset_data['market_cap_rank'],
       market_cap: asset_data['market_cap'],
