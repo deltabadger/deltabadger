@@ -183,13 +183,15 @@ module Bot::Composition::OrderSetter
       offset = offsets[symbol]
       next if offset.zero?
 
-      # Allocate proportionally to offset, capped by remaining investment
-      if total_offset.positive?
-        order_amount_in_quote = [offset, remaining_investment * (offset / total_offset)].min
-        order_amount_in_quote = [order_amount_in_quote, remaining_investment].min
-      else
-        order_amount_in_quote = 0
-      end
+      # Allocate proportionally to offset. The pot is the WHOLE contribution, not what is left of it:
+      # with a shrinking numerator over a fixed denominator every asset after the first got a share of an
+      # already-spent pot and a balanced composition spent 75/100 with two assets, 68/100 with four. Still
+      # capped by the asset's own shortfall and by what is genuinely left.
+      order_amount_in_quote = if total_offset.positive?
+                                [offset, total_orders_amount_in_quote * (offset / total_offset), remaining_investment].min
+                              else
+                                0
+                              end
 
       next if order_amount_in_quote <= 0
 

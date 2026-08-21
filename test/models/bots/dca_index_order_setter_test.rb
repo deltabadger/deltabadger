@@ -30,6 +30,42 @@ class Bots::DcaIndexOrderSetterTest < ActiveSupport::TestCase
     assert(result.data.all? { |o| o[:quote_amount].positive? })
   end
 
+  test 'an at-balance composition spends the whole contribution' do
+    price_all(100)
+
+    result = @bot.send(:get_orders_data, 100.to_d)
+
+    assert_predicate result, :success?
+    assert_in_delta 100, result.data.sum { |o| o[:quote_amount] }, 0.0001
+  end
+
+  test 'four equal assets still spend the whole contribution' do
+    add_members('CCC', 'DDD', weights: { 'AAA' => 0.25, 'BBB' => 0.25, 'CCC' => 0.25, 'DDD' => 0.25 })
+    price_all(100)
+
+    result = @bot.send(:get_orders_data, 100.to_d)
+
+    assert_in_delta 100, result.data.sum { |o| o[:quote_amount] }, 0.0001
+  end
+
+  # R2: unequal weights, heavily drifted — exercises both caps.
+  test 'a drifted composition never exceeds an asset offset or the contribution' do
+    add_members('CCC', weights: { 'AAA' => 0.6, 'BBB' => 0.3, 'CCC' => 0.1 })
+    hold('AAA' => 10, 'BBB' => 0, 'CCC' => 0) # AAA worth 1000 at price 100: way overweight
+    price_all(100)
+
+    result = @bot.send(:get_orders_data, 100.to_d)
+    orders = result.data.index_by { |o| o[:ticker].base }
+
+    assert_nil orders['AAA'] # overweight: no order
+    # targets after adding 100: total 1100 → BBB 330, CCC 110; offsets 330 and 110; contribution 100
+    assert_operator orders['BBB'][:quote_amount], :<=, 330
+    assert_operator orders['CCC'][:quote_amount], :<=, 110
+    assert_in_delta 100, orders.values.sum { |o| o[:quote_amount] }, 0.0001
+    assert_in_delta 75, orders['BBB'][:quote_amount], 0.01 # 100 * 330/440
+    assert_in_delta 25, orders['CCC'][:quote_amount], 0.01
+  end
+
   # == a constituent that will not price ==
   #
   # Skipping it and buying the rest is not available: Step 2 builds total_current_value only from
@@ -100,6 +136,22 @@ class Bots::DcaIndexOrderSetterTest < ActiveSupport::TestCase
       BotIndexAsset.create!(bot: @bot, asset: @assets[symbol][:asset], ticker: @assets[symbol][:ticker],
                             target_allocation: weight, in_index: true, entered_at: Time.current)
     end
+  end
+
+  def add_members(*symbols, weights:)
+    symbols.each do |symbol|
+      asset = create(:asset, symbol: symbol, name: "Coin #{symbol}", external_id: "coin-#{symbol.downcase}")
+      ticker = create(:ticker, exchange: @bot.exchange, base_asset: asset, quote_asset: @bot.quote_asset)
+      @assets[symbol] = { asset: asset, ticker: ticker }
+    end
+    @bot.instance_variable_set(:@tickers, @assets.values.map { |a| a[:ticker] })
+    @bot.bot_index_assets.destroy_all
+    index_membership(weights)
+  end
+
+  def hold(holdings)
+    asset_breakdown = holdings.transform_values { |amount| { amount: amount, quote_invested: 0 } }
+    @bot.stubs(:metrics).with(force: true).returns(asset_breakdown: asset_breakdown)
   end
 
   # Stubbed on the exchange, not on the Ticker objects in @assets: current_allocations reloads its
