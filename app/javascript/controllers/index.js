@@ -25,6 +25,9 @@ application.register("bot--barbell-allocation", Bot__BarbellAllocationController
 import Bot__ChartController from "./bot/chart_controller"
 application.register("bot--chart", Bot__ChartController)
 
+import BotsReorderController from "./bots_reorder_controller"
+application.register("bots-reorder", BotsReorderController)
+
 import Broadcast__OnConnectController from "./broadcast/on_connect_controller"
 application.register("broadcast--on-connect", Broadcast__OnConnectController)
 
