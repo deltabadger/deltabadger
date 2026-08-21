@@ -105,10 +105,12 @@ en:
             title: Advanced Bots
             toggle_label: Show advanced bots
         language_and_timezone:
-            title: 'Language & Timezone'
+            title: 'Language, Timezone & Currency'
             language_updated: "Your language has been updated."
             updated: "Your timezone has been updated."
             current_time_is: "This timezone will be used in the bot logs. According to it, the current time is"
+            currency_updated: "Your display currency has been updated."
+            currency_is_used_for: "Profits and portfolio totals are shown in this currency. Bots keep trading in their own quote asset."
         name:
             updated: "Your name has been updated."
         two_fa:

@@ -105,10 +105,12 @@ da:
             title: Avancerede bots
             toggle_label: Vis avancerede bots
         language_and_timezone:
-            title: 'Sprog og tidszone'
+            title: 'Sprog, tidszone og valuta'
             language_updated: "Dit sprog er blevet opdateret."
             updated: "Din tidszone er blevet opdateret."
             current_time_is: "Denne tidszone bruges i bot-loggen. Ifølge den er klokken nu"
+            currency_updated: "Din visningsvaluta er blevet opdateret."
+            currency_is_used_for: "Gevinster og porteføljetotaler vises i denne valuta. Bots handler fortsat i deres eget noteringsaktiv."
         name:
             updated: "Dit navn er blevet opdateret."
         two_fa:

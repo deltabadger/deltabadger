@@ -22,7 +22,7 @@ class Bots::DcaSingleAssets::OrdersController < ApplicationController
   end
 
   # On the order switch the "current step" is the target variant's first step, so
-  # reset_downstream! wipes the whole config (keeping label + the new flow).
+  # reset_downstream! wipes the whole config (keeping the new flow).
   def current_step = current_order.first
   def bot_relation = current_user.bots.dca_single_asset
 

@@ -20,10 +20,12 @@
 <div class="widget widget--settings">
   <h4 class="modal__title"><%= t('settings.language_and_timezone.title') %></h4>
 
-  <div style="display: flex; gap: 2rem">
-
+  <%# One pill per preference on a wrapping row. A plain flex row let the timezone pill shrink
+      instead — and .sinput--select clips its overflow, so the longest of them lost its text
+      mid-word while the caption below it wrapped into a block. %>
+  <div class="settings-prefs">
     <%= turbo_frame_tag "update_locale_form" do %>
-      <%= form_with model: current_user, url: settings_update_locale_path, method: :patch, class: "flex-column gap-2", data: { controller: "form--submit", turbo_frame: "update_locale_form" } do |f| %>
+      <%= form_with model: current_user, url: settings_update_locale_path, method: :patch, data: { controller: "form--submit", turbo_frame: "update_locale_form" } do |f| %>
         <div class="sinput sinput--select">
           <%= language_options.find { |_, code| code == current_locale }&.first || 'English' %>
           <%= f.select :locale, language_options, { selected: current_locale }, data: { action: "change->form--submit#submit" } %>
@@ -32,15 +34,28 @@
     <% end %>
 
     <%= turbo_frame_tag "update_time_zone_form" do %>
-      <%= form_with model: current_user, url: settings_update_time_zone_path, method: :patch, class: "flex-row gap-2", data: {controller: "form--submit", turbo_frame: "update_time_zone_form" } do |f| %>
+      <%= form_with model: current_user, url: settings_update_time_zone_path, method: :patch, data: {controller: "form--submit", turbo_frame: "update_time_zone_form" } do |f| %>
         <div class="sinput sinput--select">
           <%= time_zone_with_offset(current_user.time_zone) %>
           <%= f.select :time_zone, sorted_time_zone_options, { selected: current_user.time_zone }, data: { action: "change->form--submit#submit" } %>
         </div>
-        <small data-controller="clock" data-clock-time-zone-value="<%= ActiveSupport::TimeZone[current_user.time_zone].tzinfo.identifier %>">
-          <%= t('settings.language_and_timezone.current_time_is') %> <b data-clock-target="timestamp"><%= Time.current.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></b>
-        </small>
       <% end %>
     <% end %>
+
+    <%= turbo_frame_tag "update_display_currency_form" do %>
+      <%= form_with model: current_user, url: settings_update_display_currency_path, method: :patch, data: { controller: "form--submit", turbo_frame: "update_display_currency_form" } do |f| %>
+        <div class="sinput sinput--select">
+          <%= current_user.display_currency %>
+          <%= f.select :display_currency, User::DISPLAY_CURRENCIES, { selected: current_user.display_currency }, data: { action: "change->form--submit#submit" } %>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+
+  <div class="settings-prefs__notes">
+    <small data-controller="clock" data-clock-time-zone-value="<%= ActiveSupport::TimeZone[current_user.time_zone].tzinfo.identifier %>">
+      <%= t('settings.language_and_timezone.current_time_is') %> <b data-clock-target="timestamp"><%= Time.current.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></b>
+    </small>
+    <small><%= t('settings.language_and_timezone.currency_is_used_for') %></small>
   </div>
 </div>

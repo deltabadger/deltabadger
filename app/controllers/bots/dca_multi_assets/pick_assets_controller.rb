@@ -7,8 +7,8 @@ class Bots::DcaMultiAssets::PickAssetsController < ApplicationController
   include Bots::DcaMultiAssets::WizardSteps
   include Bots::StockBrokerRoutable
 
-  # Turbo prefetches GETs. An empty list is restored to the single flow before redirecting so the
-  # single picker cannot inherit the multi label.
+  # Turbo prefetches GETs. An empty list is restored to the single flow before redirecting, so the
+  # single picker starts from its own first step instead of a half-built multi config.
   def new
     return restart_as_single! if chosen_asset_ids.empty?
     if (path = prerequisite_redirect_path) then return redirect_to path end
@@ -96,7 +96,6 @@ class Bots::DcaMultiAssets::PickAssetsController < ApplicationController
   def demote_to_single!(base_id)
     cfg = session[:bot_config] || {}
     session[:bot_config] = {
-      'label' => Bots::DcaSingleAsset.new.label,
       'flow' => cfg['flow'],
       'exchange_id' => cfg['exchange_id'],
       'settings' => { 'base_asset_id' => base_id }.compact
@@ -107,7 +106,6 @@ class Bots::DcaMultiAssets::PickAssetsController < ApplicationController
   def restart_as_single!
     cfg = session[:bot_config] || {}
     session[:bot_config] = {
-      'label' => Bots::DcaSingleAsset.new.label,
       'flow' => cfg['flow'],
       'exchange_id' => cfg['exchange_id'],
       'settings' => {}

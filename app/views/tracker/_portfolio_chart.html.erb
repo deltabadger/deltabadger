@@ -48,7 +48,7 @@
                   </div>
                 </div>
                 <div class="allocation"><%= pct.round(1) %>%</div>
-                <div class="tracker-portfolio__asset-value"><%= number_to_currency(slice[:value], precision: 2) %></div>
+                <div class="tracker-portfolio__asset-value"><%= @denomination.format(slice[:value], precision: 2) %></div>
               </div>
             </div>
           <% end %>

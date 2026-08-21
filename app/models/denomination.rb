@@ -1,0 +1,65 @@
+# frozen_string_literal: true
+
+# The fiat an account's normalized figures are SHOWN in, plus the USD -> it rate.
+#
+# Everything in the app is computed and cached in USD, and the REST/MCP API still reports
+# USD; this is the last step before a number reaches a screen. Built once per page and passed
+# down, so a dashboard of eighty tiles costs one FX lookup rather than eighty.
+class Denomination
+  # Rails ships no currency table and the money gem is a dependency for five rows. Suffixed
+  # where the currency is written after the amount in the countries that use it.
+  UNITS = { 'USD' => '$', 'EUR' => '€', 'GBP' => '£', 'CHF' => 'CHF', 'PLN' => 'zł' }.freeze
+  SUFFIXED = %w[CHF PLN].freeze
+
+  attr_reader :currency, :rate
+
+  # Utilities::Currency deliberately never caches a failure, and this one runs inside page
+  # requests — so an outage would otherwise cost every single load a market-data timeout.
+  FAILURE_BACKOFF = 5.minutes
+
+  # USD when the rate is unreachable: a złoty sign on a dollar figure would be a lie, and the
+  # dollar figure is the one we actually have. A fiat pair is cached for hours
+  # (Utilities::Currency::STABLE_CACHE_DURATION), so this is a live call about twice a day.
+  # It is deliberately NOT cache-only, unlike the per-bot rates on the same page: a cold cache
+  # there costs one tile its amount, whereas here it would quietly serve dollars to someone
+  # who asked for złoty — and the amounts on a page must not change currency between loads.
+  def self.for(currency)
+    currency = currency.to_s.upcase
+    return new('USD', 1.to_d) if currency.blank? || currency == 'USD'
+    return new('USD', 1.to_d) if Rails.cache.read(backoff_key(currency))
+
+    result = Utilities::Currency.exchange_rate(from: 'USD', to: currency)
+    unless result.success?
+      Rails.cache.write(backoff_key(currency), true, expires_in: FAILURE_BACKOFF)
+      return new('USD', 1.to_d)
+    end
+
+    new(currency, result.data.to_d)
+  end
+
+  def self.backoff_key(currency)
+    "denomination_unavailable_#{currency}"
+  end
+
+  def initialize(currency, rate)
+    @currency = currency
+    @rate = rate
+  end
+
+  def convert(usd_amount)
+    usd_amount && (usd_amount.to_d * rate)
+  end
+
+  # nil in, nil out: callers hand this whatever they have, including the "rate not cached
+  # yet" nil that renders as no amount at all.
+  def format(usd_amount, precision: 2)
+    return if usd_amount.nil?
+
+    layout = SUFFIXED.include?(currency) ? '%n %u' : '%u%n'
+    ActiveSupport::NumberHelper.number_to_currency(
+      convert(usd_amount),
+      unit: UNITS.fetch(currency, currency), format: layout,
+      negative_format: "-#{layout}", precision: precision
+    )
+  end
+end

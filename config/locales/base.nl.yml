@@ -104,10 +104,12 @@ nl:
             title: Geavanceerde bots
             toggle_label: Geavanceerde bots tonen
         language_and_timezone:
-            title: 'Taal & Tijdzone'
+            title: 'Taal, Tijdzone & Valuta'
             language_updated: 'Uw taal is bijgewerkt.'
             updated: 'Uw tijdzone is bijgewerkt.'
             current_time_is: 'Deze tijdzone wordt gebruikt in de bot logs. Volgens deze is de huidige tijd'
+            currency_updated: "Uw weergavevaluta is bijgewerkt."
+            currency_is_used_for: "Winsten en portefeuilletotalen worden in deze valuta getoond. Bots blijven handelen in hun eigen quote-asset."
         name:
             updated: 'Uw naam is bijgewerkt.'
         two_fa:

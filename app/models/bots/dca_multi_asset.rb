@@ -149,6 +149,11 @@ class Bots::DcaMultiAsset < Bot
     composition_tickers.filter_map(&:minimum_quote_size).max.to_f
   end
 
+  # Named after what it holds: "BTC, ETH, XRP + 3".
+  def default_label
+    basket_label(*base_asset_ids)
+  end
+
   def composition_size = base_asset_ids.size
   def exited_title_key = 'bot.dca_multi_asset.removed_from_portfolio'
   def metrics_partial = 'bots/composition/metrics'

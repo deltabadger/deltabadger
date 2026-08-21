@@ -104,10 +104,12 @@ fr:
             title: Bots avancés
             toggle_label: Afficher les bots avancés
         language_and_timezone:
-            title: 'Langue et fuseau horaire'
+            title: 'Langue, fuseau horaire et devise'
             language_updated: 'Votre langue a été mise à jour.'
             updated: 'Votre fuseau horaire a été mis à jour.'
             current_time_is: 'Ce fuseau horaire sera utilisé dans les logs du bot. Selon lui, l''heure actuelle est'
+            currency_updated: "Votre devise d'affichage a été mise à jour."
+            currency_is_used_for: "Les gains et les totaux du portefeuille sont affichés dans cette devise. Les bots continuent de trader dans leur propre actif de cotation."
         name:
             updated: "Votre nom a été mis à jour."
         two_fa:

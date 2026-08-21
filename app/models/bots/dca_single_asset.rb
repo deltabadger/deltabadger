@@ -74,6 +74,12 @@ class Bots::DcaSingleAsset < Bot
     @base_asset ||= asset_with_id(base_asset_id)
   end
 
+  # Named after what it buys: "Bitcoin", "iShares Core S&P 500 ETF". Read straight from the
+  # table rather than through #base_asset, whose memo would then answer for a later re-pick.
+  def default_label
+    Asset.find_by(id: base_asset_id)&.name
+  end
+
   def quote_asset
     @quote_asset ||= asset_with_id(quote_asset_id)
   end

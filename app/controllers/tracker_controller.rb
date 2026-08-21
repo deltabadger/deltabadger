@@ -252,6 +252,8 @@ class TrackerController < ApplicationController
     @portfolio_has_stale_prices = @portfolio_oldest_priced_at.present? &&
                                   @portfolio_last_synced_at.present? &&
                                   (@portfolio_last_synced_at - @portfolio_oldest_priced_at) > 5.minutes
+    # Balances are priced and stored in USD; the denominator is the last step before display.
+    @denomination = current_user.denomination
     @portfolio_has_keys = current_user.api_keys.where(key_type: :trading, status: :correct).exists?
     @portfolio_never_synced = @portfolio_has_keys && balances.empty? &&
                               !AccountBalance.for_user(current_user).exists?

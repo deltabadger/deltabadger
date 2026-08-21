@@ -73,7 +73,7 @@ module BotApi
         bot = @user.bots.new(
           type: 'Bots::DcaSingleAsset',
           exchange: exchange,
-          label: effective_label(@base_asset.upcase, @quote_asset.upcase, exchange),
+          label: @label,
           settings: {
             'base_asset_id' => asset_ids[:base_asset_id],
             'quote_asset_id' => asset_ids[:quote_asset_id],
@@ -94,7 +94,7 @@ module BotApi
         bot = @user.bots.new(
           type: 'Bots::DcaDualAsset',
           exchange: exchange,
-          label: effective_label("#{@base_asset.upcase}+#{@second_base_asset.upcase}", @quote_asset.upcase, exchange),
+          label: @label,
           settings: {
             'base0_asset_id' => first_asset_ids[:base_asset_id],
             'base1_asset_id' => second[:base_asset_id],
@@ -150,12 +150,6 @@ module BotApi
         else
           "#{@base_asset.upcase}/#{@quote_asset.upcase}"
         end
-      end
-
-      def effective_label(pair_str, quote_str, exchange)
-        return @label if @label.present?
-
-        "#{pair_str}/#{quote_str} #{exchange.name}"
       end
 
       def missing_required_parameter(missing)

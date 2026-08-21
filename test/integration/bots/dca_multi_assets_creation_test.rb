@@ -38,6 +38,7 @@ class Bots::DcaMultiAssetsCreationTest < ActionDispatch::IntegrationTest
 
     bot = Bots::DcaMultiAsset.last
     assert_predicate bot, :created?
+    assert_equal 'BTC, ETH, SOL', bot.label
     assert_equal [@bitcoin.id, @ethereum.id, @solana.id], bot.base_asset_ids
     assert_in_delta 1, bot.allocations.values.sum, 0.0001
     assert_equal [0.3334, 0.3333, 0.3333], bot.allocations.values
@@ -56,7 +57,6 @@ class Bots::DcaMultiAssetsCreationTest < ActionDispatch::IntegrationTest
   test 'removing down to one asset demotes to the single flow' do
     promote(@bitcoin)
     add_asset(@ethereum)
-    multi_label = session[:bot_config]['label']
 
     post remove_bots_dca_multi_assets_pick_assets_path,
          params: { bots_dca_multi_asset: { base_asset_id: @ethereum.id } }
@@ -64,8 +64,6 @@ class Bots::DcaMultiAssetsCreationTest < ActionDispatch::IntegrationTest
     assert_redirected_to new_bots_dca_single_assets_pick_spendable_asset_path
     assert_equal @bitcoin.id, session[:bot_config].dig('settings', 'base_asset_id')
     assert_nil session[:bot_config].dig('settings', 'base_asset_ids')
-    assert_predicate session[:bot_config]['label'], :present?
-    refute_equal multi_label, session[:bot_config]['label']
   end
 
   test 'an asset outside the search scope, a duplicate, and the twenty-first are ignored' do
@@ -102,7 +100,6 @@ class Bots::DcaMultiAssetsCreationTest < ActionDispatch::IntegrationTest
     get new_bots_dca_multi_assets_pick_assets_path
 
     assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
-    assert_predicate session[:bot_config]['label'], :present?
   end
 
   test 'the assets step keeps the sentence compact and renders every chosen row' do

@@ -142,13 +142,12 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
 
   # ── reset_downstream! ──────────────────────────────────────────────────────
 
-  test 'reset_downstream! on the first asset step is a full wipe but keeps label and flow' do
+  test 'reset_downstream! on the first asset step is a full wipe but keeps the flow' do
     h = harness(current_step: :currencies,
                 config: config_with(exchange: 7, base: 3, base0: 4, base1: 5, quote: 9,
-                                    label: 'My bot', flow: 'asset_first'))
+                                    flow: 'asset_first'))
     h.call(:reset_downstream!)
     cfg = h.session[:bot_config]
-    assert_equal 'My bot', cfg['label']
     assert_equal 'asset_first', cfg['flow']
     assert_nil cfg['exchange_id']
     assert_equal({}, cfg['settings'])

@@ -3,6 +3,10 @@ class User < ApplicationRecord
 
   attr_accessor :otp_code_token
 
+  # The fiat every normalized figure on the account is shown in. Kept small on purpose: each
+  # one needs a rate the market-data feed actually quotes and a symbol worth printing.
+  DISPLAY_CURRENCIES = %w[USD EUR GBP CHF PLN].freeze
+
   devise :database_authenticatable, :registerable,
          :recoverable, :rememberable, :validatable, :confirmable, :lockable
 
@@ -50,9 +54,11 @@ class User < ApplicationRecord
   # where nil is already the answer.
   normalizes :locale, with: lambda(&:presence)
   normalizes :time_zone, with: ->(zone) { zone.presence || 'UTC' }, apply_to_nil: true
+  normalizes :display_currency, with: ->(code) { code.presence&.upcase || 'USD' }, apply_to_nil: true
 
   validates :time_zone, inclusion: { in: ActiveSupport::TimeZone.all.map(&:name) }
   validates :locale, inclusion: { in: ->(_) { I18n.available_locales.map(&:to_s) } }, allow_nil: true
+  validates :display_currency, inclusion: { in: DISPLAY_CURRENCIES }
 
   # Devise hands the whole attempt budget back the moment a lock ages out:
   # Devise::Models::Lockable#valid_for_authentication? opens with `unlock_access! if
@@ -76,6 +82,12 @@ class User < ApplicationRecord
 
     otp_regenerate_secret
     save!
+  end
+
+  # One per instance: the /bots index reads it for the header and for every tile, and a
+  # Solid Cache read is a query.
+  def denomination
+    @denomination ||= Denomination.for(display_currency)
   end
 
   def global_pnl(use_cache: true)
@@ -173,7 +185,7 @@ class User < ApplicationRecord
       ["user_#{id}", :bot_updates],
       target: 'global-pnl',
       partial: 'bots/global_pnl',
-      locals: { global_pnl: global_pnl, loading: false }
+      locals: { global_pnl: global_pnl, denomination: denomination, loading: false }
     )
   end
 

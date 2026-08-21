@@ -108,6 +108,11 @@
 .label--select,.sinput--select
     position: relative
     overflow: hidden
+    // The visible label is a text node, so without these the longest option (a timezone name)
+    // is clipped mid-word by the overflow rule above instead of ending in an ellipsis.
+    max-width: 100%
+    white-space: nowrap
+    text-overflow: ellipsis
     select
         opacity: 0
         position: absolute

@@ -14,7 +14,7 @@
   <%= tag.section class: 'dash-intro', data: @global_pnl_loading ? { controller: "broadcast--on-connect",
                                                                      broadcast__on_connect_method_value: "global_pnl_update",
                                                                      broadcast__on_connect_retry_while_value: "#global-pnl .loader--small" } : {} do %>
-    <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, loading: @global_pnl_loading } %>
+    <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, denomination: @denomination, loading: @global_pnl_loading } %>
   <% end %>
   
   <div class="page-head page-head--bots">
@@ -54,6 +54,7 @@
   <% end %>
   <%= tag.div class: 'itiles', data: tile_data do %>
     <%= render partial: 'bots/bot_tile/bot_tile', collection: @bots, as: :bot,
-               locals: { pnl_hash: @pnl_hash, profit_usd_hash: @profit_usd_hash, loading_hash: @loading_hash } %>
+               locals: { pnl_hash: @pnl_hash, profit_usd_hash: @profit_usd_hash,
+                         loading_hash: @loading_hash, denomination: @denomination } %>
   <% end %>
 <% end %>

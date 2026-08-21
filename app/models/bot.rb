@@ -202,7 +202,7 @@ class Bot < ApplicationRecord
       ["user_#{user_id}", :bot_updates],
       target: dom_id(self, :pnl),
       partial: 'bots/bot_tile/bot_tile_pnl',
-      locals: { bot: self, pnl: metrics_data[:pnl],
+      locals: { bot: self, pnl: metrics_data[:pnl], denomination: user.denomination,
                 profit_usd: profit_in_usd(metrics_data, cache_only: false), loading: false }
     )
   end

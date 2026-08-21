@@ -59,6 +59,9 @@ class BotsController < ApplicationController
     global_pnl_snapshot = current_user.global_pnl_snapshot(cache_only: true)
     @global_pnl = global_pnl_snapshot[:result]
     @global_pnl_loading = global_pnl_snapshot[:loading]
+    # Figures stay in USD all the way here; this is the one rate that turns the whole page
+    # into the account's chosen fiat.
+    @denomination = current_user.denomination
   end
 
   def new

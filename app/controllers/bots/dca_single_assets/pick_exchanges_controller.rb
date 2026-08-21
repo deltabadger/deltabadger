@@ -6,7 +6,6 @@ class Bots::DcaSingleAssets::PickExchangesController < Bots::Wizard::PickExchang
     settings = cfg['settings'] || {}
     base = settings['base_asset_id'] || Array(settings['base_asset_ids']).first
     session[:bot_config] = {
-      'label' => Bots::DcaMultiAsset.new.label,
       'flow' => cfg['flow'],
       'exchange_id' => cfg['exchange_id'],
       'settings' => { 'base_asset_ids' => [base].compact.map(&:to_i) }
