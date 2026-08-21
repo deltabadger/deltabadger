@@ -231,7 +231,7 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
     # exited_symbols, which reads the ledger underneath rather than the priced layer, so that a cold
     # price cache cannot turn a live button into a 404.
     data[:asset_breakdown] = values.transform_values { |v| { amount: v.to_d / 100, quote_invested: v.to_d } }
-    Rails.cache.write("bot_#{@bot.id}_metrics_v3", data)
+    Rails.cache.write(@bot.send(:metrics_cache_key), data)
     Rails.cache.write(@bot.send(:metrics_with_current_prices_cache_key), data)
   end
 

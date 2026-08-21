@@ -52,7 +52,11 @@ module Bot::ChartSeries
   # grids     - { symbol => [[time, price], ...] } ascending
   # holdings: - ->(i) { { symbol => amount } } held after transaction i
   # cash:     - ->(i) { realized proceeds } after transaction i — cash does not float with price
-  def chart_marked_at_market(chart, grids, holdings:, cash:)
+  # basis:    - ->(i) { { symbol => cost basis } } after transaction i. Given, the chart also
+  #             carries a per-symbol split (:assets) for the holdings tables to hover against.
+  #             Omitted where the split would only duplicate the portfolio line — a single-asset
+  #             bot's one holding IS the whole chart.
+  def chart_marked_at_market(chart, grids, holdings:, cash:, basis: nil)
     labels = chart[:labels]
     values = chart[:series][0]
     invested = chart[:series][1]
@@ -62,6 +66,8 @@ module Bot::ChartSeries
     marked_labels = []
     marked_values = []
     marked_invested = []
+    marked_split = []
+    marked_basis = []
     cursor = 0
 
     axis.each do |time|
@@ -76,9 +82,14 @@ module Bot::ChartSeries
       # that exists: the live point holds exactly what the last transaction left. Keyed on
       # MISSING data, never on a zero value, or a bot that legitimately sold out would be
       # redrawn as still holding its position.
-      held = holdings.call(cursor)
-      held = holdings.call(cursor - 1) if cursor.positive? && held.values.all?(&:nil?)
-      at_market = chart_market_value(held, grids, time)
+      row = cursor
+      held = holdings.call(row)
+      if row.positive? && held.values.all?(&:nil?)
+        row -= 1
+        held = holdings.call(row)
+      end
+      split = chart_market_values(held, grids, time)
+      at_market = split&.values&.sum
 
       if at_market
         marked_values << (at_market + cash.call(cursor))
@@ -90,9 +101,16 @@ module Bot::ChartSeries
 
       marked_labels << time
       marked_invested << invested[cursor]
+      next unless basis
+
+      # nil where the point kept its fill mark: the portfolio total survives there, but no
+      # per-symbol split does, and inventing one would put an asset at zero.
+      marked_split << split
+      marked_basis << basis.call(row)
     end
 
-    chart.merge(labels: marked_labels, series: [marked_values, marked_invested])
+    marked = chart.merge(labels: marked_labels, series: [marked_values, marked_invested])
+    basis ? marked.merge(assets: chart_asset_series(marked_split, marked_basis)) : marked
   end
 
   private
@@ -101,20 +119,37 @@ module Bot::ChartSeries
     grids.values.flatten(1).filter_map { |time, _price| time if time >= from }
   end
 
-  # nil unless every held symbol has a price at this time — a partially-priced portfolio is not
-  # a market value, it is a market value minus whatever could not be priced.
-  def chart_market_value(held, grids, time)
-    total = 0.to_d
+  # { symbol => value at market }, or nil unless every held symbol has a price at this time — a
+  # partially-priced portfolio is not a market value, it is a market value minus whatever could
+  # not be priced. A symbol held at zero needs no price: it is worth zero at any of them.
+  def chart_market_values(held, grids, time)
+    values = {}
     held.each do |symbol, amount|
       amount = amount.to_d
-      next if amount.zero?
+      if amount.zero?
+        values[symbol] = 0.to_d
+        next
+      end
 
       price = chart_grid_price(grids[symbol], time)
       return nil unless price
 
-      total += amount * price
+      values[symbol] = amount * price
     end
-    total
+    values
+  end
+
+  # The per-point splits transposed into one series per symbol, each parallel with the marked
+  # labels — what the chart swaps in when a holdings row is hovered.
+  #
+  # ponytail: every symbol ships its whole series with the page — 57 KB of JSON on a 20-coin index
+  # over 246 points, so a few hundred on a wide one with years of daily candles behind it. Fetch
+  # the hovered symbol on demand if that ever bites.
+  def chart_asset_series(splits, basis)
+    splits.compact.flat_map(&:keys).uniq.index_with do |symbol|
+      { value: splits.map { |split| split && (split[symbol] || 0) },
+        invested: basis.map { |held| held[symbol] || 0 } }
+    end
   end
 
   def chart_grid_price(marks, time)

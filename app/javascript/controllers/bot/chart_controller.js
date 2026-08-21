@@ -2,6 +2,9 @@ import { Controller } from "@hotwired/stimulus";
 import Chart from "chart.js/auto";
 import "chartjs-adapter-date-fns";
 
+// The rows of both holdings tables — the index's constituents and the coins that left it.
+const HOLDING_ROWS = "#assets_metrics_table tr[data-symbol], #exited_metrics_table tr[data-symbol]";
+
 // Connects to data-controller="bot--chart"
 export default class extends Controller {
   static targets = ["analyzerChart", "summary", "date", "pnl", "percent"];
@@ -12,6 +15,7 @@ export default class extends Controller {
     decimals: Number,
     bot: Number,
     pnl: Array,
+    assets: Object,
   };
 
   connect() {
@@ -23,6 +27,11 @@ export default class extends Controller {
     // inside that window would otherwise rebuild with an undefined budget (Array(NaN) throws,
     // leaving the buttons in one mode and the summary in the other).
     this.maxPointsToDraw = Math.max(1, Math.floor(this.element.offsetWidth / 3.5));
+    // Not null: a pin survives this controller, so a broadcast landing mid-read has to come back
+    // on the asset the user chose rather than snapping to the portfolio while they look at it.
+    this.focused = this.#chartable(this.#pinned);
+    this.pnlSeries = this.#derivePnl();
+    this.#markPinnedRow();
     this.#renderSummary();
     this.resizeObserver = new ResizeObserver(() => {
       // Cancel any pending resize handlers
@@ -72,6 +81,131 @@ export default class extends Controller {
     this.#renderSummary();
   }
 
+  // --- one holding at a time --------------------------------------------------------
+  //
+  // Pointing at a row of either holdings table draws that holding alone, on whichever mode is
+  // in hand; leaving the tables restores the whole bot. Delegated from the document because the
+  // tables are a sibling frame with its own broadcast — there is nothing here to bind to, and a
+  // listener bound to a row would die with the next metrics cycle.
+  focus(event) {
+    this.#focusOn(event.target.closest?.(HOLDING_ROWS)?.dataset.symbol);
+  }
+
+  blur() {
+    this.#focusOn(null);
+  }
+
+  // Clicking a row PINS it, so the pointer is free to leave the table and read along the curve —
+  // which is the whole point of drawing one asset and the one thing hover alone cannot give you.
+  // Clicking it again lets go. Hovering another row still previews it; the pin is what the chart
+  // falls back to, not a lock.
+  select(event) {
+    // The quitters table puts a Sell link on its rows, and arriving at the confirmation with the
+    // chart quietly re-pinned is not what that click was for.
+    if (event.target.closest?.("a, button, input, label")) return;
+
+    const symbol = event.target.closest?.(HOLDING_ROWS)?.dataset.symbol;
+    if (!this.#chartable(symbol)) return;
+
+    this.#pinned = this.#pinned === symbol ? null : symbol;
+    this.#markPinnedRow();
+    this.#focusOn(symbol);
+  }
+
+  // The tables are replaced by their own broadcast, which arrives on its own schedule and takes
+  // the mark with it — the pin outlives the row that was wearing it. Re-applied after any stream
+  // render (rAF: the swap happens in this event's default action, after the listeners).
+  restore() {
+    requestAnimationFrame(() => this.#markPinnedRow());
+  }
+
+  #focusOn(symbol) {
+    // Falls back to the pin, not to the portfolio: moving onto the chart must not undo the choice.
+    const next = this.#chartable(symbol) || this.#chartable(this.#pinned);
+    // mouseover fires again on every cell of the row being tracked along; only a change redraws.
+    if (next === this.focused) return;
+
+    this.focused = next;
+    this.pnlSeries = this.#derivePnl();
+    this.#buildChart();
+    this.#renderSummary();
+  }
+
+  // A holding with no marked point anywhere — every one of its points kept a fill mark — has no
+  // curve to draw, so it is neither hoverable nor pinnable rather than blanking the chart.
+  #chartable(symbol) {
+    const asset = symbol ? this.assetsValue?.[symbol] : null;
+    return asset?.value?.some((amount) => amount !== null) ? symbol : null;
+  }
+
+  // On the body, not on this element or in sessionStorage: it has to outlive the ~5-minute
+  // broadcast that replaces the chart and the tables, and it has to NOT outlive the page — Turbo
+  // swaps the body on a visit, so leaving the bot drops the pin, which is what a view-scoped
+  // choice means. Keyed by bot in case a body ever survives one.
+  get #pinned() {
+    const [bot, symbol] = (document.body.dataset.chartPin || "").split(":");
+    return bot === String(this.botValue) ? symbol : null;
+  }
+
+  set #pinned(symbol) {
+    if (symbol) document.body.dataset.chartPin = `${this.botValue}:${symbol}`;
+    else delete document.body.dataset.chartPin;
+  }
+
+  // The summary names the pinned asset, but the table is where the choice was made, so the row
+  // has to hold it too — the pointer is somewhere over the chart by then.
+  #markPinnedRow() {
+    const pinned = this.#pinned;
+    document.querySelectorAll(HOLDING_ROWS).forEach((row) => {
+      row.classList.toggle("is-selected", row.dataset.symbol === pinned);
+    });
+  }
+
+  // The value and invested curves in force: the focused holding's own, or the whole bot's.
+  get #series() {
+    const asset = this.focused && this.assetsValue[this.focused];
+    return asset ? [asset.value, asset.invested] : this.seriesValue;
+  }
+
+  // ONE ruler across the holdings: moving from one row to the next has to move the curve, not the
+  // axis. Scaled per asset, a 67 and a 2,095 holding draw the identical picture and the comparison
+  // the hover exists for is lost — the reader has no way to see that one of them is the portfolio
+  // and the other is a rounding error.
+  //
+  // Spanned over the assets ALONE, not the portfolio line: in VALUE that line is their sum, so
+  // including it would cost every asset the same margin of empty frame for nothing. The portfolio
+  // keeps its own scale, so the axis moves only when the pointer enters or leaves the tables.
+  get #assetBounds() {
+    this.bounds ||= Object.values(this.assetsValue).reduce(
+      (span, asset) => {
+        asset.value.forEach((amount, i) => {
+          const cost = asset.invested[i];
+          // The invested line is drawn at every point, including ones where value is unmarked.
+          span.value = Math.max(span.value, cost);
+          if (amount === null) return;
+
+          span.value = Math.max(span.value, amount);
+          span.low = Math.min(span.low, amount - cost);
+          span.high = Math.max(span.high, amount - cost);
+        });
+        return span;
+      },
+      // Seeded at zero, which is where both modes read from: VALUE's floor and PnL's baseline.
+      { value: 0, low: 0, high: 0 }
+    );
+    return this.bounds;
+  }
+
+  // Derived, not shipped: a holding's PnL is its value minus what it cost, the same subtraction
+  // `chart_pnl_series` does for the portfolio. Held rather than recomputed — #pnlMode is read on
+  // every pointer move.
+  #derivePnl() {
+    if (!this.focused) return this.pnlValue || [];
+
+    const [value, invested] = this.#series;
+    return value.map((amount, i) => (amount === null ? null : amount - invested[i]));
+  }
+
   // Per tab, not per browser: a mode is a way of reading this page now, not a preference.
   get #storageKey() {
     return `bot-chart-mode:${this.botValue}`;
@@ -95,7 +229,7 @@ export default class extends Controller {
 
   // Requires an actual curve: the plot falls back to VALUE when there is none.
   get #pnlMode() {
-    return this.currentMode === "pnl" && this.pnlValue?.some((point) => point !== null);
+    return this.currentMode === "pnl" && this.pnlSeries.some((point) => point !== null);
   }
 
   // --- summary above the chart: date, PnL in quote currency, PnL in % ------------------
@@ -142,19 +276,25 @@ export default class extends Controller {
   // bot made. That is what lets the switch go uncaptioned — the reader sees one headline and
   // two ways of drawing the history behind it.
   #renderSummary(point = null) {
-    const value = this.seriesValue[0];
-    const invested = this.seriesValue[1];
+    const [value, invested] = this.#series;
     if (!value?.length) return;
 
     const timestamps = this.#timestamps();
-    const last = value.length - 1;
+    // The last point that HAS a value: a focused holding's tail is null wherever the portfolio
+    // point there kept its fill mark, and reading the headline off it would print NaN.
+    let last = value.length - 1;
+    while (last >= 0 && value[last] === null) last -= 1;
+    if (last < 0) return;
+
     const at = point || { x: timestamps[last], value: value[last], invested: invested[last] };
     const spent = Number(at.invested);
     const pnl = Number(at.value) - spent;
     const first = this.#date(timestamps[0]);
     const on = this.#date(at.x);
 
-    this.dateTarget.textContent = point || first === on ? on : `${first} – ${on}`;
+    // Named while focused, or the curve would change under the pointer with nothing saying to what.
+    const range = point || first === on ? on : `${first} – ${on}`;
+    this.dateTarget.textContent = this.focused ? `${this.focused} · ${range}` : range;
     this.pnlTarget.textContent = this.#money(pnl);
     this.percentTarget.textContent = this.#percent(spent > 0 ? pnl / spent : 0);
     this.summaryTarget.classList.toggle("text-danger", pnl < 0);
@@ -187,13 +327,13 @@ export default class extends Controller {
   }
 
   #valueAt(timestamp) {
-    return Number(this.seriesValue[0][this.#indexAt(timestamp)]);
+    return Number(this.#series[0][this.#indexAt(timestamp)]);
   }
 
   // The invested total in force at a timestamp: the last transaction at or before it. Binary
   // search — the labels are sorted and this runs on every pointer move.
   #investedAt(timestamp) {
-    return Number(this.seriesValue[1][this.#indexAt(timestamp)]);
+    return Number(this.#series[1][this.#indexAt(timestamp)]);
   }
 
   #indexAt(timestamp) {
@@ -312,10 +452,16 @@ export default class extends Controller {
   }
 
   #valuePlot(labels) {
-    const series = this.seriesValue.map((serie) =>
-      serie.map((amount, i) => ({ x: labels[i], y: Number(amount) }))
+    // Nulls dropped, not zeroed: a focused holding has no market value at a point the portfolio
+    // left on its fill mark. Every point carries its own timestamp, so a gap costs nothing.
+    const series = this.#series.map((serie) =>
+      serie
+        .map((amount, i) => ({ x: labels[i], y: amount === null ? null : Number(amount) }))
+        .filter((point) => point.y !== null)
     );
-    const maxValue = Math.max(...series[0].map((p) => p.y), ...series[1].map((p) => p.y));
+    const maxValue = this.focused
+      ? this.#assetBounds.value
+      : Math.max(...series[0].map((p) => p.y), ...series[1].map((p) => p.y));
     const profitable = series[0].at(-1).y >= series[1].at(-1).y;
     const points = Math.min(this.maxPointsToDraw, series[0].length, series[1].length);
     const colors = [profitable ? this.#color("--grass") : this.#color("--berry"), this.#color("--benchmark")];
@@ -338,8 +484,8 @@ export default class extends Controller {
   #pnlPlot(curve) {
     const ys = curve.map((point) => point.y);
     // Zero stays in frame whether or not the curve reaches it: the line is what the curve means.
-    const low = Math.min(0, ...ys);
-    const high = Math.max(0, ...ys);
+    const low = this.focused ? this.#assetBounds.low : Math.min(0, ...ys);
+    const high = this.focused ? this.#assetBounds.high : Math.max(0, ...ys);
     const pad = (high - low) * 0.1 || 0.01;
     const up = this.#color("--grass");
     const down = this.#color("--berry");
@@ -374,7 +520,7 @@ export default class extends Controller {
   // with the labels. They are dropped here — every point carries its own timestamp, and
   // decimation cannot sample around a hole.
   #pnlPoints(labels) {
-    return this.pnlValue
+    return this.pnlSeries
       .map((point, i) => ({ x: labels[i], y: point === null ? null : Number(point) }))
       .filter((point) => point.y !== null);
   }

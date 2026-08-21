@@ -211,7 +211,7 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     end
     # The ledger underneath, which is what exited_symbols reads — see the quitters-table test.
     data[:asset_breakdown] = values.transform_values { |v| { amount: v.to_d / 100, quote_invested: v.to_d } }
-    Rails.cache.write("bot_#{@bot.id}_metrics_v3", data)
+    Rails.cache.write(@bot.send(:metrics_cache_key), data)
     Rails.cache.write(@bot.send(:metrics_with_current_prices_cache_key), data)
   end
 end

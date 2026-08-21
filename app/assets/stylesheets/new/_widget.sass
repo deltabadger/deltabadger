@@ -142,6 +142,15 @@
         tbody
             overflow-y: auto
             height: 0
+            // A holding row draws itself on the chart above while the pointer is on it, and
+            // clicking pins it there. The highlight says the row is live; the accent bar says
+            // this is the one the chart is holding on to now that the pointer has moved away.
+            tr[data-symbol]
+                cursor: pointer
+                &:hover, &.is-selected
+                    background-color: var(--paper-on-washed)
+                &.is-selected td:first-child
+                    box-shadow: inset 0.25rem 0 0 var(--sky)
         th
             color: var(--concrete)
             font-weight: 600
