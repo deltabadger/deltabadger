@@ -557,6 +557,7 @@ en:
             liquidation_manually_resolved: "Unconfirmed sale cleared manually"
             liquidation_market_closed: "Market closed — nothing sold"
             liquidation_not_started: "Nothing was sold — the bot was busy, or the index could not be refreshed"
+            liquidation_failed: "Selling failed: %{error}"
             dca_skipped_liquidation_pending: "Contribution skipped — a sale is still in progress"
             started: 'Bot started'
             stopped: 'Bot stopped'

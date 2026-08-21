@@ -33,6 +33,18 @@ class Bot::LiquidateExitedJob < BotJob
 
     bot.log_activity('liquidation_not_started', level: :info,
                                                 details: { reason: result.errors })
+  rescue StandardError => e
+    # Its own event, not liquidation_not_started: that one means a guard declined and its wording
+    # says so. Every guard that DECLINES already reports itself; an exception did not, and the user
+    # had been told the sale started — so a rejected key, a rate limit or a failed balance read left
+    # a flash and no trace at all, with the reason buried in solid_queue_failed_executions where
+    # only the operator can see it. Nothing that reached the venue is being written off here: a placement
+    # records its intent BEFORE the network call and only clears it in the same transaction as the
+    # row, so anything genuinely in flight is still promoted to a halt on the next attempt.
+    #
+    # Re-raised, so the failure is still a failed execution for the operator as well.
+    bot.log_activity('liquidation_failed', level: :error, details: { reason: e.message })
+    raise
   end
 
   private

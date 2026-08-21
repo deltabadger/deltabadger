@@ -43,6 +43,23 @@ class Bot::LiquidateExitedJobTest < ActiveSupport::TestCase
     assert @bot.bot_activity_logs.exists?(event: 'liquidation_not_started')
   end
 
+  test 'a raise is reported too, not just a refusal' do
+    # The gap this closes: every DECLINING guard already logs, but an exception did not — a rejected
+    # API key, a rate limit, a balance read that failed. The user was told the sale started and got
+    # a flash and nothing else, with the reason buried in solid_queue_failed_executions.
+    @bot.stubs(:liquidate_exited!).raises(RuntimeError, 'Failed to read balance: Invalid API-key')
+
+    assert_raises(RuntimeError) { Bot::LiquidateExitedJob.new.perform(@bot) }
+
+    log = @bot.bot_activity_logs.find_by(event: 'liquidation_failed')
+    assert log, 'a sale that died has to say so where the user looks'
+    assert_match(/Invalid API-key/, log.details['reason'])
+    # Its own event, not the refusal one — whose wording ("the bot was busy, or the index could not
+    # be refreshed") would be a wrong explanation for a rejected key.
+    assert_not @bot.bot_activity_logs.exists?(event: 'liquidation_not_started')
+    assert_match(/Invalid API-key/, ApplicationController.helpers.bot_activity_summary(log))
+  end
+
   test 'a bot type that cannot have quitters is refused' do
     other = create(:dca_single_asset, user: create(:user))
     other.expects(:liquidate_exited!).never

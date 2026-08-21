@@ -547,6 +547,7 @@ de:
             liquidation_manually_resolved: "Unbestätigter Verkauf manuell zurückgesetzt"
             liquidation_market_closed: "Markt geschlossen — nichts verkauft"
             liquidation_not_started: "Nichts verkauft — der Bot war beschäftigt oder der Index ließ sich nicht aktualisieren"
+            liquidation_failed: "Verkauf fehlgeschlagen: %{error}"
             dca_skipped_liquidation_pending: "Beitrag übersprungen — ein Verkauf läuft noch"
             started: 'Bot gestartet'
             stopped: 'Bot gestoppt'

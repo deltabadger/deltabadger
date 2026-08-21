@@ -550,6 +550,7 @@ ru:
             liquidation_manually_resolved: "Неподтверждённая продажа сброшена вручную"
             liquidation_market_closed: "Рынок закрыт — ничего не продано"
             liquidation_not_started: "Ничего не продано — бот был занят или индекс не удалось обновить"
+            liquidation_failed: "Продажа не удалась: %{error}"
             dca_skipped_liquidation_pending: "Взнос пропущен — продажа ещё выполняется"
             started: 'Бот запущен'
             stopped: 'Бот остановлен'

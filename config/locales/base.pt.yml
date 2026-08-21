@@ -545,6 +545,7 @@ pt:
             liquidation_manually_resolved: "Venda por confirmar limpa manualmente"
             liquidation_market_closed: "Mercado fechado — nada vendido"
             liquidation_not_started: "Nada foi vendido — o bot estava ocupado ou não foi possível atualizar o índice"
+            liquidation_failed: "Venda falhou: %{error}"
             dca_skipped_liquidation_pending: "Contribuição ignorada — ainda decorre uma venda"
             started: 'Bot iniciado'
             stopped: 'Bot parado'

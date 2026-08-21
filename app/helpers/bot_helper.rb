@@ -53,6 +53,8 @@ module BotHelper
       else
         t('bot_activity.events.execution_failed')
       end
+    when 'liquidation_failed'
+      t('bot_activity.events.liquidation_failed', error: activity.details['reason'])
     when 'order_abandoned'
       t('bot_activity.events.order_abandoned', order_id: activity.details['order_id'])
     else

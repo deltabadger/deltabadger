@@ -547,6 +547,7 @@ fr:
             liquidation_manually_resolved: "Vente non confirmée effacée manuellement"
             liquidation_market_closed: "Marché fermé — rien de vendu"
             liquidation_not_started: "Rien n’a été vendu — le bot était occupé ou l’indice n’a pas pu être actualisé"
+            liquidation_failed: "Échec de la vente : %{error}"
             dca_skipped_liquidation_pending: "Versement ignoré — une vente est encore en cours"
             started: 'Bot démarré'
             stopped: 'Bot arrêté'

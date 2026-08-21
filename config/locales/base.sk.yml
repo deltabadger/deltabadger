@@ -566,6 +566,7 @@ sk:
             liquidation_manually_resolved: "Nepotvrdený predaj vymazaný ručne"
             liquidation_market_closed: "Trh zatvorený — nič sa nepredalo"
             liquidation_not_started: "Nič sa nepredalo — bot bol zaneprázdnený alebo sa index nepodarilo obnoviť"
+            liquidation_failed: "Selling failed: %{error}"
             dca_skipped_liquidation_pending: "Príspevok preskočený — stále prebieha predaj"
             started: 'Bot started'
             stopped: 'Bot stopped'

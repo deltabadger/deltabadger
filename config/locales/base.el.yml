@@ -558,6 +558,7 @@ el:
             liquidation_manually_resolved: "Η ανεπιβεβαίωτη πώληση εκκαθαρίστηκε χειροκίνητα"
             liquidation_market_closed: "Η αγορά είναι κλειστή — δεν πουλήθηκε τίποτα"
             liquidation_not_started: "Δεν πουλήθηκε τίποτα — το bot ήταν απασχολημένο ή ο δείκτης δεν ανανεώθηκε"
+            liquidation_failed: "Selling failed: %{error}"
             dca_skipped_liquidation_pending: "Η εισφορά παραλείφθηκε — μια πώληση είναι ακόμη σε εξέλιξη"
             started: 'Bot started'
             stopped: 'Bot stopped'
