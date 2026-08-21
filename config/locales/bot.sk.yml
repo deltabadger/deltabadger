@@ -27,14 +27,9 @@ sk:
             fewer_coins_available: "%{available} z %{requested} mincí v indexe je dostupných na %{exchange_name}"
             num_assets: "Aktíva v indexe"
             asset_breakdown: "Rozloženie aktív"
-            asset: "Aktívum"
-            amount: "Množstvo"
-            avg_price: "Priem. cena"
             realised_pnl: "Realizovaný zisk/strata"
             realised_pnl_note: "Z predaja aktív, ktoré opustili index. Rebalansovanie sa nepočíta."
             left_the_index: "Mimo indexu"
-            value: "Hodnota"
-            pl: "Z/S"
             warning:
                 intro: "Niektoré príkazy (%{skipped_count}) boli pod minimálnou veľkosťou príkazu na %{exchange_name}. Takto to bot rieši:"
         types:

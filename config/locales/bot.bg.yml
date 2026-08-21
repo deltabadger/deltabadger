@@ -27,14 +27,9 @@ bg:
             fewer_coins_available: "%{available} от %{requested} монети в индекса са налични в %{exchange_name}"
             num_assets: "Активи в индекса"
             asset_breakdown: "Разпределение на активите"
-            asset: "Актив"
-            amount: "Количество"
-            avg_price: "Средна цена"
             realised_pnl: "Реализирана П/З"
             realised_pnl_note: "От продажба на активи, напуснали индекса. Ребалансирането не се брои."
             left_the_index: "Извън индекса"
-            value: "Стойност"
-            pl: "П/З"
             warning:
                 intro: "Някои поръчки (%{skipped_count}) бяха под минималния размер на поръчка в %{exchange_name}. Ето как ботът се справя с това:"
         types:

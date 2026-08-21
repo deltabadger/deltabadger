@@ -27,14 +27,9 @@ da:
             fewer_coins_available: "%{available} af %{requested} coins i indekset er tilgængelige på %{exchange_name}"
             num_assets: "Aktiver i indeks"
             asset_breakdown: "Aktivopdeling"
-            asset: "Aktiv"
-            amount: "Beløb"
-            avg_price: "Gns. pris"
             realised_pnl: "Realiseret gevinst/tab"
             realised_pnl_note: "Fra salg af aktiver, der har forladt indekset. Rebalancering tæller ikke med."
             left_the_index: "Forladt indekset"
-            value: "Værdi"
-            pl: "G/T"
             warning:
                 intro: "Nogle ordrer (%{skipped_count}) var under %{exchange_name}s minimumsordrestørrelse. Sådan håndterer botten det:"
         types:

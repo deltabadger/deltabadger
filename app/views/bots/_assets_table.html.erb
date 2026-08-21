@@ -1,0 +1,47 @@
+<%# locals: (rows:, body_id: nil, loading: false) %>
+<%# The holdings table for every bot type — single, dual, index, and the coins that left an index.
+    Rows arrive pre-formatted: only the bot knows its own decimals. %>
+<table class="table">
+  <thead>
+    <tr>
+      <th scope="col" class="table__logo"></th>
+      <th scope="col"></th>
+      <th scope="col"><%= t('data_labels.amount') %></th>
+      <th scope="col"><%= t('data_labels.avg_price') %></th>
+      <th scope="col"><%= t('data_labels.value') %></th>
+      <th scope="col"><%= t('data_labels.pnl') %></th>
+    </tr>
+  </thead>
+  <tbody id="<%= body_id %>">
+    <% rows.each do |row| %>
+      <% pnl = row[:pnl] %>
+      <tr>
+        <td class="table__logo"><%= render 'assets/logo', asset: row[:asset] %></td>
+        <td scope="row"><%= row[:symbol] %></td>
+        <td><%= row[:amount] %></td>
+        <td><%= row[:avg_price] || '-' %></td>
+        <td>
+          <% if loading %>
+            <div class="loader--small" style="position: unset; float:right"></div>
+          <% else %>
+            <%= row[:value] || '-' %>
+          <% end %>
+        </td>
+        <td class="<%= pnl&.negative? ? 'text-danger' : pnl&.positive? ? 'text-success' : '' %>">
+          <% if loading %>
+            <div class="loader--small" style="position: unset; float:right"></div>
+          <% elsif pnl %>
+            <b><%= pnl.negative? ? '' : '+' %><%= format_percent(pnl, precision: 1) %></b>
+          <% else %>
+            -
+          <% end %>
+        </td>
+      </tr>
+    <% end %>
+    <% if rows.empty? %>
+      <tr>
+        <td colspan="6" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

@@ -27,14 +27,9 @@ el:
             fewer_coins_available: "%{available} από τα %{requested} νομίσματα του δείκτη είναι διαθέσιμα στο %{exchange_name}"
             num_assets: "Assets στον δείκτη"
             asset_breakdown: "Ανάλυση assets"
-            asset: "Asset"
-            amount: "Ποσό"
-            avg_price: "Μ.Ο. τιμής"
             realised_pnl: "Πραγματοποιημένο Κ/Ζ"
             realised_pnl_note: "Από την πώληση στοιχείων που έφυγαν από τον δείκτη. Η εξισορρόπηση δεν μετράει."
             left_the_index: "Εκτός δείκτη"
-            value: "Αξία"
-            pl: "Κ/Ζ"
             warning:
                 intro: "Κάποιες εντολές (%{skipped_count}) ήταν κάτω από το ελάχιστο μέγεθος εντολής του %{exchange_name}. Δες πώς το χειρίζεται το bot:"
         types:
