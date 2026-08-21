@@ -495,16 +495,13 @@ FactoryBot.define do
         end
       end
 
-      weights = if evaluator.allocations
-                  evaluator.allocations.to_h { |asset, weight| [asset.id.to_s, weight] }
-                else
-                  bases.to_h { |base| [base.id.to_s, 1.0 / bases.size] }
-                end
+      weights = evaluator.allocations&.to_h { |asset, weight| [asset.id.to_s, weight] }
+      weights ||= bot.equal_allocations(bases.map(&:id))
       bot.settings = bot.settings.merge(
         'quote_asset_id' => quote.id,
         'quote_amount' => 100.0,
         'interval' => 'day',
-        'allocations' => bot.normalize_allocations(weights)
+        'allocations' => weights
       )
     end
 

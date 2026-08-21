@@ -10,11 +10,15 @@ da:
         dca_multi_asset:
             invest_on: "Investér på"
             add_asset: "Tilføj aktiv"
+            add_another_asset: "Tilføj endnu et aktiv…"
             remove_asset: "Fjern"
             max_assets_reached: "Du kan have op til %{max} aktiver."
             min_assets: "En portefølje skal have mindst %{min} aktiver."
-            no_common_exchange: "Ingen børs har alle disse aktiver."
+            no_common_exchange: "Denne kombination af aktiver findes ikke på nogen understøttet børs."
             removed_from_portfolio: "Fjernet fra porteføljen"
+            allocation_sum: "I alt"
+            normalize: "Normaliser"
+            unbalanced_hint: "Fordelingerne giver i alt %{sum}% — de skal give 100%, før botten kan startes."
         dca_index:
             setup:
                 step_index: "Indeks"
@@ -69,6 +73,7 @@ da:
         exchange_menu:
             no_alternative: 'Ingen anden understøttet børs udbyder %{assets}.'
             locked_while_running: 'Stop botten for at flytte den til en anden børs.'
+            locked_while_rebalancing: 'En rebalancering er stadig i gang — børsen kan ændres, når den er færdig.'
         status:
             exchange_retired: 'Denne børs findes ikke længere — flyt botten til en anden.'
             setting_orders: "Opretter ordrer…"

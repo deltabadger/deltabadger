@@ -13,11 +13,15 @@ ru:
         dca_multi_asset:
             invest_on: "Инвестировать на"
             add_asset: "Добавить актив"
+            add_another_asset: "Добавить ещё один актив…"
             remove_asset: "Удалить"
             max_assets_reached: "В портфеле может быть не более %{max} активов."
             min_assets: "В портфеле должно быть не менее %{min} активов."
-            no_common_exchange: "Ни одна биржа не поддерживает все эти активы."
+            no_common_exchange: "Такая комбинация активов недоступна ни на одной поддерживаемой бирже."
             removed_from_portfolio: "Удалены из портфеля"
+            allocation_sum: "Итого"
+            normalize: "Нормализовать"
+            unbalanced_hint: "Сумма долей составляет %{sum}% — перед запуском бота она должна составлять 100%."
         dca_index:
             setup:
                 step_index: "Индекс"
@@ -62,6 +66,7 @@ ru:
         exchange_menu:
             no_alternative: 'Ни одна другая поддерживаемая биржа не предлагает %{assets}.'
             locked_while_running: 'Останови бота, чтобы перенести его на другую биржу.'
+            locked_while_rebalancing: 'Ребалансировка ещё продолжается — биржу можно будет сменить после её завершения.'
         status:
             exchange_retired: 'Эта биржа больше не работает — переведите бота на другую.'
             setting_orders: "Настройка ордеров…"

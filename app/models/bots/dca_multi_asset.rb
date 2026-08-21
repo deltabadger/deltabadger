@@ -59,11 +59,15 @@ class Bots::DcaMultiAsset < Bot
       allocations: parse_allocations(params[:allocations])
     }.compact
 
-    # Structural edits apply on top of sliders posted in the same request, so an unsaved drag is
-    # not thrown away by the remove click that rode along with it.
+    # Structural edits apply in order on top of sliders posted in the same request, so one submit
+    # cannot throw away another control's change.
     base = parsed[:allocations] || allocations
-    parsed[:allocations] = allocations_adding(params[:add_asset_id].to_i, base) if params[:add_asset_id].present?
-    parsed[:allocations] = allocations_removing(params[:remove_asset_id].to_i, base) if params[:remove_asset_id].present?
+    base = allocations_adding(params[:add_asset_id].to_i, base) if params[:add_asset_id].present?
+    base = allocations_removing(params[:remove_asset_id].to_i, base) if params[:remove_asset_id].present?
+    normalize = params[:normalize_allocations].to_s.in?(%w[1 true])
+    base = normalize_allocations(base) if normalize
+    structural_edit = params[:add_asset_id].present? || params[:remove_asset_id].present? || normalize
+    parsed[:allocations] = base if structural_edit
     parsed
   end
 
@@ -106,11 +110,11 @@ class Bots::DcaMultiAsset < Bot
   end
 
   def available_exchanges_for_current_settings
-    Exchange.where(id: eligible_pairs(venues: Exchange.available).map(&:first).uniq)
+    Exchange.where(id: eligible_pairs(venues: Exchange.tradeable).map(&:first).uniq)
   end
 
   def available_assets_for_current_settings(asset_type:, include_exchanges: false)
-    venues = exchange.present? ? [exchange] : Exchange.available
+    venues = exchange_id? ? Exchange.tradeable.where(id: exchange_id) : Exchange.tradeable
     scope = tickers_on(eligible_pairs(venues:))
     case asset_type
     when :base_asset
@@ -149,17 +153,20 @@ class Bots::DcaMultiAsset < Bot
   def exited_title_key = 'bot.dca_multi_asset.removed_from_portfolio'
   def metrics_partial = 'bots/composition/metrics'
 
+  # An unconfirmed total must not steer a stopped bot toward proportions the user has not accepted.
+  # A swap already in flight still needs its target so its owed buy can land.
+  def rebalance_targets
+    rebalance_pending? || allocations_balanced? ? super : nil
+  end
+
   private
 
-  # Slider values are percents. Normalising repairs races between simultaneous controls instead of
-  # turning them into a validation error.
+  # Slider values are independent percents. The user decides when to squeeze their total to 100%.
   def parse_allocations(raw)
     return nil if raw.blank?
 
     hash = raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h : raw.to_h
-    normalize_allocations(
-      hash.transform_values { |value| value.to_s.tr(',', '.').to_f.clamp(0, 100) / 100 }
-    )
+    hash.transform_values { |value| value.to_s.tr(',', '.').to_f.clamp(0, 100) / 100 }
   end
 
   def derive_composition

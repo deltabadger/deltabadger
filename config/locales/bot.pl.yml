@@ -13,11 +13,15 @@ pl:
         dca_multi_asset:
             invest_on: "Inwestuj na"
             add_asset: "Dodaj aktywo"
+            add_another_asset: "Dodaj kolejne aktywo…"
             remove_asset: "Usuń"
             max_assets_reached: "Możesz posiadać maksymalnie %{max} aktywów."
             min_assets: "Portfel musi zawierać co najmniej %{min} aktywów."
-            no_common_exchange: "Żadna giełda nie obsługuje wszystkich tych aktywów."
+            no_common_exchange: "Ta kombinacja aktywów nie jest dostępna na żadnej obsługiwanej giełdzie."
             removed_from_portfolio: "Usunięte z portfela"
+            allocation_sum: "Łącznie"
+            normalize: "Normalizuj"
+            unbalanced_hint: "Suma alokacji wynosi %{sum}% — przed uruchomieniem bota musi wynosić 100%."
         dca_index:
             setup:
                 step_index: "Indeks"
@@ -65,6 +69,7 @@ pl:
         exchange_menu:
             no_alternative: 'Żadna inna obsługiwana giełda nie oferuje %{assets}.'
             locked_while_running: 'Zatrzymaj bota, żeby przenieść go na inną giełdę.'
+            locked_while_rebalancing: 'Równoważenie portfela nadal trwa — giełdę będzie można zmienić po jego zakończeniu.'
         status:
             exchange_retired: 'Ta giełda już nie działa — przenieś bota na inną.'
             setting_orders: "Ustawianie zleceń…"

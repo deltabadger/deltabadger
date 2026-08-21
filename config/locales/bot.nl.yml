@@ -13,11 +13,15 @@ nl:
         dca_multi_asset:
             invest_on: "Investeer op"
             add_asset: "Asset toevoegen"
+            add_another_asset: "Nog een asset toevoegen…"
             remove_asset: "Verwijderen"
             max_assets_reached: "Je kunt maximaal %{max} assets aanhouden."
             min_assets: "Een portefeuille heeft minstens %{min} assets nodig."
-            no_common_exchange: "Geen enkele beurs biedt al deze assets aan."
+            no_common_exchange: "Deze combinatie van assets bestaat op geen enkele ondersteunde exchange."
             removed_from_portfolio: "Verwijderd uit de portefeuille"
+            allocation_sum: "Totaal"
+            normalize: "Normaliseren"
+            unbalanced_hint: "De allocaties komen uit op %{sum}% — ze moeten samen 100% zijn voordat de bot kan starten."
         dca_index:
             setup:
                 step_index: "Index"
@@ -62,6 +66,7 @@ nl:
         exchange_menu:
             no_alternative: 'Geen andere ondersteunde exchange biedt %{assets} aan.'
             locked_while_running: 'Stop de bot om hem naar een andere exchange te verplaatsen.'
+            locked_while_rebalancing: 'Er wordt nog geherbalanceerd — zodra dat klaar is, kan de exchange worden gewijzigd.'
         status:
             exchange_retired: 'Deze exchange bestaat niet meer — zet de bot over naar een andere.'
             setting_orders: "Orders instellen…"

@@ -10,15 +10,18 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
     @first, @second = @bot.base_assets
   end
 
-  test 'PATCH allocations saves normalised weights and rewrites the composition rows' do
-    patch_allocations(@first.id => '70', @second.id => '30')
+  test 'PATCH allocations is saved as posted; an off-100 total leaves the bot unstartable' do
+    patch_allocations(@first.id => '70', @second.id => '70')
 
     assert_response :success
-    assert_equal({ @first.id.to_s => 0.7, @second.id.to_s => 0.3 }, @bot.reload.allocations)
-    assert_equal({ @first.id => 0.7, @second.id => 0.3 }, composition_weights)
+    assert_equal({ @first.id.to_s => 0.7, @second.id.to_s => 0.7 }, @bot.reload.allocations)
+    assert_equal({ @first.id => 0.5, @second.id => 0.5 }, composition_weights)
+    assert_not @bot.valid?(:start)
+    assert_match I18n.t('bot.dca_multi_asset.unbalanced_hint', sum: '140.00'), response.body
+    assert_match(/disabled="disabled"/, response.body)
   end
 
-  test 'PATCH add_asset_id admits a third asset at a third' do
+  test 'PATCH add_asset_id admits a third asset at zero' do
     third = create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana')
     create(:ticker, exchange: @bot.exchange, base_asset: third, quote_asset: @bot.quote_asset)
 
@@ -26,7 +29,7 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal [@first.id, @second.id, third.id], @bot.reload.base_asset_ids
-    assert_equal [0.3333, 0.3333, 0.3334], @bot.allocations.values.sort
+    assert_equal [0.0, 0.5, 0.5], @bot.allocations.values.sort
     assert_equal 3, @bot.bot_index_assets.in_index.count
   end
 
@@ -47,11 +50,36 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
     assert_equal [@first.id, @second.id], @bot.reload.base_asset_ids
   end
 
-  test 'PATCH allocations that do not sum to 100 is repaired, not refused' do
-    patch_allocations(@first.id => '70', @second.id => '70')
+  test 'PATCH normalize_allocations squeezes to 100' do
+    patch bot_path(id: @bot.id), params: {
+      bots_dca_multi_asset: {
+        allocations: { @first.id => '30', @second.id => '30' },
+        normalize_allocations: '1'
+      }
+    }, as: :turbo_stream
 
     assert_response :success
     assert_equal({ @first.id.to_s => 0.5, @second.id.to_s => 0.5 }, @bot.reload.allocations)
+  end
+
+  test 'PATCH remove_asset_id leaves the other weights alone' do
+    third = create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana')
+    create(:ticker, exchange: @bot.exchange, base_asset: third, quote_asset: @bot.quote_asset)
+    @bot.set_missed_quote_amount
+    @bot.update!(
+      allocations: {
+        @first.id.to_s => 0.5,
+        @second.id.to_s => 0.25,
+        third.id.to_s => 0.25
+      }
+    )
+
+    patch bot_path(id: @bot.id), params: {
+      bots_dca_multi_asset: { remove_asset_id: @first.id }
+    }, as: :turbo_stream
+
+    assert_response :success
+    assert_equal({ @second.id.to_s => 0.25, third.id.to_s => 0.25 }, @bot.reload.allocations)
   end
 
   test 'PATCH on a working bot refuses composition changes and allows quote_amount' do

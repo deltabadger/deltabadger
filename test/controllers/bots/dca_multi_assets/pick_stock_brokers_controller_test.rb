@@ -67,7 +67,7 @@ class Bots::DcaMultiAssets::PickStockBrokersControllerTest < ActionDispatch::Int
 
     assert_redirected_to new_bots_dca_multi_assets_pick_assets_path
     assert_equal I18n.t('bot.dca_multi_asset.no_common_exchange'), flash[:alert]
-    refute session[:bot_config]['exchange_id'].present?
+    assert_equal @alpaca.id.to_s, session[:bot_config]['exchange_id'].to_s
   end
 
   test 'a broker chosen for the single bot is cleared when the basket has multiple venues' do

@@ -10,11 +10,15 @@ de:
         dca_multi_asset:
             invest_on: "Investieren auf"
             add_asset: "Asset hinzufügen"
+            add_another_asset: "Weiteres Asset hinzufügen…"
             remove_asset: "Entfernen"
             max_assets_reached: "Du kannst bis zu %{max} Assets halten."
             min_assets: "Ein Portfolio benötigt mindestens %{min} Assets."
-            no_common_exchange: "Keine Börse führt alle diese Assets."
+            no_common_exchange: "Diese Asset-Kombination ist an keiner unterstützten Börse verfügbar."
             removed_from_portfolio: "Aus dem Portfolio entfernt"
+            allocation_sum: "Gesamt"
+            normalize: "Normalisieren"
+            unbalanced_hint: "Die Allokationen ergeben %{sum} % — vor dem Start des Bots müssen sie zusammen 100 % ergeben."
         dca_index:
             setup:
                 step_index: "Index"
@@ -62,6 +66,7 @@ de:
         exchange_menu:
             no_alternative: 'Keine andere unterstützte Börse führt %{assets}.'
             locked_while_running: 'Stoppe den Bot, um ihn zu einer anderen Börse zu verschieben.'
+            locked_while_rebalancing: 'Eine Neugewichtung läuft noch — die Börse kann nach ihrem Abschluss gewechselt werden.'
         status:
             exchange_retired: 'Diese Börse gibt es nicht mehr — wechsle den Bot zu einer anderen.'
             setting_orders: "Orders werden erstellt…"

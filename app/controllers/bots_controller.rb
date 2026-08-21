@@ -185,6 +185,7 @@ class BotsController < ApplicationController
       :exchange_id,
       :add_asset_id,
       :remove_asset_id,
+      :normalize_allocations,
       *(Bots::DcaMultiAsset.stored_attributes[:settings] - %i[allocations base_asset_ids]),
       allocations: {}
     )

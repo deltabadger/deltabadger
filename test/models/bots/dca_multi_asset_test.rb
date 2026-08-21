@@ -54,15 +54,18 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     assert bot.valid?
   end
 
-  test 'weights must sum to one within tolerance and are stored normalised' do
+  test 'weights are stored as posted; the sum is checked on start, not on save' do
     bot = build_bot
     ids = member_ids
 
     bot.allocations = { ids[0] => 0.6, ids[1] => 0.6 }
-    assert_not bot.valid?
+    assert bot.valid?
+    assert_equal({ ids[0] => 0.6, ids[1] => 0.6 }, bot.allocations)
+    assert_not bot.valid?(:start)
 
     bot.allocations = { ids[0] => 0.5005, ids[1] => 0.4995 }
     assert bot.valid?
+    assert bot.valid?(:start)
   end
 
   test 'the residual of rounding lands on the largest weight and nothing goes negative' do
@@ -152,44 +155,93 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     assert_predicate bot.errors[:allocations], :present?
   end
 
-  test 'parse_params turns slider percents into normalised fractions and repairs a bad sum' do
+  test 'parse_params keeps the weights the sliders posted, without normalising' do
     bot = build_bot
     a, b = member_ids
 
     assert_equal({ a => 0.7, b => 0.3 }, bot.parse_params(allocations: { a => '70', b => '30' })[:allocations])
-    assert_equal({ a => 0.5, b => 0.5 }, bot.parse_params(allocations: { a => '70', b => '70' })[:allocations])
+    bot.allocations = bot.parse_params(allocations: { a => '70', b => '70' })[:allocations]
+    assert_equal({ a => 0.7, b => 0.7 }, bot.allocations)
+    assert_in_delta 1.4, bot.allocations_total, 0.0001
+    assert_not bot.allocations_balanced?
     assert_equal({ a => 0.0, b => 1.0 }, bot.parse_params(allocations: { a => '-5', b => '150' })[:allocations])
   end
 
-  test 'parse_params add_asset_id gives the newcomer 1/(n+1) and scales the rest, on top of posted sliders' do
+  test 'a bot whose allocations do not add up to 100% cannot start' do
+    bot = build_bot
+    a, b = member_ids
+
+    bot.allocations = { a => 0.7, b => 0.7 }
+    assert_not bot.valid?(:start)
+    assert_match(/140\.00%/, bot.errors[:allocations].to_sentence)
+
+    bot.allocations = { a => 0.7, b => 0.3 }
+    assert bot.valid?(:start)
+  end
+
+  test 'add_asset_id joins at zero and remove_asset_id moves nothing' do
     bot = build_bot
     a, b = member_ids
     c = @assets['CCC'][:asset].id.to_s
 
-    result = bot.parse_params(allocations: { a => '80', b => '20' }, add_asset_id: c)[:allocations]
+    added = bot.parse_params(add_asset_id: c)[:allocations]
+    assert_equal({ a => 0.5, b => 0.5, c => 0.0 }, added)
+    bot.allocations = added
+    assert bot.allocations_balanced?
 
-    assert_equal({ a => 0.5334, b => 0.1333, c => 0.3333 }, result)
-    assert_equal 1.0, result.values.sum
-    assert_in_delta 4, result[a] / result[b], 0.01
+    removed = bot.parse_params(remove_asset_id: a)[:allocations]
+    assert_equal({ b => 0.5, c => 0.0 }, removed)
+    bot.allocations = removed
+    assert_in_delta 0.5, bot.allocations_total, 0.0001
+    assert_not bot.allocations_balanced?
   end
 
-  test 'parse_params remove_asset_id drops it and renormalises the rest' do
-    bot = build(:dca_multi_asset, user: @user, exchange: @exchange,
-                                  base_assets: @assets.values.map { it[:asset] }, quote_asset: @quote,
-                                  allocations: {
-                                    @assets['AAA'][:asset] => 0.5,
-                                    @assets['BBB'][:asset] => 0.25,
-                                    @assets['CCC'][:asset] => 0.25
-                                  })
-    ids = @assets.transform_values { it[:asset].id.to_s }
+  test 'normalize_allocations squeezes the stored proportions to 100' do
+    bot = build_bot
+    a, b = member_ids
+    bot.allocations = { a => 0.5, b => 0.25 }
 
-    result = bot.parse_params(remove_asset_id: ids['AAA'])[:allocations]
-    assert_equal({ ids['BBB'] => 0.5, ids['CCC'] => 0.5 }, result)
+    result = bot.parse_params(normalize_allocations: '1')[:allocations]
 
-    bot.allocations = result
-    bot.allocations = bot.parse_params(remove_asset_id: ids['BBB'])[:allocations]
-    assert_not bot.valid?
-    assert_predicate bot.errors[:allocations], :present?
+    assert_equal({ a => 0.6667, b => 0.3333 }, result)
+  end
+
+  test 'add and remove in one request compose' do
+    bot = build_bot
+    a, b = member_ids
+    c = @assets['CCC'][:asset].id.to_s
+
+    result = bot.parse_params(add_asset_id: c, remove_asset_id: a)[:allocations]
+
+    assert_equal({ b => 0.5, c => 0.0 }, result)
+  end
+
+  test 'Normalize on all-zero weights splits them equally' do
+    bot = build_bot
+    a, b = member_ids
+    bot.allocations = { a => 0.0, b => 0.0 }
+
+    assert_equal({ a => 0.5, b => 0.5 }, bot.parse_params(normalize_allocations: 'true')[:allocations])
+  end
+
+  test 'Normalize applies to the sliders posted with it' do
+    bot = build_bot
+    a, b = member_ids
+
+    result = bot.parse_params(allocations: { a => '30', b => '30' }, normalize_allocations: '1')[:allocations]
+
+    assert_equal({ a => 0.5, b => 0.5 }, result)
+  end
+
+  test 'allocations_balanced? uses the same tolerance as the model' do
+    bot = build_bot
+    a, b = member_ids
+
+    bot.allocations = { a => 0.5, b => 0.4995 }
+    assert bot.allocations_balanced?
+
+    bot.allocations = { a => 0.5, b => 0.498 }
+    assert_not bot.allocations_balanced?
   end
 
   test 'interval, quote_amount, label parse like every other type' do
@@ -368,6 +420,37 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     bot = Bot.find(bot.id)
     Bots::DcaMultiAsset.any_instance.stubs(:broadcast_metrics_panel)
     bot.exchange = other
+    bot.set_missed_quote_amount
+    assert bot.save
+  end
+
+  test 'the composition is frozen while a rebalance is pending, even when stopped' do
+    bot = create(:dca_multi_asset, :stopped, user: @user, exchange: @exchange,
+                                             base_assets: @assets.values.map { it[:asset] }, quote_asset: @quote)
+    bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_BUYING, remaining_quote_amount: 10)
+    bot = Bot.find(bot.id)
+
+    bot.assign_attributes(bot.parse_params(remove_asset_id: @assets['CCC'][:asset].id))
+    bot.set_missed_quote_amount
+    assert_not bot.save
+    assert_predicate bot.errors[:allocations], :present?
+
+    bot.reload
+    bot.assign_attributes(
+      bot.parse_params(
+        allocations: {
+          @assets['AAA'][:asset].id => 60,
+          @assets['BBB'][:asset].id => 20,
+          @assets['CCC'][:asset].id => 20
+        }
+      )
+    )
+    bot.set_missed_quote_amount
+    assert_not bot.save
+    assert_predicate bot.errors[:allocations], :present?
+
+    bot.reload
+    bot.quote_amount = 125
     bot.set_missed_quote_amount
     assert bot.save
   end

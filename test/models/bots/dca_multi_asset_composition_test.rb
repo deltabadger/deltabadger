@@ -115,15 +115,11 @@ class Bots::DcaMultiAssetCompositionTest < ActiveSupport::TestCase
   end
 
   test 'rebalance_targets come from the in-index rows with the user weights' do
-    bot = create_bot('AAA' => 0.5, 'BBB' => 0.3, 'CCC' => 0.2)
-    bot.allocations = bot.allocations_removing(@assets['CCC'][:asset].id)
-    bot.set_missed_quote_amount
-    bot.save!
+    bot = create_bot('AAA' => 0.625, 'BBB' => 0.375)
     bot.stubs(:metrics_with_current_prices).returns(
       asset_values: {
         'AAA' => { amount: 0.5.to_d, current_value: 50.to_d },
-        'BBB' => { amount: 0.3.to_d, current_value: 30.to_d },
-        'CCC' => { amount: 0.2.to_d, current_value: 20.to_d }
+        'BBB' => { amount: 0.3.to_d, current_value: 30.to_d }
       },
       asset_breakdown: {},
       prices_stale: false
@@ -136,11 +132,46 @@ class Bots::DcaMultiAssetCompositionTest < ActiveSupport::TestCase
     assert_in_delta 0.375, targets['BBB'][:target], 0.0001
   end
 
+  test 'rebalance_targets are nil while the allocations do not add up' do
+    bot = create_bot('AAA' => 0.5, 'BBB' => 0.25)
+
+    assert_nil bot.send(:rebalance_targets)
+
+    bot.allocations = { @assets['AAA'][:asset].id.to_s => 0.6, @assets['BBB'][:asset].id.to_s => 0.4 }
+    bot.set_missed_quote_amount
+    bot.save!
+    stub_rebalance_metrics(bot)
+
+    assert_equal 2, bot.send(:rebalance_targets).size
+  end
+
+  test 'a mid-flight rebalance still gets its targets while the weights do not add up' do
+    bot = create_bot('AAA' => 0.5, 'BBB' => 0.25)
+    stub_rebalance_metrics(bot)
+    bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_BUYING, remaining_quote_amount: 10)
+
+    assert_equal 2, bot.send(:rebalance_targets).size
+
+    bot.clear_rebalance_pending!
+    assert_nil bot.send(:rebalance_targets)
+  end
+
   private
 
   def create_bot(weights)
     allocations = weights.to_h { |symbol, weight| [@assets.fetch(symbol)[:asset], weight] }
     create(:dca_multi_asset, user: @user, exchange: @exchange,
                              base_assets: allocations.keys, quote_asset: @quote, allocations:)
+  end
+
+  def stub_rebalance_metrics(bot)
+    bot.stubs(:metrics_with_current_prices).returns(
+      asset_values: {
+        'AAA' => { amount: 0.5.to_d, current_value: 50.to_d },
+        'BBB' => { amount: 0.25.to_d, current_value: 25.to_d }
+      },
+      asset_breakdown: {},
+      prices_stale: false
+    )
   end
 end

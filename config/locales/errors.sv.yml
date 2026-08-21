@@ -64,6 +64,7 @@ sv:
                 max_assets: "En portfölj kan innehålla högst %{max} tillgångar."
                 pair_missing: "%{assets} kan inte handlas mot den valda noteringstillgången på %{exchange_name}."
                 locked_while_running: "Portföljens tillgångar och viktningar kan inte ändras medan boten körs."
+                unbalanced: "Allokeringarna blir totalt %{sum}%, inte 100%."
             exchange_asset_mismatch: "Alla tillgångar är inte listade på %{exchange_name}"
             archived: "Återaktivera denna bot innan du startar den"
             exchange_change_while_open_orders: "Avbryt alla öppna ordrar som denna bot har på %{exchange_name} innan du byter börs"

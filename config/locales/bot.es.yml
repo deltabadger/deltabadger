@@ -13,11 +13,15 @@ es:
         dca_multi_asset:
             invest_on: "Invertir en"
             add_asset: "Añadir activo"
+            add_another_asset: "Añadir otro activo…"
             remove_asset: "Eliminar"
             max_assets_reached: "Puedes tener hasta %{max} activos."
             min_assets: "Una cartera necesita al menos %{min} activos."
-            no_common_exchange: "Ningún exchange ofrece todos estos activos."
+            no_common_exchange: "Esta combinación de activos no existe en ningún exchange compatible."
             removed_from_portfolio: "Eliminados de la cartera"
+            allocation_sum: "Suma total"
+            normalize: "Normalizar"
+            unbalanced_hint: "Las asignaciones suman un %{sum}% — deben sumar un 100% antes de iniciar el bot."
         dca_index:
             setup:
                 step_index: "Índice"
@@ -65,6 +69,7 @@ es:
         exchange_menu:
             no_alternative: 'Ningún otro exchange compatible ofrece %{assets}.'
             locked_while_running: 'Detén el bot para moverlo a otro exchange.'
+            locked_while_rebalancing: 'Hay un rebalanceo en curso — podrás cambiar de exchange cuando termine.'
         status:
             exchange_retired: 'Este exchange ya no opera: cambia el bot a otro.'
             setting_orders: "Configurando órdenes…"

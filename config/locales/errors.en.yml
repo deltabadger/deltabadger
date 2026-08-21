@@ -72,6 +72,7 @@ en:
                 max_assets: "A portfolio can hold up to %{max} assets."
                 pair_missing: "%{assets} cannot be traded against the selected quote asset on %{exchange_name}."
                 locked_while_running: "Portfolio assets and allocations cannot be changed while the bot is running."
+                unbalanced: "Allocations add up to %{sum}%, not 100%."
             exchange_asset_mismatch: "Not all the assets are listed on %{exchange_name}"
             archived: "Reactivate this bot before starting it"
             exchange_change_while_open_orders: "Cancel all open orders this bot has on %{exchange_name} before changing the exchange"

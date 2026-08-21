@@ -71,6 +71,7 @@ nl:
                 max_assets: "Een portefeuille kan maximaal %{max} activa bevatten."
                 pair_missing: "%{assets} kunnen op %{exchange_name} niet tegenover het gekozen noteringsactivum worden verhandeld."
                 locked_while_running: "De activa en wegingen van de portefeuille kunnen niet worden gewijzigd zolang de bot actief is."
+                unbalanced: "De allocaties komen uit op %{sum}%, niet op 100%."
             exchange_asset_mismatch: "Niet alle activa staan genoteerd op %{exchange_name}"
             archived: "Heractiveer deze bot voordat je hem start"
             exchange_change_while_open_orders: "Annuleer alle openstaande bestellingen van deze bot op %{exchange_name} voordat u de exchange wijzigt"

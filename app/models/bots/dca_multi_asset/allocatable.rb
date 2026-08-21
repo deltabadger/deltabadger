@@ -1,12 +1,13 @@
 module Bots::DcaMultiAsset::Allocatable
   extend ActiveSupport::Concern
 
-  # A weight is a fraction. normalize_allocations is the only writer of the stored shape.
+  # Sliders write raw fractional weights; normalize_allocations squeezes them only when requested.
   ALLOCATION_TOLERANCE = 0.001
 
   included do
     before_validation :derive_allocations_from_base_asset_ids, on: :create
     validate :validate_allocations
+    validate :validate_allocations_balanced, on: :start
     validate :validate_composition_pairs,
              if: -> { exchange_id? && (new_record? || composition_changed_pending? || will_save_change_to_exchange_id?) }
     validate :validate_composition_frozen_while_working, on: :update
@@ -31,13 +32,24 @@ module Bots::DcaMultiAsset::Allocatable
 
   def allocation_for(asset_id) = allocations[asset_id.to_s].to_f
 
+  def allocations_total = allocations.values.sum(&:to_f)
+
+  def allocations_balanced?
+    (allocations_total - 1).abs <= ALLOCATION_TOLERANCE
+  end
+
+  def composition_locked? = working? || rebalance_pending?
+
   # String keys (JSON), floats, 4 dp, sum exactly 1. Negative inputs clamp to 0. The residual goes
   # to the largest weight: on the last key it could make a tiny allocation negative. Zero is a
   # legal weight — a parked asset stays a member.
   def normalize_allocations(hash)
     entries = hash.to_h { |key, value| [key.to_s, [value.to_f, 0].max] }
     total = entries.values.sum
-    return entries.transform_values { 0.0 } unless total.positive?
+    return entries if entries.empty?
+
+    entries.transform_values! { 1.0 } unless total.positive?
+    total = entries.values.sum
 
     rounded = entries.transform_values { |value| (value / total).round(4) }
     largest = rounded.max_by { |_, value| value }.first
@@ -50,15 +62,11 @@ module Bots::DcaMultiAsset::Allocatable
   def allocations_adding(asset_id, base = allocations)
     return base if base.key?(asset_id.to_s)
 
-    n = base.size
-    normalize_allocations(
-      base.transform_values { |weight| weight * n / (n + 1.0) }
-          .merge(asset_id.to_s => 1.0 / (n + 1))
-    )
+    base.merge(asset_id.to_s => 0.0)
   end
 
   def allocations_removing(asset_id, base = allocations)
-    normalize_allocations(base.except(asset_id.to_s))
+    base.except(asset_id.to_s)
   end
 
   # Settings are compared key-by-key: store_accessor rewrites the column on every save.
@@ -100,12 +108,21 @@ module Bots::DcaMultiAsset::Allocatable
     numeric = values.all? { |value| value.is_a?(Numeric) && (!value.respond_to?(:finite?) || value.finite?) }
     if numeric
       errors.add(:allocations, :invalid) unless values.all? { |value| value.between?(0, 1) }
-      errors.add(:allocations, :invalid) unless keys.empty? || (values.sum - 1).abs <= ALLOCATION_TOLERANCE
     else
       errors.add(:allocations, :invalid)
     end
     errors.add(:allocations, :invalid) if quote_asset_id.present? && keys.include?(quote_asset_id.to_s)
     errors.add(:allocations, :invalid) unless Asset.where(id: keys).count == keys.size
+  end
+
+  def validate_allocations_balanced
+    return if allocations_balanced?
+
+    errors.add(
+      :allocations,
+      :unbalanced,
+      message: I18n.t('errors.bots.multi_asset.unbalanced', sum: format('%.2f', allocations_total * 100))
+    )
   end
 
   # This is the authoritative pair check. A stopped bot may not be given an asset its venue does
@@ -127,8 +144,7 @@ module Bots::DcaMultiAsset::Allocatable
     )
   end
 
-  # The UI disables composition controls while the bot runs; the server enforces the same boundary.
-  # The venue is part of the composition because it decides which member pairs are tradeable.
+  # The UI and server share one lock boundary so a pending swap cannot change the portfolio it sold.
   def validate_composition_frozen_while_working
     # A pending rebalance pins the venue even on a stopped bot: its sell leg happened on this
     # exchange and its buy leg is still owed here. validate_unchangeable_exchange only looks for
@@ -136,7 +152,7 @@ module Bots::DcaMultiAsset::Allocatable
     if will_save_change_to_exchange_id? && rebalance_pending?
       errors.add(:exchange, :locked, message: I18n.t('errors.bots.multi_asset.locked_while_running'))
     end
-    return unless working? && (composition_changed_pending? || will_save_change_to_exchange_id?)
+    return unless composition_locked? && (composition_changed_pending? || will_save_change_to_exchange_id?)
 
     errors.add(
       :allocations,

@@ -41,4 +41,19 @@ class ExchangeSwitcherTest < ActionDispatch::IntegrationTest
     assert_match I18n.t('bot.exchange_menu.locked_while_running'), response.body
     refute_match '[exchange_id]', response.body
   end
+
+  test 'a stopped multi-asset bot can switch to another venue that carries the basket' do
+    ethereum = create(:asset, :ethereum)
+    binance = create(:binance_exchange)
+    create(:ticker, exchange: binance, base_asset: @base, quote_asset: @quote)
+    create(:ticker, exchange: binance, base_asset: ethereum, quote_asset: @quote)
+    create(:ticker, exchange: @kraken, base_asset: ethereum, quote_asset: @quote)
+    bot = create(:dca_multi_asset, :stopped, user: @user, exchange: binance,
+                                             base_assets: [@base, ethereum], quote_asset: @quote)
+
+    get bot_path(id: bot.id)
+
+    assert_response :success
+    assert_select "#exchange_select button[value='#{@kraken.id}']", count: 1
+  end
 end

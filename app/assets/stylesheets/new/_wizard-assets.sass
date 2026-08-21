@@ -7,24 +7,48 @@
     flex-direction: column
     gap: 2rem
 
-    &__table
+    &__list
         width: 100%
+        border-bottom: 1px solid var(--silver)
 
-        td
-            vertical-align: middle
+    &__row
+        display: grid
+        grid-template-columns: 14rem 1fr auto
+        align-items: center
+        font-size: 1.75rem
 
-        // The pill is display:block with a min-width; in a cell it would stretch to the column,
-        // so the column shrinks to the pill instead.
-        td:first-child
-            width: 1%
-            white-space: nowrap
+        &:hover
+            background: var(--silver)
 
-        .table__action
-            width: 1%
-            text-align: right
+        .modal--search__cell
+            padding: 1rem 0.25rem 1rem 2rem
+
+            &:first-child
+                padding-left: 4rem
+
+        .wizard-assets__action
+            display: flex
+            justify-content: flex-end
+            align-items: center
+            padding-right: 2rem
+
+    &__warning
+        padding: 0 2rem 0 4rem
+        color: var(--berry)
 
     .modal--search
         width: 100%
+
+@media (max-width: 767px)
+    .wizard-assets
+        &__row
+            grid-template-columns: 11.25rem 1fr auto
+
+            .modal--search__cell:first-child
+                padding-left: 2rem
+
+        &__warning
+            padding-left: 2rem
 
 .wizard-asset-list
     display: flex

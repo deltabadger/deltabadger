@@ -26,6 +26,38 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
     assert_equal @assets.map { |asset| "bots_dca_multi_asset[allocations][#{asset.id}]" }, names
   end
 
+  test 'renders the total, and reveals Normalize with a hint only when unbalanced' do
+    get bot_path(id: @bot.id)
+
+    assert_select '[data-bot--allocation-target="total"]', text: '100.00%'
+    assert_select 'button.asset-allocations__normalize[hidden]', count: 1
+    assert_select 'small.asset-allocations__hint[hidden]', count: 1
+
+    settings = @bot.settings.merge(
+      'allocations' => {
+        @assets[0].id.to_s => 0.5,
+        @assets[1].id.to_s => 0.25,
+        @assets[2].id.to_s => 0.1
+      }
+    )
+    @bot.update_columns(settings:)
+    get bot_path(id: @bot.id)
+
+    assert_select '[data-bot--allocation-target="total"]', text: '85.00%'
+    assert_select 'button.asset-allocations__normalize:not([hidden])', count: 1
+    assert_select 'small.asset-allocations__hint:not([hidden])', count: 1
+    assert_select "##{dom_id(@bot, :status_button)} .status-button__hint", text: /85\.00%/
+    assert_select "##{dom_id(@bot, :status_button)} button[disabled]", count: 1
+  end
+
+  test 'sliders carry no redistribution targets' do
+    get bot_path(id: @bot.id)
+
+    assert_select '[data-bot--allocation-target="input"]', count: @assets.size
+    assert_select '[data-bot--allocation-target="total"]', count: 1
+    assert_select '[data-bot--allocation-target="remainder"]', count: 0
+  end
+
   test 'sliders are disabled and add/remove hidden while the bot works' do
     @bot.update_columns(status: Bot.statuses[:waiting])
 
@@ -34,6 +66,20 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
     assert_select '.asset-allocation input[type="range"][disabled]', count: @assets.size
     assert_select '.asset-allocation__add', count: 0
     assert_select '.asset-allocation__remove', count: 0
+  end
+
+  test 'a stopped bot with a pending rebalance shows its composition locked' do
+    @bot.update_columns(status: Bot.statuses[:stopped])
+    @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_BUYING, remaining_quote_amount: 10)
+
+    get bot_path(id: @bot.id)
+
+    assert_select '.asset-allocation input[type="range"][disabled]', count: @assets.size
+    assert_select '.asset-allocation__add', count: 0
+    assert_select '.asset-allocation__remove', count: 0
+    assert_select '.asset-allocations__normalize', count: 0
+    assert_select '#exchange_select .dropdown__item--note',
+                  text: I18n.t('bot.exchange_menu.locked_while_rebalancing')
   end
 
   test 'the add link opens the asset search for add_asset_id' do

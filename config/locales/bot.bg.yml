@@ -10,11 +10,15 @@ bg:
         dca_multi_asset:
             invest_on: "Инвестирайте на"
             add_asset: "Добавяне на актив"
+            add_another_asset: "Добавяне на още един актив…"
             remove_asset: "Премахване"
             max_assets_reached: "Можете да държите до %{max} актива."
             min_assets: "Портфейлът трябва да съдържа поне %{min} актива."
-            no_common_exchange: "Нито една борса не предлага всички тези активи."
+            no_common_exchange: "Тази комбинация от активи не съществува на нито една поддържана борса."
             removed_from_portfolio: "Премахнати от портфейла"
+            allocation_sum: "Общо"
+            normalize: "Нормализиране"
+            unbalanced_hint: "Разпределенията са общо %{sum}% — трябва да бъдат 100%, преди ботът да може да стартира."
         dca_index:
             setup:
                 step_index: "Индекс"
@@ -69,6 +73,7 @@ bg:
         exchange_menu:
             no_alternative: 'Никоя друга поддържана борса не предлага %{assets}.'
             locked_while_running: 'Спри бота, за да го преместиш на друга борса.'
+            locked_while_rebalancing: 'Ребалансирането още е в ход — борсата може да се смени, след като приключи.'
         status:
             exchange_retired: 'Тази борса вече не работи — прехвърли бота към друга.'
             setting_orders: "Подаване на поръчки…"

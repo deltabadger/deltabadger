@@ -2,7 +2,7 @@
   <%# Not-working, not stopped: a bot that has never been started is `created`, and that is exactly
       where a user lands after the wizard or after a key is rejected. Gating on stopped? left them
       unable to move off the venue they could not connect to. %>
-  <% switchable = !bot.working? %>
+  <% switchable = !bot.working? && !bot.try(:rebalance_pending?) %>
   <% other_exchanges = switchable ? bot.available_exchanges_for_current_settings.where.not(id: bot.exchange_id) : Exchange.none %>
   <%# A retired venue can never be reconnected — offering "reconnect" would send the user into a
       key wizard that only refuses them. The list of other exchanges is what they need here. %>
@@ -10,7 +10,9 @@
   <%# The menu always opens, because "nothing to offer" is itself the answer the user came for.
       Rendering no menu at all left the chip looking like a control someone else was blocking —
       and the two reasons are different, so a single empty state would lie about one of them. %>
-  <% note = if !switchable
+  <% note = if bot.try(:rebalance_pending?)
+              t('bot.exchange_menu.locked_while_rebalancing')
+            elsif !switchable
               t('bot.exchange_menu.locked_while_running')
             elsif other_exchanges.none?
               t('bot.exchange_menu.no_alternative', assets: bot.assets.pluck(:symbol).to_sentence)

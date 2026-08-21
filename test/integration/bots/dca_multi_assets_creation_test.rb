@@ -114,7 +114,7 @@ class Bots::DcaMultiAssetsCreationTest < ActionDispatch::IntegrationTest
     assert_response :ok
     assert_select '.conversational__lead', text: /Invest/
     assert_select '.conversational__assets .ticker.filled', count: 0
-    assert_select 'table.wizard-assets__table tr', count: 2
+    assert_select '.wizard-assets__row', count: 2
   end
 
   private

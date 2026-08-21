@@ -10,11 +10,15 @@ cs:
         dca_multi_asset:
             invest_on: "Investovat na"
             add_asset: "Přidat aktivum"
+            add_another_asset: "Přidat další aktivum…"
             remove_asset: "Odebrat"
             max_assets_reached: "V portfoliu můžete mít nejvýše %{max} aktiv."
             min_assets: "Portfolio potřebuje alespoň %{min} aktiva."
-            no_common_exchange: "Žádná burza nenabízí všechna tato aktiva."
+            no_common_exchange: "Tato kombinace aktiv není dostupná na žádné podporované burze."
             removed_from_portfolio: "Odebráno z portfolia"
+            allocation_sum: "Celkem"
+            normalize: "Normalizovat"
+            unbalanced_hint: "Součet alokací je %{sum}% — před spuštěním bota musí být 100%."
         dca_index:
             setup:
                 step_index: "Index"
@@ -69,6 +73,7 @@ cs:
         exchange_menu:
             no_alternative: 'Žádná jiná podporovaná burza nenabízí %{assets}.'
             locked_while_running: 'Zastav bota, abys ho přesunul na jinou burzu.'
+            locked_while_rebalancing: 'Vyvažování stále probíhá — burzu bude možné změnit po jeho dokončení.'
         status:
             exchange_retired: 'Tato burza už nefunguje — přesuň bota na jinou.'
             setting_orders: "Zadávání příkazů…"

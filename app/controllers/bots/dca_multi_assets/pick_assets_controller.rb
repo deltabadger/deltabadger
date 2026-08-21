@@ -46,6 +46,12 @@ class Bots::DcaMultiAssets::PickAssetsController < ApplicationController
     return redirect_to new_bots_dca_multi_assets_pick_assets_path if chosen_asset_ids.size < Bots::DcaMultiAsset::MIN_ASSETS
 
     @bot = build_bot
+    eligible_exchanges = eligible_exchanges_for(@bot)
+    if eligible_exchanges.empty?
+      flash[:alert] = t('bot.dca_multi_asset.no_common_exchange')
+      return redirect_to new_bots_dca_multi_assets_pick_assets_path
+    end
+
     if asset_first? && Asset.where(id: chosen_asset_ids, category: 'Stock').exists?
       # The routing concern is deliberately silent when no venue qualifies; the user needs the
       # reason they remained on the asset step.
@@ -71,6 +77,7 @@ class Bots::DcaMultiAssets::PickAssetsController < ApplicationController
     @bot = build_bot
     by_id = Asset.where(id: chosen_asset_ids).index_by(&:id)
     @chosen = chosen_asset_ids.filter_map { |id| by_id[id] }
+    @eligible_exchanges = eligible_exchanges_for(@bot)
     if chosen_asset_ids.size >= Bots::DcaMultiAsset::MAX_ASSETS
       # The lazy renderer expects an offset even though the capped list has no search page.
       @assets = []
@@ -78,6 +85,11 @@ class Bots::DcaMultiAssets::PickAssetsController < ApplicationController
     else
       @assets = asset_search_results(@bot, params[:query], :base_asset)
     end
+  end
+
+  def eligible_exchanges_for(bot)
+    exchanges = bot.available_exchanges_for_current_settings
+    bot.exchange_id? ? exchanges.where(id: bot.exchange_id) : exchanges
   end
 
   # One remaining asset belongs to the single type; its prerequisite guard finds the first gap.
