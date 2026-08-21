@@ -74,15 +74,17 @@
           <span class="text-error"><%= t('bot.liquidation.halted') %></span>
           <%= button_to t('bot.liquidation.resolve'),
                         bot_liquidation_resolutions_path(bot_id: bot.id, intent_id: bot.liquidation_pending[:id]),
-                        class: 'rbutton',
+                        class: 'rbutton rbutton--danger',
                         form: { data: { turbo_confirm: t('bot.liquidation.resolve_confirm') } } %>
         <%# An archived or deleted bot still renders its page, but it cannot trade — offering Sell
             there is a button whose only outcome is a refusal in the log. %>
         <% elsif exited.any? && !bot.archived? && !bot.deleted? %>
-          <%= button_to t('bot.liquidation.sell'),
-                        bot_liquidation_path(bot_id: bot.id),
-                        class: 'rbutton',
-                        form: { data: { turbo_confirm: t('bot.liquidation.sell_confirm') } } %>
+          <%# Into the app's own modal rather than a browser confirm(): the sale is irreversible and
+              a confirm() cannot name the positions it is about to close. %>
+          <%= link_to t('bot.liquidation.sell'),
+                      new_bot_liquidation_path(bot_id: bot.id),
+                      class: 'rbutton rbutton--danger',
+                      data: { turbo_frame: 'modal' } %>
         <% end %>
       </div>
       <% if exited.any? %>

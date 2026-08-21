@@ -271,7 +271,7 @@
                 width: 100%
                 cursor: pointer
                 @media (min-width: 768px)
-                    grid-template-columns: 15.25rem 1fr 1fr
+                    grid-template-columns: 14rem 1fr 1fr
     &__cell
         font-size: 1.75rem
         text-align: left
@@ -360,3 +360,19 @@
         top: 1rem
         &:hover
             background: #fff2
+
+// A table inside a modal is not a card on a page. The widget shell is still what carries every row
+// rule — padding, alignment, the logo gutter — so it stays, but it drops the lift and the rounding,
+// and gives up its own outer gutter: the modal's padding is already the margin, so the rows line up
+// with the text above them and the buttons below instead of sitting inset within an inset.
+.modal
+    .widget--table
+        box-shadow: none
+        border-radius: 0
+        overflow-x: auto
+        margin-bottom: 3rem
+        td, th
+            &:first-child
+                padding-left: 0
+            &:last-child
+                padding-right: 0

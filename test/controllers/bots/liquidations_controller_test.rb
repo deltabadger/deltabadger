@@ -30,7 +30,9 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     post bot_liquidation_path(bot_id: @bot.id)
 
     assert_not_predicate queued(Bot::LiquidateExitedJob), :exists?
-    assert_match(/closed/i, flash[:alert])
+    # flash.now, rendered into the turbo_stream response — the modal has to stay open and carry it.
+    assert_response :unprocessable_entity
+    assert_match(/closed/i, response.body)
   end
 
   test 'a bot type that cannot have quitters is refused' do
@@ -48,6 +50,58 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
 
     assert_not_predicate queued(Bot::LiquidateExitedJob), :exists?
     assert_empty stranger.bot_activity_logs.where(event: 'liquidation_requested')
+  end
+
+  # == the confirmation ==
+  #
+  # A market sale of everything that left the index is the most destructive thing on the page, and a
+  # browser confirm() names nothing it is about to sell. It gets the app's own modal, like every
+  # other irreversible action here, and the modal lists the positions.
+
+  test 'the confirmation lists what is about to be sold' do
+    # An empty composition means "we do not know the index" and nothing is a quitter, so the bot
+    # needs a constituent for CCC to read as one.
+    %w[AAA CCC].each_with_index do |symbol, i|
+      asset = create(:asset, symbol: symbol, name: "Coin #{symbol}", external_id: "coin-#{symbol.downcase}")
+      ticker = create(:ticker, exchange: @bot.exchange, base_asset: asset, quote_asset: @bot.quote_asset)
+      BotIndexAsset.create!(bot: @bot, asset: asset, ticker: ticker, in_index: i.zero?,
+                            target_allocation: i.zero? ? 1.0 : nil,
+                            entered_at: Time.current, exited_at: i.zero? ? nil : Time.current)
+    end
+    warm_prices('AAA' => 100, 'CCC' => 20)
+
+    get new_bot_liquidation_path(bot_id: @bot.id)
+
+    assert_response :success
+    assert_select 'turbo-frame#modal .modal', 1
+    # The bot page's own table, widget shell included — everything that spaces and aligns a row
+    # hangs off .widget--table, so a bare <table> here renders unstyled.
+    assert_select '.modal .widget--table #liquidation_confirm_list tr', 1
+    assert_select '.modal', /CCC/
+    assert_select ".modal form[action='#{bot_liquidation_path(bot_id: @bot.id)}']", 1
+  end
+
+  test 'opening the confirmation sells nothing on its own' do
+    get new_bot_liquidation_path(bot_id: @bot.id)
+
+    assert_not_predicate queued(Bot::LiquidateExitedJob), :exists?
+    assert_empty @bot.bot_activity_logs.where(event: 'liquidation_requested')
+  end
+
+  test 'a bot type that cannot have quitters has no confirmation to open' do
+    other = create(:dca_single_asset, user: @user)
+
+    get new_bot_liquidation_path(bot_id: other.id)
+
+    assert_response :redirect
+  end
+
+  test "another user's confirmation is not reachable" do
+    stranger = create(:dca_index, user: create(:user), exchange: @bot.exchange, quote_asset: @bot.quote_asset)
+
+    get new_bot_liquidation_path(bot_id: stranger.id)
+
+    assert_response :not_found
   end
 
   # == resolution ==
@@ -84,5 +138,15 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
   # Solid Queue is the adapter here, so ActiveJob's test-adapter assertions are unavailable.
   def queued(job_class)
     SolidQueue::Job.where(class_name: job_class.name)
+  end
+
+  def warm_prices(values)
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+    data = @bot.metrics.deep_dup
+    data[:asset_values] = values.transform_values do |v|
+      { amount: v.to_d / 100, quote_invested: v.to_d, current_value: v.to_d,
+        current_price: 100, avg_price: 100, pnl_percentage: 0 }
+    end
+    Rails.cache.write(@bot.send(:metrics_with_current_prices_cache_key), data)
   end
 end

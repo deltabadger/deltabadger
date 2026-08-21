@@ -35,14 +35,17 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
     assert_select '#exited_metrics_table', /CCC/
   end
 
-  test 'the quitters section offers the sell' do
+  test 'the quitters section offers the sell, through the confirmation modal' do
+    # Not a bare form with a browser confirm(): a market sale of every quitter is the most
+    # destructive action on the page and gets the app's own modal, which lists what it will sell.
     in_index('AAA')
     exited('CCC')
     warm_prices({ 'AAA' => 100, 'CCC' => 20 })
 
     get bot_path(id: @bot.id)
 
-    assert_select "#exited_metrics_table form[action='#{bot_liquidation_path(bot_id: @bot.id)}']", 1
+    assert_select "#exited_metrics_table a[href='#{new_bot_liquidation_path(bot_id: @bot.id)}'][data-turbo-frame='modal']", 1
+    assert_select "#exited_metrics_table form[action='#{bot_liquidation_path(bot_id: @bot.id)}']", 0
   end
 
   test 'no quitters means no section at all' do

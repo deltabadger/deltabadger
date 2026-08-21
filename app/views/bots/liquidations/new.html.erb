@@ -1,0 +1,37 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+      <h1 class="modal__title"><%= t('bot.dca_index.left_the_index') %></h1>
+    </div>
+    <div class="modal__body">
+      <p class="text-center"><%= t('bot.liquidation.sell_confirm') %></p>
+
+      <%# Named, not counted: the user is approving a disposal of each of these. The bot page's own
+          table, widget shell included — every row rule (padding, alignment, the logo gutter) hangs
+          off .widget--table, so the table is bare without it. %>
+      <% if @exited.any? %>
+        <div class="widget widget--table">
+          <%= render 'bots/dca_indexes/assets_table',
+                     values: @exited.index_by { |holding| holding[:symbol] },
+                     logo_assets: @exited.to_h { |holding| [holding[:symbol], holding[:ticker]] },
+                     body_id: 'liquidation_confirm_list' %>
+        </div>
+      <% end %>
+
+      <div class="buttons buttons--row--2">
+        <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+          <%= t('button.cancel') %>
+        <% end %>
+        <%# Closes itself on a successful submit, like every other modal form here; a refused sale
+            answers 422 and the modal stays up carrying the reason. %>
+        <%= button_to t('bot.liquidation.sell'),
+                      bot_liquidation_path(bot_id: @bot.id),
+                      class: 'button button--danger button--large',
+                      form: { data: { action: 'turbo:submit-end->modal--base#submitEnd' } } %>
+      </div>
+    </div>
+  </div>
+<% end %>

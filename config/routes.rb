@@ -233,7 +233,7 @@ Rails.application.routes.draw do
       resource :delete, only: [:edit, :destroy], controller: 'bots/deletes'
       resource :archive, only: [:edit, :create, :destroy], controller: 'bots/archives'
       resources :rebalance_resolutions, only: [:create], controller: 'bots/rebalance_resolutions'
-      resource :liquidation, only: [:create], controller: 'bots/liquidations'
+      resource :liquidation, only: [:new, :create], controller: 'bots/liquidations'
       resources :liquidation_resolutions, only: [:create], controller: 'bots/liquidation_resolutions'
       resource :add_api_key, only: [:new, :create], controller: 'bots/add_api_keys'
       resource :asset_search, only: [:edit], controller: 'bots/asset_searches'

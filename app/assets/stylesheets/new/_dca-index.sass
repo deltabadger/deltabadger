@@ -145,6 +145,14 @@
   justify-content: space-between
   gap: 1rem
   flex-wrap: wrap
-  padding: calc(var(--ui-padding)/1.33) var(--ui-padding)
+  padding: calc(var(--ui-padding)/1.33) var(--ui-padding) !important
+  // Sitting directly on the quitters table, the band gives up its bottom padding and the widget's
+  // 3rem flex gap so the two read as one block. Alone — a halted liquidation whose price read came
+  // back empty, so there is nothing left to list — it keeps both: the negative margin has no gap to
+  // cancel there and shortens the widget itself, clipping the Clear button that is the only way out
+  // of the halt.
+  &:not(:last-child)
+    padding-bottom: 0 !important
+    margin-bottom: -3rem
   form
     margin: 0
