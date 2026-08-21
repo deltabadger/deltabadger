@@ -73,8 +73,15 @@ module Automation::Schedulable
         return checkpoint if checkpoint > Time.current
       end
     else
+      # Both sides of this must speak the same clock. The count is elapsed SECONDS, so the step
+      # has to be added as seconds too (.to_f), not as a calendar duration: `time + n.weeks`
+      # preserves the LOCAL WALL CLOCK, so under a DST zone it lands an hour off the grid the
+      # count was measured against — before it, going into summer. A checkpoint in the past is
+      # re-enqueued immediately and spins the job at machine speed until real time catches up.
+      # Jobs are pinned to the app zone (ApplicationJob), so this is belt and braces — but the
+      # grid must not depend on which zone the caller happens to be in either way.
       intervals_since_checkpoint = ((Time.current - checkpoint) / effective_interval_duration.seconds).ceil
-      checkpoint + (intervals_since_checkpoint * effective_interval_duration)
+      checkpoint + (intervals_since_checkpoint * effective_interval_duration.to_f)
     end
   end
 
@@ -92,7 +99,14 @@ module Automation::Schedulable
   end
 
   def last_interval_checkpoint_at
-    next_interval_checkpoint_at - effective_interval_duration
+    # Step back the same way the forward grid steps forward, or the pair straddles a DST
+    # transition: subtracting a calendar duration from an absolute grid point lands 25 hours back
+    # in autumn, and Bot::Accountable#pending_quote_amount floors an interval count against this
+    # value — one whole contribution dropped. Months keep calendar arithmetic; they are not a
+    # fixed number of seconds, and the forward branch treats them the same way.
+    return next_interval_checkpoint_at - effective_interval_duration if effective_interval_duration == 1.month
+
+    next_interval_checkpoint_at - effective_interval_duration.to_f
   end
 
   def progress_percentage
