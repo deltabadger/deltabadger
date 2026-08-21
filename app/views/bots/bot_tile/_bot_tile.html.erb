@@ -1,5 +1,8 @@
-<div class="widget bot-tile">
-  <%= link_to bot_path(bot) do %>
+<%# draggable="false" on the link is load-bearing: an anchor is implicitly draggable, so without it
+    the browser drags the link out of the page instead of picking the tile up. Clicking through to
+    the bot is unaffected — a completed drag fires no click. %>
+<div class="widget bot-tile" id="<%= dom_id(bot, :tile) %>" data-bot-id="<%= bot.id %>" draggable="true">
+  <%= link_to bot_path(bot), draggable: "false" do %>
     <div class="bot-tile__header">
       <div class="bot-tile__hgroup">
         <div class="bot-tile__title">

@@ -228,6 +228,8 @@ Rails.application.routes.draw do
     end
 
     resources :bots do
+      # Explicit target: a bare `patch :reorder` would route to BotsController#reorder.
+      collection { patch :reorder, to: 'bots/reorders#update' }
       resources :bot_signals, only: [:create, :update, :destroy], controller: 'bots/bot_signals'
       resource :start, only: [:edit, :update], controller: 'bots/starts'
       resource :stop, only: [:update], controller: 'bots/stops'

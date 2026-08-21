@@ -57,6 +57,28 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # One curve per holding, so pointing at a row of the holdings table draws that holding alone.
+  # nil where the portfolio point kept its fill mark and has no per-symbol split to give.
+  test 'chart hands over a curve per holding for the tables to hover against' do
+    data = @bot.metrics.deep_dup
+    data[:chart][:labels] = [Time.utc(2026, 1, 1), Time.utc(2026, 2, 1)]
+    data[:chart][:series] = [[100.0, 260.0], [100.0, 200.0]]
+    data[:chart][:assets] = { 'AAA' => { value: [nil, 260.to_d], invested: [100.to_d, 200.to_d] } }
+    Rails.cache.write(@bot.send(:metrics_with_current_prices_and_candles_cache_key), data)
+
+    get bot_path(id: @bot.id)
+
+    assert_select '#chart [data-controller="bot--chart"]', 1 do |chart|
+      assert_equal({ 'AAA' => { 'value' => [nil, 260.0], 'invested' => [100.0, 200.0] } },
+                   JSON.parse(chart.first['data-bot--chart-assets-value']))
+      # Hover previews, click pins so the pointer can leave the table for the curve, and the
+      # stream listener puts the mark back on a row its own broadcast replaced.
+      %w[#focus #blur #select #restore].each do |handler|
+        assert_match "bot--chart#{handler}", chart.first['data-action']
+      end
+    end
+  end
+
   # Nothing invested, nothing to be ahead or behind of. A switch with one usable side is
   # furniture.
   test 'a chart with no pnl curve offers no switch' do

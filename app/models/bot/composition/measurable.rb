@@ -10,10 +10,7 @@ module Bot::Composition::Measurable
   CANDLE_FETCH_THREADS = 6
 
   def metrics(force: false)
-    # _v3: realised P/L and the contributed/ledger split. The old shape lives up to 30 days in the
-    # cache, so the key must change or every existing bot serves pre-realisation numbers after deploy.
-    cache_key = "bot_#{id}_metrics_v3"
-    Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
+    Rails.cache.fetch(metrics_cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
       transactions_array = transactions.submitted.order(created_at: :asc).pluck(
         :created_at,
@@ -50,6 +47,9 @@ module Bot::Composition::Measurable
 
         # Store snapshot of per-asset amounts for candle interpolation
         data[:chart][:extra_series] << ledger.transform_values { |entry| entry[:amount] }
+        # And of what each asset cost, which is the zero line of its own curve when the user
+        # hovers its row. NOT derivable from the totals: a rebalance moves basis between assets.
+        data[:chart][:invested_series] << ledger.transform_values { |entry| entry[:invested] }
         (data[:chart][:cash_series] ||= []) << uninvested_cash(books)
 
         # Metrics data — average entry price is over REGULAR buys only; a swap is not an entry.
@@ -134,6 +134,8 @@ module Bot::Composition::Measurable
       metrics_data[:chart][:labels] << Time.current
       # extra_series stays parallel with labels — the chart reads holdings by position.
       metrics_data[:chart][:extra_series] << metrics_data[:asset_breakdown].transform_values { |data| data[:amount] }
+      (metrics_data[:chart][:invested_series] ||= []) <<
+        metrics_data[:asset_breakdown].transform_values { |data| data[:quote_invested] }
       (metrics_data[:chart][:cash_series] ||= []) << metrics_data[:rebalance_cash].to_d
       metrics_data[:live_prices] = live_prices
 
@@ -163,6 +165,7 @@ module Bot::Composition::Measurable
       metrics_data[:chart] = chart_marked_at_market(
         metrics_data[:chart], grids,
         holdings: ->(i) { (metrics_data[:chart][:extra_series][i] || {}).slice(*priceable) },
+        basis: ->(i) { ((metrics_data[:chart][:invested_series] || [])[i] || {}).slice(*priceable) },
         # Cash a rebalance sell realized but its buy has not spent yet — and, when a remainder ends
         # as dust, permanently. Marking those points at zero would draw a loss that never happened.
         cash: ->(i) { (metrics_data[:chart][:cash_series] || [])[i] || 0 }
@@ -215,12 +218,20 @@ module Bot::Composition::Measurable
     ledger.sum { |symbol, entry| entry[:amount] * (asset_prices[symbol] || 0) }
   end
 
+  # _v3: realised P/L and the contributed/ledger split. _v4: a per-symbol cost-basis snapshot per
+  # transaction, so the chart can draw one holding on its own. The cached shape lives up to 30 days,
+  # so this has to move with it or every existing bot serves the old numbers after a deploy.
+  # A method, not a literal: the tests that seed this cache were reading the string off the source.
+  def metrics_cache_key
+    "bot_#{id}_metrics_v4"
+  end
+
   def metrics_with_current_prices_cache_key
-    "bot_#{id}_metrics_with_current_prices_v3"
+    "bot_#{id}_metrics_with_current_prices_v4"
   end
 
   def metrics_with_current_prices_and_candles_cache_key
-    "bot_#{id}_metrics_with_current_prices_and_candles_v3"
+    "bot_#{id}_metrics_with_current_prices_and_candles_v4"
   end
 
   def optimal_candles_timeframe_for_duration(duration)
@@ -308,6 +319,7 @@ module Bot::Composition::Measurable
           []  # invested
         ],
         extra_series: [],
+        invested_series: [], # per-asset cost basis, for the per-asset curve
         cash_series: [] # rebalance proceeds realized but not yet redeployed
       },
       total_quote_amount_invested: 0,

@@ -17,6 +17,14 @@ class Bot < ApplicationRecord
   belongs_to :user
   has_many :transactions, dependent: :destroy
 
+  # The dashboard order, dragged by the user. `:id` is not decoration: two bots created in
+  # overlapping transactions read the same `maximum(:position)` and land on the same number, and
+  # the list still has to come back the same way on every page load. The next drag renumbers them
+  # apart — Bots::ReordersController rewrites the whole sequence, not just the rows it was sent.
+  scope :ordered, -> { order(:position, :id) }
+
+  before_create :assign_position
+
   # Every start path — the button, a stale tab, BotApi::Bots::Start — goes through valid?(:start),
   # so one validation is the whole gate: an archived bot is reactivated first or not at all.
   validate :not_archived, on: :start
@@ -323,6 +331,15 @@ class Bot < ApplicationRecord
 
   def store_previous_exchange_id
     @previous_exchange_id = exchange_id_was
+  end
+
+  # A new bot goes to the end of the user's list. `0` is the unset sentinel rather than `nil`,
+  # because the column is NOT NULL with a default of 0 — `position ||= …` would never fire.
+  # The backfill migration starts at 1 for the same reason.
+  def assign_position
+    return if position.to_i.positive?
+
+    self.position = user&.bots&.maximum(:position).to_i + 1
   end
 
   def custom_exchange_id_changed?

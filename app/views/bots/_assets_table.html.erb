@@ -17,7 +17,10 @@
   <tbody id="<%= body_id %>">
     <% rows.each do |row| %>
       <% pnl = row[:pnl] %>
-      <tr>
+      <%# The symbol is the handle the chart reads the row by: pointing at a holding draws that
+          one holding, clicking pins it there. Delegated from the document, so no controller
+          lives here — these tables are replaced by a broadcast of their own. %>
+      <tr data-symbol="<%= row[:symbol] %>">
         <td class="table__logo"><%= render 'assets/logo', asset: row[:asset] %></td>
         <td scope="row"><%= row[:symbol] %></td>
         <td><%= row[:amount] %></td>

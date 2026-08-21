@@ -5,6 +5,15 @@
   padding: 2rem
   cursor: pointer
   gap: 1rem
+  // The reserved spot the dragged tile will land in. A real element rather than the dragged tile
+  // restyled: moving the drag source around the grid mid-drag makes Chrome mis-crop its own ghost
+  // and mis-report which tile the pointer is over. Opaque, not see-through — the grid behind it
+  // reads as clutter through a transparent hole.
+  &--placeholder
+    background: var(--paper)
+    box-shadow: none
+    outline: 0.2rem dashed var(--concrete)
+    outline-offset: -0.2rem
   a
     text-decoration: none
   &__header

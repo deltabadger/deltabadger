@@ -23,7 +23,7 @@ class BotsController < ApplicationController
             when 'archived' then scope.archived
             else scope.not_archived
             end
-    @bots = @bots.order(label: :asc)
+    @bots = @bots.ordered
 
     @total_bots = current_user.bots.not_deleted.not_archived.size
     @has_active = current_user.bots.not_deleted.working.exists?
@@ -76,7 +76,7 @@ class BotsController < ApplicationController
       permitted_params = params.require(:decimals).permit(*Asset.all.pluck(:symbol))
       @decimals = permitted_params.transform_values(&:to_i)
     else
-      @other_bots = current_user.bots.not_deleted.not_archived.order(label: :asc).where.not(id: @bot.id).pluck(:id, :label, :type)
+      @other_bots = current_user.bots.not_deleted.not_archived.ordered.where.not(id: @bot.id).pluck(:id, :label, :type)
 
       # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
       if @bot.dca_single_asset?
