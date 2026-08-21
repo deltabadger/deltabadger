@@ -36,6 +36,18 @@ class Bots::AssetsTableTest < ActionDispatch::IntegrationTest
     assert_equal ['', '', 'Amount', 'Avg. Price', 'Value', 'P/L'], headers.first
   end
 
+  # The chart hovers against these, one holding at a time; without the symbol on the row there is
+  # nothing for it to key on.
+  test 'every holding row carries the symbol the chart draws it by' do
+    usd = create(:asset, :usd)
+    bot = create(:dca_index, user: @user, quote_asset: usd)
+    warm_index_prices(bot)
+
+    get bot_path(id: bot.id)
+
+    assert_select '#assets_metrics_table tbody tr[data-symbol="AAA"]', 1
+  end
+
   test 'a bot with nothing invested still shows the table, with a placeholder row' do
     bot = create(:dca_single_asset, user: @user)
 

@@ -6,10 +6,11 @@ module Bots::DcaDualAsset::Measurable
   include Bot::RebalanceAccounting
 
   def metrics(force: false)
-    # _v3: realised P/L and the contributed/ledger split. The old shape lives up to 30 days in the
+    # _v3: realised P/L and the contributed/ledger split. _v4: a per-leg cost-basis snapshot per
+    # transaction, so the chart can draw one leg on its own. The old shape lives up to 30 days in the
     # cache, so the key must
     # change or every existing bot serves pre-rebalance numbers after deploy.
-    cache_key = "bot_#{id}_metrics_v3"
+    cache_key = "bot_#{id}_metrics_v4"
     Rails.cache.fetch(cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
       transactions_array = transactions.submitted.order(created_at: :asc).pluck(:created_at,
@@ -55,6 +56,10 @@ module Bots::DcaDualAsset::Measurable
         data[:chart][:series][0] << portfolio_value(totals[:current_value_in_quote].values.sum, books)
         data[:chart][:extra_series][0] << ledger[base0_asset_id][:amount]
         data[:chart][:extra_series][1] << ledger[base1_asset_id][:amount]
+        # What each leg cost, which is the zero line of its own curve when the user hovers its
+        # row. NOT derivable from the total: a rebalance moves basis between the two legs.
+        data[:chart][:invested_series][0] << ledger[base0_asset_id][:invested]
+        data[:chart][:invested_series][1] << ledger[base1_asset_id][:invested]
         (data[:chart][:cash_series] ||= []) << uninvested_cash(books)
       end
 
@@ -121,6 +126,9 @@ module Bots::DcaDualAsset::Measurable
       # extra_series stays parallel with labels — the chart reads holdings by index.
       metrics_data[:chart][:extra_series][0] << metrics_data[:total_base0_amount]
       metrics_data[:chart][:extra_series][1] << metrics_data[:total_base1_amount]
+      metrics_data[:chart][:invested_series] ||= [[], []]
+      metrics_data[:chart][:invested_series][0] << metrics_data[:base0_total_quote_amount_invested]
+      metrics_data[:chart][:invested_series][1] << metrics_data[:base1_total_quote_amount_invested]
       (metrics_data[:chart][:cash_series] ||= []) << metrics_data[:rebalance_cash].to_d
       # Raw per-symbol marks for the chart's price grid (see Bot::ChartSeries).
       metrics_data[:live_prices] = { ticker0.base => price0, ticker1.base => price1 }
@@ -144,6 +152,10 @@ module Bots::DcaDualAsset::Measurable
         holdings: lambda { |i|
           { ticker0.base => metrics_data[:chart][:extra_series][0][i],
             ticker1.base => metrics_data[:chart][:extra_series][1][i] }
+        },
+        basis: lambda { |i|
+          basis = metrics_data[:chart][:invested_series] || [[], []]
+          { ticker0.base => basis[0][i] || 0, ticker1.base => basis[1][i] || 0 }
         },
         # Cash a rebalance sell realized but its buy has not spent yet. Zero except between the two
         # legs — but marking those points at zero would draw a dip the portfolio never took.
@@ -181,11 +193,11 @@ module Bots::DcaDualAsset::Measurable
   private
 
   def metrics_with_current_prices_cache_key
-    "bot_#{id}_metrics_with_current_prices_v3"
+    "bot_#{id}_metrics_with_current_prices_v4"
   end
 
   def metrics_with_current_prices_and_candles_cache_key
-    "bot_#{id}_metrics_with_current_prices_and_candles_v3"
+    "bot_#{id}_metrics_with_current_prices_and_candles_v4"
   end
 
   def calculate_pnl(from, to)
@@ -205,6 +217,10 @@ module Bots::DcaDualAsset::Measurable
         extra_series: [
           [], # base0 amount acquired
           []  # base1 amount acquired
+        ],
+        invested_series: [
+          [], # base0 cost basis, for the per-leg curve
+          []  # base1 cost basis
         ],
         cash_series: [] # rebalance proceeds realized but not yet redeployed
       },

@@ -26,14 +26,25 @@
       <% decimals = bot.decimals[:quote] || 8 %>
       <% series = metrics[:chart][:series].map { |serie| serie.map { |amount| amount.round(decimals) } } %>
       <% pnl_series = chart_pnl_series(series[0], series[1]).map(&:to_f) %>
+      <%# One entry per holding the tables can show, rounded on the same ruler as the portfolio
+          line. nil where the point kept its fill mark and has no per-symbol split; the curve
+          skips those rather than drawing the asset at zero. %>
+      <% assets = (metrics[:chart][:assets] || {}).transform_values do |serie|
+           { value: serie[:value].map { |amount| amount&.round(decimals)&.to_f },
+             invested: serie[:invested].map { |amount| amount.to_d.round(decimals).to_f } }
+         end %>
       <%= tag.div data: {
         controller: "bot--chart",
+        action: "mouseover@document->bot--chart#focus mouseleave@document->bot--chart#blur " \
+                "click@document->bot--chart#select " \
+                "turbo:before-stream-render@document->bot--chart#restore",
         bot__chart_bot_value: bot.id,
         bot__chart_quote_value: bot.quote_asset.symbol,
         bot__chart_decimals_value: decimals,
         bot__chart_labels_value: metrics[:chart][:labels].map { |label| label.in_time_zone(current_user.time_zone) },
         bot__chart_series_value: series,
-        bot__chart_pnl_value: pnl_series
+        bot__chart_pnl_value: pnl_series,
+        bot__chart_assets_value: assets
       } do %>
         <%# The switch sits on the date line, opposite it: one row across the top of the plot.
             VALUE always climbs for a DCA bot because the money going in climbs; PnL makes the
