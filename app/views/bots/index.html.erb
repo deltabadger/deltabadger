@@ -38,9 +38,21 @@
     </div>
   </div>
 
-  <%= tag.div class: 'itiles', data: @tile_refresh_ids.any? ? { controller: "broadcast--on-connect",
-                                                               broadcast__on_connect_method_value: "pnl_update",
-                                                               broadcast__on_connect_method_args_value: { bot_ids: @tile_refresh_ids }.to_json } : {} do %>
+  <%# The drag is handled here rather than per tile: every drag event bubbles, so one set of
+      handlers covers the whole grid and survives a tile being swapped in by a broadcast.
+
+      Two controllers share the element — the reorder drag is always on, the P&L refresh only while
+      some tile is still cold — so the second is appended to the data-controller list rather than
+      replacing it. Overwriting would leave those tiles spinning until the next manual reload. %>
+  <% tile_data = { controller: "bots-reorder", bots_reorder_url_value: reorder_bots_path,
+                   action: %w[pointerdown dragstart drag dragover drop dragend]
+                             .map { |e| "#{e}->bots-reorder##{e}" }.join(' ') } %>
+  <% if @tile_refresh_ids.any? %>
+    <% tile_data.merge!(controller: "bots-reorder broadcast--on-connect",
+                        broadcast__on_connect_method_value: "pnl_update",
+                        broadcast__on_connect_method_args_value: { bot_ids: @tile_refresh_ids }.to_json) %>
+  <% end %>
+  <%= tag.div class: 'itiles', data: tile_data do %>
     <%= render partial: 'bots/bot_tile/bot_tile', collection: @bots, as: :bot,
                locals: { pnl_hash: @pnl_hash, profit_usd_hash: @profit_usd_hash, loading_hash: @loading_hash } %>
   <% end %>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_18_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_21_120000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -230,6 +230,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_18_120000) do
     t.integer "fetch_restarts", default: 0, null: false
     t.string "label"
     t.datetime "last_end_of_funds_notification", precision: nil
+    t.integer "position", default: 0, null: false
     t.integer "restarts", default: 0, null: false
     t.json "settings", default: {}, null: false
     t.datetime "settings_changed_at", precision: nil
