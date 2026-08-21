@@ -45,17 +45,47 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
     assert_select '#exited_metrics_table', /CCC/
   end
 
-  test 'the quitters section offers the sell, through the confirmation modal' do
-    # Not a bare form with a browser confirm(): a market sale of every quitter is the most
-    # destructive action on the page and gets the app's own modal, which lists what it will sell.
+  test 'the sell sits on the row, not on the section' do
+    # One Sell per holding, in a last column with no header. A single button over the whole table
+    # cannot say which position it is closing, and closing all of them at once is not a thing the
+    # user ever asked for — each one is a separate taxable disposal.
     in_index('AAA')
     exited('CCC')
     warm_prices({ 'AAA' => 100, 'CCC' => 20 })
 
     get bot_path(id: @bot.id)
 
-    assert_select "#exited_metrics_table a[href='#{new_bot_liquidation_path(bot_id: @bot.id)}'][data-turbo-frame='modal']", 1
-    assert_select "#exited_metrics_table form[action='#{bot_liquidation_path(bot_id: @bot.id)}']", 0
+    assert_select '#exited_metrics_table tbody a[href=?][data-turbo-frame="modal"]',
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC'), count: 1
+    assert_select '.exited-header a[href*="liquidation"]', 0, 'no global sell'
+    assert_select '#exited_metrics_table form[action=?]', bot_liquidation_path(bot_id: @bot.id), count: 0
+  end
+
+  test 'every quitter gets its own sell' do
+    add_asset('BBB')
+    in_index('AAA')
+    exited('BBB')
+    exited('CCC')
+    warm_prices({ 'AAA' => 100, 'BBB' => 50, 'CCC' => 20 })
+
+    get bot_path(id: @bot.id)
+
+    assert_select '#exited_metrics_table tbody a[data-turbo-frame="modal"]', 2
+    assert_select '#exited_metrics_table tbody a[href=?]',
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: 'BBB'), count: 1
+    assert_select '#exited_metrics_table tbody a[href=?]',
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC'), count: 1
+  end
+
+  test 'the index table itself carries no sell at all' do
+    # The action column belongs to the quitters table only — a constituent is not for sale.
+    in_index('AAA')
+    exited('CCC')
+    warm_prices({ 'AAA' => 100, 'CCC' => 20 })
+
+    get bot_path(id: @bot.id)
+
+    assert_select '#assets_metrics_table a[href*="liquidation"]', 0
   end
 
   test 'no quitters means no section at all' do
@@ -197,6 +227,17 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
       { amount: v.to_d / 100, quote_invested: v.to_d, current_value: v.to_d,
         current_price: 100, avg_price: 100, pnl_percentage: 0 }
     end
+    # asset_breakdown too, not just asset_values: the Sell button and the controller both gate on
+    # exited_symbols, which reads the ledger underneath rather than the priced layer, so that a cold
+    # price cache cannot turn a live button into a 404.
+    data[:asset_breakdown] = values.transform_values { |v| { amount: v.to_d / 100, quote_invested: v.to_d } }
+    Rails.cache.write("bot_#{@bot.id}_metrics_v3", data)
     Rails.cache.write(@bot.send(:metrics_with_current_prices_cache_key), data)
+  end
+
+  def add_asset(symbol)
+    asset = create(:asset, symbol: symbol, name: "Coin #{symbol}", external_id: "coin-#{symbol.downcase}")
+    ticker = create(:ticker, exchange: @bot.exchange, base_asset: asset, quote_asset: @bot.quote_asset)
+    @assets[symbol] = { asset: asset, ticker: ticker }
   end
 end

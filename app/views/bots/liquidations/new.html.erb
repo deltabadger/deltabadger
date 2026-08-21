@@ -9,14 +9,15 @@
     <div class="modal__body">
       <p class="text-center"><%= t('bot.liquidation.sell_confirm') %></p>
 
-      <%# Named, not counted: the user is approving a disposal of each of these. The bot page's own
-          table, widget shell included — every row rule (padding, alignment, the logo gutter) hangs
-          off .widget--table, so the table is bare without it. %>
-      <% if @exited.any? %>
+      <%# Named, not counted: the user is approving the disposal of this one position. The bot page's
+          own table, widget shell included — every row rule (padding, alignment, the logo gutter)
+          hangs off .widget--table, so the table is bare without it. Absent when the price cache has
+          gone cold, which is why the sale never depends on it. %>
+      <% if @holding %>
         <div class="widget widget--table">
           <%= render 'bots/dca_indexes/assets_table',
-                     values: @exited.index_by { |holding| holding[:symbol] },
-                     logo_assets: @exited.to_h { |holding| [holding[:symbol], holding[:ticker]] },
+                     values: { @holding[:symbol] => @holding },
+                     logo_assets: { @holding[:symbol] => @holding[:ticker] },
                      body_id: 'liquidation_confirm_list' %>
         </div>
       <% end %>
@@ -28,7 +29,7 @@
         <%# Closes itself on a successful submit, like every other modal form here; a refused sale
             answers 422 and the modal stays up carrying the reason. %>
         <%= button_to t('bot.liquidation.sell'),
-                      bot_liquidation_path(bot_id: @bot.id),
+                      bot_liquidation_path(bot_id: @bot.id, symbol: @symbol),
                       class: 'button button--danger button--large',
                       form: { data: { action: 'turbo:submit-end->modal--base#submitEnd' } } %>
       </div>

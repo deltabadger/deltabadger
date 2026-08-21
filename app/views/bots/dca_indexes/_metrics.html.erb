@@ -76,21 +76,17 @@
                         bot_liquidation_resolutions_path(bot_id: bot.id, intent_id: bot.liquidation_pending[:id]),
                         class: 'rbutton rbutton--danger',
                         form: { data: { turbo_confirm: t('bot.liquidation.resolve_confirm') } } %>
-        <%# An archived or deleted bot still renders its page, but it cannot trade — offering Sell
-            there is a button whose only outcome is a refusal in the log. %>
-        <% elsif exited.any? && !bot.archived? && !bot.deleted? %>
-          <%# Into the app's own modal rather than a browser confirm(): the sale is irreversible and
-              a confirm() cannot name the positions it is about to close. %>
-          <%= link_to t('bot.liquidation.sell'),
-                      new_bot_liquidation_path(bot_id: bot.id),
-                      class: 'rbutton rbutton--danger',
-                      data: { turbo_frame: 'modal' } %>
         <% end %>
       </div>
       <% if exited.any? %>
+        <%# Sell sits on each row, not over the table: every one of these is a separate taxable
+            disposal, so the user closes them one at a time and always sees which. A halted
+            liquidation blocks the lot until it is resolved, and an archived or deleted bot cannot
+            trade at all — in both cases the button's only outcome would be a refusal in the log. %>
         <%= render 'bots/dca_indexes/assets_table',
                    values: exited.index_by { |holding| holding[:symbol] },
-                   logo_assets: logo_assets, body_id: 'exited_metrics_list' %>
+                   logo_assets: logo_assets, body_id: 'exited_metrics_list', bot: bot,
+                   sellable: !bot.liquidation_ambiguous? && !bot.archived? && !bot.deleted? %>
       <% end %>
     </div>
   <% end %>

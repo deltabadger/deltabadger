@@ -1,4 +1,4 @@
-<%# locals: (rows:, body_id: nil, loading: false) %>
+<%# locals: (rows:, body_id: nil, loading: false, actions: false) %>
 <%# The holdings table for every bot type — single, dual, index, and the coins that left an index.
     Rows arrive pre-formatted: only the bot knows its own decimals. %>
 <table class="table">
@@ -10,6 +10,8 @@
       <th scope="col"><%= t('data_labels.avg_price') %></th>
       <th scope="col"><%= t('data_labels.value') %></th>
       <th scope="col"><%= t('data_labels.pnl') %></th>
+      <%# No header: the column holds a per-row action, and a label over it would read as data. %>
+      <% if actions %><th scope="col" class="table__action"></th><% end %>
     </tr>
   </thead>
   <tbody id="<%= body_id %>">
@@ -36,11 +38,12 @@
             -
           <% end %>
         </td>
+        <% if actions %><td class="table__action"><%= row[:action] %></td><% end %>
       </tr>
     <% end %>
     <% if rows.empty? %>
       <tr>
-        <td colspan="6" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
+        <td colspan="<%= actions ? 7 : 6 %>" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
       </tr>
     <% end %>
   </tbody>
