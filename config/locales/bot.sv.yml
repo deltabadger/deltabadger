@@ -8,6 +8,12 @@ sv:
             connect_alpaca_html: "För att investera i aktier, anslut först Alpaca i %{settings_link}."
             settings_link: "Inställningar"
         dca_multi_asset:
+            invest_on: "Investera på"
+            add_asset: "Lägg till tillgång"
+            remove_asset: "Ta bort"
+            max_assets_reached: "Du kan ha upp till %{max} tillgångar."
+            min_assets: "En portfölj måste innehålla minst %{min} tillgångar."
+            no_common_exchange: "Ingen börs erbjuder alla dessa tillgångar."
             removed_from_portfolio: "Borttagna från portföljen"
         dca_index:
             setup:
@@ -242,10 +248,10 @@ sv:
             general_note: "Börsminiminivåer och nödvändiga ombalanseringsbelopp ändras. Transaktioner kan ibland se oregelbundna ut, men boten siktar alltid på din önskade allokering och schema, så inget extra arbete behövs."
         liquidation:
             sell: "Sälj"
-            sell_confirm: "Sälja allt som lämnat indexet? Positionerna stängs till marknadspris."
-            started: "Säljer tillgångarna som lämnat indexet."
+            sell_confirm: "Sälja den här positionen? Den stängs till marknadspris."
+            started: "Säljer positionen."
             market_closed: "Marknaden är stängd just nu. Försök igen när den öppnar."
-            unsupported: "Bara indexbottar kan hålla tillgångar som lämnat ett index."
+            unsupported: "Den här botten har inga borttagna tillgångar att sälja."
             halted: "Försäljningen är obekräftad — kontrollera din börs"
             resolve: "Rensa"
             resolve_confirm: "Fortsätt bara om du har kontrollerat din börs och ingen säljorder fortfarande är öppen."

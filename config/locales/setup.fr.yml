@@ -6,6 +6,7 @@ fr:
             stocks_ask_admin: "Demande à ton administrateur d'activer le trading d'actions."
             stocks_activate_cta: "Activer le trading d'actions dans les paramètres"
             progress_steps:
+                assets: "Actifs"
                 currencies: "Choisir l'actif"
                 currencies2: "Second actif (facultatif)"
                 exchange: "Exchange"

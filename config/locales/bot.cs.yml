@@ -8,6 +8,12 @@ cs:
             connect_alpaca_html: "Pokud chceš investovat do akcií, nejdřív připoj Alpacu v %{settings_link}."
             settings_link: "Nastavení"
         dca_multi_asset:
+            invest_on: "Investovat na"
+            add_asset: "Přidat aktivum"
+            remove_asset: "Odebrat"
+            max_assets_reached: "V portfoliu můžete mít nejvýše %{max} aktiv."
+            min_assets: "Portfolio potřebuje alespoň %{min} aktiva."
+            no_common_exchange: "Žádná burza nenabízí všechna tato aktiva."
             removed_from_portfolio: "Odebráno z portfolia"
         dca_index:
             setup:
@@ -242,10 +248,10 @@ cs:
             general_note: "Minimální velikosti příkazů a potřebné částky pro rebalancování se mění. Transakce mohou občas vypadat nepravidelně, ale bot vždy směřuje k vaší požadované alokaci a rozvrhu, takže není potřeba nic dalšího dělat."
         liquidation:
             sell: "Prodat"
-            sell_confirm: "Prodat vše, co opustilo index? Pozice se uzavřou za tržní cenu."
-            started: "Prodávám aktiva, která opustila index."
+            sell_confirm: "Prodat tuto pozici? Bude uzavřena za tržní cenu."
+            started: "Pozice se prodává."
             market_closed: "Trh je právě zavřený. Zkus to znovu po otevření."
-            unsupported: "Aktiva, která opustila index, mohou držet jen indexoví boti."
+            unsupported: "Tento bot nemá žádná odebraná aktiva k prodeji."
             halted: "Nepotvrzený prodej — zkontroluj svou burzu"
             resolve: "Vymazat"
             resolve_confirm: "Pokračuj jen tehdy, pokud jsi zkontroloval burzu a žádný prodejní pokyn už není otevřený."

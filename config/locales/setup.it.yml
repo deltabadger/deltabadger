@@ -6,6 +6,7 @@ it:
             stocks_ask_admin: "Chiedi al tuo amministratore di attivare il trading di azioni."
             stocks_activate_cta: "Attiva il trading di azioni nelle impostazioni"
             progress_steps:
+                assets: "Attività"
                 currencies: "Scegli asset"
                 currencies2: "Secondo asset (facoltativo)"
                 exchange: "Exchange"

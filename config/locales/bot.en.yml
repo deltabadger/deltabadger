@@ -8,6 +8,12 @@ en:
             connect_alpaca_html: "To invest in stocks, connect Alpaca in %{settings_link} first."
             settings_link: "Settings"
         dca_multi_asset:
+            invest_on: "Invest on"
+            add_asset: "Add asset"
+            remove_asset: "Remove"
+            max_assets_reached: "You can hold up to %{max} assets."
+            min_assets: "A portfolio needs at least %{min} assets."
+            no_common_exchange: "No exchange lists all of these assets."
             removed_from_portfolio: "Removed from portfolio"
         dca_index:
             setup:
@@ -242,10 +248,10 @@ en:
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
         liquidation:
             sell: "Sell"
-            sell_confirm: "Sell everything that left the index? The positions are closed at market price."
-            started: "Selling the assets that left the index."
+            sell_confirm: "Sell this position? It is closed at market price."
+            started: "Selling the position."
             market_closed: "The market is closed right now. Try again once it opens."
-            unsupported: "Only index bots can hold assets that left an index."
+            unsupported: "This bot has no removed assets to sell."
             halted: "Sale unconfirmed — check your exchange"
             resolve: "Clear"
             resolve_confirm: "Only continue if you have checked your exchange and no sell order is still open."

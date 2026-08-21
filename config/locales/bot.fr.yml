@@ -11,6 +11,12 @@ fr:
             connect_alpaca_html: "Pour investir en actions, connecte d'abord Alpaca dans les %{settings_link}."
             settings_link: "Réglages"
         dca_multi_asset:
+            invest_on: "Investir sur"
+            add_asset: "Ajouter un actif"
+            remove_asset: "Retirer"
+            max_assets_reached: "Vous pouvez détenir jusqu’à %{max} actifs."
+            min_assets: "Un portefeuille doit contenir au moins %{min} actifs."
+            no_common_exchange: "Aucune plateforme ne propose tous ces actifs."
             removed_from_portfolio: "Retirés du portefeuille"
         dca_index:
             setup:
@@ -215,10 +221,10 @@ fr:
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
         liquidation:
             sell: "Vendre"
-            sell_confirm: "Vendre tout ce qui est sorti de l’indice ? Les positions sont clôturées au prix du marché."
-            started: "Vente des actifs sortis de l’indice en cours."
+            sell_confirm: "Vendre cette position ? Elle sera clôturée au prix du marché."
+            started: "Vente de la position en cours."
             market_closed: "Le marché est fermé pour le moment. Réessaie à l’ouverture."
-            unsupported: "Seuls les bots indiciels peuvent détenir des actifs sortis d’un indice."
+            unsupported: "Ce bot n’a aucun actif retiré à vendre."
             halted: "Vente non confirmée — vérifie ta plateforme"
             resolve: "Effacer"
             resolve_confirm: "Continue seulement si tu as vérifié ta plateforme et qu’aucun ordre de vente n’est encore ouvert."

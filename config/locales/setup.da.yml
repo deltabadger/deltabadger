@@ -6,6 +6,7 @@ da:
             stocks_ask_admin: "Bed din administrator om at aktivere aktiehandel."
             stocks_activate_cta: "Aktivér aktiehandel i indstillingerne"
             progress_steps:
+                assets: "Aktiver"
                 currencies: "Vælg aktiv"
                 currencies2: "Andet aktiv (valgfrit)"
                 exchange: "Børs"

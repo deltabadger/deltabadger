@@ -11,6 +11,12 @@ nl:
             connect_alpaca_html: "Wil je in aandelen beleggen? Koppel eerst Alpaca via %{settings_link}."
             settings_link: "Instellingen"
         dca_multi_asset:
+            invest_on: "Investeer op"
+            add_asset: "Asset toevoegen"
+            remove_asset: "Verwijderen"
+            max_assets_reached: "Je kunt maximaal %{max} assets aanhouden."
+            min_assets: "Een portefeuille heeft minstens %{min} assets nodig."
+            no_common_exchange: "Geen enkele beurs biedt al deze assets aan."
             removed_from_portfolio: "Verwijderd uit de portefeuille"
         dca_index:
             setup:
@@ -211,10 +217,10 @@ nl:
             general_note: "Minimale bedragen van exchanges en vereiste herbalanceringsbedragen kunnen veranderen. Orders kunnen er soms onregelmatig uitzien, maar de bot streeft altijd naar de gewenste toewijzing en schema, dus er is geen extra werk nodig."
         liquidation:
             sell: "Verkopen"
-            sell_confirm: "Alles verkopen wat de index heeft verlaten? De posities worden tegen marktprijs gesloten."
-            started: "Bezig met verkopen van de assets die de index hebben verlaten."
+            sell_confirm: "Deze positie verkopen? Ze wordt tegen de marktprijs gesloten."
+            started: "De positie wordt verkocht."
             market_closed: "De markt is nu gesloten. Probeer het opnieuw zodra die opent."
-            unsupported: "Alleen indexbots kunnen assets houden die een index hebben verlaten."
+            unsupported: "Deze bot heeft geen verwijderde assets om te verkopen."
             halted: "Verkoop onbevestigd — controleer je exchange"
             resolve: "Wissen"
             resolve_confirm: "Ga alleen verder als je je exchange hebt gecontroleerd en er geen verkooporder meer openstaat."

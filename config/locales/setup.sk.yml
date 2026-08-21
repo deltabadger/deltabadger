@@ -6,6 +6,7 @@ sk:
             stocks_ask_admin: "Požiadaj svojho administrátora o aktiváciu obchodovania s akciami."
             stocks_activate_cta: "Aktivovať obchodovanie s akciami v nastaveniach"
             progress_steps:
+                assets: "Aktíva"
                 currencies: "Vyberte aktivum"
                 currencies2: "Druhe aktivum (voliteľné)"
                 exchange: "Burza"

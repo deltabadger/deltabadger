@@ -1,12 +1,13 @@
 <% quote = bot.quote_asset&.symbol || 'USD' %>
+<% base_assets = bot.base_assets %>
 
 <%= form_with model: bot,
               url: path,
               method: method,
-              class: "widget main-rule main-rule--index",
+              class: "widget main-rule main-rule--multi-asset",
               data: {
                 turbo_stream: true,
-                controller: "form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations"
+                controller: "form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations bot--allocation"
               } do |f| %>
   <div class="conversational flex-justify-center">
     <%= t('bot.conversational.invest') %>
@@ -21,4 +22,53 @@
       <%= f.select :interval, bot_intervals_select_options, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
     </div>
   </div>
+
+  <div class="asset-allocations">
+    <% base_assets.each do |asset| %>
+      <% color = ensure_contrast(asset.color || '#8A9BA8') %>
+      <% pct = (bot.allocation_for(asset.id) * 100).round(2) %>
+      <div class="index-asset asset-allocation"
+           data-bot--allocation-target="row"
+           style="--slider-progress: <%= color %>">
+        <div class="index-asset__row">
+          <%= tag.div asset.symbol, class: ticker_class(asset), style: "background-color: #{color}", data: ticker_data(asset) %>
+          <div class="slider">
+            <input type="range"
+                   name="bots_dca_multi_asset[allocations][<%= asset.id %>]"
+                   min="0"
+                   max="100"
+                   step="0.01"
+                   value="<%= pct %>"
+                   class="slider__input"
+                   data-bot--allocation-target="input"
+                   data-action="input->bot--allocation#update change->form--submit#submit"
+                   <%= 'disabled' if bot.working? %>>
+            <div class="slider__style">
+              <div class="slider__style__track"
+                   data-bot--allocation-target="track"
+                   style="border-left-color: <%= color %>; grid-template-columns: <%= pct %>% auto;">
+                <div class="slider__style__progress" style="background-color: <%= color %>;">
+                  <div class="slider__style__thumb"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="allocation" data-bot--allocation-target="percent"><%= number_with_precision(pct, precision: 2) %>%</div>
+          <% if !bot.working? && base_assets.size > Bots::DcaMultiAsset::MIN_ASSETS %>
+            <%# This stays inside the PATCH form so a removal preserves every slider value posted
+                with the click; a second form here would be invalid HTML and lose those edits. %>
+            <%= button_tag '×', type: :submit, name: 'bots_dca_multi_asset[remove_asset_id]', value: asset.id,
+                               class: 'rbutton rbutton--small asset-allocation__remove',
+                               title: t('bot.dca_multi_asset.remove_asset') %>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+
+  <% if !bot.working? && base_assets.size < Bots::DcaMultiAsset::MAX_ASSETS %>
+    <%= link_to "+ #{t('bot.dca_multi_asset.add_asset')}",
+                edit_bot_asset_search_path(bot_id: bot.id, asset_field: :add_asset_id),
+                class: 'sbutton sbutton--link asset-allocation__add', data: { turbo_frame: 'modal' } %>
+  <% end %>
 <% end %>

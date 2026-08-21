@@ -11,6 +11,12 @@ pl:
             connect_alpaca_html: "Żeby inwestować w akcje, najpierw podłącz Alpaca w %{settings_link}."
             settings_link: "Ustawieniach"
         dca_multi_asset:
+            invest_on: "Inwestuj na"
+            add_asset: "Dodaj aktywo"
+            remove_asset: "Usuń"
+            max_assets_reached: "Możesz posiadać maksymalnie %{max} aktywów."
+            min_assets: "Portfel musi zawierać co najmniej %{min} aktywów."
+            no_common_exchange: "Żadna giełda nie obsługuje wszystkich tych aktywów."
             removed_from_portfolio: "Usunięte z portfela"
         dca_index:
             setup:
@@ -214,10 +220,10 @@ pl:
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
         liquidation:
             sell: "Sprzedaj"
-            sell_confirm: "Sprzedać wszystko, co opuściło indeks? Pozycje zostaną zamknięte po cenie rynkowej."
-            started: "Sprzedaję aktywa, które opuściły indeks."
+            sell_confirm: "Sprzedać tę pozycję? Zostanie zamknięta po cenie rynkowej."
+            started: "Sprzedaję pozycję."
             market_closed: "Rynek jest teraz zamknięty. Spróbuj ponownie po otwarciu."
-            unsupported: "Tylko boty indeksowe mogą trzymać aktywa, które opuściły indeks."
+            unsupported: "Ten bot nie ma usuniętych aktywów do sprzedaży."
             halted: "Sprzedaż niepotwierdzona — sprawdź swoją giełdę"
             resolve: "Wyczyść"
             resolve_confirm: "Kontynuuj tylko wtedy, gdy sprawdziłeś giełdę i żadne zlecenie sprzedaży nie jest już otwarte."

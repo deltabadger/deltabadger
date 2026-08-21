@@ -8,6 +8,12 @@ da:
             connect_alpaca_html: "For at investere i aktier skal du først forbinde Alpaca i %{settings_link}."
             settings_link: "Indstillinger"
         dca_multi_asset:
+            invest_on: "Investér på"
+            add_asset: "Tilføj aktiv"
+            remove_asset: "Fjern"
+            max_assets_reached: "Du kan have op til %{max} aktiver."
+            min_assets: "En portefølje skal have mindst %{min} aktiver."
+            no_common_exchange: "Ingen børs har alle disse aktiver."
             removed_from_portfolio: "Fjernet fra porteføljen"
         dca_index:
             setup:
@@ -242,10 +248,10 @@ da:
             general_note: "Børsminimum og nødvendige rebalanceringsbeløb ændrer sig. Transaktioner kan nogle gange se uregelmæssige ud, men botten sigter altid efter din ønskede allokering og tidsplan, så der kræves ingen ekstra indsats."
         liquidation:
             sell: "Sælg"
-            sell_confirm: "Sælge alt, der har forladt indekset? Positionerne lukkes til markedspris."
-            started: "Sælger de aktiver, der har forladt indekset."
+            sell_confirm: "Sælg denne position? Den lukkes til markedspris."
+            started: "Sælger positionen."
             market_closed: "Markedet er lukket lige nu. Prøv igen, når det åbner."
-            unsupported: "Kun indeksbots kan have aktiver, der har forladt et indeks."
+            unsupported: "Denne bot har ingen fjernede aktiver at sælge."
             halted: "Salget er ubekræftet — tjek din børs"
             resolve: "Ryd"
             resolve_confirm: "Fortsæt kun, hvis du har tjekket din børs, og ingen salgsordre stadig er åben."

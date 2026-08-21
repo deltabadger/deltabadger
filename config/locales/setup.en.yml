@@ -6,6 +6,7 @@ en:
             stocks_ask_admin: "Ask your admin to activate stock trading."
             stocks_activate_cta: "Activate stock trading in Settings"
             progress_steps:
+                assets: "Assets"
                 currencies: "Pick asset"
                 currencies2: "Second asset (optional)"
                 exchange: "Exchange"

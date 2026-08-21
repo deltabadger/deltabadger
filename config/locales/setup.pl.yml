@@ -6,6 +6,7 @@ pl:
             stocks_ask_admin: "Poproś administratora o włączenie handlu akcjami."
             stocks_activate_cta: "Włącz handel akcjami w ustawieniach"
             progress_steps:
+                assets: "Aktywa"
                 currencies: "Wybierz aktywo"
                 currencies2: "Drugie aktywo (opcjonalnie)"
                 exchange: "Giełda"

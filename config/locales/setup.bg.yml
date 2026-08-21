@@ -6,6 +6,7 @@ bg:
             stocks_ask_admin: "Помолете вашия администратор да активира търговията с акции."
             stocks_activate_cta: "Активирайте търговията с акции в настройките"
             progress_steps:
+                assets: "Активи"
                 currencies: "Изберете актив"
                 currencies2: "Втори актив (по избор)"
                 exchange: "Борса"
