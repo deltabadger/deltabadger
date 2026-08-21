@@ -30,7 +30,10 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
 
     attr_reader :current_step
 
-    def bot_relation = @bot_type == :dual ? Bots::DcaDualAsset : Bots::DcaSingleAsset
+    def bot_relation
+      { single: Bots::DcaSingleAsset, dual: Bots::DcaDualAsset, multi: Bots::DcaMultiAsset }.fetch(@bot_type)
+    end
+
     def step_path(key) = "/#{@bot_type}/#{key}"
     def finalise! = @finalised = true
   end
@@ -39,11 +42,12 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
     Harness.new(bot_type: bot_type, current_step: current_step, config: config)
   end
 
-  def config_with(exchange: nil, base: nil, base0: nil, base1: nil, quote: nil, **top)
+  def config_with(exchange: nil, base: nil, base0: nil, base1: nil, base_ids: nil, quote: nil, **top)
     settings = {}
     settings['base_asset_id'] = base if base
     settings['base0_asset_id'] = base0 if base0
     settings['base1_asset_id'] = base1 if base1
+    settings['base_asset_ids'] = base_ids if base_ids
     settings['quote_asset_id'] = quote if quote
     cfg = top.transform_keys(&:to_s)
     cfg['exchange_id'] = exchange if exchange
@@ -97,6 +101,14 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
     h = harness(bot_type: :dual, config: config_with(base0: 5))
     assert h.call(:step_complete?, :currencies)
     refute h.call(:step_complete?, :currencies2)
+  end
+
+  test 'step_complete? for multi assets requires at least two ids' do
+    one = harness(bot_type: :multi, current_step: :assets, config: config_with(base_ids: [5]))
+    two = harness(bot_type: :multi, current_step: :assets, config: config_with(base_ids: [5, 6]))
+
+    refute one.call(:step_complete?, :assets)
+    assert two.call(:step_complete?, :assets)
   end
 
   # ── first_incomplete ───────────────────────────────────────────────────────

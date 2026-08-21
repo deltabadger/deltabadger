@@ -37,6 +37,7 @@
 @use "new/conversational";
 @use "new/reverse-toggle";
 @use "new/wizard-order";
+@use "new/wizard-assets";
 @use "new/wizard-transitions";
 @use "new/dca-dual-asset";
 @use "new/dca-index";
@@ -58,4 +59,3 @@
 @use "animations-order";
 
 @use "new2/tauri";
-

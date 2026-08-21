@@ -1,6 +1,5 @@
-# Order-derived wizard navigation for the single/dual bot-creation flow. Included
-# ONLY by the DcaSingleAsset/DcaDualAsset step controllers — it leans on
-# Bots::Wizard::StepOrder, which models only those two types. DcaIndex/Signals
+# Order-derived wizard navigation for the single/dual/multi bot-creation flow. Included
+# only by those step controllers — it leans on Bots::Wizard::StepOrder. DcaIndex/Signals
 # keep their hardcoded template hooks and never include this.
 #
 # The host controller supplies three things:
@@ -30,10 +29,11 @@ module Bots::Wizard::Navigable
     @current_bot_type ||= begin
       bot = bot_relation.new
       case bot
+      when Bots::DcaMultiAsset then :multi
       when Bots::DcaDualAsset then :dual
       when Bots::DcaSingleAsset then :single
       else
-        raise "Bots::Wizard::Navigable cannot serve #{bot.class} — only single/dual bots have a StepOrder"
+        raise "Bots::Wizard::Navigable cannot serve #{bot.class} — only single/dual/multi bots have a StepOrder"
       end
     end
   end
@@ -52,6 +52,12 @@ module Bots::Wizard::Navigable
   # checked here rather than in the pure StepOrder object.
   def step_complete?(key)
     return @bot&.api_key&.correct? || false if key == :api
+
+    # A list of one is not a multi-asset composition; the step stays incomplete until two are chosen.
+    if key == :assets
+      ids = session.dig(:bot_config, *Bots::Wizard::StepOrder::BASE_IDS_KEY)
+      return Array(ids).size >= Bots::DcaMultiAsset::MIN_ASSETS
+    end
 
     current_order.owned_keys(key).all? { |path| session.dig(:bot_config, *path).present? }
   end

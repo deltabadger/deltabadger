@@ -120,6 +120,37 @@ class Bots::DcaDualAssetsControllerTest < ActionController::TestCase
   end
 end
 
+class Bots::DcaMultiAssetsControllerTest < ActionController::TestCase
+  include TopLevelCreateBehavior
+
+  private
+
+  def expected_bot_class = Bots::DcaMultiAsset
+
+  def valid_bot_config
+    btc = create(:asset, :bitcoin)
+    eth = create(:asset, :ethereum)
+    usd = create(:asset, :usd)
+    binance = create(:binance_exchange)
+    create(:ticker, :btc_usd, exchange: binance, base_asset: btc, quote_asset: usd)
+    create(:ticker, :eth_usd, exchange: binance, base_asset: eth, quote_asset: usd)
+    {
+      'label' => 'Test Bot',
+      'exchange_id' => binance.id,
+      'settings' => {
+        'base_asset_ids' => [btc.id, eth.id],
+        'quote_asset_id' => usd.id,
+        'quote_amount' => 100,
+        'interval' => 'week'
+      }
+    }
+  end
+
+  def invalid_bot_config
+    { 'label' => 'Test Bot', 'settings' => { 'interval' => 'week' } }
+  end
+end
+
 class Bots::DcaIndexesControllerTest < ActionController::TestCase
   include TopLevelCreateBehavior
 

@@ -13,19 +13,31 @@
   would discard the pick. The "spending" slot only appears once both an asset and
   an exchange are chosen.
 
-  The single→dual promote "+" and the dual demote affordance are preserved.
+  The single→multi promote "+" and the dual demote affordance are preserved.
 
   Locals:
-    bot:          @bot (DcaSingleAsset or DcaDualAsset)
-    current_step: :currencies | :currencies2 | :exchange | :api | :spendable
+    bot:          @bot (DcaSingleAsset, DcaDualAsset, or DcaMultiAsset)
+    current_step: :currencies | :currencies2 | :assets | :exchange | :api | :spendable
 %>
 <%
   order   = current_order
   steps   = order.steps
   on_first_step = order.first?(current_step)
 
-  bot_kind     = bot.is_a?(Bots::DcaDualAsset) ? "dual" : "single"
-  first_asset  = bot.respond_to?(:base0_asset) ? bot.base0_asset : bot.base_asset
+  bot_kind     = if bot.is_a?(Bots::DcaMultiAsset)
+                   "multi"
+                 elsif bot.is_a?(Bots::DcaDualAsset)
+                   "dual"
+                 else
+                   "single"
+                 end
+  first_asset  = if bot_kind == "multi"
+                   nil
+                 elsif bot.respond_to?(:base0_asset)
+                   bot.base0_asset
+                 else
+                   bot.base_asset
+                 end
   second_asset = bot.respond_to?(:base1_asset) ? bot.base1_asset : nil
   exchange     = bot.exchange_id.present? ? bot.exchange : nil
   first_color  = ensure_contrast(first_asset.color)  if first_asset
@@ -46,20 +58,33 @@
   exchange_state = slot_state.call(:exchange, exchange.present?)
 
   # Spending shows only after an asset and an exchange are both chosen.
-  quote_visible = first_asset.present? && exchange.present?
+  quote_visible = if bot_kind == "multi"
+                    bot.base_asset_ids.any? && exchange.present?
+                  else
+                    first_asset.present? && exchange.present?
+                  end
 
-  order_url = bot_kind == "dual" ? bots_dca_dual_assets_order_path
-                                  : bots_dca_single_assets_order_path
+  order_url = case bot_kind
+              when "multi" then bots_dca_multi_assets_order_path
+              when "dual" then bots_dca_dual_assets_order_path
+              else bots_dca_single_assets_order_path
+              end
 
   base_back_url     = new_bots_dca_single_assets_pick_buyable_asset_path
   base1_back_url    = new_bots_dca_dual_assets_pick_second_buyable_asset_path
-  exchange_back_url = bot_kind == "dual" ? new_bots_dca_dual_assets_pick_exchange_path
-                                           : new_bots_dca_single_assets_pick_exchange_path
+  exchange_back_url = case bot_kind
+                      when "multi" then new_bots_dca_multi_assets_pick_exchange_path
+                      when "dual" then new_bots_dca_dual_assets_pick_exchange_path
+                      else new_bots_dca_single_assets_pick_exchange_path
+                      end
 
   base_search_url  = new_bots_dca_single_assets_pick_buyable_asset_path
   base1_search_url = new_bots_dca_dual_assets_pick_second_buyable_asset_path
-  quote_search_url = bot_kind == "dual" ? new_bots_dca_dual_assets_pick_spendable_asset_path
-                                           : new_bots_dca_single_assets_pick_spendable_asset_path
+  quote_search_url = case bot_kind
+                     when "multi" then new_bots_dca_multi_assets_pick_spendable_asset_path
+                     when "dual" then new_bots_dca_dual_assets_pick_spendable_asset_path
+                     else new_bots_dca_single_assets_pick_spendable_asset_path
+                     end
 %>
 
 <div class="conversational conversational--bot-setup"
@@ -67,9 +92,10 @@
      data-controller="conversational-sentence"
      data-action="click->conversational-sentence#activate input->conversational-sentence#updateFilled">
 
-  <span class="conversational__lead">Buy</span>
+  <span class="conversational__lead"><%= bot_kind == "multi" ? t('bot.dca_multi_asset.invest_on') : 'Buy' %></span>
 
   <div class="conversational__assets">
+    <% unless bot_kind == "multi" %>
     <%# ── first base asset ── %>
     <% if base_state == :active %>
       <%= form_with url: base_search_url, method: :get,
@@ -113,17 +139,20 @@
     <% elsif bot_kind == "dual" && base1_state == :future %>
       <span class="ticker ticker--placeholder">…</span>
     <% elsif bot_kind == "single" && first_asset %>
-      <%= form_with url: promote_to_dual_bots_dca_single_assets_pick_exchange_path,
+      <%= form_with url: promote_to_multi_bots_dca_single_assets_pick_exchange_path,
                     method: :post, class: "ticker",
                     data: { turbo_frame: "modal_content" } do %>
         <input placeholder="…">
       <% end %>
     <% end %>
+    <% end %>
   </div>
 
   <%# ── exchange slot ── %>
   <% unless exchange_state == :hidden %>
-    <span class="conversational__lead">on</span>
+    <% unless bot_kind == "multi" %>
+      <span class="conversational__lead">on</span>
+    <% end %>
     <% if exchange_state == :active %>
       <%= form_with url: exchange_back_url, method: :get,
                     data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" },
@@ -172,3 +201,7 @@
     <% end %>
   <% end %>
 </div>
+
+<% if bot_kind == "multi" && current_step != :assets %>
+  <%= render 'bots/wizard/asset_list', assets: bot.base_assets %>
+<% end %>

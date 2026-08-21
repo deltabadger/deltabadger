@@ -40,6 +40,35 @@ class WizardSessionExpiredTest < ActionDispatch::IntegrationTest
     assert_turbo_redirect_to_root
   end
 
+  test 'multi pick_assets cold create turbo-redirects to root' do
+    post bots_dca_multi_assets_pick_assets_path,
+         params: { bots_dca_multi_asset: { base_asset_id: @btc.id } }
+    assert_turbo_redirect_to_root
+  end
+
+  test 'multi pick_assets cold remove turbo-redirects to root' do
+    post remove_bots_dca_multi_assets_pick_assets_path,
+         params: { bots_dca_multi_asset: { base_asset_id: @btc.id } }
+    assert_turbo_redirect_to_root
+  end
+
+  test 'multi pick_assets cold advance turbo-redirects to root' do
+    post advance_bots_dca_multi_assets_pick_assets_path
+    assert_turbo_redirect_to_root
+  end
+
+  test 'multi pick_exchanges cold create turbo-redirects to root' do
+    post bots_dca_multi_assets_pick_exchange_path,
+         params: { bots_dca_multi_asset: { exchange_id: @binance.id } }
+    assert_turbo_redirect_to_root
+  end
+
+  test 'multi pick_spendable_assets cold create turbo-redirects to root' do
+    post bots_dca_multi_assets_pick_spendable_asset_path,
+         params: { bots_dca_multi_asset: { quote_asset_id: @usd.id } }
+    assert_turbo_redirect_to_root
+  end
+
   test 'signals pick_exchanges cold create turbo-redirects to root' do
     post bots_signals_pick_exchange_path,
          params: { bots_signal: { exchange_id: @binance.id } }

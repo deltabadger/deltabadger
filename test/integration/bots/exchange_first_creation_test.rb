@@ -203,6 +203,42 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
     assert_predicate bot, :created?
   end
 
+  test 'multi exchange-first keeps the exchange while adding assets and creates the bot' do
+    switch_to_exchange_first
+    follow_redirect!
+
+    post bots_dca_single_assets_pick_exchange_path,
+         params: { bots_dca_single_asset: { exchange_id: @binance.id } }
+    follow_redirect!
+    follow_redirect!
+    post bots_dca_single_assets_pick_buyable_asset_path,
+         params: { bots_dca_single_asset: { base_asset_id: @bitcoin.id } }
+
+    post promote_to_multi_bots_dca_single_assets_pick_exchange_path
+    assert_redirected_to new_bots_dca_multi_assets_pick_assets_path
+    assert_equal 'exchange_first', session[:bot_config]['flow']
+    assert_equal @binance.id.to_s, session[:bot_config]['exchange_id'].to_s
+
+    post bots_dca_multi_assets_pick_assets_path,
+         params: { bots_dca_multi_asset: { base_asset_id: @ethereum.id } }
+    assert_equal @binance.id.to_s, session[:bot_config]['exchange_id'].to_s
+    assert_nil session[:bot_config].dig('settings', 'quote_asset_id')
+
+    post advance_bots_dca_multi_assets_pick_assets_path
+    assert_redirected_to new_bots_dca_multi_assets_pick_spendable_asset_path
+
+    assert_difference 'Bots::DcaMultiAsset.count', 1 do
+      post bots_dca_multi_assets_pick_spendable_asset_path,
+           params: { bots_dca_multi_asset: { quote_asset_id: @usd.id } }, as: :turbo_stream
+    end
+
+    bot = Bots::DcaMultiAsset.last
+    assert_equal [@bitcoin.id, @ethereum.id], bot.base_asset_ids
+    assert_equal @binance, bot.exchange
+    assert_equal @usd, bot.quote_asset
+    assert_predicate bot, :created?
+  end
+
   # ── downstream reset ─────────────────────────────────────────────────────────
 
   test 'exchange-first: re-picking the exchange keeps the chosen asset and only re-asks the exchange' do

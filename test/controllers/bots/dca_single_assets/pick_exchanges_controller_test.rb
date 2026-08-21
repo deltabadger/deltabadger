@@ -22,6 +22,21 @@ class Bots::DcaSingleAssets::PickExchangesControllerTest < ActionDispatch::Integ
     assert_response :success
   end
 
+  test 'promote_to_multi rewrites the session into a list' do
+    get new_bots_dca_single_assets_pick_buyable_asset_path
+    post bots_dca_single_assets_pick_buyable_asset_path,
+         params: { bots_dca_single_asset: { base_asset_id: @asset.id } }
+    single_label = session[:bot_config]['label']
+
+    post promote_to_multi_bots_dca_single_assets_pick_exchange_path
+
+    assert_redirected_to new_bots_dca_multi_assets_pick_assets_path
+    assert_equal [@asset.id], session[:bot_config].dig('settings', 'base_asset_ids')
+    assert_nil session[:bot_config].dig('settings', 'base_asset_id')
+    assert_predicate session[:bot_config]['label'], :present?
+    refute_equal single_label, session[:bot_config]['label']
+  end
+
   test 'full promoted flow: single → + → second asset → exchange proceeds to api key (no loop)' do
     btc = create(:asset, :bitcoin)
     eth = create(:asset, :ethereum)

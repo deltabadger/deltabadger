@@ -1,0 +1,33 @@
+@use "../variables" as *
+
+.wizard-assets
+    width: 100rem
+    max-width: calc(100vw - 2rem)
+    display: flex
+    flex-direction: column
+    gap: 2rem
+
+    &__table
+        width: 100%
+
+        td
+            vertical-align: middle
+
+        .table__action
+            width: 1%
+            text-align: right
+
+    .modal--search
+        width: 100%
+
+.wizard-asset-list
+    display: flex
+    flex-wrap: wrap
+    justify-content: center
+    gap: 0.75rem
+    text-decoration: none
+
+    .ticker
+        display: flex
+        align-items: center
+        justify-content: center

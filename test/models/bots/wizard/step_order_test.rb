@@ -10,6 +10,7 @@ class Bots::Wizard::StepOrderTest < ActiveSupport::TestCase
   BASE     = SO::BASE_KEY
   BASE0    = SO::BASE0_KEY
   BASE1    = SO::BASE1_KEY
+  BASE_IDS = SO::BASE_IDS_KEY
   QUOTE    = SO::QUOTE_KEY
 
   # ── steps / first / first? ──────────────────────────────────────────────
@@ -40,6 +41,18 @@ class Bots::Wizard::StepOrderTest < ActiveSupport::TestCase
     order = SO.for(bot_type: :dual, variant: :exchange_first)
     assert_equal %i[exchange api currencies currencies2 spendable], order.steps
     assert_equal :exchange, order.first
+  end
+
+  test 'multi sequences and progress follow both four-step variants' do
+    asset_first = SO.for(bot_type: :multi, variant: :asset_first)
+    assert_equal %i[assets exchange api spendable], asset_first.steps
+    asset_first_progress = asset_first.steps.map { |step| asset_first.progress(step) }
+    assert_equal [25, 50, 75, 100], asset_first_progress
+
+    exchange_first = SO.for(bot_type: :multi, variant: :exchange_first)
+    assert_equal %i[exchange api assets spendable], exchange_first.steps
+    exchange_first_progress = exchange_first.steps.map { |step| exchange_first.progress(step) }
+    assert_equal [25, 50, 75, 100], exchange_first_progress
   end
 
   test 'variant defaults to asset_first when omitted' do
@@ -106,6 +119,11 @@ class Bots::Wizard::StepOrderTest < ActiveSupport::TestCase
     assert_equal [BASE1], order.owned_keys(:currencies2)
   end
 
+  test 'owned_keys maps the multi assets step to the asset id list' do
+    order = SO.for(bot_type: :multi, variant: :asset_first)
+    assert_equal [BASE_IDS], order.owned_keys(:assets)
+  end
+
   # ── reset_keys (ALL − keys owned by steps BEFORE the step) ───────────────
 
   test 'reset_keys for the single first asset is a full wipe (today behavior)' do
@@ -164,6 +182,22 @@ class Bots::Wizard::StepOrderTest < ActiveSupport::TestCase
     refute_includes keys, EXCHANGE
     refute_includes keys, BASE0
     assert_includes keys, BASE1
+    assert_includes keys, QUOTE
+  end
+
+  test 'reset_keys for a multi exchange keeps the chosen asset list' do
+    order = SO.for(bot_type: :multi, variant: :exchange_first)
+    keys = order.reset_keys(:exchange)
+    refute_includes keys, BASE_IDS
+    assert_includes keys, EXCHANGE
+    assert_includes keys, QUOTE
+  end
+
+  test 'reset_keys for multi assets clears exchange and quote' do
+    order = SO.for(bot_type: :multi, variant: :asset_first)
+    keys = order.reset_keys(:assets)
+    assert_includes keys, BASE_IDS
+    assert_includes keys, EXCHANGE
     assert_includes keys, QUOTE
   end
 end

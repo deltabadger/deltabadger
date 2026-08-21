@@ -6,6 +6,7 @@
 module Bots::WizardDefaults
   SINGLE = { 'quote_amount' => 100, 'interval' => 'week' }.freeze
   DUAL = SINGLE.merge('allocation0' => 0.5).freeze
+  MULTI = SINGLE
   # num_coins default is owned by the model (index-aware: a bounded index starts at full size).
   INDEX = SINGLE.merge('allocation_flattening' => 0.0).freeze
 
