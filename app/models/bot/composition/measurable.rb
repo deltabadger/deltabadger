@@ -1,4 +1,4 @@
-module Bots::DcaIndex::Measurable
+module Bot::Composition::Measurable
   extend ActiveSupport::Concern
 
   # The fill arithmetic is shared with the dual-asset bot so the two can never disagree about what a
@@ -99,8 +99,8 @@ module Bots::DcaIndex::Measurable
       # Calculate current value for each asset
       asset_values = {}
       metrics_data[:asset_breakdown].each do |symbol, asset_data|
-        # A fully liquidated holding keeps its ledger row (the chart reads holdings by index and the
-        # series must stay parallel) but has nothing left to show. Without this an index bot that
+        # A fully liquidated holding keeps its ledger row (the chart reads holdings by position and the
+        # series must stay parallel) but has nothing left to show. Without this a composition bot that
         # rebalances accumulates a zero row per asset it has ever rotated out of.
         next unless asset_data[:amount].positive?
 
@@ -132,7 +132,7 @@ module Bots::DcaIndex::Measurable
       metrics_data[:chart][:series][0] << total_value
       metrics_data[:chart][:series][1] << metrics_data[:total_quote_amount_invested]
       metrics_data[:chart][:labels] << Time.current
-      # extra_series stays parallel with labels — the chart reads holdings by index.
+      # extra_series stays parallel with labels — the chart reads holdings by position.
       metrics_data[:chart][:extra_series] << metrics_data[:asset_breakdown].transform_values { |data| data[:amount] }
       (metrics_data[:chart][:cash_series] ||= []) << metrics_data[:rebalance_cash].to_d
       metrics_data[:live_prices] = live_prices
@@ -151,9 +151,9 @@ module Bots::DcaIndex::Measurable
       grids = chart_price_grids(metrics_data)
       return metrics_data if grids.blank?
 
-      # Only symbols the bot can price at all take part. An index rotates its composition, so it can
+      # Only symbols the bot can price at all take part. A bot can rotate its composition, so it can
       # hold assets it no longer tracks (the user liquidates them by hand — see
-      # Bots::DcaIndex::Liquidatable) — a DELISTED one has no ticker,
+      # Bot::Composition::Liquidatable) — a DELISTED one has no ticker,
       # and `metrics_with_current_prices` already leaves them out of the live value. Demanding
       # candle coverage for them would leave almost every point uncovered (28 held symbols, 20
       # tickered, on a real bot) while the headline priced only the 20. A symbol that HAS a
@@ -184,8 +184,9 @@ module Bots::DcaIndex::Measurable
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
       target: 'metrics',
-      partial: 'bots/dca_indexes/metrics',
-      locals: { bot: self, metrics: metrics_with_current_prices, loading: false }
+      partial: metrics_partial,
+      locals: { bot: self, metrics: metrics_with_current_prices, loading: false,
+                exited_title_key: exited_title_key }
     )
   end
 

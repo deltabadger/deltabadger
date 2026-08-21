@@ -26,6 +26,21 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     stub_top_coins(%w[coin-a coin-dead coin-b coin-c])
   end
 
+  test 'the composition machinery is shared and the index derives it from market data' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    bot.num_coins = 2
+    stub_all_priced(:get_ask_price)
+
+    assert_predicate bot.refresh_composition, :success?
+    assert_equal 2, bot.bot_index_assets.in_index.count
+    %w[Allocatable Measurable Liquidatable OrderSetter Rebalancer].each do |name|
+      assert_includes Bots::DcaIndex.ancestors, "Bot::Composition::#{name}".constantize
+    end
+    assert_equal bot.num_coins, bot.composition_size
+    assert_equal 'bot.dca_index.left_the_index', bot.exited_title_key
+    assert_equal 'bots/composition/metrics', bot.metrics_partial
+  end
+
   test 'market-order index skips a pair with no ask price and backfills from the next candidate' do
     bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
     bot.num_coins = 2
@@ -36,7 +51,7 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     stub_all_priced(:get_ask_price)
     stub_unpriced(:get_ask_price, @ticker_dead)
 
-    result = bot.refresh_index_composition
+    result = bot.refresh_composition
 
     assert_predicate result, :success?
     assert_equal %w[coin-a coin-b], in_index_external_ids(bot)
@@ -51,7 +66,7 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     stub_all_priced(:get_last_price)
     stub_unpriced(:get_last_price, @ticker_dead)
 
-    result = bot.refresh_index_composition
+    result = bot.refresh_composition
 
     assert_predicate result, :success?
     assert_equal %w[coin-a coin-b], in_index_external_ids(bot)
@@ -67,7 +82,7 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
                      .with(ticker: @ticker_dead, force: anything)
                      .raises(RuntimeError.new('Wrong ask price for DEADEUR: 0.0'))
 
-    result = bot.refresh_index_composition
+    result = bot.refresh_composition
 
     assert_predicate result, :success?
     assert_equal %w[coin-a coin-b], in_index_external_ids(bot)
@@ -79,7 +94,7 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
 
     stub_all_unpriced(:get_ask_price)
 
-    result = bot.refresh_index_composition
+    result = bot.refresh_composition
 
     assert_predicate result, :failure?
     assert_empty bot.bot_index_assets.in_index
@@ -93,7 +108,7 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     stub_all_priced(:get_ask_price)
     stub_all_priced(:get_last_price)
 
-    result = bot.refresh_index_composition
+    result = bot.refresh_composition
 
     assert_predicate result, :success?
     assert_equal %w[coin-a coin-b], in_index_external_ids(bot)
@@ -111,11 +126,11 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
     bot.num_coins = 2
     stub_all_priced(:get_ask_price)
-    bot.refresh_index_composition
+    bot.refresh_composition
     assert_equal %w[coin-a coin-dead], in_index_external_ids(bot)
 
     stub_unpriced(:get_ask_price, @ticker_dead)
-    bot.refresh_index_composition
+    bot.refresh_composition
 
     assert_equal %w[coin-a coin-dead], in_index_external_ids(bot), 'a blip must not evict a constituent'
     assert_not_includes in_index_external_ids(bot), 'coin-b', 'and must not buy a replacement for it'
@@ -126,10 +141,10 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
     bot.num_coins = 2
     stub_all_priced(:get_ask_price)
-    bot.refresh_index_composition
+    bot.refresh_composition
 
     @ticker_dead.update!(trading_enabled: false)
-    bot.refresh_index_composition
+    bot.refresh_composition
 
     assert_equal %w[coin-a coin-b], in_index_external_ids(bot)
   end
@@ -139,11 +154,11 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
     bot.num_coins = 2
     stub_all_priced(:get_ask_price)
-    bot.refresh_index_composition
+    bot.refresh_composition
 
     Exchanges::Kraken.any_instance.expects(:get_ask_price).with(ticker: @ticker_a, force: anything).never
 
-    bot.refresh_index_composition
+    bot.refresh_composition
   end
 
   test 'current_index_preview excludes trading-disabled pairs' do

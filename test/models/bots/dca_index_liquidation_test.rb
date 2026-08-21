@@ -11,7 +11,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
       [symbol, { asset: asset, ticker: ticker }]
     end
     @bot.instance_variable_set(:@tickers, @assets.values.map { |a| a[:ticker] })
-    @bot.stubs(:refresh_index_composition).returns(Result::Success.new)
+    @bot.stubs(:refresh_composition).returns(Result::Success.new)
   end
 
   # == which holdings are quitters ==
@@ -181,7 +181,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     # Unlike the rebalancer's best-effort refresh: here a stale composition would SELL an asset that
     # may have re-entered the index since the page was rendered.
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
-    @bot.stubs(:refresh_index_composition).returns(Result::Failure.new('upstream down'))
+    @bot.stubs(:refresh_composition).returns(Result::Failure.new('upstream down'))
 
     assert_predicate @bot.liquidate_exited!(symbol: 'CCC'), :failure?
     assert_empty @bot.transactions.liquidation

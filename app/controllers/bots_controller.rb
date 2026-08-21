@@ -93,8 +93,8 @@ class BotsController < ApplicationController
       elsif @bot.dca_index?
         @decimals = {}
         @decimals[@bot.quote_asset.symbol] = @bot.decimals[:quote] if @bot.quote_asset.present?
-        # Add decimals for all index assets
-        @bot.bot_index_assets.in_index.includes(:ticker).each do |bia|
+        # Exited holdings still appear in the orders feed and need their ticker precision.
+        @bot.bot_index_assets.includes(:ticker).each do |bia|
           next unless bia.ticker.present?
 
           @decimals[bia.ticker.base] = bia.ticker.base_decimals

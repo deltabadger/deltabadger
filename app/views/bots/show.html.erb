@@ -34,7 +34,7 @@
         <% elsif @bot.dca_dual_asset? %>
           <%= render partial: "bots/dca_dual_assets/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading } %>
         <% elsif @bot.dca_index? %>
-          <%= render partial: "bots/dca_indexes/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading } %>
+          <%= render partial: "bots/composition/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading, exited_title_key: @bot.exited_title_key } %>
         <% elsif @bot.signal? %>
           <%= render partial: "bots/dca_single_assets/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading } %>
         <% end %>

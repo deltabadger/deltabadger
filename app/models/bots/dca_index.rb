@@ -63,20 +63,18 @@ class Bots::DcaIndex < Bot
 
   # Type-specific concerns
   include Bot::Rebalanceable # decorators for: parse_params — keep AFTER the limitables
+  include Bot::Composition::Allocatable
   include Bots::DcaIndex::IndexAllocatable
-  include Bots::DcaIndex::OrderSetter
-  include Bots::DcaIndex::Rebalancer
-  include Bots::DcaIndex::Liquidatable
-  include Bots::DcaIndex::Measurable
+  include Bot::Composition::OrderSetter
+  include Bot::Composition::Rebalancer
+  include Bot::Composition::Liquidatable
+  include Bot::Composition::Measurable
 
   # Shared lifecycle + asset plumbing — keep LAST so the decorator chains above stay on top
   include Bot::Lifecycle
   include Bot::AssetConfigurable # the available_*/ticker queries below override the single-pair defaults
 
   self.asset_id_setting_keys = %i[quote_asset_id]
-
-  has_many :bot_index_assets, foreign_key: :bot_id, dependent: :destroy
-  has_many :index_assets, through: :bot_index_assets, source: :asset
 
   def parse_params(params)
     {
@@ -91,8 +89,8 @@ class Bots::DcaIndex < Bot
   def execute_action
     update!(status: :executing)
 
-    # Refresh index composition before setting orders
-    result = refresh_index_composition
+    # Orders must use the composition derived for this tick.
+    result = refresh_composition
     return result if result.failure?
 
     result = set_orders(
@@ -243,19 +241,9 @@ class Bots::DcaIndex < Bot
     end
   end
 
-  def broadcast_below_minimums_warning
-    # Count recent skipped transactions
-    recent_transactions = transactions.limit(num_coins.to_i * 2)
-    skipped_count = recent_transactions.count(&:skipped?)
-    return unless skipped_count.positive? && recent_transactions.count == skipped_count
-
-    broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
-      target: 'modal',
-      partial: 'bots/dca_indexes/warning_below_minimums',
-      locals: { bot: self, skipped_count: skipped_count }
-    )
-  end
+  def composition_size = num_coins.to_i
+  def exited_title_key = 'bot.dca_index.left_the_index'
+  def metrics_partial = 'bots/composition/metrics'
 
   private
 

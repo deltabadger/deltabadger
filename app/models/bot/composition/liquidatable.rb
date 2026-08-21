@@ -1,29 +1,29 @@
-# Selling off the assets an index has dropped — "quitters".
+# Selling off assets that a composition has dropped.
 #
-# Deliberately NOT part of rebalancing. Rebalancing tracks the index and steers constituents toward
-# their weights; a quitter has no weight to steer toward, and folding it in produced two bad
+# Deliberately NOT part of rebalancing. Rebalancing tracks the composition and steers members toward
+# their weights; an exited holding has no weight to steer toward, and folding it in produced two bad
 # behaviours at once: with target 0 it was liquidated automatically the moment any OTHER asset
-# breached the band (churning a constituent that merely hovers at the index boundary in and out),
-# while a coin that left at 0.1% of the portfolio never tripped the band on its own and was
+# breached the band (churning a member that merely hovers at the boundary in and out),
+# while an asset that left at 0.1% of the portfolio never tripped the band on its own and was
 # therefore never sold at all.
 #
 # So it is manual. Closing the position is a taxable disposal, and the user picks the moment.
-module Bots::DcaIndex::Liquidatable
+module Bot::Composition::Liquidatable
   extend ActiveSupport::Concern
 
-  # Holdings the bot still owns that the index no longer wants, in the shape the table renders and
+  # Holdings the bot still owns that its composition no longer wants, in the shape the table renders and
   # the sell trades. One source for both, so the button can never disagree with what is on screen.
   #
-  # Built from priced holdings, so a DELISTED quitter does not appear: it has no ticker, no price,
+  # Built from priced holdings, so a DELISTED asset does not appear: it has no ticker, no price,
   # and no way to be sold. That matches the main table, which has never shown it either.
   def exited_holdings(data = metrics_with_current_prices)
     values = data[:asset_values] || {}
     return [] if values.empty?
 
     in_index = bot_index_assets.in_index.includes(:asset).to_set { |bia| bia.asset.symbol }
-    # No composition on record means we do not KNOW the index — a bot whose first refresh has not
-    # landed, or one whose fetch failed. Reading that as "the index is empty" would mark every
-    # holding a quitter and offer to liquidate the entire portfolio.
+    # No composition on record means we do not KNOW the target — a bot whose first refresh has not
+    # landed, or one whose derivation failed. Reading that as "the composition is empty" would mark
+    # every holding as exited and offer to liquidate the entire portfolio.
     return [] if in_index.empty?
 
     tickers_by_symbol = tickers.index_by(&:base)
@@ -35,7 +35,7 @@ module Bots::DcaIndex::Liquidatable
     end
   end
 
-  # The tickers a liquidation would actually trade — NOT bot.tickers, which for an index is every
+  # The tickers a liquidation would actually trade — NOT bot.tickers, which for a composition bot is every
   # quote-matching ticker in the catalogue. Market-hours checks have to ask about these: Alpaca skips
   # the stock clock only when EVERY supplied ticker is crypto, so asking with the full catalogue
   # refuses a 24/7 crypto sale any time the stock market happens to be shut.
@@ -45,10 +45,10 @@ module Bots::DcaIndex::Liquidatable
     holdings.filter_map { |holding| holding[:ticker] }.presence || tickers.to_a
   end
 
-  # The quitters by NAME, with no prices involved. exited_holdings needs a live-priced hash, and the
+  # The exited holdings by NAME, with no prices involved. exited_holdings needs a live-priced hash, and the
   # Sell button must not 404 just because the five-minute cache went cold between the render and the
   # click — membership is knowable without any of that. Same two rules as exited_holdings: an empty
-  # composition means we do not KNOW the index, so nothing is a quitter.
+  # composition means we do not KNOW the target, so nothing is exited.
   def exited_symbols
     in_index = bot_index_assets.in_index.includes(:asset).to_set { |bia| bia.asset.symbol }
     return [] if in_index.empty?
@@ -58,13 +58,13 @@ module Bots::DcaIndex::Liquidatable
     end
   end
 
-  # Sells every quitter at market. Runs under Bot::ActionJob's exchange semaphore (see
+  # Sells an exited holding at market. Runs under Bot::ActionJob's exchange semaphore (see
   # Bot::LiquidateExitedJob), which is what makes the "no placement of ours is running" reasoning in
   # Bot::LiquidationState sound.
   # One holding, named by the user from its own row. There is no sell-everything path: each of these
   # is a separate taxable disposal, and a single button over the table could not say which position
   # it was closing. The symbol arrives from the URL, so it is untrusted — a caller that names an
-  # index member or something the bot does not hold is refused here as well as in the controller,
+  # current member or something the bot does not hold is refused here as well as in the controller,
   # which keeps the job safe whatever reaches it.
   def liquidate_exited!(symbol:)
     advance_waiting_orders!
@@ -73,10 +73,10 @@ module Bots::DcaIndex::Liquidatable
     blocked = liquidation_blocked_reason
     return Result::Failure.new(blocked) if blocked.present?
 
-    result = refresh_index_composition
-    # Stricter than Bots::DcaIndex::Rebalancer#before_rebalance, which is best-effort: a stale
+    result = refresh_composition
+    # Stricter than Bot::Composition::Rebalancer#before_rebalance, which is best-effort: a stale
     # composition there rebalances toward slightly wrong weights, but here it would SELL an asset
-    # that may have re-entered the index since the page was rendered.
+    # that may have re-entered the composition since the page was rendered.
     return Result::Failure.new(result.errors) if result.failure?
 
     place_liquidation_orders!(symbol: symbol)
@@ -99,7 +99,7 @@ module Bots::DcaIndex::Liquidatable
     fresh = metrics(force: true)
     holdings = exited_holdings(metrics_with_current_prices(force: true))
                .select { |holding| holding[:symbol] == symbol }
-    # Re-derived above, so this also catches a coin that re-entered the index between the click and
+    # Re-derived above, so this also catches an asset that re-entered the composition between the click and
     # the run — the one case where refusing is the whole point.
     return Result::Failure.new(:not_a_quitter) if holdings.empty?
 
@@ -118,7 +118,7 @@ module Bots::DcaIndex::Liquidatable
   def liquidate_holding!(holding, fresh)
     ticker = holding[:ticker]
     return skip_liquidation(holding, 'unavailable') unless ticker&.available? && ticker.trading_enabled?
-    # With FeeCutter on, the DCA leg can have a resting limit buy for a coin that has since exited.
+    # With FeeCutter on, the DCA leg can have a resting limit buy for an asset that has since exited.
     # Selling underneath it just re-acquires the position when it fills, so leave this one and say
     # why — the rest of the batch is unaffected.
     return skip_liquidation(holding, 'open_order') if waiting_buy_for?(ticker)

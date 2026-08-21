@@ -1,7 +1,7 @@
 <%# locals: (values:, logo_assets:, body_id: nil, bot: nil, sellable: false) %>
-<%# Index holdings come from the metrics hash, not from the bot's own columns, so they need mapping
-    onto the shared table's rows. Used for the index itself, the coins that left it, and the sale's
-    confirmation — only the quitters table passes sellable, because a constituent is not for sale. %>
+<%# Composition holdings come from the metrics hash, not from the bot's own columns, so they need
+    mapping onto the shared table's rows. Only the exited table passes sellable, because a current
+    member is not for sale. %>
 <%= render 'bots/assets_table', body_id: body_id, actions: sellable, rows: values.map { |symbol, data|
       { asset: logo_assets[symbol]&.base_asset, symbol: symbol,
         amount: number_with_precision(data[:amount] || 0, precision: 6, strip_insignificant_zeros: true),

@@ -5,33 +5,6 @@ module Bots::DcaIndex::IndexAllocatable
     after_initialize :initialize_index_allocatable_settings
   end
 
-  # Refresh the index composition by fetching top coins from CoinGecko
-  # and matching them to available tickers on the exchange
-  def refresh_index_composition
-    Rails.logger.info("Refreshing index composition for bot #{id}")
-
-    result = fetch_top_coins_with_allocations
-    return result if result.failure?
-
-    allocations = result.data
-    update_bot_index_assets(allocations)
-
-    Result::Success.new(allocations)
-  end
-
-  # Get current allocations for display
-  def current_allocations
-    bot_index_assets.in_index.includes(:asset, :ticker).order(target_allocation: :desc).map do |bia|
-      {
-        asset: bia.asset,
-        ticker: bia.ticker,
-        target_allocation: bia.target_allocation,
-        current_allocation: bia.current_allocation,
-        symbol: bia.asset.symbol
-      }
-    end
-  end
-
   # Calculate allocations with flattening applied
   # @param market_caps [Hash] { asset_id => market_cap }
   # @return [Array<Hash>] allocations with { asset_id, ticker_id, weight }
@@ -75,7 +48,7 @@ module Bots::DcaIndex::IndexAllocatable
     10
   end
 
-  def fetch_top_coins_with_allocations
+  def derive_composition
     # Fetch more coins than needed to account for ones not available on exchange
     fetch_limit = [num_coins.to_i * 3, 100].min
 
@@ -136,30 +109,5 @@ module Bots::DcaIndex::IndexAllocatable
 
     allocations = calculate_allocations_with_flattening(coins_data)
     Result::Success.new(allocations)
-  end
-
-  def update_bot_index_assets(allocations)
-    current_asset_ids = bot_index_assets.in_index.pluck(:asset_id)
-    new_asset_ids = allocations.map { |a| a[:asset_id] }
-
-    # Mark exited assets
-    exited_asset_ids = current_asset_ids - new_asset_ids
-    if exited_asset_ids.any?
-      bot_index_assets.where(asset_id: exited_asset_ids, in_index: true).update_all(
-        in_index: false,
-        exited_at: Time.current
-      )
-    end
-
-    # Upsert current allocations
-    allocations.each do |alloc|
-      bia = bot_index_assets.find_or_initialize_by(asset_id: alloc[:asset_id])
-      bia.ticker_id = alloc[:ticker_id]
-      bia.target_allocation = alloc[:weight]
-      bia.in_index = true
-      bia.entered_at ||= Time.current
-      bia.exited_at = nil
-      bia.save!
-    end
   end
 end

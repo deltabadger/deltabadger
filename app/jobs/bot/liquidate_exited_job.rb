@@ -1,8 +1,8 @@
-# Sells the assets an index has dropped, at the user's request.
+# Sells an asset a bot's composition has dropped, at the user's request.
 #
 # NO retry_on. A job-level retry around order placement replays the placement, which is the known
 # double-buy bug class: placement has no idempotency key, so a retried "failure" that actually landed
-# places a second order. An unknown outcome halts as ambiguous inside Bots::DcaIndex::Liquidatable
+# places a second order. An unknown outcome halts as ambiguous inside Bot::Composition::Liquidatable
 # instead of being replayed.
 class Bot::LiquidateExitedJob < BotJob
   # Explicitly joins Bot::ActionJob's semaphore. Solid Queue's concurrency_group defaults to
@@ -15,7 +15,7 @@ class Bot::LiquidateExitedJob < BotJob
                      group: 'Bot::ActionJob'
 
   def perform(bot, symbol:)
-    return unless bot.is_a?(Bots::DcaIndex)
+    return unless bot.respond_to?(:liquidate_exited!)
     # Logged, not silent: the controller has already told the user the sale started, so a bot that
     # was archived or disconnected between the click and the run must say why nothing happened
     # rather than leaving a false success standing.
@@ -53,7 +53,7 @@ class Bot::LiquidateExitedJob < BotJob
     bot.log_activity('liquidation_not_started', level: :info, details: { reason: reason })
   end
 
-  # A stock index must not place into a closed market. Asked about the tickers actually being sold,
+  # A stock composition must not place into a closed market. Asked about the tickers actually being sold,
   # not the whole catalogue. Logged rather than silently dropped: this is a one-shot user command, so
   # the reason has to land somewhere the user can find it.
   def market_open?(bot, symbol)

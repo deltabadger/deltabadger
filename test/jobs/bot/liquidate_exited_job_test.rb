@@ -62,7 +62,6 @@ class Bot::LiquidateExitedJobTest < ActiveSupport::TestCase
 
   test 'a bot type that cannot have quitters is refused' do
     other = create(:dca_single_asset, user: create(:user))
-    other.expects(:liquidate_exited!).never
 
     assert_nothing_raised { Bot::LiquidateExitedJob.new.perform(other, symbol: 'CCC') }
   end

@@ -49,14 +49,14 @@
 
   <% exited_symbols = exited.map { |holding| holding[:symbol] }.to_set %>
   <%# Resolve the row's base symbol through the exchange's tickers, the same way the
-      metrics do — bot_index_assets only holds the CURRENT index, so anything the bot
-      still holds after a rotation isn't in it. %>
+      metrics do — current bot_index_assets rows cannot identify holdings that exited after a
+      rotation. %>
   <% logo_assets = bot.exchange.tickers.where(base: (metrics[:asset_values] || {}).keys).includes(:base_asset).index_by(&:base) %>
   <% if metrics[:asset_values].present? %>
-    <% index_values = metrics[:asset_values].reject { |symbol, _| exited_symbols.include?(symbol) } %>
-    <% if index_values.present? %>
+    <% composition_values = metrics[:asset_values].reject { |symbol, _| exited_symbols.include?(symbol) } %>
+    <% if composition_values.present? %>
       <div id="assets_metrics_table" class="widget widget--table">
-        <%= render 'bots/dca_indexes/assets_table', values: index_values, logo_assets: logo_assets, body_id: 'assets_metrics_list' %>
+        <%= render 'bots/composition/assets_table', values: composition_values, logo_assets: logo_assets, body_id: 'assets_metrics_list' %>
       </div>
     <% end %>
   <% end %>
@@ -67,10 +67,10 @@
   <% if exited.any? || bot.liquidation_ambiguous? %>
     <div id="exited_metrics_table" class="widget widget--table">
       <div class="exited-header">
-        <span class="label"><%= t('bot.dca_index.left_the_index') %></span>
+        <span class="label"><%= t(exited_title_key) %></span>
         <% if bot.liquidation_ambiguous? %>
           <%# A halted liquidation is the one thing that must not be re-run: the outcome of the last
-              placement is unknown, so selling again could sell coins that are already gone. %>
+              placement is unknown, so selling again could sell assets that are already gone. %>
           <span class="text-error"><%= t('bot.liquidation.halted') %></span>
           <%= button_to t('bot.liquidation.resolve'),
                         bot_liquidation_resolutions_path(bot_id: bot.id, intent_id: bot.liquidation_pending[:id]),
@@ -83,7 +83,7 @@
             disposal, so the user closes them one at a time and always sees which. A halted
             liquidation blocks the lot until it is resolved, and an archived or deleted bot cannot
             trade at all — in both cases the button's only outcome would be a refusal in the log. %>
-        <%= render 'bots/dca_indexes/assets_table',
+        <%= render 'bots/composition/assets_table',
                    values: exited.index_by { |holding| holding[:symbol] },
                    logo_assets: logo_assets, body_id: 'exited_metrics_list', bot: bot,
                    sellable: !bot.liquidation_ambiguous? && !bot.archived? && !bot.deleted? %>

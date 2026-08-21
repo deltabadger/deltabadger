@@ -1,8 +1,8 @@
-# Sells the assets an index has dropped, at the user's request.
+# Sells an asset a bot's composition has dropped, at the user's request.
 #
 # Deliberately manual: closing one of these positions is a taxable disposal, and folding it into
-# rebalancing meant a constituent hovering at the index boundary got sold and re-bought on every
-# crossing. See Bots::DcaIndex::Liquidatable.
+# rebalancing meant a member hovering at the composition boundary got sold and re-bought on every
+# crossing. See Bot::Composition::Liquidatable.
 class Bots::LiquidationsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_bot
@@ -36,22 +36,22 @@ class Bots::LiquidationsController < ApplicationController
 
   private
 
-  # Nested bot routes accept every bot type; only an index can have assets that left an index.
+  # Nested bot routes accept every bot type; only composition bots expose exited holdings.
   def set_bot
     @bot = current_user.bots.find(params[:bot_id])
-    redirect_back fallback_location: bots_path, alert: t('bot.liquidation.unsupported') unless @bot.is_a?(Bots::DcaIndex)
+    redirect_back fallback_location: bots_path, alert: t('bot.liquidation.unsupported') unless @bot.respond_to?(:exited_symbols)
   end
 
-  # The symbol comes from the URL, so it is user input: an in-index constituent, or something the
+  # The symbol comes from the URL, so it is user input: a current member, or something the
   # bot does not hold, must not be reachable by hand-editing it — that would be a taxable disposal
-  # the index never asked for. Checked against exited_symbols, which needs no prices, so a cold
+  # the composition never asked for. Checked against exited_symbols, which needs no prices, so a cold
   # metrics cache cannot turn a live Sell button into a 404.
   def set_exited_symbol
     @symbol = params[:symbol].to_s
     head :not_found unless @bot.exited_symbols.include?(@symbol)
   end
 
-  # A pre-check so a stock index tells the user now rather than logging it minutes later. The job
+  # A pre-check so a stock composition tells the user now rather than logging it minutes later. The job
   # checks again — the market can close between enqueue and run.
   #
   # Authenticated first: Alpaca answers this from /v2/clock, which needs credentials, and with a cold
