@@ -10,24 +10,30 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test 'the sell is queued rather than run in the request' do
-    post bot_liquidation_path(bot_id: @bot.id)
+    sellable_quitter
+
+    post bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC')
 
     assert_predicate queued(Bot::LiquidateExitedJob), :exists?
   end
 
   test 'who asked is recorded' do
-    post bot_liquidation_path(bot_id: @bot.id)
+    sellable_quitter
+
+    post bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC')
 
     log = @bot.bot_activity_logs.find_by(event: 'liquidation_requested')
     assert log, 'a user-initiated sale has to leave a trace'
     assert_equal @user.id, log.details['user_id']
+    assert_equal 'CCC', log.details['base'], 'and say which position it was for'
   end
 
   test 'a closed market says so now instead of failing quietly in a worker' do
     # A one-shot user command must not be silently dropped.
+    sellable_quitter
     @bot.exchange.class.any_instance.stubs(:market_open?).returns(false)
 
-    post bot_liquidation_path(bot_id: @bot.id)
+    post bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC')
 
     assert_not_predicate queued(Bot::LiquidateExitedJob), :exists?
     # flash.now, rendered into the turbo_stream response — the modal has to stay open and carry it.
@@ -46,7 +52,7 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
   test "another user's bot is not reachable" do
     stranger = create(:dca_single_asset, user: create(:user))
 
-    post bot_liquidation_path(bot_id: stranger.id)
+    post bot_liquidation_path(bot_id: stranger.id, symbol: 'CCC')
 
     assert_not_predicate queued(Bot::LiquidateExitedJob), :exists?
     assert_empty stranger.bot_activity_logs.where(event: 'liquidation_requested')
@@ -58,19 +64,11 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
   # browser confirm() names nothing it is about to sell. It gets the app's own modal, like every
   # other irreversible action here, and the modal lists the positions.
 
-  test 'the confirmation lists what is about to be sold' do
-    # An empty composition means "we do not know the index" and nothing is a quitter, so the bot
-    # needs a constituent for CCC to read as one.
-    %w[AAA CCC].each_with_index do |symbol, i|
-      asset = create(:asset, symbol: symbol, name: "Coin #{symbol}", external_id: "coin-#{symbol.downcase}")
-      ticker = create(:ticker, exchange: @bot.exchange, base_asset: asset, quote_asset: @bot.quote_asset)
-      BotIndexAsset.create!(bot: @bot, asset: asset, ticker: ticker, in_index: i.zero?,
-                            target_allocation: i.zero? ? 1.0 : nil,
-                            entered_at: Time.current, exited_at: i.zero? ? nil : Time.current)
-    end
-    warm_prices('AAA' => 100, 'CCC' => 20)
+  test 'the confirmation names the one holding it will sell' do
+    quitters('AAA' => :in_index, 'CCC' => :exited, 'DDD' => :exited)
+    warm_prices('AAA' => 100, 'CCC' => 20, 'DDD' => 30)
 
-    get new_bot_liquidation_path(bot_id: @bot.id)
+    get new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC')
 
     assert_response :success
     assert_select 'turbo-frame#modal .modal', 1
@@ -78,11 +76,57 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     # hangs off .widget--table, so a bare <table> here renders unstyled.
     assert_select '.modal .widget--table #liquidation_confirm_list tr', 1
     assert_select '.modal', /CCC/
-    assert_select ".modal form[action='#{bot_liquidation_path(bot_id: @bot.id)}']", 1
+    # The other quitter is not part of this sale and must not appear in the list.
+    assert_select '.modal', { text: /DDD/, count: 0 }
+    assert_select '.modal form[action=?]', bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC'), count: 1
+  end
+
+  test 'an in-index holding has no confirmation to open' do
+    # The symbol rides in the URL, so it is user input. Selling a live constituent by hand-editing
+    # it would be a taxable disposal the index never asked for.
+    quitters('AAA' => :in_index, 'CCC' => :exited)
+    warm_prices('AAA' => 100, 'CCC' => 20)
+
+    get new_bot_liquidation_path(bot_id: @bot.id, symbol: 'AAA')
+
+    assert_response :not_found
+  end
+
+  test 'an unknown symbol has no confirmation to open' do
+    quitters('AAA' => :in_index, 'CCC' => :exited)
+    warm_prices('AAA' => 100, 'CCC' => 20)
+
+    get new_bot_liquidation_path(bot_id: @bot.id, symbol: 'ZZZ')
+
+    assert_response :not_found
+  end
+
+  test 'selling an in-index holding is refused, not queued' do
+    quitters('AAA' => :in_index, 'CCC' => :exited)
+    warm_prices('AAA' => 100, 'CCC' => 20)
+
+    post bot_liquidation_path(bot_id: @bot.id, symbol: 'AAA')
+
+    assert_response :not_found
+    assert_not_predicate queued(Bot::LiquidateExitedJob), :exists?
+  end
+
+  test 'the sale is queued for the named holding only' do
+    quitters('AAA' => :in_index, 'CCC' => :exited)
+    warm_prices('AAA' => 100, 'CCC' => 20)
+
+    post bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC')
+
+    job = queued(Bot::LiquidateExitedJob).last
+    assert job, 'the sale has to reach the queue'
+    assert_match(/CCC/, job.arguments.to_s)
   end
 
   test 'opening the confirmation sells nothing on its own' do
-    get new_bot_liquidation_path(bot_id: @bot.id)
+    quitters('AAA' => :in_index, 'CCC' => :exited)
+    warm_prices('AAA' => 100, 'CCC' => 20)
+
+    get new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC')
 
     assert_not_predicate queued(Bot::LiquidateExitedJob), :exists?
     assert_empty @bot.bot_activity_logs.where(event: 'liquidation_requested')
@@ -91,7 +135,7 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
   test 'a bot type that cannot have quitters has no confirmation to open' do
     other = create(:dca_single_asset, user: @user)
 
-    get new_bot_liquidation_path(bot_id: other.id)
+    get new_bot_liquidation_path(bot_id: other.id, symbol: 'CCC')
 
     assert_response :redirect
   end
@@ -99,7 +143,7 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
   test "another user's confirmation is not reachable" do
     stranger = create(:dca_index, user: create(:user), exchange: @bot.exchange, quote_asset: @bot.quote_asset)
 
-    get new_bot_liquidation_path(bot_id: stranger.id)
+    get new_bot_liquidation_path(bot_id: stranger.id, symbol: 'CCC')
 
     assert_response :not_found
   end
@@ -140,6 +184,24 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     SolidQueue::Job.where(class_name: job_class.name)
   end
 
+  # The smallest setup that makes CCC a sellable quitter: an index with one member, so the
+  # composition is known, and a holding outside it.
+  def sellable_quitter
+    quitters('AAA' => :in_index, 'CCC' => :exited)
+    warm_prices('AAA' => 100, 'CCC' => 20)
+  end
+
+  # in_index vs exited, in the shape exited_holdings reads.
+  def quitters(roles)
+    roles.each do |symbol, role|
+      asset = create(:asset, symbol: symbol, name: "Coin #{symbol}", external_id: "coin-#{symbol.downcase}")
+      ticker = create(:ticker, exchange: @bot.exchange, base_asset: asset, quote_asset: @bot.quote_asset)
+      BotIndexAsset.create!(bot: @bot, asset: asset, ticker: ticker, in_index: role == :in_index,
+                            target_allocation: role == :in_index ? 1.0 : nil,
+                            entered_at: Time.current, exited_at: role == :in_index ? nil : Time.current)
+    end
+  end
+
   def warm_prices(values)
     Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
     data = @bot.metrics.deep_dup
@@ -147,6 +209,9 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
       { amount: v.to_d / 100, quote_invested: v.to_d, current_value: v.to_d,
         current_price: 100, avg_price: 100, pnl_percentage: 0 }
     end
+    # The ledger underneath, which is what exited_symbols reads — see the quitters-table test.
+    data[:asset_breakdown] = values.transform_values { |v| { amount: v.to_d / 100, quote_invested: v.to_d } }
+    Rails.cache.write("bot_#{@bot.id}_metrics_v3", data)
     Rails.cache.write(@bot.send(:metrics_with_current_prices_cache_key), data)
   end
 end

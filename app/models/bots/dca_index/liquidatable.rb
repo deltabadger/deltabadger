@@ -39,14 +39,34 @@ module Bots::DcaIndex::Liquidatable
   # quote-matching ticker in the catalogue. Market-hours checks have to ask about these: Alpaca skips
   # the stock clock only when EVERY supplied ticker is crypto, so asking with the full catalogue
   # refuses a 24/7 crypto sale any time the stock market happens to be shut.
-  def liquidation_tickers
-    exited_holdings.filter_map { |holding| holding[:ticker] }.presence || tickers.to_a
+  def liquidation_tickers(symbol: nil)
+    holdings = exited_holdings
+    holdings = holdings.select { |holding| holding[:symbol] == symbol } if symbol.present?
+    holdings.filter_map { |holding| holding[:ticker] }.presence || tickers.to_a
+  end
+
+  # The quitters by NAME, with no prices involved. exited_holdings needs a live-priced hash, and the
+  # Sell button must not 404 just because the five-minute cache went cold between the render and the
+  # click — membership is knowable without any of that. Same two rules as exited_holdings: an empty
+  # composition means we do not KNOW the index, so nothing is a quitter.
+  def exited_symbols
+    in_index = bot_index_assets.in_index.includes(:asset).to_set { |bia| bia.asset.symbol }
+    return [] if in_index.empty?
+
+    (metrics[:asset_breakdown] || {}).filter_map do |symbol, data|
+      symbol if data[:amount].to_d.positive? && !in_index.include?(symbol)
+    end
   end
 
   # Sells every quitter at market. Runs under Bot::ActionJob's exchange semaphore (see
   # Bot::LiquidateExitedJob), which is what makes the "no placement of ours is running" reasoning in
   # Bot::LiquidationState sound.
-  def liquidate_exited!
+  # One holding, named by the user from its own row. There is no sell-everything path: each of these
+  # is a separate taxable disposal, and a single button over the table could not say which position
+  # it was closing. The symbol arrives from the URL, so it is untrusted — a caller that names an
+  # index member or something the bot does not hold is refused here as well as in the controller,
+  # which keeps the job safe whatever reaches it.
+  def liquidate_exited!(symbol:)
     advance_waiting_orders!
     promote_stale_liquidation_placement!
 
@@ -59,7 +79,7 @@ module Bots::DcaIndex::Liquidatable
     # that may have re-entered the index since the page was rendered.
     return Result::Failure.new(result.errors) if result.failure?
 
-    place_liquidation_orders!
+    place_liquidation_orders!(symbol: symbol)
   end
 
   private
@@ -72,13 +92,16 @@ module Bots::DcaIndex::Liquidatable
     nil
   end
 
-  def place_liquidation_orders!
+  def place_liquidation_orders!(symbol:)
     # metrics(force: true), NOT metrics_with_current_prices(force: true): the latter forces only its
     # own five-minute layer and still reads the thirty-day `metrics` cache underneath, so a second
     # queued click would size against a ledger that predates the first sale.
     fresh = metrics(force: true)
     holdings = exited_holdings(metrics_with_current_prices(force: true))
-    return Result::Success.new(placed: 0) if holdings.empty?
+               .select { |holding| holding[:symbol] == symbol }
+    # Re-derived above, so this also catches a coin that re-entered the index between the click and
+    # the run — the one case where refusing is the whole point.
+    return Result::Failure.new(:not_a_quitter) if holdings.empty?
 
     placed = 0
     holdings.each do |holding|

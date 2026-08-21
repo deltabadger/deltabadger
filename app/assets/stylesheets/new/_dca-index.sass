@@ -156,3 +156,11 @@
     margin-bottom: -3rem
   form
     margin: 0
+
+// The quitters table's action column. Right-aligned and shrink-to-fit so the figures keep the width
+// they had before the column existed, and never wraps — a Sell that breaks over two lines makes the
+// whole row taller than the rest of the table.
+.table__action
+  text-align: right
+  width: 1%
+  white-space: nowrap

@@ -11,10 +11,10 @@ class Bot::LiquidateExitedJob < BotJob
   # each other's stale balances. Holding this lock is also what lets Bot::LiquidationState treat a
   # surviving `placing` intent as a dead worker rather than a live placement.
   limits_concurrency to: 1,
-                     key: ->(bot, *) { "exchange_#{bot.exchange&.name_id}" },
+                     key: ->(bot, *, **) { "exchange_#{bot.exchange&.name_id}" },
                      group: 'Bot::ActionJob'
 
-  def perform(bot)
+  def perform(bot, symbol:)
     return unless bot.is_a?(Bots::DcaIndex)
     # Logged, not silent: the controller has already told the user the sale started, so a bot that
     # was archived or disconnected between the click and the run must say why nothing happened
@@ -23,9 +23,9 @@ class Bot::LiquidateExitedJob < BotJob
     return refuse(bot, 'api_key_pending') if bot.api_key&.pending_activation?
 
     bot.ensure_exchange_authenticated
-    return unless market_open?(bot)
+    return unless market_open?(bot, symbol)
 
-    result = bot.liquidate_exited!
+    result = bot.liquidate_exited!(symbol: symbol)
     # A refusal here is silent otherwise, and the user has already been told the sale started. Every
     # guard that can decline — a rebalance mid-swap, a standing halt, a composition refresh that
     # failed — has to say so somewhere the user can find it.
@@ -56,8 +56,8 @@ class Bot::LiquidateExitedJob < BotJob
   # A stock index must not place into a closed market. Asked about the tickers actually being sold,
   # not the whole catalogue. Logged rather than silently dropped: this is a one-shot user command, so
   # the reason has to land somewhere the user can find it.
-  def market_open?(bot)
-    return true if bot.exchange.market_open?(tickers: bot.liquidation_tickers)
+  def market_open?(bot, symbol)
+    return true if bot.exchange.market_open?(tickers: bot.liquidation_tickers(symbol: symbol))
 
     bot.log_activity('liquidation_market_closed', level: :info)
     false

@@ -53,21 +53,52 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
 
   # == placing ==
 
-  test 'every quitter is sold and index members are left alone' do
+  # == one holding at a time ==
+  #
+  # There is no "sell everything that left" any more. The button lives on the row, so the symbol is
+  # what the user picked — and because it arrives in the URL it is untrusted input.
+
+  test 'only the named quitter is sold' do
     setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
 
-    @bot.liquidate_exited!
+    @bot.liquidate_exited!(symbol: 'CCC')
 
-    sold = @bot.transactions.liquidation.pluck(:base)
-    assert_equal %w[BBB CCC], sold.sort
-    assert_predicate @bot.transactions.liquidation.where(base: 'AAA'), :empty?
+    assert_equal %w[CCC], @bot.transactions.liquidation.map(&:base)
+  end
+
+  test 'naming an index member sells nothing' do
+    # Hand-editing the symbol in the URL must not reach a live constituent. The controller 404s on
+    # it; this is the model refusing on its own so the job is safe whatever calls it.
+    setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+
+    result = @bot.liquidate_exited!(symbol: 'AAA')
+
+    assert_predicate result, :failure?
+    assert_empty @bot.transactions.liquidation
+  end
+
+  test 'naming a holding that does not exist sells nothing' do
+    setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
+
+    result = @bot.liquidate_exited!(symbol: 'ZZZ')
+
+    assert_predicate result, :failure?
+    assert_empty @bot.transactions.liquidation
+  end
+
+  test 'the market-hours check asks only about the ticker being sold' do
+    # liquidation_tickers feeds Exchange#market_open?. Asking with the whole catalogue refuses a
+    # 24/7 crypto sale whenever the stock market happens to be shut.
+    setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+
+    assert_equal [@assets['CCC'][:ticker]], @bot.liquidation_tickers(symbol: 'CCC')
   end
 
   test 'the sell is capped at what is actually on the exchange' do
     # Coins moved to cold storage still count toward the portfolio but cannot be traded.
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 }, free: { 'CCC' => 0.15 })
 
-    @bot.liquidate_exited!
+    @bot.liquidate_exited!(symbol: 'CCC')
 
     assert_in_delta 0.15, @bot.transactions.liquidation.last.amount.to_f, 0.0001,
                     'held 0.2, but only 0.15 is on the exchange'
@@ -76,7 +107,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
   test 'liquidation orders are market orders and not contributions' do
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
 
-    @bot.liquidate_exited!
+    @bot.liquidate_exited!(symbol: 'CCC')
 
     order = @bot.transactions.liquidation.last
     assert_equal 'market_order', order.order_type
@@ -86,13 +117,13 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
 
   # == per-holding skips ==
 
-  test 'a quitter below the venue minimum is skipped and the rest still sell' do
+  test 'a quitter below the venue minimum is skipped' do
     setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
     @assets['CCC'][:ticker].update!(minimum_quote_size: 1_000)
 
-    @bot.liquidate_exited!
+    @bot.liquidate_exited!(symbol: 'CCC')
 
-    assert_equal %w[BBB], @bot.transactions.liquidation.pluck(:base)
+    assert_empty @bot.transactions.liquidation
   end
 
   test 'a quitter with a resting DCA buy is skipped so the sale is not immediately undone' do
@@ -102,18 +133,18 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
                          transaction_type: 'REGULAR', price: 100, amount: 1)
     @bot.stubs(:advance_waiting_orders!)
 
-    @bot.liquidate_exited!
+    @bot.liquidate_exited!(symbol: 'CCC')
 
-    assert_equal %w[BBB], @bot.transactions.liquidation.pluck(:base)
+    assert_empty @bot.transactions.liquidation
   end
 
-  test 'a delisted quitter is skipped rather than failing the batch' do
+  test 'a delisted quitter is skipped rather than raising' do
     setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
     @assets['CCC'][:ticker].update!(available: false)
 
-    @bot.liquidate_exited!
+    @bot.liquidate_exited!(symbol: 'CCC')
 
-    assert_equal %w[BBB], @bot.transactions.liquidation.pluck(:base)
+    assert_empty @bot.transactions.liquidation
   end
 
   # == guards ==
@@ -122,7 +153,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
     @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_SELLING)
 
-    assert_predicate @bot.liquidate_exited!, :failure?
+    assert_predicate @bot.liquidate_exited!(symbol: 'CCC'), :failure?
     assert_empty @bot.transactions.liquidation
   end
 
@@ -133,7 +164,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
                          transaction_type: 'LIQUIDATION', price: 100, amount: 1)
     @bot.stubs(:advance_waiting_orders!)
 
-    assert_predicate @bot.liquidate_exited!, :failure?
+    assert_predicate @bot.liquidate_exited!(symbol: 'CCC'), :failure?
     assert_equal 1, @bot.transactions.liquidation.count, 'no second order on top of the live one'
   end
 
@@ -142,7 +173,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     @bot.start_liquidation_placement!('CCC')
     @bot.flag_liquidation_ambiguous!
 
-    assert_predicate @bot.liquidate_exited!, :failure?
+    assert_predicate @bot.liquidate_exited!(symbol: 'CCC'), :failure?
     assert_empty @bot.transactions.liquidation
   end
 
@@ -152,17 +183,17 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
     @bot.stubs(:refresh_index_composition).returns(Result::Failure.new('upstream down'))
 
-    assert_predicate @bot.liquidate_exited!, :failure?
+    assert_predicate @bot.liquidate_exited!(symbol: 'CCC'), :failure?
     assert_empty @bot.transactions.liquidation
   end
 
   # == unknown outcomes ==
 
-  test 'an ambiguous placement halts the batch instead of trying the next asset' do
+  test 'an ambiguous placement halts' do
     setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
     @bot.exchange.stubs(:market_sell).raises(Client::AmbiguousPlacementError, 'timeout')
 
-    @bot.liquidate_exited!
+    @bot.liquidate_exited!(symbol: 'CCC')
 
     assert_predicate @bot, :liquidation_ambiguous?
     assert_empty @bot.transactions.liquidation
@@ -172,7 +203,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
     @bot.exchange.stubs(:market_sell).returns(Result::Success.new(order_id: nil))
 
-    @bot.liquidate_exited!
+    @bot.liquidate_exited!(symbol: 'CCC')
 
     assert_predicate @bot, :liquidation_ambiguous?
   end
@@ -181,7 +212,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
     @bot.exchange.stubs(:market_sell).returns(Result::Failure.new('gateway timeout'))
 
-    @bot.liquidate_exited!
+    @bot.liquidate_exited!(symbol: 'CCC')
 
     assert_predicate @bot, :liquidation_ambiguous?
   end
@@ -191,7 +222,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     @bot.exchange.stubs(:market_sell).returns(Result::Failure.new('Insufficient balance'))
     @bot.exchange.stubs(:placement_transient_error?).returns(true)
 
-    @bot.liquidate_exited!
+    @bot.liquidate_exited!(symbol: 'CCC')
 
     assert_not_predicate @bot, :liquidation_pending?
     assert_equal 'failed', @bot.transactions.liquidation.last.status
@@ -201,7 +232,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
     @bot.exchange.stubs(:market_sell).raises(Client::TransientNetworkError, 'connection refused')
 
-    @bot.liquidate_exited!
+    @bot.liquidate_exited!(symbol: 'CCC')
 
     assert_not_predicate @bot, :liquidation_pending?
   end
@@ -209,7 +240,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
   test 'an accepted order clears its own intent' do
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
 
-    @bot.liquidate_exited!
+    @bot.liquidate_exited!(symbol: 'CCC')
 
     assert_not_predicate @bot, :liquidation_pending?
     assert_equal 1, @bot.transactions.liquidation.count
@@ -220,7 +251,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
     @bot.start_liquidation_placement!('CCC')
 
-    @bot.liquidate_exited!
+    @bot.liquidate_exited!(symbol: 'CCC')
 
     assert_predicate @bot, :liquidation_ambiguous?
   end
