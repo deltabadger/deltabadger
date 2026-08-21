@@ -23,6 +23,25 @@
     box-shadow: var(--shadow-basic)
     &--settings
         padding: 2rem 4rem 4rem 4rem
+        // One wrapping row of preference pills. Wrapping rather than shrinking: a flex row let
+        // the widest pill shrink, and .sinput--select clips, so it lost its text instead.
+        .settings-prefs
+            display: flex
+            flex-wrap: wrap
+            align-items: center
+            gap: 1rem
+            // The frames are plumbing; the forms inside them are the row's items. A flex item
+            // will not shrink past its content unless told to, and the timezone pill is wider
+            // than a phone — so let it shrink and end in the ellipsis .sinput--select provides.
+            turbo-frame
+                display: contents
+            form
+                min-width: 0
+                max-width: 100%
+            &__notes
+                display: flex
+                flex-direction: column
+                gap: 0.5rem
         .button
             margin-top: 2rem
         .button_to
