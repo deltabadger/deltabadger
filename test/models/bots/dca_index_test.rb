@@ -92,6 +92,53 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     assert_equal %w[coin-a coin-b], in_index_external_ids(bot)
   end
 
+  # --- an incumbent keeps its seat ---------------------------------------------
+  #
+  # The probe's one irreplaceable job is BACKFILL: deciding which NEW candidate fills a slot.
+  # Re-probing a coin already in the index can only ever evict it, and Ticker#priced? cannot tell a
+  # delisting from a proxy 502 (an HTTP failure comes back as a plain false), so a network blip was
+  # demoting a held constituent to "Left the index" — where Liquidatable#liquidate_exited!, which
+  # refreshes strictly before it sells, would then sell it.
+
+  test 'an incumbent whose price probe fails keeps its seat instead of being backfilled over' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    bot.num_coins = 2
+    stub_all_priced(:get_ask_price)
+    bot.refresh_index_composition
+    assert_equal %w[coin-a coin-dead], in_index_external_ids(bot)
+
+    stub_unpriced(:get_ask_price, @ticker_dead)
+    bot.refresh_index_composition
+
+    assert_equal %w[coin-a coin-dead], in_index_external_ids(bot), 'a blip must not evict a constituent'
+    assert_not_includes in_index_external_ids(bot), 'coin-b', 'and must not buy a replacement for it'
+  end
+
+  test 'an incumbent still exits when the catalogue drops it' do
+    # The seat rests on the venue's own listing status, not on nothing.
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    bot.num_coins = 2
+    stub_all_priced(:get_ask_price)
+    bot.refresh_index_composition
+
+    @ticker_dead.update!(trading_enabled: false)
+    bot.refresh_index_composition
+
+    assert_equal %w[coin-a coin-b], in_index_external_ids(bot)
+  end
+
+  test 'an incumbent is not re-probed' do
+    # The canary: this is the assertion that fails if the seat is ever taken away again.
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    bot.num_coins = 2
+    stub_all_priced(:get_ask_price)
+    bot.refresh_index_composition
+
+    Exchanges::Kraken.any_instance.expects(:get_ask_price).with(ticker: @ticker_a, force: anything).never
+
+    bot.refresh_index_composition
+  end
+
   test 'current_index_preview excludes trading-disabled pairs' do
     bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
     @ticker_dead.update!(trading_enabled: false)

@@ -97,6 +97,22 @@ module Bots::DcaIndex::IndexAllocatable
       ticker_by_coingecko_id[ticker.base_asset.external_id] = ticker
     end
 
+    # Coins already in the index keep their seat without a price probe. The probe's one
+    # irreplaceable job is BACKFILL — deciding which NEW candidate fills a slot — and re-probing an
+    # incumbent can only ever evict it. Ticker#priced? cannot tell a delisting from a proxy 502 or a
+    # 429 (an HTTP failure returns a plain `false`), so a network blip was quietly rotating a held
+    # constituent out of the index and buying a replacement for it with real money, and leaving the
+    # evicted one under "Left the index" — where liquidate_exited!, which refreshes strictly before
+    # it sells, would sell it. Liveness for an incumbent now rests on the venue's own listing status
+    # in the scope above, refreshed four-hourly by Exchange::SyncAllTickersAndAssetsJob.
+    #
+    # It is also what makes a settings change cheap: re-deriving a steady index costs no exchange
+    # calls at all, so the tables follow the coins slider in one round trip.
+    #
+    # Keyed on ticker_id, not asset_id: a seat earned on one venue or quote pair is not carried into
+    # another, so an exchange change re-probes everything.
+    incumbent_ticker_ids = bot_index_assets.in_index.pluck(:ticker_id).to_set
+
     # Match top coins to available tickers
     coins_data = []
     top_coins.each do |coin|
@@ -104,7 +120,7 @@ module Bots::DcaIndex::IndexAllocatable
 
       ticker = ticker_by_coingecko_id[coin['id']]
       next unless ticker.present?
-      next unless ticker.priced?(limit_ordered? ? :last : :ask)
+      next unless incumbent_ticker_ids.include?(ticker.id) || ticker.priced?(limit_ordered? ? :last : :ask)
 
       coins_data << {
         asset_id: ticker.base_asset_id,
