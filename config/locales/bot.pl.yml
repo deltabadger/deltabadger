@@ -30,14 +30,9 @@ pl:
             fewer_coins_available: "%{available} z %{requested} monet w indeksie jest dostępnych na %{exchange_name}"
             num_assets: "Aktywa w indeksie"
             asset_breakdown: "Podział Aktywów"
-            asset: "Aktywo"
-            amount: "Ilość"
-            avg_price: "Średnia Cena"
             realised_pnl: "Zrealizowany wynik"
             realised_pnl_note: "Ze sprzedaży aktywów, które opuściły indeks. Rebalansowanie nie jest wliczane."
             left_the_index: "Poza indeksem"
-            value: "Wartość"
-            pl: "Z/S"
             warning:
                 intro: "Niektóre zlecenia (%{skipped_count}) były poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Oto jak bot to obsługuje:"
         types:

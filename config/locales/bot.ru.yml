@@ -30,14 +30,9 @@ ru:
             fewer_coins_available: "%{available} из %{requested} монет в индексе доступны на %{exchange_name}"
             num_assets: "Активы в индексе"
             asset_breakdown: "Разбор активов"
-            asset: "Актив"
-            amount: "Количество"
-            avg_price: "Средняя цена"
             realised_pnl: "Зафиксированный P/L"
             realised_pnl_note: "От продажи активов, покинувших индекс. Ребалансировка не учитывается."
             left_the_index: "Вне индекса"
-            value: "Стоимость"
-            pl: "П/У"
             warning:
                 intro: "Некоторые ордеры (%{skipped_count}) были ниже минимального размера ордера на %{exchange_name}. Вот как бот это обрабатывает:"
         types:

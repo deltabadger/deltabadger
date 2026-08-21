@@ -30,14 +30,9 @@ nl:
             fewer_coins_available: "%{available} van de %{requested} munten in de index zijn beschikbaar op %{exchange_name}"
             num_assets: "Activa in index"
             asset_breakdown: "Activa Verdeling"
-            asset: "Activa"
-            amount: "Bedrag"
-            avg_price: "Gem. Prijs"
             realised_pnl: "Gerealiseerde W/V"
             realised_pnl_note: "Uit de verkoop van assets die de index hebben verlaten. Herbalanceren telt niet mee."
             left_the_index: "Uit de index"
-            value: "Waarde"
-            pl: "W/V"
             warning:
                 intro: "Sommige orders (%{skipped_count}) waren onder de minimale ordergrootte van %{exchange_name}. Hier is hoe de bot dit aanpakt:"
         types:

@@ -30,14 +30,9 @@ pt:
             fewer_coins_available: "%{available} de %{requested} moedas no índice estão disponíveis em %{exchange_name}"
             num_assets: "Ativos no índice"
             asset_breakdown: "Detalhamento de Ativos"
-            asset: "Ativo"
-            amount: "Montante"
-            avg_price: "Preço Médio"
             realised_pnl: "L/P realizado"
             realised_pnl_note: "Da venda de ativos que saíram do índice. O rebalanceamento não conta."
             left_the_index: "Fora do índice"
-            value: "Valor"
-            pl: "G/P"
             warning:
                 intro: "Algumas ordens (%{skipped_count}) estavam abaixo do tamanho mínimo de ordem de %{exchange_name}. Veja como o bot lida com isso:"
         types:

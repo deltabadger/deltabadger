@@ -27,14 +27,9 @@ sv:
             fewer_coins_available: "%{available} av %{requested} mynt i indexet finns tillgängliga på %{exchange_name}"
             num_assets: "Tillgångar i index"
             asset_breakdown: "Tillgångsfördelning"
-            asset: "Tillgång"
-            amount: "Belopp"
-            avg_price: "Snittpris"
             realised_pnl: "Realiserad vinst/förlust"
             realised_pnl_note: "Från försäljning av tillgångar som lämnat indexet. Ombalansering räknas inte."
             left_the_index: "Lämnat indexet"
-            value: "Värde"
-            pl: "V/F"
             warning:
                 intro: "Vissa ordrar (%{skipped_count}) var under %{exchange_name}s minsta orderstorlek. Så här hanterar boten det:"
         types:

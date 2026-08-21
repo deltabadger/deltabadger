@@ -27,14 +27,9 @@ en:
             fewer_coins_available: "%{available} of %{requested} coins in the index are available on %{exchange_name}"
             num_assets: "Assets in index"
             asset_breakdown: "Asset Breakdown"
-            asset: "Asset"
-            amount: "Amount"
-            avg_price: "Avg. Price"
             realised_pnl: "Realised P/L"
             realised_pnl_note: "From selling assets that left the index. Rebalancing is not counted."
             left_the_index: "Left the index"
-            value: "Value"
-            pl: "P/L"
             warning:
                 intro: "Some orders (%{skipped_count}) were below the %{exchange_name} minimum order size. Here's how the bot handles it:"
         types:

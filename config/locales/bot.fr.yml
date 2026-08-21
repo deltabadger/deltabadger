@@ -30,14 +30,9 @@ fr:
             fewer_coins_available: "%{available} des %{requested} cryptomonnaies dans l'indice sont disponibles sur %{exchange_name}"
             num_assets: "Actifs dans l'indice"
             asset_breakdown: "Ventilation des Actifs"
-            asset: "Actif"
-            amount: "Montant"
-            avg_price: "Prix Moyen"
             realised_pnl: "P/P réalisé"
             realised_pnl_note: "Issu de la vente d’actifs sortis de l’indice. Le rééquilibrage n’est pas compté."
             left_the_index: "Sortis de l’indice"
-            value: "Valeur"
-            pl: "G/P"
             warning:
                 intro: "Certaines ordres (%{skipped_count}) étaient en dessous de la taille minimale de commande de %{exchange_name}. Voici comment le bot le gère :"
         types:

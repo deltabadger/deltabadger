@@ -5,100 +5,35 @@
     </p>
   <% end %>
   <div class="widget data-grid data-grid--two-columns">
-    <%= render partial: "bots/dca_dual_assets/metrics_item", locals: {
+    <%= render partial: "bots/metrics_item", locals: {
       label: t('data_labels.invested'),
       value: format_value(metrics[:total_quote_amount_invested], max_decimals: bot.decimals[:quote] || 8),
       loading: false
     } %>
-    <%= render partial: "bots/dca_dual_assets/metrics_item", locals: {
+    <%= render partial: "bots/metrics_item", locals: {
       label: t('data_labels.portfolio_value'),
       value: format_value(metrics[:total_amount_value_in_quote], max_decimals: bot.decimals[:quote] || 8),
       loading: loading
     } %>
   </div>
 
-  <%# Check if data is available to display the table %>
-  <% if metrics[:total_quote_amount_invested].positive? %>
-    <div id="assets_metrics_table" class="widget widget--table">
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col" class="table__logo"></th>
-            <th scope="col"></th>
-            <th scope="col"><%= t('data_labels.amount') %></th>
-            <th scope="col"><%= t('data_labels.avg_price') %></th>
-            <th scope="col"><%= t('data_labels.value') %></th>
-            <th scope="col"><%= t('data_labels.pnl') %></th>
-          </tr>
-        </thead>
-        <tbody id="assets_metrics_list">
-          <%# Row for base0 asset %>
-          <% if bot.base0_asset %>
-            <tr>
-              <td class="table__logo"><%= render 'assets/logo', asset: bot.base0_asset %></td>
-              <td scope="row"><%= bot.base0_asset.symbol %></td>
-              <td><%= metrics[:total_base0_amount].round(bot.decimals[:base0] || 8) %></td>
-              <td><%= metrics[:base0_average_buy_price].present? ? metrics[:base0_average_buy_price].round(bot.decimals[:base0_price] || 8) : '-' %></td>
-              <% if loading %>
-                <td><div class="loader--small" style="position: unset; float:right"></div></td>
-              <% else %>
-                <td><%= format_value(metrics[:total_base0_amount_value_in_quote], max_decimals: bot.decimals[:quote] || 8) %></td>
-              <% end %>
-              <% if loading %>
-                <td><div class="loader--small" style="position: unset; float:right"></div></td>
-              <% else %>
-                <% pnl0 = metrics[:base0_pnl] %>
-                <td class="<%= pnl0.negative? ? 'text-danger' : pnl0.positive? ? 'text-success' : '' %>">
-                  <b><%= pnl0 ? format_percent(pnl0, precision: 1) : '-' %></b>
-                </td>
-              <% end %>
-            </tr>
-          <% end %>
+  <%# Both legs are the same row with a different prefix. No investment yet means no rows — the
+      table renders its own placeholder. %>
+  <% rows = if metrics[:total_quote_amount_invested].positive?
+              %w[base0 base1].filter_map do |leg|
+                asset = bot.public_send("#{leg}_asset")
+                next unless asset
 
-          <%# Row for base1 asset %>
-          <% if bot.base1_asset %>
-            <tr>
-              <td class="table__logo"><%= render 'assets/logo', asset: bot.base1_asset %></td>
-              <td scope="row"><%= bot.base1_asset.symbol %></td>
-              <td><%= metrics[:total_base1_amount].round(bot.decimals[:base1] || 8) %></td>
-              <td><%= metrics[:base1_average_buy_price].present? ? metrics[:base1_average_buy_price].round(bot.decimals[:base1_price] || 8) : '-' %></td>
-              <% if loading %>
-                <td><div class="loader--small" style="position: unset; float:right"></div></td>
-              <% else %>
-                <td><%= format_value(metrics[:total_base1_amount_value_in_quote], max_decimals: bot.decimals[:quote] || 8) %></td>
-              <% end %>
-              <% if loading %>
-                <td><div class="loader--small" style="position: unset; float:right"></div></td>
-              <% else %>
-                <% pnl1 = metrics[:base1_pnl] %>
-                <td class="<%= pnl1.negative? ? 'text-danger' : pnl1.positive? ? 'text-success' : '' %>">
-                  <b><%= pnl1 ? format_percent(pnl1, precision: 1) : '-' %></b>
-                </td>
-              <% end %>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
-    </div>
-  <% else %>
-    <%# Optionally, render a placeholder if no data is available %>
-    <div class="widget widget--table">
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col"></th>
-            <th scope="col"><%= t('data_labels.amount') %></th>
-            <th scope="col"><%= t('data_labels.avg_price') %></th>
-            <th scope="col"><%= t('data_labels.value') %></th>
-            <th scope="col"><%= t('data_labels.pnl') %></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td colspan="5" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  <% end %>
+                { asset: asset, symbol: asset.symbol,
+                  amount: metrics[:"total_#{leg}_amount"].round(bot.decimals[leg.to_sym] || 8),
+                  avg_price: metrics[:"#{leg}_average_buy_price"]&.round(bot.decimals[:"#{leg}_price"] || 8),
+                  value: format_value(metrics[:"total_#{leg}_amount_value_in_quote"], max_decimals: bot.decimals[:quote] || 8),
+                  pnl: metrics[:"#{leg}_pnl"] }
+              end
+            else
+              []
+            end %>
+  <div id="assets_metrics_table" class="widget widget--table">
+    <%= render 'bots/assets_table', rows: rows, body_id: 'assets_metrics_list', loading: loading %>
+  </div>
 </div>

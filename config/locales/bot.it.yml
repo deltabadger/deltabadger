@@ -27,14 +27,9 @@ it:
             fewer_coins_available: "%{available} delle %{requested} criptovalute nell'indice sono disponibili su %{exchange_name}"
             num_assets: "Asset nell'indice"
             asset_breakdown: "Suddivisione Asset"
-            asset: "Asset"
-            amount: "Importo"
-            avg_price: "Prezzo Medio"
             realised_pnl: "P/P realizzato"
             realised_pnl_note: "Dalla vendita di asset usciti dall’indice. Il ribilanciamento non conta."
             left_the_index: "Fuori dall’indice"
-            value: "Valore"
-            pl: "P/L"
             warning:
                 intro: "Alcuni ordini (%{skipped_count}) erano al di sotto della dimensione minima dell'ordine di %{exchange_name}. Ecco come il bot lo gestisce:"
         types:

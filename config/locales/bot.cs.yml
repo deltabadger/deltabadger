@@ -27,14 +27,9 @@ cs:
             fewer_coins_available: "%{available} z %{requested} mincí v indexu je dostupných na %{exchange_name}"
             num_assets: "Aktiva v indexu"
             asset_breakdown: "Rozložení aktiv"
-            asset: "Aktivum"
-            amount: "Množství"
-            avg_price: "Prům. cena"
             realised_pnl: "Realizovaný zisk/ztráta"
             realised_pnl_note: "Z prodeje aktiv, která opustila index. Rebalancování se nepočítá."
             left_the_index: "Mimo index"
-            value: "Hodnota"
-            pl: "Z/Z"
             warning:
                 intro: "Některé příkazy (%{skipped_count}) byly pod minimální velikostí příkazu na %{exchange_name}. Takto s tím bot pracuje:"
         types:
