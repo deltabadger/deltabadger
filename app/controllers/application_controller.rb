@@ -49,7 +49,7 @@ class ApplicationController < ActionController::Base
   end
 
   def sanitized_bot_config
-    (session[:bot_config] || {}).slice('exchange_id', 'label', 'settings')
+    (session[:bot_config] || {}).slice('exchange_id', 'settings')
   end
 
   def redirect_to_setup_if_needed

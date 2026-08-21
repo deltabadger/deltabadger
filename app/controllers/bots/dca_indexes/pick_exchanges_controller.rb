@@ -8,7 +8,6 @@ class Bots::DcaIndexes::PickExchangesController < Bots::Wizard::PickExchangesCon
   def new
     session[:bot_config] ||= {}
     prepare_step
-    session[:bot_config]['label'] ||= @bot.label
   end
 
   private

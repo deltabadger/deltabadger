@@ -1,7 +1,7 @@
 # Shared "pick the asset to buy" wizard step (single first step, dual second
 # asset, signals first step). The three `new` actions genuinely diverge
-# (session init vs prerequisite guard, label timing), so subclasses keep their
-# own; the base holds the shared create skeleton and the view-state setup.
+# (session init vs prerequisite guard), so subclasses keep their own; the base
+# holds the shared create skeleton and the view-state setup.
 class Bots::Wizard::PickBuyableAssetsController < ApplicationController
   before_action :authenticate_user!
 

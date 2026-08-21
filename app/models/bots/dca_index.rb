@@ -232,6 +232,17 @@ class Bots::DcaIndex < Bot
     preview
   end
 
+  # "Layer 1 · 20". A count-named index ("Nasdaq 7") and a Top-N ("Top 10") already carry their
+  # size in the name, so only a thematic category has the coin count appended.
+  def default_label
+    # The name must quote the count the bot will actually buy, and the clamp that decides it runs
+    # later in the same validation.
+    clamp_num_coins_to_bounded_index
+    return display_index_name if index_name_prefix.present? || index_type != INDEX_TYPE_CATEGORY
+
+    [display_index_name, num_coins].compact.join(' · ')
+  end
+
   def display_index_name
     return "#{index_name_prefix} #{num_coins}" if index_name_prefix.present? && num_coins.present?
     return index_name if index_name.present?

@@ -7,7 +7,6 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < Bots::Wizard::PickBuy
     # hover, so any state mutation here would wipe wizard state from a link hover
     # and cause the wizard to loop back to step 1.
     session[:bot_config] ||= {}
-    session[:bot_config]['label'] ||= Bots::DcaSingleAsset.new.label
     @bot = build_bot
 
     # Exchange-first reaches this step after exchange+api; bounce back if an
@@ -42,11 +41,9 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < Bots::Wizard::PickBuy
   end
 
   # Re-committing this step clears everything it (and later steps) own — in
-  # asset-first that is the whole wizard (the historic "restart" wipe); the
-  # label is preserved so the bot keeps its name across the restart.
+  # asset-first that is the whole wizard (the historic "restart" wipe).
   def prepare_session_for_pick
     session[:bot_config] ||= {}
-    session[:bot_config]['label'] ||= Bots::DcaSingleAsset.new.label
     reset_downstream!
   end
 
