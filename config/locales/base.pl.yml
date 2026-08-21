@@ -550,6 +550,7 @@ pl:
             liquidation_manually_resolved: "Niepotwierdzona sprzedaż wyczyszczona ręcznie"
             liquidation_market_closed: "Rynek zamknięty — nic nie sprzedano"
             liquidation_not_started: "Nic nie sprzedano — bot był zajęty albo nie udało się odświeżyć indeksu"
+            liquidation_failed: "Sprzedaż nie powiodła się: %{error}"
             dca_skipped_liquidation_pending: "Wpłata pominięta — trwa jeszcze sprzedaż"
             started: 'Bot uruchomiony'
             stopped: 'Bot zatrzymany'

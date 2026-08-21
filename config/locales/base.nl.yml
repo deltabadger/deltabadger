@@ -546,6 +546,7 @@ nl:
             liquidation_manually_resolved: "Onbevestigde verkoop handmatig gewist"
             liquidation_market_closed: "Markt gesloten — niets verkocht"
             liquidation_not_started: "Er is niets verkocht — de bot was bezig of de index kon niet worden ververst"
+            liquidation_failed: "Verkoop mislukt: %{error}"
             dca_skipped_liquidation_pending: "Inleg overgeslagen — er loopt nog een verkoop"
             started: 'Bot gestart'
             stopped: 'Bot gestopt'

@@ -558,6 +558,7 @@ da:
             liquidation_manually_resolved: "Ubekræftet salg ryddet manuelt"
             liquidation_market_closed: "Markedet er lukket — intet solgt"
             liquidation_not_started: "Intet blev solgt — botten var optaget, eller indekset kunne ikke opdateres"
+            liquidation_failed: "Selling failed: %{error}"
             dca_skipped_liquidation_pending: "Indbetaling sprunget over — et salg er stadig i gang"
             started: 'Bot started'
             stopped: 'Bot stopped'
