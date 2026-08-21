@@ -8,7 +8,6 @@ en:
             progress_steps:
                 assets: "Assets"
                 currencies: "Pick asset"
-                currencies2: "Second asset (optional)"
                 exchange: "Exchange"
                 spendable: "Currency"
                 api: "Connect exchange"

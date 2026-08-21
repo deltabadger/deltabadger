@@ -63,13 +63,13 @@ class Bots::DcaSingleAssets::AddApiKeysViewsTest < ActionDispatch::IntegrationTe
   end
 end
 
-class Bots::DcaDualAssets::AddApiKeysViewsTest < ActionDispatch::IntegrationTest
+class Bots::DcaMultiAssets::AddApiKeysViewsTest < ActionDispatch::IntegrationTest
   include AddApiKeysViewBehaviorTests
 
   private
 
-  def add_api_key_path = new_bots_dca_dual_assets_add_api_key_path
-  def add_api_keys_path = bots_dca_dual_assets_add_api_key_path
+  def add_api_key_path = new_bots_dca_multi_assets_add_api_key_path
+  def add_api_keys_path = bots_dca_multi_assets_add_api_key_path
 
   def seed_wizard_session
     btc = create(:asset, :bitcoin)
@@ -82,10 +82,11 @@ class Bots::DcaDualAssets::AddApiKeysViewsTest < ActionDispatch::IntegrationTest
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: btc.id } }
-    post promote_to_dual_bots_dca_single_assets_pick_exchange_path
-    post bots_dca_dual_assets_pick_second_buyable_asset_path,
-         params: { bots_dca_dual_asset: { base1_asset_id: eth.id } }
-    post bots_dca_dual_assets_pick_exchange_path,
-         params: { bots_dca_dual_asset: { exchange_id: binance.id } }
+    post promote_to_multi_bots_dca_single_assets_pick_exchange_path
+    post bots_dca_multi_assets_pick_assets_path,
+         params: { bots_dca_multi_asset: { base_asset_id: eth.id } }
+    post advance_bots_dca_multi_assets_pick_assets_path
+    post bots_dca_multi_assets_pick_exchange_path,
+         params: { bots_dca_multi_asset: { exchange_id: binance.id } }
   end
 end

@@ -1,4 +1,4 @@
-# Order-derived wizard navigation for the single/dual/multi bot-creation flow. Included
+# Order-derived wizard navigation for the single/multi bot-creation flow. Included
 # only by those step controllers — it leans on Bots::Wizard::StepOrder. DcaIndex/Signals
 # keep their hardcoded template hooks and never include this.
 #
@@ -30,10 +30,9 @@ module Bots::Wizard::Navigable
       bot = bot_relation.new
       case bot
       when Bots::DcaMultiAsset then :multi
-      when Bots::DcaDualAsset then :dual
       when Bots::DcaSingleAsset then :single
       else
-        raise "Bots::Wizard::Navigable cannot serve #{bot.class} — only single/dual/multi bots have a StepOrder"
+        raise "Bots::Wizard::Navigable cannot serve #{bot.class} — only single/multi bots have a StepOrder"
       end
     end
   end

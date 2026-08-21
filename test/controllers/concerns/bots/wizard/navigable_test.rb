@@ -31,7 +31,7 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
     attr_reader :current_step
 
     def bot_relation
-      { single: Bots::DcaSingleAsset, dual: Bots::DcaDualAsset, multi: Bots::DcaMultiAsset }.fetch(@bot_type)
+      { single: Bots::DcaSingleAsset, multi: Bots::DcaMultiAsset }.fetch(@bot_type)
     end
 
     def step_path(key) = "/#{@bot_type}/#{key}"
@@ -67,9 +67,9 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
   end
 
   test 'current_order is built for the controller bot type and session variant' do
-    h = harness(bot_type: :dual, config: { 'flow' => 'exchange_first' })
+    h = harness(bot_type: :multi, config: { 'flow' => 'exchange_first' })
     order = h.call(:current_order)
-    assert_equal :dual, order.bot_type
+    assert_equal :multi, order.bot_type
     assert_equal :exchange_first, order.variant
   end
 
@@ -95,12 +95,6 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
 
     h.bot = stub(api_key: stub(correct?: false))
     refute h.call(:step_complete?, :api)
-  end
-
-  test 'step_complete? for :currencies uses base0 in a dual flow' do
-    h = harness(bot_type: :dual, config: config_with(base0: 5))
-    assert h.call(:step_complete?, :currencies)
-    refute h.call(:step_complete?, :currencies2)
   end
 
   test 'step_complete? for multi assets requires at least two ids' do

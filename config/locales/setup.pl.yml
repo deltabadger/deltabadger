@@ -8,7 +8,6 @@ pl:
             progress_steps:
                 assets: "Aktywa"
                 currencies: "Wybierz aktywo"
-                currencies2: "Drugie aktywo (opcjonalnie)"
                 exchange: "Giełda"
                 spendable: "Waluta"
                 api: "Połącz giełdę"

@@ -1,23 +1,6 @@
 class Bots::DcaSingleAssets::PickExchangesController < Bots::Wizard::PickExchangesController
   include Bots::Wizard::Navigable
 
-  # Rewrite the single-asset session into a dual one (base_asset_id → base0) and
-  # hand off to the dual second-asset step. The chosen exchange and the flow
-  # variant are preserved so the user stays in their chosen order. Always lands
-  # on :currencies2 (base0 is set, base1 is not) in either variant.
-  def promote_to_dual
-    cfg = session[:bot_config] || {}
-    settings = cfg['settings'] || {}
-    base = settings.delete('base_asset_id') || settings['base0_asset_id']
-    session[:bot_config] = {
-      'label' => Bots::DcaDualAsset.new.label,
-      'flow' => cfg['flow'],
-      'exchange_id' => cfg['exchange_id'],
-      'settings' => { 'base0_asset_id' => base }.compact
-    }.compact
-    redirect_to new_bots_dca_dual_assets_pick_second_buyable_asset_path
-  end
-
   def promote_to_multi
     cfg = session[:bot_config] || {}
     settings = cfg['settings'] || {}

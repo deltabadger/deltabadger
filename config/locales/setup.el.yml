@@ -8,7 +8,6 @@ el:
             progress_steps:
                 assets: "Περιουσιακά στοιχεία"
                 currencies: "Επιλογή asset"
-                currencies2: "Δεύτερο asset (προαιρετικό)"
                 exchange: "Ανταλλακτήριο"
                 spendable: "Νόμισμα"
                 api: "Σύνδεση ανταλλακτηρίου"

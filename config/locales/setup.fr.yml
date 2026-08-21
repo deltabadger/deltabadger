@@ -8,7 +8,6 @@ fr:
             progress_steps:
                 assets: "Actifs"
                 currencies: "Choisir l'actif"
-                currencies2: "Second actif (facultatif)"
                 exchange: "Exchange"
                 spendable: "Devise"
                 api: "Connecter l'exchange"

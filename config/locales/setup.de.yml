@@ -8,7 +8,6 @@ de:
             progress_steps:
                 assets: "Anlagewerte"
                 currencies: "Asset wählen"
-                currencies2: "Zweites Asset (optional)"
                 exchange: "Börse"
                 spendable: "Währung"
                 api: "Börse verbinden"

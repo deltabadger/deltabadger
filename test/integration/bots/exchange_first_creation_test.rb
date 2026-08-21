@@ -2,7 +2,7 @@ require 'test_helper'
 
 # Exchange-first variant of the bot-creation wizard: the user flips the order on
 # the first step and picks the venue before the asset. Covers the toggle (POST-
-# only), the reversed happy paths for single + dual, downstream reset, the
+# only), the reversed happy paths for single + multi, downstream reset, the
 # order-aware prerequisite bounce, and the stock-venue path (which must NOT route
 # through the asset-first StockBrokerRoutable machinery).
 class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
@@ -160,48 +160,7 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
     refute bot.settings.key?('flow')
   end
 
-  # ── dual exchange-first happy path (promotion-only) ─────────────────────────
-
-  test 'dual exchange-first: exchange → api → base0 → promote → base1 → quote creates the bot' do
-    switch_to_exchange_first
-    follow_redirect!
-
-    post bots_dca_single_assets_pick_exchange_path,
-         params: { bots_dca_single_asset: { exchange_id: @binance.id } }
-    follow_redirect! # add_api_key
-    follow_redirect! # → pick_buyable (base0 on the single picker)
-    assert_response :ok
-
-    post bots_dca_single_assets_pick_buyable_asset_path,
-         params: { bots_dca_single_asset: { base_asset_id: @bitcoin.id } }
-    assert_redirected_to new_bots_dca_single_assets_pick_spendable_asset_path
-
-    # Promote: the flow variant must survive the single→dual rewrite.
-    post promote_to_dual_bots_dca_single_assets_pick_exchange_path
-    assert_redirected_to new_bots_dca_dual_assets_pick_second_buyable_asset_path
-    assert_equal 'exchange_first', session[:bot_config]['flow']
-    assert_equal @bitcoin.id.to_s, session[:bot_config].dig('settings', 'base0_asset_id').to_s
-    follow_redirect!
-    assert_response :ok
-
-    post bots_dca_dual_assets_pick_second_buyable_asset_path,
-         params: { bots_dca_dual_asset: { base1_asset_id: @ethereum.id } }
-    assert_redirected_to new_bots_dca_dual_assets_pick_spendable_asset_path
-    follow_redirect!
-    assert_response :ok
-
-    assert_difference 'Bots::DcaDualAsset.count', 1 do
-      post bots_dca_dual_assets_pick_spendable_asset_path,
-           params: { bots_dca_dual_asset: { quote_asset_id: @usd.id } }, as: :turbo_stream
-    end
-
-    bot = Bots::DcaDualAsset.last
-    assert_equal @bitcoin, bot.base0_asset
-    assert_equal @ethereum, bot.base1_asset
-    assert_equal @usd, bot.quote_asset
-    assert_equal @binance, bot.exchange
-    assert_predicate bot, :created?
-  end
+  # ── multi exchange-first happy path ──────────────────────────────────────────
 
   test 'multi exchange-first keeps the exchange while adding assets and creates the bot' do
     switch_to_exchange_first

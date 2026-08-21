@@ -8,7 +8,6 @@ bg:
             progress_steps:
                 assets: "Активи"
                 currencies: "Изберете актив"
-                currencies2: "Втори актив (по избор)"
                 exchange: "Борса"
                 spendable: "Валута"
                 api: "Свързване на борса"

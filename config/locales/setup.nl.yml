@@ -8,7 +8,6 @@ nl:
             progress_steps:
                 assets: "Activa"
                 currencies: "Kies asset"
-                currencies2: "Tweede asset (optioneel)"
                 exchange: "Exchange"
                 spendable: "Valuta"
                 api: "Verbind exchange"

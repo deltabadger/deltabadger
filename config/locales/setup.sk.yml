@@ -8,7 +8,6 @@ sk:
             progress_steps:
                 assets: "Aktíva"
                 currencies: "Vyberte aktivum"
-                currencies2: "Druhe aktivum (voliteľné)"
                 exchange: "Burza"
                 spendable: "Mena"
                 api: "Pripojit burzu"

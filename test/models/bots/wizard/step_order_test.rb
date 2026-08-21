@@ -31,16 +31,8 @@ class Bots::Wizard::StepOrderTest < ActiveSupport::TestCase
     refute order.first?(:currencies)
   end
 
-  test 'dual asset_first sequences asset → asset2 → exchange → api → spendable' do
-    order = SO.for(bot_type: :dual, variant: :asset_first)
-    assert_equal %i[currencies currencies2 exchange api spendable], order.steps
-    assert_equal :currencies, order.first
-  end
-
-  test 'dual exchange_first sequences exchange → api → asset → asset2 → spendable' do
-    order = SO.for(bot_type: :dual, variant: :exchange_first)
-    assert_equal %i[exchange api currencies currencies2 spendable], order.steps
-    assert_equal :exchange, order.first
+  test 'dual is not a wizard type' do
+    assert_raises(KeyError) { SO.for(bot_type: :dual, variant: :asset_first) }
   end
 
   test 'multi sequences and progress follow both four-step variants' do
@@ -88,15 +80,6 @@ class Bots::Wizard::StepOrderTest < ActiveSupport::TestCase
     assert_equal 100, order.progress(:spendable)
   end
 
-  test 'progress is index-based even spacing for a 5-step dual flow' do
-    order = SO.for(bot_type: :dual, variant: :asset_first)
-    assert_equal 20, order.progress(:currencies)
-    assert_equal 40, order.progress(:currencies2)
-    assert_equal 60, order.progress(:exchange)
-    assert_equal 80, order.progress(:api)
-    assert_equal 100, order.progress(:spendable)
-  end
-
   test 'progress tracks the reversed order so the first step is always lowest' do
     order = SO.for(bot_type: :single, variant: :exchange_first)
     assert_equal 25, order.progress(:exchange)
@@ -111,12 +94,6 @@ class Bots::Wizard::StepOrderTest < ActiveSupport::TestCase
     assert_equal [EXCHANGE], order.owned_keys(:exchange)
     assert_equal [QUOTE], order.owned_keys(:spendable)
     assert_equal [], order.owned_keys(:api), 'api key lives in the DB, not the session'
-  end
-
-  test 'owned_keys for :currencies is base0 in a dual flow' do
-    order = SO.for(bot_type: :dual, variant: :asset_first)
-    assert_equal [BASE0], order.owned_keys(:currencies)
-    assert_equal [BASE1], order.owned_keys(:currencies2)
   end
 
   test 'owned_keys maps the multi assets step to the asset id list' do
@@ -149,40 +126,12 @@ class Bots::Wizard::StepOrderTest < ActiveSupport::TestCase
     assert_includes keys, QUOTE
   end
 
-  test 'reset_keys for re-picking the dual exchange keeps both base assets' do
-    order = SO.for(bot_type: :dual, variant: :exchange_first)
-    keys = order.reset_keys(:exchange)
-    refute_includes keys, BASE0
-    refute_includes keys, BASE1
-    assert_includes keys, EXCHANGE
-    assert_includes keys, QUOTE
-  end
-
   test 'reset_keys for re-picking the asset mid exchange_first keeps the chosen exchange' do
     order = SO.for(bot_type: :single, variant: :exchange_first)
     keys = order.reset_keys(:currencies)
     refute_includes keys, EXCHANGE, 'exchange is owned upstream, must survive'
     assert_includes keys, QUOTE
     assert_includes keys, BASE
-  end
-
-  test 'reset_keys for the dual exchange step keeps both base assets, clears quote and stale single base' do
-    order = SO.for(bot_type: :dual, variant: :asset_first)
-    keys = order.reset_keys(:exchange)
-    refute_includes keys, BASE0
-    refute_includes keys, BASE1
-    assert_includes keys, EXCHANGE
-    assert_includes keys, QUOTE
-    assert_includes keys, BASE
-  end
-
-  test 'reset_keys for the dual second asset (exchange_first) keeps exchange and base0' do
-    order = SO.for(bot_type: :dual, variant: :exchange_first)
-    keys = order.reset_keys(:currencies2)
-    refute_includes keys, EXCHANGE
-    refute_includes keys, BASE0
-    assert_includes keys, BASE1
-    assert_includes keys, QUOTE
   end
 
   test 'reset_keys for a multi exchange keeps the chosen asset list' do

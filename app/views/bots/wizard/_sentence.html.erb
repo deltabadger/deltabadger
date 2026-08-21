@@ -13,35 +13,21 @@
   would discard the pick. The "spending" slot only appears once both an asset and
   an exchange are chosen.
 
-  The single→multi promote "+" and the dual demote affordance are preserved.
+  The single→multi promote "+" is preserved.
 
   Locals:
-    bot:          @bot (DcaSingleAsset, DcaDualAsset, or DcaMultiAsset)
-    current_step: :currencies | :currencies2 | :assets | :exchange | :api | :spendable
+    bot:          @bot (DcaSingleAsset or DcaMultiAsset)
+    current_step: :currencies | :assets | :exchange | :api | :spendable
 %>
 <%
   order   = current_order
   steps   = order.steps
   on_first_step = order.first?(current_step)
 
-  bot_kind     = if bot.is_a?(Bots::DcaMultiAsset)
-                   "multi"
-                 elsif bot.is_a?(Bots::DcaDualAsset)
-                   "dual"
-                 else
-                   "single"
-                 end
-  first_asset  = if bot_kind == "multi"
-                   nil
-                 elsif bot.respond_to?(:base0_asset)
-                   bot.base0_asset
-                 else
-                   bot.base_asset
-                 end
-  second_asset = bot.respond_to?(:base1_asset) ? bot.base1_asset : nil
-  exchange     = bot.exchange_id.present? ? bot.exchange : nil
-  first_color  = ensure_contrast(first_asset.color)  if first_asset
-  second_color = ensure_contrast(second_asset.color) if second_asset
+  bot_kind    = bot.is_a?(Bots::DcaMultiAsset) ? "multi" : "single"
+  first_asset = bot_kind == "multi" ? nil : bot.base_asset
+  exchange    = bot.exchange_id.present? ? bot.exchange : nil
+  first_color = ensure_contrast(first_asset.color) if first_asset
 
   # A slot's state: the step being edited is :active; a slot whose value is set
   # is :filled (regardless of step order, so a sticky asset kept across an
@@ -54,7 +40,6 @@
   end
 
   base_state     = slot_state.call(:currencies, first_asset.present?)
-  base1_state    = slot_state.call(:currencies2, second_asset.present?) # :hidden for single
   exchange_state = slot_state.call(:exchange, exchange.present?)
 
   # Spending shows only after an asset and an exchange are both chosen.
@@ -66,23 +51,18 @@
 
   order_url = case bot_kind
               when "multi" then bots_dca_multi_assets_order_path
-              when "dual" then bots_dca_dual_assets_order_path
               else bots_dca_single_assets_order_path
               end
 
   base_back_url     = new_bots_dca_single_assets_pick_buyable_asset_path
-  base1_back_url    = new_bots_dca_dual_assets_pick_second_buyable_asset_path
   exchange_back_url = case bot_kind
                       when "multi" then new_bots_dca_multi_assets_pick_exchange_path
-                      when "dual" then new_bots_dca_dual_assets_pick_exchange_path
                       else new_bots_dca_single_assets_pick_exchange_path
                       end
 
   base_search_url  = new_bots_dca_single_assets_pick_buyable_asset_path
-  base1_search_url = new_bots_dca_dual_assets_pick_second_buyable_asset_path
   quote_search_url = case bot_kind
                      when "multi" then new_bots_dca_multi_assets_pick_spendable_asset_path
-                     when "dual" then new_bots_dca_dual_assets_pick_spendable_asset_path
                      else new_bots_dca_single_assets_pick_spendable_asset_path
                      end
 %>
@@ -122,23 +102,8 @@
       <% end %>
     <% end %>
 
-    <%# ── second base asset (dual) / promote-to-dual "+" (single) ── %>
-    <% if base1_state == :active %>
-      <%= form_with url: base1_search_url, method: :get,
-                    data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" },
-                    class: "ticker active" do |f| %>
-        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…",
-                         data: { action: "input->form--submit-after-delay#submit" } %>
-      <% end %>
-    <% elsif bot_kind == "dual" && base1_state == :filled && second_asset %>
-      <%= form_with url: base1_back_url, method: :get,
-                    data: { turbo_frame: "modal_content", wizard_dir: "back", **ticker_data(second_asset) },
-                    html: { class: "ticker filled", style: "background: #{second_color}" } do %>
-        <input value="<%= second_asset.symbol %>" readonly tabindex="-1">
-      <% end %>
-    <% elsif bot_kind == "dual" && base1_state == :future %>
-      <span class="ticker ticker--placeholder">…</span>
-    <% elsif bot_kind == "single" && first_asset %>
+    <%# ── promote-to-multi "+" (single) ── %>
+    <% if bot_kind == "single" && first_asset %>
       <%= form_with url: promote_to_multi_bots_dca_single_assets_pick_exchange_path,
                     method: :post, class: "ticker",
                     data: { turbo_frame: "modal_content" } do %>
@@ -159,14 +124,6 @@
                     class: "conversational__link active" do |f| %>
         <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "exchange",
                          data: { action: "input->form--submit-after-delay#submit" } %>
-      <% end %>
-    <% elsif current_step == :currencies2 %>
-      <%# On the dual second-asset step the exchange chip demotes back to single. %>
-      <%= form_with url: demote_to_single_bots_dca_dual_assets_pick_second_buyable_asset_path,
-                    method: :post,
-                    class: "conversational__link#{' filled' if exchange}",
-                    data: { turbo_frame: "modal_content", wizard_dir: "back" } do %>
-        <input value="<%= exchange&.name %>" placeholder="exchange" readonly tabindex="-1">
       <% end %>
     <% elsif exchange_state == :filled && exchange %>
       <%= form_with url: exchange_back_url, method: :get, class: "conversational__link filled",

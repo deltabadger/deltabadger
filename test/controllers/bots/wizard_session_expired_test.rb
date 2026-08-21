@@ -3,7 +3,7 @@ require 'test_helper'
 # A cold POST to a mid-wizard step (no wizard session at all — expired cookie or
 # hand-crafted request) must not 500 on `session[:bot_config].merge!`/template
 # nil-derefs. Mid-wizard steps turbo-redirect to root, the same contract the
-# single/dual pick_spendable steps already had; the signals first step instead
+# single/multi pick_spendable steps already had; the signals first step instead
 # re-initialises the session and proceeds (a step-1 POST is self-sufficient,
 # mirroring the single-asset first step).
 class WizardSessionExpiredTest < ActionDispatch::IntegrationTest
@@ -25,18 +25,6 @@ class WizardSessionExpiredTest < ActionDispatch::IntegrationTest
   test 'single pick_exchanges cold create turbo-redirects to root' do
     post bots_dca_single_assets_pick_exchange_path,
          params: { bots_dca_single_asset: { exchange_id: @binance.id } }
-    assert_turbo_redirect_to_root
-  end
-
-  test 'dual pick_exchanges cold create turbo-redirects to root' do
-    post bots_dca_dual_assets_pick_exchange_path,
-         params: { bots_dca_dual_asset: { exchange_id: @binance.id } }
-    assert_turbo_redirect_to_root
-  end
-
-  test 'dual pick_second_buyable_assets cold create turbo-redirects to root' do
-    post bots_dca_dual_assets_pick_second_buyable_asset_path,
-         params: { bots_dca_dual_asset: { base1_asset_id: @btc.id } }
     assert_turbo_redirect_to_root
   end
 

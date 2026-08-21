@@ -8,7 +8,6 @@ da:
             progress_steps:
                 assets: "Aktiver"
                 currencies: "Vælg aktiv"
-                currencies2: "Andet aktiv (valgfrit)"
                 exchange: "Børs"
                 spendable: "Valuta"
                 api: "Forbind børs"
