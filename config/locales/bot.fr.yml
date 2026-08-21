@@ -39,7 +39,7 @@ fr:
             num_assets: "Actifs dans l'indice"
             asset_breakdown: "Ventilation des Actifs"
             realised_pnl: "P/P réalisé"
-            realised_pnl_note: "Issu de la vente d’actifs sortis de l’indice. Le rééquilibrage n’est pas compté."
+            realised_pnl_note: "Issu de la vente d’actifs retirés du portefeuille. Le rééquilibrage n’est pas compté."
             left_the_index: "Sortis de l’indice"
             warning:
                 intro: "Certaines ordres (%{skipped_count}) étaient en dessous de la taille minimale de commande de %{exchange_name}. Voici comment le bot le gère :"

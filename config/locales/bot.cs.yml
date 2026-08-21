@@ -36,7 +36,7 @@ cs:
             num_assets: "Aktiva v indexu"
             asset_breakdown: "Rozložení aktiv"
             realised_pnl: "Realizovaný zisk/ztráta"
-            realised_pnl_note: "Z prodeje aktiv, která opustila index. Rebalancování se nepočítá."
+            realised_pnl_note: "Z prodeje aktiv odebraných z portfolia. Rebalancování se nepočítá."
             left_the_index: "Mimo index"
             warning:
                 intro: "Některé příkazy (%{skipped_count}) byly pod minimální velikostí příkazu na %{exchange_name}. Takto s tím bot pracuje:"

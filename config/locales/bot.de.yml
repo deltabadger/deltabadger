@@ -36,7 +36,7 @@ de:
             num_assets: "Assets im Index"
             asset_breakdown: "Asset-Aufschlüsselung"
             realised_pnl: "Realisierter G/V"
-            realised_pnl_note: "Aus dem Verkauf von Werten, die den Index verlassen haben. Rebalancing zählt nicht."
+            realised_pnl_note: "Aus dem Verkauf von Werten, die aus dem Portfolio entfernt wurden. Rebalancing zählt nicht."
             left_the_index: "Nicht mehr im Index"
             warning:
                 intro: "Einige Orders (%{skipped_count}) lagen unter der minimalen Bestellgröße von %{exchange_name}. So geht der Bot damit um:"

@@ -39,7 +39,7 @@ nl:
             num_assets: "Activa in index"
             asset_breakdown: "Activa Verdeling"
             realised_pnl: "Gerealiseerde W/V"
-            realised_pnl_note: "Uit de verkoop van assets die de index hebben verlaten. Herbalanceren telt niet mee."
+            realised_pnl_note: "Uit de verkoop van assets die uit de portefeuille zijn verwijderd. Herbalanceren telt niet mee."
             left_the_index: "Uit de index"
             warning:
                 intro: "Sommige orders (%{skipped_count}) waren onder de minimale ordergrootte van %{exchange_name}. Hier is hoe de bot dit aanpakt:"

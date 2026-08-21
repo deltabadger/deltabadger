@@ -279,15 +279,26 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     assert_predicate bot.errors[:exchange], :present?
   end
 
-  test 'tickers is every quote pair on the exchange, composition_tickers only the members' do
+  test 'tickers cover every asset ever in the composition, composition_tickers only the current members' do
+    # An unrelated pair on the same venue must not be in scope: Alpaca decides market hours and
+    # buying power from bot.tickers, so a crypto-only basket must not drag equities in.
     extra = create(:asset, symbol: 'DDD', external_id: 'ddd')
-    extra_ticker = create(:ticker, exchange: @exchange, base_asset: extra, quote_asset: @quote)
+    create(:ticker, exchange: @exchange, base_asset: extra, quote_asset: @quote)
     bot = create(:dca_multi_asset, user: @user, exchange: @exchange,
-                                   base_assets: member_assets, quote_asset: @quote)
+                                   base_assets: @assets.values.map { it[:asset] }, quote_asset: @quote)
+    all = @assets.values.map { it[:ticker].id }.sort
 
-    assert_equal [@assets['AAA'][:ticker].id, @assets['BBB'][:ticker].id, @assets['CCC'][:ticker].id, extra_ticker.id].sort,
-                 bot.tickers.pluck(:id).sort
-    assert_equal member_assets.map(&:id).sort, bot.composition_tickers.map(&:base_asset_id).sort
+    assert_equal all, bot.tickers.pluck(:id).sort
+
+    # A removed asset keeps its row, so it stays priceable and sellable.
+    Bots::DcaMultiAsset.any_instance.stubs(:broadcast_metrics_panel)
+    bot.settings = bot.settings.merge('allocations' => bot.allocations_removing(@assets['AAA'][:asset].id))
+    bot.set_missed_quote_amount
+    bot.save!
+    bot = Bot.find(bot.id)
+
+    assert_equal all, bot.tickers.pluck(:id).sort
+    assert_equal [@assets['BBB'][:asset].id, @assets['CCC'][:asset].id].sort, bot.composition_tickers.map(&:base_asset_id).sort
   end
 
   test 'tickers_for_start, decimals, minimum_for_exchange and composition_size read the composition' do
@@ -296,7 +307,10 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     bot = create(:dca_multi_asset, user: @user, exchange: @exchange,
                                    base_assets: member_assets, quote_asset: @quote)
 
-    assert_equal bot.composition_tickers.map(&:id).sort, bot.tickers_for_start.map(&:id).sort
+    # Empty like the index bot's: Bot::RebalanceJob#resumable? pre-checks tickers_for_start BEFORE
+    # before_rebalance can refresh the composition, so a delisted member would wedge every poll.
+    # The per-asset filter in Bot::Rebalancer and validate_tickers_available on :start cover it.
+    assert_empty bot.tickers_for_start
     assert_equal({ quote: 2 }, bot.decimals)
     assert_equal 25.0, bot.minimum_for_exchange
     assert_equal 2, bot.composition_size
@@ -335,6 +349,43 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
      Bot::IndicatorLimitable, Bot::QuoteAmountLimitable, Bot::Reversible].each do |concern|
       assert_not_includes ancestors, concern
     end
+  end
+
+  test 'an exchange change is refused while a rebalance is pending, even when stopped' do
+    other = create(:kraken_exchange)
+    member_assets.each { |asset| create(:ticker, exchange: other, base_asset: asset, quote_asset: @quote) }
+    bot = create(:dca_multi_asset, :stopped, user: @user, exchange: @exchange,
+                                             base_assets: member_assets, quote_asset: @quote)
+    bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_BUYING, remaining_quote_amount: 10)
+    bot = Bot.find(bot.id)
+
+    bot.exchange = other
+    bot.set_missed_quote_amount
+    assert_not bot.save
+    assert_predicate bot.errors[:exchange], :present?
+
+    bot.clear_rebalance_pending!
+    bot = Bot.find(bot.id)
+    Bots::DcaMultiAsset.any_instance.stubs(:broadcast_metrics_panel)
+    bot.exchange = other
+    bot.set_missed_quote_amount
+    assert bot.save
+  end
+
+  test 'the quote asset is immutable once the bot has transactions' do
+    eur = create(:asset, :eur)
+    member_assets.each { |asset| create(:ticker, exchange: @exchange, base_asset: asset, quote_asset: eur) }
+    bot = create(:dca_multi_asset, :stopped, user: @user, exchange: @exchange,
+                                             base_assets: member_assets, quote_asset: @quote)
+    create(:transaction, bot: bot, exchange: @exchange, base: 'AAA', quote: 'USD', side: :buy,
+                         status: :submitted, external_status: :closed)
+    bot = Bot.find(bot.id)
+    Bots::DcaMultiAsset.any_instance.stubs(:broadcast_metrics_panel)
+
+    bot.settings = bot.settings.merge('quote_asset_id' => eur.id)
+    bot.set_missed_quote_amount
+    assert_not bot.save
+    assert_predicate bot.errors[:quote_asset_id], :present?
   end
 
   private

@@ -36,7 +36,7 @@ en:
             num_assets: "Assets in index"
             asset_breakdown: "Asset Breakdown"
             realised_pnl: "Realised P/L"
-            realised_pnl_note: "From selling assets that left the index. Rebalancing is not counted."
+            realised_pnl_note: "From selling assets removed from the portfolio. Rebalancing is not counted."
             left_the_index: "Left the index"
             warning:
                 intro: "Some orders (%{skipped_count}) were below the %{exchange_name} minimum order size. Here's how the bot handles it:"

@@ -13,6 +13,12 @@
         td
             vertical-align: middle
 
+        // The pill is display:block with a min-width; in a cell it would stretch to the column,
+        // so the column shrinks to the pill instead.
+        td:first-child
+            width: 1%
+            white-space: nowrap
+
         .table__action
             width: 1%
             text-align: right

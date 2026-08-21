@@ -39,7 +39,7 @@ pl:
             num_assets: "Aktywa w indeksie"
             asset_breakdown: "Podział Aktywów"
             realised_pnl: "Zrealizowany wynik"
-            realised_pnl_note: "Ze sprzedaży aktywów, które opuściły indeks. Rebalansowanie nie jest wliczane."
+            realised_pnl_note: "Ze sprzedaży aktywów usuniętych z portfela. Rebalansowanie nie jest wliczane."
             left_the_index: "Poza indeksem"
             warning:
                 intro: "Niektóre zlecenia (%{skipped_count}) były poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Oto jak bot to obsługuje:"

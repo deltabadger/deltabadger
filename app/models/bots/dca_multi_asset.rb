@@ -8,6 +8,9 @@ class Bots::DcaMultiAsset < Bot
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }
   validate :validate_external_ids, on: :update
+  # asset_id_setting_keys is only the quote: once the bot has bought anything, every ledger figure is
+  # denominated in it, and a swap would mix currencies in invested value and P/L for good.
+  validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
   validate :validate_unchangeable_exchange, on: :update
   validate :validate_tickers_available, on: :start
@@ -127,7 +130,11 @@ class Bots::DcaMultiAsset < Bot
     @quote_asset ||= Asset.find_by(id: quote_asset_id)
   end
 
-  def tickers_for_start = composition_tickers
+  # Empty, like the index bot's. Bot::RebalanceJob#resumable? pre-checks this list BEFORE
+  # before_rebalance can refresh the composition, so a delisted member here would wedge every poll
+  # and strand a sold leg's proceeds. The per-asset filter in Bot::Rebalancer and
+  # validate_tickers_available on :start are the real checks.
+  def tickers_for_start = []
 
   # Memoized whole, guard included: the chart calls this once per data point.
   def decimals
@@ -198,9 +205,15 @@ class Bots::DcaMultiAsset < Bot
     errors.add(:allocations, :invalid) unless valid
   end
 
+  # Every asset that is or ever was in the composition — members plus removed holdings, which keep
+  # their rows — and NOT the venue's whole quote catalogue: Alpaca decides market hours and buying
+  # power from bot.tickers, and a crypto-only basket must not wait for the stock market to open
+  # because an unrelated equity is quoted in the same currency. Before the first save the rows do
+  # not exist yet, so the settings list stands in.
   def set_tickers
     return Ticker.none unless exchange.present?
 
-    @tickers = exchange.tickers.available.trading_enabled.where(quote_asset_id:)
+    asset_ids = (base_asset_ids + bot_index_assets.pluck(:asset_id)).uniq
+    @tickers = exchange.tickers.available.trading_enabled.where(quote_asset_id:, base_asset_id: asset_ids)
   end
 end

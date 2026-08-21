@@ -36,7 +36,7 @@ it:
             num_assets: "Asset nell'indice"
             asset_breakdown: "Suddivisione Asset"
             realised_pnl: "P/P realizzato"
-            realised_pnl_note: "Dalla vendita di asset usciti dall’indice. Il ribilanciamento non conta."
+            realised_pnl_note: "Dalla vendita di asset rimossi dal portafoglio. Il ribilanciamento non conta."
             left_the_index: "Fuori dall’indice"
             warning:
                 intro: "Alcuni ordini (%{skipped_count}) erano al di sotto della dimensione minima dell'ordine di %{exchange_name}. Ecco come il bot lo gestisce:"

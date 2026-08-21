@@ -36,7 +36,7 @@ sv:
             num_assets: "Tillgångar i index"
             asset_breakdown: "Tillgångsfördelning"
             realised_pnl: "Realiserad vinst/förlust"
-            realised_pnl_note: "Från försäljning av tillgångar som lämnat indexet. Ombalansering räknas inte."
+            realised_pnl_note: "Från försäljning av tillgångar som tagits bort från portföljen. Ombalansering räknas inte."
             left_the_index: "Lämnat indexet"
             warning:
                 intro: "Vissa ordrar (%{skipped_count}) var under %{exchange_name}s minsta orderstorlek. Så här hanterar boten det:"

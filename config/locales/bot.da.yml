@@ -36,7 +36,7 @@ da:
             num_assets: "Aktiver i indeks"
             asset_breakdown: "Aktivopdeling"
             realised_pnl: "Realiseret gevinst/tab"
-            realised_pnl_note: "Fra salg af aktiver, der har forladt indekset. Rebalancering tæller ikke med."
+            realised_pnl_note: "Fra salg af aktiver, der er fjernet fra porteføljen. Rebalancering tæller ikke med."
             left_the_index: "Forladt indekset"
             warning:
                 intro: "Nogle ordrer (%{skipped_count}) var under %{exchange_name}s minimumsordrestørrelse. Sådan håndterer botten det:"

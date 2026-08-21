@@ -39,7 +39,7 @@ es:
             num_assets: "Activos en el índice"
             asset_breakdown: "Desglose de Activos"
             realised_pnl: "P/G realizada"
-            realised_pnl_note: "De la venta de activos que salieron del índice. El rebalanceo no cuenta."
+            realised_pnl_note: "De la venta de activos retirados de la cartera. El rebalanceo no cuenta."
             left_the_index: "Fuera del índice"
             warning:
                 intro: "Algunas órdenes (%{skipped_count}) estaban por debajo del tamaño mínimo de orden de %{exchange_name}. Así es como el bot lo maneja:"

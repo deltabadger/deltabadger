@@ -130,6 +130,12 @@ module Bots::DcaMultiAsset::Allocatable
   # The UI disables composition controls while the bot runs; the server enforces the same boundary.
   # The venue is part of the composition because it decides which member pairs are tradeable.
   def validate_composition_frozen_while_working
+    # A pending rebalance pins the venue even on a stopped bot: its sell leg happened on this
+    # exchange and its buy leg is still owed here. validate_unchangeable_exchange only looks for
+    # waiting orders, which a transient buy rejection leaves none of.
+    if will_save_change_to_exchange_id? && rebalance_pending?
+      errors.add(:exchange, :locked, message: I18n.t('errors.bots.multi_asset.locked_while_running'))
+    end
     return unless working? && (composition_changed_pending? || will_save_change_to_exchange_id?)
 
     errors.add(
