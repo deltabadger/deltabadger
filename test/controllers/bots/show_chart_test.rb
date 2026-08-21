@@ -9,7 +9,11 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
   setup do
     create(:user, admin: true, setup_completed: true) # satisfies the onboarding gate
     @user = create(:user)
-    @bot = create(:dca_index, user: @user)
+    @quote = create(:asset, :eur)
+    @bot = create(:dca_index, user: @user, quote_asset: @quote)
+    # The widget only renders for a bot that has traded, so every case here needs a fill.
+    create(:ticker, exchange: @bot.exchange, base_asset: create(:asset, symbol: 'AAA'), quote_asset: @quote)
+    create(:transaction, bot: @bot, base: 'AAA', quote: 'EUR')
     sign_in @user
 
     @store = ActiveSupport::Cache::MemoryStore.new
@@ -96,5 +100,18 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     assert_select '#chart [data-controller="bot--chart"]', 0
     assert_select '#chart [role="radiogroup"]', 0
     assert_select '#chart .widget--chart__plot .loader', 1
+  end
+
+  # A bot that has never traded gets no widget at all — an empty frame is worse than nothing.
+  # The div itself stays, hidden, so the first metrics broadcast still has a target to replace.
+  test 'a bot with no transactions renders no chart widget' do
+    bot = create(:dca_index, user: @user, exchange: @bot.exchange, quote_asset: @quote)
+
+    get bot_path(id: bot.id)
+
+    assert_response :success
+    assert_select '#chart[hidden]', 1
+    assert_select '#chart.widget--chart', 0
+    assert_select '#chart .widget--chart__plot', 0
   end
 end

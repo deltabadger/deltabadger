@@ -1,64 +1,69 @@
-<div id="chart" class="widget widget--chart">
-  <% if loading || metrics[:chart][:labels].empty? %>
-    <div class="widget--chart__head">
-      <div class="widget--chart__summary">
-        <div class="widget--chart__date">&nbsp;</div>
-        <div class="widget--chart__pnl">&nbsp;</div>
-        <div class="widget--chart__percent">&nbsp;</div>
-      </div>
-    </div>
-    <div class="widget--chart__plot">
-      <% if loading %>
-        <div class="loader" style="position: relative; left: calc(50% - 2rem); top: calc(50% - 6rem);"></div>
-      <% else %>
-        <%= render 'svg/landscape_empty' %>
-      <% end %>
-    </div>
-  <% else %>
-    <%# Rounded ONCE, and the curve is derived from the same rounded values the summary
-        subtracts — otherwise 100.004 - 99.999 ships a curve at 0.01 while the headline, built
-        from two values that both rounded to 100.00, says 0.00. Serialized as numbers because a
-        BigDecimal ships into the page as a JSON string. %>
-    <% decimals = bot.decimals[:quote] || 8 %>
-    <% series = metrics[:chart][:series].map { |serie| serie.map { |amount| amount.round(decimals) } } %>
-    <% pnl_series = chart_pnl_series(series[0], series[1]).map(&:to_f) %>
-    <%= tag.div data: {
-      controller: "bot--chart",
-      bot__chart_bot_value: bot.id,
-      bot__chart_quote_value: bot.quote_asset.symbol,
-      bot__chart_decimals_value: decimals,
-      bot__chart_labels_value: metrics[:chart][:labels].map { |label| label.in_time_zone(current_user.time_zone) },
-      bot__chart_series_value: series,
-      bot__chart_pnl_value: pnl_series
-    } do %>
-      <%# The switch sits on the date line, opposite it: one row across the top of the plot.
-          VALUE always climbs for a DCA bot because the money going in climbs; PnL makes the
-          invested line the zero line, so the curve is performance with the deposits divided
-          out. Both modes carry the SAME headline — only the curve changes — which is why
-          neither needs a caption. A bot that has never held anything has no curve to offer,
-          and a switch with one usable side is furniture. %>
+<%# A bot that has never traded has nothing to plot — not even a placeholder. The frame stays
+    in the DOM either way so the first metrics broadcast still finds its target. %>
+<% charted = bot.transactions.any? %>
+<div id="chart" <%= tag.attributes(class: ('widget widget--chart' if charted), hidden: !charted) %>>
+  <% if charted %>
+    <% if loading || metrics[:chart][:labels].empty? %>
       <div class="widget--chart__head">
-        <div class="widget--chart__modes" data-action="segmented:change->bot--chart#mode">
-          <% if metrics[:chart][:series][1].any? { |spent| spent.to_f.positive? } %>
-          <%# Fluid: "Value" and the locales' Profit/Loss wording are nowhere near the same
-              width, and equal columns would give both the width of the longer one — wide
-              enough to push the header off a phone. %>
-          <%= render 'shared/segmented', fluid: true,
-                     label: t('bot.details.stats.chart.modes'),
-                     options: [{ value: 'value', label: t('bot.details.stats.chart.value'), active: true },
-                               { value: 'pnl', label: t('bot.details.stats.chart.pnl') }] %>
-          <% end %>
-        </div>
-        <div class="widget--chart__summary" data-bot--chart-target="summary">
-          <div class="widget--chart__date" data-bot--chart-target="date">&nbsp;</div>
-          <div class="widget--chart__pnl" data-bot--chart-target="pnl">&nbsp;</div>
-          <div class="widget--chart__percent" data-bot--chart-target="percent">&nbsp;</div>
+        <div class="widget--chart__summary">
+          <div class="widget--chart__date">&nbsp;</div>
+          <div class="widget--chart__pnl">&nbsp;</div>
+          <div class="widget--chart__percent">&nbsp;</div>
         </div>
       </div>
       <div class="widget--chart__plot">
-        <canvas data-bot--chart-target="analyzerChart" width="10" height="2"></canvas>
+        <% if loading %>
+          <div class="loader" style="position: relative; left: calc(50% - 2rem); top: calc(50% - 6rem);"></div>
+        <% else %>
+          <%= render 'svg/landscape_empty' %>
+        <% end %>
       </div>
+    <% else %>
+      <%# Rounded ONCE, and the curve is derived from the same rounded values the summary
+          subtracts — otherwise 100.004 - 99.999 ships a curve at 0.01 while the headline, built
+          from two values that both rounded to 100.00, says 0.00. Serialized as numbers because a
+          BigDecimal ships into the page as a JSON string. %>
+      <% decimals = bot.decimals[:quote] || 8 %>
+      <% series = metrics[:chart][:series].map { |serie| serie.map { |amount| amount.round(decimals) } } %>
+      <% pnl_series = chart_pnl_series(series[0], series[1]).map(&:to_f) %>
+      <%= tag.div data: {
+        controller: "bot--chart",
+        bot__chart_bot_value: bot.id,
+        bot__chart_quote_value: bot.quote_asset.symbol,
+        bot__chart_decimals_value: decimals,
+        bot__chart_labels_value: metrics[:chart][:labels].map { |label| label.in_time_zone(current_user.time_zone) },
+        bot__chart_series_value: series,
+        bot__chart_pnl_value: pnl_series
+      } do %>
+        <%# The switch sits on the date line, opposite it: one row across the top of the plot.
+            VALUE always climbs for a DCA bot because the money going in climbs; PnL makes the
+            invested line the zero line, so the curve is performance with the deposits divided
+            out. Both modes carry the SAME headline — only the curve changes — which is why
+            neither needs a caption. A bot that has never held anything has no curve to offer,
+            and a switch with one usable side is furniture. %>
+        <div class="widget--chart__head">
+          <div class="widget--chart__modes" data-action="segmented:change->bot--chart#mode">
+            <% if metrics[:chart][:series][1].any? { |spent| spent.to_f.positive? } %>
+            <%# Fluid: "Value" and the locales' Profit/Loss wording are nowhere near the same
+                width, and equal columns would give both the width of the longer one — wide
+                enough to push the header off a phone. %>
+            <%= render 'shared/segmented', fluid: true,
+                       label: t('bot.details.stats.chart.modes'),
+                       options: [{ value: 'value', label: t('bot.details.stats.chart.value'), active: true },
+                                 { value: 'pnl', label: t('bot.details.stats.chart.pnl') }] %>
+            <% end %>
+          </div>
+          <div class="widget--chart__summary" data-bot--chart-target="summary">
+            <div class="widget--chart__date" data-bot--chart-target="date">&nbsp;</div>
+            <div class="widget--chart__pnl" data-bot--chart-target="pnl">&nbsp;</div>
+            <div class="widget--chart__percent" data-bot--chart-target="percent">&nbsp;</div>
+          </div>
+        </div>
+        <div class="widget--chart__plot">
+          <canvas data-bot--chart-target="analyzerChart" width="10" height="2"></canvas>
+        </div>
 
+      <% end %>
     <% end %>
   <% end %>
 </div>
