@@ -10,7 +10,9 @@
 // The chip's left and width are set in pixels by the `segmented` controller, which measures the
 // selected option. Both sizings therefore share one code path; the CSS difference is a single
 // column rule.
+    
 .rbutton
+    display: flex
     height: 4rem
     width: fit-content
     border-radius: 1rem
@@ -22,7 +24,14 @@
     font-weight: 600
     color: var(--link)
     padding: 1rem 1.5rem
-
+    justify-content: center
+    align-items: center
+    text-decoration: none
+    &--danger
+        color: #fff
+        background: var(--berry)
+        &:hover
+            color: #fff
 .segmented
     position: relative
     display: grid
