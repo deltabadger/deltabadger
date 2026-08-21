@@ -4,6 +4,13 @@ require 'turbo/broadcastable/test_helper'
 class Bots::DcaIndexTest < ActiveSupport::TestCase
   include ExchangeMockHelpers
   include Turbo::Broadcastable::TestHelper
+  include ActiveJob::TestHelper
+
+  # The app pins the SolidQueue adapter, and ActiveJob::TestHelper leaves a configured adapter
+  # alone — so ask for the test one explicitly, or perform_enqueued_jobs has nothing to perform.
+  def queue_adapter_for_test
+    ActiveJob::QueueAdapters::TestAdapter.new
+  end
 
   setup do
     @exchange = create(:kraken_exchange)
@@ -147,6 +154,78 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
 
     assert_not_includes symbols, 'DEAD'
     assert_includes symbols, 'AAA'
+  end
+
+  # --- the composition follows the settings ------------------------------------
+  #
+  # The assets table splits on the PERSISTED composition, and until now that was only re-derived at
+  # the next buy or rebalance. So moving the coins slider changed the donut (drawn live from the
+  # preview) and nothing else: a coin the slider had just taken back in stayed sitting under "Left
+  # the index" with a Sell button over it, for up to an interval.
+
+  test 'raising the coin count takes a dropped coin back in, without waiting for the next buy' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    stub_all_priced(:get_ask_price)
+    update_settings!(bot, 'num_coins' => 2)
+    assert_equal %w[coin-a coin-dead], in_index_external_ids(bot)
+
+    update_settings!(bot, 'num_coins' => 3)
+
+    assert_equal %w[coin-a coin-b coin-dead], in_index_external_ids(bot)
+    assert_empty bot.bot_index_assets.exited, 'the coin the slider took back in is no longer a quitter'
+  end
+
+  test 'lowering the coin count marks what the slider cut as a quitter straight away' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    stub_all_priced(:get_ask_price)
+    update_settings!(bot, 'num_coins' => 3)
+
+    update_settings!(bot, 'num_coins' => 2)
+
+    assert_equal %w[coin-a coin-dead], in_index_external_ids(bot)
+    assert_equal %w[coin-b], bot.bot_index_assets.exited.includes(:asset).map { |bia| bia.asset.external_id }.sort
+  end
+
+  test 'a settings change that leaves the index definition alone re-derives nothing' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    stub_all_priced(:get_ask_price)
+    update_settings!(bot, 'num_coins' => 2)
+
+    Bot::ResyncIndexCompositionJob.expects(:perform_later).never
+
+    update_settings!(bot, 'quote_amount' => 250.0)
+  end
+
+  test 'moving the bot to another exchange re-points the composition at that exchange tickers' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    stub_all_priced(:get_ask_price)
+    update_settings!(bot, 'num_coins' => 2)
+
+    binance = create(:binance_exchange)
+    %w[coin-a coin-dead].each do |external_id|
+      create(:ticker, exchange: binance, base_asset: Asset.find_by(external_id: external_id), quote_asset: @quote)
+    end
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(BigDecimal('100')))
+
+    perform_enqueued_jobs(only: Bot::ResyncIndexCompositionJob) do
+      bot.set_missed_quote_amount
+      bot.update!(exchange: binance)
+    end
+
+    assert_equal %w[coin-a coin-dead], in_index_external_ids(bot)
+    assert_equal [binance.id], bot.bot_index_assets.in_index.includes(:ticker).map { |bia| bia.ticker.exchange_id }.uniq
+  end
+
+  test 'an upstream failure keeps the settings and leaves the old composition standing' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    stub_all_priced(:get_ask_price)
+    update_settings!(bot, 'num_coins' => 2)
+
+    MarketData.stubs(:get_top_coins).returns(Result::Failure.new('upstream down'))
+    update_settings!(bot, 'num_coins' => 3)
+
+    assert_equal 3, bot.num_coins, 'the save is not held hostage to the refresh'
+    assert_equal %w[coin-a coin-dead], in_index_external_ids(bot)
   end
 
   # --- Lifecycle: start/stop/delete (characterization before concern extraction) -
@@ -390,6 +469,15 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     Exchanges::Kraken.any_instance.stubs(method)
                      .with(ticker: ticker, force: anything)
                      .returns(Result::Failure.new('zero'))
+  end
+
+  # What bots_controller#update does: through the missed-amount guard, and with the composition
+  # resync it schedules run inline — the broadcast it in turn schedules is left enqueued.
+  def update_settings!(bot, changes)
+    perform_enqueued_jobs(only: Bot::ResyncIndexCompositionJob) do
+      bot.set_missed_quote_amount
+      bot.update!(settings: bot.settings.merge(changes))
+    end
   end
 
   def in_index_external_ids(bot)

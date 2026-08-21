@@ -173,13 +173,23 @@ module Bots::DcaIndex::Measurable
   end
 
   def broadcast_metrics_update
+    broadcast_metrics_panel
+    broadcast_chart
+  end
+
+  # Split out because the chart is the expensive half — it waits on a candle series that a
+  # composition change cannot alter. Anything that only moves a holding between the two tables
+  # broadcasts this one on its own and lands immediately.
+  def broadcast_metrics_panel
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
       target: 'metrics',
       partial: 'bots/dca_indexes/metrics',
       locals: { bot: self, metrics: metrics_with_current_prices, loading: false }
     )
+  end
 
+  def broadcast_chart
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
       target: 'chart',
