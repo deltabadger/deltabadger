@@ -544,6 +544,21 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     ActiveJob::Base.queue_adapter = base_adapter
   end
 
+  # The portfolio total is the tracker's half of the same normalized figure the dashboard
+  # shows, so it follows the same denominator.
+  test 'the portfolio total and its slices read in the account currency' do
+    @user.update!(display_currency: 'PLN')
+    Utilities::Currency.stubs(:exchange_rate).with(from: 'USD', to: 'PLN')
+                       .returns(Result::Success.new(4.0))
+    AccountBalance.create!(user: @user, exchange: @api_key.exchange, asset: create(:asset, :bitcoin),
+                           free: 1, locked: 0, usd_value: 250, synced_at: Time.current)
+
+    get tracker_path
+
+    assert_select '.dash-intro .header--1', text: /1,000\.00 zł/
+    assert_select '.tracker-portfolio__asset-value', text: /1,000\.00 zł/
+  end
+
   private
 
   def write_report(country:, year:, contents:, report_scope: 'crypto')

@@ -106,10 +106,12 @@ sk:
             title: Pokročilí boti
             toggle_label: Zobraziť pokročilých botov
         language_and_timezone:
-            title: 'Jazyk a časové pásmo'
+            title: 'Jazyk, časové pásmo a mena'
             language_updated: "Jazyk bol aktualizovaný."
             updated: "Časové pásmo bolo aktualizované."
             current_time_is: "Toto časové pásmo sa použije v logoch bota. Podľa neho je aktuálny čas"
+            currency_updated: "Zobrazovaná mena bola aktualizovaná."
+            currency_is_used_for: "Zisky a súčty portfólia sa zobrazujú v tejto mene. Boti naďalej obchodujú vo svojom vlastnom kotovacom aktíve."
         name:
             updated: "Meno bolo aktualizované."
         two_fa:

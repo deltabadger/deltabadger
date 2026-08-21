@@ -112,4 +112,37 @@ class SettingsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_includes @response.body, 'form__info--invalid'
   end
+
+  test 'the account page offers every supported fiat denominator' do
+    get settings_account_path
+
+    assert_select 'select[name="user[display_currency]"] option', count: User::DISPLAY_CURRENCIES.size
+  end
+
+  test 'a currency change flashes a translated confirmation and stores the choice' do
+    patch settings_update_display_currency_path, params: { user: { display_currency: 'PLN' } }
+
+    assert_response :success
+    assert_equal 'PLN', @user.reload.display_currency
+    assert_equal I18n.t('settings.language_and_timezone.currency_updated'), flash[:notice]
+  end
+
+  # Same crafted-request reach as the other two selects, and the same column shape as
+  # time_zone: `null: false default "USD"`, so both "wrong" and "absent" need an answer.
+  test 'a rejected currency reports the error instead of raising' do
+    patch settings_update_display_currency_path, params: { user: { display_currency: 'XYZ' } }
+
+    assert_response :unprocessable_entity
+    assert_equal 'USD', @user.reload.display_currency
+    assert_includes @response.body, 'salert--danger'
+  end
+
+  test 'a blank currency falls back to the default instead of reaching the NOT NULL constraint' do
+    @user.update!(display_currency: 'PLN')
+
+    patch settings_update_display_currency_path, params: { user: { display_currency: '' } }
+
+    assert_response :success
+    assert_equal 'USD', @user.reload.display_currency
+  end
 end

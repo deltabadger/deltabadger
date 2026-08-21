@@ -104,10 +104,12 @@ es:
             title: Bots avanzados
             toggle_label: Mostrar bots avanzados
         language_and_timezone:
-            title: 'Idioma y zona horaria'
+            title: 'Idioma, zona horaria y moneda'
             language_updated: 'Tu idioma ha sido actualizado.'
             updated: 'Tu zona horaria ha sido actualizada.'
             current_time_is: 'Esta zona horaria se usará en los logs del bot. Según ella, la hora actual es'
+            currency_updated: "Tu moneda de visualización ha sido actualizada."
+            currency_is_used_for: "Las ganancias y los totales de la cartera se muestran en esta moneda. Los bots siguen operando en su propio activo de cotización."
         name:
             updated: "Tu nombre ha sido actualizado."
         two_fa:

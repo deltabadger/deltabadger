@@ -81,6 +81,17 @@ class SettingsController < ApplicationController
     end
   end
 
+  def update_display_currency
+    if current_user.update(update_display_currency_params)
+      flash[:notice] = t('settings.language_and_timezone.currency_updated')
+      # Every normalized figure on every page changes with it, so refresh rather than
+      # swapping the one frame the select sits in.
+      render turbo_stream: turbo_stream_page_refresh
+    else
+      render_preference_error
+    end
+  end
+
   def update_password
     if current_user.update_with_password(update_password_params)
       bypass_sign_in(current_user)
@@ -623,6 +634,10 @@ class SettingsController < ApplicationController
 
   def update_locale_params
     params.require(:user).permit(:locale)
+  end
+
+  def update_display_currency_params
+    params.require(:user).permit(:display_currency)
   end
 
   def update_name_params
