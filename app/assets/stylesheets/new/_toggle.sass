@@ -30,6 +30,27 @@
             border-radius: 50%
             transition: transform 0.3s
             box-shadow: var(--shadow-paper)
+    // Menu-sized. The default is built for a settings widget and is taller than a dropdown row;
+    // this keeps the same proportions at the row's own line-height, and does not grow on desktop
+    // the way the default does.
+    &--small
+        .toggle__style
+            width: 3rem !important
+            min-width: 3rem !important
+            height: 1.75rem !important
+            border-radius: 1rem
+            &::after
+                top: 0.25rem
+                left: 0.25rem
+                width: 1.25rem
+                height: 1.25rem
+        input[type="checkbox"]
+            width: 3rem !important
+            height: 1.75rem !important
+            &:checked
+                &~ .toggle__style
+                    &::after
+                        transform: translateX(1.25rem) !important
     &--vertical
         .toggle__style
             width: 3rem !important
