@@ -7,7 +7,7 @@ ru:
         bot_name: "Имя бота"
         new: "Новый бот"
         welcome:
-            pick_asset_first: "Сначала выбери актив — потом увидишь биржи, на которых он доступен."
+            pick_exchange_first: "Сначала выбери биржу — потом увидишь активы, которые на ней доступны."
             connect_alpaca_html: "Чтобы инвестировать в акции, сначала подключите Alpaca в %{settings_link}."
             settings_link: "Настройках"
         dca_multi_asset:

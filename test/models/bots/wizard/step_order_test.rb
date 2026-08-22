@@ -47,8 +47,8 @@ class Bots::Wizard::StepOrderTest < ActiveSupport::TestCase
     assert_equal [25, 50, 75, 100], exchange_first_progress
   end
 
-  test 'variant defaults to asset_first when omitted' do
-    assert_equal SO.for(bot_type: :single, variant: :asset_first).steps,
+  test 'variant defaults to exchange_first when omitted' do
+    assert_equal SO.for(bot_type: :single, variant: :exchange_first).steps,
                  SO.for(bot_type: :single).steps
   end
 

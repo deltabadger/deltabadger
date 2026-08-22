@@ -52,8 +52,8 @@ class Bots::StaleSessionTest < ActionDispatch::IntegrationTest
   test 'switching from Signal wizard to DCA single asset wizard works cleanly' do
     walk_signal_wizard_to_confirm_settings
 
-    # The DCA asset step keeps the session (sanitized_bot_config protects the full flow).
-    get new_bots_dca_single_assets_pick_buyable_asset_path
+    # The DCA wizard keeps the session (sanitized_bot_config protects the full flow).
+    get new_bots_dca_single_assets_pick_exchange_path
     assert_response :ok
 
     post bots_dca_single_assets_pick_buyable_asset_path, params: {

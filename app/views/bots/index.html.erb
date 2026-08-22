@@ -8,7 +8,7 @@
 <%# Not @bots.empty?: a user whose bots are all archived still has bots, and needs the filter row. %>
 <% if @total_bots.zero? && !@has_archived %>
   <% if @auto_open_dca %>
-    <% content_for :modal_src, new_bots_dca_single_assets_pick_buyable_asset_path(auto_open: true) %>
+    <% content_for :modal_src, new_bots_dca_single_assets_pick_exchange_path(auto_open: true) %>
     <% content_for :hide_chrome, true %>
   <% end %>
   <%= render partial: 'bots/new_menu_start' %>

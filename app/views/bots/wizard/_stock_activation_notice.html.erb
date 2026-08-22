@@ -1,9 +1,9 @@
-<%# Shown at the bottom of a base-asset picker when stocks could be offered but
-    no stock catalog is present (self-hosted before the admin's Alpaca
+<%# Shown at the bottom of the wizard's first step — the exchange picker, or the
+    base-asset picker on the asset-first route — when stocks could be offered
+    but no stock catalog is present (self-hosted before the admin's Alpaca
     bootstrap sync — hosted always has one, and a previously synced catalog
-    stays active even if the credential is later removed). Skipped when a
-    venue is already chosen: in exchange-first flows stocks were never on
-    offer for a crypto venue. Admins get a CTA to the Settings activation;
+    stays active even if the credential is later removed). Skipped once a
+    venue is chosen: stocks were never on offer for a crypto venue. Admins get a CTA to the Settings activation;
     everyone else is told to ask their admin. %>
 <% if bot.exchange_id.blank? && !StockTradingSettings.active? %>
   <div class="assets-syncing">

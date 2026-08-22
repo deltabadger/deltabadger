@@ -16,6 +16,9 @@ class Bots::DcaMultiAssetsCreationTest < ActionDispatch::IntegrationTest
 
     sign_in @user
     Bot::ActionJob.stubs(:perform_later)
+    # Asset-first is the optional route, but it is where the basket mechanics under test are
+    # easiest to drive (and where stock routing lives), so these tests opt into it.
+    post bots_dca_single_assets_order_path, params: { flow: 'asset_first' }
   end
 
   test 'creates a bot when completing all wizard steps' do

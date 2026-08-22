@@ -4,6 +4,9 @@ class Bots::DcaSingleAssets::PickExchangesControllerTest < ActionDispatch::Integ
   setup do
     @user = create(:user, admin: true, setup_completed: true)
     sign_in @user
+    # Asset-first is the optional route, but it is where the basket mechanics under test are
+    # easiest to drive (and where stock routing lives), so these tests opt into it.
+    post bots_dca_single_assets_order_path, params: { flow: 'asset_first' }
   end
 
   test 'dual wizard routes are retired' do

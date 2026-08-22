@@ -4,7 +4,7 @@ cs:
         bot_name: 'Název bota'
         new: "Nový bot"
         welcome:
-            pick_asset_first: "Nejdřív vyber aktivum — pak uvidíš burzy, kde je dostupné."
+            pick_exchange_first: "Nejdřív vyber burzu — pak uvidíš aktiva, která jsou na ní dostupná."
             connect_alpaca_html: "Pokud chceš investovat do akcií, nejdřív připoj Alpacu v %{settings_link}."
             settings_link: "Nastavení"
         dca_multi_asset:

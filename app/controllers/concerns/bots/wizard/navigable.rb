@@ -17,10 +17,11 @@ module Bots::Wizard::Navigable
 
   private
 
-  # Ephemeral wizard state: absent ⇒ asset_first, so every legacy session and
-  # deep link keeps working. Only ever written via the POST order switch.
+  # Ephemeral wizard state: absent ⇒ exchange_first, the default order (the
+  # venue first, then the assets it carries); asset-first is the optional route
+  # taken through the POST order switch, the only thing that ever writes it.
   def current_variant
-    session.dig(:bot_config, 'flow').presence&.to_sym || :asset_first
+    session.dig(:bot_config, 'flow').presence&.to_sym || :exchange_first
   end
 
   def asset_first? = current_variant == :asset_first
