@@ -6,7 +6,7 @@ require 'yaml'
 # Read the files directly: I18n fallbacks make a missing translation look present in every locale.
 class Bot::MultiAssetLocalesTest < ActiveSupport::TestCase
   MULTI_ASSET_KEYS = %w[
-    invest_on add_asset add_another_asset remove_asset max_assets_reached min_assets
+    add_asset remove_asset max_assets_reached min_assets
     no_common_exchange removed_from_portfolio allocation_sum normalize unbalanced_hint
   ].freeze
   LIQUIDATION_KEYS = %w[unsupported sell_confirm started].freeze

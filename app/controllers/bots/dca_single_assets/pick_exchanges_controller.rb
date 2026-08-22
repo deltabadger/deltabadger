@@ -1,18 +1,6 @@
 class Bots::DcaSingleAssets::PickExchangesController < Bots::Wizard::PickExchangesController
   include Bots::Wizard::Navigable
 
-  def promote_to_multi
-    cfg = session[:bot_config] || {}
-    settings = cfg['settings'] || {}
-    base = settings['base_asset_id'] || Array(settings['base_asset_ids']).first
-    session[:bot_config] = {
-      'flow' => cfg['flow'],
-      'exchange_id' => cfg['exchange_id'],
-      'settings' => { 'base_asset_ids' => [base].compact.map(&:to_i) }
-    }.compact
-    redirect_to new_bots_dca_multi_assets_pick_assets_path
-  end
-
   private
 
   def current_step = :exchange

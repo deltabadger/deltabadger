@@ -19,8 +19,8 @@ export default class extends Controller {
     });
     form.classList.add("active");
     // Any click on a non-editable slot submits its form:
-    //   - filled (readonly input) → GET back-nav URL
-    //   - optional (no name)      → POST promote_to_multi
+    //   - filled (readonly input)      → GET back-nav URL
+    //   - placeholder (readonly input) → POST order switch / advance
     // The active editable form contains <input name="query">; its own
     // form--submit-after-delay submits on typing, so skip submission here.
     const editable = form.querySelector('input[name="query"]');

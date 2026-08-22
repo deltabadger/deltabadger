@@ -19,11 +19,11 @@ class Bots::DcaMultiAssetsCreationTest < ActionDispatch::IntegrationTest
   end
 
   test 'creates a bot when completing all wizard steps' do
-    promote(@bitcoin)
-    add_asset(@ethereum)
-    add_asset(@solana)
+    pick @bitcoin
+    pick @ethereum
+    pick @solana
 
-    post advance_bots_dca_multi_assets_pick_assets_path
+    advance
     assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
     post bots_dca_multi_assets_pick_exchange_path,
          params: { bots_dca_multi_asset: { exchange_id: @exchange.id } }
@@ -46,89 +46,60 @@ class Bots::DcaMultiAssetsCreationTest < ActionDispatch::IntegrationTest
     assert_match %(action="redirect" target="#{bot_path(bot)}"), response.body
   end
 
-  test 'a list of one does not satisfy the assets step' do
-    promote(@bitcoin)
+  test 'a basket of one does not satisfy the multi exchange step' do
+    pick @bitcoin
 
     get new_bots_dca_multi_assets_pick_exchange_path
-
-    assert_redirected_to new_bots_dca_multi_assets_pick_assets_path
-  end
-
-  test 'removing down to one asset demotes to the single flow' do
-    promote(@bitcoin)
-    add_asset(@ethereum)
-
-    post remove_bots_dca_multi_assets_pick_assets_path,
-         params: { bots_dca_multi_asset: { base_asset_id: @ethereum.id } }
-
-    assert_redirected_to new_bots_dca_single_assets_pick_spendable_asset_path
-    assert_equal @bitcoin.id, session[:bot_config].dig('settings', 'base_asset_id')
-    assert_nil session[:bot_config].dig('settings', 'base_asset_ids')
-  end
-
-  test 'an asset outside the search scope, a duplicate, and the twenty-first are ignored' do
-    promote(@bitcoin)
-    outside = create(:asset, symbol: 'OUT', name: 'Outside', external_id: 'outside')
-    add_asset(outside)
-    assert_equal [@bitcoin.id], chosen_ids
-
-    add_asset(@bitcoin)
-    assert_equal [@bitcoin.id], chosen_ids
-
-    additions = 20.times.map do |index|
-      asset = create(:asset, symbol: "A#{index}", name: "Asset #{index}", external_id: "asset-#{index}")
-      create(:ticker, exchange: @exchange, base_asset: asset, quote_asset: @usd)
-      asset
-    end
-    additions.first(19).each { |asset| add_asset(asset) }
-    assert_equal Bots::DcaMultiAsset::MAX_ASSETS, chosen_ids.size
-
-    add_asset(additions.last)
-    assert_equal Bots::DcaMultiAsset::MAX_ASSETS, chosen_ids.size
-    refute_includes chosen_ids, additions.last.id
-  end
-
-  test 'advance with one asset stays put' do
-    promote(@bitcoin)
-
-    post advance_bots_dca_multi_assets_pick_assets_path
-
-    assert_redirected_to new_bots_dca_multi_assets_pick_assets_path
-  end
-
-  test 'an empty session GET bounces to the single picker' do
-    get new_bots_dca_multi_assets_pick_assets_path
 
     assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
   end
 
-  test 'the assets step keeps the sentence compact and renders every chosen row' do
-    promote(@bitcoin)
-    add_asset(@ethereum)
+  test 'removing down to one asset keeps the step and Next continues as a single bot' do
+    pick @bitcoin
+    pick @ethereum
 
-    get new_bots_dca_multi_assets_pick_assets_path
+    remove @ethereum
 
+    assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
+    assert_equal @bitcoin.id, session[:bot_config].dig('settings', 'base_asset_id')
+    assert_nil session[:bot_config].dig('settings', 'base_asset_ids')
+
+    advance
+    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
+  end
+
+  test 'the asset step reads Buy with the chosen chips and rows; later steps show the basket as one link back' do
+    pick @bitcoin
+    pick @ethereum
+
+    get new_bots_dca_single_assets_pick_buyable_asset_path
     assert_response :ok
-    assert_select '.conversational__lead', text: /Invest/
-    assert_select '.conversational__assets .ticker.filled', count: 0
+    assert_select '.conversational__lead', text: 'Buy'
+    assert_select '.conversational__lead', text: /Invest/, count: 0
+    assert_select 'div.conversational__stack .ticker', count: 2
+    assert_select 'a.conversational__stack', count: 0
     assert_select '.wizard-assets__row', count: 2
+
+    advance
+    follow_redirect!
+    assert_response :ok
+    assert_select 'a.conversational__stack[href=?]', new_bots_dca_single_assets_pick_buyable_asset_path do
+      assert_select '.ticker', count: 2
+    end
+    assert_select '.wizard-asset-list', count: 0
   end
 
   private
 
-  def promote(asset)
-    get new_bots_dca_single_assets_pick_buyable_asset_path
+  def pick(asset)
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: asset.id } }
-    post promote_to_multi_bots_dca_single_assets_pick_exchange_path
   end
 
-  def add_asset(asset)
-    post bots_dca_multi_assets_pick_assets_path,
-         params: { bots_dca_multi_asset: { base_asset_id: asset.id } }
+  def remove(asset)
+    post remove_bots_dca_single_assets_pick_buyable_asset_path,
+         params: { bots_dca_single_asset: { base_asset_id: asset.id } }
   end
 
-  def chosen_ids
-    session[:bot_config].dig('settings', 'base_asset_ids')
-  end
+  def advance = post advance_bots_dca_single_assets_pick_buyable_asset_path
 end

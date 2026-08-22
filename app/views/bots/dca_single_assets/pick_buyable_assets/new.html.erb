@@ -5,23 +5,62 @@
       current_step: :currencies
     } %>
 
-    <%= render "bots/wizard/sentence", bot: @bot, current_step: :currencies %>
+    <%= render "bots/wizard/sentence", bot: @bot, current_step: :currencies,
+               chosen: @chosen, multi: @chosen.size >= Bots::DcaMultiAsset::MIN_ASSETS %>
 
-    <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation scroll-state" }, class: "modal--search__assets selectable-options vt-step-body" do %>
-      <% if @assets.empty? && @bot.exchange_id.present? && params[:query].blank? %>
-        <%= render "bots/wizard/assets_syncing" %>
+    <div class="wizard-assets vt-step-body">
+      <% if @chosen.any? %>
+        <div class="wizard-assets__list">
+          <% @chosen.each do |asset| %>
+            <div class="wizard-assets__row">
+              <div class="modal--search__cell">
+                <%= tag.div asset.symbol, class: ticker_class(asset), style: "background: #{ensure_contrast(asset.color || '#8A9BA8')}", data: ticker_data(asset) %>
+              </div>
+              <div class="modal--search__cell"><%= asset.name %></div>
+              <div class="modal--search__cell wizard-assets__action">
+                <%= button_to '×', remove_bots_dca_single_assets_pick_buyable_asset_path,
+                              params: { bots_dca_single_asset: { base_asset_id: asset.id } },
+                              class: 'rbutton rbutton--small',
+                              form: { data: { turbo_frame: 'modal_content' } },
+                              title: t('bot.dca_multi_asset.remove_asset') %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <% no_common_exchange = @chosen.any? && @eligible_exchanges.empty? %>
+      <% if no_common_exchange %>
+        <p class="wizard-assets__warning" role="alert"><%= t('bot.dca_multi_asset.no_common_exchange') %></p>
+      <% end %>
+
+      <% if @chosen.size >= Bots::DcaMultiAsset::MAX_ASSETS %>
+        <p class="text-inactive"><%= t('bot.dca_multi_asset.max_assets_reached', max: Bots::DcaMultiAsset::MAX_ASSETS) %></p>
       <% else %>
-        <%= form_with model: @bot, url: bots_dca_single_assets_pick_buyable_asset_path, method: :post do |f| %>
-          <% @assets.each do |id, symbol, name, color, category, exchanges| %>
-            <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :base_asset_id, id: id, symbol: symbol, name: name, color: color, category: category, exchanges: exchanges } %>
+        <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation scroll-state" }, class: "modal--search__assets selectable-options" do %>
+          <% if @assets.empty? && @chosen.empty? && @bot.exchange_id.present? && params[:query].blank? %>
+            <%= render "bots/wizard/assets_syncing" %>
+          <% else %>
+            <%= form_with model: @bot, url: bots_dca_single_assets_pick_buyable_asset_path, method: :post do |f| %>
+              <% @assets.each do |id, symbol, name, color, category, exchanges| %>
+                <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :base_asset_id, id: id, symbol: symbol, name: name, color: color, category: category, exchanges: exchanges } %>
+              <% end %>
+              <% if @next_page_url %>
+                <%= turbo_frame_tag @next_page_frame_id, src: @next_page_url, loading: :lazy %>
+              <% end %>
+            <% end %>
           <% end %>
-          <% if @next_page_url %>
-            <%= turbo_frame_tag @next_page_frame_id, src: @next_page_url, loading: :lazy %>
-          <% end %>
+          <%= render 'bots/wizard/stock_activation_notice', bot: @bot %>
         <% end %>
       <% end %>
-      <%= render 'bots/wizard/stock_activation_notice', bot: @bot %>
-    <% end %>
+
+      <% if @chosen.any? %>
+        <%= button_to t('button.next'), advance_bots_dca_single_assets_pick_buyable_asset_path,
+                      class: 'button button--success button--large',
+                      disabled: no_common_exchange,
+                      form: { data: { turbo_frame: 'modal_content' } } %>
+      <% end %>
+    </div>
 
   </div>
 <% end %>

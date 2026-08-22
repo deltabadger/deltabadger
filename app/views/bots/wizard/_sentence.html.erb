@@ -1,96 +1,94 @@
 <%#
-  Unified conversational sentence for the wizard:
-  "Buy {asset} [+] on {exchange} spending {quote}".
+  Unified conversational sentence for the DCA wizard:
+  "Buy {assets} on {exchange} spending {quote}".
 
   Each slot is one of:
     active  — this slot's step == current_step → editable search input
     filled  — its value is already chosen       → chip linking back to it
     future  — not chosen yet                     → muted placeholder
 
-  On the FIRST step the not-yet-active of {asset, exchange} doubles as the order
-  switch: clicking it flips the variant (POST) so you pick that slot first. Once
-  anything is committed (a later step), the placeholder is inert — switching
-  would discard the pick. The "spending" slot only appears once both an asset and
-  an exchange are chosen.
+  The asset slot holds the whole basket as one stack of chips: away from the asset
+  step the stack is a single link back to it (adding and removing happen there, in
+  the table under the sentence); on the asset step it is inert and the live search
+  input follows it.
 
-  The single→multi promote "+" is preserved.
+  Placeholders double as controls. On the FIRST step, while nothing is chosen, the
+  not-yet-active of {asset, exchange} flips the order (POST) so that slot is picked
+  first. On the asset step, once something is chosen, the exchange/spending
+  placeholders — and the filled exchange chip — POST `advance`, the one way out of
+  the step (it commits the basket before any later step reads it). Elsewhere a
+  placeholder is inert: switching would discard the pick.
 
   Locals:
     bot:          @bot (DcaSingleAsset or DcaMultiAsset)
-    current_step: :currencies | :assets | :exchange | :api | :spendable
+    current_step: :currencies | :exchange | :api | :spendable
+    chosen:       (optional) the chosen Assets in pick order — the asset step passes its basket
+    multi:        (optional) whether the basket continues as a multi bot — selects the namespace
 %>
 <%
   order   = current_order
-  steps   = order.steps
   on_first_step = order.first?(current_step)
+  on_asset_step = current_step == :currencies
 
-  bot_kind    = bot.is_a?(Bots::DcaMultiAsset) ? "multi" : "single"
-  first_asset = bot_kind == "multi" ? nil : bot.base_asset
-  exchange    = bot.exchange_id.present? ? bot.exchange : nil
-  first_color = ensure_contrast(first_asset.color) if first_asset
+  multi    = local_assigns.fetch(:multi) { bot.is_a?(Bots::DcaMultiAsset) }
+  chosen   = local_assigns.fetch(:chosen) { multi ? bot.base_assets : [bot.base_asset].compact }
+  exchange = bot.exchange_id.present? ? bot.exchange : nil
 
-  # A slot's state: the step being edited is :active; a slot whose value is set
-  # is :filled (regardless of step order, so a sticky asset kept across an
-  # exchange re-pick still shows its chip); otherwise :future (placeholder).
-  slot_state = lambda do |step_key, present|
-    next :hidden unless steps.include?(step_key)
-    next :active if step_key == current_step
-
-    present ? :filled : :future
-  end
-
-  base_state     = slot_state.call(:currencies, first_asset.present?)
-  exchange_state = slot_state.call(:exchange, exchange.present?)
+  exchange_state = if current_step == :exchange then :active
+                   elsif exchange then :filled
+                   else :future
+                   end
 
   # Spending shows only after an asset and an exchange are both chosen.
-  quote_visible = if bot_kind == "multi"
-                    bot.base_asset_ids.any? && exchange.present?
-                  else
-                    first_asset.present? && exchange.present?
-                  end
+  quote_visible = chosen.any? && exchange.present?
 
-  order_url = case bot_kind
-              when "multi" then bots_dca_multi_assets_order_path
-              else bots_dca_single_assets_order_path
-              end
+  asset_step_url = new_bots_dca_single_assets_pick_buyable_asset_path
+  advance_url    = advance_bots_dca_single_assets_pick_buyable_asset_path
+  order_url      = bots_dca_single_assets_order_path
+  exchange_url   = multi ? new_bots_dca_multi_assets_pick_exchange_path : new_bots_dca_single_assets_pick_exchange_path
+  quote_search_url = multi ? new_bots_dca_multi_assets_pick_spendable_asset_path : new_bots_dca_single_assets_pick_spendable_asset_path
 
-  base_back_url     = new_bots_dca_single_assets_pick_buyable_asset_path
-  exchange_back_url = case bot_kind
-                      when "multi" then new_bots_dca_multi_assets_pick_exchange_path
-                      else new_bots_dca_single_assets_pick_exchange_path
-                      end
-
-  base_search_url  = new_bots_dca_single_assets_pick_buyable_asset_path
-  quote_search_url = case bot_kind
-                     when "multi" then new_bots_dca_multi_assets_pick_spendable_asset_path
-                     else new_bots_dca_single_assets_pick_spendable_asset_path
-                     end
+  # The stack previews the first few members and counts the rest, like the index previews.
+  stack_limit = 5
+  stack_class = case chosen.size
+                when 0, 1 then ''
+                when 2 then 'ticker-group--2'
+                else 'ticker-group--many'
+                end
 %>
 
 <div class="conversational conversational--bot-setup"
-     data-bot-kind="<%= bot_kind %>" data-wizard-step="<%= current_step %>"
+     data-bot-kind="<%= multi ? 'multi' : 'single' %>" data-wizard-step="<%= current_step %>"
      data-controller="conversational-sentence"
      data-action="click->conversational-sentence#activate input->conversational-sentence#updateFilled">
 
-  <span class="conversational__lead"><%= bot_kind == "multi" ? t('bot.dca_multi_asset.invest_on') : 'Buy' %></span>
+  <span class="conversational__lead">Buy</span>
 
   <div class="conversational__assets">
-    <% unless bot_kind == "multi" %>
-    <%# ── first base asset ── %>
-    <% if base_state == :active %>
-      <%= form_with url: base_search_url, method: :get,
-                    data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" },
-                    class: "ticker active" do |f| %>
-        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…",
-                         data: { action: "input->form--submit-after-delay#submit" } %>
+    <% if chosen.any? %>
+      <% stack_options = { class: "conversational__stack ticker-group #{stack_class}".strip } %>
+      <% stack_options.merge!(href: asset_step_url, data: { turbo_frame: 'modal_content', wizard_dir: 'back' }) unless on_asset_step %>
+      <%= content_tag(on_asset_step ? :div : :a, **stack_options) do %>
+        <% chosen.first(stack_limit).each do |asset| %>
+          <%= tag.div asset.symbol, class: ticker_class(asset),
+                      style: "background: #{ensure_contrast(asset.color || '#8A9BA8')}", data: ticker_data(asset) %>
+        <% end %>
+        <% if chosen.size > stack_limit %>
+          <div class="ticker ticker--more">+<%= chosen.size - stack_limit %></div>
+        <% end %>
       <% end %>
-    <% elsif base_state == :filled && first_asset %>
-      <%= form_with url: base_back_url, method: :get,
-                    data: { turbo_frame: "modal_content", wizard_dir: "back", **ticker_data(first_asset) },
-                    html: { class: "ticker filled", style: "background: #{first_color}" } do %>
-        <input value="<%= first_asset.symbol %>" readonly tabindex="-1">
+    <% end %>
+
+    <% if on_asset_step %>
+      <% if chosen.size < Bots::DcaMultiAsset::MAX_ASSETS %>
+        <%= form_with url: asset_step_url, method: :get,
+                      data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" },
+                      class: "ticker active" do |f| %>
+          <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…",
+                           data: { action: "input->form--submit-after-delay#submit" } %>
+        <% end %>
       <% end %>
-    <% elsif base_state == :future %>
+    <% elsif chosen.empty? %>
       <%# Asset not chosen yet (exchange-first): clicking the slot switches to
           asset-first so the asset is picked first. Available on every step the
           asset is still pending — including while adding the API key — since the
@@ -101,46 +99,45 @@
         <input placeholder="…" readonly tabindex="-1">
       <% end %>
     <% end %>
-
-    <%# ── promote-to-multi "+" (single) ── %>
-    <% if bot_kind == "single" && first_asset %>
-      <%= form_with url: promote_to_multi_bots_dca_single_assets_pick_exchange_path,
-                    method: :post, class: "ticker",
-                    data: { turbo_frame: "modal_content" } do %>
-        <input placeholder="…">
-      <% end %>
-    <% end %>
-    <% end %>
   </div>
 
   <%# ── exchange slot ── %>
-  <% unless exchange_state == :hidden %>
-    <% unless bot_kind == "multi" %>
-      <span class="conversational__lead">on</span>
+  <span class="conversational__lead">on</span>
+  <% if exchange_state == :active %>
+    <%= form_with url: exchange_url, method: :get,
+                  data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" },
+                  class: "conversational__link active" do |f| %>
+      <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "exchange",
+                       data: { action: "input->form--submit-after-delay#submit" } %>
     <% end %>
-    <% if exchange_state == :active %>
-      <%= form_with url: exchange_back_url, method: :get,
-                    data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" },
-                    class: "conversational__link active" do |f| %>
-        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "exchange",
-                         data: { action: "input->form--submit-after-delay#submit" } %>
-      <% end %>
-    <% elsif exchange_state == :filled && exchange %>
-      <%= form_with url: exchange_back_url, method: :get, class: "conversational__link filled",
-                    data: { turbo_frame: "modal_content", wizard_dir: "back" } do %>
-        <input value="<%= exchange.name %>" readonly tabindex="-1">
-      <% end %>
-    <% elsif on_first_step %>
-      <%# Asset-first first step: clicking the exchange slot switches to exchange-first. %>
-      <%= form_with url: order_url, method: :post,
-                    class: "conversational__link conversational__link--placeholder conversational__link--switch",
-                    data: { turbo_frame: "modal_content" } do |f| %>
-        <%= f.hidden_field :flow, value: "exchange_first" %>
-        <input placeholder="exchange" readonly tabindex="-1">
-      <% end %>
-    <% else %>
-      <span class="conversational__link conversational__link--placeholder">exchange</span>
+  <% elsif exchange_state == :filled && on_asset_step %>
+    <%# Leaving the asset step always goes through advance, which commits the basket first. %>
+    <%= form_with url: advance_url, method: :post, class: "conversational__link filled",
+                  data: { turbo_frame: "modal_content" } do |f| %>
+      <%= f.hidden_field :to, value: "exchange" %>
+      <input value="<%= exchange.name %>" readonly tabindex="-1">
     <% end %>
+  <% elsif exchange_state == :filled %>
+    <%= form_with url: exchange_url, method: :get, class: "conversational__link filled",
+                  data: { turbo_frame: "modal_content", wizard_dir: "back" } do %>
+      <input value="<%= exchange.name %>" readonly tabindex="-1">
+    <% end %>
+  <% elsif on_first_step && chosen.empty? %>
+    <%# Asset-first first step: clicking the exchange slot switches to exchange-first. %>
+    <%= form_with url: order_url, method: :post,
+                  class: "conversational__link conversational__link--placeholder conversational__link--switch",
+                  data: { turbo_frame: "modal_content" } do |f| %>
+      <%= f.hidden_field :flow, value: "exchange_first" %>
+      <input placeholder="exchange" readonly tabindex="-1">
+    <% end %>
+  <% elsif on_asset_step %>
+    <%= form_with url: advance_url, method: :post,
+                  class: "conversational__link conversational__link--placeholder conversational__link--advance",
+                  data: { turbo_frame: "modal_content" } do %>
+      <input placeholder="exchange" readonly tabindex="-1">
+    <% end %>
+  <% else %>
+    <span class="conversational__link conversational__link--placeholder">exchange</span>
   <% end %>
 
   <%# ── quote (spending) slot — only once an asset and an exchange are chosen ── %>
@@ -153,12 +150,13 @@
         <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "USD",
                          data: { action: "input->form--submit-after-delay#submit" } %>
       <% end %>
+    <% elsif on_asset_step %>
+      <%= form_with url: advance_url, method: :post, class: "ticker ticker--placeholder ticker--advance",
+                    data: { turbo_frame: "modal_content" } do %>
+        <input placeholder="…" readonly tabindex="-1">
+      <% end %>
     <% else %>
       <span class="ticker ticker--placeholder">…</span>
     <% end %>
   <% end %>
 </div>
-
-<% if bot_kind == "multi" && current_step != :assets %>
-  <%= render 'bots/wizard/asset_list', assets: bot.base_assets %>
-<% end %>

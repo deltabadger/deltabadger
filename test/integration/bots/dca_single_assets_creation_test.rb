@@ -24,6 +24,9 @@ class Bots::DcaSingleAssetsCreationTest < ActionDispatch::IntegrationTest
     post bots_dca_single_assets_pick_buyable_asset_path, params: {
       bots_dca_single_asset: { base_asset_id: @bitcoin.id }
     }
+    # Picking stays on the asset step; Next moves on.
+    assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
     assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
     follow_redirect!
 

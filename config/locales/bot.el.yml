@@ -8,9 +8,7 @@ el:
             connect_alpaca_html: "Για να επενδύσεις σε μετοχές, σύνδεσε πρώτα το Alpaca στις %{settings_link}."
             settings_link: "Ρυθμίσεις"
         dca_multi_asset:
-            invest_on: "Επένδυση στο"
             add_asset: "Προσθήκη περιουσιακού στοιχείου"
-            add_another_asset: "Προσθήκη άλλου περιουσιακού στοιχείου…"
             remove_asset: "Αφαίρεση"
             max_assets_reached: "Μπορείτε να διατηρείτε έως %{max} περιουσιακά στοιχεία."
             min_assets: "Ένα χαρτοφυλάκιο χρειάζεται τουλάχιστον %{min} περιουσιακά στοιχεία."
