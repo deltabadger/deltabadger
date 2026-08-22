@@ -1,8 +1,9 @@
 require 'test_helper'
 
 # When no stock catalog is present (self-hosted before the admin's Alpaca
-# bootstrap sync), the asset picker tells non-admins to ask their admin and
-# gives admins a CTA to the Settings activation. Hosted containers always have
+# bootstrap sync), the wizard's first step (the exchange step; the asset picker
+# on the asset-first route) tells non-admins to ask their admin and gives admins
+# a CTA to the Settings activation. Hosted containers always have
 # a catalog (data API), and a previously synced catalog stays active even if
 # the credential is later removed, so the notice never renders in either case.
 class StockActivationNoticeTest < ActionDispatch::IntegrationTest
@@ -15,7 +16,7 @@ class StockActivationNoticeTest < ActionDispatch::IntegrationTest
   test 'non-admin sees the ask-admin notice when no stock source is active' do
     sign_in create(:user, setup_completed: true)
 
-    get new_bots_dca_single_assets_pick_buyable_asset_path
+    get new_bots_dca_single_assets_pick_exchange_path
 
     assert_response :success
     assert_match I18n.t('bot.setup.stocks_ask_admin'), response.body
@@ -25,7 +26,7 @@ class StockActivationNoticeTest < ActionDispatch::IntegrationTest
   test 'admin sees an activation CTA linking to Settings' do
     sign_in @admin
 
-    get new_bots_dca_single_assets_pick_buyable_asset_path
+    get new_bots_dca_single_assets_pick_exchange_path
 
     assert_response :success
     assert_match I18n.t('bot.setup.stocks_activate_cta'), response.body
@@ -40,7 +41,7 @@ class StockActivationNoticeTest < ActionDispatch::IntegrationTest
     create(:ticker, exchange: exchange, base_asset: aapl, quote_asset: usd, available: true)
     sign_in create(:user, setup_completed: true)
 
-    get new_bots_dca_single_assets_pick_buyable_asset_path
+    get new_bots_dca_single_assets_pick_exchange_path
 
     refute_match I18n.t('bot.setup.stocks_ask_admin'), response.body
   end
@@ -49,7 +50,7 @@ class StockActivationNoticeTest < ActionDispatch::IntegrationTest
     MarketDataSettings.stubs(:current_provider).returns(MarketDataSettings::PROVIDER_DELTABADGER)
     sign_in create(:user, setup_completed: true)
 
-    get new_bots_dca_single_assets_pick_buyable_asset_path
+    get new_bots_dca_single_assets_pick_exchange_path
 
     refute_match I18n.t('bot.setup.stocks_ask_admin'), response.body
   end

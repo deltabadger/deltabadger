@@ -1,6 +1,11 @@
 class Bots::DcaSingleAssets::PickExchangesController < Bots::Wizard::PickExchangesController
   include Bots::Wizard::Navigable
 
+  # The exchange step is the first step of the default (exchange-first) order, so a POST with no
+  # wizard session yet is the normal first pick, not an expired session: it re-initialises the
+  # session like every first step (reset_downstream! starts from an empty config).
+  skip_before_action :redirect_if_session_expired, only: :create
+
   private
 
   def current_step = :exchange

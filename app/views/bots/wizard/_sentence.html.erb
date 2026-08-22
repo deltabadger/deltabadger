@@ -14,7 +14,8 @@
 
   Placeholders double as controls. On the FIRST step, while nothing is chosen, the
   not-yet-active of {asset, exchange} flips the order (POST) so that slot is picked
-  first. On the asset step, once something is chosen, the exchange/spending
+  first — on the default first step (the exchange step) the whole sentence is that
+  invitation: "You can also start with assets". On the asset step, once something is chosen, the exchange/spending
   placeholders — and the filled exchange chip — POST `advance`, the one way out of
   the step (it commits the basket before any later step reads it). Elsewhere a
   placeholder is inert: switching would discard the pick.
@@ -48,6 +49,9 @@
   exchange_url   = multi ? new_bots_dca_multi_assets_pick_exchange_path : new_bots_dca_single_assets_pick_exchange_path
   quote_search_url = multi ? new_bots_dca_multi_assets_pick_spendable_asset_path : new_bots_dca_single_assets_pick_spendable_asset_path
 
+  # The default first step has nothing to narrate yet: the sentence only offers the other route.
+  invite_only = current_step == :exchange && on_first_step && chosen.empty?
+
   # The stack previews the first few members and counts the rest, like the index previews.
   stack_limit = 5
   stack_class = case chosen.size
@@ -62,6 +66,14 @@
      data-controller="conversational-sentence"
      data-action="click->conversational-sentence#activate input->conversational-sentence#updateFilled">
 
+  <% if invite_only %>
+    <span class="conversational__lead">You can also start with</span>
+    <%= form_with url: order_url, method: :post, class: "conversational__link conversational__link--switch",
+                  data: { turbo_frame: "modal_content" } do |f| %>
+      <%= f.hidden_field :flow, value: "asset_first" %>
+      <input value="assets" readonly tabindex="-1">
+    <% end %>
+  <% else %>
   <span class="conversational__lead">Buy</span>
 
   <div class="conversational__assets">
@@ -158,5 +170,6 @@
     <% else %>
       <span class="ticker ticker--placeholder">…</span>
     <% end %>
+  <% end %>
   <% end %>
 </div>

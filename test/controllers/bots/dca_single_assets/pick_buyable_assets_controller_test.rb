@@ -10,6 +10,9 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     @binance = create(:binance_exchange)
     @usd = create(:asset, :usd)
     sign_in @user
+    # Asset-first is the optional route, but it is where the basket mechanics under test are
+    # easiest to drive (and where stock routing lives), so these tests opt into it.
+    post bots_dca_single_assets_order_path, params: { flow: 'asset_first' }
   end
 
   # ── listing ──────────────────────────────────────────────────────────────────
@@ -495,7 +498,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsStaleSessionTest < ActionControlle
   end
 
   test 'a one-element list renders as one chosen asset, GET leaves it untouched, and Next writes the single shape' do
-    get :new, session: { bot_config: { 'settings' => { 'base_asset_ids' => [@btc.id] } } }
+    get :new, session: { bot_config: { 'flow' => 'asset_first', 'settings' => { 'base_asset_ids' => [@btc.id] } } }
 
     assert_response :ok
     assert_select '.wizard-assets__row', count: 1
@@ -510,7 +513,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsStaleSessionTest < ActionControlle
 
   test 'the exchange chip hop normalises a one-element list before the single exchange step' do
     post :advance, params: { to: 'exchange' },
-                   session: { bot_config: { 'settings' => { 'base_asset_ids' => [@btc.id] } } }
+                   session: { bot_config: { 'flow' => 'asset_first', 'settings' => { 'base_asset_ids' => [@btc.id] } } }
 
     assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
     assert_equal @btc.id, session[:bot_config]['settings']['base_asset_id']
@@ -518,7 +521,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsStaleSessionTest < ActionControlle
   end
 
   test 'a duplicate and a dead id are dropped, and writes scrub the legacy dual keys' do
-    get :new, session: { bot_config: { 'settings' => {
+    get :new, session: { bot_config: { 'flow' => 'asset_first', 'settings' => {
       'base_asset_ids' => [@btc.id, @btc.id, 999_999], 'base0_asset_id' => @btc.id, 'base1_asset_id' => @eth.id
     } } }
 
@@ -539,7 +542,8 @@ class Bots::DcaSingleAssets::PickBuyableAssetsStaleSessionTest < ActionControlle
   test 'a stale quote neither narrows the step nor survives Next' do
     eur = create(:asset, symbol: 'EUR', name: 'Euro', category: 'Fiat', external_id: 'eur')
 
-    get :new, session: { bot_config: { 'settings' => { 'base_asset_ids' => [@btc.id, @eth.id], 'quote_asset_id' => eur.id } } }
+    get :new, session: { bot_config: { 'flow' => 'asset_first',
+                                       'settings' => { 'base_asset_ids' => [@btc.id, @eth.id], 'quote_asset_id' => eur.id } } }
 
     assert_response :ok
     assert_select '.wizard-assets__warning', count: 0

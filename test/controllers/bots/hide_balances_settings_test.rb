@@ -82,7 +82,7 @@ class Bots::HideBalancesSettingsTest < ActionDispatch::IntegrationTest
 
   # The wizard renders these same partials, and there the amount field IS the question.
   test 'a bot being created still asks for its contribution in the open' do
-    get new_bots_dca_single_assets_pick_buyable_asset_path
+    get new_bots_dca_single_assets_pick_exchange_path
 
     assert_response :success
     assert_select 'input[type=hidden][name=?]', 'bots_dca_single_asset[quote_amount]', false

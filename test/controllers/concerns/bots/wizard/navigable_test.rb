@@ -57,8 +57,8 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
 
   # ── current_variant ──────────────────────────────────────────────────────
 
-  test 'current_variant defaults to asset_first when flow is absent' do
-    assert_equal :asset_first, harness.call(:current_variant)
+  test 'current_variant defaults to exchange_first when flow is absent' do
+    assert_equal :exchange_first, harness.call(:current_variant)
   end
 
   test 'current_variant reads the flow stored in the session' do
@@ -122,8 +122,8 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
   # ── prerequisite_redirect_path (reproduces today's guards) ─────────────────
 
   test 'prerequisite_redirect_path bounces to an earlier incomplete step' do
-    # On the exchange step with no asset picked -> back to the asset step.
-    h = harness(current_step: :exchange, config: {})
+    # Asset-first, on the exchange step with no asset picked -> back to the asset step.
+    h = harness(current_step: :exchange, config: { 'flow' => 'asset_first' })
     h.bot = stub(api_key: stub(correct?: false))
     assert_equal '/single/currencies', h.call(:prerequisite_redirect_path)
   end

@@ -120,7 +120,9 @@ class Bots::DcaSingleAssets::AddApiKeysAlpacaIsolationTest < ActionDispatch::Int
     @alpaca = create(:alpaca_exchange)
     create(:ticker, exchange: @alpaca, base_asset: aapl, quote_asset: usd, base: 'AAPL', quote: 'USD')
 
-    # Single stock venue: Next on the asset step auto-selects Alpaca into the session.
+    # Single stock venue: Next on the asset step auto-selects Alpaca into the session (asset-first,
+    # the route that routes stocks through the broker step).
+    post bots_dca_single_assets_order_path, params: { flow: 'asset_first' }
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: aapl.id } }

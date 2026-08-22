@@ -14,7 +14,7 @@ class Bots::NewPickerTest < ActionDispatch::IntegrationTest
 
     get new_bot_path
     assert_response :success
-    assert_select "a[href='#{new_bots_dca_single_assets_pick_buyable_asset_path}']"
+    assert_select "a[href='#{new_bots_dca_single_assets_pick_exchange_path}']"
     assert_select "a[href='#{new_bots_dca_indexes_setup_coingecko_path}']"
   end
 
@@ -31,7 +31,7 @@ class Bots::NewPickerTest < ActionDispatch::IntegrationTest
 
     get new_bot_path
     assert_response :success
-    assert_select "a[href='#{new_bots_dca_single_assets_pick_buyable_asset_path}']"
+    assert_select "a[href='#{new_bots_dca_single_assets_pick_exchange_path}']"
     assert_select "a[href='#{new_bots_dca_indexes_setup_coingecko_path}']"
     assert_select "a[href='#{new_bots_signals_pick_buyable_asset_path}']"
   end

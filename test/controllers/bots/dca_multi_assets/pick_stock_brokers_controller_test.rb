@@ -11,6 +11,9 @@ class Bots::DcaMultiAssets::PickStockBrokersControllerTest < ActionDispatch::Int
     create(:ticker, exchange: @alpaca, base_asset: @aapl, quote_asset: @usd, base: 'AAPL', quote: 'USD')
     create(:ticker, exchange: @alpaca, base_asset: @msft, quote_asset: @usd, base: 'MSFT', quote: 'USD')
     sign_in @user
+    # Asset-first is the optional route, but it is where the basket mechanics under test are
+    # easiest to drive (and where stock routing lives), so these tests opt into it.
+    post bots_dca_single_assets_order_path, params: { flow: 'asset_first' }
   end
 
   test 'with a single venue listing every stock, Next auto-selects it' do

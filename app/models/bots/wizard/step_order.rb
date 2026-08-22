@@ -32,7 +32,7 @@ class Bots::Wizard::StepOrder
     }
   }.freeze
 
-  def self.for(bot_type:, variant: :asset_first)
+  def self.for(bot_type:, variant: :exchange_first)
     new(bot_type: bot_type.to_sym, variant: variant.to_sym)
   end
 

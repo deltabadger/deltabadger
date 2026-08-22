@@ -1,10 +1,11 @@
 require 'test_helper'
 
-# Exchange-first variant of the bot-creation wizard: the user flips the order on
-# the first step and picks the venue before the asset. Covers the toggle (POST-
-# only), the reversed happy paths for single + multi, downstream reset, the
-# order-aware prerequisite bounce, and the stock-venue path (which must NOT route
-# through the asset-first StockBrokerRoutable machinery).
+# Order of the bot-creation wizard. Exchange-first is the DEFAULT: the venue is
+# picked before the assets; asset-first is the optional route taken by flipping
+# the order on the first step. Covers the toggle (POST-only), both happy paths for
+# single + multi, downstream reset, the order-aware prerequisite bounce, and the
+# stock-venue path (exchange-first must NOT route through the asset-first
+# StockBrokerRoutable machinery).
 class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
   setup do
     create(:user, admin: true)
@@ -25,8 +26,13 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
   end
 
   def switch_to_exchange_first
-    get new_bots_dca_single_assets_pick_buyable_asset_path
+    get new_bots_dca_single_assets_pick_exchange_path
     post bots_dca_single_assets_order_path, params: { flow: 'exchange_first' }
+  end
+
+  def switch_to_asset_first
+    get new_bots_dca_single_assets_pick_exchange_path
+    post bots_dca_single_assets_order_path, params: { flow: 'asset_first' }
   end
 
   def pick(asset)
@@ -48,10 +54,29 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
     follow_redirect! # pick_buyable
   end
 
+  # ── the default order ────────────────────────────────────────────────────────
+
+  test 'the default order is exchange-first: a fresh session starts at the exchange step' do
+    get new_bots_dca_single_assets_pick_exchange_path
+    assert_response :ok
+    assert_select 'div.process-progress h4', 'Pick exchange'
+    # With nothing to narrate yet, the sentence only offers the optional asset-first route.
+    assert_select '.conversational .conversational__lead', text: 'You can also start with'
+    assert_select '.conversational .conversational__lead', text: 'Buy', count: 0
+    assert_select '.conversational form[action=?] input[name="flow"][value="asset_first"]',
+                  bots_dca_single_assets_order_path
+    assert_select '.conversational form[action=?] input[value="assets"]', bots_dca_single_assets_order_path
+
+    # The asset step is not reachable before the venue.
+    get new_bots_dca_single_assets_pick_buyable_asset_path
+    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
+  end
+
   # ── header titles (no segmented toggle; the sentence does the switching) ─────
 
   test 'the header reads Pick asset / Pick exchange and there is no segmented toggle' do
     # Asset-first: the first step is the asset step.
+    switch_to_asset_first
     get new_bots_dca_single_assets_pick_buyable_asset_path
     assert_response :ok
     assert_select '.order-toggle', false, 'the header toggle is removed'
@@ -90,6 +115,7 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
 
   test 'on the first step a conversational slot switches the order; after a pick it advances instead' do
     # Asset-first first step: the (unfilled) exchange slot is a mode switch.
+    switch_to_asset_first
     get new_bots_dca_single_assets_pick_buyable_asset_path
     assert_select '.conversational form[action=?]', bots_dca_single_assets_order_path
 
@@ -295,6 +321,7 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
   end
 
   test 'asset-first still bounces the exchange step back to the asset step' do
+    switch_to_asset_first
     get new_bots_dca_single_assets_pick_exchange_path
     assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
   end

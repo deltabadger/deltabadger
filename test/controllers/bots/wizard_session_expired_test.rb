@@ -22,10 +22,11 @@ class WizardSessionExpiredTest < ActionDispatch::IntegrationTest
     assert_match %(action="redirect"), response.body
   end
 
-  test 'single pick_exchanges cold create turbo-redirects to root' do
+  test 'single pick_exchanges cold create re-initialises the session and proceeds (it is the first step)' do
     post bots_dca_single_assets_pick_exchange_path,
          params: { bots_dca_single_asset: { exchange_id: @binance.id } }
-    assert_turbo_redirect_to_root
+    assert_redirected_to new_bots_dca_single_assets_add_api_key_path
+    assert_equal @binance.id.to_s, session[:bot_config]['exchange_id'].to_s
   end
 
   test 'the DCA asset step cold pick re-initialises the session and keeps the pick' do
