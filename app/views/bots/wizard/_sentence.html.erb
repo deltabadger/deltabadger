@@ -9,8 +9,9 @@
 
   The asset slot holds the whole basket as one stack of chips: away from the asset
   step the stack is a single link back to it (adding and removing happen there, in
-  the table under the sentence); on the asset step it is inert — the search box sits
-  above the list, not in the sentence — and an empty basket shows a muted "…".
+  the table under the sentence); on the asset step it toggles that table (folded by
+  default) — the search box sits above the list, not in the sentence — and an empty
+  basket shows a muted placeholder.
 
   Placeholders double as controls. On the FIRST step, while nothing is chosen, the
   not-yet-active of {asset, exchange} flips the order (POST) so that slot is picked
@@ -82,8 +83,11 @@
 
   <div class="conversational__assets">
     <% if chosen.any? %>
-      <% stack_options = { class: "conversational__stack" } %>
-      <% stack_options.merge!(href: asset_step_url, data: { turbo_frame: 'modal_content', wizard_dir: 'back' }) unless on_asset_step %>
+      <% stack_options = if on_asset_step
+                           { class: "conversational__stack conversational__stack--toggle", data: { action: "click->class-toggle#toggle" } }
+                         else
+                           { class: "conversational__stack", href: asset_step_url, data: { turbo_frame: 'modal_content', wizard_dir: 'back' } }
+                         end %>
       <%= content_tag(on_asset_step ? :div : :a, **stack_options) do %>
         <div class="ticker-group <%= stack_class %>">
           <% chosen.first(stack_limit).each do |asset| %>

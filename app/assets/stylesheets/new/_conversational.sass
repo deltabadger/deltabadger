@@ -56,6 +56,9 @@
             display: flex
             align-items: center
             justify-content: center
+        // On the asset step the stack folds and unfolds the basket table.
+        &--toggle
+            cursor: pointer
     &__stack-count
         color: var(--concrete)
         padding-right: 1rem
@@ -134,6 +137,7 @@
     align-items: center
     @media (min-width: 768px)
         padding: 3rem 3rem 0
+        gap: 3rem
     h4
         color: var(--link)
     .slider__style__track

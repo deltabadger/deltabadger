@@ -46,9 +46,10 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
     redirect_to new_bots_dca_single_assets_pick_buyable_asset_path
   end
 
+  # The basket table comes back open: the user was working in it.
   def remove
     write_ids(chosen_asset_ids - [bot_params[:base_asset_id].to_i])
-    redirect_to new_bots_dca_single_assets_pick_buyable_asset_path
+    redirect_to new_bots_dca_single_assets_pick_buyable_asset_path(basket: 'open')
   end
 
   # The one way out of the step (Next, the sentence placeholders, and the exchange chip with

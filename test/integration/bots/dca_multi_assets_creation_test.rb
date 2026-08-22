@@ -63,7 +63,7 @@ class Bots::DcaMultiAssetsCreationTest < ActionDispatch::IntegrationTest
 
     remove @ethereum
 
-    assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
+    assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path(basket: 'open')
     assert_equal @bitcoin.id, session[:bot_config].dig('settings', 'base_asset_id')
     assert_nil session[:bot_config].dig('settings', 'base_asset_ids')
 
