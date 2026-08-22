@@ -8,7 +8,14 @@ export default class extends Controller {
     this.handleOutsideClick = this.handleOutsideClick.bind(this);
   }
 
-  toggle() {
+  // Every click inside the wrapper bubbles to here, which is what closes the menu after picking an
+  // item — right for a link, wrong for a control the menu OWNS: flipping a switch is not choosing
+  // where to go, and the menu closing under the finger makes it unusable for a second flip.
+  // Marked elements opt out; the menu still closes on an outside click or on any item that leads
+  // somewhere.
+  toggle(event) {
+    if (event?.target?.closest?.("[data-dropdown-keep-open]")) return;
+
     this.wrapperTarget.classList.toggle("dropdown-wrapper--on");
     const isOpen = this.wrapperTarget.classList.contains("dropdown-wrapper--on");
 

@@ -114,6 +114,36 @@ class Settings::HideBalancesTest < ActionDispatch::IntegrationTest
     assert_select '.menu-mobile form[action=?] .toggle', settings_update_hide_balances_path
   end
 
+  # The whole line is the control. A menu row that only answers on its last two centimetres reads
+  # as broken, so the row is a label and the click lands wherever it falls.
+  test 'the whole row is the hit area, not just the switch' do
+    get bots_path
+
+    assert_select 'form[action=?] label', settings_update_hide_balances_path do
+      assert_select 'input[type=checkbox][name=hide_balances]'
+      assert_select 'span', text: I18n.t('links.hide_balances')
+    end
+  end
+
+  # Flipping a switch is not choosing where to go: the menu has to survive the click, or a second
+  # flip means reopening it.
+  test 'the row opts out of the click that closes the menu' do
+    get bots_path
+
+    assert_select 'form[action=?] label[data-dropdown-keep-open]', settings_update_hide_balances_path
+    # ...but the items that DO lead somewhere still close it.
+    assert_select '.dropdown a.dropdown__item[data-dropdown-keep-open]', false
+  end
+
+  # The flip re-renders the page, and a menu that vanished mid-flip would be a menu you had to
+  # reopen to change your mind.
+  test 'the menus survive the re-render the switch causes' do
+    get bots_path
+
+    assert_select '#settings-menu[data-turbo-permanent]'
+    assert_select '#hamburger[data-turbo-permanent]'
+  end
+
   test 'signing out is still required to change anyone else\'s preference' do
     sign_out @user
 

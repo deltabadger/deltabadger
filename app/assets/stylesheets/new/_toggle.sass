@@ -93,6 +93,11 @@
                 path
                     fill: var(--grass)
 
+// The LABEL is the menu row; the form around it only carries the submit, so it must not put a box
+// between the menu and its own item.
+.switch-row-form
+    display: contents
+
 input[type=checkbox]
     cursor: pointer
 .toggle-group
