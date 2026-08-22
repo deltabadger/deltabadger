@@ -14,16 +14,24 @@ export default class extends Controller {
   }
 
   // The filter row is broadcast-replaced whenever an order changes (Bot#broadcast_order_filters_update)
-  // and comes back rendered on "all", while this controller — which lives on an ancestor and
+  // and comes back rendered on its default, while this controller — which lives on an ancestor and
   // survives — is still filtering. Re-select what the user actually chose; if that tab no longer
-  // exists (its last order changed category), fall back to the "all" the server just rendered.
+  // exists (its last order changed category), fall back to the default the server just rendered.
+  //
+  // The fallback comes off the CONTAINER, not from a constant and not from this element: the
+  // container is what the broadcast replaces, so its default is as fresh as the tabs in it, while
+  // this element survives the whole page and anything parked on it would be page-load stale. The
+  // set of tabs is fluid — "All" is absent while balances are hidden, and a category disappears
+  // when its last order changes kind — so a hard-coded "all" could name a tab that is not there
+  // and hide every row.
   filterContainerTargetConnected(container) {
-    if (this.currentValue === "all") return
+    const fallback = container.dataset.orderFilterDefault || "all"
+    if (this.currentValue === fallback) return
 
     const option = container.querySelector(`[data-value="${this.currentValue}"]`)
     if (option) return option.click()
 
-    this.currentValue = "all"
+    this.currentValue = fallback
     this.updateVisibility()
     this.updateHeader()
   }

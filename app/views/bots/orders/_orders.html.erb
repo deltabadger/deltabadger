@@ -1,10 +1,14 @@
 <% has_waiting = bot.transactions.waiting.exists? %>
+<% hide_money = hide_balances?(bot) %>
+<%# Computed once and handed down: the filter row asks the same questions of the same bot, and it
+    only recomputes them for itself when a broadcast renders it on its own. %>
+<% tabs = order_filter_tabs(bot) %>
 
-<% order_filter = params[:order_filter] || 'all' %>
+<% order_filter = params[:order_filter] || default_order_filter(tabs) %>
 <div data-controller="order-filter" data-order-filter-current-value="<%= order_filter %>" style="gap: 1rem; display: flex; flex-direction: column">
 
   <div style="display: flex; justify-content: space-between; align-items: center;">
-    <%= render 'bots/orders/order_filters', bot: bot %>
+    <%= render 'bots/orders/order_filters', bot: bot, tabs: tabs %>
     <%= render 'bots/orders/export', bot: bot %>
   </div>
 
@@ -17,8 +21,10 @@
       <thead>
         <tr>
           <th scope="col"><%= t('data_labels.date') %></th>
-          <th scope="col" data-order-filter-target="columnHeader"><%= t('data_labels.amount') %></th>
-          <th scope="col" data-order-filter-target="columnHeader"><%= t('data_labels.value') %></th>
+          <% unless hide_money %>
+            <th scope="col" data-order-filter-target="columnHeader"><%= t('data_labels.amount') %></th>
+            <th scope="col" data-order-filter-target="columnHeader"><%= t('data_labels.value') %></th>
+          <% end %>
           <th scope="col" data-order-filter-target="columnHeader"><%= t('data_labels.price') %></th>
           <th></th>
         </tr>
@@ -26,7 +32,7 @@
       <tbody id="orders_list">
         <% if BotActivityFeed.new(bot: bot, limit: 1).items.empty? %>
           <tr id="orders_list_placeholder">
-            <td colspan="5" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
+            <td colspan="<%= hide_money ? 3 : 5 %>" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
           </tr>
         <% end %>
       </tbody>

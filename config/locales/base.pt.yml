@@ -81,6 +81,8 @@ pt:
             text_html: 'Verifique a sua caixa de correio eletrónico e clique na <b>ligação de confirmação</b> que lhe enviámos. Depois, aceda à página de início de sessão.'
             title: Obrigado!
     links:
+        hide_balances: 'Ocultar saldos'
+        show_balances: 'Mostrar saldos'
         about: 'Sobre'
         telegram: 'Telegram'
         create_account: 'Criar conta gratuita'

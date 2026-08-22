@@ -81,6 +81,8 @@ fr:
             text_html: 'Vérifie ta boîte aux lettres et clique sur le <b> lien de confirmation </b> que nous vous avons envoyé. Rends-toi ensuite sur la page de connexion.'
             title: 'Merci !'
     links:
+        hide_balances: 'Masquer les soldes'
+        show_balances: 'Afficher les soldes'
         about: 'À propos'
         telegram: 'Telegram'
         create_account: 'Créer un compte gratuit'

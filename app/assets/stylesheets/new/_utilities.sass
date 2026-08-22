@@ -117,10 +117,16 @@ $values: 1 2 3 4 5
         #{$side}#{$side-suffix}-#{$dir-name}: #{$value}rem
 // PnL format switch (pnl_format_controller.js): percent by default, amounts when <html> carries
 // the class. Both formats are always in the markup so a turbo broadcast cannot reset the choice.
+//
+// The body guard is the ONE piece of CSS the hide-balances preference needs, and it is not what
+// does the hiding — the server simply stops rendering .pnl-amount. It stops a STALE choice from
+// blanking what is left: show-pnl-amount lives on <html>, which Turbo never resets, so a reader
+// who was on amounts when they turned hiding on would get the amount removed AND the percent
+// hidden. Both classes are still read off the same subtree, so one selector covers it.
 .pnl-amount
   display: none
 .show-pnl-amount
   .pnl-amount
     display: inline
-  .pnl-percent
+  body:not(.hide-balances) .pnl-percent
     display: none

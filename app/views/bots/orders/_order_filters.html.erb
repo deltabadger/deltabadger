@@ -1,21 +1,21 @@
-<% has_successful = bot.transactions.submitted.closed.exists? %>
-<% has_waiting = bot.transactions.waiting.exists? %>
-<% has_other = bot.transactions.other.exists? %>
-<% categories = [has_successful, has_waiting, has_other].count(true) %>
-<% show_filters = categories > 1 %>
+<% tabs = local_assigns.fetch(:tabs) { order_filter_tabs(bot) } %>
+<%# More than one NAMED category: "All" (when it is offered at all) is not a category of its own,
+    it is every row, so a bot whose rows all fall in one place still needs no control. %>
+<% show_filters = tabs.count { |value, _, available| available && value != 'all' } > 1 %>
 
-<% order_filter = params[:order_filter] || 'all' %>
+<% order_filter = params[:order_filter] || default_order_filter(tabs) %>
 <%# Fluid: the option COUNT depends on what the bot actually has (a bot that never skipped a
     contribution gets no Other tab), and the labels differ in width, so equal columns would resize the
     whole control from bot to bot. The order-filter controller still does the filtering; it just
     hears about the choice through the segmented control's event now. %>
 <%# "Other" last: it is the catch-all for what the named tabs don't want — cancelled,
     skipped, failed — and it shows those rows as their message, not as columns. %>
-<% tabs = [['all', t('order_filters.all'), true],
-           ['successful', t('order_filters.transactions'), has_successful],
-           ['waiting', t('order_filters.waiting'), has_waiting],
-           ['other', t('order_filters.other'), has_other]] %>
+<%# data-order-filter-default lives HERE, on the element the broadcast replaces, and not on the
+    controller's own element, which nothing ever replaces. It is the fallback for "the tab I was on
+    no longer exists", so it has to be as fresh as the tabs beside it: parked upstream it would
+    freeze at page-load time and send the reader to a tab that has since disappeared. %>
 <div id="<%= dom_id(bot, :order_filters) %>" class="filters" data-order-filter-target="filterContainer"
+     data-order-filter-default="<%= default_order_filter(tabs) %>"
      data-action="segmented:change->order-filter#filter">
   <% if show_filters %>
     <%= render 'shared/segmented', fluid: true, label: t('order_filters.all'),

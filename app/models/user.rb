@@ -185,7 +185,8 @@ class User < ApplicationRecord
       ["user_#{id}", :bot_updates],
       target: 'global-pnl',
       partial: 'bots/global_pnl',
-      locals: { global_pnl: global_pnl, denomination: denomination, loading: false }
+      locals: { global_pnl: global_pnl, denomination: denomination, loading: false,
+                hide_balances: hide_balances? }
     )
   end
 

@@ -16,6 +16,7 @@ export default class extends Controller {
     bot: Number,
     pnl: Array,
     assets: Object,
+    pnlOnly: Boolean,
   };
 
   connect() {
@@ -212,6 +213,11 @@ export default class extends Controller {
   }
 
   #storedMode() {
+    // Hiding balances leaves RETURN as the only mode — VALUE plots the money — so the stored
+    // choice is not consulted at all. Ahead of the try: a session that last read VALUE must not
+    // come back to it.
+    if (this.pnlOnlyValue) return "pnl";
+
     try {
       return sessionStorage.getItem(this.#storageKey) === "pnl" ? "pnl" : "value";
     } catch {
@@ -295,7 +301,9 @@ export default class extends Controller {
     // Named while focused, or the curve would change under the pointer with nothing saying to what.
     const range = point || first === on ? on : `${first} – ${on}`;
     this.dateTarget.textContent = this.focused ? `${this.focused} · ${range}` : range;
-    this.pnlTarget.textContent = this.#money(pnl);
+    // Absent while balances are hidden: the view drops the element rather than hiding it, and
+    // Stimulus raises on a missing target.
+    if (this.hasPnlTarget) this.pnlTarget.textContent = this.#money(pnl);
     this.percentTarget.textContent = this.#percent(spent > 0 ? pnl / spent : 0);
     this.summaryTarget.classList.toggle("text-danger", pnl < 0);
     this.summaryTarget.classList.toggle("text-success", pnl >= 0);

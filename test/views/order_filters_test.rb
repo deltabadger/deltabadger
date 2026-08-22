@@ -80,4 +80,58 @@ class OrderFiltersTest < ActionView::TestCase
 
     assert_select '.segmented', 0
   end
+
+  # --- balances hidden --------------------------------------------------------------------
+  #
+  # "All" is the sentence timeline, which states the money in prose, so it is the one tab hiding
+  # balances takes away.
+
+  test 'hiding balances drops the All tab' do
+    create(:transaction, :skipped, bot: @bot)
+    @bot.user.update!(hide_balances: true)
+
+    render_filters(@bot)
+
+    assert_equal %w[successful other], values
+  end
+
+  test 'the log opens on the first tab that still has rows' do
+    create(:transaction, :skipped, bot: @bot)
+    @bot.user.update!(hide_balances: true)
+
+    render_filters(@bot)
+
+    assert_select '.filters[data-order-filter-default=successful]'
+  end
+
+  # Activity rows lived only under All, so Other has to open for them — otherwise a bot's own
+  # events would have nowhere left to show.
+  test 'a bot event opens the Other tab once All is gone' do
+    @bot.bot_activity_logs.create!(event: 'started')
+    @bot.user.update!(hide_balances: true)
+
+    render_filters(@bot)
+
+    assert_equal %w[successful other], values
+  end
+
+  # ...but only an event the feed would actually show: order_skipped is already represented by its
+  # own transaction row and never reaches the list.
+  test 'an event the feed excludes opens nothing' do
+    @bot.bot_activity_logs.create!(event: 'order_skipped')
+    @bot.user.update!(hide_balances: true)
+
+    render_filters(@bot)
+
+    assert_select '.segmented', 0
+  end
+
+  test 'one category still means no filters at all' do
+    @bot.user.update!(hide_balances: true)
+
+    render_filters(@bot)
+
+    assert_select '.segmented', 0
+    assert_select '.filters[data-order-filter-default=successful]'
+  end
 end

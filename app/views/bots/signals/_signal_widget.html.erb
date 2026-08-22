@@ -77,7 +77,14 @@
             <span><%= t('bot.signal.for') %></span>
             <div class="ticker-input ticker-input--autoscale" data-controller="form--select-display">
               <% value = signal.amount.present? ? signal.amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
-              <%= f.number_field :amount, value: value, class: 'numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit#submit input->autowidth-input#resize" }, disabled: bot.working?, placeholder: "100" %>
+              <%# The select beside it decides what this number IS: a fixed amount of the quote asset,
+                  or a percentage of the balance. Only the money reading is hidden — a percentage is
+                  not a balance, and hiding it would leave the sentence saying nothing. %>
+              <% if hide_balances?(bot) && signal.fixed? %>
+                <%= f.hidden_field :amount, value: value %>
+              <% else %>
+                <%= f.number_field :amount, value: value, class: 'numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit#submit input->autowidth-input#resize" }, disabled: bot.working?, placeholder: "100" %>
+              <% end %>
               <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? %>">
                 <span data-form--select-display-target="label"><%= signal.percentage? ? '%' : bot.quote_asset.symbol %></span>
                 <%= f.select :amount_type, options_for_select([[bot.quote_asset.symbol, :fixed], ['%', :percentage]], signal.amount_type), {}, data: { action: "change->form--select-toggle#toggle change->form--submit#submit change->form--select-display#update" }, disabled: bot.working? %>

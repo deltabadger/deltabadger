@@ -2,18 +2,21 @@
   <% if global_pnl.present? %>
     <% pnl_percent = global_pnl[:percent] %>
     <% profit_usd = global_pnl[:profit_usd] %>
-    <%# Switches every PnL on the page — this one and each bot tile — see pnl_format_controller.js. %>
-    <h1 class="header header--1"
-        data-controller="pnl-format"
-        data-action="click->pnl-format#toggle"
-        style="cursor: pointer;">
+    <%# Switches every PnL on the page — this one and each bot tile — see pnl_format_controller.js.
+        With balances hidden there is no second format to switch to, so the headline is a headline
+        again: no controller, no pointer, no amount. %>
+    <%= tag.h1 class: "header header--1",
+               data: (hide_balances ? {} : { controller: "pnl-format", action: "click->pnl-format#toggle" }),
+               style: ("cursor: pointer;" unless hide_balances) do %>
       <span class="pnl-percent">
         <%= pnl_percent.positive? ? '+' : '' %><%= format_percent(pnl_percent, precision: 2) %>
       </span>
-      <span class="pnl-amount">
-        <%= profit_usd.positive? ? '+' : '' %><%= denomination.format(profit_usd, precision: 0) %>
-      </span>
-    </h1>
+      <% unless hide_balances %>
+        <span class="pnl-amount">
+          <%= profit_usd.positive? ? '+' : '' %><%= denomination.format(profit_usd, precision: 0) %>
+        </span>
+      <% end %>
+    <% end %>
   <% elsif loading %>
     <div class="loader--small"></div>
   <% end %>

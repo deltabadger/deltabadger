@@ -187,7 +187,9 @@ class Bots::DcaDualAsset < Bot
       ["user_#{user_id}", :bot_updates],
       target: 'modal',
       partial: 'bots/dca_dual_assets/warning_below_minimums',
-      locals: locals_for_below_minimums_warning(first_transaction, second_transaction)
+      # bot: the one-missed wording states what was spent, and the view needs to know whether this
+      # account is hiding balances before it says so.
+      locals: locals_for_below_minimums_warning(first_transaction, second_transaction).merge(bot: self)
     )
   end
 

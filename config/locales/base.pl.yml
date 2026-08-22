@@ -83,6 +83,8 @@ pl:
             text_html: 'Sprawdź swoją skrzynkę pocztową i kliknij <b>link potwierdzający</b>, który do Ciebie wysłaliśmy. Następnie przejdź do strony logowania.'
             title: Dzięki!
     links:
+        hide_balances: 'Ukryj salda'
+        show_balances: 'Pokaż salda'
         about: 'O nas'
         telegram: 'Telegram'
         create_account: 'Stwórz darmowe konto'

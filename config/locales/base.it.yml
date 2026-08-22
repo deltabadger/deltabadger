@@ -81,6 +81,8 @@ it:
             text_html: 'Controlla la tua casella di posta e clicca sul <b>link di conferma</b> che ti abbiamo inviato. Poi vai alla pagina di login.'
             title: Grazie!
     links:
+        hide_balances: 'Nascondi saldi'
+        show_balances: 'Mostra saldi'
         about: Chi siamo
         telegram: 'Telegram'
         create_account: 'Crea account gratuito'

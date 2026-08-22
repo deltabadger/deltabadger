@@ -24,6 +24,9 @@
   = link_to settings_account_path, class: "menu-mobile__item menu-mobile__item--account #{'menu-mobile__item--active' if current_page?(settings_account_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
     = t('links.account')
 
+  = button_to settings_update_hide_balances_path, method: :patch, class: "menu-mobile__item menu-mobile__button" do
+    = t(current_user.hide_balances? ? 'links.show_balances' : 'links.hide_balances')
+
   .menu-mobile__divider
   = button_to destroy_user_session_path, method: :delete, class: "menu-mobile__item menu-mobile__button", data: { turbo: false } do
     = t('links.log_out')
@@ -66,6 +69,10 @@
       .dropdown
         = link_to t('links.connections'), settings_connect_path, class: "dropdown__item"
         = link_to t('links.account'), settings_account_path, class: "dropdown__item"
+        -# The label is the ACTION, not the state: an item that says what the click will do needs
+          no check mark, and there is no room for one in a dropdown that is otherwise all links.
+        = button_to settings_update_hide_balances_path, method: :patch, class: "dropdown__item" do
+          = t(current_user.hide_balances? ? 'links.show_balances' : 'links.hide_balances')
         .dropdown__item.dropdown__item--divider
         = button_to destroy_user_session_path, method: :delete, class: "dropdown__item dropdown__item--danger", data: { turbo: false } do
           = t('links.log_out')
