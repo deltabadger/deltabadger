@@ -52,7 +52,7 @@
   # The default first step has nothing to narrate yet: the sentence only offers the other route.
   invite_only = current_step == :exchange && on_first_step && chosen.empty?
 
-  # The stack previews the first few members and counts the rest, like the index previews.
+  # The stack previews the first few members; the rest is a plain count after the chips.
   stack_limit = 5
   stack_class = case chosen.size
                 when 0, 1 then ''
@@ -78,22 +78,24 @@
 
   <div class="conversational__assets">
     <% if chosen.any? %>
-      <% stack_options = { class: "conversational__stack ticker-group #{stack_class}".strip } %>
+      <% stack_options = { class: "conversational__stack" } %>
       <% stack_options.merge!(href: asset_step_url, data: { turbo_frame: 'modal_content', wizard_dir: 'back' }) unless on_asset_step %>
       <%= content_tag(on_asset_step ? :div : :a, **stack_options) do %>
-        <% chosen.first(stack_limit).each do |asset| %>
-          <%= tag.div asset.symbol, class: ticker_class(asset),
-                      style: "background: #{ensure_contrast(asset.color || '#8A9BA8')}", data: ticker_data(asset) %>
-        <% end %>
+        <div class="ticker-group <%= stack_class %>">
+          <% chosen.first(stack_limit).each do |asset| %>
+            <%= tag.div asset.symbol, class: ticker_class(asset),
+                        style: "background: #{ensure_contrast(asset.color || '#8A9BA8')}", data: ticker_data(asset) %>
+          <% end %>
+        </div>
         <% if chosen.size > stack_limit %>
-          <div class="ticker ticker--more">+<%= chosen.size - stack_limit %></div>
+          <span class="conversational__stack-count">+<%= chosen.size - stack_limit %></span>
         <% end %>
       <% end %>
     <% end %>
 
     <% if on_asset_step %>
       <% if chosen.empty? %>
-        <span class="ticker ticker--placeholder">…</span>
+        <span class="ticker ticker--placeholder"></span>
       <% end %>
     <% elsif chosen.empty? %>
       <%# Asset not chosen yet (exchange-first): clicking the slot switches to
@@ -103,7 +105,7 @@
       <%= form_with url: order_url, method: :post, class: "ticker ticker--placeholder ticker--switch",
                     data: { turbo_frame: "modal_content" } do |f| %>
         <%= f.hidden_field :flow, value: "asset_first" %>
-        <input placeholder="…" readonly tabindex="-1">
+        <input placeholder="" readonly tabindex="-1">
       <% end %>
     <% end %>
   </div>
@@ -160,10 +162,10 @@
     <% elsif on_asset_step %>
       <%= form_with url: advance_url, method: :post, class: "ticker ticker--placeholder ticker--advance",
                     data: { turbo_frame: "modal_content" } do %>
-        <input placeholder="…" readonly tabindex="-1">
+        <input placeholder="" readonly tabindex="-1">
       <% end %>
     <% else %>
-      <span class="ticker ticker--placeholder">…</span>
+      <span class="ticker ticker--placeholder"></span>
     <% end %>
   <% end %>
   <% end %>
