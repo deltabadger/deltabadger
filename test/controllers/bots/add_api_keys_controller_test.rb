@@ -91,6 +91,7 @@ class Bots::DcaSingleAssets::AddApiKeysControllerTest < ActionDispatch::Integrat
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: @btc.id } }
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
   end
 
   def seed_wizard_session
@@ -119,10 +120,11 @@ class Bots::DcaSingleAssets::AddApiKeysAlpacaIsolationTest < ActionDispatch::Int
     @alpaca = create(:alpaca_exchange)
     create(:ticker, exchange: @alpaca, base_asset: aapl, quote_asset: usd, base: 'AAPL', quote: 'USD')
 
-    # Single stock venue: the asset POST auto-selects Alpaca into the session.
+    # Single stock venue: Next on the asset step auto-selects Alpaca into the session.
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: aapl.id } }
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
   end
 
   test 'a non-admin Alpaca connect creates only their own ApiKey and never touches AppConfig' do
@@ -200,10 +202,9 @@ class Bots::DcaMultiAssets::AddApiKeysControllerTest < ActionDispatch::Integrati
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: @btc.id } }
-    post promote_to_multi_bots_dca_single_assets_pick_exchange_path
-    post bots_dca_multi_assets_pick_assets_path,
-         params: { bots_dca_multi_asset: { base_asset_id: @eth.id } }
-    post advance_bots_dca_multi_assets_pick_assets_path
+    post bots_dca_single_assets_pick_buyable_asset_path,
+         params: { bots_dca_single_asset: { base_asset_id: @eth.id } }
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
   end
 
   def seed_wizard_session

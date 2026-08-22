@@ -11,9 +11,7 @@ nl:
             connect_alpaca_html: "Wil je in aandelen beleggen? Koppel eerst Alpaca via %{settings_link}."
             settings_link: "Instellingen"
         dca_multi_asset:
-            invest_on: "Investeer op"
             add_asset: "Asset toevoegen"
-            add_another_asset: "Nog een asset toevoegen…"
             remove_asset: "Verwijderen"
             max_assets_reached: "Je kunt maximaal %{max} assets aanhouden."
             min_assets: "Een portefeuille heeft minstens %{min} assets nodig."

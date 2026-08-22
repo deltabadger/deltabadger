@@ -8,9 +8,7 @@ da:
             connect_alpaca_html: "For at investere i aktier skal du først forbinde Alpaca i %{settings_link}."
             settings_link: "Indstillinger"
         dca_multi_asset:
-            invest_on: "Investér på"
             add_asset: "Tilføj aktiv"
-            add_another_asset: "Tilføj endnu et aktiv…"
             remove_asset: "Fjern"
             max_assets_reached: "Du kan have op til %{max} aktiver."
             min_assets: "En portefølje skal have mindst %{min} aktiver."

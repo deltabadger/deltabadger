@@ -186,21 +186,19 @@ Rails.application.routes.draw do
         # POST-only order switch (asset-first ⇄ exchange-first). Never a GET —
         # Turbo prefetches GETs on hover, which must not flip the variant.
         resource :order, only: [:create]
-        resource :pick_buyable_asset, only: [:new, :create]
-        resource :pick_exchange, only: [:new, :create] do
-          post :promote_to_multi, on: :collection
+        # The asset step is shared with the multi-asset bot: the basket is collected here and the
+        # type decided on advance (one asset → single, more → multi).
+        resource :pick_buyable_asset, only: [:new, :create] do
+          post :remove, on: :collection
+          post :advance, on: :collection
         end
+        resource :pick_exchange, only: [:new, :create]
         resource :pick_stock_broker, only: [:new, :create]
         resource :add_api_key, only: [:new, :create]
         resource :pick_spendable_asset, only: [:new, :create]
       end
       resources :dca_multi_assets, only: [:create]
       namespace :dca_multi_assets do
-        resource :order, only: [:create]
-        resource :pick_assets, only: [:new, :create] do
-          post :remove, on: :collection
-          post :advance, on: :collection
-        end
         resource :pick_exchange, only: [:new, :create]
         resource :pick_stock_broker, only: [:new, :create]
         resource :add_api_key, only: [:new, :create]

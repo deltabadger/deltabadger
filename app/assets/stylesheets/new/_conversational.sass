@@ -40,21 +40,18 @@
         .ticker
             background: var(--steel)
 
+    // The basket: one stack of chips (.conversational__stack, a link away from the asset step)
+    // followed, on the asset step, by the live search input.
     &__assets
         display: flex
+        align-items: center
+        gap: 0.5rem
+    &__stack
+        text-decoration: none
         .ticker
-            &:first-child
-                z-index: 1
-            &:not(:first-child)
-                margin-left: -8rem
-                input
-                    cursor: pointer
-                &.active
-                    margin-left: -1rem
-                    input
-                        cursor: default
-                &.filled
-                    margin-left: -5rem
+            display: flex
+            align-items: center
+            justify-content: center
     &__link
         input
             color: var(--link)

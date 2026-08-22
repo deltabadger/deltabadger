@@ -8,11 +8,12 @@ module Bots::DcaMultiAssets::WizardSteps
   def add_api_key_path = new_bots_dca_multi_assets_add_api_key_path
   def wizard_default_settings = Bots::WizardDefaults::MULTI
 
-  # :exchange resolves through the stock-aware route so a stock basket with no broker does not
-  # fall through to the crypto picker.
+  # :assets is the asset step shared with the single bot (the basket is collected there and the
+  # type decided on its advance). :exchange resolves through the stock-aware route so a stock
+  # basket with no broker does not fall through to the crypto picker.
   def step_path(key)
     case key
-    when :assets    then new_bots_dca_multi_assets_pick_assets_path
+    when :assets    then new_bots_dca_single_assets_pick_buyable_asset_path
     when :exchange  then missing_exchange_path
     when :api       then new_bots_dca_multi_assets_add_api_key_path
     when :spendable then new_bots_dca_multi_assets_pick_spendable_asset_path
@@ -27,7 +28,7 @@ module Bots::DcaMultiAssets::WizardSteps
     stock_bot? ? new_bots_dca_multi_assets_pick_stock_broker_path : new_bots_dca_multi_assets_pick_exchange_path
   end
 
-  def repick_asset_path = new_bots_dca_multi_assets_pick_assets_path
+  def repick_asset_path = new_bots_dca_single_assets_pick_buyable_asset_path
 
   # Re-validating a key skips any answers that are still complete after the exchange changes.
   def after_api_key_path = step_path(first_incomplete)

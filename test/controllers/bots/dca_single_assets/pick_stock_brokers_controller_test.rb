@@ -5,7 +5,7 @@ require 'test_helper'
 # (Alpaca or IBKR) when more than one is available, while preserving today's zero-click
 # UX when only one venue exists.
 #
-# The auto-select decision happens on the *stock POST* (pick_buyable#create), never on a
+# The auto-select decision happens on Next (pick_buyable#advance, a POST), never on a
 # GET — the wizard relies on idempotent GETs (Turbo prefetches them on hover).
 class Bots::DcaSingleAssets::PickStockBrokersControllerTest < ActionDispatch::IntegrationTest
   setup do
@@ -18,12 +18,13 @@ class Bots::DcaSingleAssets::PickStockBrokersControllerTest < ActionDispatch::In
     sign_in @user
   end
 
-  # POST the first (stock) asset. This POST decides: auto-skip to the api-key step
-  # (one venue) or route into the broker picker (2+). No state mutation happens on GET.
+  # Pick the stock, then Next. Next decides: auto-skip to the api-key step (one venue) or
+  # route into the broker picker (2+). No state mutation happens on GET.
   def pick_aapl
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: @aapl.id } }
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
   end
 
   def list_ibkr_for_aapl
@@ -32,14 +33,14 @@ class Bots::DcaSingleAssets::PickStockBrokersControllerTest < ActionDispatch::In
     ibkr
   end
 
-  test 'with a single stock venue, the stock POST auto-selects it and skips to the api-key step' do
+  test 'with a single stock venue, Next auto-selects it and skips to the api-key step' do
     pick_aapl
     assert_redirected_to new_bots_dca_single_assets_add_api_key_path
     assert_equal @alpaca.id.to_s, session[:bot_config]['exchange_id'].to_s
     assert_equal @usd.id, session[:bot_config].dig('settings', 'quote_asset_id')
   end
 
-  test 'with two stock venues, the stock POST routes into the broker picker listing both' do
+  test 'with two stock venues, Next routes into the broker picker listing both' do
     ibkr = list_ibkr_for_aapl
     pick_aapl
     assert_redirected_to new_bots_dca_single_assets_pick_stock_broker_path

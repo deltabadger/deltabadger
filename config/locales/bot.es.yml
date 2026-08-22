@@ -11,9 +11,7 @@ es:
             connect_alpaca_html: "Para invertir en acciones, conecta antes Alpaca en %{settings_link}."
             settings_link: "Ajustes"
         dca_multi_asset:
-            invest_on: "Invertir en"
             add_asset: "Añadir activo"
-            add_another_asset: "Añadir otro activo…"
             remove_asset: "Eliminar"
             max_assets_reached: "Puedes tener hasta %{max} activos."
             min_assets: "Una cartera necesita al menos %{min} activos."

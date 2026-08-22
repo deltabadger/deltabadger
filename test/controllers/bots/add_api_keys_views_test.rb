@@ -58,6 +58,7 @@ class Bots::DcaSingleAssets::AddApiKeysViewsTest < ActionDispatch::IntegrationTe
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: btc.id } }
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_exchange_path,
          params: { bots_dca_single_asset: { exchange_id: binance.id } }
   end
@@ -82,10 +83,9 @@ class Bots::DcaMultiAssets::AddApiKeysViewsTest < ActionDispatch::IntegrationTes
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: btc.id } }
-    post promote_to_multi_bots_dca_single_assets_pick_exchange_path
-    post bots_dca_multi_assets_pick_assets_path,
-         params: { bots_dca_multi_asset: { base_asset_id: eth.id } }
-    post advance_bots_dca_multi_assets_pick_assets_path
+    post bots_dca_single_assets_pick_buyable_asset_path,
+         params: { bots_dca_single_asset: { base_asset_id: eth.id } }
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_multi_assets_pick_exchange_path,
          params: { bots_dca_multi_asset: { exchange_id: binance.id } }
   end

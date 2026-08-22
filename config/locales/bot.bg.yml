@@ -8,9 +8,7 @@ bg:
             connect_alpaca_html: "За да инвестирате в акции, първо свържете Alpaca в %{settings_link}."
             settings_link: "Настройки"
         dca_multi_asset:
-            invest_on: "Инвестирайте на"
             add_asset: "Добавяне на актив"
-            add_another_asset: "Добавяне на още един актив…"
             remove_asset: "Премахване"
             max_assets_reached: "Можете да държите до %{max} актива."
             min_assets: "Портфейлът трябва да съдържа поне %{min} актива."
