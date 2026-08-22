@@ -329,6 +329,16 @@ class Bots::DcaDualAssetTest < ActiveSupport::TestCase
     assert_equal 'day', bot.interval
   end
 
+  # Filling in the stored default must read the stored value, never the market-cap-weighted
+  # `allocation0` — that one prices both assets live, so every plain record load (a bot list,
+  # an edit form) would otherwise fire exchange/CoinGecko calls and 500 when they fail.
+  test 'loading a market-cap-allocated bot does not price its assets' do
+    bot = create(:dca_dual_asset, :marketcap_weighted)
+    Bots::DcaDualAsset.any_instance.expects(:calculate_dynamic_market_cap).never
+
+    assert_equal 0.5, Bots::DcaDualAsset.find(bot.id).settings['allocation0']
+  end
+
   # == Lifecycle: #start ==
 
   test 'start changes status to scheduled' do

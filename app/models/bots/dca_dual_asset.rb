@@ -210,7 +210,10 @@ class Bots::DcaDualAsset < Bot
   end
 
   def initialize_dca_dual_asset_settings
-    self.allocation0 ||= 0.5
+    # The stored value, not the `allocation0` reader: MarketcapAllocatable overrides that one to
+    # price both assets live, and filling in a default must never make a network call — this runs
+    # on every instantiation, so a bot list would fetch prices per record and 500 on a blip.
+    settings['allocation0'] ||= 0.5
   end
 
   def set_tickers
