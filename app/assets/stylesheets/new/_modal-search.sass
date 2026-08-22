@@ -49,6 +49,20 @@
     left: 0
     overflow: scroll
     z-index: 1000
+    // Like the small .dialog: start transparent (a <dialog> is white by default, which flashed
+    // for a frame before .dialog--open landed) and blur the backdrop in gradually. The open /
+    // closing states are repeated here because the bare .dialog--open rule above loses the
+    // cascade to these base declarations.
+    background: transparent
+    backdrop-filter: blur(0)
+    transition: background 0.3s ease, backdrop-filter 0.3s ease
+    &.dialog--open
+        background: var(--modal-backdrop)
+        backdrop-filter: blur(1rem)
+    &.dialog--closing
+        background: transparent
+        backdrop-filter: blur(0)
+        transition: background 0.15s ease, backdrop-filter 0.15s ease
     @media screen and (min-width: 768px)
         align-items: flex-start
         padding-top: 2rem
