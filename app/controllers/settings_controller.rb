@@ -96,10 +96,11 @@ class SettingsController < ApplicationController
   # It lives in the menu rather than on this page because it is a way of reading every screen,
   # and the answer is a refresh for the same reason the currency select's is: it changes every
   # figure on the page, not one frame. The broadcast carries that refresh to the account's other
-  # open bot screens, which would otherwise keep the markup they were served before the flip.
+  # open tabs, which would otherwise keep the markup they were served before the flip — the
+  # layout subscribes every signed-in page to that stream.
   def update_hide_balances
     current_user.update!(hide_balances: !current_user.hide_balances?)
-    Turbo::StreamsChannel.broadcast_refresh_to("user_#{current_user.id}", :bot_updates)
+    Turbo::StreamsChannel.broadcast_refresh_to("user_#{current_user.id}", :preferences)
     render turbo_stream: turbo_stream_page_refresh
   end
 

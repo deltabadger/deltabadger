@@ -1,15 +1,24 @@
 <%
-  slices = (@portfolio_slices || []).map do |s|
+  hide_balances = current_user.hide_balances?
+  holdings = @portfolio_slices || []
+  holdings_total = holdings.sum { |s| s[:usd_value].to_f }
+  slices = holdings.map do |s|
     asset = s[:asset]
+    share = holdings_total.positive? ? (s[:usd_value].to_f / holdings_total * 100) : 0
     {
       label: asset.symbol,
       symbol: asset.symbol,
       name: asset.name,
-      value: s[:usd_value].to_f,
+      # The donut only ever needed proportions — it draws shares and labels them in percent — so
+      # while balances are hidden it is handed the share itself. An absolute value here would be
+      # the whole portfolio sitting in a data attribute for anyone who opened the inspector, which
+      # is the one thing this page is being asked not to say.
+      value: hide_balances ? share : s[:usd_value].to_f,
       color: ensure_contrast(asset.color.presence || '#8A9BA8'),
       assetId: asset.id
     }
   end
+  # Either way the shares below come out the same: hidden, the values ARE shares and this is 100.
   slices_total = slices.sum { |s| s[:value] }
 %>
 <%= turbo_frame_tag 'tracker-portfolio-chart', class: 'tracker-portfolio' do %>
@@ -48,7 +57,9 @@
                   </div>
                 </div>
                 <div class="allocation"><%= pct.round(1) %>%</div>
-                <div class="tracker-portfolio__asset-value"><%= @denomination.format(slice[:value], precision: 2) %></div>
+                <% unless hide_balances %>
+                  <div class="tracker-portfolio__asset-value"><%= @denomination.format(slice[:value], precision: 2) %></div>
+                <% end %>
               </div>
             </div>
           <% end %>

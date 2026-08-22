@@ -1,4 +1,4 @@
-Deltabadger is an open-source Dollar Cost Averaging (DCA) bot for cryptocurrency trading developed in the TTD methodology. Tests are always written and presented to review first.
+Deltabadger is an open-source DCA bot, portfolio-rebalancing tool, and portfolio tracker for stocks and crypto developed in the TTD methodology. Tests are always written and presented to review first.
 
 ## Stack
 
@@ -11,53 +11,17 @@ Deltabadger is an open-source Dollar Cost Averaging (DCA) bot for cryptocurrency
 - Sass (.sass)
 
 ## Development
+
+- TDD: when planning or adding a new feature, write tests first, and present them to review (as part of the plan)
 - Before doing anything always ask yourself: what is the best/the smartest way to do it
-- When adding a new feature, write tests first, and present it to review
-- Use Rails style guidelines: `.claude/rails.md`
 - Always check if our stack doesn't have built in solution already
-- After every change in dependencies or deployment look check Docker and Tauri if they need updates
+- Use Rails style guidelines: `.claude/rails.md`
 - Environment variables: see `.env.example`
 - Run `bin/rails test` after every change
-- Push and open PRs only when asked — and always under the repo owner's authorship. Never add
-  assistant/model attribution: no `Co-Authored-By: Claude` trailer, no "Generated with Claude Code"
-  footer, no bot as PR author. Write commit and PR text in the owner's voice, first person.
+- Read `db/schema.rb` for the data model, and the model file itself for enums and associations — they are the source of truth
+- After every change in dependencies or deployment look check Docker settings if they need updates
 
-## Core Domain Models
+## PRs
 
-**Bot (STI base class)** — DCA bot types:
-- `Bots::DcaSingleAsset` — one trading pair
-- `Bots::DcaDualAsset` — rebalances between two assets
-- JSON `settings` column with `store_accessor` for flexible configuration
-- Status flow: `created` → `scheduled` → `executing` → `waiting` → (repeat) / `stopped` / `deleted`
-
-**Exchange (STI base class)** — exchange integrations:
-- `Exchanges::Binance`, `Exchanges::BinanceUs`, `Exchanges::Kraken`, `Exchanges::Coinbase`
-- Each implements: `market_buy`, `limit_buy`, `get_balances`, `get_tickers_info`, etc.
-- API clients: `app/services/exchange_api/clients/`
-
-**Asset** — cryptocurrencies and fiat currencies
-- Identified by `external_id` (Coingecko ID)
-- Many-to-many with Exchange through `ExchangeAsset`
-
-**Ticker** — trading pairs on exchanges (e.g., BTC/USD on Kraken)
-
-**Transaction** — trade records created by bots
-- Statuses: `pending`, `submitted`, `failed`, `skipped`, `cancelled`
-
-**ApiKey** — encrypted exchange API credentials (Rails ActiveRecord Encryption)
-
-## Common Gotchas
-
-1. **Settings JSON column** — Bots use JSON `settings` with `store_accessor`. Changes trigger `settings_changed_at` timestamp.
-2. **Turbo Frame targeting** — DOM IDs via `dom_id(model, :suffix)` for Turbo broadcasts.
-3. **Asset synchronization** — assets never deleted, only marked `available: false`. Tickers and ExchangeAssets follow same pattern.
-
-## graphify
-
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
-
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- write all comments and PRs in neutral informative language for users of open-source repository
+- never include any information about closed infrastructure, users of the platform, or specific incidents
