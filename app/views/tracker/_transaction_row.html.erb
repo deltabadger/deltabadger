@@ -13,10 +13,12 @@
     <% end %>
   </td>
   <td><%= at.base_currency %></td>
-  <td><%= at.base_amount %></td>
+  <% unless current_user.hide_balances? %><td><%= at.base_amount %></td><% end %>
   <td><%= at.quote_currency || '-' %></td>
-  <td><%= at.quote_amount.present? ? at.quote_amount : '-' %></td>
-  <td><%= at.fee_amount.present? ? "#{at.fee_amount} #{at.fee_currency}" : '-' %></td>
+  <% unless current_user.hide_balances? %>
+    <td><%= at.quote_amount.present? ? at.quote_amount : '-' %></td>
+    <td><%= at.fee_amount.present? ? "#{at.fee_amount} #{at.fee_currency}" : '-' %></td>
+  <% end %>
   <td>
     <% if at.bot_transaction.present? %>
       <%= link_to at.bot_transaction.bot.label || t('tracker.bot'), bot_path(at.bot_transaction.bot) %>
