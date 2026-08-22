@@ -47,8 +47,8 @@ fr:
                 intro: "Certaines ordres (%{skipped_count}) étaient en dessous de la taille minimale de commande de %{exchange_name}. Voici comment le bot le gère :"
         types:
             dca:
-                title: "DCA"
-                description: "Investir dans un actif"
+                title: "Portefeuille"
+                description: "DCA et rééquilibrage"
             dca_dual_asset:
                 title: "DCA Rééquilibré"
                 description: "Rééquilibrer deux actifs"
@@ -56,14 +56,11 @@ fr:
                 title: "Bot Legacy"
                 description: "DCA + Retraits"
             index_portfolio:
-                title: "Portefeuille Indice"
-                description: "Votre ETF crypto personnel"
-            custom_portfolio:
-                title: "Portefeuille Personnalisé"
-                description: "Rééquilibrer un mix d'actifs personnalisé"
+                title: "Indice"
+                description: "Créez votre ETF"
             signal:
-                title: "Signal"
-                description: "Trader sur signaux externes"
+                title: "Signaux"
+                description: "Trader selon des signaux"
         exchange_menu:
             no_alternative: 'Aucune autre plateforme prise en charge ne propose %{assets}.'
             locked_while_running: 'Arrête le bot pour le déplacer vers une autre plateforme.'

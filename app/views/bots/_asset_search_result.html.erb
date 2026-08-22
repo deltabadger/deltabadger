@@ -4,7 +4,8 @@
       <%= tag.div symbol, class: ticker_class_for(category: category, color: color), style: "background: #{ensure_contrast(color || "#8A9BA8")}", data: ticker_data_for(id: id, symbol: symbol) %>
     </div>
     <div class="modal--search__cell modal--search__cell--name">
-      <%= name %>
+      <%= render 'assets/logo', image_url: image_url, color: color %>
+      <span class="modal--search__cell--name__label"><%= name %></span>
     </div>
     <div class="modal--search__cell modal--search__cell--exchanges">
       <% exchanges.each do |exchange_name_id, exchange_name| %>

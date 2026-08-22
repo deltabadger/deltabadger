@@ -55,8 +55,8 @@
             <%# Adding keeps the user on this step: no step slide (see hotwire-animations "stay"). %>
             <%= form_with model: @bot, url: bots_dca_single_assets_pick_buyable_asset_path, method: :post,
                           data: { wizard_dir: 'stay' } do |f| %>
-              <% @assets.each do |id, symbol, name, color, category, exchanges| %>
-                <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :base_asset_id, id: id, symbol: symbol, name: name, color: color, category: category, exchanges: exchanges } %>
+              <% @assets.each do |id, symbol, name, color, category, image_url, exchanges| %>
+                <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :base_asset_id, id: id, symbol: symbol, name: name, color: color, category: category, image_url: image_url, exchanges: exchanges } %>
               <% end %>
               <% if @next_page_url %>
                 <%= turbo_frame_tag @next_page_frame_id, src: @next_page_url, loading: :lazy %>

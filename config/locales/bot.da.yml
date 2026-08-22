@@ -44,30 +44,17 @@ da:
                 intro: "Nogle ordrer (%{skipped_count}) var under %{exchange_name}s minimumsordrestørrelse. Sådan håndterer botten det:"
         types:
             dca:
-                title: "DCA"
-                description: "Investér i ét aktiv"
+                title: "Portefølje"
+                description: "DCA og rebalancering"
             dca_dual_asset:
                 title: "Rebalanceret DCA"
                 description: "Rebalancér to aktiver"
             index_portfolio:
-                title: "Indeksportefølje"
-                description: "Din personlige krypto-ETF"
-            custom_portfolio:
-                title: "Tilpasset portefølje"
-                description: "Rebalancér valgfrit aktivmix"
+                title: "Indeks"
+                description: "Byg din egen ETF"
             signal:
-                title: "Signal"
-                description: "Handl baseret på eksterne signaler"
-            dca_stocks:
-                title: "DCA (aktier)"
-                description: "Køb aktier med Alpaca"
-        dca_stocks:
-            connect_alpaca_intro: "Forbind din Alpaca-konto for at begynde at investere i aktier"
-            pick_stock: "Søg efter en aktie"
-            no_results: "Ingen aktier fundet"
-            stock_not_found: "Aktie ikke fundet på Alpaca"
-            mode_paper: "Papirhandel"
-            mode_live: "Live handel"
+                title: "Signaler"
+                description: "Handl baseret på signaler"
         exchange_menu:
             no_alternative: 'Ingen anden understøttet børs udbyder %{assets}.'
             locked_while_running: 'Stop botten for at flytte den til en anden børs.'

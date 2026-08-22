@@ -77,8 +77,8 @@ export default class extends Controller {
   }
 
   // Set the wizard direction flag *before* Turbo kicks off the transition, so the
-  // CSS in _wizard-transitions.sass can pick the matching slide direction
-  // ("back"), or skip the transition for a same-step re-render ("stay").
+  // CSS in _wizard-transitions.sass can pick the matching slide direction ("back",
+  // "enter" = fade only), or skip the transition for a same-step re-render ("stay").
   #handleClickEvent = (event) => {
     const trigger = event.target.closest("[data-wizard-dir]");
     if (!trigger) return;

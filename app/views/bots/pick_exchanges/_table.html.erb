@@ -1,4 +1,4 @@
-<%= turbo_frame_tag "exchange-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" } do %>
+<%= turbo_frame_tag "exchange-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation scroll-state" }, class: "selectable-options" do %>
   <%= form_with model: bot, url: submit_url, method: :post do |f| %>
     <div class="exchange-grid">
       <% exchanges.each do |exchange| %>

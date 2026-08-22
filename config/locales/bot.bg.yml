@@ -44,30 +44,17 @@ bg:
                 intro: "Някои поръчки (%{skipped_count}) бяха под минималния размер на поръчка в %{exchange_name}. Ето как ботът се справя с това:"
         types:
             dca:
-                title: "DCA"
-                description: "Инвестирайте в един актив"
+                title: "Портфолио"
+                description: "DCA и ребалансиране"
             dca_dual_asset:
                 title: "Ребалансирано DCA"
                 description: "Ребалансирайте два актива"
             index_portfolio:
-                title: "Индексно портфолио"
-                description: "Вашият личен крипто ETF"
-            custom_portfolio:
-                title: "Персонализирано портфолио"
-                description: "Ребалансирайте собствен микс от активи"
+                title: "Индекс"
+                description: "Изгради своя ETF"
             signal:
-                title: "Сигнал"
-                description: "Търгувайте на база външни сигнали"
-            dca_stocks:
-                title: "DCA (акции)"
-                description: "Купувайте акции чрез Alpaca"
-        dca_stocks:
-            connect_alpaca_intro: "Свържете акаунта си в Alpaca и започнете да инвестирате в акции"
-            pick_stock: "Търсене на акция"
-            no_results: "Не са намерени акции"
-            stock_not_found: "Акцията не е намерена в Alpaca"
-            mode_paper: "Хартиена търговия"
-            mode_live: "Реална търговия"
+                title: "Сигнали"
+                description: "Търгувай на база сигнали"
         exchange_menu:
             no_alternative: 'Никоя друга поддържана борса не предлага %{assets}.'
             locked_while_running: 'Спри бота, за да го преместиш на друга борса.'

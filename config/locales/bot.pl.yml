@@ -47,8 +47,8 @@ pl:
                 intro: "Niektóre zlecenia (%{skipped_count}) były poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Oto jak bot to obsługuje:"
         types:
             dca:
-                title: "DCA"
-                description: "Inwestuj w jedno aktywo"
+                title: "Portfel"
+                description: "DCA i rebalansowanie"
             dca_dual_asset:
                 title: "Rebalansowane DCA"
                 description: "Rebalansuj dwa aktywa"
@@ -56,14 +56,11 @@ pl:
                 title: "Bot Legacy"
                 description: "DCA + Wypłaty"
             index_portfolio:
-                title: "Portfel Indeksowy"
-                description: "Twój osobisty krypto-ETF"
-            custom_portfolio:
-                title: "Portfel Niestandardowy"
-                description: "Rebalansuj niestandardowy zestaw aktywów"
+                title: "Indeks"
+                description: "Zbuduj swój ETF"
             signal:
-                title: "Signal"
-                description: "Handluj na podstawie zewnętrznych sygnałów"
+                title: "Sygnały"
+                description: "Handluj na podstawie sygnałów"
         exchange_menu:
             no_alternative: 'Żadna inna obsługiwana giełda nie oferuje %{assets}.'
             locked_while_running: 'Zatrzymaj bota, żeby przenieść go na inną giełdę.'

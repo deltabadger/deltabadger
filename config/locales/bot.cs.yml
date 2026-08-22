@@ -44,30 +44,17 @@ cs:
                 intro: "Některé příkazy (%{skipped_count}) byly pod minimální velikostí příkazu na %{exchange_name}. Takto s tím bot pracuje:"
         types:
             dca:
-                title: "DCA"
-                description: "Investujte do jednoho aktiva"
+                title: "Portfolio"
+                description: "DCA a rebalancování"
             dca_dual_asset:
                 title: "Rebalancované DCA"
                 description: "Rebalancujte dvě aktiva"
             index_portfolio:
-                title: "Indexové portfolio"
-                description: "Váš osobní krypto ETF"
-            custom_portfolio:
-                title: "Vlastní portfolio"
-                description: "Rebalancujte vlastní mix aktiv"
+                title: "Index"
+                description: "Vytvořte si vlastní ETF"
             signal:
-                title: "Signál"
-                description: "Obchodujte na základě externích signálů"
-            dca_stocks:
-                title: "DCA (akcie)"
-                description: "Nakupujte akcie přes Alpaca"
-        dca_stocks:
-            connect_alpaca_intro: "Připojte svůj účet Alpaca a začněte investovat do akcií"
-            pick_stock: "Hledat akcii"
-            no_results: "Žádné akcie nenalezeny"
-            stock_not_found: "Akcie nebyla nalezena na Alpaca"
-            mode_paper: "Papírové obchodování"
-            mode_live: "Živé obchodování"
+                title: "Signály"
+                description: "Obchodujte na základě signálů"
         exchange_menu:
             no_alternative: 'Žádná jiná podporovaná burza nenabízí %{assets}.'
             locked_while_running: 'Zastav bota, abys ho přesunul na jinou burzu.'

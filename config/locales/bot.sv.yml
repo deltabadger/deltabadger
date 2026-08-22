@@ -44,30 +44,17 @@ sv:
                 intro: "Vissa ordrar (%{skipped_count}) var under %{exchange_name}s minsta orderstorlek. Så här hanterar boten det:"
         types:
             dca:
-                title: "DCA"
-                description: "Investera i en tillgång"
+                title: "Portfölj"
+                description: "DCA och ombalansering"
             dca_dual_asset:
                 title: "Ombalanserad DCA"
                 description: "Ombalansera två tillgångar"
             index_portfolio:
-                title: "Indexportfölj"
-                description: "Din personliga krypto-ETF"
-            custom_portfolio:
-                title: "Egen portfölj"
-                description: "Ombalansera egen tillgångsmix"
+                title: "Index"
+                description: "Bygg din egen ETF"
             signal:
-                title: "Signal"
-                description: "Handla baserat på externa signaler"
-            dca_stocks:
-                title: "DCA (aktier)"
-                description: "Köp aktier via Alpaca"
-        dca_stocks:
-            connect_alpaca_intro: "Anslut ditt Alpaca-konto för att börja investera i aktier"
-            pick_stock: "Sök efter en aktie"
-            no_results: "Inga aktier hittades"
-            stock_not_found: "Aktien hittades inte på Alpaca"
-            mode_paper: "Pappershandel"
-            mode_live: "Riktig handel"
+                title: "Signaler"
+                description: "Handla baserat på signaler"
         exchange_menu:
             no_alternative: 'Ingen annan börs som stöds erbjuder %{assets}.'
             locked_while_running: 'Stoppa boten för att flytta den till en annan börs.'
