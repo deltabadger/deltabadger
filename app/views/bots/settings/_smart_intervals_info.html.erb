@@ -1,3 +1,6 @@
+<%# Restates the contribution and the slice it is cut into — both money, and both already hidden
+    in the sentence this sits under. %>
+<% unless hide_balances?(bot) %>
 <% if bot.sells_base_amount? %>
   <% if bot.smart_intervaled? && bot.smart_interval_base_amount&.to_d&.positive? && bot.sell_amount&.positive? %>
     <small id="<%= bot.new_record? ? "new-settings-smart-intervals-info" : "settings-smart-intervals-info" %>" class="small-info">
@@ -18,4 +21,5 @@
           amount: bot.smart_interval_quote_amount.round(bot.decimals[:quote] || 2),
           smart_interval: distance_of_time_in_words(bot.effective_interval_duration)) %>
   </small>
+<% end %>
 <% end %>

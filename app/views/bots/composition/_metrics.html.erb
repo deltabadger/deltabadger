@@ -1,51 +1,56 @@
 <% exited = bot.exited_holdings(metrics) %>
 <% realised = metrics[:realised_pnl].to_d %>
+<% hide_money = hide_balances?(bot) %>
 <div id="metrics" style="display: flex; flex-direction: column; gap: 1rem;">
   <% if metrics[:prices_stale] %>
     <p class="status-button__hint" role="status">
       <%= t('bot.details.stats.exchange_unavailable_html') %>
     </p>
   <% end %>
-  <%# Two columns until there is a third figure to show. Realised P/L only exists once the user has
-      liquidated something, and an empty third cell on every other bot is worse than the grid's own
-      responsive columns. %>
-  <div class="widget data-grid <%= 'data-grid--two-columns' if realised.zero? %>">
-    <div class="data-grid__item" data-controller="tooltip">
-      <div class="label"><%= t('bot.details.stats.total_invested') %></div>
-      <div class="data-grid__item__value">
-        <% if loading %>
-          <span class="loading-placeholder">...</span>
-        <% else %>
-          <%= number_with_precision(metrics[:total_quote_amount_invested] || 0, precision: 2, delimiter: ',') %>
-        <% end %>
-      </div>
-    </div>
-    <div class="data-grid__item" data-controller="tooltip">
-      <div class="label"><%= t('bot.details.stats.portfolio_value') %></div>
-      <div class="data-grid__item__value">
-        <% if loading %>
-          <span class="loading-placeholder">...</span>
-        <% else %>
-          <%= number_with_precision(metrics[:total_amount_value_in_quote] || 0, precision: 2, delimiter: ',') %>
-        <% end %>
-      </div>
-    </div>
-    <% unless realised.zero? %>
-      <div class="data-grid__item">
-        <div class="label"><%= t('bot.dca_index.realised_pnl') %></div>
-        <div class="data-grid__item__value <%= realised.negative? ? 'text-danger' : 'text-success' %>">
+  <%# Invested, portfolio value and realised P/L are all money and nothing else lives in this
+      panel, so hiding balances takes the whole grid rather than emptying it. %>
+  <% unless hide_money %>
+    <%# Two columns until there is a third figure to show. Realised P/L only exists once the user has
+        liquidated something, and an empty third cell on every other bot is worse than the grid's own
+        responsive columns. %>
+    <div class="widget data-grid <%= 'data-grid--two-columns' if realised.zero? %>">
+      <div class="data-grid__item" data-controller="tooltip">
+        <div class="label"><%= t('bot.details.stats.total_invested') %></div>
+        <div class="data-grid__item__value">
           <% if loading %>
             <span class="loading-placeholder">...</span>
           <% else %>
-            <%= realised.negative? ? '' : '+' %><%= number_with_precision(realised, precision: 2, delimiter: ',') %>
+            <%= number_with_precision(metrics[:total_quote_amount_invested] || 0, precision: 2, delimiter: ',') %>
           <% end %>
         </div>
-        <%# Says what is in the figure, because "realised" invites a tax reading it will not support:
-            a rebalance is a swap, so it stays P/L-neutral and contributes nothing here. %>
-        <small class="label"><%= t('bot.dca_index.realised_pnl_note') %></small>
       </div>
-    <% end %>
-  </div>
+      <div class="data-grid__item" data-controller="tooltip">
+        <div class="label"><%= t('bot.details.stats.portfolio_value') %></div>
+        <div class="data-grid__item__value">
+          <% if loading %>
+            <span class="loading-placeholder">...</span>
+          <% else %>
+            <%= number_with_precision(metrics[:total_amount_value_in_quote] || 0, precision: 2, delimiter: ',') %>
+          <% end %>
+        </div>
+      </div>
+      <% unless realised.zero? %>
+        <div class="data-grid__item">
+          <div class="label"><%= t('bot.dca_index.realised_pnl') %></div>
+          <div class="data-grid__item__value <%= realised.negative? ? 'text-danger' : 'text-success' %>">
+            <% if loading %>
+              <span class="loading-placeholder">...</span>
+            <% else %>
+              <%= realised.negative? ? '' : '+' %><%= number_with_precision(realised, precision: 2, delimiter: ',') %>
+            <% end %>
+          </div>
+          <%# Says what is in the figure, because "realised" invites a tax reading it will not support:
+              a rebalance is a swap, so it stays P/L-neutral and contributes nothing here. %>
+          <small class="label"><%= t('bot.dca_index.realised_pnl_note') %></small>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
 
   <% exited_symbols = exited.map { |holding| holding[:symbol] }.to_set %>
   <%# Resolve the row's base symbol through the exchange's tickers, the same way the
@@ -56,7 +61,8 @@
     <% composition_values = metrics[:asset_values].reject { |symbol, _| exited_symbols.include?(symbol) } %>
     <% if composition_values.present? %>
       <div id="assets_metrics_table" class="widget widget--table">
-        <%= render 'bots/composition/assets_table', values: composition_values, logo_assets: logo_assets, body_id: 'assets_metrics_list' %>
+        <%= render 'bots/composition/assets_table', values: composition_values, logo_assets: logo_assets,
+                   body_id: 'assets_metrics_list', hide_money: hide_money %>
       </div>
     <% end %>
   <% end %>
@@ -86,6 +92,7 @@
         <%= render 'bots/composition/assets_table',
                    values: exited.index_by { |holding| holding[:symbol] },
                    logo_assets: logo_assets, body_id: 'exited_metrics_list', bot: bot,
+                   hide_money: hide_money,
                    sellable: !bot.liquidation_ambiguous? && !bot.archived? && !bot.deleted? %>
       <% end %>
     </div>

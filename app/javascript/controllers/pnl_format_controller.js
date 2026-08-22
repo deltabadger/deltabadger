@@ -8,6 +8,10 @@ import { Controller } from "@hotwired/stimulus"
 // would snap back the moment a bot's PnL job lands. CSS in new/_utilities.sass picks the format.
 export default class extends Controller {
   toggle() {
+    // Nothing to switch to while balances are hidden: the amount is not in the markup at all.
+    // The server also drops this controller in that state — this is the belt to that's braces.
+    if (document.body.classList.contains("hide-balances")) return
+
     document.documentElement.classList.toggle("show-pnl-amount")
   }
 }

@@ -1,13 +1,14 @@
 <%# A bot that has never traded has nothing to plot — not even a placeholder. The frame stays
     in the DOM either way so the first metrics broadcast still finds its target. %>
 <% charted = bot.transactions.any? %>
+<% hide_money = hide_balances?(bot) %>
 <div id="chart" <%= tag.attributes(class: ('widget widget--chart' if charted), hidden: !charted) %>>
   <% if charted %>
     <% if loading || metrics[:chart][:labels].empty? %>
       <div class="widget--chart__head">
         <div class="widget--chart__summary">
           <div class="widget--chart__date">&nbsp;</div>
-          <div class="widget--chart__pnl">&nbsp;</div>
+          <% unless hide_money %><div class="widget--chart__pnl">&nbsp;</div><% end %>
           <div class="widget--chart__percent">&nbsp;</div>
         </div>
       </div>
@@ -44,17 +45,19 @@
         bot__chart_labels_value: metrics[:chart][:labels].map { |label| label.in_time_zone(current_user.time_zone) },
         bot__chart_series_value: series,
         bot__chart_pnl_value: pnl_series,
-        bot__chart_assets_value: assets
+        bot__chart_assets_value: assets,
+        bot__chart_pnl_only_value: hide_money
       } do %>
         <%# The switch sits on the date line, opposite it: one row across the top of the plot.
             VALUE always climbs for a DCA bot because the money going in climbs; PnL makes the
             invested line the zero line, so the curve is performance with the deposits divided
             out. Both modes carry the SAME headline — only the curve changes — which is why
             neither needs a caption. A bot that has never held anything has no curve to offer,
-            and a switch with one usable side is furniture. %>
+            and a switch with one usable side is furniture — which is also why hiding balances
+            takes the switch away rather than disabling it: VALUE is the money view. %>
         <div class="widget--chart__head">
           <div class="widget--chart__modes" data-action="segmented:change->bot--chart#mode">
-            <% if metrics[:chart][:series][1].any? { |spent| spent.to_f.positive? } %>
+            <% if !hide_money && metrics[:chart][:series][1].any? { |spent| spent.to_f.positive? } %>
             <%# Fluid: "Value" and the locales' Profit/Loss wording are nowhere near the same
                 width, and equal columns would give both the width of the longer one — wide
                 enough to push the header off a phone. %>
@@ -66,7 +69,12 @@
           </div>
           <div class="widget--chart__summary" data-bot--chart-target="summary">
             <div class="widget--chart__date" data-bot--chart-target="date">&nbsp;</div>
-            <div class="widget--chart__pnl" data-bot--chart-target="pnl">&nbsp;</div>
+            <%# The money half of the headline. Gone while balances are hidden; the percent beside
+                it is the reading, and the plot itself prints nothing — both axes are display:false
+                and the tooltip is off. %>
+            <% unless hide_money %>
+              <div class="widget--chart__pnl" data-bot--chart-target="pnl">&nbsp;</div>
+            <% end %>
             <div class="widget--chart__percent" data-bot--chart-target="percent">&nbsp;</div>
           </div>
         </div>

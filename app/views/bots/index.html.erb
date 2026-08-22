@@ -14,7 +14,8 @@
   <%= tag.section class: 'dash-intro', data: @global_pnl_loading ? { controller: "broadcast--on-connect",
                                                                      broadcast__on_connect_method_value: "global_pnl_update",
                                                                      broadcast__on_connect_retry_while_value: "#global-pnl .loader--small" } : {} do %>
-    <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, denomination: @denomination, loading: @global_pnl_loading } %>
+    <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, denomination: @denomination,
+                                                     loading: @global_pnl_loading, hide_balances: current_user.hide_balances? } %>
   <% end %>
   
   <div class="page-head page-head--bots">

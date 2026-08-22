@@ -203,7 +203,10 @@ class Bot < ApplicationRecord
       target: dom_id(self, :pnl),
       partial: 'bots/bot_tile/bot_tile_pnl',
       locals: { bot: self, pnl: metrics_data[:pnl], denomination: user.denomination,
-                profit_usd: profit_in_usd(metrics_data, cache_only: false), loading: false }
+                # No request here, so the preference comes off the user. Skipping the conversion
+                # rather than dropping it in the partial: it is a live FX call.
+                profit_usd: (profit_in_usd(metrics_data, cache_only: false) unless user.hide_balances?),
+                loading: false }
     )
   end
 

@@ -81,6 +81,8 @@ nl:
             text_html: 'Controleer uw mailbox en klik op de <b>bevestigingslink</b> die wij u hebben gestuurd. Ga vervolgens naar de inlogpagina.'
             title: Bedankt!
     links:
+        hide_balances: 'Saldi verbergen'
+        show_balances: 'Saldi tonen'
         about: 'Over ons'
         telegram: 'Telegram'
         create_account: 'Gratis account aanmaken'

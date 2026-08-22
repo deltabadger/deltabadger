@@ -35,6 +35,17 @@ module BotHelper
     I18n.exists?(specific) ? t(specific) : t(generic)
   end
 
+  # The one question every "hide balances" branch asks.
+  #
+  # Asked of the BOT, not of current_user: most of the partials that ask it are also rendered by a
+  # turbo broadcast from a background job, where there is no request and no current_user.
+  #
+  # persisted? folds in the creation wizard, which renders the same settings partials with a
+  # new_record bot — there the amount field IS the question being asked, so it is never hidden.
+  def hide_balances?(bot)
+    bot.persisted? && bot.user.hide_balances?
+  end
+
   # One-line summary for a BotActivityLog row in the activity feed. Uses the stored
   # message when present, otherwise a translated label for the event (with light
   # detail formatting for the few high-value events).
@@ -60,6 +71,45 @@ module BotHelper
     else
       t("bot_activity.events.#{activity.event}")
     end
+  end
+
+  # A money amount inside a settings sentence — the contribution, a sell size, a spend cap, a
+  # smart-interval slice. While balances are hidden the field is still IN the form and still POSTS
+  # its value; it just isn't shown, which is what turns "Invest 100 USD / week" into "Invest USD /
+  # week" — the ticker beside it never moves.
+  #
+  # Hidden rather than dropped, because these forms submit as a whole: changing the interval or
+  # dragging an allocation posts every field, and one that had vanished would blank the bot's
+  # contribution. A price keeps its number and never comes through here: a market level is a fact
+  # about the venue, not about the holder.
+  def amount_field(form, name, **options)
+    return form.number_field(name, **options) unless hide_balances?(form.object)
+
+    form.hidden_field(name, value: options[:value])
+  end
+
+  # The log's filter tabs, in display order: [value, label, available?].
+  #
+  # "All" is the sentence timeline — "Bought 0.00023 BTC for 100 USD" — the one tab that spells the
+  # money out in prose, so hiding balances drops it. The activity rows that lived only there move to
+  # Other, which this code already calls the catch-all for what the named tabs don't want; counted
+  # through the FEED's own exclusions, or an order_skipped log on its own would open an Other tab
+  # with nothing in it.
+  def order_filter_tabs(bot)
+    hidden = hide_balances?(bot)
+    activities = hidden && bot.bot_activity_logs.where.not(event: BotActivityFeed::EXCLUDED_EVENTS).exists?
+
+    [(['all', t('order_filters.all'), true] unless hidden),
+     ['successful', t('order_filters.transactions'), bot.transactions.submitted.closed.exists?],
+     ['waiting', t('order_filters.waiting'), bot.transactions.waiting.exists?],
+     ['other', t('order_filters.other'), bot.transactions.other.exists? || activities]].compact
+  end
+
+  # The tab the log opens on: "All" normally, the first tab that has rows while hiding. Falls back
+  # to a real tab name rather than nil so a bot with no rows at all still names something — the
+  # only row on screen then is the placeholder, which belongs to no tab and is always visible.
+  def default_order_filter(tabs)
+    tabs.find(&:last)&.first || 'successful'
   end
 
   # The tab a COLUMNAR row belongs to ('waiting' | 'successful' | nil). nil is every
@@ -277,6 +327,14 @@ module BotHelper
     error = order.error_messages.to_sentence
     base_amount = round_amount(order.amount, decimals[order.base])
     quote_amount = round_amount(order.quote_amount, decimals[order.quote])
+
+    # Failed rows are the one kind of sentence the Other tab still shows while balances are
+    # hidden, and the attempted amounts are the only money in them — dropping them leaves the
+    # error, which is what the row is there to report.
+    if hide_balances?(order.bot)
+      base_amount = nil
+      quote_amount = nil
+    end
 
     if base_amount.present? || quote_amount.present?
       key = order.sell? ? 'failed_sell' : 'failed_buy'

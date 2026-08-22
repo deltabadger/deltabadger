@@ -9,7 +9,10 @@
     <div class="modal__body">
       <p class="text-center"><%= t('bot.liquidation.sell_confirm') %></p>
 
-      <%# Named, not counted: the user is approving the disposal of this one position. The bot page's
+      <%# Named, not counted: the user is approving the disposal of this one position. The row is
+          the bot page's own, hidden columns included — the user got here from a row with no Amount
+          and no Value, and a confirmation that put them back would be the one place the preference
+          did not hold. The symbol is what identifies the position being sold. The bot page's
           own table, widget shell included — every row rule (padding, alignment, the logo gutter)
           hangs off .widget--table, so the table is bare without it. Absent when the price cache has
           gone cold, which is why the sale never depends on it. %>
@@ -18,7 +21,8 @@
           <%= render 'bots/composition/assets_table',
                      values: { @holding[:symbol] => @holding },
                      logo_assets: { @holding[:symbol] => @holding[:ticker] },
-                     body_id: 'liquidation_confirm_list' %>
+                     body_id: 'liquidation_confirm_list',
+                     hide_money: hide_balances?(@bot) %>
         </div>
       <% end %>
 

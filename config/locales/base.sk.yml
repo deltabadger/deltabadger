@@ -83,6 +83,8 @@ sk:
             text_html: 'Skontrolujte si e-mail a kliknite na <b>potvrdzovací odkaz</b>, ktorý sme vám zaslali. Potom prejdite na prihlasovaciu stránku.'
             title: Ďakujeme!
     links:
+        hide_balances: 'Skryť zostatky'
+        show_balances: 'Zobraziť zostatky'
         about: O nás
         telegram: 'Telegram'
         create_account: 'Vytvoriť účet zadarmo'

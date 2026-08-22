@@ -18,6 +18,18 @@
                 base1_minimum_base_size: base1_minimum_base_size,
                 base1_minimum_quote_size: base1_minimum_quote_size,
                 exchange_name: exchange_name) %></p>
+    <% elsif hide_balances?(bot) %>
+      <%# 1c: One missed, balances hidden. This modal is broadcast after an execution rather than
+          opened by a click, and the one_below sentence opens by stating what the bot spent. The
+          single-asset wording IS that sentence with the money clause gone — same facts about the
+          leg that missed and the venue's minimum, already translated everywhere — so it stands in
+          rather than a new key that would fall back to English in fourteen locales. %>
+      <p><%= t('bot.warning.dca_single_asset.intro',
+                quote_symbol: quote_symbol,
+                missed_symbol: missed_symbol,
+                missed_minimum_base_size: missed_minimum_base_size,
+                missed_minimum_quote_size: missed_minimum_quote_size,
+                exchange_name: exchange_name) %></p>
     <% else %>
       <!-- 1b: One missed -->
       <p><%= t('bot.warning.dca_dual_asset.one_below.intro',

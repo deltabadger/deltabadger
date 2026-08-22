@@ -33,6 +33,7 @@ class BotsController < ApplicationController
     # enough to show the row — otherwise archiving would put a bot somewhere with no way back.
     @show_filters = (@total_bots > 1 && @has_active && @has_inactive) || @has_archived
 
+    hide_balances = current_user.hide_balances?
     @pnl_hash = {}
     @profit_usd_hash = {}
     @loading_hash = {}
@@ -45,14 +46,18 @@ class BotsController < ApplicationController
       next if metrics_with_current_prices.nil?
 
       @pnl_hash[bot.id] = metrics_with_current_prices[:pnl]
+      # The amount was the only thing an FX rate was needed for; with balances hidden the tile has
+      # nothing to convert, and _bot_tile_pnl already renders the amount only when one is present.
+      next if hide_balances
+
       @profit_usd_hash[bot.id] = bot.profit_in_usd(metrics_with_current_prices, rates: rates)
     end
 
     # A tile whose FX rate was cold renders its percent but no amount. Ask for the same async
     # refresh a cold-metrics tile gets: that job runs outside the request and may fetch the
     # rate, so the amount fills in instead of staying blank until the next page load.
-    @tile_refresh_ids = @loading_hash.select { |_, loading| loading }.keys +
-                        @profit_usd_hash.select { |_, usd| usd.nil? }.keys
+    @tile_refresh_ids = @loading_hash.select { |_, loading| loading }.keys
+    @tile_refresh_ids += @profit_usd_hash.select { |_, usd| usd.nil? }.keys unless hide_balances
 
     # Cache-only: never make a live exchange/FX call in the index request. When the
     # snapshot is still loading, the view fires an async global_pnl_update broadcast.

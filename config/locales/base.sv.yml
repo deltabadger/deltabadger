@@ -82,6 +82,8 @@ sv:
             text_html: 'Kolla din inkorg och klicka på <b>bekräftelselänken</b> vi har skickat till dig. Gå sedan till inloggningssidan.'
             title: Tack!
     links:
+        hide_balances: 'Dölj saldon'
+        show_balances: 'Visa saldon'
         about: Om
         telegram: 'Telegram'
         create_account: 'Skapa gratiskonto'

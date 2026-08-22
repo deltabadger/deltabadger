@@ -82,6 +82,8 @@ en:
             text_html: 'Check your mailbox and click on the <b>confirmation link</b> we''ve sent to you. Then go to the login page.'
             title: Thanks!
     links:
+        hide_balances: 'Hide balances'
+        show_balances: 'Show balances'
         about: About
         telegram: 'Telegram'
         create_account: 'Create free account'

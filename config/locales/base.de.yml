@@ -81,6 +81,8 @@ de:
             text_html: 'Überprüfe dein Postfach und klicke auf den <b>Bestätigungslink</b>, den wir dir zugesendet haben. Wechsle dann zur Anmeldeseite.'
             title: Danke!
     links:
+        hide_balances: 'Guthaben ausblenden'
+        show_balances: 'Guthaben einblenden'
         about: Über
         telegram: Telegram
         create_account: Konto erstellen

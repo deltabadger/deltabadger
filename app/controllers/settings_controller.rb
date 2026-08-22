@@ -92,6 +92,17 @@ class SettingsController < ApplicationController
     end
   end
 
+  # A toggle, so there is nothing submitted to trust — the action flips what is stored.
+  # It lives in the menu rather than on this page because it is a way of reading every screen,
+  # and the answer is a refresh for the same reason the currency select's is: it changes every
+  # figure on the page, not one frame. The broadcast carries that refresh to the account's other
+  # open bot screens, which would otherwise keep the markup they were served before the flip.
+  def update_hide_balances
+    current_user.update!(hide_balances: !current_user.hide_balances?)
+    Turbo::StreamsChannel.broadcast_refresh_to("user_#{current_user.id}", :bot_updates)
+    render turbo_stream: turbo_stream_page_refresh
+  end
+
   def update_password
     if current_user.update_with_password(update_password_params)
       bypass_sign_in(current_user)

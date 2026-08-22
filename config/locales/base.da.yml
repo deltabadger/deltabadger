@@ -82,6 +82,8 @@ da:
             text_html: 'Tjek din indbakke og klik på det <b>bekræftelseslink</b>, vi har sendt til dig. Gå derefter til login-siden.'
             title: Tak!
     links:
+        hide_balances: 'Skjul saldi'
+        show_balances: 'Vis saldi'
         about: Om
         telegram: 'Telegram'
         create_account: 'Opret gratis konto'
