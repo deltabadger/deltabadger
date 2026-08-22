@@ -54,6 +54,17 @@ class Bots::HideBalancesShowTest < ActionDispatch::IntegrationTest
     assert_select '[data-bot--chart-target="pnl"]', false
   end
 
+  # With no money slot to fill, the percentage is the whole headline: it takes the big
+  # __pnl styling instead of sitting in the small __percent slot underneath an empty space.
+  test 'the percentage takes the big pnl slot instead of the small one below it' do
+    seed_chart
+
+    get bot_path(id: @bot.id)
+
+    assert_select '.widget--chart__pnl[data-bot--chart-target="percent"]', 1
+    assert_select '.widget--chart__percent', false
+  end
+
   # --- the metrics panel ------------------------------------------------------------------
 
   test 'the invested and portfolio-value panel is not there' do
