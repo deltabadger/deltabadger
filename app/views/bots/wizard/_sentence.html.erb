@@ -39,6 +39,10 @@
                    elsif exchange then :filled
                    else :future
                    end
+  # Re-picking the exchange from the asset step is a step back only when the venue comes first
+  # (the asset step is :currencies in the single order, :assets in the multi order).
+  asset_step_index = order.steps.index(:currencies) || order.steps.index(:assets)
+  exchange_before_assets = order.steps.index(:exchange) < asset_step_index
 
   # Spending shows only after an asset and an exchange are both chosen.
   quote_visible = chosen.any? && exchange.present?
@@ -122,7 +126,7 @@
   <% elsif exchange_state == :filled && on_asset_step %>
     <%# Leaving the asset step always goes through advance, which commits the basket first. %>
     <%= form_with url: advance_url, method: :post, class: "conversational__link filled",
-                  data: { turbo_frame: "modal_content" } do |f| %>
+                  data: { turbo_frame: "modal_content", wizard_dir: ("back" if exchange_before_assets) }.compact do |f| %>
       <%= f.hidden_field :to, value: "exchange" %>
       <input value="<%= exchange.name %>" readonly tabindex="-1">
     <% end %>

@@ -6,7 +6,9 @@
 // either present or absent per render — no always-in-DOM collapse/reveal. The
 // browser's default entry/exit is sufficient for slots that appear or
 // disappear between steps; we only add an explicit slide for the step body
-// and reverse it when navigating back.
+// and reverse it when navigating back. A same-step re-render (adding or
+// removing a basket member, data-wizard-dir="stay") skips the transition
+// altogether — see hotwire_animations_controller.js.
 
 ::view-transition-group(*)
     animation-duration: 220ms

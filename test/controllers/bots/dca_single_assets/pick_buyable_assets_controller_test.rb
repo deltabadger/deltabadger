@@ -85,6 +85,8 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
 
     follow_redirect!
     assert_select '.conversational__lead', text: 'Buy'
+    # Adding and removing re-render this same step: no step slide.
+    assert_select '.wizard-assets form[data-wizard-dir="stay"]', count: 2
     assert_select '.conversational__assets .conversational__stack .ticker', text: 'ETH'
     assert_select '.conversational__assets form', count: 0
     assert_select '.wizard-assets .modal--search__input[placeholder=?]', I18n.t('utils.search.placeholder.asset')
