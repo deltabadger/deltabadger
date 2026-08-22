@@ -77,8 +77,9 @@ export default class extends Controller {
     frame.innerHTML = ""
     document.body.classList.remove('overflow-hidden')
     this.#dispatchModalOpenEvent(false)
-    // Full-page dialogs navigate back to a known page after closing
-    if (closeUrl) {
+    // Full-page dialogs navigate back to a known page after closing — unless that is the page
+    // already behind the dialog, which would only re-render it.
+    if (closeUrl && new URL(closeUrl, window.location.href).pathname !== window.location.pathname) {
       Turbo.visit(closeUrl)
     }
   }
