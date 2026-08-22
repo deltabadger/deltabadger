@@ -104,7 +104,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_select '.wizard-assets__row', count: 0
     assert_select 'button', text: I18n.t('button.next'), count: 0
     assert_select '.conversational__stack', count: 0
-    assert_select '.conversational__assets .ticker--placeholder', text: '…'
+    assert_select '.conversational__assets .ticker--placeholder', count: 1
     assert_select '.wizard-assets .modal--search__input[placeholder=?]', I18n.t('utils.search.placeholder.asset')
   end
 
@@ -157,6 +157,10 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
 
     assert_response :ok
     assert_select '.modal--search__input', count: 0
+    # The stack previews five chips and counts the rest as a plain number.
+    assert_select '.conversational__stack .ticker', count: 5
+    assert_select '.conversational__stack .conversational__stack-count', text: '+15'
+    assert_select '.conversational__stack .ticker--more', count: 0
     assert_select '.text-inactive', text: I18n.t('bot.dca_multi_asset.max_assets_reached', max: 20)
     assert_select 'button', text: I18n.t('button.next') do |buttons|
       assert_nil buttons.first['disabled']
