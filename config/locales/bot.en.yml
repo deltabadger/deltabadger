@@ -44,30 +44,17 @@ en:
                 intro: "Some orders (%{skipped_count}) were below the %{exchange_name} minimum order size. Here's how the bot handles it:"
         types:
             dca:
-                title: "DCA"
-                description: "Invest in one asset"
+                title: "Portfolio"
+                description: "DCA and rebalance"
             dca_dual_asset:
                 title: "Rebalanced DCA"
                 description: "Rebalance two assets"
             index_portfolio:
-                title: "Index Portfolio"
-                description: "Your personal crypto ETF"
-            custom_portfolio:
-                title: "Custom Portfolio"
-                description: "Rebalance custom asset mix"
+                title: "Index"
+                description: "Build your ETF"
             signal:
-                title: "Signal"
-                description: "Trade based on external signals"
-            dca_stocks:
-                title: "DCA (stocks)"
-                description: "Buy stocks with Alpaca"
-        dca_stocks:
-            connect_alpaca_intro: "Connect your Alpaca account to start investing in stocks"
-            pick_stock: "Search for a stock"
-            no_results: "No stocks found"
-            stock_not_found: "Stock not found on Alpaca"
-            mode_paper: "Paper trading"
-            mode_live: "Live trading"
+                title: "Signals"
+                description: "Trade based on signals"
         exchange_menu:
             no_alternative: 'No other supported exchange lists %{assets}.'
             locked_while_running: 'Stop the bot to move it to another exchange.'

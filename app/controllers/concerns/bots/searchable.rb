@@ -41,7 +41,7 @@ module Bots::Searchable
   def filtered_asset_rows(bot, query, asset_type)
     available_assets = bot.available_assets_for_current_settings(asset_type: asset_type)
     filter_assets_by_query(assets: available_assets, query: query)
-      .pluck(:id, :symbol, :name, :color, :category)
+      .pluck(:id, :symbol, :name, :color, :category, :image_url)
       .reject { |_, symbol, _| symbol.blank? }
   end
 
@@ -68,8 +68,8 @@ module Bots::Searchable
     binance = available_exchanges.values.find { |exchange| exchange.name_id == 'binance' }
     binance_name = binance.name if binance && ExchangeAsset.available.where(exchange_id: binance.id).exists?
 
-    rows.map do |id, symbol, name, color, category|
-      [id, symbol, name, color, category, parse_exchanges(exchanges_by_asset[id], binance_name)]
+    rows.map do |id, symbol, name, color, category, image_url|
+      [id, symbol, name, color, category, image_url, parse_exchanges(exchanges_by_asset[id], binance_name)]
     end
   end
 

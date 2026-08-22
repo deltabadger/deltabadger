@@ -44,30 +44,17 @@ el:
                 intro: "Κάποιες εντολές (%{skipped_count}) ήταν κάτω από το ελάχιστο μέγεθος εντολής του %{exchange_name}. Δες πώς το χειρίζεται το bot:"
         types:
             dca:
-                title: "DCA"
-                description: "Επένδυση σε ένα asset"
+                title: "Χαρτοφυλάκιο"
+                description: "DCA και εξισορρόπηση"
             dca_dual_asset:
                 title: "DCA με εξισορρόπηση"
                 description: "Εξισορρόπηση δύο assets"
             index_portfolio:
-                title: "Χαρτοφυλάκιο δείκτη"
-                description: "Το δικό σου crypto ETF"
-            custom_portfolio:
-                title: "Προσαρμοσμένο χαρτοφυλάκιο"
-                description: "Εξισορρόπηση δικού σου μείγματος assets"
+                title: "Δείκτης"
+                description: "Φτιάξε το δικό σου ETF"
             signal:
-                title: "Σήμα"
-                description: "Συναλλαγές βάσει εξωτερικών σημάτων"
-            dca_stocks:
-                title: "DCA (μετοχές)"
-                description: "Αγορά μετοχών μέσω Alpaca"
-        dca_stocks:
-            connect_alpaca_intro: "Σύνδεσε τον λογαριασμό σου στο Alpaca για να ξεκινήσεις να επενδύεις σε μετοχές"
-            pick_stock: "Αναζήτηση μετοχής"
-            no_results: "Δεν βρέθηκαν μετοχές"
-            stock_not_found: "Η μετοχή δεν βρέθηκε στο Alpaca"
-            mode_paper: "Εικονικές συναλλαγές"
-            mode_live: "Πραγματικές συναλλαγές"
+                title: "Σήματα"
+                description: "Συναλλαγές βάσει σημάτων"
         exchange_menu:
             no_alternative: 'Κανένα άλλο υποστηριζόμενο ανταλλακτήριο δεν προσφέρει %{assets}.'
             locked_while_running: 'Σταμάτα το bot για να το μεταφέρεις σε άλλο ανταλλακτήριο.'

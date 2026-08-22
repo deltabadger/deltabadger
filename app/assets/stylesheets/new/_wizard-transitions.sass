@@ -6,9 +6,10 @@
 // either present or absent per render — no always-in-DOM collapse/reveal. The
 // browser's default entry/exit is sufficient for slots that appear or
 // disappear between steps; we only add an explicit slide for the step body
-// and reverse it when navigating back. A same-step re-render (adding or
-// removing a basket member, data-wizard-dir="stay") skips the transition
-// altogether — see hotwire_animations_controller.js.
+// and reverse it when navigating back. Entering the first step from the
+// chooser (data-wizard-dir="enter") only fades the body in, and a same-step
+// re-render (adding or removing a basket member, data-wizard-dir="stay") skips
+// the transition altogether — see hotwire_animations_controller.js.
 
 ::view-transition-group(*)
     animation-duration: 220ms
@@ -36,6 +37,12 @@ html[data-wizard-dir="back"]
     &::view-transition-new(vt-step-body)
         animation-name: vt-step-body-in-left
 
+// Entering the first step from the bot-type chooser: nothing slides away, so the
+// step body only fades in.
+html[data-wizard-dir="enter"]
+    &::view-transition-new(vt-step-body)
+        animation-name: vt-step-body-fade-in
+
 @keyframes vt-step-body-out-left
     to
         transform: translateX(-4%)
@@ -51,4 +58,7 @@ html[data-wizard-dir="back"]
 @keyframes vt-step-body-in-left
     from
         transform: translateX(-4%)
+        opacity: 0
+@keyframes vt-step-body-fade-in
+    from
         opacity: 0

@@ -26,6 +26,8 @@ class Bots::NewPickerTest < ActionDispatch::IntegrationTest
     assert_select 'turbo-frame#modal dialog.dialogview turbo-frame#modal_content [data-dialog-size="bare"]'
     assert_select 'a.itile--bot-type[data-turbo-frame="modal_content"]', count: 3
     assert_select 'a.itile--bot-type[data-turbo-frame="modal"]', count: 0
+    # The first step fades in — no previous step to slide away from.
+    assert_select 'a.itile--bot-type[data-wizard-dir="enter"]', count: 3
   end
 
   test 'Signal bot is hidden when advanced bots are disabled' do

@@ -1,31 +1,23 @@
 <%# The bot-type chooser is the wizard's first screen, so it lives in the same dialog as the
     steps: the cards swap only the inner modal_content frame (a View Transition, like every
-    other step) instead of replacing the whole dialog. %>
+    other step) instead of replacing the whole dialog. The first step fades in rather than
+    sliding — there is no previous step to slide away from (data-wizard-dir="enter"). %>
 <%= render 'layouts/modal/full_page' do %>
   <div class="bot-creation-layout bot-type-chooser" data-dialog-size="bare">
     <div class="introtiles">
 
-        <%= link_to new_bots_dca_single_assets_pick_exchange_path, class: 'itile itile--bot-type', data: { turbo_frame: "modal_content" } do %>
-            <div class="ticker" style="background-color: #f37738"></div>
+        <%= link_to new_bots_dca_single_assets_pick_exchange_path, class: 'itile itile--bot-type', data: { turbo_frame: "modal_content", wizard_dir: "enter" } do %>
             <div class="index-title"><%= t('bot.types.dca.title') %></div>
             <div class="index-info"><%= t('bot.types.dca.description').html_safe %></div>
         <% end %>
 
-        <%= link_to new_bots_dca_indexes_setup_coingecko_path, class: 'itile itile--bot-type', data: { turbo_frame: "modal_content" } do %>
-            <div class="ticker-group ticker-group--many">
-                <span class="ticker" style="background-color: #f37738"></span>
-                <span class="ticker" style="background-color: #e5aa40"></span>
-                <span class="ticker" style="background-color: #44d64c"></span>
-                <span class="ticker" style="background-color: #279be1"></span>
-                <span class="ticker" style="background-color: #3e7eff"></span>
-            </div>
+        <%= link_to new_bots_dca_indexes_setup_coingecko_path, class: 'itile itile--bot-type', data: { turbo_frame: "modal_content", wizard_dir: "enter" } do %>
             <div class="index-title"><%= t('bot.types.index_portfolio.title') %></div>
             <div class="index-info"><%= t('bot.types.index_portfolio.description').html_safe %></div>
         <% end %>
 
         <% if current_user.advanced_bots_enabled? %>
-          <%= link_to new_bots_signals_pick_buyable_asset_path, class: 'itile itile--bot-type', data: { turbo_frame: "modal_content" } do %>
-              <%= render partial: 'svg/24x24_signal' %>
+          <%= link_to new_bots_signals_pick_buyable_asset_path, class: 'itile itile--bot-type', data: { turbo_frame: "modal_content", wizard_dir: "enter" } do %>
               <div class="index-title"><%= t('bot.types.signal.title') %></div>
               <div class="index-info"><%= t('bot.types.signal.description').html_safe %></div>
           <% end %>
