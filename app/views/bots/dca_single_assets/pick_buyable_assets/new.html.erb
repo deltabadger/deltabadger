@@ -1,5 +1,7 @@
 <%= render 'layouts/modal/full_page', **(params[:auto_open] ? { close_url: "" } : {}) do %>
-  <div class="bot-creation-layout">
+  <%# The basket table is folded by default; the stack of chips in the sentence toggles it. After a
+      removal it comes back open — the user was working in it. %>
+  <div class="bot-creation-layout" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
 
     <%= render partial: 'bots/dca_single_assets/new_step_progress_bar', locals: {
       current_step: :currencies
@@ -10,7 +12,7 @@
 
     <div class="wizard-assets vt-step-body">
       <% if @chosen.any? %>
-        <div class="wizard-assets__list">
+        <div class="wizard-assets__list <%= 'hidden' unless params[:basket] == 'open' %>" data-class-toggle-target="togglable">
           <% @chosen.each do |asset| %>
             <div class="wizard-assets__row">
               <div class="modal--search__cell">

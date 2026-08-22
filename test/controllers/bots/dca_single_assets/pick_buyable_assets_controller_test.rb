@@ -87,6 +87,9 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_select '.conversational__lead', text: 'Buy'
     # Adding and removing re-render this same step: no step slide.
     assert_select '.wizard-assets form[data-wizard-dir="stay"]', count: 2
+    # The basket table is folded by default; the stack in the sentence toggles it.
+    assert_select '.wizard-assets__list.hidden[data-class-toggle-target="togglable"]', count: 1
+    assert_select '.conversational__stack--toggle[data-action="click->class-toggle#toggle"]', count: 1
     assert_select '.conversational__assets .conversational__stack .ticker', text: 'ETH'
     assert_select '.conversational__assets form', count: 0
     assert_select '.wizard-assets .modal--search__input[placeholder=?]', I18n.t('utils.search.placeholder.asset')
@@ -120,7 +123,10 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_nil settings['base_asset_id']
 
     remove eth
-    assert_redirected_to step_path
+    # After a removal the table comes back open.
+    assert_redirected_to step_path(basket: 'open')
+    follow_redirect!
+    assert_select '.wizard-assets__list:not(.hidden)', count: 1
     assert_equal sol.id, settings['base_asset_id']
     assert_nil settings['base_asset_ids']
 
