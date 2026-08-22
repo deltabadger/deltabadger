@@ -1,3 +1,9 @@
+<% hide_balances = current_user.hide_balances? %>
+<%# A hide-balances toggle in another tab refreshes this one. Subscribed per page rather than in
+    the layout: the refresh REPLACES the document, so a settings or setup page listening for it
+    would throw away whatever the user had half-typed into an email, password or API-key form.
+    Only the pages that state balances have anything to re-render. %>
+<%= turbo_stream_from "user_#{current_user.id}", :preferences %>
 <%= turbo_stream_from "user_#{current_user.id}", :tax_report %>
 <%= turbo_stream_from "user_#{current_user.id}", :sync %>
 <%= render 'sync_warning', exchanges: @sync_failures %>
@@ -14,7 +20,9 @@
     </div>
   </div>
 <% else %>
-<% if @portfolio_total_usd && @portfolio_total_usd.positive? %>
+<%# The portfolio total has no percentage to fall back on the way a bot's P/L does — it is the
+    balance, and nothing else. The allocation below is what the page shows instead. %>
+<% if !hide_balances && @portfolio_total_usd && @portfolio_total_usd.positive? %>
   <section class="dash-intro">
     <h1 class="header header--1">
       <%= @denomination.format(@portfolio_total_usd, precision: 2) %>
@@ -58,10 +66,14 @@
           <th class="text-left"><%= t('tracker.columns.date') %></th>
           <th><%= t('tracker.columns.type') %></th>
           <th><%= t('tracker.columns.base') %></th>
-          <th><%= t('tracker.columns.amount') %></th>
+          <%# The same three figures the bot log drops: what was traded, what it cost, and what was
+              paid to trade it. The currencies keep their own columns. %>
+          <% unless hide_balances %><th><%= t('tracker.columns.amount') %></th><% end %>
           <th><%= t('tracker.columns.quote') %></th>
-          <th><%= t('tracker.columns.quote_amount') %></th>
-          <th><%= t('tracker.columns.fee') %></th>
+          <% unless hide_balances %>
+            <th><%= t('tracker.columns.quote_amount') %></th>
+            <th><%= t('tracker.columns.fee') %></th>
+          <% end %>
           <th><%= t('tracker.columns.bot') %></th>
         </tr>
       </thead>

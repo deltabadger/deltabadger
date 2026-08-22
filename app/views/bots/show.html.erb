@@ -1,3 +1,8 @@
+<%# A hide-balances toggle in another tab refreshes this one. Subscribed per page rather than in
+    the layout: the refresh REPLACES the document, so a settings or setup page listening for it
+    would throw away whatever the user had half-typed into an email, password or API-key form.
+    Only the pages that state balances have anything to re-render. %>
+<%= turbo_stream_from "user_#{current_user.id}", :preferences %>
 <%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
 
 <%= turbo_frame_tag "bot" do %>

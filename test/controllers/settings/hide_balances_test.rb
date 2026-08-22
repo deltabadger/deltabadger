@@ -35,11 +35,26 @@ class Settings::HideBalancesTest < ActionDispatch::IntegrationTest
   end
 
   # ...and the user's OTHER open tabs have to hear about it too, or a second window keeps
-  # rendering the markup it was served before the toggle.
-  test 'the toggle refreshes the account\'s other open bot screens' do
-    assert_turbo_stream_broadcasts(["user_#{@user.id}", :bot_updates], count: 1) do
+  # rendering the markup it was served before the toggle. Account-wide, so the layout subscribes
+  # every signed-in page rather than the three that happen to show balances.
+  test 'the toggle refreshes the account\'s other open tabs' do
+    assert_turbo_stream_broadcasts(["user_#{@user.id}", :preferences], count: 1) do
       patch settings_update_hide_balances_path
     end
+  end
+
+  # ...but only the pages that state balances listen. A refresh REPLACES the document, so a
+  # settings page listening for one would throw away a half-typed API key or password.
+  test 'a page that states no balances does not listen for the refresh' do
+    get settings_account_path
+
+    assert_select 'turbo-cable-stream-source', false
+  end
+
+  test 'the pages that state balances do listen' do
+    get tracker_path
+
+    assert_select 'turbo-cable-stream-source', 3
   end
 
   test 'the body says whether balances are hidden' do
