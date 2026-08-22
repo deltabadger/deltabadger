@@ -77,7 +77,11 @@ class BotsController < ApplicationController
   end
 
   def show
-    if request.format.turbo_stream?
+    # A plain revisit can arrive with this same Accept header: browsers replay a form
+    # submission's headers when following its redirect, so any redirect landing here looks
+    # turbo_stream too. `decimals` is what the orders-pagination frame always sends and nothing
+    # else does, so its absence means this isn't that frame — fall through to the full page.
+    if request.format.turbo_stream? && params[:decimals].present?
       feed = BotActivityFeed.new(bot: @bot, before: params[:before], limit: 10)
       @feed_items = feed.items
       @next_cursor = feed.next_cursor
@@ -120,6 +124,10 @@ class BotsController < ApplicationController
       # prices is always the at-least-as-fresh source for the balances table.
       @metrics = prices_data || combined_data || @bot.metrics
       @chart_metrics = combined_data || @metrics
+
+      # Force html: a stray turbo_stream Accept (see above) would otherwise resolve to
+      # show.turbo_stream.erb, which expects the pagination frame's @feed_items/@next_cursor.
+      render :show, formats: :html
     end
   end
 
