@@ -95,12 +95,12 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_select '.wizard-assets .modal--search__input[placeholder=?]', I18n.t('utils.search.placeholder.asset')
     assert_select '.wizard-assets__row', count: 1
     assert_select '.wizard-assets__row .rbutton', count: 1
-    assert_select 'button', text: I18n.t('button.next') do |buttons|
-      assert_nil buttons.first['disabled']
-    end
+    # Moving on is the sentence's job: the exchange placeholder advances; there is no Next button.
+    assert_select '.conversational form[action=?]', advance_path
+    assert_select 'button', text: I18n.t('button.next'), count: 0
   end
 
-  test 'the empty step has no rows, no Next, an empty asset slot, and the search box above the list' do
+  test 'the empty step has no rows, an empty asset slot, and the search box above the list' do
     listed(:ethereum)
 
     get step_path
@@ -157,7 +157,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     refute_includes settings['base_asset_ids'], additions.last.id
   end
 
-  test 'with twenty assets the step renders the cap note, no search input, and Next' do
+  test 'with twenty assets the step renders the cap note and no search input' do
     assets = 21.times.map { |i| listed(symbol: "A#{i}", name: "Asset #{i}") }
     assets.first(20).each { |asset| pick asset }
 
@@ -170,9 +170,6 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_select '.conversational__stack .conversational__stack-count', text: '+15'
     assert_select '.conversational__stack .ticker--more', count: 0
     assert_select '.text-inactive', text: I18n.t('bot.dca_multi_asset.max_assets_reached', max: 20)
-    assert_select 'button', text: I18n.t('button.next') do |buttons|
-      assert_nil buttons.first['disabled']
-    end
   end
 
   test 'picking with an exchange already chosen keeps the exchange' do
@@ -292,14 +289,13 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_equal @binance.id.to_s, session[:bot_config]['exchange_id'].to_s
   end
 
-  test 'a combination no venue lists shows the warning, keeps the list, and disables Next; Next refuses it' do
+  test 'a combination no venue lists shows the warning, keeps the list, and advance refuses it' do
     make_globally_disjoint
 
     get step_path
     assert_select '.wizard-assets__warning[role="alert"]', text: I18n.t('bot.dca_multi_asset.no_common_exchange')
     assert_select '.wizard-assets__row', count: 2
     assert_select '.wizard-assets__row .rbutton', count: 2
-    assert_select 'button[disabled]', text: I18n.t('button.next')
 
     advance
     assert_redirected_to step_path
@@ -320,7 +316,6 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     get step_path
 
     assert_select '.wizard-assets__warning[role="alert"]', text: I18n.t('bot.dca_multi_asset.no_common_exchange')
-    assert_select 'button[disabled]', text: I18n.t('button.next')
     # The chosen exchange stays re-pickable from the chip — recovery without emptying the basket.
     assert_select '.conversational form[action=?] input[name="to"][value="exchange"]', advance_path
   end
@@ -338,7 +333,6 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     get step_path
 
     assert_select '.wizard-assets__warning[role="alert"]', text: I18n.t('bot.dca_multi_asset.no_common_exchange')
-    assert_select 'button[disabled]', text: I18n.t('button.next')
   end
 
   # ── stocks (asset-first routes through the broker step) ──────────────────────
@@ -541,9 +535,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsStaleSessionTest < ActionControlle
 
     assert_response :ok
     assert_select '.wizard-assets__row', count: 1
-    assert_select 'button', text: I18n.t('button.next') do |buttons|
-      assert_nil buttons.first['disabled']
-    end
+    assert_select '.wizard-assets__warning', count: 0
 
     post :advance
     assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
@@ -561,9 +553,6 @@ class Bots::DcaSingleAssets::PickBuyableAssetsStaleSessionTest < ActionControlle
 
     assert_response :ok
     assert_select '.wizard-assets__warning', count: 0
-    assert_select 'button', text: I18n.t('button.next') do |buttons|
-      assert_nil buttons.first['disabled']
-    end
 
     post :advance
     assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
