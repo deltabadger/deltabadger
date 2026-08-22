@@ -44,17 +44,14 @@ da:
                 intro: "Nogle ordrer (%{skipped_count}) var under %{exchange_name}s minimumsordrestørrelse. Sådan håndterer botten det:"
         types:
             dca:
-                title: "Portefølje"
-                description: "DCA og rebalancering"
-            dca_dual_asset:
-                title: "Rebalanceret DCA"
-                description: "Rebalancér to aktiver"
+                title: "DCA / Rebalancering"
+                description: "Vælg et eller flere aktiver"
             index_portfolio:
                 title: "Indeks"
                 description: "Byg din egen ETF"
             signal:
                 title: "Signaler"
-                description: "Handl baseret på signaler"
+                description: "Handl baseret på webhook"
         exchange_menu:
             no_alternative: 'Ingen anden understøttet børs udbyder %{assets}.'
             locked_while_running: 'Stop botten for at flytte den til en anden børs.'

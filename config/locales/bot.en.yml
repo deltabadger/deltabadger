@@ -44,17 +44,14 @@ en:
                 intro: "Some orders (%{skipped_count}) were below the %{exchange_name} minimum order size. Here's how the bot handles it:"
         types:
             dca:
-                title: "Portfolio"
-                description: "DCA and rebalance"
-            dca_dual_asset:
-                title: "Rebalanced DCA"
-                description: "Rebalance two assets"
+                title: "DCA / Rebalance"
+                description: "Pick one or more assets"
             index_portfolio:
                 title: "Index"
-                description: "Build your ETF"
+                description: "Build your personal ETF"
             signal:
                 title: "Signals"
-                description: "Trade based on signals"
+                description: "Trade based on webhook"
         exchange_menu:
             no_alternative: 'No other supported exchange lists %{assets}.'
             locked_while_running: 'Stop the bot to move it to another exchange.'
