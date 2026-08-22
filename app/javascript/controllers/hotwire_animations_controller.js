@@ -55,6 +55,12 @@ export default class extends Controller {
     // Wrap the wizard frame swap in a View Transition so named parts
     // (conversational sentence + step body) can morph / slide.
     if (event.target.id === "modal_content" && document.startViewTransition) {
+      // A same-step re-render (adding or removing a basket member) is not a step
+      // change: swap in place, no slide.
+      if (document.documentElement.dataset.wizardDir === "stay") {
+        delete document.documentElement.dataset.wizardDir;
+        return;
+      }
       const originalRender = event.detail.render;
       event.detail.render = (currentElement, newElement) => {
         const transition = document.startViewTransition(() => originalRender(currentElement, newElement));
@@ -71,7 +77,8 @@ export default class extends Controller {
   }
 
   // Set the wizard direction flag *before* Turbo kicks off the transition, so the
-  // CSS in _wizard-transitions.sass can pick the matching slide direction.
+  // CSS in _wizard-transitions.sass can pick the matching slide direction
+  // ("back"), or skip the transition for a same-step re-render ("stay").
   #handleClickEvent = (event) => {
     const trigger = event.target.closest("[data-wizard-dir]");
     if (!trigger) return;

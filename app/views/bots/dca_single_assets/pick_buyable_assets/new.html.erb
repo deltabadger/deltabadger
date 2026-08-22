@@ -21,7 +21,7 @@
                 <%= button_to '×', remove_bots_dca_single_assets_pick_buyable_asset_path,
                               params: { bots_dca_single_asset: { base_asset_id: asset.id } },
                               class: 'rbutton rbutton--small',
-                              form: { data: { turbo_frame: 'modal_content' } },
+                              form: { data: { turbo_frame: 'modal_content', wizard_dir: 'stay' } },
                               title: t('bot.dca_multi_asset.remove_asset') %>
               </div>
             </div>
@@ -50,7 +50,9 @@
           <% if @assets.empty? && @chosen.empty? && @bot.exchange_id.present? && params[:query].blank? %>
             <%= render "bots/wizard/assets_syncing" %>
           <% else %>
-            <%= form_with model: @bot, url: bots_dca_single_assets_pick_buyable_asset_path, method: :post do |f| %>
+            <%# Adding keeps the user on this step: no step slide (see hotwire-animations "stay"). %>
+            <%= form_with model: @bot, url: bots_dca_single_assets_pick_buyable_asset_path, method: :post,
+                          data: { wizard_dir: 'stay' } do |f| %>
               <% @assets.each do |id, symbol, name, color, category, exchanges| %>
                 <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :base_asset_id, id: id, symbol: symbol, name: name, color: color, category: category, exchanges: exchanges } %>
               <% end %>
