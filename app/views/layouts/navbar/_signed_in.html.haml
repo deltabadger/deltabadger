@@ -1,4 +1,6 @@
-%input{ type: "checkbox", id: "hamburger" }
+-# Permanent for the same reason the settings menu is: the switch inside re-renders the page, and
+  the drawer is held open by this checkbox alone.
+%input{ type: "checkbox", id: "hamburger", data: { turbo_permanent: true } }
 
 .hamburger.hamburger__a
 .hamburger.hamburger__b
@@ -60,7 +62,11 @@
         = t('links.rules')
 
   .menu__section.menu__section--bottom
-    .dropdown-wrapper.dropdown-wrapper--bottom-left{ data: { controller: "dropdown", action: "click->dropdown#toggle", dropdown_target: "wrapper", dropdown_active_class: "menu__item--active" } }
+    -# Permanent: flipping the switch inside re-renders the page, and a menu that vanished mid-flip
+      would be a menu you had to reopen to change your mind. Turbo carries this element across the
+      visit, so it stays open and stays on the state the user just set. Nothing in it is page-
+      dependent, so keeping the old node costs nothing.
+    .dropdown-wrapper.dropdown-wrapper--bottom-left#settings-menu{ data: { turbo_permanent: true, controller: "dropdown", action: "click->dropdown#toggle", dropdown_target: "wrapper", dropdown_active_class: "menu__item--active" } }
       .menu__item.menu__button{ data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', dropdown_target: "trigger" } }
         = render 'svg/24x24_sliders'
         .tooltip
