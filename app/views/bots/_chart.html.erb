@@ -9,7 +9,9 @@
         <div class="widget--chart__summary">
           <div class="widget--chart__date">&nbsp;</div>
           <% unless hide_money %><div class="widget--chart__pnl">&nbsp;</div><% end %>
-          <div class="widget--chart__percent">&nbsp;</div>
+          <%# With no money slot, the percentage IS the headline: it takes the big __pnl
+              styling rather than sitting small underneath nothing. %>
+          <div class="<%= hide_money ? 'widget--chart__pnl' : 'widget--chart__percent' %>">&nbsp;</div>
         </div>
       </div>
       <div class="widget--chart__plot">
@@ -75,7 +77,10 @@
             <% unless hide_money %>
               <div class="widget--chart__pnl" data-bot--chart-target="pnl">&nbsp;</div>
             <% end %>
-            <div class="widget--chart__percent" data-bot--chart-target="percent">&nbsp;</div>
+            <%# With no money slot, the percentage IS the headline: it takes the big __pnl
+                styling rather than sitting small underneath nothing. %>
+            <div class="<%= hide_money ? 'widget--chart__pnl' : 'widget--chart__percent' %>"
+                 data-bot--chart-target="percent">&nbsp;</div>
           </div>
         </div>
         <div class="widget--chart__plot">
