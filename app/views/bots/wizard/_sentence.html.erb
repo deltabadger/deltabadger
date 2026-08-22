@@ -9,8 +9,8 @@
 
   The asset slot holds the whole basket as one stack of chips: away from the asset
   step the stack is a single link back to it (adding and removing happen there, in
-  the table under the sentence); on the asset step it is inert and the live search
-  input follows it.
+  the table under the sentence); on the asset step it is inert — the search box sits
+  above the list, not in the sentence — and an empty basket shows a muted "…".
 
   Placeholders double as controls. On the FIRST step, while nothing is chosen, the
   not-yet-active of {asset, exchange} flips the order (POST) so that slot is picked
@@ -92,13 +92,8 @@
     <% end %>
 
     <% if on_asset_step %>
-      <% if chosen.size < Bots::DcaMultiAsset::MAX_ASSETS %>
-        <%= form_with url: asset_step_url, method: :get,
-                      data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" },
-                      class: "ticker active" do |f| %>
-          <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…",
-                           data: { action: "input->form--submit-after-delay#submit" } %>
-        <% end %>
+      <% if chosen.empty? %>
+        <span class="ticker ticker--placeholder">…</span>
       <% end %>
     <% elsif chosen.empty? %>
       <%# Asset not chosen yet (exchange-first): clicking the slot switches to
