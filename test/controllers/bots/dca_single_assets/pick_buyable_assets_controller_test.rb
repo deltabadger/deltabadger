@@ -86,7 +86,8 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     follow_redirect!
     assert_select '.conversational__lead', text: 'Buy'
     assert_select '.conversational__assets .conversational__stack .ticker', text: 'ETH'
-    assert_select '.conversational__assets form.ticker.active input[name="query"]', count: 1
+    assert_select '.conversational__assets form', count: 0
+    assert_select '.wizard-assets .modal--search__input[placeholder=?]', I18n.t('utils.search.placeholder.asset')
     assert_select '.wizard-assets__row', count: 1
     assert_select '.wizard-assets__row .rbutton', count: 1
     assert_select 'button', text: I18n.t('button.next') do |buttons|
@@ -94,7 +95,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     end
   end
 
-  test 'the empty step has no rows, no Next, and the search input alone in the asset slot' do
+  test 'the empty step has no rows, no Next, an empty asset slot, and the search box above the list' do
     listed(:ethereum)
 
     get step_path
@@ -103,7 +104,8 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_select '.wizard-assets__row', count: 0
     assert_select 'button', text: I18n.t('button.next'), count: 0
     assert_select '.conversational__stack', count: 0
-    assert_select '.conversational__assets form.ticker.active input[name="query"]', count: 1
+    assert_select '.conversational__assets .ticker--placeholder', text: '…'
+    assert_select '.wizard-assets .modal--search__input[placeholder=?]', I18n.t('utils.search.placeholder.asset')
   end
 
   test 'a second pick turns the base into a list in pick order; removing back to one restores the base; removing the last clears both' do
@@ -154,7 +156,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     get step_path
 
     assert_response :ok
-    assert_select '.conversational__assets form.ticker.active', count: 0
+    assert_select '.modal--search__input', count: 0
     assert_select '.text-inactive', text: I18n.t('bot.dca_multi_asset.max_assets_reached', max: 20)
     assert_select 'button', text: I18n.t('button.next') do |buttons|
       assert_nil buttons.first['disabled']
