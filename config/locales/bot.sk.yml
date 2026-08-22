@@ -44,17 +44,14 @@ sk:
                 intro: "Niektoré príkazy (%{skipped_count}) boli pod minimálnou veľkosťou príkazu na %{exchange_name}. Takto to bot rieši:"
         types:
             dca:
-                title: "Portfólio"
-                description: "DCA a rebalancovanie"
-            dca_dual_asset:
-                title: "Rebalancované DCA"
-                description: "Rebalancujte dve aktíva"
+                title: "DCA / Rebalancovanie"
+                description: "Vyberte jedno alebo viac aktív"
             index_portfolio:
                 title: "Index"
                 description: "Vytvorte si vlastný ETF"
             signal:
                 title: "Signály"
-                description: "Obchodujte na základe signálov"
+                description: "Obchodujte na základe webhooku"
         exchange_menu:
             no_alternative: 'Žiadna iná podporovaná burza neponúka %{assets}.'
             locked_while_running: 'Zastav bota, aby si ho presunul na inú burzu.'

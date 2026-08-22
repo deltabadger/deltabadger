@@ -142,9 +142,6 @@ application.register("reveal-chrome", RevealChromeController)
 import RuleToggleController from "./rule_toggle_controller"
 application.register("rule-toggle", RuleToggleController)
 
-import ScrollStateController from "./scroll_state_controller"
-application.register("scroll-state", ScrollStateController)
-
 import SegmentedController from "./segmented_controller"
 application.register("segmented", SegmentedController)
 

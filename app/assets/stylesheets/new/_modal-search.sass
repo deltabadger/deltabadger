@@ -33,9 +33,6 @@
         @media screen and (min-width: 576px)
             padding: 2rem 0
 
-.modal--search__assets__item:hover, .exchange-picker__item--exchange:hover,.bot-creation-preview,.itiles
-    // filter: drop-shadow(0 0 10rem #0000000f)
-
 .dialogview
     border: none
     width: 100vw
@@ -48,6 +45,7 @@
     top: 0
     left: 0
     overflow: scroll
+    overscroll-behavior: contain
     z-index: 1000
     // Like the small .dialog: start transparent (a <dialog> is white by default, which flashed
     // for a frame before .dialog--open landed) and blur the backdrop in gradually. The open /
@@ -74,17 +72,18 @@
             right: 2rem
     &__vertical-center
         position: relative
-        height: 100vh
+        height: fit-content
+        min-height: 100vh
         max-width: 100rem
         width: 100%
         background: var(--washed)
         overflow: hidden
         @media screen and (min-width: 768px)
+            min-height: auto
             border-radius: 2rem
             filter: drop-shadow(0 0 10rem #0000000f)
             top: 0
-            height: auto
-            max-height: calc(100vh - 4rem)
+            margin-bottom: 2rem
     // Content-heavy variant — driven by `data-dialog-size="wide"` on the
     // CURRENT step's inner wrapper (the element rendered inside the
     // `modal_content` turbo frame). Using `:has()` instead of a class on the
@@ -107,6 +106,11 @@
             max-width: 104rem
     .sinput:not(.widget *)
         background: var(--washed)
+// Lock the page behind an open modal. The viewport scroller is `html` here, not `body`
+// (`overflow-x: hidden` on html in _styles.sass stops body's overflow from propagating),
+// so the lock has to sit on `html`.
+html:has(#modal dialog[open])
+    overflow: hidden
 #modal
     .modal,
     .dialogview__vertical-center
@@ -239,7 +243,7 @@
     max-width: calc(100vw - 2rem)
     max-height: calc(100vh - 2rem)
     position: relative
-    background: var(--modal-background)
+    background: var(--washed)
     border-radius: 2rem
     overflow: hidden
     @media screen and (min-width: 576px)
@@ -294,16 +298,18 @@
                 width: 100%
                 cursor: pointer
                 @media (min-width: 768px)
-                    grid-template-columns: 14rem 1fr 1fr
+                    grid-template-columns: 13rem 1fr 1fr
     &__cell
         font-size: 1.75rem
         text-align: left
-        padding: 1rem 0.25rem 1rem 2rem
+        padding: 1rem 0.25rem 1rem 1rem
         line-height: 3rem
         font-weight: 500
         overflow: hidden
         text-overflow: ellipsis
         text-wrap: nowrap
+        &:first-child
+            padding-left: 2rem
         @media screen and (min-width: 768px)
             &:first-child
                 padding-left: 3rem
@@ -368,22 +374,6 @@
         padding: 10rem
         gap: 8rem
 
-.selectable-options
-    overflow: scroll
-    max-height: calc(100vh - 18rem)
-    position: relative
-    &.scrolled
-        box-shadow: inset 0 3px 8px -8px
-    @media (min-width: 768px)
-        max-height: calc(100vh - 30rem)
-
-.selectable-options:hover
-    .modal--search__assets__item__highlight 
-        background: none !important
-        box-shadow: none !important
-        &:hover
-            background: var(--washed) !important
-            box-shadow: var(--shadow-basic)
 .flash__message
     .modal__close
         right: 1rem

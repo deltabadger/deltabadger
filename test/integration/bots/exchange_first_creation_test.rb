@@ -60,14 +60,12 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
     get new_bots_dca_single_assets_pick_exchange_path
     assert_response :ok
     assert_select 'div.process-progress h4', 'Pick exchange'
-    # The venue grid scrolls inside the dialog like the asset lists do.
-    assert_select 'turbo-frame#exchange-picker.selectable-options[data-controller~="scroll-state"]'
     # With nothing to narrate yet, the sentence only offers the optional asset-first route.
     assert_select '.conversational .conversational__lead', text: 'You can also start with'
     assert_select '.conversational .conversational__lead', text: 'Buy', count: 0
     assert_select '.conversational form[action=?] input[name="flow"][value="asset_first"]',
                   bots_dca_single_assets_order_path
-    assert_select '.conversational form[action=?] input[value="assets"]', bots_dca_single_assets_order_path
+    assert_select '.conversational form[action=?] input[placeholder="assets"]', bots_dca_single_assets_order_path
 
     # The asset step is not reachable before the venue.
     get new_bots_dca_single_assets_pick_buyable_asset_path

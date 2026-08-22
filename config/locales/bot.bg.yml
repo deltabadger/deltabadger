@@ -44,17 +44,14 @@ bg:
                 intro: "Някои поръчки (%{skipped_count}) бяха под минималния размер на поръчка в %{exchange_name}. Ето как ботът се справя с това:"
         types:
             dca:
-                title: "Портфолио"
-                description: "DCA и ребалансиране"
-            dca_dual_asset:
-                title: "Ребалансирано DCA"
-                description: "Ребалансирайте два актива"
+                title: "DCA / Ребалансиране"
+                description: "Избери един или повече активи"
             index_portfolio:
                 title: "Индекс"
-                description: "Изгради своя ETF"
+                description: "Изгради своя личен ETF"
             signal:
                 title: "Сигнали"
-                description: "Търгувай на база сигнали"
+                description: "Търгувай на база webhook"
         exchange_menu:
             no_alternative: 'Никоя друга поддържана борса не предлага %{assets}.'
             locked_while_running: 'Спри бота, за да го преместиш на друга борса.'

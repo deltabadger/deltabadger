@@ -44,20 +44,14 @@ de:
                 intro: "Einige Orders (%{skipped_count}) lagen unter der minimalen Bestellgröße von %{exchange_name}. So geht der Bot damit um:"
         types:
             dca:
-                title: "Portfolio"
-                description: "DCA und Rebalancing"
-            dca_dual_asset:
-                title: "Rebalanciertes DCA"
-                description: "Zwei Assets rebalancieren"
-            legacy:
-                title: "Legacy Bot"
-                description: "DCA + Auszahlungen"
+                title: "DCA / Rebalancing"
+                description: "Wähle ein oder mehrere Assets"
             index_portfolio:
                 title: "Index"
-                description: "Baue deinen ETF"
+                description: "Baue deinen eigenen ETF"
             signal:
                 title: "Signale"
-                description: "Handeln basierend auf Signalen"
+                description: "Handeln per Webhook"
         exchange_menu:
             no_alternative: 'Keine andere unterstützte Börse führt %{assets}.'
             locked_while_running: 'Stoppe den Bot, um ihn zu einer anderen Börse zu verschieben.'

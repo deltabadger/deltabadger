@@ -44,17 +44,14 @@ el:
                 intro: "Κάποιες εντολές (%{skipped_count}) ήταν κάτω από το ελάχιστο μέγεθος εντολής του %{exchange_name}. Δες πώς το χειρίζεται το bot:"
         types:
             dca:
-                title: "Χαρτοφυλάκιο"
-                description: "DCA και εξισορρόπηση"
-            dca_dual_asset:
-                title: "DCA με εξισορρόπηση"
-                description: "Εξισορρόπηση δύο assets"
+                title: "DCA / Εξισορρόπηση"
+                description: "Διάλεξε ένα ή περισσότερα assets"
             index_portfolio:
                 title: "Δείκτης"
                 description: "Φτιάξε το δικό σου ETF"
             signal:
                 title: "Σήματα"
-                description: "Συναλλαγές βάσει σημάτων"
+                description: "Συναλλαγές βάσει webhook"
         exchange_menu:
             no_alternative: 'Κανένα άλλο υποστηριζόμενο ανταλλακτήριο δεν προσφέρει %{assets}.'
             locked_while_running: 'Σταμάτα το bot για να το μεταφέρεις σε άλλο ανταλλακτήριο.'

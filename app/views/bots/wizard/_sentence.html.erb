@@ -73,10 +73,11 @@
 
   <% if invite_only %>
     <span class="conversational__lead">You can also start with</span>
-    <%= form_with url: order_url, method: :post, class: "conversational__link conversational__link--switch",
+    <%= form_with url: order_url, method: :post,
+                  class: "conversational__link conversational__link--placeholder conversational__link--switch",
                   data: { turbo_frame: "modal_content" } do |f| %>
       <%= f.hidden_field :flow, value: "asset_first" %>
-      <input value="assets" readonly tabindex="-1">
+      <input placeholder="assets" readonly tabindex="-1">
     <% end %>
   <% else %>
   <span class="conversational__lead">Buy</span>

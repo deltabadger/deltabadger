@@ -13,7 +13,14 @@ export default class extends Controller {
 
   activate(event) {
     const form = event.target.closest("form");
-    if (!form || !this.element.contains(form)) return;
+    if (!form || !this.element.contains(form)) {
+      // An inert placeholder slot has no form to submit: the pill is the shape of the thing being
+      // picked, so clicking it hands focus back to the picker's search box.
+      if (event.target.closest(".ticker--placeholder")) {
+        document.querySelector(".modal--search__input")?.focus();
+      }
+      return;
+    }
     this.element.querySelectorAll(".active").forEach((el) => {
       if (el !== form) el.classList.remove("active");
     });

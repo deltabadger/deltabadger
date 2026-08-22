@@ -44,17 +44,14 @@ sv:
                 intro: "Vissa ordrar (%{skipped_count}) var under %{exchange_name}s minsta orderstorlek. Så här hanterar boten det:"
         types:
             dca:
-                title: "Portfölj"
-                description: "DCA och ombalansering"
-            dca_dual_asset:
-                title: "Ombalanserad DCA"
-                description: "Ombalansera två tillgångar"
+                title: "DCA / Ombalansering"
+                description: "Välj en eller flera tillgångar"
             index_portfolio:
                 title: "Index"
                 description: "Bygg din egen ETF"
             signal:
                 title: "Signaler"
-                description: "Handla baserat på signaler"
+                description: "Handla baserat på webhook"
         exchange_menu:
             no_alternative: 'Ingen annan börs som stöds erbjuder %{assets}.'
             locked_while_running: 'Stoppa boten för att flytta den till en annan börs.'

@@ -47,17 +47,14 @@ ru:
                 intro: "Некоторые ордеры (%{skipped_count}) были ниже минимального размера ордера на %{exchange_name}. Вот как бот это обрабатывает:"
         types:
             dca:
-                title: "Портфель"
-                description: "DCA и ребалансировка"
-            dca_dual_asset:
-                title: "Ребалансированный DCA"
-                description: "Ребалансировка двух активов"
+                title: "DCA / Ребалансировка"
+                description: "Выберите один или несколько активов"
             index_portfolio:
                 title: "Индекс"
-                description: "Создайте свой ETF"
+                description: "Создайте свой собственный ETF"
             signal:
                 title: "Сигналы"
-                description: "Торговля по сигналам"
+                description: "Торговля по webhook"
         exchange_menu:
             no_alternative: 'Ни одна другая поддерживаемая биржа не предлагает %{assets}.'
             locked_while_running: 'Останови бота, чтобы перенести его на другую биржу.'

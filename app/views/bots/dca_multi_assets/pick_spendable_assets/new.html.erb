@@ -5,7 +5,7 @@
     <%= render "bots/wizard/sentence", bot: @bot, current_step: :spendable %>
 
     <%= turbo_frame_tag "asset-picker",
-                        data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation scroll-state" },
+                        data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" },
                         class: "modal--search__assets selectable-options vt-step-body" do %>
       <%= form_with model: @bot, url: bots_dca_multi_assets_pick_spendable_asset_path, method: :post do %>
         <% @assets.each do |id, symbol, name, color, category, image_url, exchanges| %>

@@ -47,17 +47,14 @@ nl:
                 intro: "Sommige orders (%{skipped_count}) waren onder de minimale ordergrootte van %{exchange_name}. Hier is hoe de bot dit aanpakt:"
         types:
             dca:
-                title: "Portefeuille"
-                description: "DCA en herbalanceren"
-            dca_dual_asset:
-                title: "Geherbalanceerde DCA"
-                description: "Herbalanceer twee assets"
+                title: "DCA / Herbalanceren"
+                description: "Kies één of meer assets"
             index_portfolio:
                 title: "Index"
                 description: "Bouw je eigen ETF"
             signal:
                 title: "Signalen"
-                description: "Handelen op basis van signalen"
+                description: "Handelen op basis van een webhook"
         exchange_menu:
             no_alternative: 'Geen andere ondersteunde exchange biedt %{assets} aan.'
             locked_while_running: 'Stop de bot om hem naar een andere exchange te verplaatsen.'

@@ -47,20 +47,14 @@ pt:
                 intro: "Algumas ordens (%{skipped_count}) estavam abaixo do tamanho mínimo de ordem de %{exchange_name}. Veja como o bot lida com isso:"
         types:
             dca:
-                title: "Portfólio"
-                description: "DCA e reequilíbrio"
-            dca_dual_asset:
-                title: "DCA Reequilibrado"
-                description: "Reequilibrar dois ativos"
-            legacy:
-                title: "Bot Legacy"
-                description: "DCA + Levantamentos"
+                title: "DCA / Reequilíbrio"
+                description: "Escolha um ou mais ativos"
             index_portfolio:
                 title: "Índice"
-                description: "Crie o seu ETF"
+                description: "Crie o seu próprio ETF"
             signal:
                 title: "Sinais"
-                description: "Negoceie com base em sinais"
+                description: "Negoceie com base num webhook"
         exchange_menu:
             no_alternative: 'Nenhuma outra exchange suportada oferece %{assets}.'
             locked_while_running: 'Para o bot para o mudares para outra exchange.'

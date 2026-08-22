@@ -60,7 +60,6 @@ export default class extends Controller {
   #open() {
     this.element.show()
     requestAnimationFrame(() => this.element.classList.add('dialog--open'))
-    document.body.classList.add('overflow-hidden')
     this.#dispatchModalOpenEvent(true)
   }
 
@@ -75,7 +74,6 @@ export default class extends Controller {
     const frame = document.getElementById('modal')
     frame.removeAttribute("src")
     frame.innerHTML = ""
-    document.body.classList.remove('overflow-hidden')
     this.#dispatchModalOpenEvent(false)
     // Full-page dialogs navigate back to a known page after closing — unless that is the page
     // already behind the dialog, which would only re-render it.
