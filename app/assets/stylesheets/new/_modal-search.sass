@@ -84,6 +84,13 @@
             max-width: calc(100vw - 4rem)
             max-height: calc(100vh - 2rem)
             background: none !important
+    // The bot-type chooser: tiles floating on the backdrop, no card, the width the old
+    // `.modal--medium` had. The dialog itself then persists into the first wizard step.
+    &__vertical-center:has([data-dialog-size="bare"])
+        background: none !important
+        @media screen and (min-width: 768px)
+            filter: none
+            max-width: 104rem
     .sinput:not(.widget *)
         background: var(--washed)
 #modal
@@ -228,7 +235,7 @@
         width: 3rem
         height: 3rem
         position: absolute
-        top: 2rem
+        top: 0.25rem
         left: 2rem
         path,circle
             stroke: var(--modal-search-placeholder)
@@ -242,7 +249,7 @@
         padding: 2rem 2rem 2rem 7rem
         font-size: 2rem
         border: none
-        height: 7rem
+        height: 3rem
         &:focus
             outline: none
         &::placeholder

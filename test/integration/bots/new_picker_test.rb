@@ -18,6 +18,16 @@ class Bots::NewPickerTest < ActionDispatch::IntegrationTest
     assert_select "a[href='#{new_bots_dca_indexes_setup_coingecko_path}']"
   end
 
+  test 'the chooser is the first screen of the wizard dialog: the cards swap only modal_content' do
+    sign_in_user(advanced: true)
+
+    get new_bot_path
+    assert_response :success
+    assert_select 'turbo-frame#modal dialog.dialogview turbo-frame#modal_content [data-dialog-size="bare"]'
+    assert_select 'a.itile--bot-type[data-turbo-frame="modal_content"]', count: 3
+    assert_select 'a.itile--bot-type[data-turbo-frame="modal"]', count: 0
+  end
+
   test 'Signal bot is hidden when advanced bots are disabled' do
     sign_in_user(advanced: false)
 
