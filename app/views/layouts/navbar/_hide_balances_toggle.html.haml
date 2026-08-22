@@ -1,0 +1,13 @@
+-# A switch, not a link: the state IS the answer, so the row keeps one constant label and the
+  toggle beside it says whether balances are hidden. Same `.toggle` the bot settings use.
+-#
+-# The hidden field is what makes an unchecked box mean something — a checkbox posts nothing when
+  it is off, and the action stores what was submitted rather than flipping what it finds.
+= form_with url: settings_update_hide_balances_path, method: :patch,
+            class: "#{item_class} #{item_class}--switch", data: { controller: "form--submit" } do
+  %span= t('links.hide_balances')
+  .toggle.toggle--small
+    = hidden_field_tag :hide_balances, "0"
+    = check_box_tag :hide_balances, "1", current_user.hide_balances?,
+                    data: { action: "change->form--submit#submit" }
+    .toggle__style

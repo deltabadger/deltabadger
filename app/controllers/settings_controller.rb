@@ -92,16 +92,19 @@ class SettingsController < ApplicationController
     end
   end
 
-  # A toggle, so there is nothing submitted to trust — the action flips what is stored.
-  # It lives in the menu rather than on this page because it is a way of reading every screen,
-  # and the answer is a refresh for the same reason the currency select's is: it changes every
-  # figure on the page, not one frame. The broadcast carries that refresh to the account's other
-  # open tabs, which would otherwise keep the markup they were served before the flip — the
-  # layout subscribes every signed-in page to that stream.
+  # The switch in the menu posts its own state, so this stores what was submitted rather than
+  # flipping what it finds — two quick clicks can otherwise land out of order and leave the stored
+  # value disagreeing with the switch the user is looking at.
+  #
+  # A redirect, not a turbo-stream refresh: the preference changes a class on <body>, so the whole
+  # document has to come back. A refresh stream action is skipped whenever a visit is already in
+  # flight — which is exactly what submitting this form is — and the page would sit there still
+  # showing the old state until it was reloaded by hand. The broadcast carries the same re-render
+  # to the account's other open tabs on the pages that state balances.
   def update_hide_balances
-    current_user.update!(hide_balances: !current_user.hide_balances?)
+    current_user.update!(hide_balances: params[:hide_balances] == '1')
     Turbo::StreamsChannel.broadcast_refresh_to("user_#{current_user.id}", :preferences)
-    render turbo_stream: turbo_stream_page_refresh
+    redirect_back fallback_location: bots_path, status: :see_other
   end
 
   def update_password

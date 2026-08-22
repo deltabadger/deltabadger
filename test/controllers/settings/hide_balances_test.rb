@@ -17,21 +17,46 @@ class Settings::HideBalancesTest < ActionDispatch::IntegrationTest
     assert_not @user.hide_balances?
   end
 
-  test 'the toggle turns hiding on and off again' do
-    patch settings_update_hide_balances_path
+  # The switch posts its own state rather than asking for a flip: two quick clicks can land out of
+  # order, and a flip would leave the stored value disagreeing with the switch on screen.
+  test 'the switch stores the state it posts' do
+    patch settings_update_hide_balances_path, params: { hide_balances: '1' }
     assert @user.reload.hide_balances?
 
-    patch settings_update_hide_balances_path
+    patch settings_update_hide_balances_path, params: { hide_balances: '0' }
     assert_not @user.reload.hide_balances?
   end
 
-  # The preference changes every figure on the page, not one frame, so the answer is a refresh —
-  # the same answer the display-currency select gives.
-  test 'the toggle answers with a page refresh' do
+  # An unchecked box posts nothing of its own — the hidden field beside it is what makes "off"
+  # reach the server at all.
+  test 'a post with no state at all reads as off' do
+    @user.update!(hide_balances: true)
+
     patch settings_update_hide_balances_path
 
-    assert_response :success
-    assert_match 'turbo-stream action="refresh"', @response.body
+    assert_not @user.reload.hide_balances?
+  end
+
+  # A redirect, not a turbo-stream refresh: the preference changes a class on <body>, so the whole
+  # document has to come back, and a refresh stream action is skipped while a visit is already in
+  # flight — which is exactly what submitting this form is. The page would sit on the old state
+  # until it was reloaded by hand.
+  test 'the switch sends the user back to the page they were on, re-rendered' do
+    patch settings_update_hide_balances_path,
+          params: { hide_balances: '1' }, headers: { 'Referer' => "http://www.example.com#{tracker_path}" }
+
+    assert_response :see_other
+    assert_redirected_to tracker_path
+  end
+
+  # The menu is on every page, so "back where you were" is whatever the browser reports — which
+  # makes this an open-redirect surface if it is taken at face value.
+  test 'a referer pointing somewhere else entirely is refused' do
+    patch settings_update_hide_balances_path,
+          params: { hide_balances: '1' }, headers: { 'Referer' => 'http://evil.example/steal' }
+
+    assert_redirected_to bots_path
+    assert @user.reload.hide_balances?
   end
 
   # ...and the user's OTHER open tabs have to hear about it too, or a second window keeps
@@ -67,17 +92,26 @@ class Settings::HideBalancesTest < ActionDispatch::IntegrationTest
     assert_select 'body.hide-balances'
   end
 
-  # The item says what the click will do, so there is no check state to read.
-  test 'the menu item offers the opposite of the current state' do
+  # A switch, so the row keeps one constant label and the control carries the state.
+  test 'the menu row is a switch that reflects the stored state' do
     get bots_path
-    assert_select 'form[action=?] button', settings_update_hide_balances_path,
-                  text: I18n.t('links.hide_balances')
+    assert_select 'form[action=?]', settings_update_hide_balances_path do
+      assert_select '.toggle input[type=checkbox][name=hide_balances]'
+      assert_select 'input[type=checkbox][checked]', false
+      assert_select 'span', text: I18n.t('links.hide_balances')
+    end
 
     @user.update!(hide_balances: true)
 
     get bots_path
-    assert_select 'form[action=?] button', settings_update_hide_balances_path,
-                  text: I18n.t('links.show_balances')
+    assert_select 'form[action=?] input[type=checkbox][checked]', settings_update_hide_balances_path
+  end
+
+  test 'both the desktop menu and the mobile one carry it' do
+    get bots_path
+
+    assert_select '.dropdown form[action=?] .toggle', settings_update_hide_balances_path
+    assert_select '.menu-mobile form[action=?] .toggle', settings_update_hide_balances_path
   end
 
   test 'signing out is still required to change anyone else\'s preference' do

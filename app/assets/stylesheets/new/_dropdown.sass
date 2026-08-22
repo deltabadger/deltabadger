@@ -117,6 +117,13 @@
         background: none // <button>
         width: 100%      // <button>
         color: var(--ash)
+        // Label left, switch right. The base item is a grid built for a single label; a row that
+        // carries a control needs the two ends held apart.
+        &--switch
+            display: flex
+            align-items: center
+            justify-content: space-between
+            gap: 2rem
         &--danger
             color: var(--berry)
             &:hover
