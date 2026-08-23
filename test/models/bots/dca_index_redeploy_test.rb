@@ -178,6 +178,46 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
     assert_in_delta 30, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001
   end
 
+  # Bot::FetchAndUpdateOrderJob explicitly allows a closed sell whose base fill is known while its
+  # quote fill is still nil; the ledger values those at price * amount. A plain SUM would read them
+  # as zero, leaving realised_cash showing proceeds the offer could not see — permanently.
+  test 'a fill valued from price and amount is still banked' do
+    buy('AAA', quote: 100, price: 100)
+    create_order('AAA', amount: 1, quote: 150, price: 150, side: :sell, type: 'LIQUIDATION')
+    @bot.transactions.liquidation.last.update_columns(quote_amount_exec: nil)
+
+    metrics = @bot.metrics(force: true)
+    assert_in_delta 150, metrics[:realised_cash].to_f, 0.0001, 'the ledger values it'
+    assert_in_delta 150, @bot.redeploy_offer(metrics).to_f, 0.0001, 'and so must the offer'
+  end
+
+  # Every other leg gates on the other two. This one was the only one nobody asked about.
+  test 'a redeploy in flight stands the other legs down' do
+    create_order('BBB', amount: 1, quote: 150, price: 150, side: :buy, type: 'REDEPLOY',
+                        external_status: :open)
+    @bot.stubs(:advance_waiting_redeploys!)
+
+    assert @bot.redeploy_blocks_trading?, 'a waiting redeploy has spoken for that quote'
+    assert_equal :redeploy_pending, @bot.send(:liquidation_blocked_reason)
+    assert_not @bot.rebalance_due?
+  end
+
+  test 'a halted redeploy stands the other legs down too' do
+    @bot.start_redeploy_placement!
+    @bot.flag_redeploy_ambiguous!
+    @bot.stubs(:advance_waiting_redeploys!)
+
+    assert @bot.redeploy_blocks_trading?
+    assert_equal :redeploy_pending, @bot.send(:liquidation_blocked_reason)
+  end
+
+  test 'a quiet leg blocks nothing' do
+    @bot.stubs(:advance_waiting_redeploys!)
+
+    assert_not @bot.redeploy_blocks_trading?
+    assert_nil @bot.send(:liquidation_blocked_reason)
+  end
+
   private
 
   def buy(symbol, quote:, price:)

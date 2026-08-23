@@ -88,6 +88,10 @@ module Bot::Composition::Liquidatable
     return :rebalance_pending if rebalance_pending?
     return :halted if liquidation_pending?
     return :orders_waiting if transactions.liquidation.waiting.exists?
+    # A redeploy is buying the members with cash a previous sale realized. Selling underneath it —
+    # or worse, selling while its outcome is unknown — trades against money that may already be
+    # committed. try: this concern is shared with types that have no redeploy leg.
+    return :redeploy_pending if try(:redeploy_blocks_trading?)
 
     nil
   end

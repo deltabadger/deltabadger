@@ -50,6 +50,12 @@ module Bot::Composition::Redeployable
   # taken mid-batch freezes it against a `spent` that is still growing: banked 100 against spent 40
   # writes 60, the remaining 60 then fills, and the expression sits at -60 — eating the next sale.
   # Hiding the button does not prevent this; a stale tab or a double submit arrives here anyway.
+  # Runs from Bot::DeclineRedeployJob, which holds the exchange semaphore — the same reason
+  # Bot::ResolveLiquidationJob is a job rather than a controller line. Guarding on the in-flight
+  # state alone was not enough: between the worker sizing its orders and writing its placing intent
+  # there is a window where a decline sees neither a pending state nor a waiting row, succeeds, and
+  # the worker then places anyway against a figure the user has just turned down. Sharing the
+  # semaphore removes the window instead of narrowing it.
   def decline_redeploy!
     return Result::Failure.new(:redeploy_in_flight) if redeploy_in_flight?
 
@@ -57,9 +63,25 @@ module Bot::Composition::Redeployable
     Result::Success.new
   end
 
-  def redeploy_banked = transactions.liquidation.sum(:quote_amount_exec).to_d
-  def redeploy_spent  = transactions.redeploy.sum(:quote_amount_exec).to_d
+  def redeploy_banked = executed_quote_total(transactions.liquidation)
+  def redeploy_spent  = executed_quote_total(transactions.redeploy)
   def declined_offset = redeploy_declined_offset.to_d
+
+  # The same figure the ledger counts, summed in SQL — including the fallback.
+  #
+  # Bot::FetchAndUpdateOrderJob explicitly allows a CLOSED order whose base fill is known while its
+  # quote fill is still nil, and `confirmed_exec_amounts` values those at `price * amount`. A plain
+  # SUM(quote_amount_exec) reads them as zero, so `realised_cash` would show proceeds this method
+  # could not see — and the offer, capped by the smaller of the two, would sit at zero forever with
+  # real money behind it.
+  def executed_quote_total(scope)
+    closed = Transaction.external_statuses[:closed]
+    scope.submitted.sum(Arel.sql(<<~SQL.squish)).to_d
+      COALESCE(quote_amount_exec,
+               CASE WHEN external_status = #{closed} AND price IS NOT NULL AND amount IS NOT NULL
+                    THEN price * amount ELSE 0 END)
+    SQL
+  end
 
   # --- placement state ------------------------------------------------------------------------
   # Same two states and the same reasoning as Bot::LiquidationState: `placing` means a network call
@@ -147,6 +169,19 @@ module Bot::Composition::Redeployable
     halt_abandoned_redeploys!(watched)
   rescue StandardError => e
     Rails.logger.warn("redeploy order refresh failed bot=#{id}: #{e.message}")
+  end
+
+  # Everything the OTHER legs have to wait for, asked in a way that can also resolve itself — the
+  # mirror of Bot::LiquidationState#liquidation_blocks_trading?.
+  #
+  # Without this the new leg was the only one nobody gated on: the DCA tick, a rebalance and a
+  # liquidation would each place happily while a redeploy's outcome was unknown and its cash may
+  # already have been spent. Every caller holds the exchange semaphore, which is what makes the
+  # stale-intent promotion inside sound.
+  def redeploy_blocks_trading?
+    advance_waiting_redeploys!
+    promote_stale_redeploy_placement!
+    redeploy_in_flight?
   end
 
   # Called under the exchange semaphore, so `placing` here cannot be a placement still running — it
