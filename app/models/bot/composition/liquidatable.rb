@@ -30,9 +30,22 @@ module Bot::Composition::Liquidatable
 
     values.filter_map do |symbol, asset_data|
       next if in_index.include?(symbol)
+      # The dust rule belongs HERE and only here — on assets the composition no longer wants. Size
+      # alone is not what makes a holding worth showing; size against the desired allocation is. A
+      # member holding 0.0001 stays on the page because the bot is going to buy more of it, while a
+      # quitter holding 0.0001 is a remainder no sale can clear and nothing plans to add to.
+      next unless sellable?(tickers_by_symbol[symbol], asset_data[:amount])
 
       { ticker: tickers_by_symbol[symbol], symbol: symbol }.merge(asset_data)
     end
+  end
+
+  # Judged on the venue's base floor, which needs no price: an amount under it cannot be submitted at
+  # all. The quote floor is checked later, at placement, where a price is actually in hand.
+  def sellable?(ticker, amount)
+    return false if ticker.nil?
+
+    amount.to_d >= ticker.minimum_base_size.to_d
   end
 
   # The tickers a liquidation would actually trade — NOT bot.tickers, which for a composition bot is every
@@ -53,8 +66,11 @@ module Bot::Composition::Liquidatable
     in_index = bot_index_assets.in_index.includes(:asset).to_set { |bia| bia.asset.symbol }
     return [] if in_index.empty?
 
+    tickers_by_symbol = tickers.index_by(&:base)
     (metrics[:asset_breakdown] || {}).filter_map do |symbol, data|
-      symbol if data[:amount].to_d.positive? && !in_index.include?(symbol)
+      # Same dust rule as exited_holdings, or the controller would accept a symbol the table does not
+      # show — a Sell that 404s from the page and one that is refused by the job.
+      symbol if !in_index.include?(symbol) && sellable?(tickers_by_symbol[symbol], data[:amount])
     end
   end
 

@@ -33,7 +33,10 @@ class Bot::RedeployJob < BotJob
     # Every guard that can decline — a rebalance mid-swap, a standing halt, a composition refresh
     # that failed, an offer that has since gone to zero — has to say so somewhere the user can find
     # it, because they have already been told it started.
-    bot.log_activity('redeploy_not_started', level: :info, details: { reason: result.errors })
+    # Its own event when the whole batch fell under the venue floor: "the bot was busy" would be a
+    # lie, and this one repeats for as long as the residue stands.
+    event = result.errors.include?(:below_minimums) ? 'redeploy_below_minimums' : 'redeploy_not_started'
+    bot.log_activity(event, level: :info, details: { reason: result.errors })
   rescue StandardError => e
     # Its own event, not redeploy_not_started: that one means a guard declined and its wording says
     # so. An exception did not, and the user had been told it started — so a rejected key, a rate

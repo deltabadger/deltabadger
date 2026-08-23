@@ -23,7 +23,7 @@ class BotActivitySummaryTest < ActionView::TestCase
   test 'the plain redeploy events interpolate nothing' do
     %w[redeploy_requested redeploy_placed redeploy_skipped redeploy_ambiguous
        redeploy_manually_resolved redeploy_not_started redeploy_declined
-       redeploy_decline_refused dca_skipped_redeploy_pending].each do |event|
+       redeploy_decline_refused redeploy_below_minimums redeploy_folded dca_skipped_redeploy_pending].each do |event|
       summary = bot_activity_summary(activity(event))
 
       assert_no_match(/%\{/, summary, "#{event} leaks a placeholder")

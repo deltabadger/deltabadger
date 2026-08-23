@@ -125,6 +125,55 @@ class Bots::DcaIndexRedeployPlacementTest < ActiveSupport::TestCase
     assert_not @bot.reload.redeploy_ambiguous?
   end
 
+  # "If you cannot buy enough of one asset, buy more of another." A share under the venue floor used
+  # to be dropped, leaving the money as cash and the prompt offering a residue no click could spend.
+  test 'a share below the venue floor is folded into the most underweight member, not abandoned' do
+    stub_holdings('AAA' => 0, 'BBB' => 0)
+    @bot.stubs(:get_orders_data).returns(Result::Success.new(sized_orders(90, 10)))
+    # BBB's 10 cannot clear its floor; AAA's 90 can.
+    @bot.stubs(:calculate_best_amount_info).with { |data| data[:ticker].base == 'BBB' }
+        .returns({ amount_type: :quote, amount: 10.to_d, below_minimum_amount: true })
+    @bot.stubs(:calculate_best_amount_info).with { |data| data[:ticker].base == 'AAA' }
+        .returns({ amount_type: :quote, amount: 100.to_d, below_minimum_amount: false })
+
+    @bot.redeploy!
+
+    rows = @bot.transactions.redeploy
+    assert_equal %w[AAA], rows.map(&:base), 'BBB could not be bought at all'
+    assert_in_delta 100, rows.sum(:quote_amount).to_f, 0.01, 'and its share went to AAA, not to waste'
+  end
+
+  test 'the fold says where the money went' do
+    stub_holdings('AAA' => 0, 'BBB' => 0)
+    @bot.stubs(:get_orders_data).returns(Result::Success.new(sized_orders(90, 10)))
+    @bot.stubs(:calculate_best_amount_info).with { |data| data[:ticker].base == 'BBB' }
+        .returns({ amount_type: :quote, amount: 10.to_d, below_minimum_amount: true })
+    @bot.stubs(:calculate_best_amount_info).with { |data| data[:ticker].base == 'AAA' }
+        .returns({ amount_type: :quote, amount: 100.to_d, below_minimum_amount: false })
+
+    @bot.redeploy!
+
+    log = @bot.bot_activity_logs.find_by(event: 'redeploy_folded')
+    assert log
+    assert_equal 'AAA', log.details['into']
+    assert_equal %w[BBB], log.details['from']
+  end
+
+  # Nobody to fold into: the batch refuses rather than reporting a success that placed nothing.
+  # A residue below every venue floor is the common case after a redeploy, and reporting success
+  # with nothing placed is indistinguishable from a broken button.
+  test 'a batch where everything is below the venue minimum refuses instead of reporting success' do
+    stub_holdings('AAA' => 0, 'BBB' => 0)
+    @bot.stubs(:calculate_best_amount_info).returns({ amount_type: :quote, amount: 1.to_d,
+                                                      below_minimum_amount: true })
+
+    result = @bot.redeploy!
+
+    assert result.failure?
+    assert_includes result.errors, :below_minimums
+    assert_equal 0, @bot.transactions.redeploy.count
+  end
+
   # == guards ==
 
   test 'nothing is placed while a rebalance is mid-swap' do

@@ -569,6 +569,8 @@ en:
             redeploy_ambiguous: "Redeploy order status unconfirmed — paused so it cannot be placed twice"
             redeploy_manually_resolved: "Unconfirmed redeploy cleared manually"
             redeploy_not_started: "Nothing was redeployed — the bot was busy, or there was nothing left to redeploy"
+            redeploy_folded: "Too little for one asset to meet the exchange minimum — bought more of another instead"
+            redeploy_below_minimums: "Nothing was redeployed — what is left is below the exchange's minimum order size"
             redeploy_failed: "Redeploying failed: %{error}"
             redeploy_declined: "Proceeds taken off the table — they will not be offered again"
             redeploy_decline_refused: "Nothing was taken off the table — a redeploy was still working"
