@@ -9,6 +9,10 @@ module Tracker
     def perform(user_id, exchange_id = nil)
       user = User.find(user_id)
       Tracker::Ledger.compute!(user, exchange: exchange_id && Exchange.find(exchange_id))
+      # Today's snapshot is half balances and half ledger, written by whichever sync finishes last.
+      # The balance job can easily beat the transaction one, so the row it left carries yesterday's
+      # invested figure until this rewrites it.
+      PortfolioSnapshot.record!(user) if exchange_id.nil?
       Turbo::StreamsChannel.broadcast_refresh_to("user_#{user_id}", :sync)
     end
   end

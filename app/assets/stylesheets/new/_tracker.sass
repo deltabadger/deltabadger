@@ -29,6 +29,10 @@
     justify-content: space-between
     gap: 1rem
     flex-wrap: wrap
+    // The + stays beside the scope it adds to: once the segmented has folded into its menu there
+    // is room, and a lone + on a second line reads as a control that lost its label.
+    > .filters
+        flex-wrap: nowrap
     &__sync
         display: flex
         align-items: center
@@ -46,7 +50,7 @@
         border-radius: 50%
         background: var(--grass)
     // The quantities are today's and the money beside them is not — the dot says so.
-    &--stale &__dot, &--stale .tracker-sync__dot
+    &--stale &__dot
         background: var(--warning)
 
 // A venue whose key stopped working keeps its chip and swaps the link for the re-add form.
@@ -245,24 +249,6 @@
     &:hover &__action, &__action:focus-within
         opacity: 1
 
-.tracker-status
-    display: inline-flex
-    align-items: center
-    height: 2.5rem
-    padding: 0 1.125rem
-    border-radius: 1.25rem
-    font-size: 1.25rem
-    font-weight: 700
-    letter-spacing: 0.1em
-    text-transform: uppercase
-    box-shadow: inset 0 0 0 1px currentColor
-    &--open
-        color: var(--link)
-    &--win
-        color: var(--grass)
-    &--loss
-        color: var(--berry)
-
 .tracker-date-range
     display: none
     align-items: center
@@ -272,41 +258,6 @@
     input[type="date"]
         max-width: 17.5rem
         width: auto
-
-// A tinted pill: the type is the first thing scanned down the column, and colour alone at this
-// size is a hairline.
-.tracker-type
-    display: inline-flex
-    align-items: center
-    font-weight: 600
-    font-size: 1.25rem
-    letter-spacing: 0.08em
-    text-transform: uppercase
-    padding: 0.25rem 1rem
-    border-radius: 1.25rem
-    &--buy, &--swap_in
-        color: var(--grass)
-        background: color-mix(in srgb, var(--grass) 12%, transparent)
-    &--sell, &--swap_out
-        color: var(--berry)
-        background: color-mix(in srgb, var(--berry) 12%, transparent)
-    &--deposit
-        color: var(--sky)
-        background: color-mix(in srgb, var(--sky) 10%, transparent)
-    &--withdrawal
-        color: var(--warning)
-        background: color-mix(in srgb, var(--warning) 12%, transparent)
-    &--staking_reward, &--lending_interest, &--airdrop, &--mining, &--other_income
-        color: var(--link)
-        box-shadow: inset 0 0 0 1px var(--steel)
-    &--fee, &--adjustment, &--withholding_tax, &--return_of_capital, &--unsupported_activity
-        color: var(--concrete)
-        box-shadow: inset 0 0 0 1px var(--steel)
-    &--lost
-        color: var(--berry)
-    &--transfer
-        color: var(--stone)
-        box-shadow: inset 0 0 0 1px var(--steel)
 
 .tracker-empty
     text-align: center

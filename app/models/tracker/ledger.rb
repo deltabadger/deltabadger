@@ -14,7 +14,7 @@ module Tracker
   class Ledger
     Position = Data.define(:symbol, :asset, :quantity, :cost_usd, :avg_cost_usd, :opened_at, :incomplete)
     RoundTrip = Data.define(:symbol, :asset, :opened_at, :closed_at, :quantity, :invested_usd,
-                            :proceeds_usd, :fees_usd, :realised_pnl_usd)
+                            :proceeds_usd, :fees_usd, :realised_pnl_usd, :incomplete)
     Summary = Data.define(:positions, :round_trips, :total_invested_usd, :realised_pnl_usd, :fees_usd,
                           :incomplete, :computed_at)
 
@@ -95,6 +95,12 @@ module Tracker
       # Logos and colours. The user's own balance row first — that is the asset the rest of the page
       # draws this symbol with — then the crypto asset of that ticker, never a stock that happens to
       # share it. Public because the transactions table resolves its rows the same way.
+      #
+      # ponytail: keyed by SYMBOL, and `assets.symbol` is not unique — a user holding both a stock
+      # and a coin called XYZ gets one of them here, and one merged position in the ledger above.
+      # That ceiling is the tax engine's, not this file's: `Tax::Methods::Fifo` keys its lots by
+      # `base_currency`, so the tracker cannot be more precise than the ledger it reads. Lifting it
+      # means giving AccountTransaction an instrument identity, everywhere at once.
       def asset_index(user, symbols)
         held = AccountBalance.for_user(user).includes(:asset).each_with_object({}) do |balance, index|
           index[balance.asset.symbol] ||= balance.asset
@@ -109,7 +115,7 @@ module Tracker
 
       def cache_key(user, exchange)
         scope = transactions(user, exchange)
-        "tracker_ledger_v1_#{user.id}_#{exchange&.id || 'all'}_" \
+        "tracker_ledger_v2_#{user.id}_#{exchange&.id || 'all'}_" \
           "#{scope.maximum(:updated_at)&.iso8601(6)}_#{scope.count}"
       end
 
@@ -207,18 +213,22 @@ module Tracker
         disposals.filter_map do |disposal|
           symbol = disposal[:asset]
           trip = (open[symbol] ||= { opened_at: disposal[:acquisition_date], quantity: 0.to_d, invested: 0.to_d,
-                                     proceeds: 0.to_d, fees: 0.to_d, gain: 0.to_d })
+                                     proceeds: 0.to_d, fees: 0.to_d, gain: 0.to_d, incomplete: false })
           trip[:quantity] += disposal[:amount].to_d
           trip[:invested] += disposal[:cost_basis].to_d
           trip[:proceeds] += disposal[:proceeds].to_d
           trip[:fees] += disposal[:fee].to_d
           trip[:gain] += disposal[:gain_loss].to_d
+          # One assumed basis or one unpriced sale anywhere in the sequence is enough: the trip's
+          # figures are a sum, so an estimate in any term is an estimate in the total.
+          trip[:incomplete] ||= disposal[:data_incomplete]
           next unless disposal[:closes_position]
 
           open.delete(symbol)
           RoundTrip.new(symbol: symbol, asset: assets[symbol], opened_at: trip[:opened_at],
                         closed_at: disposal[:date], quantity: trip[:quantity], invested_usd: trip[:invested],
-                        proceeds_usd: trip[:proceeds], fees_usd: trip[:fees], realised_pnl_usd: trip[:gain])
+                        proceeds_usd: trip[:proceeds], fees_usd: trip[:fees], realised_pnl_usd: trip[:gain],
+                        incomplete: trip[:incomplete])
         end
       end
     end

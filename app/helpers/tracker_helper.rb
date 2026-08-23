@@ -57,6 +57,20 @@ module TrackerHelper
     ((reconciled.sum(0.to_d) { |value, _basis| value } / cost) - 1) * 100
   end
 
+  # The tone of a chip, by meaning rather than by domain — see `new/_pill.sass`. Anything the map
+  # does not place is a label, not a state, and reads as one.
+  PILL_TONES = {
+    'buy' => 'up', 'swap_in' => 'up', 'win' => 'up',
+    'sell' => 'down', 'swap_out' => 'down', 'lost' => 'down', 'loss' => 'down',
+    'deposit' => 'info', 'staking_reward' => 'info', 'lending_interest' => 'info', 'airdrop' => 'info',
+    'mining' => 'info', 'other_income' => 'info', 'return_of_capital' => 'info', 'open' => 'info',
+    'withdrawal' => 'warn'
+  }.freeze
+
+  def pill_class(kind)
+    "pill pill--#{PILL_TONES.fetch(kind.to_s, 'quiet')}"
+  end
+
   # "Crypto" / "Stock" / "ETF" / "Cash", plus the one distinction the asset table does not carry:
   # a stablecoin is not a position, it is the cash a position was bought with.
   def holding_type_label(asset)
@@ -110,6 +124,23 @@ module TrackerHelper
     number_with_precision(value, precision: 8, strip_insignificant_zeros: true)
   end
 
+  # "2 days", not "2 days, 8 hours, and 47 minutes" — dotiw's full form is right inside a sentence
+  # and far too long for a label sitting in a bar next to a button.
+  def tracker_synced_ago(time)
+    t('tracker.synced_ago', ago: time_ago_in_words(time, highest_measures: 1))
+  end
+
+  # A price in the display currency. Two decimals above a unit, eight below it — an average buy of
+  # $0.00 is what a two-decimal rule makes of every sub-dollar coin, and it says nothing at all.
+  # Zero is the exception: it is not a small number, it is no number, and eight decimals of nothing
+  # is just noise in the column.
+  def tracker_price(usd_amount)
+    return unless usd_amount
+
+    value = usd_amount.to_d
+    @denomination.format(value, precision: value.nonzero? && value.abs < 1 ? 8 : 2)
+  end
+
   # How long a position was held, in the largest unit that still says something.
   def tracker_holding_period(from, to)
     days = ((to - from) / 1.day).to_i
@@ -130,13 +161,50 @@ module TrackerHelper
     @tracker_row_assets[symbol] = Tracker::Ledger.asset_index(current_user, [symbol])[symbol]
   end
 
-  # The tab a transaction row belongs to, in the bot log's vocabulary. Token membership, so `all`
-  # rides on every row — the order-filter controller tests membership, not equality.
-  def tracker_row_types(transaction)
-    return 'all transfer' if transaction.linked?
-    return "all #{transaction.entry_type}" if transaction.buy? || transaction.sell?
+  # One rule for every filter on this page, the bot log's own: offer the options that EXIST, and
+  # disappear when fewer than two of them are a real choice. A control with one answer is furniture,
+  # and an option with nothing behind it is worse than no option.
+  def offered(options)
+    options.count { |option| option[:value] != 'all' } > 1 ? options : []
+  end
 
-    'all other'
+  # The types this page actually holds, in the ledger's own order, plus Transfer when a linked pair
+  # is on it. A linked deposit answers to both, which is what makes either filter find it.
+  def tracker_type_filters(transactions)
+    present = transactions.map(&:entry_type).uniq
+    options = [{ value: 'all', label: t('tracker.record.all'), active: true }]
+    options += AccountTransaction.entry_types.keys.select { |type| present.include?(type) }
+                                 .map { |type| { value: type, label: t("tracker.types.#{type}") } }
+    options << { value: 'transfer', label: t('tracker.record.transfer') } if transactions.any?(&:linked?)
+    offered(options)
+  end
+
+  # Open / Win / Loss / Closed, but only the ones the table has rows for.
+  def tracker_status_filters(rows)
+    present = rows.map { |row| row[:status] }.uniq
+    offered([{ value: 'all', label: t('tracker.record.all'), active: true }] +
+            %w[open win loss closed].select { |status| present.include?(status) }
+                                    .map { |status| { value: status, label: t("tracker.record.#{status}") } })
+  end
+
+  # A window shorter than the history is a choice; one longer than it draws the same picture as ALL,
+  # so an account three days old is offered nothing.
+  def chart_range_options(history)
+    span = (history.last.date - history.first.date).to_i
+    windows = [['30', t('tracker.range.30d')], ['365', t('tracker.range.1y')]].select { |days, _| span > days.to_i }
+    return [] if windows.empty?
+
+    windows.map { |value, label| { value: value, label: label } } <<
+      { value: 'all', label: t('tracker.range.all'), active: true }
+  end
+
+  # The filters a row answers to. Token membership, so `all` rides on every row — the order-filter
+  # controller tests membership, not equality — and a linked deposit is BOTH a deposit and a
+  # transfer, which is what makes either filter find it.
+  def tracker_row_types(transaction)
+    tokens = ['all', transaction.entry_type]
+    tokens << 'transfer' if transaction.linked?
+    tokens.join(' ')
   end
 
   private
@@ -155,13 +223,18 @@ module TrackerHelper
       cash: percent && (slice[:usd_value].to_d - (position.avg_cost_usd * quantity)) }
   end
 
+  # A trip whose basis was assumed anywhere along the way is CLOSED and nothing more: calling it a
+  # win or a loss, to a decimal place, would state a figure the ledger cannot stand behind.
   def round_trip_row(trip)
-    { status: trip.realised_pnl_usd.negative? ? 'loss' : 'win', symbol: trip.symbol, asset: trip.asset,
-      opened: trip.opened_at, closed: trip.closed_at, invested: trip.invested_usd,
+    complete = !trip.incomplete && trip.invested_usd.positive?
+    outcome = trip.realised_pnl_usd.negative? ? 'loss' : 'win'
+    { status: trip.incomplete ? 'closed' : outcome,
+      symbol: trip.symbol, asset: trip.asset, opened: trip.opened_at, closed: trip.closed_at,
+      invested: trip.invested_usd,
       avg_buy: (trip.invested_usd / trip.quantity if trip.quantity.positive?),
       price: (trip.proceeds_usd / trip.quantity if trip.quantity.positive?),
-      percent: (trip.realised_pnl_usd / trip.invested_usd * 100 if trip.invested_usd.positive?),
-      cash: trip.realised_pnl_usd }
+      percent: (trip.realised_pnl_usd / trip.invested_usd * 100 if complete),
+      cash: (trip.realised_pnl_usd if complete) }
   end
 
   def tracker_row_symbols
@@ -170,7 +243,8 @@ module TrackerHelper
 
   def holding_cost(slice, position)
     quantity = slice[:quantity].to_d
-    return if position.nil? || !quantity.positive? || !position.quantity.positive? || !position.cost_usd.positive?
+    return if position.nil? || position.incomplete
+    return if !quantity.positive? || !position.quantity.positive? || !position.cost_usd.positive?
     return if ((position.quantity - quantity) / quantity).abs > RECONCILE_TOLERANCE
 
     position.avg_cost_usd * quantity

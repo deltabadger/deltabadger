@@ -6,12 +6,12 @@
     <% if row[:closed] %><small>→ <%= zone.call(row[:closed]) %></small><% end %>
   </td>
   <td class="text-left"><span class="tracker-row__asset"><% if row[:asset] %><%= render 'assets/logo', image_url: row[:asset].image_url, color: row[:asset].color %><% end %><%= row[:symbol] %></span></td>
-  <td class="text-left"><% if type %><span class="tag"><%= type %></span><% end %></td>
-  <td class="text-left"><span class="tracker-status tracker-status--<%= row[:status] %>"><%= t("tracker.record.#{row[:status]}") %></span></td>
+  <td class="text-left"><% if type %><span class="pill pill--quiet"><%= type %></span><% end %></td>
+  <td class="text-left"><span class="<%= pill_class(row[:status]) %>"><%= t("tracker.record.#{row[:status]}") %></span></td>
   <% unless hide_money %>
     <td><%= @denomination.format(row[:invested]) %></td>
-    <td><%= @denomination.format(row[:avg_buy]) %></td>
-    <td><%= @denomination.format(row[:price]) %></td>
+    <td><%= tracker_price(row[:avg_buy]) %></td>
+    <td><%= tracker_price(row[:price]) %></td>
   <% end %>
   <%# The percentage is the reading and stays while balances are hidden; the cash beside it is the
       balance, and goes. %>

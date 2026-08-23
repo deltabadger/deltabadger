@@ -9,7 +9,7 @@
     <b><%= asset.symbol %></b>
     <span class="tracker-holdings__full"><%= asset.name %></span>
   </span>
-  <span class="tracker-holdings__type"><% if type %><span class="tag"><%= type %></span><% end %></span>
+  <span class="tracker-holdings__type"><% if type %><span class="pill pill--quiet"><%= type %></span><% end %></span>
   <%# The index list's own bar: the track fills by grid columns, not by a width. %>
   <span class="slider">
     <span class="slider__style">

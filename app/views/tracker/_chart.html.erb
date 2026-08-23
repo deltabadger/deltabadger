@@ -31,7 +31,10 @@
       bot__chart_bot_value: 0,
       bot__chart_quote_value: @denomination.currency,
       bot__chart_decimals_value: 2,
-      bot__chart_labels_value: history.map(&:date),
+      # Written WITHOUT a zone on purpose: `new Date('2026-08-21')` is UTC midnight and prints as the
+      # 20th anywhere west of it, while a date-TIME with no offset parses as local midnight. A daily
+      # row belongs to its own day in the reader's calendar.
+      bot__chart_labels_value: history.map { |row| "#{row.date.iso8601}T00:00:00" },
       bot__chart_series_value: series,
       bot__chart_pnl_value: pnl_series,
       bot__chart_assets_value: {},
@@ -49,13 +52,12 @@
                          options: [{ value: 'value', label: t('bot.details.stats.chart.value'), active: true },
                                    { value: 'pnl', label: t('bot.details.stats.chart.pnl') }] %>
             <% end %>
-            <div class="filters" data-action="segmented:change->bot--chart#range">
-              <%= render 'shared/segmented',
-                         label: t('tracker.range.all'),
-                         options: [{ value: '30', label: t('tracker.range.30d') },
-                                   { value: '365', label: t('tracker.range.1y') },
-                                   { value: 'all', label: t('tracker.range.all'), active: true }] %>
-            </div>
+            <% ranges = chart_range_options(history) %>
+            <% if ranges.any? %>
+              <div class="filters" data-action="segmented:change->bot--chart#range">
+                <%= render 'shared/segmented', label: t('tracker.range.all'), options: ranges %>
+              </div>
+            <% end %>
           <% end %>
         </div>
         <div class="widget--chart__summary" data-bot--chart-target="summary">

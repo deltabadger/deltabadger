@@ -157,12 +157,25 @@ class TrackerTest < ActionDispatch::IntegrationTest
   end
 
   test 'exchange button links to filter when api key is valid' do
+    # Two venues, because one is not a choice and the switch does not render for it.
+    create(:api_key, user: @user, exchange: create(:kraken_exchange))
     create(:account_transaction, api_key: @api_key, exchange: @exchange, base_currency: 'BTC', transacted_at: 1.day.ago)
 
     get tracker_path
     assert_response :success
     assert_select 'a.segmented__option[data-broken]', count: 0
     assert_select 'a.segmented__option', text: @exchange.name
+  end
+
+  # One venue is not a scope to choose between — unless its key has stopped working, where the chip
+  # is the only thing saying so.
+  test 'the exchange switch is not rendered for a single healthy venue' do
+    create(:account_transaction, api_key: @api_key, exchange: @exchange, base_currency: 'BTC', transacted_at: 1.day.ago)
+
+    get tracker_path
+    assert_response :success
+    assert_select '.tracker-exchanges .segmented', false
+    assert_select '.tracker-exchanges .rbutton--icon'
   end
 
   test 'sync button hidden when no valid api keys' do

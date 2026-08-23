@@ -74,6 +74,10 @@ class TrackerController < ApplicationController
       end
     end
 
+    # Linking a transfer changes whether the coins ever left the portfolio, and the snapshots that
+    # said they did are now wrong. Coverage cannot notice — the dates did not move — so the one
+    # action that edits history asks for the rebuild itself.
+    PortfolioSnapshot::BackfillJob.perform_later(current_user.id)
     streams = rows.compact.map do |row|
       turbo_stream.replace(
         helpers.dom_id(row),
