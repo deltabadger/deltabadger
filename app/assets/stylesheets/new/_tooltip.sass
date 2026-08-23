@@ -70,6 +70,27 @@
         font-size: 1.1rem
         opacity: 0.8
         word-break: break-all
+// A footnote on a data-grid label: what the figure above it does NOT include. Position is left to
+// the grid's own .tooltip rule, which opens upward — .widget clips anything that opens downward.
+.tooltip--note
+    width: max-content
+    max-width: 28rem
+    font-weight: 400
+    text-align: left
+
+// A label carrying that footnote's icon: one row, icon after the text, hugging the right edge the
+// grid aligns to. Without this the icon's block-level svg breaks onto a line of its own.
+.label--info
+    display: flex
+    align-items: center
+    justify-content: flex-end
+    gap: 0.5rem
+    .tooltip-info-icon
+        display: inline-flex
+        .icon-24--info
+            width: 2rem
+            height: 2rem
+
 .tooltip--smart-allocation
     top: calc(100% + 1rem)
     width: 42rem

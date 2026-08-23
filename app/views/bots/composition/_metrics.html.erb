@@ -20,7 +20,7 @@
           <% if loading %>
             <span class="loading-placeholder">...</span>
           <% else %>
-            <%= number_with_precision(metrics[:total_quote_amount_invested] || 0, precision: 2, delimiter: ',') %>
+            <%= money_figure(metrics[:total_quote_amount_invested]) %>
           <% end %>
         </div>
       </div>
@@ -30,13 +30,25 @@
           <% if loading %>
             <span class="loading-placeholder">...</span>
           <% else %>
-            <%= number_with_precision(metrics[:total_amount_value_in_quote] || 0, precision: 2, delimiter: ',') %>
+            <%= money_figure(metrics[:total_amount_value_in_quote]) %>
           <% end %>
         </div>
       </div>
       <% unless realised.zero? %>
-        <div class="data-grid__item">
-          <div class="label"><%= t('bot.dca_index.realised_pnl') %></div>
+        <%# The note is what "realised" does NOT mean here — a footnote rather than a second label,
+            which is what it read as while it was a line of small print under the figure.
+
+            Wired exactly like the two items beside it: the controller on the ITEM, so the bubble is
+            positioned by the grid's own rule and opens UPWARD. Hung off the icon instead it opened
+            downward, outside .widget — which sets overflow: hidden, so it was clipped to nothing. %>
+        <div class="data-grid__item" data-controller="tooltip">
+          <div class="label label--info">
+            <%= t('bot.dca_index.realised_pnl') %>
+            <span class="tooltip-info-icon"
+                  data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip click->tooltip#toggle">
+              <%= render 'svg/24x24_info' %>
+            </span>
+          </div>
           <div class="data-grid__item__value <%= realised.negative? ? 'text-danger' : 'text-success' %>">
             <% if loading %>
               <span class="loading-placeholder">...</span>
@@ -44,9 +56,7 @@
               <%= realised.negative? ? '' : '+' %><%= number_with_precision(realised, precision: 2, delimiter: ',') %>
             <% end %>
           </div>
-          <%# Says what is in the figure, because "realised" invites a tax reading it will not support:
-              a rebalance is a swap, so it stays P/L-neutral and contributes nothing here. %>
-          <small class="label"><%= t('bot.dca_index.realised_pnl_note') %></small>
+          <%= tag.div t('bot.dca_index.realised_pnl_note'), class: 'tooltip tooltip--note' %>
         </div>
       <% end %>
     </div>
@@ -57,8 +67,22 @@
       metrics do — current bot_index_assets rows cannot identify holdings that exited after a
       rotation. %>
   <% logo_assets = bot.exchange.tickers.where(base: (metrics[:asset_values] || {}).keys).includes(:base_asset).index_by(&:base) %>
+  <%# MEMBERS, listed because the composition wants them — not "whatever is left after removing the
+      quitters". Those two agreed only while every held asset was one or the other, and they stopped
+      agreeing once a quitter too small to sell was ruled out of its own table: defined by
+      subtraction, it fell through into this one and was rendered as a constituent of the index.
+      A member is shown at any size, because the bot is going to keep buying it.
+
+      An empty composition means the first derivation has not landed. Same reasoning as
+      Liquidatable#exited_holdings: we do not know the membership, so nothing is claimed about it and
+      every holding is shown rather than none. %>
   <% if metrics[:asset_values].present? %>
-    <% composition_values = metrics[:asset_values].reject { |symbol, _| exited_symbols.include?(symbol) } %>
+    <% in_index = bot.bot_index_assets.in_index.includes(:asset).to_set { |bia| bia.asset.symbol } %>
+    <% composition_values = if in_index.empty?
+                              metrics[:asset_values].reject { |symbol, _| exited_symbols.include?(symbol) }
+                            else
+                              metrics[:asset_values].select { |symbol, _| in_index.include?(symbol) }
+                            end %>
     <% if composition_values.present? %>
       <div id="assets_metrics_table" class="widget widget--table">
         <%= render 'bots/composition/assets_table', values: composition_values, logo_assets: logo_assets,
@@ -130,9 +154,9 @@
         </span>
         <div class="redeploy-prompt__actions">
           <%= button_to t('bot.redeploy.confirm'), bot_redeploy_path(bot_id: bot.id),
-                        class: 'rbutton rbutton--primary' %>
+                        class: 'rbutton rbutton--success' %>
           <%= button_to t('bot.redeploy.decline'), bot_redeploy_path(bot_id: bot.id),
-                        method: :delete, class: 'rbutton rbutton--outline' %>
+                        method: :delete, class: 'rbutton rbutton--danger' %>
         </div>
       </div>
     <% end %>
