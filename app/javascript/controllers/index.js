@@ -157,6 +157,9 @@ application.register("ticker-tooltips", TickerTooltipsController)
 import TooltipController from "./tooltip_controller"
 application.register("tooltip", TooltipController)
 
+import Tracker__RecordController from "./tracker/record_controller"
+application.register("tracker--record", Tracker__RecordController)
+
 import TrackerExportController from "./tracker_export_controller"
 application.register("tracker-export", TrackerExportController)
 

@@ -1,8 +1,10 @@
+<%# `value_class` is optional: the tracker's realised-P/L tile colours its figure by sign, and no
+    bot caller passes it. %>
 <div class="data-grid__item" data-controller="tooltip">
   <div class="label">
     <%= label %>
   </div>
-  <div class="data-grid__item__value">
+  <div class="data-grid__item__value <%= local_assigns[:value_class] %>">
     <% if loading %>
       <div class="loader--small" style="position: unset; float: left; margin-top: 10px;"></div>
     <% else %>

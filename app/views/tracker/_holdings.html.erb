@@ -1,0 +1,63 @@
+<% hide_money = current_user.hide_balances? %>
+<% slices = @portfolio_slices || [] %>
+<% positions = (@scoped_ledger&.positions || []).index_by(&:symbol) %>
+<% total = slices.sum { |slice| slice[:usd_value].to_d } %>
+<% shown, folded = slices.first(6), slices.drop(6) %>
+<div class="widget tracker-holdings <%= 'tracker-holdings--anon' if hide_money %>">
+  <div class="tracker-holdings__head">
+    <span class="label"><%= t('tracker.holdings') %> · <%= slices.size %></span>
+    <span class="label"><%= t('tracker.columns.avg_buy') %> · <%= @denomination.currency %></span>
+  </div>
+
+  <% if @portfolio_never_synced %>
+    <p class="tracker-holdings__empty"><%= t('tracker.portfolio.never_synced') %></p>
+  <% elsif slices.empty? %>
+    <% if @portfolio_has_keys %>
+      <p class="tracker-holdings__empty"><%= t('tracker.portfolio.no_balances') %></p>
+    <% end %>
+  <% else %>
+    <div class="tracker-holdings__comp">
+      <%# Drawn here rather than by a chart library: it is a picture of numbers this page already
+          holds, and an arc is two trigonometric points. The centre reads the same P/L the rows do,
+          over every holding whose quantity the ledger can vouch for. %>
+      <% centre = holdings_total_pnl_percent(slices, positions) %>
+      <div class="tracker-holdings__ring">
+        <svg viewBox="0 0 230 230" role="img" aria-label="<%= t('tracker.holdings') %>">
+          <% holdings_ring_arcs(slices).each do |arc| %>
+            <path d="<%= arc[:d] %>" stroke="<%= arc[:color] %>" stroke-width="14" fill="none"><title><%= arc[:label] %></title></path>
+          <% end %>
+        </svg>
+        <div class="tracker-holdings__centre">
+          <span class="tracker-holdings__centre-value <%= centre && (centre.negative? ? 'text-danger' : 'text-success') %>">
+            <%= centre ? tracker_percent(centre) : '—' %>
+          </span>
+          <span class="label"><%= t('data_labels.pnl') %></span>
+        </div>
+      </div>
+
+      <div class="tracker-holdings__list">
+        <div class="tracker-holdings__rows">
+          <% shown.each do |slice| %>
+            <%= render 'holding_row', slice: slice, position: positions[slice[:asset].symbol],
+                       total: total, hide_money: hide_money %>
+          <% end %>
+        </div>
+        <% if folded.any? %>
+          <details class="tracker-holdings__more">
+            <summary class="label"><%= t('tracker.more') %> · <%= folded.size %></summary>
+            <% folded.each do |slice| %>
+              <%= render 'holding_row', slice: slice, position: positions[slice[:asset].symbol],
+                         total: total, hide_money: hide_money %>
+            <% end %>
+          </details>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+
+  <% if (@portfolio_unpriced_assets || []).any? %>
+    <p class="tracker-holdings__empty">
+      <%= t('tracker.portfolio.unpriced', assets: @portfolio_unpriced_assets.map(&:symbol).join(', ')) %>
+    </p>
+  <% end %>
+</div>

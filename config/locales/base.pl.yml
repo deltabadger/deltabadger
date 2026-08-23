@@ -503,6 +503,28 @@ pl:
                 SK: 'Słowacja'
         tax_report:
             failed: 'Nie udało się wygenerować raportu. Sprawdź wybrane ustawienia i spróbuj ponownie.'
+        holdings: 'Posiadane aktywa'
+        positions: 'Pozycje'
+        transactions: 'Transakcje'
+        fees_paid: 'Zapłacone opłaty'
+        synced_ago: 'Zsynchronizowano %{ago} temu'
+        history_partial: 'Niektóre dni są niepełne — aktywo posiadane wtedy nie miało ceny.'
+        more: 'Więcej'
+        other: 'Inne'
+        basis_incomplete: 'Brak kosztu nabycia tego aktywa, więc nie pokazujemy zysku ani straty.'
+        record:
+            all: 'Wszystkie'
+            buy: 'Kupno'
+            sell: 'Sprzedaż'
+            transfer: 'Transfer'
+            other: 'Inne'
+            open: 'Otwarta'
+            win: 'Zysk'
+            loss: 'Strata'
+        range:
+            '30d': '30D'
+            '1y': '1R'
+            all: 'Wszystko'
         filters:
             all: 'Wszystkie'
         columns:
@@ -515,6 +537,13 @@ pl:
             fee: 'Opłata'
             exchange: 'Giełda'
             bot: 'Bot'
+            price: 'Cena'
+            opened: 'Otwarcie'
+            status: 'Status'
+            invested: 'Zainwestowano'
+            avg_buy: 'Śr. kupno'
+            hold: 'Czas'
+            name: 'Aktywo'
         types:
             buy: 'Kupno'
             sell: 'Sprzedaż'

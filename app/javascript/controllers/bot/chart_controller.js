@@ -28,6 +28,8 @@ export default class extends Controller {
     // inside that window would otherwise rebuild with an undefined budget (Array(NaN) throws,
     // leaving the buttons in one mode and the summary in the other).
     this.maxPointsToDraw = Math.max(1, Math.floor(this.element.offsetWidth / 3.5));
+    // The whole history until the reader narrows it; every read of the series slices from here.
+    this.from = 0;
     // Not null: a pin survives this controller, so a broadcast landing mid-read has to come back
     // on the asset the user chose rather than snapping to the portfolio while they look at it.
     this.focused = this.#chartable(this.#pinned);
@@ -76,8 +78,37 @@ export default class extends Controller {
   //
   // NOT this.mode = …: assigning that would shadow this action method.
   mode(event) {
+    // The range control lives inside the modes row, so its change bubbles through here as well.
+    // Named modes only — anything else is somebody else's switch.
+    if (event.detail.value !== "value" && event.detail.value !== "pnl") return;
+
     this.currentMode = event.detail.value;
     this.#remember(this.currentMode);
+    this.#buildChart();
+    this.#renderSummary();
+  }
+
+  // --- the window in view -----------------------------------------------------------
+  //
+  // CONTRACT (this repo has no JS test harness; the bot chart's own behaviour has the same
+  // coverage, so this is checked by hand in the browser): `from` is the index of the first point
+  // at or after the cutoff, measured back from the LAST point rather than from now — a history
+  // that stops updating must not silently empty the chart. Everything downstream slices from it,
+  // and both the RETURN curve and the headline are read RELATIVE to that first point, so "30D"
+  // says what the last thirty days did instead of where the whole history happens to stand today.
+  // ALL is the initial state, so a chart nobody touches renders exactly as it did before.
+  range(event) {
+    const stamps = this.#allTimestamps();
+    const days = Number(event.detail.value);
+    if (!Number.isFinite(days) || !stamps.length) {
+      this.from = 0;
+    } else {
+      const cutoff = stamps.at(-1) - days * 86400000;
+      const first = stamps.findIndex((stamp) => stamp >= cutoff);
+      // Two points still make a line: a window narrower than the sampling would leave none.
+      this.from = Math.min(Math.max(first, 0), Math.max(stamps.length - 2, 0));
+    }
+    this.pnlSeries = this.#derivePnl();
     this.#buildChart();
     this.#renderSummary();
   }
@@ -165,7 +196,8 @@ export default class extends Controller {
   // The value and invested curves in force: the focused holding's own, or the whole bot's.
   get #series() {
     const asset = this.focused && this.assetsValue[this.focused];
-    return asset ? [asset.value, asset.invested] : this.seriesValue;
+    const series = asset ? [asset.value, asset.invested] : this.seriesValue;
+    return this.from ? series.map((serie) => serie.slice(this.from)) : series;
   }
 
   // ONE ruler across the holdings: moving from one row to the next has to move the curve, not the
@@ -201,7 +233,20 @@ export default class extends Controller {
   // `chart_pnl_series` does for the portfolio. Held rather than recomputed — #pnlMode is read on
   // every pointer move.
   #derivePnl() {
-    if (!this.focused) return this.pnlValue || [];
+    const curve = this.#rawPnl();
+    // What the position had already made when the window opened. Held, because the headline
+    // subtracts the same figure — the curve and the number over it have to agree.
+    this.baseline = this.from ? curve.find((point) => point !== null) ?? 0 : 0;
+    if (!this.baseline) return curve;
+
+    return curve.map((point) => (point === null ? null : point - this.baseline));
+  }
+
+  #rawPnl() {
+    if (!this.focused) {
+      const portfolio = this.pnlValue || [];
+      return this.from ? portfolio.slice(this.from) : portfolio;
+    }
 
     const [value, invested] = this.#series;
     return value.map((amount, i) => (amount === null ? null : amount - invested[i]));
@@ -244,9 +289,13 @@ export default class extends Controller {
     return document.documentElement.lang || "en";
   }
 
-  #timestamps() {
+  #allTimestamps() {
     this.stamps ||= this.labelsValue.map((date) => new Date(date).getTime());
     return this.stamps;
+  }
+
+  #timestamps() {
+    return this.from ? this.#allTimestamps().slice(this.from) : this.#allTimestamps();
   }
 
   #date(timestamp) {
@@ -294,7 +343,7 @@ export default class extends Controller {
 
     const at = point || { x: timestamps[last], value: value[last], invested: invested[last] };
     const spent = Number(at.invested);
-    const pnl = Number(at.value) - spent;
+    const pnl = Number(at.value) - spent - this.baseline;
     const first = this.#date(timestamps[0]);
     const on = this.#date(at.x);
 
@@ -304,7 +353,9 @@ export default class extends Controller {
     // Absent while balances are hidden: the view drops the element rather than hiding it, and
     // Stimulus raises on a missing target.
     if (this.hasPnlTarget) this.pnlTarget.textContent = this.#money(pnl);
-    this.percentTarget.textContent = this.#percent(spent > 0 ? pnl / spent : 0);
+    // Nothing invested is not "0.00%", it is a percentage of nothing — say so rather than print a
+    // return the reader could take for a flat one.
+    this.percentTarget.textContent = spent > 0 ? this.#percent(pnl / spent) : "—";
     this.summaryTarget.classList.toggle("text-danger", pnl < 0);
     this.summaryTarget.classList.toggle("text-success", pnl >= 0);
   }

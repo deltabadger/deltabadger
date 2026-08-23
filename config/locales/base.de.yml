@@ -500,6 +500,28 @@ de:
                 SK: 'Slowakei'
         tax_report:
             failed: 'Der Bericht konnte nicht erstellt werden. Prüfe die ausgewählten Einstellungen und versuche es erneut.'
+        holdings: 'Bestände'
+        positions: 'Positionen'
+        transactions: 'Transaktionen'
+        fees_paid: 'Gezahlte Gebühren'
+        synced_ago: 'Vor %{ago} synchronisiert'
+        history_partial: 'Einige Tage sind unvollständig – für ein damals gehaltenes Asset gab es keinen Kurs.'
+        more: 'Mehr'
+        other: 'Sonstige'
+        basis_incomplete: 'Für diesen Bestand fehlen die Anschaffungskosten, daher wird kein G/V angezeigt.'
+        record:
+            all: 'Alle'
+            buy: 'Kauf'
+            sell: 'Verkauf'
+            transfer: 'Transfer'
+            other: 'Sonstige'
+            open: 'Offen'
+            win: 'Gewinn'
+            loss: 'Verlust'
+        range:
+            '30d': '30T'
+            '1y': '1J'
+            all: 'Alles'
         filters:
             all: 'Alle'
         columns:
@@ -512,6 +534,13 @@ de:
             fee: 'Gebühr'
             exchange: 'Börse'
             bot: 'Bot'
+            price: 'Kurs'
+            opened: 'Eröffnet'
+            status: 'Status'
+            invested: 'Investiert'
+            avg_buy: 'Ø Kaufkurs'
+            hold: 'Haltedauer'
+            name: 'Asset'
         types:
             buy: 'Kauf'
             sell: 'Verkauf'

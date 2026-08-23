@@ -39,6 +39,15 @@
         background: var(--grass)
         &:hover
             color: #fff
+    // Square, for a button whose whole label is its glyph.
+    &--icon
+        padding: 0 1rem
+        min-width: 4rem
+        svg
+            width: 2rem
+            height: 2rem
+        path
+            fill: var(--link)
     // Sized to sit inside a table row without setting the row's height.
     &--small
         height: 2.75rem

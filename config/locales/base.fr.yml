@@ -500,6 +500,28 @@ fr:
                 SK: 'Slovaquie'
         tax_report:
             failed: 'Le rapport n’a pas pu être généré. Vérifiez les paramètres sélectionnés et réessayez.'
+        holdings: 'Avoirs'
+        positions: 'Positions'
+        transactions: 'Transactions'
+        fees_paid: 'Frais payés'
+        synced_ago: 'Synchronisé il y a %{ago}'
+        history_partial: "Certains jours sont incomplets : un actif détenu alors n'avait pas de cours."
+        more: 'Plus'
+        other: 'Autres'
+        basis_incomplete: "Aucun prix de revient pour cet avoir : la performance n'est pas affichée."
+        record:
+            all: 'Tous'
+            buy: 'Achat'
+            sell: 'Vente'
+            transfer: 'Transfert'
+            other: 'Autres'
+            open: 'Ouverte'
+            win: 'Gain'
+            loss: 'Perte'
+        range:
+            '30d': '30J'
+            '1y': '1A'
+            all: 'Tout'
         filters:
             all: 'Tous'
         columns:
@@ -512,6 +534,13 @@ fr:
             fee: 'Frais'
             exchange: 'Plateforme'
             bot: 'Bot'
+            price: 'Cours'
+            opened: 'Ouverture'
+            status: 'Statut'
+            invested: 'Investi'
+            avg_buy: 'Achat moyen'
+            hold: 'Durée'
+            name: 'Actif'
         types:
             buy: 'Achat'
             sell: 'Vente'

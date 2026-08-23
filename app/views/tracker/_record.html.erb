@@ -1,0 +1,105 @@
+<% hide_money = current_user.hide_balances? %>
+<%# One bar over two panes, as on the bot view. Each pane is `display: contents`, so its own
+    contextual filter sits up in the bar and its table below — while both stay inside the pane's
+    `order-filter` scope, which is what lets one control filter the rows underneath it. %>
+<div class="tracker-record" data-controller="tracker--record">
+  <div class="tracker-record__switch filters" data-action="segmented:change->tracker--record#show">
+    <%= render 'shared/segmented', fluid: true, label: t('tracker.transactions'),
+               options: [{ value: 'tx', label: t('tracker.transactions'), active: true },
+                         { value: 'pos', label: t('tracker.positions') }] %>
+  </div>
+
+  <div class="tracker-record__pane" data-pane="tx"
+       data-controller="order-filter" data-tracker--record-target="pane">
+    <div class="tracker-record__filters filters" data-action="segmented:change->order-filter#filter">
+      <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.type'),
+                 options: %w[all buy sell transfer other].map { |type|
+                   { value: type, label: t("tracker.record.#{type}"), active: type == 'all' }
+                 } %>
+    </div>
+    <div class="tracker-record__table widget widget--table widget--table--tracker">
+      <% if @account_transactions.any? %>
+        <table class="table">
+          <thead>
+            <tr>
+              <th class="text-left"><%= t('tracker.columns.date') %></th>
+              <th class="tracker-exchange-icon"></th>
+              <th class="text-left"><%= t('tracker.columns.type') %></th>
+              <th class="text-left"><%= t('tracker.columns.base') %></th>
+              <%# The same three figures the bot log drops: what was traded, what it cost, and what
+                  was paid to trade it. The price is a market level, not a balance, and stays. %>
+              <% unless hide_money %><th><%= t('tracker.columns.amount') %></th><% end %>
+              <th><%= t('tracker.columns.price') %></th>
+              <% unless hide_money %>
+                <th><%= t('tracker.columns.quote_amount') %></th>
+                <th><%= t('tracker.columns.fee') %></th>
+              <% end %>
+              <th><%= t('tracker.columns.bot') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @account_transactions.each do |at| %>
+              <%= render 'transaction_row', at: at %>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p class="tracker-empty"><%= t('tracker.no_results') %></p>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="tracker-record__pane tracker-record__pane--off" data-pane="pos"
+       data-controller="order-filter" data-tracker--record-target="pane">
+    <div class="tracker-record__filters filters" data-action="segmented:change->order-filter#filter">
+      <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.status'),
+                 options: %w[all open win loss].map { |status|
+                   { value: status, label: t("tracker.record.#{status}"), active: status == 'all' }
+                 } %>
+    </div>
+    <div class="tracker-record__table widget widget--table widget--table--tracker tracker-positions">
+      <% if @scoped_ledger.nil? %>
+        <div class="loader--small" style="position: unset; margin: 2rem auto;"></div>
+      <% else %>
+        <table class="table">
+          <thead>
+            <tr>
+              <th class="text-left"><%= t('tracker.columns.opened') %></th>
+              <th class="text-left"><%= t('tracker.columns.name') %></th>
+              <th class="text-left"><%= t('tracker.columns.type') %></th>
+              <th class="text-left"><%= t('tracker.columns.status') %></th>
+              <% unless hide_money %>
+                <th><%= t('tracker.columns.invested') %></th>
+                <th><%= t('tracker.columns.avg_buy') %></th>
+                <th><%= t('tracker.columns.price') %></th>
+              <% end %>
+              <th><%= t('data_labels.pnl') %></th>
+              <th><%= t('tracker.columns.hold') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= render partial: 'positions_row',
+                       collection: tracker_position_rows(@scoped_ledger, @portfolio_slices || []),
+                       as: :row, locals: { hide_money: hide_money } %>
+          </tbody>
+        </table>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="tracker-record__actions">
+    <%= form_tag tracker_path, method: :get, class: 'tracker-date-range', data: { controller: 'form--submit' } do %>
+      <% if params[:exchange_id].present? %>
+        <%= hidden_field_tag :exchange_id, params[:exchange_id] %>
+      <% end %>
+      <input type="date" name="from" value="<%= @date_from %>" class="sinput" data-action="change->form--submit#submit">
+      <input type="date" name="to" value="<%= @date_to %>" class="sinput" data-action="change->form--submit#submit">
+    <% end %>
+    <%= link_to t('bot.details.stats.download_csv'),
+                export_tracker_path(exchange_id: params[:exchange_id], from: params[:from], to: params[:to]),
+                class: 'rbutton' %>
+    <% if @exchanges.any? %>
+      <%= link_to t('tracker.get_report'), export_modal_tracker_path, class: 'rbutton', data: { turbo_frame: 'modal' } %>
+    <% end %>
+  </div>
+</div>

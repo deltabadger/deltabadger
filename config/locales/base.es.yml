@@ -500,6 +500,28 @@ es:
                 SK: 'Eslovaquia'
         tax_report:
             failed: 'No se ha podido generar el informe. Comprueba la configuración seleccionada e inténtalo de nuevo.'
+        holdings: 'Activos'
+        positions: 'Posiciones'
+        transactions: 'Transacciones'
+        fees_paid: 'Comisiones pagadas'
+        synced_ago: 'Sincronizado hace %{ago}'
+        history_partial: 'Algunos días están incompletos: un activo que tenías entonces no tenía precio.'
+        more: 'Más'
+        other: 'Otros'
+        basis_incomplete: 'Sin coste de adquisición para este activo, así que no mostramos ganancia/pérdida.'
+        record:
+            all: 'Todas'
+            buy: 'Compra'
+            sell: 'Venta'
+            transfer: 'Transferencia'
+            other: 'Otros'
+            open: 'Abierta'
+            win: 'Ganancia'
+            loss: 'Pérdida'
+        range:
+            '30d': '30D'
+            '1y': '1A'
+            all: 'Todo'
         filters:
             all: 'Todos'
         columns:
@@ -512,6 +534,13 @@ es:
             fee: 'Comisión'
             exchange: 'Exchange'
             bot: 'Bot'
+            price: 'Precio'
+            opened: 'Apertura'
+            status: 'Estado'
+            invested: 'Invertido'
+            avg_buy: 'Compra media'
+            hold: 'Duración'
+            name: 'Activo'
         types:
             buy: 'Compra'
             sell: 'Venta'

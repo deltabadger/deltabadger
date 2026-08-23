@@ -5,10 +5,15 @@ class TrackerController < ApplicationController
   # "14 days" out rather than interpolating it.
   TRANSFER_LINK_WINDOW = 14.days
 
+  # The table shows a window, not an archive: an account with five years of Binance fills renders
+  # tens of thousands of rows otherwise. `?all=1` still asks for the lot, and Export always has it.
+  ROW_LIMIT = 200
+
   before_action :authenticate_user!
   before_action :require_admin!, only: :setup_coingecko
 
   def index
+    @scope_exchange = Exchange.find(params[:exchange_id]) if params[:exchange_id].present?
     exchange_ids = (current_user.api_keys.pluck(:exchange_id) +
       current_user.account_transactions.distinct.pluck(:exchange_id)).uniq
     @exchanges = Exchange.where(id: exchange_ids).order(:name)
@@ -18,9 +23,8 @@ class TrackerController < ApplicationController
     user_transactions = AccountTransaction.for_user(current_user)
     @date_from = params[:from].presence || user_transactions.minimum(:transacted_at)&.to_date&.iso8601
     @date_to = params[:to].presence || Date.current.iso8601
-    @account_transactions = filtered_transactions.by_date.includes(
-      :exchange, :bot_transaction, :linked_transaction, :inverse_link
-    )
+    rows = filtered_transactions.by_date.includes(:exchange, :bot_transaction, :linked_transaction, :inverse_link)
+    @account_transactions = params[:all].present? ? rows : rows.limit(ROW_LIMIT)
     # A sync failure survives the page it was broadcast onto, so the banner has to be rebuilt on
     # load — otherwise a persisted failure is invisible until the next sync. Only `:failed`: a
     # never-synced key is `sync_issue`'s other reason and is not a failure to shout about here.
@@ -29,6 +33,7 @@ class TrackerController < ApplicationController
       issue[:exchange] if issue && issue[:reason] == :failed
     end
     load_portfolio
+    load_ledgers
     check_pending_report
   end
 
@@ -234,18 +239,38 @@ class TrackerController < ApplicationController
     end
   end
 
+  # Read-only: a cold scope is warmed by a job and the page shows the bot's loading state until it
+  # lands. Two scopes, because the page reads at two altitudes — the tiles and the chart are the
+  # whole portfolio, the holdings card and the record follow the exchange switch.
+  def load_ledgers
+    @ledger = Tracker::Ledger.cached(current_user)
+    Tracker::LedgerJob.perform_later(current_user.id, nil) if @ledger.nil?
+    @scoped_ledger = @scope_exchange ? Tracker::Ledger.cached(current_user, exchange: @scope_exchange) : @ledger
+    return if @scoped_ledger || @scope_exchange.nil?
+
+    Tracker::LedgerJob.perform_later(current_user.id, @scope_exchange.id)
+  end
+
   def load_portfolio
     base = AccountBalance.for_user(current_user).nonzero.includes(:asset)
-    base = base.for_exchange(Exchange.find(params[:exchange_id])) if params[:exchange_id].present?
+    base = base.for_exchange(@scope_exchange) if @scope_exchange
     balances = base.to_a
 
     priced, unpriced = balances.partition { |b| b.usd_value.to_d.positive? }
 
     @portfolio_slices = priced.group_by(&:asset).map do |asset, rows|
-      { asset: asset, usd_value: rows.sum { |r| r.usd_value.to_d } }
+      { asset: asset, usd_value: rows.sum { |r| r.usd_value.to_d },
+        quantity: rows.sum { |r| r.free.to_d + r.locked.to_d } }
     end.sort_by { |s| -s[:usd_value] }
 
     @portfolio_total_usd = @portfolio_slices.sum { |s| s[:usd_value] }
+    # The value tile is the WHOLE portfolio even while the card below it is scoped to one venue:
+    # scoping the switch was about where the coins are, not about how much the account is worth.
+    @portfolio_total_all_usd = if @scope_exchange
+                                 AccountBalance.for_user(current_user).nonzero.priced.sum(:usd_value)
+                               else
+                                 @portfolio_total_usd
+                               end
     @portfolio_unpriced_assets = unpriced.map(&:asset).uniq
     @portfolio_last_synced_at = balances.map(&:synced_at).compact.max
     @portfolio_oldest_priced_at = priced.map(&:priced_at).compact.min
