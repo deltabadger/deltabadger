@@ -103,15 +103,26 @@ class Bots::DcaIndexRedeployPlacementTest < ActiveSupport::TestCase
 
   # A base amount cannot express a quote cap: the venue crosses at whatever its book says when it
   # gets there. The haircut is what keeps an adverse fill inside the budget.
-  test 'a base-denominated order is sized with headroom, a quote-denominated one is not' do
-    ticker = @assets['AAA'][:ticker]
-    order_data = { ticker: ticker, price: 100.to_d, amount: 1.to_d, quote_amount: 100.to_d }
+  test 'a base-denominated order is sized with headroom' do
+    order_data = { ticker: @assets['AAA'][:ticker], price: 100.to_d, amount: 1.to_d }
 
-    in_base = @bot.send(:apply_base_headroom, { amount: 1.to_d, amount_type: :base }, order_data)
-    in_quote = @bot.send(:apply_base_headroom, { amount: 100.to_d, amount_type: :quote }, order_data)
+    assert_in_delta 1 / 1.01, @bot.send(:base_headroom_amount, order_data).to_f, 0.0001
+  end
 
-    assert_in_delta 1 / 1.01, in_base[:amount].to_f, 0.0001
-    assert_in_delta 100, in_quote[:amount].to_f, 0.0001, 'the exact figure is already a cap'
+  # Checking the minimum first and haircutting after let an order that had just cleared the floor
+  # drop back under it — and an undersized rejection is not transient, so it halted the batch.
+  test 'the venue minimum is checked against the haircut amount, not the amount before it' do
+    stub_holdings('AAA' => 0, 'BBB' => 0)
+    @bot.stubs(:get_orders_data).returns(Result::Success.new(sized_orders(50, 50)))
+    # Base-denominated, and a floor that only the un-haircut amount would clear.
+    @bot.stubs(:calculate_best_amount_info).with { |data| data[:ticker].present? }
+        .returns({ amount_type: :base, amount: 0.5.to_d, below_minimum_amount: false },
+                 { amount_type: :base, amount: 0.495.to_d, below_minimum_amount: true })
+
+    @bot.redeploy!
+
+    assert_equal 0, @bot.transactions.redeploy.count, 'skipped, not sent and halted'
+    assert_not @bot.reload.redeploy_ambiguous?
   end
 
   # == guards ==

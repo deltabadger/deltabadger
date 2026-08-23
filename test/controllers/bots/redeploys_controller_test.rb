@@ -54,6 +54,17 @@ class Bots::RedeploysControllerTest < ActionDispatch::IntegrationTest
     assert_not_predicate queued(Bot::RedeployJob), :exists?
   end
 
+  # A one-shot user command must not be silently dropped in a worker that will not retry.
+  test 'a closed market says so now instead of failing quietly in a worker' do
+    @bot.exchange.class.any_instance.stubs(:market_open?).returns(false)
+
+    post bot_redeploy_path(bot_id: @bot.id)
+
+    assert_not_predicate queued(Bot::RedeployJob), :exists?
+    assert_response :unprocessable_entity
+    assert_match(/closed/i, response.body)
+  end
+
   test 'a bot type with no composition is refused' do
     other = create(:dca_single_asset, user: @user)
 
