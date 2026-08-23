@@ -193,4 +193,17 @@ class BotHelperTest < ActionView::TestCase
   test 'no transactions, no curve' do
     assert_equal [], chart_pnl_series([], [])
   end
+
+  # 0.00 in the same weight as a real balance reads as a number worth comparing, and on a holdings
+  # table most of them are not.
+  test 'a figure that rounds to nothing is dimmed' do
+    assert_equal '<span class="is-zero">0.00</span>', money_figure(0)
+    assert_equal '<span class="is-zero">0.00</span>', money_figure(0.004), 'rounds to nothing'
+    assert_equal '<span class="is-zero">0.00</span>', money_figure(nil)
+  end
+
+  test 'a figure that rounds to something is left alone' do
+    assert_equal '1,234.50', money_figure(1234.5)
+    assert_equal '0.01', money_figure(0.005), 'rounds up to a real cent'
+  end
 end

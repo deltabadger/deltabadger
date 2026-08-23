@@ -7,8 +7,8 @@
            rows: values.map { |symbol, data|
       { asset: logo_assets[symbol]&.base_asset, symbol: symbol,
         amount: number_with_precision(data[:amount] || 0, precision: 6, strip_insignificant_zeros: true),
-        avg_price: number_with_precision(data[:avg_price] || 0, precision: 2, delimiter: ','),
-        value: number_with_precision(data[:current_value] || 0, precision: 2, delimiter: ','),
+        avg_price: money_figure(data[:avg_price]),
+        value: money_figure(data[:current_value]),
         pnl: data[:pnl_percentage] || 0,
         action: (sellable ? link_to(t('bot.liquidation.sell'),
                                     new_bot_liquidation_path(bot_id: bot.id, symbol: symbol),

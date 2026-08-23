@@ -49,6 +49,18 @@ module BotHelper
   # One-line summary for a BotActivityLog row in the activity feed. Uses the stored
   # message when present, otherwise a translated label for the event (with light
   # detail formatting for the few high-value events).
+  # A money figure that rounds to nothing, dimmed.
+  #
+  # 0.00 sitting in the same weight as a real balance reads as a number worth comparing, and on a
+  # holdings table most of them are not — an average price nobody paid, a value too small to have
+  # one. Dimmed rather than blanked: the row still has to state what it holds.
+  def money_figure(value, precision: 2, **options)
+    formatted = number_with_precision(value || 0, precision: precision, delimiter: ',', **options)
+    return formatted unless value.to_d.round(precision).zero?
+
+    tag.span(formatted, class: 'is-zero')
+  end
+
   def bot_activity_summary(activity)
     return activity.message if activity.message.present?
 
