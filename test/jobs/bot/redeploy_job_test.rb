@@ -66,6 +66,16 @@ class Bot::RedeployJobTest < ActiveSupport::TestCase
     assert_match(/Invalid API-key/, log.details['reason'])
   end
 
+  test 'a batch that was all below minimums says so in its own words' do
+    @bot.stubs(:redeploy!).returns(Result::Failure.new(:below_minimums))
+
+    Bot::RedeployJob.new.perform(@bot)
+
+    assert @bot.bot_activity_logs.exists?(event: 'redeploy_below_minimums')
+    assert_not @bot.bot_activity_logs.exists?(event: 'redeploy_not_started'),
+               '"the bot was busy" would be a lie here'
+  end
+
   test 'a bot type without the leg is left alone' do
     other = create(:dca_single_asset, user: @bot.user)
 

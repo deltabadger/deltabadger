@@ -218,7 +218,42 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
     assert_nil @bot.send(:liquidation_blocked_reason)
   end
 
+  # A completed redeploy leaves banked and spent differing by rounding dust, and `positive?` is true
+  # for that — so the prompt asked "Redeploy 0.00 USDT?" over two hundred-millionths of a cent.
+  test 'accounting dust is not an offer' do
+    buy('AAA', quote: 100, price: 100)
+    liquidate('AAA', amount: 1, quote: 150, price: 150)
+    redeploy('BBB', quote: 149.99999998, price: 100)
+
+    # Exactly zero, not "near" it: the dust this guards against is 2e-8, far inside any delta a
+    # money assertion would normally use — an assert_in_delta here could never fail.
+    assert_predicate @bot.redeploy_offer(@bot.metrics(force: true)), :zero?
+  end
+
+  # The floor is the cheapest door in the composition, because the fold pools every share into one
+  # member — so the pot only ever has to clear one of them.
+  test 'an offer below the smallest venue minimum is not offered' do
+    in_index('AAA', 'BBB')
+    @bot.exchange.tickers.update_all(minimum_quote_size: 10)
+    buy('AAA', quote: 100, price: 100)
+    liquidate('AAA', amount: 0.05, quote: 6, price: 120)
+
+    assert_in_delta 0, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001, 'under the floor'
+
+    liquidate('AAA', amount: 0.05, quote: 6, price: 120)
+    assert_in_delta 12, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001, 'over it'
+  end
+
   private
+
+  def in_index(*symbols)
+    symbols.each do |symbol|
+      ticker = @bot.exchange.tickers.find_by(base: symbol)
+      BotIndexAsset.create!(bot: @bot, asset: ticker.base_asset, ticker: ticker,
+                            target_allocation: 1.0 / symbols.size, in_index: true,
+                            entered_at: Time.current)
+    end
+  end
 
   def buy(symbol, quote:, price:)
     create_order(symbol, amount: quote.to_d / price, quote:, price:, side: :buy, type: 'REGULAR')

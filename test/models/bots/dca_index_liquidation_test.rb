@@ -51,6 +51,70 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     assert_equal @assets['CCC'][:ticker], row[:ticker]
   end
 
+  # Selling rounds the base amount down to the venue's precision, so a holding with more decimals
+  # than the venue trades in always leaves a remainder. It is `positive?`, so the row used to sit
+  # under "Left the index" forever showing 0.00 over a Sell button that could never clear it.
+  test 'a dust remainder is not a quitter' do
+    index_membership('AAA', 'BBB')
+    exited('CCC')
+    @assets['CCC'][:ticker].update!(minimum_base_size: 1)
+    stub_holdings('AAA' => 50, 'BBB' => 30, 'CCC' => 20)
+    @bot.stubs(:metrics_with_current_prices).returns(
+      asset_values: { 'CCC' => { amount: 0.004.to_d, current_value: 0.01.to_d } }, prices_stale: false
+    )
+
+    assert_empty @bot.exited_holdings, 'below the venue floor, so it can never be sold'
+  end
+
+  # Size alone is not the rule — size against the desired allocation is. A member is shown at any
+  # amount, because the bot is going to keep buying it.
+  test 'a member holding less than the venue floor is still a member' do
+    index_membership('AAA')
+    @assets['AAA'][:ticker].update!(minimum_base_size: 1)
+    @bot.stubs(:metrics_with_current_prices).returns(
+      asset_values: { 'AAA' => { amount: 0.004.to_d, current_value: 0.to_d } }, prices_stale: false
+    )
+
+    assert_empty @bot.exited_holdings, 'a member is never a quitter, whatever its size'
+  end
+
+  # A non-member above the floor is a quitter; one below it is invisible until there is more of it.
+  test 'only a non-member below the floor is hidden' do
+    index_membership('AAA')
+    @assets['CCC'][:ticker].update!(minimum_base_size: 1)
+    @bot.stubs(:metrics_with_current_prices).returns(
+      asset_values: { 'AAA' => { amount: 5.to_d, current_value: 50.to_d },
+                      'BBB' => { amount: 9.to_d, current_value: 90.to_d },
+                      'CCC' => { amount: 0.004.to_d, current_value: 0.to_d } },
+      prices_stale: false
+    )
+
+    assert_equal %w[BBB], @bot.exited_holdings.map { |h| h[:symbol] },
+                 'AAA is a member, CCC is a non-member with too little to sell'
+  end
+
+  test 'a holding above the venue floor is still a quitter' do
+    index_membership('AAA')
+    exited('CCC')
+    @assets['CCC'][:ticker].update!(minimum_base_size: 1)
+    @bot.stubs(:metrics_with_current_prices).returns(
+      asset_values: { 'CCC' => { amount: 5.to_d, current_value: 20.to_d } }, prices_stale: false
+    )
+
+    assert_equal(%w[CCC], @bot.exited_holdings.map { |h| h[:symbol] })
+  end
+
+  # The controller guards on exited_symbols; if the two disagreed a Sell would 404 from a row the
+  # page still showed, or the job would refuse one the page offered.
+  test 'the symbol list applies the same dust rule as the table' do
+    index_membership('AAA')
+    exited('CCC')
+    @assets['CCC'][:ticker].update!(minimum_base_size: 1)
+    @bot.stubs(:metrics).returns(asset_breakdown: { 'CCC' => { amount: 0.004.to_d, quote_invested: 1.to_d } })
+
+    assert_empty @bot.exited_symbols
+  end
+
   # == placing ==
 
   # == one holding at a time ==

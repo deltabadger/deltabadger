@@ -40,7 +40,25 @@ module Bot::Composition::Redeployable
     reanchor_declined_offset! if offerable.negative?
     # realised_cash is floored at zero by construction (every drain takes a `min` against it), so
     # the clamp bounds can never cross.
-    offerable.clamp(0.to_d, data[:realised_cash].to_d)
+    offer = offerable.clamp(0.to_d, data[:realised_cash].to_d)
+    offer < smallest_placeable_amount ? 0.to_d : offer
+  end
+
+  # Below this nothing can be placed, so nothing should be offered.
+  #
+  # A completed redeploy leaves accounting DUST — banked and spent are each rounded to 18 decimals,
+  # so they differ by ~1e-8 — and `positive?` is true for that. The prompt then asked "Redeploy 0.00
+  # USDT?" over two hundred-millionths of a cent, and the answer could only ever be nothing.
+  #
+  # The floor is the SMALLEST minimum in the composition, not the largest: the fold pools every share
+  # into one member, so the pot only has to clear the cheapest door. In quote units, which is what
+  # makes this right for a BTC-quoted bot as well — a flat 0.01 would be dust in USDT and ~$500 here.
+  # Falls back to the bot's whole quote-matching set when the composition is empty — a bot whose
+  # first derivation has not landed still must not be asked to redeploy dust, and minimums are a
+  # property of the venue and the quote currency rather than of index membership.
+  def smallest_placeable_amount
+    scope = composition_tickers.presence || tickers
+    scope.filter_map { |ticker| ticker.minimum_quote_size&.to_d }.min || 0.to_d
   end
 
   # "Forget what is on offer." Stored as the offset that makes the expression above read zero right
@@ -132,11 +150,16 @@ module Bot::Composition::Redeployable
     promote_stale_redeploy_placement!
 
     # Refreshed BEFORE the market-hours check: a refresh can rotate a closed-market member into the
-    # composition, and asking the old member list would let the batch through anyway. Strict, like
-    # liquidation and unlike rebalancing — we are buying members, and a stale composition buys a coin
-    # that has just left.
+    # composition, and asking the old member list would let the batch through anyway.
+    #
+    # BEST EFFORT, like Bot::Composition::Rebalancer#before_rebalance and unlike liquidation. That
+    # asymmetry is the point: a stale composition makes a liquidation SELL something that may have
+    # re-entered, which is unrecoverable, while the worst it does here is buy into a member that left
+    # moments ago — which simply becomes a quitter the user can sell, exactly like any other
+    # rotation. Refusing instead would mean a market-data outage disables the button and leaves the
+    # cash idle for as long as it lasts, which is the opposite of what this leg is for.
     result = refresh_composition
-    return Result::Failure.new(result.errors) if result.failure?
+    Rails.logger.warn("redeploy composition refresh failed bot=#{id}: #{result.errors.to_sentence}") if result.failure?
 
     # Asked about the members actually being bought, and only after the refresh above — a stock
     # composition must not place into a closed market, and a refresh can rotate a closed-market
@@ -233,7 +256,7 @@ module Bot::Composition::Redeployable
     remaining = amount
     placed = 0
 
-    result.data.each do |order_data|
+    fold_below_minimums(result.data).each do |order_data|
       break if remaining <= 0
 
       outcome = place_one_redeploy!(order_data, remaining)
@@ -244,6 +267,12 @@ module Bot::Composition::Redeployable
       remaining -= outcome[:spent] if outcome.is_a?(Hash)
       placed += 1 if outcome.is_a?(Hash)
     end
+
+    # Nothing placed is a REFUSAL, not a quiet success. Once the fold has pooled every share into the
+    # most underweight member and even that will not clear the floor, there is genuinely nothing to
+    # do — and a button that says "putting the money back" and then does nothing at all is the one
+    # outcome the user cannot tell from a bug. The job turns this into a line in the activity feed.
+    return Result::Failure.new(:below_minimums) if placed.zero?
 
     Result::Success.new(placed: placed)
   end
@@ -289,6 +318,47 @@ module Bot::Composition::Redeployable
   # Keyed off the RESOLVED amount_type, not the venue: under :base_or_quote and :base_and_quote,
   # calculate_best_amount_info picks per ticker, so those venues land on base for some pairs.
   BASE_HEADROOM = 0.01.to_d
+
+  # If you cannot buy enough of one asset, buy more of another.
+  #
+  # Sizing splits the pot by each member's shortfall, so a member already near its target gets a
+  # share of a couple of dollars — under the venue's floor, unplaceable, and previously just dropped.
+  # That left the money sitting as cash while the prompt went on offering a residue no click could
+  # spend: 99 into A and 1 stranded under B's floor. Spending the whole 100 on A is the better trade.
+  #
+  # Pooled into the LARGEST viable share, which is also the most underweight member — the shares are
+  # proportional to shortfall, so the two coincide. It ends slightly past its target: drift the
+  # rebalance leg corrects, and cheaper than cash that never gets deployed at all.
+  #
+  # Decided HERE rather than while placing. This is an allocation question, and allocation must not
+  # depend on the order a loop happens to visit things in — that was the first attempt, and it made
+  # the outcome a function of iteration order, untestable without a live venue.
+  #
+  # When nothing at all clears a floor there is nobody to fold into, so the list comes back untouched
+  # and place_redeploy_orders! refuses the batch instead of reporting a success that placed nothing.
+  def fold_below_minimums(orders)
+    viable, tiny = orders.partition { |order| placeable?(order) }
+    return orders if tiny.empty? || viable.empty?
+
+    pooled = tiny.sum { |order| order[:quote_amount].to_d }
+    receiver = viable.max_by { |order| order[:quote_amount].to_d }
+    log_activity('redeploy_folded', level: :info,
+                                    details: { into: receiver[:ticker]&.base, amount: pooled.to_f.round(2),
+                                               from: tiny.filter_map { |order| order[:ticker]&.base } })
+
+    viable.map do |order|
+      next order unless order.equal?(receiver)
+
+      topped = order[:quote_amount].to_d + pooled
+      order.merge(quote_amount: topped, amount: topped / order[:price].to_d)
+    end
+  end
+
+  # Asked with the sizing price, which is a moment older than the one placement will cross at. Close
+  # enough to decide allocation; a share that slips under the floor in between is still skipped there.
+  def placeable?(order)
+    order[:price].to_d.positive? && !calculate_best_amount_info(order)[:below_minimum_amount]
+  end
 
   def base_headroom_amount(order_data)
     order_data[:ticker].adjusted_amount(
