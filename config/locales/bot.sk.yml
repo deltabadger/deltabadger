@@ -233,6 +233,18 @@ sk:
                 other: "Zmeškané čiastky boli uložené do zásobníka a budú použité s ďalšími plánovanými príkazmi, aby boli váš rozvrh a alokácia dodržané čo najpresnejšie v rámci minimálnych veľkostí príkazov."
             title: "Gratulujeme! Váš bot beží."
             general_note: "Minimálne veľkosti príkazov a potrebné čiastky na rebalancovanie sa menia. Transakcie môžu občas vyzerať nepravidelne, ale bot vždy smeruje k vašej požadovanej alokácii a rozvrhu, takže nie je potrebné nič ďalšie robiť."
+        redeploy:
+            prompt: "Vložiť %{amount} %{symbol} späť?"
+            confirm: "Áno"
+            decline: "Nie"
+            started: "Vraciam peniaze späť do koša."
+            in_flight: "Opätovné vloženie stále prebieha. Skús to znova, keď skončí."
+            unsupported: "Tento bot nemá žiadny výnos na opätovné vloženie."
+            halted: "Opätovné vloženie nepotvrdené — skontroluj burzu"
+            resolve: "Vymazať"
+            resolve_confirm: "Pokračuj len vtedy, ak si skontroloval burzu a žiadny nákupný pokyn už nie je otvorený."
+            still_open: "Pokyn %{order_id} je na burze stále otvorený. Počkaj, kým sa vysporiada."
+            resolved: "Vymazané. Bot môže znova obchodovať."
         liquidation:
             sell: "Predať"
             sell_confirm: "Predať túto pozíciu? Uzavrie sa za trhovú cenu."

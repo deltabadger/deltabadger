@@ -233,6 +233,18 @@ cs:
                 other: "Zameškané částky byly uloženy do zásobníku a budou použity s dalšími plánovanými příkazy, aby byly váš rozvrh a alokace dodrženy co nejpřesněji v rámci minimálních velikostí příkazů."
             title: "Gratulujeme! Váš bot běží."
             general_note: "Minimální velikosti příkazů a potřebné částky pro rebalancování se mění. Transakce mohou občas vypadat nepravidelně, ale bot vždy směřuje k vaší požadované alokaci a rozvrhu, takže není potřeba nic dalšího dělat."
+        redeploy:
+            prompt: "Vložit %{amount} %{symbol} zpět?"
+            confirm: "Ano"
+            decline: "Ne"
+            started: "Vracím peníze zpět do koše."
+            in_flight: "Opětovné vložení stále probíhá. Zkus to znovu, až skončí."
+            unsupported: "Tento bot nemá žádný výnos k opětovnému vložení."
+            halted: "Opětovné vložení nepotvrzeno — zkontroluj burzu"
+            resolve: "Vymazat"
+            resolve_confirm: "Pokračuj jen tehdy, když jsi zkontroloval burzu a žádný nákupní pokyn už není otevřený."
+            still_open: "Pokyn %{order_id} je na burze stále otevřený. Počkej, až se vypořádá."
+            resolved: "Vymazáno. Bot může znovu obchodovat."
         liquidation:
             sell: "Prodat"
             sell_confirm: "Prodat tuto pozici? Bude uzavřena za tržní cenu."

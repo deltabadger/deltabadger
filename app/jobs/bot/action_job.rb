@@ -240,7 +240,7 @@ class Bot::ActionJob < BotJob
   def clear_stale_market_closed_flag(bot)
     return unless bot.waiting_for_market_open
 
-    bot.update_columns(transient_data: bot.transient_data.merge('waiting_for_market_open' => nil))
+    bot.merge_transient_data!('waiting_for_market_open' => nil)
   end
 
   # Substring, not equality — the same rule as its four siblings (Exchange#invalid_key_error?,

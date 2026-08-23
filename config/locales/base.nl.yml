@@ -551,6 +551,13 @@ nl:
             liquidation_market_closed: "Markt gesloten — niets verkocht"
             liquidation_not_started: "Er is niets verkocht — de bot was bezig of de index kon niet worden ververst"
             liquidation_failed: "Verkoop mislukt: %{error}"
+            redeploy_requested: "Het geld gaat terug in de mand"
+            redeploy_placed: "Terugkopen in de mand met de opbrengst"
+            redeploy_skipped: "Een deel van de opbrengst kon niet opnieuw worden ingelegd — blijft als contant staan"
+            redeploy_ambiguous: "Status van de herinlegorder onbevestigd — gepauzeerd zodat hij niet twee keer wordt geplaatst"
+            redeploy_manually_resolved: "Onbevestigde herinleg handmatig gewist"
+            redeploy_not_started: "Er is niets opnieuw ingelegd — de bot was bezig of er was niets meer over"
+            redeploy_failed: "Herinleggen mislukt: %{error}"
             dca_skipped_liquidation_pending: "Inleg overgeslagen — er loopt nog een verkoop"
             started: 'Bot gestart'
             stopped: 'Bot gestopt'

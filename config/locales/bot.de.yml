@@ -219,6 +219,18 @@ de:
                 other: "Die verpassten Beträge wurden gepuffert und werden mit den nächsten geplanten Orders verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
             title: "Glückwunsch! Dein Bot läuft."
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
+        redeploy:
+            prompt: "%{amount} %{symbol} wieder anlegen?"
+            confirm: "Ja"
+            decline: "Nein"
+            started: "Das Geld wandert zurück in den Korb."
+            in_flight: "Eine Wiederanlage läuft noch. Versuche es erneut, sobald sie abgeschlossen ist."
+            unsupported: "Dieser Bot hat keine Erlöse zum Wiederanlegen."
+            halted: "Wiederanlage unbestätigt — prüfe deine Börse"
+            resolve: "Zurücksetzen"
+            resolve_confirm: "Fahre nur fort, wenn du deine Börse geprüft hast und keine Kauforder mehr offen ist."
+            still_open: "Order %{order_id} ist an deiner Börse noch offen. Warte, bis sie abgerechnet ist."
+            resolved: "Zurückgesetzt. Der Bot kann wieder handeln."
         liquidation:
             sell: "Verkaufen"
             sell_confirm: "Diese Position verkaufen? Sie wird zum Marktpreis geschlossen."

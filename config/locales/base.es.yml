@@ -552,6 +552,13 @@ es:
             liquidation_market_closed: "Mercado cerrado — no se vendió nada"
             liquidation_not_started: "No se vendió nada — el bot estaba ocupado o no se pudo actualizar el índice"
             liquidation_failed: "Venta fallida: %{error}"
+            redeploy_requested: "Devolviendo el dinero a la cesta"
+            redeploy_placed: "Comprando de nuevo en la cesta con los fondos"
+            redeploy_skipped: "Parte de los fondos no se pudo reinvertir — se dejó como efectivo"
+            redeploy_ambiguous: "Estado de la orden de reinversión sin confirmar — en pausa para no enviarla dos veces"
+            redeploy_manually_resolved: "Reinversión sin confirmar descartada manualmente"
+            redeploy_not_started: "No se reinvirtió nada — el bot estaba ocupado o no quedaba nada por reinvertir"
+            redeploy_failed: "La reinversión falló: %{error}"
             dca_skipped_liquidation_pending: "Aportación omitida — una venta sigue en curso"
             started: 'Bot iniciado'
             stopped: 'Bot detenido'

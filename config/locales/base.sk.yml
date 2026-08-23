@@ -571,6 +571,13 @@ sk:
             liquidation_market_closed: "Trh zatvorený — nič sa nepredalo"
             liquidation_not_started: "Nič sa nepredalo — bot bol zaneprázdnený alebo sa index nepodarilo obnoviť"
             liquidation_failed: "Selling failed: %{error}"
+            redeploy_requested: "Vraciam peniaze späť do koša"
+            redeploy_placed: "Nakupujem späť do koša za získané prostriedky"
+            redeploy_skipped: "Časť prostriedkov sa nepodarilo vložiť späť — zostala v hotovosti"
+            redeploy_ambiguous: "Stav pokynu na opätovné vloženie nepotvrdený — pozastavené, aby nebol odoslaný dvakrát"
+            redeploy_manually_resolved: "Nepotvrdené opätovné vloženie vymazané ručne"
+            redeploy_not_started: "Nič nebolo vložené späť — bot bol zaneprázdnený alebo nezostalo čo vložiť"
+            redeploy_failed: "Opätovné vloženie zlyhalo: %{error}"
             dca_skipped_liquidation_pending: "Príspevok preskočený — stále prebieha predaj"
             started: 'Bot started'
             stopped: 'Bot stopped'

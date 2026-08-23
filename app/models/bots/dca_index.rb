@@ -68,6 +68,7 @@ class Bots::DcaIndex < Bot
   include Bot::Composition::OrderSetter
   include Bot::Composition::Rebalancer
   include Bot::Composition::Liquidatable
+  include Bot::Composition::Redeployable
   include Bot::Composition::Measurable
 
   # Shared lifecycle + asset plumbing — keep LAST so the decorator chains above stay on top

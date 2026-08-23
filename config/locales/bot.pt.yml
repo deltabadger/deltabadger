@@ -203,6 +203,18 @@ pt:
                 other: "As quantidades perdidas foram armazenadas em buffer e serão usadas com as próximas ordens agendadas, garantindo que seu cronograma e alocação sejam mantidos o mais próximo possível dos mínimos da exchange."
             title: "Parabéns! Seu bot está em execução."
             general_note: "Os mínimos da exchange e as quantidades de rebalanceamento necessárias podem mudar. As ordens podem parecer irregulares às vezes, mas o bot sempre visa sua alocação e cronograma desejados, portanto, nenhum trabalho extra é necessário."
+        redeploy:
+            prompt: "Reinvestir %{amount} %{symbol}?"
+            confirm: "Sim"
+            decline: "Não"
+            started: "A devolver o dinheiro ao cabaz."
+            in_flight: "Um reinvestimento ainda está a decorrer. Tenta novamente quando terminar."
+            unsupported: "Este bot não tem valores para reinvestir."
+            halted: "Reinvestimento por confirmar — verifica a tua exchange"
+            resolve: "Limpar"
+            resolve_confirm: "Só continua se verificaste a tua exchange e nenhuma ordem de compra continua aberta."
+            still_open: "A ordem %{order_id} ainda está aberta na tua exchange. Espera que liquide."
+            resolved: "Limpo. O bot pode voltar a negociar."
         liquidation:
             sell: "Vender"
             sell_confirm: "Vender esta posição? Será fechada ao preço de mercado."

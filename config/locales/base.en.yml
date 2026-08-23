@@ -563,6 +563,13 @@ en:
             liquidation_not_started: "Nothing was sold — the bot was busy, or the index could not be refreshed"
             liquidation_failed: "Selling failed: %{error}"
             dca_skipped_liquidation_pending: "Contribution skipped — a sale is still in progress"
+            redeploy_requested: "Putting the proceeds back into the basket"
+            redeploy_placed: "Buying back into the basket with the proceeds"
+            redeploy_skipped: "Part of the proceeds could not be redeployed — left as cash"
+            redeploy_ambiguous: "Redeploy order status unconfirmed — paused so it cannot be placed twice"
+            redeploy_manually_resolved: "Unconfirmed redeploy cleared manually"
+            redeploy_not_started: "Nothing was redeployed — the bot was busy, or there was nothing left to redeploy"
+            redeploy_failed: "Redeploying failed: %{error}"
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'

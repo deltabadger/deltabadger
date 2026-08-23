@@ -555,6 +555,13 @@ pl:
             liquidation_market_closed: "Rynek zamknięty — nic nie sprzedano"
             liquidation_not_started: "Nic nie sprzedano — bot był zajęty albo nie udało się odświeżyć indeksu"
             liquidation_failed: "Sprzedaż nie powiodła się: %{error}"
+            redeploy_requested: "Wkładam środki z powrotem do koszyka"
+            redeploy_placed: "Kupuję z powrotem do koszyka za uzyskane środki"
+            redeploy_skipped: "Części środków nie udało się ponownie zainwestować — zostały jako gotówka"
+            redeploy_ambiguous: "Status zlecenia ponownej inwestycji niepotwierdzony — wstrzymano, aby nie złożyć go dwa razy"
+            redeploy_manually_resolved: "Niepotwierdzona ponowna inwestycja wyczyszczona ręcznie"
+            redeploy_not_started: "Nic nie zainwestowano ponownie — bot był zajęty albo nie było już czego inwestować"
+            redeploy_failed: "Ponowna inwestycja nie powiodła się: %{error}"
             dca_skipped_liquidation_pending: "Wpłata pominięta — trwa jeszcze sprzedaż"
             started: 'Bot uruchomiony'
             stopped: 'Bot zatrzymany'

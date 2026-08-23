@@ -41,6 +41,7 @@ class Bots::DcaMultiAsset < Bot
   include Bot::Composition::OrderSetter
   include Bot::Composition::Rebalancer
   include Bot::Composition::Liquidatable
+  include Bot::Composition::Redeployable
   include Bot::Composition::Measurable
 
   # Shared lifecycle + asset plumbing stay last so the decorator chains above remain on top.

@@ -563,6 +563,13 @@ sv:
             liquidation_market_closed: "Marknaden stängd — inget såldes"
             liquidation_not_started: "Inget såldes — botten var upptagen eller så gick indexet inte att uppdatera"
             liquidation_failed: "Selling failed: %{error}"
+            redeploy_requested: "Pengarna går tillbaka in i korgen"
+            redeploy_placed: "Köper tillbaka in i korgen för intäkterna"
+            redeploy_skipped: "En del av intäkterna kunde inte återinvesteras — lämnades som kontanter"
+            redeploy_ambiguous: "Återinvesteringsorderns status är obekräftad — pausad så att den inte skickas två gånger"
+            redeploy_manually_resolved: "Obekräftad återinvestering rensad manuellt"
+            redeploy_not_started: "Ingenting återinvesterades — boten var upptagen eller det fanns inget kvar"
+            redeploy_failed: "Återinvesteringen misslyckades: %{error}"
             dca_skipped_liquidation_pending: "Insättning hoppades över — en försäljning pågår fortfarande"
             started: 'Bot started'
             stopped: 'Bot stopped'

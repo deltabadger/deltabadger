@@ -221,6 +221,18 @@ it:
                 other: "Gli importi mancanti sono stati messi in buffer e verranno utilizzati con i prossimi ordini programmati, assicurando che la tua pianificazione e allocazione siano mantenute il più vicino possibile ai minimi dell'exchange."
             title: "Congratulazioni! Il tuo bot è in esecuzione."
             general_note: "I minimi dell'exchange e gli importi di ribilanciamento richiesti possono cambiare. Gli ordini potrebbero a volte sembrare irregolari, ma il bot mira sempre all'allocazione e alla pianificazione desiderate, quindi non è necessario alcun lavoro aggiuntivo."
+        redeploy:
+            prompt: "Reinvestire %{amount} %{symbol}?"
+            confirm: "Sì"
+            decline: "No"
+            started: "Rimetto i soldi nel paniere."
+            in_flight: "Un reinvestimento è ancora in corso. Riprova quando è terminato."
+            unsupported: "Questo bot non ha ricavi da reinvestire."
+            halted: "Reinvestimento non confermato — controlla il tuo exchange"
+            resolve: "Azzera"
+            resolve_confirm: "Continua solo se hai controllato il tuo exchange e nessun ordine di acquisto è ancora aperto."
+            still_open: "L’ordine %{order_id} è ancora aperto sul tuo exchange. Aspetta che si chiuda."
+            resolved: "Azzerato. Il bot può tornare a operare."
         liquidation:
             sell: "Vendi"
             sell_confirm: "Vendere questa posizione? Verrà chiusa al prezzo di mercato."

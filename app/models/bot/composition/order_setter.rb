@@ -75,17 +75,36 @@ module Bot::Composition::OrderSetter
 
   private
 
+  # Base amounts already claimed by orders that are open but not yet filled, per symbol.
+  #
+  # Only the UNEXECUTED remainder. A partially filled order has its `amount_exec` in the ledger
+  # already, so reserving the whole `amount` would count the filled part twice and under-buy that
+  # member by exactly what it has already received.
+  def reserved_waiting_buy_amounts
+    transactions.waiting.buy.pluck(:base, :amount, :amount_exec)
+                .each_with_object(Hash.new(0)) do |(base, amount, amount_exec), acc|
+      remainder = amount.to_d - amount_exec.to_d
+      acc[base] += remainder if remainder.positive?
+    end
+  end
+
   def validate_orders_amount!(total_orders_amount_in_quote)
     raise 'Orders quote_amount is required' if total_orders_amount_in_quote.blank?
     raise 'Orders quote_amount must be positive' if total_orders_amount_in_quote.negative?
   end
 
-  def get_orders_data(total_orders_amount_in_quote)
+  # market: forces the crossing price and a market order regardless of the bot's limit setting. The
+  # redeploy leg passes it — a resting limit redeploy on a STOPPED bot is never swept, so the cash
+  # would sit committed and undeployed, which is the one thing that leg exists to prevent. Sizing has
+  # to move with it: pricing at the limit discount and then submitting at market spends more than the
+  # budget, and on a venue whose market order is an emulated crossing limit the gap is real money.
+  def get_orders_data(total_orders_amount_in_quote, market: false)
     allocations = current_allocations
     return Result::Failure.new('No assets in composition') if allocations.empty?
 
     metrics_data = metrics(force: true)
     asset_breakdown = metrics_data[:asset_breakdown] || {}
+    reserved = reserved_waiting_buy_amounts
 
     # Step 1: Get current prices for all assets
     asset_prices = {}
@@ -94,7 +113,11 @@ module Bot::Composition::OrderSetter
       next unless ticker.present?
 
       price_result = begin
-        limit_ordered? ? ticker.get_last_price : ticker.get_ask_price
+        if market
+          exchange.market_price_for(ticker: ticker, side: :buy)
+        else
+          limit_ordered? ? ticker.get_last_price : ticker.get_ask_price
+        end
       rescue Client::TransientNetworkError, Client::RateLimitedError
         # Already the right class, and TransientNetworkError already carries original_class — the
         # provenance the placement guard reads to tell a request that never left from one that may
@@ -140,7 +163,7 @@ module Bot::Composition::OrderSetter
               "No price for #{alloc[:symbol]}: #{price_result.errors.to_sentence}"
       end
 
-      price = if limit_ordered?
+      price = if limit_ordered? && !market
                 ticker.adjusted_price(price: price_result.data * (1.to_d - limit_order_pcnt_distance_decimal))
               else
                 price_result.data
@@ -153,7 +176,10 @@ module Bot::Composition::OrderSetter
     current_values = {}
     total_current_value = 0
     asset_prices.each do |symbol, data|
-      current_amount = asset_breakdown.dig(symbol, :amount) || 0
+      # Waiting buys count as if they had filled. `metrics` only sees EXECUTED amounts, so a resting
+      # limit buy is invisible here and its member reads underweight — the leg would then buy it a
+      # second time with money the resting order has already claimed.
+      current_amount = (asset_breakdown.dig(symbol, :amount) || 0) + reserved.fetch(symbol, 0)
       current_value = current_amount * data[:price]
       current_values[symbol] = current_value
       total_current_value += current_value
@@ -204,7 +230,7 @@ module Bot::Composition::OrderSetter
         amount: order_amount_in_base,
         quote_amount: order_amount_in_quote,
         side: :buy,
-        order_type: limit_ordered? ? :limit_order : :market_order
+        order_type: limit_ordered? && !market ? :limit_order : :market_order
       }
 
       Rails.logger.info(

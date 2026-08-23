@@ -264,7 +264,7 @@ module Bot::Reversible
     met_keys = transient_data.keys.grep(/_condition_met_at\z/)
     return if met_keys.none? { |k| transient_data[k].present? }
 
-    update_columns(transient_data: transient_data.merge(met_keys.index_with { nil }))
+    merge_transient_data!(met_keys.index_with { nil })
   end
 
   # Cancel the scheduled/ready limit-check job for every trigger type. Harmless no-op for

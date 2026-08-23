@@ -212,6 +212,18 @@ nl:
                 other: "De gemiste bedragen zijn gebufferd en zullen worden gebruikt bij de volgende geplande orders, zodat je schema en allocatie zo goed mogelijk volgens de exchange-minimums worden aangehouden."
             title: "Gefeliciteerd! Je bot is actief."
             general_note: "Minimale bedragen van exchanges en vereiste herbalanceringsbedragen kunnen veranderen. Orders kunnen er soms onregelmatig uitzien, maar de bot streeft altijd naar de gewenste toewijzing en schema, dus er is geen extra werk nodig."
+        redeploy:
+            prompt: "%{amount} %{symbol} opnieuw inleggen?"
+            confirm: "Ja"
+            decline: "Nee"
+            started: "Het geld gaat terug in de mand."
+            in_flight: "Er loopt nog een herinleg. Probeer het opnieuw zodra die klaar is."
+            unsupported: "Deze bot heeft geen opbrengst om opnieuw in te leggen."
+            halted: "Herinleg onbevestigd — controleer je exchange"
+            resolve: "Wissen"
+            resolve_confirm: "Ga alleen verder als je je exchange hebt gecontroleerd en er geen kooporder meer openstaat."
+            still_open: "Order %{order_id} staat nog open op je exchange. Wacht tot die is afgewikkeld."
+            resolved: "Gewist. De bot kan weer handelen."
         liquidation:
             sell: "Verkopen"
             sell_confirm: "Deze positie verkopen? Ze wordt tegen de marktprijs gesloten."

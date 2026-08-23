@@ -60,7 +60,7 @@ module Bot::LiquidationState
   end
 
   def clear_liquidation_pending!
-    update_columns(transient_data: transient_data.except(PENDING_KEY))
+    merge_transient_data!(PENDING_KEY => nil)
   end
 
   # Advances this bot's own waiting orders. Bot::FetchAndUpdateOrderJob is one-shot and never
@@ -138,10 +138,11 @@ module Bot::LiquidationState
     broadcast_liquidation_state
   end
 
-  # update_columns, matching the rebalance state writes: bookkeeping, not a user edit, and it must
-  # not run validations or dirty `settings`.
+  # merge_transient_data!, matching the rebalance state writes: bookkeeping, not a user edit, so no
+  # validations and no dirtied `settings` — and locked, so a concurrent web-request write to another
+  # key cannot drop this intent on the floor.
   def write_liquidation_pending!(id:, symbol:, state:)
     payload = { 'id' => id, 'symbol' => symbol, 'state' => state }
-    update_columns(transient_data: transient_data.merge(PENDING_KEY => payload))
+    merge_transient_data!(PENDING_KEY => payload)
   end
 end

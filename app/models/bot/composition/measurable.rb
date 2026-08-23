@@ -63,6 +63,9 @@ module Bot::Composition::Measurable
       # Cash realized by a sell whose buy has not landed yet — or by a liquidation the bot has not
       # re-spent — is still the user's money.
       data[:rebalance_cash] = uninvested_cash(books)
+      # Split out from rebalance_cash on purpose. That one also carries a half-finished swap's flight
+      # cash, which is owed to its own buy leg; only this half is money a redeploy may spend.
+      data[:realised_cash] = books[:realised_cash]
       data[:realised_pnl] = realised_pnl(books)
       data[:total_amount_value_in_quote] = portfolio_value(ledger_value(ledger, asset_prices), books)
       data[:pnl] = calculate_pnl(data[:total_quote_amount_invested], data[:total_amount_value_in_quote])
@@ -219,19 +222,22 @@ module Bot::Composition::Measurable
   end
 
   # _v3: realised P/L and the contributed/ledger split. _v4: a per-symbol cost-basis snapshot per
-  # transaction, so the chart can draw one holding on its own. The cached shape lives up to 30 days,
-  # so this has to move with it or every existing bot serves the old numbers after a deploy.
+  # transaction, so the chart can draw one holding on its own. _v5: realised_cash split out of
+  # rebalance_cash, which the redeploy offer reads — without the bump an existing bot serves a hash
+  # with no such key for up to 30 days and the prompt never appears.
+  # The cached shape lives up to 30 days, so this has to move with it or every existing bot serves
+  # the old numbers after a deploy.
   # A method, not a literal: the tests that seed this cache were reading the string off the source.
   def metrics_cache_key
-    "bot_#{id}_metrics_v4"
+    "bot_#{id}_metrics_v5"
   end
 
   def metrics_with_current_prices_cache_key
-    "bot_#{id}_metrics_with_current_prices_v4"
+    "bot_#{id}_metrics_with_current_prices_v5"
   end
 
   def metrics_with_current_prices_and_candles_cache_key
-    "bot_#{id}_metrics_with_current_prices_and_candles_v4"
+    "bot_#{id}_metrics_with_current_prices_and_candles_v5"
   end
 
   def optimal_candles_timeframe_for_duration(duration)
