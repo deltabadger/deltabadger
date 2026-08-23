@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_23_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_24_120000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -410,6 +410,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_23_120000) do
     t.index ["personal_owner_id"], name: "index_oauth_applications_unique_personal_owner", unique: true, where: "personal_access_token = 1"
     t.index ["registration_access_token"], name: "index_oauth_applications_on_registration_access_token", unique: true
     t.index ["uid"], name: "index_oauth_applications_on_uid", unique: true
+  end
+
+  create_table "portfolio_snapshots", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.decimal "invested_usd", precision: 20, scale: 8, default: "0.0", null: false
+    t.boolean "partial", default: false, null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.decimal "value_usd", precision: 20, scale: 8, default: "0.0", null: false
+    t.index ["user_id", "date"], name: "index_portfolio_snapshots_on_user_id_and_date", unique: true
+    t.index ["user_id"], name: "index_portfolio_snapshots_on_user_id"
   end
 
   create_table "rule_logs", force: :cascade do |t|

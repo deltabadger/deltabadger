@@ -34,6 +34,7 @@ class TrackerController < ApplicationController
     end
     load_portfolio
     load_ledgers
+    load_history
     check_pending_report
   end
 
@@ -249,6 +250,18 @@ class TrackerController < ApplicationController
     return if @scoped_ledger || @scope_exchange.nil?
 
     Tracker::LedgerJob.perform_later(current_user.id, @scope_exchange.id)
+  end
+
+  # The chart's series. Coverage decides the backfill, not "are there any snapshots": the nightly
+  # sync only ever appends today, so a history that starts after the first transaction has a gap
+  # nothing else will fill. A user whose first transaction is today has no gap yet.
+  def load_history
+    @history = PortfolioSnapshot.for_user(current_user).order(:date).to_a
+    first_transaction = AccountTransaction.for_user(current_user).minimum(:transacted_at)&.to_date
+    return if first_transaction.nil? || first_transaction >= Date.current
+    return if @history.first && @history.first.date <= first_transaction
+
+    PortfolioSnapshot::BackfillJob.perform_later(current_user.id)
   end
 
   def load_portfolio

@@ -14,6 +14,9 @@ class AccountBalance::SyncJob < ApplicationJob
       pricing_errors << err if err
     end
 
+    # Where the portfolio history grows by one day. Here rather than on a schedule of its own: the
+    # figures this records are exactly the ones the loop above just refreshed.
+    PortfolioSnapshot.record!(User.find(user_id))
     broadcast_pricing_warning(user_id, pricing_errors.first) if pricing_errors.any?
     broadcast_refresh(user_id)
   end

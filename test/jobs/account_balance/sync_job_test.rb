@@ -75,6 +75,28 @@ class AccountBalance::SyncJobTest < ActiveSupport::TestCase
     AccountBalance::SyncJob.perform_now(@user.id, [@key_binance.id])
   end
 
+  # The nightly balance sync is where the portfolio history grows by one day: every successful run
+  # records today's value, so the chart never depends on a second schedule.
+  test 'a balance sync records today\'s portfolio snapshot — value and invested' do
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+    Tax::EcbFxRates.stubs(:ensure_loaded!)
+    btc = create(:asset, :bitcoin)
+    AccountBalance.create!(user: @user, exchange: @binance, asset: btc, free: 1, locked: 0, usd_price: 40_000,
+                           usd_value: 40_000, synced_at: Time.current, priced_at: Time.current)
+    create(:account_transaction, api_key: @key_binance, entry_type: :deposit, base_currency: 'USD', base_amount: 30_000,
+                                 quote_currency: nil, quote_amount: nil, transacted_at: 2.days.ago)
+    sync_b = mock
+    sync_b.expects(:sync!).once.returns(ok_summary)
+    AccountBalance::Sync.expects(:new).with(@key_binance).returns(sync_b)
+
+    travel_to Time.utc(2026, 8, 23, 2, 30) do
+      AccountBalance::SyncJob.perform_now(@user.id, [@key_binance.id])
+      row = PortfolioSnapshot.for_user(@user).find_by(date: Date.new(2026, 8, 23))
+      assert_equal 40_000.to_d, row.value_usd
+      assert_equal 30_000.to_d, row.invested_usd, 'the ledger is computed for the snapshot, not carried from yesterday'
+    end
+  end
+
   test 'skips non-trading or incorrect keys' do
     @key_kraken.update!(status: :incorrect)
     AccountBalance::Sync.expects(:new).never
