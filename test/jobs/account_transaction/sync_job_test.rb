@@ -15,6 +15,15 @@ class AccountTransaction::SyncJobTest < ActiveSupport::TestCase
     AccountTransaction::SyncJob.perform_now(@api_key)
   end
 
+  test 'a successful sync warms the tracker ledger for the user' do
+    sync = mock('sync')
+    sync.expects(:sync!).once.returns(Result::Success.new(2))
+    AccountTransactionSync.expects(:new).with(@api_key).returns(sync)
+    Tracker::LedgerJob.expects(:perform_later).with(@user.id).once
+
+    AccountTransaction::SyncJob.perform_now(@api_key)
+  end
+
   test 'records the sync error on the API key when the sync raises' do
     sync = mock('sync')
     sync.expects(:sync!).once.raises(StandardError, 'API error')

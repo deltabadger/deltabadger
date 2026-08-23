@@ -8,6 +8,9 @@ class AccountTransaction::SyncJob < ApplicationJob
     TransferMatcher.run!(api_key.user)
 
     sleep 0.5
+    # New rows mean a new ledger, and the tracker reads it from the cache — so the figures follow
+    # the sync rather than waiting for the next visit to notice they are stale.
+    Tracker::LedgerJob.perform_later(api_key.user_id)
     broadcast_done(api_key.user_id)
   rescue StandardError => e
     api_key.record_sync_error!(e)

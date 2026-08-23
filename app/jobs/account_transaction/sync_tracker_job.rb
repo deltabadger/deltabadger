@@ -11,6 +11,8 @@ class AccountTransaction::SyncTrackerJob < ApplicationJob
     TransferMatcher.run!(User.find(user_id))
 
     sleep 0.5
+    # Once for the user, not once per key: the ledger is a whole-portfolio figure.
+    Tracker::LedgerJob.perform_later(user_id)
     broadcast_done(user_id)
     # Broadcast unconditionally so a clean sync clears any stale warning.
     Turbo::StreamsChannel.broadcast_replace_to(
