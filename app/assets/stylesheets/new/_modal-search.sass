@@ -95,7 +95,6 @@
     &__vertical-center:has([data-dialog-size="wide"])
         @media screen and (min-width: 768px)
             max-width: calc(100vw - 4rem)
-            max-height: calc(100vh - 2rem)
             background: none !important
     // The bot-type chooser: tiles floating on the backdrop, no card, the width the old
     // `.modal--medium` had. The dialog itself then persists into the first wizard step.
@@ -106,6 +105,16 @@
             max-width: 104rem
     .sinput:not(.widget *)
         background: var(--washed)
+// The small dialog is a fixed card capped at the viewport — it does not page-scroll the way the
+// full-page wizard does, so its result list keeps a scroller of its own. Flex rather than a
+// magic offset: the list takes whatever the search box leaves.
+.dialog__vertical-center .modal--search
+    display: flex
+    flex-direction: column
+    .modal--search__assets
+        min-height: 0
+        overflow-y: auto
+        overscroll-behavior: contain
 // Lock the page behind an open modal. The viewport scroller is `html` here, not `body`
 // (`overflow-x: hidden` on html in _styles.sass stops body's overflow from propagating),
 // so the lock has to sit on `html`.
