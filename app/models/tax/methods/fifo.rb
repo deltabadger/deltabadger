@@ -6,6 +6,10 @@ module Tax
 
       STABLECOINS = Tax::PriceService::STABLECOINS
 
+      # The lots left standing after a run. A tax report only ever wanted the disposals; the tracker
+      # reads what is still held, so the open positions and the report share one walk of the ledger.
+      attr_reader :lots
+
       # @param transactions [Array<Hash>] sorted by date
       # @param options [Hash] :crypto_to_crypto_taxable (default true), :stablecoin_as_fiat (default false)
       # @return [Array<Hash>] disposal events with gain/loss
@@ -16,7 +20,7 @@ module Tax
         @swap_resets_holding_period = options.fetch(:swap_resets_holding_period, false)
         @excess_roc = 0.to_d
 
-        lots = Hash.new { |h, k| h[k] = [] }
+        lots = @lots = Hash.new { |h, k| h[k] = [] }
         disposals = []
         transferred_cost = {} # group_id => { total_cost:, earliest_date:, basis_assumed: }
 

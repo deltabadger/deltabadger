@@ -21,6 +21,15 @@ class AccountTransaction::SyncTrackerJobTest < ActiveSupport::TestCase
     AccountTransaction::SyncTrackerJob.perform_now(@user.id, [@api_key_binance.id, @api_key_kraken.id])
   end
 
+  test 'a tracker sync warms the tracker ledger once for the user' do
+    sync_binance = mock('sync_binance')
+    sync_binance.expects(:sync!).once.returns(Result::Success.new(5))
+    AccountTransactionSync.expects(:new).with(@api_key_binance).returns(sync_binance)
+    Tracker::LedgerJob.expects(:perform_later).with(@user.id).once
+
+    AccountTransaction::SyncTrackerJob.perform_now(@user.id, [@api_key_binance.id])
+  end
+
   test 'skips failed exchange and continues to next' do
     sync_binance = mock('sync_binance')
     sync_binance.expects(:sync!).once.raises(StandardError, 'API error')
