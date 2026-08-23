@@ -138,6 +138,52 @@ module Tax
       entries
     end
 
+    # One API call for a whole window, and only when the table does not already cover it. Public
+    # because the portfolio backfill fetches on the same terms — one range per symbol, once.
+    def fetch_price_range(coin_id:, symbol:, currency:, from:, to:)
+      # Load existing prices from DB first
+      db_prices = HistoricalPrice.where(asset: symbol, currency: currency, date: from..to)
+      db_prices.each do |hp|
+        cache_key = "#{symbol}/#{currency}/#{hp.date}"
+        @price_cache[cache_key] = hp.price
+      end
+
+      # Check if we already have all dates covered
+      db_dates = db_prices.pluck(:date).to_set
+      needed_dates = (from..to).to_a
+      return if needed_dates.all? { |d| db_dates.include?(d) }
+
+      # Fetch missing from MarketData (CoinGecko or data-api)
+      result = MarketData.get_historical_price_range(
+        coin_id: coin_id,
+        currency: currency.downcase,
+        from: from.to_time.beginning_of_day,
+        to: (to + 1.day).to_time.beginning_of_day
+      )
+
+      return if result.failure?
+
+      prices = result.data['prices']
+      return if prices.blank?
+
+      records_to_store = []
+      prices.each do |timestamp_ms, price|
+        # A null in the array arrives as nil and `nil.to_d` is 0 — neither cache nor store it, or the
+        # missing-price guard in `price_at` never sees the gap and the row reports full proceeds as
+        # gain. `insert_all` bypasses the presence validation, so this is the only place to stop it.
+        next if price.to_d.zero?
+
+        date = Time.at(timestamp_ms / 1000.0).utc.to_date
+        cache_key = "#{symbol}/#{currency}/#{date}"
+        next if @price_cache[cache_key] # already from DB
+
+        @price_cache[cache_key] = price.to_d
+        records_to_store << { asset: symbol, currency: currency, date: date, price: price.to_d }
+      end
+
+      HistoricalPrice.bulk_store(records_to_store)
+    end
+
     def stock_price_range(exchange:, api_key:, symbol:, from:, to:)
       # Stocks and crypto share this table, so the namespace prevents identical symbols from
       # silently borrowing one another's prices.
@@ -211,50 +257,6 @@ module Tax
         date = d.is_a?(Date) ? d : d.to_date
         add_coin_date(coins, symbol, date.to_datetime)
       end
-    end
-
-    def fetch_price_range(coin_id:, symbol:, currency:, from:, to:)
-      # Load existing prices from DB first
-      db_prices = HistoricalPrice.where(asset: symbol, currency: currency, date: from..to)
-      db_prices.each do |hp|
-        cache_key = "#{symbol}/#{currency}/#{hp.date}"
-        @price_cache[cache_key] = hp.price
-      end
-
-      # Check if we already have all dates covered
-      db_dates = db_prices.pluck(:date).to_set
-      needed_dates = (from..to).to_a
-      return if needed_dates.all? { |d| db_dates.include?(d) }
-
-      # Fetch missing from MarketData (CoinGecko or data-api)
-      result = MarketData.get_historical_price_range(
-        coin_id: coin_id,
-        currency: currency.downcase,
-        from: from.to_time.beginning_of_day,
-        to: (to + 1.day).to_time.beginning_of_day
-      )
-
-      return if result.failure?
-
-      prices = result.data['prices']
-      return if prices.blank?
-
-      records_to_store = []
-      prices.each do |timestamp_ms, price|
-        # A null in the array arrives as nil and `nil.to_d` is 0 — neither cache nor store it, or the
-        # missing-price guard in `price_at` never sees the gap and the row reports full proceeds as
-        # gain. `insert_all` bypasses the presence validation, so this is the only place to stop it.
-        next if price.to_d.zero?
-
-        date = Time.at(timestamp_ms / 1000.0).utc.to_date
-        cache_key = "#{symbol}/#{currency}/#{date}"
-        next if @price_cache[cache_key] # already from DB
-
-        @price_cache[cache_key] = price.to_d
-        records_to_store << { asset: symbol, currency: currency, date: date, price: price.to_d }
-      end
-
-      HistoricalPrice.bulk_store(records_to_store)
     end
 
     def resolve_fiat_value(record, currency)
