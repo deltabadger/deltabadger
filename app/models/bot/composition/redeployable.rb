@@ -265,10 +265,18 @@ module Bot::Composition::Redeployable
 
     order_data = order_data.merge(price: price, quote_amount: spend, amount: spend / price,
                                   transaction_type: 'REDEPLOY')
+
+    # Sized, then haircut if it goes out base-denominated, then checked against the venue minimum —
+    # in that order. Checking first and haircutting after let an order that had just cleared the
+    # minimum drop back under it, and the venue's rejection of an undersized order is not a
+    # transient error, so it halted the whole batch as ambiguous over a rounding difference.
     amount_info = calculate_best_amount_info(order_data)
+    if amount_info[:amount_type] == :base
+      order_data = order_data.merge(amount: base_headroom_amount(order_data))
+      amount_info = calculate_best_amount_info(order_data)
+    end
     return skip_redeploy(ticker, 'below_minimum') if amount_info[:below_minimum_amount]
 
-    amount_info = apply_base_headroom(amount_info, order_data)
     submit_redeploy!(order_data, amount_info, spend)
   end
 
@@ -282,13 +290,10 @@ module Bot::Composition::Redeployable
   # calculate_best_amount_info picks per ticker, so those venues land on base for some pairs.
   BASE_HEADROOM = 0.01.to_d
 
-  def apply_base_headroom(amount_info, order_data)
-    return amount_info unless amount_info[:amount_type] == :base
-
-    haircut = order_data[:ticker].adjusted_amount(
-      amount: amount_info[:amount].to_d / (1.to_d + BASE_HEADROOM), amount_type: :base
+  def base_headroom_amount(order_data)
+    order_data[:ticker].adjusted_amount(
+      amount: order_data[:amount].to_d / (1.to_d + BASE_HEADROOM), amount_type: :base
     )
-    amount_info.merge(amount: haircut)
   end
 
   def submit_redeploy!(order_data, amount_info, spend)

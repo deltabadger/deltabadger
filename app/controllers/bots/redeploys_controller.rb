@@ -8,6 +8,15 @@ class Bots::RedeploysController < ApplicationController
   before_action :set_bot
 
   def create
+    # A pre-check so a stock composition is told now rather than finding out minutes later in a
+    # worker that will not retry. The job checks again — the market can close between enqueue and
+    # run — and fails OPEN on any other error, because a convenience check must never be the thing
+    # that stops work the job could have done.
+    if market_closed?
+      flash.now[:alert] = t('bot.redeploy.market_closed')
+      return render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+    end
+
     Bot::RedeployJob.perform_later(@bot)
     @bot.log_activity('redeploy_requested', level: :info, details: { user_id: current_user.id })
     flash.now[:notice] = t('bot.redeploy.started')
@@ -33,5 +42,16 @@ class Bots::RedeploysController < ApplicationController
     return if @bot.respond_to?(:redeploy!)
 
     redirect_back fallback_location: bots_path, alert: t('bot.redeploy.unsupported')
+  end
+
+  # Authenticated first: Alpaca answers this from /v2/clock, which needs credentials, and with a
+  # cold clock cache an unauthenticated call 401s and raises — turning the button into a 500 before
+  # the job that WOULD have authenticated is ever enqueued.
+  def market_closed?
+    @bot.ensure_exchange_authenticated
+    !@bot.exchange.market_open?(tickers: @bot.composition_tickers)
+  rescue StandardError => e
+    Rails.logger.warn("redeploy market check failed bot=#{@bot.id}: #{e.message}")
+    false
   end
 end
