@@ -499,6 +499,28 @@ it:
                 SK: 'Slovacchia'
         tax_report:
             failed: 'Non è stato possibile generare il report. Controlla le impostazioni selezionate e riprova.'
+        holdings: 'Asset detenuti'
+        positions: 'Posizioni'
+        transactions: 'Transazioni'
+        fees_paid: 'Commissioni pagate'
+        synced_ago: 'Sincronizzato %{ago} fa'
+        history_partial: 'Alcuni giorni sono incompleti: un asset detenuto allora non aveva un prezzo.'
+        more: 'Altro'
+        other: 'Altro'
+        basis_incomplete: 'Nessun costo di carico per questo asset, quindi non mostriamo profitto/perdita.'
+        record:
+            all: 'Tutte'
+            buy: 'Acquisto'
+            sell: 'Vendita'
+            transfer: 'Trasferimento'
+            other: 'Altro'
+            open: 'Aperta'
+            win: 'Profitto'
+            loss: 'Perdita'
+        range:
+            '30d': '30G'
+            '1y': '1A'
+            all: 'Tutto'
         filters:
             all: 'Tutti'
         columns:
@@ -511,6 +533,13 @@ it:
             fee: 'Commissione'
             exchange: 'Exchange'
             bot: 'Bot'
+            price: 'Prezzo'
+            opened: 'Apertura'
+            status: 'Stato'
+            invested: 'Investito'
+            avg_buy: 'Acquisto medio'
+            hold: 'Durata'
+            name: 'Asset'
         types:
             buy: 'Acquisto'
             sell: 'Vendita'

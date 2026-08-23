@@ -1,0 +1,32 @@
+<% asset = slice[:asset] %>
+<% share = total.positive? ? (slice[:usd_value].to_d / total * 100) : 0.to_d %>
+<% color = ensure_contrast(asset.color.presence || '#8A9BA8') %>
+<% pnl = holding_pnl_percent(slice, position) %>
+<% type = holding_type_label(asset) %>
+<div class="tracker-holdings__row">
+  <span class="tracker-holdings__name">
+    <%= render 'assets/logo', image_url: asset.image_url, color: asset.color %>
+    <b><%= asset.symbol %></b>
+    <span class="tracker-holdings__full"><%= asset.name %></span>
+  </span>
+  <span class="tracker-holdings__type"><% if type %><span class="tag"><%= type %></span><% end %></span>
+  <%# The index list's own bar: the track fills by grid columns, not by a width. %>
+  <span class="slider">
+    <span class="slider__style">
+      <span class="slider__style__track" style="border-left-color: <%= color %>; grid-template-columns: <%= share.round(2) %>% auto;">
+        <span class="slider__style__progress" style="background-color: <%= color %>;"></span>
+      </span>
+    </span>
+  </span>
+  <span class="tracker-holdings__pct"><%= number_with_precision(share, precision: 1) %>%</span>
+  <% unless hide_money %>
+    <span class="tracker-holdings__value"><%= @denomination.format(slice[:usd_value]) %></span>
+  <% end %>
+  <%# Nothing rather than a wrong number: cash has no cost, and a holding whose quantity the ledger
+      cannot vouch for has no basis worth dividing by. %>
+  <% if pnl %>
+    <span class="tracker-holdings__pl <%= pnl.negative? ? 'text-danger' : 'text-success' %>"><%= tracker_percent(pnl) %></span>
+  <% else %>
+    <span class="tracker-holdings__pl" title="<%= t('tracker.basis_incomplete') %>">—</span>
+  <% end %>
+</div>

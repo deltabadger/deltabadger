@@ -555,8 +555,8 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
 
     get tracker_path
 
-    assert_select '.dash-intro .header--1', text: /1,000\.00 zł/
-    assert_select '.tracker-portfolio__asset-value', text: /1,000\.00 zł/
+    assert_select '.data-grid__item__value', text: /1,000\.00 zł/
+    assert_select '.tracker-holdings__value', text: /1,000\.00 zł/
   end
 
   private

@@ -3,8 +3,8 @@
 require 'test_helper'
 
 # The tracker with balances hidden. The portfolio is still the whole point of the page, so it stays
-# — as allocation. Each holding keeps its share, its colour and its slice of the donut, and states
-# no value; the transactions table follows the same rule the bot log does.
+# — as allocation. Each holding keeps its share, its colour and its arc of the ring, and states no
+# value; the transactions table follows the same rule the bot log does.
 class TrackerHideBalancesTest < ActionDispatch::IntegrationTest
   setup do
     @user = create(:user, admin: true, setup_completed: true, hide_balances: true)
@@ -23,21 +23,22 @@ class TrackerHideBalancesTest < ActionDispatch::IntegrationTest
                            free: 5, usd_price: 2_000, usd_value: 10_000, synced_at: Time.current)
   end
 
-  test 'the portfolio total is not stated' do
+  # The figure tiles are money and nothing else, so the whole grid goes — the bot's own rule.
+  test 'the portfolio figures are not stated' do
     stub_portfolio
 
     get tracker_path
 
-    assert_select '.dash-intro .header--1', false
+    assert_select '.data-grid', false
   end
 
-  test 'the portfolio total is stated when balances are shown' do
+  test 'the portfolio figures are stated when balances are shown' do
     @user.update!(hide_balances: false)
     stub_portfolio
 
     get tracker_path
 
-    assert_select '.dash-intro .header--1'
+    assert_select '.data-grid__item__value', text: /\$40,000\.00/
   end
 
   test 'each holding keeps its share and states no value' do
@@ -45,30 +46,20 @@ class TrackerHideBalancesTest < ActionDispatch::IntegrationTest
 
     get tracker_path
 
-    assert_select '.tracker-portfolio__asset .allocation', text: '75.0%'
-    assert_select '.tracker-portfolio__asset .allocation', text: '25.0%'
-    assert_select '.tracker-portfolio__asset-value', false
+    assert_select '.tracker-holdings__pct', text: '75.0%'
+    assert_select '.tracker-holdings__pct', text: '25.0%'
+    assert_select '.tracker-holdings__value', false
   end
 
-  # The donut only ever needed proportions. Handing it shares rather than dollars keeps the
-  # portfolio out of the data attribute as well as off the page.
-  test 'the donut is handed shares rather than values' do
+  # The ring only ever needed proportions, and it is drawn server-side — so there is no payload to
+  # keep the portfolio out of, only geometry.
+  test 'the ring is drawn either way and carries no figures' do
     stub_portfolio
 
     get tracker_path
 
-    data = JSON.parse(css_select('[data-donut-chart-data-value]').first['data-donut-chart-data-value'])
-    assert_equal([75.0, 25.0], data.map { |slice| slice['value'] })
-  end
-
-  test 'the donut is handed values when balances are shown' do
-    @user.update!(hide_balances: false)
-    stub_portfolio
-
-    get tracker_path
-
-    data = JSON.parse(css_select('[data-donut-chart-data-value]').first['data-donut-chart-data-value'])
-    assert_equal([30_000.0, 10_000.0], data.map { |slice| slice['value'] })
+    assert_select '.tracker-holdings__ring svg path', 2
+    assert_no_match(/30000|30,000|10,000/, response.body)
   end
 
   test 'a transaction row keeps its date, type and currencies' do
@@ -80,7 +71,6 @@ class TrackerHideBalancesTest < ActionDispatch::IntegrationTest
     get tracker_path
 
     assert_select 'td', text: 'BTC'
-    assert_select 'td', text: 'USD'
     assert_select 'td', text: I18n.t('tracker.types.buy')
   end
 
@@ -111,7 +101,8 @@ class TrackerHideBalancesTest < ActionDispatch::IntegrationTest
     assert_not_includes headers, I18n.t('tracker.columns.fee')
     assert_includes headers, I18n.t('tracker.columns.date')
     assert_includes headers, I18n.t('tracker.columns.base')
-    assert_includes headers, I18n.t('tracker.columns.quote')
+    # A price is a market level, not a balance — the bot log keeps it too.
+    assert_includes headers, I18n.t('tracker.columns.price')
     assert_includes headers, I18n.t('tracker.columns.bot')
   end
 

@@ -499,6 +499,28 @@ nl:
                 SK: 'Slowakije'
         tax_report:
             failed: 'Het rapport kon niet worden gegenereerd. Controleer de geselecteerde instellingen en probeer het opnieuw.'
+        holdings: 'Bezit'
+        positions: 'Posities'
+        transactions: 'Transacties'
+        fees_paid: 'Betaalde kosten'
+        synced_ago: '%{ago} geleden gesynchroniseerd'
+        history_partial: 'Sommige dagen zijn onvolledig: een asset dat je toen had, had geen koers.'
+        more: 'Meer'
+        other: 'Overig'
+        basis_incomplete: 'Geen kostprijs voor dit bezit, dus we tonen geen winst/verlies.'
+        record:
+            all: 'Alle'
+            buy: 'Koop'
+            sell: 'Verkoop'
+            transfer: 'Overboeking'
+            other: 'Overig'
+            open: 'Open'
+            win: 'Winst'
+            loss: 'Verlies'
+        range:
+            '30d': '30D'
+            '1y': '1J'
+            all: 'Alles'
         filters:
             all: 'Alle'
         columns:
@@ -511,6 +533,13 @@ nl:
             fee: 'Kosten'
             exchange: 'Exchange'
             bot: 'Bot'
+            price: 'Koers'
+            opened: 'Geopend'
+            status: 'Status'
+            invested: 'Ingelegd'
+            avg_buy: 'Gem. aankoop'
+            hold: 'Duur'
+            name: 'Asset'
         types:
             buy: 'Koop'
             sell: 'Verkoop'

@@ -1,0 +1,251 @@
+require 'test_helper'
+
+# The redesigned /tracker: the bot page's shape (chart head, figure tiles, a filter bar, a card, a
+# record bar, a table) built from the bot page's own partials and classes. These tests pin the
+# structure and the reuse — not pixel values.
+class TrackerPageTest < ActionDispatch::IntegrationTest
+  setup do
+    Tax::EcbFxRates.stubs(:ensure_loaded!)
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+    @user = create(:user, admin: true, setup_completed: true)
+    @binance = create(:binance_exchange)
+    @kraken = create(:kraken_exchange)
+    @key_binance = create(:api_key, user: @user, exchange: @binance)
+    @key_kraken = create(:api_key, user: @user, exchange: @kraken)
+    @btc = create(:asset, :bitcoin, color: '#F7931A')
+    @eth = create(:asset, :ethereum, color: '#4B507B')
+    balance(@binance, @btc, free: 1.5, price: 40_000)
+    balance(@kraken, @eth, free: 10, price: 2_000)
+    @t = Time.utc(2026, 8, 1, 12)
+    create(:account_transaction, api_key: @key_binance, entry_type: :deposit, base_currency: 'USD', base_amount: 30_000,
+                                 quote_currency: nil, quote_amount: nil, transacted_at: @t - 10.days)
+    # 1.5 BTC for 30,000 plus a 20 USD fee: basis 30,020 → avg 20,013.33, marked at 40k → +99.9%
+    create(:account_transaction, api_key: @key_binance, entry_type: :buy, base_currency: 'BTC', base_amount: 1.5,
+                                 quote_currency: 'USD', quote_amount: 30_000, transacted_at: @t - 9.days, fee_amount: 20, fee_currency: 'USD')
+    create(:account_transaction, api_key: @key_kraken, entry_type: :buy, base_currency: 'ETH', base_amount: 2,
+                                 quote_currency: 'USD', quote_amount: 4_000, transacted_at: @t - 8.days)
+    create(:account_transaction, api_key: @key_kraken, entry_type: :sell, base_currency: 'ETH', base_amount: 2,
+                                 quote_currency: 'USD', quote_amount: 5_000, transacted_at: @t - 7.days)
+    @withdrawal = create(:account_transaction, api_key: @key_binance, entry_type: :withdrawal, base_currency: 'USD',
+                                               base_amount: 1_000, quote_currency: nil, quote_amount: nil, transacted_at: @t - 6.days)
+    sign_in @user
+  end
+
+  def balance(exchange, asset, free:, price:)
+    AccountBalance.create!(user: @user, exchange: exchange, asset: asset, free: free, locked: 0,
+                           usd_price: price, usd_value: free * price, synced_at: Time.current, priced_at: Time.current)
+  end
+
+  def warm_ledger = Tracker::Ledger.compute!(@user)
+
+  # ── 1 · chart head: the bot chart's head, verbatim ──────────────────────────────────────────
+  test 'without history the chart head is the bot\'s empty head: summary slots, no segmented, the landscape, no controller' do
+    warm_ledger
+    get tracker_path
+    assert_response :success
+
+    assert_select '.widget--chart .widget--chart__head' do
+      assert_select '.widget--chart__modes'
+      assert_select '.widget--chart__modes .segmented', false, 'a bot shows no mode switch before it has a series'
+      assert_select '.widget--chart__summary .widget--chart__date'
+      assert_select '.widget--chart__summary .widget--chart__pnl'
+      assert_select '.widget--chart__summary .widget--chart__percent'
+    end
+    assert_select '.widget--chart__plot .widget__placeholder'
+    assert_select '[data-controller="bot--chart"]', false
+    assert_select '.dash-intro', false, 'the steel headline strip is gone — the chart head is the headline'
+  end
+
+  # ── 2 · figure tiles: the bot metrics grid ──────────────────────────────────────────────────
+  test 'four figure tiles reuse the bot metrics data-grid with plain-language labels' do
+    warm_ledger
+    get tracker_path
+
+    assert_select '.widget.data-grid .data-grid__item', 4
+    assert_select '.data-grid__item .label', text: I18n.t('bot.details.stats.total_invested')
+    assert_select '.data-grid__item .label', text: I18n.t('bot.details.stats.portfolio_value')
+    assert_select '.data-grid__item .label', text: I18n.t('bot.dca_index.realised_pnl')
+    assert_select '.data-grid__item .label', text: I18n.t('tracker.fees_paid')
+    assert_select '.data-grid__item__value', text: /\$29,000\.00/ # 30,000 in − 1,000 out
+    assert_select '.data-grid__item__value', text: /\$80,000\.00/
+    assert_select '.data-grid__item__value.text-success', text: /1,000\.00/ # the ETH round-trip
+    assert_select '.data-grid__item__value', text: /\$20\.00/
+    assert_no_match(/translation_missing/, response.body)
+  end
+
+  test 'a cold ledger shows the bot\'s loading placeholder in the ledger tiles and warms itself once' do
+    Tracker::LedgerJob.expects(:perform_later).with(@user.id, nil).once
+    get tracker_path
+
+    assert_select '.data-grid__item .loader--small', 3,
+                  'portfolio value is known from balances; the other three wait for the ledger ' \
+                  '(bots/_metrics_item loading state)'
+  end
+
+  # ── 3 · exchange bar ─────────────────────────────────────────────────────────────────────────
+  test 'the exchange switch is a link segmented with the scope current, a + to connect, and the sync state' do
+    warm_ledger
+    create(:api_key, :incorrect, user: @user, exchange: create(:bitget_exchange))
+    get tracker_path
+
+    assert_select '.tracker-exchanges .filters > .segmented' do
+      assert_select 'a.segmented__option[aria-current="page"]', text: I18n.t('tracker.filters.all')
+      assert_select 'a.segmented__option', text: 'Binance'
+      assert_select 'a.segmented__option', text: 'Kraken'
+      assert_select 'a.segmented__option[data-broken][data-turbo-frame="modal"]', text: /Bitget/
+    end
+    assert_select '.tracker-exchanges .rbutton.rbutton--icon svg'
+    assert_select '.tracker-exchanges .tracker-sync', text: /ago/i
+    assert_select ".tracker-exchanges form[action='#{sync_tracker_path}'] .rbutton"
+  end
+
+  # ── 4 · holdings card ────────────────────────────────────────────────────────────────────────
+  test 'holdings: a flat ring and rows with logo, symbol, type tag, allocation, value and P/L' do
+    warm_ledger
+    get tracker_path
+
+    assert_select '.widget.tracker-holdings' do
+      assert_select '.tracker-holdings__ring svg path', 2
+      assert_select '.tracker-holdings__row', 2
+      assert_select '.tracker-holdings__row:first-child' do
+        assert_select '.asset-logo'
+        assert_select 'b', text: 'BTC'
+        assert_select '.tag', text: 'Crypto'
+        assert_select '.slider__style__track'
+        assert_select '.tracker-holdings__pct', text: '75.0%'
+        assert_select '.tracker-holdings__value', text: /\$60,000\.00/
+        assert_select '.tracker-holdings__pl.text-success', text: /\+99\.9%/
+      end
+      # ETH: the exchange holds 10, the ledger knows the basis of none — no P/L is better than a wrong one.
+      assert_select '.tracker-holdings__row:nth-child(2) .tracker-holdings__pl', text: '—'
+      assert_select 'details.tracker-holdings__more', false
+    end
+    assert_select '[data-controller="donut-chart"]', false, 'the tilted donut and its pie/list toggle are gone'
+  end
+
+  test 'more than six holdings fold behind a More disclosure' do
+    warm_ledger
+    7.times { |i| balance(@binance, create(:asset, symbol: "C#{i}", external_id: "c#{i}"), free: 1, price: 10) }
+    get tracker_path
+
+    assert_select '.tracker-holdings__rows > .tracker-holdings__row', 6
+    assert_select 'details.tracker-holdings__more summary', text: /3/
+    assert_select 'details.tracker-holdings__more .tracker-holdings__row', 3
+  end
+
+  # ── 5 · record bar ───────────────────────────────────────────────────────────────────────────
+  test 'the record bar: the pane switch, contextual filters in their own order-filter scopes, range, Export, Tax report' do
+    warm_ledger
+    get tracker_path
+
+    assert_select '.tracker-record .filters > .segmented .segmented__option[data-value="tx"]'
+    assert_select '.tracker-record .filters > .segmented .segmented__option[data-value="pos"]'
+    assert_select '.tracker-record [data-controller~="order-filter"]', 2
+    %w[all buy sell transfer other].each do |type|
+      assert_select ".tracker-record [data-controller~='order-filter'] .segmented__option[data-value='#{type}']"
+    end
+    %w[open win loss].each do |status|
+      assert_select ".tracker-record [data-controller~='order-filter'] .segmented__option[data-value='#{status}']"
+    end
+    assert_select '.tracker-record input[type=date][name=from]'
+    assert_select '.tracker-record input[type=date][name=to]'
+    # `bot.details.stats.download_csv`, not `bot.details.download_csv`: the plan named the shorter
+    # path, but the key the bot page has actually carried in all 15 locales since it shipped is the
+    # one under `stats`. Reusing it beats adding a fifteen-file duplicate that says "Export" twice.
+    assert_select ".tracker-record a.rbutton[href^='#{export_tracker_path}']",
+                  text: I18n.t('bot.details.stats.download_csv')
+    assert_select ".tracker-record a.rbutton[href='#{export_modal_tracker_path}']", text: I18n.t('tracker.get_report')
+    assert_select '.sbutton--sky', false, 'no filled primary button in the bar — the bot view uses rbuttons here'
+  end
+
+  # ── 6 · transactions table ───────────────────────────────────────────────────────────────────
+  test 'transaction rows: type pill, asset with logo, price column, fee in its currency, bot number, hover transfer action' do
+    warm_ledger
+    bot = create(:dca_single_asset, user: @user, exchange: @binance, base_asset: @btc)
+    fill = create(:transaction, bot: bot)
+    create(:account_transaction, api_key: @key_binance, entry_type: :buy, base_currency: 'BTC', base_amount: 0.01,
+                                 quote_currency: 'USD', quote_amount: 500, transacted_at: @t, bot_transaction: fill)
+    get tracker_path
+
+    assert_select 'th', text: I18n.t('tracker.columns.price')
+    assert_select 'tr.tracker-row[data-order-filter-target="row"][data-order-type~="buy"][data-order-type~="all"]' do
+      assert_select '.tracker-type--buy'
+      assert_select 'td .asset-logo'
+    end
+    assert_select "tr.tracker-row a[href='#{bot_path(bot)}']", text: "##{bot.id}"
+    assert_select 'tr.tracker-row td', text: /50,000\.00/ # 500 / 0.01
+    assert_select 'tr.tracker-row td', text: /20\.00 USD/ # the fee
+    transfer_action = toggle_transfer_tracker_transaction_path(@withdrawal)
+    assert_select "tr.tracker-row[data-order-type~='other'] form.tracker-row__action[action='#{transfer_action}']"
+    assert_select 'tr.tracker-row .sinput--small', false, 'the inline Mark-as-transfer button is gone'
+  end
+
+  # ── 7 · positions table ──────────────────────────────────────────────────────────────────────
+  test 'positions: open rows from the lots and closed round-trips with status pills' do
+    warm_ledger
+    get tracker_path
+
+    assert_select '.tracker-positions tbody tr', 2
+    assert_select '.tracker-positions tr[data-order-type~="open"]' do
+      assert_select 'td', text: /BTC/
+      assert_select '.tracker-status--open'
+    end
+    assert_select '.tracker-positions tr[data-order-type~="win"]' do
+      assert_select 'td', text: /ETH/
+      assert_select '.tracker-status--win'
+      assert_select 'td.text-success', text: /\+25\.0%/
+    end
+    assert_select 'th', text: I18n.t('tracker.columns.avg_buy')
+    assert_select 'th', text: I18n.t('tracker.columns.hold')
+  end
+
+  # ── 8 · exchange scope ───────────────────────────────────────────────────────────────────────
+  test 'exchange_id scopes holdings, transactions and positions — not the chart or the tiles' do
+    warm_ledger
+    Tracker::Ledger.compute!(@user, exchange: @binance)
+    get tracker_path(exchange_id: @binance.id)
+
+    assert_select '.tracker-exchanges a.segmented__option[aria-current="page"]', text: 'Binance'
+    assert_select '.tracker-holdings__row', 1
+    assert_select '.tracker-holdings__row b', text: 'BTC'
+    assert_select 'tr.tracker-row td', text: 'ETH', count: 0
+    assert_select '.tracker-positions tbody tr', 1
+    assert_select '.data-grid__item__value', text: /\$80,000\.00/, count: 1 # whole portfolio, still
+    assert_select '.data-grid__item__value', text: /\$29,000\.00/, count: 1
+  end
+
+  test 'a cold exchange-scoped ledger warms its own key' do
+    warm_ledger
+    Tracker::LedgerJob.expects(:perform_later).with(@user.id, @binance.id).once
+    get tracker_path(exchange_id: @binance.id)
+
+    assert_select '.tracker-positions .loader--small'
+  end
+
+  # ── 9 · hide balances ────────────────────────────────────────────────────────────────────────
+  test 'with balances hidden no money is rendered: no tiles, no values, percentages stay' do
+    warm_ledger
+    @user.update!(hide_balances: true)
+    get tracker_path
+
+    assert_select '.data-grid', false
+    assert_select '.tracker-holdings__value', false
+    assert_select '.tracker-holdings__pct', text: '75.0%'
+    assert_select '.tracker-record tr.tracker-row td', text: /\$/, count: 0
+    assert_select '.tracker-positions td', text: /\$/, count: 0
+    assert_select '.tracker-positions td.text-success', text: /\+25\.0%/, count: 1
+    # The figures this page would otherwise print, in every form they could take.
+    assert_no_match(/80,000|60,000|29,000|30,020|20,013|20\.00 USD|4,000\.00|5,000\.00|1,000\.00/, response.body)
+  end
+
+  # ── 10 · display currency ────────────────────────────────────────────────────────────────────
+  test 'figures follow the display currency' do
+    warm_ledger
+    Utilities::Currency.stubs(:exchange_rate).with(from: 'USD', to: 'PLN').returns(Result::Success.new(4.0))
+    @user.update!(display_currency: 'PLN')
+    get tracker_path
+
+    assert_select '.data-grid__item__value', text: /320,000\.00 zł/
+    assert_select '.tracker-holdings__value', text: /240,000\.00 zł/
+  end
+end

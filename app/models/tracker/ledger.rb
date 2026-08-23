@@ -92,6 +92,19 @@ module Tracker
         summary
       end
 
+      # Logos and colours. The user's own balance row first — that is the asset the rest of the page
+      # draws this symbol with — then the crypto asset of that ticker, never a stock that happens to
+      # share it. Public because the transactions table resolves its rows the same way.
+      def asset_index(user, symbols)
+        held = AccountBalance.for_user(user).includes(:asset).each_with_object({}) do |balance, index|
+          index[balance.asset.symbol] ||= balance.asset
+        end
+        missing = symbols - held.keys
+        crypto = Asset.where(symbol: missing, category: 'Cryptocurrency').order(:id)
+                      .each_with_object({}) { |asset, index| index[asset.symbol] ||= asset }
+        held.slice(*symbols).merge(crypto)
+      end
+
       private
 
       def cache_key(user, exchange)
@@ -207,19 +220,6 @@ module Tracker
                         closed_at: disposal[:date], quantity: trip[:quantity], invested_usd: trip[:invested],
                         proceeds_usd: trip[:proceeds], fees_usd: trip[:fees], realised_pnl_usd: trip[:gain])
         end
-      end
-
-      # Logos and colours. The user's own balance row first — that is the asset the rest of the page
-      # draws this symbol with — then the crypto asset of that ticker, never a stock that happens to
-      # share it.
-      def asset_index(user, symbols)
-        held = AccountBalance.for_user(user).includes(:asset).each_with_object({}) do |balance, index|
-          index[balance.asset.symbol] ||= balance.asset
-        end
-        missing = symbols - held.keys
-        crypto = Asset.where(symbol: missing, category: 'Cryptocurrency').order(:id)
-                      .each_with_object({}) { |asset, index| index[asset.symbol] ||= asset }
-        held.slice(*symbols).merge(crypto)
       end
     end
   end

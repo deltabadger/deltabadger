@@ -1,0 +1,78 @@
+<%# The bot chart's head and plot, fed by the portfolio's own history instead of a bot's metrics —
+    the same component, the same two modes, the same headline. The only thing this page adds is the
+    range control, which lives inside the modes row and drives the same controller.
+
+    No history yet means no curve to draw, and a bot in that state shows its empty landscape rather
+    than an axis with nothing on it. %>
+<% history = @history || [] %>
+<% hide_money = current_user.hide_balances? %>
+<div class="widget widget--chart">
+  <% if history.empty? %>
+    <div class="widget--chart__head">
+      <div class="widget--chart__modes"></div>
+      <div class="widget--chart__summary">
+        <div class="widget--chart__date">&nbsp;</div>
+        <% unless hide_money %><div class="widget--chart__pnl">&nbsp;</div><% end %>
+        <%# With no money slot, the percentage IS the headline: it takes the big __pnl styling
+            rather than sitting small underneath nothing. %>
+        <div class="<%= hide_money ? 'widget--chart__pnl' : 'widget--chart__percent' %>">&nbsp;</div>
+      </div>
+    </div>
+    <div class="widget--chart__plot"><%= render 'svg/landscape_empty' %></div>
+  <% else %>
+    <% series = chart_history_series(history, hide_money) %>
+    <% pnl_series = chart_pnl_series(series[0], series[1]).map(&:to_f) %>
+    <%= tag.div data: {
+      controller: 'bot--chart',
+      action: 'mouseover@document->bot--chart#focus mouseleave@document->bot--chart#blur ' \
+              'click@document->bot--chart#select',
+      # Not a bot, but the controller keys its remembered mode by this — a stable value keeps the
+      # tracker's choice out of every bot's.
+      bot__chart_bot_value: 0,
+      bot__chart_quote_value: @denomination.currency,
+      bot__chart_decimals_value: 2,
+      bot__chart_labels_value: history.map(&:date),
+      bot__chart_series_value: series,
+      bot__chart_pnl_value: pnl_series,
+      bot__chart_assets_value: {},
+      bot__chart_pnl_only_value: hide_money
+    } do %>
+      <div class="widget--chart__head">
+        <%# Both controls in one row, both talking to the chart: the mode redraws the curve, the
+            range narrows the window. Hiding balances takes them BOTH away — VALUE plots the money,
+            and a range switch over a curve with no numbers on it is furniture. %>
+        <div class="widget--chart__modes" data-action="segmented:change->bot--chart#mode">
+          <% unless hide_money %>
+            <% if series[1].any?(&:positive?) %>
+              <%= render 'shared/segmented', fluid: true,
+                         label: t('bot.details.stats.chart.modes'),
+                         options: [{ value: 'value', label: t('bot.details.stats.chart.value'), active: true },
+                                   { value: 'pnl', label: t('bot.details.stats.chart.pnl') }] %>
+            <% end %>
+            <div class="filters" data-action="segmented:change->bot--chart#range">
+              <%= render 'shared/segmented',
+                         label: t('tracker.range.all'),
+                         options: [{ value: '30', label: t('tracker.range.30d') },
+                                   { value: '365', label: t('tracker.range.1y') },
+                                   { value: 'all', label: t('tracker.range.all'), active: true }] %>
+            </div>
+          <% end %>
+        </div>
+        <div class="widget--chart__summary" data-bot--chart-target="summary">
+          <div class="widget--chart__date" data-bot--chart-target="date">&nbsp;</div>
+          <% unless hide_money %>
+            <div class="widget--chart__pnl" data-bot--chart-target="pnl">&nbsp;</div>
+          <% end %>
+          <div class="<%= hide_money ? 'widget--chart__pnl' : 'widget--chart__percent' %>"
+               data-bot--chart-target="percent">&nbsp;</div>
+        </div>
+      </div>
+      <div class="widget--chart__plot">
+        <canvas data-bot--chart-target="analyzerChart" width="10" height="2"></canvas>
+      </div>
+      <% if history.any?(&:partial) %>
+        <p class="tracker-history-partial"><%= t('tracker.history_partial') %></p>
+      <% end %>
+    <% end %>
+  <% end %>
+</div>
