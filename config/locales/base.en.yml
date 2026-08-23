@@ -570,6 +570,9 @@ en:
             redeploy_manually_resolved: "Unconfirmed redeploy cleared manually"
             redeploy_not_started: "Nothing was redeployed — the bot was busy, or there was nothing left to redeploy"
             redeploy_failed: "Redeploying failed: %{error}"
+            redeploy_declined: "Proceeds taken off the table — they will not be offered again"
+            redeploy_decline_refused: "Nothing was taken off the table — a redeploy was still working"
+            dca_skipped_redeploy_pending: "Contribution skipped — a redeploy is still in progress"
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'

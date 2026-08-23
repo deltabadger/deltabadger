@@ -65,6 +65,13 @@ module Bot::Rebalanceable
           log_activity('dca_skipped_liquidation_pending', level: :info)
           return Result::Success.new
         end
+        # try: Rebalanceable is shared with types that have no redeploy leg. Same claim as the two
+        # above — a redeploy in flight has spoken for quote the tick would otherwise spend, and one
+        # whose outcome is unknown must not be traded on top of.
+        if try(:redeploy_blocks_trading?)
+          log_activity('dca_skipped_redeploy_pending', level: :info)
+          return Result::Success.new
+        end
 
         super
       end
@@ -123,10 +130,12 @@ module Bot::Rebalanceable
   def rebalance_due?
     return false unless rebalance_enabled?
     return false if rebalance_pending?
-    # Same reason the DCA leg stands down: a resting liquidation sell must not be bought against.
+    # Same reason the DCA leg stands down: a resting liquidation sell must not be bought against,
+    # and a redeploy in flight has already claimed the quote a swap's buy leg would need.
     # Guards NEW work only — Bot::Rebalancer#rebalance! resumes a swap already mid-flight regardless,
     # because that one owes its buy.
     return false if liquidation_blocks_trading?
+    return false if try(:redeploy_blocks_trading?)
 
     drift = rebalance_drift
     drift.present? && drift > rebalance_threshold

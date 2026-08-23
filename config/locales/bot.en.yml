@@ -239,6 +239,7 @@ en:
             decline: "No"
             started: "Putting the money back into the basket."
             in_flight: "A redeploy is still working. Try again once it settles."
+            declined: "Taken off the table."
             unsupported: "This bot has no proceeds to redeploy."
             halted: "Redeploy unconfirmed — check your exchange"
             resolve: "Clear"

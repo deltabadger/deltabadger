@@ -25,12 +25,16 @@ class Bots::RedeploysControllerTest < ActionDispatch::IntegrationTest
     assert_equal @user.id, log.details['user_id']
   end
 
-  test 'No takes the current proceeds off the table' do
+  # Queued, not applied in the request: the offset is a snapshot of a figure a running batch is still
+  # moving, so it has to be written under the same semaphore the batch holds.
+  test 'No queues the decline rather than writing it in the request' do
     liquidated(150)
 
     delete bot_redeploy_path(bot_id: @bot.id)
 
-    assert_in_delta 150, @bot.reload.redeploy_declined_offset.to_d.to_f, 0.0001
+    assert_predicate queued(Bot::DeclineRedeployJob), :exists?
+    assert_in_delta 0, @bot.reload.redeploy_declined_offset.to_d.to_f, 0.0001,
+                    'nothing is written until the job holds the lock'
   end
 
   test 'No places nothing' do
@@ -41,19 +45,13 @@ class Bots::RedeploysControllerTest < ActionDispatch::IntegrationTest
     assert_not_predicate queued(Bot::RedeployJob), :exists?
   end
 
-  # Hiding the button is not a guard: a stale tab still holds a live form, and an offset written
-  # against a spend that is still growing strands it above the total and eats the next sale.
-  test 'No is refused while a batch is still working' do
+  test 'No places nothing and reports back' do
     liquidated(150)
-    create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted,
-                         external_status: :open, external_id: 'w-1', side: :buy,
-                         transaction_type: 'REDEPLOY', base: 'AAA', quote: @bot.quote_asset.symbol,
-                         price: 100, amount: 1, amount_exec: 0, quote_amount: 100, quote_amount_exec: 0)
 
     delete bot_redeploy_path(bot_id: @bot.id)
 
-    assert_response :unprocessable_entity
-    assert_in_delta 0, @bot.reload.redeploy_declined_offset.to_d.to_f, 0.0001
+    assert_response :success
+    assert_not_predicate queued(Bot::RedeployJob), :exists?
   end
 
   test 'a bot type with no composition is refused' do

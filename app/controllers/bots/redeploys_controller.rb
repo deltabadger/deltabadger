@@ -14,18 +14,15 @@ class Bots::RedeploysController < ApplicationController
     render turbo_stream: turbo_stream_prepend_flash
   end
 
-  # The decline can be REFUSED — its offset is a snapshot of a figure a running batch is still
-  # moving, so taking one mid-flight would strand the offset above the total and silently eat the
-  # next sale. The prompt is hidden in that state, but a stale tab or a double submit arrives anyway.
+  # Queued, not applied here — Bot::DeclineRedeployJob holds the exchange semaphore, which is the
+  # only thing that stops a decline interleaving with a batch the worker has already sized. The
+  # offset it writes is a snapshot of a figure that batch is still moving; taken mid-flight it
+  # strands above the banked total and silently eats every later sale. The job also refuses on its
+  # own if a batch is genuinely in flight, and says so in the activity log.
   def destroy
-    result = @bot.decline_redeploy!
-    if result.failure?
-      flash.now[:alert] = t('bot.redeploy.in_flight')
-      return render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
-    end
-
-    @bot.broadcast_metrics_update if @bot.respond_to?(:broadcast_metrics_update)
-    head :no_content
+    Bot::DeclineRedeployJob.perform_later(@bot, user_id: current_user.id)
+    flash.now[:notice] = t('bot.redeploy.declined')
+    render turbo_stream: turbo_stream_prepend_flash
   end
 
   private
