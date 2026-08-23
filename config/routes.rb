@@ -238,6 +238,8 @@ Rails.application.routes.draw do
       resources :rebalance_resolutions, only: [:create], controller: 'bots/rebalance_resolutions'
       resource :liquidation, only: [:new, :create], controller: 'bots/liquidations'
       resources :liquidation_resolutions, only: [:create], controller: 'bots/liquidation_resolutions'
+      resource :redeploy, only: [:create, :destroy], controller: 'bots/redeploys'
+      resources :redeploy_resolutions, only: [:create], controller: 'bots/redeploy_resolutions'
       resource :add_api_key, only: [:new, :create], controller: 'bots/add_api_keys'
       resource :asset_search, only: [:edit], controller: 'bots/asset_searches'
       resource :export, only: [:create], controller: 'bots/exports'

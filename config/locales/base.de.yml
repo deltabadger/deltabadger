@@ -552,6 +552,13 @@ de:
             liquidation_market_closed: "Markt geschlossen — nichts verkauft"
             liquidation_not_started: "Nichts verkauft — der Bot war beschäftigt oder der Index ließ sich nicht aktualisieren"
             liquidation_failed: "Verkauf fehlgeschlagen: %{error}"
+            redeploy_requested: "Das Geld wandert zurück in den Korb"
+            redeploy_placed: "Kauf zurück in den Korb mit den Erlösen"
+            redeploy_skipped: "Ein Teil der Erlöse konnte nicht wieder angelegt werden — bleibt als Bargeld liegen"
+            redeploy_ambiguous: "Status der Wiederanlage-Order unbestätigt — pausiert, damit sie nicht zweimal gesendet wird"
+            redeploy_manually_resolved: "Unbestätigte Wiederanlage manuell zurückgesetzt"
+            redeploy_not_started: "Nichts wieder angelegt — der Bot war beschäftigt oder es war nichts mehr übrig"
+            redeploy_failed: "Wiederanlage fehlgeschlagen: %{error}"
             dca_skipped_liquidation_pending: "Beitrag übersprungen — ein Verkauf läuft noch"
             started: 'Bot gestartet'
             stopped: 'Bot gestoppt'

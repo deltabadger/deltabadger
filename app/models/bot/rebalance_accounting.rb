@@ -88,6 +88,27 @@ module Bot::RebalanceAccounting
     entry[:amount] += amount_exec
   end
 
+  # Spending a liquidation's proceeds back into the composition, on the user's command.
+  #
+  # Drains realised_cash and NOTHING ELSE — deliberately not apply_regular_buy, which drains flight
+  # cash first. Flight cash is money a half-finished swap owes its own buy leg, and the offer the
+  # user was shown is measured against realised_cash alone: draining 10 of flight cash on a 100
+  # redeploy would leave 10 of realised_cash undeployed while the offer read zero, because the sum of
+  # REDEPLOY fills is what the offer subtracts. The two have to measure the same money.
+  def apply_redeploy_buy(ledger, books, key:, amount_exec:, quote_amount_exec:)
+    entry = ledger[key]
+    from_realised = [books[:realised_cash], quote_amount_exec].min
+    books[:realised_cash] -= from_realised
+    # Zero in every normal case — the offer is capped at realised_cash. Present so a fill that
+    # overshoots the cap is booked as a contribution rather than appearing from nowhere.
+    new_money = quote_amount_exec - from_realised
+    books[:contributed] += new_money
+    entry[:invested] += from_realised + new_money
+    entry[:amount] += amount_exec
+    # Not fed into the average-entry-price accumulators: recycled proceeds are not an entry, for the
+    # same reason a swap is not.
+  end
+
   # Routes one fill to the rule that applies to it. Returns the branch taken, so a caller can decide
   # whether the fill also belongs in its average-entry-price accumulators (only a regular buy does).
   def apply_fill(ledger, books, key:, side:, transaction_type:, amount_exec:, quote_amount_exec:)
@@ -102,6 +123,9 @@ module Bot::RebalanceAccounting
     elsif transaction_type == 'REBALANCE'
       apply_rebalance_buy(ledger, books, key:, amount_exec:, quote_amount_exec:)
       :rebalance_buy
+    elsif transaction_type == 'REDEPLOY'
+      apply_redeploy_buy(ledger, books, key:, amount_exec:, quote_amount_exec:)
+      :redeploy_buy
     else
       apply_regular_buy(ledger, books, key:, amount_exec:, quote_amount_exec:)
       :regular_buy

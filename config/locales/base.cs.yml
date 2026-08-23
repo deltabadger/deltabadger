@@ -571,6 +571,13 @@ cs:
             liquidation_market_closed: "Trh zavřený — nic se neprodalo"
             liquidation_not_started: "Nic se neprodalo — bot byl zaneprázdněný nebo se index nepodařilo obnovit"
             liquidation_failed: "Selling failed: %{error}"
+            redeploy_requested: "Vracím peníze zpět do koše"
+            redeploy_placed: "Nakupuji zpět do koše za získané prostředky"
+            redeploy_skipped: "Část prostředků se nepodařilo vložit zpět — zůstala v hotovosti"
+            redeploy_ambiguous: "Stav pokynu k opětovnému vložení nepotvrzen — pozastaveno, aby nebyl odeslán dvakrát"
+            redeploy_manually_resolved: "Nepotvrzené opětovné vložení vymazáno ručně"
+            redeploy_not_started: "Nic nebylo vloženo zpět — bot byl zaneprázdněn nebo nezbylo co vložit"
+            redeploy_failed: "Opětovné vložení selhalo: %{error}"
             dca_skipped_liquidation_pending: "Příspěvek přeskočen — stále probíhá prodej"
             started: 'Bot started'
             stopped: 'Bot stopped'

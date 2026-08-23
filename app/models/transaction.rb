@@ -54,6 +54,11 @@ class Transaction < ApplicationRecord
   # Selling off an asset the index dropped. Like a rebalance it moves no new money in, but unlike a
   # rebalance nothing buys the proceeds back — so it is the one sell that realizes P/L.
   scope :liquidation, -> { where(transaction_type: 'LIQUIDATION') }
+  # Putting a liquidation's proceeds back into the composition on the user's command. Recycled money,
+  # never a contribution — which is why it is not REGULAR: contribution accounting would read it as a
+  # scheduled buy already made and skip the next ticks. Not REBALANCE either: a rebalance transfers
+  # cost basis between assets, a redeploy attaches basis that a sale had released.
+  scope :redeploy, -> { where(transaction_type: 'REDEPLOY') }
 
   validates :bot, presence: true
 

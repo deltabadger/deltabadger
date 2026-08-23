@@ -213,6 +213,18 @@ fr:
                 other: "Les montants manqués ont été mis en mémoire tampon et seront utilisés avec les prochaines commandes programmées, garantissant que votre calendrier et votre allocation sont maintenus aussi près que possible des minimums de l'échange."
             title: "Félicitations ! Votre bot est en cours d'exécution."
             general_note: "Les minimums d'échange et les montants de rééquilibrage requis peuvent changer. Les commandes peuvent parfois sembler irrégulières, mais le bot cible toujours votre allocation et votre calendrier souhaités, donc aucun travail supplémentaire n'est nécessaire."
+        redeploy:
+            prompt: "Réinvestir %{amount} %{symbol} ?"
+            confirm: "Oui"
+            decline: "Non"
+            started: "L’argent retourne dans le panier."
+            in_flight: "Un réinvestissement est encore en cours. Réessaie une fois terminé."
+            unsupported: "Ce bot n’a aucun produit de vente à réinvestir."
+            halted: "Réinvestissement non confirmé — vérifie ta plateforme"
+            resolve: "Effacer"
+            resolve_confirm: "Ne continue que si tu as vérifié ta plateforme et qu’aucun ordre d’achat n’est encore ouvert."
+            still_open: "L’ordre %{order_id} est encore ouvert sur ta plateforme. Attends qu’il soit réglé."
+            resolved: "Effacé. Le bot peut de nouveau trader."
         liquidation:
             sell: "Vendre"
             sell_confirm: "Vendre cette position ? Elle sera clôturée au prix du marché."

@@ -137,6 +137,26 @@
       font-weight: 500
       color: var(--text)
 
+// The "Redeploy $243?" prompt. Sits on its own between the figures and the tables: it is a question
+// about money, not a column of it. Same padding as a data-grid item so it lines up with both.
+.redeploy-prompt
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 1rem
+  flex-wrap: wrap
+  padding: calc(var(--ui-padding)/1.33) var(--ui-padding) !important
+  form
+    margin: 0
+
+// Yes and No stay side by side at every width. Wrapping them apart puts the decline under the
+// confirm, where a stray tap lands on the wrong answer.
+.redeploy-prompt__actions
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  flex-shrink: 0
+
 // The "Left the index" band above the quitters table: a label on the left, the action on the right.
 // Same padding as a data-grid item so it lines up with the tables either side of it.
 .exited-header

@@ -212,6 +212,18 @@ pl:
                 other: "Pominięte kwoty zostały zbuforowane i zostaną użyte przy kolejnych zaplanowanych zleceniach, dzięki czemu Twój harmonogram i alokacja będą utrzymane jak najbliżej giełdowych minimów."
             title: "Gratulacje! Twój bot działa."
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
+        redeploy:
+            prompt: "Zainwestować ponownie %{amount} %{symbol}?"
+            confirm: "Tak"
+            decline: "Nie"
+            started: "Wkładam pieniądze z powrotem do koszyka."
+            in_flight: "Ponowna inwestycja wciąż trwa. Spróbuj ponownie, gdy się zakończy."
+            unsupported: "Ten bot nie ma środków do ponownego zainwestowania."
+            halted: "Ponowna inwestycja niepotwierdzona — sprawdź giełdę"
+            resolve: "Wyczyść"
+            resolve_confirm: "Kontynuuj tylko wtedy, gdy sprawdziłeś giełdę i żadne zlecenie kupna nie jest otwarte."
+            still_open: "Zlecenie %{order_id} jest wciąż otwarte na giełdzie. Poczekaj, aż się rozliczy."
+            resolved: "Wyczyszczone. Bot może znowu handlować."
         liquidation:
             sell: "Sprzedaj"
             sell_confirm: "Sprzedać tę pozycję? Zostanie zamknięta po cenie rynkowej."

@@ -326,6 +326,40 @@ class Bot < ApplicationRecord
     with_user_locale { super }
   end
 
+  # The one safe way to write `transient_data`. A JSON column can only be written whole, so
+  # `update_columns(transient_data: transient_data.merge(...))` is a read-modify-write: two writers
+  # that both loaded the row before either saved will each write their own blob, and the second
+  # silently drops the first one's key.
+  #
+  # That was harmless while every writer held the exchange semaphore. It stopped being harmless once
+  # the resolution controllers and the redeploy decline started writing from web requests, where no
+  # lock is held: a decline landing between a placement's intent write and its rescue would erase the
+  # intent, and an intent is the only thing standing between an accepted-but-unrecorded order and a
+  # second one on top of it.
+  #
+  # Locks and re-reads, so the merge is against committed state. `nil` values delete their key, which
+  # is what the old `.except(KEY)` callers want.
+  #
+  # Locks a FRESH instance rather than `self`: `with_lock` refuses a record carrying unpersisted
+  # changes, and these bots almost always do — `store_accessor` marks `settings` dirty on routine
+  # reads, so locking self turned every rebalance into a RuntimeError. The lock clause is a no-op on
+  # SQLite, but the adapter opens transactions as BEGIN IMMEDIATE, which takes the write lock up
+  # front and serialises writers just the same.
+  #
+  # The result is mirrored back the way update_columns would have — value set, attribute not dirtied
+  # — so a later save() on this instance does not write a stale blob over the one just committed.
+  def merge_transient_data!(values)
+    merged = nil
+    self.class.transaction do
+      fresh = self.class.lock.find(id)
+      merged = fresh.transient_data.merge(values.stringify_keys).compact
+      fresh.update_columns(transient_data: merged)
+    end
+    write_attribute(:transient_data, merged)
+    clear_attribute_change(:transient_data)
+    true
+  end
+
   private
 
   def with_user_locale(&block)

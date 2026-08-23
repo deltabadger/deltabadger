@@ -563,6 +563,13 @@ da:
             liquidation_market_closed: "Markedet er lukket — intet solgt"
             liquidation_not_started: "Intet blev solgt — botten var optaget, eller indekset kunne ikke opdateres"
             liquidation_failed: "Selling failed: %{error}"
+            redeploy_requested: "Pengene ryger tilbage i kurven"
+            redeploy_placed: "Køber tilbage i kurven for provenuet"
+            redeploy_skipped: "En del af provenuet kunne ikke geninvesteres — blev stående som kontanter"
+            redeploy_ambiguous: "Status på geninvesteringsordren er ubekræftet — sat på pause, så den ikke sendes to gange"
+            redeploy_manually_resolved: "Ubekræftet geninvestering ryddet manuelt"
+            redeploy_not_started: "Der blev ikke geninvesteret noget — botten var optaget, eller der var intet tilbage"
+            redeploy_failed: "Geninvesteringen mislykkedes: %{error}"
             dca_skipped_liquidation_pending: "Indbetaling sprunget over — et salg er stadig i gang"
             started: 'Bot started'
             stopped: 'Bot stopped'

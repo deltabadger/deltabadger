@@ -233,6 +233,18 @@ da:
                 other: "De manglende beløb er bufferet og bruges ved de næste planlagte ordrer, så din tidsplan og allokering holdes så tæt på børsminimum som muligt."
             title: "Tillykke! Din bot kører."
             general_note: "Børsminimum og nødvendige rebalanceringsbeløb ændrer sig. Transaktioner kan nogle gange se uregelmæssige ud, men botten sigter altid efter din ønskede allokering og tidsplan, så der kræves ingen ekstra indsats."
+        redeploy:
+            prompt: "Geninvestér %{amount} %{symbol}?"
+            confirm: "Ja"
+            decline: "Nej"
+            started: "Pengene ryger tilbage i kurven."
+            in_flight: "En geninvestering er stadig i gang. Prøv igen, når den er færdig."
+            unsupported: "Denne bot har ingen provenu at geninvestere."
+            halted: "Geninvesteringen er ubekræftet — tjek din børs"
+            resolve: "Ryd"
+            resolve_confirm: "Fortsæt kun, hvis du har tjekket din børs, og ingen købsordre stadig er åben."
+            still_open: "Ordre %{order_id} er stadig åben på din børs. Vent, til den er afviklet."
+            resolved: "Ryddet. Botten kan handle igen."
         liquidation:
             sell: "Sælg"
             sell_confirm: "Sælg denne position? Den lukkes til markedspris."

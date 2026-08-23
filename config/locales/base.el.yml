@@ -563,6 +563,13 @@ el:
             liquidation_market_closed: "Η αγορά είναι κλειστή — δεν πουλήθηκε τίποτα"
             liquidation_not_started: "Δεν πουλήθηκε τίποτα — το bot ήταν απασχολημένο ή ο δείκτης δεν ανανεώθηκε"
             liquidation_failed: "Selling failed: %{error}"
+            redeploy_requested: "Τα χρήματα επιστρέφουν στο καλάθι"
+            redeploy_placed: "Αγορά ξανά στο καλάθι με τα έσοδα"
+            redeploy_skipped: "Μέρος των εσόδων δεν μπόρεσε να επανεπενδυθεί — έμεινε ως μετρητά"
+            redeploy_ambiguous: "Η κατάσταση της εντολής επανεπένδυσης δεν επιβεβαιώθηκε — σε παύση ώστε να μη σταλεί δύο φορές"
+            redeploy_manually_resolved: "Η μη επιβεβαιωμένη επανεπένδυση εκκαθαρίστηκε χειροκίνητα"
+            redeploy_not_started: "Δεν επανεπενδύθηκε τίποτα — το bot ήταν απασχολημένο ή δεν είχε μείνει τίποτα"
+            redeploy_failed: "Η επανεπένδυση απέτυχε: %{error}"
             dca_skipped_liquidation_pending: "Η εισφορά παραλείφθηκε — μια πώληση είναι ακόμη σε εξέλιξη"
             started: 'Bot started'
             stopped: 'Bot stopped'

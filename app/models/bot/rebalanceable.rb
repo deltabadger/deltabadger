@@ -167,13 +167,13 @@ module Bot::Rebalanceable
       'remaining_quote_amount' => remaining_quote_amount&.to_d&.to_s('F'),
       'buy_attempted' => buy_attempted.present?
     }
-    # update_columns, matching the other transient_data writes (Bot::ActionJob, Bot::Reversible):
-    # this is bookkeeping, not a user edit, and must not run validations or dirty settings.
-    update_columns(transient_data: transient_data.merge(PENDING_KEY => payload))
+    # merge_transient_data!, matching the other transient_data writes (Bot::ActionJob,
+    # Bot::Reversible): bookkeeping, not a user edit, so no validations and no dirtied settings.
+    merge_transient_data!(PENDING_KEY => payload)
   end
 
   def clear_rebalance_pending!
-    update_columns(transient_data: transient_data.except(PENDING_KEY))
+    merge_transient_data!(PENDING_KEY => nil)
   end
 
   # --- "drifted, but no trade is big enough" -------------------------------------------------
@@ -194,12 +194,12 @@ module Bot::Rebalanceable
   def flag_rebalance_below_minimum!
     return if rebalance_below_minimum?
 
-    update_columns(transient_data: transient_data.merge(BELOW_MINIMUM_KEY => Time.current.iso8601))
+    merge_transient_data!(BELOW_MINIMUM_KEY => Time.current.iso8601)
   end
 
   def clear_rebalance_below_minimum!
     return unless rebalance_below_minimum?
 
-    update_columns(transient_data: transient_data.except(BELOW_MINIMUM_KEY))
+    merge_transient_data!(BELOW_MINIMUM_KEY => nil)
   end
 end
