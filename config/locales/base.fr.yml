@@ -505,19 +505,17 @@ fr:
         transactions: 'Transactions'
         fees_paid: 'Frais payés'
         synced_ago: 'Synchronisé il y a %{ago}'
-        history_partial: "Certains jours sont incomplets : un actif détenu alors n'avait pas de cours."
+        history_partial: "Certains jours sont estimés : une partie de l'historique n'a pas pu être valorisée."
         more: 'Plus'
         other: 'Autres'
         basis_incomplete: "Aucun prix de revient pour cet avoir : la performance n'est pas affichée."
         record:
             all: 'Tous'
-            buy: 'Achat'
-            sell: 'Vente'
             transfer: 'Transfert'
-            other: 'Autres'
             open: 'Ouverte'
             win: 'Gain'
             loss: 'Perte'
+            closed: 'Clôturée'
         range:
             '30d': '30J'
             '1y': '1A'

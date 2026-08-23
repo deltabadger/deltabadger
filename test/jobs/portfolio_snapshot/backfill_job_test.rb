@@ -174,6 +174,35 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     assert_equal [1_000.to_d, 1_000.to_d, 1_200.to_d], PortfolioSnapshot.for_user(@user).order(:date).pluck(:value_usd)
   end
 
+  # A capped ledger window (Binance 90 days, Bybit 7) opens after the funding that paid for the
+  # coins, so the sweep meets a sale with nothing behind it.
+  test 'a history that starts mid-stream leaves a negative balance, and every day says it is an estimate' do
+    tx(:sell, day: 0, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 10_000)
+    price('BTC', 0, 10_000)
+    price('BTC', 1, 10_000)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert rows.all?(&:partial), 'the missing acquisition is a hole, not an absence'
+    assert_equal [10_000.to_d, 10_000.to_d], rows.map(&:value_usd),
+                 'the proceeds are real; the -1 BTC behind them is not counted either way'
+  end
+
+  # Inert in the tax engines, which track holdings. Here it is cash the broker kept.
+  test 'withholding tax leaves the cash it was taken from' do
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 1_000)
+    create(:account_transaction, api_key: @key, entry_type: :withholding_tax, base_currency: 'USD',
+                                 base_amount: 30, quote_currency: nil, quote_amount: nil,
+                                 transacted_at: @day.call(1))
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    assert_equal [1_000.to_d, 970.to_d], PortfolioSnapshot.for_user(@user).order(:date).pluck(:value_usd)
+  end
+
   test 'a user without transactions writes nothing' do
     PortfolioSnapshot::BackfillJob.perform_now(@user.id)
     assert_not PortfolioSnapshot.for_user(@user).exists?

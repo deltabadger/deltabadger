@@ -110,7 +110,7 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
       assert_select '.tracker-holdings__row:first-child' do
         assert_select '.asset-logo'
         assert_select 'b', text: 'BTC'
-        assert_select '.tag', text: 'Crypto'
+        assert_select '.pill--quiet', text: 'Crypto'
         assert_select '.slider__style__track'
         assert_select '.tracker-holdings__pct', text: '75.0%'
         assert_select '.tracker-holdings__value', text: /\$60,000\.00/
@@ -121,6 +121,20 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
       assert_select 'details.tracker-holdings__more', false
     end
     assert_select '[data-controller="donut-chart"]', false, 'the tilted donut and its pie/list toggle are gone'
+  end
+
+  # Reconciling is necessary but not sufficient: an unlinked deposit has no fill price, so its basis
+  # is the day's market value — a guess, and a P/L measured against it would read as a fact.
+  test 'a holding whose basis was assumed states no P/L, however exactly the quantities agree' do
+    create(:account_transaction, api_key: @key_kraken, entry_type: :deposit, base_currency: 'ETH',
+                                 base_amount: 10, quote_currency: nil, quote_amount: nil,
+                                 transacted_at: @t - 5.days)
+    HistoricalPrice.create!(asset: 'ETH', currency: 'USD', date: (@t - 5.days).to_date, price: 1_800)
+    warm_ledger
+    get tracker_path
+
+    assert_select '.tracker-holdings__row:nth-child(2) b', text: 'ETH'
+    assert_select '.tracker-holdings__row:nth-child(2) .tracker-holdings__pl', text: '—'
   end
 
   test 'more than six holdings fold behind a More disclosure' do
@@ -141,12 +155,18 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_select '.tracker-record .filters > .segmented .segmented__option[data-value="tx"]'
     assert_select '.tracker-record .filters > .segmented .segmented__option[data-value="pos"]'
     assert_select '.tracker-record [data-controller~="order-filter"]', 2
-    %w[all buy sell transfer other].each do |type|
+    # The types this account actually holds, in the ledger's own order — not a fixed five. A
+    # transfer option appears only once a linked pair is on the page.
+    %w[all buy sell deposit withdrawal].each do |type|
       assert_select ".tracker-record [data-controller~='order-filter'] .segmented__option[data-value='#{type}']"
     end
-    %w[open win loss].each do |status|
+    assert_select ".tracker-record .segmented__option[data-value='swap_in']", false, 'nothing swapped here'
+    assert_select ".tracker-record .segmented__option[data-value='transfer']", false, 'nothing is linked here'
+    # One open position and one closed win: Loss is not offered, because there is none.
+    %w[all open win].each do |status|
       assert_select ".tracker-record [data-controller~='order-filter'] .segmented__option[data-value='#{status}']"
     end
+    assert_select ".tracker-record .segmented__option[data-value='loss']", false, 'nothing lost here'
     assert_select '.tracker-record input[type=date][name=from]'
     assert_select '.tracker-record input[type=date][name=to]'
     # `bot.details.stats.download_csv`, not `bot.details.download_csv`: the plan named the shorter
@@ -169,14 +189,15 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
 
     assert_select 'th', text: I18n.t('tracker.columns.price')
     assert_select 'tr.tracker-row[data-order-filter-target="row"][data-order-type~="buy"][data-order-type~="all"]' do
-      assert_select '.tracker-type--buy'
+      # One chip vocabulary across the page: the tone says what happened, the text says which.
+      assert_select '.pill.pill--up', text: I18n.t('tracker.types.buy')
       assert_select 'td .asset-logo'
     end
     assert_select "tr.tracker-row a[href='#{bot_path(bot)}']", text: "##{bot.id}"
     assert_select 'tr.tracker-row td', text: /50,000\.00/ # 500 / 0.01
     assert_select 'tr.tracker-row td', text: /20\.00 USD/ # the fee
     transfer_action = toggle_transfer_tracker_transaction_path(@withdrawal)
-    assert_select "tr.tracker-row[data-order-type~='other'] form.tracker-row__action[action='#{transfer_action}']"
+    assert_select "tr.tracker-row[data-order-type~='withdrawal'] form.tracker-row__action[action='#{transfer_action}']"
     assert_select 'tr.tracker-row .sinput--small', false, 'the inline Mark-as-transfer button is gone'
   end
 
@@ -188,11 +209,11 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_select '.tracker-positions tbody tr', 2
     assert_select '.tracker-positions tr[data-order-type~="open"]' do
       assert_select 'td', text: /BTC/
-      assert_select '.tracker-status--open'
+      assert_select '.pill.pill--info', text: I18n.t('tracker.record.open')
     end
     assert_select '.tracker-positions tr[data-order-type~="win"]' do
       assert_select 'td', text: /ETH/
-      assert_select '.tracker-status--win'
+      assert_select '.pill.pill--up', text: I18n.t('tracker.record.win')
       assert_select 'td.text-success', text: /\+25\.0%/
     end
     assert_select 'th', text: I18n.t('tracker.columns.avg_buy')

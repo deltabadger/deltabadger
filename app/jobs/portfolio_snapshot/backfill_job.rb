@@ -16,8 +16,17 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # Categories whose prices live under the `stock:` namespace and come from the broker's own candles.
   STOCK_CATEGORIES = ['Stock', 'Common Stock', 'ETF', 'Fund'].freeze
   ACQUISITIONS = %i[buy swap_in staking_reward lending_interest airdrop mining other_income].freeze
+  # How far a last-observed price may be carried. A weekend and a long holiday fit inside it; a
+  # broker page limit or a dead feed does not, and those days say so rather than repeating a price
+  # from another market.
+  CARRY_LIMIT = 7
+  # Below this a negative balance is the adapters disagreeing about gross and net, not a hole.
+  DUST = '0.00000001'.to_d
 
   def perform(user_id)
+    # Fiat cash is valued straight off the ECB table, and a history of nothing but cash never builds
+    # a price service — which is the only other thing that loads it.
+    Tax::EcbFxRates.ensure_loaded!
     @user = User.find(user_id)
     @transactions = AccountTransaction.for_user(@user).by_date_asc.includes(:linked_transaction, :inverse_link).to_a
     return if @transactions.empty?
@@ -74,7 +83,11 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
       balances[symbol] -= amount
     when :withdrawal
       balances[symbol] -= transaction.linked? ? network_fee(transaction) : amount
-    when :fee
+    when :fee, :lost
+      balances[symbol] -= amount
+    when :withholding_tax
+      # Inert in the tax engines, which track holdings; here it is cash the broker kept, and cash
+      # that never leaves overstates every day after it.
       balances[symbol] -= amount
     when :adjustment
       balances[symbol] += amount # a split contributes only its signed net delta
@@ -136,8 +149,11 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     price && (direction * amount * price)
   end
 
+  # A negative balance is history we do not have — an exchange whose ledger window starts after the
+  # funding deposit leaves a sale with nothing behind it. Dropping it silently would show the whole
+  # position as profit, so the day says it is an estimate instead.
   def value_on(balances, date)
-    unpriced = false
+    unpriced = balances.any? { |_symbol, quantity| quantity < -DUST }
     total = balances.sum(0.to_d) do |symbol, quantity|
       next 0.to_d unless quantity.positive?
 
@@ -173,7 +189,15 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
       observed = HistoricalPrice.where(asset: key, currency: 'USD', date: from..@last_date)
                                 .pluck(:date, :price).to_h
       last = nil
-      @prices[symbol] = (from..@last_date).index_with { |date| last = observed[date] || last }
+      carried = 0
+      @prices[symbol] = (from..@last_date).index_with do |date|
+        # ponytail: `stock_price_range` makes ONE candle request and Alpaca pages bars, so a stock
+        # history longer than a page comes back truncated. The carry limit turns that into an
+        # honest gap rather than a price repeated forever; paginating `get_bars` would remove it.
+        carried = observed[date] ? 0 : carried + 1
+        last = observed[date] || last
+        last if carried <= CARRY_LIMIT
+      end
     end
   end
 

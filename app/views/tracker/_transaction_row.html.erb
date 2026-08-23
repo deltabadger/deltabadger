@@ -10,9 +10,9 @@
   <td class="tracker-exchange-icon"><%= render "svg/exchange-#{at.exchange.name_id}", title: at.exchange.name %></td>
   <td class="text-left">
     <% if at.linked? %>
-      <span class="tracker-type tracker-type--transfer"><%= t('tracker.transfer_badge') %></span>
+      <span class="<%= pill_class(:transfer) %>"><%= t('tracker.transfer_badge') %></span>
     <% else %>
-      <span class="tracker-type tracker-type--<%= at.entry_type %>"><%= t("tracker.types.#{at.entry_type}") %></span>
+      <span class="<%= pill_class(at.entry_type) %>"><%= t("tracker.types.#{at.entry_type}") %></span>
     <% end %>
     <%# Linking is a correction, not a routine action: it belongs on the row it corrects, on hover,
         rather than as a button in every deposit and withdrawal on the page. %>

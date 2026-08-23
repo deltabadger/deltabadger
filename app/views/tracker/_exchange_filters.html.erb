@@ -4,7 +4,11 @@
     and the tiles above stay whole-portfolio. %>
 <div class="tracker-exchanges">
   <div class="filters">
-    <% if @exchanges.any? %>
+    <%# Same rule as every other filter here — one venue is not a choice — with one exception: a
+        broken key wears its alarm on its own chip, so a lone venue whose key has stopped working
+        keeps the control that says so. %>
+    <% broken = @exchanges.any? { |exchange| !@exchanges_with_valid_keys.include?(exchange.id) && !exchange.retired? } %>
+    <% if @exchanges.many? || broken %>
       <% options = [{ value: 'all', label: t('tracker.filters.all'), active: @scope_exchange.nil?,
                       href: tracker_path(from: params[:from], to: params[:to]) }] %>
       <% @exchanges.each do |exchange| %>
@@ -56,7 +60,7 @@
       <%# Amber when the prices are older than the balances: the quantities are today's, the money
           beside them is not. %>
       <span class="label tracker-sync <%= 'tracker-sync--stale' if @portfolio_has_stale_prices %>">
-        <i class="tracker-sync__dot"></i><%= t('tracker.synced_ago', ago: time_ago_in_words(@portfolio_last_synced_at)) %>
+        <i class="tracker-sync__dot"></i><%= tracker_synced_ago(@portfolio_last_synced_at) %>
       </span>
     <% end %>
     <% if @has_syncable_keys %>

@@ -220,6 +220,18 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     assert summary.incomplete
   end
 
+  test 'a round-trip measured against an assumed basis is flagged, whatever FIFO books for it' do
+    price('ETH', 1, 3_000)
+    tx(:deposit, day: 1, base_currency: 'ETH', base_amount: 2)
+    tx(:sell, day: 3, base_currency: 'ETH', base_amount: 2, quote_currency: 'USD', quote_amount: 7_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    trip = summary.round_trips.sole
+    assert trip.incomplete, 'the cost it is measured against was the day\'s market price, not a fill'
+    assert_equal 1_000.to_d, trip.realised_pnl_usd, 'the engine still books it — the page is what withholds it'
+  end
+
   test 'a return of capital beyond the basis is realised gain, and the basis floors at zero' do
     tx(:buy, key: @key_binance, day: 1, base_currency: 'XYZ', base_amount: 10, quote_currency: 'USD', quote_amount: 1_000)
     tx(:return_of_capital, day: 2, base_currency: 'XYZ', base_amount: 10, quote_currency: 'USD', quote_amount: 1_200)

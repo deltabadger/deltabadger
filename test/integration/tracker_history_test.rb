@@ -15,8 +15,10 @@ class TrackerHistoryTest < ActionDispatch::IntegrationTest
     create(:account_transaction, api_key: @key, entry_type: :deposit, base_currency: 'USD', base_amount: 30_000,
                                  quote_currency: nil, quote_amount: nil, transacted_at: 3.days.ago)
     Tracker::Ledger.compute!(@user)
+    # Spread over months, not days: a window shorter than the history is what makes the range
+    # control a choice at all, and 30D on a three-day history draws the same picture as ALL.
     (1..3).each do |n|
-      PortfolioSnapshot.create!(user: @user, date: Date.current - (4 - n), value_usd: 30_000 + (n * 1_000),
+      PortfolioSnapshot.create!(user: @user, date: Date.current - (400 - (n * 100)), value_usd: 30_000 + (n * 1_000),
                                 invested_usd: 30_000, partial: false)
     end
     sign_in @user

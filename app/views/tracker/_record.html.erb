@@ -1,4 +1,9 @@
 <% hide_money = current_user.hide_balances? %>
+<%# Computed once and handed to both the filter and the table: they ask the same question of the
+    same ledger, and the filter can only offer what the table has. %>
+<% position_rows = tracker_position_rows(@scoped_ledger, @portfolio_slices || []) %>
+<% type_filters = tracker_type_filters(@account_transactions) %>
+<% status_filters = tracker_status_filters(position_rows) %>
 <%# One bar over two panes, as on the bot view. Each pane is `display: contents`, so its own
     contextual filter sits up in the bar and its table below — while both stay inside the pane's
     `order-filter` scope, which is what lets one control filter the rows underneath it. %>
@@ -12,10 +17,9 @@
   <div class="tracker-record__pane" data-pane="tx"
        data-controller="order-filter" data-tracker--record-target="pane">
     <div class="tracker-record__filters filters" data-action="segmented:change->order-filter#filter">
-      <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.type'),
-                 options: %w[all buy sell transfer other].map { |type|
-                   { value: type, label: t("tracker.record.#{type}"), active: type == 'all' }
-                 } %>
+      <% if type_filters.any? %>
+        <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.type'), options: type_filters %>
+      <% end %>
     </div>
     <div class="tracker-record__table widget widget--table widget--table--tracker">
       <% if @account_transactions.any? %>
@@ -52,10 +56,9 @@
   <div class="tracker-record__pane tracker-record__pane--off" data-pane="pos"
        data-controller="order-filter" data-tracker--record-target="pane">
     <div class="tracker-record__filters filters" data-action="segmented:change->order-filter#filter">
-      <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.status'),
-                 options: %w[all open win loss].map { |status|
-                   { value: status, label: t("tracker.record.#{status}"), active: status == 'all' }
-                 } %>
+      <% if status_filters.any? %>
+        <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.status'), options: status_filters %>
+      <% end %>
     </div>
     <div class="tracker-record__table widget widget--table widget--table--tracker tracker-positions">
       <% if @scoped_ledger.nil? %>
@@ -78,9 +81,8 @@
             </tr>
           </thead>
           <tbody>
-            <%= render partial: 'positions_row',
-                       collection: tracker_position_rows(@scoped_ledger, @portfolio_slices || []),
-                       as: :row, locals: { hide_money: hide_money } %>
+            <%= render partial: 'positions_row', collection: position_rows, as: :row,
+                       locals: { hide_money: hide_money } %>
           </tbody>
         </table>
       <% end %>

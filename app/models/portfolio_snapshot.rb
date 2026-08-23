@@ -17,13 +17,15 @@ class PortfolioSnapshot < ApplicationRecord
     ledger = Tracker::Ledger.cached(user) || Tracker::Ledger.compute!(user)
     upsert({ user_id: user.id, date: Date.current,
              value_usd: balances.sum(0.to_d) { |balance| balance.usd_value.to_d },
-             invested_usd: ledger.total_invested_usd, partial: partial?(user, balances) },
+             invested_usd: ledger.total_invested_usd, partial: partial?(user, balances) || ledger.incomplete },
            unique_by: %i[user_id date], record_timestamps: true)
   end
 
-  # What "we could not state this day in full" means: something held that we could not price, a
-  # trading key that failed outright, or prices that lag the balances beside them — the quantities
-  # are today's and the money is not.
+  # What "we could not state this day in full" means on the BALANCE side: something held that we
+  # could not price, a trading key that failed outright, or prices that lag the balances beside them
+  # — the quantities are today's and the money is not. The ledger answers for the other half: a
+  # deposit it could not price is an invested figure that is understated, and a P/L read against an
+  # understated cost is wrong in the flattering direction.
   def self.partial?(user, balances)
     return true if balances.any? { |balance| balance.usd_value.to_d.zero? }
     return true if user.api_keys.any? { |key| key.sync_issue&.dig(:reason) == :failed }
