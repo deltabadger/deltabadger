@@ -1,30 +1,31 @@
 <%# The bot's figure grid, right where a bot has it, in plain words. Unrealised P/L is not a tile —
     it is the chart head above, as on a bot. All four are money and nothing else lives in this grid,
-    so hiding balances takes the whole thing rather than emptying it. %>
+    so hiding balances takes the whole thing rather than emptying it.
+    Scoped, like everything under the switch: on one venue these are that venue's figures. %>
 <% unless current_user.hide_balances? %>
-  <% realised = @ledger&.realised_pnl_usd.to_d %>
+  <% realised = @scoped_ledger&.realised_pnl_usd.to_d %>
   <div class="widget data-grid">
     <%= render partial: 'bots/metrics_item', locals: {
       label: t('bot.details.stats.total_invested'),
-      value: @denomination.format(@ledger&.total_invested_usd),
-      loading: @ledger.nil?
+      value: @denomination.format(@scoped_ledger&.total_invested_usd),
+      loading: @scoped_ledger.nil?
     } %>
     <%# Known from the balances alone, so it never waits for the ledger. %>
     <%= render partial: 'bots/metrics_item', locals: {
       label: t('bot.details.stats.portfolio_value'),
-      value: @denomination.format(@portfolio_total_all_usd),
+      value: @denomination.format(@portfolio_total_usd),
       loading: false
     } %>
     <%= render partial: 'bots/metrics_item', locals: {
       label: t('bot.dca_index.realised_pnl'),
       value: "#{'+' unless realised.negative?}#{@denomination.format(realised)}",
-      loading: @ledger.nil?,
+      loading: @scoped_ledger.nil?,
       value_class: realised.negative? ? 'text-danger' : 'text-success'
     } %>
     <%= render partial: 'bots/metrics_item', locals: {
       label: t('tracker.fees_paid'),
-      value: @denomination.format(@ledger&.fees_usd),
-      loading: @ledger.nil?
+      value: @denomination.format(@scoped_ledger&.fees_usd),
+      loading: @scoped_ledger.nil?
     } %>
   </div>
 <% end %>

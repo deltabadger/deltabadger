@@ -4,6 +4,8 @@
 class PortfolioSnapshot < ApplicationRecord
   belongs_to :user
 
+  CACHE_TTL = 2.days
+
   scope :for_user, ->(user) { where(user_id: user.id) }
 
   # Balances are priced and stored in USD, so today's row is a sum. The invested figure is the
@@ -11,14 +13,42 @@ class PortfolioSnapshot < ApplicationRecord
   # request. A user with neither balances nor transactions has no portfolio to record; one who
   # sold everything still has a day on the chart, at zero.
   def self.record!(user)
-    balances = AccountBalance.for_user(user).nonzero.to_a
+    row = today_row(user)
+    upsert(row, unique_by: %i[user_id date], record_timestamps: true) if row
+  end
+
+  # Today, from the balances and the ledger rather than from a price table that has not closed yet.
+  # Stored for the whole portfolio; handed back for one venue, whose series is cached rather than
+  # kept — see `series`.
+  def self.today_row(user, exchange: nil)
+    balances = AccountBalance.for_user(user).nonzero.then { |scope| exchange ? scope.for_exchange(exchange) : scope }.to_a
     return if balances.empty? && !AccountTransaction.for_user(user).exists?
 
-    ledger = Tracker::Ledger.cached(user) || Tracker::Ledger.compute!(user)
-    upsert({ user_id: user.id, date: Date.current,
-             value_usd: balances.sum(0.to_d) { |balance| balance.usd_value.to_d },
-             invested_usd: ledger.total_invested_usd, partial: partial?(user, balances) || ledger.incomplete },
-           unique_by: %i[user_id date], record_timestamps: true)
+    ledger = Tracker::Ledger.cached(user, exchange: exchange) || Tracker::Ledger.compute!(user, exchange: exchange)
+    { user_id: user.id, date: Date.current,
+      value_usd: balances.sum(0.to_d) { |balance| balance.usd_value.to_d },
+      invested_usd: ledger.total_invested_usd, partial: partial?(user, balances) || ledger.incomplete }
+  end
+
+  # The chart's series. The whole portfolio is a table — the nightly sync appends to it and every
+  # page load reads it. One venue is a question asked occasionally, so it is swept on demand and
+  # cached, the way a scoped ledger is: nil until a job has built it.
+  def self.series(user, exchange: nil)
+    return for_user(user).order(:date).to_a unless exchange
+
+    Rails.cache.read(series_key(user, exchange))&.map { |row| new(row.except(:user_id)) }
+  end
+
+  def self.cache_series(user, exchange, rows)
+    Rails.cache.write(series_key(user, exchange), rows, expires_in: CACHE_TTL)
+  end
+
+  # Follows the transactions, as the ledger's key does, plus the day itself: a series ends at
+  # today, and tomorrow's answer is a different one.
+  def self.series_key(user, exchange)
+    scope = AccountTransaction.for_user(user).for_exchange(exchange)
+    "tracker_history_v1_#{user.id}_#{exchange.id}_#{Date.current.iso8601}_" \
+      "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}"
   end
 
   # What "we could not state this day in full" means on the BALANCE side: something held that we
