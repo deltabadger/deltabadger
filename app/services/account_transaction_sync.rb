@@ -137,10 +137,19 @@ class AccountTransactionSync
     )
   end
 
+  # A bot order and a ledger row are the same event under two ids, and which id the row carries is
+  # the venue's choice. Binance names the trade after the order; Alpaca books one FILL activity per
+  # partial fill, ids it after the fill, and names the order beside it — so matching on `tx_id`
+  # alone left every Alpaca row unlinked, and the bot column empty for the whole history.
+  #
+  # `tx_id` first: it is the row's own identity, and a venue that uses the order id there means it.
+  # Several fills of one order all point at that order, which is what the reader wants to see.
   def match_bot_transaction!(at)
-    return unless at.tx_id.present?
+    ids = [at.tx_id, (at.raw_data['order_id'] if at.raw_data.is_a?(Hash))].compact_blank
+    return if ids.empty?
 
-    bot_tx = Transaction.find_by(external_id: at.tx_id, exchange: @exchange)
+    candidates = Transaction.where(external_id: ids, exchange: @exchange).index_by(&:external_id)
+    bot_tx = ids.filter_map { |id| candidates[id] }.first
     at.bot_transaction = bot_tx if bot_tx
   end
 end

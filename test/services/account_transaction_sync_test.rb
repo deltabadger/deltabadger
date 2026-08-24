@@ -216,6 +216,23 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal bot_tx, at.bot_transaction
   end
 
+  # A broker whose ledger is keyed by FILL is the normal case, not the exception: Alpaca's activity
+  # id (`20260821095224541::82693d41-…`) is not the order id the bot placed, so matching on tx_id
+  # alone left every single row unlinked. One order can fill many times, and each fill points at
+  # the order that made it.
+  test 'matches a bot order through the fill it produced' do
+    bot = create(:dca_single_asset, user: @user, exchange: @exchange, with_api_key: false)
+    bot_tx = create(:transaction, bot: bot, exchange: @exchange, external_id: 'order-7')
+    fills = [@ledger_entries.first.merge(tx_id: 'fill-a', raw_data: { 'order_id' => 'order-7' }),
+             @ledger_entries.first.merge(tx_id: 'fill-b', raw_data: { 'order_id' => 'order-7' })]
+    @exchange.stubs(:get_ledger).returns(Result::Success.new(fills))
+
+    AccountTransactionSync.new(@api_key).sync!
+
+    linked = %w[fill-a fill-b].map { |id| AccountTransaction.find_by(tx_id: id).bot_transaction }
+    assert_equal [bot_tx, bot_tx], linked
+  end
+
   test 'does not match non-trade entries to bot transactions' do
     bot = create(:dca_single_asset, user: @user, exchange: @exchange, with_api_key: false)
     create(:transaction, bot: bot, exchange: @exchange, external_id: 'deposit-1')
