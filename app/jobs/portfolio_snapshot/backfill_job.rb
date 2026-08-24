@@ -46,7 +46,6 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # at the end of it are valued.
   def sweep(first_date)
     balances = Hash.new(0.to_d)
-    unfunded = Tracker::UnfundedCash.new
     invested = 0.to_d
     # An unpriced deposit or withdrawal leaves the money-in figure wrong from that day on, not just
     # on the day itself.
@@ -62,7 +61,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
       end
       # Once the whole day is applied: a fee that its own sale pays for, booked an hour earlier, is
       # not an account that could not cover it.
-      unfunded_on(balances, unfunded, date).each do |value|
+      unfunded_on(balances, date).each do |value|
         value.nil? ? invested_incomplete = true : invested += value
       end
       value, unpriced = value_on(balances, date)
@@ -123,9 +122,9 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # not being sold — it is paying. Reading it the other way leaves the account holding money it has
   # already spent, and disagreeing with the ledger about how much came in to spend it.
   def cash_leg?(transaction)
-    return false if ACQUISITIONS.include?(transaction.entry_type.to_sym)
+    return false unless Tracker::UnfundedCash::FEE_ON_TOP.include?(transaction.entry_type.to_s)
 
-    FIAT.include?(transaction.base_currency) || STABLECOINS.include?(transaction.base_currency)
+    Tracker::UnfundedCash.cash?(transaction.base_currency)
   end
 
   # The cash side of a single-row trade. Kraken books each leg as its own row with no quote, so
@@ -168,11 +167,14 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # Cash the ledger spent without ever seeing it arrive, valued on the day the deficit deepens: the
   # coins were bought with money whatever the venue reported. nil for a fiat deficit with no rate
   # that day — the figure cannot be stated, so the row says so.
-  def unfunded_on(balances, unfunded, date)
+  def unfunded_on(balances, date)
     balances.each_with_object([]) do |(symbol, balance), values|
-      shortfall = unfunded.shortfall(symbol, balance)
+      shortfall = Tracker::UnfundedCash.shortfall(symbol, balance)
       next if shortfall.zero?
 
+      # Added back, not just booked: the account really did hold that cash, and a sale that returns
+      # it later must land on a balance of zero rather than pay off a debt that was never owed.
+      balances[symbol] += shortfall
       values << (STABLECOINS.include?(symbol) ? shortfall : fiat_value(symbol, shortfall, date))
     end
   end

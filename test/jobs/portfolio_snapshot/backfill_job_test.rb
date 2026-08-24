@@ -88,6 +88,31 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
                  'the chart and the tile read the same ledger and must not disagree about it'
   end
 
+  test 'inferred funding is cash that is really there: selling it back reads as a gain' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:sell, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 30_000)
+    (1..3).each { |n| price('BTC', n, 25_000) }
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(4)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [25_000, 30_000, 30_000].map(&:to_d), rows.map(&:value_usd),
+                 'the dollars the sale returns are not swallowed by the deficit the buy left behind'
+    assert_equal [20_000.to_d] * 3, rows.map(&:invested_usd)
+  end
+
+  test 'a fee inside a cash deposit leaves the account once' do
+    tx(:deposit, day: 1, base_currency: 'USD', base_amount: 1_000, fee_amount: 10, fee_currency: 'USD')
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(3)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [990.to_d] * 2, rows.map(&:value_usd), '1,000 arrived less the 10 it cost to arrive'
+    assert_equal [1_000.to_d] * 2, rows.map(&:invested_usd)
+  end
+
   test 'a symbol with no price at all makes its days partial, never a zero-valued holding' do
     seed_ledger
     seed_prices

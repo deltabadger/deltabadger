@@ -158,12 +158,11 @@ module Tracker
       # return on nothing is not a number anyone can read. `UnfundedCash` books only what deepens
       # the deficit, so a venue that does report its funding is untouched.
       def contributions(rows, price_service)
-        unfunded = UnfundedCash.new
         cash = Hash.new(0.to_d)
         rows.group_by { |row| row[:transacted_at].to_date }.sum(0.to_d) do |_date, day|
           day.each { |row| cash_moves(row).each { |currency, amount| cash[currency] += amount } }
           day.sum(0.to_d) { |row| contribution(row, price_service) } +
-            unfunded_contribution(cash, unfunded, day.last, price_service)
+            unfunded_contribution(cash, day.last, price_service)
         end
       end
 
@@ -171,10 +170,12 @@ module Tracker
       # order nobody controls — a venue that books a sale's fee on the crypto leg and its proceeds
       # on the fiat leg would otherwise look, for the width of one row, like an account that could
       # not pay its own fee.
-      def unfunded_contribution(cash, unfunded, row, price_service)
+      def unfunded_contribution(cash, row, price_service)
         cash.sum(0.to_d) do |currency, balance|
-          shortfall = unfunded.shortfall(currency, balance)
+          shortfall = UnfundedCash.shortfall(currency, balance)
           next 0.to_d if shortfall.zero?
+
+          cash[currency] += shortfall
           next shortfall if STABLECOINS.include?(currency)
 
           price_service.convert_fiat(amount: shortfall, from: currency, to: 'USD',
@@ -199,10 +200,12 @@ module Tracker
           moves << [row[:base_currency], -row[:transfer_fee_amount].to_d] if type == 'withdrawal'
         elsif CASH_IN.include?(type) || CASH_OUT.include?(type)
           amount = row[:base_amount].to_d
-          # A fee taken in the asset being acquired only shrinks what arrived; taken in the cash the
-          # trade spends it leaves on top of it. The "sales are already net" rule is about the asset
-          # being sold, not about the cash paying for it.
-          amount += CASH_IN.include?(type) ? -fee : fee if row[:fee_currency] == row[:base_currency]
+          # A fee taken in the asset being acquired only shrinks what arrived; taken in the cash a
+          # trade spends, it leaves on top of what the row reports.
+          if row[:fee_currency] == row[:base_currency]
+            amount -= fee if CASH_IN.include?(type)
+            amount += fee if UnfundedCash::FEE_ON_TOP.include?(type)
+          end
           moves << [row[:base_currency], CASH_IN.include?(type) ? amount : -amount]
         end
         moves.select { |currency, amount| UnfundedCash.cash?(currency) && !amount.zero? }
