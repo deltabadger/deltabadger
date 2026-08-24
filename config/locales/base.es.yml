@@ -434,7 +434,7 @@ es:
         sync: 'Sincronizar'
         sync_started: 'Sincronizando transacciones de tus exchanges...'
         importing_from: 'Importando datos de %{exchange}…'
-        get_report: 'Obtener informe'
+        get_report: 'Informe fiscal'
         filter: 'Filtrar'
         bot: 'Bot'
         no_results: 'No se encontraron transacciones para los filtros seleccionados.'

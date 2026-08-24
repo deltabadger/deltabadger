@@ -34,6 +34,14 @@
     > .filters
         flex-wrap: nowrap
         gap: 1rem
+    // Everything past the scope switch, kept together so `space-between` has two sides to push
+    // apart rather than three things to spread.
+    &__end
+        display: flex
+        align-items: center
+        gap: 1rem
+        flex-wrap: wrap
+        flex: none
     &__sync
         display: flex
         align-items: center

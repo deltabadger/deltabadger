@@ -20,13 +20,14 @@
     </div>
   </div>
 <% else %>
-  <%# The order a bot page already reads in: chart head, chart, figure tiles, a filter bar, the
-      card the filter scopes, then the record. `container-type` is what lets the tiles' .data-grid
-      reflow to the column it has room for rather than to the width of the window. %>
+  <%# The scope line first, because it governs everything under it: which venue the page is about,
+      and what it will hand you. Then the bot page's own order — chart head, chart, figure tiles,
+      the card, the record. `container-type` is what lets the tiles' .data-grid reflow to the
+      column it has room for rather than to the width of the window. %>
   <div class="tracker">
+    <%= render 'exchange_filters' %>
     <%= render 'chart' %>
     <%= render 'tiles' %>
-    <%= render 'exchange_filters' %>
     <%= render 'holdings' %>
     <%= render 'record' %>
   </div>

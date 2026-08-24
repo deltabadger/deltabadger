@@ -437,7 +437,7 @@ en:
         sync: 'Sync'
         sync_started: 'Syncing transactions from your exchanges...'
         importing_from: 'Importing data from %{exchange}…'
-        get_report: 'Get Report'
+        get_report: 'Tax Report'
         filter: 'Filter'
         bot: 'Bot'
         no_results: 'No transactions found for the selected filters.'

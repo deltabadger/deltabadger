@@ -169,13 +169,22 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_select ".tracker-record .segmented__option[data-value='loss']", false, 'nothing lost here'
     assert_select '.tracker-record input[type=date][name=from]'
     assert_select '.tracker-record input[type=date][name=to]'
+    assert_select '.tracker-record a.rbutton', false, 'what the page hands you lives on the scope line now'
+    assert_select '.sbutton--sky', false, 'no filled primary button in the bar — the bot view uses rbuttons here'
+  end
+
+  test 'the scope line opens with the venues and ends with what the page can hand you' do
+    get tracker_path
+
+    assert_select '.tracker-exchanges > .filters:first-child', true, 'the scope switch opens the line'
     # `bot.details.stats.download_csv`, not `bot.details.download_csv`: the plan named the shorter
     # path, but the key the bot page has actually carried in all 15 locales since it shipped is the
     # one under `stats`. Reusing it beats adding a fifteen-file duplicate that says "Export" twice.
-    assert_select ".tracker-record a.rbutton[href^='#{export_tracker_path}']",
+    assert_select ".tracker-exchanges__end a.rbutton[href^='#{export_tracker_path}']",
                   text: I18n.t('bot.details.stats.download_csv')
-    assert_select ".tracker-record a.rbutton[href='#{export_modal_tracker_path}']", text: I18n.t('tracker.get_report')
-    assert_select '.sbutton--sky', false, 'no filled primary button in the bar — the bot view uses rbuttons here'
+    assert_select ".tracker-exchanges__end a.rbutton[href='#{export_modal_tracker_path}']",
+                  text: I18n.t('tracker.get_report')
+    assert_select '.tracker-exchanges > *:last-child.tracker-exchanges__end', true, 'and they close it'
   end
 
   # ── 6 · transactions table ───────────────────────────────────────────────────────────────────

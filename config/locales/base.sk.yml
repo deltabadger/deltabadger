@@ -444,7 +444,7 @@ sk:
         sync: 'Synchronizovať'
         sync_started: 'Synchronizácia transakcií z vašich búrz...'
         importing_from: 'Import dát z %{exchange}…'
-        get_report: 'Získať prehľad'
+        get_report: 'Daňový prehľad'
         filter: 'Filter'
         bot: 'Bot'
         no_results: 'Pre vybrané filtre neboli nájdené žiadne transakcie.'

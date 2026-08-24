@@ -436,7 +436,7 @@ pl:
         sync: 'Synchronizuj'
         sync_started: 'Synchronizacja transakcji z twoich giełd...'
         importing_from: 'Importowanie danych z %{exchange}…'
-        get_report: 'Pobierz raport'
+        get_report: 'Raport podatkowy'
         filter: 'Filtruj'
         no_results: 'Nie znaleziono transakcji dla wybranych filtrów.'
         transfer_badge: 'Transfer'

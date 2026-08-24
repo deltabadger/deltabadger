@@ -434,7 +434,7 @@ nl:
         sync: 'Synchroniseren'
         sync_started: 'Transacties worden gesynchroniseerd van je exchanges...'
         importing_from: 'Gegevens worden geïmporteerd van %{exchange}…'
-        get_report: 'Rapport ophalen'
+        get_report: 'Belastingrapport'
         filter: 'Filteren'
         no_results: 'Geen transacties gevonden voor de geselecteerde filters.'
         transfer_badge: 'Overboeking'

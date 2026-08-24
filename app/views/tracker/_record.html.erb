@@ -97,11 +97,5 @@
       <input type="date" name="from" value="<%= @date_from %>" class="sinput" data-action="change->form--submit#submit">
       <input type="date" name="to" value="<%= @date_to %>" class="sinput" data-action="change->form--submit#submit">
     <% end %>
-    <%= link_to t('bot.details.stats.download_csv'),
-                export_tracker_path(exchange_id: params[:exchange_id], from: params[:from], to: params[:to]),
-                class: 'rbutton' %>
-    <% if @exchanges.any? %>
-      <%= link_to t('tracker.get_report'), export_modal_tracker_path, class: 'rbutton', data: { turbo_frame: 'modal' } %>
-    <% end %>
   </div>
 </div>

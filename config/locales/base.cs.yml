@@ -444,7 +444,7 @@ cs:
         sync: 'Synchronizovat'
         sync_started: 'Synchronizace transakcí z vašich burz...'
         importing_from: 'Import dat z %{exchange}…'
-        get_report: 'Získat přehled'
+        get_report: 'Daňový přehled'
         filter: 'Filtr'
         bot: 'Bot'
         no_results: 'Pro vybrané filtry nebyly nalezeny žádné transakce.'
