@@ -29,9 +29,12 @@
 
     <div data-tauri-drag-region class="titlebar-drag-region"></div>
 
-    <div id="flash" data-turbo-permanent>
-      <%= render 'layouts/flash' %>
-      <%= render 'layouts/flash_syncing' if AppConfig.setup_sync_in_progress? %>
+    <div class="flash-stack">
+      <div id="flash" data-turbo-permanent>
+        <%= render 'layouts/flash' %>
+        <%= render 'layouts/flash_syncing' if AppConfig.setup_sync_in_progress? %>
+      </div>
+      <%= yield :flash_extra %>
     </div>
 
     <%= render 'layouts/navbar' %>
