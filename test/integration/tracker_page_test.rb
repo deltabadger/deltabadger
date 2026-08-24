@@ -66,7 +66,7 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_select '.data-grid__item .label', text: I18n.t('bot.details.stats.portfolio_value')
     assert_select '.data-grid__item .label', text: I18n.t('bot.dca_index.realised_pnl')
     assert_select '.data-grid__item .label', text: I18n.t('tracker.fees_paid')
-    assert_select '.data-grid__item__value', text: /\$29,000\.00/ # 30,000 in − 1,000 out
+    assert_select '.data-grid__item__value', text: /\$33,020\.00/ # 30,000 in − 1,000 out + the 4,020 the venues spent without reporting its arrival
     assert_select '.data-grid__item__value', text: /\$80,000\.00/
     assert_select '.data-grid__item__value.text-success', text: /1,000\.00/ # the ETH round-trip
     assert_select '.data-grid__item__value', text: /\$20\.00/
@@ -232,7 +232,7 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_select 'tr.tracker-row td', text: 'ETH', count: 0
     assert_select '.tracker-positions tbody tr', 1
     assert_select '.data-grid__item__value', text: /\$80,000\.00/, count: 1 # whole portfolio, still
-    assert_select '.data-grid__item__value', text: /\$29,000\.00/, count: 1
+    assert_select '.data-grid__item__value', text: /\$33,020\.00/, count: 1
   end
 
   test 'a cold exchange-scoped ledger warms its own key' do
@@ -256,7 +256,7 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_select '.tracker-positions td', text: /\$/, count: 0
     assert_select '.tracker-positions td.text-success', text: /\+25\.0%/, count: 1
     # The figures this page would otherwise print, in every form they could take.
-    assert_no_match(/80,000|60,000|29,000|30,020|20,013|20\.00 USD|4,000\.00|5,000\.00|1,000\.00/, response.body)
+    assert_no_match(/80,000|60,000|33,020|30,020|20,013|20\.00 USD|4,000\.00|5,000\.00|1,000\.00/, response.body)
   end
 
   # ── 10 · display currency ────────────────────────────────────────────────────────────────────
