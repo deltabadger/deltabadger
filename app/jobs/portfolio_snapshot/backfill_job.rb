@@ -119,7 +119,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   end
 
   def cash_moves(transaction)
-    return [] if Tracker::UnfundedCash.derivative?(transaction.tx_id)
+    return [] if Tracker::UnfundedCash.borrowed?(transaction.tx_id)
 
     Tracker::UnfundedCash.moves(**transaction.slice(*Tracker::UnfundedCash::MOVE_KEYS).symbolize_keys)
   end
