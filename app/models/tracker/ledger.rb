@@ -21,10 +21,6 @@ module Tracker
     CACHE_TTL = 30.days
     FIAT = Tax::PriceService::FIAT_CURRENCIES
     STABLECOINS = Tax::PriceService::STABLECOINS
-    # What a row does to the balance of its base asset, for the entry types that touch it at all.
-    CASH_IN = %w[buy swap_in staking_reward lending_interest airdrop mining other_income deposit
-                 adjustment].freeze
-    CASH_OUT = %w[sell swap_out withdrawal fee lost withholding_tax].freeze
 
     # FIFO with the two things the tracker needs and a tax report does not.
     #
@@ -155,85 +151,36 @@ module Tracker
       #
       # And what it did not: cash spent that was never seen arriving. A venue that reports trades
       # but not the transfer behind them would otherwise show a portfolio bought for nothing, and a
-      # return on nothing is not a number anyone can read. `UnfundedCash` books only what deepens
-      # the deficit, so a venue that does report its funding is untouched.
+      # return on nothing is not a number anyone can read.
+      #
+      # Cash is pooled per VENUE, because that is where a deficit means anything: dollars sitting at
+      # a broker cannot pay for an exchange's trade, and a broker's own deficit is borrowed rather
+      # than missing.
       def contributions(rows, price_service)
         cash = Hash.new(0.to_d)
-        borrowable = borrowable_currencies(rows)
-        rows.slice_when { |before, after| event_of(before) != event_of(after) }.sum(0.to_d) do |event|
-          event.each { |row| cash_moves(row).each { |currency, amount| cash[currency] += amount } }
-          event.sum(0.to_d) { |row| contribution(row, price_service) } +
-            unfunded_contribution(cash, borrowable, event.last, price_service)
+        closes = UnfundedCash.closers(rows.map { |row| row[:group_id] })
+        rows.each_with_index.sum(0.to_d) do |row, index|
+          UnfundedCash.moves(**row.slice(*UnfundedCash::MOVE_KEYS))
+                      .each { |currency, amount| cash[[row[:exchange], currency]] += amount }
+          reported = contribution(row, price_service)
+          next reported unless closes.include?(index)
+
+          reported + unfunded_contribution(cash, row, price_service)
         end
       end
 
-      # One exchange EVENT, never a row and never a whole day. A venue that books a sale's fee on
-      # one leg and its proceeds on another shares a group id between them, and reading the fee
-      # alone looks like an account that could not pay it — while waiting for the end of the day
-      # would let an afternoon sale un-spend what the morning had to find first.
-      def event_of(row)
-        row[:group_id].presence || row.object_id
-      end
-
-      # The currencies a venue that lends settles in. Their deficits cannot be told apart from
-      # borrowing, so they are read as reported and nothing is inferred from them.
-      def borrowable_currencies(rows)
-        rows.select { |row| UnfundedCash.lends_cash?(row[:exchange]) }
-            .flat_map { |row| cash_moves(row).map(&:first) }.to_set
-      end
-
-      def unfunded_contribution(cash, borrowable, row, price_service)
-        cash.sum(0.to_d) do |currency, balance|
-          next 0.to_d if borrowable.include?(currency)
+      def unfunded_contribution(cash, row, price_service)
+        cash.sum(0.to_d) do |(exchange, currency), balance|
+          next 0.to_d if UnfundedCash.lends_cash?(exchange)
 
           shortfall = UnfundedCash.shortfall(currency, balance)
           next 0.to_d if shortfall.zero?
 
-          cash[currency] += shortfall
+          cash[[exchange, currency]] += shortfall
           next shortfall if STABLECOINS.include?(currency)
 
           price_service.convert_fiat(amount: shortfall, from: currency, to: 'USD',
                                      timestamp: row[:transacted_at])
-        end
-      end
-
-      # The cash one row moves, which is all a shortfall can be read from: the base leg when the
-      # base is itself cash (bank funding, a broker's dollar fee, a venue that books each leg of a
-      # trade as its own row), the quote leg of a single-row trade, and a fee charged in anything
-      # other than the base. The same moves PortfolioSnapshot's sweep applies to its balances.
-      def cash_moves(row)
-        type = row[:entry_type].to_s
-        fee = row[:fee_amount].to_d
-        moves = []
-        moves << [row[:fee_currency], -fee] if fee.positive? && row[:fee_currency] != row[:base_currency]
-        moves << [row[:quote_currency], quote_direction(type) * row[:quote_amount].to_d] if row[:quote_amount]
-        if row[:linked]
-          # The user's own transfer: the coins never left the tracked universe, so only the network
-          # fee is really gone. Scoped to one venue the rows arrive flattened and this never fires —
-          # there, the far leg is out of scope and the move is real.
-          moves << [row[:base_currency], -row[:transfer_fee_amount].to_d] if type == 'withdrawal'
-        elsif CASH_IN.include?(type) || CASH_OUT.include?(type)
-          amount = row[:base_amount].to_d
-          # A fee taken in the asset being acquired only shrinks what arrived; taken in the cash a
-          # trade spends, it leaves on top of what the row reports.
-          if row[:fee_currency] == row[:base_currency]
-            # Clamped, as the sweep clamps it: a fee larger than what arrived leaves nothing, it
-            # does not leave a hole for the inference to read as borrowed money.
-            amount = [amount - fee, 0.to_d].max if CASH_IN.include?(type)
-            # And on top only where the row is a settlement leg of its own — a trade that carries
-            # its own quote reports its base net, fee included.
-            amount += fee if UnfundedCash::FEE_ON_TOP.include?(type) && row[:quote_amount].blank?
-          end
-          moves << [row[:base_currency], CASH_IN.include?(type) ? amount : -amount]
-        end
-        moves.select { |currency, amount| UnfundedCash.cash?(currency) && !amount.zero? }
-      end
-
-      def quote_direction(type)
-        case type
-        when 'buy' then -1
-        when 'sell', 'return_of_capital' then 1
-        else 0
         end
       end
 

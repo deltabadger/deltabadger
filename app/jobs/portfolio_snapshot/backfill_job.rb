@@ -47,6 +47,12 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # at the end of it are valued.
   def sweep(first_date)
     balances = Hash.new(0.to_d)
+    # Cash per VENUE, beside the balances the day is valued from: dollars at a broker cannot pay for
+    # an exchange's trade, and a broker's own deficit is borrowed rather than missing. Both readers
+    # of the ledger enumerate the moves with `UnfundedCash.moves`, so neither can hold a second
+    # opinion about what a row does to cash.
+    cash = Hash.new(0.to_d)
+    closers = event_closers
     invested = 0.to_d
     # An unpriced deposit or withdrawal leaves the money-in figure wrong from that day on, not just
     # on the day itself.
@@ -57,14 +63,12 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
       while pending.first && pending.first.transacted_at.to_date <= date
         transaction = pending.shift
         apply(balances, transaction)
+        cash_moves(transaction).each { |currency, amount| cash[[transaction.exchange.name_id, currency]] += amount }
         delta = contribution(transaction)
         delta.nil? ? invested_incomplete = true : invested += delta
-        # Once the whole EVENT is applied, so a fee its own sale pays for is not read as an account
-        # that could not cover it — but no later than that, or an afternoon sale would un-spend a
-        # morning the venue never funded.
-        next if same_event?(transaction, pending.first)
+        next unless closers.include?(transaction.id)
 
-        unfunded_on(balances, date).each do |value|
+        unfunded_on(cash, balances, date).each do |value|
           value.nil? ? invested_incomplete = true : invested += value
         end
       end
@@ -105,8 +109,14 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     apply_quote(balances, transaction)
   end
 
-  def same_event?(transaction, following)
-    following.present? && transaction.group_id.present? && transaction.group_id == following.group_id
+  # The transactions a shortfall may be read at, by id — see `UnfundedCash.closers`.
+  def event_closers
+    closing = Tracker::UnfundedCash.closers(@transactions.map(&:group_id))
+    @transactions.each_with_index.filter_map { |transaction, index| transaction.id if closing.include?(index) }.to_set
+  end
+
+  def cash_moves(transaction)
+    Tracker::UnfundedCash.moves(**transaction.slice(*Tracker::UnfundedCash::MOVE_KEYS).symbolize_keys)
   end
 
   def acquired(transaction, amount)
@@ -176,26 +186,20 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # Cash the ledger spent without ever seeing it arrive, valued on the day the deficit deepens: the
   # coins were bought with money whatever the venue reported. nil for a fiat deficit with no rate
   # that day — the figure cannot be stated, so the row says so.
-  def unfunded_on(balances, date)
-    balances.each_with_object([]) do |(symbol, balance), values|
-      next if borrowable_currencies.include?(symbol)
+  def unfunded_on(cash, balances, date)
+    cash.each_with_object([]) do |((exchange, symbol), balance), values|
+      next if Tracker::UnfundedCash.lends_cash?(exchange)
 
       shortfall = Tracker::UnfundedCash.shortfall(symbol, balance)
       next if shortfall.zero?
 
-      # Added back, not just booked: the account really did hold that cash, and a sale that returns
-      # it later must land on a balance of zero rather than pay off a debt that was never owed.
+      # Added back to both, not just booked: the account really did hold that cash, so a sale that
+      # returns it lands on a balance of zero rather than paying off a debt that was never owed —
+      # and the day it was spent is valued with it present.
+      cash[[exchange, symbol]] += shortfall
       balances[symbol] += shortfall
       values << (STABLECOINS.include?(symbol) ? shortfall : fiat_value(symbol, shortfall, date))
     end
-  end
-
-  # The currencies a venue that lends settles in: at a broker, settled cash below zero is borrowed
-  # rather than missing, and the two cannot be told apart from a balance.
-  def borrowable_currencies
-    @borrowable_currencies ||= @transactions.select { |t| Tracker::UnfundedCash.lends_cash?(t.exchange.name_id) }
-                                            .flat_map { |t| [t.base_currency, t.quote_currency, t.fee_currency] }
-                                            .compact.select { |c| Tracker::UnfundedCash.cash?(c) }.to_set
   end
 
   # A negative balance is history we do not have — an exchange whose ledger window starts after the
