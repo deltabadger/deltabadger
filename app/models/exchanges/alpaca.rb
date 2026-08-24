@@ -158,9 +158,13 @@ class Exchanges::Alpaca < Exchange
     Result::Success.new(tickers_info)
   end
 
-  # Alpaca quotes stock prices directly in USD; the central MarketData feed
-  # (crypto-only) has no entries for them. Only map stock assets here — USD
-  # cash (category 'Fiat') is still priced via MarketData (always 1.0).
+  # Alpaca quotes stock prices directly in USD; the central MarketData feed (crypto-only) has no
+  # entries for them. Only stock assets are mapped here.
+  #
+  # Cash is NOT left to the feed. It used to be, on the belief that the feed answers 1.0 for `usd`
+  # — it does not: `usd` is a CoinGecko coin id belonging to a micro-cap token, and a dollar came
+  # back at a tenth of a cent. `AccountBalance::Sync` resolves cash before any feed is asked, for
+  # every exchange at once, so nothing needs to be mapped here.
   def get_usd_prices(assets:)
     stock_assets = Array(assets).select { |a| a.category == 'Stock' }
     return Result::Success.new({}) if stock_assets.empty?
