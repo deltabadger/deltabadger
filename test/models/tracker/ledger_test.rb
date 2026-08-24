@@ -46,14 +46,40 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
                  'the second buy spends the deposit; only the first one needed money from nowhere'
   end
 
-  test 'a linked cash transfer is not money from outside' do
+  test 'a linked cash transfer moves between the pots and is booked once, at the venue it left' do
     deposit = tx(:deposit, key: @key_kraken, day: 2, base_currency: 'USDC', base_amount: 1_000)
     tx(:withdrawal, day: 1, base_currency: 'USDC', base_amount: 1_000, linked_transaction: deposit)
 
     summary = Tracker::Ledger.for(@user)
 
-    assert_equal 0.to_d, summary.total_invested_usd,
-                 'the cash moved between the user\'s own venues — spending it is what would show where it came from'
+    assert_equal 1_000.to_d, summary.total_invested_usd,
+                 'the transfer itself contributes nothing; the venue it left never reported receiving it'
+  end
+
+  test 'a broker in the portfolio does not stop a spot venue from being read' do
+    alpaca = create(:alpaca_exchange)
+    alpaca_key = create(:api_key, user: @user, exchange: alpaca)
+    tx(:deposit, key: alpaca_key, day: 1, base_currency: 'USD', base_amount: 1)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_001.to_d, summary.total_invested_usd,
+                 'the dollar at the broker says nothing about the twenty thousand the exchange spent'
+  end
+
+  test 'a grouped event is read whole even with an unrelated row between its legs' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000,
+             at: @day.call(1))
+    tx(:fee, day: 2, base_currency: 'USDC', base_amount: 78, at: @day.call(2), group_id: 'sale-2')
+    tx(:staking_reward, day: 2, base_currency: 'ETH', base_amount: 1, at: @day.call(2) + 30.minutes)
+    tx(:sell, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 30_000,
+              at: @day.call(2) + 1.hour, group_id: 'sale-2')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_000.to_d, summary.total_invested_usd,
+                 'the fee and the sale are one event whatever landed between them'
   end
 
   test 'a round trip inside one day still shows what it cost to open' do
