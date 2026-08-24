@@ -43,9 +43,27 @@ export default class extends Controller {
   // Fired by the shared `segmented` control, which owns the chip and the pressed state. This
   // only decides what the list shows.
   filter(event) {
+    this.lockColumns()
     this.currentValue = event.detail.value
     this.updateVisibility()
     this.updateHeader()
+  }
+
+  // A shrink-to-fit table measures its columns from the rows that are VISIBLE, so every tab used to
+  // move every column. Pin the widths the unfiltered table asks for, the first time it is filtered:
+  // by then it is on screen with its fonts settled, and still showing everything it has. A table
+  // that swaps its own headers (columnHeader) has no one set of columns to pin, so it keeps
+  // measuring itself.
+  lockColumns() {
+    if (this.locked || this.hasColumnHeaderTarget) return
+    this.locked = true
+
+    const table = this.element.querySelector("table")
+    const headers = table?.tHead?.rows[0]?.cells
+    if (!headers) return
+
+    for (const th of headers) th.style.width = `${th.getBoundingClientRect().width}px`
+    table.style.tableLayout = "fixed"
   }
 
   updateVisibility() {

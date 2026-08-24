@@ -5,7 +5,8 @@
 <%= turbo_stream_from "user_#{current_user.id}", :preferences %>
 <%= turbo_stream_from "user_#{current_user.id}", :tax_report %>
 <%= turbo_stream_from "user_#{current_user.id}", :sync %>
-<%= render 'sync_warning', exchanges: @sync_failures %>
+<%# A standing warning about the user's data, not a line of the page: it belongs in the flash column. %>
+<% content_for :flash_extra do %><%= render 'sync_warning', exchanges: @sync_failures %><% end %>
 <% if @pending_report %>
   <div data-controller="auto-download" data-auto-download-url-value="<%= download_tax_report_tracker_path(country: @pending_report[:country], year: @pending_report[:year], report_scope: @pending_report[:report_scope]) %>"></div>
 <% end %>
