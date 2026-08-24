@@ -241,11 +241,18 @@ module TrackerHelper
     (@account_transactions || []).map(&:base_currency).uniq
   end
 
+  # The cost of what the venue says is there, at the ledger's average — but only when the two agree
+  # about the quantity. They are read at different moments: the balance is a snapshot and the ledger
+  # is current, so what the ledger has recorded since that snapshot (`@pending_quantities`) is added
+  # to the balance before comparing. Without that, one bot buy is enough to make a holding look
+  # unvouchable and take its P/L away. The cost and the value both stay the snapshot's.
   def holding_cost(slice, position)
     quantity = slice[:quantity].to_d
     return if position.nil? || position.incomplete
     return if !quantity.positive? || !position.quantity.positive? || !position.cost_usd.positive?
-    return if ((position.quantity - quantity) / quantity).abs > RECONCILE_TOLERANCE
+
+    expected = quantity + (@pending_quantities || {}).fetch(position.symbol, 0.to_d)
+    return if !expected.positive? || ((position.quantity - expected) / expected).abs > RECONCILE_TOLERANCE
 
     position.avg_cost_usd * quantity
   end

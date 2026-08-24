@@ -262,9 +262,10 @@ class TrackerController < ApplicationController
   def load_history
     @history = PortfolioSnapshot.series(current_user, exchange: @scope_exchange)
     if @history.nil?
-      # A venue's series is swept on demand: the chart shows its empty landscape until the job lands.
+      # A venue's series is swept on demand: the chart spins until the job lands.
       PortfolioSnapshot::BackfillJob.perform_later(current_user.id, @scope_exchange.id)
       @history = []
+      @history_loading = true
       return
     end
 
@@ -272,6 +273,7 @@ class TrackerController < ApplicationController
     return if @scope_exchange || first_transaction.nil? || first_transaction >= Date.current
     return if @history.first && @history.first.date <= first_transaction
 
+    @history_loading = @history.empty?
     PortfolioSnapshot::BackfillJob.perform_later(current_user.id)
   end
 
@@ -296,9 +298,24 @@ class TrackerController < ApplicationController
                                   (@portfolio_last_synced_at - @portfolio_oldest_priced_at) > 5.minutes
     # Balances are priced and stored in USD; the denominator is the last step before display.
     @denomination = current_user.denomination
+    @pending_quantities = quantities_since(@portfolio_last_synced_at)
     @portfolio_has_keys = current_user.api_keys.where(key_type: :trading, status: :correct).exists?
     @portfolio_never_synced = @portfolio_has_keys && balances.empty? &&
                               !AccountBalance.for_user(current_user).exists?
+  end
+
+  # What the ledger has seen since the balances were taken. A balance is a snapshot and the bots go
+  # on trading: without this, every asset bought since the last sync looks like a holding whose
+  # quantity the ledger cannot vouch for, and the page withholds a P/L it actually knows.
+  def quantities_since(synced_at)
+    return {} if synced_at.nil?
+
+    scope = AccountTransaction.for_user(current_user).where(transacted_at: synced_at..)
+    scope = scope.for_exchange(@scope_exchange) if @scope_exchange
+    scope.group(:base_currency, :entry_type).sum(:base_amount).each_with_object(Hash.new(0.to_d)) do |((symbol, type), amount), moved|
+      moved[symbol] += amount.to_d if Tracker::UnfundedCash::BASE_IN.include?(type)
+      moved[symbol] -= amount.to_d if Tracker::UnfundedCash::BASE_OUT.include?(type)
+    end
   end
 
   # Reads the pending report's own key, not the export preferences: toggling a radio in the modal

@@ -48,6 +48,24 @@
         gap: 1.5rem
         flex: none
 
+.tracker-holdings__more
+    display: flex
+    flex-direction: column
+    summary
+        cursor: pointer
+        text-align: center
+        padding: 1rem
+        order: 0
+    &[open] > summary
+        order: 1
+    &__close
+        display: none
+    &[open]
+        .tracker-holdings__more__open
+            display: none
+        .tracker-holdings__more__close
+            display: inline
+
 .tracker-sync
     display: flex
     align-items: center

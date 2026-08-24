@@ -524,7 +524,8 @@ cs:
         fees_paid: 'Zaplacené poplatky'
         synced_ago: 'Synchronizováno před %{ago}'
         history_partial: 'Některé dny jsou odhad: část historie se nepodařilo ocenit.'
-        more: 'Více'
+        show_more: 'Zobrazit více'
+        show_less: 'Zobrazit méně'
         other: 'Ostatní'
         basis_incomplete: 'U tohoto aktiva chybí pořizovací cena, proto zisk ani ztrátu nezobrazujeme.'
         record:

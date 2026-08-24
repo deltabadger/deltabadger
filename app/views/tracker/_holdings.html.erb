@@ -43,8 +43,13 @@
           <% end %>
         </div>
         <% if folded.any? %>
+          <%# The toggle follows the rows it opens: a column whose summary is ordered last once the
+              details are open, so it never sits stranded in the middle of the list. %>
           <details class="tracker-holdings__more">
-            <summary class="label"><%= t('tracker.more') %> · <%= folded.size %></summary>
+            <summary class="label">
+              <span class="tracker-holdings__more__open"><%= t('tracker.show_more') %></span>
+              <span class="tracker-holdings__more__close"><%= t('tracker.show_less') %></span>
+            </summary>
             <% folded.each do |slice| %>
               <%= render 'holding_row', slice: slice, position: positions[slice[:asset].symbol],
                          total: total, hide_money: hide_money %>

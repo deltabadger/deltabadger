@@ -516,7 +516,8 @@ da:
         fees_paid: 'Betalte gebyrer'
         synced_ago: 'Synkroniseret for %{ago} siden'
         history_partial: 'Nogle dage er et skøn: en del af historikken kunne ikke værdisættes.'
-        more: 'Mere'
+        show_more: 'Vis flere'
+        show_less: 'Vis færre'
         other: 'Andet'
         basis_incomplete: 'Ingen anskaffelsessum for denne beholdning, så vi viser hverken gevinst eller tab.'
         record:

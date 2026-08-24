@@ -509,7 +509,8 @@ pl:
         fees_paid: 'Zapłacone opłaty'
         synced_ago: 'Zsynchronizowano %{ago} temu'
         history_partial: 'Niektóre dni są szacunkowe — części historii nie dało się wycenić.'
-        more: 'Więcej'
+        show_more: 'Pokaż więcej'
+        show_less: 'Pokaż mniej'
         other: 'Inne'
         basis_incomplete: 'Brak kosztu nabycia tego aktywa, więc nie pokazujemy zysku ani straty.'
         record:
