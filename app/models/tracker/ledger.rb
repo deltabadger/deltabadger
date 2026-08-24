@@ -160,11 +160,19 @@ module Tracker
       def contributions(rows, price_service)
         cash = Hash.new(0.to_d)
         borrowable = borrowable_currencies(rows)
-        rows.group_by { |row| row[:transacted_at].to_date }.sum(0.to_d) do |_date, day|
-          day.each { |row| cash_moves(row).each { |currency, amount| cash[currency] += amount } }
-          day.sum(0.to_d) { |row| contribution(row, price_service) } +
-            unfunded_contribution(cash, borrowable, day.last, price_service)
+        rows.slice_when { |before, after| event_of(before) != event_of(after) }.sum(0.to_d) do |event|
+          event.each { |row| cash_moves(row).each { |currency, amount| cash[currency] += amount } }
+          event.sum(0.to_d) { |row| contribution(row, price_service) } +
+            unfunded_contribution(cash, borrowable, event.last, price_service)
         end
+      end
+
+      # One exchange EVENT, never a row and never a whole day. A venue that books a sale's fee on
+      # one leg and its proceeds on another shares a group id between them, and reading the fee
+      # alone looks like an account that could not pay it — while waiting for the end of the day
+      # would let an afternoon sale un-spend what the morning had to find first.
+      def event_of(row)
+        row[:group_id].presence || row.object_id
       end
 
       # The currencies a venue that lends settles in. Their deficits cannot be told apart from
@@ -174,10 +182,6 @@ module Tracker
             .flat_map { |row| cash_moves(row).map(&:first) }.to_set
       end
 
-      # A DAY at a time, never a row: one exchange event reaches the ledger as several rows, in an
-      # order nobody controls — a venue that books a sale's fee on the crypto leg and its proceeds
-      # on the fiat leg would otherwise look, for the width of one row, like an account that could
-      # not pay its own fee.
       def unfunded_contribution(cash, borrowable, row, price_service)
         cash.sum(0.to_d) do |currency, balance|
           next 0.to_d if borrowable.include?(currency)

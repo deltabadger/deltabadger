@@ -113,6 +113,17 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     assert_equal [1_000.to_d] * 2, rows.map(&:invested_usd)
   end
 
+  test 'a round trip inside one day still books what it cost to open' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
+    create(:account_transaction, api_key: @key, entry_type: :sell, base_currency: 'BTC', base_amount: 1,
+                                 quote_currency: 'USDC', quote_amount: 30_000, transacted_at: @day.call(1) + 4.hours)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(3)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    assert_equal [20_000.to_d] * 2, PortfolioSnapshot.for_user(@user).order(:date).pluck(:invested_usd)
+  end
+
   test 'a broker that lends is short because it lent: the sweep infers nothing from it' do
     alpaca = create(:alpaca_exchange)
     alpaca_key = create(:api_key, user: @user, exchange: alpaca)

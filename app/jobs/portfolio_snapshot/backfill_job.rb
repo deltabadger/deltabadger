@@ -28,7 +28,8 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     # a price service — which is the only other thing that loads it.
     Tax::EcbFxRates.ensure_loaded!
     @user = User.find(user_id)
-    @transactions = AccountTransaction.for_user(@user).by_date_asc.includes(:linked_transaction, :inverse_link).to_a
+    @transactions = AccountTransaction.for_user(@user).by_date_asc
+                                      .includes(:exchange, :linked_transaction, :inverse_link).to_a
     return if @transactions.empty?
 
     @last_date = Date.current - 1
@@ -58,11 +59,14 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
         apply(balances, transaction)
         delta = contribution(transaction)
         delta.nil? ? invested_incomplete = true : invested += delta
-      end
-      # Once the whole day is applied: a fee that its own sale pays for, booked an hour earlier, is
-      # not an account that could not cover it.
-      unfunded_on(balances, date).each do |value|
-        value.nil? ? invested_incomplete = true : invested += value
+        # Once the whole EVENT is applied, so a fee its own sale pays for is not read as an account
+        # that could not cover it — but no later than that, or an afternoon sale would un-spend a
+        # morning the venue never funded.
+        next if same_event?(transaction, pending.first)
+
+        unfunded_on(balances, date).each do |value|
+          value.nil? ? invested_incomplete = true : invested += value
+        end
       end
       value, unpriced = value_on(balances, date)
       { user_id: @user.id, date: date, value_usd: value, invested_usd: invested,
@@ -99,6 +103,10 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     end
     consume_fee(balances, transaction)
     apply_quote(balances, transaction)
+  end
+
+  def same_event?(transaction, following)
+    following.present? && transaction.group_id.present? && transaction.group_id == following.group_id
   end
 
   def acquired(transaction, amount)
