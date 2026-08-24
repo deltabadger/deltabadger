@@ -22,8 +22,8 @@
     "@tauri-apps/cli": "^2.10.1"
   },
   "scripts": {
-    "build": "bun build app/javascript/*.js --bundle --sourcemap=linked --format=esm --outdir=app/assets/builds --public-path=/assets/",
-    "build:watch": "bun build app/javascript/*.js --bundle --sourcemap=linked --format=esm --outdir=app/assets/builds --public-path=/assets/ --watch",
+    "build": "bun build app/javascript/application.js --bundle --sourcemap=linked --format=esm --outdir=app/assets/builds --public-path=/assets/",
+    "build:watch": "bun build app/javascript/application.js --bundle --sourcemap=linked --format=esm --outdir=app/assets/builds --public-path=/assets/ --watch",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build"

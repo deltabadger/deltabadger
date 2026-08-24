@@ -33,6 +33,14 @@ module Deltabadger
     # Silence Chrome DevTools workspace requests
     config.middleware.use Middleware::ChromeDevtools
 
+    # Rails advertises every stylesheet_link_tag and javascript_include_tag asset in a
+    # Link: rel=preload response header. Turbo then fetches pages the browser already holds
+    # those assets for, so each visit starts preloads nothing consumes and the console fills
+    # with "preloaded but not used". The tags themselves already fetch what the page needs;
+    # the header only duplicates them, and it never covered application.js anyway — Rails
+    # omits type: "module" scripts from it.
+    config.action_view.preload_links_header = false
+
     # explicit app timezone
     config.time_zone = 'UTC'
     config.active_record.default_timezone = :utc
