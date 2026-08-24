@@ -113,6 +113,23 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     assert_equal [1_000.to_d] * 2, rows.map(&:invested_usd)
   end
 
+  test 'a broker that lends is short because it lent: the sweep infers nothing from it' do
+    alpaca = create(:alpaca_exchange)
+    alpaca_key = create(:api_key, user: @user, exchange: alpaca)
+    create(:asset, symbol: 'QQQM', external_id: 'QQQM.US', category: 'ETF')
+    create(:account_transaction, api_key: alpaca_key, entry_type: :deposit, base_currency: 'USD',
+                                 base_amount: 10_000, quote_currency: nil, quote_amount: nil,
+                                 transacted_at: @day.call(1))
+    create(:account_transaction, api_key: alpaca_key, entry_type: :buy, base_currency: 'QQQM', base_amount: 10,
+                                 quote_currency: 'USD', quote_amount: 20_000, transacted_at: @day.call(2))
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(4)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    assert_equal [10_000.to_d] * 3, PortfolioSnapshot.for_user(@user).order(:date).pluck(:invested_usd),
+                 'the margin loan that bought the rest is not money the user put in'
+  end
+
   test 'a symbol with no price at all makes its days partial, never a zero-valued holding' do
     seed_ledger
     seed_prices
