@@ -36,6 +36,51 @@ class AccountBalance::SyncTest < ActiveSupport::TestCase
     assert_not_nil btc_bal.priced_at
   end
 
+  # A dollar is worth a dollar. `usd` is ALSO a CoinGecko coin id — a micro-cap token — so a cash
+  # balance looked up like any other asset came back at a fraction of a cent, and took the whole
+  # account's value down with it.
+  test 'cash is valued at its exchange rate, never through the market feed' do
+    usd = create(:asset, :usd)
+    @exchange.stubs(:get_balances).returns(Result::Success.new(
+                                             usd.id => { free: 84_914.to_d, locked: 0 },
+                                             @btc.id => { free: 1.to_d, locked: 0 }
+                                           ))
+    # The feed is asked about bitcoin and nothing else: a coin id that happens to spell a currency
+    # must never reach it.
+    MarketData.expects(:get_prices).with(coin_ids: ['bitcoin'], currency: 'usd')
+              .returns(Result::Success.new('bitcoin' => 50_000.0))
+
+    AccountBalance::Sync.new(@api_key).sync!
+
+    cash = AccountBalance.find_by(user: @user, asset: usd)
+    assert_equal 1.to_d, cash.usd_price
+    assert_equal 84_914.to_d, cash.usd_value
+    assert_not_nil cash.priced_at
+  end
+
+  test 'cash in another currency is valued at the day\'s rate' do
+    eur = create(:asset, :eur)
+    @exchange.stubs(:get_balances).returns(Result::Success.new(eur.id => { free: 1_000.to_d, locked: 0 }))
+    Utilities::Currency.stubs(:exchange_rate).with(from: 'EUR', to: 'USD').returns(Result::Success.new(1.1))
+    MarketData.expects(:get_prices).never
+
+    AccountBalance::Sync.new(@api_key).sync!
+
+    assert_equal 1_100.to_d, AccountBalance.find_by(user: @user, asset: eur).usd_value
+  end
+
+  # A ticker is not a category: ProShares Ultra Semiconductors trades as USD, and it is a security
+  # with a price like any other.
+  test 'a security that merely spells a currency is still priced by the market' do
+    usd_stock = create(:asset, symbol: 'USD', external_id: 'USD.US', category: 'Stock')
+    @exchange.stubs(:get_balances).returns(Result::Success.new(usd_stock.id => { free: 2.to_d, locked: 0 }))
+    MarketData.stubs(:get_prices).returns(Result::Success.new('USD.US' => 90.0))
+
+    AccountBalance::Sync.new(@api_key).sync!
+
+    assert_equal 180.to_d, AccountBalance.find_by(user: @user, asset: usd_stock).usd_value
+  end
+
   test 'reuses stored price as stale fallback when fresh pricing fails' do
     # Seed a previous successful sync
     @exchange.stubs(:get_balances).returns(Result::Success.new(

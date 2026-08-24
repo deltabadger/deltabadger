@@ -1,4 +1,7 @@
 class AccountBalance::Sync
+  # Cash, by the asset table's own reckoning. Everything else is something with a market price.
+  CASH_CATEGORIES = %w[Fiat Currency].freeze
+
   # Returned in Result::Success.data. Tells the caller which assets were synced
   # and whether pricing could be refreshed for any of them.
   Summary = Struct.new(:synced, :priced_fresh, :priced_stale, :unpriced, :pricing_error, keyword_init: true) do
@@ -25,6 +28,13 @@ class AccountBalance::Sync
 
     assets = assets_by_id.values
 
+    # Cash is not an asset to look up: a dollar is worth a dollar, and anything else converts. It
+    # is resolved FIRST and excluded from every feed below, because `usd` is also a CoinGecko coin
+    # id — a micro-cap token — and a cash balance priced through the market comes back worth a
+    # fraction of a cent, taking the account's whole value with it. Decided by CATEGORY, never by
+    # symbol: a security can be ticker'd USD and still be a security.
+    cash_prices = cash_prices_for(assets)
+
     # Ask the exchange for any USD prices it can quote directly (e.g. Alpaca
     # for stocks). Only the remaining external_ids round-trip through
     # MarketData, and the exchange's quotes win in the merge.
@@ -32,7 +42,7 @@ class AccountBalance::Sync
     override_prices = override_result.success? ? override_result.data : {}
     override_error  = override_result.failure? ? Array(override_result.errors).first.to_s : nil
 
-    remaining_ids = assets.map(&:external_id).compact - override_prices.keys
+    remaining_ids = assets.map(&:external_id).compact - override_prices.keys - cash_prices.keys
     if remaining_ids.any?
       market_result = MarketData.get_prices(coin_ids: remaining_ids, currency: 'usd')
       market_prices = market_result.success? ? market_result.data : {}
@@ -42,7 +52,7 @@ class AccountBalance::Sync
       market_error  = nil
     end
 
-    fresh_prices  = market_prices.merge(override_prices)
+    fresh_prices  = market_prices.merge(override_prices).merge(cash_prices)
     pricing_error = [override_error, market_error].compact.join('; ').presence
 
     synced_at = Time.current
@@ -98,5 +108,19 @@ class AccountBalance::Sync
                           unpriced: unpriced,
                           pricing_error: pricing_error
                         ))
+  end
+
+  private
+
+  # external_id => USD per unit, for the cash rows only. A currency we cannot get a rate for is
+  # left out rather than guessed at — the row then falls through to the stale/unpriced path like
+  # any other, which is what the tracker's `partial` flag exists to report.
+  def cash_prices_for(assets)
+    assets.select { |asset| CASH_CATEGORIES.include?(asset.category) }.filter_map do |asset|
+      next [asset.external_id, 1.to_d] if asset.symbol == 'USD'
+
+      rate = Utilities::Currency.exchange_rate(from: asset.symbol, to: 'USD')
+      [asset.external_id, rate.data.to_d] if rate.success?
+    end.to_h
   end
 end
