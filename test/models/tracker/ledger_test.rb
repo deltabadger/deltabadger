@@ -26,6 +26,16 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     HistoricalPrice.create!(asset: symbol, currency: 'USD', date: @day.call(day).to_date, price: usd)
   end
 
+  test 'a ledger warmed in the app zone is found from any other' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+
+    Tracker::Ledger.compute!(@user)
+
+    assert_not_nil Time.use_zone('Tallinn') { Tracker::Ledger.cached(@user) },
+                   'the cache key must not move with the zone of whoever asks'
+  end
+
   test 'partial sell: FIFO remaining lots make the open position, realised is proceeds minus FIFO cost and fee' do
     tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
     tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 30_000)

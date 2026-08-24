@@ -113,10 +113,12 @@ module Tracker
 
       private
 
+      # `.utc`, because the timestamp is zone-aware: the same instant spells itself differently in
+      # every zone, and the reader (a request) is not guaranteed the zone the writer (a job) had.
       def cache_key(user, exchange)
         scope = transactions(user, exchange)
         "tracker_ledger_v2_#{user.id}_#{exchange&.id || 'all'}_" \
-          "#{scope.maximum(:updated_at)&.iso8601(6)}_#{scope.count}"
+          "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}"
       end
 
       def transactions(user, exchange)
