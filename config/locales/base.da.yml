@@ -437,7 +437,7 @@ da:
         sync: 'Synkronisér'
         sync_started: 'Synkroniserer transaktioner fra dine børser...'
         importing_from: 'Importerer data fra %{exchange}…'
-        get_report: 'Hent rapport'
+        get_report: 'Skatterapport'
         filter: 'Filtrér'
         bot: 'Bot'
         no_results: 'Ingen transaktioner fundet for de valgte filtre.'

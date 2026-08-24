@@ -434,7 +434,7 @@ it:
         sync: 'Sincronizza'
         sync_started: 'Sincronizzazione delle transazioni dai tuoi exchange...'
         importing_from: 'Importazione dati da %{exchange}…'
-        get_report: 'Ottieni report'
+        get_report: 'Report fiscale'
         filter: 'Filtra'
         no_results: 'Nessuna transazione trovata per i filtri selezionati.'
         transfer_badge: 'Trasferimento'

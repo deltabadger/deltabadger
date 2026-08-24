@@ -437,7 +437,7 @@ sv:
         sync: 'Synka'
         sync_started: 'Synkroniserar transaktioner från dina börser...'
         importing_from: 'Importerar data från %{exchange}…'
-        get_report: 'Hämta rapport'
+        get_report: 'Skatterapport'
         filter: 'Filter'
         bot: 'Bot'
         no_results: 'Inga transaktioner hittades för de valda filtren.'
