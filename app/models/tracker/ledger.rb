@@ -170,7 +170,7 @@ module Tracker
       end
 
       def cash_moves(row)
-        return [] if UnfundedCash.derivative?(row[:tx_id])
+        return [] if UnfundedCash.borrowed?(row[:tx_id])
 
         UnfundedCash.moves(**row.slice(*UnfundedCash::MOVE_KEYS))
       end
