@@ -56,6 +56,18 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
                  'the cash moved between the user\'s own venues — spending it is what would show where it came from'
   end
 
+  test 'a round trip inside one day still shows what it cost to open' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000,
+             at: @day.call(1))
+    tx(:sell, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 30_000,
+              at: @day.call(1) + 4.hours)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_000.to_d, summary.total_invested_usd,
+                 'the afternoon sale does not un-spend what the morning had to find first'
+  end
+
   test 'a venue that lends is short because it lent, not because history is missing' do
     alpaca = create(:alpaca_exchange)
     key = create(:api_key, user: @user, exchange: alpaca)
@@ -88,9 +100,9 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
 
   test 'a fee booked before the sale that pays for it does not invent a deficit' do
     tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
-    tx(:fee, day: 2, base_currency: 'USDC', base_amount: 78, at: @day.call(2))
+    tx(:fee, day: 2, base_currency: 'USDC', base_amount: 78, at: @day.call(2), group_id: 'sale-1')
     tx(:sell, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 30_000,
-              at: @day.call(2) + 1.hour)
+              at: @day.call(2) + 1.hour, group_id: 'sale-1')
 
     summary = Tracker::Ledger.for(@user)
 
