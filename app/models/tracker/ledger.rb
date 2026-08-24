@@ -21,6 +21,10 @@ module Tracker
     CACHE_TTL = 30.days
     FIAT = Tax::PriceService::FIAT_CURRENCIES
     STABLECOINS = Tax::PriceService::STABLECOINS
+    # What a row does to the balance of its base asset, for the entry types that touch it at all.
+    CASH_IN = %w[buy swap_in staking_reward lending_interest airdrop mining other_income deposit
+                 adjustment].freeze
+    CASH_OUT = %w[sell swap_out withdrawal fee lost withholding_tax].freeze
 
     # FIFO with the two things the tracker needs and a tax report does not.
     #
@@ -117,7 +121,7 @@ module Tracker
       # every zone, and the reader (a request) is not guaranteed the zone the writer (a job) had.
       def cache_key(user, exchange)
         scope = transactions(user, exchange)
-        "tracker_ledger_v2_#{user.id}_#{exchange&.id || 'all'}_" \
+        "tracker_ledger_v3_#{user.id}_#{exchange&.id || 'all'}_" \
           "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}"
       end
 
@@ -143,11 +147,73 @@ module Tracker
         rows.reject { |row| FIAT.include?(row[:base_currency]) }
       end
 
-      # Money in from OUTSIDE. Buys, sells and swaps move nothing: they rearrange what is already
-      # here. A linked transfer cancels itself. Everything else is a deposit or a withdrawal, valued
-      # on the day it moved.
+      # Money in from OUTSIDE, of two kinds.
+      #
+      # What the venue reported: a deposit or a withdrawal, valued on the day it moved. Buys, sells
+      # and swaps move nothing — they rearrange what is already here — and a linked transfer cancels
+      # itself.
+      #
+      # And what it did not: cash spent that was never seen arriving. A venue that reports trades
+      # but not the transfer behind them would otherwise show a portfolio bought for nothing, and a
+      # return on nothing is not a number anyone can read. `UnfundedCash` books only what deepens
+      # the deficit, so a venue that does report its funding is untouched.
       def contributions(rows, price_service)
-        rows.sum(0.to_d) { |row| contribution(row, price_service) }
+        unfunded = UnfundedCash.new
+        cash = Hash.new(0.to_d)
+        rows.group_by { |row| row[:transacted_at].to_date }.sum(0.to_d) do |_date, day|
+          day.each { |row| cash_moves(row).each { |currency, amount| cash[currency] += amount } }
+          day.sum(0.to_d) { |row| contribution(row, price_service) } +
+            unfunded_contribution(cash, unfunded, day.last, price_service)
+        end
+      end
+
+      # A DAY at a time, never a row: one exchange event reaches the ledger as several rows, in an
+      # order nobody controls — a venue that books a sale's fee on the crypto leg and its proceeds
+      # on the fiat leg would otherwise look, for the width of one row, like an account that could
+      # not pay its own fee.
+      def unfunded_contribution(cash, unfunded, row, price_service)
+        cash.sum(0.to_d) do |currency, balance|
+          shortfall = unfunded.shortfall(currency, balance)
+          next 0.to_d if shortfall.zero?
+          next shortfall if STABLECOINS.include?(currency)
+
+          price_service.convert_fiat(amount: shortfall, from: currency, to: 'USD',
+                                     timestamp: row[:transacted_at])
+        end
+      end
+
+      # The cash one row moves, which is all a shortfall can be read from: the base leg when the
+      # base is itself cash (bank funding, a broker's dollar fee, a venue that books each leg of a
+      # trade as its own row), the quote leg of a single-row trade, and a fee charged in anything
+      # other than the base. The same moves PortfolioSnapshot's sweep applies to its balances.
+      def cash_moves(row)
+        type = row[:entry_type].to_s
+        fee = row[:fee_amount].to_d
+        moves = []
+        moves << [row[:fee_currency], -fee] if fee.positive? && row[:fee_currency] != row[:base_currency]
+        moves << [row[:quote_currency], quote_direction(type) * row[:quote_amount].to_d] if row[:quote_amount]
+        if row[:linked]
+          # The user's own transfer: the coins never left the tracked universe, so only the network
+          # fee is really gone. Scoped to one venue the rows arrive flattened and this never fires —
+          # there, the far leg is out of scope and the move is real.
+          moves << [row[:base_currency], -row[:transfer_fee_amount].to_d] if type == 'withdrawal'
+        elsif CASH_IN.include?(type) || CASH_OUT.include?(type)
+          amount = row[:base_amount].to_d
+          # A fee taken in the asset being acquired only shrinks what arrived; taken in the cash the
+          # trade spends it leaves on top of it. The "sales are already net" rule is about the asset
+          # being sold, not about the cash paying for it.
+          amount += CASH_IN.include?(type) ? -fee : fee if row[:fee_currency] == row[:base_currency]
+          moves << [row[:base_currency], CASH_IN.include?(type) ? amount : -amount]
+        end
+        moves.select { |currency, amount| UnfundedCash.cash?(currency) && !amount.zero? }
+      end
+
+      def quote_direction(type)
+        case type
+        when 'buy' then -1
+        when 'sell', 'return_of_capital' then 1
+        else 0
+        end
       end
 
       def contribution(row, price_service)

@@ -26,6 +26,57 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     HistoricalPrice.create!(asset: symbol, currency: 'USD', date: @day.call(day).to_date, price: usd)
   end
 
+  test 'cash spent that the ledger never saw arrive is money in' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_000.to_d, summary.total_invested_usd,
+                 'the venue reported the trade and not the transfer that paid for it'
+  end
+
+  test 'a deposit that covers an earlier deficit is not counted twice' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
+    tx(:deposit, day: 2, base_currency: 'USDC', base_amount: 20_000)
+    tx(:buy, day: 3, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 40_000.to_d, summary.total_invested_usd,
+                 'the second buy spends the deposit; only the first one needed money from nowhere'
+  end
+
+  test 'a linked cash transfer is not money from outside' do
+    deposit = tx(:deposit, key: @key_kraken, day: 2, base_currency: 'USDC', base_amount: 1_000)
+    tx(:withdrawal, day: 1, base_currency: 'USDC', base_amount: 1_000, linked_transaction: deposit)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 0.to_d, summary.total_invested_usd,
+                 'the cash moved between the user\'s own venues — spending it is what would show where it came from'
+  end
+
+  test 'a fee booked before the sale that pays for it does not invent a deficit' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
+    tx(:fee, day: 2, base_currency: 'USDC', base_amount: 78, at: @day.call(2))
+    tx(:sell, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 30_000,
+              at: @day.call(2) + 1.hour)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_000.to_d, summary.total_invested_usd,
+                 'the day ends nearly 10k up — the fee came out of the sale, not out of nowhere'
+  end
+
+  test 'a venue that reports its funding books the deposit and nothing more' do
+    tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 20_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_000.to_d, summary.total_invested_usd
+  end
+
   test 'a ledger warmed in the app zone is found from any other' do
     tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
     Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
@@ -55,7 +106,8 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     assert_equal 9_990.to_d, summary.realised_pnl_usd
     assert_equal 10.to_d, summary.fees_usd
     assert_empty summary.round_trips
-    assert_equal 0.to_d, summary.total_invested_usd, 'buys and sells are internal — nothing came in from outside'
+    assert_equal 50_000.to_d, summary.total_invested_usd,
+                 'the buys spent dollars this venue never reported receiving; the sale returns some of them'
   end
 
   test 'a sell that empties the lots closes a round-trip and leaves no position' do
@@ -117,7 +169,7 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     btc = summary.positions.sole
     assert_equal 1.to_d, btc.quantity
     assert_equal 20_000.to_d, btc.cost_usd, 'the lot travelled with its cost'
-    assert_equal 0.to_d, summary.total_invested_usd
+    assert_equal 20_000.to_d, summary.total_invested_usd, 'the transfer contributes nothing; the buy behind it was funded from outside'
     assert_equal 0.to_d, summary.realised_pnl_usd
   end
 
@@ -159,7 +211,8 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     assert_equal 0.6.to_d, btc.quantity
     assert_equal 12_000.to_d, btc.cost_usd, 'the coins left at their FIFO cost — the holdings card shows what the exchange still holds'
     assert_equal 0.to_d, summary.realised_pnl_usd
-    assert_equal(-10_000.to_d, summary.total_invested_usd, '0.4 BTC at the day\'s 25k went somewhere untracked')
+    assert_equal 10_000.to_d, summary.total_invested_usd,
+                 '20k came in to buy the coin, 0.4 BTC at the day\'s 25k went somewhere untracked'
   end
 
   test 'scoped to one exchange, a coin that moved venues shows on the venue it is on, and the venues\' money-in reflects the move' do
@@ -174,7 +227,8 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
 
     assert_empty on_binance.positions
     assert_equal 0.to_d, on_binance.realised_pnl_usd, 'a transfer out is not a sale'
-    assert_equal(-28_000.to_d, on_binance.total_invested_usd, 'per venue the outbound leg is money leaving, at the day\'s price')
+    assert_equal(-8_000.to_d, on_binance.total_invested_usd,
+                 'per venue: 20k of unreported funding in, the outbound leg out at the day\'s price')
     assert_equal 30_000.to_d, on_kraken.total_invested_usd
     kraken_btc = on_kraken.positions.sole
     assert_equal 1.to_d, kraken_btc.quantity

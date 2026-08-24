@@ -46,6 +46,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # at the end of it are valued.
   def sweep(first_date)
     balances = Hash.new(0.to_d)
+    unfunded = Tracker::UnfundedCash.new
     invested = 0.to_d
     # An unpriced deposit or withdrawal leaves the money-in figure wrong from that day on, not just
     # on the day itself.
@@ -58,6 +59,11 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
         apply(balances, transaction)
         delta = contribution(transaction)
         delta.nil? ? invested_incomplete = true : invested += delta
+      end
+      # Once the whole day is applied: a fee that its own sale pays for, booked an hour earlier, is
+      # not an account that could not cover it.
+      unfunded_on(balances, unfunded, date).each do |value|
+        value.nil? ? invested_incomplete = true : invested += value
       end
       value, unpriced = value_on(balances, date)
       { user_id: @user.id, date: date, value_usd: value, invested_usd: invested,
@@ -107,9 +113,19 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   def consume_fee(balances, transaction)
     fee = transaction.fee_amount.to_d
     return unless fee.positive? && transaction.fee_currency.present?
-    return if transaction.fee_currency == transaction.base_currency
+    return if transaction.fee_currency == transaction.base_currency && !cash_leg?(transaction)
 
     balances[transaction.fee_currency] -= fee
+  end
+
+  # A venue that books each leg of a trade as its own row charges the fee on the cash leg, on top of
+  # the amount it reports: the "already net" rule above is about the asset being sold, and cash is
+  # not being sold — it is paying. Reading it the other way leaves the account holding money it has
+  # already spent, and disagreeing with the ledger about how much came in to spend it.
+  def cash_leg?(transaction)
+    return false if ACQUISITIONS.include?(transaction.entry_type.to_sym)
+
+    FIAT.include?(transaction.base_currency) || STABLECOINS.include?(transaction.base_currency)
   end
 
   # The cash side of a single-row trade. Kraken books each leg as its own row with no quote, so
@@ -147,6 +163,18 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
 
     price = @prices.dig(symbol, date)
     price && (direction * amount * price)
+  end
+
+  # Cash the ledger spent without ever seeing it arrive, valued on the day the deficit deepens: the
+  # coins were bought with money whatever the venue reported. nil for a fiat deficit with no rate
+  # that day — the figure cannot be stated, so the row says so.
+  def unfunded_on(balances, unfunded, date)
+    balances.each_with_object([]) do |(symbol, balance), values|
+      shortfall = unfunded.shortfall(symbol, balance)
+      next if shortfall.zero?
+
+      values << (STABLECOINS.include?(symbol) ? shortfall : fiat_value(symbol, shortfall, date))
+    end
   end
 
   # A negative balance is history we do not have — an exchange whose ledger window starts after the

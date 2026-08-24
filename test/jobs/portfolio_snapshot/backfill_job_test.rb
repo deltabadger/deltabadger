@@ -60,6 +60,34 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     assert rows.none?(&:partial)
   end
 
+  test 'cash the ledger never saw arrive is money in, on the day it was spent' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 10_000)
+    (1..3).each { |n| price('BTC', n, 10_000) }
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(4)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [10_000.to_d] * 3, rows.map(&:invested_usd),
+                 'the coins were bought with money, whatever the venue chose to report'
+  end
+
+  test 'a venue that books the cash leg as its own row: the sweep and the ledger agree on money in' do
+    FxRate.create!(currency: 'USD', date: @d0 + 1, rate: 1) # 1 EUR = 1 USD
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: nil, quote_amount: nil, group_id: 'trade-1')
+    tx(:sell, day: 1, base_currency: 'EUR', base_amount: 10_000, quote_currency: nil, quote_amount: nil,
+              fee_amount: 26, fee_currency: 'EUR', group_id: 'trade-1')
+    price('BTC', 1, 10_000)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    assert_equal 10_026.to_d, PortfolioSnapshot.for_user(@user).order(:date).last.invested_usd,
+                 'the fee left the account on top of the 10,000 the venue reported spending'
+    assert_equal 10_026.to_d, Tracker::Ledger.for(@user).total_invested_usd,
+                 'the chart and the tile read the same ledger and must not disagree about it'
+  end
+
   test 'a symbol with no price at all makes its days partial, never a zero-valued holding' do
     seed_ledger
     seed_prices
