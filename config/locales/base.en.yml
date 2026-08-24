@@ -516,7 +516,8 @@ en:
         fees_paid: 'Fees paid'
         synced_ago: 'Synced %{ago} ago'
         history_partial: 'Some days are an estimate — part of the history could not be priced.'
-        more: 'More'
+        show_more: 'Show more'
+        show_less: 'Show less'
         other: 'Other'
         basis_incomplete: 'No cost basis for this holding, so no P/L is shown.'
         record:

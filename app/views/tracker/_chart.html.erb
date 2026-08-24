@@ -6,6 +6,11 @@
     than an axis with nothing on it. %>
 <% history = @history || [] %>
 <% hide_money = current_user.hide_balances? %>
+<%# Three states, and the empty one is nothing at all: a portfolio with no history has no curve to
+    promise, so it gets no widget rather than an axis with nothing on it. A history still being
+    swept spins, exactly as a bot's chart does while its metrics warm. %>
+<% if history.empty? && !@history_loading %>
+<% else %>
 <div class="widget widget--chart">
   <% if history.empty? %>
     <div class="widget--chart__head">
@@ -18,7 +23,9 @@
         <div class="<%= hide_money ? 'widget--chart__pnl' : 'widget--chart__percent' %>">&nbsp;</div>
       </div>
     </div>
-    <div class="widget--chart__plot"><%= render 'svg/landscape_empty' %></div>
+    <div class="widget--chart__plot">
+      <div class="loader" style="position: relative; left: calc(50% - 2rem); top: calc(50% - 6rem);"></div>
+    </div>
   <% else %>
     <% series = chart_history_series(history, hide_money) %>
     <% pnl_series = chart_pnl_series(series[0], series[1]).map(&:to_f) %>
@@ -78,3 +85,4 @@
     <% end %>
   <% end %>
 </div>
+<% end %>

@@ -506,7 +506,8 @@ de:
         fees_paid: 'Gezahlte Gebühren'
         synced_ago: 'Vor %{ago} synchronisiert'
         history_partial: 'Einige Tage sind geschätzt – ein Teil der Historie ließ sich nicht bewerten.'
-        more: 'Mehr'
+        show_more: 'Mehr anzeigen'
+        show_less: 'Weniger anzeigen'
         other: 'Sonstige'
         basis_incomplete: 'Für diesen Bestand fehlen die Anschaffungskosten, daher wird kein G/V angezeigt.'
         record:

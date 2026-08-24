@@ -82,11 +82,11 @@ class TrackerHistoryTest < ActionDispatch::IntegrationTest
     assert_select '.tracker-history-partial', text: I18n.t('tracker.history_partial')
   end
 
-  test 'missing coverage back to the first transaction enqueues the backfill once; the empty plot meanwhile' do
+  test 'missing coverage back to the first transaction enqueues the backfill once; the plot spins meanwhile' do
     PortfolioSnapshot.for_user(@user).delete_all
     PortfolioSnapshot::BackfillJob.expects(:perform_later).with(@user.id).once
     get tracker_path
-    assert_select '.widget--chart__plot .widget__placeholder'
+    assert_select '.widget--chart__plot .loader', 1, 'a history on its way is a spinner, not an empty axis'
   end
 
   test 'a history that already reaches back to the first transaction is not backfilled again' do

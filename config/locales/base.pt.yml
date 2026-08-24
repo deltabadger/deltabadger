@@ -504,7 +504,8 @@ pt:
         fees_paid: 'Taxas pagas'
         synced_ago: 'Sincronizado há %{ago}'
         history_partial: 'Alguns dias são uma estimativa: parte do histórico não pôde ser valorizada.'
-        more: 'Mais'
+        show_more: 'Mostrar mais'
+        show_less: 'Mostrar menos'
         other: 'Outros'
         basis_incomplete: 'Sem custo de aquisição para este ativo, por isso não mostramos ganho/perda.'
         record:

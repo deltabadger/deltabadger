@@ -505,7 +505,8 @@ it:
         fees_paid: 'Commissioni pagate'
         synced_ago: 'Sincronizzato %{ago} fa'
         history_partial: 'Alcuni giorni sono stimati: una parte dello storico non è stata valorizzata.'
-        more: 'Altro'
+        show_more: 'Mostra altri'
+        show_less: 'Mostra meno'
         other: 'Altro'
         basis_incomplete: 'Nessun costo di carico per questo asset, quindi non mostriamo profitto/perdita.'
         record:

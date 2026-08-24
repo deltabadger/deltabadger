@@ -506,7 +506,8 @@ es:
         fees_paid: 'Comisiones pagadas'
         synced_ago: 'Sincronizado hace %{ago}'
         history_partial: 'Algunos días son una estimación: parte del historial no se pudo valorar.'
-        more: 'Más'
+        show_more: 'Mostrar más'
+        show_less: 'Mostrar menos'
         other: 'Otros'
         basis_incomplete: 'Sin coste de adquisición para este activo, así que no mostramos ganancia/pérdida.'
         record:

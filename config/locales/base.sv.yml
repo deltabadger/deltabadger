@@ -516,7 +516,8 @@ sv:
         fees_paid: 'Betalda avgifter'
         synced_ago: 'Synkroniserad för %{ago} sedan'
         history_partial: 'Vissa dagar är en uppskattning: en del av historiken gick inte att värdera.'
-        more: 'Mer'
+        show_more: 'Visa fler'
+        show_less: 'Visa färre'
         other: 'Övrigt'
         basis_incomplete: 'Inget anskaffningsvärde för det här innehavet, så vi visar ingen vinst eller förlust.'
         record:

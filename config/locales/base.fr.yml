@@ -506,7 +506,8 @@ fr:
         fees_paid: 'Frais payés'
         synced_ago: 'Synchronisé il y a %{ago}'
         history_partial: "Certains jours sont estimés : une partie de l'historique n'a pas pu être valorisée."
-        more: 'Plus'
+        show_more: 'Afficher plus'
+        show_less: 'Afficher moins'
         other: 'Autres'
         basis_incomplete: "Aucun prix de revient pour cet avoir : la performance n'est pas affichée."
         record:

@@ -39,20 +39,23 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
   def warm_ledger = Tracker::Ledger.compute!(@user)
 
   # ── 1 · chart head: the bot chart's head, verbatim ──────────────────────────────────────────
-  test 'without history the chart head is the bot\'s empty head: summary slots, no segmented, the landscape, no controller' do
+  test 'a history not built yet spins in the bot\'s empty head; with nothing to build there is no chart' do
     warm_ledger
     get tracker_path
     assert_response :success
 
     assert_select '.widget--chart .widget--chart__head' do
-      assert_select '.widget--chart__modes'
-      assert_select '.widget--chart__modes .segmented', false, 'a bot shows no mode switch before it has a series'
+      assert_select '.widget--chart__modes .segmented', false, 'no mode switch before there is a series'
       assert_select '.widget--chart__summary .widget--chart__date'
-      assert_select '.widget--chart__summary .widget--chart__pnl'
-      assert_select '.widget--chart__summary .widget--chart__percent'
     end
-    assert_select '.widget--chart__plot .widget__placeholder'
+    assert_select '.widget--chart__plot .loader'
+    assert_select '.widget--chart__plot .widget__placeholder', false, 'a spinner, not an empty landscape'
     assert_select '[data-controller="bot--chart"]', false
+
+    AccountTransaction.for_user(@user).delete_all
+    get tracker_path
+
+    assert_select '.widget--chart', false, 'nothing to draw and nothing being built: no chart to promise'
     assert_select '.dash-intro', false, 'the steel headline strip is gone — the chart head is the headline'
   end
 
@@ -143,7 +146,7 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     get tracker_path
 
     assert_select '.tracker-holdings__rows > .tracker-holdings__row', 6
-    assert_select 'details.tracker-holdings__more summary', text: /3/
+    assert_select 'details.tracker-holdings__more summary', text: /#{I18n.t('tracker.show_more')}/
     assert_select 'details.tracker-holdings__more .tracker-holdings__row', 3
   end
 
@@ -193,7 +196,50 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     get tracker_path(exchange_id: @binance.id)
 
     assert_response :success
-    assert_select '.widget--chart .widget--chart__plot svg', true, 'the empty landscape while it warms'
+    assert_select '.widget--chart .widget--chart__plot .loader', true, 'it spins while it warms'
+  end
+
+  test 'a holding bought since the balances were taken keeps its P/L' do
+    AccountBalance.for_user(@user).update_all(synced_at: 2.hours.ago)
+    create(:account_transaction, api_key: @key_binance, entry_type: :buy, base_currency: 'BTC', base_amount: 0.5,
+                                 quote_currency: 'USD', quote_amount: 20_000, transacted_at: 1.hour.ago)
+    warm_ledger
+
+    get tracker_path
+
+    assert_select '.tracker-holdings__row .tracker-holdings__pl.text-success', 1,
+                  'the ledger is ahead of the balance by exactly what it bought since — that is not a hole'
+  end
+
+  test 'a holding the ledger cannot vouch for still says nothing' do
+    create(:account_transaction, api_key: @key_binance, entry_type: :buy, base_currency: 'BTC', base_amount: 0.5,
+                                 quote_currency: 'USD', quote_amount: 20_000, transacted_at: @t - 20.days)
+    warm_ledger
+
+    get tracker_path
+
+    assert_select '.tracker-holdings__row:first-child .tracker-holdings__pl[title]', 1,
+                  'two BTC in the ledger against one and a half held'
+  end
+
+  test 'the chart shows a spinner while its history is being built, and no chart at all without one' do
+    PortfolioSnapshot::BackfillJob.stubs(:perform_later)
+
+    get tracker_path(exchange_id: @binance.id)
+
+    assert_select '.widget--chart .loader', 1, 'a scope whose series is still being swept'
+    assert_select '.widget--chart canvas', false, 'and no empty axis pretending to be a chart'
+  end
+
+  test 'the folded holdings open from a Show more that becomes a Show less' do
+    %w[SOL ADA DOT LINK XRP ATOM].each_with_index do |symbol, index|
+      balance(@binance, create(:asset, symbol: symbol, name: symbol), free: 1, price: 100 - index)
+    end
+
+    get tracker_path
+
+    assert_select '.tracker-holdings__more summary', text: /#{I18n.t('tracker.show_more')}/
+    assert_select '.tracker-holdings__more summary', text: /#{I18n.t('tracker.show_less')}/
   end
 
   test 'the scope line opens with the venues and ends with what the page can hand you' do
