@@ -56,6 +56,31 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
                  'the transfer itself contributes nothing; the venue it left never reported receiving it'
   end
 
+  test 'a futures fill is notional, not cash spent' do
+    tx(:buy, day: 1, base_currency: 'BTCUSDT', base_amount: 1, quote_currency: 'USDT', quote_amount: 60_000,
+             tx_id: 'futures-1')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 0.to_d, summary.total_invested_usd,
+                 'a leveraged fill reserves margin — the notional it reports never left an account'
+  end
+
+  test 'a venue is read once its own events are closed, whatever another venue still has open' do
+    tx(:fee, key: @key_binance, at: @day.call(1), base_currency: 'USDC', base_amount: 1, group_id: 'g1')
+    tx(:buy, key: @key_kraken, at: @day.call(1) + 1.hour, base_currency: 'BTC', base_amount: 1,
+             quote_currency: 'USDC', quote_amount: 20_000)
+    tx(:sell, key: @key_kraken, at: @day.call(1) + 2.hours, base_currency: 'BTC', base_amount: 1,
+              quote_currency: 'USDC', quote_amount: 30_000)
+    tx(:sell, key: @key_binance, at: @day.call(1) + 3.hours, base_currency: 'BTC', base_amount: 1,
+              quote_currency: 'USDC', quote_amount: 5_000, group_id: 'g1')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_000.to_d, summary.total_invested_usd,
+                 'the buy at one venue is unfunded whether or not the other venue is mid-event'
+  end
+
   test 'a broker in the portfolio does not stop a spot venue from being read' do
     alpaca = create(:alpaca_exchange)
     alpaca_key = create(:api_key, user: @user, exchange: alpaca)

@@ -51,23 +51,38 @@ module Tracker
       -balance
     end
 
-    # Which positions in an ordered ledger a shortfall may be read at.
+    # A derivatives row. A futures fill reserves margin: the notional it reports as its quote never
+    # left an account, and read as cash spent it would book a multiple of the position as money from
+    # outside. The realised P/L and funding fees of a futures wallet are the same story — a purse
+    # this ledger cannot see the whole of.
+    #
+    # ponytail: recognised by the id the importers give them (`futures-`, `usdt-futures-`,
+    # `coin-futures-`), because a row has no flag that says "contract" rather than "coin". Upgrade
+    # path: set one at import and read it here.
+    def self.derivative?(tx_id)
+      tx_id.to_s.include?('futures')
+    end
+
+    # Which positions in an ordered ledger a shortfall may be read at, and for which venue.
     #
     # The legs of one exchange event share a group id and arrive in an order nobody controls, with
     # unrelated rows free to fall between them — a sale's fee read before its own proceeds looks
-    # like an account that could not pay it. So the reading waits until every event that has opened
-    # has also closed. Everything else closes as itself, which is what keeps an afternoon sale from
-    # un-spending what the morning had to find first.
-    def self.closers(group_ids)
+    # like an account that could not pay it. So a venue is read only once its own open events have
+    # closed; what another venue is in the middle of is none of its business, and group ids are the
+    # venue's own anyway. Everything else closes as itself, which is what keeps an afternoon sale
+    # from un-spending what the morning had to find first.
+    def self.closers(entries)
       last = {}
-      group_ids.each_with_index { |group, index| last[group] = index if group.present? }
-      open = 0
+      entries.each_with_index { |(venue, group), index| last[[venue, group]] = index if group.present? }
+      open = Hash.new(0)
       seen = Set.new
-      group_ids.each_with_index.filter_map do |group, index|
-        open += 1 if group.present? && seen.add?(group)
-        open -= 1 if group.present? && last[group] == index
-        index if open.zero?
-      end.to_set
+      entries.each_with_index.with_object({}) do |((venue, group), index), closing|
+        if group.present?
+          open[venue] += 1 if seen.add?([venue, group])
+          open[venue] -= 1 if last[[venue, group]] == index
+        end
+        closing[index] = venue if open[venue].zero?
+      end
     end
 
     # The cash one ledger row moves: the base leg where the base is itself cash (bank funding, a
