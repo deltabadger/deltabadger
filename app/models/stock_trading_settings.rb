@@ -15,11 +15,17 @@ class StockTradingSettings
     MarketDataSettings.deltabadger?
   end
 
-  # IBKR is hosted-only: its catalog is data-api served. There is no self-hosted
-  # source (IBKR has no list-all-instruments endpoint and no free market data),
-  # so without the data API the connect wizard is a dead end. Gate on the actual
-  # feed (env), not the selected provider — a hosted DB later run self-hosted
-  # carries a stale 'deltabadger' provider row.
+  # IBKR is hosted-only: its catalog is data-api served, so without the data API the
+  # connect wizard is a dead end. Gate on the actual feed (env), not the selected
+  # provider — a hosted DB later run self-hosted carries a stale 'deltabadger' row.
+  #
+  # The reason is MARKET DATA, not the catalog. IBKR does expose a list-all endpoint
+  # (/trsrv/all-conids?exchange=&assetClass=), so a container holding a user's session
+  # could in principle build its own catalog. What it cannot get is prices: IBKR
+  # publishes no free feed and no history, and snapshot quotes need a paid per-exchange
+  # subscription on that account. Unlike Alpaca, whose one key supplies catalog, prices
+  # and candles alike (see Exchanges::Alpaca), IBKR is a broker only — every price
+  # method on Exchanges::Ibkr is a stub deferring to the data-api feed.
   def self.ibkr_available?
     MarketDataSettings.deltabadger_available?
   end
