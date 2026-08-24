@@ -1,6 +1,14 @@
 class ApplicationController < ActionController::Base
   include SharedHelper
 
+  # Every request in the app zone, whatever the request before it left on this thread. `Time.zone`
+  # is thread-local and outlives the request that set it, so one caller's zone moved `Date.current`
+  # — and every zone-aware timestamp read back from the database — for everyone served by that
+  # thread afterwards. Declared first, so it wraps the rest of the chain. This is the guarantee
+  # ApplicationJob already gives the job side; views that want the user's zone ask for it
+  # explicitly (in_time_zone).
+  around_action { |_controller, action| Time.use_zone(Time.zone_default, &action) }
+
   before_action :redirect_to_setup_if_needed
   before_action :set_no_cache, if: :user_signed_in?
   around_action :switch_locale
