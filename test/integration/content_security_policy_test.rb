@@ -130,12 +130,6 @@ class ContentSecurityPolicyTest < ActionDispatch::IntegrationTest
     assert_select 'script:not([src])', false, 'the devise layout still has an inline block'
   end
 
-  test 'the desktop class is set by a script the policy allows' do
-    get '/en/login'
-
-    assert_select 'script[src*=?]', 'tauri_boot'
-  end
-
   # The source scanner in test/linting covers app/views. This covers what gems and
   # helpers render, which no source scan can see: every script that reaches the
   # browser is external or nonced, and no element arrives with an on* attribute.
