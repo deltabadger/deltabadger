@@ -51,16 +51,19 @@ module Tracker
       -balance
     end
 
-    # A derivatives row. A futures fill reserves margin: the notional it reports as its quote never
-    # left an account, and read as cash spent it would book a multiple of the position as money from
-    # outside. The realised P/L and funding fees of a futures wallet are the same story — a purse
-    # this ledger cannot see the whole of.
+    # A row from a borrowed wallet — one whose funding this ledger only ever sees a corner of.
     #
-    # ponytail: recognised by the id the importers give them (`futures-`, `usdt-futures-`,
-    # `coin-futures-`), because a row has no flag that says "contract" rather than "coin". Upgrade
-    # path: set one at import and read it here.
-    def self.derivative?(tx_id)
-      tx_id.to_s.include?('futures')
+    # A futures fill reserves margin: the notional it reports as its quote never left an account,
+    # and read as cash spent it would book a multiple of the position as money from outside. Its
+    # realised P/L and funding fees are the same wallet from the other side, and interest on a
+    # margin loan is the price of money that was borrowed rather than money that was put in.
+    #
+    # ponytail: recognised by the ids the importers give them, because a row carries no flag saying
+    # which account it belongs to. Upgrade path: set one at import and read it here.
+    BORROWED_MARKERS = %w[futures margin-interest].freeze
+
+    def self.borrowed?(tx_id)
+      BORROWED_MARKERS.any? { |marker| tx_id.to_s.include?(marker) }
     end
 
     # Which positions in an ordered ledger a shortfall may be read at, and for which venue.

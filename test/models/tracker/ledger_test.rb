@@ -66,6 +66,14 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
                  'a leveraged fill reserves margin — the notional it reports never left an account'
   end
 
+  test 'interest on a margin loan is not new money' do
+    tx(:fee, day: 1, base_currency: 'USDT', base_amount: 25, tx_id: 'margin-interest-1-USDT')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 0.to_d, summary.total_invested_usd, 'paying for borrowed money is not putting money in'
+  end
+
   test 'a venue is read once its own events are closed, whatever another venue still has open' do
     tx(:fee, key: @key_binance, at: @day.call(1), base_currency: 'USDC', base_amount: 1, group_id: 'g1')
     tx(:buy, key: @key_kraken, at: @day.call(1) + 1.hour, base_currency: 'BTC', base_amount: 1,
