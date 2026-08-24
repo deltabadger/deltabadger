@@ -158,20 +158,28 @@ module Tracker
       # than missing.
       def contributions(rows, price_service)
         cash = Hash.new(0.to_d)
-        closes = UnfundedCash.closers(rows.map { |row| row[:group_id] })
+        closes = UnfundedCash.closers(rows.map { |row| [row[:exchange], row[:group_id]] })
         rows.each_with_index.sum(0.to_d) do |row, index|
-          UnfundedCash.moves(**row.slice(*UnfundedCash::MOVE_KEYS))
-                      .each { |currency, amount| cash[[row[:exchange], currency]] += amount }
+          cash_moves(row).each { |currency, amount| cash[[row[:exchange], currency]] += amount }
           reported = contribution(row, price_service)
-          next reported unless closes.include?(index)
+          venue = closes[index]
+          next reported unless venue
 
-          reported + unfunded_contribution(cash, row, price_service)
+          reported + unfunded_contribution(cash, venue, row, price_service)
         end
       end
 
-      def unfunded_contribution(cash, row, price_service)
+      def cash_moves(row)
+        return [] if UnfundedCash.derivative?(row[:tx_id])
+
+        UnfundedCash.moves(**row.slice(*UnfundedCash::MOVE_KEYS))
+      end
+
+      def unfunded_contribution(cash, venue, row, price_service)
+        return 0.to_d if UnfundedCash.lends_cash?(venue)
+
         cash.sum(0.to_d) do |(exchange, currency), balance|
-          next 0.to_d if UnfundedCash.lends_cash?(exchange)
+          next 0.to_d unless exchange == venue
 
           shortfall = UnfundedCash.shortfall(currency, balance)
           next 0.to_d if shortfall.zero?

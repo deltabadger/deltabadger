@@ -66,9 +66,10 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
         cash_moves(transaction).each { |currency, amount| cash[[transaction.exchange.name_id, currency]] += amount }
         delta = contribution(transaction)
         delta.nil? ? invested_incomplete = true : invested += delta
-        next unless closers.include?(transaction.id)
+        venue = closers[transaction.id]
+        next unless venue
 
-        unfunded_on(cash, balances, date).each do |value|
+        unfunded_on(cash, balances, venue, date).each do |value|
           value.nil? ? invested_incomplete = true : invested += value
         end
       end
@@ -111,11 +112,15 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
 
   # The transactions a shortfall may be read at, by id — see `UnfundedCash.closers`.
   def event_closers
-    closing = Tracker::UnfundedCash.closers(@transactions.map(&:group_id))
-    @transactions.each_with_index.filter_map { |transaction, index| transaction.id if closing.include?(index) }.to_set
+    closing = Tracker::UnfundedCash.closers(@transactions.map { |t| [t.exchange.name_id, t.group_id] })
+    @transactions.each_with_index.with_object({}) do |(transaction, index), closers|
+      closers[transaction.id] = closing[index] if closing[index]
+    end
   end
 
   def cash_moves(transaction)
+    return [] if Tracker::UnfundedCash.derivative?(transaction.tx_id)
+
     Tracker::UnfundedCash.moves(**transaction.slice(*Tracker::UnfundedCash::MOVE_KEYS).symbolize_keys)
   end
 
@@ -186,9 +191,11 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # Cash the ledger spent without ever seeing it arrive, valued on the day the deficit deepens: the
   # coins were bought with money whatever the venue reported. nil for a fiat deficit with no rate
   # that day — the figure cannot be stated, so the row says so.
-  def unfunded_on(cash, balances, date)
+  def unfunded_on(cash, balances, venue, date)
+    return [] if Tracker::UnfundedCash.lends_cash?(venue)
+
     cash.each_with_object([]) do |((exchange, symbol), balance), values|
-      next if Tracker::UnfundedCash.lends_cash?(exchange)
+      next unless exchange == venue
 
       shortfall = Tracker::UnfundedCash.shortfall(symbol, balance)
       next if shortfall.zero?
