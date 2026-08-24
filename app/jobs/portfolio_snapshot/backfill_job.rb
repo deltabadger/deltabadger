@@ -123,6 +123,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # already spent, and disagreeing with the ledger about how much came in to spend it.
   def cash_leg?(transaction)
     return false unless Tracker::UnfundedCash::FEE_ON_TOP.include?(transaction.entry_type.to_s)
+    return false if transaction.quote_currency.present? # a trade with its own quote reports it net
 
     Tracker::UnfundedCash.cash?(transaction.base_currency)
   end
@@ -169,6 +170,8 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # that day — the figure cannot be stated, so the row says so.
   def unfunded_on(balances, date)
     balances.each_with_object([]) do |(symbol, balance), values|
+      next if borrowable_currencies.include?(symbol)
+
       shortfall = Tracker::UnfundedCash.shortfall(symbol, balance)
       next if shortfall.zero?
 
@@ -177,6 +180,14 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
       balances[symbol] += shortfall
       values << (STABLECOINS.include?(symbol) ? shortfall : fiat_value(symbol, shortfall, date))
     end
+  end
+
+  # The currencies a venue that lends settles in: at a broker, settled cash below zero is borrowed
+  # rather than missing, and the two cannot be told apart from a balance.
+  def borrowable_currencies
+    @borrowable_currencies ||= @transactions.select { |t| Tracker::UnfundedCash.lends_cash?(t.exchange.name_id) }
+                                            .flat_map { |t| [t.base_currency, t.quote_currency, t.fee_currency] }
+                                            .compact.select { |c| Tracker::UnfundedCash.cash?(c) }.to_set
   end
 
   # A negative balance is history we do not have — an exchange whose ledger window starts after the

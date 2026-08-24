@@ -21,6 +21,15 @@ module Tracker
     # about the asset being sold; cash is not being sold, it is paying. Acquisitions net their own
     # fee out of what arrived, and a linked withdrawal's fee is the difference between its legs.
     FEE_ON_TOP = %w[sell swap_out].freeze
+    # Venues whose settled cash runs below zero by design. A deficit there is borrowed — a margin
+    # buy is not a transfer the venue forgot to mention — so the currencies they settle in are left
+    # out of the inference entirely. Spot crypto venues cannot lend, which is where the missing
+    # history actually is. Extend this list when a venue that lends is added.
+    LENDS_CASH = %w[alpaca ibkr].freeze
+
+    def self.lends_cash?(exchange)
+      LENDS_CASH.include?(exchange.to_s)
+    end
 
     def self.cash?(currency)
       FIAT.include?(currency) || STABLECOINS.include?(currency)

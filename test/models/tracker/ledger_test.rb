@@ -56,6 +56,36 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
                  'the cash moved between the user\'s own venues — spending it is what would show where it came from'
   end
 
+  test 'a venue that lends is short because it lent, not because history is missing' do
+    alpaca = create(:alpaca_exchange)
+    key = create(:api_key, user: @user, exchange: alpaca)
+    tx(:deposit, key: key, day: 1, base_currency: 'USD', base_amount: 10_000)
+    tx(:buy, key: key, day: 2, base_currency: 'QQQM', base_amount: 10, quote_currency: 'USD', quote_amount: 20_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 10_000.to_d, summary.total_invested_usd,
+                 'settled cash goes negative on borrowed money at a broker; a loan is not a contribution'
+  end
+
+  test 'a single-row trade that sells cash keeps the already-net fee rule' do
+    tx(:sell, day: 1, base_currency: 'USDT', base_amount: 1_000, quote_currency: 'TRY', quote_amount: 30_000,
+              fee_amount: 5, fee_currency: 'USDT')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 1_000.to_d, summary.total_invested_usd,
+                 'the fee is on top only where the row is a settlement leg with no quote of its own'
+  end
+
+  test 'a cash deposit whose fee exceeds it arrives at zero rather than in deficit' do
+    tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 5, fee_amount: 10, fee_currency: 'USDC')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 5.to_d, summary.total_invested_usd, 'nothing was borrowed to pay that fee'
+  end
+
   test 'a fee booked before the sale that pays for it does not invent a deficit' do
     tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
     tx(:fee, day: 2, base_currency: 'USDC', base_amount: 78, at: @day.call(2))

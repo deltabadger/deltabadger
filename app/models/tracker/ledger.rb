@@ -159,19 +159,29 @@ module Tracker
       # the deficit, so a venue that does report its funding is untouched.
       def contributions(rows, price_service)
         cash = Hash.new(0.to_d)
+        borrowable = borrowable_currencies(rows)
         rows.group_by { |row| row[:transacted_at].to_date }.sum(0.to_d) do |_date, day|
           day.each { |row| cash_moves(row).each { |currency, amount| cash[currency] += amount } }
           day.sum(0.to_d) { |row| contribution(row, price_service) } +
-            unfunded_contribution(cash, day.last, price_service)
+            unfunded_contribution(cash, borrowable, day.last, price_service)
         end
+      end
+
+      # The currencies a venue that lends settles in. Their deficits cannot be told apart from
+      # borrowing, so they are read as reported and nothing is inferred from them.
+      def borrowable_currencies(rows)
+        rows.select { |row| UnfundedCash.lends_cash?(row[:exchange]) }
+            .flat_map { |row| cash_moves(row).map(&:first) }.to_set
       end
 
       # A DAY at a time, never a row: one exchange event reaches the ledger as several rows, in an
       # order nobody controls — a venue that books a sale's fee on the crypto leg and its proceeds
       # on the fiat leg would otherwise look, for the width of one row, like an account that could
       # not pay its own fee.
-      def unfunded_contribution(cash, row, price_service)
+      def unfunded_contribution(cash, borrowable, row, price_service)
         cash.sum(0.to_d) do |currency, balance|
+          next 0.to_d if borrowable.include?(currency)
+
           shortfall = UnfundedCash.shortfall(currency, balance)
           next 0.to_d if shortfall.zero?
 
@@ -203,8 +213,12 @@ module Tracker
           # A fee taken in the asset being acquired only shrinks what arrived; taken in the cash a
           # trade spends, it leaves on top of what the row reports.
           if row[:fee_currency] == row[:base_currency]
-            amount -= fee if CASH_IN.include?(type)
-            amount += fee if UnfundedCash::FEE_ON_TOP.include?(type)
+            # Clamped, as the sweep clamps it: a fee larger than what arrived leaves nothing, it
+            # does not leave a hole for the inference to read as borrowed money.
+            amount = [amount - fee, 0.to_d].max if CASH_IN.include?(type)
+            # And on top only where the row is a settlement leg of its own — a trade that carries
+            # its own quote reports its base net, fee included.
+            amount += fee if UnfundedCash::FEE_ON_TOP.include?(type) && row[:quote_amount].blank?
           end
           moves << [row[:base_currency], CASH_IN.include?(type) ? amount : -amount]
         end
