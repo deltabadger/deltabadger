@@ -173,6 +173,29 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_select '.sbutton--sky', false, 'no filled primary button in the bar — the bot view uses rbuttons here'
   end
 
+  test 'the switch scopes the chart and the tiles, not just the card below them' do
+    Tracker::Ledger.compute!(@user, exchange: @binance)
+    PortfolioSnapshot::BackfillJob.perform_now(@user.id, @binance.id)
+
+    get tracker_path(exchange_id: @binance.id)
+
+    invested = JSON.parse(css_select('[data-controller="bot--chart"]').first['data-bot--chart-series-value'])[1]
+    assert_equal 30_020.0, invested.last, 'the invested curve is what went into THIS venue'
+    assert_select '.data-grid__item__value', { text: /\$60,000\.00/, count: 1 },
+                  'and the value tile is this venue\'s balances, not the portfolio\'s'
+    assert_select '.data-grid__item__value', { text: /\$30,020\.00/, count: 1 },
+                  'as is the money-in tile'
+  end
+
+  test 'a cold scoped history warms itself once' do
+    PortfolioSnapshot::BackfillJob.expects(:perform_later).with(@user.id, @binance.id).once
+
+    get tracker_path(exchange_id: @binance.id)
+
+    assert_response :success
+    assert_select '.widget--chart .widget--chart__plot svg', true, 'the empty landscape while it warms'
+  end
+
   test 'the scope line opens with the venues and ends with what the page can hand you' do
     get tracker_path
 
@@ -230,7 +253,7 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
   end
 
   # ── 8 · exchange scope ───────────────────────────────────────────────────────────────────────
-  test 'exchange_id scopes holdings, transactions and positions — not the chart or the tiles' do
+  test 'exchange_id scopes the whole view: holdings, transactions, positions and the figures' do
     warm_ledger
     Tracker::Ledger.compute!(@user, exchange: @binance)
     get tracker_path(exchange_id: @binance.id)
@@ -240,8 +263,11 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_select '.tracker-holdings__row b', text: 'BTC'
     assert_select 'tr.tracker-row td', text: 'ETH', count: 0
     assert_select '.tracker-positions tbody tr', 1
-    assert_select '.data-grid__item__value', text: /\$80,000\.00/, count: 1 # whole portfolio, still
-    assert_select '.data-grid__item__value', text: /\$34,020\.00/, count: 1
+    assert_select '.data-grid__item__value', { text: /\$60,000\.00/, count: 1 },
+                  'this venue holds 1.5 BTC at 40k; the ETH at the other one is not this page'
+    assert_select '.data-grid__item__value', { text: /\$30,020\.00/, count: 1 },
+                  'and 30,020 went into it, not the 34,020 the portfolio has taken in'
+    assert_select '.data-grid__item__value', text: /\$80,000\.00/, count: 0
   end
 
   test 'a cold exchange-scoped ledger warms its own key' do

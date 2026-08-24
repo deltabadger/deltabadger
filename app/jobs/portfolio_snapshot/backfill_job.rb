@@ -9,7 +9,8 @@
 # Idempotent: rerunning upserts the same rows, so a failed run costs nothing.
 class PortfolioSnapshot::BackfillJob < ApplicationJob
   queue_as :low_priority
-  limits_concurrency to: 1, key: ->(user_id) { "portfolio_backfill_#{user_id}" }, on_conflict: :discard
+  limits_concurrency to: 1, key: ->(user_id, exchange_id = nil) { "portfolio_backfill_#{user_id}_#{exchange_id}" },
+                     on_conflict: :discard
 
   FIAT = Tax::PriceService::FIAT_CURRENCIES
   STABLECOINS = Tax::PriceService::STABLECOINS
@@ -23,13 +24,15 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # Below this a negative balance is the adapters disagreeing about gross and net, not a hole.
   DUST = '0.00000001'.to_d
 
-  def perform(user_id)
+  # With an exchange, the same sweep over that venue's rows alone, cached for the chart to read;
+  # without one, the whole portfolio, written to the table the nightly sync appends to.
+  def perform(user_id, exchange_id = nil)
     # Fiat cash is valued straight off the ECB table, and a history of nothing but cash never builds
     # a price service — which is the only other thing that loads it.
     Tax::EcbFxRates.ensure_loaded!
     @user = User.find(user_id)
-    @transactions = AccountTransaction.for_user(@user).by_date_asc
-                                      .includes(:exchange, :linked_transaction, :inverse_link).to_a
+    @exchange = exchange_id && Exchange.find(exchange_id)
+    @transactions = transactions_in_scope
     return if @transactions.empty?
 
     @last_date = Date.current - 1
@@ -37,11 +40,30 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     return if first_date > @last_date
 
     load_prices(first_date)
-    PortfolioSnapshot.upsert_all(sweep(first_date), unique_by: %i[user_id date], record_timestamps: true)
-    warm_ledgers
+    @exchange ? cache_series(sweep(first_date)) : store_history(sweep(first_date))
   end
 
   private
+
+  def transactions_in_scope
+    scope = AccountTransaction.for_user(@user).by_date_asc.includes(:exchange, :linked_transaction, :inverse_link)
+    scope = scope.for_exchange(@exchange) if @exchange
+    scope.to_a
+  end
+
+  def store_history(rows)
+    PortfolioSnapshot.upsert_all(rows, unique_by: %i[user_id date], record_timestamps: true)
+    warm_ledgers
+  end
+
+  # Today closes the scoped series the way `record!` closes the stored one: from the balances and
+  # the ledger, because the price table has not closed today yet.
+  def cache_series(rows)
+    today = PortfolioSnapshot.today_row(@user, exchange: @exchange)
+    rows << today if today
+    PortfolioSnapshot.cache_series(@user, @exchange, rows)
+    Turbo::StreamsChannel.broadcast_refresh_to("user_#{@user.id}", :sync)
+  end
 
   # One row per day. Transactions are applied as their day comes round, then the balances standing
   # at the end of it are valued.

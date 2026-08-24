@@ -260,9 +260,16 @@ class TrackerController < ApplicationController
   # sync only ever appends today, so a history that starts after the first transaction has a gap
   # nothing else will fill. A user whose first transaction is today has no gap yet.
   def load_history
-    @history = PortfolioSnapshot.for_user(current_user).order(:date).to_a
+    @history = PortfolioSnapshot.series(current_user, exchange: @scope_exchange)
+    if @history.nil?
+      # A venue's series is swept on demand: the chart shows its empty landscape until the job lands.
+      PortfolioSnapshot::BackfillJob.perform_later(current_user.id, @scope_exchange.id)
+      @history = []
+      return
+    end
+
     first_transaction = AccountTransaction.for_user(current_user).minimum(:transacted_at)&.to_date
-    return if first_transaction.nil? || first_transaction >= Date.current
+    return if @scope_exchange || first_transaction.nil? || first_transaction >= Date.current
     return if @history.first && @history.first.date <= first_transaction
 
     PortfolioSnapshot::BackfillJob.perform_later(current_user.id)
@@ -281,13 +288,6 @@ class TrackerController < ApplicationController
     end.sort_by { |s| -s[:usd_value] }
 
     @portfolio_total_usd = @portfolio_slices.sum { |s| s[:usd_value] }
-    # The value tile is the WHOLE portfolio even while the card below it is scoped to one venue:
-    # scoping the switch was about where the coins are, not about how much the account is worth.
-    @portfolio_total_all_usd = if @scope_exchange
-                                 AccountBalance.for_user(current_user).nonzero.priced.sum(:usd_value)
-                               else
-                                 @portfolio_total_usd
-                               end
     @portfolio_unpriced_assets = unpriced.map(&:asset).uniq
     @portfolio_last_synced_at = balances.map(&:synced_at).compact.max
     @portfolio_oldest_priced_at = priced.map(&:priced_at).compact.min
