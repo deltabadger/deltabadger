@@ -53,9 +53,9 @@ module Tax
         next if tx.quote_currency.present? && tx.quote_amount.present? &&
                 (STABLECOINS.include?(tx.quote_currency) || FIAT_CURRENCIES.include?(tx.quote_currency))
 
-        add_coin_date(coins_needed, tx.base_currency, tx.transacted_at)
+        add_coin_date(coins_needed, tx.base_currency, tx.transacted_at, tx.exchange)
         if tx.fee_amount.present? && tx.fee_amount.positive? && !STABLECOINS.include?(tx.fee_currency)
-          add_coin_date(coins_needed, tx.fee_currency, tx.transacted_at)
+          add_coin_date(coins_needed, tx.fee_currency, tx.transacted_at, tx.exchange)
         end
       end
 
@@ -64,19 +64,19 @@ module Tax
         add_coin_dates(coins_needed, 'BTC', all_dates) if all_dates.any?
       end
 
-      # Fetch each coin's full range in one API call
-      fetchable = coins_needed.select { |sym, _| asset_to_coingecko_id(sym) }
-      total_coins = fetchable.size
-      fetchable.each_with_index do |(symbol, info), index|
-        coin_id = asset_to_coingecko_id(symbol)
-        Rails.logger.info("[TaxReport] Fetching prices for #{symbol} (#{index + 1}/#{total_coins})")
+      # One call per COIN over its full range — a symbol that changed coin is two coins, each over
+      # the days it was that coin.
+      coins_needed.each_with_index do |((symbol, coin_id), info), index|
+        Rails.logger.info("[TaxReport] Fetching prices for #{symbol} (#{index + 1}/#{coins_needed.size})")
         fetch_price_range(coin_id: coin_id, symbol: symbol, currency: currency,
                           from: info[:min], to: info[:max])
-        on_progress&.call(index + 1, total_coins)
+        on_progress&.call(index + 1, coins_needed.size)
       end
     end
 
-    def price_at(asset:, currency:, timestamp:)
+    # `exchange` is where the row was booked: which coin a symbol means depends on the venue that
+    # listed it and the day it was booked (`Tax::AssetIdentity`).
+    def price_at(asset:, currency:, timestamp:, exchange: nil)
       return 1.to_d if asset == currency
       return stablecoin_rate(currency, timestamp) if STABLECOINS.include?(asset)
 
@@ -97,7 +97,7 @@ module Tax
       end
 
       # Fetch from CoinGecko
-      price = fetch_single_price(asset: asset, currency: currency, timestamp: timestamp)
+      price = fetch_single_price(asset: asset, currency: currency, timestamp: timestamp, exchange: exchange)
       if price.nil? || price.zero?
         @warnings << "#{asset}/#{currency} #{timestamp.to_date}"
         return 0.to_d
@@ -388,14 +388,20 @@ module Tax
       FIAT_CURRENCIES.include?(currency) || STABLECOINS.include?(currency)
     end
 
-    def add_coin_date(coins, symbol, timestamp)
+    # Keyed by symbol AND coin: a symbol that changed coin (`Tax::AssetIdentity`) is fetched as each
+    # coin over its own days. A symbol nobody can name a coin for is not fetched at all.
+    def add_coin_date(coins, symbol, timestamp, exchange = nil)
       return if symbol.blank? || FIAT_CURRENCIES.include?(symbol)
 
+      coin_id = coin_id_for(symbol, exchange, timestamp)
+      return unless coin_id
+
       date = timestamp.to_date
-      coins[symbol] ||= { min: date, max: date, dates: Set.new }
-      coins[symbol][:min] = date if date < coins[symbol][:min]
-      coins[symbol][:max] = date if date > coins[symbol][:max]
-      coins[symbol][:dates] << date
+      key = [symbol, coin_id]
+      coins[key] ||= { min: date, max: date, dates: Set.new }
+      coins[key][:min] = date if date < coins[key][:min]
+      coins[key][:max] = date if date > coins[key][:max]
+      coins[key][:dates] << date
     end
 
     def add_coin_dates(coins, symbol, dates)
@@ -403,6 +409,12 @@ module Tax
         date = d.is_a?(Date) ? d : d.to_date
         add_coin_date(coins, symbol, date.to_datetime)
       end
+    end
+
+    # The alias is a date's question and costs no query; the catalogue answer is cached per venue.
+    def coin_id_for(symbol, exchange, timestamp)
+      Tax::AssetIdentity.alias_coin(symbol, exchange: exchange, at: timestamp) ||
+        (@coin_ids ||= {})[[symbol, exchange&.id]] ||= Tax::AssetIdentity.catalogue_coin(symbol, exchange: exchange)
     end
 
     def resolve_fiat_value(record, currency)
@@ -434,7 +446,8 @@ module Tax
       cash = cash_leg_value(record)
       return cash if cash
 
-      price = price_at(asset: record.base_currency, currency: currency, timestamp: record.transacted_at)
+      price = price_at(asset: record.base_currency, currency: currency, timestamp: record.transacted_at,
+                       exchange: record.exchange)
       price * record.base_amount.to_d
     end
 
@@ -449,7 +462,8 @@ module Tax
       elsif STABLECOINS.include?(record.fee_currency)
         convert_fiat(amount: record.fee_amount.to_d, from: 'USD', to: currency, timestamp: record.transacted_at)
       else
-        price = price_at(asset: record.fee_currency, currency: currency, timestamp: record.transacted_at)
+        price = price_at(asset: record.fee_currency, currency: currency, timestamp: record.transacted_at,
+                         exchange: record.exchange)
         price * record.fee_amount.to_d
       end
     end
@@ -504,8 +518,8 @@ module Tax
     # prices that were fetched anyway, so `fetch_price_range` stores them on the way past and the
     # next row on a neighbouring date costs nothing — which is also why this delegates rather than
     # keeping a second, subtly different fetch-and-store of its own.
-    def fetch_single_price(asset:, currency:, timestamp:)
-      coin_id = asset_to_coingecko_id(asset)
+    def fetch_single_price(asset:, currency:, timestamp:, exchange: nil)
+      coin_id = coin_id_for(asset, exchange, timestamp)
       return nil unless coin_id
 
       date = timestamp.to_date
@@ -553,11 +567,6 @@ module Tax
       raise Tax::EcbFxRates::MissingRate, "#{from}/#{to} #{timestamp.to_date}" unless btc_from.positive? && btc_to.positive?
 
       btc_to / btc_from
-    end
-
-    def asset_to_coingecko_id(symbol)
-      @asset_id_cache ||= {}
-      @asset_id_cache[symbol] ||= Asset.find_by(symbol: symbol)&.external_id
     end
   end
 end

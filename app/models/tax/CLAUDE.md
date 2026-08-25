@@ -112,6 +112,20 @@ Semantics every engine follows:
   warns (`PriceService#resolve_row_value`) — nothing reads that value, and a failed lookup would
   banner the whole report as incomplete. Their fee is priced and warns as on any row.
 
+## Which Coin a Symbol Means
+
+`Tax::AssetIdentity` — `assets.symbol` is not unique, a venue's ticker is not a coin id, and a
+symbol can change coin over time (Terra's LUNA before May 2022 is today's LUNC; MATIC's history
+lives under the coin that became POL). Resolution, in order: a curated alias (dated where the
+symbol changed hands, scoped to a venue where its listing differs from the catalogue), what the
+VENUE lists under that symbol (`tickers.base_asset`), the coin of that symbol by market rank.
+Never a stock for a crypto venue; a stock first for a stock venue. `PriceService` asks per row
+(venue + day) and the backfill asks per span (`coin_ids_over` splits a range at a dated alias).
+Only aliases verified against the provider's coin records go in `ALIASES`; a symbol nobody can
+name a coin for stays unpriced rather than guessed. Prices are still stored by SYMBOL, so two
+coins sharing a ticker at the same time would share one price row — keying by coin id is the
+upgrade path.
+
 ## Price and FX Flow
 
 1. `PriceService#prefetch` — scans transactions, loads from the `historical_prices` table first

@@ -249,10 +249,12 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # whole history.
   def load_prices(first_date)
     @prices = {}
-    touched(first_date).each do |symbol, from|
-      asset = Asset.find_by(symbol: symbol)
-      key = STOCK_CATEGORIES.include?(asset&.category) ? "stock:#{symbol}" : symbol
-      fetch_missing(symbol, asset, from)
+    touched(first_date).each do |symbol, (from, exchange)|
+      # A stock is a stock only on a venue that trades them: a coin sharing a ticker with a stock is
+      # priced as the coin on a crypto venue.
+      stock = Asset.find_by(symbol: symbol, category: STOCK_CATEGORIES) if exchange.stock_venue?
+      key = stock ? "stock:#{symbol}" : symbol
+      fetch_missing(symbol, stock, exchange, from)
       observed = HistoricalPrice.where(asset: key, currency: 'USD', date: from..@last_date)
                                 .pluck(:date, :price).to_h
       last = nil
@@ -268,7 +270,8 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     end
   end
 
-  # Cash needs no price, and a symbol nothing ever touched needs no window.
+  # Cash needs no price, and a symbol nothing ever touched needs no window. The venue that first
+  # touched a symbol is the one its coin is read off (`Tax::AssetIdentity`).
   def touched(first_date)
     dates = {}
     @transactions.each do |transaction|
@@ -276,24 +279,27 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
       [transaction.base_currency, transaction.quote_currency, transaction.fee_currency].compact.each do |symbol|
         next if FIAT.include?(symbol) || STABLECOINS.include?(symbol)
 
-        dates[symbol] ||= date
+        dates[symbol] ||= [date, transaction.exchange]
       end
     end
     dates
   end
 
-  # One range per symbol, and only when the table does not already cover it — both fetchers check
-  # that for themselves. A symbol with no asset row has nowhere to fetch from and stays unpriced.
-  def fetch_missing(symbol, asset, from)
-    if STOCK_CATEGORIES.include?(asset&.category)
+  # One range per coin, and only when the table does not already cover it — both fetchers check
+  # that for themselves. A symbol that changed coin is two ranges; a symbol nobody can name a coin
+  # for has nowhere to fetch from and stays unpriced.
+  def fetch_missing(symbol, stock, exchange, from)
+    if stock
       key = @user.api_keys.includes(:exchange).find { |api_key| api_key.exchange.tickers.exists?(base: symbol) }
       return unless key
 
       price_service.stock_price_range(exchange: key.exchange, api_key: key, symbol: symbol,
                                       from: from, to: @last_date)
-    elsif asset&.external_id.present?
-      price_service.fetch_price_range(coin_id: asset.external_id, symbol: symbol, currency: 'USD',
-                                      from: from, to: @last_date)
+    else
+      Tax::AssetIdentity.coin_ids_over(symbol, exchange: exchange, from: from, to: @last_date).each do |range, coin_id|
+        price_service.fetch_price_range(coin_id: coin_id, symbol: symbol, currency: 'USD',
+                                        from: range.begin, to: range.end)
+      end
     end
   end
 
