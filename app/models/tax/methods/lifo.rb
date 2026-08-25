@@ -35,26 +35,34 @@ module Tax
         disposals << disposal
       end
 
-      def dequeue_cost(lots, amount_to_sell)
+      def dequeue_tranches(lots, amount_to_sell)
+        held_before = lots.sum(0.to_d) { |lot| lot[:amount] }
         remaining = amount_to_sell
-        total_cost = 0.to_d
-        any_assumed = false
+        tranches = []
 
         while remaining.positive? && lots.any?
           lot = lots.last
-          any_assumed = true if lot[:basis_assumed]
+          tranche_amount = [lot[:amount], remaining].min
+          tranche = {
+            amount: tranche_amount,
+            cost: tranche_amount * lot[:cost_per_unit],
+            date: lot[:date],
+            basis_assumed: lot[:basis_assumed] ? true : false
+          }
+          tranche[:holding_start] = lot[:holding_start] if lot[:holding_start]
+          # Lots are opened oldest-to-newest, even though LIFO consumes them in the other direction.
+          tranches.unshift(tranche)
+
           if lot[:amount] <= remaining
-            total_cost += lot[:amount] * lot[:cost_per_unit]
             remaining -= lot[:amount]
             lots.pop
           else
-            total_cost += remaining * lot[:cost_per_unit]
             lot[:amount] -= remaining
             remaining = 0
           end
         end
 
-        [total_cost, any_assumed]
+        [tranches, held_before]
       end
     end
   end

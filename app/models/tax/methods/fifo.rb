@@ -20,9 +20,12 @@ module Tax
         @swap_resets_holding_period = options.fetch(:swap_resets_holding_period, false)
         @excess_roc = 0.to_d
 
+        @swap_in_groups = @crypto_to_crypto_taxable ? {} : build_swap_in_groups(transactions)
+        @swap_out_groups = @crypto_to_crypto_taxable ? {} : build_swap_out_groups(transactions)
+
         lots = @lots = Hash.new { |h, k| h[k] = [] }
         disposals = []
-        transferred_cost = {} # group_id => { total_cost:, earliest_date:, basis_assumed: }
+        transferred_tranches = Hash.new { |groups, key| groups[key] = [] }
 
         transactions.each do |tx|
           asset = tx[:base_currency]
@@ -50,20 +53,15 @@ module Tax
                              basis_assumed: true }
 
           when :swap_in
-            add_swap_in_lot(lots, transferred_cost, tx, asset, amount, fiat_value)
+            next if non_taxable_stablecoin_swap?(asset)
+
+            add_swap_in_lot(lots, transferred_tranches, tx, asset, amount, fiat_value)
 
           when :swap_out
-            if !@crypto_to_crypto_taxable && !fiat_disposal?(tx)
-              # Not taxable — transfer cost basis to paired swap_in
-              earliest_date = lots[asset].first&.dig(:date)
-              cost, basis_assumed = dequeue_cost(lots[asset], amount)
-              if tx[:group_id]
-                transferred_cost[tx[:group_id]] = {
-                  total_cost: cost,
-                  earliest_date: earliest_date,
-                  basis_assumed: basis_assumed || tx[:price_missing]
-                }
-              end
+            if non_taxable_stablecoin_swap?(asset)
+              next
+            elsif !@crypto_to_crypto_taxable && !fiat_disposal?(tx)
+              transfer_swap_out(transferred_tranches, lots[asset], tx, amount)
             else
               record_disposal(lots, disposals, tx, asset, amount, fiat_value)
             end
@@ -161,7 +159,7 @@ module Tax
         disposals << disposal
       end
 
-      def add_swap_in_lot(lots, transferred_cost, transaction, asset, amount, fiat_value)
+      def add_swap_in_lot(lots, transferred_tranches, transaction, asset, amount, fiat_value)
         if @crypto_to_crypto_taxable
           lot_amount, lot_cost = apply_acquisition_fee(lots, transaction, amount, fiat_value)
           cost_per_unit = lot_amount.positive? ? (lot_cost / lot_amount) : 0.to_d
@@ -172,24 +170,185 @@ module Tax
             basis_assumed: transaction[:price_missing]
           }
         else
-          xfer = transferred_cost[transaction[:group_id]]
-          cost_per_unit = if xfer && amount.positive?
-                            xfer[:total_cost] / amount
-                          elsif amount.positive?
-                            fiat_value / amount
-                          else
-                            0.to_d
-                          end
-          acq_date = xfer&.dig(:earliest_date) || transaction[:transacted_at]
-          lot = {
-            amount: amount,
-            cost_per_unit: cost_per_unit,
-            date: acq_date,
-            basis_assumed: transaction[:price_missing] || xfer&.dig(:basis_assumed)
-          }
-          lot[:holding_start] = transaction[:transacted_at] if @swap_resets_holding_period
-          lots[asset] << lot
+          add_non_taxable_swap_in_lots(lots, transferred_tranches, transaction, asset, amount, fiat_value)
         end
+      end
+
+      # The chain across a group of any shape. Every out-leg hands over the lots it consumed as
+      # TRANCHES — cost, date, whether assumed — and every in-leg opens one lot per tranche, scaled
+      # to its share of the group: a coin swept from lots of different ages arrives as lots of those
+      # ages, and nothing is fabricated or lost on the way. Cash spent through the same group
+      # (`swap_fiat_cost`, and `swap_stable_cost` where a stablecoin is cash) buys a lot of its own,
+      # dated at the swap.
+      def add_non_taxable_swap_in_lots(lots, transferred, transaction, asset, amount, fiat_value)
+        key = swap_group_key(transaction)
+        tranches = key ? transferred[key] : []
+        cash_present, cash = swap_cash_cost(transaction)
+        lot_amount, paid = apply_acquisition_fee(lots, transaction, amount, cash)
+        # A fee paid in a third asset buys nothing: it joins the cost of what arrived.
+        fee_cost = paid - cash
+        share, share_assumed = swap_in_share(transaction)
+        assumed = transaction[:price_missing] || share_assumed
+
+        # Without anything to carry, market value remains the estimate of last resort. A cash leg is
+        # the consideration paid, so adding market value to it would count the coins twice.
+        if tranches.empty? && !cash_present
+          open_swap_lot(lots[asset], transaction, lot_amount, unit(fiat_value + fee_cost, lot_amount),
+                        transaction[:transacted_at], assumed)
+          return
+        end
+
+        transferred_cost = tranches.sum(0.to_d) { |tranche| tranche[:cost] } * share
+        coin_value = swap_out_value(key) * share
+        cash_amount = cash_lot_amount(lot_amount, cash, coin_value, transferred_cost, tranches)
+        rest = lot_amount - cash_amount
+        total_weight = tranches.sum(0.to_d) { |tranche| tranche[:weight] }
+        allocated = 0.to_d
+        tranches.each_with_index do |tranche, index|
+          tranche_amount = index == tranches.size - 1 ? rest - allocated : rest * tranche[:weight] / total_weight
+          allocated += tranche_amount
+          next unless tranche_amount.positive?
+
+          # One division of exact products: a unit cost taken off an already-rounded amount turns an
+          # exact basis into a repeating tail, and selling the lot back would not add up to it.
+          cost = (tranche[:cost] * share * total_weight / tranche[:weight]) + (fee_cost * tranche[:weight] / total_weight)
+          open_swap_lot(lots[asset], transaction, tranche_amount, cost / rest, tranche[:date],
+                        tranche[:basis_assumed] || assumed, tranche[:holding_start])
+        end
+        if cash_amount.positive?
+          scale = if tranches.empty?
+                    fee_cost
+                  else
+                    (coin_value.positive? ? coin_value : transferred_cost)
+                  end
+          open_swap_lot(lots[asset], transaction, cash_amount, unit(cash + scale, lot_amount), transaction[:transacted_at],
+                        assumed || (rest.zero? && tranches.any? { |tranche| tranche[:basis_assumed] }))
+        end
+        # A tranche can predate everything already held, and the lots are read in order.
+        lots[asset].sort_by!.with_index { |lot, index| [lot[:date], index] }
+      end
+
+      # How much of what arrived the cash bought: by what each side was worth at the swap, and by
+      # what each side cost when the coins' worth that day is unknown.
+      def cash_lot_amount(lot_amount, cash, coin_value, transferred_cost, tranches)
+        return lot_amount if tranches.empty?
+        return 0.to_d unless cash.positive?
+
+        scale = coin_value.positive? ? coin_value : transferred_cost
+        (cash + scale).positive? ? lot_amount * cash / (cash + scale) : lot_amount
+      end
+
+      def unit(cost, amount)
+        amount.positive? ? cost / amount : 0.to_d
+      end
+
+      def open_swap_lot(asset_lots, transaction, amount, cost_per_unit, date, basis_assumed, holding_start = nil)
+        lot = { amount: amount, cost_per_unit: cost_per_unit, date: date, basis_assumed: basis_assumed }
+        if @swap_resets_holding_period
+          lot[:holding_start] = transaction[:transacted_at]
+        elsif holding_start
+          lot[:holding_start] = holding_start
+        end
+        asset_lots << lot
+      end
+
+      def transfer_swap_out(transferred, asset_lots, transaction, amount)
+        tranches, held = dequeue_tranches(asset_lots, amount)
+        key = swap_group_key(transaction)
+        return unless key
+
+        # Coins the lots did not cover leave as a tranche of nothing: a zero-basis lot from coins
+        # never held is a real number, not a complete one.
+        uncovered = amount - [amount, held].min
+        tranches << { amount: uncovered, cost: 0.to_d, date: transaction[:transacted_at], basis_assumed: true } if uncovered.positive?
+        # A tranche's weight is its slice of the leg's worth at the swap, so an in-leg shares out
+        # every tranche of every leg on one scale. A group with an unpriced leg weighs its legs equally.
+        weight = swap_out_weight(transaction)
+        handed = tranches.sum(0.to_d) { |tranche| tranche[:amount] }
+        tranches.each { |tranche| tranche[:weight] = weight * tranche[:amount] / handed }
+        transferred[key].concat(tranches)
+      end
+
+      # An in-leg's share of its group: by amount while the in-legs are one asset, by worth when they
+      # are not — and equal, marked assumed, when a worth that is needed is missing.
+      def build_swap_in_groups(transactions)
+        group_legs(transactions, :swap_in).transform_values do |rows|
+          one_asset = rows.map { |row| row[:base_currency] }.uniq.one?
+          weights = rows.map { |row| one_asset ? row[:base_amount].to_d : row[:fiat_value].to_d }
+          equal = weights.any?(&:zero?)
+          { shares: identity_map(rows, allocate_shares(equal ? Array.new(rows.size, 1.to_d) : weights)),
+            basis_assumed: equal }
+        end
+      end
+
+      def build_swap_out_groups(transactions)
+        group_legs(transactions, :swap_out).transform_values do |rows|
+          values = rows.map { |row| row[:fiat_value].to_d }
+          { weights: identity_map(rows, values.any?(&:zero?) ? Array.new(rows.size, 1.to_d) : values),
+            value: values.sum(0.to_d) }
+        end
+      end
+
+      def group_legs(transactions, entry_type)
+        transactions.each_with_object(Hash.new { |groups, key| groups[key] = [] }) do |transaction, groups|
+          next unless transaction[:entry_type].to_sym == entry_type
+          next if non_taxable_stablecoin_swap?(transaction[:base_currency])
+          next if entry_type == :swap_out && fiat_disposal?(transaction)
+
+          key = swap_group_key(transaction)
+          groups[key] << transaction if key
+        end
+      end
+
+      # The last share is what is left, so the shares add up to exactly one.
+      def allocate_shares(weights)
+        total = weights.sum(0.to_d)
+        allocated = 0.to_d
+        weights.each_with_index.map do |weight, index|
+          share = index == weights.size - 1 ? 1.to_d - allocated : weight / total
+          allocated += share
+          share
+        end
+      end
+
+      def identity_map(keys, values)
+        {}.compare_by_identity.tap { |map| keys.zip(values).each { |key, value| map[key] = value } }
+      end
+
+      def swap_in_share(transaction)
+        group = @swap_in_groups[swap_group_key(transaction)]
+        return [1.to_d, false] unless group
+
+        [group[:shares].fetch(transaction), group[:basis_assumed]]
+      end
+
+      def swap_out_weight(transaction)
+        @swap_out_groups.fetch(swap_group_key(transaction))[:weights].fetch(transaction)
+      end
+
+      # What the group's coin out-legs were worth at the swap — the scale a cash leg is measured on.
+      def swap_out_value(key)
+        key ? @swap_out_groups.dig(key, :value).to_d : 0.to_d
+      end
+
+      def swap_cash_cost(transaction)
+        present = transaction.key?(:swap_fiat_cost)
+        cost = transaction[:swap_fiat_cost].to_d
+        if @stablecoin_as_fiat && transaction.key?(:swap_stable_cost)
+          present = true
+          cost += transaction[:swap_stable_cost].to_d
+        end
+        [present, cost]
+      end
+
+      def swap_group_key(transaction)
+        return if transaction[:group_id].blank?
+
+        [transaction[:exchange], transaction[:group_id]]
+      end
+
+      def non_taxable_stablecoin_swap?(asset)
+        !@crypto_to_crypto_taxable && @stablecoin_as_fiat && STABLECOINS.include?(asset)
       end
 
       def fiat_disposal?(transaction)
@@ -230,25 +389,40 @@ module Tax
       end
 
       def dequeue_cost(lots, amount_to_sell)
+        tranches, = dequeue_tranches(lots, amount_to_sell)
+        [tranches.sum(0.to_d) { |tranche| tranche[:cost] }, tranches.any? { |tranche| tranche[:basis_assumed] }]
+      end
+
+      # Swaps need each consumed lot rather than only the sum so basis dates survive the exchange.
+      # Keeping the mutation in one method also gives alternate lot orders and tracker accounting
+      # one place to wrap the dequeue.
+      def dequeue_tranches(lots, amount_to_sell)
+        held_before = lots.sum(0.to_d) { |lot| lot[:amount] }
         remaining = amount_to_sell
-        total_cost = 0.to_d
-        any_assumed = false
+        tranches = []
 
         while remaining.positive? && lots.any?
           lot = lots.first
-          any_assumed = true if lot[:basis_assumed]
+          tranche_amount = [lot[:amount], remaining].min
+          tranche = {
+            amount: tranche_amount,
+            cost: tranche_amount * lot[:cost_per_unit],
+            date: lot[:date],
+            basis_assumed: lot[:basis_assumed] ? true : false
+          }
+          tranche[:holding_start] = lot[:holding_start] if lot[:holding_start]
+          tranches << tranche
+
           if lot[:amount] <= remaining
-            total_cost += lot[:amount] * lot[:cost_per_unit]
             remaining -= lot[:amount]
             lots.shift
           else
-            total_cost += remaining * lot[:cost_per_unit]
             lot[:amount] -= remaining
             remaining = 0
           end
         end
 
-        [total_cost, any_assumed]
+        [tranches, held_before]
       end
     end
   end

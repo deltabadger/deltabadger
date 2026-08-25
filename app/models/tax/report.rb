@@ -110,7 +110,9 @@ module Tax
     def scoped_transactions
       # Include all transactions up to end of year (for cost basis from prior years)
       # but only report disposals within the target year
-      transactions.where(transacted_at: ..Time.utc(year + 1)).order(transacted_at: :asc)
+      # Out-leg before in-leg at the same instant, as the tracker walks it: ordered by time alone,
+      # a swap-in the venue stored first takes market basis and its out-leg's cost is kept for nobody.
+      Tax::PriceService.ordered(transactions.where(transacted_at: ..Time.utc(year + 1)).to_a)
     end
 
     # A fiat ledger row is one leg of a trade or bank funding, never a disposal or a lot. Kraken
