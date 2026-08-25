@@ -5,13 +5,16 @@
     can vouch for, so it states no gain — and this says which, instead of the figures quietly
     excluding it. %>
 <% if findings.any? %>
+  <%# A finding about cash or the figures names an amount, and with balances hidden that amount is
+      money on a page that promised none: the sentence stays, the number is masked. %>
+  <% hide_money = current_user.hide_balances? %>
   <div class="widget tracker-findings">
     <p class="label"><%= t('tracker.findings.title', count: findings.size) %></p>
     <ul>
       <% findings.each do |finding| %>
         <li>
           <%= t("tracker.findings.#{finding.kind}", symbol: finding.symbol,
-                                                    amount: @denomination.format(finding.detail)) %>
+                                                    amount: hide_money ? '•••' : @denomination.format(finding.detail)) %>
           <%# Only where an entry would settle it. The backstop names no symbol and has none. %>
           <% if finding.symbol.present? %>
             <%= link_to t('tracker.findings.fix.action'),
