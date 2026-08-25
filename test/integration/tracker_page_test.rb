@@ -73,7 +73,11 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_select '.data-grid__item .label', text: /#{I18n.t('tracker.tiles.unrealised_pnl')}/
     assert_select '.data-grid__item .label', text: I18n.t('tracker.fees_paid')
     assert_select '.data-grid__item .label', text: /#{I18n.t('tracker.tiles.total_pnl')}/
-    assert_select '.data-grid__item__value', text: /\$34,020\.00/ # 30,000 in − 1,000 out + the 5,020 each venue spent without reporting its arrival
+    # 30,000 in − 1,000 out + the 5,020 each venue spent without reporting its arrival = 34,020; then
+    # the resolution against the balances: 10 ETH the exchange holds with no history behind them,
+    # taken as arrived at its price (+20,000), and the sale's 5,000 the exchange no longer shows,
+    # taken as moved out (−5,000).
+    assert_select '.data-grid__item__value', text: /\$49,020\.00/
     assert_select '.data-grid__item__value', text: /\$80,000\.00/
     assert_select '.data-grid__item__value.text-success', text: /1,000\.00/ # the ETH round-trip
     assert_select '.data-grid__item__value', text: /\$20\.00/
@@ -133,16 +137,18 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
         assert_select '.tracker-holdings__value', text: /\$60,000\.00/
         assert_select '.tracker-holdings__pl.text-success', text: /\+99\.9%/
       end
-      # ETH: the exchange holds 10, the ledger knows the basis of none — no P/L is better than a wrong one.
-      assert_select '.tracker-holdings__row:nth-child(2) .tracker-holdings__pl', text: '—'
+      # ETH: the exchange holds 10 the history knows nothing about — taken as arrived at its price,
+      # so nothing riding on it yet, and a note saying so.
+      assert_select '.tracker-holdings__row:nth-child(2) .tracker-holdings__pl', text: '+0.0%'
+      assert_select '.tracker-holdings__note', text: /Kraken.*10.*ETH/m
       assert_select 'details.tracker-holdings__more', false
     end
     assert_select '[data-controller="donut-chart"]', false, 'the tilted donut and its pie/list toggle are gone'
   end
 
-  # Reconciling is necessary but not sufficient: an unlinked deposit has no fill price, so its basis
-  # is the day's market value — a guess, and a P/L measured against it would read as a fact.
-  test 'a holding whose basis was assumed states no P/L, however exactly the quantities agree' do
+  # An unlinked deposit has no fill price, so its basis is the day's market value — an estimate.
+  # Stated, and said to be an estimate, rather than withheld.
+  test 'a holding whose basis was assumed states its P/L, and says the cost is an estimate' do
     create(:account_transaction, api_key: @key_kraken, entry_type: :deposit, base_currency: 'ETH',
                                  base_amount: 10, quote_currency: nil, quote_amount: nil,
                                  transacted_at: @t - 5.days)
@@ -151,7 +157,8 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     get tracker_path
 
     assert_select '.tracker-holdings__row:nth-child(2) b', text: 'ETH'
-    assert_select '.tracker-holdings__row:nth-child(2) .tracker-holdings__pl', text: '—'
+    assert_select '.tracker-holdings__row:nth-child(2) .tracker-holdings__pl', text: '+11.1%'
+    assert_select '.tracker-holdings__note', text: /ETH.*market price/
   end
 
   test 'more than six holdings fold behind a More disclosure' do
@@ -221,19 +228,19 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
 
     get tracker_path
 
-    assert_select '.tracker-holdings__row .tracker-holdings__pl.text-success', 1,
-                  'the ledger is ahead of the balance by exactly what it bought since — that is not a hole'
+    assert_select '.tracker-holdings__row .tracker-holdings__pl.text-success', 2,
+                  'the ledger is ahead of the balance by exactly what it bought since — that is not a hole; the ETH arrived at its price'
   end
 
-  test 'a holding the ledger cannot vouch for still says nothing' do
+  test 'a holding the history overstates is priced at what is held, and says what left' do
     create(:account_transaction, api_key: @key_binance, entry_type: :buy, base_currency: 'BTC', base_amount: 0.5,
                                  quote_currency: 'USD', quote_amount: 20_000, transacted_at: @t - 20.days)
     warm_ledger
 
     get tracker_path
 
-    assert_select '.tracker-holdings__row:first-child .tracker-holdings__pl[title]', 1,
-                  'two BTC in the ledger against one and a half held'
+    assert_select '.tracker-holdings__row:first-child .tracker-holdings__pl[title]', 0, 'stated, on an assumption'
+    assert_select '.tracker-holdings__note', text: /Binance.*1\.5.*2\.00/m, count: 1
   end
 
   test 'the chart shows a spinner while its history is being built, and no chart at all without one' do

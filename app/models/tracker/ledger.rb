@@ -12,11 +12,20 @@ module Tracker
   # legs are treated as unlinked — the outbound venue lost the coins at their cost, the inbound one
   # received them with no history of its own.
   class Ledger
-    Position = Data.define(:symbol, :asset, :quantity, :cost_usd, :avg_cost_usd, :opened_at, :incomplete)
+    # `estimated`: some of its cost is an assumption (a deposit at market, an opening balance).
+    # `unpriced_quantity`: the units that opened at a price nobody had, taken at zero cost.
+    # `incomplete` is `estimated` under its old name.
+    Position = Data.define(:symbol, :asset, :quantity, :cost_usd, :avg_cost_usd, :opened_at, :estimated,
+                           :unpriced_quantity) do
+      def incomplete = estimated
+    end
     RoundTrip = Data.define(:symbol, :asset, :opened_at, :closed_at, :quantity, :invested_usd,
                             :proceeds_usd, :fees_usd, :realised_pnl_usd, :incomplete)
+    # `openings`: per asset, what must have been held before its history begins (see `openings`).
+    # `cash`: the cash the ledger holds, per currency, in that currency's units; `cash_usd` its sum
+    # at today's rate. `unpriced_proceeds_usd`: what was sold out of coins nobody could price.
     Summary = Data.define(:positions, :round_trips, :total_invested_usd, :received_usd, :realised_pnl_usd,
-                          :fees_usd, :cash_usd, :incomplete, :overdrawn, :computed_at)
+                          :fees_usd, :cash_usd, :cash, :unpriced_proceeds_usd, :incomplete, :openings, :computed_at)
     # One term of money in, as the chart reads it day by day: the row's instant, what it moved, and
     # whether the figure could be stated in full.
     Term = Data.define(:at, :amount, :complete)
@@ -145,7 +154,7 @@ module Tracker
         price_service, rows, engine, disposals = walk(user, exchange)
         assets = asset_index(user, engine.lots.keys | disposals.map { |disposal| disposal[:asset] })
         positions = positions_from(engine.lots, assets)
-        terms, cash_usd = money_in_terms(rows, price_service, engine)
+        terms, cash = money_in_terms(rows, price_service, engine)
 
         Summary.new(
           positions: positions,
@@ -160,10 +169,15 @@ module Tracker
           fees_usd: fees(rows, price_service),
           # Cash is a balance, not a position, and the ledger knows it after every row — stated so
           # the page can hold it against what the venue reports, as it does every coin.
-          cash_usd: cash_usd,
-          incomplete: positions.any?(&:incomplete) || engine.uncovered ||
-                      disposals.any? { |disposal| disposal[:data_incomplete] } || price_service.warnings.any?,
-          overdrawn: engine.overdrawn.select { |_, short| short.positive? },
+          cash: cash,
+          cash_usd: cash_in_usd(cash, price_service),
+          unpriced_proceeds_usd: disposals.sum(0.to_d) { |disposal| disposal[:unpriced_proceeds].to_d },
+          # Incomplete is a figure NOBODY could state — a price nobody had, a sale out of nothing —
+          # not one that had to be estimated: an estimate is stated, and noted.
+          incomplete: positions.any? { |position| position.unpriced_quantity.positive? } || engine.uncovered ||
+                      disposals.any? { |disposal| disposal[:unpriced_quantity].to_d.positive? } ||
+                      price_service.warnings.any?,
+          openings: rows.each_with_object({}) { |row, map| map[row[:base_currency]] = row[:base_amount] if row[:opening] },
           computed_at: Time.current
         )
       end
@@ -219,7 +233,7 @@ module Tracker
       # again — which for a position they have closed is never.
       def cache_key(user, exchange)
         scope = transactions(user, exchange)
-        "tracker_ledger_v6_#{user.id}_#{exchange&.id || 'all'}_" \
+        "tracker_ledger_v7_#{user.id}_#{exchange&.id || 'all'}_" \
           "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}_#{HistoricalPrice.generation}"
       end
 
@@ -244,7 +258,70 @@ module Tracker
         rows = price_service.enrich(ordered, currency: 'USD')
         # Flattened once, here, so the contributions and the engine read the same truth.
         rows.each { |row| row[:linked] = false } if exchange
-        mark_orphans(rows)
+        open_with_what_must_have_been_held(mark_orphans(rows), price_service)
+      end
+
+      # What must have been held before an asset's history begins. A running quantity that goes
+      # below zero is a history provably missing its start — nobody holds minus six litecoin — and
+      # the smallest quantity that keeps it at or above zero is the least that was already there.
+      # It enters exactly as an unlinked deposit does: a lot at the market price of that day, marked
+      # estimated, money in at its value on entry, a second before the asset's first row so the
+      # lots it fills are there when the first row needs them. Every way coins leave is counted —
+      # a sale, a sweep, a withdrawal, a lost coin, a fee row, a fee paid in the asset on another
+      # row, the fee slice of a linked transfer. A day with no price opens an unpriced lot, taken
+      # at zero cost. Nothing is written into the record; this is a reading of it.
+      def open_with_what_must_have_been_held(rows, price_service)
+        running = Hash.new(0.to_d)
+        lowest = Hash.new(0.to_d)
+        first = {}
+        rows.each do |row|
+          quantity_moves(row).each do |symbol, amount|
+            next if UnfundedCash.cash?(symbol)
+
+            first[symbol] ||= row
+            running[symbol] += amount
+            lowest[symbol] = running[symbol] if running[symbol] < lowest[symbol]
+          end
+        end
+        openings = lowest.select { |_, low| low.negative? }.map { |symbol, low| opening(symbol, -low, first[symbol], price_service) }
+        return rows if openings.empty?
+
+        # Each opening sits just ahead of the first row that touches its asset.
+        rows.flat_map { |row| openings.select { |opening| opening[:before].equal?(row) }.map { |o| o.except(:before) } + [row] }
+      end
+
+      # What one row does to the quantity of every non-cash asset it touches, as the engine reads
+      # it: the base leg net of a fee taken in it on the way in, the fee in a third asset, the fee
+      # slice of a linked transfer, a lost coin.
+      def quantity_moves(row)
+        type = row[:entry_type].to_s
+        base = row[:base_currency]
+        amount = row[:base_amount].to_d
+        fee_in_base = row[:fee_currency] == base ? row[:fee_amount].to_d : 0.to_d
+        moves = []
+        if UnfundedCash::BASE_IN.include?(type)
+          moves << [base, [amount - fee_in_base, 0.to_d].max] unless type == 'deposit' && row[:linked]
+        elsif type == 'withdrawal'
+          moves << [base, -(row[:linked] ? row[:transfer_fee_amount].to_d : amount)]
+        elsif UnfundedCash::BASE_OUT.include?(type)
+          moves << [base, -amount]
+        end
+        if row[:fee_currency].present? && row[:fee_currency] != base && row[:fee_amount].to_d.positive?
+          moves << [row[:fee_currency], -row[:fee_amount].to_d]
+        end
+        moves
+      end
+
+      def opening(symbol, quantity, first_row, price_service)
+        at = first_row[:transacted_at] - 1.second
+        kept = price_service.warnings.size
+        price = price_service.price_at(asset: symbol, currency: 'USD', timestamp: at, exchange: first_row[:exchange])
+        # A day with no price is the asset's own gap, not the report's: the lot is unpriced and says so.
+        price_service.warnings.slice!(kept..)
+        { entry_type: 'deposit', base_currency: symbol, base_amount: quantity, quote_currency: nil, quote_amount: nil,
+          fiat_value: price.to_d * quantity, fee_fiat_value: 0.to_d, fee_currency: nil, fee_amount: nil,
+          transacted_at: at, tx_id: nil, group_id: nil, price_missing: price.to_d.zero?, stated_value: false,
+          exchange: first_row[:exchange], linked: false, transfer_fee_amount: nil, opening: true, before: first_row }
       end
 
       # A swap leg with no counterpart — no leg going the other way in its group, or no group — is a
@@ -297,7 +374,7 @@ module Tracker
       #
       # One term per row, complete unless a figure in it had to be guessed: an arrival nobody could
       # price, a fiat amount with no rate, a shortfall the same. And, from the same walk, the cash
-      # left standing at the end of it, in dollars at today's rate.
+      # left standing at the end of it, per currency.
       def money_in_terms(rows, price_service, engine)
         cash = Hash.new(0.to_d)
         closes = UnfundedCash.closers(rows.map { |row| [row[:exchange], row[:group_id]] })
@@ -309,11 +386,11 @@ module Tracker
           complete = price_service.warnings.size == kept && !(row[:price_missing] && valued_by_price?(row))
           [row, Term.new(at: row[:transacted_at], amount: amount, complete: complete)]
         end
-        [terms, cash_in_usd(cash, price_service)]
+        [terms, cash.each_with_object(Hash.new(0.to_d)) { |((_, currency), amount), total| total[currency] += amount }]
       end
 
       def cash_in_usd(cash, price_service)
-        cash.sum(0.to_d) do |(_, currency), amount|
+        cash.sum(0.to_d) do |currency, amount|
           next amount if STABLECOINS.include?(currency)
 
           price_service.convert_fiat(amount: amount, from: currency, to: 'USD', timestamp: Time.current)
@@ -422,7 +499,8 @@ module Tracker
           Position.new(symbol: symbol, asset: assets[symbol], quantity: quantity, cost_usd: cost,
                        avg_cost_usd: cost / quantity,
                        opened_at: asset_lots.filter_map { |lot| lot[:date] }.min,
-                       incomplete: asset_lots.any? { |lot| lot[:basis_assumed] })
+                       estimated: asset_lots.any? { |lot| lot[:basis_assumed] },
+                       unpriced_quantity: asset_lots.sum(0.to_d) { |lot| lot[:unpriced].to_d })
         end.sort_by { |position| -position.cost_usd }
       end
 

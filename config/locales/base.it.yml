@@ -506,17 +506,6 @@ it:
             failed: 'Non è stato possibile generare il report. Controlla le impostazioni selezionate e riprova.'
         holdings: 'Asset detenuti'
         unrealised: 'Non realizzato'
-        findings:
-            title: '%{count} posizioni per cui il registro non può garantire'
-            entry:
-                acquisition: 'Saldo iniziale che hai registrato'
-                disposal: 'Correzione che hai registrato'
-            figures_disagree: 'Questi numeri non tornano (scarto di %{amount}). Manca qualcosa che i controlli sopra non hanno colto.'
-            cash_disagrees: 'Liquidità: il registro e l''exchange differiscono di %{amount} su quanto è detenuto.'
-            history_incomplete: '%{symbol}: lo storico è incompleto — è uscito più di quanto sia mai entrato, quindi il costo è ignoto.'
-            quantity_disagrees: '%{symbol}: registro ed exchange non concordano sulla quantità, quindi il costo è ignoto.'
-            no_history: '%{symbol}: l’exchange lo riporta, ma non c’è storico dietro.'
-            basis_assumed: '%{symbol}: parte è arrivata senza prezzo, quindi il costo è una stima.'
         tiles:
             unrealised_pnl: 'P/P non realizzato'
             total_pnl: 'P/P totale'
@@ -555,6 +544,18 @@ it:
         show_less: 'Mostra meno'
         other: 'Altro'
         basis_incomplete: 'Nessun costo di carico per questo asset, quindi non mostriamo profitto/perdita.'
+        notes:
+            left: '%{exchange} riporta %{held} %{symbol}; la cronologia ne spiega %{history}. La differenza è considerata uscita al costo (%{amount}).'
+            arrived: '%{exchange} riporta %{held} %{symbol}; la cronologia ne spiega %{history}. La differenza è considerata entrata al suo prezzo (%{amount}).'
+            since_sync: '%{symbol} acquistato dall''ultima sincronizzazione: valutato al costo (%{amount}) fino alla prossima.'
+            cash_out: 'La cronologia detiene %{history} %{symbol}; %{exchange} riporta %{held}. La differenza (%{amount}) è considerata uscita.'
+            cash_in: 'La cronologia detiene %{history} %{symbol}; %{exchange} riporta %{held}. La differenza (%{amount}) è considerata entrata.'
+            unpriced_held: '%{history} %{symbol} sono arrivati senza un prezzo reperibile; considerati a costo zero (oggi valgono %{amount}).'
+            unpriced: '%{amount} sono stati venduti da asset senza prezzo reperibile; il loro costo è considerato zero.'
+            at_par: 'Nessun tasso per %{symbol} oggi; considerato alla pari.'
+            figures_disagree: 'Questi numeri non tornano (scarto di %{amount}). Qualcosa non va che nessuna ipotesi aveva previsto.'
+            your_exchanges: 'L''exchange'
+            estimated: '%{symbol}: parte del suo costo è il prezzo di mercato del giorno di arrivo, non un''esecuzione.'
         record:
             all: 'Tutte'
             transfer: 'Trasferimento'

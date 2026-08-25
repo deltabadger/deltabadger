@@ -25,9 +25,23 @@ class PortfolioSnapshot < ApplicationRecord
     return if balances.empty? && !AccountTransaction.for_user(user).exists?
 
     ledger = Tracker::Ledger.cached(user, exchange: exchange) || Tracker::Ledger.compute!(user, exchange: exchange)
-    { user_id: user.id, date: Date.current,
-      value_usd: balances.sum(0.to_d) { |balance| balance.usd_value.to_d },
-      invested_usd: ledger.total_invested_usd, partial: partial?(user, balances) || ledger.incomplete }
+    # The same resolution the tiles show, so the chart's last point and the tile are one figure.
+    figures = Tracker::Figures.for(user, ledger: ledger, balances: balances,
+                                         pending: Tracker::Figures.moved_since(pending_scope(user, exchange), watermarks(user, exchange)))
+    { user_id: user.id, date: Date.current, value_usd: figures.value, invested_usd: figures.invested,
+      partial: partial?(user, balances) || ledger.incomplete }
+  end
+
+  # Exchange id → when that venue's balances were last taken.
+  def self.watermarks(user, exchange = nil)
+    keys = user.api_keys.to_a
+    keys = keys.select { |key| key.exchange_id == exchange.id } if exchange
+    keys.each_with_object({}) { |key, marks| marks[key.exchange_id] = [marks[key.exchange_id], key.balances_synced_at].compact.max }
+  end
+
+  def self.pending_scope(user, exchange)
+    scope = AccountTransaction.for_user(user)
+    exchange ? scope.for_exchange(exchange) : scope
   end
 
   # Which price generation this user's history was last swept at. A stored history is a reading of
@@ -71,7 +85,7 @@ class PortfolioSnapshot < ApplicationRecord
   # today, and tomorrow's answer is a different one.
   def self.series_key(user, exchange)
     scope = AccountTransaction.for_user(user).for_exchange(exchange)
-    "tracker_history_v2_#{user.id}_#{exchange.id}_#{Date.current.iso8601}_" \
+    "tracker_history_v3_#{user.id}_#{exchange.id}_#{Date.current.iso8601}_#{watermarks(user, exchange)[exchange.id]&.to_i}_" \
       "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}"
   end
 

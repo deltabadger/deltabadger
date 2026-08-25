@@ -341,8 +341,8 @@ class TrackerController < ApplicationController
     # ONE source for every figure the page states. The templates used to each work out their own
     # from two different truths — the ledger and the balances — which is how they came to
     # contradict each other with nothing able to notice.
-    @figures = Tracker::Figures.for(current_user, ledger: @scoped_ledger, balances: priced,
-                                                  pending: quantities_since(@portfolio_last_synced_at))
+    @figures = Tracker::Figures.for(current_user, ledger: @scoped_ledger, balances: balances,
+                                                  pending: quantities_since)
     @portfolio_has_keys = reading_keys.any?
     @portfolio_never_synced = @portfolio_has_keys && balances.empty? &&
                               !AccountBalance.for_user(current_user).exists?
@@ -351,10 +351,9 @@ class TrackerController < ApplicationController
   # What the ledger has seen since the balances were taken. A balance is a snapshot and the bots go
   # on trading: without this, every asset bought since the last sync looks like a holding whose
   # quantity the ledger cannot vouch for, and the page withholds a P/L it actually knows.
-  def quantities_since(synced_at)
-    scope = AccountTransaction.for_user(current_user)
-    scope = scope.for_exchange(@scope_exchange) if @scope_exchange
-    Tracker::Figures.moved_since(scope, synced_at)
+  def quantities_since
+    Tracker::Figures.moved_since(PortfolioSnapshot.pending_scope(current_user, @scope_exchange),
+                                 PortfolioSnapshot.watermarks(current_user, @scope_exchange))
   end
 
   # Reads the pending report's own key, not the export preferences: toggling a radio in the modal

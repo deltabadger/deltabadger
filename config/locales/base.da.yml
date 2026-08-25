@@ -517,17 +517,6 @@ da:
             failed: 'Rapporten kunne ikke genereres. Kontrollér de valgte indstillinger, og prøv igen.'
         holdings: 'Beholdning'
         unrealised: 'Urealiseret'
-        findings:
-            title: '%{count} beholdninger som regnskabet ikke kan indestå for'
-            entry:
-                acquisition: 'Åbningssaldo du har registreret'
-                disposal: 'Rettelse du har registreret'
-            figures_disagree: 'Disse tal går ikke op (forskel på %{amount}). Noget mangler, som kontrollerne ovenfor ikke fangede.'
-            cash_disagrees: 'Kontanter: hovedbogen og børsen er uenige med %{amount} om, hvor meget der holdes.'
-            history_incomplete: '%{symbol}: historikken er ufuldstændig — der gik mere ud end der nogensinde kom ind, så prisen er ukendt.'
-            quantity_disagrees: '%{symbol}: regnskabet og børsen er uenige om mængden, så prisen er ukendt.'
-            no_history: '%{symbol}: børsen rapporterer den, men der er ingen historik bag.'
-            basis_assumed: '%{symbol}: en del kom ind uden pris, så prisen er et skøn.'
         tiles:
             unrealised_pnl: 'Urealiseret G/T'
             total_pnl: 'Samlet G/T'
@@ -566,6 +555,18 @@ da:
         show_less: 'Vis færre'
         other: 'Andet'
         basis_incomplete: 'Ingen anskaffelsessum for denne beholdning, så vi viser hverken gevinst eller tab.'
+        notes:
+            left: '%{exchange} rapporterer %{held} %{symbol}; historikken forklarer %{history}. Forskellen antages at være gået ud til kostpris (%{amount}).'
+            arrived: '%{exchange} rapporterer %{held} %{symbol}; historikken forklarer %{history}. Forskellen antages at være kommet ind til sin pris (%{amount}).'
+            since_sync: '%{symbol} købt siden sidste synkronisering: værdiansat til kostpris (%{amount}) indtil næste.'
+            cash_out: 'Historikken holder %{history} %{symbol}; %{exchange} rapporterer %{held}. Forskellen (%{amount}) antages at være ført ud.'
+            cash_in: 'Historikken holder %{history} %{symbol}; %{exchange} rapporterer %{held}. Forskellen (%{amount}) antages at være ført ind.'
+            unpriced_held: '%{history} %{symbol} kom ind uden en pris, der kunne findes; sat til kostpris nul (i dag %{amount} værd).'
+            unpriced: '%{amount} blev solgt ud af aktiver uden kendt pris; deres kostpris antages at være nul.'
+            at_par: 'Ingen kurs for %{symbol} i dag; sat til pari.'
+            figures_disagree: 'Disse tal stemmer ikke (afvigelse %{amount}). Noget er galt, som ingen antagelse forudså.'
+            your_exchanges: 'Børsen'
+            estimated: '%{symbol}: en del af kostprisen er markedsprisen den dag, det kom ind, ikke en handel.'
         record:
             all: 'Alle'
             transfer: 'Overførsel'

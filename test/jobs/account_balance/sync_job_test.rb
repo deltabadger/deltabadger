@@ -93,7 +93,8 @@ class AccountBalance::SyncJobTest < ActiveSupport::TestCase
       AccountBalance::SyncJob.perform_now(@user.id, [@key_binance.id])
       row = PortfolioSnapshot.for_user(@user).find_by(date: Date.new(2026, 8, 23))
       assert_equal 40_000.to_d, row.value_usd
-      assert_equal 30_000.to_d, row.invested_usd, 'the ledger is computed for the snapshot, not carried from yesterday'
+      # 30,000 deposited, none of it on the exchange (moved out); 1 BTC held with no history, arrived at 40,000.
+      assert_equal 40_000.to_d, row.invested_usd, 'the ledger is computed for the snapshot, not carried from yesterday'
     end
   end
 

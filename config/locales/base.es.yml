@@ -507,17 +507,6 @@ es:
             failed: 'No se ha podido generar el informe. Comprueba la configuración seleccionada e inténtalo de nuevo.'
         holdings: 'Activos'
         unrealised: 'No realizado'
-        findings:
-            title: '%{count} posiciones que el libro no puede respaldar'
-            entry:
-                acquisition: 'Saldo inicial que registraste'
-                disposal: 'Corrección que registraste'
-            figures_disagree: 'Estas cifras no cuadran (diferencia de %{amount}). Falta algo que las comprobaciones anteriores no detectaron.'
-            cash_disagrees: 'Efectivo: el registro y el exchange difieren en %{amount} sobre cuánto hay.'
-            history_incomplete: '%{symbol}: el historial está incompleto — salió más de lo que entró, así que su coste es desconocido.'
-            quantity_disagrees: '%{symbol}: el libro y el exchange no coinciden en la cantidad, así que su coste es desconocido.'
-            no_history: '%{symbol}: el exchange lo reporta, pero no hay historial detrás.'
-            basis_assumed: '%{symbol}: parte llegó sin precio, así que su coste es una estimación.'
         tiles:
             unrealised_pnl: 'P/G no realizada'
             total_pnl: 'P/G total'
@@ -556,6 +545,18 @@ es:
         show_less: 'Mostrar menos'
         other: 'Otros'
         basis_incomplete: 'Sin coste de adquisición para este activo, así que no mostramos ganancia/pérdida.'
+        notes:
+            left: '%{exchange} informa %{held} %{symbol}; el historial explica %{history}. La diferencia se toma como salida al coste (%{amount}).'
+            arrived: '%{exchange} informa %{held} %{symbol}; el historial explica %{history}. La diferencia se toma como entrada a su precio (%{amount}).'
+            since_sync: '%{symbol} comprado desde la última sincronización: valorado al coste (%{amount}) hasta la siguiente.'
+            cash_out: 'El historial tiene %{history} %{symbol}; %{exchange} informa %{held}. La diferencia (%{amount}) se toma como salida.'
+            cash_in: 'El historial tiene %{history} %{symbol}; %{exchange} informa %{held}. La diferencia (%{amount}) se toma como entrada.'
+            unpriced_held: '%{history} %{symbol} llegaron sin un precio que se pudiera encontrar; se toman a coste cero (hoy valen %{amount}).'
+            unpriced: '%{amount} se vendieron de activos sin precio conocido; su coste se toma como cero.'
+            at_par: 'Sin tipo de cambio para %{symbol} hoy; se toma a la par.'
+            figures_disagree: 'Estas cifras no cuadran (desviación de %{amount}). Algo falla que ninguna suposición previó.'
+            your_exchanges: 'El exchange'
+            estimated: '%{symbol}: parte de su coste es el precio de mercado del día en que llegó, no una ejecución.'
         record:
             all: 'Todas'
             transfer: 'Transferencia'

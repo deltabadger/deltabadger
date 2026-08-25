@@ -41,7 +41,8 @@ module Tax
               amount: lot_amount,
               cost_per_unit: cost_per_unit,
               date: tx[:transacted_at],
-              basis_assumed: tx[:price_missing]
+              basis_assumed: tx[:price_missing],
+              unpriced: tx[:price_missing] ? lot_amount : 0.to_d
             }
 
           when :deposit
@@ -50,7 +51,7 @@ module Tax
             lot_amount, lot_cost = apply_acquisition_fee(lots, tx, amount, fiat_value)
             cost_per_unit = lot_amount.positive? ? (lot_cost / lot_amount) : 0.to_d
             lots[asset] << { amount: lot_amount, cost_per_unit: cost_per_unit, date: tx[:transacted_at],
-                             basis_assumed: true }
+                             basis_assumed: true, unpriced: tx[:price_missing] ? lot_amount : 0.to_d }
 
           when :swap_in
             next if non_taxable_stablecoin_swap?(asset)
@@ -106,6 +107,7 @@ module Tax
           asset_lots.each do |lot|
             lot[:cost_per_unit] /= factor
             lot[:amount] *= factor
+            lot[:unpriced] = lot[:unpriced].to_d * factor
           end
         elsif amount.negative? && !factor.positive?
           # Defensive: an adjustment that zeroes or overdraws the pool is not a real split. Clear
@@ -115,7 +117,7 @@ module Tax
           # Defensive: a split delta with no prior pool. Open a zero-cost lot, marked so every
           # disposal that consumes it reports data_incomplete.
           asset_lots << { amount: amount, cost_per_unit: 0.to_d, date: transaction[:transacted_at],
-                          basis_assumed: true }
+                          basis_assumed: true, unpriced: amount }
         end
       end
 
@@ -134,7 +136,12 @@ module Tax
         first_lot = lots[asset].first
         earliest_date = first_lot&.dig(:date)
         holding_ref_date = first_lot&.dig(:holding_start) || earliest_date
-        cost_basis, basis_assumed = dequeue_cost(lots[asset], amount)
+        tranches, = dequeue_tranches(lots[asset], amount)
+        cost_basis = tranches.sum(0.to_d) { |tranche| tranche[:cost] }
+        basis_assumed = tranches.any? { |tranche| tranche[:basis_assumed] }
+        # The units that opened at a price nobody had, and their share of what this sale brought in
+        # — a whole sale's proceeds for a partly unpriced lot would overstate what rests on nothing.
+        unpriced = tranches.sum(0.to_d) { |tranche| tranche[:unpriced].to_d }
         consume_disposal_fee(lots, transaction)
         holding_days = holding_ref_date ? ((transaction[:transacted_at] - holding_ref_date) / 1.day).to_i : 0
 
@@ -150,6 +157,8 @@ module Tax
           holding_days: holding_days,
           cost_basis_complete: has_lots,
           data_incomplete: data_incomplete?(transaction, has_lots, basis_assumed),
+          unpriced_quantity: unpriced,
+          unpriced_proceeds: amount.positive? ? fiat_value * unpriced / amount : 0.to_d,
           tx_id: transaction[:tx_id],
           exchange: transaction[:exchange]
         }
@@ -167,7 +176,8 @@ module Tax
             amount: lot_amount,
             cost_per_unit: cost_per_unit,
             date: transaction[:transacted_at],
-            basis_assumed: transaction[:price_missing]
+            basis_assumed: transaction[:price_missing],
+            unpriced: transaction[:price_missing] ? lot_amount : 0.to_d
           }
         else
           add_non_taxable_swap_in_lots(lots, transferred_tranches, transaction, asset, amount, fiat_value)
@@ -194,7 +204,7 @@ module Tax
         # the consideration paid, so adding market value to it would count the coins twice.
         if tranches.empty? && !cash_present
           open_swap_lot(lots[asset], transaction, lot_amount, unit(fiat_value + fee_cost, lot_amount),
-                        transaction[:transacted_at], assumed)
+                        transaction[:transacted_at], assumed, unpriced: transaction[:price_missing] ? lot_amount : 0.to_d)
           return
         end
 
@@ -212,8 +222,10 @@ module Tax
           # One division of exact products: a unit cost taken off an already-rounded amount turns an
           # exact basis into a repeating tail, and selling the lot back would not add up to it.
           cost = (tranche[:cost] * share * total_weight / tranche[:weight]) + (fee_cost * tranche[:weight] / total_weight)
+          # The unpriced units travel in the tranche's own proportion.
+          unpriced = tranche[:amount].positive? ? tranche_amount * tranche[:unpriced].to_d / tranche[:amount] : 0.to_d
           open_swap_lot(lots[asset], transaction, tranche_amount, cost / rest, tranche[:date],
-                        tranche[:basis_assumed] || assumed, tranche[:holding_start])
+                        tranche[:basis_assumed] || assumed, tranche[:holding_start], unpriced: unpriced)
         end
         if cash_amount.positive?
           scale = if tranches.empty?
@@ -242,8 +254,10 @@ module Tax
         amount.positive? ? cost / amount : 0.to_d
       end
 
-      def open_swap_lot(asset_lots, transaction, amount, cost_per_unit, date, basis_assumed, holding_start = nil)
-        lot = { amount: amount, cost_per_unit: cost_per_unit, date: date, basis_assumed: basis_assumed }
+      def open_swap_lot(asset_lots, transaction, amount, cost_per_unit, date, basis_assumed, holding_start = nil,
+                        unpriced: 0.to_d)
+        lot = { amount: amount, cost_per_unit: cost_per_unit, date: date, basis_assumed: basis_assumed,
+                unpriced: unpriced }
         if @swap_resets_holding_period
           lot[:holding_start] = transaction[:transacted_at]
         elsif holding_start
@@ -260,7 +274,10 @@ module Tax
         # Coins the lots did not cover leave as a tranche of nothing: a zero-basis lot from coins
         # never held is a real number, not a complete one.
         uncovered = amount - [amount, held].min
-        tranches << { amount: uncovered, cost: 0.to_d, date: transaction[:transacted_at], basis_assumed: true } if uncovered.positive?
+        if uncovered.positive?
+          tranches << { amount: uncovered, cost: 0.to_d, date: transaction[:transacted_at], basis_assumed: true,
+                        unpriced: uncovered }
+        end
         # A tranche's weight is its slice of the leg's worth at the swap, so an in-leg shares out
         # every tranche of every leg on one scale. A group with an unpriced leg weighs its legs equally.
         weight = swap_out_weight(transaction)
@@ -404,11 +421,13 @@ module Tax
         while remaining.positive? && lots.any?
           lot = lots.first
           tranche_amount = [lot[:amount], remaining].min
+          unpriced = lot[:amount].positive? ? lot[:unpriced].to_d * tranche_amount / lot[:amount] : 0.to_d
           tranche = {
             amount: tranche_amount,
             cost: tranche_amount * lot[:cost_per_unit],
             date: lot[:date],
-            basis_assumed: lot[:basis_assumed] ? true : false
+            basis_assumed: lot[:basis_assumed] ? true : false,
+            unpriced: unpriced
           }
           tranche[:holding_start] = lot[:holding_start] if lot[:holding_start]
           tranches << tranche
@@ -418,6 +437,7 @@ module Tax
             lots.shift
           else
             lot[:amount] -= remaining
+            lot[:unpriced] = lot[:unpriced].to_d - unpriced
             remaining = 0
           end
         end

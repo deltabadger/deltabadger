@@ -1,57 +1,62 @@
 module Tracker
-  # Every figure the tracker states, from one place.
+  # Every figure the tracker states, from one place — and every assumption it had to make to state
+  # them, in words, next to the figure it shapes.
   #
-  # They used to be six independent calculations spread across a controller, a helper and two
-  # templates, drawing on TWO different sources of truth — the ledger (transactions walked into FIFO
-  # lots) and the balances (what a venue reports it holds). Nothing tied them together, so nothing
-  # could notice when they contradicted each other, and the page stated all six as fact. Every
-  # contradiction had to be found by eye, one at a time.
+  # Two sources of truth: the ledger (transactions walked into FIFO lots) and the balances (what a
+  # venue reports it holds). The venue's balance IS the truth about what is held; the history
+  # explains what it can about how it got there and what it cost. Where the two do not meet, the
+  # page fills the gap with the most reasonable assumption rather than asking — nobody can answer
+  # "why does Binance's own history not add up to Binance's own balance" but Binance — and says so
+  # in gray on the row it concerns. Nothing here is written into the record. No figure is blank.
   #
-  # The rule here is that a figure is stated when it can be VOUCHED FOR, and said to be unavailable
-  # when it cannot. Two contradictions are detectable with no further information at all:
-  #
-  #   * a running quantity that went BELOW ZERO. Nobody holds minus six litecoin, so that history is
-  #     provably missing its opening balance. FIFO floors the overdraw at zero and later buys pile
-  #     onto the empty pool, which turns an impossible history into a confident positive quantity —
-  #     see `Ledger::Engine#overdrawn`, which now records it per asset instead of discarding it.
-  #   * the ledger's own quantity against the venue's. Both numbers are in hand for every connected
-  #     exchange, and nothing compared them.
-  #
-  # A holding that fails either check has a cost basis nobody can stand behind, so it states no
-  # unrealised gain — and the page says which holding, and why.
+  # The assumptions, the same ones a correcting entry would have made:
+  #   * history AHEAD of the balance: the extra LEFT at cost — the holding costs its average cost
+  #     times what the venue holds, and money in is debited what left;
+  #   * balance AHEAD of the history: the extra ARRIVED at the balance's own price, carrying no gain;
+  #   * cash the venue lacks MOVED OUT; cash beyond the history MOVED IN;
+  #   * a coin bought since the venue's last sync is held at cost until the next sync;
+  #   * a lot that opened at a price nobody had is taken at ZERO cost.
+  # Each moves money in and basis together, so what is held less what went in is what was banked
+  # plus what is still riding — by construction. The backstop then only ever fires on a bug.
   class Figures
-    # Exchanges and ledgers never agree to the last digit; dust is not a disagreement.
-    TOLERANCE = 0.02
-    # How far the two halves of the identity may sit apart before that is itself a finding. A cent,
-    # or a thousandth of the portfolio, whichever is larger — rounding, never a missing holding.
+    # Below this an assumption is applied in silence: a few cents of fee rounding is not worth a line.
+    NOTE_FLOOR = 1
+    # How far the two halves of the identity may sit apart before that is itself a note. A cent, or
+    # a thousandth of the portfolio, whichever is larger — rounding, never a missing holding.
     IDENTITY_TOLERANCE = 0.001
 
-    Finding = Data.define(:kind, :symbol, :detail)
+    # An assumption, for the page to say. `exchange` is the venue's name when one venue holds the
+    # asset, nil when several do; `history` and `held` the two quantities; `amount_usd` what the
+    # assumption moved.
+    Note = Data.define(:kind, :symbol, :exchange, :history, :held, :amount_usd)
 
-    Holding = Data.define(:asset, :quantity, :value, :cost, :unrealised, :finding) do
-      def vouched? = finding.nil?
-      def percent = vouched? && cost&.positive? ? ((value / cost) - 1) * 100 : nil
+    Holding = Data.define(:asset, :quantity, :value, :cost, :unrealised, :note) do
+      def percent = cost&.positive? ? ((value / cost) - 1) * 100 : nil
     end
 
-    Result = Data.define(:invested, :value, :fees, :realised, :unrealised, :total,
-                         :holdings, :findings, :ledger) do
-      def vouched? = findings.empty?
-    end
+    Result = Data.define(:invested, :value, :fees, :realised, :unrealised, :total, :holdings, :notes, :ledger)
 
     # `pending` is what the ledger has recorded SINCE the balances were taken — a balance is a
-    # snapshot and the bots go on trading, so without it one fill makes a holding look unvouchable.
-    def self.for(_user, ledger:, balances:, pending: {})
-      new(ledger, balances, pending).result
+    # snapshot and the bots go on trading, so without it one fill would read as a coin that left.
+    def self.for(user, ledger:, balances:, pending: {})
+      new(user, ledger, balances, pending).result
     end
 
-    # What the ledger has moved since `synced_at`, by symbol: each row's own asset, and the cash it
-    # spent or returned besides — a fill since the sync moved both, and the venue's snapshot shows
-    # neither. Read straight off the rows: the handful since a sync is never worth a second opinion
-    # about what a row does to cash.
-    def self.moved_since(transactions, synced_at)
-      return {} if synced_at.nil?
+    # What the ledger has moved since each venue's balances were taken, by symbol: each row's own
+    # asset, and the cash it spent or returned besides — a fill since the sync moved both, and the
+    # venue's snapshot shows neither. `watermarks` is exchange id → the time that venue's balances
+    # were last taken; a venue with none is not brought forward, since there is nothing to bring
+    # it forward from. Read straight off the rows: the handful since a sync is never worth a second
+    # opinion about what a row does to cash.
+    def self.moved_since(transactions, watermarks)
+      watermarks = watermarks.compact
+      return {} if watermarks.empty?
 
-      transactions.where(transacted_at: synced_at..).each_with_object(Hash.new(0.to_d)) do |tx, moved|
+      since = watermarks.values.min
+      transactions.where(transacted_at: since..).each_with_object(Hash.new(0.to_d)) do |tx, moved|
+        taken = watermarks[tx.exchange_id]
+        next if taken.nil? || tx.transacted_at < taken
+
         unless UnfundedCash.cash?(tx.base_currency)
           moved[tx.base_currency] += tx.base_amount.to_d if UnfundedCash::BASE_IN.include?(tx.entry_type)
           moved[tx.base_currency] -= tx.base_amount.to_d if UnfundedCash::BASE_OUT.include?(tx.entry_type)
@@ -66,159 +71,191 @@ module Tracker
       end
     end
 
-    def initialize(ledger, balances, pending)
+    def initialize(user, ledger, balances, pending)
+      @user = user
       @ledger = ledger
       @balances = balances
       @pending = pending
+      @notes = []
+      @moved = 0.to_d
     end
 
     # A ledger still warming is NOT a ledger that disagrees. What the balances alone can say is
-    # said — the value, and what each holding is worth — and everything the history decides waits,
-    # rather than every holding being reported as having no history behind it.
+    # said — the value, and what each holding is worth — and everything the history decides waits.
     def result
       return waiting_for_ledger if @ledger.nil?
 
-      holdings = build_holdings
+      holdings = resolve_holdings
+      resolve_departed(holdings)
+      resolve_cash(holdings)
       value = holdings.sum(0.to_d, &:value)
+      invested = @ledger.total_invested_usd + @moved
+      unrealised = holdings.filter_map(&:unrealised).sum(0.to_d)
+      unpriced_note
+      backstop(value, invested, unrealised)
 
-      Result.new(
-        invested: @ledger.total_invested_usd,
-        value: value,
-        fees: @ledger.fees_usd,
-        realised: @ledger.realised_pnl_usd,
-        # Over the holdings that HAVE a gain to state — not merely the vouched-for ones. Cash is
-        # vouched for and has no gain: it is money, not a position.
-        unrealised: holdings.any?(&:unrealised) ? gains(holdings) : nil,
-        # One definition, and the same one the chart draws: what is held against what went in.
-        total: value - @ledger.total_invested_usd,
-        holdings: holdings,
-        findings: findings(holdings, value),
-        ledger: @ledger
-      )
+      Result.new(invested: invested, value: value, fees: @ledger.fees_usd, realised: @ledger.realised_pnl_usd,
+                 unrealised: unrealised, total: value - invested, holdings: holdings,
+                 notes: @notes.sort_by { |note| [note.symbol, note.kind] }, ledger: @ledger)
     end
 
     private
 
-    # Everything the page cannot stand behind — and, always, the BACKSTOP.
-    #
-    # Every named finding is a disagreement with the VENUE: a quantity, a coin, the cash. The
-    # backstop is the ledger's own arithmetic, with no venue in the equation: what its positions
-    # cost plus the cash it holds must be what went in plus what was realised. Those are the two
-    # halves of the page's identity once the venue agrees with the ledger, so with the venue's
-    # disagreements named above, this is what is left. It runs whether or not anything above fired
-    # — a finding that explains a disagreement must never hide a contradiction in the figures
-    # themselves, which is exactly how the page came to state figures that quietly did not add up.
-    def findings(holdings, value)
-      named = (holdings.filter_map(&:finding) + orphan_findings + cash_findings(holdings)).sort_by(&:symbol)
-      drift = @ledger.positions.sum(0.to_d, &:cost_usd) + @ledger.cash_usd -
-              @ledger.total_invested_usd - @ledger.realised_pnl_usd
-      return named if drift.abs <= [0.01.to_d, value.abs * IDENTITY_TOLERANCE].max
+    def positions = @positions ||= @ledger.positions.index_by(&:symbol)
 
-      named + [finding(:figures_disagree, '', drift)]
+    # One row per asset the venue holds — by its balance rows, or bought since the sync — in value
+    # order, each resolved against the history.
+    def resolve_holdings
+      rows = @balances.group_by { |row| row.asset.symbol }
+      symbols = rows.keys | @pending.keys.reject { |symbol| cash?(symbol) || !@pending[symbol].positive? }
+      symbols.filter_map { |symbol| holding(symbol, rows.fetch(symbol, [])) }.sort_by { |holding| -holding.value }
     end
 
-    # Cash is a balance, not a position — and it was never compared. One line for all of it: a
-    # dollar is a dollar wherever it sits, and what the venue holds since the snapshot is brought
-    # forward by the cash the rows since then moved.
-    def cash_findings(holdings)
-      pending = pending_cash_usd
-      return [] if pending.nil?
+    def holding(symbol, rows)
+      held = rows.sum(0.to_d) { |row| row.free.to_d + row.locked.to_d } + @pending.fetch(symbol, 0.to_d)
+      return if held <= 0
 
-      reported = holdings.sum(0.to_d) { |holding| cash?(holding.asset.symbol) ? holding.value : 0.to_d } + pending
-      gap = @ledger.cash_usd - reported
-      return [] if gap.abs <= [1.to_d, [reported, @ledger.cash_usd].max.abs * TOLERANCE].max
+      asset = rows.first&.asset || Ledger.asset_index(@user, [symbol])[symbol] || Asset.find_by(symbol: symbol)
+      return if asset.nil?
 
-      [finding(:cash_disagrees, '', gap)]
+      exchange = rows.map { |row| row.exchange.name }.uniq.then { |names| names.one? ? names.first : nil }
+      price = if rows.sum(0.to_d) { |row| row.usd_price.to_d }.positive?
+                rows.sum(0.to_d) { |row| row.usd_value.to_d } / rows.sum(0.to_d) do |row|
+                  row.free.to_d + row.locked.to_d
+                end
+              else
+                nil
+              end
+      return Holding.new(asset: asset, quantity: held, value: cash_value(symbol, held, price), cost: nil, unrealised: nil, note: nil) if cash?(symbol)
+
+      position = positions[symbol]
+      cost, note = resolve(symbol, position, held, price, exchange, rows.empty?)
+      # A coin the venue has not reported yet — bought since its last sync — is held at cost until
+      # it does, and says so whatever else was assumed.
+      note ||= note(:since_sync, symbol, exchange, position&.quantity || 0.to_d, held, cost, always: true) if rows.empty?
+      # Valued at the venue's price; where it has none, at cost — a coin bought since the sync, a
+      # balance the venue could not price — with no gain to claim on it.
+      value = price ? held * price : cost
+      Holding.new(asset: asset, quantity: held, value: value, cost: cost, unrealised: value - cost, note: note)
     end
 
-    # The cash moved since the snapshot, in the dollars every other figure is in — a stablecoin at
-    # par, fiat at today's rate. nil when a rate is missing: a comparison that cannot be made is
-    # not made, rather than made in mixed units.
-    def pending_cash_usd
-      @pending.sum(0.to_d) do |symbol, amount|
-        next 0.to_d unless cash?(symbol)
-        next amount if Tax::PriceService::STABLECOINS.include?(symbol)
-
-        amount * Tax::EcbFxRates.rate(from: symbol, to: 'USD', date: Date.current)
+    # The holding's cost against the history, and the assumption that closed the gap, if any.
+    def resolve(symbol, position, held, price, exchange, since_sync)
+      history = position&.quantity || 0.to_d
+      avg = position&.avg_cost_usd || 0.to_d
+      delta = held - history
+      if delta.negative?
+        # The extra left at cost.
+        left = avg * -delta
+        @moved -= left
+        [avg * held, note(:left, symbol, exchange, history, held, left) || provenance_note(symbol, position, held, price, exchange)]
+      elsif delta.positive?
+        # The extra arrived — at the venue's price; at cost while the venue has none; at nothing
+        # when nothing prices it.
+        unit = price || avg
+        arrived = delta * unit
+        @moved += arrived
+        kind = since_sync ? :since_sync : :arrived
+        [(position&.cost_usd || 0.to_d) + arrived,
+         note(kind, symbol, exchange, history, held, arrived,
+              always: since_sync) || (position && provenance_note(symbol, position, held, price, exchange))]
+      else
+        [position.cost_usd, provenance_note(symbol, position, held, price, exchange)]
       end
-    rescue Tax::EcbFxRates::MissingRate
+    end
+
+    # The quantities agree; what the cost rests on may still be worth a word — units nobody could
+    # price (taken at zero), or a basis that is the market price of the day it arrived, not a fill.
+    def provenance_note(symbol, position, held, price, exchange)
+      unpriced = position.unpriced_quantity
+      return note(:unpriced_held, symbol, exchange, unpriced, held, unpriced * (price || 0.to_d), always: true) if unpriced.positive?
+      return note(:estimated, symbol, exchange, position.quantity, held, position.cost_usd, always: true) if position.estimated
+
       nil
     end
 
-    def gains(holdings) = holdings.filter_map(&:unrealised).sum(0.to_d)
+    # Coins the history holds that no venue reports at all: left at cost, listed below the holdings.
+    def resolve_departed(holdings)
+      shown = holdings.to_set { |holding| holding.asset.symbol }
+      positions.each_value do |position|
+        next if shown.include?(position.symbol) || cash?(position.symbol) || !position.quantity.positive?
+
+        @moved -= position.cost_usd
+        note(:left, position.symbol, venue_of(position.symbol), position.quantity, 0.to_d, position.cost_usd)
+      end
+    end
+
+    # The venue a coin's history was booked on, when it is one venue.
+    def venue_of(symbol)
+      names = AccountTransaction.for_user(@user).where(base_currency: symbol).distinct.pluck(:exchange_id)
+                                .map { |id| Exchange.find(id).name }
+      names.one? ? names.first : nil
+    end
+
+    # Cash, per currency, in its own units — a euro against a euro — converted once, at today's rate,
+    # for what the assumption moved. A currency with no rate is taken at par, and says so.
+    def resolve_cash(holdings)
+      venue = holdings.each_with_object(Hash.new(0.to_d)) do |holding, units|
+        units[holding.asset.symbol] += holding.quantity if cash?(holding.asset.symbol)
+      end
+      (@ledger.cash.keys | venue.keys).each do |currency|
+        gap = @ledger.cash.fetch(currency, 0.to_d) - venue.fetch(currency, 0.to_d)
+        next if gap.zero?
+
+        usd = gap * rate(currency)
+        @moved -= usd
+        note(usd.positive? ? :cash_out : :cash_in, currency, nil, @ledger.cash.fetch(currency, 0.to_d), venue.fetch(currency, 0.to_d), usd.abs)
+      end
+    end
+
+    def unpriced_note
+      sold = @ledger.unpriced_proceeds_usd
+      note(:unpriced, '', nil, nil, nil, sold) if sold.positive?
+    end
+
+    # The two halves must agree, and with every assumption moving money in and basis together they
+    # do — unless something is wrong that no assumption anticipated. Saying so is the whole point.
+    def backstop(value, invested, unrealised)
+      drift = (value - invested) - (@ledger.realised_pnl_usd + unrealised)
+      return if drift.abs <= [0.01.to_d, value.abs * IDENTITY_TOLERANCE].max
+
+      note(:figures_disagree, '', nil, nil, nil, drift, always: true)
+    end
+
+    def note(kind, symbol, exchange, history, held, amount_usd, always: false)
+      return unless always || amount_usd.abs >= NOTE_FLOOR
+
+      Note.new(kind: kind, symbol: symbol, exchange: exchange, history: history, held: held, amount_usd: amount_usd)
+          .tap { |built| @notes << built }
+    end
+
+    def cash_value(symbol, held, price)
+      return held if Tax::PriceService::STABLECOINS.include?(symbol)
+
+      held * (price || rate(symbol))
+    end
+
+    def rate(currency)
+      return 1.to_d if Tax::PriceService::STABLECOINS.include?(currency) || currency == 'USD'
+
+      Tax::EcbFxRates.rate(from: currency, to: 'USD', date: Date.current)
+    rescue Tax::EcbFxRates::MissingRate
+      note(:at_par, currency, nil, nil, nil, 0.to_d, always: true)
+      1.to_d
+    end
 
     def waiting_for_ledger
       holdings = @balances.group_by(&:asset).map do |asset, rows|
         Holding.new(asset: asset, quantity: rows.sum(0.to_d) { |row| row.free.to_d + row.locked.to_d },
-                    value: rows.sum(0.to_d) { |row| row.usd_value.to_d },
-                    cost: nil, unrealised: nil, finding: nil)
+                    value: rows.sum(0.to_d) { |row| row.usd_value.to_d }, cost: nil, unrealised: nil, note: nil)
       end.sort_by { |holding| -holding.value }
 
-      Result.new(invested: nil, value: holdings.sum(0.to_d, &:value),
-                 fees: nil, realised: nil, unrealised: nil, total: nil,
-                 holdings: holdings, findings: [], ledger: nil)
+      Result.new(invested: nil, value: holdings.sum(0.to_d, &:value), fees: nil, realised: nil, unrealised: nil,
+                 total: nil, holdings: holdings, notes: [], ledger: nil)
     end
-
-    def positions = @positions ||= @ledger.positions.index_by(&:symbol)
-
-    # One row per asset the venue reports, in value order.
-    def build_holdings
-      @balances.group_by(&:asset).map { |asset, rows| holding(asset, rows) }
-               .sort_by { |holding| -holding.value }
-    end
-
-    def holding(asset, rows)
-      quantity = rows.sum(0.to_d) { |row| row.free.to_d + row.locked.to_d }
-      value = rows.sum(0.to_d) { |row| row.usd_value.to_d }
-      position = positions[asset.symbol]
-      finding = fault(asset.symbol, position, quantity)
-      cost = position && quantity.positive? ? position.avg_cost_usd * quantity : nil
-
-      Holding.new(asset: asset, quantity: quantity, value: value,
-                  cost: finding ? nil : cost,
-                  unrealised: finding || cost.nil? ? nil : value - cost,
-                  finding: finding)
-    end
-
-    # Why this holding cannot be vouched for, or nil. Cash is not a position and never a fault: it
-    # has no cost to gain against.
-    def fault(symbol, position, quantity)
-      return nil if cash?(symbol)
-      return finding(:history_incomplete, symbol, @ledger.overdrawn[symbol]) if overdrawn?(symbol)
-      return finding(:no_history, symbol, quantity) if position.nil?
-      return finding(:basis_assumed, symbol, nil) if position.incomplete
-      return finding(:quantity_disagrees, symbol, position.quantity) unless agrees?(position, symbol, quantity)
-
-      nil
-    end
-
-    # What the ledger says it holds against what the venue reports. The ledger is CURRENT and the
-    # balance is a snapshot, so anything traded since is added to the venue's figure before the two
-    # are compared — otherwise one fill after a sync looks like a broken history.
-    def agrees?(position, symbol, quantity)
-      expected = quantity + @pending.fetch(symbol, 0.to_d)
-      return false unless expected.positive? && position.quantity.positive?
-
-      ((position.quantity - expected) / expected).abs <= TOLERANCE
-    end
-
-    # Coins the LEDGER holds that no balance reports at all — the mirror of `no_history`, and the
-    # one the holdings list cannot show because it only walks what the venue returned.
-    def orphan_findings
-      reported = @balances.to_set { |row| row.asset.symbol }
-      positions.filter_map do |symbol, position|
-        next if reported.include?(symbol) || cash?(symbol) || !position.quantity.positive?
-
-        finding(overdrawn?(symbol) ? :history_incomplete : :quantity_disagrees, symbol, position.quantity)
-      end
-    end
-
-    def overdrawn?(symbol) = @ledger.overdrawn.fetch(symbol, 0.to_d).positive?
 
     def cash?(symbol)
       Tax::PriceService::FIAT_CURRENCIES.include?(symbol) || Tax::PriceService::STABLECOINS.include?(symbol)
     end
-
-    def finding(kind, symbol, detail) = Finding.new(kind: kind, symbol: symbol, detail: detail)
   end
 end

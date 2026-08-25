@@ -189,4 +189,14 @@ class AccountBalance::SyncTest < ActiveSupport::TestCase
     assert result.failure?
     assert_equal 0, AccountBalance.count
   end
+
+  # The balance rows cannot carry the watermark — an empty sync deletes them — so the key does.
+  # Without it a coin bought after an account was emptied would read as a position that vanished.
+  test 'a successful sync stamps the key, even when the account is empty' do
+    @exchange.stubs(:get_balances).returns(Result::Success.new({}))
+
+    travel_to(Time.utc(2026, 1, 5, 12)) { AccountBalance::Sync.new(@api_key).sync! }
+
+    assert_equal Time.utc(2026, 1, 5, 12), @api_key.reload.balances_synced_at
+  end
 end
