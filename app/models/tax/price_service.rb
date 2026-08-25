@@ -47,7 +47,7 @@ module Tax
         # A row the user has priced needs no price of ours, and must not be counted among the missing
         # ones — a report is not incomplete over a figure it was handed. Nor does a row the cash leg
         # beside it already values.
-        next if tx.respond_to?(:manual?) && tx.manual?(:fiat_value)
+        next if tx.respond_to?(:manual?) && tx.manual?(:fiat_value) && !tx.venue_valued?
         next if cash_leg_value(tx)
         next if tx.quote_currency == currency && tx.quote_amount.present?
         next if tx.quote_currency.present? && tx.quote_amount.present? &&
@@ -153,7 +153,7 @@ module Tax
           price_missing: price_missing,
           # A figure the user stated by hand rather than one the venue reported or we priced. Carried
           # through so the tax report can disclose it: a stated cost is defensible, a silent one is not.
-          stated_value: tx.respond_to?(:manual?) && tx.manual?(:fiat_value),
+          stated_value: tx.respond_to?(:manual?) && tx.manual?(:fiat_value) && !tx.venue_valued?,
           exchange: tx.exchange.name_id,
           linked: links.key?(tx.id) || linked_deposit_ids.include?(tx.id),
           transfer_fee_amount: transfer_fee_amount(tx, links, deposit_amounts)
@@ -406,22 +406,14 @@ module Tax
     end
 
     def resolve_fiat_value(record, currency)
-      # What the USER says it was worth, ahead of everything the app can work out — including the
-      # venue's own figure. This is the single point every consumer of a priced row passes through,
-      # so the tiles, the chart, the positions and the tax report inherit a stated value without
-      # knowing it exists. Stated in USD, like everything else behind the page.
-      stated = record.respond_to?(:manual_value) && record.manual_value(:fiat_value)
-      return convert_fiat(amount: stated, from: 'USD', to: currency, timestamp: record.transacted_at) if stated
-
       # `prefetch`/`add_coin_date` already refuses to price a fiat base. Report drops fiat rows before
       # the engines, so nothing reads this value; pricing it can only fabricate a missing-price warning
       # that marks the report incomplete over a number nobody consumes.
       return 0.to_d if FIAT_CURRENCIES.include?(record.base_currency)
 
+      # The venue's own figure first: amount and price of the row's own are the value, and nothing
+      # stands in front of them.
       return record.quote_amount.to_d if record.quote_currency == currency && record.quote_amount.present?
-
-      cash = cash_leg_value(record)
-      return cash if cash
 
       if record.quote_currency.present? && STABLECOINS.include?(record.quote_currency) && record.quote_amount.present?
         return convert_fiat(amount: record.quote_amount.to_d, from: 'USD', to: currency, timestamp: record.transacted_at)
@@ -431,6 +423,16 @@ module Tax
         return convert_fiat(amount: record.quote_amount.to_d, from: record.quote_currency, to: currency,
                             timestamp: record.transacted_at)
       end
+
+      # Then what the USER says it was worth, ahead of everything the app would have to guess. This
+      # is the single point every consumer of a priced row passes through, so the tiles, the chart,
+      # the positions and the tax report inherit a stated value without knowing it exists. Stated
+      # in USD, like everything else behind the page.
+      stated = record.respond_to?(:manual_value) && record.manual_value(:fiat_value)
+      return convert_fiat(amount: stated, from: 'USD', to: currency, timestamp: record.transacted_at) if stated
+
+      cash = cash_leg_value(record)
+      return cash if cash
 
       price = price_at(asset: record.base_currency, currency: currency, timestamp: record.transacted_at)
       price * record.base_amount.to_d

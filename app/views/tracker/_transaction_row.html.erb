@@ -35,8 +35,10 @@
   <td><%= tracker_amount(tracker_row_price(at, value)) || '—' %></td>
   <% unless hide_money %>
     <td class="tracker-row__value tracker-row__value--<%= source || 'none' %>">
-      <%# A row whose base is money states a fact, not a guess — there is nothing here to fill in. %>
-      <% if source == :cash %>
+      <%# A row whose base is money, or whose amount and price the venue gave, states a fact, not a
+          guess — there is nothing here to fill in, and a box would only let the three money columns
+          stop multiplying out. %>
+      <% if %i[cash exchange].include?(source) %>
         <%= tracker_amount(shown) %>
       <% else %>
         <%= form_with url: value_tracker_transaction_path(at), method: :patch,

@@ -57,17 +57,21 @@ class ManualValueTest < ActiveSupport::TestCase
     assert_equal 99.to_d, enriched(record.reload)[:fiat_value], 'theirs, once stated'
   end
 
-  # It beats even what the venue reported: a user correcting a venue is the whole point of being
-  # able to state a value, and the row says plainly that they did.
-  test 'a stated value beats the exchange, and the row admits whose figure it is' do
+  # The venue's own amount and price ARE the value. A figure typed in front of them would leave
+  # amount, price and value on one row that no longer multiply out — the one thing the column
+  # promises — so a row the venue valued takes no stated value: not written, and not read if one
+  # was written before this rule.
+  test 'a row the venue valued is not the user\'s to state' do
     record = create(:account_transaction, api_key: @key, exchange: @binance, entry_type: :buy,
                                           base_currency: 'BTC', base_amount: 1, quote_currency: 'USD',
                                           quote_amount: 20_000, transacted_at: @at)
-    record.set_manual(:fiat_value, 21_000)
-    record.save!
 
-    assert_equal 21_000.to_d, enriched(record.reload)[:fiat_value]
-    assert record.reload.manual?(:fiat_value)
+    assert_raises(ArgumentError) { record.set_manual(:fiat_value, 21_000) }
+
+    record.update_column(:manual_values, { 'fiat_value' => '21000' }) # written before the rule
+    row = enriched(record.reload)
+    assert_equal 20_000.to_d, row[:fiat_value]
+    assert_not row[:stated_value]
   end
 
   test 'clearing it hands the row back to our own price' do
