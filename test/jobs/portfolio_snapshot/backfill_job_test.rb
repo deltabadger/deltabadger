@@ -319,4 +319,22 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     assert_equal 30_000.to_d, last.invested_usd, 'the 10,000 lot left, not half of 40,000'
     assert_equal Tracker::Ledger.for(@user).total_invested_usd, last.invested_usd
   end
+
+  test 'a symbol that changed coin is fetched as each coin over its own days' do
+    create(:asset, symbol: 'LUNA', name: 'Terra', external_id: 'terra-luna-2', category: 'Cryptocurrency')
+    tx(:other_income, day: 0, base_currency: 'LUNA', base_amount: 1, quote_currency: nil, quote_amount: nil,
+                      transacted_at: Time.utc(2022, 5, 20, 12))
+    tx(:other_income, day: 0, base_currency: 'LUNA', base_amount: 1, quote_currency: nil, quote_amount: nil,
+                      transacted_at: Time.utc(2022, 6, 5, 12))
+    # The ledger's own pricing fetches per row-date on the way; the sweep's ranges are the two below.
+    Tax::PriceService.any_instance.stubs(:fetch_price_range)
+    Tax::PriceService.any_instance.expects(:fetch_price_range)
+                     .with(coin_id: 'terra-luna', symbol: 'LUNA', currency: 'USD',
+                           from: Date.new(2022, 5, 20), to: Date.new(2022, 5, 27)).once
+    Tax::PriceService.any_instance.expects(:fetch_price_range)
+                     .with(coin_id: 'terra-luna-2', symbol: 'LUNA', currency: 'USD',
+                           from: Date.new(2022, 5, 28), to: Date.new(2022, 6, 10)).once
+
+    travel_to(Time.utc(2022, 6, 11, 12)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+  end
 end
