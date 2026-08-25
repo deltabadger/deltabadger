@@ -539,6 +539,7 @@ cs:
             unrealised_pnl: 'Nerealizovaný Z/Z'
             total_pnl: 'Celkový Z/Z'
             total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} z toho přišlo bez nákupu: rabaty, airdropy, odměny ze stakingu, drobné konverze, aktiva bez dřívějšího záznamu.'
         import:
             title: 'Import'
             nothing_new: 'Všechny transakce z tohoto souboru už v historii máš.'

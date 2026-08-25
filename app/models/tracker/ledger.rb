@@ -15,12 +15,17 @@ module Tracker
     Position = Data.define(:symbol, :asset, :quantity, :cost_usd, :avg_cost_usd, :opened_at, :incomplete)
     RoundTrip = Data.define(:symbol, :asset, :opened_at, :closed_at, :quantity, :invested_usd,
                             :proceeds_usd, :fees_usd, :realised_pnl_usd, :incomplete)
-    Summary = Data.define(:positions, :round_trips, :total_invested_usd, :realised_pnl_usd, :fees_usd,
-                          :incomplete, :overdrawn, :computed_at)
+    Summary = Data.define(:positions, :round_trips, :total_invested_usd, :received_usd, :realised_pnl_usd,
+                          :fees_usd, :incomplete, :overdrawn, :computed_at)
+    # One term of money in, as the chart reads it day by day: the row's instant, what it moved, and
+    # whether the figure could be stated in full.
+    Term = Data.define(:at, :amount, :complete)
 
     CACHE_TTL = 30.days
     FIAT = Tax::PriceService::FIAT_CURRENCIES
     STABLECOINS = Tax::PriceService::STABLECOINS
+    # What arrives without a purchase behind it: money in at its value on arrival, and "received".
+    IN_KIND = %w[staking_reward lending_interest airdrop mining other_income].freeze
 
     # FIFO with the two things the tracker needs and a tax report does not.
     #
@@ -29,19 +34,14 @@ module Tracker
     # round-trip — it is booked the way FIFO books it and flags the summary instead.
     #
     # (2) Coins that LEFT without being sold take their cost with them and realise nothing: an
-    # unlinked withdrawal (they left the tracked universe) and a `lost` row (a venue taking a
-    # delisted token back, which Binance calls Asset Recovery). Neither is a disposal.
+    # unlinked withdrawal, and a swap-out with no leg in front of it — both left the tracked
+    # universe. Modelled as the engine's existing zero-gain `fee` branch.
     #
-    # `Tax::Methods::Fifo` has no case for `lost` at all — buy, deposit, swap, sell, adjustment,
-    # return_of_capital, fee, withdrawal, and nothing else — so without this the row passes through
-    # and the lots stay. The tracker then holds a position in a coin the account does not have, the
-    # ledger disagrees with the balance, and every P/L that compares the two goes silent.
-    #
-    # ponytail: modelled as the engine's existing zero-gain `fee` branch rather than a case of its
-    # own — upgrade path if either ever needs accounting a fee does not have (a realised network
-    # fee, or a jurisdiction that lets a lost asset be claimed as a loss): give Fifo a
-    # `:transfer_out` case. What the TAX report does with a `lost` row is untouched here and is a
-    # separate question — it still ignores it.
+    # (3) A `lost` row (a venue taking a delisted token back, which Binance calls Asset Recovery) is
+    # a disposal for nothing: the basis is gone and the loss is realised, so what is held less what
+    # went in still equals what was banked plus what is still riding. `Tax::Methods::Fifo` has no
+    # case for `lost` at all, and what the TAX report does with one is untouched here — it still
+    # ignores it, which is a jurisdiction's question.
     class Engine < Tax::Methods::Fifo
       # True once a disposal has taken more than the lots held — FIFO books the uncovered part at
       # zero basis, which is a real number but not a complete one.
@@ -61,7 +61,7 @@ module Tracker
         @uncovered = false
         @overdrawn = Hash.new(0.to_d)
         @released = Hash.new { |basis, key| basis[key] = [] }
-        super(transactions.map { |tx| gone_without_sale?(tx) ? tx.merge(entry_type: :fee) : tx }, **options)
+        super(transactions.map { |tx| remap(tx) }, **options)
       end
 
       # What the lots gave up when these coins left, in the order they left. MEASURED, not inferred:
@@ -73,9 +73,16 @@ module Tracker
 
       private
 
-      def gone_without_sale?(transaction)
-        type = transaction[:entry_type].to_s
-        type == 'lost' || (type == 'withdrawal' && !transaction[:linked])
+      def remap(transaction)
+        case transaction[:entry_type].to_s
+        when 'lost'
+          # Proceeds are known exactly — nothing — so no price is asked for, and none can be missing.
+          transaction.merge(entry_type: :sell, fiat_value: 0.to_d, quote_currency: nil, fee_currency: nil,
+                            fee_amount: nil, fee_fiat_value: 0.to_d)
+        when 'withdrawal' then transaction[:linked] ? transaction : transaction.merge(entry_type: :fee)
+        when 'swap_out' then transaction[:orphan] ? transaction.merge(entry_type: :fee) : transaction
+        else transaction
+        end
       end
 
       # Every in-kind consumption passes through here — a standalone fee row, a trade's fee paid in
@@ -123,21 +130,30 @@ module Tracker
         @overdrawn[asset] += amount - held if amount&.positive? && held < amount
         record_released_basis(asset_lots, asset, amount) { super }
       end
+
+      # And a sweep quieter still: the out-leg of coins never held hands over a zero-basis tranche,
+      # and what it bought would stand as a confident position with nothing behind it.
+      def transfer_swap_out(transferred_tranches, asset_lots, transaction, amount)
+        held = asset_lots.sum(0.to_d) { |lot| lot[:amount] }
+        @overdrawn[transaction[:base_currency]] += amount - held if amount&.positive? && held < amount
+        super
+      end
     end
 
     class << self
       def for(user, exchange: nil)
-        price_service = Tax::PriceService.new
-        rows = enriched_rows(user, exchange, price_service)
-        engine = Engine.new
-        disposals = engine.calculate(taxable(rows), crypto_to_crypto_taxable: false, stablecoin_as_fiat: true)
+        price_service, rows, engine, disposals = walk(user, exchange)
         assets = asset_index(user, engine.lots.keys | disposals.map { |disposal| disposal[:asset] })
         positions = positions_from(engine.lots, assets)
+        terms = money_in_terms(rows, price_service, engine)
 
         Summary.new(
           positions: positions,
           round_trips: round_trips(disposals, assets),
-          total_invested_usd: contributions(rows, price_service, engine),
+          total_invested_usd: terms.sum(0.to_d) { |_, term| term.amount },
+          # The part of money in nobody paid for — rewards, rebates, airdrops, dust credits, a swap
+          # credit with nothing behind it — so the tile is not read as a claim it was all deposited.
+          received_usd: terms.sum(0.to_d) { |row, term| in_kind?(row) ? term.amount : 0.to_d },
           # A return of capital beyond the basis is realised gain the moment it lands; the engine
           # already isolates it, and until now nothing read it.
           realised_pnl_usd: disposals.sum(0.to_d) { |disposal| disposal[:gain_loss].to_d } + engine.excess_roc.to_d,
@@ -147,6 +163,13 @@ module Tracker
           overdrawn: engine.overdrawn.select { |_, short| short.positive? },
           computed_at: Time.current
         )
+      end
+
+      # Money in, one term per ledger row in the ledger's own order. The chart's history reads
+      # these rather than keeping a second opinion about what a row contributed.
+      def money_in(user, exchange: nil)
+        price_service, rows, engine, = walk(user, exchange)
+        money_in_terms(rows, price_service, engine).map { |_, term| term }
       end
 
       # nil until a job has computed it. The key follows the transactions and nothing else — a
@@ -193,7 +216,7 @@ module Tracker
       # again — which for a position they have closed is never.
       def cache_key(user, exchange)
         scope = transactions(user, exchange)
-        "tracker_ledger_v5_#{user.id}_#{exchange&.id || 'all'}_" \
+        "tracker_ledger_v6_#{user.id}_#{exchange&.id || 'all'}_" \
           "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}_#{HistoricalPrice.generation}"
       end
 
@@ -202,15 +225,47 @@ module Tracker
         exchange ? scope.for_exchange(exchange) : scope
       end
 
-      # Sorted BEFORE enrichment, which preserves order and drops the id: a swap's two legs share a
-      # timestamp, and the out-leg has to be seen first or its basis has nothing to travel into.
+      # Every figure comes off one walk: the rows priced once, the engine run once.
+      def walk(user, exchange)
+        price_service = Tax::PriceService.new
+        rows = enriched_rows(user, exchange, price_service)
+        engine = Engine.new
+        disposals = engine.calculate(taxable(rows), crypto_to_crypto_taxable: false, stablecoin_as_fiat: true)
+        [price_service, rows, engine, disposals]
+      end
+
+      # Sorted BEFORE enrichment, which preserves order and drops the id — in the one order every
+      # reader of the ledger shares, so the report and the page can never chain a swap differently.
       def enriched_rows(user, exchange, price_service)
-        ordered = transactions(user, exchange).includes(:exchange).to_a
-                                              .sort_by { |tx| [tx.transacted_at, tx.swap_out? ? 0 : 1, tx.id] }
+        ordered = Tax::PriceService.ordered(transactions(user, exchange).includes(:exchange).to_a)
         rows = price_service.enrich(ordered, currency: 'USD')
         # Flattened once, here, so the contributions and the engine read the same truth.
         rows.each { |row| row[:linked] = false } if exchange
+        mark_orphans(rows)
+      end
+
+      # A swap leg with no counterpart — no leg going the other way in its group, or no group — is a
+      # coin that arrived from, or left for, something the record never saw. Marked here, over EVERY
+      # row (a fiat leg counts as a counterpart even though the engine never sees it), so the engine
+      # and the money-in terms read one answer.
+      def mark_orphans(rows)
+        directions = rows.group_by { |row| [row[:exchange], row[:group_id]] }
+                         .transform_values { |legs| legs.filter_map { |leg| leg_direction(leg) }.uniq }
+        rows.each do |row|
+          direction = leg_direction(row)
+          next unless direction && row[:entry_type].to_s.start_with?('swap')
+
+          opposite = direction == :in ? :out : :in
+          row[:orphan] = row[:group_id].blank? || directions[[row[:exchange], row[:group_id]]].exclude?(opposite)
+        end
         rows
+      end
+
+      def leg_direction(row)
+        case row[:entry_type].to_s
+        when 'swap_in', 'buy' then :in
+        when 'swap_out', 'sell' then :out
+        end
       end
 
       # A fiat ledger row is one leg of a trade or bank funding, never a lot — the tax report's own
@@ -219,30 +274,48 @@ module Tracker
         rows.reject { |row| FIAT.include?(row[:base_currency]) }
       end
 
-      # Money in from OUTSIDE, of two kinds.
+      # Money in from OUTSIDE, denominated in BASIS, of three kinds.
       #
-      # What the venue reported: a deposit or a withdrawal, valued on the day it moved. Buys, sells
-      # and swaps move nothing — they rearrange what is already here — and a linked transfer cancels
-      # itself.
+      # What the venue reported arriving or leaving: a deposit or a withdrawal, cash at face and a
+      # coin at the basis it carries. What arrived without a purchase behind it — a reward, a rebate,
+      # an airdrop, a swap credit with no leg behind it — at its value on arrival, which is exactly
+      # the basis FIFO opens its lot at; counted here at that same figure is the only way a coin
+      # leaving at basis can take out exactly what it brought in. What it WAS is the record's
+      # per-row business and, after that, a jurisdiction's. Buys, sells and paired swaps move
+      # nothing — they rearrange what is already here — and a linked transfer cancels itself.
       #
-      # And what it did not: cash spent that was never seen arriving. A venue that reports trades
-      # but not the transfer behind them would otherwise show a portfolio bought for nothing, and a
-      # return on nothing is not a number anyone can read.
+      # And what the venue did not report: cash spent that was never seen arriving. A venue that
+      # reports trades but not the transfer behind them would otherwise show a portfolio bought for
+      # nothing, and a return on nothing is not a number anyone can read.
       #
       # Cash is pooled per VENUE, because that is where a deficit means anything: dollars sitting at
       # a broker cannot pay for an exchange's trade, and a broker's own deficit is borrowed rather
       # than missing.
-      def contributions(rows, price_service, engine)
+      #
+      # One term per row, complete unless a figure in it had to be guessed: an arrival nobody could
+      # price, a fiat amount with no rate, a shortfall the same.
+      def money_in_terms(rows, price_service, engine)
         cash = Hash.new(0.to_d)
         closes = UnfundedCash.closers(rows.map { |row| [row[:exchange], row[:group_id]] })
-        rows.each_with_index.sum(0.to_d) do |row, index|
+        rows.each_with_index.map do |row, index|
           cash_moves(row).each { |currency, amount| cash[[row[:exchange], currency]] += amount }
-          reported = contribution(row, price_service, engine)
-          venue = closes[index]
-          next reported unless venue
-
-          reported + unfunded_contribution(cash, venue, row, price_service)
+          kept = price_service.warnings.size
+          amount = contribution(row, price_service, engine)
+          amount += unfunded_contribution(cash, closes[index], row, price_service) if closes[index]
+          complete = price_service.warnings.size == kept && !(row[:price_missing] && valued_by_price?(row))
+          [row, Term.new(at: row[:transacted_at], amount: amount, complete: complete)]
         end
+      end
+
+      def in_kind?(row)
+        type = row[:entry_type].to_s
+        IN_KIND.include?(type) || (type == 'swap_in' && row[:orphan])
+      end
+
+      # The rows whose term IS the row's own price: an arrival, and a coin deposited from outside.
+      def valued_by_price?(row)
+        in_kind?(row) ||
+          (row[:entry_type].to_s == 'deposit' && !row[:linked] && !UnfundedCash.cash?(row[:base_currency]))
       end
 
       def cash_moves(row)
@@ -272,7 +345,8 @@ module Tracker
         direction = case row[:entry_type].to_s
                     when 'deposit' then 1
                     when 'withdrawal' then -1
-                    else return 0.to_d
+                    when 'swap_out' then row[:orphan] ? -1 : (return 0.to_d)
+                    else return in_kind?(row) ? arrival(row, price_service) : 0.to_d
                     end
         return 0.to_d if row[:linked]
 
@@ -295,6 +369,15 @@ module Tracker
                   engine.basis_released(symbol, amount) || 0.to_d
                 end
         value * direction
+      end
+
+      # What a coin arriving free was worth that day: the row's own value, which for a fiat rebate
+      # `enrich` leaves at zero on purpose (no engine reads a fiat base), so that one is converted here.
+      def arrival(row, price_service)
+        return row[:fiat_value].to_d unless FIAT.include?(row[:base_currency])
+
+        price_service.convert_fiat(amount: row[:base_amount].to_d, from: row[:base_currency], to: 'USD',
+                                   timestamp: row[:transacted_at])
       end
 
       def fees(rows, price_service)

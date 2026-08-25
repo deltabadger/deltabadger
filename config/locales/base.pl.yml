@@ -548,6 +548,7 @@ pl:
             unrealised_pnl: 'Niezrealizowany W/S'
             total_pnl: 'Całkowity W/S'
             total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} z tego trafiło bez zakupu: rabaty prowizyjne, airdropy, nagrody za staking, drobne konwersje, aktywa bez wcześniejszego zapisu.'
         import:
             title: 'Import'
             nothing_new: 'Wszystkie transakcje z tego pliku są już w Twojej historii.'

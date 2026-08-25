@@ -531,6 +531,7 @@ da:
             unrealised_pnl: 'Urealiseret G/T'
             total_pnl: 'Samlet G/T'
             total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} af dette kom ind uden et køb bag: rabatter, airdrops, staking-belønninger, dust-krediteringer, aktiver uden noget registreret før.'
         import:
             title: 'Importér'
             nothing_new: 'Alle transaktioner i filen findes allerede i din historik.'

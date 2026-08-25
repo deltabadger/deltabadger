@@ -521,6 +521,7 @@ de:
             unrealised_pnl: 'Unrealisierter G/V'
             total_pnl: 'Gesamt-G/V'
             total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} davon kamen ohne Kauf dahinter herein: Rabatte, Airdrops, Staking-Erträge, Dust-Gutschriften, Assets ohne davor erfasste Buchung.'
         import:
             title: 'Import'
             nothing_new: 'Jede Transaktion aus dieser Datei ist bereits in deiner Historie.'

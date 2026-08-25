@@ -146,4 +146,42 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
     assert_empty result.findings
     assert_equal 1_000.to_d, result.value
   end
+
+  # ── one definition ───────────────────────────────────────────────────────────────────────
+  #
+  # Invested is denominated in basis: what entered at its value on entry, less what left at the
+  # basis it carried. Then, when the venue reports exactly what the ledger holds, the two halves
+  # agree to the cent over every kind of row — a reward, a swap, a sale, a withdrawal, a loss.
+  test 'when the venue agrees with the ledger, the identity holds over every kind of row' do
+    eth = create(:asset, :ethereum)
+    bnb = create(:asset, symbol: 'BNB', name: 'BNB')
+    usdc = create(:asset, symbol: 'USDC', name: 'USD Coin')
+    price('ETH', 3, 300)
+    price('BTC', 4, 700)
+    price('BNB', 4, 250)
+    tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 1_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 600)
+    tx(:staking_reward, day: 3, base_currency: 'ETH', base_amount: 1, quote_currency: nil, quote_amount: nil)
+    tx(:swap_out, day: 4, base_currency: 'BTC', base_amount: 0.5, quote_currency: nil, quote_amount: nil, group_id: 'g')
+    tx(:swap_in, day: 4, base_currency: 'BNB', base_amount: 2, quote_currency: nil, quote_amount: nil, group_id: 'g')
+    tx(:sell, day: 5, base_currency: 'BNB', base_amount: 1, quote_currency: 'USDC', quote_amount: 250)
+    tx(:withdrawal, day: 6, base_currency: 'ETH', base_amount: 0.5)
+    tx(:lost, day: 7, base_currency: 'BNB', base_amount: 0.5, quote_currency: nil, quote_amount: nil)
+    balance(@btc, 0.5, 400)
+    balance(eth, 0.5, 200)
+    balance(bnb, 0.5, 60)
+    balance(usdc, 650, 650)
+
+    result = figures
+
+    assert_empty result.findings
+    assert_equal 1_150.to_d, result.invested, '1,000 of cash, 300 of reward, less the 150 the ETH took out'
+    assert_equal 25.to_d, result.realised, '100 on the BNB sold, 75 lost with the BNB the venue took'
+    assert_equal 135.to_d, result.unrealised
+    assert_equal result.value - result.invested, result.realised + result.unrealised
+  end
+
+  def price(symbol, day, usd)
+    HistoricalPrice.create!(asset: symbol, currency: 'USD', date: @day.call(day).to_date, price: usd)
+  end
 end

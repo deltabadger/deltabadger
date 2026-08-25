@@ -71,7 +71,7 @@ class PortfolioSnapshot < ApplicationRecord
   # today, and tomorrow's answer is a different one.
   def self.series_key(user, exchange)
     scope = AccountTransaction.for_user(user).for_exchange(exchange)
-    "tracker_history_v1_#{user.id}_#{exchange.id}_#{Date.current.iso8601}_" \
+    "tracker_history_v2_#{user.id}_#{exchange.id}_#{Date.current.iso8601}_" \
       "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}"
   end
 

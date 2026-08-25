@@ -519,6 +519,7 @@ pt:
             unrealised_pnl: 'L/P não realizado'
             total_pnl: 'L/P total'
             total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} disto chegou sem uma compra por trás: reembolsos, airdrops, recompensas de staking, créditos de poeira, ativos sem nada registado antes.'
         import:
             title: 'Importar'
             nothing_new: 'Todas as transações deste ficheiro já estão no teu histórico.'

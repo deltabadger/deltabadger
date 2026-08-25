@@ -22,7 +22,7 @@ class Tracker::InvestedBasisTest < ActiveSupport::TestCase
 
   def tx(type, day:, **attrs)
     defaults = { api_key: @key, exchange: @binance, entry_type: type, transacted_at: @day.call(day) }
-    defaults.merge!(quote_currency: nil, quote_amount: nil) if %i[deposit withdrawal].include?(type)
+    defaults.merge!(quote_currency: nil, quote_amount: nil) unless %i[buy sell].include?(type)
     create(:account_transaction, **defaults, **attrs)
   end
 
@@ -90,5 +90,91 @@ class Tracker::InvestedBasisTest < ActiveSupport::TestCase
 
     assert_equal 0.to_d, summary.realised_pnl_usd
     assert_empty summary.round_trips
+  end
+
+  # ── what arrives without cash ────────────────────────────────────────────────────────────
+  #
+  # Money in is denominated in BASIS, and so is everything measured against it. A coin that arrived
+  # free — a reward, a rebate, an airdrop, a swap credit with no leg behind it — opened a FIFO lot at
+  # its market value on arrival; counting it as money in at that same figure is the only way a coin
+  # leaving at basis can take out exactly what it brought in. Whether it was taxable income on the
+  # day is a jurisdiction's question, not the ledger's.
+  test 'coins that arrived free are money in at what they were worth on arrival' do
+    price('ETH', 2, 3_000)
+    tx(:staking_reward, day: 2, base_currency: 'ETH', base_amount: 2)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 6_000.to_d, summary.total_invested_usd
+    assert_equal 6_000.to_d, summary.positions.sole.cost_usd, 'the same figure FIFO opened the lot at'
+  end
+
+  test 'a rebate paid in a stablecoin is cash from outside' do
+    tx(:other_income, day: 2, base_currency: 'USDT', base_amount: 50)
+
+    assert_equal 50.to_d, Tracker::Ledger.for(@user).total_invested_usd
+  end
+
+  test 'a rebate paid in euro is cash from outside at that day\'s rate' do
+    FxRate.create!(currency: 'USD', date: @day.call(3).to_date, rate: 1.25)
+    tx(:other_income, day: 3, base_currency: 'EUR', base_amount: 40)
+
+    assert_equal 50.to_d, Tracker::Ledger.for(@user).total_invested_usd
+  end
+
+  test 'a swap credit with nothing behind it is an arrival' do
+    price('BNB', 2, 300)
+    tx(:swap_in, day: 2, base_currency: 'BNB', base_amount: 1, group_id: nil)
+
+    assert_equal 300.to_d, Tracker::Ledger.for(@user).total_invested_usd
+  end
+
+  # Two credits sharing a group are not each other's counterpart: nothing went OUT.
+  test 'two swap credits with nothing behind them are two arrivals' do
+    price('BNB', 2, 300)
+    tx(:swap_in, day: 2, base_currency: 'BNB', base_amount: 1, group_id: 'split')
+    tx(:swap_in, day: 2, base_currency: 'BNB', base_amount: 1, group_id: 'split')
+
+    assert_equal 600.to_d, Tracker::Ledger.for(@user).total_invested_usd
+  end
+
+  test 'a swap credit paid for with cash is not an arrival' do
+    tx(:deposit, day: 1, base_currency: 'USDT', base_amount: 150)
+    tx(:swap_out, day: 2, base_currency: 'USDT', base_amount: 150, group_id: 'convert')
+    tx(:swap_in, day: 2, base_currency: 'LTC', base_amount: 1, group_id: 'convert')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 150.to_d, summary.total_invested_usd, 'the deposit, once'
+    assert_equal 150.to_d, summary.positions.sole.cost_usd
+  end
+
+  # The mirror of an unlinked withdrawal: coins that left for something the record never saw.
+  test 'a swap out with nothing in front of it leaves at basis' do
+    tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 1_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 1_000)
+    price('BTC', 3, 5_000)
+    tx(:swap_out, day: 3, base_currency: 'BTC', base_amount: 1, group_id: 'orphan')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 0.to_d, summary.total_invested_usd
+    assert_equal 0.to_d, summary.realised_pnl_usd
+    assert_empty summary.positions
+  end
+
+  # The part of money in that was never paid for — shown beside the total so the tile cannot be read
+  # as a claim that it was all deposited. What it WAS (a rebate, an airdrop, a coin from a wallet
+  # nobody linked) is the record's per-row business and, after that, a jurisdiction's.
+  test 'what arrived without a purchase behind it is stated beside money in' do
+    price('ETH', 2, 3_000)
+    tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 1_000)
+    tx(:staking_reward, day: 2, base_currency: 'ETH', base_amount: 1)
+    tx(:other_income, day: 3, base_currency: 'USDT', base_amount: 50)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 3_050.to_d, summary.received_usd
+    assert_equal 4_050.to_d, summary.total_invested_usd
   end
 end

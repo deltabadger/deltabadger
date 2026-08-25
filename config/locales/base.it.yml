@@ -520,6 +520,7 @@ it:
             unrealised_pnl: 'P/P non realizzato'
             total_pnl: 'P/P totale'
             total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} di questo è arrivato senza un acquisto alle spalle: rimborsi, airdrop, ricompense di staking, accrediti di polvere, asset senza nulla di registrato prima.'
         import:
             title: 'Importa'
             nothing_new: 'Ogni transazione di questo file è già nel tuo storico.'
