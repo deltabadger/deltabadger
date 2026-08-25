@@ -123,11 +123,11 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     when :deposit
       # A linked deposit is the far end of the user's own transfer: the withdrawal never removed
       # the coins, so this leg adds nothing.
-      balances[symbol] += acquired(transaction, amount) unless transaction.linked?
+      balances[symbol] += acquired(transaction, amount) unless linked?(transaction)
     when :sell, :swap_out
       balances[symbol] -= amount
     when :withdrawal
-      balances[symbol] -= transaction.linked? ? network_fee(transaction) : amount
+      balances[symbol] -= linked?(transaction) ? network_fee(transaction) : amount
     when :fee, :lost
       balances[symbol] -= amount
     when :withholding_tax
@@ -193,6 +193,13 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     when :buy then balances[quote] -= amount.to_d
     when :sell, :return_of_capital then balances[quote] += amount.to_d
     end
+  end
+
+  # Linked as the ledger of this scope reads it: a transfer whose far end lies outside the scope
+  # is a coin leaving, or arriving, whole.
+  def linked?(transaction)
+    partner = transaction.linked_transaction || transaction.inverse_link
+    partner.present? && @transactions.any? { |row| row.id == partner.id }
   end
 
   def network_fee(withdrawal)

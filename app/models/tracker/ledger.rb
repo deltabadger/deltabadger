@@ -234,7 +234,9 @@ module Tracker
         amount = row[:base_amount].to_d
         fee_in_base = row[:fee_currency] == base ? row[:fee_amount].to_d : 0.to_d
         moves = []
-        if UnfundedCash::BASE_IN.include?(type)
+        if type == 'adjustment'
+          moves << [base, amount] # a split contributes its signed net delta
+        elsif UnfundedCash::BASE_IN.include?(type)
           moves << [base, [amount - fee_in_base, 0.to_d].max] unless type == 'deposit' && row[:linked]
         elsif type == 'withdrawal'
           moves << [base, -(row[:linked] ? row[:transfer_fee_amount].to_d : amount)]

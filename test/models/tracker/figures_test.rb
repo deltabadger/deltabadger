@@ -134,6 +134,28 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
     assert_equal({ 'BTC' => 0.99.to_d, 'ETH' => 1.to_d, 'BNB' => -0.1.to_d, 'USDC' => -200.to_d }, pending)
   end
 
+  test 'a transfer is linked for what is pending only when both legs are: a leg whose far end the balances already hold moves whole' do
+    deposit = tx(:deposit, day: 4, key: @key_kraken, base_currency: 'BTC', base_amount: 0.99)
+    tx(:withdrawal, day: 4, base_currency: 'BTC', base_amount: 1, linked_transaction: deposit)
+    scope = AccountTransaction.for_user(@user)
+
+    both = Tracker::Figures.moved_since(scope, { @binance.id => @day.call(3), @kraken.id => @day.call(3) })
+    source_only = Tracker::Figures.moved_since(scope, { @binance.id => @day.call(3), @kraken.id => @day.call(5) })
+    destination_only = Tracker::Figures.moved_since(scope, { @binance.id => @day.call(5), @kraken.id => @day.call(3) })
+
+    assert_equal({ 'BTC' => -0.01.to_d }, both, 'the network fee, as the ledger has it')
+    assert_equal({ 'BTC' => -1.to_d }, source_only, 'Kraken already holds the 0.99: the whole coin left Binance')
+    assert_equal({ 'BTC' => 0.99.to_d }, destination_only, 'Binance already lacks the coin: the 0.99 arrived')
+  end
+
+  test 'a reverse split since the sync keeps its sign' do
+    tx(:adjustment, day: 4, base_currency: 'AAPL', base_amount: -50)
+
+    pending = Tracker::Figures.moved_since(AccountTransaction.for_user(@user), { @binance.id => @day.call(3) })
+
+    assert_equal({ 'AAPL' => -50.to_d }, pending)
+  end
+
   # ── the backstop ─────────────────────────────────────────────────────────────────────────
   #
   # Every assumption moves money in and basis together, so what is held less what went in is what
