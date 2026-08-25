@@ -531,6 +531,7 @@ cs:
                 acquisition: 'Počáteční zůstatek, který jsi zadal'
                 disposal: 'Oprava, kterou jsi zadal'
             figures_disagree: 'Tato čísla nesedí (rozdíl %{amount}). Něco chybí, co výše uvedené kontroly nezachytily.'
+            cash_disagrees: 'Hotovost: kniha a burza se liší o %{amount} v tom, kolik je drženo.'
             history_incomplete: '%{symbol}: historie je neúplná — odešlo víc, než kdy přišlo, takže náklad není znám.'
             quantity_disagrees: '%{symbol}: kniha a burza se neshodnou na množství, takže náklad není znám.'
             no_history: '%{symbol}: burza to hlásí, ale žádná historie za tím není.'

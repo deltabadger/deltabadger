@@ -513,6 +513,7 @@ de:
                 acquisition: 'Von dir erfasster Anfangsbestand'
                 disposal: 'Von dir erfasste Korrektur'
             figures_disagree: 'Diese Zahlen gehen nicht auf (Differenz %{amount}). Etwas fehlt, das die Prüfungen oben nicht erfasst haben.'
+            cash_disagrees: 'Cash: Ledger und Börse weichen um %{amount} darin ab, wie viel gehalten wird.'
             history_incomplete: '%{symbol}: die Historie ist unvollständig — es ging mehr vom Konto ab als je einging, also sind die Kosten unbekannt.'
             quantity_disagrees: '%{symbol}: Buch und Börse sind sich über die Menge uneinig, also sind die Kosten unbekannt.'
             no_history: '%{symbol}: die Börse meldet es, aber es gibt keine Historie dazu.'

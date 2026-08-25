@@ -547,6 +547,7 @@ en:
                 earned: 'Income you recorded'
                 disposal: 'Correction you recorded'
             figures_disagree: 'These figures do not add up (off by %{amount}). Something is missing that the checks above did not catch.'
+            cash_disagrees: 'Cash: the ledger and the exchange disagree by %{amount} about how much is held.'
             history_incomplete: '%{symbol}: the history is incomplete — more left the account than ever arrived, so its cost is unknown.'
             quantity_disagrees: '%{symbol}: the ledger and the exchange disagree about how much is held, so its cost is unknown.'
             no_history: '%{symbol}: the exchange reports it, but there is no history behind it.'

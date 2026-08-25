@@ -540,6 +540,7 @@ pl:
                 earned: 'Przychód wprowadzony przez Ciebie'
                 disposal: 'Korekta wprowadzona przez Ciebie'
             figures_disagree: 'Te liczby się nie sumują (różnica %{amount}). Czegoś brakuje, czego powyższe kontrole nie wychwyciły.'
+            cash_disagrees: 'Gotówka: rejestr i giełda różnią się o %{amount} co do stanu.'
             history_incomplete: '%{symbol}: historia jest niepełna — z konta wyszło więcej, niż kiedykolwiek wpłynęło, więc koszt jest nieznany.'
             quantity_disagrees: '%{symbol}: księga i giełda nie zgadzają się co do ilości, więc koszt jest nieznany.'
             no_history: '%{symbol}: giełda to raportuje, ale nie ma za tym żadnej historii.'

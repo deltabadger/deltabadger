@@ -523,6 +523,7 @@ da:
                 acquisition: 'Åbningssaldo du har registreret'
                 disposal: 'Rettelse du har registreret'
             figures_disagree: 'Disse tal går ikke op (forskel på %{amount}). Noget mangler, som kontrollerne ovenfor ikke fangede.'
+            cash_disagrees: 'Kontanter: hovedbogen og børsen er uenige med %{amount} om, hvor meget der holdes.'
             history_incomplete: '%{symbol}: historikken er ufuldstændig — der gik mere ud end der nogensinde kom ind, så prisen er ukendt.'
             quantity_disagrees: '%{symbol}: regnskabet og børsen er uenige om mængden, så prisen er ukendt.'
             no_history: '%{symbol}: børsen rapporterer den, men der er ingen historik bag.'

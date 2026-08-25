@@ -523,6 +523,7 @@ sv:
                 acquisition: 'Ingående saldo du registrerat'
                 disposal: 'Rättelse du registrerat'
             figures_disagree: 'Dessa siffror går inte ihop (skillnad på %{amount}). Något saknas som kontrollerna ovan inte fångade.'
+            cash_disagrees: 'Kontanter: liggaren och börsen skiljer sig med %{amount} om hur mycket som hålls.'
             history_incomplete: '%{symbol}: historiken är ofullständig — mer lämnade kontot än som någonsin kom in, så kostnaden är okänd.'
             quantity_disagrees: '%{symbol}: liggaren och börsen är oense om mängden, så kostnaden är okänd.'
             no_history: '%{symbol}: börsen rapporterar det, men ingen historik ligger bakom.'

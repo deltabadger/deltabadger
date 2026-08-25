@@ -122,9 +122,12 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
     assert holding.finding, 'and it says why'
   end
 
-  # The backstop. Every check above names a holding; this one catches what none of them anticipated,
-  # so a set of figures that quietly contradict each other can never reach the page again.
-  test 'figures that do not add up say so, even when no holding looks wrong' do
+  # ── cash ─────────────────────────────────────────────────────────────────────────────────
+  #
+  # Cash is a balance, not a position — and it was never compared. The ledger knows what it holds
+  # after every deposit, trade and fee; the venue reports what it holds; a dollar the two disagree
+  # about is exactly as much a finding as a coin they disagree about.
+  test 'cash the sale returned that the venue does not show is a finding, not a mystery' do
     tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 1_000)
     tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 1_000)
     tx(:sell, day: 3, base_currency: 'BTC', base_amount: 0.5, quote_currency: 'USDC', quote_amount: 900)
@@ -132,8 +135,62 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
 
     result = figures
 
-    assert_equal [:figures_disagree], result.findings.map(&:kind)
+    assert_equal [:cash_disagrees], result.findings.map(&:kind)
+    assert_equal 900.to_d, result.findings.sole.detail
     assert_not result.vouched?
+  end
+
+  test 'cash the venue reports as the ledger has it is no finding' do
+    usdc = create(:asset, symbol: 'USDC', name: 'USD Coin')
+    tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 1_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 600)
+    balance(@btc, 1, 700)
+    balance(usdc, 400, 400)
+
+    assert_empty figures.findings
+  end
+
+  # A balance is a snapshot and the bots go on trading: a fill since the sync moved cash as well as
+  # coins, and the venue's figure has to be brought forward on both before the two are compared.
+  test 'a fill since the balances were taken moves cash too' do
+    usdc = create(:asset, symbol: 'USDC', name: 'USD Coin')
+    tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 1_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 600)
+    synced_at = @day.call(3)
+    tx(:sell, day: 4, base_currency: 'BTC', base_amount: 0.5, quote_currency: 'USDC', quote_amount: 350)
+    balance(@btc, 1, 700)
+    balance(usdc, 400, 400)
+    pending = Tracker::Figures.moved_since(AccountTransaction.for_user(@user), synced_at)
+
+    result = Tracker::Figures.for(@user, ledger: Tracker::Ledger.for(@user),
+                                         balances: AccountBalance.for_user(@user).nonzero.includes(:asset).to_a,
+                                         pending: pending)
+
+    assert_equal({ 'BTC' => -0.5.to_d, 'USDC' => 350.to_d }, pending)
+    assert_empty result.findings
+  end
+
+  # ── the backstop ─────────────────────────────────────────────────────────────────────────
+  #
+  # Every check above names something the VENUE disagrees with. This one checks the ledger's own
+  # arithmetic: what its positions cost plus the cash it holds must be what went in plus what was
+  # realised, with no venue in the equation. It runs whether or not anything above fired — a named
+  # finding explains a disagreement with the venue, and must never hide a contradiction in the
+  # figures themselves.
+  test 'figures that do not add up say so, even beside a named finding' do
+    broken = Tracker::Ledger::Summary.new(
+      positions: [Tracker::Ledger::Position.new(symbol: 'BTC', asset: @btc, quantity: 1.to_d, cost_usd: 1_000.to_d,
+                                                avg_cost_usd: 1_000.to_d, opened_at: @day.call(1), incomplete: false)],
+      round_trips: [], total_invested_usd: 500.to_d, received_usd: 0.to_d, realised_pnl_usd: 0.to_d,
+      fees_usd: 0.to_d, cash_usd: 0.to_d, incomplete: false, overdrawn: {}, computed_at: Time.current
+    )
+    balance(@btc, 0.4, 600) # the venue disagrees about the quantity...
+
+    result = Tracker::Figures.for(@user, ledger: broken, balances: AccountBalance.for_user(@user).includes(:asset).to_a)
+
+    # ...and the ledger disagrees with itself: 1,000 of cost against 500 of money in and nothing realised.
+    assert_equal %i[figures_disagree quantity_disagrees], result.findings.map(&:kind).sort
+    assert_equal 500.to_d, result.findings.find { |f| f.kind == :figures_disagree }.detail
   end
 
   test 'cash is not a position and never a finding' do

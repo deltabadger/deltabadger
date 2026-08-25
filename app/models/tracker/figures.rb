@@ -44,6 +44,22 @@ module Tracker
       new(ledger, balances, pending).result
     end
 
+    # What the ledger has moved since `synced_at`, by symbol: each row's own asset, and the cash it
+    # spent or returned besides — a fill since the sync moved both, and the venue's snapshot shows
+    # neither. Read straight off the rows: the handful since a sync is never worth a second opinion
+    # about what a row does to cash.
+    def self.moved_since(transactions, synced_at)
+      return {} if synced_at.nil?
+
+      transactions.where(transacted_at: synced_at..).each_with_object(Hash.new(0.to_d)) do |tx, moved|
+        moved[tx.base_currency] += tx.base_amount.to_d if UnfundedCash::BASE_IN.include?(tx.entry_type)
+        moved[tx.base_currency] -= tx.base_amount.to_d if UnfundedCash::BASE_OUT.include?(tx.entry_type)
+        UnfundedCash.moves(**tx.slice(*UnfundedCash::MOVE_KEYS).symbolize_keys).each do |currency, amount|
+          moved[currency] += amount unless currency == tx.base_currency
+        end
+      end
+    end
+
     def initialize(ledger, balances, pending)
       @ledger = ledger
       @balances = balances
@@ -77,21 +93,34 @@ module Tracker
 
     private
 
-    # Everything the page cannot stand behind — and, last, the BACKSTOP.
+    # Everything the page cannot stand behind — and, always, the BACKSTOP.
     #
-    # The two halves must agree: what is held less what went in is what was banked plus what is
-    # still riding. When they do not and nothing above explains why, something is wrong that none of
-    # these checks anticipated — a holding the venue does not report, a price nobody could fetch, a
-    # bug. Saying so is the whole point: the page could otherwise show a set of figures that quietly
-    # contradict each other, which is exactly how it came to be trusted less than it deserved.
+    # Every named finding is a disagreement with the VENUE: a quantity, a coin, the cash. The
+    # backstop is the ledger's own arithmetic, with no venue in the equation: what its positions
+    # cost plus the cash it holds must be what went in plus what was realised. Those are the two
+    # halves of the page's identity once the venue agrees with the ledger, so with the venue's
+    # disagreements named above, this is what is left. It runs whether or not anything above fired
+    # — a finding that explains a disagreement must never hide a contradiction in the figures
+    # themselves, which is exactly how the page came to state figures that quietly did not add up.
     def findings(holdings, value)
-      named = (holdings.filter_map(&:finding) + orphan_findings).sort_by(&:symbol)
-      return named if named.any? || @ledger.nil?
+      named = (holdings.filter_map(&:finding) + orphan_findings + cash_findings(holdings)).sort_by(&:symbol)
+      drift = @ledger.positions.sum(0.to_d, &:cost_usd) + @ledger.cash_usd -
+              @ledger.total_invested_usd - @ledger.realised_pnl_usd
+      return named if drift.abs <= [0.01.to_d, value.abs * IDENTITY_TOLERANCE].max
 
-      drift = (value - @ledger.total_invested_usd) - (@ledger.realised_pnl_usd + gains(holdings))
-      return [] if drift.abs <= [0.01.to_d, value.abs * IDENTITY_TOLERANCE].max
+      named + [finding(:figures_disagree, '', drift)]
+    end
 
-      [finding(:figures_disagree, '', drift)]
+    # Cash is a balance, not a position — and it was never compared. One line for all of it: a
+    # dollar is a dollar wherever it sits, and what the venue holds since the snapshot is brought
+    # forward by the cash the rows since then moved.
+    def cash_findings(holdings)
+      reported = holdings.sum(0.to_d) { |holding| cash?(holding.asset.symbol) ? holding.value : 0.to_d } +
+                 @pending.sum(0.to_d) { |symbol, amount| cash?(symbol) ? amount : 0.to_d }
+      gap = @ledger.cash_usd - reported
+      return [] if gap.abs <= [1.to_d, [reported, @ledger.cash_usd].max.abs * TOLERANCE].max
+
+      [finding(:cash_disagrees, '', gap)]
     end
 
     def gains(holdings) = holdings.filter_map(&:unrealised).sum(0.to_d)

@@ -511,6 +511,7 @@ pt:
                 acquisition: 'Saldo inicial que registaste'
                 disposal: 'Correção que registaste'
             figures_disagree: 'Estes números não batem certo (diferença de %{amount}). Falta algo que as verificações acima não apanharam.'
+            cash_disagrees: 'Dinheiro: o registo e a exchange diferem em %{amount} quanto ao que está em carteira.'
             history_incomplete: '%{symbol}: o histórico está incompleto — saiu mais do que alguma vez entrou, logo o custo é desconhecido.'
             quantity_disagrees: '%{symbol}: o registo e a exchange discordam sobre a quantidade, logo o custo é desconhecido.'
             no_history: '%{symbol}: a exchange reporta-o, mas não há histórico por trás.'
