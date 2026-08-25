@@ -140,16 +140,18 @@ class Tax::PriceServiceSwapLegsTest < ActiveSupport::TestCase
     assert_nil rows['ETH'][:fee_amount]
   end
 
-  test 'a stated value stands in front of the cash row' do
+  # The cash row IS the venue's figure: a typed value is neither written in front of it nor read
+  # if one was written before the rule.
+  test 'the cash row stands in front of a stated value' do
     leg(:sell, 'EUR', 1_000)
     bought = leg(:buy, 'BTC', 0.05)
-    bought.set_manual(:fiat_value, 999)
-    bought.save!
+    assert_raises(ArgumentError) { bought.set_manual(:fiat_value, 999) }
+    bought.update_column(:manual_values, { 'fiat_value' => '999' })
 
     rows, = enrich
 
-    assert_equal 999.to_d, rows['BTC'][:fiat_value]
-    assert rows['BTC'][:stated_value]
+    assert_equal 1_250.to_d, rows['BTC'][:fiat_value]
+    assert_not rows['BTC'][:stated_value]
   end
 
   # ── the order the ledger is walked in ────────────────────────────────────────────────────

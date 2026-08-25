@@ -46,11 +46,29 @@ class AccountTransaction < ApplicationRecord
     number
   end
 
-  # A row the venue itself valued: amount and price of its own, and the value is their product. A
-  # figure typed in front of it would leave the three columns no longer multiplying out, so such a
-  # row takes no stated value — not written, and not read if one was written before this rule.
+  # A row the venue itself valued: amount and price of its own, or a cash leg beside it in its group
+  # — a Convert into USDC says what the coins fetched as plainly as a quote would. Its worth is that
+  # figure, and a figure typed in front of it would leave the columns no longer multiplying out, so
+  # such a row takes no stated value — not written, and not read if one was written before this rule.
   def venue_valued?
+    quoted? || cash_counterpart.present?
+  end
+
+  def quoted?
     quote_amount.present? && Tracker::UnfundedCash.cash?(quote_currency)
+  end
+
+  # The cash row opposite this one in a two-leg group: a swap-out's cash in-leg, a swap-in's or a
+  # buy's cash out-leg. Two legs only — a sweep of many coins into one credit shares its cash out
+  # by the engine's own rule, which a row on its own cannot repeat. A page of rows hands the groups
+  # in (`group_rows=`); a row on its own asks for its group.
+  attr_writer :group_rows
+
+  def cash_counterpart
+    return @cash_counterpart if defined?(@cash_counterpart)
+
+    rows = group_rows
+    @cash_counterpart = rows.size == 2 ? rows.find { |row| row.id != id && Tracker::UnfundedCash.cash?(row.base_currency) && opposite?(row) } : nil
   end
 
   validates :base_currency, presence: true
@@ -114,6 +132,18 @@ class AccountTransaction < ApplicationRecord
   def linked? = linked_transaction_id.present? || inverse_link.present?
 
   private
+
+  IN_LEGS = %w[buy swap_in].freeze
+  OUT_LEGS = %w[sell swap_out].freeze
+
+  def group_rows
+    @group_rows ||= group_id.blank? ? [] : AccountTransaction.where(user_id: user_id, exchange_id: exchange_id, group_id: group_id).to_a
+  end
+
+  def opposite?(row)
+    (IN_LEGS.include?(entry_type) && OUT_LEGS.include?(row.entry_type)) ||
+      (OUT_LEGS.include?(entry_type) && IN_LEGS.include?(row.entry_type))
+  end
 
   def linked_transaction_is_valid
     linked = linked_transaction
