@@ -512,6 +512,7 @@ nl:
                 acquisition: 'Beginsaldo dat je hebt vastgelegd'
                 disposal: 'Correctie die je hebt vastgelegd'
             figures_disagree: 'Deze cijfers kloppen niet (verschil van %{amount}). Er ontbreekt iets dat de controles hierboven niet zagen.'
+            cash_disagrees: 'Cash: het grootboek en de exchange verschillen %{amount} over hoeveel er is.'
             history_incomplete: '%{symbol}: de historie is onvolledig — er ging meer af dan er ooit op kwam, dus de kostprijs is onbekend.'
             quantity_disagrees: '%{symbol}: grootboek en exchange zijn het oneens over de hoeveelheid, dus de kostprijs is onbekend.'
             no_history: '%{symbol}: de exchange meldt het, maar er is geen historie achter.'

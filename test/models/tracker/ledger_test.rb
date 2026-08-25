@@ -553,4 +553,13 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
 
     assert_not Tracker::Ledger.money_in(@user).sole.complete
   end
+
+  # Cash is a balance, not a position, and the ledger knows it after every row: what came in, what
+  # the trades spent and returned, what the fees took. Stated so the page can hold it against the venue.
+  test 'the ledger states the cash it holds' do
+    tx(:deposit, day: 1, base_currency: 'USD', base_amount: 1_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 0.1, quote_currency: 'USD', quote_amount: 300)
+
+    assert_equal 700.to_d, Tracker::Ledger.for(@user).cash_usd
+  end
 end

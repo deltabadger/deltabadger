@@ -16,7 +16,7 @@ module Tracker
     RoundTrip = Data.define(:symbol, :asset, :opened_at, :closed_at, :quantity, :invested_usd,
                             :proceeds_usd, :fees_usd, :realised_pnl_usd, :incomplete)
     Summary = Data.define(:positions, :round_trips, :total_invested_usd, :received_usd, :realised_pnl_usd,
-                          :fees_usd, :incomplete, :overdrawn, :computed_at)
+                          :fees_usd, :cash_usd, :incomplete, :overdrawn, :computed_at)
     # One term of money in, as the chart reads it day by day: the row's instant, what it moved, and
     # whether the figure could be stated in full.
     Term = Data.define(:at, :amount, :complete)
@@ -145,7 +145,7 @@ module Tracker
         price_service, rows, engine, disposals = walk(user, exchange)
         assets = asset_index(user, engine.lots.keys | disposals.map { |disposal| disposal[:asset] })
         positions = positions_from(engine.lots, assets)
-        terms = money_in_terms(rows, price_service, engine)
+        terms, cash_usd = money_in_terms(rows, price_service, engine)
 
         Summary.new(
           positions: positions,
@@ -158,6 +158,9 @@ module Tracker
           # already isolates it, and until now nothing read it.
           realised_pnl_usd: disposals.sum(0.to_d) { |disposal| disposal[:gain_loss].to_d } + engine.excess_roc.to_d,
           fees_usd: fees(rows, price_service),
+          # Cash is a balance, not a position, and the ledger knows it after every row — stated so
+          # the page can hold it against what the venue reports, as it does every coin.
+          cash_usd: cash_usd,
           incomplete: positions.any?(&:incomplete) || engine.uncovered ||
                       disposals.any? { |disposal| disposal[:data_incomplete] } || price_service.warnings.any?,
           overdrawn: engine.overdrawn.select { |_, short| short.positive? },
@@ -169,7 +172,7 @@ module Tracker
       # these rather than keeping a second opinion about what a row contributed.
       def money_in(user, exchange: nil)
         price_service, rows, engine, = walk(user, exchange)
-        money_in_terms(rows, price_service, engine).map { |_, term| term }
+        money_in_terms(rows, price_service, engine).first.map { |_, term| term }
       end
 
       # nil until a job has computed it. The key follows the transactions and nothing else — a
@@ -293,17 +296,27 @@ module Tracker
       # than missing.
       #
       # One term per row, complete unless a figure in it had to be guessed: an arrival nobody could
-      # price, a fiat amount with no rate, a shortfall the same.
+      # price, a fiat amount with no rate, a shortfall the same. And, from the same walk, the cash
+      # left standing at the end of it, in dollars at today's rate.
       def money_in_terms(rows, price_service, engine)
         cash = Hash.new(0.to_d)
         closes = UnfundedCash.closers(rows.map { |row| [row[:exchange], row[:group_id]] })
-        rows.each_with_index.map do |row, index|
+        terms = rows.each_with_index.map do |row, index|
           cash_moves(row).each { |currency, amount| cash[[row[:exchange], currency]] += amount }
           kept = price_service.warnings.size
           amount = contribution(row, price_service, engine)
           amount += unfunded_contribution(cash, closes[index], row, price_service) if closes[index]
           complete = price_service.warnings.size == kept && !(row[:price_missing] && valued_by_price?(row))
           [row, Term.new(at: row[:transacted_at], amount: amount, complete: complete)]
+        end
+        [terms, cash_in_usd(cash, price_service)]
+      end
+
+      def cash_in_usd(cash, price_service)
+        cash.sum(0.to_d) do |(_, currency), amount|
+          next amount if STABLECOINS.include?(currency)
+
+          price_service.convert_fiat(amount: amount, from: currency, to: 'USD', timestamp: Time.current)
         end
       end
 

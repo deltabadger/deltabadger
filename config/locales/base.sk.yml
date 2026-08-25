@@ -531,6 +531,7 @@ sk:
                 acquisition: 'Počiatočný zostatok, ktorý si zadal'
                 disposal: 'Oprava, ktorú si zadal'
             figures_disagree: 'Tieto čísla nesedia (rozdiel %{amount}). Niečo chýba, čo vyššie uvedené kontroly nezachytili.'
+            cash_disagrees: 'Hotovosť: kniha a burza sa líšia o %{amount} v tom, koľko sa drží.'
             history_incomplete: '%{symbol}: história je neúplná — odišlo viac, než kedy prišlo, takže náklad nie je známy.'
             quantity_disagrees: '%{symbol}: kniha a burza sa nezhodnú na množstve, takže náklad nie je známy.'
             no_history: '%{symbol}: burza to hlási, ale žiadna história za tým nie je.'

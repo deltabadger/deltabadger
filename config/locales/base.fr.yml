@@ -513,6 +513,7 @@ fr:
                 acquisition: 'Solde d’ouverture que tu as saisi'
                 disposal: 'Correction que tu as saisie'
             figures_disagree: 'Ces chiffres ne tombent pas juste (écart de %{amount}). Il manque quelque chose que les contrôles ci-dessus n’ont pas vu.'
+            cash_disagrees: 'Liquidités : le registre et la plateforme diffèrent de %{amount} sur le montant détenu.'
             history_incomplete: '%{symbol} : l’historique est incomplet — il est sorti plus qu’il n’est jamais entré, le coût est donc inconnu.'
             quantity_disagrees: '%{symbol} : le registre et la plateforme ne s’accordent pas sur la quantité, le coût est donc inconnu.'
             no_history: '%{symbol} : la plateforme le déclare, mais aucun historique ne le sous-tend.'

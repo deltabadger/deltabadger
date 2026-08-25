@@ -352,14 +352,9 @@ class TrackerController < ApplicationController
   # on trading: without this, every asset bought since the last sync looks like a holding whose
   # quantity the ledger cannot vouch for, and the page withholds a P/L it actually knows.
   def quantities_since(synced_at)
-    return {} if synced_at.nil?
-
-    scope = AccountTransaction.for_user(current_user).where(transacted_at: synced_at..)
+    scope = AccountTransaction.for_user(current_user)
     scope = scope.for_exchange(@scope_exchange) if @scope_exchange
-    scope.group(:base_currency, :entry_type).sum(:base_amount).each_with_object(Hash.new(0.to_d)) do |((symbol, type), amount), moved|
-      moved[symbol] += amount.to_d if Tracker::UnfundedCash::BASE_IN.include?(type)
-      moved[symbol] -= amount.to_d if Tracker::UnfundedCash::BASE_OUT.include?(type)
-    end
+    Tracker::Figures.moved_since(scope, synced_at)
   end
 
   # Reads the pending report's own key, not the export preferences: toggling a radio in the modal

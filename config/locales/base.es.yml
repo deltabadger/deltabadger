@@ -513,6 +513,7 @@ es:
                 acquisition: 'Saldo inicial que registraste'
                 disposal: 'Corrección que registraste'
             figures_disagree: 'Estas cifras no cuadran (diferencia de %{amount}). Falta algo que las comprobaciones anteriores no detectaron.'
+            cash_disagrees: 'Efectivo: el registro y el exchange difieren en %{amount} sobre cuánto hay.'
             history_incomplete: '%{symbol}: el historial está incompleto — salió más de lo que entró, así que su coste es desconocido.'
             quantity_disagrees: '%{symbol}: el libro y el exchange no coinciden en la cantidad, así que su coste es desconocido.'
             no_history: '%{symbol}: el exchange lo reporta, pero no hay historial detrás.'

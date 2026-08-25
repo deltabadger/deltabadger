@@ -512,6 +512,7 @@ it:
                 acquisition: 'Saldo iniziale che hai registrato'
                 disposal: 'Correzione che hai registrato'
             figures_disagree: 'Questi numeri non tornano (scarto di %{amount}). Manca qualcosa che i controlli sopra non hanno colto.'
+            cash_disagrees: 'Liquidità: il registro e l''exchange differiscono di %{amount} su quanto è detenuto.'
             history_incomplete: '%{symbol}: lo storico è incompleto — è uscito più di quanto sia mai entrato, quindi il costo è ignoto.'
             quantity_disagrees: '%{symbol}: registro ed exchange non concordano sulla quantità, quindi il costo è ignoto.'
             no_history: '%{symbol}: l’exchange lo riporta, ma non c’è storico dietro.'
