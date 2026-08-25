@@ -133,7 +133,7 @@ class SettingsController < ApplicationController
   def destroy_api_key
     api_key = current_user.api_keys.find(params[:id])
     if api_key.present? && stop_working_bots(api_key) && api_key.destroy
-      trading_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'trading')
+      trading_api_keys = current_user.api_keys.includes(:exchange).where.not(key_type: 'withdrawal')
       withdrawal_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'withdrawal')
       render partial: 'settings/widgets/api_keys',
              locals: { trading_api_keys:, withdrawal_api_keys: }
@@ -587,7 +587,7 @@ class SettingsController < ApplicationController
   end
 
   def set_connect_instance_variables
-    @trading_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'trading')
+    @trading_api_keys = current_user.api_keys.includes(:exchange).where.not(key_type: 'withdrawal')
     @withdrawal_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'withdrawal')
   end
 

@@ -1,0 +1,45 @@
+<%# Only reached when there is something to say. Rows that landed close the dialog and flash instead
+    — see Tracker::ImportsController#imported!. %>
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <h2 class="modal__title"><%= t('tracker.import.title') %></h2>
+
+    <% if @error || @result[:error] %>
+      <p class="tracker-empty"><%= t("tracker.import.error_#{@error || @result[:error]}") %></p>
+    <% elsif @result[:ambiguous] %>
+      <%# The only question there is, and only the user can answer it: the file came from Binance,
+          and they hold both Binance and Binance.US, which write the identical export. %>
+      <%= form_with url: tracker_import_path, method: :post, data: { turbo_frame: 'modal_content' }, class: 'form' do |f| %>
+        <%= hidden_field_tag :token, @token %>
+        <%= hidden_field_tag :format, @format %>
+        <p><%= t('tracker.import.which_account') %></p>
+        <div class="filters" data-controller="form--segmented-field"
+             data-action="segmented:change->form--segmented-field#set">
+          <%= render 'shared/segmented', fluid: true, label: t('tracker.import.account'),
+                     options: @result[:candidates].each_with_index.map { |key, index|
+                       { value: key.id, label: key.exchange.name, active: index.zero? }
+                     } %>
+          <%= hidden_field_tag :api_key_id, @result[:candidates].first&.id,
+                               data: { 'form--segmented-field-target': 'field' } %>
+        </div>
+        <%= f.submit t('tracker.import.confirm'), class: 'button button--success button--large',
+                     data: { turbo_submits_with: t('tracker.import.importing') } %>
+      <% end %>
+    <% else %>
+      <%# Nothing landed. The file was read fine — every row in it is already here. %>
+      <p><%= t('tracker.import.nothing_new') %></p>
+      <% if @result[:skipped].positive? %>
+        <p class="import-note"><%= t('tracker.import.skipped', count: @result[:skipped]) %></p>
+      <% end %>
+      <% if @result[:unrouted].any? %>
+        <p class="import-note"><%= t('tracker.import.unrouted', exchanges: @result[:unrouted].join(', ')) %></p>
+      <% end %>
+      <% if @result[:unrecognised].any? %>
+        <p class="import-note"><%= t('tracker.import.unrecognised', operations: @result[:unrecognised].join(', ')) %></p>
+      <% end %>
+    <% end %>
+  </div>
+<% end %>

@@ -13,15 +13,15 @@ module TrackerHelper
   RECONCILE_TOLERANCE = 0.02
 
   # [{ d:, color:, label: }] in the order the rows are listed.
-  def holdings_ring_arcs(slices)
-    total = slices.sum { |slice| slice[:usd_value].to_d }
+  def holdings_ring_arcs(holdings)
+    total = holdings.sum(0.to_d, &:value)
     return [] unless total.positive?
 
-    small, large = slices.partition { |slice| slice[:usd_value].to_d / total < RING_MIN_SHARE }
-    arcs = large.map do |slice|
-      [slice[:usd_value].to_d, ensure_contrast(slice[:asset].color.presence || NEUTRAL_COLOR), slice[:asset].symbol]
+    small, large = holdings.partition { |holding| holding.value / total < RING_MIN_SHARE }
+    arcs = large.map do |holding|
+      [holding.value, ensure_contrast(holding.asset.color.presence || NEUTRAL_COLOR), holding.asset.symbol]
     end
-    folded = small.sum { |slice| slice[:usd_value].to_d }
+    folded = small.sum(0.to_d, &:value)
     arcs << [folded, NEUTRAL_COLOR, t('tracker.other')] if folded.positive?
 
     angle = 0.0
@@ -47,14 +47,20 @@ module TrackerHelper
 
   # The card's centre figure: the same reading over every holding that reconciles, value-weighted.
   def holdings_total_pnl_percent(slices, positions)
-    reconciled = slices.filter_map do |slice|
-      cost = holding_cost(slice, positions[slice[:asset].symbol])
-      [slice[:usd_value].to_d, cost] if cost
-    end
-    cost = reconciled.sum(0.to_d) { |_value, basis| basis }
+    value, cost = reconciled_holdings(slices, positions)
     return unless cost.positive?
 
-    ((reconciled.sum(0.to_d) { |value, _basis| value } / cost) - 1) * 100
+    ((value / cost) - 1) * 100
+  end
+
+  # The same reading in money, for the grid. Percent and money have to come from ONE set of holdings
+  # or the two would state different things under different names — which is the confusion the grid
+  # exists to end.
+  def holdings_unrealised_usd(slices, positions)
+    value, cost = reconciled_holdings(slices, positions)
+    return unless cost.positive?
+
+    value - cost
   end
 
   # The tone of a chip, by meaning rather than by domain — see `new/_pill.sass`. Anything the map
@@ -62,6 +68,7 @@ module TrackerHelper
   PILL_TONES = {
     'buy' => 'up', 'swap_in' => 'up', 'win' => 'up',
     'sell' => 'down', 'swap_out' => 'down', 'lost' => 'down', 'loss' => 'down',
+    'cash' => 'quiet',
     'deposit' => 'info', 'staking_reward' => 'info', 'lending_interest' => 'info', 'airdrop' => 'info',
     'mining' => 'info', 'other_income' => 'info', 'return_of_capital' => 'info', 'open' => 'info',
     'withdrawal' => 'warn'
@@ -77,6 +84,19 @@ module TrackerHelper
     return 'Stable' if Tax::PriceService::STABLECOINS.include?(asset.symbol)
 
     asset_type_label(asset.category)
+  end
+
+  # The holdings header: what share of the portfolio each KIND of asset is, by value — "Stocks 10% ·
+  # Crypto 80% · Stable 10%". Same labels the rows carry, so it reads as a summary of the list below
+  # rather than a second opinion. Shares that round to nothing are left out; a "0%" is noise.
+  def holdings_type_shares(holdings)
+    total = holdings.sum(0.to_d, &:value)
+    return [] unless total.positive?
+
+    holdings.group_by { |holding| holding_type_label(holding.asset) || t('tracker.other') }
+            .map { |label, group| [label, (group.sum(0.to_d, &:value) / total * 100).round] }
+            .reject { |_, share| share.zero? }
+            .sort_by { |_, share| -share }
   end
 
   # [value, invested] for the chart, in the display currency.
@@ -99,13 +119,65 @@ module TrackerHelper
   # The record's second pane: one row per open position, one per closed round-trip, newest first.
   # Two shapes in one table — what they have in common is a cost, an exit and a holding period.
   # An open row is marked at the balance's market price; a closed one at what it actually sold for.
-  def tracker_position_rows(ledger, slices)
-    return [] unless ledger
+  # Built from what is HELD, not from what the ledger keeps a position in — those are different
+  # sets, and the page used to show one in this table and the other on the card above it. Cash is
+  # the case that made it visible: it is a balance, so the card lists it, and the ledger keeps no
+  # position for it because it has no cost and no gain, so the table did not.
+  #
+  # A coin the venue has STOPPED reporting is still a row: that row is exactly what a finding is
+  # about, so it cannot be the one thing that quietly disappears.
+  def tracker_position_rows(figures)
+    return [] unless figures&.ledger
 
-    by_symbol = slices.index_by { |slice| slice[:asset].symbol }
-    rows = ledger.positions.map { |position| open_position_row(position, by_symbol[position.symbol]) } +
-           ledger.round_trips.map { |trip| round_trip_row(trip) }
-    rows.sort_by { |row| row[:opened] || Time.at(0) }.reverse
+    positions = figures.ledger.positions.index_by(&:symbol)
+    held = figures.holdings.map { |holding| held_row(holding, positions[holding.asset.symbol]) }
+    reported = figures.holdings.to_set { |holding| holding.asset.symbol }
+    vanished = positions.except(*reported).values.map { |position| open_position_row(position, nil) }
+
+    (held + vanished + figures.ledger.round_trips.map { |trip| round_trip_row(trip) })
+      .sort_by { |row| row[:opened] || Time.at(0) }.reverse
+  end
+
+  # What a row was worth, and WHOSE figure that is. Three answers and a silence:
+  #
+  #   :stated   — the user typed it. It stands in front of everything else.
+  #   :exchange — the venue reported a counter-amount. Solid.
+  #   :ours     — the venue reported none, so we priced it from our own history. The default, and
+  #               the thing the figures are actually built on for a dust rebate or an airdrop.
+  #   nil       — nobody could price it. This is where the figures go silent, and where a typed
+  #               value is worth more than any amount of retrying.
+  #
+  # Deliberately reads only prices ALREADY STORED: this runs once per row of a 200-row table, and
+  # the stored table is exactly what the ledger's own calculations used.
+  # Returned in the DENOMINATION's currency, because that is the one unit this column is written in.
+  #
+  # Two kinds of row, two honest rates. A row whose base is money is a fact in a real currency and is
+  # carried across at the rate OF ITS OWN DAY — five euro sixty-one is five euro sixty-one, and
+  # round-tripping it through dollars at today's rate hands back five seventy-one. Everything else is
+  # a figure this app computed in USD, and follows the page's own rule: converted at today's rate,
+  # exactly like the tiles and the chart above it.
+  def tracker_row_value(record, denomination)
+    stated = record.manual_value(:fiat_value)
+    return [denomination.convert(stated), :stated] if stated
+
+    return cash_value(record, denomination) if money?(record.base_currency)
+
+    if record.quote_amount.present? && money?(record.quote_currency)
+      return sourced(in_display(record.quote_amount, record.quote_currency, record, denomination), :exchange)
+    end
+
+    price = HistoricalPrice.lookup(asset: record.base_currency, currency: 'USD',
+                                   date: record.transacted_at.to_date)
+    sourced(price&.positive? ? denomination.convert(price.to_d * record.base_amount.to_d) : nil, :ours)
+  end
+
+  # What one unit changed hands at, in the column's own unit — derived from the row's worth rather
+  # than computed a second way, so Price times Amount comes to Value by construction. Two adjacent
+  # money columns that do not multiply out is the same broken promise as two disagreeing totals.
+  def tracker_row_price(record, value)
+    return if value.nil? || !record.base_amount.to_d.positive?
+
+    value / record.base_amount.to_d
   end
 
   # A signed percentage, one decimal — the reading on every P/L cell on the page.
@@ -183,7 +255,7 @@ module TrackerHelper
   def tracker_status_filters(rows)
     present = rows.map { |row| row[:status] }.uniq
     offered([{ value: 'all', label: t('tracker.record.all'), active: true }] +
-            %w[open win loss closed].select { |status| present.include?(status) }
+            %w[open win loss closed cash].select { |status| present.include?(status) }
                                     .map { |status| { value: status, label: t("tracker.record.#{status}") } })
   end
 
@@ -209,18 +281,81 @@ module TrackerHelper
 
   private
 
+  # A counter-amount only means a value when it is in money. Coin-for-coin, the row's worth still
+  # has to be priced.
+  def cash_value(record, denomination)
+    sourced(in_display(record.base_amount, record.base_currency, record, denomination), :cash)
+  end
+
+  # A value we could not carry into the column's unit is not a value. Saying "unpriced" is the honest
+  # reading; converting it at some other currency's number would be a lie the reader cannot see.
+  def sourced(value, source) = value.nil? ? [nil, nil] : [value, source]
+
+  # A stablecoin is taken at par against the dollar, as it is everywhere else in the app; real fiat
+  # goes through the ECB's published rate FOR THAT DAY, straight to the currency on screen. No dollar
+  # in the middle: a euro row shown in euro must come back as itself.
+  def in_display(amount, currency, record, denomination)
+    currency = 'USD' if Tax::PriceService::STABLECOINS.include?(currency)
+    return amount.to_d if currency == denomination.currency
+
+    rate = tracker_fx_rate(currency, denomination.currency, record.transacted_at.to_date)
+    rate && (amount.to_d * rate)
+  end
+
+  # Memoised per render: a table of two hundred rows holds far fewer distinct currency-days, and the
+  # misses are worth caching too — an unlisted currency would otherwise raise on every row.
+  def tracker_fx_rate(from, to, date)
+    @tracker_fx_rates ||= {}
+    @tracker_fx_rates.fetch([from, to, date]) do
+      @tracker_fx_rates[[from, to, date]] = begin
+        Tax::EcbFxRates.rate(from: from, to: to, date: date)
+      rescue Tax::EcbFxRates::MissingRate
+        nil
+      end
+    end
+  end
+
+  def money?(currency)
+    currency.present? &&
+      (Tax::PriceService::FIAT_CURRENCIES.include?(currency) ||
+       Tax::PriceService::STABLECOINS.include?(currency))
+  end
+
+  # [value, cost] over every holding whose quantity the ledger can vouch for. Cash and anything
+  # unreconciled contribute nothing — there is no basis to divide by.
+  def reconciled_holdings(slices, positions)
+    pairs = slices.filter_map do |slice|
+      cost = holding_cost(slice, positions[slice[:asset].symbol])
+      [slice[:usd_value].to_d, cost] if cost
+    end
+    [pairs.sum(0.to_d) { |value, _| value }, pairs.sum(0.to_d) { |_, cost| cost }]
+  end
+
   def denominated_series(values, invested)
     [values, invested].map { |serie| serie.map { |amount| @denomination.convert(amount).round(2).to_f } }
   end
 
-  def open_position_row(position, slice)
-    quantity = slice ? slice[:quantity].to_d : position.quantity
-    percent = slice && holding_pnl_percent(slice, position)
+  # Cash is stated as cash rather than dressed up as a position with nothing in its columns: it has
+  # no cost to divide by and no gain to report, and saying so is shorter than five empty cells.
+  def held_row(holding, position)
+    return open_position_row(position, holding) if position
+
+    { status: 'cash', symbol: holding.asset.symbol, asset: holding.asset,
+      opened: nil, closed: nil, invested: nil, avg_buy: nil,
+      price: (holding.quantity.positive? ? holding.value / holding.quantity : nil),
+      percent: nil, cash: nil }
+  end
+
+  # The holding is `Tracker::Figures`' own, so the row marks the position at the same value, with
+  # the same verdict, as the tiles and the card. It used to reconcile again here, on its own terms.
+  def open_position_row(position, holding)
+    quantity = holding ? holding.quantity : position.quantity
+    percent = holding&.percent
     { status: 'open', symbol: position.symbol, asset: position.asset, opened: position.opened_at, closed: nil,
       invested: position.cost_usd, avg_buy: position.avg_cost_usd,
-      price: (slice && quantity.positive? ? slice[:usd_value].to_d / quantity : nil),
+      price: (holding && quantity.positive? ? holding.value / quantity : nil),
       percent: percent,
-      cash: percent && (slice[:usd_value].to_d - (position.avg_cost_usd * quantity)) }
+      cash: percent && holding.unrealised }
   end
 
   # A trip whose basis was assumed anywhere along the way is CLOSED and nothing more: calling it a

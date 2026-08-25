@@ -73,11 +73,8 @@
         padding: 1.5rem 2rem
     &--chart
         max-width: 100%
-        gap: 0
-        background: none
-        box-shadow: none
         @media (min-width: 768px)
-            padding: calc(var(--ui-padding)*2) var(--ui-padding) var(--ui-padding)
+            padding: var(--ui-padding)
             
         // The switch and the readout share one row across the top of the plot: the switch on
         // the left, on the same line as the date range, the numbers stacked on the right.
@@ -125,7 +122,7 @@
             display: flex
             flex-shrink: 0
             @media (min-width: 768px)
-                margin-top: calc((2.25rem - 4rem) / 2)
+                // margin-top: calc((2.25rem - 4rem) / 2)
     .main-rule
         padding-top: 4rem
         padding-bottom: 4rem
@@ -177,6 +174,13 @@
             padding: 2.5rem 0 1rem  var(--ui-padding)
         td
             padding: 0.75rem 0 0.75rem var(--ui-padding)
+            // A cell centres its boxes rather than sitting them on the row's baseline — and that
+            // baseline is not where it looks: `.tracker-row__asset` is an inline-flex, so the row
+            // hangs off the LOGO'S BOTTOM EDGE and carries a line's worth of empty descent under
+            // it. Baseline-aligned, everything in the row then reads high inside a row taller than
+            // its content. Text needs no help: half-leading centres it in its own line box.
+            > *
+                vertical-align: middle
         td, th
             text-align: right
             border: none

@@ -3,6 +3,9 @@
     locals:
       options - [{ value:, label:, active:, href: (optional), data: (optional) }]
       label   - what the group is, for a screen reader
+      action  - optional {href:, label:, icon:, data:}. A trailing ACTION rather than another
+                option. `icon` is a partial path and is REQUIRED — the glyph IS the control, and
+                an action without one is an empty pill; `label` names it for a screen reader.
       fluid   - false (default): identical columns, right when the labels are the same length and
                 a chip that changed width would read as a glitch (VALUE / RETURN).
                 true: every option takes the width of its own label and the chip follows — the
@@ -14,6 +17,7 @@
     positioned by the `segmented` Stimulus controller, which measures the selected option — the
     same code for both sizings, since measuring an equal column is measuring a column. %>
 <% fluid = local_assigns.fetch(:fluid, false) %>
+<% action = local_assigns[:action] %>
 <% links = options.any? { |option| option[:href].present? } %>
 
 <%= tag.div class: ['segmented', ('segmented--fluid' if fluid)],
@@ -39,6 +43,21 @@
                                        aria: { checked: option[:active].present? },
                                        tabindex: option[:active] ? 0 : -1,
                                        data: shared.merge(action: 'segmented#select keydown->segmented#keys') %>
+      <% end %>
+    <% end %>
+    <%# An ACTION, not an option: it DOES something instead of selecting something. It belongs to
+        the set it acts on, so it rides inside the menu — last, which puts it at the end of the
+        track and at the foot of the list once the control has folded. It carries the option's
+        class for the look and the click-closes-the-menu behaviour, and NONE of its wiring: no
+        segmented-target, so the controller never measures it, never parks the chip on it and
+        never arrows onto it. %>
+    <% if action %>
+      <%# The label is the ATTRIBUTE, not text in the track: sitting at the end of the row it adds
+          to, the glyph is read in that company and needs no caption. A screen reader has no such
+          company, so the name has to come from somewhere. %>
+      <%= link_to action[:href], class: 'segmented__option segmented__option--action',
+                                 data: action[:data], aria: { label: action[:label] } do %>
+        <%= render action[:icon] %>
       <% end %>
     <% end %>
   </div>

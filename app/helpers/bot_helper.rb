@@ -290,11 +290,17 @@ module BotHelper
     render_instructions_from('withdrawal_api', exchange)
   end
 
+  # A reading key's list where a venue has one, and the bot's list where it does not — the same walk
+  # with one checkbox more than the tracker needs, which beats no instructions at all.
+  def render_read_api_key_instructions(exchange)
+    render_instructions_from('read_only_api', exchange) || render_api_key_instructions_for(exchange)
+  end
+
   def render_api_key_instructions(api_key)
-    if api_key.withdrawal?
-      render_withdrawal_api_key_instructions(api_key.exchange)
-    else
-      render_api_key_instructions_for(api_key.exchange)
+    case api_key.key_type
+    when 'withdrawal' then render_withdrawal_api_key_instructions(api_key.exchange)
+    when 'read_only' then render_read_api_key_instructions(api_key.exchange)
+    else render_api_key_instructions_for(api_key.exchange)
     end
   end
 
@@ -303,6 +309,7 @@ module BotHelper
   # EN fallback included on purpose: withdrawal_api exists only in English, and an English list
   # beats hiding the link from everyone else.
   def api_key_instructions?(api_key)
+    # A reading key always has a list — its own where the venue needs one, the bot's otherwise.
     prefix = api_key.withdrawal? ? 'withdrawal_api' : 'bot.api'
     I18n.exists?("#{prefix}.#{api_key.exchange.name_id}.instructions")
   end

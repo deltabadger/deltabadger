@@ -28,6 +28,7 @@
     <%= render 'exchange_filters' %>
     <%= render 'chart' %>
     <%= render 'tiles' %>
+    <%= render 'findings', findings: @figures&.findings || [] %>
     <%= render 'holdings' %>
     <%= render 'record' %>
   </div>

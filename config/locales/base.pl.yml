@@ -418,6 +418,11 @@ pl:
             instructions_title: 'Jak uzyskać klucze z %{exchange}'
             instructions_body: 'Utwórz klucz API z uprawnieniami do wypłat na %{exchange} i wklej tutaj dane uwierzytelniające.'
     tracker:
+        value_source:
+            exchange: "Podane przez giełdę."
+            ours: "Nasza cena z tego dnia. Wpisz wartość, aby ją zastąpić."
+            stated: "Twoja własna wartość. Wyczyść pole, aby wrócić do naszej ceny."
+            none: "Nie udało się wycenić tej pozycji. Wpisz, ile była warta."
         welcome:
             connect_and_track: "Podłącz giełdę i zacznij śledzić swoje portfolio."
         sync_key_error_html: 'Synchronizacja z <strong>%{exchange}</strong> nie powiodła się: %{message}. Zaktualizuj klucz API poniżej.'
@@ -504,11 +509,74 @@ pl:
         tax_report:
             failed: 'Nie udało się wygenerować raportu. Sprawdź wybrane ustawienia i spróbuj ponownie.'
         holdings: 'Posiadane aktywa'
+        unrealised: 'Niezrealizowany'
+        findings:
+            title: '%{count} pozycji, za które księga nie ręczy'
+            recorded: '%{symbol} zapisany — liczby zostały przeliczone.'
+            recorded_partly: '%{symbol} zapisany. Pozostaje jeszcze %{quantity} %{symbol}, których giełda nie raportuje — pokazane osobno.'
+            fix:
+                action: 'Napraw'
+                residual: 'To domyka niemożliwą część historii. Potem w księdze zostanie jeszcze %{quantity} %{symbol}, których giełda nie raportuje — to osobna luka, pokazana oddzielnie po zapisaniu tego wpisu.'
+                arrival: 'Skąd się wzięło?'
+                earned: 'Otrzymałem'
+                bought: 'Kupiłem lub przelałem'
+                earned_note: 'Nagrody, zamiana pyłu, staking — %{symbol}, który narósł, a nie został kupiony. Zapisane jako przychód po cenie z tego dnia, która jest zarazem kosztem nabycia.'
+                bought_note: 'Zapisane jako wpływ z zewnątrz, po koszcie podanym poniżej.'
+                acquisition_title: '%{symbol}: brakuje bilansu otwarcia'
+                disposal_title: '%{symbol}: brakuje rozchodu'
+                acquisition_body: 'Z tego konta wyszło więcej %{symbol}, niż kiedykolwiek wpłynęło w posiadanej historii, więc musiałeś mieć już %{quantity} %{symbol} zanim się zaczęła. Zapisanie tego zamyka lukę. Zostanie zapisane jako Twój wpis z datą %{date}; później możesz go zmienić lub usunąć.'
+                disposal_body: 'Księga wciąż wykazuje %{quantity} %{symbol}, których giełda już nie raportuje. Zapisanie, że wyszły, zamyka lukę. Nic nie zostaje zapisane jako otrzymane, więc nie powstaje zysk ani strata. Zapis z datą %{date}.'
+                cost: 'Koszt'
+                use_market: 'Użyj ceny rynkowej'
+                enter_own: 'Wiem, ile zapłaciłem'
+                unknown: 'Nie wiem'
+                market_note: '%{cost} — %{price} za sztukę w dniu %{date}, z naszej historii cen. Zapisane jako szacunek.'
+                own_cost: 'Ile kosztowało (%{currency})'
+                unknown_note: 'Zostaw puste, aby zapisać samą ilość. Ilość się zgodzi, koszt pozostanie nieznany, więc dla tej pozycji nie pokażemy W/S.'
+                accept: 'Zapisz ten wpis'
+                recording: 'Zapisywanie…'
+            entry:
+                acquisition: 'Bilans otwarcia wprowadzony przez Ciebie'
+                earned: 'Przychód wprowadzony przez Ciebie'
+                disposal: 'Korekta wprowadzona przez Ciebie'
+            figures_disagree: 'Te liczby się nie sumują (różnica %{amount}). Czegoś brakuje, czego powyższe kontrole nie wychwyciły.'
+            history_incomplete: '%{symbol}: historia jest niepełna — z konta wyszło więcej, niż kiedykolwiek wpłynęło, więc koszt jest nieznany.'
+            quantity_disagrees: '%{symbol}: księga i giełda nie zgadzają się co do ilości, więc koszt jest nieznany.'
+            no_history: '%{symbol}: giełda to raportuje, ale nie ma za tym żadnej historii.'
+            basis_assumed: '%{symbol}: część trafiła bez ceny, więc koszt jest szacunkiem.'
+        tiles:
+            unrealised_pnl: 'Niezrealizowany W/S'
+            total_pnl: 'Całkowity W/S'
+            total_pnl_hint: '%{value} − %{invested}'
+        import:
+            title: 'Import'
+            nothing_new: 'Wszystkie transakcje z tego pliku są już w Twojej historii.'
+            imported: 'Zaimportowano %{count} transakcji.'
+            reading: 'Odczytywanie pliku…'
+            error_unknown_timezone: 'Nazwa tego pliku nie zawiera już strefy czasowej, w której Binance go wyeksportował. Wgraj go pod nazwą nadaną przez Binance.'
+            drop: 'Upuść tu plik CSV'
+            drop_hint: 'lub kliknij, aby wybrać plik'
+            which_account: 'Ten plik może pochodzić z obu kont Binance. Z którego?'
+            unrouted: 'Brak podłączonego konta dla: %{exchanges}. Te wiersze pominięto.'
+            error_no_account_for_format: 'Nie masz podłączonego konta pasującego do tego formatu.'
+            format: 'Format'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Konto'
+            file: 'Plik'
+            importing: 'Importowanie…'
+            confirm: 'Importuj'
+            skipped: '%{count} wierszy nie udało się zapisać.'
+            unrecognised: 'Nie zaimportowano, nieznane operacje: %{operations}'
+            error_unreadable: 'Ten plik nie jest w wybranym formacie.'
+            error_malformed: 'Nie udało się odczytać pliku.'
+            error_no_file: 'Najpierw wybierz plik.'
+            error_no_account: 'Wybierz konto do importu.'
+            no_account: 'Najpierw podłącz giełdę — import jest przypisany do konta.'
         positions: 'Pozycje'
         transactions: 'Transakcje'
         fees_paid: 'Zapłacone opłaty'
         synced_ago: 'Zsynchronizowano %{ago} temu'
-        history_partial: 'Niektóre dni są szacunkowe — części historii nie dało się wycenić.'
         show_more: 'Pokaż więcej'
         show_less: 'Pokaż mniej'
         other: 'Inne'
@@ -520,6 +588,7 @@ pl:
             win: 'Zysk'
             loss: 'Strata'
             closed: 'Zamknięta'
+            cash: 'Gotówka'
         range:
             '30d': '30D'
             '1y': '1R'
@@ -628,6 +697,8 @@ pl:
             upgrade_hint: Zaktualizuj plan CoinGecko lub użyj deltabadger.com, aby uzyskać pełne dane historyczne.
             deposit_basis_assumed: Koszt nabycia dla tych niepołączonych wpłat przyjęty według wartości rynkowej
             deposit_basis_assumed_hint: Połącz każdą wpłatę z odpowiadającą jej wypłatą w Trackerze, aby zastosować rzeczywisty koszt nabycia.
+            stated_values: "Wartości podane przez Ciebie ręcznie"
+            stated_values_hint: "Te kwoty pochodzą od Ciebie, nie z giełdy. Zweryfikuj je z własnymi zapisami przed złożeniem zeznania."
             exchange_sync_failed: 'Może brakować danych z %{exchange} — ostatnia synchronizacja nie powiodła się. Ponownie zsynchronizuj dane w Trackerze i wygeneruj raport jeszcze raz.'
             exchange_never_synced: 'Giełda %{exchange} nie została jeszcze zsynchronizowana — w tym raporcie nie ma żadnych jej transakcji. Zsynchronizuj ją w Trackerze i wygeneruj raport ponownie.'
         summary:

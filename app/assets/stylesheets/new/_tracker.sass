@@ -10,17 +10,12 @@
     display: flex
     flex-direction: column
     gap: 1rem
-    // The modes row holds two controls now, and the nested one has to be able to fold: a parent
-    // that shrink-wraps them would report its own width as the room available.
+    // The modes row holds two controls, and the nested one has to be able to fold: a parent that
+    // shrink-wraps them would report its own width as the room available.
     .widget--chart__modes
         flex: 1
         min-width: 0
         gap: 1rem
-
-.tracker-history-partial
-    color: var(--concrete)
-    font-size: 1.5rem
-    text-align: center
 
 // ── the exchange bar ──────────────────────────────────────────────────────────────────────
 .tracker-exchanges
@@ -29,8 +24,11 @@
     justify-content: space-between
     gap: 1rem
     flex-wrap: wrap
-    // The + stays beside the scope it adds to: once the segmented has folded into its menu there
-    // is room, and a lone + on a second line reads as a control that lost its label.
+    padding-top: 6rem
+    @media (min-width: 768px)
+        padding-top: 1rem
+    // The + rides inside the switch, so this row holds the switch and nothing else — which is
+    // what lets `.filters:has(> .segmented)` hand it the whole line to measure itself against.
     > .filters
         flex-wrap: nowrap
         gap: 1rem
@@ -146,7 +144,7 @@
         flex-direction: column
     &__row
         display: grid
-        grid-template-columns: minmax(0, 1fr) 8rem 18rem 6rem 10rem 8rem
+        grid-template-columns: minmax(20rem, 1fr) 8rem minmax(0, 2fr) 6rem 10rem 8rem
         gap: 1.5rem
         align-items: center
         padding: 1rem 0.75rem
@@ -254,6 +252,38 @@
         font-weight: 600
     &__fee
         color: var(--stone)
+    // What the row was worth, and whose figure it is — a table cell that happens to be typeable.
+    // It carries no chrome until the pointer or the keyboard is on it, so a table of 200 rows still
+    // reads as a table rather than as a form.
+    &__value
+        form
+            display: block
+        &__input
+            width: 100%
+            text-align: right
+            font: inherit
+            color: inherit
+            padding: 0
+            border: 1px solid transparent
+            // Our own price is a default, not a statement: it sits in the placeholder, in the
+            // caption's colour, and typing over it replaces it.
+            background: var(--silver)
+            border-radius: 1rem
+            padding: 0 1rem
+            &::placeholder
+                color: var(--stone)
+                opacity: 1
+            &:focus
+                outline: none
+                border-color: var(--link)
+        // A number the user typed is theirs and says so: it is set in the page's own ink and
+        // underlined, so it can never be mistaken for the exchange's figure.
+        &--stated .tracker-row__value__input
+            color: var(--ink)
+            font-weight: 600
+        // Nothing could price this. An empty box with a mark on it is the honest reading, and the
+        // one place where typing a value actually changes what the page can say.
+        &--none .tracker-row__value__input
     &__cash
         color: var(--stone)
         font-weight: 450

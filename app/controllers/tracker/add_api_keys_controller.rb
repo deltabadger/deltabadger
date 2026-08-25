@@ -63,7 +63,13 @@ class Tracker::AddApiKeysController < ApplicationController
     Exchange.find_by(id: exchange_id) if exchange_id
   end
 
+  # The smallest key that works. A venue a bot already connected needs nothing — trade permission
+  # contains read permission — so that key is handed back and the page redirects. Otherwise the ask
+  # is for a reading key, INCLUDING when a trading key is sitting there rejected: that row belongs
+  # to the bots, which are entitled to keep failing on it, and a venue that will no longer issue the
+  # permission they need must not take the tracker down with it.
   def find_or_build_api_key
-    current_user.api_keys.find_or_initialize_by(exchange: @exchange, key_type: :trading)
+    current_user.api_keys.find_by(exchange: @exchange, key_type: :trading, status: :correct) ||
+      current_user.api_keys.find_or_initialize_by(exchange: @exchange, key_type: :read_only)
   end
 end

@@ -68,7 +68,7 @@ class Bot::RebalanceLocalesTest < ActiveSupport::TestCase
 
   # These are I18n interpolation tokens being asserted on as literal text, not format strings this
   # test is building — the annotated-token style the cop wants would break the assertion.
-  # rubocop:disable Style/FormatStringToken
+  # rubocop:disable-next Style/FormatStringToken
   test 'the interpolations every locale must preserve are present' do
     # A translation that drops %{value_html} renders a rule with no input box in it.
     I18n.available_locales.each do |locale|
@@ -80,5 +80,4 @@ class Bot::RebalanceLocalesTest < ActiveSupport::TestCase
       assert_includes rebalance['still_open'], '%{order_id}', "#{locale}: still_open lost the order id"
     end
   end
-  # rubocop:enable Style/FormatStringToken
 end

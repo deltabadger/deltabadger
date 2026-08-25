@@ -21,8 +21,31 @@ class AccountTransactionSync
     return result if result.failure?
 
     entries = result.data
+    outcome = store!(entries, &progress)
+
+    # The watermark must come from the data — Time.current silently drops anything the fetch did not
+    # return. It must also never advance past a row that failed to save: that row would fall outside
+    # every future window, turning one malformed entry into a permanent hole.
+    max_seen = entries.filter_map { |entry| entry[:transacted_at] }.max
+    watermark = [max_seen, outcome[:min_skipped]].compact.min
+    @api_key.update!(last_synced_at: watermark || @api_key.last_synced_at, last_sync_error: nil)
+    Result::Success.new(outcome[:imported])
+  end
+
+  # Writes ledger entries for ONE key: dedup, build, match a bot's own order, save. The sync feeds
+  # it what the venue returned; the importer feeds it what a file said.
+  #
+  # Both go through here on purpose. A file overlaps the window the API already covered, and the
+  # dedup below is what keeps the overlap from landing twice — a second copy of this logic anywhere
+  # else would drift from it, and the drift would only ever show up as a doubled tax history.
+  #
+  # The WATERMARK stays with the caller: an import must never advance `last_synced_at`, or the next
+  # sync would skip the window the file happened to reach.
+  def store!(entries, &progress)
     total = entries.size
     imported = 0
+    duplicates = 0
+    skipped = 0
     last_percent = 0
     min_skipped = nil
 
@@ -32,7 +55,10 @@ class AccountTransactionSync
       # missing). Read it as nil so it dedups on the fallback identity instead of collapsing every
       # such row onto a single '' key — the partial unique index treats '' as a value.
       tx_id = entry[:tx_id].presence
-      next if duplicate?(entry, tx_id)
+      if duplicate?(entry, tx_id)
+        duplicates += 1
+        next
+      end
 
       # Nil out zero fees — per spec, empty fields when no fee. Read into locals: `entries` belongs
       # to the adapter that returned it, and this loop must not write back into it.
@@ -69,6 +95,7 @@ class AccountTransactionSync
           "errors=#{at.errors.full_messages.join(', ')}"
         )
         min_skipped = [min_skipped, entry[:transacted_at]].compact.min
+        skipped += 1
         next
       end
 
@@ -84,28 +111,41 @@ class AccountTransactionSync
       progress.call(percent)
     end
 
-    # The watermark must come from the data — Time.current silently drops anything the fetch did not
-    # return. It must also never advance past a row that failed to save: that row would fall outside
-    # every future window, turning one malformed entry into a permanent hole.
-    max_seen = entries.filter_map { |entry| entry[:transacted_at] }.max
-    watermark = [max_seen, min_skipped].compact.min
-    @api_key.update!(last_synced_at: watermark || @api_key.last_synced_at, last_sync_error: nil)
-    Result::Success.new(imported)
+    { imported: imported, duplicates: duplicates, skipped: skipped, min_skipped: min_skipped }
   end
 
   private
 
   def duplicate?(entry, tx_id)
     if tx_id.nil?
-      # api_key too: ApiKey is unique per (user, exchange, key_type), so one user can hold two keys
-      # on one exchange, and the sync jobs pass whatever key ids they are given. Without this, an
-      # id-less row from the second account is swallowed by the first account's identical tuple.
+      # (exchange, type, currency, amount, instant) — and deliberately NOT the key writing it.
+      #
+      # This used to be scoped to `api_key` on the reasoning that two keys on one venue meant two
+      # sub-accounts. That stopped being true: a venue's history accumulates under whichever key was
+      # current at the time, and a key can be replaced (its rows are nullified — see
+      # `has_many :account_transactions, dependent: :nullify`), rotated, or superseded by a reading
+      # key. Key-scoped, every one of those makes a re-read of the same history land a SECOND time.
+      # The ledger then holds twice the coins the venue reports, and every P/L on the page goes
+      # silent, because a balance and a ledger that disagree can state nothing.
+      #
+      # The sub-account this used to guard is not reachable anyway: `ApiKey` is unique per
+      # (user, exchange, key_type), so a user cannot register two trading keys for two accounts on
+      # one venue. If that ever changes, telling them apart needs a sub-account identity the ledger
+      # does not record — the key is not one, because the same account changes keys.
+      # The same SECOND, not the same instant. An exchange API timestamps to the millisecond and its
+      # own CSV export writes whole seconds — `22:58:17.200` and `22:58:17` are one fill, and
+      # compared exactly they are two, so every trade in the overlap between a file and a sync lands
+      # a second time.
+      #
+      # Bucketed rather than given a ±1s window, so it reads the same from either side: whichever of
+      # the two arrives first, both fall in the same bucket, and a row a full second later stays a
+      # row of its own.
+      second = entry[:transacted_at].change(usec: 0)
       return scope.exists?(
-        api_key: @api_key,
         entry_type: entry[:entry_type],
         base_currency: entry[:base_currency],
         base_amount: entry[:base_amount],
-        transacted_at: entry[:transacted_at]
+        transacted_at: second...(second + 1.second)
       )
     end
 

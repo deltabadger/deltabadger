@@ -1,7 +1,7 @@
 <% hide_money = current_user.hide_balances? %>
 <%# Computed once and handed to both the filter and the table: they ask the same question of the
     same ledger, and the filter can only offer what the table has. %>
-<% position_rows = tracker_position_rows(@scoped_ledger, @portfolio_slices || []) %>
+<% position_rows = tracker_position_rows(@figures) %>
 <% type_filters = tracker_type_filters(@account_transactions) %>
 <% status_filters = tracker_status_filters(position_rows) %>
 <%# One bar over two panes, as on the bot view. Each pane is `display: contents`, so its own
@@ -9,12 +9,12 @@
     `order-filter` scope, which is what lets one control filter the rows underneath it. %>
 <div class="tracker-record" data-controller="tracker--record">
   <div class="tracker-record__switch filters" data-action="segmented:change->tracker--record#show">
-    <%= render 'shared/segmented', fluid: true, label: t('tracker.transactions'),
-               options: [{ value: 'tx', label: t('tracker.transactions'), active: true },
-                         { value: 'pos', label: t('tracker.positions') }] %>
+    <%= render 'shared/segmented', fluid: true, label: t('tracker.positions'),
+               options: [{ value: 'pos', label: t('tracker.positions'), active: true },
+                         { value: 'tx', label: t('tracker.transactions') }] %>
   </div>
 
-  <div class="tracker-record__pane" data-pane="tx"
+  <div class="tracker-record__pane tracker-record__pane--off" data-pane="tx"
        data-controller="order-filter" data-tracker--record-target="pane">
     <div class="tracker-record__filters filters" data-action="segmented:change->order-filter#filter">
       <% if type_filters.any? %>
@@ -33,9 +33,11 @@
               <%# The same three figures the bot log drops: what was traded, what it cost, and what
                   was paid to trade it. The price is a market level, not a balance, and stays. %>
               <% unless hide_money %><th><%= t('tracker.columns.amount') %></th><% end %>
-              <th><%= t('tracker.columns.price') %></th>
+              <%# Both money columns are written in ONE currency, so the unit is named here once
+                  rather than repeated on every row — and a bare number in the cell is unambiguous. %>
+              <th><%= t('tracker.columns.price') %> <small><%= current_user.denomination.unit %></small></th>
               <% unless hide_money %>
-                <th><%= t('tracker.columns.quote_amount') %></th>
+                <th><%= t('tracker.columns.quote_amount') %> <small><%= current_user.denomination.unit %></small></th>
                 <th><%= t('tracker.columns.fee') %></th>
               <% end %>
               <th><%= t('tracker.columns.bot') %></th>
@@ -53,7 +55,7 @@
     </div>
   </div>
 
-  <div class="tracker-record__pane tracker-record__pane--off" data-pane="pos"
+  <div class="tracker-record__pane" data-pane="pos"
        data-controller="order-filter" data-tracker--record-target="pane">
     <div class="tracker-record__filters filters" data-action="segmented:change->order-filter#filter">
       <% if status_filters.any? %>

@@ -53,6 +53,8 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
 
   def store_history(rows)
     PortfolioSnapshot.upsert_all(rows, unique_by: %i[user_id date], record_timestamps: true)
+    # Stamped AFTER the sweep, so a price this run fetched itself counts as already read.
+    PortfolioSnapshot.mark_prices_swept!(@user)
     warm_ledgers
   end
 
@@ -81,12 +83,24 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     invested_incomplete = false
     pending = @transactions.dup
 
+    # What the holdings COST, beside what there is of them. A coin leaving for an untracked wallet
+    # takes its cost out of "money in" — valuing it at market instead would be a sale's valuation,
+    # and would debit money-in with appreciation nobody contributed.
+    #
+    # ponytail: an average-cost pool, where `Tracker::Ledger` is FIFO. They agree except on a
+    # PARTIAL exit from lots bought at different prices; the day line and the tile can differ by
+    # that much. Upgrade path if it ever shows: walk the day sweep through the same engine.
+    cost = Hash.new(0.to_d)
+
     (first_date..@last_date).map do |date|
       while pending.first && pending.first.transacted_at.to_date <= date
         transaction = pending.shift
+        # Read before the quantities move: a withdrawal's share of the pool is a share of what was
+        # there when it left.
+        delta = contribution(transaction, balances, cost)
         apply(balances, transaction)
+        track_cost(cost, balances, transaction)
         cash_moves(transaction).each { |currency, amount| cash[[transaction.exchange.name_id, currency]] += amount }
-        delta = contribution(transaction)
         delta.nil? ? invested_incomplete = true : invested += delta
         venue = closers[transaction.id]
         next unless venue
@@ -192,7 +206,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
 
   # Money in from outside, valued on the day it moved and never revalued after. nil means the day it
   # landed had no price for it — the figure cannot be stated, so the row says so.
-  def contribution(transaction)
+  def contribution(transaction, balances, cost)
     direction = case transaction.entry_type.to_sym
                 when :deposit then 1
                 when :withdrawal then -1
@@ -205,9 +219,37 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     date = transaction.transacted_at.to_date
     return direction * amount if STABLECOINS.include?(symbol)
     return fiat_value(symbol, amount, date)&.*(direction) if FIAT.include?(symbol)
+    # A coin ARRIVING is counted at the basis it arrives with; a coin LEAVING at the basis it leaves
+    # with. One scale in both directions, so a withdrawal can never remove more than was put in.
+    return -pool_share(cost, balances, symbol, amount) if direction.negative?
 
     price = @prices.dig(symbol, date)
     price && (direction * amount * price)
+  end
+
+  # What a slice of a holding cost, at the pool's average.
+  def pool_share(cost, balances, symbol, amount)
+    held = balances[symbol]
+    return 0.to_d unless held&.positive?
+
+    (cost[symbol] * [amount / held, 1.to_d].min).round(12)
+  end
+
+  # The pool follows the quantities: value in on the way in, its own share out on the way out.
+  def track_cost(cost, balances, transaction)
+    symbol = transaction.base_currency
+    return if STABLECOINS.include?(symbol) || FIAT.include?(symbol)
+
+    amount = transaction.base_amount.to_d
+    date = transaction.transacted_at.to_date
+    case transaction.entry_type.to_sym
+    when *ACQUISITIONS, :deposit
+      price = @prices.dig(symbol, date)
+      cost[symbol] += acquired(transaction, amount) * price if price
+    when :sell, :swap_out, :withdrawal, :fee, :lost
+      held = balances[symbol]
+      cost[symbol] = held&.positive? ? cost[symbol] * (held / (held + amount)) : 0.to_d
+    end
   end
 
   # Cash the ledger spent without ever seeing it arrive, valued on the day the deficit deepens: the

@@ -1,0 +1,103 @@
+// A file drop zone that is also a button.
+//
+// It is a LABEL wrapping the input, so the click that opens the file dialog is the browser's own —
+// no handler, and the whole area is reachable by keyboard because focus still lands on the input it
+// labels. The input is taken out of the layout rather than hidden with `display: none`, which would
+// take it out of the tab order with it.
+.dropzone
+    display: flex
+    flex-direction: column
+    align-items: center
+    justify-content: center
+    gap: 1rem
+    padding: 4rem 2rem
+    text-align: center
+    cursor: pointer
+    color: var(--stone)
+    background: var(--paper-on-washed)
+    border: 0.25rem dashed var(--steel)
+    border-radius: 1rem
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease
+
+    &:hover
+        border-color: var(--concrete)
+        color: var(--ash)
+
+    // Focus lives on the input inside, so the ring has to be drawn by the zone around it.
+    &:focus-within
+        border-color: var(--sky)
+        color: var(--ash)
+
+    // While a file is over it. The whole zone answers, not the edge under the cursor.
+    &.is-over
+        border-color: var(--sky)
+        color: var(--ink)
+        background: var(--washed)
+
+    &.has-file
+        border-style: solid
+        border-color: var(--grass)
+        color: var(--ash)
+
+    // Reading the file. The zone stops inviting a drop the moment it has one, so the two states
+    // swap rather than stack — no reflow, and nothing to click twice.
+    &.is-busy
+        cursor: progress
+        border-style: solid
+        border-color: var(--sky)
+        .dropzone__idle
+            display: none
+        .dropzone__busy
+            display: flex
+
+.dropzone__idle, .dropzone__busy
+    display: flex
+    flex-direction: column
+    align-items: center
+    gap: 1rem
+
+.dropzone__busy
+    display: none
+    .loader--small
+        position: unset
+
+    svg
+        width: 4rem
+        height: 4rem
+        fill: currentColor
+
+.dropzone__input
+    position: absolute
+    width: 0.125rem
+    height: 0.125rem
+    opacity: 0
+
+.dropzone__prompt
+    font-weight: 600
+
+.dropzone__hint
+    font-size: 1.5rem
+    color: var(--concrete)
+
+// Empty until a file is chosen, so it must not reserve a line before then.
+.dropzone__name
+    font-weight: 600
+    color: var(--grass)
+    overflow-wrap: anywhere
+    &:empty
+        display: none
+
+// The timezone row. A bare `sinput` sizes to its content, so the column around it supplies the
+// spacing rather than the control stretching to fill it.
+.import-field
+    display: flex
+    flex-direction: column
+    gap: 0.5rem
+    align-items: flex-start
+
+// Prose in the dialog. NOT `.label`, which is an uppercase 1.5rem caption style — a sentence set in
+// it comes out shouting, which is the whole reason this class exists.
+.import-note
+    font-size: 1.75rem
+    color: var(--concrete)
+    max-width: 60rem

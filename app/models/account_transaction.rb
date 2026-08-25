@@ -18,6 +18,32 @@ class AccountTransaction < ApplicationRecord
     adjustment: 15, unsupported_activity: 16
   }
 
+  # The fields a user may state for themselves. Deliberately a short list: each one has to be read
+  # by something downstream, and a value nothing consumes is a promise the page cannot keep.
+  #
+  # `fiat_value` is what this row was worth in USD. The app fills it from the venue's own numbers
+  # where it can and from our price history where it cannot; a stated value stands in front of both.
+  MANUAL_FIELDS = %w[fiat_value].freeze
+
+  # Whose figure this is. A number the user typed is theirs, and the row says so — a manual value
+  # that looked like the exchange's would be worse than no manual value at all.
+  def manual?(field) = manual_value(field).present?
+
+  def manual_value(field)
+    (manual_values || {})[field.to_s].presence&.to_d
+  end
+
+  # nil clears it and hands the row back to whatever the app works out for itself. Anything that is
+  # not a number is not a value: a blank, a word, a stray keystroke leaves the field as it was.
+  def set_manual(field, value)
+    raise ArgumentError, "#{field} cannot be stated by hand" unless MANUAL_FIELDS.include?(field.to_s)
+
+    number = parse_manual(value)
+    self.manual_values = (manual_values || {}).except(field.to_s)
+    self.manual_values = manual_values.merge(field.to_s => number.to_s) if number
+    number
+  end
+
   validates :base_currency, presence: true
   validates :base_amount, presence: true
   validates :transacted_at, presence: true
@@ -34,6 +60,17 @@ class AccountTransaction < ApplicationRecord
     scope = scope.where(transacted_at: ..to) if to.present?
     scope
   }
+
+  # Blank, a word, a stray keystroke: none of them are a value. Public because the currency has to be
+  # converted between reading the box and storing the figure, and only a number can be converted.
+  def parse_manual(value)
+    return nil if value.nil? || value.to_s.strip.empty?
+
+    number = BigDecimal(value.to_s.strip)
+    number.negative? ? nil : number
+  rescue ArgumentError, TypeError
+    nil
+  end
 
   def self.csv_headers
     %w[date type base_currency base_amount quote_currency quote_amount fee_currency fee_amount exchange tx_id group_id description]

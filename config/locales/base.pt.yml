@@ -415,6 +415,11 @@ pt:
             instructions_title: 'Como obter as chaves de %{exchange}'
             instructions_body: 'Crie uma chave API com permissão de levantamento em %{exchange} e cole as credenciais aqui.'
     tracker:
+        value_source:
+            exchange: "Informado pela exchange."
+            ours: "O nosso preço para esse dia. Escreve um valor para o substituir."
+            stated: "O teu valor. Limpa o campo para voltar ao nosso preço."
+            none: "Não conseguimos valorizar esta linha. Escreve quanto valia."
         welcome:
             connect_and_track: "Liga a tua exchange e começa a acompanhar a tua carteira."
         sync_key_error_html: 'Falha ao sincronizar <strong>%{exchange}</strong>: %{message}. Atualiza a chave API em baixo.'
@@ -499,11 +504,50 @@ pt:
         tax_report:
             failed: 'Não foi possível gerar o relatório. Verifique as definições selecionadas e tente novamente.'
         holdings: 'Ativos'
+        unrealised: 'Não realizado'
+        findings:
+            title: '%{count} posições que o registo não pode garantir'
+            entry:
+                acquisition: 'Saldo inicial que registaste'
+                disposal: 'Correção que registaste'
+            figures_disagree: 'Estes números não batem certo (diferença de %{amount}). Falta algo que as verificações acima não apanharam.'
+            history_incomplete: '%{symbol}: o histórico está incompleto — saiu mais do que alguma vez entrou, logo o custo é desconhecido.'
+            quantity_disagrees: '%{symbol}: o registo e a exchange discordam sobre a quantidade, logo o custo é desconhecido.'
+            no_history: '%{symbol}: a exchange reporta-o, mas não há histórico por trás.'
+            basis_assumed: '%{symbol}: parte chegou sem preço, logo o custo é uma estimativa.'
+        tiles:
+            unrealised_pnl: 'L/P não realizado'
+            total_pnl: 'L/P total'
+            total_pnl_hint: '%{value} − %{invested}'
+        import:
+            title: 'Importar'
+            nothing_new: 'Todas as transações deste ficheiro já estão no teu histórico.'
+            imported: '%{count} transações importadas.'
+            reading: 'A ler o ficheiro…'
+            error_unknown_timezone: 'O nome deste ficheiro já não indica em que fuso horário a Binance o exportou. Carrega-o com o nome que a Binance lhe deu.'
+            drop: 'Larga aqui o teu CSV'
+            drop_hint: 'ou clica para escolher um ficheiro'
+            which_account: 'Este ficheiro pode ser de qualquer uma das contas Binance. Qual delas?'
+            unrouted: 'Sem conta ligada para: %{exchanges}. Essas linhas ficaram de fora.'
+            error_no_account_for_format: 'Não há nenhuma conta ligada que corresponda a este formato.'
+            format: 'Formato'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Conta'
+            file: 'Ficheiro'
+            importing: 'A importar…'
+            confirm: 'Importar'
+            skipped: '%{count} linhas não puderam ser guardadas.'
+            unrecognised: 'Não importado, operações desconhecidas: %{operations}'
+            error_unreadable: 'Este ficheiro não está no formato selecionado.'
+            error_malformed: 'Não foi possível ler este ficheiro.'
+            error_no_file: 'Escolhe primeiro um ficheiro.'
+            error_no_account: 'Escolhe uma conta para importar.'
+            no_account: 'Liga primeiro uma exchange — a importação está ligada a uma conta.'
         positions: 'Posições'
         transactions: 'Transações'
         fees_paid: 'Taxas pagas'
         synced_ago: 'Sincronizado há %{ago}'
-        history_partial: 'Alguns dias são uma estimativa: parte do histórico não pôde ser valorizada.'
         show_more: 'Mostrar mais'
         show_less: 'Mostrar menos'
         other: 'Outros'
@@ -515,6 +559,7 @@ pt:
             win: 'Ganho'
             loss: 'Perda'
             closed: 'Fechada'
+            cash: 'Numerário'
         range:
             '30d': '30D'
             '1y': '1A'
@@ -623,6 +668,8 @@ pt:
             upgrade_hint: Atualiza o teu plano CoinGecko ou usa deltabadger.com para dados históricos completos.
             deposit_basis_assumed: Custo de aquisição estimado pelo valor de mercado para estes depósitos não associados
             deposit_basis_assumed_hint: Associa cada depósito ao levantamento correspondente no Tracker para usar o custo de aquisição real.
+            stated_values: "Valores que indicaste manualmente"
+            stated_values_hint: "Estes montantes são teus, não da exchange. Confirma-os com os teus próprios registos antes de entregar a declaração."
             exchange_sync_failed: 'Podem faltar dados da plataforma %{exchange}: a última sincronização falhou. Volte a sincronizar no Tracker e gere novamente este relatório.'
             exchange_never_synced: 'A plataforma %{exchange} nunca foi sincronizada — nenhuma das respetivas transações consta deste relatório. Sincronize-a no Tracker e volte a gerar o relatório.'
         summary:

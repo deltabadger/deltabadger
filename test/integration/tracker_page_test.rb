@@ -45,9 +45,9 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     assert_select '.widget--chart .widget--chart__head' do
-      assert_select '.widget--chart__modes .segmented', false, 'no mode switch before there is a series'
       assert_select '.widget--chart__summary .widget--chart__date'
     end
+    assert_select '.widget--chart .segmented', false, 'no mode switch before there is a series'
     assert_select '.widget--chart__plot .loader'
     assert_select '.widget--chart__plot .widget__placeholder', false, 'a spinner, not an empty landscape'
     assert_select '[data-controller="bot--chart"]', false
@@ -60,15 +60,19 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
   end
 
   # ── 2 · figure tiles: the bot metrics grid ──────────────────────────────────────────────────
-  test 'four figure tiles reuse the bot metrics data-grid with plain-language labels' do
+  # Six, not four: the total and the unrealised figure used to live on the chart and in the donut —
+  # three scopes in two units in three places, which no reader could add up.
+  test 'six figure tiles reuse the bot metrics data-grid with plain-language labels' do
     warm_ledger
     get tracker_path
 
-    assert_select '.widget.data-grid .data-grid__item', 4
+    assert_select '.widget.data-grid .data-grid__item', 6
     assert_select '.data-grid__item .label', text: I18n.t('bot.details.stats.total_invested')
     assert_select '.data-grid__item .label', text: I18n.t('bot.details.stats.portfolio_value')
     assert_select '.data-grid__item .label', text: I18n.t('bot.dca_index.realised_pnl')
+    assert_select '.data-grid__item .label', text: /#{I18n.t('tracker.tiles.unrealised_pnl')}/
     assert_select '.data-grid__item .label', text: I18n.t('tracker.fees_paid')
+    assert_select '.data-grid__item .label', text: /#{I18n.t('tracker.tiles.total_pnl')}/
     assert_select '.data-grid__item__value', text: /\$34,020\.00/ # 30,000 in − 1,000 out + the 5,020 each venue spent without reporting its arrival
     assert_select '.data-grid__item__value', text: /\$80,000\.00/
     assert_select '.data-grid__item__value.text-success', text: /1,000\.00/ # the ETH round-trip
@@ -80,8 +84,8 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     Tracker::LedgerJob.expects(:perform_later).with(@user.id, nil).once
     get tracker_path
 
-    assert_select '.data-grid__item .loader--small', 3,
-                  'portfolio value is known from balances; the other three wait for the ledger ' \
+    assert_select '.data-grid__item .loader--small', 5,
+                  'portfolio value is known from balances; the other five wait for the ledger ' \
                   '(bots/_metrics_item loading state)'
   end
 
@@ -97,7 +101,17 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
       assert_select 'a.segmented__option', text: 'Kraken'
       assert_select 'a.segmented__option[data-broken][data-turbo-frame="modal"]', text: /Bitget/
     end
-    assert_select '.tracker-exchanges .rbutton.rbutton--icon svg'
+    # The + belongs to the venues it adds to, so it rides in the switch as the last thing in the
+    # menu — at the end of the track, at the foot of the list once the control has folded.
+    assert_select ".segmented__menu > *:last-child.segmented__option--action[href='#{new_tracker_pick_exchange_path}'][data-turbo-frame='modal']", 1
+    assert_select '.tracker-exchanges .dropdown--exchanges', 0, 'one destination now: the picker modal'
+    # And with it inside, the switch is its parent's ONLY child again — which is what lets the
+    # control fold honestly. A sibling in that box is room the switch is told it can grow into
+    # while something already stands there, and the row runs over the sync state instead.
+    assert_select '.tracker-exchanges > .filters' do
+      assert_select '> *', 1, 'the box the switch measures holds the switch and nothing else'
+      assert_select '> .segmented', 1
+    end
     assert_select '.tracker-exchanges .tracker-sync', text: /ago/i
     assert_select ".tracker-exchanges form[action='#{sync_tracker_path}'] .rbutton"
   end
@@ -265,7 +279,7 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
                                  quote_currency: 'USD', quote_amount: 500, transacted_at: @t, bot_transaction: fill)
     get tracker_path
 
-    assert_select 'th', text: I18n.t('tracker.columns.price')
+    assert_select 'th', text: /\A#{I18n.t('tracker.columns.price')}/
     assert_select 'tr.tracker-row[data-order-filter-target="row"][data-order-type~="buy"][data-order-type~="all"]' do
       # One chip vocabulary across the page: the tone says what happened, the text says which.
       assert_select '.pill.pill--up', text: I18n.t('tracker.types.buy')
@@ -284,7 +298,9 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     warm_ledger
     get tracker_path
 
-    assert_select '.tracker-positions tbody tr', 2
+    # Three: the BTC still held, the ETH round-trip that closed, and the ETH still held after it —
+    # the table lists what is HELD, so a holding cannot appear on the card above and be missing here.
+    assert_select '.tracker-positions tbody tr', 3
     assert_select '.tracker-positions tr[data-order-type~="open"]' do
       assert_select 'td', text: /BTC/
       assert_select '.pill.pill--info', text: I18n.t('tracker.record.open')
@@ -296,6 +312,15 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     end
     assert_select 'th', text: I18n.t('tracker.columns.avg_buy')
     assert_select 'th', text: I18n.t('tracker.columns.hold')
+  end
+
+  test 'positions is the pane the page opens on' do
+    warm_ledger
+    get tracker_path
+
+    assert_select ".tracker-record__pane[data-pane='pos']:not(.tracker-record__pane--off)"
+    assert_select ".tracker-record__pane[data-pane='tx'].tracker-record__pane--off"
+    assert_select '.tracker-record__switch .segmented__option.is-on', text: I18n.t('tracker.positions')
   end
 
   # ── 8 · exchange scope ───────────────────────────────────────────────────────────────────────

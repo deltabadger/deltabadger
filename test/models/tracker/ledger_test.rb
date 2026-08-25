@@ -206,7 +206,8 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     assert_not btc.incomplete
     assert_equal 9_990.to_d, summary.realised_pnl_usd
     assert_equal 10.to_d, summary.fees_usd
-    assert_empty summary.round_trips
+    assert_equal 9_990.to_d, summary.round_trips.sole.realised_pnl_usd,
+                 'the half that was sold is realised, beside the half still held'
     assert_equal 50_000.to_d, summary.total_invested_usd,
                  'the buys spent dollars this venue never reported receiving; the sale returns some of them'
   end
@@ -227,6 +228,36 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     assert_equal 25_000.to_d, trip.proceeds_usd
     assert_equal 5_000.to_d, trip.realised_pnl_usd
     assert_equal 5_000.to_d, summary.realised_pnl_usd
+  end
+
+  test 'selling part of a stack realises part of the outcome, without closing the position' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:sell, day: 3, base_currency: 'BTC', base_amount: 0.25, quote_currency: 'USD', quote_amount: 7_000)
+    tx(:sell, day: 5, base_currency: 'BTC', base_amount: 0.25, quote_currency: 'USD', quote_amount: 8_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 0.5.to_d, summary.positions.sole.quantity, 'half the stack is still held'
+    trip = summary.round_trips.sole
+    assert_equal @day.call(1), trip.opened_at
+    assert_equal @day.call(5), trip.closed_at, 'the last sale so far, not a closure'
+    assert_equal 0.5.to_d, trip.quantity
+    assert_equal 10_000.to_d, trip.invested_usd
+    assert_equal 15_000.to_d, trip.proceeds_usd
+    assert_equal 5_000.to_d, trip.realised_pnl_usd
+    assert_not trip.incomplete
+  end
+
+  test 'a re-entry after a full exit is a second round-trip, not an addition to the first' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:sell, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 25_000)
+    tx(:buy, day: 3, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 26_000)
+    tx(:sell, day: 4, base_currency: 'BTC', base_amount: 0.5, quote_currency: 'USD', quote_amount: 14_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal [5_000.to_d, 1_000.to_d], summary.round_trips.map(&:realised_pnl_usd)
+    assert_equal 0.5.to_d, summary.positions.sole.quantity
   end
 
   test 'a position closed through several partial sells is one round-trip that aggregates every sell' do
@@ -301,7 +332,14 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     assert_equal 6_000.to_d, summary.total_invested_usd
   end
 
-  test 'an unlinked withdrawal removes lots at cost with no P/L, and takes that value out of total invested' do
+  # This used to expect 10,000: the coins were taken out of money-in at the day's MARKET price, so a
+  # 20k contribution was debited 10k for coins that cost 8k. That is a sale's valuation — no
+  # disposal is recorded and nothing reaches a tax report, but it charges money-in with
+  # appreciation nobody contributed, and enough of it drives the figure below zero.
+  #
+  # At cost the two halves agree: 12,000 left in, and 12,000 is exactly what the remaining 0.6 BTC
+  # cost. Under the old rule they disagreed by the gain on the coins that walked away.
+  test 'an unlinked withdrawal removes lots at cost, and takes that same cost out of money-in' do
     price('BTC', 2, 25_000)
     tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
     tx(:withdrawal, day: 2, base_currency: 'BTC', base_amount: 0.4)
@@ -310,10 +348,9 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
 
     btc = summary.positions.sole
     assert_equal 0.6.to_d, btc.quantity
-    assert_equal 12_000.to_d, btc.cost_usd, 'the coins left at their FIFO cost — the holdings card shows what the exchange still holds'
+    assert_equal 12_000.to_d, btc.cost_usd, 'the coins left at their FIFO cost'
     assert_equal 0.to_d, summary.realised_pnl_usd
-    assert_equal 10_000.to_d, summary.total_invested_usd,
-                 '20k came in to buy the coin, 0.4 BTC at the day\'s 25k went somewhere untracked'
+    assert_equal 12_000.to_d, summary.total_invested_usd, 'and money-in matches what is still held'
   end
 
   test 'scoped to one exchange, a coin that moved venues shows on the venue it is on, and the venues\' money-in reflects the move' do
@@ -328,8 +365,11 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
 
     assert_empty on_binance.positions
     assert_equal 0.to_d, on_binance.realised_pnl_usd, 'a transfer out is not a sale'
-    assert_equal(-8_000.to_d, on_binance.total_invested_usd,
-                 'per venue: 20k of unreported funding in, the outbound leg out at the day\'s price')
+    # This used to expect -8,000 — a venue holding a NEGATIVE amount of the user's money, because
+    # the outbound leg was valued at the day's 28k against 20k that ever went in. Everything that
+    # arrived here has left again, so nothing of theirs is here: zero.
+    assert_equal 0.to_d, on_binance.total_invested_usd,
+                 'per venue: 20k of unreported funding in, and the same 20k of cost back out'
     assert_equal 30_000.to_d, on_kraken.total_invested_usd
     kraken_btc = on_kraken.positions.sole
     assert_equal 1.to_d, kraken_btc.quantity
@@ -363,13 +403,13 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     assert_equal 50.to_d, summary.fees_usd
   end
 
-  test 'a sale that overdraws the lots is not a completed round-trip either' do
+  test 'a sale that overdraws the lots is a round-trip nobody can stand behind' do
     tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
     tx(:sell, day: 2, base_currency: 'BTC', base_amount: 2, quote_currency: 'USD', quote_amount: 50_000)
 
     summary = Tracker::Ledger.for(@user)
 
-    assert_empty summary.round_trips
+    assert summary.round_trips.sole.incomplete, 'FIFO matched one BTC of the two that left'
     assert summary.incomplete
     assert_equal 30_000.to_d, summary.realised_pnl_usd, 'FIFO: 50,000 proceeds less the 20,000 it could match'
   end

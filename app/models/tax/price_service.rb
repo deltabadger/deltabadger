@@ -26,6 +26,9 @@ module Tax
 
       transactions.each do |tx|
         next if skip_pricing?(tx)
+        # A row the user has priced needs no price of ours, and must not be counted among the missing
+        # ones — a report is not incomplete over a figure it was handed.
+        next if tx.respond_to?(:manual?) && tx.manual?(:fiat_value)
         next if tx.quote_currency == currency && tx.quote_amount.present?
         next if tx.quote_currency.present? && tx.quote_amount.present? &&
                 (STABLECOINS.include?(tx.quote_currency) || FIAT_CURRENCIES.include?(tx.quote_currency))
@@ -128,6 +131,9 @@ module Tax
           tx_id: tx.tx_id,
           group_id: tx.group_id,
           price_missing: price_missing,
+          # A figure the user stated by hand rather than one the venue reported or we priced. Carried
+          # through so the tax report can disclose it: a stated cost is defensible, a silent one is not.
+          stated_value: tx.respond_to?(:manual?) && tx.manual?(:fiat_value),
           exchange: tx.exchange.name_id,
           linked: links.key?(tx.id) || linked_deposit_ids.include?(tx.id),
           transfer_fee_amount: transfer_fee_amount(tx, links, deposit_amounts)
@@ -260,6 +266,13 @@ module Tax
     end
 
     def resolve_fiat_value(record, currency)
+      # What the USER says it was worth, ahead of everything the app can work out — including the
+      # venue's own figure. This is the single point every consumer of a priced row passes through,
+      # so the tiles, the chart, the positions and the tax report inherit a stated value without
+      # knowing it exists. Stated in USD, like everything else behind the page.
+      stated = record.respond_to?(:manual_value) && record.manual_value(:fiat_value)
+      return convert_fiat(amount: stated, from: 'USD', to: currency, timestamp: record.transacted_at) if stated
+
       # `prefetch`/`add_coin_date` already refuses to price a fiat base. Report drops fiat rows before
       # the engines, so nothing reads this value; pricing it can only fabricate a missing-price warning
       # that marks the report incomplete over a number nobody consumes.
@@ -331,30 +344,30 @@ module Tax
       transaction.base_amount.to_d - deposit_amount.to_d
     end
 
+    # Half the window either side of the day in question. The data API serves its price ARCHIVE only
+    # for spans WIDER than 90 days: at or below that, CoinGecko returns sub-daily density the archive
+    # cannot reproduce, so it steps aside for the live proxy — whose plan then refuses anything older
+    # than two years. A one-day question fell straight between the two and came back empty for every
+    # date before that window, though the archive held the price the whole time. Verified against
+    # production: the same start date returns nothing as one day and $56,020 as part of a six-month
+    # span. So this window is not a tuning knob — below 121 days the archive goes back out of reach.
+    SINGLE_PRICE_WINDOW = 60.days
+
+    # One day's price, asked for as a window the archive will answer. The days either side are real
+    # prices that were fetched anyway, so `fetch_price_range` stores them on the way past and the
+    # next row on a neighbouring date costs nothing — which is also why this delegates rather than
+    # keeping a second, subtly different fetch-and-store of its own.
     def fetch_single_price(asset:, currency:, timestamp:)
       coin_id = asset_to_coingecko_id(asset)
       return nil unless coin_id
 
-      result = MarketData.get_historical_price_range(
-        coin_id: coin_id,
-        currency: currency.downcase,
-        from: timestamp.beginning_of_day,
-        to: timestamp.end_of_day
-      )
-
-      return nil if result.failure?
-
-      prices = result.data['prices']
-      return nil if prices.blank?
-
-      price = prices.first[1].to_d
-      # Same reason as `fetch_price_range`: `insert` skips the presence validation, so a zero stored
-      # here would be read back as a valid price by every future report.
-      return nil if price.zero?
-
-      @price_cache["#{asset}/#{currency}/#{timestamp.to_date}"] = price
-      HistoricalPrice.store(asset: asset, currency: currency, date: timestamp.to_date, price: price)
-      price
+      date = timestamp.to_date
+      # Anchored on the END, so a recent date whose window would run past today is widened backwards
+      # instead of being narrowed under the threshold. Tomorrow has no price and never will.
+      to = [date + SINGLE_PRICE_WINDOW, Date.current].min
+      fetch_price_range(coin_id: coin_id, symbol: asset, currency: currency,
+                        from: to - (SINGLE_PRICE_WINDOW * 2), to: to)
+      @price_cache["#{asset}/#{currency}/#{date}"]&.to_d&.nonzero?
     end
 
     def stablecoin_rate(currency, timestamp)

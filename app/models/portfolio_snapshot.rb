@@ -30,6 +30,30 @@ class PortfolioSnapshot < ApplicationRecord
       invested_usd: ledger.total_invested_usd, partial: partial?(user, balances) || ledger.incomplete }
   end
 
+  # Which price generation this user's history was last swept at. A stored history is a reading of
+  # the prices that existed when the sweep ran, and the nightly sync only ever appends TODAY — so a
+  # price arriving for a day already written changes a figure nothing would otherwise revisit.
+  PRICE_GENERATION_KEY = 'snapshot_price_generation'.freeze
+
+  # Worth sweeping again: days that could not be valued, and prices that have arrived since the
+  # sweep that could not value them. Both halves matter — the flag alone would ask again on every
+  # page load for a day no price can fix (a negative balance from a venue whose window starts after
+  # the funding deposit), and the generation alone would re-sweep a history with nothing wrong.
+  def self.stale_prices?(user)
+    return false unless for_user(user).exists?(partial: true)
+
+    AppConfig.get(price_generation_key(user)).to_s != HistoricalPrice.generation.to_s
+  end
+
+  def self.mark_prices_swept!(user)
+    AppConfig.set(price_generation_key(user), HistoricalPrice.generation.to_s)
+  end
+
+  # Per user: two people in one install do not share a sweep.
+  def self.price_generation_key(user)
+    "#{PRICE_GENERATION_KEY}_#{user.id}"
+  end
+
   # The chart's series. The whole portfolio is a table — the nightly sync appends to it and every
   # page load reads it. One venue is a question asked occasionally, so it is swept on demand and
   # cached, the way a scoped ledger is: nil until a job has built it.

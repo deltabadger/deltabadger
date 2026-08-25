@@ -36,6 +36,14 @@ export default class extends Controller {
     this.pnlSeries = this.#derivePnl();
     this.#markPinnedRow();
     this.#renderSummary();
+    // Drawn HERE, not left to the observer below. That callback is debounced by 100ms and its
+    // first delivery was the only thing that ever drew the chart on load — and a ResizeObserver
+    // delivers nothing at all while the tab is hidden, so a chart opened in a background tab kept
+    // the canvas at its authored 10x2: a curve nobody can see and a hover target a few pixels
+    // wide in the plot's top-left corner. Seeding previousWidth keeps that first delivery from
+    // drawing it a second time; the observer's job is REDRAWING at a new width.
+    this.previousWidth = this.element.offsetWidth;
+    this.#buildChart();
     this.resizeObserver = new ResizeObserver(() => {
       // Cancel any pending resize handlers
       if (this.resizeTimeout) {

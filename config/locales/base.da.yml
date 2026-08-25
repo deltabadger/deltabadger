@@ -419,6 +419,11 @@ da:
             instructions_title: 'Sådan får du nøgler fra %{exchange}'
             instructions_body: 'Opret en udbetalingsaktiveret API-nøgle på %{exchange} og indsæt legitimationsoplysningerne her.'
     tracker:
+        value_source:
+            exchange: "Oplyst af børsen."
+            ours: "Vores egen pris for den dag. Skriv en værdi for at erstatte den."
+            stated: "Din egen værdi. Ryd feltet for at bruge vores pris igen."
+            none: "Vi kunne ikke prissætte denne linje. Skriv, hvad den var værd."
         welcome:
             connect_and_track: "Tilslut din børs og begynd at følge din portefølje."
         sync_key_error_html: 'Synkronisering med <strong>%{exchange}</strong> mislykkedes: %{message}. Opdatér API-nøglen nedenfor.'
@@ -511,11 +516,50 @@ da:
             download_ready: 'Skatterapport er klar. Klik for at downloade.'
             failed: 'Rapporten kunne ikke genereres. Kontrollér de valgte indstillinger, og prøv igen.'
         holdings: 'Beholdning'
+        unrealised: 'Urealiseret'
+        findings:
+            title: '%{count} beholdninger som regnskabet ikke kan indestå for'
+            entry:
+                acquisition: 'Åbningssaldo du har registreret'
+                disposal: 'Rettelse du har registreret'
+            figures_disagree: 'Disse tal går ikke op (forskel på %{amount}). Noget mangler, som kontrollerne ovenfor ikke fangede.'
+            history_incomplete: '%{symbol}: historikken er ufuldstændig — der gik mere ud end der nogensinde kom ind, så prisen er ukendt.'
+            quantity_disagrees: '%{symbol}: regnskabet og børsen er uenige om mængden, så prisen er ukendt.'
+            no_history: '%{symbol}: børsen rapporterer den, men der er ingen historik bag.'
+            basis_assumed: '%{symbol}: en del kom ind uden pris, så prisen er et skøn.'
+        tiles:
+            unrealised_pnl: 'Urealiseret G/T'
+            total_pnl: 'Samlet G/T'
+            total_pnl_hint: '%{value} − %{invested}'
+        import:
+            title: 'Importér'
+            nothing_new: 'Alle transaktioner i filen findes allerede i din historik.'
+            imported: '%{count} transaktioner importeret.'
+            reading: 'Læser filen…'
+            error_unknown_timezone: 'Filnavnet angiver ikke længere hvilken tidszone Binance eksporterede i. Upload filen med det navn Binance gav den.'
+            drop: 'Slip din CSV her'
+            drop_hint: 'eller klik for at vælge en fil'
+            which_account: 'Filen kan komme fra begge Binance-konti. Hvilken?'
+            unrouted: 'Ingen konto forbundet for: %{exchanges}. De rækker blev udeladt.'
+            error_no_account_for_format: 'Ingen forbundet konto passer til dette format.'
+            format: 'Format'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Konto'
+            file: 'Fil'
+            importing: 'Importerer…'
+            confirm: 'Importér'
+            skipped: '%{count} rækker kunne ikke gemmes.'
+            unrecognised: 'Ikke importeret, ukendte operationer: %{operations}'
+            error_unreadable: 'Denne fil er ikke i det valgte format.'
+            error_malformed: 'Denne fil kunne ikke læses.'
+            error_no_file: 'Vælg en fil først.'
+            error_no_account: 'Vælg en konto at importere til.'
+            no_account: 'Forbind en børs først — en import hører til en konto.'
         positions: 'Positioner'
         transactions: 'Transaktioner'
         fees_paid: 'Betalte gebyrer'
         synced_ago: 'Synkroniseret for %{ago} siden'
-        history_partial: 'Nogle dage er et skøn: en del af historikken kunne ikke værdisættes.'
         show_more: 'Vis flere'
         show_less: 'Vis færre'
         other: 'Andet'
@@ -527,6 +571,7 @@ da:
             win: 'Gevinst'
             loss: 'Tab'
             closed: 'Lukket'
+            cash: 'Kontanter'
         range:
             '30d': '30D'
             '1y': '1Å'
@@ -637,6 +682,8 @@ da:
             upgrade_hint: Opgradér dit CoinGecko-abonnement, eller brug deltabadger.com for fuld historik.
             deposit_basis_assumed: Kostpris ansat til markedsværdien for disse ikke-tilknyttede indbetalinger
             deposit_basis_assumed_hint: Knyt hver indbetaling til den tilsvarende udbetaling i Tracker for at bruge den faktiske kostpris.
+            stated_values: "Værdier du selv har angivet"
+            stated_values_hint: "Disse beløb kommer fra dig, ikke fra børsen. Tjek dem mod dine egne bilag, før du indberetter."
             exchange_sync_failed: 'Data fra %{exchange} kan mangle, fordi den seneste synkronisering mislykkedes. Synkronisér igen i Tracker, og opret rapporten på ny.'
             exchange_never_synced: '%{exchange} er aldrig blevet synkroniseret — ingen transaktioner derfra er med i rapporten. Synkronisér i Tracker, og opret rapporten på ny.'
         headers:

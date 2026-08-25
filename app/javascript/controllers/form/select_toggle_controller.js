@@ -25,7 +25,10 @@ export default class extends Controller {
         if (!visible) {
           if (!input.disabled) input.dataset.disabledByToggle = ""
           input.disabled = true
-        } else if (input.hasOwnProperty("dataset") && "disabledByToggle" in input.dataset) {
+          // `dataset` lives on HTMLElement.prototype, so `hasOwnProperty("dataset")` is always
+          // FALSE and this branch never ran: anything the toggle hid once stayed disabled for good,
+          // visible but unusable and never submitted.
+        } else if ("disabledByToggle" in input.dataset) {
           input.disabled = false
           delete input.dataset.disabledByToggle
         }
