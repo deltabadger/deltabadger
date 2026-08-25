@@ -65,4 +65,16 @@ class TrackerResolutionTest < ActionDispatch::IntegrationTest
     assert_select '.tracker-holdings__note', text: /Binance/
     assert_no_match(/\$100\.00|\$900\.00|1,350/, response.body)
   end
+
+  test 'an empty sync is a sync: a coin bought since it is shown at cost, and nothing says never synced' do
+    @key.update!(balances_synced_at: @t - 1.day)
+    tx(:buy, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 1_000)
+    Tracker::Ledger.compute!(@user)
+
+    get tracker_path
+
+    assert_select '.tracker-holdings__empty', false
+    assert_select '.tracker-holdings__row', count: 1
+    assert_select '.tracker-holdings__note', text: /BTC.*since the last sync/m
+  end
 end

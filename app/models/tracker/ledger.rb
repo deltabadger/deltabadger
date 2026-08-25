@@ -28,7 +28,11 @@ module Tracker
                           :fees_usd, :cash_usd, :cash, :unpriced_proceeds_usd, :incomplete, :openings, :computed_at)
     # One term of money in, as the chart reads it day by day: the row's instant, what it moved, and
     # whether the figure could be stated in full.
-    Term = Data.define(:at, :amount, :complete)
+    # `opens`, on an opening balance's term, is `[symbol, quantity]`: what the walk booked as held
+    # before the history begins, for the chart to hold from that day as the ledger does.
+    Term = Data.define(:at, :amount, :complete, :opens) do
+      def initialize(at:, amount:, complete:, opens: nil) = super
+    end
 
     CACHE_TTL = 30.days
     FIAT = Tax::PriceService::FIAT_CURRENCIES
@@ -221,6 +225,28 @@ module Tracker
         held.slice(*symbols).merge(crypto)
       end
 
+      # What one row does to the quantity of every non-cash asset it touches, as the engine reads
+      # it: the base leg net of a fee taken in it on the way in, the fee in a third asset, the fee
+      # slice of a linked transfer, a lost coin.
+      def quantity_moves(row)
+        type = row[:entry_type].to_s
+        base = row[:base_currency]
+        amount = row[:base_amount].to_d
+        fee_in_base = row[:fee_currency] == base ? row[:fee_amount].to_d : 0.to_d
+        moves = []
+        if UnfundedCash::BASE_IN.include?(type)
+          moves << [base, [amount - fee_in_base, 0.to_d].max] unless type == 'deposit' && row[:linked]
+        elsif type == 'withdrawal'
+          moves << [base, -(row[:linked] ? row[:transfer_fee_amount].to_d : amount)]
+        elsif UnfundedCash::BASE_OUT.include?(type)
+          moves << [base, -amount]
+        end
+        if row[:fee_currency].present? && row[:fee_currency] != base && row[:fee_amount].to_d.positive?
+          moves << [row[:fee_currency], -row[:fee_amount].to_d]
+        end
+        moves
+      end
+
       private
 
       # `.utc`, because the timestamp is zone-aware: the same instant spells itself differently in
@@ -288,28 +314,6 @@ module Tracker
 
         # Each opening sits just ahead of the first row that touches its asset.
         rows.flat_map { |row| openings.select { |opening| opening[:before].equal?(row) }.map { |o| o.except(:before) } + [row] }
-      end
-
-      # What one row does to the quantity of every non-cash asset it touches, as the engine reads
-      # it: the base leg net of a fee taken in it on the way in, the fee in a third asset, the fee
-      # slice of a linked transfer, a lost coin.
-      def quantity_moves(row)
-        type = row[:entry_type].to_s
-        base = row[:base_currency]
-        amount = row[:base_amount].to_d
-        fee_in_base = row[:fee_currency] == base ? row[:fee_amount].to_d : 0.to_d
-        moves = []
-        if UnfundedCash::BASE_IN.include?(type)
-          moves << [base, [amount - fee_in_base, 0.to_d].max] unless type == 'deposit' && row[:linked]
-        elsif type == 'withdrawal'
-          moves << [base, -(row[:linked] ? row[:transfer_fee_amount].to_d : amount)]
-        elsif UnfundedCash::BASE_OUT.include?(type)
-          moves << [base, -amount]
-        end
-        if row[:fee_currency].present? && row[:fee_currency] != base && row[:fee_amount].to_d.positive?
-          moves << [row[:fee_currency], -row[:fee_amount].to_d]
-        end
-        moves
       end
 
       def opening(symbol, quantity, first_row, price_service)
@@ -384,7 +388,8 @@ module Tracker
           amount = contribution(row, price_service, engine)
           amount += unfunded_contribution(cash, closes[index], row, price_service) if closes[index]
           complete = price_service.warnings.size == kept && !(row[:price_missing] && valued_by_price?(row))
-          [row, Term.new(at: row[:transacted_at], amount: amount, complete: complete)]
+          [row, Term.new(at: row[:transacted_at], amount: amount, complete: complete,
+                         opens: row[:opening] ? [row[:base_currency], row[:base_amount]] : nil)]
         end
         [terms, cash.each_with_object(Hash.new(0.to_d)) { |((_, currency), amount), total| total[currency] += amount }]
       end

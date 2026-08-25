@@ -108,6 +108,32 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
     assert_equal({ 'BTC' => 1.to_d, 'USDC' => -100.to_d }, pending)
   end
 
+  test 'cash a sale created since the sync is held, not moved out' do
+    create(:asset, symbol: 'USDC', name: 'USD Coin')
+    tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 1_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 1_000)
+    tx(:sell, day: 4, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 1_500)
+    balance(@btc, 1, 1_200) # taken on day 3: the coin, and no USDC row at all
+    pending = Tracker::Figures.moved_since(AccountTransaction.for_user(@user), { @binance.id => @day.call(3) })
+
+    result = figures(pending: pending)
+
+    assert_empty result.notes
+    assert_equal 'USDC', result.holdings.sole.asset.symbol
+    assert_equal 1_500.to_d, result.value
+    assert_equal 1_000.to_d, result.invested
+    assert_equal 500.to_d, result.realised
+  end
+
+  test 'quantities moved since the sync are read as the engine reads them: net of a fee in kind; a fee in a third asset leaves it' do
+    tx(:buy, day: 4, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 100, fee_currency: 'BTC', fee_amount: 0.01)
+    tx(:buy, day: 4, base_currency: 'ETH', base_amount: 1, quote_currency: 'USDC', quote_amount: 100, fee_currency: 'BNB', fee_amount: 0.1)
+
+    pending = Tracker::Figures.moved_since(AccountTransaction.for_user(@user), { @binance.id => @day.call(3) })
+
+    assert_equal({ 'BTC' => 0.99.to_d, 'ETH' => 1.to_d, 'BNB' => -0.1.to_d, 'USDC' => -200.to_d }, pending)
+  end
+
   # ── the backstop ─────────────────────────────────────────────────────────────────────────
   #
   # Every assumption moves money in and basis together, so what is held less what went in is what

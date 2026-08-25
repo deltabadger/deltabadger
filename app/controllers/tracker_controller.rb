@@ -331,7 +331,9 @@ class TrackerController < ApplicationController
     priced, unpriced = balances.partition { |b| b.usd_value.to_d.positive? }
 
     @portfolio_unpriced_assets = unpriced.map(&:asset).uniq
-    @portfolio_last_synced_at = balances.map(&:synced_at).compact.max
+    # A venue whose last sync found nothing still synced: its watermark stands where its rows do not.
+    marks = PortfolioSnapshot.watermarks(current_user, @scope_exchange).values
+    @portfolio_last_synced_at = (balances.map(&:synced_at) + marks).compact.max
     @portfolio_oldest_priced_at = priced.map(&:priced_at).compact.min
     @portfolio_has_stale_prices = @portfolio_oldest_priced_at.present? &&
                                   @portfolio_last_synced_at.present? &&
@@ -345,7 +347,7 @@ class TrackerController < ApplicationController
                                                   pending: quantities_since)
     @portfolio_has_keys = reading_keys.any?
     @portfolio_never_synced = @portfolio_has_keys && balances.empty? &&
-                              !AccountBalance.for_user(current_user).exists?
+                              PortfolioSnapshot.watermarks(current_user).values.compact.empty?
   end
 
   # What the ledger has seen since the balances were taken. A balance is a snapshot and the bots go

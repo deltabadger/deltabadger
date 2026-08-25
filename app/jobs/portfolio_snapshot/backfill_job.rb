@@ -101,6 +101,8 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
         term = terms.shift
         invested += term.amount
         invested_incomplete ||= !term.complete
+        # An opening balance is held from the day the ledger booked it, as the ledger holds it.
+        balances[term.opens.first] += term.opens.last if term.opens
       end
       value, unpriced = value_on(balances, date)
       { user_id: @user.id, date: date, value_usd: value, invested_usd: invested,

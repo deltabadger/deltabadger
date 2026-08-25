@@ -257,8 +257,11 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
 
   # A capped ledger window (Binance 90 days, Bybit 7) opens after the funding that paid for the
   # coins, so the sweep meets a sale with nothing behind it.
-  test 'a history that starts mid-stream leaves a negative balance, and every day says it is an estimate' do
-    tx(:sell, day: 0, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 10_000)
+  # The ledger opens the asset with what must have been held before its history begins, at the
+  # market of that day; the chart holds it from the same day, so the two never part.
+  test 'a history that starts mid-stream opens with what must have been held, and the chart holds what the ledger holds' do
+    tx(:sell, day: 0, base_currency: 'BTC', base_amount: 0.5, quote_currency: 'USD', quote_amount: 5_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 10_000)
     price('BTC', 0, 10_000)
     price('BTC', 1, 10_000)
     MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
@@ -266,9 +269,11 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
 
     rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
-    assert rows.all?(&:partial), 'the missing acquisition is a hole, not an absence'
-    assert_equal [10_000.to_d, 10_000.to_d], rows.map(&:value_usd),
-                 'the proceeds are real; the -1 BTC behind them is not counted either way'
+    assert_equal [5_000.to_d, 10_000.to_d], rows.map(&:value_usd),
+                 'day 0: the opening half-coin sold for 5k cash; day 1: the whole coin bought'
+    assert_equal [5_000.to_d, 10_000.to_d], rows.map(&:invested_usd),
+                 'the opening at the market of its day, then the 5k the buy needed beyond the proceeds'
+    assert rows.none?(&:partial), 'priced throughout: an assumption, not a hole'
   end
 
   # Inert in the tax engines, which track holdings. Here it is cash the broker kept.
