@@ -419,6 +419,11 @@ sv:
             instructions_title: 'Hur du får nycklar från %{exchange}'
             instructions_body: 'Skapa en uttagsaktiverad API-nyckel på %{exchange} och klistra in uppgifterna här.'
     tracker:
+        value_source:
+            exchange: "Rapporterat av börsen."
+            ours: "Vårt eget pris för den dagen. Skriv ett värde för att ersätta det."
+            stated: "Ditt eget värde. Töm fältet för att använda vårt pris igen."
+            none: "Vi kunde inte prissätta den här raden. Skriv vad den var värd."
         welcome:
             connect_and_track: "Anslut din börs och börja spåra din portfölj."
         sync_key_error_html: 'Synkroniseringen med <strong>%{exchange}</strong> misslyckades: %{message}. Uppdatera API-nyckeln nedan.'
@@ -511,11 +516,50 @@ sv:
             download_ready: 'Skatterapporten är klar. Klicka för att ladda ner.'
             failed: 'Rapporten kunde inte genereras. Kontrollera de valda inställningarna och försök igen.'
         holdings: 'Innehav'
+        unrealised: 'Orealiserad'
+        findings:
+            title: '%{count} innehav som liggaren inte kan gå i god för'
+            entry:
+                acquisition: 'Ingående saldo du registrerat'
+                disposal: 'Rättelse du registrerat'
+            figures_disagree: 'Dessa siffror går inte ihop (skillnad på %{amount}). Något saknas som kontrollerna ovan inte fångade.'
+            history_incomplete: '%{symbol}: historiken är ofullständig — mer lämnade kontot än som någonsin kom in, så kostnaden är okänd.'
+            quantity_disagrees: '%{symbol}: liggaren och börsen är oense om mängden, så kostnaden är okänd.'
+            no_history: '%{symbol}: börsen rapporterar det, men ingen historik ligger bakom.'
+            basis_assumed: '%{symbol}: en del kom in utan pris, så kostnaden är en uppskattning.'
+        tiles:
+            unrealised_pnl: 'Orealiserad V/F'
+            total_pnl: 'Total V/F'
+            total_pnl_hint: '%{value} − %{invested}'
+        import:
+            title: 'Importera'
+            nothing_new: 'Varje transaktion i filen finns redan i din historik.'
+            imported: '%{count} transaktioner importerade.'
+            reading: 'Läser filen…'
+            error_unknown_timezone: 'Filnamnet anger inte längre vilken tidszon Binance exporterade i. Ladda upp filen med namnet Binance gav den.'
+            drop: 'Släpp din CSV här'
+            drop_hint: 'eller klicka för att välja en fil'
+            which_account: 'Filen kan komma från något av de två Binance-kontona. Vilket?'
+            unrouted: 'Inget konto anslutet för: %{exchanges}. De raderna utelämnades.'
+            error_no_account_for_format: 'Inget anslutet konto matchar det här formatet.'
+            format: 'Format'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Konto'
+            file: 'Fil'
+            importing: 'Importerar…'
+            confirm: 'Importera'
+            skipped: '%{count} rader kunde inte sparas.'
+            unrecognised: 'Inte importerat, okända operationer: %{operations}'
+            error_unreadable: 'Filen är inte i det valda formatet.'
+            error_malformed: 'Filen kunde inte läsas.'
+            error_no_file: 'Välj en fil först.'
+            error_no_account: 'Välj ett konto att importera till.'
+            no_account: 'Anslut en börs först — en import hör till ett konto.'
         positions: 'Positioner'
         transactions: 'Transaktioner'
         fees_paid: 'Betalda avgifter'
         synced_ago: 'Synkroniserad för %{ago} sedan'
-        history_partial: 'Vissa dagar är en uppskattning: en del av historiken gick inte att värdera.'
         show_more: 'Visa fler'
         show_less: 'Visa färre'
         other: 'Övrigt'
@@ -527,6 +571,7 @@ sv:
             win: 'Vinst'
             loss: 'Förlust'
             closed: 'Stängd'
+            cash: 'Kontanter'
         range:
             '30d': '30D'
             '1y': '1Å'
@@ -637,6 +682,8 @@ sv:
             upgrade_hint: Uppgradera ditt CoinGecko-abonnemang eller använd deltabadger.com för fullständig historik.
             deposit_basis_assumed: Anskaffningsvärde antaget till marknadsvärdet för dessa olänkade insättningar
             deposit_basis_assumed_hint: Länka varje insättning till motsvarande uttag i Tracker för att använda det verkliga anskaffningsvärdet.
+            stated_values: "Värden du angett för hand"
+            stated_values_hint: "De här beloppen kommer från dig, inte från börsen. Stäm av dem mot dina egna underlag innan du deklarerar."
             exchange_sync_failed: 'Data från %{exchange} kan saknas eftersom den senaste synkroniseringen misslyckades. Synkronisera igen i Tracker och skapa rapporten på nytt.'
             exchange_never_synced: '%{exchange} har aldrig synkroniserats — inga transaktioner därifrån finns med i rapporten. Synkronisera i Tracker och skapa rapporten på nytt.'
         headers:

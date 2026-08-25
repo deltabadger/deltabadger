@@ -46,8 +46,21 @@ class Denomination
     @rate = rate
   end
 
+  # The symbol on its own, for a column header that names its unit once instead of repeating it on
+  # every one of two hundred rows.
+  def unit = UNITS.fetch(currency, currency)
+
   def convert(usd_amount)
     usd_amount && (usd_amount.to_d * rate)
+  end
+
+  # The way back. A figure a user TYPES is in the currency they were shown, and everything behind
+  # the page is USD — without this, a field labelled EUR quietly stores dollars.
+  def to_usd(amount)
+    return if amount.nil?
+    return amount.to_d if rate.zero?
+
+    amount.to_d / rate
   end
 
   # nil in, nil out: callers hand this whatever they have, including the "rate not cached

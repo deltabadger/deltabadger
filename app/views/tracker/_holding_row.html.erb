@@ -1,7 +1,8 @@
-<% asset = slice[:asset] %>
-<% share = total.positive? ? (slice[:usd_value].to_d / total * 100) : 0.to_d %>
+<% asset = holding.asset %>
+<% share = total.positive? ? (holding.value / total * 100) : 0.to_d %>
 <% color = ensure_contrast(asset.color.presence || '#8A9BA8') %>
-<% pnl = holding_pnl_percent(slice, position) %>
+<%# Already decided, once, by `Tracker::Figures`: nil when the holding cannot be vouched for. %>
+<% pnl = holding.percent %>
 <% type = holding_type_label(asset) %>
 <div class="tracker-holdings__row">
   <span class="tracker-holdings__name">
@@ -20,13 +21,14 @@
   </span>
   <span class="tracker-holdings__pct"><%= number_with_precision(share, precision: 1) %>%</span>
   <% unless hide_money %>
-    <span class="tracker-holdings__value"><%= @denomination.format(slice[:usd_value]) %></span>
+    <span class="tracker-holdings__value"><%= @denomination.format(holding.value) %></span>
   <% end %>
   <%# Nothing rather than a wrong number: cash has no cost, and a holding whose quantity the ledger
       cannot vouch for has no basis worth dividing by. %>
   <% if pnl %>
     <span class="tracker-holdings__pl <%= pnl.negative? ? 'text-danger' : 'text-success' %>"><%= tracker_percent(pnl) %></span>
   <% else %>
-    <span class="tracker-holdings__pl" title="<%= t('tracker.basis_incomplete') %>">—</span>
+    <%# The reason, not a generic apology: the banner above names it too. %>
+    <span class="tracker-holdings__pl" title="<%= holding.finding ? t("tracker.findings.#{holding.finding.kind}", symbol: asset.symbol) : t('tracker.basis_incomplete') %>">—</span>
   <% end %>
 </div>

@@ -5,7 +5,7 @@ class AccountBalance::SyncJob < ApplicationJob
   limits_concurrency to: 1, key: ->(user_id, *) { "sync_balances_#{user_id}" }, on_conflict: :discard
 
   def perform(user_id, api_key_ids)
-    api_keys = ApiKey.where(id: api_key_ids, status: :correct, key_type: :trading).includes(:exchange)
+    api_keys = ApiKey.reading(ApiKey.where(id: api_key_ids).includes(:exchange))
     return if api_keys.empty?
 
     pricing_errors = []

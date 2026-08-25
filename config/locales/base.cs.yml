@@ -426,6 +426,11 @@ cs:
             instructions_title: 'Jak získat klíče z %{exchange}'
             instructions_body: 'Vytvořte API klíč s oprávněním pro výběr na %{exchange} a vložte přihlašovací údaje sem.'
     tracker:
+        value_source:
+            exchange: "Uvedeno burzou."
+            ours: "Naše vlastní cena pro ten den. Zadej hodnotu, která ji nahradí."
+            stated: "Tvoje vlastní hodnota. Vymaž pole a vrátí se naše cena."
+            none: "Tento řádek se nám nepodařilo ocenit. Zadej, jakou měl hodnotu."
         welcome:
             connect_and_track: "Připoj svou burzu a začni sledovat své portfolio."
         sync_key_error_html: 'Synchronizace s <strong>%{exchange}</strong> selhala: %{message}. Aktualizuj API klíč níže.'
@@ -519,11 +524,50 @@ cs:
             download_ready: 'Daňový přehled je připraven. Klikněte pro stažení.'
             failed: 'Přehled se nepodařilo vygenerovat. Zkontrolujte vybraná nastavení a zkuste to znovu.'
         holdings: 'Držená aktiva'
+        unrealised: 'Nerealizovaný'
+        findings:
+            title: '%{count} pozic, za které kniha neručí'
+            entry:
+                acquisition: 'Počáteční zůstatek, který jsi zadal'
+                disposal: 'Oprava, kterou jsi zadal'
+            figures_disagree: 'Tato čísla nesedí (rozdíl %{amount}). Něco chybí, co výše uvedené kontroly nezachytily.'
+            history_incomplete: '%{symbol}: historie je neúplná — odešlo víc, než kdy přišlo, takže náklad není znám.'
+            quantity_disagrees: '%{symbol}: kniha a burza se neshodnou na množství, takže náklad není znám.'
+            no_history: '%{symbol}: burza to hlásí, ale žádná historie za tím není.'
+            basis_assumed: '%{symbol}: část přišla bez ceny, takže náklad je odhad.'
+        tiles:
+            unrealised_pnl: 'Nerealizovaný Z/Z'
+            total_pnl: 'Celkový Z/Z'
+            total_pnl_hint: '%{value} − %{invested}'
+        import:
+            title: 'Import'
+            nothing_new: 'Všechny transakce z tohoto souboru už v historii máš.'
+            imported: 'Importováno %{count} transakcí.'
+            reading: 'Načítání souboru…'
+            error_unknown_timezone: 'Název tohoto souboru už neuvádí, v jakém časovém pásmu jej Binance vyexportoval. Nahraj jej pod názvem, který mu dal Binance.'
+            drop: 'Přetáhni sem soubor CSV'
+            drop_hint: 'nebo klikni a vyber soubor'
+            which_account: 'Tento soubor může být z obou účtů Binance. Ze kterého?'
+            unrouted: 'Pro %{exchanges} není připojen účet. Tyto řádky byly vynechány.'
+            error_no_account_for_format: 'Pro tento formát není připojen odpovídající účet.'
+            format: 'Formát'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Účet'
+            file: 'Soubor'
+            importing: 'Importuji…'
+            confirm: 'Importovat'
+            skipped: '%{count} řádků se nepodařilo uložit.'
+            unrecognised: 'Neimportováno, neznámé operace: %{operations}'
+            error_unreadable: 'Tento soubor není ve zvoleném formátu.'
+            error_malformed: 'Soubor se nepodařilo přečíst.'
+            error_no_file: 'Nejprve vyber soubor.'
+            error_no_account: 'Vyber účet pro import.'
+            no_account: 'Nejdřív připoj burzu — import patří k účtu.'
         positions: 'Pozice'
         transactions: 'Transakce'
         fees_paid: 'Zaplacené poplatky'
         synced_ago: 'Synchronizováno před %{ago}'
-        history_partial: 'Některé dny jsou odhad: část historie se nepodařilo ocenit.'
         show_more: 'Zobrazit více'
         show_less: 'Zobrazit méně'
         other: 'Ostatní'
@@ -535,6 +579,7 @@ cs:
             win: 'Zisk'
             loss: 'Ztráta'
             closed: 'Uzavřená'
+            cash: 'Hotovost'
         range:
             '30d': '30D'
             '1y': '1R'
@@ -645,6 +690,8 @@ cs:
             upgrade_hint: Aktualizuj svůj CoinGecko plán nebo použij deltabadger.com pro kompletní historická data.
             deposit_basis_assumed: Pořizovací cena těchto nepropojených vkladů odhadnutá podle tržní hodnoty
             deposit_basis_assumed_hint: Propojte každý vklad s odpovídajícím výběrem v Trackeru, aby se použila skutečná pořizovací cena.
+            stated_values: "Hodnoty, které jsi zadal ručně"
+            stated_values_hint: "Tyto částky pocházejí od tebe, ne z burzy. Před podáním přiznání je ověř podle vlastních záznamů."
             exchange_sync_failed: 'Údaje z %{exchange} mohou chybět — poslední synchronizace se nezdařila. Proveďte novou synchronizaci v Trackeru a přehled vygenerujte znovu.'
             exchange_never_synced: 'Burza %{exchange} dosud nebyla synchronizována — tento přehled neobsahuje žádné její transakce. Synchronizujte ji v Trackeru a přehled vygenerujte znovu.'
         headers:

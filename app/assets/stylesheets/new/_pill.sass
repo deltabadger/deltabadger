@@ -14,6 +14,9 @@
 .pill
     display: inline-flex
     align-items: center
+    // Placed by the parent's x-height rather than by its own text baseline: a chip is a box, and
+    // where its label happens to sit inside it should not decide where the box lands on the line.
+    vertical-align: middle
     height: 2.5rem
     padding: 0 1.125rem
     border-radius: 1.25rem
@@ -41,3 +44,10 @@
         color: var(--concrete)
         background: none
         box-shadow: inset 0 0 0 1px var(--steel)
+
+// A chip is a box, not a word, so a container whose content IS one carries no leading: 3rem of
+// line-height around a 2.5rem chip puts the baseline 2rem down and hangs the chip below it, low in
+// the row. With the leading gone the chip governs its own line box, and the cell or grid item it
+// sits in centres it.
+td:has(> .pill), .tracker-holdings__type
+    line-height: 1

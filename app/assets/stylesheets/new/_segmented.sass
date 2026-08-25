@@ -114,6 +114,11 @@
             line-height: 3.5rem
             &.is-on
                 display: none
+        // Same separation, turned through the ninety degrees the menu turned: the gap goes above
+        // it, and the indent that opened it on the track would only break this column's left edge.
+        .segmented__option--action
+            margin-top: 0.5rem
+            margin-left: 0
         &.is-open
             .segmented__menu
                 display: flex
@@ -171,6 +176,23 @@
     &:focus-visible
         outline: 2px solid var(--link)
         outline-offset: 2px
+
+// The action at the end of the track. It DOES something rather than selecting something, so it
+// wears the chip's raised look at rest instead of the dim label of an option waiting to be picked
+// — and it says what it does in words, because a bare glyph at the end of a row of venue names is
+// a control the reader has to guess at.
+.segmented__option--action
+    // Off the last option: touching it, the raised pill reads as one more scope rather than as the
+    // thing that adds one.
+    margin-left: .375rem
+    color: var(--ink)
+    background: var(--washed)
+    box-shadow: var(--shadow-paper)
+    svg
+        width: 1.75rem
+        height: 1.75rem
+    path
+        fill: currentColor
 
 // The control collapses when its options outgrow the room its PARENT gives it, so that parent
 // needs a width of its own. One that shrink-wraps to the collapsed trigger would report the

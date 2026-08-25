@@ -77,4 +77,45 @@ class SegmentedTest < ActionView::TestCase
 
     assert_select '[data-order-filter-target="filter"][data-filter-type="all"]', 1
   end
+
+  # A trailing ACTION is not an option: it DOES something instead of selecting something. So it
+  # wears the chip's raised look at rest rather than the dim label of an option waiting to be
+  # picked, and it rides inside the menu — last, which puts it at the end of the track and at the
+  # foot of the collapsed list. No segmented-target: the controller must never measure it, park the
+  # chip on it, or arrow onto it.
+  test 'a trailing action is the menu last child and wears its own class' do
+    render_segmented(options: buttons, action: { href: '/connect', label: 'Connect exchange',
+                                                 icon: 'svg/24x24_plus', data: { turbo_frame: 'modal' } })
+
+    assert_select '.segmented__menu > *:last-child.segmented__option--action', 1
+    assert_select "a.segmented__option--action[href='/connect'][data-turbo-frame='modal']", 1
+    assert_select ".segmented__option--action[aria-label='Connect exchange']", 1
+    assert_select '.segmented__option--action', text: ''
+  end
+
+  test 'an action is invisible to the controller' do
+    render_segmented(options: buttons, action: { href: '/connect', label: 'Connect exchange',
+                                                 icon: 'svg/24x24_plus' })
+
+    assert_select '.segmented__option--action[data-segmented-target]', 0
+    assert_select '.segmented__option--action[data-action]', 0
+    assert_select '[data-segmented-target="option"]', 2
+  end
+
+  # Glyph only in the track — it is read in the company of the row it adds to. A screen reader has
+  # no such company, so the name has to be on the element.
+  test 'an action carries its icon and takes its name from the attribute' do
+    render_segmented(options: buttons, action: { href: '/connect', label: 'Connect exchange',
+                                                 icon: 'svg/24x24_plus' })
+
+    assert_select '.segmented__option--action svg', 1
+    assert_select ".segmented__option--action[aria-label='Connect exchange']", 1
+  end
+
+  test 'no action, no extra child' do
+    render_segmented(options: buttons)
+
+    assert_select '.segmented__option--action', 0
+    assert_select '.segmented__menu > *', 2
+  end
 end

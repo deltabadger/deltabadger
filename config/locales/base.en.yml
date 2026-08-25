@@ -419,6 +419,11 @@ en:
             instructions_title: 'How to get keys from %{exchange}'
             instructions_body: 'Create a withdrawal-enabled API key on %{exchange} and paste the credentials here.'
     tracker:
+        value_source:
+            exchange: "Reported by the exchange."
+            ours: "Our own price for that day. Type a value to replace it."
+            stated: "Your own value. Clear the box to use our price again."
+            none: "We could not price this one. Type what it was worth."
         welcome:
             connect_and_track: "Connect your exchange and start tracking your portfolio."
         sync_key_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please update the API key below."
@@ -511,11 +516,74 @@ en:
             download_ready: 'Tax report is ready. Click to download.'
             failed: 'The report could not be generated. Check the selected settings and try again.'
         holdings: 'Holdings'
+        unrealised: 'Unrealised'
+        findings:
+            title: '%{count} holdings the ledger cannot vouch for'
+            recorded: '%{symbol} recorded — the figures have been recalculated.'
+            recorded_partly: '%{symbol} recorded. %{quantity} %{symbol} the exchange does not report is still outstanding, and is listed separately.'
+            fix:
+                action: 'Fix'
+                residual: 'This settles the impossible part of the history. Afterwards the ledger will still hold %{quantity} %{symbol} the exchange does not report — a separate gap, listed on its own once this is recorded.'
+                arrival: 'How did it arrive?'
+                earned: 'I earned it'
+                bought: 'I bought or transferred it'
+                earned_note: 'Rewards, dust conversions, staking — %{symbol} that accrued rather than being bought. Recorded as income at the price of that day, which is also its cost basis.'
+                bought_note: 'Recorded as arriving from outside, at the cost you give below.'
+                acquisition_title: '%{symbol}: an opening balance is missing'
+                disposal_title: '%{symbol}: a disposal is missing'
+                acquisition_body: 'More %{symbol} left this account than ever arrived in the history we hold, so you must already have held %{quantity} %{symbol} before it begins. Recording that closes the gap. It is saved as your own entry, dated %{date}, and you can edit or delete it later.'
+                disposal_body: 'The ledger still holds %{quantity} %{symbol} that the exchange no longer reports. Recording that they left closes the gap. Nothing is recorded as received for them, so no gain or loss is realised. Saved as your own entry, dated %{date}.'
+                cost: 'Cost'
+                use_market: 'Use the market price'
+                enter_own: 'I know what I paid'
+                unknown: 'I do not know'
+                market_note: '%{cost} — %{price} per unit on %{date}, from our own price history. Saved as an estimate.'
+                own_cost: 'What it cost (%{currency})'
+                unknown_note: 'Leave it empty to record the amount only. The quantity will reconcile; the cost stays unknown, so no P/L is shown for this holding.'
+                accept: 'Record this entry'
+                recording: 'Recording…'
+            entry:
+                acquisition: 'Opening balance you recorded'
+                earned: 'Income you recorded'
+                disposal: 'Correction you recorded'
+            figures_disagree: 'These figures do not add up (off by %{amount}). Something is missing that the checks above did not catch.'
+            history_incomplete: '%{symbol}: the history is incomplete — more left the account than ever arrived, so its cost is unknown.'
+            quantity_disagrees: '%{symbol}: the ledger and the exchange disagree about how much is held, so its cost is unknown.'
+            no_history: '%{symbol}: the exchange reports it, but there is no history behind it.'
+            basis_assumed: '%{symbol}: part of it arrived without a price, so its cost is an estimate.'
+        tiles:
+            unrealised_pnl: 'Unrealised P/L'
+            total_pnl: 'Total P/L'
+            total_pnl_hint: '%{value} − %{invested}'
+        import:
+            title: 'Import'
+            nothing_new: 'Every transaction in this file is already in your history.'
+            imported: 'Imported %{count} transactions.'
+            reading: 'Reading the file…'
+            error_unknown_timezone: 'This file name no longer says which time zone Binance exported it in. Upload it with the name Binance gave it.'
+            drop: 'Drop your CSV here'
+            drop_hint: 'or click to choose a file'
+            which_account: 'This file could be from either Binance account. Which one?'
+            unrouted: 'No account connected for: %{exchanges}. Those rows were left out.'
+            error_no_account_for_format: 'No matching account is connected for this format.'
+            format: 'Format'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Account'
+            file: 'File'
+            importing: 'Importing…'
+            confirm: 'Import'
+            skipped: '%{count} rows could not be saved.'
+            unrecognised: 'Not imported, unknown operations: %{operations}'
+            error_unreadable: 'This file is not in the selected format.'
+            error_malformed: 'This file could not be read.'
+            error_no_file: 'Choose a file first.'
+            error_no_account: 'Pick an account to import into.'
+            no_account: 'Connect an exchange first — an import is attached to an account.'
         positions: 'Positions'
         transactions: 'Transactions'
         fees_paid: 'Fees paid'
         synced_ago: 'Synced %{ago} ago'
-        history_partial: 'Some days are an estimate — part of the history could not be priced.'
         show_more: 'Show more'
         show_less: 'Show less'
         other: 'Other'
@@ -527,6 +595,7 @@ en:
             win: 'Win'
             loss: 'Loss'
             closed: 'Closed'
+            cash: 'Cash'
         range:
             '30d': '30D'
             '1y': '1Y'
@@ -640,6 +709,8 @@ en:
             upgrade_hint: Upgrade your CoinGecko plan or use deltabadger.com for full historical data.
             deposit_basis_assumed: Cost basis assumed at market value for these unlinked deposits
             deposit_basis_assumed_hint: Link each one to its matching withdrawal in the tracker to use the real cost basis.
+            stated_values: "Values you stated by hand"
+            stated_values_hint: "These figures are yours, not the exchange's. Check them against your own records before filing."
             exchange_sync_failed: '%{exchange} data may be missing — its last sync failed. Re-sync in the tracker and regenerate this report.'
             exchange_never_synced: '%{exchange} has never been synced — none of its transactions are in this report. Sync it in the tracker and regenerate.'
         values:

@@ -42,10 +42,13 @@ class TrackerHistoryTest < ActionDispatch::IntegrationTest
     assert_equal 'false', node['data-bot--chart-pnl-only-value']
     assert_select '.widget--chart__plot canvas[data-bot--chart-target="analyzerChart"]'
     assert_select '.widget--chart__modes[data-action*="bot--chart#mode"] > .segmented .segmented__option[data-value="pnl"]'
+    # Both controls on the head line, opposite the readout: the mode redraws the curve, the range
+    # narrows the window, and neither belongs below the plot.
+    assert_select '.widget--chart__head > .widget--chart__modes', 1
+    assert_select '.widget--chart__ranges', 0
     assert_select '.widget--chart__modes .filters[data-action*="bot--chart#range"] > .segmented .segmented__option[data-value="30"]'
     assert_select '.widget--chart__modes .filters[data-action*="bot--chart#range"] > .segmented .segmented__option.is-on[data-value="all"]'
     assert_select '.widget__placeholder', false
-    assert_select '.tracker-history-partial', false
   end
 
   test 'with balances hidden the chart is pnl-only and the series are normalized — no money in the page' do
@@ -74,12 +77,6 @@ class TrackerHistoryTest < ActionDispatch::IntegrationTest
     series = JSON.parse(chart_node['data-bot--chart-series-value'])
     assert_equal [124_000.0, 128_000.0, 132_000.0], series[0]
     assert_equal 'PLN', chart_node['data-bot--chart-quote-value']
-  end
-
-  test 'a partial day is flagged under the plot' do
-    PortfolioSnapshot.for_user(@user).first.update!(partial: true)
-    get tracker_path
-    assert_select '.tracker-history-partial', text: I18n.t('tracker.history_partial')
   end
 
   test 'missing coverage back to the first transaction enqueues the backfill once; the plot spins meanwhile' do

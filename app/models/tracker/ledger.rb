@@ -16,7 +16,7 @@ module Tracker
     RoundTrip = Data.define(:symbol, :asset, :opened_at, :closed_at, :quantity, :invested_usd,
                             :proceeds_usd, :fees_usd, :realised_pnl_usd, :incomplete)
     Summary = Data.define(:positions, :round_trips, :total_invested_usd, :realised_pnl_usd, :fees_usd,
-                          :incomplete, :computed_at)
+                          :incomplete, :overdrawn, :computed_at)
 
     CACHE_TTL = 30.days
     FIAT = Tax::PriceService::FIAT_CURRENCIES
@@ -28,31 +28,100 @@ module Tracker
     # as one round-trip. A sale with no basis, or one that overdraws the lots, is not a completed
     # round-trip — it is booked the way FIFO books it and flags the summary instead.
     #
-    # (2) An unlinked withdrawal takes the coins out at cost with no gain: they left the tracked
-    # universe, which is not a disposal. ponytail: modelled as the engine's existing zero-gain `fee`
-    # branch rather than a case of its own — upgrade path if a withdrawal ever needs accounting a
-    # fee does not have (a realised network fee, say): give Fifo a `:transfer_out` case.
+    # (2) Coins that LEFT without being sold take their cost with them and realise nothing: an
+    # unlinked withdrawal (they left the tracked universe) and a `lost` row (a venue taking a
+    # delisted token back, which Binance calls Asset Recovery). Neither is a disposal.
+    #
+    # `Tax::Methods::Fifo` has no case for `lost` at all — buy, deposit, swap, sell, adjustment,
+    # return_of_capital, fee, withdrawal, and nothing else — so without this the row passes through
+    # and the lots stay. The tracker then holds a position in a coin the account does not have, the
+    # ledger disagrees with the balance, and every P/L that compares the two goes silent.
+    #
+    # ponytail: modelled as the engine's existing zero-gain `fee` branch rather than a case of its
+    # own — upgrade path if either ever needs accounting a fee does not have (a realised network
+    # fee, or a jurisdiction that lets a lost asset be claimed as a loss): give Fifo a
+    # `:transfer_out` case. What the TAX report does with a `lost` row is untouched here and is a
+    # separate question — it still ignores it.
     class Engine < Tax::Methods::Fifo
       # True once a disposal has taken more than the lots held — FIFO books the uncovered part at
       # zero basis, which is a real number but not a complete one.
       attr_reader :uncovered
 
+      # The assets whose running quantity went BELOW ZERO, and by how much. Nobody holds minus six
+      # litecoin: a history that reaches there is provably missing its opening balance, and it can be
+      # known on the spot without asking anyone anything. FIFO's floor-at-zero would otherwise
+      # launder it — later buys pile onto an empty pool and an impossible history comes out as a
+      # confident positive quantity the venue does not report.
+      #
+      # Recorded per asset rather than as one flag, because the figures that inherit it are per
+      # asset: a broken LTC history says nothing about BTC.
+      attr_reader :overdrawn
+
       def calculate(transactions, **options)
         @uncovered = false
-        super(transactions.map { |tx| unlinked_withdrawal?(tx) ? tx.merge(entry_type: :fee) : tx }, **options)
+        @overdrawn = Hash.new(0.to_d)
+        @released = Hash.new { |basis, key| basis[key] = [] }
+        super(transactions.map { |tx| gone_without_sale?(tx) ? tx.merge(entry_type: :fee) : tx }, **options)
+      end
+
+      # What the lots gave up when these coins left, in the order they left. MEASURED, not inferred:
+      # whatever the pool lost is exactly what those coins had contributed to it, so subtracting it
+      # from "money in" can never take out more than was put in.
+      def basis_released(asset, amount)
+        @released[[asset, amount]].shift
       end
 
       private
 
-      def unlinked_withdrawal?(transaction)
-        transaction[:entry_type].to_s == 'withdrawal' && !transaction[:linked]
+      def gone_without_sale?(transaction)
+        type = transaction[:entry_type].to_s
+        type == 'lost' || (type == 'withdrawal' && !transaction[:linked])
+      end
+
+      # Every in-kind consumption passes through here — a standalone fee row, a trade's fee paid in
+      # a third asset, and the transfers-out remapped above. Only the first kind's basis is recorded,
+      # and only rows the ledger later asks about are ever read back, so a trade's fee cannot be
+      # mistaken for a transfer.
+      def record_released_basis(asset_lots, asset, amount)
+        return yield if @paying_trade_fee
+
+        before = pool_basis(asset_lots)
+        result = yield
+        @released[[asset, amount]] << (before - pool_basis(asset_lots))
+        result
+      end
+
+      def consume_disposal_fee(lots, transaction)
+        @paying_trade_fee = true
+        super
+      ensure
+        @paying_trade_fee = false
+      end
+
+      def pool_basis(lots)
+        lots.sum(0.to_d) { |lot| lot[:amount].to_d * lot[:cost_per_unit].to_d }
       end
 
       def record_disposal(lots, disposals, transaction, asset, amount, fiat_value)
         held = lots[asset].sum(0.to_d) { |lot| lot[:amount] }
         super
-        @uncovered = true if held < amount
         disposals.last[:closes_position] = held.positive? && held >= amount && lots[asset].empty?
+        return unless held < amount
+
+        # FIFO books the uncovered part at zero basis. `data_incomplete?` only asks whether there
+        # were ANY lots, so a partly covered sale reads as clean — and the round-trip built from it
+        # would state a percentage measured against a basis that was never paid.
+        @uncovered = true
+        @overdrawn[asset] += amount - held
+        disposals.last[:data_incomplete] = true
+      end
+
+      # A transfer out can overdraw just as a sale can, and more quietly: with the lots already empty
+      # `consume_fee_in_kind` simply does nothing, so coins leave a pool that never had them.
+      def consume_fee_in_kind(asset_lots, asset, amount)
+        held = asset_lots.sum(0.to_d) { |lot| lot[:amount] }
+        @overdrawn[asset] += amount - held if amount&.positive? && held < amount
+        record_released_basis(asset_lots, asset, amount) { super }
       end
     end
 
@@ -68,13 +137,14 @@ module Tracker
         Summary.new(
           positions: positions,
           round_trips: round_trips(disposals, assets),
-          total_invested_usd: contributions(rows, price_service),
+          total_invested_usd: contributions(rows, price_service, engine),
           # A return of capital beyond the basis is realised gain the moment it lands; the engine
           # already isolates it, and until now nothing read it.
           realised_pnl_usd: disposals.sum(0.to_d) { |disposal| disposal[:gain_loss].to_d } + engine.excess_roc.to_d,
           fees_usd: fees(rows, price_service),
           incomplete: positions.any?(&:incomplete) || engine.uncovered ||
                       disposals.any? { |disposal| disposal[:data_incomplete] } || price_service.warnings.any?,
+          overdrawn: engine.overdrawn.select { |_, short| short.positive? },
           computed_at: Time.current
         )
       end
@@ -115,10 +185,16 @@ module Tracker
 
       # `.utc`, because the timestamp is zone-aware: the same instant spells itself differently in
       # every zone, and the reader (a request) is not guaranteed the zone the writer (a job) had.
+      #
+      # The price generation is in here because this summary is a READING OF PRICES, not only of
+      # transactions. A price that could not be fetched when this ran leaves a lot with no basis and
+      # the whole round-trip marked incomplete; when the price later arrives, the transactions have
+      # not moved, so without this the poisoned summary stays cached until the user trades that coin
+      # again — which for a position they have closed is never.
       def cache_key(user, exchange)
         scope = transactions(user, exchange)
-        "tracker_ledger_v3_#{user.id}_#{exchange&.id || 'all'}_" \
-          "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}"
+        "tracker_ledger_v5_#{user.id}_#{exchange&.id || 'all'}_" \
+          "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}_#{HistoricalPrice.generation}"
       end
 
       def transactions(user, exchange)
@@ -156,12 +232,12 @@ module Tracker
       # Cash is pooled per VENUE, because that is where a deficit means anything: dollars sitting at
       # a broker cannot pay for an exchange's trade, and a broker's own deficit is borrowed rather
       # than missing.
-      def contributions(rows, price_service)
+      def contributions(rows, price_service, engine)
         cash = Hash.new(0.to_d)
         closes = UnfundedCash.closers(rows.map { |row| [row[:exchange], row[:group_id]] })
         rows.each_with_index.sum(0.to_d) do |row, index|
           cash_moves(row).each { |currency, amount| cash[[row[:exchange], currency]] += amount }
-          reported = contribution(row, price_service)
+          reported = contribution(row, price_service, engine)
           venue = closes[index]
           next reported unless venue
 
@@ -192,7 +268,7 @@ module Tracker
         end
       end
 
-      def contribution(row, price_service)
+      def contribution(row, price_service, engine)
         direction = case row[:entry_type].to_s
                     when 'deposit' then 1
                     when 'withdrawal' then -1
@@ -207,12 +283,16 @@ module Tracker
                 elsif STABLECOINS.include?(symbol)
                   amount
                 elsif direction.positive?
-                  # Already the day's market value: `enrich` priced the deposit for its lot.
+                  # Already the day's market value: `enrich` priced the deposit for its lot, so a
+                  # coin arriving is counted at the basis it arrives with.
                   row[:fiat_value].to_d
                 else
-                  # `enrich` refuses to price a withdrawal (nothing downstream reads it), so the
-                  # value of what left has to be resolved here.
-                  price_service.price_at(asset: symbol, currency: 'USD', timestamp: row[:transacted_at]) * amount
+                  # And a coin LEAVING at the basis it leaves with. Market value here would be a
+                  # sale's valuation — it is not a sale (no disposal, nothing realised, nothing in
+                  # any tax report), but it would debit money-in with appreciation nobody
+                  # contributed, and once that passed the deposits the figure went negative. Money
+                  # in cannot be negative.
+                  engine.basis_released(symbol, amount) || 0.to_d
                 end
         value * direction
       end
@@ -252,9 +332,15 @@ module Tracker
 
       # One row per round-trip, not per sell: a position sold down over four Fridays is one thing
       # that happened, and its average buy and exit prices only mean anything over the whole of it.
+      #
+      # A trip does not wait for the position to be gone. Selling a quarter of a stack realises a
+      # quarter of the outcome, and an account that keeps buying never empties its lots — so what is
+      # still accumulating when the disposals run out is flushed as its own row, sitting beside the
+      # open position the coins were sold out of. Only when FIFO matched a basis: a disposal that
+      # matched nothing never opened a position here, and belongs to the transactions pane.
       def round_trips(disposals, assets)
         open = {}
-        disposals.filter_map do |disposal|
+        closed = disposals.filter_map do |disposal|
           symbol = disposal[:asset]
           trip = (open[symbol] ||= { opened_at: disposal[:acquisition_date], quantity: 0.to_d, invested: 0.to_d,
                                      proceeds: 0.to_d, fees: 0.to_d, gain: 0.to_d, incomplete: false })
@@ -263,17 +349,23 @@ module Tracker
           trip[:proceeds] += disposal[:proceeds].to_d
           trip[:fees] += disposal[:fee].to_d
           trip[:gain] += disposal[:gain_loss].to_d
+          trip[:closed_at] = disposal[:date]
           # One assumed basis or one unpriced sale anywhere in the sequence is enough: the trip's
           # figures are a sum, so an estimate in any term is an estimate in the total.
           trip[:incomplete] ||= disposal[:data_incomplete]
           next unless disposal[:closes_position]
 
           open.delete(symbol)
-          RoundTrip.new(symbol: symbol, asset: assets[symbol], opened_at: trip[:opened_at],
-                        closed_at: disposal[:date], quantity: trip[:quantity], invested_usd: trip[:invested],
-                        proceeds_usd: trip[:proceeds], fees_usd: trip[:fees], realised_pnl_usd: trip[:gain],
-                        incomplete: trip[:incomplete])
+          round_trip(symbol, trip, assets)
         end
+        closed + open.filter_map { |symbol, trip| round_trip(symbol, trip, assets) if trip[:invested].positive? }
+      end
+
+      def round_trip(symbol, trip, assets)
+        RoundTrip.new(symbol: symbol, asset: assets[symbol], opened_at: trip[:opened_at],
+                      closed_at: trip[:closed_at], quantity: trip[:quantity], invested_usd: trip[:invested],
+                      proceeds_usd: trip[:proceeds], fees_usd: trip[:fees], realised_pnl_usd: trip[:gain],
+                      incomplete: trip[:incomplete])
       end
     end
   end

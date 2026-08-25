@@ -14,7 +14,6 @@
 <div class="widget widget--chart">
   <% if history.empty? %>
     <div class="widget--chart__head">
-      <div class="widget--chart__modes"></div>
       <div class="widget--chart__summary">
         <div class="widget--chart__date">&nbsp;</div>
         <% unless hide_money %><div class="widget--chart__pnl">&nbsp;</div><% end %>
@@ -79,9 +78,6 @@
       <div class="widget--chart__plot">
         <canvas data-bot--chart-target="analyzerChart" width="10" height="2"></canvas>
       </div>
-      <% if history.any?(&:partial) %>
-        <p class="tracker-history-partial"><%= t('tracker.history_partial') %></p>
-      <% end %>
     <% end %>
   <% end %>
 </div>

@@ -1,17 +1,19 @@
 <% hide_money = current_user.hide_balances? %>
-<% slices = @portfolio_slices || [] %>
-<% positions = (@scoped_ledger&.positions || []).index_by(&:symbol) %>
-<% total = slices.sum { |slice| slice[:usd_value].to_d } %>
-<% shown, folded = slices.first(6), slices.drop(6) %>
+<%# The same holdings the tiles are built from — reconciled once, in `Tracker::Figures`, rather than
+    here and there and in the helper, each with its own idea of what can be vouched for. %>
+<% holdings = @figures&.holdings || [] %>
+<% total = holdings.sum(0.to_d) { |holding| holding.value } %>
+<% shown, folded = holdings.first(6), holdings.drop(6) %>
 <div class="widget tracker-holdings <%= 'tracker-holdings--anon' if hide_money %>">
   <div class="tracker-holdings__head">
-    <span class="label"><%= t('tracker.holdings') %> · <%= slices.size %></span>
-    <span class="label"><%= t('tracker.columns.avg_buy') %> · <%= @denomination.currency %></span>
+    <span class="label"><%= t('tracker.holdings') %> · <%= holdings.size %></span>
+    <%# What the list adds up to by kind — the rows carry the same labels. %>
+    <span class="label"><%= holdings_type_shares(holdings).map { |label, share| "#{label} #{share}%" }.join(' · ') %></span>
   </div>
 
   <% if @portfolio_never_synced %>
     <p class="tracker-holdings__empty"><%= t('tracker.portfolio.never_synced') %></p>
-  <% elsif slices.empty? %>
+  <% elsif holdings.empty? %>
     <% if @portfolio_has_keys %>
       <p class="tracker-holdings__empty"><%= t('tracker.portfolio.no_balances') %></p>
     <% end %>
@@ -20,10 +22,10 @@
       <%# Drawn here rather than by a chart library: it is a picture of numbers this page already
           holds, and an arc is two trigonometric points. The centre reads the same P/L the rows do,
           over every holding whose quantity the ledger can vouch for. %>
-      <% centre = holdings_total_pnl_percent(slices, positions) %>
+      <% centre = @figures&.unrealised && @figures.holdings.sum(0.to_d) { |h| h.cost || 0.to_d }.then { |cost| cost.positive? ? ((@figures.holdings.sum(0.to_d) { |h| h.cost ? h.value : 0.to_d } / cost) - 1) * 100 : nil } %>
       <div class="tracker-holdings__ring">
         <svg viewBox="0 0 230 230" role="img" aria-label="<%= t('tracker.holdings') %>">
-          <% holdings_ring_arcs(slices).each do |arc| %>
+          <% holdings_ring_arcs(holdings).each do |arc| %>
             <path d="<%= arc[:d] %>" stroke="<%= arc[:color] %>" stroke-width="14" fill="none"><title><%= arc[:label] %></title></path>
           <% end %>
         </svg>
@@ -31,15 +33,18 @@
           <span class="tracker-holdings__centre-value <%= centre && (centre.negative? ? 'text-danger' : 'text-success') %>">
             <%= centre ? tracker_percent(centre) : '—' %>
           </span>
-          <span class="label"><%= t('data_labels.pnl') %></span>
+          <%# NOT "P/L": the chart above states the portfolio against every dollar ever put into it,
+              and this states the coins held right now against what they cost. An account that lost
+              money on something it no longer holds reads negative up there and positive down here,
+              both correctly — so the two figures may not share a name. %>
+          <span class="label"><%= t('tracker.unrealised') %></span>
         </div>
       </div>
 
       <div class="tracker-holdings__list">
         <div class="tracker-holdings__rows">
-          <% shown.each do |slice| %>
-            <%= render 'holding_row', slice: slice, position: positions[slice[:asset].symbol],
-                       total: total, hide_money: hide_money %>
+          <% shown.each do |holding| %>
+            <%= render 'holding_row', holding: holding, total: total, hide_money: hide_money %>
           <% end %>
         </div>
         <% if folded.any? %>
@@ -50,9 +55,8 @@
               <span class="tracker-holdings__more__open"><%= t('tracker.show_more') %></span>
               <span class="tracker-holdings__more__close"><%= t('tracker.show_less') %></span>
             </summary>
-            <% folded.each do |slice| %>
-              <%= render 'holding_row', slice: slice, position: positions[slice[:asset].symbol],
-                         total: total, hide_money: hide_money %>
+            <% folded.each do |holding| %>
+              <%= render 'holding_row', holding: holding, total: total, hide_money: hide_money %>
             <% end %>
           </details>
         <% end %>

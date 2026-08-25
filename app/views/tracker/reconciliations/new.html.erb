@@ -1,0 +1,79 @@
+<%# Everything that would be written, stated before anything is. The quantity and the date are
+    arithmetic; the cost is the only open question, and the answer is the user's assertion. %>
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <h2 class="modal__title"><%= t("tracker.findings.fix.#{@proposal.kind}_title", symbol: @proposal.symbol) %></h2>
+
+    <p><%= t("tracker.findings.fix.#{@proposal.kind}_body",
+             symbol: @proposal.symbol,
+             quantity: tracker_amount(@proposal.quantity),
+             date: l(@proposal.on.to_date, format: :long)) %></p>
+
+    <%# Said BEFORE, not discovered after. The quantity above is the smallest that stops the running
+        balance going below zero; where the end still will not match the venue, a second finding
+        appears for this coin the moment this one is settled — and being told that afterwards reads
+        as nothing having happened. %>
+    <% if @proposal.residual %>
+      <p class="import-note"><%= t('tracker.findings.fix.residual',
+                                   quantity: tracker_amount(@proposal.residual.abs),
+                                   symbol: @proposal.symbol) %></p>
+    <% end %>
+
+    <%= form_with url: tracker_reconciliation_path, method: :post,
+                  data: { turbo_frame: 'modal_content' }, class: 'form' do |f| %>
+      <%= hidden_field_tag :symbol, @proposal.symbol %>
+      <%# `source` says whether a stated cost came from our price chart or from the user, so the tax
+          report can tell an estimate from an assertion. %>
+      <%= hidden_field_tag :source, @proposal.market_cost ? 'market' : 'own' %>
+
+      <% if @proposal.kind == :acquisition %>
+        <%# FIRST: how it got here. Not a wording choice — a coin that accrued (Binance pays BNB as
+            commission rebates and as the receipt for sweeping dust) has no price anyone paid, and is
+            income at the price of its day. The default is what this coin's own history shows.
+            The price question then only appears for a purchase, and `form--select-toggle` DISABLES
+            the field it hides, so an earned entry cannot carry a cost by accident. %>
+        <% earned = @proposal.likely_arrival == :earned %>
+        <div data-controller="form--select-toggle"
+             data-action="segmented:change->form--select-toggle#toggle">
+          <div class="filters" data-controller="form--segmented-field"
+               data-action="segmented:change->form--segmented-field#set">
+            <%= render 'shared/segmented', fluid: true, label: t('tracker.findings.fix.arrival'),
+                       options: [{ value: 'earned', label: t('tracker.findings.fix.earned'), active: earned },
+                                 { value: 'bought', label: t('tracker.findings.fix.bought'), active: !earned }] %>
+            <%= hidden_field_tag :arrival, earned ? 'earned' : 'bought',
+                                 data: { 'form--segmented-field-target': 'field' } %>
+          </div>
+
+          <p class="import-note" data-form--select-toggle-target="section" data-select-toggle-value="earned">
+            <%= t('tracker.findings.fix.earned_note', symbol: @proposal.symbol) %>
+          </p>
+
+          <div data-form--select-toggle-target="section" data-select-toggle-value="bought">
+            <p class="import-note"><%= t('tracker.findings.fix.bought_note', symbol: @proposal.symbol) %></p>
+            <% if @proposal.market_cost %>
+              <p class="import-note"><%= t('tracker.findings.fix.market_note',
+                                           cost: @denomination.format(@proposal.market_cost),
+                                           price: tracker_price(@proposal.market_price),
+                                           date: l(@proposal.on.to_date, format: :long)) %></p>
+            <% end %>
+            <label class="import-field">
+              <span class="label"><%= t('tracker.findings.fix.own_cost', currency: @denomination.currency) %></span>
+              <%# In the currency the label names. Everything behind the page is USD; the controller
+                  converts back, or a field marked EUR would quietly store dollars. %>
+              <%= number_field_tag :cost, @denomination.convert(@proposal.market_cost)&.round(2),
+                                   step: :any, min: 0, class: 'sinput sinput--number' %>
+            </label>
+            <p class="import-note"><%= t('tracker.findings.fix.unknown_note') %></p>
+          </div>
+        </div>
+      <% end %>
+
+      <%# The accept. Its label says what it does — this writes a transaction into your history. %>
+      <%= f.submit t('tracker.findings.fix.accept'), class: 'button button--success button--large',
+                   data: { turbo_submits_with: t('tracker.findings.fix.recording') } %>
+    <% end %>
+  </div>
+<% end %>

@@ -91,9 +91,18 @@ Rails.application.routes.draw do
     patch  '/tracker/save_export_settings', to: 'tracker#save_export_settings', as: :save_export_settings_tracker
     patch  '/tracker/fund_classifications', to: 'tracker#fund_classifications', as: :fund_classifications_tracker
     patch  '/tracker/transactions/:id/toggle_transfer', to: 'tracker#toggle_transfer', as: :toggle_transfer_tracker_transaction
+    # A value the user states for a row the app could not price, or priced in a way they disagree
+    # with. Blank clears it and hands the row back to our own figure.
+    patch  '/tracker/transactions/:id/value', to: 'tracker#update_value', as: :value_tracker_transaction
     namespace :tracker do
       resource :pick_exchange, only: %i[new create]
       resource :add_api_key, only: %i[new create]
+      # Two steps against one action: `new` opens the dialog, `create` previews, and `create` with a
+      # token commits what was previewed — see Tracker::ImportsController.
+      resource :import, only: %i[new create]
+      # A correction the user accepts: `new` states exactly what would be written, `create` writes
+      # it. Nothing is ever written by looking at the page — see Tracker::ReconciliationsController.
+      resource :reconciliation, only: %i[new create]
     end
 
     resources :rules, only: [:index]

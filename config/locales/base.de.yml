@@ -416,6 +416,11 @@ de:
             instructions_title: 'So erhalten Sie Schlüssel von %{exchange}'
             instructions_body: 'Erstellen Sie einen API-Schlüssel mit Auszahlungsberechtigung auf %{exchange} und fügen Sie die Zugangsdaten hier ein.'
     tracker:
+        value_source:
+            exchange: "Von der Börse gemeldet."
+            ours: "Unser eigener Kurs für diesen Tag. Gib einen Wert ein, um ihn zu ersetzen."
+            stated: "Dein eigener Wert. Leere das Feld, um wieder unseren Kurs zu nutzen."
+            none: "Diese Position konnten wir nicht bewerten. Gib ein, was sie wert war."
         welcome:
             connect_and_track: "Verbinde deine Börse und beginne, dein Portfolio zu tracken."
         sync_key_error_html: 'Synchronisierung mit <strong>%{exchange}</strong> fehlgeschlagen: %{message}. Bitte API-Schlüssel unten aktualisieren.'
@@ -501,11 +506,50 @@ de:
         tax_report:
             failed: 'Der Bericht konnte nicht erstellt werden. Prüfe die ausgewählten Einstellungen und versuche es erneut.'
         holdings: 'Bestände'
+        unrealised: 'Unrealisiert'
+        findings:
+            title: '%{count} Bestände, für die das Buch nicht einstehen kann'
+            entry:
+                acquisition: 'Von dir erfasster Anfangsbestand'
+                disposal: 'Von dir erfasste Korrektur'
+            figures_disagree: 'Diese Zahlen gehen nicht auf (Differenz %{amount}). Etwas fehlt, das die Prüfungen oben nicht erfasst haben.'
+            history_incomplete: '%{symbol}: die Historie ist unvollständig — es ging mehr vom Konto ab als je einging, also sind die Kosten unbekannt.'
+            quantity_disagrees: '%{symbol}: Buch und Börse sind sich über die Menge uneinig, also sind die Kosten unbekannt.'
+            no_history: '%{symbol}: die Börse meldet es, aber es gibt keine Historie dazu.'
+            basis_assumed: '%{symbol}: ein Teil kam ohne Preis an, die Kosten sind eine Schätzung.'
+        tiles:
+            unrealised_pnl: 'Unrealisierter G/V'
+            total_pnl: 'Gesamt-G/V'
+            total_pnl_hint: '%{value} − %{invested}'
+        import:
+            title: 'Import'
+            nothing_new: 'Jede Transaktion aus dieser Datei ist bereits in deiner Historie.'
+            imported: '%{count} Transaktionen importiert.'
+            reading: 'Datei wird gelesen…'
+            error_unknown_timezone: 'Dieser Dateiname nennt die Zeitzone des Binance-Exports nicht mehr. Lade die Datei unter dem Namen hoch, den Binance vergeben hat.'
+            drop: 'CSV hierher ziehen'
+            drop_hint: 'oder klicken, um eine Datei zu wählen'
+            which_account: 'Diese Datei kann von beiden Binance-Konten stammen. Von welchem?'
+            unrouted: 'Kein Konto verbunden für: %{exchanges}. Diese Zeilen wurden ausgelassen.'
+            error_no_account_for_format: 'Für dieses Format ist kein passendes Konto verbunden.'
+            format: 'Format'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Konto'
+            file: 'Datei'
+            importing: 'Wird importiert…'
+            confirm: 'Importieren'
+            skipped: '%{count} Zeilen konnten nicht gespeichert werden.'
+            unrecognised: 'Nicht importiert, unbekannte Vorgänge: %{operations}'
+            error_unreadable: 'Diese Datei hat nicht das gewählte Format.'
+            error_malformed: 'Diese Datei konnte nicht gelesen werden.'
+            error_no_file: 'Wähle zuerst eine Datei.'
+            error_no_account: 'Wähle ein Konto für den Import.'
+            no_account: 'Verbinde zuerst eine Börse — ein Import gehört zu einem Konto.'
         positions: 'Positionen'
         transactions: 'Transaktionen'
         fees_paid: 'Gezahlte Gebühren'
         synced_ago: 'Vor %{ago} synchronisiert'
-        history_partial: 'Einige Tage sind geschätzt – ein Teil der Historie ließ sich nicht bewerten.'
         show_more: 'Mehr anzeigen'
         show_less: 'Weniger anzeigen'
         other: 'Sonstige'
@@ -517,6 +561,7 @@ de:
             win: 'Gewinn'
             loss: 'Verlust'
             closed: 'Geschlossen'
+            cash: 'Barmittel'
         range:
             '30d': '30T'
             '1y': '1J'
@@ -626,6 +671,8 @@ de:
             upgrade_hint: Aktualisiere deinen CoinGecko-Plan oder nutze deltabadger.com für vollständige historische Daten.
             deposit_basis_assumed: Anschaffungskosten für diese nicht verknüpften Einzahlungen zum Marktwert angesetzt
             deposit_basis_assumed_hint: Verknüpfe jede Einzahlung im Tracker mit der passenden Auszahlung, um die tatsächlichen Anschaffungskosten zu verwenden.
+            stated_values: "Von dir selbst angegebene Werte"
+            stated_values_hint: "Diese Beträge stammen von dir, nicht von der Börse. Prüfe sie vor der Abgabe anhand deiner eigenen Unterlagen."
             exchange_sync_failed: 'Daten von %{exchange} könnten fehlen — die letzte Synchronisierung ist fehlgeschlagen. Synchronisiere die Daten im Tracker erneut und erstelle diesen Bericht neu.'
             exchange_never_synced: '%{exchange} wurde noch nie synchronisiert — daher enthält dieser Bericht keine Transaktionen dieser Börse. Synchronisiere sie im Tracker und erstelle den Bericht neu.'
         headers:

@@ -8,6 +8,12 @@
         broken key wears its alarm on its own chip, so a lone venue whose key has stopped working
         keeps the control that says so. %>
     <% broken = @exchanges.any? { |exchange| !@exchanges_with_valid_keys.include?(exchange.id) && !exchange.retired? } %>
+    <%# The + belongs to the venues it adds to, so it rides INSIDE the switch — a glyph stranded at
+        the far end of the row is a control the reader has to guess at. One destination either way:
+        the picker modal, which searches every venue we support and prints its fees. A dropdown of
+        its own would have to open inside the switch's own menu once that folds. %>
+    <% connect = { href: new_tracker_pick_exchange_path, label: t('tracker.connect_exchange'),
+                   icon: 'svg/24x24_plus', data: { turbo_frame: 'modal' } } %>
     <% if @exchanges.many? || broken %>
       <% options = [{ value: 'all', label: t('tracker.filters.all'), active: @scope_exchange.nil?,
                       href: tracker_path(from: params[:from], to: params[:to]) }] %>
@@ -28,29 +34,13 @@
       <% end %>
       <%# Fluid: the option count is the user's exchange list and the labels are venue names, so
           equal columns would give every one of them the width of the longest. %>
-      <%= render 'shared/segmented', fluid: true, label: t('tracker.filters.all'), options: options %>
-    <% end %>
-
-    <%# One affordance either way: the dropdown when there is something to add to, the exchange
-        picker when the user has already connected everything we support. %>
-    <% if @addable_exchanges.any? %>
-      <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="dropdown-wrapper">
-        <div class="rbutton rbutton--icon" aria-label="<%= t('tracker.connect_exchange') %>">
-          <%= render 'svg/24x24_plus' %>
-        </div>
-        <div class="dropdown dropdown--exchanges">
-          <% @addable_exchanges.each do |exchange| %>
-            <%= link_to new_tracker_add_api_key_path(exchange_id: exchange.id), class: 'dropdown__item', data: { turbo_frame: 'modal' } do %>
-              <%= render "svg/exchange-#{exchange.name_id}" %>
-              <%= exchange.name %>
-            <% end %>
-          <% end %>
-        </div>
-      </div>
+      <%= render 'shared/segmented', fluid: true, label: t('tracker.filters.all'),
+                 options: options, action: connect %>
     <% else %>
-      <%= link_to new_tracker_pick_exchange_path, class: 'rbutton rbutton--icon',
-                  data: { turbo_frame: 'modal' }, aria: { label: t('tracker.connect_exchange') } do %>
-        <%= render 'svg/24x24_plus' %>
+      <%# No switch to ride in — one venue is not a scope to choose between — so it stands alone. %>
+      <%= link_to connect[:href], class: 'rbutton rbutton--icon', data: connect[:data],
+                  aria: { label: connect[:label] } do %>
+        <%= render connect[:icon] %>
       <% end %>
     <% end %>
   </div>
@@ -76,6 +66,9 @@
     <%= link_to t('bot.details.stats.download_csv'),
                 export_tracker_path(exchange_id: params[:exchange_id], from: params[:from], to: params[:to]),
                 class: 'rbutton' %>
+    <%# Beside the export, because it reads the same file the export writes — plus the venues' own. %>
+    <%= link_to t('tracker.import.title'), new_tracker_import_path, class: 'rbutton',
+                data: { turbo_frame: 'modal' } %>
     <% if @exchanges.any? %>
       <%= link_to t('tracker.get_report'), export_modal_tracker_path, class: 'rbutton', data: { turbo_frame: 'modal' } %>
     <% end %>

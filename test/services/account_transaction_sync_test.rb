@@ -480,10 +480,17 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_nil alpaca_key.last_sync_error
   end
 
-  test 'the nil tx_id fallback does not swallow rows from another key on the same exchange' do
-    # ApiKey allows one key per (user, exchange, key_type), so a second key on the same exchange is
-    # reachable today; the callers pass arbitrary key ids to the sync, not just trading ones.
-    second_key = create(:api_key, user: @user, exchange: @exchange, key_type: :withdrawal)
+  # This used to assert the opposite: that a second key on one exchange meant a second SUB-ACCOUNT,
+  # so an id-less row had to be scoped to the key that wrote it. Two things undid that premise.
+  #
+  # The schema cannot express it — `ApiKey` is unique per (user, exchange, key_type), so a user
+  # cannot hold two trading keys for two sub-accounts in the first place. And a venue's history now
+  # genuinely accumulates under DIFFERENT keys over time: a key is replaced (its rows are nullified),
+  # rotated, or superseded by a reading key. Key-scoped, each of those made a re-read of the same
+  # history land a second time — a doubled ledger, and every P/L on the page silenced, because a
+  # balance and a ledger that disagree can state nothing.
+  test 'the nil tx_id fallback recognises a row whichever key on the venue wrote it' do
+    second_key = create(:api_key, user: @user, exchange: @exchange, key_type: :read_only)
     entry = {
       entry_type: :staking_reward,
       base_currency: 'ETH',
@@ -504,8 +511,7 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     second_result = AccountTransactionSync.new(second_key).sync!
 
     assert_equal 1, first_result.data
-    assert_equal 1, second_result.data
-    assert_equal [@api_key.id, second_key.id].sort,
-                 AccountTransaction.where(tx_id: nil).pluck(:api_key_id).sort
+    assert_equal 0, second_result.data, 'the same reward, already stored'
+    assert_equal [@api_key.id], AccountTransaction.where(tx_id: nil).pluck(:api_key_id)
   end
 end

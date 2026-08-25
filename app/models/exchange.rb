@@ -430,6 +430,27 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement get_api_key_validity"
   end
 
+  # A reading key is proven by READING. Shared by every venue, and deliberately not overridable per
+  # venue: `exchanges/CLAUDE.md` requires a trade-permission endpoint for a trading key precisely
+  # because a read endpoint would accept any valid key — which is the exact property wanted here.
+  # Nothing a permission bitmap could add is in scope: a key that reads is all the tracker asks for,
+  # and a TRADING key passes this trivially, because trade permission contains read permission.
+  #
+  # `asset_ids: []` makes the authenticated call and skips the balance mapping after it — every
+  # implementation asks the venue first and only then defaults the asset list.
+  #
+  # Only the venue's own words about the key condemn it. A 401 we cannot attribute, a venue that is
+  # down, a proxy hiccup: :incorrect would drop the key from every sync until the user pastes
+  # credentials that were never the problem — see #condemning_invalid_key_error?.
+  def get_read_api_key_validity(api_key:)
+    set_client(api_key: api_key)
+    result = get_balances(asset_ids: [])
+    return Result::Success.new(true) if result.success?
+    return Result::Success.new(false) if condemning_invalid_key_error?(result.errors)
+
+    result
+  end
+
   def fetch_withdrawal_fees!
     raise NotImplementedError, "#{self.class.name} must implement fetch_withdrawal_fees!"
   end

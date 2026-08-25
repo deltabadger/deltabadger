@@ -768,7 +768,7 @@ class MarketData
 
     # The two passes are deliberately sequential: every stale holder must be freed before any
     # rename runs, so they can't be merged into one loop.
-    # rubocop:disable Style/CombinableLoops
+    # rubocop:disable-next Style/CombinableLoops
     Ticker.transaction do
       # Pass 1: free the secondary unique slots. The asset-pair upsert sets base/quote/ticker, which
       # trips the [exchange_id, ticker] OR [exchange_id, base, quote] index if a DIFFERENT asset-pair
@@ -804,7 +804,6 @@ class MarketData
         existing.update_columns(updates) if updates.any?
       end
     end
-    # rubocop:enable Style/CombinableLoops
   end
 
   def self.upsert_asset_attributes(asset_data)

@@ -88,6 +88,9 @@ application.register("form--password-strength", Form__PasswordStrengthController
 import Form__PasswordUnmaskController from "./form/password_unmask_controller"
 application.register("form--password-unmask", Form__PasswordUnmaskController)
 
+import Form__SegmentedFieldController from "./form/segmented_field_controller"
+application.register("form--segmented-field", Form__SegmentedFieldController)
+
 import Form__SelectDisplayController from "./form/select_display_controller"
 application.register("form--select-display", Form__SelectDisplayController)
 

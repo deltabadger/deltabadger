@@ -1,0 +1,48 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <h2 class="modal__title"><%= t('tracker.import.title') %></h2>
+    <%# No account field. The format says where a Binance file came from and our own export says it
+        per row — asking would be a control whose wrong answer files one venue's history under
+        another. %>
+    <%= form_with url: tracker_import_path, method: :post, multipart: true,
+                  data: { turbo_frame: 'modal_content' }, class: 'form' do |f| %>
+      <%# The single-choice control this app already uses everywhere on this page — two formats
+          read as a two-up switch and fold into a menu when the labels outgrow the dialog. It
+          renders buttons, so the hidden field beside it is what the form posts. %>
+      <div class="filters" data-controller="form--segmented-field"
+           data-action="segmented:change->form--segmented-field#set">
+        <%= render 'shared/segmented', fluid: true, label: t('tracker.import.format'),
+                   options: Import::Run::FORMATS.keys.map { |key|
+                     { value: key, label: t("tracker.import.format_#{key}"),
+                       active: key == Import::Run::DEFAULT_FORMAT }
+                   } %>
+        <%= hidden_field_tag :format, Import::Run::DEFAULT_FORMAT,
+                             data: { 'form--segmented-field-target': 'field' } %>
+      </div>
+      <%# A label around the input: clicking anywhere opens the file dialog with no handler of our
+          own, and the input stays in the tab order so the zone is reachable by keyboard. Required is
+          left off deliberately — a hidden input cannot show the browser's own validation bubble, so
+          a missing file is answered by the server instead. %>
+      <label class="dropzone" data-controller="file-picker"
+             data-action="dragover->file-picker#hover dragleave->file-picker#unhover drop->file-picker#drop">
+        <span class="dropzone__idle">
+          <%= render partial: 'svg/24x24_upload' %>
+          <span class="dropzone__prompt"><%= t('tracker.import.drop') %></span>
+          <span class="dropzone__hint"><%= t('tracker.import.drop_hint') %></span>
+        </span>
+        <%# What replaces it the moment a file lands. There is no button to press: choosing the file
+            is the instruction, so the zone goes straight to work and says so. %>
+        <span class="dropzone__busy">
+          <span class="loader--small"></span>
+          <span class="dropzone__prompt"><%= t('tracker.import.reading') %></span>
+          <span class="dropzone__name" data-file-picker-target="name"></span>
+        </span>
+        <%= f.file_field :file, accept: '.csv,text/csv', class: 'dropzone__input',
+                         data: { file_picker_target: 'input', action: 'change->file-picker#submit' } %>
+      </label>
+    <% end %>
+  </div>
+<% end %>

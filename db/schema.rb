@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_24_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_25_060000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -41,6 +41,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_24_140000) do
     t.string "fee_currency"
     t.string "group_id"
     t.integer "linked_transaction_id"
+    t.json "manual_values", default: {}
     t.decimal "quote_amount"
     t.string "quote_currency"
     t.json "raw_data", default: {}

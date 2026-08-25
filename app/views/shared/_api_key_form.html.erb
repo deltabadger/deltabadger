@@ -29,7 +29,7 @@
         <% if local_assigns[:instructions_partial] %>
           <%= render partial: instructions_partial, locals: { exchange: exchange } %>
         <% else %>
-          <%= render_api_key_instructions_for(exchange) %>
+          <%= render_api_key_instructions(api_key) %>
         <% end %>
       </div>
     </div>

@@ -95,15 +95,14 @@ class TrackerHideBalancesTest < ActionDispatch::IntegrationTest
 
     get tracker_path
 
-    headers = css_select('.widget--table--tracker thead th').map { |th| th.text.strip }
-    assert_not_includes headers, I18n.t('tracker.columns.amount')
-    assert_not_includes headers, I18n.t('tracker.columns.quote_amount')
-    assert_not_includes headers, I18n.t('tracker.columns.fee')
-    assert_includes headers, I18n.t('tracker.columns.date')
-    assert_includes headers, I18n.t('tracker.columns.base')
+    assert_not column?('amount')
+    assert_not column?('quote_amount')
+    assert_not column?('fee')
+    assert column?('date')
+    assert column?('base')
     # A price is a market level, not a balance — the bot log keeps it too.
-    assert_includes headers, I18n.t('tracker.columns.price')
-    assert_includes headers, I18n.t('tracker.columns.bot')
+    assert column?('price')
+    assert column?('bot')
   end
 
   test 'the table keeps every column when balances are shown' do
@@ -113,9 +112,14 @@ class TrackerHideBalancesTest < ActionDispatch::IntegrationTest
 
     get tracker_path
 
-    headers = css_select('.widget--table--tracker thead th').map { |th| th.text.strip }
-    assert_includes headers, I18n.t('tracker.columns.amount')
-    assert_includes headers, I18n.t('tracker.columns.quote_amount')
-    assert_includes headers, I18n.t('tracker.columns.fee')
+    assert column?('amount')
+    assert column?('quote_amount')
+    assert column?('fee')
+  end
+  # The money columns name their unit in the header — "Value $" — so a column is matched by the
+  # label it starts with rather than by the whole cell.
+  def column?(key)
+    css_select('.widget--table--tracker thead th')
+      .any? { |th| th.text.strip.start_with?(I18n.t("tracker.columns.#{key}")) }
   end
 end
