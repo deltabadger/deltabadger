@@ -288,4 +288,35 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     PortfolioSnapshot::BackfillJob.perform_now(@user.id)
     assert_not PortfolioSnapshot.for_user(@user).exists?
   end
+
+  # ── the same figure the tile shows ───────────────────────────────────────────────────────
+  test 'a reward is money in on the day it arrives, at what it was worth' do
+    price('ETH', 1, 3_000)
+    price('ETH', 2, 3_100)
+    tx(:staking_reward, day: 1, base_currency: 'ETH', base_amount: 1, quote_currency: nil, quote_amount: nil)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(3)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [3_000.to_d, 3_000.to_d], rows.map(&:invested_usd)
+    assert_equal [3_000.to_d, 3_100.to_d], rows.map(&:value_usd)
+  end
+
+  # Not an average-cost share: the coins that left are the FIFO lots the ledger says left, so the
+  # last day of the history and the tile read one number.
+  test 'a withdrawal takes its FIFO cost out, the same figure the tile shows' do
+    (0..3).each { |day| price('BTC', day, 20_000) } # the chart's price, not the price paid
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 40_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 10_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 30_000)
+    tx(:withdrawal, day: 3, base_currency: 'BTC', base_amount: 1)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(4)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    last = PortfolioSnapshot.for_user(@user).order(:date).last
+    assert_equal 30_000.to_d, last.invested_usd, 'the 10,000 lot left, not half of 40,000'
+    assert_equal Tracker::Ledger.for(@user).total_invested_usd, last.invested_usd
+  end
 end

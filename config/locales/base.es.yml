@@ -521,6 +521,7 @@ es:
             unrealised_pnl: 'P/G no realizada'
             total_pnl: 'P/G total'
             total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} de esto llegó sin una compra detrás: reembolsos, airdrops, recompensas de staking, créditos de polvo, activos sin nada registrado antes.'
         import:
             title: 'Importar'
             nothing_new: 'Todas las transacciones de este archivo ya están en tu historial.'

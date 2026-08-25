@@ -16,9 +16,14 @@
   <% money = ->(amount) { amount ? signed.call(amount) : '—' } %>
   <%# `--six` keeps the widest step at three columns below the point where all six fit on one row. %>
   <div class="widget data-grid data-grid--six">
+    <%# What arrived without a purchase behind it is money in at what it was worth that day — the
+        basis it carries — and the tile says how much, so it is not read as a claim it was all
+        deposited. What each of those rows WAS is the record's business, row by row. %>
+    <% received = figures&.ledger&.received_usd %>
     <%= render partial: 'bots/metrics_item', locals: {
       label: t('bot.details.stats.total_invested'),
       value: figures&.invested && @denomination.format(figures.invested),
+      hint: (t('tracker.tiles.received_hint', received: @denomination.format(received)) if received&.positive?),
       loading: warming
     } %>
     <%= render partial: 'bots/metrics_item', locals: {

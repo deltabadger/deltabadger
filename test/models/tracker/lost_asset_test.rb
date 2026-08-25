@@ -41,12 +41,27 @@ class Tracker::LostAssetTest < ActiveSupport::TestCase
     assert_equal 15_000.to_d, position.cost_usd, 'the basis leaves with the coins'
   end
 
-  # It is not a sale: nothing was received, so nothing was realised. Same treatment the engine
-  # already gives an unlinked withdrawal.
-  test 'nothing is realised by losing something' do
+  # Nothing came back for them, so what they cost is simply gone: a realised loss of exactly the
+  # basis. Money in stays — it was put in — and the loss shows where a loss belongs, so what is
+  # held less what went in still equals what was banked plus what is still riding.
+  test 'losing something realises its basis as a loss' do
     tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
     tx(:lost, day: 5, base_currency: 'BTC', base_amount: 1)
 
-    assert_equal 0.to_d, Tracker::Ledger.for(@user).realised_pnl_usd
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal(-20_000.to_d, summary.realised_pnl_usd)
+    assert_equal 20_000.to_d, summary.total_invested_usd, 'nothing was credited back'
+  end
+
+  # Its proceeds are known exactly — zero — so no chart is needed to state the loss.
+  test 'a lost coin nobody can price is still a complete loss' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:lost, day: 5, base_currency: 'BTC', base_amount: 1)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_not summary.incomplete
+    assert_equal(-20_000.to_d, summary.realised_pnl_usd)
   end
 end

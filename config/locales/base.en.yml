@@ -555,6 +555,7 @@ en:
             unrealised_pnl: 'Unrealised P/L'
             total_pnl: 'Total P/L'
             total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} of this arrived without a purchase behind it: rebates, airdrops, staking rewards, dust credits, assets with nothing recorded before them.'
         import:
             title: 'Import'
             nothing_new: 'Every transaction in this file is already in your history.'

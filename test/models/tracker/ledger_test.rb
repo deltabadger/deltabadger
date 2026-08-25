@@ -105,7 +105,8 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000,
              at: @day.call(1))
     tx(:fee, day: 2, base_currency: 'USDC', base_amount: 78, at: @day.call(2), group_id: 'sale-2')
-    tx(:staking_reward, day: 2, base_currency: 'ETH', base_amount: 1, at: @day.call(2) + 30.minutes)
+    tx(:staking_reward, day: 2, base_currency: 'ETH', base_amount: 1, at: @day.call(2) + 30.minutes,
+                        quote_currency: nil, quote_amount: nil)
     tx(:sell, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 30_000,
               at: @day.call(2) + 1.hour, group_id: 'sale-2')
 
@@ -515,5 +516,41 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
 
     assert_nil Tracker::Ledger.cached(@user)
     assert_equal 1, Tracker::Ledger.cached(@user, exchange: @kraken).positions.size
+  end
+
+  # The chart's history is this same figure read day by day, so it reads these rather than keeping
+  # a second opinion: one term per ledger row, in the ledger's own order, complete or not.
+  test 'money in is exposed row by row, in the ledger\'s own order and terms' do
+    price('ETH', 3, 3_000)
+    tx(:deposit, day: 1, base_currency: 'USD', base_amount: 1_000)
+    tx(:withdrawal, day: 2, base_currency: 'USD', base_amount: 200)
+    tx(:staking_reward, day: 3, base_currency: 'ETH', base_amount: 1, quote_currency: nil, quote_amount: nil)
+    tx(:airdrop, day: 4, base_currency: 'ZZZ', base_amount: 5, quote_currency: nil, quote_amount: nil) # no price
+
+    terms = Tracker::Ledger.money_in(@user)
+
+    assert_equal([[@day.call(1), 1_000.to_d, true], [@day.call(2), -200.to_d, true],
+                  [@day.call(3), 3_000.to_d, true], [@day.call(4), 0.to_d, false]],
+                 terms.map { |term| [term.at, term.amount, term.complete] })
+    assert_equal Tracker::Ledger.for(@user).total_invested_usd, terms.sum(&:amount)
+  end
+
+  # A sweep can overdraw as quietly as a sale: the out-leg of coins never held transfers nothing,
+  # and the credit would otherwise stand as a confident zero-cost position.
+  test 'a swap out of coins never held is an overdraw, and what it bought cannot be vouched for' do
+    price('ETH', 2, 2_000)
+    tx(:swap_out, day: 2, base_currency: 'BTC', base_amount: 1, group_id: 'g')
+    tx(:swap_in, day: 2, base_currency: 'ETH', base_amount: 10, group_id: 'g')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal({ 'BTC' => 1.to_d }, summary.overdrawn)
+    assert summary.positions.sole.incomplete
+  end
+
+  test 'a coin deposited from outside that nobody can price is a term nobody can state in full' do
+    tx(:deposit, day: 1, base_currency: 'ZZZ', base_amount: 5)
+
+    assert_not Tracker::Ledger.money_in(@user).sole.complete
   end
 end

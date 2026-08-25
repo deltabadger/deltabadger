@@ -520,6 +520,7 @@ nl:
             unrealised_pnl: 'Ongerealiseerde W/V'
             total_pnl: 'Totale W/V'
             total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} hiervan kwam binnen zonder aankoop erachter: kortingen, airdrops, staking-beloningen, dust-credits, assets zonder eerdere registratie.'
         import:
             title: 'Importeren'
             nothing_new: 'Elke transactie in dit bestand staat al in je historie.'

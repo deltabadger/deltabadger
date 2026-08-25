@@ -69,6 +69,12 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
 
   # One row per day. Transactions are applied as their day comes round, then the balances standing
   # at the end of it are valued.
+  #
+  # Money in is not worked out here: it is the ledger's figure, read term by term in the ledger's
+  # own order (`Tracker::Ledger.money_in`) and summed up to each day — so the history's last point
+  # and the tile are one number, and there is no second opinion about what a row contributed. The
+  # sweep keeps only what VALUING a day needs: the quantities, and the cash a venue must have had
+  # to pay for what it bought.
   def sweep(first_date)
     balances = Hash.new(0.to_d)
     # Cash per VENUE, beside the balances the day is valued from: dollars at a broker cannot pay for
@@ -77,37 +83,24 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     # opinion about what a row does to cash.
     cash = Hash.new(0.to_d)
     closers = event_closers
-    invested = 0.to_d
-    # An unpriced deposit or withdrawal leaves the money-in figure wrong from that day on, not just
-    # on the day itself.
-    invested_incomplete = false
     pending = @transactions.dup
-
-    # What the holdings COST, beside what there is of them. A coin leaving for an untracked wallet
-    # takes its cost out of "money in" — valuing it at market instead would be a sale's valuation,
-    # and would debit money-in with appreciation nobody contributed.
-    #
-    # ponytail: an average-cost pool, where `Tracker::Ledger` is FIFO. They agree except on a
-    # PARTIAL exit from lots bought at different prices; the day line and the tile can differ by
-    # that much. Upgrade path if it ever shows: walk the day sweep through the same engine.
-    cost = Hash.new(0.to_d)
+    terms = Tracker::Ledger.money_in(@user, exchange: @exchange)
+    invested = 0.to_d
+    # A term nobody could state in full leaves the money-in figure an estimate from that day on.
+    invested_incomplete = false
 
     (first_date..@last_date).map do |date|
       while pending.first && pending.first.transacted_at.to_date <= date
         transaction = pending.shift
-        # Read before the quantities move: a withdrawal's share of the pool is a share of what was
-        # there when it left.
-        delta = contribution(transaction, balances, cost)
         apply(balances, transaction)
-        track_cost(cost, balances, transaction)
         cash_moves(transaction).each { |currency, amount| cash[[transaction.exchange.name_id, currency]] += amount }
-        delta.nil? ? invested_incomplete = true : invested += delta
         venue = closers[transaction.id]
-        next unless venue
-
-        unfunded_on(cash, balances, venue, date).each do |value|
-          value.nil? ? invested_incomplete = true : invested += value
-        end
+        unfunded_on(cash, balances, venue) if venue
+      end
+      while terms.first && terms.first.at.to_date <= date
+        term = terms.shift
+        invested += term.amount
+        invested_incomplete ||= !term.complete
       end
       value, unpriced = value_on(balances, date)
       { user_id: @user.id, date: date, value_usd: value, invested_usd: invested,
@@ -204,72 +197,22 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     [withdrawal.base_amount.to_d - withdrawal.linked_transaction.base_amount.to_d, 0.to_d].max
   end
 
-  # Money in from outside, valued on the day it moved and never revalued after. nil means the day it
-  # landed had no price for it — the figure cannot be stated, so the row says so.
-  def contribution(transaction, balances, cost)
-    direction = case transaction.entry_type.to_sym
-                when :deposit then 1
-                when :withdrawal then -1
-                else return 0.to_d
-                end
-    return 0.to_d if transaction.linked?
+  # Cash the ledger spent without ever seeing it arrive: the coins were bought with money whatever
+  # the venue reported, so the account really did hold it. Added back to both the pot and the
+  # balances, so a sale that returns it lands on a balance of zero rather than paying off a debt
+  # that was never owed — and the day it was spent is valued with it present. What it adds to
+  # money in is the ledger's term for that row, not a figure of this sweep's own.
+  def unfunded_on(cash, balances, venue)
+    return if Tracker::UnfundedCash.lends_cash?(venue)
 
-    symbol = transaction.base_currency
-    amount = transaction.base_amount.to_d
-    date = transaction.transacted_at.to_date
-    return direction * amount if STABLECOINS.include?(symbol)
-    return fiat_value(symbol, amount, date)&.*(direction) if FIAT.include?(symbol)
-    # A coin ARRIVING is counted at the basis it arrives with; a coin LEAVING at the basis it leaves
-    # with. One scale in both directions, so a withdrawal can never remove more than was put in.
-    return -pool_share(cost, balances, symbol, amount) if direction.negative?
-
-    price = @prices.dig(symbol, date)
-    price && (direction * amount * price)
-  end
-
-  # What a slice of a holding cost, at the pool's average.
-  def pool_share(cost, balances, symbol, amount)
-    held = balances[symbol]
-    return 0.to_d unless held&.positive?
-
-    (cost[symbol] * [amount / held, 1.to_d].min).round(12)
-  end
-
-  # The pool follows the quantities: value in on the way in, its own share out on the way out.
-  def track_cost(cost, balances, transaction)
-    symbol = transaction.base_currency
-    return if STABLECOINS.include?(symbol) || FIAT.include?(symbol)
-
-    amount = transaction.base_amount.to_d
-    date = transaction.transacted_at.to_date
-    case transaction.entry_type.to_sym
-    when *ACQUISITIONS, :deposit
-      price = @prices.dig(symbol, date)
-      cost[symbol] += acquired(transaction, amount) * price if price
-    when :sell, :swap_out, :withdrawal, :fee, :lost
-      held = balances[symbol]
-      cost[symbol] = held&.positive? ? cost[symbol] * (held / (held + amount)) : 0.to_d
-    end
-  end
-
-  # Cash the ledger spent without ever seeing it arrive, valued on the day the deficit deepens: the
-  # coins were bought with money whatever the venue reported. nil for a fiat deficit with no rate
-  # that day — the figure cannot be stated, so the row says so.
-  def unfunded_on(cash, balances, venue, date)
-    return [] if Tracker::UnfundedCash.lends_cash?(venue)
-
-    cash.each_with_object([]) do |((exchange, symbol), balance), values|
+    cash.each do |(exchange, symbol), balance|
       next unless exchange == venue
 
       shortfall = Tracker::UnfundedCash.shortfall(symbol, balance)
       next if shortfall.zero?
 
-      # Added back to both, not just booked: the account really did hold that cash, so a sale that
-      # returns it lands on a balance of zero rather than paying off a debt that was never owed —
-      # and the day it was spent is valued with it present.
       cash[[exchange, symbol]] += shortfall
       balances[symbol] += shortfall
-      values << (STABLECOINS.include?(symbol) ? shortfall : fiat_value(symbol, shortfall, date))
     end
   end
 

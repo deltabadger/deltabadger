@@ -521,6 +521,7 @@ fr:
             unrealised_pnl: 'P/P latent'
             total_pnl: 'P/P total'
             total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} de ce montant est arrivé sans achat derrière : remises, airdrops, récompenses de staking, crédits de poussière, actifs sans opération enregistrée avant eux.'
         import:
             title: 'Importer'
             nothing_new: 'Chaque transaction de ce fichier est déjà dans ton historique.'

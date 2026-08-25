@@ -531,6 +531,7 @@ sv:
             unrealised_pnl: 'Orealiserad V/F'
             total_pnl: 'Total V/F'
             total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} av detta kom in utan något köp bakom: rabatter, airdrops, staking-belöningar, dust-krediter, tillgångar utan något registrerat före.'
         import:
             title: 'Importera'
             nothing_new: 'Varje transaktion i filen finns redan i din historik.'
