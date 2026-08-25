@@ -212,4 +212,20 @@ class Tracker::ReconciliationTest < ActiveSupport::TestCase
 
     assert_no_difference('AccountTransaction.count') { propose }
   end
+
+  # Priced as the coin this VENUE means by the symbol.
+  test 'the proposal prices the coin the venue means' do
+    create(:asset, symbol: 'LIT', name: 'Lighter', external_id: 'lighter', category: 'Cryptocurrency', market_cap_rank: 77)
+    tx(:sell, day: 2, base_currency: 'LIT', base_amount: 5, quote_currency: 'USDT', quote_amount: 10)
+    fetched = []
+    MarketData.stubs(:get_historical_price_range).with do |args|
+      fetched << args[:coin_id]
+      true
+    end.returns(Result::Success.new('prices' => []))
+
+    Tracker::Reconciliation.propose(@user, 'LIT')
+
+    assert_includes fetched, 'litentry'
+    assert_not_includes fetched, 'lighter'
+  end
 end
