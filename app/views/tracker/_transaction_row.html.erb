@@ -3,11 +3,11 @@
     set up the page's instance variables. `User#denomination` memoises, so this costs one object. %>
 <% denomination = current_user.denomination %>
 <% asset = tracker_row_asset(at.base_currency) %>
-<%# What the row was worth, and whose figure it is. Our own price is the PLACEHOLDER: it is what the
-    figures are built on, shown rather than hidden, and a typed value replaces it. Clearing the box
-    hands the row back to us. Price is DERIVED from that same worth, so the two money columns are one
-    figure read two ways instead of two calculations that can disagree — and both are written in the
-    reader's own currency, which the header names once. %>
+<%# Amount, Price and Fee are the RECORD, in the venue's own currency per row. Value is the one
+    computed column, and the only one in the reader's own currency, which its header names once:
+    what the row was worth, and whose figure it is. Our own price is the PLACEHOLDER — what the
+    figures are built on, shown rather than hidden — and where the venue gave no price a typed
+    value replaces it; clearing the box hands the row back to us. %>
 <% value, source = tracker_row_value(at, denomination) %>
 <% shown = value&.round(2) %>
 <tr id="<%= dom_id(at) %>" class="tracker-row" data-order-filter-target="row" data-order-type="<%= tracker_row_types(at) %>">
@@ -32,7 +32,7 @@
   </td>
   <td class="text-left"><span class="tracker-row__asset"><% if asset %><%= render 'assets/logo', image_url: asset.image_url, color: asset.color %><% end %><%= at.base_currency %></span></td>
   <% unless hide_money %><td><%= tracker_amount(at.base_amount) %></td><% end %>
-  <td><%= tracker_amount(tracker_row_price(at, value)) || '—' %></td>
+  <td><%= tracker_row_price(at) || '—' %></td>
   <% unless hide_money %>
     <td class="tracker-row__value tracker-row__value--<%= source || 'none' %>">
       <%# A row whose base is money, or whose amount and price the venue gave, states a fact, not a

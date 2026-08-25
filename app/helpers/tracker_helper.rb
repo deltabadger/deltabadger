@@ -169,13 +169,13 @@ module TrackerHelper
     sourced(price&.positive? ? denomination.convert(price.to_d * record.base_amount.to_d) : nil, :ours)
   end
 
-  # What one unit changed hands at, in the column's own unit — derived from the row's worth rather
-  # than computed a second way, so Price times Amount comes to Value by construction. Two adjacent
-  # money columns that do not multiply out is the same broken promise as two disagreeing totals.
-  def tracker_row_price(record, value)
-    return if value.nil? || !record.base_amount.to_d.positive?
+  # What one unit changed hands at, as the VENUE booked it, in the venue's own currency — a fact of
+  # the record, like Amount and Fee, never a figure worked out from a valuation. A row the venue
+  # gave no price for shows none; its worth, if any, is the Value column's business.
+  def tracker_row_price(record)
+    return unless record.venue_valued? && record.base_amount.to_d.positive?
 
-    value / record.base_amount.to_d
+    "#{tracker_amount(record.quote_amount.to_d / record.base_amount.to_d)} #{record.quote_currency}"
   end
 
   # A signed percentage, one decimal — the reading on every P/L cell on the page.
