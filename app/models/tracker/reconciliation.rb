@@ -84,7 +84,7 @@ module Tracker
       def acquisition(user, symbol, quantity)
         first = rows(user, symbol).minimum(:transacted_at)
         on = (first || Time.current) - 1.second
-        price = market_price(symbol, on)
+        price = market_price(symbol, on, reconciling_exchange(user, symbol))
 
         Proposal.new(symbol: symbol, kind: :acquisition, quantity: quantity, on: on,
                      market_price: price, market_cost: price && (price * quantity),
@@ -137,8 +137,9 @@ module Tracker
         earned > bought ? :earned : :bought
       end
 
-      def market_price(symbol, on)
-        price = Tax::PriceService.new.price_at(asset: symbol, currency: 'USD', timestamp: on)
+      # Priced as the coin this VENUE means by the symbol: Binance's LIT is not Kraken's.
+      def market_price(symbol, on, exchange)
+        price = Tax::PriceService.new.price_at(asset: symbol, currency: 'USD', timestamp: on, exchange: exchange)
         price&.positive? ? price : nil
       end
 

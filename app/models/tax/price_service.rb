@@ -419,8 +419,17 @@ module Tax
 
     # The alias is a date's question and costs no query; the catalogue answer is cached per venue.
     def coin_id_for(symbol, exchange, timestamp)
+      exchange = venue(exchange)
       Tax::AssetIdentity.alias_coin(symbol, exchange: exchange, at: timestamp) ||
         (@coin_ids ||= {})[[symbol, exchange&.id]] ||= Tax::AssetIdentity.catalogue_coin(symbol, exchange: exchange)
+    end
+
+    # A venue handed over as a record, or named — an enriched row carries only its `name_id`, and
+    # the engines that value a holding at a date have nothing else to say where it was booked.
+    def venue(exchange)
+      return exchange unless exchange.is_a?(String) || exchange.is_a?(Symbol)
+
+      (@venues ||= {})[exchange.to_s] ||= Exchange.find_by(type: "Exchanges::#{exchange.to_s.camelize}")
     end
 
     def resolve_fiat_value(record, currency)
@@ -526,15 +535,21 @@ module Tax
     # next row on a neighbouring date costs nothing — which is also why this delegates rather than
     # keeping a second, subtly different fetch-and-store of its own.
     def fetch_single_price(asset:, currency:, timestamp:, exchange: nil)
-      coin_id = coin_id_for(asset, exchange, timestamp)
-      return nil unless coin_id
-
       date = timestamp.to_date
       # Anchored on the END, so a recent date whose window would run past today is widened backwards
       # instead of being narrowed under the threshold. Tomorrow has no price and never will.
       to = [date + SINGLE_PRICE_WINDOW, Date.current].min
-      fetch_price_range(coin_id: coin_id, symbol: asset, currency: currency,
-                        from: to - (SINGLE_PRICE_WINDOW * 2), to: to)
+      from = to - (SINGLE_PRICE_WINDOW * 2)
+      # And never across the day a symbol changed coin: the window is clipped to the coin's own
+      # days, or Terra Classic's prices would be stored as LUNA's for days after the relaunch, and
+      # storage being insert-only, the right coin could never replace them. A window cut short by
+      # the boundary behind it runs forward instead, so the archive still sees a span it answers.
+      range, coin_id = Tax::AssetIdentity.coin_ids_over(asset, exchange: venue(exchange), from: from, to: to)
+                                         .find { |days, _| days.cover?(date) }
+      return nil unless coin_id
+
+      last = range.end == to ? [range.begin + (SINGLE_PRICE_WINDOW * 2), Date.current].min : range.end
+      fetch_price_range(coin_id: coin_id, symbol: asset, currency: currency, from: range.begin, to: last)
       @price_cache["#{asset}/#{currency}/#{date}"]&.to_d&.nonzero?
     end
 

@@ -10,7 +10,7 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
     # Buy 1 BTC for 10000 EUR, portfolio grows to 50000
     # Sell 0.5 BTC for 25000 EUR
     # gain = 25000 - (10000 * 25000 / 50000) = 25000 - 5000 = 20000
-    @price_service.stubs(:price_at).with(asset: 'BTC', currency: 'EUR', timestamp: anything).returns(50_000.to_d)
+    @price_service.stubs(:price_at).with(asset: 'BTC', currency: 'EUR', timestamp: anything, exchange: anything).returns(50_000.to_d)
     @price_service.stubs(:convert_fiat).returns(1.to_d)
 
     transactions = [
@@ -38,7 +38,7 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
     # Buy 1 BTC for 10 000 EUR plus a 50 EUR fee, portfolio grows to 50 000.
     # Sell 0.5 BTC for 25 000 EUR.
     # gain = 25 000 - (10 050 * 25 000 / 50 000) = 25 000 - 5 025 = 19 975
-    @price_service.stubs(:price_at).with(asset: 'BTC', currency: 'EUR', timestamp: anything).returns(50_000.to_d)
+    @price_service.stubs(:price_at).with(asset: 'BTC', currency: 'EUR', timestamp: anything, exchange: anything).returns(50_000.to_d)
     @price_service.stubs(:convert_fiat).returns(1.to_d)
 
     transactions = [
@@ -58,10 +58,10 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
 
   test 'cross-asset acquisition fee does not duplicate cost already in the PVCT numerator' do
     @price_service.stubs(:price_at)
-                  .with(asset: 'BTC', currency: 'EUR', timestamp: anything)
+                  .with(asset: 'BTC', currency: 'EUR', timestamp: anything, exchange: anything)
                   .returns(40_000.to_d)
     @price_service.stubs(:price_at)
-                  .with(asset: 'BNB', currency: 'EUR', timestamp: anything)
+                  .with(asset: 'BNB', currency: 'EUR', timestamp: anything, exchange: anything)
                   .returns(100.to_d)
     @price_service.stubs(:convert_fiat).returns(1.to_d)
 
@@ -104,7 +104,7 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
   end
 
   test 'total acquisition cost reduces after each disposal' do
-    @price_service.stubs(:price_at).with(asset: 'BTC', currency: 'EUR', timestamp: anything).returns(20_000.to_d)
+    @price_service.stubs(:price_at).with(asset: 'BTC', currency: 'EUR', timestamp: anything, exchange: anything).returns(20_000.to_d)
 
     transactions = [
       { entry_type: :buy, base_currency: 'BTC', base_amount: 1.to_d,
@@ -161,10 +161,10 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
 
   test 'a zero-priced portfolio holding marks the disposal incomplete' do
     @price_service.stubs(:price_at)
-                  .with(asset: 'BTC', currency: 'EUR', timestamp: anything)
+                  .with(asset: 'BTC', currency: 'EUR', timestamp: anything, exchange: anything)
                   .returns(0.to_d)
     @price_service.stubs(:price_at)
-                  .with(asset: 'ETH', currency: 'EUR', timestamp: anything)
+                  .with(asset: 'ETH', currency: 'EUR', timestamp: anything, exchange: anything)
                   .returns(2_000.to_d)
 
     transactions = [
@@ -337,7 +337,7 @@ class Tax::Methods::PvctTest < ActiveSupport::TestCase
   # is also the numerator of the allocation ratio: (C-f)(1 - A/V), never C - A·C/V - f. PVCT printed
   # the fee in its own column and subtracted it from neither.
   test 'a disposal fee is deducted from the prix de cession, not just from the gain' do
-    @price_service.stubs(:price_at).with(asset: 'BTC', currency: 'EUR', timestamp: anything).returns(50_000.to_d)
+    @price_service.stubs(:price_at).with(asset: 'BTC', currency: 'EUR', timestamp: anything, exchange: anything).returns(50_000.to_d)
     @price_service.stubs(:convert_fiat).returns(1.to_d)
 
     transactions = [

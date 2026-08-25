@@ -7,7 +7,7 @@ class Tax::Methods::WealthSnapshotTest < ActiveSupport::TestCase
   end
 
   test 'builds portfolio snapshot from transactions' do
-    @price_service.stubs(:price_at).with(asset: 'BTC', currency: 'EUR', timestamp: anything).returns(50_000.to_d)
+    @price_service.stubs(:price_at).with(asset: 'BTC', currency: 'EUR', timestamp: anything, exchange: anything).returns(50_000.to_d)
     @price_service.stubs(:convert_fiat).returns(1.to_d)
 
     transactions = [

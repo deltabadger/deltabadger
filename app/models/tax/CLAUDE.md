@@ -122,7 +122,10 @@ VENUE lists under that symbol (`tickers.base_asset`), the coin of that symbol by
 Never a stock for a crypto venue; a stock first for a stock venue. `PriceService` asks per row
 (venue + day) and the backfill asks per span (`coin_ids_over` splits a range at a dated alias).
 Only aliases verified against the provider's coin records go in `ALIASES`; a symbol nobody can
-name a coin for stays unpriced rather than guessed. Prices are still stored by SYMBOL, so two
+name a coin for stays unpriced rather than guessed. Adding an alias means adding a migration that
+clears the dates it speaks for (`20260825200000_refetch_prices_under_their_coin.rb` is the shape):
+storage is insert-only, so a price fetched under the former identity would stand forever. The
+one-day fallback window is clipped at a dated alias for the same reason. Prices are still stored by SYMBOL, so two
 coins sharing a ticker at the same time would share one price row — keying by coin id is the
 upgrade path.
 

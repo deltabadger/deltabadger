@@ -47,4 +47,40 @@ class Tax::PriceServiceIdentityTest < ActiveSupport::TestCase
 
     assert rows.sole[:price_missing], 'unpriced, honestly — not priced as a share of XYZ Inc'
   end
+
+  # The one-day fallback fetches a window around the day, and a window that crossed the day the
+  # symbol changed coin would store one coin's prices under the other's days — for good, since
+  # storage is insert-only.
+  test 'a fallback window never crosses the day a symbol changed coin' do
+    create(:asset, symbol: 'LUNA', name: 'Terra', external_id: 'terra-luna-2', category: 'Cryptocurrency')
+    fetched = []
+    MarketData.stubs(:get_historical_price_range).with do |args|
+      fetched << [args[:coin_id], args[:from].to_date, args[:to].to_date]
+      true
+    end.returns(Result::Success.new('prices' => []))
+    service = Tax::PriceService.new
+
+    service.price_at(asset: 'LUNA', currency: 'USD', timestamp: Time.utc(2022, 5, 20, 12), exchange: @binance)
+    service.price_at(asset: 'LUNA', currency: 'USD', timestamp: Time.utc(2022, 5, 30, 12), exchange: @binance)
+
+    before, after = fetched
+    assert_equal 'terra-luna', before[0]
+    assert_operator before[2], :<=, Date.new(2022, 5, 28), 'Terra Classic stops at the relaunch'
+    assert_equal 'terra-luna-2', after[0]
+    assert_equal Date.new(2022, 5, 28), after[1], 'and the relaunched chain starts there'
+    assert_operator after[2] - after[1], :>=, 120, 'cut short behind, the window runs forward instead'
+  end
+
+  test 'a venue named rather than handed over still means its coin' do
+    create(:asset, symbol: 'LIT', name: 'Lighter', external_id: 'lighter', category: 'Cryptocurrency', market_cap_rank: 77)
+    fetched = []
+    MarketData.stubs(:get_historical_price_range).with do |args|
+      fetched << args[:coin_id]
+      true
+    end.returns(Result::Success.new('prices' => []))
+
+    Tax::PriceService.new.price_at(asset: 'LIT', currency: 'USD', timestamp: Time.utc(2022, 1, 5), exchange: 'binance')
+
+    assert_equal ['litentry'], fetched
+  end
 end
