@@ -187,6 +187,28 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     assert_equal [10_000.to_d] * 5, rows.map(&:invested_usd)
   end
 
+  # The scoped ledger cannot see the far end of a transfer, so it reads the withdrawal as the coin
+  # leaving; the scoped sweep must read it the same way, or the coin stays charted where it is not.
+  test 'scoped to the source venue, the outbound half of a transfer leaves with the whole coin' do
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 10_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 10_000)
+    kraken_key = create(:api_key, user: @user, exchange: create(:kraken_exchange))
+    deposit = create(:account_transaction, api_key: kraken_key, entry_type: :deposit, base_currency: 'BTC', base_amount: 0.99,
+                                           quote_currency: nil, quote_amount: nil, transacted_at: @day.call(3))
+    tx(:withdrawal, day: 2, base_currency: 'BTC', base_amount: 1, linked_transaction: deposit)
+    (0..4).each { |n| price('BTC', n, 10_000) }
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(5)) do
+      PortfolioSnapshot::BackfillJob.perform_now(@user.id, @binance.id)
+
+      rows = PortfolioSnapshot.series(@user, exchange: @binance)
+      assert_equal [10_000, 10_000, 0, 0, 0].map(&:to_d), rows.first(5).map(&:value_usd),
+                   'nothing of the coin stays charted on Binance after it left'
+    end
+  end
+
   test 'fiat cash in another currency is valued through the ECB rate of the day' do
     FxRate.create!(currency: 'USD', date: @d0, rate: 1.25) # 1 EUR = 1.25 USD
     FxRate.create!(currency: 'USD', date: @d0 + 1, rate: 1.20)

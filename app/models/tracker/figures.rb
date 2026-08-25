@@ -53,11 +53,11 @@ module Tracker
       return {} if watermarks.empty?
 
       since = watermarks.values.min
-      transactions.where(transacted_at: since..).each_with_object(Hash.new(0.to_d)) do |tx, moved|
-        taken = watermarks[tx.exchange_id]
-        next if taken.nil? || tx.transacted_at < taken
-
-        Ledger.quantity_moves(quantity_row(tx)).each { |symbol, amount| moved[symbol] += amount unless UnfundedCash.cash?(symbol) }
+      rows = transactions.where(transacted_at: since..).includes(:linked_transaction, :inverse_link).to_a
+                         .select { |tx| (taken = watermarks[tx.exchange_id]) && tx.transacted_at >= taken }
+      pending_ids = rows.to_set(&:id)
+      rows.each_with_object(Hash.new(0.to_d)) do |tx, moved|
+        Ledger.quantity_moves(quantity_row(tx, pending_ids)).each { |symbol, amount| moved[symbol] += amount unless UnfundedCash.cash?(symbol) }
         # Every cash move as the ledger reads it — a cash base net of its own fee, the quote leg, a
         # cash fee — and none from a borrowed wallet, whose cash is not the account's.
         next if UnfundedCash.borrowed?(tx.tx_id)
@@ -68,13 +68,15 @@ module Tracker
       end
     end
 
-    # The row as the ledger walks it: whether it is one end of the user's own transfer, and the
-    # slice of a linked withdrawal that the network kept.
-    def self.quantity_row(transaction)
+    # The row as the ledger walks it. A transfer is linked for what is pending only when BOTH its
+    # legs are: a leg whose far end the balances already hold — or that lies outside the scope —
+    # moves its whole amount, which is what that venue's own snapshot will show.
+    def self.quantity_row(transaction, pending_ids)
       partner = transaction.linked_transaction || transaction.inverse_link
-      fee = transaction.base_amount.to_d - partner.base_amount.to_d if partner && transaction.withdrawal?
+      linked = partner.present? && pending_ids.include?(partner.id)
+      fee = transaction.base_amount.to_d - partner.base_amount.to_d if linked && transaction.withdrawal?
       transaction.slice(:entry_type, :base_currency, :base_amount, :fee_currency, :fee_amount).symbolize_keys
-                 .merge(linked: partner.present?, transfer_fee_amount: fee)
+                 .merge(linked: linked, transfer_fee_amount: fee)
     end
 
     def initialize(user, ledger, balances, pending)
