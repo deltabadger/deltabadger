@@ -52,10 +52,16 @@ module Tracker
       return {} if synced_at.nil?
 
       transactions.where(transacted_at: synced_at..).each_with_object(Hash.new(0.to_d)) do |tx, moved|
-        moved[tx.base_currency] += tx.base_amount.to_d if UnfundedCash::BASE_IN.include?(tx.entry_type)
-        moved[tx.base_currency] -= tx.base_amount.to_d if UnfundedCash::BASE_OUT.include?(tx.entry_type)
+        unless UnfundedCash.cash?(tx.base_currency)
+          moved[tx.base_currency] += tx.base_amount.to_d if UnfundedCash::BASE_IN.include?(tx.entry_type)
+          moved[tx.base_currency] -= tx.base_amount.to_d if UnfundedCash::BASE_OUT.include?(tx.entry_type)
+        end
+        # Every cash move as the ledger reads it — a cash base net of its own fee, the quote leg, a
+        # cash fee — and none from a borrowed wallet, whose cash is not the account's.
+        next if UnfundedCash.borrowed?(tx.tx_id)
+
         UnfundedCash.moves(**tx.slice(*UnfundedCash::MOVE_KEYS).symbolize_keys).each do |currency, amount|
-          moved[currency] += amount unless currency == tx.base_currency
+          moved[currency] += amount
         end
       end
     end
@@ -115,12 +121,28 @@ module Tracker
     # dollar is a dollar wherever it sits, and what the venue holds since the snapshot is brought
     # forward by the cash the rows since then moved.
     def cash_findings(holdings)
-      reported = holdings.sum(0.to_d) { |holding| cash?(holding.asset.symbol) ? holding.value : 0.to_d } +
-                 @pending.sum(0.to_d) { |symbol, amount| cash?(symbol) ? amount : 0.to_d }
+      pending = pending_cash_usd
+      return [] if pending.nil?
+
+      reported = holdings.sum(0.to_d) { |holding| cash?(holding.asset.symbol) ? holding.value : 0.to_d } + pending
       gap = @ledger.cash_usd - reported
       return [] if gap.abs <= [1.to_d, [reported, @ledger.cash_usd].max.abs * TOLERANCE].max
 
       [finding(:cash_disagrees, '', gap)]
+    end
+
+    # The cash moved since the snapshot, in the dollars every other figure is in — a stablecoin at
+    # par, fiat at today's rate. nil when a rate is missing: a comparison that cannot be made is
+    # not made, rather than made in mixed units.
+    def pending_cash_usd
+      @pending.sum(0.to_d) do |symbol, amount|
+        next 0.to_d unless cash?(symbol)
+        next amount if Tax::PriceService::STABLECOINS.include?(symbol)
+
+        amount * Tax::EcbFxRates.rate(from: symbol, to: 'USD', date: Date.current)
+      end
+    rescue Tax::EcbFxRates::MissingRate
+      nil
     end
 
     def gains(holdings) = holdings.filter_map(&:unrealised).sum(0.to_d)

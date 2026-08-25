@@ -170,6 +170,37 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
     assert_empty result.findings
   end
 
+  # A fill in another currency is brought forward in the dollars everything else is in.
+  test 'cash moved since the sync in another currency is brought forward at today\'s rate' do
+    eur = create(:asset, symbol: 'EUR', name: 'Euro')
+    [@day.call(1).to_date, @day.call(4).to_date, Date.current].each do |date|
+      FxRate.create!(currency: 'USD', date: date, rate: 1.25)
+    end
+    tx(:deposit, day: 1, base_currency: 'EUR', base_amount: 1_000)
+    synced_at = @day.call(3)
+    tx(:buy, day: 4, base_currency: 'BTC', base_amount: 0.1, quote_currency: 'EUR', quote_amount: 400)
+    balance(eur, 1_000, 1_250)
+    pending = Tracker::Figures.moved_since(AccountTransaction.for_user(@user), synced_at)
+
+    result = Tracker::Figures.for(@user, ledger: Tracker::Ledger.for(@user),
+                                         balances: AccountBalance.for_user(@user).nonzero.includes(:asset).to_a,
+                                         pending: pending)
+
+    assert_equal(-400.to_d, pending['EUR'])
+    assert_empty result.findings.select { |f| f.kind == :cash_disagrees }, '600 EUR left, at 1.25: 750, as the ledger has it'
+  end
+
+  # A cash row's own fee, and a borrowed wallet's cash, as the ledger reads them.
+  test 'cash moved since the sync is read as the ledger reads it: net of its own fee, and never borrowed' do
+    synced_at = @day.call(3)
+    tx(:deposit, day: 4, base_currency: 'USDC', base_amount: 1_000, fee_currency: 'USDC', fee_amount: 5)
+    tx(:buy, day: 5, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDT', quote_amount: 100, tx_id: 'futures-1')
+
+    pending = Tracker::Figures.moved_since(AccountTransaction.for_user(@user), synced_at)
+
+    assert_equal({ 'USDC' => 995.to_d, 'BTC' => 1.to_d }, pending)
+  end
+
   # ── the backstop ─────────────────────────────────────────────────────────────────────────
   #
   # Every check above names something the VENUE disagrees with. This one checks the ledger's own
