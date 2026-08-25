@@ -517,17 +517,6 @@ sv:
             failed: 'Rapporten kunde inte genereras. Kontrollera de valda inställningarna och försök igen.'
         holdings: 'Innehav'
         unrealised: 'Orealiserad'
-        findings:
-            title: '%{count} innehav som liggaren inte kan gå i god för'
-            entry:
-                acquisition: 'Ingående saldo du registrerat'
-                disposal: 'Rättelse du registrerat'
-            figures_disagree: 'Dessa siffror går inte ihop (skillnad på %{amount}). Något saknas som kontrollerna ovan inte fångade.'
-            cash_disagrees: 'Kontanter: liggaren och börsen skiljer sig med %{amount} om hur mycket som hålls.'
-            history_incomplete: '%{symbol}: historiken är ofullständig — mer lämnade kontot än som någonsin kom in, så kostnaden är okänd.'
-            quantity_disagrees: '%{symbol}: liggaren och börsen är oense om mängden, så kostnaden är okänd.'
-            no_history: '%{symbol}: börsen rapporterar det, men ingen historik ligger bakom.'
-            basis_assumed: '%{symbol}: en del kom in utan pris, så kostnaden är en uppskattning.'
         tiles:
             unrealised_pnl: 'Orealiserad V/F'
             total_pnl: 'Total V/F'
@@ -566,6 +555,18 @@ sv:
         show_less: 'Visa färre'
         other: 'Övrigt'
         basis_incomplete: 'Inget anskaffningsvärde för det här innehavet, så vi visar ingen vinst eller förlust.'
+        notes:
+            left: '%{exchange} rapporterar %{held} %{symbol}; historiken förklarar %{history}. Skillnaden antas ha lämnat till anskaffningsvärde (%{amount}).'
+            arrived: '%{exchange} rapporterar %{held} %{symbol}; historiken förklarar %{history}. Skillnaden antas ha kommit in till sitt pris (%{amount}).'
+            since_sync: '%{symbol} köpt sedan senaste synkningen: värderat till anskaffningsvärde (%{amount}) tills nästa.'
+            cash_out: 'Historiken håller %{history} %{symbol}; %{exchange} rapporterar %{held}. Skillnaden (%{amount}) antas ha förts ut.'
+            cash_in: 'Historiken håller %{history} %{symbol}; %{exchange} rapporterar %{held}. Skillnaden (%{amount}) antas ha förts in.'
+            unpriced_held: '%{history} %{symbol} kom in utan pris som gick att hitta; tas upp till noll i anskaffningsvärde (värt %{amount} idag).'
+            unpriced: '%{amount} såldes ur tillgångar utan känt pris; deras anskaffningsvärde antas vara noll.'
+            at_par: 'Ingen kurs för %{symbol} idag; tas upp till pari.'
+            figures_disagree: 'Dessa siffror går inte ihop (avvikelse %{amount}). Något är fel som inget antagande förutsåg.'
+            your_exchanges: 'Börsen'
+            estimated: '%{symbol}: en del av anskaffningsvärdet är marknadspriset den dag det kom in, inte ett avslut.'
         record:
             all: 'Alla'
             transfer: 'Överföring'

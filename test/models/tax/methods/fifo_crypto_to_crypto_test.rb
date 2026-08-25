@@ -339,4 +339,26 @@ class Tax::Methods::FifoCryptoToCryptoTest < ActiveSupport::TestCase
     assert_equal [OLD, 100.to_d], disposals.sole.values_at(:acquisition_date, :cost_basis),
                  'the ADA-dated lot is the older one, whatever order the lots were opened in'
   end
+
+  # ── units nobody could price ──────────────────────────────────────────────────────────────
+  #
+  # A lot that opened at a price nobody had is taken at zero cost, and the page says so — which
+  # needs the UNITS to travel: through the tranche a swap hands over, into the lot it opens, and
+  # out again with the disposal that consumes them, with that disposal's proceeds attributed to
+  # them in proportion. A whole disposal's proceeds for a partly unpriced lot would overstate it.
+  test 'unpriced units travel through a swap and into the disposal that consumes them' do
+    disposals = @fifo.calculate([
+                                  row(:airdrop, 'ZZZ', 10, 0, at: T1, price_missing: true),
+                                  row(:buy, 'ZZZ', 10, 100, at: T1 + 1),
+                                  row(:swap_out, 'ZZZ', 20, 250, at: T2, group: 'g'),
+                                  row(:swap_in, 'BNB', 2, 250, at: T2, group: 'g'),
+                                  row(:sell, 'BNB', 1.5, 450, at: T3, quote_currency: 'EUR')
+                                ], crypto_to_crypto_taxable: false)
+
+    sale = disposals.sole
+    assert_equal 1.to_d, sale[:unpriced_quantity], 'the first BNB came wholly from the airdrop, the next half from the purchase'
+    assert_equal 300.to_d, sale[:unpriced_proceeds], 'two thirds of the sale, in proportion'
+    assert_equal(0.5.to_d, @fifo.lots['BNB'].sum { |lot| lot[:amount] })
+    assert_equal 0.to_d, @fifo.lots['BNB'].sum { |lot| lot[:unpriced] }, 'what is left is the priced half'
+  end
 end

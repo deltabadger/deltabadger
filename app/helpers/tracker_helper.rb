@@ -124,18 +124,27 @@ module TrackerHelper
   # the case that made it visible: it is a balance, so the card lists it, and the ledger keeps no
   # position for it because it has no cost and no gain, so the table did not.
   #
-  # A coin the venue has STOPPED reporting is still a row: that row is exactly what a finding is
-  # about, so it cannot be the one thing that quietly disappears.
+  # A coin the venue has STOPPED reporting is not a row: it left at cost, and the note under the
+  # holdings says so.
   def tracker_position_rows(figures)
     return [] unless figures&.ledger
 
-    positions = figures.ledger.positions.index_by(&:symbol)
-    held = figures.holdings.map { |holding| held_row(holding, positions[holding.asset.symbol]) }
-    reported = figures.holdings.to_set { |holding| holding.asset.symbol }
-    vanished = positions.except(*reported).values.map { |position| open_position_row(position, nil) }
+    @tracker_positions = figures.ledger.positions.index_by(&:symbol)
+    held = figures.holdings.map { |holding| held_row(holding, @tracker_positions[holding.asset.symbol]) }
 
-    (held + vanished + figures.ledger.round_trips.map { |trip| round_trip_row(trip) })
+    (held + figures.ledger.round_trips.map { |trip| round_trip_row(trip) })
       .sort_by { |row| row[:opened] || Time.at(0) }.reverse
+  end
+
+  # An assumption, in words: the exchange's name (or "your exchanges"), both quantities, and what
+  # it moved — masked when balances are hidden, since that amount is money.
+  def tracker_note(note)
+    hidden = current_user.hide_balances?
+    # A cash note's quantities are money too.
+    quantity = ->(units) { hidden && money?(note.symbol) ? '•••' : tracker_amount(units) }
+    t("tracker.notes.#{note.kind}", symbol: note.symbol, exchange: note.exchange || t('tracker.notes.your_exchanges'),
+                                    history: quantity.call(note.history), held: quantity.call(note.held),
+                                    amount: hidden ? '•••' : @denomination.format(note.amount_usd))
   end
 
   # What a row was worth, and WHOSE figure that is. Three answers and a silence:
@@ -365,8 +374,8 @@ module TrackerHelper
 
   # Cash is stated as cash rather than dressed up as a position with nothing in its columns: it has
   # no cost to divide by and no gain to report, and saying so is shorter than five empty cells.
-  def held_row(holding, position)
-    return open_position_row(position, holding) if position
+  def held_row(holding, _position)
+    return open_position_row(holding) if holding.cost
 
     { status: 'cash', symbol: holding.asset.symbol, asset: holding.asset,
       opened: nil, closed: nil, invested: nil, avg_buy: nil,
@@ -374,16 +383,16 @@ module TrackerHelper
       percent: nil, cash: nil }
   end
 
-  # The holding is `Tracker::Figures`' own, so the row marks the position at the same value, with
-  # the same verdict, as the tiles and the card. It used to reconcile again here, on its own terms.
-  def open_position_row(position, holding)
-    quantity = holding ? holding.quantity : position.quantity
-    percent = holding&.percent
-    { status: 'open', symbol: position.symbol, asset: position.asset, opened: position.opened_at, closed: nil,
-      invested: position.cost_usd, avg_buy: position.avg_cost_usd,
-      price: (holding && quantity.positive? ? holding.value / quantity : nil),
-      percent: percent,
-      cash: percent && holding.unrealised }
+  # The holding is `Tracker::Figures`' own — resolved against the balance, cost at what is held —
+  # so the row marks the position at the same value, with the same assumptions, as the tiles and
+  # the card. It used to reconcile again here, on its own terms.
+  def open_position_row(holding)
+    position = @tracker_positions&.dig(holding.asset.symbol)
+    { status: 'open', symbol: holding.asset.symbol, asset: holding.asset, opened: position&.opened_at, closed: nil,
+      invested: holding.cost, avg_buy: (holding.quantity.positive? ? holding.cost / holding.quantity : nil),
+      price: (holding.quantity.positive? ? holding.value / holding.quantity : nil),
+      percent: holding.percent,
+      cash: holding.unrealised }
   end
 
   # A trip whose basis was assumed anywhere along the way is CLOSED and nothing more: calling it a

@@ -507,17 +507,6 @@ de:
             failed: 'Der Bericht konnte nicht erstellt werden. Prüfe die ausgewählten Einstellungen und versuche es erneut.'
         holdings: 'Bestände'
         unrealised: 'Unrealisiert'
-        findings:
-            title: '%{count} Bestände, für die das Buch nicht einstehen kann'
-            entry:
-                acquisition: 'Von dir erfasster Anfangsbestand'
-                disposal: 'Von dir erfasste Korrektur'
-            figures_disagree: 'Diese Zahlen gehen nicht auf (Differenz %{amount}). Etwas fehlt, das die Prüfungen oben nicht erfasst haben.'
-            cash_disagrees: 'Cash: Ledger und Börse weichen um %{amount} darin ab, wie viel gehalten wird.'
-            history_incomplete: '%{symbol}: die Historie ist unvollständig — es ging mehr vom Konto ab als je einging, also sind die Kosten unbekannt.'
-            quantity_disagrees: '%{symbol}: Buch und Börse sind sich über die Menge uneinig, also sind die Kosten unbekannt.'
-            no_history: '%{symbol}: die Börse meldet es, aber es gibt keine Historie dazu.'
-            basis_assumed: '%{symbol}: ein Teil kam ohne Preis an, die Kosten sind eine Schätzung.'
         tiles:
             unrealised_pnl: 'Unrealisierter G/V'
             total_pnl: 'Gesamt-G/V'
@@ -556,6 +545,18 @@ de:
         show_less: 'Weniger anzeigen'
         other: 'Sonstige'
         basis_incomplete: 'Für diesen Bestand fehlen die Anschaffungskosten, daher wird kein G/V angezeigt.'
+        notes:
+            left: '%{exchange} meldet %{held} %{symbol}; die Historie erklärt %{history}. Die Differenz gilt als zum Einstandswert abgegangen (%{amount}).'
+            arrived: '%{exchange} meldet %{held} %{symbol}; die Historie erklärt %{history}. Die Differenz gilt als zum Kurs zugegangen (%{amount}).'
+            since_sync: '%{symbol} seit der letzten Synchronisierung gekauft: bis zur nächsten zum Einstandswert bewertet (%{amount}).'
+            cash_out: 'Die Historie hält %{history} %{symbol}; %{exchange} meldet %{held}. Die Differenz (%{amount}) gilt als abgeflossen.'
+            cash_in: 'Die Historie hält %{history} %{symbol}; %{exchange} meldet %{held}. Die Differenz (%{amount}) gilt als zugeflossen.'
+            unpriced_held: '%{history} %{symbol} kamen ohne auffindbaren Kurs an; mit null Einstandswert angesetzt (heute %{amount} wert).'
+            unpriced: '%{amount} wurden aus Beständen ohne auffindbaren Kurs verkauft; ihr Einstandswert gilt als null.'
+            at_par: 'Kein Kurs für %{symbol} heute; zu pari angesetzt.'
+            figures_disagree: 'Diese Zahlen gehen nicht auf (Abweichung %{amount}). Etwas stimmt nicht, was keine Annahme vorhergesehen hat.'
+            your_exchanges: 'Die Börse'
+            estimated: '%{symbol}: ein Teil der Anschaffungskosten ist der Marktpreis des Eingangstags, keine Ausführung.'
         record:
             all: 'Alle'
             transfer: 'Transfer'

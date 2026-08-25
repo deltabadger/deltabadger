@@ -415,14 +415,18 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     assert_equal 30_000.to_d, summary.realised_pnl_usd, 'FIFO: 50,000 proceeds less the 20,000 it could match'
   end
 
-  test 'a sale with no basis is booked the way FIFO books it, marks the summary incomplete and is not a round-trip' do
+  # The coins sold must have been held before the history begins; with no price for that day the
+  # opening is taken at zero cost, the sale closes it as a round-trip nobody can price, and the
+  # summary says it is incomplete — a figure nobody could state, not one merely estimated.
+  test 'a sale out of nothing sells what must have been held, at nothing when nobody can price it' do
     tx(:sell, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 25_000)
 
     summary = Tracker::Ledger.for(@user)
 
-    assert_empty summary.round_trips, 'nothing was opened, so nothing closed'
+    assert_equal({ 'BTC' => 1.to_d }, summary.openings)
+    assert summary.round_trips.sole.incomplete
     assert_empty summary.positions
-    assert_equal 25_000.to_d, summary.realised_pnl_usd, 'zero basis — the tax engine\'s number, flagged'
+    assert_equal 25_000.to_d, summary.realised_pnl_usd, 'zero basis — the tax engine\'s number, noted'
     assert summary.incomplete
   end
 
@@ -544,8 +548,8 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
 
     summary = Tracker::Ledger.for(@user)
 
-    assert_equal({ 'BTC' => 1.to_d }, summary.overdrawn)
-    assert summary.positions.sole.incomplete
+    assert_equal({ 'BTC' => 1.to_d }, summary.openings, 'the BTC must have been held before the sweep')
+    assert summary.positions.sole.incomplete, 'the ETH cost is an estimate: the BTC it came from was priced from a chart, or from nothing'
   end
 
   test 'a coin deposited from outside that nobody can price is a term nobody can state in full' do

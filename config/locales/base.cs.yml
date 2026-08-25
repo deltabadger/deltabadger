@@ -525,17 +525,6 @@ cs:
             failed: 'Přehled se nepodařilo vygenerovat. Zkontrolujte vybraná nastavení a zkuste to znovu.'
         holdings: 'Držená aktiva'
         unrealised: 'Nerealizovaný'
-        findings:
-            title: '%{count} pozic, za které kniha neručí'
-            entry:
-                acquisition: 'Počáteční zůstatek, který jsi zadal'
-                disposal: 'Oprava, kterou jsi zadal'
-            figures_disagree: 'Tato čísla nesedí (rozdíl %{amount}). Něco chybí, co výše uvedené kontroly nezachytily.'
-            cash_disagrees: 'Hotovost: kniha a burza se liší o %{amount} v tom, kolik je drženo.'
-            history_incomplete: '%{symbol}: historie je neúplná — odešlo víc, než kdy přišlo, takže náklad není znám.'
-            quantity_disagrees: '%{symbol}: kniha a burza se neshodnou na množství, takže náklad není znám.'
-            no_history: '%{symbol}: burza to hlásí, ale žádná historie za tím není.'
-            basis_assumed: '%{symbol}: část přišla bez ceny, takže náklad je odhad.'
         tiles:
             unrealised_pnl: 'Nerealizovaný Z/Z'
             total_pnl: 'Celkový Z/Z'
@@ -574,6 +563,18 @@ cs:
         show_less: 'Zobrazit méně'
         other: 'Ostatní'
         basis_incomplete: 'U tohoto aktiva chybí pořizovací cena, proto zisk ani ztrátu nezobrazujeme.'
+        notes:
+            left: '%{exchange} hlásí %{held} %{symbol}; historie vysvětluje %{history}. Rozdíl se považuje za odešlý za pořizovací cenu (%{amount}).'
+            arrived: '%{exchange} hlásí %{held} %{symbol}; historie vysvětluje %{history}. Rozdíl se považuje za příchozí za jeho cenu (%{amount}).'
+            since_sync: '%{symbol} koupeno od poslední synchronizace: oceněno pořizovací cenou (%{amount}) do té příští.'
+            cash_out: 'Historie drží %{history} %{symbol}; %{exchange} hlásí %{held}. Rozdíl (%{amount}) se považuje za odvedený.'
+            cash_in: 'Historie drží %{history} %{symbol}; %{exchange} hlásí %{held}. Rozdíl (%{amount}) se považuje za přivedený.'
+            unpriced_held: '%{history} %{symbol} přišlo bez dohledatelné ceny; oceněno nulovou pořizovací cenou (dnes v hodnotě %{amount}).'
+            unpriced: '%{amount} bylo prodáno z aktiv bez známé ceny; jejich pořizovací cena se považuje za nulovou.'
+            at_par: 'Pro %{symbol} dnes není kurz; bráno v paritě.'
+            figures_disagree: 'Tato čísla nesedí (odchylka %{amount}). Něco je špatně, co žádný předpoklad nepředvídal.'
+            your_exchanges: 'Burza'
+            estimated: '%{symbol}: část pořizovací ceny je tržní cena dne příchodu, nikoli realizovaný obchod.'
         record:
             all: 'Vše'
             transfer: 'Převod'

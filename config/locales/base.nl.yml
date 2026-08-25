@@ -506,17 +506,6 @@ nl:
             failed: 'Het rapport kon niet worden gegenereerd. Controleer de geselecteerde instellingen en probeer het opnieuw.'
         holdings: 'Bezit'
         unrealised: 'Ongerealiseerd'
-        findings:
-            title: '%{count} posities waarvoor het grootboek niet kan instaan'
-            entry:
-                acquisition: 'Beginsaldo dat je hebt vastgelegd'
-                disposal: 'Correctie die je hebt vastgelegd'
-            figures_disagree: 'Deze cijfers kloppen niet (verschil van %{amount}). Er ontbreekt iets dat de controles hierboven niet zagen.'
-            cash_disagrees: 'Cash: het grootboek en de exchange verschillen %{amount} over hoeveel er is.'
-            history_incomplete: '%{symbol}: de historie is onvolledig — er ging meer af dan er ooit op kwam, dus de kostprijs is onbekend.'
-            quantity_disagrees: '%{symbol}: grootboek en exchange zijn het oneens over de hoeveelheid, dus de kostprijs is onbekend.'
-            no_history: '%{symbol}: de exchange meldt het, maar er is geen historie achter.'
-            basis_assumed: '%{symbol}: een deel kwam binnen zonder prijs, dus de kostprijs is een schatting.'
         tiles:
             unrealised_pnl: 'Ongerealiseerde W/V'
             total_pnl: 'Totale W/V'
@@ -555,6 +544,18 @@ nl:
         show_less: 'Minder tonen'
         other: 'Overig'
         basis_incomplete: 'Geen kostprijs voor dit bezit, dus we tonen geen winst/verlies.'
+        notes:
+            left: '%{exchange} meldt %{held} %{symbol}; de geschiedenis verklaart %{history}. Het verschil geldt als vertrokken tegen kostprijs (%{amount}).'
+            arrived: '%{exchange} meldt %{held} %{symbol}; de geschiedenis verklaart %{history}. Het verschil geldt als binnengekomen tegen zijn prijs (%{amount}).'
+            since_sync: '%{symbol} gekocht sinds de laatste synchronisatie: gewaardeerd tegen kostprijs (%{amount}) tot de volgende.'
+            cash_out: 'De geschiedenis houdt %{history} %{symbol}; %{exchange} meldt %{held}. Het verschil (%{amount}) geldt als uitgegaan.'
+            cash_in: 'De geschiedenis houdt %{history} %{symbol}; %{exchange} meldt %{held}. Het verschil (%{amount}) geldt als binnengekomen.'
+            unpriced_held: '%{history} %{symbol} kwam binnen zonder vindbare prijs; op kostprijs nul gezet (vandaag %{amount} waard).'
+            unpriced: '%{amount} is verkocht uit assets zonder vindbare prijs; hun kostprijs geldt als nul.'
+            at_par: 'Geen koers voor %{symbol} vandaag; op pari gezet.'
+            figures_disagree: 'Deze cijfers kloppen niet (afwijking %{amount}). Er is iets mis dat geen aanname voorzag.'
+            your_exchanges: 'De exchange'
+            estimated: '%{symbol}: een deel van de kostprijs is de marktprijs van de dag van binnenkomst, geen uitvoering.'
         record:
             all: 'Alle'
             transfer: 'Overboeking'

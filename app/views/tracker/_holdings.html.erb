@@ -69,4 +69,14 @@
       <%= t('tracker.portfolio.unpriced', assets: @portfolio_unpriced_assets.map(&:symbol).join(', ')) %>
     </p>
   <% end %>
+  <%# Assumptions about what is not on the list: a coin the exchange no longer holds, cash, coins
+      nobody could price, and the arithmetic backstop. In gray, in words, nothing to click. %>
+  <% asides = (@figures&.notes || []) - holdings.filter_map(&:note) %>
+  <% if asides.any? %>
+    <ul class="tracker-holdings__notes">
+      <% asides.each do |note| %>
+        <li class="tracker-holdings__note"><%= tracker_note(note) %></li>
+      <% end %>
+    </ul>
+  <% end %>
 </div>

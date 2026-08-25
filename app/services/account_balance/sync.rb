@@ -100,6 +100,8 @@ class AccountBalance::Sync
     AccountBalance.where(user_id: @user.id, exchange_id: @exchange.id)
                   .where.not(asset_id: upserted_asset_ids)
                   .delete_all
+    # The venue's watermark lives on the key: the rows above may all be gone after an empty sync.
+    @api_key.update_column(:balances_synced_at, synced_at)
 
     Result::Success.new(Summary.new(
                           synced: upserted_asset_ids.size,

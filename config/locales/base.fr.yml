@@ -507,17 +507,6 @@ fr:
             failed: 'Le rapport n’a pas pu être généré. Vérifiez les paramètres sélectionnés et réessayez.'
         holdings: 'Avoirs'
         unrealised: 'Latent'
-        findings:
-            title: '%{count} avoirs que le registre ne peut pas garantir'
-            entry:
-                acquisition: 'Solde d’ouverture que tu as saisi'
-                disposal: 'Correction que tu as saisie'
-            figures_disagree: 'Ces chiffres ne tombent pas juste (écart de %{amount}). Il manque quelque chose que les contrôles ci-dessus n’ont pas vu.'
-            cash_disagrees: 'Liquidités : le registre et la plateforme diffèrent de %{amount} sur le montant détenu.'
-            history_incomplete: '%{symbol} : l’historique est incomplet — il est sorti plus qu’il n’est jamais entré, le coût est donc inconnu.'
-            quantity_disagrees: '%{symbol} : le registre et la plateforme ne s’accordent pas sur la quantité, le coût est donc inconnu.'
-            no_history: '%{symbol} : la plateforme le déclare, mais aucun historique ne le sous-tend.'
-            basis_assumed: '%{symbol} : une partie est arrivée sans prix, le coût est une estimation.'
         tiles:
             unrealised_pnl: 'P/P latent'
             total_pnl: 'P/P total'
@@ -556,6 +545,18 @@ fr:
         show_less: 'Afficher moins'
         other: 'Autres'
         basis_incomplete: "Aucun prix de revient pour cet avoir : la performance n'est pas affichée."
+        notes:
+            left: '%{exchange} déclare %{held} %{symbol} ; l''historique en explique %{history}. La différence est réputée sortie au coût (%{amount}).'
+            arrived: '%{exchange} déclare %{held} %{symbol} ; l''historique en explique %{history}. La différence est réputée entrée à son prix (%{amount}).'
+            since_sync: '%{symbol} acheté depuis la dernière synchronisation : valorisé au coût (%{amount}) jusqu''à la prochaine.'
+            cash_out: 'L''historique détient %{history} %{symbol} ; %{exchange} déclare %{held}. La différence (%{amount}) est réputée sortie.'
+            cash_in: 'L''historique détient %{history} %{symbol} ; %{exchange} déclare %{held}. La différence (%{amount}) est réputée entrée.'
+            unpriced_held: '%{history} %{symbol} sont arrivés sans prix trouvable ; retenus à coût nul (valant %{amount} aujourd''hui).'
+            unpriced: '%{amount} ont été vendus à partir d''actifs sans prix trouvable ; leur coût est retenu à zéro.'
+            at_par: 'Pas de taux pour %{symbol} aujourd''hui ; retenu au pair.'
+            figures_disagree: 'Ces chiffres ne concordent pas (écart de %{amount}). Quelque chose cloche qu''aucune hypothèse n''avait prévu.'
+            your_exchanges: 'La plateforme'
+            estimated: '%{symbol} : une partie de son coût est le prix du marché du jour d''arrivée, pas une exécution.'
         record:
             all: 'Tous'
             transfer: 'Transfert'

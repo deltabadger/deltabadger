@@ -525,17 +525,6 @@ sk:
             failed: 'Prehľad sa nepodarilo vygenerovať. Skontrolujte vybrané nastavenia a skúste to znova.'
         holdings: 'Držané aktíva'
         unrealised: 'Nerealizovaný'
-        findings:
-            title: '%{count} pozícií, za ktoré kniha neručí'
-            entry:
-                acquisition: 'Počiatočný zostatok, ktorý si zadal'
-                disposal: 'Oprava, ktorú si zadal'
-            figures_disagree: 'Tieto čísla nesedia (rozdiel %{amount}). Niečo chýba, čo vyššie uvedené kontroly nezachytili.'
-            cash_disagrees: 'Hotovosť: kniha a burza sa líšia o %{amount} v tom, koľko sa drží.'
-            history_incomplete: '%{symbol}: história je neúplná — odišlo viac, než kedy prišlo, takže náklad nie je známy.'
-            quantity_disagrees: '%{symbol}: kniha a burza sa nezhodnú na množstve, takže náklad nie je známy.'
-            no_history: '%{symbol}: burza to hlási, ale žiadna história za tým nie je.'
-            basis_assumed: '%{symbol}: časť prišla bez ceny, takže náklad je odhad.'
         tiles:
             unrealised_pnl: 'Nerealizovaný Z/S'
             total_pnl: 'Celkový Z/S'
@@ -574,6 +563,18 @@ sk:
         show_less: 'Zobraziť menej'
         other: 'Ostatné'
         basis_incomplete: 'Pri tomto aktíve chýba obstarávacia cena, preto zisk ani stratu nezobrazujeme.'
+        notes:
+            left: '%{exchange} hlási %{held} %{symbol}; história vysvetľuje %{history}. Rozdiel sa považuje za odídený za obstarávaciu cenu (%{amount}).'
+            arrived: '%{exchange} hlási %{held} %{symbol}; história vysvetľuje %{history}. Rozdiel sa považuje za prijatý za jeho cenu (%{amount}).'
+            since_sync: '%{symbol} kúpené od poslednej synchronizácie: ocenené obstarávacou cenou (%{amount}) do tej ďalšej.'
+            cash_out: 'História drží %{history} %{symbol}; %{exchange} hlási %{held}. Rozdiel (%{amount}) sa považuje za odvedený.'
+            cash_in: 'História drží %{history} %{symbol}; %{exchange} hlási %{held}. Rozdiel (%{amount}) sa považuje za privedený.'
+            unpriced_held: '%{history} %{symbol} prišlo bez dohľadateľnej ceny; ocenené nulovou obstarávacou cenou (dnes v hodnote %{amount}).'
+            unpriced: '%{amount} sa predalo z aktív bez známej ceny; ich obstarávacia cena sa považuje za nulovú.'
+            at_par: 'Pre %{symbol} dnes nie je kurz; brané v parite.'
+            figures_disagree: 'Tieto čísla nesedia (odchýlka %{amount}). Niečo je zle, čo žiadny predpoklad nepredvídal.'
+            your_exchanges: 'Burza'
+            estimated: '%{symbol}: časť obstarávacej ceny je trhová cena dňa príchodu, nie realizovaný obchod.'
         record:
             all: 'Všetko'
             transfer: 'Prevod'

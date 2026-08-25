@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_25_200000) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_26_090000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -130,6 +130,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_25_200000) do
 
   create_table "api_keys", force: :cascade do |t|
     t.text "access_token"
+    t.datetime "balances_synced_at"
     t.datetime "created_at", precision: nil, null: false
     t.text "dh_param"
     t.bigint "exchange_id", null: false

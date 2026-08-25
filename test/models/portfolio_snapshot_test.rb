@@ -34,7 +34,9 @@ class PortfolioSnapshotTest < ActiveSupport::TestCase
       row = PortfolioSnapshot.for_user(@user).sole
       assert_equal Date.new(2026, 8, 23), row.date
       assert_equal 80_000.to_d, row.value_usd
-      assert_equal 30_000.to_d, row.invested_usd, 'a cold ledger is computed here — this runs inside the sync job, never in a request'
+      # 30,000 deposited; the exchange holds 1.5 BTC and 10 ETH with no history behind them, taken as
+      # arrived at their price (+80,000); it holds none of the 30,000, taken as moved out (−30,000).
+      assert_equal 80_000.to_d, row.invested_usd, 'a cold ledger is computed here — this runs inside the sync job, never in a request'
       assert_not row.partial
 
       AccountBalance.find_by(asset: @eth).update!(usd_value: 25_000)
