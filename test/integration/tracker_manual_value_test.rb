@@ -41,6 +41,29 @@ class TrackerManualValueTest < ActionDispatch::IntegrationTest
     assert_equal '20,000.00', cell.text.strip
   end
 
+  # A Convert into cash says what the coins fetched as plainly as a quote would: the cash leg beside
+  # the coin leg is its price and its value, and there is nothing here for a user to state either.
+  test 'a convert into cash is the venue&apos;s figure, and not a box' do
+    swapped_out = create(:account_transaction, user: @user, api_key: @key, exchange: @binance,
+                                               entry_type: :swap_out, base_currency: 'BNB', base_amount: 0.75,
+                                               quote_currency: nil, quote_amount: nil, group_id: 'convert-1',
+                                               transacted_at: @t)
+    create(:account_transaction, user: @user, api_key: @key, exchange: @binance,
+                                 entry_type: :swap_in, base_currency: 'USDC', base_amount: 450,
+                                 quote_currency: nil, quote_amount: nil, group_id: 'convert-1', transacted_at: @t)
+
+    cell = row_cell(swapped_out).first
+    cells = css_select("##{ActionView::RecordIdentifier.dom_id(swapped_out)} td").map { |td| td.text.strip }
+
+    assert_includes cell['class'], 'tracker-row__value--exchange'
+    assert_empty cell.css('input'), 'nothing here for a user to state'
+    assert_equal '450.00', cell.text.strip
+    assert_includes cells, '600.00 USDC', 'what one BNB fetched, in what it fetched'
+
+    patch value_tracker_transaction_path(id: swapped_out.id), params: { value: '500' }
+    assert_response :unprocessable_entity
+  end
+
   test 'a value the exchange reported is not the user&apos;s to state' do
     bought = create(:account_transaction, user: @user, api_key: @key, exchange: @binance,
                                           entry_type: :buy, base_currency: 'BTC', base_amount: 1,

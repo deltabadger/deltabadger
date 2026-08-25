@@ -159,7 +159,11 @@ module TrackerHelper
   def tracker_row_value(record, denomination)
     return cash_value(record, denomination) if money?(record.base_currency)
 
-    return sourced(in_display(record.quote_amount, record.quote_currency, record, denomination), :exchange) if record.venue_valued?
+    return sourced(in_display(record.quote_amount, record.quote_currency, record, denomination), :exchange) if record.quoted?
+
+    if (cash = with_group(record).cash_counterpart)
+      return sourced(in_display(cash.base_amount, cash.base_currency, record, denomination), :exchange)
+    end
 
     stated = record.manual_value(:fiat_value)
     return [denomination.convert(stated), :stated] if stated
@@ -173,9 +177,35 @@ module TrackerHelper
   # the record, like Amount and Fee, never a figure worked out from a valuation. A row the venue
   # gave no price for shows none; its worth, if any, is the Value column's business.
   def tracker_row_price(record)
-    return unless record.venue_valued? && record.base_amount.to_d.positive?
+    return unless record.base_amount.to_d.positive?
 
-    "#{tracker_amount(record.quote_amount.to_d / record.base_amount.to_d)} #{record.quote_currency}"
+    if record.quoted?
+      "#{tracker_amount(record.quote_amount.to_d / record.base_amount.to_d)} #{record.quote_currency}"
+    elsif (cash = with_group(record).cash_counterpart)
+      "#{tracker_amount(cash.base_amount.to_d / record.base_amount.to_d)} #{cash.base_currency}"
+    end
+  end
+
+  # The page's rows hand their groups to each other in one query, so a row does not ask for its
+  # own. A row rendered on its own (a turbo stream) is not in the page's set and asks itself.
+  def with_group(record)
+    key = [record.exchange_id, record.group_id]
+    record.group_rows = tracker_row_groups[key] if record.group_id.present? && tracker_row_groups.key?(key)
+    record
+  end
+
+  def tracker_row_groups
+    @tracker_row_groups ||= begin
+      rows = (@account_transactions || []).to_a
+      keys = rows.filter_map { |row| [row.exchange_id, row.group_id] if row.group_id.present? }.uniq
+      if keys.empty?
+        {}
+      else
+        AccountTransaction.for_user(current_user)
+                          .where(exchange_id: keys.map(&:first).uniq, group_id: keys.map(&:last).uniq)
+                          .group_by { |row| [row.exchange_id, row.group_id] }
+      end
+    end
   end
 
   # A signed percentage, one decimal — the reading on every P/L cell on the page.

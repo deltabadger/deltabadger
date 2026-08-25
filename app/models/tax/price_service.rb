@@ -47,8 +47,8 @@ module Tax
         # A row the user has priced needs no price of ours, and must not be counted among the missing
         # ones — a report is not incomplete over a figure it was handed. Nor does a row the cash leg
         # beside it already values.
-        next if tx.respond_to?(:manual?) && tx.manual?(:fiat_value) && !tx.venue_valued?
         next if cash_leg_value(tx)
+        next if tx.respond_to?(:manual?) && tx.manual?(:fiat_value) && !tx.quoted?
         next if tx.quote_currency == currency && tx.quote_amount.present?
         next if tx.quote_currency.present? && tx.quote_amount.present? &&
                 (STABLECOINS.include?(tx.quote_currency) || FIAT_CURRENCIES.include?(tx.quote_currency))
@@ -153,7 +153,7 @@ module Tax
           price_missing: price_missing,
           # A figure the user stated by hand rather than one the venue reported or we priced. Carried
           # through so the tax report can disclose it: a stated cost is defensible, a silent one is not.
-          stated_value: tx.respond_to?(:manual?) && tx.manual?(:fiat_value) && !tx.venue_valued?,
+          stated_value: tx.respond_to?(:manual?) && tx.manual?(:fiat_value) && !valued_by_venue?(tx),
           exchange: tx.exchange.name_id,
           linked: links.key?(tx.id) || linked_deposit_ids.include?(tx.id),
           transfer_fee_amount: transfer_fee_amount(tx, links, deposit_amounts)
@@ -275,6 +275,12 @@ module Tax
 
     def cash_leg_value(transaction)
       @cash_legs&.dig(transaction.id, :fiat_value)
+    end
+
+    # By a quote of its own or by the cash leg beside it — without a query per row: the group
+    # context is already built.
+    def valued_by_venue?(transaction)
+      (transaction.respond_to?(:quoted?) && transaction.quoted?) || cash_leg_value(transaction).present?
     end
 
     # Where a legless row gets its value: the cash leg opposite it in its group. Kraken books every
@@ -436,15 +442,16 @@ module Tax
                             timestamp: record.transacted_at)
       end
 
+      # The cash leg beside it is the venue's figure too: what the coins fetched, or cost.
+      cash = cash_leg_value(record)
+      return cash if cash
+
       # Then what the USER says it was worth, ahead of everything the app would have to guess. This
       # is the single point every consumer of a priced row passes through, so the tiles, the chart,
       # the positions and the tax report inherit a stated value without knowing it exists. Stated
       # in USD, like everything else behind the page.
       stated = record.respond_to?(:manual_value) && record.manual_value(:fiat_value)
       return convert_fiat(amount: stated, from: 'USD', to: currency, timestamp: record.transacted_at) if stated
-
-      cash = cash_leg_value(record)
-      return cash if cash
 
       price = price_at(asset: record.base_currency, currency: currency, timestamp: record.transacted_at,
                        exchange: record.exchange)
