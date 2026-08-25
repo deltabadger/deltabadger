@@ -157,14 +157,12 @@ module TrackerHelper
   # a figure this app computed in USD, and follows the page's own rule: converted at today's rate,
   # exactly like the tiles and the chart above it.
   def tracker_row_value(record, denomination)
-    stated = record.manual_value(:fiat_value)
-    return [denomination.convert(stated), :stated] if stated
-
     return cash_value(record, denomination) if money?(record.base_currency)
 
-    if record.quote_amount.present? && money?(record.quote_currency)
-      return sourced(in_display(record.quote_amount, record.quote_currency, record, denomination), :exchange)
-    end
+    return sourced(in_display(record.quote_amount, record.quote_currency, record, denomination), :exchange) if record.venue_valued?
+
+    stated = record.manual_value(:fiat_value)
+    return [denomination.convert(stated), :stated] if stated
 
     price = HistoricalPrice.lookup(asset: record.base_currency, currency: 'USD',
                                    date: record.transacted_at.to_date)

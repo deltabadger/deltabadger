@@ -39,9 +39,18 @@ class AccountTransaction < ApplicationRecord
     raise ArgumentError, "#{field} cannot be stated by hand" unless MANUAL_FIELDS.include?(field.to_s)
 
     number = parse_manual(value)
+    raise ArgumentError, 'a row the venue valued is not yours to state' if number && venue_valued?
+
     self.manual_values = (manual_values || {}).except(field.to_s)
     self.manual_values = manual_values.merge(field.to_s => number.to_s) if number
     number
+  end
+
+  # A row the venue itself valued: amount and price of its own, and the value is their product. A
+  # figure typed in front of it would leave the three columns no longer multiplying out, so such a
+  # row takes no stated value — not written, and not read if one was written before this rule.
+  def venue_valued?
+    quote_amount.present? && Tracker::UnfundedCash.cash?(quote_currency)
   end
 
   validates :base_currency, presence: true

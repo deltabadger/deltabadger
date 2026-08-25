@@ -101,6 +101,10 @@ class TrackerController < ApplicationController
   # the tax report all inherit this without knowing it exists.
   def update_value
     transaction = AccountTransaction.for_user(current_user).find(params[:id])
+    # Amount and price of the row's own are the value: nothing to state, and a request that tries
+    # anyway is refused rather than stored and ignored.
+    return head :unprocessable_entity if transaction.venue_valued? && params[:value].present?
+
     # The box is labelled in the user's own currency; the ledger counts in USD. Convert on the way in
     # exactly as the view converts on the way out, or a figure typed in euro would be banked as
     # dollars.

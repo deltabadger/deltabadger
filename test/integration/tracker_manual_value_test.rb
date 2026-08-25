@@ -26,8 +26,10 @@ class TrackerManualValueTest < ActionDispatch::IntegrationTest
   # `form_with` writes a hidden _method field first — the typeable box is the number one.
   def input_for(record) = row_cell(record).first.css('input[type="number"]').first
 
-  # Priced by the venue: no placeholder, no mark, just the figure.
-  test 'a value the exchange reported stands as the exchange&apos;s' do
+  # Priced by the venue: amount and price of its own, and the value is their product. Nothing here
+  # is a guess, so there is nothing for a user to state — a box would only let the three columns
+  # stop multiplying out.
+  test 'a value the exchange reported stands as the exchange&apos;s, and is not a box' do
     bought = create(:account_transaction, user: @user, api_key: @key, exchange: @binance,
                                           entry_type: :buy, base_currency: 'BTC', base_amount: 1,
                                           quote_currency: 'USD', quote_amount: 20_000, transacted_at: @t)
@@ -35,7 +37,19 @@ class TrackerManualValueTest < ActionDispatch::IntegrationTest
     cell = row_cell(bought).first
 
     assert_includes cell['class'], 'tracker-row__value--exchange'
-    assert_equal '20000.0', cell.css('input[type="number"]').first['placeholder']
+    assert_empty cell.css('input'), 'nothing here for a user to state'
+    assert_equal '20,000.00', cell.text.strip
+  end
+
+  test 'a value the exchange reported is not the user&apos;s to state' do
+    bought = create(:account_transaction, user: @user, api_key: @key, exchange: @binance,
+                                          entry_type: :buy, base_currency: 'BTC', base_amount: 1,
+                                          quote_currency: 'USD', quote_amount: 20_000, transacted_at: @t)
+
+    patch value_tracker_transaction_path(id: bought.id), params: { value: '21000' }
+
+    assert_response :unprocessable_entity
+    assert_not bought.reload.manual?(:fiat_value)
   end
 
   # The case that made this necessary. The venue said nothing, so the figure is ours — and it is
