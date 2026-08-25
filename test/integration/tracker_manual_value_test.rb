@@ -122,9 +122,10 @@ class TrackerManualValueTest < ActionDispatch::IntegrationTest
     assert_includes row_cell(deposited).first['class'], 'tracker-row__value--none'
   end
 
-  # Two adjacent money columns that do not multiply out is the same broken promise as two
-  # disagreeing totals — so Price is READ OFF the value rather than computed a second way.
-  test 'price times amount comes to value, in that same unit' do
+  # Price is the RECORD — what the venue booked, in the venue's own currency — never a figure worked
+  # back from a valuation. A row the venue gave no price for shows none; its worth is the Value
+  # column's business, and that is where our own price stands as the placeholder.
+  test 'a row with no price of its own shows none; the value column carries our figure' do
     HistoricalPrice.store(asset: 'BTC', currency: 'USD', date: @t.to_date, price: 30_000)
     rebate = create(:account_transaction, user: @user, api_key: @key, exchange: @binance,
                                           entry_type: :airdrop, base_currency: 'BTC', base_amount: 0.5,
@@ -133,8 +134,22 @@ class TrackerManualValueTest < ActionDispatch::IntegrationTest
     get tracker_path
     cells = css_select("##{ActionView::RecordIdentifier.dom_id(rebate)} td").map { |td| td.text.strip }
 
-    assert_includes cells, '30,000.00', 'the price, in the column unit'
+    assert_includes cells, '—', 'no price of its own'
+    assert_not_includes cells, '30,000.00', 'ours is a valuation, not the record'
     assert_equal '15000.0', row_cell(rebate).first.css('input[type="number"]').first['placeholder']
+  end
+
+  test 'price is the venue\'s own, in the venue\'s own currency, whatever the page is shown in' do
+    Denomination.stubs(:for).returns(Denomination.new('EUR', '0.86'.to_d))
+    bought = create(:account_transaction, user: @user, api_key: @key, exchange: @binance,
+                                          entry_type: :buy, base_currency: 'BTC', base_amount: 0.5,
+                                          quote_currency: 'USDT', quote_amount: 25_000, transacted_at: @t)
+
+    get tracker_path
+    cells = css_select("##{ActionView::RecordIdentifier.dom_id(bought)} td").map { |td| td.text.strip }
+
+    assert_includes cells, '50,000.00 USDT', 'the record, not a conversion'
+    assert_select 'th', text: /\A#{I18n.t('tracker.columns.price')}\z/, count: 1
   end
 
   test 'a typed value is stored, marked as the user&apos;s, and shown in the box' do

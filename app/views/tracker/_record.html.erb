@@ -33,9 +33,10 @@
               <%# The same three figures the bot log drops: what was traded, what it cost, and what
                   was paid to trade it. The price is a market level, not a balance, and stays. %>
               <% unless hide_money %><th><%= t('tracker.columns.amount') %></th><% end %>
-              <%# Both money columns are written in ONE currency, so the unit is named here once
-                  rather than repeated on every row — and a bare number in the cell is unambiguous. %>
-              <th><%= t('tracker.columns.price') %> <small><%= current_user.denomination.unit %></small></th>
+              <%# Price is the venue's, in the venue's own currency per row, as Fee is. Value is the one
+                  column in the reader's currency, so its unit is named here once rather than on every
+                  row — and a bare number in that cell is unambiguous. %>
+              <th><%= t('tracker.columns.price') %></th>
               <% unless hide_money %>
                 <th><%= t('tracker.columns.quote_amount') %> <small><%= current_user.denomination.unit %></small></th>
                 <th><%= t('tracker.columns.fee') %></th>
