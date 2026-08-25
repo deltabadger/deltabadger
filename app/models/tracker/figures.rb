@@ -46,8 +46,8 @@ module Tracker
     # asset, and the cash it spent or returned besides — a fill since the sync moved both, and the
     # venue's snapshot shows neither. `watermarks` is exchange id → the time that venue's balances
     # were last taken; a venue with none is not brought forward, since there is nothing to bring
-    # it forward from. Read straight off the rows: the handful since a sync is never worth a second
-    # opinion about what a row does to cash.
+    # it forward from. Quantities move as the ledger walks them and cash as it reads it — the same
+    # two readers, so what is pending cannot hold a second opinion about a row.
     def self.moved_since(transactions, watermarks)
       watermarks = watermarks.compact
       return {} if watermarks.empty?
@@ -57,10 +57,7 @@ module Tracker
         taken = watermarks[tx.exchange_id]
         next if taken.nil? || tx.transacted_at < taken
 
-        unless UnfundedCash.cash?(tx.base_currency)
-          moved[tx.base_currency] += tx.base_amount.to_d if UnfundedCash::BASE_IN.include?(tx.entry_type)
-          moved[tx.base_currency] -= tx.base_amount.to_d if UnfundedCash::BASE_OUT.include?(tx.entry_type)
-        end
+        Ledger.quantity_moves(quantity_row(tx)).each { |symbol, amount| moved[symbol] += amount unless UnfundedCash.cash?(symbol) }
         # Every cash move as the ledger reads it — a cash base net of its own fee, the quote leg, a
         # cash fee — and none from a borrowed wallet, whose cash is not the account's.
         next if UnfundedCash.borrowed?(tx.tx_id)
@@ -69,6 +66,15 @@ module Tracker
           moved[currency] += amount
         end
       end
+    end
+
+    # The row as the ledger walks it: whether it is one end of the user's own transfer, and the
+    # slice of a linked withdrawal that the network kept.
+    def self.quantity_row(transaction)
+      partner = transaction.linked_transaction || transaction.inverse_link
+      fee = transaction.base_amount.to_d - partner.base_amount.to_d if partner && transaction.withdrawal?
+      transaction.slice(:entry_type, :base_currency, :base_amount, :fee_currency, :fee_amount).symbolize_keys
+                 .merge(linked: partner.present?, transfer_fee_amount: fee)
     end
 
     def initialize(user, ledger, balances, pending)
@@ -103,11 +109,11 @@ module Tracker
 
     def positions = @positions ||= @ledger.positions.index_by(&:symbol)
 
-    # One row per asset the venue holds — by its balance rows, or bought since the sync — in value
-    # order, each resolved against the history.
+    # One row per asset the venue holds — by its balance rows, or arrived since the sync, the cash a
+    # sale just returned included — in value order, each resolved against the history.
     def resolve_holdings
       rows = @balances.group_by { |row| row.asset.symbol }
-      symbols = rows.keys | @pending.keys.reject { |symbol| cash?(symbol) || !@pending[symbol].positive? }
+      symbols = rows.keys | @pending.select { |_, moved| moved.positive? }.keys
       symbols.filter_map { |symbol| holding(symbol, rows.fetch(symbol, [])) }.sort_by { |holding| -holding.value }
     end
 
