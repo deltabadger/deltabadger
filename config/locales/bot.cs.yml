@@ -17,7 +17,6 @@ cs:
             allocation_sum: "Celkem"
             normalize: "Normalizovat"
             normalize_first: "Nejprve normalizujte alokace."
-            unbalanced_hint: "Součet alokací je %{sum}% — před spuštěním bota musí být 100%."
         dca_index:
             setup:
                 step_index: "Index"

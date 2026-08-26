@@ -20,7 +20,6 @@ pt:
             allocation_sum: "Total das alocações"
             normalize: "Normalizar"
             normalize_first: "Normalize primeiro as alocações."
-            unbalanced_hint: "As alocações somam %{sum}% — têm de somar 100% antes de o bot poder iniciar."
         dca_index:
             setup:
                 step_index: "Índice"

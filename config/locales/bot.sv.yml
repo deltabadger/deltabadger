@@ -17,7 +17,6 @@ sv:
             allocation_sum: "Totalt"
             normalize: "Normalisera"
             normalize_first: "Normalisera fördelningen först."
-            unbalanced_hint: "Allokeringarna blir totalt %{sum}% — de måste bli 100% innan boten kan starta."
         dca_index:
             setup:
                 step_index: "Index"
