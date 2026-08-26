@@ -183,6 +183,20 @@ class Exchanges::BinanceGetLedgerTest < ActiveSupport::TestCase
   # every deposit and withdrawal older than three months was never fetched — while Convert, asked in
   # 30-day windows, reached back years. A first sync now walks both in windows from the venue's
   # opening to the present, and a 2021 withdrawal lands.
+  # A venue's history accumulates under whichever key was current, and a replaced key's rows are
+  # left with no key at all. The pairs an incremental sync asks for are the ACCOUNT's, not the
+  # current key's — or a pair traded before the key changed would never be asked for again.
+  test 'an incremental sync asks for the pairs the account traded under any key' do
+    create(:account_transaction, user: @user, exchange: @exchange, api_key: nil, entry_type: :buy,
+                                 base_currency: 'BTC', base_amount: 1, quote_currency: 'USDT', quote_amount: 20_000,
+                                 transacted_at: Time.utc(2026, 3, 1))
+    hm_client = mock('honeymaker_client')
+    stub_common(hm_client)
+    hm_client.expects(:account_trade_list).with(has_entry(symbol: 'BTCUSDT')).returns(Result::Success.new([]))
+
+    @exchange.get_ledger(api_key: @api_key, start_time: Time.utc(2026, 3, 20))
+  end
+
   # A window is answered a page at a time, a thousand rows to the page. A busy account's window
   # holds more than that, and moving on to the next window would leave the rest of this one behind.
   test 'a window with more transfers than one page holds is read page by page' do

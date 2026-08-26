@@ -49,6 +49,8 @@ class AccountTransactionSync
     last_percent = 0
     min_skipped = nil
 
+    @file_pairs = entries.select { |entry| entry[:group_id].to_s.start_with?('swapcsv_') }.group_by { |entry| entry[:group_id] }
+
     entries.each_with_index do |entry, index|
       # A blank id identifies nothing, and several adapters produce one (Bybit's txID is empty for
       # internal transfers; Gemini/Hyperliquid/BingX build the id with .to_s on a field that can be
@@ -168,23 +170,23 @@ class AccountTransactionSync
 
   # A file Convert out of cash used to be read as a purchase, or a sale, and is now the swap pair
   # the venue books. A file imported under the old reading holds the purchase, and importing it
-  # again must not add the pair on top: a leg of the pair is the trade it replaced when the coin is
-  # that trade's base and the cash is its quote, within a second of it.
+  # again must not add the pair on top. The PAIR is matched, as a whole, against one stored trade
+  # within a second of it — the incoming leg as that trade's base and the outgoing leg as its quote
+  # (a purchase), or the other way round (a sale) — so both legs are skipped or neither is; one leg
+  # alone can coincide with an unrelated trade, and skipping it alone would leave a one-legged swap.
   def replaced_trade?(entry)
     return false unless entry[:group_id].to_s.start_with?('swapcsv_') && entry[:transacted_at].present?
 
+    legs = @file_pairs.fetch(entry[:group_id], [])
+    inn = legs.find { |leg| leg[:entry_type].to_s == 'swap_in' }
+    out = legs.find { |leg| leg[:entry_type].to_s == 'swap_out' }
+    return false unless inn && out && legs.size == 2
+
     legacy = scope.where(tx_id: nil).where(within_a_second(entry))
-    coin, amount = entry.values_at(:base_currency, :base_amount)
-    case entry[:entry_type].to_s
-    when 'swap_in'
-      legacy.exists?(entry_type: :buy, base_currency: coin, base_amount: amount) ||
-        legacy.exists?(entry_type: :sell, quote_currency: coin, quote_amount: amount)
-    when 'swap_out'
-      legacy.exists?(entry_type: :sell, base_currency: coin, base_amount: amount) ||
-        legacy.exists?(entry_type: :buy, quote_currency: coin, quote_amount: amount)
-    else
-      false
-    end
+    legacy.exists?(entry_type: :buy, base_currency: inn[:base_currency], base_amount: inn[:base_amount],
+                   quote_currency: out[:base_currency], quote_amount: out[:base_amount]) ||
+      legacy.exists?(entry_type: :sell, base_currency: out[:base_currency], base_amount: out[:base_amount],
+                     quote_currency: inn[:base_currency], quote_amount: inn[:base_amount])
   end
 
   def scope

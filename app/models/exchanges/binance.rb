@@ -699,8 +699,10 @@ class Exchanges::Binance < Exchange
     @exchange_symbols_map&.dig(symbol, :quote) || tickers.find_by(ticker: symbol)&.quote || symbol
   end
 
+  # The ACCOUNT's pairs, under whichever key was current when they were traded: a venue's history
+  # accumulates across key replacements, and a replaced key's rows are left with no key at all.
   def known_traded_symbols(api_key)
-    AccountTransaction.where(api_key: api_key)
+    AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
                       .where.not(quote_currency: nil)
                       .where(entry_type: %i[buy sell swap_in swap_out])
                       .distinct
