@@ -144,7 +144,7 @@ module TrackerHelper
     quantity = ->(units) { hidden && money?(note.symbol) ? '•••' : tracker_amount(units) }
     t("tracker.notes.#{note.kind}", symbol: note.symbol, exchange: note.exchange || t('tracker.notes.your_exchanges'),
                                     history: quantity.call(note.history), held: quantity.call(note.held),
-                                    amount: hidden ? '•••' : @denomination.format(note.amount_usd))
+                                    amount: hidden ? '•••' : @denomination.format_plain(note.amount_usd))
   end
 
   # Whose price a row carries, and what it is — [price, source]:
@@ -172,9 +172,9 @@ module TrackerHelper
     return [nil, nil] if amount.zero?
 
     if record.quoted?
-      ["#{tracker_amount(record.quote_amount.to_d / amount)} #{record.quote_currency}", :exchange]
+      [tracker_figure(record.quote_amount.to_d / amount, record.quote_currency), :exchange]
     elsif (cash = with_group(record).cash_counterpart)
-      ["#{tracker_amount(cash.base_amount.to_d / amount)} #{cash.base_currency}", :exchange]
+      [tracker_figure(cash.base_amount.to_d / amount, cash.base_currency), :exchange]
     elsif (stated = record.manual_value(:price))
       [denomination.convert(stated), :stated]
     else
@@ -227,6 +227,11 @@ module TrackerHelper
   # A signed percentage, one decimal — the reading on every P/L cell on the page.
   def tracker_percent(percent)
     "#{'+' if percent >= 0}#{number_with_precision(percent, precision: 1)}%"
+  end
+
+  # A figure and the unit it is in, the unit in <small>: the number is what the column is read for.
+  def tracker_figure(value, unit)
+    safe_join([tracker_amount(value), ' ', tag.small(unit)])
   end
 
   # A quantity or a price. Two decimals once it is worth more than a unit, eight below that, where

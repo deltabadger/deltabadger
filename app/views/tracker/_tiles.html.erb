@@ -11,7 +11,7 @@
   <% figures = @figures %>
   <%# The value is known from the balances alone; everything the history decides waits for it. %>
   <% warming = figures&.ledger.nil? %>
-  <% signed = ->(amount) { "#{'+' unless amount.negative?}#{@denomination.format(amount)}" } %>
+  <% signed = ->(amount) { safe_join([('+' unless amount.negative?), @denomination.format(amount)]) } %>
   <% tone = ->(amount) { amount.negative? ? 'text-danger' : 'text-success' } %>
   <% money = ->(amount) { amount ? signed.call(amount) : '—' } %>
   <%# `--six` keeps the widest step at three columns below the point where all six fit on one row. %>
@@ -23,7 +23,7 @@
     <%= render partial: 'bots/metrics_item', locals: {
       label: t('bot.details.stats.total_invested'),
       value: figures&.invested && @denomination.format(figures.invested),
-      hint: (t('tracker.tiles.received_hint', received: @denomination.format(received)) if received&.positive?),
+      hint: (t('tracker.tiles.received_hint', received: @denomination.format_plain(received)) if received&.positive?),
       loading: warming
     } %>
     <%= render partial: 'bots/metrics_item', locals: {

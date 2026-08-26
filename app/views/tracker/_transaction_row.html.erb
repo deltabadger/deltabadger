@@ -37,7 +37,7 @@
     <% if source == :exchange %>
       <%= price %>
     <% elsif source == :cash %>
-      <%= price ? "#{tracker_amount(price)} #{denomination.currency}" : '—' %>
+      <%= price ? tracker_figure(price, denomination.currency) : '—' %>
     <% else %>
       <%= form_with url: price_tracker_transaction_path(at), method: :patch,
                     data: { controller: 'form--submit' } do %>
@@ -62,7 +62,7 @@
   </td>
   <% unless hide_money %>
     <td class="tracker-row__value"><%= tracker_amount(value) || '—' %></td>
-    <td class="tracker-row__fee"><% if at.fee_amount.present? %><%= tracker_amount(at.fee_amount) %> <small><%= at.fee_currency %></small><% else %>—<% end %></td>
+    <td class="tracker-row__fee"><%= at.fee_amount.present? ? tracker_figure(at.fee_amount, at.fee_currency) : '—' %></td>
   <% end %>
   <td>
     <% if at.bot_transaction.present? %>
