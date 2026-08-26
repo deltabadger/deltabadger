@@ -426,11 +426,10 @@ sk:
             instructions_title: 'Ako získať kľúče z %{exchange}'
             instructions_body: 'Vytvorte API kľúč s oprávnením na výber na %{exchange} a vložte prihlasovacie údaje sem.'
     tracker:
-        value_source:
-            exchange: "Uvedené burzou."
-            ours: "Naša vlastná cena za ten deň. Zadaj hodnotu, ktorá ju nahradí."
-            stated: "Tvoja vlastná hodnota. Vymaž pole a vráti sa naša cena."
-            none: "Tento riadok sa nám nepodarilo oceniť. Zadaj, akú mal hodnotu."
+        price_source:
+            ours: "Naša vlastná cena za ten deň, v USD. Zadaj cenu, ktorá ju nahradí."
+            stated: "Tvoja vlastná cena, v USD. Vymaž pole a vráti sa naša."
+            none: "Tento riadok sme nedokázali oceniť. Zadaj, koľko stála jedna jednotka, v USD."
         welcome:
             connect_and_track: "Pripoj svoju burzu a začni sledovať svoje portfólio."
         sync_key_error_html: 'Synchronizácia s <strong>%{exchange}</strong> zlyhala: %{message}. Aktualizuj API kľúč nižšie.'

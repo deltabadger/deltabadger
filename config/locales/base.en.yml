@@ -419,11 +419,10 @@ en:
             instructions_title: 'How to get keys from %{exchange}'
             instructions_body: 'Create a withdrawal-enabled API key on %{exchange} and paste the credentials here.'
     tracker:
-        value_source:
-            exchange: "Reported by the exchange."
-            ours: "Our own price for that day. Type a value to replace it."
-            stated: "Your own value. Clear the box to use our price again."
-            none: "We could not price this one. Type what it was worth."
+        price_source:
+            ours: "Our own price for that day, in USD. Type a price to replace it."
+            stated: "Your own price, in USD. Clear the box to use ours again."
+            none: "We could not price this one. Type what one unit was worth, in USD."
         welcome:
             connect_and_track: "Connect your exchange and start tracking your portfolio."
         sync_key_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please update the API key below."

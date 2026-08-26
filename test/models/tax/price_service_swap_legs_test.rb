@@ -145,8 +145,8 @@ class Tax::PriceServiceSwapLegsTest < ActiveSupport::TestCase
   test 'the cash row stands in front of a stated value' do
     leg(:sell, 'EUR', 1_000)
     bought = leg(:buy, 'BTC', 0.05)
-    assert_raises(ArgumentError) { bought.set_manual(:fiat_value, 999) }
-    bought.update_column(:manual_values, { 'fiat_value' => '999' })
+    assert_raises(ArgumentError) { bought.set_manual(:price, 999) }
+    bought.update_column(:manual_values, { 'price' => '999' })
 
     rows, = enrich
 

@@ -147,51 +147,61 @@ module TrackerHelper
                                     amount: hidden ? '•••' : @denomination.format(note.amount_usd))
   end
 
-  # What a row was worth, and WHOSE figure that is. Three answers and a silence:
+  # Whose price a row carries, and what it is — [price, source]:
   #
-  #   :stated   — the user typed it. It stands in front of everything else.
-  #   :exchange — the venue reported a counter-amount. Solid.
-  #   :ours     — the venue reported none, so we priced it from our own history. The default, and
-  #               the thing the figures are actually built on for a dust rebate or an airdrop.
+  #   :exchange — the venue's own, as it booked it, in the venue's own currency: a string, shown as
+  #               is. A fact of the record, like Amount and Fee.
+  #   :stated   — the user typed it, per unit, in USD. It stands in front of everything else.
+  #   :ours     — the venue booked none, so we priced it from our own history, in USD. The default,
+  #               and the thing the figures are actually built on for a dust rebate, an airdrop, a
+  #               withdrawal.
+  #   :cash     — the row's base is money. Money has no price; its worth is its own amount.
   #   nil       — nobody could price it. This is where the figures go silent, and where a typed
-  #               value is worth more than any amount of retrying.
+  #               price is worth more than any amount of retrying.
   #
   # Deliberately reads only prices ALREADY STORED: this runs once per row of a 200-row table, and
   # the stored table is exactly what the ledger's own calculations used.
-  # Returned in the DENOMINATION's currency, because that is the one unit this column is written in.
+  #
+  # Over the row's SIZE: a split is one signed net delta, and a reverse split has a price like any
+  # other row — the sign belongs to the amount, and Value carries it. Only a row of nothing has none.
+  def tracker_row_price(record)
+    return [nil, :cash] if money?(record.base_currency)
+
+    amount = record.base_amount.to_d.abs
+    return [nil, nil] if amount.zero?
+
+    if record.quoted?
+      ["#{tracker_amount(record.quote_amount.to_d / amount)} #{record.quote_currency}", :exchange]
+    elsif (cash = with_group(record).cash_counterpart)
+      ["#{tracker_amount(cash.base_amount.to_d / amount)} #{cash.base_currency}", :exchange]
+    elsif (stated = record.manual_value(:price))
+      [stated, :stated]
+    else
+      price = HistoricalPrice.lookup(asset: record.base_currency, currency: 'USD', date: record.transacted_at.to_date)
+      price&.positive? ? [price.to_d, :ours] : [nil, nil]
+    end
+  end
+
+  # What a row was worth, in the DENOMINATION's currency — the one unit that column is written in —
+  # or nil where nothing could price it, which the column says rather than guessing. Never typed:
+  # it is amount times price, whichever price the row carries.
   #
   # Two kinds of row, two honest rates. A row whose base is money is a fact in a real currency and is
   # carried across at the rate OF ITS OWN DAY — five euro sixty-one is five euro sixty-one, and
-  # round-tripping it through dollars at today's rate hands back five seventy-one. Everything else is
-  # a figure this app computed in USD, and follows the page's own rule: converted at today's rate,
-  # exactly like the tiles and the chart above it.
-  def tracker_row_value(record, denomination)
-    return cash_value(record, denomination) if money?(record.base_currency)
-
-    return sourced(in_display(record.quote_amount, record.quote_currency, record, denomination), :exchange) if record.quoted?
-
-    if (cash = with_group(record).cash_counterpart)
-      return sourced(in_display(cash.base_amount, cash.base_currency, record, denomination), :exchange)
-    end
-
-    stated = record.manual_value(:fiat_value)
-    return [denomination.convert(stated), :stated] if stated
-
-    price = HistoricalPrice.lookup(asset: record.base_currency, currency: 'USD',
-                                   date: record.transacted_at.to_date)
-    sourced(price&.positive? ? denomination.convert(price.to_d * record.base_amount.to_d) : nil, :ours)
-  end
-
-  # What one unit changed hands at, as the VENUE booked it, in the venue's own currency — a fact of
-  # the record, like Amount and Fee, never a figure worked out from a valuation. A row the venue
-  # gave no price for shows none; its worth, if any, is the Value column's business.
-  def tracker_row_price(record)
-    return unless record.base_amount.to_d.positive?
-
-    if record.quoted?
-      "#{tracker_amount(record.quote_amount.to_d / record.base_amount.to_d)} #{record.quote_currency}"
-    elsif (cash = with_group(record).cash_counterpart)
-      "#{tracker_amount(cash.base_amount.to_d / record.base_amount.to_d)} #{cash.base_currency}"
+  # round-tripping it through dollars at today's rate hands back five seventy-one. So is the venue's
+  # own counter-amount. Everything else is a figure in USD, and follows the page's own rule:
+  # converted at today's rate, exactly like the tiles and the chart above it.
+  def tracker_row_value(record, denomination, price, source)
+    case source
+    when :cash then in_display(record.base_amount, record.base_currency, record, denomination)
+    when :exchange
+      if record.quoted?
+        in_display(record.quote_amount, record.quote_currency, record, denomination)
+      else
+        cash = record.cash_counterpart
+        in_display(cash.base_amount, cash.base_currency, record, denomination)
+      end
+    when :stated, :ours then denomination.convert(price * record.base_amount.to_d)
     end
   end
 
@@ -320,14 +330,6 @@ module TrackerHelper
 
   # A counter-amount only means a value when it is in money. Coin-for-coin, the row's worth still
   # has to be priced.
-  def cash_value(record, denomination)
-    sourced(in_display(record.base_amount, record.base_currency, record, denomination), :cash)
-  end
-
-  # A value we could not carry into the column's unit is not a value. Saying "unpriced" is the honest
-  # reading; converting it at some other currency's number would be a lie the reader cannot see.
-  def sourced(value, source) = value.nil? ? [nil, nil] : [value, source]
-
   # A stablecoin is taken at par against the dollar, as it is everywhere else in the app; real fiat
   # goes through the ECB's published rate FOR THAT DAY, straight to the currency on screen. No dollar
   # in the middle: a euro row shown in euro must come back as itself.

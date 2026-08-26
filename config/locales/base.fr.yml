@@ -416,11 +416,10 @@ fr:
             instructions_title: 'Comment obtenir les clés de %{exchange}'
             instructions_body: 'Créez une clé API avec autorisation de retrait sur %{exchange} et collez les identifiants ici.'
     tracker:
-        value_source:
-            exchange: "Communiqué par la plateforme."
-            ours: "Notre propre cours pour ce jour-là. Saisis une valeur pour le remplacer."
-            stated: "Ta propre valeur. Vide le champ pour revenir à notre cours."
-            none: "Nous n'avons pas pu valoriser cette ligne. Saisis ce qu'elle valait."
+        price_source:
+            ours: "Notre propre cours pour ce jour-là, en USD. Saisis un cours pour le remplacer."
+            stated: "Ton propre cours, en USD. Vide le champ pour revenir au nôtre."
+            none: "Nous n'avons pas pu valoriser cette ligne. Saisis ce que valait une unité, en USD."
         welcome:
             connect_and_track: "Connecte ta plateforme d'échange et commence à suivre ton portefeuille."
         sync_key_error_html: 'Échec de la synchronisation avec <strong>%{exchange}</strong> : %{message}. Veuillez mettre à jour la clé API ci-dessous.'

@@ -418,11 +418,10 @@ pl:
             instructions_title: 'Jak uzyskać klucze z %{exchange}'
             instructions_body: 'Utwórz klucz API z uprawnieniami do wypłat na %{exchange} i wklej tutaj dane uwierzytelniające.'
     tracker:
-        value_source:
-            exchange: "Podane przez giełdę."
-            ours: "Nasza cena z tego dnia. Wpisz wartość, aby ją zastąpić."
-            stated: "Twoja własna wartość. Wyczyść pole, aby wrócić do naszej ceny."
-            none: "Nie udało się wycenić tej pozycji. Wpisz, ile była warta."
+        price_source:
+            ours: "Nasza cena z tego dnia, w USD. Wpisz cenę, aby ją zastąpić."
+            stated: "Twoja własna cena, w USD. Wyczyść pole, aby wrócić do naszej."
+            none: "Nie udało nam się wycenić tej pozycji. Wpisz, ile była warta jedna jednostka, w USD."
         welcome:
             connect_and_track: "Podłącz giełdę i zacznij śledzić swoje portfolio."
         sync_key_error_html: 'Synchronizacja z <strong>%{exchange}</strong> nie powiodła się: %{message}. Zaktualizuj klucz API poniżej.'

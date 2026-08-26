@@ -92,9 +92,9 @@ Rails.application.routes.draw do
     patch  '/tracker/save_export_settings', to: 'tracker#save_export_settings', as: :save_export_settings_tracker
     patch  '/tracker/fund_classifications', to: 'tracker#fund_classifications', as: :fund_classifications_tracker
     patch  '/tracker/transactions/:id/toggle_transfer', to: 'tracker#toggle_transfer', as: :toggle_transfer_tracker_transaction
-    # A value the user states for a row the app could not price, or priced in a way they disagree
+    # A price the user states for a row the app could not price, or priced in a way they disagree
     # with. Blank clears it and hands the row back to our own figure.
-    patch  '/tracker/transactions/:id/value', to: 'tracker#update_value', as: :value_tracker_transaction
+    patch  '/tracker/transactions/:id/price', to: 'tracker#update_price', as: :price_tracker_transaction
     namespace :tracker do
       resource :pick_exchange, only: %i[new create]
       resource :add_api_key, only: %i[new create]
