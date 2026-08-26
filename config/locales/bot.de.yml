@@ -16,6 +16,7 @@ de:
             removed_from_portfolio: "Aus dem Portfolio entfernt"
             allocation_sum: "Gesamt"
             normalize: "Normalisieren"
+            normalize_first: "Zuerst die Allokation normalisieren."
             unbalanced_hint: "Die Allokationen ergeben %{sum} % — vor dem Start des Bots müssen sie zusammen 100 % ergeben."
         dca_index:
             setup:

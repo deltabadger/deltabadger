@@ -12,11 +12,6 @@
         <%= t('errors.bots.exchange_asset_mismatch', exchange_name: bot.exchange&.name) %>
       </p>
     <% end %>
-    <% if (bot.stopped? || bot.created? || bot.restarting?) && bot.respond_to?(:allocations_balanced?) && !bot.allocations_balanced? %>
-      <p class="status-button__hint" role="status">
-        <%= t('bot.dca_multi_asset.unbalanced_hint', sum: number_with_precision(bot.allocations_total * 100, precision: 2)) %>
-      </p>
-    <% end %>
     <% if !bot.stopped? && !bot.created? %>
       <%= button_to bot_stop_path(bot), method: :patch, class: "sbutton sbutton--sky sbutton--outline", data: { hw_animate_out: "animate-button-to-start-shape", turbo_frame: "_top" }, aria: { label: t('button.stop') } do %>
         <div class="animicon animicon--stop">

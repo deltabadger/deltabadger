@@ -16,6 +16,7 @@ bg:
             removed_from_portfolio: "Премахнати от портфейла"
             allocation_sum: "Общо"
             normalize: "Нормализиране"
+            normalize_first: "Първо нормализирайте разпределението."
             unbalanced_hint: "Разпределенията са общо %{sum}% — трябва да бъдат 100%, преди ботът да може да стартира."
         dca_index:
             setup:

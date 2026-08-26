@@ -17,7 +17,8 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
     assert_equal({ @first.id.to_s => 0.7, @second.id.to_s => 0.7 }, @bot.reload.allocations)
     assert_equal({ @first.id => 0.5, @second.id => 0.5 }, composition_weights)
     assert_not @bot.valid?(:start)
-    assert_match I18n.t('bot.dca_multi_asset.unbalanced_hint', sum: '140.00'), response.body
+    assert_match I18n.t('bot.dca_multi_asset.unbalanced_hint', sum: '140.0'), response.body
+    assert_match I18n.t('bot.dca_multi_asset.normalize_first'), response.body
     assert_match(/disabled="disabled"/, response.body)
   end
 
