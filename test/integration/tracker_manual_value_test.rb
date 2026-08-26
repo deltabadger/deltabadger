@@ -50,6 +50,7 @@ class TrackerManualValueTest < ActionDispatch::IntegrationTest
     assert_includes cell['class'], 'tracker-row__price--exchange'
     assert_empty cell.css('input'), 'nothing here for a user to state'
     assert_equal '20,000.00 USD', cell.text.strip
+    assert_equal 'USD', cell.css('small').text, 'the unit is the small half of the figure'
     assert_equal '20,000.00', value_cell(bought).text.strip
   end
 

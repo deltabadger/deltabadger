@@ -31,7 +31,7 @@ class Bot::BroadcastPnlFormatTest < ActiveSupport::TestCase
     assert_includes html, 'pnl-percent'
     assert_includes html, 'pnl-amount'
     assert_includes html, '25.00%'
-    assert_includes html, '+$25.00'
+    assert_includes html, '+<small>$</small>25.00'
   end
 
   # Unlike the index, this runs in a background job — it may fetch a rate rather than
@@ -41,7 +41,7 @@ class Bot::BroadcastPnlFormatTest < ActiveSupport::TestCase
     Utilities::Currency.expects(:exchange_rate).with(from: 'EUR', to: 'USD', cache_only: false)
                        .returns(Result::Success.new(1.1))
 
-    assert_includes tile_html, '+$27.50'
+    assert_includes tile_html, '+<small>$</small>27.50'
   end
 
   # The broadcast renders outside a request, so it cannot read the account's currency off
@@ -53,6 +53,6 @@ class Bot::BroadcastPnlFormatTest < ActiveSupport::TestCase
     Utilities::Currency.stubs(:exchange_rate).with(from: 'USD', to: 'PLN')
                        .returns(Result::Success.new(4.0))
 
-    assert_includes tile_html, '+100.00 zł'
+    assert_includes tile_html, '+100.00 <small>zł</small>'
   end
 end

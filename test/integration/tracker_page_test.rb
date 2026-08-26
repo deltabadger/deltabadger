@@ -381,5 +381,9 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
 
     assert_select '.data-grid__item__value', text: /320,000\.00 zł/
     assert_select '.tracker-holdings__value', text: /240,000\.00 zł/
+    # The unit is the small half of the figure, and it has to reach the page as a tag rather than
+    # as the four characters "<small>".
+    assert_select '.tracker-holdings__value small', text: 'zł'
+    assert_no_match(/&lt;small&gt;/, response.body)
   end
 end

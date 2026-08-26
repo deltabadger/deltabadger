@@ -65,14 +65,28 @@ class Denomination
 
   # nil in, nil out: callers hand this whatever they have, including the "rate not cached
   # yet" nil that renders as no amount at all.
+  #
+  # The unit rides in <small>, as it does beside a ticker in the tables: the figure is what the
+  # column is read for, the symbol only says which unit it is in.
   def format(usd_amount, precision: 2)
+    formatted(usd_amount, ActionController::Base.helpers.tag.small(unit), precision)&.html_safe
+  end
+
+  # The same figure with no markup, for somewhere it is not drawn — an aria-label, a sentence —
+  # where a tag is spelled out instead of rendered.
+  def format_plain(usd_amount, precision: 2)
+    formatted(usd_amount, unit, precision)
+  end
+
+  private
+
+  def formatted(usd_amount, unit, precision)
     return if usd_amount.nil?
 
     layout = SUFFIXED.include?(currency) ? '%n %u' : '%u%n'
     ActiveSupport::NumberHelper.number_to_currency(
-      convert(usd_amount),
-      unit: UNITS.fetch(currency, currency), format: layout,
-      negative_format: "-#{layout}", precision: precision
+      convert(usd_amount), unit: unit, format: layout,
+                           negative_format: "-#{layout}", precision: precision
     )
   end
 end
