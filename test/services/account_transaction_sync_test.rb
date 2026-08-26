@@ -337,6 +337,27 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal 5, AccountTransaction.where(user: @user, exchange: @exchange).count
   end
 
+  # Binance's export writes whole seconds and ROUNDS: the Convert its API stamps at 06:22:53.911
+  # is 06:22:54 in the file. Bucketed by second those are two events, and the coins arrive twice.
+  # A row with no id is the same event as a stored one within a second of it, either way round;
+  # a full second later is still a row of its own.
+  test 'a file row on the rounded-up second is the stored API row' do
+    at = Time.utc(2021, 9, 20, 6, 22, 53, 911_000)
+    api = { entry_type: :swap_in, base_currency: 'LTC', base_amount: '0.89568816'.to_d,
+            quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+            tx_id: 'quote-1-in', group_id: 'convert_quote-1', description: 'Convert',
+            transacted_at: at, raw_data: {} }
+    @exchange.stubs(:get_ledger).returns(Result::Success.new([api]))
+    AccountTransactionSync.new(@api_key).sync!
+
+    file = api.merge(tx_id: nil, group_id: 'swapcsv_1', description: nil, transacted_at: Time.utc(2021, 9, 20, 6, 22, 54))
+    rounded = AccountTransactionSync.new(@api_key).store!([file])
+    later = AccountTransactionSync.new(@api_key).store!([file.merge(transacted_at: at + 1.second)])
+
+    assert_equal({ imported: 0, duplicates: 1 }, rounded.slice(:imported, :duplicates), 'the same Convert')
+    assert_equal({ imported: 1, duplicates: 0 }, later.slice(:imported, :duplicates), 'a full second on: its own row')
+  end
+
   # Bybit returns an empty txID for internal transfers, and Gemini/Hyperliquid/BingX build their
   # tx_id with .to_s on a field that can be missing. A blank id identifies nothing, so it must fall
   # through to the nil-tx_id identity rather than collapsing every such row onto one '' key.

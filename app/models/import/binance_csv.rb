@@ -174,6 +174,11 @@ class Import::BinanceCsv
 
   # Each spend paired with the nearest credit that has not been taken. Timestamped at the spend, so
   # the row sits where the money left.
+  #
+  # Always a SWAP pair, cash leg or not: `import_convert_trades` books every Convert as swap_out and
+  # swap_in without asking what was spent, and a file row dedups against a stored row only when the
+  # entry type matches — a Convert out of USDT read as a purchase never met the API's swap, and the
+  # coins arrived twice. Priced the same way as the API's, by the cash leg beside the coin leg.
   def convert_entries(rows)
     spent, received = rows.partition { |row| row[:change].negative? }
     received = received.sort_by { |row| row[:at] }
@@ -182,7 +187,7 @@ class Import::BinanceCsv
       next single_entry(out) unless match
 
       received.delete(match)
-      trade(out[:at], out, match, nil)
+      swap(out[:at], out, match, nil)
     end.flatten + received.map { |row| single_entry(row) }
   end
 
