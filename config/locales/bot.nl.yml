@@ -19,6 +19,7 @@ nl:
             removed_from_portfolio: "Verwijderd uit de portefeuille"
             allocation_sum: "Totaal"
             normalize: "Normaliseren"
+            normalize_first: "Normaliseer eerst de allocatie."
             unbalanced_hint: "De allocaties komen uit op %{sum}% — ze moeten samen 100% zijn voordat de bot kan starten."
         dca_index:
             setup:

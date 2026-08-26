@@ -16,6 +16,7 @@ sv:
             removed_from_portfolio: "Borttagna från portföljen"
             allocation_sum: "Totalt"
             normalize: "Normalisera"
+            normalize_first: "Normalisera fördelningen först."
             unbalanced_hint: "Allokeringarna blir totalt %{sum}% — de måste bli 100% innan boten kan starta."
         dca_index:
             setup:

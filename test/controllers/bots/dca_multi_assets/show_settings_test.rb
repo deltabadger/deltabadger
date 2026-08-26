@@ -18,9 +18,10 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     @assets.each do |asset|
-      assert_select 'input[type="range"][name=?][min="0"][max="100"][step="0.01"]',
+      assert_select 'input[type="range"][name=?][min="0"][max="100"][step="0.1"]',
                     "bots_dca_multi_asset[allocations][#{asset.id}]", count: 1
     end
+    assert_select 'input.allocation__input[type="number"][step="0.1"]', count: @assets.size
     assert_select '.slider__style__thumb', count: @assets.size
     names = css_select('[data-bot--allocation-target="row"] input[type="range"]').map { |input| input['name'] }
     assert_equal @assets.map { |asset| "bots_dca_multi_asset[allocations][#{asset.id}]" }, names
@@ -29,7 +30,7 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
   test 'renders the total, and reveals Normalize with a hint only when unbalanced' do
     get bot_path(id: @bot.id)
 
-    assert_select '[data-bot--allocation-target="total"]', text: '100.00%'
+    assert_select '[data-bot--allocation-target="total"]', text: '100.0%'
     assert_select 'button.asset-allocations__normalize[hidden]', count: 1
     assert_select 'small.asset-allocations__hint[hidden]', count: 1
 
@@ -43,10 +44,12 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
     @bot.update_columns(settings:)
     get bot_path(id: @bot.id)
 
-    assert_select '[data-bot--allocation-target="total"]', text: '85.00%'
+    assert_select '[data-bot--allocation-target="total"]', text: '85.0%'
     assert_select 'button.asset-allocations__normalize:not([hidden])', count: 1
     assert_select 'small.asset-allocations__hint:not([hidden])', count: 1
-    assert_select "##{dom_id(@bot, :status_button)} .status-button__hint", text: /85\.00%/
+    # The blocker reads once, next to the Start button it disables — the status bar, not the button.
+    assert_select "##{dom_id(@bot, :status_bar)}", text: /#{I18n.t('bot.dca_multi_asset.normalize_first')}/
+    assert_select "##{dom_id(@bot, :status_button)} .status-button__hint", count: 0
     assert_select "##{dom_id(@bot, :status_button)} button[disabled]", count: 1
   end
 

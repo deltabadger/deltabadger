@@ -19,6 +19,7 @@ es:
             removed_from_portfolio: "Eliminados de la cartera"
             allocation_sum: "Suma total"
             normalize: "Normalizar"
+            normalize_first: "Normaliza primero las asignaciones."
             unbalanced_hint: "Las asignaciones suman un %{sum}% — deben sumar un 100% antes de iniciar el bot."
         dca_index:
             setup:

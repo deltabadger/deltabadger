@@ -40,9 +40,10 @@ module Bots::DcaMultiAsset::Allocatable
 
   def composition_locked? = working? || rebalance_pending?
 
-  # String keys (JSON), floats, 4 dp, sum exactly 1. Negative inputs clamp to 0. The residual goes
-  # to the largest weight: on the last key it could make a tiny allocation negative. Zero is a
-  # legal weight — a parked asset stays a member.
+  # String keys (JSON), floats, 3 dp, sum exactly 1. Three decimals is the slider's 0.1% step: a
+  # finer weight would be snapped by the range input on the next render and stop adding up to 100%.
+  # Negative inputs clamp to 0. The residual goes to the largest weight: on the last key it could
+  # make a tiny allocation negative. Zero is a legal weight — a parked asset stays a member.
   def normalize_allocations(hash)
     entries = hash.to_h { |key, value| [key.to_s, [value.to_f, 0].max] }
     total = entries.values.sum
@@ -51,9 +52,9 @@ module Bots::DcaMultiAsset::Allocatable
     entries.transform_values! { 1.0 } unless total.positive?
     total = entries.values.sum
 
-    rounded = entries.transform_values { |value| (value / total).round(4) }
+    rounded = entries.transform_values { |value| (value / total).round(3) }
     largest = rounded.max_by { |_, value| value }.first
-    rounded[largest] = (rounded[largest] + (1 - rounded.values.sum)).round(4)
+    rounded[largest] = (rounded[largest] + (1 - rounded.values.sum)).round(3)
     rounded
   end
 

@@ -29,7 +29,7 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     bot.save!
 
     ids = @assets.values.map { it[:asset].id.to_s }
-    assert_equal({ ids[0] => 0.3334, ids[1] => 0.3333, ids[2] => 0.3333 }, bot.allocations)
+    assert_equal({ ids[0] => 0.334, ids[1] => 0.333, ids[2] => 0.333 }, bot.allocations)
     assert_equal 1.0, bot.allocations.values.sum
     assert_not bot.settings.key?('base_asset_ids')
   end
@@ -203,7 +203,7 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
 
     result = bot.parse_params(normalize_allocations: '1')[:allocations]
 
-    assert_equal({ a => 0.6667, b => 0.3333 }, result)
+    assert_equal({ a => 0.667, b => 0.333 }, result)
   end
 
   test 'add and remove in one request compose' do

@@ -16,6 +16,7 @@ sk:
             removed_from_portfolio: "Odstránené z portfólia"
             allocation_sum: "Celkom"
             normalize: "Normalizovať"
+            normalize_first: "Najprv normalizujte alokácie."
             unbalanced_hint: "Súčet alokácií je %{sum}% — pred spustením bota musí byť 100%."
         dca_index:
             setup:

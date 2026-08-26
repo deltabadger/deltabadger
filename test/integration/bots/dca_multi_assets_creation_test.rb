@@ -44,7 +44,7 @@ class Bots::DcaMultiAssetsCreationTest < ActionDispatch::IntegrationTest
     assert_equal 'BTC, ETH, SOL', bot.label
     assert_equal [@bitcoin.id, @ethereum.id, @solana.id], bot.base_asset_ids
     assert_in_delta 1, bot.allocations.values.sum, 0.0001
-    assert_equal [0.3334, 0.3333, 0.3333], bot.allocations.values
+    assert_equal [0.334, 0.333, 0.333], bot.allocations.values
     assert_equal 3, bot.bot_index_assets.in_index.count
     assert_match %(action="redirect" target="#{bot_path(bot)}"), response.body
   end

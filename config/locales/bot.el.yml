@@ -16,6 +16,7 @@ el:
             removed_from_portfolio: "Αφαιρέθηκαν από το χαρτοφυλάκιο"
             allocation_sum: "Σύνολο"
             normalize: "Κανονικοποίηση"
+            normalize_first: "Πρώτα κανονικοποιήστε την κατανομή."
             unbalanced_hint: "Οι κατανομές αθροίζονται σε %{sum}% — πρέπει να φτάνουν το 100% πριν ξεκινήσει το bot."
         dca_index:
             setup:

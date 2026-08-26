@@ -2,7 +2,7 @@
 <% base_assets = bot.base_assets %>
 <% composition_locked = bot.composition_locked? %>
 <% allocations_balanced = bot.allocations_balanced? %>
-<% allocation_sum = number_with_precision(bot.allocations_total * 100, precision: 2) %>
+<% allocation_sum = number_with_precision(bot.allocations_total * 100, precision: 1) %>
 
 <%= form_with model: bot,
               url: path,
@@ -29,7 +29,7 @@
   <div class="asset-allocations">
     <% base_assets.each do |asset| %>
       <% color = ensure_contrast(asset.color || '#8A9BA8') %>
-      <% pct = (bot.allocation_for(asset.id) * 100).round(2) %>
+      <% pct = (bot.allocation_for(asset.id) * 100).round(1) %>
       <div class="index-asset asset-allocation"
            data-bot--allocation-target="row"
            style="--slider-progress: <%= color %>">
@@ -40,7 +40,7 @@
                    name="bots_dca_multi_asset[allocations][<%= asset.id %>]"
                    min="0"
                    max="100"
-                   step="0.01"
+                   step="0.1"
                    value="<%= pct %>"
                    class="slider__input"
                    data-bot--allocation-target="input"
@@ -56,7 +56,16 @@
               </div>
             </div>
           </div>
-          <div class="allocation" data-bot--allocation-target="percent"><%= number_with_precision(pct, precision: 2) %>%</div>
+          <div class="allocation">
+            <%# The same weight, typed: the slider follows this field and this field follows the slider. %>
+            <input type="number" min="0" max="100" step="0.1" inputmode="decimal"
+                   value="<%= pct %>"
+                   class="allocation__input"
+                   data-bot--allocation-target="percent"
+                   data-action="input->bot--allocation#type change->form--submit#submit"
+                   aria-label="<%= asset.symbol %>"
+                   <%= 'disabled' if composition_locked %>>%
+          </div>
           <% if !composition_locked && base_assets.size > Bots::DcaMultiAsset::MIN_ASSETS %>
             <%# This stays inside the PATCH form so a removal preserves every slider value posted
                 with the click; a second form here would be invalid HTML and lose those edits. %>

@@ -27,6 +27,31 @@
     .slider__style__track
         display: grid
 
+    // The typed weight sits where the read-only % used to, right-aligned against its own % sign.
+    .allocation
+        display: flex
+        align-items: center
+        justify-content: flex-end
+        gap: 0.25rem
+
+    .allocation__input
+        width: 5rem
+        padding: 0
+        border: none
+        background: none
+        color: inherit
+        font: inherit
+        text-align: right
+        appearance: textfield
+
+        &::-webkit-outer-spin-button,
+        &::-webkit-inner-spin-button
+            appearance: none
+            margin: 0
+
+        &:disabled
+            color: var(--concrete)
+
     &__remove
         flex: 0 0 auto
         color: var(--concrete)
