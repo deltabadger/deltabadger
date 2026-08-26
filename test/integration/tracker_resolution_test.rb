@@ -1,7 +1,10 @@
 require 'test_helper'
 
-# What the page says when the history and the exchange do not agree: a gray note under the holding
-# it concerns, in plain words, naming the exchange and both quantities — and nothing to click.
+# What the page says when the history and the exchange do not agree — and WHERE. The message sits
+# at the end of the row it concerns, behind an info mark, and names the exchange and both quantities
+# in plain words: a difference the history does not explain is something missing from the history,
+# and the row is where that can be acted on. Nothing is written under the list, and a coin nobody
+# holds any more gets no sentence at all: there is no row for it and nothing to do about it.
 class TrackerResolutionTest < ActionDispatch::IntegrationTest
   setup do
     Tax::EcbFxRates.stubs(:ensure_loaded!)
@@ -24,7 +27,7 @@ class TrackerResolutionTest < ActionDispatch::IntegrationTest
                            usd_price: value / quantity, usd_value: value, synced_at: Time.current, priced_at: Time.current)
   end
 
-  test 'a resolved holding says what was assumed, in gray, and offers nothing to click' do
+  test 'a resolved holding says what was assumed at the end of its own row, behind an info mark' do
     tx(:deposit, base_currency: 'USDC', base_amount: 1_000, quote_currency: nil, quote_amount: nil)
     tx(:buy, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 1_000)
     balance(@btc, 0.9, 1_350)
@@ -32,14 +35,17 @@ class TrackerResolutionTest < ActionDispatch::IntegrationTest
 
     get tracker_path
 
-    assert_select '.tracker-holdings__note', text: /Binance.*0\.9.*1\.00/m
+    assert_select '.tracker-holdings__row .tracker-holdings__info .tooltip', text: /Binance.*0\.9.*1\.00/m
+    assert_select '.tracker-holdings__row .tracker-holdings__info[data-controller="tooltip"] .icon-24', count: 1
+    assert_select '.tracker-holdings__note', false, 'nothing under the row'
+    assert_select '.tracker-holdings__notes', false, 'nothing under the list'
     assert_select '.tracker-holdings__pl', text: '+50.0%', count: 1
     assert_select '.tracker-findings', false
     assert_select "a[href*='reconciliation']", false
     assert_select '.data-grid__item__value', text: /\$900\.00/, count: 1
   end
 
-  test 'a coin the exchange no longer holds is noted below the holdings, not listed as held' do
+  test 'a coin the exchange no longer holds is neither listed nor noted: no row, nothing to do' do
     tx(:deposit, base_currency: 'USDC', base_amount: 1_000, quote_currency: nil, quote_amount: nil)
     tx(:buy, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 600)
     usdc = create(:asset, symbol: 'USDC', name: 'USD Coin')
@@ -49,7 +55,9 @@ class TrackerResolutionTest < ActionDispatch::IntegrationTest
     get tracker_path
 
     assert_select '.tracker-holdings__row', count: 1
-    assert_select '.tracker-holdings__note', text: /Binance.*BTC.*1\.00/m
+    assert_select '.tracker-holdings__info', false
+    assert_select '.tracker-holdings__notes', false
+    assert_no_match(/BTC.*1\.00.*left at cost/m, response.body)
     assert_select '.tracker-positions tbody tr', { text: /BTC/, count: 0 }, 'left at cost: not an open position'
   end
 
@@ -62,7 +70,7 @@ class TrackerResolutionTest < ActionDispatch::IntegrationTest
 
     get tracker_path
 
-    assert_select '.tracker-holdings__note', text: /Binance/
+    assert_select '.tracker-holdings__row .tracker-holdings__info .tooltip', text: /Binance/
     assert_no_match(/\$100\.00|\$900\.00|1,350/, response.body)
   end
 
@@ -75,6 +83,28 @@ class TrackerResolutionTest < ActionDispatch::IntegrationTest
 
     assert_select '.tracker-holdings__empty', false
     assert_select '.tracker-holdings__row', count: 1
-    assert_select '.tracker-holdings__note', text: /BTC.*since the last sync/m
+    assert_select '.tracker-holdings__row .tracker-holdings__info .tooltip', text: /BTC.*since the last sync/m
+  end
+
+  # Cash is a holding like any other: what the history holds and the exchange does not is missing
+  # from the history, and the cash row is where that is said — not in a list under everything.
+  test 'cash the history holds more of than the exchange gets its note on the cash row' do
+    tx(:deposit, base_currency: 'USDC', base_amount: 1_000, quote_currency: nil, quote_amount: nil)
+    tx(:buy, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 600)
+    usdc = create(:asset, symbol: 'USDC', name: 'USD Coin')
+    balance(usdc, 300, 300)
+    balance(@btc, 1, 900)
+    Tracker::Ledger.compute!(@user)
+
+    get tracker_path
+
+    assert_select '.tracker-holdings__row', count: 2
+    assert_select '.tracker-holdings__row', text: /USDC/ do
+      assert_select '.tracker-holdings__info .tooltip', text: /400.*300.*moved out/m
+    end
+    assert_select '.tracker-holdings__row', text: /BTC/ do
+      assert_select '.tracker-holdings__info', false
+    end
+    assert_select '.tracker-holdings__notes', false
   end
 end

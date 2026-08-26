@@ -420,9 +420,9 @@ sv:
             instructions_body: 'Skapa en uttagsaktiverad API-nyckel på %{exchange} och klistra in uppgifterna här.'
     tracker:
         price_source:
-            ours: "Vårt eget pris för den dagen, i USD. Skriv ett pris för att ersätta det."
-            stated: "Ditt eget pris, i USD. Töm fältet för att använda vårt igen."
-            none: "Vi kunde inte prissätta den här. Skriv vad en enhet var värd, i USD."
+            ours: "Vårt eget pris för den dagen. Skriv ett pris för att ersätta det."
+            stated: "Ditt eget pris. Töm fältet för att använda vårt igen."
+            none: "Vi kunde inte prissätta den här. Skriv vad en enhet var värd."
         welcome:
             connect_and_track: "Anslut din börs och börja spåra din portfölj."
         sync_key_error_html: 'Synkroniseringen med <strong>%{exchange}</strong> misslyckades: %{message}. Uppdatera API-nyckeln nedan.'

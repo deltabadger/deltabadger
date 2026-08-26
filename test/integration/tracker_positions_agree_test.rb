@@ -71,15 +71,16 @@ class TrackerPositionsAgreeTest < ActionDispatch::IntegrationTest
   end
 
   # The mirror: the history holds it, the venue stopped reporting it. It left at cost — not an open
-  # position — and the note under the holdings says so.
-  test 'a coin the venue no longer reports is not a row, and is noted' do
+  # position — and with no row to hang on and nothing to do about it, no sentence either.
+  test 'a coin the venue no longer reports is not a row, and is not noted' do
     tx(:deposit, base_currency: 'USDC', base_amount: 1_000)
     tx(:buy, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 900)
     balance(@usdc, 100, 100) # no BTC balance at all
     Tracker::Ledger.compute!(@user)
 
     assert_not_includes rows, 'BTC'
-    assert_select '.tracker-holdings__note', text: /BTC/
+    assert_select '.tracker-holdings__info', false
+    assert_select '.tracker-holdings__notes', false
   end
 
   test 'the filter offers cash only when there is cash to filter' do

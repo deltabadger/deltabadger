@@ -1,7 +1,10 @@
 <% asset = holding.asset %>
 <% share = total.positive? ? (holding.value / total * 100) : 0.to_d %>
 <% color = ensure_contrast(asset.color.presence || '#8A9BA8') %>
-<%# Already decided, once, by `Tracker::Figures` — with whatever assumption it took, noted below. %>
+<%# Already decided, once, by `Tracker::Figures` — with whatever assumption it took, behind the
+    mark at the end of the row. A difference the history does not explain is something missing
+    from the history, and this row is where that can be acted on, so this is where it is said. %>
+<% note = local_assigns[:note] %>
 <% pnl = holding.percent %>
 <% type = holding_type_label(asset) %>
 <div class="tracker-holdings__row">
@@ -29,8 +32,15 @@
   <% else %>
     <span class="tracker-holdings__pl" title="<%= t('tracker.basis_incomplete') %>">—</span>
   <% end %>
+  <%# Always rendered, so the grid keeps its column; empty on a row with nothing to say. %>
+  <% if note %>
+    <span class="tracker-holdings__info" role="button" tabindex="0" aria-label="<%= note %>"
+          data-controller="tooltip" data-tooltip-fixed-value="true"
+          data-action="click->tooltip#toggle mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+      <%= render partial: 'svg/24x24_info' %>
+      <%= tag.div note, class: 'tooltip tooltip--hint' %>
+    </span>
+  <% else %>
+    <span class="tracker-holdings__spacer"></span>
+  <% end %>
 </div>
-<%# What was assumed to state that figure, in gray, under the row it concerns. %>
-<% if holding.note %>
-  <p class="tracker-holdings__note"><%= tracker_note(holding.note) %></p>
-<% end %>

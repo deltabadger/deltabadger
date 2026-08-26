@@ -416,9 +416,9 @@ pt:
             instructions_body: 'Crie uma chave API com permissão de levantamento em %{exchange} e cole as credenciais aqui.'
     tracker:
         price_source:
-            ours: "O nosso preço para esse dia, em USD. Escreve um preço para o substituir."
-            stated: "O teu preço, em USD. Limpa o campo para voltar ao nosso."
-            none: "Não conseguimos avaliar esta linha. Escreve quanto valia uma unidade, em USD."
+            ours: "O nosso preço para esse dia. Escreve um preço para o substituir."
+            stated: "O teu preço. Limpa o campo para voltar ao nosso."
+            none: "Não conseguimos avaliar esta linha. Escreve quanto valia uma unidade."
         welcome:
             connect_and_track: "Liga a tua exchange e começa a acompanhar a tua carteira."
         sync_key_error_html: 'Falha ao sincronizar <strong>%{exchange}</strong>: %{message}. Atualiza a chave API em baixo.'

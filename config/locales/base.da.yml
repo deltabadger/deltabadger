@@ -420,9 +420,9 @@ da:
             instructions_body: 'Opret en udbetalingsaktiveret API-nøgle på %{exchange} og indsæt legitimationsoplysningerne her.'
     tracker:
         price_source:
-            ours: "Vores egen pris for den dag, i USD. Skriv en pris for at erstatte den."
-            stated: "Din egen pris, i USD. Ryd feltet for at bruge vores igen."
-            none: "Vi kunne ikke prissætte denne. Skriv, hvad én enhed var værd, i USD."
+            ours: "Vores egen pris for den dag. Skriv en pris for at erstatte den."
+            stated: "Din egen pris. Ryd feltet for at bruge vores igen."
+            none: "Vi kunne ikke prissætte denne. Skriv, hvad én enhed var værd."
         welcome:
             connect_and_track: "Tilslut din børs og begynd at følge din portefølje."
         sync_key_error_html: 'Synkronisering med <strong>%{exchange}</strong> mislykkedes: %{message}. Opdatér API-nøglen nedenfor.'

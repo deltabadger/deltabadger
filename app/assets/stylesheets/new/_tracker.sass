@@ -144,7 +144,7 @@
         flex-direction: column
     &__row
         display: grid
-        grid-template-columns: minmax(20rem, 1fr) 8rem minmax(0, 2fr) 6rem 10rem 8rem
+        grid-template-columns: minmax(20rem, 1fr) 8rem minmax(0, 2fr) 6rem 10rem 8rem 2rem
         gap: 1.5rem
         align-items: center
         padding: 1rem 0.75rem
@@ -454,3 +454,27 @@
             padding: 1.4rem 0
             font-size: 1.6rem
             font-weight: 600
+
+// The mark that carries what was assumed, or what is missing: at the end of the row it concerns,
+// and nowhere else. Quiet until pointed at; the sentence hangs below it, in the page's own ink.
+.tracker-holdings__info, .tracker-row__info
+    display: inline-block
+    position: relative
+    width: 2rem
+    height: 2rem
+    cursor: help
+    .icon-24
+        display: block
+        width: 2rem
+        height: 2rem
+        min-width: 0
+        fill: var(--concrete)
+    &:hover .icon-24, &.show-tooltip .icon-24
+        fill: var(--ink)
+    .tooltip--hint::before
+        top: -2rem
+        bottom: auto
+        left: 50%
+        transform: translateX(-50%)
+        border-top-color: transparent
+        border-bottom-color: var(--ink)

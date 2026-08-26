@@ -427,9 +427,9 @@ cs:
             instructions_body: 'Vytvořte API klíč s oprávněním pro výběr na %{exchange} a vložte přihlašovací údaje sem.'
     tracker:
         price_source:
-            ours: "Naše vlastní cena pro ten den, v USD. Zadej cenu, která ji nahradí."
-            stated: "Tvoje vlastní cena, v USD. Vymaž pole a vrátí se naše."
-            none: "Tenhle řádek jsme nedokázali ocenit. Zadej, kolik stála jedna jednotka, v USD."
+            ours: "Naše vlastní cena pro ten den. Zadej cenu, která ji nahradí."
+            stated: "Tvoje vlastní cena. Vymaž pole a vrátí se naše."
+            none: "Tenhle řádek jsme nedokázali ocenit. Zadej, kolik stála jedna jednotka."
         welcome:
             connect_and_track: "Připoj svou burzu a začni sledovat své portfolio."
         sync_key_error_html: 'Synchronizace s <strong>%{exchange}</strong> selhala: %{message}. Aktualizuj API klíč níže.'

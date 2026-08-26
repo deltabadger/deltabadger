@@ -140,7 +140,7 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
       # ETH: the exchange holds 10 the history knows nothing about — taken as arrived at its price,
       # so nothing riding on it yet, and a note saying so.
       assert_select '.tracker-holdings__row:nth-child(2) .tracker-holdings__pl', text: '+0.0%'
-      assert_select '.tracker-holdings__note', text: /Kraken.*10.*ETH/m
+      assert_select '.tracker-holdings__row .tracker-holdings__info .tooltip', text: /Kraken.*10.*ETH/m
       assert_select 'details.tracker-holdings__more', false
     end
     assert_select '[data-controller="donut-chart"]', false, 'the tilted donut and its pie/list toggle are gone'
@@ -158,7 +158,7 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
 
     assert_select '.tracker-holdings__row:nth-child(2) b', text: 'ETH'
     assert_select '.tracker-holdings__row:nth-child(2) .tracker-holdings__pl', text: '+11.1%'
-    assert_select '.tracker-holdings__note', text: /ETH.*market price/
+    assert_select '.tracker-holdings__row .tracker-holdings__info .tooltip', text: /ETH.*market price/
   end
 
   test 'more than six holdings fold behind a More disclosure' do
@@ -240,7 +240,7 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     get tracker_path
 
     assert_select '.tracker-holdings__row:first-child .tracker-holdings__pl[title]', 0, 'stated, on an assumption'
-    assert_select '.tracker-holdings__note', text: /Binance.*1\.5.*2\.00/m, count: 1
+    assert_select '.tracker-holdings__row .tracker-holdings__info .tooltip', text: /Binance.*1\.5.*2\.00/m, count: 1
   end
 
   test 'the chart shows a spinner while its history is being built, and no chart at all without one' do
