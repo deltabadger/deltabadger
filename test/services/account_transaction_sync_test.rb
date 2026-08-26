@@ -358,6 +358,46 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal({ imported: 1, duplicates: 0 }, later.slice(:imported, :duplicates), 'a full second on: its own row')
   end
 
+  # The other way round: a file imported BEFORE the first sync stores its rows with no id, and the
+  # API's copies then arrive with one. An id that matches nothing stored is not yet a new row — the
+  # id-less row within a second of it, same type, coin and amount, is the same event.
+  test 'an API row is the id-less file row already stored' do
+    at = Time.utc(2021, 9, 20, 10, 10, 52)
+    file = { entry_type: :withdrawal, base_currency: 'LTC', base_amount: '0.249'.to_d,
+             quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+             tx_id: nil, group_id: nil, description: 'Withdraw', transacted_at: at, raw_data: {} }
+    AccountTransactionSync.new(@api_key).store!([file])
+
+    api = file.merge(tx_id: 'abc123', description: nil, transacted_at: at + 0.4, raw_data: { 'txId' => 'abc123' })
+    counts = AccountTransactionSync.new(@api_key).store!([api, api.merge(tx_id: 'def456', transacted_at: at + 2.seconds)])
+
+    assert_equal({ imported: 1, duplicates: 1 }, counts.slice(:imported, :duplicates))
+  end
+
+  # A Convert out of cash used to be read from the file as a purchase; it is now the swap pair the
+  # API books. A file imported under the old reading holds the purchase, and importing it again must
+  # not add the pair on top: a swap leg is the purchase (or sale) it replaced when the coin leg is
+  # that row's base and the cash leg is its quote.
+  test 'a file Convert stored as a purchase or a sale is not stored again as a swap pair' do
+    at = Time.utc(2021, 9, 20, 6, 22, 54)
+    leg = { quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil, tx_id: nil,
+            description: nil, raw_data: {} }
+    bought = leg.merge(entry_type: :buy, base_currency: 'LTC', base_amount: '0.89568816'.to_d,
+                       quote_currency: 'USDT', quote_amount: 150.to_d, group_id: nil, transacted_at: at)
+    sold = leg.merge(entry_type: :sell, base_currency: 'BNB', base_amount: '0.75'.to_d,
+                     quote_currency: 'USDC', quote_amount: 450.to_d, group_id: nil, transacted_at: at + 1.day)
+    AccountTransactionSync.new(@api_key).store!([bought, sold])
+
+    pair = [leg.merge(entry_type: :swap_out, base_currency: 'USDT', base_amount: 150.to_d, group_id: 'swapcsv_1', transacted_at: at),
+            leg.merge(entry_type: :swap_in, base_currency: 'LTC', base_amount: '0.89568816'.to_d, group_id: 'swapcsv_1', transacted_at: at),
+            leg.merge(entry_type: :swap_out, base_currency: 'BNB', base_amount: '0.75'.to_d, group_id: 'swapcsv_2', transacted_at: at + 1.day),
+            leg.merge(entry_type: :swap_in, base_currency: 'USDC', base_amount: 450.to_d, group_id: 'swapcsv_2', transacted_at: at + 1.day)]
+    counts = AccountTransactionSync.new(@api_key).store!(pair)
+
+    assert_equal({ imported: 0, duplicates: 4 }, counts.slice(:imported, :duplicates))
+    assert_equal 2, AccountTransaction.where(user: @user).count
+  end
+
   # Bybit returns an empty txID for internal transfers, and Gemini/Hyperliquid/BingX build their
   # tx_id with .to_s on a field that can be missing. A blank id identifies nothing, so it must fall
   # through to the nil-tx_id identity rather than collapsing every such row onto one '' key.
