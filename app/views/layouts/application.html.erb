@@ -23,7 +23,7 @@
   <%# hide-balances rides on the BODY, not on <html>: Turbo replaces the body on every visit and on
       a stream refresh, but never touches <html>'s attributes — a class up there would go stale the
       moment the toggle refreshed the page. %>
-  <%= tag.body data: { controller: "hotwire-animations app-wake ticker-tooltips reveal-chrome", locale: I18n.locale },
+  <%= tag.body data: { controller: "hotwire-animations app-wake ticker-tooltips reveal-chrome coarse-slider", locale: I18n.locale },
                class: [('hide-chrome' if content_for?(:hide_chrome)), ('hide-balances' if current_user&.hide_balances?)].compact.presence do %>
 
     <div data-tauri-drag-region class="titlebar-drag-region"></div>

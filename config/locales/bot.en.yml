@@ -17,7 +17,6 @@ en:
             allocation_sum: "Total"
             normalize: "Normalize"
             normalize_first: "Normalize allocation first."
-            unbalanced_hint: "Allocations add up to %{sum}% — they must add up to 100% before the bot can start."
         dca_index:
             setup:
                 step_index: "Index"

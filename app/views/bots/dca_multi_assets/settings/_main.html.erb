@@ -89,8 +89,6 @@
                      name: 'bots_dca_multi_asset[normalize_allocations]', value: '1',
                      class: 'rbutton rbutton--small asset-allocations__normalize',
                      hidden: allocations_balanced %>
-      <%= tag.small t('bot.dca_multi_asset.unbalanced_hint', sum: allocation_sum),
-                    class: 'asset-allocations__hint', hidden: allocations_balanced %>
     <% end %>
   </div>
 

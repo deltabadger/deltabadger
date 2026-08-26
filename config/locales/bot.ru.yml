@@ -20,7 +20,6 @@ ru:
             allocation_sum: "Итого"
             normalize: "Нормализовать"
             normalize_first: "Сначала нормализуйте доли."
-            unbalanced_hint: "Сумма долей составляет %{sum}% — перед запуском бота она должна составлять 100%."
         dca_index:
             setup:
                 step_index: "Индекс"

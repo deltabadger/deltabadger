@@ -57,11 +57,9 @@ export default class extends Controller {
       "asset-allocations__total--off",
       unbalanced,
     );
-    [
-      this.element.querySelector(".asset-allocations__normalize"),
-      this.element.querySelector(".asset-allocations__hint"),
-    ].forEach((element) => {
-      if (element) element.hidden = !unbalanced;
-    });
+    const normalize = this.element.querySelector(
+      ".asset-allocations__normalize",
+    );
+    if (normalize) normalize.hidden = !unbalanced;
   }
 }

@@ -22,6 +22,8 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
                     "bots_dca_multi_asset[allocations][#{asset.id}]", count: 1
     end
     assert_select 'input.allocation__input[type="number"][step="0.1"]', count: @assets.size
+    # Shift coarsens a 0-100 slider to whole percent, and only the body's controller listens for it.
+    assert_select 'body[data-controller~="coarse-slider"]'
     assert_select '.slider__style__thumb', count: @assets.size
     names = css_select('[data-bot--allocation-target="row"] input[type="range"]').map { |input| input['name'] }
     assert_equal @assets.map { |asset| "bots_dca_multi_asset[allocations][#{asset.id}]" }, names
@@ -32,7 +34,6 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
 
     assert_select '[data-bot--allocation-target="total"]', text: '100.0%'
     assert_select 'button.asset-allocations__normalize[hidden]', count: 1
-    assert_select 'small.asset-allocations__hint[hidden]', count: 1
 
     settings = @bot.settings.merge(
       'allocations' => {
@@ -46,7 +47,6 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
 
     assert_select '[data-bot--allocation-target="total"]', text: '85.0%'
     assert_select 'button.asset-allocations__normalize:not([hidden])', count: 1
-    assert_select 'small.asset-allocations__hint:not([hidden])', count: 1
     # The blocker reads once, next to the Start button it disables — the status bar, not the button.
     assert_select "##{dom_id(@bot, :status_bar)}", text: /#{I18n.t('bot.dca_multi_asset.normalize_first')}/
     assert_select "##{dom_id(@bot, :status_button)} .status-button__hint", count: 0

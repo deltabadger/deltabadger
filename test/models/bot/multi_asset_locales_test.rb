@@ -7,7 +7,7 @@ require 'yaml'
 class Bot::MultiAssetLocalesTest < ActiveSupport::TestCase
   MULTI_ASSET_KEYS = %w[
     add_asset remove_asset max_assets_reached min_assets
-    no_common_exchange removed_from_portfolio allocation_sum normalize unbalanced_hint
+    no_common_exchange removed_from_portfolio allocation_sum normalize normalize_first
   ].freeze
   LIQUIDATION_KEYS = %w[unsupported sell_confirm started].freeze
 
@@ -35,7 +35,6 @@ class Bot::MultiAssetLocalesTest < ActiveSupport::TestCase
       # rubocop:disable Style/FormatStringToken
       assert_includes bot.dig('bot', 'dca_multi_asset', 'max_assets_reached'), '%{max}'
       assert_includes bot.dig('bot', 'dca_multi_asset', 'min_assets'), '%{min}'
-      assert_includes bot.dig('bot', 'dca_multi_asset', 'unbalanced_hint'), '%{sum}'
       assert_includes errors.dig('errors', 'bots', 'multi_asset', 'unbalanced'), '%{sum}'
       # rubocop:enable Style/FormatStringToken
     end

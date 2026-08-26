@@ -20,7 +20,6 @@ fr:
             allocation_sum: "Total des allocations"
             normalize: "Normaliser"
             normalize_first: "Normalisez d'abord les allocations."
-            unbalanced_hint: "La somme des allocations est de %{sum} % — elle doit atteindre 100 % avant de pouvoir démarrer le bot."
         dca_index:
             setup:
                 step_index: "Indice"

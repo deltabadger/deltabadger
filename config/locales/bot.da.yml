@@ -17,7 +17,6 @@ da:
             allocation_sum: "I alt"
             normalize: "Normaliser"
             normalize_first: "Normaliser fordelingen først."
-            unbalanced_hint: "Fordelingerne giver i alt %{sum}% — de skal give 100%, før botten kan startes."
         dca_index:
             setup:
                 step_index: "Indeks"

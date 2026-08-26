@@ -20,7 +20,6 @@ pl:
             allocation_sum: "Łącznie"
             normalize: "Normalizuj"
             normalize_first: "Najpierw znormalizuj alokację."
-            unbalanced_hint: "Suma alokacji wynosi %{sum}% — przed uruchomieniem bota musi wynosić 100%."
         dca_index:
             setup:
                 step_index: "Indeks"
