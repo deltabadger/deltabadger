@@ -398,6 +398,28 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal 2, AccountTransaction.where(user: @user).count
   end
 
+  # The pair is matched as a WHOLE against one stored trade — its coin as that trade's base and its
+  # cash as that trade's quote — never one leg at a time: a purchase of 1 LTC for 100 USDT is not
+  # the Convert that received 1 LTC for 200 USDC in the same second, and skipping the LTC leg alone
+  # would leave a one-legged swap in the ledger.
+  test 'a legacy purchase matches a file pair as a whole, never one leg of it' do
+    at = Time.utc(2021, 9, 20, 6, 22, 54)
+    leg = { quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil, tx_id: nil,
+            description: nil, raw_data: {}, transacted_at: at }
+    AccountTransactionSync.new(@api_key).store!([leg.merge(entry_type: :buy, base_currency: 'LTC', base_amount: 1.to_d,
+                                                           quote_currency: 'USDT', quote_amount: 100.to_d, group_id: nil)])
+
+    other = [leg.merge(entry_type: :swap_out, base_currency: 'USDC', base_amount: 200.to_d, group_id: 'swapcsv_a'),
+             leg.merge(entry_type: :swap_in, base_currency: 'LTC', base_amount: 1.to_d, group_id: 'swapcsv_a')]
+    same = [leg.merge(entry_type: :swap_out, base_currency: 'USDT', base_amount: 100.to_d, group_id: 'swapcsv_b'),
+            leg.merge(entry_type: :swap_in, base_currency: 'LTC', base_amount: 1.to_d, group_id: 'swapcsv_b')]
+
+    assert_equal({ imported: 2, duplicates: 0 }, AccountTransactionSync.new(@api_key).store!(other).slice(:imported, :duplicates),
+                 'a different Convert, both legs')
+    assert_equal({ imported: 0, duplicates: 2 }, AccountTransactionSync.new(@api_key).store!(same).slice(:imported, :duplicates),
+                 'the purchase, both legs')
+  end
+
   # Bybit returns an empty txID for internal transfers, and Gemini/Hyperliquid/BingX build their
   # tx_id with .to_s on a field that can be missing. A blank id identifies nothing, so it must fall
   # through to the nil-tx_id identity rather than collapsing every such row onto one '' key.
