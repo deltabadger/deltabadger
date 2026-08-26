@@ -502,10 +502,7 @@ class Exchanges::Binance < Exchange
     # windows from the venue's opening; an incremental one is already floored to `ledger_window`
     # by the caller and reaches the present in one call.
     each_window(start_ms, days: 89, from: TRANSFER_HISTORY_FROM) do |window_start, window_end|
-      result = hm_client.deposit_history(start_time: window_start, end_time: window_end)
-      return result if result.failure?
-
-      Array(result.data).each do |dep|
+      failed = each_transfer(hm_client, :deposit_history, window_start, window_end) do |dep|
         next unless dep['status'] == 1
 
         entries << {
@@ -515,11 +512,9 @@ class Exchanges::Binance < Exchange
           transacted_at: Time.at(dep['insertTime'] / 1000.0).utc, raw_data: dep
         }
       end
+      return failed if failed
 
-      result = hm_client.withdraw_history(start_time: window_start, end_time: window_end)
-      return result if result.failure?
-
-      Array(result.data).each do |wd|
+      failed = each_transfer(hm_client, :withdraw_history, window_start, window_end) do |wd|
         next unless wd['status'] == 6
 
         entries << {
@@ -530,6 +525,7 @@ class Exchanges::Binance < Exchange
           transacted_at: Time.parse(wd['applyTime']).utc, raw_data: wd
         }
       end
+      return failed if failed
     end
 
     # Discover traded symbols and fetch spot trades
@@ -752,6 +748,26 @@ class Exchanges::Binance < Exchange
       chunk_end = [window_start + span, window_end].min
       yield window_start, chunk_end
       window_start = chunk_end
+    end
+  end
+
+  # A window is answered a page at a time, a thousand rows to the page, and a busy account's window
+  # holds more: the next page is read while the last was full. Yields each row; returns the failure
+  # that stopped the read, or nil.
+  TRANSFER_PAGE = 1000
+
+  def each_transfer(hm_client, endpoint, window_start, window_end, &block)
+    offset = 0
+    loop do
+      result = hm_client.public_send(endpoint, start_time: window_start, end_time: window_end,
+                                               offset: offset, limit: TRANSFER_PAGE)
+      return result if result.failure?
+
+      rows = Array(result.data)
+      rows.each(&block)
+      return nil if rows.size < TRANSFER_PAGE
+
+      offset += TRANSFER_PAGE
     end
   end
 

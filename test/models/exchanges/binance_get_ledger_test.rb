@@ -183,6 +183,27 @@ class Exchanges::BinanceGetLedgerTest < ActiveSupport::TestCase
   # every deposit and withdrawal older than three months was never fetched — while Convert, asked in
   # 30-day windows, reached back years. A first sync now walks both in windows from the venue's
   # opening to the present, and a 2021 withdrawal lands.
+  # A window is answered a page at a time, a thousand rows to the page. A busy account's window
+  # holds more than that, and moving on to the next window would leave the rest of this one behind.
+  test 'a window with more transfers than one page holds is read page by page' do
+    hm_client = mock('honeymaker_client')
+    stub_common(hm_client)
+    at = Time.utc(2021, 9, 20, 10, 10, 52)
+    in_window = ->(args) { args[:start_time] <= at.to_i * 1000 && args[:end_time] > at.to_i * 1000 }
+    row = lambda { |index|
+      { 'coin' => 'LTC', 'amount' => '0.001', 'status' => 6, 'transactionFee' => '0',
+        'applyTime' => '2021-09-20 10:10:52', 'txId' => "tx-#{index}" }
+    }
+    hm_client.stubs(:withdraw_history).with { |args| in_window.call(args) && args[:offset].to_i.zero? }
+             .returns(Result::Success.new(Array.new(1000) { |i| row.call(i) }))
+    hm_client.stubs(:withdraw_history).with { |args| in_window.call(args) && args[:offset] == 1000 }
+             .returns(Result::Success.new([row.call(1000)]))
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    assert_equal(1001, result.data.count { |e| e[:entry_type] == :withdrawal })
+  end
+
   test 'a full-history sync walks deposits and withdrawals in windows back to the start' do
     hm_client = mock('honeymaker_client')
     stub_common(hm_client)

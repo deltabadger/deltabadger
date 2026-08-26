@@ -137,10 +137,7 @@ class AccountTransactionSync
       # compared exactly, or bucketed by second, every Convert in the overlap between a file and a
       # sync lands a second time. Less than a full second apart is one event, from either side; a
       # row a full second later stays a row of its own.
-      at = entry[:transacted_at]
-      return scope.where(entry_type: entry[:entry_type], base_currency: entry[:base_currency],
-                         base_amount: entry[:base_amount])
-                  .exists?(['transacted_at > ? AND transacted_at < ?', at - 1.second, at + 1.second])
+      return same_event?(entry, scope) || replaced_trade?(entry)
     end
 
     # Only the STORED side is expanded to merged legs. A standalone leg arriving after its merged
@@ -149,8 +146,45 @@ class AccountTransactionSync
     # one-legged — a wrong share count that looks like data — where importing it merely double-counts
     # visibly and can be corrected.
     return true if stored_merged_activity_ids.include?(tx_id)
+    return true if scope.exists?(tx_id: tx_id)
 
-    scope.exists?(tx_id: tx_id)
+    # The other way round: a file imported BEFORE the first sync stored this row with no id, and
+    # the venue's copy now arrives with one. An id that matches nothing is not yet a new row.
+    same_event?(entry, scope.where(tx_id: nil))
+  end
+
+  # A row with no time is not the same event as anything; it is caught and logged on save.
+  def same_event?(entry, rows)
+    return false if entry[:transacted_at].blank?
+
+    rows.where(entry_type: entry[:entry_type], base_currency: entry[:base_currency], base_amount: entry[:base_amount])
+        .exists?(within_a_second(entry))
+  end
+
+  def within_a_second(entry)
+    at = entry[:transacted_at]
+    ['transacted_at > ? AND transacted_at < ?', at - 1.second, at + 1.second]
+  end
+
+  # A file Convert out of cash used to be read as a purchase, or a sale, and is now the swap pair
+  # the venue books. A file imported under the old reading holds the purchase, and importing it
+  # again must not add the pair on top: a leg of the pair is the trade it replaced when the coin is
+  # that trade's base and the cash is its quote, within a second of it.
+  def replaced_trade?(entry)
+    return false unless entry[:group_id].to_s.start_with?('swapcsv_') && entry[:transacted_at].present?
+
+    legacy = scope.where(tx_id: nil).where(within_a_second(entry))
+    coin, amount = entry.values_at(:base_currency, :base_amount)
+    case entry[:entry_type].to_s
+    when 'swap_in'
+      legacy.exists?(entry_type: :buy, base_currency: coin, base_amount: amount) ||
+        legacy.exists?(entry_type: :sell, quote_currency: coin, quote_amount: amount)
+    when 'swap_out'
+      legacy.exists?(entry_type: :sell, base_currency: coin, base_amount: amount) ||
+        legacy.exists?(entry_type: :buy, quote_currency: coin, quote_amount: amount)
+    else
+      false
+    end
   end
 
   def scope
