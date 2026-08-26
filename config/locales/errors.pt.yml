@@ -71,7 +71,6 @@ pt:
                 max_assets: "Uma carteira pode incluir, no máximo, %{max} ativos."
                 pair_missing: "%{assets} não podem ser negociados contra o ativo de cotação selecionado na %{exchange_name}."
                 locked_while_running: "Os ativos e as ponderações da carteira não podem ser alterados enquanto o bot estiver em execução."
-                unbalanced: "As alocações somam %{sum}%, e não 100%."
             exchange_asset_mismatch: "Nem todos os ativos estão listados em %{exchange_name}"
             archived: "Reative este bot antes de o iniciar"
             exchange_change_while_open_orders: "Cancela todas as ordens abertas deste bot em %{exchange_name} antes de alterar o exchange"

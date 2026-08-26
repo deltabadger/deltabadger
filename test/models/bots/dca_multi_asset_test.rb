@@ -173,7 +173,7 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
 
     bot.allocations = { a => 0.7, b => 0.7 }
     assert_not bot.valid?(:start)
-    assert_match(/140\.00%/, bot.errors[:allocations].to_sentence)
+    assert_equal I18n.t('bot.dca_multi_asset.normalize_first'), bot.errors[:allocations].to_sentence
 
     bot.allocations = { a => 0.7, b => 0.3 }
     assert bot.valid?(:start)
