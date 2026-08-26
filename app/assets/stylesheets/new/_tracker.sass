@@ -153,7 +153,7 @@
         &:hover
             background: var(--paper-on-washed)
     &--anon &__row
-        grid-template-columns: minmax(0, 1fr) 8rem 18rem 6rem 8rem
+        grid-template-columns: minmax(0, 1fr) 8rem 18rem 6rem 8rem 2rem
     &__name
         display: flex
         align-items: center
@@ -192,13 +192,13 @@
 
     @media (max-width: 767.9px)
         &__row, &--anon &__row
-            grid-template-columns: minmax(0, 1fr) 6rem 10rem 8rem
+            grid-template-columns: minmax(0, 1fr) 6rem 10rem 8rem 2rem
             gap: 1rem
         &__full, &__type, .slider
             display: none
     @media (max-width: 479.9px)
         &__row
-            grid-template-columns: minmax(0, 1fr) 6rem 8rem
+            grid-template-columns: minmax(0, 1fr) 6rem 8rem 2rem
         &__value
             display: none
 
