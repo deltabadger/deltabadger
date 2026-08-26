@@ -64,7 +64,6 @@ cs:
                 max_assets: "Portfolio může obsahovat nejvýše %{max} aktiv."
                 pair_missing: "%{assets} nelze na burze %{exchange_name} obchodovat proti vybranému kotovanému aktivu."
                 locked_while_running: "Aktiva ani váhy portfolia nelze měnit, dokud bot běží."
-                unbalanced: "Součet alokací je %{sum}%, nikoli 100%."
             exchange_asset_mismatch: "Ne všechna aktiva jsou dostupná na %{exchange_name}"
             archived: "Než tohoto bota spustíte, obnovte ho"
             exchange_change_while_open_orders: "Před změnou burzy zrušte všechny otevřené příkazy tohoto bota na %{exchange_name}"

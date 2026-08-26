@@ -64,7 +64,6 @@ da:
                 max_assets: "En portefølje kan højst indeholde %{max} aktiver."
                 pair_missing: "%{assets} kan ikke handles mod det valgte noteringsaktiv på %{exchange_name}."
                 locked_while_running: "Porteføljens aktiver og fordelinger kan ikke ændres, mens botten kører."
-                unbalanced: "Fordelingerne giver i alt %{sum}%, ikke 100%."
             exchange_asset_mismatch: "Ikke alle aktiverne er noteret på %{exchange_name}"
             archived: "Genaktivér denne bot, før du starter den"
             exchange_change_while_open_orders: "Annullér alle åbne ordrer, denne bot har på %{exchange_name}, før du skifter børs"

@@ -29,13 +29,12 @@ class Bot::MultiAssetLocalesTest < ActiveSupport::TestCase
              "setup.#{locale}.yml is missing bot.setup.progress_steps.assets"
       assert bot.dig('bot', 'exchange_menu', 'locked_while_rebalancing').present?,
              "bot.#{locale}.yml is missing bot.exchange_menu.locked_while_rebalancing"
-      assert errors.dig('errors', 'bots', 'multi_asset', 'unbalanced').present?,
-             "errors.#{locale}.yml is missing errors.bots.multi_asset.unbalanced"
+      assert errors.dig('errors', 'bots', 'multi_asset', 'pair_missing').present?,
+             "errors.#{locale}.yml is missing errors.bots.multi_asset.pair_missing"
       # These are I18n interpolation tokens under test, not format strings built by this test.
       # rubocop:disable Style/FormatStringToken
       assert_includes bot.dig('bot', 'dca_multi_asset', 'max_assets_reached'), '%{max}'
       assert_includes bot.dig('bot', 'dca_multi_asset', 'min_assets'), '%{min}'
-      assert_includes errors.dig('errors', 'bots', 'multi_asset', 'unbalanced'), '%{sum}'
       # rubocop:enable Style/FormatStringToken
     end
 
@@ -75,9 +74,9 @@ class Bot::MultiAssetLocalesTest < ActiveSupport::TestCase
       assert_not_equal english_bot.dig('bot', 'exchange_menu', 'locked_while_rebalancing'),
                        bot.dig('bot', 'exchange_menu', 'locked_while_rebalancing'),
                        "#{locale}: bot.exchange_menu.locked_while_rebalancing is still English"
-      assert_not_equal locale_data('errors', :en).dig('errors', 'bots', 'multi_asset', 'unbalanced'),
-                       errors.dig('errors', 'bots', 'multi_asset', 'unbalanced'),
-                       "#{locale}: errors.bots.multi_asset.unbalanced is still English"
+      assert_not_equal locale_data('errors', :en).dig('errors', 'bots', 'multi_asset', 'pair_missing'),
+                       errors.dig('errors', 'bots', 'multi_asset', 'pair_missing'),
+                       "#{locale}: errors.bots.multi_asset.pair_missing is still English"
     end
   end
 

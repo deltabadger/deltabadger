@@ -58,7 +58,6 @@ fr:
                 max_assets: "Un portefeuille peut contenir au maximum %{max} actifs."
                 pair_missing: "%{assets} ne peuvent pas être échangés contre l’actif de cotation sélectionné sur %{exchange_name}."
                 locked_while_running: "Les actifs et les pondérations du portefeuille ne peuvent pas être modifiés tant que le bot fonctionne."
-                unbalanced: "La somme des allocations est de %{sum} %, et non de 100 %."
             exchange_asset_mismatch: "Tous les actifs ne sont pas répertoriés sur %{exchange_name}"
             archived: "Réactivez ce bot avant de le démarrer"
             exchange_change_while_open_orders: "Veuillez annuler toutes les commandes ouvertes de ce bot sur %{exchange_name} avant de changer l''exchange"

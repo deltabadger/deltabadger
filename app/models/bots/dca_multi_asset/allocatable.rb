@@ -119,11 +119,7 @@ module Bots::DcaMultiAsset::Allocatable
   def validate_allocations_balanced
     return if allocations_balanced?
 
-    errors.add(
-      :allocations,
-      :unbalanced,
-      message: I18n.t('errors.bots.multi_asset.unbalanced', sum: format('%.2f', allocations_total * 100))
-    )
+    errors.add(:allocations, :unbalanced, message: I18n.t('bot.dca_multi_asset.normalize_first'))
   end
 
   # This is the authoritative pair check. A stopped bot may not be given an asset its venue does
