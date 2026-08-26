@@ -36,7 +36,7 @@
   <% if note %>
     <span class="tracker-holdings__info" role="button" tabindex="0" aria-label="<%= note %>"
           data-controller="tooltip" data-tooltip-fixed-value="true"
-          data-action="click->tooltip#toggle mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+          data-action="click->tooltip#toggle keydown.enter->tooltip#toggle keydown.space->tooltip#toggle:prevent focus->tooltip#showTooltip blur->tooltip#hideTooltip mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
       <%= render partial: 'svg/24x24_info' %>
       <%= tag.div note, class: 'tooltip tooltip--hint' %>
     </span>
