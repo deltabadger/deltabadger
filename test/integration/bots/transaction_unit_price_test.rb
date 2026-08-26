@@ -23,7 +23,7 @@ class Bots::TransactionUnitPriceTest < ActionDispatch::IntegrationTest
     assert_response :ok
     # 27.000331 / 0.00694239 = ~3889.1505... rounded to 4 quote decimals
     expected = (27.000331.to_d / 0.00694239.to_d).round(4)
-    assert_match(/#{expected}\s+#{@bot.quote_asset.symbol}/, response.body)
+    assert_match(%r{#{expected}\s+<small>#{@bot.quote_asset.symbol}</small>}, response.body)
   end
 
   test 'pending order renders unit price from configured amounts' do
@@ -34,7 +34,7 @@ class Bots::TransactionUnitPriceTest < ActionDispatch::IntegrationTest
     get bot_path(id: @bot.id, format: :turbo_stream), params: { decimals: decimals }
     assert_response :ok
     # 100 / 0.5 = 200.00
-    assert_match(/200\.0+\s+#{@bot.quote_asset.symbol}/, response.body)
+    assert_match(%r{200\.0+\s+<small>#{@bot.quote_asset.symbol}</small>}, response.body)
   end
 
   test 'unfilled order with nil quote_amount falls back through price * amount' do
@@ -45,7 +45,7 @@ class Bots::TransactionUnitPriceTest < ActionDispatch::IntegrationTest
     get bot_path(id: @bot.id, format: :turbo_stream), params: { decimals: decimals }
     assert_response :ok
     # quote_amount derived as 200 * 0.5 = 100; unit price = 100 / 0.5 = 200
-    assert_match(/200\.0+\s+#{@bot.quote_asset.symbol}/, response.body)
+    assert_match(%r{200\.0+\s+<small>#{@bot.quote_asset.symbol}</small>}, response.body)
   end
 
   test 'order with zero amount renders bare dash (no quote suffix), no ZeroDivisionError' do
@@ -54,7 +54,7 @@ class Bots::TransactionUnitPriceTest < ActionDispatch::IntegrationTest
     decimals = { @bot.base_asset.symbol => 8, @bot.quote_asset.symbol => 2 }
     get bot_path(id: @bot.id, format: :turbo_stream), params: { decimals: decimals }
     assert_response :ok
-    refute_match(/-\s+#{@bot.quote_asset.symbol}/, response.body,
+    refute_match(%r{-\s+<small>#{@bot.quote_asset.symbol}</small>}, response.body,
                  'dash should not be followed by a quote-asset suffix when unit price is not computable')
   end
 
