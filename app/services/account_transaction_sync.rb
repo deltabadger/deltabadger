@@ -132,21 +132,15 @@ class AccountTransactionSync
       # (user, exchange, key_type), so a user cannot register two trading keys for two accounts on
       # one venue. If that ever changes, telling them apart needs a sub-account identity the ledger
       # does not record — the key is not one, because the same account changes keys.
-      # The same SECOND, not the same instant. An exchange API timestamps to the millisecond and its
-      # own CSV export writes whole seconds — `22:58:17.200` and `22:58:17` are one fill, and
-      # compared exactly they are two, so every trade in the overlap between a file and a sync lands
-      # a second time.
-      #
-      # Bucketed rather than given a ±1s window, so it reads the same from either side: whichever of
-      # the two arrives first, both fall in the same bucket, and a row a full second later stays a
-      # row of its own.
-      second = entry[:transacted_at].change(usec: 0)
-      return scope.exists?(
-        entry_type: entry[:entry_type],
-        base_currency: entry[:base_currency],
-        base_amount: entry[:base_amount],
-        transacted_at: second...(second + 1.second)
-      )
+      # WITHIN A SECOND, not the same instant. An exchange API timestamps to the millisecond and its
+      # own CSV export writes whole seconds, rounded — `06:22:53.911` is `06:22:54` in the file — so
+      # compared exactly, or bucketed by second, every Convert in the overlap between a file and a
+      # sync lands a second time. Less than a full second apart is one event, from either side; a
+      # row a full second later stays a row of its own.
+      at = entry[:transacted_at]
+      return scope.where(entry_type: entry[:entry_type], base_currency: entry[:base_currency],
+                         base_amount: entry[:base_amount])
+                  .exists?(['transacted_at > ? AND transacted_at < ?', at - 1.second, at + 1.second])
     end
 
     # Only the STORED side is expanded to merged legs. A standalone leg arriving after its merged

@@ -71,12 +71,15 @@ class IdLessDedupTest < ActiveSupport::TestCase
     assert_equal 1, AccountTransaction.for_user(@user).count
   end
 
-  # Bucketed by second, so it reads the same from either side — whichever of the two arrives first.
-  test 'the whole of one second is the same fill, and the next second is not' do
+  # Within a second either way, so it reads the same from either side — whichever of the two arrives
+  # first. The file ROUNDS: `:17.9` is written as `:18`, which is why the next whole second is still
+  # that fill, and only more than a second away is a row of its own.
+  test 'within a second is the same fill, either way round, and more than a second away is not' do
     store(@old, [entry.merge(tx_id: 'A', transacted_at: @at + 0.9)])
 
-    assert_equal 0, store(@new, [entry])[:imported], 'still inside that second'
-    assert_equal 1, store(@new, [entry.merge(transacted_at: @at + 1.second)])[:imported], 'the next second is its own'
+    assert_equal 0, store(@new, [entry])[:imported], 'the second it was truncated to'
+    assert_equal 0, store(@new, [entry.merge(transacted_at: @at + 1.second)])[:imported], 'the second it was rounded to'
+    assert_equal 1, store(@new, [entry.merge(transacted_at: @at + 2.seconds)])[:imported], 'more than a second away is its own'
   end
 
   test 'it matches whichever precision was stored first' do

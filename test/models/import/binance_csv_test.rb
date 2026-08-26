@@ -248,12 +248,30 @@ class Import::BinanceCsvTest < ActiveSupport::TestCase
       '1,2025-06-22 20:20:46,Spot,Binance Convert,USDT,-129.41567489,'
     )
 
-    entry = entries.sole
-    assert_equal :buy, entry[:entry_type]
-    assert_equal 'USDC', entry[:base_currency]
-    assert_equal 129.41567489.to_d, entry[:base_amount]
-    assert_equal 'USDT', entry[:quote_currency]
-    assert_equal 129.41567489.to_d, entry[:quote_amount]
+    assert_equal(%i[swap_out swap_in], entries.map { |e| e[:entry_type] })
+    assert_equal(%w[USDT USDC], entries.map { |e| e[:base_currency] })
+    assert_equal([129.41567489.to_d] * 2, entries.map { |e| e[:base_amount] })
+    assert_equal 1, entries.map { |e| e[:group_id] }.uniq.size, 'one trade, two legs'
+  end
+
+  # The adapter books EVERY Convert as a swap pair — `import_convert_trades` never asks whether a
+  # leg is cash — and a file row dedups against a stored row only when the entry type matches. A
+  # Convert out of USDT read as a `buy` therefore never met the API's `swap_in`, and the coins
+  # arrived twice. The cash leg beside the coin leg is still what prices it, exactly as for the API.
+  test 'a convert out of cash is the swap pair the adapter books, not a purchase' do
+    entries = parse(
+      '1,2021-09-20 09:22:54,Spot,Binance Convert,LTC,0.89568816,',
+      '1,2021-09-20 09:22:54,Spot,Binance Convert,USDT,-150,',
+      offset: '+03:00'
+    )
+
+    assert_equal(%i[swap_out swap_in], entries.map { |e| e[:entry_type] })
+    out, inn = entries
+    assert_equal ['USDT', 150.to_d], [out[:base_currency], out[:base_amount]]
+    assert_equal ['LTC', 0.89568816.to_d], [inn[:base_currency], inn[:base_amount]]
+    assert_nil inn[:quote_amount], 'no quote of its own: the cash leg beside it is the price'
+    assert_equal out[:group_id], inn[:group_id]
+    assert_equal Time.utc(2021, 9, 20, 6, 22, 54), inn[:transacted_at]
   end
 
   test 'two converts far apart are not paired with each other' do
@@ -264,8 +282,9 @@ class Import::BinanceCsvTest < ActiveSupport::TestCase
       '1,2024-02-17 20:07:21,Spot,Binance Convert,CHZ,-3,'
     )
 
-    assert_equal 3, entries.size, 'a purchase, and a swap of CHZ into BNB'
-    assert_equal 150.to_d, entries.find { |e| e[:base_currency] == 'LTC' }[:quote_amount]
+    assert_equal 4, entries.size, 'two swaps, two legs each'
+    assert_equal 2, entries.map { |e| e[:group_id] }.uniq.size
+    assert_equal 150.to_d, entries.find { |e| e[:base_currency] == 'USDT' }[:base_amount]
   end
 
   # Binance does not always write the coins a dust sweep consumed — five BNB credits, no Remark, and
