@@ -11,12 +11,12 @@
   <%# How much was traded and what it cost — the two balances in a log row. The unit price below
       survives them: it is a fact about the market, and it is all this row has left to say. %>
   <% unless hide_balances?(order.bot) %>
-    <td><%= amount.nil? ? '-' : decimals[order.base].nil? ? amount : amount.round(decimals[order.base]) %> <%= order.base %></td>
-    <td><%= quote_amount.nil? ? '-' : decimals[order.quote].nil? ? quote_amount : quote_amount.round(decimals[order.quote]) %> <%= order.quote %></td>
+    <td><%= amount.nil? ? '-' : decimals[order.base].nil? ? amount : amount.round(decimals[order.base]) %> <small><%= order.base %></small></td>
+    <td><%= quote_amount.nil? ? '-' : decimals[order.quote].nil? ? quote_amount : quote_amount.round(decimals[order.quote]) %> <small><%= order.quote %></small></td>
   <% end %>
 
   <% unit_price = (amount && quote_amount && !amount.zero?) ? quote_amount / amount : nil %>
-  <td><% if unit_price.nil? %>-<% else %><%= decimals[order.quote].nil? ? unit_price : unit_price.round(decimals[order.quote]) %> <%= order.quote %><% end %></td>
+  <td><% if unit_price.nil? %>-<% else %><%= decimals[order.quote].nil? ? unit_price : unit_price.round(decimals[order.quote]) %> <small><%= order.quote %></small><% end %></td>
 
   <td>
     <% if order.open? %>

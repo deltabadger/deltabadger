@@ -52,7 +52,7 @@
   </td>
   <% unless hide_money %>
     <td class="tracker-row__value"><%= tracker_amount(value) || '—' %></td>
-    <td class="tracker-row__fee"><%= at.fee_amount.present? ? "#{tracker_amount(at.fee_amount)} #{at.fee_currency}" : '—' %></td>
+    <td class="tracker-row__fee"><% if at.fee_amount.present? %><%= tracker_amount(at.fee_amount) %> <small><%= at.fee_currency %></small><% else %>—<% end %></td>
   <% end %>
   <td>
     <% if at.bot_transaction.present? %>
