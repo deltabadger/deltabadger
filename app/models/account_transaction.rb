@@ -21,9 +21,11 @@ class AccountTransaction < ApplicationRecord
   # The fields a user may state for themselves. Deliberately a short list: each one has to be read
   # by something downstream, and a value nothing consumes is a promise the page cannot keep.
   #
-  # `fiat_value` is what this row was worth in USD. The app fills it from the venue's own numbers
-  # where it can and from our price history where it cannot; a stated value stands in front of both.
-  MANUAL_FIELDS = %w[fiat_value].freeze
+  # `price` is what one unit of the row's asset was worth, in USD — the record holds amounts and
+  # prices, never a value: a value is amount times price, worked out later in whatever currency the
+  # reader asks for. The app prices a row from the venue's own numbers where it can and from our
+  # price history where it cannot; a stated price stands in front of both.
+  MANUAL_FIELDS = %w[price].freeze
 
   # Whose figure this is. A number the user typed is theirs, and the row says so — a manual value
   # that looked like the exchange's would be worse than no manual value at all.

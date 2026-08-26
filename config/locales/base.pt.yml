@@ -415,11 +415,10 @@ pt:
             instructions_title: 'Como obter as chaves de %{exchange}'
             instructions_body: 'Crie uma chave API com permissão de levantamento em %{exchange} e cole as credenciais aqui.'
     tracker:
-        value_source:
-            exchange: "Informado pela exchange."
-            ours: "O nosso preço para esse dia. Escreve um valor para o substituir."
-            stated: "O teu valor. Limpa o campo para voltar ao nosso preço."
-            none: "Não conseguimos valorizar esta linha. Escreve quanto valia."
+        price_source:
+            ours: "O nosso preço para esse dia, em USD. Escreve um preço para o substituir."
+            stated: "O teu preço, em USD. Limpa o campo para voltar ao nosso."
+            none: "Não conseguimos avaliar esta linha. Escreve quanto valia uma unidade, em USD."
         welcome:
             connect_and_track: "Liga a tua exchange e começa a acompanhar a tua carteira."
         sync_key_error_html: 'Falha ao sincronizar <strong>%{exchange}</strong>: %{message}. Atualiza a chave API em baixo.'

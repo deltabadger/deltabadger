@@ -96,20 +96,17 @@ class TrackerController < ApplicationController
     render turbo_stream: streams + [turbo_stream_prepend_flash]
   end
 
-  # A figure the user states for one row. Everything that reads a priced row goes through
-  # `PriceService#enrich`, which prefers a stated value — so the tiles, the chart, the positions and
-  # the tax report all inherit this without knowing it exists.
-  def update_value
+  # A price the user states for one row. Everything that reads a priced row goes through
+  # `PriceService#enrich`, which prefers a stated price — so the tiles, the chart, the positions and
+  # the tax report all inherit this without knowing it exists. The box is in USD, the unit every
+  # price it shows is quoted in and the one the ledger counts in, so what is typed is what is banked.
+  def update_price
     transaction = AccountTransaction.for_user(current_user).find(params[:id])
-    # Amount and price of the row's own are the value: nothing to state, and a request that tries
-    # anyway is refused rather than stored and ignored.
-    return head :unprocessable_entity if transaction.venue_valued? && params[:value].present?
+    # A row with a price of its own has nothing to state, and a request that tries anyway is refused
+    # rather than stored and ignored.
+    return head :unprocessable_entity if transaction.venue_valued? && params[:price].present?
 
-    # The box is labelled in the user's own currency; the ledger counts in USD. Convert on the way in
-    # exactly as the view converts on the way out, or a figure typed in euro would be banked as
-    # dollars.
-    @denomination = current_user.denomination
-    transaction.set_manual(:fiat_value, @denomination.to_usd(transaction.parse_manual(params[:value])))
+    transaction.set_manual(:price, params[:price])
     transaction.save!
     # The ledger is a reading of these rows, and one just changed its worth.
     Tracker::LedgerJob.perform_later(current_user.id)

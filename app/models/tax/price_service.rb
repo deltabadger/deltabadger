@@ -48,7 +48,7 @@ module Tax
         # ones — a report is not incomplete over a figure it was handed. Nor does a row the cash leg
         # beside it already values.
         next if cash_leg_value(tx)
-        next if tx.respond_to?(:manual?) && tx.manual?(:fiat_value) && !tx.quoted?
+        next if tx.respond_to?(:manual?) && tx.manual?(:price) && !tx.quoted?
         next if tx.quote_currency == currency && tx.quote_amount.present?
         next if tx.quote_currency.present? && tx.quote_amount.present? &&
                 (STABLECOINS.include?(tx.quote_currency) || FIAT_CURRENCIES.include?(tx.quote_currency))
@@ -153,7 +153,7 @@ module Tax
           price_missing: price_missing,
           # A figure the user stated by hand rather than one the venue reported or we priced. Carried
           # through so the tax report can disclose it: a stated cost is defensible, a silent one is not.
-          stated_value: tx.respond_to?(:manual?) && tx.manual?(:fiat_value) && !valued_by_venue?(tx),
+          stated_value: tx.respond_to?(:manual?) && tx.manual?(:price) && !valued_by_venue?(tx),
           exchange: tx.exchange.name_id,
           linked: links.key?(tx.id) || linked_deposit_ids.include?(tx.id),
           transfer_fee_amount: transfer_fee_amount(tx, links, deposit_amounts)
@@ -455,12 +455,16 @@ module Tax
       cash = cash_leg_value(record)
       return cash if cash
 
-      # Then what the USER says it was worth, ahead of everything the app would have to guess. This
-      # is the single point every consumer of a priced row passes through, so the tiles, the chart,
-      # the positions and the tax report inherit a stated value without knowing it exists. Stated
-      # in USD, like everything else behind the page.
-      stated = record.respond_to?(:manual_value) && record.manual_value(:fiat_value)
-      return convert_fiat(amount: stated, from: 'USD', to: currency, timestamp: record.transacted_at) if stated
+      # Then the price the USER states, ahead of everything the app would have to guess. This is the
+      # single point every consumer of a priced row passes through, so the tiles, the chart, the
+      # positions and the tax report inherit a stated price without knowing it exists. Stated per
+      # unit in USD, like every price behind the page; the value is worked out from it here, as from
+      # any other price.
+      stated = record.respond_to?(:manual_value) && record.manual_value(:price)
+      if stated
+        return convert_fiat(amount: stated * record.base_amount.to_d, from: 'USD', to: currency,
+                            timestamp: record.transacted_at)
+      end
 
       price = price_at(asset: record.base_currency, currency: currency, timestamp: record.transacted_at,
                        exchange: record.exchange)

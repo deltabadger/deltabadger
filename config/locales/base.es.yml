@@ -416,11 +416,10 @@ es:
             instructions_title: 'Cómo obtener las claves de %{exchange}'
             instructions_body: 'Crea una clave API con permiso de retiro en %{exchange} y pega las credenciales aquí.'
     tracker:
-        value_source:
-            exchange: "Informado por el exchange."
-            ours: "Nuestro propio precio de ese día. Escribe un valor para sustituirlo."
-            stated: "Tu propio valor. Vacía el campo para volver a nuestro precio."
-            none: "No hemos podido valorar esta entrada. Escribe cuánto valía."
+        price_source:
+            ours: "Nuestro propio precio de ese día, en USD. Escribe un precio para sustituirlo."
+            stated: "Tu propio precio, en USD. Vacía el campo para volver al nuestro."
+            none: "No pudimos valorar esta fila. Escribe cuánto valía una unidad, en USD."
         welcome:
             connect_and_track: "Conecta tu exchange y empieza a trackear tu portafolio."
         sync_key_error_html: 'Fallo al sincronizar <strong>%{exchange}</strong>: %{message}. Actualiza la clave API a continuación.'
