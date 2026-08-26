@@ -151,11 +151,12 @@ module TrackerHelper
   #
   #   :exchange — the venue's own, as it booked it, in the venue's own currency: a string, shown as
   #               is. A fact of the record, like Amount and Fee.
-  #   :stated   — the user typed it, per unit, in USD. It stands in front of everything else.
-  #   :ours     — the venue booked none, so we priced it from our own history, in USD. The default,
-  #               and the thing the figures are actually built on for a dust rebate, an airdrop, a
-  #               withdrawal.
-  #   :cash     — the row's base is money. Money has no price; its worth is its own amount.
+  #   :stated   — the user typed it, per unit. Stored in USD; shown in the reader's currency.
+  #   :ours     — the venue booked none, so we priced it from our own history. The default, and
+  #               the thing the figures are actually built on for a dust rebate, an airdrop, a
+  #               withdrawal. Shown in the reader's currency, like Value beside it.
+  #   :cash     — the row's base is money, and the price of money is its rate: what one unit bought
+  #               that day, in the reader's currency. nil where no rate exists for that day.
   #   nil       — nobody could price it. This is where the figures go silent, and where a typed
   #               price is worth more than any amount of retrying.
   #
@@ -164,8 +165,8 @@ module TrackerHelper
   #
   # Over the row's SIZE: a split is one signed net delta, and a reverse split has a price like any
   # other row — the sign belongs to the amount, and Value carries it. Only a row of nothing has none.
-  def tracker_row_price(record)
-    return [nil, :cash] if money?(record.base_currency)
+  def tracker_row_price(record, denomination)
+    return [in_display(1.to_d, record.base_currency, record, denomination), :cash] if money?(record.base_currency)
 
     amount = record.base_amount.to_d.abs
     return [nil, nil] if amount.zero?
@@ -175,25 +176,21 @@ module TrackerHelper
     elsif (cash = with_group(record).cash_counterpart)
       ["#{tracker_amount(cash.base_amount.to_d / amount)} #{cash.base_currency}", :exchange]
     elsif (stated = record.manual_value(:price))
-      [stated, :stated]
+      [denomination.convert(stated), :stated]
     else
       price = HistoricalPrice.lookup(asset: record.base_currency, currency: 'USD', date: record.transacted_at.to_date)
-      price&.positive? ? [price.to_d, :ours] : [nil, nil]
+      price&.positive? ? [denomination.convert(price.to_d), :ours] : [nil, nil]
     end
   end
 
   # What a row was worth, in the DENOMINATION's currency — the one unit that column is written in —
   # or nil where nothing could price it, which the column says rather than guessing. Never typed:
-  # it is amount times price, whichever price the row carries.
-  #
-  # Two kinds of row, two honest rates. A row whose base is money is a fact in a real currency and is
-  # carried across at the rate OF ITS OWN DAY — five euro sixty-one is five euro sixty-one, and
-  # round-tripping it through dollars at today's rate hands back five seventy-one. So is the venue's
-  # own counter-amount. Everything else is a figure in USD, and follows the page's own rule:
-  # converted at today's rate, exactly like the tiles and the chart above it.
+  # amount times price, in the same currency the price is shown in, so the two visibly multiply
+  # out. The venue's own counter-amount is the exception, and is carried across at the rate OF ITS
+  # OWN DAY — five euro sixty-one is five euro sixty-one, and round-tripping it through dollars at
+  # today's rate hands back five seventy-one.
   def tracker_row_value(record, denomination, price, source)
     case source
-    when :cash then in_display(record.base_amount, record.base_currency, record, denomination)
     when :exchange
       if record.quoted?
         in_display(record.quote_amount, record.quote_currency, record, denomination)
@@ -201,7 +198,7 @@ module TrackerHelper
         cash = record.cash_counterpart
         in_display(cash.base_amount, cash.base_currency, record, denomination)
       end
-    when :stated, :ours then denomination.convert(price * record.base_amount.to_d)
+    when :cash, :stated, :ours then price && (price * record.base_amount.to_d)
     end
   end
 

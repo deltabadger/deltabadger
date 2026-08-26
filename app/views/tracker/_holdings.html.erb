@@ -41,10 +41,15 @@
         </div>
       </div>
 
+      <%# Every assumption about a coin finds the row of that coin — a cash note included, which
+          `Figures` keeps beside the holdings rather than on one. A coin nobody holds any more has
+          no row, and gets no sentence: there is nothing to do about it. %>
+      <% notes = (@figures&.notes || []).select { |note| note.symbol.present? }.group_by(&:symbol) %>
+      <% note_for = ->(holding) { notes[holding.asset.symbol]&.map { |note| tracker_note(note) }&.join(' ') } %>
       <div class="tracker-holdings__list">
         <div class="tracker-holdings__rows">
           <% shown.each do |holding| %>
-            <%= render 'holding_row', holding: holding, total: total, hide_money: hide_money %>
+            <%= render 'holding_row', holding: holding, total: total, hide_money: hide_money, note: note_for.call(holding) %>
           <% end %>
         </div>
         <% if folded.any? %>
@@ -56,7 +61,7 @@
               <span class="tracker-holdings__more__close"><%= t('tracker.show_less') %></span>
             </summary>
             <% folded.each do |holding| %>
-              <%= render 'holding_row', holding: holding, total: total, hide_money: hide_money %>
+              <%= render 'holding_row', holding: holding, total: total, hide_money: hide_money, note: note_for.call(holding) %>
             <% end %>
           </details>
         <% end %>
@@ -69,9 +74,9 @@
       <%= t('tracker.portfolio.unpriced', assets: @portfolio_unpriced_assets.map(&:symbol).join(', ')) %>
     </p>
   <% end %>
-  <%# Assumptions about what is not on the list: a coin the exchange no longer holds, cash, coins
-      nobody could price, and the arithmetic backstop. In gray, in words, nothing to click. %>
-  <% asides = (@figures&.notes || []) - holdings.filter_map(&:note) %>
+  <%# The one sentence with no row to live on: the arithmetic backstop. It is not an assumption but
+      the page's own check that its figures agree, and it is said whatever else is on the page. %>
+  <% asides = (@figures&.notes || []).select { |note| note.kind == :figures_disagree } %>
   <% if asides.any? %>
     <ul class="tracker-holdings__notes">
       <% asides.each do |note| %>

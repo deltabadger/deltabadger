@@ -10,8 +10,15 @@ export default class extends Controller {
     this.showTooltipTimeout = null;
   }
 
+  // A click is deliberate: no delay, and positioned before it is revealed, like a hover.
   toggle() {
-    this.element.classList.toggle("show-tooltip");
+    this.#clearTimeouts();
+    if (this.element.classList.contains("show-tooltip")) {
+      this.element.classList.remove("show-tooltip");
+      return;
+    }
+    this.#adjustPosition();
+    this.element.classList.add("show-tooltip");
   }
 
   showTooltip() {

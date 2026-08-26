@@ -417,9 +417,9 @@ it:
             instructions_body: 'Crea una chiave API con autorizzazione al prelievo su %{exchange} e incolla le credenziali qui.'
     tracker:
         price_source:
-            ours: "Il nostro prezzo per quel giorno, in USD. Inserisci un prezzo per sostituirlo."
-            stated: "Il tuo prezzo, in USD. Svuota il campo per tornare al nostro."
-            none: "Non siamo riusciti a valutare questa riga. Inserisci quanto valeva un'unità, in USD."
+            ours: "Il nostro prezzo per quel giorno. Inserisci un prezzo per sostituirlo."
+            stated: "Il tuo prezzo. Svuota il campo per tornare al nostro."
+            none: "Non siamo riusciti a valutare questa riga. Inserisci quanto valeva un'unità."
         welcome:
             connect_and_track: "Collega il tuo exchange e inizia a tracciare il tuo portafoglio."
         sync_key_error_html: 'Sincronizzazione con <strong>%{exchange}</strong> fallita: %{message}. Aggiorna la chiave API qui sotto.'

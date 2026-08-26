@@ -417,9 +417,9 @@ de:
             instructions_body: 'Erstellen Sie einen API-Schlüssel mit Auszahlungsberechtigung auf %{exchange} und fügen Sie die Zugangsdaten hier ein.'
     tracker:
         price_source:
-            ours: "Unser eigener Kurs für diesen Tag, in USD. Gib einen Kurs ein, um ihn zu ersetzen."
-            stated: "Dein eigener Kurs, in USD. Leere das Feld, um wieder unseren zu nutzen."
-            none: "Diesen Eintrag konnten wir nicht bewerten. Gib ein, was eine Einheit wert war, in USD."
+            ours: "Unser eigener Kurs für diesen Tag. Gib einen Kurs ein, um ihn zu ersetzen."
+            stated: "Dein eigener Kurs. Leere das Feld, um wieder unseren zu nutzen."
+            none: "Diesen Eintrag konnten wir nicht bewerten. Gib ein, was eine Einheit wert war."
         welcome:
             connect_and_track: "Verbinde deine Börse und beginne, dein Portfolio zu tracken."
         sync_key_error_html: 'Synchronisierung mit <strong>%{exchange}</strong> fehlgeschlagen: %{message}. Bitte API-Schlüssel unten aktualisieren.'

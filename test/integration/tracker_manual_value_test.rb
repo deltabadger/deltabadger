@@ -93,7 +93,8 @@ class TrackerManualValueTest < ActionDispatch::IntegrationTest
     assert_includes cell['class'], 'tracker-row__price--ours'
     assert_equal '30000.0', input_for(rebate)['placeholder'], 'our price for that day, per unit'
     assert_nil input_for(rebate)['value'], 'a default is not a statement'
-    assert_includes cell.text, 'USD', 'the unit the figures are built in'
+    assert_includes cell.text, 'USD', 'the page is shown in dollars'
+    assert_select "##{ActionView::RecordIdentifier.dom_id(rebate)} .tracker-row__info", false, 'priced: nothing to point out'
     assert_equal '15,000.00', value_cell(rebate).text.strip, 'half a coin at 30,000'
     assert_empty value_cell(rebate).css('input'), 'a value is worked out, never typed'
   end
@@ -119,24 +120,34 @@ class TrackerManualValueTest < ActionDispatch::IntegrationTest
   end
 
   # Nothing to say, and the row says nothing — rather than a figure the page cannot stand behind.
-  test 'a row nobody can price is an empty box, and marked' do
+  # The problem is the empty box, so the explanation sits beside it, behind an info mark: this is
+  # the one place the reader can do something about it.
+  test 'a row nobody can price is an empty box, with the explanation beside it' do
     unpriceable = unquoted(:airdrop, 'WEIRD', 3)
 
-    assert_includes price_cell(unpriceable)['class'], 'tracker-row__price--none'
+    cell = price_cell(unpriceable)
+    assert_includes cell['class'], 'tracker-row__price--none'
     assert_equal '—', input_for(unpriceable)['placeholder']
     assert_equal '—', value_cell(unpriceable).text.strip
+    assert_equal I18n.t('tracker.price_source.none'), cell.css('.tracker-row__info .tooltip').text.strip
+    assert_select '.tracker-holdings__notes', false
   end
 
   # A third of the table was fiat and stablecoin rows. They have no price to miss — their worth is
   # their own amount — and flagging them buried the rows that genuinely could not be priced. What
   # they DO need is the rate that carries them into the one unit the Value column is written in.
-  test 'a row whose base is money has no price, and states its value as a fact' do
+  # The price of money is its rate: what one euro bought that day, in the column's own unit — so
+  # amount times price is the value, on this row as on every other, and nothing is typed here.
+  test 'a row whose base is money has its rate for the day as its price' do
     FxRate.create!(currency: 'USD', date: @t.to_date, rate: '1.25'.to_d)
     deposited = unquoted(:deposit, 'EUR', 200)
+    parked = unquoted(:deposit, 'USDT', 150)
 
-    assert_equal '—', price_cell(deposited).text.strip
+    assert_equal '1.25 USD', price_cell(deposited).text.strip, 'what one euro bought that day'
     assert_empty price_cell(deposited).css('input'), 'money has no price to state'
     assert_equal '250.00', value_cell(deposited).text.strip, '200 EUR on a day the euro bought 1.25 dollars'
+    assert_equal '1.00 USD', price_cell(parked).text.strip, 'a stablecoin at par'
+    assert_equal '150.00', value_cell(parked).text.strip
   end
 
   # The defect this replaced: 5.61 EUR was shown as 5.71 EUR, because it went out to dollars at the
@@ -192,19 +203,24 @@ class TrackerManualValueTest < ActionDispatch::IntegrationTest
     assert_includes price_cell(rebate)['class'], 'tracker-row__price--ours'
   end
 
-  # Price is stated in USD — the unit every price in the box is quoted in, and the one the ledger
-  # counts in — so what is typed is what is banked, with no rate in between. Value is the column
-  # in the reader's own currency, and it is the value that is converted, on the way out.
-  test 'a price is stated in USD whatever the page is shown in; the value is what converts' do
-    Denomination.any_instance.stubs(:rate).returns(0.5.to_d)
-    @user.update!(display_currency: 'EUR')
-    rebate = unquoted(:airdrop, 'BTC', 1)
+  # Amount times Price is Value, in ONE currency, on every row: our price and a typed price are
+  # shown in the reader's currency, like the Value beside them. The record still holds the price
+  # in USD — a figure typed in euro is banked at today's rate, exactly as it is shown at it — and
+  # only the venue's own booked price keeps the venue's currency, because that one is the record.
+  test 'our price and a stated price are shown, and typed, in the reader&apos;s currency' do
+    Denomination.stubs(:for).returns(Denomination.new('EUR', '0.5'.to_d))
+    HistoricalPrice.store(asset: 'BTC', currency: 'USD', date: @t.to_date, price: 30_000)
+    rebate = unquoted(:airdrop, 'BTC', 0.5)
+
+    assert_equal '15000.0', input_for(rebate)['placeholder'], '30,000 dollars is 15,000 euro'
+    assert_includes price_cell(rebate).text, 'EUR'
+    assert_equal '7,500.00', value_cell(rebate).text.strip, 'half a coin at 15,000'
 
     patch price_tracker_transaction_path(id: rebate.id), params: { price: '100' }
 
-    assert_equal 100.to_d, rebate.reload.manual_value(:price), 'banked as typed'
+    assert_equal 200.to_d, rebate.reload.manual_value(:price), '100 euro at 0.5 is 200 dollars'
     assert_equal '100.0', input_for(rebate)['value'], 'and it reads back as the 100 they typed'
-    assert_equal '50.00', value_cell(rebate).text.strip, '100 USD shown in euro at 0.5'
+    assert_equal '50.00', value_cell(rebate).text.strip, 'half a coin at 100'
   end
 
   # The whole point of stating a price: the figures change. Everything priced goes through

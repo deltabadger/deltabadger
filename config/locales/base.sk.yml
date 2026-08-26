@@ -427,9 +427,9 @@ sk:
             instructions_body: 'Vytvorte API kľúč s oprávnením na výber na %{exchange} a vložte prihlasovacie údaje sem.'
     tracker:
         price_source:
-            ours: "Naša vlastná cena za ten deň, v USD. Zadaj cenu, ktorá ju nahradí."
-            stated: "Tvoja vlastná cena, v USD. Vymaž pole a vráti sa naša."
-            none: "Tento riadok sme nedokázali oceniť. Zadaj, koľko stála jedna jednotka, v USD."
+            ours: "Naša vlastná cena za ten deň. Zadaj cenu, ktorá ju nahradí."
+            stated: "Tvoja vlastná cena. Vymaž pole a vráti sa naša."
+            none: "Tento riadok sme nedokázali oceniť. Zadaj, koľko stála jedna jednotka."
         welcome:
             connect_and_track: "Pripoj svoju burzu a začni sledovať svoje portfólio."
         sync_key_error_html: 'Synchronizácia s <strong>%{exchange}</strong> zlyhala: %{message}. Aktualizuj API kľúč nižšie.'

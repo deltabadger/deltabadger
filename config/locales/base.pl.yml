@@ -419,9 +419,9 @@ pl:
             instructions_body: 'Utwórz klucz API z uprawnieniami do wypłat na %{exchange} i wklej tutaj dane uwierzytelniające.'
     tracker:
         price_source:
-            ours: "Nasza cena z tego dnia, w USD. Wpisz cenę, aby ją zastąpić."
-            stated: "Twoja własna cena, w USD. Wyczyść pole, aby wrócić do naszej."
-            none: "Nie udało nam się wycenić tej pozycji. Wpisz, ile była warta jedna jednostka, w USD."
+            ours: "Nasza cena z tego dnia. Wpisz cenę, aby ją zastąpić."
+            stated: "Twoja własna cena. Wyczyść pole, aby wrócić do naszej."
+            none: "Nie udało nam się wycenić tej pozycji. Wpisz, ile była warta jedna jednostka."
         welcome:
             connect_and_track: "Podłącz giełdę i zacznij śledzić swoje portfolio."
         sync_key_error_html: 'Synchronizacja z <strong>%{exchange}</strong> nie powiodła się: %{message}. Zaktualizuj klucz API poniżej.'

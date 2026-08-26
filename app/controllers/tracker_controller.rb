@@ -98,15 +98,16 @@ class TrackerController < ApplicationController
 
   # A price the user states for one row. Everything that reads a priced row goes through
   # `PriceService#enrich`, which prefers a stated price — so the tiles, the chart, the positions and
-  # the tax report all inherit this without knowing it exists. The box is in USD, the unit every
-  # price it shows is quoted in and the one the ledger counts in, so what is typed is what is banked.
+  # the tax report all inherit this without knowing it exists. The box is in the reader's own
+  # currency, like the Value beside it; the ledger counts in USD. Convert on the way in exactly as
+  # the view converts on the way out, or a price typed in euro would be banked as dollars.
   def update_price
     transaction = AccountTransaction.for_user(current_user).find(params[:id])
     # A row with a price of its own has nothing to state, and a request that tries anyway is refused
     # rather than stored and ignored.
     return head :unprocessable_entity if transaction.venue_valued? && params[:price].present?
 
-    transaction.set_manual(:price, params[:price])
+    transaction.set_manual(:price, current_user.denomination.to_usd(transaction.parse_manual(params[:price])))
     transaction.save!
     # The ledger is a reading of these rows, and one just changed its worth.
     Tracker::LedgerJob.perform_later(current_user.id)
