@@ -30,13 +30,13 @@
         <td class="table__logo"><%= render 'assets/logo', image_url: row[:asset]&.image_url, color: row[:asset]&.color %></td>
         <td scope="row"><%= row[:symbol] %></td>
         <% unless hide_money %><td><%= row[:amount] %></td><% end %>
-        <td><%= row[:avg_price] || '-' %></td>
+        <td><%= row[:avg_price] || no_value %></td>
         <% unless hide_money %>
           <td>
             <% if loading %>
               <div class="loader--small" style="position: unset; float:right"></div>
             <% else %>
-              <%= row[:value] || '-' %>
+              <%= row[:value] || no_value %>
             <% end %>
           </td>
         <% end %>
@@ -46,7 +46,7 @@
           <% elsif pnl %>
             <b><%= pnl.negative? ? '' : '+' %><%= format_percent(pnl, precision: 1) %></b>
           <% else %>
-            -
+            <%= no_value %>
           <% end %>
         </td>
         <% if actions %><td class="table__action"><%= row[:action] %></td><% end %>

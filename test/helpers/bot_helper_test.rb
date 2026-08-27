@@ -15,7 +15,7 @@ class BotHelperTest < ActionView::TestCase
                                 base: 'CKB', quote: 'USDC',
                                 amount: 7107, amount_exec: 0, quote_amount: 10, quote_amount_exec: 0)
 
-    assert_equal 'Open order to buy 7107.0 CKB for 10.0 USDC', transaction_summary(order)
+    assert_equal 'Open order to buy 7107.0 CKB for 10.00 USDC', transaction_summary(order)
   end
 
   test 'pending limit sell shows open-order sell wording with requested amounts' do
@@ -23,7 +23,7 @@ class BotHelperTest < ActionView::TestCase
                                 base: 'CKB', quote: 'USDC',
                                 amount: 7107, amount_exec: 0, quote_amount: 10, quote_amount_exec: 0)
 
-    assert_equal 'Open order to sell 7107.0 CKB for 10.0 USDC', transaction_summary(order)
+    assert_equal 'Open order to sell 7107.0 CKB for 10.00 USDC', transaction_summary(order)
   end
 
   test 'filled buy shows bought wording with executed amounts' do
@@ -32,6 +32,28 @@ class BotHelperTest < ActionView::TestCase
                                 amount: 7107, amount_exec: 7107, quote_amount: 10, quote_amount_exec: 9.99)
 
     assert_equal 'Bought 7107.0 CKB for 9.99 USDC', transaction_summary(order)
+  end
+
+  # == money is written to the cent ==
+  #
+  # The venue publishes whatever precision it likes for a pair, which left a stablecoin column
+  # reading 10.0 next to 9.99 next to 0.001407. A quantity of a coin still keeps the venue's
+  # decimals: two places there would round most tokens away entirely.
+  test 'a stablecoin amount is written to the cent whatever the venue publishes' do
+    assert_equal '10.00', round_amount(10.to_d, 8, 'USDC')
+    assert_equal '9.99', round_amount(9.99.to_d, 8, 'USDT')
+  end
+
+  test 'a fiat amount is written to the cent' do
+    assert_equal '1234.50', round_amount(1234.5.to_d, 6, 'EUR')
+  end
+
+  test 'a coin amount keeps the decimals the venue publishes' do
+    assert_equal 0.001407.to_d, round_amount(0.0014069999.to_d, 6, 'BTC')
+  end
+
+  test 'no currency named falls back to the venue decimals' do
+    assert_equal 1.23.to_d, round_amount(1.2345.to_d, 2, nil)
   end
 
   # == abandoned external_status ==

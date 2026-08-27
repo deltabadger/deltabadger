@@ -1,5 +1,5 @@
 <%= tag.tr id: dom_id(order), class: order.failed? ? 'text-danger' : (inactive_order_row?(order) ? 'text-inactive' : ''), data: { hw_animate_in_prepend: "animate-order-in", order_filter_target: "row", order_type: order_filter_type(order) } do %>
-  <td scope="row"><%= order.created_at.in_time_zone(current_user.time_zone).strftime("%Y-%m-%d %I:%M %p") %></td>
+  <td scope="row" class="table__when"><%= table_when(order.created_at, current_user.time_zone) %></td>
 
   <% show_executed_amounts = order.submitted? && order.closed? %>
   <% executed_amount = order.amount_exec || order.amount %>
@@ -11,12 +11,12 @@
   <%# How much was traded and what it cost — the two balances in a log row. The unit price below
       survives them: it is a fact about the market, and it is all this row has left to say. %>
   <% unless hide_balances?(order.bot) %>
-    <td><%= amount.nil? ? '-' : decimals[order.base].nil? ? amount : amount.round(decimals[order.base]) %> <small><%= order.base %></small></td>
-    <td><%= quote_amount.nil? ? '-' : decimals[order.quote].nil? ? quote_amount : quote_amount.round(decimals[order.quote]) %> <small><%= order.quote %></small></td>
+    <td><%= amount.nil? ? no_value : round_amount(amount, decimals[order.base], order.base) %> <small><%= order.base %></small></td>
+    <td><%= quote_amount.nil? ? no_value : round_amount(quote_amount, decimals[order.quote], order.quote) %> <small><%= order.quote %></small></td>
   <% end %>
 
   <% unit_price = (amount && quote_amount && !amount.zero?) ? quote_amount / amount : nil %>
-  <td><% if unit_price.nil? %>-<% else %><%= decimals[order.quote].nil? ? unit_price : unit_price.round(decimals[order.quote]) %> <small><%= order.quote %></small><% end %></td>
+  <td><% if unit_price.nil? %><%= no_value %><% else %><%= round_amount(unit_price, decimals[order.quote], order.quote) %> <small><%= order.quote %></small><% end %></td>
 
   <td>
     <% if order.open? %>

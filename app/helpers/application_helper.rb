@@ -8,6 +8,29 @@ module ApplicationHelper
     EXCHANGE_SVGS[exchange_name_id]
   end
 
+  # The dash a cell shows when there is nothing to show. It is the absence of a figure, not a
+  # figure, so it never carries the ink of the numbers beside it — one helper so every table
+  # reads the same, and so the colour is decided once.
+  def no_value
+    tag.span('—', class: 'no-value')
+  end
+
+  # One date shape for every table on the app: year first, in the reader's own zone. A reader
+  # moving between the bot log and the tracker is not re-learning the format on the way.
+  #
+  # The zone is passed in rather than read off `current_user`: these rows are also rendered from a
+  # model broadcast, where there is no request and the user arrives as a partial LOCAL — which a
+  # helper method cannot see. Making it an argument is what keeps one formatter for both paths.
+  def table_date(time, zone)
+    time.in_time_zone(zone).strftime('%Y/%m/%d')
+  end
+
+  # When a row happened: the date, with the clock time behind it in <small>. The date is what a
+  # row is found by and the time is the detail, so they are not set at the same weight.
+  def table_when(time, zone)
+    safe_join([table_date(time, zone), ' ', tag.small(time.in_time_zone(zone).strftime('%H:%M'))])
+  end
+
   def ticker_class(asset)
     ticker_class_for(category: asset&.category, color: asset&.color)
   end

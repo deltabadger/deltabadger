@@ -49,6 +49,9 @@
 .tracker-holdings__more
     display: flex
     flex-direction: column
+    // `auto` is not a length, so a plain height transition to it does nothing — allow-keywords is
+    // what turns the pseudo's 0 → auto into a real interpolation, and it inherits down to it.
+    interpolate-size: allow-keywords
     summary
         cursor: pointer
         text-align: center
@@ -56,6 +59,19 @@
         order: 0
     &[open] > summary
         order: 1
+    // The folded rows sit in this pseudo, which is a flex item of the default order 0 — so the
+    // summary's order: 1 still carries the toggle below them once open.
+    &::details-content
+        block-size: 0
+        overflow: hidden
+        // content-visibility is discrete and hidden while closed: without allow-discrete it flips
+        // at frame one and the fold-up plays against an already-empty box.
+        transition: block-size 0.15s ease, content-visibility 0.15s allow-discrete
+        // The reset's reduced-motion rule is universal-selector only, and `*` never matches a pseudo.
+        @media (prefers-reduced-motion: reduce)
+            transition: none
+    &[open]::details-content
+        block-size: auto
     &__close
         display: none
     &[open]
@@ -94,6 +110,7 @@
         font-size: 1.1rem
         font-weight: 800
         text-indent: 0
+        line-height: 1
 
 // ── the holdings card ─────────────────────────────────────────────────────────────────────
 .tracker-holdings

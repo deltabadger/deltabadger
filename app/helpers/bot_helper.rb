@@ -152,8 +152,8 @@ module BotHelper
     return t('bot_activity.transactions.cancelled') if order.cancelled? || order.abandoned?
 
     pending = order.open? || order.unknown?
-    base_amount = round_amount(display_amount(order.amount_exec, order.amount, pending:), decimals[order.base])
-    quote_amount = round_amount(display_amount(order.quote_amount_exec, order.quote_amount, pending:), decimals[order.quote])
+    base_amount = round_amount(display_amount(order.amount_exec, order.amount, pending:), decimals[order.base], order.base)
+    quote_amount = round_amount(display_amount(order.quote_amount_exec, order.quote_amount, pending:), decimals[order.quote], order.quote)
     key = if order.sell?
             pending ? 'open_sell' : 'sold'
           else
@@ -336,8 +336,14 @@ module BotHelper
 
   private
 
-  def round_amount(value, decimals)
-    return value if value.nil? || decimals.nil?
+  # Money is written to the cent, whatever precision the venue happens to publish for the pair: a
+  # column of dollars is read by comparing the figures in it, and 10.0 beside 9.99 beside 0.001407
+  # cannot be. Anything else keeps the venue's decimals, where the difference between eight places
+  # and two is the difference between a quantity and nothing at all.
+  def round_amount(value, decimals, currency = nil)
+    return value if value.nil?
+    return number_with_precision(value, precision: 2) if Tax::PriceService.money?(currency)
+    return value if decimals.nil?
 
     value.round(decimals)
   end
@@ -346,8 +352,8 @@ module BotHelper
   # failed); otherwise (e.g. a price-fetch failure) fall back to a plain message.
   def transaction_failed_summary(order, decimals)
     error = order.error_messages.to_sentence
-    base_amount = round_amount(order.amount, decimals[order.base])
-    quote_amount = round_amount(order.quote_amount, decimals[order.quote])
+    base_amount = round_amount(order.amount, decimals[order.base], order.base)
+    quote_amount = round_amount(order.quote_amount, decimals[order.quote], order.quote)
 
     # Failed rows are the one kind of sentence the Other tab still shows while balances are
     # hidden, and the attempted amounts are the only money in them — dropping them leaves the
@@ -372,7 +378,7 @@ module BotHelper
   def format_activity_time(value)
     return value if value.blank?
 
-    Time.iso8601(value.to_s).in_time_zone(current_user.time_zone).strftime('%Y-%m-%d %I:%M %p')
+    Time.iso8601(value.to_s).in_time_zone(current_user.time_zone).strftime('%Y/%m/%d %H:%M')
   rescue ArgumentError
     value
   end
