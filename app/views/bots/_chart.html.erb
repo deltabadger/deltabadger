@@ -51,22 +51,24 @@
         bot__chart_pnl_only_value: hide_money
       } do %>
         <%# The switch sits on the date line, opposite it: one row across the top of the plot.
-            VALUE always climbs for a DCA bot because the money going in climbs; PnL makes the
-            invested line the zero line, so the curve is performance with the deposits divided
-            out. Both modes carry the SAME headline — only the curve changes — which is why
-            neither needs a caption. A bot that has never held anything has no curve to offer,
-            and a switch with one usable side is furniture — which is also why hiding balances
-            takes the switch away rather than disabling it: VALUE is the money view. %>
+            PnL FIRST and on by default: VALUE always climbs for a DCA bot because the money going
+            in climbs, which makes it the flattering view rather than the informative one; PnL
+            makes the invested line the zero line, so the curve is performance with the deposits
+            divided out — the question the reader came with. Both modes carry the SAME headline —
+            only the curve changes — which is why neither needs a caption. A bot that has never
+            held anything has no curve to offer, and a switch with one usable side is furniture —
+            which is also why hiding balances takes the switch away rather than disabling it:
+            VALUE is the money view. %>
         <div class="widget--chart__head">
           <div class="widget--chart__modes" data-action="segmented:change->bot--chart#mode">
             <% if !hide_money && metrics[:chart][:series][1].any? { |spent| spent.to_f.positive? } %>
             <%# Fluid: "Value" and the locales' Profit/Loss wording are nowhere near the same
                 width, and equal columns would give both the width of the longer one — wide
                 enough to push the header off a phone. %>
-            <%= render 'shared/segmented', fluid: true,
+            <%= render 'shared/segmented', fluid: true, key: 'chart-mode',
                        label: t('bot.details.stats.chart.modes'),
-                       options: [{ value: 'value', label: t('bot.details.stats.chart.value'), active: true },
-                                 { value: 'pnl', label: t('bot.details.stats.chart.pnl') }] %>
+                       options: [{ value: 'pnl', label: t('bot.details.stats.chart.pnl'), active: true },
+                                 { value: 'value', label: t('bot.details.stats.chart.value') }] %>
             <% end %>
           </div>
           <div class="widget--chart__summary" data-bot--chart-target="summary">

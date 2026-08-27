@@ -18,7 +18,7 @@
      data-order-filter-default="<%= default_order_filter(tabs) %>"
      data-action="segmented:change->order-filter#filter">
   <% if show_filters %>
-    <%= render 'shared/segmented', fluid: true, label: t('order_filters.all'),
+    <%= render 'shared/segmented', fluid: true, label: t('order_filters.all'), key: 'order-filter',
                options: tabs.select(&:last).map { |value, label, _|
                  { value: value, label: label, active: order_filter == value }
                } %>

@@ -20,10 +20,11 @@ export default class extends Controller {
   };
 
   connect() {
-    // The whole chart is broadcast-replaced every metrics cycle (~5 min), which destroys this
-    // controller and re-renders the switch on VALUE. Without somewhere outside the element to
-    // remember it, a user reading RETURN gets thrown back to VALUE while looking at it.
-    this.currentMode = this.#storedMode();
+    // PnL is what the chart opens on, and the switch is rendered on it. A reader who picked VALUE
+    // gets it back from the `segmented` control's own memory, which replays the choice as a click
+    // — including after the ~5-minute metrics broadcast that destroys this controller and
+    // re-renders the switch on its default.
+    this.currentMode = "pnl";
     // Seeded synchronously: the ResizeObserver below is debounced by 100ms, and a mode click
     // inside that window would otherwise rebuild with an undefined budget (Array(NaN) throws,
     // leaving the buttons in one mode and the summary in the other).
@@ -61,11 +62,6 @@ export default class extends Controller {
       }, 100); // 100ms delay
     });
     this.resizeObserver.observe(this.element);
-
-    // After the child control has connected, so the chip moves with it.
-    if (this.#pnlMode) {
-      requestAnimationFrame(() => this.element.querySelector('[data-value="pnl"]')?.click());
-    }
   }
 
   disconnect() {
@@ -91,7 +87,6 @@ export default class extends Controller {
     if (event.detail.value !== "value" && event.detail.value !== "pnl") return;
 
     this.currentMode = event.detail.value;
-    this.#remember(this.currentMode);
     this.#buildChart();
     this.#renderSummary();
   }
@@ -258,32 +253,6 @@ export default class extends Controller {
 
     const [value, invested] = this.#series;
     return value.map((amount, i) => (amount === null ? null : amount - invested[i]));
-  }
-
-  // Per tab, not per browser: a mode is a way of reading this page now, not a preference.
-  get #storageKey() {
-    return `bot-chart-mode:${this.botValue}`;
-  }
-
-  #storedMode() {
-    // Hiding balances leaves RETURN as the only mode — VALUE plots the money — so the stored
-    // choice is not consulted at all. Ahead of the try: a session that last read VALUE must not
-    // come back to it.
-    if (this.pnlOnlyValue) return "pnl";
-
-    try {
-      return sessionStorage.getItem(this.#storageKey) === "pnl" ? "pnl" : "value";
-    } catch {
-      return "value"; // storage can be denied outright (private mode, embedded webview)
-    }
-  }
-
-  #remember(mode) {
-    try {
-      sessionStorage.setItem(this.#storageKey, mode);
-    } catch {
-      // Not being able to remember the mode is not a reason to fail switching it.
-    }
   }
 
   // Requires an actual curve: the plot falls back to VALUE when there is none.

@@ -18,6 +18,11 @@ import { Controller } from "@hotwired/stimulus";
 // The trailing action can carry a list of its own. Expanded that list is a box hanging off the
 // action; collapsed it is the dropdown's second pane, which slides in over the options and back
 // out again — one box, two panes, so the reader never loses the thing they opened.
+//
+// Given a `data-segmented-key` it also REMEMBERS: the last choice comes back on the next visit,
+// through the same select path a click takes, so every consumer hears about it the only way it
+// knows how. Naming the key is what opts a control in — see the partial for why a control gets
+// one or does not.
 export default class extends Controller {
   static targets = ["thumb", "option", "dropdown"];
 
@@ -46,6 +51,9 @@ export default class extends Controller {
     // The room is the PARENT's, never the control's own: once collapsed the control is only as
     // wide as its trigger, and a control measuring itself would never learn that it fits again.
     this.observer.observe(this.element.parentElement);
+
+    // Last, so the click it may fire lands on a control that is wired and measured.
+    this.#restore();
   }
 
   disconnect() {
@@ -108,7 +116,45 @@ export default class extends Controller {
       }
     });
     this.#layout();
+    this.#remember(chosen.dataset.value);
     this.dispatch("change", { detail: { value: chosen.dataset.value } });
+  }
+
+  // --- memory -----------------------------------------------------------------------
+  //
+  // A CLICK, not a state assignment: the choice has to travel the same path a real one does, or
+  // the chart would come back on a mode its curve is not drawn in and the log on a tab its rows
+  // are not filtered to. Everything downstream is already listening for that.
+  //
+  // A remembered value whose option is not here is no value at all — a bot's log loses the tab
+  // its last order left, a range outlives the history it fitted — and the server's own default
+  // stands untouched.
+  #restore() {
+    const stored = this.#stored;
+    if (!stored) return;
+
+    const option = this.optionTargets.find((target) => target.dataset.value === stored);
+    if (option && !option.classList.contains("is-on")) option.click();
+  }
+
+  get #stored() {
+    if (!this.element.dataset.segmentedKey) return null;
+
+    try {
+      return localStorage.getItem(`segmented:${this.element.dataset.segmentedKey}`);
+    } catch {
+      return null; // storage can be denied outright (private mode, embedded webview)
+    }
+  }
+
+  #remember(value) {
+    if (!this.element.dataset.segmentedKey) return;
+
+    try {
+      localStorage.setItem(`segmented:${this.element.dataset.segmentedKey}`, value);
+    } catch {
+      // Not being able to remember a choice is not a reason to fail making it.
+    }
   }
 
   // A single-choice group is arrowed through, not tabbed through.

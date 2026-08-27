@@ -14,7 +14,7 @@
           renders buttons, so the hidden field beside it is what the form posts. %>
       <div class="filters" data-controller="form--segmented-field"
            data-action="segmented:change->form--segmented-field#set">
-        <%= render 'shared/segmented', fluid: true, label: t('tracker.import.format'),
+        <%= render 'shared/segmented', fluid: true, label: t('tracker.import.format'), key: 'import-format',
                    options: Import::Run::FORMATS.keys.map { |key|
                      { value: key, label: t("tracker.import.format_#{key}"),
                        active: key == Import::Run::DEFAULT_FORMAT }

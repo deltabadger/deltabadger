@@ -32,8 +32,8 @@
       controller: 'bot--chart',
       action: 'mouseover@document->bot--chart#focus mouseleave@document->bot--chart#blur ' \
               'click@document->bot--chart#select',
-      # Not a bot, but the controller keys its remembered mode by this — a stable value keeps the
-      # tracker's choice out of every bot's.
+      # Not a bot, but the controller pins a hovered asset by this — a stable value keeps the
+      # tracker's pin out of every bot's.
       bot__chart_bot_value: 0,
       bot__chart_quote_value: @denomination.currency,
       bot__chart_decimals_value: 2,
@@ -53,15 +53,16 @@
         <div class="widget--chart__modes" data-action="segmented:change->bot--chart#mode">
           <% unless hide_money %>
             <% if series[1].any?(&:positive?) %>
-              <%= render 'shared/segmented', fluid: true,
+              <%= render 'shared/segmented', fluid: true, key: 'chart-mode',
                          label: t('bot.details.stats.chart.modes'),
-                         options: [{ value: 'value', label: t('bot.details.stats.chart.value'), active: true },
-                                   { value: 'pnl', label: t('bot.details.stats.chart.pnl') }] %>
+                         options: [{ value: 'pnl', label: t('bot.details.stats.chart.pnl'), active: true },
+                                   { value: 'value', label: t('bot.details.stats.chart.value') }] %>
             <% end %>
             <% ranges = chart_range_options(history) %>
             <% if ranges.any? %>
               <div class="filters" data-action="segmented:change->bot--chart#range">
-                <%= render 'shared/segmented', label: t('tracker.range.all'), options: ranges %>
+                <%= render 'shared/segmented', label: t('tracker.range.all'), key: 'chart-range',
+                           options: ranges %>
               </div>
             <% end %>
           <% end %>
