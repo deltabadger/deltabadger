@@ -23,6 +23,27 @@
 module Bot::ChartSeries
   extend ActiveSupport::Concern
 
+  # `[[time, symbol], ...]` oldest first: the buys the chart marks under the plot.
+  #
+  # The SAME rows `metrics` counts, and for the same reason — a mark is a claim that the bot
+  # bought something there. An order still open, or cancelled before it filled, carries a price
+  # and no execution: it would put a logo under a purchase that never happened. Filtered in Ruby
+  # through `Transaction.confirmed_exec_amounts` rather than in SQL, because a closed row is
+  # allowed to have its execution missing and is read back from amount * price — one branch, in
+  # one place, rather than the same rule spelled twice in two languages.
+  def chart_buy_marks
+    transactions.submitted.buy.order(:created_at)
+                .pluck(:created_at, :base, :price, :amount, :amount_exec, :quote_amount_exec, :external_status)
+                .filter_map do |at, base, price, amount, amount_exec, quote_amount_exec, external_status|
+      amount_exec, quote_amount_exec =
+        Transaction.confirmed_exec_amounts(external_status, price, amount, amount_exec, quote_amount_exec)
+      next if price.blank? || amount_exec.blank? || quote_amount_exec.blank?
+      next if amount_exec.zero? || quote_amount_exec.zero?
+
+      [at, base]
+    end
+  end
+
   # The seam every candle fetch goes through. Overridable in tests, and the reason the index's
   # bounded-parallel fetch can be exercised without touching the cache.
   def fetch_candle_series(ticker:, since:, timeframe:)

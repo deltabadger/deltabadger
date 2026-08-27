@@ -25,6 +25,7 @@ export default class extends Controller {
     assets: Object,
     pnlOnly: Boolean,
     buys: Array,
+    buyLogos: Object,
   };
 
   connect() {
@@ -500,24 +501,35 @@ export default class extends Controller {
 
     const scale = this.chart.scales.x;
     const size = LOGO_SIZE;
-    const from = this.#timestamps()[0];
+    const timestamps = this.#timestamps();
+    const from = timestamps[0];
+    // BOTH ends, not just the near one. The chart's metrics are cached for minutes while the
+    // transactions are read live, so a buy that landed since the last metrics pass is newer than
+    // the last label — and the clamp below would then park its logo on the final point, dating a
+    // purchase to a day it did not happen on. A mark the curve cannot place is not drawn.
+    const to = timestamps.at(-1);
     const stacks = [];
 
     this.buysValue
       // Outside the window in view, or on an asset the reader is not looking at, there is nothing
       // to mark: the curve above does not go there either.
-      .filter((buy) => (!this.focused || buy.symbol === this.focused) && new Date(buy.x).getTime() >= from)
-      .forEach((buy) => {
-        const x = scale.getPixelForValue(new Date(buy.x).getTime());
+      .filter(([at, symbol]) => {
+        if (this.focused && symbol !== this.focused) return false;
+
+        const time = new Date(at).getTime();
+        return time >= from && time <= to;
+      })
+      .forEach(([at, symbol]) => {
+        const x = scale.getPixelForValue(new Date(at).getTime());
         // Chained against the LAST mark, not the stack's first: a run of buys a few pixels apart
         // is one crowd, and measuring from the stack's origin would let it drift apart again.
         const stack = stacks.at(-1);
         if (stack && x - stack.last < size / 2) {
           stack.last = x;
           stack.to = x;
-          stack.assets.set(buy.symbol, buy);
+          stack.assets.add(symbol);
         } else {
-          stacks.push({ from: x, to: x, last: x, assets: new Map([[buy.symbol, buy]]) });
+          stacks.push({ from: x, to: x, last: x, assets: new Set([symbol]) });
         }
       });
 
@@ -529,7 +541,7 @@ export default class extends Controller {
         // Centred on the crowd it stands for, then kept inside the plot so an edge mark is whole.
         const centre = (stack.from + stack.to) / 2;
         column.style.left = `${Math.min(Math.max(centre, size / 2), width - size / 2)}px`;
-        column.append(...[...stack.assets.values()].map((buy) => this.#logo(buy)));
+        column.append(...[...stack.assets].map((symbol) => this.#logo(symbol)));
         return column;
       })
     );
@@ -539,16 +551,19 @@ export default class extends Controller {
     this.buysTarget.style.height = tallest ? `${size + (tallest - 1) * step}px` : "0";
   }
 
-  #logo(buy) {
-    const logo = buy.image ? document.createElement("img") : document.createElement("span");
+  // A symbol the venue has no ticker for gets neither image nor colour; it still earns its disc,
+  // in the same grey the holdings tables fall back to, rather than silently dropping a purchase.
+  #logo(symbol) {
+    const asset = this.buyLogosValue[symbol] || {};
+    const logo = asset.image ? document.createElement("img") : document.createElement("span");
     logo.className = "asset-logo";
-    logo.title = buy.symbol;
-    if (buy.image) {
-      logo.src = buy.image;
-      logo.alt = buy.symbol;
+    logo.title = symbol;
+    if (asset.image) {
+      logo.src = asset.image;
+      logo.alt = symbol;
       logo.loading = "lazy";
     } else {
-      logo.style.background = buy.color;
+      logo.style.background = asset.color || "#8A9BA8";
     }
     return logo;
   }

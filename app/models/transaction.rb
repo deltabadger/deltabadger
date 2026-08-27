@@ -73,6 +73,21 @@ class Transaction < ApplicationRecord
 
   BTC = %w[XXBT XBT BTC].freeze
 
+  # The "null exec means it filled for the requested amount" fallback covers legacy rows that were
+  # never backfilled, and is only sound for CONFIRMED ones. An accepted-but-unfilled order
+  # (open/unknown) or a cancelled one must not be assumed filled, or its requested amount becomes
+  # phantom holdings the rebalance leg would then trade against.
+  #
+  # A class method taking loose columns, because every caller reads these rows by `pluck` — the
+  # metrics walk over tens of thousands of them and never instantiate one.
+  def self.confirmed_exec_amounts(external_status, price, amount, amount_exec, quote_amount_exec)
+    if external_status == 'closed'
+      quote_amount_exec ||= price * amount if price.present? && amount.present?
+      amount_exec ||= amount
+    end
+    [amount_exec, quote_amount_exec]
+  end
+
   # TODO: Migrate Transaction to directly reference assets instead of symbols
   def base_asset
     @base_asset ||= exchange.assets.find_by(symbol: base) ||
