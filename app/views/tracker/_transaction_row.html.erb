@@ -31,7 +31,7 @@
     <% end %>
   </td>
   <td class="text-left"><span class="tracker-row__asset"><% if asset %><%= render 'assets/logo', image_url: asset.image_url, color: asset.color %><% end %><%= at.base_currency %></span></td>
-  <% unless hide_money %><td><%= tracker_amount(at.base_amount) %></td><% end %>
+  <% unless hide_money %><td><%= tracker_amount(at.base_amount, at.base_currency) %></td><% end %>
   <td class="tracker-row__price tracker-row__price--<%= source || 'none' %>">
     <% if source == :exchange %>
       <%= price %>
@@ -60,7 +60,7 @@
     <% end %>
   </td>
   <% unless hide_money %>
-    <td class="tracker-row__value"><%= tracker_amount(value) || no_value %></td>
+    <td class="tracker-row__value"><%= tracker_amount(value, denomination.currency) || no_value %></td>
     <td class="tracker-row__fee"><%= at.fee_amount.present? ? tracker_figure(at.fee_amount, at.fee_currency) : no_value %></td>
   <% end %>
   <td>
