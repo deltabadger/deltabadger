@@ -9,15 +9,15 @@
   <td class="text-left"><span class="<%= pill_class(row[:status]) %>"><%= t("tracker.record.#{row[:status]}") %></span></td>
   <% unless hide_money %>
     <td><%= @denomination.format(row[:invested]) %></td>
-    <td><%= tracker_price(row[:avg_buy]) %></td>
-    <td><%= tracker_price(row[:price]) %></td>
+    <td><%= @denomination.format(row[:avg_buy]) %></td>
+    <td><%= @denomination.format(row[:price]) %></td>
+    <%# The percentage is the reading and stays while balances are hidden; the cash before it is
+        the balance, and goes — column and all. Its cell is still drawn on a row with no reading,
+        so the columns stay in line. %>
+    <td class="tracker-row__cash"><% if row[:cash] %><%= '+' unless row[:cash].negative? %><%= @denomination.format(row[:cash]) %><% end %></td>
   <% end %>
-  <%# The percentage is the reading and stays while balances are hidden; the cash beside it is the
-      balance, and goes. %>
   <% if row[:percent] %>
-    <td class="<%= row[:percent].negative? ? 'text-danger' : 'text-success' %>">
-      <%= tracker_percent(row[:percent]) %><% unless hide_money %><span class="tracker-row__cash"><%= '+' unless row[:cash].negative? %><%= @denomination.format(row[:cash]) %></span><% end %>
-    </td>
+    <td class="<%= row[:percent].negative? ? 'text-danger' : 'text-success' %>"><%= tracker_percent(row[:percent]) %></td>
   <% else %>
     <td title="<%= t('tracker.basis_incomplete') %>"><%= no_value %></td>
   <% end %>

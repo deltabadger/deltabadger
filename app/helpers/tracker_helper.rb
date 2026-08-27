@@ -141,7 +141,7 @@ module TrackerHelper
   def tracker_note(note)
     hidden = current_user.hide_balances?
     # A cash note's quantities are money too.
-    quantity = ->(units) { hidden && Tax::PriceService.money?(note.symbol) ? '•••' : tracker_amount(units) }
+    quantity = ->(units) { hidden && Tax::PriceService.money?(note.symbol) ? '•••' : tracker_amount(units, note.symbol) }
     t("tracker.notes.#{note.kind}", symbol: note.symbol, exchange: note.exchange || t('tracker.notes.your_exchanges'),
                                     history: quantity.call(note.history), held: quantity.call(note.held),
                                     amount: hidden ? '•••' : @denomination.format_plain(note.amount_usd))
@@ -231,16 +231,20 @@ module TrackerHelper
 
   # A figure and the unit it is in, the unit in <small>: the number is what the column is read for.
   def tracker_figure(value, unit)
-    safe_join([tracker_amount(value), ' ', tag.small(unit)])
+    safe_join([tracker_amount(value, unit), ' ', tag.small(unit)])
   end
 
-  # A quantity or a price. Two decimals once it is worth more than a unit, eight below that, where
-  # two would round the whole number away.
-  def tracker_amount(value)
+  # A quantity or a price, in the unit named beside it. Money is written to the cent — the same rule,
+  # off the same list, as the bot tables' `round_amount`: a column of figures a reader is meant to
+  # compare cannot have the venue choosing a different precision per row. Anything else gets two
+  # decimals once it is worth more than a unit and eight below that, where two would round a whole
+  # token away.
+  def tracker_amount(value, currency = nil)
     return unless value
 
     value = value.to_d
-    return number_with_precision(value, precision: 2, delimiter: ',') if value.abs >= 1
+    cents = value.abs >= 1 || Tax::PriceService.money?(currency)
+    return number_with_precision(value, precision: 2, delimiter: ',') if cents
 
     number_with_precision(value, precision: 8, strip_insignificant_zeros: true)
   end
@@ -249,17 +253,6 @@ module TrackerHelper
   # and far too long for a label sitting in a bar next to a button.
   def tracker_synced_ago(time)
     t('tracker.synced_ago', ago: time_ago_in_words(time, highest_measures: 1))
-  end
-
-  # A price in the display currency. Two decimals above a unit, eight below it — an average buy of
-  # $0.00 is what a two-decimal rule makes of every sub-dollar coin, and it says nothing at all.
-  # Zero is the exception: it is not a small number, it is no number, and eight decimals of nothing
-  # is just noise in the column.
-  def tracker_price(usd_amount)
-    return unless usd_amount
-
-    value = usd_amount.to_d
-    @denomination.format(value, precision: value.nonzero? && value.abs < 1 ? 8 : 2)
   end
 
   # How long a position was held, in the largest unit that still says something.
