@@ -107,7 +107,7 @@
             min-width: 100%
             padding: 0.75rem
             background: var(--dropdown-bg)
-            border-radius: 1rem
+            border-radius: 1.5rem
             box-shadow: 0 0 0 0.125rem var(--dropdown-border) inset, 0 0.5rem 1rem 0 rgba(6, 26, 79, 0.10)
         // The selected option is already the trigger, wearing the chip. Listing it again would
         // offer the reader the thing they are looking at.
@@ -121,6 +121,11 @@
         .segmented__option--action
             margin-top: 0.5rem
             margin-left: 0
+            min-height: 3rem
+            justify-content: center
+            @media (max-width: 767.9px)
+                background: var(--silver)
+                box-shadow: none
         &.is-open
             .segmented__menu
                 display: flex
