@@ -65,18 +65,16 @@ class TrackerHelperTest < ActionView::TestCase
                            usd_price: value, usd_value: value, synced_at: Time.current)
   end
 
-  # The share the slice stands for. Only valid for a slice wide enough to take the whole gap — a
-  # tighter one is a bare dot, and its dash carries no width to read a share back out of.
+  # The share of the RING the slice was given — its own share of the portfolio, unless it was too
+  # small to draw and had to be lifted.
   def arc_share(arc)
     visible, rest = arc[:dash].split.map(&:to_f)
-    (visible + TrackerHelper::ICON_GAP + TrackerHelper::ICON_STROKE) / (visible + rest)
+    (visible + TrackerHelper::ICON_MIN_SPAN) / (visible + rest)
   end
 
-  # Where the slice's span begins, as a fraction of the ring clockwise from twelve o'clock. Same
-  # caveat as `arc_share`.
+  # Where the slice's span begins, as a fraction of the ring clockwise from twelve o'clock.
   def arc_start(arc)
-    inset = (TrackerHelper::ICON_GAP + TrackerHelper::ICON_STROKE) / 2
-    ((-arc[:offset] - inset) / TrackerHelper::ICON_CIRCUMFERENCE) + 0.25
+    ((-arc[:offset] - (TrackerHelper::ICON_MIN_SPAN / 2)) / TrackerHelper::ICON_CIRCUMFERENCE) + 0.25
   end
 
   # What survives the fold, as [percent, colour] — the composition, before any of it is drawn.
@@ -124,22 +122,35 @@ class TrackerHelperTest < ActionView::TestCase
 
   # == what is drawn, and what is gathered ==
   #
-  # The floor is the stroke, not the gap: a round-capped dash of nothing is already a dot as wide as
-  # the stroke, and a slice too tight for the whole gap keeps whatever is left of its span. So only
-  # the genuine tail is gathered, and everything the ring can draw keeps its own colour.
-  test 'a holding too small for the gap is still drawn, as a dot' do
+  # The ring keeps its gaps and its smallest dot before it keeps the last percent of the reading, so
+  # a holding worth less than a slice is drawn slightly large and the rest give up the difference.
+  test 'a holding too small to draw at its own size is lifted to the smallest slice' do
     arcs = icon_arcs([[96, '#4C6B4C'], [4, '#1652F0']].map { |value, color| [value.to_d, color] })
 
     assert_equal 2, arcs.size
     # No dash left at all: what is drawn is the two round caps meeting, a dot as wide as the stroke.
     assert_equal '0.0', arcs.last[:dash].split.first
-    assert_in_delta 0.96, arc_share(arcs.first), 0.001
+    assert_in_delta TrackerHelper::ICON_MIN_SPAN / TrackerHelper::ICON_CIRCUMFERENCE,
+                    arc_share(arcs.last), 0.001
+    # And the ring still closes: what the dot was given, the holding above it gave up.
+    assert_in_delta 1.0, arcs.sum { |arc| arc_share(arc) }, 0.001
+  end
+
+  test 'every gap is the whole gap, whatever the portfolio' do
+    arcs = icon_arcs(([[80, '#4C6B4C']] + Array.new(6) { [3.33, '#1652F0'] })
+                     .map { |value, color| [value.to_d, color] })
+
+    assert_equal 7, arcs.size
+    starts = arcs.map { |arc| arc_start(arc) } + [1.0]
+    spans = starts.each_cons(2).map { |from, to| (to - from) * TrackerHelper::ICON_CIRCUMFERENCE }
+
+    spans.each { |span| assert_operator span, :>=, TrackerHelper::ICON_MIN_SPAN - 0.001 }
   end
 
   # What the icon used to get wrong: it dropped everything it could not draw, handed that share to
   # the largest holding and drew the whole ring in one colour. The tail is gathered now — but it is
   # only the tail, so the two small holdings the card shows keep their own colours here too.
-  test 'only the undrawable tail is gathered, into one neutral slice, last' do
+  test 'only the tail is gathered, into one neutral slice, last' do
     user = create(:user)
     icon_balance(user, '#4C6B4C', 78)
     icon_balance(user, '#1652F0', 4.5)
@@ -155,26 +166,33 @@ class TrackerHelperTest < ActionView::TestCase
                                    Array.new(9) { [1.5, '#888888'] }).last.first
   end
 
-  test 'a tail too thin even to gather is dropped, and the rest read as the whole' do
+  test 'a tail worth less than one holding is dust, and is dropped' do
     assert_equal [[100.0, '#F7931A']],
-                 icon_shares([[98, '#F7931A'], [1, '#627EEA'], [1, '#26A17B']])
+                 icon_shares([[99.5, '#F7931A'], [0.25, '#627EEA'], [0.25, '#26A17B']])
   end
 
-  # One holding is not an "other": there is nothing to gather it with, and it cannot be drawn at
-  # this size either, so it goes and the rest is the whole.
-  test 'a single holding below the floor is dropped rather than named a remainder' do
+  # One holding is not an "other": there is nothing to gather it with, so it goes and the rest is
+  # the whole.
+  test 'a single holding below the threshold is dropped rather than named a remainder' do
     assert_equal [[60.6, '#F7931A'], [39.4, '#627EEA']],
                  icon_shares([[60, '#F7931A'], [39, '#627EEA'], [1, '#26A17B']])
   end
 
-  # With nothing above the floor there is nothing for a tail to be "other" than, and one neutral
-  # ring is the icon for a portfolio nobody has synced. So the largest that fit are shown instead,
-  # dropped one at a time — dropping one lifts every other share, so the floor is re-read after each.
-  test 'with no holding above the floor, the largest that fit are shown' do
+  # The gaps and the smallest dot are what cap the count. Past it the ring is a summary and says so
+  # by dropping, rather than sweeping a third of the portfolio into a remainder.
+  test 'more holdings than the ring can hold: the smallest go' do
     arcs = icon_arcs(Array.new(40) { [2.5.to_d, '#F7931A'] })
 
-    assert_equal 28, arcs.size
-    assert_operator TrackerHelper::ICON_CIRCUMFERENCE / arcs.size, :>=, TrackerHelper::ICON_MIN_SPAN
+    assert_equal TrackerHelper::ICON_MAX_SLICES, arcs.size
+  end
+
+  # With nothing above the threshold there is nothing for a tail to be "other" than, and one neutral
+  # ring is the icon for a portfolio nobody has synced. The largest are shown instead.
+  test 'with no holding above the threshold, the largest are shown' do
+    shares = icon_shares(Array.new(200) { [0.5, '#F7931A'] })
+
+    assert_equal TrackerHelper::ICON_MAX_SLICES, shares.size
+    assert_equal ['#F7931A'], shares.map(&:last).uniq
   end
 
   test 'every slice keeps its whole share: the spans meet, and they close the ring' do
