@@ -65,6 +65,23 @@ class SegmentedTest < ActionView::TestCase
     assert_select 'a[data-action="segmented#select"]', 1
   end
 
+  # The control remembers the reader's last choice, and the KEY is what it remembers it under.
+  # Not the option set — a bot gains a tab, a range outgrows the history — and not the aria label,
+  # which is translated. So the call site names it, and naming it is what opts the control in.
+  test 'a key is what the choice is remembered under' do
+    render_segmented(options: buttons, key: 'chart-mode')
+
+    assert_select '.segmented[data-segmented-key="chart-mode"]', 1
+  end
+
+  # Navigation has no choice to remember: the URL is the choice. A control that re-picked a
+  # remembered one on arrival would override the link the reader actually followed.
+  test 'no key, no memory' do
+    render_segmented(options: buttons)
+
+    assert_select '.segmented[data-segmented-key]', 0
+  end
+
   test 'the label names the group for a screen reader' do
     render_segmented(options: buttons, label: 'Chart mode')
 

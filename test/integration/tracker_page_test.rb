@@ -178,6 +178,10 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
 
     assert_select '.tracker-record .filters > .segmented .segmented__option[data-value="tx"]'
     assert_select '.tracker-record .filters > .segmented .segmented__option[data-value="pos"]'
+    # Every one of these three is a way of reading the page, so every one of them is remembered.
+    assert_select '.tracker-record__switch > .segmented[data-segmented-key="tracker-record"]', 1
+    assert_select '.tracker-record .segmented[data-segmented-key="tracker-type"]', 1
+    assert_select '.tracker-record .segmented[data-segmented-key="tracker-status"]', 1
     assert_select '.tracker-record [data-controller~="order-filter"]', 2
     # The types this account actually holds, in the ledger's own order — not a fixed five. A
     # transfer option appears only once a linked pair is on the page.
@@ -337,6 +341,9 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     get tracker_path(exchange_id: @binance.id)
 
     assert_select '.tracker-exchanges a.segmented__option[aria-current="page"]', text: 'Binance'
+    # The scope is in the URL, so it is not in storage as well: a remembered venue would override
+    # the link the reader followed here.
+    assert_select '.tracker-exchanges .segmented[data-segmented-key]', 0
     assert_select '.tracker-holdings__row', 1
     assert_select '.tracker-holdings__row b', text: 'BTC'
     assert_select 'tr.tracker-row td', text: 'ETH', count: 0

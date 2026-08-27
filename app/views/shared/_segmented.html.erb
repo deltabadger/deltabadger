@@ -8,6 +8,11 @@
                 an action without one is an empty pill; `label` names it for a screen reader.
                 `menu` is optional [{label:, href:, icon:, data:}]: given one, the action OPENS
                 that list instead of following its href.
+      key     - optional. What the reader's choice is remembered under, in localStorage. Naming one
+                is what opts a control into memory: the option SET is no key (a bot gains a tab, a
+                range outgrows the history) and neither is the translated label. NAVIGATION groups
+                take none — their state is the URL, and a remembered pick would override the link
+                the reader followed.
       fluid   - false (default): identical columns, right when the labels are the same length and
                 a chip that changed width would read as a glitch (VALUE / RETURN).
                 true: every option takes the width of its own label and the chip follows — the
@@ -25,7 +30,8 @@
 <%= tag.div class: ['segmented', ('segmented--fluid' if fluid)],
             role: (links ? nil : 'radiogroup'),
             aria: { label: label },
-            data: { controller: 'segmented', action: 'click->segmented#toggle' }.merge(local_assigns[:data] || {}) do %>
+            data: { controller: 'segmented', action: 'click->segmented#toggle',
+                    segmented_key: local_assigns[:key] }.merge(local_assigns[:data] || {}) do %>
   <span class="segmented__thumb" data-segmented-target="thumb"></span>
   <%# display: contents while the control is expanded — the panes and the box around them are
       only boxes once the control has collapsed and they become the dropdown. %>

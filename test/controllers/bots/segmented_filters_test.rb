@@ -27,6 +27,9 @@ class Bots::SegmentedFiltersTest < ActionDispatch::IntegrationTest
     assert_select 'a.segmented__option.is-on[aria-current="page"]', 1 do |option|
       assert_equal 'active', option.first['data-value']
     end
+    # No memory on a link group: the filter is in the URL, and a remembered one would send the
+    # reader somewhere other than the page they asked for.
+    assert_select '.segmented[data-segmented-key]', 0
   end
 
   test 'the order filters are a fluid segmented control the order-filter controller still drives' do
@@ -42,6 +45,8 @@ class Bots::SegmentedFiltersTest < ActionDispatch::IntegrationTest
     assert_select 'button.segmented__option', 3
     assert_select '[data-value="all"].is-on', 1
     assert_select 'button[data-value="other"]', 1
+    # The log tab, on the other hand, is a way of reading and is remembered.
+    assert_select '.segmented[data-segmented-key="order-filter"]', 1
   end
 
   test 'a bot with only one category of orders shows no filter at all' do

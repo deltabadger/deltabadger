@@ -37,17 +37,23 @@ class TrackerHistoryTest < ActionDispatch::IntegrationTest
     assert_equal 3, JSON.parse(node['data-bot--chart-labels-value']).size
     assert_equal [[31_000.0, 32_000.0, 33_000.0], [30_000.0, 30_000.0, 30_000.0]], JSON.parse(node['data-bot--chart-series-value'])
     assert_equal [1_000.0, 2_000.0, 3_000.0], JSON.parse(node['data-bot--chart-pnl-value'])
-    assert_equal '0', node['data-bot--chart-bot-value'], 'not a bot — a stable key for the mode memory'
+    assert_equal '0', node['data-bot--chart-bot-value'], 'not a bot — a stable id for the asset pin'
     assert_equal 'USD', node['data-bot--chart-quote-value']
     assert_equal 'false', node['data-bot--chart-pnl-only-value']
     assert_select '.widget--chart__plot canvas[data-bot--chart-target="analyzerChart"]'
-    assert_select '.widget--chart__modes[data-action*="bot--chart#mode"] > .segmented .segmented__option[data-value="pnl"]'
+    # P/L first and P/L on: the tracker chart opens on the same mode a bot's does, under the same
+    # remembered key — one preference, not one per chart.
+    assert_select '.widget--chart__modes[data-action*="bot--chart#mode"] > .segmented[data-segmented-key="chart-mode"]' do
+      assert_select '.segmented__menu > *:first-child.is-on[data-value="pnl"]', 1
+      assert_select '.segmented__option[data-value="value"]:not(.is-on)', 1
+    end
     # Both controls on the head line, opposite the readout: the mode redraws the curve, the range
     # narrows the window, and neither belongs below the plot.
     assert_select '.widget--chart__head > .widget--chart__modes', 1
     assert_select '.widget--chart__ranges', 0
     assert_select '.widget--chart__modes .filters[data-action*="bot--chart#range"] > .segmented .segmented__option[data-value="30"]'
-    assert_select '.widget--chart__modes .filters[data-action*="bot--chart#range"] > .segmented .segmented__option.is-on[data-value="all"]'
+    assert_select '.widget--chart__modes .filters[data-action*="bot--chart#range"] > ' \
+                  '.segmented[data-segmented-key="chart-range"] .segmented__option.is-on[data-value="all"]'
     assert_select '.widget__placeholder', false
   end
 
