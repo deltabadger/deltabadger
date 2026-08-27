@@ -12,9 +12,8 @@
 <% price, source = tracker_row_price(at, denomination) %>
 <% value = tracker_row_value(at, denomination, price, source)&.round(2) %>
 <tr id="<%= dom_id(at) %>" class="tracker-row" data-order-filter-target="row" data-order-type="<%= tracker_row_types(at) %>">
-  <td class="text-left tracker-row__when">
-    <%= at.transacted_at.in_time_zone(current_user.time_zone).strftime('%Y/%m/%d') %>
-    <small><%= at.transacted_at.in_time_zone(current_user.time_zone).strftime('%H:%M') %></small>
+  <td class="text-left tracker-row__when table__when">
+    <%= table_when(at.transacted_at, current_user.time_zone) %>
   </td>
   <td class="tracker-exchange-icon"><%= render "svg/exchange-#{at.exchange.name_id}", title: at.exchange.name %></td>
   <td class="text-left">
@@ -37,7 +36,7 @@
     <% if source == :exchange %>
       <%= price %>
     <% elsif source == :cash %>
-      <%= price ? tracker_figure(price, denomination.currency) : '—' %>
+      <%= price ? tracker_figure(price, denomination.currency) : no_value %>
     <% else %>
       <%= form_with url: price_tracker_transaction_path(at), method: :patch,
                     data: { controller: 'form--submit' } do %>
@@ -61,14 +60,14 @@
     <% end %>
   </td>
   <% unless hide_money %>
-    <td class="tracker-row__value"><%= tracker_amount(value) || '—' %></td>
-    <td class="tracker-row__fee"><%= at.fee_amount.present? ? tracker_figure(at.fee_amount, at.fee_currency) : '—' %></td>
+    <td class="tracker-row__value"><%= tracker_amount(value) || no_value %></td>
+    <td class="tracker-row__fee"><%= at.fee_amount.present? ? tracker_figure(at.fee_amount, at.fee_currency) : no_value %></td>
   <% end %>
   <td>
     <% if at.bot_transaction.present? %>
       <%= link_to "##{at.bot_transaction.bot_id}", bot_path(at.bot_transaction.bot_id) %>
     <% else %>
-      —
+      <%= no_value %>
     <% end %>
   </td>
 </tr>

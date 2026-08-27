@@ -15,6 +15,12 @@ module Tax
     OUT_LEGS = %w[sell swap_out].freeze
     private_constant :TRADE_TYPES, :IN_LEGS, :OUT_LEGS
 
+    # Money, as against a position: anything settled in a national currency or a coin pegged to
+    # one. The reading and the tax engine both ask this, so they cannot drift apart on the answer.
+    def self.money?(currency)
+      currency.present? && (FIAT_CURRENCIES.include?(currency) || STABLECOINS.include?(currency))
+    end
+
     # The order every reader of the ledger walks it in. A swap's two legs share an instant, and the
     # venue decides which is stored first: the out-leg has to be seen first or its basis has nothing
     # to travel into. So a group sits where its first-stored leg was, out-legs ahead of in-legs

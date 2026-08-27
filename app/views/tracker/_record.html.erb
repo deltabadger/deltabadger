@@ -8,7 +8,7 @@
     contextual filter sits up in the bar and its table below — while both stay inside the pane's
     `order-filter` scope, which is what lets one control filter the rows underneath it. %>
 <div class="tracker-record" data-controller="tracker--record">
-  <div class="tracker-record__switch filters" data-action="segmented:change->tracker--record#show">
+  <div class="tracker-record__switch filters" data-action="segmented:change->tracker--record#mark segmented:change->tracker--record#show segmented:change->tracker--record#hold">
     <%= render 'shared/segmented', fluid: true, label: t('tracker.positions'),
                options: [{ value: 'pos', label: t('tracker.positions'), active: true },
                          { value: 'tx', label: t('tracker.transactions') }] %>
@@ -16,7 +16,10 @@
 
   <div class="tracker-record__pane tracker-record__pane--off" data-pane="tx"
        data-controller="order-filter" data-tracker--record-target="pane">
-    <div class="tracker-record__filters filters" data-action="segmented:change->order-filter#filter">
+    <%# The hold straddles the filter: `mark` reads the scroll offset while the layout is still
+        clean, `hold` measures the shortened document. Reading it after the rows are hidden returns
+        the offset the browser has already clamped, which is the jump itself. %>
+    <div class="tracker-record__filters filters" data-action="segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold">
       <% if type_filters.any? %>
         <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.type'), options: type_filters %>
       <% end %>
@@ -58,7 +61,10 @@
 
   <div class="tracker-record__pane" data-pane="pos"
        data-controller="order-filter" data-tracker--record-target="pane">
-    <div class="tracker-record__filters filters" data-action="segmented:change->order-filter#filter">
+    <%# The hold straddles the filter: `mark` reads the scroll offset while the layout is still
+        clean, `hold` measures the shortened document. Reading it after the rows are hidden returns
+        the offset the browser has already clamped, which is the jump itself. %>
+    <div class="tracker-record__filters filters" data-action="segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold">
       <% if status_filters.any? %>
         <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.status'), options: status_filters %>
       <% end %>

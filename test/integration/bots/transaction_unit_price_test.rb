@@ -21,9 +21,10 @@ class Bots::TransactionUnitPriceTest < ActionDispatch::IntegrationTest
     decimals = { @bot.base_asset.symbol => 8, @bot.quote_asset.symbol => 4 }
     get bot_path(id: @bot.id, format: :turbo_stream), params: { decimals: decimals }
     assert_response :ok
-    # 27.000331 / 0.00694239 = ~3889.1505... rounded to 4 quote decimals
-    expected = (27.000331.to_d / 0.00694239.to_d).round(4)
-    assert_match(%r{#{expected}\s+<small>#{@bot.quote_asset.symbol}</small>}, response.body)
+    # 27.000331 / 0.00694239 = 3889.1982..., and a fiat quote is written to the cent whatever
+    # `decimals` says. Still the EXECUTED amounts: the configured 50 / 0.001 would read 50000.00.
+    assert_match(%r{3889\.20\s+<small>#{@bot.quote_asset.symbol}</small>}, response.body)
+    refute_match(%r{50000\.00\s+<small>#{@bot.quote_asset.symbol}</small>}, response.body)
   end
 
   test 'pending order renders unit price from configured amounts' do

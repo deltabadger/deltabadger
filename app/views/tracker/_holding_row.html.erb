@@ -30,7 +30,7 @@
   <% if pnl %>
     <span class="tracker-holdings__pl <%= pnl.negative? ? 'text-danger' : 'text-success' %>"><%= tracker_percent(pnl) %></span>
   <% else %>
-    <span class="tracker-holdings__pl" title="<%= t('tracker.basis_incomplete') %>">—</span>
+    <span class="tracker-holdings__pl" title="<%= t('tracker.basis_incomplete') %>"><%= no_value %></span>
   <% end %>
   <%# Always rendered, so the grid keeps its column; empty on a row with nothing to say. %>
   <% if note %>

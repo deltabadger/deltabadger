@@ -141,7 +141,7 @@ module TrackerHelper
   def tracker_note(note)
     hidden = current_user.hide_balances?
     # A cash note's quantities are money too.
-    quantity = ->(units) { hidden && money?(note.symbol) ? '•••' : tracker_amount(units) }
+    quantity = ->(units) { hidden && Tax::PriceService.money?(note.symbol) ? '•••' : tracker_amount(units) }
     t("tracker.notes.#{note.kind}", symbol: note.symbol, exchange: note.exchange || t('tracker.notes.your_exchanges'),
                                     history: quantity.call(note.history), held: quantity.call(note.held),
                                     amount: hidden ? '•••' : @denomination.format_plain(note.amount_usd))
@@ -166,7 +166,7 @@ module TrackerHelper
   # Over the row's SIZE: a split is one signed net delta, and a reverse split has a price like any
   # other row — the sign belongs to the amount, and Value carries it. Only a row of nothing has none.
   def tracker_row_price(record, denomination)
-    return [in_display(1.to_d, record.base_currency, record, denomination), :cash] if money?(record.base_currency)
+    return [in_display(1.to_d, record.base_currency, record, denomination), :cash] if Tax::PriceService.money?(record.base_currency)
 
     amount = record.base_amount.to_d.abs
     return [nil, nil] if amount.zero?
@@ -354,12 +354,6 @@ module TrackerHelper
         nil
       end
     end
-  end
-
-  def money?(currency)
-    currency.present? &&
-      (Tax::PriceService::FIAT_CURRENCIES.include?(currency) ||
-       Tax::PriceService::STABLECOINS.include?(currency))
   end
 
   # [value, cost] over every holding whose quantity the ledger can vouch for. Cash and anything
