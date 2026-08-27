@@ -1,0 +1,15 @@
+<%# The tracker's icon is the tracker's ring: a plain circle until there is a portfolio to divide,
+    then one arc per holding, in the colours the holdings card gives them. It is gray on every page
+    but the tracker's own — `_navbar.sass` decides that, so the colours only have to be right here. %>
+<svg class="icon-24 icon-24--allocation" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <% if arcs.empty? %>
+    <circle class="stroke--icon" cx="12" cy="12" r="<%= TrackerHelper::ICON_RADIUS %>"
+            fill="none" stroke-width="<%= TrackerHelper::ICON_STROKE %>"/>
+  <% else %>
+    <% arcs.each do |arc| %>
+      <circle cx="12" cy="12" r="<%= TrackerHelper::ICON_RADIUS %>" fill="none"
+              stroke-width="<%= TrackerHelper::ICON_STROKE %>" stroke-linecap="round" stroke="<%= arc[:color] %>"
+              stroke-dasharray="<%= arc[:dash] %>" stroke-dashoffset="<%= arc[:offset] %>"/>
+    <% end %>
+  <% end %>
+</svg>

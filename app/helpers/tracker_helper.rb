@@ -34,6 +34,28 @@ module TrackerHelper
     end
   end
 
+  # == the menu icon is this ring, small ==
+  #
+  # Same colours, same order, same direction — but read off the balances alone. Share is all a 24px
+  # ring can say, and only cost needs the ledger, so the icon costs one grouped query on every page
+  # instead of the whole of `Figures`. A plain circle until there is something to divide.
+  ICON_RADIUS = 9
+  ICON_CIRCUMFERENCE = 2 * Math::PI * ICON_RADIUS
+  ICON_STROKE = 2
+  # Between slices. The menu draws the 24-unit viewBox at 24px, so a unit here is a screen pixel.
+  ICON_GAP = 2.0
+  # A round-capped dash of nothing is a dot as wide as the stroke, and that is the smallest a slice
+  # can be drawn. So a slice needs a gap and a stroke's worth of circumference to itself before it
+  # is a slice at all — below that it is dropped, and what is left is read as the whole again.
+  ICON_MIN_SPAN = ICON_GAP + ICON_STROKE
+
+  # [{ color:, dash:, offset: }] for one dashed circle per slice, clockwise from twelve o'clock.
+  def allocation_icon_arcs(user)
+    values = AccountBalance.for_user(user).priced.joins(:asset)
+                           .group('assets.symbol', 'assets.color').sum(:usd_value)
+    icon_arcs(values.sort_by { |_, value| -value }.map { |(_, color), value| [value, color] })
+  end
+
   # A holding's P/L against the ledger's remaining FIFO cost — but only when the two agree about how
   # much is held. Reconciled HERE, at render time, and never inside the cached ledger: a balance sync
   # changes the quantity and must not have to invalidate a ledger it cannot otherwise affect.
@@ -418,6 +440,43 @@ module TrackerHelper
     return if !expected.positive? || ((position.quantity - expected) / expected).abs > RECONCILE_TOLERANCE
 
     position.avg_cost_usd * quantity
+  end
+
+  # [value, color] pairs into dash offsets around one circle. A dashed circle starts at three
+  # o'clock and the card's ring is rotated a quarter turn to start at twelve, so the same quarter
+  # turn is walked into the first offset — no transform for the menu's sizing to survive. Offsets
+  # run negative from there because a negative offset is what walks a dash forward.
+  #
+  # A slice is drawn inside its own span, half a gap and half a round cap in from each end, so the
+  # dash is shorter than the share it stands for by exactly one `ICON_MIN_SPAN`.
+  def icon_arcs(pairs)
+    slices = drop_to_fit(pairs.select { |value, _| value.positive? })
+    total = slices.sum(0.to_d) { |value, _| value }
+    walked = -ICON_CIRCUMFERENCE / 4
+
+    slices.map do |value, color|
+      span = (value / total).to_f * ICON_CIRCUMFERENCE
+      length = span - ICON_MIN_SPAN
+      arc = { color: ensure_contrast(color.presence || NEUTRAL_COLOR),
+              dash: "#{length.round(2)} #{(ICON_CIRCUMFERENCE - length).round(2)}",
+              offset: -(walked + (ICON_MIN_SPAN / 2)).round(2) }
+      walked += span
+      arc
+    end
+  end
+
+  # Largest first, with the smallest dropped off the end — and the rest read as the whole again —
+  # until every slice left has room to be drawn. Dropping one lifts all the others, so this always
+  # lands, at worst on a single slice taking the whole ring.
+  def drop_to_fit(pairs)
+    slices = pairs.sort_by { |value, _| -value }
+    while slices.any?
+      total = slices.sum(0.to_d) { |value, _| value }
+      break if (slices.last.first / total).to_f * ICON_CIRCUMFERENCE >= ICON_MIN_SPAN
+
+      slices = slices[0..-2]
+    end
+    slices
   end
 
   def ring_arc_path(from, to)

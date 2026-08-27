@@ -52,7 +52,7 @@
           = t('links.bots')
 
     = link_to tracker_path, class: "menu__item menu__item--tracker #{'menu__item--active' if current_page?(tracker_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-      = render 'svg/24x24_piechart'
+      = render 'svg/24x24_allocation', arcs: allocation_icon_arcs(current_user)
       .tooltip
         = t('links.tracker')
 

@@ -96,6 +96,13 @@
       cursor: default
       svg *
         fill: var(--link) !important
+      // The tracker's ring is drawn in strokes, and the rule above would fill its arcs into solid
+      // wedges. On its own page it wears the portfolio's colours, so only the empty ring — the one
+      // with nothing to divide — takes the active ink.
+      .icon-24--allocation *
+        fill: none !important
+      .stroke--icon
+        stroke: var(--link) !important
 
   &__button
     background: none
@@ -116,3 +123,10 @@
     fill: var(--sky)
   &--logo
     fill: var(--link)
+.stroke--icon
+  stroke: var(--menulink)
+
+// Every page but the tracker's own: the ring keeps its shape and loses its colours, like every
+// icon beside it. A plain rule, because a `stroke` attribute is outranked by any of them.
+.menu__item:not(.menu__item--active) .icon-24--allocation *
+  stroke: var(--menulink)
