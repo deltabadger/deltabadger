@@ -198,6 +198,12 @@ module Tracker
       # balances happens at render time).
       def cached(user, exchange: nil)
         Rails.cache.read(cache_key(user, exchange))
+      rescue TypeError
+        # Belt to the braces of the shape-derived key: a shape the key cannot see — a Data nested
+        # deeper, an Asset whose columns moved — reads as a COLD cache rather than raising, and the
+        # caller warms it. Restores what the rest of this file already assumes: an unusable cache
+        # entry is worth nothing, not worth a 500 on /tracker and in the nightly snapshot.
+        nil
       end
 
       def compute!(user, exchange: nil)
@@ -261,8 +267,28 @@ module Tracker
       # again — which for a position they have closed is never.
       def cache_key(user, exchange)
         scope = transactions(user, exchange)
-        "tracker_ledger_v7_#{user.id}_#{exchange&.id || 'all'}_" \
+        "tracker_ledger_v8_#{shape}_#{user.id}_#{exchange&.id || 'all'}_" \
           "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}_#{HistoricalPrice.generation}"
+      end
+
+      # The payload's SHAPE, beside the hand-bumped version rather than instead of it — the two
+      # answer different questions and only one of them can be automated.
+      #
+      # `v8` still means "the FIGURES changed": a calculation the members cannot see (v2 and v3 were
+      # both bumped for exactly that). Forgetting it serves a stale number until the transactions
+      # move — visible, and self-limiting.
+      #
+      # `shape` means "the PAYLOAD changed", and forgetting that is neither. What is cached is a
+      # Marshal'd Data, so its member list is part of the payload: add a member and every entry the
+      # previous build wrote becomes unreadable — Marshal raises TypeError, which Rails does NOT
+      # degrade to nil the way it degrades an ArgumentError payload. One release carrying two member
+      # lists under one version is enough to leave both in the cache at once, and a read of the
+      # older one raises through this class rather than missing. That half needs no memory now.
+      #
+      # Read off the live constants rather than frozen into one, so the digest cannot be stale.
+      # Recomputed per call, next to two SQL aggregates in the same method — the hash is free.
+      def shape
+        Digest::SHA256.hexdigest([Summary, Position, RoundTrip].map(&:members).join(','))[0, 8]
       end
 
       def transactions(user, exchange)
