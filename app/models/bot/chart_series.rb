@@ -23,6 +23,15 @@
 module Bot::ChartSeries
   extend ActiveSupport::Concern
 
+  # How finely the buy marks are worth shipping. The marks collapse into stacks by PIXEL
+  # proximity in the browser, and the plot is a few hundred CSS pixels wide, so two marks landing
+  # in the same 1/500th of the history are inside the same stack at any width this app renders —
+  # shipping both only costs bytes. It bounds the payload, which is otherwise one tuple per fill
+  # for the life of the bot: a five-minute smart-interval bot buying twenty assets makes millions
+  # of them, and every one would be serialized into a data attribute on every render AND on every
+  # metrics broadcast.
+  MARK_BUCKETS = 500
+
   # `[[time, symbol], ...]` oldest first: the buys the chart marks under the plot.
   #
   # The SAME rows `metrics` counts, and for the same reason — a mark is a claim that the bot
@@ -32,9 +41,9 @@ module Bot::ChartSeries
   # allowed to have its execution missing and is read back from amount * price — one branch, in
   # one place, rather than the same rule spelled twice in two languages.
   def chart_buy_marks
-    transactions.submitted.buy.order(:created_at)
-                .pluck(:created_at, :base, :price, :amount, :amount_exec, :quote_amount_exec, :external_status)
-                .filter_map do |at, base, price, amount, amount_exec, quote_amount_exec, external_status|
+    marks = transactions.submitted.buy.order(:created_at)
+                        .pluck(:created_at, :base, :price, :amount, :amount_exec, :quote_amount_exec, :external_status)
+                        .filter_map do |at, base, price, amount, amount_exec, quote_amount_exec, external_status|
       amount_exec, quote_amount_exec =
         Transaction.confirmed_exec_amounts(external_status, price, amount, amount_exec, quote_amount_exec)
       next if price.blank? || amount_exec.blank? || quote_amount_exec.blank?
@@ -42,6 +51,21 @@ module Bot::ChartSeries
 
       [at, base]
     end
+    chart_thinned_marks(marks)
+  end
+
+  # One mark per symbol per bucket, keeping the FIRST in each — so the first and last buys of the
+  # history both survive, and a symbol that only ever traded once is never thinned away. Applied
+  # only when there are more marks than buckets: the ordinary bot pays nothing for this.
+  def chart_thinned_marks(marks)
+    return marks if marks.size <= MARK_BUCKETS
+
+    first = marks.first[0]
+    span = marks.last[0] - first
+    return marks if span.zero?
+
+    seen = Set.new
+    marks.select { |at, base| seen.add?([((at - first) / span * MARK_BUCKETS).floor, base]) }
   end
 
   # The seam every candle fetch goes through. Overridable in tests, and the reason the index's
