@@ -7,7 +7,12 @@ const HOLDING_ROWS = "#assets_metrics_table tr[data-symbol], #exited_metrics_tab
 
 // The buy marks under the plot, in px. Read here rather than measured: the stacks are laid
 // out before the images have loaded, and an unloaded <img> measures 0.
-const LOGO_SIZE = 20;
+//
+// This is `.widget--chart__buys__stack .asset-logo` in `_widget.sass` — 2rem against this app's
+// 8px root, so SIXTEEN, not the 20 a 16px root would give. It sets the overlap threshold, the
+// edge clamp and the reserved height, so guessing it wrong silently over-reserves the row and
+// collapses marks that do not visually overlap.
+const LOGO_SIZE = 16;
 // How much of the logo above each one covers — the shingle in `_widget.sass`, in the one number
 // that has to agree with it.
 const LOGO_OVERLAP = 0.7;

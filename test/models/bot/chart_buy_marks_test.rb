@@ -88,4 +88,51 @@ class Bot::ChartBuyMarksTest < ActiveSupport::TestCase
     assert_equal %w[BTC ETH], symbols
     assert times[0] < times[1]
   end
+
+  # A five-minute bot buying twenty assets for a year is millions of rows, and every one of them
+  # would be serialized into a data attribute on every render and every metrics broadcast. Two
+  # marks closer together than a pixel cannot be told apart on any plot this app draws, so only
+  # one of them is worth shipping.
+  #
+  # Rows go in with `insert_all` — the factory's per-row broadcasts and jobs turn a few thousand
+  # of them into a minute of test time, and none of that is what this is checking.
+  def seed_dense_history(rows, symbols: ['BTC'])
+    start = 1.year.ago.change(usec: 0)
+    now = Time.current
+    Transaction.insert_all(
+      Array.new(rows) do |i|
+        { bot_id: bot.id, exchange_id: bot.exchange_id, base: symbols[i % symbols.size],
+          quote: 'USD', price: 50_000, amount: 0.001, amount_exec: 0.001, quote_amount: 50,
+          quote_amount_exec: 50, status: 0, side: 0, external_status: 2,
+          transaction_type: 'REGULAR', bot_interval: '', bot_quote_amount: 0,
+          error_messages: '[]', created_at: start + (i * 2).hours, updated_at: now }
+      end
+    )
+    start
+  end
+
+  test 'a history too dense to draw is thinned, keeping each symbol once per bucket' do
+    seed_dense_history(4000, symbols: %w[BTC ETH])
+
+    marks = bot.chart_buy_marks
+
+    assert_operator marks.size, :<=, (Bot::ChartSeries::MARK_BUCKETS + 1) * 2
+    assert_equal %w[BTC ETH].to_set, marks.to_set(&:last)
+  end
+
+  test 'thinning keeps both ends of the history' do
+    start = seed_dense_history(4000)
+    last = bot.transactions.maximum(:created_at)
+
+    marks = bot.chart_buy_marks
+
+    assert_in_delta start.to_f, marks.first.first.to_f, 1
+    assert_operator marks.last.first, :>, last - 2.days
+  end
+
+  test 'a history small enough to draw is not thinned' do
+    3.times { |i| create(:transaction, bot: bot, base: 'BTC', created_at: i.days.ago) }
+
+    assert_equal 3, bot.chart_buy_marks.size
+  end
 end
