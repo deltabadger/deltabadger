@@ -28,6 +28,7 @@ fr:
         start: 'Démarrer'
         stop: 'Arrêter'
         next: 'Suivant'
+        back: 'Retour'
         connect: 'Connecter'
         reconnect: 'Ajouter de nouvelles clés'
         get_started: Commencer

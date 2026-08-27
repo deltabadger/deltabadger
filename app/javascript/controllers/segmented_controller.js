@@ -14,10 +14,28 @@ import { Controller } from "@hotwired/stimulus";
 // same track, same chip, now holding the selected label alone. That is measured rather than
 // keyed to a breakpoint: the labels are translated and the option count depends on the data, so
 // the width at which it stops fitting is not a number anyone could write down.
+//
+// The trailing action can carry a list of its own. Expanded that list is a box hanging off the
+// action; collapsed it is the dropdown's second pane, which slides in over the options and back
+// out again — one box, two panes, so the reader never loses the thing they opened.
 export default class extends Controller {
-  static targets = ["thumb", "option"];
+  static targets = ["thumb", "option", "dropdown"];
 
   connect() {
+    this.dismiss = (event) => {
+      if (event.key !== "Escape" && this.element.contains(event.target)) return;
+      // Escape is dismissed from the keyboard, with the cursor inside the very thing about to be
+      // hidden, so it has to be handed back somewhere visible. A click elsewhere has already put
+      // the cursor where the reader wanted it, and taking it back would be the rude version.
+      const stranded = event.key === "Escape" && this.element.contains(document.activeElement);
+      this.#close();
+      if (stranded) this.#action?.focus();
+    };
+    // Turbo restores the DOM exactly as it was cached — open menu, slid pane, measured height and
+    // all. A menu the reader left open on the page they navigated away from is not a state to
+    // come back into, and #layout only resets it when the fold itself changes.
+    this.#close();
+
     // The chip is measured in pixels, so anything that reflows a label has to re-measure it.
     // A ResizeObserver on the options catches every cause at once — the container resizing, a
     // longer label in another locale, and above all the webfont swap: `document.fonts.ready`
@@ -28,10 +46,6 @@ export default class extends Controller {
     // The room is the PARENT's, never the control's own: once collapsed the control is only as
     // wide as its trigger, and a control measuring itself would never learn that it fits again.
     this.observer.observe(this.element.parentElement);
-
-    this.dismiss = (event) => {
-      if (event.key === "Escape" || !this.element.contains(event.target)) this.#close();
-    };
   }
 
   disconnect() {
@@ -39,14 +53,43 @@ export default class extends Controller {
     this.#listen(false);
   }
 
-  // Opening is the collapsed control's only job. A click on an option is that option's own
-  // business — this just shuts the menu behind it.
+  // Opening is the collapsed control's only job. A click on anything inside is that control's
+  // own business — this only decides what happens to the box behind it.
   toggle(event) {
     if (!this.#collapsed) return;
-    if (event.target.closest(".segmented__option")) return this.#close();
+    // The action slides the box to its own list and back slides it home. Both leave it open.
+    if (event.target.closest(".segmented__option--action, .segmented__back")) return;
+    // Everything else in here navigates, so the box has done its job.
+    if (event.target.closest(".segmented__option, .segmented__submenu-item")) return this.#close();
 
     this.element.classList.toggle("is-open");
     this.#listen(this.element.classList.contains("is-open"));
+    this.#size();
+  }
+
+  // The action OPENS its list rather than following its href — and puts it away again, because
+  // the control the reader opened it with is the one they reach for to close it.
+  open(event) {
+    event.preventDefault();
+    if (this.element.classList.contains("is-submenu")) return this.back();
+
+    this.element.classList.add("is-submenu");
+    // Expanded, that list is a box of its own, so the options menu has nothing to do with it.
+    if (!this.#collapsed) this.element.classList.remove("is-open");
+    event.currentTarget.setAttribute("aria-expanded", "true");
+    this.#listen(true);
+    this.#size();
+  }
+
+  // Back to the options. Focus comes with it: the pane it was in is only slid out of sight, and
+  // a cursor parked there is one the reader cannot see. Dismissing still listens while the
+  // options menu itself is open — closing the list is not closing the menu.
+  back() {
+    this.element.classList.remove("is-submenu");
+    this.#action?.setAttribute("aria-expanded", "false");
+    this.#listen(this.element.classList.contains("is-open"));
+    this.#size();
+    this.#action?.focus();
   }
 
   // No preventDefault: a link-based group must still navigate. For those the class change is
@@ -87,8 +130,34 @@ export default class extends Controller {
   }
 
   #close() {
-    this.element.classList.remove("is-open");
+    this.element.classList.remove("is-open", "is-submenu");
+    this.#action?.setAttribute("aria-expanded", "false");
     this.#listen(false);
+    this.#size();
+  }
+
+  get #action() {
+    return this.element.querySelector(".segmented__option--action[aria-expanded]");
+  }
+
+  // The collapsed box holds one pane at a time and the two are different heights, so it cannot
+  // be sized by its content: `auto` does not animate, and the taller pane would leave the
+  // shorter one sitting in a half-empty box. Measured in pixels, like the chip.
+  #size() {
+    if (!this.hasDropdownTarget) return;
+
+    const sub = this.element.classList.contains("is-submenu");
+    const menu = this.element.querySelector(".segmented__menu");
+    const submenu = this.element.querySelector(".segmented__submenu");
+    // The pane that is off screen is CLIPPED, not hidden, so without this its links stay in the
+    // tab order behind the pane that is on screen — and a reader tabbing through them is
+    // focusing things nobody can see. Expanded there is only ever one of the two on screen.
+    submenu?.toggleAttribute("inert", !sub);
+    menu.toggleAttribute("inert", this.#collapsed && sub);
+
+    const pane = sub ? submenu : menu;
+    const showing = this.#collapsed && (sub || this.element.classList.contains("is-open"));
+    this.dropdownTarget.style.height = showing && pane ? `${pane.offsetHeight}px` : "";
   }
 
   #listen(on) {

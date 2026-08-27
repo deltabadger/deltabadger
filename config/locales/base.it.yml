@@ -28,6 +28,7 @@ it:
         start: 'Inizia'
         stop: 'Ferma'
         next: 'Avanti'
+        back: 'Indietro'
         connect: 'Connetti'
         reconnect: 'Aggiungi nuove chiavi'
         get_started: Inizia

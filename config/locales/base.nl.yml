@@ -28,6 +28,7 @@ nl:
         start: 'Starten'
         stop: 'Stoppen'
         next: 'Volgende'
+        back: 'Terug'
         connect: 'Verbinden'
         reconnect: 'Nieuwe sleutels toevoegen'
         get_started: Beginnen

@@ -28,6 +28,7 @@ en:
         start: 'Start'
         stop: 'Stop'
         next: 'Next'
+        back: 'Back'
         connect: 'Connect'
         reconnect: 'Add new keys'
         understand: 'Got it!'

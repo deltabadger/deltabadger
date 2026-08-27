@@ -28,6 +28,7 @@ ru:
         start: 'Начать'
         stop: 'Остановить'
         next: 'Далее'
+        back: 'Назад'
         connect: 'Подключить'
         reconnect: 'Добавить новые ключи'
         get_started: Начать

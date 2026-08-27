@@ -28,6 +28,7 @@ da:
         start: 'Start'
         stop: 'Stop'
         next: 'Næste'
+        back: 'Tilbage'
         connect: 'Forbind'
         reconnect: 'Tilføj nye nøgler'
         understand: 'Forstået!'

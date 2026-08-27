@@ -28,6 +28,7 @@ el:
         start: 'Έναρξη'
         stop: 'Διακοπή'
         next: 'Επόμενο'
+        back: 'Πίσω'
         connect: 'Σύνδεση'
         reconnect: 'Προσθήκη νέων κλειδιών'
         understand: 'Κατάλαβα!'

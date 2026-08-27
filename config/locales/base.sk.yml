@@ -28,6 +28,7 @@ sk:
         start: 'Spustiť'
         stop: 'Zastaviť'
         next: 'Ďalej'
+        back: 'Späť'
         connect: 'Pripojiť'
         reconnect: 'Pridať nové kľúče'
         understand: 'Rozumiem!'
