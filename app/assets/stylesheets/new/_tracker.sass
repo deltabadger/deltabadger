@@ -60,13 +60,16 @@
     &[open] > summary
         order: 1
     // The folded rows sit in this pseudo, which is a flex item of the default order 0 — so the
-    // summary's order: 1 still carries the toggle below them once open.
+    // summary's order: 1 still carries the toggle below them once open. Only Chromium runs
+    // transitions on this pseudo — Gecko and WebKit style it but open it in one frame, whatever
+    // property or duration is asked for — so the fold is an enhancement, never the thing that
+    // makes the rows reachable.
     &::details-content
         block-size: 0
         overflow: hidden
         // content-visibility is discrete and hidden while closed: without allow-discrete it flips
         // at frame one and the fold-up plays against an already-empty box.
-        transition: block-size 0.15s ease, content-visibility 0.15s allow-discrete
+        transition: block-size 0.25s ease, content-visibility 0.25s allow-discrete
         // The reset's reduced-motion rule is universal-selector only, and `*` never matches a pseudo.
         @media (prefers-reduced-motion: reduce)
             transition: none
