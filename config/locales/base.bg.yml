@@ -28,6 +28,7 @@ bg:
         start: 'Стартирай'
         stop: 'Спри'
         next: 'Напред'
+        back: 'Назад'
         connect: 'Свържи'
         reconnect: 'Добави нови ключове'
         understand: 'Разбрах!'

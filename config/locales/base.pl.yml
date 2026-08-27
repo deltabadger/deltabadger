@@ -28,6 +28,7 @@ pl:
         start: 'Start'
         stop: 'Stop'
         next: 'Dalej'
+        back: 'Wstecz'
         connect: 'Połącz'
         reconnect: 'Dodaj nowe klucze'
         get_started: Zacznij

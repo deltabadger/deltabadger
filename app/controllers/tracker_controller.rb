@@ -17,6 +17,11 @@ class TrackerController < ApplicationController
     exchange_ids = (current_user.api_keys.pluck(:exchange_id) +
       current_user.account_transactions.distinct.pluck(:exchange_id)).uniq
     @exchanges = Exchange.where(id: exchange_ids).order(:name)
+    # What the + can still add. Retired venues are out — there is nothing left to connect to —
+    # and so is anything already on the switch. Brokers lead: they are the half of the list
+    # someone arriving from a stock holding is looking for, and there are only ever a few.
+    @connectable_exchanges = Exchange.tradeable.where.not(id: @exchanges.select(:id))
+                                     .order(:name).partition(&:stock_venue?).flatten
     @exchanges_with_valid_keys = reading_keys.to_set(&:exchange_id)
     @has_syncable_keys = @exchanges_with_valid_keys.any?
     user_transactions = AccountTransaction.for_user(current_user)

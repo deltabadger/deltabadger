@@ -28,6 +28,7 @@ cs:
         start: 'Spustit'
         stop: 'Zastavit'
         next: 'Další'
+        back: 'Zpět'
         connect: 'Připojit'
         reconnect: 'Přidat nové klíče'
         understand: 'Rozumím!'

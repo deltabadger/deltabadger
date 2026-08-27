@@ -28,6 +28,7 @@ sv:
         start: 'Starta'
         stop: 'Stoppa'
         next: 'Nästa'
+        back: 'Tillbaka'
         connect: 'Anslut'
         reconnect: 'Lägg till nya nycklar'
         understand: 'Uppfattat!'

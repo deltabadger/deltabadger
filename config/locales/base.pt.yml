@@ -28,6 +28,7 @@ pt:
         start: 'Iniciar'
         stop: 'Parar'
         next: 'Seguinte'
+        back: 'Voltar'
         connect: 'Conectar'
         reconnect: 'Adicionar novas chaves'
         get_started: Começar

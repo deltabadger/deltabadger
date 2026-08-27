@@ -9,11 +9,17 @@
         keeps the control that says so. %>
     <% broken = @exchanges.any? { |exchange| !@exchanges_with_valid_keys.include?(exchange.id) && !exchange.retired? } %>
     <%# The + belongs to the venues it adds to, so it rides INSIDE the switch — a glyph stranded at
-        the far end of the row is a control the reader has to guess at. One destination either way:
-        the picker modal, which searches every venue we support and prints its fees. A dropdown of
-        its own would have to open inside the switch's own menu once that folds. %>
+        the far end of the row is a control the reader has to guess at. It opens the venues
+        themselves: a modal to pick one from is a page-sized answer to a one-tap question, and the
+        list is short enough to read whole. Each row goes straight to that venue's key form; the
+        picker modal stays the fallback for anyone arriving without a venue chosen. %>
     <% connect = { href: new_tracker_pick_exchange_path, label: t('tracker.connect_exchange'),
-                   icon: 'svg/24x24_plus', data: { turbo_frame: 'modal' } } %>
+                   icon: 'svg/24x24_plus', data: { turbo_frame: 'modal' },
+                   menu: @connectable_exchanges.map do |exchange|
+                     { label: exchange.name, icon: "svg/exchange-#{exchange.name_id}",
+                       href: new_tracker_add_api_key_path(exchange_id: exchange.id),
+                       data: { turbo_frame: 'modal' } }
+                   end.presence } %>
     <% if @exchanges.many? || broken %>
       <% options = [{ value: 'all', label: t('tracker.filters.all'), active: @scope_exchange.nil?,
                       href: tracker_path(from: params[:from], to: params[:to]) }] %>

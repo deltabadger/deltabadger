@@ -28,6 +28,7 @@ de:
         start: 'Starten'
         stop: 'Stoppen'
         next: 'Weiter'
+        back: 'Zurück'
         connect: "Verbinden"
         reconnect: 'Neue Schlüssel hinzufügen'
         get_started: Loslegen
