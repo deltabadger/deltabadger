@@ -27,18 +27,20 @@
     justify-content: center
     align-items: center
     text-decoration: none
-    &--danger
+    // The filled variants: a colour carries the meaning, so the label is white on all of them and
+    // stays white on hover — the default's link colour would read as unfilled halfway through.
+    &--primary, &--danger, &--success
         color: #fff
-        background: var(--berry)
         &:hover
             color: #fff
+    &--primary
+        background: var(--sky)
+    &--danger
+        background: var(--berry)
     // The affirmative half of a two-answer prompt. Paired with --danger rather than with the
     // default: side by side, one styled and one not reads as a disabled button next to a live one.
     &--success
-        color: #fff
         background: var(--grass)
-        &:hover
-            color: #fff
     // Square, for a button whose whole label is its glyph.
     &--icon
         padding: 0 1rem
