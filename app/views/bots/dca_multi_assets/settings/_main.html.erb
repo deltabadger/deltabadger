@@ -87,7 +87,7 @@
     <% unless composition_locked %>
       <%= button_tag t('bot.dca_multi_asset.normalize'), type: :submit,
                      name: 'bots_dca_multi_asset[normalize_allocations]', value: '1',
-                     class: 'rbutton rbutton--small asset-allocations__normalize',
+                     class: 'rbutton rbutton--small rbutton--primary asset-allocations__normalize',
                      hidden: allocations_balanced %>
     <% end %>
   </div>
