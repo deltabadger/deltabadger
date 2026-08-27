@@ -462,7 +462,12 @@ module TrackerHelper
     gathered = tail.sum(0.to_d) { |value, _| value }
     # A single holding is not an "other" — there is nothing to gather it with — and a tail worth
     # less than one holding is dust. Both just go, and the rest is read as the whole.
-    return large.first(ICON_MAX_SLICES) if tail.size < 2 || gathered / total < RING_MIN_SHARE
+    kept = large.first(ICON_MAX_SLICES)
+    return kept if tail.size < 2 || gathered / total < RING_MIN_SHARE
+    # The remainder takes its place by value like anything else: a full ring of holdings that all
+    # outweigh it keeps them. Where it does survive it still displaces the smallest, and is drawn
+    # last whatever it is worth.
+    return kept if kept.size == ICON_MAX_SLICES && gathered <= kept.last.first
 
     large.first(ICON_MAX_SLICES - 1) + [[gathered, NEUTRAL_COLOR]]
   end
