@@ -36,14 +36,17 @@
            { value: serie[:value].map { |amount| amount&.round(decimals)&.to_f },
              invested: serie[:invested].map { |amount| amount.to_d.round(decimals).to_f } }
          end %>
-      <%# Every executed buy, as a mark under the plot: when, and in what. Logos resolved through
-          the exchange's tickers the same way the holdings tables do it. %>
-      <% fills = bot.transactions.submitted.buy.where.not(price: nil).order(:created_at).pluck(:created_at, :base) %>
-      <% logo_assets = bot.exchange.tickers.where(base: fills.map(&:last).uniq).includes(:base_asset).index_by(&:base) %>
-      <% buys = fills.map do |at, base|
-           asset = logo_assets[base]&.base_asset
-           { x: at.in_time_zone(current_user.time_zone), symbol: base,
-             image: asset&.image_url, color: ensure_contrast(asset&.color || '#8A9BA8') }
+      <%# Every executed buy, as a mark under the plot: when, and in what.
+          `[time, symbol]` pairs and a symbol => logo map, NOT a logo per fill: an hourly bot
+          running for a year is ~9,000 marks, and repeating a CDN image URL on each of them would
+          put megabytes into one data attribute for the browser to parse on every broadcast.
+          Logos resolved through the exchange's tickers the same way the holdings tables do it. %>
+      <% marks = bot.chart_buy_marks %>
+      <% logo_assets = bot.exchange.tickers.where(base: marks.map(&:last).uniq).includes(:base_asset).index_by(&:base) %>
+      <% buys = marks.map { |at, base| [at.in_time_zone(current_user.time_zone), base] } %>
+      <% buy_logos = logo_assets.transform_values do |ticker|
+           { image: ticker.base_asset&.image_url,
+             color: ensure_contrast(ticker.base_asset&.color || '#8A9BA8') }
          end %>
       <%= tag.div data: {
         controller: "bot--chart",
@@ -58,7 +61,8 @@
         bot__chart_pnl_value: pnl_series,
         bot__chart_assets_value: assets,
         bot__chart_pnl_only_value: hide_money,
-        bot__chart_buys_value: buys
+        bot__chart_buys_value: buys,
+        bot__chart_buy_logos_value: buy_logos
       } do %>
         <%# The switch sits on the date line, opposite it: one row across the top of the plot.
             PnL FIRST and on by default: VALUE always climbs for a DCA bot because the money going

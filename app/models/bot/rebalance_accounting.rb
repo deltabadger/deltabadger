@@ -165,16 +165,10 @@ module Bot::RebalanceAccounting
     { basis: 0, cash: 0, contributed: 0, realised_cash: 0, realised_pnl: 0 }
   end
 
-  # The "null exec means it filled for the requested amount" fallback covers legacy rows that were
-  # never backfilled, and is only sound for CONFIRMED ones. An accepted-but-unfilled order
-  # (open/unknown) or a cancelled one must not be assumed filled, or its requested amount becomes
-  # phantom holdings the rebalance leg would then trade against.
-  def confirmed_exec_amounts(external_status, price, amount, amount_exec, quote_amount_exec)
-    if external_status == 'closed'
-      quote_amount_exec ||= price * amount if price.present? && amount.present?
-      amount_exec ||= amount
-    end
-    [amount_exec, quote_amount_exec]
+  # Lives on Transaction — the rule is about how to read one row, and the chart marks need it on
+  # bots that do no rebalancing at all.
+  def confirmed_exec_amounts(...)
+    Transaction.confirmed_exec_amounts(...)
   end
 
   private
