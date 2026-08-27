@@ -80,6 +80,23 @@ production:
     class: Ibkr::CheckActivationJob
     schedule: "17 */6 * * *"  # Every 6 hours — flips IBKR keys to :correct once IBKR activates them
 
+  # Solid Queue keeps finished jobs forever by default (SolidQueue.preserve_finished_jobs) and
+  # leaves the clearing to the host — its own generator ships this task, and this app never had it.
+  # Nothing here ages out on its own: the self-rescheduling limit-check chains enqueue one job per
+  # minute per waiting bot, so an instance left running accumulates millions of finished rows and a
+  # queue database of several GB, none of it readable by anything. Clearing them is safe —
+  # Automation::Schedulable#active_job? only joins the four LIVE execution tables — so the day of
+  # history SolidQueue.clear_finished_jobs_after keeps, which is what /jobs shows, is all we need.
+  #
+  # `queue:` is required, not decoration: a `command:` task runs as SolidQueue::RecurringJob, whose
+  # own queue is `solid_queue_recurring`, and the workers below name their queues explicitly with no
+  # wildcard — so without this the cleanup would queue up unclaimed forever, adding to the very
+  # backlog it exists to remove.
+  clear_finished_jobs:
+    command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
+    queue: low_priority
+    schedule: "40 * * * *"  # Hourly at :40, clear of the other ticks
+
 development:
   sync_all_tickers_and_assets_job:
     class: Exchange::SyncAllTickersAndAssetsJob
