@@ -5,9 +5,16 @@ import "chartjs-adapter-date-fns";
 // The rows of both holdings tables — the index's constituents and the coins that left it.
 const HOLDING_ROWS = "#assets_metrics_table tr[data-symbol], #exited_metrics_table tr[data-symbol]";
 
+// The buy marks under the plot, in px. Read here rather than measured: the stacks are laid
+// out before the images have loaded, and an unloaded <img> measures 0.
+const LOGO_SIZE = 20;
+// How much of the logo above each one covers — the shingle in `_widget.sass`, in the one number
+// that has to agree with it.
+const LOGO_OVERLAP = 0.7;
+
 // Connects to data-controller="bot--chart"
 export default class extends Controller {
-  static targets = ["analyzerChart", "summary", "date", "pnl", "percent"];
+  static targets = ["analyzerChart", "summary", "date", "pnl", "percent", "buys"];
   static values = {
     series: Array,
     labels: Array,
@@ -17,6 +24,7 @@ export default class extends Controller {
     pnl: Array,
     assets: Object,
     pnlOnly: Boolean,
+    buys: Array,
   };
 
   connect() {
@@ -477,6 +485,72 @@ export default class extends Controller {
         },
       },
     });
+    this.#renderBuys();
+  }
+
+  // --- the buys under the plot -------------------------------------------------------
+  //
+  // One logo per executed buy, placed on the chart's own x scale so a mark sits under the point
+  // it moved. Marks whose logos would overlap by more than half their width collapse into one
+  // vertical stack — and a stack carries each asset ONCE, so an index bot buying eleven coins in
+  // one second reads as eleven assets, not as however many fills the exchange happened to split
+  // them into.
+  #renderBuys() {
+    if (!this.hasBuysTarget) return;
+
+    const scale = this.chart.scales.x;
+    const size = LOGO_SIZE;
+    const from = this.#timestamps()[0];
+    const stacks = [];
+
+    this.buysValue
+      // Outside the window in view, or on an asset the reader is not looking at, there is nothing
+      // to mark: the curve above does not go there either.
+      .filter((buy) => (!this.focused || buy.symbol === this.focused) && new Date(buy.x).getTime() >= from)
+      .forEach((buy) => {
+        const x = scale.getPixelForValue(new Date(buy.x).getTime());
+        // Chained against the LAST mark, not the stack's first: a run of buys a few pixels apart
+        // is one crowd, and measuring from the stack's origin would let it drift apart again.
+        const stack = stacks.at(-1);
+        if (stack && x - stack.last < size / 2) {
+          stack.last = x;
+          stack.to = x;
+          stack.assets.set(buy.symbol, buy);
+        } else {
+          stacks.push({ from: x, to: x, last: x, assets: new Map([[buy.symbol, buy]]) });
+        }
+      });
+
+    const width = scale.right;
+    this.buysTarget.replaceChildren(
+      ...stacks.map((stack) => {
+        const column = document.createElement("div");
+        column.className = "widget--chart__buys__stack";
+        // Centred on the crowd it stands for, then kept inside the plot so an edge mark is whole.
+        const centre = (stack.from + stack.to) / 2;
+        column.style.left = `${Math.min(Math.max(centre, size / 2), width - size / 2)}px`;
+        column.append(...[...stack.assets.values()].map((buy) => this.#logo(buy)));
+        return column;
+      })
+    );
+    // Only as tall as the tallest stack: an empty row under a chart with no crowds is dead space.
+    const tallest = Math.max(0, ...stacks.map((stack) => stack.assets.size));
+    const step = size * (1 - LOGO_OVERLAP);
+    this.buysTarget.style.height = tallest ? `${size + (tallest - 1) * step}px` : "0";
+  }
+
+  #logo(buy) {
+    const logo = buy.image ? document.createElement("img") : document.createElement("span");
+    logo.className = "asset-logo";
+    logo.title = buy.symbol;
+    if (buy.image) {
+      logo.src = buy.image;
+      logo.alt = buy.symbol;
+      logo.loading = "lazy";
+    } else {
+      logo.style.background = buy.color;
+    }
+    return logo;
   }
 
   // What to draw for the mode in hand: the datasets, the y scale they need, how many points

@@ -36,6 +36,15 @@
            { value: serie[:value].map { |amount| amount&.round(decimals)&.to_f },
              invested: serie[:invested].map { |amount| amount.to_d.round(decimals).to_f } }
          end %>
+      <%# Every executed buy, as a mark under the plot: when, and in what. Logos resolved through
+          the exchange's tickers the same way the holdings tables do it. %>
+      <% fills = bot.transactions.submitted.buy.where.not(price: nil).order(:created_at).pluck(:created_at, :base) %>
+      <% logo_assets = bot.exchange.tickers.where(base: fills.map(&:last).uniq).includes(:base_asset).index_by(&:base) %>
+      <% buys = fills.map do |at, base|
+           asset = logo_assets[base]&.base_asset
+           { x: at.in_time_zone(current_user.time_zone), symbol: base,
+             image: asset&.image_url, color: ensure_contrast(asset&.color || '#8A9BA8') }
+         end %>
       <%= tag.div data: {
         controller: "bot--chart",
         action: "mouseover@document->bot--chart#focus mouseleave@document->bot--chart#blur " \
@@ -48,7 +57,8 @@
         bot__chart_series_value: series,
         bot__chart_pnl_value: pnl_series,
         bot__chart_assets_value: assets,
-        bot__chart_pnl_only_value: hide_money
+        bot__chart_pnl_only_value: hide_money,
+        bot__chart_buys_value: buys
       } do %>
         <%# The switch sits on the date line, opposite it: one row across the top of the plot.
             PnL FIRST and on by default: VALUE always climbs for a DCA bot because the money going
@@ -88,6 +98,9 @@
         <div class="widget--chart__plot">
           <canvas data-bot--chart-target="analyzerChart" width="10" height="2"></canvas>
         </div>
+        <%# Positioned from the chart's own x scale, so it shares the plot's width and nothing else.
+            Populated by the controller after every build. %>
+        <div class="widget--chart__buys" data-bot--chart-target="buys"></div>
 
       <% end %>
     <% end %>
