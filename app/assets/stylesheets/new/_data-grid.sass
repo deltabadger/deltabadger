@@ -2,66 +2,44 @@
 @use "sass:list"
 @use "../variables" as *
 
-// The grid paints its own dividers as background layers: one vertical hairline per column boundary,
-// plus a horizontal rule under the first row. Written by hand that is a gradient per boundary, and
-// a six-across row needs five of them — so they are generated instead, and every column count reads
-// the same way.
-//
-// The horizontal rule goes LAST so the per-layer size and position lists can be built alongside it.
+// The grid paints its own column dividers as background layers: one vertical hairline per column
+// boundary. Written by hand that is a gradient per boundary, and a six-across row needs five of
+// them — so they are generated instead, and every column count reads the same way.
 @function column-dividers($count)
   $layers: ()
   @for $i from 1 through $count - 1
     $at: math.percentage(math.div($i, $count))
     $layers: list.append($layers, linear-gradient(to right, transparent, transparent calc(#{$at} - 0.25rem), var(--widget-shadow-line) calc(#{$at} - 0.25rem), var(--widget-shadow-line) calc(#{$at}), transparent calc(#{$at})), comma)
-  @return list.append($layers, linear-gradient(var(--widget-shadow-line), var(--widget-shadow-line)), comma)
+  @return $layers
 
-@function divider-sizes($count)
-  $sizes: ()
-  @for $i from 1 through $count - 1
-    $sizes: list.append($sizes, 100% 100%, comma)
-  @return list.append($sizes, 100% 0.25rem, comma)
-
-@function divider-positions($count)
-  $positions: ()
-  @for $i from 1 through $count - 1
-    $positions: list.append($positions, 0 0, comma)
-  @return list.append($positions, 0 var(--data-grid-row), comma)
-
-// Everything a column count needs: the tracks, the hairlines between them, and the row rule.
+// Everything a column count needs: the tracks, the hairlines between them, and a rule between rows.
+// The ROWS are never counted — an item that starts one draws its own top rule, so a grid of any
+// height is divided correctly and the bottom edge is never underlined. Each step clears the one
+// before it: at six across, the items that began rows while the grid was three across are mid-row.
 =columns($count)
   grid-template-columns: repeat($count, math.div(100%, $count))
   background-image: column-dividers($count)
-  background-size: divider-sizes($count)
-  background-position: divider-positions($count)
-  background-repeat: no-repeat
+  // Both halves carry an :nth-child so they weigh the same: a wider step's reset must never
+  // outrank a narrower one's rule, or the item it silenced keeps no divider at all.
+  > .data-grid__item:nth-child(n + #{$count + 1})
+    border-top: 0.25rem solid var(--widget-shadow-line)
+  > .data-grid__item:nth-child(-n + #{$count})
+    border-top: 0
 
 .data-grid
-    // One row, as the cells themselves compute it: label + gap + value, plus the item's own padding.
-    // The row divider is painted by the container, so it has to be told the height the items decide.
-    // It sits just BELOW the boundary and never repeats: on a single-row grid the bar then starts
-    // exactly at the bottom edge and is clipped away, instead of underlining the last row.
-    --data-grid-row: calc(5.5rem + 2 * var(--ui-padding) / 1.33)
     text-align: right
     display: grid
     gap: 0
-    grid-template-columns: repeat(2, 50%)
-    background-image: linear-gradient(to right, transparent, transparent calc(50% - 0.25rem), var(--widget-shadow-line) calc(50% - 0.25rem), var(--widget-shadow-line) calc(50%), transparent calc(50%)), linear-gradient(var(--widget-shadow-line), var(--widget-shadow-line))
-    background-size: 100% 100%, 100% 0.25rem
-    background-position: 0 0, 0 var(--data-grid-row)
-    background-repeat: no-repeat
+    +columns(2)
     &--two-columns
         grid-template-columns: repeat(2, 50%) !important
-        background-image: linear-gradient(to right, transparent, transparent calc(50% - 0.25rem), var(--widget-shadow-line) calc(50% - 0.25rem), var(--widget-shadow-line) calc(50%), transparent calc(50%)) !important
+        background-image: column-dividers(2) !important
         .data-grid__item__value
             min-height: auto
     @container (min-width: 576px)
         +columns(3)
     @container (min-width: 768px)
-        grid-template-columns: repeat(4, 25%)
-        background-image: linear-gradient(to right, transparent, transparent calc(25% - 0.25rem), var(--widget-shadow-line) calc(25% - 0.25rem), var(--widget-shadow-line) calc(25%), transparent calc(25%)), linear-gradient(to right, transparent, transparent calc(50% - 0.25rem), var(--widget-shadow-line) calc(50% - 0.25rem), var(--widget-shadow-line) calc(50%), transparent calc(50%)), linear-gradient(to right, transparent, transparent calc(75% - 0.25rem), var(--widget-shadow-line) calc(75% - 0.25rem), var(--widget-shadow-line) calc(75%), transparent calc(75%)), linear-gradient(var(--widget-shadow-line), var(--widget-shadow-line))
-        background-size: 100% 100%, 100% 100%, 100% 100%, 100% 0.25rem
-        background-position: 0 0, 0 0, 0 0, 0 var(--data-grid-row)
-        background-repeat: no-repeat
+        +columns(4)
     // Six figures, three shapes: 2 x 3 when narrow, 3 x 2 in the middle, and all six on ONE row once
     // there is room — which is where the eye can add them up without moving. The ordinary grid's
     // four-across step is skipped entirely: four of six leaves two empty cells.
@@ -91,8 +69,6 @@
                 fill: var(--stone)
             svg
                 width: 3rem
-            small
-                color: var(--stone)
             // A figure that is neither good nor bad news reads in the caption's colour rather than
             // the ink the outcomes are set in.
             &--quiet
