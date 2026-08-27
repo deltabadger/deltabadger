@@ -186,6 +186,24 @@ class TrackerHelperTest < ActionView::TestCase
     assert_equal TrackerHelper::ICON_MAX_SLICES, arcs.size
   end
 
+  # The remainder is not privileged: it queues by value with everything else. A ring already full of
+  # holdings that all outweigh it keeps them and says nothing about the rest.
+  test 'a remainder smaller than every holding on a full ring does not displace one' do
+    shares = icon_shares(Array.new(TrackerHelper::ICON_MAX_SLICES) { [7, '#F7931A'] } +
+                         Array.new(2) { [1, '#627EEA'] })
+
+    assert_equal TrackerHelper::ICON_MAX_SLICES, shares.size
+    assert_equal ['#F7931A'], shares.map(&:last).uniq
+  end
+
+  test 'a remainder larger than the smallest holding on a full ring takes its place' do
+    shares = icon_shares(Array.new(TrackerHelper::ICON_MAX_SLICES) { [5, '#F7931A'] } +
+                         Array.new(30) { [1, '#627EEA'] })
+
+    assert_equal TrackerHelper::ICON_MAX_SLICES, shares.size
+    assert_equal TrackerHelper::NEUTRAL_COLOR, shares.last.last
+  end
+
   # With nothing above the threshold there is nothing for a tail to be "other" than, and one neutral
   # ring is the icon for a portfolio nobody has synced. The largest are shown instead.
   test 'with no holding above the threshold, the largest are shown' do
