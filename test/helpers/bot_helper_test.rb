@@ -1,6 +1,9 @@
 require 'test_helper'
 
 class BotHelperTest < ActionView::TestCase
+  # The headline labels below are written with it, exactly as the view has it.
+  include NumbersHelper
+
   test 'whitelist ip comes from the claimed exchange proxy' do
     AppConfig.set('proxy_binance', 'http://user:secret@claimed-proxy.test:9000')
 
@@ -227,5 +230,97 @@ class BotHelperTest < ActionView::TestCase
   test 'a figure that rounds to something is left alone' do
     assert_equal '1,234.50', money_figure(1234.5)
     assert_equal '0.01', money_figure(0.005), 'rounds up to a real cent'
+  end
+  # == the dashboard's mini P/L curve ==
+  #
+  # The zero line is the bottom rule of `.dash-intro`, so y=100 in the viewBox IS that rule and the
+  # box above it is the headline's own 7rem. Below the rule is the same box mirrored: a fixed 100
+  # units, so nothing about the page's height depends on how bad this account's worst day was.
+  #
+  # The path is monotone cubic, the interpolation the bot and tracker charts use: a curve that
+  # cannot overshoot the points it joins, which matters here because the box is sized to the
+  # extremes and an overshoot would be drawn straight into the clip.
+
+  test 'a flat curve rides the zero line' do
+    spark = pnl_spark(percent: [0.0, 0.0, 0.0], days: 30)
+
+    assert_equal 'M0,100 C16.67,100 33.33,100 50,100 C66.67,100 83.33,100 100,100', spark[:path]
+    assert_equal 50.0, spark[:end_y], 'the line is the middle of the box'
+  end
+
+  # The floor exists so a quiet week is not redrawn as a mountain range: reaching the edge of the
+  # box has to MEAN something, and what it means is ten percent.
+  test 'a swing under ten percent falls short of the edge' do
+    spark = pnl_spark(percent: [0.0, 0.02], days: 30)
+
+    assert_equal 'M0,100 C33.33,93.33 66.67,86.67 100,80', spark[:path]
+    assert_equal 0.1, spark[:scale]
+  end
+
+  test 'ten percent reaches the top edge' do
+    assert_equal 'M0,100 C33.33,66.67 66.67,33.33 100,0', pnl_spark(percent: [0.0, 0.10], days: 30)[:path]
+  end
+
+  test 'past ten percent the whole curve rescales to the peak' do
+    spark = pnl_spark(percent: [0.0, 0.5, 0.25], days: 30)
+
+    assert_equal 0.5, spark[:scale]
+    assert spark[:path].start_with?('M0,100 '), 'starts on the zero line'
+    assert spark[:path].end_with?(' 100,50'), 'ends halfway up the box'
+  end
+
+  # A loss is drawn under the rule, in the half of the box that is always there for it.
+  test 'a loss is drawn below the line, on the same scale as a gain' do
+    spark = pnl_spark(percent: [0.0, 0.2, -0.1], days: 30)
+
+    assert_equal false, spark[:gain]
+    assert spark[:path].end_with?(' 100,150'), 'the last point is half a box under the line'
+    assert_equal 75.0, spark[:end_y]
+  end
+
+  test 'a curve that only ever falls reaches the bottom edge and none of the top' do
+    spark = pnl_spark(percent: [0.0, -0.15], days: 30)
+
+    assert_equal 'M0,100 C33.33,133.33 66.67,166.67 100,200', spark[:path]
+    assert_equal 100.0, spark[:end_y], 'the floor of the box'
+  end
+
+  # Monotone, not a plain spline: three points that rise and then flatten must not dip on the way,
+  # or the curve would draw a loss the account never had.
+  test 'a curve that levels off does not dip on the way' do
+    spark = pnl_spark(percent: [0.0, 0.1, 0.1], days: 30)
+    ys = spark[:path].scan(/[\d.]+,([\d.]+)/).flatten.map(&:to_f)
+
+    assert_equal 0.0, ys.min, 'never rises above the peak it is joining'
+    assert_operator ys.max, :<=, 100.0, 'and never falls below where it started'
+  end
+
+  # Width is history, not data density: a fortnight-old account gets a short curve rather than a
+  # full-width one drawn out of nothing.
+  test 'full width takes thirty days of history' do
+    assert_equal 50.0, pnl_spark(percent: [0.0, 0.1], days: 15)[:width]
+    assert_equal 100.0, pnl_spark(percent: [0.0, 0.1], days: 30)[:width]
+    assert_equal 100.0, pnl_spark(percent: [0.0, 0.1], days: 400)[:width]
+  end
+
+  test 'the area closes on the zero line at both ends' do
+    assert_equal 'M0,100 C33.33,66.67 66.67,33.33 100,0 L100,100 L0,100 Z',
+                 pnl_spark(percent: [0.0, 0.1], days: 30)[:area]
+  end
+
+  # The dot marking the last point is placed in the WHOLE box, both halves of it, because that is
+  # what the plot is drawn in.
+  test 'the end dot sits on the last point, in the whole box' do
+    assert_equal 0.0, pnl_spark(percent: [0.0, 0.1], days: 30)[:end_y], 'a peak at the very top'
+    assert_equal 50.0, pnl_spark(percent: [0.0, -0.1, 0.0], days: 30)[:end_y], 'back on the line, half way down'
+  end
+
+  # One figure, two writers: the view here, and the JS that rewrites it under the pointer. They
+  # have to agree character for character — a '+' the other one omits is a number that changes
+  # shape as it is read.
+  test 'the headline labels carry a sign only where one is due' do
+    assert_equal '+25.00%', pnl_headline_percent(0.25)
+    assert_equal '-10.00%', pnl_headline_percent(-0.1)
+    assert_equal '0.00%', pnl_headline_percent(0)
   end
 end

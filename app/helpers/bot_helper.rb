@@ -25,6 +25,105 @@ module BotHelper
     values.each_with_index.map { |value, i| value.to_d - (invested[i] || 0).to_d }
   end
 
+  # == the dashboard's mini P/L curve ==
+  #
+  # The zero line is the bottom rule of `.dash-intro`, which is why the geometry is written in a
+  # 100-unit box ABOVE it: y=100 is that rule, y=0 is the top of the headline. Below the rule is
+  # the same box mirrored — a fixed 100 units, not however deep this account's worst day happens
+  # to be, so the page under the chart sits where it sits whatever the curve does.
+  #
+  # The plot itself is drawn the way the bot and tracker charts draw theirs: one smoothed curve,
+  # green above the line and red below it, filled to the line, with a dot on the last point.
+  # Splitting the colours is left to two clip paths in the view, so the crossing is exact rather
+  # than resolved per segment.
+
+  # Ten percent to reach an edge. Without a floor the scale is whatever the account happened to do,
+  # so a flat fortnight would be redrawn as a mountain range and touching the top would mean
+  # nothing at all.
+  SPARK_MIN_SCALE = 0.10
+  # And thirty days to earn the full width. A week-old account gets a short curve rather than one
+  # stretched out of nothing.
+  SPARK_FULL_DAYS = 30
+
+  # The headline's two formats, in one place: the view writes them and pnl_spark_controller.js
+  # rebuilds them under the pointer. Two readings of one figure that have to agree character for
+  # character, or the number changes shape as it is hovered.
+  def pnl_headline_percent(value)
+    "#{'+' if value.positive?}#{format_percent(value, precision: 2)}"
+  end
+
+  def pnl_headline_amount(usd, denomination)
+    safe_join([('+' if usd.positive?), denomination.format(usd, precision: 0)].compact)
+  end
+
+  def pnl_spark(history)
+    percent = history[:percent]
+    scale = [percent.map(&:abs).max, SPARK_MIN_SCALE].max
+    points = percent.each_with_index.map do |value, i|
+      [i * (100.0 / (percent.size - 1)), (1 - (value / scale)) * 100]
+    end
+    curve = spark_curve(points)
+
+    {
+      path: curve,
+      # Closed along the zero line, so the ribbon is the distance from it — the same thing the
+      # curve is. One shape for both colours; the view clips it into halves.
+      area: "#{curve} L100,100 L0,100 Z",
+      scale: scale,
+      # Where the last point sits in the whole 200-unit box, for the dot that marks it — a
+      # percentage, because that box is only ever measured in rems by the CSS.
+      end_y: (points.last[1] / 2).round(3),
+      width: ([history[:days] / SPARK_FULL_DAYS.to_f, 1].min * 100).round(2),
+      gain: !percent.last.negative?
+    }
+  end
+
+  private
+
+  # Monotone cubic interpolation (Fritsch–Carlson), which is what `cubicInterpolationMode:
+  # "monotone"` gives the charts this curve is meant to match. Monotone and not a plain spline
+  # because it cannot overshoot the data: the box is sized to the extremes, so a curve that
+  # bulged past them would be drawn straight into the clip.
+  def spark_curve(points)
+    slopes = spark_slopes(points)
+    segments = points.each_cons(2).with_index.map do |(from, to), i|
+      third = (to[0] - from[0]) / 3.0
+      format('C%g,%g %g,%g %g,%g',
+             (from[0] + third).round(2), (from[1] + (slopes[i] * third)).round(2),
+             (to[0] - third).round(2), (to[1] - (slopes[i + 1] * third)).round(2),
+             to[0].round(2), to[1].round(2))
+    end
+
+    "M#{format('%g,%g', points[0][0].round(2), points[0][1].round(2))} #{segments.join(' ')}"
+  end
+
+  # The tangent at each point: the average of its neighbours' secants, then pulled back wherever
+  # that would turn a rise into a dip.
+  def spark_slopes(points)
+    secants = points.each_cons(2).map { |from, to| (to[1] - from[1]) / (to[0] - from[0]) }
+    slopes = [secants.first] + secants.each_cons(2).map { |before, after| (before + after) / 2.0 } + [secants.last]
+
+    secants.each_with_index do |secant, i|
+      if secant.zero?
+        slopes[i] = slopes[i + 1] = 0.0
+        next
+      end
+
+      alpha = slopes[i] / secant
+      beta = slopes[i + 1] / secant
+      slopes[i] = 0.0 if alpha.negative?
+      slopes[i + 1] = 0.0 if beta.negative?
+      next unless (alpha**2) + (beta**2) > 9
+
+      tau = 3.0 / Math.sqrt((alpha**2) + (beta**2))
+      slopes[i] = tau * alpha * secant
+      slopes[i + 1] = tau * beta * secant
+    end
+    slopes
+  end
+
+  public
+
   # Per-exchange label for the API key field, with a generic translated fallback.
   # Each exchange MAY define its own `bot.api.<exchange>.public_key` /
   # `private_key`; when it doesn't, we use the localized generic label under
