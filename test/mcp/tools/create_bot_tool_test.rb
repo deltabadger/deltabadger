@@ -62,9 +62,12 @@ class CreateBotToolTest < ActiveSupport::TestCase
     assert_equal 'My BTC Bot', @user.bots.last.label
   end
 
-  # --- Dual Asset ---
+  # --- Two assets ---
+  #
+  # `second_base_asset` is unchanged as a parameter; the bot behind it is now the same basket type
+  # the wizard builds, so `allocation` becomes the first asset's weight rather than allocation0.
 
-  test 'creates a dual asset DCA bot' do
+  test 'creates a two-asset DCA bot' do
     Bot::ActionJob.stubs(:perform_later)
     Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
 
@@ -80,12 +83,12 @@ class CreateBotToolTest < ActiveSupport::TestCase
 
     assert_match(/created and started/i, response.contents.first.text)
     bot = @user.bots.last
-    assert bot.dca_dual_asset?
+    assert bot.dca_multi_asset?
     assert bot.working?
     assert_equal 100.0, bot.quote_amount
-    assert_equal 0.6, bot.allocation0
-    assert_equal @btc.id, bot.base0_asset_id
-    assert_equal @eth.id, bot.base1_asset_id
+    assert_in_delta 0.6, bot.allocation_for(@btc.id), 0.000001
+    assert_in_delta 0.4, bot.allocation_for(@eth.id), 0.000001
+    assert_equal [@btc.id, @eth.id].sort, bot.bot_index_assets.in_index.pluck(:asset_id).sort
   end
 
   test 'returns error for invalid allocation' do
@@ -102,7 +105,7 @@ class CreateBotToolTest < ActiveSupport::TestCase
     assert_match(/Invalid allocation/, response.contents.first.text)
   end
 
-  test 'dual asset bot defaults allocation to 50' do
+  test 'a two-asset bot defaults to an even split' do
     Bot::ActionJob.stubs(:perform_later)
     Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
 
@@ -115,7 +118,32 @@ class CreateBotToolTest < ActiveSupport::TestCase
       interval: 'day'
     ).execute
 
-    assert_equal 0.5, @user.bots.last.allocation0
+    assert_equal [0.5, 0.5], @user.bots.last.allocations.values
+  end
+
+  test 'a two-asset bot is labelled with both assets' do
+    Bot::ActionJob.stubs(:perform_later)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+
+    result = BotApi::Bots::Create.new(
+      user: @user, exchange_name: 'Binance', base_asset: 'BTC', second_base_asset: 'ETH',
+      quote_asset: 'USD', quote_amount: 100.0, interval: 'day'
+    ).call
+
+    assert_equal 'BTC+ETH/USD', result.data[:pair]
+  end
+
+  test 'a single-asset request is unaffected' do
+    Bot::ActionJob.stubs(:perform_later)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+
+    result = BotApi::Bots::Create.new(
+      user: @user, exchange_name: 'Binance', base_asset: 'BTC',
+      quote_asset: 'USD', quote_amount: 100.0, interval: 'day'
+    ).call
+
+    assert_equal 'Bots::DcaSingleAsset', Bot.find(result.data[:id]).type
+    assert_equal 'BTC/USD', result.data[:pair]
   end
 
   # --- Scheduled start (start_at) ---
