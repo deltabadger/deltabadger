@@ -438,6 +438,7 @@ en:
         portfolio:
             never_synced: Click Sync to load your portfolio.
             no_balances: No balances found on your connected exchanges.
+            only_cash: "Only cash and stablecoins — turn on Show cash to see them."
             unpriced: 'Pricing unavailable for: %{assets}'
         sync: 'Sync'
         sync_started: 'Syncing transactions from your exchanges...'

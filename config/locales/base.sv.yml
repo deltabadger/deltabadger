@@ -438,6 +438,7 @@ sv:
         portfolio:
             never_synced: Klicka på „Synka" för att ladda din portfölj.
             no_balances: Inga saldon hittades på dina anslutna börser.
+            only_cash: "Endast kontanter och stablecoins — slå på Visa kontanter för att se dem."
             unpriced: 'Pris saknas för: %{assets}'
         sync: 'Synka'
         sync_started: 'Synkroniserar transaktioner från dina börser...'

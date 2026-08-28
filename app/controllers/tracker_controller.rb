@@ -358,7 +358,14 @@ class TrackerController < ApplicationController
     # The switch beside the venues, applied once. Everything drawn FROM the holdings — the card, the
     # ring, the type shares, the positions table — follows; every figure stated ABOUT the portfolio
     # is untouched, because hiding a balance is not an accounting choice.
-    @figures = @figures.without_cash unless show_cash?
+    unless show_cash?
+      invested = @figures.without_cash
+      # An account holding nothing BUT cash has balances; it just has no invested position to
+      # draw. Without this the holdings card would say none were found, which is a lie the reader
+      # cannot act on — the money is stated in the tiles right beside it.
+      @portfolio_all_cash = @figures.holdings.any? && invested.holdings.empty?
+      @figures = invested
+    end
     @portfolio_has_keys = reading_keys.any?
     @portfolio_never_synced = @portfolio_has_keys && balances.empty? &&
                               PortfolioSnapshot.watermarks(current_user).values.compact.empty?

@@ -435,6 +435,7 @@ de:
         portfolio:
             never_synced: Auf „Sync" klicken, um dein Portfolio zu laden.
             no_balances: Keine Guthaben auf deinen verbundenen Börsen gefunden.
+            only_cash: "Nur Bargeld und Stablecoins — schalte Bargeld anzeigen ein, um sie zu sehen."
             unpriced: 'Preis nicht verfügbar für: %{assets}'
         sync: 'Synchronisieren'
         sync_started: 'Transaktionen werden von deinen Börsen synchronisiert...'

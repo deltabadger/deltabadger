@@ -435,6 +435,7 @@ fr:
         portfolio:
             never_synced: Cliquez sur Synchroniser pour charger votre portefeuille.
             no_balances: Aucun solde trouvé sur vos plateformes connectées.
+            only_cash: "Uniquement des liquidités et des stablecoins — activez Afficher les liquidités pour les voir."
             unpriced: 'Prix indisponible pour : %{assets}'
         sync: 'Synchroniser'
         sync_started: 'Synchronisation des transactions depuis vos plateformes...'

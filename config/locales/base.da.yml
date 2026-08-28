@@ -438,6 +438,7 @@ da:
         portfolio:
             never_synced: Klik på „Synkronisér" for at indlæse din portefølje.
             no_balances: Ingen saldi fundet på dine tilknyttede børser.
+            only_cash: "Kun kontanter og stablecoins — slå Vis kontanter til for at se dem."
             unpriced: 'Pris ikke tilgængelig for: %{assets}'
         sync: 'Synkronisér'
         sync_started: 'Synkroniserer transaktioner fra dine børser...'

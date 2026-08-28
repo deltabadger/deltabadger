@@ -445,6 +445,7 @@ cs:
         portfolio:
             never_synced: Klikni na „Synchronizovat", abys načetl své portfolio.
             no_balances: Na připojených burzách nebyly nalezeny žádné zůstatky.
+            only_cash: "Pouze hotovost a stablecoiny — zapněte Zobrazit hotovost, abyste je viděli."
             unpriced: 'Cena není k dispozici pro: %{assets}'
         sync: 'Synchronizovat'
         sync_started: 'Synchronizace transakcí z vašich burz...'
