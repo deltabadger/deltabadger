@@ -15,9 +15,7 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
     write_settings!('allocation0' => 0.7)
   end
 
-  # The deploy-time default refuses any bot with a queued job; these tests exercise that path
-  # explicitly below and otherwise use the drained-operator rule.
-  def run!(defer_scheduled: false) = Bot::DualToComposition.run!(defer_scheduled:)
+  def run! = Bot::DualToComposition.run!
 
   # Bot::Accountable raises on a settings save without set_missed_quote_amount (accountable.rb:82);
   # update_columns skips callbacks entirely, which is what a fixture wants.
@@ -158,6 +156,23 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
     assert_equal other.to_global_id.to_s, gid_in(job)
   end
 
+  test 'a job holding the old GlobalID still finds the bot after conversion' do
+    # The Umbrel worker is its own container and can be claiming jobs while migrations run, so a
+    # tick enqueued as a pair can fire once the row is already a basket. It must not dead-letter.
+    job = enqueue_job_for(@bot)
+    old_gid = gid_in(job)
+    run!
+
+    assert_equal 'Bots::DcaMultiAsset', Bot.find(@bot.id).type
+    assert_nothing_raised { GlobalID::Locator.locate(old_gid) }
+    assert_equal @bot.id, GlobalID::Locator.locate(old_gid).id
+    assert_equal 'Bots::DcaMultiAsset', GlobalID::Locator.locate(old_gid).type
+  end
+
+  test 'the fallback does not invent a bot that never existed' do
+    assert_raises(ActiveRecord::RecordNotFound) { Bots::DcaDualAsset.find(0) }
+  end
+
   # == What is refused ==
 
   test 'an executing bot is left alone' do
@@ -211,27 +226,10 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
     assert_includes skipped.map(&:last), 'job in flight'
   end
 
-  test 'a job scheduled in the future does not block the drained operator run' do
+  test 'a job scheduled in the future does not block conversion' do
     enqueue_job_for(@bot, state: :scheduled, scheduled_at: 1.hour.from_now)
     run!
 
-    assert_equal 'Bots::DcaMultiAsset', Bot.find(@bot.id).type
-  end
-
-  test 'the deploy-time run defers any bot that has a queued job at all' do
-    # Workers are live during a deploy, and a scheduled tick could fire between the type flip and
-    # the queue repoint — different databases, so they cannot commit together.
-    enqueue_job_for(@bot, state: :scheduled, scheduled_at: 1.hour.from_now)
-    _, skipped = run!(defer_scheduled: true)
-
-    assert_equal 'Bots::DcaDualAsset', Bot.where(id: @bot.id).pick(:type)
-    assert_match(/bots:migrate_dual_to_multi/, skipped.first.last)
-  end
-
-  test 'the deploy-time run still converts a bot with nothing queued' do
-    _, skipped = run!(defer_scheduled: true)
-
-    assert_empty skipped
     assert_equal 'Bots::DcaMultiAsset', Bot.find(@bot.id).type
   end
 

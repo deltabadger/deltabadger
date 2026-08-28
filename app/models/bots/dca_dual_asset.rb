@@ -1,6 +1,21 @@
 class Bots::DcaDualAsset < Bot
   include ActionCable::Channel::Broadcasting
 
+  # A job enqueued before this bot was converted carries a GlobalID naming THIS class. STI scopes
+  # find to the type, so once the row becomes a basket that lookup raises RecordNotFound and the
+  # tick dead-letters — and the conversion cannot prevent it, because the queue is a different
+  # database and no check here can be atomic with the commit. On Umbrel the worker is its own
+  # container whose `depends_on: web` does not wait for migrations, so it can be claiming jobs while
+  # the conversion runs.
+  #
+  # Hand back whatever the row is now instead. The job then runs against the basket, which is what
+  # it should do after the conversion, rather than failing. Removed with this class.
+  def self.find(...)
+    super
+  rescue ActiveRecord::RecordNotFound
+    Bot.find(...)
+  end
+
   store_accessor :settings,
                  :base0_asset_id,
                  :base1_asset_id,
