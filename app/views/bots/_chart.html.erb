@@ -36,14 +36,19 @@
            { value: serie[:value].map { |amount| amount&.round(decimals)&.to_f },
              invested: serie[:invested].map { |amount| amount.to_d.round(decimals).to_f } }
          end %>
-      <%# Every executed buy, as a mark under the plot: when, and in what.
-          `[time, symbol]` pairs and a symbol => logo map, NOT a logo per fill: an hourly bot
-          running for a year is ~9,000 marks, and repeating a CDN image URL on each of them would
-          put megabytes into one data attribute for the browser to parse on every broadcast.
+      <%# Every executed buy, as a mark under the plot: when, in what, and how much of it.
+          Tuples plus one symbol => logo map, NOT a logo per mark: an hourly bot running for a
+          year is ~9,000 of them, and repeating a CDN image URL on each would put megabytes into
+          one data attribute for the browser to parse on every broadcast.
           Logos resolved through the exchange's tickers the same way the holdings tables do it. %>
       <% marks = bot.chart_buy_marks %>
-      <% logo_assets = bot.exchange.tickers.where(base: marks.map(&:last).uniq).includes(:base_asset).index_by(&:base) %>
-      <% buys = marks.map { |at, base| [at.in_time_zone(current_user.time_zone), base] } %>
+      <% symbols = marks.map { |mark| mark[1] }.uniq %>
+      <% logo_assets = bot.exchange.tickers.where(base: symbols).includes(:base_asset).index_by(&:base) %>
+      <%# `to_f` on the amounts, not `to_s`: a BigDecimal serializes into a data attribute as a
+          JSON STRING, and the stack would then sort its logos alphabetically by a number. %>
+      <% buys = marks.map do |at, base, amount, quote, fills|
+           [at.in_time_zone(current_user.time_zone), base, amount.to_f, quote.to_f, fills]
+         end %>
       <% buy_logos = logo_assets.transform_values do |ticker|
            { image: ticker.base_asset&.image_url,
              color: ensure_contrast(ticker.base_asset&.color || '#8A9BA8') }

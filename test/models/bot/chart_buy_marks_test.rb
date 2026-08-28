@@ -13,7 +13,7 @@ class Bot::ChartBuyMarksTest < ActiveSupport::TestCase
   end
 
   def mark_symbols
-    bot.chart_buy_marks.map(&:last)
+    bot.chart_buy_marks.map { |mark| mark[1] }
   end
 
   test 'an executed buy is marked' do
@@ -83,7 +83,7 @@ class Bot::ChartBuyMarksTest < ActiveSupport::TestCase
     create(:transaction, bot: bot, base: 'BTC', created_at: 2.days.ago)
     create(:transaction, bot: bot, base: 'ETH', created_at: 1.day.ago)
 
-    times, symbols = bot.chart_buy_marks.transpose
+    times, symbols, = bot.chart_buy_marks.transpose
 
     assert_equal %w[BTC ETH], symbols
     assert times[0] < times[1]
@@ -117,7 +117,7 @@ class Bot::ChartBuyMarksTest < ActiveSupport::TestCase
     marks = bot.chart_buy_marks
 
     assert_operator marks.size, :<=, (Bot::ChartSeries::MARK_BUCKETS + 1) * 2
-    assert_equal %w[BTC ETH].to_set, marks.to_set(&:last)
+    assert_equal(%w[BTC ETH].to_set, marks.to_set { |mark| mark[1] })
   end
 
   test 'thinning keeps both ends of the history' do
@@ -134,5 +134,31 @@ class Bot::ChartBuyMarksTest < ActiveSupport::TestCase
     3.times { |i| create(:transaction, bot: bot, base: 'BTC', created_at: i.days.ago) }
 
     assert_equal 3, bot.chart_buy_marks.size
+  end
+
+  # The mark says what it bought, so collapsing fills has to add them up. Sampling one and
+  # dropping the rest would understate a purchase in the tooltip.
+  test 'thinning sums the fills it collapses rather than dropping them' do
+    seed_dense_history(4000)
+
+    marks = bot.chart_buy_marks
+
+    assert_operator marks.size, :<, 4000, 'expected this history to be thinned at all'
+    assert_equal(4000, marks.sum { |mark| mark[4] })
+    assert_in_delta 4000 * 0.001, marks.sum { |mark| mark[2] }, 1e-6
+    assert_in_delta 4000 * 50, marks.sum { |mark| mark[3] }, 1e-6
+  end
+
+  test 'a mark carries the amount and the value that actually executed' do
+    create(:transaction, bot: bot, base: 'BTC', amount: 0.002, price: 50_000,
+                         amount_exec: 0.001, quote_amount_exec: 47)
+
+    at, symbol, amount, quote, fills = bot.chart_buy_marks.sole
+
+    assert at
+    assert_equal 'BTC', symbol
+    assert_equal 0.001.to_d, amount
+    assert_equal 47.to_d, quote
+    assert_equal 1, fills
   end
 end

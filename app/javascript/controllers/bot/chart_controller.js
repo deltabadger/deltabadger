@@ -8,14 +8,15 @@ const HOLDING_ROWS = "#assets_metrics_table tr[data-symbol], #exited_metrics_tab
 // The buy marks under the plot, in px. Read here rather than measured: the stacks are laid
 // out before the images have loaded, and an unloaded <img> measures 0.
 //
-// This is `.widget--chart__buys__stack .asset-logo` in `_widget.sass` — 2rem against this app's
-// 8px root, so SIXTEEN, not the 20 a 16px root would give. It sets the overlap threshold, the
-// edge clamp and the reserved height, so guessing it wrong silently over-reserves the row and
-// collapses marks that do not visually overlap.
+// This is `.widget--chart__buys__mark` in `_widget.sass` — 2rem against this app's 8px root, so
+// SIXTEEN, not the 20 a 16px root would give. It sets the overlap threshold, the edge clamp and
+// the reserved height, so guessing it wrong silently over-reserves the row and collapses marks
+// that do not visually overlap.
 const LOGO_SIZE = 16;
-// How much of the logo above each one covers — the shingle in `_widget.sass`, in the one number
-// that has to agree with it.
-const LOGO_OVERLAP = 0.7;
+// How far each mark behind the top one sticks out while the stack is closed: 0.5rem, the same
+// number `_widget.sass` shingles them by. Only the CLOSED step is needed here — opening a stack
+// is the stylesheet's business, and deliberately does not resize the row.
+const LOGO_STEP = 4;
 
 // Connects to data-controller="bot--chart"
 export default class extends Controller {
@@ -297,12 +298,14 @@ export default class extends Controller {
     });
   }
 
-  #money(value) {
+  // `signed` off for a PRICE: the headline is a profit and wants its sign, but "+84,000 USDT"
+  // as the price of a fill reads as a gain.
+  #money(value, { signed = true } = {}) {
     const decimals = Math.abs(value) >= 1 ? 2 : this.decimalsValue;
     return `${value.toLocaleString(this.#locale, {
       minimumFractionDigits: Math.min(2, decimals),
       maximumFractionDigits: decimals,
-      signDisplay: "exceptZero",
+      signDisplay: signed ? "exceptZero" : "auto",
     })} ${this.quoteValue}`;
   }
 
@@ -496,11 +499,11 @@ export default class extends Controller {
 
   // --- the buys under the plot -------------------------------------------------------
   //
-  // One logo per executed buy, placed on the chart's own x scale so a mark sits under the point
+  // One mark per executed buy, placed on the chart's own x scale so a mark sits under the point
   // it moved. Marks whose logos would overlap by more than half their width collapse into one
-  // vertical stack — and a stack carries each asset ONCE, so an index bot buying eleven coins in
-  // one second reads as eleven assets, not as however many fills the exchange happened to split
-  // them into.
+  // stack — and a stack carries each asset ONCE, summing what that asset bought across the
+  // crowd, so an index bot buying eleven coins in one second reads as eleven assets rather than
+  // as however many fills the exchange split them into.
   #renderBuys() {
     if (!this.hasBuysTarget) return;
 
@@ -524,18 +527,26 @@ export default class extends Controller {
         const time = new Date(at).getTime();
         return time >= from && time <= to;
       })
-      .forEach(([at, symbol]) => {
-        const x = scale.getPixelForValue(new Date(at).getTime());
+      .forEach(([at, symbol, amount, quote, fills]) => {
+        const time = new Date(at).getTime();
+        const x = scale.getPixelForValue(time);
         // Chained against the LAST mark, not the stack's first: a run of buys a few pixels apart
         // is one crowd, and measuring from the stack's origin would let it drift apart again.
-        const stack = stacks.at(-1);
-        if (stack && x - stack.last < size / 2) {
-          stack.last = x;
-          stack.to = x;
-          stack.assets.add(symbol);
-        } else {
-          stacks.push({ from: x, to: x, last: x, assets: new Set([symbol]) });
+        let stack = stacks.at(-1);
+        if (!stack || x - stack.last >= size / 2) {
+          stack = { from: x, to: x, last: x, assets: new Map() };
+          stacks.push(stack);
         }
+        stack.last = x;
+        stack.to = x;
+
+        const buy = stack.assets.get(symbol) ||
+          { symbol, amount: 0, quote: 0, fills: 0, first: time, last: time };
+        buy.amount += amount;
+        buy.quote += quote;
+        buy.fills += fills;
+        buy.last = time;
+        stack.assets.set(symbol, buy);
       });
 
     const width = scale.right;
@@ -544,33 +555,81 @@ export default class extends Controller {
         const column = document.createElement("div");
         column.className = "widget--chart__buys__stack";
         // Centred on the crowd it stands for, then kept inside the plot so an edge mark is whole.
+        // Offset by half a logo here rather than with a translate: a transform would make this
+        // element the containing block for the tooltips' `position: fixed`.
         const centre = (stack.from + stack.to) / 2;
-        column.style.left = `${Math.min(Math.max(centre, size / 2), width - size / 2)}px`;
-        column.append(...[...stack.assets].map((symbol) => this.#logo(symbol)));
+        column.style.left = `${Math.min(Math.max(centre, size / 2), width - size / 2) - size / 2}px`;
+        // SMALLEST first, because the last one painted is the one on top: the biggest buy of the
+        // crowd is the one wearing its logo while the stack is closed, and the also-rans are the
+        // slivers behind it.
+        const buys = [...stack.assets.values()].sort((a, b) => a.quote - b.quote);
+        column.append(...buys.map((buy) => this.#mark(buy)));
         return column;
       })
     );
-    // Only as tall as the tallest stack: an empty row under a chart with no crowds is dead space.
+    // Only as tall as the tallest CLOSED stack: opening one lifts its slivers up over the plot
+    // rather than growing the row, which would shove the whole page down on hover.
     const tallest = Math.max(0, ...stacks.map((stack) => stack.assets.size));
-    const step = size * (1 - LOGO_OVERLAP);
-    this.buysTarget.style.height = tallest ? `${size + (tallest - 1) * step}px` : "0";
+    this.buysTarget.style.height = tallest ? `${size + (tallest - 1) * LOGO_STEP}px` : "0";
   }
 
-  // A symbol the venue has no ticker for gets neither image nor colour; it still earns its disc,
-  // in the same grey the holdings tables fall back to, rather than silently dropping a purchase.
-  #logo(symbol) {
-    const asset = this.buyLogosValue[symbol] || {};
-    const logo = asset.image ? document.createElement("img") : document.createElement("span");
-    logo.className = "asset-logo";
-    logo.title = symbol;
+  // A coloured disc wearing the asset's logo. The disc is the mark: the logo on top of it fades
+  // in, so a closed stack shows one logo and a column of colours, and an open one shows them all.
+  // A symbol the venue has no ticker for has no image and keeps the grey the tables fall back to,
+  // rather than dropping the purchase.
+  #mark(buy) {
+    const asset = this.buyLogosValue[buy.symbol] || {};
+    const mark = document.createElement("span");
+    mark.className = "widget--chart__buys__mark";
+    mark.style.background = asset.color || "#8A9BA8";
+    // The app's own hover card, so these read like every other tooltip on the page. Fixed, or the
+    // bubble would be cut off by the stack it belongs to.
+    mark.dataset.controller = "tooltip";
+    mark.dataset.tooltipFixedValue = "true";
+    mark.dataset.action = "mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip";
+
     if (asset.image) {
+      const logo = document.createElement("img");
+      logo.className = "asset-logo";
       logo.src = asset.image;
-      logo.alt = symbol;
+      logo.alt = buy.symbol;
       logo.loading = "lazy";
-    } else {
-      logo.style.background = asset.color || "#8A9BA8";
+      mark.append(logo);
     }
-    return logo;
+    mark.append(this.#markTooltip(buy));
+    return mark;
+  }
+
+  // What the crowd under this logo actually bought: when, what, how much, and at what it went
+  // through. The price is DERIVED from the two totals rather than read off a row, so a mark that
+  // stands for several fills states the price the money as a whole moved at.
+  #markTooltip(buy) {
+    const tooltip = document.createElement("div");
+    tooltip.className = "tooltip tooltip--hint widget--chart__buys__tip";
+    const when = buy.first === buy.last
+      ? this.#date(buy.first)
+      : `${this.#date(buy.first)} – ${this.#date(buy.last)}`;
+    // The count only earns its place when the mark is standing for more than one buy.
+    const fills = buy.fills > 1 ? ` · ×${buy.fills}` : "";
+    tooltip.append(
+      this.#tipLine(`${when}${fills}`, "widget--chart__buys__tip__when"),
+      this.#tipLine(`${this.#amount(buy.amount)} ${buy.symbol}`),
+      this.#tipLine(`@ ${this.#money(buy.quote / buy.amount, { signed: false })}`)
+    );
+    return tooltip;
+  }
+
+  #tipLine(text, className) {
+    const line = document.createElement("div");
+    if (className) line.className = className;
+    line.textContent = text;
+    return line;
+  }
+
+  // A base amount, which has no decimals shipped with the chart — an index bot's holdings each
+  // have their own. Eight is the floor of what a crypto amount needs; trailing zeros are dropped.
+  #amount(value) {
+    return value.toLocaleString(this.#locale, { maximumFractionDigits: 8 });
   }
 
   // What to draw for the mode in hand: the datasets, the y scale they need, how many points
