@@ -22,9 +22,17 @@ class Bots::DcaMultiAsset < Bot
   after_update_commit :broadcast_metrics_panel,
                       if: -> { composition_changed? || saved_change_to_exchange_id? }
 
-  # Trading condition concerns (only SmartIntervalable and LimitOrderable for composition bots)
+  # Trading condition concerns. Each resolves its subject through <prefix>_in_ticker_id against
+  # `tickers`, so they read one named member of the basket rather than assuming a single pair.
+  # The flip actions they offer stay inert here: they are gated on reversible?, which Bot defines
+  # as false for buy-only types (bot.rb:129) and only Bot::Reversible overrides.
   include SmartIntervalable
   include LimitOrderable
+  include QuoteAmountLimitable
+  include PriceLimitable
+  include PriceDropLimitable
+  include MovingAverageLimitable
+  include IndicatorLimitable
 
   # Standard infrastructure concerns
   include Fundable
@@ -47,6 +55,7 @@ class Bots::DcaMultiAsset < Bot
   # Shared lifecycle + asset plumbing stay last so the decorator chains above remain on top.
   include Bot::Lifecycle
   include Bot::AssetConfigurable
+  include Bot::LimitCheckable # live limit-check job from limit_paused log (recovery/rescue)
 
   self.asset_id_setting_keys = %i[quote_asset_id]
 
