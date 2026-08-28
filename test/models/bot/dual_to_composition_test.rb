@@ -15,7 +15,9 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
     write_settings!('allocation0' => 0.7)
   end
 
-  def run! = Bot::DualToComposition.run!
+  # The deploy-time default refuses any bot with a queued job; these tests exercise that path
+  # explicitly below and otherwise use the drained-operator rule.
+  def run!(defer_scheduled: false) = Bot::DualToComposition.run!(defer_scheduled:)
 
   # Bot::Accountable raises on a settings save without set_missed_quote_amount (accountable.rb:82);
   # update_columns skips callbacks entirely, which is what a fixture wants.
@@ -209,10 +211,27 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
     assert_includes skipped.map(&:last), 'job in flight'
   end
 
-  test 'a job scheduled in the future does not block conversion' do
+  test 'a job scheduled in the future does not block the drained operator run' do
     enqueue_job_for(@bot, state: :scheduled, scheduled_at: 1.hour.from_now)
     run!
 
+    assert_equal 'Bots::DcaMultiAsset', Bot.find(@bot.id).type
+  end
+
+  test 'the deploy-time run defers any bot that has a queued job at all' do
+    # Workers are live during a deploy, and a scheduled tick could fire between the type flip and
+    # the queue repoint — different databases, so they cannot commit together.
+    enqueue_job_for(@bot, state: :scheduled, scheduled_at: 1.hour.from_now)
+    _, skipped = run!(defer_scheduled: true)
+
+    assert_equal 'Bots::DcaDualAsset', Bot.where(id: @bot.id).pick(:type)
+    assert_match(/bots:migrate_dual_to_multi/, skipped.first.last)
+  end
+
+  test 'the deploy-time run still converts a bot with nothing queued' do
+    _, skipped = run!(defer_scheduled: true)
+
+    assert_empty skipped
     assert_equal 'Bots::DcaMultiAsset', Bot.find(@bot.id).type
   end
 
