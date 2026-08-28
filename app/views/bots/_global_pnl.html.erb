@@ -41,6 +41,8 @@
       <% end %>
     </div>
   <% elsif loading %>
-    <div class="loader--small"></div>
+    <%# The wait is drawn on the chart's own zero line rather than as a spinner: the axis is
+        already there, and a light travelling along it says the curve is coming where it will be. %>
+    <div class="dash-intro__loading"></div>
   <% end %>
 <% end %>
