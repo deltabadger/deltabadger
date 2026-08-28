@@ -15,9 +15,8 @@ const HOLDING_ROWS = "#assets_metrics_table tr[data-symbol], #exited_metrics_tab
 const LOGO_SIZE = 16;
 // Where the "Show orders" choice lives. Not keyed by bot: it is a way of reading a chart.
 const ORDERS_KEY = "bot-chart:orders";
-// How tall the largest buy's mark stands: 5rem against this app's 8px root. Everything else is
-// a share of it, floored at `LOGO_SIZE` so the smallest buy is still a square holding its logo
-// rather than a sliver with a clipped one.
+// How tall the largest buy's mark stands: 5rem against this app's 8px root. The smallest stands
+// at `LOGO_SIZE`, and everything between is spread across the difference — see `#sizing`.
 const MARK_MAX_HEIGHT = 40;
 
 // Connects to data-controller="bot--chart"
@@ -587,23 +586,30 @@ export default class extends Controller {
     this.buysTarget.replaceChildren(...stacks.map((stack) => this.#stack(stack, width, this.#sizing(stacks))));
   }
 
-  // The buy that sets the scale, or null to leave every mark its own square.
+  // The range the marks are drawn against, or null to leave every mark its own square.
   //
   // Marks grow only while ONE asset is in view — pinned from the holdings table, or a bot that
   // only ever bought the one thing, which is the same question and so the same test. Across
   // several assets a height would invite a comparison it cannot support: the marks of a stack are
   // already ranked by size, and marks of different assets in different stacks share no ruler.
   //
-  // Normalized against the largest buy IN VIEW, so the tallest mark is always the same height and
-  // the rest are read against it. Narrowing the range renormalizes — the question is which of
-  // these buys was the big one, not how they measure against a month the reader has scrolled off.
+  // MIN-MAX against the buys IN VIEW: the smallest stands at `LOGO_SIZE` and the largest at
+  // `MARK_MAX_HEIGHT`, whatever the numbers are, so the full height is always spent on the spread
+  // that is actually there. Height is therefore a RANK within the window and not a quantity — a
+  // buy half the size of another is not half as tall — which is the trade for two buys a hair
+  // apart being legibly apart. Narrowing the range renormalizes: the question is which of THESE
+  // buys was the big one, not how they measure against a month scrolled off the side.
+  //
+  // Equal buys have no spread to spend, so they get no heights at all rather than a row of
+  // maximums claiming every one of them was the biggest. A single buy in view is that same case.
   #sizing(stacks) {
     const buys = stacks.flatMap((stack) => [...stack.assets.values()]);
     if (new Set(buys.map((buy) => buy.symbol)).size !== 1) return null;
 
-    // A zero total would divide by zero, and nothing bought is nothing to scale.
-    const max = Math.max(...buys.map((buy) => buy.quote));
-    return max > 0 ? max : null;
+    const quotes = buys.map((buy) => buy.quote);
+    const min = Math.min(...quotes);
+    const max = Math.max(...quotes);
+    return max > min ? { min, span: max - min } : null;
   }
 
   // A crowd of buys as one column, and the card that reads it out.
@@ -653,7 +659,10 @@ export default class extends Controller {
   #mark(buy, index, scale) {
     const mark = this.#disc(buy.symbol, "widget--chart__buys__mark");
     mark.dataset.buy = index;
-    if (scale) mark.style.height = `${Math.max(LOGO_SIZE, (buy.quote / scale) * MARK_MAX_HEIGHT)}px`;
+    if (scale) {
+      const share = (buy.quote - scale.min) / scale.span;
+      mark.style.height = `${LOGO_SIZE + share * (MARK_MAX_HEIGHT - LOGO_SIZE)}px`;
+    }
     return mark;
   }
 
