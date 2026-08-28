@@ -16,11 +16,18 @@
   <%# The total is asked for ONCE per page load, and asked again only while its spinner is still
       there — a lost request, a failed job or a broadcast that landed during a disconnect. The
       per-bot tile jobs no longer broadcast it as a side effect. %>
-  <%= tag.section class: 'dash-intro', data: @global_pnl_loading ? { controller: "broadcast--on-connect",
-                                                                     broadcast__on_connect_method_value: "global_pnl_update",
-                                                                     broadcast__on_connect_retry_while_value: "#global-pnl .loader--small" } : {} do %>
+  <%# The curve is asked for on the same trip as the total: one job renders both, so a cold
+      headline and a cold curve cost one pass between them. Only the headline's wait is RETRIED —
+      it is the one holding a spinner; a curve that never arrives leaves a page that reads
+      correctly and asks again on the next load. %>
+  <% pnl_pass = @global_pnl_loading || @global_pnl_history_loading %>
+  <%= tag.section class: 'dash-intro', data: pnl_pass ? { controller: "broadcast--on-connect",
+                                                          broadcast__on_connect_method_value: "global_pnl_update",
+                                                          broadcast__on_connect_retry_while_value:
+                                                            ("#global-pnl .loader--small" if @global_pnl_loading) }.compact : {} do %>
     <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, denomination: @denomination,
-                                                     loading: @global_pnl_loading, hide_balances: current_user.hide_balances? } %>
+                                                     loading: @global_pnl_loading, history: @global_pnl_history,
+                                                     hide_balances: current_user.hide_balances? } %>
   <% end %>
   
   <div class="page-head page-head--bots">
