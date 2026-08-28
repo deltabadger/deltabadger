@@ -163,6 +163,17 @@ $stack-open: 0.2s ease-out
                     height: 100%
                     opacity: 0
                     transition: opacity $stack-open
+            // The purchase standing up out of its logo, drawn only while one asset is in view.
+            // Rises from the disc's top edge, so the disc reads as its foot rather than something
+            // the bar passes through.
+            &__bar
+                position: absolute
+                bottom: 100%
+                left: 50%
+                width: 0.75rem
+                margin-left: -0.375rem
+                border-radius: 0.375rem 0.375rem 0 0
+                pointer-events: none
                 // `of-type`, NOT `last-child`: the card is the stack's last child, so the top
                 // mark — a span among spans — is the last of ITS type and nothing else is.
                 &:last-of-type .asset-logo
