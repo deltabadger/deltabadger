@@ -5,6 +5,14 @@
 # inheritance_column = nil is what lets this read and write the STI `type` column directly.
 #
 # Idempotent and self-repairing — safe to run repeatedly, which is how the rake task uses it.
+#
+# KNOWN RESIDUAL: a job claimed by a worker in the moment between the in-lock preflight and the type
+# flip is not stopped by any of this. Solid Queue is a different database, so its state cannot join
+# the transaction, and the worker holds an already-deserialized pair instance either way. The window
+# is microseconds and every busy state is refused before it, but closing it properly needs an
+# execution fence (a generation counter on the bot, re-checked before a job's final writes) — a
+# schema change, deliberately not bolted on here. Converting with bot job processing drained is the
+# way to avoid it entirely, which is what the rake task exists for.
 module Bot::DualToComposition
   class Row < ActiveRecord::Base
     self.table_name = 'bots'
@@ -29,13 +37,13 @@ module Bot::DualToComposition
     skipped = []
 
     Row.where(type: DUAL).find_each do |row|
-      plan = preflight(row)
-      if plan.is_a?(String)
-        skipped << [row.id, plan]
-        next
-      end
+      # preflight runs twice: once here for the reported reason, and again inside the lock against
+      # the row as it actually is at that moment. A bot that passes here and fails there is still
+      # reported — silence would read as "converted" in the migration's output.
+      reason = preflight(row)
+      reason = convert!(row) unless reason.is_a?(String)
 
-      converted << row.id if convert!(row, plan)
+      reason.is_a?(String) ? skipped << [row.id, reason] : converted << row.id
     end
 
     # A crash between the primary flip and the queue write — separate databases, so they cannot
@@ -107,16 +115,28 @@ module Bot::DualToComposition
                                   .where('solid_queue_jobs.arguments LIKE ?', fragment).exists?
   end
 
-  # @return [Boolean] whether this row was converted
-  def convert!(row, plan)
+  # @param from_type [String] the type the row is expected to still carry
+  # @return [true] on success, or [String] the reason it was not converted
+  def convert!(row, from_type: DUAL)
     settings = nil
+    reason = nil
 
-    # Re-read under a row lock: preflight ran outside any transaction, so a request that saved in
-    # between would otherwise be silently overwritten with the older snapshot. Returning false when
-    # the row is no longer a pair also makes two concurrent runs safe.
     ActiveRecord::Base.transaction do
-      row = Row.lock.find_by(id: row.id, type: DUAL)
-      next if row.nil?
+      # Re-read under a row lock, then re-run preflight against THAT row. The plan preflight
+      # produced before the lock describes settings a concurrent request may already have replaced,
+      # and writing it would silently discard their edit — the weights and assets it carries are
+      # exactly the financial settings worth losing least.
+      row = Row.lock.find_by(id: row.id, type: from_type)
+      if row.nil?
+        reason = 'converted by a concurrent run'
+        next
+      end
+
+      plan = preflight(row)
+      if plan.is_a?(String)
+        reason = plan
+        next
+      end
 
       settings = converted_settings(row, plan)
       weights = settings['allocations']
@@ -137,7 +157,7 @@ module Bot::DualToComposition
 
       row.update_columns(type: MULTI, settings: settings, updated_at: Time.current)
     end
-    return false if settings.nil?
+    return reason if settings.nil?
 
     repoint_queued_jobs(row.id)
     true
@@ -207,18 +227,15 @@ module Bot::DualToComposition
 
   # A converted row carrying pair-shaped settings again was written by a stale instance after its
   # flip. Put it back through the conversion, which is idempotent and re-locks.
+  #
+  # The type is NOT flipped back to the pair class first: preflight can refuse the row — it may be
+  # executing, or hold a live order — and that would leave a bot typed as a pair while its
+  # memberships and queued GlobalIDs are already basket-shaped, which is worse than the clobber it
+  # was trying to undo. convert! is told what type to expect instead, so the row's type only ever
+  # changes on a conversion that succeeds.
   def repair_clobbered!
     victims = Row.where(type: MULTI).where("json_extract(settings, '$.base0_asset_id') IS NOT NULL")
-    repaired = 0
-    victims.find_each do |row|
-      Row.where(id: row.id).update_all(type: DUAL)
-      reloaded = Row.find(row.id)
-      plan = preflight(reloaded)
-      next if plan.is_a?(String)
-
-      repaired += 1 if convert!(reloaded, plan)
-    end
-    repaired
+    victims.count { |row| convert!(row, from_type: MULTI) == true }
   end
 
   # Rebuilds rather than mutating: the parsed JSON may hold frozen strings, and sub! on one raises.

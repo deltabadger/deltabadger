@@ -264,6 +264,35 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
     assert_includes gid_in(job), 'Bots::DcaMultiAsset'
   end
 
+  test 'a clobbered row that cannot be re-converted keeps its basket type' do
+    # Flipping the type back before checking would leave a bot typed as a pair while its
+    # memberships and queued GlobalIDs were already basket-shaped — worse than the clobber.
+    run!
+    Bot::DualToComposition::Row.where(id: @bot.id).update_all(
+      settings: Bot.find(@bot.id).settings.merge('base0_asset_id' => @base0.id,
+                                                 'base1_asset_id' => @base1.id,
+                                                 'allocation0' => 0.7),
+      status: Bot.statuses[:executing]
+    )
+
+    run!
+
+    assert_equal 'Bots::DcaMultiAsset', Bot::DualToComposition::Row.find(@bot.id).type
+  end
+
+  test 'a settings edit landing between preflight and the lock is not overwritten' do
+    # preflight runs before the lock, so its plan can describe weights a request has already
+    # replaced. The in-lock re-run is what stops that edit being silently discarded.
+    row = Bot::DualToComposition::Row.find(@bot.id)
+    stale_plan = Bot::DualToComposition.preflight(row)
+    assert_in_delta 0.7, stale_plan[:allocation0], 0.000001
+
+    write_settings!('allocation0' => 0.25) # stands in for the concurrent request
+
+    assert_equal true, Bot::DualToComposition.convert!(Bot::DualToComposition::Row.find(@bot.id))
+    assert_in_delta 0.25, Bot.find(@bot.id).allocations[@base0.id.to_s], 0.000001
+  end
+
   test 'a stale write that restores the pair shape is detected and re-converted' do
     run!
     # Exactly what a request holding a pre-flip instance does on save: settings by id, no type.
