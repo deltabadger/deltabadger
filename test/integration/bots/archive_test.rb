@@ -75,6 +75,16 @@ class Bots::ArchiveTest < ActionDispatch::IntegrationTest
     assert_predicate @bot.reload, :archived?
   end
 
+  # The menu icon is the number of live bots. Archiving patches widgets into the page it was
+  # clicked on rather than reloading it, so the count has to come back in the same response or the
+  # icon goes on showing the number from before the click.
+  test 'archiving sends the menu count back, one lower' do
+    post bot_archive_path(bot_id: @bot.id), as: :turbo_stream
+
+    assert_response :ok
+    assert_select 'turbo-stream[target=bot-count] template text', text: '1'
+  end
+
   # == What an archived bot looks like ==
 
   test 'an archived bot reads Archived and offers Reactivate instead of Start' do
