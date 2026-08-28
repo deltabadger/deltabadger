@@ -11,7 +11,12 @@ class MigrateDualAssetBotsToMultiAsset < ActiveRecord::Migration[8.1]
 
     say "Converted #{converted.size} pair bot(s) into two-asset baskets."
     skipped.each { |id, reason| say "Skipped bot #{id}: #{reason}", true }
-    say 'Run bin/rails bots:migrate_dual_to_multi once those bots are idle.' if skipped.any?
+    return if skipped.empty?
+
+    # Workers are live during a deploy, so anything with a queued job is deliberately left alone —
+    # see Bot::DualToComposition. Those bots keep running as pair bots until this is run.
+    say "#{skipped.size} bot(s) still on the old shape. With bot job processing drained, run:"
+    say '  bin/rails bots:migrate_dual_to_multi'
   end
 
   # Irreversible on purpose: the pair shape cannot represent a basket, so rolling back after any

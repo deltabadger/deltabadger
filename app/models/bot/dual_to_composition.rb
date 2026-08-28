@@ -6,13 +6,12 @@
 #
 # Idempotent and self-repairing — safe to run repeatedly, which is how the rake task uses it.
 #
-# KNOWN RESIDUAL: a job claimed by a worker in the moment between the in-lock preflight and the type
-# flip is not stopped by any of this. Solid Queue is a different database, so its state cannot join
-# the transaction, and the worker holds an already-deserialized pair instance either way. The window
-# is microseconds and every busy state is refused before it, but closing it properly needs an
-# execution fence (a generation counter on the bot, re-checked before a job's final writes) — a
-# schema change, deliberately not bolted on here. Converting with bot job processing drained is the
-# way to avoid it entirely, which is what the rake task exists for.
+# A worker cannot be stopped from here: Solid Queue is a different database, so its state cannot
+# join the conversion's transaction, and a claimed job holds an already-deserialized pair instance
+# regardless. So the deploy-time path does not try — it refuses any bot that has a queued job at
+# all and defers it to bots:migrate_dual_to_multi, which an operator runs with bot job processing
+# drained. That is why the rake task exists, and why it relaxes the rule (defer_scheduled: false):
+# with workers stopped, a scheduled execution is a parked row rather than a job about to run.
 module Bot::DualToComposition
   class Row < ActiveRecord::Base
     self.table_name = 'bots'
@@ -31,8 +30,14 @@ module Bot::DualToComposition
 
   module_function
 
+  # @param defer_scheduled [Boolean] refuse a bot that has ANY queued execution, a future-scheduled
+  #   one included. True on the deploy-time path, where workers are live: a scheduled job cannot be
+  #   stopped, and between the type flip committing and the queue repoint (different databases, so
+  #   they cannot share a transaction) it could fire and fail to deserialize. False for the rake
+  #   task, whose whole point is that an operator runs it with bot job processing drained — and
+  #   where a future-scheduled execution is then just a parked row, not a job about to run.
   # @return [Array(Array<Integer>, Array<Array(Integer, String)>)] converted ids, [id, reason] skips
-  def run!
+  def run!(defer_scheduled: true)
     converted = []
     skipped = []
 
@@ -40,8 +45,8 @@ module Bot::DualToComposition
       # preflight runs twice: once here for the reported reason, and again inside the lock against
       # the row as it actually is at that moment. A bot that passes here and fails there is still
       # reported — silence would read as "converted" in the migration's output.
-      reason = preflight(row)
-      reason = convert!(row) unless reason.is_a?(String)
+      reason = preflight(row, defer_scheduled:)
+      reason = convert!(row, defer_scheduled:) unless reason.is_a?(String)
 
       reason.is_a?(String) ? skipped << [row.id, reason] : converted << row.id
     end
@@ -61,7 +66,7 @@ module Bot::DualToComposition
   end
 
   # @return [Hash] the conversion plan, or [String] the reason this bot is not convertible
-  def preflight(row)
+  def preflight(row, defer_scheduled: true)
     settings = row.settings || {}
     base0 = settings['base0_asset_id'].to_i
     base1 = settings['base1_asset_id'].to_i
@@ -74,6 +79,7 @@ module Bot::DualToComposition
     return 'rebalance in flight' if (row.transient_data || {})['rebalance_pending'].present?
     return 'live order' if Transaction.where(bot_id: row.id).waiting.exists?
     return 'job in flight' if busy_job?(row.id)
+    return 'job scheduled — convert with bots:migrate_dual_to_multi' if defer_scheduled && queued_job?(row.id)
     return 'missing asset rows' unless Asset.where(id: [base0, base1, quote]).count == 3
 
     # Float(), not to_f: to_f reads "garbage" as 0.0 and would convert the bot to a 100/0 basket.
@@ -101,6 +107,14 @@ module Bot::DualToComposition
   # A status check is not enough: Bot::ActionJob authenticates against the exchange and checks market
   # hours while the row still reads `scheduled` (action_job.rb:59-75), and a placement whose outcome
   # is unknown can leave no Transaction row at all (action_job.rb:138-152).
+  # Any queued execution at all, in any state. The deploy-time path refuses these outright rather
+  # than reasoning about how close to firing they are.
+  def queued_job?(bot_id)
+    return false unless defined?(SolidQueue)
+
+    SolidQueue::Job.where('arguments LIKE ?', "%#{DUAL}/#{bot_id}\"%").exists?
+  end
+
   def busy_job?(bot_id)
     return false unless defined?(SolidQueue)
 
@@ -117,7 +131,7 @@ module Bot::DualToComposition
 
   # @param from_type [String] the type the row is expected to still carry
   # @return [true] on success, or [String] the reason it was not converted
-  def convert!(row, from_type: DUAL)
+  def convert!(row, from_type: DUAL, defer_scheduled: true)
     settings = nil
     reason = nil
 
@@ -132,7 +146,7 @@ module Bot::DualToComposition
         next
       end
 
-      plan = preflight(row)
+      plan = preflight(row, defer_scheduled:)
       if plan.is_a?(String)
         reason = plan
         next
@@ -235,7 +249,9 @@ module Bot::DualToComposition
   # changes on a conversion that succeeds.
   def repair_clobbered!
     victims = Row.where(type: MULTI).where("json_extract(settings, '$.base0_asset_id') IS NOT NULL")
-    victims.count { |row| convert!(row, from_type: MULTI) == true }
+    # defer_scheduled: false — a clobbered row is already a basket whose settings are wrong. Leaving
+    # it that way because it happens to have a scheduled tick is the worse outcome of the two.
+    victims.count { |row| convert!(row, from_type: MULTI, defer_scheduled: false) == true }
   end
 
   # Rebuilds rather than mutating: the parsed JSON may hold frozen strings, and sub! on one raises.
