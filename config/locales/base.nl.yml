@@ -435,6 +435,7 @@ nl:
         portfolio:
             never_synced: Klik op Synchroniseren om je portefeuille te laden.
             no_balances: Geen saldo gevonden op je gekoppelde exchanges.
+            only_cash: "Alleen contanten en stablecoins — zet Contanten tonen aan om ze te zien."
             unpriced: 'Prijs niet beschikbaar voor: %{assets}'
         sync: 'Synchroniseren'
         sync_started: 'Transacties worden gesynchroniseerd van je exchanges...'

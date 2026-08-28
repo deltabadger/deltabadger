@@ -435,6 +435,7 @@ es:
         portfolio:
             never_synced: Haz clic en Sincronizar para cargar tu cartera.
             no_balances: No se han encontrado saldos en tus exchanges conectados.
+            only_cash: "Solo efectivo y stablecoins: activa Mostrar efectivo para verlos."
             unpriced: 'Precio no disponible para: %{assets}'
         sync: 'Sincronizar'
         sync_started: 'Sincronizando transacciones de tus exchanges...'

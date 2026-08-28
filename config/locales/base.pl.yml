@@ -437,6 +437,7 @@ pl:
         portfolio:
             never_synced: Kliknij „Synchronizuj", aby załadować portfel.
             no_balances: Nie znaleziono sald na podłączonych giełdach.
+            only_cash: "Tylko gotówka i stablecoiny — włącz Pokaż gotówkę, aby je zobaczyć."
             unpriced: 'Cena niedostępna dla: %{assets}'
         sync: 'Synchronizuj'
         sync_started: 'Synchronizacja transakcji z twoich giełd...'

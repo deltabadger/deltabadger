@@ -14,7 +14,11 @@
   <% if @portfolio_never_synced %>
     <p class="tracker-holdings__empty"><%= t('tracker.portfolio.never_synced') %></p>
   <% elsif holdings.empty? %>
-    <% if @portfolio_has_keys %>
+    <%# Emptied BY the switch, not by the account: say which, or the reader is told there is
+        nothing here while the tiles beside this state what it is worth. %>
+    <% if @portfolio_all_cash %>
+      <p class="tracker-holdings__empty"><%= t('tracker.portfolio.only_cash') %></p>
+    <% elsif @portfolio_has_keys %>
       <p class="tracker-holdings__empty"><%= t('tracker.portfolio.no_balances') %></p>
     <% end %>
   <% else %>

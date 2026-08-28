@@ -445,6 +445,7 @@ sk:
         portfolio:
             never_synced: Klikni na „Synchronizovať", aby si načítal svoje portfólio.
             no_balances: Na pripojených burzách sa nenašli žiadne zostatky.
+            only_cash: "Iba hotovosť a stablecoiny — zapnite Zobraziť hotovosť, aby ste ich videli."
             unpriced: 'Cena nie je dostupná pre: %{assets}'
         sync: 'Synchronizovať'
         sync_started: 'Synchronizácia transakcií z vašich búrz...'

@@ -157,4 +157,30 @@ class TrackerShowCashTest < ActionDispatch::IntegrationTest
     assert_equal [[41_000.0, 42_000.0, 43_000.0], [40_000.0] * 3], JSON.parse(hidden)
     assert_equal hidden, series.call
   end
+
+  # An account holding nothing BUT cash has balances; it just has no invested position to draw.
+  # Saying "no balances found" there is a lie the reader cannot act on — the money is right
+  # beside it in the tiles — so the empty list has to name the switch that is hiding it.
+  test 'an all-cash portfolio says the balances are hidden, not missing' do
+    AccountBalance.where(user: @user, asset: @btc).destroy_all
+    Tracker::Ledger.compute!(@user)
+
+    get tracker_path
+
+    assert_response :success
+    assert_select '.tracker-holdings__empty', text: I18n.t('tracker.portfolio.only_cash')
+    assert_select '.tracker-holdings__empty', text: I18n.t('tracker.portfolio.no_balances'), count: 0
+  end
+
+  test 'showing cash gives an all-cash portfolio its holdings back' do
+    AccountBalance.where(user: @user, asset: @btc).destroy_all
+    Tracker::Ledger.compute!(@user)
+    show_cash!
+
+    get tracker_path
+
+    assert_response :success
+    assert_select '.tracker-holdings__empty', count: 0
+    assert_select '.tracker-row__asset', text: /USDT/
+  end
 end
