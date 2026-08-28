@@ -155,7 +155,7 @@ $stack-open: 0.2s ease-out
                 // Closed, each mark behind the top one shows a 0.5rem sliver; open, 1rem of each.
                 // `LOGO_STEP` in the controller measures the closed stack from the same number.
                 + .widget--chart__buys__mark
-                    margin-top: -1.5rem
+                    margin-top: -1.875rem
                 .asset-logo
                     position: absolute
                     inset: 0
@@ -190,6 +190,31 @@ $stack-open: 0.2s ease-out
                 line-height: 1.5
                 font-size: 1.75rem
                 font-weight: 600
+                // Every buy in the stack, all in ONE cell: the card takes the width and height of
+                // the widest and tallest of them, so swapping between marks never resizes it.
+                display: grid
+                &__buy
+                    grid-area: 1 / 1
+                    // Not `display: none` — a hidden block still has to claim its width, which is
+                    // the whole reason they are all here.
+                    visibility: hidden
+                    &.is-on
+                        visibility: visible
+                // The card opens with the asset, so the reader can see which mark they hit
+                // without matching a colour by eye.
+                &__logo
+                    display: block
+                    position: relative
+                    width: 2.5rem
+                    height: 2.5rem
+                    margin-bottom: 0.5rem
+                    border-radius: 50%
+                    box-shadow: var(--shadow-paper)
+                    .asset-logo
+                        position: absolute
+                        inset: 0
+                        width: 100%
+                        height: 100%
                 // The dropdown's surface, so a card that appears over the page reads as the same
                 // kind of object as every other floating box here.
                 background: var(--dropdown-bg)
@@ -213,6 +238,7 @@ $stack-open: 0.2s ease-out
         // Layout only — the switch itself is `.toggle-inline`, shared with the tracker's.
         &__orders
             display: flex
+            padding-top: 2rem
         // Spacing only — the control itself is .segmented. The switch is 4rem tall and the date
         // line beside it is 1.5rem at line-height 1.5 (2.25rem), so lifting it by half the
         // difference puts the two centre lines on the same row.

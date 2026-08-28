@@ -604,18 +604,22 @@ export default class extends Controller {
     // crowd is the one wearing its logo while the stack is closed, and the also-rans are the
     // slivers behind it.
     const buys = [...assets.values()].sort((a, b) => a.quote - b.quote);
+    // EVERY buy's reading is in the card at once, stacked in one grid cell with all but one
+    // hidden. The card is therefore already as wide as the widest line it will ever hold, so
+    // moving between marks swaps the text inside a box that never changes size — measuring the
+    // strings would only guess at it, since a digit and a ticker are not the same width.
     const card = document.createElement("div");
     card.className = "widget--chart__buys__tip";
-    // Seeded with the one the reader can actually see: entering the stack anywhere has to put
-    // SOMETHING in the card, and the logo on top is the mark they were aiming at.
-    this.#fillTip(card, buys.at(-1));
+    card.append(...buys.map((buy) => this.#tipBuy(buy)));
+    // Opened on the one the reader can actually see: the logo on top is the mark they aimed at.
+    this.#showBuy(card, buys.length - 1);
 
     column.append(...buys.map((buy, i) => this.#mark(buy, i)), card);
     // One card per stack, held open by the stack's own :hover — moving from one mark to the next
     // changes what it says instead of tearing it down and building it again a few pixels over.
     column.addEventListener("mouseover", (event) => {
       const mark = event.target.closest(".widget--chart__buys__mark");
-      if (mark) this.#fillTip(card, buys[Number(mark.dataset.buy)]);
+      if (mark) this.#showBuy(card, Number(mark.dataset.buy));
     });
     return column;
   }
@@ -625,38 +629,57 @@ export default class extends Controller {
   // A symbol the venue has no ticker for has no image and keeps the grey the tables fall back to,
   // rather than dropping the purchase.
   #mark(buy, index) {
-    const asset = this.buyLogosValue[buy.symbol] || {};
-    const mark = document.createElement("span");
-    mark.className = "widget--chart__buys__mark";
-    mark.style.background = asset.color || "#8A9BA8";
+    const mark = this.#disc(buy.symbol, "widget--chart__buys__mark");
     mark.dataset.buy = index;
-
-    if (asset.image) {
-      const logo = document.createElement("img");
-      logo.className = "asset-logo";
-      logo.src = asset.image;
-      logo.alt = buy.symbol;
-      logo.loading = "lazy";
-      mark.append(logo);
-    }
     return mark;
   }
 
-  // What the crowd under this logo actually bought: when, what, how much, and at what it went
-  // through. The price is DERIVED from the two totals rather than read off a row, so a mark that
-  // stands for several fills states the price the money as a whole moved at.
-  #fillTip(card, buy) {
+  // A coloured disc carrying the asset's logo. The colour is always painted and the image sits
+  // over it, so a symbol the venue has no ticker for still gets a disc — in the grey the holdings
+  // tables fall back to — rather than the purchase silently going unmarked.
+  #disc(symbol, className) {
+    const asset = this.buyLogosValue[symbol] || {};
+    const disc = document.createElement("span");
+    disc.className = className;
+    disc.style.background = asset.color || "#8A9BA8";
+    if (!asset.image) return disc;
+
+    const logo = document.createElement("img");
+    logo.className = "asset-logo";
+    logo.src = asset.image;
+    logo.alt = symbol;
+    logo.loading = "lazy";
+    disc.append(logo);
+    return disc;
+  }
+
+  // What the crowd under one mark actually bought: which asset, when, how much, and the price it
+  // went through at. Opened by the logo, because the reader arrived here by pointing at one and
+  // the card has to say which one they hit. The price is DERIVED from the two totals rather than
+  // read off a row, so a mark standing for several fills states the price the money as a whole
+  // moved at.
+  #tipBuy(buy) {
     const when = buy.first === buy.last
       ? this.#date(buy.first)
       : `${this.#date(buy.first)} – ${this.#date(buy.last)}`;
     // The count only earns its place when the mark is standing for more than one buy.
     const fills = buy.fills > 1 ? ` · ×${buy.fills}` : "";
-    card.replaceChildren(
+    const block = document.createElement("div");
+    block.className = "widget--chart__buys__tip__buy";
+    block.append(
+      this.#disc(buy.symbol, "widget--chart__buys__tip__logo"),
       this.#tipLine(`${when}${fills}`, "widget--chart__buys__tip__when"),
       this.#tipLine(`${this.#amount(buy.amount)} ${buy.symbol}`),
-      this.#tipLine(`@ ${this.#money(buy.quote / buy.amount, { signed: false })}`,
+      this.#tipLine(this.#money(buy.quote / buy.amount, { signed: false }),
                     "widget--chart__buys__tip__price")
     );
+    return block;
+  }
+
+  // Every reading is present; exactly one is visible. `visibility`, not `display`, because a
+  // hidden block still has to take up its width — that is what holds the card still.
+  #showBuy(card, index) {
+    [...card.children].forEach((block, i) => block.classList.toggle("is-on", i === index));
   }
 
   #tipLine(text, className) {
