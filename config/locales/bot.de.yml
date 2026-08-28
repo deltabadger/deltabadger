@@ -134,6 +134,7 @@ de:
                 average_price: Durchschnittspreis
                 bought: Gekauft
                 chart:
+                    orders: 'Orders anzeigen'
                     modes: 'Diagrammmodus'
                     pnl: 'P/L'
                     total_invested: 'Insgesamt investiert'

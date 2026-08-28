@@ -136,6 +136,7 @@ bg:
                 average_price: 'Средна цена'
                 bought: Купено
                 chart:
+                    orders: 'Показване на поръчките'
                     modes: 'Режим на графиката'
                     pnl: 'P/L'
                     total_invested: 'Общо инвестирано'

@@ -136,6 +136,7 @@ el:
                 average_price: 'Μέση τιμή'
                 bought: Αγοράστηκε
                 chart:
+                    orders: 'Εμφάνιση εντολών'
                     modes: 'Λειτουργία γραφήματος'
                     pnl: 'P/L'
                     total_invested: 'Σύνολο επένδυσης'

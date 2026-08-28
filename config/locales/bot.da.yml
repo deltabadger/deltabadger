@@ -136,6 +136,7 @@ da:
                 average_price: 'Gennemsnitspris'
                 bought: Købt
                 chart:
+                    orders: 'Vis ordrer'
                     modes: 'Diagramtilstand'
                     pnl: 'P/L'
                     total_invested: 'Samlet investeret'

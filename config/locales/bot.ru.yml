@@ -136,6 +136,7 @@ ru:
                 average_price: 'Средняя цена'
                 bought: Куплено
                 chart:
+                    orders: 'Показать ордера'
                     modes: 'Режим графика'
                     pnl: 'P/L'
                     total_invested: 'Всего инвестировано'
