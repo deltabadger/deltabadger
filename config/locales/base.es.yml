@@ -541,6 +541,7 @@ es:
         transactions: 'Transacciones'
         fees_paid: 'Comisiones pagadas'
         synced_ago: 'Sincronizado hace %{ago}'
+        show_cash: 'Mostrar efectivo'
         show_more: 'Mostrar más'
         show_less: 'Mostrar menos'
         other: 'Otros'

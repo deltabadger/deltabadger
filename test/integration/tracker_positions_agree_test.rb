@@ -20,6 +20,10 @@ class TrackerPositionsAgreeTest < ActionDispatch::IntegrationTest
     @btc = create(:asset, :bitcoin)
     @usdc = create(:asset, symbol: 'USDC', name: 'USD Coin')
     @t = Time.utc(2026, 5, 1, 12)
+    # This file is about the two lists AGREEING about cash, so the switch that hides it is on —
+    # see `tracker_show_cash_test.rb` for what happens when it is not. The agreement has to hold
+    # either way, which is what the last assertion of the first test checks.
+    @user.update!(tracker_settings: { 'show_cash' => true })
     sign_in @user
   end
 
@@ -54,6 +58,13 @@ class TrackerPositionsAgreeTest < ActionDispatch::IntegrationTest
     assert_includes listed, 'BTC'
     assert_includes listed, 'USDC', 'cash is held, so it is listed — the card lists it'
     assert_equal holdings.sort, listed.uniq.sort
+
+    # And with the switch off they drop it together: one filtered list feeds both.
+    @user.update!(tracker_settings: { 'show_cash' => false })
+    lean = rows
+
+    assert_equal %w[BTC], lean
+    assert_equal holdings.sort, lean.uniq.sort
   end
 
   # Cash has no cost and no gain. It is stated as cash rather than dressed up as a position.

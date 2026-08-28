@@ -540,6 +540,7 @@ nl:
         transactions: 'Transacties'
         fees_paid: 'Betaalde kosten'
         synced_ago: '%{ago} geleden gesynchroniseerd'
+        show_cash: 'Contanten tonen'
         show_more: 'Meer tonen'
         show_less: 'Minder tonen'
         other: 'Overig'

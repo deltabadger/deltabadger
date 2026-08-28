@@ -27,6 +27,12 @@ class TrackerResolutionTest < ActionDispatch::IntegrationTest
                            usd_price: value / quantity, usd_value: value, synced_at: Time.current, priced_at: Time.current)
   end
 
+  # A cash row is only on the card when the switch beside the venues asks for it — the default is
+  # the invested portfolio. The findings below are about cash, so they ask.
+  def show_cash!
+    @user.update!(tracker_settings: { 'show_cash' => true })
+  end
+
   test 'a resolved holding says what was assumed at the end of its own row, behind an info mark' do
     tx(:deposit, base_currency: 'USDC', base_amount: 1_000, quote_currency: nil, quote_amount: nil)
     tx(:buy, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 1_000)
@@ -46,6 +52,7 @@ class TrackerResolutionTest < ActionDispatch::IntegrationTest
   end
 
   test 'a coin the exchange no longer holds is neither listed nor noted: no row, nothing to do' do
+    show_cash!
     tx(:deposit, base_currency: 'USDC', base_amount: 1_000, quote_currency: nil, quote_amount: nil)
     tx(:buy, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 600)
     usdc = create(:asset, symbol: 'USDC', name: 'USD Coin')
@@ -89,6 +96,7 @@ class TrackerResolutionTest < ActionDispatch::IntegrationTest
   # Cash is a holding like any other: what the history holds and the exchange does not is missing
   # from the history, and the cash row is where that is said — not in a list under everything.
   test 'cash the history holds more of than the exchange gets its note on the cash row' do
+    show_cash!
     tx(:deposit, base_currency: 'USDC', base_amount: 1_000, quote_currency: nil, quote_amount: nil)
     tx(:buy, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 600)
     usdc = create(:asset, symbol: 'USDC', name: 'USD Coin')

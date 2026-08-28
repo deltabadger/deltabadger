@@ -107,6 +107,15 @@ class SettingsController < ApplicationController
     redirect_back fallback_location: bots_path, status: :see_other
   end
 
+  # The tracker's allocation switch. Same shape as the one above — it posts its own state rather
+  # than flipping what it finds, and comes back to the page it was thrown on, since the holdings
+  # card, the ring and the positions table all have to be rebuilt from the filtered list.
+  def update_show_cash
+    current_user.update!(tracker_settings: (current_user.tracker_settings || {})
+                                           .merge('show_cash' => params[:show_cash] == '1'))
+    redirect_back fallback_location: tracker_path, status: :see_other
+  end
+
   def update_password
     if current_user.update_with_password(update_password_params)
       bypass_sign_in(current_user)

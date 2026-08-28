@@ -27,11 +27,24 @@
     padding-top: 6rem
     @media (min-width: 768px)
         padding-top: 1rem
-    // The + rides inside the switch, so this row holds the switch and nothing else — which is
-    // what lets `.filters:has(> .segmented)` hand it the whole line to measure itself against.
+    // The + rides inside the venue switch, so this row holds that and "Show cash" — and
+    // `.filters:has(> .segmented)` hands it the whole line for the segmented to measure itself
+    // against, less whatever else is standing in it.
     > .filters
         flex-wrap: nowrap
+        align-items: center
         gap: 1rem
+    // "Show cash", packed left directly after the venues. A real box rather than
+    // `display: contents`, because the venue switch measures its siblings to know its own room and
+    // an element generating no box has no width to subtract.
+    &__switch
+        flex: none
+        > label
+            display: flex
+            align-items: center
+            gap: 1rem
+            cursor: pointer
+            white-space: nowrap
     // Everything past the scope switch, kept together so `space-between` has two sides to push
     // apart rather than three things to spread.
     &__end

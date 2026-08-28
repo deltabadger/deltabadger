@@ -109,12 +109,13 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     # menu — at the end of the track, at the foot of the list once the control has folded.
     assert_select ".segmented__menu > *:last-child.segmented__option--action[href='#{new_tracker_pick_exchange_path}'][data-turbo-frame='modal']", 1
     assert_select '.tracker-exchanges .dropdown--exchanges', 0, 'one destination now: the picker modal'
-    # And with it inside, the switch is its parent's ONLY child again — which is what lets the
-    # control fold honestly. A sibling in that box is room the switch is told it can grow into
-    # while something already stands there, and the row runs over the sync state instead.
+    # "Show cash" shares that box, so the switch cannot read the whole line as room of its own —
+    # it measures its siblings out. Which means every sibling must GENERATE a box: an element laid
+    # out as `display: contents` has no width to subtract, and the switch would believe it fits and
+    # run over the sync state instead.
     assert_select '.tracker-exchanges > .filters' do
-      assert_select '> *', 1, 'the box the switch measures holds the switch and nothing else'
       assert_select '> .segmented', 1
+      assert_select '> form.tracker-exchanges__switch:not(.switch-row-form)', 1
     end
     assert_select '.tracker-exchanges .tracker-sync', text: /ago/i
     assert_select ".tracker-exchanges form[action='#{sync_tracker_path}'] .rbutton"

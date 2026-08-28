@@ -539,6 +539,7 @@ pt:
         transactions: 'Transações'
         fees_paid: 'Taxas pagas'
         synced_ago: 'Sincronizado há %{ago}'
+        show_cash: 'Mostrar dinheiro'
         show_more: 'Mostrar mais'
         show_less: 'Mostrar menos'
         other: 'Outros'

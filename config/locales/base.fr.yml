@@ -541,6 +541,7 @@ fr:
         transactions: 'Transactions'
         fees_paid: 'Frais payés'
         synced_ago: 'Synchronisé il y a %{ago}'
+        show_cash: 'Afficher les liquidités'
         show_more: 'Afficher plus'
         show_less: 'Afficher moins'
         other: 'Autres'

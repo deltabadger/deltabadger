@@ -217,7 +217,7 @@ export default class extends Controller {
     if (!this.#collapsed) this.natural = this.element.getBoundingClientRect().width;
     // Rounded, because clientWidth is: a parent that shrink-wraps this control reports exactly
     // its width, and a fraction of a pixel between the two is not a reason to fold anything.
-    const collapse = Math.round(this.natural) > this.element.parentElement.clientWidth;
+    const collapse = Math.round(this.natural) > this.#room();
 
     // Only on the way in or out: opening the menu resizes the options, which lands back here,
     // and a close on every pass would shut the menu on the very click that opened it.
@@ -226,6 +226,19 @@ export default class extends Controller {
       this.#close();
     }
     this.#moveThumb();
+  }
+
+  // The room this control actually has: its parent's width, less anything else standing in that
+  // row and the gaps between. A control that measures the whole line while a switch shares it
+  // believes it fits, stays expanded, and overflows — which is only ever visible at the width
+  // where it was about to fold.
+  #room() {
+    const parent = this.element.parentElement;
+    const gap = parseFloat(getComputedStyle(parent).columnGap) || 0;
+    return [...parent.children].reduce(
+      (room, child) => (child === this.element ? room : room - child.getBoundingClientRect().width - gap),
+      parent.clientWidth
+    );
   }
 
   #moveThumb() {

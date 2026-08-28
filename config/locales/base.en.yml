@@ -551,6 +551,7 @@ en:
         transactions: 'Transactions'
         fees_paid: 'Fees paid'
         synced_ago: 'Synced %{ago} ago'
+        show_cash: 'Show cash'
         show_more: 'Show more'
         show_less: 'Show less'
         other: 'Other'

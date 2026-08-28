@@ -49,6 +49,26 @@
         <%= render connect[:icon] %>
       <% end %>
     <% end %>
+
+    <%# The second scope control, in the same row and directly after the one that says WHERE. Cash
+        and stablecoins are where money WAITS rather than a position anybody picked, so the
+        allocation is drawn without them and what is left is normalized to 100%. It hides a
+        BALANCE, not a figure — the tiles and the chart state the whole portfolio either way.
+
+        The account menu's switch, in the account menu's shape: the label is the hit area, and the
+        hidden field is what makes an unchecked box mean something — a checkbox posts nothing when
+        it is off, and the action stores what was submitted rather than flipping what it finds. %>
+    <%= form_with url: settings_update_show_cash_path, method: :patch,
+                  class: 'tracker-exchanges__switch', data: { controller: 'form--submit' } do %>
+      <label>
+        <div class="toggle toggle--small">
+          <%= hidden_field_tag :show_cash, '0' %>
+          <%= check_box_tag :show_cash, '1', show_cash?, data: { action: 'change->form--submit#submit' } %>
+          <div class="toggle__style"></div>
+        </div>
+        <span class="label"><%= t('tracker.show_cash') %></span>
+      </label>
+    <% end %>
   </div>
 
   <%# The far end of the line: what the page can hand you, after the scope that decides what goes

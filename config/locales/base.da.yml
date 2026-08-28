@@ -551,6 +551,7 @@ da:
         transactions: 'Transaktioner'
         fees_paid: 'Betalte gebyrer'
         synced_ago: 'Synkroniseret for %{ago} siden'
+        show_cash: 'Vis kontanter'
         show_more: 'Vis flere'
         show_less: 'Vis færre'
         other: 'Andet'

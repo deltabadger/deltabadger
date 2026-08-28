@@ -145,6 +145,7 @@ Rails.application.routes.draw do
       patch :update_locale
       patch :update_display_currency
       patch :update_hide_balances
+      patch :update_show_cash
       get :edit_two_fa
       patch :update_two_fa
       get 'api_key_permissions/:id', action: :api_key_permissions, as: :api_key_permissions
