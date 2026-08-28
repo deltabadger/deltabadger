@@ -323,4 +323,17 @@ class BotHelperTest < ActionView::TestCase
     assert_equal '-10.00%', pnl_headline_percent(-0.1)
     assert_equal '0.00%', pnl_headline_percent(0)
   end
+
+  # The menu icon is a number in a 24px box: it has to stay inside it however many bots there are,
+  # and sit on the same optical centre the drawn icons do.
+  test 'the bot count icon steps down a size per digit and stays inside the box' do
+    [1, 12, 123, 9999].each do |count|
+      size = bot_count_font_size(count)
+      width = count.to_s.length * size * BotHelper::DIGIT_ADVANCE
+
+      assert_operator width, :<=, 24, "#{count} overflows the icon box"
+      assert_operator bot_count_baseline(size), :<, 24
+    end
+    assert_equal bot_count_font_size(1), bot_count_font_size(99), 'the icon holds its size to two digits'
+  end
 end

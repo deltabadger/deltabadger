@@ -130,3 +130,9 @@
 // icon beside it. A plain rule, because a `stroke` attribute is outranked by any of them.
 .menu__item:not(.menu__item--active) .icon-24--allocation *
   stroke: var(--menulink)
+
+// The dashboard icon is a number, so it needs a face that reads as a drawn mark rather than as
+// copy: Dosis, at the weight whose stems match the 2px strokes beside it.
+.icon-24--count text
+  font-family: 'Dosis', var(--font-family)
+  font-weight: 600

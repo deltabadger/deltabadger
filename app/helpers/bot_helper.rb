@@ -520,4 +520,20 @@ module BotHelper
       ].compact)
     end
   end
+
+  # == the menu's dashboard icon ==
+  #
+  # The icon IS the number of live bots — the same figure the bots page counts in its headline, so
+  # archived bots are out of both.
+  def bot_menu_count(user) = user.bots.not_deleted.not_archived.size
+
+  # 19 sets the digits to the height of the drawn icons beside them. Two still fit the box across;
+  # a third does not, so from there on the number gives up height for width. 0.549em is Dosis's
+  # digit advance at the weight `_navbar.sass` asks for, and 22 leaves the box a hair of margin.
+  DIGIT_ADVANCE = 0.549
+  def bot_count_font_size(count) = [19, (22 / (count.to_s.length * DIGIT_ADVANCE)).floor].min
+
+  # Dosis's digits are 0.731em tall, so half of that below the box's centre puts them optically in
+  # the middle. Written as a baseline rather than `dominant-baseline`, which Safari reads its own way.
+  def bot_count_baseline(size) = (12 + (size * 0.3655)).round(2)
 end

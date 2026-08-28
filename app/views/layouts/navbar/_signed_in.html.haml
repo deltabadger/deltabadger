@@ -42,12 +42,12 @@
     - if single_bot_mode?
       - single_bot_path = bot_path(current_user.bots.not_deleted.first)
       = link_to single_bot_path, class: "menu__item menu__item--bots #{'menu__item--active' if current_page?(single_bot_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-        = render 'svg/24x24_dashboard'
+        = render 'svg/24x24_bot_count', count: bot_menu_count(current_user)
         .tooltip
           = t('links.bot')
     - else
       = link_to bots_path, class: "menu__item menu__item--bots #{'menu__item--active' if current_page?(bots_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
-        = render 'svg/24x24_dashboard'
+        = render 'svg/24x24_bot_count', count: bot_menu_count(current_user)
         .tooltip
           = t('links.bots')
 

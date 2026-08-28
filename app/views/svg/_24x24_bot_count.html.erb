@@ -1,0 +1,8 @@
+<%# The dashboard's icon is the bot count itself. Drawn as SVG text inside the same 24-unit box the
+    other icons use, so it inherits everything they already have: `fill--icon` for the ink, and the
+    active page's `svg *` override. Dosis and its weight come from `_navbar.sass`. %>
+<% size = bot_count_font_size(count) %>
+<svg id="bot-count" class="icon-24 icon-24--count" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <text class="fill--icon" x="12" y="<%= bot_count_baseline(size) %>" text-anchor="middle"
+        font-size="<%= size %>"><%= count %></text>
+</svg>
