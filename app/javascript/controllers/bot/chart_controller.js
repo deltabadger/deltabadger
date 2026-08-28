@@ -593,6 +593,16 @@ export default class extends Controller {
   // several assets a height would invite a comparison it cannot support: the marks of a stack are
   // already ranked by size, and marks of different assets in different stacks share no ruler.
   //
+  // Measured on the AMOUNT, not the money. A DCA bot spends the same figure every time — that is
+  // what makes it a DCA bot — and an index bot splits that same figure by fixed weights, so the
+  // quote of a given asset's buy is constant by construction and every mark would be the same
+  // height. What actually moves is how much the money bought, which is also the thing the reader
+  // came for: the weeks the price was low are the tall ones.
+  //
+  // Comparable only because this runs with ONE asset in view; across assets the amounts are in
+  // different units and only the money is a shared ruler, which is why the ORDER of marks within
+  // a stack is still by quote.
+  //
   // MIN-MAX against the buys IN VIEW: the smallest stands at `LOGO_SIZE` and the largest at
   // `MARK_MAX_HEIGHT`, whatever the numbers are, so the full height is always spent on the spread
   // that is actually there. Height is therefore a RANK within the window and not a quantity — a
@@ -600,18 +610,15 @@ export default class extends Controller {
   // apart being legibly apart. Narrowing the range renormalizes: the question is which of THESE
   // buys was the big one, not how they measure against a month scrolled off the side.
   //
-  // Buys that are all the same size have no spread to spend, and they are the COMMON case: a bot
-  // on a fixed contribution buys the same amount every time, and at any real width each buy gets
-  // a stack to itself rather than being summed with its neighbours. They are drawn at full
-  // height — every one of them is the largest — because the alternative reads as the marks
-  // having no sizes at all, which is how this went missing in the first place.
+  // Buys that really are all identical have no spread to spend and are drawn at full height:
+  // every one of them is the largest, and the alternative reads as the marks having no sizes.
   #sizing(stacks) {
     const buys = stacks.flatMap((stack) => [...stack.assets.values()]);
     if (new Set(buys.map((buy) => buy.symbol)).size !== 1) return null;
 
-    const quotes = buys.map((buy) => buy.quote);
-    const min = Math.min(...quotes);
-    return { min, span: Math.max(...quotes) - min };
+    const amounts = buys.map((buy) => buy.amount);
+    const min = Math.min(...amounts);
+    return { min, span: Math.max(...amounts) - min };
   }
 
   // A crowd of buys as one column, and the card that reads it out.
@@ -629,7 +636,9 @@ export default class extends Controller {
 
     // SMALLEST first, because the last one painted is the one on top: the biggest buy of the
     // crowd is the one wearing its logo while the stack is closed, and the also-rans are the
-    // slivers behind it.
+    // slivers behind it. By MONEY, not by amount: a stack holds different assets, and 800 of one
+    // token against 0.001 of another ranks nothing. Height, which only ever runs with a single
+    // asset in view, measures the amount instead — see `#sizing`.
     const buys = [...assets.values()].sort((a, b) => a.quote - b.quote);
     // EVERY buy's reading is in the card at once, stacked in one grid cell with all but one
     // hidden. The card is therefore already as wide as the widest line it will ever hold, so
@@ -663,7 +672,7 @@ export default class extends Controller {
     mark.dataset.buy = index;
     if (scale) {
       // No span is not a division to guard against, it is every buy tying for largest.
-      const share = scale.span ? (buy.quote - scale.min) / scale.span : 1;
+      const share = scale.span ? (buy.amount - scale.min) / scale.span : 1;
       mark.style.height = `${LOGO_SIZE + share * (MARK_MAX_HEIGHT - LOGO_SIZE)}px`;
     }
     return mark;
