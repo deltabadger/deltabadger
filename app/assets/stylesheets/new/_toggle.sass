@@ -129,6 +129,18 @@ input[type=checkbox]
     .label
         font-size: 2rem
 
+// A toggle and its label on ONE line, the label being the hit area: the tracker's "Show cash"
+// and the chart's "Show orders" are the same control in two places, and were two copies of the
+// same five lines drifting apart. Opt-in rather than `label:has(> .toggle)`, which outranks
+// `.toggle-group__label` on specificity and would re-align every settings widget — those align
+// to `flex-start` on purpose, so a label running to two lines keeps its switch on the first.
+.toggle-inline
+    display: flex
+    align-items: center
+    gap: 1rem
+    cursor: pointer
+    white-space: nowrap
+
 .bot-option-info
     font-size: 1.75rem
     font-weight: 500

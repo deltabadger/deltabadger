@@ -210,14 +210,9 @@ $stack-open: 0.2s ease-out
                 opacity: 1
         // The marks are a way of reading the chart, so their switch lives under it rather than
         // beside the mode control, which changes what the curve IS.
+        // Layout only — the switch itself is `.toggle-inline`, shared with the tracker's.
         &__orders
             display: flex
-            > label
-                display: flex
-                align-items: center
-                gap: 1rem
-                cursor: pointer
-                white-space: nowrap
         // Spacing only — the control itself is .segmented. The switch is 4rem tall and the date
         // line beside it is 1.5rem at line-height 1.5 (2.25rem), so lifting it by half the
         // difference puts the two centre lines on the same row.
