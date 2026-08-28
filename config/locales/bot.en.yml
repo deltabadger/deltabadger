@@ -137,6 +137,7 @@ en:
                 bought: Bought
                 chart:
                     orders: 'Show orders'
+                    prices: 'Show prices'
                     modes: 'Chart mode'
                     pnl: 'P/L'
                     total_invested: 'Total invested'

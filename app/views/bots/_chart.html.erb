@@ -36,13 +36,23 @@
            { value: serie[:value].map { |amount| amount&.round(decimals)&.to_f },
              invested: serie[:invested].map { |amount| amount.to_d.round(decimals).to_f } }
          end %>
+      <%# The price of every asset the chart could price, on the same labels as the curves above
+          — one reading, not two, so a price line can never disagree with the value line over it.
+          `|| {}` because a metrics hash cached before this shipped has no prices; it expires
+          within five minutes and the overlay simply has nothing to draw until then. %>
+      <% prices = (metrics[:chart][:prices] || {}).transform_values do |serie|
+           serie.map { |price| price&.to_f }
+         end %>
       <%# Every executed buy, as a mark under the plot: when, in what, and how much of it.
           Tuples plus one symbol => logo map, NOT a logo per mark: an hourly bot running for a
           year is ~9,000 of them, and repeating a CDN image URL on each would put megabytes into
           one data attribute for the browser to parse on every broadcast.
           Logos resolved through the exchange's tickers the same way the holdings tables do it. %>
       <% marks = bot.chart_buy_marks %>
-      <% symbols = marks.map { |mark| mark[1] }.uniq %>
+      <%# Every asset that was bought, plus every asset that is priced. A price line wears its
+          ticker's colour, and an asset the bot holds without having bought it inside the window
+          would otherwise have no colour to wear. %>
+      <% symbols = (marks.map { |mark| mark[1] } + prices.keys).uniq %>
       <% logo_assets = bot.exchange.tickers.where(base: symbols).includes(:base_asset).index_by(&:base) %>
       <%# `to_f` on the amounts, not `to_s`: a BigDecimal serializes into a data attribute as a
           JSON STRING, and the stack would then sort its logos alphabetically by a number. %>
@@ -67,6 +77,7 @@
         bot__chart_assets_value: assets,
         bot__chart_pnl_only_value: hide_money,
         bot__chart_buys_value: buys,
+        bot__chart_prices_value: prices,
         bot__chart_buy_logos_value: buy_logos
       } do %>
         <%# The switch sits on the date line, opposite it: one row across the top of the plot.
@@ -125,6 +136,16 @@
               <div class="toggle__style"></div>
             </div>
             <span class="label"><%= t('bot.details.stats.chart.orders') %></span>
+          </label>
+          <%# The same shape beside it: the prices are the other way of reading this chart, and
+              the two switches belong on one line under it. %>
+          <label class="toggle-inline">
+            <div class="toggle toggle--small">
+              <input type="checkbox" data-bot--chart-target="prices"
+                     data-action="change->bot--chart#togglePrices">
+              <div class="toggle__style"></div>
+            </div>
+            <span class="label"><%= t('bot.details.stats.chart.prices') %></span>
           </label>
         </div>
 

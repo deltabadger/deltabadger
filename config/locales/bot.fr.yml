@@ -139,6 +139,7 @@ fr:
                 bought: 'Acheté'
                 chart:
                     orders: 'Afficher les commandes'
+                    prices: 'Afficher les prix'
                     modes: 'Mode du graphique'
                     pnl: 'P/L'
                     total_invested: 'Total investi'

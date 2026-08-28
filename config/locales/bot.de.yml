@@ -135,6 +135,7 @@ de:
                 bought: Gekauft
                 chart:
                     orders: 'Orders anzeigen'
+                    prices: 'Preise anzeigen'
                     modes: 'Diagrammmodus'
                     pnl: 'P/L'
                     total_invested: 'Insgesamt investiert'

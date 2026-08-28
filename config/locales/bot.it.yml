@@ -137,6 +137,7 @@ it:
                 bought: Acquistato
                 chart:
                     orders: 'Mostra ordini'
+                    prices: 'Mostra prezzi'
                     modes: 'Modalità grafico'
                     pnl: 'P/L'
                     total_invested: 'Totale investito'

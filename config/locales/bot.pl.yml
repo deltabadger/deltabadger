@@ -139,6 +139,7 @@ pl:
                 bought: Zakupione
                 chart:
                     orders: 'Pokaż zlecenia'
+                    prices: 'Pokaż ceny'
                     modes: 'Tryb wykresu'
                     pnl: 'P/L'
                     total_invested: 'Zainwestowana suma'

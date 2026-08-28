@@ -137,6 +137,7 @@ sv:
                 bought: Köpt
                 chart:
                     orders: 'Visa ordrar'
+                    prices: 'Visa priser'
                     modes: 'Diagramläge'
                     pnl: 'P/L'
                     total_invested: 'Totalt investerat'

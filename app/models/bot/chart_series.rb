@@ -126,6 +126,10 @@ module Bot::ChartSeries
     marked_invested = []
     marked_split = []
     marked_basis = []
+    # One series per grid, parallel with the marked labels: the same readings the values above
+    # are marked with, kept so the chart can draw the price behind the curve without a second
+    # fetch and without a second ruler.
+    marked_prices = grids.keys.index_with { [] }
     cursor = 0
 
     axis.each do |time|
@@ -159,6 +163,9 @@ module Bot::ChartSeries
 
       marked_labels << time
       marked_invested << invested[cursor]
+      # nil outside the grid's reach — the same points the values keep on their fill marks. The
+      # curve skips them rather than being drawn through a price nobody quoted.
+      marked_prices.each { |symbol, serie| serie << chart_grid_price(grids[symbol], time) }
       next unless basis
 
       # nil where the point kept its fill mark: the portfolio total survives there, but no
@@ -167,7 +174,8 @@ module Bot::ChartSeries
       marked_basis << basis.call(row)
     end
 
-    marked = chart.merge(labels: marked_labels, series: [marked_values, marked_invested])
+    marked = chart.merge(labels: marked_labels, series: [marked_values, marked_invested],
+                         prices: marked_prices)
     basis ? marked.merge(assets: chart_asset_series(marked_split, marked_basis)) : marked
   end
 
