@@ -34,6 +34,30 @@ class Bots::IndexPnlSparkTest < ActionDispatch::IntegrationTest
     Bots::DcaSingleAsset.any_instance.stubs(:metrics_with_current_prices_and_candles_from_cache).returns(metrics)
   end
 
+  # The plot is drawn on a later trip than the page, so the section holds its height from the first
+  # paint — otherwise it grows when the curve lands and pushes the whole dashboard down.
+  test 'a section that will hold a plot reserves its height before the curve is there' do
+    now = Time.current
+    metrics = { pnl: 0.25.to_d, total_quote_amount_invested: 100.to_d, total_amount_value_in_quote: 125.to_d,
+                chart: { labels: [now - 1.day, now], series: [[100, 125], [100, 100]] } }
+    Bots::DcaSingleAsset.any_instance.stubs(:metrics_with_current_prices_from_cache).returns(metrics)
+    Bots::DcaSingleAsset.any_instance.stubs(:metrics_with_current_prices_and_candles_from_cache).returns(nil)
+
+    get bots_path
+
+    assert_select '.dash-intro.dash-intro--plotted'
+    assert_select '.dash-intro__spark', false, 'the curve itself is still on its way'
+  end
+
+  test 'a section with the curve already in it keeps the same reserved height' do
+    now = Time.current
+    stub_history([[now - 1.day, 100, 100], [now, 125, 100]])
+
+    get bots_path
+
+    assert_select '.dash-intro.dash-intro--plotted .dash-intro__spark'
+  end
+
   test 'a month of history draws a full-width curve on the zero line' do
     now = Time.current
     stub_history(31.times.map { |day| [now - (30 - day).days, 100 + day, 100] })
@@ -95,6 +119,7 @@ class Bots::IndexPnlSparkTest < ActionDispatch::IntegrationTest
     assert_select '.dash-intro__spark', false
     assert_select '#global-pnl .pnl-percent', text: /\+25\.00%/
     assert_select '.dash-intro[data-controller]', false, 'nothing to wait for, so nothing is asked for'
+    assert_select '.dash-intro--plotted', false, 'and no space held for a plot that is not coming'
   end
 
   # The marked metrics are not warmed in the background, so a dashboard that finds them cold asks

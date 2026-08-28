@@ -21,10 +21,15 @@
       it is the one holding a spinner; a curve that never arrives leaves a page that reads
       correctly and asks again on the next load. %>
   <% pnl_pass = @global_pnl_loading || @global_pnl_history_loading %>
-  <%= tag.section class: 'dash-intro', data: pnl_pass ? { controller: "broadcast--on-connect",
-                                                          broadcast__on_connect_method_value: "global_pnl_update",
-                                                          broadcast__on_connect_retry_while_value:
-                                                            ("#global-pnl .loader--small" if @global_pnl_loading) }.compact : {} do %>
+  <%# The plot's space is held from the first paint — it is drawn on a later trip than the page,
+      and a section that grew when it landed would push the dashboard down under the reader. Held
+      for a curve that is on its way as much as for one already here; only an account with nothing
+      to plot at all keeps the plain headline strip. %>
+  <%= tag.section class: ['dash-intro', ('dash-intro--plotted' if pnl_pass || @global_pnl_history)],
+                  data: pnl_pass ? { controller: "broadcast--on-connect",
+                                     broadcast__on_connect_method_value: "global_pnl_update",
+                                     broadcast__on_connect_retry_while_value:
+                                       ("#global-pnl .loader--small" if @global_pnl_loading) }.compact : {} do %>
     <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, denomination: @denomination,
                                                      loading: @global_pnl_loading, history: @global_pnl_history,
                                                      hide_balances: current_user.hide_balances? } %>
