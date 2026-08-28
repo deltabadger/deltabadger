@@ -8,10 +8,6 @@ bg:
             connect_alpaca_html: "За да инвестирате в акции, първо свържете Alpaca в %{settings_link}."
             settings_link: "Настройки"
         dca_multi_asset:
-            weighted: "Претегляне"
-            weighting:
-                manual: "Ръчно"
-                market_cap: "По пазарна капитализация"
             add_asset: "Добавяне на актив"
             remove_asset: "Премахване"
             max_assets_reached: "Можете да държите до %{max} актива."

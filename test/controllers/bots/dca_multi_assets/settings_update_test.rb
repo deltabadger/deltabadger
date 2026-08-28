@@ -35,6 +35,48 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
     assert_match(/disabled/, response.body)
   end
 
+  test 'the market-cap rule is offered when every member carries a market cap' do
+    @first.update!(market_cap: 750.0)
+    @second.update!(market_cap: 250.0)
+
+    get bot_path(id: @bot.id)
+
+    assert_select "input[name='bots_dca_multi_asset[weighting]']"
+  end
+
+  test 'the rule is not offered on a basket of stocks, which carry none' do
+    # The case that prompted this: on a QQQM/IBIT basket the control appeared and did nothing.
+    @first.update!(market_cap: nil, category: 'Stock')
+    @second.update!(market_cap: nil, category: 'Stock')
+
+    get bot_path(id: @bot.id)
+
+    assert_select "input[name='bots_dca_multi_asset[weighting]']", false
+  end
+
+  test 'the rule reads as a toggle, not as a picker' do
+    @first.update!(market_cap: 750.0)
+    @second.update!(market_cap: 250.0)
+
+    get bot_path(id: @bot.id)
+
+    assert_select "input[type='checkbox'][name='bots_dca_multi_asset[weighting]'][value='market_cap']"
+    assert_select "select[name='bots_dca_multi_asset[weighting]']", false
+  end
+
+  test 'unchecking the rule puts the basket back on its own weights' do
+    @first.update!(market_cap: 750.0)
+    @second.update!(market_cap: 250.0)
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { weighting: 'market_cap' } },
+                                 as: :turbo_stream
+
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { weighting: 'manual' } },
+                                 as: :turbo_stream
+
+    assert_not @bot.reload.market_cap_weighted?
+    assert_equal({ @first.id => 0.5, @second.id => 0.5 }, composition_weights)
+  end
+
   test 'PATCH add_asset_id admits a third asset at zero' do
     third = create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana')
     create(:ticker, exchange: @bot.exchange, base_asset: third, quote_asset: @bot.quote_asset)

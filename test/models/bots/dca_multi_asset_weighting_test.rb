@@ -89,6 +89,35 @@ class Bots::DcaMultiAssetWeightingTest < ActiveSupport::TestCase
     assert_in_delta 0.75, weight_of(@btc), 0.0001
   end
 
+  # == when the rule may be offered at all ==
+
+  test 'a basket of assets that all carry a market cap can be weighted by it' do
+    assert @bot.market_cap_weightable?
+  end
+
+  test 'a basket holding a stock cannot — stocks carry no market cap' do
+    # The case that prompted this: QQQM and IBIT are both stocks, market_cap nil on each, so the
+    # rule would have been a switch that changed nothing.
+    @eth.update!(market_cap: nil, category: 'Stock')
+
+    assert_not @bot.market_cap_weightable?
+  end
+
+  test 'a market cap of zero counts as missing, not as a weight' do
+    @eth.update!(market_cap: 0)
+
+    assert_not @bot.market_cap_weightable?
+  end
+
+  test 'a basket already weighted by market cap still says so when its data goes away' do
+    # Otherwise the rule vanishes while still switched on, with no way to turn it off.
+    configure!(weighting: 'market_cap')
+    @eth.update!(market_cap: nil)
+
+    assert_not @bot.market_cap_weightable?
+    assert @bot.market_cap_weighted?
+  end
+
   test 'an unknown weighting is refused' do
     @bot.weighting = 'astrology'
     @bot.set_missed_quote_amount

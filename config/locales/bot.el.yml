@@ -8,10 +8,6 @@ el:
             connect_alpaca_html: "Για να επενδύσεις σε μετοχές, σύνδεσε πρώτα το Alpaca στις %{settings_link}."
             settings_link: "Ρυθμίσεις"
         dca_multi_asset:
-            weighted: "Στάθμιση"
-            weighting:
-                manual: "Χειροκίνητα"
-                market_cap: "Βάσει κεφαλαιοποίησης αγοράς"
             add_asset: "Προσθήκη περιουσιακού στοιχείου"
             remove_asset: "Αφαίρεση"
             max_assets_reached: "Μπορείτε να διατηρείτε έως %{max} περιουσιακά στοιχεία."

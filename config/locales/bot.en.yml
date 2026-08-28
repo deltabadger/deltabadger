@@ -8,10 +8,6 @@ en:
             connect_alpaca_html: "To invest in stocks, connect Alpaca in %{settings_link} first."
             settings_link: "Settings"
         dca_multi_asset:
-            weighted: "Weighted"
-            weighting:
-                manual: "Manual"
-                market_cap: "By market cap"
             add_asset: "Add asset"
             remove_asset: "Remove"
             max_assets_reached: "You can hold up to %{max} assets."

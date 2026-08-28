@@ -3,6 +3,11 @@
 
 <div id="settings" class="column gap-1">
   <%= render partial: "bots/dca_multi_assets/settings/main", locals: { bot: bot, method: method, path: path } %>
+  <%# Only where every member has a market cap to be weighted by — or where the rule is already on,
+      so a basket whose data went away can still switch it off. %>
+  <% if bot.market_cap_weightable? || bot.market_cap_weighted? %>
+    <%= render partial: "bots/dca_multi_assets/settings/marketcap_allocation", locals: { bot: bot, method: method, path: path } %>
+  <% end %>
   <%= render partial: "bots/settings/smart_intervals", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/limit_orders", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/starting_time", locals: { bot: bot, method: method, path: path } %>

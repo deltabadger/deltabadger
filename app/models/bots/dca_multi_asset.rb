@@ -177,6 +177,17 @@ class Bots::DcaMultiAsset < Bot
   def weighting = super.presence || 'manual'
   def market_cap_weighted? = weighting == 'market_cap'
 
+  # Whether the market-cap rule can do anything here. Stocks and ETFs carry no market cap at all —
+  # a QQQM/IBIT basket has nil on both members — and derive_composition keeps the stored weights
+  # when any member cannot be sized, so offering the rule there would be a switch that silently
+  # changes nothing. Zero counts as missing: an asset priced at no market cap is not a weight.
+  def market_cap_weightable?
+    ids = base_asset_ids.uniq
+    return false if ids.empty?
+
+    Asset.where(id: ids).where.not(market_cap: nil).where(market_cap: 1..).count == ids.size
+  end
+
   def composition_size = base_asset_ids.size
   def exited_title_key = 'bot.dca_multi_asset.removed_from_portfolio'
   def metrics_partial = 'bots/composition/metrics'
