@@ -600,16 +600,18 @@ export default class extends Controller {
   // apart being legibly apart. Narrowing the range renormalizes: the question is which of THESE
   // buys was the big one, not how they measure against a month scrolled off the side.
   //
-  // Equal buys have no spread to spend, so they get no heights at all rather than a row of
-  // maximums claiming every one of them was the biggest. A single buy in view is that same case.
+  // Buys that are all the same size have no spread to spend, and they are the COMMON case: a bot
+  // on a fixed contribution buys the same amount every time, and at any real width each buy gets
+  // a stack to itself rather than being summed with its neighbours. They are drawn at full
+  // height — every one of them is the largest — because the alternative reads as the marks
+  // having no sizes at all, which is how this went missing in the first place.
   #sizing(stacks) {
     const buys = stacks.flatMap((stack) => [...stack.assets.values()]);
     if (new Set(buys.map((buy) => buy.symbol)).size !== 1) return null;
 
     const quotes = buys.map((buy) => buy.quote);
     const min = Math.min(...quotes);
-    const max = Math.max(...quotes);
-    return max > min ? { min, span: max - min } : null;
+    return { min, span: Math.max(...quotes) - min };
   }
 
   // A crowd of buys as one column, and the card that reads it out.
@@ -660,7 +662,8 @@ export default class extends Controller {
     const mark = this.#disc(buy.symbol, "widget--chart__buys__mark");
     mark.dataset.buy = index;
     if (scale) {
-      const share = (buy.quote - scale.min) / scale.span;
+      // No span is not a division to guard against, it is every buy tying for largest.
+      const share = scale.span ? (buy.quote - scale.min) / scale.span : 1;
       mark.style.height = `${LOGO_SIZE + share * (MARK_MAX_HEIGHT - LOGO_SIZE)}px`;
     }
     return mark;
