@@ -354,4 +354,22 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
     StringIO.new(content)
   end
+  # A converted pair bot has neither base_asset nor base0_asset. Without a branch of its own it fell
+  # through to the index bot's "accept any base asset", silently widening what a CSV could import.
+  test 'a basket bot only imports rows for assets it holds' do
+    # Reuses setup's assets: the factories build them by a unique external_id.
+    bot = create(:dca_multi_asset, exchange: @bot.exchange, quote_asset: @bot.quote_asset,
+                                   base_assets: [@bot.base_asset, create(:asset, :ethereum)])
+    symbols = bot.base_assets.map { |asset| asset.symbol.upcase }
+
+    assert_equal symbols.sort, bot.importable_base_symbols.sort
+  end
+
+  test 'a single-asset bot still answers with its one asset' do
+    assert_equal [@bot.base_asset.symbol.upcase], @bot.importable_base_symbols
+  end
+
+  test 'an index bot still accepts any base asset' do
+    assert_nil create(:dca_index).importable_base_symbols
+  end
 end
