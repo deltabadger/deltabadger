@@ -137,6 +137,7 @@ el:
                 bought: Αγοράστηκε
                 chart:
                     orders: 'Εμφάνιση εντολών'
+                    prices: 'Εμφάνιση τιμών'
                     modes: 'Λειτουργία γραφήματος'
                     pnl: 'P/L'
                     total_invested: 'Σύνολο επένδυσης'

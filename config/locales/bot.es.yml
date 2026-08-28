@@ -139,6 +139,7 @@ es:
                 bought: Comprado
                 chart:
                     orders: 'Mostrar órdenes'
+                    prices: 'Mostrar precios'
                     modes: 'Modo del gráfico'
                     pnl: 'P/L'
                     total_invested: 'Total invertido'

@@ -137,6 +137,7 @@ ru:
                 bought: Куплено
                 chart:
                     orders: 'Показать ордера'
+                    prices: 'Показать цены'
                     modes: 'Режим графика'
                     pnl: 'P/L'
                     total_invested: 'Всего инвестировано'

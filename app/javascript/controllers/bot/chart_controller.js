@@ -15,13 +15,17 @@ const HOLDING_ROWS = "#assets_metrics_table tr[data-symbol], #exited_metrics_tab
 const LOGO_SIZE = 16;
 // Where the "Show orders" choice lives. Not keyed by bot: it is a way of reading a chart.
 const ORDERS_KEY = "bot-chart:orders";
+// Where the "Show prices" choice lives, on the same terms.
+const PRICES_KEY = "bot-chart:prices";
 // How tall the largest buy's mark stands: 5rem against this app's 8px root. The smallest stands
 // at `LOGO_SIZE`, and everything between is spread across the difference — see `#sizing`.
 const MARK_MAX_HEIGHT = 40;
 
 // Connects to data-controller="bot--chart"
 export default class extends Controller {
-  static targets = ["analyzerChart", "summary", "date", "pnl", "percent", "buys", "orders"];
+  static targets = [
+    "analyzerChart", "summary", "date", "pnl", "percent", "buys", "orders", "prices",
+  ];
   static values = {
     series: Array,
     labels: Array,
@@ -32,6 +36,7 @@ export default class extends Controller {
     assets: Object,
     pnlOnly: Boolean,
     buys: Array,
+    prices: Object,
     buyLogos: Object,
   };
 
@@ -47,6 +52,10 @@ export default class extends Controller {
     this.maxPointsToDraw = Math.max(1, Math.floor(this.element.offsetWidth / 3.5));
     // The whole history until the reader narrows it; every read of the series slices from here.
     this.from = 0;
+    // Restored HERE rather than beside the orders switch below: the summary is rendered before
+    // the first build, and it reads this to decide whether it has a price to print.
+    this.showPrices = this.#storedPrices;
+    if (this.hasPricesTarget) this.pricesTarget.checked = this.showPrices;
     // Not null: a pin survives this controller, so a broadcast landing mid-read has to come back
     // on the asset the user chose rather than snapping to the portfolio while they look at it.
     this.focused = this.#chartable(this.#pinned);
@@ -132,6 +141,30 @@ export default class extends Controller {
       return localStorage.getItem(ORDERS_KEY) === "1";
     } catch {
       return false; // storage can be denied outright (private mode, embedded webview)
+    }
+  }
+
+  // --- the price lines, on or off ---------------------------------------------------
+  //
+  // Off by default and remembered per browser, exactly like the marks: another way of reading
+  // one chart, not a property of the bot. A rebuild rather than a redraw — the lines are
+  // datasets, and the plot has to be measured with them in it.
+  togglePrices() {
+    this.showPrices = this.pricesTarget.checked;
+    try {
+      localStorage.setItem(PRICES_KEY, this.showPrices ? "1" : "0");
+    } catch {
+      // Not being able to remember a choice is not a reason to fail making it.
+    }
+    this.#buildChart();
+    this.#renderSummary();
+  }
+
+  get #storedPrices() {
+    try {
+      return localStorage.getItem(PRICES_KEY) === "1";
+    } catch {
+      return false;
     }
   }
 
@@ -370,9 +403,14 @@ export default class extends Controller {
     const first = this.#date(timestamps[0]);
     const on = this.#date(at.x);
 
-    // Named while focused, or the curve would change under the pointer with nothing saying to what.
+    // SYMBOL · price · when, each part earning its own place. The name is there whenever one
+    // holding is in view — the curve would otherwise change under the pointer with nothing saying
+    // to what — and the price whenever the overlay is on with a single asset to name it for.
     const range = point || first === on ? on : `${first} – ${on}`;
-    this.dateTarget.textContent = this.focused ? `${this.focused} · ${range}` : range;
+    const priced = this.#namedPrice;
+    this.dateTarget.textContent = [this.focused || priced, this.#priceAt(priced, at.x), range]
+      .filter(Boolean)
+      .join(" · ");
     // Absent while balances are hidden: the view drops the element rather than hiding it, and
     // Stimulus raises on a missing target.
     if (this.hasPnlTarget) this.pnlTarget.textContent = this.#money(pnl);
@@ -383,12 +421,28 @@ export default class extends Controller {
     this.summaryTarget.classList.toggle("text-success", pnl >= 0);
   }
 
+  // The asset whose price the headline can state: one, and only while the overlay is on. Across
+  // several the overlay compares shapes and there is no single price to name; with the overlay
+  // off there is no line for a number to belong to.
+  get #namedPrice() {
+    const symbols = this.#pricedSymbols;
+    return this.showPrices && symbols.length === 1 ? symbols[0] : null;
+  }
+
+  // A point the candle grid never reached has no price; the curve skips it and so does this.
+  #priceAt(symbol, timestamp) {
+    const price = symbol && this.#priceSeries(symbol)[this.#indexAt(timestamp)];
+    return price == null ? null : this.#money(Number(price), { signed: false });
+  }
+
   #updateSummary(tooltip) {
     if (!tooltip.getActiveElements().length) return this.#renderSummary();
 
     const points = tooltip.dataPoints;
     if (this.#pnlMode) {
-      const parsed = points[0]?.parsed;
+      // Dataset 0 by name, not `points[0]`: the price overlay adds datasets behind it, and its
+      // y is a rebased ratio that would print as the bot's money.
+      const parsed = points.find((point) => point.datasetIndex === 0)?.parsed;
       // One dataset in this mode, and its y is a ratio — the money behind it comes from the
       // source series at that timestamp, so the headline stays identical to VALUE mode.
       return parsed && this.#renderSummary({
@@ -744,7 +798,107 @@ export default class extends Controller {
   // there is no return curve to show — a bot that never held anything has no return.
   #plot(labels) {
     const curve = this.#pnlMode ? this.#pnlPoints(labels) : [];
-    return curve.length ? this.#pnlPlot(curve) : this.#valuePlot(labels);
+    const plot = curve.length ? this.#pnlPlot(curve) : this.#valuePlot(labels);
+    return this.#withPrices(plot, labels);
+  }
+
+  // --- the price overlay -------------------------------------------------------------
+  //
+  // One line per asset, in its ticker's own colour, laid over whichever plot is in hand.
+  //
+  // REBASED, never drawn in money: a coin at 60,000 and one at 0.5 share no axis, and the money
+  // axis here belongs to the curve underneath. Each line is divided by its own first price IN
+  // VIEW, so every line — and the curve they are read against — leaves the same point on the
+  // left edge and what the reader compares is the shape. Narrowing the range rebases again, for
+  // the same reason the RETURN curve does: the question is what these weeks did.
+  //
+  // Fitted INTO the y range the plot already has rather than widening it. Turning prices on must
+  // not rescale the curve they are being compared to — the reader would see the line they came
+  // for move and read it as the market having moved. One scale across all the lines at once, so
+  // they keep their sizes relative to each other.
+  //
+  // The trade is that a price line carries no readable number, which is what the price under the
+  // headline is for — and why it only appears when there is a single line to name.
+  #withPrices(plot, labels) {
+    const symbols = this.#pricedSymbols;
+    if (!this.showPrices || !symbols.length) return plot;
+
+    // Two points make a line; one is a dot nobody can read a shape off.
+    const lines = symbols
+      .map((symbol) => [symbol, this.#rebased(symbol, labels)])
+      .filter(([, points]) => points.length > 1);
+    // Where the curve starts, which is where every price line has to start with it.
+    const anchor = plot.datasets[0].data[0]?.y;
+    if (!lines.length || anchor === undefined) return plot;
+
+    const deviations = lines.flatMap(([, points]) => points.map((point) => point.y));
+    const scale = this.#priceScale(plot.y, anchor, Math.min(...deviations), Math.max(...deviations));
+
+    return {
+      ...plot,
+      datasets: plot.datasets.concat(
+        lines.map(([symbol, points]) => this.#priceDataset(symbol, points, anchor, scale))
+      ),
+    };
+  }
+
+  // The assets whose prices are worth drawing: the focused holding alone, or all of them. A
+  // focused symbol the chart could not price draws nothing rather than falling back to the rest.
+  get #pricedSymbols() {
+    const symbols = Object.keys(this.pricesValue || {});
+    if (!this.focused) return symbols;
+
+    return symbols.includes(this.focused) ? [this.focused] : [];
+  }
+
+  #priceSeries(symbol) {
+    const serie = this.pricesValue[symbol] || [];
+    return this.from ? serie.slice(this.from) : serie;
+  }
+
+  // A price series as its distance from its own first price in view, nulls dropped — every point
+  // carries its own timestamp, so a gap in the grid costs nothing.
+  #rebased(symbol, labels) {
+    const serie = this.#priceSeries(symbol);
+    const base = serie.find((price) => price != null);
+    if (!base) return [];
+
+    return serie
+      .map((price, i) => ({ x: labels[i], y: price == null ? null : Number(price) / base - 1 }))
+      .filter((point) => point.y !== null);
+  }
+
+  // How far a deviation of 1 is allowed to travel in the plot's own units: whichever of the two
+  // directions runs out of frame first, minus a tenth so the extreme line is not drawn along the
+  // edge. Prices that never moved need no room at all and take any scale.
+  #priceScale(y, anchor, low, high) {
+    const floor = y.min ?? 0;
+    const ceiling = y.max ?? y.suggestedMax;
+    const up = high > 0 ? (ceiling - anchor) / high : Infinity;
+    const down = low < 0 ? (anchor - floor) / -low : Infinity;
+    const room = Math.min(up, down);
+    return Number.isFinite(room) ? Math.max(room, 0) * 0.9 : 1;
+  }
+
+  // Thinner and softer than the curve, and with no point on its end: the overlay is context, and
+  // the line the reader came for has to stay the loudest thing in the frame. Grey for a symbol
+  // the venue has no ticker for, the same fallback the marks and the tables use.
+  #priceDataset(symbol, points, anchor, scale) {
+    const color = this.#setTransparency(
+      this.#safeColor(this.buyLogosValue[symbol]?.color || "#8A9BA8"), 0.65
+    );
+    return {
+      label: symbol,
+      cubicInterpolationMode: "monotone",
+      borderWidth: 1.5,
+      borderColor: color,
+      pointRadius: 0,
+      pointHitRadius: 0,
+      pointHoverRadius: 0,
+      fill: false,
+      data: points.map((point) => ({ x: point.x, y: anchor + point.y * scale })),
+      clip: false,
+    };
   }
 
   #valuePlot(labels) {
