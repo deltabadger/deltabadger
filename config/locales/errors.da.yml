@@ -60,6 +60,7 @@ da:
             transient_unavailable: "%{exchange} er midlertidigt utilgængelig. Botten prøver automatisk igen."
         bots:
             multi_asset:
+                condition_subject: "Denne betingelse skal gælde et aktiv, som botten ejer."
                 min_assets: "En portefølje skal indeholde mindst %{min} aktiver."
                 max_assets: "En portefølje kan højst indeholde %{max} aktiver."
                 pair_missing: "%{assets} kan ikke handles mod det valgte noteringsaktiv på %{exchange_name}."

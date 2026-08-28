@@ -230,10 +230,13 @@ module BotHelper
     end
   end
 
+  # The assets a trading condition may watch. For a composition bot that is its current members —
+  # NOT bot.tickers, which deliberately spans the venue's whole quote catalogue so that removed
+  # holdings keep pricing. Offering one of those would let a condition watch an asset the bot no
+  # longer holds, and there can be thousands of them.
   def base_select_options(bot)
-    bot.tickers.pluck(:base_asset_id, :id).map do |base_asset_id, id|
-      [Asset.find(base_asset_id).symbol, id]
-    end.sort_by(&:first)
+    tickers = bot.respond_to?(:composition_tickers) ? bot.composition_tickers : bot.tickers
+    tickers.map { |ticker| [ticker.base_asset.symbol, ticker.id] }.sort_by(&:first)
   end
 
   def indicator_limit_timeframe_select_options
