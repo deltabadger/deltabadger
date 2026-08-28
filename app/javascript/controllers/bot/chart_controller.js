@@ -1,5 +1,6 @@
 import { Controller } from "@hotwired/stimulus";
-import Chart from "chart.js/auto";
+import Chart, { Interaction } from "chart.js/auto";
+import { getRelativePosition } from "chart.js/helpers";
 import "chartjs-adapter-date-fns";
 
 // The rows of both holdings tables — the index's constituents and the coins that left it.
@@ -20,6 +21,46 @@ const PRICES_KEY = "bot-chart:prices";
 // How tall the largest buy's mark stands: 5rem against this app's 8px root. The smallest stands
 // at `LOGO_SIZE`, and everything between is spread across the difference — see `#sizing`.
 const MARK_MAX_HEIGHT = 40;
+
+// --- who decides the hovered point --------------------------------------------------
+//
+// Chart.js's `index` mode finds the element nearest the pointer in ANY dataset and applies its
+// INDEX to all the others. That is only safe while every dataset holds the same points — and
+// they do not: LTTB decimates each one on its own triangle areas, so past `maxPointsToDraw` they
+// stop sampling the same days, and the nearest element is then often a price line's, whose index
+// read against the curve means a different date. Nothing looks wrong when it happens: the date,
+// the money, the percent and the dashed cursor all move to the same wrong day together. Measured
+// on a 20-asset index at a 60-point budget, 132 of 744 pointer positions along the plot resolved
+// to the wrong point, up to five days out.
+//
+// So the CURVE decides, and the index fans out exactly as `index` does. This also closes the
+// same hole between the value and invested lines, which has been there as long as decimation has
+// — `#updateSummary` works around its symptom by reading invested at the timestamp rather than
+// at the index, but the timestamp it reads was itself the borrowed one.
+//
+// Registered on the `Interaction` registry — a NAMED export, not a static on the Chart class,
+// which is `undefined` there and would throw while this module is still being imported, taking
+// the whole bundle down with it.
+Interaction.modes.curveIndex = (chart, event, options, useFinalPosition) => {
+  const { x } = getRelativePosition(event, chart);
+  const curve = chart.getDatasetMeta(0)?.data || [];
+  let index = -1;
+  let nearest = Infinity;
+
+  curve.forEach((element, i) => {
+    const distance = Math.abs(element.getProps(["x"], useFinalPosition).x - x);
+    if (distance < nearest) {
+      nearest = distance;
+      index = i;
+    }
+  });
+  if (index < 0) return [];
+
+  return chart.getSortedVisibleDatasetMetas().flatMap((meta) => {
+    const element = meta.data[index];
+    return element && !element.skip ? [{ element, datasetIndex: meta.index, index }] : [];
+  });
+};
 
 // Connects to data-controller="bot--chart"
 export default class extends Controller {
@@ -573,7 +614,7 @@ export default class extends Controller {
         parsing: false,
         interaction: {
           intersect: false,
-          mode: "index",
+          mode: "curveIndex",
         },
       },
     });
@@ -670,9 +711,8 @@ export default class extends Controller {
     const buys = stacks.flatMap((stack) => [...stack.assets.values()]);
     if (new Set(buys.map((buy) => buy.symbol)).size !== 1) return null;
 
-    const amounts = buys.map((buy) => buy.amount);
-    const min = Math.min(...amounts);
-    return { min, span: Math.max(...amounts) - min };
+    const { low, high } = this.#extremes(buys.map((buy) => buy.amount));
+    return { min: low, span: high - low };
   }
 
   // A crowd of buys as one column, and the card that reads it out.
@@ -796,6 +836,22 @@ export default class extends Controller {
   // What to draw for the mode in hand: the datasets, the y scale they need, how many points
   // survive decimation, and (RETURN only) the colour of the 100 line. Falls back to VALUE when
   // there is no return curve to show — a bot that never held anything has no return.
+  // The extremes of a series WITHOUT spreading it into Math.min/Math.max. That form passes one
+  // argument per point, and engines cap the argument count around 125k — a bot with years of
+  // five-minute fills has a series that long on its own, and a price line per asset multiplies
+  // it. The throw would not cost the reading that needed the bound, it would cost the whole
+  // chart: every one of these runs inside `#buildChart`.
+  //
+  // The seeds are the identities each caller wants — a floor of 0 for a plot that has to keep
+  // zero in frame, ±Infinity for one measuring only what is there.
+  #extremes(values, low = Infinity, high = -Infinity) {
+    values.forEach((value) => {
+      if (value < low) low = value;
+      if (value > high) high = value;
+    });
+    return { low, high };
+  }
+
   #plot(labels) {
     const curve = this.#pnlMode ? this.#pnlPoints(labels) : [];
     const plot = curve.length ? this.#pnlPlot(curve) : this.#valuePlot(labels);
@@ -831,8 +887,11 @@ export default class extends Controller {
     const anchor = plot.datasets[0].data[0]?.y;
     if (!lines.length || anchor === undefined) return plot;
 
-    const deviations = lines.flatMap(([, points]) => points.map((point) => point.y));
-    const scale = this.#priceScale(plot.y, anchor, Math.min(...deviations), Math.max(...deviations));
+    // Seeded at zero because every line's own first point IS zero: the rebase makes it so.
+    const { low, high } = this.#extremes(
+      lines.flatMap(([, points]) => points.map((point) => point.y)), 0, 0
+    );
+    const scale = this.#priceScale(plot.y, anchor, low, high);
 
     return {
       ...plot,
@@ -868,16 +927,35 @@ export default class extends Controller {
       .filter((point) => point.y !== null);
   }
 
-  // How far a deviation of 1 is allowed to travel in the plot's own units: whichever of the two
-  // directions runs out of frame first, minus a tenth so the extreme line is not drawn along the
-  // edge. Prices that never moved need no room at all and take any scale.
+  // How far a deviation of 1 travels in the plot's own units.
+  //
+  // The obvious answer is the largest scale that keeps every line inside the frame — whichever
+  // direction runs out first, minus a tenth so the extreme line is not drawn along the edge. But
+  // that room is measured from the ANCHOR, and in VALUE mode the anchor is the portfolio at its
+  // first buy, sitting a hair above a hard zero floor: a DCA bot's first buy is roughly 1/N of
+  // what it ends up holding, so that distance alone sets the scale. Measured on a real 20-asset
+  // index, the overlay got 10.7% of the plot height and lay along the floor, unreadable. RETURN
+  // mode never has the problem — its anchor sits mid-frame and the same rule spends ~70%.
+  //
+  // So the fit has a floor of its own: half the frame, whatever the anchor allows. Past that the
+  // deepest excursions are cut off at the plot edge instead of the whole overlay collapsing —
+  // these lines carry no readable number anyway, and a clipped trough still reads as a trough
+  // where a flat sliver reads as nothing at all.
+  //
+  // ponytail: half is a taste threshold, not a derived one. Raise it if the clipping reads worse
+  // than the squash did.
   #priceScale(y, anchor, low, high) {
+    const spread = high - low;
+    // Prices that never moved need no room at all and take any scale.
+    if (!spread) return 1;
+
     const floor = y.min ?? 0;
     const ceiling = y.max ?? y.suggestedMax;
     const up = high > 0 ? (ceiling - anchor) / high : Infinity;
     const down = low < 0 ? (anchor - floor) / -low : Infinity;
-    const room = Math.min(up, down);
-    return Number.isFinite(room) ? Math.max(room, 0) * 0.9 : 1;
+    // One of the two is finite: a non-zero spread has a side that leaves the anchor.
+    const room = Math.max(Math.min(up, down), 0);
+    return Math.max(room * 0.9, ((ceiling - floor) / spread) * 0.5);
   }
 
   // Thinner and softer than the curve, and with no point on its end: the overlay is context, and
@@ -897,7 +975,6 @@ export default class extends Controller {
       pointHoverRadius: 0,
       fill: false,
       data: points.map((point) => ({ x: point.x, y: anchor + point.y * scale })),
-      clip: false,
     };
   }
 
@@ -911,7 +988,7 @@ export default class extends Controller {
     );
     const maxValue = this.focused
       ? this.#assetBounds.value
-      : Math.max(...series[0].map((p) => p.y), ...series[1].map((p) => p.y));
+      : this.#extremes(series.flatMap((serie) => serie.map((p) => p.y))).high;
     const profitable = series[0].at(-1).y >= series[1].at(-1).y;
     const points = Math.min(this.maxPointsToDraw, series[0].length, series[1].length);
     const colors = [profitable ? this.#color("--grass") : this.#color("--berry"), this.#color("--benchmark")];
@@ -932,10 +1009,11 @@ export default class extends Controller {
   // The invested line becomes the zero line, so the curve IS the distance from it, and the
   // fill is the reading: the ribbon between the curve and zero, green above and red below.
   #pnlPlot(curve) {
-    const ys = curve.map((point) => point.y);
-    // Zero stays in frame whether or not the curve reaches it: the line is what the curve means.
-    const low = this.focused ? this.#assetBounds.low : Math.min(0, ...ys);
-    const high = this.focused ? this.#assetBounds.high : Math.max(0, ...ys);
+    // Zero stays in frame whether or not the curve reaches it: the line is what the curve means,
+    // which is what the 0 seeds say.
+    const curveSpan = this.#extremes(curve.map((point) => point.y), 0, 0);
+    const low = this.focused ? this.#assetBounds.low : curveSpan.low;
+    const high = this.focused ? this.#assetBounds.high : curveSpan.high;
     const pad = (high - low) * 0.1 || 0.01;
     const up = this.#color("--grass");
     const down = this.#color("--berry");
