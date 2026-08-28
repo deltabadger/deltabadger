@@ -220,4 +220,40 @@ class TrackerHelperTest < ActionView::TestCase
     assert_in_delta 0.6, arc_start(arcs[1]), 0.001
     assert_in_delta 0.85, arc_start(arcs[2]), 0.001
   end
+
+  # == the card's ring is the same ring, drawn large ==
+  #
+  # Same code, so the same guarantee: a slice too small for its own arc is still given a gap and a
+  # round cap — drawn as a dot — rather than nothing, whatever the stroke is.
+  def ring_holding(symbol, color, value)
+    Holding.new(Asset.new(symbol: symbol, color: color), value.to_d)
+  end
+
+  # Grey says a name is being withheld, so it has to be withholding more than one.
+  test 'one holding under the threshold is itself, not an "other"' do
+    arcs = holdings_ring_arcs([ring_holding('BTC', '#F7931A', 99), ring_holding('POL', '#8247E5', 1)])
+
+    assert_equal(%w[BTC POL], arcs.map { |arc| arc[:label] })
+    assert_equal ensure_contrast('#8247E5'), arcs.last[:color]
+    # And it is drawn all the same: too small for an arc of its own, so it is given the smallest
+    # slice — the two round caps meeting, a dot as wide as the stroke.
+    assert_equal '0.0', arcs.last[:dash].split.first
+  end
+
+  test 'the card ring folds the tail and still draws it, at the smallest slice' do
+    arcs = holdings_ring_arcs([ring_holding('BTC', '#F7931A', 99), ring_holding('POL', '#8247E5', 0.5),
+                               ring_holding('DUST', '#627EEA', 0.5)])
+
+    assert_equal(['BTC', I18n.t('tracker.other')], arcs.map { |arc| arc[:label] })
+    assert_equal ensure_contrast(TrackerHelper::NEUTRAL_COLOR), arcs.last[:color]
+    # Nothing left to draw but the two round caps meeting: a dot as wide as the stroke.
+    assert_equal '0.0', arcs.last[:dash].split.first
+    # The ring still closes, and every span keeps its whole gap.
+    starts = arcs.map { |arc| -arc[:offset] - (TrackerHelper::RING_MIN_SPAN / 2) }
+    spans = (starts + [TrackerHelper::RING_CIRCUMFERENCE]).each_cons(2).map { |from, to| to - from }
+
+    assert_in_delta 0.0, starts.first, 0.01
+    # The offsets ship rounded to two decimals, so a span may miss its minimum by that much.
+    spans.each { |span| assert_operator span, :>=, TrackerHelper::RING_MIN_SPAN - 0.01 }
+  end
 end

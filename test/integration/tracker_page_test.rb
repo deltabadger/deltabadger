@@ -127,7 +127,7 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     get tracker_path
 
     assert_select '.widget.tracker-holdings' do
-      assert_select '.tracker-holdings__ring svg path', 2
+      assert_select '.tracker-holdings__ring svg circle', 2
       assert_select '.tracker-holdings__row', 2
       assert_select '.tracker-holdings__row:first-child' do
         assert_select '.asset-logo'
