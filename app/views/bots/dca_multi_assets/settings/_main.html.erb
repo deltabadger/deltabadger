@@ -2,7 +2,10 @@
 <% base_assets = bot.base_assets %>
 <% composition_locked = bot.composition_locked? %>
 <% allocations_balanced = bot.allocations_balanced? %>
-<% allocation_sum = number_with_precision(bot.allocations_total * 100, precision: 1) %>
+<%# Derived weights are not the user's sliders, so both the rows and this total have to read the
+    displayed_* accessors — otherwise the header prints the slider sum over rows adding to 100%. %>
+<% weights_locked = composition_locked || bot.market_cap_weighted? %>
+<% allocation_sum = number_with_precision(bot.displayed_allocations_total * 100, precision: 1) %>
 
 <%= form_with model: bot,
               url: path,
@@ -26,10 +29,21 @@
     </div>
   </div>
 
+  <div class="conversational flex-justify-center">
+    <%= t('bot.dca_multi_asset.weighted') %>
+    <div class="sinput sinput--select <%= 'sinput--disabled' if composition_locked %>">
+      <%= t("bot.dca_multi_asset.weighting.#{bot.weighting}") %>
+      <%= f.select :weighting,
+                   Bots::DcaMultiAsset::WEIGHTINGS.map { |w| [t("bot.dca_multi_asset.weighting.#{w}"), w] },
+                   { selected: bot.weighting },
+                   data: { action: "change->form--submit#submit" }, disabled: composition_locked %>
+    </div>
+  </div>
+
   <div class="asset-allocations">
     <% base_assets.each do |asset| %>
       <% color = ensure_contrast(asset.color || '#8A9BA8') %>
-      <% pct = (bot.allocation_for(asset.id) * 100).round(1) %>
+      <% pct = (bot.displayed_allocation_for(asset.id) * 100).round(1) %>
       <div class="index-asset asset-allocation"
            data-bot--allocation-target="row"
            style="--slider-progress: <%= color %>">
@@ -45,7 +59,7 @@
                    class="slider__input"
                    data-bot--allocation-target="input"
                    data-action="input->bot--allocation#update change->form--submit#submit"
-                   <%= 'disabled' if composition_locked %>>
+                   <%= 'disabled' if weights_locked %>>
             <div class="slider__style">
               <div class="slider__style__track"
                    data-bot--allocation-target="track"
@@ -64,7 +78,7 @@
                    data-bot--allocation-target="percent"
                    data-action="input->bot--allocation#type change->form--submit#submit"
                    aria-label="<%= asset.symbol %>"
-                   <%= 'disabled' if composition_locked %>>%
+                   <%= 'disabled' if weights_locked %>>%
           </div>
           <% if !composition_locked && base_assets.size > Bots::DcaMultiAsset::MIN_ASSETS %>
             <%# This stays inside the PATCH form so a removal preserves every slider value posted
@@ -84,7 +98,7 @@
       <%= t('bot.dca_multi_asset.allocation_sum') %>
       <span data-bot--allocation-target="total"><%= allocation_sum %>%</span>
     </span>
-    <% unless composition_locked %>
+    <% unless weights_locked %>
       <%= button_tag t('bot.dca_multi_asset.normalize'), type: :submit,
                      name: 'bots_dca_multi_asset[normalize_allocations]', value: '1',
                      class: 'rbutton rbutton--small rbutton--primary asset-allocations__normalize',

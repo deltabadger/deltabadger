@@ -35,7 +35,27 @@ module Bots::DcaMultiAsset::Allocatable
   def allocations_total = allocations.values.sum(&:to_f)
 
   def allocations_balanced?
+    # A derived basket does not own its weights, so the slider total is not a gate on starting it.
+    return true if try(:market_cap_weighted?)
+
     (allocations_total - 1).abs <= ALLOCATION_TOLERANCE
+  end
+
+  # What the settings page must render. For a manual basket that is the slider the user set; for a
+  # derived one it is the weight actually being traded. Reading allocation_for unconditionally would
+  # show a converted 70/30 basket as 70/30 while it traded 90/10.
+  def displayed_allocation_for(asset_id)
+    return allocation_for(asset_id) unless try(:market_cap_weighted?)
+
+    bot_index_assets.in_index.find_by(asset_id:)&.target_allocation&.to_f || allocation_for(asset_id)
+  end
+
+  # The header total has to come from the same source as the rows, or a derived basket prints the
+  # slider sum above rows that add up to 100%.
+  def displayed_allocations_total
+    return allocations_total unless try(:market_cap_weighted?)
+
+    base_asset_ids.sum { |id| displayed_allocation_for(id) }
   end
 
   def composition_locked? = working? || rebalance_pending?
