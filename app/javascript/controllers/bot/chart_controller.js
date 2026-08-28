@@ -13,16 +13,12 @@ const HOLDING_ROWS = "#assets_metrics_table tr[data-symbol], #exited_metrics_tab
 // the reserved height, so guessing it wrong silently over-reserves the row and collapses marks
 // that do not visually overlap.
 const LOGO_SIZE = 16;
-// How far each mark behind the top one sticks out while the stack is closed: 0.5rem, the same
-// number `_widget.sass` shingles them by. Only the CLOSED step is needed here — opening a stack
-// is the stylesheet's business, and deliberately does not resize the row.
-const LOGO_STEP = 4;
 // Where the "Show orders" choice lives. Not keyed by bot: it is a way of reading a chart.
 const ORDERS_KEY = "bot-chart:orders";
-// How much of the plot the biggest buy's bar is allowed to stand up into. A share of the plot
-// rather than a fixed height: the plot keeps a 10:2 ratio, so on a phone a fixed bar would be
-// most of it and on a wide screen a stub.
-const BAR_HEIGHT = 0.4;
+// How tall the largest buy's mark stands: 5rem against this app's 8px root. Everything else is
+// a share of it, floored at `LOGO_SIZE` so the smallest buy is still a square holding its logo
+// rather than a sliver with a clipped one.
+const MARK_MAX_HEIGHT = 40;
 
 // Connects to data-controller="bot--chart"
 export default class extends Controller {
@@ -588,31 +584,30 @@ export default class extends Controller {
       });
 
     const width = scale.right;
-    this.buysTarget.replaceChildren(...stacks.map((stack) => this.#stack(stack, width, this.#bars(stacks))));
+    this.buysTarget.replaceChildren(...stacks.map((stack) => this.#stack(stack, width, this.#sizing(stacks))));
   }
 
-  // How tall to draw each mark's bar, or null for no bars at all.
+  // The buy that sets the scale, or null to leave every mark its own square.
   //
-  // Only while ONE asset is in view — pinned from the holdings table, or a bot that only ever
-  // bought the one thing, which is the same question and so the same test. Across several assets
-  // a bar would invite a comparison it cannot support: the marks of a stack are already ranked by
-  // size, and bars of different assets rising from different stacks are not on any shared ruler.
+  // Marks grow only while ONE asset is in view — pinned from the holdings table, or a bot that
+  // only ever bought the one thing, which is the same question and so the same test. Across
+  // several assets a height would invite a comparison it cannot support: the marks of a stack are
+  // already ranked by size, and marks of different assets in different stacks share no ruler.
   //
-  // Normalized against the largest buy IN VIEW, so the tallest bar is always the same height and
+  // Normalized against the largest buy IN VIEW, so the tallest mark is always the same height and
   // the rest are read against it. Narrowing the range renormalizes — the question is which of
   // these buys was the big one, not how they measure against a month the reader has scrolled off.
-  #bars(stacks) {
+  #sizing(stacks) {
     const buys = stacks.flatMap((stack) => [...stack.assets.values()]);
     if (new Set(buys.map((buy) => buy.symbol)).size !== 1) return null;
 
+    // A zero total would divide by zero, and nothing bought is nothing to scale.
     const max = Math.max(...buys.map((buy) => buy.quote));
-    // Every buy the same size is not a reason to draw one tall bar and the rest at nothing, and
-    // a zero total would divide by zero.
-    return max > 0 ? { max, height: this.chart.chartArea.height * BAR_HEIGHT } : null;
+    return max > 0 ? max : null;
   }
 
   // A crowd of buys as one column, and the card that reads it out.
-  #stack({ from, to, assets }, width, bars) {
+  #stack({ from, to, assets }, width, scale) {
     const column = document.createElement("div");
     column.className = "widget--chart__buys__stack";
     // Centred on the crowd it stands for, then kept inside the plot so an edge mark is whole.
@@ -638,7 +633,7 @@ export default class extends Controller {
     // Opened on the one the reader can actually see: the logo on top is the mark they aimed at.
     this.#showBuy(card, buys.length - 1);
 
-    column.append(...buys.map((buy, i) => this.#mark(buy, i, bars)), card);
+    column.append(...buys.map((buy, i) => this.#mark(buy, i, scale)), card);
     // One card per stack, held open by the stack's own :hover — moving from one mark to the next
     // changes what it says instead of tearing it down and building it again a few pixels over.
     column.addEventListener("mouseover", (event) => {
@@ -652,21 +647,14 @@ export default class extends Controller {
   // in, so a closed stack shows one logo and a column of colours, and an open one shows them all.
   // A symbol the venue has no ticker for has no image and keeps the grey the tables fall back to,
   // rather than dropping the purchase.
-  #mark(buy, index, bars) {
+  // The mark IS the bar: with one asset in view it grows out of the baseline in that asset's own
+  // colour, with its logo sitting at the foot, so the size of a purchase is the shape of its mark
+  // rather than a second thing drawn next to it.
+  #mark(buy, index, scale) {
     const mark = this.#disc(buy.symbol, "widget--chart__buys__mark");
     mark.dataset.buy = index;
-    if (bars) mark.append(this.#bar(buy, bars));
+    if (scale) mark.style.height = `${Math.max(LOGO_SIZE, (buy.quote / scale) * MARK_MAX_HEIGHT)}px`;
     return mark;
-  }
-
-  // The purchase, standing up out of its own logo: same colour as the disc, because it is the
-  // same asset saying how much of itself was bought here.
-  #bar(buy, { max, height }) {
-    const bar = document.createElement("span");
-    bar.className = "widget--chart__buys__bar";
-    bar.style.height = `${(buy.quote / max) * height}px`;
-    bar.style.background = this.buyLogosValue[buy.symbol]?.color || "#8A9BA8";
-    return bar;
   }
 
   // A coloured disc carrying the asset's logo. The colour is always painted and the image sits
