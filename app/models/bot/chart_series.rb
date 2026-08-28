@@ -32,7 +32,8 @@ module Bot::ChartSeries
   # metrics broadcast.
   MARK_BUCKETS = 500
 
-  # `[[time, symbol], ...]` oldest first: the buys the chart marks under the plot.
+  # `[[time, symbol, amount, quote, fills], ...]` oldest first: the buys the chart marks under
+  # the plot, each carrying what it bought so the mark can say so when hovered.
   #
   # The SAME rows `metrics` counts, and for the same reason — a mark is a claim that the bot
   # bought something there. An order still open, or cancelled before it filled, carries a price
@@ -49,14 +50,22 @@ module Bot::ChartSeries
       next if price.blank? || amount_exec.blank? || quote_amount_exec.blank?
       next if amount_exec.zero? || quote_amount_exec.zero?
 
-      [at, base]
+      # Amounts as EXECUTED, not as requested — `price` on the row is what was asked for, and a
+      # market order rarely gets exactly that. The fill price the tooltip shows is derived from
+      # these two, so it is the price the money actually moved at.
+      [at, base, amount_exec.to_d, quote_amount_exec.to_d, 1]
     end
     chart_thinned_marks(marks)
   end
 
-  # One mark per symbol per bucket, keeping the FIRST in each — so the first and last buys of the
-  # history both survive, and a symbol that only ever traded once is never thinned away. Applied
-  # only when there are more marks than buckets: the ordinary bot pays nothing for this.
+  # One mark per symbol per bucket, timed at the FIRST in each — so the first and last buys of
+  # the history both survive, and a symbol that only ever traded once is never thinned away.
+  # Applied only when there are more marks than buckets: the ordinary bot pays nothing for this.
+  #
+  # SUMMED, not sampled. The marks say what they bought, and a hovered mark that dropped half the
+  # fills underneath it would understate a purchase — a number being wrong is worse than a mark
+  # being a pixel off. Bucketed marks are ordered by their first fill because a Hash keeps
+  # insertion order and the rows arrive ascending.
   def chart_thinned_marks(marks)
     return marks if marks.size <= MARK_BUCKETS
 
@@ -64,8 +73,12 @@ module Bot::ChartSeries
     span = marks.last[0] - first
     return marks if span.zero?
 
-    seen = Set.new
-    marks.select { |at, base| seen.add?([((at - first) / span * MARK_BUCKETS).floor, base]) }
+    marks.each_with_object({}) do |(at, base, amount, quote, fills), buckets|
+      bucket = buckets[[((at - first) / span * MARK_BUCKETS).floor, base]] ||= [at, base, 0.to_d, 0.to_d, 0]
+      bucket[2] += amount
+      bucket[3] += quote
+      bucket[4] += fills
+    end.values
   end
 
   # The seam every candle fetch goes through. Overridable in tests, and the reason the index's
