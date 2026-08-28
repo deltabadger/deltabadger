@@ -8,6 +8,10 @@ it:
             connect_alpaca_html: "Per investire in azioni, prima collega Alpaca nelle %{settings_link}."
             settings_link: "Impostazioni"
         dca_multi_asset:
+            weighted: "Ponderazione"
+            weighting:
+                manual: "Manuale"
+                market_cap: "Per capitalizzazione di mercato"
             add_asset: "Aggiungi asset"
             remove_asset: "Rimuovi"
             max_assets_reached: "Puoi detenere fino a %{max} asset."

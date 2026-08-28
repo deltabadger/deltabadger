@@ -8,6 +8,10 @@ sv:
             connect_alpaca_html: "För att investera i aktier, anslut först Alpaca i %{settings_link}."
             settings_link: "Inställningar"
         dca_multi_asset:
+            weighted: "Viktning"
+            weighting:
+                manual: "Manuell"
+                market_cap: "Efter marknadsvärde"
             add_asset: "Lägg till tillgång"
             remove_asset: "Ta bort"
             max_assets_reached: "Du kan ha upp till %{max} tillgångar."

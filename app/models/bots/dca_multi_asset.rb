@@ -3,10 +3,15 @@ class Bots::DcaMultiAsset < Bot
 
   MIN_ASSETS = 2
   MAX_ASSETS = 20
+  # How the basket's weights are decided. 'manual' is the sliders; 'market_cap' derives them from
+  # each asset's stored market cap, which is what the retired pair bot's market-cap switch did.
+  WEIGHTINGS = %w[manual market_cap].freeze
 
-  store_accessor :settings, :quote_asset_id, :quote_amount, :interval, :allocations, :base_asset_ids
+  store_accessor :settings, :quote_asset_id, :quote_amount, :interval, :allocations, :base_asset_ids,
+                 :weighting
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }
+  validates :weighting, inclusion: { in: WEIGHTINGS }, allow_nil: true
   validate :validate_external_ids, on: :update
   # asset_id_setting_keys is only the quote: once the bot has bought anything, every ledger figure is
   # denominated in it, and a swap would mix currencies in invested value and P/L for good.
@@ -60,7 +65,7 @@ class Bots::DcaMultiAsset < Bot
 
   self.asset_id_setting_keys = %i[quote_asset_id]
 
-  COMPOSITION_KEYS = %w[allocations quote_asset_id].freeze
+  COMPOSITION_KEYS = %w[allocations quote_asset_id weighting].freeze
   CONDITION_TICKER_KEYS = %w[price_limit price_drop_limit moving_average_limit indicator_limit].freeze
 
   def parse_params(params)
@@ -68,6 +73,7 @@ class Bots::DcaMultiAsset < Bot
       quote_asset_id: params[:quote_asset_id].presence&.to_i,
       quote_amount: params[:quote_amount].presence&.to_f,
       interval: params[:interval].presence,
+      weighting: params[:weighting].presence,
       allocations: parse_allocations(params[:allocations])
     }.compact
 
@@ -166,6 +172,11 @@ class Bots::DcaMultiAsset < Bot
     basket_label(*base_asset_ids)
   end
 
+  # Defaults live in readers, never written to settings: a stored default would dirty every legacy
+  # row on load and trip Bot::Accountable's settings guard.
+  def weighting = super.presence || 'manual'
+  def market_cap_weighted? = weighting == 'market_cap'
+
   def composition_size = base_asset_ids.size
   def exited_title_key = 'bot.dca_multi_asset.removed_from_portfolio'
   def metrics_partial = 'bots/composition/metrics'
@@ -204,12 +215,29 @@ class Bots::DcaMultiAsset < Bot
         symbol: ticker.base_asset.symbol
       }
     end
+    apply_market_cap_weights(matched) if market_cap_weighted?
+
     total = matched.sum { |member| member[:weight] }
     # Parked assets stay members, but may not become the whole portfolio when weighted assets vanish.
     return Result::Failure.new("None of the portfolio's weighted assets trade on #{exchange.name}") unless total.positive?
 
     matched.each { |member| member[:weight] = member[:weight] / total }
     Result::Success.new(matched)
+  end
+
+  # Overwrite the stored sliders with market-cap weights, in place. Reads the market_cap COLUMN, not
+  # a live price: this runs inside the synchronous after_save reconciliation, so a network call here
+  # would turn every settings save into an exchange round-trip.
+  #
+  # A member with no usable cap leaves every weight alone. Falling back to equal weights instead
+  # would silently rewrite a 70/30 basket to 50/50 the first time a column came back blank.
+  def apply_market_cap_weights(matched)
+    caps = Asset.where(id: matched.map { |member| member[:asset_id] })
+                .pluck(:id, :market_cap).to_h { |id, cap| [id, cap.to_f] }
+    return unless matched.all? { |member| caps[member[:asset_id]].to_f.positive? }
+
+    derived = Bot::Composition::Weightable.blend(market_caps: caps, flattening: 0)
+    matched.each { |member| member[:weight] = derived[member[:asset_id]] }
   end
 
   def exchange_supports_current_assets?

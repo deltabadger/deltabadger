@@ -21,6 +21,20 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
     assert_match(/disabled="disabled"/, response.body)
   end
 
+  test 'a market-cap basket renders the derived weights, and its sliders are read-only' do
+    @first.update!(market_cap: 750.0)
+    @second.update!(market_cap: 250.0)
+
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { weighting: 'market_cap' } },
+                                 as: :turbo_stream
+
+    assert_response :success
+    assert_equal({ @first.id => 0.75, @second.id => 0.25 }, composition_weights)
+    # The header total must come from the same source as the rows, or it prints the slider sum.
+    assert_match(/100\.0%/, response.body)
+    assert_match(/disabled/, response.body)
+  end
+
   test 'PATCH add_asset_id admits a third asset at zero' do
     third = create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana')
     create(:ticker, exchange: @bot.exchange, base_asset: third, quote_asset: @bot.quote_asset)

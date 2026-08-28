@@ -11,19 +11,18 @@ module Bots::DcaIndex::IndexAllocatable
   def calculate_allocations_with_flattening(coins_data)
     return [] if coins_data.empty?
 
-    total_market_cap = coins_data.sum { |c| c[:market_cap].to_f }
-    num_coins_in_index = coins_data.size
-    equal_weight = 1.0 / num_coins_in_index
+    # The arithmetic itself lives in Bot::Composition::Weightable, shared with the multi-asset bot.
+    # allocation_flattening: 0 = pure market cap, 1 = equal weight.
+    weights = Bot::Composition::Weightable.blend(
+      market_caps: coins_data.to_h { |coin| [coin[:asset_id], coin[:market_cap].to_f] },
+      flattening: allocation_flattening.to_f
+    )
 
     coins_data.map do |coin|
-      market_cap_weight = total_market_cap.positive? ? coin[:market_cap].to_f / total_market_cap : equal_weight
-      # allocation_flattening: 0 = pure market cap, 1 = equal weight
-      final_weight = (market_cap_weight * (1 - allocation_flattening.to_f)) + (equal_weight * allocation_flattening.to_f)
-
       {
         asset_id: coin[:asset_id],
         ticker_id: coin[:ticker_id],
-        weight: final_weight,
+        weight: weights[coin[:asset_id]],
         symbol: coin[:symbol],
         market_cap: coin[:market_cap]
       }

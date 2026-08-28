@@ -8,6 +8,10 @@ sk:
             connect_alpaca_html: "Ak chceš investovať do akcií, najprv prepoj Alpaca v %{settings_link}."
             settings_link: "Nastaveniach"
         dca_multi_asset:
+            weighted: "Váženie"
+            weighting:
+                manual: "Ručne"
+                market_cap: "Podľa trhovej kapitalizácie"
             add_asset: "Pridať aktívum"
             remove_asset: "Odstrániť"
             max_assets_reached: "V portfóliu môžete mať najviac %{max} aktív."
