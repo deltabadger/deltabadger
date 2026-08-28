@@ -20,6 +20,16 @@ class Bot::StopJob < ApplicationJob
         partial: 'bots/dca_dual_assets/settings',
         locals: { bot: bot }
       )
+    elsif bot.dca_multi_asset?
+      # A basket bot reaches this path once it carries a quote-amount limit: hitting the cap stops
+      # it from here, not from the controller, and without this branch its settings panel kept
+      # rendering the running state.
+      bot.broadcast_replace_to(
+        ["user_#{bot.user_id}", :bot_updates],
+        target: 'settings',
+        partial: 'bots/dca_multi_assets/settings',
+        locals: { bot: bot }
+      )
     end
     bot.broadcast_replace_to(
       ["user_#{bot.user_id}", :bot_updates],

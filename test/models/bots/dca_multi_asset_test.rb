@@ -391,16 +391,21 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     assert_predicate bot.reload, :waiting?
   end
 
-  test 'the rule set is the index bot\'s' do
+  test 'the rule set is the index bot\'s plus the trading conditions a pair bot had' do
     ancestors = Bots::DcaMultiAsset.ancestors
 
-    [Bot::SmartIntervalable, Bot::LimitOrderable, Bot::Rebalanceable].each do |concern|
+    [Bot::SmartIntervalable, Bot::LimitOrderable, Bot::Rebalanceable,
+     Bot::PriceLimitable, Bot::PriceDropLimitable, Bot::MovingAverageLimitable,
+     Bot::IndicatorLimitable, Bot::QuoteAmountLimitable, Bot::LimitCheckable].each do |concern|
       assert_includes ancestors, concern
     end
-    [Bot::PriceLimitable, Bot::PriceDropLimitable, Bot::MovingAverageLimitable,
-     Bot::IndicatorLimitable, Bot::QuoteAmountLimitable, Bot::Reversible].each do |concern|
+
+    # Selling stays out: a basket has no agreed meaning for "sell 0.01 BTC per day", and the flip
+    # actions the conditions above offer are gated on reversible?, which stays false here.
+    [Bot::Reversible, Bot::BaseAmountLimitable].each do |concern|
       assert_not_includes ancestors, concern
     end
+    assert_not Bots::DcaMultiAsset.new.reversible?
   end
 
   test 'an exchange change is refused while a rebalance is pending, even when stopped' do
