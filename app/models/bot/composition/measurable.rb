@@ -303,7 +303,9 @@ module Bot::Composition::Measurable
       end
     end
 
-    grids
+    # One member the candles do not cover would otherwise blank the interpolation for every member.
+    labels = metrics_data[:chart][:labels]
+    chart_backfilled_grids(grids, symbols: symbols, from: labels.first, to: labels.last)
   end
 
   def fetch_candle_series(ticker:, since:, timeframe:)

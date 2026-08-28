@@ -87,6 +87,41 @@ module Bot::ChartSeries
     CandleSeriesCache.fetch(ticker: ticker, since: since, timeframe: timeframe)
   end
 
+  # A grid prices only the span it covers, and `chart_marked_at_market` drops a point outright when
+  # a single HELD asset cannot be priced there. On a basket that makes one member's coverage the
+  # whole chart's: a member whose candle fetch failed takes the plot from 245 points down to the 27
+  # transaction times, and one whose candles begin late takes it to 99. The remaining points are
+  # still correct — they are just the purchases, which is the shape this exists to avoid.
+  #
+  # So a symbol the candles do not span is backfilled from the bot's OWN fills. Those are real
+  # observed prices, the same ones the chart falls back to when there are no candles at all, and
+  # they exist for exactly the period the asset was held. A grid that already spans the window is
+  # left untouched, so a healthy chart is unchanged.
+  def chart_backfilled_grids(grids, symbols:, from:, to:)
+    fills = nil
+    symbols.each do |symbol|
+      marks = grids[symbol]
+      next if marks.present? && marks.first[0] <= from && marks.last[0] >= to
+
+      fills ||= chart_fill_marks_by_symbol
+      extra = fills[symbol]
+      next if extra.blank?
+
+      # Candles first, so uniq keeps the venue's own reading where the two coincide.
+      grids[symbol] = (Array(marks) + extra).uniq { |time, _price| time }.sort_by(&:first)
+    end
+    grids
+  end
+
+  # Every confirmed fill's price, per symbol. Read straight from the rows rather than the metrics
+  # walk, which keeps only the LAST price it saw for each asset.
+  def chart_fill_marks_by_symbol
+    transactions.submitted.where.not(price: nil).order(:created_at)
+                .pluck(:created_at, :base, :price)
+                .group_by { |_time, base, _price| base }
+                .transform_values { |rows| rows.map { |time, _base, price| [time, price] } }
+  end
+
   # Candles are fetched from one timeframe BEFORE the first transaction so that the first buy
   # has a mark below it; without that it is permanently uncovered. The earlier candle is
   # interpolation support only — `chart_marked_at_market` never lets it become a point, or the
