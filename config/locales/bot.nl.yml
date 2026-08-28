@@ -11,10 +11,6 @@ nl:
             connect_alpaca_html: "Wil je in aandelen beleggen? Koppel eerst Alpaca via %{settings_link}."
             settings_link: "Instellingen"
         dca_multi_asset:
-            weighted: "Weging"
-            weighting:
-                manual: "Handmatig"
-                market_cap: "Op marktkapitalisatie"
             add_asset: "Asset toevoegen"
             remove_asset: "Verwijderen"
             max_assets_reached: "Je kunt maximaal %{max} assets aanhouden."

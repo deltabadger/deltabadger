@@ -11,10 +11,6 @@ ru:
             connect_alpaca_html: "Чтобы инвестировать в акции, сначала подключите Alpaca в %{settings_link}."
             settings_link: "Настройках"
         dca_multi_asset:
-            weighted: "Взвешивание"
-            weighting:
-                manual: "Вручную"
-                market_cap: "По рыночной капитализации"
             add_asset: "Добавить актив"
             remove_asset: "Удалить"
             max_assets_reached: "В портфеле может быть не более %{max} активов."

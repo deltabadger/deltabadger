@@ -8,10 +8,6 @@ cs:
             connect_alpaca_html: "Pokud chceš investovat do akcií, nejdřív připoj Alpacu v %{settings_link}."
             settings_link: "Nastavení"
         dca_multi_asset:
-            weighted: "Vážení"
-            weighting:
-                manual: "Ručně"
-                market_cap: "Podle tržní kapitalizace"
             add_asset: "Přidat aktivum"
             remove_asset: "Odebrat"
             max_assets_reached: "V portfoliu můžete mít nejvýše %{max} aktiv."

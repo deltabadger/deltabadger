@@ -29,17 +29,6 @@
     </div>
   </div>
 
-  <div class="conversational flex-justify-center">
-    <%= t('bot.dca_multi_asset.weighted') %>
-    <div class="sinput sinput--select <%= 'sinput--disabled' if composition_locked %>">
-      <%= t("bot.dca_multi_asset.weighting.#{bot.weighting}") %>
-      <%= f.select :weighting,
-                   Bots::DcaMultiAsset::WEIGHTINGS.map { |w| [t("bot.dca_multi_asset.weighting.#{w}"), w] },
-                   { selected: bot.weighting },
-                   data: { action: "change->form--submit#submit" }, disabled: composition_locked %>
-    </div>
-  </div>
-
   <div class="asset-allocations">
     <% base_assets.each do |asset| %>
       <% color = ensure_contrast(asset.color || '#8A9BA8') %>
