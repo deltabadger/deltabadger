@@ -19,6 +19,10 @@ const LOGO_SIZE = 16;
 const LOGO_STEP = 4;
 // Where the "Show orders" choice lives. Not keyed by bot: it is a way of reading a chart.
 const ORDERS_KEY = "bot-chart:orders";
+// How much of the plot the biggest buy's bar is allowed to stand up into. A share of the plot
+// rather than a fixed height: the plot keeps a 10:2 ratio, so on a phone a fixed bar would be
+// most of it and on a wide screen a stub.
+const BAR_HEIGHT = 0.4;
 
 // Connects to data-controller="bot--chart"
 export default class extends Controller {
@@ -584,11 +588,31 @@ export default class extends Controller {
       });
 
     const width = scale.right;
-    this.buysTarget.replaceChildren(...stacks.map((stack) => this.#stack(stack, width)));
+    this.buysTarget.replaceChildren(...stacks.map((stack) => this.#stack(stack, width, this.#bars(stacks))));
+  }
+
+  // How tall to draw each mark's bar, or null for no bars at all.
+  //
+  // Only while ONE asset is in view — pinned from the holdings table, or a bot that only ever
+  // bought the one thing, which is the same question and so the same test. Across several assets
+  // a bar would invite a comparison it cannot support: the marks of a stack are already ranked by
+  // size, and bars of different assets rising from different stacks are not on any shared ruler.
+  //
+  // Normalized against the largest buy IN VIEW, so the tallest bar is always the same height and
+  // the rest are read against it. Narrowing the range renormalizes — the question is which of
+  // these buys was the big one, not how they measure against a month the reader has scrolled off.
+  #bars(stacks) {
+    const buys = stacks.flatMap((stack) => [...stack.assets.values()]);
+    if (new Set(buys.map((buy) => buy.symbol)).size !== 1) return null;
+
+    const max = Math.max(...buys.map((buy) => buy.quote));
+    // Every buy the same size is not a reason to draw one tall bar and the rest at nothing, and
+    // a zero total would divide by zero.
+    return max > 0 ? { max, height: this.chart.chartArea.height * BAR_HEIGHT } : null;
   }
 
   // A crowd of buys as one column, and the card that reads it out.
-  #stack({ from, to, assets }, width) {
+  #stack({ from, to, assets }, width, bars) {
     const column = document.createElement("div");
     column.className = "widget--chart__buys__stack";
     // Centred on the crowd it stands for, then kept inside the plot so an edge mark is whole.
@@ -614,7 +638,7 @@ export default class extends Controller {
     // Opened on the one the reader can actually see: the logo on top is the mark they aimed at.
     this.#showBuy(card, buys.length - 1);
 
-    column.append(...buys.map((buy, i) => this.#mark(buy, i)), card);
+    column.append(...buys.map((buy, i) => this.#mark(buy, i, bars)), card);
     // One card per stack, held open by the stack's own :hover — moving from one mark to the next
     // changes what it says instead of tearing it down and building it again a few pixels over.
     column.addEventListener("mouseover", (event) => {
@@ -628,10 +652,21 @@ export default class extends Controller {
   // in, so a closed stack shows one logo and a column of colours, and an open one shows them all.
   // A symbol the venue has no ticker for has no image and keeps the grey the tables fall back to,
   // rather than dropping the purchase.
-  #mark(buy, index) {
+  #mark(buy, index, bars) {
     const mark = this.#disc(buy.symbol, "widget--chart__buys__mark");
     mark.dataset.buy = index;
+    if (bars) mark.append(this.#bar(buy, bars));
     return mark;
+  }
+
+  // The purchase, standing up out of its own logo: same colour as the disc, because it is the
+  // same asset saying how much of itself was bought here.
+  #bar(buy, { max, height }) {
+    const bar = document.createElement("span");
+    bar.className = "widget--chart__buys__bar";
+    bar.style.height = `${(buy.quote / max) * height}px`;
+    bar.style.background = this.buyLogosValue[buy.symbol]?.color || "#8A9BA8";
+    return bar;
   }
 
   // A coloured disc carrying the asset's logo. The colour is always painted and the image sits
