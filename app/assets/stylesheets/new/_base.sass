@@ -173,6 +173,13 @@ ol, ul
                 line-height: calc(3rem * 0.6)
                 letter-spacing: calc(0.25rem * 0.6)
 
+// Left to right, the way the curve that replaces it is read.
+@keyframes dash-axis-sweep
+    from
+        background-position: 100% 0
+    to
+        background-position: 0 0
+
 // The dashboard headline, and the P/L curve that runs into it.
 //
 // The rule under the number is the chart's ZERO line, which is why it is drawn as an absolute rule
@@ -181,6 +188,9 @@ ol, ul
 // the space under the line is reserved rather than borrowed from the row beneath.
 .dash-intro
     --dash-height: 7rem
+    // How far the curve stops short of the section's top and bottom, so it never runs flush
+    // into the row above or the one below.
+    --dash-inset: 1rem
     position: relative
     display: flex
     min-height: var(--dash-height)
@@ -189,7 +199,7 @@ ol, ul
         // the curve is there yet: the plot arrives on a later trip, and a section that grew when
         // it landed would push the whole dashboard down under the reader's pointer.
         &--plotted
-            min-height: calc(var(--dash-height) * 2)
+            min-height: calc(var(--dash-height) * 2 - var(--dash-inset))
     &::after
         content: ''
         position: absolute
@@ -197,6 +207,21 @@ ol, ul
         right: 0
         top: var(--dash-height)
         border-bottom: 0.1rem solid var(--steel)
+    // The wait, drawn as the zero line itself: same place, same weight, with a light running
+    // along it. Above the rule (which is a later sibling in paint order) because it stands in
+    // for it rather than beside it.
+    &__loading
+        position: absolute
+        z-index: 1
+        left: 0
+        right: 0
+        top: var(--dash-height)
+        height: 0.1rem
+        background: linear-gradient(90deg, var(--steel) 40%, var(--ink) 50%, var(--steel) 60%)
+        background-size: 300% 100%
+        animation: dash-axis-sweep 1.6s linear infinite
+        @media (prefers-reduced-motion: reduce)
+            animation: none
     #global-pnl
         display: flex
         flex: 1
@@ -222,14 +247,15 @@ ol, ul
         max-height: 7rem
         margin-bottom: -1rem
         font-weight: 600 !important
-    // Whatever width the number leaves, and twice the height of the headline: the box above the
-    // zero line, mirrored below it. Fixed rather than cut to each account's worst day — the rest
-    // of the page would otherwise sit at a height that means something only to this curve.
+    // Whatever width the number leaves, and the headline's height less the inset, above the zero
+    // line and mirrored below it. Fixed rather than cut to each account's worst day — the rest of
+    // the page would otherwise sit at a height that means something only to this curve.
     &__spark
         display: flex
         flex: 1
         min-width: 0
-        height: calc(var(--dash-height) * 2)
+        height: calc(var(--dash-height) * 2 - var(--dash-inset) * 2)
+        margin-top: var(--dash-inset)
         // The curve is a desktop reading. On a phone the headline already fills the row, and the
         // space a loss reserves below the line comes out of a layout that has none to give — so
         // the plot goes entirely, and the section is the 7rem box it always was.

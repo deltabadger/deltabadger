@@ -152,4 +152,17 @@ class Bots::IndexPnlSparkTest < ActionDispatch::IntegrationTest
     assert_select '#global-pnl[data-pnl-spark-percent-value]'
     assert_select '#global-pnl[data-pnl-spark-profit-value]', false
   end
+  # The wait is the axis, not a spinner — and the poll that retries it has to be looking for the
+  # same element, or a cold headline never asks again.
+  test 'a cold headline waits on the zero line, and the retry watches that line' do
+    User.any_instance.stubs(:global_pnl_snapshot).returns({ result: nil, loading: true })
+
+    get bots_path
+
+    assert_select '#global-pnl .dash-intro__loading'
+    assert_select '#global-pnl .loader--small', false, 'no spinner in the headline any more'
+    assert_select '.dash-intro[data-broadcast--on-connect-retry-while-value=?]',
+                  '#global-pnl .dash-intro__loading'
+  end
+
 end

@@ -29,7 +29,7 @@
                   data: pnl_pass ? { controller: "broadcast--on-connect",
                                      broadcast__on_connect_method_value: "global_pnl_update",
                                      broadcast__on_connect_retry_while_value:
-                                       ("#global-pnl .loader--small" if @global_pnl_loading) }.compact : {} do %>
+                                       ("#global-pnl .dash-intro__loading" if @global_pnl_loading) }.compact : {} do %>
     <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, denomination: @denomination,
                                                      loading: @global_pnl_loading, history: @global_pnl_history,
                                                      hide_balances: current_user.hide_balances? } %>
