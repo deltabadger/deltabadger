@@ -67,6 +67,7 @@ pt:
             transient_unavailable: "%{exchange} está temporariamente indisponível. O bot tentará novamente de forma automática."
         bots:
             multi_asset:
+                condition_subject: "Esta condição tem de incidir sobre um ativo que o bot detém."
                 min_assets: "Uma carteira tem de incluir pelo menos %{min} ativos."
                 max_assets: "Uma carteira pode incluir, no máximo, %{max} ativos."
                 pair_missing: "%{assets} não podem ser negociados contra o ativo de cotação selecionado na %{exchange_name}."

@@ -67,6 +67,7 @@ nl:
             transient_unavailable: "%{exchange} is tijdelijk niet beschikbaar. De bot probeert het automatisch opnieuw."
         bots:
             multi_asset:
+                condition_subject: "Deze voorwaarde moet betrekking hebben op een asset die de bot aanhoudt."
                 min_assets: "Een portefeuille moet minstens %{min} activa bevatten."
                 max_assets: "Een portefeuille kan maximaal %{max} activa bevatten."
                 pair_missing: "%{assets} kunnen op %{exchange_name} niet tegenover het gekozen noteringsactivum worden verhandeld."

@@ -68,6 +68,7 @@ en:
             transient_unavailable: "%{exchange} is temporarily unavailable. The bot will retry automatically."
         bots:
             multi_asset:
+                condition_subject: "This condition must watch an asset the bot holds."
                 min_assets: "A portfolio needs at least %{min} assets."
                 max_assets: "A portfolio can hold up to %{max} assets."
                 pair_missing: "%{assets} cannot be traded against the selected quote asset on %{exchange_name}."

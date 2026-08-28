@@ -60,6 +60,7 @@ sv:
             transient_unavailable: "%{exchange} är tillfälligt otillgänglig. Boten försöker igen automatiskt."
         bots:
             multi_asset:
+                condition_subject: "Det här villkoret måste gälla en tillgång som boten innehar."
                 min_assets: "En portfölj måste innehålla minst %{min} tillgångar."
                 max_assets: "En portfölj kan innehålla högst %{max} tillgångar."
                 pair_missing: "%{assets} kan inte handlas mot den valda noteringstillgången på %{exchange_name}."

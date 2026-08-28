@@ -60,6 +60,7 @@ cs:
             transient_unavailable: "%{exchange} je dočasně nedostupná. Bot to automaticky zkusí znovu."
         bots:
             multi_asset:
+                condition_subject: "Tato podmínka se musí týkat aktiva, které bot drží."
                 min_assets: "Portfolio musí obsahovat alespoň %{min} aktiv."
                 max_assets: "Portfolio může obsahovat nejvýše %{max} aktiv."
                 pair_missing: "%{assets} nelze na burze %{exchange_name} obchodovat proti vybranému kotovanému aktivu."

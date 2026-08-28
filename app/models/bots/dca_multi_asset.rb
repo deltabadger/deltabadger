@@ -14,6 +14,7 @@ class Bots::DcaMultiAsset < Bot
   validate :validate_unchangeable_interval, on: :update
   validate :validate_unchangeable_exchange, on: :update
   validate :validate_tickers_available, on: :start
+  validate :validate_condition_subjects_in_composition
 
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
   # Derivation is database-only, so reconcile synchronously and never expose stale composition rows.
@@ -60,6 +61,7 @@ class Bots::DcaMultiAsset < Bot
   self.asset_id_setting_keys = %i[quote_asset_id]
 
   COMPOSITION_KEYS = %w[allocations quote_asset_id].freeze
+  CONDITION_TICKER_KEYS = %w[price_limit price_drop_limit moving_average_limit indicator_limit].freeze
 
   def parse_params(params)
     parsed = {
@@ -215,6 +217,30 @@ class Bots::DcaMultiAsset < Bot
 
     base_asset_ids.all? do |id|
       exchange.tickers.available.trading_enabled.exists?(base_asset_id: id, quote_asset_id:)
+    end
+  end
+
+  # A condition may only watch an asset the basket will still hold after this save. Checked against
+  # base_asset_ids — the allocations being written — rather than the persisted membership rows, so a
+  # submit that drops the watched asset is rejected instead of leaving the condition pointed at an
+  # asset the bot no longer trades.
+  #
+  # ENABLED conditions only. Each concern's set_*_in_ticker_id callback populates a default subject
+  # whether or not the condition is switched on, so validating every populated key would make a
+  # member unremovable just because a disabled condition happened to default to it.
+  def validate_condition_subjects_in_composition
+    return if base_asset_ids.empty? || exchange.blank?
+
+    allowed = exchange.tickers.where(base_asset_id: base_asset_ids, quote_asset_id:).pluck(:id)
+    return if allowed.empty?
+
+    CONDITION_TICKER_KEYS.each do |prefix|
+      next unless public_send("#{prefix}ed?")
+
+      value = settings["#{prefix}_in_ticker_id"]
+      next if value.blank? || allowed.include?(value.to_i)
+
+      errors.add(:settings, :invalid, message: I18n.t('errors.bots.multi_asset.condition_subject'))
     end
   end
 

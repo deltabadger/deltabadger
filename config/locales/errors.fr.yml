@@ -54,6 +54,7 @@ fr:
             transient_unavailable: "%{exchange} est temporairement indisponible. Le bot réessaiera automatiquement."
         bots:
             multi_asset:
+                condition_subject: "Cette condition doit porter sur un actif détenu par le bot."
                 min_assets: "Un portefeuille doit contenir au moins %{min} actifs."
                 max_assets: "Un portefeuille peut contenir au maximum %{max} actifs."
                 pair_missing: "%{assets} ne peuvent pas être échangés contre l’actif de cotation sélectionné sur %{exchange_name}."

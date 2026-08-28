@@ -203,6 +203,7 @@ class BotsController < ApplicationController
       :remove_asset_id,
       :normalize_allocations,
       *(Bots::DcaMultiAsset.stored_attributes[:settings] - %i[allocations base_asset_ids]),
+      *BUY_TRIGGER_MODE_KEYS,
       allocations: {}
     )
   end

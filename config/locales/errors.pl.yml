@@ -67,6 +67,7 @@ pl:
             transient_unavailable: "%{exchange} jest chwilowo niedostępny. Bot automatycznie ponowi próbę."
         bots:
             multi_asset:
+                condition_subject: "Ten warunek musi dotyczyć aktywa, które bot posiada."
                 min_assets: "Minimalna liczba aktywów w portfelu: %{min}."
                 max_assets: "Maksymalna liczba aktywów w portfelu: %{max}."
                 pair_missing: "Na giełdzie %{exchange_name} nie można handlować aktywami %{assets} względem wybranego aktywa kwotowanego."
