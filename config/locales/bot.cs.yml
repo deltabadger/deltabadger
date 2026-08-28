@@ -136,6 +136,7 @@ cs:
                 average_price: 'Průměrná cena'
                 bought: Nakoupeno
                 chart:
+                    orders: 'Zobrazit příkazy'
                     modes: 'Režim grafu'
                     pnl: 'P/L'
                     total_invested: 'Celkem investováno'

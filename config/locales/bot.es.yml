@@ -138,6 +138,7 @@ es:
                 average_price: 'Precio medio'
                 bought: Comprado
                 chart:
+                    orders: 'Mostrar órdenes'
                     modes: 'Modo del gráfico'
                     pnl: 'P/L'
                     total_invested: 'Total invertido'

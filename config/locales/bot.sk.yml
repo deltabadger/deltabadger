@@ -136,6 +136,7 @@ sk:
                 average_price: 'Priemerná cena'
                 bought: Nakúpené
                 chart:
+                    orders: 'Zobraziť príkazy'
                     modes: 'Režim grafu'
                     pnl: 'P/L'
                     total_invested: 'Celkom investované'

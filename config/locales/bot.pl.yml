@@ -138,6 +138,7 @@ pl:
                 average_price: 'Średnia cena'
                 bought: Zakupione
                 chart:
+                    orders: 'Pokaż zlecenia'
                     modes: 'Tryb wykresu'
                     pnl: 'P/L'
                     total_invested: 'Zainwestowana suma'

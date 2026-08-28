@@ -104,12 +104,26 @@
                  data-bot--chart-target="percent">&nbsp;</div>
           </div>
         </div>
+        <%# The marks live INSIDE the plot, hanging off its floor: they are a reading of the same
+            curve, at the same x scale, and a strip below the chart made them a second thing to
+            look at. The row itself has no height at all — the stacks hang upward over the plot,
+            so showing them never moves the chart or the page. %>
         <div class="widget--chart__plot">
           <canvas data-bot--chart-target="analyzerChart" width="10" height="2"></canvas>
+          <div class="widget--chart__buys" data-bot--chart-target="buys"></div>
         </div>
-        <%# Positioned from the chart's own x scale, so it shares the plot's width and nothing else.
-            Populated by the controller after every build. %>
-        <div class="widget--chart__buys" data-bot--chart-target="buys"></div>
+        <%# Off by choice, not by default: the marks sit over the curve, and a reader who came for
+            the shape of the line should get the line. The choice is remembered per browser. %>
+        <div class="widget--chart__orders">
+          <label class="toggle-group">
+            <div class="toggle">
+              <input type="checkbox" data-bot--chart-target="orders"
+                     data-action="change->bot--chart#toggleOrders">
+              <div class="toggle__style"></div>
+            </div>
+            <span class="toggle-group__info__label"><%= t('bot.details.stats.chart.orders') %></span>
+          </label>
+        </div>
 
       <% end %>
     <% end %>

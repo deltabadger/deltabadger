@@ -138,6 +138,7 @@ fr:
                 average_price: 'Prix moyen'
                 bought: 'Acheté'
                 chart:
+                    orders: 'Afficher les commandes'
                     modes: 'Mode du graphique'
                     pnl: 'P/L'
                     total_invested: 'Total investi'

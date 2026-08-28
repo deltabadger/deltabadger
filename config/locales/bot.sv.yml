@@ -136,6 +136,7 @@ sv:
                 average_price: 'Snittpris'
                 bought: Köpt
                 chart:
+                    orders: 'Visa ordrar'
                     modes: 'Diagramläge'
                     pnl: 'P/L'
                     total_invested: 'Totalt investerat'

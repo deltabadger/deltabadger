@@ -138,6 +138,7 @@ nl:
                 average_price: 'Gemiddelde prijs'
                 bought: Gekocht
                 chart:
+                    orders: 'Orders tonen'
                     modes: 'Grafiekmodus'
                     pnl: 'P/L'
                     total_invested: 'Totaal geïnvesteerd'

@@ -17,10 +17,12 @@ const LOGO_SIZE = 16;
 // number `_widget.sass` shingles them by. Only the CLOSED step is needed here — opening a stack
 // is the stylesheet's business, and deliberately does not resize the row.
 const LOGO_STEP = 4;
+// Where the "Show orders" choice lives. Not keyed by bot: it is a way of reading a chart.
+const ORDERS_KEY = "bot-chart:orders";
 
 // Connects to data-controller="bot--chart"
 export default class extends Controller {
-  static targets = ["analyzerChart", "summary", "date", "pnl", "percent", "buys"];
+  static targets = ["analyzerChart", "summary", "date", "pnl", "percent", "buys", "orders"];
   static values = {
     series: Array,
     labels: Array,
@@ -59,6 +61,11 @@ export default class extends Controller {
     // wide in the plot's top-left corner. Seeding previousWidth keeps that first delivery from
     // drawing it a second time; the observer's job is REDRAWING at a new width.
     this.previousWidth = this.element.offsetWidth;
+    // Restored before the first build, so the marks are either there from the start or never
+    // drawn at all. Like the mode switch, this outlives the ~5-minute broadcast that destroys
+    // this controller and re-renders the checkbox on its default.
+    this.showOrders = this.#storedOrders;
+    if (this.hasOrdersTarget) this.ordersTarget.checked = this.showOrders;
     this.#buildChart();
     this.resizeObserver = new ResizeObserver(() => {
       // Cancel any pending resize handlers
@@ -104,6 +111,29 @@ export default class extends Controller {
     this.currentMode = event.detail.value;
     this.#buildChart();
     this.#renderSummary();
+  }
+
+  // --- the buy marks, on or off ---------------------------------------------------
+  //
+  // Off by default: the marks hang over the curve, and a reader who came for the shape of the
+  // line should get the line. Remembered per browser, never per bot — it is a way of reading a
+  // chart, not a property of one.
+  toggleOrders() {
+    this.showOrders = this.ordersTarget.checked;
+    try {
+      localStorage.setItem(ORDERS_KEY, this.showOrders ? "1" : "0");
+    } catch {
+      // Not being able to remember a choice is not a reason to fail making it.
+    }
+    this.#renderBuys();
+  }
+
+  get #storedOrders() {
+    try {
+      return localStorage.getItem(ORDERS_KEY) === "1";
+    } catch {
+      return false; // storage can be denied outright (private mode, embedded webview)
+    }
   }
 
   // --- the window in view -----------------------------------------------------------
@@ -500,12 +530,16 @@ export default class extends Controller {
   // --- the buys under the plot -------------------------------------------------------
   //
   // One mark per executed buy, placed on the chart's own x scale so a mark sits under the point
-  // it moved. Marks whose logos would overlap by more than half their width collapse into one
-  // stack — and a stack carries each asset ONCE, summing what that asset bought across the
-  // crowd, so an index bot buying eleven coins in one second reads as eleven assets rather than
-  // as however many fills the exchange split them into.
+  // it moved, and hanging off the floor of the plot itself rather than in a strip below it.
+  // Marks whose logos would overlap by more than half their width collapse into one stack — and
+  // a stack carries each asset ONCE, summing what that asset bought across the crowd, so an
+  // index bot buying eleven coins in one second reads as eleven assets rather than as however
+  // many fills the exchange split them into.
   #renderBuys() {
     if (!this.hasBuysTarget) return;
+    // Nothing is drawn at all while the marks are off — on a twenty-asset index this is hundreds
+    // of elements, and hiding them in CSS would build them anyway on every redraw.
+    if (!this.showOrders) return this.buysTarget.replaceChildren();
 
     const scale = this.chart.scales.x;
     const size = LOGO_SIZE;
@@ -550,43 +584,52 @@ export default class extends Controller {
       });
 
     const width = scale.right;
-    this.buysTarget.replaceChildren(
-      ...stacks.map((stack) => {
-        const column = document.createElement("div");
-        column.className = "widget--chart__buys__stack";
-        // Centred on the crowd it stands for, then kept inside the plot so an edge mark is whole.
-        // Offset by half a logo here rather than with a translate: a transform would make this
-        // element the containing block for the tooltips' `position: fixed`.
-        const centre = (stack.from + stack.to) / 2;
-        column.style.left = `${Math.min(Math.max(centre, size / 2), width - size / 2) - size / 2}px`;
-        // SMALLEST first, because the last one painted is the one on top: the biggest buy of the
-        // crowd is the one wearing its logo while the stack is closed, and the also-rans are the
-        // slivers behind it.
-        const buys = [...stack.assets.values()].sort((a, b) => a.quote - b.quote);
-        column.append(...buys.map((buy) => this.#mark(buy)));
-        return column;
-      })
-    );
-    // Only as tall as the tallest CLOSED stack: opening one lifts its slivers up over the plot
-    // rather than growing the row, which would shove the whole page down on hover.
-    const tallest = Math.max(0, ...stacks.map((stack) => stack.assets.size));
-    this.buysTarget.style.height = tallest ? `${size + (tallest - 1) * LOGO_STEP}px` : "0";
+    this.buysTarget.replaceChildren(...stacks.map((stack) => this.#stack(stack, width)));
+  }
+
+  // A crowd of buys as one column, and the card that reads it out.
+  #stack({ from, to, assets }, width) {
+    const column = document.createElement("div");
+    column.className = "widget--chart__buys__stack";
+    // Centred on the crowd it stands for, then kept inside the plot so an edge mark is whole.
+    // Offset by half a logo here rather than with a translate: a transform would make this the
+    // containing block for anything positioned against the viewport inside it.
+    const centre = Math.min(Math.max((from + to) / 2, LOGO_SIZE / 2), width - LOGO_SIZE / 2);
+    column.style.left = `${centre - LOGO_SIZE / 2}px`;
+    // The card sits on whichever side has the room. Decided from the mark's own place on the
+    // axis, so the one thing that could push it off-screen is the one thing it is measured on.
+    if (centre > width / 2) column.classList.add("widget--chart__buys__stack--flip");
+
+    // SMALLEST first, because the last one painted is the one on top: the biggest buy of the
+    // crowd is the one wearing its logo while the stack is closed, and the also-rans are the
+    // slivers behind it.
+    const buys = [...assets.values()].sort((a, b) => a.quote - b.quote);
+    const card = document.createElement("div");
+    card.className = "widget--chart__buys__tip";
+    // Seeded with the one the reader can actually see: entering the stack anywhere has to put
+    // SOMETHING in the card, and the logo on top is the mark they were aiming at.
+    this.#fillTip(card, buys.at(-1));
+
+    column.append(...buys.map((buy, i) => this.#mark(buy, i)), card);
+    // One card per stack, held open by the stack's own :hover — moving from one mark to the next
+    // changes what it says instead of tearing it down and building it again a few pixels over.
+    column.addEventListener("mouseover", (event) => {
+      const mark = event.target.closest(".widget--chart__buys__mark");
+      if (mark) this.#fillTip(card, buys[Number(mark.dataset.buy)]);
+    });
+    return column;
   }
 
   // A coloured disc wearing the asset's logo. The disc is the mark: the logo on top of it fades
   // in, so a closed stack shows one logo and a column of colours, and an open one shows them all.
   // A symbol the venue has no ticker for has no image and keeps the grey the tables fall back to,
   // rather than dropping the purchase.
-  #mark(buy) {
+  #mark(buy, index) {
     const asset = this.buyLogosValue[buy.symbol] || {};
     const mark = document.createElement("span");
     mark.className = "widget--chart__buys__mark";
     mark.style.background = asset.color || "#8A9BA8";
-    // The app's own hover card, so these read like every other tooltip on the page. Fixed, or the
-    // bubble would be cut off by the stack it belongs to.
-    mark.dataset.controller = "tooltip";
-    mark.dataset.tooltipFixedValue = "true";
-    mark.dataset.action = "mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip";
+    mark.dataset.buy = index;
 
     if (asset.image) {
       const logo = document.createElement("img");
@@ -596,27 +639,24 @@ export default class extends Controller {
       logo.loading = "lazy";
       mark.append(logo);
     }
-    mark.append(this.#markTooltip(buy));
     return mark;
   }
 
   // What the crowd under this logo actually bought: when, what, how much, and at what it went
   // through. The price is DERIVED from the two totals rather than read off a row, so a mark that
   // stands for several fills states the price the money as a whole moved at.
-  #markTooltip(buy) {
-    const tooltip = document.createElement("div");
-    tooltip.className = "tooltip tooltip--hint widget--chart__buys__tip";
+  #fillTip(card, buy) {
     const when = buy.first === buy.last
       ? this.#date(buy.first)
       : `${this.#date(buy.first)} – ${this.#date(buy.last)}`;
     // The count only earns its place when the mark is standing for more than one buy.
     const fills = buy.fills > 1 ? ` · ×${buy.fills}` : "";
-    tooltip.append(
+    card.replaceChildren(
       this.#tipLine(`${when}${fills}`, "widget--chart__buys__tip__when"),
       this.#tipLine(`${this.#amount(buy.amount)} ${buy.symbol}`),
-      this.#tipLine(`@ ${this.#money(buy.quote / buy.amount, { signed: false })}`)
+      this.#tipLine(`@ ${this.#money(buy.quote / buy.amount, { signed: false })}`,
+                    "widget--chart__buys__tip__price")
     );
-    return tooltip;
   }
 
   #tipLine(text, className) {

@@ -113,22 +113,24 @@
                 font-size: 2.5rem
                 line-height: 2.5rem
         &__plot
-            width: 100%
-            aspect-ratio: 10 / 2
-        // The buys under the plot. Absolutely positioned from the chart's x scale, so this box
-        // only has to be the same width as the canvas and as tall as the tallest CLOSED stack —
-        // the controller sets that height, and an empty row collapses to nothing.
-        &__buys
             position: relative
             width: 100%
-            // Anchored at the BOTTOM, so opening a stack lifts its slivers up over the plot
-            // instead of pushing the page around: the big buy wearing the logo never moves.
+            aspect-ratio: 10 / 2
+        // The buys, hanging off the FLOOR of the plot they belong to. The row has no height of
+        // its own — the stacks are anchored to its baseline and grow upward over the curve — so
+        // turning the marks on never moves the chart, the toggle under it, or the page.
+        &__buys
+            position: absolute
+            left: 0
+            right: 0
+            bottom: 0
+            height: 0
             &__stack
                 position: absolute
                 bottom: 0
                 display: flex
                 flex-direction: column
-                // The open stack is drawn over its neighbours, not woven between them.
+                // The open stack, and its card, are drawn over the neighbours either side.
                 &:hover
                     z-index: 2
             // One buy. The disc is the asset's colour and is always there; the logo on top of it
@@ -143,7 +145,7 @@
                 border-radius: 50%
                 box-shadow: var(--shadow-paper)
                 // Closed, each mark behind the top one shows a 0.5rem sliver; open, 1rem of each.
-                // `LOGO_STEP` in the controller measures the closed box from the same number.
+                // `LOGO_STEP` in the controller measures the closed stack from the same number.
                 + .widget--chart__buys__mark
                     margin-top: -1.5rem
                 .asset-logo
@@ -153,20 +155,59 @@
                     height: 100%
                     opacity: 0
                     transition: opacity 0.15s ease-out
-                &:last-child .asset-logo
+                // `of-type`, NOT `last-child`: the card is the stack's last child, so the top
+                // mark — a span among spans — is the last of ITS type and nothing else is.
+                &:last-of-type .asset-logo
                     opacity: 1
             &__stack:hover &__mark
                 + .widget--chart__buys__mark
                     margin-top: -1rem
                 .asset-logo
                     opacity: 1
-            // The bubble is a summary, not a sentence: left-aligned lines, its own line height.
+            // The card sits BESIDE the stack, not under it: the stack unfolds upward over the
+            // plot, and a card below would be the one thing covering the curve the reader is
+            // reading. Held open by the stack's own :hover, so moving between marks rewrites it
+            // rather than dismissing it.
             &__tip
-                text-align: center
-                line-height: 1.6
+                position: absolute
+                left: 100%
+                bottom: 0
+                margin-left: 1rem
+                opacity: 0
+                pointer-events: none
+                transition: opacity 0.1s ease-out
+                padding: 1.25rem 1.5rem
                 white-space: nowrap
+                text-align: left
+                line-height: 1.5
+                font-size: 1.75rem
+                font-weight: 600
+                // The dropdown's surface, so a card that appears over the page reads as the same
+                // kind of object as every other floating box here.
+                background: var(--dropdown-bg)
+                border-radius: 1rem
+                box-shadow: 0 0 0 0.125rem var(--dropdown-border) inset, 0 0.5rem 1rem 0 rgba(6, 26, 79, 0.10)
                 &__when
-                    opacity: 0.7
+                    color: var(--concrete)
+                    font-size: 1.5rem
+                &__price
+                    color: var(--concrete)
+            // Near the right edge there is no room on the right.
+            &__stack--flip &__tip
+                left: auto
+                right: 100%
+                margin-left: 0
+                margin-right: 1rem
+            &__stack:hover &__tip
+                opacity: 1
+        // The marks are a way of reading the chart, so their switch lives under it rather than
+        // beside the mode control, which changes what the curve IS.
+        &__orders
+            display: flex
+            justify-content: flex-end
+            .toggle-group
+                cursor: pointer
+                gap: 1rem
         // Spacing only — the control itself is .segmented. The switch is 4rem tall and the date
         // line beside it is 1.5rem at line-height 1.5 (2.25rem), so lifting it by half the
         // difference puts the two centre lines on the same row.
