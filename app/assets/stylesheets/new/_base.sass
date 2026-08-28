@@ -185,7 +185,11 @@ ol, ul
     display: flex
     min-height: var(--dash-height)
     @media only screen and (min-width: 768px)
-        display: flex
+        // A section that will hold a plot holds its height from the first paint, whether or not
+        // the curve is there yet: the plot arrives on a later trip, and a section that grew when
+        // it landed would push the whole dashboard down under the reader's pointer.
+        &--plotted
+            min-height: calc(var(--dash-height) * 2)
     &::after
         content: ''
         position: absolute
@@ -200,9 +204,6 @@ ol, ul
         min-height: var(--dash-height)
         align-items: flex-start
         justify-content: flex-end
-        // The one thing here that still belongs at the bottom of the box.
-        > .loader--small
-            align-self: flex-end
     // The number is set at 8.2rem in a 7rem line box and pulled a further 1rem down: it is MEANT
     // to sit on the line and be cropped by it, which is what this box keeps doing now that the
     // section itself has to let the curve out.
