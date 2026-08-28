@@ -58,7 +58,7 @@ class TrackerHideBalancesTest < ActionDispatch::IntegrationTest
 
     get tracker_path
 
-    assert_select '.tracker-holdings__ring svg path', 2
+    assert_select '.tracker-holdings__ring svg circle', 2
     assert_no_match(/30000|30,000|10,000/, response.body)
   end
 

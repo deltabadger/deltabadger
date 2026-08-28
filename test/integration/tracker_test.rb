@@ -71,7 +71,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
     assert_response :success
 
     # The ring is drawn server-side — no chart library, and no pie/list toggle to discover.
-    assert_select '.tracker-holdings__ring svg path', 2
+    assert_select '.tracker-holdings__ring svg circle', 2
     assert_select '[data-controller="donut-chart"]', false
     assert_select '.pie-legend', false
 

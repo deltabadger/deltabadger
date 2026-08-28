@@ -30,7 +30,10 @@
       <div class="tracker-holdings__ring">
         <svg viewBox="0 0 230 230" role="img" aria-label="<%= t('tracker.holdings') %>">
           <% holdings_ring_arcs(holdings).each do |arc| %>
-            <path d="<%= arc[:d] %>" stroke="<%= arc[:color] %>" stroke-width="14" fill="none"><title><%= arc[:label] %></title></path>
+            <circle cx="<%= TrackerHelper::RING_CENTRE %>" cy="<%= TrackerHelper::RING_CENTRE %>"
+                    r="<%= TrackerHelper::RING_RADIUS %>" fill="none" stroke="<%= arc[:color] %>"
+                    stroke-width="<%= TrackerHelper::RING_STROKE %>" stroke-linecap="round"
+                    stroke-dasharray="<%= arc[:dash] %>" stroke-dashoffset="<%= arc[:offset] %>"><title><%= arc[:label] %></title></circle>
           <% end %>
         </svg>
         <div class="tracker-holdings__centre">

@@ -1,37 +1,43 @@
 module TrackerHelper
   # The allocation ring. Flat, one arc per holding, drawn server-side: it is a picture of numbers
-  # the page already has, so there is nothing for a chart library to fetch or animate.
+  # the page already has, so there is nothing for a chart library to fetch or animate. Drawn as
+  # dashed circles by the same code as the menu icon below — same gaps, same round caps, same
+  # guaranteed minimum — because it is the same ring at a different size.
   RING_RADIUS = 100
   RING_CENTRE = 115
-  RING_GAP_DEGREES = 2.6
-  # Under 2% a 14px stroke cannot draw an arc as anything but a cap, and caps overlap their
-  # neighbours — so the tail folds into one neutral slice instead.
+  RING_CIRCUMFERENCE = 2 * Math::PI * RING_RADIUS
+  RING_STROKE = 7
+  # Between slices, in viewBox units.
+  RING_GAP = 4.5
+  RING_MIN_SPAN = RING_GAP + RING_STROKE
+  # The tail folds into one neutral slice: a round cap already guarantees a holding under 2% is
+  # drawn as a dot rather than nothing, but a ring of dots is not a reading of a portfolio.
   RING_MIN_SHARE = 0.02
   NEUTRAL_COLOR = '#8A9BA8'.freeze
   # Exchanges round dust differently, so the ledger and the balance never match to the last digit.
   # A gap wider than this is missing history, not rounding, and no P/L beats a wrong one.
   RECONCILE_TOLERANCE = 0.02
 
-  # [{ d:, color:, label: }] in the order the rows are listed.
+  # [{ color:, dash:, offset:, label: }] in the order the rows are listed. The card's SVG is turned
+  # a quarter turn by CSS, so the dashes are walked from where a dashed circle starts.
   def holdings_ring_arcs(holdings)
     total = holdings.sum(0.to_d, &:value)
     return [] unless total.positive?
 
     small, large = holdings.partition { |holding| holding.value / total < RING_MIN_SHARE }
-    arcs = large.map do |holding|
-      [holding.value, ensure_contrast(holding.asset.color.presence || NEUTRAL_COLOR), holding.asset.symbol]
+    # A single small holding is not an "other" — there is nothing to gather it with, and grey says
+    # a name is being withheld. It keeps its own colour and its own name; a round cap draws it as a
+    # dot whatever it is worth. Same reasoning as the icon's, which drops a lone tail rather than
+    # miscolour it — 24px has no room for the dot this ring has.
+    if small.one?
+      large = holdings
+      small = []
     end
+    slices = large.map { |holding| [holding.value, holding.asset.color, holding.asset.symbol] }
     folded = small.sum(0.to_d, &:value)
-    arcs << [folded, NEUTRAL_COLOR, t('tracker.other')] if folded.positive?
+    slices << [folded, NEUTRAL_COLOR, t('tracker.other')] if folded.positive?
 
-    angle = 0.0
-    arcs.map do |value, color, label|
-      sweep = (value / total).to_f * 360
-      gap = [RING_GAP_DEGREES, sweep / 2].min
-      arc = { d: ring_arc_path(angle + (gap / 2), angle + sweep - (gap / 2)), color: color, label: label }
-      angle += sweep
-      arc
-    end
+    dashed_ring(slices, circumference: RING_CIRCUMFERENCE, min_span: RING_MIN_SPAN)
   end
 
   # == the menu icon is this ring, small ==
@@ -444,7 +450,10 @@ module TrackerHelper
     position.avg_cost_usd * quantity
   end
 
-  def icon_arcs(pairs) = icon_ring(icon_slices(pairs))
+  def icon_arcs(pairs)
+    dashed_ring(icon_slices(pairs), circumference: ICON_CIRCUMFERENCE, min_span: ICON_MIN_SPAN,
+                                    start: -ICON_CIRCUMFERENCE / 4)
+  end
 
   # [value, color] largest first, with the tail the card's ring also gathers — everything under
   # RING_MIN_SHARE, deliberately the same threshold — as one neutral slice, last. ONLY the tail:
@@ -472,72 +481,61 @@ module TrackerHelper
     large.first(ICON_MAX_SLICES - 1) + [[gathered, NEUTRAL_COLOR]]
   end
 
-  # The span each slice is laid out in, in the order given. Every slice is guaranteed its minimum
+  # The span each slice is laid out in, in the order given. Every slice is guaranteed `min_span`
   # and only what is left over is shared out by value, so the gaps and the smallest dot are the
   # same size wherever they fall — the small slices come out a little large and the big ones a
   # little short. Lifting one takes circumference from the others and can push another under the
   # minimum, so the pass repeats; it lifts at least one slice each time, so it cannot run away.
-  def icon_spans(slices)
+  def ring_spans(slices, circumference, min_span)
     return [] if slices.empty?
 
     total = slices.sum(0.to_d) { |value, _| value }
     shares = slices.map { |value, _| (value / total).to_f }
     lifted = []
     loop do
-      short = icon_short_spans(shares, lifted)
+      short = ring_short_spans(shares, lifted, circumference, min_span)
       break if short.empty?
 
       lifted.concat(short)
     end
-    return Array.new(shares.size, ICON_CIRCUMFERENCE / shares.size) if lifted.size == shares.size
+    return Array.new(shares.size, circumference / shares.size) if lifted.size == shares.size
 
-    spare, weight = icon_spare(shares, lifted)
-    shares.each_index.map { |i| lifted.include?(i) ? ICON_MIN_SPAN : (shares[i] / weight) * spare }
+    spare, weight = ring_spare(shares, lifted, circumference, min_span)
+    shares.each_index.map { |i| lifted.include?(i) ? min_span : (shares[i] / weight) * spare }
   end
 
   # Which of the slices not yet lifted cannot pay for their own minimum out of what is left.
-  def icon_short_spans(shares, lifted)
-    spare, weight = icon_spare(shares, lifted)
+  def ring_short_spans(shares, lifted, circumference, min_span)
+    spare, weight = ring_spare(shares, lifted, circumference, min_span)
     shares.each_index.reject { |i| lifted.include?(i) }
-          .select { |i| (shares[i] / weight) * spare < ICON_MIN_SPAN }
+          .select { |i| (shares[i] / weight) * spare < min_span }
   end
 
   # What the slices still paying their own way have to share, and what they are worth between them.
-  def icon_spare(shares, lifted)
-    [ICON_CIRCUMFERENCE - (lifted.size * ICON_MIN_SPAN),
+  def ring_spare(shares, lifted, circumference, min_span)
+    [circumference - (lifted.size * min_span),
      shares.each_with_index.sum { |share, i| lifted.include?(i) ? 0.0 : share }]
   end
 
-  # The slices drawn. Each sits inside its own span, half a gap and half a round cap in from each
-  # end, so no arc bleeds into its neighbour and every gap is the same.
+  # The slices drawn, as one dashed circle each — [value, color, label], clockwise in the order
+  # given. Each sits inside its own span, half a gap and half a round cap in from each end, so no
+  # arc bleeds into its neighbour and every gap is the same.
   #
-  # A dashed circle starts at three o'clock and the card's ring is rotated a quarter turn to start
-  # at twelve, so the same quarter turn is walked into the first offset — no transform for the
-  # menu's sizing to survive. Offsets run negative from there because a negative offset is what
-  # walks a dash forward.
-  def icon_ring(slices)
-    spans = icon_spans(slices)
-    walked = -ICON_CIRCUMFERENCE / 4
+  # A dashed circle starts at three o'clock. The card's ring is rotated a quarter turn by CSS to
+  # start at twelve; the menu icon has no transform for its sizing to survive, so it walks the same
+  # quarter turn into its first offset instead. Offsets run negative because a negative offset is
+  # what walks a dash forward.
+  def dashed_ring(slices, circumference:, min_span:, start: 0.0)
+    spans = ring_spans(slices, circumference, min_span)
+    walked = start
 
-    slices.each_with_index.map do |(_, color), index|
-      length = spans[index] - ICON_MIN_SPAN
-      arc = { color: ensure_contrast(color.presence || NEUTRAL_COLOR),
-              dash: "#{length.round(2)} #{(ICON_CIRCUMFERENCE - length).round(2)}",
-              offset: -(walked + (ICON_MIN_SPAN / 2)).round(2) }
+    slices.each_with_index.map do |(_, color, label), index|
+      length = spans[index] - min_span
+      arc = { color: ensure_contrast(color.presence || NEUTRAL_COLOR), label: label,
+              dash: "#{length.round(2)} #{(circumference - length).round(2)}",
+              offset: -(walked + (min_span / 2)).round(2) }
       walked += spans[index]
       arc
     end
-  end
-
-  def ring_arc_path(from, to)
-    start_x, start_y = ring_point(from)
-    end_x, end_y = ring_point(to)
-    "M #{start_x} #{start_y} A #{RING_RADIUS} #{RING_RADIUS} 0 #{to - from > 180 ? 1 : 0} 1 #{end_x} #{end_y}"
-  end
-
-  def ring_point(degrees)
-    radians = degrees * Math::PI / 180
-    [(RING_CENTRE + (RING_RADIUS * Math.cos(radians))).round(2),
-     (RING_CENTRE + (RING_RADIUS * Math.sin(radians))).round(2)]
   end
 end
