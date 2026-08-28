@@ -1,5 +1,9 @@
 @use "../variables" as *
 
+// How long a buy stack takes to open: the marks sliding apart, their logos arriving, and the
+// card. Named once so the three stay in step — they are one movement, not three.
+$stack-open: 0.2s ease-out
+
 .widget-group
     border-radius: 2rem
     overflow: hidden
@@ -144,6 +148,10 @@
                 height: 2rem
                 border-radius: 50%
                 box-shadow: var(--shadow-paper)
+                // One duration for everything a stack does — the marks sliding apart, their
+                // logos arriving, the card — so opening one reads as a single movement rather
+                // than three that happen to start together.
+                transition: margin-top $stack-open, opacity $stack-open
                 // Closed, each mark behind the top one shows a 0.5rem sliver; open, 1rem of each.
                 // `LOGO_STEP` in the controller measures the closed stack from the same number.
                 + .widget--chart__buys__mark
@@ -154,7 +162,7 @@
                     width: 100%
                     height: 100%
                     opacity: 0
-                    transition: opacity 0.15s ease-out
+                    transition: opacity $stack-open
                 // `of-type`, NOT `last-child`: the card is the stack's last child, so the top
                 // mark — a span among spans — is the last of ITS type and nothing else is.
                 &:last-of-type .asset-logo
@@ -175,7 +183,7 @@
                 margin-left: 1rem
                 opacity: 0
                 pointer-events: none
-                transition: opacity 0.1s ease-out
+                transition: opacity $stack-open
                 padding: 1.25rem 1.5rem
                 white-space: nowrap
                 text-align: left
@@ -204,10 +212,12 @@
         // beside the mode control, which changes what the curve IS.
         &__orders
             display: flex
-            justify-content: flex-end
-            .toggle-group
-                cursor: pointer
+            > label
+                display: flex
+                align-items: center
                 gap: 1rem
+                cursor: pointer
+                white-space: nowrap
         // Spacing only — the control itself is .segmented. The switch is 4rem tall and the date
         // line beside it is 1.5rem at line-height 1.5 (2.25rem), so lifting it by half the
         // difference puts the two centre lines on the same row.
