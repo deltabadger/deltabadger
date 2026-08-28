@@ -32,9 +32,18 @@ module Tracker
 
     Holding = Data.define(:asset, :quantity, :value, :cost, :unrealised, :note) do
       def percent = cost&.positive? ? ((value / cost) - 1) * 100 : nil
+      # Where money WAITS rather than a position anybody picked — see `Result#without_cash`.
+      def cash? = Tracker::UnfundedCash.cash?(asset.symbol)
     end
 
-    Result = Data.define(:invested, :value, :fees, :realised, :unrealised, :total, :holdings, :notes, :ledger)
+    Result = Data.define(:invested, :value, :fees, :realised, :unrealised, :total, :holdings, :notes, :ledger) do
+      # The portfolio as an ALLOCATION: what was actually invested, normalized by whoever draws it.
+      # Only the list changes — every figure beside it is still the whole portfolio, cash and all,
+      # because hiding a balance is not an accounting choice. One filter here rather than one in
+      # each template is what keeps the card, the ring, the type shares and the positions table
+      # reading from the same list.
+      def without_cash = with(holdings: holdings.reject(&:cash?))
+    end
 
     # `pending` is what the ledger has recorded SINCE the balances were taken — a balance is a
     # snapshot and the bots go on trading, so without it one fill would read as a coin that left.
@@ -263,7 +272,7 @@ module Tracker
     end
 
     def cash?(symbol)
-      Tax::PriceService::FIAT_CURRENCIES.include?(symbol) || Tax::PriceService::STABLECOINS.include?(symbol)
+      UnfundedCash.cash?(symbol)
     end
   end
 end

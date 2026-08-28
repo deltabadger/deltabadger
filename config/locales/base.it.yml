@@ -540,6 +540,7 @@ it:
         transactions: 'Transazioni'
         fees_paid: 'Commissioni pagate'
         synced_ago: 'Sincronizzato %{ago} fa'
+        show_cash: 'Mostra liquidità'
         show_more: 'Mostra altri'
         show_less: 'Mostra meno'
         other: 'Altro'

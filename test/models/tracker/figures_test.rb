@@ -179,4 +179,35 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
     assert_equal %i[figures_disagree left], result.notes.map(&:kind).sort
     assert_equal 500.to_d, result.notes.find { |note| note.kind == :figures_disagree }.amount_usd
   end
+
+  # The one operation "Show cash: off" performs: the cash holdings leave the LIST, and nothing else
+  # moves. Every figure is still the whole portfolio — hiding a balance is not an accounting choice
+  # — and doing it here rather than in each template is what keeps the card, the ring, the type
+  # shares and the positions table reading from one list.
+  test 'without_cash drops the cash holdings and leaves every figure where it was' do
+    tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 1_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 600)
+    balance(@btc, 1, 900)
+    balance(create(:asset, symbol: 'USDC', name: 'USD Coin', external_id: 'usd-coin'), 400, 400)
+
+    full = figures
+    lean = full.without_cash
+
+    assert_equal %w[BTC USDC], full.holdings.map { |holding| holding.asset.symbol }.sort
+    assert_equal(%w[BTC], lean.holdings.map { |holding| holding.asset.symbol })
+    assert_equal full.to_h.except(:holdings), lean.to_h.except(:holdings)
+    assert_equal 1_300.to_d, lean.value, 'the portfolio is still worth what it is worth'
+  end
+
+  # A portfolio with no cash in it is the same portfolio, and a ledger still warming has holdings
+  # to filter before it has any figures at all.
+  test 'without_cash is a no-op on a portfolio holding none, and safe while the ledger warms' do
+    balance(@btc, 1, 900)
+
+    assert_equal figures.holdings, figures.without_cash.holdings
+
+    warming = Tracker::Figures.for(@user, ledger: nil, balances: AccountBalance.for_user(@user).includes(:asset).to_a)
+    assert_nil warming.without_cash.invested
+    assert_equal(%w[BTC], warming.without_cash.holdings.map { |holding| holding.asset.symbol })
+  end
 end

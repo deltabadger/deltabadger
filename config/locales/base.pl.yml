@@ -544,6 +544,7 @@ pl:
         transactions: 'Transakcje'
         fees_paid: 'Zapłacone opłaty'
         synced_ago: 'Zsynchronizowano %{ago} temu'
+        show_cash: 'Pokaż gotówkę'
         show_more: 'Pokaż więcej'
         show_less: 'Pokaż mniej'
         other: 'Inne'

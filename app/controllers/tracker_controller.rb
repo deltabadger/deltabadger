@@ -233,6 +233,13 @@ class TrackerController < ApplicationController
 
   private
 
+  # Cash and stablecoins are where money waits, not a position anybody picked, so the allocation is
+  # drawn without them unless asked. Absent means off: the default is the invested portfolio.
+  def show_cash?
+    current_user.tracker_settings&.dig('show_cash').present?
+  end
+  helper_method :show_cash?
+
   # The page only ever reads, so every key that can read serves it — at most one per venue. Memoized
   # because `index` asks three times.
   def reading_keys
@@ -348,6 +355,10 @@ class TrackerController < ApplicationController
     # contradict each other with nothing able to notice.
     @figures = Tracker::Figures.for(current_user, ledger: @scoped_ledger, balances: balances,
                                                   pending: quantities_since)
+    # The switch beside the venues, applied once. Everything drawn FROM the holdings — the card, the
+    # ring, the type shares, the positions table — follows; every figure stated ABOUT the portfolio
+    # is untouched, because hiding a balance is not an accounting choice.
+    @figures = @figures.without_cash unless show_cash?
     @portfolio_has_keys = reading_keys.any?
     @portfolio_never_synced = @portfolio_has_keys && balances.empty? &&
                               PortfolioSnapshot.watermarks(current_user).values.compact.empty?

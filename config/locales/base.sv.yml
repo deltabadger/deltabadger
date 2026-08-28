@@ -551,6 +551,7 @@ sv:
         transactions: 'Transaktioner'
         fees_paid: 'Betalda avgifter'
         synced_ago: 'Synkroniserad för %{ago} sedan'
+        show_cash: 'Visa kontanter'
         show_more: 'Visa fler'
         show_less: 'Visa färre'
         other: 'Övrigt'

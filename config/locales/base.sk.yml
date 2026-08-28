@@ -559,6 +559,7 @@ sk:
         transactions: 'Transakcie'
         fees_paid: 'Zaplatené poplatky'
         synced_ago: 'Synchronizované pred %{ago}'
+        show_cash: 'Zobraziť hotovosť'
         show_more: 'Zobraziť viac'
         show_less: 'Zobraziť menej'
         other: 'Ostatné'

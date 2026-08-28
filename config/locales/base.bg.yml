@@ -551,6 +551,7 @@ bg:
         transactions: 'Транзакции'
         fees_paid: 'Платени такси'
         synced_ago: 'Синхронизирано преди %{ago}'
+        show_cash: 'Покажи паричните средства'
         show_more: 'Покажи повече'
         show_less: 'Покажи по-малко'
         other: 'Други'
