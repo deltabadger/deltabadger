@@ -171,6 +171,16 @@ $stack-open: 0.2s ease-out
                     height: 2rem
                     opacity: 0
                     transition: opacity $stack-open
+                    // 2% further in than the 2.5% every logo is already cropped by. At 2rem a
+                    // source's own outer ring — a stray border, a hairline of background baked
+                    // into the file — is a pixel or two of noise around a small circle, and here
+                    // it sits against the mark's own colour where it reads as a rim. Eaten by the
+                    // crop rather than scaled, so the logo stays the size the layout expects.
+                    object-view-box: inset(4.5%)
+                    // The MARK casts the shadow; the logo lies on it. `.asset-logo` carries one
+                    // of its own for the tables, where it is the whole object — here that put a
+                    // second shadow inside the first. `!important` because the base rule is.
+                    box-shadow: none !important
                 // `of-type`, NOT `last-child`: the card is the stack's last child, so the top
                 // mark — a span among spans — is the last of ITS type and nothing else is.
                 &:last-of-type .asset-logo
@@ -223,6 +233,11 @@ $stack-open: 0.2s ease-out
                         inset: 0
                         width: 100%
                         height: 100%
+                        // Cropped like the marks', so the card shows the same face as the mark
+                        // the reader pointed at — and, like them, casting no shadow of its own
+                        // inside the disc that already casts one.
+                        object-view-box: inset(4.5%)
+                        box-shadow: none !important
                 // The dropdown's surface, so a card that appears over the page reads as the same
                 // kind of object as every other floating box here.
                 background: var(--dropdown-bg)
