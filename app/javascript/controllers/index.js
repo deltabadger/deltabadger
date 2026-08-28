@@ -136,6 +136,9 @@ application.register("pie-chart", PieChartController)
 import PnlFormatController from "./pnl_format_controller"
 application.register("pnl-format", PnlFormatController)
 
+import PnlSparkController from "./pnl_spark_controller"
+application.register("pnl-spark", PnlSparkController)
+
 import ProgressBarController from "./progress_bar_controller"
 application.register("progress-bar", ProgressBarController)
 

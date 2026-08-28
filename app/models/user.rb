@@ -186,7 +186,8 @@ class User < ApplicationRecord
       target: 'global-pnl',
       partial: 'bots/global_pnl',
       locals: { global_pnl: global_pnl, denomination: denomination, loading: false,
-                hide_balances: hide_balances? }
+                hide_balances: hide_balances?,
+                history: User::PnlHistory.snapshot(self, live: true)[:result] }
     )
   end
 

@@ -1,0 +1,39 @@
+<%# The account's P/L, drawn on the headline's own line, in the language the bot and tracker charts
+    already speak: a smoothed curve, green above the zero line and red below it, a ribbon between
+    the curve and the line, and a dot on the last point.
+
+    Two boxes: the cell, which takes whatever width is left of the number, and the curve inside it,
+    which is only as wide as the history has earned (full width at thirty days) and hangs off the
+    cell's right so it always ENDS at the figure it explains.
+
+    ONE shape per role, clipped into halves rather than drawn twice with the points split: the
+    colour then changes exactly where the curve crosses zero, not at the nearest point to it.
+    preserveAspectRatio="none" because the geometry is written in a 100-unit box and stretched to
+    whatever that leaves — the stroke opts out of the stretch, or it would be a wedge. %>
+<div class="dash-intro__spark">
+  <div class="dash-intro__spark__curve"
+       style="width: <%= spark[:width] %>%"
+       data-pnl-spark-target="curve"
+       data-action="pointermove->pnl-spark#move pointerleave->pnl-spark#leave">
+    <svg viewBox="0 0 100 200" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <%# Deliberately taller than the box on both sides: a peak that reaches an edge would
+            otherwise have half its stroke shaved off by its own half's clip. %>
+        <clipPath id="dash-spark-above"><rect x="0" y="-100" width="100" height="200" /></clipPath>
+        <clipPath id="dash-spark-below"><rect x="0" y="100" width="100" height="200" /></clipPath>
+        <path id="dash-spark-area" d="<%= spark[:area] %>" />
+        <path id="dash-spark-curve" d="<%= spark[:path] %>" vector-effect="non-scaling-stroke" />
+      </defs>
+      <use href="#dash-spark-area" class="dash-intro__spark__area is-gain" clip-path="url(#dash-spark-above)" />
+      <use href="#dash-spark-area" class="dash-intro__spark__area is-loss" clip-path="url(#dash-spark-below)" />
+      <use href="#dash-spark-curve" class="dash-intro__spark__line is-gain" clip-path="url(#dash-spark-above)" />
+      <use href="#dash-spark-curve" class="dash-intro__spark__line is-loss" clip-path="url(#dash-spark-below)" />
+    </svg>
+    <%# The last point, marked where the number above it is read from. The hover dot is the same
+        point in the chart's other state: a ring rather than a disc, on whichever day is under the
+        pointer. %>
+    <span class="dash-intro__spark__end <%= spark[:gain] ? 'is-gain' : 'is-loss' %>"
+          style="top: <%= spark[:end_y] %>%"></span>
+    <span class="dash-intro__spark__dot is-gain" data-pnl-spark-target="dot" hidden></span>
+  </div>
+</div>

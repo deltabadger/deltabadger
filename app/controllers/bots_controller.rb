@@ -64,6 +64,14 @@ class BotsController < ApplicationController
     global_pnl_snapshot = current_user.global_pnl_snapshot(cache_only: true)
     @global_pnl = global_pnl_snapshot[:result]
     @global_pnl_loading = global_pnl_snapshot[:loading]
+    # The same figure over time. Its source is the candle-marked metrics the bot charts use, which
+    # nothing warms in the background — so like the headline it has a waiting state, and the view
+    # asks for the live pass that fills it.
+    if @global_pnl
+      history = User::PnlHistory.snapshot(current_user)
+      @global_pnl_history = history[:result]
+      @global_pnl_history_loading = history[:loading]
+    end
     # Figures stay in USD all the way here; this is the one rate that turns the whole page
     # into the account's chosen fiat.
     @denomination = current_user.denomination
