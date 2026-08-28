@@ -50,7 +50,7 @@ module BotApi
         return ticker_not_found(exchange, @base_asset) unless first
 
         if @second_base_asset.present?
-          create_dual(exchange, first)
+          create_basket(exchange, first)
         else
           create_single(exchange, first)
         end
@@ -84,7 +84,9 @@ module BotApi
         save_and_start(bot)
       end
 
-      def create_dual(exchange, first_asset_ids)
+      # Two assets is a basket. The parameter is still named second_base_asset for compatibility;
+      # the bot behind it is now the general composition type, the same one the wizard builds.
+      def create_basket(exchange, first_asset_ids)
         second = find_pair(exchange, @second_base_asset, @quote_asset)
         return ticker_not_found(exchange, @second_base_asset) unless second
         return invalid_allocation if @allocation.present? && !@allocation.to_f.between?(0, 100)
@@ -92,16 +94,18 @@ module BotApi
         effective_allocation = @allocation.present? ? (@allocation.to_f / 100) : 0.5
 
         bot = @user.bots.new(
-          type: 'Bots::DcaDualAsset',
+          type: 'Bots::DcaMultiAsset',
           exchange: exchange,
           label: @label,
           settings: {
-            'base0_asset_id' => first_asset_ids[:base_asset_id],
-            'base1_asset_id' => second[:base_asset_id],
             'quote_asset_id' => first_asset_ids[:quote_asset_id],
             'quote_amount' => @quote_amount.to_f,
             'interval' => @interval,
-            'allocation0' => effective_allocation
+            'weighting' => 'manual',
+            'allocations' => {
+              first_asset_ids[:base_asset_id].to_s => effective_allocation,
+              second[:base_asset_id].to_s => 1 - effective_allocation
+            }
           }
         )
         save_and_start(bot)
@@ -136,7 +140,7 @@ module BotApi
           type: bot.type,
           status: bot.status.to_s,
           exchange: bot.exchange&.name,
-          pair: pair_label(bot),
+          pair: pair_label,
           quote_asset: @quote_asset.upcase,
           quote_amount: bot.settings['quote_amount'],
           interval: bot.settings['interval'],
@@ -144,8 +148,10 @@ module BotApi
         }
       end
 
-      def pair_label(bot)
-        if bot.dca_dual_asset?
+      # Keyed off the request, not the bot's type: a basket and a single-asset bot no longer differ
+      # by class in a way this can read, and falling through would label a two-asset bot as one.
+      def pair_label
+        if @second_base_asset.present?
           "#{@base_asset.upcase}+#{@second_base_asset.upcase}/#{@quote_asset.upcase}"
         else
           "#{@base_asset.upcase}/#{@quote_asset.upcase}"
