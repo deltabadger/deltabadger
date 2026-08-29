@@ -5,7 +5,7 @@
 .hamburger.hamburger__a
 .hamburger.hamburger__b
 
-.menu-mobile
+.menu-mobile{ data: { controller: 'menu-mobile', action: 'click->menu-mobile#close' } }
   - if single_bot_mode?
     - single_bot_path = bot_path(current_user.bots.not_deleted.first)
     = link_to single_bot_path, class: "menu-mobile__item menu-mobile__item--bots #{'menu-mobile__item--active' if current_page?(single_bot_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do

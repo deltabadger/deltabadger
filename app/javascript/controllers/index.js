@@ -118,6 +118,9 @@ application.register("index-filter", IndexFilterController)
 import MarqueeController from "./marquee_controller"
 application.register("marquee", MarqueeController)
 
+import MenuMobileController from "./menu_mobile_controller"
+application.register("menu-mobile", MenuMobileController)
+
 import Modal__BaseController from "./modal/base_controller"
 application.register("modal--base", Modal__BaseController)
 
