@@ -30,6 +30,6 @@ A portfolio bot has **Smart Intervals**, **FeeCutter** and **Starting time** —
 
 Removing an asset you already hold does not sell it. It moves to the **Removed from portfolio** table, where you can sell it and redeploy the proceeds — see [Index changes](18-index-changes.md).
 
-## Legacy two-asset bots
+## Former two-asset bots
 
-Older two-asset "Rebalanced DCA" bots keep running and stay editable, but new ones can no longer be created — make a portfolio bot with two assets instead.
+Two-asset "Rebalanced DCA" bots were converted into portfolio bots with two assets. Their history, open orders, trading conditions and schedule carried over unchanged; the only visible difference is that the allocation is now edited with the portfolio sliders, and a market-cap-weighted pair follows the stored market caps rather than a live ratio.
