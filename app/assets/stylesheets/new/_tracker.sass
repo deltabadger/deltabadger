@@ -186,7 +186,7 @@
         &:hover
             background: var(--paper-on-washed)
     &--anon &__row
-        grid-template-columns: minmax(0, 1fr) 8rem 18rem 6rem 8rem 2rem
+        grid-template-columns: minmax(0, 1fr) 8rem minmax(0, 2fr) 6rem 8rem 2rem
     &__name
         display: flex
         align-items: center
@@ -321,9 +321,6 @@
         &--stated .tracker-row__price__input
             color: var(--ink)
             font-weight: 600
-        // Nothing could price this. An empty box with a mark on it is the honest reading, and the
-        // one place where typing a price actually changes what the page can say.
-        &--none .tracker-row__price__input
     &__cash
         color: var(--stone)
         font-weight: 450
