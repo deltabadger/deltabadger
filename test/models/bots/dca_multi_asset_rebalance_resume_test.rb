@@ -4,9 +4,18 @@ require 'test_helper'
 # quote cash that #metrics does not model — so the drift reading in that window is wrong in a
 # specific, expensive way: base0 has shrunk and the uncounted cash makes it look underweight, which
 # an unguarded next poll would "fix" by selling base1. These pin the guards that stop that.
-class Bots::DcaDualAssetRebalanceResumeTest < ActiveSupport::TestCase
+class Bots::DcaMultiAssetRebalanceResumeTest < ActiveSupport::TestCase
   def setup
-    @bot = create(:dca_dual_asset, user: create(:user))
+    @bot = create(:dca_multi_asset, user: create(:user))
+    @base0, @base1 = @bot.base_assets
+    # ONE ticker array, pinned: composition_tickers runs a fresh query per call and the rebalancer
+    # reads the memoized `tickers` (asset_configurable.rb:31) — Mocha stubs on one set of instances
+    # never reach the other. The same idiom dca_index_rebalance_test.rb:14 uses.
+    @tickers = @bot.composition_tickers
+    @bot.instance_variable_set(:@tickers, @tickers)
+    @bot.stubs(:composition_tickers).returns(@tickers)
+    @ticker0 = @tickers.find { |ticker| ticker.base_asset_id == @base0.id }
+    @ticker1 = @tickers.find { |ticker| ticker.base_asset_id == @base1.id }
     setup_bot_execution_mocks(@bot, price: 100)
     @bot.exchange.stubs(:market_sell).returns(Result::Success.new(order_id: 'sell-1'))
     # The refresh is exercised on its own below; elsewhere the transaction state is set directly.
@@ -41,7 +50,7 @@ class Bots::DcaDualAssetRebalanceResumeTest < ActiveSupport::TestCase
     buy = @bot.transactions.where(side: :buy).last
     assert_equal 'REBALANCE', buy.transaction_type
     assert_in_delta 20, buy.quote_amount.to_f, 0.01
-    assert_equal @bot.base1_asset.symbol, buy.base, 'the proceeds go into the underweight asset'
+    assert_equal @base1.symbol, buy.base, 'the proceeds go into the underweight asset'
   end
 
   test 'a cancelled sell with a partial fill still buys what it realized' do
@@ -192,7 +201,7 @@ class Bots::DcaDualAssetRebalanceResumeTest < ActiveSupport::TestCase
     # A failed price read is transient. Treating it as dust would clear an owed buy and let a later
     # poll sell again against holdings that were already corrected.
     @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_BUYING, remaining_quote_amount: 20)
-    stub_ticker_ask_price_failure(@bot.ticker1)
+    stub_ticker_ask_price_failure(@ticker1)
 
     @bot.rebalance!
 
@@ -257,11 +266,11 @@ class Bots::DcaDualAssetRebalanceResumeTest < ActiveSupport::TestCase
     ticker.stubs(:get_last_price).returns(Result::Failure.new('price read failed'))
   end
 
-  def stub_values(base0:, base1:)
+  def stub_values(base0:, base1:, stale: false)
     @bot.stubs(:metrics_with_current_prices).returns(
-      total_base0_amount_value_in_quote: base0.to_d,
-      total_base1_amount_value_in_quote: base1.to_d,
-      prices_stale: false
+      asset_values: { @base0.symbol => { amount: base0.to_d / 100, current_value: base0.to_d },
+                      @base1.symbol => { amount: base1.to_d / 100, current_value: base1.to_d } },
+      prices_stale: stale
     )
   end
 
@@ -269,7 +278,7 @@ class Bots::DcaDualAssetRebalanceResumeTest < ActiveSupport::TestCase
     create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted,
                          external_status: external_status, external_id: "s-#{SecureRandom.hex(4)}",
                          side: :sell, transaction_type: 'REBALANCE',
-                         base: @bot.base0_asset.symbol, quote: @bot.quote_asset.symbol,
+                         base: @base0.symbol, quote: @bot.quote_asset.symbol,
                          price: 100, amount: 0.2, amount_exec: quote_amount_exec.to_d / 100,
                          quote_amount: 20, quote_amount_exec: quote_amount_exec)
   end
@@ -278,7 +287,7 @@ class Bots::DcaDualAssetRebalanceResumeTest < ActiveSupport::TestCase
     create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted,
                          external_status: external_status, external_id: "b-#{SecureRandom.hex(4)}",
                          side: :buy, transaction_type: 'REBALANCE',
-                         base: @bot.base1_asset.symbol, quote: @bot.quote_asset.symbol,
+                         base: @base1.symbol, quote: @bot.quote_asset.symbol,
                          price: 100, amount: 0.2, amount_exec: quote_amount_exec.to_d / 100,
                          quote_amount: 20, quote_amount_exec: quote_amount_exec)
   end

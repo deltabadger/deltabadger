@@ -2,9 +2,18 @@ require 'test_helper'
 
 # Placement for the rebalance leg: what it sells, how much, priced from which side of the book, and
 # how it is labelled. The state machine that sequences sell → buy lives in the resume test.
-class Bots::DcaDualAssetRebalanceTest < ActiveSupport::TestCase
+class Bots::DcaMultiAssetRebalanceTest < ActiveSupport::TestCase
   def setup
-    @bot = create(:dca_dual_asset, user: create(:user))
+    @bot = create(:dca_multi_asset, user: create(:user))
+    @base0, @base1 = @bot.base_assets
+    # ONE ticker array, pinned: composition_tickers runs a fresh query per call and the rebalancer
+    # reads the memoized `tickers` (asset_configurable.rb:31) — Mocha stubs on one set of instances
+    # never reach the other. The same idiom dca_index_rebalance_test.rb:14 uses.
+    @tickers = @bot.composition_tickers
+    @bot.instance_variable_set(:@tickers, @tickers)
+    @bot.stubs(:composition_tickers).returns(@tickers)
+    @ticker0 = @tickers.find { |ticker| ticker.base_asset_id == @base0.id }
+    @ticker1 = @tickers.find { |ticker| ticker.base_asset_id == @base1.id }
     @order_id = setup_bot_execution_mocks(@bot, price: 100)
     @bot.exchange.stubs(:market_sell).returns(Result::Success.new(order_id: 'sell-1'))
     enable_rebalancing
@@ -18,7 +27,7 @@ class Bots::DcaDualAssetRebalanceTest < ActiveSupport::TestCase
 
     order = @bot.transactions.last
     assert_equal 'sell', order.side
-    assert_equal @bot.base0_asset.symbol, order.base
+    assert_equal @base0.symbol, order.base
     assert_in_delta 20, order.quote_amount.to_f, 0.01
   end
 
@@ -27,7 +36,7 @@ class Bots::DcaDualAssetRebalanceTest < ActiveSupport::TestCase
 
     @bot.rebalance!
 
-    assert_equal @bot.base1_asset.symbol, @bot.transactions.last.base
+    assert_equal @base1.symbol, @bot.transactions.last.base
   end
 
   test 'rebalance orders are labelled REBALANCE, never REGULAR' do
@@ -42,8 +51,8 @@ class Bots::DcaDualAssetRebalanceTest < ActiveSupport::TestCase
     # The portfolio says 30 units of BTC are overweight, but only 0.05 is on the venue — the rest
     # is in cold storage. Allocation counts it; the sell cannot.
     stub_values(base0: 70, base1: 30)
-    stub_exchange_balances(@bot.exchange, @bot.base0_asset_id => { free: 0.15, locked: 0 },
-                                          @bot.base1_asset_id => { free: 1.0, locked: 0 },
+    stub_exchange_balances(@bot.exchange, @base0.id => { free: 0.15, locked: 0 },
+                                          @base1.id => { free: 1.0, locked: 0 },
                                           @bot.quote_asset_id => { free: 10_000, locked: 0 })
 
     @bot.rebalance!
@@ -53,8 +62,8 @@ class Bots::DcaDualAssetRebalanceTest < ActiveSupport::TestCase
 
   test 'a sell takes the bid, not the ask' do
     stub_values(base0: 70, base1: 30)
-    stub_ticker_bid_price(@bot.ticker0, price: 90)
-    stub_ticker_ask_price(@bot.ticker0, price: 110)
+    stub_ticker_bid_price(@ticker0, price: 90)
+    stub_ticker_ask_price(@ticker0, price: 110)
 
     @bot.rebalance!
 
@@ -77,8 +86,8 @@ class Bots::DcaDualAssetRebalanceTest < ActiveSupport::TestCase
 
   test 'a market sell is sized off the bid even with FeeCutter on' do
     @bot.stubs(:limit_ordered?).returns(true)
-    stub_ticker_bid_price(@bot.ticker0, price: 90)
-    stub_ticker_last_price(@bot.ticker0, price: 100)
+    stub_ticker_bid_price(@ticker0, price: 90)
+    stub_ticker_last_price(@ticker0, price: 100)
     stub_values(base0: 70, base1: 30)
 
     @bot.rebalance!
@@ -175,11 +184,11 @@ class Bots::DcaDualAssetRebalanceTest < ActiveSupport::TestCase
     update_settings(rebalance_enabled: true, rebalance_threshold: 0.05)
   end
 
-  def stub_values(base0:, base1:)
+  def stub_values(base0:, base1:, stale: false)
     @bot.stubs(:metrics_with_current_prices).returns(
-      total_base0_amount_value_in_quote: base0.to_d,
-      total_base1_amount_value_in_quote: base1.to_d,
-      prices_stale: false
+      asset_values: { @base0.symbol => { amount: base0.to_d / 100, current_value: base0.to_d },
+                      @base1.symbol => { amount: base1.to_d / 100, current_value: base1.to_d } },
+      prices_stale: stale
     )
   end
 end
