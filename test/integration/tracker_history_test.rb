@@ -55,8 +55,9 @@ class TrackerHistoryTest < ActionDispatch::IntegrationTest
     assert_select '.widget--chart__head > .widget--chart__modes', 1
     assert_select '.widget--chart__ranges', 0
     assert_select '.widget--chart__modes .filters[data-action*="bot--chart#range"] > .segmented .segmented__option[data-value="30"]'
+    # The range opens on the whole history every visit: only the mode is remembered.
     assert_select '.widget--chart__modes .filters[data-action*="bot--chart#range"] > ' \
-                  '.segmented[data-segmented-key="chart-range"] .segmented__option.is-on[data-value="all"]'
+                  '.segmented:not([data-segmented-key]) .segmented__option.is-on[data-value="all"]'
     assert_select '.widget__placeholder', false
   end
 

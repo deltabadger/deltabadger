@@ -45,8 +45,8 @@ class Bots::SegmentedFiltersTest < ActionDispatch::IntegrationTest
     assert_select 'button.segmented__option', 3
     assert_select '[data-value="all"].is-on', 1
     assert_select 'button[data-value="other"]', 1
-    # The log tab, on the other hand, is a way of reading and is remembered.
-    assert_select '.segmented[data-segmented-key="order-filter"]', 1
+    # Not remembered either: the log opens on its default tab every visit.
+    assert_select '.segmented[data-segmented-key]', 0
   end
 
   test 'a bot with only one category of orders shows no filter at all' do

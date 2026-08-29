@@ -46,9 +46,8 @@ class TrackerImportTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select ".segmented__option[data-value='deltabadger'].is-on"
     assert_select ".segmented__option[data-value='binance']"
-    # Whoever imports from one venue imports from it again: the format is remembered, and the
-    # remembered pick moves the hidden field with it.
-    assert_select ".segmented[data-segmented-key='import-format']", 1
+    # Not remembered: the dialog opens on the default every time, and the hidden field with it.
+    assert_select '.segmented[data-segmented-key]', 0
     # The buttons post nothing on their own; the hidden field is what carries the choice.
     assert_select "input[name=format][value='deltabadger']"
     # Everything else is derived, so nothing else is asked.
