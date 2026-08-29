@@ -17,7 +17,7 @@
     display: grid
     grid-template-columns: 1fr
     gap: 1rem
-    @media (min-width: 768px)
+    @media (min-width: 1024px)
         grid-template-columns: 1fr 1fr
 
 .rules-list
@@ -51,11 +51,8 @@
             font-weight: 600 !important    // color: var(--ash) !important
             &:disabled,&[disabled],&--disabled
                 color: var(--stone) !important
-        .sbutton--exchange
-            background: none !important
-            margin: 0 !important
-            padding: 0 !important
-            box-shadow: none !important
+        .rule__exchange
+            color: var(--link) !important
     &--inactive
         box-shadow: none
         background: none
@@ -65,7 +62,3 @@
             color: var(--label-select-inactive) !important
         .sinput
             background: var(--silver)
-    .sbutton--exchange
-        background: none !important
-        box-shadow: none !important
-        padding:    0 !important

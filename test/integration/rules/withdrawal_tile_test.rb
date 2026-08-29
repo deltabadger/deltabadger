@@ -22,6 +22,18 @@ class Rules::WithdrawalTileTest < ActionDispatch::IntegrationTest
     sign_in @user
   end
 
+  test 'log history uses the shared table date format' do
+    @user.update!(time_zone: 'UTC')
+    @rule.rule_logs.create!(status: :success, message: 'Withdrew 1.0 BTC',
+                            created_at: Time.utc(2026, 3, 4, 15, 19))
+    Exchanges::Binance.any_instance.stubs(:set_client)
+    Exchanges::Binance.any_instance.stubs(:list_withdrawal_addresses).returns(nil)
+
+    get rules_path
+    assert_response :ok
+    assert_select 'td.table__when', %r{2026/03/04}
+  end
+
   test 'scheduled rule has disabled inputs' do
     @rule.update!(status: :scheduled)
     Exchanges::Binance.any_instance.stubs(:set_client)
