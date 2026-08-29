@@ -369,9 +369,35 @@ export default class extends Controller {
     return this.from ? series.map((serie) => serie.slice(this.from)) : series;
   }
 
-  // Each holding in its own frame: a hovered row is read as its own chart — its shape, and its
-  // curve against its own invested line — not as a sliver at the foot of the largest holding's
-  // frame. What a holding is worth next to the others is the table's column, not the plot's.
+  // ONE ruler across the holdings: moving from one row to the next has to move the curve, not the
+  // axis. Scaled per asset, a 67 and a 2,095 holding draw the identical picture and the comparison
+  // the hover exists for is lost — the reader has no way to see that one of them is the portfolio
+  // and the other is a rounding error.
+  //
+  // Spanned over the assets ALONE, not the portfolio line: in VALUE that line is their sum, so
+  // including it would cost every asset the same margin of empty frame for nothing. The portfolio
+  // keeps its own scale, so the axis moves only when the pointer enters or leaves the tables.
+  get #assetBounds() {
+    this.bounds ||= Object.values(this.assetsValue).reduce(
+      (span, asset) => {
+        asset.value.forEach((amount, i) => {
+          const cost = asset.invested[i];
+          // The invested line is drawn at every point, including ones where value is unmarked.
+          span.value = Math.max(span.value, cost);
+          if (amount === null) return;
+
+          span.value = Math.max(span.value, amount);
+          span.low = Math.min(span.low, amount - cost);
+          span.high = Math.max(span.high, amount - cost);
+        });
+        return span;
+      },
+      // Seeded at zero, which is where both modes read from: VALUE's floor and PnL's baseline.
+      { value: 0, low: 0, high: 0 }
+    );
+    return this.bounds;
+  }
+
   // Derived, not shipped: a holding's PnL is its value minus what it cost, the same subtraction
   // `chart_pnl_series` does for the portfolio. Held rather than recomputed — #pnlMode is read on
   // every pointer move.
@@ -1091,7 +1117,7 @@ export default class extends Controller {
         .filter((point) => point.y !== null)
     );
     const span = this.#extremes(series.flatMap((serie) => serie.map((p) => p.y)));
-    const maxValue = span.high;
+    const maxValue = this.focused ? this.#assetBounds.value : span.high;
     const points = Math.min(this.maxPointsToDraw, series[0].length, series[1].length);
     const up = this.#color("--grass");
     const down = this.#color("--berry");
@@ -1105,7 +1131,7 @@ export default class extends Controller {
     // window is read from its own floor: both lines sit far above zero by then, and a frame
     // kept at zero flattens what these weeks did into a line along the middle of it.
     const pad = (span.high - span.low) * 0.1 || 0.01;
-    const y = this.from
+    const y = this.from && !this.focused
       ? { min: span.low - pad, max: span.high + pad }
       : { min: 0, suggestedMax: maxValue * 1.1 };
 
@@ -1137,7 +1163,9 @@ export default class extends Controller {
   #pnlPlot(curve) {
     // Zero stays in frame whether or not the curve reaches it: the line is what the curve means,
     // which is what the 0 seeds say.
-    const { low, high } = this.#extremes(curve.map((point) => point.y), 0, 0);
+    const curveSpan = this.#extremes(curve.map((point) => point.y), 0, 0);
+    const low = this.focused ? this.#assetBounds.low : curveSpan.low;
+    const high = this.focused ? this.#assetBounds.high : curveSpan.high;
     const pad = (high - low) * 0.1 || 0.01;
     const up = this.#color("--grass");
     const down = this.#color("--berry");
