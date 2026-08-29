@@ -22,9 +22,6 @@ application.register("autowidth-input", AutowidthInputController)
 import Bot__AllocationController from "./bot/allocation_controller"
 application.register("bot--allocation", Bot__AllocationController)
 
-import Bot__BarbellAllocationController from "./bot/barbell_allocation_controller"
-application.register("bot--barbell-allocation", Bot__BarbellAllocationController)
-
 import Bot__ChartController from "./bot/chart_controller"
 application.register("bot--chart", Bot__ChartController)
 

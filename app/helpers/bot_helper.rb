@@ -279,13 +279,6 @@ module BotHelper
     executed.to_d.positive? ? executed : requested
   end
 
-  def bot_type_label(bot)
-    {
-      'Bots::DcaDualAsset' => 'Rebalanced DCA',
-      'Bots::DcaSingleAsset' => 'Basic DCA'
-    }[bot.type]
-  end
-
   def price_limit_value_condition_select_options(bot)
     return [] unless defined?(bot.class::PRICE_LIMIT_VALUE_CONDITIONS)
 

@@ -5,7 +5,6 @@ class Bot::WarmMetricsCachesJob < ApplicationJob
   # Bot types that expose performance metrics (the global-PnL / index inclusion set).
   MEASURABLE_TYPES = %w[
     Bots::DcaSingleAsset
-    Bots::DcaDualAsset
     Bots::DcaIndex
     Bots::DcaMultiAsset
     Bots::Signal

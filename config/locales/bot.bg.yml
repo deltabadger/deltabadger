@@ -225,11 +225,6 @@ bg:
         warning:
             dca_single_asset:
                 intro: "Сумата за %{missed_symbol} беше под минималния размер на поръчка в %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} за %{missed_symbol}). Ето как ботът се справя с това:"
-            dca_dual_asset:
-                both_below:
-                    intro: "И двете суми за %{base0_symbol} и %{base1_symbol} са под минималния размер на поръчка в %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} или %{base0_minimum_quote_size} %{quote_symbol} за %{base0_symbol} и %{base1_minimum_base_size} %{base1_symbol} или %{base1_minimum_quote_size} %{quote_symbol} за %{base1_symbol}). Ето как ботът се справя с това:"
-                one_below:
-                    intro: "Ботът купи %{bought_quote_amount} %{quote_symbol} за %{bought_symbol}, но сумата за %{missed_symbol} беше под минималния размер на поръчка в %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} за %{missed_symbol}). Ето как ботът се справя с това:"
             buffer_explanation:
                 one: "Пропуснатата сума е запазена в буфер и ще бъде използвана при следващата планирана поръчка, за да се спазят графикът и алокацията възможно най-точно в рамките на минималните размери на поръчките."
                 other: "Пропуснатите суми са запазени в буфер и ще бъдат използвани при следващите планирани поръчки, за да се спазят графикът и алокацията възможно най-точно в рамките на минималните размери на поръчките."

@@ -8,11 +8,6 @@
         <div class="bot-tile__title">
           <% if bot.dca_single_asset? && bot.quote_asset_id.present? && bot.base_asset_id.present? %>
             <span><%= bot.base_asset.symbol %></span>
-          <% elsif bot.dca_dual_asset? && bot.quote_asset_id.present? && bot.base0_asset_id.present? && bot.base1_asset_id.present? %>
-            <span>
-              <span><%= bot.base0_asset.symbol %></span>,
-              <span><%= bot.base1_asset.symbol %></span>
-            </span>
           <% elsif bot.dca_index? && bot.quote_asset_id.present? && bot.num_coins.present? %>
             <span><%= bot.display_index_name %></span>
           <% elsif bot.dca_multi_asset? && bot.quote_asset_id.present? %>
@@ -23,10 +18,9 @@
           <% if bot.exchange.present? %>
             <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
           <% end %>
-          <%# bot_type_label(bot) %>
         </div>
       </div>
-      <% if bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index? || bot.dca_multi_asset? || bot.signal? %>
+      <% if bot.dca_single_asset? || bot.dca_index? || bot.dca_multi_asset? || bot.signal? %>
         <%= render "bots/bot_tile/bot_tile_pnl", bot: bot, loading: loading_hash[bot.id], pnl: pnl_hash[bot.id],
                    profit_usd: profit_usd_hash[bot.id], denomination: denomination %>
       <% end %>

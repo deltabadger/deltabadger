@@ -54,7 +54,7 @@ module Bot::Rankable
     end
 
     def most_popular_bots(amount)
-      all_bots_hash = combine_hashes(dca_single_asset_bots_hash, dca_dual_asset_bots_hash, dca_index_bots_hash)
+      all_bots_hash = combine_hashes(dca_single_asset_bots_hash, dca_index_bots_hash)
       all_bots_hash.sort_by { |_, v| -v }[0...amount]
     end
 
@@ -63,19 +63,6 @@ module Bot::Rankable
                          .working
                          .group("json_extract(bots.settings, '$.base_asset_id')")
                          .count
-      all_bots_hash.transform_keys { |key| Asset.find(key).symbol }
-    end
-
-    def dca_dual_asset_bots_hash
-      all_bots_hash0 = Bot.dca_dual_asset
-                          .working
-                          .group("json_extract(bots.settings, '$.base0_asset_id')")
-                          .count
-      all_bots_hash1 = Bot.dca_dual_asset
-                          .working
-                          .group("json_extract(bots.settings, '$.base1_asset_id')")
-                          .count
-      all_bots_hash = combine_hashes(all_bots_hash0, all_bots_hash1)
       all_bots_hash.transform_keys { |key| Asset.find(key).symbol }
     end
 

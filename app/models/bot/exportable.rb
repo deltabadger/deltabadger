@@ -142,12 +142,9 @@ module Bot::Exportable
   # Which base assets a CSV import may name. nil means "any", which is right for an index bot whose
   # membership follows the market and wrong for everything else.
   #
-  # A basket answers with its own members. Without this branch a converted pair bot — which has
-  # neither base_asset nor base0_asset — fell through to "any" and would silently accept rows for
-  # assets it has never held.
+  # A basket answers with its own members.
   def importable_base_symbols
     return [base_asset.symbol&.upcase] if respond_to?(:base_asset) && base_asset.present?
-    return [base0_asset&.symbol&.upcase, base1_asset&.symbol&.upcase].compact if respond_to?(:base0_asset)
     return base_assets.filter_map { |asset| asset.symbol&.upcase } if respond_to?(:allocations)
 
     nil

@@ -17,7 +17,7 @@
 # metrics' final label is the live reading the headline is computed from.
 class User::PnlHistory
   # The bot types that have a P/L to speak of, as `User#global_pnl_snapshot` counts them.
-  MEASURABLE = %i[dca_single_asset? dca_dual_asset? dca_index? dca_multi_asset? signal?].freeze
+  MEASURABLE = %i[dca_single_asset? dca_index? dca_multi_asset? signal?].freeze
 
   # Columns the curve is resampled onto. A sparkline a few hundred pixels wide has nothing to say
   # past this, and every column is two floats in a data attribute.

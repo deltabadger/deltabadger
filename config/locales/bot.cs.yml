@@ -225,11 +225,6 @@ cs:
         warning:
             dca_single_asset:
                 intro: "Částka pro %{missed_symbol} byla pod minimální velikostí příkazu na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} nebo %{missed_minimum_quote_size} %{quote_symbol} pro %{missed_symbol}). Takto s tím bot pracuje:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Obě částky pro %{base0_symbol} a %{base1_symbol} jsou pod minimální velikostí příkazu na %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} nebo %{base0_minimum_quote_size} %{quote_symbol} pro %{base0_symbol} a %{base1_minimum_base_size} %{base1_symbol} nebo %{base1_minimum_quote_size} %{quote_symbol} pro %{base1_symbol}). Takto s tím bot pracuje:"
-                one_below:
-                    intro: "Bot nakoupil %{bought_quote_amount} %{quote_symbol} za %{bought_symbol}, ale částka pro %{missed_symbol} byla pod minimální velikostí příkazu na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} nebo %{missed_minimum_quote_size} %{quote_symbol} pro %{missed_symbol}). Takto s tím bot pracuje:"
             buffer_explanation:
                 one: "Zameškaná částka byla uložena do zásobníku a bude použita s dalším plánovaným příkazem, aby byly váš rozvrh a alokace dodrženy co nejpřesněji v rámci minimálních velikostí příkazů."
                 other: "Zameškané částky byly uloženy do zásobníku a budou použity s dalšími plánovanými příkazy, aby byly váš rozvrh a alokace dodrženy co nejpřesněji v rámci minimálních velikostí příkazů."

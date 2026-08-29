@@ -225,11 +225,6 @@ sk:
         warning:
             dca_single_asset:
                 intro: "Čiastka pre %{missed_symbol} bola pod minimálnou veľkosťou príkazu na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} alebo %{missed_minimum_quote_size} %{quote_symbol} pre %{missed_symbol}). Takto to bot rieši:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Obe čiastky pre %{base0_symbol} a %{base1_symbol} sú pod minimálnou veľkosťou príkazu na %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} alebo %{base0_minimum_quote_size} %{quote_symbol} pre %{base0_symbol} a %{base1_minimum_base_size} %{base1_symbol} alebo %{base1_minimum_quote_size} %{quote_symbol} pre %{base1_symbol}). Takto to bot rieši:"
-                one_below:
-                    intro: "Bot nakúpil %{bought_quote_amount} %{quote_symbol} za %{bought_symbol}, ale čiastka pre %{missed_symbol} bola pod minimálnou veľkosťou príkazu na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} alebo %{missed_minimum_quote_size} %{quote_symbol} pre %{missed_symbol}). Takto to bot rieši:"
             buffer_explanation:
                 one: "Zmeškaná čiastka bola uložená do zásobníka a bude použitá s ďalším plánovaným príkazom, aby boli váš rozvrh a alokácia dodržané čo najpresnejšie v rámci minimálnych veľkostí príkazov."
                 other: "Zmeškané čiastky boli uložené do zásobníka a budú použité s ďalšími plánovanými príkazmi, aby boli váš rozvrh a alokácia dodržané čo najpresnejšie v rámci minimálnych veľkostí príkazov."

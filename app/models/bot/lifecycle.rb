@@ -1,5 +1,5 @@
 # Shared start/stop/delete lifecycle for interval-scheduled bots
-# (DcaSingleAsset, DcaDualAsset, DcaIndex). Bots::Signal is passive (no
+# (DcaSingleAsset, DcaIndex, DcaMultiAsset). Bots::Signal is passive (no
 # scheduling) and keeps its own thin lifecycle instead of including this.
 #
 # Include LAST in the bot model so the prepended decorator chains
