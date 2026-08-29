@@ -117,6 +117,8 @@
         background: none // <button>
         width: 100%      // <button>
         color: var(--ash)
+        &:hover
+            background: var(--dropdown-hover)
         // Label left, switch right. The base item is a grid built for a single label; a row that
         // carries a control needs the two ends held apart.
         &--switch
@@ -154,7 +156,5 @@
             cursor: default !important
             &:hover
                 background: none !important
-        &:hover
-            background: var(--dropdown-hover)
 
         
