@@ -24,7 +24,7 @@ At every interval the bot values its holdings at current prices, adds the contri
 
 ## Options
 
-A portfolio bot has **Smart Intervals**, **FeeCutter** and **Starting time** — see [Order options](10-order-options.md) — and **Rebalance**, see [Rebalancing](16-rebalancing.md). It has no [triggers](11-triggers.md) or spend cap and cannot switch to [selling](12-selling.md); those exist only on single-asset bots.
+A portfolio bot has **Smart Intervals**, **FeeCutter** and **Starting time** — see [Order options](10-order-options.md) — and **Rebalance**, see [Rebalancing](16-rebalancing.md). It cannot switch to [selling](12-selling.md); that exists only on single-asset bots.
 
 ## Removed assets
 

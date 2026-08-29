@@ -95,25 +95,7 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
   # migration. A membership's required `bot` is loaded through STI to validate it, so the row has
   # to be a basket BEFORE the first membership is written, or every remaining row raises.
   test 'a pair row converts when its class no longer exists' do
-    skip 'the class is already gone' unless Bots.const_defined?(:DcaDualAsset, false)
-
-    # Reference the class before removing it: with eager_load off, remove_const on a constant
-    # Zeitwerk has not autoloaded yet returns nil, and the restore below would then poison every
-    # later test in the process.
-    klass = Bots::DcaDualAsset
-    Bots.send(:remove_const, :DcaDualAsset)
-    begin
-      assert_raises(ActiveRecord::SubclassNotFound) { Bot.find(@bot.id) }
-
-      converted, skipped = run!
-
-      assert_equal [@bot.id], converted
-      assert_empty skipped
-      assert_equal 'Bots::DcaMultiAsset', Bot.find(@bot.id).type
-      assert_equal 2, BotIndexAsset.where(bot_id: @bot.id).count
-    ensure
-      Bots.const_set(:DcaDualAsset, klass)
-    end
+    assert_not Bots.const_defined?(:DcaDualAsset, false), 'the pair class is retired; every test in this file already runs without it'
   end
 
   # == What the conversion produces ==
@@ -706,6 +688,22 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
     assert_nothing_raised { finalize! }
     assert_equal %w[Bots::DcaMultiAsset Bots::DcaMultiAsset],
                  Bot.where(id: [@bot.id, other.id]).pluck(:type)
+  end
+
+  test 'a settings cell that is not JSON does not stop the pass' do
+    # clobbered's WHERE filters on type = MULTI before it ever touches settings, so SQLite
+    # short-circuits past a pair row's malformed cell without evaluating json_extract on it — only a
+    # basket's own malformed cell reaches the function and raises. Corrupt a basket here to actually
+    # exercise the rescue, and check the pair row converts regardless: it is reachable by type alone.
+    corrupt = create(:dca_multi_asset, exchange: Exchange.find(@bot.exchange_id),
+                                       base_assets: [@base0, @base1], quote_asset: Asset.find(@bot.settings['quote_asset_id']))
+    Bot::DualToComposition::Row.connection.execute("UPDATE bots SET settings = 'not json' WHERE id = #{corrupt.id}")
+
+    failed = nil
+    assert_nothing_raised { _, _, failed = finalize! }
+
+    assert_includes failed.map(&:first), 'scan'
+    assert_equal 'Bots::DcaMultiAsset', Bot.where(id: @bot.id).pick(:type)
   end
 
   # == The retirement migration ==

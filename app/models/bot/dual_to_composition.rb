@@ -52,17 +52,6 @@ module Bot::DualToComposition
 
   module_function
 
-  # Is there anything at all left to do? A pair row to convert, a converted row a stale instance
-  # wrote the pair shape back onto, or a queued job still naming the old class. All three have to be
-  # asked: the last pair row usually disappears BEFORE the clobber that needs repairing shows up,
-  # so gating on pair rows alone would switch the repair off exactly when it starts being needed.
-  def pending?
-    return true if Row.where(type: DUAL).exists?
-    return true if clobbered.exists?
-
-    defined?(SolidQueue) && SolidQueue::Job.where('arguments LIKE ?', "%#{DUAL}/%").exists?
-  end
-
   # A basket a stale pair instance saved its whole settings hash over: the pair keys are there AND
   # the basket's own allocations are gone. NOT a basket that merely carries a leftover
   # base0_asset_id — a pre-#229 wizard cookie can leave one on a perfectly good basket, and
@@ -122,6 +111,10 @@ module Bot::DualToComposition
       return 'missing exchange' if row.exchange_id.blank?
       return 'executing' if row.status == Bot.statuses[:executing]
       return 'rebalance in flight' if (row.transient_data || {})['rebalance_pending'].present?
+      # An open order is NOT a reason to wait. It is a limit bot's resting state — polled by bot_id at
+      # the start of every tick (Bot::LimitOrderable), tracked by a job that carries the Transaction's
+      # GlobalID, not the bot's — and nothing here touches transactions. A discount-limit bot may hold
+      # one for months; refusing it would never convert such a bot at all.
       return 'job in flight' if busy_job?(row.id)
       return 'missing asset rows' unless Asset.where(id: [base0, base1, quote]).count == 3
     end
@@ -299,7 +292,14 @@ module Bot::DualToComposition
 
     # Pair rows, and baskets a stale pair instance wrote the pair shape back onto after Release A's
     # flip (clobbered): the recurring pass that used to repair those is deleted with this release.
-    rows = Row.where(type: DUAL).map { |row| [row, DUAL] } + clobbered.map { |row| [row, MULTI] }
+    rows = begin
+      Row.where(type: DUAL).map { |row| [row, DUAL] } + clobbered.map { |row| [row, MULTI] }
+    rescue StandardError => e
+      # A cell of non-JSON settings makes SQLite's json_* functions raise; the pair rows themselves
+      # are still reachable by type alone.
+      failed << ['scan', e.message]
+      Row.where(type: DUAL).map { |row| [row, DUAL] }
+    end
     rows.each do |row, from_type|
       result = convert!(row, from_type:, force: true)
       case result
@@ -341,8 +341,9 @@ module Bot::DualToComposition
         Bot::Rebalanceable::PENDING_KEY => pending.merge('phase' => Bot::Rebalanceable::PHASE_AMBIGUOUS)
       )
     end
-    row.update_columns(type: MULTI, settings: settings.merge('rebalance_enabled' => false), transient_data: transient)
-    row.update_columns(status: Bot.statuses[:stopped], stopped_at: Time.current) if working?(row)
+    attributes = { type: MULTI, settings: settings.merge('rebalance_enabled' => false), transient_data: transient }
+    attributes.merge!(status: Bot.statuses[:stopped], stopped_at: Time.current) if working?(row)
+    row.update_columns(attributes)
   rescue StandardError => e
     Rails.logger.error("dual→multi: bot #{row.id} could not be salvaged: #{e.message}")
   end

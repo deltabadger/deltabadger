@@ -68,16 +68,6 @@ class BotApi::Bots::ListTest < ActiveSupport::TestCase
     assert_equal 3, result.data[:bots].size
   end
 
-  test "a basket's pair is every member/quote" do
-    create(:dca_multi_asset, user: @user, status: :scheduled, started_at: Time.current)
-
-    result = BotApi::Bots::List.call(user: @user)
-    row = result.data[:bots].first
-
-    assert_equal 'BTC+ETH/USD', row[:pair]
-    assert_equal 'Bots::DcaMultiAsset', row[:type]
-  end
-
   test 'a multi-asset bot reports its members as the pair' do
     create(:dca_multi_asset, user: @user)
 
