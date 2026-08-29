@@ -21,23 +21,28 @@ module TrackerHelper
   # [{ color:, dash:, offset:, label: }] in the order the rows are listed. The card's SVG is turned
   # a quarter turn by CSS, so the dashes are walked from where a dashed circle starts.
   def holdings_ring_arcs(holdings)
-    total = holdings.sum(0.to_d, &:value)
+    slices = holdings.map { |holding| [holding.value, holding.asset.color, holding.asset.symbol] }
+
+    dashed_ring(ring_slices(slices, t('tracker.other')),
+                circumference: RING_CIRCUMFERENCE, min_span: RING_MIN_SPAN)
+  end
+
+  # The pieces of a portfolio, largest first: everything above RING_MIN_SHARE keeps its own colour
+  # and its own name, and the tail is gathered into one neutral piece, last.
+  #
+  # A single small holding is not an "other" — there is nothing to gather it with, and grey says a
+  # name is being withheld. It keeps its own colour and its own name; a round cap draws it as a dot
+  # whatever it is worth.
+  def ring_slices(slices, label)
+    slices = slices.select { |value, _, _| value.positive? }.sort_by { |value, _, _| -value }
+    total = slices.sum(0.to_d) { |value, _, _| value }
     return [] unless total.positive?
 
-    small, large = holdings.partition { |holding| holding.value / total < RING_MIN_SHARE }
-    # A single small holding is not an "other" — there is nothing to gather it with, and grey says
-    # a name is being withheld. It keeps its own colour and its own name; a round cap draws it as a
-    # dot whatever it is worth. Same reasoning as the icon's, which drops a lone tail rather than
-    # miscolour it — 24px has no room for the dot this ring has.
-    if small.one?
-      large = holdings
-      small = []
-    end
-    slices = large.map { |holding| [holding.value, holding.asset.color, holding.asset.symbol] }
-    folded = small.sum(0.to_d, &:value)
-    slices << [folded, NEUTRAL_COLOR, t('tracker.other')] if folded.positive?
+    small, large = slices.partition { |value, _, _| value / total < RING_MIN_SHARE }
+    return slices if small.one?
 
-    dashed_ring(slices, circumference: RING_CIRCUMFERENCE, min_span: RING_MIN_SPAN)
+    folded = small.sum(0.to_d) { |value, _, _| value }
+    large + (folded.positive? ? [[folded, NEUTRAL_COLOR, label]] : [])
   end
 
   # == the menu icon is this ring, small ==
@@ -51,11 +56,10 @@ module TrackerHelper
   # Between slices. The menu draws the 24-unit viewBox at 24px, so a unit here is a screen pixel.
   ICON_GAP = 2.0
   # What every slice is given whatever it is worth: the whole gap beside it, and a round-capped dash
-  # of nothing, which draws as a dot the width of the stroke. The ring keeps those two before it
-  # keeps the last percent of the reading — a gap that closes or a slice that vanishes is a worse
-  # lie about the portfolio than a small holding drawn slightly large.
+  # of nothing, which draws as a dot the width of the stroke. A slice that vanishes or a gap that
+  # closes is a worse lie about the portfolio than a small holding drawn slightly large — so the
+  # ring keeps those two, and pays for them by drawing fewer holdings rather than by levelling them.
   ICON_MIN_SPAN = ICON_GAP + ICON_STROKE
-  ICON_MAX_SLICES = (ICON_CIRCUMFERENCE / ICON_MIN_SPAN).floor
 
   # [{ color:, dash:, offset: }] for one dashed circle per slice, clockwise from twelve o'clock.
   def allocation_icon_arcs(user)
@@ -460,70 +464,45 @@ module TrackerHelper
   end
 
   def icon_arcs(pairs)
-    dashed_ring(icon_slices(pairs), circumference: ICON_CIRCUMFERENCE, min_span: ICON_MIN_SPAN,
-                                    start: -ICON_CIRCUMFERENCE / 4)
+    slices = pairs.map { |value, color| [value, color, nil] }
+
+    dashed_ring(ring_slices(slices, nil), circumference: ICON_CIRCUMFERENCE,
+                                          min_span: ICON_MIN_SPAN, start: -ICON_CIRCUMFERENCE / 4)
   end
 
-  # [value, color] largest first, with the tail the card's ring also gathers — everything under
-  # RING_MIN_SHARE, deliberately the same threshold — as one neutral slice, last. ONLY the tail:
-  # every holding above it keeps its own colour, however small the ring has to draw it.
-  def icon_slices(pairs)
-    slices = pairs.select { |value, _| value.positive? }.sort_by { |value, _| -value }
-    total = slices.sum(0.to_d) { |value, _| value }
+  # == what the ring has room for ==
+  #
+  # The pieces are placed largest first, each in the span its share deserves but never under
+  # `min_span`, until the ring is full — and then one more, so a ring that has run out of room shows
+  # that it has rather than stopping on a tidy edge. Whatever was never placed is not drawn.
+  #
+  # The placed spans overrun the circumference by exactly what the smallest of them were lifted by,
+  # so they all give up the same fraction of themselves at the end. That is the whole of the fit: an
+  # arc stays at its true share of the portfolio, a dot keeps the room it needs to be a dot, and the
+  # holdings that would have levelled the ring simply are not on it.
+  #
+  # The card's ring never drops anything — every one of its pieces clears its own minimum, so
+  # nothing is lifted, nothing overruns, and the scale is 1.
+  #
+  # [[slice, span], ...] in the order given: placement queues by value, but the ring keeps the
+  # order it was handed, so a gathered remainder stays last however much it is worth.
+  def ring_places(slices, circumference, min_span)
+    total = slices.sum(0.to_d) { |value, _, _| value }
     return [] unless total.positive?
 
-    large, tail = slices.partition { |value, _| value / total >= RING_MIN_SHARE }
-    # Nothing stands out, so nothing is "other": one neutral ring is the icon for a portfolio nobody
-    # has synced. Show the largest holdings instead, read as the whole between them.
-    return slices.first(ICON_MAX_SLICES) if large.empty?
+    spans = {}
+    used = 0.0
+    slices.each_index.sort_by { |index| -slices[index][0] }.each do |index|
+      # Asked before placing, not after: the piece that fills the ring is already on it, and a share
+      # that rounds to the whole circumference must not take the next piece's place with it.
+      break if used > circumference
 
-    gathered = tail.sum(0.to_d) { |value, _| value }
-    # A single holding is not an "other" — there is nothing to gather it with — and a tail worth
-    # less than one holding is dust. Both just go, and the rest is read as the whole.
-    kept = large.first(ICON_MAX_SLICES)
-    return kept if tail.size < 2 || gathered / total < RING_MIN_SHARE
-    # The remainder takes its place by value like anything else: a full ring of holdings that all
-    # outweigh it keeps them. Where it does survive it still displaces the smallest, and is drawn
-    # last whatever it is worth.
-    return kept if kept.size == ICON_MAX_SLICES && gathered <= kept.last.first
-
-    large.first(ICON_MAX_SLICES - 1) + [[gathered, NEUTRAL_COLOR]]
-  end
-
-  # The span each slice is laid out in, in the order given. Every slice is guaranteed `min_span`
-  # and only what is left over is shared out by value, so the gaps and the smallest dot are the
-  # same size wherever they fall — the small slices come out a little large and the big ones a
-  # little short. Lifting one takes circumference from the others and can push another under the
-  # minimum, so the pass repeats; it lifts at least one slice each time, so it cannot run away.
-  def ring_spans(slices, circumference, min_span)
-    return [] if slices.empty?
-
-    total = slices.sum(0.to_d) { |value, _| value }
-    shares = slices.map { |value, _| (value / total).to_f }
-    lifted = []
-    loop do
-      short = ring_short_spans(shares, lifted, circumference, min_span)
-      break if short.empty?
-
-      lifted.concat(short)
+      spans[index] = [(slices[index][0] / total).to_f * circumference, min_span].max
+      used += spans[index]
     end
-    return Array.new(shares.size, circumference / shares.size) if lifted.size == shares.size
 
-    spare, weight = ring_spare(shares, lifted, circumference, min_span)
-    shares.each_index.map { |i| lifted.include?(i) ? min_span : (shares[i] / weight) * spare }
-  end
-
-  # Which of the slices not yet lifted cannot pay for their own minimum out of what is left.
-  def ring_short_spans(shares, lifted, circumference, min_span)
-    spare, weight = ring_spare(shares, lifted, circumference, min_span)
-    shares.each_index.reject { |i| lifted.include?(i) }
-          .select { |i| (shares[i] / weight) * spare < min_span }
-  end
-
-  # What the slices still paying their own way have to share, and what they are worth between them.
-  def ring_spare(shares, lifted, circumference, min_span)
-    [circumference - (lifted.size * min_span),
-     shares.each_with_index.sum { |share, i| lifted.include?(i) ? 0.0 : share }]
+    scale = circumference / used
+    spans.keys.sort.map { |index| [slices[index], spans[index] * scale] }
   end
 
   # The slices drawn, as one dashed circle each — [value, color, label], clockwise in the order
@@ -535,15 +514,15 @@ module TrackerHelper
   # quarter turn into its first offset instead. Offsets run negative because a negative offset is
   # what walks a dash forward.
   def dashed_ring(slices, circumference:, min_span:, start: 0.0)
-    spans = ring_spans(slices, circumference, min_span)
     walked = start
 
-    slices.each_with_index.map do |(_, color, label), index|
-      length = spans[index] - min_span
+    ring_places(slices, circumference, min_span).map do |(_, color, label), span|
+      # A squeezed dot can come out under the minimum; it still draws, as the two round caps meeting.
+      length = [span - min_span, 0.0].max
       arc = { color: ensure_contrast(color.presence || NEUTRAL_COLOR), label: label,
               dash: "#{length.round(2)} #{(circumference - length).round(2)}",
               offset: -(walked + (min_span / 2)).round(2) }
-      walked += spans[index]
+      walked += span
       arc
     end
   end
