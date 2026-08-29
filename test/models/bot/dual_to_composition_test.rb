@@ -369,17 +369,19 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
 
     write_settings!('allocation0' => 0.25) # stands in for the concurrent request
 
-    assert_equal true, Bot::DualToComposition.convert!(Bot::DualToComposition::Row.find(@bot.id))
+    assert_equal [], Bot::DualToComposition.convert!(Bot::DualToComposition::Row.find(@bot.id))
     assert_in_delta 0.25, Bot.find(@bot.id).allocations[@base0.id.to_s], 0.000001
   end
 
   test 'a stale write that restores the pair shape is detected and re-converted' do
     run!
-    # Exactly what a request holding a pre-flip instance does on save: settings by id, no type.
+    # Exactly what a request holding a pre-flip instance does on save: settings by id, no type, and
+    # the WHOLE settings hash — no allocations object. A merge that kept allocations would be the
+    # harmless wizard-cookie case (see clobbered), not this.
     Bot::DualToComposition::Row.where(id: @bot.id).update_all(
       settings: Bot.find(@bot.id).settings.merge('base0_asset_id' => @base0.id,
                                                  'base1_asset_id' => @base1.id,
-                                                 'allocation0' => 0.7)
+                                                 'allocation0' => 0.7).except('allocations')
     )
 
     run!
@@ -388,5 +390,321 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
     assert_equal 'Bots::DcaMultiAsset', bot.type
     assert_not bot.settings.key?('base0_asset_id')
     assert_in_delta 0.7, bot.allocations[@base0.id.to_s], 0.000001
+  end
+
+  # == The forced pass the retirement migration runs ==
+
+  def finalize! = Bot::DualToComposition.finalize!
+
+  test 'the forced pass converts a bot the normal pass leaves alone' do
+    @bot.update_columns(status: Bot.statuses[:executing])
+    enqueue_job_for(@bot, state: :scheduled, scheduled_at: 1.minute.ago) # due, so busy_job? is true
+
+    _, skipped = run!
+    assert_includes skipped.map(&:last), 'executing'
+
+    converted, degraded, failed = finalize!
+
+    assert_equal [@bot.id], converted
+    assert_empty degraded
+    assert_empty failed
+    assert_equal 'Bots::DcaMultiAsset', Bot.find(@bot.id).type
+    # Nothing ever revives an executing row (ActionJob returns on line 1, the orphan repair skips
+    # it); retrying is what a working bot whose tick did not finish is meant to be.
+    assert_equal 'retrying', Bot.find(@bot.id).status
+  end
+
+  test 'a scheduled bot keeps its status on the forced pass' do
+    @bot.update_columns(status: Bot.statuses[:scheduled])
+
+    finalize!
+
+    assert_equal 'scheduled', Bot.find(@bot.id).status
+  end
+
+  test 'a gap switches rebalancing off, so the stopped bot is not a rebalance candidate' do
+    # EvaluateRebalancersJob takes stopped bots with the switch on, and rebalance! refreshes the
+    # composition before it looks at anything — a 50/50 fallback would be traded toward.
+    write_settings!('allocation0' => 'garbage', 'rebalance_enabled' => true)
+    @bot.update_columns(status: Bot.statuses[:scheduled])
+
+    finalize!
+
+    bot = Bot.find(@bot.id)
+    assert_equal 'stopped', bot.status
+    assert_not bot.rebalance_enabled?
+    assert_not Bot::EvaluateRebalancersJob.new.send(:candidates).exists?(id: @bot.id)
+  end
+
+  test 'a disabled condition pointing outside the basket is not a gap' do
+    # Each concern's set_*_in_ticker_id callback writes a default subject whether or not the
+    # condition is on; only an ENABLED condition's subject has to be a member.
+    outsider = create(:ticker, exchange_id: @bot.exchange_id,
+                               base_asset: create(:asset, symbol: 'SOL', name: 'Solana'),
+                               quote_asset_id: @bot.settings['quote_asset_id'])
+    write_settings!('price_limit_in_ticker_id' => outsider.id, 'price_limited' => false)
+
+    converted, skipped = run!
+
+    assert_equal [@bot.id], converted
+    assert_empty skipped
+  end
+
+  test 'the forced pass repoints a job that was already due' do
+    job = enqueue_job_for(@bot, state: :scheduled, scheduled_at: 1.minute.ago)
+
+    finalize!
+
+    assert_includes gid_in(job), 'Bots::DcaMultiAsset'
+  end
+
+  test 'a rebalance in flight is carried over verbatim' do
+    pending = { 'phase' => 'selling', 'sell_transaction_id' => 42 }
+    @bot.update_columns(transient_data: @bot.transient_data.merge('rebalance_pending' => pending))
+
+    finalize!
+
+    assert_equal pending, Bot.find(@bot.id).transient_data['rebalance_pending']
+  end
+
+  test 'a delisted member keeps its seat, and a working bot is stopped rather than renormalised' do
+    # derive_composition drops an unavailable member and renormalises the rest: left running, this
+    # 70/30 bot would trade as 100/0 on its next tick.
+    ticker = Ticker.find_by!(exchange_id: @bot.exchange_id, base_asset_id: @base1.id)
+    ticker.update_columns(available: false)
+    @bot.update_columns(status: Bot.statuses[:scheduled])
+
+    _, skipped = run!
+    assert_includes skipped.map(&:last), 'missing ticker'
+
+    converted, degraded, = finalize!
+
+    assert_empty converted
+    assert_equal [[@bot.id, ['delisted member']]], degraded
+    bot = Bot.find(@bot.id)
+    assert_equal 'stopped', bot.status
+    assert_equal ticker.id, BotIndexAsset.find_by!(bot_id: @bot.id, asset_id: @base1.id).ticker_id
+    assert_in_delta 0.3, bot.settings['allocations'][@base1.id.to_s], 0.000001, 'the weight the user chose is still on record'
+  end
+
+  test 'a gap turns a rebalance in flight into the ambiguous halt' do
+    # EvaluateRebalancersJob evaluates stopped bots too; a pending sell→buy must not resume against
+    # a composition that just lost a member.
+    Ticker.where(exchange_id: @bot.exchange_id, base_asset_id: @base1.id).delete_all
+    pending = { 'phase' => 'selling', 'sell_transaction_id' => 42 }
+    @bot.update_columns(transient_data: @bot.transient_data.merge('rebalance_pending' => pending))
+
+    finalize!
+
+    bot = Bot.find(@bot.id)
+    assert bot.rebalance_ambiguous?
+    assert_equal 42, bot.rebalance_pending[:sell_transaction_id], 'the rest of the payload is kept for the user to resolve'
+  end
+
+  test 'a queue failure after the flip is reported, and does not stop the bot' do
+    @bot.update_columns(status: Bot.statuses[:scheduled])
+    Bot::DualToComposition.stubs(:repoint_every_job!).raises(ActiveRecord::StatementInvalid, 'database is locked')
+
+    converted, _, failed = finalize!
+
+    assert_equal [@bot.id], converted
+    assert_equal ['queue'], failed.map(&:first)
+    assert_equal 'scheduled', Bot.find(@bot.id).status
+  end
+
+  test 'a member with no ticker row at all is dropped, and a working bot is stopped' do
+    Ticker.where(exchange_id: @bot.exchange_id, base_asset_id: @base1.id).delete_all
+    @bot.update_columns(status: Bot.statuses[:scheduled])
+
+    converted, degraded, failed = finalize!
+
+    assert_empty converted
+    assert_empty failed
+    assert_equal [[@bot.id, ['missing ticker']]], degraded
+    bot = Bot.find(@bot.id)
+    assert_equal 'stopped', bot.status
+    assert_equal [@base0.id], BotIndexAsset.where(bot_id: @bot.id).pluck(:asset_id)
+    assert_equal 0.7, bot.settings['allocations'][@base0.id.to_s], 'the weights still record what the user chose'
+  end
+
+  test 'a bot that was not working is not stopped by a gap' do
+    Ticker.where(exchange_id: @bot.exchange_id, base_asset_id: @base1.id).delete_all
+    @bot.update_columns(status: Bot.statuses[:deleted])
+
+    finalize!
+
+    assert_equal 'deleted', Bot.find(@bot.id).status
+  end
+
+  test 'an unusable weight falls back to half and stops the bot' do
+    write_settings!('allocation0' => 'garbage')
+    @bot.update_columns(status: Bot.statuses[:waiting])
+
+    _, degraded, = finalize!
+
+    assert_equal [[@bot.id, ['allocation unusable']]], degraded
+    bot = Bot.find(@bot.id)
+    assert_equal 'stopped', bot.status
+    assert_equal 0.5, bot.settings['allocations'][@base0.id.to_s]
+    assert_equal 0.5, bot.settings['allocations'][@base1.id.to_s]
+  end
+
+  test 'a condition watching a ticker outside the basket is a gap' do
+    # The basket looks a condition's subject up in its own tickers, so such a condition would never
+    # be met — a "while below X, pause" bot would pause forever. Kept on record, bot stopped.
+    outsider = create(:ticker, exchange_id: @bot.exchange_id,
+                               base_asset: create(:asset, symbol: 'SOL', name: 'Solana'),
+                               quote_asset_id: @bot.settings['quote_asset_id'])
+    write_settings!('price_limit_in_ticker_id' => outsider.id, 'price_limited' => true)
+    @bot.update_columns(status: Bot.statuses[:waiting])
+
+    _, skipped = run!
+    assert_includes skipped.map(&:last), 'condition watches a foreign ticker'
+
+    _, degraded, = finalize!
+
+    assert_equal [[@bot.id, ['condition subject outside the basket']]], degraded
+    bot = Bot.find(@bot.id)
+    assert_equal 'stopped', bot.status
+    assert_equal outsider.id, bot.settings['price_limit_in_ticker_id']
+  end
+
+  test 'a stray membership row is exited rather than refused' do
+    stray_asset = create(:asset, symbol: 'SOL', name: 'Solana')
+    stray_ticker = create(:ticker, exchange_id: @bot.exchange_id, base_asset: stray_asset,
+                                   quote_asset_id: @bot.settings['quote_asset_id'])
+    # insert!, not create!: a membership's required `bot` would load the pair row through STI.
+    BotIndexAsset.insert!({ bot_id: @bot.id, asset_id: stray_asset.id, ticker_id: stray_ticker.id,
+                            in_index: true, target_allocation: 0.2 })
+
+    _, skipped = run!
+    assert_includes skipped.map(&:last), 'unexpected composition rows'
+
+    converted, = finalize!
+
+    assert_equal [@bot.id], converted
+    stray = BotIndexAsset.find_by!(bot_id: @bot.id, asset_id: stray_asset.id)
+    assert_not stray.in_index
+    assert stray.exited_at.present?
+    assert_equal 2, BotIndexAsset.in_index.where(bot_id: @bot.id).count
+  end
+
+  test 'a row that raises is still made loadable, and reported' do
+    BotIndexAsset.any_instance.stubs(:save!).raises(ActiveRecord::RecordInvalid)
+    @bot.update_columns(status: Bot.statuses[:scheduled])
+
+    converted, _, failed = finalize!
+
+    assert_empty converted
+    assert_equal [@bot.id], failed.map(&:first)
+    assert_equal 'Bots::DcaMultiAsset', Bot.where(id: @bot.id).pick(:type)
+    assert_equal 'stopped', Bot.find(@bot.id).status
+    assert_nothing_raised { Bot.find(@bot.id) }
+  end
+
+  test 'a row that raises still has its rebalancing switched off and its swap halted' do
+    # The rolled-back transaction takes the gap safeguards with it; the fallback must write them
+    # again, or a stopped bot stays a rebalance candidate with a pending swap it could resume.
+    Ticker.where(exchange_id: @bot.exchange_id, base_asset_id: @base1.id).delete_all
+    write_settings!('rebalance_enabled' => true)
+    @bot.update_columns(status: Bot.statuses[:scheduled],
+                        transient_data: @bot.transient_data.merge('rebalance_pending' => { 'phase' => 'selling', 'sell_transaction_id' => 42 }))
+    BotIndexAsset.any_instance.stubs(:save!).raises(RuntimeError, 'boom')
+
+    finalize!
+
+    bot = Bot.find(@bot.id)
+    assert_equal 'stopped', bot.status
+    assert_not bot.rebalance_enabled?
+    assert bot.rebalance_ambiguous?
+    # Still a candidate — candidates take any pending row — so the halt itself is what must hold.
+    bot.exchange.expects(:market_sell).never
+    bot.exchange.expects(:market_buy).never
+    assert_equal :ambiguous, bot.rebalance!.data[:skipped]
+  end
+
+  test 'the halted swap keeps the rebalancer off the composition, not just off the venue' do
+    # rebalance! used to refresh the composition BEFORE looking at the pending state; on a bot that
+    # just lost a member that refresh renormalised the survivor to 100% while the halt did nothing.
+    Ticker.where(exchange_id: @bot.exchange_id, base_asset_id: @base1.id).delete_all
+    @bot.update_columns(transient_data: @bot.transient_data.merge('rebalance_pending' => { 'phase' => 'selling', 'sell_transaction_id' => 42 }))
+
+    finalize!
+    bot = Bot.find(@bot.id)
+    targets_before = BotIndexAsset.where(bot_id: bot.id).order(:asset_id).pluck(:asset_id, :target_allocation, :in_index)
+    floats = targets_before.map { |id, t, i| [id, t.to_f, i] }
+    assert_equal [[@base0.id, 0.7, true]], floats
+
+    result = bot.rebalance!
+
+    assert_equal :ambiguous, result.data[:skipped]
+    assert_equal targets_before, BotIndexAsset.where(bot_id: bot.id).order(:asset_id).pluck(:asset_id, :target_allocation, :in_index)
+  end
+
+  test 'a basket that merely carries a stale pair key is not clobbered' do
+    # A pre-#229 wizard cookie can leave base0_asset_id on a good basket. Re-converting it would
+    # overwrite the user's allocations with the cookie's and exit the third member.
+    sol = create(:asset, symbol: 'SOL', name: 'Solana')
+    basket = create(:dca_multi_asset, exchange: Exchange.find(@bot.exchange_id),
+                                      base_assets: [@base0, @base1, sol],
+                                      quote_asset: Asset.find(@bot.settings['quote_asset_id']),
+                                      allocations: { @base0 => 0.5, @base1 => 0.3, sol => 0.2 })
+    basket.update_columns(settings: basket.settings.merge('base0_asset_id' => @base0.id, 'base1_asset_id' => @base1.id, 'allocation0' => 0.9))
+
+    assert_not Bot::DualToComposition.clobbered.exists?(id: basket.id)
+    finalize!
+
+    basket.reload
+    assert_in_delta 0.2, basket.allocations[sol.id.to_s], 0.000001
+    assert_equal 3, BotIndexAsset.in_index.where(bot_id: basket.id).count
+  end
+
+  test 'a basket a stale pair instance wrote the pair shape onto is converted too' do
+    run!
+    Bot.find(@bot.id) # a basket now
+    clobber = @bot.reload.settings.merge('base0_asset_id' => @base0.id, 'base1_asset_id' => @base1.id,
+                                         'allocation0' => 0.7).except('allocations')
+    Bot::DualToComposition::Row.find(@bot.id).update_columns(settings: clobber)
+    assert Bot::DualToComposition.clobbered.exists?(id: @bot.id)
+
+    converted, = finalize!
+
+    assert_equal [@bot.id], converted
+    assert_not Bot::DualToComposition.clobbered.exists?(id: @bot.id)
+    assert_in_delta 0.7, Bot.find(@bot.id).settings['allocations'][@base0.id.to_s], 0.000001
+  end
+
+  test 'a salvage that itself raises does not stop the pass' do
+    other = pair_row(status: :waiting, exchange: Exchange.find(@bot.exchange_id),
+                     base_assets: [@base0, @base1], quote_asset: Asset.find(@bot.settings['quote_asset_id']))
+    BotIndexAsset.any_instance.stubs(:save!).raises(RuntimeError, 'boom')
+    Bot::DualToComposition::Row.any_instance.stubs(:update_columns).raises(ActiveRecord::StatementInvalid, 'disk I/O error')
+
+    _, _, failed = nil
+    assert_nothing_raised { _, _, failed = finalize! }
+
+    assert_equal [@bot.id, other.id].sort, failed.map(&:first).sort
+  end
+
+  test 'a row whose settings are not even a hash is made loadable' do
+    @bot.update_columns(settings: [1, 2, 3])
+    @bot.update_columns(status: Bot.statuses[:scheduled])
+
+    _, _, failed = finalize!
+
+    assert_equal [@bot.id], failed.map(&:first)
+    bot = Bot.find(@bot.id)
+    assert_equal({}, bot.settings.slice('base0_asset_id', 'allocations'))
+    assert_equal 'stopped', bot.status
+  end
+
+  test 'the forced pass never raises out of the loop' do
+    other = pair_row(status: :waiting, exchange: Exchange.find(@bot.exchange_id),
+                     base_assets: [@base0, @base1], quote_asset: Asset.find(@bot.settings['quote_asset_id']))
+    BotIndexAsset.any_instance.stubs(:save!).raises(RuntimeError, 'boom')
+
+    assert_nothing_raised { finalize! }
+    assert_equal %w[Bots::DcaMultiAsset Bots::DcaMultiAsset],
+                 Bot.where(id: [@bot.id, other.id]).pluck(:type)
   end
 end

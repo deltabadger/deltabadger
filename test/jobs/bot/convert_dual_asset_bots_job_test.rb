@@ -29,11 +29,13 @@ class Bot::ConvertDualAssetBotsJobTest < ActiveSupport::TestCase
   test 'a later pass repairs a stale write that restored the pair shape' do
     base0 = @bot.base0_asset_id
     Bot::ConvertDualAssetBotsJob.perform_now
-    # What a worker holding a pre-conversion instance does on save: settings by id, no type.
+    # What a worker holding a pre-conversion instance does on save: settings by id, no type, and the
+    # WHOLE settings hash — no allocations object. A merge that kept allocations would be the
+    # harmless wizard-cookie case (see Bot::DualToComposition.clobbered), not this.
     Bot::DualToComposition::Row.where(id: @bot.id).update_all(
       settings: Bot.find(@bot.id).settings.merge('base0_asset_id' => base0,
                                                  'base1_asset_id' => @bot.base1_asset_id,
-                                                 'allocation0' => 0.5)
+                                                 'allocation0' => 0.5).except('allocations')
     )
 
     Bot::ConvertDualAssetBotsJob.perform_now
