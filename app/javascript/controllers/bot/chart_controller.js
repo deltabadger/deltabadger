@@ -71,6 +71,10 @@ export default class extends Controller {
     series: Array,
     labels: Array,
     quote: String,
+    // Set only where the money is the reader's own denomination — the tracker — and then the
+    // headline carries that symbol, on the side that currency puts it, instead of the quote code.
+    unit: String,
+    suffixed: Boolean,
     decimals: Number,
     bot: Number,
     pnl: Array,
@@ -401,15 +405,35 @@ export default class extends Controller {
     });
   }
 
-  // `signed` off for a PRICE: the headline is a profit and wants its sign, but "+84,000 USDT"
-  // as the price of a fill reads as a gain.
-  #money(value, { signed = true } = {}) {
+  // Money to the cent above a unit and to the quote's own precision below it — a BTC-quoted
+  // bot's profit is a fraction of a coin, and "0.00 BTC" would say there was none.
+  #number(value, { signed = true } = {}) {
     const decimals = Math.abs(value) >= 1 ? 2 : this.decimalsValue;
-    return `${value.toLocaleString(this.#locale, {
+    return value.toLocaleString(this.#locale, {
       minimumFractionDigits: Math.min(2, decimals),
       maximumFractionDigits: decimals,
       signDisplay: signed ? "exceptZero" : "auto",
-    })} ${this.quoteValue}`;
+    });
+  }
+
+  // The text form, for a price on the date line or a tooltip. `signed` off for a PRICE: the
+  // headline is a profit and wants its sign, but "+84,000 USDT" as the price of a fill reads as
+  // a gain.
+  #money(value, { signed = true } = {}) {
+    return `${this.#number(value, { signed })} ${this.quoteValue}`;
+  }
+
+  // The headline: sign, then the unit in <small> — before the figure, or after it where the
+  // currency is written that way. A bot's chart names its quote by its code, trailing: USDT is the
+  // currency the money was actually in, and a code is how that is said; the symbol is the
+  // tracker's, for the reader's own denomination.
+  #headline(value) {
+    const unit = document.createElement("small");
+    unit.textContent = this.hasUnitValue ? this.unitValue : this.quoteValue;
+    const suffixed = this.hasUnitValue ? this.suffixedValue : true;
+    if (suffixed) return [`${this.#number(value)} `, unit];
+    const sign = value > 0 ? "+" : value < 0 ? "-" : "";
+    return [sign, unit, this.#number(Math.abs(value), { signed: false })];
   }
 
   #percent(fraction) {
@@ -454,7 +478,7 @@ export default class extends Controller {
       .join(" · ");
     // Absent while balances are hidden: the view drops the element rather than hiding it, and
     // Stimulus raises on a missing target.
-    if (this.hasPnlTarget) this.pnlTarget.textContent = this.#money(pnl);
+    if (this.hasPnlTarget) this.pnlTarget.replaceChildren(...this.#headline(pnl));
     // Nothing invested is not "0.00%", it is a percentage of nothing — say so rather than print a
     // return the reader could take for a flat one.
     this.percentTarget.textContent = spent > 0 ? this.#percent(pnl / spent) : "—";

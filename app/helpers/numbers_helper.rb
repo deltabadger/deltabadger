@@ -8,7 +8,8 @@ module NumbersHelper
 
     abs_value = value.abs
     if abs_value < 1
-      value.round(max_decimals).to_s.sub(/\.?0+$/, '')
+      # Trailing zeros go; a bare zero is not a trailing zero, and stripping it left an empty tile.
+      value.round(max_decimals).to_s.sub(/\.?0+$/, '').presence || '0'
     else
       format('%.2f', value)
     end

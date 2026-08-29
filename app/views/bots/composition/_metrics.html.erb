@@ -1,6 +1,7 @@
 <% exited = bot.exited_holdings(metrics) %>
 <% realised = metrics[:realised_pnl].to_d %>
 <% hide_money = hide_balances?(bot) %>
+<% quote = bot.quote_asset&.symbol %>
 <div id="metrics" style="display: flex; flex-direction: column; gap: 1rem;">
   <% if metrics[:prices_stale] %>
     <p class="status-button__hint" role="status">
@@ -20,7 +21,7 @@
           <% if loading %>
             <span class="loading-placeholder">...</span>
           <% else %>
-            <%= money_figure(metrics[:total_quote_amount_invested]) %>
+            <%= quoted_figure(money_figure(metrics[:total_quote_amount_invested]), quote) %>
           <% end %>
         </div>
       </div>
@@ -30,7 +31,7 @@
           <% if loading %>
             <span class="loading-placeholder">...</span>
           <% else %>
-            <%= money_figure(metrics[:total_amount_value_in_quote]) %>
+            <%= quoted_figure(money_figure(metrics[:total_amount_value_in_quote]), quote) %>
           <% end %>
         </div>
       </div>
@@ -53,7 +54,7 @@
             <% if loading %>
               <span class="loading-placeholder">...</span>
             <% else %>
-              <%= realised.negative? ? '' : '+' %><%= number_with_precision(realised, precision: 2, delimiter: ',') %>
+              <%= realised.negative? ? '' : '+' %><%= quoted_figure(number_with_precision(realised, precision: 2, delimiter: ','), quote) %>
             <% end %>
           </div>
           <%= tag.div t('bot.dca_index.realised_pnl_note'), class: 'tooltip tooltip--note' %>
@@ -86,7 +87,7 @@
     <% if composition_values.present? %>
       <div id="assets_metrics_table" class="widget widget--table">
         <%= render 'bots/composition/assets_table', values: composition_values, logo_assets: logo_assets,
-                   body_id: 'assets_metrics_list', hide_money: hide_money %>
+                   body_id: 'assets_metrics_list', hide_money: hide_money, quote: quote %>
       </div>
     <% end %>
   <% end %>
@@ -116,7 +117,7 @@
         <%= render 'bots/composition/assets_table',
                    values: exited.index_by { |holding| holding[:symbol] },
                    logo_assets: logo_assets, body_id: 'exited_metrics_list', bot: bot,
-                   hide_money: hide_money,
+                   hide_money: hide_money, quote: quote,
                    sellable: !bot.liquidation_ambiguous? && !bot.archived? && !bot.deleted? %>
       <% end %>
     </div>

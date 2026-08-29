@@ -96,6 +96,8 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     # The bot page's own table, widget shell included — everything that spaces and aligns a row
     # hangs off .widget--table, so a bare <table> here renders unstyled.
     assert_select '.modal .widget--table #liquidation_confirm_list tr', 1
+    # In the bot's own currency, named the way the holdings row names it.
+    assert_select '#liquidation_confirm_list td small', text: @bot.quote_asset.symbol, count: 2
     assert_select '.modal', /CCC/
     # The other quitter is not part of this sale and must not appear in the list.
     assert_select '.modal', { text: /DDD/, count: 0 }

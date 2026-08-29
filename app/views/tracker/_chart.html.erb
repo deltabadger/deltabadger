@@ -36,6 +36,11 @@
       # tracker's pin out of every bot's.
       bot__chart_bot_value: 0,
       bot__chart_quote_value: @denomination.currency,
+      # The headline is the reader's own currency, so it is written the way the tiles beside it
+      # are: the symbol in <small>, on the side that currency puts it. A bot's chart passes
+      # neither and keeps its quote's code as text — USDT is what that money actually was.
+      bot__chart_unit_value: @denomination.unit,
+      bot__chart_suffixed_value: @denomination.suffixed?,
       bot__chart_decimals_value: 2,
       # Written WITHOUT a zone on purpose: `new Date('2026-08-21')` is UTC midnight and prints as the
       # 20th anywhere west of it, while a date-TIME with no offset parses as local midnight. A daily

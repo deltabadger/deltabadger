@@ -36,16 +36,19 @@
     <% if source == :exchange %>
       <%= price %>
     <% elsif source == :cash %>
-      <%= price ? tracker_figure(price, denomination.currency) : no_value %>
+      <%= price ? denomination.format_converted(price) : no_value %>
     <% else %>
       <%= form_with url: price_tracker_transaction_path(at), method: :patch,
                     data: { controller: 'form--submit' } do %>
+        <%# The reader's own currency, so its symbol — on the side that currency writes it. %>
+        <% unit = tag.small(denomination.unit) %>
+        <%= unit unless denomination.suffixed? %>
         <%= number_field_tag :price, (price if source == :stated), step: :any, min: 0,
                              placeholder: (price.to_s if source == :ours) || '—',
                              title: t("tracker.price_source.#{source || 'none'}"),
                              class: 'tracker-row__price__input',
                              data: { action: 'change->form--submit#submit' } %>
-        <small><%= denomination.currency %></small>
+        <%= unit if denomination.suffixed? %>
         <%# The problem is the empty box, and this is the one place it can be fixed — so this is
             where it is explained, and only here. %>
         <% if source.nil? %>

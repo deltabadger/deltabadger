@@ -373,7 +373,8 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_select '.data-grid', false
     assert_select '.tracker-holdings__value', false
     assert_select '.tracker-holdings__pct', text: '75.0%'
-    assert_select '.tracker-record tr.tracker-row td', text: /\$/, count: 0
+    # The price stays — a market level, not a balance — and it is in the reader's currency.
+    assert_select '.tracker-record tr.tracker-row td:not(.tracker-row__price)', text: /\$/, count: 0
     assert_select '.tracker-positions td', text: /\$/, count: 0
     assert_select '.tracker-positions td.text-success', text: /\+25\.0%/, count: 1
     # The figures this page would otherwise print, in every form they could take.
