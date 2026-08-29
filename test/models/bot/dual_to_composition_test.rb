@@ -191,14 +191,17 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
     assert_includes skipped.map(&:last), 'rebalance in flight'
   end
 
-  test 'a bot with an order still live on a venue is left alone' do
-    create(:transaction, bot: @bot, status: :submitted, external_status: :open)
+  # A standing limit order is a limit bot's resting state, not money in flight: it is polled by
+  # bot_id at the start of every cycle (Bot::LimitOrderable), so it carries over the flip untouched
+  # and the basket picks it up. Refusing it would never convert a limit-discount bot at all.
+  test 'a bot with an order still open on a venue converts and keeps the order' do
+    order = create(:transaction, bot: @bot, status: :submitted, external_status: :open)
     _, skipped = run!
 
-    # The reason matters: without it this passes just as well when the bot was skipped for a stray
-    # metrics job instead.
-    assert_equal 'Bots::DcaDualAsset', Bot.where(id: @bot.id).pick(:type)
-    assert_includes skipped.map(&:last), 'live order'
+    assert_empty skipped
+    assert_equal 'Bots::DcaMultiAsset', Bot.find(@bot.id).type
+    assert Bot.find(@bot.id).transactions.waiting.exists?(order.id)
+    assert_equal %w[submitted open], order.reload.values_at(:status, :external_status)
   end
 
   test 'a settled order does not block conversion' do

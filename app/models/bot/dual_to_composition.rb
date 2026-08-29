@@ -17,9 +17,10 @@
 # release that deletes Bots::DcaDualAsset would then leave rows whose class is gone —
 # ActiveRecord::SubclassNotFound on instantiation, which takes the whole bot list down, not one bot.
 #
-# So quiescence is measured rather than assumed: solid_queue_processes carries a heartbeat, and no
-# live one means no worker. That converts a self-hosted install automatically at upgrade and still
-# defers on a rolling deploy where the previous container is still serving.
+# So quiescence is measured rather than assumed, from the queue's own execution tables: a bot with
+# a claimed, ready, or blocked job, or a scheduled one already due, is deferred; one whose only job
+# is scheduled for later is not. That converts a self-hosted install automatically at upgrade and
+# still defers on a rolling deploy where the previous container is still serving.
 #
 # The reading is taken per bot, inside that bot's own lock, so a worker that starts mid-run defers
 # every bot after it rather than none. It CANNOT rule out a worker starting between that reading
@@ -108,7 +109,10 @@ module Bot::DualToComposition
     return 'missing exchange' if row.exchange_id.blank?
     return 'executing' if row.status == Bot.statuses[:executing]
     return 'rebalance in flight' if (row.transient_data || {})['rebalance_pending'].present?
-    return 'live order' if Transaction.where(bot_id: row.id).waiting.exists?
+    # An open order is NOT a reason to wait. It is a limit bot's resting state — polled by bot_id at
+    # the start of every tick (Bot::LimitOrderable), tracked by a job that carries the Transaction's
+    # GlobalID, not the bot's — and nothing here touches transactions. A discount-limit bot may hold
+    # one for months; refusing it would never convert such a bot at all.
     return 'job in flight' if busy_job?(row.id)
     return 'missing asset rows' unless Asset.where(id: [base0, base1, quote]).count == 3
 
