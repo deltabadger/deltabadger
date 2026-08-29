@@ -84,6 +84,11 @@ class User < ApplicationRecord
     save!
   end
 
+  # The tracker's scope switch, on the user rather than in the controller: the menu's allocation
+  # icon is the same ring at 24px and is drawn on every page, not only that one. Absent means off —
+  # the default is the invested portfolio.
+  def show_cash? = tracker_settings&.dig('show_cash').present?
+
   # One per instance: the /bots index reads it for the header and for every tile, and a
   # Solid Cache read is a query.
   def denomination

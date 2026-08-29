@@ -236,9 +236,7 @@ class TrackerController < ApplicationController
   # Cash and stablecoins are where money waits, not a position anybody picked, so the page is about
   # the active positions unless asked otherwise. Absent means off: the default is the invested
   # portfolio, and `Hide balances` is the separate switch for taking the money off the screen.
-  def show_cash?
-    current_user.tracker_settings&.dig('show_cash').present?
-  end
+  def show_cash? = current_user.show_cash?
   helper_method :show_cash?
 
   # The page only ever reads, so every key that can read serves it — at most one per venue. Memoized
