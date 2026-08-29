@@ -310,7 +310,10 @@ $stack-open: 0.2s ease-out
         position: relative
         &--fits
             overflow: visible
+        // Opaque only while pinned: a box painted on the widget's own top edge would square off
+        // its rounded corners, and there is nothing under the header to cover until then.
         &--stuck thead
+            background-color: var(--washed)
             box-shadow: 0 1px var(--silver)
         .table-fit__sentinel
             position: absolute
@@ -331,7 +334,6 @@ $stack-open: 0.2s ease-out
         thead
             position: sticky
             top: 0
-            background-color: var(--washed)
             line-height: 1.5rem
 
             z-index: 1
