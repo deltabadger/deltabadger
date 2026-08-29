@@ -31,7 +31,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
 
     get tracker_path
     assert_response :success
-    assert_select '.widget--table--tracker'
+    assert_select '.tracker-record__table'
     assert_select 'td', text: 'BTC'
   end
 

@@ -119,7 +119,7 @@ class TrackerHideBalancesTest < ActionDispatch::IntegrationTest
   # The money columns name their unit in the header — "Value $" — so a column is matched by the
   # label it starts with rather than by the whole cell.
   def column?(key)
-    css_select('.widget--table--tracker thead th')
+    css_select('.tracker-record__table thead th')
       .any? { |th| th.text.strip.start_with?(I18n.t("tracker.columns.#{key}")) }
   end
 end
