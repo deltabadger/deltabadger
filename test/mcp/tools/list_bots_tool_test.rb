@@ -53,13 +53,13 @@ class ListBotsToolTest < ActiveSupport::TestCase
     assert_equal 'No bots found.', text
   end
 
-  test 'shows dual asset bot pair format' do
-    create(:dca_dual_asset, user: @user, status: :scheduled, started_at: Time.current)
+  test "shows a basket's pair format" do
+    create(:dca_multi_asset, user: @user, status: :scheduled, started_at: Time.current)
 
     response = ListBotsTool.call
     text = response.contents.first.text
 
     assert_match(%r{BTC\+ETH/USD}, text)
-    assert_match(/Dca Dual Asset/, text)
+    assert_match(/Dca Multi Asset/, text)
   end
 end

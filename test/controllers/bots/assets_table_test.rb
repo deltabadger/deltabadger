@@ -14,13 +14,12 @@ class Bots::AssetsTableTest < ActionDispatch::IntegrationTest
     Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
   end
 
-  test 'single, dual, index and multi render the same columns' do
+  test 'single, index and multi render the same columns' do
     btc = create(:asset, :bitcoin)
     eth = create(:asset, :ethereum)
     usd = create(:asset, :usd)
     binance = create(:binance_exchange)
     bots = [create(:dca_single_asset, user: @user, exchange: binance, base_asset: btc, quote_asset: usd),
-            create(:dca_dual_asset, user: @user, exchange: binance, base0_asset: btc, base1_asset: eth, quote_asset: usd),
             create(:dca_index, user: @user, quote_asset: usd),
             create(:dca_multi_asset, user: @user, exchange: binance, base_assets: [btc, eth], quote_asset: usd)]
 

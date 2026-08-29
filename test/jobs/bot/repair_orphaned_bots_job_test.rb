@@ -229,10 +229,10 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
     assert_equal initial_job_count, SolidQueue::Job.where(class_name: 'Bot::ActionJob').count
   end
 
-  # == Dual asset integration tests ==
+  # == Basket integration tests ==
 
-  test 'detects orphaned dual asset bot with no scheduled job' do
-    bot = create(:dca_dual_asset, :started, status: :scheduled)
+  test 'detects orphaned basket bot with no scheduled job' do
+    bot = create(:dca_multi_asset, :started, status: :scheduled)
     assert_nil bot.next_action_job_at
 
     Bot::RepairOrphanedBotsJob.perform_now
@@ -240,8 +240,8 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
     assert bot.reload.next_action_job_at.present?
   end
 
-  test 'schedules dual asset bot job at correct checkpoint time' do
-    bot = create(:dca_dual_asset, :started, status: :scheduled)
+  test 'schedules basket bot job at correct checkpoint time' do
+    bot = create(:dca_multi_asset, :started, status: :scheduled)
     expected_checkpoint = bot.next_interval_checkpoint_at
 
     Bot::RepairOrphanedBotsJob.perform_now
@@ -250,8 +250,8 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
     assert_in_delta expected_checkpoint.to_f, scheduled_at.to_f, 1.0
   end
 
-  test 'creates ActionJob in SolidQueue for dual asset bot' do
-    create(:dca_dual_asset, :started, status: :scheduled)
+  test 'creates ActionJob in SolidQueue for basket bot' do
+    create(:dca_multi_asset, :started, status: :scheduled)
 
     Bot::RepairOrphanedBotsJob.perform_now
 
@@ -259,8 +259,8 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
     assert job.present?
   end
 
-  test 'does not repair dual asset bot that already has a scheduled job' do
-    bot = create(:dca_dual_asset, :started, status: :scheduled)
+  test 'does not repair basket bot that already has a scheduled job' do
+    bot = create(:dca_multi_asset, :started, status: :scheduled)
     Bot::ActionJob.set(wait_until: 1.hour.from_now).perform_later(bot)
     initial_job_count = SolidQueue::Job.where(class_name: 'Bot::ActionJob').count
 
@@ -278,16 +278,16 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
     usd = create(:asset, :usd)
     single_asset_bot = create(:dca_single_asset, :started, status: :scheduled,
                                                            exchange: exchange, base_asset: bitcoin, quote_asset: usd)
-    dual_asset_bot = create(:dca_dual_asset, :started, status: :scheduled,
-                                                       exchange: exchange, base0_asset: bitcoin, base1_asset: ethereum, quote_asset: usd)
+    basket_bot = create(:dca_multi_asset, :started, status: :scheduled,
+                                                    exchange: exchange, base_assets: [bitcoin, ethereum], quote_asset: usd)
 
     assert_nil single_asset_bot.next_action_job_at
-    assert_nil dual_asset_bot.next_action_job_at
+    assert_nil basket_bot.next_action_job_at
 
     Bot::RepairOrphanedBotsJob.perform_now
 
     assert single_asset_bot.reload.next_action_job_at.present?
-    assert dual_asset_bot.reload.next_action_job_at.present?
+    assert basket_bot.reload.next_action_job_at.present?
   end
 
   test 'creates separate jobs for each bot' do
@@ -297,8 +297,8 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
     usd = create(:asset, :usd)
     create(:dca_single_asset, :started, status: :scheduled,
                                         exchange: exchange, base_asset: bitcoin, quote_asset: usd)
-    create(:dca_dual_asset, :started, status: :scheduled,
-                                      exchange: exchange, base0_asset: bitcoin, base1_asset: ethereum, quote_asset: usd)
+    create(:dca_multi_asset, :started, status: :scheduled,
+                                       exchange: exchange, base_assets: [bitcoin, ethereum], quote_asset: usd)
 
     Bot::RepairOrphanedBotsJob.perform_now
 

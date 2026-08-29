@@ -81,8 +81,8 @@ class Bots::HideBalancesShowTest < ActionDispatch::IntegrationTest
     assert_select '.widget.data-grid', false
   end
 
-  test 'a dual-asset bot has no panel either' do
-    bot = create(:dca_dual_asset, user: @user, quote_asset: @quote)
+  test 'a basket has no panel either' do
+    bot = create(:dca_multi_asset, user: @user, quote_asset: @quote)
 
     get bot_path(id: bot.id)
 

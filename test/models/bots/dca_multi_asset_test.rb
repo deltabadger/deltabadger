@@ -391,6 +391,82 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     assert_predicate bot.reload, :waiting?
   end
 
+  # == Placement -1021 partial-success (Option B, double-order safety) ==
+  # set_orders places each member in turn and returns on the FIRST failure. Worst case for a -1021
+  # is "first member accepted, second member rejected". The accepted order is persisted (waiting),
+  # and the bot reschedules; the next tick must NOT re-buy the accepted member.
+
+  # Part (a) — single tick: one waiting order, no failed row.
+  test 'set_orders: first member accepted + second member -1021 leaves one waiting order, no failed row' do
+    bot = create(:dca_multi_asset, :started, user: @user, exchange: @exchange,
+                                             base_assets: member_assets, quote_asset: @quote)
+    setup_bot_execution_mocks(bot)
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000.to_d))
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+    bot.stubs(:broadcast_below_minimums_warning)
+    bot.exchange.unstub(:market_buy)
+    # first member accepted, second rejected with -1021
+    bot.exchange.stubs(:market_buy)
+       .returns(Result::Success.new(order_id: 'OID-0'),
+                Result::Failure.new('Timestamp for this request is outside of the recvWindow.'))
+
+    assert_no_difference -> { bot.transactions.failed.count } do
+      result = bot.set_orders(total_orders_amount_in_quote: 200.to_d)
+      assert result.failure?
+    end
+    assert_equal 1, bot.transactions.where(external_id: 'OID-0').count, 'the accepted order persisted exactly once'
+  end
+
+  # Part (b) — the real reschedule/second tick via execute_action → pending_quote_amount.
+  # Once the first member is waiting (and, in steady state, filled), the composition sees it at/above
+  # target so its offset is zero → market_buy must NOT fire again for that member's ticker.
+  test 'reschedule (execute_action) after first-member-accepted/second-member-1021 does NOT re-place the first member' do
+    bot = create(:dca_multi_asset, :started, user: @user, exchange: @exchange,
+                                             base_assets: member_assets, quote_asset: @quote)
+    setup_bot_execution_mocks(bot)
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000.to_d))
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+    Bot::FetchAndUpdateOpenOrdersJob.stubs(:perform_now)
+    bot.stubs(:broadcast_below_minimums_warning)
+
+    # Tick 1: first member accepted (persisted waiting), second member -1021.
+    bot.exchange.unstub(:market_buy)
+    bot.exchange.stubs(:market_buy)
+       .returns(Result::Success.new(order_id: 'OID-0'),
+                Result::Failure.new('Timestamp for this request is outside of the recvWindow.'))
+    bot.set_orders(total_orders_amount_in_quote: bot.pending_quote_amount)
+    assert_equal 1, bot.transactions.waiting.where(external_id: 'OID-0').count
+
+    # Sanity: pending_quote_amount now subtracts the waiting order, so the next tick has less
+    # (or no) budget for the first member's share.
+    waiting_quote = bot.transactions.waiting.where(external_id: 'OID-0').sum(:quote_amount)
+    assert waiting_quote.positive?, 'the first member has a waiting order with a quote amount'
+
+    # Tick 2 = the REAL reschedule path: execute_action recomputes via pending_quote_amount. With
+    # the first member now reflected in the holdings, it is at target → its offset is zero, so
+    # market_buy must NOT fire again for its ticker. (Steady state once it fills; modelled here via
+    # metrics.) get_orders_data reads metrics(force: true)[:asset_breakdown] keyed by symbol.
+    first_symbol = bot.base_assets.first.symbol
+    second_symbol = bot.base_assets.last.symbol
+    bot.stubs(:metrics).returns(
+      asset_breakdown: { first_symbol => { amount: 1_000.to_d, quote_invested: 0.to_d },
+                         second_symbol => { amount: 0.to_d, quote_invested: 0.to_d } }
+    )
+    first_ticker = bot.composition_tickers.find { |t| t.base_asset_id == bot.base_assets.first.id }
+    second_ticker = bot.composition_tickers.find { |t| t.base_asset_id == bot.base_assets.last.id }
+    bot.exchange.unstub(:market_buy)
+    bot.exchange.expects(:market_buy)
+       .with(has_entry(ticker: first_ticker), anything)
+       .never
+    bot.exchange.stubs(:market_buy)
+       .with(has_entry(ticker: second_ticker), anything)
+       .returns(Result::Success.new(order_id: 'OID-1'))
+
+    bot.execute_action
+
+    assert_equal 1, bot.transactions.where(external_id: 'OID-0').count, 'the first member still exactly one row — not re-placed'
+  end
+
   test 'the rule set is the index bot\'s plus the trading conditions a pair bot had' do
     ancestors = Bots::DcaMultiAsset.ancestors
 

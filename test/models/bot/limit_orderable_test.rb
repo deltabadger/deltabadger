@@ -44,8 +44,8 @@ class Bot::LimitOrderableTest < ActiveSupport::TestCase
     assert_equal false, parsed[:limit_ordered]
   end
 
-  test 'DcaDualAsset on Hyperliquid defaults limit_ordered true and rejects false' do
-    bot = build(:dca_dual_asset, exchange: build(:hyperliquid_exchange))
+  test 'a basket on Hyperliquid defaults limit_ordered true and rejects false' do
+    bot = build(:dca_multi_asset, exchange: build(:hyperliquid_exchange))
 
     assert bot.limit_ordered?
 

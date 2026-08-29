@@ -316,17 +316,16 @@ class Bot::ExportableTest < ActiveSupport::TestCase
                  @bot.transactions.pluck(:external_id).sort
   end
 
-  # == Dual asset bot ==
+  # == Basket ==
 
-  test 'import accepts both base assets for dual asset bot' do
+  test 'import accepts every member of a basket' do
     btc = Asset.find_by(symbol: 'BTC') || create(:asset, :bitcoin)
     eth = Asset.find_by(symbol: 'ETH') || create(:asset, :ethereum)
     usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
-    dual_bot = create(:dca_dual_asset, base0_asset: btc, base1_asset: eth, quote_asset: usd,
-                                       exchange: @bot.exchange)
-    base0 = dual_bot.base0_asset.symbol
-    base1 = dual_bot.base1_asset.symbol
-    quote = dual_bot.quote_asset.symbol
+    basket = create(:dca_multi_asset, base_assets: [btc, eth], quote_asset: usd,
+                                      exchange: @bot.exchange)
+    base0, base1 = basket.base_assets.map(&:symbol)
+    quote = basket.quote_asset.symbol
 
     csv = generate_csv([
                          ['2025-01-15 12:00:00', 'order-1', 'Market', 'Buy', '0.001', '50', '50000',
@@ -335,7 +334,7 @@ class Bot::ExportableTest < ActiveSupport::TestCase
                           base1, quote, 'closed']
                        ])
 
-    result = dual_bot.import_orders_csv(csv)
+    result = basket.import_orders_csv(csv)
 
     assert result[:success]
     assert_equal 2, result[:imported_count]

@@ -5,7 +5,21 @@ require 'test_helper'
 class Bot::ConvertDualAssetBotsJobTest < ActiveSupport::TestCase
   setup do
     Bot::UpdateMetricsJob.stubs(:perform_later)
-    @bot = create(:dca_dual_asset, status: :waiting)
+    @bot = dual_asset_bot(status: :waiting)
+  end
+
+  # The shared :dca_dual_asset factory retired with the pair-only tests (Task 6) — a basket from the
+  # surviving factory, re-typed and re-shaped in place, is the same fixture dual_to_composition_test.rb
+  # builds for the class-already-gone case. Here the class still exists, so this reloads through it
+  # directly rather than through DualToComposition::Row.
+  def dual_asset_bot(status: :waiting)
+    basket = create(:dca_multi_asset, status: status)
+    base0, base1 = basket.base_asset_ids
+    BotIndexAsset.where(bot_id: basket.id).delete_all
+    settings = basket.settings.except('allocations', 'weighting')
+                     .merge('base0_asset_id' => base0, 'base1_asset_id' => base1, 'allocation0' => 0.5)
+    basket.update_columns(type: 'Bots::DcaDualAsset', settings: settings)
+    Bots::DcaDualAsset.find(basket.id)
   end
 
   test 'it converts a pair bot' do

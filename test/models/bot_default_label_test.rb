@@ -38,7 +38,7 @@ class BotDefaultLabelTest < ActiveSupport::TestCase
   # --- a basket of assets ------------------------------------------------------
 
   test 'a two-asset bot is named by its tickers' do
-    bot = create(:dca_dual_asset, user: @user, base0_asset: @btc, base1_asset: @eth, quote_asset: @usd)
+    bot = create(:dca_multi_asset, user: @user, base_assets: [@btc, @eth], quote_asset: @usd)
 
     assert_equal 'BTC, ETH', bot.label
   end
@@ -55,13 +55,13 @@ class BotDefaultLabelTest < ActiveSupport::TestCase
     xrp = create(:asset, symbol: 'XRP', name: 'XRP', external_id: 'ripple')
     sol = create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana')
     ada = create(:asset, symbol: 'ADA', name: 'Cardano', external_id: 'cardano')
-    bot = build(:dca_dual_asset, user: @user, base0_asset: @btc, base1_asset: @eth, quote_asset: @usd)
+    bot = build(:dca_multi_asset, user: @user, base_assets: [@btc, @eth], quote_asset: @usd)
 
     assert_equal 'BTC, ETH, XRP + 2', bot.send(:basket_label, @btc.id, @eth.id, xrp.id, sol.id, ada.id)
   end
 
   test 'a basket skips assets that no longer exist' do
-    bot = build(:dca_dual_asset, user: @user, base0_asset: @btc, base1_asset: @eth, quote_asset: @usd)
+    bot = build(:dca_multi_asset, user: @user, base_assets: [@btc, @eth], quote_asset: @usd)
 
     assert_equal 'BTC', bot.send(:basket_label, @btc.id, nil, -1)
   end

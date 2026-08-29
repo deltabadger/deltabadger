@@ -165,8 +165,8 @@ class SettingsStocksTest < ActionDispatch::IntegrationTest
                                                     base_asset: aapl, quote_asset: usd)
     other_bot = create(:dca_single_asset, :waiting, user: other_user, exchange: @exchange,
                                                     base_asset: aapl, quote_asset: usd)
-    dual_bot = create(:dca_dual_asset, :waiting, user: other_user, exchange: @exchange,
-                                                 base0_asset: aapl, base1_asset: msft, quote_asset: usd)
+    basket_bot = create(:dca_multi_asset, user: other_user, exchange: @exchange,
+                                          base_assets: [aapl, msft], quote_asset: usd, status: :waiting)
 
     other_key = other_user.api_keys.find_by(exchange: @exchange)
     other_key.update!(status: :correct)
@@ -187,7 +187,7 @@ class SettingsStocksTest < ActionDispatch::IntegrationTest
     # Bots keep running on their owners' per-user keys; keys intact.
     assert admin_bot.reload.waiting?
     assert other_bot.reload.waiting?
-    assert dual_bot.reload.waiting?
+    assert basket_bot.reload.waiting?
     assert_equal 0, SolidQueue::Job.where(class_name: 'Bot::StopJob').count
     assert other_key.reload.correct?
 

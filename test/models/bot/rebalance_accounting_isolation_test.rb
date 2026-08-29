@@ -5,7 +5,7 @@ require 'test_helper'
 # user never made, and would eat the "don't spend more than N" cap with money that was never new.
 class Bot::RebalanceAccountingIsolationTest < ActiveSupport::TestCase
   def setup
-    @bot = create(:dca_dual_asset, :started, user: create(:user))
+    @bot = create(:dca_multi_asset, :started, user: create(:user))
     @bot.set_missed_quote_amount
     @bot.save!
   end
@@ -54,7 +54,7 @@ class Bot::RebalanceAccountingIsolationTest < ActiveSupport::TestCase
     order = create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted,
                                  external_status: :open, external_id: 'reb-open',
                                  side: :buy, transaction_type: 'REBALANCE',
-                                 base: @bot.base0_asset.symbol, quote: @bot.quote_asset.symbol,
+                                 base: @bot.base_assets.first.symbol, quote: @bot.quote_asset.symbol,
                                  price: 100, amount: 1, quote_amount: 100)
     @bot.exchange.stubs(:get_order).returns(Result::Success.new(
                                               status: :closed, order_id: 'reb-open', price: 100,
@@ -80,7 +80,7 @@ class Bot::RebalanceAccountingIsolationTest < ActiveSupport::TestCase
     create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted,
                          external_status: :closed, external_id: "x-#{SecureRandom.hex(4)}",
                          side: :buy, transaction_type: transaction_type,
-                         base: @bot.base0_asset.symbol, quote: @bot.quote_asset.symbol,
+                         base: @bot.base_assets.first.symbol, quote: @bot.quote_asset.symbol,
                          price: 100, amount: quote_amount_exec.to_d / 100,
                          amount_exec: quote_amount_exec.to_d / 100,
                          quote_amount: quote_amount_exec, quote_amount_exec: quote_amount_exec)

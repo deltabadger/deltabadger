@@ -4,7 +4,7 @@ class Bot::ActivityLoggableTest < ActiveSupport::TestCase
   # Lifecycle events are logged ONLY after the state change has persisted, for every
   # bot type (including Signal). A failed start/stop must not leave a false row.
 
-  LIFECYCLE_FACTORIES = %i[dca_single_asset dca_dual_asset signal_bot].freeze
+  LIFECYCLE_FACTORIES = %i[dca_single_asset dca_multi_asset signal_bot].freeze
 
   LIFECYCLE_FACTORIES.each do |factory_name|
     test "#{factory_name}: logs a 'started' activity after a successful start" do

@@ -48,9 +48,10 @@ class ChartAssetSeriesTest < ActiveSupport::TestCase
   end
 
   # 1 BTC bought at a 90 fill, then 2 ETH at a 50 fill. The market is flat at 100 / 50, so every
-  # marked point values BTC at 100 and ETH at 100.
-  def index_bot(from: T0 - 1.day)
-    bot = create(:dca_index, user: create(:user))
+  # marked point values BTC at 100 and ETH at 100. Shared by the index bot and the multi-asset
+  # bot — both composition types read the same asset_breakdown-shaped metrics.
+  def composition_bot(factory, from: T0 - 1.day)
+    bot = create(factory, user: create(:user))
     bot.stubs(:metrics).returns(
       { chart: { labels: [T0, T1],
                  series: [[90.to_d, 190.to_d], [90.to_d, 190.to_d]],
@@ -68,24 +69,12 @@ class ChartAssetSeriesTest < ActiveSupport::TestCase
     bot
   end
 
-  def dual_bot
-    bot = create(:dca_dual_asset, user: create(:user))
-    bot.stubs(:metrics).returns(
-      { chart: { labels: [T0, T1],
-                 series: [[90.to_d, 190.to_d], [90.to_d, 190.to_d]],
-                 extra_series: [[1.to_d, 1.to_d], [0.to_d, 2.to_d]],
-                 invested_series: [[90.to_d, 90.to_d], [0.to_d, 100.to_d]],
-                 cash_series: [0.to_d, 0.to_d] },
-        total_base0_amount: 1.to_d, total_base1_amount: 2.to_d,
-        base0_total_quote_amount_invested: 90.to_d,
-        base1_total_quote_amount_invested: 100.to_d,
-        total_quote_amount_invested: 190.to_d,
-        rebalance_cash: 0.to_d }
-    )
-    bot.stubs(:ticker0).returns(ticker_stub(id: 1, base: 'BTC', price: 100))
-    bot.stubs(:ticker1).returns(ticker_stub(id: 2, base: 'ETH', price: 50))
-    bot.stubs(:exchange).returns(exchange_stub)
-    bot
+  def index_bot(from: T0 - 1.day)
+    composition_bot(:dca_index, from: from)
+  end
+
+  def basket_bot
+    composition_bot(:dca_multi_asset)
   end
 
   def chart(bot)
@@ -154,8 +143,8 @@ class ChartAssetSeriesTest < ActiveSupport::TestCase
 
   # == the pair ==
 
-  test 'each leg of a dual-asset bot gets its own curve' do
-    data = chart(dual_bot)
+  test 'each member of a basket gets its own curve' do
+    data = chart(basket_bot)
 
     assert_equal 100.to_d, at(data, 'BTC', :value, T1)
     assert_equal 100.to_d, at(data, 'ETH', :value, T1)
