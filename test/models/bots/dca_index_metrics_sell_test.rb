@@ -91,6 +91,29 @@ class Bots::DcaIndexMetricsSellTest < ActiveSupport::TestCase
                  'an index bot that rotates would otherwise collect a zero row per asset it ever held'
   end
 
+  test 'the basis released by a sell stays counted while the buy is still owed' do
+    # Between the legs the cash is real and still invested. Dropping it from the total would make a
+    # half-finished rebalance look like the user withdrew money.
+    buy('AAA', quote: 100, price: 100)
+    invested_before = @bot.metrics(force: true)[:total_quote_amount_invested]
+
+    sell('AAA', quote: 40, price: 100)
+
+    assert_in_delta invested_before.to_f, @bot.metrics(force: true)[:total_quote_amount_invested].to_f, 0.0001
+  end
+
+  test 'the buy consumes the in-flight cash rather than double counting it' do
+    buy('AAA', quote: 100, price: 100)
+    value_before = @bot.metrics(force: true)[:total_amount_value_in_quote]
+
+    sell('AAA', quote: 40, price: 100)
+    rebalance_buy('BBB', quote: 40, price: 100)
+
+    metrics = @bot.metrics(force: true)
+    assert_in_delta 0, metrics[:rebalance_cash].to_f, 0.0001
+    assert_in_delta value_before.to_f, metrics[:total_amount_value_in_quote].to_f, 0.0001
+  end
+
   private
 
   def buy(symbol, quote:, price:)
