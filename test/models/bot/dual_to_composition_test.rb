@@ -53,6 +53,33 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
 
   def gid_in(job) = job.reload.arguments['arguments'].first['_aj_globalid']
 
+  # == Surviving the class's retirement ==
+
+  # The retirement release deletes Bots::DcaDualAsset and then runs this same conversion from a
+  # migration. A membership's required `bot` is loaded through STI to validate it, so the row has
+  # to be a basket BEFORE the first membership is written, or every remaining row raises.
+  test 'a pair row converts when its class no longer exists' do
+    skip 'the class is already gone' unless Bots.const_defined?(:DcaDualAsset, false)
+
+    # Reference the class before removing it: with eager_load off, remove_const on a constant
+    # Zeitwerk has not autoloaded yet returns nil, and the restore below would then poison every
+    # later test in the process.
+    klass = Bots::DcaDualAsset
+    Bots.send(:remove_const, :DcaDualAsset)
+    begin
+      assert_raises(ActiveRecord::SubclassNotFound) { Bot.find(@bot.id) }
+
+      converted, skipped = run!
+
+      assert_equal [@bot.id], converted
+      assert_empty skipped
+      assert_equal 'Bots::DcaMultiAsset', Bot.find(@bot.id).type
+      assert_equal 2, BotIndexAsset.where(bot_id: @bot.id).count
+    ensure
+      Bots.const_set(:DcaDualAsset, klass)
+    end
+  end
+
   # == What the conversion produces ==
 
   test 'the bot becomes a multi-asset bot' do
