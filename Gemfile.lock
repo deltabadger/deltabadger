@@ -164,7 +164,7 @@ GEM
     dotenv-rails (3.2.0)
       dotenv (= 3.2.0)
       railties (>= 6.1)
-    dotiw (5.5.0)
+    dotiw (5.6.0)
       activesupport
       i18n
     drb (2.2.3)
@@ -711,7 +711,7 @@ CHECKSUMS
   doorkeeper (6.0.0.beta2)
   dotenv (3.2.0) sha256=e375b83121ea7ca4ce20f214740076129ab8514cd81378161f11c03853fe619d
   dotenv-rails (3.2.0) sha256=657e25554ba622ffc95d8c4f1670286510f47f2edda9f68293c3f661b303beab
-  dotiw (5.5.0) sha256=afa6ff5f2f1348c777fbb2822f34e32de758f17eb6943676fe30a60ad3493782
+  dotiw (5.6.0) sha256=626ad547330055526e13ea92dc1e7e60356b55c768861872b7709fe596e92167
   drb (2.2.3) sha256=0b00d6fdb50995fe4a45dea13663493c841112e4068656854646f418fda13373
   ecdsa (1.2.0) sha256=b8f7c9541b6c587cbe37e705a1b76be6dc1e85336aa23ac3cf2f07b038bcec55
   erb (6.0.7) sha256=c5ca6dc25b0ef974a44dc8f59fe847577122483b1968a38dec305c60bf91ee92
