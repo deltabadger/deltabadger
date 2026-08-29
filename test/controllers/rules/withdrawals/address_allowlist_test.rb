@@ -26,8 +26,8 @@ class Rules::Withdrawals::AddressAllowlistTest < ActionDispatch::IntegrationTest
     # The address step reads the asset and exchange the earlier steps put in the session, so
     # they have to be walked rather than assumed — otherwise every request below is refused
     # for a missing asset and the assertions pass without exercising the allowlist at all.
-    post rules_withdrawals_pick_asset_path, params: { bots_dca_single_asset: { asset_id: @asset.id } }
     post rules_withdrawals_pick_exchange_path, params: { bots_dca_single_asset: { exchange_id: @exchange.id } }
+    post rules_withdrawals_pick_asset_path, params: { bots_dca_single_asset: { asset_id: @asset.id } }
 
     assert_equal @asset.id.to_s, session.dig('withdrawal_rule_config', 'asset_id').to_s
     assert_equal @exchange.id.to_s, session.dig('withdrawal_rule_config', 'exchange_id').to_s

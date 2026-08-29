@@ -375,6 +375,7 @@ ru:
                 description: 'Выводить средства с бирж'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Автоматизировать выводы с'
                 withdraw_all: 'Вывести'
                 from: 'с'
                 to: 'на'

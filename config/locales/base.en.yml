@@ -373,6 +373,7 @@ en:
                 description: 'Withdraw funds from exchanges'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automate withdrawals from'
                 withdraw_all: 'Withdraw'
                 from: 'from'
                 to: 'to'

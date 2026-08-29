@@ -373,6 +373,7 @@ el:
                 description: 'Ανάληψη κεφαλαίων από ανταλλακτήρια'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Αυτοματοποίηση αναλήψεων από'
                 withdraw_all: 'Ανάληψη'
                 from: 'από'
                 to: 'σε'

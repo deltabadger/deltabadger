@@ -372,6 +372,7 @@ nl:
                 description: 'Geld opnemen van exchanges'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatiseer opnames van'
                 withdraw_all: 'Opnemen'
                 from: 'van'
                 to: 'naar'

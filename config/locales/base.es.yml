@@ -372,6 +372,7 @@ es:
                 description: 'Retirar fondos de los exchanges'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatizar retiros desde'
                 withdraw_all: 'Retirar'
                 from: 'de'
                 to: 'a'

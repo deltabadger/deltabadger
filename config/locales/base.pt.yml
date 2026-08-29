@@ -371,6 +371,7 @@ pt:
                 description: 'Levantar fundos das corretoras'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatizar levantamentos de'
                 withdraw_all: 'Levantar'
                 from: 'de'
                 to: 'para'
