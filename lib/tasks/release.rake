@@ -14,11 +14,14 @@
 # release commit was made. The Docker image built fine and then crashed on
 # boot with `uninitialized constant Bot::Startable`.
 
-RELEASE_VERSION_FILES = {
-  'src-tauri/Cargo.toml' => /^(version = ")[\d.]+(")/,
-  'src-tauri/tauri.conf.json' => /("version": ")[\d.]+(")/,
-  'deltabadger/umbrel-app.yml' => /^(version: ")[\d.]+(")/
-}.freeze
+# Guarded because test workers reload lib/tasks after resetting Rake.application.
+unless defined?(RELEASE_VERSION_FILES)
+  RELEASE_VERSION_FILES = {
+    'src-tauri/Cargo.toml' => /^(version = ")[\d.]+(")/,
+    'src-tauri/tauri.conf.json' => /("version": ")[\d.]+(")/,
+    'deltabadger/umbrel-app.yml' => /^(version: ")[\d.]+(")/
+  }.freeze
+end
 
 namespace :release do
   desc 'Bump patch version and release (1.0.0 → 1.0.1)'

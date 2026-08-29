@@ -11,7 +11,7 @@ class MigrateDualToMultiTaskTest < ActiveSupport::TestCase
     @bot = create(:dca_dual_asset, status: :waiting)
   end
 
-  def invoke! = Rake::Task['bots:migrate_dual_to_multi'].invoke
+  def invoke! = capture_io { Rake::Task['bots:migrate_dual_to_multi'].invoke }
 
   test 'it converts a bot the deploy-time migration skipped' do
     invoke!
