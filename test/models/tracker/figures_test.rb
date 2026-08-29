@@ -180,11 +180,16 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
     assert_equal 500.to_d, result.notes.find { |note| note.kind == :figures_disagree }.amount_usd
   end
 
-  # The one operation "Show cash: off" performs: the cash holdings leave the LIST, and nothing else
-  # moves. Every figure is still the whole portfolio — hiding a balance is not an accounting choice
-  # — and doing it here rather than in each template is what keeps the card, the ring, the type
-  # shares and the positions table reading from one list.
-  test 'without_cash drops the cash holdings and leaves every figure where it was' do
+  # ── "Show cash: off" ─────────────────────────────────────────────────────────────────────
+  #
+  # The cash leaves the list, the value it stands in, and the money in that funds it — all three,
+  # so a hidden balance of a dollar moves the figures by a dollar. Everything the account has DONE
+  # — fees, what was banked, what is riding, the total between them — is untouched: a P/L is not a
+  # balance, and cannot be hidden by not looking at one.
+  #
+  # Restating it here rather than in each template is what keeps the tiles, the card, the ring, the
+  # type shares and the positions table reading from one result.
+  test 'without_cash takes the cash off the value and off the money in that funds it' do
     tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 1_000)
     tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 600)
     balance(@btc, 1, 900)
@@ -195,19 +200,45 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
 
     assert_equal %w[BTC USDC], full.holdings.map { |holding| holding.asset.symbol }.sort
     assert_equal(%w[BTC], lean.holdings.map { |holding| holding.asset.symbol })
-    assert_equal full.to_h.except(:holdings), lean.to_h.except(:holdings)
-    assert_equal 1_300.to_d, lean.value, 'the portfolio is still worth what it is worth'
+    assert_equal [1_000.to_d, 1_300.to_d], [full.invested, full.value]
+    assert_equal 600.to_d, lean.invested, 'the 400 waiting is not money at work'
+    assert_equal 900.to_d, lean.value, 'what that portion is worth now'
+    assert_equal full.to_h.slice(:fees, :realised, :unrealised, :total, :notes, :ledger),
+                 lean.to_h.slice(:fees, :realised, :unrealised, :total, :notes, :ledger),
+                 'what the account has done is not a balance to hide'
   end
 
-  # A portfolio with no cash in it is the same portfolio, and a ledger still warming has holdings
-  # to filter before it has any figures at all.
+  # The P/L is the account's whichever way the switch is thrown, so a gain banked and left in cash
+  # moves BOTH figures by that cash and neither of the outcomes. The tile hint stays true with it:
+  # what is stated is still the value less the money in.
+  test 'a gain sitting in cash leaves both sides together' do
+    tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 1_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 600)
+    tx(:sell, day: 3, base_currency: 'BTC', base_amount: 0.5, quote_currency: 'USDC', quote_amount: 400)
+    balance(@btc, 0.5, 450)
+    balance(create(:asset, symbol: 'USDC', name: 'USD Coin', external_id: 'usd-coin'), 800, 800)
+
+    full = figures
+    lean = full.without_cash
+
+    assert_equal [1_000.to_d, 1_250.to_d, 250.to_d], [full.invested, full.value, full.total]
+    assert_equal [200.to_d, 450.to_d], [lean.invested, lean.value], 'both sides, less the 800'
+    assert_equal full.total, lean.value - lean.invested
+    assert_equal 100.to_d, lean.realised
+  end
+
+  # A portfolio holding no cash is the same portfolio either way; a ledger still warming has
+  # holdings to filter before it has any figures to restate.
   test 'without_cash is a no-op on a portfolio holding none, and safe while the ledger warms' do
     balance(@btc, 1, 900)
+    full = figures
 
-    assert_equal figures.holdings, figures.without_cash.holdings
+    assert_equal full.to_h, full.without_cash.to_h
 
     warming = Tracker::Figures.for(@user, ledger: nil, balances: AccountBalance.for_user(@user).includes(:asset).to_a)
+
     assert_nil warming.without_cash.invested
+    assert_equal 900.to_d, warming.without_cash.value
     assert_equal(%w[BTC], warming.without_cash.holdings.map { |holding| holding.asset.symbol })
   end
 end

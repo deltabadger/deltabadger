@@ -28,7 +28,11 @@ class PortfolioSnapshot < ApplicationRecord
     # The same resolution the tiles show, so the chart's last point and the tile are one figure.
     figures = Tracker::Figures.for(user, ledger: ledger, balances: balances,
                                          pending: Tracker::Figures.moved_since(pending_scope(user, exchange), watermarks(user, exchange)))
+    # Both readings of the day, as the tiles state them: the whole portfolio, and the positions
+    # inside it — "Show cash" picks between them on the page, never here.
+    positions = figures.without_cash
     { user_id: user.id, date: Date.current, value_usd: figures.value, invested_usd: figures.invested,
+      held_value_usd: positions.value, held_cost_usd: positions.invested,
       partial: partial?(user, balances) || ledger.incomplete }
   end
 
@@ -85,7 +89,7 @@ class PortfolioSnapshot < ApplicationRecord
   # today, and tomorrow's answer is a different one.
   def self.series_key(user, exchange)
     scope = AccountTransaction.for_user(user).for_exchange(exchange)
-    "tracker_history_v3_#{user.id}_#{exchange.id}_#{Date.current.iso8601}_#{watermarks(user, exchange)[exchange.id]&.to_i}_" \
+    "tracker_history_v4_#{user.id}_#{exchange.id}_#{Date.current.iso8601}_#{watermarks(user, exchange)[exchange.id]&.to_i}_" \
       "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}"
   end
 

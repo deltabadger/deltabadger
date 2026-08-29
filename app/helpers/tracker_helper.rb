@@ -131,6 +131,10 @@ module TrackerHelper
 
   # [value, invested] for the chart, in the display currency.
   #
+  # Which pair depends on the scope switch, exactly as the tiles below it do: the whole portfolio
+  # with cash shown, and what the positions were worth against what they cost with it hidden. Every
+  # day carries both, so the curve is a column choice rather than a second sweep.
+  #
   # While balances are hidden the two curves are NORMALIZED instead: every point divided by the last
   # invested figure, which stands the invested line at 100 and reads value against it. The shape is
   # identical and the payload carries proportions rather than money — the attribute is on the page
@@ -138,8 +142,9 @@ module TrackerHelper
   # back to the last VALUE when nothing was ever invested, and to 1 when both are zero, so what
   # ships is always finite.
   def chart_history_series(history, hide_money)
-    values = history.map { |row| row.value_usd.to_d }
-    invested = history.map { |row| row.invested_usd.to_d }
+    worth, cost = show_cash? ? %i[value_usd invested_usd] : %i[held_value_usd held_cost_usd]
+    values = history.map { |row| row.public_send(worth).to_d }
+    invested = history.map { |row| row.public_send(cost).to_d }
     return denominated_series(values, invested) unless hide_money
 
     divisor = [invested.last, values.last, 1.to_d].find(&:positive?)

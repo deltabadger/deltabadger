@@ -233,8 +233,9 @@ class TrackerController < ApplicationController
 
   private
 
-  # Cash and stablecoins are where money waits, not a position anybody picked, so the allocation is
-  # drawn without them unless asked. Absent means off: the default is the invested portfolio.
+  # Cash and stablecoins are where money waits, not a position anybody picked, so the page is about
+  # the active positions unless asked otherwise. Absent means off: the default is the invested
+  # portfolio, and `Hide balances` is the separate switch for taking the money off the screen.
   def show_cash?
     current_user.tracker_settings&.dig('show_cash').present?
   end
@@ -315,6 +316,23 @@ class TrackerController < ApplicationController
       return
     end
 
+    first_transaction = AccountTransaction.for_user(current_user).minimum(:transacted_at)&.to_date
+    # The curve follows the switch too, and a day swept before it cannot answer for the positions —
+    # the cash standing on it is not recoverable from a row that never stated it. Those days are not
+    # drawn (a nil read as zero would be a lie in the shape of a figure), and a sweep is asked for
+    # while any of them is a day a sweep can still reach: the first transaction to yesterday, which
+    # is exactly the window the job writes. Nothing else is asked for on every page load — a row
+    # older than the account's own history is dropped for good, and TODAY's row is the sync's to
+    # rewrite (`record!` states both readings), which it does on the next one.
+    unless show_cash?
+      unswept, @history = @history.partition { |row| row.held_cost_usd.nil? }
+      if unswept.any? { |row| first_transaction && row.date.between?(first_transaction, Date.yesterday) }
+        PortfolioSnapshot::BackfillJob.perform_later(current_user.id, @scope_exchange&.id)
+        @history_loading = @history.empty?
+        return
+      end
+    end
+
     # A day already swept can still be wrong: it was valued at the prices that existed then, and the
     # sweep only ever runs forwards. Prices arriving since — a range the provider could not answer
     # before — change days nothing else revisits, so a history with unvalued days asks for one more
@@ -325,7 +343,6 @@ class TrackerController < ApplicationController
       return
     end
 
-    first_transaction = AccountTransaction.for_user(current_user).minimum(:transacted_at)&.to_date
     return if @scope_exchange || first_transaction.nil? || first_transaction >= Date.current
     return if @history.first && @history.first.date <= first_transaction
 
@@ -355,9 +372,10 @@ class TrackerController < ApplicationController
     # contradict each other with nothing able to notice.
     @figures = Tracker::Figures.for(current_user, ledger: @scoped_ledger, balances: balances,
                                                   pending: quantities_since)
-    # The switch beside the venues, applied once. Everything drawn FROM the holdings — the card, the
-    # ring, the type shares, the positions table — follows; every figure stated ABOUT the portfolio
-    # is untouched, because hiding a balance is not an accounting choice.
+    # The switch beside the venues, applied once — and it scopes the whole page, not only the list:
+    # what is drawn FROM the holdings (the card, the ring, the type shares, the positions table)
+    # and what is stated ABOUT them (money in, value, the P/L between the two). See
+    # `Figures::Result#without_cash` for what that restatement is.
     unless show_cash?
       invested = @figures.without_cash
       # An account holding nothing BUT cash has balances; it just has no invested position to

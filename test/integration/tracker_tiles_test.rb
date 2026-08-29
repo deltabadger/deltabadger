@@ -89,10 +89,8 @@ class TrackerTilesTest < ActionDispatch::IntegrationTest
                  money(figures, I18n.t('tracker.tiles.unrealised_pnl'))
   end
 
-  # Fees are already off both halves — a disposal's gain is proceeds less cost less fee, and an
-  # acquisition's fee is capitalised into the basis. Subtracting the Fees tile again would charge
-  # them twice.
-  test 'fees are not subtracted a second time' do
+  # Half the BTC sold for 15,000 with a 100 fee: 4,900 banked, 5,000 still riding, 14,900 in cash.
+  def sell_half!
     create(:account_transaction, api_key: @key, exchange: @binance, entry_type: :sell,
                                  base_currency: 'BTC', base_amount: 0.5, quote_currency: 'USD',
                                  quote_amount: 15_000, fee_amount: 100, fee_currency: 'USD',
@@ -105,6 +103,14 @@ class TrackerTilesTest < ActionDispatch::IntegrationTest
     AccountBalance.create!(user: @user, exchange: @binance, asset: usd, free: 14_900, locked: 0,
                            usd_price: 1, usd_value: 14_900, synced_at: Time.current, priced_at: Time.current)
     Tracker::Ledger.compute!(@user)
+  end
+
+  # Fees are already off both halves — a disposal's gain is proceeds less cost less fee, and an
+  # acquisition's fee is capitalised into the basis. Subtracting the Fees tile again would charge
+  # them twice.
+  test 'fees are not subtracted a second time' do
+    sell_half!
+    @user.update!(tracker_settings: { 'show_cash' => true })
 
     figures = tiles
 
@@ -113,6 +119,23 @@ class TrackerTilesTest < ActionDispatch::IntegrationTest
                  money(figures, I18n.t('bot.dca_index.realised_pnl')) +
                  money(figures, I18n.t('tracker.tiles.unrealised_pnl')),
                  'the components still come to the total, with the fee already inside them'
+  end
+
+  # And with cash hidden they still come to it: the 14,900 the sale returned comes off the value
+  # AND off the money in that funds it, so the difference between them — every outcome the grid
+  # states — is exactly where it was.
+  test 'hiding the cash moves both sides and no outcome' do
+    sell_half!
+
+    figures = tiles
+
+    assert_equal 5_100.to_d, money(figures, I18n.t('bot.details.stats.total_invested')),
+                 '20,000 in, less the 14,900 standing in cash'
+    assert_equal 15_000.to_d, money(figures, I18n.t('bot.details.stats.portfolio_value'))
+    assert_equal money(figures, I18n.t('tracker.tiles.total_pnl')),
+                 money(figures, I18n.t('bot.dca_index.realised_pnl')) +
+                 money(figures, I18n.t('tracker.tiles.unrealised_pnl'))
+    assert_equal 9_900.to_d, money(figures, I18n.t('tracker.tiles.total_pnl'))
   end
 
   test 'hiding balances takes the whole grid, hint and all' do

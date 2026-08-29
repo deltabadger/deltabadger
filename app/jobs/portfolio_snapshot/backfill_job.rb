@@ -75,6 +75,11 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # and the tile are one number, and there is no second opinion about what a row contributed. The
   # sweep keeps only what VALUING a day needs: the quantities, and the cash a venue must have had
   # to pay for what it bought.
+  #
+  # Each day is written TWICE over, because the page has two readings of it and "Show cash" picks
+  # between them: the whole portfolio, and the same day with the cash taken off both sides — the
+  # value it stands in, and the money in that funds it. Both come off the day already swept; the
+  # cash of the day is the one extra figure, and the sweep is already valuing it.
   def sweep(first_date)
     balances = Hash.new(0.to_d)
     # Cash per VENUE, beside the balances the day is valued from: dollars at a broker cannot pay for
@@ -104,8 +109,9 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
         # An opening balance is held from the day the ledger booked it, as the ledger holds it.
         balances[term.opens.first] += term.opens.last if term.opens
       end
-      value, unpriced = value_on(balances, date)
+      value, held, unpriced = value_on(balances, date)
       { user_id: @user.id, date: date, value_usd: value, invested_usd: invested,
+        held_value_usd: held, held_cost_usd: invested - (value - held),
         partial: unpriced || invested_incomplete }
     end
   end
@@ -225,13 +231,20 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     end
   end
 
+  # [everything, the positions inside it, whether a holding went unpriced]. Cash is split out of the
+  # same walk rather than filtered in a second one, so the two readings of a day cannot disagree
+  # about it — and it is split by the predicate the page uses (`UnfundedCash.cash?`), so the curve
+  # and the holdings card mean the same thing by "cash".
+  #
   # A negative balance is history we do not have — an exchange whose ledger window starts after the
   # funding deposit leaves a sale with nothing behind it. Dropping it silently would show the whole
   # position as profit, so the day says it is an estimate instead.
   def value_on(balances, date)
     unpriced = balances.any? { |_symbol, quantity| quantity < -DUST }
-    total = balances.sum(0.to_d) do |symbol, quantity|
-      next 0.to_d unless quantity.positive?
+    total = 0.to_d
+    held = 0.to_d
+    balances.each do |symbol, quantity|
+      next unless quantity.positive?
 
       value = if STABLECOINS.include?(symbol)
                 quantity
@@ -242,9 +255,10 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
                 price && (quantity * price)
               end
       unpriced ||= value.nil?
-      value || 0.to_d
+      total += value || 0.to_d
+      held += value || 0.to_d unless Tracker::UnfundedCash.cash?(symbol)
     end
-    [total, unpriced]
+    [total, held, unpriced]
   end
 
   def fiat_value(currency, amount, date)
