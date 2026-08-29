@@ -75,6 +75,14 @@ class Ticker < ApplicationRecord
     exchange.get_candles(ticker: self, start_at: start_at, timeframe: timeframe)
   end
 
+  def get_indicator_candles(start_at:, timeframe:)
+    exchange.get_indicator_candles(ticker: self, start_at: start_at, timeframe: timeframe)
+  end
+
+  def restated_candles?
+    exchange.restated_candles?(self)
+  end
+
   def market_buy(amount:, amount_type:)
     exchange.market_buy(ticker: self, amount: amount, amount_type: amount_type)
   end

@@ -21,7 +21,7 @@ class Ticker::TechnicallyAnalyzableTest < ActiveSupport::TestCase
   test 'seeds ATH from a shorter window when the deep fetch comes back empty' do
     cutoff = 100.days.ago
     candle = normalized_candle(high: 120)
-    @ticker.define_singleton_method(:get_candles) do |**kw|
+    @ticker.define_singleton_method(:get_indicator_candles) do |**kw|
       Result::Success.new(kw[:start_at] >= cutoff ? [candle] : [])
     end
 
@@ -36,7 +36,7 @@ class Ticker::TechnicallyAnalyzableTest < ActiveSupport::TestCase
 
   test 'propagates a failure from the deep fetch without trying shorter windows' do
     calls = 0
-    @ticker.define_singleton_method(:get_candles) do |**_kw|
+    @ticker.define_singleton_method(:get_indicator_candles) do |**_kw|
       calls += 1
       Result::Failure.new('boom')
     end
@@ -52,7 +52,7 @@ class Ticker::TechnicallyAnalyzableTest < ActiveSupport::TestCase
   test 'propagates a failure that occurs during a fallback window and does not seed' do
     # The deep + long windows are empty; a shorter fallback window errors. That failure must
     # propagate (not be swallowed by continuing the walk).
-    @ticker.define_singleton_method(:get_candles) do |**kw|
+    @ticker.define_singleton_method(:get_indicator_candles) do |**kw|
       if kw[:start_at] >= 200.days.ago
         Result::Failure.new('boom')
       else
@@ -72,7 +72,7 @@ class Ticker::TechnicallyAnalyzableTest < ActiveSupport::TestCase
     @ticker.update_columns(ath: 200, ath_updated_at: nil)
     cutoff = 100.days.ago
     candle = normalized_candle(high: 150)
-    @ticker.define_singleton_method(:get_candles) do |**kw|
+    @ticker.define_singleton_method(:get_indicator_candles) do |**kw|
       Result::Success.new(kw[:start_at] >= cutoff ? [candle] : [])
     end
 
@@ -88,7 +88,7 @@ class Ticker::TechnicallyAnalyzableTest < ActiveSupport::TestCase
     @ticker.update!(ath: 200, ath_updated_at: 2.days.ago)
     seen = []
     candle = normalized_candle(high: 150, at: Time.now.utc - 1.hour)
-    @ticker.define_singleton_method(:get_candles) do |**kw|
+    @ticker.define_singleton_method(:get_indicator_candles) do |**kw|
       seen << kw[:start_at]
       Result::Success.new([candle])
     end
@@ -104,7 +104,7 @@ class Ticker::TechnicallyAnalyzableTest < ActiveSupport::TestCase
   test 'suppresses the seed walk on subsequent ticks when every window is empty' do
     Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
     calls = 0
-    @ticker.define_singleton_method(:get_candles) do |**_kw|
+    @ticker.define_singleton_method(:get_indicator_candles) do |**_kw|
       calls += 1
       Result::Success.new([])
     end
@@ -135,7 +135,7 @@ class Ticker::TechnicallyAnalyzableTest < ActiveSupport::TestCase
 
   test 'get_low_of_last returns the minimum candle low over a finite window' do
     candles = [normalized_candle_low(low: 95), normalized_candle_low(low: 88), normalized_candle_low(low: 92)]
-    @ticker.define_singleton_method(:get_candles) { |**_kw| Result::Success.new(candles) }
+    @ticker.define_singleton_method(:get_indicator_candles) { |**_kw| Result::Success.new(candles) }
 
     result = @ticker.get_low_of_last(duration: 24.hours)
 
@@ -144,13 +144,13 @@ class Ticker::TechnicallyAnalyzableTest < ActiveSupport::TestCase
   end
 
   test 'get_low_of_last propagates a candle fetch failure' do
-    @ticker.define_singleton_method(:get_candles) { |**_kw| Result::Failure.new('boom') }
+    @ticker.define_singleton_method(:get_indicator_candles) { |**_kw| Result::Failure.new('boom') }
 
     assert_predicate @ticker.get_low_of_last(duration: 24.hours), :failure?
   end
 
   test 'get_low_of_last returns nil data when there are no candles' do
-    @ticker.define_singleton_method(:get_candles) { |**_kw| Result::Success.new([]) }
+    @ticker.define_singleton_method(:get_indicator_candles) { |**_kw| Result::Success.new([]) }
 
     result = @ticker.get_low_of_last(duration: 24.hours)
     assert_predicate result, :success?
@@ -182,7 +182,7 @@ class Ticker::TechnicallyAnalyzableTest < ActiveSupport::TestCase
     # Newest candle is a fully-closed session (its close time is in the past), as for a stock over
     # a weekend. It must be included, not dropped, and not rejected as stale.
     candles = daily_candles(RSI_CLOSES, last_at: Time.now.utc - 2.days)
-    @ticker.define_singleton_method(:get_candles) { |**_kw| Result::Success.new(candles) }
+    @ticker.define_singleton_method(:get_indicator_candles) { |**_kw| Result::Success.new(candles) }
 
     result = @ticker.get_rsi_value(timeframe: 1.day, period: 14)
 
@@ -197,7 +197,7 @@ class Ticker::TechnicallyAnalyzableTest < ActiveSupport::TestCase
     # Newest candle is the current, in-progress period (close time in the future). It must be
     # dropped so the RSI reflects only closed candles.
     candles = daily_candles(RSI_CLOSES, last_at: Time.now.utc)
-    @ticker.define_singleton_method(:get_candles) { |**_kw| Result::Success.new(candles) }
+    @ticker.define_singleton_method(:get_indicator_candles) { |**_kw| Result::Success.new(candles) }
 
     result = @ticker.get_rsi_value(timeframe: 1.day, period: 14)
 
@@ -210,11 +210,84 @@ class Ticker::TechnicallyAnalyzableTest < ActiveSupport::TestCase
 
   test 'get_moving_average_value keeps the latest closed candle when the market is closed' do
     candles = daily_candles(RSI_CLOSES, last_at: Time.now.utc - 2.days)
-    @ticker.define_singleton_method(:get_candles) { |**_kw| Result::Success.new(candles) }
+    @ticker.define_singleton_method(:get_indicator_candles) { |**_kw| Result::Success.new(candles) }
 
     result = @ticker.get_sma_value(timeframe: 1.day, period: 9)
 
     assert_predicate result, :success?
     assert_not_nil result.data
+  end
+
+  # ---- restated histories (stock splits) ----
+  #
+  # `ath` is an incremental maximum, which is only sound while history is immutable. A split
+  # restates every bar downward, so the stored high is not a high any more — it is a number in
+  # units that no longer exist, and no future candle can ever beat it. On a venue that restates,
+  # the column has to be recomputed from the full history and REPLACED.
+
+  def alpaca_stock_ticker
+    exchange = create(:alpaca_exchange)
+    aapl = Asset.find_by(symbol: 'AAPL') || create(:asset, external_id: 'aapl', symbol: 'AAPL', category: 'Stock')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    create(:ticker, exchange: exchange, base_asset: aapl, quote_asset: usd, ticker: 'AAPL')
+  end
+
+  test 'a restated ticker replaces its ATH when a split rewrites the history downward' do
+    ticker = alpaca_stock_ticker
+    ticker.update!(ath: 2411.to_d, ath_updated_at: 2.days.ago)
+    seen = []
+    candle = normalized_candle(high: 254)
+    ticker.define_singleton_method(:get_indicator_candles) do |**kw|
+      seen << kw[:start_at]
+      Result::Success.new([candle])
+    end
+
+    result = ticker.get_high_of_last(duration: Float::INFINITY.seconds)
+
+    assert_predicate result, :success?
+    assert_equal 254.to_d, result.data, 'a 10:1 split must not leave the pre-split high standing'
+    assert_operator seen.first, :<, 10.years.ago, 'a restated ticker must re-walk the full history'
+    ticker.reload
+    assert_equal 254.to_d, ticker.ath
+  end
+
+  test 'an immutable history still carries its ATH forward' do
+    @ticker.update!(ath: 200, ath_updated_at: 2.days.ago)
+    @ticker.define_singleton_method(:get_indicator_candles) do |**_kw|
+      Result::Success.new([[Time.now.utc - 1.hour, 100.to_d, 150.to_d, 90.to_d, 110.to_d, 50.to_d]])
+    end
+
+    result = @ticker.get_high_of_last(duration: Float::INFINITY.seconds)
+
+    assert_equal 200.to_d, result.data, 'crypto has no corporate actions — the running max stands'
+  end
+
+  test 'a restated ticker keeps its ATH rather than downgrading to a fallback window' do
+    ticker = alpaca_stock_ticker
+    ticker.update!(ath: 2411.to_d, ath_updated_at: 2.days.ago)
+    cutoff = 100.days.ago
+    candle = normalized_candle(high: 150)
+    ticker.define_singleton_method(:get_indicator_candles) do |**kw|
+      Result::Success.new(kw[:start_at] >= cutoff ? [candle] : [])
+    end
+
+    result = ticker.get_high_of_last(duration: Float::INFINITY.seconds)
+
+    assert_equal 2411.to_d, result.data, 'only the full history may replace the stored value'
+    ticker.reload
+    assert_equal 2411.to_d, ticker.ath
+  end
+
+  test 'a restated ticker keeps its ATH when every window comes back empty' do
+    ticker = alpaca_stock_ticker
+    ticker.update!(ath: 2411.to_d, ath_updated_at: 2.days.ago)
+    ticker.define_singleton_method(:get_indicator_candles) { |**_kw| Result::Success.new([]) }
+
+    result = ticker.get_high_of_last(duration: Float::INFINITY.seconds)
+
+    assert_predicate result, :success?
+    assert_equal 2411.to_d, result.data, 'an empty answer is not evidence the high is gone'
+    ticker.reload
+    assert_equal 2411.to_d, ticker.ath
   end
 end

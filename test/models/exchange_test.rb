@@ -54,4 +54,19 @@ class ExchangeTest < ActiveSupport::TestCase
 
     assert_nil coinbase.raise_on_invalid_key!(Result::Success.new({}))
   end
+
+  # Corporate actions only exist on stock venues, so for a crypto exchange the indicator series
+  # IS the as-traded series — no signature and no behaviour of its own.
+  test 'get_indicator_candles falls through to get_candles where nothing restates history' do
+    binance = create(:binance_exchange)
+    ticker = create(:ticker, exchange: binance)
+    candles = [[Time.now.utc, 1.to_d, 2.to_d, 0.5.to_d, 1.5.to_d, 10.to_d]]
+    binance.expects(:get_candles).with(ticker: ticker, start_at: anything, timeframe: 1.day)
+           .returns(Result::Success.new(candles))
+
+    result = binance.get_indicator_candles(ticker: ticker, start_at: 1.day.ago, timeframe: 1.day)
+
+    assert_equal candles, result.data
+    assert_not binance.restated_candles?(ticker)
+  end
 end
