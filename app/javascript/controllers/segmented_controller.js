@@ -50,7 +50,9 @@ export default class extends Controller {
     this.optionTargets.forEach((option) => this.observer.observe(option));
     // The room is the PARENT's, never the control's own: once collapsed the control is only as
     // wide as its trigger, and a control measuring itself would never learn that it fits again.
-    this.observer.observe(this.element.parentElement);
+    // Its SIBLINGS too: a row can run out of room without the row changing size, when whatever
+    // shares it grows instead — and a control watching only the parent never hears about that.
+    [this.element.parentElement, ...this.element.parentElement.children].forEach((box) => this.observer.observe(box));
 
     // Last, so the click it may fire lands on a control that is wired and measured.
     this.#restore();
@@ -213,18 +215,25 @@ export default class extends Controller {
   }
 
   #layout() {
-    // Only an expanded control can be asked how wide it wants to be, so the answer is kept.
-    if (!this.#collapsed) this.natural = this.element.getBoundingClientRect().width;
-    // Rounded, because clientWidth is: a parent that shrink-wraps this control reports exactly
-    // its width, and a fraction of a pixel between the two is not a reason to fold anything.
-    const collapse = Math.round(this.natural) > this.#room();
+    // Measured EXPANDED, always — the fold cannot be judged from inside it. Folding shrinks this
+    // control and anything elastic beside it grows into the space it gave up, so a collapsed
+    // control asking its parent for room is asking about a row its own fold rearranged: it would
+    // never learn that it fits again. Unfolding for the measurement puts the row back the way the
+    // answer has to be read, and an EXPANDED neighbour that stretched is squeezed back to what it
+    // actually needs — which is the whole question. Class off and on inside one callback is a
+    // single forced layout and no paint, so nothing is ever seen mid-flip.
+    const was = this.#collapsed;
+    this.element.classList.remove("segmented--collapsed");
+    // Half a pixel of slack rather than rounding the control up to meet it: clientWidth is a whole
+    // number, so a parent that shrink-wraps this control reports a hair less than it measures, and
+    // a fraction of a pixel is not a reason to fold anything. Rounding the other operand instead
+    // overshoots a room that is itself fractional, which is a fold with the row standing empty.
+    const collapse = this.element.getBoundingClientRect().width > this.#room() + 0.5;
+    this.element.classList.toggle("segmented--collapsed", collapse);
 
     // Only on the way in or out: opening the menu resizes the options, which lands back here,
     // and a close on every pass would shut the menu on the very click that opened it.
-    if (this.#collapsed !== collapse) {
-      this.element.classList.toggle("segmented--collapsed", collapse);
-      this.#close();
-    }
+    if (was !== collapse) this.#close();
     this.#moveThumb();
   }
 
