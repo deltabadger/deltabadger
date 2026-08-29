@@ -978,10 +978,10 @@ export default class extends Controller {
   // left edge and what the reader compares is the shape. Narrowing the range rebases again, for
   // the same reason the RETURN curve does: the question is what these weeks did.
   //
-  // Fitted INTO the y range the plot already has rather than widening it. Turning prices on must
-  // not rescale the curve they are being compared to — the reader would see the line they came
-  // for move and read it as the market having moved. One scale across all the lines at once, so
-  // they keep their sizes relative to each other.
+  // Every line leaves the curve's first point, whatever that costs the frame: a band that does
+  // not fit around that point widens the plot by exactly what it needs, rather than sliding off
+  // it — an overlay that starts somewhere else is not the comparison the reader turned on. One
+  // scale across all the lines at once, so they keep their sizes relative to each other.
   //
   // The trade is that a price line carries no readable number, which is what the price under the
   // headline is for — and why it only appears when there is a single line to name.
@@ -1002,14 +1002,27 @@ export default class extends Controller {
       lines.flatMap(([, points]) => points.map((point) => point.y)), 0, 0
     );
     const scale = this.#priceScale(plot.y, anchor, low, high);
-    const base = this.#priceBase(plot.y, anchor, low * scale, high * scale);
 
     return {
       ...plot,
+      y: this.#widened(plot.y, anchor + low * scale, anchor + high * scale),
       datasets: plot.datasets.concat(
-        lines.map(([symbol, points]) => this.#priceDataset(symbol, points, base, scale))
+        lines.map(([symbol, points]) => this.#priceDataset(symbol, points, anchor, scale))
       ),
     };
+  }
+
+  // The plot's y range, pushed out only where the band leaves it, with a sliver of room so the
+  // extreme line is not drawn along the edge. `max` rather than `suggestedMax` on the top: the
+  // band is a hard extent, not a hint.
+  #widened(y, bottom, top) {
+    const floor = y.min ?? 0;
+    const ceiling = y.max ?? y.suggestedMax;
+    const pad = (ceiling - floor) * 0.02;
+    const widened = { ...y };
+    if (bottom - pad < floor) widened.min = bottom - pad;
+    if (top + pad > ceiling) widened.max = top + pad;
+    return widened;
   }
 
   // The assets whose prices are worth drawing: the focused holding alone, or all of them. A
@@ -1048,9 +1061,9 @@ export default class extends Controller {
   // index, the overlay got 10.7% of the plot height and lay along the floor, unreadable. RETURN
   // mode never has the problem — its anchor sits mid-frame and the same rule spends ~70%.
   //
-  // So the fit has a floor of its own: half the frame, whatever the anchor allows. What that
-  // costs is the shared start — past the floor the band no longer fits around the anchor, and
-  // `#priceBase` slides it up rather than letting the troughs be cut off at the plot edge.
+  // So the fit has a floor of its own: half the frame, whatever the anchor allows. Past that
+  // floor the band no longer fits around the anchor, and it is the frame that gives (`#widened`)
+  // — the start stays shared, and the curve moves by the room the troughs needed.
   //
   // ponytail: half is a taste threshold, not a derived one.
   #priceScale(y, anchor, low, high) {
@@ -1065,20 +1078,6 @@ export default class extends Controller {
     // One of the two is finite: a non-zero spread has a side that leaves the anchor.
     const room = Math.max(Math.min(up, down), 0);
     return Math.max(room * 0.9, ((ceiling - floor) / spread) * 0.5);
-  }
-
-  // Where the overlay's own zero sits: the curve's first point, so both leave the left edge
-  // together — but slid until the whole band is inside the frame. In VALUE mode the anchor is
-  // the portfolio at its first buy, a hair above a hard zero floor, so a line that ever dips
-  // below its opening price is drawn under the plot and simply disappears — Chart.js clips to
-  // the plot area, so it does not even flatten, it goes missing in stretches.
-  //
-  // Scaled to fit the frame with room to spare, so the two ends of the clamp never cross.
-  #priceBase(y, anchor, drop, rise) {
-    const floor = y.min ?? 0;
-    const ceiling = y.max ?? y.suggestedMax;
-    const pad = (ceiling - floor) * 0.02;
-    return Math.min(Math.max(anchor, floor + pad - drop), ceiling - pad - rise);
   }
 
   // Thinner and softer than the curve, and with no point on its end: the overlay is context, and
@@ -1101,31 +1100,62 @@ export default class extends Controller {
     };
   }
 
+  // The same reading as the PnL plot, in money: the invested line is the zero line, the value
+  // curve is green where it sits above it and red where it sits below, and the ribbon between
+  // them is the PnL. A narrowed window draws the invested line from where the VALUE started —
+  // lifted by the PnL the position already had, exactly what the RETURN curve subtracts — so
+  // both lines leave the left edge together and their gap says what THESE weeks did, which is
+  // what the headline over them says. The hover keeps reading the source series, so the money
+  // printed is still what was actually invested.
   #valuePlot(labels) {
+    const shift = this.from ? this.baseline : 0;
     // Nulls dropped, not zeroed: a focused holding has no market value at a point the portfolio
     // left on its fill mark. Every point carries its own timestamp, so a gap costs nothing.
-    const series = this.#series.map((serie) =>
+    const series = this.#series.map((serie, i) =>
       serie
-        .map((amount, i) => ({ x: labels[i], y: amount === null ? null : Number(amount) }))
+        .map((amount, j) => ({ x: labels[j], y: amount === null ? null : Number(amount) + (i ? shift : 0) }))
         .filter((point) => point.y !== null)
     );
-    const maxValue = this.focused
-      ? this.#assetBounds.value
-      : this.#extremes(series.flatMap((serie) => serie.map((p) => p.y))).high;
-    const profitable = series[0].at(-1).y >= series[1].at(-1).y;
+    const span = this.#extremes(series.flatMap((serie) => serie.map((p) => p.y)));
+    const maxValue = this.focused ? this.#assetBounds.value : span.high;
     const points = Math.min(this.maxPointsToDraw, series[0].length, series[1].length);
-    const colors = [profitable ? this.#color("--grass") : this.#color("--berry"), this.#color("--benchmark")];
+    const up = this.#color("--grass");
+    const down = this.#color("--berry");
+    // The invested line as DRAWN at a timestamp. Stepped "after", so between two points it
+    // holds the earlier one's level.
+    const invested = (x) => this.#investedAt(x) + shift;
+    // The whole history is read from zero — that is where the money came from. A narrowed
+    // window is read from its own floor: both lines sit far above zero by then, and a frame
+    // kept at zero flattens what these weeks did into a line along the middle of it.
+    const pad = (span.high - span.low) * 0.1 || 0.01;
+    const y = this.from && !this.focused
+      ? { min: span.low - pad, max: span.high + pad }
+      : { min: 0, suggestedMax: maxValue * 1.1 };
 
     return {
       points,
-      y: { display: false, min: 0, suggestedMax: maxValue * 1.1 },
-      datasets: colors.map((color, i) => ({
-        ...this.#lineDataset(color, series[i], points),
-        // Invested is a step function — the cash lands at the moment of a buy and sits flat
-        // until the next one — so it gets right-angle risers instead of a curve. "after":
-        // the riser is drawn at the transaction that raised the total, not one point early.
-        stepped: i === 1 ? "after" : false,
-      })),
+      y: { display: false, ...y },
+      datasets: [
+        {
+          ...this.#lineDataset(series[0].at(-1).y >= series[1].at(-1).y ? up : down, series[0], points),
+          pointHoverBorderColor: (ctx) => (ctx.parsed && ctx.parsed.y >= invested(ctx.parsed.x) ? up : down),
+          segment: {
+            borderColor: (ctx) => ((ctx.p0.parsed.y + ctx.p1.parsed.y) / 2 >= invested(ctx.p0.parsed.x) ? up : down),
+          },
+          fill: {
+            target: 1,
+            above: this.#setTransparency(up, 0.12),
+            below: this.#setTransparency(down, 0.12),
+          },
+        },
+        {
+          ...this.#lineDataset(this.#color("--benchmark"), series[1], points),
+          // Invested is a step function — the cash lands at the moment of a buy and sits flat
+          // until the next one — so it gets right-angle risers instead of a curve. "after":
+          // the riser is drawn at the transaction that raised the total, not one point early.
+          stepped: "after",
+        },
+      ],
     };
   }
 
