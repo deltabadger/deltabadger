@@ -232,6 +232,15 @@ ol, ul
     // The number is set at 8.2rem in a 7rem line box and pulled a further 1rem down: it is MEANT
     // to sit on the line and be cropped by it, which is what this box keeps doing now that the
     // section itself has to let the curve out.
+    // The day under the pointer, just below the zero line and flush with the figure it dates.
+    &__date
+        position: absolute
+        top: calc(var(--dash-height) + 1rem)
+        right: 0
+        color: var(--concrete)
+        font-size: 1.5rem
+        line-height: 1
+        pointer-events: none
     &__figure
         display: flex
         flex-direction: column

@@ -10,10 +10,12 @@ import { Controller } from "@hotwired/stimulus"
 // screen is a class on <html> (see pnl_format_controller.js), and the reader can flip it while
 // the pointer is still on the curve.
 export default class extends Controller {
-  static targets = ["curve", "dot", "figure", "percent", "amount"]
+  static targets = ["curve", "dot", "figure", "percent", "amount", "date"]
   static values = {
     percent: Array,
     profit: Array,
+    // One moment per column, in epoch seconds.
+    at: Array,
     // The ratio the top of the box is worth — the server's, not re-derived here, or the dot would
     // sit off the curve whenever the ten-percent floor is what set the scale.
     scale: Number,
@@ -56,12 +58,15 @@ export default class extends Controller {
     this.percentTarget.innerHTML = this.live[0]
     if (this.hasAmountTarget) this.amountTarget.innerHTML = this.live[1]
     this.dotTarget.hidden = true
+    this.dateTarget.hidden = true
   }
 
   #show(index, last) {
     const percent = this.percentValue[index]
     this.percentTarget.textContent = this.#percent(percent)
     if (this.hasAmountTarget) this.amountTarget.replaceChildren(...this.#money(this.profitValue[index]))
+    this.dateTarget.textContent = this.#date(this.atValue[index])
+    this.dateTarget.hidden = false
 
     // In the box's own percentages, so the dot rides the curve at any size: the viewBox is 100
     // units above the zero line and the same 100 below it.
@@ -111,6 +116,15 @@ export default class extends Controller {
     const row = document.createElement("div")
     row.append(...content)
     return row
+  }
+
+  // Written the way the bot chart writes its hovered day.
+  #date(seconds) {
+    return new Date(seconds * 1000).toLocaleDateString(document.documentElement.lang || "en", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
   }
 
   #percent(value) {

@@ -88,6 +88,17 @@ class Bots::IndexPnlSparkTest < ActionDispatch::IntegrationTest
     assert_select '.dash-intro__spark svg[viewBox=?]', '0 0 100 200'
   end
 
+  # The day under the pointer is written below the zero line — and only while there is a pointer.
+  test 'the hovered day ships with the curve and its line starts hidden' do
+    now = Time.current
+    stub_history([[now - 1.day, 100, 100], [now, 125, 100]])
+
+    get bots_path
+
+    assert_select '#global-pnl[data-pnl-spark-at-value]'
+    assert_select '#global-pnl .dash-intro__date[data-pnl-spark-target=?][hidden]', 'date'
+  end
+
   test 'the headline still reads as it did, and the figures are the hover targets' do
     now = Time.current
     stub_history([[now - 1.day, 100, 100], [now, 125, 100]])

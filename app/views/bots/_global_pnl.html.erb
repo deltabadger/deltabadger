@@ -9,6 +9,7 @@
       # The money is left OUT while balances are hidden — the ratio is not a balance, the profit
       # is, and shipping it in an attribute for CSS to cover is how it leaks.
       pnl_spark_profit_value: (history[:profit_usd].to_json unless hide_balances),
+      pnl_spark_at_value: history[:at].to_json,
       pnl_spark_scale_value: spark[:scale],
       pnl_spark_rate_value: denomination.rate.to_f,
       pnl_spark_unit_value: denomination.unit,
@@ -22,6 +23,8 @@
   <% if global_pnl.present? %>
     <% if spark %>
       <%= render partial: 'bots/pnl_spark', locals: { spark: spark } %>
+      <%# The day the figure is being read at, under the zero line; only there while the pointer is. %>
+      <span class="dash-intro__date" data-pnl-spark-target="date" hidden></span>
     <% end %>
     <%# Switches every PnL on the page — this one and each bot tile — see pnl_format_controller.js.
         With balances hidden there is no second format to switch to, so the headline is a headline
