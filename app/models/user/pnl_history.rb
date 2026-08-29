@@ -23,7 +23,7 @@ class User::PnlHistory
   # past this, and every column is two floats in a data attribute.
   MAX_POINTS = 180
 
-  # { result: { percent:, profit_usd:, days: } | nil, loading: Boolean }, on the same three terms
+  # { result: { percent:, profit_usd:, at:, days: } | nil, loading: Boolean }, on the same three terms
   # as `User#global_pnl_snapshot`: ready, waiting on a cold cache, or nothing to draw.
   # `live:` lets a background job compute what a request may only read.
   def self.snapshot(user, live: false) = new(user, live: live).call
@@ -108,6 +108,7 @@ class User::PnlHistory
     cursors = Array.new(tracks.size, 0)
     percent = []
     profit = []
+    at_seconds = []
 
     columns.times do |i|
       # The last column is the last reading itself, not a fraction that lands a float's breadth
@@ -127,6 +128,7 @@ class User::PnlHistory
         invested += reading[2]
       end
 
+      at_seconds << at.to_i
       pnl = value - invested
       profit << pnl.to_f
       # A percentage of nothing is not zero percent, but a moment before any money went in has no
@@ -134,7 +136,7 @@ class User::PnlHistory
       percent << (invested.positive? ? (pnl / invested).to_f : 0.0)
     end
 
-    { percent: percent, profit_usd: profit, days: span / 1.day }
+    { percent: percent, profit_usd: profit, at: at_seconds, days: span / 1.day }
   end
 
   # One lookup per currency for the whole account, on the same terms as everything else here: a

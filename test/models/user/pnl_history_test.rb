@@ -46,6 +46,18 @@ class User::PnlHistoryTest < ActiveSupport::TestCase
     assert_equal([0.0, 0.0, 10.0, -10.0], history[:profit_usd].map { |value| value.round(6) })
   end
 
+  # Each column knows WHEN it is, so a hover can name the day: the last one is the last reading
+  # exactly, and the opening column sits one step before the first purchase.
+  test 'every column carries its moment' do
+    marked(Bots::DcaSingleAsset, [[@now - 2.days, 100, 100], [@now - 1.day, 110, 100], [@now, 90, 100]])
+    create(:dca_single_asset, user: @user)
+
+    history = User::PnlHistory.snapshot(@user)[:result]
+
+    assert_equal history[:percent].size, history[:at].size
+    assert_equal [(@now - 3.days).to_i, (@now - 2.days).to_i, (@now - 1.day).to_i, @now.to_i], history[:at]
+  end
+
   # The marked series carries the market between purchases, so a bot with no reading in a column
   # is not flat by accident — it is flat because that is what it was last worth.
   test 'a bot with no reading in a column keeps its last one, and the bots are summed' do
