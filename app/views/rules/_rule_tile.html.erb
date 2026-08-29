@@ -28,10 +28,7 @@
           <span><%= t('rules.withdrawals.sentence.of') %></span>
           <%= tag.span rule.asset.symbol, class: "ticker", style: "background: #{ensure_contrast(rule.asset.color || "#8A9BA8")}", data: ticker_data(rule.asset) %>
           <span><%= t('rules.withdrawals.sentence.from') %></span>
-          <span class="sbutton sbutton--exchange sbutton--exchange--<%= rule.exchange.name_id %>">
-            <%= render "svg/exchange-#{rule.exchange.name_id}", title: rule.exchange.name %>
-            <span class="hide-on-mobile"><%= rule.exchange.name %></span>
-          </span>
+          <span class="rule__exchange"><%= rule.exchange.name %></span>
           <span><%= t('rules.withdrawals.sentence.to') %></span>
           <% has_address_details = rule.network.present? || rule.address_tag.present? %>
           <% display_name = rule.address_name.presence || rule.address %>
