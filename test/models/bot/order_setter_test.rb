@@ -178,16 +178,19 @@ class Bot::OrderSetterTest < ActiveSupport::TestCase
     end
   end
 
-  test 'dual asset: persists submitted/unknown transactions immediately on acceptance' do
-    bot = create(:dca_dual_asset, :started)
+  test 'basket: persists submitted/unknown transactions immediately on acceptance' do
+    bot = create(:dca_multi_asset, :started)
     setup_bot_execution_mocks(bot, price: 50_000.0)
+    # get_orders_data prices from current_allocations, a fresh per-call query — its ticker
+    # instances never match the ones setup_bot_execution_mocks stubs. Class-level stub, as
+    # dca_multi_asset_test.rb's execute_action test uses, reaches whichever instance is used.
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000.to_d))
     bot.stubs(:broadcast_below_minimums_warning)
-    bot.stubs(:metrics).returns({ total_base0_amount: 0, total_base1_amount: 0 })
     Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
     # Each leg gets a distinct exchange order id (the shared helper returns a fixed one).
     bot.exchange.unstub(:market_buy)
     bot.exchange.stubs(:market_buy)
-       .returns(Result::Success.new(order_id: 'dual-0'), Result::Success.new(order_id: 'dual-1'))
+       .returns(Result::Success.new(order_id: 'leg-0'), Result::Success.new(order_id: 'leg-1'))
 
     assert_difference -> { bot.transactions.submitted.where(external_status: :unknown).count }, 2 do
       bot.set_orders(total_orders_amount_in_quote: 200.0)
@@ -221,13 +224,13 @@ class Bot::OrderSetterTest < ActiveSupport::TestCase
     end
   end
 
-  # == DcaDualAsset below minimum amount ==
+  # == Basket below minimum amount ==
 
-  test 'dual asset: creates skipped transactions when below minimum' do
-    bot = create(:dca_dual_asset, :started)
+  test 'basket: creates skipped transactions when below minimum' do
+    bot = create(:dca_multi_asset, :started)
     setup_bot_execution_mocks(bot, price: 50_000.0)
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000.to_d))
     bot.stubs(:broadcast_below_minimums_warning)
-    bot.stubs(:metrics).returns({ total_base0_amount: 0, total_base1_amount: 0 })
 
     before_count = bot.transactions.skipped.count
     bot.set_orders(total_orders_amount_in_quote: 1.0)
@@ -235,43 +238,42 @@ class Bot::OrderSetterTest < ActiveSupport::TestCase
     assert after_count >= before_count + 1, 'Expected at least one skipped transaction'
   end
 
-  test 'dual asset: does not call exchange API when below minimum' do
-    bot = create(:dca_dual_asset, :started)
+  test 'basket: does not call exchange API when below minimum' do
+    bot = create(:dca_multi_asset, :started)
     setup_bot_execution_mocks(bot, price: 50_000.0)
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000.to_d))
     bot.stubs(:broadcast_below_minimums_warning)
-    bot.stubs(:metrics).returns({ total_base0_amount: 0, total_base1_amount: 0 })
     bot.exchange.expects(:market_buy).never
     bot.exchange.expects(:limit_buy).never
 
     bot.set_orders(total_orders_amount_in_quote: 1.0)
   end
 
-  test 'dual asset: returns success when below minimum' do
-    bot = create(:dca_dual_asset, :started)
+  test 'basket: returns success when below minimum' do
+    bot = create(:dca_multi_asset, :started)
     setup_bot_execution_mocks(bot, price: 50_000.0)
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000.to_d))
     bot.stubs(:broadcast_below_minimums_warning)
-    bot.stubs(:metrics).returns({ total_base0_amount: 0, total_base1_amount: 0 })
 
     result = bot.set_orders(total_orders_amount_in_quote: 1.0)
     assert_kind_of Result::Success, result
   end
 
-  test 'dual asset: calls exchange API when amount meets minimum' do
-    bot = create(:dca_dual_asset, :started)
+  test 'basket: calls exchange API when amount meets minimum' do
+    bot = create(:dca_multi_asset, :started)
     setup_bot_execution_mocks(bot, price: 50_000.0)
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000.to_d))
     bot.stubs(:broadcast_below_minimums_warning)
-    bot.stubs(:metrics).returns({ total_base0_amount: 0, total_base1_amount: 0 })
     bot.exchange.unstub(:market_buy)
     bot.exchange.expects(:market_buy).at_least_once.returns(Result::Success.new(order_id: 'test'))
 
     bot.set_orders(total_orders_amount_in_quote: 100.0)
   end
 
-  test 'dual asset: returns success without transaction when amount is zero' do
-    bot = create(:dca_dual_asset, :started)
+  test 'basket: returns success without transaction when amount is zero' do
+    bot = create(:dca_multi_asset, :started)
     setup_bot_execution_mocks(bot, price: 50_000.0)
     bot.stubs(:broadcast_below_minimums_warning)
-    bot.stubs(:metrics).returns({ total_base0_amount: 0, total_base1_amount: 0 })
 
     assert_no_difference -> { bot.transactions.count } do
       result = bot.set_orders(total_orders_amount_in_quote: 0)

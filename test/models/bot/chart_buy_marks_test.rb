@@ -79,7 +79,7 @@ class Bot::ChartBuyMarksTest < ActiveSupport::TestCase
 
   # A two-asset bot, so the pairing of a time with its own symbol is actually visible.
   test 'marks arrive oldest first, each with its own time' do
-    bot = create(:dca_dual_asset, :started)
+    bot = create(:dca_multi_asset, :started)
     create(:transaction, bot: bot, base: 'BTC', created_at: 2.days.ago)
     create(:transaction, bot: bot, base: 'ETH', created_at: 1.day.ago)
 

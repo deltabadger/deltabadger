@@ -8,7 +8,6 @@ require 'test_helper'
 class TwoStageMetricsBroadcastTest < ActiveSupport::TestCase
   FACTORIES = {
     dca_single_asset: 'bots/dca_single_assets/metrics',
-    dca_dual_asset: 'bots/dca_dual_assets/metrics',
     dca_index: 'bots/composition/metrics',
     dca_multi_asset: 'bots/composition/metrics'
   }.freeze

@@ -5,7 +5,14 @@ require 'test_helper'
 # itself — placement lives in the order-setter tests.
 class Bot::RebalanceableTest < ActiveSupport::TestCase
   def setup
-    @bot = create(:dca_dual_asset, user: create(:user))
+    @bot = create(:dca_multi_asset, user: create(:user))
+    @base0, @base1 = @bot.base_assets
+    # ONE ticker array, pinned: composition_tickers runs a fresh query per call and rebalance_drift
+    # reads the memoized `tickers` (asset_configurable.rb:31) — Mocha stubs on one set of instances
+    # never reach the other. The same idiom dca_index_rebalance_test.rb:14 uses.
+    @tickers = @bot.composition_tickers
+    @bot.instance_variable_set(:@tickers, @tickers)
+    @bot.stubs(:composition_tickers).returns(@tickers)
     enable_rebalancing(threshold: 0.05)
   end
 
@@ -31,7 +38,7 @@ class Bot::RebalanceableTest < ActiveSupport::TestCase
   end
 
   test 'drift is measured against a non-even target allocation' do
-    update_settings(allocation0: 0.8)
+    update_settings(allocations: { @base0.id.to_s => 0.8, @base1.id.to_s => 0.2 })
     stub_values(base0: 80, base1: 20)
 
     assert_in_delta 0.0, @bot.rebalance_drift, 0.0001
@@ -107,8 +114,8 @@ class Bot::RebalanceableTest < ActiveSupport::TestCase
   # regardless of what it cost.
   def stub_values(base0:, base1:, stale: false)
     @bot.stubs(:metrics_with_current_prices).returns(
-      total_base0_amount_value_in_quote: base0.to_d,
-      total_base1_amount_value_in_quote: base1.to_d,
+      asset_values: { @base0.symbol => { amount: base0.to_d / 100, current_value: base0.to_d },
+                      @base1.symbol => { amount: base1.to_d / 100, current_value: base1.to_d } },
       prices_stale: stale
     )
   end

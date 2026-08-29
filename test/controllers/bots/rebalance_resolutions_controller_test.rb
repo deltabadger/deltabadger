@@ -7,7 +7,7 @@ class Bots::RebalanceResolutionsControllerTest < ActionDispatch::IntegrationTest
   def setup
     create(:user, admin: true, setup_completed: true) # onboarding gate
     @user = create(:user)
-    @bot = create(:dca_dual_asset, user: @user)
+    @bot = create(:dca_multi_asset, user: @user)
     sign_in @user
   end
 
@@ -33,7 +33,7 @@ class Bots::RebalanceResolutionsControllerTest < ActionDispatch::IntegrationTest
     order = create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted,
                                  external_status: :open, external_id: 'still-open',
                                  side: :sell, transaction_type: 'REBALANCE',
-                                 base: @bot.base0_asset.symbol, quote: @bot.quote_asset.symbol,
+                                 base: @bot.base_assets.first.symbol, quote: @bot.quote_asset.symbol,
                                  price: 100, amount: 0.2, quote_amount: 20)
     @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_AMBIGUOUS, sell_transaction_id: order.id)
     Bot::FetchAndUpdateOrderJob.stubs(:perform_now)
@@ -61,7 +61,7 @@ class Bots::RebalanceResolutionsControllerTest < ActionDispatch::IntegrationTest
     create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted,
                          external_status: :open, external_id: 'unlinked',
                          side: :sell, transaction_type: 'REBALANCE',
-                         base: @bot.base0_asset.symbol, quote: @bot.quote_asset.symbol,
+                         base: @bot.base_assets.first.symbol, quote: @bot.quote_asset.symbol,
                          price: 100, amount: 0.2, quote_amount: 20)
     @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_AMBIGUOUS)
     Bot::FetchAndUpdateOrderJob.stubs(:perform_now)

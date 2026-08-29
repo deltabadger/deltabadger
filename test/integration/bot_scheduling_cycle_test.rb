@@ -110,13 +110,17 @@ class BotSchedulingCycleWithSingleAssetTest < ActiveSupport::TestCase
   end
 end
 
-class BotSchedulingCycleWithDualAssetTest < ActiveSupport::TestCase
+class BotSchedulingCycleWithMultiAssetTest < ActiveSupport::TestCase
   include SchedulingCycleBehaviorTests
 
   private
 
   def create_bot
-    create(:dca_dual_asset, :started)
+    # get_orders_data prices from current_allocations, a fresh per-call query — its ticker
+    # instances never match the ones setup_bot_execution_mocks stubs. Class-level stub, as
+    # dca_multi_asset_test.rb's execute_action test uses, reaches whichever instance is used.
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000.to_d))
+    create(:dca_multi_asset, :started)
   end
 end
 

@@ -37,8 +37,8 @@ class Bot::SellSettingsDefaultsTest < ActiveSupport::TestCase
     assert bot.valid?, bot.errors.full_messages.to_sentence
   end
 
-  test 'a legacy dual-asset bot survives a routine save (shared sell concerns)' do
-    bot = legacy_bot(:dca_dual_asset)
+  test 'a legacy basket survives a routine save' do
+    bot = legacy_bot(:dca_multi_asset)
     assert_not bot.will_save_change_to_settings?
     assert_nothing_raised { bot.update!(last_action_job_at: Time.current) }
     assert bot.valid?, bot.errors.full_messages.to_sentence

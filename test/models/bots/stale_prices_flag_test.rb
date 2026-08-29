@@ -6,7 +6,7 @@ require 'test_helper'
 # presenting it as current. The fallback itself is right (a stale number beats a blank one); saying
 # nothing about it is not.
 class Bots::StalePricesFlagTest < ActiveSupport::TestCase
-  FACTORIES = %i[dca_single_asset dca_dual_asset dca_index dca_multi_asset].freeze
+  FACTORIES = %i[dca_single_asset dca_index dca_multi_asset].freeze
 
   FACTORIES.each do |factory|
     test "#{factory}: metrics are marked stale when the price read fails" do
@@ -38,18 +38,13 @@ class Bots::StalePricesFlagTest < ActiveSupport::TestCase
   #
   # extra_series is one of them: the live point appends the holdings it was built from, so that
   # the chart can read holdings by index (see Bot::ChartSeries). Two rows covers single-asset
-  # (net_base, realized) and dual-asset (base0, base1); the index type reads it as a hash per
-  # point and appends its own.
+  # (net_base, realized); the index type reads it as a hash per point and appends its own.
   def minimal_metrics
     {
       chart: { labels: [Time.current], series: [[1.0], [1.0]], extra_series: [[1.0], [0.0]] },
       asset_breakdown: {},
       total_base_amount: 1.to_d,
-      total_base0_amount: 1.to_d,
-      total_base1_amount: 1.to_d,
       total_quote_amount_invested: 100.to_d,
-      base0_total_quote_amount_invested: 50.to_d,
-      base1_total_quote_amount_invested: 50.to_d,
       total_realized_proceeds: 0.to_d
     }
   end

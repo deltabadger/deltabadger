@@ -11,15 +11,15 @@ class Bots::RebalanceSettingsTest < ActionDispatch::IntegrationTest
   setup do
     create(:user, admin: true, setup_completed: true) # onboarding gate
     @user = create(:user)
-    @bot = create(:dca_dual_asset, user: @user, status: :stopped)
+    @bot = create(:dca_multi_asset, user: @user, status: :stopped)
     sign_in @user
   end
 
-  test 'the widget renders on the dual-asset panel' do
+  test 'the widget renders on the basket panel' do
     get bot_path(id: @bot.id)
 
-    assert_select 'input[name=?]', 'bots_dca_dual_asset[rebalance_enabled]'
-    assert_select 'input[name=?]', 'bots_dca_dual_asset[rebalance_threshold]'
+    assert_select 'input[name=?]', 'bots_dca_multi_asset[rebalance_enabled]'
+    assert_select 'input[name=?]', 'bots_dca_multi_asset[rebalance_threshold]'
   end
 
   test 'an inactive rule shows no info line at all' do
@@ -117,6 +117,6 @@ class Bots::RebalanceSettingsTest < ActionDispatch::IntegrationTest
   end
 
   def stub_drift(value)
-    Bots::DcaDualAsset.any_instance.stubs(:rebalance_drift).returns(value.to_d)
+    Bots::DcaMultiAsset.any_instance.stubs(:rebalance_drift).returns(value.to_d)
   end
 end

@@ -50,17 +50,20 @@ class ExtendedChartCandlePriceTest < ActiveSupport::TestCase
     assert_equal [CANDLE_TIME, 100.to_d], grid.first # the OPEN, not the 140 close
   end
 
-  test 'dual-asset chart values use both candle open prices at the open-time label' do
-    bot = create(:dca_dual_asset, user: create(:user))
+  test "a basket's chart values use every member's candle open price" do
+    bot = create(:dca_multi_asset, user: create(:user))
     bot.stubs(:metrics).returns(
-      { chart: { labels: [T0], series: [[230.to_d], [500.to_d]], extra_series: [[2.to_d], [3.to_d]] } }
+      {
+        chart: { labels: [T0], series: [[230.to_d], [500.to_d]],
+                 extra_series: [{ 'BTC' => 2.to_d, 'ETH' => 3.to_d }] },
+        asset_breakdown: { 'BTC' => {}, 'ETH' => {} }
+      }
     )
-    bot.stubs(:ticker0).returns(ticker_stub(id: 1))
-    bot.stubs(:ticker1).returns(ticker_stub(id: 2, base: 'ETH', scale: 10))
+    bot.stubs(:tickers).returns([ticker_stub(id: 1), ticker_stub(id: 2, base: 'ETH', scale: 10)])
 
     grids = bot.send(:chart_price_grids, bot.metrics)
 
-    # Both legs get their own grid, each on its OPEN (100 / 1000), not its close (140 / 1400).
+    # Both members get their own grid, each on its OPEN (100 / 1000), not its close (140 / 1400).
     assert_equal [CANDLE_TIME, 100.to_d], grids['BTC'].first
     assert_equal [CANDLE_TIME, 1000.to_d], grids['ETH'].first
   end
