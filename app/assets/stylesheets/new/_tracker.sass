@@ -90,6 +90,9 @@
     align-items: center
     gap: 1rem
     white-space: nowrap
+    // The phone's line has room for the controls, not for a sentence about them.
+    @media (max-width: 767.9px)
+        display: none
     &__dot
         width: 0.875rem
         height: 0.875rem
