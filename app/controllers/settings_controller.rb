@@ -84,9 +84,10 @@ class SettingsController < ApplicationController
   def update_display_currency
     if current_user.update(update_display_currency_params)
       flash[:notice] = t('settings.language_and_timezone.currency_updated')
-      # Every normalized figure on every page changes with it, so refresh rather than
-      # swapping the one frame the select sits in.
-      render turbo_stream: turbo_stream_page_refresh
+      # Every normalized figure on the page changes with it, and the picker posting this lives in
+      # the menu rather than in a frame — where `turbo_stream.refresh` is skipped, because the
+      # submit is itself a visit in flight. Come back to the page the choice was made on.
+      redirect_back fallback_location: bots_path, status: :see_other
     else
       render_preference_error
     end

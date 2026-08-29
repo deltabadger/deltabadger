@@ -86,6 +86,7 @@ pt:
             title: Obrigado!
     links:
         hide_balances: 'Ocultar saldos'
+        display_currency: 'Moeda de exibição'
         show_balances: 'Mostrar saldos'
         about: 'Sobre'
         telegram: 'Telegram'
@@ -110,7 +111,7 @@ pt:
             title: Bots avançados
             toggle_label: Mostrar bots avançados
         language_and_timezone:
-            title: 'Idioma, fuso horário e moeda'
+            title: 'Idioma e fuso horário'
             language_updated: 'O seu idioma foi atualizado.'
             updated: 'O seu fuso horário foi atualizado.'
             current_time_is: 'Este fuso horário será usado nos logs do bot. Segundo ele, a hora actual é'

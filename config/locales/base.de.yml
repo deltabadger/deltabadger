@@ -86,6 +86,7 @@ de:
             title: Danke!
     links:
         hide_balances: 'Guthaben ausblenden'
+        display_currency: 'Anzeigewährung'
         show_balances: 'Guthaben einblenden'
         about: Über
         telegram: Telegram
@@ -110,7 +111,7 @@ de:
             title: Erweiterte Bots
             toggle_label: Erweiterte Bots anzeigen
         language_and_timezone:
-            title: 'Sprache, Zeitzone & Währung'
+            title: 'Sprache & Zeitzone'
             language_updated: 'Ihre Sprache wurde aktualisiert.'
             updated: 'Ihre Zeitzone wurde aktualisiert.'
             current_time_is: 'Diese Zeitzone wird in den Bot-Logs verwendet. Nach ihr ist die aktuelle Uhrzeit'

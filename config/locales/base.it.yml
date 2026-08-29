@@ -86,6 +86,7 @@ it:
             title: Grazie!
     links:
         hide_balances: 'Nascondi saldi'
+        display_currency: 'Valuta di visualizzazione'
         show_balances: 'Mostra saldi'
         about: Chi siamo
         telegram: 'Telegram'
@@ -110,7 +111,7 @@ it:
             title: Bot avanzati
             toggle_label: Mostra bot avanzati
         language_and_timezone:
-            title: 'Lingua, fuso orario e valuta'
+            title: 'Lingua e fuso orario'
             language_updated: 'La tua lingua è stata aggiornata.'
             updated: 'Il tuo fuso orario è stato aggiornato.'
             current_time_is: 'Questo fuso orario sarà usato nei log del bot. Secondo esso, l''orario attuale è'

@@ -86,6 +86,7 @@ nl:
             title: Bedankt!
     links:
         hide_balances: 'Saldi verbergen'
+        display_currency: 'Weergavevaluta'
         show_balances: 'Saldi tonen'
         about: 'Over ons'
         telegram: 'Telegram'
@@ -110,7 +111,7 @@ nl:
             title: Geavanceerde bots
             toggle_label: Geavanceerde bots tonen
         language_and_timezone:
-            title: 'Taal, Tijdzone & Valuta'
+            title: 'Taal & Tijdzone'
             language_updated: 'Uw taal is bijgewerkt.'
             updated: 'Uw tijdzone is bijgewerkt.'
             current_time_is: 'Deze tijdzone wordt gebruikt in de bot logs. Volgens deze is de huidige tijd'

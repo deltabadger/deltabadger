@@ -87,6 +87,7 @@ da:
             title: Tak!
     links:
         hide_balances: 'Skjul saldi'
+        display_currency: 'Visningsvaluta'
         show_balances: 'Vis saldi'
         about: Om
         telegram: 'Telegram'
@@ -111,7 +112,7 @@ da:
             title: Avancerede bots
             toggle_label: Vis avancerede bots
         language_and_timezone:
-            title: 'Sprog, tidszone og valuta'
+            title: 'Sprog og tidszone'
             language_updated: "Dit sprog er blevet opdateret."
             updated: "Din tidszone er blevet opdateret."
             current_time_is: "Denne tidszone bruges i bot-loggen. Ifølge den er klokken nu"

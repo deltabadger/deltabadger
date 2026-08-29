@@ -87,6 +87,7 @@ el:
             title: Ευχαριστούμε!
     links:
         hide_balances: 'Απόκρυψη υπολοίπων'
+        display_currency: 'Νόμισμα εμφάνισης'
         show_balances: 'Εμφάνιση υπολοίπων'
         about: Σχετικά
         telegram: 'Telegram'
@@ -111,7 +112,7 @@ el:
             title: Προχωρημένα bot
             toggle_label: Εμφάνιση προχωρημένων bot
         language_and_timezone:
-            title: 'Γλώσσα, ζώνη ώρας & νόμισμα'
+            title: 'Γλώσσα & ζώνη ώρας'
             language_updated: "Η γλώσσα σου ενημερώθηκε."
             updated: "Η ζώνη ώρας σου ενημερώθηκε."
             current_time_is: "Αυτή η ζώνη ώρας θα χρησιμοποιείται στα αρχεία καταγραφής του bot. Σύμφωνα με αυτήν, η τρέχουσα ώρα είναι"

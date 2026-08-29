@@ -88,6 +88,7 @@ sk:
             title: Ďakujeme!
     links:
         hide_balances: 'Skryť zostatky'
+        display_currency: 'Zobrazovaná mena'
         show_balances: 'Zobraziť zostatky'
         about: O nás
         telegram: 'Telegram'
@@ -112,7 +113,7 @@ sk:
             title: Pokročilí boti
             toggle_label: Zobraziť pokročilých botov
         language_and_timezone:
-            title: 'Jazyk, časové pásmo a mena'
+            title: 'Jazyk a časové pásmo'
             language_updated: "Jazyk bol aktualizovaný."
             updated: "Časové pásmo bolo aktualizované."
             current_time_is: "Toto časové pásmo sa použije v logoch bota. Podľa neho je aktuálny čas"

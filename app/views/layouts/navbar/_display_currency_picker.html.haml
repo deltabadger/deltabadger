@@ -1,0 +1,17 @@
+-# The fiat every normalized figure on the page is written in. It lives in the menu rather than on
+  the account page because it changes what the reader is LOOKING AT — the tiles, the chart, the
+  totals — and a preference you have to leave the page to set is one you set once and forget.
+-#
+-# Symbols, not codes: five of them fit on one track, and the symbol is what the amounts beside it
+  are already wearing.
+-#
+-# data-dropdown-keep-open for the same reason the switch above it has: choosing a denominator is
+  the menu's own business, and a menu that closed under the finger would make a second thought a
+  second trip. The hidden field is the whole of the join to the form — `segmented` renders BUTTONS,
+  which post nothing.
+- currencies = User::DISPLAY_CURRENCIES.map { |code| { value: code, label: Denomination::UNITS[code], active: current_user.display_currency == code } }
+= form_with model: current_user, url: settings_update_display_currency_path, method: :patch, class: "switch-row-form", data: { controller: "form--segmented-field form--submit", action: "segmented:change->form--segmented-field#set segmented:change->form--submit#submit" } do |f|
+  %div{ class: "#{item_class} #{item_class}--currency", title: t('settings.language_and_timezone.currency_is_used_for'), data: { dropdown_keep_open: true } }
+    = render 'shared/segmented', options: currencies, label: t('links.display_currency'), fluid: true, data: { currency: true }
+  -# id: nil — the menu is rendered twice, and a hidden field nothing labels needs no id at all.
+  = f.hidden_field :display_currency, id: nil, data: { 'form--segmented-field-target': 'field' }

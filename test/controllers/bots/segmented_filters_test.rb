@@ -2,6 +2,9 @@
 
 require 'test_helper'
 
+# Scoped to `.filters`, the page's own filter row: the settings menu carries a segmented control
+# of its own on every signed-in page, so a page-wide count would be counting the menu.
+#
 # The two filter rows are the same control as the chart's VALUE/RETURN switch, in its FLUID
 # sizing: "All" and "Transactions" are nowhere near the same width, and the order filters do not
 # even have a fixed number of options — they appear only for the categories a bot actually has.
@@ -21,15 +24,15 @@ class Bots::SegmentedFiltersTest < ActionDispatch::IntegrationTest
     get bots_path(filter: 'active')
 
     assert_response :success
-    assert_select '.segmented.segmented--fluid', 1
-    assert_select '.segmented__thumb', 1
-    assert_select 'a.segmented__option', 3
-    assert_select 'a.segmented__option.is-on[aria-current="page"]', 1 do |option|
+    assert_select '.filters .segmented.segmented--fluid', 1
+    assert_select '.filters .segmented__thumb', 1
+    assert_select '.filters a.segmented__option', 3
+    assert_select '.filters a.segmented__option.is-on[aria-current="page"]', 1 do |option|
       assert_equal 'active', option.first['data-value']
     end
     # No memory on a link group: the filter is in the URL, and a remembered one would send the
     # reader somewhere other than the page they asked for.
-    assert_select '.segmented[data-segmented-key]', 0
+    assert_select '.filters .segmented[data-segmented-key]', 0
   end
 
   test 'the order filters are a fluid segmented control the order-filter controller still drives' do
@@ -40,13 +43,13 @@ class Bots::SegmentedFiltersTest < ActionDispatch::IntegrationTest
     get bot_path(id: bot.id)
 
     assert_response :success
-    assert_select '.segmented.segmented--fluid', 1
+    assert_select '.filters .segmented.segmented--fluid', 1
     # all + transactions + other; no waiting row exists, so no waiting option
-    assert_select 'button.segmented__option', 3
-    assert_select '[data-value="all"].is-on', 1
-    assert_select 'button[data-value="other"]', 1
+    assert_select '.filters button.segmented__option', 3
+    assert_select '.filters [data-value="all"].is-on', 1
+    assert_select '.filters button[data-value="other"]', 1
     # Not remembered either: the log opens on its default tab every visit.
-    assert_select '.segmented[data-segmented-key]', 0
+    assert_select '.filters .segmented[data-segmented-key]', 0
   end
 
   test 'a bot with only one category of orders shows no filter at all' do
@@ -56,6 +59,6 @@ class Bots::SegmentedFiltersTest < ActionDispatch::IntegrationTest
     get bot_path(id: bot.id)
 
     assert_response :success
-    assert_select 'button.segmented__option', 0
+    assert_select '.filters button.segmented__option', 0
   end
 end

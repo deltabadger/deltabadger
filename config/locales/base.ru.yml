@@ -88,6 +88,7 @@ ru:
             title: Спасибо!
     links:
         hide_balances: 'Скрыть балансы'
+        display_currency: 'Валюта отображения'
         show_balances: 'Показать балансы'
         about: 'О нас'
         telegram: 'Телеграм'
@@ -114,7 +115,7 @@ ru:
             title: Расширенные боты
             toggle_label: Показать расширенные боты
         language_and_timezone:
-            title: 'Язык, часовой пояс и валюта'
+            title: 'Язык и часовой пояс'
             language_updated: 'Ваш язык был обновлен.'
             updated: 'Ваш часовой пояс был обновлен.'
             current_time_is: 'Этот часовой пояс будет использоваться в журналах бота. Согласно ему, текущее время'

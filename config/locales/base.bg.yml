@@ -87,6 +87,7 @@ bg:
             title: Благодарим!
     links:
         hide_balances: 'Скрий балансите'
+        display_currency: 'Валута за показване'
         show_balances: 'Покажи балансите'
         about: За нас
         telegram: 'Telegram'
@@ -111,7 +112,7 @@ bg:
             title: Разширени ботове
             toggle_label: Показване на разширени ботове
         language_and_timezone:
-            title: 'Език, часова зона и валута'
+            title: 'Език и часова зона'
             language_updated: "Езикът е обновен."
             updated: "Часовата зона е обновена."
             current_time_is: "Тази часова зона ще се използва в логовете на бота. Текущото време в нея е"

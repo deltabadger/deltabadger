@@ -86,6 +86,7 @@ fr:
             title: 'Merci !'
     links:
         hide_balances: 'Masquer les soldes'
+        display_currency: "Devise d'affichage"
         show_balances: 'Afficher les soldes'
         about: 'À propos'
         telegram: 'Telegram'
@@ -110,7 +111,7 @@ fr:
             title: Bots avancés
             toggle_label: Afficher les bots avancés
         language_and_timezone:
-            title: 'Langue, fuseau horaire et devise'
+            title: 'Langue et fuseau horaire'
             language_updated: 'Votre langue a été mise à jour.'
             updated: 'Votre fuseau horaire a été mis à jour.'
             current_time_is: 'Ce fuseau horaire sera utilisé dans les logs du bot. Selon lui, l''heure actuelle est'

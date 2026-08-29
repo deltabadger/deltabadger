@@ -86,6 +86,7 @@ es:
             title: ¡Gracias!
     links:
         hide_balances: 'Ocultar saldos'
+        display_currency: 'Moneda de visualización'
         show_balances: 'Mostrar saldos'
         about: 'Acerca de'
         telegram: 'Telegram'
@@ -110,7 +111,7 @@ es:
             title: Bots avanzados
             toggle_label: Mostrar bots avanzados
         language_and_timezone:
-            title: 'Idioma, zona horaria y moneda'
+            title: 'Idioma y zona horaria'
             language_updated: 'Tu idioma ha sido actualizado.'
             updated: 'Tu zona horaria ha sido actualizada.'
             current_time_is: 'Esta zona horaria se usará en los logs del bot. Según ella, la hora actual es'
