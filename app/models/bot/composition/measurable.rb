@@ -1,8 +1,8 @@
 module Bot::Composition::Measurable
   extend ActiveSupport::Concern
 
-  # The fill arithmetic is shared with the dual-asset bot so the two can never disagree about what a
-  # rebalance does to holdings, cost basis and realized cash.
+  # The fill arithmetic here backs every composition bot (index, basket) so they can never
+  # disagree about what a rebalance does to holdings, cost basis and realized cash.
   include Bot::RebalanceAccounting
 
   # Bounded so 100-asset bots don't stampede the exchange/proxy; tail fetches after

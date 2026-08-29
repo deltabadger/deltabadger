@@ -225,11 +225,6 @@ da:
         warning:
             dca_single_asset:
                 intro: "Beløbet for %{missed_symbol} var under %{exchange_name}s minimumsordrestørrelse (%{missed_minimum_base_size} %{missed_symbol} eller %{missed_minimum_quote_size} %{quote_symbol} for %{missed_symbol}). Sådan håndterer botten det:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Begge ordrebeløb for %{base0_symbol} og %{base1_symbol} er under %{exchange_name}s minimumsordrestørrelser (%{base0_minimum_base_size} %{base0_symbol} eller %{base0_minimum_quote_size} %{quote_symbol} for %{base0_symbol} og %{base1_minimum_base_size} %{base1_symbol} eller %{base1_minimum_quote_size} %{quote_symbol} for %{base1_symbol}). Sådan håndterer botten det:"
-                one_below:
-                    intro: "Din bot købte %{bought_quote_amount} %{quote_symbol} af %{bought_symbol}, men beløbet for %{missed_symbol} var under %{exchange_name}s minimumsordrestørrelse (%{missed_minimum_base_size} %{missed_symbol} eller %{missed_minimum_quote_size} %{quote_symbol} for %{missed_symbol}). Sådan håndterer botten det:"
             buffer_explanation:
                 one: "Det manglende beløb er bufferet og bruges ved næste planlagte ordre, så din tidsplan og allokering holdes så tæt på børsminimum som muligt."
                 other: "De manglende beløb er bufferet og bruges ved de næste planlagte ordrer, så din tidsplan og allokering holdes så tæt på børsminimum som muligt."

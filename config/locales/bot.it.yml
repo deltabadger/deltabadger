@@ -213,11 +213,6 @@ it:
         warning:
             dca_single_asset:
                 intro: "L'importo di %{missed_symbol} era inferiore alla dimensione minima dell'ordine di %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} o %{missed_minimum_quote_size} %{quote_symbol} per %{missed_symbol}). Ecco come il bot gestisce la situazione:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Tuttavia, sia la quantità dell'ordine di %{base0_symbol} che quella di %{base1_symbol} sono inferiori alle dimensioni minime dell'ordine di %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} o %{base0_minimum_quote_size} %{quote_symbol} per %{base0_symbol} e %{base1_minimum_base_size} %{base1_symbol} o %{base1_minimum_quote_size} %{quote_symbol} per %{base1_symbol}). Ecco come il bot gestisce la situazione:"
-                one_below:
-                    intro: "Il tuo bot ha acquistato %{bought_quote_amount} %{quote_symbol} di %{bought_symbol}, ma la quantità di %{missed_symbol} era inferiore alla dimensione minima dell'ordine di %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} o %{missed_minimum_quote_size} %{quote_symbol} per %{missed_symbol}). Ecco come il bot gestisce la situazione:"
             buffer_explanation:
                 one: "L'importo mancante è stato messo in buffer e verrà utilizzato con il prossimo ordine programmato, assicurando che la tua pianificazione e allocazione siano mantenute il più vicino possibile ai minimi dell'exchange."
                 other: "Gli importi mancanti sono stati messi in buffer e verranno utilizzati con i prossimi ordini programmati, assicurando che la tua pianificazione e allocazione siano mantenute il più vicino possibile ai minimi dell'exchange."

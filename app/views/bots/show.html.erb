@@ -25,8 +25,6 @@
       <div class="column gap-1">
         <% if @bot.dca_single_asset? %>
           <%= render partial: "bots/dca_single_assets/settings", locals: { bot: @bot } %>
-        <% elsif @bot.dca_dual_asset? %>
-          <%= render partial: "bots/dca_dual_assets/settings", locals: { bot: @bot } %>
         <% elsif @bot.dca_index? %>
           <%= render partial: "bots/dca_indexes/settings", locals: { bot: @bot, index_preview: @index_preview } %>
         <% elsif @bot.dca_multi_asset? %>
@@ -38,8 +36,6 @@
       <div class="column gap-1">
         <% if @bot.dca_single_asset? %>
           <%= render partial: "bots/dca_single_assets/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading } %>
-        <% elsif @bot.dca_dual_asset? %>
-          <%= render partial: "bots/dca_dual_assets/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading } %>
         <% elsif @bot.dca_index? %>
           <%= render partial: "bots/composition/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading, exited_title_key: @bot.exited_title_key } %>
         <% elsif @bot.dca_multi_asset? %>

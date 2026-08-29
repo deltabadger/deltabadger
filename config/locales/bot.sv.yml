@@ -225,11 +225,6 @@ sv:
         warning:
             dca_single_asset:
                 intro: "Beloppet för %{missed_symbol} var under %{exchange_name}s minsta orderstorlek (%{missed_minimum_base_size} %{missed_symbol} eller %{missed_minimum_quote_size} %{quote_symbol} för %{missed_symbol}). Så här hanterar boten det:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Båda orderbeloppen för %{base0_symbol} och %{base1_symbol} är under %{exchange_name}s minsta orderstorlekar (%{base0_minimum_base_size} %{base0_symbol} eller %{base0_minimum_quote_size} %{quote_symbol} för %{base0_symbol} och %{base1_minimum_base_size} %{base1_symbol} eller %{base1_minimum_quote_size} %{quote_symbol} för %{base1_symbol}). Så här hanterar boten det:"
-                one_below:
-                    intro: "Din bot köpte %{bought_quote_amount} %{quote_symbol} av %{bought_symbol}, men beloppet för %{missed_symbol} var under %{exchange_name}s minsta orderstorlek (%{missed_minimum_base_size} %{missed_symbol} eller %{missed_minimum_quote_size} %{quote_symbol} för %{missed_symbol}). Så här hanterar boten det:"
             buffer_explanation:
                 one: "Det missade beloppet har buffrats och kommer att användas vid nästa schemalagda order, så att ditt schema och din allokering följs så nära börsens minimigränser tillåter."
                 other: "De missade beloppen har buffrats och kommer att användas vid nästa schemalagda ordrar, så att ditt schema och din allokering följs så nära börsens minimigränser tillåter."

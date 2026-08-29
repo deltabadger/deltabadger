@@ -225,11 +225,6 @@ el:
         warning:
             dca_single_asset:
                 intro: "Το ποσό %{missed_symbol} ήταν κάτω από το ελάχιστο μέγεθος εντολής του %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} ή %{missed_minimum_quote_size} %{quote_symbol} για %{missed_symbol}). Δες πώς το χειρίζεται το bot:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Ωστόσο, τα ποσά τόσο για %{base0_symbol} όσο και για %{base1_symbol} είναι κάτω από τα ελάχιστα μεγέθη εντολών του %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} ή %{base0_minimum_quote_size} %{quote_symbol} για %{base0_symbol} και %{base1_minimum_base_size} %{base1_symbol} ή %{base1_minimum_quote_size} %{quote_symbol} για %{base1_symbol}). Δες πώς το χειρίζεται το bot:"
-                one_below:
-                    intro: "Το bot αγόρασε %{bought_quote_amount} %{quote_symbol} σε %{bought_symbol}, αλλά το ποσό %{missed_symbol} ήταν κάτω από το ελάχιστο μέγεθος εντολής του %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} ή %{missed_minimum_quote_size} %{quote_symbol} για %{missed_symbol}). Δες πώς το χειρίζεται το bot:"
             buffer_explanation:
                 one: "Το χαμένο ποσό αποθηκεύτηκε στο buffer και θα χρησιμοποιηθεί στην επόμενη προγραμματισμένη εντολή, διασφαλίζοντας ότι το πρόγραμμα και η κατανομή σου τηρούνται όσο πιο πιστά επιτρέπουν τα ελάχιστα του ανταλλακτηρίου."
                 other: "Τα χαμένα ποσά αποθηκεύτηκαν στο buffer και θα χρησιμοποιηθούν στις επόμενες προγραμματισμένες εντολές, διασφαλίζοντας ότι το πρόγραμμα και η κατανομή σου τηρούνται όσο πιο πιστά επιτρέπουν τα ελάχιστα του ανταλλακτηρίου."

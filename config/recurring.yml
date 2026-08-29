@@ -24,13 +24,6 @@ production:
     class: Bot::RepairOrphanedBotsJob
     schedule: "*/15 * * * *"  # Every 15 minutes
 
-  # Converts any pair bot the deploy-time migration had to leave alone — one that was mid-order or
-  # mid-tick. Self-hosted installs have no operator to retry by hand, so it retries here and
-  # no-ops once none are left. Removed with Bots::DcaDualAsset.
-  convert_dual_asset_bots_job:
-    class: Bot::ConvertDualAssetBotsJob
-    schedule: "*/15 * * * *"  # Every 15 minutes
-
   sync_alpaca_assets_job:
     class: Exchange::SyncAlpacaAssetsJob
     schedule: "0 3 * * 1"  # At 03:00 UTC on Monday (no-op on hosted; per-user Alpaca sync only)
@@ -126,13 +119,6 @@ development:
   repair_orphaned_bots_job:
     class: Bot::RepairOrphanedBotsJob
     schedule: "*/5 * * * *"  # Every 5 minutes for testing
-
-  # Converts any pair bot the deploy-time migration had to leave alone — one that was mid-order or
-  # mid-tick. Self-hosted installs have no operator to retry by hand, so it retries here and
-  # no-ops once none are left. Removed with Bots::DcaDualAsset.
-  convert_dual_asset_bots_job:
-    class: Bot::ConvertDualAssetBotsJob
-    schedule: "*/15 * * * *"  # Every 15 minutes
 
   sync_alpaca_assets_job:
     class: Exchange::SyncAlpacaAssetsJob

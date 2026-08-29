@@ -39,7 +39,7 @@ class BotsController < ApplicationController
     @loading_hash = {}
     rates = {} # one FX lookup per currency for the whole page, not per tile
     @bots.each do |bot|
-      next unless bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index? || bot.dca_multi_asset? || bot.signal?
+      next unless bot.dca_single_asset? || bot.dca_index? || bot.dca_multi_asset? || bot.signal?
 
       metrics_with_current_prices = bot.metrics_with_current_prices_from_cache
       @loading_hash[bot.id] = metrics_with_current_prices.nil?
@@ -104,12 +104,6 @@ class BotsController < ApplicationController
           @bot.base_asset.symbol => @bot.decimals[:base],
           @bot.quote_asset.symbol => @bot.decimals[:quote]
         }
-      elsif @bot.dca_dual_asset?
-        @decimals = {
-          @bot.base0_asset.symbol => @bot.decimals[:base0],
-          @bot.base1_asset.symbol => @bot.decimals[:base1],
-          @bot.quote_asset.symbol => @bot.decimals[:quote]
-        }
       elsif @bot.dca_index?
         @decimals = composition_decimals(@bot)
         # Build index preview from bot's current state
@@ -142,7 +136,7 @@ class BotsController < ApplicationController
   def edit; end
 
   def update
-    @bot.set_missed_quote_amount if @bot.dca_single_asset? || @bot.dca_dual_asset? || @bot.dca_index? || @bot.dca_multi_asset?
+    @bot.set_missed_quote_amount if @bot.dca_single_asset? || @bot.dca_index? || @bot.dca_multi_asset?
 
     if @bot.update(update_params)
       # flash.now[:notice] = t('alert.bot.bot_updated')
@@ -186,15 +180,6 @@ class BotsController < ApplicationController
     )
   end
 
-  def dca_dual_asset_bot_params
-    params.require(:bots_dca_dual_asset).permit(
-      :label,
-      :exchange_id,
-      *Bots::DcaDualAsset.stored_attributes[:settings],
-      *BUY_TRIGGER_MODE_KEYS
-    )
-  end
-
   def dca_index_bot_params
     params.require(:bots_dca_index).permit(
       :label,
@@ -232,14 +217,6 @@ class BotsController < ApplicationController
         ),
         exchange_id: dca_single_asset_bot_params[:exchange_id],
         label: dca_single_asset_bot_params[:label].presence
-      }.compact
-    elsif @bot.dca_dual_asset?
-      {
-        settings: @bot.settings.merge(
-          @bot.parse_params(dca_dual_asset_bot_params).stringify_keys
-        ),
-        exchange_id: dca_dual_asset_bot_params[:exchange_id],
-        label: dca_dual_asset_bot_params[:label].presence
       }.compact
     elsif @bot.dca_index?
       {

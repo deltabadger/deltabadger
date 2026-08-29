@@ -29,9 +29,11 @@
 # the Umbrel compose runs the worker as its own container whose `depends_on: web` waits only for
 # that container to start, so there it really can register mid-migration.
 #
-# What makes that survivable is Bots::DcaDualAsset.find: a job holding the old GlobalID resolves to
-# whatever the row is now, so a tick that fires mid-conversion runs against the basket instead of
-# dead-lettering. Quiescence is the first layer, that fallback is the one that has to hold.
+# What makes that survivable now is finalize!: it repoints every job still naming the old class
+# onto the row's new one, so a tick that fires mid-conversion runs against the basket instead of
+# dead-lettering. One claimed at the very instant of the image swap still fails once, into a
+# single FailedExecution — a scheduled tick is then re-armed by Bot::RepairOrphanedBotsJob, but a
+# one-shot stop or order poll is not. Quiescence is the first layer; repointing is the second.
 module Bot::DualToComposition
   class Row < ActiveRecord::Base
     self.table_name = 'bots'

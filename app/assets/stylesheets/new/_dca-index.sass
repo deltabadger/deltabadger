@@ -23,11 +23,11 @@
 // The index settings ("Number of coins" / "Allocation flattening") and the
 // per-coin allocation rows below them size their progress fills via
 // `grid-template-columns: X% auto` on `.slider__style__track`. The base
-// `_slider.sass` rule no longer sets `display: grid` on the track (it
-// moved into `.slider--dual` after the new-bot-creation-flow refactor in
-// 9f86e7ae) — meaning `.slider__style__progress { width: 100% }` was
-// always filling the track regardless of the inline grid template.
-// Restore `display: grid` here so the inline template takes effect again.
+// `_slider.sass` rule doesn't set `display: grid` on the track — that lives
+// here instead, on these per-coin rows — meaning `.slider__style__progress
+// { width: 100% }` would otherwise fill the track regardless of the inline
+// grid template. Restore `display: grid` here so the inline template takes
+// effect.
 .index-settings .slider__style__track,
 .index-asset .slider__style__track
     display: grid

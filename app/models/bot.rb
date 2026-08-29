@@ -114,8 +114,8 @@ class Bot < ApplicationRecord
   end
 
   # How a sell tick is sized. Both false for buy-only types, so Bot::SmartIntervalable and the
-  # settings partials it shares with DcaDualAsset / DcaIndex can read them unguarded, exactly like
-  # selling? above. Bot::Reversible overrides them.
+  # settings partials it shares with DcaIndex / composition bots can read them unguarded, exactly
+  # like selling? above. Bot::Reversible overrides them.
   def sells_base_amount?
     false
   end

@@ -68,10 +68,6 @@ Style/ArrayIntersect:
 # Naming
 Naming/AccessorMethodName:
   Enabled: false
-Naming/MemoizedInstanceVariableName:
-  Exclude:
-    - 'app/models/bots/dca_dual_asset/marketcap_allocatable.rb'
-
 # Style — disabled
 Style/FetchEnvVar:
   Enabled: false
