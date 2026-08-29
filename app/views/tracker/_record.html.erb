@@ -21,8 +21,7 @@
         the offset the browser has already clamped, which is the jump itself. %>
     <div class="tracker-record__filters filters" data-action="segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold">
       <% if type_filters.any? %>
-        <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.type'),
-                   key: 'tracker-type', options: type_filters %>
+        <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.type'), options: type_filters %>
       <% end %>
     </div>
     <div class="tracker-record__table widget widget--table widget--table--tracker">
@@ -67,8 +66,7 @@
         the offset the browser has already clamped, which is the jump itself. %>
     <div class="tracker-record__filters filters" data-action="segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold">
       <% if status_filters.any? %>
-        <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.status'),
-                   key: 'tracker-status', options: status_filters %>
+        <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.status'), options: status_filters %>
       <% end %>
     </div>
     <div class="tracker-record__table widget widget--table widget--table--tracker tracker-positions">

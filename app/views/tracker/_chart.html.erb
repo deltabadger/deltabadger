@@ -61,8 +61,7 @@
             <% ranges = chart_range_options(history) %>
             <% if ranges.any? %>
               <div class="filters" data-action="segmented:change->bot--chart#range">
-                <%= render 'shared/segmented', label: t('tracker.range.all'), key: 'chart-range',
-                           options: ranges %>
+                <%= render 'shared/segmented', label: t('tracker.range.all'), options: ranges %>
               </div>
             <% end %>
           <% end %>

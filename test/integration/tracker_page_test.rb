@@ -179,10 +179,10 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
 
     assert_select '.tracker-record .filters > .segmented .segmented__option[data-value="tx"]'
     assert_select '.tracker-record .filters > .segmented .segmented__option[data-value="pos"]'
-    # Every one of these three is a way of reading the page, so every one of them is remembered.
+    # The pane is a way of reading the page and is remembered; the filters inside it are not —
+    # a reader coming back gets the whole record, not the slice they last narrowed it to.
     assert_select '.tracker-record__switch > .segmented[data-segmented-key="tracker-record"]', 1
-    assert_select '.tracker-record .segmented[data-segmented-key="tracker-type"]', 1
-    assert_select '.tracker-record .segmented[data-segmented-key="tracker-status"]', 1
+    assert_select '.tracker-record__filters .segmented[data-segmented-key]', 0
     assert_select '.tracker-record [data-controller~="order-filter"]', 2
     # The types this account actually holds, in the ledger's own order — not a fixed five. A
     # transfer option appears only once a linked pair is on the page.
