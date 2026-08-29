@@ -265,13 +265,19 @@ export default class extends Controller {
     }
     this.thumbTarget.textContent = "";
 
-    // First placement must not slide in from the left edge.
-    if (!this.placed) this.thumbTarget.style.transition = "none";
     // Rects, not offsetLeft/offsetWidth: those round to whole pixels, and a label half a pixel
     // wider than its slot pushes the chip that half pixel into the track's padding — visible as
     // a thinner gap on whichever side the chip sits.
     const track = this.element.getBoundingClientRect();
     const rect = selected.getBoundingClientRect();
+    // No box at all: the control is inside something still closed — a menu, a hidden pane — and
+    // every rect reads zero. Placing the chip on that spends the un-animated FIRST placement on a
+    // measurement of nothing, so the real one slides in from the left edge the moment the box
+    // opens. Nothing is on screen to place, so there is nothing to do until there is.
+    if (!rect.width) return;
+
+    // First placement must not slide in from the left edge.
+    if (!this.placed) this.thumbTarget.style.transition = "none";
     this.thumbTarget.style.left = `${rect.left - track.left}px`;
     this.thumbTarget.style.width = `${rect.width}px`;
     if (!this.placed) {
