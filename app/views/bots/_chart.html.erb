@@ -123,6 +123,9 @@
           <canvas data-bot--chart-target="analyzerChart" width="10" height="2"></canvas>
           <div class="widget--chart__buys" data-bot--chart-target="buys"></div>
         </div>
+        <%# The dates, under everything: the marks hang off the plot's floor and grow upward over
+            the curve, so a label only has room to stand below the plot itself. %>
+        <div class="widget--chart__axis" data-bot--chart-target="axis"></div>
         <%# Off by choice, not by default: the marks sit over the curve, and a reader who came for
             the shape of the line should get the line. The choice is remembered per browser. %>
         <%# The tracker's Show cash switch, in the same shape: small toggle, label as the hit area.
