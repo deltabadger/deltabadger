@@ -109,14 +109,9 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     # menu — at the end of the track, at the foot of the list once the control has folded.
     assert_select ".segmented__menu > *:last-child.segmented__option--action[href='#{new_tracker_pick_exchange_path}'][data-turbo-frame='modal']", 1
     assert_select '.tracker-exchanges .dropdown--exchanges', 0, 'one destination now: the picker modal'
-    # "Show cash" shares that box, so the switch cannot read the whole line as room of its own —
-    # it measures its siblings out. Which means every sibling must GENERATE a box: an element laid
-    # out as `display: contents` has no width to subtract, and the switch would believe it fits and
-    # run over the sync state instead.
-    assert_select '.tracker-exchanges > .filters' do
-      assert_select '> .segmented', 1
-      assert_select '> form.tracker-exchanges__switch:not(.switch-row-form)', 1
-    end
+    # The venue switch has the box to itself: "Show cash" moved into the ⋮ menu.
+    assert_select '.tracker-exchanges > .filters > *', 1
+    assert_select '.tracker-exchanges > .filters > .segmented', 1
     assert_select '.tracker-exchanges .tracker-sync', text: /ago/i
     assert_select ".tracker-exchanges form[action='#{sync_tracker_path}'] .rbutton"
   end
@@ -272,14 +267,29 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     get tracker_path
 
     assert_select '.tracker-exchanges > .filters:first-child', true, 'the scope switch opens the line'
-    # `bot.details.stats.download_csv`, not `bot.details.download_csv`: the plan named the shorter
-    # path, but the key the bot page has actually carried in all 15 locales since it shipped is the
-    # one under `stats`. Reusing it beats adding a fifteen-file duplicate that says "Export" twice.
-    assert_select ".tracker-exchanges__end a.rbutton[href^='#{export_tracker_path}']",
-                  text: I18n.t('bot.details.stats.download_csv')
+    # The report stays a button: it is the one thing here most readers came for.
     assert_select ".tracker-exchanges__end a.rbutton[href='#{export_modal_tracker_path}']",
                   text: I18n.t('tracker.get_report')
+    # The rest folds into the ⋮ menu the bot view has, last on the line.
+    assert_select '.tracker-exchanges__end > *:last-child.dropdown-wrapper.dropdown-wrapper--right' do
+      assert_select 'svg', 1
+      assert_select '.dropdown' do
+        # `bot.details.stats.download_csv`: the key the bot page has carried in all 15 locales
+        # since it shipped. Reusing it beats a fifteen-file duplicate that says "Export" twice.
+        assert_select "a.dropdown__item[href^='#{export_tracker_path}']",
+                      text: I18n.t('bot.details.stats.download_csv')
+        assert_select "a.dropdown__item[href='#{new_tracker_import_path}'][data-turbo-frame='modal']",
+                      text: I18n.t('tracker.import.title')
+        assert_select 'a.rbutton', 0
+      end
+    end
     assert_select '.tracker-exchanges > *:last-child.tracker-exchanges__end', true, 'and they close it'
+  end
+
+  test 'the export in the menu carries the scope and the dates the switch wrote' do
+    get tracker_path(exchange_id: @binance.id, from: '2024-01-01', to: '2024-12-31')
+
+    assert_select ".dropdown a.dropdown__item[href='#{export_tracker_path(exchange_id: @binance.id, from: '2024-01-01', to: '2024-12-31')}']"
   end
 
   # ── 6 · transactions table ───────────────────────────────────────────────────────────────────
