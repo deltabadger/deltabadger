@@ -227,42 +227,52 @@
         &__value
             display: none
 
-// ── the record: one bar, two panes ────────────────────────────────────────────────────────
+// ── the record: one bar over one table ────────────────────────────────────────────────────
 //
-// A grid rather than a flex bar over two blocks, because each pane owns BOTH its contextual filter
-// (up in the bar) and its table (below it) — that is what keeps the control and the rows it
-// filters inside one `order-filter` scope. The pane itself is `display: contents`, so its two
-// children drop straight into these areas.
+// A column of two lines — the controls, then the table — laid out as a WRAPPING ROW rather than a
+// flex column, because each pane owns BOTH its contextual filter (up in the bar) and its table
+// (below it): that is what keeps the control and the rows it filters inside one `order-filter`
+// scope, and it is why the pane is `display: contents` and cannot be a box of its own. `order`
+// gathers every control onto the first line and the table's full-width basis pushes it onto the
+// next. The controls need no breakpoint: the segmented ones fold into their dropdowns when the row
+// runs out of room, which is the only measure that knows what the labels in this locale cost.
 .tracker-record
-    display: grid
-    grid-template-columns: auto 1fr auto
-    grid-template-areas: "switch filters actions" "table table table"
+    display: flex
+    flex-wrap: wrap
     align-items: center
     gap: 1rem
-    &__switch
-        grid-area: switch
-    &__filters
-        grid-area: filters
+    &__switch, &__filters
+        order: 1
+    // The switch is two fixed labels and is never the thing in the way; the contextual filter
+    // beside it is, so that one keeps the greedy `flex: 1` every `.filters` gets — it takes the
+    // whole slack, and folds when the slack is not enough. Two greedy controls would split the
+    // line evenly and fold this one while the row still had room.
+    &__switch.filters
+        flex: none
+    // Two date fields are most of a phone's width, and the bar has a switch and a filter to seat
+    // first. The BOX goes, not the form inside it: an emptied box still takes a gap on the row.
     &__actions
-        grid-area: actions
-        display: flex
+        display: none
+        order: 2
         align-items: center
         gap: 1rem
-        justify-self: end
+        // Full size and hard against the right of the bar, even when nothing beside it grew.
+        flex: none
+        margin-left: auto
+        @media (min-width: 768px)
+            display: flex
     &__table
-        grid-area: table
+        order: 3
+        // A line of its own, and a DEFINITE width for it: the table inside is wider than the page
+        // and would otherwise size this row to its own content instead of scrolling within it.
+        flex: 1 0 100%
+        min-width: 0
     &__pane
         display: contents
     // `display: none` on a `display: contents` element does nothing — its children are what is in
     // the layout, so they are what has to go.
     &__pane--off > *
         display: none
-
-    @media (max-width: 767.9px)
-        grid-template-columns: 1fr auto
-        grid-template-areas: "switch actions" "filters filters" "table table"
-        &__actions
-            justify-self: end
 
 .tracker-row
     &__when
@@ -335,11 +345,9 @@
         opacity: 1
 
 .tracker-date-range
-    display: none
+    display: flex
     align-items: center
     gap: 0.5rem
-    @media (min-width: 768px)
-        display: flex
     input[type="date"]
         max-width: 17.5rem
         width: auto

@@ -322,11 +322,15 @@ $stack-open: 0.2s ease-out
             width: 1px
             visibility: hidden
             pointer-events: none
-        &--rules,&--tracker
+        // Guessing the page's width from the VIEWPORT's, because the grid this used to sit in
+        // sized its tracks to the table and gave the widget no width to be bounded by. Its flex
+        // parent does, so the tracker needs no guess — the rules table still lives in a layout
+        // that does not hand it one.
+        &--rules
             max-width: calc(100vw - 2rem)
             @media (min-width: 768px)
                 max-width: calc(100vw - 11rem)
-            
+
         table
             margin-bottom: 0
             border-collapse: collapse
