@@ -1121,9 +1121,12 @@ export default class extends Controller {
     const points = Math.min(this.maxPointsToDraw, series[0].length, series[1].length);
     const up = this.#color("--grass");
     const down = this.#color("--berry");
-    // The invested line as DRAWN at a timestamp. Stepped "after", so between two points it
-    // holds the earlier one's level.
+    // The invested line as DRAWN at a timestamp.
     const invested = (x) => this.#investedAt(x) + shift;
+    // The side a segment lies on, by the PnL at its two ends — NOT by the value against the
+    // invested level at one end: a buy raises both between one point and the next, and read
+    // against the old level that day would count as profit.
+    const above = (p0, p1) => (p0.y - invested(p0.x) + p1.y - invested(p1.x)) / 2 >= 0;
     // The whole history is read from zero — that is where the money came from. A narrowed
     // window is read from its own floor: both lines sit far above zero by then, and a frame
     // kept at zero flattens what these weeks did into a line along the middle of it.
@@ -1139,22 +1142,18 @@ export default class extends Controller {
         {
           ...this.#lineDataset(series[0].at(-1).y >= series[1].at(-1).y ? up : down, series[0], points),
           pointHoverBorderColor: (ctx) => (ctx.parsed && ctx.parsed.y >= invested(ctx.parsed.x) ? up : down),
-          segment: {
-            borderColor: (ctx) => ((ctx.p0.parsed.y + ctx.p1.parsed.y) / 2 >= invested(ctx.p0.parsed.x) ? up : down),
-          },
+          segment: { borderColor: (ctx) => (above(ctx.p0.parsed, ctx.p1.parsed) ? up : down) },
           fill: {
             target: 1,
             above: this.#setTransparency(up, 0.12),
             below: this.#setTransparency(down, 0.12),
           },
         },
-        {
-          ...this.#lineDataset(this.#color("--benchmark"), series[1], points),
-          // Invested is a step function — the cash lands at the moment of a buy and sits flat
-          // until the next one — so it gets right-angle risers instead of a curve. "after":
-          // the riser is drawn at the transaction that raised the total, not one point early.
-          stepped: "after",
-        },
+        // Interpolated exactly as the value curve is, and not as the step function the cash
+        // actually is: the ribbon is the area between the two lines, and a step under a curve
+        // paints a wedge of profit at every buy — value climbs across the day, invested lands
+        // at its end — where the PnL did not move at all.
+        this.#lineDataset(this.#color("--benchmark"), series[1], points),
       ],
     };
   }
