@@ -185,6 +185,11 @@ module Bot::DualToComposition
       # stored sliders it no longer owns.
       weights = derived_weights(plan) || weights if settings['weighting'] == 'market_cap'
 
+      # The type flips FIRST. A membership's required `bot` loads this row through STI to validate
+      # it, and once the pair class is gone that load raises — so the row has to already be a
+      # basket by the time the first membership is saved.
+      row.update_columns(type: MULTI, settings: settings, updated_at: Time.current)
+
       weights.each do |asset_id, weight|
         membership = BotIndexAsset.find_or_initialize_by(bot_id: row.id, asset_id: asset_id.to_i)
         membership.ticker_id = plan[:tickers][asset_id.to_i].id
@@ -194,8 +199,6 @@ module Bot::DualToComposition
         membership.exited_at = nil
         membership.save!
       end
-
-      row.update_columns(type: MULTI, settings: settings, updated_at: Time.current)
     end
     return reason if settings.nil?
 
