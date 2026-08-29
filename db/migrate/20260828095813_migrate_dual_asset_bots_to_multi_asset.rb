@@ -13,7 +13,7 @@ class MigrateDualAssetBotsToMultiAsset < ActiveRecord::Migration[8.1]
     skipped.each { |id, reason| say "Skipped bot #{id}: #{reason}", true }
     return if skipped.empty?
 
-    # A bot mid-order or mid-tick is left alone on purpose. Bot::ConvertDualAssetBotsJob picks it
+    # A bot mid-tick is left alone on purpose. Bot::ConvertDualAssetBotsJob picks it
     # up on its next pass, so this needs no operator — the message is for anyone watching a deploy.
     say "#{skipped.size} bot(s) still on the old shape; they convert on a later pass."
     say 'To convert them now, with bot job processing drained: bin/rails bots:migrate_dual_to_multi'

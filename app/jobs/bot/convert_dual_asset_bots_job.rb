@@ -1,8 +1,8 @@
 # Finishes the pair-to-basket conversion the deploy-time migration could not.
 #
-# A bot that was executing, holding a live order, or running a tick when the migration ran is left
-# alone by design — and on an install nobody operates there is no one to drain job processing and
-# retry. So the conversion recurs until nothing is left, and stops costing anything once the last
+# A bot that was executing or running a tick when the migration ran is left alone by design — and
+# on an install nobody operates there is no one to drain job processing and retry. So the
+# conversion recurs until nothing is left, and stops costing anything once the last
 # pair bot is gone: one indexed count against `bots`.
 #
 # It also keeps running the two self-corrections a single pass cannot guarantee — undoing a stale
