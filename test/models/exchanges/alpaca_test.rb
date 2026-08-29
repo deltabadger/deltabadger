@@ -342,6 +342,52 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_equal 1, result.data.size
   end
 
+  # == corporate-action basis ==
+  #
+  # A stock split rewrites the whole price history. An indicator reading that history has nothing
+  # paired against it and wants it restated onto today's share basis; a series that will be
+  # multiplied by an as-traded ledger quantity wants the prices as they traded.
+
+  test 'get_indicator_candles asks for split-adjusted bars for a stock ticker' do
+    ticker = stock_ticker
+    Clients::Alpaca.any_instance.expects(:get_bars).with do |params|
+      params[:symbol] == 'AAPL' && params[:adjustment] == 'split'
+    end.returns(Result::Success.new({ 'bars' => [] }))
+
+    assert_predicate @exchange.get_indicator_candles(ticker: ticker, start_at: 1.day.ago, timeframe: 1.day),
+                     :success?
+  end
+
+  test 'get_candles leaves a stock ticker on the as-traded basis' do
+    ticker = stock_ticker
+    Clients::Alpaca.any_instance.expects(:get_bars).with do |params|
+      params[:symbol] == 'AAPL' && params[:adjustment].nil?
+    end.returns(Result::Success.new({ 'bars' => [] }))
+
+    assert_predicate @exchange.get_candles(ticker: ticker, start_at: 1.day.ago, timeframe: 1.day), :success?
+  end
+
+  test 'get_indicator_candles for a crypto ticker is the ordinary crypto fetch' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+    Clients::Alpaca.any_instance.expects(:get_bars).never
+    Clients::Alpaca.any_instance.stubs(:get_crypto_bars)
+                   .returns(Result::Success.new({ 'bars' => { 'AAVE/USD' => [] } }))
+
+    assert_predicate @exchange.get_indicator_candles(ticker: ticker, start_at: 1.day.ago, timeframe: 1.day),
+                     :success?
+  end
+
+  test 'restated_candles? separates stocks from crypto on the same venue' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    crypto = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+
+    assert @exchange.restated_candles?(stock_ticker)
+    assert_not @exchange.restated_candles?(crypto)
+  end
+
   # == get_tickers_prices (bulk metrics pricing — partitions stock vs. crypto symbols) ==
 
   test 'get_tickers_prices routes crypto pair symbols to the crypto endpoint and merges with stock snapshots' do
@@ -717,5 +763,14 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
 
   test 'invalid_key_error? ignores a failure that is not about credentials' do
     assert_not @exchange.invalid_key_error?(['insufficient buying power'])
+  end
+
+  private
+
+  def stock_ticker
+    aapl = Asset.find_by(symbol: 'AAPL') || create(:asset, external_id: 'aapl', symbol: 'AAPL', category: 'Stock')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    Ticker.find_by(exchange: @exchange, base: 'AAPL') ||
+      create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: usd, ticker: 'AAPL')
   end
 end

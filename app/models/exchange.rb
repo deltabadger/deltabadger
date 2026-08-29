@@ -197,6 +197,27 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement get_candles"
   end
 
+  # Candles as an INDICATOR input: an RSI, a moving average, an all-time high. Nothing is paired
+  # against these, so they want the symbol's history restated onto today's share basis — otherwise
+  # a stock split leaves a 10x step in the middle of the series and the average, or the high, is
+  # computed across two different units.
+  #
+  # `get_candles` stays as-traded, because everything else multiplies a candle price by a ledger
+  # quantity and every ledger in this app is in as-traded units.
+  #
+  # Corporate actions only happen on stock venues, so for a crypto exchange this IS `get_candles`
+  # and none of their signatures change.
+  def get_indicator_candles(ticker:, start_at:, timeframe:)
+    get_candles(ticker: ticker, start_at: start_at, timeframe: timeframe)
+  end
+
+  # Does this venue rewrite the price history of this symbol behind us? True only where corporate
+  # actions apply, which is what makes an all-time high a running maximum on one venue and a value
+  # that can only be recomputed on another.
+  def restated_candles?(_ticker)
+    false
+  end
+
   def market_buy(ticker:, amount:, amount_type:)
     raise NotImplementedError, "#{self.class.name} must implement market_buy"
   end

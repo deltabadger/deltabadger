@@ -336,7 +336,20 @@ class Exchanges::Alpaca < Exchange
     Result::Success.new(price)
   end
 
-  def get_candles(ticker:, start_at:, timeframe:)
+  def get_indicator_candles(ticker:, start_at:, timeframe:)
+    get_candles(ticker: ticker, start_at: start_at, timeframe: timeframe, adjustment: 'split')
+  end
+
+  # A stock's history is restated by every split and the whole series moves; a crypto pair on the
+  # same venue has no corporate actions at all.
+  def restated_candles?(ticker)
+    !crypto_ticker?(ticker)
+  end
+
+  # `adjustment` is Alpaca's corporate-action basis and is deliberately nil by default — see
+  # Exchange#get_indicator_candles for which callers want which. It reaches the stock branch only:
+  # the crypto bars endpoint has no such parameter, and needs none.
+  def get_candles(ticker:, start_at:, timeframe:, adjustment: nil)
     alpaca_timeframes = {
       1.minute => '1Min',
       5.minutes => '5Min',
@@ -354,7 +367,8 @@ class Exchanges::Alpaca < Exchange
     result = if is_crypto
                market_data_client.get_crypto_bars(symbol: ticker.ticker, timeframe: tf, start_time: start_at.iso8601)
              else
-               market_data_client.get_bars(symbol: ticker.base, timeframe: tf, start_time: start_at.iso8601)
+               market_data_client.get_bars(symbol: ticker.base, timeframe: tf,
+                                           start_time: start_at.iso8601, adjustment: adjustment)
              end
     return result if result.failure?
 

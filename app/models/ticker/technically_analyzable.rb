@@ -9,7 +9,7 @@ module Ticker::TechnicallyAnalyzable
   ATH_SEED_FALLBACK_WINDOWS = [5.years, 2.years, 1.year, 90.days, 30.days, 7.days].freeze
 
   def get_rsi_value(timeframe:, period: 14)
-    cache_key = "exchange_ticker_#{id}_rsi_value_#{period}_#{timeframe}"
+    cache_key = "exchange_ticker_#{id}_rsi_value_v2_#{period}_#{timeframe}"
     expires_in = Utilities::Time.seconds_to_current_candle_close(timeframe)
     rsi_value = Rails.cache.fetch(cache_key, expires_in: expires_in) do
       # Although RSI only "needs" 15 candles the calculation actually accounts for previous gains/losses.
@@ -39,7 +39,7 @@ module Ticker::TechnicallyAnalyzable
   end
 
   def get_moving_average_value(timeframe:, period: 9, type: 'sma')
-    cache_key = "exchange_ticker_#{id}_moving_averages_values_#{period}_#{timeframe}"
+    cache_key = "exchange_ticker_#{id}_moving_averages_values_v2_#{period}_#{timeframe}"
     expires_in = Utilities::Time.seconds_to_current_candle_close(timeframe)
     ma_values = Rails.cache.fetch(cache_key, expires_in: expires_in) do
       # Although EMA only "needs" 21 candles the calculation actually accounts for previous gains/losses.
@@ -73,19 +73,28 @@ module Ticker::TechnicallyAnalyzable
         next result.data
       end
 
-      if ath_updated_at.present?
-        # Already seeded: ath is a running maximum, so we only need the window since the
-        # last update — never the full history again.
+      # A venue that restates its history (a stock split rewrites every bar) can never take the
+      # incremental path: the restated tail is entirely BELOW the stored high, so the maximum
+      # would carry a pre-split number — in units that no longer exist — forever. It re-walks the
+      # full history instead, which costs the same one request now that a whole history fits in
+      # a single page.
+      restated = restated_candles?
+      deep = false
+
+      if ath_updated_at.present? && !restated
+        # Already seeded on a history that cannot change: ath is a running maximum, so we only
+        # need the window since the last update — never the full history again.
         result = high_for_duration(Time.now.utc - ath_updated_at)
         return result if result.failure?
       else
-        # First computation: skip the deep walk entirely if we've already learned this
-        # ticker has no candle history (guarded to the unseeded path, so a persisted ath
-        # is never overwritten with nil).
-        next nil if ath_seed_known_empty?
+        # Skip the deep walk entirely if we've already learned this ticker has no candle history
+        # (guarded to the unseeded case, so a persisted ath is never overwritten with nil).
+        next nil if ath.blank? && ath_seed_known_empty?
 
         result = high_for_duration(Time.now.utc - 20.years.ago)
         return result if result.failure?
+
+        deep = result.data.present?
 
         if result.data.blank?
           ATH_SEED_FALLBACK_WINDOWS.each do |window|
@@ -100,14 +109,19 @@ module Ticker::TechnicallyAnalyzable
         end
 
         if result.data.blank?
-          mark_ath_seed_empty!
-          next nil
+          # An empty answer is not evidence the high is gone, so a ticker that already has one
+          # keeps it; only an unseeded ticker learns there is nothing to seed from.
+          mark_ath_seed_empty! if ath.blank?
+          next ath
         end
       end
 
-      # Incremental max: never downgrade a higher persisted ath (also guards the anomalous
-      # ath-without-ath_updated_at state when seeding from a shorter fallback window).
-      new_high = [ath, result.data].compact.max
+      # The full history REPLACES a restated ticker's high — nothing else can undo a split.
+      # Only the full walk may do so: a shorter fallback window would downgrade a good deep value
+      # to a shallow one. Everywhere else this is an incremental max that never downgrades a
+      # higher persisted ath (which also guards the anomalous ath-without-ath_updated_at state
+      # when seeding from a shorter fallback window).
+      new_high = restated && deep ? result.data : [ath, result.data].compact.max
       update!(ath: new_high, ath_updated_at: Time.now.utc) if new_high.present?
       new_high
     end
@@ -142,7 +156,7 @@ module Ticker::TechnicallyAnalyzable
   # was closed: the indicator-limit settings spinner never resolved and the gate check failed.
   def closed_candle_closes(timeframe:, lookback_multiplier:)
     since = Time.now.utc - ((lookback_multiplier * timeframe) + (2 * timeframe))
-    result = get_candles(start_at: since, timeframe: timeframe)
+    result = get_indicator_candles(start_at: since, timeframe: timeframe)
     return result if result.failure?
 
     candles = result.data
@@ -199,7 +213,7 @@ module Ticker::TechnicallyAnalyzable
   end
 
   def get_high(start_at, timeframe)
-    result = get_candles(
+    result = get_indicator_candles(
       start_at: start_at,
       timeframe: timeframe
     )
@@ -211,7 +225,7 @@ module Ticker::TechnicallyAnalyzable
   end
 
   def get_low(start_at, timeframe)
-    result = get_candles(
+    result = get_indicator_candles(
       start_at: start_at,
       timeframe: timeframe
     )

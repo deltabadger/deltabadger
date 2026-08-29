@@ -4,6 +4,7 @@ class Clients::Alpaca < Client
   TRADING_URL = 'https://api.alpaca.markets'.freeze
   PAPER_TRADING_URL = 'https://paper-api.alpaca.markets'.freeze
   DATA_URL = 'https://data.alpaca.markets'.freeze
+  MAX_BARS = 10_000
 
   def initialize(api_key: nil, api_secret: nil, paper: false)
     super()
@@ -195,12 +196,22 @@ class Clients::Alpaca < Client
   # @param timeframe [String] e.g., '1Day', '1Hour'
   # @param start_time [String] RFC 3339 timestamp
   # @param end_time [String] RFC 3339 timestamp
-  def get_bars(symbol:, timeframe:, start_time: nil, end_time: nil)
+  # `adjustment` is Alpaca's corporate-action basis: unset (its own default) means `raw`, the
+  # prices as they traded, which is what any series paired with an as-traded ledger quantity
+  # needs. `split` restates the whole history onto today's share basis, which is what an
+  # indicator wants — see Exchange#get_indicator_candles.
+  #
+  # ponytail: MAX_BARS is one page. Alpaca answers a longer range with the OLDEST page and a
+  # `next_page_token` nobody reads here, so without a limit a 20-year daily request came back
+  # ending in 2019. Every symbol Alpaca serves fits in one page today (its data begins in 2016,
+  # ~2700 daily bars); follow the token if a finer timeframe ever needs a deeper window.
+  def get_bars(symbol:, timeframe:, start_time: nil, end_time: nil, adjustment: nil)
     with_rescue do
       response = data_connection.get do |req|
         req.url "/v2/stocks/#{symbol}/bars"
         req.headers = authenticated_headers
-        req.params = { timeframe: timeframe, start: start_time, end: end_time }.compact
+        req.params = { timeframe: timeframe, start: start_time, end: end_time,
+                       adjustment: adjustment, limit: MAX_BARS }.compact
       end
       Result::Success.new(response.body)
     end
