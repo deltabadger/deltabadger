@@ -31,7 +31,7 @@ class DenominationTest < ActiveSupport::TestCase
     stub_rate('CHF', 0.8)
     stub_rate('EUR', 0.9)
 
-    assert_equal '20.00 <small>CHF</small>', Denomination.for('CHF').format(25)
+    assert_equal '20.00 <small>Fr.</small>', Denomination.for('CHF').format(25)
     assert_equal '<small>€</small>22.50', Denomination.for('EUR').format(25)
   end
 

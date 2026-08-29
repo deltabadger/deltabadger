@@ -321,3 +321,9 @@
 .filters:has(> .segmented)
     flex: 1
     min-width: 0
+
+// A currency picker's labels are SYMBOLS, and a symbol is written the way the countries using it
+// write it — "zł", "Fr.". The track's uppercase would turn them back into codes.
+.segmented[data-currency]
+    .segmented__option, .segmented__thumb
+        text-transform: none

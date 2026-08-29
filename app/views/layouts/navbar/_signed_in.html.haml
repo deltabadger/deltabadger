@@ -27,6 +27,7 @@
     = t('links.account')
 
   = render 'layouts/navbar/hide_balances_toggle', item_class: 'menu-mobile__item'
+  = render 'layouts/navbar/display_currency_picker', item_class: 'menu-mobile__item'
 
   .menu-mobile__divider
   = button_to destroy_user_session_path, method: :delete, class: "menu-mobile__item menu-mobile__button", data: { turbo: false } do
@@ -75,6 +76,7 @@
         = link_to t('links.connections'), settings_connect_path, class: "dropdown__item"
         = link_to t('links.account'), settings_account_path, class: "dropdown__item"
         = render 'layouts/navbar/hide_balances_toggle', item_class: 'dropdown__item'
+        = render 'layouts/navbar/display_currency_picker', item_class: 'dropdown__item'
         .dropdown__item.dropdown__item--divider
         = button_to destroy_user_session_path, method: :delete, class: "dropdown__item dropdown__item--danger", data: { turbo: false } do
           = t('links.log_out')

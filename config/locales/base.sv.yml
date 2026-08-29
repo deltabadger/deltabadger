@@ -87,6 +87,7 @@ sv:
             title: Tack!
     links:
         hide_balances: 'Dölj saldon'
+        display_currency: 'Visningsvaluta'
         show_balances: 'Visa saldon'
         about: Om
         telegram: 'Telegram'
@@ -111,7 +112,7 @@ sv:
             title: Avancerade bots
             toggle_label: Visa avancerade bots
         language_and_timezone:
-            title: 'Språk, tidszon och valuta'
+            title: 'Språk och tidszon'
             language_updated: "Ditt språk har uppdaterats."
             updated: "Din tidszon har uppdaterats."
             current_time_is: "Denna tidszon används i botloggen. Enligt den är klockan nu"

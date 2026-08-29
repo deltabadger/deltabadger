@@ -87,6 +87,7 @@ en:
             title: Thanks!
     links:
         hide_balances: 'Hide balances'
+        display_currency: 'Display currency'
         show_balances: 'Show balances'
         about: About
         telegram: 'Telegram'
@@ -111,7 +112,7 @@ en:
             title: Advanced Bots
             toggle_label: Show advanced bots
         language_and_timezone:
-            title: 'Language, Timezone & Currency'
+            title: 'Language & Timezone'
             language_updated: "Your language has been updated."
             updated: "Your timezone has been updated."
             current_time_is: "This timezone will be used in the bot logs. According to it, the current time is"

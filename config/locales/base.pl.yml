@@ -88,6 +88,7 @@ pl:
             title: Dzięki!
     links:
         hide_balances: 'Ukryj salda'
+        display_currency: 'Waluta wyświetlania'
         show_balances: 'Pokaż salda'
         about: 'O nas'
         telegram: 'Telegram'
@@ -112,7 +113,7 @@ pl:
             title: Zaawansowane boty
             toggle_label: Pokaż zaawansowane boty
         language_and_timezone:
-            title: 'Język, strefa czasowa i waluta'
+            title: 'Język i strefa czasowa'
             language_updated: 'Twój język został zaktualizowany.'
             updated: 'Twoja strefa czasowa została zaktualizowana.'
             current_time_is: 'Ta strefa czasowa będzie używana w logach bota. Zgodnie z nią, aktualna godzina to'

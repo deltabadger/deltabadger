@@ -8,7 +8,7 @@
 class Denomination
   # Rails ships no currency table and the money gem is a dependency for five rows. Suffixed
   # where the currency is written after the amount in the countries that use it.
-  UNITS = { 'USD' => '$', 'EUR' => '€', 'GBP' => '£', 'CHF' => 'CHF', 'PLN' => 'zł' }.freeze
+  UNITS = { 'USD' => '$', 'EUR' => '€', 'GBP' => '£', 'CHF' => 'Fr.', 'PLN' => 'zł' }.freeze
   SUFFIXED = %w[CHF PLN].freeze
 
   attr_reader :currency, :rate

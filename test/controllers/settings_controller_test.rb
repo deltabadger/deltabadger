@@ -113,16 +113,26 @@ class SettingsControllerTest < ActionDispatch::IntegrationTest
     assert_includes @response.body, 'form__info--invalid'
   end
 
-  test 'the account page offers every supported fiat denominator' do
+  # The picker lives in the menu, which is drawn on every signed-in page and drawn twice — the
+  # desktop dropdown and the mobile drawer — so the count is per menu.
+  test 'the settings menu offers every supported fiat denominator, by its symbol' do
     get settings_account_path
 
-    assert_select 'select[name="user[display_currency]"] option', count: User::DISPLAY_CURRENCIES.size
+    assert_select '.segmented[data-currency] .segmented__option',
+                  count: User::DISPLAY_CURRENCIES.size * 2
+    assert_select '.segmented[data-currency] .segmented__option', text: 'Fr.'
+    assert_select 'select[name="user[display_currency]"]', count: 0
   end
 
-  test 'a currency change flashes a translated confirmation and stores the choice' do
-    patch settings_update_display_currency_path, params: { user: { display_currency: 'PLN' } }
+  # redirect_back, not a refresh stream: the picker is not in a turbo-frame any more, and a
+  # refresh action is skipped while the submit's own visit is in flight.
+  test 'a currency change flashes a translated confirmation and comes back to the page' do
+    patch settings_update_display_currency_path,
+          params: { user: { display_currency: 'PLN' } },
+          headers: { 'HTTP_REFERER' => 'http://www.example.com/tracker' }
 
-    assert_response :success
+    assert_redirected_to '/tracker'
+    assert_response :see_other
     assert_equal 'PLN', @user.reload.display_currency
     assert_equal I18n.t('settings.language_and_timezone.currency_updated'), flash[:notice]
   end
@@ -142,7 +152,7 @@ class SettingsControllerTest < ActionDispatch::IntegrationTest
 
     patch settings_update_display_currency_path, params: { user: { display_currency: '' } }
 
-    assert_response :success
+    assert_response :see_other
     assert_equal 'USD', @user.reload.display_currency
   end
 end
