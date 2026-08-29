@@ -49,4 +49,24 @@ class ApplicationHelperTest < ActionView::TestCase
     assert_nil asset_type_label(nil)
     assert_nil asset_type_label('')
   end
+
+  # Table dates are year-first in every locale; only the clock changes shape with the language.
+  test 'table_when: English shows a 12-hour clock, other locales a 24-hour one' do
+    at = Time.utc(2026, 8, 21, 13, 19)
+
+    I18n.with_locale(:en) do
+      assert_equal '2026/08/21 <small>3:19 pm</small>', table_when(at, 'Europe/Warsaw')
+      assert_equal '2026/08/21 <small>9:19 am</small>', table_when(at, 'America/New_York')
+    end
+
+    I18n.with_locale(:pl) do
+      assert_equal '2026/08/21 <small>15:19</small>', table_when(at, 'Europe/Warsaw')
+    end
+  end
+
+  test 'every locale carries its own table clock format' do
+    I18n.available_locales.each do |locale|
+      assert I18n.exists?('time.formats.table_clock', locale, fallback: false), "#{locale} falls back for the table clock"
+    end
+  end
 end
