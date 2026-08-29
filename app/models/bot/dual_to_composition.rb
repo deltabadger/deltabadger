@@ -61,8 +61,14 @@ module Bot::DualToComposition
     defined?(SolidQueue) && SolidQueue::Job.where('arguments LIKE ?', "%#{DUAL}/%").exists?
   end
 
+  # A basket a stale pair instance saved its whole settings hash over: the pair keys are there AND
+  # the basket's own allocations are gone. NOT a basket that merely carries a leftover
+  # base0_asset_id — a pre-#229 wizard cookie can leave one on a perfectly good basket, and
+  # re-converting that would overwrite the user's allocations with the cookie's.
   def clobbered
-    Row.where(type: MULTI).where("json_extract(settings, '$.base0_asset_id') IS NOT NULL")
+    Row.where(type: MULTI)
+       .where("json_extract(settings, '$.base0_asset_id') IS NOT NULL")
+       .where("json_type(settings, '$.allocations') IS NOT 'object'")
   end
 
   # Safe to call repeatedly, and meant to be: a bot busy this time round converts on a later pass,
@@ -97,45 +103,82 @@ module Bot::DualToComposition
     [converted, skipped]
   end
 
+  # @param force [Boolean] the retirement pass: nothing is refused. A gap the row cannot be
+  #   converted without is recorded in the plan's :gaps instead, and convert! stops a working bot
+  #   that has one.
   # @return [Hash] the conversion plan, or [String] the reason this bot is not convertible
-  def preflight(row)
+  def preflight(row, force: false)
     settings = row.settings || {}
     base0 = settings['base0_asset_id'].to_i
     base1 = settings['base1_asset_id'].to_i
     quote = settings['quote_asset_id'].to_i
+    gaps = []
 
-    return 'missing assets' if [base0, base1, quote].any?(&:zero?)
-    return 'identical assets' if base0 == base1
-    return 'missing exchange' if row.exchange_id.blank?
-    return 'executing' if row.status == Bot.statuses[:executing]
-    return 'rebalance in flight' if (row.transient_data || {})['rebalance_pending'].present?
-    # An open order is NOT a reason to wait. It is a limit bot's resting state — polled by bot_id at
-    # the start of every tick (Bot::LimitOrderable), tracked by a job that carries the Transaction's
-    # GlobalID, not the bot's — and nothing here touches transactions. A discount-limit bot may hold
-    # one for months; refusing it would never convert such a bot at all.
-    return 'job in flight' if busy_job?(row.id)
-    return 'missing asset rows' unless Asset.where(id: [base0, base1, quote]).count == 3
+    unless force
+      return 'missing assets' if [base0, base1, quote].any?(&:zero?)
+      return 'identical assets' if base0 == base1
+      return 'missing exchange' if row.exchange_id.blank?
+      return 'executing' if row.status == Bot.statuses[:executing]
+      return 'rebalance in flight' if (row.transient_data || {})['rebalance_pending'].present?
+      return 'job in flight' if busy_job?(row.id)
+      return 'missing asset rows' unless Asset.where(id: [base0, base1, quote]).count == 3
+    end
 
     # Float(), not to_f: to_f reads "garbage" as 0.0 and would convert the bot to a 100/0 basket.
     allocation0 = Float(settings.fetch('allocation0', 0.5), exception: false)
-    return 'allocation unusable' unless allocation0&.finite? && allocation0.between?(0, 1)
+    unless allocation0&.finite? && allocation0.between?(0, 1)
+      return 'allocation unusable' unless force
 
-    # available.trading_enabled, matching derive_composition: a ticker the target class would refuse
-    # to derive from must not become a membership row.
-    tickers = [base0, base1].to_h do |base|
-      [base, Ticker.available.trading_enabled
-                   .find_by(exchange_id: row.exchange_id, base_asset_id: base, quote_asset_id: quote)]
+      allocation0 = 0.5
+      gaps << 'allocation unusable'
     end
-    return 'missing ticker' if tickers.values.any?(&:nil?)
 
-    watched = CONDITION_TICKER_KEYS.filter_map { |key| settings[key].presence&.to_i }
-    return 'condition watches a foreign ticker' unless (watched - tickers.values.map(&:id)).empty?
+    # Every member the row names that has a ticker row to hang a membership on. Zero ids and a
+    # repeated id collapse here, which is why the forced pass needs no separate rule for them.
+    tickers = [base0, base1].uniq.reject(&:zero?)
+                            .to_h { |base| [base, member_ticker(row, base, quote, force:)] }
+    if tickers.size < 2 || tickers.values.any?(&:nil?)
+      return 'missing ticker' unless force
+
+      tickers.compact!
+      gaps << 'missing ticker'
+    end
+    # A member the basket would drop at its next refresh: derive_composition renormalises the
+    # survivors, and a 70/30 pair must not wake up trading as 100/0. Kept as a member, bot stopped.
+    gaps << 'delisted member' if force && tickers.values.any? { |ticker| !(ticker.available? && ticker.trading_enabled?) }
+
+    # The basket looks a condition's subject up among its own tickers, so a subject outside it is a
+    # condition that can never be met. ENABLED conditions only — a disabled one carries a default
+    # subject its concern wrote regardless. Kept on record, bot stopped (forced pass only).
+    watched = CONDITION_TICKER_KEYS.filter_map do |key|
+      next unless ActiveModel::Type::Boolean.new.cast(settings[key.sub('_in_ticker_id', 'ed')])
+
+      settings[key].presence&.to_i
+    end
+    if (watched - tickers.values.map(&:id)).any?
+      return 'condition watches a foreign ticker' unless force
+
+      gaps << 'condition subject outside the basket'
+    end
 
     # A stray membership row would break the "exactly two members" guarantee and silently add one.
-    return 'unexpected composition rows' if BotIndexAsset.where(bot_id: row.id)
-                                                         .where.not(asset_id: [base0, base1]).exists?
+    # The forced pass exits it instead (convert!).
+    strays = BotIndexAsset.where(bot_id: row.id).where.not(asset_id: [base0, base1])
+    return 'unexpected composition rows' if !force && strays.exists?
 
-    { base0:, base1:, quote:, allocation0:, tickers: }
+    { base0:, base1:, quote:, allocation0:, tickers:, gaps: }
+  end
+
+  # The basket derives from tickers that are listed and trading, so the normal pass refuses a pair
+  # its venue has delisted. The forced pass reads the row without either filter: ticker rows are
+  # never destroyed, and a basket tolerates an unavailable member until the user presses Start.
+  def member_ticker(row, base, quote, force:)
+    scope = force ? Ticker.all : Ticker.available.trading_enabled
+    scope.find_by(exchange_id: row.exchange_id, base_asset_id: base, quote_asset_id: quote)
+  end
+
+  def working?(row)
+    Bot.statuses.values_at(:scheduled, :executing, :retrying, :waiting).include?(row.status)
   end
 
   # A status check is not enough: Bot::ActionJob authenticates against the exchange and checks market
@@ -156,9 +199,11 @@ module Bot::DualToComposition
   end
 
   # @param from_type [String] the type the row is expected to still carry
-  # @return [true] on success, or [String] the reason it was not converted
-  def convert!(row, from_type: DUAL)
-    settings = nil
+  # @param force [Boolean] see preflight
+  # @return [Array<String>] the gaps a successful conversion carried (empty when it carried none),
+  #   or [String] the reason it was not converted
+  def convert!(row, from_type: DUAL, force: false)
+    plan = nil
     reason = nil
 
     ActiveRecord::Base.transaction do
@@ -172,9 +217,10 @@ module Bot::DualToComposition
         next
       end
 
-      plan = preflight(row)
+      plan = preflight(row, force:)
       if plan.is_a?(String)
         reason = plan
+        plan = nil
         next
       end
 
@@ -188,11 +234,38 @@ module Bot::DualToComposition
       # The type flips FIRST. A membership's required `bot` loads this row through STI to validate
       # it, and once the pair class is gone that load raises — so the row has to already be a
       # basket by the time the first membership is saved.
-      row.update_columns(type: MULTI, settings: settings, updated_at: Time.current)
+      attributes = { type: MULTI, settings: settings, updated_at: Time.current }
+      # A tick that never finished: nothing revives an executing row, and retrying is what a working
+      # bot is meant to be after one. Only the forced pass meets one (the normal pass refuses it).
+      attributes[:status] = Bot.statuses[:retrying] if row.status == Bot.statuses[:executing]
+      if plan[:gaps].any?
+        # A basket that lost a member or a weight must not trade on what is left of the user's
+        # intent — not on its schedule, and not through the rebalancer either, which takes stopped
+        # bots with the switch on. A rebalance already in flight must not resume against it: the
+        # ambiguous halt is the one state the rebalancer leaves alone, and the user resolves it
+        # from the bot page.
+        settings['rebalance_enabled'] = false
+        attributes.merge!(status: Bot.statuses[:stopped], stopped_at: Time.current) if working?(row)
+        pending = (row.transient_data || {})[Bot::Rebalanceable::PENDING_KEY]
+        if pending.is_a?(Hash)
+          attributes[:transient_data] = row.transient_data.merge(
+            Bot::Rebalanceable::PENDING_KEY => pending.merge('phase' => Bot::Rebalanceable::PHASE_AMBIGUOUS)
+          )
+        end
+      end
+      row.update_columns(attributes)
+
+      if force
+        BotIndexAsset.where(bot_id: row.id).where.not(asset_id: plan[:tickers].keys)
+                     .update_all(in_index: false, exited_at: Time.current)
+      end
 
       weights.each do |asset_id, weight|
+        ticker = plan[:tickers][asset_id.to_i]
+        next if ticker.nil? # no row to hang a membership on — recorded in :gaps, bot stopped above
+
         membership = BotIndexAsset.find_or_initialize_by(bot_id: row.id, asset_id: asset_id.to_i)
-        membership.ticker_id = plan[:tickers][asset_id.to_i].id
+        membership.ticker_id = ticker.id
         membership.target_allocation = weight
         membership.in_index = true
         membership.entered_at ||= row.created_at
@@ -200,10 +273,95 @@ module Bot::DualToComposition
         membership.save!
       end
     end
-    return reason if settings.nil?
+    return reason if plan.nil?
 
-    repoint_queued_jobs(row.id)
-    true
+    # The forced pass repoints every job at the end, best-effort and in one place, so a queue-side
+    # failure can never be mistaken for a failed conversion.
+    repoint_queued_jobs(row.id) unless force
+    plan[:gaps]
+  end
+
+  # The retirement pass. Every remaining pair row, whatever its state, because after this release
+  # nothing else can: the class is gone, so a row still typed as a pair raises SubclassNotFound from
+  # every bot list, and a job still naming the class can never deserialize. Nothing is refused and
+  # nothing raises out — this runs from a migration, and a migration that fails is a container that
+  # restarts into the same failure with no operator to help it.
+  #
+  # @return [Array(Array<Integer>, Array<Array(Integer, Array<String>)>, Array<Array(Integer, String)>)]
+  #   converted ids; [id, gaps] for bots converted with something missing (and stopped if they were
+  #   working); [id, error] for rows that raised
+  def finalize!
+    converted = []
+    degraded = []
+    failed = []
+
+    # Pair rows, and baskets a stale pair instance wrote the pair shape back onto after Release A's
+    # flip (clobbered): the recurring pass that used to repair those is deleted with this release.
+    rows = Row.where(type: DUAL).map { |row| [row, DUAL] } + clobbered.map { |row| [row, MULTI] }
+    rows.each do |row, from_type|
+      result = convert!(row, from_type:, force: true)
+      case result
+      when String then converted << row.id # only 'converted by a concurrent run' is possible under force
+      when [] then converted << row.id
+      else degraded << [row.id, result]
+      end
+    rescue StandardError => e
+      failed << [row.id, e.message]
+      salvage!(row)
+    end
+
+    begin
+      repoint_every_job!
+    rescue StandardError => e
+      # The primary side is done and committed; a job left naming the old class fails when a worker
+      # picks it up — a scheduled tick is then re-armed by RepairOrphanedBotsJob, a one-shot stop or
+      # order poll is not. Reported, not fatal.
+      failed << ['queue', e.message]
+    end
+
+    [converted, degraded, failed]
+  end
+
+  # Loadable beats intact: a row whose class no longer exists raises from every bot list, not just
+  # its own page. The type alone makes it a basket the user can open, stop, or delete — with settings
+  # that are at least a hash, so the store accessors can read them. The rolled-back transaction also
+  # took the gap safeguards with it, so they are written again here: nothing about this row is
+  # trustworthy enough to rebalance on. Its own rescue, because an exception raised inside a rescue
+  # clause escapes it — and the row after this one still has to be reached.
+  def salvage!(row)
+    row.reload
+    settings = row.settings.is_a?(Hash) ? row.settings : {}
+    settings = settings.except('base0_asset_id', 'base1_asset_id', 'allocation0', 'marketcap_allocated')
+    transient = row.transient_data.is_a?(Hash) ? row.transient_data : {}
+    pending = transient[Bot::Rebalanceable::PENDING_KEY]
+    if pending.is_a?(Hash)
+      transient = transient.merge(
+        Bot::Rebalanceable::PENDING_KEY => pending.merge('phase' => Bot::Rebalanceable::PHASE_AMBIGUOUS)
+      )
+    end
+    row.update_columns(type: MULTI, settings: settings.merge('rebalance_enabled' => false), transient_data: transient)
+    row.update_columns(status: Bot.statuses[:stopped], stopped_at: Time.current) if working?(row)
+  rescue StandardError => e
+    Rails.logger.error("dual→multi: bot #{row.id} could not be salvaged: #{e.message}")
+  end
+
+  # Every queued job still naming the retired class, whatever its bot: after the forced pass there
+  # is no row the old name could still be right for.
+  def repoint_every_job!
+    return 0 unless defined?(SolidQueue)
+
+    SolidQueue::Job.where(finished_at: nil).where('arguments LIKE ?', "%#{DUAL}/%").find_each do |job|
+      job.update_columns(arguments: rewrite_class(job.arguments))
+    end
+  end
+
+  def rewrite_class(node)
+    case node
+    when Hash   then node.transform_values { |value| rewrite_class(value) }
+    when Array  then node.map { |value| rewrite_class(value) }
+    when String then node.include?("#{DUAL}/") ? node.sub("#{DUAL}/", "#{MULTI}/") : node
+    else node
+    end
   end
 
   def converted_settings(row, plan)
@@ -277,7 +435,7 @@ module Bot::DualToComposition
   # was trying to undo. convert! is told what type to expect instead, so the row's type only ever
   # changes on a conversion that succeeds.
   def repair_clobbered!
-    clobbered.count { |row| convert!(row, from_type: MULTI) == true }
+    clobbered.count { |row| !convert!(row, from_type: MULTI).is_a?(String) }
   end
 
   # Rebuilds rather than mutating: the parsed JSON may hold frozen strings, and sub! on one raises.

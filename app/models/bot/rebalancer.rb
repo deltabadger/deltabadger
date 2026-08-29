@@ -22,6 +22,11 @@ module Bot::Rebalancer
   # Entry point for Bot::RebalanceJob. Resume always wins: while state exists the only legal move is
   # to finish it, whatever the current drift says.
   def rebalance!
+    # The ambiguous halt is terminal until the user resolves it, and nothing may move underneath it
+    # either: before_rebalance refreshes a basket's composition, which on a bot that has just lost
+    # a member would drop it and renormalise the rest while the halt below did nothing.
+    return Result::Success.new(skipped: :ambiguous) if rebalance_ambiguous?
+
     before_rebalance
     return resume_rebalance! if rebalance_pending?
     return Result::Success.new(skipped: :not_due) unless rebalance_due?
