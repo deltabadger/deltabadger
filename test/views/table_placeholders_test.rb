@@ -31,7 +31,8 @@ class TablePlaceholdersTest < ActionView::TestCase
     # A bare <tr> is not a document, and the fragment parser drops the row — so the markup is
     # searched rather than a parsed tree.
     assert_includes rendered, 'class="table__when"'
-    # One shape on both pages: year-first date, clock time behind it in <small>.
-    assert_match %r{\d{4}/\d{2}/\d{2} <small>\d{2}:\d{2}</small>}, rendered
+    # One shape on both pages: year-first date, clock time behind it in <small> — a 12-hour clock
+    # under the English locale these tests run in.
+    assert_match %r{\d{4}/\d{2}/\d{2} <small>\d{1,2}:\d{2} [ap]m</small>}, rendered
   end
 end

@@ -1,4 +1,7 @@
 en:
+    time:
+        formats:
+            table_clock: '%-l:%M %P'
     meta:
         title: 'Deltabadger'
     header:

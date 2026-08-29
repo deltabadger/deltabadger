@@ -489,7 +489,8 @@ module BotHelper
   def format_activity_time(value)
     return value if value.blank?
 
-    Time.iso8601(value.to_s).in_time_zone(current_user.time_zone).strftime('%Y/%m/%d %H:%M')
+    at = Time.iso8601(value.to_s)
+    "#{table_date(at, current_user.time_zone)} #{table_clock(at, current_user.time_zone)}"
   rescue ArgumentError
     value
   end

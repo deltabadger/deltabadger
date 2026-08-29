@@ -25,10 +25,16 @@ module ApplicationHelper
     time.in_time_zone(zone).strftime('%Y/%m/%d')
   end
 
+  # The clock half of a table date, in the reader's own convention: `3:19 pm` in English and
+  # `15:19` everywhere else (`time.formats.table_clock` in each locale).
+  def table_clock(time, zone)
+    l(time.in_time_zone(zone), format: :table_clock)
+  end
+
   # When a row happened: the date, with the clock time behind it in <small>. The date is what a
   # row is found by and the time is the detail, so they are not set at the same weight.
   def table_when(time, zone)
-    safe_join([table_date(time, zone), ' ', tag.small(time.in_time_zone(zone).strftime('%H:%M'))])
+    safe_join([table_date(time, zone), ' ', tag.small(table_clock(time, zone))])
   end
 
   def ticker_class(asset)
