@@ -13,10 +13,10 @@
   </div>
 
   <%= tag.div class: "widget widget--table", data: has_waiting ? {
-    controller: "broadcast--on-connect",
+    controller: "table-fit broadcast--on-connect",
     broadcast__on_connect_method_value: "fetch_open_orders",
     broadcast__on_connect_method_args_value: { bot_id: bot.id }.to_json
-  } : {} do %>
+  } : { controller: "table-fit" } do %>
     <table class="table">
       <thead>
         <tr>

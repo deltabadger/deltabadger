@@ -17,7 +17,7 @@
           hangs off .widget--table, so the table is bare without it. Absent when the price cache has
           gone cold, which is why the sale never depends on it. %>
       <% if @holding %>
-        <div class="widget widget--table">
+        <div class="widget widget--table" data-controller="table-fit">
           <%= render 'bots/composition/assets_table',
                      values: { @holding[:symbol] => @holding },
                      logo_assets: { @holding[:symbol] => @holding[:ticker] },

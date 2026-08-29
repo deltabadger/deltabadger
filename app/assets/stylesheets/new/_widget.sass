@@ -286,6 +286,22 @@ $stack-open: 0.2s ease-out
         overflow-y: auto
         text-wrap: nowrap
         line-height: 3rem
+        // Both set by `table-fit`. Fits: the table is no wider than this box, so nothing needs
+        // clipping and the sticky header below sticks to the screen rather than to this box.
+        // Stuck: the top edge has gone past the top of the screen, so the header is now pinned
+        // there — and gets an edge, since the rows sliding under it no longer start where it ends.
+        position: relative
+        &--fits
+            overflow: visible
+        &--stuck thead
+            box-shadow: 0 1px var(--silver)
+        .table-fit__sentinel
+            position: absolute
+            top: 0
+            height: 1px
+            width: 1px
+            visibility: hidden
+            pointer-events: none
         &--rules,&--tracker
             max-width: calc(100vw - 2rem)
             @media (min-width: 768px)
@@ -321,6 +337,12 @@ $stack-open: 0.2s ease-out
             font-size: 1.5rem
             text-transform: uppercase
             padding: 2.5rem 0 1rem  var(--ui-padding)
+        // A sentence, not a figure: it wraps like prose. Left unwrapped, one long failure message
+        // would make the whole table wider than its widget, and a widget that has to scroll
+        // sideways cannot hold its header to the screen.
+        td.table__sentence
+            text-wrap: auto
+            text-align: left
         td
             padding: 0.75rem 0 0.75rem var(--ui-padding)
             // A cell centres its boxes rather than sitting them on the row's baseline — and that
