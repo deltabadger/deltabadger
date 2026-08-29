@@ -9,28 +9,64 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
     # that carries the bot's old GlobalID in ReadyExecution — which busy_job? then reads as "job in
     # flight". Stubbed here, not inside run!: the fixtures enqueue it before run! is ever reached.
     Bot::UpdateMetricsJob.stubs(:perform_later)
-    @bot = create(:dca_dual_asset, status: :waiting)
-    @base0 = Asset.find(@bot.base0_asset_id)
-    @base1 = Asset.find(@bot.base1_asset_id)
-    write_settings!('allocation0' => 0.7)
+    @bot = pair_row(status: :waiting, allocation0: 0.7)
+    @base0 = Asset.find(@bot.settings['base0_asset_id'])
+    @base1 = Asset.find(@bot.settings['base1_asset_id'])
   end
 
   def run! = Bot::DualToComposition.run!
 
-  # Bot::Accountable raises on a settings save without set_missed_quote_amount (accountable.rb:82);
-  # update_columns skips callbacks entirely, which is what a fixture wants.
+  # A pair row without the pair class, which the retirement release deletes: a basket from the
+  # factory (user, exchange, tickers, api key), re-typed and re-shaped in place into exactly the
+  # rows the converter meets in the wild. Returned as the converter's own Row, because Bot.find of
+  # a row whose class is gone raises — and that is the point of these tests.
+  # Pass exchange:/base_assets:/quote_asset: to build a second row in the same test — the factory's
+  # defaults create a Binance exchange and BTC/ETH/USD assets whose uniqueness constraints refuse a
+  # second copy.
+  def pair_row(status: :waiting, allocation0: 0.5, settings: {}, exchange: nil, base_assets: nil, quote_asset: nil)
+    basket = create(:dca_multi_asset, status: status, exchange: exchange, base_assets: base_assets,
+                                      quote_asset: quote_asset)
+    base0, base1 = basket.base_asset_ids
+    BotIndexAsset.where(bot_id: basket.id).delete_all
+    pair_settings = basket.settings.except('allocations', 'weighting')
+                          .merge('base0_asset_id' => base0, 'base1_asset_id' => base1, 'allocation0' => allocation0)
+                          .merge(settings)
+    Bot::DualToComposition::Row.find(basket.id).tap do |row|
+      row.update_columns(type: 'Bots::DcaDualAsset', settings: pair_settings)
+    end
+  end
+
+  # update_columns skips callbacks entirely, which is what a fixture wants (Bot::Accountable would
+  # otherwise demand set_missed_quote_amount before any settings save).
   def write_settings!(**pairs)
     @bot.update_columns(settings: @bot.settings.merge(pairs))
     @bot.reload
   end
 
-  # Solid Queue creates a ReadyExecution automatically on enqueue, so a hand-built Job would land in
-  # Ready whatever state was asked for. Each state is modelled by MOVING that row — the pattern
-  # test/models/bot/limit_checkable_test.rb:80-96 already uses. :none leaves no execution at all,
-  # which is what the GlobalID-repointing tests want.
-  def enqueue_job_for(bot, state: :none, scheduled_at: 1.hour.from_now)
-    Bot::ActionJob.perform_later(bot)
-    job = SolidQueue::Job.where(class_name: 'Bot::ActionJob').order(:id).last
+  # An order on a pair row, written without loading the row: Transaction validates its bot, and
+  # once the pair class is gone that load raises.
+  def order_on(row, **columns)
+    Transaction.insert!({ bot_id: row.id, exchange_id: row.exchange_id,
+                          status: Transaction.statuses[:submitted],
+                          external_status: Transaction.external_statuses[:closed],
+                          side: Transaction.sides[:buy], order_type: Transaction.order_types[:market_order],
+                          transaction_type: 'REGULAR', base: @base0.symbol, quote: 'USD',
+                          external_id: "o-#{SecureRandom.hex(4)}",
+                          amount: 1, price: 100, quote_amount: 100 }.merge(columns))
+    Transaction.where(bot_id: row.id).order(:id).last
+  end
+
+  # A queued job addressed to the row under the OLD class name, in a given execution state. Built by
+  # hand because ActiveJob would serialize the row's real class. Solid Queue's after_create places
+  # it in Ready, which is then moved to model the other states — the pattern
+  # test/models/bot/limit_checkable_test.rb:80-96 uses. :none leaves no execution at all, which is
+  # what the GlobalID-repointing tests want.
+  def enqueue_job_for(row, state: :none, scheduled_at: 1.hour.from_now)
+    job = SolidQueue::Job.create!(
+      queue_name: 'default', class_name: 'Bot::ActionJob', priority: 0,
+      arguments: { 'job_class' => 'Bot::ActionJob',
+                   'arguments' => [{ '_aj_globalid' => "gid://deltabadger/Bots::DcaDualAsset/#{row.id}" }] }
+    )
     SolidQueue::ReadyExecution.where(job_id: job.id).delete_all unless state == :ready
 
     case state
@@ -39,7 +75,7 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
                                             last_heartbeat_at: Time.current)
       SolidQueue::ClaimedExecution.create!(job_id: job.id, process_id: process.id)
     when :blocked
-      job.update!(concurrency_key: "bot_#{bot.id}")
+      job.update!(concurrency_key: "bot_#{row.id}")
       SolidQueue::BlockedExecution.create!(job_id: job.id, queue_name: job.queue_name,
                                            priority: job.priority, concurrency_key: job.concurrency_key,
                                            expires_at: 5.minutes.from_now)
@@ -121,7 +157,8 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
   # == What survives ==
 
   test 'trading conditions survive the move' do
-    ticker = @bot.tickers.find { |t| t.base_asset_id == @base0.id }
+    ticker = Ticker.find_by!(exchange_id: @bot.exchange_id, base_asset_id: @base0.id,
+                             quote_asset_id: @bot.settings['quote_asset_id'])
     write_settings!('price_limited' => true, 'price_limit' => 50_000.0,
                     'price_limit_in_ticker_id' => ticker.id)
     run!
@@ -146,8 +183,8 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
   end
 
   test 'transactions are not touched' do
-    create(:transaction, bot: @bot, base: 'BTC', quote: 'USD',
-                         status: :submitted, external_status: :closed)
+    order_on(@bot, base: 'BTC', quote: 'USD',
+                   status: Transaction.statuses[:submitted], external_status: Transaction.external_statuses[:closed])
     before = Transaction.where(bot_id: @bot.id).pluck(:id, :base, :quote, :amount_exec).sort
     run!
 
@@ -173,31 +210,26 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
   test "another bot's queued job is left alone" do
     # Same exchange (Exchange#type is unique) and its own assets, so it is a distinct bot that the
     # conversion will skip — it is :executing — while still owning a queued job.
-    other = create(:dca_dual_asset, status: :executing, exchange: @bot.exchange,
-                                    base0_asset: create(:asset, symbol: 'SOL', name: 'Solana'),
-                                    base1_asset: create(:asset, symbol: 'ADA', name: 'Cardano'),
-                                    quote_asset: Asset.find(@bot.quote_asset_id))
+    other = pair_row(status: :executing, exchange: Exchange.find(@bot.exchange_id),
+                     base_assets: [create(:asset, symbol: 'SOL', name: 'Solana'),
+                                   create(:asset, symbol: 'ADA', name: 'Cardano')],
+                     quote_asset: Asset.find(@bot.settings['quote_asset_id']))
     job = enqueue_job_for(other)
     run!
 
-    assert_equal other.to_global_id.to_s, gid_in(job)
+    assert_equal "gid://deltabadger/Bots::DcaDualAsset/#{other.id}", gid_in(job)
   end
 
-  test 'a job holding the old GlobalID still finds the bot after conversion' do
-    # The Umbrel worker is its own container and can be claiming jobs while migrations run, so a
-    # tick enqueued as a pair can fire once the row is already a basket. It must not dead-letter.
-    job = enqueue_job_for(@bot)
-    old_gid = gid_in(job)
+  test 'a later pass repoints a stray job a worker enqueued after the flip' do
+    run!
+    stray = SolidQueue::Job.create!(
+      queue_name: 'default', class_name: 'Bot::ActionJob', priority: 0,
+      arguments: { 'arguments' => [{ '_aj_globalid' => "gid://deltabadger/Bots::DcaDualAsset/#{@bot.id}" }] }
+    )
+
     run!
 
-    assert_equal 'Bots::DcaMultiAsset', Bot.find(@bot.id).type
-    assert_nothing_raised { GlobalID::Locator.locate(old_gid) }
-    assert_equal @bot.id, GlobalID::Locator.locate(old_gid).id
-    assert_equal 'Bots::DcaMultiAsset', GlobalID::Locator.locate(old_gid).type
-  end
-
-  test 'the fallback does not invent a bot that never existed' do
-    assert_raises(ActiveRecord::RecordNotFound) { Bots::DcaDualAsset.find(0) }
+    assert_includes stray.reload.arguments['arguments'].first['_aj_globalid'], 'Bots::DcaMultiAsset'
   end
 
   # == What is refused ==
@@ -222,7 +254,7 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
   # bot_id at the start of every cycle (Bot::LimitOrderable), so it carries over the flip untouched
   # and the basket picks it up. Refusing it would never convert a limit-discount bot at all.
   test 'a bot with an order still open on a venue converts and keeps the order' do
-    order = create(:transaction, bot: @bot, status: :submitted, external_status: :open)
+    order = order_on(@bot, external_status: Transaction.external_statuses[:open])
     _, skipped = run!
 
     assert_empty skipped
@@ -232,7 +264,7 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
   end
 
   test 'a settled order does not block conversion' do
-    create(:transaction, bot: @bot, status: :submitted, external_status: :closed)
+    order_on(@bot)
     run!
 
     assert_equal 'Bots::DcaMultiAsset', Bot.find(@bot.id).type
@@ -272,7 +304,8 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
   end
 
   test 'a ticker the target class would refuse to derive from blocks conversion' do
-    Ticker.find_by(exchange: @bot.exchange, base_asset_id: @base1.id).update!(trading_enabled: false)
+    Ticker.find_by(exchange: Exchange.find(@bot.exchange_id), base_asset_id: @base1.id)
+          .update!(trading_enabled: false)
     _, skipped = run!
 
     assert_equal 'Bots::DcaDualAsset', Bot.where(id: @bot.id).pick(:type)
@@ -282,8 +315,8 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
 
   test 'an unexpected composition row blocks conversion rather than adding a member' do
     stray = create(:asset, symbol: 'SOL', name: 'Solana')
-    BotIndexAsset.create!(bot_id: @bot.id, asset_id: stray.id, ticker_id: Ticker.first.id,
-                          in_index: true, target_allocation: 0.1)
+    BotIndexAsset.insert!({ bot_id: @bot.id, asset_id: stray.id, ticker_id: Ticker.first.id,
+                            in_index: true, target_allocation: 0.1 })
     _, skipped = run!
 
     assert_equal 'Bots::DcaDualAsset', Bot.where(id: @bot.id).pick(:type)

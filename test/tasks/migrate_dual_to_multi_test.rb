@@ -27,18 +27,6 @@ class MigrateDualToMultiTaskTest < ActiveSupport::TestCase
     assert_equal 'Bots::DcaDualAsset', Bot.where(id: @bot.id).pick(:type)
   end
 
-  test 'it repoints a stray job left behind by a worker that finished after the migration' do
-    Bot::DualToComposition.run!
-    stray = SolidQueue::Job.create!(
-      queue_name: 'default', class_name: 'Bot::ActionJob', priority: 0,
-      arguments: { 'arguments' => [{ '_aj_globalid' => "gid://deltabadger/Bots::DcaDualAsset/#{@bot.id}" }] }
-    )
-
-    invoke!
-
-    assert_includes stray.reload.arguments['arguments'].first['_aj_globalid'], 'Bots::DcaMultiAsset'
-  end
-
   test 'it is safe to run when there is nothing to do' do
     invoke!
     Rake::Task['bots:migrate_dual_to_multi'].reenable
