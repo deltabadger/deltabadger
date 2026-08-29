@@ -374,6 +374,7 @@ pl:
                 description: 'Wypłacaj środki z giełd'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatyzuj wypłaty z'
                 withdraw_all: 'Wypłać'
                 from: 'z'
                 to: 'na'

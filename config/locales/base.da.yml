@@ -373,6 +373,7 @@ da:
                 description: 'Udbetal midler fra børser'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatisér udbetalinger fra'
                 withdraw_all: 'Udbetal'
                 from: 'fra'
                 to: 'til'

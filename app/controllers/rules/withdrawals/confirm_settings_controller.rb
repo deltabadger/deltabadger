@@ -8,10 +8,10 @@ class Rules::Withdrawals::ConfirmSettingsController < ApplicationController
 
     @address = @rule_config['address']
 
-    if @asset.blank?
-      redirect_to new_rules_withdrawals_pick_asset_path
-    elsif @exchange.blank?
+    if @exchange.blank?
       redirect_to new_rules_withdrawals_pick_exchange_path
+    elsif @asset.blank?
+      redirect_to new_rules_withdrawals_pick_asset_path
     elsif @address.blank?
       redirect_to new_rules_withdrawals_add_address_path
     else

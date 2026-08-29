@@ -380,6 +380,7 @@ sk:
                 description: 'Výber prostriedkov z búrz'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatizovať výbery z'
                 withdraw_all: 'Vybrať'
                 from: 'z'
                 to: 'na'

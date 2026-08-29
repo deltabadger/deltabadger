@@ -6,10 +6,10 @@ class Rules::Withdrawals::AddAddressesController < ApplicationController
     @asset = Asset.find_by(id: @rule_config['asset_id'])
     @exchange = Exchange.find_by(id: @rule_config['exchange_id'])
 
-    if @asset.blank?
-      redirect_to new_rules_withdrawals_pick_asset_path
-    elsif @exchange.blank?
+    if @exchange.blank?
       redirect_to new_rules_withdrawals_pick_exchange_path
+    elsif @asset.blank?
+      redirect_to new_rules_withdrawals_pick_asset_path
     else
       result = auto_select_withdrawal_address
       case result

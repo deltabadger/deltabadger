@@ -373,6 +373,7 @@ sv:
                 description: 'Ta ut medel från börser'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatisera uttag från'
                 withdraw_all: 'Ta ut'
                 from: 'från'
                 to: 'till'

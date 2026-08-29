@@ -372,6 +372,7 @@ it:
                 description: 'Preleva fondi dagli exchange'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatizza i prelievi da'
                 withdraw_all: 'Preleva'
                 from: 'da'
                 to: 'a'

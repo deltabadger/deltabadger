@@ -372,6 +372,7 @@ fr:
                 description: 'Retirer des fonds des plateformes d''échange'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatiser les retraits depuis'
                 withdraw_all: 'Retirer'
                 from: 'de'
                 to: 'vers'

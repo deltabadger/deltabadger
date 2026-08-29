@@ -380,6 +380,7 @@ cs:
                 description: 'Výběr prostředků z burz'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatizovat výběry z'
                 withdraw_all: 'Vybrat'
                 from: 'z'
                 to: 'na'
