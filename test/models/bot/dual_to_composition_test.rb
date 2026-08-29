@@ -707,4 +707,15 @@ class Bot::DualToCompositionTest < ActiveSupport::TestCase
     assert_equal %w[Bots::DcaMultiAsset Bots::DcaMultiAsset],
                  Bot.where(id: [@bot.id, other.id]).pluck(:type)
   end
+
+  # == The retirement migration ==
+
+  test 'the retirement migration converts what is left and never raises' do
+    require Rails.root.glob('db/migrate/*_retire_pair_bots.rb').sole
+    BotIndexAsset.any_instance.stubs(:save!).raises(RuntimeError, 'boom')
+
+    assert_nothing_raised { capture_io { RetirePairBots.new.up } }
+
+    assert_equal 'Bots::DcaMultiAsset', Bot.where(id: @bot.id).pick(:type)
+  end
 end
