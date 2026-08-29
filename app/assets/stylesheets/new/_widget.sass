@@ -120,6 +120,23 @@ $stack-open: 0.2s ease-out
             position: relative
             width: 100%
             aspect-ratio: 10 / 2
+        // The dates under the plot, and the only axis this chart draws: no line, no ticks, just
+        // the labels the controller places on the chart's own x scale. Below the plot rather
+        // than inside it, because the buy marks stand on the plot's floor.
+        &__axis
+            position: relative
+            height: 2rem
+            margin-top: 0.5rem
+            color: var(--concrete)
+            font-size: 1.5rem
+            font-weight: 600
+            // Centred on its own date, and left where the controller put it — which has already
+            // pulled the end ones back inside the row.
+            span
+                position: absolute
+                top: 0
+                white-space: nowrap
+                transform: translateX(-50%)
         // The buys, hanging off the FLOOR of the plot they belong to. The row has no height of
         // its own — the stacks are anchored to its baseline and grow upward over the curve — so
         // turning the marks on never moves the chart, the toggle under it, or the page.

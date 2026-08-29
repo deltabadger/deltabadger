@@ -22,6 +22,49 @@ const PRICES_KEY = "bot-chart:prices";
 // at `LOGO_SIZE`, and everything between is spread across the difference — see `#sizing`.
 const MARK_MAX_HEIGHT = 40;
 
+// --- the dates under the plot -------------------------------------------------------
+//
+// The only axis this chart has: a handful of round dates under the curve, at the coarsest unit
+// the window in view holds `AXIS_MIN` boundaries of, thinned by the first step that leaves each
+// label `AXIS_ROOM` px to print in. A boundary that OPENS the unit above is written as that unit
+// instead — January says "2026", midnight says the date — so a row of months carries its year
+// without spending a label on it.
+//
+// Coarsest first. The steps are the ones that keep the run aligned to the bigger unit: months
+// step by a divisor of 12 so a January is always among them, hours likewise by a divisor of 24.
+// Days cannot be — a month is not a round number of them — which is why a day reads as "14 Jul"
+// and carries its own month.
+const AXIS_MIN = 4;
+const AXIS_ROOM = 80;
+const AXIS_UNITS = [
+  {
+    size: 31536e6, steps: [1, 2, 5, 10, 25],
+    label: { year: "numeric" },
+    start: (at, step) => new Date(at.getFullYear() - (at.getFullYear() % step), 0),
+    next: (at, step) => at.setFullYear(at.getFullYear() + step),
+  },
+  {
+    size: 2592e6, steps: [1, 2, 3, 4, 6, 12],
+    label: { month: "short" }, opens: (at) => at.getMonth() === 0, above: { year: "numeric" },
+    start: (at, step) => new Date(at.getFullYear(), at.getMonth() - (at.getMonth() % step)),
+    next: (at, step) => at.setMonth(at.getMonth() + step),
+  },
+  {
+    size: 864e5, steps: [1, 2, 5, 10, 15],
+    label: { day: "numeric", month: "short" },
+    start: (at) => new Date(at.getFullYear(), at.getMonth(), at.getDate()),
+    next: (at, step) => at.setDate(at.getDate() + step),
+  },
+  {
+    size: 36e5, steps: [1, 2, 3, 4, 6, 12],
+    label: { hour: "numeric", minute: "2-digit" }, opens: (at) => at.getHours() === 0,
+    above: { day: "numeric", month: "short" },
+    start: (at, step) => new Date(at.getFullYear(), at.getMonth(), at.getDate(),
+                                 at.getHours() - (at.getHours() % step)),
+    next: (at, step) => at.setHours(at.getHours() + step),
+  },
+];
+
 // --- who decides the hovered point --------------------------------------------------
 //
 // Chart.js's `index` mode finds the element nearest the pointer in ANY dataset and applies its
@@ -65,7 +108,8 @@ Interaction.modes.curveIndex = (chart, event, options, useFinalPosition) => {
 // Connects to data-controller="bot--chart"
 export default class extends Controller {
   static targets = [
-    "analyzerChart", "summary", "date", "pnl", "percent", "buys", "orders", "prices",
+    "analyzerChart", "summary", "date", "pnl", "percent", "buys", "axis", "orders",
+    "prices",
   ];
   static values = {
     series: Array,
@@ -643,6 +687,7 @@ export default class extends Controller {
       },
     });
     this.#renderBuys();
+    this.#renderAxis();
   }
 
   // --- the buys under the plot -------------------------------------------------------
@@ -855,6 +900,47 @@ export default class extends Controller {
   // have their own. Eight is the floor of what a crypto amount needs; trailing zeros are dropped.
   #amount(value) {
     return value.toLocaleString(this.#locale, { maximumFractionDigits: 8 });
+  }
+
+  // --- the dates under the plot ------------------------------------------------------
+  //
+  // Placed on the chart's own x scale, like the buy marks are, but in a row of their own BELOW
+  // the plot: the marks hang off the plot's floor and grow upward, so the one place a label can
+  // stand clear of them is under the whole thing. See `AXIS_UNITS` for what gets written.
+  #renderAxis() {
+    if (!this.hasAxisTarget) return;
+
+    const scale = this.chart.scales.x;
+    const span = scale.max - scale.min;
+    const unit = AXIS_UNITS.find(({ size }) => span / size >= AXIS_MIN) || AXIS_UNITS.at(-1);
+    const room = Math.max(2, Math.floor(scale.width / AXIS_ROOM));
+    const step = unit.steps.find((jump) => span / unit.size / jump <= room) || unit.steps.at(-1);
+
+    const marks = [];
+    // Walked with the calendar's own arithmetic in the reader's zone, not by adding a nominal
+    // length: a month is not 30 days and a DST day is not 24 hours, and either would drift the
+    // boundaries off the dates they are named after.
+    const at = unit.start(new Date(scale.min), step);
+    while (+at <= scale.max) {
+      if (+at >= scale.min) {
+        const mark = document.createElement("span");
+        mark.textContent = at.toLocaleString(this.#locale,
+                                             unit.opens?.(at) ? unit.above : unit.label);
+        mark.style.left = `${scale.getPixelForValue(+at)}px`;
+        marks.push(mark);
+      }
+      unit.next(at, step);
+    }
+    this.axisTarget.replaceChildren(...marks);
+
+    // Clamped only once they are in the DOM, because it takes their measured widths: a label
+    // centred on a boundary at either end would otherwise hang half outside the widget. The
+    // same trade the buy marks make — a few px off its date beats being cut in half.
+    marks.forEach((mark) => {
+      const half = mark.offsetWidth / 2;
+      const x = parseFloat(mark.style.left);
+      mark.style.left = `${Math.min(Math.max(x, half), scale.width - half)}px`;
+    });
   }
 
   // What to draw for the mode in hand: the datasets, the y scale they need, how many points
