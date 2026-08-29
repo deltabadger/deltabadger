@@ -892,11 +892,12 @@ export default class extends Controller {
       lines.flatMap(([, points]) => points.map((point) => point.y)), 0, 0
     );
     const scale = this.#priceScale(plot.y, anchor, low, high);
+    const base = this.#priceBase(plot.y, anchor, low * scale, high * scale);
 
     return {
       ...plot,
       datasets: plot.datasets.concat(
-        lines.map(([symbol, points]) => this.#priceDataset(symbol, points, anchor, scale))
+        lines.map(([symbol, points]) => this.#priceDataset(symbol, points, base, scale))
       ),
     };
   }
@@ -937,13 +938,11 @@ export default class extends Controller {
   // index, the overlay got 10.7% of the plot height and lay along the floor, unreadable. RETURN
   // mode never has the problem — its anchor sits mid-frame and the same rule spends ~70%.
   //
-  // So the fit has a floor of its own: half the frame, whatever the anchor allows. Past that the
-  // deepest excursions are cut off at the plot edge instead of the whole overlay collapsing —
-  // these lines carry no readable number anyway, and a clipped trough still reads as a trough
-  // where a flat sliver reads as nothing at all.
+  // So the fit has a floor of its own: half the frame, whatever the anchor allows. What that
+  // costs is the shared start — past the floor the band no longer fits around the anchor, and
+  // `#priceBase` slides it up rather than letting the troughs be cut off at the plot edge.
   //
-  // ponytail: half is a taste threshold, not a derived one. Raise it if the clipping reads worse
-  // than the squash did.
+  // ponytail: half is a taste threshold, not a derived one.
   #priceScale(y, anchor, low, high) {
     const spread = high - low;
     // Prices that never moved need no room at all and take any scale.
@@ -958,10 +957,24 @@ export default class extends Controller {
     return Math.max(room * 0.9, ((ceiling - floor) / spread) * 0.5);
   }
 
+  // Where the overlay's own zero sits: the curve's first point, so both leave the left edge
+  // together — but slid until the whole band is inside the frame. In VALUE mode the anchor is
+  // the portfolio at its first buy, a hair above a hard zero floor, so a line that ever dips
+  // below its opening price is drawn under the plot and simply disappears — Chart.js clips to
+  // the plot area, so it does not even flatten, it goes missing in stretches.
+  //
+  // Scaled to fit the frame with room to spare, so the two ends of the clamp never cross.
+  #priceBase(y, anchor, drop, rise) {
+    const floor = y.min ?? 0;
+    const ceiling = y.max ?? y.suggestedMax;
+    const pad = (ceiling - floor) * 0.02;
+    return Math.min(Math.max(anchor, floor + pad - drop), ceiling - pad - rise);
+  }
+
   // Thinner and softer than the curve, and with no point on its end: the overlay is context, and
   // the line the reader came for has to stay the loudest thing in the frame. Grey for a symbol
   // the venue has no ticker for, the same fallback the marks and the tables use.
-  #priceDataset(symbol, points, anchor, scale) {
+  #priceDataset(symbol, points, base, scale) {
     const color = this.#setTransparency(
       this.#safeColor(this.buyLogosValue[symbol]?.color || "#8A9BA8"), 0.65
     );
@@ -974,7 +987,7 @@ export default class extends Controller {
       pointHitRadius: 0,
       pointHoverRadius: 0,
       fill: false,
-      data: points.map((point) => ({ x: point.x, y: anchor + point.y * scale })),
+      data: points.map((point) => ({ x: point.x, y: base + point.y * scale })),
     };
   }
 
