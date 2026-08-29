@@ -49,7 +49,9 @@ body
   text-rendering: geometricPrecision
   background: none
   color: var(--ash)
-  overflow-x: hidden
+  // No overflow of its own: with html already clipping sideways, an overflow on body would not
+  // propagate to the viewport but make body a scroll container — one that never scrolls, yet is
+  // what every `position: sticky` on the page would stick to.
   font-size: 2rem
   line-height: 1.5
 .db-content-body

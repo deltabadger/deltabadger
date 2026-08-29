@@ -33,7 +33,7 @@
             else
               []
             end %>
-  <div id="assets_metrics_table" class="widget widget--table">
+  <div id="assets_metrics_table" class="widget widget--table" data-controller="table-fit">
     <%= render 'bots/assets_table', rows: rows, body_id: 'assets_metrics_list', loading: loading, hide_money: hide_money,
                quote: quote %>
   </div>

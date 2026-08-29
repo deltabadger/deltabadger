@@ -85,7 +85,7 @@
                               metrics[:asset_values].select { |symbol, _| in_index.include?(symbol) }
                             end %>
     <% if composition_values.present? %>
-      <div id="assets_metrics_table" class="widget widget--table">
+      <div id="assets_metrics_table" class="widget widget--table" data-controller="table-fit">
         <%= render 'bots/composition/assets_table', values: composition_values, logo_assets: logo_assets,
                    body_id: 'assets_metrics_list', hide_money: hide_money, quote: quote %>
       </div>
@@ -96,7 +96,7 @@
       the network trouble that produces an unresolved placement in the first place. The Clear action
       has to survive it — resolving an untracked order needs no prices at all. %>
   <% if exited.any? || bot.liquidation_ambiguous? %>
-    <div id="exited_metrics_table" class="widget widget--table">
+    <div id="exited_metrics_table" class="widget widget--table" data-controller="table-fit">
       <div class="exited-header">
         <span class="label"><%= t(exited_title_key) %></span>
         <% if bot.liquidation_ambiguous? %>

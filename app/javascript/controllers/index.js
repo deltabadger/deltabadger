@@ -157,6 +157,9 @@ application.register("segmented", SegmentedController)
 import SliderController from "./slider_controller"
 application.register("slider", SliderController)
 
+import TableFitController from "./table_fit_controller"
+application.register("table-fit", TableFitController)
+
 import ThreeDotsController from "./three_dots_controller"
 application.register("three-dots", ThreeDotsController)
 

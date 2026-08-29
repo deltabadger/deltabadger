@@ -17,7 +17,7 @@
   <% row_class = order.failed? ? 'text-danger' : (inactive_order_row?(order) ? 'text-inactive' : '') %>
   <%= tag.tr id: dom_id(order, :timeline), class: row_class, data: { hw_animate_in_prepend: "animate-order-in", order_filter_target: "row", order_type: hidden ? "other" : (order.other? ? "all other" : "all") } do %>
     <td scope="row" class="table__when"><%= table_when(order.created_at, current_user.time_zone) %></td>
-    <td colspan="<%= hidden ? 1 : 3 %>" style="text-align: left;"><%= transaction_summary(order, decimals) %></td>
+    <td colspan="<%= hidden ? 1 : 3 %>" class="table__sentence"><%= transaction_summary(order, decimals) %></td>
     <td>
       <% if order.open? %>
         <div data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
