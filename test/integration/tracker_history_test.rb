@@ -42,6 +42,10 @@ class TrackerHistoryTest < ActionDispatch::IntegrationTest
     assert_equal [1_000.0, 2_000.0, 3_000.0], JSON.parse(node['data-bot--chart-pnl-value'])
     assert_equal '0', node['data-bot--chart-bot-value'], 'not a bot — a stable id for the asset pin'
     assert_equal 'USD', node['data-bot--chart-quote-value']
+    # The headline is the reader's own currency, written the way the tiles write it: the
+    # symbol in <small>, on the side that currency puts it.
+    assert_equal '$', node['data-bot--chart-unit-value']
+    assert_equal 'false', node['data-bot--chart-suffixed-value']
     assert_equal 'false', node['data-bot--chart-pnl-only-value']
     assert_select '.widget--chart__plot canvas[data-bot--chart-target="analyzerChart"]'
     # P/L first and P/L on: the tracker chart opens on the same mode a bot's does, under the same
@@ -87,6 +91,8 @@ class TrackerHistoryTest < ActionDispatch::IntegrationTest
     series = JSON.parse(chart_node['data-bot--chart-series-value'])
     assert_equal [124_000.0, 128_000.0, 132_000.0], series[0]
     assert_equal 'PLN', chart_node['data-bot--chart-quote-value']
+    assert_equal 'zł', chart_node['data-bot--chart-unit-value']
+    assert_equal 'true', chart_node['data-bot--chart-suffixed-value']
   end
 
   test 'missing coverage back to the first transaction enqueues the backfill once; the plot spins meanwhile' do

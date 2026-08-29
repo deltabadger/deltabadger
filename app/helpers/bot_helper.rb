@@ -153,6 +153,15 @@ module BotHelper
   # 0.00 sitting in the same weight as a real balance reads as a number worth comparing, and on a
   # holdings table most of them are not — an average price nobody paid, a value too small to have
   # one. Dimmed rather than blanked: the row still has to state what it holds.
+  # A figure with the currency it is actually in beside it, the CODE in <small>: USDT is what
+  # the bot spends, and a code is how a transaction currency is written. The symbol is reserved
+  # for the reader's own chosen denomination (Denomination#format), which this is not.
+  def quoted_figure(figure, quote)
+    return figure if figure.blank? || quote.blank?
+
+    safe_join([figure, ' ', tag.small(quote)])
+  end
+
   def money_figure(value, precision: 2, **options)
     formatted = number_with_precision(value || 0, precision: precision, delimiter: ',', **options)
     return formatted unless value.to_d.round(precision).zero?

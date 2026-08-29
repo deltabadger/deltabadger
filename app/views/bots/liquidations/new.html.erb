@@ -21,7 +21,7 @@
           <%= render 'bots/composition/assets_table',
                      values: { @holding[:symbol] => @holding },
                      logo_assets: { @holding[:symbol] => @holding[:ticker] },
-                     body_id: 'liquidation_confirm_list',
+                     body_id: 'liquidation_confirm_list', quote: @bot.quote_asset&.symbol,
                      hide_money: hide_balances?(@bot) %>
         </div>
       <% end %>

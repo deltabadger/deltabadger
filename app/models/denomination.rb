@@ -50,6 +50,9 @@ class Denomination
   # every one of two hundred rows.
   def unit = UNITS.fetch(currency, currency)
 
+  # Whether the symbol trails the figure, for a client that lays the figure out itself.
+  def suffixed? = SUFFIXED.include?(currency)
+
   def convert(usd_amount)
     usd_amount && (usd_amount.to_d * rate)
   end
@@ -69,24 +72,29 @@ class Denomination
   # The unit rides in <small>, as it does beside a ticker in the tables: the figure is what the
   # column is read for, the symbol only says which unit it is in.
   def format(usd_amount, precision: 2)
-    formatted(usd_amount, ActionController::Base.helpers.tag.small(unit), precision)&.html_safe
+    format_converted(convert(usd_amount), precision: precision)
+  end
+
+  # The same layout for a figure ALREADY in this currency — one carried across at the rate of its
+  # own day, which `format` would move again at today's.
+  def format_converted(amount, precision: 2)
+    formatted(amount, ActionController::Base.helpers.tag.small(unit), precision)&.html_safe
   end
 
   # The same figure with no markup, for somewhere it is not drawn — an aria-label, a sentence —
   # where a tag is spelled out instead of rendered.
   def format_plain(usd_amount, precision: 2)
-    formatted(usd_amount, unit, precision)
+    formatted(convert(usd_amount), unit, precision)
   end
 
   private
 
-  def formatted(usd_amount, unit, precision)
-    return if usd_amount.nil?
+  def formatted(amount, unit, precision)
+    return if amount.nil?
 
-    layout = SUFFIXED.include?(currency) ? '%n %u' : '%u%n'
+    layout = suffixed? ? '%n %u' : '%u%n'
     ActiveSupport::NumberHelper.number_to_currency(
-      convert(usd_amount), unit: unit, format: layout,
-                           negative_format: "-#{layout}", precision: precision
+      amount, unit: unit, format: layout, negative_format: "-#{layout}", precision: precision
     )
   end
 end

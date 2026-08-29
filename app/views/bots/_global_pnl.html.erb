@@ -17,7 +17,7 @@
       # "1,200,200" is one number written two ways.
       pnl_spark_delimiter_value: I18n.t('number.currency.format.delimiter',
                                         default: I18n.t('number.format.delimiter', default: ',')),
-      pnl_spark_suffixed_value: Denomination::SUFFIXED.include?(denomination.currency)
+      pnl_spark_suffixed_value: denomination.suffixed?
     } : {} do %>
   <% if global_pnl.present? %>
     <% if spark %>

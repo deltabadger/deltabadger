@@ -35,6 +35,23 @@ class DenominationTest < ActiveSupport::TestCase
     assert_equal '<small>€</small>22.50', Denomination.for('EUR').format(25)
   end
 
+  # A row's price is converted at the rate of ITS OWN day, before it reaches here; `format`
+  # would convert it again at today's.
+  test 'a figure already in the display currency is laid out the same, unconverted' do
+    stub_rate('PLN', 4)
+
+    assert_equal '95.00 <small>zł</small>', Denomination.for('PLN').format_converted(95)
+    assert_equal '<small>$</small>1.25', Denomination.for('USD').format_converted(1.25)
+    assert_nil Denomination.for('USD').format_converted(nil)
+  end
+
+  test 'says which side of the figure its symbol goes' do
+    stub_rate('PLN', 4)
+
+    assert_predicate Denomination.for('PLN'), :suffixed?
+    assert_not_predicate Denomination.for('USD'), :suffixed?
+  end
+
   test 'a loss keeps its minus sign in either layout' do
     stub_rate('PLN', 4)
 

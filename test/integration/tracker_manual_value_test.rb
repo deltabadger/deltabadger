@@ -94,7 +94,8 @@ class TrackerManualValueTest < ActionDispatch::IntegrationTest
     assert_includes cell['class'], 'tracker-row__price--ours'
     assert_equal '30000.0', input_for(rebate)['placeholder'], 'our price for that day, per unit'
     assert_nil input_for(rebate)['value'], 'a default is not a statement'
-    assert_includes cell.text, 'USD', 'the page is shown in dollars'
+    assert_equal '$', cell.css('small').text, "the reader's own currency, by its symbol"
+    assert_operator cell.to_html.index('<small>'), :<, cell.to_html.index('tracker-row__price__input'), 'a dollar sign goes first'
     assert_select "##{ActionView::RecordIdentifier.dom_id(rebate)} .tracker-row__info", false, 'priced: nothing to point out'
     assert_equal '15,000.00', value_cell(rebate).text.strip, 'half a coin at 30,000'
     assert_empty value_cell(rebate).css('input'), 'a value is worked out, never typed'
@@ -144,10 +145,10 @@ class TrackerManualValueTest < ActionDispatch::IntegrationTest
     deposited = unquoted(:deposit, 'EUR', 200)
     parked = unquoted(:deposit, 'USDT', 150)
 
-    assert_equal '1.25 USD', price_cell(deposited).text.strip, 'what one euro bought that day'
+    assert_equal '$1.25', price_cell(deposited).text.strip, 'what one euro bought that day'
     assert_empty price_cell(deposited).css('input'), 'money has no price to state'
     assert_equal '250.00', value_cell(deposited).text.strip, '200 EUR on a day the euro bought 1.25 dollars'
-    assert_equal '1.00 USD', price_cell(parked).text.strip, 'a stablecoin at par'
+    assert_equal '$1.00', price_cell(parked).text.strip, 'a stablecoin at par'
     assert_equal '150.00', value_cell(parked).text.strip
   end
 
@@ -214,7 +215,7 @@ class TrackerManualValueTest < ActionDispatch::IntegrationTest
     rebate = unquoted(:airdrop, 'BTC', 0.5)
 
     assert_equal '15000.0', input_for(rebate)['placeholder'], '30,000 dollars is 15,000 euro'
-    assert_includes price_cell(rebate).text, 'EUR'
+    assert_equal '€', price_cell(rebate).css('small').text
     assert_equal '7,500.00', value_cell(rebate).text.strip, 'half a coin at 15,000'
 
     patch price_tracker_transaction_path(id: rebate.id), params: { price: '100' }
