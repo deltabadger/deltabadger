@@ -314,8 +314,10 @@
     background: var(--sky)
 
 // The control collapses when its options outgrow the room its PARENT gives it, so that parent
-// needs a width of its own. One that shrink-wraps to the collapsed trigger would report the
-// trigger's width as the room available and never let the control open back up.
+// needs a width of its own — a shrink-wrapped one only ever reports the width already in use.
+// Greedy on purpose, and safe to be: the controller measures itself EXPANDED, which squeezes a
+// stretched neighbour back to what it needs, so taking the slack here is not taking it from
+// whatever else shares the row.
 .filters:has(> .segmented)
     flex: 1
     min-width: 0
