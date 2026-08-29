@@ -164,5 +164,4 @@ class Bots::IndexPnlSparkTest < ActionDispatch::IntegrationTest
     assert_select '.dash-intro[data-broadcast--on-connect-retry-while-value=?]',
                   '#global-pnl .dash-intro__loading'
   end
-
 end
