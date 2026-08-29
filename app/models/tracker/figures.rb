@@ -37,12 +37,22 @@ module Tracker
     end
 
     Result = Data.define(:invested, :value, :fees, :realised, :unrealised, :total, :holdings, :notes, :ledger) do
-      # The portfolio as an ALLOCATION: what was actually invested, normalized by whoever draws it.
-      # Only the list changes — every figure beside it is still the whole portfolio, cash and all,
-      # because hiding a balance is not an accounting choice. One filter here rather than one in
-      # each template is what keeps the card, the ring, the type shares and the positions table
-      # reading from the same list.
-      def without_cash = with(holdings: holdings.reject(&:cash?))
+      # The portfolio with the cash TAKEN OFF BOTH SIDES: it leaves the list, it leaves the value,
+      # and the money in that funds it leaves money in — so hiding a balance of a dollar moves the
+      # figures by a dollar, and nothing else moves at all. Fees, what was banked, what is riding
+      # and the total between them are the account's own record either way: a P/L is not a balance,
+      # and cannot be hidden by not looking at one.
+      #
+      # (Money in less idle cash, not the cost of what is held: those differ by everything a closed
+      # trade won or lost, and no reading of a cash BALANCE should turn on that.)
+      #
+      # One restatement here rather than one in each template is what keeps the tiles, the card, the
+      # ring, the type shares and the positions table reading from one result.
+      def without_cash
+        idle = holdings.sum(0.to_d) { |holding| holding.cash? ? holding.value : 0.to_d }
+        with(holdings: holdings.reject(&:cash?), value: value - idle,
+             invested: invested && (invested - idle))
+      end
     end
 
     # `pending` is what the ledger has recorded SINCE the balances were taken — a balance is a

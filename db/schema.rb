@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_28_095813) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_28_175918) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -417,6 +417,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_28_095813) do
   create_table "portfolio_snapshots", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.date "date", null: false
+    t.decimal "held_cost_usd", precision: 20, scale: 8
+    t.decimal "held_value_usd", precision: 20, scale: 8
     t.decimal "invested_usd", precision: 20, scale: 8, default: "0.0", null: false
     t.boolean "partial", default: false, null: false
     t.datetime "updated_at", null: false

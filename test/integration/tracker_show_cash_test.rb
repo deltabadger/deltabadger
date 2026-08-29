@@ -6,9 +6,11 @@ require 'test_helper'
 # that is a fifth USDT gives its second-biggest arc to a coin nobody chose, so by default the
 # allocation is drawn from what was actually invested and the rest is normalized to 100%.
 #
-# It hides a BALANCE, not a figure. Every number the page states about how the account has done —
-# what went in, what it is worth, fees, realised, unrealised, total P/L, and the curve above them —
-# is the whole portfolio whichever way the switch is thrown. Nothing here is an accounting choice.
+# It scopes the page to that: the list, and the figures that describe it. With cash hidden, money
+# in is what the holdings left over COST, the value is what that portion is worth now, and the P/L
+# between them is the one still riding. Fees paid and gains banked are the account's record of what
+# it has already done and stay whole either way — as does the curve above them, which is stored
+# history and knows nothing of the switch.
 class TrackerShowCashTest < ActionDispatch::IntegrationTest
   setup do
     Tax::EcbFxRates.stubs(:ensure_loaded!)
@@ -125,37 +127,80 @@ class TrackerShowCashTest < ActionDispatch::IntegrationTest
     assert_select '.tracker-positions .tracker-row__asset', text: /USDT/, count: 1
   end
 
+  # ---- what it restates ---------------------------------------------------
+
+  # 40,000 came in, 30,000 of it bought the BTC now worth 36,000, and 10,000 is still waiting. With
+  # the cash hidden the page is about the 30,000 that was put to work and what it has become.
+  test 'money in and value follow the switch' do
+    get tracker_path
+    hidden = tiles
+
+    assert_equal '$30,000.00', hidden[I18n.t('bot.details.stats.total_invested')]
+    assert_equal '$36,000.00', hidden[I18n.t('bot.details.stats.portfolio_value')]
+    assert_equal '+$6,000.00', hidden[I18n.t('tracker.tiles.total_pnl')]
+
+    show_cash!
+    get tracker_path
+    shown = tiles
+
+    assert_equal '$40,000.00', shown[I18n.t('bot.details.stats.total_invested')]
+    assert_equal '$46,000.00', shown[I18n.t('bot.details.stats.portfolio_value')]
+    assert_equal '+$6,000.00', shown[I18n.t('tracker.tiles.total_pnl')]
+  end
+
   # ---- what it must not touch ---------------------------------------------
 
-  # Hiding a balance is not an accounting choice. Every figure is the whole portfolio either way.
-  test 'not one figure moves' do
+  # Hiding a balance does not unspend a fee or unbank a gain.
+  test 'fees and what was realised are the whole account either way' do
     get tracker_path
     hidden = tiles
 
     show_cash!
     get tracker_path
 
-    assert_equal tiles, hidden, 'the tiles state the whole portfolio whichever way the switch is thrown'
-    assert_equal '$46,000.00', hidden[I18n.t('bot.details.stats.portfolio_value')]
-    assert_equal '$40,000.00', hidden[I18n.t('bot.details.stats.total_invested')]
-    assert_equal '+$6,000.00', hidden[I18n.t('tracker.tiles.total_pnl')]
+    labels = [I18n.t('tracker.fees_paid'), I18n.t('bot.dca_index.realised_pnl')]
+
+    assert_equal tiles.values_at(*labels), hidden.values_at(*labels)
   end
 
-  test 'the chart is the whole portfolio either way' do
+  # The curve is the same reading as the tiles under it: the whole portfolio with cash shown, the
+  # positions inside it with cash hidden. Both pairs are on every day, so the switch picks a column.
+  test 'the curve follows the switch' do
     (1..3).each do |n|
       PortfolioSnapshot.create!(user: @user, date: Date.current - (400 - (n * 100)),
-                                value_usd: 40_000 + (n * 1_000), invested_usd: 40_000, partial: false)
+                                value_usd: 40_000 + (n * 1_000), invested_usd: 40_000,
+                                held_value_usd: 30_000 + (n * 1_000), held_cost_usd: 30_000, partial: false)
     end
     series = lambda do
       get tracker_path
-      css_select('[data-controller="bot--chart"]').first['data-bot--chart-series-value']
+      JSON.parse(css_select('[data-controller="bot--chart"]').first['data-bot--chart-series-value'])
     end
 
-    hidden = series.call
+    assert_equal [[31_000.0, 32_000.0, 33_000.0], [30_000.0] * 3], series.call
+
     show_cash!
 
-    assert_equal [[41_000.0, 42_000.0, 43_000.0], [40_000.0] * 3], JSON.parse(hidden)
-    assert_equal hidden, series.call
+    assert_equal [[41_000.0, 42_000.0, 43_000.0], [40_000.0] * 3], series.call
+  end
+
+  # A history swept before the curve learned about the switch has only the whole-portfolio pair,
+  # and no reading of it can recover the cash standing on those days. It is swept again rather than
+  # drawn as something it is not — and with cash shown there is nothing missing to wait for.
+  test 'a history from before the switch is swept again rather than drawn wrong' do
+    # Dated at the first transaction, so the only reason to sweep is the missing pair.
+    PortfolioSnapshot.create!(user: @user, date: 10.days.ago.to_date, value_usd: 46_000,
+                              invested_usd: 40_000, partial: false)
+    PortfolioSnapshot::BackfillJob.expects(:perform_later).with(@user.id, nil).once
+
+    get tracker_path
+
+    assert_select '.widget--chart__plot .loader'
+    assert_select '[data-controller="bot--chart"]', false
+
+    show_cash!
+    get tracker_path
+
+    assert_select '[data-controller="bot--chart"]'
   end
 
   # An account holding nothing BUT cash has balances; it just has no invested position to draw.

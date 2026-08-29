@@ -18,8 +18,11 @@ class TrackerHistoryTest < ActionDispatch::IntegrationTest
     # Spread over months, not days: a window shorter than the history is what makes the range
     # control a choice at all, and 30D on a three-day history draws the same picture as ALL.
     (1..3).each do |n|
+      # An account with no cash in it, so both readings of a day are the same figures — this file
+      # is about the plumbing, and `tracker_show_cash_test.rb` about which pair the switch picks.
       PortfolioSnapshot.create!(user: @user, date: Date.current - (400 - (n * 100)), value_usd: 30_000 + (n * 1_000),
-                                invested_usd: 30_000, partial: false)
+                                invested_usd: 30_000, held_value_usd: 30_000 + (n * 1_000),
+                                held_cost_usd: 30_000, partial: false)
     end
     sign_in @user
   end
@@ -107,7 +110,7 @@ class TrackerHistoryTest < ActionDispatch::IntegrationTest
   end
 
   test 'with balances hidden and both value and invested at zero, the payload is zeros, not NaN' do
-    PortfolioSnapshot.for_user(@user).update_all(invested_usd: 0, value_usd: 0)
+    PortfolioSnapshot.for_user(@user).update_all(invested_usd: 0, value_usd: 0, held_cost_usd: 0, held_value_usd: 0)
     @user.update!(hide_balances: true)
     get tracker_path
 
@@ -117,7 +120,7 @@ class TrackerHistoryTest < ActionDispatch::IntegrationTest
   end
 
   test 'with balances hidden and nothing invested, the payload is still finite and money-free' do
-    PortfolioSnapshot.for_user(@user).update_all(invested_usd: 0)
+    PortfolioSnapshot.for_user(@user).update_all(invested_usd: 0, held_cost_usd: 0)
     @user.update!(hide_balances: true)
     get tracker_path
 

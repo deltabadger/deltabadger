@@ -76,7 +76,7 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     # 30,000 in − 1,000 out + the 5,020 each venue spent without reporting its arrival = 34,020; then
     # the resolution against the balances: 10 ETH the exchange holds with no history behind them,
     # taken as arrived at its price (+20,000), and the sale's 5,000 the exchange no longer shows,
-    # taken as moved out (−5,000).
+    # taken as moved out (−5,000). No cash is held, so the switch has nothing to take off it.
     assert_select '.data-grid__item__value', text: /\$49,020\.00/
     assert_select '.data-grid__item__value', text: /\$80,000\.00/
     assert_select '.data-grid__item__value.text-success', text: /1,000\.00/ # the ETH round-trip

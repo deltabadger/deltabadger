@@ -60,6 +60,29 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     assert rows.none?(&:partial)
   end
 
+  # The second reading of the same days, for the page with cash hidden: the day with its cash taken
+  # off both sides — the value it stood in, and the money in that funded it. Both come off the day
+  # already swept, so the two readings can never disagree about what the cash was.
+  test 'every day states the positions inside it as well as the portfolio around them' do
+    seed_ledger
+    seed_prices
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+    Tracker::LedgerJob.stubs(:perform_later)
+
+    travel_to @day.call(6) do
+      PortfolioSnapshot::BackfillJob.perform_now(@user.id)
+    end
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [0, 10_000, 10_000, 12_000, 12_600, 7_200].map(&:to_d), rows.map(&:held_value_usd),
+                 'the cash of the day is out: 12k waiting on day 0, 7k again once half the BTC is sold'
+    assert_equal [0, 10_000, 10_000, 11_000, 11_000, 5_000].map(&:to_d), rows.map(&:held_cost_usd),
+                 'the same 12,000 of money in, less that same cash'
+    assert_equal rows.map { |row| row.value_usd - row.invested_usd },
+                 rows.map { |row| row.held_value_usd - row.held_cost_usd },
+                 'the cash comes off both sides, so the P/L between them never moves'
+  end
+
   test 'cash the ledger never saw arrive is money in, on the day it was spent' do
     tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 10_000)
     (1..3).each { |n| price('BTC', n, 10_000) }
