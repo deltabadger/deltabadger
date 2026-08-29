@@ -109,6 +109,23 @@ class TrackerHelperTest < ActionView::TestCase
     assert_in_delta 0.75, arc_start(arcs.last), 0.001
   end
 
+  # The icon IS the page's ring at 24px, so it is drawn under the page's own switch. A menu that
+  # keeps a stablecoin slice the page below it has dropped is a second opinion about the portfolio,
+  # from the one place a reader cannot check it against anything.
+  test 'the icon drops the cash the tracker drops, and keeps it when the tracker keeps it' do
+    user = create(:user)
+    icon_balance(user, '#F7931A', 75)
+    AccountBalance.create!(user: user, exchange: (@icon_exchange ||= create(:binance_exchange)),
+                           asset: create(:asset, :usdt, color: '#26A17B'), free: 25, locked: 0,
+                           usd_price: 1, usd_value: 25, synced_at: Time.current)
+
+    assert_equal 1, allocation_icon_arcs(user).size, 'cash is not a position anybody picked'
+
+    user.update!(tracker_settings: { 'show_cash' => true })
+
+    assert_equal 2, allocation_icon_arcs(user).size
+  end
+
   test 'the same coin on two venues is one arc' do
     user = create(:user)
     btc = create(:asset, :bitcoin, color: '#F7931A')

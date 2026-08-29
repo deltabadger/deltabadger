@@ -61,6 +61,10 @@ module TrackerHelper
   def allocation_icon_arcs(user)
     values = AccountBalance.for_user(user).priced.joins(:asset)
                            .group('assets.symbol', 'assets.color').sum(:usd_value)
+    # Under the tracker's own switch: this is that ring, and a menu keeping a slice the page below
+    # it has dropped is a second opinion about the portfolio, from the one place a reader cannot
+    # hold it against anything. The symbol is already in the group key, so it costs no query.
+    values = values.reject { |(symbol, _), _| Tracker::UnfundedCash.cash?(symbol) } unless user.show_cash?
     icon_arcs(values.sort_by { |_, value| -value }.map { |(_, color), value| [value, color] })
   end
 
