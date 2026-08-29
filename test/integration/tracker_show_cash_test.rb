@@ -50,18 +50,20 @@ class TrackerShowCashTest < ActionDispatch::IntegrationTest
 
   # ---- the control itself -------------------------------------------------
 
-  # The same switch the account menu uses, in the row that already says what the page is scoped to.
-  # Packed left in the scope row, directly after the venue switch, and the switch itself reads
-  # first — the control, then what it is for.
-  test 'the toggle rides in the scope row after the venue switch, small, and off by default' do
+  # The same switch row the account menu uses, in the page's ⋮ menu: label first, toggle at the
+  # end, the whole row the hit area, and the click kept from closing the menu on its way up.
+  test 'the toggle is a switch row in the ⋮ menu, small, and off by default' do
     get tracker_path
 
-    assert_select '.tracker-exchanges > .filters > form.tracker-exchanges__switch' do
-      assert_select 'label > *:first-child.toggle.toggle--small'
-      assert_select 'label > span:last-child', text: I18n.t('tracker.show_cash')
+    assert_select '.tracker-exchanges__end .dropdown form.switch-row-form' do
+      assert_select 'label.dropdown__item.dropdown__item--switch[data-dropdown-keep-open]' do
+        assert_select '> span:first-child', text: I18n.t('tracker.show_cash')
+        assert_select '> *:last-child.toggle.toggle--small'
+      end
       assert_select 'input[type=hidden][name=show_cash][value="0"]'
       assert_select '.toggle.toggle--small input[type=checkbox][name=show_cash]:not([checked])'
     end
+    assert_select '.tracker-exchanges__switch', 0, 'no longer standing in the scope row'
   end
 
   test 'the toggle reads back on once the preference is set' do

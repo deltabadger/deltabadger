@@ -49,26 +49,6 @@
         <%= render connect[:icon] %>
       <% end %>
     <% end %>
-
-    <%# The second scope control, in the same row and directly after the one that says WHERE. Cash
-        and stablecoins are where money WAITS rather than a position anybody picked, so the
-        allocation is drawn without them and what is left is normalized to 100%. It hides a
-        BALANCE, not a figure — the tiles and the chart state the whole portfolio either way.
-
-        The account menu's switch, in the account menu's shape: the label is the hit area, and the
-        hidden field is what makes an unchecked box mean something — a checkbox posts nothing when
-        it is off, and the action stores what was submitted rather than flipping what it finds. %>
-    <%= form_with url: settings_update_show_cash_path, method: :patch,
-                  class: 'tracker-exchanges__switch', data: { controller: 'form--submit' } do %>
-      <label>
-        <div class="toggle toggle--small">
-          <%= hidden_field_tag :show_cash, '0' %>
-          <%= check_box_tag :show_cash, '1', show_cash?, data: { action: 'change->form--submit#submit' } %>
-          <div class="toggle__style"></div>
-        </div>
-        <span class="label"><%= t('tracker.show_cash') %></span>
-      </label>
-    <% end %>
   </div>
 
   <%# The far end of the line: what the page can hand you, after the scope that decides what goes
@@ -89,14 +69,45 @@
       <% end %>
     </div>
 
-    <%= link_to t('bot.details.stats.download_csv'),
-                export_tracker_path(exchange_id: params[:exchange_id], from: params[:from], to: params[:to]),
-                class: 'rbutton' %>
-    <%# Beside the export, because it reads the same file the export writes — plus the venues' own. %>
-    <%= link_to t('tracker.import.title'), new_tracker_import_path, class: 'rbutton',
-                data: { turbo_frame: 'modal' } %>
     <% if @exchanges.any? %>
       <%= link_to t('tracker.get_report'), export_modal_tracker_path, class: 'rbutton', data: { turbo_frame: 'modal' } %>
     <% end %>
+
+    <%# The bot view's ⋮, holding what the line no longer has room to say outright. Not
+        turbo-permanent like the account menu: the export link carries the scope and the dates,
+        which a node held across visits would go on stating wrong. %>
+    <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
+      <%= render 'svg/24x24_dot_menu' %>
+      <div class="dropdown">
+        <%# The second scope control. Cash and stablecoins are where money WAITS rather than a
+            position anybody picked, so the allocation is drawn without them and what is left is
+            normalized to 100%. It hides a BALANCE, not a figure — the tiles and the chart state
+            the whole portfolio either way.
+
+            The account menu's switch row, in its shape: the label is the row and the hit area,
+            the click is kept from closing the menu on its way up, and the hidden field is what
+            makes an unchecked box mean something — a checkbox posts nothing when it is off, and
+            the action stores what was submitted rather than flipping what it finds. %>
+        <%= form_with url: settings_update_show_cash_path, method: :patch,
+                      class: 'switch-row-form', data: { controller: 'form--submit' } do %>
+          <label class="dropdown__item dropdown__item--switch" data-dropdown-keep-open>
+            <span><%= t('tracker.show_cash') %></span>
+            <div class="toggle toggle--small">
+              <%= hidden_field_tag :show_cash, '0' %>
+              <%= check_box_tag :show_cash, '1', show_cash?, data: { action: 'change->form--submit#submit' } %>
+              <div class="toggle__style"></div>
+            </div>
+          </label>
+        <% end %>
+        <div class="dropdown__item dropdown__item--divider"></div>
+        <%# Both read the venue and the dates from the same params the switch writes; the import
+            reads the same file the export writes — plus the venues' own. %>
+        <%= link_to t('bot.details.stats.download_csv'),
+                    export_tracker_path(exchange_id: params[:exchange_id], from: params[:from], to: params[:to]),
+                    class: 'dropdown__item' %>
+        <%= link_to t('tracker.import.title'), new_tracker_import_path, class: 'dropdown__item',
+                    data: { turbo_frame: 'modal' } %>
+      </div>
+    </div>
   </div>
 </div>
