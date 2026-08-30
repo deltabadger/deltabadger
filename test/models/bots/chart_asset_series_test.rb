@@ -35,7 +35,7 @@ class ChartAssetSeriesTest < ActiveSupport::TestCase
   end
 
   def ticker_stub(id:, base:, price:, from: T0 - 1.day)
-    ticker = stub(id: id, base: base, ticker: "#{base}USDT")
+    ticker = stub(id: id, base: base, ticker: "#{base}USDT", restated_candles?: false)
     ticker.stubs(:get_candles).returns(Result::Success.new(daily_candles(price, from: from)))
     ticker
   end

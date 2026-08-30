@@ -5,10 +5,11 @@ require 'test_helper'
 # The chart carries the PRICE of every asset it can price, alongside the value curves — the
 # overlay behind "Show prices".
 #
-# Read off the SAME grid, at the SAME labels, with the same interpolation the values are marked
-# with: a price point and a value point on one label are two readings of one number, so a curve
-# and the price under it can never disagree about what the market did. Nothing is fetched for
-# this — the grids are already in hand from marking the chart at market.
+# Read at the SAME labels, with the same interpolation the values are marked with, so a curve and
+# the price under it are two readings of one market. On a venue with no corporate actions they are
+# also literally one grid, already in hand from marking the chart at market, and nothing is
+# fetched for this. A venue that restates its history is the one exception — see
+# ChartPriceOverlayBasisTest for why the overlay is allowed its own basis there, and only there.
 #
 # A label the grid does not cover carries nil rather than a nearest guess: that is exactly the
 # point the portfolio kept on its fill mark, and a price invented there would be the second
@@ -36,7 +37,7 @@ class ChartPriceSeriesTest < ActiveSupport::TestCase
   end
 
   def ticker_stub(id:, base:, price:, from: T0 - 1.day)
-    ticker = stub(id: id, base: base, ticker: "#{base}USDT")
+    ticker = stub(id: id, base: base, ticker: "#{base}USDT", restated_candles?: false)
     ticker.stubs(:get_candles).returns(Result::Success.new(daily_candles(price, from: from)))
     ticker
   end

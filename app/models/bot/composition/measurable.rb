@@ -181,6 +181,7 @@ module Bot::Composition::Measurable
       priceable = tickers.map(&:base)
       metrics_data[:chart] = chart_marked_at_market(
         metrics_data[:chart], grids,
+        display_grids: chart_display_grids(metrics_data, grids),
         holdings: ->(i) { (metrics_data[:chart][:extra_series][i] || {}).slice(*priceable) },
         basis: ->(i) { ((metrics_data[:chart][:invested_series] || [])[i] || {}).slice(*priceable) },
         # Cash a rebalance sell realized but its buy has not spent yet — and, when a remainder ends
@@ -325,11 +326,46 @@ module Bot::Composition::Measurable
     return nil if symbols.empty?
 
     since, timeframe = chart_candle_window(metrics_data[:chart])
+    grids = chart_candle_grids(symbols, metrics_data, since: since, timeframe: timeframe)
+
+    # One member the candles do not cover would otherwise blank the interpolation for every member.
+    labels = metrics_data[:chart][:labels]
+    chart_split_pinned_grids(
+      chart_backfilled_grids(grids, symbols: symbols, from: labels.first, to: labels.last)
+    )
+  end
+
+  # The overlay's own grids: each restating symbol's history as its venue reads it TODAY, one
+  # basis end to end. No pins and no fill backfill — both exist to carry a VALUATION across a
+  # seam these grids do not have, and a fill price is as-traded, which on this basis it is not.
+  #
+  # Merged over the valuation grids per symbol, never wholesale: a basket can hold stocks beside
+  # crypto, and one ticker whose restated fetch failed must not take the other nineteen back with
+  # it. A symbol left behind keeps the raw line this chart has always drawn.
+  def chart_display_grids(metrics_data, grids)
+    restating = restating_symbols & metrics_data[:asset_breakdown].keys
+    return grids if restating.empty?
+
+    since, timeframe = chart_candle_window(metrics_data[:chart])
+    grids.merge(chart_candle_grids(restating, metrics_data, since: since, timeframe: timeframe,
+                                                            restated: true))
+  end
+
+  # Which members have a history their venue rewrites. One query for the categories rather than
+  # one per member: the question reaches `ticker.base_asset`, and a chart drawn from warm candle
+  # caches otherwise loads no asset row at all.
+  def restating_symbols
+    list = tickers
+    list = list.preload(:base_asset) if list.is_a?(ActiveRecord::Relation)
+    list.select(&:restated_candles?).map(&:base)
+  end
+
+  # Bounded parallel batches. A raise in one worker becomes a per-symbol failure (logged);
+  # failed symbols are skipped and retried on the next 5-minute metrics cycle.
+  def chart_candle_grids(symbols, metrics_data, since:, timeframe:, restated: false)
     ticker_by_symbol = tickers.index_by(&:base)
     grids = {}
 
-    # Bounded parallel batches. A raise in one worker becomes a per-symbol failure (logged);
-    # failed symbols are skipped and retried on the next 5-minute metrics cycle.
     symbols.each_slice(CANDLE_FETCH_THREADS) do |batch|
       threads = batch.filter_map do |symbol|
         ticker = ticker_by_symbol[symbol]
@@ -338,7 +374,8 @@ module Bot::Composition::Measurable
         Thread.new do
           result = begin
             Rails.application.executor.wrap do
-              fetch_candle_series(ticker: ticker, since: since, timeframe: timeframe)
+              fetch_candle_series(ticker: ticker, since: since, timeframe: timeframe,
+                                  restated: restated)
             end
           rescue StandardError => e
             Rails.logger.error("Candle fetch failed for #{symbol}: #{e.class}: #{e.message}")
@@ -360,15 +397,7 @@ module Bot::Composition::Measurable
       end
     end
 
-    # One member the candles do not cover would otherwise blank the interpolation for every member.
-    labels = metrics_data[:chart][:labels]
-    chart_split_pinned_grids(
-      chart_backfilled_grids(grids, symbols: symbols, from: labels.first, to: labels.last)
-    )
-  end
-
-  def fetch_candle_series(ticker:, since:, timeframe:)
-    CandleSeriesCache.fetch(ticker: ticker, since: since, timeframe: timeframe)
+    grids
   end
 
   def calculate_pnl(from, to)
