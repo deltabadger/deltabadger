@@ -24,18 +24,33 @@ export default class extends Controller {
 
   connect() {
     document.addEventListener("turbo:before-render", this.beforeRender);
+    document.addEventListener("turbo:visit", this.visit);
   }
 
   disconnect() {
     document.removeEventListener("turbo:before-render", this.beforeRender);
+    document.removeEventListener("turbo:visit", this.visit);
   }
 
   // No preventDefault: the link navigates. A MODIFIED click opens a new tab and leaves this page
   // as it was, so the chip stays put — the same rule the segmented control has.
   select(event) {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button > 0) return;
+    // Turbo starts the visit inside this same click, so the latch is consumed before the
+    // microtask clears it — and a click Turbo does not follow leaves nothing behind.
+    this.clicked = true;
+    queueMicrotask(() => (this.clicked = false));
     this.#slide(event.currentTarget);
   }
+
+  // Turbo's progress bar is the sign of a visit still in flight. On a menu-tile visit the chip
+  // already is that sign, so the bar stays hidden — and ONLY there: a first visit to a bot page
+  // paints nothing until the response, and with no bar it reads as a dead click. Stamped on
+  // <html>, which survives the body swap and is never part of a snapshot; application.js takes
+  // it off when the visit ends, and the next visit restamps it either way.
+  visit = () => {
+    document.documentElement.toggleAttribute("data-menu-visit", this.clicked === true);
+  };
 
   // Back/forward and redirects carry no click: the incoming body says which tile is active and
   // the chip slides there before the swap. Then the hold, for a slide from either path.

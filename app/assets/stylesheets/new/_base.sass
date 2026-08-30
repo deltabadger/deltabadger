@@ -11,8 +11,9 @@ body
 dialog
   display: block // override default display: none, used if js is disabled
 
-// A page changes like a native view: the menu's highlight moving is the only sign of a visit.
-.turbo-progress-bar
+// On a menu-tile visit the highlight moving is the sign of the visit, so Turbo's bar stays out
+// of it. Everywhere else the bar is the only sign there is — see menu_controller.js.
+html[data-menu-visit] .turbo-progress-bar
   display: none !important
 ol, ul
     padding-left: 3.5rem
