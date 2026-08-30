@@ -47,7 +47,7 @@ group :development do
   gem 'listen', '>= 3.0.5', '< 4.0'
   gem 'lol_dba'
   gem 'web-console'
-  gem "rack-mini-profiler", "~> 4.0"
+  gem "rack-mini-profiler", "~> 5.0"
 end
 
 group :test do
