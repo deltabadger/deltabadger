@@ -1,6 +1,6 @@
 [package]
 name = "deltabadger"
-version = "2.44.0"
+version = "2.44.1"
 description = "DeltaBadger - Dollar Cost Averaging Bot"
 authors = ["DeltaBadger"]
 license = "MIT"
