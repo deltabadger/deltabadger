@@ -16,6 +16,9 @@ import { Controller } from "@hotwired/stimulus";
 // until the second response lands and its own controller slides on from there — what a slightly
 // slower hand would have seen. Non-destructive; not worth a render-skipping hack, which would
 // leave the live page with clones of its turbo-permanent elements.
+const ACTIVE = "menu__item--active";
+const TIMING = { duration: 180, easing: "cubic-bezier(0.22, 0.61, 0.36, 1)", fill: "forwards" };
+
 export default class extends Controller {
   static targets = ["chip", "tile"];
 
@@ -64,10 +67,37 @@ export default class extends Controller {
     const target = tile.getBoundingClientRect().top;
     if (visual === target) return;
 
+    this.#ink(tile);
     this.tile = tile;
     this.animation = this.chipTarget.animate(
       [{ transform: `translateY(${visual - base}px)` }, { transform: `translateY(${target - base}px)` }],
-      { duration: 180, easing: "cubic-bezier(0.22, 0.61, 0.36, 1)", fill: "forwards" }
+      TIMING
+    );
+  }
+
+  // The icon ink travels with the chip: the tile it leaves fades to the menu's gray and the tile
+  // it reaches lights up, over the same trip. The colours are the cascade's own — the active class
+  // is moved onto the target, every shape's computed fill and stroke read, and the class put back,
+  // all inside one task: nothing is painted in between and nothing reaches Turbo's snapshot, which
+  // clones the body on a later tick. Reading rather than knowing keeps the tracker's ring honest:
+  // its arcs light up in the portfolio's colours, one each, and only the empty ring takes the ink.
+  #ink(tile) {
+    const current = this.tileTargets.find((candidate) => candidate.classList.contains(ACTIVE));
+    // The previous target too, when a second click lands mid-slide: its half-lit shapes fade back
+    // instead of snapping.
+    const shapes = [...new Set([current, tile, this.tile].filter(Boolean))].flatMap((t) => [...t.querySelectorAll("svg *")]);
+    const read = () => shapes.map((shape) => (({ fill, stroke }) => ({ fill, stroke }))(getComputedStyle(shape)));
+
+    const from = read(); // mid-animation colours, if a slide is in flight
+    this.inks?.forEach((animation) => animation.cancel());
+    current.classList.remove(ACTIVE);
+    tile.classList.add(ACTIVE);
+    const to = read();
+    tile.classList.remove(ACTIVE);
+    current.classList.add(ACTIVE);
+
+    this.inks = shapes.flatMap((shape, i) =>
+      from[i].fill === to[i].fill && from[i].stroke === to[i].stroke ? [] : [shape.animate([from[i], to[i]], TIMING)]
     );
   }
 }

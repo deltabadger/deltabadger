@@ -82,15 +82,17 @@
       background: var(--washed) !important
       box-shadow: var(--shadow-basic)
       cursor: default
+      // Not !important: the ink is animated between tiles (menu_controller.js), and an important
+      // declaration would outrank the animation. Specificity already beats .fill--icon.
       svg *
-        fill: var(--link) !important
+        fill: var(--link)
       // The tracker's ring is drawn in strokes, and the rule above would fill its arcs into solid
       // wedges. On its own page it wears the portfolio's colours, so only the empty ring — the one
       // with nothing to divide — takes the active ink.
       .icon-24--allocation *
-        fill: none !important
+        fill: none
       .stroke--icon
-        stroke: var(--link) !important
+        stroke: var(--link)
 
   // The highlight is ONE chip that slides between the tiles, the way the .segmented thumb does.
   // CSS places it on the active tile — no measurement, so it is right in a restored snapshot and
