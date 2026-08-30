@@ -29,7 +29,6 @@ Two providers, configured in settings:
 - **data-api** (deltabadger.com users): `MARKET_DATA_URL` + `MARKET_DATA_TOKEN`
 - Recurring jobs sync every 12 hours when configured; skip silently when not
 
-## Market Cap Allocation (DCA Dual Asset)
+## Market-cap weighting
 
-Uses `circulating_supply` from seed data x current exchange price.
-Circulating supply changes slowly, so seed data remains accurate.
+`Bots::DcaMultiAsset#apply_market_cap_weights` reads the stored `assets.market_cap` column (synced with the catalogue) — no live price is involved. `circulating_supply` in the seed data is informational.

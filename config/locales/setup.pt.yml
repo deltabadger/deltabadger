@@ -6,8 +6,8 @@ pt:
             stocks_ask_admin: "Pede ao teu administrador para ativar a negociação de ações."
             stocks_activate_cta: "Ativar a negociação de ações nas definições"
             progress_steps:
+                assets: "Ativos"
                 currencies: "Escolher ativo"
-                currencies2: "Segundo ativo (opcional)"
                 exchange: "Exchange"
                 spendable: "Moeda"
                 api: "Conectar exchange"

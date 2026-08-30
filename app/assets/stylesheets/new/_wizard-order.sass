@@ -12,8 +12,11 @@
         display: flex
         align-items: center
         justify-content: center
-    // On the first step a placeholder slot doubles as the order switch.
-    .ticker--switch
+        // Inert or not, the pill is clickable: it either switches/advances, or refocuses the search.
+        cursor: pointer
+    // On the first step a placeholder slot doubles as the order switch; on the asset step, once
+    // something is chosen, it advances instead.
+    .ticker--switch, .ticker--advance
         cursor: pointer
         transition: opacity 0.15s ease
         input
@@ -25,7 +28,7 @@
     &__link--placeholder
         color: var(--concrete)
         opacity: 0.7
-    &__link--switch
+    &__link--switch, &__link--advance
         cursor: pointer
         transition: color 0.15s ease
         input
@@ -36,7 +39,9 @@
 // Empty-state shown in the asset picker when a chosen venue's catalog is still
 // syncing (self-hosted).
 .assets-syncing
-    padding: 4rem 2rem
+    padding: 4rem 2rem 2rem
     text-align: center
     color: var(--stone)
     font-weight: 600
+    &::after
+        content: "→"

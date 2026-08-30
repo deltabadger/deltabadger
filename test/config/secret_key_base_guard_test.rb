@@ -154,7 +154,7 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
   # README.md carries the same procedure for the same operator; the warning is only what
   # someone who never opens the README sees. Both are edited by hand and have drifted before.
   test 'the README procedure recreates the container too' do
-    section = readme_recovery_section
+    section = manual_recovery_section
 
     assert section, 'expected the recovery section in README.md'
     assert_match(/docker compose up -d --force-recreate/, section)
@@ -181,7 +181,7 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
 
     warning = SecretKeyBaseGuard::PUBLISHED_WARNING
     assert_match(%r{/app/storage/\.secrets}, warning)
-    assert_match(%r{/app/storage/\.secrets}, readme_recovery_section)
+    assert_match(%r{/app/storage/\.secrets}, manual_recovery_section)
 
     # Deleting it before the report would take the withdrawal addresses with it — the report
     # is the one step that reads encrypted values back, and it needs the old key to do it.
@@ -201,7 +201,7 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
 
     assert backup_step, 'expected the backup step in the warning'
     assert_match(/\.secrets/, backup_step, 'the operator must be told the backup decrypts itself')
-    assert_match(/\.secrets/, readme_recovery_section[/2\. Back up.*?(?=\n3\.)/m].to_s,
+    assert_match(/\.secrets/, manual_recovery_section[/2\. Back up.*?(?=\n3\.)/m].to_s,
                  'the README backup step must say so too')
   end
 
@@ -324,7 +324,7 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
                     'generate_secrets is an unlocked check-then-write; if that is ever fixed, revisit this')
 
     assert_match(/openssl rand -hex 64/, SecretKeyBaseGuard::PUBLISHED_WARNING)
-    assert_match(/openssl rand -hex 64/, readme_recovery_section)
+    assert_match(/openssl rand -hex 64/, manual_recovery_section)
   end
 
   # deltabadger/docker-compose.yml declares SECRET_KEY_BASE TWICE — once under web, once under
@@ -344,7 +344,7 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
     assert_operator declarations, :>, 1,
                     'this test exists because that file sets the key in more than one service block'
     assert_includes SecretKeyBaseGuard::PUBLISHED_WARNING, 'both service blocks'
-    assert_includes readme_recovery_section, 'both service blocks'
+    assert_includes manual_recovery_section, 'both service blocks'
   end
 
   # The preamble calls the backup "the only way back", and on a default install it is — the copy
@@ -358,7 +358,7 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
     assert backup_step, 'expected the backup step in the warning'
     assert_includes backup_step, 'save that value too',
                     'a key supplied by env or compose is not in the volume, and step 6 overwrites it'
-    assert_includes readme_recovery_section, 'save that value too'
+    assert_includes manual_recovery_section, 'save that value too'
   end
 
   # Every command in the procedure is a `docker compose run`, and only some ways of setting a
@@ -373,7 +373,7 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
   # fails silently: the operator gets the reassuring wording they were trying to override, with
   # nothing to indicate the flag was ignored. Showing -e removes the choice.
   test 'the compromised override is shown in a form the documented commands can pass' do
-    assert_match(/-e PUBLISHED=yes/, readme_recovery_section,
+    assert_match(/-e PUBLISHED=yes/, manual_recovery_section,
                  'shell-prefixed variables do not reach a container started by docker compose run')
   end
 
@@ -384,7 +384,7 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
   # close that gap — only the operator knows — so the bullet that makes the accusation has to
   # be the one that hands over the override.
   test 'the README tells a human-chosen secret how to force the compromised wording' do
-    bullet = readme_recovery_section[/- A person chose the value.*?(?=\n- |\n\n)/m]
+    bullet = manual_recovery_section[/- A person chose the value.*?(?=\n- |\n\n)/m]
 
     assert bullet, 'expected the human-chosen-secret bullet in the README'
     assert_match(/PUBLISHED=yes/, bullet,
@@ -396,8 +396,10 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
   # Defined after the tests on purpose: `private` applies to what follows it, and the test
   # helper defines its blocks as methods, so putting this earlier would make them private
   # and silently unrunnable.
-  def readme_recovery_section
-    File.read(Rails.root.join('README.md'))[/### Moving to a new SECRET_KEY_BASE.*?\n### /m]
+  # The procedure lives in the manual now, under its own heading, and runs to the next one or to
+  # the end of the chapter.
+  def manual_recovery_section
+    File.read(Rails.root.join('manual/40-secrets-and-encryption-keys.md'))[/## Moving to a new SECRET_KEY_BASE.*?(?=\n## |\z)/m]
   end
 
   test 'data is exposed when no independent keys are configured' do

@@ -3,26 +3,22 @@ require 'test_helper'
 class Bots::DcaSingleAssets::PickExchangesControllerTest < ActionDispatch::IntegrationTest
   setup do
     @user = create(:user, admin: true, setup_completed: true)
-    @asset = create(:asset)
     sign_in @user
+    # Asset-first is the optional route, but it is where the basket mechanics under test are
+    # easiest to drive (and where stock routing lives), so these tests opt into it.
+    post bots_dca_single_assets_order_path, params: { flow: 'asset_first' }
   end
 
-  test 'promote_to_dual moves base_asset_id to base0_asset_id and redirects to dual second-asset picker' do
-    # Seed session by hitting the single-asset first step.
-    get new_bots_dca_single_assets_pick_buyable_asset_path
-    post bots_dca_single_assets_pick_buyable_asset_path,
-         params: { bots_dca_single_asset: { base_asset_id: @asset.id } }
-
-    post promote_to_dual_bots_dca_single_assets_pick_exchange_path
-    assert_redirected_to new_bots_dca_dual_assets_pick_second_buyable_asset_path
-
-    follow_redirect!
-    # The dual second-asset controller would redirect back to first if base0 wasn't set,
-    # so a successful render proves base0_asset_id is now set in session.
-    assert_response :success
+  test 'dual wizard routes are retired' do
+    assert_empty Rails.application.routes.named_routes.names.grep(/dca_dual/)
   end
 
-  test 'full promoted flow: single → + → second asset → exchange proceeds to api key (no loop)' do
+  test 'the promote-to-multi hop and the separate multi picker are gone' do
+    assert_empty Rails.application.routes.named_routes.names
+                      .grep(/promote_to_multi|dca_multi_assets_pick_assets|dca_multi_assets_order/)
+  end
+
+  test 'full basket flow: pick → pick → Next → exchange proceeds to api key (no loop)' do
     btc = create(:asset, :bitcoin)
     eth = create(:asset, :ethereum)
     usd = create(:asset, :usd)
@@ -31,33 +27,23 @@ class Bots::DcaSingleAssets::PickExchangesControllerTest < ActionDispatch::Integ
     create(:ticker, :eth_usd, exchange: binance, base_asset: eth, quote_asset: usd)
 
     get new_bots_dca_single_assets_pick_buyable_asset_path
-    # 1. Pick BTC in single flow
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: btc.id } }
-    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
+    post bots_dca_single_assets_pick_buyable_asset_path,
+         params: { bots_dca_single_asset: { base_asset_id: eth.id } }
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
+    assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
 
-    # 2. Click "+" to promote to dual
-    post promote_to_dual_bots_dca_single_assets_pick_exchange_path
-    assert_redirected_to new_bots_dca_dual_assets_pick_second_buyable_asset_path
-
-    # 3. Pick ETH as second asset
-    post bots_dca_dual_assets_pick_second_buyable_asset_path,
-         params: { bots_dca_dual_asset: { base1_asset_id: eth.id } }
-    assert_redirected_to new_bots_dca_dual_assets_pick_exchange_path
-
-    # 4. Pick Binance
-    post bots_dca_dual_assets_pick_exchange_path,
-         params: { bots_dca_dual_asset: { exchange_id: binance.id } }
-    # Should proceed to api key step, NOT loop back to second-asset picker
-    assert_redirected_to new_bots_dca_dual_assets_add_api_key_path
+    post bots_dca_multi_assets_pick_exchange_path,
+         params: { bots_dca_multi_asset: { exchange_id: binance.id } }
+    # Should proceed to api key step, NOT loop back to the assets picker
+    assert_redirected_to new_bots_dca_multi_assets_add_api_key_path
     follow_redirect!
     # In dry_run mode (tests) api_key.correct? => true, skipping to pick_spendable.
-    # In real use, user enters API key then advances. Either way, NOT a loop.
-    assert_not_equal new_bots_dca_dual_assets_pick_second_buyable_asset_path, request.path
     assert_not_equal new_bots_dca_single_assets_pick_buyable_asset_path, request.path
   end
 
-  test 'single-asset flow: pick BTC then Binance proceeds to api key (no loop)' do
+  test 'single-asset flow: pick BTC, Next, then Binance proceeds to api key (no loop)' do
     btc = create(:asset, :bitcoin)
     usd = create(:asset, :usd)
     binance = create(:binance_exchange)
@@ -66,6 +52,8 @@ class Bots::DcaSingleAssets::PickExchangesControllerTest < ActionDispatch::Integ
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: btc.id } }
+    assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
     assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
 
     post bots_dca_single_assets_pick_exchange_path,
@@ -86,6 +74,7 @@ class Bots::DcaSingleAssets::PickExchangesControllerTest < ActionDispatch::Integ
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: btc.id } }
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
     get new_bots_dca_single_assets_pick_exchange_path
 
     assert_response :success

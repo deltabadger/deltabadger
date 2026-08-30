@@ -3,8 +3,9 @@
 require 'test_helper'
 
 # When the combined (candles) cache is cold but the prices cache is warm — the common
-# case, since Bot::WarmMetricsCachesJob warms prices every 5 minutes — the balances
-# table must render real values immediately; only the chart shows the loading state.
+# case, since Bot::WarmMetricsCachesJob warms prices every 5 minutes while the app is in
+# use — the balances table must render real values immediately; only the chart shows the
+# loading state.
 class Bots::ShowMetricsLoadingTest < ActionDispatch::IntegrationTest
   setup do
     create(:user, admin: true, setup_completed: true) # satisfies the onboarding gate
@@ -23,7 +24,7 @@ class Bots::ShowMetricsLoadingTest < ActionDispatch::IntegrationTest
       'AAPL' => { amount: 1.0, quote_invested: 100.0, current_value: 110.0,
                   current_price: 110.0, avg_price: 100.0, pnl_percentage: 0.1 }
     }
-    Rails.cache.write("bot_#{@bot.id}_metrics_with_current_prices", prices_data)
+    Rails.cache.write(@bot.send(:metrics_with_current_prices_cache_key), prices_data)
 
     get bot_path(id: @bot.id)
 
@@ -46,8 +47,8 @@ class Bots::ShowMetricsLoadingTest < ActionDispatch::IntegrationTest
       'NEW' => { amount: 2.0, quote_invested: 2.0, current_value: 2.0,
                  current_price: 1.0, avg_price: 1.0, pnl_percentage: 0.0 }
     )
-    Rails.cache.write("bot_#{@bot.id}_metrics_with_current_prices_and_candles", stale)
-    Rails.cache.write("bot_#{@bot.id}_metrics_with_current_prices", fresh)
+    Rails.cache.write(@bot.send(:metrics_with_current_prices_and_candles_cache_key), stale)
+    Rails.cache.write(@bot.send(:metrics_with_current_prices_cache_key), fresh)
 
     get bot_path(id: @bot.id)
 

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_15_170100) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_30_210000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -41,6 +41,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_15_170100) do
     t.string "fee_currency"
     t.string "group_id"
     t.integer "linked_transaction_id"
+    t.json "manual_values", default: {}
     t.decimal "quote_amount"
     t.string "quote_currency"
     t.json "raw_data", default: {}
@@ -129,6 +130,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_15_170100) do
 
   create_table "api_keys", force: :cascade do |t|
     t.text "access_token"
+    t.datetime "balances_synced_at"
     t.datetime "created_at", precision: nil, null: false
     t.text "dh_param"
     t.bigint "exchange_id", null: false
@@ -230,6 +232,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_15_170100) do
     t.integer "fetch_restarts", default: 0, null: false
     t.string "label"
     t.datetime "last_end_of_funds_notification", precision: nil
+    t.integer "position", default: 0, null: false
+    t.decimal "redeploy_declined_offset", default: "0.0", null: false
     t.integer "restarts", default: 0, null: false
     t.json "settings", default: {}, null: false
     t.datetime "settings_changed_at", precision: nil
@@ -410,6 +414,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_15_170100) do
     t.index ["uid"], name: "index_oauth_applications_on_uid", unique: true
   end
 
+  create_table "portfolio_snapshots", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.date "date", null: false
+    t.decimal "held_cost_usd", precision: 20, scale: 8
+    t.decimal "held_value_usd", precision: 20, scale: 8
+    t.decimal "invested_usd", precision: 20, scale: 8, default: "0.0", null: false
+    t.boolean "partial", default: false, null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.decimal "value_usd", precision: 20, scale: 8, default: "0.0", null: false
+    t.index ["user_id", "date"], name: "index_portfolio_snapshots_on_user_id_and_date", unique: true
+    t.index ["user_id"], name: "index_portfolio_snapshots_on_user_id"
+  end
+
   create_table "rule_logs", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.json "details", default: {}, null: false
@@ -507,9 +525,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_15_170100) do
     t.string "confirmation_token"
     t.datetime "confirmed_at", precision: nil
     t.datetime "created_at", precision: nil, null: false
+    t.string "display_currency", default: "USD", null: false
     t.string "email", default: "", null: false
     t.string "encrypted_password", default: "", null: false
     t.integer "failed_attempts", default: 0, null: false
+    t.boolean "hide_balances", default: false, null: false
     t.datetime "last_otp_at", precision: nil
     t.string "locale"
     t.datetime "locked_at"

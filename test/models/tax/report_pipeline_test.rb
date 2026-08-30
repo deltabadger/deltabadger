@@ -225,6 +225,58 @@ class Tax::ReportPipelineTest < ActiveSupport::TestCase
     assert_equal 'false', row[I18n.t('tax_report.headers.data_incomplete', locale: :de)]
   end
 
+  # The two legs share one instant, and the venue decides which is stored first. Ordered by time
+  # alone the in-leg can run first, take market basis, and leave the out-leg's cost stored for
+  # nobody — so the report orders as the tracker does, out-leg before in-leg.
+  test 'an austrian swap chains whichever leg the venue stored first' do
+    user = create(:user)
+    exchange = create(:binance_exchange)
+    t0 = Time.utc(2024, 1, 10)
+    swap_at = t0 + 30.days
+    sell_at = t0 + 60.days
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: swap_at.to_date, price: 40_000.to_d)
+    HistoricalPrice.create!(asset: 'ETH', currency: 'EUR', date: swap_at.to_date, price: 2_000.to_d)
+    [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1, quote_currency: 'EUR', quote_amount: 10_000, transacted_at: t0, tx_id: 'o1' },
+      { entry_type: :swap_in, base_currency: 'ETH', base_amount: 20, quote_currency: nil, group_id: 'g1', transacted_at: swap_at, tx_id: 'o2' },
+      { entry_type: :swap_out, base_currency: 'BTC', base_amount: 1, quote_currency: nil, group_id: 'g1', transacted_at: swap_at, tx_id: 'o3' },
+      { entry_type: :sell, base_currency: 'ETH', base_amount: 20, quote_currency: 'EUR', quote_amount: 70_000, transacted_at: sell_at, tx_id: 'o4' }
+    ].each { |attrs| AccountTransaction.create!(user: user, exchange: exchange, **attrs) }
+
+    csv = Tax::Report.new(country: 'AT', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+
+    row = CSV.parse(csv, headers: true).find { |r| r[2] == 'ETH' }
+    assert_equal 10_000.to_d, row[5].to_d
+    assert_equal 60_000.to_d, row[6].to_d
+  end
+
+  test 'an austrian sweep of old and new stock keeps both ages' do
+    user = create(:user)
+    exchange = create(:binance_exchange)
+    old_at = Time.utc(2020, 6, 1)
+    new_at = Time.utc(2024, 1, 10)
+    swap_at = Time.utc(2024, 2, 10)
+    HistoricalPrice.create!(asset: 'BTC', currency: 'EUR', date: swap_at.to_date, price: 40_000.to_d)
+    HistoricalPrice.create!(asset: 'ETH', currency: 'EUR', date: swap_at.to_date, price: 2_000.to_d)
+    [
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1, quote_currency: 'EUR', quote_amount: 5_000, transacted_at: old_at, tx_id: 'a1' },
+      { entry_type: :buy, base_currency: 'BTC', base_amount: 1, quote_currency: 'EUR', quote_amount: 35_000, transacted_at: new_at, tx_id: 'a2' },
+      { entry_type: :swap_out, base_currency: 'BTC', base_amount: 2, quote_currency: nil, group_id: 'g1', transacted_at: swap_at, tx_id: 'a3' },
+      { entry_type: :swap_in, base_currency: 'ETH', base_amount: 40, quote_currency: nil, group_id: 'g1', transacted_at: swap_at, tx_id: 'a4' },
+      { entry_type: :sell, base_currency: 'ETH', base_amount: 20, quote_currency: 'EUR', quote_amount: 50_000, transacted_at: swap_at + 30.days,
+        tx_id: 'a5' },
+      { entry_type: :sell, base_currency: 'ETH', base_amount: 20, quote_currency: 'EUR', quote_amount: 50_000, transacted_at: swap_at + 31.days,
+        tx_id: 'a6' }
+    ].each { |attrs| AccountTransaction.create!(user: user, exchange: exchange, **attrs) }
+
+    csv = Tax::Report.new(country: 'AT', year: 2024, transactions: AccountTransaction.for_user(user)).to_csv
+
+    rows = CSV.parse(csv, headers: true).select { |r| r[2] == 'ETH' }
+    # Headers: date, acquisition_date, asset, amount, proceeds, cost_basis, ...
+    assert_equal([old_at.to_date.iso8601, new_at.to_date.iso8601], rows.map { |r| r[1][0, 10] })
+    assert_equal([5_000.to_d, 35_000.to_d], rows.map { |r| r[5].to_d })
+  end
+
   test 'missing price produces a banner row and flags the disposal, not silent zeros' do
     user = create(:user)
     exchange = create(:binance_exchange)

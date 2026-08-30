@@ -14,11 +14,14 @@
 # release commit was made. The Docker image built fine and then crashed on
 # boot with `uninitialized constant Bot::Startable`.
 
-RELEASE_VERSION_FILES = {
-  'src-tauri/Cargo.toml' => /^(version = ")[\d.]+(")/,
-  'src-tauri/tauri.conf.json' => /("version": ")[\d.]+(")/,
-  'deltabadger/umbrel-app.yml' => /^(version: ")[\d.]+(")/
-}.freeze
+# Guarded because test workers reload lib/tasks after resetting Rake.application.
+unless defined?(RELEASE_VERSION_FILES)
+  RELEASE_VERSION_FILES = {
+    'src-tauri/Cargo.toml' => /^(version = ")[\d.]+(")/,
+    'src-tauri/tauri.conf.json' => /("version": ")[\d.]+(")/,
+    'deltabadger/umbrel-app.yml' => /^(version: ")[\d.]+(")/
+  }.freeze
+end
 
 namespace :release do
   desc 'Bump patch version and release (1.0.0 → 1.0.1)'
@@ -81,6 +84,12 @@ namespace :release do
     system("git add #{files}") || abort('git add failed')
     system("git commit -m 'Bump version to #{version}'") || abort('git commit failed')
     system('git push origin main') || abort('git push failed')
+    # Fast-forwards nightly onto the release so the :nightly image never sits BEHIND stable —
+    # anyone running image_tag: "nightly" would otherwise be on older code than a stable user.
+    # The cost is that one release starts three workflow runs: this push builds the nightly image,
+    # the tag below builds the same commit again as :latest, and the desktop release also watches
+    # v* tags. The two Docker builds are the same commit under different tags, about three minutes
+    # each, and the registry dedupes the layers — cheaper than special-casing either workflow.
     system('git push origin main:nightly') || abort('git push to nightly failed')
     system("git tag -s v#{version} -m 'v#{version}'") || abort('git tag failed')
     system("git push origin v#{version}") || abort('git tag push failed')

@@ -100,4 +100,68 @@ class Automation::SchedulableTest < ActiveSupport::TestCase
     # With feature disabled, repeat_anchor_at must equal started_at
     assert_equal bot.started_at, bot.repeat_anchor_at
   end
+
+  # ---------- DST: the interval grid must be absolute, not wall-clock ----------
+
+  # An ActiveJob payload carries the Time.zone it was enqueued in, and ActiveJob re-applies that
+  # zone (Time.use_zone) around every perform — so a self-rescheduling chain keeps running under
+  # whatever zone it was born in. Adding the interval as a CALENDAR duration preserves the local
+  # wall clock across a DST change, while the elapsed-interval count above is measured in absolute
+  # seconds. A chain anchored in CET and running in CEST therefore computed a checkpoint one hour
+  # BEFORE the boundary it had just counted against — a checkpoint in the past, which
+  # Bot::ActionJob re-enqueues immediately, at machine speed, for the length of the DST offset.
+  # Production hit exactly this: 14,192 ActionJobs in one hour on a single weekly bot, which
+  # rate-limited the exchange account for every other bot in that container.
+  test 'weekly grid stays on the absolute interval under a DST job zone' do
+    anchor = Time.utc(2026, 3, 13, 12, 24, 25)  # CET  (UTC+1)
+    travel_to Time.utc(2026, 8, 21, 11, 24, 27) # CEST (UTC+2), just past the wall-clock slot
+    bot = create(:dca_single_asset, :started, :weekly)
+    bot.started_at = anchor
+    bot.save!
+
+    Time.use_zone('Vienna') do
+      checkpoint = bot.next_interval_checkpoint_at
+      assert_equal anchor + (23 * 1.week.to_i), checkpoint.utc
+      assert checkpoint.future?, 'a checkpoint in the past is re-enqueued immediately, forever'
+    end
+  end
+
+  test 'daily grid stays on the absolute interval under a DST job zone' do
+    anchor = Time.utc(2026, 3, 13, 12, 24, 25)
+    travel_to Time.utc(2026, 8, 21, 11, 24, 27)
+    bot = create(:dca_single_asset, :started)
+    bot.started_at = anchor
+    bot.save!
+
+    Time.use_zone('Vienna') do
+      checkpoint = bot.next_interval_checkpoint_at
+      assert_equal Time.utc(2026, 8, 21, 12, 24, 25), checkpoint.utc
+      assert checkpoint.future?, 'a checkpoint in the past is re-enqueued immediately, forever'
+    end
+  end
+
+  # The forward and backward steps must agree. Around the autumn transition a calendar subtraction
+  # from an absolute grid point lands 25 hours back, and Bot::Accountable#pending_quote_amount
+  # floors an interval count against it — one whole contribution silently dropped.
+  test 'previous checkpoint sits exactly one interval before the next under a DST job zone' do
+    anchor = Time.utc(2026, 10, 23, 12, 0, 0)  # CEST
+    travel_to Time.utc(2026, 10, 25, 11, 0, 0) # the day Vienna falls back to CET
+    bot = create(:dca_single_asset, :started)  # daily
+    bot.started_at = anchor
+    bot.save!
+
+    Time.use_zone('Vienna') do
+      assert_equal Time.utc(2026, 10, 25, 12, 0, 0), bot.next_interval_checkpoint_at.utc
+      assert_equal Time.utc(2026, 10, 24, 12, 0, 0), bot.last_interval_checkpoint_at.utc
+    end
+  end
+
+  # Months are calendar objects, not a fixed number of seconds — the month branch stays calendar.
+  test 'monthly previous checkpoint keeps calendar semantics' do
+    bot = create(:dca_single_asset, :started, :monthly)
+    bot.started_at = @now - 1.day
+    bot.save!
+
+    assert_equal bot.next_interval_checkpoint_at - 1.month, bot.last_interval_checkpoint_at
+  end
 end

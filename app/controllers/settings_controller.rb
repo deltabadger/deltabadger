@@ -81,6 +81,42 @@ class SettingsController < ApplicationController
     end
   end
 
+  def update_display_currency
+    if current_user.update(update_display_currency_params)
+      flash[:notice] = t('settings.language_and_timezone.currency_updated')
+      # Every normalized figure on the page changes with it, and the picker posting this lives in
+      # the menu rather than in a frame — where `turbo_stream.refresh` is skipped, because the
+      # submit is itself a visit in flight. Come back to the page the choice was made on.
+      redirect_back fallback_location: bots_path, status: :see_other
+    else
+      render_preference_error
+    end
+  end
+
+  # The switch in the menu posts its own state, so this stores what was submitted rather than
+  # flipping what it finds — two quick clicks can otherwise land out of order and leave the stored
+  # value disagreeing with the switch the user is looking at.
+  #
+  # A redirect, not a turbo-stream refresh: the preference changes a class on <body>, so the whole
+  # document has to come back. A refresh stream action is skipped whenever a visit is already in
+  # flight — which is exactly what submitting this form is — and the page would sit there still
+  # showing the old state until it was reloaded by hand. The broadcast carries the same re-render
+  # to the account's other open tabs on the pages that state balances.
+  def update_hide_balances
+    current_user.update!(hide_balances: params[:hide_balances] == '1')
+    Turbo::StreamsChannel.broadcast_refresh_to("user_#{current_user.id}", :preferences)
+    redirect_back fallback_location: bots_path, status: :see_other
+  end
+
+  # The tracker's allocation switch. Same shape as the one above — it posts its own state rather
+  # than flipping what it finds, and comes back to the page it was thrown on, since the holdings
+  # card, the ring and the positions table all have to be rebuilt from the filtered list.
+  def update_show_cash
+    current_user.update!(tracker_settings: (current_user.tracker_settings || {})
+                                           .merge('show_cash' => params[:show_cash] == '1'))
+    redirect_back fallback_location: tracker_path, status: :see_other
+  end
+
   def update_password
     if current_user.update_with_password(update_password_params)
       bypass_sign_in(current_user)
@@ -93,6 +129,13 @@ class SettingsController < ApplicationController
     end
   end
 
+  # The permissions a key is expected to carry, readable at any time — not only while pasting a new
+  # one. Without this the only place that lists them is the add-key form, so a user whose sync
+  # started failing has no way to check what their key is missing (issue #153).
+  def api_key_permissions
+    @api_key = current_user.api_keys.find(params[:id])
+  end
+
   def confirm_destroy_api_key
     @api_key = current_user.api_keys.find(params[:id])
   end
@@ -100,7 +143,7 @@ class SettingsController < ApplicationController
   def destroy_api_key
     api_key = current_user.api_keys.find(params[:id])
     if api_key.present? && stop_working_bots(api_key) && api_key.destroy
-      trading_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'trading')
+      trading_api_keys = current_user.api_keys.includes(:exchange).where.not(key_type: 'withdrawal')
       withdrawal_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'withdrawal')
       render partial: 'settings/widgets/api_keys',
              locals: { trading_api_keys:, withdrawal_api_keys: }
@@ -554,7 +597,7 @@ class SettingsController < ApplicationController
   end
 
   def set_connect_instance_variables
-    @trading_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'trading')
+    @trading_api_keys = current_user.api_keys.includes(:exchange).where.not(key_type: 'withdrawal')
     @withdrawal_api_keys = current_user.api_keys.includes(:exchange).where(key_type: 'withdrawal')
   end
 
@@ -591,7 +634,7 @@ class SettingsController < ApplicationController
   end
 
   def stop_working_bots(api_key)
-    current_user.bots.not_deleted.not_stopped.each do |bot|
+    current_user.bots.working.each do |bot|
       next unless same_exchange_and_type?(bot, api_key)
 
       bot.stop
@@ -616,6 +659,10 @@ class SettingsController < ApplicationController
 
   def update_locale_params
     params.require(:user).permit(:locale)
+  end
+
+  def update_display_currency_params
+    params.require(:user).permit(:display_currency)
   end
 
   def update_name_params

@@ -7,9 +7,19 @@ nl:
         bot_name: 'Bot naam'
         new: "Nieuwe bot"
         welcome:
-            pick_asset_first: "Kies eerst een asset — daarna zie je op welke exchanges die beschikbaar is."
+            pick_exchange_first: "Kies eerst een exchange — daarna zie je welke assets daar beschikbaar zijn."
             connect_alpaca_html: "Wil je in aandelen beleggen? Koppel eerst Alpaca via %{settings_link}."
             settings_link: "Instellingen"
+        dca_multi_asset:
+            add_asset: "Asset toevoegen"
+            remove_asset: "Verwijderen"
+            max_assets_reached: "Je kunt maximaal %{max} assets aanhouden."
+            min_assets: "Een portefeuille heeft minstens %{min} assets nodig."
+            no_common_exchange: "Deze combinatie van assets bestaat op geen enkele ondersteunde exchange."
+            removed_from_portfolio: "Verwijderd uit de portefeuille"
+            allocation_sum: "Totaal"
+            normalize: "Normaliseren"
+            normalize_first: "Normaliseer eerst de allocatie."
         dca_index:
             setup:
                 step_index: "Index"
@@ -30,33 +40,30 @@ nl:
             fewer_coins_available: "%{available} van de %{requested} munten in de index zijn beschikbaar op %{exchange_name}"
             num_assets: "Activa in index"
             asset_breakdown: "Activa Verdeling"
-            asset: "Activa"
-            amount: "Bedrag"
-            avg_price: "Gem. Prijs"
-            value: "Waarde"
-            pl: "W/V"
+            realised_pnl: "Gerealiseerde W/V"
+            realised_pnl_note: "Uit de verkoop van assets die uit de portefeuille zijn verwijderd. Herbalanceren telt niet mee."
+            left_the_index: "Uit de index"
             warning:
                 intro: "Sommige orders (%{skipped_count}) waren onder de minimale ordergrootte van %{exchange_name}. Hier is hoe de bot dit aanpakt:"
         types:
             dca:
-                title: "DCA"
-                description: "Investeer in één asset"
-            dca_dual_asset:
-                title: "Geherbalanceerde DCA"
-                description: "Herbalanceer twee assets"
+                title: "DCA / Herbalanceren"
+                description: "Kies één of meer assets"
             index_portfolio:
-                title: "Index Portefeuille"
-                description: "Je persoonlijke crypto ETF"
-            custom_portfolio:
-                title: "Aangepaste Portefeuille"
-                description: "Herbalanceer aangepaste asset mix"
+                title: "Index"
+                description: "Bouw je eigen ETF"
             signal:
-                title: "Signal"
-                description: "Handelen op externe signalen"
+                title: "Signalen"
+                description: "Handelen op basis van een webhook"
+        exchange_menu:
+            no_alternative: 'Geen andere ondersteunde exchange biedt %{assets} aan.'
+            locked_while_running: 'Stop de bot om hem naar een andere exchange te verplaatsen.'
+            locked_while_rebalancing: 'Er wordt nog geherbalanceerd — zodra dat klaar is, kan de exchange worden gewijzigd.'
         status:
             exchange_retired: 'Deze exchange bestaat niet meer — zet de bot over naar een andere.'
             setting_orders: "Orders instellen…"
             paused: "Gepauzeerd"
+            archived: "Gearchiveerd"
             next_try: "Volgende poging in"
             waiting: "Wachten tot aan alle voorwaarden is voldaan"
             listening: "Luistert"
@@ -131,6 +138,10 @@ nl:
                 average_price: 'Gemiddelde prijs'
                 bought: Gekocht
                 chart:
+                    orders: 'Orders tonen'
+                    prices: 'Prijzen tonen'
+                    modes: 'Grafiekmodus'
+                    pnl: 'P/L'
                     total_invested: 'Totaal geïnvesteerd'
                     value: Waarde
                 csv_download_html: 'Bovenstaande tabel toont enkel de laatste tien transacties. Het volledige rapport is hieronder beschikbaar om te downloaden in CSV-formaat.'
@@ -155,6 +166,7 @@ nl:
         limit_sell: 'Limiet verkoop'
         messages:
             do_you_want_to_delete: 'Wil je deze bot verwijderen?'
+            do_you_want_to_archive: 'Wil je deze bot archiveren?'
             symbol_not_supported: "%{symbol} wordt niet ondersteund"
             specify_percentage_limit_order: "Geef het percentage op bij het maken van een limietorder"
             smart_intervals_above_minimum: "De waarde van slimme intervallen moet groter zijn dan %{minimum}"
@@ -192,17 +204,45 @@ nl:
         warning:
             dca_single_asset:
                 intro: "De %{missed_symbol} hoeveelheid was lager dan de minimale ordergrootte van %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} of %{missed_minimum_quote_size} %{quote_symbol} voor %{missed_symbol}). Zo gaat de bot hiermee om:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Echter, zowel de orderhoeveelheden van %{base0_symbol} als %{base1_symbol} zijn lager dan de minimale ordergroottes van %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} of %{base0_minimum_quote_size} %{quote_symbol} voor %{base0_symbol} en %{base1_minimum_base_size} %{base1_symbol} of %{base1_minimum_quote_size} %{quote_symbol} voor %{base1_symbol}). Zo gaat de bot hiermee om:"
-                one_below:
-                    intro: "Je bot heeft %{bought_quote_amount} %{quote_symbol} van %{bought_symbol} gekocht, maar de hoeveelheid %{missed_symbol} was lager dan de minimale ordergrootte van %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} of %{missed_minimum_quote_size} %{quote_symbol} voor %{missed_symbol}). Zo gaat de bot hiermee om:"
             buffer_explanation:
                 one: "Het gemiste bedrag is gebufferd en zal worden gebruikt bij de volgende geplande order, zodat je schema en allocatie zo goed mogelijk volgens de exchange-minimums worden aangehouden."
                 other: "De gemiste bedragen zijn gebufferd en zullen worden gebruikt bij de volgende geplande orders, zodat je schema en allocatie zo goed mogelijk volgens de exchange-minimums worden aangehouden."
             title: "Gefeliciteerd! Je bot is actief."
             general_note: "Minimale bedragen van exchanges en vereiste herbalanceringsbedragen kunnen veranderen. Orders kunnen er soms onregelmatig uitzien, maar de bot streeft altijd naar de gewenste toewijzing en schema, dus er is geen extra werk nodig."
+        redeploy:
+            prompt: "%{amount} %{symbol} opnieuw inleggen?"
+            confirm: "Ja"
+            decline: "Nee"
+            started: "Het geld gaat terug in de mand."
+            in_flight: "Er loopt nog een herinleg. Probeer het opnieuw zodra die klaar is."
+            unsupported: "Deze bot heeft geen opbrengst om opnieuw in te leggen."
+            halted: "Herinleg onbevestigd — controleer je exchange"
+            resolve: "Wissen"
+            resolve_confirm: "Ga alleen verder als je je exchange hebt gecontroleerd en er geen kooporder meer openstaat."
+            still_open: "Order %{order_id} staat nog open op je exchange. Wacht tot die is afgewikkeld."
+            resolved: "Gewist. De bot kan weer handelen."
+        liquidation:
+            sell: "Verkopen"
+            sell_confirm: "Deze positie verkopen? Ze wordt tegen de marktprijs gesloten."
+            started: "De positie wordt verkocht."
+            market_closed: "De markt is nu gesloten. Probeer het opnieuw zodra die opent."
+            unsupported: "Deze bot heeft geen verwijderde assets om te verkopen."
+            halted: "Verkoop onbevestigd — controleer je exchange"
+            resolve: "Wissen"
+            resolve_confirm: "Ga alleen verder als je je exchange hebt gecontroleerd en er geen verkooporder meer openstaat."
+            still_open: "Order %{order_id} staat nog open op je exchange. Wacht tot die is afgewikkeld."
+            resolved: "Onbevestigde verkoop gewist."
         settings:
+            rebalance:
+                sentence_html: "Herbalanceer wanneer een asset meer dan <span>%{value_html} %</span> van zijn doel afwijkt"
+                note: "Blijft werken terwijl het DCA-schema gestopt is. Gebruikt altijd marktorders."
+                drift: "De portefeuille zit %{drift} % van zijn doelverdeling af"
+                below_minimum: "— te klein voor het minimum van deze exchange"
+                paused: "Herbalanceren gepauzeerd — controleer je exchange"
+                resume: "Hervatten"
+                resume_confirm: "Ga alleen verder als je je exchange hebt gecontroleerd en er geen herbalanceringsorder meer openstaat."
+                still_open: "Order %{order_id} staat nog open op je exchange. Wacht tot die is afgewikkeld."
+                resolved: "Herbalanceren hervat."
             starting_time:
                 modes:
                     options:

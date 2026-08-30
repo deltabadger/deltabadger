@@ -29,6 +29,12 @@
     @media screen and (min-width: 768px)
         grid-template-columns: repeat(2, 1fr)
 
+// Room for the dialog's close button above the tiles, and for the backdrop below.
+.bot-type-chooser
+    padding: 7rem 2rem 2rem
+    @media screen and (min-width: 768px)
+        padding: 7rem 3rem 12rem
+
     .itile
         min-height: 24rem
         .ticker-group
@@ -91,7 +97,7 @@
     overflow: hidden
     background: var(--washed)
     z-index: 0
-    border-radius: 2rem
+    border-radius: 1rem
     display: flex
     flex-direction: column
     border: none

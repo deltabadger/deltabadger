@@ -3,6 +3,10 @@ class Exchange < ApplicationRecord
   # lookback over daily candles is only a handful of windows) so a misbehaving API or an
   # advance bug can never spin forever.
   MAX_CANDLE_PAGES = 1000
+  # "We do not accept these credentials", in the one status every venue agrees on. It SURFACES a
+  # credential failure (#invalid_key_error?) but never condemns a stored key on its own
+  # (#condemning_invalid_key_error?). Exchanges::Ibkr opts out entirely via #ambiguous_unauthorized?.
+  UNAUTHORIZED_STATUS = 401
 
   STABLE_TYPES = %w[Exchanges::Binance Exchanges::BinanceUs Exchanges::Coinbase Exchanges::Kraken].freeze
 
@@ -174,8 +178,44 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement get_ask_price"
   end
 
+  # The price a MARKET order on this venue will realistically execute at — the touch by default.
+  #
+  # Callers must size against this and test venue minimums against it, because on venues with no
+  # native market order type it is also the price actually submitted. When those three disagree the
+  # failures are ugly and silent: an order sized at the touch but submitted 1% away asks for more
+  # quote than the balance it was capped to, and a notional that clears the minimum at the touch is
+  # rejected by the venue at the crossed price. Both land in a terminal ambiguous halt.
+  def market_price_for(ticker:, side:)
+    # Read through the ticker, which is how every other price read in the app reaches the venue.
+    result = side == :sell ? ticker.get_bid_price : ticker.get_ask_price
+    return result if result.failure?
+
+    Result::Success.new(ticker.adjusted_price(price: result.data.to_d))
+  end
+
   def get_candles(ticker:, start_at:, timeframe:)
     raise NotImplementedError, "#{self.class.name} must implement get_candles"
+  end
+
+  # Candles as an INDICATOR input: an RSI, a moving average, an all-time high. Nothing is paired
+  # against these, so they want the symbol's history restated onto today's share basis — otherwise
+  # a stock split leaves a 10x step in the middle of the series and the average, or the high, is
+  # computed across two different units.
+  #
+  # `get_candles` stays as-traded, because everything else multiplies a candle price by a ledger
+  # quantity and every ledger in this app is in as-traded units.
+  #
+  # Corporate actions only happen on stock venues, so for a crypto exchange this IS `get_candles`
+  # and none of their signatures change.
+  def get_indicator_candles(ticker:, start_at:, timeframe:)
+    get_candles(ticker: ticker, start_at: start_at, timeframe: timeframe)
+  end
+
+  # Does this venue rewrite the price history of this symbol behind us? True only where corporate
+  # actions apply, which is what makes an all-time high a running maximum on one venue and a value
+  # that can only be recomputed on another.
+  def restated_candles?(_ticker)
+    false
   end
 
   def market_buy(ticker:, amount:, amount_type:)
@@ -241,13 +281,84 @@ class Exchange < ApplicationRecord
   # Heuristic: does the given errors array look like an invalid-key / auth error?
   # Used by sync jobs to decide whether to flip an API key's status to :incorrect
   # when a live call (get_balances, get_ledger, etc.) fails.
-  def invalid_key_error?(errors)
+  def invalid_key_error?(errors, status: nil)
+    # HTTP 401 is the one vocabulary every venue shares for "these credentials are not accepted", and
+    # it is the only signal some venues give: Coinbase carries no usable message string at all, so
+    # without it a rejected Coinbase key produces a domain-shaped lie downstream and nothing else.
+    # Honeymaker::Client#with_rescue and Clients::Alpaca both attach it; venues that reject over
+    # HTTP 200 (Kraken's EAPI:Invalid key) still need the strings below, so this is an addition.
+    #
+    # SURFACING ONLY. A bare 401 is deliberately NOT enough to condemn a stored key — see
+    # #condemning_invalid_key_error?. Coinbase signs each request with a two-minute JWT built from
+    # local time, so clock skew rejects a perfectly good key; our own authenticated exchange proxy
+    # answers a wrong password with 401 as well. Saying "the venue rejected our credentials" in a bot
+    # error is reversible and self-correcting when either of those is the real cause. Flipping the
+    # key to :incorrect is not: it drops the key from every :correct-scoped sync until the user
+    # pastes new credentials that were never the problem.
+    return true if status == UNAUTHORIZED_STATUS && !ambiguous_unauthorized?
+
     invalid_messages = (known_errors[:invalid_key] || []).map(&:to_s)
     return false if invalid_messages.empty?
 
     Array(errors).any? do |err|
       msg = err.to_s
       invalid_messages.any? { |m| msg.include?(m) }
+    end
+  end
+
+  # Raise on a credential rejection, wherever a failed call would otherwise be flattened into a
+  # benign answer — "no price", "market state unknown", "condition not met". Those flattenings are
+  # right for a pair with no liquidity, a clock blip or a price that simply has not moved; for a
+  # rejected key they are a lie that hides the one thing the user has to act on, and they hid it for
+  # six weeks. Single phrase, single place: the venue's own text can be as bare as "HTTP 401", so
+  # the exchange is named here. The localized, actionable copy stays the tracker's sync-key banner,
+  # which the same classification drives.
+  def raise_on_invalid_key!(result)
+    return if result.success?
+    return unless invalid_key_error?(result.errors, status: http_status(result))
+
+    raise "#{name} rejected the API key: #{Array(result.errors).to_sentence}"
+  end
+
+  # The venue's HTTP status when the client attached one (both honeymaker and the app's own clients
+  # carry it as data: { status: }), nil when the failure never had one — a Kraken HTTP-200 rejection
+  # or an error we raised ourselves.
+  def http_status(result)
+    result.data[:status] if result.data.is_a?(Hash)
+  end
+
+  # Enough to CONDEMN the stored key — persistent, and only the user can undo it. Deliberately
+  # narrower than #invalid_key_error?: the venue's own words, never a bare status. Every 401 we
+  # cannot attribute (Coinbase's JWT clock skew, a proxy rejecting its own credential, a WAF) would
+  # otherwise strand a user whose key is fine, and "replace your API key" is advice they cannot act
+  # on. Alpaca's two observed rejection bodies are listed as strings for exactly this reason.
+  def condemning_invalid_key_error?(errors)
+    invalid_key_error?(errors)
+  end
+
+  # Does a 401 from this venue mean anything OTHER than "your key is no longer valid"? Only where
+  # it does may a venue refuse the status rule — see Exchanges::Ibkr, whose competing-login and
+  # not-yet-activated sessions 401 exactly like a revoked key.
+  def ambiguous_unauthorized?
+    false
+  end
+
+  # Heuristic: do the given errors say the credentials are fine but lack a SCOPE the call needed
+  # (e.g. Kraken's "EGeneral:Permission denied" on Ledgers when the key has no Query Ledger
+  # Entries)? Deliberately separate from invalid_key_error?: the key is valid and may be trading
+  # happily, so condemning it — which removes it from every :correct-scoped sync — is both too
+  # harsh and useless, since re-pasting the same credentials cannot add a permission.
+  #
+  # Only venues that emit an UNAMBIGUOUS scope error populate :permission_denied. Binance and
+  # Bybit's "Invalid API-key, IP, or permissions for action." stays in :invalid_key: the venue
+  # conflates revoked key, wrong IP and missing scope, and "replace the key" fits all three.
+  def permission_error?(errors)
+    permission_messages = (known_errors[:permission_denied] || []).map(&:to_s)
+    return false if permission_messages.empty?
+
+    Array(errors).any? do |err|
+      msg = err.to_s
+      permission_messages.any? { |m| msg.include?(m) }
     end
   end
 
@@ -338,6 +449,27 @@ class Exchange < ApplicationRecord
 
   def get_api_key_validity(api_key:)
     raise NotImplementedError, "#{self.class.name} must implement get_api_key_validity"
+  end
+
+  # A reading key is proven by READING. Shared by every venue, and deliberately not overridable per
+  # venue: `exchanges/CLAUDE.md` requires a trade-permission endpoint for a trading key precisely
+  # because a read endpoint would accept any valid key — which is the exact property wanted here.
+  # Nothing a permission bitmap could add is in scope: a key that reads is all the tracker asks for,
+  # and a TRADING key passes this trivially, because trade permission contains read permission.
+  #
+  # `asset_ids: []` makes the authenticated call and skips the balance mapping after it — every
+  # implementation asks the venue first and only then defaults the asset list.
+  #
+  # Only the venue's own words about the key condemn it. A 401 we cannot attribute, a venue that is
+  # down, a proxy hiccup: :incorrect would drop the key from every sync until the user pastes
+  # credentials that were never the problem — see #condemning_invalid_key_error?.
+  def get_read_api_key_validity(api_key:)
+    set_client(api_key: api_key)
+    result = get_balances(asset_ids: [])
+    return Result::Success.new(true) if result.success?
+    return Result::Success.new(false) if condemning_invalid_key_error?(result.errors)
+
+    result
   end
 
   def fetch_withdrawal_fees!

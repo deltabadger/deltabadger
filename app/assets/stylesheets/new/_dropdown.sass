@@ -55,8 +55,8 @@
     background: var(--dropdown-bg)
     border-radius: 1rem
     box-shadow: 0 0 0 0.125rem var(--dropdown-border) inset, 0 0.5rem 1rem 0 rgba(6, 26, 79, 0.10)
-    font-size: 2rem
-    font-weight: 500
+    font-size: 1.75rem
+    font-weight: 600
     padding-top: calc(1rem + 0.125rem)
     padding-bottom: calc(1rem + 0.125rem)
     top: 4.5rem
@@ -109,14 +109,33 @@
     &__item
         display: grid
         cursor: pointer
-        line-height: 4rem
-        padding: 0.5rem 4rem 0.5rem 2.5rem
+        line-height: 3rem
+        padding: 0.5rem 2.5rem
         text-align: left
         text-decoration: none !important
         border: none     // <button>
         background: none // <button>
         width: 100%      // <button>
-        color: var(--dropdown-link)
+        color: var(--ash)
+        &:hover
+            background: var(--dropdown-hover)
+        // Label left, switch right. The base item is a grid built for a single label; a row that
+        // carries a control needs the two ends held apart.
+        &--switch
+            display: flex
+            align-items: center
+            justify-content: space-between
+            gap: 2rem
+        // A row that holds a CONTROL rather than a label: the track brings its own inset and its
+        // own hit areas, so the row gives it the width instead of a reading margin, and takes no
+        // hover of its own — the thing being pointed at is inside it.
+        &--currency
+            display: flex
+            justify-content: center
+            padding: 0.5rem 1rem
+            cursor: default
+            &:hover
+                background: none
         &--danger
             color: var(--berry)
             &:hover
@@ -129,7 +148,13 @@
             cursor: default !important
             &:hover
                 background: none !important
-        &:hover
-            background: var(--dropdown-hover)
+        // Why the menu has nothing to offer. Not a choice, so it takes none of the choosing
+        // affordances — no hand, no hover.
+        &--note
+            color: var(--stone)
+            white-space: normal
+            cursor: default !important
+            &:hover
+                background: none !important
 
         

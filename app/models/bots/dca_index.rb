@@ -41,6 +41,14 @@ class Bots::DcaIndex < Bot
   before_validation :clamp_num_coins_to_bounded_index
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
 
+  # The composition is DERIVED from these, and used to be re-derived only at the next buy or
+  # rebalance. So moving the coins slider redrew the donut — which is live, straight from the
+  # preview — and left both tables under it describing the old index: a coin the slider had just
+  # taken back in went on sitting under "Left the index" with a Sell button over it, for up to a
+  # whole interval. Re-derive it now, then push the tables the split they now belong on.
+  after_update_commit :resync_index_composition,
+                      if: -> { index_definition_changed? || custom_exchange_id_changed? }
+
   # Trading condition concerns (only SmartIntervalable and LimitOrderable for Index bot)
   include SmartIntervalable      # decorators for: parse_params, effective_quote_amount, effective_interval_duration
   include LimitOrderable         # decorators for: parse_params, execute_action
@@ -54,18 +62,20 @@ class Bots::DcaIndex < Bot
   include Exportable
 
   # Type-specific concerns
+  include Bot::Rebalanceable # decorators for: parse_params — keep AFTER the limitables
+  include Bot::Composition::Allocatable
   include Bots::DcaIndex::IndexAllocatable
-  include Bots::DcaIndex::OrderSetter
-  include Bots::DcaIndex::Measurable
+  include Bot::Composition::OrderSetter
+  include Bot::Composition::Rebalancer
+  include Bot::Composition::Liquidatable
+  include Bot::Composition::Redeployable
+  include Bot::Composition::Measurable
 
   # Shared lifecycle + asset plumbing — keep LAST so the decorator chains above stay on top
   include Bot::Lifecycle
   include Bot::AssetConfigurable # the available_*/ticker queries below override the single-pair defaults
 
   self.asset_id_setting_keys = %i[quote_asset_id]
-
-  has_many :bot_index_assets, foreign_key: :bot_id, dependent: :destroy
-  has_many :index_assets, through: :bot_index_assets, source: :asset
 
   def parse_params(params)
     {
@@ -80,8 +90,8 @@ class Bots::DcaIndex < Bot
   def execute_action
     update!(status: :executing)
 
-    # Refresh index composition before setting orders
-    result = refresh_index_composition
+    # Orders must use the composition derived for this tick.
+    result = refresh_composition
     return result if result.failure?
 
     result = set_orders(
@@ -164,12 +174,11 @@ class Bots::DcaIndex < Bot
     @quote_asset ||= Asset.find_by(id: quote_asset_id)
   end
 
+  # Memoized WHOLE, guard included: `tickers` is an unloaded relation, so `any?` is an EXISTS
+  # query every call — and the chart reads this once per data point, which turned one render
+  # into 1457 identical queries.
   def decimals
-    return {} unless tickers.any?
-
-    @decimals ||= {
-      quote: tickers.pluck(:quote_decimals).compact.min
-    }
+    @decimals ||= tickers.any? ? { quote: tickers.pluck(:quote_decimals).compact.min } : {}
   end
 
   # Returns the highest minimum_quote_size among all index tickers.
@@ -222,6 +231,17 @@ class Bots::DcaIndex < Bot
     preview
   end
 
+  # "Layer 1 · 20". A count-named index ("Nasdaq 7") and a Top-N ("Top 10") already carry their
+  # size in the name, so only a thematic category has the coin count appended.
+  def default_label
+    # The name must quote the count the bot will actually buy, and the clamp that decides it runs
+    # later in the same validation.
+    clamp_num_coins_to_bounded_index
+    return display_index_name if index_name_prefix.present? || index_type != INDEX_TYPE_CATEGORY
+
+    [display_index_name, num_coins].compact.join(' · ')
+  end
+
   def display_index_name
     return "#{index_name_prefix} #{num_coins}" if index_name_prefix.present? && num_coins.present?
     return index_name if index_name.present?
@@ -233,19 +253,9 @@ class Bots::DcaIndex < Bot
     end
   end
 
-  def broadcast_below_minimums_warning
-    # Count recent skipped transactions
-    recent_transactions = transactions.limit(num_coins.to_i * 2)
-    skipped_count = recent_transactions.count(&:skipped?)
-    return unless skipped_count.positive? && recent_transactions.count == skipped_count
-
-    broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
-      target: 'modal',
-      partial: 'bots/dca_indexes/warning_below_minimums',
-      locals: { bot: self, skipped_count: skipped_count }
-    )
-  end
+  def composition_size = num_coins.to_i
+  def exited_title_key = 'bot.dca_index.left_the_index'
+  def metrics_partial = 'bots/composition/metrics'
 
   private
 
@@ -264,6 +274,23 @@ class Bots::DcaIndex < Bot
 
   def exchange_supports_current_assets?
     exchange.tickers.available.trading_enabled.exists?(quote_asset_id:)
+  end
+
+  # Everything the derivation reads to decide MEMBERSHIP. limit_ordered belongs here because it
+  # picks which side a candidate has to quote on to count (index_allocatable.rb: priced?(:last)
+  # against priced?(:ask)). allocation_flattening does not: it moves the WEIGHTS, and both tables
+  # read holdings, not targets — the rebalancer re-derives its own targets before it acts.
+  INDEX_DEFINITION_KEYS = %w[num_coins index_type index_category_id quote_asset_id limit_ordered].freeze
+
+  # Not saved_change_to_settings?: with store_accessor the settings column is written on every save
+  # whether or not a value moved (see Automation::Configurable), so the keys have to be compared.
+  def index_definition_changed?
+    before, after = saved_changes['settings']
+    before.present? && INDEX_DEFINITION_KEYS.any? { |key| before[key] != after[key] }
+  end
+
+  def resync_index_composition
+    Bot::ResyncIndexCompositionJob.perform_later(self)
   end
 
   def validate_unchangeable_index

@@ -59,7 +59,10 @@ nl:
                                     -   text_html: '<b>Openstaande orders en transacties opvragen</b>'
                                     -   text_html: '<b>Gesloten orders en transacties opvragen</b>'
                                     -   text_html: '<b>Orders aanmaken en wijzigen</b>'
-                                    -   text_html: '<b>Orders annuleren en sluiten</b><br><strong>⚠️ Belangrijk:</strong> De sleutels werken niet als je meer rechten toevoegt.'
+                                    -   text_html: '<b>Orders annuleren en sluiten</b>'
+                            -   text_html: 'Gegevens:'
+                                sub_instructions:
+                                    -   text_html: '<b>Grootboekvermeldingen opvragen</b> (Query ledger entries) — nodig voor de portfolio-tracker.<br><strong>⚠️ Belangrijk:</strong> Schakel voor de veiligheid alleen de hierboven genoemde rechten in.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
                                     -   text_html: '🔘 Voeg %{whitelist_ip} toe.'

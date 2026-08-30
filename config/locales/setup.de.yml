@@ -6,8 +6,8 @@ de:
             stocks_ask_admin: "Bitte deinen Admin, den Aktienhandel zu aktivieren."
             stocks_activate_cta: "Aktienhandel in den Einstellungen aktivieren"
             progress_steps:
+                assets: "Anlagewerte"
                 currencies: "Asset wählen"
-                currencies2: "Zweites Asset (optional)"
                 exchange: "Börse"
                 spendable: "Währung"
                 api: "Börse verbinden"

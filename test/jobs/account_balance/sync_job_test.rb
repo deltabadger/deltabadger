@@ -28,6 +28,40 @@ class AccountBalance::SyncJobTest < ActiveSupport::TestCase
     AccountBalance::SyncJob.perform_now(@user.id, [@key_binance.id, @key_kraken.id])
   end
 
+  # The other ApiKeyFailureHandling caller. It names a different capability, and it is the one
+  # whose locale no request has set (AccountBalance::SyncAllJob is a scheduled fan-out).
+  test 'a permission failure names the balances capability and leaves the key usable' do
+    sync_k = mock
+    sync_k.expects(:sync!).once.returns(Result::Failure.new('EGeneral:Permission denied'))
+    AccountBalance::Sync.expects(:new).with(@key_kraken).returns(sync_k)
+
+    Turbo::StreamsChannel.expects(:broadcast_append_to).with(
+      "user_#{@user.id}", :sync,
+      target: 'flash',
+      partial: 'tracker/sync_key_error',
+      locals: { exchange_name: 'Kraken', message: 'EGeneral:Permission denied',
+                reason: :permission, capability: :balances }
+    )
+    Turbo::StreamsChannel.expects(:broadcast_refresh_to).with("user_#{@user.id}", :sync)
+
+    AccountBalance::SyncJob.perform_now(@user.id, [@key_kraken.id])
+
+    assert_equal 'correct', @key_kraken.reload.status
+    assert_equal 'EGeneral:Permission denied', @key_kraken.last_sync_error,
+                 'this job also runs unattended — without a durable trace the balances just stop updating'
+  end
+
+  test 'an exception during a balance sync is recorded too' do
+    sync_k = mock
+    sync_k.expects(:sync!).once.raises(StandardError, 'boom')
+    AccountBalance::Sync.expects(:new).with(@key_kraken).returns(sync_k)
+    Turbo::StreamsChannel.expects(:broadcast_refresh_to).with("user_#{@user.id}", :sync)
+
+    AccountBalance::SyncJob.perform_now(@user.id, [@key_kraken.id])
+
+    assert_equal 'StandardError: boom', @key_kraken.reload.last_sync_error
+  end
+
   test 'broadcasts pricing warning flash when pricing fully fails' do
     sync_b = mock
     sync_b.expects(:sync!).once.returns(ok_summary(priced_fresh: 0, unpriced: 2, pricing_error: 'CG down'))
@@ -39,6 +73,29 @@ class AccountBalance::SyncJobTest < ActiveSupport::TestCase
     )
 
     AccountBalance::SyncJob.perform_now(@user.id, [@key_binance.id])
+  end
+
+  # The nightly balance sync is where the portfolio history grows by one day: every successful run
+  # records today's value, so the chart never depends on a second schedule.
+  test 'a balance sync records today\'s portfolio snapshot — value and invested' do
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+    Tax::EcbFxRates.stubs(:ensure_loaded!)
+    btc = create(:asset, :bitcoin)
+    AccountBalance.create!(user: @user, exchange: @binance, asset: btc, free: 1, locked: 0, usd_price: 40_000,
+                           usd_value: 40_000, synced_at: Time.current, priced_at: Time.current)
+    create(:account_transaction, api_key: @key_binance, entry_type: :deposit, base_currency: 'USD', base_amount: 30_000,
+                                 quote_currency: nil, quote_amount: nil, transacted_at: 2.days.ago)
+    sync_b = mock
+    sync_b.expects(:sync!).once.returns(ok_summary)
+    AccountBalance::Sync.expects(:new).with(@key_binance).returns(sync_b)
+
+    travel_to Time.utc(2026, 8, 23, 2, 30) do
+      AccountBalance::SyncJob.perform_now(@user.id, [@key_binance.id])
+      row = PortfolioSnapshot.for_user(@user).find_by(date: Date.new(2026, 8, 23))
+      assert_equal 40_000.to_d, row.value_usd
+      # 30,000 deposited, none of it on the exchange (moved out); 1 BTC held with no history, arrived at 40,000.
+      assert_equal 40_000.to_d, row.invested_usd, 'the ledger is computed for the snapshot, not carried from yesterday'
+    end
   end
 
   test 'skips non-trading or incorrect keys' do

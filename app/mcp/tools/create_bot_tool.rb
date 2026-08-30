@@ -2,15 +2,15 @@
 
 class CreateBotTool < ApplicationMCPTool
   tool_name 'create_bot'
-  description 'Create and start a new DCA bot. One base asset for single-asset, two for dual-asset.'
+  description 'Create and start a new DCA bot. One base asset for a single-asset bot, two for a two-asset portfolio bot.'
 
   property :exchange_name, type: 'string', required: true, description: 'Exchange name (e.g., Binance, Kraken, Coinbase, Alpaca)'
   property :base_asset, type: 'string', required: true, description: 'Asset symbol to buy (e.g., BTC, ETH, QQQM)'
-  property :second_base_asset, type: 'string', description: 'Second asset for dual-asset bot (e.g., ETH). Omit for single-asset.'
+  property :second_base_asset, type: 'string', description: 'Second asset for a two-asset portfolio bot (e.g., ETH). Omit for single-asset.'
   property :quote_asset, type: 'string', required: true, description: 'Quote currency to spend (e.g., USD, USDT)'
   property :quote_amount, type: 'number', required: true, description: 'Amount to spend per interval in quote currency'
   property :interval, type: 'string', required: true, description: 'Order interval: hour, day, week, or month'
-  property :allocation, type: 'number', description: 'Percentage (0-100) allocated to first base asset in dual-asset bot. Default: 50.'
+  property :allocation, type: 'number', description: 'Percentage (0-100) allocated to the first base asset of a two-asset portfolio bot. Default: 50.'
   property :label, type: 'string', description: 'Custom bot label (optional)'
   property :start_at, type: 'string',
                       description: 'Optional ISO8601 datetime to schedule the first buy ' \

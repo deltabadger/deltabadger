@@ -14,6 +14,22 @@
   font-size: 1.75rem
   thead
     color: var(--stone)
+  small
+    color: var(--stone)
+// When a row happened is how the row is found, not what it says. It sits back in the caption
+// colour — and so does the time beside it, which `.table small` would otherwise leave darker than
+// the date it belongs to. Two classes deep so it also outranks `.tracker-row__when small`, which
+// is imported after this file.
+.table .table__when
+  color: var(--concrete)
+  white-space: nowrap
+  small
+    color: inherit
+    margin-left: 0.75rem
+// A dash stands where a value would be. Dimmed, so a row with nothing to say never reads as
+// loudly as the rows that do.
+.no-value
+  color: var(--concrete)
 .pagination
   flex-direction: row
   gap: 0
@@ -33,7 +49,9 @@ body
   text-rendering: geometricPrecision
   background: none
   color: var(--ash)
-  overflow-x: hidden
+  // No overflow of its own: with html already clipping sideways, an overflow on body would not
+  // propagate to the viewport but make body a scroll container — one that never scrolls, yet is
+  // what every `position: sticky` on the page would stick to.
   font-size: 2rem
   line-height: 1.5
 .db-content-body
@@ -50,6 +68,11 @@ body
 
 .text-inactive
   color: var(--text-faded) !important
+// A money figure that rounds to nothing. Dimmed so it does not read as a balance worth weighing
+// against the real ones beside it.
+.is-zero
+  color: var(--concrete)
+
 .text-success
   color: var(--grass) !important
 .text-label

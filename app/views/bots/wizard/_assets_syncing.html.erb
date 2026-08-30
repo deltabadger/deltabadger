@@ -1,7 +1,16 @@
-<%# Friendly empty state for the buyable-asset step when a venue is chosen but
-    its asset catalog has not finished syncing yet (self-hosted Alpaca enqueues
-    the sync on key validation, so exchange-first can briefly reach an empty
-    list). Shown instead of a blank picker. %>
+<%# Friendly empty state for the buyable-asset step when a venue is chosen but its
+    asset catalog has not finished syncing yet. Shown instead of a blank picker.
+
+    Today this is only reachable from the Settings path: an admin connects the
+    Alpaca key, Exchange::SyncAlpacaAssetsJob runs (minutes on a full US catalog),
+    and a picker opened meanwhile finds no tickers. Key validation in the wizard
+    does NOT enqueue that sync — nothing does but settings_controller#update_stocks
+    and the weekly cron — and a venue with no tickers is absent from the exchange
+    picker anyway (Bot::AssetConfigurable#available_exchanges_for_current_settings),
+    so the wizard cannot currently reach a half-synced venue on its own.
+
+    Note this state does not refresh itself: it sits inside the asset-picker frame,
+    which reloads only when the search form submits. %>
 <div class="assets-syncing">
   <%= t('bot.setup.assets_syncing') %>
 </div>

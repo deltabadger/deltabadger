@@ -216,6 +216,23 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal bot_tx, at.bot_transaction
   end
 
+  # A broker whose ledger is keyed by FILL is the normal case, not the exception: Alpaca's activity
+  # id (`20260821095224541::82693d41-…`) is not the order id the bot placed, so matching on tx_id
+  # alone left every single row unlinked. One order can fill many times, and each fill points at
+  # the order that made it.
+  test 'matches a bot order through the fill it produced' do
+    bot = create(:dca_single_asset, user: @user, exchange: @exchange, with_api_key: false)
+    bot_tx = create(:transaction, bot: bot, exchange: @exchange, external_id: 'order-7')
+    fills = [@ledger_entries.first.merge(tx_id: 'fill-a', raw_data: { 'order_id' => 'order-7' }),
+             @ledger_entries.first.merge(tx_id: 'fill-b', raw_data: { 'order_id' => 'order-7' })]
+    @exchange.stubs(:get_ledger).returns(Result::Success.new(fills))
+
+    AccountTransactionSync.new(@api_key).sync!
+
+    linked = %w[fill-a fill-b].map { |id| AccountTransaction.find_by(tx_id: id).bot_transaction }
+    assert_equal [bot_tx, bot_tx], linked
+  end
+
   test 'does not match non-trade entries to bot transactions' do
     bot = create(:dca_single_asset, user: @user, exchange: @exchange, with_api_key: false)
     create(:transaction, bot: bot, exchange: @exchange, external_id: 'deposit-1')
@@ -318,6 +335,89 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal 1, first_result.data
     assert_equal 4, second_result.data
     assert_equal 5, AccountTransaction.where(user: @user, exchange: @exchange).count
+  end
+
+  # Binance's export writes whole seconds and ROUNDS: the Convert its API stamps at 06:22:53.911
+  # is 06:22:54 in the file. Bucketed by second those are two events, and the coins arrive twice.
+  # A row with no id is the same event as a stored one within a second of it, either way round;
+  # a full second later is still a row of its own.
+  test 'a file row on the rounded-up second is the stored API row' do
+    at = Time.utc(2021, 9, 20, 6, 22, 53, 911_000)
+    api = { entry_type: :swap_in, base_currency: 'LTC', base_amount: '0.89568816'.to_d,
+            quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+            tx_id: 'quote-1-in', group_id: 'convert_quote-1', description: 'Convert',
+            transacted_at: at, raw_data: {} }
+    @exchange.stubs(:get_ledger).returns(Result::Success.new([api]))
+    AccountTransactionSync.new(@api_key).sync!
+
+    file = api.merge(tx_id: nil, group_id: 'swapcsv_1', description: nil, transacted_at: Time.utc(2021, 9, 20, 6, 22, 54))
+    rounded = AccountTransactionSync.new(@api_key).store!([file])
+    later = AccountTransactionSync.new(@api_key).store!([file.merge(transacted_at: at + 1.second)])
+
+    assert_equal({ imported: 0, duplicates: 1 }, rounded.slice(:imported, :duplicates), 'the same Convert')
+    assert_equal({ imported: 1, duplicates: 0 }, later.slice(:imported, :duplicates), 'a full second on: its own row')
+  end
+
+  # The other way round: a file imported BEFORE the first sync stores its rows with no id, and the
+  # API's copies then arrive with one. An id that matches nothing stored is not yet a new row — the
+  # id-less row within a second of it, same type, coin and amount, is the same event.
+  test 'an API row is the id-less file row already stored' do
+    at = Time.utc(2021, 9, 20, 10, 10, 52)
+    file = { entry_type: :withdrawal, base_currency: 'LTC', base_amount: '0.249'.to_d,
+             quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+             tx_id: nil, group_id: nil, description: 'Withdraw', transacted_at: at, raw_data: {} }
+    AccountTransactionSync.new(@api_key).store!([file])
+
+    api = file.merge(tx_id: 'abc123', description: nil, transacted_at: at + 0.4, raw_data: { 'txId' => 'abc123' })
+    counts = AccountTransactionSync.new(@api_key).store!([api, api.merge(tx_id: 'def456', transacted_at: at + 2.seconds)])
+
+    assert_equal({ imported: 1, duplicates: 1 }, counts.slice(:imported, :duplicates))
+  end
+
+  # A Convert out of cash used to be read from the file as a purchase; it is now the swap pair the
+  # API books. A file imported under the old reading holds the purchase, and importing it again must
+  # not add the pair on top: a swap leg is the purchase (or sale) it replaced when the coin leg is
+  # that row's base and the cash leg is its quote.
+  test 'a file Convert stored as a purchase or a sale is not stored again as a swap pair' do
+    at = Time.utc(2021, 9, 20, 6, 22, 54)
+    leg = { quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil, tx_id: nil,
+            description: nil, raw_data: {} }
+    bought = leg.merge(entry_type: :buy, base_currency: 'LTC', base_amount: '0.89568816'.to_d,
+                       quote_currency: 'USDT', quote_amount: 150.to_d, group_id: nil, transacted_at: at)
+    sold = leg.merge(entry_type: :sell, base_currency: 'BNB', base_amount: '0.75'.to_d,
+                     quote_currency: 'USDC', quote_amount: 450.to_d, group_id: nil, transacted_at: at + 1.day)
+    AccountTransactionSync.new(@api_key).store!([bought, sold])
+
+    pair = [leg.merge(entry_type: :swap_out, base_currency: 'USDT', base_amount: 150.to_d, group_id: 'swapcsv_1', transacted_at: at),
+            leg.merge(entry_type: :swap_in, base_currency: 'LTC', base_amount: '0.89568816'.to_d, group_id: 'swapcsv_1', transacted_at: at),
+            leg.merge(entry_type: :swap_out, base_currency: 'BNB', base_amount: '0.75'.to_d, group_id: 'swapcsv_2', transacted_at: at + 1.day),
+            leg.merge(entry_type: :swap_in, base_currency: 'USDC', base_amount: 450.to_d, group_id: 'swapcsv_2', transacted_at: at + 1.day)]
+    counts = AccountTransactionSync.new(@api_key).store!(pair)
+
+    assert_equal({ imported: 0, duplicates: 4 }, counts.slice(:imported, :duplicates))
+    assert_equal 2, AccountTransaction.where(user: @user).count
+  end
+
+  # The pair is matched as a WHOLE against one stored trade — its coin as that trade's base and its
+  # cash as that trade's quote — never one leg at a time: a purchase of 1 LTC for 100 USDT is not
+  # the Convert that received 1 LTC for 200 USDC in the same second, and skipping the LTC leg alone
+  # would leave a one-legged swap in the ledger.
+  test 'a legacy purchase matches a file pair as a whole, never one leg of it' do
+    at = Time.utc(2021, 9, 20, 6, 22, 54)
+    leg = { quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil, tx_id: nil,
+            description: nil, raw_data: {}, transacted_at: at }
+    AccountTransactionSync.new(@api_key).store!([leg.merge(entry_type: :buy, base_currency: 'LTC', base_amount: 1.to_d,
+                                                           quote_currency: 'USDT', quote_amount: 100.to_d, group_id: nil)])
+
+    other = [leg.merge(entry_type: :swap_out, base_currency: 'USDC', base_amount: 200.to_d, group_id: 'swapcsv_a'),
+             leg.merge(entry_type: :swap_in, base_currency: 'LTC', base_amount: 1.to_d, group_id: 'swapcsv_a')]
+    same = [leg.merge(entry_type: :swap_out, base_currency: 'USDT', base_amount: 100.to_d, group_id: 'swapcsv_b'),
+            leg.merge(entry_type: :swap_in, base_currency: 'LTC', base_amount: 1.to_d, group_id: 'swapcsv_b')]
+
+    assert_equal({ imported: 2, duplicates: 0 }, AccountTransactionSync.new(@api_key).store!(other).slice(:imported, :duplicates),
+                 'a different Convert, both legs')
+    assert_equal({ imported: 0, duplicates: 2 }, AccountTransactionSync.new(@api_key).store!(same).slice(:imported, :duplicates),
+                 'the purchase, both legs')
   end
 
   # Bybit returns an empty txID for internal transfers, and Gemini/Hyperliquid/BingX build their
@@ -463,10 +563,17 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_nil alpaca_key.last_sync_error
   end
 
-  test 'the nil tx_id fallback does not swallow rows from another key on the same exchange' do
-    # ApiKey allows one key per (user, exchange, key_type), so a second key on the same exchange is
-    # reachable today; the callers pass arbitrary key ids to the sync, not just trading ones.
-    second_key = create(:api_key, user: @user, exchange: @exchange, key_type: :withdrawal)
+  # This used to assert the opposite: that a second key on one exchange meant a second SUB-ACCOUNT,
+  # so an id-less row had to be scoped to the key that wrote it. Two things undid that premise.
+  #
+  # The schema cannot express it — `ApiKey` is unique per (user, exchange, key_type), so a user
+  # cannot hold two trading keys for two sub-accounts in the first place. And a venue's history now
+  # genuinely accumulates under DIFFERENT keys over time: a key is replaced (its rows are nullified),
+  # rotated, or superseded by a reading key. Key-scoped, each of those made a re-read of the same
+  # history land a second time — a doubled ledger, and every P/L on the page silenced, because a
+  # balance and a ledger that disagree can state nothing.
+  test 'the nil tx_id fallback recognises a row whichever key on the venue wrote it' do
+    second_key = create(:api_key, user: @user, exchange: @exchange, key_type: :read_only)
     entry = {
       entry_type: :staking_reward,
       base_currency: 'ETH',
@@ -487,8 +594,253 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     second_result = AccountTransactionSync.new(second_key).sync!
 
     assert_equal 1, first_result.data
-    assert_equal 1, second_result.data
-    assert_equal [@api_key.id, second_key.id].sort,
-                 AccountTransaction.where(tx_id: nil).pluck(:api_key_id).sort
+    assert_equal 0, second_result.data, 'the same reward, already stored'
+    assert_equal [@api_key.id], AccountTransaction.where(tx_id: nil).pluck(:api_key_id)
+  end
+
+  # ---- a split, said out loud in the bot's own log ----
+  #
+  # A split changes a share count without anything being bought or sold. Nothing in a bot's feed
+  # explains that, so the count simply appears to jump. One info line, on the bots that were
+  # actually holding the symbol at the time, dated when the split happened.
+
+  # Relative, not a literal: `announce_split` writes nothing for a split older than the feed's
+  # retention, so a fixed date would quietly stop exercising any of this once the clock passed it.
+  def split_at
+    @split_at ||= 10.days.ago.change(usec: 0)
+  end
+
+  def split_entry(symbol: 'KLAC', ratio: '10:1', tx_id: 'split-1')
+    { entry_type: :adjustment, base_currency: symbol, base_amount: 90,
+      quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+      tx_id: tx_id, group_id: nil, description: "Split (#{symbol}) #{ratio}",
+      transacted_at: split_at,
+      raw_data: { 'corporate_action' => 'split', 'split_ratio' => ratio }.compact }
+  end
+
+  def holder(symbol: 'KLAC', at: split_at - 1.day, exchange: @exchange, user: @user, **attributes)
+    asset = Asset.find_by(symbol: symbol) || create(:asset, external_id: symbol.downcase, symbol: symbol)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    bot = create(:dca_single_asset, user: user, exchange: exchange,
+                                    base_asset: asset, quote_asset: usd, with_api_key: false)
+    create(:transaction, bot: bot, exchange: exchange, base: symbol, quote: 'USD',
+                         created_at: at, **attributes)
+    bot
+  end
+
+  def sync_split!(entry = split_entry)
+    @exchange.stubs(:get_ledger).returns(Result::Success.new([entry]))
+    AccountTransactionSync.new(@api_key).sync!
+  end
+
+  test 'a split is logged on a bot that was holding the symbol' do
+    bot = holder
+
+    sync_split!
+
+    log = bot.bot_activity_logs.sole
+    assert_equal 'asset_split', log.event
+    assert_equal 'info', log.level
+    assert_equal 'KLAC', log.details['base']
+    assert_equal '10:1', log.details['ratio']
+  end
+
+  test 'the line is dated at the split, not at the sync' do
+    bot = holder
+
+    sync_split!
+
+    assert_equal split_at, bot.bot_activity_logs.sole.created_at
+  end
+
+  test 'a split with no derivable ratio still says it happened' do
+    bot = holder
+
+    sync_split!(split_entry(ratio: nil))
+
+    assert_nil bot.bot_activity_logs.sole.details['ratio']
+  end
+
+  test 'a bot that only bought after the split is left alone' do
+    bot = holder(at: split_at + 1.day)
+
+    sync_split!
+
+    assert_empty bot.bot_activity_logs
+  end
+
+  test 'an order that never executed is not a holding' do
+    failed = holder(status: :failed, amount_exec: nil, quote_amount_exec: nil)
+    skipped = holder(status: :skipped)
+    unfilled = holder(external_status: :cancelled, amount_exec: nil, quote_amount_exec: nil)
+
+    sync_split!
+
+    assert_empty failed.bot_activity_logs
+    assert_empty skipped.bot_activity_logs
+    assert_empty unfilled.bot_activity_logs
+  end
+
+  test 'an order cancelled after filling part way still leaves a holding' do
+    bot = holder(external_status: :cancelled, amount_exec: 0.4)
+
+    sync_split!
+
+    assert_equal 1, bot.bot_activity_logs.count, 'the shares it did fill are still owned'
+  end
+
+  test 'another symbol, another venue and another user are all left alone' do
+    other_symbol = holder(symbol: 'AAPL')
+    other_venue = holder(exchange: create(:kraken_exchange))
+    other_user = holder(user: create(:user))
+
+    sync_split!
+
+    assert_empty other_symbol.bot_activity_logs
+    assert_empty other_venue.bot_activity_logs
+    assert_empty other_user.bot_activity_logs
+  end
+
+  test 'an ordinary ledger row logs nothing' do
+    bot = holder(symbol: 'BTC')
+
+    @exchange.stubs(:get_ledger).returns(Result::Success.new(@ledger_entries))
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_empty bot.bot_activity_logs
+  end
+
+  test 'an adjustment with no provenance logs nothing' do
+    # An imported row: `Import::DeltabadgerCsv` carries no raw_data, so nothing says it was a split.
+    bot = holder
+
+    sync_split!(split_entry.merge(raw_data: {}))
+
+    assert_empty bot.bot_activity_logs
+  end
+
+  test 'a second sync over the same window does not repeat the line' do
+    bot = holder
+
+    sync_split!
+    sync_split!
+
+    assert_equal 1, bot.bot_activity_logs.count
+  end
+
+  test 'a bot that had already sold out is not told about the split' do
+    bot = holder
+    create(:transaction, bot: bot, exchange: @exchange, base: 'KLAC', quote: 'USD',
+                         side: :sell, created_at: split_at - 2.hours)
+
+    sync_split!
+
+    assert_empty bot.bot_activity_logs, 'a position that was closed before the split is not affected'
+  end
+
+  test 'a bot that sold only part of its position is still told' do
+    bot = holder(amount_exec: 1.0)
+    create(:transaction, bot: bot, exchange: @exchange, base: 'KLAC', quote: 'USD',
+                         side: :sell, amount_exec: 0.4, created_at: split_at - 2.hours)
+
+    sync_split!
+
+    assert_equal 1, bot.bot_activity_logs.count
+  end
+
+  # The feed keeps 90 days. A split older than that has no trades left beside it to explain, and
+  # the line would be deleted by the next prune anyway.
+  test 'a split older than the feed keeps is not written at all' do
+    bot = holder(at: 2.years.ago)
+
+    sync_split!(split_entry.merge(transacted_at: 1.year.ago))
+
+    assert_empty bot.bot_activity_logs
+  end
+
+  # Alpaca can ship the add leg before the remove leg exists. The standalone leg imports without a
+  # ratio; the merged pair imports later and knows one. That is one split, so it is one line.
+  test 'a split that arrives in two passes ends up as one line, with the ratio' do
+    bot = holder
+
+    sync_split!(split_entry(ratio: nil, tx_id: 'split-add').merge(base_amount: 90))
+    sync_split!(split_entry(tx_id: 'split-remove'))
+
+    log = bot.bot_activity_logs.sole
+    assert_equal '10:1', log.details['ratio']
+  end
+
+  test 'two symbols splitting on the same day are two separate lines' do
+    bot = holder
+    aapl = create(:asset, external_id: 'aapl', symbol: 'AAPL')
+    create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: Asset.find_by(symbol: 'USD'))
+    create(:transaction, bot: bot, exchange: @exchange, base: 'AAPL', quote: 'USD',
+                         created_at: split_at - 1.day)
+
+    @exchange.stubs(:get_ledger).returns(
+      Result::Success.new([split_entry, split_entry(symbol: 'AAPL', ratio: '4:1', tx_id: 'split-2')])
+    )
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_equal %w[AAPL KLAC], bot.bot_activity_logs.map { |log| log.details['base'] }.sort
+  end
+
+  # A bot whose rows already crossed an earlier split holds as-traded buys and restated sells, so
+  # the two are in different units and the sum can read negative. That is not a flat position — it
+  # is proof the bot has been through exactly the thing this line exists to explain.
+  test 'a position whose units no longer agree is still told' do
+    bot = holder(amount_exec: 1.0)
+    create(:transaction, bot: bot, exchange: @exchange, base: 'KLAC', quote: 'USD',
+                         side: :sell, amount_exec: 5.0, created_at: split_at - 2.hours)
+
+    sync_split!
+
+    assert_equal 1, bot.bot_activity_logs.count
+  end
+
+  test 'a bot on another venue, and one that moved here later, are judged on where they traded' do
+    kraken = create(:kraken_exchange)
+    elsewhere = holder(exchange: kraken)
+    # Moved to this venue after the fact — set directly, since the point under test is the stored
+    # state, not the move. The orders it placed on Kraken are still Kraken's.
+    elsewhere.update_columns(exchange_id: @exchange.id)
+
+    sync_split!
+
+    assert_empty elsewhere.bot_activity_logs
+  end
+
+  # One share bought before a 2-for-1, one of the resulting two sold after it: the as-traded rows
+  # sum to zero and a share is still held.
+  test 'a zero that spans an earlier split is not a flat position' do
+    bot = holder(at: split_at - 30.days, amount_exec: 1.0)
+    create(:account_transaction, user: @user, api_key: @api_key, exchange: @exchange,
+                                 entry_type: :adjustment, base_currency: 'KLAC', base_amount: 1,
+                                 quote_currency: nil, quote_amount: nil, tx_id: 'earlier-split',
+                                 description: 'Split (KLAC) 2:1', transacted_at: split_at - 20.days,
+                                 raw_data: { 'corporate_action' => 'split', 'split_ratio' => '2:1' })
+    create(:transaction, bot: bot, exchange: @exchange, base: 'KLAC', quote: 'USD',
+                         side: :sell, amount_exec: 1.0, created_at: split_at - 10.days)
+
+    sync_split!
+
+    assert_equal 1, bot.bot_activity_logs.count
+  end
+
+  test 'a bot that opened and closed entirely after the earlier split is flat and stays quiet' do
+    # The account has been through an earlier split, but this bot's own rows are all on one side
+    # of it, so its zero is a real zero.
+    create(:account_transaction, user: @user, api_key: @api_key, exchange: @exchange,
+                                 entry_type: :adjustment, base_currency: 'KLAC', base_amount: 1,
+                                 quote_currency: nil, quote_amount: nil, tx_id: 'earlier-split',
+                                 description: 'Split (KLAC) 2:1', transacted_at: split_at - 20.days,
+                                 raw_data: { 'corporate_action' => 'split', 'split_ratio' => '2:1' })
+    bot = holder(at: split_at - 10.days, amount_exec: 1.0)
+    create(:transaction, bot: bot, exchange: @exchange, base: 'KLAC', quote: 'USD',
+                         side: :sell, amount_exec: 1.0, created_at: split_at - 5.days)
+
+    sync_split!
+
+    assert_empty bot.bot_activity_logs
   end
 end

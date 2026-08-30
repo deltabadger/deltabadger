@@ -1,4 +1,7 @@
 bg:
+    time:
+        formats:
+            table_clock: '%H:%M'
     meta:
         title: 'Deltabadger'
     header:
@@ -17,6 +20,8 @@ bg:
         authorize: 'Оторизирай'
         disable: 'Изключи'
         delete: 'Изтрий'
+        archive: 'Архивирай'
+        reactivate: 'Възстанови'
         duplicate: 'Дублирай'
         copy: 'Копирай'
         submit: 'Изпрати'
@@ -26,6 +31,7 @@ bg:
         start: 'Стартирай'
         stop: 'Спри'
         next: 'Напред'
+        back: 'Назад'
         connect: 'Свържи'
         reconnect: 'Добави нови ключове'
         understand: 'Разбрах!'
@@ -42,7 +48,6 @@ bg:
         value_symbol: "Стойност (%{symbol})"
         invested_symbol: "Инвестирано (%{symbol})"
         date: "Дата"
-        asset: "Актив"
         amount: "Количество"
         avg_price: "Средна цена"
         price: "Цена"
@@ -81,6 +86,9 @@ bg:
             text_html: 'Проверете имейла си и натиснете <b>линка за потвърждение</b>, който ви изпратихме. След това отидете на страницата за вход.'
             title: Благодарим!
     links:
+        hide_balances: 'Скрий балансите'
+        display_currency: 'Валута за показване'
+        show_balances: 'Покажи балансите'
         about: За нас
         telegram: 'Telegram'
         create_account: 'Създай безплатен акаунт'
@@ -108,6 +116,8 @@ bg:
             language_updated: "Езикът е обновен."
             updated: "Часовата зона е обновена."
             current_time_is: "Тази часова зона ще се използва в логовете на бота. Текущото време в нея е"
+            currency_updated: "Валутата за показване е обновена."
+            currency_is_used_for: "Печалбите и общите суми на портфейла се показват в тази валута. Ботовете продължават да търгуват в собствения си котиран актив."
         name:
             updated: "Името е обновено."
         two_fa:
@@ -350,6 +360,7 @@ bg:
         all: 'Всички'
         active: 'Активни'
         inactive: 'Неактивни'
+        archived: 'Архивирани'
     rules:
         index:
             title: 'Правила'
@@ -362,6 +373,7 @@ bg:
                 description: 'Теглене на средства от борси'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Автоматизирай тегленията от'
                 withdraw_all: 'Изтегли'
                 from: 'от'
                 to: 'на'
@@ -413,19 +425,30 @@ bg:
             instructions_title: 'Как да получите ключове от %{exchange}'
             instructions_body: 'Създайте API ключ с разрешение за теглене в %{exchange} и поставете данните за достъп тук.'
     tracker:
+        price_source:
+            ours: "Наша собствена цена за този ден. Въведи цена, за да я замениш."
+            stated: "Твоя собствена цена. Изчисти полето, за да се върне нашата."
+            none: "Не успяхме да оценим този ред. Въведи колко е струвала една единица."
         welcome:
             connect_and_track: "Свържи борсата си и започни да следиш портфолиото си."
         sync_key_error_html: 'Синхронизацията с <strong>%{exchange}</strong> е неуспешна: %{message}. Моля, обнови API ключа по-долу.'
+        sync_permission_error_html: "<strong>%{exchange}</strong> не можа да синхронизира: този API ключ няма разрешението, необходимо за четене на %{capability}. Обнови разрешенията на ключа в %{exchange} или създай нов ключ с всички разрешения от инструкциите."
+        sync_transient_error_html: "<strong>%{exchange}</strong> е временно недостъпна. Опитай да синхронизираш отново след няколко минути."
+        sync_generic_error_html: "Синхронизацията с <strong>%{exchange}</strong> е неуспешна: %{message}. Моля, опитай отново."
+        capabilities:
+            transactions: "историята ти на транзакциите"
+            balances: "салдата ти"
         sync_failed_for: 'Синхронизирането с %{exchanges} бе неуспешно. Възможно е да липсват трансакции от тези борси — отчетите, генерирани сега, може да са непълни.'
         pricing_warning_html: Балансите са синхронизирани, но цените в USD в момента не са налични (%{message}). Графиката ще използва последните известни цени, докато услугата бъде възстановена.
         portfolio:
             never_synced: Натисни „Синхронизирай", за да заредиш портфейла си.
             no_balances: Не са намерени баланси на свързаните борси.
+            only_cash: "Само парични средства и стейбълкойни — включете „Покажи паричните средства“, за да ги видите."
             unpriced: 'Цена не е налична за: %{assets}'
         sync: 'Синхронизирай'
         sync_started: 'Синхронизиране на транзакции от борсите ви...'
         importing_from: 'Импортиране на данни от %{exchange}…'
-        get_report: 'Получи отчет'
+        get_report: 'Данъчен отчет'
         filter: 'Филтър'
         bot: 'Бот'
         no_results: 'Не са намерени транзакции за избраните филтри.'
@@ -498,6 +521,71 @@ bg:
             generating: 'Генериране на данъчен отчет...'
             download_ready: 'Данъчният отчет е готов. Натиснете за изтегляне.'
             failed: 'Отчетът не можа да бъде генериран. Проверете избраните настройки и опитайте отново.'
+        holdings: 'Активи'
+        unrealised: 'Нереализирана'
+        tiles:
+            unrealised_pnl: 'Нереализирана П/З'
+            total_pnl: 'Обща П/З'
+            total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} от това е постъпило без покупка зад него: отстъпки, airdrop-ове, награди от стейкинг, кредити от прах, активи без записана предходна операция.'
+        import:
+            title: 'Импорт'
+            nothing_new: 'Всяка транзакция от този файл вече е в историята ти.'
+            imported: 'Импортирани са %{count} транзакции.'
+            reading: 'Файлът се чете…'
+            error_unknown_timezone: 'Името на този файл вече не показва в коя часова зона Binance го е експортирал. Качи го с името, което Binance му е дал.'
+            drop: 'Пусни CSV файла тук'
+            drop_hint: 'или кликни, за да избереш файл'
+            which_account: 'Файлът може да е от която и да е от двете сметки в Binance. От коя?'
+            unrouted: 'Няма свързана сметка за: %{exchanges}. Тези редове са пропуснати.'
+            error_no_account_for_format: 'Няма свързана сметка, която да отговаря на този формат.'
+            format: 'Формат'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Сметка'
+            file: 'Файл'
+            importing: 'Импортира се…'
+            confirm: 'Импортирай'
+            skipped: '%{count} реда не можаха да бъдат запазени.'
+            unrecognised: 'Не са импортирани, непознати операции: %{operations}'
+            error_unreadable: 'Този файл не е в избрания формат.'
+            error_malformed: 'Файлът не можа да бъде прочетен.'
+            error_no_file: 'Първо избери файл.'
+            error_no_account: 'Избери сметка за импорт.'
+            no_account: 'Първо свържи борса — импортът е към сметка.'
+        positions: 'Позиции'
+        transactions: 'Транзакции'
+        fees_paid: 'Платени такси'
+        synced_ago: 'Синхронизирано преди %{ago}'
+        show_cash: 'Покажи паричните средства'
+        show_more: 'Покажи повече'
+        show_less: 'Покажи по-малко'
+        other: 'Други'
+        basis_incomplete: 'Няма цена на придобиване за този актив, затова не показваме печалба или загуба.'
+        notes:
+            left: '%{exchange} отчита %{held} %{symbol}; историята обяснява %{history}. Разликата се приема за излязла по себестойност (%{amount}).'
+            arrived: '%{exchange} отчита %{held} %{symbol}; историята обяснява %{history}. Разликата се приема за постъпила по цената си (%{amount}).'
+            since_sync: '%{symbol}, купени след последната синхронизация: оценени по себестойност (%{amount}) до следващата.'
+            cash_out: 'Историята държи %{history} %{symbol}; %{exchange} отчита %{held}. Разликата (%{amount}) се приема за изведена.'
+            cash_in: 'Историята държи %{history} %{symbol}; %{exchange} отчита %{held}. Разликата (%{amount}) се приема за въведена.'
+            unpriced_held: '%{history} %{symbol} постъпиха без намираема цена; приети с нулева себестойност (днес струват %{amount}).'
+            unpriced: '%{amount} бяха продадени от активи без известна цена; себестойността им се приема за нула.'
+            at_par: 'Няма курс за %{symbol} днес; приема се по паритет.'
+            figures_disagree: 'Тези числа не се сумират (отклонение %{amount}). Нещо не е наред, което никое допускане не предвиди.'
+            your_exchanges: 'Борсата'
+            estimated: '%{symbol}: част от себестойността е пазарната цена в деня на постъпване, а не изпълнена сделка.'
+        record:
+            all: 'Всички'
+            transfer: 'Прехвърляне'
+            open: 'Отворена'
+            win: 'Печалба'
+            loss: 'Загуба'
+            closed: 'Затворена'
+            cash: 'Пари в брой'
+        range:
+            '30d': '30Д'
+            '1y': '1Г'
+            all: 'Всичко'
         filters:
             all: 'Всички'
         columns:
@@ -510,6 +598,13 @@ bg:
             fee: 'Такса'
             exchange: 'Борса'
             bot: 'Бот'
+            price: 'Цена'
+            opened: 'Отворена'
+            status: 'Статус'
+            invested: 'Вложено'
+            avg_buy: 'Ср. покупка'
+            hold: 'Срок'
+            name: 'Актив'
         types:
             buy: 'Покупка'
             sell: 'Продажба'
@@ -532,11 +627,35 @@ bg:
         all: 'Всички'
         successful: 'Успешни'
         transactions: 'Transactions' # TODO: translate (English placeholder)
-        cancelled: 'Отменени'
         waiting: 'Насрочени'
+        other: 'Други'
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            asset_split: "%{base} сплит %{ratio} — брокерът преизчисли броя на акциите"
+            asset_split_unknown_ratio: "%{base} беше сплитнат — брокерът преизчисли броя на акциите"
+            rebalance_sell_placed: 'Ребалансиране — продажба на надтегления актив'
+            rebalance_buy_placed: 'Ребалансиране — обратна покупка на подтегления актив'
+            rebalance_dust: 'Остатъкът е твърде малък за ребалансиране — остава в брой'
+            rebalance_ambiguous: 'Статусът на поръчката за ребалансиране е непотвърден — спряно, за да не се подаде два пъти'
+            rebalance_manually_resolved: 'Ребалансирането е възобновено ръчно'
+            dca_skipped_rebalance_pending: 'Вноската е пропусната — ребалансиране още тече'
+            liquidation_requested: "Продаваме активите, напуснали индекса"
+            liquidation_placed: "Продаваме актив, напуснал индекса"
+            liquidation_skipped: "Актив, напуснал индекса, не можа да бъде продаден — остава"
+            liquidation_ambiguous: "Статусът на поръчката за продажба е непотвърден — на пауза, за да не се подаде два пъти"
+            liquidation_manually_resolved: "Непотвърдената продажба е изчистена ръчно"
+            liquidation_market_closed: "Пазарът е затворен — нищо не е продадено"
+            liquidation_not_started: "Нищо не беше продадено — ботът беше зает или индексът не можа да се обнови"
+            liquidation_failed: "Selling failed: %{error}"
+            redeploy_requested: "Връщам парите в кошницата"
+            redeploy_placed: "Купувам обратно в кошницата с получените средства"
+            redeploy_skipped: "Част от средствата не можаха да бъдат вложени обратно — останаха в брой"
+            redeploy_ambiguous: "Статусът на поръчката за повторно влагане не е потвърден — спряно, за да не се подаде два пъти"
+            redeploy_manually_resolved: "Непотвърденото повторно влагане е изчистено ръчно"
+            redeploy_not_started: "Нищо не беше вложено обратно — ботът беше зает или нямаше какво да се вложи"
+            redeploy_failed: "Повторното влагане се провали: %{error}"
+            dca_skipped_liquidation_pending: "Вноската е пропусната — все още тече продажба"
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'
@@ -575,6 +694,8 @@ bg:
             upgrade_hint: Надгради плана си в CoinGecko или използвай deltabadger.com за пълни исторически данни.
             deposit_basis_assumed: Цена на придобиване, приета по пазарна стойност за тези несвързани депозити
             deposit_basis_assumed_hint: Свържете всеки депозит със съответното теглене в Тракера, за да се използва действителната цена на придобиване.
+            stated_values: "Стойности, които си въвел ръчно"
+            stated_values_hint: "Тези суми идват от теб, не от борсата. Провери ги спрямо собствените си записи, преди да подадеш декларацията."
             exchange_sync_failed: 'Възможно е да липсват данни от %{exchange} — последното синхронизиране бе неуспешно. Синхронизирайте отново в Тракера и генерирайте отчета наново.'
             exchange_never_synced: 'Борсата %{exchange} никога не е синхронизирана — нито една нейна трансакция не е включена в отчета. Синхронизирайте я в Тракера и генерирайте отчета отново.'
         headers:

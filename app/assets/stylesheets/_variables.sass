@@ -31,6 +31,14 @@
   font-display: swap
   unicode-range: U+1F00-1FFF
 
+// Font: Dosis (digits only — the menu's bot-count icon)
+@font-face
+  font-family: 'Dosis'
+  src: url('/fonts/Dosis-digits.woff2') format('woff2')
+  font-weight: 200 800
+  font-style: normal
+  font-display: swap
+
 \:root
   --font-family: 'Montserrat', sans-serif
   --ui-height: 6rem
@@ -41,7 +49,7 @@
   font-family: var(--font-family)
 
   @media (min-width: 768px)
-    --ui-padding: 3rem
+    --ui-padding: 2.5rem
 
 [data-locale="el"]
   --font-family: 'Google Sans', sans-serif
@@ -60,8 +68,8 @@
     --washed: #FFFFFF
     --paper-on-washed: #F5F6F8
     --white: #FFFFFF
-    --grass: color(display-p3 0 0.7 0.45)
-    --berry: #EE0060
+    --grass: color(display-p3 0 0.65 0.425)
+    --berry: #db0049
     --highlight: var(--sky)
     --autocomplete: #cde
     --inputTextFocus: #0D223F
@@ -82,7 +90,7 @@
     --insight-background: #8098dd77
     --insight-warning-background: #ffd7ab
     --slider-track: #3453B019
-    --slider-progress: #00f
+    --slider-progress: color(display-p3 0 0 1)
     --label: #061A4Fba
     --label-select-inactive: #061a4f80
     --close-hover: #ebeef2
@@ -128,7 +136,7 @@
     --paper-on-washed: #122949
     --white: #FFFFFF
     --grass: color(display-p3 0 0.7 0.45)
-    --berry: #EE0060
+    --berry: #ff0055
     --highlight: var(--white)
     --autocomplete: #122b49
     --inputTextFocus: #fff
@@ -149,7 +157,7 @@
     --insight-background: #00f77
     --insight-warning-background: #884f00b0
     --slider-track: #D4DAEC22
-    --slider-progress: #00f
+    --slider-progress: color(display-p3 0 0 1)
     --label: #B2D5FFc9
     --label-select-inactive: #b2d5ff77
     --close-hover: #fff1

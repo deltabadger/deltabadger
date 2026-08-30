@@ -42,12 +42,13 @@ class Bot::ActionJob < BotJob
   # A stop or delete from another process (user click, admin stock deactivation sweep) can land
   # while this job is mid-flight on a stale bot instance; Stop's cancel can't reach a Claimed
   # (running) execution, and a check-then-update! would leave a resurrection window. The
-  # conditional UPDATE closes it: the flip only happens if no stop/delete won the race, and the
-  # caller branches on the outcome. Skipped callbacks are covered on every call site: the status
+  # conditional UPDATE closes it: the flip only happens while the row is still in a working
+  # status — a stop, delete or archive that won the race leaves it out of scope — and the caller
+  # branches on the outcome. Skipped callbacks are covered on every call site: the status
   # bar is (re)broadcast by BroadcastAfterScheduledActionJob or explicitly, and the
   # button/columns-lock UI does not differ between working statuses.
   def self.transition_working_bot!(bot, status)
-    updated = Bot.where(id: bot.id).where.not(status: %w[stopped deleted])
+    updated = Bot.where(id: bot.id).working
                  .update_all(status: status, updated_at: Time.current) == 1
     # Sync the attribute without reload — reload would drop memoized associations; only the
     # status column changed, and no later save runs on these paths.
@@ -239,7 +240,7 @@ class Bot::ActionJob < BotJob
   def clear_stale_market_closed_flag(bot)
     return unless bot.waiting_for_market_open
 
-    bot.update_columns(transient_data: bot.transient_data.merge('waiting_for_market_open' => nil))
+    bot.merge_transient_data!('waiting_for_market_open' => nil)
   end
 
   # Substring, not equality — the same rule as its four siblings (Exchange#invalid_key_error?,

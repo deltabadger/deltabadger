@@ -7,9 +7,19 @@ ru:
         bot_name: "Имя бота"
         new: "Новый бот"
         welcome:
-            pick_asset_first: "Сначала выбери актив — потом увидишь биржи, на которых он доступен."
+            pick_exchange_first: "Сначала выбери биржу — потом увидишь активы, которые на ней доступны."
             connect_alpaca_html: "Чтобы инвестировать в акции, сначала подключите Alpaca в %{settings_link}."
             settings_link: "Настройках"
+        dca_multi_asset:
+            add_asset: "Добавить актив"
+            remove_asset: "Удалить"
+            max_assets_reached: "В портфеле может быть не более %{max} активов."
+            min_assets: "В портфеле должно быть не менее %{min} активов."
+            no_common_exchange: "Такая комбинация активов недоступна ни на одной поддерживаемой бирже."
+            removed_from_portfolio: "Удалены из портфеля"
+            allocation_sum: "Итого"
+            normalize: "Нормализовать"
+            normalize_first: "Сначала нормализуйте доли."
         dca_index:
             setup:
                 step_index: "Индекс"
@@ -30,33 +40,30 @@ ru:
             fewer_coins_available: "%{available} из %{requested} монет в индексе доступны на %{exchange_name}"
             num_assets: "Активы в индексе"
             asset_breakdown: "Разбор активов"
-            asset: "Актив"
-            amount: "Количество"
-            avg_price: "Средняя цена"
-            value: "Стоимость"
-            pl: "П/У"
+            realised_pnl: "Зафиксированный P/L"
+            realised_pnl_note: "От продажи активов, удалённых из портфеля. Ребалансировка не учитывается."
+            left_the_index: "Вне индекса"
             warning:
                 intro: "Некоторые ордеры (%{skipped_count}) были ниже минимального размера ордера на %{exchange_name}. Вот как бот это обрабатывает:"
         types:
             dca:
-                title: "DCA"
-                description: "Инвестировать в один актив"
-            dca_dual_asset:
-                title: "Ребалансированный DCA"
-                description: "Ребалансировка двух активов"
+                title: "DCA / Ребалансировка"
+                description: "Выберите один или несколько активов"
             index_portfolio:
-                title: "Индексный Портфель"
-                description: "Ваш персональный крипто ETF"
-            custom_portfolio:
-                title: "Пользовательский Портфель"
-                description: "Ребалансировка пользовательского набора активов"
+                title: "Индекс"
+                description: "Создайте свой собственный ETF"
             signal:
-                title: "Signal"
-                description: "Торговля по внешним сигналам"
+                title: "Сигналы"
+                description: "Торговля по webhook"
+        exchange_menu:
+            no_alternative: 'Ни одна другая поддерживаемая биржа не предлагает %{assets}.'
+            locked_while_running: 'Останови бота, чтобы перенести его на другую биржу.'
+            locked_while_rebalancing: 'Ребалансировка ещё продолжается — биржу можно будет сменить после её завершения.'
         status:
             exchange_retired: 'Эта биржа больше не работает — переведите бота на другую.'
             setting_orders: "Настройка ордеров…"
             paused: "На паузе"
+            archived: "В архиве"
             next_try: "Следующая попытка через"
             waiting: "Ожидание выполнения всех условий"
             listening: "Ожидание сигнала"
@@ -129,8 +136,12 @@ ru:
                 average_price: 'Средняя цена'
                 bought: Куплено
                 chart:
+                    orders: 'Показать ордера'
+                    prices: 'Показать цены'
+                    modes: 'Режим графика'
+                    pnl: 'P/L'
                     total_invested: 'Всего инвестировано'
-                    value: ''
+                    value: 'Стоимость'
                 csv_download_html: 'В таблице выше показаны только последние десять транзакций.<br>Полный отчет доступен для загрузки в формате CSV ниже.'
                 current_value: 'Текущая стоимость'
                 current_value_sold: 'Текущая стоимость проданных %{base}'
@@ -153,6 +164,7 @@ ru:
         limit_sell: 'Лимитная продажа'
         messages:
             do_you_want_to_delete: 'Вы хотите удалить этого бота?'
+            do_you_want_to_archive: 'Вы хотите архивировать этого бота?'
             symbol_not_supported: "%{symbol} не поддерживается"
             specify_percentage_limit_order: "Укажите процент при создании лимитного ордера"
             smart_intervals_above_minimum: "Значение умных интервалов должно быть больше, чем %{minimum}"
@@ -191,17 +203,45 @@ ru:
         warning:
             dca_single_asset:
                 intro: "Сумма %{missed_symbol} была ниже минимального размера ордера на %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} для %{missed_symbol}). Вот как бот с этим справляется:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Однако суммы ордеров для %{base0_symbol} и %{base1_symbol} ниже минимального размера ордера на %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} или %{base0_minimum_quote_size} %{quote_symbol} для %{base0_symbol} и %{base1_minimum_base_size} %{base1_symbol} или %{base1_minimum_quote_size} %{quote_symbol} для %{base1_symbol}). Вот как бот с этим справляется:"
-                one_below:
-                    intro: "Ваш бот купил %{bought_quote_amount} %{quote_symbol} %{bought_symbol}, но сумма %{missed_symbol} была ниже минимального размера ордера на %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} для %{missed_symbol}). Вот как бот с этим справляется:"
             buffer_explanation:
                 one: "Пропущенная сумма была добавлена в буфер и будет использована при следующем запланированном ордере, чтобы ваше расписание и распределение максимально соответствовали биржевым минимумам."
                 other: "Пропущенные суммы были добавлены в буфер и будут использованы при следующих запланированных ордерах, чтобы ваше расписание и распределение максимально соответствовали биржевым минимумам."
             title: "Поздравляем! Ваш бот запущен."
             general_note: "Минимумы биржи и требуемые суммы ребалансировки могут меняться. Ордера иногда могут выглядеть нерегулярными, но бот всегда нацелен на желаемое распределение и расписание, поэтому дополнительная работа не требуется."
+        redeploy:
+            prompt: "Вложить %{amount} %{symbol} обратно?"
+            confirm: "Да"
+            decline: "Нет"
+            started: "Возвращаю деньги в корзину."
+            in_flight: "Повторное вложение ещё выполняется. Попробуйте снова, когда оно завершится."
+            unsupported: "У этого бота нет средств для повторного вложения."
+            halted: "Повторное вложение не подтверждено — проверьте биржу"
+            resolve: "Сбросить"
+            resolve_confirm: "Продолжайте, только если вы проверили биржу и ни один ордер на покупку не остался открытым."
+            still_open: "Ордер %{order_id} всё ещё открыт на бирже. Дождитесь его исполнения."
+            resolved: "Сброшено. Бот может снова торговать."
+        liquidation:
+            sell: "Продать"
+            sell_confirm: "Продать эту позицию? Она будет закрыта по рыночной цене."
+            started: "Позиция продаётся."
+            market_closed: "Рынок сейчас закрыт. Попробуйте после открытия."
+            unsupported: "У этого бота нет удалённых активов для продажи."
+            halted: "Продажа не подтверждена — проверьте биржу"
+            resolve: "Сбросить"
+            resolve_confirm: "Продолжайте, только если вы проверили биржу и ни один ордер на продажу не открыт."
+            still_open: "Ордер %{order_id} всё ещё открыт на бирже. Дождитесь его исполнения."
+            resolved: "Неподтверждённая продажа сброшена."
         settings:
+            rebalance:
+                sentence_html: "Ребалансировать, когда актив отклоняется более чем на <span>%{value_html} %</span> от цели"
+                note: "Продолжает работать, даже когда расписание DCA остановлено. Всегда использует рыночные ордера."
+                drift: "Портфель отклонён на %{drift} % от целевого распределения"
+                below_minimum: "— слишком мало для минимума этой биржи"
+                paused: "Ребалансировка приостановлена — проверьте свою биржу"
+                resume: "Продолжить"
+                resume_confirm: "Продолжайте только если вы проверили биржу и ни один ордер ребалансировки не остался открытым."
+                still_open: "Ордер %{order_id} всё ещё открыт на бирже. Дождитесь его исполнения."
+                resolved: "Ребалансировка возобновлена."
             starting_time:
                 modes:
                     options:

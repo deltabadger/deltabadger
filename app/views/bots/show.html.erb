@@ -1,3 +1,8 @@
+<%# A hide-balances toggle in another tab refreshes this one. Subscribed per page rather than in
+    the layout: the refresh REPLACES the document, so a settings or setup page listening for it
+    would throw away whatever the user had half-typed into an email, password or API-key form.
+    Only the pages that state balances have anything to re-render. %>
+<%= turbo_stream_from "user_#{current_user.id}", :preferences %>
 <%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
 
 <%= turbo_frame_tag "bot" do %>
@@ -13,26 +18,28 @@
       <%= render partial: "bots/status/status_bar", locals: { bot: @bot } %>
       <%= render partial: "bots/status/status_button", locals: { bot: @bot } %>
     </div>
+
+    <%= render partial: "bots/chart", locals: { bot: @bot, metrics: @chart_metrics, loading: @chart_loading } %>
+
     <div id="<%= dom_id(@bot, :columns) %>" class="columns<%= ' bot-locked' if @bot.working? %>">
       <div class="column gap-1">
         <% if @bot.dca_single_asset? %>
           <%= render partial: "bots/dca_single_assets/settings", locals: { bot: @bot } %>
-        <% elsif @bot.dca_dual_asset? %>
-          <%= render partial: "bots/dca_dual_assets/settings", locals: { bot: @bot } %>
         <% elsif @bot.dca_index? %>
           <%= render partial: "bots/dca_indexes/settings", locals: { bot: @bot, index_preview: @index_preview } %>
+        <% elsif @bot.dca_multi_asset? %>
+          <%= render partial: "bots/dca_multi_assets/settings", locals: { bot: @bot } %>
         <% elsif @bot.signal? %>
           <%= render partial: "bots/signals/settings", locals: { bot: @bot } %>
         <% end %>
       </div>
       <div class="column gap-1">
-        <%= render partial: "bots/chart", locals: { bot: @bot, metrics: @chart_metrics, loading: @chart_loading } %>
         <% if @bot.dca_single_asset? %>
           <%= render partial: "bots/dca_single_assets/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading } %>
-        <% elsif @bot.dca_dual_asset? %>
-          <%= render partial: "bots/dca_dual_assets/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading } %>
         <% elsif @bot.dca_index? %>
-          <%= render partial: "bots/dca_indexes/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading } %>
+          <%= render partial: "bots/composition/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading, exited_title_key: @bot.exited_title_key } %>
+        <% elsif @bot.dca_multi_asset? %>
+          <%= render partial: "bots/composition/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading, exited_title_key: @bot.exited_title_key } %>
         <% elsif @bot.signal? %>
           <%= render partial: "bots/dca_single_assets/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading } %>
         <% end %>

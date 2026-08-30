@@ -4,9 +4,19 @@ it:
         bot_name: 'Nome bot'
         new: "Nuovo bot"
         welcome:
-            pick_asset_first: "Scegli prima un asset — poi vedrai gli exchange dove è disponibile."
+            pick_exchange_first: "Scegli prima un exchange — poi vedrai gli asset disponibili lì."
             connect_alpaca_html: "Per investire in azioni, prima collega Alpaca nelle %{settings_link}."
             settings_link: "Impostazioni"
+        dca_multi_asset:
+            add_asset: "Aggiungi asset"
+            remove_asset: "Rimuovi"
+            max_assets_reached: "Puoi detenere fino a %{max} asset."
+            min_assets: "Un portafoglio richiede almeno %{min} asset."
+            no_common_exchange: "Questa combinazione di asset non è disponibile su nessun exchange supportato."
+            removed_from_portfolio: "Rimossi dal portafoglio"
+            allocation_sum: "Totale"
+            normalize: "Normalizza"
+            normalize_first: "Normalizza prima le allocazioni."
         dca_index:
             setup:
                 step_index: "Indice"
@@ -27,36 +37,30 @@ it:
             fewer_coins_available: "%{available} delle %{requested} criptovalute nell'indice sono disponibili su %{exchange_name}"
             num_assets: "Asset nell'indice"
             asset_breakdown: "Suddivisione Asset"
-            asset: "Asset"
-            amount: "Importo"
-            avg_price: "Prezzo Medio"
-            value: "Valore"
-            pl: "P/L"
+            realised_pnl: "P/P realizzato"
+            realised_pnl_note: "Dalla vendita di asset rimossi dal portafoglio. Il ribilanciamento non conta."
+            left_the_index: "Fuori dall’indice"
             warning:
                 intro: "Alcuni ordini (%{skipped_count}) erano al di sotto della dimensione minima dell'ordine di %{exchange_name}. Ecco come il bot lo gestisce:"
         types:
             dca:
-                title: "DCA"
-                description: "Investi in un asset"
-            dca_dual_asset:
-                title: "DCA Ribilanciato"
-                description: "Ribilancia due asset"
-            legacy:
-                title: "Bot Legacy"
-                description: "DCA + Prelievi"
+                title: "DCA / Ribilanciamento"
+                description: "Scegli uno o più asset"
             index_portfolio:
-                title: "Portafoglio Indice"
-                description: "Il tuo ETF crypto personale"
-            custom_portfolio:
-                title: "Portafoglio Personalizzato"
-                description: "Ribilancia mix personalizzato di asset"
+                title: "Indice"
+                description: "Crea il tuo ETF personale"
             signal:
-                title: "Signal"
-                description: "Opera con segnali esterni"
+                title: "Segnali"
+                description: "Opera in base a un webhook"
+        exchange_menu:
+            no_alternative: 'Nessun altro exchange supportato offre %{assets}.'
+            locked_while_running: 'Ferma il bot per spostarlo su un altro exchange.'
+            locked_while_rebalancing: 'Un ribilanciamento è ancora in corso — potrai cambiare exchange al termine.'
         status:
             exchange_retired: 'Questo exchange non esiste più — sposta il bot su un altro.'
             setting_orders: "Impostazione ordini…"
             paused: "In pausa"
+            archived: "Archiviato"
             next_try: "Prossimo tentativo in"
             waiting: "In attesa che tutte le condizioni siano soddisfatte"
             listening: "In ascolto"
@@ -132,6 +136,10 @@ it:
                 average_price: 'Prezzo medio'
                 bought: Acquistato
                 chart:
+                    orders: 'Mostra ordini'
+                    prices: 'Mostra prezzi'
+                    modes: 'Modalità grafico'
+                    pnl: 'P/L'
                     total_invested: 'Totale investito'
                     value: Valore
                 csv_download_html: 'La tabella sopra mostra solo le ultime dieci transazioni. Il report completo è disponibile per il download in formato CSV qui sotto.'
@@ -156,6 +164,7 @@ it:
         limit_sell: 'Vendita limite'
         messages:
             do_you_want_to_delete: 'Vuoi eliminare questo bot?'
+            do_you_want_to_archive: 'Vuoi archiviare questo bot?'
             symbol_not_supported: "%{symbol} non è supportato"
             specify_percentage_limit_order: "Specifica la percentuale quando crei un ordine limite"
             smart_intervals_above_minimum: "Il valore degli intervalli intelligenti dovrebbe essere maggiore di %{minimum}"
@@ -204,17 +213,45 @@ it:
         warning:
             dca_single_asset:
                 intro: "L'importo di %{missed_symbol} era inferiore alla dimensione minima dell'ordine di %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} o %{missed_minimum_quote_size} %{quote_symbol} per %{missed_symbol}). Ecco come il bot gestisce la situazione:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Tuttavia, sia la quantità dell'ordine di %{base0_symbol} che quella di %{base1_symbol} sono inferiori alle dimensioni minime dell'ordine di %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} o %{base0_minimum_quote_size} %{quote_symbol} per %{base0_symbol} e %{base1_minimum_base_size} %{base1_symbol} o %{base1_minimum_quote_size} %{quote_symbol} per %{base1_symbol}). Ecco come il bot gestisce la situazione:"
-                one_below:
-                    intro: "Il tuo bot ha acquistato %{bought_quote_amount} %{quote_symbol} di %{bought_symbol}, ma la quantità di %{missed_symbol} era inferiore alla dimensione minima dell'ordine di %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} o %{missed_minimum_quote_size} %{quote_symbol} per %{missed_symbol}). Ecco come il bot gestisce la situazione:"
             buffer_explanation:
                 one: "L'importo mancante è stato messo in buffer e verrà utilizzato con il prossimo ordine programmato, assicurando che la tua pianificazione e allocazione siano mantenute il più vicino possibile ai minimi dell'exchange."
                 other: "Gli importi mancanti sono stati messi in buffer e verranno utilizzati con i prossimi ordini programmati, assicurando che la tua pianificazione e allocazione siano mantenute il più vicino possibile ai minimi dell'exchange."
             title: "Congratulazioni! Il tuo bot è in esecuzione."
             general_note: "I minimi dell'exchange e gli importi di ribilanciamento richiesti possono cambiare. Gli ordini potrebbero a volte sembrare irregolari, ma il bot mira sempre all'allocazione e alla pianificazione desiderate, quindi non è necessario alcun lavoro aggiuntivo."
+        redeploy:
+            prompt: "Reinvestire %{amount} %{symbol}?"
+            confirm: "Sì"
+            decline: "No"
+            started: "Rimetto i soldi nel paniere."
+            in_flight: "Un reinvestimento è ancora in corso. Riprova quando è terminato."
+            unsupported: "Questo bot non ha ricavi da reinvestire."
+            halted: "Reinvestimento non confermato — controlla il tuo exchange"
+            resolve: "Azzera"
+            resolve_confirm: "Continua solo se hai controllato il tuo exchange e nessun ordine di acquisto è ancora aperto."
+            still_open: "L’ordine %{order_id} è ancora aperto sul tuo exchange. Aspetta che si chiuda."
+            resolved: "Azzerato. Il bot può tornare a operare."
+        liquidation:
+            sell: "Vendi"
+            sell_confirm: "Vendere questa posizione? Verrà chiusa al prezzo di mercato."
+            started: "Vendita della posizione in corso."
+            market_closed: "Il mercato è chiuso in questo momento. Riprova all’apertura."
+            unsupported: "Questo bot non ha asset rimossi da vendere."
+            halted: "Vendita non confermata — controlla il tuo exchange"
+            resolve: "Azzera"
+            resolve_confirm: "Continua solo se hai controllato il tuo exchange e nessun ordine di vendita è ancora aperto."
+            still_open: "L’ordine %{order_id} è ancora aperto sul tuo exchange. Aspetta che si regoli."
+            resolved: "Vendita non confermata azzerata."
         settings:
+            rebalance:
+                sentence_html: "Ribilancia quando un asset si discosta di più di <span>%{value_html} %</span> dal suo obiettivo"
+                note: "Continua a funzionare anche quando la pianificazione DCA è ferma. Usa sempre ordini a mercato."
+                drift: "Il portafoglio è a %{drift} % dalla sua ripartizione obiettivo"
+                below_minimum: "— troppo piccolo per il minimo di questo exchange"
+                paused: "Ribilanciamento in pausa — controlla il tuo exchange"
+                resume: "Riprendi"
+                resume_confirm: "Continua solo se hai controllato il tuo exchange e nessun ordine di ribilanciamento è ancora aperto."
+                still_open: "L’ordine %{order_id} è ancora aperto sul tuo exchange. Attendi che venga regolato."
+                resolved: "Ribilanciamento ripreso."
             starting_time:
                 modes:
                     options:

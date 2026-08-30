@@ -1,7 +1,7 @@
 Rails.application.routes.draw do
   # Liveness endpoint for Kamal proxy, load balancers, and the Docker HEALTHCHECK.
   # Rails' built-in controller bypasses app before_actions (auth, locale, setup redirects).
-  get "up" => "rails/health#show", as: :rails_health_check
+  get 'up' => 'rails/health#show', as: :rails_health_check
 
   # OAuth 2.1 well-known endpoints (RFC 9728, RFC 8414)
   get '/.well-known/oauth-protected-resource', to: 'oauth/well_known#oauth_protected_resource'
@@ -25,15 +25,15 @@ Rails.application.routes.draw do
   post '/setup', to: 'setup#create', as: :setup
   post '/setup/platform_connection', to: 'setup#connect_platform', as: :setup_platform_connection
 
-  match "/404", to: "errors#redirect_to_root", via: :all
-  match "/422", to: "errors#unprocessable_entity", via: :all
-  match "/500", to: "errors#internal_server_error", via: :all
+  match '/404', to: 'errors#redirect_to_root', via: :all
+  match '/422', to: 'errors#unprocessable_entity', via: :all
+  match '/500', to: 'errors#internal_server_error', via: :all
 
   mount ActionCable.server => '/cable'
 
   # Job dashboard (replaces Sidekiq Web UI)
-  authenticate :user, lambda { |u| u.admin? } do
-    mount MissionControl::Jobs::Engine, at: "/jobs"
+  authenticate :user, ->(u) { u.admin? } do
+    mount MissionControl::Jobs::Engine, at: '/jobs'
   end
 
   namespace :api do
@@ -70,10 +70,11 @@ Rails.application.routes.draw do
     end
   end
 
-  scope "(:locale)", locale: /#{I18n.available_locales.join("|")}/ do
+  scope '(:locale)', locale: /#{I18n.available_locales.join('|')}/ do
     root to: 'home#index'
 
-    devise_for :users, controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations', registrations: 'users/registrations' }, path: '', path_names: { sign_in: 'login', sign_out: 'logout', sign_up: 'signup' }, skip: [:registrations, :omniauth_callbacks]
+    devise_for :users,
+               controllers: { sessions: 'users/sessions', passwords: 'users/passwords', confirmations: 'users/confirmations', registrations: 'users/registrations' }, path: '', path_names: { sign_in: 'login', sign_out: 'logout', sign_up: 'signup' }, skip: %i[registrations omniauth_callbacks]
     devise_scope :user do
       get  'signup', to: 'users/registrations#new', as: 'new_user_registration'
       post 'signup', to: 'users/registrations#create', as: 'user_registration'
@@ -91,9 +92,17 @@ Rails.application.routes.draw do
     patch  '/tracker/save_export_settings', to: 'tracker#save_export_settings', as: :save_export_settings_tracker
     patch  '/tracker/fund_classifications', to: 'tracker#fund_classifications', as: :fund_classifications_tracker
     patch  '/tracker/transactions/:id/toggle_transfer', to: 'tracker#toggle_transfer', as: :toggle_transfer_tracker_transaction
+    # A price the user states for a row the app could not price, or priced in a way they disagree
+    # with. Blank clears it and hands the row back to our own figure.
+    patch  '/tracker/transactions/:id/price', to: 'tracker#update_price', as: :price_tracker_transaction
     namespace :tracker do
       resource :pick_exchange, only: %i[new create]
       resource :add_api_key, only: %i[new create]
+      # Two steps against one action: `new` opens the dialog, `create` previews, and `create` with a
+      # token commits what was previewed — see Tracker::ImportsController.
+      resource :import, only: %i[new create]
+      # A correction the user accepts: `new` states exactly what would be written, `create` writes
+      # it. Nothing is ever written by looking at the page — see Tracker::ReconciliationsController.
     end
 
     resources :rules, only: [:index]
@@ -114,7 +123,7 @@ Rails.application.routes.draw do
           post :preview, on: :collection
         end
       end
-      resources :withdrawals, only: [:create, :update, :destroy] do
+      resources :withdrawals, only: %i[create update destroy] do
         member do
           get :confirm_destroy
         end
@@ -122,10 +131,10 @@ Rails.application.routes.draw do
     end
 
     namespace :settings do
-      get '/', to: redirect { |params, request|
+      get '/', to: redirect { |_params, request|
         locale = request.params[:locale].to_s
         locale = nil unless I18n.available_locales.map(&:to_s).include?(locale)
-        locale.presence ? "/#{locale}/settings/connect" : "/settings/connect"
+        locale.presence ? "/#{locale}/settings/connect" : '/settings/connect'
       }
       get :connect
       get :account
@@ -134,8 +143,12 @@ Rails.application.routes.draw do
       patch :update_name
       patch :update_time_zone
       patch :update_locale
+      patch :update_display_currency
+      patch :update_hide_balances
+      patch :update_show_cash
       get :edit_two_fa
       patch :update_two_fa
+      get 'api_key_permissions/:id', action: :api_key_permissions, as: :api_key_permissions
       get 'confirm_destroy_api_key/:id', action: :confirm_destroy_api_key, as: :confirm_destroy_api_key
       delete 'destroy_api_key/:id', action: :destroy_api_key, as: :destroy_api_key
       post :resync_assets
@@ -148,7 +161,7 @@ Rails.application.routes.draw do
       patch :update_stocks
       delete :disconnect_stocks
       # IBKR connect wizard (dedicated controller; see Settings::IbkrConnectionsController).
-      get    'ibkr_connect',          to: 'ibkr_connections#show',     as: :ibkr_connect
+      get    'ibkr_connect',          to: 'ibkr_connections#show', as: :ibkr_connect
       post   'ibkr_connect',          to: 'ibkr_connections#create'
       delete 'ibkr_connect',          to: 'ibkr_connections#destroy'
       get    'ibkr_connect/download', to: 'ibkr_connections#download', as: :download_ibkr_connection
@@ -164,14 +177,14 @@ Rails.application.routes.draw do
       get 'confirm_revoke_mcp_client/:id', action: :confirm_revoke_mcp_client, as: :confirm_revoke_mcp_client
       delete 'revoke_mcp_client/:id', action: :revoke_mcp_client, as: :revoke_mcp_client
       patch 'update_client_tool_permissions/:id', action: :update_client_tool_permissions,
-            as: :update_client_tool_permissions
+                                                  as: :update_client_tool_permissions
       patch :update_registration
       patch :update_email_notifications
       post :send_test_email
       delete :disconnect_email
     end
 
-    get :dashboard, to: redirect { |params, request|
+    get :dashboard, to: redirect { |_params, request|
       locale = request.params[:locale].to_s
       locale = I18n.default_locale.to_s unless I18n.available_locales.map(&:to_s).include?(locale)
       "/#{locale}/bots"
@@ -183,41 +196,40 @@ Rails.application.routes.draw do
         # POST-only order switch (asset-first ⇄ exchange-first). Never a GET —
         # Turbo prefetches GETs on hover, which must not flip the variant.
         resource :order, only: [:create]
-        resource :pick_buyable_asset, only: [:new, :create]
-        resource :pick_exchange, only: [:new, :create] do
-          post :promote_to_dual, on: :collection
+        # The asset step is shared with the multi-asset bot: the basket is collected here and the
+        # type decided on advance (one asset → single, more → multi).
+        resource :pick_buyable_asset, only: %i[new create] do
+          post :remove, on: :collection
+          post :advance, on: :collection
         end
-        resource :pick_stock_broker, only: [:new, :create]
-        resource :add_api_key, only: [:new, :create]
-        resource :pick_spendable_asset, only: [:new, :create]
+        resource :pick_exchange, only: %i[new create]
+        resource :pick_stock_broker, only: %i[new create]
+        resource :add_api_key, only: %i[new create]
+        resource :pick_spendable_asset, only: %i[new create]
       end
-      resources :dca_dual_assets, only: [:create]
-      namespace :dca_dual_assets do
-        resource :order, only: [:create]
-        resource :pick_second_buyable_asset, only: [:new, :create] do
-          post :demote_to_single, on: :collection
-        end
-        resource :pick_exchange, only: [:new, :create]
-        resource :pick_stock_broker, only: [:new, :create]
-        resource :add_api_key, only: [:new, :create]
-        resource :pick_spendable_asset, only: [:new, :create]
+      resources :dca_multi_assets, only: [:create]
+      namespace :dca_multi_assets do
+        resource :pick_exchange, only: %i[new create]
+        resource :pick_stock_broker, only: %i[new create]
+        resource :add_api_key, only: %i[new create]
+        resource :pick_spendable_asset, only: %i[new create]
       end
       resources :dca_indexes, only: [:create]
       namespace :dca_indexes do
-        resource :setup_coingecko, only: [:new, :create]
-        resource :pick_index, only: [:new, :create]
-        resource :pick_exchange, only: [:new, :create]
-        resource :add_api_key, only: [:new, :create]
-        resource :pick_spendable_asset, only: [:new, :create]
-        resource :confirm_settings, only: [:new, :create]
+        resource :setup_coingecko, only: %i[new create]
+        resource :pick_index, only: %i[new create]
+        resource :pick_exchange, only: %i[new create]
+        resource :add_api_key, only: %i[new create]
+        resource :pick_spendable_asset, only: %i[new create]
+        resource :confirm_settings, only: %i[new create]
       end
       resources :signals, only: [:create]
       namespace :signals do
-        resource :pick_buyable_asset, only: [:new, :create]
-        resource :pick_exchange, only: [:new, :create]
-        resource :add_api_key, only: [:new, :create]
-        resource :pick_spendable_asset, only: [:new, :create]
-        resource :confirm_settings, only: [:new, :create] do
+        resource :pick_buyable_asset, only: %i[new create]
+        resource :pick_exchange, only: %i[new create]
+        resource :add_api_key, only: %i[new create]
+        resource :pick_spendable_asset, only: %i[new create]
+        resource :confirm_settings, only: %i[new create] do
           post :add_signal, on: :collection
           delete :remove_signal, on: :collection
           patch :update_signal, on: :collection
@@ -226,11 +238,19 @@ Rails.application.routes.draw do
     end
 
     resources :bots do
-      resources :bot_signals, only: [:create, :update, :destroy], controller: 'bots/bot_signals'
-      resource :start, only: [:edit, :update], controller: 'bots/starts'
+      # Explicit target: a bare `patch :reorder` would route to BotsController#reorder.
+      collection { patch :reorder, to: 'bots/reorders#update' }
+      resources :bot_signals, only: %i[create update destroy], controller: 'bots/bot_signals'
+      resource :start, only: %i[edit update], controller: 'bots/starts'
       resource :stop, only: [:update], controller: 'bots/stops'
-      resource :delete, only: [:edit, :destroy], controller: 'bots/deletes'
-      resource :add_api_key, only: [:new, :create], controller: 'bots/add_api_keys'
+      resource :delete, only: %i[edit destroy], controller: 'bots/deletes'
+      resource :archive, only: %i[edit create destroy], controller: 'bots/archives'
+      resources :rebalance_resolutions, only: [:create], controller: 'bots/rebalance_resolutions'
+      resource :liquidation, only: %i[new create], controller: 'bots/liquidations'
+      resources :liquidation_resolutions, only: [:create], controller: 'bots/liquidation_resolutions'
+      resource :redeploy, only: %i[create destroy], controller: 'bots/redeploys'
+      resources :redeploy_resolutions, only: [:create], controller: 'bots/redeploy_resolutions'
+      resource :add_api_key, only: %i[new create], controller: 'bots/add_api_keys'
       resource :asset_search, only: [:edit], controller: 'bots/asset_searches'
       resource :export, only: [:create], controller: 'bots/exports'
       resource :import, only: [:create], controller: 'bots/imports'
@@ -256,7 +276,7 @@ Rails.application.routes.draw do
   get '/', to: redirect("/#{I18n.default_locale}")
 
   get '/thank-you', to: 'home#confirm_registration', as: :confirm_registration
-  get '/sitemap', to: 'sitemap#index', defaults: {format: 'xml'}
+  get '/sitemap', to: 'sitemap#index', defaults: { format: 'xml' }
   get '/health-check', to: 'health_check#index', as: :health_check
 
   # Outside the locale scope: a browser posts a CSP violation report to the report-uri

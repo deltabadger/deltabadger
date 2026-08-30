@@ -62,6 +62,29 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_predicate @exchange, :market_open?
   end
 
+  # The fail-open above is deliberate for a BLIP — but a rejected key fails the clock call on every
+  # tick forever, and "we could not ask" then became "the market is open", so a bot woke at 04:00
+  # UTC, ran a full index refresh against a dead key and blamed the index. A credential failure is
+  # not an unknown: it is a definite answer, and the bot must fail on it here, before any trading
+  # work, rather than at some later call that has no idea why nothing has a price.
+  test 'market_open? raises instead of failing open when the clock call is rejected as unauthorized' do
+    # Shaped like the real client: Clients::Alpaca#with_rescue attaches the status to every failure,
+    # and the HTML body of Alpaca's 401 is what becomes the bare "HTTP 401" text.
+    Clients::Alpaca.any_instance.stubs(:get_clock)
+                   .returns(Result::Failure.new('HTTP 401', data: { status: 401 }))
+
+    error = assert_raises(RuntimeError) { @exchange.market_open? }
+    assert_match 'rejected the API key', error.message
+    assert_match 'HTTP 401', error.message
+  end
+
+  test 'next_market_open_at raises on a rejected key rather than returning Time.current' do
+    Clients::Alpaca.any_instance.stubs(:get_clock)
+                   .returns(Result::Failure.new('unauthorized.', data: { status: 401 }))
+
+    assert_raises(RuntimeError) { @exchange.next_market_open_at }
+  end
+
   test 'set_client defaults to paper mode when passphrase is nil' do
     api_key = stub(key: 'test_key', secret: 'test_secret', passphrase: nil)
     @exchange.set_client(api_key: api_key)
@@ -317,6 +340,52 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     result = @exchange.get_candles(ticker: ticker, start_at: 1.day.ago, timeframe: 1.day)
     assert_predicate result, :success?
     assert_equal 1, result.data.size
+  end
+
+  # == corporate-action basis ==
+  #
+  # A stock split rewrites the whole price history. An indicator reading that history has nothing
+  # paired against it and wants it restated onto today's share basis; a series that will be
+  # multiplied by an as-traded ledger quantity wants the prices as they traded.
+
+  test 'get_indicator_candles asks for split-adjusted bars for a stock ticker' do
+    ticker = stock_ticker
+    Clients::Alpaca.any_instance.expects(:get_bars).with do |params|
+      params[:symbol] == 'AAPL' && params[:adjustment] == 'split'
+    end.returns(Result::Success.new({ 'bars' => [] }))
+
+    assert_predicate @exchange.get_indicator_candles(ticker: ticker, start_at: 1.day.ago, timeframe: 1.day),
+                     :success?
+  end
+
+  test 'get_candles leaves a stock ticker on the as-traded basis' do
+    ticker = stock_ticker
+    Clients::Alpaca.any_instance.expects(:get_bars).with do |params|
+      params[:symbol] == 'AAPL' && params[:adjustment].nil?
+    end.returns(Result::Success.new({ 'bars' => [] }))
+
+    assert_predicate @exchange.get_candles(ticker: ticker, start_at: 1.day.ago, timeframe: 1.day), :success?
+  end
+
+  test 'get_indicator_candles for a crypto ticker is the ordinary crypto fetch' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    ticker = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+    Clients::Alpaca.any_instance.expects(:get_bars).never
+    Clients::Alpaca.any_instance.stubs(:get_crypto_bars)
+                   .returns(Result::Success.new({ 'bars' => { 'AAVE/USD' => [] } }))
+
+    assert_predicate @exchange.get_indicator_candles(ticker: ticker, start_at: 1.day.ago, timeframe: 1.day),
+                     :success?
+  end
+
+  test 'restated_candles? separates stocks from crypto on the same venue' do
+    aave = Asset.find_by(external_id: 'aave') || create(:asset, external_id: 'aave', symbol: 'AAVE', category: 'Cryptocurrency')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    crypto = create(:ticker, exchange: @exchange, base_asset: aave, quote_asset: usd, ticker: 'AAVE/USD')
+
+    assert @exchange.restated_candles?(stock_ticker)
+    assert_not @exchange.restated_candles?(crypto)
   end
 
   # == get_tickers_prices (bulk metrics pricing — partitions stock vs. crypto symbols) ==
@@ -668,5 +737,40 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     result = @exchange.get_tickers_prices(symbols: ['AAPL'])
 
     assert_predicate result, :failure?
+  end
+
+  # == invalid-key classification ==
+  #
+  # A rejected Alpaca key arrives in two shapes: the JSON body {"message":"unauthorized."} from the
+  # trading host, and Clients::Alpaca's "HTTP <status>" fallback when the market-data host answers
+  # with an HTML error page. With no :invalid_key list at all, Exchange#invalid_key_error? early
+  # returns false, so nothing ever condemns the key and the tracker keeps showing it as correct.
+  test 'invalid_key_error? recognises the JSON unauthorized body' do
+    assert @exchange.invalid_key_error?(['unauthorized.'])
+  end
+
+  # The HTML-body case arrives as Clients::Alpaca's synthesised "HTTP 401". It surfaces through the
+  # status — the bot error stays truthful — but it must never condemn the key on its own: our client
+  # builds that string from the status, so a WAF or edge 401 would produce it just as readily.
+  test 'an HTML 401 surfaces as a credential failure but does not condemn on its own' do
+    assert @exchange.invalid_key_error?(['HTTP 401'], status: 401)
+    assert_not @exchange.condemning_invalid_key_error?(['HTTP 401'])
+  end
+
+  test 'the JSON unauthorized body is Alpaca own word, and does condemn' do
+    assert @exchange.condemning_invalid_key_error?(['unauthorized.'])
+  end
+
+  test 'invalid_key_error? ignores a failure that is not about credentials' do
+    assert_not @exchange.invalid_key_error?(['insufficient buying power'])
+  end
+
+  private
+
+  def stock_ticker
+    aapl = Asset.find_by(symbol: 'AAPL') || create(:asset, external_id: 'aapl', symbol: 'AAPL', category: 'Stock')
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    Ticker.find_by(exchange: @exchange, base: 'AAPL') ||
+      create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: usd, ticker: 'AAPL')
   end
 end

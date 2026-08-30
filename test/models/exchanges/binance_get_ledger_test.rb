@@ -164,15 +164,86 @@ class Exchanges::BinanceGetLedgerTest < ActiveSupport::TestCase
     assert result.failure?
   end
 
-  test 'passes start_time as milliseconds' do
+  # An incremental sync is floored to the venue's window by the caller, so one call reaches the
+  # present: from the watermark, in milliseconds, once.
+  test 'passes start_time as milliseconds, once' do
     start_time = Time.utc(2026, 3, 20)
     hm_client = mock('honeymaker_client')
     stub_common(hm_client)
 
     expected_ms = (start_time.to_f * 1000).to_i
-    hm_client.expects(:deposit_history).with(has_entry(start_time: expected_ms)).returns(Result::Success.new([]))
-    hm_client.expects(:withdraw_history).with(has_entry(start_time: expected_ms)).returns(Result::Success.new([]))
+    hm_client.expects(:deposit_history).once.with(has_entry(start_time: expected_ms)).returns(Result::Success.new([]))
+    hm_client.expects(:withdraw_history).once.with(has_entry(start_time: expected_ms)).returns(Result::Success.new([]))
 
     @exchange.get_ledger(api_key: @api_key, start_time: start_time)
+  end
+
+  # Binance answers the deposit and withdrawal endpoints for at most 90 days per call, and for the
+  # LAST 90 days when asked for no window at all. A full-history sync used to ask exactly that, so
+  # every deposit and withdrawal older than three months was never fetched — while Convert, asked in
+  # 30-day windows, reached back years. A first sync now walks both in windows from the venue's
+  # opening to the present, and a 2021 withdrawal lands.
+  # A venue's history accumulates under whichever key was current, and a replaced key's rows are
+  # left with no key at all. The pairs an incremental sync asks for are the ACCOUNT's, not the
+  # current key's — or a pair traded before the key changed would never be asked for again.
+  test 'an incremental sync asks for the pairs the account traded under any key' do
+    create(:account_transaction, user: @user, exchange: @exchange, api_key: nil, entry_type: :buy,
+                                 base_currency: 'BTC', base_amount: 1, quote_currency: 'USDT', quote_amount: 20_000,
+                                 transacted_at: Time.utc(2026, 3, 1))
+    hm_client = mock('honeymaker_client')
+    stub_common(hm_client)
+    hm_client.expects(:account_trade_list).with(has_entry(symbol: 'BTCUSDT')).returns(Result::Success.new([]))
+
+    @exchange.get_ledger(api_key: @api_key, start_time: Time.utc(2026, 3, 20))
+  end
+
+  # A window is answered a page at a time, a thousand rows to the page. A busy account's window
+  # holds more than that, and moving on to the next window would leave the rest of this one behind.
+  test 'a window with more transfers than one page holds is read page by page' do
+    hm_client = mock('honeymaker_client')
+    stub_common(hm_client)
+    at = Time.utc(2021, 9, 20, 10, 10, 52)
+    in_window = ->(args) { args[:start_time] <= at.to_i * 1000 && args[:end_time] > at.to_i * 1000 }
+    row = lambda { |index|
+      { 'coin' => 'LTC', 'amount' => '0.001', 'status' => 6, 'transactionFee' => '0',
+        'applyTime' => '2021-09-20 10:10:52', 'txId' => "tx-#{index}" }
+    }
+    hm_client.stubs(:withdraw_history).with { |args| in_window.call(args) && args[:offset].to_i.zero? }
+             .returns(Result::Success.new(Array.new(1000) { |i| row.call(i) }))
+    hm_client.stubs(:withdraw_history).with { |args| in_window.call(args) && args[:offset] == 1000 }
+             .returns(Result::Success.new([row.call(1000)]))
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    assert_equal(1001, result.data.count { |e| e[:entry_type] == :withdrawal })
+  end
+
+  test 'a full-history sync walks deposits and withdrawals in windows back to the start' do
+    hm_client = mock('honeymaker_client')
+    stub_common(hm_client)
+    at = Time.utc(2021, 9, 20, 10, 10, 52)
+    old = { 'coin' => 'LTC', 'amount' => '0.249', 'status' => 6, 'transactionFee' => '0',
+            'applyTime' => '2021-09-20 10:10:52', 'txId' => 'abc' }
+    windows = Hash.new { |hash, key| hash[key] = [] }
+    %i[deposit_history withdraw_history].each do |endpoint|
+      hm_client.stubs(endpoint).with do |args|
+        windows[endpoint] << [args[:start_time], args[:end_time]]
+        true
+      end.returns(Result::Success.new([]))
+    end
+    hm_client.stubs(:withdraw_history)
+             .with { |args| args[:start_time] <= at.to_i * 1000 && args[:end_time] > at.to_i * 1000 }
+             .returns(Result::Success.new([old]))
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    withdrawal = result.data.find { |e| e[:entry_type] == :withdrawal }
+    assert_equal 0.249.to_d, withdrawal[:base_amount], 'a 2021 withdrawal reached'
+    windows.each_value do |calls|
+      assert calls.all? { |from, to| to - from <= 90 * 24 * 3600 * 1000 }, 'no window wider than the venue allows'
+      assert_operator calls.first.first, :<=, Time.utc(2017, 7, 14).to_i * 1000, 'from the venue opening'
+      assert_in_delta Time.current.to_i * 1000, calls.last.last, 60_000, 'to the present'
+      assert calls.each_cons(2).all? { |(_, to), (from, _)| from == to }, 'windows abut, so nothing falls between'
+    end
   end
 end

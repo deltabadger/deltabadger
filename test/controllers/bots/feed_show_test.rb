@@ -53,6 +53,48 @@ class Bots::FeedShowTest < ActionDispatch::IntegrationTest
     assert_match 'This symbol is not permitted', @response.body
   end
 
+  # The tabs are driven by one attribute per row: data-order-type carries the tabs that row
+  # belongs to. Sentence rows are "all", plus "other" when the row has nothing to show in the
+  # Amount/Value/Price columns. A columnar row carries its own single tab, or none at all when
+  # it has no columnar home — that row then never shows under any tab.
+
+  test 'a filled order is a sentence under All and a columnar row under Transactions' do
+    txn = create(:transaction, bot: @bot, external_id: 't1', external_status: :closed, created_at: 1.minute.ago)
+
+    get bot_path(id: @bot.id, format: :turbo_stream, decimals: @decimals)
+
+    assert_equal 'all', row_tabs(dom_id(txn, :timeline))
+    assert_equal 'successful', row_tabs(dom_id(txn))
+  end
+
+  test 'a cancelled order moves to Other as a sentence and keeps no columnar tab' do
+    txn = create(:transaction, bot: @bot, external_id: 'c1', external_status: :cancelled, created_at: 1.minute.ago)
+
+    get bot_path(id: @bot.id, format: :turbo_stream, decimals: @decimals)
+
+    assert_match 'Order cancelled', @response.body
+    assert_equal 'all other', row_tabs(dom_id(txn, :timeline))
+    assert_nil row_tabs(dom_id(txn)), 'the columnar row of a cancelled order must belong to no tab'
+  end
+
+  test 'skipped and failed orders join the same Other tab' do
+    skipped = create(:transaction, :skipped, bot: @bot, created_at: 2.minutes.ago)
+    failed = create(:transaction, :failed, bot: @bot, created_at: 1.minute.ago)
+
+    get bot_path(id: @bot.id, format: :turbo_stream, decimals: @decimals)
+
+    assert_equal 'all other', row_tabs(dom_id(skipped, :timeline))
+    assert_equal 'all other', row_tabs(dom_id(failed, :timeline))
+  end
+
+  test 'an activity row shows under All only' do
+    log = @bot.bot_activity_logs.create!(event: 'started', created_at: 1.minute.ago)
+
+    get bot_path(id: @bot.id, format: :turbo_stream, decimals: @decimals)
+
+    assert_equal 'all', row_tabs(dom_id(log))
+  end
+
   test 'excludes order_skipped activity from the feed' do
     skipped = @bot.bot_activity_logs.create!(event: 'order_skipped', created_at: 1.minute.ago)
 
@@ -60,5 +102,14 @@ class Bots::FeedShowTest < ActionDispatch::IntegrationTest
 
     assert_response :ok
     assert_no_match dom_id(skipped), @response.body
+  end
+
+  private
+
+  # The tabs the given row belongs to, or nil when it carries none.
+  def row_tabs(row_id)
+    row = @response.body[%r{<tr id="#{row_id}".*?</tr>}m]
+    assert row, "expected a row with id #{row_id} in the feed"
+    row[/data-order-type="([^"]*)"/, 1]
   end
 end

@@ -1,21 +1,36 @@
 @use "../variables" as *
 
 .bot-tile
+  border-radius: 2rem
   padding: 2rem
   cursor: pointer
   gap: 1rem
+  // The reserved spot the dragged tile will land in. A real element rather than the dragged tile
+  // restyled: moving the drag source around the grid mid-drag makes Chrome mis-crop its own ghost
+  // and mis-report which tile the pointer is over. Opaque, not see-through — the grid behind it
+  // reads as clutter through a transparent hole.
+  &--placeholder
+    background: var(--paper)
+    box-shadow: none
+    outline: 0.2rem dashed var(--concrete)
+    outline-offset: -0.2rem
   a
     text-decoration: none
   &__header
     display: flex
     justify-content: space-between
     gap: 2rem
+  &__hgroup
+    display: flex
+    align-items: center
+    gap: 1rem
+    min-width: 0
   &__title
-    font-weight: 550
-    font-size: 2.125rem
+    font-weight: 600
+    font-size: 2rem
     line-height: 2rem
     min-height: 2rem
-    color: var(--ash)
+    color: var(--ink)
     display: flex
     align-items: center
     gap: 0.75rem
@@ -33,23 +48,26 @@
   &__subtitle
     color: var(--ash)
     line-height: 4.5rem
-    font-size: 1.75rem
+    font-size: 1.5rem
   &__pnl
     font-weight: 600
-    font-size: 2.125rem
+    font-size: 2rem
     line-height: 2rem
+    max-height: 2rem
     color: var(--stone)
+    // An amount is longer than a percent — let the title ellipsize instead of wrapping this.
+    white-space: nowrap
   .bot-control__status
     border-radius: 0
     padding: 0
     line-height: 3rem
     font-size: 1.75rem
-    font-weight: 550
+    font-weight: 600
     box-shadow: none !important
     &__text
       padding: 0
     &__bar, &::before    
-      height: 0.5rem
+      height: 0.375rem
       border-radius: 2rem
       position: absolute
       bottom: 0

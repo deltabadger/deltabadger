@@ -1,0 +1,329 @@
+@use "../variables" as *
+
+// Segmented control: a recessed track, a raised chip, one option selected.
+//
+// Two sizings. The DEFAULT splits the track into identical columns — right when the labels are
+// the same length, where a chip that changed width would read as a glitch. --fluid lets every
+// option take the width of its own label and the chip follows it, which is the only honest
+// sizing when the labels differ or when the option count depends on the data.
+//
+// The chip's left and width are set in pixels by the `segmented` controller, which measures the
+// selected option. Both sizings therefore share one code path; the CSS difference is a single
+// column rule.
+    
+.rbutton
+    display: flex
+    height: 4rem
+    width: fit-content
+    border-radius: 1rem
+    border: none
+    background: var(--washed)
+    box-shadow: var(--shadow-basic)
+    text-transform: uppercase
+    font-size: 1.5rem
+    font-weight: 600
+    color: var(--link)
+    padding: 1rem 1.5rem
+    justify-content: center
+    align-items: center
+    text-decoration: none
+    // The filled variants: a colour carries the meaning, so the label is white on all of them and
+    // stays white on hover — the default's link colour would read as unfilled halfway through.
+    &--primary, &--danger, &--success
+        color: #fff
+        &:hover
+            color: #fff
+    &--primary
+        background: var(--sky)
+    &--danger
+        background: var(--berry)
+    // The affirmative half of a two-answer prompt. Paired with --danger rather than with the
+    // default: side by side, one styled and one not reads as a disabled button next to a live one.
+    &--success
+        background: var(--grass)
+    // Square, for a button whose whole label is its glyph.
+    &--icon
+        padding: 0 1rem
+        min-width: 4rem
+        svg
+            width: 2rem
+            height: 2rem
+        path
+            fill: var(--link)
+    // Sized to sit inside a table row without setting the row's height.
+    &--small
+        height: 2.75rem
+        border-radius: 0.75rem
+        padding: 0 1rem
+        font-size: 1.5rem
+.segmented
+    position: relative
+    display: grid
+    grid-auto-flow: column
+    grid-auto-columns: 1fr
+    align-items: stretch
+    height: 4rem
+    width: fit-content
+    padding: 0.375rem
+    background: var(--silver)
+    border-radius: 1.25rem
+    box-shadow: var(--shadow-indent)
+    &--fluid
+        grid-auto-columns: auto
+    // Collapsed: the same track and the same chip, folded down to the selected label with a caret
+    // to say the rest are one tap away. The controller trips it by MEASURING — the labels are
+    // translated and the option count depends on the data, so the width that stops fitting is not
+    // a number anyone could write into a breakpoint.
+    &--collapsed
+        display: flex
+        align-items: center
+        gap: 0.25rem
+        cursor: pointer
+        .segmented__thumb
+            position: static
+            align-self: stretch
+            display: flex
+            align-items: center
+            padding: 0 1.5rem
+            font-size: 1.5rem
+            font-weight: 600
+            text-indent: 0.1em
+            text-transform: uppercase
+            white-space: nowrap
+            color: var(--ink)
+            transition: none
+        .segmented__caret
+            display: flex
+            align-items: center
+            padding-right: 0.5rem
+            color: var(--stone)
+        // The dropdown is the BOX; the panes inside it are what slides. Wide enough for the
+        // action's list, because the trigger's own width is no measure of what it opens.
+        .segmented__dropdown
+            display: none
+            position: absolute
+            top: 4.5rem
+            left: 0
+            z-index: 1000
+            width: max(100%, 30rem)
+            overflow: hidden
+            background: var(--dropdown-bg)
+            border-radius: 1.5rem
+            box-shadow: 0 0 0 0.125rem var(--dropdown-border) inset, 0 0.5rem 1rem 0 rgba(6, 26, 79, 0.10)
+            // Height is set in pixels by the controller — the two panes are different heights and
+            // `auto` does not animate.
+            transition: height 0.22s cubic-bezier(0.22, 0.61, 0.36, 1)
+        // flex-start, not the default stretch: the box takes the height of the pane on screen, and
+        // a stretched short pane would measure as the tall one.
+        .segmented__panes
+            display: flex
+            align-items: flex-start
+            width: 200%
+            transition: transform 0.22s cubic-bezier(0.22, 0.61, 0.36, 1)
+        .segmented__menu, .segmented__submenu
+            display: flex
+            flex-direction: column
+            position: static
+            width: 50%
+            flex: none
+            padding: 0.75rem
+            background: none
+            box-shadow: none
+            border-radius: 0
+        // The selected option is already the trigger, wearing the chip. Listing it again would
+        // offer the reader the thing they are looking at.
+        .segmented__option
+            justify-content: flex-start
+            line-height: 3.5rem
+            &.is-on
+                display: none
+        // Same separation, turned through the ninety degrees the menu turned: the gap goes above
+        // it, and the indent that opened it on the track would only break this column's left edge.
+        // The collapse is MEASURED, so the folded look cannot hang off a breakpoint either.
+        .segmented__option--action
+            margin-top: 0.5rem
+            margin-left: 0
+            min-height: 3rem
+            justify-content: center
+            background: var(--silver)
+            box-shadow: none
+        // The whole row, not the glyph: a 3.5rem target at the head of a full-width list is
+        // something the reader has to aim at. The arrow sits where the icons below it sit.
+        .segmented__back
+            display: flex
+            align-items: center
+            width: 100%
+            min-height: 3.5rem
+            margin-bottom: 0.25rem
+            padding: 0 1rem
+            color: var(--stone)
+            background: none
+            border: 0
+            border-radius: 1rem
+            cursor: pointer
+            &:hover
+                color: var(--ink)
+        &.is-open
+            .segmented__dropdown
+                display: block
+        &.is-submenu
+            .segmented__dropdown
+                display: block
+            .segmented__panes
+                transform: translateX(-50%)
+
+// display: contents, so the expanded control is laid out exactly as it was — the options are
+// still the track's own grid items. The wrappers only become boxes once they become a dropdown.
+.segmented__dropdown, .segmented__panes, .segmented__pane
+    display: contents
+
+// The list the action opens. Expanded it is a box of its own hanging off the action at the end
+// of the track; collapsed the rules above turn it into the dropdown's second pane.
+.segmented__submenu
+    display: none
+    position: absolute
+    top: 4.5rem
+    right: 0
+    z-index: 1000
+    min-width: 30rem
+    // Anchored by its right edge to the action that opens it — except where the page itself is
+    // barely wider than the list. A switch narrower than what it opens would push the box off
+    // the left of the screen, and the app's hidden horizontal overflow simply cuts the logos
+    // off. There is always room to the RIGHT of a control that starts at the page's own inset.
+    @media (max-width: 767.9px)
+        right: auto
+        left: 0
+    padding: 0.75rem
+    background: var(--dropdown-bg)
+    border-radius: 1.5rem
+    box-shadow: 0 0 0 0.125rem var(--dropdown-border) inset, 0 0.5rem 1rem 0 rgba(6, 26, 79, 0.10)
+.segmented.is-submenu .segmented__submenu
+    display: block
+
+// Same weight and case as an option, and the same hover: colour alone. A background here would
+// paint --dropdown-hover, which is the accent the action owns.
+.segmented__submenu-item
+    display: flex
+    align-items: center
+    gap: 1rem
+    padding: 0 1rem
+    min-height: 3.5rem
+    font-size: 1.5rem
+    font-weight: 600
+    text-indent: 0.1em
+    text-transform: uppercase
+    white-space: nowrap
+    color: var(--stone)
+    text-decoration: none
+    border-radius: 1rem
+    cursor: pointer
+    &:hover
+        color: var(--ink)
+
+.segmented__submenu-icon
+    display: flex
+    flex: none
+    width: 2rem
+    height: 2rem
+    svg
+        width: 100%
+        height: 100%
+        *
+            fill: currentColor
+
+// Only the folded menu has somewhere to go back TO: expanded, the list is its own box and the
+// click that opens it is the click that closes it.
+.segmented__back
+    display: none
+    svg
+        width: 2rem
+        height: 2rem
+        path
+            stroke: currentColor
+
+.segmented__caret
+    display: none
+    path
+        fill: currentColor
+
+// No border: the chip is lighter than the track it sits in, and a hairline around a fill that
+// already separates itself adds a line and no information.
+.segmented__thumb
+    position: absolute
+    top: 0.375rem
+    bottom: 0.375rem
+    left: 0.375rem
+    border-radius: 1rem
+    background: var(--washed)
+    box-shadow: var(--shadow-paper)
+    // The reset already stops every transition under prefers-reduced-motion.
+    transition: left 0.18s cubic-bezier(0.22, 0.61, 0.36, 1), width 0.18s cubic-bezier(0.22, 0.61, 0.36, 1)
+
+// Weight is CONSTANT across states: a heavier selected label would change the option's width and
+// make the chip lurch on every switch. Colour carries the selection.
+.segmented__option
+    position: relative
+    z-index: 1
+    display: flex
+    align-items: center
+    justify-content: center
+    padding: 0 1.5rem
+    font-family: inherit
+    font-size: 1.5rem
+    font-weight: 600
+    // back in the middle of its slot.
+    text-indent: 0.1em
+    text-transform: uppercase
+    white-space: nowrap
+    color: var(--stone)
+    text-decoration: none
+    background: none
+    border: 0
+    border-radius: 1rem
+    cursor: pointer
+    transition: color 0.11s ease-out
+    &:hover
+        color: var(--ink)
+    &.is-on
+        color: var(--ink)
+    &:focus-visible
+        outline: 2px solid var(--link)
+        outline-offset: 2px
+
+// The action at the end of the track. It DOES something rather than selecting something, so it
+// wears the chip's raised look at rest instead of the dim label of an option waiting to be picked
+// — and it says what it does in words, because a bare glyph at the end of a row of venue names is
+// a control the reader has to guess at.
+.segmented__option--action
+    // Off the last option: touching it, the raised pill reads as one more scope rather than as the
+    // thing that adds one.
+    margin-left: .375rem
+    color: var(--ink)
+    background: var(--washed)
+    box-shadow: var(--shadow-paper)
+    svg
+        width: 1.75rem
+        height: 1.75rem
+    path
+        fill: currentColor
+    &:hover
+        color: #fff
+        background: var(--sky)
+.segmented.is-submenu .segmented__option--action
+    color: #fff
+    background: var(--sky)
+
+// The control collapses when its options outgrow the room its PARENT gives it, so that parent
+// needs a width of its own — a shrink-wrapped one only ever reports the width already in use.
+// Greedy on purpose, and safe to be: the controller measures itself EXPANDED, which squeezes a
+// stretched neighbour back to what it needs, so taking the slack here is not taking it from
+// whatever else shares the row.
+.filters:has(> .segmented)
+    flex: 1
+    min-width: 0
+
+// A currency picker's labels are SYMBOLS, and a symbol is written the way the countries using it
+// write it — "zł", "Fr.". The track's uppercase would turn them back into codes.
+.segmented[data-currency]
+    .segmented__option, .segmented__thumb
+        text-transform: none

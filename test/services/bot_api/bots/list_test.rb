@@ -68,14 +68,14 @@ class BotApi::Bots::ListTest < ActiveSupport::TestCase
     assert_equal 3, result.data[:bots].size
   end
 
-  test 'dual-asset bot pair is base0+base1/quote' do
-    create(:dca_dual_asset, user: @user, status: :scheduled, started_at: Time.current)
+  test 'a multi-asset bot reports its members as the pair' do
+    create(:dca_multi_asset, user: @user)
 
     result = BotApi::Bots::List.call(user: @user)
     row = result.data[:bots].first
 
     assert_equal 'BTC+ETH/USD', row[:pair]
-    assert_equal 'Bots::DcaDualAsset', row[:type]
+    assert_equal 'Bots::DcaMultiAsset', row[:type]
   end
 
   # ---- filtering -----------------------------------------------------------

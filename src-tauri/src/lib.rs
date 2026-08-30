@@ -10,8 +10,12 @@ use tauri::{
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::TrayIconBuilder,
-    ActivationPolicy, Manager, WebviewUrl, WebviewWindowBuilder,
+    Manager, WebviewUrl, WebviewWindowBuilder,
 };
+// Tauri re-exports this only for macOS, and all three call sites are already cfg-gated — an
+// unconditional import is what breaks the Windows and Linux builds.
+#[cfg(target_os = "macos")]
+use tauri::ActivationPolicy;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
 use tauri_plugin_updater::UpdaterExt;
 
@@ -21,6 +25,36 @@ const SECRET_KEY_BASE: &str = "SECRET_KEY_BASE";
 const AR_PRIMARY_KEY: &str = "ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY";
 const AR_DERIVATION_SALT: &str = "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT";
 const AR_EXTERNAL_MARKER: &str = "ACTIVE_RECORD_ENCRYPTION_KEYS_EXTERNAL";
+
+// Injected at document start in the desktop webview, before any page script and before the
+// stylesheet applies, so the chrome never paints in its browser form first.
+//
+// The desktop class has to come from here rather than from the page. script-src carries no
+// 'unsafe-inline', so a view cannot write the guard inline, and shipping it as an asset put a
+// desktop-only file in front of every browser page. A user script is not governed by the page
+// policy — the two flags below have always been set this way.
+//
+// The observer is not belt-and-braces. WKWebView and WebKitGTK inject at document start with
+// <html> already created, so the first call marks it; WebView2 injects before the HTML is
+// parsed at all, where documentElement is null. Waiting for DOMContentLoaded there would land
+// after the stylesheet, which is the flash this script exists to prevent — so the observer
+// takes the class the instant <html> is appended, still ahead of <head>.
+const INITIALIZATION_SCRIPT: &str = concat!(
+    "window.__TAURI_INTERNALS__ = true;",
+    "window.__IS_TAURI__ = true;",
+    "(function () {",
+    "  function mark() {",
+    "    if (!document.documentElement) { return false; }",
+    "    document.documentElement.classList.add('tauri');",
+    "    return true;",
+    "  }",
+    "  if (!mark()) {",
+    "    new MutationObserver(function (records, observer) {",
+    "      if (mark()) { observer.disconnect(); }",
+    "    }).observe(document, { childList: true });",
+    "  }",
+    "})();"
+);
 
 struct RailsServer(Mutex<Option<Child>>);
 
@@ -620,20 +654,27 @@ pub fn run() {
 
                         // Create the main window pointing to Rails
                         let url = format!("http://{}:{}", RAILS_HOST, port);
-                        WebviewWindowBuilder::new(
+                        let window_builder = WebviewWindowBuilder::new(
                             app,
                             "main",
                             WebviewUrl::External(url.parse().unwrap()),
                         )
                         .title("Deltabadger")
-                        .title_bar_style(tauri::TitleBarStyle::Overlay)
-                        .hidden_title(true)
                         .inner_size(1280.0, 800.0)
                         .min_inner_size(320.0, 600.0)
                         .center()
                         .devtools(true)
-                        .initialization_script("window.__TAURI_INTERNALS__ = true; window.__IS_TAURI__ = true;")
-                        .build()?;
+                        .initialization_script(INITIALIZATION_SCRIPT);
+
+                        // The overlay title bar is the macOS look; both builder methods exist only
+                        // on macOS in Tauri 2, so calling them unconditionally does not compile
+                        // anywhere else. Other platforms get their native title bar.
+                        #[cfg(target_os = "macos")]
+                        let window_builder = window_builder
+                            .title_bar_style(tauri::TitleBarStyle::Overlay)
+                            .hidden_title(true);
+
+                        window_builder.build()?;
 
                         // Set up system tray
                         let show_item = MenuItemBuilder::with_id("show", "Show Deltabadger").build(app)?;
@@ -801,5 +842,19 @@ mod tests {
         assert!(!app_data_dir.join(".secrets").exists());
 
         fs::remove_dir_all(root).unwrap();
+    }
+
+    // The desktop chrome hangs off html.tauri, and this script is the only thing that sets it:
+    // the web layouts ship no tauri asset, and the page policy forbids an inline block. If this
+    // string loses the class, the packaged app silently paints as a browser page.
+    #[test]
+    fn the_initialization_script_marks_the_document_as_desktop() {
+        assert!(INITIALIZATION_SCRIPT.contains("window.__IS_TAURI__ = true;"));
+        assert!(INITIALIZATION_SCRIPT.contains("window.__TAURI_INTERNALS__ = true;"));
+        assert!(INITIALIZATION_SCRIPT.contains("classList.add('tauri')"));
+        // The null-documentElement path is the Windows one, and it is the path that cannot be
+        // exercised from here — so what it hangs on is pinned instead.
+        assert!(INITIALIZATION_SCRIPT.contains("new MutationObserver"));
+        assert!(!INITIALIZATION_SCRIPT.contains("DOMContentLoaded"));
     }
 }

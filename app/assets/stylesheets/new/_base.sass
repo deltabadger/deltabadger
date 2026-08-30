@@ -44,17 +44,15 @@ ol, ul
 .page-head
     display: flex
     align-items: center
-    gap: 2rem
+    gap: 1rem
     padding: 1rem 0
-    margin-bottom: 1rem
     font-weight: 600
     justify-content: space-between
     @media only screen and (max-width: 767.9px)
         justify-content: flex-end
-        margin-bottom: 0
     &__controls
         display: flex
-        gap: 2rem
+        gap: 1rem
         align-items: center
         justify-content: space-between
         color: var(--stone)
@@ -175,20 +173,155 @@ ol, ul
                 line-height: calc(3rem * 0.6)
                 letter-spacing: calc(0.25rem * 0.6)
 
+// Left to right, the way the curve that replaces it is read.
+@keyframes dash-axis-sweep
+    from
+        background-position: 100% 0
+    to
+        background-position: 0 0
+
+// The dashboard headline, and the P/L curve that runs into it.
+//
+// The rule under the number is the chart's ZERO line, which is why it is drawn as an absolute rule
+// at --dash-height rather than as the section's own border: a curve dipping into loss hangs below
+// it, and a border would follow the box down. The section grows by exactly that much instead, so
+// the space under the line is reserved rather than borrowed from the row beneath.
 .dash-intro
-    border-bottom: 0.1rem solid var(--steel)
+    --dash-height: 7rem
+    // How far the curve stops short of the section's top and bottom, so it never runs flush
+    // into the row above or the one below.
+    --dash-inset: 1rem
+    position: relative
     display: flex
-    flex-direction: column
-    justify-content: flex-end
-    align-items: flex-end
-    overflow: hidden
-    height: 7rem
+    min-height: var(--dash-height)
     @media only screen and (min-width: 768px)
+        // A section that will hold a plot holds its height from the first paint, whether or not
+        // the curve is there yet: the plot arrives on a later trip, and a section that grew when
+        // it landed would push the whole dashboard down under the reader's pointer.
+        &--plotted
+            min-height: calc(var(--dash-height) * 2 - var(--dash-inset))
+    &::after
+        content: ''
+        position: absolute
+        left: 0
+        right: 0
+        top: var(--dash-height)
+        border-bottom: 0.1rem solid var(--steel)
+    // The wait, drawn as the zero line itself: same place, same weight, with a light running
+    // along it. Above the rule (which is a later sibling in paint order) because it stands in
+    // for it rather than beside it.
+    &__loading
+        position: absolute
+        z-index: 1
+        left: 0
+        right: 0
+        top: var(--dash-height)
+        height: 0.1rem
+        background: linear-gradient(90deg, var(--steel) 40%, var(--ink) 50%, var(--steel) 60%)
+        background-size: 300% 100%
+        animation: dash-axis-sweep 1.6s linear infinite
+        @media (prefers-reduced-motion: reduce)
+            animation: none
+    #global-pnl
         display: flex
+        flex: 1
+        min-width: 0
+        min-height: var(--dash-height)
+        align-items: flex-start
+        justify-content: flex-end
+    // The number is set at 8.2rem in a 7rem line box and pulled a further 1rem down: it is MEANT
+    // to sit on the line and be cropped by it, which is what this box keeps doing now that the
+    // section itself has to let the curve out.
+    // The day under the pointer, just below the zero line and flush with the figure it dates.
+    &__date
+        position: absolute
+        top: calc(var(--dash-height) + 1rem)
+        right: 0
+        color: var(--concrete)
+        font-size: 1.5rem
+        line-height: 1
+        pointer-events: none
+    &__figure
+        display: flex
+        flex-direction: column
+        justify-content: flex-end
+        height: var(--dash-height)
+        overflow: hidden
+        text-align: right
     h1
         color: var(--steel)
         display: block
         font-size: 8.2rem
         line-height: 7rem
-        margin-bottom: -1rem
+        max-height: 7rem
+        margin-bottom: -0.875rem
         font-weight: 600 !important
+        small
+            position: relative
+            top: -0.125rem
+    // Whatever width the number leaves, and the headline's height less the inset, above the zero
+    // line and mirrored below it. Fixed rather than cut to each account's worst day — the rest of
+    // the page would otherwise sit at a height that means something only to this curve.
+    &__spark
+        display: flex
+        flex: 1
+        min-width: 0
+        height: calc(var(--dash-height) * 2 - var(--dash-inset) * 2)
+        margin-top: var(--dash-inset)
+        // The curve is a desktop reading. On a phone the headline already fills the row, and the
+        // space a loss reserves below the line comes out of a layout that has none to give — so
+        // the plot goes entirely, and the section is the 7rem box it always was.
+        @media only screen and (max-width: 767.9px)
+            display: none
+        // Held back until the headline's box has been measured (see pnl_spark_controller.js). The
+        // figure has no reserved width on the first paint, so the curve would be drawn to the
+        // wrong edge and then snap across to the right one.
+        visibility: hidden
+        .is-measured &
+            visibility: visible
+        // Pushed right so the curve always ENDS at the figure it explains; its width is how much
+        // history there is to draw, full at thirty days.
+        &__curve
+            position: relative
+            margin-left: auto
+            height: 100%
+            svg
+                display: block
+                width: 100%
+                height: 100%
+                // A point that reaches an edge is drawn ON it, so half its stroke falls outside
+                // the box. There is nothing to protect there — the section reserved the room.
+                overflow: visible
+        // Green above the zero line, red below it, as on every other chart here. Each half is the
+        // same shape under its own clip, so the colour changes where the curve crosses rather than
+        // at the nearest point to it.
+        .is-gain
+            color: var(--grass)
+        .is-loss
+            color: var(--berry)
+        &__area
+            fill: currentColor
+            opacity: 0.12
+        &__line
+            fill: none
+            stroke: currentColor
+            stroke-width: 0.25rem
+            stroke-linejoin: round
+            stroke-linecap: round
+        &__end,
+        &__dot
+            position: absolute
+            width: 0.75rem
+            height: 0.75rem
+            margin: -0.375rem 0 0 -0.375rem
+            border-radius: 50%
+            pointer-events: none
+        // The last point, always marked; it hangs half off the right edge the way the charts let
+        // theirs hang off the plot.
+        &__end
+            left: 100%
+            background: currentColor
+        // And the hovered one, a ring instead of a disc so the two never read as one figure.
+        &__dot
+            background: var(--washed)
+            border: 0.25rem solid currentColor

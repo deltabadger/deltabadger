@@ -1,4 +1,7 @@
 sk:
+    time:
+        formats:
+            table_clock: '%H:%M'
     meta:
         title: 'Deltabadger'
     header:
@@ -17,6 +20,8 @@ sk:
         authorize: 'Autorizovať'
         disable: 'Vypnúť'
         delete: 'Zmazať'
+        archive: 'Archivovať'
+        reactivate: 'Obnoviť'
         duplicate: 'Duplikovať'
         copy: 'Kopírovať'
         submit: 'Odoslať'
@@ -26,6 +31,7 @@ sk:
         start: 'Spustiť'
         stop: 'Zastaviť'
         next: 'Ďalej'
+        back: 'Späť'
         connect: 'Pripojiť'
         reconnect: 'Pridať nové kľúče'
         understand: 'Rozumiem!'
@@ -42,7 +48,6 @@ sk:
         value_symbol: "Hodnota (%{symbol})"
         invested_symbol: "Investované (%{symbol})"
         date: "Dátum"
-        asset: "Aktívum"
         amount: "Množstvo"
         avg_price: "Priem. cena"
         price: "Cena"
@@ -82,6 +87,9 @@ sk:
             text_html: 'Skontrolujte si e-mail a kliknite na <b>potvrdzovací odkaz</b>, ktorý sme vám zaslali. Potom prejdite na prihlasovaciu stránku.'
             title: Ďakujeme!
     links:
+        hide_balances: 'Skryť zostatky'
+        display_currency: 'Zobrazovaná mena'
+        show_balances: 'Zobraziť zostatky'
         about: O nás
         telegram: 'Telegram'
         create_account: 'Vytvoriť účet zadarmo'
@@ -109,6 +117,8 @@ sk:
             language_updated: "Jazyk bol aktualizovaný."
             updated: "Časové pásmo bolo aktualizované."
             current_time_is: "Toto časové pásmo sa použije v logoch bota. Podľa neho je aktuálny čas"
+            currency_updated: "Zobrazovaná mena bola aktualizovaná."
+            currency_is_used_for: "Zisky a súčty portfólia sa zobrazujú v tejto mene. Boti naďalej obchodujú vo svojom vlastnom kotovacom aktíve."
         name:
             updated: "Meno bolo aktualizované."
         two_fa:
@@ -357,6 +367,7 @@ sk:
         all: 'Všetky'
         active: 'Aktívne'
         inactive: 'Neaktívne'
+        archived: 'Archivované'
     rules:
         index:
             title: 'Pravidlá'
@@ -369,6 +380,7 @@ sk:
                 description: 'Výber prostriedkov z búrz'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatizovať výbery z'
                 withdraw_all: 'Vybrať'
                 from: 'z'
                 to: 'na'
@@ -420,19 +432,30 @@ sk:
             instructions_title: 'Ako získať kľúče z %{exchange}'
             instructions_body: 'Vytvorte API kľúč s oprávnením na výber na %{exchange} a vložte prihlasovacie údaje sem.'
     tracker:
+        price_source:
+            ours: "Naša vlastná cena za ten deň. Zadaj cenu, ktorá ju nahradí."
+            stated: "Tvoja vlastná cena. Vymaž pole a vráti sa naša."
+            none: "Tento riadok sme nedokázali oceniť. Zadaj, koľko stála jedna jednotka."
         welcome:
             connect_and_track: "Pripoj svoju burzu a začni sledovať svoje portfólio."
         sync_key_error_html: 'Synchronizácia s <strong>%{exchange}</strong> zlyhala: %{message}. Aktualizuj API kľúč nižšie.'
+        sync_permission_error_html: "<strong>%{exchange}</strong> sa nepodarilo synchronizovať: tento API kľúč nemá oprávnenie potrebné na čítanie %{capability}. Aktualizuj oprávnenia kľúča na %{exchange} alebo vytvor nový kľúč so všetkými oprávneniami z návodu."
+        sync_transient_error_html: "<strong>%{exchange}</strong> je dočasne nedostupná. Skús synchronizáciu znova o pár minút."
+        sync_generic_error_html: "Synchronizácia s <strong>%{exchange}</strong> zlyhala: %{message}. Skús to znova."
+        capabilities:
+            transactions: "tvojej histórie transakcií"
+            balances: "tvojich zostatkov"
         sync_failed_for: 'Synchronizácia s %{exchanges} zlyhala. Niektoré transakcie z týchto búrz môžu chýbať — prehľady vygenerované teraz preto nemusia byť úplné.'
         pricing_warning_html: Zostatky synchronizované, ale ceny v USD nie sú momentálne dostupné (%{message}). Graf použije posledné známe ceny, kým sa služba neobnoví.
         portfolio:
             never_synced: Klikni na „Synchronizovať", aby si načítal svoje portfólio.
             no_balances: Na pripojených burzách sa nenašli žiadne zostatky.
+            only_cash: "Iba hotovosť a stablecoiny — zapnite Zobraziť hotovosť, aby ste ich videli."
             unpriced: 'Cena nie je dostupná pre: %{assets}'
         sync: 'Synchronizovať'
         sync_started: 'Synchronizácia transakcií z vašich búrz...'
         importing_from: 'Import dát z %{exchange}…'
-        get_report: 'Získať prehľad'
+        get_report: 'Daňový prehľad'
         filter: 'Filter'
         bot: 'Bot'
         no_results: 'Pre vybrané filtre neboli nájdené žiadne transakcie.'
@@ -506,6 +529,71 @@ sk:
             generating: 'Generujem daňový prehľad...'
             download_ready: 'Daňový prehľad je pripravený. Kliknite na stiahnutie.'
             failed: 'Prehľad sa nepodarilo vygenerovať. Skontrolujte vybrané nastavenia a skúste to znova.'
+        holdings: 'Držané aktíva'
+        unrealised: 'Nerealizovaný'
+        tiles:
+            unrealised_pnl: 'Nerealizovaný Z/S'
+            total_pnl: 'Celkový Z/S'
+            total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} z toho prišlo bez nákupu: rabaty, airdropy, odmeny zo stakingu, drobné konverzie, aktíva bez skoršieho záznamu.'
+        import:
+            title: 'Import'
+            nothing_new: 'Všetky transakcie z tohto súboru už v histórii máš.'
+            imported: 'Importovaných %{count} transakcií.'
+            reading: 'Načítava sa súbor…'
+            error_unknown_timezone: 'Názov tohto súboru už neuvádza, v akom časovom pásme ho Binance exportoval. Nahraj ho pod názvom, ktorý mu dal Binance.'
+            drop: 'Presuň sem súbor CSV'
+            drop_hint: 'alebo klikni a vyber súbor'
+            which_account: 'Tento súbor môže byť z oboch účtov Binance. Z ktorého?'
+            unrouted: 'Pre %{exchanges} nie je pripojený účet. Tieto riadky sa vynechali.'
+            error_no_account_for_format: 'Pre tento formát nie je pripojený zodpovedajúci účet.'
+            format: 'Formát'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Účet'
+            file: 'Súbor'
+            importing: 'Importuje sa…'
+            confirm: 'Importovať'
+            skipped: '%{count} riadkov sa nepodarilo uložiť.'
+            unrecognised: 'Neimportované, neznáme operácie: %{operations}'
+            error_unreadable: 'Tento súbor nie je vo zvolenom formáte.'
+            error_malformed: 'Súbor sa nepodarilo prečítať.'
+            error_no_file: 'Najprv vyber súbor.'
+            error_no_account: 'Vyber účet pre import.'
+            no_account: 'Najprv pripoj burzu — import patrí k účtu.'
+        positions: 'Pozície'
+        transactions: 'Transakcie'
+        fees_paid: 'Zaplatené poplatky'
+        synced_ago: 'Synchronizované pred %{ago}'
+        show_cash: 'Zobraziť hotovosť'
+        show_more: 'Zobraziť viac'
+        show_less: 'Zobraziť menej'
+        other: 'Ostatné'
+        basis_incomplete: 'Pri tomto aktíve chýba obstarávacia cena, preto zisk ani stratu nezobrazujeme.'
+        notes:
+            left: '%{exchange} hlási %{held} %{symbol}; história vysvetľuje %{history}. Rozdiel sa považuje za odídený za obstarávaciu cenu (%{amount}).'
+            arrived: '%{exchange} hlási %{held} %{symbol}; história vysvetľuje %{history}. Rozdiel sa považuje za prijatý za jeho cenu (%{amount}).'
+            since_sync: '%{symbol} kúpené od poslednej synchronizácie: ocenené obstarávacou cenou (%{amount}) do tej ďalšej.'
+            cash_out: 'História drží %{history} %{symbol}; %{exchange} hlási %{held}. Rozdiel (%{amount}) sa považuje za odvedený.'
+            cash_in: 'História drží %{history} %{symbol}; %{exchange} hlási %{held}. Rozdiel (%{amount}) sa považuje za privedený.'
+            unpriced_held: '%{history} %{symbol} prišlo bez dohľadateľnej ceny; ocenené nulovou obstarávacou cenou (dnes v hodnote %{amount}).'
+            unpriced: '%{amount} sa predalo z aktív bez známej ceny; ich obstarávacia cena sa považuje za nulovú.'
+            at_par: 'Pre %{symbol} dnes nie je kurz; brané v parite.'
+            figures_disagree: 'Tieto čísla nesedia (odchýlka %{amount}). Niečo je zle, čo žiadny predpoklad nepredvídal.'
+            your_exchanges: 'Burza'
+            estimated: '%{symbol}: časť obstarávacej ceny je trhová cena dňa príchodu, nie realizovaný obchod.'
+        record:
+            all: 'Všetko'
+            transfer: 'Prevod'
+            open: 'Otvorená'
+            win: 'Zisk'
+            loss: 'Strata'
+            closed: 'Uzavretá'
+            cash: 'Hotovosť'
+        range:
+            '30d': '30D'
+            '1y': '1R'
+            all: 'Všetko'
         filters:
             all: 'Všetky'
         columns:
@@ -518,6 +606,13 @@ sk:
             fee: 'Poplatok'
             exchange: 'Burza'
             bot: 'Bot'
+            price: 'Cena'
+            opened: 'Otvorené'
+            status: 'Stav'
+            invested: 'Investované'
+            avg_buy: 'Priem. nákup'
+            hold: 'Trvanie'
+            name: 'Aktívum'
         types:
             buy: 'Nákup'
             sell: 'Predaj'
@@ -540,11 +635,35 @@ sk:
         all: 'Všetky'
         successful: 'Úspešné'
         transactions: 'Transactions' # TODO: translate (English placeholder)
-        cancelled: 'Zrušené'
         waiting: 'Naplánované'
+        other: 'Ostatné'
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            asset_split: "%{base} split %{ratio} — broker prepočítal počet akcií"
+            asset_split_unknown_ratio: "%{base} prešiel splitom — broker prepočítal počet akcií"
+            rebalance_sell_placed: 'Rebalansovanie — predaj nadváženého aktíva'
+            rebalance_buy_placed: 'Rebalansovanie — spätný nákup podváženého aktíva'
+            rebalance_dust: 'Príliš malý zvyšok na rebalansovanie — ostáva v hotovosti'
+            rebalance_ambiguous: 'Stav rebalansovacieho pokynu nepotvrdený — pozastavené, aby nebol zadaný dvakrát'
+            rebalance_manually_resolved: 'Rebalansovanie ručne obnovené'
+            dca_skipped_rebalance_pending: 'Príspevok preskočený — rebalansovanie stále prebieha'
+            liquidation_requested: "Predávam aktíva, ktoré opustili index"
+            liquidation_placed: "Predávam aktívum, ktoré opustilo index"
+            liquidation_skipped: "Aktívum, ktoré opustilo index, sa nepodarilo predať — zostáva"
+            liquidation_ambiguous: "Stav predajného pokynu nepotvrdený — pozastavené, aby nebol zadaný dvakrát"
+            liquidation_manually_resolved: "Nepotvrdený predaj vymazaný ručne"
+            liquidation_market_closed: "Trh zatvorený — nič sa nepredalo"
+            liquidation_not_started: "Nič sa nepredalo — bot bol zaneprázdnený alebo sa index nepodarilo obnoviť"
+            liquidation_failed: "Selling failed: %{error}"
+            redeploy_requested: "Vraciam peniaze späť do koša"
+            redeploy_placed: "Nakupujem späť do koša za získané prostriedky"
+            redeploy_skipped: "Časť prostriedkov sa nepodarilo vložiť späť — zostala v hotovosti"
+            redeploy_ambiguous: "Stav pokynu na opätovné vloženie nepotvrdený — pozastavené, aby nebol odoslaný dvakrát"
+            redeploy_manually_resolved: "Nepotvrdené opätovné vloženie vymazané ručne"
+            redeploy_not_started: "Nič nebolo vložené späť — bot bol zaneprázdnený alebo nezostalo čo vložiť"
+            redeploy_failed: "Opätovné vloženie zlyhalo: %{error}"
+            dca_skipped_liquidation_pending: "Príspevok preskočený — stále prebieha predaj"
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'
@@ -583,6 +702,8 @@ sk:
             upgrade_hint: Aktualizuj svoj plán CoinGecko alebo použi deltabadger.com pre kompletné historické dáta.
             deposit_basis_assumed: Obstarávacia cena týchto neprepojených vkladov odhadnutá podľa trhovej hodnoty
             deposit_basis_assumed_hint: Prepojte každý vklad so zodpovedajúcim výberom v Trackeri, aby sa použila skutočná obstarávacia cena.
+            stated_values: "Hodnoty, ktoré si zadal ručne"
+            stated_values_hint: "Tieto sumy pochádzajú od teba, nie z burzy. Pred podaním priznania ich over podľa vlastných záznamov."
             exchange_sync_failed: 'Údaje z %{exchange} môžu chýbať — posledná synchronizácia zlyhala. Znova synchronizujte v Trackeri a prehľad vygenerujte nanovo.'
             exchange_never_synced: 'Burza %{exchange} ešte nebola synchronizovaná — tento prehľad neobsahuje žiadne jej transakcie. Synchronizujte ju v Trackeri a prehľad vygenerujte znova.'
         headers:

@@ -1,23 +1,50 @@
+<%# A hide-balances toggle in another tab refreshes this one. Subscribed per page rather than in
+    the layout: the refresh REPLACES the document, so a settings or setup page listening for it
+    would throw away whatever the user had half-typed into an email, password or API-key form.
+    Only the pages that state balances have anything to re-render. %>
+<%= turbo_stream_from "user_#{current_user.id}", :preferences %>
 <%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
 
-<% if @bots.empty? %>
+<%# Not @bots.empty?: a user whose bots are all archived still has bots, and needs the filter row. %>
+<% if @total_bots.zero? && !@has_archived %>
   <% if @auto_open_dca %>
-    <% content_for :modal_src, new_bots_dca_single_assets_pick_buyable_asset_path(auto_open: true) %>
+    <% content_for :modal_src, new_bots_dca_single_assets_pick_exchange_path(auto_open: true) %>
     <% content_for :hide_chrome, true %>
   <% end %>
   <%= render partial: 'bots/new_menu_start' %>
 <% else %>
-  <%= tag.section class: 'dash-intro', data: @global_pnl_loading ? { controller: "broadcast--on-connect",
-                                                                     broadcast__on_connect_method_value: "global_pnl_update" } : {} do %>
-    <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, loading: @global_pnl_loading } %>
+  <%# The total is asked for ONCE per page load, and asked again only while its spinner is still
+      there — a lost request, a failed job or a broadcast that landed during a disconnect. The
+      per-bot tile jobs no longer broadcast it as a side effect. %>
+  <%# The curve is asked for on the same trip as the total: one job renders both, so a cold
+      headline and a cold curve cost one pass between them. Only the headline's wait is RETRIED —
+      it is the one holding a spinner; a curve that never arrives leaves a page that reads
+      correctly and asks again on the next load. %>
+  <% pnl_pass = @global_pnl_loading || @global_pnl_history_loading %>
+  <%# The plot's space is held from the first paint — it is drawn on a later trip than the page,
+      and a section that grew when it landed would push the dashboard down under the reader. Held
+      for a curve that is on its way as much as for one already here; only an account with nothing
+      to plot at all keeps the plain headline strip. %>
+  <%= tag.section class: ['dash-intro', ('dash-intro--plotted' if pnl_pass || @global_pnl_history)],
+                  data: pnl_pass ? { controller: "broadcast--on-connect",
+                                     broadcast__on_connect_method_value: "global_pnl_update",
+                                     broadcast__on_connect_retry_while_value:
+                                       ("#global-pnl .dash-intro__loading" if @global_pnl_loading) }.compact : {} do %>
+    <%= render partial: 'bots/global_pnl', locals: { global_pnl: @global_pnl, denomination: @denomination,
+                                                     loading: @global_pnl_loading, history: @global_pnl_history,
+                                                     hide_balances: current_user.hide_balances? } %>
   <% end %>
   
   <div class="page-head page-head--bots">
     <div class="filters">
+      <%# Fluid: "All" and "Inactive" are nowhere near the same width, so equal columns would
+          pad the short label out of proportion. %>
       <% if @show_filters %>
-        <%= link_to t('bot_filters.all'), bots_path(filter: 'all'), class: ["sbutton sbutton--multi", ("sbutton--multi--active" if @filter == 'all')] %>
-        <%= link_to t('bot_filters.active'), bots_path(filter: 'active'), class: ["sbutton sbutton--multi", ("sbutton--multi--active" if @filter == 'active')] %>
-        <%= link_to t('bot_filters.inactive'), bots_path(filter: 'inactive'), class: ["sbutton sbutton--multi", ("sbutton--multi--active" if @filter == 'inactive')] %>
+        <%= render 'shared/segmented', fluid: true, label: t('bot_filters.all'),
+                   options: (%w[all active inactive] + (@has_archived ? %w[archived] : [])).map { |filter|
+                     { value: filter, label: t("bot_filters.#{filter}"),
+                       href: bots_path(filter: filter), active: @filter == filter }
+                   } %>
       <% end %>
     </div>
 
@@ -29,10 +56,23 @@
     </div>
   </div>
 
-  <% ids_to_load = @loading_hash.select { |_, loading| loading }.keys %>
-  <%= tag.div class: 'itiles', data: ids_to_load.any? ? { controller: "broadcast--on-connect",
-                                                          broadcast__on_connect_method_value: "pnl_update",
-                                                          broadcast__on_connect_method_args_value: {    bot_ids: ids_to_load }.to_json } : {} do %>
-    <%= render partial: 'bots/bot_tile/bot_tile', collection: @bots, as: :bot, locals: { pnl_hash: @pnl_hash, loading_hash: @loading_hash } %>
+  <%# The drag is handled here rather than per tile: every drag event bubbles, so one set of
+      handlers covers the whole grid and survives a tile being swapped in by a broadcast.
+
+      Two controllers share the element — the reorder drag is always on, the P&L refresh only while
+      some tile is still cold — so the second is appended to the data-controller list rather than
+      replacing it. Overwriting would leave those tiles spinning until the next manual reload. %>
+  <% tile_data = { controller: "bots-reorder", bots_reorder_url_value: reorder_bots_path,
+                   action: %w[pointerdown dragstart drag dragover drop dragend]
+                             .map { |e| "#{e}->bots-reorder##{e}" }.join(' ') } %>
+  <% if @tile_refresh_ids.any? %>
+    <% tile_data.merge!(controller: "bots-reorder broadcast--on-connect",
+                        broadcast__on_connect_method_value: "pnl_update",
+                        broadcast__on_connect_method_args_value: { bot_ids: @tile_refresh_ids }.to_json) %>
+  <% end %>
+  <%= tag.div class: 'itiles', data: tile_data do %>
+    <%= render partial: 'bots/bot_tile/bot_tile', collection: @bots, as: :bot,
+               locals: { pnl_hash: @pnl_hash, profit_usd_hash: @profit_usd_hash,
+                         loading_hash: @loading_hash, denomination: @denomination } %>
   <% end %>
 <% end %>

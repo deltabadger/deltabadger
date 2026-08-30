@@ -1,0 +1,53 @@
+@use "../variables" as *
+
+// One chip, one size, five tones.
+//
+// The size is the table's: short enough to sit inside a row without setting the row's height, and
+// the same in a card, a bar or a cell — a chip that changes size with its context reads as three
+// components rather than one. `.ticker` and `.tag` are a different thing entirely: those are the
+// big filled chips a form or a settings row is built from.
+//
+// The tone is the only thing that varies, and it varies by MEANING rather than by domain: a gain
+// is green whether it is a buy, a closed win or a positive figure, so one modifier says so
+// everywhere and a recolour lands in one place. The tint is derived from `color`, so a tone is a
+// single declaration and its fill can never drift from its text.
+.pill
+    display: inline-flex
+    align-items: center
+    // Placed by the parent's x-height rather than by its own text baseline: a chip is a box, and
+    // where its label happens to sit inside it should not decide where the box lands on the line.
+    vertical-align: middle
+    height: 2.5rem
+    padding: 0 1.125rem
+    border-radius: 1.25rem
+    font-family: inherit
+    font-size: 1.25rem
+    font-weight: 700
+    letter-spacing: 0.1em
+    text-transform: uppercase
+    white-space: nowrap
+    color: var(--stone)
+    background: color-mix(in srgb, currentColor 12%, transparent)
+    &--up
+        color: var(--grass)
+    &--down
+        color: var(--berry)
+    // Something arriving, or a position still running.
+    &--info
+        color: var(--link)
+    // Something leaving.
+    &--warn
+        color: var(--warning)
+    // A classification rather than a state — an asset type, a transfer, a row the app does not
+    // place. An outline, so a column of them does not read as a column of alarms.
+    &--quiet
+        color: var(--concrete)
+        background: none
+        box-shadow: inset 0 0 0 1px var(--steel)
+
+// A chip is a box, not a word, so a container whose content IS one carries no leading: 3rem of
+// line-height around a 2.5rem chip puts the baseline 2rem down and hangs the chip below it, low in
+// the row. With the leading gone the chip governs its own line box, and the cell or grid item it
+// sits in centres it.
+td:has(> .pill), .tracker-holdings__type
+    line-height: 1

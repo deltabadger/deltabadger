@@ -285,8 +285,7 @@ module Bot::PriceDropLimitable
   end
 
   def price_drop_limit_condition_currently_met?
-    result = get_price_drop_limit_condition_met?
-    result.success? && result.data
+    limit_condition_met?(get_price_drop_limit_condition_met?)
   end
 
   # Side-suffixed so a flip never renders the buy-side high as the sell-side low (or vice versa)

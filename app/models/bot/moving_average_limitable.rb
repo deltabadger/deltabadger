@@ -273,8 +273,7 @@ module Bot::MovingAverageLimitable
   end
 
   def moving_average_limit_condition_currently_met?
-    result = get_moving_average_limit_condition_met?
-    result.success? && result.data
+    limit_condition_met?(get_moving_average_limit_condition_met?)
   end
 
   # Side-suffixed so a flip never renders the buy-side reading from a stale cache entry.

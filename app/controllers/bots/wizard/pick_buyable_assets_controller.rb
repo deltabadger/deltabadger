@@ -1,7 +1,7 @@
-# Shared "pick the asset to buy" wizard step (single first step, dual second
-# asset, signals first step). The three `new` actions genuinely diverge
-# (session init vs prerequisite guard, label timing), so subclasses keep their
-# own; the base holds the shared create skeleton and the view-state setup.
+# "Pick the asset to buy" wizard step for the signals wizard (the DCA wizard's
+# asset step collects a basket and lives in Bots::DcaSingleAssets::
+# PickBuyableAssetsController). `new` stays with the subclass (session init);
+# the base holds the create skeleton and the view-state setup.
 class Bots::Wizard::PickBuyableAssetsController < ApplicationController
   before_action :authenticate_user!
 
@@ -28,8 +28,8 @@ class Bots::Wizard::PickBuyableAssetsController < ApplicationController
 
   def build_bot = bot_relation.new(sanitized_bot_config)
 
-  # Session adjustment before storing the pick (single restarts the wizard,
-  # signals re-initialises an expired session, dual leaves it untouched).
+  # Session adjustment before storing the pick (signals re-initialises an
+  # expired session).
   def prepare_session_for_pick; end
 
   # View state the :new template needs — shared by `new` and `create`'s 422 re-render.

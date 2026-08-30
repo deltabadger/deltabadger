@@ -52,12 +52,30 @@ export default class extends Controller {
       return;
     }
 
+    // The dialog is the wizard's only scroller and it outlives the steps rendered inside it, so a
+    // step swapped in after the user scrolled the last one would open partway down. A same-step
+    // re-render ("stay") keeps its place.
+    const stepChange = event.target.id === "modal_content" &&
+      document.documentElement.dataset.wizardDir !== "stay";
+    const scrollStepToTop = () => event.target.closest("dialog")?.scrollTo({ top: 0 });
+
     // Wrap the wizard frame swap in a View Transition so named parts
     // (conversational sentence + step body) can morph / slide.
     if (event.target.id === "modal_content" && document.startViewTransition) {
+      // A same-step re-render (adding or removing a basket member) is not a step
+      // change: swap in place, no slide.
+      if (document.documentElement.dataset.wizardDir === "stay") {
+        delete document.documentElement.dataset.wizardDir;
+        return;
+      }
       const originalRender = event.detail.render;
       event.detail.render = (currentElement, newElement) => {
-        const transition = document.startViewTransition(() => originalRender(currentElement, newElement));
+        // Inside the callback, so the reset is part of the transitioned state change rather than a
+        // jump captured just before it.
+        const transition = document.startViewTransition(() => {
+          scrollStepToTop();
+          originalRender(currentElement, newElement);
+        });
         transition.finished.finally(() => {
           delete document.documentElement.dataset.wizardDir;
         });
@@ -65,13 +83,17 @@ export default class extends Controller {
       return;
     }
 
+    // No View Transition support (Firefox): reset outright.
+    if (stepChange) scrollStepToTop();
+
     // Fallback: existing class-based animate-in/out path.
     this.#animateElementToRemove(event.detail.newFrame.id, "", event);
     this.#animateElementToAdd(event.detail.newFrame, "");
   }
 
   // Set the wizard direction flag *before* Turbo kicks off the transition, so the
-  // CSS in _wizard-transitions.sass can pick the matching slide direction.
+  // CSS in _wizard-transitions.sass can pick the matching slide direction ("back",
+  // "enter" = fade only), or skip the transition for a same-step re-render ("stay").
   #handleClickEvent = (event) => {
     const trigger = event.target.closest("[data-wizard-dir]");
     if (!trigger) return;

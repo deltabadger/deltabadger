@@ -26,6 +26,16 @@
       top: -0.125rem
     path
       fill: var(--menulink)
+    // The switch sits beside its label, and the pair stays centred like every other row here.
+    &--switch
+      display: flex
+      align-items: center
+      justify-content: center
+      gap: 1.5rem
+    // The picker is its own row and centres like the rest of them; the track carries the padding.
+    &--currency
+      display: flex
+      justify-content: center
   &__button
     background: none
     border: none

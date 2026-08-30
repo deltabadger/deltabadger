@@ -16,37 +16,65 @@ class BotsController < ApplicationController
     end
 
     @filter = params[:filter] || 'all'
-    @bots = non_deleted_bots.includes(:exchange)
-    case @filter
-    when 'active'
-      @bots = @bots.working
-    when 'inactive'
-      @bots = @bots.where(status: %i[created stopped])
-    end
-    @bots = @bots.order(label: :asc)
+    scope = non_deleted_bots.includes(:exchange)
+    @bots = case @filter
+            when 'active' then scope.working
+            when 'inactive' then scope.where(status: %i[created stopped])
+            when 'archived' then scope.archived
+            else scope.not_archived
+            end
+    @bots = @bots.ordered
 
-    @total_bots = current_user.bots.not_deleted.size
+    @total_bots = current_user.bots.not_deleted.not_archived.size
     @has_active = current_user.bots.not_deleted.working.exists?
     @has_inactive = current_user.bots.not_deleted.where(status: %i[created stopped]).exists?
-    @show_filters = @total_bots > 1 && @has_active && @has_inactive
+    @has_archived = current_user.bots.archived.exists?
+    # Archived bots are reachable through their own filter only, so its presence alone has to be
+    # enough to show the row — otherwise archiving would put a bot somewhere with no way back.
+    @show_filters = (@total_bots > 1 && @has_active && @has_inactive) || @has_archived
 
+    hide_balances = current_user.hide_balances?
     @pnl_hash = {}
+    @profit_usd_hash = {}
     @loading_hash = {}
-    @metrics_hash = {}
+    rates = {} # one FX lookup per currency for the whole page, not per tile
     @bots.each do |bot|
-      next unless bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index? || bot.signal?
+      next unless bot.dca_single_asset? || bot.dca_index? || bot.dca_multi_asset? || bot.signal?
 
       metrics_with_current_prices = bot.metrics_with_current_prices_from_cache
-      @pnl_hash[bot.id] = metrics_with_current_prices[:pnl] unless metrics_with_current_prices.nil?
       @loading_hash[bot.id] = metrics_with_current_prices.nil?
-      @metrics_hash[bot.id] = metrics_with_current_prices unless metrics_with_current_prices.nil?
+      next if metrics_with_current_prices.nil?
+
+      @pnl_hash[bot.id] = metrics_with_current_prices[:pnl]
+      # The amount was the only thing an FX rate was needed for; with balances hidden the tile has
+      # nothing to convert, and _bot_tile_pnl already renders the amount only when one is present.
+      next if hide_balances
+
+      @profit_usd_hash[bot.id] = bot.profit_in_usd(metrics_with_current_prices, rates: rates)
     end
+
+    # A tile whose FX rate was cold renders its percent but no amount. Ask for the same async
+    # refresh a cold-metrics tile gets: that job runs outside the request and may fetch the
+    # rate, so the amount fills in instead of staying blank until the next page load.
+    @tile_refresh_ids = @loading_hash.select { |_, loading| loading }.keys
+    @tile_refresh_ids += @profit_usd_hash.select { |_, usd| usd.nil? }.keys unless hide_balances
 
     # Cache-only: never make a live exchange/FX call in the index request. When the
     # snapshot is still loading, the view fires an async global_pnl_update broadcast.
     global_pnl_snapshot = current_user.global_pnl_snapshot(cache_only: true)
     @global_pnl = global_pnl_snapshot[:result]
     @global_pnl_loading = global_pnl_snapshot[:loading]
+    # The same figure over time. Its source is the candle-marked metrics the bot charts use, which
+    # nothing warms in the background — so like the headline it has a waiting state, and the view
+    # asks for the live pass that fills it.
+    if @global_pnl
+      history = User::PnlHistory.snapshot(current_user)
+      @global_pnl_history = history[:result]
+      @global_pnl_history_loading = history[:loading]
+    end
+    # Figures stay in USD all the way here; this is the one rate that turns the whole page
+    # into the account's chosen fiat.
+    @denomination = current_user.denomination
   end
 
   def new
@@ -57,14 +85,18 @@ class BotsController < ApplicationController
   end
 
   def show
-    if request.format.turbo_stream?
+    # A plain revisit can arrive with this same Accept header: browsers replay a form
+    # submission's headers when following its redirect, so any redirect landing here looks
+    # turbo_stream too. `decimals` is what the orders-pagination frame always sends and nothing
+    # else does, so its absence means this isn't that frame — fall through to the full page.
+    if request.format.turbo_stream? && params[:decimals].present?
       feed = BotActivityFeed.new(bot: @bot, before: params[:before], limit: 10)
       @feed_items = feed.items
       @next_cursor = feed.next_cursor
       permitted_params = params.require(:decimals).permit(*Asset.all.pluck(:symbol))
       @decimals = permitted_params.transform_values(&:to_i)
     else
-      @other_bots = current_user.bots.not_deleted.order(label: :asc).where.not(id: @bot.id).pluck(:id, :label, :type)
+      @other_bots = current_user.bots.not_deleted.not_archived.ordered.where.not(id: @bot.id).pluck(:id, :label, :type)
 
       # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
       if @bot.dca_single_asset?
@@ -72,23 +104,12 @@ class BotsController < ApplicationController
           @bot.base_asset.symbol => @bot.decimals[:base],
           @bot.quote_asset.symbol => @bot.decimals[:quote]
         }
-      elsif @bot.dca_dual_asset?
-        @decimals = {
-          @bot.base0_asset.symbol => @bot.decimals[:base0],
-          @bot.base1_asset.symbol => @bot.decimals[:base1],
-          @bot.quote_asset.symbol => @bot.decimals[:quote]
-        }
       elsif @bot.dca_index?
-        @decimals = {}
-        @decimals[@bot.quote_asset.symbol] = @bot.decimals[:quote] if @bot.quote_asset.present?
-        # Add decimals for all index assets
-        @bot.bot_index_assets.in_index.includes(:ticker).each do |bia|
-          next unless bia.ticker.present?
-
-          @decimals[bia.ticker.base] = bia.ticker.base_decimals
-        end
+        @decimals = composition_decimals(@bot)
         # Build index preview from bot's current state
         @index_preview = @bot.current_index_preview
+      elsif @bot.dca_multi_asset?
+        @decimals = composition_decimals(@bot)
       elsif @bot.signal?
         @decimals = {
           @bot.base_asset.symbol => @bot.decimals[:base],
@@ -105,13 +126,17 @@ class BotsController < ApplicationController
       # prices is always the at-least-as-fresh source for the balances table.
       @metrics = prices_data || combined_data || @bot.metrics
       @chart_metrics = combined_data || @metrics
+
+      # Force html: a stray turbo_stream Accept (see above) would otherwise resolve to
+      # show.turbo_stream.erb, which expects the pagination frame's @feed_items/@next_cursor.
+      render :show, formats: :html
     end
   end
 
   def edit; end
 
   def update
-    @bot.set_missed_quote_amount if @bot.dca_single_asset? || @bot.dca_dual_asset? || @bot.dca_index?
+    @bot.set_missed_quote_amount if @bot.dca_single_asset? || @bot.dca_index? || @bot.dca_multi_asset?
 
     if @bot.update(update_params)
       # flash.now[:notice] = t('alert.bot.bot_updated')
@@ -121,8 +146,8 @@ class BotsController < ApplicationController
     end
   end
 
-  # Manual ⇄ flip: turn a single-asset DCA bot around to sell (or back to buy). Reversing
-  # only changes direction + reschedules; flip_direction! owns the Accountable guard and the
+  # Manual ⇄ rotation: buy → sell N base → sell for N quote → buy. Rotating only changes the
+  # direction/denomination + reschedules; flip_direction! owns the Accountable guard and the
   # reschedule. Deferred (with a notice, no error) while the bot is mid-execution or a job is
   # claimed — flip_direction!'s cancellation cannot reach an already-claimed job.
   def reverse
@@ -131,7 +156,7 @@ class BotsController < ApplicationController
     if @bot.executing? || @bot.flip_blocked_by_inflight_job?
       flash.now[:notice] = t('bot.reverse_in_progress')
     else
-      @bot.flip_direction!
+      @bot.rotate_direction!
     end
     render :reverse
   end
@@ -155,20 +180,24 @@ class BotsController < ApplicationController
     )
   end
 
-  def dca_dual_asset_bot_params
-    params.require(:bots_dca_dual_asset).permit(
-      :label,
-      :exchange_id,
-      *Bots::DcaDualAsset.stored_attributes[:settings],
-      *BUY_TRIGGER_MODE_KEYS
-    )
-  end
-
   def dca_index_bot_params
     params.require(:bots_dca_index).permit(
       :label,
       :exchange_id,
       *Bots::DcaIndex.stored_attributes[:settings]
+    )
+  end
+
+  def dca_multi_asset_bot_params
+    params.require(:bots_dca_multi_asset).permit(
+      :label,
+      :exchange_id,
+      :add_asset_id,
+      :remove_asset_id,
+      :normalize_allocations,
+      *(Bots::DcaMultiAsset.stored_attributes[:settings] - %i[allocations base_asset_ids]),
+      *BUY_TRIGGER_MODE_KEYS,
+      allocations: {}
     )
   end
 
@@ -189,14 +218,6 @@ class BotsController < ApplicationController
         exchange_id: dca_single_asset_bot_params[:exchange_id],
         label: dca_single_asset_bot_params[:label].presence
       }.compact
-    elsif @bot.dca_dual_asset?
-      {
-        settings: @bot.settings.merge(
-          @bot.parse_params(dca_dual_asset_bot_params).stringify_keys
-        ),
-        exchange_id: dca_dual_asset_bot_params[:exchange_id],
-        label: dca_dual_asset_bot_params[:label].presence
-      }.compact
     elsif @bot.dca_index?
       {
         settings: @bot.settings.merge(
@@ -204,6 +225,14 @@ class BotsController < ApplicationController
         ),
         exchange_id: dca_index_bot_params[:exchange_id],
         label: dca_index_bot_params[:label].presence
+      }.compact
+    elsif @bot.dca_multi_asset?
+      {
+        settings: @bot.settings.merge(
+          @bot.parse_params(dca_multi_asset_bot_params).stringify_keys
+        ),
+        exchange_id: dca_multi_asset_bot_params[:exchange_id],
+        label: dca_multi_asset_bot_params[:label].presence
       }.compact
     elsif @bot.signal?
       {
@@ -216,5 +245,17 @@ class BotsController < ApplicationController
     else
       raise "Unknown bot type: #{@bot.type}"
     end
+  end
+
+  def composition_decimals(bot)
+    decimals = {}
+    decimals[bot.quote_asset.symbol] = bot.decimals[:quote] if bot.quote_asset.present?
+    # Exited holdings still appear in the orders feed and need their ticker precision.
+    bot.bot_index_assets.includes(:ticker).each do |membership|
+      next unless membership.ticker.present?
+
+      decimals[membership.ticker.base] = membership.ticker.base_decimals
+    end
+    decimals
   end
 end

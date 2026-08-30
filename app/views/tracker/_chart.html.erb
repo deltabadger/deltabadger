@@ -1,0 +1,90 @@
+<%# The bot chart's head and plot, fed by the portfolio's own history instead of a bot's metrics —
+    the same component, the same two modes, the same headline. The only thing this page adds is the
+    range control, which lives inside the modes row and drives the same controller.
+
+    No history yet means no curve to draw, and a bot in that state shows its empty landscape rather
+    than an axis with nothing on it. %>
+<% history = @history || [] %>
+<% hide_money = current_user.hide_balances? %>
+<%# Three states, and the empty one is nothing at all: a portfolio with no history has no curve to
+    promise, so it gets no widget rather than an axis with nothing on it. A history still being
+    swept spins, exactly as a bot's chart does while its metrics warm. %>
+<% if history.empty? && !@history_loading %>
+<% else %>
+<div class="widget widget--chart">
+  <% if history.empty? %>
+    <div class="widget--chart__head">
+      <div class="widget--chart__summary">
+        <div class="widget--chart__date">&nbsp;</div>
+        <% unless hide_money %><div class="widget--chart__pnl">&nbsp;</div><% end %>
+        <%# With no money slot, the percentage IS the headline: it takes the big __pnl styling
+            rather than sitting small underneath nothing. %>
+        <div class="<%= hide_money ? 'widget--chart__pnl' : 'widget--chart__percent' %>">&nbsp;</div>
+      </div>
+    </div>
+    <div class="widget--chart__plot">
+      <div class="loader" style="position: relative; left: calc(50% - 2rem); top: calc(50% - 6rem);"></div>
+    </div>
+  <% else %>
+    <% series = chart_history_series(history, hide_money) %>
+    <% pnl_series = chart_pnl_series(series[0], series[1]).map(&:to_f) %>
+    <%= tag.div data: {
+      controller: 'bot--chart',
+      action: 'mouseover@document->bot--chart#focus mouseleave@document->bot--chart#blur ' \
+              'click@document->bot--chart#select',
+      # Not a bot, but the controller pins a hovered asset by this — a stable value keeps the
+      # tracker's pin out of every bot's.
+      bot__chart_bot_value: 0,
+      bot__chart_quote_value: @denomination.currency,
+      # The headline is the reader's own currency, so it is written the way the tiles beside it
+      # are: the symbol in <small>, on the side that currency puts it. A bot's chart passes
+      # neither and keeps its quote's code as text — USDT is what that money actually was.
+      bot__chart_unit_value: @denomination.unit,
+      bot__chart_suffixed_value: @denomination.suffixed?,
+      bot__chart_decimals_value: 2,
+      # Written WITHOUT a zone on purpose: `new Date('2026-08-21')` is UTC midnight and prints as the
+      # 20th anywhere west of it, while a date-TIME with no offset parses as local midnight. A daily
+      # row belongs to its own day in the reader's calendar.
+      bot__chart_labels_value: history.map { |row| "#{row.date.iso8601}T00:00:00" },
+      bot__chart_series_value: series,
+      bot__chart_pnl_value: pnl_series,
+      bot__chart_assets_value: {},
+      bot__chart_pnl_only_value: hide_money
+    } do %>
+      <div class="widget--chart__head">
+        <%# Both controls in one row, both talking to the chart: the mode redraws the curve, the
+            range narrows the window. Hiding balances takes them BOTH away — VALUE plots the money,
+            and a range switch over a curve with no numbers on it is furniture. %>
+        <div class="widget--chart__modes" data-action="segmented:change->bot--chart#mode">
+          <% unless hide_money %>
+            <% if series[1].any?(&:positive?) %>
+              <%= render 'shared/segmented', fluid: true, key: 'chart-mode',
+                         label: t('bot.details.stats.chart.modes'),
+                         options: [{ value: 'pnl', label: t('bot.details.stats.chart.pnl'), active: true },
+                                   { value: 'value', label: t('bot.details.stats.chart.value') }] %>
+            <% end %>
+            <% ranges = chart_range_options(history) %>
+            <% if ranges.any? %>
+              <div class="filters" data-action="segmented:change->bot--chart#range">
+                <%= render 'shared/segmented', label: t('tracker.range.all'), options: ranges %>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+        <div class="widget--chart__summary" data-bot--chart-target="summary">
+          <div class="widget--chart__date" data-bot--chart-target="date">&nbsp;</div>
+          <% unless hide_money %>
+            <div class="widget--chart__pnl" data-bot--chart-target="pnl">&nbsp;</div>
+          <% end %>
+          <div class="<%= hide_money ? 'widget--chart__pnl' : 'widget--chart__percent' %>"
+               data-bot--chart-target="percent">&nbsp;</div>
+        </div>
+      </div>
+      <div class="widget--chart__plot">
+        <canvas data-bot--chart-target="analyzerChart" width="10" height="2"></canvas>
+      </div>
+      <div class="widget--chart__axis" data-bot--chart-target="axis"></div>
+    <% end %>
+  <% end %>
+</div>
+<% end %>

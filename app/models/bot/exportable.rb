@@ -51,14 +51,7 @@ module Bot::Exportable
                         'Status']
     return { success: false, error: I18n.t('bot.details.stats.import_invalid_format') } unless rows.headers == expected_headers
 
-    # Get bot's currencies - handle single, dual, and index bots
-    bot_base_symbols = if respond_to?(:base_asset) && base_asset.present?
-                         [base_asset.symbol&.upcase]
-                       elsif respond_to?(:base0_asset) && respond_to?(:base1_asset)
-                         [base0_asset&.symbol&.upcase, base1_asset&.symbol&.upcase].compact
-                       else
-                         nil # nil means accept any base asset (for index bots)
-                       end
+    bot_base_symbols = importable_base_symbols
     bot_quote = quote_asset&.symbol&.upcase
 
     skipped_currency_mismatch = 0
@@ -144,6 +137,17 @@ module Bot::Exportable
     { success: false, error: I18n.t('bot.details.stats.import_malformed_csv') }
   rescue StandardError => e
     { success: false, error: I18n.t('bot.details.stats.import_error', message: e.message) }
+  end
+
+  # Which base assets a CSV import may name. nil means "any", which is right for an index bot whose
+  # membership follows the market and wrong for everything else.
+  #
+  # A basket answers with its own members.
+  def importable_base_symbols
+    return [base_asset.symbol&.upcase] if respond_to?(:base_asset) && base_asset.present?
+    return base_assets.filter_map { |asset| asset.symbol&.upcase } if respond_to?(:allocations)
+
+    nil
   end
 
   private

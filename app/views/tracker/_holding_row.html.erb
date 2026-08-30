@@ -1,0 +1,46 @@
+<% asset = holding.asset %>
+<% share = total.positive? ? (holding.value / total * 100) : 0.to_d %>
+<% color = ensure_contrast(asset.color.presence || '#8A9BA8') %>
+<%# Already decided, once, by `Tracker::Figures` — with whatever assumption it took, behind the
+    mark at the end of the row. A difference the history does not explain is something missing
+    from the history, and this row is where that can be acted on, so this is where it is said. %>
+<% note = local_assigns[:note] %>
+<% pnl = holding.percent %>
+<% type = holding_type_label(asset) %>
+<div class="tracker-holdings__row">
+  <span class="tracker-holdings__name">
+    <%= render 'assets/logo', image_url: asset.image_url, color: asset.color %>
+    <b><%= asset.symbol %></b>
+    <span class="tracker-holdings__full"><%= asset.name %></span>
+  </span>
+  <span class="tracker-holdings__type"><% if type %><span class="pill pill--quiet"><%= type %></span><% end %></span>
+  <%# The index list's own bar: the track fills by grid columns, not by a width. %>
+  <span class="slider">
+    <span class="slider__style">
+      <span class="slider__style__track" style="border-left-color: <%= color %>; grid-template-columns: <%= share.round(2) %>% auto;">
+        <span class="slider__style__progress" style="background-color: <%= color %>;"></span>
+      </span>
+    </span>
+  </span>
+  <span class="tracker-holdings__pct"><%= number_with_precision(share, precision: 1) %>%</span>
+  <% unless hide_money %>
+    <span class="tracker-holdings__value"><%= @denomination.format(holding.value) %></span>
+  <% end %>
+  <%# Cash has no cost to measure against; anything else has one, assumed where it had to be. %>
+  <% if pnl %>
+    <span class="tracker-holdings__pl <%= pnl.negative? ? 'text-danger' : 'text-success' %>"><%= tracker_percent(pnl) %></span>
+  <% else %>
+    <span class="tracker-holdings__pl" title="<%= t('tracker.basis_incomplete') %>"><%= no_value %></span>
+  <% end %>
+  <%# Always rendered, so the grid keeps its column; empty on a row with nothing to say. %>
+  <% if note %>
+    <span class="tracker-holdings__info" role="button" tabindex="0" aria-label="<%= note %>"
+          data-controller="tooltip" data-tooltip-fixed-value="true"
+          data-action="click->tooltip#toggle keydown.enter->tooltip#toggle keydown.space->tooltip#toggle:prevent focus->tooltip#showTooltip blur->tooltip#hideTooltip mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+      <%= render partial: 'svg/24x24_info' %>
+      <%= tag.div note, class: 'tooltip tooltip--hint' %>
+    </span>
+  <% else %>
+    <span class="tracker-holdings__spacer"></span>
+  <% end %>
+</div>

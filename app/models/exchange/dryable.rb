@@ -53,18 +53,78 @@ module Exchange::Dryable
     prepend decorators
   end
 
-  private
-
   def dry_run?
     Thread.current[:force_dry_run] || Rails.configuration.dry_run
   end
 
+  # Funds an asset nothing has been bought in. The quote currency is only ever spent, never bought,
+  # so derived from the ledger it would be zero and every local buy would fail for insufficient
+  # funds. Big enough to never be the thing under test.
+  DRY_UNTRADED_BALANCE = 1_000_000.to_d
+
+  # What the bots on this exchange actually hold, not a random number.
+  #
+  # A random balance made the local app untestable in a way that read as product bugs. Sizing that
+  # caps at the live balance — Liquidatable#liquidation_order_data, Rebalancer#rebalance_sell_order_data
+  # — took min(ledger, rand(100..10_000)), so selling a 15M holding placed an order for 950 of it,
+  # then 9,849 on the next click, then 1,009. The position never left the portfolio and nothing said
+  # why. It also rolled a FRESH number per call, so two reads within one sale disagreed.
+  #
+  # The fallback is deliberately NOT handed out on a whole-wallet read. AccountBalance::Sync and
+  # BotApi::Exchanges::Balances ask for every asset at once and PERSIST what they get; funding all of
+  # them would put a million units of each into the tracker, which on a stock exchange is thousands
+  # of assets and a portfolio total that means nothing. A sizing caller always names its asset
+  # (Exchange#get_balance passes one id), so only that path is funded.
   def get_dry_balances(asset_ids: nil)
+    listing = asset_ids.nil?
     asset_ids ||= assets.pluck(:id)
+    held = dry_held_amounts(asset_ids)
     balances = asset_ids.to_h do |asset_id|
-      [asset_id, { free: rand(100.0..10_000.0).round(8), locked: 0 }]
+      free = held[asset_id] || (listing ? 0.to_d : dry_funding(asset_id))
+      [asset_id, { free: free, locked: 0 }]
     end
     Result::Success.new(balances)
+  end
+
+  private
+
+  # Only assets something on this venue actually PRICES in. Handing the fallback to any asset we
+  # failed to match a ledger row against — a legacy `base` string, say (Transaction still carries
+  # BTC = %w[XXBT XBT BTC] and a four-level resolver for exactly that reason) — would size a sale
+  # against a million units that do not exist, which is the oversizing mirror of the bug above.
+  # Unmatched assets read as zero instead, and a zero skips the sale rather than inventing one.
+  def dry_funding(asset_id)
+    dry_quote_asset_ids.include?(asset_id) ? DRY_UNTRADED_BALANCE : 0.to_d
+  end
+
+  def dry_quote_asset_ids
+    @dry_quote_asset_ids ||= tickers.distinct.pluck(:quote_asset_id).compact.to_set
+  end
+
+  # COALESCE(amount_exec, amount) over CLOSED rows — the same ledger Bot#total_amount,
+  # Bot::BaseAmountLimitable and the metrics all compute. It has to be the same one: these balances
+  # are compared against that ledger with min(), so any divergence reappears as a sale that silently
+  # covers part of a position the page shows in full.
+  #
+  # An asset with no rows at all is ABSENT from the result rather than zero, which is what lets the
+  # caller tell "never traded" from "sold out".
+  def dry_held_amounts(asset_ids)
+    ids_by_symbol = Asset.where(id: asset_ids).pluck(:symbol, :id)
+                         .group_by(&:first).transform_values { |pairs| pairs.map(&:last) }
+    # No IN list on the transactions side: a stock exchange lists ~11.5k assets and there are only a
+    # handful of distinct `base` values, so filtering by asset would mean a bind parameter each.
+    net = transactions.submitted.closed.group(:base, :side).sum(Arel.sql('COALESCE(amount_exec, amount)'))
+
+    totals = Hash.new(0.to_d)
+    net.each { |(base, side), amount| totals[base] += side.to_s == 'sell' ? -amount.to_d : amount.to_d }
+
+    totals.each_with_object({}) do |(base, amount), acc|
+      # Symbols are NOT unique — a Hyperliquid RWA and the stock it tracks share one, and the FIGI
+      # work split them into separate rows on purpose. A transaction records only the symbol, so
+      # neither asset can claim the ledger alone and both report the same figure; dividing it would
+      # be inventing a split the ledger does not record.
+      ids_by_symbol.fetch(base, []).each { |id| acc[id] = [amount, 0.to_d].max }
+    end
   end
 
   def get_dry_order(order_id:)
@@ -78,16 +138,24 @@ module Exchange::Dryable
     Result::Success.new(order_data)
   end
 
+  # An id with no dry record goes in `missing`, which is the contract every real client honours —
+  # it is not a failure of the whole call. Returning a Failure for the batch meant ONE unknown id
+  # (a seeded row, an entry that has been read once and deleted) poisoned every sweep on that bot:
+  # Bot::FetchAndUpdateOpenOrdersJob raises on a failed fetch, so no waiting order anywhere in the
+  # batch could advance, and a locally-seeded bot's orders sat open forever.
   def get_dry_orders(order_ids:)
     orders = {}
+    missing = []
     order_ids.each do |order_id|
-      order_data = get_dry_order(order_id: order_id)
-      return order_data if order_data.failure?
-
-      orders[order_id] = order_data.data
+      result = get_dry_order(order_id: order_id)
+      if result.failure?
+        missing << order_id
+      else
+        orders[order_id] = result.data
+      end
     end
 
-    Result::Success.new(orders: orders, missing: [])
+    Result::Success.new(orders: orders, missing: missing)
   end
 
   def dry_withdraw(asset:, amount:, address:, network: nil, address_tag: nil)

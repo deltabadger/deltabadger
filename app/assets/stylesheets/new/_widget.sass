@@ -1,5 +1,9 @@
 @use "../variables" as *
 
+// How long a buy stack takes to open: the marks sliding apart, their logos arriving, and the
+// card. Named once so the three stay in step — they are one movement, not three.
+$stack-open: 0.2s ease-out
+
 .widget-group
     border-radius: 2rem
     overflow: hidden
@@ -19,10 +23,29 @@
     display: flex
     flex-direction: column
     gap: 3rem
-    border-radius: 2rem
+    border-radius: 1rem
     box-shadow: var(--shadow-basic)
     &--settings
         padding: 2rem 4rem 4rem 4rem
+        // One wrapping row of preference pills. Wrapping rather than shrinking: a flex row let
+        // the widest pill shrink, and .sinput--select clips, so it lost its text instead.
+        .settings-prefs
+            display: flex
+            flex-wrap: wrap
+            align-items: center
+            gap: 1rem
+            // The frames are plumbing; the forms inside them are the row's items. A flex item
+            // will not shrink past its content unless told to, and the timezone pill is wider
+            // than a phone — so let it shrink and end in the ellipsis .sinput--select provides.
+            turbo-frame
+                display: contents
+            form
+                min-width: 0
+                max-width: 100%
+            &__notes
+                display: flex
+                flex-direction: column
+                gap: 0.5rem
         .button
             margin-top: 2rem
         .button_to
@@ -32,7 +55,7 @@
             .button
                 width: 100%
     &__placeholder
-        aspect-ratio: 10 / 3
+        aspect-ratio: 10 / 2
         align-self: center
         justify-self: center
         opacity: 0.2
@@ -48,24 +71,227 @@
         padding-top: 0.5em
         display: block
         width: 100%
-    &.widget--chart
-        max-width: 100%
     &.data-grid
-        border-radius: 2rem
         padding: 0
     &--thin
         padding: 1.5rem 2rem
     &--chart
-        gap: 0
-        .data-grid__item
-            height: auto
-            background: none
+        max-width: 100%
+        @media (min-width: 768px)
+            padding: var(--ui-padding)
+            
+        // The switch and the readout share one row across the top of the plot: the switch on
+        // the left, on the same line as the date range, the numbers stacked on the right.
+        &__head
+            display: flex
+            align-items: flex-start
+            justify-content: space-between
+            // Wraps rather than overflowing: a long locale label plus a long quote symbol can
+            // outgrow a phone.
+            flex-wrap: wrap
+            gap: 2rem
+        &__summary
+            display: flex
+            flex-direction: column
+            gap: 0.5rem
+            text-align: right
             padding: 0
+            margin-left: auto
+        &__date
+            color: var(--concrete)
+            font-size: 1.5rem
+            font-weight: 600
+            text-transform: uppercase
+        &__pnl
+            font-size: 3rem
+            line-height: 3rem
+            font-weight: 600
+            @media (min-width: 768px)
+                font-size: 4.5rem
+                line-height: 4.5rem
+        &__percent
+            font-size: 2rem
+            line-height: 2rem
+            font-weight: 600
+            @media (min-width: 768px)
+                font-size: 2.5rem
+                line-height: 2.5rem
+        &__plot
+            position: relative
+            width: 100%
+            aspect-ratio: 10 / 2
+        // The dates under the plot, and the only axis this chart draws: no line, no ticks, just
+        // the labels the controller places on the chart's own x scale. Below the plot rather
+        // than inside it, because the buy marks stand on the plot's floor.
+        &__axis
+            position: relative
+            height: 2rem
+            margin-top: 0.5rem
+            color: var(--concrete)
+            font-size: 1.5rem
+            font-weight: 600
+            // Centred on its own date, and left where the controller put it — which has already
+            // pulled the end ones back inside the row.
+            span
+                position: absolute
+                top: 0
+                white-space: nowrap
+                transform: translateX(-50%)
+        // The buys, hanging off the FLOOR of the plot they belong to. The row has no height of
+        // its own — the stacks are anchored to its baseline and grow upward over the curve — so
+        // turning the marks on never moves the chart, the toggle under it, or the page.
+        &__buys
+            position: absolute
+            left: 0
+            right: 0
+            bottom: 0
+            height: 0
+            &__stack
+                position: absolute
+                bottom: 0
+                display: flex
+                flex-direction: column
+                // The open stack, and its card, are drawn over the neighbours either side.
+                &:hover
+                    z-index: 2
+            // One buy. The disc is the asset's colour and is always there; the logo on top of it
+            // is what fades in. Sorted smallest-first by the controller, so the LAST child — the
+            // biggest buy of the crowd, and the one painted over all the others — is the one
+            // showing a logo while the stack is closed.
+            &__mark
+                position: relative
+                flex: none
+                width: 2rem
+                height: 2rem
+                // With one asset in view the controller sets the height per purchase, and the
+                // mark becomes the bar: a rounded column standing out of the baseline. Capped
+                // here as well as there, so a bad number can never run up over the whole plot.
+                max-height: 5rem
+                border-radius: 1rem
+                box-shadow: var(--shadow-paper)
+                // One duration for everything a stack does — the marks sliding apart, their
+                // logos arriving, the card — so opening one reads as a single movement rather
+                // than three that happen to start together.
+                transition: margin-top $stack-open, opacity $stack-open
+                // Closed, each mark behind the top one shows a 0.5rem sliver; open, 1rem of each.
+                // `LOGO_STEP` in the controller measures the closed stack from the same number.
+                + .widget--chart__buys__mark
+                    margin-top: -1.875rem
+                // At the FOOT of the mark, not filling it: the mark grows upward out of the
+                // baseline, and a logo stretched to its height would make a tall purchase a tall
+                // logo. Square, so it stays a circle inside a column.
+                .asset-logo
+                    position: absolute
+                    bottom: 0
+                    left: 0
+                    width: 2rem
+                    height: 2rem
+                    opacity: 0
+                    transition: opacity $stack-open
+                    // 2% further in than the 2.5% every logo is already cropped by. At 2rem a
+                    // source's own outer ring — a stray border, a hairline of background baked
+                    // into the file — is a pixel or two of noise around a small circle, and here
+                    // it sits against the mark's own colour where it reads as a rim. Eaten by the
+                    // crop rather than scaled, so the logo stays the size the layout expects.
+                    object-view-box: inset(4.5%)
+                    // The MARK casts the shadow; the logo lies on it. `.asset-logo` carries one
+                    // of its own for the tables, where it is the whole object — here that put a
+                    // second shadow inside the first. `!important` because the base rule is.
+                    box-shadow: none !important
+                // `of-type`, NOT `last-child`: the card is the stack's last child, so the top
+                // mark — a span among spans — is the last of ITS type and nothing else is.
+                &:last-of-type .asset-logo
+                    opacity: 1
+            &__stack:hover &__mark
+                + .widget--chart__buys__mark
+                    margin-top: -1rem
+                .asset-logo
+                    opacity: 1
+            // The card sits BESIDE the stack, not under it: the stack unfolds upward over the
+            // plot, and a card below would be the one thing covering the curve the reader is
+            // reading. Held open by the stack's own :hover, so moving between marks rewrites it
+            // rather than dismissing it.
+            &__tip
+                position: absolute
+                left: 100%
+                bottom: 0
+                margin-left: 1rem
+                opacity: 0
+                pointer-events: none
+                transition: opacity $stack-open
+                padding: 1.25rem 1.5rem
+                white-space: nowrap
+                text-align: left
+                line-height: 1.5
+                font-size: 1.75rem
+                font-weight: 600
+                // Every buy in the stack, all in ONE cell: the card takes the width and height of
+                // the widest and tallest of them, so swapping between marks never resizes it.
+                display: grid
+                &__buy
+                    grid-area: 1 / 1
+                    // Not `display: none` — a hidden block still has to claim its width, which is
+                    // the whole reason they are all here.
+                    visibility: hidden
+                    &.is-on
+                        visibility: visible
+                // The card opens with the asset, so the reader can see which mark they hit
+                // without matching a colour by eye.
+                &__logo
+                    display: block
+                    position: relative
+                    width: 2.5rem
+                    height: 2.5rem
+                    margin-bottom: 0.5rem
+                    border-radius: 50%
+                    box-shadow: var(--shadow-paper)
+                    .asset-logo
+                        position: absolute
+                        inset: 0
+                        width: 100%
+                        height: 100%
+                        // Cropped like the marks', so the card shows the same face as the mark
+                        // the reader pointed at — and, like them, casting no shadow of its own
+                        // inside the disc that already casts one.
+                        object-view-box: inset(4.5%)
+                        box-shadow: none !important
+                // The dropdown's surface, so a card that appears over the page reads as the same
+                // kind of object as every other floating box here.
+                background: var(--dropdown-bg)
+                border-radius: 1rem
+                box-shadow: 0 0 0 0.125rem var(--dropdown-border) inset, 0 0.5rem 1rem 0 rgba(6, 26, 79, 0.10)
+                &__when
+                    color: var(--concrete)
+                    font-size: 1.5rem
+                &__price
+                    color: var(--concrete)
+            // Near the right edge there is no room on the right.
+            &__stack--flip &__tip
+                left: auto
+                right: 100%
+                margin-left: 0
+                margin-right: 1rem
+            &__stack:hover &__tip
+                opacity: 1
+        // The marks are a way of reading the chart, so their switch lives under it rather than
+        // beside the mode control, which changes what the curve IS.
+        // Layout only — the switch itself is `.toggle-inline`, shared with the tracker's.
+        &__orders
+            display: flex
+            flex-wrap: wrap
+            gap: 3rem
+            padding-top: 2rem
+        // Spacing only — the control itself is .segmented. The switch is 4rem tall and the date
+        // line beside it is 1.5rem at line-height 1.5 (2.25rem), so lifting it by half the
+        // difference puts the two centre lines on the same row.
+        &__modes
+            display: flex
+            flex-shrink: 0
+            @media (min-width: 768px)
+                // margin-top: calc((2.25rem - 4rem) / 2)
     .main-rule
         padding-top: 4rem
         padding-bottom: 4rem
-        &.main-rule--dual-asset
-            padding-bottom: var(--ui-padding)
         @media (min-width: 768px)
             padding-top: 4.5rem
             padding-bottom: 4.5rem
@@ -75,39 +301,82 @@
         overflow-y: auto
         text-wrap: nowrap
         line-height: 3rem
-        &--rules,&--tracker
+        // Both set by `table-fit`. Fits: the table is no wider than this box, so nothing needs
+        // clipping and the sticky header below sticks to the screen rather than to this box.
+        // Stuck: the top edge has gone past the top of the screen, so the header is now pinned
+        // there — and gets an edge, since the rows sliding under it no longer start where it ends.
+        position: relative
+        &--fits
+            overflow: visible
+        // Opaque only while pinned: a box painted on the widget's own top edge would square off
+        // its rounded corners, and there is nothing under the header to cover until then.
+        &--stuck thead
+            background-color: var(--washed)
+            box-shadow: 0 1px var(--silver)
+        .table-fit__sentinel
+            position: absolute
+            top: 0
+            height: 1px
+            width: 1px
+            visibility: hidden
+            pointer-events: none
+        // Guessing the page's width from the VIEWPORT's, because the grid this used to sit in
+        // sized its tracks to the table and gave the widget no width to be bounded by. Its flex
+        // parent does, so the tracker needs no guess — the rules table still lives in a layout
+        // that does not hand it one.
+        &--rules
             max-width: calc(100vw - 2rem)
             @media (min-width: 768px)
-                max-height: calc(100vh - 14rem)
                 max-width: calc(100vw - 11rem)
-            
+
         table
             margin-bottom: 0
             border-collapse: collapse
+            border-bottom: 1.5rem solid var(--washed)
         thead
             position: sticky
             top: 0
-            background-color: var(--washed)
-            box-shadow: 0 0.25rem var(--widget-shadow-line)
+            line-height: 1.5rem
+
+            z-index: 1
         tbody
             overflow-y: auto
             height: 0
+            // A holding row draws itself on the chart above while the pointer is on it, and
+            // clicking pins it there. The highlight says the row is live; the accent bar says
+            // this is the one the chart is holding on to now that the pointer has moved away.
+            tr[data-symbol]
+                cursor: pointer
+                &:hover, &.is-selected
+                    background-color: var(--paper-on-washed)
+                &.is-selected td:first-child
+                    box-shadow: inset 0.25rem 0 0 var(--sky)
         th
             color: var(--concrete)
             font-weight: 600
             z-index: 1
-        thead
-            z-index: 1
-        th
-            padding: 1.5rem 0 1rem var(--ui-padding)
+            font-size: 1.5rem
+            text-transform: uppercase
+            padding: 2.5rem 0 1rem  var(--ui-padding)
+        // A sentence, not a figure: it wraps like prose. Left unwrapped, one long failure message
+        // would make the whole table wider than its widget, and a widget that has to scroll
+        // sideways cannot hold its header to the screen.
+        td.table__sentence
+            text-wrap: auto
+            text-align: left
         td
             padding: 0.75rem 0 0.75rem var(--ui-padding)
-        tr:first-child
-            th,td
-                padding-top: calc(var(--ui-padding)/1.5)
-        tr:last-child
-            th,td
-                padding-bottom: calc(var(--ui-padding)/1.5)
+            // A cell centres its boxes rather than sitting them on the row's baseline — and that
+            // baseline is not where it looks: `.tracker-row__asset` is an inline-flex, so the row
+            // hangs off the LOGO'S BOTTOM EDGE and carries a line's worth of empty descent under
+            // it. Baseline-aligned, everything in the row then reads high inside a row taller than
+            // its content. Text needs no help: half-leading centres it in its own line box.
+            > *
+                vertical-align: middle
+            small:first-child
+                margin-right: 0.25rem
+                position: relative
+                top: -0.0625rem
         td, th
             text-align: right
             border: none
@@ -115,6 +384,14 @@
                 text-align: left
             &:last-child
                 padding-right: var(--ui-padding)
+        // Shrink-to-fit: the column is the logo, nothing more. The cell keeps the table's
+        // left gutter and hands the next column a tighter one, so symbol sits by its logo.
+        .table__logo
+            width: 1px
+            padding-right: 0
+            + td, + th
+                text-align: left
+                padding-left: 1rem
         .tooltip-info-icon
             width: 3rem
             float: right

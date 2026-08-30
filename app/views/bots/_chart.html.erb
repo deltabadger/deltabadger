@@ -1,41 +1,158 @@
-<% quote = bot.quote_asset.symbol %>
+<%# A bot that has never traded has nothing to plot — not even a placeholder. The frame stays
+    in the DOM either way so the first metrics broadcast still finds its target. %>
+<% charted = bot.transactions.any? %>
+<% hide_money = hide_balances?(bot) %>
+<div id="chart" <%= tag.attributes(class: ('widget widget--chart' if charted), hidden: !charted) %>>
+  <% if charted %>
+    <% if loading || metrics[:chart][:labels].empty? %>
+      <div class="widget--chart__head">
+        <div class="widget--chart__summary">
+          <div class="widget--chart__date">&nbsp;</div>
+          <% unless hide_money %><div class="widget--chart__pnl">&nbsp;</div><% end %>
+          <%# With no money slot, the percentage IS the headline: it takes the big __pnl
+              styling rather than sitting small underneath nothing. %>
+          <div class="<%= hide_money ? 'widget--chart__pnl' : 'widget--chart__percent' %>">&nbsp;</div>
+        </div>
+      </div>
+      <div class="widget--chart__plot">
+        <% if loading %>
+          <div class="loader" style="position: relative; left: calc(50% - 2rem); top: calc(50% - 6rem);"></div>
+        <% else %>
+          <%= render 'svg/landscape_empty' %>
+        <% end %>
+      </div>
+    <% else %>
+      <%# Rounded ONCE, and the curve is derived from the same rounded values the summary
+          subtracts — otherwise 100.004 - 99.999 ships a curve at 0.01 while the headline, built
+          from two values that both rounded to 100.00, says 0.00. Serialized as numbers because a
+          BigDecimal ships into the page as a JSON string. %>
+      <% decimals = bot.decimals[:quote] || 8 %>
+      <% series = metrics[:chart][:series].map { |serie| serie.map { |amount| amount.round(decimals) } } %>
+      <% pnl_series = chart_pnl_series(series[0], series[1]).map(&:to_f) %>
+      <%# One entry per holding the tables can show, rounded on the same ruler as the portfolio
+          line. nil where the point kept its fill mark and has no per-symbol split; the curve
+          skips those rather than drawing the asset at zero. %>
+      <% assets = (metrics[:chart][:assets] || {}).transform_values do |serie|
+           { value: serie[:value].map { |amount| amount&.round(decimals)&.to_f },
+             invested: serie[:invested].map { |amount| amount.to_d.round(decimals).to_f } }
+         end %>
+      <%# The price of every asset the chart could price, on the same labels as the curves above
+          — one reading, not two, so a price line can never disagree with the value line over it.
+          `|| {}` because a metrics hash cached before this shipped has no prices; it expires
+          within five minutes and the overlay simply has nothing to draw until then. %>
+      <% prices = (metrics[:chart][:prices] || {}).transform_values do |serie|
+           serie.map { |price| price&.to_f }
+         end %>
+      <%# Every executed buy, as a mark under the plot: when, in what, and how much of it.
+          Tuples plus one symbol => logo map, NOT a logo per mark: an hourly bot running for a
+          year is ~9,000 of them, and repeating a CDN image URL on each would put megabytes into
+          one data attribute for the browser to parse on every broadcast.
+          Logos resolved through the exchange's tickers the same way the holdings tables do it. %>
+      <% marks = bot.chart_buy_marks %>
+      <%# Every asset that was bought, plus every asset that is priced. A price line wears its
+          ticker's colour, and an asset the bot holds without having bought it inside the window
+          would otherwise have no colour to wear. %>
+      <% symbols = (marks.map { |mark| mark[1] } + prices.keys).uniq %>
+      <% logo_assets = bot.exchange.tickers.where(base: symbols).includes(:base_asset).index_by(&:base) %>
+      <%# `to_f` on the amounts, not `to_s`: a BigDecimal serializes into a data attribute as a
+          JSON STRING, and the stack would then sort its logos alphabetically by a number. %>
+      <% buys = marks.map do |at, base, amount, quote, fills|
+           [at.in_time_zone(current_user.time_zone), base, amount.to_f, quote.to_f, fills]
+         end %>
+      <% buy_logos = logo_assets.transform_values do |ticker|
+           { image: ticker.base_asset&.image_url,
+             color: ensure_contrast(ticker.base_asset&.color || '#8A9BA8') }
+         end %>
+      <%= tag.div data: {
+        controller: "bot--chart",
+        action: "mouseover@document->bot--chart#focus mouseleave@document->bot--chart#blur " \
+                "click@document->bot--chart#select " \
+                "turbo:before-stream-render@document->bot--chart#restore",
+        bot__chart_bot_value: bot.id,
+        bot__chart_quote_value: bot.quote_asset.symbol,
+        bot__chart_decimals_value: decimals,
+        bot__chart_labels_value: metrics[:chart][:labels].map { |label| label.in_time_zone(current_user.time_zone) },
+        bot__chart_series_value: series,
+        bot__chart_pnl_value: pnl_series,
+        bot__chart_assets_value: assets,
+        bot__chart_pnl_only_value: hide_money,
+        bot__chart_buys_value: buys,
+        bot__chart_prices_value: prices,
+        bot__chart_buy_logos_value: buy_logos
+      } do %>
+        <%# The switch sits on the date line, opposite it: one row across the top of the plot.
+            PnL FIRST and on by default: VALUE always climbs for a DCA bot because the money going
+            in climbs, which makes it the flattering view rather than the informative one; PnL
+            makes the invested line the zero line, so the curve is performance with the deposits
+            divided out — the question the reader came with. Both modes carry the SAME headline —
+            only the curve changes — which is why neither needs a caption. A bot that has never
+            held anything has no curve to offer, and a switch with one usable side is furniture —
+            which is also why hiding balances takes the switch away rather than disabling it:
+            VALUE is the money view. %>
+        <div class="widget--chart__head">
+          <div class="widget--chart__modes" data-action="segmented:change->bot--chart#mode">
+            <% if !hide_money && metrics[:chart][:series][1].any? { |spent| spent.to_f.positive? } %>
+            <%# Fluid: "Value" and the locales' Profit/Loss wording are nowhere near the same
+                width, and equal columns would give both the width of the longer one — wide
+                enough to push the header off a phone. %>
+            <%= render 'shared/segmented', fluid: true, key: 'chart-mode',
+                       label: t('bot.details.stats.chart.modes'),
+                       options: [{ value: 'pnl', label: t('bot.details.stats.chart.pnl'), active: true },
+                                 { value: 'value', label: t('bot.details.stats.chart.value') }] %>
+            <% end %>
+          </div>
+          <div class="widget--chart__summary" data-bot--chart-target="summary">
+            <div class="widget--chart__date" data-bot--chart-target="date">&nbsp;</div>
+            <%# The money half of the headline. Gone while balances are hidden; the percent beside
+                it is the reading, and the plot itself prints nothing — both axes are display:false
+                and the tooltip is off. %>
+            <% unless hide_money %>
+              <div class="widget--chart__pnl" data-bot--chart-target="pnl">&nbsp;</div>
+            <% end %>
+            <%# With no money slot, the percentage IS the headline: it takes the big __pnl
+                styling rather than sitting small underneath nothing. %>
+            <div class="<%= hide_money ? 'widget--chart__pnl' : 'widget--chart__percent' %>"
+                 data-bot--chart-target="percent">&nbsp;</div>
+          </div>
+        </div>
+        <%# The marks live INSIDE the plot, hanging off its floor: they are a reading of the same
+            curve, at the same x scale, and a strip below the chart made them a second thing to
+            look at. The row itself has no height at all — the stacks hang upward over the plot,
+            so showing them never moves the chart or the page. %>
+        <div class="widget--chart__plot">
+          <canvas data-bot--chart-target="analyzerChart" width="10" height="2"></canvas>
+          <div class="widget--chart__buys" data-bot--chart-target="buys"></div>
+        </div>
+        <%# The dates, under everything: the marks hang off the plot's floor and grow upward over
+            the curve, so a label only has room to stand below the plot itself. %>
+        <div class="widget--chart__axis" data-bot--chart-target="axis"></div>
+        <%# Off by choice, not by default: the marks sit over the curve, and a reader who came for
+            the shape of the line should get the line. The choice is remembered per browser. %>
+        <%# The account menu's switch, in its shape: small toggle, label as the hit area. No form
+            behind it — this one is a way of reading the chart in front of you, so it is
+            remembered in the browser rather than posted and stored against the account. %>
+        <div class="widget--chart__orders">
+          <label class="toggle-inline">
+            <div class="toggle toggle--small">
+              <input type="checkbox" data-bot--chart-target="orders"
+                     data-action="change->bot--chart#toggleOrders">
+              <div class="toggle__style"></div>
+            </div>
+            <span class="label"><%= t('bot.details.stats.chart.orders') %></span>
+          </label>
+          <%# The same shape beside it: the prices are the other way of reading this chart, and
+              the two switches belong on one line under it. %>
+          <label class="toggle-inline">
+            <div class="toggle toggle--small">
+              <input type="checkbox" data-bot--chart-target="prices"
+                     data-action="change->bot--chart#togglePrices">
+              <div class="toggle__style"></div>
+            </div>
+            <span class="label"><%= t('bot.details.stats.chart.prices') %></span>
+          </label>
+        </div>
 
-<div id="chart" class="widget widget--chart">
-  <% if loading %>
-    <div class="data-grid__item">
-      <div class="label">&nbsp;</div>
-      <div class="data-grid__item__value">&nbsp;</div>
-    </div>
-    <div style="width: 100%; aspect-ratio: 10 / 3;">
-      <div class="loader" style="position: relative; left: calc(50% - 2rem); top: calc(50% - 6rem);"></div>
-    </div>
-  <% elsif metrics[:chart][:labels].empty? %>
-    <div class="data-grid__item">
-      <div class="label">&nbsp;</div>
-      <div class="data-grid__item__value">&nbsp;</div>
-    </div>
-    <div style="width: 100%; aspect-ratio: 10 / 3;">
-      <%= render 'svg/landscape_empty' %>
-    </div>
-  <% else %>
-    <div class="data-grid__item" data-controller="tooltip" data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
-      <div class="label"><%= t('utils.pnl') %></div>
-      <%= tag.div class: "data-grid__item__value", style: "color: var(--#{metrics[:pnl].negative? ? 'berry' : 'grass'})" do %>
-        <%= sprintf('%+.2f', (metrics[:pnl] * 100)) + '%' %>
       <% end %>
-    </div>
-    <%= tag.div data: {
-      controller: "bot--chart",
-      bot__chart_names_value: [
-        t('data_labels.value_symbol', symbol: quote),
-        t('data_labels.invested_symbol', symbol: quote)
-      ],
-      bot__chart_labels_value: [metrics[:chart][:labels].map { |label| label.in_time_zone(current_user.time_zone) }],
-      bot__chart_series_value: [
-        metrics[:chart][:series].map { |serie| serie.map { |amount| amount.round(bot.decimals[:quote] || 8) } }
-      ]
-    }, style: "width: 100%; aspect-ratio: 10 / 3;" do %>
-      <canvas data-bot--chart-target="analyzerChart" width="10" height="3"></canvas>
     <% end %>
   <% end %>
 </div>

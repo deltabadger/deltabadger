@@ -1,0 +1,94 @@
+<% hide_money = current_user.hide_balances? %>
+<%# The same holdings the tiles are built from — reconciled once, in `Tracker::Figures`, rather than
+    here and there and in the helper, each with its own idea of what can be vouched for. %>
+<% holdings = @figures&.holdings || [] %>
+<% total = holdings.sum(0.to_d) { |holding| holding.value } %>
+<% shown, folded = holdings.first(6), holdings.drop(6) %>
+<div class="widget tracker-holdings <%= 'tracker-holdings--anon' if hide_money %>">
+  <div class="tracker-holdings__head">
+    <span class="label"><%= t('tracker.holdings') %> · <%= holdings.size %></span>
+    <%# What the list adds up to by kind — the rows carry the same labels. %>
+    <span class="label"><%= holdings_type_shares(holdings).map { |label, share| "#{label} #{share}%" }.join(' · ') %></span>
+  </div>
+
+  <% if @portfolio_never_synced %>
+    <p class="tracker-holdings__empty"><%= t('tracker.portfolio.never_synced') %></p>
+  <% elsif holdings.empty? %>
+    <%# Emptied BY the switch, not by the account: say which, or the reader is told there is
+        nothing here while the tiles beside this state what it is worth. %>
+    <% if @portfolio_all_cash %>
+      <p class="tracker-holdings__empty"><%= t('tracker.portfolio.only_cash') %></p>
+    <% elsif @portfolio_has_keys %>
+      <p class="tracker-holdings__empty"><%= t('tracker.portfolio.no_balances') %></p>
+    <% end %>
+  <% else %>
+    <div class="tracker-holdings__comp">
+      <%# Drawn here rather than by a chart library: it is a picture of numbers this page already
+          holds, and an arc is two trigonometric points. The centre reads the same P/L the rows do,
+          over every holding whose quantity the ledger can vouch for. %>
+      <% centre = @figures&.unrealised && @figures.holdings.sum(0.to_d) { |h| h.cost || 0.to_d }.then { |cost| cost.positive? ? ((@figures.holdings.sum(0.to_d) { |h| h.cost ? h.value : 0.to_d } / cost) - 1) * 100 : nil } %>
+      <div class="tracker-holdings__ring">
+        <svg viewBox="0 0 230 230" role="img" aria-label="<%= t('tracker.holdings') %>">
+          <% holdings_ring_arcs(holdings).each do |arc| %>
+            <circle cx="<%= TrackerHelper::RING_CENTRE %>" cy="<%= TrackerHelper::RING_CENTRE %>"
+                    r="<%= TrackerHelper::RING_RADIUS %>" fill="none" stroke="<%= arc[:color] %>"
+                    stroke-width="<%= TrackerHelper::RING_STROKE %>" stroke-linecap="round"
+                    stroke-dasharray="<%= arc[:dash] %>" stroke-dashoffset="<%= arc[:offset] %>"><title><%= arc[:label] %></title></circle>
+          <% end %>
+        </svg>
+        <div class="tracker-holdings__centre">
+          <span class="tracker-holdings__centre-value <%= centre && (centre.negative? ? 'text-danger' : 'text-success') %>">
+            <%= centre ? tracker_percent(centre) : '—' %>
+          </span>
+          <%# NOT "P/L": the chart above states the portfolio against every dollar ever put into it,
+              and this states the coins held right now against what they cost. An account that lost
+              money on something it no longer holds reads negative up there and positive down here,
+              both correctly — so the two figures may not share a name. %>
+          <span class="label"><%= t('tracker.unrealised') %></span>
+        </div>
+      </div>
+
+      <%# Every assumption about a coin finds the row of that coin — a cash note included, which
+          `Figures` keeps beside the holdings rather than on one. A coin nobody holds any more has
+          no row, and gets no sentence: there is nothing to do about it. %>
+      <% notes = (@figures&.notes || []).select { |note| note.symbol.present? }.group_by(&:symbol) %>
+      <% note_for = ->(holding) { notes[holding.asset.symbol]&.map { |note| tracker_note(note) }&.join(' ') } %>
+      <div class="tracker-holdings__list">
+        <div class="tracker-holdings__rows">
+          <% shown.each do |holding| %>
+            <%= render 'holding_row', holding: holding, total: total, hide_money: hide_money, note: note_for.call(holding) %>
+          <% end %>
+        </div>
+        <% if folded.any? %>
+          <%# The toggle follows the rows it opens: a column whose summary is ordered last once the
+              details are open, so it never sits stranded in the middle of the list. %>
+          <details class="tracker-holdings__more">
+            <summary class="label">
+              <span class="tracker-holdings__more__open"><%= t('tracker.show_more') %></span>
+              <span class="tracker-holdings__more__close"><%= t('tracker.show_less') %></span>
+            </summary>
+            <% folded.each do |holding| %>
+              <%= render 'holding_row', holding: holding, total: total, hide_money: hide_money, note: note_for.call(holding) %>
+            <% end %>
+          </details>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+
+  <% if (@portfolio_unpriced_assets || []).any? %>
+    <p class="tracker-holdings__empty">
+      <%= t('tracker.portfolio.unpriced', assets: @portfolio_unpriced_assets.map(&:symbol).join(', ')) %>
+    </p>
+  <% end %>
+  <%# The one sentence with no row to live on: the arithmetic backstop. It is not an assumption but
+      the page's own check that its figures agree, and it is said whatever else is on the page. %>
+  <% asides = (@figures&.notes || []).select { |note| note.kind == :figures_disagree } %>
+  <% if asides.any? %>
+    <ul class="tracker-holdings__notes">
+      <% asides.each do |note| %>
+        <li class="tracker-holdings__note"><%= tracker_note(note) %></li>
+      <% end %>
+    </ul>
+  <% end %>
+</div>

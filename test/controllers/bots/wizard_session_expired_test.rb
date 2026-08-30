@@ -3,9 +3,9 @@ require 'test_helper'
 # A cold POST to a mid-wizard step (no wizard session at all — expired cookie or
 # hand-crafted request) must not 500 on `session[:bot_config].merge!`/template
 # nil-derefs. Mid-wizard steps turbo-redirect to root, the same contract the
-# single/dual pick_spendable steps already had; the signals first step instead
-# re-initialises the session and proceeds (a step-1 POST is self-sufficient,
-# mirroring the single-asset first step).
+# single/multi pick_spendable steps already had; a first-step POST (the DCA asset
+# pick, the signals asset pick) instead re-initialises the session and proceeds —
+# a step-1 POST is self-sufficient.
 class WizardSessionExpiredTest < ActionDispatch::IntegrationTest
   setup do
     @user = create(:user, admin: true, setup_completed: true)
@@ -22,21 +22,40 @@ class WizardSessionExpiredTest < ActionDispatch::IntegrationTest
     assert_match %(action="redirect"), response.body
   end
 
-  test 'single pick_exchanges cold create turbo-redirects to root' do
+  test 'single pick_exchanges cold create re-initialises the session and proceeds (it is the first step)' do
     post bots_dca_single_assets_pick_exchange_path,
          params: { bots_dca_single_asset: { exchange_id: @binance.id } }
+    assert_redirected_to new_bots_dca_single_assets_add_api_key_path
+    assert_equal @binance.id.to_s, session[:bot_config]['exchange_id'].to_s
+  end
+
+  test 'the DCA asset step cold pick re-initialises the session and keeps the pick' do
+    post bots_dca_single_assets_pick_buyable_asset_path,
+         params: { bots_dca_single_asset: { base_asset_id: @btc.id } }
+    assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
+    assert_equal @btc.id, session[:bot_config].dig('settings', 'base_asset_id')
+  end
+
+  test 'the DCA asset step cold remove turbo-redirects to root' do
+    post remove_bots_dca_single_assets_pick_buyable_asset_path,
+         params: { bots_dca_single_asset: { base_asset_id: @btc.id } }
     assert_turbo_redirect_to_root
   end
 
-  test 'dual pick_exchanges cold create turbo-redirects to root' do
-    post bots_dca_dual_assets_pick_exchange_path,
-         params: { bots_dca_dual_asset: { exchange_id: @binance.id } }
+  test 'the DCA asset step cold advance turbo-redirects to root' do
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
     assert_turbo_redirect_to_root
   end
 
-  test 'dual pick_second_buyable_assets cold create turbo-redirects to root' do
-    post bots_dca_dual_assets_pick_second_buyable_asset_path,
-         params: { bots_dca_dual_asset: { base1_asset_id: @btc.id } }
+  test 'multi pick_exchanges cold create turbo-redirects to root' do
+    post bots_dca_multi_assets_pick_exchange_path,
+         params: { bots_dca_multi_asset: { exchange_id: @binance.id } }
+    assert_turbo_redirect_to_root
+  end
+
+  test 'multi pick_spendable_assets cold create turbo-redirects to root' do
+    post bots_dca_multi_assets_pick_spendable_asset_path,
+         params: { bots_dca_multi_asset: { quote_asset_id: @usd.id } }
     assert_turbo_redirect_to_root
   end
 

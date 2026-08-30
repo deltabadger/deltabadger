@@ -66,7 +66,14 @@ de:
             transient_nonce: "%{exchange} hat den Nonce der Anfrage abgelehnt. Wenn du diesen API-Schlüssel auch in einer anderen App verwendest, erhöhe das Nonce Window in deinen %{exchange}-API-Einstellungen."
             transient_unavailable: "%{exchange} ist vorübergehend nicht verfügbar. Der Bot versucht es automatisch erneut."
         bots:
+            multi_asset:
+                condition_subject: "Diese Bedingung muss sich auf einen Vermögenswert beziehen, den der Bot hält."
+                min_assets: "Ein Portfolio benötigt mindestens %{min} Assets."
+                max_assets: "Ein Portfolio kann höchstens %{max} Assets enthalten."
+                pair_missing: "%{assets} können auf %{exchange_name} nicht gegen das ausgewählte Kurs-Asset gehandelt werden."
+                locked_while_running: "Assets und Gewichtungen des Portfolios können nicht geändert werden, während der Bot läuft."
             exchange_asset_mismatch: "Nicht alle Vermögenswerte sind auf %{exchange_name} gelistet"
+            archived: "Reaktiviere diesen Bot, bevor du ihn startest"
             exchange_change_while_open_orders: "Alle offenen Bestellungen dieses Bots auf %{exchange_name} stornieren, bevor Sie den Exchange ändern"
             destroy_success: "Bot %{bot_label} erfolgreich gelöscht"
             api_key_success: "API-Schlüssel erfolgreich gespeichert"

@@ -13,14 +13,21 @@ export default class extends Controller {
 
   activate(event) {
     const form = event.target.closest("form");
-    if (!form || !this.element.contains(form)) return;
+    if (!form || !this.element.contains(form)) {
+      // An inert placeholder slot has no form to submit: the pill is the shape of the thing being
+      // picked, so clicking it hands focus back to the picker's search box.
+      if (event.target.closest(".ticker--placeholder")) {
+        document.querySelector(".modal--search__input")?.focus();
+      }
+      return;
+    }
     this.element.querySelectorAll(".active").forEach((el) => {
       if (el !== form) el.classList.remove("active");
     });
     form.classList.add("active");
     // Any click on a non-editable slot submits its form:
-    //   - filled (readonly input) → GET back-nav URL
-    //   - optional (no name)      → POST promote_to_dual
+    //   - filled (readonly input)      → GET back-nav URL
+    //   - placeholder (readonly input) → POST order switch / advance
     // The active editable form contains <input name="query">; its own
     // form--submit-after-delay submits on typing, so skip submission here.
     const editable = form.querySelector('input[name="query"]');

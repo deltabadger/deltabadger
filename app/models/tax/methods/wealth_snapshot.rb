@@ -42,12 +42,15 @@ module Tax
 
       def build_balances(transactions, cutoff)
         balances = Hash.new(0.to_d)
+        # Where each holding was booked, for the coin its symbol means there.
+        @venue_of = {}
 
         transactions.each do |tx|
           next if tx[:transacted_at] >= cutoff
 
           asset = tx[:base_currency]
           amount = tx[:base_amount]
+          @venue_of[asset] ||= tx[:exchange]
 
           case tx[:entry_type].to_sym
           when :buy, :swap_in, :deposit, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
@@ -68,7 +71,8 @@ module Tax
                     @price_service&.convert_fiat(amount: 1.to_d, from: 'USD', to: @currency,
                                                  timestamp: snapshot_date) || 1.to_d
                   else
-                    @price_service&.price_at(asset: asset, currency: @currency, timestamp: snapshot_date) || 0.to_d
+                    @price_service&.price_at(asset: asset, currency: @currency, timestamp: snapshot_date,
+                                             exchange: @venue_of&.dig(asset)) || 0.to_d
                   end
 
           {

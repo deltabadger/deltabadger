@@ -1,6 +1,12 @@
+<%# A hide-balances toggle in another tab refreshes this one. Subscribed per page rather than in
+    the layout: the refresh REPLACES the document, so a settings or setup page listening for it
+    would throw away whatever the user had half-typed into an email, password or API-key form.
+    Only the pages that state balances have anything to re-render. %>
+<%= turbo_stream_from "user_#{current_user.id}", :preferences %>
 <%= turbo_stream_from "user_#{current_user.id}", :tax_report %>
 <%= turbo_stream_from "user_#{current_user.id}", :sync %>
-<%= render 'sync_warning', exchanges: @sync_failures %>
+<%# A standing warning about the user's data, not a line of the page: it belongs in the flash column. %>
+<% content_for :flash_extra do %><%= render 'sync_warning', exchanges: @sync_failures %><% end %>
 <% if @pending_report %>
   <div data-controller="auto-download" data-auto-download-url-value="<%= download_tax_report_tracker_path(country: @pending_report[:country], year: @pending_report[:year], report_scope: @pending_report[:report_scope]) %>"></div>
 <% end %>
@@ -14,67 +20,15 @@
     </div>
   </div>
 <% else %>
-<% if @portfolio_total_usd && @portfolio_total_usd.positive? %>
-  <section class="dash-intro">
-    <h1 class="header header--1">
-      <%= number_to_currency(@portfolio_total_usd, precision: 2) %>
-    </h1>
-  </section>
-<% end %>
-
-<div class="two-row-filters">
-  <%= render 'exchange_filters' %>
-</div>
-
-<%= render 'portfolio_chart' %>
-
-<div class="two-row-filters">
-  <div class="two-row-filters__row">
-    <div class="filters">
-      <%= form_tag tracker_path, method: :get, class: 'tracker-date-range', data: { controller: 'form--submit' } do %>
-        <% if params[:exchange_id].present? %>
-          <%= hidden_field_tag :exchange_id, params[:exchange_id] %>
-        <% end %>
-        <input type="date" name="from" value="<%= @date_from %>" class="sinput" data-action="change->form--submit#submit">
-        <input type="date" name="to" value="<%= @date_to %>" class="sinput" data-action="change->form--submit#submit">
-      <% end %>
-    </div>
-    <div style="display: flex; gap: 0.5rem">
-      <% if @exchanges.any? %>
-        <%= link_to export_modal_tracker_path, class: 'sbutton sbutton--sky', data: { turbo_frame: 'modal' } do %>
-          <%= t('tracker.get_report') %>
-        <% end %>
-      <% end %>
-    </div>
+  <%# The scope line first, because it governs everything under it: which venue the page is about,
+      and what it will hand you. Then the bot page's own order — chart head, chart, figure tiles,
+      the card, the record. `container-type` is what lets the tiles' .data-grid reflow to the
+      column it has room for rather than to the width of the window. %>
+  <div class="tracker">
+    <%= render 'exchange_filters' %>
+    <%= render 'chart' %>
+    <%= render 'tiles' %>
+    <%= render 'holdings' %>
+    <%= render 'record' %>
   </div>
-</div>
-
-<% if @account_transactions.any? %>
-  <div class="widget widget--table widget--table--tracker">
-    <table class="table">
-      <thead>
-        <tr>
-          <th class="tracker-exchange-icon"></th>
-          <th class="text-left"><%= t('tracker.columns.date') %></th>
-          <th><%= t('tracker.columns.type') %></th>
-          <th><%= t('tracker.columns.base') %></th>
-          <th><%= t('tracker.columns.amount') %></th>
-          <th><%= t('tracker.columns.quote') %></th>
-          <th><%= t('tracker.columns.quote_amount') %></th>
-          <th><%= t('tracker.columns.fee') %></th>
-          <th><%= t('tracker.columns.bot') %></th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @account_transactions.each do |at| %>
-          <%= render 'transaction_row', at: at %>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
-<% elsif @exchanges.any? %>
-  <div class="tracker-empty">
-    <p><%= t('tracker.no_results') %></p>
-  </div>
-<% end %>
 <% end %>

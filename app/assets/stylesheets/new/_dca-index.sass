@@ -23,11 +23,11 @@
 // The index settings ("Number of coins" / "Allocation flattening") and the
 // per-coin allocation rows below them size their progress fills via
 // `grid-template-columns: X% auto` on `.slider__style__track`. The base
-// `_slider.sass` rule no longer sets `display: grid` on the track (it
-// moved into `.slider--dual` after the new-bot-creation-flow refactor in
-// 9f86e7ae) — meaning `.slider__style__progress { width: 100% }` was
-// always filling the track regardless of the inline grid template.
-// Restore `display: grid` here so the inline template takes effect again.
+// `_slider.sass` rule doesn't set `display: grid` on the track — that lives
+// here instead, on these per-coin rows — meaning `.slider__style__progress
+// { width: 100% }` would otherwise fill the track regardless of the inline
+// grid template. Restore `display: grid` here so the inline template takes
+// effect.
 .index-settings .slider__style__track,
 .index-asset .slider__style__track
     display: grid
@@ -136,3 +136,51 @@
       text-align: right
       font-weight: 500
       color: var(--text)
+
+// The "Redeploy $243?" prompt. Sits on its own between the figures and the tables: it is a question
+// about money, not a column of it. Same padding as a data-grid item so it lines up with both.
+.redeploy-prompt
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 1rem
+  flex-wrap: wrap
+  padding: calc(var(--ui-padding)/1.33) var(--ui-padding) !important
+  form
+    margin: 0
+
+// Yes and No stay side by side at every width. Wrapping them apart puts the decline under the
+// confirm, where a stray tap lands on the wrong answer.
+.redeploy-prompt__actions
+  display: flex
+  align-items: center
+  gap: 0.5rem
+  flex-shrink: 0
+
+// The "Left the index" band above the quitters table: a label on the left, the action on the right.
+// Same padding as a data-grid item so it lines up with the tables either side of it.
+.exited-header
+  display: flex
+  align-items: center
+  justify-content: space-between
+  gap: 1rem
+  flex-wrap: wrap
+  padding: calc(var(--ui-padding)/1.33) var(--ui-padding) !important
+  // Sitting directly on the quitters table, the band gives up its bottom padding and the widget's
+  // 3rem flex gap so the two read as one block. Alone — a halted liquidation whose price read came
+  // back empty, so there is nothing left to list — it keeps both: the negative margin has no gap to
+  // cancel there and shortens the widget itself, clipping the Clear button that is the only way out
+  // of the halt.
+  &:not(:last-child)
+    padding-bottom: 0 !important
+    margin-bottom: -3rem
+  form
+    margin: 0
+
+// The quitters table's action column. Right-aligned and shrink-to-fit so the figures keep the width
+// they had before the column existed, and never wraps — a Sell that breaks over two lines makes the
+// whole row taller than the rest of the table.
+.table__action
+  text-align: right
+  width: 1%
+  white-space: nowrap

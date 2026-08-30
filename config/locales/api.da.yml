@@ -59,7 +59,10 @@ da:
                                     -   text_html: '<b>Query open orders & trades</b>'
                                     -   text_html: '<b>Query closed orders & trades</b>'
                                     -   text_html: '<b>Create & modify orders</b>'
-                                    -   text_html: '<b>Cancel & close orders</b><br><strong>⚠️ Vigtigt:</strong> Nøglerne virker ikke, hvis du tilføjer flere tilladelser.'
+                                    -   text_html: '<b>Cancel & close orders</b>'
+                            -   text_html: 'Data:'
+                                sub_instructions:
+                                    -   text_html: '<b>Query ledger entries</b> — kræves af portefølje-trackeren.<br><strong>⚠️ Vigtigt:</strong> Af sikkerhedshensyn bør du kun aktivere de tilladelser, der er nævnt ovenfor.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
                                     -   text_html: '🔘 Tilføj %{whitelist_ip}.'

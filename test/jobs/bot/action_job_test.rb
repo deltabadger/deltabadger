@@ -399,13 +399,17 @@ class Bot::ActionJobWithSingleAssetTest < ActiveSupport::TestCase
   end
 end
 
-class Bot::ActionJobWithDualAssetTest < ActiveSupport::TestCase
+class Bot::ActionJobWithMultiAssetTest < ActiveSupport::TestCase
   include ActionJobBehaviorTests
 
   private
 
   def create_bot
-    create(:dca_dual_asset, :started)
+    # get_orders_data prices from current_allocations, a fresh per-call query — its ticker
+    # instances never match the ones setup_bot_execution_mocks stubs. Class-level stub, as
+    # dca_multi_asset_test.rb's execute_action test uses, reaches whichever instance is used.
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000.to_d))
+    create(:dca_multi_asset, :started)
   end
 end
 
@@ -848,7 +852,7 @@ class Bot::ActionJobAmbiguousPlacementTest < ActiveSupport::TestCase
     Bot::ActionJob.new.perform(bot)
   end
 
-  # Same tradeoff on the ambiguous path, including when an earlier leg of an index/dual tick was
+  # Same tradeoff on the ambiguous path, including when an earlier leg of an index/basket tick was
   # already accepted: no save, so no resurrection window.
   test 'an ambiguous placement after an accepted leg does not save the bot' do
     bot = create(:dca_single_asset, :started)
@@ -915,7 +919,7 @@ class Bot::ActionJobAmbiguousPlacementTest < ActiveSupport::TestCase
     assert_raises(Client::TransientNetworkError) { Bot::ActionJob.new.perform(bot) }
   end
 
-  # An index or dual-asset bot writes a `skipped` row for a leg that is below the exchange minimum
+  # An index or basket bot writes a `skipped` row for a leg that is below the exchange minimum
   # and a `failed` row for one the exchange rejected. Neither is a live order, so neither may
   # suppress the retry — otherwise one below-minimum allocation costs the whole tick.
   test 'a skipped transaction this tick does not suppress the retry' do

@@ -19,11 +19,14 @@ application.register("autofocus", AutofocusController)
 import AutowidthInputController from "./autowidth_input_controller"
 application.register("autowidth-input", AutowidthInputController)
 
-import Bot__BarbellAllocationController from "./bot/barbell_allocation_controller"
-application.register("bot--barbell-allocation", Bot__BarbellAllocationController)
+import Bot__AllocationController from "./bot/allocation_controller"
+application.register("bot--allocation", Bot__AllocationController)
 
 import Bot__ChartController from "./bot/chart_controller"
 application.register("bot--chart", Bot__ChartController)
+
+import BotsReorderController from "./bots_reorder_controller"
+application.register("bots-reorder", BotsReorderController)
 
 import Broadcast__OnConnectController from "./broadcast/on_connect_controller"
 application.register("broadcast--on-connect", Broadcast__OnConnectController)
@@ -36,6 +39,9 @@ application.register("clipboard", ClipboardController)
 
 import ClockController from "./clock_controller"
 application.register("clock", ClockController)
+
+import CoarseSliderController from "./coarse_slider_controller"
+application.register("coarse-slider", CoarseSliderController)
 
 import ConversationalSentenceController from "./conversational_sentence_controller"
 application.register("conversational-sentence", ConversationalSentenceController)
@@ -82,6 +88,9 @@ application.register("form--password-strength", Form__PasswordStrengthController
 import Form__PasswordUnmaskController from "./form/password_unmask_controller"
 application.register("form--password-unmask", Form__PasswordUnmaskController)
 
+import Form__SegmentedFieldController from "./form/segmented_field_controller"
+application.register("form--segmented-field", Form__SegmentedFieldController)
+
 import Form__SelectDisplayController from "./form/select_display_controller"
 application.register("form--select-display", Form__SelectDisplayController)
 
@@ -106,6 +115,9 @@ application.register("index-filter", IndexFilterController)
 import MarqueeController from "./marquee_controller"
 application.register("marquee", MarqueeController)
 
+import MenuMobileController from "./menu_mobile_controller"
+application.register("menu-mobile", MenuMobileController)
+
 import Modal__BaseController from "./modal/base_controller"
 application.register("modal--base", Modal__BaseController)
 
@@ -121,6 +133,12 @@ application.register("order-filter", OrderFilterController)
 import PieChartController from "./pie_chart_controller"
 application.register("pie-chart", PieChartController)
 
+import PnlFormatController from "./pnl_format_controller"
+application.register("pnl-format", PnlFormatController)
+
+import PnlSparkController from "./pnl_spark_controller"
+application.register("pnl-spark", PnlSparkController)
+
 import ProgressBarController from "./progress_bar_controller"
 application.register("progress-bar", ProgressBarController)
 
@@ -133,11 +151,14 @@ application.register("reveal-chrome", RevealChromeController)
 import RuleToggleController from "./rule_toggle_controller"
 application.register("rule-toggle", RuleToggleController)
 
-import ScrollStateController from "./scroll_state_controller"
-application.register("scroll-state", ScrollStateController)
+import SegmentedController from "./segmented_controller"
+application.register("segmented", SegmentedController)
 
 import SliderController from "./slider_controller"
 application.register("slider", SliderController)
+
+import TableFitController from "./table_fit_controller"
+application.register("table-fit", TableFitController)
 
 import ThreeDotsController from "./three_dots_controller"
 application.register("three-dots", ThreeDotsController)
@@ -148,14 +169,14 @@ application.register("ticker-tooltips", TickerTooltipsController)
 import TooltipController from "./tooltip_controller"
 application.register("tooltip", TooltipController)
 
+import Tracker__RecordController from "./tracker/record_controller"
+application.register("tracker--record", Tracker__RecordController)
+
 import TrackerExportController from "./tracker_export_controller"
 application.register("tracker-export", TrackerExportController)
 
 import TurboFrameTriggerController from "./turbo_frame_trigger_controller"
 application.register("turbo-frame-trigger", TurboFrameTriggerController)
-
-import ValueToggleController from "./value_toggle_controller"
-application.register("value-toggle", ValueToggleController)
 
 import ZarazController from "./zaraz_controller"
 application.register("zaraz", ZarazController)

@@ -1,5 +1,9 @@
 // flash messages
-#flash
+//
+// One bottom-right column. The #flash list inside it is turbo-permanent so a morph cannot drop a
+// message mid-read, and a page's own standing warning (yield :flash_extra) joins the same column
+// rather than starting a second stack on top of it.
+.flash-stack
   position: fixed
   bottom: 1rem
   right: 1rem
@@ -13,6 +17,11 @@
   max-width: 100%
   width: max-content
 
+  // Only a wrapper for the permanence flag — its messages are what stack.
+  #flash
+    display: contents
+
+#flash
   &__message
     animation: flash-appear 0.3s ease-out both
 

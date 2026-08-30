@@ -1,0 +1,569 @@
+require 'test_helper'
+
+# The tracker's figure service: what the ledger alone can say about a portfolio — total invested
+# (net money in), realised P/L, fees, open positions and closed round-trips — computed once per
+# sync and cached, never in a request. FIFO lots come from the tax engine; nothing is walked twice.
+class Tracker::LedgerTest < ActiveSupport::TestCase
+  setup do
+    Tax::EcbFxRates.stubs(:ensure_loaded!)
+    @user = create(:user)
+    @binance = create(:binance_exchange)
+    @kraken = create(:kraken_exchange)
+    @key_binance = create(:api_key, user: @user, exchange: @binance)
+    @key_kraken = create(:api_key, user: @user, exchange: @kraken)
+    create(:asset, :bitcoin)
+    create(:asset, :ethereum)
+    @day = ->(n) { Time.utc(2026, 1, n, 12) }
+  end
+
+  def tx(type, key: @key_binance, day: 1, at: nil, **attrs)
+    defaults = { api_key: key, exchange: key.exchange, entry_type: type, transacted_at: at || @day.call(day) }
+    defaults.merge!(quote_currency: nil, quote_amount: nil) if %i[deposit withdrawal swap_in swap_out fee].include?(type)
+    create(:account_transaction, **defaults, **attrs)
+  end
+
+  def price(symbol, day, usd)
+    HistoricalPrice.create!(asset: symbol, currency: 'USD', date: @day.call(day).to_date, price: usd)
+  end
+
+  test 'cash spent that the ledger never saw arrive is money in' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_000.to_d, summary.total_invested_usd,
+                 'the venue reported the trade and not the transfer that paid for it'
+  end
+
+  test 'a deposit that covers an earlier deficit is not counted twice' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
+    tx(:deposit, day: 2, base_currency: 'USDC', base_amount: 20_000)
+    tx(:buy, day: 3, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 40_000.to_d, summary.total_invested_usd,
+                 'the second buy spends the deposit; only the first one needed money from nowhere'
+  end
+
+  test 'a linked cash transfer moves between the pots and is booked once, at the venue it left' do
+    deposit = tx(:deposit, key: @key_kraken, day: 2, base_currency: 'USDC', base_amount: 1_000)
+    tx(:withdrawal, day: 1, base_currency: 'USDC', base_amount: 1_000, linked_transaction: deposit)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 1_000.to_d, summary.total_invested_usd,
+                 'the transfer itself contributes nothing; the venue it left never reported receiving it'
+  end
+
+  test 'a futures fill is notional, not cash spent' do
+    tx(:buy, day: 1, base_currency: 'BTCUSDT', base_amount: 1, quote_currency: 'USDT', quote_amount: 60_000,
+             tx_id: 'futures-1')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 0.to_d, summary.total_invested_usd,
+                 'a leveraged fill reserves margin — the notional it reports never left an account'
+  end
+
+  test 'interest on a margin loan is not new money' do
+    tx(:fee, day: 1, base_currency: 'USDT', base_amount: 25, tx_id: 'margin-interest-1-USDT')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 0.to_d, summary.total_invested_usd, 'paying for borrowed money is not putting money in'
+  end
+
+  test 'a venue is read once its own events are closed, whatever another venue still has open' do
+    tx(:fee, key: @key_binance, at: @day.call(1), base_currency: 'USDC', base_amount: 1, group_id: 'g1')
+    tx(:buy, key: @key_kraken, at: @day.call(1) + 1.hour, base_currency: 'BTC', base_amount: 1,
+             quote_currency: 'USDC', quote_amount: 20_000)
+    tx(:sell, key: @key_kraken, at: @day.call(1) + 2.hours, base_currency: 'BTC', base_amount: 1,
+              quote_currency: 'USDC', quote_amount: 30_000)
+    tx(:sell, key: @key_binance, at: @day.call(1) + 3.hours, base_currency: 'BTC', base_amount: 1,
+              quote_currency: 'USDC', quote_amount: 5_000, group_id: 'g1')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_000.to_d, summary.total_invested_usd,
+                 'the buy at one venue is unfunded whether or not the other venue is mid-event'
+  end
+
+  test 'a broker in the portfolio does not stop a spot venue from being read' do
+    alpaca = create(:alpaca_exchange)
+    alpaca_key = create(:api_key, user: @user, exchange: alpaca)
+    tx(:deposit, key: alpaca_key, day: 1, base_currency: 'USD', base_amount: 1)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_001.to_d, summary.total_invested_usd,
+                 'the dollar at the broker says nothing about the twenty thousand the exchange spent'
+  end
+
+  test 'a grouped event is read whole even with an unrelated row between its legs' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000,
+             at: @day.call(1))
+    tx(:fee, day: 2, base_currency: 'USDC', base_amount: 78, at: @day.call(2), group_id: 'sale-2')
+    tx(:staking_reward, day: 2, base_currency: 'ETH', base_amount: 1, at: @day.call(2) + 30.minutes,
+                        quote_currency: nil, quote_amount: nil)
+    tx(:sell, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 30_000,
+              at: @day.call(2) + 1.hour, group_id: 'sale-2')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_000.to_d, summary.total_invested_usd,
+                 'the fee and the sale are one event whatever landed between them'
+  end
+
+  test 'a round trip inside one day still shows what it cost to open' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000,
+             at: @day.call(1))
+    tx(:sell, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 30_000,
+              at: @day.call(1) + 4.hours)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_000.to_d, summary.total_invested_usd,
+                 'the afternoon sale does not un-spend what the morning had to find first'
+  end
+
+  test 'a venue that lends is short because it lent, not because history is missing' do
+    alpaca = create(:alpaca_exchange)
+    key = create(:api_key, user: @user, exchange: alpaca)
+    tx(:deposit, key: key, day: 1, base_currency: 'USD', base_amount: 10_000)
+    tx(:buy, key: key, day: 2, base_currency: 'QQQM', base_amount: 10, quote_currency: 'USD', quote_amount: 20_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 10_000.to_d, summary.total_invested_usd,
+                 'settled cash goes negative on borrowed money at a broker; a loan is not a contribution'
+  end
+
+  test 'a single-row trade that sells cash keeps the already-net fee rule' do
+    tx(:sell, day: 1, base_currency: 'USDT', base_amount: 1_000, quote_currency: 'TRY', quote_amount: 30_000,
+              fee_amount: 5, fee_currency: 'USDT')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 1_000.to_d, summary.total_invested_usd,
+                 'the fee is on top only where the row is a settlement leg with no quote of its own'
+  end
+
+  test 'a cash deposit whose fee exceeds it arrives at zero rather than in deficit' do
+    tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 5, fee_amount: 10, fee_currency: 'USDC')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 5.to_d, summary.total_invested_usd, 'nothing was borrowed to pay that fee'
+  end
+
+  test 'a fee booked before the sale that pays for it does not invent a deficit' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
+    tx(:fee, day: 2, base_currency: 'USDC', base_amount: 78, at: @day.call(2), group_id: 'sale-1')
+    tx(:sell, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 30_000,
+              at: @day.call(2) + 1.hour, group_id: 'sale-1')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_000.to_d, summary.total_invested_usd,
+                 'the day ends nearly 10k up — the fee came out of the sale, not out of nowhere'
+  end
+
+  test 'a venue that reports its funding books the deposit and nothing more' do
+    tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 20_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_000.to_d, summary.total_invested_usd
+  end
+
+  test 'a ledger warmed in the app zone is found from any other' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+
+    Tracker::Ledger.compute!(@user)
+
+    assert_not_nil Time.use_zone('Tallinn') { Tracker::Ledger.cached(@user) },
+                   'the cache key must not move with the zone of whoever asks'
+  end
+
+  test 'partial sell: FIFO remaining lots make the open position, realised is proceeds minus FIFO cost and fee' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 30_000)
+    tx(:sell, day: 3, base_currency: 'BTC', base_amount: 0.5, quote_currency: 'USD', quote_amount: 20_000,
+              fee_amount: 10, fee_currency: 'USD')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 1, summary.positions.size
+    btc = summary.positions.first
+    assert_equal 'BTC', btc.symbol
+    assert_equal 1.5.to_d, btc.quantity
+    assert_equal 40_000.to_d, btc.cost_usd, 'half of the first lot left at 20k plus the whole second at 30k'
+    assert_in_delta 26_666.67, btc.avg_cost_usd.to_f, 0.01
+    assert_equal @day.call(1), btc.opened_at
+    assert_not btc.incomplete
+    assert_equal 9_990.to_d, summary.realised_pnl_usd
+    assert_equal 10.to_d, summary.fees_usd
+    assert_equal 9_990.to_d, summary.round_trips.sole.realised_pnl_usd,
+                 'the half that was sold is realised, beside the half still held'
+    assert_equal 50_000.to_d, summary.total_invested_usd,
+                 'the buys spent dollars this venue never reported receiving; the sale returns some of them'
+  end
+
+  test 'a sell that empties the lots closes a round-trip and leaves no position' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:sell, day: 5, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 25_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_empty summary.positions
+    trip = summary.round_trips.sole
+    assert_equal 'BTC', trip.symbol
+    assert_equal @day.call(1), trip.opened_at
+    assert_equal @day.call(5), trip.closed_at
+    assert_equal 1.to_d, trip.quantity
+    assert_equal 20_000.to_d, trip.invested_usd
+    assert_equal 25_000.to_d, trip.proceeds_usd
+    assert_equal 5_000.to_d, trip.realised_pnl_usd
+    assert_equal 5_000.to_d, summary.realised_pnl_usd
+  end
+
+  test 'selling part of a stack realises part of the outcome, without closing the position' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:sell, day: 3, base_currency: 'BTC', base_amount: 0.25, quote_currency: 'USD', quote_amount: 7_000)
+    tx(:sell, day: 5, base_currency: 'BTC', base_amount: 0.25, quote_currency: 'USD', quote_amount: 8_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 0.5.to_d, summary.positions.sole.quantity, 'half the stack is still held'
+    trip = summary.round_trips.sole
+    assert_equal @day.call(1), trip.opened_at
+    assert_equal @day.call(5), trip.closed_at, 'the last sale so far, not a closure'
+    assert_equal 0.5.to_d, trip.quantity
+    assert_equal 10_000.to_d, trip.invested_usd
+    assert_equal 15_000.to_d, trip.proceeds_usd
+    assert_equal 5_000.to_d, trip.realised_pnl_usd
+    assert_not trip.incomplete
+  end
+
+  test 'a re-entry after a full exit is a second round-trip, not an addition to the first' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:sell, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 25_000)
+    tx(:buy, day: 3, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 26_000)
+    tx(:sell, day: 4, base_currency: 'BTC', base_amount: 0.5, quote_currency: 'USD', quote_amount: 14_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal [5_000.to_d, 1_000.to_d], summary.round_trips.map(&:realised_pnl_usd)
+    assert_equal 0.5.to_d, summary.positions.sole.quantity
+  end
+
+  test 'a position closed through several partial sells is one round-trip that aggregates every sell' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:sell, day: 2, base_currency: 'BTC', base_amount: 0.5, quote_currency: 'USD', quote_amount: 12_000, fee_amount: 2, fee_currency: 'USD')
+    tx(:sell, day: 4, base_currency: 'BTC', base_amount: 0.5, quote_currency: 'USD', quote_amount: 13_000, fee_amount: 3, fee_currency: 'USD')
+
+    summary = Tracker::Ledger.for(@user)
+
+    trip = summary.round_trips.sole
+    assert_equal @day.call(1), trip.opened_at
+    assert_equal @day.call(4), trip.closed_at
+    assert_equal 1.to_d, trip.quantity, 'avg buy and exit price divide by this'
+    assert_equal 20_000.to_d, trip.invested_usd
+    assert_equal 25_000.to_d, trip.proceeds_usd
+    assert_equal 5.to_d, trip.fees_usd
+    assert_equal 4_995.to_d, trip.realised_pnl_usd
+    assert_equal 4_995.to_d, summary.realised_pnl_usd
+  end
+
+  test 'total invested is money in from outside: fiat and stablecoin deposits minus withdrawals; trades move nothing' do
+    tx(:deposit, day: 1, base_currency: 'USD', base_amount: 10_000)
+    tx(:withdrawal, day: 2, base_currency: 'USD', base_amount: 2_000)
+    tx(:deposit, day: 3, base_currency: 'USDT', base_amount: 3_000)
+    tx(:buy, day: 4, base_currency: 'BTC', base_amount: 0.1, quote_currency: 'USD', quote_amount: 5_000)
+    tx(:sell, day: 5, base_currency: 'BTC', base_amount: 0.05, quote_currency: 'USD', quote_amount: 3_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 11_000.to_d, summary.total_invested_usd
+    assert_equal %w[BTC], summary.positions.map(&:symbol), 'cash is not a position'
+  end
+
+  test 'a linked transfer between two of the user\'s exchanges contributes nothing and keeps the coins and their cost' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    deposit = tx(:deposit, key: @key_kraken, day: 3, base_currency: 'BTC', base_amount: 1)
+    tx(:withdrawal, day: 2, base_currency: 'BTC', base_amount: 1, linked_transaction: deposit)
+
+    summary = Tracker::Ledger.for(@user)
+
+    btc = summary.positions.sole
+    assert_equal 1.to_d, btc.quantity
+    assert_equal 20_000.to_d, btc.cost_usd, 'the lot travelled with its cost'
+    assert_equal 20_000.to_d, summary.total_invested_usd, 'the transfer contributes nothing; the buy behind it was funded from outside'
+    assert_equal 0.to_d, summary.realised_pnl_usd
+  end
+
+  test 'a linked transfer that arrived lighter lost the network fee at zero gain' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    deposit = tx(:deposit, key: @key_kraken, day: 3, base_currency: 'BTC', base_amount: 0.99)
+    tx(:withdrawal, day: 2, base_currency: 'BTC', base_amount: 1, linked_transaction: deposit)
+
+    summary = Tracker::Ledger.for(@user)
+
+    btc = summary.positions.sole
+    assert_equal 0.99.to_d, btc.quantity
+    assert_equal 19_800.to_d, btc.cost_usd
+    assert_equal 0.to_d, summary.realised_pnl_usd
+  end
+
+  test 'an unlinked crypto deposit opens an assumed-basis position at that day\'s price and counts as money in' do
+    price('ETH', 1, 3_000)
+    tx(:deposit, day: 1, base_currency: 'ETH', base_amount: 2)
+
+    summary = Tracker::Ledger.for(@user)
+
+    eth = summary.positions.sole
+    assert_equal 'ETH', eth.symbol
+    assert_equal 2.to_d, eth.quantity
+    assert_equal 6_000.to_d, eth.cost_usd
+    assert eth.incomplete, 'a deposit has no fill price — the basis is assumed, and the page should say so'
+    assert_equal 6_000.to_d, summary.total_invested_usd
+  end
+
+  # This used to expect 10,000: the coins were taken out of money-in at the day's MARKET price, so a
+  # 20k contribution was debited 10k for coins that cost 8k. That is a sale's valuation — no
+  # disposal is recorded and nothing reaches a tax report, but it charges money-in with
+  # appreciation nobody contributed, and enough of it drives the figure below zero.
+  #
+  # At cost the two halves agree: 12,000 left in, and 12,000 is exactly what the remaining 0.6 BTC
+  # cost. Under the old rule they disagreed by the gain on the coins that walked away.
+  test 'an unlinked withdrawal removes lots at cost, and takes that same cost out of money-in' do
+    price('BTC', 2, 25_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:withdrawal, day: 2, base_currency: 'BTC', base_amount: 0.4)
+
+    summary = Tracker::Ledger.for(@user)
+
+    btc = summary.positions.sole
+    assert_equal 0.6.to_d, btc.quantity
+    assert_equal 12_000.to_d, btc.cost_usd, 'the coins left at their FIFO cost'
+    assert_equal 0.to_d, summary.realised_pnl_usd
+    assert_equal 12_000.to_d, summary.total_invested_usd, 'and money-in matches what is still held'
+  end
+
+  test 'scoped to one exchange, a coin that moved venues shows on the venue it is on, and the venues\' money-in reflects the move' do
+    price('BTC', 2, 28_000)
+    price('BTC', 3, 30_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    deposit = tx(:deposit, key: @key_kraken, day: 3, base_currency: 'BTC', base_amount: 1)
+    tx(:withdrawal, day: 2, base_currency: 'BTC', base_amount: 1, linked_transaction: deposit)
+
+    on_binance = Tracker::Ledger.for(@user, exchange: @binance)
+    on_kraken = Tracker::Ledger.for(@user, exchange: @kraken)
+
+    assert_empty on_binance.positions
+    assert_equal 0.to_d, on_binance.realised_pnl_usd, 'a transfer out is not a sale'
+    # This used to expect -8,000 — a venue holding a NEGATIVE amount of the user's money, because
+    # the outbound leg was valued at the day's 28k against 20k that ever went in. Everything that
+    # arrived here has left again, so nothing of theirs is here: zero.
+    assert_equal 0.to_d, on_binance.total_invested_usd,
+                 'per venue: 20k of unreported funding in, and the same 20k of cost back out'
+    assert_equal 30_000.to_d, on_kraken.total_invested_usd
+    kraken_btc = on_kraken.positions.sole
+    assert_equal 1.to_d, kraken_btc.quantity
+    assert_equal 30_000.to_d, kraken_btc.cost_usd
+    assert kraken_btc.incomplete, 'per venue the arriving coin has no basis of its own'
+  end
+
+  test 'fiat and stablecoins never appear as positions; fees sum the priced fees; a missing price marks the summary incomplete' do
+    tx(:deposit, day: 1, base_currency: 'USDT', base_amount: 1_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 0.01, quote_currency: 'USDT', quote_amount: 500,
+             fee_amount: 0.5, fee_currency: 'USDT')
+    tx(:deposit, day: 3, base_currency: 'XYZ', base_amount: 10) # no price anywhere
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal %w[BTC XYZ], summary.positions.map(&:symbol).sort
+    assert_equal 0.5.to_d, summary.fees_usd
+    assert summary.positions.find { |p| p.symbol == 'XYZ' }.incomplete
+    assert summary.incomplete
+  end
+
+  test 'a standalone in-kind fee row shrinks the position at zero gain and counts as a fee at that day\'s price' do
+    price('BTC', 2, 50_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:fee, day: 2, base_currency: 'BTC', base_amount: 0.001)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 0.999.to_d, summary.positions.sole.quantity
+    assert_equal 0.to_d, summary.realised_pnl_usd
+    assert_equal 50.to_d, summary.fees_usd
+  end
+
+  test 'a sale that overdraws the lots is a round-trip nobody can stand behind' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:sell, day: 2, base_currency: 'BTC', base_amount: 2, quote_currency: 'USD', quote_amount: 50_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert summary.round_trips.sole.incomplete, 'FIFO matched one BTC of the two that left'
+    assert summary.incomplete
+    assert_equal 30_000.to_d, summary.realised_pnl_usd, 'FIFO: 50,000 proceeds less the 20,000 it could match'
+  end
+
+  # The coins sold must have been held before the history begins; with no price for that day the
+  # opening is taken at zero cost, the sale closes it as a round-trip nobody can price, and the
+  # summary says it is incomplete — a figure nobody could state, not one merely estimated.
+  test 'a sale out of nothing sells what must have been held, at nothing when nobody can price it' do
+    tx(:sell, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 25_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal({ 'BTC' => 1.to_d }, summary.openings)
+    assert summary.round_trips.sole.incomplete
+    assert_empty summary.positions
+    assert_equal 25_000.to_d, summary.realised_pnl_usd, 'zero basis — the tax engine\'s number, noted'
+    assert summary.incomplete
+  end
+
+  test 'a round-trip measured against an assumed basis is flagged, whatever FIFO books for it' do
+    price('ETH', 1, 3_000)
+    tx(:deposit, day: 1, base_currency: 'ETH', base_amount: 2)
+    tx(:sell, day: 3, base_currency: 'ETH', base_amount: 2, quote_currency: 'USD', quote_amount: 7_000)
+
+    summary = Tracker::Ledger.for(@user)
+
+    trip = summary.round_trips.sole
+    assert trip.incomplete, 'the cost it is measured against was the day\'s market price, not a fill'
+    assert_equal 1_000.to_d, trip.realised_pnl_usd, 'the engine still books it — the page is what withholds it'
+  end
+
+  test 'a return of capital beyond the basis is realised gain, and the basis floors at zero' do
+    tx(:buy, key: @key_binance, day: 1, base_currency: 'XYZ', base_amount: 10, quote_currency: 'USD', quote_amount: 1_000)
+    tx(:return_of_capital, day: 2, base_currency: 'XYZ', base_amount: 10, quote_currency: 'USD', quote_amount: 1_200)
+
+    summary = Tracker::Ledger.for(@user)
+
+    xyz = summary.positions.sole
+    assert_equal 10.to_d, xyz.quantity
+    assert_equal 0.to_d, xyz.cost_usd
+    assert_equal 200.to_d, summary.realised_pnl_usd, 'the engine\'s excess_roc, which nothing read until now'
+  end
+
+  test 'a standalone fiat fee row (a broker\'s USD fee) counts as a fee at face value' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:fee, day: 2, base_currency: 'USD', base_amount: 20)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20.to_d, summary.fees_usd, 'enrich prices fiat-base rows at 0 — the ledger values the fee itself'
+    assert_equal 1.to_d, summary.positions.sole.quantity
+  end
+
+  test 'a nil-quote trade (Kraken, swaps) is priced from the day\'s historical price' do
+    price('BTC', 1, 40_000)
+    tx(:buy, key: @key_kraken, day: 1, base_currency: 'BTC', base_amount: 0.5, quote_currency: nil, quote_amount: nil)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal 20_000.to_d, summary.positions.sole.cost_usd
+  end
+
+  test 'a swap pair at the same timestamp chains the basis whichever leg was stored first' do
+    price('BTC', 2, 40_000)
+    price('ETH', 2, 2_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    # The adapter stores the in-leg first (lower id), the out-leg second — both at the same instant.
+    tx(:swap_in, day: 2, base_currency: 'ETH', base_amount: 10, group_id: 'swap-1')
+    tx(:swap_out, day: 2, base_currency: 'BTC', base_amount: 0.5, group_id: 'swap-1')
+
+    summary = Tracker::Ledger.for(@user)
+
+    eth = summary.positions.find { |p| p.symbol == 'ETH' }
+    assert_equal 10_000.to_d, eth.cost_usd, 'half the BTC lot\'s cost moved into ETH — a swap is not a sale'
+    assert_equal 0.to_d, summary.realised_pnl_usd
+    assert_equal 10_000.to_d, summary.positions.find { |p| p.symbol == 'BTC' }.cost_usd
+  end
+
+  test 'cached is nil until compute!, and a new transaction invalidates it' do
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+
+    assert_nil Tracker::Ledger.cached(@user)
+    Tracker::Ledger.compute!(@user)
+    assert_equal 1, Tracker::Ledger.cached(@user).positions.size
+
+    tx(:buy, day: 2, base_currency: 'ETH', base_amount: 1, quote_currency: 'USD', quote_amount: 3_000)
+    assert_nil Tracker::Ledger.cached(@user), 'the key carries the ledger\'s size and last change — no manual invalidation'
+  end
+
+  test 'the job computes, caches and refreshes the page' do
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    Turbo::StreamsChannel.expects(:broadcast_refresh_to).with("user_#{@user.id}", :sync)
+
+    Tracker::LedgerJob.perform_now(@user.id)
+
+    assert_equal 1, Tracker::Ledger.cached(@user).positions.size
+  end
+
+  test 'the job can compute an exchange-scoped ledger and caches it under its own key' do
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+    tx(:buy, key: @key_kraken, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    Turbo::StreamsChannel.stubs(:broadcast_refresh_to)
+
+    Tracker::LedgerJob.perform_now(@user.id, @kraken.id)
+
+    assert_nil Tracker::Ledger.cached(@user)
+    assert_equal 1, Tracker::Ledger.cached(@user, exchange: @kraken).positions.size
+  end
+
+  # The chart's history is this same figure read day by day, so it reads these rather than keeping
+  # a second opinion: one term per ledger row, in the ledger's own order, complete or not.
+  test 'money in is exposed row by row, in the ledger\'s own order and terms' do
+    price('ETH', 3, 3_000)
+    tx(:deposit, day: 1, base_currency: 'USD', base_amount: 1_000)
+    tx(:withdrawal, day: 2, base_currency: 'USD', base_amount: 200)
+    tx(:staking_reward, day: 3, base_currency: 'ETH', base_amount: 1, quote_currency: nil, quote_amount: nil)
+    tx(:airdrop, day: 4, base_currency: 'ZZZ', base_amount: 5, quote_currency: nil, quote_amount: nil) # no price
+
+    terms = Tracker::Ledger.money_in(@user)
+
+    assert_equal([[@day.call(1), 1_000.to_d, true], [@day.call(2), -200.to_d, true],
+                  [@day.call(3), 3_000.to_d, true], [@day.call(4), 0.to_d, false]],
+                 terms.map { |term| [term.at, term.amount, term.complete] })
+    assert_equal Tracker::Ledger.for(@user).total_invested_usd, terms.sum(&:amount)
+  end
+
+  # A sweep can overdraw as quietly as a sale: the out-leg of coins never held transfers nothing,
+  # and the credit would otherwise stand as a confident zero-cost position.
+  test 'a swap out of coins never held is an overdraw, and what it bought cannot be vouched for' do
+    price('ETH', 2, 2_000)
+    tx(:swap_out, day: 2, base_currency: 'BTC', base_amount: 1, group_id: 'g')
+    tx(:swap_in, day: 2, base_currency: 'ETH', base_amount: 10, group_id: 'g')
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal({ 'BTC' => 1.to_d }, summary.openings, 'the BTC must have been held before the sweep')
+    assert summary.positions.sole.incomplete, 'the ETH cost is an estimate: the BTC it came from was priced from a chart, or from nothing'
+  end
+
+  test 'a coin deposited from outside that nobody can price is a term nobody can state in full' do
+    tx(:deposit, day: 1, base_currency: 'ZZZ', base_amount: 5)
+
+    assert_not Tracker::Ledger.money_in(@user).sole.complete
+  end
+
+  # Cash is a balance, not a position, and the ledger knows it after every row: what came in, what
+  # the trades spent and returned, what the fees took. Stated so the page can hold it against the venue.
+  test 'the ledger states the cash it holds' do
+    tx(:deposit, day: 1, base_currency: 'USD', base_amount: 1_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 0.1, quote_currency: 'USD', quote_amount: 300)
+
+    assert_equal 700.to_d, Tracker::Ledger.for(@user).cash_usd
+  end
+end

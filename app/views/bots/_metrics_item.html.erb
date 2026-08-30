@@ -1,0 +1,27 @@
+<%# `value_class` is optional: the tracker's realised-P/L tile colours its figure by sign, and no
+    bot caller passes it. `hint` is too — a figure the reader cannot derive by looking says how it
+    is made, rather than leaving them to check it against the others and find it does not add up.
+    Fixed positioning: the grid clips its overflow, so an in-flow tooltip would be cut off. %>
+<% hint = local_assigns[:hint] %>
+<div class="data-grid__item" data-controller="tooltip">
+  <div class="label">
+    <%= label %>
+    <%# The MARK is the trigger, not the tile: the controller centres the bubble under whatever it
+        is attached to, and under a whole tile it points nowhere near the thing you hovered. %>
+    <% if hint %>
+      <span class="data-grid__item__hint" aria-label="<%= hint %>"
+            data-controller="tooltip" data-tooltip-fixed-value="true"
+            data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip">
+        <%= render partial: 'svg/24x24_info' %>
+        <%= tag.div hint, class: 'tooltip tooltip--hint' %>
+      </span>
+    <% end %>
+  </div>
+  <div class="data-grid__item__value <%= local_assigns[:value_class] %>">
+    <% if loading %>
+      <div class="loader--small" style="position: unset; margin: 0.5rem 0 0 auto;"></div>
+    <% else %>
+      <%= value %>
+    <% end %>
+  </div>
+</div>

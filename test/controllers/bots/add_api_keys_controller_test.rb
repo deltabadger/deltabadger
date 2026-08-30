@@ -5,7 +5,7 @@ require 'test_helper'
 # pins the form rendering): here we pin the routing/branching — correct key skips
 # ahead, incorrect/unverifiable keys re-render with the right flash, a missing
 # exchange sends each type back to its own previous step, and the Alpaca sync hook
-# fires for single/dual only.
+# fires for the single-asset flow only.
 module AddApiKeyStepBranchTests
   extend ActiveSupport::Concern
 
@@ -91,6 +91,7 @@ class Bots::DcaSingleAssets::AddApiKeysControllerTest < ActionDispatch::Integrat
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: @btc.id } }
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
   end
 
   def seed_wizard_session
@@ -119,10 +120,13 @@ class Bots::DcaSingleAssets::AddApiKeysAlpacaIsolationTest < ActionDispatch::Int
     @alpaca = create(:alpaca_exchange)
     create(:ticker, exchange: @alpaca, base_asset: aapl, quote_asset: usd, base: 'AAPL', quote: 'USD')
 
-    # Single stock venue: the asset POST auto-selects Alpaca into the session.
+    # Single stock venue: Next on the asset step auto-selects Alpaca into the session (asset-first,
+    # the route that routes stocks through the broker step).
+    post bots_dca_single_assets_order_path, params: { flow: 'asset_first' }
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: aapl.id } }
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
   end
 
   test 'a non-admin Alpaca connect creates only their own ApiKey and never touches AppConfig' do
@@ -176,15 +180,15 @@ class Bots::AddApiKeysAlpacaIsolationTest < ActionDispatch::IntegrationTest
   end
 end
 
-class Bots::DcaDualAssets::AddApiKeysControllerTest < ActionDispatch::IntegrationTest
+class Bots::DcaMultiAssets::AddApiKeysControllerTest < ActionDispatch::IntegrationTest
   include AddApiKeyStepBranchTests
 
   private
 
-  def add_api_key_path = new_bots_dca_dual_assets_add_api_key_path
-  def add_api_keys_path = bots_dca_dual_assets_add_api_key_path
-  def after_api_key_path = new_bots_dca_dual_assets_pick_spendable_asset_path
-  def missing_exchange_redirect_path = new_bots_dca_dual_assets_pick_exchange_path
+  def add_api_key_path = new_bots_dca_multi_assets_add_api_key_path
+  def add_api_keys_path = bots_dca_multi_assets_add_api_key_path
+  def after_api_key_path = new_bots_dca_multi_assets_pick_spendable_asset_path
+  def missing_exchange_redirect_path = new_bots_dca_multi_assets_pick_exchange_path
 
   def seed_assets
     @btc = create(:asset, :bitcoin)
@@ -200,15 +204,15 @@ class Bots::DcaDualAssets::AddApiKeysControllerTest < ActionDispatch::Integratio
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: @btc.id } }
-    post promote_to_dual_bots_dca_single_assets_pick_exchange_path
-    post bots_dca_dual_assets_pick_second_buyable_asset_path,
-         params: { bots_dca_dual_asset: { base1_asset_id: @eth.id } }
+    post bots_dca_single_assets_pick_buyable_asset_path,
+         params: { bots_dca_single_asset: { base_asset_id: @eth.id } }
+    post advance_bots_dca_single_assets_pick_buyable_asset_path
   end
 
   def seed_wizard_session
     seed_session_without_exchange
-    post bots_dca_dual_assets_pick_exchange_path,
-         params: { bots_dca_dual_asset: { exchange_id: @binance.id } }
+    post bots_dca_multi_assets_pick_exchange_path,
+         params: { bots_dca_multi_asset: { exchange_id: @binance.id } }
   end
 end
 

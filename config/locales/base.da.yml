@@ -1,4 +1,7 @@
 da:
+    time:
+        formats:
+            table_clock: '%H:%M'
     meta:
         title: 'Deltabadger'
     header:
@@ -17,6 +20,8 @@ da:
         authorize: 'Godkend'
         disable: 'Deaktivér'
         delete: 'Slet'
+        archive: 'Arkivér'
+        reactivate: 'Genaktivér'
         duplicate: 'Duplikér'
         copy: 'Kopiér'
         submit: 'Send'
@@ -26,6 +31,7 @@ da:
         start: 'Start'
         stop: 'Stop'
         next: 'Næste'
+        back: 'Tilbage'
         connect: 'Forbind'
         reconnect: 'Tilføj nye nøgler'
         understand: 'Forstået!'
@@ -42,7 +48,6 @@ da:
         value_symbol: "Værdi (%{symbol})"
         invested_symbol: "Investeret (%{symbol})"
         date: "Dato"
-        asset: "Aktiv"
         amount: "Beløb"
         avg_price: "Gns. pris"
         price: "Pris"
@@ -81,6 +86,9 @@ da:
             text_html: 'Tjek din indbakke og klik på det <b>bekræftelseslink</b>, vi har sendt til dig. Gå derefter til login-siden.'
             title: Tak!
     links:
+        hide_balances: 'Skjul saldi'
+        display_currency: 'Visningsvaluta'
+        show_balances: 'Vis saldi'
         about: Om
         telegram: 'Telegram'
         create_account: 'Opret gratis konto'
@@ -108,6 +116,8 @@ da:
             language_updated: "Dit sprog er blevet opdateret."
             updated: "Din tidszone er blevet opdateret."
             current_time_is: "Denne tidszone bruges i bot-loggen. Ifølge den er klokken nu"
+            currency_updated: "Din visningsvaluta er blevet opdateret."
+            currency_is_used_for: "Gevinster og porteføljetotaler vises i denne valuta. Bots handler fortsat i deres eget noteringsaktiv."
         name:
             updated: "Dit navn er blevet opdateret."
         two_fa:
@@ -350,6 +360,7 @@ da:
         all: 'Alle'
         active: 'Aktive'
         inactive: 'Inaktive'
+        archived: 'Arkiverede'
     rules:
         index:
             title: 'Regler'
@@ -362,6 +373,7 @@ da:
                 description: 'Udbetal midler fra børser'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatisér udbetalinger fra'
                 withdraw_all: 'Udbetal'
                 from: 'fra'
                 to: 'til'
@@ -413,19 +425,30 @@ da:
             instructions_title: 'Sådan får du nøgler fra %{exchange}'
             instructions_body: 'Opret en udbetalingsaktiveret API-nøgle på %{exchange} og indsæt legitimationsoplysningerne her.'
     tracker:
+        price_source:
+            ours: "Vores egen pris for den dag. Skriv en pris for at erstatte den."
+            stated: "Din egen pris. Ryd feltet for at bruge vores igen."
+            none: "Vi kunne ikke prissætte denne. Skriv, hvad én enhed var værd."
         welcome:
             connect_and_track: "Tilslut din børs og begynd at følge din portefølje."
         sync_key_error_html: 'Synkronisering med <strong>%{exchange}</strong> mislykkedes: %{message}. Opdatér API-nøglen nedenfor.'
+        sync_permission_error_html: "<strong>%{exchange}</strong> kunne ikke synkronisere: denne API-nøgle mangler den tilladelse, der skal til for at læse %{capability}. Opdatér nøglens tilladelser på %{exchange}, eller opret en ny nøgle med alle tilladelserne fra vejledningen."
+        sync_transient_error_html: "<strong>%{exchange}</strong> er midlertidigt utilgængelig. Prøv at synkronisere igen om et par minutter."
+        sync_generic_error_html: "Synkronisering med <strong>%{exchange}</strong> mislykkedes: %{message}. Prøv venligst igen."
+        capabilities:
+            transactions: "din transaktionshistorik"
+            balances: "dine saldi"
         sync_failed_for: 'Synkroniseringen med %{exchanges} mislykkedes. Der kan mangle transaktioner derfra — rapporter, der oprettes nu, kan derfor være ufuldstændige.'
         pricing_warning_html: Saldi synkroniseret, men USD-priser er ikke tilgængelige lige nu (%{message}). Diagrammet bruger de sidst kendte priser, indtil prissætningen er genoprettet.
         portfolio:
             never_synced: Klik på „Synkronisér" for at indlæse din portefølje.
             no_balances: Ingen saldi fundet på dine tilknyttede børser.
+            only_cash: "Kun kontanter og stablecoins — slå Vis kontanter til for at se dem."
             unpriced: 'Pris ikke tilgængelig for: %{assets}'
         sync: 'Synkronisér'
         sync_started: 'Synkroniserer transaktioner fra dine børser...'
         importing_from: 'Importerer data fra %{exchange}…'
-        get_report: 'Hent rapport'
+        get_report: 'Skatterapport'
         filter: 'Filtrér'
         bot: 'Bot'
         no_results: 'Ingen transaktioner fundet for de valgte filtre.'
@@ -498,6 +521,71 @@ da:
             generating: 'Genererer skatterapport...'
             download_ready: 'Skatterapport er klar. Klik for at downloade.'
             failed: 'Rapporten kunne ikke genereres. Kontrollér de valgte indstillinger, og prøv igen.'
+        holdings: 'Beholdning'
+        unrealised: 'Urealiseret'
+        tiles:
+            unrealised_pnl: 'Urealiseret G/T'
+            total_pnl: 'Samlet G/T'
+            total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} af dette kom ind uden et køb bag: rabatter, airdrops, staking-belønninger, dust-krediteringer, aktiver uden noget registreret før.'
+        import:
+            title: 'Importér'
+            nothing_new: 'Alle transaktioner i filen findes allerede i din historik.'
+            imported: '%{count} transaktioner importeret.'
+            reading: 'Læser filen…'
+            error_unknown_timezone: 'Filnavnet angiver ikke længere hvilken tidszone Binance eksporterede i. Upload filen med det navn Binance gav den.'
+            drop: 'Slip din CSV her'
+            drop_hint: 'eller klik for at vælge en fil'
+            which_account: 'Filen kan komme fra begge Binance-konti. Hvilken?'
+            unrouted: 'Ingen konto forbundet for: %{exchanges}. De rækker blev udeladt.'
+            error_no_account_for_format: 'Ingen forbundet konto passer til dette format.'
+            format: 'Format'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Konto'
+            file: 'Fil'
+            importing: 'Importerer…'
+            confirm: 'Importér'
+            skipped: '%{count} rækker kunne ikke gemmes.'
+            unrecognised: 'Ikke importeret, ukendte operationer: %{operations}'
+            error_unreadable: 'Denne fil er ikke i det valgte format.'
+            error_malformed: 'Denne fil kunne ikke læses.'
+            error_no_file: 'Vælg en fil først.'
+            error_no_account: 'Vælg en konto at importere til.'
+            no_account: 'Forbind en børs først — en import hører til en konto.'
+        positions: 'Positioner'
+        transactions: 'Transaktioner'
+        fees_paid: 'Betalte gebyrer'
+        synced_ago: 'Synkroniseret for %{ago} siden'
+        show_cash: 'Vis kontanter'
+        show_more: 'Vis flere'
+        show_less: 'Vis færre'
+        other: 'Andet'
+        basis_incomplete: 'Ingen anskaffelsessum for denne beholdning, så vi viser hverken gevinst eller tab.'
+        notes:
+            left: '%{exchange} rapporterer %{held} %{symbol}; historikken forklarer %{history}. Forskellen antages at være gået ud til kostpris (%{amount}).'
+            arrived: '%{exchange} rapporterer %{held} %{symbol}; historikken forklarer %{history}. Forskellen antages at være kommet ind til sin pris (%{amount}).'
+            since_sync: '%{symbol} købt siden sidste synkronisering: værdiansat til kostpris (%{amount}) indtil næste.'
+            cash_out: 'Historikken holder %{history} %{symbol}; %{exchange} rapporterer %{held}. Forskellen (%{amount}) antages at være ført ud.'
+            cash_in: 'Historikken holder %{history} %{symbol}; %{exchange} rapporterer %{held}. Forskellen (%{amount}) antages at være ført ind.'
+            unpriced_held: '%{history} %{symbol} kom ind uden en pris, der kunne findes; sat til kostpris nul (i dag %{amount} værd).'
+            unpriced: '%{amount} blev solgt ud af aktiver uden kendt pris; deres kostpris antages at være nul.'
+            at_par: 'Ingen kurs for %{symbol} i dag; sat til pari.'
+            figures_disagree: 'Disse tal stemmer ikke (afvigelse %{amount}). Noget er galt, som ingen antagelse forudså.'
+            your_exchanges: 'Børsen'
+            estimated: '%{symbol}: en del af kostprisen er markedsprisen den dag, det kom ind, ikke en handel.'
+        record:
+            all: 'Alle'
+            transfer: 'Overførsel'
+            open: 'Åben'
+            win: 'Gevinst'
+            loss: 'Tab'
+            closed: 'Lukket'
+            cash: 'Kontanter'
+        range:
+            '30d': '30D'
+            '1y': '1Å'
+            all: 'Alt'
         filters:
             all: 'Alle'
         columns:
@@ -510,6 +598,13 @@ da:
             fee: 'Gebyr'
             exchange: 'Børs'
             bot: 'Bot'
+            price: 'Kurs'
+            opened: 'Åbnet'
+            status: 'Status'
+            invested: 'Investeret'
+            avg_buy: 'Gns. køb'
+            hold: 'Varighed'
+            name: 'Aktiv'
         types:
             buy: 'Køb'
             sell: 'Salg'
@@ -532,11 +627,35 @@ da:
         all: 'Alle'
         successful: 'Gennemført'
         transactions: 'Transactions' # TODO: translate (English placeholder)
-        cancelled: 'Annulleret'
         waiting: 'Planlagt'
+        other: 'Andre'
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            asset_split: "%{base} aktiesplit %{ratio} — mægleren har omregnet antallet af aktier"
+            asset_split_unknown_ratio: "%{base} blev aktiesplittet — mægleren har omregnet antallet af aktier"
+            rebalance_sell_placed: 'Rebalancering — sælger det overvægtede aktiv'
+            rebalance_buy_placed: 'Rebalancering — køber tilbage i det undervægtede aktiv'
+            rebalance_dust: 'For lidt tilbage til at rebalancere — bliver stående som kontanter'
+            rebalance_ambiguous: 'Rebalanceringsordrens status ubekræftet — sat på pause, så den ikke placeres to gange'
+            rebalance_manually_resolved: 'Rebalancering genoptaget manuelt'
+            dca_skipped_rebalance_pending: 'Indbetaling sprunget over — en rebalancering er stadig i gang'
+            liquidation_requested: "Sælger de aktiver, der har forladt indekset"
+            liquidation_placed: "Sælger et aktiv, der har forladt indekset"
+            liquidation_skipped: "Et aktiv, der har forladt indekset, kunne ikke sælges — beholdes"
+            liquidation_ambiguous: "Salgsordrens status er ubekræftet — sat på pause, så den ikke placeres to gange"
+            liquidation_manually_resolved: "Ubekræftet salg ryddet manuelt"
+            liquidation_market_closed: "Markedet er lukket — intet solgt"
+            liquidation_not_started: "Intet blev solgt — botten var optaget, eller indekset kunne ikke opdateres"
+            liquidation_failed: "Selling failed: %{error}"
+            redeploy_requested: "Pengene ryger tilbage i kurven"
+            redeploy_placed: "Køber tilbage i kurven for provenuet"
+            redeploy_skipped: "En del af provenuet kunne ikke geninvesteres — blev stående som kontanter"
+            redeploy_ambiguous: "Status på geninvesteringsordren er ubekræftet — sat på pause, så den ikke sendes to gange"
+            redeploy_manually_resolved: "Ubekræftet geninvestering ryddet manuelt"
+            redeploy_not_started: "Der blev ikke geninvesteret noget — botten var optaget, eller der var intet tilbage"
+            redeploy_failed: "Geninvesteringen mislykkedes: %{error}"
+            dca_skipped_liquidation_pending: "Indbetaling sprunget over — et salg er stadig i gang"
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'
@@ -575,6 +694,8 @@ da:
             upgrade_hint: Opgradér dit CoinGecko-abonnement, eller brug deltabadger.com for fuld historik.
             deposit_basis_assumed: Kostpris ansat til markedsværdien for disse ikke-tilknyttede indbetalinger
             deposit_basis_assumed_hint: Knyt hver indbetaling til den tilsvarende udbetaling i Tracker for at bruge den faktiske kostpris.
+            stated_values: "Værdier du selv har angivet"
+            stated_values_hint: "Disse beløb kommer fra dig, ikke fra børsen. Tjek dem mod dine egne bilag, før du indberetter."
             exchange_sync_failed: 'Data fra %{exchange} kan mangle, fordi den seneste synkronisering mislykkedes. Synkronisér igen i Tracker, og opret rapporten på ny.'
             exchange_never_synced: '%{exchange} er aldrig blevet synkroniseret — ingen transaktioner derfra er med i rapporten. Synkronisér i Tracker, og opret rapporten på ny.'
         headers:

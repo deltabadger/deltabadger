@@ -1,7 +1,7 @@
 import { Controller } from "@hotwired/stimulus"
 import { renderDonut } from "../lib/donut_chart"
 
-// Renders the portfolio as a 3D donut (in-SVG labels + leader lines + logos, with
+// Renders the portfolio as a 3D donut (in-SVG labels + leader lines, with
 // `.ticker` hover tooltips), and toggles between that donut and a list view on click
 // — the chosen view is remembered in localStorage. Mirrors the index-bot allocation
 // donut (see index_allocation_controller.js).
@@ -17,8 +17,8 @@ import { renderDonut } from "../lib/donut_chart"
 //     <div data-donut-chart-target="list" data-action="click->donut-chart#toggle">…</div>
 //   </div>
 //
-// Each data entry: { label, name, value, color, symbol, assetId, logo }
-//   - `symbol` and `label` default to each other when missing; `assetId`/`logo` optional.
+// Each data entry: { label, name, value, color, symbol, assetId }
+//   - `symbol` and `label` default to each other when missing; `assetId` optional.
 export default class extends Controller {
   static targets = ["svg", "pie", "list"]
   static values = { data: Array, storageKey: String, otherLabel: String }

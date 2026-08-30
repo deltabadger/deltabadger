@@ -1,0 +1,99 @@
+<%# A segmented control: one track, one sliding chip, one option selected.
+
+    locals:
+      options - [{ value:, label:, active:, href: (optional), data: (optional) }]
+      label   - what the group is, for a screen reader
+      action  - optional {href:, label:, icon:, data:, menu:}. A trailing ACTION rather than another
+                option. `icon` is a partial path and is REQUIRED — the glyph IS the control, and
+                an action without one is an empty pill; `label` names it for a screen reader.
+                `menu` is optional [{label:, href:, icon:, data:}]: given one, the action OPENS
+                that list instead of following its href.
+      key     - optional. What the reader's choice is remembered under, in localStorage. Naming one
+                is what opts a control into memory: the option SET is no key (a bot gains a tab, a
+                range outgrows the history) and neither is the translated label. NAVIGATION groups
+                take none — their state is the URL, and a remembered pick would override the link
+                the reader followed.
+      fluid   - false (default): identical columns, right when the labels are the same length and
+                a chip that changed width would read as a glitch (VALUE / RETURN).
+                true: every option takes the width of its own label and the chip follows — the
+                only honest sizing when the labels differ ("All" vs "Transactions") or when the
+                number of options depends on the data.
+
+    Options carrying an href are NAVIGATION and render as links with aria-current; options
+    without one are a single-choice control and render as radios in a radiogroup. The chip is
+    positioned by the `segmented` Stimulus controller, which measures the selected option — the
+    same code for both sizings, since measuring an equal column is measuring a column. %>
+<% fluid = local_assigns.fetch(:fluid, false) %>
+<% action = local_assigns[:action] %>
+<% links = options.any? { |option| option[:href].present? } %>
+
+<%= tag.div class: ['segmented', ('segmented--fluid' if fluid)],
+            role: (links ? nil : 'radiogroup'),
+            aria: { label: label },
+            data: { controller: 'segmented', action: 'click->segmented#toggle',
+                    segmented_key: local_assigns[:key] }.merge(local_assigns[:data] || {}) do %>
+  <span class="segmented__thumb" data-segmented-target="thumb"></span>
+  <%# display: contents while the control is expanded — the panes and the box around them are
+      only boxes once the control has collapsed and they become the dropdown. %>
+  <div class="segmented__dropdown" data-segmented-target="dropdown">
+    <div class="segmented__panes">
+      <div class="segmented__pane segmented__menu">
+        <% options.each do |option| %>
+          <% classes = ['segmented__option', ('is-on' if option[:active])] %>
+          <% shared = { value: option[:value] }.merge(option[:data] || {}).merge('segmented-target': 'option') %>
+          <% if links %>
+            <%# Select but no arrow actions: a link group is tabbed through, not arrowed through, and
+                the server still decides what is current — this only moves the chip while the click
+                navigates, so the switch animates instead of teleporting with the new page. The
+                controller ignores a modified click, which opens a new tab and changes nothing here. %>
+            <%= link_to option[:label], option[:href], class: classes,
+                                                       aria: { current: ('page' if option[:active]) },
+                                                       data: shared.merge(action: 'segmented#select') %>
+          <% else %>
+            <%= tag.button option[:label], type: 'button', class: classes, role: 'radio',
+                                           aria: { checked: option[:active].present? },
+                                           tabindex: option[:active] ? 0 : -1,
+                                           data: shared.merge(action: 'segmented#select keydown->segmented#keys') %>
+          <% end %>
+        <% end %>
+        <%# An ACTION, not an option: it DOES something instead of selecting something. It belongs to
+            the set it acts on, so it rides inside the menu — last, which puts it at the end of the
+            track and at the foot of the list once the control has folded. It carries the option's
+            class for the look and NONE of its wiring: no segmented-target, so the controller never
+            measures it, never parks the chip on it and never arrows onto it. %>
+        <% if action %>
+          <%# The label is the ATTRIBUTE, not text in the track: sitting at the end of the row it adds
+              to, the glyph is read in that company and needs no caption. A screen reader has no such
+              company, so the name has to come from somewhere. %>
+          <%= link_to action[:href], class: 'segmented__option segmented__option--action',
+                                     data: (action[:data] || {}).merge(action[:menu] ? { action: 'segmented#open' } : {}),
+                                     aria: { label: action[:label], expanded: (false if action[:menu]) } do %>
+            <%= render action[:icon] %>
+          <% end %>
+        <% end %>
+      </div>
+      <%# What the action opens. Expanded it is a box of its own hanging off the action; collapsed
+          it is the dropdown's second pane, one slide left behind the arrow that slides it back.
+          Either way the href on each row is the whole of its behaviour — this list navigates. %>
+      <% if action && action[:menu] %>
+        <div class="segmented__pane segmented__submenu">
+          <button type="button" class="segmented__back" data-action="segmented#back"
+                  aria-label="<%= t('button.back') %>">
+            <%= render 'svg/24x24_back' %>
+          </button>
+          <% action[:menu].each do |item| %>
+            <%= link_to item[:href], class: 'segmented__submenu-item', data: item[:data] do %>
+              <% if item[:icon] %>
+                <span class="segmented__submenu-icon"><%= render item[:icon] %></span>
+              <% end %>
+              <%= item[:label] %>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+  <%= tag.span class: 'segmented__caret', aria: { hidden: true } do %>
+    <%= render 'svg/16x16_down' %>
+  <% end %>
+<% end %>

@@ -30,6 +30,27 @@
             border-radius: 50%
             transition: transform 0.3s
             box-shadow: var(--shadow-paper)
+    // Menu-sized. The default is built for a settings widget and is taller than a dropdown row;
+    // this keeps the same proportions at the row's own line-height, and does not grow on desktop
+    // the way the default does.
+    &--small
+        .toggle__style
+            width: 3rem !important
+            min-width: 3rem !important
+            height: 1.75rem !important
+            border-radius: 1rem
+            &::after
+                top: 0.25rem
+                left: 0.25rem
+                width: 1.25rem
+                height: 1.25rem
+        input[type="checkbox"]
+            width: 3rem !important
+            height: 1.75rem !important
+            &:checked
+                &~ .toggle__style
+                    &::after
+                        transform: translateX(1.25rem) !important
     &--vertical
         .toggle__style
             width: 3rem !important
@@ -72,6 +93,11 @@
                 path
                     fill: var(--grass)
 
+// The LABEL is the menu row; the form around it only carries the submit, so it must not put a box
+// between the menu and its own item.
+.switch-row-form
+    display: contents
+
 input[type=checkbox]
     cursor: pointer
 .toggle-group
@@ -102,6 +128,18 @@ input[type=checkbox]
             gap: 1rem
     .label
         font-size: 2rem
+
+// A toggle and its label on ONE line, the label being the hit area: the chart's "Show orders"
+// and "Show prices" are the same control in two places, and were two copies of the same five
+// lines drifting apart. Opt-in rather than `label:has(> .toggle)`, which outranks
+// `.toggle-group__label` on specificity and would re-align every settings widget — those align
+// to `flex-start` on purpose, so a label running to two lines keeps its switch on the first.
+.toggle-inline
+    display: flex
+    align-items: center
+    gap: 1rem
+    cursor: pointer
+    white-space: nowrap
 
 .bot-option-info
     font-size: 1.75rem

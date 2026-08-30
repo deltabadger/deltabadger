@@ -32,7 +32,12 @@ class ApiKey < ApplicationRecord
   # one registration per login). Past this point the wizard stops promising activation and offers a
   # way out instead.
   ACTIVATION_DEADLINE = 14.days
-  enum :key_type, %i[trading withdrawal]
+  # A CAPABILITY, not a category. `trading` and `read_only` sit on one axis and trading is the
+  # superset — a key that may trade may already read, which is why the tracker never has to convert
+  # anything and a bot key satisfies it as it stands. `withdrawal` is a scope of its own, not a
+  # bigger `trading`: every venue's check requires trading to be OFF on one. Appended last so the
+  # stored integers of the first two are unchanged.
+  enum :key_type, %i[trading withdrawal read_only]
 
   # Fields assign_credentials will touch, checked against both `ActionController::Parameters`
   # (string-keyed once permitted) and symbol-keyed hashes from direct/test callers.
@@ -45,7 +50,29 @@ class ApiKey < ApplicationRecord
     where(user_id: user_id, exchange_id: exchange_id, key_type: key_type)
   }
 
+  # Every key that can READ, at most one per venue. A subset query, not a list of two types: reading
+  # is contained in trading, so a working bot key IS the best reading key that venue has and the
+  # fallback needs no rule of its own.
+  #
+  # One per venue is load-bearing rather than tidy. `AccountTransactionSync#duplicate?` scopes rows
+  # the venue gives no id for to the api_key on purpose — so two sub-accounts on one venue do not
+  # swallow each other's identical rows — and syncing two keys of the SAME account would therefore
+  # import every id-less row twice.
+  #
+  # ponytail: grouped in Ruby. One user holds a handful of keys, so the row count is the reason —
+  # upgrade to a NOT EXISTS correlated subquery only if this ever runs over a fleet-wide scope.
+  def self.reading(scope = all)
+    scope.correct.where.not(key_type: :withdrawal)
+         .group_by { |api_key| [api_key.user_id, api_key.exchange_id] }
+         .values.map { |keys| keys.find(&:trading?) || keys.first }
+  end
+
+  # A key is validated against the capability it CLAIMS. Trade and withdrawal permission have to be
+  # read off each venue's own permission report, because a successful read proves neither; reading
+  # needs no such indirection, so it has one shared implementation and no per-venue code.
   def get_validity
+    return exchange.get_read_api_key_validity(api_key: self) if read_only?
+
     exchange.get_api_key_validity(api_key: self)
   end
 
@@ -61,7 +88,10 @@ class ApiKey < ApplicationRecord
   # A report that silently omits an exchange is the worst outcome for a tax document, so the
   # report asks every trading key whether its data can be trusted before it renders a single row.
   def sync_issue
-    return nil unless trading?
+    # Whether this key READS, not whether it trades. `trading?` meant "not the withdrawal key" while
+    # those were the only two kinds; adding a reading key made it mean something narrower without
+    # anyone saying so, and a reading key that could not sync would have reported nothing at all.
+    return nil if withdrawal?
     return { exchange: exchange.name, reason: :failed } if last_sync_error.present?
     return { exchange: exchange.name, reason: :never_synced } if correct? && last_synced_at.nil?
 
@@ -115,7 +145,7 @@ class ApiKey < ApplicationRecord
   def stop_dependent_bots!
     return unless trading?
 
-    user.bots.not_deleted.not_stopped.each do |bot|
+    user.bots.working.each do |bot|
       bot.stop if bot.exchange_id == exchange_id
     end
   end

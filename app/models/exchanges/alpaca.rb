@@ -1,6 +1,19 @@
 class Exchanges::Alpaca < Exchange
   ERRORS = {
-    insufficient_funds: ['insufficient buying power']
+    insufficient_funds: ['insufficient buying power'],
+    # Alpaca's OWN word for a rejected key, from the trading host's JSON body
+    # {"message":"unauthorized."} — this is the string production recorded in ApiKey#last_sync_error
+    # while the key still read `correct`, because the list used to be empty and
+    # Exchange#invalid_key_error? returns false on an empty one. Matched as a substring, so the
+    # trailing period is not load-bearing.
+    #
+    # Clients::Alpaca's "HTTP 401" fallback (its HTML-body case, which is how the same rejection
+    # arrives from the market-data host) is deliberately NOT listed: that string is synthesised from
+    # the status by our own client, so a WAF or edge 401 would produce it just as readily, and
+    # condemning on it would be the bare-status rule wearing a costume. It still SURFACES through
+    # Exchange#invalid_key_error?(status:) — the bot error stays truthful either way; only the
+    # persistent :incorrect flip waits for Alpaca to say it.
+    invalid_key: ['unauthorized']
   }.freeze
 
   # Alpaca's tradable crypto universe (30+ assets as of 2026-07, growing) mapped to the
@@ -323,7 +336,20 @@ class Exchanges::Alpaca < Exchange
     Result::Success.new(price)
   end
 
-  def get_candles(ticker:, start_at:, timeframe:)
+  def get_indicator_candles(ticker:, start_at:, timeframe:)
+    get_candles(ticker: ticker, start_at: start_at, timeframe: timeframe, adjustment: 'split')
+  end
+
+  # A stock's history is restated by every split and the whole series moves; a crypto pair on the
+  # same venue has no corporate actions at all.
+  def restated_candles?(ticker)
+    !crypto_ticker?(ticker)
+  end
+
+  # `adjustment` is Alpaca's corporate-action basis and is deliberately nil by default — see
+  # Exchange#get_indicator_candles for which callers want which. It reaches the stock branch only:
+  # the crypto bars endpoint has no such parameter, and needs none.
+  def get_candles(ticker:, start_at:, timeframe:, adjustment: nil)
     alpaca_timeframes = {
       1.minute => '1Min',
       5.minutes => '5Min',
@@ -341,7 +367,8 @@ class Exchanges::Alpaca < Exchange
     result = if is_crypto
                market_data_client.get_crypto_bars(symbol: ticker.ticker, timeframe: tf, start_time: start_at.iso8601)
              else
-               market_data_client.get_bars(symbol: ticker.base, timeframe: tf, start_time: start_at.iso8601)
+               market_data_client.get_bars(symbol: ticker.base, timeframe: tf,
+                                           start_time: start_at.iso8601, adjustment: adjustment)
              end
     return result if result.failure?
 
@@ -480,6 +507,34 @@ class Exchanges::Alpaca < Exchange
     end.first(20)
   end
 
+  # "10:1" — the factor a restatement applied, from the position before it and the position after.
+  #
+  # Rationalized, not divided: fractional shares turn a clean 10x into 9.999...:1, and a
+  # three-for-two reads as 1.5:1 rather than the ratio a person recognises.
+  #
+  # The tolerance is RELATIVE. A fixed one is a fraction of the factor at 10:1 and larger than it
+  # at 1:100, so an absolute 0.001 rounded an exact 1-for-50 reverse split to 1:48 and an exact
+  # 1-for-100 to 1:91 — it accepts any simpler fraction within the window, and every small
+  # denominator sits inside one that wide. A per-mille of the factor itself holds at both ends.
+  #
+  # nil unless the two counts actually describe a restatement — both present, both positive, and
+  # different from each other. A pair that nets to nothing, one that only ever added shares, and
+  # one that took five away and put five back are all something other than a split; "1:1" would
+  # be a ratio for an event that changed no share count.
+  def self.split_ratio_label(old_count, new_count)
+    old_count = old_count.to_d
+    new_count = new_count.to_d
+    return nil unless old_count.positive? && new_count.positive? && old_count != new_count
+
+    factor = (new_count / old_count).to_f
+    rational = factor.rationalize(factor * 0.001)
+    # Counts closer together than the tolerance rationalize to 1 — 1000 shares becoming 1001 is
+    # not a split, and "1:1" would be a ratio asserting nothing happened. Say nothing instead.
+    return nil if rational == 1
+
+    "#{rational.numerator}:#{rational.denominator}"
+  end
+
   private
 
   # Market data (data.alpaca.markets) requires auth but is read-only and host-separate
@@ -523,10 +578,18 @@ class Exchanges::Alpaca < Exchange
     api_key.passphrase != 'live'
   end
 
+  # nil means "could not ask", which #market_open? deliberately reads as open — a clock blip must not
+  # pause everyone's trading. A rejected key is NOT that: it fails every tick forever, so fail-open
+  # turned a dead key into "the market is open" at 04:00 UTC and sent the bot on to work that could
+  # only fail. Raise it here, at the first call the job makes, instead of somewhere downstream that
+  # cannot tell why nothing has a price. Nothing is cached on either path.
   def get_clock_cached
     Rails.cache.fetch("exchange_#{id}_clock", expires_in: 1.minute) do
       result = client.get_clock
-      return nil if result.failure?
+      if result.failure?
+        raise_on_invalid_key!(result)
+        return nil
+      end
 
       result.data
     end
@@ -688,7 +751,10 @@ class Exchanges::Alpaca < Exchange
       group_id: activity['group_id'],
       description: "Split (#{activity['symbol']})",
       transacted_at: non_trade_timestamp(activity),
-      raw_data: activity
+      # The marker, not the entry type, is what says a split. `adjustment` is generic — a future
+      # venue correction lands in it, and a CSV import can create one with no provenance at all —
+      # so anything that reacts to a split keys off this.
+      raw_data: activity.merge('corporate_action' => 'split')
     }
   end
 
@@ -725,13 +791,24 @@ class Exchanges::Alpaca < Exchange
       next group.first if group.one?
 
       first = group.first
+      ratio = split_ratio(group)
       first.merge(
         base_amount: group.sum { |entry| entry[:base_amount] },
+        description: [first[:description], ratio].compact.join(' '),
         raw_data: first[:raw_data].merge(
-          'merged_activity_ids' => group.map { |entry| entry[:raw_data]['id'] }
+          { 'merged_activity_ids' => group.map { |entry| entry[:raw_data]['id'] },
+            'split_ratio' => ratio }.compact
         )
       )
     end
+  end
+
+  # The counts the legs already carry: the removal is the old position, the addition the new one.
+  # Summed rather than paired, so a venue that ships the same event in more than two legs still
+  # reduces to one factor.
+  def split_ratio(group)
+    amounts = group.map { |entry| entry[:base_amount].to_d }
+    self.class.split_ratio_label(-amounts.select(&:negative?).sum, amounts.select(&:positive?).sum)
   end
 
   # CFEE (Alpaca's crypto trading fee) is NOT USD-denominated like the stock-side FEE — its

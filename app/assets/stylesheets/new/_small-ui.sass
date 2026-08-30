@@ -11,7 +11,8 @@
     white-space: nowrap
     overflow: hidden
     text-overflow: ellipsis
-    font-size: 1.75rem
+    font-size: 1.5rem
+    text-transform: uppercase
     &--select
         color: var(--link)
     &__value
@@ -37,12 +38,9 @@
         background: var(--warning)
     &--beta
         background-color: var(--sky)
-.sinput,.numeric-input
-    &.is-invalid
-        box-shadow: inset 0 0 0 3px var(--berry) !important
-        background: #f041 !important
 
 .sinput
+    font-size: 1.75rem
     font-weight: 600
     background: var(--sinput-background)
     color: var(--sinput-text)
@@ -102,9 +100,19 @@
             path
                 fill: var(--stone)
 
+.sinput,.numeric-input
+    &.is-invalid
+        box-shadow: inset 0 0 0 3px var(--berry) !important
+        background: #f041 !important
+
 .label--select,.sinput--select
     position: relative
     overflow: hidden
+    // The visible label is a text node, so without these the longest option (a timezone name)
+    // is clipped mid-word by the overflow rule above instead of ending in an ellipsis.
+    max-width: 100%
+    white-space: nowrap
+    text-overflow: ellipsis
     select
         opacity: 0
         position: absolute
@@ -160,3 +168,17 @@ select
             &--icon
                 path
                     fill: var(--stone)
+.asset-logo
+    display: block
+    width: 2.5rem
+    height: 2.5rem
+    background: #fff
+    box-shadow: var(--shadow-paper) !important
+    // The global `img { max-width: 100% }` reset resolves against the shrink-wrapped
+    // table cell (content box 0), which flattens the logo to 0px wide. Opt out.
+    max-width: none
+    border-radius: 50%
+    object-fit: contain
+    // Crop 2.5% off each side of the source: ~5% zoom, so logos with baked-in
+    // whitespace fill the circle. Ignored by browsers without object-view-box.
+    object-view-box: inset(2.5%)

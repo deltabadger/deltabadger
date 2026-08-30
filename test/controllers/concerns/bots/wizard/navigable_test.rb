@@ -30,7 +30,10 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
 
     attr_reader :current_step
 
-    def bot_relation = @bot_type == :dual ? Bots::DcaDualAsset : Bots::DcaSingleAsset
+    def bot_relation
+      { single: Bots::DcaSingleAsset, multi: Bots::DcaMultiAsset }.fetch(@bot_type)
+    end
+
     def step_path(key) = "/#{@bot_type}/#{key}"
     def finalise! = @finalised = true
   end
@@ -39,11 +42,12 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
     Harness.new(bot_type: bot_type, current_step: current_step, config: config)
   end
 
-  def config_with(exchange: nil, base: nil, base0: nil, base1: nil, quote: nil, **top)
+  def config_with(exchange: nil, base: nil, base0: nil, base1: nil, base_ids: nil, quote: nil, **top)
     settings = {}
     settings['base_asset_id'] = base if base
     settings['base0_asset_id'] = base0 if base0
     settings['base1_asset_id'] = base1 if base1
+    settings['base_asset_ids'] = base_ids if base_ids
     settings['quote_asset_id'] = quote if quote
     cfg = top.transform_keys(&:to_s)
     cfg['exchange_id'] = exchange if exchange
@@ -53,8 +57,8 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
 
   # ── current_variant ──────────────────────────────────────────────────────
 
-  test 'current_variant defaults to asset_first when flow is absent' do
-    assert_equal :asset_first, harness.call(:current_variant)
+  test 'current_variant defaults to exchange_first when flow is absent' do
+    assert_equal :exchange_first, harness.call(:current_variant)
   end
 
   test 'current_variant reads the flow stored in the session' do
@@ -63,9 +67,9 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
   end
 
   test 'current_order is built for the controller bot type and session variant' do
-    h = harness(bot_type: :dual, config: { 'flow' => 'exchange_first' })
+    h = harness(bot_type: :multi, config: { 'flow' => 'exchange_first' })
     order = h.call(:current_order)
-    assert_equal :dual, order.bot_type
+    assert_equal :multi, order.bot_type
     assert_equal :exchange_first, order.variant
   end
 
@@ -93,10 +97,12 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
     refute h.call(:step_complete?, :api)
   end
 
-  test 'step_complete? for :currencies uses base0 in a dual flow' do
-    h = harness(bot_type: :dual, config: config_with(base0: 5))
-    assert h.call(:step_complete?, :currencies)
-    refute h.call(:step_complete?, :currencies2)
+  test 'step_complete? for multi assets requires at least two ids' do
+    one = harness(bot_type: :multi, current_step: :assets, config: config_with(base_ids: [5]))
+    two = harness(bot_type: :multi, current_step: :assets, config: config_with(base_ids: [5, 6]))
+
+    refute one.call(:step_complete?, :assets)
+    assert two.call(:step_complete?, :assets)
   end
 
   # ── first_incomplete ───────────────────────────────────────────────────────
@@ -116,8 +122,8 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
   # ── prerequisite_redirect_path (reproduces today's guards) ─────────────────
 
   test 'prerequisite_redirect_path bounces to an earlier incomplete step' do
-    # On the exchange step with no asset picked -> back to the asset step.
-    h = harness(current_step: :exchange, config: {})
+    # Asset-first, on the exchange step with no asset picked -> back to the asset step.
+    h = harness(current_step: :exchange, config: { 'flow' => 'asset_first' })
     h.bot = stub(api_key: stub(correct?: false))
     assert_equal '/single/currencies', h.call(:prerequisite_redirect_path)
   end
@@ -136,13 +142,12 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
 
   # ── reset_downstream! ──────────────────────────────────────────────────────
 
-  test 'reset_downstream! on the first asset step is a full wipe but keeps label and flow' do
+  test 'reset_downstream! on the first asset step is a full wipe but keeps the flow' do
     h = harness(current_step: :currencies,
                 config: config_with(exchange: 7, base: 3, base0: 4, base1: 5, quote: 9,
-                                    label: 'My bot', flow: 'asset_first'))
+                                    flow: 'asset_first'))
     h.call(:reset_downstream!)
     cfg = h.session[:bot_config]
-    assert_equal 'My bot', cfg['label']
     assert_equal 'asset_first', cfg['flow']
     assert_nil cfg['exchange_id']
     assert_equal({}, cfg['settings'])

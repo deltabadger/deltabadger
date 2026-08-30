@@ -5,52 +5,24 @@ module Bots::DcaIndex::IndexAllocatable
     after_initialize :initialize_index_allocatable_settings
   end
 
-  # Refresh the index composition by fetching top coins from CoinGecko
-  # and matching them to available tickers on the exchange
-  def refresh_index_composition
-    Rails.logger.info("Refreshing index composition for bot #{id}")
-
-    result = fetch_top_coins_with_allocations
-    return result if result.failure?
-
-    allocations = result.data
-    update_bot_index_assets(allocations)
-
-    Result::Success.new(allocations)
-  end
-
-  # Get current allocations for display
-  def current_allocations
-    bot_index_assets.in_index.includes(:asset, :ticker).order(target_allocation: :desc).map do |bia|
-      {
-        asset: bia.asset,
-        ticker: bia.ticker,
-        target_allocation: bia.target_allocation,
-        current_allocation: bia.current_allocation,
-        symbol: bia.asset.symbol
-      }
-    end
-  end
-
   # Calculate allocations with flattening applied
   # @param market_caps [Hash] { asset_id => market_cap }
   # @return [Array<Hash>] allocations with { asset_id, ticker_id, weight }
   def calculate_allocations_with_flattening(coins_data)
     return [] if coins_data.empty?
 
-    total_market_cap = coins_data.sum { |c| c[:market_cap].to_f }
-    num_coins_in_index = coins_data.size
-    equal_weight = 1.0 / num_coins_in_index
+    # The arithmetic itself lives in Bot::Composition::Weightable, shared with the multi-asset bot.
+    # allocation_flattening: 0 = pure market cap, 1 = equal weight.
+    weights = Bot::Composition::Weightable.blend(
+      market_caps: coins_data.to_h { |coin| [coin[:asset_id], coin[:market_cap].to_f] },
+      flattening: allocation_flattening.to_f
+    )
 
     coins_data.map do |coin|
-      market_cap_weight = total_market_cap.positive? ? coin[:market_cap].to_f / total_market_cap : equal_weight
-      # allocation_flattening: 0 = pure market cap, 1 = equal weight
-      final_weight = (market_cap_weight * (1 - allocation_flattening.to_f)) + (equal_weight * allocation_flattening.to_f)
-
       {
         asset_id: coin[:asset_id],
         ticker_id: coin[:ticker_id],
-        weight: final_weight,
+        weight: weights[coin[:asset_id]],
         symbol: coin[:symbol],
         market_cap: coin[:market_cap]
       }
@@ -75,7 +47,7 @@ module Bots::DcaIndex::IndexAllocatable
     10
   end
 
-  def fetch_top_coins_with_allocations
+  def derive_composition
     # Fetch more coins than needed to account for ones not available on exchange
     fetch_limit = [num_coins.to_i * 3, 100].min
 
@@ -97,6 +69,22 @@ module Bots::DcaIndex::IndexAllocatable
       ticker_by_coingecko_id[ticker.base_asset.external_id] = ticker
     end
 
+    # Coins already in the index keep their seat without a price probe. The probe's one
+    # irreplaceable job is BACKFILL — deciding which NEW candidate fills a slot — and re-probing an
+    # incumbent can only ever evict it. Ticker#priced? cannot tell a delisting from a proxy 502 or a
+    # 429 (an HTTP failure returns a plain `false`), so a network blip was quietly rotating a held
+    # constituent out of the index and buying a replacement for it with real money, and leaving the
+    # evicted one under "Left the index" — where liquidate_exited!, which refreshes strictly before
+    # it sells, would sell it. Liveness for an incumbent now rests on the venue's own listing status
+    # in the scope above, refreshed four-hourly by Exchange::SyncAllTickersAndAssetsJob.
+    #
+    # It is also what makes a settings change cheap: re-deriving a steady index costs no exchange
+    # calls at all, so the tables follow the coins slider in one round trip.
+    #
+    # Keyed on ticker_id, not asset_id: a seat earned on one venue or quote pair is not carried into
+    # another, so an exchange change re-probes everything.
+    incumbent_ticker_ids = bot_index_assets.in_index.pluck(:ticker_id).to_set
+
     # Match top coins to available tickers
     coins_data = []
     top_coins.each do |coin|
@@ -104,7 +92,7 @@ module Bots::DcaIndex::IndexAllocatable
 
       ticker = ticker_by_coingecko_id[coin['id']]
       next unless ticker.present?
-      next unless ticker.priced?(limit_ordered? ? :last : :ask)
+      next unless incumbent_ticker_ids.include?(ticker.id) || ticker.priced?(limit_ordered? ? :last : :ask)
 
       coins_data << {
         asset_id: ticker.base_asset_id,
@@ -120,30 +108,5 @@ module Bots::DcaIndex::IndexAllocatable
 
     allocations = calculate_allocations_with_flattening(coins_data)
     Result::Success.new(allocations)
-  end
-
-  def update_bot_index_assets(allocations)
-    current_asset_ids = bot_index_assets.in_index.pluck(:asset_id)
-    new_asset_ids = allocations.map { |a| a[:asset_id] }
-
-    # Mark exited assets
-    exited_asset_ids = current_asset_ids - new_asset_ids
-    if exited_asset_ids.any?
-      bot_index_assets.where(asset_id: exited_asset_ids, in_index: true).update_all(
-        in_index: false,
-        exited_at: Time.current
-      )
-    end
-
-    # Upsert current allocations
-    allocations.each do |alloc|
-      bia = bot_index_assets.find_or_initialize_by(asset_id: alloc[:asset_id])
-      bia.ticker_id = alloc[:ticker_id]
-      bia.target_allocation = alloc[:weight]
-      bia.in_index = true
-      bia.entered_at ||= Time.current
-      bia.exited_at = nil
-      bia.save!
-    end
   end
 end

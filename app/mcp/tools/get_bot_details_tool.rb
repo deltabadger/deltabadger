@@ -23,6 +23,10 @@ class GetBotDetailsTool < ApplicationMCPTool
     lines << "Status: #{data[:status]}"
     lines << "Exchange: #{data[:exchange] || 'N/A'}"
     lines << "Pair: #{data[:pair]}" if data[:pair]
+    if data[:allocations].present?
+      formatted = data[:allocations].map { |symbol, weight| "#{symbol} #{format('%.2f', weight * 100)}%" }
+      lines << "Allocations: #{formatted.join(', ')}"
+    end
     lines << "Interval: #{data[:interval] || 'N/A'}"
     lines << "Amount per order: #{data[:quote_amount]} #{data[:quote_asset]}"
     lines << "Orders executed: #{data[:orders_executed]}"

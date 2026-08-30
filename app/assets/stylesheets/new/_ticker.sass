@@ -18,9 +18,6 @@
     box-shadow: var(--shadow-paper)
     &:hover, &:focus
         color: #fff
-    @media (min-width: 768px)
-        line-height: 3.5rem
-        height: 3.5rem
 .ticker
     display: block
     min-width: 8rem
@@ -70,12 +67,12 @@
             z-index: 21 - $i
     &--2
         .ticker:not(:last-child)
-            margin-right: -1.75rem
+            margin-right: -8.75rem
     &--many
         .ticker:not(:last-child)
-            margin-right: -7rem
+            margin-right: -8.75rem
             @media (max-width: 767.9px)
-                margin-right: -5rem
+                margin-right: -6.75rem
         .ticker:not(:first-child):not(.ticker--more)
             border-radius: 0 2rem 2rem 0
             color: transparent
@@ -157,17 +154,7 @@
         justify-content: center
 
 .sbutton
-    select
-        opacity: 0
-        position: absolute
-        top: 0
-        left: 0
-        width: 100%
-        height: 100%
-        cursor: pointer
-
-.sbutton
-    font-size: 2rem
+    font-size: 1.75rem
     padding: 0 2rem
     height: 4rem
     line-height: 3.5rem
@@ -185,8 +172,17 @@
     position: relative
     text-decoration: none
     transition: all 0.25s ease-in
+    select
+        opacity: 0
+        position: absolute
+        top: 0
+        left: 0
+        width: 100%
+        height: 100%
+        cursor: pointer
     svg,.fill--icon
         fill: var(--white)
+
 
     // Color variants (solid background)
     &--sky, &--success, &--danger
@@ -344,6 +340,13 @@
         pointer-events: none !important
         box-shadow: none !important
         opacity: 0.5
+        background: none !important
+        border: 0.25rem solid var(--stone)
+        path
+            fill: var(--stone) !important
+        .animicon__a, .animicon__b
+            background-color: var(--stone) !important
+
     &--multi
         color: var(--label-select-inactive)
         min-width: 0 !important
@@ -352,6 +355,21 @@
             color: var(--link)
             background: var(--washed)
             box-shadow: var(--shadow-basic)
+    &--exchange-group
+        box-shadow: var(--shadow-basic) !important
+        background: var(--washed)
+        padding: 0 .5rem !important
+        gap: 0.5rem !important
+        .sbutton
+            height: 3rem
+            &--exchange
+                box-shadow: none
+                background: none
+                padding: 0 0.75rem !important
+            &--success
+                font-size: 1.5rem
+                text-transform: uppercase
+
 
 .sbutton-form-inline
     display: contents

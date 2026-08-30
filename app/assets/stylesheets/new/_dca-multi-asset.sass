@@ -1,0 +1,76 @@
+@use "../variables" as *
+
+.asset-allocations
+    display: flex
+    flex-direction: column
+    gap: 0.75rem
+    &__total
+        font-size: 1.5rem
+        text-transform: uppercase
+        display: flex
+        align-items: center
+        justify-content: flex-end
+        flex-wrap: wrap
+        gap: 1rem
+        color: var(--concrete)
+        font-weight: 600
+        span
+            span
+                font-weight: 700
+        &--off [data-bot--allocation-target="total"]
+            color: var(--berry)
+
+    &__normalize
+        flex: 0 0 auto
+
+.asset-allocation
+    .slider__style__track
+        display: grid
+
+    // The typed weight sits where the read-only % used to, right-aligned against its own % sign.
+    .allocation
+        display: flex
+        align-items: center
+        justify-content: flex-end
+        gap: 0.25rem
+        font-size: 1.75rem
+        &__input
+
+            width: 5rem
+            padding: 0
+            border: none
+            background: none
+            color: inherit
+            font: inherit
+            text-align: right
+            appearance: textfield
+
+            &::-webkit-outer-spin-button,
+            &::-webkit-inner-spin-button
+                appearance: none
+                margin: 0
+
+            &:focus
+                outline: none
+                color: var(--link)
+                font-weight: 500 !important
+
+            &:disabled
+                color: var(--concrete)
+
+    &__remove
+        flex: 0 0 auto
+        color: var(--concrete)
+        height: 2rem
+        font-size: 2.5rem
+        background: none
+        padding: 0
+        min-width: 2rem
+        position: relative
+        top: 0.5rem
+        box-shadow: none
+
+.bot-locked
+    .asset-allocation__remove,
+    .asset-allocation__add
+        display: none

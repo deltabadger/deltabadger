@@ -1,0 +1,63 @@
+<%# locals: (rows:, body_id: nil, loading: false, actions: false, hide_money: false, quote: nil) %>
+<%# The holdings table for every bot type — single, index, multi, and the coins that left an index.
+    Rows arrive pre-formatted: only the bot knows its own decimals. `quote` is the currency the
+    price and the value are in, written beside each figure.
+
+    hide_money drops the two columns that state a balance — how much is held and what it is worth.
+    The symbol, its average price and its P/L stay: a price is a fact about the venue and a
+    percentage is not a balance, and without them the row would say nothing at all. %>
+<% hide_money = local_assigns.fetch(:hide_money, false) %>
+<% quote = local_assigns[:quote] %>
+<% columns = (hide_money ? 4 : 6) + (actions ? 1 : 0) %>
+<table class="table">
+  <thead>
+    <tr>
+      <th scope="col" class="table__logo"></th>
+      <th scope="col"></th>
+      <% unless hide_money %><th scope="col"><%= t('data_labels.amount') %></th><% end %>
+      <th scope="col"><%= t('data_labels.avg_price') %></th>
+      <% unless hide_money %><th scope="col"><%= t('data_labels.value') %></th><% end %>
+      <th scope="col"><%= t('data_labels.pnl') %></th>
+      <%# No header: the column holds a per-row action, and a label over it would read as data. %>
+      <% if actions %><th scope="col" class="table__action"></th><% end %>
+    </tr>
+  </thead>
+  <tbody id="<%= body_id %>">
+    <% rows.each do |row| %>
+      <% pnl = row[:pnl] %>
+      <%# The symbol is the handle the chart reads the row by: pointing at a holding draws that
+          one holding, clicking pins it there. Delegated from the document, so no controller
+          lives here — these tables are replaced by a broadcast of their own. %>
+      <tr data-symbol="<%= row[:symbol] %>">
+        <td class="table__logo"><%= render 'assets/logo', image_url: row[:asset]&.image_url, color: row[:asset]&.color %></td>
+        <td scope="row"><%= row[:symbol] %></td>
+        <% unless hide_money %><td><%= row[:amount] %></td><% end %>
+        <td><%= row[:avg_price] ? quoted_figure(row[:avg_price], quote) : no_value %></td>
+        <% unless hide_money %>
+          <td>
+            <% if loading %>
+              <div class="loader--small" style="position: unset; float:right"></div>
+            <% else %>
+              <%= row[:value] ? quoted_figure(row[:value], quote) : no_value %>
+            <% end %>
+          </td>
+        <% end %>
+        <td class="<%= pnl&.negative? ? 'text-danger' : pnl&.positive? ? 'text-success' : '' %>">
+          <% if loading %>
+            <div class="loader--small" style="position: unset; float:right"></div>
+          <% elsif pnl %>
+            <b><%= pnl.negative? ? '' : '+' %><%= format_percent(pnl, precision: 1) %></b>
+          <% else %>
+            <%= no_value %>
+          <% end %>
+        </td>
+        <% if actions %><td class="table__action"><%= row[:action] %></td><% end %>
+      </tr>
+    <% end %>
+    <% if rows.empty? %>
+      <tr>
+        <td colspan="<%= columns %>" class="text-center text-inactive" style="padding-bottom: 2rem;">. . .</td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

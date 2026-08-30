@@ -1,0 +1,24 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+      <h1 class="modal__title"><%= @bot.label %></h1>
+    </div>
+    <div class="modal__body text-center">
+      <p>
+        <%= t('bot.messages.do_you_want_to_archive') %>
+      </p>
+      <div class="buttons buttons--row--2">
+        <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+          <%= t('button.cancel') %>
+        <% end %>
+        <%# Unlike Delete this stays on the page, so the modal has to close itself on success. %>
+        <%= button_to t('button.archive'), bot_archive_path(@bot), method: :post,
+                      class: 'button button--success button--large',
+                      form: { data: { action: 'turbo:submit-end->modal--base#submitEnd' } } %>
+      </div>
+    </div>
+  </div>
+<% end %>

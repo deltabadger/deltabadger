@@ -4,9 +4,19 @@ bg:
         bot_name: 'Име на бота'
         new: "Нов бот"
         welcome:
-            pick_asset_first: "Първо избери актив — след това ще видиш борсите, на които е наличен."
+            pick_exchange_first: "Първо избери борса — след това ще видиш активите, които са налични на нея."
             connect_alpaca_html: "За да инвестирате в акции, първо свържете Alpaca в %{settings_link}."
             settings_link: "Настройки"
+        dca_multi_asset:
+            add_asset: "Добавяне на актив"
+            remove_asset: "Премахване"
+            max_assets_reached: "Можете да държите до %{max} актива."
+            min_assets: "Портфейлът трябва да съдържа поне %{min} актива."
+            no_common_exchange: "Тази комбинация от активи не съществува на нито една поддържана борса."
+            removed_from_portfolio: "Премахнати от портфейла"
+            allocation_sum: "Общо"
+            normalize: "Нормализиране"
+            normalize_first: "Първо нормализирайте разпределението."
         dca_index:
             setup:
                 step_index: "Индекс"
@@ -27,43 +37,30 @@ bg:
             fewer_coins_available: "%{available} от %{requested} монети в индекса са налични в %{exchange_name}"
             num_assets: "Активи в индекса"
             asset_breakdown: "Разпределение на активите"
-            asset: "Актив"
-            amount: "Количество"
-            avg_price: "Средна цена"
-            value: "Стойност"
-            pl: "П/З"
+            realised_pnl: "Реализирана П/З"
+            realised_pnl_note: "От продажба на активи, премахнати от портфейла. Ребалансирането не се брои."
+            left_the_index: "Извън индекса"
             warning:
                 intro: "Някои поръчки (%{skipped_count}) бяха под минималния размер на поръчка в %{exchange_name}. Ето как ботът се справя с това:"
         types:
             dca:
-                title: "DCA"
-                description: "Инвестирайте в един актив"
-            dca_dual_asset:
-                title: "Ребалансирано DCA"
-                description: "Ребалансирайте два актива"
+                title: "DCA / Ребалансиране"
+                description: "Избери един или повече активи"
             index_portfolio:
-                title: "Индексно портфолио"
-                description: "Вашият личен крипто ETF"
-            custom_portfolio:
-                title: "Персонализирано портфолио"
-                description: "Ребалансирайте собствен микс от активи"
+                title: "Индекс"
+                description: "Изгради своя личен ETF"
             signal:
-                title: "Сигнал"
-                description: "Търгувайте на база външни сигнали"
-            dca_stocks:
-                title: "DCA (акции)"
-                description: "Купувайте акции чрез Alpaca"
-        dca_stocks:
-            connect_alpaca_intro: "Свържете акаунта си в Alpaca и започнете да инвестирате в акции"
-            pick_stock: "Търсене на акция"
-            no_results: "Не са намерени акции"
-            stock_not_found: "Акцията не е намерена в Alpaca"
-            mode_paper: "Хартиена търговия"
-            mode_live: "Реална търговия"
+                title: "Сигнали"
+                description: "Търгувай на база webhook"
+        exchange_menu:
+            no_alternative: 'Никоя друга поддържана борса не предлага %{assets}.'
+            locked_while_running: 'Спри бота, за да го преместиш на друга борса.'
+            locked_while_rebalancing: 'Ребалансирането още е в ход — борсата може да се смени, след като приключи.'
         status:
             exchange_retired: 'Тази борса вече не работи — прехвърли бота към друга.'
             setting_orders: "Подаване на поръчки…"
             paused: "На пауза"
+            archived: "Архивиран"
             next_try: "Следващ опит след"
             waiting: "Изчакване за изпълнение на всички условия"
             listening: "Слушам"
@@ -139,6 +136,10 @@ bg:
                 average_price: 'Средна цена'
                 bought: Купено
                 chart:
+                    orders: 'Показване на поръчките'
+                    prices: 'Показване на цените'
+                    modes: 'Режим на графиката'
+                    pnl: 'P/L'
                     total_invested: 'Общо инвестирано'
                     value: Стойност
                 csv_download_html: 'Таблицата по-горе показва само последните десет транзакции. Пълния отчет можете да изтеглите като CSV по-долу.'
@@ -170,6 +171,7 @@ bg:
         limit_sell: 'Лимитирана продажба'
         messages:
             do_you_want_to_delete: 'Искате ли да изтриете този бот?'
+            do_you_want_to_archive: 'Искате ли да архивирате този бот?'
             symbol_not_supported: "%{symbol} не се поддържа"
             specify_percentage_limit_order: "При създаване на лимитирана поръчка задайте процент"
             smart_intervals_above_minimum: "Стойността на умните интервали трябва да е по-висока от %{minimum}"
@@ -223,17 +225,45 @@ bg:
         warning:
             dca_single_asset:
                 intro: "Сумата за %{missed_symbol} беше под минималния размер на поръчка в %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} за %{missed_symbol}). Ето как ботът се справя с това:"
-            dca_dual_asset:
-                both_below:
-                    intro: "И двете суми за %{base0_symbol} и %{base1_symbol} са под минималния размер на поръчка в %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} или %{base0_minimum_quote_size} %{quote_symbol} за %{base0_symbol} и %{base1_minimum_base_size} %{base1_symbol} или %{base1_minimum_quote_size} %{quote_symbol} за %{base1_symbol}). Ето как ботът се справя с това:"
-                one_below:
-                    intro: "Ботът купи %{bought_quote_amount} %{quote_symbol} за %{bought_symbol}, но сумата за %{missed_symbol} беше под минималния размер на поръчка в %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} или %{missed_minimum_quote_size} %{quote_symbol} за %{missed_symbol}). Ето как ботът се справя с това:"
             buffer_explanation:
                 one: "Пропуснатата сума е запазена в буфер и ще бъде използвана при следващата планирана поръчка, за да се спазят графикът и алокацията възможно най-точно в рамките на минималните размери на поръчките."
                 other: "Пропуснатите суми са запазени в буфер и ще бъдат използвани при следващите планирани поръчки, за да се спазят графикът и алокацията възможно най-точно в рамките на минималните размери на поръчките."
             title: "Поздравления! Вашият бот работи."
             general_note: "Минималните размери на поръчките и необходимите суми за ребалансиране се променят. Транзакциите може понякога да изглеждат нередовни, но ботът винаги се стреми към желаната от вас алокация и график, така че не е нужно да правите нищо допълнително."
+        redeploy:
+            prompt: "Да вложим ли %{amount} %{symbol} обратно?"
+            confirm: "Да"
+            decline: "Не"
+            started: "Връщам парите в кошницата."
+            in_flight: "Все още тече повторно влагане. Опитай отново, щом приключи."
+            unsupported: "Този бот няма средства за повторно влагане."
+            halted: "Повторното влагане не е потвърдено — провери борсата"
+            resolve: "Изчисти"
+            resolve_confirm: "Продължи само ако си проверил борсата и няма отворена поръчка за покупка."
+            still_open: "Поръчка %{order_id} все още е отворена на борсата. Изчакай да се уреди."
+            resolved: "Изчистено. Ботът може да търгува отново."
+        liquidation:
+            sell: "Продай"
+            sell_confirm: "Да продадем ли тази позиция? Тя ще бъде затворена по пазарна цена."
+            started: "Продажбата на позицията започна."
+            market_closed: "Пазарът в момента е затворен. Опитай отново след отварянето."
+            unsupported: "Този бот няма премахнати активи за продажба."
+            halted: "Непотвърдена продажба — провери борсата си"
+            resolve: "Изчисти"
+            resolve_confirm: "Продължи само ако си проверил борсата си и няма отворена поръчка за продажба."
+            still_open: "Поръчка %{order_id} все още е отворена на борсата ти. Изчакай да приключи."
+            resolved: "Непотвърдената продажба е изчистена."
         settings:
+            rebalance:
+                sentence_html: "Ребалансирай, когато актив се отклони с повече от <span>%{value_html} %</span> от целта"
+                note: "Продължава да работи, дори когато DCA графикът е спрян. Винаги използва пазарни поръчки."
+                drift: "Портфейлът е на %{drift} % от целевото разпределение"
+                below_minimum: "— твърде малко за минимума на тази борса"
+                paused: "Ребалансирането е спряно — провери борсата си"
+                resume: "Продължи"
+                resume_confirm: "Продължи само ако си проверил борсата си и няма отворена поръчка за ребалансиране."
+                still_open: "Поръчка %{order_id} все още е отворена на борсата ти. Изчакай да се уреди."
+                resolved: "Ребалансирането е възобновено."
             starting_time:
                 modes:
                     options:

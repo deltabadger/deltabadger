@@ -1,0 +1,17 @@
+en:
+    # Instructions for a TRACKER key: one that reads and nothing else. Only the venues where the
+    # reading-only path genuinely differs need an entry — every other exchange falls back to its
+    # `bot.api` list, which is the same walk with one more checkbox. English only, like
+    # `withdrawal_api`: an English list beats hiding the list from everyone else.
+    read_only_api:
+        binance: &binance_read_only_config
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'Go to <a href="https://www.binance.com/en/my/settings/api-management"><b>Account</b> → <b>API Keys</b></a>.'
+                -   text_html: 'Click <b class="pbutton">Create API</b>.'
+                -   text_html: 'Select <b class="pbutton">System generated</b>.'
+                -   text_html: 'Label your keys (e.g. "deltabadger-tracker") and pass the security verification if necessary.'
+                -   text_html: 'Leave the permissions alone. <b>Enable Reading</b> is on by default and is the only one the tracker uses — it never places an order or moves funds.<br><strong>⚠️ Important:</strong> Do not enable Spot Trading or Withdrawals.'
+                -   text_html: 'Optional: click <b class="pbutton">Edit restrictions</b> and whitelist %{whitelist_ip}, which ties the key to this machine. A reading key works without it.'
+                -   text_html: 'Copy and paste your new API keys above.'
+        binance_us: *binance_read_only_config

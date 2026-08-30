@@ -4,11 +4,18 @@ class Rules::Withdrawals::PickAssetsController < ApplicationController
   include Bots::Searchable
 
   def new
-    session[:withdrawal_rule_config] = {}
-    # Build a temporary bot to reuse Searchable concern for asset search
-    @bot = current_user.bots.dca_single_asset.new
-    @assets = asset_search_results(@bot, search_params[:query], :base_asset)
-    nil if render_asset_page(bot: @bot, asset_field: :asset_id)
+    @rule_config = session[:withdrawal_rule_config] || {}
+    @exchange = Exchange.find_by(id: @rule_config['exchange_id'])
+
+    if @exchange.blank?
+      redirect_to new_rules_withdrawals_pick_exchange_path
+    else
+      # Build a temporary bot to reuse Searchable concern for asset search — carrying the
+      # exchange so the list is scoped to what this exchange actually trades.
+      @bot = current_user.bots.dca_single_asset.new(exchange: @exchange)
+      @assets = asset_search_results(@bot, search_params[:query], :base_asset)
+      nil if render_asset_page(bot: @bot, asset_field: :asset_id)
+    end
   end
 
   def create
@@ -16,8 +23,10 @@ class Rules::Withdrawals::PickAssetsController < ApplicationController
     if asset_id.present?
       session[:withdrawal_rule_config] ||= {}
       session[:withdrawal_rule_config]['asset_id'] = asset_id
-      session[:withdrawal_rule_config].delete('exchange_id')
-      redirect_to new_rules_withdrawals_pick_exchange_path
+      # A destination is listed per asset, so changing the asset invalidates whatever was
+      # picked for the previous one.
+      session[:withdrawal_rule_config].except!('address', 'address_name', 'address_tag', 'network')
+      redirect_to new_rules_withdrawals_add_api_key_path
     else
       redirect_to new_rules_withdrawals_pick_asset_path
     end

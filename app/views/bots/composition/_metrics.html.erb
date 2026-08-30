@@ -1,0 +1,165 @@
+<% exited = bot.exited_holdings(metrics) %>
+<% realised = metrics[:realised_pnl].to_d %>
+<% hide_money = hide_balances?(bot) %>
+<% quote = bot.quote_asset&.symbol %>
+<div id="metrics" style="display: flex; flex-direction: column; gap: 1rem;">
+  <% if metrics[:prices_stale] %>
+    <p class="status-button__hint" role="status">
+      <%= t('bot.details.stats.exchange_unavailable_html') %>
+    </p>
+  <% end %>
+  <%# Invested, portfolio value and realised P/L are all money and nothing else lives in this
+      panel, so hiding balances takes the whole grid rather than emptying it. %>
+  <% unless hide_money %>
+    <%# Two columns until there is a third figure to show. Realised P/L only exists once the user has
+        liquidated something, and an empty third cell on every other bot is worse than the grid's own
+        responsive columns. %>
+    <div class="widget data-grid <%= 'data-grid--two-columns' if realised.zero? %>">
+      <div class="data-grid__item" data-controller="tooltip">
+        <div class="label"><%= t('bot.details.stats.total_invested') %></div>
+        <div class="data-grid__item__value">
+          <% if loading %>
+            <span class="loading-placeholder">...</span>
+          <% else %>
+            <%= quoted_figure(money_figure(metrics[:total_quote_amount_invested]), quote) %>
+          <% end %>
+        </div>
+      </div>
+      <div class="data-grid__item" data-controller="tooltip">
+        <div class="label"><%= t('bot.details.stats.portfolio_value') %></div>
+        <div class="data-grid__item__value">
+          <% if loading %>
+            <span class="loading-placeholder">...</span>
+          <% else %>
+            <%= quoted_figure(money_figure(metrics[:total_amount_value_in_quote]), quote) %>
+          <% end %>
+        </div>
+      </div>
+      <% unless realised.zero? %>
+        <%# The note is what "realised" does NOT mean here — a footnote rather than a second label,
+            which is what it read as while it was a line of small print under the figure.
+
+            Wired exactly like the two items beside it: the controller on the ITEM, so the bubble is
+            positioned by the grid's own rule and opens UPWARD. Hung off the icon instead it opened
+            downward, outside .widget — which sets overflow: hidden, so it was clipped to nothing. %>
+        <div class="data-grid__item" data-controller="tooltip">
+          <div class="label label--info">
+            <%= t('bot.dca_index.realised_pnl') %>
+            <span class="tooltip-info-icon"
+                  data-action="mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip click->tooltip#toggle">
+              <%= render 'svg/24x24_info' %>
+            </span>
+          </div>
+          <div class="data-grid__item__value <%= realised.negative? ? 'text-danger' : 'text-success' %>">
+            <% if loading %>
+              <span class="loading-placeholder">...</span>
+            <% else %>
+              <%= realised.negative? ? '' : '+' %><%= quoted_figure(number_with_precision(realised, precision: 2, delimiter: ','), quote) %>
+            <% end %>
+          </div>
+          <%= tag.div t('bot.dca_index.realised_pnl_note'), class: 'tooltip tooltip--note' %>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <% exited_symbols = exited.map { |holding| holding[:symbol] }.to_set %>
+  <%# Resolve the row's base symbol through the exchange's tickers, the same way the
+      metrics do — current bot_index_assets rows cannot identify holdings that exited after a
+      rotation. %>
+  <% logo_assets = bot.exchange.tickers.where(base: (metrics[:asset_values] || {}).keys).includes(:base_asset).index_by(&:base) %>
+  <%# MEMBERS, listed because the composition wants them — not "whatever is left after removing the
+      quitters". Those two agreed only while every held asset was one or the other, and they stopped
+      agreeing once a quitter too small to sell was ruled out of its own table: defined by
+      subtraction, it fell through into this one and was rendered as a constituent of the index.
+      A member is shown at any size, because the bot is going to keep buying it.
+
+      An empty composition means the first derivation has not landed. Same reasoning as
+      Liquidatable#exited_holdings: we do not know the membership, so nothing is claimed about it and
+      every holding is shown rather than none. %>
+  <% if metrics[:asset_values].present? %>
+    <% in_index = bot.bot_index_assets.in_index.includes(:asset).to_set { |bia| bia.asset.symbol } %>
+    <% composition_values = if in_index.empty?
+                              metrics[:asset_values].reject { |symbol, _| exited_symbols.include?(symbol) }
+                            else
+                              metrics[:asset_values].select { |symbol, _| in_index.include?(symbol) }
+                            end %>
+    <% if composition_values.present? %>
+      <div id="assets_metrics_table" class="widget widget--table" data-controller="table-fit">
+        <%= render 'bots/composition/assets_table', values: composition_values, logo_assets: logo_assets,
+                   body_id: 'assets_metrics_list', hide_money: hide_money, quote: quote %>
+      </div>
+    <% end %>
+  <% end %>
+
+  <%# NOT nested under asset_values: a failed live price read empties that hash, and it is exactly
+      the network trouble that produces an unresolved placement in the first place. The Clear action
+      has to survive it — resolving an untracked order needs no prices at all. %>
+  <% if exited.any? || bot.liquidation_ambiguous? %>
+    <div id="exited_metrics_table" class="widget widget--table" data-controller="table-fit">
+      <div class="exited-header">
+        <span class="label"><%= t(exited_title_key) %></span>
+        <% if bot.liquidation_ambiguous? %>
+          <%# A halted liquidation is the one thing that must not be re-run: the outcome of the last
+              placement is unknown, so selling again could sell assets that are already gone. %>
+          <span class="text-error"><%= t('bot.liquidation.halted') %></span>
+          <%= button_to t('bot.liquidation.resolve'),
+                        bot_liquidation_resolutions_path(bot_id: bot.id, intent_id: bot.liquidation_pending[:id]),
+                        class: 'rbutton rbutton--danger',
+                        form: { data: { turbo_confirm: t('bot.liquidation.resolve_confirm') } } %>
+        <% end %>
+      </div>
+      <% if exited.any? %>
+        <%# Sell sits on each row, not over the table: every one of these is a separate taxable
+            disposal, so the user closes them one at a time and always sees which. A halted
+            liquidation blocks the lot until it is resolved, and an archived or deleted bot cannot
+            trade at all — in both cases the button's only outcome would be a refusal in the log. %>
+        <%= render 'bots/composition/assets_table',
+                   values: exited.index_by { |holding| holding[:symbol] },
+                   logo_assets: logo_assets, body_id: 'exited_metrics_list', bot: bot,
+                   hide_money: hide_money, quote: quote,
+                   sellable: !bot.liquidation_ambiguous? && !bot.archived? && !bot.deleted? %>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%# The proceeds of a sale, waiting to go back into the basket. The amount IS the display: realised
+      cash has no line of its own anywhere else, and it would otherwise sit inside portfolio value
+      while the DCA leg drained it a contribution at a time.
+
+      LAST in the panel, under the quitters table rather than over the figures. The money it offers
+      comes from selling the rows in that table, so above them it asks about proceeds the reader has
+      not been shown the source of yet — and it pushed the two tables down to make room for a
+      question about them.
+
+      Hidden whenever the answer would be refused — a halt, a rebalance mid-swap, a liquidation still
+      working, this leg's own batch — rather than offering an action the job will decline. "No" is
+      guarded server-side as well: hiding a button does not stop a stale tab. %>
+  <% if bot.redeploy_ambiguous? %>
+    <div class="widget redeploy-prompt">
+      <span class="text-error"><%= t('bot.redeploy.halted') %></span>
+      <%= button_to t('bot.redeploy.resolve'),
+                    bot_redeploy_resolutions_path(bot_id: bot.id, intent_id: bot.redeploy_pending[:id]),
+                    class: 'rbutton rbutton--danger',
+                    form: { data: { turbo_confirm: t('bot.redeploy.resolve_confirm') } } %>
+    </div>
+  <% elsif !hide_money && !bot.archived? && !bot.deleted? &&
+           !bot.redeploy_in_flight? && !bot.rebalance_pending? && !bot.liquidation_in_flight? %>
+    <% offer = bot.redeploy_offer(metrics) %>
+    <% if offer.positive? %>
+      <div class="widget redeploy-prompt">
+        <span class="label">
+          <%= t('bot.redeploy.prompt',
+                amount: number_with_precision(offer, precision: 2, delimiter: ','),
+                symbol: bot.quote_asset&.symbol) %>
+        </span>
+        <div class="redeploy-prompt__actions">
+          <%= button_to t('bot.redeploy.confirm'), bot_redeploy_path(bot_id: bot.id),
+                        class: 'rbutton rbutton--success' %>
+          <%= button_to t('bot.redeploy.decline'), bot_redeploy_path(bot_id: bot.id),
+                        method: :delete, class: 'rbutton rbutton--danger' %>
+        </div>
+      </div>
+    <% end %>
+  <% end %>
+</div>

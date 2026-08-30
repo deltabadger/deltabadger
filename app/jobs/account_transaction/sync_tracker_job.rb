@@ -11,6 +11,8 @@ class AccountTransaction::SyncTrackerJob < ApplicationJob
     TransferMatcher.run!(User.find(user_id))
 
     sleep 0.5
+    # Once for the user, not once per key: the ledger is a whole-portfolio figure.
+    Tracker::LedgerJob.perform_later(user_id)
     broadcast_done(user_id)
     # Broadcast unconditionally so a clean sync clears any stale warning.
     Turbo::StreamsChannel.broadcast_replace_to(
@@ -34,7 +36,7 @@ class AccountTransaction::SyncTrackerJob < ApplicationJob
     end
     return if result.success?
 
-    handle_api_key_failure(api_key, result)
+    handle_api_key_failure(api_key, result, capability: :transactions)
     api_key.record_sync_error!(Array(result.errors).first.to_s)
     exchange_name
   rescue StandardError => e

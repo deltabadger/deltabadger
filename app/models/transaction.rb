@@ -32,10 +32,33 @@ class Transaction < ApplicationRecord
   # rows with external_status open OR unknown. unknown rows are persisted at placement
   # (before the first confirmation fetch) and must be treated as in-flight everywhere.
   scope :waiting, -> { submitted.where(external_status: %i[open unknown]) }
+  # The row-level twin of the scope. Bot has a `waiting?` status predicate and Transaction did not,
+  # so `transaction.waiting?` raised NoMethodError — on the refuse paths of the resolution
+  # controllers, which is exactly where an order still being live has to be reported rather than
+  # blowing up.
+  def waiting?
+    submitted? && external_status.in?(%w[open unknown])
+  end
   # Terminal rows the user can't act on anymore — explicit cancellation OR an
-  # exchange-side abandonment (e.g. Kraken stopped returning the order). Grouped
-  # under the "Cancelled" filter tab in the UI.
+  # exchange-side abandonment (e.g. Kraken stopped returning the order).
   scope :cancelled_or_abandoned, -> { where(external_status: %i[cancelled abandoned]) }
+  # Everything the "Other" filter tab collects: rows with nothing to show in the
+  # Amount/Value/Price columns — cancelled or abandoned, skipped, failed. The log
+  # shows them as their message sentence instead of a columnar row.
+  scope :other, -> { cancelled_or_abandoned.or(where(status: %i[skipped failed])) }
+  # Contribution accounting counts REGULAR rows only. A rebalance swaps assets the bot already
+  # owns — the quote it spends was never new money, so counting it would satisfy a scheduled
+  # contribution the user never made and eat their "don't spend more than N" cap.
+  scope :regular, -> { where(transaction_type: 'REGULAR') }
+  scope :rebalance, -> { where(transaction_type: 'REBALANCE') }
+  # Selling off an asset the index dropped. Like a rebalance it moves no new money in, but unlike a
+  # rebalance nothing buys the proceeds back — so it is the one sell that realizes P/L.
+  scope :liquidation, -> { where(transaction_type: 'LIQUIDATION') }
+  # Putting a liquidation's proceeds back into the composition on the user's command. Recycled money,
+  # never a contribution — which is why it is not REGULAR: contribution accounting would read it as a
+  # scheduled buy already made and skip the next ticks. Not REBALANCE either: a rebalance transfers
+  # cost basis between assets, a redeploy attaches basis that a sale had released.
+  scope :redeploy, -> { where(transaction_type: 'REDEPLOY') }
 
   validates :bot, presence: true
 
@@ -49,6 +72,21 @@ class Transaction < ApplicationRecord
   enum :external_status, %i[unknown open closed cancelled abandoned]
 
   BTC = %w[XXBT XBT BTC].freeze
+
+  # The "null exec means it filled for the requested amount" fallback covers legacy rows that were
+  # never backfilled, and is only sound for CONFIRMED ones. An accepted-but-unfilled order
+  # (open/unknown) or a cancelled one must not be assumed filled, or its requested amount becomes
+  # phantom holdings the rebalance leg would then trade against.
+  #
+  # A class method taking loose columns, because every caller reads these rows by `pluck` — the
+  # metrics walk over tens of thousands of them and never instantiate one.
+  def self.confirmed_exec_amounts(external_status, price, amount, amount_exec, quote_amount_exec)
+    if external_status == 'closed'
+      quote_amount_exec ||= price * amount if price.present? && amount.present?
+      amount_exec ||= amount
+    end
+    [amount_exec, quote_amount_exec]
+  end
 
   # TODO: Migrate Transaction to directly reference assets instead of symbols
   def base_asset
@@ -102,6 +140,11 @@ class Transaction < ApplicationRecord
 
   def imported?
     external_id&.start_with?('imported_')
+  end
+
+  # Row-level twin of the `other` scope — see it for what "other" means.
+  def other?
+    !submitted? || cancelled? || abandoned?
   end
 
   def cancel

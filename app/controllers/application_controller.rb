@@ -1,9 +1,19 @@
 class ApplicationController < ActionController::Base
   include SharedHelper
 
+  # Every request in the app zone, whatever the request before it left on this thread. `Time.zone`
+  # is thread-local and outlives the request that set it, so one caller's zone moved `Date.current`
+  # — and every zone-aware timestamp read back from the database — for everyone served by that
+  # thread afterwards. Declared first, so it wraps the rest of the chain. This is the guarantee
+  # ApplicationJob already gives the job side; views that want the user's zone ask for it
+  # explicitly (in_time_zone).
+  around_action { |_controller, action| Time.use_zone(Time.zone_default, &action) }
+
   before_action :redirect_to_setup_if_needed
   before_action :set_no_cache, if: :user_signed_in?
   around_action :switch_locale
+  # after_action, so signing in counts as activity straight away.
+  after_action :mark_web_activity, if: :user_signed_in?
 
   helper_method :single_bot_mode?
 
@@ -34,12 +44,20 @@ class ApplicationController < ActionController::Base
     response.headers['Cache-Control'] = 'no-store'
   end
 
+  # Lets the recurring metrics warm-up follow real use instead of running around the clock.
+  # Signed-in only: the sign-in page is reachable by anyone, and a crawler hitting it must
+  # not hold the window open forever. Liveness probes never reach here — they deliberately
+  # bypass ApplicationController.
+  def mark_web_activity
+    Bot::WarmMetricsCachesJob.mark_activity!
+  end
+
   def user_signing_out?
     controller_name == 'sessions' && action_name == 'destroy' && devise_controller?
   end
 
   def sanitized_bot_config
-    (session[:bot_config] || {}).slice('exchange_id', 'label', 'settings')
+    (session[:bot_config] || {}).slice('exchange_id', 'settings')
   end
 
   def redirect_to_setup_if_needed

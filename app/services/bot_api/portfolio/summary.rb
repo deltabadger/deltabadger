@@ -33,7 +33,8 @@ module BotApi
           total: bots.size,
           working: bots.count(&:working?),
           stopped: bots.where(status: :stopped).count,
-          created: bots.where(status: :created).count
+          created: bots.where(status: :created).count,
+          archived: bots.where(status: :archived).count
         }
       end
 
@@ -61,8 +62,8 @@ module BotApi
       end
 
       def pair_for(bot, base:, quote:)
-        if bot.dca_dual_asset?
-          "#{bot.base0_asset&.symbol}+#{bot.base1_asset&.symbol}/#{quote}"
+        if bot.dca_multi_asset?
+          "#{bot.base_assets.map(&:symbol).join('+')}/#{quote}"
         elsif base && quote
           "#{base}/#{quote}"
         end

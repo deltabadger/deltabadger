@@ -149,32 +149,59 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     assert_equal '2.51'.to_d, result.data
   end
 
-  test 'market_buy raises because Hyperliquid has no native market orders' do
-    @exchange.set_client
+  test 'market_buy crosses the ask instead of raising' do
+    # Hyperliquid has no native market order type, so one is emulated by pricing a limit THROUGH the
+    # touch — the same trick Gemini uses. These used to raise, which was fine while the only caller
+    # was the DCA leg (LimitOrderable forces limit orders here); rebalancing is the caller that
+    # genuinely needs immediacy, because its size comes from a snapshot of the allocation.
+    ticker = hyperliquid_ticker(base_decimals: 2)
+    @exchange.stubs(:get_ask_price).returns(Result::Success.new(100.to_d))
+    @exchange.expects(:set_limit_order).with do |args|
+      args[:side] == :buy && args[:price].to_d > 100
+    end.returns(Result::Success.new(order_id: 'x'))
 
-    usdc = create(:asset, external_id: 'usdc', symbol: 'USDC', name: 'USDC')
-    purr = create(:asset, external_id: 'purr', symbol: 'PURR', name: 'Purr')
-    ticker = create(:ticker, exchange: @exchange, base_asset: purr, quote_asset: usdc,
-                             ticker: 'PURR/USDC', base: 'PURR', quote: 'USDC')
-
-    error = assert_raises(RuntimeError) do
-      @exchange.market_buy(ticker: ticker, amount: 10, amount_type: :base)
-    end
-    assert_match(/does not support market orders/, error.message)
+    @exchange.market_buy(ticker: ticker, amount: 10, amount_type: :base)
   end
 
-  test 'market_sell raises because Hyperliquid has no native market orders' do
-    @exchange.set_client
+  test 'market_sell crosses the bid instead of raising' do
+    ticker = hyperliquid_ticker(base_decimals: 2)
+    @exchange.stubs(:get_bid_price).returns(Result::Success.new(100.to_d))
+    @exchange.expects(:set_limit_order).with do |args|
+      args[:side] == :sell && args[:price].to_d < 100
+    end.returns(Result::Success.new(order_id: 'x'))
 
-    usdc = create(:asset, external_id: 'usdc', symbol: 'USDC', name: 'USDC')
-    purr = create(:asset, external_id: 'purr', symbol: 'PURR', name: 'Purr')
-    ticker = create(:ticker, exchange: @exchange, base_asset: purr, quote_asset: usdc,
-                             ticker: 'PURR/USDC', base: 'PURR', quote: 'USDC')
+    @exchange.market_sell(ticker: ticker, amount: 10, amount_type: :base)
+  end
 
-    error = assert_raises(RuntimeError) do
-      @exchange.market_sell(ticker: ticker, amount: 10, amount_type: :base)
-    end
-    assert_match(/does not support market orders/, error.message)
+  test 'the crossed price is what callers size against, not the raw touch' do
+    # The whole point of exposing it: an order sized at the touch but SUBMITTED 1 % away asks for
+    # more quote than the balance it was capped to, and a notional that clears the venue minimum at
+    # the touch is rejected at the crossed price. Both end in a terminal ambiguous halt, so sizing,
+    # the minimum check and the submission all have to use this one number.
+    ticker = hyperliquid_ticker(base_decimals: 2)
+    @exchange.stubs(:get_ask_price).returns(Result::Success.new(100.to_d))
+    @exchange.stubs(:get_bid_price).returns(Result::Success.new(100.to_d))
+
+    assert_in_delta 101, @exchange.market_price_for(ticker: ticker, side: :buy).data.to_f, 0.001
+    assert_in_delta 99, @exchange.market_price_for(ticker: ticker, side: :sell).data.to_f, 0.001
+  end
+
+  test 'the emulated market order is submitted at exactly the price it advertises' do
+    ticker = hyperliquid_ticker(base_decimals: 2)
+    @exchange.stubs(:get_ask_price).returns(Result::Success.new(100.to_d))
+    expected = @exchange.market_price_for(ticker: ticker, side: :buy).data
+    @exchange.expects(:set_limit_order).with { |args| args[:price] == expected }
+             .returns(Result::Success.new(order_id: 'x'))
+
+    @exchange.market_buy(ticker: ticker, amount: 10, amount_type: :base)
+  end
+
+  test 'a failed price read stops the emulated market order rather than guessing a price' do
+    ticker = hyperliquid_ticker(base_decimals: 2)
+    @exchange.stubs(:get_bid_price).returns(Result::Failure.new('no price'))
+    @exchange.expects(:set_limit_order).never
+
+    assert @exchange.market_sell(ticker: ticker, amount: 10, amount_type: :base).failure?
   end
 
   test 'limit_buy passes numeric size and limit_px so the gem can serialize them' do

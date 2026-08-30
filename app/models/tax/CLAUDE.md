@@ -108,8 +108,26 @@ Semantics every engine follows:
 - A **linked deposit is a no-op** — the withdrawal never removed the lots.
 - An **unlinked deposit opens a lot** priced at market on arrival with `basis_assumed: true`; those
   rows are named in the report's deposit-basis warning so the user can link them.
-- Withdrawals are never priced (`PriceService#skip_pricing?`) — nothing reads the value, and a
-  failed lookup would banner the whole report as incomplete.
+- A withdrawal and a `lost` row are valued for the record like any row, but their BASE lookup never
+  warns (`PriceService#resolve_row_value`) — nothing reads that value, and a failed lookup would
+  banner the whole report as incomplete. Their fee is priced and warns as on any row.
+
+## Which Coin a Symbol Means
+
+`Tax::AssetIdentity` — `assets.symbol` is not unique, a venue's ticker is not a coin id, and a
+symbol can change coin over time (Terra's LUNA before May 2022 is today's LUNC; MATIC's history
+lives under the coin that became POL). Resolution, in order: a curated alias (dated where the
+symbol changed hands, scoped to a venue where its listing differs from the catalogue), what the
+VENUE lists under that symbol (`tickers.base_asset`), the coin of that symbol by market rank.
+Never a stock for a crypto venue; a stock first for a stock venue. `PriceService` asks per row
+(venue + day) and the backfill asks per span (`coin_ids_over` splits a range at a dated alias).
+Only aliases verified against the provider's coin records go in `ALIASES`; a symbol nobody can
+name a coin for stays unpriced rather than guessed. Adding an alias means adding a migration that
+clears the dates it speaks for (`20260825200000_refetch_prices_under_their_coin.rb` is the shape):
+storage is insert-only, so a price fetched under the former identity would stand forever. The
+one-day fallback window is clipped at a dated alias for the same reason. Prices are still stored by SYMBOL, so two
+coins sharing a ticker at the same time would share one price row — keying by coin id is the
+upgrade path.
 
 ## Price and FX Flow
 
@@ -233,6 +251,9 @@ to refuse, and an all-refused report still returns an all-zero KAP.
 - `wealth_snapshot.rb` is the only engine that still removes an **unlinked withdrawal's** coins from
   the holding, so NL box-3 and CH wealth may understate. For a gains engine keeping the coins merely
   defers tax; in a wealth snapshot it would tax them every year.
+- A **non-taxable swap-in** now goes through `apply_acquisition_fee` like every acquisition. Whether
+  Binance's dust `transferedAmount` is gross or net of `serviceChargeAmount` has not been measured
+  at the importer; both readers of the ledger net it, consistently.
 - An **in-kind fee** (`fee` with a crypto base) consumes inventory at zero proceeds and zero gain, so
   the consumed lot's basis disappears — right on inventory, an understatement on basis. Applies to
   Alpaca `CFEE`, Kraken `creator_fee` and Binance margin interest alike.
@@ -256,9 +277,27 @@ to refuse, and an all-refused report still returns an all-zero KAP.
 
 - Jurisdiction config is a hash, not classes — adding a country is one line
 - Engines accept `**options` — flags passed through from config
-- `crypto_to_crypto_taxable: false` chains cost basis through a swap via `group_id` (AT, PT, PL, SK).
-  Not France: `Tax::Methods::Pvct` is pool-based and never reads `group_id`. `enrich` must keep
-  passing `group_id` through — without it the chaining silently does nothing.
+- `crypto_to_crypto_taxable: false` chains cost basis through a swap via `[exchange, group_id]` (AT,
+  PT, PL, SK). Not France: `Tax::Methods::Pvct` is pool-based and never reads `group_id`. `enrich`
+  must keep passing `group_id` through — without it the chaining silently does nothing. The chain
+  CONSERVES basis and dates across a group of any shape: every out-leg hands over the lots it
+  consumed as tranches (cost, date, assumed), and every in-leg opens one lot per tranche, scaled to
+  its share — a CSV dust sweep (many coins → BNB) or a swap filled in pieces loses nothing and
+  fabricates nothing, and a coin swept from lots of different ages arrives as lots of those ages.
+  A blank `group_id` is never a group.
+- Every reader walks the rows in `Tax::PriceService.ordered`: out-leg before in-leg at the same
+  instant. Ordered by time alone, an in-leg the venue stored first takes market basis and the
+  out-leg's cost is kept for nobody.
+- A cash leg is where a legless row gets its value (`PriceService#cash_leg_context`, built before
+  any price is looked up). Kraken books every trade as one row per asset with no quote; Binance
+  books every Convert and dust sweep as swap legs with no quote. The cash row opposite a coin row
+  says what was paid or received: a coin bought against cash costs the cash, a coin sold for cash
+  brings in the cash (and takes the cash as its `quote_currency`, so `fiat_disposal?` sees a sale),
+  a mixed sweep keeps the recipient's market value and carries the cash share beside it
+  (`swap_fiat_cost` / `swap_stable_cost` — the stablecoin half applies only under
+  `stablecoin_as_fiat`, where a stablecoin swap leg also touches no lot). A coin traded for a coin
+  is a swap however the venue books it. A cash leg with no rate values nothing — the coin is priced
+  as any other row. A stated value is never overwritten.
 - Wealth snapshot engines skip per-transaction price enrichment entirely (raw entry type, currency,
   amount and timestamp only — they never see `linked`)
 - Historical prices and FX rates persisted permanently (immutable reference data)

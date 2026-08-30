@@ -1,4 +1,7 @@
 en:
+    time:
+        formats:
+            table_clock: '%-l:%M %P'
     meta:
         title: 'Deltabadger'
     header:
@@ -17,6 +20,8 @@ en:
         authorize: 'Authorize'
         disable: 'Disable'
         delete: 'Delete'
+        archive: 'Archive'
+        reactivate: 'Reactivate'
         duplicate: 'Duplicate'
         copy: 'Copy'
         submit: 'Submit'
@@ -26,6 +31,7 @@ en:
         start: 'Start'
         stop: 'Stop'
         next: 'Next'
+        back: 'Back'
         connect: 'Connect'
         reconnect: 'Add new keys'
         understand: 'Got it!'
@@ -42,7 +48,6 @@ en:
         value_symbol: "Value (%{symbol})"
         invested_symbol: "Invested (%{symbol})"
         date: "Date"
-        asset: "Asset"
         amount: "Amount"
         avg_price: "Avg. Price"
         price: "Price"
@@ -81,6 +86,9 @@ en:
             text_html: 'Check your mailbox and click on the <b>confirmation link</b> we''ve sent to you. Then go to the login page.'
             title: Thanks!
     links:
+        hide_balances: 'Hide balances'
+        display_currency: 'Display currency'
+        show_balances: 'Show balances'
         about: About
         telegram: 'Telegram'
         create_account: 'Create free account'
@@ -108,6 +116,8 @@ en:
             language_updated: "Your language has been updated."
             updated: "Your timezone has been updated."
             current_time_is: "This timezone will be used in the bot logs. According to it, the current time is"
+            currency_updated: "Your display currency has been updated."
+            currency_is_used_for: "Profits and portfolio totals are shown in this currency. Bots keep trading in their own quote asset."
         name:
             updated: "Your name has been updated."
         two_fa:
@@ -350,6 +360,7 @@ en:
         all: 'All'
         active: 'Active'
         inactive: 'Inactive'
+        archived: 'Archived'
     rules:
         index:
             title: 'Rules'
@@ -362,6 +373,7 @@ en:
                 description: 'Withdraw funds from exchanges'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automate withdrawals from'
                 withdraw_all: 'Withdraw'
                 from: 'from'
                 to: 'to'
@@ -413,19 +425,30 @@ en:
             instructions_title: 'How to get keys from %{exchange}'
             instructions_body: 'Create a withdrawal-enabled API key on %{exchange} and paste the credentials here.'
     tracker:
+        price_source:
+            ours: "Our own price for that day. Type a price to replace it."
+            stated: "Your own price. Clear the box to use ours again."
+            none: "We could not price this one. Type what one unit was worth."
         welcome:
             connect_and_track: "Connect your exchange and start tracking your portfolio."
         sync_key_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please update the API key below."
+        sync_permission_error_html: "<strong>%{exchange}</strong> could not sync: this API key is missing the permission needed to read %{capability}. Update the key's permissions on %{exchange}, or create a new key with every permission listed in its setup steps."
+        sync_transient_error_html: "<strong>%{exchange}</strong> is temporarily unavailable. Try syncing again in a few minutes."
+        sync_generic_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please try again."
+        capabilities:
+            transactions: "your transaction history"
+            balances: "your balances"
         sync_failed_for: 'Sync failed for %{exchanges}. Transactions from there may be missing — reports generated now can be incomplete.'
         pricing_warning_html: Balances synced, but USD pricing is unavailable right now (%{message}). The chart will use the last known prices until pricing is restored.
         portfolio:
             never_synced: Click Sync to load your portfolio.
             no_balances: No balances found on your connected exchanges.
+            only_cash: "Only cash and stablecoins — turn on Show cash to see them."
             unpriced: 'Pricing unavailable for: %{assets}'
         sync: 'Sync'
         sync_started: 'Syncing transactions from your exchanges...'
         importing_from: 'Importing data from %{exchange}…'
-        get_report: 'Get Report'
+        get_report: 'Tax Report'
         filter: 'Filter'
         bot: 'Bot'
         no_results: 'No transactions found for the selected filters.'
@@ -498,6 +521,71 @@ en:
             generating: 'Generating tax report...'
             download_ready: 'Tax report is ready. Click to download.'
             failed: 'The report could not be generated. Check the selected settings and try again.'
+        holdings: 'Holdings'
+        unrealised: 'Unrealised'
+        tiles:
+            unrealised_pnl: 'Unrealised P/L'
+            total_pnl: 'Total P/L'
+            total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} of this arrived without a purchase behind it: rebates, airdrops, staking rewards, dust credits, assets with nothing recorded before them.'
+        import:
+            title: 'Import'
+            nothing_new: 'Every transaction in this file is already in your history.'
+            imported: 'Imported %{count} transactions.'
+            reading: 'Reading the file…'
+            error_unknown_timezone: 'This file name no longer says which time zone Binance exported it in. Upload it with the name Binance gave it.'
+            drop: 'Drop your CSV here'
+            drop_hint: 'or click to choose a file'
+            which_account: 'This file could be from either Binance account. Which one?'
+            unrouted: 'No account connected for: %{exchanges}. Those rows were left out.'
+            error_no_account_for_format: 'No matching account is connected for this format.'
+            format: 'Format'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Account'
+            file: 'File'
+            importing: 'Importing…'
+            confirm: 'Import'
+            skipped: '%{count} rows could not be saved.'
+            unrecognised: 'Not imported, unknown operations: %{operations}'
+            error_unreadable: 'This file is not in the selected format.'
+            error_malformed: 'This file could not be read.'
+            error_no_file: 'Choose a file first.'
+            error_no_account: 'Pick an account to import into.'
+            no_account: 'Connect an exchange first — an import is attached to an account.'
+        positions: 'Positions'
+        transactions: 'Transactions'
+        fees_paid: 'Fees paid'
+        synced_ago: 'Synced %{ago} ago'
+        show_cash: 'Show cash'
+        show_more: 'Show more'
+        show_less: 'Show less'
+        other: 'Other'
+        basis_incomplete: 'No cost basis for this holding, so no P/L is shown.'
+        notes:
+            left: '%{exchange} reports %{held} %{symbol}; the history accounts for %{history}. The difference is taken as having left at cost (%{amount}).'
+            arrived: '%{exchange} reports %{held} %{symbol}; the history accounts for %{history}. The difference is taken as having arrived at its price (%{amount}).'
+            since_sync: '%{symbol} bought since the last sync: valued at cost (%{amount}) until the next one.'
+            cash_out: 'The history holds %{history} %{symbol}; %{exchange} reports %{held}. The difference (%{amount}) is taken as moved out.'
+            cash_in: 'The history holds %{history} %{symbol}; %{exchange} reports %{held}. The difference (%{amount}) is taken as moved in.'
+            unpriced_held: '%{history} %{symbol} arrived without a price anyone could find; taken at zero cost (worth %{amount} today).'
+            unpriced: '%{amount} was sold out of coins nobody could price; their cost is taken as zero.'
+            at_par: 'No rate for %{symbol} today; taken at par.'
+            figures_disagree: 'These figures do not add up (off by %{amount}). Something is wrong that no assumption anticipated.'
+            your_exchanges: 'The exchange'
+            estimated: '%{symbol}: part of its cost is the market price of the day it arrived, not a fill.'
+        record:
+            all: 'All'
+            transfer: 'Transfer'
+            open: 'Open'
+            win: 'Win'
+            loss: 'Loss'
+            closed: 'Closed'
+            cash: 'Cash'
+        range:
+            '30d': '30D'
+            '1y': '1Y'
+            all: 'All'
         filters:
             all: 'All'
         columns:
@@ -510,6 +598,13 @@ en:
             fee: 'Fee'
             exchange: 'Exchange'
             bot: 'Bot'
+            price: 'Price'
+            opened: 'Opened'
+            status: 'Status'
+            invested: 'Invested'
+            avg_buy: 'Avg buy'
+            hold: 'Hold'
+            name: 'Asset'
         types:
             buy: 'Buy'
             sell: 'Sell'
@@ -532,10 +627,39 @@ en:
         all: 'All'
         successful: 'Successful'
         transactions: 'Transactions'
-        cancelled: 'Cancelled'
         waiting: 'Scheduled'
+        other: 'Other'
     bot_activity:
         events:
+            asset_split: "%{base} split %{ratio} — the broker restated the share count"
+            asset_split_unknown_ratio: "%{base} was split — the broker restated the share count"
+            rebalance_sell_placed: 'Rebalancing — selling the overweight asset'
+            rebalance_buy_placed: 'Rebalancing — buying back into the underweight asset'
+            rebalance_dust: 'Too little left over to rebalance — leaving it as cash'
+            rebalance_ambiguous: 'Rebalance order status unconfirmed — paused so it cannot be placed twice'
+            rebalance_manually_resolved: 'Rebalancing resumed manually'
+            dca_skipped_rebalance_pending: 'Contribution skipped — a rebalance is still in progress'
+            liquidation_requested: "Selling the assets that left the index"
+            liquidation_placed: "Selling an asset that left the index"
+            liquidation_skipped: "An asset that left the index could not be sold — left in place"
+            liquidation_ambiguous: "Sell order status unconfirmed — paused so it cannot be placed twice"
+            liquidation_manually_resolved: "Unconfirmed sale cleared manually"
+            liquidation_market_closed: "Market closed — nothing sold"
+            liquidation_not_started: "Nothing was sold — the bot was busy, or the index could not be refreshed"
+            liquidation_failed: "Selling failed: %{error}"
+            dca_skipped_liquidation_pending: "Contribution skipped — a sale is still in progress"
+            redeploy_requested: "Putting the proceeds back into the basket"
+            redeploy_placed: "Buying back into the basket with the proceeds"
+            redeploy_skipped: "Part of the proceeds could not be redeployed — left as cash"
+            redeploy_ambiguous: "Redeploy order status unconfirmed — paused so it cannot be placed twice"
+            redeploy_manually_resolved: "Unconfirmed redeploy cleared manually"
+            redeploy_not_started: "Nothing was redeployed — the bot was busy, or there was nothing left to redeploy"
+            redeploy_folded: "Too little for one asset to meet the exchange minimum — bought more of another instead"
+            redeploy_below_minimums: "Nothing was redeployed — what is left is below the exchange's minimum order size"
+            redeploy_failed: "Redeploying failed: %{error}"
+            redeploy_declined: "Proceeds taken off the table — they will not be offered again"
+            redeploy_decline_refused: "Nothing was taken off the table — a redeploy was still working"
+            dca_skipped_redeploy_pending: "Contribution skipped — a redeploy is still in progress"
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'
@@ -573,6 +697,8 @@ en:
             upgrade_hint: Upgrade your CoinGecko plan or use deltabadger.com for full historical data.
             deposit_basis_assumed: Cost basis assumed at market value for these unlinked deposits
             deposit_basis_assumed_hint: Link each one to its matching withdrawal in the tracker to use the real cost basis.
+            stated_values: "Values you stated by hand"
+            stated_values_hint: "These figures are yours, not the exchange's. Check them against your own records before filing."
             exchange_sync_failed: '%{exchange} data may be missing — its last sync failed. Re-sync in the tracker and regenerate this report.'
             exchange_never_synced: '%{exchange} has never been synced — none of its transactions are in this report. Sync it in the tracker and regenerate.'
         values:

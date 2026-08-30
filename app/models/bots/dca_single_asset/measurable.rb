@@ -84,10 +84,10 @@ module Bots::DcaSingleAsset::Measurable
       return metrics_data if metrics_data[:chart][:labels].empty? || ticker.nil?
 
       result = exchange.get_tickers_prices(symbols: [ticker.ticker])
-      return metrics_data if result.failure?
+      return stale(metrics_data) if result.failure?
 
       price = result.data[ticker.ticker]
-      return metrics_data unless price.present?
+      return stale(metrics_data) unless price.present?
 
       metrics_data[:total_amount_value_in_quote] =
         (metrics_data[:total_realized_proceeds] || 0) + (metrics_data[:total_base_amount] * price)
@@ -96,6 +96,13 @@ module Bots::DcaSingleAsset::Measurable
       metrics_data[:chart][:series][0] << metrics_data[:total_amount_value_in_quote]
       metrics_data[:chart][:series][1] << metrics_data[:total_quote_amount_invested]
       metrics_data[:chart][:labels] << Time.current
+      # extra_series stays parallel with labels: the live point holds exactly what the last
+      # transaction left, and the chart reads its holdings by index (see Bot::ChartSeries).
+      metrics_data[:chart][:extra_series][0] << metrics_data[:total_base_amount]
+      metrics_data[:chart][:extra_series][1] << (metrics_data[:total_realized_proceeds] || 0)
+      # Kept raw, per symbol: the chart needs this as the final mark on the price grid, and an
+      # aggregate value cannot be inverted back into the price it was built from.
+      metrics_data[:live_prices] = { ticker.base => price }
 
       metrics_data
     end
@@ -105,22 +112,18 @@ module Bots::DcaSingleAsset::Measurable
     Rails.cache.fetch(metrics_with_current_prices_and_candles_cache_key,
                       expires_in: Utilities::Time.seconds_to_end_of_five_minute_cut,
                       force: force) do
-      metrics_with_current_prices = metrics_with_current_prices(force: force)
-      return metrics_with_current_prices if metrics_with_current_prices[:chart][:labels].empty?
+      metrics_data = metrics_with_current_prices(force: force).deep_dup
+      return metrics_data if metrics_data[:chart][:labels].empty?
 
-      result = get_extended_chart_data_with_candles_data
-      return metrics_with_current_prices if result.failure?
+      grids = chart_price_grids(metrics_data)
+      return metrics_data if grids.blank?
 
-      metrics_data = metrics_with_current_prices.deep_dup
-      extended_chart_data = result.data
-      sorted_series = Utilities::Array.sort_arrays_by_first_array(
-        metrics_data[:chart][:labels].concat(extended_chart_data[:labels]),
-        metrics_data[:chart][:series][0].concat(extended_chart_data[:series][0]),
-        metrics_data[:chart][:series][1].concat(extended_chart_data[:series][1])
+      metrics_data[:chart] = chart_marked_at_market(
+        metrics_data[:chart], grids,
+        holdings: ->(i) { { ticker.base => metrics_data[:chart][:extra_series][0][i] } },
+        # Realized proceeds are locked-in cash: they do not float with the price.
+        cash: ->(i) { metrics_data[:chart][:extra_series][1][i] || 0 }
       )
-      metrics_data[:chart][:labels] = sorted_series[0]
-      metrics_data[:chart][:series][0] = sorted_series[1]
-      metrics_data[:chart][:series][1] = sorted_series[2]
 
       metrics_data
     end
@@ -140,19 +143,6 @@ module Bots::DcaSingleAsset::Measurable
       partial: 'bots/chart',
       locals: { bot: self, metrics: metrics_with_current_prices_and_candles, loading: false, current_user: user }
     )
-  end
-
-  def broadcast_pnl_update
-    metrics_data = metrics_with_current_prices
-
-    broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
-      target: dom_id(self, :pnl),
-      partial: 'bots/bot_tile/bot_tile_pnl',
-      locals: { bot: self, pnl: metrics_data[:pnl] || '', loading: false }
-    )
-
-    user.broadcast_global_pnl_update
   end
 
   def metrics_with_current_prices_from_cache
@@ -229,32 +219,18 @@ module Bots::DcaSingleAsset::Measurable
     end
   end
 
-  def get_extended_chart_data_with_candles_data
-    extended_chart_data = { labels: [], series: [[], []] }
-    return Result::Success.new(extended_chart_data) if ticker.nil?
+  # The price grid the chart is marked on: the venue's candle opens, plus the live price as a
+  # final mark. nil when there are no candles — the chart then keeps its fill marks, which is
+  # the only price available.
+  def chart_price_grids(metrics_data)
+    return nil if ticker.nil?
 
-    metrics_data = metrics.deep_dup
-    since = metrics_data[:chart][:labels].first + 1.second
-    timeframe = optimal_candles_timeframe_for_duration(Time.now.utc - since)
-    result = CandleSeriesCache.fetch(ticker: ticker, since: since, timeframe: timeframe)
-    return result if result.failure?
+    since, timeframe = chart_candle_window(metrics_data[:chart])
+    result = fetch_candle_series(ticker: ticker, since: since, timeframe: timeframe)
+    return nil if result.failure? || result.data.blank?
 
-    candles = result.data
-
-    i = 0
-    candles.each do |candle|
-      i += 1 while i < metrics_data[:chart][:labels].length - 1 && metrics_data[:chart][:labels][i + 1] <= candle[0]
-
-      net_base = metrics_data[:chart][:extra_series][0][i]
-      realized_proceeds = metrics_data[:chart][:extra_series][1][i]
-      quote_amount_invested = metrics_data[:chart][:series][1][i]
-      # candle[1] is the OPEN price — consistent with the open-time label candle[0]. Realized
-      # proceeds stay fixed, so only the still-held net_base floats with the candle price.
-      extended_chart_data[:labels] << candle[0]
-      extended_chart_data[:series][0] << (realized_proceeds + (net_base * candle[1]))
-      extended_chart_data[:series][1] << quote_amount_invested
-    end
-
-    Result::Success.new(extended_chart_data)
+    marks = result.data.map { |candle| [candle[0], candle[1]] } +
+            chart_live_marks(metrics_data, ticker.base)
+    { ticker.base => marks.sort_by(&:first) }
   end
 end

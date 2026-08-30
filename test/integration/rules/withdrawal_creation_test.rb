@@ -19,31 +19,53 @@ class Rules::WithdrawalCreationTest < ActionDispatch::IntegrationTest
     sign_in @user
   end
 
-  # ---- Task 1: asset picker uses .ticker.active on the search form ----
+  # ---- The flow opens on the exchange, not the asset ----
+
+  test 'pick_exchange is the first step and renders the exchange grid' do
+    get new_rules_withdrawals_pick_exchange_path
+    assert_response :success
+
+    assert_match(/Automate withdrawals from/, response.body,
+                 'the opening step should ask which exchange to withdraw from')
+    assert_match(/exchange-grid__item/, response.body,
+                 'exchange picker should render the .exchange-grid__item cards')
+    assert_no_match(/exchange-picker__item--header/, response.body,
+                    'exchange picker should no longer render the old Maker/Taker header row')
+    assert_no_match(/name="query"/, response.body,
+                    'no search box on this step — the exchange is picked by clicking a tile')
+  end
+
+  test 'the asset step is unreachable before an exchange is picked' do
+    get new_rules_withdrawals_pick_asset_path
+    assert_redirected_to new_rules_withdrawals_pick_exchange_path
+  end
+
+  # ---- Asset picker uses .ticker.active on the search form ----
 
   test 'pick_asset step renders the search input as a .ticker.active form, not .sinput' do
-    get new_rules_withdrawals_pick_asset_path
+    # Drive the wizard via real HTTP so session is populated naturally —
+    # do not mutate session[] directly in integration tests.
+    get new_rules_withdrawals_pick_exchange_path
+    post rules_withdrawals_pick_exchange_path,
+         params: { bots_dca_single_asset: { exchange_id: @binance.id } }
+    follow_redirect!
     assert_response :success
+
     assert_match(/class="ticker active"/, response.body,
                  'asset picker should wrap the search form in class="ticker active"')
     assert_no_match(/conversational__input sinput/, response.body,
                     'asset picker should no longer carry .conversational__input.sinput on the input')
+    assert_match(/#{@binance.name}/, response.body,
+                 'asset picker should show the exchange already picked')
   end
 
-  # ---- Task 2: exchange picker swaps the list/header for the grid partial ----
-
-  test 'pick_exchange step renders the new exchange grid, not the old fees-header list' do
-    # Drive the wizard via real HTTP so session is populated naturally —
-    # do not mutate session[] directly in integration tests.
+  test 'picking the asset moves on to the API key step' do
+    get new_rules_withdrawals_pick_exchange_path
+    post rules_withdrawals_pick_exchange_path,
+         params: { bots_dca_single_asset: { exchange_id: @binance.id } }
     post rules_withdrawals_pick_asset_path,
          params: { bots_dca_single_asset: { asset_id: @bitcoin.id } }
-    follow_redirect!
-    assert_response :success
-
-    assert_match(/exchange-grid__item/, response.body,
-                 'exchange picker should render the new .exchange-grid__item cards')
-    assert_no_match(/exchange-picker__item--header/, response.body,
-                    'exchange picker should no longer render the old Maker/Taker header row')
+    assert_redirected_to new_rules_withdrawals_add_api_key_path
   end
 
   # ---- SVG coverage — load-bearing assumption of the grid partial ----

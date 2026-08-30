@@ -2,7 +2,7 @@ module Bot::OrderCreator
   extend ActiveSupport::Concern
 
   def create_submitted_order!(order_data)
-    order_values = base_order_values.merge(
+    order_values = base_order_values(order_data).merge(
       status: :submitted,
       external_status: order_data[:status],
       external_id: order_data[:order_id],
@@ -28,7 +28,7 @@ module Bot::OrderCreator
   end
 
   def create_failed_order!(order_data)
-    order_values = base_order_values.merge(
+    order_values = base_order_values(order_data).merge(
       status: :failed,
       external_status: order_data[:status],
       external_id: order_data[:order_id],
@@ -49,7 +49,7 @@ module Bot::OrderCreator
   private
 
   def create_skipped_order!(order_data)
-    order_values = base_order_values.merge(
+    order_values = base_order_values(order_data).merge(
       status: :skipped,
       price: order_data[:price],
       amount: order_data[:amount],
@@ -64,11 +64,15 @@ module Bot::OrderCreator
     transactions.create!(order_values)
   end
 
-  def base_order_values
+  # A rebalance order is not a contribution — it must not read as one. `transaction_type` is what
+  # separates them everywhere downstream: contribution accounting (Accountable, QuoteAmountLimitable)
+  # and Bot#last_transaction all scope to 'REGULAR'. Threaded here rather than at each creator so
+  # submitted, failed and skipped rows can never disagree about what an order was.
+  def base_order_values(order_data = {})
     {
       bot_interval: interval,
       bot_quote_amount: quote_amount,
-      transaction_type: 'REGULAR',
+      transaction_type: order_data[:transaction_type].presence || 'REGULAR',
       exchange: exchange
     }
   end

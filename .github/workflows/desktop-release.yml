@@ -56,18 +56,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # This repository has no package-lock.json — only bun.lock, the same one the Dockerfile
+      # installs from. `npm ci` requires a lockfile it does not have and would fail on every leg,
+      # as would `cache: npm`. Bun comes first because the install now depends on it.
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Install frontend dependencies
         shell: bash
-        run: npm ci
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v2
+        run: bun install --frozen-lockfile
 
       - name: Install Rust target
         uses: dtolnay/rust-toolchain@stable

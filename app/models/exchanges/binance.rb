@@ -497,35 +497,35 @@ class Exchanges::Binance < Exchange
     start_ms = start_time ? (start_time.to_f * 1000).to_i : nil
     entries = []
 
-    # Deposits
-    result = hm_client.deposit_history(start_time: start_ms)
-    return result if result.failure?
+    # Deposits and withdrawals. Binance answers these for at most 90 days per call, and for the LAST
+    # 90 days when given no window — so a full-history sync, which has no start, walks them in
+    # windows from the venue's opening; an incremental one is already floored to `ledger_window`
+    # by the caller and reaches the present in one call.
+    each_window(start_ms, days: 89, from: TRANSFER_HISTORY_FROM) do |window_start, window_end|
+      failed = each_transfer(hm_client, :deposit_history, window_start, window_end) do |dep|
+        next unless dep['status'] == 1
 
-    Array(result.data).each do |dep|
-      next unless dep['status'] == 1
+        entries << {
+          entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
+          quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+          tx_id: dep['txId'], group_id: nil, description: nil,
+          transacted_at: Time.at(dep['insertTime'] / 1000.0).utc, raw_data: dep
+        }
+      end
+      return failed if failed
 
-      entries << {
-        entry_type: :deposit, base_currency: dep['coin'], base_amount: dep['amount'].to_d,
-        quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
-        tx_id: dep['txId'], group_id: nil, description: nil,
-        transacted_at: Time.at(dep['insertTime'] / 1000.0).utc, raw_data: dep
-      }
-    end
+      failed = each_transfer(hm_client, :withdraw_history, window_start, window_end) do |wd|
+        next unless wd['status'] == 6
 
-    # Withdrawals
-    result = hm_client.withdraw_history(start_time: start_ms)
-    return result if result.failure?
-
-    Array(result.data).each do |wd|
-      next unless wd['status'] == 6
-
-      entries << {
-        entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
-        quote_currency: nil, quote_amount: nil,
-        fee_currency: wd['coin'], fee_amount: wd['transactionFee']&.to_d,
-        tx_id: wd['txId'] || wd['id'], group_id: nil, description: nil,
-        transacted_at: Time.parse(wd['applyTime']).utc, raw_data: wd
-      }
+        entries << {
+          entry_type: :withdrawal, base_currency: wd['coin'], base_amount: wd['amount'].to_d,
+          quote_currency: nil, quote_amount: nil,
+          fee_currency: wd['coin'], fee_amount: wd['transactionFee']&.to_d,
+          tx_id: wd['txId'] || wd['id'], group_id: nil, description: nil,
+          transacted_at: Time.parse(wd['applyTime']).utc, raw_data: wd
+        }
+      end
+      return failed if failed
     end
 
     # Discover traded symbols and fetch spot trades
@@ -699,8 +699,10 @@ class Exchanges::Binance < Exchange
     @exchange_symbols_map&.dig(symbol, :quote) || tickers.find_by(ticker: symbol)&.quote || symbol
   end
 
+  # The ACCOUNT's pairs, under whichever key was current when they were traded: a venue's history
+  # accumulates across key replacements, and a replaced key's rows are left with no key at all.
   def known_traded_symbols(api_key)
-    AccountTransaction.where(api_key: api_key)
+    AccountTransaction.where(user_id: api_key.user_id, exchange_id: api_key.exchange_id)
                       .where.not(quote_currency: nil)
                       .where(entry_type: %i[buy sell swap_in swap_out])
                       .distinct
@@ -732,14 +734,48 @@ class Exchanges::Binance < Exchange
     @exchange_symbols_map
   end
 
+  # Where a full-history walk starts: Binance opened in July 2017, Convert in 2020. Nothing on this
+  # venue predates these, so a window before them is a call for nothing.
+  TRANSFER_HISTORY_FROM = Time.utc(2017, 7, 1)
+  CONVERT_HISTORY_FROM = Time.utc(2020, 1, 1)
+
+  # [start_ms, end_ms] windows of at most `days`, abutting, from `start_ms` — or from `from` when
+  # there is no start — up to now. The end is pinned once: a loop that re-reads the clock each turn
+  # never reaches it.
+  def each_window(start_ms, days:, from:)
+    window_start = start_ms || (from.to_f * 1000).to_i
+    window_end = (Time.now.utc.to_f * 1000).to_i
+    span = days * 24 * 60 * 60 * 1000
+    while window_start < window_end
+      chunk_end = [window_start + span, window_end].min
+      yield window_start, chunk_end
+      window_start = chunk_end
+    end
+  end
+
+  # A window is answered a page at a time, a thousand rows to the page, and a busy account's window
+  # holds more: the next page is read while the last was full. Yields each row; returns the failure
+  # that stopped the read, or nil.
+  TRANSFER_PAGE = 1000
+
+  def each_transfer(hm_client, endpoint, window_start, window_end, &block)
+    offset = 0
+    loop do
+      result = hm_client.public_send(endpoint, start_time: window_start, end_time: window_end,
+                                               offset: offset, limit: TRANSFER_PAGE)
+      return result if result.failure?
+
+      rows = Array(result.data)
+      rows.each(&block)
+      return nil if rows.size < TRANSFER_PAGE
+
+      offset += TRANSFER_PAGE
+    end
+  end
+
   def import_convert_trades(hm_client, start_ms, entries)
     # Convert API requires 30-day windows
-    window_start = start_ms || (Time.utc(2020, 1, 1).to_f * 1000).to_i
-    window_end = (Time.now.utc.to_f * 1000).to_i
-    thirty_days = 30 * 24 * 60 * 60 * 1000
-
-    while window_start < window_end
-      chunk_end = [window_start + thirty_days, window_end].min
+    each_window(start_ms, days: 30, from: CONVERT_HISTORY_FROM) do |window_start, chunk_end|
       result = hm_client.convert_trade_flow(start_time: window_start, end_time: chunk_end)
       break if result.failure?
 
@@ -759,7 +795,6 @@ class Exchanges::Binance < Exchange
           transacted_at: transacted_at, raw_data: conv
         }
       end
-      window_start = chunk_end
     end
   end
 

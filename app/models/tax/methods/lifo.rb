@@ -10,7 +10,10 @@ module Tax
         fee_fiat = transaction[:fee_fiat_value] || 0.to_d
         has_lots = lots[asset].any?
         latest_date = lots[asset].last&.dig(:date)
-        cost_basis, basis_assumed = dequeue_cost(lots[asset], amount)
+        tranches, = dequeue_tranches(lots[asset], amount)
+        cost_basis = tranches.sum(0.to_d) { |tranche| tranche[:cost] }
+        basis_assumed = tranches.any? { |tranche| tranche[:basis_assumed] }
+        unpriced = tranches.sum(0.to_d) { |tranche| tranche[:unpriced].to_d }
         consume_disposal_fee(lots, transaction)
         holding_days = latest_date ? ((transaction[:transacted_at] - latest_date) / 1.day).to_i : 0
 
@@ -26,6 +29,8 @@ module Tax
           holding_days: holding_days,
           cost_basis_complete: has_lots,
           data_incomplete: data_incomplete?(transaction, has_lots, basis_assumed),
+          unpriced_quantity: unpriced,
+          unpriced_proceeds: amount.positive? ? fiat_value * unpriced / amount : 0.to_d,
           tx_id: transaction[:tx_id],
           exchange: transaction[:exchange]
         }
@@ -35,26 +40,37 @@ module Tax
         disposals << disposal
       end
 
-      def dequeue_cost(lots, amount_to_sell)
+      def dequeue_tranches(lots, amount_to_sell)
+        held_before = lots.sum(0.to_d) { |lot| lot[:amount] }
         remaining = amount_to_sell
-        total_cost = 0.to_d
-        any_assumed = false
+        tranches = []
 
         while remaining.positive? && lots.any?
           lot = lots.last
-          any_assumed = true if lot[:basis_assumed]
+          tranche_amount = [lot[:amount], remaining].min
+          unpriced = lot[:amount].positive? ? lot[:unpriced].to_d * tranche_amount / lot[:amount] : 0.to_d
+          tranche = {
+            amount: tranche_amount,
+            cost: tranche_amount * lot[:cost_per_unit],
+            date: lot[:date],
+            basis_assumed: lot[:basis_assumed] ? true : false,
+            unpriced: unpriced
+          }
+          tranche[:holding_start] = lot[:holding_start] if lot[:holding_start]
+          # Lots are opened oldest-to-newest, even though LIFO consumes them in the other direction.
+          tranches.unshift(tranche)
+
           if lot[:amount] <= remaining
-            total_cost += lot[:amount] * lot[:cost_per_unit]
             remaining -= lot[:amount]
             lots.pop
           else
-            total_cost += remaining * lot[:cost_per_unit]
             lot[:amount] -= remaining
+            lot[:unpriced] = lot[:unpriced].to_d - unpriced
             remaining = 0
           end
         end
 
-        [total_cost, any_assumed]
+        [tranches, held_before]
       end
     end
   end

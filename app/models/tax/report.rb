@@ -32,6 +32,9 @@ module Tax
         enriched = @price_service.enrich(scoped_transactions, currency: currency, &on_progress)
         # Fiat deposits are bank funding: no cost basis to assume and no withdrawal to link them to.
         # Naming them would bury the crypto rows this warning exists to surface.
+        # A figure the user typed. It is theirs, not the venue's and not ours, and a tax document has
+        # to say which rows rest on it — the same disclosure the assumed-basis deposits get.
+        @stated_values = enriched.select { |tx| tx[:stated_value] }
         @assumed_deposits = enriched.select do |tx|
           tx[:entry_type].to_s == 'deposit' && !tx[:linked] &&
             !Tax::PriceService::FIAT_CURRENCIES.include?(tx[:base_currency])
@@ -83,6 +86,7 @@ module Tax
           append_income_section(csv) if @income_rows.present?
           append_warnings(csv) if @price_service.warnings.any?
           append_deposit_basis_warnings(csv) if @assumed_deposits.present?
+          append_stated_values(csv) if @stated_values.present?
           append_income_disclosure(csv) if jurisdiction[:income_taxed_separately]
         end
       end
@@ -106,7 +110,9 @@ module Tax
     def scoped_transactions
       # Include all transactions up to end of year (for cost basis from prior years)
       # but only report disposals within the target year
-      transactions.where(transacted_at: ..Time.utc(year + 1)).order(transacted_at: :asc)
+      # Out-leg before in-leg at the same instant, as the tracker walks it: ordered by time alone,
+      # a swap-in the venue stored first takes market basis and its out-leg's cost is kept for nobody.
+      Tax::PriceService.ordered(transactions.where(transacted_at: ..Time.utc(year + 1)).to_a)
     end
 
     # A fiat ledger row is one leg of a trade or bank funding, never a disposal or a lot. Kraken
@@ -494,6 +500,19 @@ module Tax
         csv << ["#{tx[:base_currency]} #{tx[:base_amount]} #{tx[:transacted_at].utc.strftime('%Y-%m-%d')}"]
       end
       csv << [I18n.t('tax_report.warnings.deposit_basis_assumed_hint')]
+    end
+
+    # Values the user stated by hand, on rows the venue priced badly or not at all. Named so they can
+    # be checked one by one — they are the user's own figures, and the report says so rather than
+    # passing them off as the exchange's.
+    def append_stated_values(csv)
+      csv << []
+      csv << ["NOTE: #{I18n.t('tax_report.warnings.stated_values')}:"]
+      @stated_values.each do |tx|
+        csv << ["#{tx[:base_currency]} #{tx[:base_amount]} #{tx[:transacted_at].utc.strftime('%Y-%m-%d')}",
+                tx[:fiat_value].round(2)]
+      end
+      csv << [I18n.t('tax_report.warnings.stated_values_hint')]
     end
 
     # Staking, interest, airdrops and mining are taxable when received, on top of any gain on a later

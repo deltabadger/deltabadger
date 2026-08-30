@@ -31,6 +31,24 @@ class ListOpenOrdersToolTest < ActiveSupport::TestCase
     assert_match(/order-123/, text)
   end
 
+  # "No open orders found." is a statement of fact about the user's money. When the exchange call
+  # fails — a rejected key, a venue outage — we do not know that, and MCP-placed limit orders have no
+  # local row, so this listing is their only source.
+  test 'does not claim there are no open orders when an exchange could not be reached' do
+    alpaca = create(:alpaca_exchange)
+    create(:api_key, user: @user, exchange: alpaca, key_type: :trading, status: :correct)
+    Exchanges::Alpaca.any_instance.stubs(:list_open_orders)
+                     .returns(Result::Failure.new('unauthorized.', data: { status: 401 }))
+
+    response = ListOpenOrdersTool.new.execute
+    text = response.contents.first.text
+
+    assert_no_match(/\ANo open orders found\.\z/, text,
+                    'the bare claim asserts a fact about money we could not check')
+    assert_match(/could not be checked/, text)
+    assert_match(/Alpaca/, text)
+  end
+
   test 'lists open orders from exchange API' do
     alpaca = create(:alpaca_exchange)
     create(:api_key, user: @user, exchange: alpaca, key_type: :trading, status: :correct)

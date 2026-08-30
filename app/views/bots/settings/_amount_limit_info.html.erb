@@ -1,4 +1,6 @@
-
+<%# What is left of the cap, restated in money. The cap itself is hidden while balances are, so
+    there is nothing here to be left of. %>
+<% unless hide_balances?(bot) %>
 <% if bot.selling? %>
   <% if bot.base_amount_limited? && bot.base_amount_limit&.to_d&.positive? %>
     <span id="<%= bot.new_record? ? "new-settings-amount-limit-info" : "settings-amount-limit-info" %>">
@@ -25,4 +27,5 @@
             quote: bot.quote_asset.symbol) %>
     <% end %>
   </span>
+<% end %>
 <% end %>

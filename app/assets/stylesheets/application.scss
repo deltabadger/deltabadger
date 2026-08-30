@@ -22,6 +22,7 @@
 @use "new/hamburger";
 @use "new/menu-mobile";
 @use "new/salert";
+@use "new/segmented";
 @use "new/slider";
 @use "new/small-ui";
 @use "new/smart-allocation";
@@ -36,9 +37,10 @@
 @use "new/conversational";
 @use "new/reverse-toggle";
 @use "new/wizard-order";
+@use "new/wizard-assets";
 @use "new/wizard-transitions";
-@use "new/dca-dual-asset";
 @use "new/dca-index";
+@use "new/dca-multi-asset";
 @use "new/devise";
 @use "new/page-head";
 @use "new/bot-control";
@@ -46,6 +48,8 @@
 @use "new/itiles";
 @use "new/set-api";
 @use "new/rules";
+@use "new/pill";
+@use "new/dropzone";
 @use "new/tracker";
 
 @use "new/small-random";
@@ -56,5 +60,3 @@
 @use "animations-order";
 
 @use "new2/tauri";
-
-

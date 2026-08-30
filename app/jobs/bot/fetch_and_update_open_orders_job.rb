@@ -45,6 +45,17 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
 
       case order_data[:status]
       when :open, :closed, :cancelled
+        # A rebalance or a liquidation spends quote the bot already owned, so its fills must never
+        # move the DCA carry — otherwise a swap silently satisfies a scheduled contribution. The
+        # sibling Bot::FetchAndUpdateOrderJob has gated this at the source for a while; this sweep
+        # did not, and it is the one Bot::LimitOrderable#execute_action actually calls with the flag
+        # set to true, so the gate was missing exactly where it was needed.
+        #
+        # A per-order local, NOT `update_missed_quote_amount &&= ...`: this runs inside a loop over
+        # every waiting order, so reassigning the method argument would let one rebalance row switch
+        # the carry off for every REGULAR order after it in the same sweep.
+        adjust_carry = update_missed_quote_amount && order.transaction_type == 'REGULAR'
+
         # Capture the previous quote execution BEFORE update_with_order_data mutates it.
         previous_quote_amount_exec = order.quote_amount_exec || 0
         raise "Failed to update order #{order.external_id}" unless order.update_with_order_data(order_data)
@@ -52,7 +63,7 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
         # Buy-only carry: gate on order.buy? so a sell in the open-orders sweep is inert. The diff is
         # computed HERE (inside the buy guard) so a sell payload with a nil quote_amount_exec — base
         # fill known, quote fill absent — never hits `nil - x` and crashes the sweep.
-        if update_missed_quote_amount && order.buy? && order.created_at >= calc_since
+        if adjust_carry && order.buy? && order.created_at >= calc_since
           quote_amount_diff = order_data[:quote_amount_exec].to_d - previous_quote_amount_exec
           missed_quote_amount = [0, order.bot.missed_quote_amount - quote_amount_diff].max
           order.bot.update!(missed_quote_amount: missed_quote_amount)

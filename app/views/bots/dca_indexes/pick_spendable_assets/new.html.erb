@@ -20,10 +20,10 @@
       <% end %>
     </div>
 
-    <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation scroll-state" }, class: "modal--search__assets selectable-options" do %>
+    <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
       <%= form_with model: @bot, url: bots_dca_indexes_pick_spendable_asset_path, method: :post do |f| %>
-        <% @assets.each do |id, symbol, name, color, category, _exchanges| %>
-          <%= render partial: "bots/dca_indexes/quote_asset_result", locals: { bot: @bot, asset_field: :quote_asset_id, id: id, symbol: symbol, name: name, color: color, category: category, top_assets: @top_base_assets_by_quote[id] || [] } %>
+        <% @assets.each do |id, symbol, name, color, category, image_url, _exchanges| %>
+          <%= render partial: "bots/dca_indexes/quote_asset_result", locals: { bot: @bot, asset_field: :quote_asset_id, id: id, symbol: symbol, name: name, color: color, category: category, image_url: image_url, top_assets: @top_base_assets_by_quote[id] || [] } %>
         <% end %>
       <% end %>
     <% end %>

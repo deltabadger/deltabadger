@@ -1,33 +1,59 @@
+@use "sass:math"
+@use "sass:list"
 @use "../variables" as *
 
+// The grid paints its own column dividers as background layers: one vertical hairline per column
+// boundary. Written by hand that is a gradient per boundary, and a six-across row needs five of
+// them — so they are generated instead, and every column count reads the same way.
+@function column-dividers($count)
+  $layers: ()
+  @for $i from 1 through $count - 1
+    $at: math.percentage(math.div($i, $count))
+    $layers: list.append($layers, linear-gradient(to right, transparent, transparent calc(#{$at} - 0.25rem), var(--widget-shadow-line) calc(#{$at} - 0.25rem), var(--widget-shadow-line) calc(#{$at}), transparent calc(#{$at})), comma)
+  @return $layers
+
+// Everything a column count needs: the tracks, the hairlines between them, and a rule between rows.
+// The ROWS are never counted — an item that starts one draws its own top rule, so a grid of any
+// height is divided correctly and the bottom edge is never underlined. Each step clears the one
+// before it: at six across, the items that began rows while the grid was three across are mid-row.
+=columns($count)
+  grid-template-columns: repeat($count, math.div(100%, $count))
+  background-image: column-dividers($count)
+  // Both halves carry an :nth-child so they weigh the same: a wider step's reset must never
+  // outrank a narrower one's rule, or the item it silenced keeps no divider at all.
+  > .data-grid__item:nth-child(n + #{$count + 1})
+    border-top: 0.25rem solid var(--widget-shadow-line)
+  > .data-grid__item:nth-child(-n + #{$count})
+    border-top: 0
+
 .data-grid
+    text-align: right
     display: grid
     gap: 0
-    grid-template-columns: repeat(2, 50%)
-    background-image: linear-gradient(to right, transparent, transparent calc(50% - 0.25rem), var(--widget-shadow-line) calc(50% - 0.25rem), var(--widget-shadow-line) calc(50%), transparent calc(50%)), linear-gradient(to bottom, transparent, transparent calc(11.8rem), var(--widget-shadow-line) calc(11.8rem), var(--widget-shadow-line) calc(11.8rem + 0.25rem), transparent calc(11.8rem + 0.25rem))
-    background-size: 100% 100%, 100% calc(11.8rem + 0.25rem)
-    background-repeat: no-repeat, repeat-y
+    +columns(2)
     &--two-columns
         grid-template-columns: repeat(2, 50%) !important
-        background-image: linear-gradient(to right, transparent, transparent calc(50% - 0.25rem), var(--widget-shadow-line) calc(50% - 0.25rem), var(--widget-shadow-line) calc(50%), transparent calc(50%)) !important
+        background-image: column-dividers(2) !important
         .data-grid__item__value
             min-height: auto
     @container (min-width: 576px)
-        grid-template-columns: repeat(3, 33%)
-        background-image: linear-gradient(to right, transparent, transparent calc(33.33% - 0.25rem), var(--widget-shadow-line) calc(33.33% - 0.25rem), var(--widget-shadow-line) calc(33.33%), transparent calc(33.33%)), linear-gradient(to right, transparent, transparent calc(66.66% - 0.25rem), var(--widget-shadow-line) calc(66.66% - 0.25rem), var(--widget-shadow-line) calc(66.66%), transparent calc(66.66%)), linear-gradient(to bottom, transparent, transparent calc(11.8rem), var(--widget-shadow-line) calc(11.8rem), var(--widget-shadow-line) calc(11.8rem + 0.25rem), transparent calc(11.8rem + 0.25rem))
-        background-size: 100% 100%, 100% 100%, 100% calc(11.8rem + 0.25rem)
-        background-repeat: no-repeat, no-repeat, repeat-y
+        +columns(3)
     @container (min-width: 768px)
-        grid-template-columns: repeat(4, 25%)
-        background-image: linear-gradient(to right, transparent, transparent calc(25% - 0.25rem), var(--widget-shadow-line) calc(25% - 0.25rem), var(--widget-shadow-line) calc(25%), transparent calc(25%)), linear-gradient(to right, transparent, transparent calc(50% - 0.25rem), var(--widget-shadow-line) calc(50% - 0.25rem), var(--widget-shadow-line) calc(50%), transparent calc(50%)), linear-gradient(to right, transparent, transparent calc(75% - 0.25rem), var(--widget-shadow-line) calc(75% - 0.25rem), var(--widget-shadow-line) calc(75%), transparent calc(75%)), linear-gradient(to bottom, transparent, transparent calc(11.8rem), var(--widget-shadow-line) calc(11.8rem), var(--widget-shadow-line) calc(11.8rem + 0.25rem), transparent calc(11.8rem + 0.25rem))
-        background-size: 100% 100%, 100% 100%, 100% 100%, 100% calc(11.8rem + 0.25rem)
-        background-repeat: no-repeat, no-repeat, no-repeat, repeat-y
+        +columns(4)
+    // Six figures, three shapes: 2 x 3 when narrow, 3 x 2 in the middle, and all six on ONE row once
+    // there is room — which is where the eye can add them up without moving. The ordinary grid's
+    // four-across step is skipped entirely: four of six leaves two empty cells.
+    &--six
+        @container (min-width: 768px)
+            +columns(3)
+        @container (min-width: 1120px)
+            +columns(6)
     &__item
-        padding: var(--ui-padding)
+        padding: calc(var(--ui-padding)/1.33) var(--ui-padding)
         position: relative
         display: flex
         flex-direction: column
-        gap: 1.5rem
+        gap: 0.5rem
         .label
             line-height: 2rem
         &__value
@@ -38,13 +64,15 @@
             min-height: 3rem
             font-weight: 600
             @media (max-width: 549.9px)
-                min-height: 6.5rem
+                min-height: 5redm
             path
                 fill: var(--stone)
             svg
                 width: 3rem
-            small
-                color: var(--stone)
+            // A figure that is neither good nor bad news reads in the caption's colour rather than
+            // the ink the outcomes are set in.
+            &--quiet
+                color: var(--concrete)
         .tooltip
             bottom: calc(100% - 1rem)
             left: 0
@@ -59,3 +87,48 @@
                 top: inherit
                 bottom: -2rem
                 left: 4.5rem
+// The one figure a reader cannot derive by looking carries a mark saying how it is made. It rides
+// INSIDE the caption, after the words, at the caption's own size — punctuation, not a button.
+//
+// Two things have to be undone for that. `.icon-24` is a 3rem block with a 3rem MIN-width, which in
+// a nowrap caption is wide enough to be pushed off the line and clipped away; and the sprite's root
+// carries `fill="none"`, so an icon with no explicit fill paints nothing at all.
+.data-grid__item__hint
+    display: inline-block
+    position: relative
+    margin-left: 0.5rem
+    cursor: help
+    .icon-24
+        display: inline-block
+        width: 1.5rem
+        height: 1.5rem
+        min-width: 0
+        vertical-align: -0.2rem
+        fill: var(--concrete)
+    &:hover .icon-24, &.show-tooltip .icon-24
+        fill: var(--ink)
+
+// A sentence, not a caption: left-aligned, wrapping, never in the label's upper case, and in the
+// page's own ink rather than the tooltip's default blue — this explains a figure, it does not
+// announce one.
+.tooltip--hint
+    max-width: 44rem
+    text-align: left
+    text-transform: none
+    font-weight: 450
+    white-space: normal
+    // Ink on paper, both from the theme: `--ink` is dark in light mode and light in dark mode, and
+    // the base tooltip's hard-coded white text would vanish on the second. Taking the text from
+    // `--paper` keeps the pair inverted together whichever way round the theme is.
+    background: var(--ink)
+    color: var(--paper)
+
+// The hint hangs BELOW its mark — the controller pins it under the trigger so it escapes the grid's
+// clipped overflow — so its arrow points up. The grid's own tooltips sit above and point down.
+.data-grid__item .tooltip--hint::before
+    top: -2rem
+    bottom: auto
+    left: 50%
+    transform: translateX(-50%)
+    border-top-color: transparent
+    border-bottom-color: var(--ink)

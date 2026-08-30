@@ -145,6 +145,32 @@ class Clients::AlpacaTest < ActiveSupport::TestCase
     assert_predicate result, :success?
   end
 
+  # Alpaca pages bars at 1000 by default and answers with the OLDEST page plus a
+  # `next_page_token` this client does not read — so an unbounded request for a long history
+  # silently returns a window that ends years ago. The maximum page size fits every symbol
+  # Alpaca serves (its data begins in 2016) in one request.
+  test 'get_bars asks for the largest page Alpaca will serve' do
+    params = capture_bars_params { @client.get_bars(symbol: 'AAPL', timeframe: '1Day') }
+
+    assert_equal 10_000, params[:limit]
+  end
+
+  # Corporate actions are opt-in: the endpoint defaults to `raw`, and the as-traded paths
+  # (the bot chart's valuation grid, the tax boundary prices) depend on that default.
+  test 'get_bars leaves the adjustment unset by default' do
+    params = capture_bars_params { @client.get_bars(symbol: 'AAPL', timeframe: '1Day') }
+
+    assert_not params.key?(:adjustment)
+  end
+
+  test 'get_bars sends the adjustment it was asked for' do
+    params = capture_bars_params do
+      @client.get_bars(symbol: 'AAPL', timeframe: '1Day', adjustment: 'split')
+    end
+
+    assert_equal 'split', params[:adjustment]
+  end
+
   test 'get_crypto_latest_quote returns success result' do
     mock_response = stub(body: { 'quotes' => { 'AAVE/USD' => { 'bp' => 99.5, 'ap' => 100.5 } } })
     connection = stub
@@ -277,6 +303,17 @@ class Clients::AlpacaTest < ActiveSupport::TestCase
   end
 
   private
+
+  def capture_bars_params
+    captured = {}
+    req = stub_request('/v2/stocks/AAPL/bars')
+    req.stubs(:params=).with { |params| captured.replace(params) || true }
+    connection = stub
+    connection.expects(:get).yields(req).returns(stub(body: { 'bars' => [] }))
+    @client.stubs(:data_connection).returns(connection)
+    yield
+    captured
+  end
 
   def stub_request(_url)
     req = stub

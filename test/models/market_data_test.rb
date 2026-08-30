@@ -492,6 +492,32 @@ class MarketDataSyncStocksFromDeltabadgerTest < ActiveSupport::TestCase
     end
   end
 
+  test 'builds a crypto asset image_url from logo_url, so tokenized securities show their logo' do
+    # A Hyperliquid RWA token arrives via the crypto asset feed with no CoinGecko image_url — it
+    # carries the host-relative logo of the security it tracks. Same fallback as the stock path.
+    MarketDataSettings.stubs(:deltabadger_public_url).returns('https://data.deltabadger.com')
+
+    MarketData.import_assets!([{ 'external_id' => 'hl:0xc8a2', 'symbol' => 'TSLA',
+                                 'name' => 'Tesla - Wagyu.xyz', 'category' => 'Tokenized Stock',
+                                 'color' => '#CC0000', 'image_url' => nil,
+                                 'logo_url' => '/logos/1f/133-1fba5af2.png' }])
+
+    asset = Asset.find_by(external_id: 'hl:0xc8a2')
+    assert_equal 'https://data.deltabadger.com/logos/1f/133-1fba5af2.png', asset.image_url
+    assert_equal '#CC0000', asset.color
+  end
+
+  test 'prefers a coin\'s own image_url over logo_url' do
+    MarketDataSettings.stubs(:deltabadger_public_url).returns('https://data.deltabadger.com')
+
+    MarketData.import_assets!([{ 'external_id' => 'bitcoin', 'symbol' => 'BTC', 'name' => 'Bitcoin',
+                                 'category' => 'Cryptocurrency',
+                                 'image_url' => 'https://coingecko.example/btc.png',
+                                 'logo_url' => nil }])
+
+    assert_equal 'https://coingecko.example/btc.png', Asset.find_by(external_id: 'bitcoin').image_url
+  end
+
   test 'builds image_url from the host-relative logo_url when image_url is absent' do
     MarketDataSettings.stubs(:deltabadger_public_url).returns('https://data.deltabadger.com')
     @fake.stubs(:get_stocks).returns(Result::Success.new(

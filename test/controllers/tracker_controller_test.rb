@@ -351,6 +351,29 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     assert_equal 'taxOptions', disclaimer['data-tracker-export-target']
   end
 
+  # The + used to open a full-page picker. It now opens the venues themselves, so the list it
+  # offers has to be exactly the ones there is something to do with.
+  test 'the + offers the venues that can still be added, brokers first' do
+    # A second connected venue, so the switch — and the + inside it — renders at all.
+    create(:api_key, user: @user, exchange: create(:coinbase_exchange))
+    create(:kraken_exchange)
+    create(:alpaca_exchange)
+    create(:ibkr_exchange)
+    create(:bitmart_exchange)
+
+    get tracker_path
+
+    assert_response :success
+    venues = css_select('.segmented__submenu-item')
+    # Brokers lead, each group by name. Binance and Coinbase are already on the switch, and
+    # Bitmart is retired — there is nothing left to connect to.
+    assert_equal(['Alpaca', 'Interactive Brokers', 'Kraken'], venues.map { |a| a.text.strip })
+    assert_equal new_tracker_add_api_key_path(exchange_id: Exchange.find_by(name: 'Alpaca').id),
+                 venues.first['href']
+    # The + opens that list instead of following its href to the picker modal.
+    assert_equal 'segmented#open', css_select('.segmented__option--action').first['data-action']
+  end
+
   # A sync failure is persisted on the key but the banner was only ever broadcast, so a user who
   # reloaded the page saw a tracker that looked healthy while an exchange contributed nothing.
   test 'a persisted sync failure banners on page load' do
@@ -542,6 +565,21 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
   ensure
     Tax::GenerateReportJob.queue_adapter = job_adapter
     ActiveJob::Base.queue_adapter = base_adapter
+  end
+
+  # The portfolio total is the tracker's half of the same normalized figure the dashboard
+  # shows, so it follows the same denominator.
+  test 'the portfolio total and its slices read in the account currency' do
+    @user.update!(display_currency: 'PLN')
+    Utilities::Currency.stubs(:exchange_rate).with(from: 'USD', to: 'PLN')
+                       .returns(Result::Success.new(4.0))
+    AccountBalance.create!(user: @user, exchange: @api_key.exchange, asset: create(:asset, :bitcoin),
+                           free: 1, locked: 0, usd_value: 250, synced_at: Time.current)
+
+    get tracker_path
+
+    assert_select '.data-grid__item__value', text: /1,000\.00 zł/
+    assert_select '.tracker-holdings__value', text: /1,000\.00 zł/
   end
 
   private

@@ -4,9 +4,19 @@ el:
         bot_name: 'Όνομα bot'
         new: "Νέο bot"
         welcome:
-            pick_asset_first: "Διάλεξε πρώτα ένα asset — μετά θα δεις τα exchanges όπου είναι διαθέσιμο."
+            pick_exchange_first: "Διάλεξε πρώτα ένα exchange — μετά θα δεις τα assets που είναι διαθέσιμα εκεί."
             connect_alpaca_html: "Για να επενδύσεις σε μετοχές, σύνδεσε πρώτα το Alpaca στις %{settings_link}."
             settings_link: "Ρυθμίσεις"
+        dca_multi_asset:
+            add_asset: "Προσθήκη περιουσιακού στοιχείου"
+            remove_asset: "Αφαίρεση"
+            max_assets_reached: "Μπορείτε να διατηρείτε έως %{max} περιουσιακά στοιχεία."
+            min_assets: "Ένα χαρτοφυλάκιο χρειάζεται τουλάχιστον %{min} περιουσιακά στοιχεία."
+            no_common_exchange: "Αυτός ο συνδυασμός περιουσιακών στοιχείων δεν υπάρχει σε κανένα υποστηριζόμενο ανταλλακτήριο."
+            removed_from_portfolio: "Αφαιρέθηκαν από το χαρτοφυλάκιο"
+            allocation_sum: "Σύνολο"
+            normalize: "Κανονικοποίηση"
+            normalize_first: "Πρώτα κανονικοποιήστε την κατανομή."
         dca_index:
             setup:
                 step_index: "Δείκτης"
@@ -27,43 +37,30 @@ el:
             fewer_coins_available: "%{available} από τα %{requested} νομίσματα του δείκτη είναι διαθέσιμα στο %{exchange_name}"
             num_assets: "Assets στον δείκτη"
             asset_breakdown: "Ανάλυση assets"
-            asset: "Asset"
-            amount: "Ποσό"
-            avg_price: "Μ.Ο. τιμής"
-            value: "Αξία"
-            pl: "Κ/Ζ"
+            realised_pnl: "Πραγματοποιημένο Κ/Ζ"
+            realised_pnl_note: "Από την πώληση στοιχείων που αφαιρέθηκαν από το χαρτοφυλάκιο. Η εξισορρόπηση δεν μετράει."
+            left_the_index: "Εκτός δείκτη"
             warning:
                 intro: "Κάποιες εντολές (%{skipped_count}) ήταν κάτω από το ελάχιστο μέγεθος εντολής του %{exchange_name}. Δες πώς το χειρίζεται το bot:"
         types:
             dca:
-                title: "DCA"
-                description: "Επένδυση σε ένα asset"
-            dca_dual_asset:
-                title: "DCA με εξισορρόπηση"
-                description: "Εξισορρόπηση δύο assets"
+                title: "DCA / Εξισορρόπηση"
+                description: "Διάλεξε ένα ή περισσότερα assets"
             index_portfolio:
-                title: "Χαρτοφυλάκιο δείκτη"
-                description: "Το δικό σου crypto ETF"
-            custom_portfolio:
-                title: "Προσαρμοσμένο χαρτοφυλάκιο"
-                description: "Εξισορρόπηση δικού σου μείγματος assets"
+                title: "Δείκτης"
+                description: "Φτιάξε το δικό σου ETF"
             signal:
-                title: "Σήμα"
-                description: "Συναλλαγές βάσει εξωτερικών σημάτων"
-            dca_stocks:
-                title: "DCA (μετοχές)"
-                description: "Αγορά μετοχών μέσω Alpaca"
-        dca_stocks:
-            connect_alpaca_intro: "Σύνδεσε τον λογαριασμό σου στο Alpaca για να ξεκινήσεις να επενδύεις σε μετοχές"
-            pick_stock: "Αναζήτηση μετοχής"
-            no_results: "Δεν βρέθηκαν μετοχές"
-            stock_not_found: "Η μετοχή δεν βρέθηκε στο Alpaca"
-            mode_paper: "Εικονικές συναλλαγές"
-            mode_live: "Πραγματικές συναλλαγές"
+                title: "Σήματα"
+                description: "Συναλλαγές βάσει webhook"
+        exchange_menu:
+            no_alternative: 'Κανένα άλλο υποστηριζόμενο ανταλλακτήριο δεν προσφέρει %{assets}.'
+            locked_while_running: 'Σταμάτα το bot για να το μεταφέρεις σε άλλο ανταλλακτήριο.'
+            locked_while_rebalancing: 'Η αναπροσαρμογή βρίσκεται ακόμη σε εξέλιξη — το ανταλλακτήριο μπορεί να αλλάξει μόλις ολοκληρωθεί.'
         status:
             exchange_retired: 'Αυτό το ανταλλακτήριο δεν λειτουργεί πλέον — μετέφερε το bot σε άλλο.'
             setting_orders: "Ρύθμιση εντολών…"
             paused: "Σε παύση"
+            archived: "Αρχειοθετημένο"
             next_try: "Επόμενη προσπάθεια σε"
             waiting: "Αναμονή για πλήρωση όλων των συνθηκών"
             listening: "Σε ακρόαση"
@@ -139,6 +136,10 @@ el:
                 average_price: 'Μέση τιμή'
                 bought: Αγοράστηκε
                 chart:
+                    orders: 'Εμφάνιση εντολών'
+                    prices: 'Εμφάνιση τιμών'
+                    modes: 'Λειτουργία γραφήματος'
+                    pnl: 'P/L'
                     total_invested: 'Σύνολο επένδυσης'
                     value: Αξία
                 csv_download_html: 'Ο παραπάνω πίνακας δείχνει μόνο τις τελευταίες δέκα συναλλαγές. Η πλήρης αναφορά είναι διαθέσιμη για λήψη σε μορφή CSV παρακάτω.'
@@ -170,6 +171,7 @@ el:
         limit_sell: 'Πώληση limit'
         messages:
             do_you_want_to_delete: 'Θέλεις να διαγράψεις αυτό το bot;'
+            do_you_want_to_archive: 'Θέλεις να αρχειοθετήσεις αυτό το bot;'
             symbol_not_supported: "Το %{symbol} δεν υποστηρίζεται"
             specify_percentage_limit_order: "Όρισε ποσοστό κατά τη δημιουργία εντολής limit"
             smart_intervals_above_minimum: "Η τιμή των έξυπνων διαστημάτων πρέπει να είναι μεγαλύτερη από %{minimum}"
@@ -223,17 +225,45 @@ el:
         warning:
             dca_single_asset:
                 intro: "Το ποσό %{missed_symbol} ήταν κάτω από το ελάχιστο μέγεθος εντολής του %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} ή %{missed_minimum_quote_size} %{quote_symbol} για %{missed_symbol}). Δες πώς το χειρίζεται το bot:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Ωστόσο, τα ποσά τόσο για %{base0_symbol} όσο και για %{base1_symbol} είναι κάτω από τα ελάχιστα μεγέθη εντολών του %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} ή %{base0_minimum_quote_size} %{quote_symbol} για %{base0_symbol} και %{base1_minimum_base_size} %{base1_symbol} ή %{base1_minimum_quote_size} %{quote_symbol} για %{base1_symbol}). Δες πώς το χειρίζεται το bot:"
-                one_below:
-                    intro: "Το bot αγόρασε %{bought_quote_amount} %{quote_symbol} σε %{bought_symbol}, αλλά το ποσό %{missed_symbol} ήταν κάτω από το ελάχιστο μέγεθος εντολής του %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} ή %{missed_minimum_quote_size} %{quote_symbol} για %{missed_symbol}). Δες πώς το χειρίζεται το bot:"
             buffer_explanation:
                 one: "Το χαμένο ποσό αποθηκεύτηκε στο buffer και θα χρησιμοποιηθεί στην επόμενη προγραμματισμένη εντολή, διασφαλίζοντας ότι το πρόγραμμα και η κατανομή σου τηρούνται όσο πιο πιστά επιτρέπουν τα ελάχιστα του ανταλλακτηρίου."
                 other: "Τα χαμένα ποσά αποθηκεύτηκαν στο buffer και θα χρησιμοποιηθούν στις επόμενες προγραμματισμένες εντολές, διασφαλίζοντας ότι το πρόγραμμα και η κατανομή σου τηρούνται όσο πιο πιστά επιτρέπουν τα ελάχιστα του ανταλλακτηρίου."
             title: "Συγχαρητήρια! Το bot σου τρέχει."
             general_note: "Τα ελάχιστα ανταλλακτηρίων και τα απαιτούμενα ποσά εξισορρόπησης αλλάζουν. Οι συναλλαγές μπορεί μερικές φορές να φαίνονται ακανόνιστες, αλλά το bot στοχεύει πάντα στην επιθυμητή κατανομή και πρόγραμμά σου, χωρίς να χρειάζεται επιπλέον δουλειά."
+        redeploy:
+            prompt: "Να επανεπενδυθούν %{amount} %{symbol};"
+            confirm: "Ναι"
+            decline: "Όχι"
+            started: "Τα χρήματα επιστρέφουν στο καλάθι."
+            in_flight: "Μια επανεπένδυση είναι ακόμη σε εξέλιξη. Δοκίμασε ξανά μόλις ολοκληρωθεί."
+            unsupported: "Αυτό το bot δεν έχει έσοδα για επανεπένδυση."
+            halted: "Η επανεπένδυση δεν επιβεβαιώθηκε — έλεγξε το exchange σου"
+            resolve: "Εκκαθάριση"
+            resolve_confirm: "Συνέχισε μόνο αν έλεγξες το exchange σου και δεν έχει μείνει ανοιχτή εντολή αγοράς."
+            still_open: "Η εντολή %{order_id} είναι ακόμη ανοιχτή στο exchange σου. Περίμενε να διακανονιστεί."
+            resolved: "Έγινε εκκαθάριση. Το bot μπορεί να συναλλάσσεται ξανά."
+        liquidation:
+            sell: "Πώληση"
+            sell_confirm: "Πώληση αυτής της θέσης; Θα κλείσει στην τιμή αγοράς."
+            started: "Η θέση πωλείται."
+            market_closed: "Η αγορά είναι κλειστή αυτή τη στιγμή. Δοκίμασε ξανά μόλις ανοίξει."
+            unsupported: "Αυτό το bot δεν έχει αφαιρεμένα περιουσιακά στοιχεία προς πώληση."
+            halted: "Ανεπιβεβαίωτη πώληση — έλεγξε το ανταλλακτήριό σου"
+            resolve: "Εκκαθάριση"
+            resolve_confirm: "Συνέχισε μόνο αν έλεγξες το ανταλλακτήριο και δεν υπάρχει ανοιχτή εντολή πώλησης."
+            still_open: "Η εντολή %{order_id} είναι ακόμη ανοιχτή στο ανταλλακτήριό σου. Περίμενε να διακανονιστεί."
+            resolved: "Η ανεπιβεβαίωτη πώληση εκκαθαρίστηκε."
         settings:
+            rebalance:
+                sentence_html: "Επανεξισορρόπηση όταν ένα περιουσιακό στοιχείο αποκλίνει πάνω από <span>%{value_html} %</span> από τον στόχο"
+                note: "Συνεχίζει να λειτουργεί ακόμη κι όταν το πρόγραμμα DCA είναι σταματημένο. Χρησιμοποιεί πάντα εντολές αγοράς."
+                drift: "Το χαρτοφυλάκιο απέχει %{drift} % από την στοχευμένη κατανομή"
+                below_minimum: "— πολύ μικρό για το ελάχιστο αυτού του ανταλλακτηρίου"
+                paused: "Η επανεξισορρόπηση σε παύση — έλεγξε το ανταλλακτήριό σου"
+                resume: "Συνέχεια"
+                resume_confirm: "Συνέχισε μόνο αν έχεις ελέγξει το ανταλλακτήριο και δεν υπάρχει ανοιχτή εντολή επανεξισορρόπησης."
+                still_open: "Η εντολή %{order_id} είναι ακόμη ανοιχτή στο ανταλλακτήριό σου. Περίμενε να διακανονιστεί."
+                resolved: "Η επανεξισορρόπηση συνεχίστηκε."
             starting_time:
                 modes:
                     options:

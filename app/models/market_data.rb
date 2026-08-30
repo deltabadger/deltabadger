@@ -768,7 +768,7 @@ class MarketData
 
     # The two passes are deliberately sequential: every stale holder must be freed before any
     # rename runs, so they can't be merged into one loop.
-    # rubocop:disable Style/CombinableLoops
+    # rubocop:disable-next Style/CombinableLoops
     Ticker.transaction do
       # Pass 1: free the secondary unique slots. The asset-pair upsert sets base/quote/ticker, which
       # trips the [exchange_id, ticker] OR [exchange_id, base, quote] index if a DIFFERENT asset-pair
@@ -804,7 +804,6 @@ class MarketData
         existing.update_columns(updates) if updates.any?
       end
     end
-    # rubocop:enable Style/CombinableLoops
   end
 
   def self.upsert_asset_attributes(asset_data)
@@ -813,7 +812,9 @@ class MarketData
       symbol: asset_data['symbol'],
       name: asset_data['name'],
       category: asset_data['category'],
-      image_url: asset_data['image_url'],
+      # Tokenized securities have no CoinGecko image; they share the captured logo of whatever they
+      # track, served host-relative. Same fallback the stock path uses (see sync_stocks).
+      image_url: asset_data['image_url'].presence || absolutize_logo_url(asset_data['logo_url']),
       color: asset_data['color'],
       market_cap_rank: asset_data['market_cap_rank'],
       market_cap: asset_data['market_cap'],

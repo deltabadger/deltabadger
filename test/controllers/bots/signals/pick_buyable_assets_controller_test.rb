@@ -22,12 +22,6 @@ class Bots::Signals::PickBuyableAssetsControllerTest < ActionDispatch::Integrati
     assert_match 'ETH', response.body
   end
 
-  test 'new initialises the wizard session with a label' do
-    get new_bots_signals_pick_buyable_asset_path
-    assert_response :ok
-    assert_predicate session[:bot_config]['label'], :present?
-  end
-
   test 'create stores the asset and routes to the exchange step' do
     btc = create(:asset, :bitcoin)
     create(:ticker, :btc_usd, exchange: @binance, base_asset: btc, quote_asset: @usd)

@@ -1,4 +1,7 @@
 nl:
+    time:
+        formats:
+            table_clock: '%H:%M'
     meta:
         title: 'Deltabadger'
     header:
@@ -17,6 +20,8 @@ nl:
         authorize: 'Autoriseren'
         disable: 'Uitschakelen'
         delete: 'Verwijderen'
+        archive: 'Archiveren'
+        reactivate: 'Heractiveren'
         duplicate: 'Dupliceren'
         copy: 'Kopiëren'
         submit: 'Verzenden'
@@ -26,6 +31,7 @@ nl:
         start: 'Starten'
         stop: 'Stoppen'
         next: 'Volgende'
+        back: 'Terug'
         connect: 'Verbinden'
         reconnect: 'Nieuwe sleutels toevoegen'
         get_started: Beginnen
@@ -41,7 +47,6 @@ nl:
         value_symbol: "Waarde (%{symbol})"
         invested_symbol: "Geïnvesteerd (%{symbol})"
         date: "Datum"
-        asset: "Activa"
         amount: "Bedrag"
         avg_price: "Gem. prijs"
         price: "Prijs"
@@ -80,6 +85,9 @@ nl:
             text_html: 'Controleer uw mailbox en klik op de <b>bevestigingslink</b> die wij u hebben gestuurd. Ga vervolgens naar de inlogpagina.'
             title: Bedankt!
     links:
+        hide_balances: 'Saldi verbergen'
+        display_currency: 'Weergavevaluta'
+        show_balances: 'Saldi tonen'
         about: 'Over ons'
         telegram: 'Telegram'
         create_account: 'Gratis account aanmaken'
@@ -107,6 +115,8 @@ nl:
             language_updated: 'Uw taal is bijgewerkt.'
             updated: 'Uw tijdzone is bijgewerkt.'
             current_time_is: 'Deze tijdzone wordt gebruikt in de bot logs. Volgens deze is de huidige tijd'
+            currency_updated: "Uw weergavevaluta is bijgewerkt."
+            currency_is_used_for: "Winsten en portefeuilletotalen worden in deze valuta getoond. Bots blijven handelen in hun eigen quote-asset."
         name:
             updated: 'Uw naam is bijgewerkt.'
         two_fa:
@@ -349,6 +359,7 @@ nl:
         all: 'Alle'
         active: 'Actief'
         inactive: 'Inactief'
+        archived: 'Gearchiveerd'
     rules:
         index:
             title: 'Regels'
@@ -361,6 +372,7 @@ nl:
                 description: 'Geld opnemen van exchanges'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatiseer opnames van'
                 withdraw_all: 'Opnemen'
                 from: 'van'
                 to: 'naar'
@@ -410,19 +422,30 @@ nl:
             instructions_title: 'Hoe u sleutels van %{exchange} verkrijgt'
             instructions_body: 'Maak een API-sleutel met opnamerechten aan op %{exchange} en plak de gegevens hier.'
     tracker:
+        price_source:
+            ours: "Onze eigen koers voor die dag. Vul een koers in om hem te vervangen."
+            stated: "Je eigen koers. Maak het veld leeg om weer de onze te gebruiken."
+            none: "We konden deze regel niet waarderen. Vul in wat één eenheid waard was."
         welcome:
             connect_and_track: "Koppel je exchange en begin met het volgen van je portfolio."
         sync_key_error_html: 'Synchroniseren met <strong>%{exchange}</strong> mislukt: %{message}. Werk de API-sleutel hieronder bij.'
+        sync_permission_error_html: "<strong>%{exchange}</strong> kon niet synchroniseren: deze API-sleutel mist het recht dat nodig is om %{capability} te lezen. Werk de rechten van de sleutel bij op %{exchange}, of maak een nieuwe sleutel met alle rechten uit de instructies."
+        sync_transient_error_html: "<strong>%{exchange}</strong> is tijdelijk niet beschikbaar. Probeer over een paar minuten opnieuw te synchroniseren."
+        sync_generic_error_html: "Synchroniseren met <strong>%{exchange}</strong> mislukt: %{message}. Probeer het opnieuw."
+        capabilities:
+            transactions: "je transactiegeschiedenis"
+            balances: "je saldi"
         sync_failed_for: 'Synchronisatie met %{exchanges} is mislukt. Mogelijk ontbreken transacties van deze handelsplatformen — rapporten die nu worden aangemaakt, kunnen onvolledig zijn.'
         pricing_warning_html: Saldi gesynchroniseerd, maar USD-prijzen zijn nu niet beschikbaar (%{message}). De grafiek gebruikt de laatst bekende prijzen tot de prijsbepaling is hersteld.
         portfolio:
             never_synced: Klik op Synchroniseren om je portefeuille te laden.
             no_balances: Geen saldo gevonden op je gekoppelde exchanges.
+            only_cash: "Alleen contanten en stablecoins — zet Contanten tonen aan om ze te zien."
             unpriced: 'Prijs niet beschikbaar voor: %{assets}'
         sync: 'Synchroniseren'
         sync_started: 'Transacties worden gesynchroniseerd van je exchanges...'
         importing_from: 'Gegevens worden geïmporteerd van %{exchange}…'
-        get_report: 'Rapport ophalen'
+        get_report: 'Belastingrapport'
         filter: 'Filteren'
         no_results: 'Geen transacties gevonden voor de geselecteerde filters.'
         transfer_badge: 'Overboeking'
@@ -487,6 +510,71 @@ nl:
                 SK: 'Slowakije'
         tax_report:
             failed: 'Het rapport kon niet worden gegenereerd. Controleer de geselecteerde instellingen en probeer het opnieuw.'
+        holdings: 'Bezit'
+        unrealised: 'Ongerealiseerd'
+        tiles:
+            unrealised_pnl: 'Ongerealiseerde W/V'
+            total_pnl: 'Totale W/V'
+            total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} hiervan kwam binnen zonder aankoop erachter: kortingen, airdrops, staking-beloningen, dust-credits, assets zonder eerdere registratie.'
+        import:
+            title: 'Importeren'
+            nothing_new: 'Elke transactie in dit bestand staat al in je historie.'
+            imported: '%{count} transacties geïmporteerd.'
+            reading: 'Bestand wordt gelezen…'
+            error_unknown_timezone: 'Deze bestandsnaam vermeldt niet meer in welke tijdzone Binance het exporteerde. Upload het onder de naam die Binance gaf.'
+            drop: 'Sleep je CSV hierheen'
+            drop_hint: 'of klik om een bestand te kiezen'
+            which_account: 'Dit bestand kan van beide Binance-accounts komen. Welk?'
+            unrouted: 'Geen account verbonden voor: %{exchanges}. Die regels zijn overgeslagen.'
+            error_no_account_for_format: 'Er is geen passend account verbonden voor dit formaat.'
+            format: 'Formaat'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Account'
+            file: 'Bestand'
+            importing: 'Importeren…'
+            confirm: 'Importeren'
+            skipped: '%{count} regels konden niet worden opgeslagen.'
+            unrecognised: 'Niet geïmporteerd, onbekende operaties: %{operations}'
+            error_unreadable: 'Dit bestand heeft niet het gekozen formaat.'
+            error_malformed: 'Dit bestand kon niet worden gelezen.'
+            error_no_file: 'Kies eerst een bestand.'
+            error_no_account: 'Kies een account om naar te importeren.'
+            no_account: 'Verbind eerst een exchange — een import hoort bij een account.'
+        positions: 'Posities'
+        transactions: 'Transacties'
+        fees_paid: 'Betaalde kosten'
+        synced_ago: '%{ago} geleden gesynchroniseerd'
+        show_cash: 'Contanten tonen'
+        show_more: 'Meer tonen'
+        show_less: 'Minder tonen'
+        other: 'Overig'
+        basis_incomplete: 'Geen kostprijs voor dit bezit, dus we tonen geen winst/verlies.'
+        notes:
+            left: '%{exchange} meldt %{held} %{symbol}; de geschiedenis verklaart %{history}. Het verschil geldt als vertrokken tegen kostprijs (%{amount}).'
+            arrived: '%{exchange} meldt %{held} %{symbol}; de geschiedenis verklaart %{history}. Het verschil geldt als binnengekomen tegen zijn prijs (%{amount}).'
+            since_sync: '%{symbol} gekocht sinds de laatste synchronisatie: gewaardeerd tegen kostprijs (%{amount}) tot de volgende.'
+            cash_out: 'De geschiedenis houdt %{history} %{symbol}; %{exchange} meldt %{held}. Het verschil (%{amount}) geldt als uitgegaan.'
+            cash_in: 'De geschiedenis houdt %{history} %{symbol}; %{exchange} meldt %{held}. Het verschil (%{amount}) geldt als binnengekomen.'
+            unpriced_held: '%{history} %{symbol} kwam binnen zonder vindbare prijs; op kostprijs nul gezet (vandaag %{amount} waard).'
+            unpriced: '%{amount} is verkocht uit assets zonder vindbare prijs; hun kostprijs geldt als nul.'
+            at_par: 'Geen koers voor %{symbol} vandaag; op pari gezet.'
+            figures_disagree: 'Deze cijfers kloppen niet (afwijking %{amount}). Er is iets mis dat geen aanname voorzag.'
+            your_exchanges: 'De exchange'
+            estimated: '%{symbol}: een deel van de kostprijs is de marktprijs van de dag van binnenkomst, geen uitvoering.'
+        record:
+            all: 'Alle'
+            transfer: 'Overboeking'
+            open: 'Open'
+            win: 'Winst'
+            loss: 'Verlies'
+            closed: 'Gesloten'
+            cash: 'Contanten'
+        range:
+            '30d': '30D'
+            '1y': '1J'
+            all: 'Alles'
         filters:
             all: 'Alle'
         columns:
@@ -499,6 +587,13 @@ nl:
             fee: 'Kosten'
             exchange: 'Exchange'
             bot: 'Bot'
+            price: 'Koers'
+            opened: 'Geopend'
+            status: 'Status'
+            invested: 'Ingelegd'
+            avg_buy: 'Gem. aankoop'
+            hold: 'Duur'
+            name: 'Asset'
         types:
             buy: 'Koop'
             sell: 'Verkoop'
@@ -521,10 +616,34 @@ nl:
         all: 'Alle'
         successful: 'Geslaagd'
         transactions: 'Transacties'
-        cancelled: 'Geannuleerd'
         waiting: 'Gepland'
+        other: 'Overige'
     bot_activity:
         events:
+            asset_split: "%{base} aandelensplitsing %{ratio} — de broker heeft het aantal aandelen herberekend"
+            asset_split_unknown_ratio: "%{base} is gesplitst — de broker heeft het aantal aandelen herberekend"
+            rebalance_sell_placed: 'Herbalanceren — de overwogen asset verkopen'
+            rebalance_buy_placed: 'Herbalanceren — terugkopen in de onderwogen asset'
+            rebalance_dust: 'Te weinig over om te herbalanceren — blijft als cash staan'
+            rebalance_ambiguous: 'Status van de herbalanceringsorder onbevestigd — gepauzeerd om dubbel plaatsen te voorkomen'
+            rebalance_manually_resolved: 'Herbalanceren handmatig hervat'
+            dca_skipped_rebalance_pending: 'Inleg overgeslagen — er loopt nog een herbalancering'
+            liquidation_requested: "Bezig met verkopen van de assets die de index hebben verlaten"
+            liquidation_placed: "Een asset verkopen die de index heeft verlaten"
+            liquidation_skipped: "Een asset die de index heeft verlaten kon niet worden verkocht — blijft staan"
+            liquidation_ambiguous: "Status van de verkooporder onbevestigd — gepauzeerd zodat die niet dubbel wordt geplaatst"
+            liquidation_manually_resolved: "Onbevestigde verkoop handmatig gewist"
+            liquidation_market_closed: "Markt gesloten — niets verkocht"
+            liquidation_not_started: "Er is niets verkocht — de bot was bezig of de index kon niet worden ververst"
+            liquidation_failed: "Verkoop mislukt: %{error}"
+            redeploy_requested: "Het geld gaat terug in de mand"
+            redeploy_placed: "Terugkopen in de mand met de opbrengst"
+            redeploy_skipped: "Een deel van de opbrengst kon niet opnieuw worden ingelegd — blijft als contant staan"
+            redeploy_ambiguous: "Status van de herinlegorder onbevestigd — gepauzeerd zodat hij niet twee keer wordt geplaatst"
+            redeploy_manually_resolved: "Onbevestigde herinleg handmatig gewist"
+            redeploy_not_started: "Er is niets opnieuw ingelegd — de bot was bezig of er was niets meer over"
+            redeploy_failed: "Herinleggen mislukt: %{error}"
+            dca_skipped_liquidation_pending: "Inleg overgeslagen — er loopt nog een verkoop"
             started: 'Bot gestart'
             stopped: 'Bot gestopt'
             reschedule_disabled: 'Automatische planning gepauzeerd'
@@ -562,6 +681,8 @@ nl:
             upgrade_hint: Upgrade je CoinGecko-abonnement of gebruik deltabadger.com voor volledige historische data.
             deposit_basis_assumed: Aanschafkosten voor deze ongekoppelde stortingen vastgesteld op de marktwaarde
             deposit_basis_assumed_hint: Koppel elke storting in de Tracker aan de bijbehorende opname om de werkelijke aanschafkosten te gebruiken.
+            stated_values: "Waarden die je zelf hebt ingevuld"
+            stated_values_hint: "Deze bedragen komen van jou, niet van de exchange. Controleer ze aan de hand van je eigen administratie voordat je aangifte doet."
             exchange_sync_failed: 'Gegevens van %{exchange} kunnen ontbreken: de laatste synchronisatie is mislukt. Synchroniseer opnieuw in de Tracker en maak dit rapport opnieuw aan.'
             exchange_never_synced: '%{exchange} is nog nooit gesynchroniseerd — geen enkele transactie van dit platform staat in dit rapport. Synchroniseer het in de Tracker en maak het rapport opnieuw aan.'
         headers:

@@ -33,9 +33,6 @@
         @media screen and (min-width: 576px)
             padding: 2rem 0
 
-.modal--search__assets__item:hover, .exchange-picker__item--exchange:hover,.bot-creation-preview,.itiles
-    // filter: drop-shadow(0 0 10rem #0000000f)
-
 .dialogview
     border: none
     width: 100vw
@@ -48,7 +45,22 @@
     top: 0
     left: 0
     overflow: scroll
+    overscroll-behavior: contain
     z-index: 1000
+    // Like the small .dialog: start transparent (a <dialog> is white by default, which flashed
+    // for a frame before .dialog--open landed) and blur the backdrop in gradually. The open /
+    // closing states are repeated here because the bare .dialog--open rule above loses the
+    // cascade to these base declarations.
+    background: transparent
+    backdrop-filter: blur(0)
+    transition: background 0.3s ease, backdrop-filter 0.3s ease
+    &.dialog--open
+        background: var(--modal-backdrop)
+        backdrop-filter: blur(1rem)
+    &.dialog--closing
+        background: transparent
+        backdrop-filter: blur(0)
+        transition: background 0.15s ease, backdrop-filter 0.15s ease
     @media screen and (min-width: 768px)
         align-items: flex-start
         padding-top: 2rem
@@ -56,21 +68,22 @@
         top:   1rem
         right: 1rem
         @media screen and (min-width: 768px)
-            top:   3rem
-            right: 3rem
+            top:   2rem
+            right: 2rem
     &__vertical-center
         position: relative
-        height: 100vh
+        height: fit-content
+        min-height: 100vh
         max-width: 100rem
         width: 100%
         background: var(--washed)
         overflow: hidden
         @media screen and (min-width: 768px)
+            min-height: auto
             border-radius: 2rem
             filter: drop-shadow(0 0 10rem #0000000f)
             top: 0
-            height: auto
-            max-height: calc(100vh - 4rem)
+            margin-bottom: 2rem
     // Content-heavy variant — driven by `data-dialog-size="wide"` on the
     // CURRENT step's inner wrapper (the element rendered inside the
     // `modal_content` turbo frame). Using `:has()` instead of a class on the
@@ -82,10 +95,31 @@
     &__vertical-center:has([data-dialog-size="wide"])
         @media screen and (min-width: 768px)
             max-width: calc(100vw - 4rem)
-            max-height: calc(100vh - 2rem)
             background: none !important
+    // The bot-type chooser: tiles floating on the backdrop, no card, the width the old
+    // `.modal--medium` had. The dialog itself then persists into the first wizard step.
+    &__vertical-center:has([data-dialog-size="bare"])
+        background: none !important
+        @media screen and (min-width: 768px)
+            filter: none
+            max-width: 104rem
     .sinput:not(.widget *)
         background: var(--washed)
+// The small dialog is a fixed card capped at the viewport — it does not page-scroll the way the
+// full-page wizard does, so its result list keeps a scroller of its own. Flex rather than a
+// magic offset: the list takes whatever the search box leaves.
+.dialog__vertical-center .modal--search
+    display: flex
+    flex-direction: column
+    .modal--search__assets
+        min-height: 0
+        overflow-y: auto
+        overscroll-behavior: contain
+// Lock the page behind an open modal. The viewport scroller is `html` here, not `body`
+// (`overflow-x: hidden` on html in _styles.sass stops body's overflow from propagating),
+// so the lock has to sit on `html`.
+html:has(#modal dialog[open])
+    overflow: hidden
 #modal
     .modal,
     .dialogview__vertical-center
@@ -218,7 +252,7 @@
     max-width: calc(100vw - 2rem)
     max-height: calc(100vh - 2rem)
     position: relative
-    background: var(--modal-background)
+    background: var(--washed)
     border-radius: 2rem
     overflow: hidden
     @media screen and (min-width: 576px)
@@ -228,10 +262,12 @@
         width: 3rem
         height: 3rem
         position: absolute
-        top: 2rem
+        top: 0.25rem
         left: 2rem
         path,circle
             stroke: var(--modal-search-placeholder)
+        @media screen and (min-width: 768px)
+            left: 3rem
     &__input
         box-shadow: 0 0.125rem var(--slider-track) !important
         background: rgba(0,0,0,0)
@@ -240,7 +276,7 @@
         padding: 2rem 2rem 2rem 7rem
         font-size: 2rem
         border: none
-        height: 7rem
+        height: 3rem
         &:focus
             outline: none
         &::placeholder
@@ -271,25 +307,34 @@
                 width: 100%
                 cursor: pointer
                 @media (min-width: 768px)
-                    grid-template-columns: 15.25rem 1fr 1fr
+                    grid-template-columns: 13rem 1fr 1fr
     &__cell
         font-size: 1.75rem
         text-align: left
-        padding: 1rem 0.25rem 1rem 2rem
+        padding: 1rem 0.25rem 1rem 1rem
         line-height: 3rem
         font-weight: 500
         overflow: hidden
         text-overflow: ellipsis
         text-wrap: nowrap
+        &:first-child
+            padding-left: 2rem
         @media screen and (min-width: 768px)
-            line-height: 3.5rem
             &:first-child
-                padding-left: 4rem
+                padding-left: 3rem
         &--ticker
             font-weight: 600
             color: var(--ink)
         &--name
             color: var(--ink)
+            display: flex
+            align-items: center
+            gap: 1rem
+            .asset-logo
+                flex-shrink: 0
+            &__label
+                overflow: hidden
+                text-overflow: ellipsis
             &__country
                 font-weight: 400
                 color: var(--stone)
@@ -307,7 +352,7 @@
             text-align: end
             padding-right: 2.5rem
             @media (min-width: 768px)
-                padding-right: 4rem
+                padding-right: 3rem
             svg
                 width: 2rem
                 height: 2rem
@@ -338,25 +383,25 @@
         padding: 10rem
         gap: 8rem
 
-.selectable-options
-    overflow: scroll
-    max-height: calc(100vh - 18rem)
-    position: relative
-    &.scrolled
-        box-shadow: inset 0 3px 8px -8px
-    @media (min-width: 768px)
-        max-height: calc(100vh - 30rem)
-
-.selectable-options:hover
-    .modal--search__assets__item__highlight 
-        background: none !important
-        box-shadow: none !important
-        &:hover
-            background: var(--washed) !important
-            box-shadow: var(--shadow-basic)
 .flash__message
     .modal__close
         right: 1rem
         top: 1rem
         &:hover
             background: #fff2
+
+// A table inside a modal is not a card on a page. The widget shell is still what carries every row
+// rule — padding, alignment, the logo gutter — so it stays, but it drops the lift and the rounding,
+// and gives up its own outer gutter: the modal's padding is already the margin, so the rows line up
+// with the text above them and the buttons below instead of sitting inset within an inset.
+.modal
+    .widget--table
+        box-shadow: none
+        border-radius: 0
+        overflow-x: auto
+        margin-bottom: 3rem
+        td, th
+            &:first-child
+                padding-left: 0
+            &:last-child
+                padding-right: 0

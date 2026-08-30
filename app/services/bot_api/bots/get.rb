@@ -37,6 +37,7 @@ module BotApi
           status: bot.status.to_s,
           exchange: bot.exchange&.name,
           pair: pair_for(bot, base: base, quote: quote),
+          allocations: bot.dca_multi_asset? ? bot.base_assets.to_h { |asset| [asset.symbol, bot.allocation_for(asset.id)] } : nil,
           base_asset: base,
           quote_asset: quote,
           interval: bot.settings['interval'],
@@ -49,8 +50,8 @@ module BotApi
       end
 
       def pair_for(bot, base:, quote:)
-        if bot.dca_dual_asset?
-          "#{bot.base0_asset&.symbol}+#{bot.base1_asset&.symbol}/#{quote}"
+        if bot.dca_multi_asset?
+          "#{bot.base_assets.map(&:symbol).join('+')}/#{quote}"
         elsif base && quote
           "#{base}/#{quote}"
         end

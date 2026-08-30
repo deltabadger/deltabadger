@@ -23,9 +23,8 @@ class Ticker < ApplicationRecord
              else raise ArgumentError, "Unsupported price_type: #{price_type.inspect}"
              end
 
-    begin
-      result = public_send(method, force: force)
-      result.success? && result.data.to_d.positive?
+    result = begin
+      public_send(method, force: force)
     rescue Client::TransientNetworkError
       raise
     rescue StandardError => e
@@ -33,8 +32,17 @@ class Ticker < ApplicationRecord
       # not an error — keep at debug so it doesn't trip the log exception scanner.
       Rails.logger.debug("Ticker#priced? false for ticker=#{id} (#{ticker}) " \
                          "type=#{price_type}: #{e.class}: #{e.message}")
-      false
+      return false
     end
+
+    # Rejected credentials are NOT "this pair has no live price": they make every ticker on the
+    # exchange look unpriced at once, so a caller that only sees `false` reports a domain-shaped
+    # lie — "No matching coins found on Alpaca for the index" — while the real fault is the key.
+    # One such bot failed that way on every tick for six weeks. Escapes like a transient error
+    # does, and for the same reason: the caller must be able to tell the difference.
+    exchange.raise_on_invalid_key!(result)
+
+    result.success? && result.data.to_d.positive?
   end
 
   # Whether the pair can actually be traded for the given order side right now:
@@ -65,6 +73,14 @@ class Ticker < ApplicationRecord
 
   def get_candles(start_at:, timeframe:)
     exchange.get_candles(ticker: self, start_at: start_at, timeframe: timeframe)
+  end
+
+  def get_indicator_candles(start_at:, timeframe:)
+    exchange.get_indicator_candles(ticker: self, start_at: start_at, timeframe: timeframe)
+  end
+
+  def restated_candles?
+    exchange.restated_candles?(self)
   end
 
   def market_buy(amount:, amount_type:)

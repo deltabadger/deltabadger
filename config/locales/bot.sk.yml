@@ -4,9 +4,19 @@ sk:
         bot_name: 'Názov bota'
         new: "Nový bot"
         welcome:
-            pick_asset_first: "Najprv si vyber aktívum — potom uvidíš burzy, kde je dostupné."
+            pick_exchange_first: "Najprv si vyber burzu — potom uvidíš aktíva, ktoré sú na nej dostupné."
             connect_alpaca_html: "Ak chceš investovať do akcií, najprv prepoj Alpaca v %{settings_link}."
             settings_link: "Nastaveniach"
+        dca_multi_asset:
+            add_asset: "Pridať aktívum"
+            remove_asset: "Odstrániť"
+            max_assets_reached: "V portfóliu môžete mať najviac %{max} aktív."
+            min_assets: "Portfólio musí obsahovať aspoň %{min} aktíva."
+            no_common_exchange: "Táto kombinácia aktív nie je dostupná na žiadnej podporovanej burze."
+            removed_from_portfolio: "Odstránené z portfólia"
+            allocation_sum: "Celkom"
+            normalize: "Normalizovať"
+            normalize_first: "Najprv normalizujte alokácie."
         dca_index:
             setup:
                 step_index: "Index"
@@ -27,43 +37,30 @@ sk:
             fewer_coins_available: "%{available} z %{requested} mincí v indexe je dostupných na %{exchange_name}"
             num_assets: "Aktíva v indexe"
             asset_breakdown: "Rozloženie aktív"
-            asset: "Aktívum"
-            amount: "Množstvo"
-            avg_price: "Priem. cena"
-            value: "Hodnota"
-            pl: "Z/S"
+            realised_pnl: "Realizovaný zisk/strata"
+            realised_pnl_note: "Z predaja aktív odstránených z portfólia. Rebalansovanie sa nepočíta."
+            left_the_index: "Mimo indexu"
             warning:
                 intro: "Niektoré príkazy (%{skipped_count}) boli pod minimálnou veľkosťou príkazu na %{exchange_name}. Takto to bot rieši:"
         types:
             dca:
-                title: "DCA"
-                description: "Investujte do jedného aktíva"
-            dca_dual_asset:
-                title: "Rebalancované DCA"
-                description: "Rebalancujte dve aktíva"
+                title: "DCA / Rebalancovanie"
+                description: "Vyberte jedno alebo viac aktív"
             index_portfolio:
-                title: "Indexové portfólio"
-                description: "Vaše osobné krypto ETF"
-            custom_portfolio:
-                title: "Vlastné portfólio"
-                description: "Rebalancujte vlastný mix aktív"
+                title: "Index"
+                description: "Vytvorte si vlastný ETF"
             signal:
-                title: "Signál"
-                description: "Obchodujte na základe externých signálov"
-            dca_stocks:
-                title: "DCA (akcie)"
-                description: "Nakupujte akcie cez Alpaca"
-        dca_stocks:
-            connect_alpaca_intro: "Pripojte svoj účet Alpaca a začnite investovať do akcií"
-            pick_stock: "Hľadať akciu"
-            no_results: "Žiadne akcie nenájdené"
-            stock_not_found: "Akcia nebola nájdená na Alpaca"
-            mode_paper: "Papierové obchodovanie"
-            mode_live: "Živé obchodovanie"
+                title: "Signály"
+                description: "Obchodujte na základe webhooku"
+        exchange_menu:
+            no_alternative: 'Žiadna iná podporovaná burza neponúka %{assets}.'
+            locked_while_running: 'Zastav bota, aby si ho presunul na inú burzu.'
+            locked_while_rebalancing: 'Vyvažovanie stále prebieha — burzu bude možné zmeniť po jeho dokončení.'
         status:
             exchange_retired: 'Táto burza už nefunguje — presuň bota na inú.'
             setting_orders: "Zadávanie príkazov…"
             paused: "Pozastavené"
+            archived: "Archivované"
             next_try: "Ďalší pokus za"
             waiting: "Čakanie na splnenie všetkých podmienok"
             listening: "Počúvam"
@@ -139,6 +136,10 @@ sk:
                 average_price: 'Priemerná cena'
                 bought: Nakúpené
                 chart:
+                    orders: 'Zobraziť príkazy'
+                    prices: 'Zobraziť ceny'
+                    modes: 'Režim grafu'
+                    pnl: 'P/L'
                     total_invested: 'Celkom investované'
                     value: Hodnota
                 csv_download_html: 'Tabuľka vyššie zobrazuje iba posledných desať transakcií. Celý prehľad si môžete stiahnuť vo formáte CSV nižšie.'
@@ -170,6 +171,7 @@ sk:
         limit_sell: 'Limitný predaj'
         messages:
             do_you_want_to_delete: 'Chcete zmazať tohto bota?'
+            do_you_want_to_archive: 'Chcete archivovať tohto bota?'
             symbol_not_supported: "%{symbol} nie je podporovaný"
             specify_percentage_limit_order: "Pri vytváraní limitného príkazu zadajte percento"
             smart_intervals_above_minimum: "Hodnota inteligentných intervalov musí byť vyššia ako %{minimum}"
@@ -223,17 +225,45 @@ sk:
         warning:
             dca_single_asset:
                 intro: "Čiastka pre %{missed_symbol} bola pod minimálnou veľkosťou príkazu na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} alebo %{missed_minimum_quote_size} %{quote_symbol} pre %{missed_symbol}). Takto to bot rieši:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Obe čiastky pre %{base0_symbol} a %{base1_symbol} sú pod minimálnou veľkosťou príkazu na %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} alebo %{base0_minimum_quote_size} %{quote_symbol} pre %{base0_symbol} a %{base1_minimum_base_size} %{base1_symbol} alebo %{base1_minimum_quote_size} %{quote_symbol} pre %{base1_symbol}). Takto to bot rieši:"
-                one_below:
-                    intro: "Bot nakúpil %{bought_quote_amount} %{quote_symbol} za %{bought_symbol}, ale čiastka pre %{missed_symbol} bola pod minimálnou veľkosťou príkazu na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} alebo %{missed_minimum_quote_size} %{quote_symbol} pre %{missed_symbol}). Takto to bot rieši:"
             buffer_explanation:
                 one: "Zmeškaná čiastka bola uložená do zásobníka a bude použitá s ďalším plánovaným príkazom, aby boli váš rozvrh a alokácia dodržané čo najpresnejšie v rámci minimálnych veľkostí príkazov."
                 other: "Zmeškané čiastky boli uložené do zásobníka a budú použité s ďalšími plánovanými príkazmi, aby boli váš rozvrh a alokácia dodržané čo najpresnejšie v rámci minimálnych veľkostí príkazov."
             title: "Gratulujeme! Váš bot beží."
             general_note: "Minimálne veľkosti príkazov a potrebné čiastky na rebalancovanie sa menia. Transakcie môžu občas vyzerať nepravidelne, ale bot vždy smeruje k vašej požadovanej alokácii a rozvrhu, takže nie je potrebné nič ďalšie robiť."
+        redeploy:
+            prompt: "Vložiť %{amount} %{symbol} späť?"
+            confirm: "Áno"
+            decline: "Nie"
+            started: "Vraciam peniaze späť do koša."
+            in_flight: "Opätovné vloženie stále prebieha. Skús to znova, keď skončí."
+            unsupported: "Tento bot nemá žiadny výnos na opätovné vloženie."
+            halted: "Opätovné vloženie nepotvrdené — skontroluj burzu"
+            resolve: "Vymazať"
+            resolve_confirm: "Pokračuj len vtedy, ak si skontroloval burzu a žiadny nákupný pokyn už nie je otvorený."
+            still_open: "Pokyn %{order_id} je na burze stále otvorený. Počkaj, kým sa vysporiada."
+            resolved: "Vymazané. Bot môže znova obchodovať."
+        liquidation:
+            sell: "Predať"
+            sell_confirm: "Predať túto pozíciu? Uzavrie sa za trhovú cenu."
+            started: "Pozícia sa predáva."
+            market_closed: "Trh je práve zatvorený. Skús to znova po otvorení."
+            unsupported: "Tento bot nemá žiadne odstránené aktíva na predaj."
+            halted: "Nepotvrdený predaj — skontroluj svoju burzu"
+            resolve: "Vymazať"
+            resolve_confirm: "Pokračuj len vtedy, ak si skontroloval burzu a žiadny predajný pokyn už nie je otvorený."
+            still_open: "Pokyn %{order_id} je na tvojej burze stále otvorený. Počkaj, kým sa vysporiada."
+            resolved: "Nepotvrdený predaj vymazaný."
         settings:
+            rebalance:
+                sentence_html: "Rebalansovať, keď sa aktívum odchýli o viac než <span>%{value_html} %</span> od cieľa"
+                note: "Beží ďalej, aj keď je plán DCA zastavený. Vždy používa trhové pokyny."
+                drift: "Portfólio je %{drift} % od cieľového rozdelenia"
+                below_minimum: "— príliš málo na minimum tejto burzy"
+                paused: "Rebalansovanie pozastavené — skontroluj svoju burzu"
+                resume: "Pokračovať"
+                resume_confirm: "Pokračuj len vtedy, ak si skontroloval burzu a žiadny rebalansovací pokyn už nie je otvorený."
+                still_open: "Pokyn %{order_id} je na burze stále otvorený. Počkaj, kým sa vysporiada."
+                resolved: "Rebalansovanie obnovené."
             starting_time:
                 modes:
                     options:

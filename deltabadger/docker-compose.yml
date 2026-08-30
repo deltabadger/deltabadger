@@ -56,4 +56,5 @@ services:
       - ${APP_DATA_DIR}/data/storage:/app/storage
       - ${APP_DATA_DIR}/data/logs:/app/log
     depends_on:
-      - web
+      web:
+        condition: service_healthy

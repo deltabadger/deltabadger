@@ -1,11 +1,14 @@
 <div id="<%= dom_id(bot, :pnl) %>">
   <% if loading %>
     <div class="loader--small" style="position: unset;"></div>
-  <% else %>
-    <% if pnl.present? %>
-      <div class="bot-tile__pnl <%= pnl.negative? ? 'text-danger' : pnl.positive? ? 'text-success' : '' %>">
-        <span class="widget__pnl__value"><%= format_percent(pnl, precision: 2) %></span>
-      </div>
-    <% end %>
+  <% elsif pnl.present? %>
+    <div class="bot-tile__pnl <%= pnl.negative? ? 'text-danger' : pnl.positive? ? 'text-success' : '' %>">
+      <span class="pnl-percent"><%= format_percent(pnl, precision: 2) %></span>
+      <%# The account's chosen fiat, like the total. Absent only while its rate is uncached
+          — the same moment the total is in its spinner. %>
+      <% if profit_usd.present? %>
+        <span class="pnl-amount"><%= profit_usd.positive? ? '+' : '' %><%= denomination.format(profit_usd, precision: 2) %></span>
+      <% end %>
+    </div>
   <% end %>
 </div>

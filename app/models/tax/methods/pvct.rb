@@ -27,6 +27,8 @@ module Tax
         @contaminated = false
 
         balances = Hash.new(0.to_d) # asset => amount held
+        # Where each holding was booked, for the coin its symbol means there.
+        @venue_of = {}
         total_acquisition_cost = 0.to_d
         disposals = []
 
@@ -35,6 +37,7 @@ module Tax
           amount = tx[:base_amount]
           fiat_value = tx[:fiat_value] || 0.to_d
           entry = tx[:entry_type].to_sym
+          @venue_of[asset] ||= tx[:exchange]
 
           case entry
           when :buy, :staking_reward, :lending_interest, :airdrop, :mining, :other_income
@@ -186,7 +189,8 @@ module Tax
             @contaminated = true if rate.zero?
             total += amount * rate
           else
-            price = @price_service&.price_at(asset: asset, currency: @currency, timestamp: timestamp) || 0.to_d
+            price = @price_service&.price_at(asset: asset, currency: @currency, timestamp: timestamp,
+                                             exchange: @venue_of[asset]) || 0.to_d
             @contaminated = true if price.zero?
             total += amount * price
           end

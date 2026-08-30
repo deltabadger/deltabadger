@@ -12,6 +12,10 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
       redirect_to new_rules_withdrawals_pick_exchange_path
       return
     end
+    if @asset.blank?
+      redirect_to new_rules_withdrawals_pick_asset_path
+      return
+    end
     return if reject_retired_exchange(@exchange, fallback: new_rules_withdrawals_pick_exchange_path)
 
     if Rails.configuration.dry_run

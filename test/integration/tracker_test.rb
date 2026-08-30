@@ -31,7 +31,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
 
     get tracker_path
     assert_response :success
-    assert_select '.widget--table--tracker'
+    assert_select '.tracker-record__table'
     assert_select 'td', text: 'BTC'
   end
 
@@ -58,7 +58,7 @@ class TrackerTest < ActionDispatch::IntegrationTest
     assert_select 'td', text: 'BTC', count: 0
   end
 
-  test 'portfolio chart renders donut + list views and drops the old pie-legend' do
+  test 'the holdings card draws a ring and one row per holding' do
     btc = create(:asset, :bitcoin, color: '#F7931A', image_url: 'https://example.com/btc.png')
     eth = create(:asset, external_id: 'ethereum', symbol: 'ETH', name: 'Ethereum', color: '#627EEA')
 
@@ -70,20 +70,16 @@ class TrackerTest < ActionDispatch::IntegrationTest
     get tracker_path
     assert_response :success
 
-    # Donut controller is wired with both visualizations toggling on click.
-    assert_select '.tracker-portfolio__chart[data-controller="donut-chart"]'
-    assert_select '[data-donut-chart-target="pie"][data-action*="donut-chart#toggle"] svg[data-donut-chart-target="svg"]'
-    assert_select '[data-donut-chart-target="list"][data-action*="donut-chart#toggle"]'
-
-    # The old HTML legend (with its color-picker swatches) is gone.
+    # The ring is drawn server-side — no chart library, and no pie/list toggle to discover.
+    assert_select '.tracker-holdings__ring svg circle', 2
+    assert_select '[data-controller="donut-chart"]', false
     assert_select '.pie-legend', false
 
-    # List view: a ticker pill, share %, and USD value per holding.
-    assert_select '.tracker-portfolio__list .ticker', text: 'BTC'
-    assert_select '.tracker-portfolio__list .ticker', text: 'ETH'
-    assert_select '.tracker-portfolio__list', text: /75\.0%/ # 60k / 80k
-    assert_select '.tracker-portfolio__list', text: /\$60,000/
-    assert_select '.tracker-portfolio__list', text: /\$20,000/
+    assert_select '.tracker-holdings__row b', text: 'BTC'
+    assert_select '.tracker-holdings__row b', text: 'ETH'
+    assert_select '.tracker-holdings__pct', text: '75.0%' # 60k / 80k
+    assert_select '.tracker-holdings__value', text: /\$60,000/
+    assert_select '.tracker-holdings__value', text: /\$20,000/
   end
 
   test 'sync enqueues sync jobs and shows progress' do
@@ -157,16 +153,29 @@ class TrackerTest < ActionDispatch::IntegrationTest
 
     get tracker_path
     assert_response :success
-    assert_select 'a.sbutton--broken', text: /#{@exchange.name}/
+    assert_select 'a.segmented__option[data-broken]', text: /#{@exchange.name}/
   end
 
   test 'exchange button links to filter when api key is valid' do
+    # Two venues, because one is not a choice and the switch does not render for it.
+    create(:api_key, user: @user, exchange: create(:kraken_exchange))
     create(:account_transaction, api_key: @api_key, exchange: @exchange, base_currency: 'BTC', transacted_at: 1.day.ago)
 
     get tracker_path
     assert_response :success
-    assert_select 'a.sbutton--broken', count: 0
-    assert_select 'a.sbutton--multi', text: @exchange.name
+    assert_select 'a.segmented__option[data-broken]', count: 0
+    assert_select 'a.segmented__option', text: @exchange.name
+  end
+
+  # One venue is not a scope to choose between — unless its key has stopped working, where the chip
+  # is the only thing saying so.
+  test 'the exchange switch is not rendered for a single healthy venue' do
+    create(:account_transaction, api_key: @api_key, exchange: @exchange, base_currency: 'BTC', transacted_at: 1.day.ago)
+
+    get tracker_path
+    assert_response :success
+    assert_select '.tracker-exchanges .segmented', false
+    assert_select '.tracker-exchanges .rbutton--icon'
   end
 
   test 'sync button hidden when no valid api keys' do

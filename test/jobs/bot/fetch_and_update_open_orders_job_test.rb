@@ -238,4 +238,79 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
 
     assert_raises(Client::RateLimitedError) { bot.execute_action }
   end
+  # == The carry gate ==
+  #
+  # Bot::FetchAndUpdateOrderJob has gated the carry on transaction_type == 'REGULAR' for a while, and
+  # its comment says why: "the flag alone is not enough: Bot::LimitOrderable#execute_action sweeps
+  # every waiting order with it set to true". This sweep — the one LimitOrderable actually calls — did
+  # not have the gate, so a rebalance fill silently satisfied a scheduled contribution.
+
+  test 'a rebalance buy does not draw down the DCA carry' do
+    bot = create(:dca_single_asset, :started)
+    bot.update_columns(transient_data: bot.transient_data.merge('missed_quote_amount' => 100))
+    create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'r1',
+                         transaction_type: 'REBALANCE', side: :buy,
+                         amount_exec: nil, quote_amount_exec: nil)
+    bot.stubs(:get_orders).returns(Result::Success.new(orders: { 'r1' => carry_order_data(bot) }, missing: []))
+
+    Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot, update_missed_quote_amount: true)
+
+    assert_equal 100, bot.reload.missed_quote_amount,
+                 'the quote it spent was never new money — counting it satisfies a contribution the user never made'
+  end
+
+  test 'a liquidation does not draw down the DCA carry either' do
+    bot = create(:dca_single_asset, :started)
+    bot.update_columns(transient_data: bot.transient_data.merge('missed_quote_amount' => 100))
+    create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'l1',
+                         transaction_type: 'LIQUIDATION', side: :buy,
+                         amount_exec: nil, quote_amount_exec: nil)
+    bot.stubs(:get_orders).returns(Result::Success.new(orders: { 'l1' => carry_order_data(bot) }, missing: []))
+
+    Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot, update_missed_quote_amount: true)
+
+    assert_equal 100, bot.reload.missed_quote_amount
+  end
+
+  test 'a regular buy still draws down the carry' do
+    bot = create(:dca_single_asset, :started)
+    bot.update_columns(transient_data: bot.transient_data.merge('missed_quote_amount' => 100))
+    create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'g1',
+                         transaction_type: 'REGULAR', side: :buy,
+                         amount_exec: nil, quote_amount_exec: nil)
+    bot.stubs(:get_orders).returns(Result::Success.new(orders: { 'g1' => carry_order_data(bot) }, missing: []))
+
+    Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot, update_missed_quote_amount: true)
+
+    assert_equal 60, bot.reload.missed_quote_amount
+  end
+
+  test 'a rebalance row does not switch the carry off for the regular rows after it' do
+    # The gate is a per-order local, not a reassignment of the method argument — one sweep carries
+    # rows of every type, and they must not contaminate each other.
+    bot = create(:dca_single_asset, :started)
+    bot.update_columns(transient_data: bot.transient_data.merge('missed_quote_amount' => 100))
+    create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'a-rebalance',
+                         transaction_type: 'REBALANCE', side: :buy,
+                         amount_exec: nil, quote_amount_exec: nil)
+    create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'b-regular',
+                         transaction_type: 'REGULAR', side: :buy,
+                         amount_exec: nil, quote_amount_exec: nil)
+    bot.stubs(:get_orders).returns(Result::Success.new(
+                                     orders: { 'a-rebalance' => carry_order_data(bot),
+                                               'b-regular' => carry_order_data(bot) }, missing: []
+                                   ))
+
+    Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot, update_missed_quote_amount: true)
+
+    assert_equal 60, bot.reload.missed_quote_amount, 'only the regular fill counted'
+  end
+
+  private
+
+  def carry_order_data(bot)
+    { status: :closed, price: 50_000, amount: 0.0008, quote_amount: 40,
+      amount_exec: 0.0008, quote_amount_exec: 40,
+      ticker: bot.ticker, side: :buy, order_type: :market_order }
+  end
 end

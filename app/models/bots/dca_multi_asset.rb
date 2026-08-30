@@ -1,0 +1,306 @@
+class Bots::DcaMultiAsset < Bot
+  include ActionCable::Channel::Broadcasting
+
+  MIN_ASSETS = 2
+  MAX_ASSETS = 20
+  # How the basket's weights are decided. 'manual' is the sliders; 'market_cap' derives them from
+  # each asset's stored market cap, which is what the retired pair bot's market-cap switch did.
+  WEIGHTINGS = %w[manual market_cap].freeze
+
+  store_accessor :settings, :quote_asset_id, :quote_amount, :interval, :allocations, :base_asset_ids,
+                 :weighting
+
+  validates :quote_amount, presence: true, numericality: { greater_than: 0 }
+  validates :weighting, inclusion: { in: WEIGHTINGS }, allow_nil: true
+  validate :validate_external_ids, on: :update
+  # asset_id_setting_keys is only the quote: once the bot has bought anything, every ledger figure is
+  # denominated in it, and a swap would mix currencies in invested value and P/L for good.
+  validate :validate_unchangeable_assets, on: :update
+  validate :validate_unchangeable_interval, on: :update
+  validate :validate_unchangeable_exchange, on: :update
+  validate :validate_tickers_available, on: :start
+  validate :validate_condition_subjects_in_composition
+
+  before_save :set_tickers, if: :will_save_change_to_exchange_id?
+  # Derivation is database-only, so reconcile synchronously and never expose stale composition rows.
+  after_save :refresh_composition,
+             if: -> { saved_change_to_id? || composition_changed? || saved_change_to_exchange_id? }
+  after_update_commit :broadcast_metrics_panel,
+                      if: -> { composition_changed? || saved_change_to_exchange_id? }
+
+  # Trading condition concerns. Each resolves its subject through <prefix>_in_ticker_id against
+  # `tickers`, so they read one named member of the basket rather than assuming a single pair.
+  # The flip actions they offer stay inert here: they are gated on reversible?, which Bot defines
+  # as false for buy-only types (bot.rb:129) and only Bot::Reversible overrides.
+  include SmartIntervalable
+  include LimitOrderable
+  include QuoteAmountLimitable
+  include PriceLimitable
+  include PriceDropLimitable
+  include MovingAverageLimitable
+  include IndicatorLimitable
+
+  # Standard infrastructure concerns
+  include Fundable
+  include Automation::Schedulable
+  include Bot::Startable
+  include OrderCreator
+  include Accountable
+  include Exportable
+
+  # Type-specific concerns
+  include Bot::Rebalanceable
+  include Bot::Composition::Allocatable
+  include Bots::DcaMultiAsset::Allocatable
+  include Bot::Composition::OrderSetter
+  include Bot::Composition::Rebalancer
+  include Bot::Composition::Liquidatable
+  include Bot::Composition::Redeployable
+  include Bot::Composition::Measurable
+
+  # Shared lifecycle + asset plumbing stay last so the decorator chains above remain on top.
+  include Bot::Lifecycle
+  include Bot::AssetConfigurable
+  include Bot::LimitCheckable # live limit-check job from limit_paused log (recovery/rescue)
+
+  self.asset_id_setting_keys = %i[quote_asset_id]
+
+  COMPOSITION_KEYS = %w[allocations quote_asset_id weighting].freeze
+  CONDITION_TICKER_KEYS = %w[price_limit price_drop_limit moving_average_limit indicator_limit].freeze
+
+  def parse_params(params)
+    parsed = {
+      quote_asset_id: params[:quote_asset_id].presence&.to_i,
+      quote_amount: params[:quote_amount].presence&.to_f,
+      interval: params[:interval].presence,
+      weighting: params[:weighting].presence,
+      allocations: parse_allocations(params[:allocations])
+    }.compact
+
+    # Structural edits apply in order on top of sliders posted in the same request, so one submit
+    # cannot throw away another control's change.
+    base = parsed[:allocations] || allocations
+    base = allocations_adding(params[:add_asset_id].to_i, base) if params[:add_asset_id].present?
+    base = allocations_removing(params[:remove_asset_id].to_i, base) if params[:remove_asset_id].present?
+    normalize = params[:normalize_allocations].to_s.in?(%w[1 true])
+    base = normalize_allocations(base) if normalize
+    structural_edit = params[:add_asset_id].present? || params[:remove_asset_id].present? || normalize
+    parsed[:allocations] = base if structural_edit
+    parsed
+  end
+
+  def execute_action
+    update!(status: :executing)
+
+    result = refresh_composition
+    return result if result.failure?
+
+    result = set_orders(
+      total_orders_amount_in_quote: pending_quote_amount,
+      update_missed_quote_amount: true
+    )
+    return result if result.failure?
+
+    update!(status: :waiting)
+    broadcast_below_minimums_warning
+    Result::Success.new
+  end
+
+  # The exchange picker must preserve (exchange, quote) pairs. A venue with A/USD and B/EUR is not
+  # a home for an A+B basket even though it lists both assets.
+  def eligible_pairs(venues:)
+    scope = Ticker.available.trading_enabled.where(exchange: venues)
+    scope = scope.where(quote_asset_id:) if quote_asset_id.present?
+    return scope.distinct.pluck(:exchange_id, :quote_asset_id) if base_asset_ids.empty?
+
+    scope.where(base_asset_id: base_asset_ids)
+         .group(:exchange_id, :quote_asset_id)
+         .having('COUNT(DISTINCT base_asset_id) = ?', base_asset_ids.size)
+         .pluck(:exchange_id, :quote_asset_id)
+  end
+
+  def tickers_on(pairs)
+    return Ticker.none if pairs.empty?
+
+    pairs.map do |exchange_id, quote_id|
+      Ticker.where(exchange_id:, quote_asset_id: quote_id)
+    end.reduce(:or).merge(Ticker.available.trading_enabled)
+  end
+
+  def available_exchanges_for_current_settings
+    Exchange.where(id: eligible_pairs(venues: Exchange.tradeable).map(&:first).uniq)
+  end
+
+  def available_assets_for_current_settings(asset_type:, include_exchanges: false)
+    venues = exchange_id? ? Exchange.tradeable.where(id: exchange_id) : Exchange.tradeable
+    scope = tickers_on(eligible_pairs(venues:))
+    case asset_type
+    when :base_asset
+      scope = scope.where.not(base_asset_id: base_asset_ids + [quote_asset_id].compact)
+    when :quote_asset
+      scope = scope.where(base_asset_id: base_asset_ids) if base_asset_ids.any?
+    end
+    asset_ids = scope.pluck("#{asset_type}_id").uniq
+    include_exchanges ? Asset.includes(:exchanges).where(id: asset_ids) : Asset.where(id: asset_ids)
+  end
+
+  def assets
+    [quote_asset, *base_assets].compact
+  end
+
+  def quote_asset
+    @quote_asset ||= Asset.find_by(id: quote_asset_id)
+  end
+
+  # Empty, like the index bot's. Bot::RebalanceJob#resumable? pre-checks this list BEFORE
+  # before_rebalance can refresh the composition, so a delisted member here would wedge every poll
+  # and strand a sold leg's proceeds. The per-asset filter in Bot::Rebalancer and
+  # validate_tickers_available on :start are the real checks.
+  def tickers_for_start = []
+
+  # Memoized whole, guard included: the chart calls this once per data point.
+  def decimals
+    @decimals ||= tickers.any? ? { quote: tickers.pluck(:quote_decimals).compact.min } : {}
+  end
+
+  def minimum_for_exchange
+    composition_tickers.filter_map(&:minimum_quote_size).max.to_f
+  end
+
+  # Named after what it holds: "BTC, ETH, XRP + 3".
+  def default_label
+    basket_label(*base_asset_ids)
+  end
+
+  # Defaults live in readers, never written to settings: a stored default would dirty every legacy
+  # row on load and trip Bot::Accountable's settings guard.
+  def weighting = super.presence || 'manual'
+  def market_cap_weighted? = weighting == 'market_cap'
+
+  # Whether the market-cap rule can do anything here. Stocks and ETFs carry no market cap at all —
+  # a QQQM/IBIT basket has nil on both members — and derive_composition keeps the stored weights
+  # when any member cannot be sized, so offering the rule there would be a switch that silently
+  # changes nothing. Zero counts as missing: an asset priced at no market cap is not a weight.
+  def market_cap_weightable?
+    ids = base_asset_ids.uniq
+    return false if ids.empty?
+
+    Asset.where(id: ids).where.not(market_cap: nil).where(market_cap: 1..).count == ids.size
+  end
+
+  def composition_size = base_asset_ids.size
+  def exited_title_key = 'bot.dca_multi_asset.removed_from_portfolio'
+  def metrics_partial = 'bots/composition/metrics'
+
+  # An unconfirmed total must not steer a stopped bot toward proportions the user has not accepted.
+  # A swap already in flight still needs its target so its owed buy can land.
+  def rebalance_targets
+    rebalance_pending? || allocations_balanced? ? super : nil
+  end
+
+  private
+
+  # Slider values are independent percents. The user decides when to squeeze their total to 100%.
+  def parse_allocations(raw)
+    return nil if raw.blank?
+
+    hash = raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h : raw.to_h
+    hash.transform_values { |value| value.to_s.tr(',', '.').to_f.clamp(0, 100) / 100 }
+  end
+
+  def derive_composition
+    return Result::Failure.new('No exchange') if exchange.blank?
+
+    tickers_by_asset = exchange.tickers.available.trading_enabled
+                               .where(quote_asset_id:, base_asset_id: base_asset_ids)
+                               .includes(:base_asset)
+                               .index_by(&:base_asset_id)
+    matched = allocations.filter_map do |asset_id, weight|
+      ticker = tickers_by_asset[asset_id.to_i]
+      next unless ticker
+
+      {
+        asset_id: asset_id.to_i,
+        ticker_id: ticker.id,
+        weight: weight.to_f,
+        symbol: ticker.base_asset.symbol
+      }
+    end
+    apply_market_cap_weights(matched) if market_cap_weighted?
+
+    total = matched.sum { |member| member[:weight] }
+    # Parked assets stay members, but may not become the whole portfolio when weighted assets vanish.
+    return Result::Failure.new("None of the portfolio's weighted assets trade on #{exchange.name}") unless total.positive?
+
+    matched.each { |member| member[:weight] = member[:weight] / total }
+    Result::Success.new(matched)
+  end
+
+  # Overwrite the stored sliders with market-cap weights, in place. Reads the market_cap COLUMN, not
+  # a live price: this runs inside the synchronous after_save reconciliation, so a network call here
+  # would turn every settings save into an exchange round-trip.
+  #
+  # A member with no usable cap leaves every weight alone. Falling back to equal weights instead
+  # would silently rewrite a 70/30 basket to 50/50 the first time a column came back blank.
+  def apply_market_cap_weights(matched)
+    caps = Asset.where(id: matched.map { |member| member[:asset_id] })
+                .pluck(:id, :market_cap).to_h { |id, cap| [id, cap.to_f] }
+    return unless matched.all? { |member| caps[member[:asset_id]].to_f.positive? }
+
+    derived = Bot::Composition::Weightable.blend(market_caps: caps, flattening: 0)
+    matched.each { |member| member[:weight] = derived[member[:asset_id]] }
+  end
+
+  def exchange_supports_current_assets?
+    return false if exchange.blank?
+
+    base_asset_ids.all? do |id|
+      exchange.tickers.available.trading_enabled.exists?(base_asset_id: id, quote_asset_id:)
+    end
+  end
+
+  # A condition may only watch an asset the basket will still hold after this save. Checked against
+  # base_asset_ids — the allocations being written — rather than the persisted membership rows, so a
+  # submit that drops the watched asset is rejected instead of leaving the condition pointed at an
+  # asset the bot no longer trades.
+  #
+  # ENABLED conditions only. Each concern's set_*_in_ticker_id callback populates a default subject
+  # whether or not the condition is switched on, so validating every populated key would make a
+  # member unremovable just because a disabled condition happened to default to it.
+  def validate_condition_subjects_in_composition
+    return if base_asset_ids.empty? || exchange.blank?
+
+    allowed = exchange.tickers.where(base_asset_id: base_asset_ids, quote_asset_id:).pluck(:id)
+    return if allowed.empty?
+
+    CONDITION_TICKER_KEYS.each do |prefix|
+      next unless public_send("#{prefix}ed?")
+
+      value = settings["#{prefix}_in_ticker_id"]
+      next if value.blank? || allowed.include?(value.to_i)
+
+      errors.add(:settings, :invalid, message: I18n.t('errors.bots.multi_asset.condition_subject'))
+    end
+  end
+
+  def validate_tickers_available
+    by_asset = composition_tickers.index_by(&:base_asset_id)
+    valid = base_asset_ids.all? do |id|
+      ticker = by_asset[id] || exchange&.tickers&.find_by(base_asset_id: id, quote_asset_id:)
+      ticker.present? && ticker.available? && ticker.trading_enabled?
+    end
+    errors.add(:allocations, :invalid) unless valid
+  end
+
+  # Every asset that is or ever was in the composition — members plus removed holdings, which keep
+  # their rows — and NOT the venue's whole quote catalogue: Alpaca decides market hours and buying
+  # power from bot.tickers, and a crypto-only basket must not wait for the stock market to open
+  # because an unrelated equity is quoted in the same currency. Before the first save the rows do
+  # not exist yet, so the settings list stands in.
+  def set_tickers
+    return Ticker.none unless exchange.present?
+
+    asset_ids = (base_asset_ids + bot_index_assets.pluck(:asset_id)).uniq
+    @tickers = exchange.tickers.available.trading_enabled.where(quote_asset_id:, base_asset_id: asset_ids)
+  end
+end

@@ -84,4 +84,27 @@ class GetBotDetailsToolTest < ActiveSupport::TestCase
 
     assert_match(%r{P/L: -20.0%}, text)
   end
+
+  test 'shows a multi-asset bot raw allocations after its pair even when they do not sum to one' do
+    bitcoin = create(:asset, :bitcoin)
+    ethereum = create(:asset, :ethereum)
+    bot = create(:dca_multi_asset, user: @user, base_assets: [bitcoin, ethereum],
+                                   allocations: { bitcoin => 0.7, ethereum => 0.2 })
+    Bots::DcaMultiAsset.any_instance.stubs(:metrics).returns(nil)
+
+    response = GetBotDetailsTool.call('bot_id' => bot.id)
+    text = response.contents.first.text
+
+    assert_match(%r{Pair: BTC\+ETH/USD\nAllocations: BTC 70\.00%, ETH 20\.00%}, text)
+  end
+
+  test 'does not show allocations for a single-asset bot' do
+    bot = create(:dca_single_asset, user: @user)
+    Bots::DcaSingleAsset.any_instance.stubs(:metrics).returns(nil)
+
+    response = GetBotDetailsTool.call('bot_id' => bot.id)
+    text = response.contents.first.text
+
+    assert_no_match(/Allocations:/, text)
+  end
 end

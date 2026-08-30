@@ -1,0 +1,245 @@
+module Bot::Composition::OrderSetter
+  extend ActiveSupport::Concern
+
+  include Bot::OrderSetter
+
+  def set_orders(
+    total_orders_amount_in_quote:,
+    update_missed_quote_amount: false
+  )
+    Rails.logger.info(
+      "set_orders for composition bot #{id} " \
+      "with total_orders_amount_in_quote: #{total_orders_amount_in_quote}, " \
+      "update_missed_quote_amount: #{update_missed_quote_amount}"
+    )
+    validate_orders_amount!(total_orders_amount_in_quote)
+    return Result::Success.new if total_orders_amount_in_quote.zero?
+
+    result = get_orders_data(total_orders_amount_in_quote)
+    return result if result.failure?
+
+    orders_data = result.data
+    orders_data.each do |order_data|
+      if order_data[:amount].zero?
+        Rails.logger.info("set_orders composition bot=#{id} event=order_ignored #{order_log_fields(order_data)}")
+        log_activity('order_ignored', details: order_log_details(order_data))
+        next
+      end
+
+      amount_info = calculate_best_amount_info(order_data)
+      if amount_info[:below_minimum_amount]
+        Rails.logger.info("set_orders composition bot=#{id} event=order_skipped #{order_log_fields(order_data)}")
+        log_activity('order_skipped', level: :warning, details: order_log_details(order_data))
+        create_skipped_order!(order_data)
+        next
+      end
+
+      Rails.logger.info("set_orders composition bot=#{id} event=order_creating #{order_log_fields(order_data)}")
+      result = create_order(order_data, amount_info)
+      if result.failure?
+        Rails.logger.error(
+          "set_orders composition bot=#{id} event=order_failed #{order_log_fields(order_data)} " \
+          "errors=#{result.errors.to_sentence}"
+        )
+        # A -1021/timestamp rejection is a no-op pre-trade rejection: no order was placed, so don't
+        # leave a misleading `failed` Transaction row. The bot reschedules cleanly (Bot::ActionJob).
+        create_failed_order!(order_data.merge!(error_messages: result.errors)) unless exchange.placement_transient_error?(result.errors)
+        return result
+      else
+        order_id = result.data[:order_id]
+        Rails.logger.info("set_orders composition bot=#{id} event=order_accepted order_id=#{order_id} #{order_log_fields(order_data)}")
+        transaction = persist_accepted_order!(order_data, order_id)
+        Bot::FetchAndUpdateOrderJob.perform_later(
+          transaction,
+          update_missed_quote_amount: update_missed_quote_amount
+        )
+      end
+    end
+
+    Result::Success.new
+  end
+
+  def broadcast_below_minimums_warning
+    # Kept unordered so extracting the shared concern does not redefine which transactions qualify.
+    recent_transactions = transactions.limit(composition_size * 2)
+    skipped_count = recent_transactions.count(&:skipped?)
+    return unless skipped_count.positive? && recent_transactions.count == skipped_count
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: 'modal',
+      partial: 'bots/composition/warning_below_minimums',
+      locals: { bot: self, skipped_count: skipped_count }
+    )
+  end
+
+  private
+
+  # Base amounts already claimed by orders that are open but not yet filled, per symbol.
+  #
+  # Only the UNEXECUTED remainder. A partially filled order has its `amount_exec` in the ledger
+  # already, so reserving the whole `amount` would count the filled part twice and under-buy that
+  # member by exactly what it has already received.
+  def reserved_waiting_buy_amounts
+    transactions.waiting.buy.pluck(:base, :amount, :amount_exec)
+                .each_with_object(Hash.new(0)) do |(base, amount, amount_exec), acc|
+      remainder = amount.to_d - amount_exec.to_d
+      acc[base] += remainder if remainder.positive?
+    end
+  end
+
+  def validate_orders_amount!(total_orders_amount_in_quote)
+    raise 'Orders quote_amount is required' if total_orders_amount_in_quote.blank?
+    raise 'Orders quote_amount must be positive' if total_orders_amount_in_quote.negative?
+  end
+
+  # market: forces the crossing price and a market order regardless of the bot's limit setting. The
+  # redeploy leg passes it — a resting limit redeploy on a STOPPED bot is never swept, so the cash
+  # would sit committed and undeployed, which is the one thing that leg exists to prevent. Sizing has
+  # to move with it: pricing at the limit discount and then submitting at market spends more than the
+  # budget, and on a venue whose market order is an emulated crossing limit the gap is real money.
+  def get_orders_data(total_orders_amount_in_quote, market: false)
+    allocations = current_allocations
+    return Result::Failure.new('No assets in composition') if allocations.empty?
+
+    metrics_data = metrics(force: true)
+    asset_breakdown = metrics_data[:asset_breakdown] || {}
+    reserved = reserved_waiting_buy_amounts
+
+    # Step 1: Get current prices for all assets
+    asset_prices = {}
+    allocations.each do |alloc|
+      ticker = alloc[:ticker]
+      next unless ticker.present?
+
+      price_result = begin
+        if market
+          exchange.market_price_for(ticker: ticker, side: :buy)
+        else
+          limit_ordered? ? ticker.get_last_price : ticker.get_ask_price
+        end
+      rescue Client::TransientNetworkError, Client::RateLimitedError
+        # Already the right class, and TransientNetworkError already carries original_class — the
+        # provenance the placement guard reads to tell a request that never left from one that may
+        # have landed. Re-wrapping would erase it.
+        raise
+      rescue StandardError => e
+        # The concrete clients raise on a zero book ("Wrong ask price for X: 0.0") rather than
+        # returning a Failure. Ticker#priced? has always rescued that; this path used to let it
+        # escape as a bare RuntimeError. Same shape, so both arrive at the branch below.
+        Result::Failure.new(e.message)
+      end
+
+      if price_result.failure?
+        Rails.logger.error(
+          "set_orders for composition bot #{id} failed to get price for #{alloc[:symbol]}. " \
+          "Errors: #{price_result.errors.to_sentence}"
+        )
+        # A composition member we cannot price stops the tick — but as something retryable, not as a dead
+        # bot. This became load-bearing when incumbents stopped being price-probed during the
+        # refresh: that probe used to double as a pre-flight filter here, dropping an unpriceable
+        # asset from the composition moments before this ran. Now it keeps its seat, so a blip
+        # arrives here instead.
+        #
+        # Skipping it and buying the rest is not on offer. Step 2 below builds total_current_value
+        # from the assets that priced, so dropping one understates the portfolio by its whole held
+        # value; on a bot whose holdings dwarf one contribution every survivor's target then falls
+        # below its current value, every offset clamps to zero at Step 4, and the tick buys NOTHING.
+        # Valuing it from somewhere else means trading the other assets at weights derived from a price we
+        # had to invent. Not acting on a price we do not have is the answer
+        # Rebalancer#unpriced_holding? already gives the rebalance leg.
+        #
+        # No create_failed_order!: nothing was placed, so a `failed` row would claim an order was
+        # attempted and rejected (the reasoning Exchange#placement_transient_error? already
+        # encodes) — and it doubles as the flag that suppresses Bot::ActionJob's execution_failed
+        # log, so the tick used to die twice over in silence.
+        #
+        # Raised, not returned: Bot::ActionJob turns a Failure into a bare string raise that matches
+        # neither retry_on, leaving the bot in :retrying with nothing queued. As a transient it
+        # retries four times and then reschedules at the next interval with a gray log and no alarm.
+        # Safe here because this is Step 1 — no order has been placed this tick, so the job's
+        # already-placed guard has nothing to suppress.
+        raise Client::TransientNetworkError,
+              "No price for #{alloc[:symbol]}: #{price_result.errors.to_sentence}"
+      end
+
+      price = if limit_ordered? && !market
+                ticker.adjusted_price(price: price_result.data * (1.to_d - limit_order_pcnt_distance_decimal))
+              else
+                price_result.data
+              end
+
+      asset_prices[alloc[:symbol]] = { price: price, ticker: ticker, target_allocation: alloc[:target_allocation].to_f }
+    end
+
+    # Step 2: Calculate current portfolio value and per-asset values
+    current_values = {}
+    total_current_value = 0
+    asset_prices.each do |symbol, data|
+      # Waiting buys count as if they had filled. `metrics` only sees EXECUTED amounts, so a resting
+      # limit buy is invisible here and its member reads underweight — the leg would then buy it a
+      # second time with money the resting order has already claimed.
+      current_amount = (asset_breakdown.dig(symbol, :amount) || 0) + reserved.fetch(symbol, 0)
+      current_value = current_amount * data[:price]
+      current_values[symbol] = current_value
+      total_current_value += current_value
+    end
+
+    # Step 3: Calculate target values after adding new investment
+    total_portfolio_value = total_current_value + total_orders_amount_in_quote
+    target_values = {}
+    asset_prices.each do |symbol, data|
+      target_values[symbol] = total_portfolio_value * data[:target_allocation]
+    end
+
+    # Step 4: Calculate how much each asset is underweight (offset)
+    offsets = {}
+    total_offset = 0
+    asset_prices.each_key do |symbol|
+      offset = [0, target_values[symbol] - current_values[symbol]].max
+      offsets[symbol] = offset
+      total_offset += offset
+    end
+
+    # Step 5: Distribute investment proportionally among underweight assets
+    orders_data = []
+    remaining_investment = total_orders_amount_in_quote
+
+    asset_prices.each do |symbol, data|
+      offset = offsets[symbol]
+      next if offset.zero?
+
+      # Allocate proportionally to offset. The pot is the WHOLE contribution, not what is left of it:
+      # with a shrinking numerator over a fixed denominator every asset after the first got a share of an
+      # already-spent pot and a balanced composition spent 75/100 with two assets, 68/100 with four. Still
+      # capped by the asset's own shortfall and by what is genuinely left.
+      order_amount_in_quote = if total_offset.positive?
+                                [offset, total_orders_amount_in_quote * (offset / total_offset), remaining_investment].min
+                              else
+                                0
+                              end
+
+      next if order_amount_in_quote <= 0
+
+      order_amount_in_base = order_amount_in_quote / data[:price]
+      remaining_investment -= order_amount_in_quote
+
+      orders_data << {
+        ticker: data[:ticker],
+        price: data[:price],
+        amount: order_amount_in_base,
+        quote_amount: order_amount_in_quote,
+        side: :buy,
+        order_type: limit_ordered? && !market ? :limit_order : :market_order
+      }
+
+      Rails.logger.info(
+        "Composition bot #{id} rebalance: #{symbol} current=#{current_values[symbol].round(2)}, " \
+        "target=#{target_values[symbol].round(2)}, offset=#{offset.round(2)}, " \
+        "order=#{order_amount_in_quote.round(2)}"
+      )
+    end
+
+    Result::Success.new(orders_data)
+  end
+end

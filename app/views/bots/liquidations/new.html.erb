@@ -1,0 +1,42 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+      <%= render partial: 'svg/24x24_close' %>
+    <% end %>
+    <div class="modal__header">
+      <h1 class="modal__title"><%= t(@bot.exited_title_key) %></h1>
+    </div>
+    <div class="modal__body">
+      <p class="text-center"><%= t('bot.liquidation.sell_confirm') %></p>
+
+      <%# Named, not counted: the user is approving the disposal of this one position. The row is
+          the bot page's own, hidden columns included — the user got here from a row with no Amount
+          and no Value, and a confirmation that put them back would be the one place the preference
+          did not hold. The symbol is what identifies the position being sold. The bot page's
+          own table, widget shell included — every row rule (padding, alignment, the logo gutter)
+          hangs off .widget--table, so the table is bare without it. Absent when the price cache has
+          gone cold, which is why the sale never depends on it. %>
+      <% if @holding %>
+        <div class="widget widget--table" data-controller="table-fit">
+          <%= render 'bots/composition/assets_table',
+                     values: { @holding[:symbol] => @holding },
+                     logo_assets: { @holding[:symbol] => @holding[:ticker] },
+                     body_id: 'liquidation_confirm_list', quote: @bot.quote_asset&.symbol,
+                     hide_money: hide_balances?(@bot) %>
+        </div>
+      <% end %>
+
+      <div class="buttons buttons--row--2">
+        <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+          <%= t('button.cancel') %>
+        <% end %>
+        <%# Closes itself on a successful submit, like every other modal form here; a refused sale
+            answers 422 and the modal stays up carrying the reason. %>
+        <%= button_to t('bot.liquidation.sell'),
+                      bot_liquidation_path(bot_id: @bot.id, symbol: @symbol),
+                      class: 'button button--danger button--large',
+                      form: { data: { action: 'turbo:submit-end->modal--base#submitEnd' } } %>
+      </div>
+    </div>
+  </div>
+<% end %>

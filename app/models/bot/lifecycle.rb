@@ -1,5 +1,5 @@
 # Shared start/stop/delete lifecycle for interval-scheduled bots
-# (DcaSingleAsset, DcaDualAsset, DcaIndex). Bots::Signal is passive (no
+# (DcaSingleAsset, DcaIndex, DcaMultiAsset). Bots::Signal is passive (no
 # scheduling) and keeps its own thin lifecycle instead of including this.
 #
 # Include LAST in the bot model so the prepended decorator chains
@@ -57,7 +57,7 @@ module Bot::Lifecycle
       # ones. A job already running cannot be cancelled, so a stop-then-restart landing inside that
       # execution window leaves the in-flight job to finish against stale in-memory state and
       # reschedule itself — re-creating the second chain this call exists to prevent.
-      # transition_working_bot! does not close it either: it excludes stopped/deleted, but a
+      # transition_working_bot! does not close it either: it requires a working status, but a
       # restart has already flipped the row back to :scheduled. Closing it properly needs an
       # execution fence (a generation counter bumped here and re-checked before the job's final
       # writes), which is a schema change and deliberately not bolted on here.
@@ -79,6 +79,10 @@ module Bot::Lifecycle
   end
 
   def stop(stop_message_key: nil)
+    # A stop that lands after archiving — a queued Bot::StopJob, a stale tab — must not write
+    # :stopped over :archived and drop the bot back into Inactive. It is already stopped.
+    return true if archived?
+
     # A freshly loaded bot can carry recomputed settings defaults (after_initialize
     # concerns), which marks settings dirty — Accountable then requires
     # set_missed_quote_amount before any save (same guard start uses above).

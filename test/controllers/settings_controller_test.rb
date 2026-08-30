@@ -112,4 +112,47 @@ class SettingsControllerTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
     assert_includes @response.body, 'form__info--invalid'
   end
+
+  # The picker lives in the menu, which is drawn on every signed-in page and drawn twice — the
+  # desktop dropdown and the mobile drawer — so the count is per menu.
+  test 'the settings menu offers every supported fiat denominator, by its symbol' do
+    get settings_account_path
+
+    assert_select '.segmented[data-currency] .segmented__option',
+                  count: User::DISPLAY_CURRENCIES.size * 2
+    assert_select '.segmented[data-currency] .segmented__option', text: 'Fr.'
+    assert_select 'select[name="user[display_currency]"]', count: 0
+  end
+
+  # redirect_back, not a refresh stream: the picker is not in a turbo-frame any more, and a
+  # refresh action is skipped while the submit's own visit is in flight.
+  test 'a currency change flashes a translated confirmation and comes back to the page' do
+    patch settings_update_display_currency_path,
+          params: { user: { display_currency: 'PLN' } },
+          headers: { 'HTTP_REFERER' => 'http://www.example.com/tracker' }
+
+    assert_redirected_to '/tracker'
+    assert_response :see_other
+    assert_equal 'PLN', @user.reload.display_currency
+    assert_equal I18n.t('settings.language_and_timezone.currency_updated'), flash[:notice]
+  end
+
+  # Same crafted-request reach as the other two selects, and the same column shape as
+  # time_zone: `null: false default "USD"`, so both "wrong" and "absent" need an answer.
+  test 'a rejected currency reports the error instead of raising' do
+    patch settings_update_display_currency_path, params: { user: { display_currency: 'XYZ' } }
+
+    assert_response :unprocessable_entity
+    assert_equal 'USD', @user.reload.display_currency
+    assert_includes @response.body, 'salert--danger'
+  end
+
+  test 'a blank currency falls back to the default instead of reaching the NOT NULL constraint' do
+    @user.update!(display_currency: 'PLN')
+
+    patch settings_update_display_currency_path, params: { user: { display_currency: '' } }
+
+    assert_response :see_other
+    assert_equal 'USD', @user.reload.display_currency
+  end
 end

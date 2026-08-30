@@ -1,4 +1,7 @@
 it:
+    time:
+        formats:
+            table_clock: '%H:%M'
     meta:
         title: 'Deltabadger'
     header:
@@ -17,6 +20,8 @@ it:
         authorize: 'Autorizza'
         disable: 'Disabilita'
         delete: 'Elimina'
+        archive: 'Archivia'
+        reactivate: 'Riattiva'
         duplicate: 'Duplica'
         copy: 'Copia'
         submit: 'Invia'
@@ -26,6 +31,7 @@ it:
         start: 'Inizia'
         stop: 'Ferma'
         next: 'Avanti'
+        back: 'Indietro'
         connect: 'Connetti'
         reconnect: 'Aggiungi nuove chiavi'
         get_started: Inizia
@@ -41,7 +47,6 @@ it:
         value_symbol: "Valore (%{symbol})"
         invested_symbol: "Investito (%{symbol})"
         date: "Data"
-        asset: "Asset"
         amount: "Importo"
         avg_price: "Prezzo medio"
         price: "Prezzo"
@@ -80,6 +85,9 @@ it:
             text_html: 'Controlla la tua casella di posta e clicca sul <b>link di conferma</b> che ti abbiamo inviato. Poi vai alla pagina di login.'
             title: Grazie!
     links:
+        hide_balances: 'Nascondi saldi'
+        display_currency: 'Valuta di visualizzazione'
+        show_balances: 'Mostra saldi'
         about: Chi siamo
         telegram: 'Telegram'
         create_account: 'Crea account gratuito'
@@ -107,6 +115,8 @@ it:
             language_updated: 'La tua lingua è stata aggiornata.'
             updated: 'Il tuo fuso orario è stato aggiornato.'
             current_time_is: 'Questo fuso orario sarà usato nei log del bot. Secondo esso, l''orario attuale è'
+            currency_updated: "La tua valuta di visualizzazione è stata aggiornata."
+            currency_is_used_for: "I profitti e i totali del portafoglio sono mostrati in questa valuta. I bot continuano a operare nel proprio asset di quotazione."
         name:
             updated: "Il tuo nome è stato aggiornato."
         two_fa:
@@ -349,6 +359,7 @@ it:
         all: 'Tutti'
         active: 'Attivi'
         inactive: 'Inattivi'
+        archived: 'Archiviati'
     rules:
         index:
             title: 'Regole'
@@ -361,6 +372,7 @@ it:
                 description: 'Preleva fondi dagli exchange'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatizza i prelievi da'
                 withdraw_all: 'Preleva'
                 from: 'da'
                 to: 'a'
@@ -410,19 +422,30 @@ it:
             instructions_title: 'Come ottenere le chiavi da %{exchange}'
             instructions_body: 'Crea una chiave API con autorizzazione al prelievo su %{exchange} e incolla le credenziali qui.'
     tracker:
+        price_source:
+            ours: "Il nostro prezzo per quel giorno. Inserisci un prezzo per sostituirlo."
+            stated: "Il tuo prezzo. Svuota il campo per tornare al nostro."
+            none: "Non siamo riusciti a valutare questa riga. Inserisci quanto valeva un'unità."
         welcome:
             connect_and_track: "Collega il tuo exchange e inizia a tracciare il tuo portafoglio."
         sync_key_error_html: 'Sincronizzazione con <strong>%{exchange}</strong> fallita: %{message}. Aggiorna la chiave API qui sotto.'
+        sync_permission_error_html: "Impossibile sincronizzare <strong>%{exchange}</strong>: questa chiave API non ha il permesso necessario per leggere %{capability}. Aggiorna i permessi della chiave su %{exchange}, oppure crea una nuova chiave con tutti i permessi elencati nelle istruzioni."
+        sync_transient_error_html: "<strong>%{exchange}</strong> è temporaneamente non disponibile. Riprova a sincronizzare tra qualche minuto."
+        sync_generic_error_html: "Sincronizzazione con <strong>%{exchange}</strong> fallita: %{message}. Riprova."
+        capabilities:
+            transactions: "la tua cronologia delle transazioni"
+            balances: "i tuoi saldi"
         sync_failed_for: 'Sincronizzazione con %{exchanges} non riuscita. Alcune transazioni potrebbero mancare, quindi i report generati ora potrebbero essere incompleti.'
         pricing_warning_html: Saldi sincronizzati, ma i prezzi in USD non sono disponibili al momento (%{message}). Il grafico userà gli ultimi prezzi noti finché il servizio non sarà ripristinato.
         portfolio:
             never_synced: Clicca su Sincronizza per caricare il portafoglio.
             no_balances: Nessun saldo trovato sui tuoi exchange collegati.
+            only_cash: "Solo liquidità e stablecoin — attiva Mostra liquidità per vederle."
             unpriced: 'Prezzo non disponibile per: %{assets}'
         sync: 'Sincronizza'
         sync_started: 'Sincronizzazione delle transazioni dai tuoi exchange...'
         importing_from: 'Importazione dati da %{exchange}…'
-        get_report: 'Ottieni report'
+        get_report: 'Report fiscale'
         filter: 'Filtra'
         no_results: 'Nessuna transazione trovata per i filtri selezionati.'
         transfer_badge: 'Trasferimento'
@@ -487,6 +510,71 @@ it:
                 SK: 'Slovacchia'
         tax_report:
             failed: 'Non è stato possibile generare il report. Controlla le impostazioni selezionate e riprova.'
+        holdings: 'Asset detenuti'
+        unrealised: 'Non realizzato'
+        tiles:
+            unrealised_pnl: 'P/P non realizzato'
+            total_pnl: 'P/P totale'
+            total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} di questo è arrivato senza un acquisto alle spalle: rimborsi, airdrop, ricompense di staking, accrediti di polvere, asset senza nulla di registrato prima.'
+        import:
+            title: 'Importa'
+            nothing_new: 'Ogni transazione di questo file è già nel tuo storico.'
+            imported: '%{count} transazioni importate.'
+            reading: 'Lettura del file…'
+            error_unknown_timezone: 'Il nome di questo file non indica più il fuso orario in cui Binance lo ha esportato. Caricalo con il nome che gli ha dato Binance.'
+            drop: 'Trascina qui il CSV'
+            drop_hint: 'oppure clicca per scegliere un file'
+            which_account: 'Questo file può venire da entrambi i conti Binance. Quale?'
+            unrouted: 'Nessun conto collegato per: %{exchanges}. Quelle righe sono state escluse.'
+            error_no_account_for_format: 'Nessun conto collegato corrisponde a questo formato.'
+            format: 'Formato'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Conto'
+            file: 'File'
+            importing: 'Importazione…'
+            confirm: 'Importa'
+            skipped: '%{count} righe non sono state salvate.'
+            unrecognised: 'Non importate, operazioni sconosciute: %{operations}'
+            error_unreadable: 'Questo file non è nel formato selezionato.'
+            error_malformed: 'Impossibile leggere questo file.'
+            error_no_file: 'Scegli prima un file.'
+            error_no_account: 'Scegli un conto per l’importazione.'
+            no_account: 'Collega prima un exchange — un’importazione è legata a un conto.'
+        positions: 'Posizioni'
+        transactions: 'Transazioni'
+        fees_paid: 'Commissioni pagate'
+        synced_ago: 'Sincronizzato %{ago} fa'
+        show_cash: 'Mostra liquidità'
+        show_more: 'Mostra altri'
+        show_less: 'Mostra meno'
+        other: 'Altro'
+        basis_incomplete: 'Nessun costo di carico per questo asset, quindi non mostriamo profitto/perdita.'
+        notes:
+            left: '%{exchange} riporta %{held} %{symbol}; la cronologia ne spiega %{history}. La differenza è considerata uscita al costo (%{amount}).'
+            arrived: '%{exchange} riporta %{held} %{symbol}; la cronologia ne spiega %{history}. La differenza è considerata entrata al suo prezzo (%{amount}).'
+            since_sync: '%{symbol} acquistato dall''ultima sincronizzazione: valutato al costo (%{amount}) fino alla prossima.'
+            cash_out: 'La cronologia detiene %{history} %{symbol}; %{exchange} riporta %{held}. La differenza (%{amount}) è considerata uscita.'
+            cash_in: 'La cronologia detiene %{history} %{symbol}; %{exchange} riporta %{held}. La differenza (%{amount}) è considerata entrata.'
+            unpriced_held: '%{history} %{symbol} sono arrivati senza un prezzo reperibile; considerati a costo zero (oggi valgono %{amount}).'
+            unpriced: '%{amount} sono stati venduti da asset senza prezzo reperibile; il loro costo è considerato zero.'
+            at_par: 'Nessun tasso per %{symbol} oggi; considerato alla pari.'
+            figures_disagree: 'Questi numeri non tornano (scarto di %{amount}). Qualcosa non va che nessuna ipotesi aveva previsto.'
+            your_exchanges: 'L''exchange'
+            estimated: '%{symbol}: parte del suo costo è il prezzo di mercato del giorno di arrivo, non un''esecuzione.'
+        record:
+            all: 'Tutte'
+            transfer: 'Trasferimento'
+            open: 'Aperta'
+            win: 'Profitto'
+            loss: 'Perdita'
+            closed: 'Chiusa'
+            cash: 'Liquidità'
+        range:
+            '30d': '30G'
+            '1y': '1A'
+            all: 'Tutto'
         filters:
             all: 'Tutti'
         columns:
@@ -499,6 +587,13 @@ it:
             fee: 'Commissione'
             exchange: 'Exchange'
             bot: 'Bot'
+            price: 'Prezzo'
+            opened: 'Apertura'
+            status: 'Stato'
+            invested: 'Investito'
+            avg_buy: 'Acquisto medio'
+            hold: 'Durata'
+            name: 'Asset'
         types:
             buy: 'Acquisto'
             sell: 'Vendita'
@@ -521,10 +616,34 @@ it:
         all: 'Tutti'
         successful: 'Riusciti'
         transactions: 'Transazioni'
-        cancelled: 'Annullati'
         waiting: 'Programmati'
+        other: 'Altri'
     bot_activity:
         events:
+            asset_split: "%{base} split %{ratio} — il broker ha ricalcolato il numero di azioni"
+            asset_split_unknown_ratio: "%{base} ha subito uno split — il broker ha ricalcolato il numero di azioni"
+            rebalance_sell_placed: 'Ribilanciamento — vendita dell’asset sovrappesato'
+            rebalance_buy_placed: 'Ribilanciamento — riacquisto dell’asset sottopesato'
+            rebalance_dust: 'Resto troppo piccolo per ribilanciare — lasciato in liquidità'
+            rebalance_ambiguous: 'Stato dell’ordine di ribilanciamento non confermato — in pausa per non duplicarlo'
+            rebalance_manually_resolved: 'Ribilanciamento ripreso manualmente'
+            dca_skipped_rebalance_pending: 'Versamento saltato — un ribilanciamento è ancora in corso'
+            liquidation_requested: "Sto vendendo gli asset usciti dall’indice"
+            liquidation_placed: "Sto vendendo un asset uscito dall’indice"
+            liquidation_skipped: "Non è stato possibile vendere un asset uscito dall’indice — resta in portafoglio"
+            liquidation_ambiguous: "Stato dell’ordine di vendita non confermato — in pausa per non inviarlo due volte"
+            liquidation_manually_resolved: "Vendita non confermata azzerata manualmente"
+            liquidation_market_closed: "Mercato chiuso — niente venduto"
+            liquidation_not_started: "Non è stato venduto nulla — il bot era occupato o l’indice non si è aggiornato"
+            liquidation_failed: "Vendita fallita: %{error}"
+            redeploy_requested: "Rimetto i soldi nel paniere"
+            redeploy_placed: "Riacquisto nel paniere con i ricavi"
+            redeploy_skipped: "Parte dei ricavi non è stata reinvestita — lasciata come liquidità"
+            redeploy_ambiguous: "Stato dell’ordine di reinvestimento non confermato — in pausa per non inviarlo due volte"
+            redeploy_manually_resolved: "Reinvestimento non confermato azzerato manualmente"
+            redeploy_not_started: "Non è stato reinvestito nulla — il bot era occupato o non restava nulla"
+            redeploy_failed: "Reinvestimento fallito: %{error}"
+            dca_skipped_liquidation_pending: "Contributo saltato — una vendita è ancora in corso"
             started: 'Bot avviato'
             stopped: 'Bot arrestato'
             reschedule_disabled: 'Pianificazione automatica in pausa'
@@ -562,6 +681,8 @@ it:
             upgrade_hint: Aggiorna il tuo piano CoinGecko o usa deltabadger.com per dati storici completi.
             deposit_basis_assumed: Costo di acquisto stimato al valore di mercato per questi depositi non collegati
             deposit_basis_assumed_hint: Collega ogni deposito al prelievo corrispondente nel Tracker per utilizzare il costo di acquisto reale.
+            stated_values: "Valori inseriti da te a mano"
+            stated_values_hint: "Questi importi sono tuoi, non dell'exchange. Verificali con i tuoi documenti prima di presentare la dichiarazione."
             exchange_sync_failed: 'Potrebbero mancare dati di %{exchange}: l’ultima sincronizzazione non è riuscita. Sincronizza di nuovo nel Tracker e rigenera il report.'
             exchange_never_synced: '%{exchange} non è mai stato sincronizzato: nessuna delle sue transazioni è inclusa in questo report. Sincronizzalo nel Tracker e rigenera il report.'
         summary:

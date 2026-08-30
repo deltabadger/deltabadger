@@ -11,7 +11,7 @@
 #
 # The market-scope and ticker methods default to the single-pair shape
 # (base_asset_id/quote_asset_id), shared by DcaSingleAsset and Signal;
-# DcaDualAsset and DcaIndex override them with their genuinely different
+# DcaIndex and DcaMultiAsset override them with their genuinely different
 # queries.
 #
 # Include LAST in the bot model so dispatch matches the former per-class
@@ -104,7 +104,7 @@ module Bot::AssetConfigurable
   end
 
   def validate_bot_exchange
-    return if stopped? || deleted?
+    return if stopped? || deleted? || archived?
     return if exchange_supports_current_assets?
 
     errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))

@@ -1,4 +1,4 @@
-<div class="widget widget--table widget--table--rules">
+<div class="widget widget--table widget--table--rules" data-controller="table-fit">
   <% if rule_logs.any? %>
     <table class="table">
       <thead>
@@ -11,9 +11,9 @@
       <tbody>
         <% rule_logs.each do |log| %>
           <tr>
-            <td><%= l(log.created_at, format: :short) %></td>
+            <td class="table__when"><%= table_when(log.created_at, current_user.time_zone) %></td>
             <td><span class="rule-log-status rule-log-status--<%= log.status %>"><%= log.status %></span></td>
-            <td><%= log.message %></td>
+            <td class="table__sentence"><%= log.message %></td>
           </tr>
         <% end %>
       </tbody>

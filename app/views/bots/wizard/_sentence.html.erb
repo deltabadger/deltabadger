@@ -1,90 +1,112 @@
 <%#
-  Unified conversational sentence for the wizard:
-  "Buy {asset} [+] on {exchange} spending {quote}".
+  Unified conversational sentence for the DCA wizard:
+  "Buy {assets} on {exchange} spending {quote}".
 
   Each slot is one of:
     active  — this slot's step == current_step → editable search input
     filled  — its value is already chosen       → chip linking back to it
     future  — not chosen yet                     → muted placeholder
 
-  On the FIRST step the not-yet-active of {asset, exchange} doubles as the order
-  switch: clicking it flips the variant (POST) so you pick that slot first. Once
-  anything is committed (a later step), the placeholder is inert — switching
-  would discard the pick. The "spending" slot only appears once both an asset and
-  an exchange are chosen.
+  The asset slot holds the whole basket as one stack of chips: away from the asset
+  step the stack is a single link back to it (adding and removing happen there, in
+  the table under the sentence); on the asset step it toggles that table (folded by
+  default) — the search box sits above the list, not in the sentence — and an empty
+  basket shows a muted placeholder.
 
-  The single→dual promote "+" and the dual demote affordance are preserved.
+  Placeholders double as controls. On the FIRST step, while nothing is chosen, the
+  not-yet-active of {asset, exchange} flips the order (POST) so that slot is picked
+  first — on the default first step (the exchange step) the whole sentence is that
+  invitation: "You can also start with assets". On the asset step, once something is chosen, the exchange/spending
+  placeholders — and the filled exchange chip — POST `advance`, the one way out of
+  the step (it commits the basket before any later step reads it). Elsewhere a
+  placeholder is inert: switching would discard the pick.
 
   Locals:
-    bot:          @bot (DcaSingleAsset or DcaDualAsset)
-    current_step: :currencies | :currencies2 | :exchange | :api | :spendable
+    bot:          @bot (DcaSingleAsset or DcaMultiAsset)
+    current_step: :currencies | :exchange | :api | :spendable
+    chosen:       (optional) the chosen Assets in pick order — the asset step passes its basket
+    multi:        (optional) whether the basket continues as a multi bot — selects the namespace
 %>
 <%
   order   = current_order
-  steps   = order.steps
   on_first_step = order.first?(current_step)
+  on_asset_step = current_step == :currencies
 
-  bot_kind     = bot.is_a?(Bots::DcaDualAsset) ? "dual" : "single"
-  first_asset  = bot.respond_to?(:base0_asset) ? bot.base0_asset : bot.base_asset
-  second_asset = bot.respond_to?(:base1_asset) ? bot.base1_asset : nil
-  exchange     = bot.exchange_id.present? ? bot.exchange : nil
-  first_color  = ensure_contrast(first_asset.color)  if first_asset
-  second_color = ensure_contrast(second_asset.color) if second_asset
+  multi    = local_assigns.fetch(:multi) { bot.is_a?(Bots::DcaMultiAsset) }
+  chosen   = local_assigns.fetch(:chosen) { multi ? bot.base_assets : [bot.base_asset].compact }
+  exchange = bot.exchange_id.present? ? bot.exchange : nil
 
-  # A slot's state: the step being edited is :active; a slot whose value is set
-  # is :filled (regardless of step order, so a sticky asset kept across an
-  # exchange re-pick still shows its chip); otherwise :future (placeholder).
-  slot_state = lambda do |step_key, present|
-    next :hidden unless steps.include?(step_key)
-    next :active if step_key == current_step
-
-    present ? :filled : :future
-  end
-
-  base_state     = slot_state.call(:currencies, first_asset.present?)
-  base1_state    = slot_state.call(:currencies2, second_asset.present?) # :hidden for single
-  exchange_state = slot_state.call(:exchange, exchange.present?)
+  exchange_state = if current_step == :exchange then :active
+                   elsif exchange then :filled
+                   else :future
+                   end
+  # Re-picking the exchange from the asset step is a step back only when the venue comes first
+  # (the asset step is :currencies in the single order, :assets in the multi order).
+  asset_step_index = order.steps.index(:currencies) || order.steps.index(:assets)
+  exchange_before_assets = order.steps.index(:exchange) < asset_step_index
 
   # Spending shows only after an asset and an exchange are both chosen.
-  quote_visible = first_asset.present? && exchange.present?
+  quote_visible = chosen.any? && exchange.present?
 
-  order_url = bot_kind == "dual" ? bots_dca_dual_assets_order_path
-                                  : bots_dca_single_assets_order_path
+  asset_step_url = new_bots_dca_single_assets_pick_buyable_asset_path
+  advance_url    = advance_bots_dca_single_assets_pick_buyable_asset_path
+  order_url      = bots_dca_single_assets_order_path
+  exchange_url   = multi ? new_bots_dca_multi_assets_pick_exchange_path : new_bots_dca_single_assets_pick_exchange_path
+  quote_search_url = multi ? new_bots_dca_multi_assets_pick_spendable_asset_path : new_bots_dca_single_assets_pick_spendable_asset_path
 
-  base_back_url     = new_bots_dca_single_assets_pick_buyable_asset_path
-  base1_back_url    = new_bots_dca_dual_assets_pick_second_buyable_asset_path
-  exchange_back_url = bot_kind == "dual" ? new_bots_dca_dual_assets_pick_exchange_path
-                                           : new_bots_dca_single_assets_pick_exchange_path
+  # The default first step has nothing to narrate yet: the sentence only offers the other route.
+  invite_only = current_step == :exchange && on_first_step && chosen.empty?
 
-  base_search_url  = new_bots_dca_single_assets_pick_buyable_asset_path
-  base1_search_url = new_bots_dca_dual_assets_pick_second_buyable_asset_path
-  quote_search_url = bot_kind == "dual" ? new_bots_dca_dual_assets_pick_spendable_asset_path
-                                           : new_bots_dca_single_assets_pick_spendable_asset_path
+  # The stack previews the first few members; the rest is a plain count after the chips.
+  stack_limit = 5
+  stack_class = case chosen.size
+                when 0, 1 then ''
+                when 2 then 'ticker-group--2'
+                else 'ticker-group--many'
+                end
 %>
 
 <div class="conversational conversational--bot-setup"
-     data-bot-kind="<%= bot_kind %>" data-wizard-step="<%= current_step %>"
+     data-bot-kind="<%= multi ? 'multi' : 'single' %>" data-wizard-step="<%= current_step %>"
      data-controller="conversational-sentence"
      data-action="click->conversational-sentence#activate input->conversational-sentence#updateFilled">
 
+  <% if invite_only %>
+    <span class="conversational__lead">You can also start with</span>
+    <%= form_with url: order_url, method: :post,
+                  class: "conversational__link conversational__link--placeholder conversational__link--switch",
+                  data: { turbo_frame: "modal_content" } do |f| %>
+      <%= f.hidden_field :flow, value: "asset_first" %>
+      <input placeholder="assets" readonly tabindex="-1">
+    <% end %>
+  <% else %>
   <span class="conversational__lead">Buy</span>
 
   <div class="conversational__assets">
-    <%# ── first base asset ── %>
-    <% if base_state == :active %>
-      <%= form_with url: base_search_url, method: :get,
-                    data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" },
-                    class: "ticker active" do |f| %>
-        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…",
-                         data: { action: "input->form--submit-after-delay#submit" } %>
+    <% if chosen.any? %>
+      <% stack_options = if on_asset_step
+                           { class: "conversational__stack conversational__stack--toggle", data: { action: "click->class-toggle#toggle" } }
+                         else
+                           { class: "conversational__stack", href: asset_step_url, data: { turbo_frame: 'modal_content', wizard_dir: 'back' } }
+                         end %>
+      <%= content_tag(on_asset_step ? :div : :a, **stack_options) do %>
+        <div class="ticker-group <%= stack_class %>">
+          <% chosen.first(stack_limit).each do |asset| %>
+            <%= tag.div asset.symbol, class: ticker_class(asset),
+                        style: "background: #{ensure_contrast(asset.color || '#8A9BA8')}", data: ticker_data(asset) %>
+          <% end %>
+        </div>
+        <% if chosen.size > stack_limit %>
+          <span class="conversational__stack-count">+<%= chosen.size - stack_limit %></span>
+        <% end %>
       <% end %>
-    <% elsif base_state == :filled && first_asset %>
-      <%= form_with url: base_back_url, method: :get,
-                    data: { turbo_frame: "modal_content", wizard_dir: "back", **ticker_data(first_asset) },
-                    html: { class: "ticker filled", style: "background: #{first_color}" } do %>
-        <input value="<%= first_asset.symbol %>" readonly tabindex="-1">
+    <% end %>
+
+    <% if on_asset_step %>
+      <% if chosen.empty? %>
+        <span class="ticker ticker--placeholder"></span>
       <% end %>
-    <% elsif base_state == :future %>
+    <% elsif chosen.empty? %>
       <%# Asset not chosen yet (exchange-first): clicking the slot switches to
           asset-first so the asset is picked first. Available on every step the
           asset is still pending — including while adding the API key — since the
@@ -92,69 +114,48 @@
       <%= form_with url: order_url, method: :post, class: "ticker ticker--placeholder ticker--switch",
                     data: { turbo_frame: "modal_content" } do |f| %>
         <%= f.hidden_field :flow, value: "asset_first" %>
-        <input placeholder="…" readonly tabindex="-1">
-      <% end %>
-    <% end %>
-
-    <%# ── second base asset (dual) / promote-to-dual "+" (single) ── %>
-    <% if base1_state == :active %>
-      <%= form_with url: base1_search_url, method: :get,
-                    data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" },
-                    class: "ticker active" do |f| %>
-        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "…",
-                         data: { action: "input->form--submit-after-delay#submit" } %>
-      <% end %>
-    <% elsif bot_kind == "dual" && base1_state == :filled && second_asset %>
-      <%= form_with url: base1_back_url, method: :get,
-                    data: { turbo_frame: "modal_content", wizard_dir: "back", **ticker_data(second_asset) },
-                    html: { class: "ticker filled", style: "background: #{second_color}" } do %>
-        <input value="<%= second_asset.symbol %>" readonly tabindex="-1">
-      <% end %>
-    <% elsif bot_kind == "dual" && base1_state == :future %>
-      <span class="ticker ticker--placeholder">…</span>
-    <% elsif bot_kind == "single" && first_asset %>
-      <%= form_with url: promote_to_dual_bots_dca_single_assets_pick_exchange_path,
-                    method: :post, class: "ticker",
-                    data: { turbo_frame: "modal_content" } do %>
-        <input placeholder="…">
+        <input placeholder="" readonly tabindex="-1">
       <% end %>
     <% end %>
   </div>
 
   <%# ── exchange slot ── %>
-  <% unless exchange_state == :hidden %>
-    <span class="conversational__lead">on</span>
-    <% if exchange_state == :active %>
-      <%= form_with url: exchange_back_url, method: :get,
-                    data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" },
-                    class: "conversational__link active" do |f| %>
-        <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "exchange",
-                         data: { action: "input->form--submit-after-delay#submit" } %>
-      <% end %>
-    <% elsif current_step == :currencies2 %>
-      <%# On the dual second-asset step the exchange chip demotes back to single. %>
-      <%= form_with url: demote_to_single_bots_dca_dual_assets_pick_second_buyable_asset_path,
-                    method: :post,
-                    class: "conversational__link#{' filled' if exchange}",
-                    data: { turbo_frame: "modal_content", wizard_dir: "back" } do %>
-        <input value="<%= exchange&.name %>" placeholder="exchange" readonly tabindex="-1">
-      <% end %>
-    <% elsif exchange_state == :filled && exchange %>
-      <%= form_with url: exchange_back_url, method: :get, class: "conversational__link filled",
-                    data: { turbo_frame: "modal_content", wizard_dir: "back" } do %>
-        <input value="<%= exchange.name %>" readonly tabindex="-1">
-      <% end %>
-    <% elsif on_first_step %>
-      <%# Asset-first first step: clicking the exchange slot switches to exchange-first. %>
-      <%= form_with url: order_url, method: :post,
-                    class: "conversational__link conversational__link--placeholder conversational__link--switch",
-                    data: { turbo_frame: "modal_content" } do |f| %>
-        <%= f.hidden_field :flow, value: "exchange_first" %>
-        <input placeholder="exchange" readonly tabindex="-1">
-      <% end %>
-    <% else %>
-      <span class="conversational__link conversational__link--placeholder">exchange</span>
+  <span class="conversational__lead">on</span>
+  <% if exchange_state == :active %>
+    <%= form_with url: exchange_url, method: :get,
+                  data: { controller: "form--submit-after-delay", turbo_frame: "exchange-picker" },
+                  class: "conversational__link active" do |f| %>
+      <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "exchange",
+                       data: { action: "input->form--submit-after-delay#submit" } %>
     <% end %>
+  <% elsif exchange_state == :filled && on_asset_step %>
+    <%# Leaving the asset step always goes through advance, which commits the basket first. %>
+    <%= form_with url: advance_url, method: :post, class: "conversational__link filled",
+                  data: { turbo_frame: "modal_content", wizard_dir: ("back" if exchange_before_assets) }.compact do |f| %>
+      <%= f.hidden_field :to, value: "exchange" %>
+      <input value="<%= exchange.name %>" readonly tabindex="-1">
+    <% end %>
+  <% elsif exchange_state == :filled %>
+    <%= form_with url: exchange_url, method: :get, class: "conversational__link filled",
+                  data: { turbo_frame: "modal_content", wizard_dir: "back" } do %>
+      <input value="<%= exchange.name %>" readonly tabindex="-1">
+    <% end %>
+  <% elsif on_first_step && chosen.empty? %>
+    <%# Asset-first first step: clicking the exchange slot switches to exchange-first. %>
+    <%= form_with url: order_url, method: :post,
+                  class: "conversational__link conversational__link--placeholder conversational__link--switch",
+                  data: { turbo_frame: "modal_content" } do |f| %>
+      <%= f.hidden_field :flow, value: "exchange_first" %>
+      <input placeholder="exchange" readonly tabindex="-1">
+    <% end %>
+  <% elsif on_asset_step %>
+    <%= form_with url: advance_url, method: :post,
+                  class: "conversational__link conversational__link--placeholder conversational__link--advance",
+                  data: { turbo_frame: "modal_content" } do %>
+      <input placeholder="exchange" readonly tabindex="-1">
+    <% end %>
+  <% else %>
+    <span class="conversational__link conversational__link--placeholder">exchange</span>
   <% end %>
 
   <%# ── quote (spending) slot — only once an asset and an exchange are chosen ── %>
@@ -167,8 +168,14 @@
         <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: "USD",
                          data: { action: "input->form--submit-after-delay#submit" } %>
       <% end %>
+    <% elsif on_asset_step %>
+      <%= form_with url: advance_url, method: :post, class: "ticker ticker--placeholder ticker--advance",
+                    data: { turbo_frame: "modal_content" } do %>
+        <input placeholder="" readonly tabindex="-1">
+      <% end %>
     <% else %>
-      <span class="ticker ticker--placeholder">…</span>
+      <span class="ticker ticker--placeholder"></span>
     <% end %>
+  <% end %>
   <% end %>
 </div>

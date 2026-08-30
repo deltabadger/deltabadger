@@ -1,0 +1,390 @@
+require 'test_helper'
+
+# The one-off history: a single forward sweep over the ledger, one price-range fetch per symbol,
+# last-observed price carried over holes, cash counted at face value, `partial` when a held symbol
+# had no price at all. Idempotent: rerunning upserts the same rows.
+class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
+  setup do
+    Tax::EcbFxRates.stubs(:ensure_loaded!)
+    @user = create(:user)
+    @binance = create(:binance_exchange)
+    @key = create(:api_key, user: @user, exchange: @binance)
+    create(:asset, :bitcoin)
+    create(:asset, :ethereum)
+    @d0 = Date.new(2026, 1, 1)
+    @day = ->(n) { (@d0 + n).to_time(:utc) + 12.hours }
+  end
+
+  def tx(type, day:, **attrs)
+    defaults = { api_key: @key, entry_type: type, transacted_at: @day.call(day) }
+    defaults.merge!(quote_currency: nil, quote_amount: nil) if %i[deposit withdrawal].include?(type)
+    create(:account_transaction, **defaults, **attrs)
+  end
+
+  def price(symbol, day, usd)
+    HistoricalPrice.create!(asset: symbol, currency: 'USD', date: @d0 + day, price: usd)
+  end
+
+  def seed_ledger
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 12_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 10_000)
+    tx(:buy, day: 3, base_currency: 'ETH', base_amount: 1, quote_currency: 'USD', quote_amount: 1_000)
+    tx(:sell, day: 5, base_currency: 'BTC', base_amount: 0.5, quote_currency: 'USD', quote_amount: 6_000)
+  end
+
+  def seed_prices(btc_gap_on_day2: true)
+    { 0 => 9_000, 1 => 10_000, 2 => 10_500, 3 => 11_000, 4 => 11_500, 5 => 12_000 }.each do |day, usd|
+      next if btc_gap_on_day2 && day == 2
+
+      price('BTC', day, usd)
+    end
+    { 3 => 1_000, 4 => 1_100, 5 => 1_200 }.each { |day, usd| price('ETH', day, usd) }
+  end
+
+  test 'one row per day to yesterday: holdings at the day\'s price plus cash, invested = money in; then every scope recomputes' do
+    seed_ledger
+    seed_prices
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+    Tracker::LedgerJob.expects(:perform_later).with(@user.id).once
+    Tracker::LedgerJob.expects(:perform_later).with(@user.id, @binance.id).once
+
+    travel_to @day.call(6) do
+      PortfolioSnapshot::BackfillJob.perform_now(@user.id)
+    end
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal (0..5).map { |n| @d0 + n }, rows.map(&:date)
+    assert_equal [12_000, 12_000, 12_000, 13_000, 13_600, 14_200].map(&:to_d), rows.map(&:value_usd),
+                 'day 2 carries day 1\'s BTC price; cash is 12k − 10k − 1k + 6k as the days pass'
+    assert_equal [12_000.to_d] * 6, rows.map(&:invested_usd), 'deposits move it, trades do not'
+    assert rows.none?(&:partial)
+  end
+
+  # The second reading of the same days, for the page with cash hidden: the day with its cash taken
+  # off both sides — the value it stood in, and the money in that funded it. Both come off the day
+  # already swept, so the two readings can never disagree about what the cash was.
+  test 'every day states the positions inside it as well as the portfolio around them' do
+    seed_ledger
+    seed_prices
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+    Tracker::LedgerJob.stubs(:perform_later)
+
+    travel_to @day.call(6) do
+      PortfolioSnapshot::BackfillJob.perform_now(@user.id)
+    end
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [0, 10_000, 10_000, 12_000, 12_600, 7_200].map(&:to_d), rows.map(&:held_value_usd),
+                 'the cash of the day is out: 12k waiting on day 0, 7k again once half the BTC is sold'
+    assert_equal [0, 10_000, 10_000, 11_000, 11_000, 5_000].map(&:to_d), rows.map(&:held_cost_usd),
+                 'the same 12,000 of money in, less that same cash'
+    assert_equal rows.map { |row| row.value_usd - row.invested_usd },
+                 rows.map { |row| row.held_value_usd - row.held_cost_usd },
+                 'the cash comes off both sides, so the P/L between them never moves'
+  end
+
+  test 'cash the ledger never saw arrive is money in, on the day it was spent' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 10_000)
+    (1..3).each { |n| price('BTC', n, 10_000) }
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(4)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [10_000.to_d] * 3, rows.map(&:invested_usd),
+                 'the coins were bought with money, whatever the venue chose to report'
+  end
+
+  test 'a venue that books the cash leg as its own row: the sweep and the ledger agree on money in' do
+    FxRate.create!(currency: 'USD', date: @d0 + 1, rate: 1) # 1 EUR = 1 USD
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: nil, quote_amount: nil, group_id: 'trade-1')
+    tx(:sell, day: 1, base_currency: 'EUR', base_amount: 10_000, quote_currency: nil, quote_amount: nil,
+              fee_amount: 26, fee_currency: 'EUR', group_id: 'trade-1')
+    price('BTC', 1, 10_000)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    assert_equal 10_026.to_d, PortfolioSnapshot.for_user(@user).order(:date).last.invested_usd,
+                 'the fee left the account on top of the 10,000 the venue reported spending'
+    assert_equal 10_026.to_d, Tracker::Ledger.for(@user).total_invested_usd,
+                 'the chart and the tile read the same ledger and must not disagree about it'
+  end
+
+  test 'inferred funding is cash that is really there: selling it back reads as a gain' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:sell, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 30_000)
+    (1..3).each { |n| price('BTC', n, 25_000) }
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(4)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [25_000, 30_000, 30_000].map(&:to_d), rows.map(&:value_usd),
+                 'the dollars the sale returns are not swallowed by the deficit the buy left behind'
+    assert_equal [20_000.to_d] * 3, rows.map(&:invested_usd)
+  end
+
+  test 'a fee inside a cash deposit leaves the account once' do
+    tx(:deposit, day: 1, base_currency: 'USD', base_amount: 1_000, fee_amount: 10, fee_currency: 'USD')
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(3)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [990.to_d] * 2, rows.map(&:value_usd), '1,000 arrived less the 10 it cost to arrive'
+    assert_equal [1_000.to_d] * 2, rows.map(&:invested_usd)
+  end
+
+  test 'a round trip inside one day still books what it cost to open' do
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 20_000)
+    create(:account_transaction, api_key: @key, entry_type: :sell, base_currency: 'BTC', base_amount: 1,
+                                 quote_currency: 'USDC', quote_amount: 30_000, transacted_at: @day.call(1) + 4.hours)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(3)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    assert_equal [20_000.to_d] * 2, PortfolioSnapshot.for_user(@user).order(:date).pluck(:invested_usd)
+  end
+
+  test 'a broker that lends is short because it lent: the sweep infers nothing from it' do
+    alpaca = create(:alpaca_exchange)
+    alpaca_key = create(:api_key, user: @user, exchange: alpaca)
+    create(:asset, symbol: 'QQQM', external_id: 'QQQM.US', category: 'ETF')
+    create(:account_transaction, api_key: alpaca_key, entry_type: :deposit, base_currency: 'USD',
+                                 base_amount: 10_000, quote_currency: nil, quote_amount: nil,
+                                 transacted_at: @day.call(1))
+    create(:account_transaction, api_key: alpaca_key, entry_type: :buy, base_currency: 'QQQM', base_amount: 10,
+                                 quote_currency: 'USD', quote_amount: 20_000, transacted_at: @day.call(2))
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(4)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    assert_equal [10_000.to_d] * 3, PortfolioSnapshot.for_user(@user).order(:date).pluck(:invested_usd),
+                 'the margin loan that bought the rest is not money the user put in'
+  end
+
+  test 'a symbol with no price at all makes its days partial, never a zero-valued holding' do
+    seed_ledger
+    seed_prices
+    tx(:deposit, day: 4, base_currency: 'XYZ', base_amount: 10)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(6)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [false, false, false, false, true, true], rows.map(&:partial)
+    assert_equal 13_600.to_d, rows[4].value_usd, 'the unpriced coin is left out rather than counted at 0'
+  end
+
+  test 'prices are fetched once per symbol with a hole, and not at all when the table already covers the range' do
+    seed_ledger
+    seed_prices(btc_gap_on_day2: true)
+    MarketData.expects(:get_historical_price_range).with(has_entries(coin_id: 'bitcoin', currency: 'usd')).once
+              .returns(Result::Success.new('prices' => [[@day.call(2).to_i * 1000, 10_500.0]]))
+    MarketData.expects(:get_historical_price_range).with(has_entries(coin_id: 'ethereum')).never
+
+    travel_to(@day.call(6)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    assert_equal 10_500.to_d, HistoricalPrice.lookup(asset: 'BTC', currency: 'USD', date: @d0 + 2),
+                 'the fetched point is stored for every later run'
+    assert_equal 12_500.to_d, PortfolioSnapshot.for_user(@user).find_by(date: @d0 + 2).value_usd
+  end
+
+  test 'a linked transfer contributes nothing, keeps the coins valued minus the network fee; a rerun upserts the same rows' do
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 10_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 10_000)
+    kraken_key = create(:api_key, user: @user, exchange: create(:kraken_exchange))
+    deposit = create(:account_transaction, api_key: kraken_key, entry_type: :deposit, base_currency: 'BTC', base_amount: 0.99,
+                                           quote_currency: nil, quote_amount: nil, transacted_at: @day.call(3))
+    tx(:withdrawal, day: 2, base_currency: 'BTC', base_amount: 1, linked_transaction: deposit)
+    (0..4).each { |n| price('BTC', n, 10_000) }
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(5)) { 2.times { PortfolioSnapshot::BackfillJob.perform_now(@user.id) } }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal 5, rows.size
+    assert_equal [10_000, 10_000, 9_900, 9_900, 9_900].map(&:to_d), rows.map(&:value_usd),
+                 'the coins never leave the portfolio; the 0.01 network fee does, at the withdrawal'
+    assert_equal [10_000.to_d] * 5, rows.map(&:invested_usd)
+  end
+
+  # The scoped ledger cannot see the far end of a transfer, so it reads the withdrawal as the coin
+  # leaving; the scoped sweep must read it the same way, or the coin stays charted where it is not.
+  test 'scoped to the source venue, the outbound half of a transfer leaves with the whole coin' do
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 10_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 10_000)
+    kraken_key = create(:api_key, user: @user, exchange: create(:kraken_exchange))
+    deposit = create(:account_transaction, api_key: kraken_key, entry_type: :deposit, base_currency: 'BTC', base_amount: 0.99,
+                                           quote_currency: nil, quote_amount: nil, transacted_at: @day.call(3))
+    tx(:withdrawal, day: 2, base_currency: 'BTC', base_amount: 1, linked_transaction: deposit)
+    (0..4).each { |n| price('BTC', n, 10_000) }
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(5)) do
+      PortfolioSnapshot::BackfillJob.perform_now(@user.id, @binance.id)
+
+      rows = PortfolioSnapshot.series(@user, exchange: @binance)
+      assert_equal [10_000, 10_000, 0, 0, 0].map(&:to_d), rows.first(5).map(&:value_usd),
+                   'nothing of the coin stays charted on Binance after it left'
+    end
+  end
+
+  test 'fiat cash in another currency is valued through the ECB rate of the day' do
+    FxRate.create!(currency: 'USD', date: @d0, rate: 1.25) # 1 EUR = 1.25 USD
+    FxRate.create!(currency: 'USD', date: @d0 + 1, rate: 1.20)
+    tx(:deposit, day: 0, base_currency: 'EUR', base_amount: 1_000)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [1_250.to_d, 1_200.to_d], rows.map(&:value_usd)
+    assert_equal [1_250.to_d, 1_250.to_d], rows.map(&:invested_usd), 'money in is valued once, on the day it came in'
+  end
+
+  test 'a stock is priced from the stored stock:SYM USD closes the broker fetch leaves behind' do
+    alpaca = create(:alpaca_exchange)
+    alpaca_key = create(:api_key, user: @user, exchange: alpaca)
+    qqqm = create(:asset, symbol: 'QQQM', external_id: 'QQQM.US', category: 'Stock', instrument_type: 'etf')
+    create(:ticker, exchange: alpaca, base_asset: qqqm, quote_asset: create(:asset, :usd))
+    create(:account_transaction, api_key: alpaca_key, entry_type: :deposit, base_currency: 'USD', base_amount: 1_000,
+                                 quote_currency: nil, quote_amount: nil, transacted_at: @day.call(0))
+    create(:account_transaction, api_key: alpaca_key, entry_type: :buy, base_currency: 'QQQM', base_amount: 2,
+                                 quote_currency: 'USD', quote_amount: 400, transacted_at: @day.call(1))
+    Exchanges::Alpaca.any_instance.stubs(:set_client)
+    candles = [[@day.call(1).beginning_of_day, 199, 201, 198, 200, 1],
+               [@day.call(2).beginning_of_day, 200, 211, 199, 210, 1]]
+    Exchanges::Alpaca.any_instance.stubs(:get_candles).returns(Result::Success.new(candles))
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(3)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [1_000.to_d, 1_000.to_d, 1_020.to_d], rows.map(&:value_usd), '600 cash + 2 × 200, then 2 × 210'
+    assert_equal 200.to_d, HistoricalPrice.lookup(asset: 'stock:QQQM', currency: 'USD', date: @d0 + 1)
+  end
+
+  test 'trade fees leave the balances the way the tax engine books them: quote from cash, base from quantity, third asset from itself' do
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 20_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 10_000, fee_amount: 20, fee_currency: 'USD')
+    tx(:buy, day: 2, base_currency: 'ETH', base_amount: 2, quote_currency: 'USD', quote_amount: 2_000, fee_amount: 0.01, fee_currency: 'ETH')
+    tx(:buy, day: 3, base_currency: 'SOL', base_amount: 10, quote_currency: 'USD', quote_amount: 1_000, fee_amount: 0.001, fee_currency: 'BTC')
+    # A fee in the disposed asset itself is not consumed again: the adapter already reported the sale net.
+    tx(:sell, day: 4, base_currency: 'SOL', base_amount: 5, quote_currency: 'USD', quote_amount: 500, fee_amount: 0.1, fee_currency: 'SOL')
+    (0..4).each { |n| { 'BTC' => 10_000, 'ETH' => 1_000, 'SOL' => 100 }.each { |sym, usd| price(sym, n, usd) } }
+    create(:asset, symbol: 'SOL', external_id: 'solana')
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(5)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    # day1: cash 20,000 − 10,020 = 9,980 + 1 BTC × 10,000
+    # day2: cash 7,980 + BTC 10,000 + 1.99 ETH × 1,000
+    # day3: cash 6,980 + 0.999 BTC × 10,000 + 1,990 + 10 SOL × 100
+    # day4: cash 7,480 + 9,990 + 1,990 + 5 SOL × 100 (the 0.1 SOL fee is not taken off the 5 that stay)
+    assert_equal [20_000.to_d, 19_980.to_d, 19_970.to_d, 19_960.to_d, 19_960.to_d], rows.map(&:value_usd)
+  end
+
+  test 'a return of capital adds its cash to the day' do
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 1_000)
+    tx(:buy, day: 1, base_currency: 'XYZ', base_amount: 10, quote_currency: 'USD', quote_amount: 1_000)
+    tx(:return_of_capital, day: 2, base_currency: 'XYZ', base_amount: 10, quote_currency: 'USD', quote_amount: 200)
+    (0..2).each { |n| price('XYZ', n, 100) }
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(3)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    assert_equal [1_000.to_d, 1_000.to_d, 1_200.to_d], PortfolioSnapshot.for_user(@user).order(:date).pluck(:value_usd)
+  end
+
+  # A capped ledger window (Binance 90 days, Bybit 7) opens after the funding that paid for the
+  # coins, so the sweep meets a sale with nothing behind it.
+  # The ledger opens the asset with what must have been held before its history begins, at the
+  # market of that day; the chart holds it from the same day, so the two never part.
+  test 'a history that starts mid-stream opens with what must have been held, and the chart holds what the ledger holds' do
+    tx(:sell, day: 0, base_currency: 'BTC', base_amount: 0.5, quote_currency: 'USD', quote_amount: 5_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 10_000)
+    price('BTC', 0, 10_000)
+    price('BTC', 1, 10_000)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [5_000.to_d, 10_000.to_d], rows.map(&:value_usd),
+                 'day 0: the opening half-coin sold for 5k cash; day 1: the whole coin bought'
+    assert_equal [5_000.to_d, 10_000.to_d], rows.map(&:invested_usd),
+                 'the opening at the market of its day, then the 5k the buy needed beyond the proceeds'
+    assert rows.none?(&:partial), 'priced throughout: an assumption, not a hole'
+  end
+
+  # Inert in the tax engines, which track holdings. Here it is cash the broker kept.
+  test 'withholding tax leaves the cash it was taken from' do
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 1_000)
+    create(:account_transaction, api_key: @key, entry_type: :withholding_tax, base_currency: 'USD',
+                                 base_amount: 30, quote_currency: nil, quote_amount: nil,
+                                 transacted_at: @day.call(1))
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    assert_equal [1_000.to_d, 970.to_d], PortfolioSnapshot.for_user(@user).order(:date).pluck(:value_usd)
+  end
+
+  test 'a user without transactions writes nothing' do
+    PortfolioSnapshot::BackfillJob.perform_now(@user.id)
+    assert_not PortfolioSnapshot.for_user(@user).exists?
+  end
+
+  # ── the same figure the tile shows ───────────────────────────────────────────────────────
+  test 'a reward is money in on the day it arrives, at what it was worth' do
+    price('ETH', 1, 3_000)
+    price('ETH', 2, 3_100)
+    tx(:staking_reward, day: 1, base_currency: 'ETH', base_amount: 1, quote_currency: nil, quote_amount: nil)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(3)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    rows = PortfolioSnapshot.for_user(@user).order(:date).to_a
+    assert_equal [3_000.to_d, 3_000.to_d], rows.map(&:invested_usd)
+    assert_equal [3_000.to_d, 3_100.to_d], rows.map(&:value_usd)
+  end
+
+  # Not an average-cost share: the coins that left are the FIFO lots the ledger says left, so the
+  # last day of the history and the tile read one number.
+  test 'a withdrawal takes its FIFO cost out, the same figure the tile shows' do
+    (0..3).each { |day| price('BTC', day, 20_000) } # the chart's price, not the price paid
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 40_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 10_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 30_000)
+    tx(:withdrawal, day: 3, base_currency: 'BTC', base_amount: 1)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(4)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    last = PortfolioSnapshot.for_user(@user).order(:date).last
+    assert_equal 30_000.to_d, last.invested_usd, 'the 10,000 lot left, not half of 40,000'
+    assert_equal Tracker::Ledger.for(@user).total_invested_usd, last.invested_usd
+  end
+
+  test 'a symbol that changed coin is fetched as each coin over its own days' do
+    create(:asset, symbol: 'LUNA', name: 'Terra', external_id: 'terra-luna-2', category: 'Cryptocurrency')
+    tx(:other_income, day: 0, base_currency: 'LUNA', base_amount: 1, quote_currency: nil, quote_amount: nil,
+                      transacted_at: Time.utc(2022, 5, 20, 12))
+    tx(:other_income, day: 0, base_currency: 'LUNA', base_amount: 1, quote_currency: nil, quote_amount: nil,
+                      transacted_at: Time.utc(2022, 6, 5, 12))
+    # The ledger's own pricing fetches per row-date on the way; the sweep's ranges are the two below.
+    Tax::PriceService.any_instance.stubs(:fetch_price_range)
+    Tax::PriceService.any_instance.expects(:fetch_price_range)
+                     .with(coin_id: 'terra-luna', symbol: 'LUNA', currency: 'USD',
+                           from: Date.new(2022, 5, 20), to: Date.new(2022, 5, 27)).once
+    Tax::PriceService.any_instance.expects(:fetch_price_range)
+                     .with(coin_id: 'terra-luna-2', symbol: 'LUNA', currency: 'USD',
+                           from: Date.new(2022, 5, 28), to: Date.new(2022, 6, 10)).once
+
+    travel_to(Time.utc(2022, 6, 11, 12)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+  end
+end

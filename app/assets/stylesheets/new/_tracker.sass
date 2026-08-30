@@ -1,57 +1,362 @@
 @use "../variables" as *
 
-.tracker-actions
+// The tracker page. Root font-size is 8px, so 1rem = 8px throughout.
+//
+// The wrapper is a container so the figure tiles' `.data-grid` reflows to the width IT has rather
+// than to the width of the window — the page has a rail beside it on the desktop and none on a
+// phone, and the grid is the same component in both.
+.tracker
+    container-type: inline-size
+    display: flex
+    flex-direction: column
+    gap: 1rem
+    // The modes row holds two controls, and the nested one has to be able to fold: a parent that
+    // shrink-wraps them would report its own width as the room available.
+    .widget--chart__modes
+        flex: 1
+        min-width: 0
+        gap: 1rem
+
+// ── the exchange bar ──────────────────────────────────────────────────────────────────────
+.tracker-exchanges
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 1rem
+    flex-wrap: wrap
+    padding-top: 6rem
+    @media (min-width: 768px)
+        padding-top: 1rem
+    // The + rides inside the venue switch, so this row holds only that — and
+    // `.filters:has(> .segmented)` hands it the whole line for the segmented to measure itself
+    // against.
+    > .filters
+        flex-wrap: nowrap
+        align-items: center
+        gap: 1rem
+    // Everything past the scope switch, kept together so `space-between` has two sides to push
+    // apart rather than three things to spread.
+    &__end
+        display: flex
+        align-items: center
+        gap: 1rem
+        flex-wrap: wrap
+        flex: none
+    &__sync
+        display: flex
+        align-items: center
+        gap: 1.5rem
+        flex: none
+
+.tracker-holdings__more
+    display: flex
+    flex-direction: column
+    // `auto` is not a length, so a plain height transition to it does nothing — allow-keywords is
+    // what turns the pseudo's 0 → auto into a real interpolation, and it inherits down to it.
+    interpolate-size: allow-keywords
+    summary
+        cursor: pointer
+        text-align: center
+        padding: 1rem
+        order: 0
+    &[open] > summary
+        order: 1
+    // The folded rows sit in this pseudo, which is a flex item of the default order 0 — so the
+    // summary's order: 1 still carries the toggle below them once open. Only Chromium runs
+    // transitions on this pseudo — Gecko and WebKit style it but open it in one frame, whatever
+    // property or duration is asked for — so the fold is an enhancement, never the thing that
+    // makes the rows reachable.
+    &::details-content
+        block-size: 0
+        overflow: hidden
+        // content-visibility is discrete and hidden while closed: without allow-discrete it flips
+        // at frame one and the fold-up plays against an already-empty box.
+        transition: block-size 0.25s ease, content-visibility 0.25s allow-discrete
+        // The reset's reduced-motion rule is universal-selector only, and `*` never matches a pseudo.
+        @media (prefers-reduced-motion: reduce)
+            transition: none
+    &[open]::details-content
+        block-size: auto
+    &__close
+        display: none
+    &[open]
+        .tracker-holdings__more__open
+            display: none
+        .tracker-holdings__more__close
+            display: inline
+
+.tracker-sync
+    display: flex
+    align-items: center
+    gap: 1rem
+    white-space: nowrap
+    // The phone's line has room for the controls, not for a sentence about them.
+    @media (max-width: 767.9px)
+        display: none
+    &__dot
+        width: 0.875rem
+        height: 0.875rem
+        border-radius: 50%
+        background: var(--grass)
+    // The quantities are today's and the money beside them is not — the dot says so.
+    &--stale &__dot
+        background: var(--warning)
+
+// A venue whose key stopped working keeps its chip and swaps the link for the re-add form.
+.segmented__option[data-broken]
+    color: var(--berry)
+    &::after
+        content: "!"
+        display: inline-grid
+        place-items: center
+        width: 1.6rem
+        height: 1.6rem
+        margin-left: 0.5rem
+        border-radius: 50%
+        background: var(--berry)
+        color: #fff
+        font-size: 1.1rem
+        font-weight: 800
+        text-indent: 0
+        line-height: 1
+
+// ── the holdings card ─────────────────────────────────────────────────────────────────────
+.tracker-holdings
+    gap: 2rem
+    &__head
+        display: flex
+        align-items: baseline
+        justify-content: space-between
+        gap: 2rem
+    &__empty
+        color: var(--concrete)
+        text-align: center
+        padding: 2rem 0
+    &__comp
+        display: grid
+        grid-template-columns: 28rem 1fr
+        gap: 4rem
+        align-items: start
+        @container (max-width: 999px)
+            grid-template-columns: 1fr
+            gap: 2rem
+    &__ring
+        position: relative
+        width: 28rem
+        height: 28rem
+        justify-self: center
+        @container (max-width: 999px)
+            width: 24rem
+            height: 24rem
+        svg
+            width: 100%
+            height: 100%
+            transform: rotate(-90deg)
+    &__centre
+        position: absolute
+        inset: 0
+        display: grid
+        place-content: center
+        text-align: center
+        gap: 0.5rem
+    &__centre-value
+        font-size: 2.75rem
+        font-weight: 600
+    &__list
+        min-width: 0
+    &__rows
+        display: flex
+        flex-direction: column
+    &__row
+        display: grid
+        grid-template-columns: minmax(20rem, 1fr) 8rem minmax(0, 2fr) 6rem 10rem 8rem 2rem
+        gap: 1.5rem
+        align-items: center
+        padding: 1rem 0.75rem
+        border-radius: 0.75rem
+        color: var(--ink)
+        &:hover
+            background: var(--paper-on-washed)
+    &--anon &__row
+        grid-template-columns: minmax(0, 1fr) 8rem minmax(0, 2fr) 6rem 8rem 2rem
+    &__name
+        display: flex
+        align-items: center
+        gap: 1.25rem
+        min-width: 0
+        b
+            font-weight: 600
+            white-space: nowrap
+    &__full
+        color: var(--stone)
+        font-size: 1.5rem
+        overflow: hidden
+        text-overflow: ellipsis
+        white-space: nowrap
+    &__pct, &__value, &__pl
+        font-size: 1.625rem
+        text-align: right
+    &__value
+        color: var(--stone)
+    &__pl
+        font-weight: 600
+    // The bar fills through grid columns on the track, not through a width (see _slider.sass).
+    .slider__style__track
+        display: grid
+    &__more
+        > summary
+            cursor: pointer
+            list-style: none
+            text-align: center
+            padding: 1rem
+            color: var(--stone)
+            &::-webkit-details-marker
+                display: none
+            &:hover
+                color: var(--ink)
+
+    @media (max-width: 767.9px)
+        &__row, &--anon &__row
+            grid-template-columns: minmax(0, 1fr) 6rem 10rem 8rem 2rem
+            gap: 1rem
+        &__full, &__type, .slider
+            display: none
+    @media (max-width: 479.9px)
+        &__row
+            grid-template-columns: minmax(0, 1fr) 6rem 8rem 2rem
+        &__value
+            display: none
+
+// ── the record: one bar over one table ────────────────────────────────────────────────────
+//
+// A column of two lines — the controls, then the table — laid out as a WRAPPING ROW rather than a
+// flex column, because each pane owns BOTH its contextual filter (up in the bar) and its table
+// (below it): that is what keeps the control and the rows it filters inside one `order-filter`
+// scope, and it is why the pane is `display: contents` and cannot be a box of its own. `order`
+// gathers every control onto the first line and the table's full-width basis pushes it onto the
+// next. The controls need no breakpoint: the segmented ones fold into their dropdowns when the row
+// runs out of room, which is the only measure that knows what the labels in this locale cost.
+.tracker-record
+    display: flex
+    flex-wrap: wrap
+    align-items: center
+    gap: 1rem
+    &__switch, &__filters
+        order: 1
+    // The switch is two fixed labels and is never the thing in the way; the contextual filter
+    // beside it is, so that one keeps the greedy `flex: 1` every `.filters` gets — it takes the
+    // whole slack, and folds when the slack is not enough. Two greedy controls would split the
+    // line evenly and fold this one while the row still had room.
+    &__switch.filters
+        flex: none
+    // Two date fields are most of a phone's width, and the bar has a switch and a filter to seat
+    // first. The BOX goes, not the form inside it: an emptied box still takes a gap on the row.
+    &__actions
+        display: none
+        order: 2
+        align-items: center
+        gap: 1rem
+        // Full size and hard against the right of the bar, even when nothing beside it grew.
+        flex: none
+        margin-left: auto
+        @media (min-width: 768px)
+            display: flex
+    &__table
+        order: 3
+        // A line of its own, and a DEFINITE width for it: the table inside is wider than the page
+        // and would otherwise size this row to its own content instead of scrolling within it.
+        flex: 1 0 100%
+        min-width: 0
+    &__pane
+        display: contents
+    // `display: none` on a `display: contents` element does nothing — its children are what is in
+    // the layout, so they are what has to go.
+    &__pane--off > *
+        display: none
+
+.tracker-row
+    &__when
+        white-space: nowrap
+        small
+            color: var(--stone)
+            margin-left: 0.75rem
+    &__asset
+        display: inline-flex
+        align-items: center
+        gap: 1rem
+        font-weight: 600
+    &__fee
+        color: var(--stone)
+    // Whose price the row carries — a table cell that happens to be typeable. It carries no chrome
+    // until the pointer or the keyboard is on it, so a table of 200 rows still reads as a table
+    // rather than as a form.
+    &__price
+        white-space: nowrap
+        form
+            display: flex
+            align-items: baseline
+            justify-content: flex-end
+            gap: 0.5rem
+        small
+            color: var(--stone)
+        &__input
+            flex: 1
+            min-width: 0
+            text-align: right
+            font: inherit
+            color: inherit
+            padding: 0
+            border: 1px solid transparent
+            // Our own price is a default, not a statement: it sits in the placeholder, in the
+            // caption's colour, and typing over it replaces it.
+            background: var(--silver)
+            border-radius: 1rem
+            padding: 0 1rem
+            &::placeholder
+                color: var(--stone)
+                opacity: 1
+            &:focus
+                outline: none
+                border-color: var(--link)
+        // A number the user typed is theirs and says so: it is set in the page's own ink and
+        // underlined, so it can never be mistaken for the exchange's figure.
+        &--stated .tracker-row__price__input
+            color: var(--ink)
+            font-weight: 600
+    &__cash
+        color: var(--stone)
+        font-weight: 450
+    // A correction, not a routine action: it appears on the row it corrects, when the pointer is
+    // on it. Focus-within keeps it reachable from the keyboard.
+    &__action
+        display: inline-block
+        opacity: 0
+        transition: opacity 0.12s
+        button
+            font-size: 1.25rem
+            letter-spacing: 0.08em
+            text-transform: uppercase
+            font-weight: 600
+            color: var(--stone)
+            background: none
+            border: 0
+            cursor: pointer
+    &:hover &__action, &__action:focus-within
+        opacity: 1
+
+.tracker-date-range
     display: flex
     align-items: center
     gap: 0.5rem
-    flex-wrap: wrap
-
-.tracker-date-range
-    display: none
-    align-items: center
-    gap: 0.5rem
-    @media (min-width: 768px)
-        display: flex
     input[type="date"]
         max-width: 17.5rem
         width: auto
-
-.tracker-type
-    font-weight: 600
-    padding: 0.2rem 0.6rem
-    border-radius: 0.5rem
-    &--buy, &--swap_in
-        color: var(--grass)
-    &--sell, &--swap_out
-        color: var(--berry)
-    &--deposit
-        color: var(--sky)
-    &--withdrawal
-        color: var(--orange, var(--ash))
-    &--staking_reward, &--lending_interest, &--airdrop, &--mining, &--other_income
-        color: var(--link)
-    &--fee
-        color: var(--concrete)
-    &--lost
-        color: var(--berry)
-    &--transfer
-        color: var(--concrete)
-        border: 1px solid var(--concrete)
 
 .tracker-empty
     text-align: center
     padding: 4rem
     color: var(--concrete)
 
-.two-row-filters
-    display: flex
-    flex-direction: column
-    gap: 1rem
-    padding: 1rem 0
-    &__row
-        display: flex
-        gap: 1rem
-        justify-content: space-between
 .tracker-exchange-icon
     width: 5rem
     max-width: 5rem
@@ -65,10 +370,6 @@
             fill: var(--concrete)
         display: block
 
-.tracker-row
-    td,th
-        padding-left: 2rem
-
 .text-left
     text-align: left !important
 
@@ -80,59 +381,9 @@
         border-left-color: white
         background: rgba(255, 255, 255, 0.2)
 
-// Robust hide that author CSS on the targets can't override (kept local so the
-// pie/list toggle does not depend on _dca-index.sass being compiled first).
+// Robust hide that author CSS on the targets can't override.
 .is-hidden
     display: none !important
-
-.tracker-portfolio
-    &__chart
-        display: flex
-        flex-direction: column
-        max-width: 100rem
-        margin: 2rem auto
-
-    // Donut view: slice-name labels use fill: currentColor → theme-aware.
-    &__pie
-        display: flex
-        justify-content: center
-        cursor: pointer
-        color: var(--ink)
-        svg
-            width: 100%
-        // Leader lines, % values and the "Other" label stay muted (CSS wins over
-        // the SVG presentation-attribute fallbacks set in the lib).
-        .donut-leader
-            stroke: var(--concrete)
-        .donut-value,
-        .donut-other
-            fill: var(--concrete)
-
-    // List view: one row per holding — ticker pill + proportional bar + share % + USD.
-    &__list
-        display: flex
-        flex-direction: column
-        cursor: pointer
-        // The bar fills via grid-template-columns: X% auto on the track (see _slider.sass
-        // note for the index list — the base rule no longer sets display: grid).
-        .slider__style__track
-            display: grid
-
-    &__asset
-        padding: 0.75rem 0
-
-    &__asset-row
-        display: flex
-        align-items: center
-        gap: 1.5rem
-
-        .slider
-            flex: 1
-
-    &__asset-value
-        font-weight: 500
-        min-width: 9rem
-        text-align: right
 
 // Classification panel in the export modal: one card per security that still needs a decision,
 // the settled ones folded into the <details> table below them. Root font-size is 8px, so 1rem = 8px.
@@ -232,3 +483,27 @@
             padding: 1.4rem 0
             font-size: 1.6rem
             font-weight: 600
+
+// The mark that carries what was assumed, or what is missing: at the end of the row it concerns,
+// and nowhere else. Quiet until pointed at; the sentence hangs below it, in the page's own ink.
+.tracker-holdings__info, .tracker-row__info
+    display: inline-block
+    position: relative
+    width: 2rem
+    height: 2rem
+    cursor: help
+    .icon-24
+        display: block
+        width: 2rem
+        height: 2rem
+        min-width: 0
+        fill: var(--concrete)
+    &:hover .icon-24, &.show-tooltip .icon-24
+        fill: var(--ink)
+    .tooltip--hint::before
+        top: -2rem
+        bottom: auto
+        left: 50%
+        transform: translateX(-50%)
+        border-top-color: transparent
+        border-bottom-color: var(--ink)

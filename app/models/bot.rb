@@ -12,9 +12,22 @@ class Bot < ApplicationRecord
   include Notifyable
   include ExchangeUser
   include ActivityLoggable
+  include ChartSeries # chart marked at market (candle grid), shared by every measurable
 
   belongs_to :user
   has_many :transactions, dependent: :destroy
+
+  # The dashboard order, dragged by the user. `:id` is not decoration: two bots created in
+  # overlapping transactions read the same `maximum(:position)` and land on the same number, and
+  # the list still has to come back the same way on every page load. The next drag renumbers them
+  # apart — Bots::ReordersController rewrites the whole sequence, not just the rows it was sent.
+  scope :ordered, -> { order(:position, :id) }
+
+  before_create :assign_position
+
+  # Every start path — the button, a stale tab, BotApi::Bots::Start — goes through valid?(:start),
+  # so one validation is the whole gate: an archived bot is reactivated first or not at all.
+  validate :not_archived, on: :start
 
   before_save :store_previous_exchange_id
   after_update_commit :broadcast_status_bar_update, if: -> { saved_change_to_status? && !@skip_status_bar_broadcast }
@@ -40,6 +53,43 @@ class Bot < ApplicationRecord
     []
   end
 
+  # Mark a metrics payload that had to fall back to the last executed transaction price because the
+  # live read failed. Every bot type does that fallback — it is better than a blank page — but the
+  # view then renders a carried-over number as "Portfolio value" with nothing to distinguish it from
+  # a live one, and with a rejected key it simply stops moving for weeks. The flag drives the
+  # already-translated `bot.details.stats.exchange_unavailable_html` notice.
+  def stale(metrics_data)
+    metrics_data[:prices_stale] = true
+    metrics_data
+  end
+
+  # Hidden from the list, keeps its history, trades nothing. Archiving goes through #stop so the
+  # job cancellation and the settings-dirty guard stay in one place — an archived bot must never
+  # leave a tick scheduled behind it.
+  def archive
+    stop && update(status: :archived)
+  end
+
+  # status_was, not archived?: both #start implementations assign :scheduled before they validate,
+  # so the only place the archive is still visible at validation time is the persisted value.
+  def not_archived
+    errors.add(:status, :archived, message: I18n.t('errors.bots.archived')) if status_was == 'archived'
+  end
+
+  # Always :stopped, never :created — a never-run bot renders identically either way (no
+  # last_action_job_at, so a plain fresh Start), while :created is the one status that would put
+  # the bot back under validate_bot_exchange and refuse to reactivate a delisted pair. Reading
+  # started_at to tell the two apart would not work anyway: the limit concerns decorate it.
+  #
+  # Idempotent on purpose: a stale second Reactivate (double click, retried request) must not
+  # write :stopped over a bot that has since been started again — that would halt it without
+  # cancelling its scheduled tick.
+  def unarchive
+    return true unless archived?
+
+    update(status: :stopped)
+  end
+
   def last_transaction
     transactions.where(transaction_type: 'REGULAR').order(created_at: :desc).limit(1).last
   end
@@ -60,6 +110,17 @@ class Bot < ApplicationRecord
   end
 
   def selling?
+    false
+  end
+
+  # How a sell tick is sized. Both false for buy-only types, so Bot::SmartIntervalable and the
+  # settings partials it shares with DcaIndex / composition bots can read them unguarded, exactly
+  # like selling? above. Bot::Reversible overrides them.
+  def sells_base_amount?
+    false
+  end
+
+  def sells_quote_amount?
     false
   end
 
@@ -97,6 +158,56 @@ class Bot < ApplicationRecord
     filled = Arel.sql('COALESCE(amount_exec, amount)')
     net = transactions.submitted.buy.closed.sum(filled) - transactions.submitted.sell.closed.sum(filled)
     [net, 0].max
+  end
+
+  # A tile's profit in USD — every tile reads in the same currency as the account total, so
+  # the two formats stay comparable across bots quoted in EUR, USDT or anything else.
+  #
+  # `rates` memoizes one lookup per currency across a page of tiles: the cache is Solid Cache,
+  # so each lookup is a query, and this page renders eighty tiles off one or two currencies.
+  #
+  # nil when the rate is not cached and the caller won't fetch one — the index never makes a
+  # live FX call, and in exactly that case the account total is sitting in its spinner too.
+  def profit_in_usd(metrics, rates: {}, cache_only: true)
+    return nil if metrics.blank?
+
+    profit = (metrics[:total_amount_value_in_quote] || 0).to_d - (metrics[:total_quote_amount_invested] || 0).to_d
+    return profit if profit.zero? # nothing is nothing in every currency — no rate needed
+
+    currency = quote_asset&.symbol
+    return nil if currency.nil?
+
+    rate = (rates[currency] ||= Utilities::Currency.exchange_rate(from: currency, to: 'USD',
+                                                                  cache_only: cache_only))
+    return nil if rate.failure?
+
+    profit * rate.data.to_d
+  end
+
+  # One tile's PnL, in both formats — the partial renders percent and USD amount side by side
+  # and the page-level class picks one. Shared by every measurable bot type: they all replaced
+  # the same target with the same partial.
+  #
+  # This runs in a background job, so it may fetch a rate; the index may not.
+  #
+  # NOT the account total. `User#global_pnl` walks every bot the user owns, and the dashboard
+  # fires one of these jobs per bot — N bots did N x N bots' worth of work, ending in two live
+  # FX conversions each (17.7s warm / 158s cold for fifteen bots). The total is owned by
+  # User::BroadcastGlobalPnlUpdateJob, which the page requests once and which does not depend
+  # on these jobs having run.
+  def broadcast_pnl_update
+    metrics_data = metrics_with_current_prices
+
+    broadcast_replace_to(
+      ["user_#{user_id}", :bot_updates],
+      target: dom_id(self, :pnl),
+      partial: 'bots/bot_tile/bot_tile_pnl',
+      locals: { bot: self, pnl: metrics_data[:pnl], denomination: user.denomination,
+                # No request here, so the preference comes off the user. Skipping the conversion
+                # rather than dropping it in the partial: it is a live FX call.
+                profit_usd: (profit_in_usd(metrics_data, cache_only: false) unless user.hide_balances?),
+                loading: false }
+    )
   end
 
   def broadcast_status_bar_update
@@ -143,9 +254,10 @@ class Bot < ApplicationRecord
     end
 
     # Each transaction occupies two rows: the sentence row for the unified "All"
-    # timeline (always) and the columnar row for the named tabs (submitted orders
-    # only) — mirroring show.turbo_stream.erb. Prepend the timeline row first so the
-    # columnar row lands on top, matching the initial-load order.
+    # timeline (always, and it is also what the "Other" tab shows) and the columnar
+    # row for the named tabs (submitted orders only) — mirroring show.turbo_stream.erb.
+    # Prepend the timeline row first so the columnar row lands on top, matching the
+    # initial-load order.
     broadcast_prepend_to(
       ["user_#{user_id}", :bot_updates],
       target: 'orders_list',
@@ -158,7 +270,7 @@ class Bot < ApplicationRecord
         ["user_#{user_id}", :bot_updates],
         target: 'orders_list',
         partial: 'bots/orders/order',
-        locals: { order:, decimals:, exchange_name: order.exchange.name, current_user: user, fetch: false }
+        locals: { order:, decimals:, current_user: user }
       )
     end
 
@@ -188,7 +300,7 @@ class Bot < ApplicationRecord
       ["user_#{user_id}", :bot_updates],
       target: dom_id(order),
       partial: 'bots/orders/order',
-      locals: { order:, decimals:, exchange_name: order.exchange.name, current_user: user, fetch: false }
+      locals: { order:, decimals:, current_user: user }
     )
 
     broadcast_replace_to(
@@ -214,6 +326,40 @@ class Bot < ApplicationRecord
     with_user_locale { super }
   end
 
+  # The one safe way to write `transient_data`. A JSON column can only be written whole, so
+  # `update_columns(transient_data: transient_data.merge(...))` is a read-modify-write: two writers
+  # that both loaded the row before either saved will each write their own blob, and the second
+  # silently drops the first one's key.
+  #
+  # That was harmless while every writer held the exchange semaphore. It stopped being harmless once
+  # the resolution controllers and the redeploy decline started writing from web requests, where no
+  # lock is held: a decline landing between a placement's intent write and its rescue would erase the
+  # intent, and an intent is the only thing standing between an accepted-but-unrecorded order and a
+  # second one on top of it.
+  #
+  # Locks and re-reads, so the merge is against committed state. `nil` values delete their key, which
+  # is what the old `.except(KEY)` callers want.
+  #
+  # Locks a FRESH instance rather than `self`: `with_lock` refuses a record carrying unpersisted
+  # changes, and these bots almost always do — `store_accessor` marks `settings` dirty on routine
+  # reads, so locking self turned every rebalance into a RuntimeError. The lock clause is a no-op on
+  # SQLite, but the adapter opens transactions as BEGIN IMMEDIATE, which takes the write lock up
+  # front and serialises writers just the same.
+  #
+  # The result is mirrored back the way update_columns would have — value set, attribute not dirtied
+  # — so a later save() on this instance does not write a stale blob over the one just committed.
+  def merge_transient_data!(values)
+    merged = nil
+    self.class.transaction do
+      fresh = self.class.lock.find(id)
+      merged = fresh.transient_data.merge(values.stringify_keys).compact
+      fresh.update_columns(transient_data: merged)
+    end
+    write_attribute(:transient_data, merged)
+    clear_attribute_change(:transient_data)
+    true
+  end
+
   private
 
   def with_user_locale(&block)
@@ -222,6 +368,15 @@ class Bot < ApplicationRecord
 
   def store_previous_exchange_id
     @previous_exchange_id = exchange_id_was
+  end
+
+  # A new bot goes to the end of the user's list. `0` is the unset sentinel rather than `nil`,
+  # because the column is NOT NULL with a default of 0 — `position ||= …` would never fire.
+  # The backfill migration starts at 1 for the same reason.
+  def assign_position
+    return if position.to_i.positive?
+
+    self.position = user&.bots&.maximum(:position).to_i + 1
   end
 
   def custom_exchange_id_changed?

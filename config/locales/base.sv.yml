@@ -1,4 +1,7 @@
 sv:
+    time:
+        formats:
+            table_clock: '%H:%M'
     meta:
         title: 'Deltabadger'
     header:
@@ -17,6 +20,8 @@ sv:
         authorize: 'Auktorisera'
         disable: 'Inaktivera'
         delete: 'Ta bort'
+        archive: 'Arkivera'
+        reactivate: 'Återaktivera'
         duplicate: 'Duplicera'
         copy: 'Kopiera'
         submit: 'Skicka'
@@ -26,6 +31,7 @@ sv:
         start: 'Starta'
         stop: 'Stoppa'
         next: 'Nästa'
+        back: 'Tillbaka'
         connect: 'Anslut'
         reconnect: 'Lägg till nya nycklar'
         understand: 'Uppfattat!'
@@ -42,7 +48,6 @@ sv:
         value_symbol: "Värde (%{symbol})"
         invested_symbol: "Investerat (%{symbol})"
         date: "Datum"
-        asset: "Tillgång"
         amount: "Belopp"
         avg_price: "Snittpris"
         price: "Pris"
@@ -81,6 +86,9 @@ sv:
             text_html: 'Kolla din inkorg och klicka på <b>bekräftelselänken</b> vi har skickat till dig. Gå sedan till inloggningssidan.'
             title: Tack!
     links:
+        hide_balances: 'Dölj saldon'
+        display_currency: 'Visningsvaluta'
+        show_balances: 'Visa saldon'
         about: Om
         telegram: 'Telegram'
         create_account: 'Skapa gratiskonto'
@@ -108,6 +116,8 @@ sv:
             language_updated: "Ditt språk har uppdaterats."
             updated: "Din tidszon har uppdaterats."
             current_time_is: "Denna tidszon används i botloggen. Enligt den är klockan nu"
+            currency_updated: "Din visningsvaluta har uppdaterats."
+            currency_is_used_for: "Vinster och portföljsummor visas i denna valuta. Botarna handlar fortfarande i sin egen noteringstillgång."
         name:
             updated: "Ditt namn har uppdaterats."
         two_fa:
@@ -350,6 +360,7 @@ sv:
         all: 'Alla'
         active: 'Aktiva'
         inactive: 'Inaktiva'
+        archived: 'Arkiverade'
     rules:
         index:
             title: 'Regler'
@@ -362,6 +373,7 @@ sv:
                 description: 'Ta ut medel från börser'
         withdrawals:
             sentence:
+                automate_withdrawals_from: 'Automatisera uttag från'
                 withdraw_all: 'Ta ut'
                 from: 'från'
                 to: 'till'
@@ -413,19 +425,30 @@ sv:
             instructions_title: 'Hur du får nycklar från %{exchange}'
             instructions_body: 'Skapa en uttagsaktiverad API-nyckel på %{exchange} och klistra in uppgifterna här.'
     tracker:
+        price_source:
+            ours: "Vårt eget pris för den dagen. Skriv ett pris för att ersätta det."
+            stated: "Ditt eget pris. Töm fältet för att använda vårt igen."
+            none: "Vi kunde inte prissätta den här. Skriv vad en enhet var värd."
         welcome:
             connect_and_track: "Anslut din börs och börja spåra din portfölj."
         sync_key_error_html: 'Synkroniseringen med <strong>%{exchange}</strong> misslyckades: %{message}. Uppdatera API-nyckeln nedan.'
+        sync_permission_error_html: "<strong>%{exchange}</strong> kunde inte synkroniseras: den här API-nyckeln saknar behörigheten som krävs för att läsa %{capability}. Uppdatera nyckelns behörigheter på %{exchange}, eller skapa en ny nyckel med alla behörigheter som anges i instruktionerna."
+        sync_transient_error_html: "<strong>%{exchange}</strong> är tillfälligt otillgänglig. Försök synkronisera igen om några minuter."
+        sync_generic_error_html: "Synkroniseringen med <strong>%{exchange}</strong> misslyckades: %{message}. Försök igen."
+        capabilities:
+            transactions: "din transaktionshistorik"
+            balances: "dina saldon"
         sync_failed_for: 'Synkroniseringen med %{exchanges} misslyckades. Transaktioner därifrån kan saknas — rapporter som skapas nu kan därför vara ofullständiga.'
         pricing_warning_html: Saldon synkade, men USD-priser är inte tillgängliga just nu (%{message}). Diagrammet använder de senast kända priserna tills prissättningen är återställd.
         portfolio:
             never_synced: Klicka på „Synka" för att ladda din portfölj.
             no_balances: Inga saldon hittades på dina anslutna börser.
+            only_cash: "Endast kontanter och stablecoins — slå på Visa kontanter för att se dem."
             unpriced: 'Pris saknas för: %{assets}'
         sync: 'Synka'
         sync_started: 'Synkroniserar transaktioner från dina börser...'
         importing_from: 'Importerar data från %{exchange}…'
-        get_report: 'Hämta rapport'
+        get_report: 'Skatterapport'
         filter: 'Filter'
         bot: 'Bot'
         no_results: 'Inga transaktioner hittades för de valda filtren.'
@@ -498,6 +521,71 @@ sv:
             generating: 'Genererar skatterapport...'
             download_ready: 'Skatterapporten är klar. Klicka för att ladda ner.'
             failed: 'Rapporten kunde inte genereras. Kontrollera de valda inställningarna och försök igen.'
+        holdings: 'Innehav'
+        unrealised: 'Orealiserad'
+        tiles:
+            unrealised_pnl: 'Orealiserad V/F'
+            total_pnl: 'Total V/F'
+            total_pnl_hint: '%{value} − %{invested}'
+            received_hint: '%{received} av detta kom in utan något köp bakom: rabatter, airdrops, staking-belöningar, dust-krediter, tillgångar utan något registrerat före.'
+        import:
+            title: 'Importera'
+            nothing_new: 'Varje transaktion i filen finns redan i din historik.'
+            imported: '%{count} transaktioner importerade.'
+            reading: 'Läser filen…'
+            error_unknown_timezone: 'Filnamnet anger inte längre vilken tidszon Binance exporterade i. Ladda upp filen med namnet Binance gav den.'
+            drop: 'Släpp din CSV här'
+            drop_hint: 'eller klicka för att välja en fil'
+            which_account: 'Filen kan komma från något av de två Binance-kontona. Vilket?'
+            unrouted: 'Inget konto anslutet för: %{exchanges}. De raderna utelämnades.'
+            error_no_account_for_format: 'Inget anslutet konto matchar det här formatet.'
+            format: 'Format'
+            format_binance: 'Binance CSV'
+            format_deltabadger: 'Deltabadger CSV'
+            account: 'Konto'
+            file: 'Fil'
+            importing: 'Importerar…'
+            confirm: 'Importera'
+            skipped: '%{count} rader kunde inte sparas.'
+            unrecognised: 'Inte importerat, okända operationer: %{operations}'
+            error_unreadable: 'Filen är inte i det valda formatet.'
+            error_malformed: 'Filen kunde inte läsas.'
+            error_no_file: 'Välj en fil först.'
+            error_no_account: 'Välj ett konto att importera till.'
+            no_account: 'Anslut en börs först — en import hör till ett konto.'
+        positions: 'Positioner'
+        transactions: 'Transaktioner'
+        fees_paid: 'Betalda avgifter'
+        synced_ago: 'Synkroniserad för %{ago} sedan'
+        show_cash: 'Visa kontanter'
+        show_more: 'Visa fler'
+        show_less: 'Visa färre'
+        other: 'Övrigt'
+        basis_incomplete: 'Inget anskaffningsvärde för det här innehavet, så vi visar ingen vinst eller förlust.'
+        notes:
+            left: '%{exchange} rapporterar %{held} %{symbol}; historiken förklarar %{history}. Skillnaden antas ha lämnat till anskaffningsvärde (%{amount}).'
+            arrived: '%{exchange} rapporterar %{held} %{symbol}; historiken förklarar %{history}. Skillnaden antas ha kommit in till sitt pris (%{amount}).'
+            since_sync: '%{symbol} köpt sedan senaste synkningen: värderat till anskaffningsvärde (%{amount}) tills nästa.'
+            cash_out: 'Historiken håller %{history} %{symbol}; %{exchange} rapporterar %{held}. Skillnaden (%{amount}) antas ha förts ut.'
+            cash_in: 'Historiken håller %{history} %{symbol}; %{exchange} rapporterar %{held}. Skillnaden (%{amount}) antas ha förts in.'
+            unpriced_held: '%{history} %{symbol} kom in utan pris som gick att hitta; tas upp till noll i anskaffningsvärde (värt %{amount} idag).'
+            unpriced: '%{amount} såldes ur tillgångar utan känt pris; deras anskaffningsvärde antas vara noll.'
+            at_par: 'Ingen kurs för %{symbol} idag; tas upp till pari.'
+            figures_disagree: 'Dessa siffror går inte ihop (avvikelse %{amount}). Något är fel som inget antagande förutsåg.'
+            your_exchanges: 'Börsen'
+            estimated: '%{symbol}: en del av anskaffningsvärdet är marknadspriset den dag det kom in, inte ett avslut.'
+        record:
+            all: 'Alla'
+            transfer: 'Överföring'
+            open: 'Öppen'
+            win: 'Vinst'
+            loss: 'Förlust'
+            closed: 'Stängd'
+            cash: 'Kontanter'
+        range:
+            '30d': '30D'
+            '1y': '1Å'
+            all: 'Allt'
         filters:
             all: 'Alla'
         columns:
@@ -510,6 +598,13 @@ sv:
             fee: 'Avgift'
             exchange: 'Börs'
             bot: 'Bot'
+            price: 'Pris'
+            opened: 'Öppnad'
+            status: 'Status'
+            invested: 'Investerat'
+            avg_buy: 'Snittköp'
+            hold: 'Tid'
+            name: 'Tillgång'
         types:
             buy: 'Köp'
             sell: 'Sälj'
@@ -532,11 +627,35 @@ sv:
         all: 'Alla'
         successful: 'Lyckade'
         transactions: 'Transactions' # TODO: translate (English placeholder)
-        cancelled: 'Avbrutna'
         waiting: 'Schemalagda'
+        other: 'Övriga'
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            asset_split: "%{base} aktiesplit %{ratio} — mäklaren har räknat om antalet aktier"
+            asset_split_unknown_ratio: "%{base} aktiesplittades — mäklaren har räknat om antalet aktier"
+            rebalance_sell_placed: 'Rebalansering — säljer den överviktade tillgången'
+            rebalance_buy_placed: 'Rebalansering — köper tillbaka i den underviktade tillgången'
+            rebalance_dust: 'För lite kvar för att rebalansera — lämnas som kontanter'
+            rebalance_ambiguous: 'Rebalanseringsorderns status obekräftad — pausad så den inte läggs två gånger'
+            rebalance_manually_resolved: 'Rebalansering återupptagen manuellt'
+            dca_skipped_rebalance_pending: 'Insättning hoppades över — en rebalansering pågår fortfarande'
+            liquidation_requested: "Säljer tillgångarna som lämnat indexet"
+            liquidation_placed: "Säljer en tillgång som lämnat indexet"
+            liquidation_skipped: "En tillgång som lämnat indexet kunde inte säljas — behålls"
+            liquidation_ambiguous: "Säljorderns status är obekräftad — pausad så att den inte läggs två gånger"
+            liquidation_manually_resolved: "Obekräftad försäljning rensad manuellt"
+            liquidation_market_closed: "Marknaden stängd — inget såldes"
+            liquidation_not_started: "Inget såldes — botten var upptagen eller så gick indexet inte att uppdatera"
+            liquidation_failed: "Selling failed: %{error}"
+            redeploy_requested: "Pengarna går tillbaka in i korgen"
+            redeploy_placed: "Köper tillbaka in i korgen för intäkterna"
+            redeploy_skipped: "En del av intäkterna kunde inte återinvesteras — lämnades som kontanter"
+            redeploy_ambiguous: "Återinvesteringsorderns status är obekräftad — pausad så att den inte skickas två gånger"
+            redeploy_manually_resolved: "Obekräftad återinvestering rensad manuellt"
+            redeploy_not_started: "Ingenting återinvesterades — boten var upptagen eller det fanns inget kvar"
+            redeploy_failed: "Återinvesteringen misslyckades: %{error}"
+            dca_skipped_liquidation_pending: "Insättning hoppades över — en försäljning pågår fortfarande"
             started: 'Bot started'
             stopped: 'Bot stopped'
             reschedule_disabled: 'Auto scheduling paused'
@@ -575,6 +694,8 @@ sv:
             upgrade_hint: Uppgradera ditt CoinGecko-abonnemang eller använd deltabadger.com för fullständig historik.
             deposit_basis_assumed: Anskaffningsvärde antaget till marknadsvärdet för dessa olänkade insättningar
             deposit_basis_assumed_hint: Länka varje insättning till motsvarande uttag i Tracker för att använda det verkliga anskaffningsvärdet.
+            stated_values: "Värden du angett för hand"
+            stated_values_hint: "De här beloppen kommer från dig, inte från börsen. Stäm av dem mot dina egna underlag innan du deklarerar."
             exchange_sync_failed: 'Data från %{exchange} kan saknas eftersom den senaste synkroniseringen misslyckades. Synkronisera igen i Tracker och skapa rapporten på nytt.'
             exchange_never_synced: '%{exchange} har aldrig synkroniserats — inga transaktioner därifrån finns med i rapporten. Synkronisera i Tracker och skapa rapporten på nytt.'
         headers:

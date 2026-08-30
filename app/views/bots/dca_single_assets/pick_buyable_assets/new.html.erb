@@ -1,27 +1,72 @@
 <%= render 'layouts/modal/full_page', **(params[:auto_open] ? { close_url: "" } : {}) do %>
-  <div class="bot-creation-layout">
+  <%# The basket table is folded by default; the stack of chips in the sentence toggles it. After a
+      removal it comes back open — the user was working in it. %>
+  <div class="bot-creation-layout" data-controller="class-toggle" data-class-toggle-toggle-classes-value='["hidden"]'>
 
     <%= render partial: 'bots/dca_single_assets/new_step_progress_bar', locals: {
       current_step: :currencies
     } %>
 
-    <%= render "bots/wizard/sentence", bot: @bot, current_step: :currencies %>
+    <%= render "bots/wizard/sentence", bot: @bot, current_step: :currencies,
+               chosen: @chosen, multi: @chosen.size >= Bots::DcaMultiAsset::MIN_ASSETS %>
 
-    <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation scroll-state" }, class: "modal--search__assets selectable-options vt-step-body" do %>
-      <% if @assets.empty? && @bot.exchange_id.present? && params[:query].blank? %>
-        <%= render "bots/wizard/assets_syncing" %>
+    <div class="wizard-assets vt-step-body">
+      <% if @chosen.any? %>
+        <div class="wizard-assets__list <%= 'hidden' unless params[:basket] == 'open' %>" data-class-toggle-target="togglable">
+          <% @chosen.each do |asset| %>
+            <div class="wizard-assets__row">
+              <div class="modal--search__cell">
+                <%= tag.div asset.symbol, class: ticker_class(asset), style: "background: #{ensure_contrast(asset.color || '#8A9BA8')}", data: ticker_data(asset) %>
+              </div>
+              <div class="modal--search__cell"><%= asset.name %></div>
+              <div class="modal--search__cell wizard-assets__action">
+                <%= button_to '×', remove_bots_dca_single_assets_pick_buyable_asset_path,
+                              params: { bots_dca_single_asset: { base_asset_id: asset.id } },
+                              class: 'rbutton rbutton--small',
+                              form: { data: { turbo_frame: 'modal_content', wizard_dir: 'stay' } },
+                              title: t('bot.dca_multi_asset.remove_asset') %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+
+      <% no_common_exchange = @chosen.any? && @eligible_exchanges.empty? %>
+      <% if no_common_exchange %>
+        <p class="wizard-assets__warning" role="alert"><%= t('bot.dca_multi_asset.no_common_exchange') %></p>
+      <% end %>
+
+      <% if @chosen.size >= Bots::DcaMultiAsset::MAX_ASSETS %>
+        <p class="text-inactive text-center"><%= t('bot.dca_multi_asset.max_assets_reached', max: Bots::DcaMultiAsset::MAX_ASSETS) %></p>
       <% else %>
-        <%= form_with model: @bot, url: bots_dca_single_assets_pick_buyable_asset_path, method: :post do |f| %>
-          <% @assets.each do |id, symbol, name, color, category, exchanges| %>
-            <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :base_asset_id, id: id, symbol: symbol, name: name, color: color, category: category, exchanges: exchanges } %>
+        <div class="modal--search">
+          <%= form_with url: new_bots_dca_single_assets_pick_buyable_asset_path, method: :get,
+                        data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" },
+                        html: { style: "position:relative" } do |f| %>
+            <%= render partial: 'svg/24x24_zoom' %>
+            <%= f.text_field :query, autofocus: true, autocomplete: "off", placeholder: t('utils.search.placeholder.asset'),
+                             data: { action: "input->form--submit-after-delay#submit" }, class: "modal--search__input" %>
           <% end %>
-          <% if @next_page_url %>
-            <%= turbo_frame_tag @next_page_frame_id, src: @next_page_url, loading: :lazy %>
+        </div>
+        <%= turbo_frame_tag "asset-picker", data: { action: "keydown@window->arrow-keys-navigation#navigate", controller: "arrow-keys-navigation" }, class: "modal--search__assets selectable-options" do %>
+          <% if @assets.empty? && @chosen.empty? && @bot.exchange_id.present? && params[:query].blank? %>
+            <%= render "bots/wizard/assets_syncing" %>
+          <% else %>
+            <%# Adding keeps the user on this step: no step slide (see hotwire-animations "stay"). %>
+            <%= form_with model: @bot, url: bots_dca_single_assets_pick_buyable_asset_path, method: :post,
+                          data: { wizard_dir: 'stay' } do |f| %>
+              <% @assets.each do |id, symbol, name, color, category, image_url, exchanges| %>
+                <%= render partial: "bots/asset_search_result", locals: { bot: @bot, asset_field: :base_asset_id, id: id, symbol: symbol, name: name, color: color, category: category, image_url: image_url, exchanges: exchanges } %>
+              <% end %>
+              <% if @next_page_url %>
+                <%= turbo_frame_tag @next_page_frame_id, src: @next_page_url, loading: :lazy %>
+              <% end %>
+            <% end %>
           <% end %>
+          <%= render 'bots/wizard/stock_activation_notice', bot: @bot %>
         <% end %>
       <% end %>
-      <%= render 'bots/wizard/stock_activation_notice', bot: @bot %>
-    <% end %>
+    </div>
 
   </div>
 <% end %>

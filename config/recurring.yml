@@ -49,6 +49,13 @@ production:
     class: Rule::EvaluateAllJob
     schedule: "0 */4 * * *"  # Every 4 hours
 
+  # The rebalance leg's only clock — it has no scheduled per-bot job of its own. Also the rate
+  # floor: a successful rebalance moves all the way to target, so this cadence caps how often a
+  # drifting portfolio can trade.
+  evaluate_rebalancers_job:
+    class: Bot::EvaluateRebalancersJob
+    schedule: "30 */4 * * *"  # Every 4 hours, offset from the rules fan-out
+
   sync_all_account_transactions_job:
     class: AccountTransaction::SyncAllJob
     schedule: "0 2 * * *"  # Daily at 2 AM
@@ -63,6 +70,8 @@ production:
 
   # Keeps current-price + FX caches warm so the /bots index (cache-only global PnL) and
   # per-bot PnL broadcasts read warm caches instead of doing live exchange roundtrips.
+  # The tick is unconditional but the job is not: it warms only inside the activity window
+  # a signed-in request opens, so an unused instance makes no exchange calls at all.
   warm_metrics_caches_job:
     class: Bot::WarmMetricsCachesJob
     schedule: "*/5 * * * *"  # Every 5 minutes, matching the price-cache 5-minute cut
@@ -70,6 +79,23 @@ production:
   ibkr_check_activation_job:
     class: Ibkr::CheckActivationJob
     schedule: "17 */6 * * *"  # Every 6 hours — flips IBKR keys to :correct once IBKR activates them
+
+  # Solid Queue keeps finished jobs forever by default (SolidQueue.preserve_finished_jobs) and
+  # leaves the clearing to the host — its own generator ships this task, and this app never had it.
+  # Nothing here ages out on its own: the self-rescheduling limit-check chains enqueue one job per
+  # minute per waiting bot, so an instance left running accumulates millions of finished rows and a
+  # queue database of several GB, none of it readable by anything. Clearing them is safe —
+  # Automation::Schedulable#active_job? only joins the four LIVE execution tables — so the day of
+  # history SolidQueue.clear_finished_jobs_after keeps, which is what /jobs shows, is all we need.
+  #
+  # `queue:` is required, not decoration: a `command:` task runs as SolidQueue::RecurringJob, whose
+  # own queue is `solid_queue_recurring`, and the workers below name their queues explicitly with no
+  # wildcard — so without this the cleanup would queue up unclaimed forever, adding to the very
+  # backlog it exists to remove.
+  clear_finished_jobs:
+    command: "SolidQueue::Job.clear_finished_in_batches(sleep_between_batches: 0.3)"
+    queue: low_priority
+    schedule: "40 * * * *"  # Hourly at :40, clear of the other ticks
 
 development:
   sync_all_tickers_and_assets_job:
@@ -113,6 +139,13 @@ development:
     class: Rule::EvaluateAllJob
     schedule: "0 */4 * * *"  # Every 4 hours
 
+  # The rebalance leg's only clock — it has no scheduled per-bot job of its own. Also the rate
+  # floor: a successful rebalance moves all the way to target, so this cadence caps how often a
+  # drifting portfolio can trade.
+  evaluate_rebalancers_job:
+    class: Bot::EvaluateRebalancersJob
+    schedule: "30 */4 * * *"  # Every 4 hours, offset from the rules fan-out
+
   sync_all_account_transactions_job:
     class: AccountTransaction::SyncAllJob
     schedule: "0 2 * * *"  # Daily at 2 AM
@@ -127,6 +160,8 @@ development:
 
   # Keeps current-price + FX caches warm so the /bots index (cache-only global PnL) and
   # per-bot PnL broadcasts read warm caches instead of doing live exchange roundtrips.
+  # The tick is unconditional but the job is not: it warms only inside the activity window
+  # a signed-in request opens, so an unused instance makes no exchange calls at all.
   warm_metrics_caches_job:
     class: Bot::WarmMetricsCachesJob
     schedule: "*/5 * * * *"  # Every 5 minutes, matching the price-cache 5-minute cut

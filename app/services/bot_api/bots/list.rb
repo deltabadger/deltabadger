@@ -44,8 +44,8 @@ module BotApi
       end
 
       def pair_for(bot, base:, quote:)
-        if bot.dca_dual_asset?
-          "#{bot.base0_asset&.symbol}+#{bot.base1_asset&.symbol}/#{quote}"
+        if bot.dca_multi_asset?
+          "#{bot.base_assets.map(&:symbol).join('+')}/#{quote}"
         elsif base && quote
           "#{base}/#{quote}"
         end

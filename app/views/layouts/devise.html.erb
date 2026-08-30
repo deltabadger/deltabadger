@@ -9,7 +9,6 @@
     <title><%= content_for?(:title) ? yield(:title) : t('meta.title') %></title>
     <%= render 'application/favicon' %>
 
-    <%= javascript_include_tag "tauri_boot" %>
     <%= stylesheet_link_tag 'application', media: 'all', "data-turbo-track": "reload" %>
     <%= javascript_include_tag "application", "data-turbo-track": "reload", defer: true %>
 
@@ -26,7 +25,7 @@
           <%= yield %>
         </div>
       </div>
-      <div id="flash">
+      <div id="flash" class="flash-stack">
         <%= render 'layouts/flash' %>
       </div>
 

@@ -1,20 +1,51 @@
-<div id="global-pnl">
+<%# The headline and the curve behind it are ONE element: this is what the P/L broadcast replaces,
+    and a curve left outside it would go on drawing the account's history under a number that had
+    already moved on. The controller is here rather than on the plot for the same reason — the
+    figures it writes into are its siblings. %>
+<% spark = global_pnl.present? && history.present? ? pnl_spark(history) : nil %>
+<%= tag.div id: 'global-pnl', data: spark ? {
+      controller: 'pnl-spark',
+      pnl_spark_percent_value: history[:percent].to_json,
+      # The money is left OUT while balances are hidden — the ratio is not a balance, the profit
+      # is, and shipping it in an attribute for CSS to cover is how it leaks.
+      pnl_spark_profit_value: (history[:profit_usd].to_json unless hide_balances),
+      pnl_spark_at_value: history[:at].to_json,
+      pnl_spark_scale_value: spark[:scale],
+      pnl_spark_rate_value: denomination.rate.to_f,
+      pnl_spark_unit_value: denomination.unit,
+      # The thousands mark the SERVER writes, not the one the reader's browser would pick: the
+      # figure the pointer replaces was grouped by Rails, and "1 200 200" landing on top of
+      # "1,200,200" is one number written two ways.
+      pnl_spark_delimiter_value: I18n.t('number.currency.format.delimiter',
+                                        default: I18n.t('number.format.delimiter', default: ',')),
+      pnl_spark_suffixed_value: denomination.suffixed?
+    } : {} do %>
   <% if global_pnl.present? %>
-    <% pnl_percent = global_pnl[:percent] %>
-    <% profit_usd = global_pnl[:profit_usd] %>
-    <% color_class = pnl_percent.negative? ? 'text-danger' : pnl_percent.positive? ? 'text-success' : '' %>
-    <h1 class="header header--1"
-        data-controller="value-toggle"
-        data-action="click->value-toggle#toggle"
-        style="cursor: pointer;">
-      <span data-value-toggle-target="primary">
-        <%= pnl_percent.positive? ? '+' : '' %><%= format_percent(pnl_percent, precision: 2) %>
-      </span>
-      <span data-value-toggle-target="secondary" class="d-none">
-        <%= profit_usd.positive? ? '+' : '' %><%= number_to_currency(profit_usd, precision: 0) %>
-      </span>
-    </h1>
+    <% if spark %>
+      <%= render partial: 'bots/pnl_spark', locals: { spark: spark } %>
+      <%# The day the figure is being read at, under the zero line; only there while the pointer is. %>
+      <span class="dash-intro__date" data-pnl-spark-target="date" hidden></span>
+    <% end %>
+    <%# Switches every PnL on the page — this one and each bot tile — see pnl_format_controller.js.
+        With balances hidden there is no second format to switch to, so the headline is a headline
+        again: no controller, no pointer, no amount. %>
+    <%# The box the number is read in. It is held open to the widest reading the pointer can put
+        in it — measured in the browser, because these figures are not tabular and no count of
+        characters predicts their width. Without it the number resizes as it is read, the box
+        resizes with it, and the curve moves out from under the pointer. %>
+    <div class="dash-intro__figure" data-pnl-spark-target="figure">
+      <%= tag.h1 class: "header header--1",
+                 data: (hide_balances ? {} : { controller: "pnl-format", action: "click->pnl-format#toggle" }),
+                 style: ("cursor: pointer;" unless hide_balances) do %>
+        <span class="pnl-percent" data-pnl-spark-target="percent"><%= pnl_headline_percent(global_pnl[:percent]) %></span>
+        <% unless hide_balances %>
+          <span class="pnl-amount" data-pnl-spark-target="amount"><%= pnl_headline_amount(global_pnl[:profit_usd], denomination) %></span>
+        <% end %>
+      <% end %>
+    </div>
   <% elsif loading %>
-    <div class="loader--small"></div>
+    <%# The wait is drawn on the chart's own zero line rather than as a spinner: the axis is
+        already there, and a light travelling along it says the curve is coming where it will be. %>
+    <div class="dash-intro__loading"></div>
   <% end %>
-</div>
+<% end %>

@@ -23,7 +23,7 @@ class Bot::RepairOrphanedBotsJobTest < ActiveSupport::TestCase
       id: 1,
       class: Bots::DcaSingleAsset,
       exchange: exchange,
-      next_action_job_at: nil,
+      pending_action_job?: false,
       next_interval_checkpoint_at: 1.hour.from_now,
       cancel_scheduled_action_jobs: true
     )
@@ -44,7 +44,7 @@ class Bot::RepairOrphanedBotsJobTest < ActiveSupport::TestCase
       id: 1,
       class: Bots::DcaSingleAsset,
       exchange: exchange,
-      next_action_job_at: nil,
+      pending_action_job?: false,
       next_interval_checkpoint_at: 1.hour.from_now,
       cancel_scheduled_action_jobs: true
     )
@@ -68,7 +68,7 @@ class Bot::RepairOrphanedBotsJobTest < ActiveSupport::TestCase
       id: 1,
       class: Bots::DcaSingleAsset,
       exchange: exchange,
-      next_action_job_at: nil,
+      pending_action_job?: false,
       next_interval_checkpoint_at: 1.hour.from_now
     )
     job_setter = stub('ConfiguredJob', perform_later: true)
@@ -87,7 +87,7 @@ class Bot::RepairOrphanedBotsJobTest < ActiveSupport::TestCase
       'Bots::DcaSingleAsset',
       id: 1,
       exchange: exchange,
-      next_action_job_at: 1.hour.from_now
+      pending_action_job?: true
     )
 
     Bot.stubs(:where).with(status: %i[scheduled retrying]).returns([bot])
@@ -116,7 +116,7 @@ class Bot::RepairOrphanedBotsJobTest < ActiveSupport::TestCase
       id: 1,
       class: Bots::DcaSingleAsset,
       exchange: exchange,
-      next_action_job_at: nil,
+      pending_action_job?: false,
       next_interval_checkpoint_at: 1.hour.from_now
     )
     bot2 = stub(
@@ -124,7 +124,7 @@ class Bot::RepairOrphanedBotsJobTest < ActiveSupport::TestCase
       id: 2,
       class: Bots::DcaSingleAsset,
       exchange: exchange,
-      next_action_job_at: nil,
+      pending_action_job?: false,
       next_interval_checkpoint_at: 2.hours.from_now,
       cancel_scheduled_action_jobs: true
     )
@@ -196,10 +196,43 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
     assert_equal initial_job_count, SolidQueue::Job.where(class_name: 'Bot::ActionJob').count
   end
 
-  # == Dual asset integration tests ==
+  # Only a SCHEDULED execution carries a scheduled_at, so `next_action_job_at` reads nil for a job
+  # that is due now and waiting for a worker, one a worker has already claimed, and one blocked on
+  # the per-exchange concurrency semaphore. None of those bots is orphaned: each already owns a live
+  # job, and enqueueing a second one puts two ActionJobs on the same tick — the duplicate then dies
+  # on ActionJob's "already has an action job scheduled" guard.
+  test 'does not repair a bot whose ActionJob is queued and waiting for a worker' do
+    bot = create(:dca_single_asset, :started, status: :scheduled)
+    Bot::ActionJob.perform_later(bot)
+    assert_nil bot.next_action_job_at, 'a ready job has no scheduled_at — that is the trap'
+    live_job = SolidQueue::Job.find_by!(class_name: 'Bot::ActionJob')
 
-  test 'detects orphaned dual asset bot with no scheduled job' do
-    bot = create(:dca_dual_asset, :started, status: :scheduled)
+    Bot::RepairOrphanedBotsJob.perform_now
+
+    assert SolidQueue::Job.exists?(live_job.id),
+           'the due job was cancelled and replaced, delaying a tick that was about to run'
+    assert_equal 1, SolidQueue::Job.where(class_name: 'Bot::ActionJob').count
+  end
+
+  test 'does not repair a bot whose ActionJob a worker has already claimed' do
+    bot = create(:dca_single_asset, :started, status: :scheduled)
+    Bot::ActionJob.perform_later(bot)
+    process = SolidQueue::Process.create!(kind: 'Worker', pid: 42, name: 'test-worker',
+                                          last_heartbeat_at: Time.current)
+    SolidQueue::ReadyExecution.claim('*', 10, process.id)
+    assert_equal 1, SolidQueue::ClaimedExecution.count, 'test setup: the job must be claimed'
+    assert_nil bot.next_action_job_at
+    initial_job_count = SolidQueue::Job.where(class_name: 'Bot::ActionJob').count
+
+    Bot::RepairOrphanedBotsJob.perform_now
+
+    assert_equal initial_job_count, SolidQueue::Job.where(class_name: 'Bot::ActionJob').count
+  end
+
+  # == Basket integration tests ==
+
+  test 'detects orphaned basket bot with no scheduled job' do
+    bot = create(:dca_multi_asset, :started, status: :scheduled)
     assert_nil bot.next_action_job_at
 
     Bot::RepairOrphanedBotsJob.perform_now
@@ -207,8 +240,8 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
     assert bot.reload.next_action_job_at.present?
   end
 
-  test 'schedules dual asset bot job at correct checkpoint time' do
-    bot = create(:dca_dual_asset, :started, status: :scheduled)
+  test 'schedules basket bot job at correct checkpoint time' do
+    bot = create(:dca_multi_asset, :started, status: :scheduled)
     expected_checkpoint = bot.next_interval_checkpoint_at
 
     Bot::RepairOrphanedBotsJob.perform_now
@@ -217,8 +250,8 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
     assert_in_delta expected_checkpoint.to_f, scheduled_at.to_f, 1.0
   end
 
-  test 'creates ActionJob in SolidQueue for dual asset bot' do
-    create(:dca_dual_asset, :started, status: :scheduled)
+  test 'creates ActionJob in SolidQueue for basket bot' do
+    create(:dca_multi_asset, :started, status: :scheduled)
 
     Bot::RepairOrphanedBotsJob.perform_now
 
@@ -226,8 +259,8 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
     assert job.present?
   end
 
-  test 'does not repair dual asset bot that already has a scheduled job' do
-    bot = create(:dca_dual_asset, :started, status: :scheduled)
+  test 'does not repair basket bot that already has a scheduled job' do
+    bot = create(:dca_multi_asset, :started, status: :scheduled)
     Bot::ActionJob.set(wait_until: 1.hour.from_now).perform_later(bot)
     initial_job_count = SolidQueue::Job.where(class_name: 'Bot::ActionJob').count
 
@@ -245,16 +278,16 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
     usd = create(:asset, :usd)
     single_asset_bot = create(:dca_single_asset, :started, status: :scheduled,
                                                            exchange: exchange, base_asset: bitcoin, quote_asset: usd)
-    dual_asset_bot = create(:dca_dual_asset, :started, status: :scheduled,
-                                                       exchange: exchange, base0_asset: bitcoin, base1_asset: ethereum, quote_asset: usd)
+    basket_bot = create(:dca_multi_asset, :started, status: :scheduled,
+                                                    exchange: exchange, base_assets: [bitcoin, ethereum], quote_asset: usd)
 
     assert_nil single_asset_bot.next_action_job_at
-    assert_nil dual_asset_bot.next_action_job_at
+    assert_nil basket_bot.next_action_job_at
 
     Bot::RepairOrphanedBotsJob.perform_now
 
     assert single_asset_bot.reload.next_action_job_at.present?
-    assert dual_asset_bot.reload.next_action_job_at.present?
+    assert basket_bot.reload.next_action_job_at.present?
   end
 
   test 'creates separate jobs for each bot' do
@@ -264,8 +297,8 @@ class Bot::RepairOrphanedBotsJobIntegrationTest < ActiveSupport::TestCase
     usd = create(:asset, :usd)
     create(:dca_single_asset, :started, status: :scheduled,
                                         exchange: exchange, base_asset: bitcoin, quote_asset: usd)
-    create(:dca_dual_asset, :started, status: :scheduled,
-                                      exchange: exchange, base0_asset: bitcoin, base1_asset: ethereum, quote_asset: usd)
+    create(:dca_multi_asset, :started, status: :scheduled,
+                                       exchange: exchange, base_assets: [bitcoin, ethereum], quote_asset: usd)
 
     Bot::RepairOrphanedBotsJob.perform_now
 

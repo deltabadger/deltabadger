@@ -326,6 +326,32 @@ class AccountTransactionTest < ActiveSupport::TestCase
     assert_equal 'DCA buy', row[11]
   end
 
+  # A split is exported as a row, the way a broker statement books it, so SUM(base_amount) over a
+  # symbol is right in a spreadsheet without any special handling. The ratio rides in `description`
+  # rather than a new column: the header stays as it is, and a column would be blank on every row
+  # but a handful.
+  test 'a split exports as a quantity-only row that says its ratio' do
+    at = create(:account_transaction,
+                api_key: @api_key,
+                exchange: @exchange,
+                entry_type: :adjustment,
+                base_currency: 'KLAC',
+                base_amount: 90,
+                quote_currency: nil,
+                quote_amount: nil,
+                description: 'Split (KLAC) 10:1',
+                transacted_at: Time.utc(2026, 6, 12, 0, 0, 0))
+
+    row = at.to_csv_row
+
+    assert_equal 'adjustment', row[1]
+    assert_equal 'KLAC', row[2]
+    assert_equal 90, row[3]
+    assert_nil row[4], 'a split moves no money, so the quote columns stay empty'
+    assert_nil row[5]
+    assert_equal 'Split (KLAC) 10:1', row[11]
+  end
+
   test 'to_csv generates valid CSV string' do
     create(:account_transaction,
            api_key: @api_key,

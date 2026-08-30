@@ -114,6 +114,37 @@ class TransactionTest < ActiveSupport::TestCase
     assert_not_includes rows, closed_txn
   end
 
+  test 'other scope collects every row the Other tab shows: cancelled, abandoned, skipped, failed' do
+    bot = create(:dca_single_asset)
+    cancelled_txn = create(:transaction, bot: bot, status: :submitted, external_status: :cancelled, external_id: 'c1')
+    abandoned_txn = create(:transaction, bot: bot, status: :submitted, external_status: :abandoned, external_id: 'a1')
+    skipped_txn = create(:transaction, :skipped, bot: bot)
+    failed_txn = create(:transaction, :failed, bot: bot)
+    open_txn = create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'o1')
+    closed_txn = create(:transaction, bot: bot, status: :submitted, external_status: :closed, external_id: 'cl1')
+
+    rows = bot.transactions.other
+
+    assert_includes rows, cancelled_txn
+    assert_includes rows, abandoned_txn
+    assert_includes rows, skipped_txn
+    assert_includes rows, failed_txn
+    assert_not_includes rows, open_txn
+    assert_not_includes rows, closed_txn
+  end
+
+  test 'other? answers the same question row by row' do
+    bot = create(:dca_single_asset)
+
+    assert build(:transaction, bot: bot, status: :submitted, external_status: :cancelled, external_id: 'c1').other?
+    assert build(:transaction, bot: bot, status: :submitted, external_status: :abandoned, external_id: 'a1').other?
+    assert build(:transaction, :skipped, bot: bot).other?
+    assert build(:transaction, :failed, bot: bot).other?
+    assert_not build(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'o1').other?
+    assert_not build(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: 'u1').other?
+    assert_not build(:transaction, bot: bot, status: :submitted, external_status: :closed, external_id: 'cl1').other?
+  end
+
   # == metrics cache invalidation ==
   # Metrics count an order only once it is closed; a close with no quote-exec change (an exchange that
   # closes an order with nil exec, or a legacy fill) must still invalidate the 30-day metrics cache.

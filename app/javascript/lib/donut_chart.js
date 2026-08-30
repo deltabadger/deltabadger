@@ -2,7 +2,7 @@
  * Render a 3D-perspective donut chart into an <svg> element.
  *
  * @param {SVGElement} svg   Target SVG element. Its viewBox is set automatically.
- * @param {Array}      data  [{ label, value, color, symbol, logo }, ...]  (values in any unit)
+ * @param {Array}      data  [{ label, value, color, symbol }, ...]  (values in any unit)
  * @param {Object}     opts  Optional overrides (see source for list)
  */
 export function renderDonut(svg, data, opts = {}) {
@@ -23,10 +23,6 @@ export function renderDonut(svg, data, opts = {}) {
   const valueSize   = opts.valueSize   ?? 9;
   // Match the rest of the UI: theme --font-family (Montserrat by default), with fallbacks.
   const FONT        = opts.fontFamily  ?? "var(--font-family, 'Montserrat', sans-serif)";
-  // Circular currency logo sits right next to each label (from slice.logo).
-  const showLogos   = opts.showLogos   ?? true;
-  const LOGO_R      = opts.logoRadius  ?? 9;
-  const LOGO_GAP    = opts.logoGap     ?? 6;
   // Horizontal breathing room beyond the labels (keeps the left/right margins tight).
   const padX        = opts.padX        ?? (showLabels ? 24 : 4);
   const LABEL_HEIGHT = opts.labelHeight ?? Math.ceil(labelSize + valueSize + 7); // ≥2px gap between labels
@@ -274,7 +270,6 @@ export function renderDonut(svg, data, opts = {}) {
   };
   const rimTop = cy - rOuterY;
   const rimBottom = cy + depth + rOuterY;
-  let logoSeq = 0; // unique clipPath ids per logo
   labels.forEach(l => {
     // Keep the natural angle-based text position, but never let it collapse onto the donut:
     // floor it to at least MIN_GAP outside the silhouette at the label's final row.
@@ -319,25 +314,5 @@ export function renderDonut(svg, data, opts = {}) {
     });
     pct.textContent = ((l.s.value / total) * 100).toFixed(1) + '%';
     svg.appendChild(pct);
-
-    // Circular currency logo right next to the label, just beyond its outer (anchored) edge,
-    // centred on the leader line. Clipped to a circle; removed if the image fails to load.
-    if (showLogos && l.s.logo && !l.s.isOther) {
-      const gx = l.textEnd + l.side * (LOGO_GAP + LOGO_R);
-      const gy = l.labelY;
-      const clipId = `donut-logo-clip-${logoSeq++}`;
-      const clip = make('clipPath', { id: clipId });
-      clip.appendChild(make('circle', { cx: gx, cy: gy, r: LOGO_R }));
-      svg.appendChild(clip);
-      const img = make('image', {
-        x: gx - LOGO_R, y: gy - LOGO_R, width: LOGO_R * 2, height: LOGO_R * 2,
-        'clip-path': `url(#${clipId})`,
-        preserveAspectRatio: 'xMidYMid slice',
-        href: l.s.logo
-      });
-      img.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', l.s.logo);
-      img.addEventListener('error', () => { img.remove(); clip.remove(); });
-      svg.appendChild(img);
-    }
   });
 }

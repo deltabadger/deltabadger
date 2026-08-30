@@ -24,7 +24,9 @@ class GetPortfolioSummaryTool < ApplicationMCPTool
     totals = data[:totals]
     lines << 'Portfolio Summary'
     lines << '================'
-    lines << "Total bots: #{totals[:total]} (#{totals[:working]} active, #{totals[:stopped]} stopped, #{totals[:created]} not started)"
+    buckets = ["#{totals[:working]} active", "#{totals[:stopped]} stopped", "#{totals[:created]} not started"]
+    buckets << "#{totals[:archived]} archived" if totals[:archived].to_i.positive?
+    lines << "Total bots: #{totals[:total]} (#{buckets.join(', ')})"
     lines << ''
     lines.concat(global_pnl_lines(data[:global_pnl]))
     lines << ''

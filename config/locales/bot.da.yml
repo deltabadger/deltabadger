@@ -4,9 +4,19 @@ da:
         bot_name: 'Botnavn'
         new: "Ny bot"
         welcome:
-            pick_asset_first: "Vælg et aktiv først — derefter ser du de børser, hvor det findes."
+            pick_exchange_first: "Vælg en børs først — derefter ser du de aktiver, der findes der."
             connect_alpaca_html: "For at investere i aktier skal du først forbinde Alpaca i %{settings_link}."
             settings_link: "Indstillinger"
+        dca_multi_asset:
+            add_asset: "Tilføj aktiv"
+            remove_asset: "Fjern"
+            max_assets_reached: "Du kan have op til %{max} aktiver."
+            min_assets: "En portefølje skal have mindst %{min} aktiver."
+            no_common_exchange: "Denne kombination af aktiver findes ikke på nogen understøttet børs."
+            removed_from_portfolio: "Fjernet fra porteføljen"
+            allocation_sum: "I alt"
+            normalize: "Normaliser"
+            normalize_first: "Normaliser fordelingen først."
         dca_index:
             setup:
                 step_index: "Indeks"
@@ -27,43 +37,30 @@ da:
             fewer_coins_available: "%{available} af %{requested} coins i indekset er tilgængelige på %{exchange_name}"
             num_assets: "Aktiver i indeks"
             asset_breakdown: "Aktivopdeling"
-            asset: "Aktiv"
-            amount: "Beløb"
-            avg_price: "Gns. pris"
-            value: "Værdi"
-            pl: "G/T"
+            realised_pnl: "Realiseret gevinst/tab"
+            realised_pnl_note: "Fra salg af aktiver, der er fjernet fra porteføljen. Rebalancering tæller ikke med."
+            left_the_index: "Forladt indekset"
             warning:
                 intro: "Nogle ordrer (%{skipped_count}) var under %{exchange_name}s minimumsordrestørrelse. Sådan håndterer botten det:"
         types:
             dca:
-                title: "DCA"
-                description: "Investér i ét aktiv"
-            dca_dual_asset:
-                title: "Rebalanceret DCA"
-                description: "Rebalancér to aktiver"
+                title: "DCA / Rebalancering"
+                description: "Vælg et eller flere aktiver"
             index_portfolio:
-                title: "Indeksportefølje"
-                description: "Din personlige krypto-ETF"
-            custom_portfolio:
-                title: "Tilpasset portefølje"
-                description: "Rebalancér valgfrit aktivmix"
+                title: "Indeks"
+                description: "Byg din egen ETF"
             signal:
-                title: "Signal"
-                description: "Handl baseret på eksterne signaler"
-            dca_stocks:
-                title: "DCA (aktier)"
-                description: "Køb aktier med Alpaca"
-        dca_stocks:
-            connect_alpaca_intro: "Forbind din Alpaca-konto for at begynde at investere i aktier"
-            pick_stock: "Søg efter en aktie"
-            no_results: "Ingen aktier fundet"
-            stock_not_found: "Aktie ikke fundet på Alpaca"
-            mode_paper: "Papirhandel"
-            mode_live: "Live handel"
+                title: "Signaler"
+                description: "Handl baseret på webhook"
+        exchange_menu:
+            no_alternative: 'Ingen anden understøttet børs udbyder %{assets}.'
+            locked_while_running: 'Stop botten for at flytte den til en anden børs.'
+            locked_while_rebalancing: 'En rebalancering er stadig i gang — børsen kan ændres, når den er færdig.'
         status:
             exchange_retired: 'Denne børs findes ikke længere — flyt botten til en anden.'
             setting_orders: "Opretter ordrer…"
             paused: "Sat på pause"
+            archived: "Arkiveret"
             next_try: "Næste forsøg om"
             waiting: "Venter på, at alle betingelser opfyldes"
             listening: "Lytter"
@@ -139,6 +136,10 @@ da:
                 average_price: 'Gennemsnitspris'
                 bought: Købt
                 chart:
+                    orders: 'Vis ordrer'
+                    prices: 'Vis priser'
+                    modes: 'Diagramtilstand'
+                    pnl: 'P/L'
                     total_invested: 'Samlet investeret'
                     value: Værdi
                 csv_download_html: 'Tabellen ovenfor viser kun de seneste ti transaktioner. Den fulde rapport kan downloades i CSV-format nedenfor.'
@@ -170,6 +171,7 @@ da:
         limit_sell: 'Limitsalg'
         messages:
             do_you_want_to_delete: 'Vil du slette denne bot?'
+            do_you_want_to_archive: 'Vil du arkivere denne bot?'
             symbol_not_supported: "%{symbol} understøttes ikke"
             specify_percentage_limit_order: "Angiv en procentdel for limitordrer"
             smart_intervals_above_minimum: "Smarte intervallers værdi skal være større end %{minimum}"
@@ -223,17 +225,45 @@ da:
         warning:
             dca_single_asset:
                 intro: "Beløbet for %{missed_symbol} var under %{exchange_name}s minimumsordrestørrelse (%{missed_minimum_base_size} %{missed_symbol} eller %{missed_minimum_quote_size} %{quote_symbol} for %{missed_symbol}). Sådan håndterer botten det:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Begge ordrebeløb for %{base0_symbol} og %{base1_symbol} er under %{exchange_name}s minimumsordrestørrelser (%{base0_minimum_base_size} %{base0_symbol} eller %{base0_minimum_quote_size} %{quote_symbol} for %{base0_symbol} og %{base1_minimum_base_size} %{base1_symbol} eller %{base1_minimum_quote_size} %{quote_symbol} for %{base1_symbol}). Sådan håndterer botten det:"
-                one_below:
-                    intro: "Din bot købte %{bought_quote_amount} %{quote_symbol} af %{bought_symbol}, men beløbet for %{missed_symbol} var under %{exchange_name}s minimumsordrestørrelse (%{missed_minimum_base_size} %{missed_symbol} eller %{missed_minimum_quote_size} %{quote_symbol} for %{missed_symbol}). Sådan håndterer botten det:"
             buffer_explanation:
                 one: "Det manglende beløb er bufferet og bruges ved næste planlagte ordre, så din tidsplan og allokering holdes så tæt på børsminimum som muligt."
                 other: "De manglende beløb er bufferet og bruges ved de næste planlagte ordrer, så din tidsplan og allokering holdes så tæt på børsminimum som muligt."
             title: "Tillykke! Din bot kører."
             general_note: "Børsminimum og nødvendige rebalanceringsbeløb ændrer sig. Transaktioner kan nogle gange se uregelmæssige ud, men botten sigter altid efter din ønskede allokering og tidsplan, så der kræves ingen ekstra indsats."
+        redeploy:
+            prompt: "Geninvestér %{amount} %{symbol}?"
+            confirm: "Ja"
+            decline: "Nej"
+            started: "Pengene ryger tilbage i kurven."
+            in_flight: "En geninvestering er stadig i gang. Prøv igen, når den er færdig."
+            unsupported: "Denne bot har ingen provenu at geninvestere."
+            halted: "Geninvesteringen er ubekræftet — tjek din børs"
+            resolve: "Ryd"
+            resolve_confirm: "Fortsæt kun, hvis du har tjekket din børs, og ingen købsordre stadig er åben."
+            still_open: "Ordre %{order_id} er stadig åben på din børs. Vent, til den er afviklet."
+            resolved: "Ryddet. Botten kan handle igen."
+        liquidation:
+            sell: "Sælg"
+            sell_confirm: "Sælg denne position? Den lukkes til markedspris."
+            started: "Sælger positionen."
+            market_closed: "Markedet er lukket lige nu. Prøv igen, når det åbner."
+            unsupported: "Denne bot har ingen fjernede aktiver at sælge."
+            halted: "Salget er ubekræftet — tjek din børs"
+            resolve: "Ryd"
+            resolve_confirm: "Fortsæt kun, hvis du har tjekket din børs, og ingen salgsordre stadig er åben."
+            still_open: "Ordre %{order_id} er stadig åben på din børs. Vent, til den er afregnet."
+            resolved: "Ubekræftet salg ryddet."
         settings:
+            rebalance:
+                sentence_html: "Rebalancér når et aktiv afviger mere end <span>%{value_html} %</span> fra sit mål"
+                note: "Kører videre, selv når DCA-planen er stoppet. Bruger altid markedsordrer."
+                drift: "Porteføljen er %{drift} % fra sin målfordeling"
+                below_minimum: "— for lille til denne børs’ minimum"
+                paused: "Rebalancering sat på pause — tjek din børs"
+                resume: "Genoptag"
+                resume_confirm: "Fortsæt kun, hvis du har tjekket din børs, og ingen rebalanceringsordre stadig er åben."
+                still_open: "Ordre %{order_id} er stadig åben på din børs. Vent til den er afviklet."
+                resolved: "Rebalancering genoptaget."
             starting_time:
                 modes:
                     options:

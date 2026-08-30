@@ -21,6 +21,15 @@ class AccountTransaction::SyncTrackerJobTest < ActiveSupport::TestCase
     AccountTransaction::SyncTrackerJob.perform_now(@user.id, [@api_key_binance.id, @api_key_kraken.id])
   end
 
+  test 'a tracker sync warms the tracker ledger once for the user' do
+    sync_binance = mock('sync_binance')
+    sync_binance.expects(:sync!).once.returns(Result::Success.new(5))
+    AccountTransactionSync.expects(:new).with(@api_key_binance).returns(sync_binance)
+    Tracker::LedgerJob.expects(:perform_later).with(@user.id).once
+
+    AccountTransaction::SyncTrackerJob.perform_now(@user.id, [@api_key_binance.id])
+  end
+
   test 'skips failed exchange and continues to next' do
     sync_binance = mock('sync_binance')
     sync_binance.expects(:sync!).once.raises(StandardError, 'API error')
@@ -65,6 +74,28 @@ class AccountTransaction::SyncTrackerJobTest < ActiveSupport::TestCase
     AccountTransaction::SyncTrackerJob.perform_now(@user.id, [@api_key_binance.id])
 
     assert_equal 'Invalid API-key', @api_key_binance.reload.last_sync_error
+  end
+
+  # Issue #153: the Kraken key that cannot read the ledger still trades, so the sync must record
+  # the failure and explain it without condemning the key.
+  test 'a permission failure is reported as such and leaves the key usable' do
+    sync_kraken = mock('sync_kraken')
+    sync_kraken.expects(:sync!).once.returns(Result::Failure.new('EGeneral:Permission denied'))
+    AccountTransactionSync.expects(:new).with(@api_key_kraken).returns(sync_kraken)
+
+    Turbo::StreamsChannel.expects(:broadcast_append_to).with(
+      "user_#{@user.id}", :sync,
+      target: 'flash',
+      partial: 'tracker/sync_key_error',
+      locals: { exchange_name: 'Kraken', message: 'EGeneral:Permission denied',
+                reason: :permission, capability: :transactions }
+    )
+
+    AccountTransaction::SyncTrackerJob.perform_now(@user.id, [@api_key_kraken.id])
+
+    assert_equal 'correct', @api_key_kraken.reload.status
+    assert_equal 'EGeneral:Permission denied', @api_key_kraken.last_sync_error,
+                 'the failure must still persist — TrackerController#index rebuilds the banner from it'
   end
 
   test 'matches transfers for the tracked user after syncing' do

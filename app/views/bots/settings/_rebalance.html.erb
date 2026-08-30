@@ -1,0 +1,36 @@
+<%# The rebalance trigger. Unlike every other widget here it does not gate the DCA tick — it is its
+    own leg, driven by drift rather than the clock, which is why the note spells out that it keeps
+    running once the schedule is stopped. %>
+<% active = bot.rebalance_enabled? %>
+<%= form_with model: bot,
+              url: path,
+              method: method,
+              class: "widget rule #{active ? "rule--active" : "rule--inactive"}",
+              data: {
+                controller: "class-toggle form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations",
+                class_toggle_target: "togglable",
+                class_toggle_toggle_classes_value: ["rule--active", "rule--inactive"],
+                turbo_stream: true
+              } do |f| %>
+  <div class="toggle-group">
+    <div class="toggle">
+      <%# Not `disabled: bot.working?` like its siblings, on purpose: this leg is independent of the
+          DCA schedule, so locking it while the bot runs would defeat the point of it. %>
+      <%= f.check_box :rebalance_enabled, data: { action: "change->form--submit#submit change->class-toggle#toggle" } %>
+      <div class="toggle__style"></div>
+    </div>
+    <div class="toggle-group__info">
+      <div class="toggle-group__info__label">
+        <%= f.label :rebalance_enabled, class: "conversational conversational--small conversational--disabled" do %>
+          <% value_html = content_tag(:div) do %>
+            <% current = bot.rebalance_threshold * 100 %>
+            <% value = current.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') %>
+            <%= f.number_field :rebalance_threshold, value: value, class: 'sinput numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, style: "margin-left: 0.125rem; width: 50px;" %>
+          <% end %>
+          <%= t("bot.settings.rebalance.sentence_html", value_html: value_html.html_safe).html_safe %>
+          <%= render partial: "bots/settings/rebalance_info", locals: { bot: bot } %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+<% end %>

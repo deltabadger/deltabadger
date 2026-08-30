@@ -1,0 +1,112 @@
+<% hide_money = current_user.hide_balances? %>
+<%# Computed once and handed to both the filter and the table: they ask the same question of the
+    same ledger, and the filter can only offer what the table has. %>
+<% position_rows = tracker_position_rows(@figures) %>
+<% type_filters = tracker_type_filters(@account_transactions) %>
+<% status_filters = tracker_status_filters(position_rows) %>
+<%# One bar over two panes, as on the bot view. Each pane is `display: contents`, so its own
+    contextual filter sits up in the bar and its table below — while both stay inside the pane's
+    `order-filter` scope, which is what lets one control filter the rows underneath it. %>
+<div class="tracker-record" data-controller="tracker--record">
+  <div class="tracker-record__switch filters" data-action="segmented:change->tracker--record#mark segmented:change->tracker--record#show segmented:change->tracker--record#hold">
+    <%= render 'shared/segmented', fluid: true, label: t('tracker.positions'), key: 'tracker-record',
+               options: [{ value: 'pos', label: t('tracker.positions'), active: true },
+                         { value: 'tx', label: t('tracker.transactions') }] %>
+  </div>
+
+  <div class="tracker-record__pane tracker-record__pane--off" data-pane="tx"
+       data-controller="order-filter" data-tracker--record-target="pane">
+    <%# The hold straddles the filter: `mark` reads the scroll offset while the layout is still
+        clean, `hold` measures the shortened document. Reading it after the rows are hidden returns
+        the offset the browser has already clamped, which is the jump itself. %>
+    <div class="tracker-record__filters filters" data-action="segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold">
+      <% if type_filters.any? %>
+        <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.type'), options: type_filters %>
+      <% end %>
+    </div>
+    <div class="tracker-record__table widget widget--table" data-controller="table-fit">
+      <% if @account_transactions.any? %>
+        <table class="table">
+          <thead>
+            <tr>
+              <th class="text-left"><%= t('tracker.columns.date') %></th>
+              <th class="tracker-exchange-icon"></th>
+              <th class="text-left"><%= t('tracker.columns.type') %></th>
+              <th class="text-left"><%= t('tracker.columns.base') %></th>
+              <%# The same three figures the bot log drops: what was traded, what it cost, and what
+                  was paid to trade it. The price is a market level, not a balance, and stays. %>
+              <% unless hide_money %><th><%= t('tracker.columns.amount') %></th><% end %>
+              <%# Price is the venue's, in the venue's own currency per row, as Fee is. Value is the one
+                  column in the reader's currency, so its unit is named here once rather than on every
+                  row — and a bare number in that cell is unambiguous. %>
+              <th><%= t('tracker.columns.price') %></th>
+              <% unless hide_money %>
+                <th><%= t('tracker.columns.quote_amount') %> <small><%= current_user.denomination.unit %></small></th>
+                <th><%= t('tracker.columns.fee') %></th>
+              <% end %>
+              <th><%= t('tracker.columns.bot') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @account_transactions.each do |at| %>
+              <%= render 'transaction_row', at: at %>
+            <% end %>
+          </tbody>
+        </table>
+      <% else %>
+        <p class="tracker-empty"><%= t('tracker.no_results') %></p>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="tracker-record__pane" data-pane="pos"
+       data-controller="order-filter" data-tracker--record-target="pane">
+    <%# The hold straddles the filter: `mark` reads the scroll offset while the layout is still
+        clean, `hold` measures the shortened document. Reading it after the rows are hidden returns
+        the offset the browser has already clamped, which is the jump itself. %>
+    <div class="tracker-record__filters filters" data-action="segmented:change->tracker--record#mark segmented:change->order-filter#filter segmented:change->tracker--record#hold">
+      <% if status_filters.any? %>
+        <%= render 'shared/segmented', fluid: true, label: t('tracker.columns.status'), options: status_filters %>
+      <% end %>
+    </div>
+    <div class="tracker-record__table widget widget--table tracker-positions" data-controller="table-fit">
+      <% if @scoped_ledger.nil? %>
+        <div class="loader--small" style="position: unset; margin: 2rem auto;"></div>
+      <% else %>
+        <table class="table">
+          <thead>
+            <tr>
+              <th class="text-left"><%= t('tracker.columns.opened') %></th>
+              <th class="text-left"><%= t('tracker.columns.name') %></th>
+              <th class="text-left"><%= t('tracker.columns.type') %></th>
+              <th class="text-left"><%= t('tracker.columns.status') %></th>
+              <% unless hide_money %>
+                <th><%= t('tracker.columns.invested') %></th>
+                <th><%= t('tracker.columns.avg_buy') %></th>
+                <th><%= t('tracker.columns.price') %></th>
+                <%# The cash P/L runs unheaded beside the percentage: one heading over the pair. %>
+                <th></th>
+              <% end %>
+              <th><%= t('data_labels.pnl') %></th>
+              <th><%= t('tracker.columns.hold') %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= render partial: 'positions_row', collection: position_rows, as: :row,
+                       locals: { hide_money: hide_money } %>
+          </tbody>
+        </table>
+      <% end %>
+    </div>
+  </div>
+
+  <div class="tracker-record__actions">
+    <%= form_tag tracker_path, method: :get, class: 'tracker-date-range', data: { controller: 'form--submit' } do %>
+      <% if params[:exchange_id].present? %>
+        <%= hidden_field_tag :exchange_id, params[:exchange_id] %>
+      <% end %>
+      <input type="date" name="from" value="<%= @date_from %>" class="sinput" data-action="change->form--submit#submit">
+      <input type="date" name="to" value="<%= @date_to %>" class="sinput" data-action="change->form--submit#submit">
+    <% end %>
+  </div>
+</div>

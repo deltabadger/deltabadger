@@ -1,0 +1,25 @@
+<% type = row[:asset] && holding_type_label(row[:asset]) %>
+<tr class="tracker-row" data-order-filter-target="row" data-order-type="all <%= row[:status] %>">
+  <td class="text-left tracker-row__when table__when">
+    <%= table_date(row[:opened], current_user.time_zone) if row[:opened] %>
+    <% if row[:closed] %><small>→ <%= table_date(row[:closed], current_user.time_zone) %></small><% end %>
+  </td>
+  <td class="text-left"><span class="tracker-row__asset"><% if row[:asset] %><%= render 'assets/logo', image_url: row[:asset].image_url, color: row[:asset].color %><% end %><%= row[:symbol] %></span></td>
+  <td class="text-left"><% if type %><span class="pill pill--quiet"><%= type %></span><% end %></td>
+  <td class="text-left"><span class="<%= pill_class(row[:status]) %>"><%= t("tracker.record.#{row[:status]}") %></span></td>
+  <% unless hide_money %>
+    <td><%= @denomination.format(row[:invested]) %></td>
+    <td><%= @denomination.format(row[:avg_buy]) %></td>
+    <td><%= @denomination.format(row[:price]) %></td>
+    <%# The percentage is the reading and stays while balances are hidden; the cash before it is
+        the balance, and goes — column and all. Its cell is still drawn on a row with no reading,
+        so the columns stay in line. %>
+    <td class="tracker-row__cash"><% if row[:cash] %><%= '+' unless row[:cash].negative? %><%= @denomination.format(row[:cash]) %><% end %></td>
+  <% end %>
+  <% if row[:percent] %>
+    <td class="<%= row[:percent].negative? ? 'text-danger' : 'text-success' %>"><%= tracker_percent(row[:percent]) %></td>
+  <% else %>
+    <td title="<%= t('tracker.basis_incomplete') %>"><%= no_value %></td>
+  <% end %>
+  <td><%= tracker_holding_period(row[:opened], row[:closed] || Time.current) if row[:opened] %></td>
+</tr>

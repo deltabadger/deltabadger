@@ -4,9 +4,19 @@ sv:
         bot_name: 'Botnamn'
         new: "Ny bot"
         welcome:
-            pick_asset_first: "Välj en tillgång först — sedan ser du börserna där den finns."
+            pick_exchange_first: "Välj en börs först — sedan ser du tillgångarna som finns där."
             connect_alpaca_html: "För att investera i aktier, anslut först Alpaca i %{settings_link}."
             settings_link: "Inställningar"
+        dca_multi_asset:
+            add_asset: "Lägg till tillgång"
+            remove_asset: "Ta bort"
+            max_assets_reached: "Du kan ha upp till %{max} tillgångar."
+            min_assets: "En portfölj måste innehålla minst %{min} tillgångar."
+            no_common_exchange: "Den här kombinationen av tillgångar finns inte på någon börs som stöds."
+            removed_from_portfolio: "Borttagna från portföljen"
+            allocation_sum: "Totalt"
+            normalize: "Normalisera"
+            normalize_first: "Normalisera fördelningen först."
         dca_index:
             setup:
                 step_index: "Index"
@@ -27,43 +37,30 @@ sv:
             fewer_coins_available: "%{available} av %{requested} mynt i indexet finns tillgängliga på %{exchange_name}"
             num_assets: "Tillgångar i index"
             asset_breakdown: "Tillgångsfördelning"
-            asset: "Tillgång"
-            amount: "Belopp"
-            avg_price: "Snittpris"
-            value: "Värde"
-            pl: "V/F"
+            realised_pnl: "Realiserad vinst/förlust"
+            realised_pnl_note: "Från försäljning av tillgångar som tagits bort från portföljen. Ombalansering räknas inte."
+            left_the_index: "Lämnat indexet"
             warning:
                 intro: "Vissa ordrar (%{skipped_count}) var under %{exchange_name}s minsta orderstorlek. Så här hanterar boten det:"
         types:
             dca:
-                title: "DCA"
-                description: "Investera i en tillgång"
-            dca_dual_asset:
-                title: "Ombalanserad DCA"
-                description: "Ombalansera två tillgångar"
+                title: "DCA / Ombalansering"
+                description: "Välj en eller flera tillgångar"
             index_portfolio:
-                title: "Indexportfölj"
-                description: "Din personliga krypto-ETF"
-            custom_portfolio:
-                title: "Egen portfölj"
-                description: "Ombalansera egen tillgångsmix"
+                title: "Index"
+                description: "Bygg din egen ETF"
             signal:
-                title: "Signal"
-                description: "Handla baserat på externa signaler"
-            dca_stocks:
-                title: "DCA (aktier)"
-                description: "Köp aktier via Alpaca"
-        dca_stocks:
-            connect_alpaca_intro: "Anslut ditt Alpaca-konto för att börja investera i aktier"
-            pick_stock: "Sök efter en aktie"
-            no_results: "Inga aktier hittades"
-            stock_not_found: "Aktien hittades inte på Alpaca"
-            mode_paper: "Pappershandel"
-            mode_live: "Riktig handel"
+                title: "Signaler"
+                description: "Handla baserat på webhook"
+        exchange_menu:
+            no_alternative: 'Ingen annan börs som stöds erbjuder %{assets}.'
+            locked_while_running: 'Stoppa boten för att flytta den till en annan börs.'
+            locked_while_rebalancing: 'En ombalansering pågår fortfarande — börsen kan bytas när den är klar.'
         status:
             exchange_retired: 'Den här börsen finns inte längre — flytta boten till en annan.'
             setting_orders: "Lägger ordrar…"
             paused: "Pausad"
+            archived: "Arkiverad"
             next_try: "Nästa försök om"
             waiting: "Väntar på att alla villkor ska uppfyllas"
             listening: "Lyssnar"
@@ -139,6 +136,10 @@ sv:
                 average_price: 'Snittpris'
                 bought: Köpt
                 chart:
+                    orders: 'Visa ordrar'
+                    prices: 'Visa priser'
+                    modes: 'Diagramläge'
+                    pnl: 'P/L'
                     total_invested: 'Totalt investerat'
                     value: Värde
                 csv_download_html: 'Tabellen ovan visar bara de senaste tio transaktionerna. Den fullständiga rapporten kan laddas ner i CSV-format nedan.'
@@ -170,6 +171,7 @@ sv:
         limit_sell: 'Limitsälj'
         messages:
             do_you_want_to_delete: 'Vill du ta bort denna bot?'
+            do_you_want_to_archive: 'Vill du arkivera denna bot?'
             symbol_not_supported: "%{symbol} stöds inte"
             specify_percentage_limit_order: "Ange procentsats vid limitorder"
             smart_intervals_above_minimum: "Smarta intervall-beloppet måste vara större än %{minimum}"
@@ -223,17 +225,45 @@ sv:
         warning:
             dca_single_asset:
                 intro: "Beloppet för %{missed_symbol} var under %{exchange_name}s minsta orderstorlek (%{missed_minimum_base_size} %{missed_symbol} eller %{missed_minimum_quote_size} %{quote_symbol} för %{missed_symbol}). Så här hanterar boten det:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Båda orderbeloppen för %{base0_symbol} och %{base1_symbol} är under %{exchange_name}s minsta orderstorlekar (%{base0_minimum_base_size} %{base0_symbol} eller %{base0_minimum_quote_size} %{quote_symbol} för %{base0_symbol} och %{base1_minimum_base_size} %{base1_symbol} eller %{base1_minimum_quote_size} %{quote_symbol} för %{base1_symbol}). Så här hanterar boten det:"
-                one_below:
-                    intro: "Din bot köpte %{bought_quote_amount} %{quote_symbol} av %{bought_symbol}, men beloppet för %{missed_symbol} var under %{exchange_name}s minsta orderstorlek (%{missed_minimum_base_size} %{missed_symbol} eller %{missed_minimum_quote_size} %{quote_symbol} för %{missed_symbol}). Så här hanterar boten det:"
             buffer_explanation:
                 one: "Det missade beloppet har buffrats och kommer att användas vid nästa schemalagda order, så att ditt schema och din allokering följs så nära börsens minimigränser tillåter."
                 other: "De missade beloppen har buffrats och kommer att användas vid nästa schemalagda ordrar, så att ditt schema och din allokering följs så nära börsens minimigränser tillåter."
             title: "Grattis! Din bot körs."
             general_note: "Börsminiminivåer och nödvändiga ombalanseringsbelopp ändras. Transaktioner kan ibland se oregelbundna ut, men boten siktar alltid på din önskade allokering och schema, så inget extra arbete behövs."
+        redeploy:
+            prompt: "Återinvestera %{amount} %{symbol}?"
+            confirm: "Ja"
+            decline: "Nej"
+            started: "Pengarna går tillbaka in i korgen."
+            in_flight: "En återinvestering pågår fortfarande. Försök igen när den är klar."
+            unsupported: "Den här boten har inga medel att återinvestera."
+            halted: "Återinvesteringen är obekräftad — kontrollera din börs"
+            resolve: "Rensa"
+            resolve_confirm: "Fortsätt bara om du har kontrollerat din börs och ingen köporder fortfarande är öppen."
+            still_open: "Order %{order_id} är fortfarande öppen på din börs. Vänta tills den är avslutad."
+            resolved: "Rensat. Boten kan handla igen."
+        liquidation:
+            sell: "Sälj"
+            sell_confirm: "Sälja den här positionen? Den stängs till marknadspris."
+            started: "Säljer positionen."
+            market_closed: "Marknaden är stängd just nu. Försök igen när den öppnar."
+            unsupported: "Den här botten har inga borttagna tillgångar att sälja."
+            halted: "Försäljningen är obekräftad — kontrollera din börs"
+            resolve: "Rensa"
+            resolve_confirm: "Fortsätt bara om du har kontrollerat din börs och ingen säljorder fortfarande är öppen."
+            still_open: "Order %{order_id} är fortfarande öppen på din börs. Vänta tills den har avräknats."
+            resolved: "Obekräftad försäljning rensad."
         settings:
+            rebalance:
+                sentence_html: "Rebalansera när en tillgång avviker mer än <span>%{value_html} %</span> från sitt mål"
+                note: "Fortsätter köra även när DCA-schemat är stoppat. Använder alltid marknadsordrar."
+                drift: "Portföljen är %{drift} % från sin målfördelning"
+                below_minimum: "— för litet för den här börsens minimum"
+                paused: "Rebalansering pausad — kontrollera din börs"
+                resume: "Återuppta"
+                resume_confirm: "Fortsätt bara om du har kontrollerat din börs och ingen rebalanseringsorder fortfarande är öppen."
+                still_open: "Order %{order_id} är fortfarande öppen på din börs. Vänta tills den har avräknats."
+                resolved: "Rebalansering återupptagen."
             starting_time:
                 modes:
                     options:

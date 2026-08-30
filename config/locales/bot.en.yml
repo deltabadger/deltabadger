@@ -4,9 +4,19 @@ en:
         bot_name: 'Bot name'
         new: "New bot"
         welcome:
-            pick_asset_first: "Pick an asset first — then see the exchanges that support it."
+            pick_exchange_first: "Pick an exchange first — then see the assets it supports."
             connect_alpaca_html: "To invest in stocks, connect Alpaca in %{settings_link} first."
             settings_link: "Settings"
+        dca_multi_asset:
+            add_asset: "Add asset"
+            remove_asset: "Remove"
+            max_assets_reached: "You can hold up to %{max} assets."
+            min_assets: "A portfolio needs at least %{min} assets."
+            no_common_exchange: "This combination of assets doesn't exist on any supported exchange."
+            removed_from_portfolio: "Removed from portfolio"
+            allocation_sum: "Total"
+            normalize: "Normalize"
+            normalize_first: "Normalize allocation first."
         dca_index:
             setup:
                 step_index: "Index"
@@ -27,43 +37,30 @@ en:
             fewer_coins_available: "%{available} of %{requested} coins in the index are available on %{exchange_name}"
             num_assets: "Assets in index"
             asset_breakdown: "Asset Breakdown"
-            asset: "Asset"
-            amount: "Amount"
-            avg_price: "Avg. Price"
-            value: "Value"
-            pl: "P/L"
+            realised_pnl: "Realised P/L"
+            realised_pnl_note: "From selling assets removed from the portfolio. Rebalancing is not counted."
+            left_the_index: "Left the index"
             warning:
                 intro: "Some orders (%{skipped_count}) were below the %{exchange_name} minimum order size. Here's how the bot handles it:"
         types:
             dca:
-                title: "DCA"
-                description: "Invest in one asset"
-            dca_dual_asset:
-                title: "Rebalanced DCA"
-                description: "Rebalance two assets"
+                title: "DCA / Rebalance"
+                description: "Pick one or more assets"
             index_portfolio:
-                title: "Index Portfolio"
-                description: "Your personal crypto ETF"
-            custom_portfolio:
-                title: "Custom Portfolio"
-                description: "Rebalance custom asset mix"
+                title: "Index"
+                description: "Build your personal ETF"
             signal:
-                title: "Signal"
-                description: "Trade based on external signals"
-            dca_stocks:
-                title: "DCA (stocks)"
-                description: "Buy stocks with Alpaca"
-        dca_stocks:
-            connect_alpaca_intro: "Connect your Alpaca account to start investing in stocks"
-            pick_stock: "Search for a stock"
-            no_results: "No stocks found"
-            stock_not_found: "Stock not found on Alpaca"
-            mode_paper: "Paper trading"
-            mode_live: "Live trading"
+                title: "Signals"
+                description: "Trade based on webhook"
+        exchange_menu:
+            no_alternative: 'No other supported exchange lists %{assets}.'
+            locked_while_running: 'Stop the bot to move it to another exchange.'
+            locked_while_rebalancing: 'A rebalance is still in progress — the exchange can change once it completes.'
         status:
             exchange_retired: 'This exchange no longer operates — switch the bot to another one.'
             setting_orders: "Setting orders…"
             paused: "Paused"
+            archived: "Archived"
             next_try: "Next try in"
             waiting: "Waiting for all conditions to be met"
             listening: "Listening"
@@ -139,6 +136,10 @@ en:
                 average_price: 'Average price'
                 bought: Bought
                 chart:
+                    orders: 'Show orders'
+                    prices: 'Show prices'
+                    modes: 'Chart mode'
+                    pnl: 'P/L'
                     total_invested: 'Total invested'
                     value: Value
                 csv_download_html: 'The table above shows only the last ten transactions. The full report is available to download in CSV format below.'
@@ -170,6 +171,7 @@ en:
         limit_sell: 'Limit sell'
         messages:
             do_you_want_to_delete: 'Do you want to delete this bot?'
+            do_you_want_to_archive: 'Do you want to archive this bot?'
             symbol_not_supported: "%{symbol} is not supported"
             specify_percentage_limit_order: "Specify percentage when creating a limit order"
             smart_intervals_above_minimum: "Smart intervals value should be greater than %{minimum}"
@@ -223,17 +225,47 @@ en:
         warning:
             dca_single_asset:
                 intro: "The %{missed_symbol} amount was below the %{exchange_name} minimum order size (%{missed_minimum_base_size} %{missed_symbol} or %{missed_minimum_quote_size} %{quote_symbol} for %{missed_symbol}). Here's how the bot handles it:"
-            dca_dual_asset:
-                both_below:
-                    intro: "However, both %{base0_symbol} and %{base1_symbol} order amounts are below the %{exchange_name} minimum order sizes (%{base0_minimum_base_size} %{base0_symbol} or %{base0_minimum_quote_size} %{quote_symbol} for %{base0_symbol} and %{base1_minimum_base_size} %{base1_symbol} or %{base1_minimum_quote_size} %{quote_symbol} for %{base1_symbol}). Here's how the bot handles it:"
-                one_below:
-                    intro: "Your bot bought %{bought_quote_amount} %{quote_symbol} of %{bought_symbol}, but the %{missed_symbol} amount was below the %{exchange_name} minimum order size (%{missed_minimum_base_size} %{missed_symbol} or %{missed_minimum_quote_size} %{quote_symbol} for %{missed_symbol}). Here's how the bot handles it:"
             buffer_explanation:
                 one: "The missed amount has been buffered and will be used with the next scheduled order, ensuring your schedule and allocation are maintained as closely as exchange minimums allow."
                 other: "The missed amounts have been buffered and will be used with the next scheduled orders, ensuring your schedule and allocation are maintained as closely as exchange minimums allow."
             title: "Congratulations! Your bot is running."
             general_note: "Exchange minimums and required rebalancing amounts change. Transactions might sometimes look irregular, but the bot always targets your desired allocation and schedule, so no extra work is needed."
+        redeploy:
+            prompt: "Redeploy %{amount} %{symbol}?"
+            confirm: "Yes"
+            decline: "No"
+            started: "Putting the money back into the basket."
+            in_flight: "A redeploy is still working. Try again once it settles."
+            declined: "Taken off the table."
+            market_closed: "The market is closed right now. Try again once it opens."
+            unsupported: "This bot has no proceeds to redeploy."
+            halted: "Redeploy unconfirmed — check your exchange"
+            resolve: "Clear"
+            resolve_confirm: "Only continue if you have checked your exchange and no buy order is still open."
+            still_open: "Order %{order_id} is still open on your exchange. Wait for it to settle first."
+            resolved: "Cleared. The bot can trade again."
+        liquidation:
+            sell: "Sell"
+            sell_confirm: "Sell this position? It is closed at market price."
+            started: "Selling the position."
+            market_closed: "The market is closed right now. Try again once it opens."
+            unsupported: "This bot has no removed assets to sell."
+            halted: "Sale unconfirmed — check your exchange"
+            resolve: "Clear"
+            resolve_confirm: "Only continue if you have checked your exchange and no sell order is still open."
+            still_open: "Order %{order_id} is still open on your exchange. Wait for it to settle first."
+            resolved: "Unconfirmed sale cleared."
         settings:
+            rebalance:
+                sentence_html: "Rebalance when an asset drifts more than <span>%{value_html} %</span> from its target"
+                note: "Keeps running while the DCA schedule is stopped. Always uses market orders."
+                drift: "The portfolio is %{drift} % off its target split"
+                below_minimum: "— too small to trade at this exchange’s minimum"
+                paused: "Rebalancing paused — check your exchange"
+                resume: "Resume"
+                resume_confirm: "Only continue if you have checked your exchange and no rebalancing order is still open."
+                still_open: "Order %{order_id} is still open on your exchange. Wait for it to settle first."
+                resolved: "Rebalancing resumed."
             starting_time:
                 modes:
                     options:

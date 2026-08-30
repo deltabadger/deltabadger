@@ -3,7 +3,12 @@
 
 <div id="settings" class="column gap-1">
   <%= render partial: "bots/dca_single_assets/settings/main", locals: { bot: bot, method: method, path: path } %>
-  <%= render partial: "bots/settings/smart_intervals", locals: { bot: bot, method: method, path: path } %>
+  <%# Smart Intervals subdivides a base-denominated sell (or a buy); it has no quote-sell form yet,
+      so the rule is not offered while the bot sells for a fixed quote amount. The stored setting is
+      untouched and comes back with the other two states. %>
+  <% unless bot.sells_quote_amount? %>
+    <%= render partial: "bots/settings/smart_intervals", locals: { bot: bot, method: method, path: path } %>
+  <% end %>
   <%= render partial: "bots/settings/limit_orders", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/starting_time", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/price_limit", locals: { bot: bot, method: method, path: path } %>

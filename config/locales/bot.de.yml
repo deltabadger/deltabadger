@@ -4,9 +4,19 @@ de:
         bot_name: 'Bot-Name'
         new: "Neuer Bot"
         welcome:
-            pick_asset_first: "Wähl zuerst einen Asset — danach siehst du die Börsen, auf denen er verfügbar ist."
+            pick_exchange_first: "Wähl zuerst eine Börse — danach siehst du die Assets, die dort verfügbar sind."
             connect_alpaca_html: "Um in Aktien zu investieren, verbinde zuerst Alpaca in den %{settings_link}."
             settings_link: "Einstellungen"
+        dca_multi_asset:
+            add_asset: "Asset hinzufügen"
+            remove_asset: "Entfernen"
+            max_assets_reached: "Du kannst bis zu %{max} Assets halten."
+            min_assets: "Ein Portfolio benötigt mindestens %{min} Assets."
+            no_common_exchange: "Diese Asset-Kombination ist an keiner unterstützten Börse verfügbar."
+            removed_from_portfolio: "Aus dem Portfolio entfernt"
+            allocation_sum: "Gesamt"
+            normalize: "Normalisieren"
+            normalize_first: "Zuerst die Allokation normalisieren."
         dca_index:
             setup:
                 step_index: "Index"
@@ -27,36 +37,30 @@ de:
             fewer_coins_available: "%{available} von %{requested} Coins im Index sind auf %{exchange_name} verfügbar"
             num_assets: "Assets im Index"
             asset_breakdown: "Asset-Aufschlüsselung"
-            asset: "Asset"
-            amount: "Betrag"
-            avg_price: "Ø Preis"
-            value: "Wert"
-            pl: "Gewinn/Verlust"
+            realised_pnl: "Realisierter G/V"
+            realised_pnl_note: "Aus dem Verkauf von Werten, die aus dem Portfolio entfernt wurden. Rebalancing zählt nicht."
+            left_the_index: "Nicht mehr im Index"
             warning:
                 intro: "Einige Orders (%{skipped_count}) lagen unter der minimalen Bestellgröße von %{exchange_name}. So geht der Bot damit um:"
         types:
             dca:
-                title: "DCA"
-                description: "In einen Vermögenswert investieren"
-            dca_dual_asset:
-                title: "Rebalanciertes DCA"
-                description: "Zwei Assets rebalancieren"
-            legacy:
-                title: "Legacy Bot"
-                description: "DCA + Auszahlungen"
+                title: "DCA / Rebalancing"
+                description: "Wähle ein oder mehrere Assets"
             index_portfolio:
-                title: "Index Portfolio"
-                description: "Dein persönlicher Krypto-ETF"
-            custom_portfolio:
-                title: "Individuelles Portfolio"
-                description: "Rebalanciere individuelle Vermögensmischung"
+                title: "Index"
+                description: "Baue deinen eigenen ETF"
             signal:
-                title: "Signal"
-                description: "Handeln basierend auf externen Signalen"
+                title: "Signale"
+                description: "Handeln per Webhook"
+        exchange_menu:
+            no_alternative: 'Keine andere unterstützte Börse führt %{assets}.'
+            locked_while_running: 'Stoppe den Bot, um ihn zu einer anderen Börse zu verschieben.'
+            locked_while_rebalancing: 'Eine Neugewichtung läuft noch — die Börse kann nach ihrem Abschluss gewechselt werden.'
         status:
             exchange_retired: 'Diese Börse gibt es nicht mehr — wechsle den Bot zu einer anderen.'
             setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
+            archived: "Archiviert"
             next_try: "Nächster Versuch in"
             waiting: "Warten bis alle Bedingungen erfüllt sind"
             listening: "Empfangsbereit"
@@ -130,6 +134,10 @@ de:
                 average_price: Durchschnittspreis
                 bought: Gekauft
                 chart:
+                    orders: 'Orders anzeigen'
+                    prices: 'Preise anzeigen'
+                    modes: 'Diagrammmodus'
+                    pnl: 'P/L'
                     total_invested: 'Insgesamt investiert'
                     value: Wert
                 csv_download_html: 'Die obige Tabelle zeigt nur die letzten zehn Transaktionen. Der vollständige Bericht steht unten im CSV-Format zum Download bereit.'
@@ -154,6 +162,7 @@ de:
         limit_sell: 'Limit Verkauf'
         messages:
             do_you_want_to_delete: 'Möchtest du diesen Bot löschen?'
+            do_you_want_to_archive: 'Möchtest du diesen Bot archivieren?'
             symbol_not_supported: "%{symbol} wird nicht unterstützt"
             specify_percentage_limit_order: "Gib den Prozentsatz bei der Erstellung einer Limit-Order an"
             smart_intervals_above_minimum: "Der Wert der intelligenten Intervalle sollte größer als %{minimum} sein"
@@ -202,17 +211,45 @@ de:
         warning:
             dca_single_asset:
                 intro: "Der Betrag von %{missed_symbol} lag unter der Mindestbestellgröße von %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} oder %{missed_minimum_quote_size} %{quote_symbol} für %{missed_symbol}). So geht der Bot damit um:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Allerdings liegen sowohl die Ordermengen von %{base0_symbol} als auch %{base1_symbol} unter den Mindestbestellgrößen von %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} oder %{base0_minimum_quote_size} %{quote_symbol} für %{base0_symbol} und %{base1_minimum_base_size} %{base1_symbol} oder %{base1_minimum_quote_size} %{quote_symbol} für %{base1_symbol}). So geht der Bot damit um:"
-                one_below:
-                    intro: "Dein Bot hat %{bought_quote_amount} %{quote_symbol} von %{bought_symbol} gekauft, aber die Menge von %{missed_symbol} lag unter der Mindestbestellgröße von %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} oder %{missed_minimum_quote_size} %{quote_symbol} für %{missed_symbol}). So geht der Bot damit um:"
             buffer_explanation:
                 one: "Der verpasste Betrag wurde gepuffert und wird mit der nächsten geplanten Order verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
                 other: "Die verpassten Beträge wurden gepuffert und werden mit den nächsten geplanten Orders verwendet, sodass dein Zeitplan und deine Allokation so gut wie möglich entsprechend den Börsen-Mindestgrößen eingehalten werden."
             title: "Glückwunsch! Dein Bot läuft."
             general_note: "Börsen-Mindestgrößen und erforderliche Rebalancing-Beträge ändern sich. Transaktionen können manchmal unregelmäßig aussehen, aber der Bot hält immer deine gewünschte Allokation und deinen Zeitplan ein, sodass kein zusätzlicher Aufwand nötig ist."
+        redeploy:
+            prompt: "%{amount} %{symbol} wieder anlegen?"
+            confirm: "Ja"
+            decline: "Nein"
+            started: "Das Geld wandert zurück in den Korb."
+            in_flight: "Eine Wiederanlage läuft noch. Versuche es erneut, sobald sie abgeschlossen ist."
+            unsupported: "Dieser Bot hat keine Erlöse zum Wiederanlegen."
+            halted: "Wiederanlage unbestätigt — prüfe deine Börse"
+            resolve: "Zurücksetzen"
+            resolve_confirm: "Fahre nur fort, wenn du deine Börse geprüft hast und keine Kauforder mehr offen ist."
+            still_open: "Order %{order_id} ist an deiner Börse noch offen. Warte, bis sie abgerechnet ist."
+            resolved: "Zurückgesetzt. Der Bot kann wieder handeln."
+        liquidation:
+            sell: "Verkaufen"
+            sell_confirm: "Diese Position verkaufen? Sie wird zum Marktpreis geschlossen."
+            started: "Die Position wird verkauft."
+            market_closed: "Der Markt ist gerade geschlossen. Versuch es nach der Eröffnung erneut."
+            unsupported: "Dieser Bot hat keine entfernten Assets zum Verkaufen."
+            halted: "Verkauf unbestätigt — prüfe deine Börse"
+            resolve: "Zurücksetzen"
+            resolve_confirm: "Fahre nur fort, wenn du deine Börse geprüft hast und keine Verkaufsorder mehr offen ist."
+            still_open: "Order %{order_id} ist an deiner Börse noch offen. Warte, bis sie abgerechnet ist."
+            resolved: "Unbestätigter Verkauf zurückgesetzt."
         settings:
+            rebalance:
+                sentence_html: "Rebalancing, wenn ein Wert um mehr als <span>%{value_html} %</span> vom Ziel abweicht"
+                note: "Läuft weiter, auch wenn der DCA-Zeitplan gestoppt ist. Nutzt immer Market-Orders."
+                drift: "Das Portfolio liegt %{drift} % neben seiner Zielaufteilung"
+                below_minimum: "— zu klein für das Minimum dieser Börse"
+                paused: "Rebalancing pausiert — prüfe deine Börse"
+                resume: "Fortsetzen"
+                resume_confirm: "Fahre nur fort, wenn du deine Börse geprüft hast und keine Rebalancing-Order mehr offen ist."
+                still_open: "Order %{order_id} ist an deiner Börse noch offen. Warte, bis sie abgerechnet ist."
+                resolved: "Rebalancing fortgesetzt."
             starting_time:
                 modes:
                     options:

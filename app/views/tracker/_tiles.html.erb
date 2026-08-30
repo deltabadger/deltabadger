@@ -1,0 +1,66 @@
+<%# The bot's figure grid, right where a bot has it, in plain words. Six figures that tell ONE
+    story: what went in, what it is worth, what it cost to trade, what has been banked, what is
+    still riding, and the number the last two come to.
+    Every one of them comes from `Tracker::Figures` — the templates used to work them out
+    themselves, from two different truths, which is how they came to contradict each other with
+    nothing able to notice. A figure that source cannot vouch for is a dash, and the banner above
+    says which holding and why.
+    All six are money and nothing else lives in this grid, so hiding balances takes the whole thing
+    rather than emptying it. %>
+<% unless current_user.hide_balances? %>
+  <% figures = @figures %>
+  <%# The value is known from the balances alone; everything the history decides waits for it. %>
+  <% warming = figures&.ledger.nil? %>
+  <% signed = ->(amount) { safe_join([('+' unless amount.negative?), @denomination.format(amount)]) } %>
+  <% tone = ->(amount) { amount.negative? ? 'text-danger' : 'text-success' } %>
+  <% money = ->(amount) { amount ? signed.call(amount) : '—' } %>
+  <%# `--six` keeps the widest step at three columns below the point where all six fit on one row. %>
+  <div class="widget data-grid data-grid--six">
+    <%# What arrived without a purchase behind it is money in at what it was worth that day — the
+        basis it carries — and the tile says how much, so it is not read as a claim it was all
+        deposited. What each of those rows WAS is the record's business, row by row. %>
+    <% received = figures&.ledger&.received_usd %>
+    <%= render partial: 'bots/metrics_item', locals: {
+      label: t('bot.details.stats.total_invested'),
+      value: figures&.invested && @denomination.format(figures.invested),
+      hint: (t('tracker.tiles.received_hint', received: @denomination.format_plain(received)) if received&.positive?),
+      loading: warming
+    } %>
+    <%= render partial: 'bots/metrics_item', locals: {
+      label: t('bot.details.stats.portfolio_value'),
+      value: figures && @denomination.format(figures.value),
+      loading: figures.nil?
+    } %>
+    <%# What trading cost, in the quiet colour: a fact about the account, not an outcome to read as
+        good or bad — and already deducted from the two P/L figures that follow. %>
+    <%= render partial: 'bots/metrics_item', locals: {
+      label: t('tracker.fees_paid'),
+      value: figures&.fees && @denomination.format(figures.fees),
+      loading: warming,
+      value_class: 'data-grid__item__value--quiet'
+    } %>
+    <%= render partial: 'bots/metrics_item', locals: {
+      label: t('bot.dca_index.realised_pnl'),
+      value: figures&.realised && signed.call(figures.realised),
+      loading: warming,
+      value_class: figures&.realised && tone.call(figures.realised)
+    } %>
+    <%# A dash where a holding's basis cannot be stood behind — the banner names which. %>
+    <%= render partial: 'bots/metrics_item', locals: {
+      label: t('tracker.tiles.unrealised_pnl'),
+      value: money.call(figures&.unrealised),
+      loading: warming,
+      value_class: figures&.unrealised && tone.call(figures.unrealised)
+    } %>
+    <%# The hint is the formula, in the grid's own words — it names the two tiles at the head of the
+        same row, so it can be checked by looking rather than taken on trust. %>
+    <%= render partial: 'bots/metrics_item', locals: {
+      label: t('tracker.tiles.total_pnl'),
+      hint: t('tracker.tiles.total_pnl_hint', value: t('bot.details.stats.portfolio_value'),
+                                              invested: t('bot.details.stats.total_invested')),
+      value: money.call(figures&.total),
+      loading: warming,
+      value_class: figures&.total && tone.call(figures.total)
+    } %>
+  </div>
+<% end %>

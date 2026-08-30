@@ -1,0 +1,9 @@
+<%# Archiving changes the two status widgets — the bot page and every tile render them from the
+    same partials — and the number of live bots. %>
+<%= turbo_stream.replace dom_id(@bot, :status_bar), partial: 'bots/status/status_bar', locals: { bot: @bot } %>
+<%= turbo_stream.replace dom_id(@bot, :status_button), partial: 'bots/status/status_button', locals: { bot: @bot } %>
+<%= turbo_stream.replace dom_id(@bot, :menu), partial: 'bots/menu', locals: { bot: @bot } %>
+<%# The menu icon IS that number, and patching widgets leaves the page (and the icon) standing,
+    so it has to be sent too or it reads the count from before the click until the next visit. %>
+<%= turbo_stream.replace 'bot-count', partial: 'svg/24x24_bot_count',
+                         locals: { count: bot_menu_count(current_user) } %>

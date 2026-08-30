@@ -1,49 +1,32 @@
-<div class="widget bot-tile">
-  <%= link_to bot_path(bot) do %>
+<%# draggable="false" on the link is load-bearing: an anchor is implicitly draggable, so without it
+    the browser drags the link out of the page instead of picking the tile up. Clicking through to
+    the bot is unaffected — a completed drag fires no click. %>
+<div class="widget bot-tile" id="<%= dom_id(bot, :tile) %>" data-bot-id="<%= bot.id %>" draggable="true">
+  <%= link_to bot_path(bot), draggable: "false" do %>
     <div class="bot-tile__header">
       <div class="bot-tile__hgroup">
         <div class="bot-tile__title">
-          <% hide_quote = bot.exchange&.stock_venue? %>
           <% if bot.dca_single_asset? && bot.quote_asset_id.present? && bot.base_asset_id.present? %>
-            <% unless hide_quote %>
-              <span><%= bot.quote_asset.symbol %></span>
-              <span class="bot-tile__operator">&rarr;</span>
-            <% end %>
             <span><%= bot.base_asset.symbol %></span>
-          <% elsif bot.dca_dual_asset? && bot.quote_asset_id.present? && bot.base0_asset_id.present? && bot.base1_asset_id.present? %>
-            <% unless hide_quote %>
-              <span><%= bot.quote_asset.symbol %></span>
-              <span class="bot-tile__operator">&rarr;</span>
-            <% end %>
-            <span>
-              <span><%= bot.base0_asset.symbol %></span>,
-              <span><%= bot.base1_asset.symbol %></span>
-            </span>
           <% elsif bot.dca_index? && bot.quote_asset_id.present? && bot.num_coins.present? %>
-            <% unless hide_quote %>
-              <span><%= bot.quote_asset.symbol %></span>
-              <span class="bot-tile__operator">&rarr;</span>
-            <% end %>
             <span><%= bot.display_index_name %></span>
+          <% elsif bot.dca_multi_asset? && bot.quote_asset_id.present? %>
+            <span><%= bot.base_assets.first(3).map(&:symbol).join(', ') %><%= " +#{bot.base_assets.size - 3}" if bot.base_assets.size > 3 %></span>
           <% elsif bot.signal? && bot.quote_asset_id.present? && bot.base_asset_id.present? %>
-            <% unless hide_quote %>
-              <span><%= bot.quote_asset.symbol %></span>
-              <span class="bot-tile__operator">&rarr;</span>
-            <% end %>
             <span><%= bot.base_asset.symbol %></span>
           <% end %>
           <% if bot.exchange.present? %>
             <%= render "svg/exchange-#{bot.exchange.name_id}", title: bot.exchange.name %>
           <% end %>
-          <%# bot_type_label(bot) %>
-        </div>
-        <div class="bot-tile__subtitle">
-          <%= bot.label %>
         </div>
       </div>
-      <% if bot.dca_single_asset? || bot.dca_dual_asset? || bot.dca_index? || bot.signal? %>
-        <%= render "bots/bot_tile/bot_tile_pnl", bot: bot, loading: loading_hash[bot.id], pnl: pnl_hash[bot.id] || '' %>
+      <% if bot.dca_single_asset? || bot.dca_index? || bot.dca_multi_asset? || bot.signal? %>
+        <%= render "bots/bot_tile/bot_tile_pnl", bot: bot, loading: loading_hash[bot.id], pnl: pnl_hash[bot.id],
+                   profit_usd: profit_usd_hash[bot.id], denomination: denomination %>
       <% end %>
+    </div>
+    <div class="bot-tile__subtitle">
+      <%= bot.label %>
     </div>
   <% end %>
   <div class="bot-control">

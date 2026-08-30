@@ -7,9 +7,19 @@ pl:
         bot_name: "Nazwa bota"
         new: "Nowy bot"
         welcome:
-            pick_asset_first: "Najpierw wybierz aktywo — potem zobaczysz giełdy, na których jest dostępne."
+            pick_exchange_first: "Najpierw wybierz giełdę — potem zobaczysz aktywa, które są na niej dostępne."
             connect_alpaca_html: "Żeby inwestować w akcje, najpierw podłącz Alpaca w %{settings_link}."
             settings_link: "Ustawieniach"
+        dca_multi_asset:
+            add_asset: "Dodaj aktywo"
+            remove_asset: "Usuń"
+            max_assets_reached: "Możesz posiadać maksymalnie %{max} aktywów."
+            min_assets: "Portfel musi zawierać co najmniej %{min} aktywów."
+            no_common_exchange: "Ta kombinacja aktywów nie jest dostępna na żadnej obsługiwanej giełdzie."
+            removed_from_portfolio: "Usunięte z portfela"
+            allocation_sum: "Łącznie"
+            normalize: "Normalizuj"
+            normalize_first: "Najpierw znormalizuj alokację."
         dca_index:
             setup:
                 step_index: "Indeks"
@@ -30,36 +40,30 @@ pl:
             fewer_coins_available: "%{available} z %{requested} monet w indeksie jest dostępnych na %{exchange_name}"
             num_assets: "Aktywa w indeksie"
             asset_breakdown: "Podział Aktywów"
-            asset: "Aktywo"
-            amount: "Ilość"
-            avg_price: "Średnia Cena"
-            value: "Wartość"
-            pl: "Z/S"
+            realised_pnl: "Zrealizowany wynik"
+            realised_pnl_note: "Ze sprzedaży aktywów usuniętych z portfela. Rebalansowanie nie jest wliczane."
+            left_the_index: "Poza indeksem"
             warning:
                 intro: "Niektóre zlecenia (%{skipped_count}) były poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Oto jak bot to obsługuje:"
         types:
             dca:
-                title: "DCA"
-                description: "Inwestuj w jedno aktywo"
-            dca_dual_asset:
-                title: "Rebalansowane DCA"
-                description: "Rebalansuj dwa aktywa"
-            legacy:
-                title: "Bot Legacy"
-                description: "DCA + Wypłaty"
+                title: "DCA / Rebalansowanie"
+                description: "Wybierz jedno lub więcej aktywów"
             index_portfolio:
-                title: "Portfel Indeksowy"
-                description: "Twój osobisty krypto-ETF"
-            custom_portfolio:
-                title: "Portfel Niestandardowy"
-                description: "Rebalansuj niestandardowy zestaw aktywów"
+                title: "Indeks"
+                description: "Zbuduj swój własny ETF"
             signal:
-                title: "Signal"
-                description: "Handluj na podstawie zewnętrznych sygnałów"
+                title: "Sygnały"
+                description: "Handluj na podstawie webhooka"
+        exchange_menu:
+            no_alternative: 'Żadna inna obsługiwana giełda nie oferuje %{assets}.'
+            locked_while_running: 'Zatrzymaj bota, żeby przenieść go na inną giełdę.'
+            locked_while_rebalancing: 'Równoważenie portfela nadal trwa — giełdę będzie można zmienić po jego zakończeniu.'
         status:
             exchange_retired: 'Ta giełda już nie działa — przenieś bota na inną.'
             setting_orders: "Ustawianie zleceń…"
             paused: "Wstrzymany"
+            archived: "Zarchiwizowany"
             next_try: "Następna próba za"
             waiting: "Oczekiwanie na spełnienie wszystkich warunków"
             listening: "Nasłuchiwanie"
@@ -134,6 +138,10 @@ pl:
                 average_price: 'Średnia cena'
                 bought: Zakupione
                 chart:
+                    orders: 'Pokaż zlecenia'
+                    prices: 'Pokaż ceny'
+                    modes: 'Tryb wykresu'
+                    pnl: 'P/L'
                     total_invested: 'Zainwestowana suma'
                     value: Wartość
                 csv_download_html: 'Powyższa tabela przedstawia tylko dziesięć ostatnich transakcji. Pełny raport jest dostępny do pobrania w formacie CSV poniżej.'
@@ -158,6 +166,7 @@ pl:
         limit_sell: 'Sprzedaj z limitem'
         messages:
             do_you_want_to_delete: 'Czy chcesz usunąć tego bota?'
+            do_you_want_to_archive: 'Czy chcesz zarchiwizować tego bota?'
             symbol_not_supported: "%{symbol} nie jest obsługiwany"
             specify_percentage_limit_order: "Podaj procent przy tworzeniu zlecenia z limitem"
             smart_intervals_above_minimum: "Wartość inteligentnych interwałów powinna być większa niż %{minimum}"
@@ -195,17 +204,45 @@ pl:
         warning:
             dca_single_asset:
                 intro: "Kwota %{missed_symbol} była poniżej minimalnej wielkości zlecenia na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} lub %{missed_minimum_quote_size} %{quote_symbol} dla %{missed_symbol}). Oto jak bot sobie z tym radzi:"
-            dca_dual_asset:
-                both_below:
-                    intro: "Jednak zarówno ilości zleceń %{base0_symbol}, jak i %{base1_symbol} są poniżej minimalnych wielkości zleceń na %{exchange_name} (%{base0_minimum_base_size} %{base0_symbol} lub %{base0_minimum_quote_size} %{quote_symbol} dla %{base0_symbol} oraz %{base1_minimum_base_size} %{base1_symbol} lub %{base1_minimum_quote_size} %{quote_symbol} dla %{base1_symbol}). Oto jak bot sobie z tym radzi:"
-                one_below:
-                    intro: "Twój bot kupił %{bought_quote_amount} %{quote_symbol} %{bought_symbol}, ale ilość %{missed_symbol} była poniżej minimalnej wielkości zlecenia na %{exchange_name} (%{missed_minimum_base_size} %{missed_symbol} lub %{missed_minimum_quote_size} %{quote_symbol} dla %{missed_symbol}). Oto jak bot sobie z tym radzi:"
             buffer_explanation:
                 one: "Pominięta kwota została zbuforowana i zostanie użyta przy następnym zaplanowanym zleceniu, dzięki czemu Twój harmonogram i alokacja będą utrzymane jak najbliżej giełdowych minimów."
                 other: "Pominięte kwoty zostały zbuforowane i zostaną użyte przy kolejnych zaplanowanych zleceniach, dzięki czemu Twój harmonogram i alokacja będą utrzymane jak najbliżej giełdowych minimów."
             title: "Gratulacje! Twój bot działa."
             general_note: "Minimalne kwoty na giełdach i wymagane kwoty rebalancingu mogą się zmieniać. Zlecenia mogą czasami wyglądać nieregularnie, ale bot zawsze dąży do Twojej pożądanej alokacji i harmonogramu, więc nie jest wymagana dodatkowa praca."
+        redeploy:
+            prompt: "Zainwestować ponownie %{amount} %{symbol}?"
+            confirm: "Tak"
+            decline: "Nie"
+            started: "Wkładam pieniądze z powrotem do koszyka."
+            in_flight: "Ponowna inwestycja wciąż trwa. Spróbuj ponownie, gdy się zakończy."
+            unsupported: "Ten bot nie ma środków do ponownego zainwestowania."
+            halted: "Ponowna inwestycja niepotwierdzona — sprawdź giełdę"
+            resolve: "Wyczyść"
+            resolve_confirm: "Kontynuuj tylko wtedy, gdy sprawdziłeś giełdę i żadne zlecenie kupna nie jest otwarte."
+            still_open: "Zlecenie %{order_id} jest wciąż otwarte na giełdzie. Poczekaj, aż się rozliczy."
+            resolved: "Wyczyszczone. Bot może znowu handlować."
+        liquidation:
+            sell: "Sprzedaj"
+            sell_confirm: "Sprzedać tę pozycję? Zostanie zamknięta po cenie rynkowej."
+            started: "Sprzedaję pozycję."
+            market_closed: "Rynek jest teraz zamknięty. Spróbuj ponownie po otwarciu."
+            unsupported: "Ten bot nie ma usuniętych aktywów do sprzedaży."
+            halted: "Sprzedaż niepotwierdzona — sprawdź swoją giełdę"
+            resolve: "Wyczyść"
+            resolve_confirm: "Kontynuuj tylko wtedy, gdy sprawdziłeś giełdę i żadne zlecenie sprzedaży nie jest już otwarte."
+            still_open: "Zlecenie %{order_id} jest wciąż otwarte na Twojej giełdzie. Poczekaj, aż się rozliczy."
+            resolved: "Niepotwierdzona sprzedaż wyczyszczona."
         settings:
+            rebalance:
+                sentence_html: "Rebalansuj, gdy aktywo odchyli się o więcej niż <span>%{value_html} %</span> od celu"
+                note: "Działa nadal, gdy harmonogram DCA jest zatrzymany. Zawsze używa zleceń rynkowych."
+                drift: "Portfel jest %{drift} % od docelowego podziału"
+                below_minimum: "— zbyt mało, by zlecić przy minimum tej giełdy"
+                paused: "Rebalansowanie wstrzymane — sprawdź swoją giełdę"
+                resume: "Wznów"
+                resume_confirm: "Kontynuuj tylko wtedy, gdy sprawdziłeś giełdę i żadne zlecenie rebalansujące nie jest otwarte."
+                still_open: "Zlecenie %{order_id} jest nadal otwarte na giełdzie. Poczekaj, aż zostanie rozliczone."
+                resolved: "Rebalansowanie wznowione."
             starting_time:
                 modes:
                     options:
