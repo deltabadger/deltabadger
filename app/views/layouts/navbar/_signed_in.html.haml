@@ -8,22 +8,22 @@
 .menu-mobile{ data: { controller: 'menu-mobile', action: 'click->menu-mobile#close' } }
   - if single_bot_mode?
     - single_bot_path = bot_path(current_user.bots.not_deleted.first)
-    = link_to single_bot_path, class: "menu-mobile__item menu-mobile__item--bots #{'menu-mobile__item--active' if current_page?(single_bot_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = link_to single_bot_path, class: "menu-mobile__item menu-mobile__item--bots #{'menu-mobile__item--active' if current_page?(single_bot_path)}" do
       = t('links.bot')
   - else
-    = link_to bots_path, class: "menu-mobile__item menu-mobile__item--bots #{'menu-mobile__item--active' if current_page?(bots_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = link_to bots_path, class: "menu-mobile__item menu-mobile__item--bots #{'menu-mobile__item--active' if current_page?(bots_path)}" do
       = t('links.bots')
 
-  = link_to tracker_path, class: "menu-mobile__item menu-mobile__item--tracker #{'menu-mobile__item--active' if current_page?(tracker_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+  = link_to tracker_path, class: "menu-mobile__item menu-mobile__item--tracker #{'menu-mobile__item--active' if current_page?(tracker_path)}" do
     = t('links.tracker')
 
-  = link_to rules_path, class: "menu-mobile__item menu-mobile__item--rules #{'menu-mobile__item--active' if current_page?(rules_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+  = link_to rules_path, class: "menu-mobile__item menu-mobile__item--rules #{'menu-mobile__item--active' if current_page?(rules_path)}" do
     = t('links.rules')
 
-  = link_to settings_connect_path, class: "menu-mobile__item menu-mobile__item--connections #{'menu-mobile__item--active' if current_page?(settings_connect_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+  = link_to settings_connect_path, class: "menu-mobile__item menu-mobile__item--connections #{'menu-mobile__item--active' if current_page?(settings_connect_path)}" do
     = t('links.connections')
 
-  = link_to settings_account_path, class: "menu-mobile__item menu-mobile__item--account #{'menu-mobile__item--active' if current_page?(settings_account_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+  = link_to settings_account_path, class: "menu-mobile__item menu-mobile__item--account #{'menu-mobile__item--active' if current_page?(settings_account_path)}" do
     = t('links.account')
 
   = render 'layouts/navbar/hide_balances_toggle', item_class: 'menu-mobile__item'
@@ -38,29 +38,25 @@
     = link_to (single_bot_mode? ? bot_path(current_user.bots.not_deleted.first) : bots_path), class: 'menu__logo', 'aria-label': 'Deltabadger' do
       = render 'svg/40x30_logo'
 
-  .menu__section.menu__section--top.menu__section--main-menu
+  .menu__section.menu__section--top.menu__section--main-menu{ data: { controller: 'menu' } }
 
     - if single_bot_mode?
       - single_bot_path = bot_path(current_user.bots.not_deleted.first)
-      = link_to single_bot_path, class: "menu__item menu__item--bots #{'menu__item--active' if current_page?(single_bot_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = link_to single_bot_path, class: "menu__item menu__item--bots #{'menu__item--active' if current_page?(single_bot_path)}", 'aria-label': t('links.bot'), data: { action: 'click->menu#select', menu_target: 'tile', tile: 'bots' } do
         = render 'svg/24x24_bot_count', count: bot_menu_count(current_user)
-        .tooltip
-          = t('links.bot')
     - else
-      = link_to bots_path, class: "menu__item menu__item--bots #{'menu__item--active' if current_page?(bots_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+      = link_to bots_path, class: "menu__item menu__item--bots #{'menu__item--active' if current_page?(bots_path)}", 'aria-label': t('links.bots'), data: { action: 'click->menu#select', menu_target: 'tile', tile: 'bots' } do
         = render 'svg/24x24_bot_count', count: bot_menu_count(current_user)
-        .tooltip
-          = t('links.bots')
 
-    = link_to tracker_path, class: "menu__item menu__item--tracker #{'menu__item--active' if current_page?(tracker_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = link_to tracker_path, class: "menu__item menu__item--tracker #{'menu__item--active' if current_page?(tracker_path)}", 'aria-label': t('links.tracker'), data: { action: 'click->menu#select', menu_target: 'tile', tile: 'tracker' } do
       = render 'svg/24x24_allocation', arcs: allocation_icon_arcs(current_user)
-      .tooltip
-        = t('links.tracker')
 
-    = link_to rules_path, class: "menu__item menu__item--rules #{'menu__item--active' if current_page?(rules_path)}", data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip' } do
+    = link_to rules_path, class: "menu__item menu__item--rules #{'menu__item--active' if current_page?(rules_path)}", 'aria-label': t('links.rules'), data: { action: 'click->menu#select', menu_target: 'tile', tile: 'rules' } do
       = render 'svg/24x24_withdrawal'
-      .tooltip
-        = t('links.rules')
+
+    -# The highlight. Placed by CSS on whichever tile is active (see _navbar.sass) and slid between
+      tiles by the menu controller; last, so it paints over the tiles' hover backgrounds.
+    .menu__chip{ data: { menu_target: 'chip' } }
 
   .menu__section.menu__section--bottom
     -# Permanent: flipping the switch inside re-renders the page, and a menu that vanished mid-flip
@@ -68,10 +64,8 @@
       visit, so it stays open and stays on the state the user just set. Nothing in it is page-
       dependent, so keeping the old node costs nothing.
     .dropdown-wrapper.dropdown-wrapper--bottom-left#settings-menu{ data: { turbo_permanent: true, controller: "dropdown", action: "click->dropdown#toggle", dropdown_target: "wrapper", dropdown_active_class: "menu__item--active" } }
-      .menu__item.menu__button{ data: { controller: 'tooltip', action: 'mouseenter->tooltip#showTooltip mouseleave->tooltip#hideTooltip', dropdown_target: "trigger" } }
+      .menu__item.menu__button{ data: { dropdown_target: "trigger" } }
         = render 'svg/24x24_sliders'
-        .tooltip
-          = t('links.settings')
       .dropdown
         = link_to t('links.connections'), settings_connect_path, class: "dropdown__item"
         = link_to t('links.account'), settings_account_path, class: "dropdown__item"
