@@ -83,8 +83,8 @@ module Bot::ChartSeries
 
   # The seam every candle fetch goes through. Overridable in tests, and the reason the index's
   # bounded-parallel fetch can be exercised without touching the cache.
-  def fetch_candle_series(ticker:, since:, timeframe:)
-    CandleSeriesCache.fetch(ticker: ticker, since: since, timeframe: timeframe)
+  def fetch_candle_series(ticker:, since:, timeframe:, restated: false)
+    CandleSeriesCache.fetch(ticker: ticker, since: since, timeframe: timeframe, restated: restated)
   end
 
   # A grid prices only the span it covers, and `chart_marked_at_market` drops a point outright when
@@ -180,7 +180,20 @@ module Bot::ChartSeries
   #             carries a per-symbol split (:assets) for the holdings tables to hover against.
   #             Omitted where the split would only duplicate the portfolio line — a single-asset
   #             bot's one holding IS the whole chart.
-  def chart_marked_at_market(chart, grids, holdings:, cash:, basis: nil)
+  # display_grids: - the grids the PRICE OVERLAY is read off, where they differ. Defaults to the
+  #             valuation grids, and on all but a restating venue that is what they are.
+  #
+  # Two grids because a split is the one place the two readings cannot be one. Values are
+  # as-traded — the walk counts the shares the bot bought, and they can only be multiplied by the
+  # prices the market quoted, since a bot that sold out before an effective date is never restated
+  # by the broker and no factor for it can be recovered. The overlay multiplies nothing and the
+  # browser rebases it against its own first point in view, so it reads as a return: the return of
+  # a raw series across a split is a 90% crash that never happened.
+  #
+  # Only `marked_prices` may read `display_grids`. The axis, the market values, the per-symbol
+  # split and everything hung off it stay on `grids`.
+  def chart_marked_at_market(chart, grids, holdings:, cash:, basis: nil, display_grids: nil)
+    display_grids ||= grids
     labels = chart[:labels]
     values = chart[:series][0]
     invested = chart[:series][1]
@@ -192,10 +205,9 @@ module Bot::ChartSeries
     marked_invested = []
     marked_split = []
     marked_basis = []
-    # One series per grid, parallel with the marked labels: the same readings the values above
-    # are marked with, kept so the chart can draw the price behind the curve without a second
-    # fetch and without a second ruler.
-    marked_prices = grids.keys.index_with { [] }
+    # One series per grid, parallel with the marked labels, kept so the chart can draw the price
+    # behind the curve without the browser fetching anything of its own.
+    marked_prices = display_grids.keys.index_with { [] }
     cursor = 0
 
     axis.each do |time|
@@ -231,7 +243,7 @@ module Bot::ChartSeries
       marked_invested << invested[cursor]
       # nil outside the grid's reach — the same points the values keep on their fill marks. The
       # curve skips them rather than being drawn through a price nobody quoted.
-      marked_prices.each { |symbol, serie| serie << chart_grid_price(grids[symbol], time) }
+      marked_prices.each { |symbol, serie| serie << chart_grid_price(display_grids[symbol], time) }
       next unless basis
 
       # nil where the point kept its fill mark: the portfolio total survives there, but no

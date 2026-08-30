@@ -14,7 +14,7 @@ class ExtendedChartCandleSourceTest < ActiveSupport::TestCase
   # Installs a plain-Ruby (thread-safe) fetch_candle_series override returning
   # per-symbol Results from a frozen hash.
   def stub_candle_series(bot, results_by_base)
-    bot.define_singleton_method(:fetch_candle_series) do |ticker:, since:, timeframe:| # rubocop:disable Lint/UnusedBlockArgument
+    bot.define_singleton_method(:fetch_candle_series) do |ticker:, since:, timeframe:, restated: false| # rubocop:disable Lint/UnusedBlockArgument
       results_by_base.fetch(ticker.base)
     end
   end
@@ -64,7 +64,7 @@ class ExtendedChartCandleSourceTest < ActiveSupport::TestCase
     live = 0
     peak = 0
     candles = [[t + 1.hour, 5.0, 5.0, 5.0, 5.0, 1.0]]
-    bot.define_singleton_method(:fetch_candle_series) do |ticker:, since:, timeframe:| # rubocop:disable Lint/UnusedBlockArgument
+    bot.define_singleton_method(:fetch_candle_series) do |ticker:, since:, timeframe:, restated: false| # rubocop:disable Lint/UnusedBlockArgument
       mutex.synchronize do
         live += 1
         peak = [peak, live].max
@@ -85,7 +85,7 @@ class ExtendedChartCandleSourceTest < ActiveSupport::TestCase
     bot = index_bot_with_symbols({ 'AAA' => 1.0, 'BAD' => 1.0 }, at: t)
 
     candles = [[t + 1.hour, 5.0, 5.0, 5.0, 5.0, 1.0]]
-    bot.define_singleton_method(:fetch_candle_series) do |ticker:, since:, timeframe:| # rubocop:disable Lint/UnusedBlockArgument
+    bot.define_singleton_method(:fetch_candle_series) do |ticker:, since:, timeframe:, restated: false| # rubocop:disable Lint/UnusedBlockArgument
       raise 'unexpected explosion' if ticker.base == 'BAD'
 
       Result::Success.new(candles)

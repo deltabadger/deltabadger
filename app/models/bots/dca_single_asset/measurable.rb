@@ -136,6 +136,7 @@ module Bots::DcaSingleAsset::Measurable
 
       metrics_data[:chart] = chart_marked_at_market(
         metrics_data[:chart], grids,
+        display_grids: chart_display_grids(metrics_data, grids),
         holdings: ->(i) { { ticker.base => metrics_data[:chart][:extra_series][0][i] } },
         # Realized proceeds are locked-in cash: they do not float with the price.
         cash: ->(i) { metrics_data[:chart][:extra_series][1][i] || 0 }
@@ -302,5 +303,31 @@ module Bots::DcaSingleAsset::Measurable
     marks = result.data.map { |candle| [candle[0], candle[1]] } +
             chart_live_marks(metrics_data, ticker.base)
     chart_split_pinned_grids(ticker.base => marks.sort_by(&:first))
+  end
+
+  # The overlay's own grid: the venue's history as it reads TODAY, restated across every split it
+  # has had. One basis end to end, so no pins and no fill backfill — both of those exist to carry
+  # a valuation across a seam this grid does not have.
+  #
+  # The valuation grid where the venue restates nothing, or where the restated fetch fails: a raw
+  # line with a step in it is what this chart has always drawn, and it beats no line at all.
+  def chart_display_grids(metrics_data, grids)
+    return grids unless ticker&.restated_candles?
+
+    since, timeframe = chart_candle_window(metrics_data[:chart])
+    # Rescued, unlike the valuation fetch beside it: this one is an improvement on a grid the
+    # chart already has, and a transient socket error on it must cost the overlay's basis, not
+    # the whole chart. Alpaca's client raises rather than returning a failed Result.
+    result = begin
+      fetch_candle_series(ticker: ticker, since: since, timeframe: timeframe, restated: true)
+    rescue StandardError => e
+      Rails.logger.error("Restated candle fetch failed for #{ticker.base}: #{e.class}: #{e.message}")
+      Result::Failure.new(e.message)
+    end
+    return grids if result.failure? || result.data.blank?
+
+    marks = result.data.map { |candle| [candle[0], candle[1]] } +
+            chart_live_marks(metrics_data, ticker.base)
+    { ticker.base => marks.sort_by(&:first) }
   end
 end

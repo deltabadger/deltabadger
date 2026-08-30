@@ -39,7 +39,7 @@ class ChartMarketMarkingTest < ActiveSupport::TestCase
   end
 
   def ticker_stub(base:, symbol:, candles:, id: 1)
-    ticker = stub(id: id, base: base, ticker: symbol)
+    ticker = stub(id: id, base: base, ticker: symbol, restated_candles?: false)
     ticker.stubs(:get_candles).returns(Result::Success.new(candles))
     ticker
   end

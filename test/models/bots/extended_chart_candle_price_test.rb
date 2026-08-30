@@ -31,7 +31,7 @@ class ExtendedChartCandlePriceTest < ActiveSupport::TestCase
   end
 
   def ticker_stub(id:, base: 'BTC', scale: 1)
-    ticker = stub(id: id, base: base)
+    ticker = stub(id: id, base: base, restated_candles?: false)
     ticker.stubs(:get_candles).returns(Result::Success.new(candles(scale: scale)))
     ticker
   end
