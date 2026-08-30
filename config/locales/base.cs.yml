@@ -640,6 +640,7 @@ cs:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            dca_skipped_restatement: "Příspěvek přeskočen — split, který trh ještě neocenil"
             asset_split: "%{base} split %{ratio} — broker přepočítal počet akcií"
             asset_split_unknown_ratio: "%{base} prošel splitem — broker přepočítal počet akcií"
             rebalance_sell_placed: 'Rebalancování — prodej nadváženého aktiva'

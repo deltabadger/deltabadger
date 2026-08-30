@@ -631,6 +631,7 @@ en:
         other: 'Other'
     bot_activity:
         events:
+            dca_skipped_restatement: "Contribution skipped — a split the market has not priced yet"
             asset_split: "%{base} split %{ratio} — the broker restated the share count"
             asset_split_unknown_ratio: "%{base} was split — the broker restated the share count"
             rebalance_sell_placed: 'Rebalancing — selling the overweight asset'

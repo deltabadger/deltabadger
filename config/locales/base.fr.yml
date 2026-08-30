@@ -621,6 +621,7 @@ fr:
         other: 'Autres'
     bot_activity:
         events:
+            dca_skipped_restatement: "Versement ignoré — un split que le marché n'a pas encore valorisé"
             asset_split: "%{base} split %{ratio} — le courtier a réajusté le nombre d'actions"
             asset_split_unknown_ratio: "%{base} a fait l'objet d'un split — le courtier a réajusté le nombre d'actions"
             rebalance_sell_placed: 'Rééquilibrage — vente de l’actif surpondéré'

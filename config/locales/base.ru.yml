@@ -624,6 +624,7 @@ ru:
         other: 'Прочие'
     bot_activity:
         events:
+            dca_skipped_restatement: "Взнос пропущен — сплит, который рынок ещё не оценил"
             asset_split: "%{base} сплит %{ratio} — брокер пересчитал количество акций"
             asset_split_unknown_ratio: "%{base} прошёл сплит — брокер пересчитал количество акций"
             rebalance_sell_placed: 'Ребалансировка — продажа перевешенного актива'

@@ -843,4 +843,125 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
 
     assert_empty bot.bot_activity_logs
   end
+
+  # ---- the ledger the split changes ----
+  #
+  # The activity line is a courtesy; the restatement is not. Every cached metrics hash a bot has is
+  # computed from a position this event moves, and `Bot::Rebalancer` reads one of them WITHOUT
+  # forcing — so a stale hash is a sell sized off a tenth of a position.
+
+  def cached_metrics_keys(bot)
+    [bot.send(:metrics_cache_key),
+     bot.send(:metrics_with_current_prices_cache_key),
+     bot.send(:metrics_with_current_prices_and_candles_cache_key)]
+  end
+
+  # The test environment runs a null store, which would make every assertion here vacuous.
+  # Returns the keys it seeded: a restatement moves them, so they have to be captured first.
+  def seed_caches(bot)
+    Rails.stubs(:cache).returns(@memory_cache ||= ActiveSupport::Cache::MemoryStore.new)
+    cached_metrics_keys(bot).each do |key|
+      Rails.cache.write(key, { stale: true })
+      assert_equal({ stale: true }, Rails.cache.read(key))
+    end
+    cached_metrics_keys(bot)
+  end
+
+  test 'a split drops every cached metrics hash of a bot that traded the symbol' do
+    bot = holder
+    stale_keys = seed_caches(bot)
+
+    sync_split!
+
+    stale_keys.each { |key| assert_nil Rails.cache.read(key), "#{key} survived" }
+  end
+
+  test 'and moves the keys past anything a pre-split walk could still write' do
+    bot = holder
+    stale_keys = seed_caches(bot)
+
+    sync_split!
+
+    assert_equal 1, bot.reload.restatement_generation
+    assert_empty (stale_keys & cached_metrics_keys(bot)), 'a pre-split writer can only reach the old keys'
+  end
+
+  test 'a page already open is told to redraw' do
+    bot = holder
+    Bot::BroadcastMetricsUpdateJob.expects(:perform_later).with(bot)
+
+    sync_split!
+  end
+
+  test 'it drops them for a split too old for the feed to keep, which says nothing' do
+    bot = holder(at: 2.years.ago)
+    seed_caches(bot)
+
+    stale = cached_metrics_keys(bot).first
+    sync_split!(split_entry.merge(transacted_at: 1.year.ago))
+
+    assert_empty bot.bot_activity_logs
+    assert_nil Rails.cache.read(stale)
+  end
+
+  test 'it drops them for a bot whose position reads flat, which is told nothing' do
+    bot = holder
+    create(:transaction, bot: bot, exchange: @exchange, base: 'KLAC', quote: 'USD',
+                         side: :sell, created_at: split_at - 2.hours)
+    seed_caches(bot)
+
+    stale = cached_metrics_keys(bot).first
+    sync_split!
+
+    assert_empty bot.bot_activity_logs
+    assert_nil Rails.cache.read(stale)
+  end
+
+  test 'it leaves a bot that traded the symbol on another venue alone' do
+    elsewhere = holder(exchange: create(:kraken_exchange))
+    seed_caches(elsewhere)
+
+    sync_split!
+
+    assert_equal({ stale: true }, Rails.cache.read(cached_metrics_keys(elsewhere).first))
+  end
+
+  test 'an ordinary ledger row drops nothing' do
+    bot = holder
+    seed_caches(bot)
+
+    @exchange.stubs(:get_ledger).returns(Result::Success.new(@ledger_entries))
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_equal({ stale: true }, Rails.cache.read(cached_metrics_keys(bot).first))
+  end
+
+  # A corporate action dated ahead of today is imported once and takes effect later. No sync comes
+  # back to it — by then the row is a duplicate — so the bump has to be booked for that moment.
+  test 'an action that has not happened yet books its own second bump' do
+    holder
+    effective = 3.days.from_now.change(usec: 0)
+    Bot::ExpireRestatedMetricsJob.expects(:set).with(wait_until: effective)
+                                 .returns(stub(perform_later: true))
+
+    sync_split!(split_entry.merge(transacted_at: effective))
+  end
+
+  test 'an action already in effect books nothing' do
+    holder
+    Bot::ExpireRestatedMetricsJob.expects(:set).never
+
+    sync_split!
+  end
+
+  # The row is stored by the time these run, and a later sync reads it as a duplicate and never
+  # returns — so a failure here must not take the rest of the batch down with it.
+  test 'a failure in the split side effects is logged, not raised' do
+    holder
+    AccountTransactionSync.stubs(:expire_restated_bots).raises(StandardError, 'boom')
+    Rails.logger.expects(:error).with(regexp_matches(/Split side effects failed for KLAC/))
+
+    assert_predicate sync_split!, :success?
+    assert_equal 1, AccountTransaction.where(entry_type: :adjustment).count, 'the row still landed'
+  end
 end

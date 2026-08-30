@@ -632,6 +632,7 @@ sv:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            dca_skipped_restatement: "Insättning hoppades över — en aktiesplit marknaden ännu inte prissatt"
             asset_split: "%{base} aktiesplit %{ratio} — mäklaren har räknat om antalet aktier"
             asset_split_unknown_ratio: "%{base} aktiesplittades — mäklaren har räknat om antalet aktier"
             rebalance_sell_placed: 'Rebalansering — säljer den överviktade tillgången'

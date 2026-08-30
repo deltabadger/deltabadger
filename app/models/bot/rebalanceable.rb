@@ -72,6 +72,14 @@ module Bot::Rebalanceable
           log_activity('dca_skipped_redeploy_pending', level: :info)
           return Result::Success.new
         end
+        # A corporate action the market has not priced yet. The holdings are already restated and
+        # the venue's latest trade is not, so the weights this leg sizes against are the factor's
+        # worth of imaginary drift — it would pour a contribution into whichever member the
+        # mismatch made look cheap. The money is not lost: missed_quote_amount carries it.
+        if restated_prices_untrusted?(metrics)
+          log_activity('dca_skipped_restatement', level: :info)
+          return Result::Success.new
+        end
 
         super
       end

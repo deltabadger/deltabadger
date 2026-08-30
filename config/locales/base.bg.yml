@@ -632,6 +632,7 @@ bg:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            dca_skipped_restatement: "Вноската е пропусната — сплит, който пазарът още не е оценил"
             asset_split: "%{base} сплит %{ratio} — брокерът преизчисли броя на акциите"
             asset_split_unknown_ratio: "%{base} беше сплитнат — брокерът преизчисли броя на акциите"
             rebalance_sell_placed: 'Ребалансиране — продажба на надтегления актив'

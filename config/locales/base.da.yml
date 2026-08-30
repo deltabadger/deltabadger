@@ -632,6 +632,7 @@ da:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            dca_skipped_restatement: "Bidrag sprunget over — en aktiesplit markedet endnu ikke har prissat"
             asset_split: "%{base} aktiesplit %{ratio} — mægleren har omregnet antallet af aktier"
             asset_split_unknown_ratio: "%{base} blev aktiesplittet — mægleren har omregnet antallet af aktier"
             rebalance_sell_placed: 'Rebalancering — sælger det overvægtede aktiv'

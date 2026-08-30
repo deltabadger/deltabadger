@@ -624,6 +624,7 @@ pl:
         other: 'Inne'
     bot_activity:
         events:
+            dca_skipped_restatement: "Wpłata pominięta — podział akcji, którego rynek jeszcze nie wycenił"
             asset_split: "%{base} podział akcji %{ratio} — broker przeliczył liczbę akcji"
             asset_split_unknown_ratio: "%{base} przeszedł podział akcji — broker przeliczył liczbę akcji"
             rebalance_sell_placed: 'Rebalansowanie — sprzedaż nadreprezentowanego aktywa'

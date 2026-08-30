@@ -122,6 +122,37 @@ module Bot::ChartSeries
                 .transform_values { |rows| rows.map { |time, _base, price| [time, price] } }
   end
 
+  # Two marks pinned either side of every restatement: the last observed pre-split price at one
+  # second before the effective instant, and the first observed post-split price at the instant
+  # itself.
+  #
+  # Without them `chart_grid_price` draws a straight line from the mark before a split to the mark
+  # after it, and those two are in different units — 2411 the day before a ten-for-one, 254 the day
+  # after. A point landing between them is priced at neither, and multiplied by a holding that IS
+  # restated, which is a spike exactly where the chart is supposed to have stopped having one.
+  #
+  # Both pins are observed prices moved to the boundary, not invented ones. Interpolation then
+  # happens within one basis on each side, and the only interval spanning the two is a second wide,
+  # which no point can land inside. A symbol whose grid does not reach both sides is left alone —
+  # there is nothing to pin it to.
+  def chart_split_pinned_grids(grids)
+    events = split_events
+    return grids if events.empty? || grids.blank?
+
+    events.each do |at, symbol, _factor|
+      marks = grids[symbol]
+      next if marks.blank?
+
+      before = marks.select { |time, _price| time < at }.last
+      after = marks.find { |time, _price| time >= at }
+      next if before.nil? || after.nil?
+
+      grids[symbol] = (marks + [[at - 1.second, before[1]], [at, after[1]]])
+                      .uniq { |time, _price| time }.sort_by(&:first)
+    end
+    grids
+  end
+
   # Candles are fetched from one timeframe BEFORE the first transaction so that the first buy
   # has a mark below it; without that it is permanently uncovered. The earlier candle is
   # interpolation support only — `chart_marked_at_market` never lets it become a point, or the

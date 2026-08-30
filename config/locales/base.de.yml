@@ -621,6 +621,7 @@ de:
         other: 'Sonstige'
     bot_activity:
         events:
+            dca_skipped_restatement: "Beitrag übersprungen — ein Aktiensplit, den der Markt noch nicht bepreist hat"
             asset_split: "%{base} Aktiensplit %{ratio} — der Broker hat die Stückzahl angepasst"
             asset_split_unknown_ratio: "%{base} wurde gesplittet — der Broker hat die Stückzahl angepasst"
             rebalance_sell_placed: 'Rebalancing — Verkauf des übergewichteten Werts'
