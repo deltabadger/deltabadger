@@ -632,6 +632,8 @@ sv:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            asset_split: "%{base} aktiesplit %{ratio} — mäklaren har räknat om antalet aktier"
+            asset_split_unknown_ratio: "%{base} aktiesplittades — mäklaren har räknat om antalet aktier"
             rebalance_sell_placed: 'Rebalansering — säljer den överviktade tillgången'
             rebalance_buy_placed: 'Rebalansering — köper tillbaka i den underviktade tillgången'
             rebalance_dust: 'För lite kvar för att rebalansera — lämnas som kontanter'

@@ -611,6 +611,89 @@ class Exchanges::AlpacaGetLedgerTest < ActiveSupport::TestCase
     assert_equal(-20.to_d, adjustment[:base_amount])
   end
 
+  # A split's ratio is the one thing the ledger row never said. Both legs are in hand at the moment
+  # they merge — the removal carries the old share count, the addition the new one — so it costs
+  # nothing to keep, and it is what turns a jump in a spreadsheet into a fact.
+
+  def split_pair(symbol, remove:, add:, date: '2026-05-05')
+    [{ 'id' => "#{symbol}-remove", 'activity_type' => 'SPLIT', 'symbol' => symbol,
+       'qty' => remove, 'net_amount' => '0', 'date' => date, 'status' => 'executed' },
+     { 'id' => "#{symbol}-add", 'activity_type' => 'SPLIT', 'symbol' => symbol,
+       'qty' => add, 'net_amount' => '0', 'date' => date, 'status' => 'executed' }]
+  end
+
+  def merged_split(symbol, remove:, add:)
+    stub_activities(split_pair(symbol, remove: remove, add: add))
+    @exchange.get_ledger(api_key: @api_key).data.sole
+  end
+
+  test 'a forward split states its ratio in the row and in the description' do
+    adjustment = merged_split('ZZTOP', remove: '-10', add: '30')
+
+    assert_equal '3:1', adjustment[:raw_data]['split_ratio']
+    assert_equal 'Split (ZZTOP) 3:1', adjustment[:description]
+  end
+
+  test 'a reverse split states the ratio the other way round' do
+    assert_equal '1:3', merged_split('QQTEST', remove: '-30', add: '10')[:raw_data]['split_ratio']
+  end
+
+  test 'a three-for-two split reads as 3:2, not 1.5:1' do
+    assert_equal '3:2', merged_split('ZHALF', remove: '-100', add: '150')[:raw_data]['split_ratio']
+  end
+
+  test 'fractional share counts still reduce to a whole ratio' do
+    assert_equal '10:1', merged_split('ZFRAC', remove: '-0.5', add: '5')[:raw_data]['split_ratio']
+  end
+
+  # A deep reverse split is where a fixed rounding window stops working: every small denominator
+  # sits inside it, so an exact 1-for-50 came back as 1:48.
+  test 'a deep reverse split states the ratio it actually was' do
+    assert_equal '1:50', merged_split('ZDEEP', remove: '-50', add: '1')[:raw_data]['split_ratio']
+    assert_equal '1:100', merged_split('ZDEEPER', remove: '-100', add: '1')[:raw_data]['split_ratio']
+  end
+
+  # Counts a fraction of a percent apart round to 1, and "1:1" would be a ratio asserting that
+  # nothing happened.
+  test 'counts too close together to be a split claim no ratio' do
+    assert_nil merged_split('ZNEAR', remove: '-1000', add: '1001')[:raw_data]['split_ratio']
+  end
+
+  test 'an unpaired leg claims no ratio' do
+    stub_activities([split_pair('ZLONE', remove: '-4', add: '12').first])
+
+    adjustment = @exchange.get_ledger(api_key: @api_key).data.sole
+
+    assert_nil adjustment[:raw_data]['split_ratio']
+    assert_equal 'Split (ZLONE)', adjustment[:description]
+  end
+
+  test 'legs that do not describe a restatement claim no ratio' do
+    # Two additions, a pair that nets to nothing, and one that takes five away and puts five back:
+    # none of them changed a share count, so none of them has a factor.
+    stub_activities(split_pair('ZEVEN', remove: '-5', add: '5'))
+    unchanged = @exchange.get_ledger(api_key: @api_key).data.sole
+    assert_nil unchanged[:raw_data]['split_ratio']
+    assert_equal 'Split (ZEVEN)', unchanged[:description]
+
+    stub_activities(split_pair('ZSAME', remove: '5', add: '7'))
+    same_sign = @exchange.get_ledger(api_key: @api_key).data.sole
+
+    stub_activities(split_pair('ZZERO', remove: '-8', add: '0'))
+    zero_side = @exchange.get_ledger(api_key: @api_key).data.sole
+
+    assert_nil same_sign[:raw_data]['split_ratio']
+    assert_equal 'Split (ZSAME)', same_sign[:description]
+    assert_nil zero_side[:raw_data]['split_ratio']
+  end
+
+  test 'every split row is marked as a corporate action, merged or not' do
+    assert_equal 'split', merged_split('ZMARK', remove: '-2', add: '6')[:raw_data]['corporate_action']
+
+    stub_activities([split_pair('ZSOLO', remove: '-4', add: '12').first])
+    assert_equal 'split', @exchange.get_ledger(api_key: @api_key).data.sole[:raw_data]['corporate_action']
+  end
+
   test 'does not merge SPLIT entries across symbols or dates' do
     stub_activities([
                       {

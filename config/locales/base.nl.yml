@@ -620,6 +620,8 @@ nl:
         other: 'Overige'
     bot_activity:
         events:
+            asset_split: "%{base} aandelensplitsing %{ratio} — de broker heeft het aantal aandelen herberekend"
+            asset_split_unknown_ratio: "%{base} is gesplitst — de broker heeft het aantal aandelen herberekend"
             rebalance_sell_placed: 'Herbalanceren — de overwogen asset verkopen'
             rebalance_buy_placed: 'Herbalanceren — terugkopen in de onderwogen asset'
             rebalance_dust: 'Te weinig over om te herbalanceren — blijft als cash staan'

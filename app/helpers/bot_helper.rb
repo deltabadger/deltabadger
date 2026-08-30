@@ -190,6 +190,16 @@ module BotHelper
       t('bot_activity.events.redeploy_failed', error: activity.details['reason'])
     when 'order_abandoned'
       t('bot_activity.events.order_abandoned', order_id: activity.details['order_id'])
+    when 'asset_split'
+      # The ratio is absent when the venue booked the split as a single leg, with no before-count
+      # to divide by. The line is still worth saying: the share count moved, and nothing else in
+      # the feed accounts for it.
+      ratio = activity.details['ratio']
+      if ratio.present?
+        t('bot_activity.events.asset_split', base: activity.details['base'], ratio: ratio)
+      else
+        t('bot_activity.events.asset_split_unknown_ratio', base: activity.details['base'])
+      end
     else
       t("bot_activity.events.#{activity.event}")
     end

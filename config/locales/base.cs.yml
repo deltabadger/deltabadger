@@ -640,6 +640,8 @@ cs:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            asset_split: "%{base} split %{ratio} — broker přepočítal počet akcií"
+            asset_split_unknown_ratio: "%{base} prošel splitem — broker přepočítal počet akcií"
             rebalance_sell_placed: 'Rebalancování — prodej nadváženého aktiva'
             rebalance_buy_placed: 'Rebalancování — zpětný nákup podváženého aktiva'
             rebalance_dust: 'Příliš malý zbytek na rebalancování — zůstává v hotovosti'

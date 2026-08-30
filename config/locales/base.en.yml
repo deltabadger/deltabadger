@@ -631,6 +631,8 @@ en:
         other: 'Other'
     bot_activity:
         events:
+            asset_split: "%{base} split %{ratio} — the broker restated the share count"
+            asset_split_unknown_ratio: "%{base} was split — the broker restated the share count"
             rebalance_sell_placed: 'Rebalancing — selling the overweight asset'
             rebalance_buy_placed: 'Rebalancing — buying back into the underweight asset'
             rebalance_dust: 'Too little left over to rebalance — leaving it as cash'

@@ -620,6 +620,8 @@ it:
         other: 'Altri'
     bot_activity:
         events:
+            asset_split: "%{base} split %{ratio} — il broker ha ricalcolato il numero di azioni"
+            asset_split_unknown_ratio: "%{base} ha subito uno split — il broker ha ricalcolato il numero di azioni"
             rebalance_sell_placed: 'Ribilanciamento — vendita dell’asset sovrappesato'
             rebalance_buy_placed: 'Ribilanciamento — riacquisto dell’asset sottopesato'
             rebalance_dust: 'Resto troppo piccolo per ribilanciare — lasciato in liquidità'

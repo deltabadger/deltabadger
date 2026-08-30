@@ -624,6 +624,8 @@ pl:
         other: 'Inne'
     bot_activity:
         events:
+            asset_split: "%{base} podział akcji %{ratio} — broker przeliczył liczbę akcji"
+            asset_split_unknown_ratio: "%{base} przeszedł podział akcji — broker przeliczył liczbę akcji"
             rebalance_sell_placed: 'Rebalansowanie — sprzedaż nadreprezentowanego aktywa'
             rebalance_buy_placed: 'Rebalansowanie — dokupienie niedoreprezentowanego aktywa'
             rebalance_dust: 'Zbyt mała reszta, by rebalansować — zostaje w gotówce'

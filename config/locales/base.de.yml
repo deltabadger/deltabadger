@@ -621,6 +621,8 @@ de:
         other: 'Sonstige'
     bot_activity:
         events:
+            asset_split: "%{base} Aktiensplit %{ratio} — der Broker hat die Stückzahl angepasst"
+            asset_split_unknown_ratio: "%{base} wurde gesplittet — der Broker hat die Stückzahl angepasst"
             rebalance_sell_placed: 'Rebalancing — Verkauf des übergewichteten Werts'
             rebalance_buy_placed: 'Rebalancing — Rückkauf in den untergewichteten Wert'
             rebalance_dust: 'Zu wenig Rest zum Rebalancing — bleibt als Guthaben'

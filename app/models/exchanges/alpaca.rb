@@ -507,6 +507,34 @@ class Exchanges::Alpaca < Exchange
     end.first(20)
   end
 
+  # "10:1" — the factor a restatement applied, from the position before it and the position after.
+  #
+  # Rationalized, not divided: fractional shares turn a clean 10x into 9.999...:1, and a
+  # three-for-two reads as 1.5:1 rather than the ratio a person recognises.
+  #
+  # The tolerance is RELATIVE. A fixed one is a fraction of the factor at 10:1 and larger than it
+  # at 1:100, so an absolute 0.001 rounded an exact 1-for-50 reverse split to 1:48 and an exact
+  # 1-for-100 to 1:91 — it accepts any simpler fraction within the window, and every small
+  # denominator sits inside one that wide. A per-mille of the factor itself holds at both ends.
+  #
+  # nil unless the two counts actually describe a restatement — both present, both positive, and
+  # different from each other. A pair that nets to nothing, one that only ever added shares, and
+  # one that took five away and put five back are all something other than a split; "1:1" would
+  # be a ratio for an event that changed no share count.
+  def self.split_ratio_label(old_count, new_count)
+    old_count = old_count.to_d
+    new_count = new_count.to_d
+    return nil unless old_count.positive? && new_count.positive? && old_count != new_count
+
+    factor = (new_count / old_count).to_f
+    rational = factor.rationalize(factor * 0.001)
+    # Counts closer together than the tolerance rationalize to 1 — 1000 shares becoming 1001 is
+    # not a split, and "1:1" would be a ratio asserting nothing happened. Say nothing instead.
+    return nil if rational == 1
+
+    "#{rational.numerator}:#{rational.denominator}"
+  end
+
   private
 
   # Market data (data.alpaca.markets) requires auth but is read-only and host-separate
@@ -723,7 +751,10 @@ class Exchanges::Alpaca < Exchange
       group_id: activity['group_id'],
       description: "Split (#{activity['symbol']})",
       transacted_at: non_trade_timestamp(activity),
-      raw_data: activity
+      # The marker, not the entry type, is what says a split. `adjustment` is generic — a future
+      # venue correction lands in it, and a CSV import can create one with no provenance at all —
+      # so anything that reacts to a split keys off this.
+      raw_data: activity.merge('corporate_action' => 'split')
     }
   end
 
@@ -760,13 +791,24 @@ class Exchanges::Alpaca < Exchange
       next group.first if group.one?
 
       first = group.first
+      ratio = split_ratio(group)
       first.merge(
         base_amount: group.sum { |entry| entry[:base_amount] },
+        description: [first[:description], ratio].compact.join(' '),
         raw_data: first[:raw_data].merge(
-          'merged_activity_ids' => group.map { |entry| entry[:raw_data]['id'] }
+          { 'merged_activity_ids' => group.map { |entry| entry[:raw_data]['id'] },
+            'split_ratio' => ratio }.compact
         )
       )
     end
+  end
+
+  # The counts the legs already carry: the removal is the old position, the addition the new one.
+  # Summed rather than paired, so a venue that ships the same event in more than two legs still
+  # reduces to one factor.
+  def split_ratio(group)
+    amounts = group.map { |entry| entry[:base_amount].to_d }
+    self.class.split_ratio_label(-amounts.select(&:negative?).sum, amounts.select(&:positive?).sum)
   end
 
   # CFEE (Alpaca's crypto trading fee) is NOT USD-denominated like the stock-side FEE — its
