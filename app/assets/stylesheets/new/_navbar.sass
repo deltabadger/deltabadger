@@ -66,19 +66,7 @@
     align-items: center
     position: relative
     border-radius: 2rem
-    .tooltip
-      left: 6rem
-      white-space: nowrap
-      text-align: center
-      padding: 0.5rem 1.25rem
-      line-height: 3rem
-      &::before
-          display: none
-      &__counter
-        opacity: 0.5
-    &.show-tooltip
-      .tooltip
-        left: 7rem
+    transition: all 0.1s ease-in
     svg
       width: 3rem
       height: 3rem
@@ -103,6 +91,38 @@
         fill: none !important
       .stroke--icon
         stroke: var(--link) !important
+
+  // The highlight is ONE chip that slides between the tiles, the way the .segmented thumb does.
+  // CSS places it on the active tile — no measurement, so it is right in a restored snapshot and
+  // after a resize alike; the menu controller only animates the trip between two placements.
+  // Last in the section, so it paints over a tile's hover background: the tile it is arriving
+  // under is the one the cursor is on. Its icon is raised above it below.
+  &__chip
+    display: none
+    position: absolute
+    left: 0
+    width: 6rem
+    height: 6rem
+    border-radius: 2rem
+    background: var(--washed)
+    box-shadow: var(--shadow-basic)
+    pointer-events: none
+  &__section--main-menu
+    // One tile = the 6rem item + the section's 1rem gap, both set above. nth-of-type counts the
+    // <a> tiles only; the chip is a div.
+    @for $i from 1 through 3
+      .menu__item--active:nth-of-type(#{$i}) ~ .menu__chip
+        display: block
+        top: #{($i - 1) * 7rem}
+    .menu__item svg
+      position: relative
+      z-index: 1
+    // The chip draws the pill here. Scoped: the settings trigger below reuses --active as its open
+    // state and keeps the pill of its own. Without this the tile the chip is LEAVING would still
+    // show one until the new page lands.
+    .menu__item--active
+      background: transparent !important
+      box-shadow: none
 
   &__button
     background: none

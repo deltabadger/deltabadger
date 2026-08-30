@@ -8,6 +8,11 @@ export default class extends Controller {
 
   connect() {
     this.showTooltipTimeout = null;
+    document.addEventListener("turbo:before-cache", this.hideTooltip);
+  }
+
+  disconnect() {
+    document.removeEventListener("turbo:before-cache", this.hideTooltip);
   }
 
   // A click is deliberate: no delay, and positioned before it is revealed, like a hover.
@@ -30,7 +35,10 @@ export default class extends Controller {
     this.#setTooltipTimeout();
   }
 
-  hideTooltip() {
+  // Also on turbo:before-cache: Turbo clones the body into its snapshot cache at the moment a
+  // link is clicked — with the clicked element's tooltip open. Left there, the preview render
+  // on the way back to this page would paint that tooltip under a cursor that is somewhere else.
+  hideTooltip = () => {
     this.#clearTimeouts();
     this.element.classList.remove("show-tooltip");
 
