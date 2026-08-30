@@ -621,6 +621,8 @@ es:
         other: 'Otros'
     bot_activity:
         events:
+            asset_split: "%{base} split %{ratio} — el bróker recalculó el número de acciones"
+            asset_split_unknown_ratio: "%{base} tuvo un split — el bróker recalculó el número de acciones"
             rebalance_sell_placed: 'Reequilibrio — vendiendo el activo sobreponderado'
             rebalance_buy_placed: 'Reequilibrio — recomprando el activo infraponderado'
             rebalance_dust: 'Queda muy poco para reequilibrar — se deja como efectivo'

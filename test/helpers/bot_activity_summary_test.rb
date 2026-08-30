@@ -36,4 +36,20 @@ class BotActivitySummaryTest < ActionView::TestCase
   def activity(event, details = {})
     BotActivityLog.new(event: event, details: details.stringify_keys, level: :info)
   end
+
+  test 'a split names the symbol and the ratio' do
+    summary = bot_activity_summary(activity('asset_split', base: 'KLAC', ratio: '10:1'))
+
+    assert_match(/KLAC/, summary)
+    assert_match(/10:1/, summary)
+    assert_no_match(/%\{/, summary)
+  end
+
+  test 'a split with no derivable ratio still reads as a sentence' do
+    summary = bot_activity_summary(activity('asset_split', base: 'KLAC'))
+
+    assert_match(/KLAC/, summary)
+    assert_no_match(/%\{/, summary)
+    assert_no_match(/translation missing/i, summary)
+  end
 end

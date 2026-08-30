@@ -632,6 +632,8 @@ bg:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            asset_split: "%{base} сплит %{ratio} — брокерът преизчисли броя на акциите"
+            asset_split_unknown_ratio: "%{base} беше сплитнат — брокерът преизчисли броя на акциите"
             rebalance_sell_placed: 'Ребалансиране — продажба на надтегления актив'
             rebalance_buy_placed: 'Ребалансиране — обратна покупка на подтегления актив'
             rebalance_dust: 'Остатъкът е твърде малък за ребалансиране — остава в брой'

@@ -619,6 +619,8 @@ pt:
         other: 'Outros'
     bot_activity:
         events:
+            asset_split: "%{base} desdobramento %{ratio} — a corretora recalculou o número de ações"
+            asset_split_unknown_ratio: "%{base} sofreu um desdobramento — a corretora recalculou o número de ações"
             rebalance_sell_placed: 'Reequilíbrio — a vender o ativo sobreponderado'
             rebalance_buy_placed: 'Reequilíbrio — a recomprar o ativo subponderado'
             rebalance_dust: 'Sobra pouco para reequilibrar — fica como numerário'

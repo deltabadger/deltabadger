@@ -632,6 +632,8 @@ el:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            asset_split: "%{base} split %{ratio} — ο χρηματιστής αναπροσάρμοσε τον αριθμό των μετοχών"
+            asset_split_unknown_ratio: "%{base} έγινε split — ο χρηματιστής αναπροσάρμοσε τον αριθμό των μετοχών"
             rebalance_sell_placed: 'Επανεξισορρόπηση — πώληση του υπερεκπροσωπούμενου στοιχείου'
             rebalance_buy_placed: 'Επανεξισορρόπηση — επαναγορά του υποεκπροσωπούμενου στοιχείου'
             rebalance_dust: 'Πολύ μικρό υπόλοιπο για επανεξισορρόπηση — παραμένει ως μετρητά'

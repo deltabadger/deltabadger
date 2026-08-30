@@ -102,6 +102,7 @@ class AccountTransactionSync
       end
 
       stored_merged_activity_ids.merge(merged_ids_of(entry))
+      log_split(at)
       imported += 1
 
       next unless progress && total.positive?
@@ -116,7 +117,117 @@ class AccountTransactionSync
     { imported: imported, duplicates: duplicates, skipped: skipped, min_skipped: min_skipped }
   end
 
+  # One info line per bot that was holding the symbol when it was restated. Also called from the
+  # migration that backfills the splits already on record, which is why it takes plain arguments
+  # and no sync state.
+  #
+  # A split OLDER than the feed's retention is not written at all: `BotActivityLog::PruneJob` would
+  # delete it within the day, and by then the trades it exists to explain are gone from the feed
+  # too. Dated at the split rather than at the sync, so it ages out alongside them.
+  def self.announce_split(user:, exchange:, symbol:, at:, ratio: nil)
+    return if symbol.blank? || at.blank? || at < BotActivityLog::PruneJob::RETENTION.ago
+
+    details = { base: symbol, ratio: ratio }.compact
+    bots_holding(user, exchange, symbol, at).each do |bot|
+      # Alpaca can ship the add leg on its own and the merged pair a sync later — one split
+      # arriving twice, the second time knowing the ratio. Upgrade the line rather than add a
+      # second one saying the same thing with less in it.
+      #
+      # Matched on the SYMBOL too, in Ruby: two holdings can split on the same day and Alpaca
+      # books both at that day's midnight, so the timestamp alone would read the second as a
+      # repeat of the first and quietly overwrite it.
+      existing = bot.bot_activity_logs.where(event: 'asset_split', created_at: at)
+                    .find { |log| log.details['base'] == symbol }
+      next existing.update(details: details) if existing
+
+      bot.log_activity('asset_split', at: at, details: details)
+    end
+  end
+
+  # A bot is affected if it still had the symbol when it was restated. Read through
+  # `confirmed_exec_amounts`, the app's one rule for what an order actually moved: an order that
+  # failed or was skipped moved nothing, an accepted one that never filled moved nothing either,
+  # and one that filled part way before being cancelled moved exactly what it filled.
+  #
+  # Suppressed only on a position that reads EXACTLY flat. A bot's own rows are as-traded and are
+  # never restated, so once a symbol has been through an earlier split the buys and the sells are
+  # in different units and the sum is not a share count — it can even go negative. A number that
+  # cannot be a position is not evidence the bot has none; a clean zero is. This errs toward
+  # saying too much, which for one informational line is the right direction, and it stops mattering
+  # once the ledger itself is restated.
+  def self.bots_holding(user, exchange, symbol, at)
+    # Scoped by the TRANSACTION's venue, not the bot's current one: a bot can be moved between
+    # brokers and its old orders keep the exchange they were placed on, so reading the bot's
+    # present venue would count a position it never held here — and hide one it did.
+    # `created_at` is acceptance, not fill, and `transactions` records no execution time. It is
+    # nonetheless the right side of the split for every row that can matter here: Alpaca places
+    # stock orders `time_in_force: 'day'` (see Exchanges::Alpaca), a day order cannot survive the
+    # session close, and a split is booked at the day boundary — so acceptance and fill are always
+    # on the same side of one. Crypto orders are GTC and can span midnight, but crypto has no
+    # corporate actions. Revisit if stock orders ever become GTC.
+    rows = Transaction.submitted.where(base: symbol, exchange: exchange)
+                      .where(created_at: ...at)
+                      .where(bot_id: Bot.where(user: user).select(:id))
+                      .pluck(:bot_id, :side, :external_status, :price, :amount, :amount_exec,
+                             :quote_amount_exec, :created_at)
+
+    net = Hash.new(0.to_d)
+    opened = {}
+    rows.each do |bot_id, side, status, price, amount, exec, quote_exec, created_at|
+      exec, = Transaction.confirmed_exec_amounts(status, price, amount, exec, quote_exec)
+      next if exec.blank? || exec.to_d.zero?
+
+      net[bot_id] += side == 'sell' ? -exec.to_d : exec.to_d
+      opened[bot_id] = [opened[bot_id], created_at].compact.min
+    end
+
+    # A clean zero only means "flat" while every row is in the same units. A bot whose own history
+    # reaches back past an earlier restatement is not: one share bought before a 2-for-1 and one of
+    # the resulting two sold after it also sums to zero, with a share still held. A bot that opened
+    # AFTER that restatement has consistent units, and its zero is a real zero.
+    restated_at = last_split_before(user, exchange, symbol, at)
+    flat = net.select do |bot_id, amount|
+      amount.zero? && (restated_at.nil? || opened[bot_id] >= restated_at)
+    end
+    Bot.where(id: net.keys - flat.keys)
+  end
+  private_class_method :bots_holding
+
+  # When this symbol was last restated on this venue before now, or nil. Matched on the marker OR
+  # on Alpaca's own activity type, so it reads correctly while the backfill is still walking rows
+  # that have yet to be marked.
+  def self.last_split_before(user, exchange, symbol, at)
+    AccountTransaction.where(user: user, exchange: exchange, entry_type: :adjustment,
+                             base_currency: symbol)
+                      .where(transacted_at: ...at)
+                      .filter_map do |row|
+      raw = row.raw_data
+      next unless raw.is_a?(Hash) &&
+                  (raw['corporate_action'] == 'split' ||
+                   Exchanges::Alpaca::SPLIT_TYPES.include?(raw['activity_type']))
+
+      row.transacted_at
+    end.max
+  end
+  private_class_method :last_split_before
+
   private
+
+  # A split changes a share count with nothing bought or sold, so a bot's feed would otherwise show
+  # its holding jump for no stated reason. One info line, dated at the split so it lands beside the
+  # trades around it rather than on the day the sync happened to read it.
+  #
+  # Keyed on the corporate-action marker, not on `adjustment`: that entry type is generic — a
+  # future venue correction lands in it, and an imported row carries no provenance at all — and a
+  # line claiming a split that was not one is worse than no line.
+  def log_split(at)
+    return unless at.adjustment? && at.raw_data.is_a?(Hash) && at.raw_data['corporate_action'] == 'split'
+
+    AccountTransactionSync.announce_split(
+      user: @api_key.user, exchange: @exchange, symbol: at.base_currency,
+      at: at.transacted_at, ratio: at.raw_data['split_ratio']
+    )
+  end
 
   def duplicate?(entry, tx_id)
     if tx_id.nil?

@@ -597,4 +597,250 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_equal 0, second_result.data, 'the same reward, already stored'
     assert_equal [@api_key.id], AccountTransaction.where(tx_id: nil).pluck(:api_key_id)
   end
+
+  # ---- a split, said out loud in the bot's own log ----
+  #
+  # A split changes a share count without anything being bought or sold. Nothing in a bot's feed
+  # explains that, so the count simply appears to jump. One info line, on the bots that were
+  # actually holding the symbol at the time, dated when the split happened.
+
+  # Relative, not a literal: `announce_split` writes nothing for a split older than the feed's
+  # retention, so a fixed date would quietly stop exercising any of this once the clock passed it.
+  def split_at
+    @split_at ||= 10.days.ago.change(usec: 0)
+  end
+
+  def split_entry(symbol: 'KLAC', ratio: '10:1', tx_id: 'split-1')
+    { entry_type: :adjustment, base_currency: symbol, base_amount: 90,
+      quote_currency: nil, quote_amount: nil, fee_currency: nil, fee_amount: nil,
+      tx_id: tx_id, group_id: nil, description: "Split (#{symbol}) #{ratio}",
+      transacted_at: split_at,
+      raw_data: { 'corporate_action' => 'split', 'split_ratio' => ratio }.compact }
+  end
+
+  def holder(symbol: 'KLAC', at: split_at - 1.day, exchange: @exchange, user: @user, **attributes)
+    asset = Asset.find_by(symbol: symbol) || create(:asset, external_id: symbol.downcase, symbol: symbol)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    bot = create(:dca_single_asset, user: user, exchange: exchange,
+                                    base_asset: asset, quote_asset: usd, with_api_key: false)
+    create(:transaction, bot: bot, exchange: exchange, base: symbol, quote: 'USD',
+                         created_at: at, **attributes)
+    bot
+  end
+
+  def sync_split!(entry = split_entry)
+    @exchange.stubs(:get_ledger).returns(Result::Success.new([entry]))
+    AccountTransactionSync.new(@api_key).sync!
+  end
+
+  test 'a split is logged on a bot that was holding the symbol' do
+    bot = holder
+
+    sync_split!
+
+    log = bot.bot_activity_logs.sole
+    assert_equal 'asset_split', log.event
+    assert_equal 'info', log.level
+    assert_equal 'KLAC', log.details['base']
+    assert_equal '10:1', log.details['ratio']
+  end
+
+  test 'the line is dated at the split, not at the sync' do
+    bot = holder
+
+    sync_split!
+
+    assert_equal split_at, bot.bot_activity_logs.sole.created_at
+  end
+
+  test 'a split with no derivable ratio still says it happened' do
+    bot = holder
+
+    sync_split!(split_entry(ratio: nil))
+
+    assert_nil bot.bot_activity_logs.sole.details['ratio']
+  end
+
+  test 'a bot that only bought after the split is left alone' do
+    bot = holder(at: split_at + 1.day)
+
+    sync_split!
+
+    assert_empty bot.bot_activity_logs
+  end
+
+  test 'an order that never executed is not a holding' do
+    failed = holder(status: :failed, amount_exec: nil, quote_amount_exec: nil)
+    skipped = holder(status: :skipped)
+    unfilled = holder(external_status: :cancelled, amount_exec: nil, quote_amount_exec: nil)
+
+    sync_split!
+
+    assert_empty failed.bot_activity_logs
+    assert_empty skipped.bot_activity_logs
+    assert_empty unfilled.bot_activity_logs
+  end
+
+  test 'an order cancelled after filling part way still leaves a holding' do
+    bot = holder(external_status: :cancelled, amount_exec: 0.4)
+
+    sync_split!
+
+    assert_equal 1, bot.bot_activity_logs.count, 'the shares it did fill are still owned'
+  end
+
+  test 'another symbol, another venue and another user are all left alone' do
+    other_symbol = holder(symbol: 'AAPL')
+    other_venue = holder(exchange: create(:kraken_exchange))
+    other_user = holder(user: create(:user))
+
+    sync_split!
+
+    assert_empty other_symbol.bot_activity_logs
+    assert_empty other_venue.bot_activity_logs
+    assert_empty other_user.bot_activity_logs
+  end
+
+  test 'an ordinary ledger row logs nothing' do
+    bot = holder(symbol: 'BTC')
+
+    @exchange.stubs(:get_ledger).returns(Result::Success.new(@ledger_entries))
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_empty bot.bot_activity_logs
+  end
+
+  test 'an adjustment with no provenance logs nothing' do
+    # An imported row: `Import::DeltabadgerCsv` carries no raw_data, so nothing says it was a split.
+    bot = holder
+
+    sync_split!(split_entry.merge(raw_data: {}))
+
+    assert_empty bot.bot_activity_logs
+  end
+
+  test 'a second sync over the same window does not repeat the line' do
+    bot = holder
+
+    sync_split!
+    sync_split!
+
+    assert_equal 1, bot.bot_activity_logs.count
+  end
+
+  test 'a bot that had already sold out is not told about the split' do
+    bot = holder
+    create(:transaction, bot: bot, exchange: @exchange, base: 'KLAC', quote: 'USD',
+                         side: :sell, created_at: split_at - 2.hours)
+
+    sync_split!
+
+    assert_empty bot.bot_activity_logs, 'a position that was closed before the split is not affected'
+  end
+
+  test 'a bot that sold only part of its position is still told' do
+    bot = holder(amount_exec: 1.0)
+    create(:transaction, bot: bot, exchange: @exchange, base: 'KLAC', quote: 'USD',
+                         side: :sell, amount_exec: 0.4, created_at: split_at - 2.hours)
+
+    sync_split!
+
+    assert_equal 1, bot.bot_activity_logs.count
+  end
+
+  # The feed keeps 90 days. A split older than that has no trades left beside it to explain, and
+  # the line would be deleted by the next prune anyway.
+  test 'a split older than the feed keeps is not written at all' do
+    bot = holder(at: 2.years.ago)
+
+    sync_split!(split_entry.merge(transacted_at: 1.year.ago))
+
+    assert_empty bot.bot_activity_logs
+  end
+
+  # Alpaca can ship the add leg before the remove leg exists. The standalone leg imports without a
+  # ratio; the merged pair imports later and knows one. That is one split, so it is one line.
+  test 'a split that arrives in two passes ends up as one line, with the ratio' do
+    bot = holder
+
+    sync_split!(split_entry(ratio: nil, tx_id: 'split-add').merge(base_amount: 90))
+    sync_split!(split_entry(tx_id: 'split-remove'))
+
+    log = bot.bot_activity_logs.sole
+    assert_equal '10:1', log.details['ratio']
+  end
+
+  test 'two symbols splitting on the same day are two separate lines' do
+    bot = holder
+    aapl = create(:asset, external_id: 'aapl', symbol: 'AAPL')
+    create(:ticker, exchange: @exchange, base_asset: aapl, quote_asset: Asset.find_by(symbol: 'USD'))
+    create(:transaction, bot: bot, exchange: @exchange, base: 'AAPL', quote: 'USD',
+                         created_at: split_at - 1.day)
+
+    @exchange.stubs(:get_ledger).returns(
+      Result::Success.new([split_entry, split_entry(symbol: 'AAPL', ratio: '4:1', tx_id: 'split-2')])
+    )
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_equal %w[AAPL KLAC], bot.bot_activity_logs.map { |log| log.details['base'] }.sort
+  end
+
+  # A bot whose rows already crossed an earlier split holds as-traded buys and restated sells, so
+  # the two are in different units and the sum can read negative. That is not a flat position — it
+  # is proof the bot has been through exactly the thing this line exists to explain.
+  test 'a position whose units no longer agree is still told' do
+    bot = holder(amount_exec: 1.0)
+    create(:transaction, bot: bot, exchange: @exchange, base: 'KLAC', quote: 'USD',
+                         side: :sell, amount_exec: 5.0, created_at: split_at - 2.hours)
+
+    sync_split!
+
+    assert_equal 1, bot.bot_activity_logs.count
+  end
+
+  test 'a bot on another venue, and one that moved here later, are judged on where they traded' do
+    kraken = create(:kraken_exchange)
+    elsewhere = holder(exchange: kraken)
+    # Moved to this venue after the fact — set directly, since the point under test is the stored
+    # state, not the move. The orders it placed on Kraken are still Kraken's.
+    elsewhere.update_columns(exchange_id: @exchange.id)
+
+    sync_split!
+
+    assert_empty elsewhere.bot_activity_logs
+  end
+
+  # One share bought before a 2-for-1, one of the resulting two sold after it: the as-traded rows
+  # sum to zero and a share is still held.
+  test 'a zero that spans an earlier split is not a flat position' do
+    bot = holder(at: split_at - 30.days, amount_exec: 1.0)
+    create(:account_transaction, user: @user, api_key: @api_key, exchange: @exchange,
+                                 entry_type: :adjustment, base_currency: 'KLAC', base_amount: 1,
+                                 quote_currency: nil, quote_amount: nil, tx_id: 'earlier-split',
+                                 description: 'Split (KLAC) 2:1', transacted_at: split_at - 20.days,
+                                 raw_data: { 'corporate_action' => 'split', 'split_ratio' => '2:1' })
+    create(:transaction, bot: bot, exchange: @exchange, base: 'KLAC', quote: 'USD',
+                         side: :sell, amount_exec: 1.0, created_at: split_at - 10.days)
+
+    sync_split!
+
+    assert_equal 1, bot.bot_activity_logs.count
+  end
+
+  test 'a bot that opened and closed entirely after the earlier split is flat and stays quiet' do
+    # The account has been through an earlier split, but this bot's own rows are all on one side
+    # of it, so its zero is a real zero.
+    create(:account_transaction, user: @user, api_key: @api_key, exchange: @exchange,
+                                 entry_type: :adjustment, base_currency: 'KLAC', base_amount: 1,
+                                 quote_currency: nil, quote_amount: nil, tx_id: 'earlier-split',
+                                 description: 'Split (KLAC) 2:1', transacted_at: split_at - 20.days,
+                                 raw_data: { 'corporate_action' => 'split', 'split_ratio' => '2:1' })
+    bot = holder(at: split_at - 10.days, amount_exec: 1.0)
+    create(:transaction, bot: bot, exchange: @exchange, base: 'KLAC', quote: 'USD',
+                         side: :sell, amount_exec: 1.0, created_at: split_at - 5.days)
+
+    sync_split!
+
+    assert_empty bot.bot_activity_logs
+  end
 end
