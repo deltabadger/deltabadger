@@ -23,6 +23,33 @@ Turbo.StreamActions.remove_class = function () {
   this.targetElements.forEach((element) => element.classList.remove(className));
 };
 
+// A repeat click on the link whose visit is already in flight would abort that request and start
+// the render over — and the server still renders the abandoned one, ahead of the new one. Only the
+// identical URL is ignored; a different link still cancels the visit and moves on. Both events are
+// cancelled: a turbo:click left unfollowed falls through to the browser as a full navigation.
+document.addEventListener("turbo:click", (event) => {
+  const visit = Turbo.navigator.currentVisit;
+  if (visit?.state !== "started" || visit.location.href !== event.detail.url) return;
+  // Only a navigation duplicating a navigation: a Back/Forward restoration or a page refresh in
+  // flight is not what the click asked for, and a frame-targeted link is its own navigation even
+  // at the same URL.
+  if (visit.action === "restore" || visit.isPageRefresh) return;
+  if (event.target.closest("turbo-frame") || event.target.hasAttribute("data-turbo-frame")) return;
+
+  event.preventDefault();
+  event.detail.originalEvent.preventDefault();
+});
+
+// The menu controller stamps data-menu-visit on <html> for a menu-tile visit, which hides Turbo's
+// progress bar for that visit alone. turbo:visit fires only when a visit STARTS, and a form
+// submission emits none while its request runs — and starting one cancels the visit in flight
+// without a load or an error of its own — so the stamp has to come off when the visit ends or is
+// cut short. Here, rather than in the controller, because the page the visit lands on may not
+// carry the menu at all (a session that expired mid-visit lands on the sign-in layout).
+["turbo:load", "turbo:fetch-request-error", "turbo:submit-start"].forEach((name) =>
+  document.addEventListener(name, () => document.documentElement.removeAttribute("data-menu-visit"))
+);
+
 // Turbo keeps a snapshot of every page visited and restores it, without a request, when the user
 // goes Back. Turning "Hide balances" on therefore leaves the balances one Back press away: the
 // snapshot was taken while they were still on screen, and a broadcast refresh reaches the live
