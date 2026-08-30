@@ -620,6 +620,7 @@ it:
         other: 'Altri'
     bot_activity:
         events:
+            dca_skipped_restatement: "Versamento saltato — uno split che il mercato non ha ancora prezzato"
             asset_split: "%{base} split %{ratio} — il broker ha ricalcolato il numero di azioni"
             asset_split_unknown_ratio: "%{base} ha subito uno split — il broker ha ricalcolato il numero di azioni"
             rebalance_sell_placed: 'Ribilanciamento — vendita dell’asset sovrappesato'

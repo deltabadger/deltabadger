@@ -117,6 +117,24 @@ class AccountTransactionSync
     { imported: imported, duplicates: duplicates, skipped: skipped, min_skipped: min_skipped }
   end
 
+  # Every bot whose walk would fold this event in — that is, one that traded the symbol on this
+  # venue. Deliberately NOT `bots_holding`: that filters to a non-flat position, which is a rule
+  # about who should be told, not about whose numbers move.
+  def self.expire_restated_bots(user:, exchange:, symbol:)
+    return if symbol.blank?
+
+    Bot.where(id: Transaction.submitted.where(base: symbol, exchange: exchange)
+                             .where(bot_id: Bot.where(user: user).select(:id))
+                             .select(:bot_id))
+       .find_each do |bot|
+      bot.expire_restated_metrics!
+      # Dropping the caches fixes the next render; a page already open would go on showing the
+      # pre-split position until someone reloaded it. Enqueued rather than rendered here — the
+      # partial reads live prices, and a ledger sync is not the place to make that call.
+      Bot::BroadcastMetricsUpdateJob.perform_later(bot)
+    end
+  end
+
   # One info line per bot that was holding the symbol when it was restated. Also called from the
   # migration that backfills the splits already on record, which is why it takes plain arguments
   # and no sync state.
@@ -223,9 +241,30 @@ class AccountTransactionSync
   def log_split(at)
     return unless at.adjustment? && at.raw_data.is_a?(Hash) && at.raw_data['corporate_action'] == 'split'
 
+    # The ledger first, and unconditionally: `announce_split` returns early for a split older than
+    # the feed keeps, and whether a bot should be TOLD about a restatement is a different question
+    # from whether its numbers changed.
+    AccountTransactionSync.expire_restated_bots(
+      user: @api_key.user, exchange: @exchange, symbol: at.base_currency
+    )
+    # An action dated ahead of today is imported now and takes effect later; the walk rightly
+    # declines to apply it until then, so the bump has to happen again at that moment or the
+    # pre-split position stays cached. No later sync will do it — by then the row is a duplicate.
+    if at.transacted_at&.>(Time.current)
+      Bot::ExpireRestatedMetricsJob.set(wait_until: at.transacted_at)
+                                   .perform_later(@api_key.user, @exchange, at.base_currency)
+    end
     AccountTransactionSync.announce_split(
       user: @api_key.user, exchange: @exchange, symbol: at.base_currency,
       at: at.transacted_at, ratio: at.raw_data['split_ratio']
+    )
+  rescue StandardError => e
+    # The row is already stored, and a later sync will read it as a duplicate and never come back
+    # here — so this must not abort the batch, and it must be loud. A bot left on a stale cache key
+    # is a position read at the wrong basis, which is what the fleet's log scan is for.
+    Rails.logger.error(
+      "[#{@exchange.name_id}] Split side effects failed for #{at.base_currency} " \
+      "tx_id=#{at.tx_id.inspect}: #{e.class}: #{e.message}"
     )
   end
 

@@ -29,8 +29,15 @@ module Bot::Composition::Measurable
       ledger = Hash.new { |hash, key| hash[key] = { amount: 0, invested: 0 } }
       books = new_rebalance_books
       asset_prices = {} # Track last known price for each asset
+      # Corporate actions are events in this walk like any fill. A pending queue rather than a
+      # merge, because they are rare and this loop runs over every order the bot ever placed.
+      pending_splits = split_events
 
       transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, amount, base, side, external_status, transaction_type|
+        # Before the order, not after: the restatement is a property of the position the order then
+        # acts on, so a split sharing an order's timestamp is applied first.
+        pending_splits = apply_due_splits(pending_splits, created_at, ledger, asset_prices, data, books)
+
         amount_exec, quote_amount_exec =
           confirmed_exec_amounts(external_status, price, amount, amount_exec, quote_amount_exec)
         next if price.blank? || quote_amount_exec.blank? || amount_exec.blank?
@@ -59,6 +66,9 @@ module Bot::Composition::Measurable
         end
       end
 
+      # The ordinary case: a split lands and the bot has not traded since.
+      apply_due_splits(pending_splits, nil, ledger, asset_prices, data, books)
+
       data[:total_quote_amount_invested] = invested_total(books)
       # Cash realized by a sell whose buy has not landed yet — or by a liquidation the bot has not
       # re-spent — is still the user's money.
@@ -86,6 +96,10 @@ module Bot::Composition::Measurable
                       force: force) do
       metrics_data = metrics.deep_dup
       return metrics_data if metrics_data[:chart][:labels].empty?
+
+      # A restatement the market has not priced yet: the venue's latest trade is still the old
+      # basis, and this walk's holdings are already the new one.
+      return stale(metrics_data) if restated_prices_untrusted?(metrics_data)
 
       result = exchange.get_tickers_prices(symbols: tickers.map(&:ticker))
       return stale(metrics_data) if result.failure?
@@ -224,20 +238,21 @@ module Bot::Composition::Measurable
   # _v3: realised P/L and the contributed/ledger split. _v4: a per-symbol cost-basis snapshot per
   # transaction, so the chart can draw one holding on its own. _v5: realised_cash split out of
   # rebalance_cash, which the redeploy offer reads — without the bump an existing bot serves a hash
-  # with no such key for up to 30 days and the prompt never appears.
+  # with no such key for up to 30 days and the prompt never appears. _v6: holdings are restated
+  # through corporate actions, so every count, value and chart point in here can differ.
   # The cached shape lives up to 30 days, so this has to move with it or every existing bot serves
   # the old numbers after a deploy.
   # A method, not a literal: the tests that seed this cache were reading the string off the source.
   def metrics_cache_key
-    "bot_#{id}_metrics_v5"
+    "bot_#{id}_metrics_v6_#{restatement_generation}"
   end
 
   def metrics_with_current_prices_cache_key
-    "bot_#{id}_metrics_with_current_prices_v5"
+    "bot_#{id}_metrics_with_current_prices_v6_#{restatement_generation}"
   end
 
   def metrics_with_current_prices_and_candles_cache_key
-    "bot_#{id}_metrics_with_current_prices_and_candles_v5"
+    "bot_#{id}_metrics_with_current_prices_and_candles_v6_#{restatement_generation}"
   end
 
   def optimal_candles_timeframe_for_duration(duration)
@@ -255,6 +270,48 @@ module Bot::Composition::Measurable
     else
       1.day
     end
+  end
+
+  # Folds in every restatement due at or before `until_time` (all of them when nil), and returns
+  # what is left. A split multiplies the position and moves no money, so `invested` — and with it
+  # the cost basis, the realised P/L and the rebalance books — is untouched.
+  #
+  # The last-known price is divided by the same factor. This walk values the portfolio at the price
+  # each asset last traded at, and that price is pre-split; without restating it the value jumps by
+  # the factor and stays there until the asset next trades, which is exactly the fallback headline
+  # a bot shows when the live read fails.
+  #
+  # A chart point is emitted, as a fill would. `chart_marked_at_market` interpolates between the
+  # snapshots stored here, so with no snapshot at the split every candle point between it and the
+  # next order would price a pre-split count. Because both sides move together the point's value
+  # equals the one before it — the curve gains a vertex, not a step.
+  def apply_due_splits(pending, until_time, ledger, asset_prices, data, books)
+    # The overwhelming majority of bots have no corporate actions at all, and this runs once per
+    # fill over histories that reach into the millions of them.
+    return pending if pending.empty?
+
+    due, rest = pending.partition { |at, _symbol, _factor| until_time.nil? || at <= until_time }
+    due.each do |at, symbol, factor|
+      # `key?`, not `[]`: the ledger's default proc would CREATE a zero entry for a symbol the bot
+      # never actually held, and every one of those becomes a row in `asset_breakdown`.
+      next unless ledger.key?(symbol)
+
+      entry = ledger[symbol]
+      next if entry[:amount].to_d.zero?
+
+      entry[:amount] = entry[:amount].to_d * factor
+      asset_prices[symbol] /= factor if asset_prices[symbol].present?
+      # Only a restatement that MOVED something puts the live prices out of trust.
+      data[:restated_at] = [data[:restated_at], at].compact.max
+
+      data[:chart][:labels] << at
+      data[:chart][:series][0] << portfolio_value(ledger_value(ledger, asset_prices), books)
+      data[:chart][:series][1] << invested_total(books)
+      data[:chart][:extra_series] << ledger.transform_values { |values| values[:amount] }
+      data[:chart][:invested_series] << ledger.transform_values { |values| values[:invested] }
+      (data[:chart][:cash_series] ||= []) << uninvested_cash(books)
+    end
+    rest
   end
 
   # The price grid every held symbol is marked on: its candle opens plus its live price.
@@ -305,7 +362,9 @@ module Bot::Composition::Measurable
 
     # One member the candles do not cover would otherwise blank the interpolation for every member.
     labels = metrics_data[:chart][:labels]
-    chart_backfilled_grids(grids, symbols: symbols, from: labels.first, to: labels.last)
+    chart_split_pinned_grids(
+      chart_backfilled_grids(grids, symbols: symbols, from: labels.first, to: labels.last)
+    )
   end
 
   def fetch_candle_series(ticker:, since:, timeframe:)

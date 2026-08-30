@@ -24,6 +24,8 @@ class Bot::AssetSplitLocalesTest < ActiveSupport::TestCase
                       "base.#{locale}.yml asset_split_unknown_ratio drops the symbol"
       assert_not_includes without_ratio, '%{ratio}',
                           "base.#{locale}.yml asset_split_unknown_ratio has no ratio to name"
+      assert events['dca_skipped_restatement'].present?,
+             "base.#{locale}.yml is missing bot_activity.events.dca_skipped_restatement"
       # rubocop:enable Style/FormatStringToken
     end
   end
