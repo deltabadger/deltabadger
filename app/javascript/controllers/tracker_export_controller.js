@@ -2,9 +2,9 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = [
-    "typeRadio", "taxOptions", "transactionsOptions", "country", "countryRow", "year",
+    "typeRadio", "taxOptions", "transactionsOptions", "country", "year",
     "downloadBtn", "stablecoinOption", "stablecoinCheckbox", "dateFrom", "dateTo",
-    "classificationPanel", "classificationRow", "saveError"
+    "scopeRow", "scopeRadio", "classificationPanel", "classificationRow", "saveError"
   ]
 
   connect() {
@@ -16,11 +16,6 @@ export default class extends Controller {
     this.save()
   }
 
-  changeCountry() {
-    this.updateStablecoinVisibility()
-    this.save()
-  }
-
   changeYear() { this.save() }
 
   updateVisibility() {
@@ -28,6 +23,9 @@ export default class extends Controller {
     this.taxOptionsTargets.forEach(el => el.classList.toggle("hidden", !isTaxReport))
     if (this.hasTransactionsOptionsTarget) {
       this.transactionsOptionsTarget.classList.toggle("hidden", isTaxReport)
+    }
+    if (this.hasScopeRowTarget) {
+      this.scopeRowTarget.classList.toggle("hidden", !(isTaxReport && this.isGermany))
     }
     if (this.hasClassificationPanelTarget) {
       this.classificationPanelTarget.classList.toggle("hidden", !this.isBroker)
@@ -58,10 +56,6 @@ export default class extends Controller {
       const firstEnabled = Array.from(this.yearTarget.options).find(option => !option.disabled)
       if (firstEnabled) this.yearTarget.value = firstEnabled.value
     }
-
-    // The broker report is always DE and both `download()` and `save()` hardcode it, so the select
-    // is hidden rather than pinned — writing "DE" into it clobbered the user's crypto jurisdiction.
-    if (this.hasCountryRowTarget) this.countryRowTarget.classList.toggle("hidden", this.isBroker)
   }
 
   updateStablecoinVisibility() {
@@ -190,7 +184,13 @@ export default class extends Controller {
   }
 
   get exportType() { return this.typeRadioTargets.find(r => r.checked)?.value }
-  get isBroker() { return this.exportType === "broker_tax_report" }
+  get isGermany() { return this.countryTarget.value === "DE" }
+  // The scope radios stay physically checked when the row hides (another country, or the plain
+  // transactions export), so broker mode is what the row's visibility conditions AND the radio say.
+  get isBroker() {
+    return this.isTaxReport && this.isGermany && this.hasScopeRadioTarget &&
+      this.scopeRadioTargets.find(r => r.checked)?.value === "broker"
+  }
   get isTaxReport() { return this.exportType !== "transactions" }
 
   get csrfToken() {
@@ -202,16 +202,16 @@ export default class extends Controller {
       export_type: this.isTaxReport ? "tax_report" : "transactions"
     })
 
-    if (this.isBroker) {
-      // Scope only. The persisted country/year are the crypto form's preferences and the broker
-      // report has no use for them: it is always DE and picks its year at generate time.
-      params.set("report_scope", "broker")
-    } else if (this.isTaxReport) {
+    if (this.isTaxReport) {
       params.set("country", this.countryTarget.value)
-      params.set("year", this.yearTarget.value)
-      params.set("report_scope", "crypto")
-      if (this.hasStablecoinCheckboxTarget) {
-        params.set("stablecoin_as_fiat", this.stablecoinCheckboxTarget.checked)
+      params.set("report_scope", this.isBroker ? "broker" : "crypto")
+      if (!this.isBroker) {
+        // The persisted year is the crypto form's preference; the broker report has no use for it,
+        // it picks its own year at generate time.
+        params.set("year", this.yearTarget.value)
+        if (this.hasStablecoinCheckboxTarget) {
+          params.set("stablecoin_as_fiat", this.stablecoinCheckboxTarget.checked)
+        }
       }
     }
 

@@ -13,18 +13,9 @@
           <input type="radio" name="export_type" value="tax_report"
                  data-action="tracker-export#toggle"
                  data-tracker-export-target="typeRadio"
-                 <%= 'checked' if @settings['export_type'] != 'transactions' && (!@broker_exchange || @settings['report_scope'] != 'broker') %>>
+                 <%= 'checked' if @settings['export_type'] != 'transactions' %>>
           <span><%= t('tracker.export_modal.tax_report') %></span>
         </label>
-        <% if @broker_exchange %>
-          <label class="form__radio-group">
-            <input type="radio" name="export_type" value="broker_tax_report"
-                   data-action="tracker-export#toggle"
-                   data-tracker-export-target="typeRadio"
-                   <%= 'checked' if @settings['export_type'] != 'transactions' && @settings['report_scope'] == 'broker' %>>
-            <span><%= t('tracker.export_modal.broker_tax_report') %></span>
-          </label>
-        <% end %>
         <label class="form__radio-group">
           <input type="radio" name="export_type" value="transactions"
                  data-action="tracker-export#toggle"
@@ -35,8 +26,8 @@
       </div>
 
       <div data-tracker-export-target="taxOptions" class="flex-row full-width <%= 'hidden' if @settings['export_type'] == 'transactions' %>">
-        <div class="form__row form__row--input" data-tracker-export-target="countryRow">
-          <select name="country" class="form__input" data-tracker-export-target="country" data-action="change->tracker-export#changeCountry">
+        <div class="form__row form__row--input">
+          <select name="country" class="form__input" data-tracker-export-target="country" data-action="change->tracker-export#toggle">
             <% @jurisdictions.each do |code, config| %>
               <option value="<%= code %>" <%= 'selected' if @settings['country'] == code %> data-stablecoin-ambiguous="<%= config.fetch(:stablecoin_ambiguous, false) %>"><%= t("tracker.export_modal.countries.#{code}") %></option>
             <% end %>
@@ -57,8 +48,33 @@
         </div>
       </div>
 
+      <%# The crypto/stocks split only exists under German forms (Anlage KAP / KAP-INV), so the row
+          renders only with a broker account and shows only while Germany is picked. A stale broker
+          scope saved under another country is not restored — that country offers no such choice. %>
+      <% if @broker_exchange %>
+        <% selected_country = @settings['country'] || @jurisdictions.each_key.first %>
+        <% broker_scope = @settings['report_scope'] == 'broker' && selected_country == 'DE' %>
+        <div class="flex form__row flex-center gap-3 <%= 'hidden' if @settings['export_type'] == 'transactions' || selected_country != 'DE' %>"
+             data-tracker-export-target="scopeRow">
+          <label class="form__radio-group">
+            <input type="radio" name="report_scope" value="crypto"
+                   data-action="tracker-export#toggle"
+                   data-tracker-export-target="scopeRadio"
+                   <%= 'checked' unless broker_scope %>>
+            <span><%= t('tracker.export_modal.scope_crypto') %></span>
+          </label>
+          <label class="form__radio-group">
+            <input type="radio" name="report_scope" value="broker"
+                   data-action="tracker-export#toggle"
+                   data-tracker-export-target="scopeRadio"
+                   <%= 'checked' if broker_scope %>>
+            <span><%= t('tracker.export_modal.scope_broker') %></span>
+          </label>
+        </div>
+      <% end %>
+
       <%# No rows means nothing to classify — an empty table under "assign a type to every security"
-          reads as a bug. The broker radio still shows; the report simply has no securities to refuse. %>
+          reads as a bug. The scope choice still shows; the report simply has no securities to refuse. %>
       <%= render 'tracker/fund_classifications', rows: @fund_classification_rows if @fund_classification_rows.any? %>
 
       <%# Same target as the option row above, so it hides with them: this disclaimer is about the tax

@@ -472,7 +472,8 @@ sk:
         export_modal:
             title: 'Generovať prehľad'
             tax_report: 'Daňový prehľad'
-            broker_tax_report: 'Daňový prehľad brokera (Nemecko — Anlage KAP / KAP-INV)'
+            scope_crypto: 'Krypto'
+            scope_broker: 'Akcie a ETF'
             classification_title: 'Klasifikácia cenných papierov'
             classification_hint: 'Vyplnili sme, čo sa dalo zistiť z trhových dát — pred vygenerovaním prehľadu skontrolujte všetko nižšie.'
             classification_settled:

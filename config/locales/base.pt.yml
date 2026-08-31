@@ -460,7 +460,8 @@ pt:
         export_modal:
             title: 'Gerar relatório'
             tax_report: 'Relatório fiscal'
-            broker_tax_report: 'Relatório fiscal da corretora (Alemanha — Anlage KAP / KAP-INV)'
+            scope_crypto: 'Cripto'
+            scope_broker: 'Ações e ETFs'
             classification_title: 'Classificar títulos'
             classification_hint: 'Preenchemos o que foi possível com base nos dados de mercado — verifique tudo o que aparece abaixo antes de gerar o relatório.'
             classification_settled:

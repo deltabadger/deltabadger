@@ -461,7 +461,8 @@ nl:
         export_modal:
             title: 'Rapport genereren'
             tax_report: 'Belastingrapport'
-            broker_tax_report: 'Belastingrapport van de broker (Duitsland — Anlage KAP / KAP-INV)'
+            scope_crypto: 'Crypto'
+            scope_broker: 'Aandelen & ETF''s'
             classification_title: 'Effecten classificeren'
             classification_hint: 'We hebben ingevuld wat we uit de marktgegevens konden halen — controleer alles hieronder voordat u het rapport genereert.'
             classification_settled:

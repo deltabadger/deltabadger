@@ -461,7 +461,8 @@ it:
         export_modal:
             title: 'Genera report'
             tax_report: 'Report fiscale'
-            broker_tax_report: 'Report fiscale del broker (Germania — Anlage KAP / KAP-INV)'
+            scope_crypto: 'Cripto'
+            scope_broker: 'Azioni ed ETF'
             classification_title: 'Classifica i titoli'
             classification_hint: 'Abbiamo compilato ciò che era possibile ricavare dai dati di mercato — controlla quanto segue prima di generare il report.'
             classification_settled:
