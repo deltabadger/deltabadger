@@ -464,7 +464,8 @@ ru:
         export_modal:
             title: 'Создать отчёт'
             tax_report: 'Налоговый отчёт'
-            broker_tax_report: 'Налоговый отчёт брокера (Германия — Anlage KAP / KAP-INV)'
+            scope_crypto: 'Крипто'
+            scope_broker: 'Акции и ETF'
             classification_title: 'Классификация ценных бумаг'
             classification_hint: 'Мы заполнили всё, что удалось определить по рыночным данным — проверьте сведения ниже перед созданием отчёта.'
             classification_settled:

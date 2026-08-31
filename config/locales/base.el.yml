@@ -465,7 +465,8 @@ el:
         export_modal:
             title: 'Δημιουργία αναφοράς'
             tax_report: 'Φορολογική αναφορά'
-            broker_tax_report: 'Φορολογική αναφορά χρηματιστηριακού λογαριασμού (Γερμανία — Anlage KAP / KAP-INV)'
+            scope_crypto: 'Κρύπτο'
+            scope_broker: 'Μετοχές & ETF'
             classification_title: 'Ταξινόμηση κινητών αξιών'
             classification_hint: 'Συμπληρώσαμε όσα μπορέσαμε από τα δεδομένα αγοράς — ελέγξτε ό,τι εμφανίζεται παρακάτω πριν δημιουργήσετε την αναφορά.'
             classification_settled:

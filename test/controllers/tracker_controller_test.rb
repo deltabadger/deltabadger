@@ -144,13 +144,14 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     assert_includes @response.body, toggle_transfer_tracker_transaction_path(withdrawal)
   end
 
-  test 'export modal hides the broker report without an Alpaca ledger' do
+  test 'export modal hides the report scope choice without an Alpaca ledger' do
     MarketData.stubs(:configured?).returns(true)
 
     get export_modal_tracker_path
 
     assert_response :success
-    assert_not_includes @response.body, 'value="broker_tax_report"'
+    assert_not_includes @response.body, 'name="report_scope"'
+    assert_not_includes @response.body, 'data-tracker-export-target="scopeRow"'
   end
 
   test 'export modal shows the broker classification panel with exact ledger symbols' do
@@ -170,10 +171,53 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     get export_modal_tracker_path
 
     assert_response :success
-    assert_includes @response.body, 'value="broker_tax_report"'
+    assert_select 'input[name="report_scope"][value="crypto"]'
+    assert_select 'input[name="report_scope"][value="broker"]'
     assert_includes @response.body, 'data-tracker-export-target="classificationPanel"'
     assert_includes @response.body, 'data-symbol="Brk.B"'
     assert_no_match(/translation_missing/, @response.body)
+  end
+
+  # Germany is the registry's first entry, so a fresh user with a broker ledger lands on DE and
+  # must see the crypto/stocks choice immediately, defaulted to crypto.
+  test 'the scope choice shows for the default country with crypto preselected' do
+    MarketData.stubs(:configured?).returns(true)
+    broker_ledger('AAPL' => 'stock')
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    scope_row = Nokogiri::HTML(@response.body).at_css('[data-tracker-export-target="scopeRow"]')
+    assert scope_row, 'the scope row is missing'
+    assert_not_includes scope_row['class'], 'hidden'
+    assert_select 'input[name="report_scope"][value="crypto"][checked]'
+  end
+
+  test 'the saved broker scope is restored for Germany' do
+    MarketData.stubs(:configured?).returns(true)
+    broker_ledger('AAPL' => 'stock')
+    @user.update!(tracker_settings: { 'country' => 'DE', 'report_scope' => 'broker' })
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    assert_select 'input[name="report_scope"][value="broker"][checked]'
+  end
+
+  # The scope only exists under German forms. A saved country elsewhere renders the row hidden and
+  # ignores a stale broker scope rather than restoring a choice the country no longer offers.
+  test 'the scope choice is hidden for a non-German country' do
+    MarketData.stubs(:configured?).returns(true)
+    broker_ledger('AAPL' => 'stock')
+    @user.update!(tracker_settings: { 'country' => 'PL', 'report_scope' => 'broker' })
+
+    get export_modal_tracker_path
+
+    assert_response :success
+    scope_row = Nokogiri::HTML(@response.body).at_css('[data-tracker-export-target="scopeRow"]')
+    assert scope_row, 'the scope row is missing'
+    assert_includes scope_row['class'], 'hidden'
+    assert_select 'input[name="report_scope"][value="crypto"][checked]'
   end
 
   # A hundred holdings used to render a hundred rows, and the user had to scroll all of them to

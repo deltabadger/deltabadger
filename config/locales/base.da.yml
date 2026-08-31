@@ -465,7 +465,8 @@ da:
         export_modal:
             title: 'Generér rapport'
             tax_report: 'Skatterapport'
-            broker_tax_report: 'Skatterapport fra mægler (Tyskland — Anlage KAP / KAP-INV)'
+            scope_crypto: 'Krypto'
+            scope_broker: 'Aktier & ETF''er'
             classification_title: 'Klassificér værdipapirer'
             classification_hint: 'Vi udfyldte det, vi kunne ud fra markedsdata — kontrollér alt nedenfor, før du genererer rapporten.'
             classification_settled:

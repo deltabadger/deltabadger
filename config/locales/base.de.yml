@@ -462,7 +462,8 @@ de:
         export_modal:
             title: 'Bericht erstellen'
             tax_report: 'Steuerbericht'
-            broker_tax_report: 'Broker-Steuerbericht (Deutschland — Anlage KAP / KAP-INV)'
+            scope_crypto: 'Krypto'
+            scope_broker: 'Aktien & ETFs'
             classification_title: 'Wertpapiere klassifizieren'
             classification_hint: 'Wir haben anhand der Marktdaten eingetragen, was möglich war — prüfe alles unten, bevor du den Bericht erstellst.'
             classification_settled:

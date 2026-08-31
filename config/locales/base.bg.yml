@@ -465,7 +465,8 @@ bg:
         export_modal:
             title: 'Генериране на отчет'
             tax_report: 'Данъчен отчет'
-            broker_tax_report: 'Данъчен отчет от брокера (Германия — Anlage KAP / KAP-INV)'
+            scope_crypto: 'Крипто'
+            scope_broker: 'Акции и ETF'
             classification_title: 'Класифициране на ценни книжа'
             classification_hint: 'Попълнихме каквото успяхме от пазарните данни — проверете всичко по-долу, преди да генерирате отчета.'
             classification_settled:
