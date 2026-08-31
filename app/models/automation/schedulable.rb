@@ -156,6 +156,40 @@ module Automation::Schedulable
     end
   end
 
+  # Collapse duplicate live jobs of one class for one record down to a single survivor, keeping the
+  # NEWEST and destroying the rest.
+  #
+  # "Keep one" rather than "delete all but the one I just enqueued" is what makes this safe under
+  # concurrency. Two chains running at once would both enqueue a successor and then both prune; an
+  # exclusion list has each prune spare its OWN successor and destroy the other's, which can end
+  # with zero jobs and a bot that never polls again. Keeping whichever is newest is idempotent and
+  # order-independent: every interleaving converges on exactly one, and it can never reach zero.
+  #
+  # Claimed executions are deliberately not candidates — that is the job currently running.
+  def prune_duplicate_solid_queue_jobs(job_class:, record:)
+    return unless defined?(SolidQueue)
+
+    global_id = record.to_global_id.to_s
+    jobs = [SolidQueue::ScheduledExecution, SolidQueue::ReadyExecution,
+            SolidQueue::BlockedExecution].flat_map do |execution_model|
+      live_executions_for(execution_model, job_class, global_id).map(&:job)
+    end
+
+    return if jobs.size <= 1
+
+    # Re-check for a claimed execution immediately before destroying. A ready job can be picked up
+    # by a worker between the select above and here, and destroying it would cascade to the claimed
+    # execution and abort a running poll. Skipping it is free: it is a duplicate, so the survivor
+    # already keeps the chain alive, and the next tick collapses it once it is no longer claimed.
+    # This narrows the race rather than closing it — the alternative, locking the queue tables on
+    # every poll, costs more than the mid-flight abort of a redundant poll it would prevent.
+    jobs.sort_by(&:id)[0..-2].each do |job|
+      next if SolidQueue::ClaimedExecution.exists?(job_id: job.id)
+
+      job.destroy
+    end
+  end
+
   def find_next_scheduled_job_at(job_class:, record:)
     return nil unless defined?(SolidQueue)
 
@@ -184,6 +218,28 @@ module Automation::Schedulable
                      .where(solid_queue_jobs: { class_name: job_class.to_s })
                      .any? { |execution| job_matches_record?(execution.job, global_id) }
     end
+  end
+
+  # Executions of job_class belonging to record, narrowed in SQL before the exact Ruby check.
+  #
+  # The LIKE is a pure prefilter: the serialized arguments embed the GlobalID verbatim (either as
+  # "_aj_globalid" or as a bare string), so it can only exclude rows job_matches_record? would
+  # reject anyway. Without it every caller loads EVERY live job of that class and filters in Ruby
+  # — fine for a one-off cancel, but the limit-check prune runs once per waiting bot per minute,
+  # which made it scale with the square of the waiting-bot count.
+  #
+  # ponytail: the leading wildcard means this cannot use an index, so it still SCANS every
+  # class-matching row — it only avoids instantiating and JSON-parsing them. The cost is bounded by
+  # the number of waiting limit bots in ONE installation, which is small in practice: a few dozen
+  # bots costs a few hundred row-scans a minute. If an installation ever runs a few hundred waiting
+  # limit bots, index it properly — a generated column over the GlobalID, or give the limit-check
+  # jobs a per-bot concurrency_key, which is already indexed.
+  def live_executions_for(execution_model, job_class, global_id)
+    execution_model.joins(:job)
+                   .where(solid_queue_jobs: { class_name: job_class.to_s })
+                   .where('solid_queue_jobs.arguments LIKE ?', "%#{global_id}%")
+                   .includes(:job)
+                   .select { |execution| job_matches_record?(execution.job, global_id) }
   end
 
   def job_matches_record?(job, global_id)

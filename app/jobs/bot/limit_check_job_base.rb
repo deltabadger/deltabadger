@@ -18,7 +18,7 @@ class Bot::LimitCheckJobBase < ApplicationJob
       bot.update!(status: :scheduled)
       Bot::ActionJob.perform_later(bot)
     else
-      self.class.set(wait_until: next_check_at(bot)).perform_later(bot)
+      enqueue_next_poll(bot, next_check_at(bot))
     end
   rescue Client::TransientNetworkError, Client::RateLimitedError => e
     # A live-price read raised a transient (network blip / rate limit) instead of returning a
@@ -34,7 +34,25 @@ class Bot::LimitCheckJobBase < ApplicationJob
 
   def reschedule_after_transient(bot, reason)
     Rails.logger.warn("#{self.class.name.demodulize} for bot #{bot.id} failed: #{reason}. Retrying in 1 minute.")
-    self.class.set(wait_until: 1.minute.from_now).perform_later(bot)
+    enqueue_next_poll(bot, 1.minute.from_now)
+  end
+
+  # Arm the next poll, then collapse any duplicate chain while we are here.
+  #
+  # The chain is one-in-one-out so it cannot fork itself, but nothing healed a fork either: a bot
+  # that ends up with two chains polls twice a minute indefinitely, doubling its exchange reads and
+  # every log line it produces. Several paths can start a chain (recovery, resume, a manual
+  # rescue), so rather than guard each of them, the poll every chain must pass through restores the
+  # invariant — whatever forks it, the next tick collapses it.
+  #
+  # Enqueue FIRST, then prune. The reverse order is tempting (never two chains) but its failure
+  # mode is a bot with NO chain, which never polls again; this way the worst case is a duplicate
+  # that the next tick removes. The prune keeps the newest live job rather than sparing "the one I
+  # just enqueued" — see Automation::Schedulable#prune_duplicate_solid_queue_jobs — so two chains
+  # racing here converge on one instead of destroying each other's successor.
+  def enqueue_next_poll(bot, wait_until)
+    self.class.set(wait_until:).perform_later(bot)
+    bot.prune_duplicate_limit_check_jobs(self.class)
   end
 
   def condition_result(bot)

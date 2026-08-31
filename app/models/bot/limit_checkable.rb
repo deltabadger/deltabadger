@@ -69,6 +69,15 @@ module Bot::LimitCheckable
     active_job?(job_class: klass.name, record: self)
   end
 
+  # Collapse a forked poll chain for one check-job class down to a single live job.
+  # See Bot::LimitCheckJobBase#enqueue_next_poll for why this exists and why it keeps the newest.
+  # Deliberately takes the class rather than reading live_limit_check_type: a running job knows
+  # which chain it belongs to, while live_limit_check_type reports the type the bot is paused on
+  # NOW, which can differ mid-transition and would prune the wrong chain.
+  def prune_duplicate_limit_check_jobs(job_class)
+    prune_duplicate_solid_queue_jobs(job_class: job_class.name, record: self)
+  end
+
   # Re-enqueue the live check job at its type-specific next check time. No-op if no paused type.
   def enqueue_limit_check_job
     type = live_limit_check_type
