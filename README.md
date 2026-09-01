@@ -2,16 +2,15 @@
 
 [![Docker Build](https://github.com/deltabadger/deltabadger/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/deltabadger/deltabadger/actions/workflows/docker-publish.yml) [![Docker Image](https://img.shields.io/badge/ghcr.io-deltabadger%2Fdeltabadger-blue?logo=docker)](https://github.com/deltabadger/deltabadger/pkgs/container/deltabadger) [![License](https://img.shields.io/github/license/deltabadger/deltabadger)](LICENSE)
 
-[Deltabadger](https://deltabadger.com) is a one-stop-shop for investors in crypto and stocks:
+[Deltabadger](https://deltabadger.com) is a beautiful cockpit for long-term investors in stocks and crypto:
 
-No other tool offers this unique combination:
-
-* **DCA bots** for crypto and stocks
-* **Auto-withdrawals** to keep your assets safe
-* **MCP Server** to connect your exchange accounts to Claude or Claw
-* **Crypto Tax Reporting** tool with no transaction limits
-
-For tax-reporting, and some more advanced features you'll need a free CoinGecko account for market data.
+* **DCA bots**
+* **Portfolio Rebalancing**
+* **Direct Indexing**
+* **Auto-withdrawals**
+* **Portfolio Tracker**
+* **Tax Reporting**
+* **MCP Server + Rest API**
 
 ## Quick start
 
@@ -37,77 +36,53 @@ Open `http://localhost:3737`. See the [manual](#manual) for Docker Compose, the 
 
 ### Bots
 
-#### DCA
+8. [Before you start](manual/08-before-you-start.md)
+9. [Create a new bot](manual/09-create-new-bot.md)
+10. [Dollar-cost averaging](manual/10-dollar-cost-averaging.md)
+11. [Advanced bot settings](manual/11-advanced-bot-settings.md)
+12. [Portfolio rebalancing](manual/12-portfolio-rebalancing.md)
+13. [Direct indexing](manual/13-direct-indexing.md)
+14. [Charts and statistics](manual/14-charts-and-statistics.md)
+15. [Managing bots](manual/15-managing-bots.md)
 
-8. [Creating your first bot](manual/08-creating-your-first-bot.md)
-9. [Amount and interval](manual/09-amount-and-interval.md)
-10. [Order options](manual/10-order-options.md)
-11. [Triggers](manual/11-triggers.md)
-12. [Selling](manual/12-selling.md)
-13. [Managing bots](manual/13-managing-bots.md)
-14. [Charts, statistics and orders](manual/14-charts-statistics-and-orders.md)
+### Automatic withdrawals
 
-#### Portfolio Rebalancing
+16. [Withdrawal rules](manual/16-withdrawal-rules.md)
 
-15. [Portfolio bot](manual/15-portfolio-bot.md)
-16. [Rebalancing](manual/16-rebalancing.md)
+### Portfolio Tracker
 
-#### Direct Indexing
+17. [Portfolio Tracker](manual/17-portfolio-tracker.md)
+18. [Import and export](manual/18-import-and-export.md)
 
-17. [Index bot](manual/17-index-bot.md)
-18. [Index changes](manual/18-index-changes.md)
+### Tax reports
 
-### Rules
-
-#### Automatic Withdrawals
-
-19. [Withdrawal rules](manual/19-withdrawal-rules.md)
-20. [Withdrawal keys and addresses](manual/20-withdrawal-keys-and-addresses.md)
-
-### Tracker
-
-#### Portfolio Tracker
-
-21. [Connecting exchanges](manual/21-connecting-exchanges.md)
-22. [Portfolio overview](manual/22-portfolio-overview.md)
-23. [Transactions and positions](manual/23-transactions-and-positions.md)
-24. [Import and export](manual/24-import-and-export.md)
-
-#### Tax Reports
-
-25. [Crypto tax report](manual/25-crypto-tax-report.md)
-26. [Broker tax report](manual/26-broker-tax-report.md)
+19. [Crypto tax report](manual/19-crypto-tax-report.md)
+20. [Broker tax report](manual/20-broker-tax-report.md)
 
 ### Exchanges and brokers
 
-27. [Supported exchanges](manual/27-supported-exchanges.md)
-28. [API keys](manual/28-api-keys.md)
-29. [Stocks and ETFs](manual/29-stocks-and-etfs.md)
+21. [Supported exchanges](manual/21-supported-exchanges.md)
 
-### MCP server
+### API access
 
-30. [Connecting Claude](manual/30-connecting-claude.md)
-31. [Tools and permissions](manual/31-tools-and-permissions.md)
-
-### REST API
-
-32. [REST API](manual/32-rest-api.md)
+22. [MCP server](manual/22-mcp-server.md)
+23. [REST API](manual/23-rest-api.md)
 
 ### Settings
 
-33. [Account settings](manual/33-account-settings.md)
-34. [Two-factor authentication](manual/34-two-factor-authentication.md)
-35. [Market data](manual/35-market-data.md)
-36. [Multiple users](manual/36-multiple-users.md)
-37. [Email notifications](manual/37-email-notifications.md)
+24. [Account settings](manual/24-account-settings.md)
+25. [Two-factor authentication](manual/25-two-factor-authentication.md)
+26. [Market data](manual/26-market-data.md)
+27. [Multiple users](manual/27-multiple-users.md)
+28. [Email notifications](manual/28-email-notifications.md)
 
 ### Operations
 
-38. [Configuration](manual/38-configuration.md)
-39. [Data and backups](manual/39-data-and-backups.md)
-40. [Secrets and encryption keys](manual/40-secrets-and-encryption-keys.md)
-41. [Troubleshooting](manual/41-troubleshooting.md)
-42. [Development](manual/42-development.md)
+29. [Configuration](manual/29-configuration.md)
+30. [Data and backups](manual/30-data-and-backups.md)
+31. [Secrets and encryption keys](manual/31-secrets-and-encryption-keys.md)
+32. [Troubleshooting](manual/32-troubleshooting.md)
+33. [Development](manual/33-development.md)
 
 ## Community
 
