@@ -118,6 +118,9 @@ en:
             desktop: 'Deltabadger checks for updates each time it starts.'
             hosted: 'Updates are installed for you.'
             release_notes: 'Release notes'
+            check_now: 'Check for updates'
+            checking: 'Checking…'
+            check_failed: 'Could not check for updates.'
         advanced_bots:
             title: Advanced Bots
             toggle_label: Show advanced bots

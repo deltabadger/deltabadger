@@ -118,6 +118,9 @@ sv:
             desktop: "Deltabadger söker efter uppdateringar varje gång den startar."
             hosted: "Uppdateringarna installeras åt dig."
             release_notes: "Versionsinformation"
+            check_now: "Sök efter uppdateringar"
+            checking: "Söker…"
+            check_failed: "Det gick inte att söka efter uppdateringar."
         advanced_bots:
             title: Avancerade bots
             toggle_label: Visa avancerade bots

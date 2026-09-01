@@ -117,6 +117,9 @@ nl:
             desktop: 'Deltabadger controleert bij elke start op updates.'
             hosted: 'Updates worden voor u geïnstalleerd.'
             release_notes: 'Releaseopmerkingen'
+            check_now: 'Controleren op updates'
+            checking: 'Bezig met controleren…'
+            check_failed: 'Controleren op updates is mislukt.'
         advanced_bots:
             title: Geavanceerde bots
             toggle_label: Geavanceerde bots tonen

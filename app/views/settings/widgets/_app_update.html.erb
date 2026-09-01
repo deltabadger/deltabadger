@@ -15,8 +15,18 @@
     <h4 class="modal__title"><%= t('settings.app_update.title') %></h4>
 
     <% case state %>
-    <% when :hosted, :desktop %>
-      <p><%= t("settings.app_update.#{state}") %></p>
+    <% when :hosted %>
+      <p><%= t('settings.app_update.hosted') %></p>
+    <% when :desktop %>
+      <%# The desktop build installs updates itself, so it gets the button rather than the
+          instructions the container platforms need. app/javascript/tauri.js calls the updater. %>
+      <p data-desktop-update-status><%= t('settings.app_update.desktop') %></p>
+      <%= button_tag t('settings.app_update.check_now'), type: 'button', class: 'button', data: {
+        desktop_update: true,
+        desktop_update_checking: t('settings.app_update.checking'),
+        desktop_update_up_to_date: t('settings.app_update.up_to_date'),
+        desktop_update_failed: t('settings.app_update.check_failed')
+      } %>
     <% when :up_to_date %>
       <p><%= t('settings.app_update.up_to_date') %></p>
     <% when :available %>

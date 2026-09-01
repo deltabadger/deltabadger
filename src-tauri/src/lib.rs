@@ -526,7 +526,12 @@ fn stop_rails_server<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     let _ = child.wait();
 }
 
-async fn check_for_updates(app: tauri::AppHandle) -> Result<(), String> {
+// Also the Settings button: an install that can update itself should not be handing its owner
+// instructions. Returns whether an update was found — the caller only needs that much to say
+// "you are up to date", because everything after finding one is the native prompt below, and a
+// successful install never returns at all.
+#[tauri::command]
+async fn check_for_updates(app: tauri::AppHandle) -> Result<bool, String> {
     let Some(update) = app
         .updater()
         .map_err(|error| format!("Failed to initialize updater: {error}"))?
@@ -535,7 +540,7 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<(), String> {
         .map_err(|error| format!("Failed to check for updates: {error}"))?
     else {
         log::info!("Deltabadger is up to date");
-        return Ok(());
+        return Ok(false);
     };
 
     let version = update.version.clone();
@@ -558,7 +563,7 @@ async fn check_for_updates(app: tauri::AppHandle) -> Result<(), String> {
         .map_err(|error| format!("Update prompt was closed unexpectedly: {error}"))?
     {
         log::info!("Update {version} deferred by the user");
-        return Ok(());
+        return Ok(true);
     }
 
     log::info!("Downloading and installing update {version}");
@@ -585,6 +590,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .invoke_handler(tauri::generate_handler![check_for_updates])
         .manage(RailsServer(Mutex::new(None)))
         .setup(|app| {
             // Set up logging in debug mode
@@ -754,6 +760,8 @@ pub fn run() {
                     if let Err(error) = check_for_updates(app_handle).await {
                         log::error!("{error}");
                     }
+                    // The result is only interesting to the Settings button; at startup the
+                    // prompt has already said everything there is to say.
                 });
             }
 
