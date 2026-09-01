@@ -119,6 +119,9 @@ pl:
             desktop: 'Deltabadger sprawdza aktualizacje przy każdym uruchomieniu.'
             hosted: 'Aktualizacje instalują się automatycznie.'
             release_notes: 'Informacje o wersji'
+            check_now: 'Sprawdź aktualizacje'
+            checking: 'Sprawdzanie…'
+            check_failed: 'Nie udało się sprawdzić aktualizacji.'
         advanced_bots:
             title: Zaawansowane boty
             toggle_label: Pokaż zaawansowane boty

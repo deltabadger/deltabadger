@@ -117,6 +117,9 @@ pt:
             desktop: 'O Deltabadger procura atualizações sempre que arranca.'
             hosted: 'As atualizações são instaladas por si.'
             release_notes: 'Notas da versão'
+            check_now: 'Procurar atualizações'
+            checking: 'A procurar…'
+            check_failed: 'Não foi possível procurar atualizações.'
         advanced_bots:
             title: Bots avançados
             toggle_label: Mostrar bots avançados

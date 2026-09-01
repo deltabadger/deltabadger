@@ -119,6 +119,9 @@ cs:
             desktop: "Deltabadger hledá aktualizace při každém spuštění."
             hosted: "Aktualizace se instalují za vás."
             release_notes: "Poznámky k verzi"
+            check_now: "Zkontrolovat aktualizace"
+            checking: "Kontroluje se…"
+            check_failed: "Kontrolu aktualizací se nepodařilo provést."
         advanced_bots:
             title: Pokročilí boti
             toggle_label: Zobrazit pokročilé boty

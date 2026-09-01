@@ -48,13 +48,30 @@ class AppUpdateWidgetTest < ActionDispatch::IntegrationTest
     assert_select '#app_update a[href*=?]', 'manual/07-updating.md'
   end
 
-  test 'a desktop install is told its own updater handles it' do
+  # The desktop build can install an update itself, so it is the one platform that gets a button
+  # instead of something to read.
+  test 'a desktop install gets a button, not instructions' do
     Installation.stubs(:platform).returns(:desktop)
     get settings_account_path
 
     assert_select '#app_update'
+    assert_select '#app_update button[data-desktop-update]'
+    assert_select '#app_update [data-desktop-update-status]'
     assert_select '#app_update [data-clipboard-text-value]', false
     assert_select '#app_update a[href*=?]', 'releases', false
+  end
+
+  test 'no other platform offers the desktop button' do
+    AppUpdate.stubs(:available?).returns(true)
+    AppUpdate.stubs(:latest_version).returns('2.47.0')
+    AppUpdate.stubs(:latest_url).returns(RELEASE_URL)
+
+    %i[docker umbrel unknown hosted].each do |platform|
+      Installation.stubs(:platform).returns(platform)
+      get settings_account_path
+
+      assert_select '#app_update [data-desktop-update]', false, "#{platform} must not offer the desktop button"
+    end
   end
 
   test 'a hosted install is told nothing is needed' do

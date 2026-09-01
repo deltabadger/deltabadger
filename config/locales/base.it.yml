@@ -117,6 +117,9 @@ it:
             desktop: 'Deltabadger controlla gli aggiornamenti a ogni avvio.'
             hosted: 'Gli aggiornamenti vengono installati per te.'
             release_notes: 'Note di rilascio'
+            check_now: 'Cerca aggiornamenti'
+            checking: 'Ricerca…'
+            check_failed: 'Impossibile cercare aggiornamenti.'
         advanced_bots:
             title: Bot avanzati
             toggle_label: Mostra bot avanzati

@@ -117,6 +117,9 @@ fr:
             desktop: 'Deltabadger vérifie les mises à jour à chaque démarrage.'
             hosted: 'Les mises à jour sont installées pour vous.'
             release_notes: 'Notes de version'
+            check_now: 'Rechercher des mises à jour'
+            checking: 'Recherche…'
+            check_failed: 'Impossible de rechercher les mises à jour.'
         advanced_bots:
             title: Bots avancés
             toggle_label: Afficher les bots avancés
