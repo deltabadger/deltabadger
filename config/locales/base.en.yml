@@ -108,6 +108,16 @@ en:
         account: Account
         sign_up: 'Sign up'
     settings:
+        app_update:
+            title: 'Updates'
+            up_to_date: 'Deltabadger is up to date.'
+            available: 'Deltabadger %{version} is available.'
+            docker: 'Pull the new image and restart:'
+            umbrel: 'Update Deltabadger from your Umbrel App Store.'
+            manual: 'How to update'
+            desktop: 'Deltabadger checks for updates each time it starts.'
+            hosted: 'Updates are installed for you.'
+            release_notes: 'Release notes'
         advanced_bots:
             title: Advanced Bots
             toggle_label: Show advanced bots

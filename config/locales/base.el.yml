@@ -108,6 +108,16 @@ el:
         account: Λογαριασμός
         sign_up: 'Εγγραφή'
     settings:
+        app_update:
+            title: "Ενημερώσεις"
+            up_to_date: "Το Deltabadger είναι ενημερωμένο."
+            available: "Το Deltabadger %{version} είναι διαθέσιμο."
+            docker: "Κατέβασε τη νέα εικόνα και κάνε επανεκκίνηση:"
+            umbrel: "Ενημέρωσε το Deltabadger από το Umbrel App Store σου."
+            manual: "Πώς γίνεται η ενημέρωση"
+            desktop: "Το Deltabadger ελέγχει για ενημερώσεις σε κάθε εκκίνηση."
+            hosted: "Οι ενημερώσεις εγκαθίστανται για σένα."
+            release_notes: "Σημειώσεις έκδοσης"
         advanced_bots:
             title: Προχωρημένα bot
             toggle_label: Εμφάνιση προχωρημένων bot

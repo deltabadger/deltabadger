@@ -1,0 +1,37 @@
+<%# Nothing is claimed without an answer: before the first check has run, after 25 hours of
+    failures, or with the check switched off, the section stays away rather than reporting an
+    install current on no evidence. %>
+<% platform = Installation.platform %>
+<% state = if Installation.managed_updates?(platform)
+             platform
+           elsif AppUpdate.available?
+             :available
+           elsif AppUpdate.latest_version.present?
+             :up_to_date
+           end %>
+
+<% if state %>
+  <div class="widget widget--settings" id="app_update">
+    <h4 class="modal__title"><%= t('settings.app_update.title') %></h4>
+
+    <% case state %>
+    <% when :hosted, :desktop %>
+      <p><%= t("settings.app_update.#{state}") %></p>
+    <% when :up_to_date %>
+      <p><%= t('settings.app_update.up_to_date') %></p>
+    <% when :available %>
+      <p><%= t('settings.app_update.available', version: AppUpdate.latest_version) %></p>
+
+      <% if platform == :umbrel %>
+        <p><%= t('settings.app_update.umbrel') %></p>
+      <% elsif platform == :docker %>
+        <p><%= t('settings.app_update.docker') %></p>
+        <span class="tag tag--copy" data-controller="clipboard" data-clipboard-text-value="<%= AppUpdate::COMPOSE_COMMAND %>" data-action="click->clipboard#copy" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= AppUpdate::COMPOSE_COMMAND %></span>
+      <% else %>
+        <p><%= link_to t('settings.app_update.manual'), "#{Clients::Github::MANUAL_URL}/07-updating.md", target: '_blank', rel: 'noopener' %></p>
+      <% end %>
+
+      <p><%= link_to t('settings.app_update.release_notes'), AppUpdate.latest_url, target: '_blank', rel: 'noopener' %></p>
+    <% end %>
+  </div>
+<% end %>

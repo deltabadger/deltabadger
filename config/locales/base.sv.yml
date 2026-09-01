@@ -108,6 +108,16 @@ sv:
         account: Konto
         sign_up: 'Skapa konto'
     settings:
+        app_update:
+            title: "Uppdateringar"
+            up_to_date: "Deltabadger är uppdaterad."
+            available: "Deltabadger %{version} finns tillgänglig."
+            docker: "Hämta den nya avbildningen och starta om:"
+            umbrel: "Uppdatera Deltabadger från din Umbrel App Store."
+            manual: "Så uppdaterar du"
+            desktop: "Deltabadger söker efter uppdateringar varje gång den startar."
+            hosted: "Uppdateringarna installeras åt dig."
+            release_notes: "Versionsinformation"
         advanced_bots:
             title: Avancerade bots
             toggle_label: Visa avancerade bots

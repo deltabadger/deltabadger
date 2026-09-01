@@ -15,6 +15,10 @@
       <%= render partial: 'settings/widgets/email_notifications' %>
     <% end %>
 
+    <% if current_user.admin? %>
+      <%= render partial: 'settings/widgets/app_update' %>
+    <% end %>
+
     
   </div>
 

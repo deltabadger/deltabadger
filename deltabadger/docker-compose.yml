@@ -15,6 +15,7 @@ services:
       RAILS_ENV: production
       NODE_ENV: production
       RAILS_LOG_TO_STDOUT: "true"
+      DELTABADGER_PLATFORM: umbrel
       RAILS_SERVE_STATIC_FILES: "true"
       AUTO_MIGRATE: "true"
       DATABASE_PATH: /app/storage/production.sqlite3
@@ -41,6 +42,7 @@ services:
       RAILS_ENV: production
       NODE_ENV: production
       RAILS_LOG_TO_STDOUT: "true"
+      DELTABADGER_PLATFORM: umbrel
       DATABASE_PATH: /app/storage/production.sqlite3
       QUEUE_DATABASE_PATH: /app/storage/production_queue.sqlite3
       CACHE_DATABASE_PATH: /app/storage/production_cache.sqlite3
