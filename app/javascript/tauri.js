@@ -3,6 +3,7 @@ if (window.__IS_TAURI__) {
         document.documentElement.classList.add('tauri');
 
         const { open } = await import('@tauri-apps/plugin-shell');
+        const { invoke } = await import('@tauri-apps/api/core');
         const { getCurrentWindow } = await import('@tauri-apps/api/window');
         const { save } = await import('@tauri-apps/plugin-dialog');
         const { writeTextFile } = await import('@tauri-apps/plugin-fs');
@@ -73,6 +74,32 @@ if (window.__IS_TAURI__) {
                     resetToggle();
                     alert('Failed to export: ' + error.message);
                 }
+            }
+        }, true);
+
+        // The Settings update button. The desktop build installs updates itself, so it gets a
+        // button rather than the instructions the container platforms need. Everything after
+        // finding an update is the native prompt, and a successful install restarts the app, so
+        // the only outcome worth reporting here is that there was nothing to install.
+        document.addEventListener('click', async (e) => {
+            const button = e.target.closest('[data-desktop-update]');
+            if (!button) return;
+            e.preventDefault();
+
+            const status = button.parentElement.querySelector('[data-desktop-update-status]');
+            const idle = button.textContent;
+            button.disabled = true;
+            button.textContent = button.dataset.desktopUpdateChecking;
+
+            try {
+                const found = await invoke('check_for_updates');
+                if (!found && status) status.textContent = button.dataset.desktopUpdateUpToDate;
+            } catch (error) {
+                console.error('Update check failed:', error);
+                if (status) status.textContent = button.dataset.desktopUpdateFailed;
+            } finally {
+                button.disabled = false;
+                button.textContent = idle;
             }
         }, true);
 
