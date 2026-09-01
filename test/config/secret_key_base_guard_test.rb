@@ -399,7 +399,7 @@ class SecretKeyBaseGuardTest < ActiveSupport::TestCase
   # The procedure lives in the manual now, under its own heading, and runs to the next one or to
   # the end of the chapter.
   def manual_recovery_section
-    File.read(Rails.root.join('manual/40-secrets-and-encryption-keys.md'))[/## Moving to a new SECRET_KEY_BASE.*?(?=\n## |\z)/m]
+    File.read(Rails.root.join('manual/31-secrets-and-encryption-keys.md'))[/## Moving to a new SECRET_KEY_BASE.*?(?=\n## |\z)/m]
   end
 
   test 'data is exposed when no independent keys are configured' do
