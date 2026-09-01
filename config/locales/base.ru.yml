@@ -111,6 +111,16 @@ ru:
         start_fast: 'Начать за 5 минут'
         start_fast_longer_html: 'Начать <span class="d-none d-sm-inline">бесплатно</span> через 5 минут'
     settings:
+        app_update:
+            title: 'Обновления'
+            up_to_date: 'У вас последняя версия Deltabadger.'
+            available: 'Доступен Deltabadger %{version}.'
+            docker: 'Загрузите новый образ и перезапустите:'
+            umbrel: 'Обновите Deltabadger в вашем Umbrel App Store.'
+            manual: 'Как обновить'
+            desktop: 'Deltabadger проверяет обновления при каждом запуске.'
+            hosted: 'Обновления устанавливаются за вас.'
+            release_notes: 'Описание версии'
         advanced_bots:
             title: Расширенные боты
             toggle_label: Показать расширенные боты

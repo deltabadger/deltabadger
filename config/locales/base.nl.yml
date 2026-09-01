@@ -107,6 +107,16 @@ nl:
         account: Account
         sign_up: Registreren
     settings:
+        app_update:
+            title: 'Updates'
+            up_to_date: 'Deltabadger is up-to-date.'
+            available: 'Deltabadger %{version} is beschikbaar.'
+            docker: 'Haal de nieuwe image op en start opnieuw:'
+            umbrel: 'Werk Deltabadger bij via uw Umbrel App Store.'
+            manual: 'Zo werkt u bij'
+            desktop: 'Deltabadger controleert bij elke start op updates.'
+            hosted: 'Updates worden voor u geïnstalleerd.'
+            release_notes: 'Releaseopmerkingen'
         advanced_bots:
             title: Geavanceerde bots
             toggle_label: Geavanceerde bots tonen
