@@ -359,6 +359,9 @@ fn prepare_launch(
         ("RAILS_LOG_TO_STDOUT".to_string(), "true".to_string()),
         ("RAILS_SERVE_STATIC_FILES".to_string(), "1".to_string()),
         ("SOLID_QUEUE_IN_PUMA".to_string(), "true".to_string()),
+        // Settings reads this to know updates arrive through check_for_updates below, not
+        // through anything the user has to run.
+        ("DELTABADGER_PLATFORM".to_string(), "desktop".to_string()),
         ("RAILS_MAX_THREADS".to_string(), "1".to_string()),
         (
             "APP_ROOT_URL".to_string(),

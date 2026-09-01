@@ -108,6 +108,16 @@ bg:
         account: Акаунт
         sign_up: 'Регистрация'
     settings:
+        app_update:
+            title: "Обновления"
+            up_to_date: "Deltabadger е с най-новата версия."
+            available: "Налична е версия %{version} на Deltabadger."
+            docker: "Изтеглете новия образ и рестартирайте:"
+            umbrel: "Обновете Deltabadger от вашия Umbrel App Store."
+            manual: "Как да обновите"
+            desktop: "Deltabadger проверява за обновления при всяко стартиране."
+            hosted: "Обновленията се инсталират вместо вас."
+            release_notes: "Бележки към версията"
         advanced_bots:
             title: Разширени ботове
             toggle_label: Показване на разширени ботове

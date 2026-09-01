@@ -109,6 +109,16 @@ sk:
         account: Účet
         sign_up: 'Registrácia'
     settings:
+        app_update:
+            title: "Aktualizácie"
+            up_to_date: "Deltabadger je aktuálny."
+            available: "K dispozícii je Deltabadger %{version}."
+            docker: "Stiahnite nový obraz a reštartujte:"
+            umbrel: "Aktualizujte Deltabadger vo svojom Umbrel App Store."
+            manual: "Ako aktualizovať"
+            desktop: "Deltabadger hľadá aktualizácie pri každom spustení."
+            hosted: "Aktualizácie sa inštalujú za vás."
+            release_notes: "Poznámky k vydaniu"
         advanced_bots:
             title: Pokročilí boti
             toggle_label: Zobraziť pokročilých botov
