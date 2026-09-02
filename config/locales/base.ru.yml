@@ -119,7 +119,6 @@ ru:
             umbrel: 'Обновите Deltabadger в вашем Umbrel App Store.'
             manual: 'Как обновить'
             desktop: 'Deltabadger проверяет обновления при каждом запуске.'
-            hosted: 'Обновления устанавливаются за вас.'
             release_notes: 'Описание версии'
             check_now: 'Проверить обновления'
             checking: 'Проверка…'

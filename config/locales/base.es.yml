@@ -115,7 +115,6 @@ es:
             umbrel: 'Actualiza Deltabadger desde tu App Store de Umbrel.'
             manual: 'Cómo actualizar'
             desktop: 'Deltabadger busca actualizaciones cada vez que se inicia.'
-            hosted: 'Las actualizaciones se instalan por ti.'
             release_notes: 'Notas de la versión'
             check_now: 'Buscar actualizaciones'
             checking: 'Buscando…'

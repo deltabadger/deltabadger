@@ -115,7 +115,6 @@ fr:
             umbrel: 'Mettez Deltabadger à jour depuis votre App Store Umbrel.'
             manual: 'Comment mettre à jour'
             desktop: 'Deltabadger vérifie les mises à jour à chaque démarrage.'
-            hosted: 'Les mises à jour sont installées pour vous.'
             release_notes: 'Notes de version'
             check_now: 'Rechercher des mises à jour'
             checking: 'Recherche…'

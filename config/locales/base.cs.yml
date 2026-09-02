@@ -117,7 +117,6 @@ cs:
             umbrel: "Aktualizujte Deltabadger ve svém Umbrel App Storu."
             manual: "Jak aktualizovat"
             desktop: "Deltabadger hledá aktualizace při každém spuštění."
-            hosted: "Aktualizace se instalují za vás."
             release_notes: "Poznámky k verzi"
             check_now: "Zkontrolovat aktualizace"
             checking: "Kontroluje se…"

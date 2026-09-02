@@ -93,14 +93,6 @@ class AppUpdateTest < ActiveSupport::TestCase
     assert_requested :get, RELEASES_URL, times: 1
   end
 
-  test 'a hosted install never asks' do
-    Installation.stubs(:platform).returns(:hosted)
-
-    refute AppUpdate.enabled?
-    assert_nil AppUpdate.refresh!
-    assert_not_requested :get, RELEASES_URL
-  end
-
   test 'a desktop install never asks — its own updater is the authority' do
     Installation.stubs(:platform).returns(:desktop)
 

@@ -116,7 +116,6 @@ el:
             umbrel: "Ενημέρωσε το Deltabadger από το Umbrel App Store σου."
             manual: "Πώς γίνεται η ενημέρωση"
             desktop: "Το Deltabadger ελέγχει για ενημερώσεις σε κάθε εκκίνηση."
-            hosted: "Οι ενημερώσεις εγκαθίστανται για σένα."
             release_notes: "Σημειώσεις έκδοσης"
             check_now: "Έλεγχος για ενημερώσεις"
             checking: "Γίνεται έλεγχος…"

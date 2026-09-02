@@ -12,7 +12,6 @@ class InstallationTest < ActiveSupport::TestCase
     assert_equal :docker, platform_for('DELTABADGER_PLATFORM' => 'docker')
     assert_equal :umbrel, platform_for('DELTABADGER_PLATFORM' => 'umbrel')
     assert_equal :desktop, platform_for('DELTABADGER_PLATFORM' => 'desktop')
-    assert_equal :hosted, platform_for('DELTABADGER_PLATFORM' => 'hosted')
   end
 
   test 'a marker is read regardless of case and surrounding space' do
@@ -30,18 +29,17 @@ class InstallationTest < ActiveSupport::TestCase
   end
 
   # MARKET_DATA_URL names any separately managed market-data service — the manual documents it
-  # for self-hosted installs pointing at their own. Reading it as "this is a hosted container"
-  # would silently freeze those installs out of update notices forever.
-  test 'MARKET_DATA_URL does not make an install hosted' do
+  # for self-hosted installs pointing at their own, so it says nothing about how this copy was
+  # installed. Reading it as a platform would freeze those installs out of update notices forever.
+  test 'MARKET_DATA_URL names no platform' do
     assert_equal :unknown, platform_for('MARKET_DATA_URL' => 'https://data.example.com')
   end
 
-  test 'managed updates only where something else delivers them' do
-    assert Installation.managed_updates?(:hosted)
-    assert Installation.managed_updates?(:desktop)
-    refute Installation.managed_updates?(:docker)
-    refute Installation.managed_updates?(:umbrel)
-    refute Installation.managed_updates?(:unknown)
+  test 'only the desktop build installs updates itself' do
+    assert Installation.desktop?(:desktop)
+    refute Installation.desktop?(:docker)
+    refute Installation.desktop?(:umbrel)
+    refute Installation.desktop?(:unknown)
   end
 
   test 'platform reads the real environment' do

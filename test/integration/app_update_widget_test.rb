@@ -66,21 +66,12 @@ class AppUpdateWidgetTest < ActionDispatch::IntegrationTest
     AppUpdate.stubs(:latest_version).returns('2.47.0')
     AppUpdate.stubs(:latest_url).returns(RELEASE_URL)
 
-    %i[docker umbrel unknown hosted].each do |platform|
+    %i[docker umbrel unknown].each do |platform|
       Installation.stubs(:platform).returns(platform)
       get settings_account_path
 
       assert_select '#app_update [data-desktop-update]', false, "#{platform} must not offer the desktop button"
     end
-  end
-
-  test 'a hosted install is told nothing is needed' do
-    Installation.stubs(:platform).returns(:hosted)
-    get settings_account_path
-
-    assert_select '#app_update'
-    assert_select '#app_update [data-clipboard-text-value]', false
-    assert_select '#app_update a[href*=?]', 'releases', false
   end
 
   test 'an install that is current gets no instructions' do
