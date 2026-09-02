@@ -174,7 +174,6 @@ cs:
             do_you_want_to_archive: 'Chcete archivovat tohoto bota?'
             symbol_not_supported: "%{symbol} není podporován"
             specify_percentage_limit_order: "Při vytváření limitního příkazu zadejte procento"
-            smart_intervals_above_minimum: "Hodnota chytrých intervalů musí být vyšší než %{minimum}"
             invalid_price_range: "Cenový rozsah je neplatný"
             subaccounts_not_allowed: "Podúčty nejsou na této burze povoleny"
             no_subaccount_name: "Není zadán název podúčtu"
@@ -211,9 +210,9 @@ cs:
         taker_fee: "Taker"
         withdrawal_fee: "Výběr"
         additional_title: "Obousměrný bot"
-        smart_intervals_disclaimer: 'Velikost příkazů na %{exchange} je definována v %{currency}. Minimální velikost příkazu je %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'Velikost příkazů na %{exchange} je definována v %{currency}. Minimální velikost příkazu je %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'Minimální velikost příkazu je %{minimum}%{currency}.'
+        smart_intervals_disclaimer: 'Velikost příkazů na %{exchange} je definována v %{currency}. Minimální velikost příkazu je %{minimum} %{currency}.'
+        smart_intervals_minimum_frequency: "Menší části by zadávaly příkazy častěji než jednou za 5 minut. Použijte alespoň %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "%{currency} se uvádí na %{decimals} desetinných míst, takže část nemůže být menší než %{minimum} %{currency}."
         starting: Spouštění
         subaccounts_info: 'Použít podúčet'
         week: Týden

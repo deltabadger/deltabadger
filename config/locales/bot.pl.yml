@@ -169,7 +169,6 @@ pl:
             do_you_want_to_archive: 'Czy chcesz zarchiwizować tego bota?'
             symbol_not_supported: "%{symbol} nie jest obsługiwany"
             specify_percentage_limit_order: "Podaj procent przy tworzeniu zlecenia z limitem"
-            smart_intervals_above_minimum: "Wartość inteligentnych interwałów powinna być większa niż %{minimum}"
             invalid_price_range: "Zakres cenowy jest nieprawidłowy"
             failed_tooltip_explanation: "To zlecenie zakończyło się niepowodzeniem: %{error_message}"
             skipped_tooltip_explanation: "To zlecenie zostało pominięte, ponieważ kwota była poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Pominięta kwota została zbuforowana i zostanie dodana do następnego zlecenia."
@@ -192,8 +191,8 @@ pl:
         price_range_sell_html: 'Sprzedawaj tylko w przedziale cenowym od <split> 100 USD </split> do <split> 1000 USD </split> %{quote} za %{base}.'
         sell: Sprzedaj
         smart_intervals_disclaimer: '%{exchange} definiuje zlecenia w %{currency}. Minimalna wielkość zlecenia to %{minimum} %{currency}.'
-        smart_intervals_disclaimer_base: '%{exchange} definiuje zlecenia w %{currency}. Minimalna wielkość zlecenia to %{minimum} %{currency}.'
-        smart_intervals_disclaimer_quote: 'Minimalna wielkość zlecenia to%{minimum}%{currency}.'
+        smart_intervals_minimum_frequency: "Mniejsze części składałyby zlecenia częściej niż co 5 minut. Użyj co najmniej %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "%{currency} jest kwotowany z dokładnością do %{decimals} miejsc po przecinku, więc część nie może być mniejsza niż %{minimum} %{currency}."
         starting: Uruchamianie
         week: tydzień
         withdraw_interval_html: 'Wypłacaj co <split>2</split> dni.'

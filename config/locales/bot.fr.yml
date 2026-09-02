@@ -169,7 +169,6 @@ fr:
             do_you_want_to_archive: 'Voulez-vous vraiment archiver ce bot ?'
             symbol_not_supported: "%{symbol} n''est pas pris en charge"
             specify_percentage_limit_order: "Spécifiez le pourcentage lors de la création d''un ordre limité"
-            smart_intervals_above_minimum: "La valeur des intervalles intelligents doit être supérieure à %{minimum}"
             invalid_price_range: "La fourchette de prix est invalide"
             failed_tooltip_explanation: "Cette commande a échoué: %{error_message}"
             skipped_tooltip_explanation: "Cette commande a été ignorée car le montant était inférieur à la taille minimale de commande de %{exchange_name}. Le montant ignoré a été mis en mémoire tampon et sera ajouté à la prochaine commande."
@@ -191,9 +190,9 @@ fr:
         price_range_buy_html: 'Acheter uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{quote} par %{base}.'
         price_range_sell_html: 'Vendre uniquement dans une fourchette de prix comprise entre <split>100 $</split> et <split>1 000 $</split> %{quote} par %{base}.'
         sell: 'Vendre'
-        smart_intervals_disclaimer: 'Le montant des ordres sur %{exchange} est définie en %{currency}. Le montant minimum est de %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'Le montant des ordres sur %{exchange} est définie en %{currency}. Le montant minimum est de %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'Le montant minimal d''un ordre est de %{minimum}%{currency}.'
+        smart_intervals_disclaimer: 'Le montant des ordres sur %{exchange} est définie en %{currency}. Le montant minimum est de %{minimum} %{currency}.'
+        smart_intervals_minimum_frequency: "Des unités plus petites passeraient des ordres plus souvent que toutes les 5 minutes. Utilisez au moins %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "%{currency} est coté avec %{decimals} décimales, une unité ne peut donc pas être inférieure à %{minimum} %{currency}."
         starting: 'Commencer'
         week: 'Semaine'
         withdraw_interval_html: 'Retirer tous les <split>2</split> jours.'

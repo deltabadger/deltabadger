@@ -165,7 +165,6 @@ de:
             do_you_want_to_archive: 'Möchtest du diesen Bot archivieren?'
             symbol_not_supported: "%{symbol} wird nicht unterstützt"
             specify_percentage_limit_order: "Gib den Prozentsatz bei der Erstellung einer Limit-Order an"
-            smart_intervals_above_minimum: "Der Wert der intelligenten Intervalle sollte größer als %{minimum} sein"
             invalid_price_range: "Der Preisbereich ist ungültig"
             failed_tooltip_explanation: "Diese Bestellung ist fehlgeschlagen: %{error_message}"
             skipped_tooltip_explanation: "Diese Bestellung wurde übersprungen, da der Betrag unter der Mindestbestellgröße von %{exchange_name} lag. Der übersprungene Betrag wurde gepuffert und wird der nächsten Bestellung hinzugefügt."
@@ -198,9 +197,9 @@ de:
         taker_fee: "Taker"
         withdrawal_fee: "Auszahlung"
         additional_title: "Zwei-Wege-Bot"
-        smart_intervals_disclaimer: ' Die Mindestordergröße beträgt %{minimum}%{currency}'
-        smart_intervals_disclaimer_base: ' Die Mindestordergröße beträgt %{minimum}%{currency}'
-        smart_intervals_disclaimer_quote: 'Die Mindestordergröße beträgt %{minimum}%{currency}'
+        smart_intervals_disclaimer: 'Die Ordergröße auf %{exchange} wird in %{currency} angegeben. Die Mindestordergröße beträgt %{minimum} %{currency}.'
+        smart_intervals_minimum_frequency: "Kleinere Einheiten würden Orders häufiger als alle 5 Minuten auslösen. Verwenden Sie mindestens %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "%{currency} wird mit %{decimals} Nachkommastellen notiert, eine Einheit kann daher nicht kleiner als %{minimum} %{currency} sein."
         starting: 'Wird gestartet'
         week: Woche
         withdraw_interval_html: 'Zahle alle <split>2</split> Tage aus.'
