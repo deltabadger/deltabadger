@@ -174,7 +174,6 @@ da:
             do_you_want_to_archive: 'Vil du arkivere denne bot?'
             symbol_not_supported: "%{symbol} understøttes ikke"
             specify_percentage_limit_order: "Angiv en procentdel for limitordrer"
-            smart_intervals_above_minimum: "Smarte intervallers værdi skal være større end %{minimum}"
             invalid_price_range: "Prisintervallet er ugyldigt"
             subaccounts_not_allowed: "Underkonti er ikke tilladt på denne børs"
             no_subaccount_name: "Intet underkonto-navn angivet"
@@ -211,9 +210,9 @@ da:
         taker_fee: "Taker"
         withdrawal_fee: "Udbetaling"
         additional_title: "Tovejs-bot"
-        smart_intervals_disclaimer: 'Ordrestørrelsen på %{exchange} er defineret i %{currency}. Minimumsordrestørrelsen er %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'Ordrestørrelsen på %{exchange} er defineret i %{currency}. Minimumsordrestørrelsen er %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'Minimumsordrestørrelsen er %{minimum}%{currency}.'
+        smart_intervals_disclaimer: 'Ordrestørrelsen på %{exchange} er defineret i %{currency}. Minimumsordrestørrelsen er %{minimum} %{currency}.'
+        smart_intervals_minimum_frequency: "Mindre enheder ville placere ordrer oftere end hvert 5. minut. Brug mindst %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "%{currency} noteres med %{decimals} decimaler, så en enhed kan ikke være mindre end %{minimum} %{currency}."
         starting: Starter
         subaccounts_info: 'Brug underkonto'
         week: Uge

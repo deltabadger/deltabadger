@@ -19,12 +19,18 @@ module Bot::SmartIntervalable
     # additionally waits for a sell amount, so flipping a smart-on bot with no sell sentence yet
     # can't fail validation. A quote-denominated sell validates NEITHER split — the rule is not
     # offered in that mode (see Bot::Reversible#effective_interval_duration).
-    validates :smart_interval_quote_amount,
-              numericality: { greater_than_or_equal_to: :minimum_smart_interval_quote_amount },
-              if: -> { smart_intervaled? && !selling? }
-    validates :smart_interval_base_amount,
-              numericality: { greater_than_or_equal_to: :minimum_smart_interval_base_amount },
-              if: -> { smart_intervaled? && sells_base_amount? && sell_amount.present? }
+    #
+    # The floor is a separate validation rather than numericality's greater_than_or_equal_to: that
+    # option's `message` is validator-wide, so wiring the explanation into it would answer "abc"
+    # with a minimum-order-size sentence instead of "is not a number".
+    validates :smart_interval_quote_amount, numericality: true,
+                                            if: -> { smart_intervaled? && !selling? }
+    validate :validate_smart_interval_quote_minimum,
+             if: -> { smart_intervaled? && !selling? }
+    validates :smart_interval_base_amount, numericality: true,
+                                           if: -> { smart_intervaled? && sells_base_amount? && sell_amount.present? }
+    validate :validate_smart_interval_base_minimum,
+             if: -> { smart_intervaled? && sells_base_amount? && sell_amount.present? }
 
     decorators = Module.new do
       def parse_params(params)
@@ -61,7 +67,103 @@ module Bot::SmartIntervalable
     smart_intervaled == true
   end
 
+  # The floor a split may not go under, and WHY. The form's `min`, the form's message and the
+  # validation all read this one method, so the number they enforce and the sentence they show
+  # cannot disagree. `kind` is :quote (buying) or :base (selling a base amount).
+  #
+  # Three floors compete and the binding one names the reason, resolved :exchange, :frequency,
+  # :precision so the most concrete explanation wins a tie. The frequency term is compared
+  # UNROUNDED: round_up of any positive frequency already lands on at least 10**-decimals, so
+  # comparing the rounded value would make :precision unreachable even where precision is what
+  # actually set the floor.
+  def smart_interval_minimum(kind)
+    return { value: 0, reason: :none } if tickers.empty?
+
+    decimals = kind == :base ? least_precise_base_decimals : least_precise_quote_decimals
+    frequency = smart_interval_frequency_minimum(kind)
+    precision = 1.0 / (10**decimals)
+    exchange = kind == :base ? minimum_base_for_exchange : minimum_for_exchange
+
+    reason = if exchange >= frequency && exchange >= precision
+               :exchange
+             elsif frequency >= precision
+               :frequency
+             else
+               :precision
+             end
+
+    {
+      value: [Utilities::Number.round_up(frequency, precision: decimals), precision, exchange].max,
+      reason: reason
+    }
+  end
+
+  # The sentence that explains the floor, shown inline by the form and repeated in the flash when a
+  # request gets past the browser. nil when there is nothing to explain — the browser's own wording
+  # then stands.
+  def smart_interval_minimum_message(kind)
+    minimum = smart_interval_minimum(kind)
+    return if minimum[:reason] == :none
+
+    currency = (kind == :base ? base_asset : quote_asset)&.symbol
+    amount = BigDecimal(minimum[:value].to_s).to_s('F').sub(/([0-9]\d*)\.0$/, '\\1')
+
+    case minimum[:reason]
+    when :exchange
+      I18n.t('bot.smart_intervals_disclaimer', exchange: exchange&.name, currency: currency, minimum: amount)
+    when :frequency
+      I18n.t('bot.smart_intervals_minimum_frequency', currency: currency, minimum: amount)
+    when :precision
+      I18n.t('bot.smart_intervals_minimum_precision', currency: currency, minimum: amount,
+                                                      decimals: kind == :base ? least_precise_base_decimals : least_precise_quote_decimals)
+    end
+  end
+
   private
+
+  def validate_smart_interval_quote_minimum
+    validate_smart_interval_minimum(:quote, :smart_interval_quote_amount)
+  end
+
+  def validate_smart_interval_base_minimum
+    validate_smart_interval_minimum(:base, :smart_interval_base_amount)
+  end
+
+  # Parse rather than assume a Numeric: a split stored through the JSON settings column comes back
+  # as the STRING "0.2", which numericality accepts and which raises on a comparison with a
+  # BigDecimal. Skip only what will not parse at all — numericality has already spoken for those.
+  # An is_a?(Numeric) guard here would instead quietly stop enforcing the floor on every such row.
+  def validate_smart_interval_minimum(kind, attribute)
+    value = BigDecimal(public_send(attribute).to_s, exception: false)
+    return if value.nil?
+
+    minimum = smart_interval_minimum(kind)
+    return if value >= BigDecimal(minimum[:value].to_s)
+
+    message = smart_interval_minimum_message(kind)
+    if message
+      errors.add(attribute, message)
+    else
+      errors.add(attribute, :greater_than_or_equal_to, count: minimum[:value])
+    end
+  end
+
+  # Smallest split that still leaves at least `maximum_frequency` between two orders.
+  def smart_interval_frequency_minimum(kind)
+    maximum_frequency = 300 # seconds — at most one order every 5 minutes
+
+    if kind == :base
+      amount = try(:sell_amount).to_f
+      interval_secs = (Automation::Schedulable::INTERVALS[try(:sell_interval)] || interval_duration).to_f
+      return 0 unless amount.positive? && interval_secs.positive?
+
+      amount / interval_secs * maximum_frequency
+    else
+      return 0 if quote_amount.blank?
+
+      quote_amount / interval_duration.to_f * maximum_frequency
+    end
+  end
 
   def initialize_smart_intervalable_settings
     self.smart_intervaled ||= false
@@ -92,18 +194,7 @@ module Bot::SmartIntervalable
   end
 
   def minimum_smart_interval_base_amount
-    return 0 if tickers.empty?
-
-    maximum_frequency = 300 # seconds — at most one sale every 5 minutes
-    sell_amount_value = try(:sell_amount).to_f
-    interval_secs = (Automation::Schedulable::INTERVALS[try(:sell_interval)] || interval_duration).to_f
-    minimum_for_frequency = sell_amount_value.positive? && interval_secs.positive? ? sell_amount_value / interval_secs * maximum_frequency : 0
-    minimum_for_precision = 1.0 / (10**least_precise_base_decimals)
-
-    [
-      Utilities::Number.round_up(minimum_for_frequency, precision: least_precise_base_decimals),
-      minimum_for_precision
-    ].max
+    smart_interval_minimum(:base)[:value]
   end
 
   def least_precise_base_decimals
@@ -111,28 +202,20 @@ module Bot::SmartIntervalable
   end
 
   def minimum_smart_interval_quote_amount
-    return 0 if tickers.empty?
-
-    # the minimum amount would set one order every 5 minutes
-    maximum_frequency = 300 # seconds
-    minimum_for_frequency = if quote_amount.present?
-                              quote_amount / interval_duration.to_f * maximum_frequency
-                            else
-                              0
-                            end
-
-    minimum_for_precision = 1.0 / (10**least_precise_quote_decimals)
-
-    [
-      Utilities::Number.round_up(minimum_for_frequency, precision: least_precise_quote_decimals),
-      minimum_for_precision,
-      minimum_for_exchange
-    ].max
+    smart_interval_minimum(:quote)[:value]
   end
 
   # Override in subclasses to set exchange-specific minimums
   # For Index bots, this returns the highest minimum_quote_size among tickers
   def minimum_for_exchange
+    0
+  end
+
+  # The venue's own floor on the SELL side. Still 0 everywhere: DcaSingleAsset is the only type that
+  # sells, and giving it a ticker-derived floor here would make the numericality check reject splits
+  # already stored on live bots — including during Bot::Lifecycle#stop, which goes through `update`.
+  # That change needs its own backfill; see docs/superpowers/plans/2026-09-02-conversational-validation-feedback.md.
+  def minimum_base_for_exchange
     0
   end
 

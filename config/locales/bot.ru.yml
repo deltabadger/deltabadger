@@ -167,7 +167,6 @@ ru:
             do_you_want_to_archive: 'Вы хотите архивировать этого бота?'
             symbol_not_supported: "%{symbol} не поддерживается"
             specify_percentage_limit_order: "Укажите процент при создании лимитного ордера"
-            smart_intervals_above_minimum: "Значение умных интервалов должно быть больше, чем %{minimum}"
             invalid_price_range: "Диапазон цен недействителен"
             failed_tooltip_explanation: "Этот ордер не выполнен: %{error_message}"
             skipped_tooltip_explanation: "Этот ордер был пропущен, так как сумма была ниже минимального размера ордера на %{exchange_name}. Пропущенная сумма была буферизована и будет добавлена к следующему ордеру."
@@ -189,9 +188,9 @@ ru:
         price_range_buy_html: 'Покупать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} за %{base}.'
         price_range_sell_html: 'Продавать только в диапазоне цен от  <split>$100</split> до <split>$1000</split> %{quote} за %{base}.'
         sell: Продать
-        smart_intervals_disclaimer: 'Размер ордеров на %{exchange} указывается в %{currency}. Минимальный размер ордера составляет %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'Размер ордеров на %{exchange} указывается в %{currency}. Минимальный размер ордера составляет %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'Минимальный размер ордера составляет %{minimum}%{currency}.'
+        smart_intervals_disclaimer: 'Размер ордеров на %{exchange} указывается в %{currency}. Минимальный размер ордера составляет %{minimum} %{currency}.'
+        smart_intervals_minimum_frequency: "Меньшие части создавали бы ордера чаще, чем раз в 5 минут. Используйте не менее %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "%{currency} котируется с точностью до %{decimals} знаков после запятой, поэтому часть не может быть меньше %{minimum} %{currency}."
         starting: Начало
         week: Неделя
         withdraw_interval_html: ''

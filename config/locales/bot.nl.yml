@@ -169,7 +169,6 @@ nl:
             do_you_want_to_archive: 'Wil je deze bot archiveren?'
             symbol_not_supported: "%{symbol} wordt niet ondersteund"
             specify_percentage_limit_order: "Geef het percentage op bij het maken van een limietorder"
-            smart_intervals_above_minimum: "De waarde van slimme intervallen moet groter zijn dan %{minimum}"
             invalid_price_range: "De prijsklasse is ongeldig"
             failed_tooltip_explanation: "Deze bestelling is mislukt: %{error_message}"
             skipped_tooltip_explanation: "Deze bestelling is overgeslagen omdat het bedrag onder de minimale ordergrootte van %{exchange_name} lag. Het overgeslagen bedrag is gebufferd en wordt toegevoegd aan de volgende bestelling."
@@ -191,9 +190,9 @@ nl:
         price_range_buy_html: 'Koop alleen in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{quote} per %{base}.'
         price_range_sell_html: 'Verkoop enkel in het prijsbereik van <split>$100</split> tot <split>$1000</split> %{quote} per %{base}.'
         sell: Verkopen
-        smart_intervals_disclaimer: 'De ordergrootte bij %{exchange} wordt bepaald in %{currency}. De minimale ordergrootte is %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'De ordergrootte bij %{exchange} wordt bepaald in %{currency}. De minimale ordergrootte is %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'De minimale ordergrootte is %{minimum}%{currency}.'
+        smart_intervals_disclaimer: 'De ordergrootte bij %{exchange} wordt bepaald in %{currency}. De minimale ordergrootte is %{minimum} %{currency}.'
+        smart_intervals_minimum_frequency: "Kleinere eenheden zouden vaker dan elke 5 minuten orders plaatsen. Gebruik minstens %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "%{currency} wordt genoteerd met %{decimals} decimalen, dus een eenheid kan niet kleiner zijn dan %{minimum} %{currency}."
         starting: Startend
         week: Week
         withdraw_interval_html: 'Neem elke <split>2</split> dagen fondsen op.'

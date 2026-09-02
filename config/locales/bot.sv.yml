@@ -174,7 +174,6 @@ sv:
             do_you_want_to_archive: 'Vill du arkivera denna bot?'
             symbol_not_supported: "%{symbol} stöds inte"
             specify_percentage_limit_order: "Ange procentsats vid limitorder"
-            smart_intervals_above_minimum: "Smarta intervall-beloppet måste vara större än %{minimum}"
             invalid_price_range: "Ogiltigt prisintervall"
             subaccounts_not_allowed: "Underkonton tillåts inte på denna börs"
             no_subaccount_name: "Inget underkontonamn angivet"
@@ -211,9 +210,9 @@ sv:
         taker_fee: "Taker"
         withdrawal_fee: "Uttag"
         additional_title: "Tvåvägsbot"
-        smart_intervals_disclaimer: 'Orderstorleken på %{exchange} definieras i %{currency}. Minsta orderstorlek är %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'Orderstorleken på %{exchange} definieras i %{currency}. Minsta orderstorlek är %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'Minsta orderstorlek är %{minimum}%{currency}.'
+        smart_intervals_disclaimer: 'Orderstorleken på %{exchange} definieras i %{currency}. Minsta orderstorlek är %{minimum} %{currency}.'
+        smart_intervals_minimum_frequency: "Mindre enheter skulle lägga ordrar oftare än var 5:e minut. Använd minst %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "%{currency} noteras med %{decimals} decimaler, så en enhet kan inte vara mindre än %{minimum} %{currency}."
         starting: Startar
         subaccounts_info: 'Använd underkonto'
         week: Vecka

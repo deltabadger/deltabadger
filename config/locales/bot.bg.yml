@@ -174,7 +174,6 @@ bg:
             do_you_want_to_archive: 'Искате ли да архивирате този бот?'
             symbol_not_supported: "%{symbol} не се поддържа"
             specify_percentage_limit_order: "При създаване на лимитирана поръчка задайте процент"
-            smart_intervals_above_minimum: "Стойността на умните интервали трябва да е по-висока от %{minimum}"
             invalid_price_range: "Ценовият диапазон е невалиден"
             subaccounts_not_allowed: "Подсметките не са разрешени за тази борса"
             no_subaccount_name: "Не е зададено име на подсметка"
@@ -211,9 +210,9 @@ bg:
         taker_fee: "Taker"
         withdrawal_fee: "Теглене"
         additional_title: "Двупосочен бот"
-        smart_intervals_disclaimer: 'Размерът на поръчките в %{exchange} е определен в %{currency}. Минималният размер на поръчка е %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'Размерът на поръчките в %{exchange} е определен в %{currency}. Минималният размер на поръчка е %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'Минималният размер на поръчка е %{minimum}%{currency}.'
+        smart_intervals_disclaimer: 'Размерът на поръчките в %{exchange} е определен в %{currency}. Минималният размер на поръчка е %{minimum} %{currency}.'
+        smart_intervals_minimum_frequency: "По-малки части биха подавали поръчки по-често от веднъж на 5 минути. Използвайте поне %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "%{currency} се котира с %{decimals} знака след десетичната запетая, затова частта не може да е по-малка от %{minimum} %{currency}."
         starting: Стартиране
         subaccounts_info: 'Използвай подсметка'
         week: Седмица

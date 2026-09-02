@@ -167,7 +167,6 @@ it:
             do_you_want_to_archive: 'Vuoi archiviare questo bot?'
             symbol_not_supported: "%{symbol} non è supportato"
             specify_percentage_limit_order: "Specifica la percentuale quando crei un ordine limite"
-            smart_intervals_above_minimum: "Il valore degli intervalli intelligenti dovrebbe essere maggiore di %{minimum}"
             invalid_price_range: "L'intervallo di prezzo non è valido"
             failed_tooltip_explanation: "Questo ordine è fallito: %{error_message}"
             skipped_tooltip_explanation: "Questo ordine è stato saltato perché l'importo era inferiore alla dimensione minima dell'ordine di %{exchange_name}. L'importo saltato è stato messo in buffer e verrà aggiunto al prossimo ordine."
@@ -200,9 +199,9 @@ it:
         taker_fee: "Taker"
         withdrawal_fee: "Prelievo"
         additional_title: "Bot bidirezionale"
-        smart_intervals_disclaimer: 'La dimensione degli ordini su %{exchange} è definita in %{currency}. La dimensione minima dell''ordine è %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'La dimensione degli ordini su %{exchange} è definita in %{currency}. La dimensione minima dell''ordine è %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'La dimensione minima dell''ordine è %{minimum}%{currency}.'
+        smart_intervals_disclaimer: 'La dimensione degli ordini su %{exchange} è definita in %{currency}. La dimensione minima dell''ordine è %{minimum} %{currency}.'
+        smart_intervals_minimum_frequency: "Unità più piccole invierebbero ordini più spesso di una volta ogni 5 minuti. Usa almeno %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "%{currency} è quotato con %{decimals} decimali, quindi un'unità non può essere inferiore a %{minimum} %{currency}."
         starting: Avvio in corso
         week: Settimana
         withdraw_interval_html: 'Preleva ogni <split>2</split> giorni.'

@@ -167,7 +167,6 @@ pt:
             do_you_want_to_archive: 'Quer arquivar este bot?'
             symbol_not_supported: "%{symbol} não é suportado"
             specify_percentage_limit_order: "Especifique a porcentagem ao criar uma ordem limitada"
-            smart_intervals_above_minimum: "O valor dos intervalos inteligentes deve ser maior que %{minimum}"
             invalid_price_range: "A faixa de preço é inválida"
             failed_tooltip_explanation: "Esta ordem falhou: %{error_message}"
             skipped_tooltip_explanation: "Esta ordem foi pulada porque a quantidade estava abaixo do tamanho mínimo de ordem da %{exchange_name}. A quantidade pulada foi armazenada e será adicionada à próxima ordem."
@@ -187,9 +186,9 @@ pt:
         price_range_buy_html: 'Comprar apenas no intervalo de preços de <split>$100</split> a <split>$1000</split> %{quote} por %{base}.'
         price_range_sell_html: 'Vender apenas no intervalo de preços de  <split>$100</split> a <split>$1000</split> %{quote} por %{base}.'
         sell: Vender
-        smart_intervals_disclaimer: 'A dimensão das ordens em %{exchange} é definida em %{currency}. A dimensão mínima da ordem é %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'A dimensão das ordens em %{exchange} é definida em %{currency}. A dimensão mínima da ordem é %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'A dimensão da ordem mínima é %{minimum}%{currency}.'
+        smart_intervals_disclaimer: 'A dimensão das ordens em %{exchange} é definida em %{currency}. A dimensão mínima da ordem é %{minimum} %{currency}.'
+        smart_intervals_minimum_frequency: "Unidades menores colocariam ordens com mais frequência do que a cada 5 minutos. Use pelo menos %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "%{currency} é cotado com %{decimals} casas decimais, por isso uma unidade não pode ser menor que %{minimum} %{currency}."
         starting: Começar
         week: Semana
         warning:
