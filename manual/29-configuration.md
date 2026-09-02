@@ -85,7 +85,7 @@ See [Market data](35-market-data.md) for what each provider covers.
 | `RAILS_LOG_TO_STDOUT` | Set by the image. Logs go to the container output, so `docker compose logs -f` shows them. |
 | `RAILS_SERVE_STATIC_FILES` | Set by the image. The app serves its own assets; keep it unless a web server in front serves `/public`. |
 | `DELTABADGER_UPDATE_CHECK` | `false` stops the twice-daily check for a newer release. See [Updating](07-updating.md). |
-| `DELTABADGER_PLATFORM` | How this copy was installed — `docker`, `umbrel`, `desktop` or `hosted` — which decides what **Settings → Account** offers when an update exists. Set for you by the Compose file, the Umbrel app and the desktop app. Set it yourself only if you start the container some other way and want the Compose instructions: `docker` if you use Compose, otherwise leave it unset and the manual is linked instead. |
+| `DELTABADGER_PLATFORM` | How this copy was installed — `docker`, `umbrel` or `desktop` — which decides what **Settings → Account** offers when an update exists. Set for you by the Compose file, the Umbrel app and the desktop app. Set it yourself only if you start the container some other way and want the Compose instructions: `docker` if you use Compose, otherwise leave it unset and the manual is linked instead. |
 
 ## Command modes
 

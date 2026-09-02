@@ -116,7 +116,6 @@ da:
             umbrel: "Opdater Deltabadger fra din Umbrel App Store."
             manual: "Sådan opdaterer du"
             desktop: "Deltabadger søger efter opdateringer, hver gang den starter."
-            hosted: "Opdateringerne bliver installeret for dig."
             release_notes: "Udgivelsesnoter"
             check_now: "Søg efter opdateringer"
             checking: "Søger…"
