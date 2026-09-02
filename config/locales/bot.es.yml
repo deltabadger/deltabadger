@@ -169,7 +169,6 @@ es:
             do_you_want_to_archive: '¿Quieres archivar este bot?'
             symbol_not_supported: "%{symbol} no es compatible"
             specify_percentage_limit_order: "Especifica el porcentaje al crear una orden limitada"
-            smart_intervals_above_minimum: "El valor de los intervalos inteligentes debe ser mayor que %{minimum}"
             invalid_price_range: "El rango de precios no es válido"
             failed_tooltip_explanation: "Esta orden falló: %{error_message}"
             skipped_tooltip_explanation: "Esta orden se ha omitido porque la cantidad estaba por debajo del tamaño mínimo de orden de %{exchange_name}. La cantidad omitida se ha almacenado y se añadirá a la siguiente orden."
@@ -191,9 +190,9 @@ es:
         price_range_buy_html: 'Pero solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} por %{base}.'
         price_range_sell_html: 'Vende solo en el rango de precios de <split>100 $</split> a <split>1000 $</split> %{quote} por %{base}.'
         sell: Vender
-        smart_intervals_disclaimer: 'El tamaño de las órdenes en %{exchange} se define en %{currency}. El tamaño mínimo de la orden es de %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'El tamaño de las órdenes en %{exchange} se define en %{currency}. El tamaño mínimo de la orden es de %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'El tamaño mínimo de orden es de %{minimum}%{currency}.'
+        smart_intervals_disclaimer: 'El tamaño de las órdenes en %{exchange} se define en %{currency}. El tamaño mínimo de la orden es de %{minimum} %{currency}.'
+        smart_intervals_minimum_frequency: "Unidades más pequeñas colocarían órdenes con más frecuencia que cada 5 minutos. Usa al menos %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "%{currency} se cotiza con %{decimals} decimales, así que una unidad no puede ser menor que %{minimum} %{currency}."
         starting: Empezar
         week: Semana
         withdraw_interval_html: 'Retirar cada <split>2</split> días.'

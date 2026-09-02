@@ -100,7 +100,9 @@ class SettingsControllerTest < ActionDispatch::IntegrationTest
           headers: { 'Turbo-Frame' => 'update_name_form' }
 
     assert_response :unprocessable_entity
-    assert_includes @response.body, I18n.t('devise.registrations.new.name_invalid')
+    # Escaped on the way in (config/initializers/inline_form_errors.rb marks the fragment
+    # html_safe), so the apostrophe arrives as an entity and renders as one.
+    assert_includes @response.body, ERB::Util.html_escape(I18n.t('devise.registrations.new.name_invalid'))
   end
 
   test 'a wrong current password comes back with the reason attached to the field' do

@@ -174,7 +174,6 @@ en:
             do_you_want_to_archive: 'Do you want to archive this bot?'
             symbol_not_supported: "%{symbol} is not supported"
             specify_percentage_limit_order: "Specify percentage when creating a limit order"
-            smart_intervals_above_minimum: "Smart intervals value should be greater than %{minimum}"
             invalid_price_range: "Price range is invalid"
             subaccounts_not_allowed: "Subaccounts not allowed on this exchange"
             no_subaccount_name: "No subaccount name supplied"
@@ -211,9 +210,9 @@ en:
         taker_fee: "Taker"
         withdrawal_fee: "Withdrawal"
         additional_title: "Two-way bot"
-        smart_intervals_disclaimer: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'The minimum order size is %{minimum}%{currency}.'
+        smart_intervals_disclaimer: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum} %{currency}.'
+        smart_intervals_minimum_frequency: "Smaller units would place orders more often than every 5 minutes. Use at least %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "%{currency} is quoted to %{decimals} decimal places, so a unit cannot be smaller than %{minimum} %{currency}."
         starting: Starting
         subaccounts_info: 'Use subaccount'
         week: Week

@@ -174,7 +174,6 @@ el:
             do_you_want_to_archive: 'Θέλεις να αρχειοθετήσεις αυτό το bot;'
             symbol_not_supported: "Το %{symbol} δεν υποστηρίζεται"
             specify_percentage_limit_order: "Όρισε ποσοστό κατά τη δημιουργία εντολής limit"
-            smart_intervals_above_minimum: "Η τιμή των έξυπνων διαστημάτων πρέπει να είναι μεγαλύτερη από %{minimum}"
             invalid_price_range: "Μη έγκυρο εύρος τιμής"
             subaccounts_not_allowed: "Δεν επιτρέπονται υπολογαριασμοί σε αυτό το ανταλλακτήριο"
             no_subaccount_name: "Δεν δόθηκε όνομα υπολογαριασμού"
@@ -211,9 +210,9 @@ el:
         taker_fee: "Taker"
         withdrawal_fee: "Ανάληψη"
         additional_title: "Bot δύο κατευθύνσεων"
-        smart_intervals_disclaimer: 'Το μέγεθος εντολών στο %{exchange} ορίζεται σε %{currency}. Το ελάχιστο μέγεθος εντολής είναι %{minimum}%{currency}.'
-        smart_intervals_disclaimer_base: 'Το μέγεθος εντολών στο %{exchange} ορίζεται σε %{currency}. Το ελάχιστο μέγεθος εντολής είναι %{minimum}%{currency}.'
-        smart_intervals_disclaimer_quote: 'Το ελάχιστο μέγεθος εντολής είναι %{minimum}%{currency}.'
+        smart_intervals_disclaimer: 'Το μέγεθος εντολών στο %{exchange} ορίζεται σε %{currency}. Το ελάχιστο μέγεθος εντολής είναι %{minimum} %{currency}.'
+        smart_intervals_minimum_frequency: "Μικρότερες μονάδες θα τοποθετούσαν εντολές συχνότερα από κάθε 5 λεπτά. Χρησιμοποιήστε τουλάχιστον %{minimum} %{currency}."
+        smart_intervals_minimum_precision: "Το %{currency} εκφράζεται με %{decimals} δεκαδικά ψηφία, οπότε μια μονάδα δεν μπορεί να είναι μικρότερη από %{minimum} %{currency}."
         starting: Εκκίνηση
         subaccounts_info: 'Χρήση υπολογαριασμού'
         week: Εβδομάδα
