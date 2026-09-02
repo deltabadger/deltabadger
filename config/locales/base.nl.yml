@@ -115,7 +115,6 @@ nl:
             umbrel: 'Werk Deltabadger bij via uw Umbrel App Store.'
             manual: 'Zo werkt u bij'
             desktop: 'Deltabadger controleert bij elke start op updates.'
-            hosted: 'Updates worden voor u geïnstalleerd.'
             release_notes: 'Releaseopmerkingen'
             check_now: 'Controleren op updates'
             checking: 'Bezig met controleren…'

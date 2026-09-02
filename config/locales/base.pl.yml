@@ -117,7 +117,6 @@ pl:
             umbrel: 'Zaktualizuj Deltabadgera w swoim Umbrel App Store.'
             manual: 'Jak zaktualizować'
             desktop: 'Deltabadger sprawdza aktualizacje przy każdym uruchomieniu.'
-            hosted: 'Aktualizacje instalują się automatycznie.'
             release_notes: 'Informacje o wersji'
             check_now: 'Sprawdź aktualizacje'
             checking: 'Sprawdzanie…'

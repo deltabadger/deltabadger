@@ -20,12 +20,13 @@ class AppUpdate
     Rails.application.config.version
   end
 
-  # False where something else delivers updates, and wherever the owner has switched the check off.
+  # False on the desktop, which updates itself, and wherever the owner has switched the check off
+  # — a container someone else keeps current (a hosting platform, a managed fleet) sets that too.
   # This is the only outbound call an otherwise offline install makes, so it owes them a switch —
   # read through the application's own resolver because ActiveModel::Type::Boolean has a closed
   # false list that reads 'no' as true.
   def self.enabled?
-    return false if Installation.managed_updates?
+    return false if Installation.desktop?
 
     Deltabadger::Application.env_boolean(ENV[OPT_OUT]) != false
   end

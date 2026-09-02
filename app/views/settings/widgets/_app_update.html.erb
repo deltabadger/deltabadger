@@ -2,8 +2,8 @@
     failures, or with the check switched off, the section stays away rather than reporting an
     install current on no evidence. %>
 <% platform = Installation.platform %>
-<% state = if Installation.managed_updates?(platform)
-             platform
+<% state = if Installation.desktop?(platform)
+             :desktop
            elsif AppUpdate.available?
              :available
            elsif AppUpdate.latest_version.present?
@@ -15,8 +15,6 @@
     <h4 class="modal__title"><%= t('settings.app_update.title') %></h4>
 
     <% case state %>
-    <% when :hosted %>
-      <p><%= t('settings.app_update.hosted') %></p>
     <% when :desktop %>
       <%# The desktop build installs updates itself, so it gets the button rather than the
           instructions the container platforms need. app/javascript/tauri.js calls the updater. %>
