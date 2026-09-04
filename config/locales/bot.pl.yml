@@ -5,7 +5,7 @@ pl:
         bot_name: "Nazwa bota"
         new: "Nowy bot"
         welcome:
-            pick_exchange_first: "Najpierw wybierz giełdę — potem zobaczysz aktywa, które są na niej dostępne."
+            pick_exchange_first: "Zacznij inwestować."
             connect_alpaca_html: "Żeby inwestować w akcje, najpierw podłącz Alpaca w %{settings_link}."
             settings_link: "Ustawieniach"
         dca_multi_asset:

@@ -365,8 +365,7 @@ fr:
         index:
             title: 'Règles'
             welcome:
-                keep_coins_safe: "Protège tes actifs grâce à des retraits automatiques vers ton portefeuille matériel."
-                create_first: "Crée ta première règle de retrait."
+                keep_coins_safe: "Automatise tes retraits."
         types:
             withdrawal:
                 title: 'Retrait automatique'
@@ -428,7 +427,7 @@ fr:
             stated: "Ton propre cours. Vide le champ pour revenir au nôtre."
             none: "Nous n'avons pas pu valoriser cette ligne. Saisis ce que valait une unité."
         welcome:
-            connect_and_track: "Connecte ta plateforme d'échange et commence à suivre ton portefeuille."
+            connect_and_track: "Suis ton portefeuille."
         sync_key_error_html: 'Échec de la synchronisation avec <strong>%{exchange}</strong> : %{message}. Veuillez mettre à jour la clé API ci-dessous.'
         sync_permission_error_html: "Impossible de synchroniser <strong>%{exchange}</strong> : cette clé API n'a pas la permission nécessaire pour lire %{capability}. Mettez à jour les permissions de la clé sur %{exchange}, ou créez une nouvelle clé avec toutes les permissions indiquées dans les instructions."
         sync_transient_error_html: "<strong>%{exchange}</strong> est temporairement indisponible. Réessayez la synchronisation dans quelques minutes."

@@ -364,8 +364,7 @@ pt:
         index:
             title: 'Regras'
             welcome:
-                keep_coins_safe: "Mantém os teus ativos seguros com levantamentos automáticos para a tua hardware wallet."
-                create_first: "Cria a tua primeira regra de levantamento."
+                keep_coins_safe: "Automatiza os levantamentos."
         types:
             withdrawal:
                 title: 'Levantamento automático'
@@ -427,7 +426,7 @@ pt:
             stated: "O teu preço. Limpa o campo para voltar ao nosso."
             none: "Não conseguimos avaliar esta linha. Escreve quanto valia uma unidade."
         welcome:
-            connect_and_track: "Liga a tua exchange e começa a acompanhar a tua carteira."
+            connect_and_track: "Acompanha a tua carteira."
         sync_key_error_html: 'Falha ao sincronizar <strong>%{exchange}</strong>: %{message}. Atualiza a chave API em baixo.'
         sync_permission_error_html: "Não foi possível sincronizar <strong>%{exchange}</strong>: esta chave API não tem a permissão necessária para ler %{capability}. Atualiza as permissões da chave na %{exchange}, ou cria uma nova chave com todas as permissões indicadas nas instruções."
         sync_transient_error_html: "A <strong>%{exchange}</strong> está temporariamente indisponível. Tenta sincronizar novamente daqui a alguns minutos."

@@ -365,8 +365,7 @@ it:
         index:
             title: 'Regole'
             welcome:
-                keep_coins_safe: "Tieni al sicuro i tuoi asset con prelievi automatici sul tuo hardware wallet."
-                create_first: "Crea la tua prima regola di prelievo."
+                keep_coins_safe: "Automatizza i prelievi."
         types:
             withdrawal:
                 title: 'Prelievo automatico'
@@ -428,7 +427,7 @@ it:
             stated: "Il tuo prezzo. Svuota il campo per tornare al nostro."
             none: "Non siamo riusciti a valutare questa riga. Inserisci quanto valeva un'unità."
         welcome:
-            connect_and_track: "Collega il tuo exchange e inizia a tracciare il tuo portafoglio."
+            connect_and_track: "Segui il tuo portafoglio."
         sync_key_error_html: 'Sincronizzazione con <strong>%{exchange}</strong> fallita: %{message}. Aggiorna la chiave API qui sotto.'
         sync_permission_error_html: "Impossibile sincronizzare <strong>%{exchange}</strong>: questa chiave API non ha il permesso necessario per leggere %{capability}. Aggiorna i permessi della chiave su %{exchange}, oppure crea una nuova chiave con tutti i permessi elencati nelle istruzioni."
         sync_transient_error_html: "<strong>%{exchange}</strong> è temporaneamente non disponibile. Riprova a sincronizzare tra qualche minuto."
