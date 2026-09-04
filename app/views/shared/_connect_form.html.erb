@@ -1,0 +1,28 @@
+<%# The connect step: every place that asks for an API key renders this one card — a brand mark,
+    "Connect X", the fields, one Connect button that reads "Validating…" while the key is checked,
+    and the venue's walkthrough as help under a small label. It names itself, so it reads the same
+    under a wizard sentence and alone in a modal.
+
+    Rendered as a layout: the block receives the form builder and supplies the fields, since what
+    a venue asks for is the one thing that differs between them.
+
+    locals:
+      title, mark, mark_class - see shared/connect_brand
+      model                   - optional; the form's model (an ApiKey), or nothing for a bare param
+      path, form_data         - where the form posts, and its data attributes
+      instructions_title      - optional; the label over the help block
+      instructions            - optional html; the walkthrough. None given, no help block. %>
+<div class="set-api set-api--connect">
+  <%= render 'shared/connect_brand', title: title, mark: mark, mark_class: local_assigns[:mark_class] %>
+  <%= form_with model: local_assigns.fetch(:model, false), url: path, method: :post, data: form_data, class: "set-api__form form" do |f| %>
+    <%= yield f %>
+    <%= f.submit t('button.connect'), class: "button button--success",
+                 data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
+  <% end %>
+  <% if local_assigns[:instructions].present? %>
+    <section class="set-api__instructions">
+      <h3 class="set-api__eyebrow"><%= instructions_title %></h3>
+      <%= instructions %>
+    </section>
+  <% end %>
+</div>

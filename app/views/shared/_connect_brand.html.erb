@@ -1,0 +1,7 @@
+<%# The connect card's own name: a mark in the venue's colour and "Connect X". Rendered by the
+    connect form, and on its own where there is no form to show (a member who cannot add the key).
+    locals: title, mark (an svg partial), mark_class (optional: the venue's colour class) %>
+<header class="set-api__brand">
+  <span class="set-api__mark <%= local_assigns[:mark_class] %>" aria-hidden="true"><%= render mark %></span>
+  <h2 class="set-api__title"><%= title %></h2>
+</header>

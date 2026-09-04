@@ -2,6 +2,7 @@ bg:
     bot:
         setup:
             api_not_available: "API на борсата не е достъпно"
+            connect_to: 'Свързване с %{name}'
             assets_syncing: "Синхронизираме активите на тази борса — проверете отново след малко."
             stocks_ask_admin: "Помолете вашия администратор да активира търговията с акции."
             stocks_activate_cta: "Активирайте търговията с акции в настройките"
@@ -65,7 +66,7 @@ bg:
                 limit_exceeded: 'За спазване на лимита на бота от %{frequency_limit} транзакции на час, графикът ви ще се изпълнява с поръчки по %{price}%{currency}.'
                 start_the_bot: 'Редактирай и стартирай'
             how_to_add_withdrawal_bot: 'Как да настроите бот за теглене:'
-            how_to_get_keys: 'Как да получите API ключове от %{exchange}:'
+            how_to_get_keys: 'Как да получите API ключове от %{exchange}'
             kraken:
                 instructions_1_html: 'Влезте в акаунта си в %{exchange_link}.'
                 instructions_2_html: 'В потребителското меню отидете на <b>Security</b> → <b>API</b>.'

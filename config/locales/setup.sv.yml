@@ -2,6 +2,7 @@ sv:
     bot:
         setup:
             api_not_available: "Börsens API är inte tillgängligt"
+            connect_to: 'Anslut %{name}'
             assets_syncing: "Vi synkroniserar tillgångarna för den här börsen – kom tillbaka om en stund."
             stocks_ask_admin: "Be din administratör att aktivera aktiehandel."
             stocks_activate_cta: "Aktivera aktiehandel i inställningarna"
@@ -65,7 +66,7 @@ sv:
                 limit_exceeded: 'För att hålla botgränsen på %{frequency_limit} transaktioner per timme kommer ditt schema att utföras i ordrar om %{price}%{currency} vardera.'
                 start_the_bot: 'Ändra och starta'
             how_to_add_withdrawal_bot: 'Så här sätter du upp en uttagsbot:'
-            how_to_get_keys: 'Så här får du API-nycklar från %{exchange}:'
+            how_to_get_keys: 'Så här får du API-nycklar från %{exchange}'
             kraken:
                 instructions_1_html: 'Logga in på ditt %{exchange_link}-konto.'
                 instructions_2_html: 'I användarmenyn gå till <b>Security</b> → <b>API</b>.'

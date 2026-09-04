@@ -506,6 +506,8 @@ module BotHelper
     return nil unless I18n.exists?(instructions_key)
 
     instructions = t(instructions_key)
+    # One line of help where a venue needs no walkthrough: a paragraph, not a list of one.
+    return content_tag(:p, instruction_text(instructions, exchange_name, whitelist_ip)) if instructions.is_a?(String)
     return nil unless instructions.is_a?(Array)
 
     content_tag(:ol, class: 'set__list') do
@@ -513,11 +515,12 @@ module BotHelper
     end
   end
 
+  def instruction_text(text, exchange_name, whitelist_ip)
+    text.gsub('%{exchange_link}', exchange_name).gsub('%{whitelist_ip}', whitelist_ip.to_s).html_safe
+  end
+
   def render_instruction(instruction, exchange_name, whitelist_ip = nil, level = 1)
-    text = instruction[:text_html]
-           .gsub('%{exchange_link}', exchange_name)
-           .gsub('%{whitelist_ip}', whitelist_ip.to_s)
-           .html_safe
+    text = instruction_text(instruction[:text_html], exchange_name, whitelist_ip)
     sub_instructions = instruction[:sub_instructions]
 
     content_tag(:li) do

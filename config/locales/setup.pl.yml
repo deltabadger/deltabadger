@@ -2,6 +2,7 @@ pl:
     bot:
         setup:
             api_not_available: 'API giełdy nie jest dostępne'
+            connect_to: 'Połącz z %{name}'
             assets_syncing: "Synchronizujemy aktywa tej giełdy – sprawdź ponownie za chwilę."
             stocks_ask_admin: "Poproś administratora o włączenie handlu akcjami."
             stocks_activate_cta: "Włącz handel akcjami w ustawieniach"
@@ -52,7 +53,7 @@ pl:
                 limit_exceeded: 'Aby spełnić limit %{frequency_limit} transakcji na minutę, twój harmonogram zostanie wykonany w zleceniach po %{price}%{currency} każde.'
                 start_the_bot: 'Zmień i uruchom'
             how_to_add_withdrawal_bot: 'Jak skonfigurować bota do wypłat:'
-            how_to_get_keys: 'Jak uzyskać klucze API na %{exchange}:'
+            how_to_get_keys: 'Jak uzyskać klucze API na %{exchange}'
             kraken:
                 instructions_1_html: 'Zaloguj się do swojego konta %{exchange_link}.'
                 instructions_2_html: 'W menu użytkownika przejdź do <b>Security</b> → <b>API</b>.'

@@ -2,6 +2,7 @@ nl:
     bot:
         setup:
             api_not_available: 'Exchange API is niet beschikbaar'
+            connect_to: '%{name} koppelen'
             assets_syncing: "We synchroniseren de assets van deze exchange — kom zo even terug."
             stocks_ask_admin: "Vraag je beheerder om aandelenhandel te activeren."
             stocks_activate_cta: "Aandelenhandel activeren in de instellingen"
@@ -52,7 +53,7 @@ nl:
                 limit_exceeded: 'Om de botlimiet van %{frequency_limit} transacties per uur te halen, wordt uw schema uitgevoerd in orders van %{price} %{currency}.'
                 start_the_bot: 'Wijzig en start'
             how_to_add_withdrawal_bot: 'Hoe een opnamebot in te stellen:'
-            how_to_get_keys: 'Hoe API keys verkrijgen van %{exchange}:'
+            how_to_get_keys: 'Hoe API keys verkrijgen van %{exchange}'
             kraken:
                 instructions_1_html: 'Log in op uw %{exchange_link} account.'
                 instructions_2_html: 'Ga in het gebruikersmenu naar <b>Security</b> → <b>API</b>.'
