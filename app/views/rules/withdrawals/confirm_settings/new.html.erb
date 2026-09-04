@@ -1,6 +1,6 @@
 <%= render layout: 'layouts/modal/full_page', locals: { close_url: rules_path } do %>
   <div class="bot-creation-layout">
-    <%= render "bots/new_step_progress_bar", current_step: :settings, steps: { pick_exchange: 20, pick_asset: 40, api: 60, address: 80, settings: 100 } %>
+    <%= render "bots/new_step_progress_bar", current_step: :settings, steps: { pick_exchange: 20, api: 40, pick_asset: 60, address: 80, settings: 100 } %>
 
       <%= form_with url: rules_withdrawals_confirm_settings_path, method: :post,
                     class: "bot-creation-preview",

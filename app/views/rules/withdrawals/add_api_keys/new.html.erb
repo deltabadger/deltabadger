@@ -2,7 +2,7 @@
 
 <%= render layout: 'layouts/modal/full_page', locals: { close_url: rules_path } do %>
   <div class="bot-creation-layout">
-    <%= render "bots/new_step_progress_bar", current_step: :api, steps: { pick_exchange: 20, pick_asset: 40, api: 60, address: 80, settings: 100 } %>
+    <%= render "bots/new_step_progress_bar", current_step: :api, steps: { pick_exchange: 20, api: 40, pick_asset: 60, address: 80, settings: 100 } %>
 
     <div class="conversational conversational--bot-setup"
          data-controller="conversational-sentence"
@@ -10,7 +10,11 @@
       <%= t('rules.withdrawals.sentence.withdraw_all') %>
       100 <%= t('rules.withdrawals.sentence.of_the_amount') %>
       <%= t('rules.withdrawals.sentence.of') %>
-      <%= link_to @asset.symbol, new_rules_withdrawals_pick_asset_path, data: { turbo_frame: "modal_content", **ticker_data(@asset) }, class: "ticker", style: "background: #{asset_color}" %>
+      <% if @asset %>
+        <%= link_to @asset.symbol, new_rules_withdrawals_pick_asset_path, data: { turbo_frame: "modal_content", **ticker_data(@asset) }, class: "ticker", style: "background: #{asset_color}" %>
+      <% else %>
+        …
+      <% end %>
       <%= t('rules.withdrawals.sentence.from') %>
       <%= form_with url: new_rules_withdrawals_pick_exchange_path, method: :get, class: "conversational__link filled",
                     data: { turbo_frame: "modal_content", wizard_dir: "back" } do %>
