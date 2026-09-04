@@ -42,13 +42,50 @@ class Rules::WithdrawalCreationTest < ActionDispatch::IntegrationTest
 
   # ---- Asset picker uses .ticker.active on the search form ----
 
+  # ---- Keys come right after the exchange, as in every other flow ----
+
+  test 'picking the exchange moves on to the API key step' do
+    get new_rules_withdrawals_pick_exchange_path
+    post rules_withdrawals_pick_exchange_path,
+         params: { bots_dca_single_asset: { exchange_id: @binance.id } }
+    assert_redirected_to new_rules_withdrawals_add_api_key_path
+  end
+
+  test 'without a key, the connect card shows before any asset is picked' do
+    @user.api_keys.where(exchange: @binance).destroy_all
+    # The test environment skips the key step outright (dry run); this is about the real path.
+    with_dry_run(false) do
+      get new_rules_withdrawals_pick_exchange_path
+      post rules_withdrawals_pick_exchange_path,
+           params: { bots_dca_single_asset: { exchange_id: @binance.id } }
+      follow_redirect!
+    end
+    assert_response :success
+
+    assert_select '.set-api--connect h2.set-api__title', text: "Connect #{@binance.name}"
+    assert_select '.conversational .ticker', count: 0, message: 'no asset chip yet: the asset is picked after the keys'
+    assert_select '.process-progress h4', text: I18n.t('bot.setup.progress_steps.api')
+  end
+
+  test 'with a working key already saved, the key step hands over to the asset step' do
+    with_dry_run(false) do
+      get new_rules_withdrawals_pick_exchange_path
+      post rules_withdrawals_pick_exchange_path,
+           params: { bots_dca_single_asset: { exchange_id: @binance.id } }
+      get new_rules_withdrawals_add_api_key_path
+    end
+    assert_redirected_to new_rules_withdrawals_pick_asset_path
+  end
+
+  # ---- Asset picker uses .ticker.active on the search form ----
+
   test 'pick_asset step renders the search input as a .ticker.active form, not .sinput' do
     # Drive the wizard via real HTTP so session is populated naturally —
     # do not mutate session[] directly in integration tests.
     get new_rules_withdrawals_pick_exchange_path
     post rules_withdrawals_pick_exchange_path,
          params: { bots_dca_single_asset: { exchange_id: @binance.id } }
-    follow_redirect!
+    get new_rules_withdrawals_pick_asset_path
     assert_response :success
 
     assert_match(/class="ticker active"/, response.body,
@@ -59,7 +96,8 @@ class Rules::WithdrawalCreationTest < ActionDispatch::IntegrationTest
                  'asset picker should show the exchange already picked')
   end
 
-  test 'picking the asset moves on to the API key step' do
+  # The asset step returns through the key step, which then looks the destination up for it.
+  test 'picking the asset returns through the API key step' do
     get new_rules_withdrawals_pick_exchange_path
     post rules_withdrawals_pick_exchange_path,
          params: { bots_dca_single_asset: { exchange_id: @binance.id } }

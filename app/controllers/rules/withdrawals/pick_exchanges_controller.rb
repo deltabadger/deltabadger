@@ -16,7 +16,9 @@ class Rules::Withdrawals::PickExchangesController < ApplicationController
       session[:withdrawal_rule_config] ||= {}
       session[:withdrawal_rule_config]['exchange_id'] = exchange_id
       session[:withdrawal_rule_config].delete('asset_id')
-      redirect_to new_rules_withdrawals_pick_asset_path
+      # Keys next, as in every other flow: a withdrawal needs the exchange connected before
+      # there is anything to pick an asset from.
+      redirect_to new_rules_withdrawals_add_api_key_path
     else
       redirect_to new_rules_withdrawals_pick_exchange_path
     end

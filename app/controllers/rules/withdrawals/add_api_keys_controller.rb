@@ -12,14 +12,10 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
       redirect_to new_rules_withdrawals_pick_exchange_path
       return
     end
-    if @asset.blank?
-      redirect_to new_rules_withdrawals_pick_asset_path
-      return
-    end
     return if reject_retired_exchange(@exchange, fallback: new_rules_withdrawals_pick_exchange_path)
 
     if Rails.configuration.dry_run
-      redirect_to new_rules_withdrawals_add_address_path
+      redirect_to next_step_path
       return
     end
 
@@ -63,7 +59,11 @@ class Rules::Withdrawals::AddApiKeysController < ApplicationController
     params.require(:api_key).permit(:key, :secret, :passphrase, :access_token, :rsa_signature_key, :rsa_encryption_key, :dh_param, :ibkr_realm)
   end
 
+  # The keys come right after the exchange, so the asset is normally still to be picked. Once it
+  # is, the asset step returns through here, and the destination is looked up for it.
   def next_step_path
+    return new_rules_withdrawals_pick_asset_path if @asset.blank?
+
     result = auto_select_withdrawal_address
     if result == :selected
       new_rules_withdrawals_confirm_settings_path
