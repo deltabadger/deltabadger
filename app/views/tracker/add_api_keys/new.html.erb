@@ -1,11 +1,13 @@
 <%= render 'layouts/modal/full_page', close_url: tracker_path do %>
   <div class="bot-creation-layout">
     <%= render 'bots/new_step_progress_bar', current_step: :connect, steps: { exchange: 50, connect: 100 } %>
-    <div class="conversational conversational--bot-setup">
+    <div class="conversational conversational--bot-setup"
+         data-controller="conversational-sentence"
+         data-action="click->conversational-sentence#activate input->conversational-sentence#updateFilled">
       <%= t('tracker.import_from') %>
-      <%= link_to new_tracker_pick_exchange_path, data: { turbo_frame: 'modal_content' }, class: "sbutton sbutton--exchange sbutton--exchange--#{@exchange.name_id}" do %>
-        <%= render "svg/exchange-#{@exchange.name_id}", title: @exchange.name %>
-        <span class="hide-on-mobile"><%= @exchange.name %></span>
+      <%= form_with url: new_tracker_pick_exchange_path, method: :get, class: "conversational__link filled",
+                    data: { turbo_frame: "modal_content", wizard_dir: "back" } do %>
+        <input value="<%= @exchange.name %>" readonly tabindex="-1">
       <% end %>
     </div>
     <%= render partial: 'shared/api_key_form', locals: {

@@ -14,10 +14,8 @@
       <%= t('rules.withdrawals.sentence.of') %>
       <%= link_to @asset.symbol, new_rules_withdrawals_pick_asset_path, data: { turbo_frame: "modal_content", **ticker_data(@asset) }, class: "ticker", style: "background: #{asset_color}" %>
       <%= t('rules.withdrawals.sentence.from') %>
-      <%= link_to new_rules_withdrawals_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sbutton sbutton--exchange sbutton--exchange--#{@exchange.name_id}" do %>
-        <%= render "svg/exchange-#{@exchange.name_id}", title: @exchange.name %>
-        <span class="hide-on-mobile"><%= @exchange.name %></span>
-      <% end %>
+      <%# A link, not the wizard's form chip: this sentence already sits inside the settings form. %>
+      <%= link_to @exchange.name, new_rules_withdrawals_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "conversational__link conversational__link--text" %>
       <%= t('rules.withdrawals.sentence.to') %>
       <% if @withdrawal_addresses.present? %>
         <% selected_addr = @withdrawal_addresses.find { |a| a[:name] == @address } %>
