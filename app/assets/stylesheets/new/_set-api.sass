@@ -4,16 +4,10 @@
     display: flex
     flex-direction: column
     gap: 5rem
-    &__header
-        font-size: 2.4rem
-        line-height: 3rem
-        font-weight: 600
-        color: var(--ash)
-        text-align: center
     &__form,&__instructions
         display: flex
         flex-direction: column
-        gap: 4rem
+        gap: 2rem
         ul,ol,li
             margin-top:0
             padding-top:0
@@ -28,26 +22,58 @@
                 &:hover
                     color: var(--link-hover)
                     text-decoration: none
-    .form__radios
-        display: flex
-        gap: 2rem
-        justify-content: center
-        margin-bottom: 1rem
-        input[type="radio"]
-            display: none
-            &:checked + .form__radio-label
-                background: var(--ink)
-                color: var(--paper)
-        .form__radio-label
-            padding: 0.8rem 2rem
-            border-radius: 0.8rem
-            border: 1px solid var(--ash-light)
-            cursor: pointer
-            font-size: 1.4rem
-            font-weight: 500
-            color: var(--ash)
-            transition: all 0.15s ease
-            &:hover
-                border-color: var(--ink)
     .button
         width: 30rem
+
+    // The connect card — every place that asks for an API key. A mark in the venue's colour and
+    // "Connect X" name the card, so it reads the same under a wizard sentence and alone in a
+    // modal. The walkthrough is help: a hairline and a small label, not a second headline.
+    &--connect
+        .set-api__brand
+            display: flex
+            flex-direction: column
+            align-items: center
+            gap: 1.5rem
+            text-align: center
+        .set-api__mark
+            display: block
+            width: 4rem
+            height: 4rem
+            svg
+                display: block
+                width: 100%
+                height: 100%
+            // The chip keeps Alpaca in ink for the sake of the label beside it; the bare mark wears
+            // the brand. !important because the chip's rule carries one.
+            &.sbutton--exchange--alpaca svg path
+                fill: #fee546 !important
+        .set-api__title
+            margin: 0
+            padding: 0
+            font-size: 2.4rem
+            line-height: 3rem
+            font-weight: 600
+            color: var(--ink)
+            text-wrap: balance
+        .set-api__note
+            margin: 0
+            color: var(--ash)
+            text-align: center
+            text-wrap: balance
+        .set-api__mode
+            display: flex
+            justify-content: center
+        .set-api__form .button
+            align-self: center
+        .set-api__instructions
+            padding-top: 3rem
+            border-top: 1px solid color-mix(in srgb, var(--ash) 22%, transparent)
+            p
+                margin: 0
+        .set-api__eyebrow
+            margin: 0
+            font-size: 1.3rem
+            letter-spacing: .08em
+            text-transform: uppercase
+            font-weight: 700
+            color: var(--ash)

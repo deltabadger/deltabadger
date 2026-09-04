@@ -1,30 +1,25 @@
 <%= render 'layouts/modal/full_page' do %>
-  <div class="bot-creation-layout">
+  <div class="bot-creation-layout bot-creation-layout--api">
     <%= render partial: 'bots/dca_indexes/new_step_progress_bar', locals: { current_step: :coingecko } %>
-
-    <div class="widget widget--centered" style="margin: 0 1rem; padding: 4rem">
-      <% if current_user.admin? %>
-        <p><%= t('setup.api_configuration') %></p>
-
-        <%= form_with url: bots_dca_indexes_setup_coingecko_path,
-                      method: :post,
-                      class: "setting-form",
-                      data: {
-                        controller: "form--html5-validations form--label-animations",
-                        turbo_frame: 'modal_content'
-                      } do |f| %>
-          <div class="form__row form__row--input">
-            <%= tag.input class: "form__input", type: "text", name: "api_key", required: true, id: "api_key", autocomplete: "off" %>
-            <%= label_tag :api_key, t('setup.coingecko_api_key'), class: "form__label" %>
-          </div>
-
-          <%= t('setup.coingecko_api_key_hint_html').html_safe %>
-
-          <%= f.submit t('setup.continue'), class: "button button--success" %>
-        <% end %>
-      <% else %>
-        <p><%= t('setup.coingecko_admin_only') %></p>
+    <% if current_user.admin? %>
+      <%= render layout: 'shared/connect_form', locals: {
+            title: t('bot.setup.connect_to', name: 'CoinGecko'),
+            mark: 'svg/coingecko',
+            path: bots_dca_indexes_setup_coingecko_path,
+            form_data: { controller: "form--html5-validations form--label-animations", turbo_frame: 'modal_content' },
+            instructions_title: t('bot.setup.how_to_get_keys', exchange: 'CoinGecko'),
+            instructions: t('setup.coingecko_api_key_hint_html')
+          } do |f| %>
+        <div class="form__row form__row--input">
+          <%= f.text_field :api_key, required: true, autofocus: true, autocomplete: "off", data: { controller: "autofocus" }, class: "form__input" %>
+          <%= f.label :api_key, t('setup.coingecko_api_key'), class: "form__label" %>
+        </div>
       <% end %>
-    </div>
+    <% else %>
+      <div class="set-api set-api--connect">
+        <%= render 'shared/connect_brand', title: t('bot.setup.connect_to', name: 'CoinGecko'), mark: 'svg/coingecko' %>
+        <p class="set-api__note"><%= t('setup.coingecko_admin_only') %></p>
+      </div>
+    <% end %>
   </div>
 <% end %>
