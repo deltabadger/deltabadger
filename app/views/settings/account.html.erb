@@ -11,6 +11,8 @@
       <%= render partial: 'settings/widgets/registration' %>
     <% end %>
 
+    <%= render partial: 'settings/widgets/advanced_bots' %>
+
     <% if current_user.admin? %>
       <%= render partial: 'settings/widgets/email_notifications' %>
     <% end %>

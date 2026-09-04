@@ -14,13 +14,13 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
   end
 
   test 'mcp widget shows URL' do
-    get settings_connect_path
+    get settings_api_path
     assert_response :success
     assert_select '#mcp_url_display'
   end
 
   test 'mcp widget shows connected clients section' do
-    get settings_connect_path
+    get settings_api_path
     assert_response :success
     assert_select '#mcp_connected_clients'
   end
@@ -30,7 +30,7 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
     Doorkeeper::AccessToken.create!(application: app, resource_owner_id: @admin.id, token: SecureRandom.hex(32), expires_in: 3600)
     ConnectedClient.create!(user: @admin, oauth_application: app, mcp_tools: AppConfig::MCP_TOOL_GROUPS['read'])
 
-    get settings_connect_path
+    get settings_api_path
     assert_response :success
     assert_select '#mcp_connected_clients', /Test Client/
   end
@@ -70,13 +70,13 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
     regular_user = create(:user, setup_completed: true)
     sign_in regular_user
 
-    get settings_connect_path
+    get settings_api_path
     assert_response :success
     assert_select 'turbo-frame#mcp_settings'
   end
 
   test 'the MCP url copies through a Stimulus action, not an inline handler' do
-    get settings_connect_path
+    get settings_api_path
 
     assert_response :success
     assert_select '#mcp_url_display[data-controller=?][data-action=?]',

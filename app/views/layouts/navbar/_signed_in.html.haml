@@ -20,11 +20,14 @@
   = link_to rules_path, class: "menu-mobile__item menu-mobile__item--rules #{'menu-mobile__item--active' if current_page?(rules_path)}" do
     = t('links.rules')
 
+  = link_to settings_account_path, class: "menu-mobile__item menu-mobile__item--account #{'menu-mobile__item--active' if current_page?(settings_account_path)}" do
+    = t('links.account')
+
   = link_to settings_connect_path, class: "menu-mobile__item menu-mobile__item--connections #{'menu-mobile__item--active' if current_page?(settings_connect_path)}" do
     = t('links.connections')
 
-  = link_to settings_account_path, class: "menu-mobile__item menu-mobile__item--account #{'menu-mobile__item--active' if current_page?(settings_account_path)}" do
-    = t('links.account')
+  = link_to settings_api_path, class: "menu-mobile__item menu-mobile__item--api #{'menu-mobile__item--active' if current_page?(settings_api_path)}" do
+    = t('links.api')
 
   = render 'layouts/navbar/hide_balances_toggle', item_class: 'menu-mobile__item'
   = render 'layouts/navbar/display_currency_picker', item_class: 'menu-mobile__item'
@@ -67,8 +70,9 @@
       .menu__item.menu__button{ data: { dropdown_target: "trigger" } }
         = render 'svg/24x24_sliders'
       .dropdown
-        = link_to t('links.connections'), settings_connect_path, class: "dropdown__item"
         = link_to t('links.account'), settings_account_path, class: "dropdown__item"
+        = link_to t('links.connections'), settings_connect_path, class: "dropdown__item"
+        = link_to t('links.api'), settings_api_path, class: "dropdown__item"
         = render 'layouts/navbar/hide_balances_toggle', item_class: 'dropdown__item'
         = render 'layouts/navbar/display_currency_picker', item_class: 'dropdown__item'
         .dropdown__item.dropdown__item--divider
