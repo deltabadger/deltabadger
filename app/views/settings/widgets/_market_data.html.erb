@@ -1,13 +1,21 @@
 <%= turbo_frame_tag "market_data_settings" do %>
-  <div class="widget widget--settings" data-controller="form--market-data">
-    <% is_coingecko_configured = MarketDataSettings.coingecko? %>
-    <% is_deltabadger_configured = MarketDataSettings.deltabadger? %>
-    <% is_deltabadger_available = MarketDataSettings.deltabadger_available? %>
-    <% is_platform_connected = AppConfig.platform_connected? %>
-    <% is_configured = MarketData.configured? %>
-    <% show_coingecko_form = @show_coingecko_form || false %>
-    <% show_platform_form = @show_platform_form || false %>
-    <% deltabadger_action = is_platform_connected ? 'form--market-data#selectConnectedDeltabadger' : 'form--market-data#selectDeltabadger' %>
+  <% is_coingecko_configured = MarketDataSettings.coingecko? %>
+  <% is_deltabadger_configured = MarketDataSettings.deltabadger? %>
+  <% is_deltabadger_available = MarketDataSettings.deltabadger_available? %>
+  <% is_platform_connected = AppConfig.platform_connected? %>
+  <% is_configured = MarketData.configured? %>
+  <% show_coingecko_form = @show_coingecko_form || false %>
+  <% show_platform_form = @show_platform_form || false %>
+  <%# What the reader is in the middle of (a claim that failed, a key still to paste) outranks what
+      is stored: the control has to point at the form on screen. %>
+  <% selected = if show_platform_form then MarketDataSettings::PROVIDER_DELTABADGER
+                elsif show_coingecko_form || is_coingecko_configured then MarketDataSettings::PROVIDER_COINGECKO
+                elsif is_deltabadger_configured then MarketDataSettings::PROVIDER_DELTABADGER
+                else ''
+                end %>
+  <div class="widget widget--settings" data-controller="form--market-data"
+       data-action="segmented:change->form--market-data#select"
+       data-form--market-data-platform-connected-value="<%= is_platform_connected %>">
     <h4 class="modal__title">
       <%= t('settings.index.resync_assets_section') %>:
       <% if is_configured %>
@@ -17,102 +25,84 @@
       <% end %>
     </h4>
 
-    <%= form_with url: settings_update_market_data_path, method: :patch, data: {
-      form__market_data_target: "providerForm",
-      turbo_frame: "market_data_settings"
-    } do |f| %>
-      <div class="form__radios" style="display: flex; justify-content: center;">
-        <% if is_deltabadger_available %>
-          <%# Platform-provided market data is available. Lock to it — no other choices, no toggling. %>
-          <label class="form__radio">
-            <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_DELTABADGER, true, disabled: true %>
-            <span><%= AppConfig.market_data_env_provider_name %></span>
-          </label>
-        <% else %>
-          <label class="form__radio">
-            <%= radio_button_tag :market_data_provider, '', !is_configured && !show_coingecko_form && !show_platform_form, data: { action: "form--market-data#selectNone" } %>
-            <span><%= t('settings.market_data.none') %></span>
-          </label>
-
-          <label class="form__radio">
-            <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_COINGECKO, is_coingecko_configured || show_coingecko_form, data: { action: "form--market-data#selectCoinGecko" } %>
-            <span>CoinGecko</span>
-          </label>
-
-          <label class="form__radio">
-            <%= radio_button_tag :market_data_provider, MarketDataSettings::PROVIDER_DELTABADGER, is_deltabadger_configured || show_platform_form, data: { action: deltabadger_action } %>
-            <span><%= t('settings.platform.option') %></span>
-          </label>
+    <% if is_deltabadger_available %>
+      <%# Platform-provided market data is the only feed there is: nothing to switch. %>
+      <p class="set-api__note"><%= t('settings.market_data.deltabadger_configured', provider_name: AppConfig.market_data_env_provider_name) %></p>
+    <% else %>
+      <%# The switch: one segmented control over a hidden field, submitted as soon as it moves. A
+          saved CoinGecko key rides along, so switching back to it needs no re-paste. %>
+      <%= form_with url: settings_update_market_data_path, method: :patch, class: "set-api__mode",
+                    data: { form__market_data_target: "providerForm", turbo_frame: "market_data_settings" } do |f| %>
+        <%= render 'shared/segmented', fluid: true, label: t('settings.index.resync_assets_section'), options: [
+              { value: '', label: t('settings.market_data.none'), active: selected == '' },
+              { value: MarketDataSettings::PROVIDER_COINGECKO, label: 'CoinGecko',
+                active: selected == MarketDataSettings::PROVIDER_COINGECKO },
+              { value: MarketDataSettings::PROVIDER_DELTABADGER, label: t('settings.platform.option'),
+                active: selected == MarketDataSettings::PROVIDER_DELTABADGER }
+            ] %>
+        <%= f.hidden_field :market_data_provider, value: selected, data: { form__market_data_target: "provider" } %>
+        <% if AppConfig.coingecko_api_key.present? %>
+          <%= hidden_field_tag :coingecko_api_key, AppConfig.coingecko_api_key %>
         <% end %>
-      </div>
-
-      <% if AppConfig.coingecko_api_key.present? %>
-        <%# Keep the saved key in provider-change submissions even while another feed is active. %>
-        <%= hidden_field_tag :coingecko_api_key, AppConfig.coingecko_api_key %>
       <% end %>
 
-      <% if is_deltabadger_available %>
-        <%# Platform provider is the only option; no further UI needed — the
-            green ON indicator already reflects the active state via
-            MarketDataSettings.current_provider. %>
-      <% elsif is_coingecko_configured %>
-        <%# CoinGecko configured: show status and actions %>
-        <div data-form--market-data-target="coingeckoFields">
-          <p style="text-align: center; margin-top: 3rem"><%= t('settings.market_data.coingecko_configured') %></p>
+      <% if is_coingecko_configured %>
+        <div data-form--market-data-target="coingeckoFields" <%= 'hidden' if show_platform_form %>>
+          <p class="set-api__note"><%= t('settings.market_data.coingecko_configured') %></p>
           <div class="setting-form">
             <%= button_to t('settings.resync_assets.button'), settings_resync_assets_path, method: :post, class: "button button--outline", data: { turbo_frame: "_top" } %>
             <%= link_to t('settings.market_data.disconnect'), settings_disconnect_market_data_path, data: { turbo_method: :delete, turbo_frame: "market_data_settings" }, class: "button button--danger", style: "margin-top: 0" %>
           </div>
         </div>
       <% elsif !is_deltabadger_configured && AppConfig.coingecko_api_key.blank? %>
-        <%# CoinGecko setup form (no key yet) %>
-        <div class="setting-form" data-form--market-data-target="coingeckoFields" style="margin: 4rem auto 2rem; display: <%= show_coingecko_form ? 'flex' : 'none' %>;">
-          <div class="form__row form__row--input">
-            <%= tag.input class: "form__input",
-                          type: "text",
-                          name: "coingecko_api_key",
-                          id: "coingecko_api_key",
-                          placeholder: " " %>
-            <%= label_tag :coingecko_api_key, t('setup.coingecko_api_key'), class: "form__label" %>
-          </div>
-          <p class="form__info"><%= t('setup.coingecko_api_key_hint_html') %></p>
-        </div>
-        <div class="setting-form" data-form--market-data-target="coingeckoButtons" style="display: <%= show_coingecko_form ? 'flex' : 'none' %>; margin-top: 2rem;">
-          <%= f.submit t('setup.submit'), class: "button button--success", style: "margin-top: 0" %>
+        <%# No key yet: the same connect card as the index wizard's CoinGecko step. %>
+        <div data-form--market-data-target="coingeckoFields" <%= 'hidden' unless show_coingecko_form %>>
+          <%= render layout: 'shared/connect_form', locals: {
+                title: t('bot.setup.connect_to', name: 'CoinGecko'),
+                mark: 'svg/coingecko',
+                path: settings_update_market_data_path, method: :patch,
+                form_data: { turbo_frame: "market_data_settings", controller: "form--html5-validations form--label-animations" },
+                instructions_title: t('bot.setup.how_to_get_keys', exchange: 'CoinGecko'),
+                instructions: t('setup.coingecko_api_key_hint_html')
+              } do |f| %>
+            <%= f.hidden_field :market_data_provider, value: MarketDataSettings::PROVIDER_COINGECKO %>
+            <div class="form__row form__row--input">
+              <%= f.text_field :coingecko_api_key, required: true, autocomplete: "off", class: "form__input" %>
+              <%= f.label :coingecko_api_key, t('setup.coingecko_api_key'), class: "form__label" %>
+            </div>
+          <% end %>
         </div>
       <% end %>
-    <% end %>
 
-    <% if !is_deltabadger_available && is_platform_connected %>
-      <% proxy_suffix = AppConfig.platform_proxies_configured? ? 'with_proxies' : 'without_proxies' %>
-      <p style="text-align: center; margin-top: 3rem">
-        <%= t("settings.platform.connected_#{proxy_suffix}") %>
-      </p>
-      <div class="setting-form">
-        <%= link_to t('settings.platform.disconnect'), settings_platform_connection_path,
-                    data: { turbo_method: :delete, turbo_frame: "market_data_settings" },
-                    class: "button button--danger", style: "margin-top: 0" %>
-      </div>
-    <% end %>
-
-    <% unless is_deltabadger_available || is_platform_connected %>
-      <div class="setting-form" data-form--market-data-target="deltabadgerButtons"
-           style="display: <%= show_platform_form ? 'flex' : 'none' %>; margin-top: 2rem;">
-        <%= form_with url: settings_platform_connection_path, method: :post,
-                      class: 'setting-form', data: { turbo_frame: 'market_data_settings',
-                                                    controller: 'form--html5-validations form--label-animations' } do |form| %>
-          <% if @platform_errors.present? %>
-            <div class="form__info form__info--alert" role="alert"><%= @platform_errors.to_sentence %></div>
+      <% if is_platform_connected %>
+        <% proxy_suffix = AppConfig.platform_proxies_configured? ? 'with_proxies' : 'without_proxies' %>
+        <p class="set-api__note"><%= t("settings.platform.connected_#{proxy_suffix}") %></p>
+        <div class="setting-form">
+          <%= link_to t('settings.platform.disconnect'), settings_platform_connection_path,
+                      data: { turbo_method: :delete, turbo_frame: "market_data_settings" },
+                      class: "button button--danger", style: "margin-top: 0" %>
+        </div>
+      <% else %>
+        <%# Not claimed yet: the same card, with what the subscription brings where a walkthrough would be. %>
+        <div data-form--market-data-target="deltabadgerButtons" <%= 'hidden' unless show_platform_form %>>
+          <%= render layout: 'shared/connect_form', locals: {
+                title: t('bot.setup.connect_to', name: t('settings.platform.option')),
+                mark: 'svg/40x30_logo',
+                path: settings_platform_connection_path,
+                form_data: { turbo_frame: 'market_data_settings', controller: 'form--html5-validations form--label-animations' },
+                instructions_title: t('settings.platform.subscription_title'),
+                instructions: tag.p(t('settings.platform.subscription_html'))
+              } do |f| %>
+            <% if @platform_errors.present? %>
+              <div class="form__info form__info--alert" role="alert"><%= @platform_errors.to_sentence %></div>
+            <% end %>
+            <div class="form__row form__row--input">
+              <%= f.text_field :claim_code, required: true, autocomplete: 'off', class: 'form__input' %>
+              <%= f.label :claim_code, t('settings.platform.code'), class: 'form__label' %>
+            </div>
           <% end %>
-
-          <div class="form__row form__row--input">
-            <%= text_field_tag :claim_code, nil, class: 'form__input', required: true, autocomplete: 'off' %>
-            <%= label_tag :claim_code, t('settings.platform.code'), class: 'form__label' %>
-          </div>
-
-          <%= form.submit t('settings.platform.connect'), class: 'button button--success', style: 'margin-top: 0' %>
-        <% end %>
-      </div>
+        </div>
+      <% end %>
     <% end %>
   </div>
 <% end %>

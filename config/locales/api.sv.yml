@@ -5,7 +5,7 @@ sv:
             private_key_label: API-hemlighet
             whitelist_ip_fallback_html: 'IP-adressen till maskinen där Deltabadger är installerad. Om den körs på en server, använd serverns publika IP. Om det är din lokala dator <a href="https://whatismyipaddress.com" target="_blank">kontrollera din IP här</a>'
             alpaca:
-                instructions: 'Logga in på <a href="https://app.alpaca.markets/" target="_blank" rel="noopener">Alpaca</a>s Trading API och hämta dina nycklar från Dashboard.'
+                instructions: 'Gå till <a href="https://app.alpaca.markets/" target="_blank" rel="noopener">Alpaca-panelen</a> – välj <b>Trading API</b>, inte Broker API – och hitta <b>API Keys</b>-sektionen i höger sidofält. Klicka på <b>Generate New Keys</b> och spara de genererade API-uppgifterna.'
             binance: &binance_config
                 instructions:
                     -   text_html: 'Logga in på ditt %{exchange_link}-konto.'

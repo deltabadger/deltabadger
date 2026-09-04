@@ -157,7 +157,9 @@ el:
             disconnect: 'Αποσύνδεση'
             disconnected: 'Ο πάροχος δεδομένων αγοράς αποσυνδέθηκε.'
         platform:
-            option: 'Deltabadger.com — επικολλήστε τον κωδικό σύνδεσης'
+            option: 'Deltabadger.com'
+            subscription_title: 'Συνδρομή Self-hosted'
+            subscription_html: 'Η συνδρομή Self-hosted του <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> περιλαμβάνει το Market Data API και σταθερή IP για whitelist στα ανταλλακτήρια.'
             code: 'Κωδικός σύνδεσης'
             connect: 'Σύνδεση'
             connected_with_proxies: 'Συνδεθήκατε στο Deltabadger.com για δεδομένα αγοράς και διακομιστές μεσολάβησης ανταλλακτηρίων.'
@@ -168,7 +170,6 @@ el:
             title: 'Μετοχές'
             title_html: 'Μετοχές (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
             deltabadger_configured: 'Ο κατάλογος μετοχών παρέχεται από %{provider_name}. Οι χρήστες συνδέουν τα δικά τους κλειδιά Alpaca κατά τη δημιουργία bot.'
-            instructions_html: 'Πήγαινε στον <a href="https://alpaca.markets" target="_blank">πίνακα ελέγχου του Alpaca</a> και βρες την ενότητα API Keys στη δεξιά πλαϊνή μπάρα. Πάτησε Generate New Keys και αποθήκευσε τα κλειδιά API.'
             enabled: 'Οι μετοχές ενεργοποιήθηκαν. Συγχρονισμός assets από Alpaca...'
             disconnected: 'Το Alpaca αποσυνδέθηκε. Ο κατάλογος μετοχών δεν θα ανανεώνεται πια· τα υπάρχοντα bots και τα κλειδιά API δεν επηρεάζονται.'
             configured: 'Συνδεδεμένο στο Alpaca (%{mode}). Τα assets μετοχών συγχρονίστηκαν.'
