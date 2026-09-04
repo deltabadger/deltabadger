@@ -4,15 +4,17 @@
   <div class="bot-creation-layout">
     <%= render "bots/new_step_progress_bar", current_step: :api, steps: { pick_exchange: 20, pick_asset: 40, api: 60, address: 80, settings: 100 } %>
 
-    <div class="conversational conversational--bot-setup">
+    <div class="conversational conversational--bot-setup"
+         data-controller="conversational-sentence"
+         data-action="click->conversational-sentence#activate input->conversational-sentence#updateFilled">
       <%= t('rules.withdrawals.sentence.withdraw_all') %>
       100 <%= t('rules.withdrawals.sentence.of_the_amount') %>
       <%= t('rules.withdrawals.sentence.of') %>
       <%= link_to @asset.symbol, new_rules_withdrawals_pick_asset_path, data: { turbo_frame: "modal_content", **ticker_data(@asset) }, class: "ticker", style: "background: #{asset_color}" %>
       <%= t('rules.withdrawals.sentence.from') %>
-      <%= link_to new_rules_withdrawals_pick_exchange_path, data: { turbo_frame: "modal_content" }, class: "sbutton sbutton--exchange sbutton--exchange--#{@exchange.name_id}" do %>
-        <%= render "svg/exchange-#{@exchange.name_id}", title: @exchange.name %>
-        <span class="hide-on-mobile"><%= @exchange.name %></span>
+      <%= form_with url: new_rules_withdrawals_pick_exchange_path, method: :get, class: "conversational__link filled",
+                    data: { turbo_frame: "modal_content", wizard_dir: "back" } do %>
+        <input value="<%= @exchange.name %>" readonly tabindex="-1">
       <% end %>
     </div>
 
