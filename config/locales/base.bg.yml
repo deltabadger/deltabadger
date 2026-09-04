@@ -157,7 +157,7 @@ bg:
             disconnect: 'Прекъсни'
             disconnected: 'Доставчикът на пазарни данни е прекъснат.'
         platform:
-            option: 'Deltabadger.com — поставете кода за свързване'
+            option: 'Deltabadger.com'
             code: 'Код за свързване'
             connect: 'Свързване'
             connected_with_proxies: 'Deltabadger.com е свързан за пазарни данни и прокси сървъри за борсите.'
@@ -168,7 +168,6 @@ bg:
             title: 'Акции'
             title_html: 'Акции (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
             deltabadger_configured: 'Каталогът с акции се предоставя от %{provider_name}. Потребителите свързват собствените си Alpaca ключове при създаване на бот.'
-            instructions_html: 'Отидете на <a href="https://alpaca.markets" target="_blank">таблото на Alpaca</a> и намерете секцията API Keys в десния панел. Натиснете Generate New Keys и запазете генерираните данни за достъп.'
             enabled: 'Акциите са включени. Синхронизиране на активи от Alpaca...'
             disconnected: 'Връзката с Alpaca е прекъсната. Каталогът с акции вече няма да се обновява; съществуващите ботове и API ключове не са засегнати.'
             configured: 'Свързано с Alpaca (%{mode}). Активите с акции са синхронизирани.'

@@ -157,7 +157,7 @@ sv:
             disconnect: 'Koppla från'
             disconnected: 'Marknadsdataleverantör frånkopplad.'
         platform:
-            option: 'Deltabadger.com — klistra in anslutningskoden'
+            option: 'Deltabadger.com'
             code: 'Anslutningskod'
             connect: 'Anslut'
             connected_with_proxies: 'Ansluten till Deltabadger.com för marknadsdata och börsproxyservrar.'
@@ -168,7 +168,6 @@ sv:
             title: 'Aktier'
             title_html: 'Aktier (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
             deltabadger_configured: 'Aktiekatalogen tillhandahålls av %{provider_name}. Användare ansluter sina egna Alpaca-nycklar när de skapar en bot.'
-            instructions_html: 'Gå till <a href="https://alpaca.markets" target="_blank">Alpaca-panelen</a> och hitta API Keys-sektionen i höger sidofält. Klicka på Generate New Keys och spara de genererade API-uppgifterna.'
             enabled: 'Aktier aktiverade. Synkroniserar tillgångar från Alpaca...'
             disconnected: 'Alpaca frånkopplad. Aktiekatalogen uppdateras inte längre; befintliga botar och API-nycklar påverkas inte.'
             configured: 'Ansluten till Alpaca (%{mode}). Aktietillgångar är synkroniserade.'

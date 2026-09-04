@@ -159,7 +159,7 @@ ru:
             disconnect: 'Отключить'
             disconnected: 'Поставщик рыночных данных отключен.'
         platform:
-            option: 'Deltabadger.com — вставьте код подключения'
+            option: 'Deltabadger.com'
             code: 'Код подключения'
             connect: 'Подключить'
             connected_with_proxies: 'Deltabadger.com подключён для получения рыночных данных и использования прокси бирж.'
@@ -188,7 +188,6 @@ ru:
             title: 'Акции'
             title_html: 'Акции (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
             deltabadger_configured: 'Каталог акций предоставляется %{provider_name}. Пользователи подключают собственные API-ключи Alpaca при создании бота.'
-            instructions_html: 'Перейдите в <a href="https://alpaca.markets" target="_blank">панель Alpaca</a> и найдите раздел API Keys в правой боковой панели. Нажмите Generate New Keys и сохраните сгенерированные API-ключи.'
             enabled: 'Акции включены. Синхронизация активов из Alpaca...'
             disconnected: 'Alpaca отключена. Каталог акций больше не будет обновляться; существующие боты и API-ключи не затронуты.'
             configured: 'Подключено к Alpaca (%{mode}). Активы акций синхронизированы.'

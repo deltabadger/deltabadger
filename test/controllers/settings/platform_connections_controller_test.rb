@@ -11,10 +11,32 @@ class Settings::PlatformConnectionsControllerTest < ActionDispatch::IntegrationT
 
     assert_response :success
     assert_select 'turbo-frame#market_data_settings' do
-      assert_select 'input[type=radio][name=market_data_provider][value=""]'
-      assert_select 'input[type=radio][name=market_data_provider][value=coingecko]'
-      assert_select 'input[type=radio][name=market_data_provider][value=deltabadger]'
+      # The provider is one segmented control over a hidden field, submitted as soon as it moves.
+      assert_select '.segmented[role=radiogroup]' do
+        assert_select '.segmented__option.is-on[data-value=""]', text: I18n.t('settings.market_data.none')
+        assert_select '.segmented__option[data-value=coingecko]', text: 'CoinGecko'
+        assert_select '.segmented__option[data-value=deltabadger]', text: 'Deltabadger.com'
+      end
+      assert_select 'input[type=hidden][name=market_data_provider]', count: 1
+      assert_select 'input[type=radio][name=market_data_provider]', count: 0
       assert_select "form[action='#{settings_platform_connection_path}'] input[name=claim_code]"
+    end
+  end
+
+  test 'choosing CoinGecko without a key shows the connect card, walkthrough below' do
+    # A stored blank beats whatever key the environment happens to carry (a developer's .env).
+    AppConfig.coingecko_api_key = ''
+    patch settings_update_market_data_path, params: { market_data_provider: MarketDataSettings::PROVIDER_COINGECKO },
+                                            as: :turbo_stream
+
+    assert_response :success
+    assert_select '.set-api--connect' do
+      assert_select '.set-api__mark svg', count: 1
+      assert_select 'h2.set-api__title', text: 'Connect CoinGecko'
+      assert_select 'input[type=hidden][name=market_data_provider][value=coingecko]', minimum: 1
+      assert_select 'input[name=coingecko_api_key].form__input', count: 1
+      assert_select 'input[type=submit][value=Connect]'
+      assert_select '.set-api__instructions ol li', count: 7
     end
   end
 
@@ -25,9 +47,13 @@ class Settings::PlatformConnectionsControllerTest < ActionDispatch::IntegrationT
     get settings_connect_path
 
     assert_response :success
-    assert_select 'input[type=radio][name=market_data_provider][value=deltabadger][disabled]', count: 1
+    assert_select 'turbo-frame#market_data_settings' do
+      assert_select '.segmented', count: 0
+      assert_select 'input[name=market_data_provider]', count: 0
+      assert_match 'Deltabadger Cloud', response.body
+    end
     assert_select "form[action='#{settings_platform_connection_path}']", count: 0
-    assert_select 'input[type=radio][name=market_data_provider][value=coingecko]', count: 0
+    assert_select '[data-value=coingecko]', count: 0
   end
 
   test 'admin can connect with a claim code' do
@@ -86,8 +112,9 @@ class Settings::PlatformConnectionsControllerTest < ActionDispatch::IntegrationT
     get settings_connect_path
 
     assert_response :success
-    assert_select 'input[type=radio][name=market_data_provider][value=deltabadger]' \
-                  '[data-action="form--market-data#selectConnectedDeltabadger"]'
+    # Connected, so choosing Deltabadger is a plain switch rather than a claim: the widget says so.
+    assert_select '[data-controller="form--market-data"][data-form--market-data-platform-connected-value="true"]'
+    assert_select '.segmented__option[data-value=deltabadger]'
 
     patch settings_update_market_data_path,
           params: { market_data_provider: MarketDataSettings::PROVIDER_DELTABADGER }, as: :turbo_stream
@@ -118,6 +145,22 @@ class Settings::PlatformConnectionsControllerTest < ActionDispatch::IntegrationT
     assert_response :unprocessable_entity
     assert_select 'turbo-stream[action=replace][target=market_data_settings]'
     assert_includes response.body, 'That claim code is invalid or has expired.'
+  end
+
+  test 'a failed claim keeps Deltabadger selected even while CoinGecko is the stored provider' do
+    AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
+    AppConfig.coingecko_api_key = 'saved-key'
+    Platform::RedeemClaim.expects(:call).with(code: 'expired').returns(
+      Result::Failure.new('That claim code is invalid or has expired.')
+    )
+
+    post settings_platform_connection_path, params: { claim_code: 'expired' }, as: :turbo_stream
+
+    assert_response :unprocessable_entity
+    assert_select '.segmented__option.is-on[data-value=deltabadger]', count: 1
+    assert_select 'input[type=hidden][name=market_data_provider][value=deltabadger]', count: 1
+    assert_select '[data-form--market-data-target=deltabadgerButtons]:not([hidden]) input[name=claim_code]'
+    assert_select '[data-form--market-data-target=coingeckoFields][hidden]', count: 1
   end
 
   test 'platform connection writes are admin-only' do

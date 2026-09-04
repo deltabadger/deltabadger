@@ -156,7 +156,7 @@ nl:
             disconnect: 'Ontkoppelen'
             disconnected: 'Marktgegevensprovider ontkoppeld.'
         platform:
-            option: 'Deltabadger.com — plak de verbindingscode'
+            option: 'Deltabadger.com'
             code: 'Verbindingscode'
             connect: 'Verbinden'
             connected_with_proxies: "Verbonden met Deltabadger.com voor marktgegevens en beursproxy's."
@@ -185,7 +185,6 @@ nl:
             title: 'Aandelen'
             title_html: 'Aandelen (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
             deltabadger_configured: 'De aandelencatalogus wordt geleverd door %{provider_name}. Gebruikers koppelen hun eigen Alpaca-sleutels bij het aanmaken van een bot.'
-            instructions_html: 'Ga naar het <a href="https://alpaca.markets" target="_blank">Alpaca-dashboard</a> en zoek de sectie API Keys in de rechterzijbalk. Klik op Generate New Keys en bewaar de gegenereerde API-gegevens.'
             enabled: 'Aandelen ingeschakeld. Assets worden gesynchroniseerd vanaf Alpaca...'
             disconnected: 'Alpaca ontkoppeld. De aandelencatalogus wordt niet meer ververst; bestaande bots en API-sleutels blijven ongewijzigd.'
             configured: 'Verbonden met Alpaca (%{mode}). Aandelen-assets zijn gesynchroniseerd.'
