@@ -204,11 +204,7 @@ cs:
         first_time: "poprvé"
         every_time: "pokaždé"
         name: "Název:"
-        fees: "Poplatky"
         hyperliquid_trading_unavailable: "Zadávání příkazů na Hyperliquid zatím není ve Windows dostupné. Zůstatky a historie transakcí nadále fungují."
-        maker_fee: "Maker"
-        taker_fee: "Taker"
-        withdrawal_fee: "Výběr"
         additional_title: "Obousměrný bot"
         smart_intervals_disclaimer: 'Velikost příkazů na %{exchange} je definována v %{currency}. Minimální velikost příkazu je %{minimum} %{currency}.'
         smart_intervals_minimum_frequency: "Menší části by zadávaly příkazy častěji než jednou za 5 minut. Použijte alespoň %{minimum} %{currency}."

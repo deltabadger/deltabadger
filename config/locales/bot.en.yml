@@ -4,7 +4,7 @@ en:
         bot_name: 'Bot name'
         new: "New bot"
         welcome:
-            pick_exchange_first: "Pick an exchange first — then see the assets it supports."
+            pick_exchange_first: "Start investing."
             connect_alpaca_html: "To invest in stocks, connect Alpaca in %{settings_link} first."
             settings_link: "Settings"
         dca_multi_asset:
@@ -204,11 +204,7 @@ en:
         first_time: "first time"
         every_time: "every time"
         name: "Name:"
-        fees: "Fees"
         hyperliquid_trading_unavailable: "Hyperliquid order placement is not available on Windows yet. Balances and transaction history still work."
-        maker_fee: "Maker"
-        taker_fee: "Taker"
-        withdrawal_fee: "Withdrawal"
         additional_title: "Two-way bot"
         smart_intervals_disclaimer: 'Orders size on %{exchange} is defined in %{currency}. The minimum order size is %{minimum} %{currency}.'
         smart_intervals_minimum_frequency: "Smaller units would place orders more often than every 5 minutes. Use at least %{minimum} %{currency}."

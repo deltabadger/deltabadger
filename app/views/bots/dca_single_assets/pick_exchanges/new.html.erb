@@ -8,10 +8,7 @@
       <%= render "bots/pick_exchanges/table",
         bot: @bot,
         exchanges: @exchanges,
-        submit_url: bots_dca_single_assets_pick_exchange_path,
-        header: ["#{t('bot.fees')}:", "Maker", "Taker"],
-        row_partial: "shared/exchange_search_result",
-        row_locals: ->(exchange) { { exchange: exchange, param_name: "#{@bot.model_name.param_key}[exchange_id]" } } %>
+        submit_url: bots_dca_single_assets_pick_exchange_path %>
       <%= render 'bots/wizard/stock_activation_notice', bot: @bot %>
     </div>
   </div>

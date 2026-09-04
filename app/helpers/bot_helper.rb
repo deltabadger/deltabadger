@@ -510,7 +510,7 @@ module BotHelper
     return content_tag(:p, instruction_text(instructions, exchange_name, whitelist_ip)) if instructions.is_a?(String)
     return nil unless instructions.is_a?(Array)
 
-    content_tag(:ol, class: 'set__list') do
+    content_tag(:ol, class: 'set-api__list') do
       instructions.map { |instruction| render_instruction(instruction, exchange_name, whitelist_ip) }.join.html_safe
     end
   end

@@ -204,11 +204,7 @@ el:
         first_time: "πρώτη φορά"
         every_time: "κάθε φορά"
         name: "Όνομα:"
-        fees: "Προμήθειες"
         hyperliquid_trading_unavailable: "Η καταχώριση εντολών στο Hyperliquid δεν είναι ακόμη διαθέσιμη στα Windows. Τα υπόλοιπα και το ιστορικό συναλλαγών παραμένουν διαθέσιμα."
-        maker_fee: "Maker"
-        taker_fee: "Taker"
-        withdrawal_fee: "Ανάληψη"
         additional_title: "Bot δύο κατευθύνσεων"
         smart_intervals_disclaimer: 'Το μέγεθος εντολών στο %{exchange} ορίζεται σε %{currency}. Το ελάχιστο μέγεθος εντολής είναι %{minimum} %{currency}.'
         smart_intervals_minimum_frequency: "Μικρότερες μονάδες θα τοποθετούσαν εντολές συχνότερα από κάθε 5 λεπτά. Χρησιμοποιήστε τουλάχιστον %{minimum} %{currency}."

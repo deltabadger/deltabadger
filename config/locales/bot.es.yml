@@ -1,9 +1,7 @@
 es:
     bot:
         add_api_keys: "Añadir claves API para %{exchange}"
-        fees: "Comisiones"
         hyperliquid_trading_unavailable: "La colocación de órdenes en Hyperliquid aún no está disponible en Windows. Los saldos y el historial de transacciones siguen funcionando."
-        withdrawal_fee: "Retiro"
         bot_name: 'Nombre del bot'
         new: "Nuevo bot"
         welcome:

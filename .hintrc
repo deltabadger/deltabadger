@@ -1,0 +1,15 @@
+{
+  "extends": [
+    "development"
+  ],
+  "hints": {
+    "compat-api/css": [
+      "default",
+      {
+        "ignore": [
+          "border-top: 1px solid color-mix(in srgb, var(--ash) 22%, transparent)"
+        ]
+      }
+    ]
+  }
+}

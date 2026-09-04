@@ -204,11 +204,7 @@ da:
         first_time: "første gang"
         every_time: "hver gang"
         name: "Navn:"
-        fees: "Gebyrer"
         hyperliquid_trading_unavailable: "Det er endnu ikke muligt at afgive ordrer på Hyperliquid i Windows. Saldi og transaktionshistorik fungerer stadig."
-        maker_fee: "Maker"
-        taker_fee: "Taker"
-        withdrawal_fee: "Udbetaling"
         additional_title: "Tovejs-bot"
         smart_intervals_disclaimer: 'Ordrestørrelsen på %{exchange} er defineret i %{currency}. Minimumsordrestørrelsen er %{minimum} %{currency}.'
         smart_intervals_minimum_frequency: "Mindre enheder ville placere ordrer oftere end hvert 5. minut. Brug mindst %{minimum} %{currency}."

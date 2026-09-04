@@ -63,10 +63,12 @@ class StockActivationNoticeTest < ActionDispatch::IntegrationTest
     assert_match I18n.t('bot.setup.stocks_ask_admin'), response.body
     assert_select ".welcome-screen a[href='#{settings_connect_path}']", count: 0
 
-    # Inactive + admin: the existing connect-Alpaca-in-Settings line.
+    # Inactive + admin: no stocks line on the welcome screen — the wizard
+    # handles it when the admin actually tries to trade a stock.
     sign_in @admin
     get bots_path
-    assert_select ".welcome-screen a[href='#{settings_connect_path}']", count: 1
+    refute_match I18n.t('bot.setup.stocks_ask_admin'), response.body
+    assert_select ".welcome-screen a[href='#{settings_connect_path}']", count: 0
 
     # Active: no stocks onboarding line at all. A synced catalog is what
     # activates — not the credential.
