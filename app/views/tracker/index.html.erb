@@ -14,7 +14,8 @@
   <div class="welcome-screen">
     <p><%= t('tracker.welcome.connect_and_track') %></p>
     <div style="margin-top: 2rem; transform: scale(1.5)">
-      <%= link_to new_tracker_pick_exchange_path, class: "sbutton sbutton--icon", data: { turbo_frame: "modal" }, aria: { label: t('tracker.connect_exchange') } do %>
+      <%= link_to new_tracker_pick_exchange_path, class: "sbutton sbutton--sky", data: { turbo_frame: "modal" }, aria: { label: t('tracker.connect_exchange') } do %>
+        <span class="d-none d-sm-inline"><%= t('tracker.connect_exchange') %></span>
         <%= render partial: 'svg/24x24_plus' %>
       <% end %>
     </div>

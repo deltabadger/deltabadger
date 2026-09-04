@@ -2,7 +2,6 @@
 <% if @withdrawal_rules.empty? && @rule_logs.empty? %>
   <div class="welcome-screen">
     <p><%= t('rules.index.welcome.keep_coins_safe') %></p>
-    <p><%= t('rules.index.welcome.create_first') %></p>
     <div style="margin-top: 2rem; transform: scale(1.5)">
         <%= link_to new_rules_withdrawals_pick_exchange_path, class: "sbutton sbutton--sky", data: { turbo_frame: "modal" } do %>
           <span class="d-none d-sm-inline"><%= t('button.add') %></span>

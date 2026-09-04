@@ -33,7 +33,7 @@ class ConnectStepTest < ActionDispatch::IntegrationTest
 
       assert_select '.set-api__instructions' do
         assert_select 'h3.set-api__eyebrow', text: 'How to get API keys from Binance'
-        assert_select 'ol.set__list li', minimum: 3
+        assert_select 'ol.set-api__list li', minimum: 3
       end
     end
   end

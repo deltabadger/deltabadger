@@ -191,11 +191,7 @@ de:
         first_time: "Erste Bestellung"
         every_time: "Jede Bestellung"
         name: "Name:"
-        fees: "Gebühren"
         hyperliquid_trading_unavailable: "Das Platzieren von Orders bei Hyperliquid ist unter Windows noch nicht verfügbar. Guthaben und Transaktionsverlauf funktionieren weiterhin."
-        maker_fee: "Maker"
-        taker_fee: "Taker"
-        withdrawal_fee: "Auszahlung"
         additional_title: "Zwei-Wege-Bot"
         smart_intervals_disclaimer: 'Die Ordergröße auf %{exchange} wird in %{currency} angegeben. Die Mindestordergröße beträgt %{minimum} %{currency}.'
         smart_intervals_minimum_frequency: "Kleinere Einheiten würden Orders häufiger als alle 5 Minuten auslösen. Verwenden Sie mindestens %{minimum} %{currency}."

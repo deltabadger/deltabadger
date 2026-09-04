@@ -1,9 +1,0 @@
-<div data-arrow-keys-navigation-target="item">
-  <%= button_tag name: param_name, value: exchange.id, type: :submit, class: "exchange-picker__item exchange-picker__item--exchange", data: { arrow_keys_navigation_target: "button", turbo_frame: "modal_content" } do %>
-    <div>
-      <%= exchange.name %>
-    </div>
-    <div><%= "#{exchange.maker_fee}%".presence || '-' %></div>
-    <div><%= "#{exchange.taker_fee}%".presence || '-' %></div>
-  <% end %>
-</div>

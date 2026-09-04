@@ -4,7 +4,8 @@ class Tracker::PickExchangesController < ApplicationController
   include Bots::Searchable
 
   def new
-    @exchanges = filter_exchanges_by_query(exchanges: available_exchanges, query: search_params[:query])
+    # No query: the grid is the picker, `nil` only buys the stable-first ordering.
+    @exchanges = filter_exchanges_by_query(exchanges: available_exchanges, query: nil)
   end
 
   def create
@@ -14,10 +15,6 @@ class Tracker::PickExchangesController < ApplicationController
   end
 
   private
-
-  def search_params
-    params.permit(:query)
-  end
 
   def available_exchanges
     Exchange.available

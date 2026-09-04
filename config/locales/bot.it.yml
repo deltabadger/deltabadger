@@ -193,11 +193,7 @@ it:
         first_time: "prima volta"
         every_time: "ogni volta"
         name: "Nome:"
-        fees: "Commissioni"
         hyperliquid_trading_unavailable: "L’inserimento di ordini su Hyperliquid non è ancora disponibile su Windows. I saldi e la cronologia delle transazioni continuano a funzionare."
-        maker_fee: "Maker"
-        taker_fee: "Taker"
-        withdrawal_fee: "Prelievo"
         additional_title: "Bot bidirezionale"
         smart_intervals_disclaimer: 'La dimensione degli ordini su %{exchange} è definita in %{currency}. La dimensione minima dell''ordine è %{minimum} %{currency}.'
         smart_intervals_minimum_frequency: "Unità più piccole invierebbero ordini più spesso di una volta ogni 5 minuti. Usa almeno %{minimum} %{currency}."
