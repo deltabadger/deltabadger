@@ -56,7 +56,8 @@ class ConnectStepTest < ActionDispatch::IntegrationTest
       # One line of help, not a numbered list.
       assert_select '.set-api__instructions' do
         assert_select 'h3.set-api__eyebrow', text: 'How to get API keys from Alpaca'
-        assert_select 'p a[href="https://app.alpaca.markets/"]', text: 'Alpaca'
+        assert_select 'p a[href="https://app.alpaca.markets/"]'
+        assert_select 'p', text: /Trading API/
         assert_select 'ol', count: 0
       end
     end

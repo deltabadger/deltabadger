@@ -169,7 +169,9 @@ en:
             disconnect: 'Disconnect'
             disconnected: 'Market data provider disconnected.'
         platform:
-            option: 'Deltabadger.com — paste connect code'
+            option: 'Deltabadger.com'
+            subscription_title: 'Self-hosted subscription'
+            subscription_html: 'A <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> Self-hosted subscription includes the Market Data API and a fixed IP to whitelist on exchanges.'
             code: 'Connect code'
             connect: 'Connect'
             connected_with_proxies: 'Connected to Deltabadger.com for market data and exchange proxies.'
@@ -180,7 +182,6 @@ en:
             title: 'Stocks'
             title_html: 'Stocks (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
             deltabadger_configured: 'Stock catalog provided by %{provider_name}. Users connect their own Alpaca keys when creating a bot.'
-            instructions_html: 'Go to the <a href="https://alpaca.markets" target="_blank">Alpaca dashboard</a> and find the API Keys section on the right sidebar. Click on Generate New Keys and save the generated API credentials.'
             enabled: 'Stocks enabled. Syncing assets from Alpaca...'
             disconnected: 'Alpaca disconnected. The stock catalog will no longer refresh; existing bots and API keys are unaffected.'
             configured: 'Connected to Alpaca (%{mode}). Stock assets are synced.'

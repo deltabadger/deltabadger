@@ -168,7 +168,9 @@ it:
             disconnect: 'Disconnetti'
             disconnected: 'Fornitore di dati di mercato disconnesso.'
         platform:
-            option: 'Deltabadger.com — incolla il codice di connessione'
+            option: 'Deltabadger.com'
+            subscription_title: 'Abbonamento Self-hosted'
+            subscription_html: 'Un abbonamento Self-hosted <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> include la Market Data API e un IP fisso da inserire nella whitelist degli exchange.'
             code: 'Codice di connessione'
             connect: 'Connetti'
             connected_with_proxies: 'Connesso a Deltabadger.com per i dati di mercato e i proxy degli exchange.'
@@ -197,7 +199,6 @@ it:
             title: 'Azioni'
             title_html: 'Azioni (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
             deltabadger_configured: 'Il catalogo azioni è fornito da %{provider_name}. Gli utenti collegano le proprie chiavi Alpaca durante la creazione di un bot.'
-            instructions_html: 'Vai alla <a href="https://alpaca.markets" target="_blank">dashboard di Alpaca</a> e trova la sezione API Keys nella barra laterale destra. Clicca su Generate New Keys e salva le credenziali API generate.'
             enabled: 'Azioni attivate. Sincronizzazione degli asset da Alpaca...'
             disconnected: 'Alpaca disconnesso. Il catalogo azioni non verrà più aggiornato; i bot esistenti e le chiavi API restano invariati.'
             configured: 'Connesso ad Alpaca (%{mode}). Gli asset azionari sono sincronizzati.'

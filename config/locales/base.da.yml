@@ -169,7 +169,9 @@ da:
             disconnect: 'Afbryd'
             disconnected: 'Markedsdataudbyder afbrudt.'
         platform:
-            option: 'Deltabadger.com — indsæt forbindelseskoden'
+            option: 'Deltabadger.com'
+            subscription_title: 'Self-hosted-abonnement'
+            subscription_html: 'Et <a href="https://deltabadger.com" target="_blank" rel="noopener">Deltabadger</a> Self-hosted-abonnement inkluderer Market Data API og en fast IP-adresse til whitelisting hos børserne.'
             code: 'Forbindelseskode'
             connect: 'Opret forbindelse'
             connected_with_proxies: 'Forbundet til Deltabadger.com for markedsdata og børsproxyer.'
@@ -180,7 +182,6 @@ da:
             title: 'Aktier'
             title_html: 'Aktier (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
             deltabadger_configured: 'Aktiekataloget leveres af %{provider_name}. Brugere forbinder deres egne Alpaca-nøgler, når de opretter en bot.'
-            instructions_html: 'Gå til <a href="https://alpaca.markets" target="_blank">Alpaca-oversigten</a> og find API Keys-sektionen i højre sidepanel. Klik på Generate New Keys og gem de genererede API-legitimationsoplysninger.'
             enabled: 'Aktier aktiveret. Synkroniserer aktiver fra Alpaca...'
             disconnected: 'Alpaca afbrudt. Aktiekataloget opdateres ikke længere; eksisterende bots og API-nøgler påvirkes ikke.'
             configured: 'Forbundet til Alpaca (%{mode}). Aktieaktiver er synkroniseret.'
