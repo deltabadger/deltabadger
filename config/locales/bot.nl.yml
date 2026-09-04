@@ -5,7 +5,7 @@ nl:
         bot_name: 'Bot naam'
         new: "Nieuwe bot"
         welcome:
-            pick_exchange_first: "Kies eerst een exchange — daarna zie je welke assets daar beschikbaar zijn."
+            pick_exchange_first: "Begin met beleggen."
             connect_alpaca_html: "Wil je in aandelen beleggen? Koppel eerst Alpaca via %{settings_link}."
             settings_link: "Instellingen"
         dca_multi_asset:

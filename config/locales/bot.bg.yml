@@ -4,7 +4,7 @@ bg:
         bot_name: 'Име на бота'
         new: "Нов бот"
         welcome:
-            pick_exchange_first: "Първо избери борса — след това ще видиш активите, които са налични на нея."
+            pick_exchange_first: "Започни да инвестираш."
             connect_alpaca_html: "За да инвестирате в акции, първо свържете Alpaca в %{settings_link}."
             settings_link: "Настройки"
         dca_multi_asset:

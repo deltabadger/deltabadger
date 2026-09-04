@@ -4,7 +4,7 @@ da:
         bot_name: 'Botnavn'
         new: "Ny bot"
         welcome:
-            pick_exchange_first: "Vælg en børs først — derefter ser du de aktiver, der findes der."
+            pick_exchange_first: "Begynd at investere."
             connect_alpaca_html: "For at investere i aktier skal du først forbinde Alpaca i %{settings_link}."
             settings_link: "Indstillinger"
         dca_multi_asset:

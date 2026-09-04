@@ -367,8 +367,7 @@ pl:
         index:
             title: 'Reguły'
             welcome:
-                keep_coins_safe: "Trzymaj swoje aktywa bezpiecznie dzięki automatycznym wypłatom na portfel sprzętowy."
-                create_first: "Utwórz swoją pierwszą regułę wypłaty."
+                keep_coins_safe: "Zautomatyzuj wypłaty."
         types:
             withdrawal:
                 title: 'Automatyczna wypłata'
@@ -430,7 +429,7 @@ pl:
             stated: "Twoja własna cena. Wyczyść pole, aby wrócić do naszej."
             none: "Nie udało nam się wycenić tej pozycji. Wpisz, ile była warta jedna jednostka."
         welcome:
-            connect_and_track: "Podłącz giełdę i zacznij śledzić swoje portfolio."
+            connect_and_track: "Śledź swoje portfolio."
         sync_key_error_html: 'Synchronizacja z <strong>%{exchange}</strong> nie powiodła się: %{message}. Zaktualizuj klucz API poniżej.'
         sync_permission_error_html: "Nie udało się zsynchronizować <strong>%{exchange}</strong>: ten klucz API nie ma uprawnienia potrzebnego do odczytu %{capability}. Zaktualizuj uprawnienia klucza na %{exchange} lub utwórz nowy klucz ze wszystkimi uprawnieniami z instrukcji."
         sync_transient_error_html: "<strong>%{exchange}</strong> jest chwilowo niedostępna. Spróbuj zsynchronizować ponownie za kilka minut."
