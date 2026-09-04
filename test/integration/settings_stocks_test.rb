@@ -118,7 +118,29 @@ class SettingsStocksTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select 'turbo-frame#stocks_settings input[name=alpaca_api_key]'
     assert_select "turbo-frame#stocks_settings a[href='#{settings_disconnect_stocks_path}']"
-    assert_select 'turbo-frame#stocks_settings input[name=alpaca_mode][value=paper][checked]'
+    assert_select 'turbo-frame#stocks_settings input[type=hidden][name=alpaca_mode][value=paper]'
+    assert_select 'turbo-frame#stocks_settings .segmented__option.is-on[data-value=paper]'
+  end
+
+  # The widget is the same connect card as the bot wizard's key step: mark, "Connect Alpaca",
+  # Paper or Live as the segmented control, the fields, and the one walkthrough under a label.
+  test 'the stocks widget is the connect card, with the shared Alpaca walkthrough below the form' do
+    get settings_connect_path
+
+    assert_response :success
+    assert_select 'turbo-frame#stocks_settings .set-api--connect' do
+      assert_select '.set-api__mark svg', count: 1
+      assert_select 'h2.set-api__title', text: 'Connect Alpaca'
+      assert_select '.segmented[role=radiogroup] .segmented__option', count: 2
+      assert_select 'input[type=hidden][name=alpaca_mode][value=live]', count: 1, message: 'live stays the default for the catalog credential'
+      assert_select '.form__radio', count: 0
+      assert_select 'input[type=submit][value=Connect]'
+      assert_select '.set-api__instructions' do
+        assert_select 'h3.set-api__eyebrow', text: 'How to get API keys from Alpaca'
+        assert_select 'p a[href="https://app.alpaca.markets/"]'
+        assert_select 'p', text: /Trading API/
+      end
+    end
   end
 
   test 'stocks widget shows ON with a sync note when a catalog exists without a credential' do
