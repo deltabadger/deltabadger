@@ -158,7 +158,7 @@ sk:
             disconnect: 'Odpojiť'
             disconnected: 'Poskytovateľ trhových dát bol odpojený.'
         platform:
-            option: 'Deltabadger.com — vložte kód pripojenia'
+            option: 'Deltabadger.com'
             code: 'Kód pripojenia'
             connect: 'Pripojiť'
             connected_with_proxies: 'Pripojené k Deltabadger.com pre trhové dáta a proxy servery búrz.'
@@ -169,7 +169,6 @@ sk:
             title: 'Akcie'
             title_html: 'Akcie (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
             deltabadger_configured: 'Katalóg akcií poskytuje %{provider_name}. Používatelia pripájajú vlastné kľúče Alpaca pri vytváraní bota.'
-            instructions_html: 'Prejdi na <a href="https://alpaca.markets" target="_blank">Alpaca dashboard</a> a nájdi sekciu API Keys v pravom paneli. Klikni na Generate New Keys a ulož si vygenerované prihlasovacie údaje.'
             enabled: 'Akcie zapnuté. Synchronizácia aktív z Alpaca...'
             disconnected: 'Alpaca odpojená. Katalóg akcií sa už nebude aktualizovať; existujúci boti a API kľúče zostávajú bez zmeny.'
             configured: 'Pripojené k Alpaca (%{mode}). Akciové aktíva sú synchronizované.'

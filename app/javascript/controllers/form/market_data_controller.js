@@ -1,36 +1,25 @@
 import { Controller } from "@hotwired/stimulus"
 
-// Connects to data-controller="form--market-data"
+// The market data widget's provider switch.
+//
+// The segmented control announces the provider as `segmented:change`; this puts it in the switch
+// form's hidden field and submits, so the server makes the switch and re-renders the widget in
+// whatever state that provider needs — CoinGecko without a key comes back with its connect card.
+// The one provider the server cannot switch to on its own is an unclaimed Deltabadger.com: that
+// needs a connect code first, so its form is shown instead.
+//
+// Connects to data-controller="form--market-data" on the widget.
 export default class extends Controller {
-  static targets = ["providerForm", "coingeckoFields", "coingeckoButtons", "deltabadgerButtons"]
+  static targets = ["providerForm", "provider", "coingeckoFields", "deltabadgerButtons"]
+  static values = { platformConnected: Boolean }
 
-  selectNone(event) {
-    this.#hideCoinGeckoForm()
-    this.#hideDeltabadgerButtons()
+  select(event) {
+    const provider = event.detail.value
+    this.providerTarget.value = provider
+    if (this.hasCoingeckoFieldsTarget) this.coingeckoFieldsTarget.hidden = provider !== "coingecko"
+    if (this.hasDeltabadgerButtonsTarget) this.deltabadgerButtonsTarget.hidden = provider !== "deltabadger"
+    if (provider === "deltabadger" && !this.platformConnectedValue) return
+
     this.providerFormTarget.requestSubmit()
-  }
-
-  selectCoinGecko(event) {
-    this.#hideDeltabadgerButtons()
-    this.providerFormTarget.requestSubmit()
-  }
-
-  selectDeltabadger(event) {
-    this.#hideCoinGeckoForm()
-    if (this.hasDeltabadgerButtonsTarget) this.deltabadgerButtonsTarget.style.display = 'flex'
-  }
-
-  selectConnectedDeltabadger(event) {
-    this.#hideCoinGeckoForm()
-    this.providerFormTarget.requestSubmit()
-  }
-
-  #hideCoinGeckoForm() {
-    if (this.hasCoinGeckoFieldsTarget) this.coingeckoFieldsTarget.style.display = 'none'
-    if (this.hasCoinGeckoButtonsTarget) this.coingeckoButtonsTarget.style.display = 'none'
-  }
-
-  #hideDeltabadgerButtons() {
-    if (this.hasDeltabadgerButtonsTarget) this.deltabadgerButtonsTarget.style.display = 'none'
   }
 }

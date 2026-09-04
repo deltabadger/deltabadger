@@ -155,7 +155,7 @@ pt:
             disconnect: 'Desconectar'
             disconnected: 'Fornecedor de dados de mercado desconectado.'
         platform:
-            option: 'Deltabadger.com — cole o código de ligação'
+            option: 'Deltabadger.com'
             code: 'Código de ligação'
             connect: 'Ligar'
             connected_with_proxies: 'Ligado ao Deltabadger.com para obter dados de mercado e usar proxies das bolsas.'
@@ -184,7 +184,6 @@ pt:
             title: 'Ações'
             title_html: 'Ações (<a href="https://alpaca.markets/" target="_blank">Alpaca</a>)'
             deltabadger_configured: 'O catálogo de ações é fornecido por %{provider_name}. Os utilizadores ligam as suas próprias chaves Alpaca ao criar um bot.'
-            instructions_html: 'Vai ao <a href="https://alpaca.markets" target="_blank">painel da Alpaca</a> e encontra a secção API Keys na barra lateral direita. Clica em Generate New Keys e guarda as credenciais API geradas.'
             enabled: 'Ações ativadas. A sincronizar ativos da Alpaca...'
             disconnected: 'Alpaca desligada. O catálogo de ações deixa de ser atualizado; os bots existentes e as chaves API não são afetados.'
             configured: 'Ligado à Alpaca (%{mode}). Os ativos de ações estão sincronizados.'
