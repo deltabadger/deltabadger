@@ -26,6 +26,8 @@ class SettingsController < ApplicationController
     set_account_instance_variables
   end
 
+  def api; end
+
   def update_name
     if current_user.update(update_name_params)
       flash.now[:notice] = t('settings.name.updated')

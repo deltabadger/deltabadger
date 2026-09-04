@@ -13,20 +13,20 @@ class SettingsRestToolPermissionsTest < ActionDispatch::IntegrationTest
   # ---- widget render ------------------------------------------------------
 
   test 'connect page renders the REST tool permissions block' do
-    get settings_connect_path
+    get settings_api_path
     assert_response :success
     assert_select '#rest_tool_permissions'
   end
 
   test 'REST widget renders alongside the MCP widget (both present on the page)' do
-    get settings_connect_path
+    get settings_api_path
     assert_response :success
     assert_select 'turbo-frame#mcp_settings'
     assert_select 'turbo-frame#rest_settings'
   end
 
   test 'REST widget exposes a Download API docs link' do
-    get settings_connect_path
+    get settings_api_path
     assert_response :success
     assert_select 'a[href=?]', settings_download_api_docs_path
   end

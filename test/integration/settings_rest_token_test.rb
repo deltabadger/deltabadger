@@ -22,7 +22,7 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
     assert_equal 0, Doorkeeper::Application.where(personal_owner_id: @user.id,
                                                   personal_access_token: true).count
 
-    get settings_connect_path
+    get settings_api_path
     assert_response :success
 
     # Post-condition: exactly one personal app + token, both surfaced in the page.
@@ -33,10 +33,10 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
   end
 
   test 'GET /settings/connect on a second visit reuses the same token (no churn)' do
-    get settings_connect_path
+    get settings_api_path
     first = @user.reload.personal_api_application.access_tokens.where(revoked_at: nil).first
 
-    get settings_connect_path
+    get settings_api_path
     second = @user.reload.personal_api_application.access_tokens.where(revoked_at: nil).first
 
     assert_equal first.id, second.id
@@ -47,7 +47,7 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
 
   test 'POST /settings/regenerate_api_token revokes old token and issues a new one (verified via /api/v1/bots)' do
     # 1. Surface the token + enable list_bots so REST is reachable.
-    get settings_connect_path
+    get settings_api_path
     @user.set_rest_tool_enabled('list_bots', true)
     old_token_str = @user.reload.personal_api_token.token
 
@@ -72,7 +72,7 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
   end
 
   test 'POST /settings/regenerate_api_token re-renders the REST widget with the new token visible' do
-    get settings_connect_path
+    get settings_api_path
     old_token = @user.reload.personal_api_token.token
 
     post settings_regenerate_api_token_path
@@ -89,10 +89,10 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
   # ---- isolation from MCP widget ------------------------------------------
 
   test 'MCP Connected clients section does NOT list the personal application' do
-    get settings_connect_path # triggers lazy mint
+    get settings_api_path # triggers lazy mint
     @user.reload
 
-    get settings_connect_path
+    get settings_api_path
     assert_response :success
     # The personal app's name appears nowhere in the MCP Connected clients section
     # (which has the `#mcp_connected_clients` DOM id from the MCP widget).
@@ -114,11 +114,11 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
   test 'regenerate scopes by current_user — user A cannot affect user B token' do
     other = create(:user, setup_completed: true)
     sign_in other
-    get settings_connect_path # triggers lazy mint for `other`
+    get settings_api_path # triggers lazy mint for `other`
     other_token = other.reload.personal_api_token.token
 
     sign_in @user
-    get settings_connect_path
+    get settings_api_path
     my_token_before = @user.reload.personal_api_token.token
 
     post settings_regenerate_api_token_path
@@ -130,7 +130,7 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
   end
 
   test 'the REST url and token copy through a Stimulus action, not an inline handler' do
-    get settings_connect_path
+    get settings_api_path
 
     assert_response :success
     assert_select '#rest_api_url_display[data-controller=?][data-action=?][data-clipboard-text-value=?]',

@@ -105,6 +105,7 @@ en:
         tracker: Tracker
         settings: Settings
         connections: Connect
+        api: 'MCP & REST API'
         account: Account
         sign_up: 'Sign up'
     settings:

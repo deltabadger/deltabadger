@@ -27,7 +27,7 @@ class SettingsConnectedClientPermissionsTest < ActionDispatch::IntegrationTest
   # ---- the list -----------------------------------------------------------
 
   test 'lists the connected client' do
-    get settings_connect_path
+    get settings_api_path
 
     assert_response :success
     assert_match 'Acme Connector', response.body
@@ -36,7 +36,7 @@ class SettingsConnectedClientPermissionsTest < ActionDispatch::IntegrationTest
   test 'a client whose tokens are all revoked drops off the list' do
     @token.update!(revoked_at: Time.current)
 
-    get settings_connect_path
+    get settings_api_path
 
     assert_response :success
     assert_no_match(/Acme Connector/, response.body)
@@ -45,7 +45,7 @@ class SettingsConnectedClientPermissionsTest < ActionDispatch::IntegrationTest
   test 'a client with a live token but no grant record is still listed and revokable' do
     @client.destroy!
 
-    get settings_connect_path
+    get settings_api_path
 
     assert_response :success
     assert_match 'Acme Connector', response.body
@@ -64,7 +64,7 @@ class SettingsConnectedClientPermissionsTest < ActionDispatch::IntegrationTest
       redirect_uri: 'http://localhost/callback', scopes: 'mcp'
     )
 
-    get settings_connect_path
+    get settings_api_path
 
     assert_match 'Acme Connector', response.body
 
@@ -81,7 +81,7 @@ class SettingsConnectedClientPermissionsTest < ActionDispatch::IntegrationTest
       redirect_uri: 'http://localhost/callback', scopes: 'mcp'
     )
 
-    get settings_connect_path
+    get settings_api_path
 
     assert_no_match(/Acme Connector/, response.body)
   end
