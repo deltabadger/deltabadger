@@ -379,7 +379,6 @@ en:
             title: 'Rules'
             welcome:
                 keep_coins_safe: "Automate withdrawals."
-                create_first: "Create your first withdrawal rule."
         types:
             withdrawal:
                 title: 'Auto-withdrawal'

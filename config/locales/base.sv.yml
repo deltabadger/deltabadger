@@ -378,8 +378,7 @@ sv:
         index:
             title: 'Regler'
             welcome:
-                keep_coins_safe: "Håll dina tillgångar säkra med automatiska uttag till din hårdvaruplånbok."
-                create_first: "Skapa din första uttagsregel."
+                keep_coins_safe: "Automatisera uttagen."
         types:
             withdrawal:
                 title: 'Automatiskt uttag'
@@ -443,7 +442,7 @@ sv:
             stated: "Ditt eget pris. Töm fältet för att använda vårt igen."
             none: "Vi kunde inte prissätta den här. Skriv vad en enhet var värd."
         welcome:
-            connect_and_track: "Anslut din börs och börja spåra din portfölj."
+            connect_and_track: "Följ din portfölj."
         sync_key_error_html: 'Synkroniseringen med <strong>%{exchange}</strong> misslyckades: %{message}. Uppdatera API-nyckeln nedan.'
         sync_permission_error_html: "<strong>%{exchange}</strong> kunde inte synkroniseras: den här API-nyckeln saknar behörigheten som krävs för att läsa %{capability}. Uppdatera nyckelns behörigheter på %{exchange}, eller skapa en ny nyckel med alla behörigheter som anges i instruktionerna."
         sync_transient_error_html: "<strong>%{exchange}</strong> är tillfälligt otillgänglig. Försök synkronisera igen om några minuter."

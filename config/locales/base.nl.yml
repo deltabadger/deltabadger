@@ -377,8 +377,7 @@ nl:
         index:
             title: 'Regels'
             welcome:
-                keep_coins_safe: "Houd je assets veilig met automatische opnames naar je hardware wallet."
-                create_first: "Maak je eerste opnameregel aan."
+                keep_coins_safe: "Automatiseer je opnames."
         types:
             withdrawal:
                 title: 'Automatische opname'
@@ -440,7 +439,7 @@ nl:
             stated: "Je eigen koers. Maak het veld leeg om weer de onze te gebruiken."
             none: "We konden deze regel niet waarderen. Vul in wat één eenheid waard was."
         welcome:
-            connect_and_track: "Koppel je exchange en begin met het volgen van je portfolio."
+            connect_and_track: "Volg je portfolio."
         sync_key_error_html: 'Synchroniseren met <strong>%{exchange}</strong> mislukt: %{message}. Werk de API-sleutel hieronder bij.'
         sync_permission_error_html: "<strong>%{exchange}</strong> kon niet synchroniseren: deze API-sleutel mist het recht dat nodig is om %{capability} te lezen. Werk de rechten van de sleutel bij op %{exchange}, of maak een nieuwe sleutel met alle rechten uit de instructies."
         sync_transient_error_html: "<strong>%{exchange}</strong> is tijdelijk niet beschikbaar. Probeer over een paar minuten opnieuw te synchroniseren."

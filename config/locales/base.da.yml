@@ -378,8 +378,7 @@ da:
         index:
             title: 'Regler'
             welcome:
-                keep_coins_safe: "Hold dine aktiver sikre med automatiske udbetalinger til din hardware wallet."
-                create_first: "Opret din første udbetalingsregel."
+                keep_coins_safe: "Automatisér udbetalinger."
         types:
             withdrawal:
                 title: 'Automatisk udbetaling'
@@ -443,7 +442,7 @@ da:
             stated: "Din egen pris. Ryd feltet for at bruge vores igen."
             none: "Vi kunne ikke prissætte denne. Skriv, hvad én enhed var værd."
         welcome:
-            connect_and_track: "Tilslut din børs og begynd at følge din portefølje."
+            connect_and_track: "Følg din portefølje."
         sync_key_error_html: 'Synkronisering med <strong>%{exchange}</strong> mislykkedes: %{message}. Opdatér API-nøglen nedenfor.'
         sync_permission_error_html: "<strong>%{exchange}</strong> kunne ikke synkronisere: denne API-nøgle mangler den tilladelse, der skal til for at læse %{capability}. Opdatér nøglens tilladelser på %{exchange}, eller opret en ny nøgle med alle tilladelserne fra vejledningen."
         sync_transient_error_html: "<strong>%{exchange}</strong> er midlertidigt utilgængelig. Prøv at synkronisere igen om et par minutter."

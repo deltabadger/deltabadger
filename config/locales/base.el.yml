@@ -378,8 +378,7 @@ el:
         index:
             title: 'Κανόνες'
             welcome:
-                keep_coins_safe: "Κράτησε τα assets σου ασφαλή με αυτόματες αναλήψεις στο hardware wallet σου."
-                create_first: "Δημιούργησε τον πρώτο σου κανόνα ανάληψης."
+                keep_coins_safe: "Αυτοματοποίησε τις αναλήψεις."
         types:
             withdrawal:
                 title: 'Αυτόματη ανάληψη'
@@ -443,7 +442,7 @@ el:
             stated: "Η δική σου τιμή. Άδειασε το πεδίο για να επιστρέψει η δική μας."
             none: "Δεν μπορέσαμε να αποτιμήσουμε αυτή τη γραμμή. Γράψε πόσο άξιζε μία μονάδα."
         welcome:
-            connect_and_track: "Σύνδεσε το exchange σου και άρχισε να παρακολουθείς το portfolio σου."
+            connect_and_track: "Παρακολούθησε το portfolio σου."
         sync_key_error_html: 'Ο συγχρονισμός με το <strong>%{exchange}</strong> απέτυχε: %{message}. Ενημέρωσε το κλειδί API παρακάτω.'
         sync_permission_error_html: "Ο συγχρονισμός με το <strong>%{exchange}</strong> δεν ολοκληρώθηκε: αυτό το κλειδί API δεν έχει το δικαίωμα που χρειάζεται για να διαβάσει %{capability}. Ενημέρωσε τα δικαιώματα του κλειδιού στο %{exchange} ή δημιούργησε νέο κλειδί με όλα τα δικαιώματα των οδηγιών."
         sync_transient_error_html: "Το <strong>%{exchange}</strong> δεν είναι προσωρινά διαθέσιμο. Δοκίμασε ξανά σε λίγα λεπτά."

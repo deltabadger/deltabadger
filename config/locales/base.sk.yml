@@ -385,8 +385,7 @@ sk:
         index:
             title: 'Pravidlá'
             welcome:
-                keep_coins_safe: "Maj svoje aktíva v bezpečí s automatickými výbermi na hardvérovú peňaženku."
-                create_first: "Vytvor si prvé pravidlo pre výber."
+                keep_coins_safe: "Zautomatizuj výbery."
         types:
             withdrawal:
                 title: 'Automatický výber'
@@ -450,7 +449,7 @@ sk:
             stated: "Tvoja vlastná cena. Vymaž pole a vráti sa naša."
             none: "Tento riadok sme nedokázali oceniť. Zadaj, koľko stála jedna jednotka."
         welcome:
-            connect_and_track: "Pripoj svoju burzu a začni sledovať svoje portfólio."
+            connect_and_track: "Sleduj svoje portfólio."
         sync_key_error_html: 'Synchronizácia s <strong>%{exchange}</strong> zlyhala: %{message}. Aktualizuj API kľúč nižšie.'
         sync_permission_error_html: "<strong>%{exchange}</strong> sa nepodarilo synchronizovať: tento API kľúč nemá oprávnenie potrebné na čítanie %{capability}. Aktualizuj oprávnenia kľúča na %{exchange} alebo vytvor nový kľúč so všetkými oprávneniami z návodu."
         sync_transient_error_html: "<strong>%{exchange}</strong> je dočasne nedostupná. Skús synchronizáciu znova o pár minút."

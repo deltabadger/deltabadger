@@ -377,8 +377,7 @@ es:
         index:
             title: 'Reglas'
             welcome:
-                keep_coins_safe: "Mantén tus activos seguros con retiros automáticos a tu monedero hardware."
-                create_first: "Crea tu primera regla de retiro."
+                keep_coins_safe: "Automatiza los retiros."
         types:
             withdrawal:
                 title: 'Retiro automático'
@@ -440,7 +439,7 @@ es:
             stated: "Tu propio precio. Vacía el campo para volver al nuestro."
             none: "No pudimos valorar esta fila. Escribe cuánto valía una unidad."
         welcome:
-            connect_and_track: "Conecta tu exchange y empieza a trackear tu portafolio."
+            connect_and_track: "Sigue tu portafolio."
         sync_key_error_html: 'Fallo al sincronizar <strong>%{exchange}</strong>: %{message}. Actualiza la clave API a continuación.'
         sync_permission_error_html: "No se pudo sincronizar <strong>%{exchange}</strong>: esta clave API no tiene el permiso necesario para leer %{capability}. Actualiza los permisos de la clave en %{exchange} o crea una nueva clave con todos los permisos indicados en las instrucciones."
         sync_transient_error_html: "<strong>%{exchange}</strong> no está disponible temporalmente. Vuelve a sincronizar en unos minutos."
