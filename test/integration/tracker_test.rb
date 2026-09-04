@@ -18,6 +18,24 @@ class TrackerTest < ActionDispatch::IntegrationTest
     assert_select "a[href='#{new_tracker_pick_exchange_path}']"
   end
 
+  # The tracker picks a venue the same way the bot wizard does: one grid of logos, no fee table
+  # and no search box. Nothing is traded here, so a venue without order placement stays pickable.
+  test 'the exchange step is the shared logo grid, posting exchange_id' do
+    Exchanges::Hyperliquid.any_instance.stubs(:order_placement_available?).returns(false)
+    create(:hyperliquid_exchange)
+
+    get new_tracker_pick_exchange_path
+    assert_response :success
+
+    assert_select '.exchange-grid button[name=exchange_id]', minimum: 2
+    assert_select '.exchange-grid button[disabled]', count: 0
+    assert_select '.exchange-picker__item', count: 0
+    assert_select 'input[name=query]', count: 0
+
+    post tracker_pick_exchange_path, params: { exchange_id: @exchange.id }
+    assert_redirected_to new_tracker_add_api_key_path
+  end
+
   test 'index page loads with table when transactions exist' do
     create(:account_transaction,
            api_key: @api_key,

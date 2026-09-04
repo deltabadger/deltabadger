@@ -20,7 +20,6 @@ class Bots::DcaIndexes::PickExchangesController < Bots::Wizard::PickExchangesCon
     @bot = build_bot
     @bot.exchange_id = nil
     @exchanges = exchange_search_results_for_index_bot(@bot, search_params[:query])
-    load_exchange_coins_data
   end
 
   def require_market_data_configured
@@ -37,28 +36,6 @@ class Bots::DcaIndexes::PickExchangesController < Bots::Wizard::PickExchangesCon
 
   def bot_params
     params.require(:bots_dca_index).permit(:exchange_id)
-  end
-
-  def load_exchange_coins_data
-    return unless @index.present?
-
-    # Collect all external_ids we need (from per-exchange or global top_coins)
-    all_external_ids = if @index.top_coins_by_exchange.present?
-                         @index.top_coins_by_exchange.values.flatten.uniq
-                       else
-                         @index.top_coins || []
-                       end
-
-    # Load assets for display
-    @assets_by_external_id = Asset.where(external_id: all_external_ids).index_by(&:external_id)
-
-    # For each exchange, get the top coins specific to that exchange
-    @exchange_top_coins = {}
-    @exchanges.each do |exchange|
-      exchange_coin_ids = @index.top_coins_for_exchange(exchange.type)
-      coins = exchange_coin_ids.map { |ext_id| @assets_by_external_id[ext_id] }.compact
-      @exchange_top_coins[exchange.id] = coins
-    end
   end
 
   def exchange_search_results_for_index_bot(_bot, query)

@@ -365,7 +365,7 @@ en:
         index:
             title: 'Rules'
             welcome:
-                keep_coins_safe: "Keep your assets safe with automated withdrawals to your hardware wallet."
+                keep_coins_safe: "Automate withdrawals."
                 create_first: "Create your first withdrawal rule."
         types:
             withdrawal:
@@ -430,7 +430,7 @@ en:
             stated: "Your own price. Clear the box to use ours again."
             none: "We could not price this one. Type what one unit was worth."
         welcome:
-            connect_and_track: "Connect your exchange and start tracking your portfolio."
+            connect_and_track: "Track portfolio."
         sync_key_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please update the API key below."
         sync_permission_error_html: "<strong>%{exchange}</strong> could not sync: this API key is missing the permission needed to read %{capability}. Update the key's permissions on %{exchange}, or create a new key with every permission listed in its setup steps."
         sync_transient_error_html: "<strong>%{exchange}</strong> is temporarily unavailable. Try syncing again in a few minutes."

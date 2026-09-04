@@ -1,9 +1,7 @@
 ru:
     bot:
         add_api_keys: "Добавить API ключи для %{exchange}"
-        fees: "Комиссии"
         hyperliquid_trading_unavailable: "Размещение ордеров на Hyperliquid пока недоступно в Windows. Балансы и история транзакций по-прежнему доступны."
-        withdrawal_fee: "Вывод"
         bot_name: "Имя бота"
         new: "Новый бот"
         welcome:
