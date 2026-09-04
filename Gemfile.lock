@@ -8,7 +8,7 @@ GIT
 
 GIT
   remote: https://github.com/doorkeeper-gem/doorkeeper.git
-  revision: 655ba5cdaf8ab472acdf650f37cad19ad7f0f85c
+  revision: 079fb94d41674d19231ecbaba37908c65751c0d2
   specs:
     doorkeeper (6.0.0.beta2)
       railties (>= 5)
@@ -128,7 +128,7 @@ GEM
     bls12-381 (0.4.0)
       bigdecimal
       h2c (>= 0.2.1, < 0.3)
-    bootsnap (1.25.0)
+    bootsnap (1.26.0)
       msgpack (~> 1.5)
     builder (3.3.0)
     bundle-audit (0.2.0)
@@ -494,23 +494,23 @@ GEM
     ruby-progressbar (1.13.0)
     ruby2_keywords (0.0.5)
     rubyzip (2.4.1)
-    sass-embedded (1.103.1-aarch64-linux-gnu)
+    sass-embedded (1.104.0-aarch64-linux-gnu)
       google-protobuf (~> 4.31)
-    sass-embedded (1.103.1-aarch64-linux-musl)
+    sass-embedded (1.104.0-aarch64-linux-musl)
       google-protobuf (~> 4.31)
-    sass-embedded (1.103.1-arm-linux-gnueabihf)
+    sass-embedded (1.104.0-arm-linux-gnueabihf)
       google-protobuf (~> 4.31)
-    sass-embedded (1.103.1-arm-linux-musleabihf)
+    sass-embedded (1.104.0-arm-linux-musleabihf)
       google-protobuf (~> 4.31)
-    sass-embedded (1.103.1-arm64-darwin)
+    sass-embedded (1.104.0-arm64-darwin)
       google-protobuf (~> 4.31)
-    sass-embedded (1.103.1-x64-mingw-ucrt)
+    sass-embedded (1.104.0-x64-mingw-ucrt)
       google-protobuf (~> 4.31)
-    sass-embedded (1.103.1-x86_64-darwin)
+    sass-embedded (1.104.0-x86_64-darwin)
       google-protobuf (~> 4.31)
-    sass-embedded (1.103.1-x86_64-linux-gnu)
+    sass-embedded (1.104.0-x86_64-linux-gnu)
       google-protobuf (~> 4.31)
-    sass-embedded (1.103.1-x86_64-linux-musl)
+    sass-embedded (1.104.0-x86_64-linux-musl)
       google-protobuf (~> 4.31)
     scrypt (3.1.0)
       ffi-compiler (>= 1.0, < 2.0)
@@ -692,7 +692,7 @@ CHECKSUMS
   bigdecimal (3.3.1) sha256=eaa01e228be54c4f9f53bf3cc34fe3d5e845c31963e7fcc5bedb05a4e7d52218
   bindex (0.8.1) sha256=7b1ecc9dc539ed8bccfc8cb4d2732046227b09d6f37582ff12e50a5047ceb17e
   bls12-381 (0.4.0) sha256=b05e35b997acc5400b226d91f8b35e8e1fd88a34966ad1ca32de66bb3d539f46
-  bootsnap (1.25.0) sha256=41059e7d0f9cb4023a33465d095f64b913fc9d1b808d6524c307da945fbcffcf
+  bootsnap (1.26.0) sha256=ca96237015e6cd74a02963d5821cf00ac5ea134653b323e8cd6d702a7718bf1b
   builder (3.3.0) sha256=497918d2f9dca528fdca4b88d84e4ef4387256d984b8154e9d5d3fe5a9c8835f
   bundle-audit (0.2.0) sha256=cb499708f7fbc56d2d2e8bab09a1184f8f5b548bdbd628b757e5a1856874ca12
   bundler-audit (0.9.3) sha256=81c8766c71e47d0d28a0f98c7eed028539f21a6ea3cd8f685eb6f42333c9b4e9
@@ -850,15 +850,15 @@ CHECKSUMS
   ruby-technical-analysis (1.0.4)
   ruby2_keywords (0.0.5) sha256=ffd13740c573b7301cf7a2e61fc857b2a8e3d3aff32545d6f8300d8bae10e3ef
   rubyzip (2.4.1) sha256=8577c88edc1fde8935eb91064c5cb1aef9ad5494b940cf19c775ee833e075615
-  sass-embedded (1.103.1-aarch64-linux-gnu) sha256=48790fb0be3c57177121f28626a7c5cfc258a06aa499f09fd80a55054cc46c09
-  sass-embedded (1.103.1-aarch64-linux-musl) sha256=fb0bfcbab2e7baf8e6a59890e2729037cd1651859718e7c7a5878d5f9e2a6e8c
-  sass-embedded (1.103.1-arm-linux-gnueabihf) sha256=1388f692fd7c76d3fe03fb8d79a45ca89586a1fa19a8718faf875f457bed4169
-  sass-embedded (1.103.1-arm-linux-musleabihf) sha256=9e2a3cf86576d96fd16ebd1fbd4333e72c3df6b1990e5273d5a3b4d2e1eec4ac
-  sass-embedded (1.103.1-arm64-darwin) sha256=b4afa0515a8bdb9949675bc85a3625b676bd11080b4d5b5134282729762a2261
-  sass-embedded (1.103.1-x64-mingw-ucrt) sha256=1f6bc232d8d9f29b6e9923e8dbe8ef6a5da9b603c9d346307ef369bd2e84c251
-  sass-embedded (1.103.1-x86_64-darwin) sha256=75514c8f62a849e5e2e98fe89268176278fb0900751208a7ae3322451a0b5285
-  sass-embedded (1.103.1-x86_64-linux-gnu) sha256=1056cb8031fbceee992a3d07c39e9118864aa280e1ba03d85bc5397bd4479333
-  sass-embedded (1.103.1-x86_64-linux-musl) sha256=2f52d9f70030a2d8ddbff8289049df1d38f20f55ba05a87a0049d99fbaa1108c
+  sass-embedded (1.104.0-aarch64-linux-gnu) sha256=99e2b95e8101928f8976c7a3f7cced5c5e4289ceb8aca0e1dedd9bb13645e417
+  sass-embedded (1.104.0-aarch64-linux-musl) sha256=d54f9dc45e753d29a999021f24cfc126b49c61f14bcb8e96209a02288cde22c3
+  sass-embedded (1.104.0-arm-linux-gnueabihf) sha256=5dfe35be85c0816131648da14312bc4981b1283d3c3aaaab7254b572420b6d93
+  sass-embedded (1.104.0-arm-linux-musleabihf) sha256=43d61264663409b268d46f33d2312b0084cb18b9af0c3d181563f5e05ab0053f
+  sass-embedded (1.104.0-arm64-darwin) sha256=b1409415e06931b43c2a498fc430fe8ddbad9706be5bb3c4e20b60c14f56b122
+  sass-embedded (1.104.0-x64-mingw-ucrt) sha256=459f4a5473ff4404187be615652dac9a666bac0e41898f25016afe31415779d4
+  sass-embedded (1.104.0-x86_64-darwin) sha256=d463b65e6fefcae614352f7a4dcea61d399f35a1238822b38d88471cee954717
+  sass-embedded (1.104.0-x86_64-linux-gnu) sha256=7aeaa07beff7db254836599f1524ac7b67216729613ebc57e3828b94345f0488
+  sass-embedded (1.104.0-x86_64-linux-musl) sha256=bc14555f68aa7057e923d400726c1623bb603101eef6340962e4e80ee89e67ba
   scrypt (3.1.0) sha256=67fde35bc7e3b7fe906c5be9c242acf95fe4a886c89572f405f6b11df30aa6af
   securerandom (0.4.1) sha256=cc5193d414a4341b6e225f0cb4446aceca8e50d5e1888743fac16987638ea0b1
   simpleidn (0.3.0) sha256=12ca730bed2f3db04d11e9bfd1bca3e11fb37f55b21eb2e9793fb5814bf54d03

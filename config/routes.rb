@@ -138,6 +138,7 @@ Rails.application.routes.draw do
       }
       get :connect
       get :account
+      get :api
       patch :update_password
       patch :update_email
       patch :update_name
