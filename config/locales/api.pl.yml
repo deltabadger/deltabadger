@@ -4,6 +4,8 @@ pl:
             public_key_label: Klucz API
             private_key_label: Sekretny klucz API
             whitelist_ip_fallback_html: 'adres IP maszyny, na której zainstalowany jest Deltabadger. Jeśli to serwer, użyj publicznego IP serwera. Jeśli to twój komputer lokalny, <a href="https://whatismyipaddress.com" target="_blank">sprawdź swoje IP tutaj</a>'
+            alpaca:
+                instructions: 'Zaloguj się do Trading API <a href="https://app.alpaca.markets/" target="_blank" rel="noopener">Alpaca</a> i pobierz swoje klucze z panelu (Dashboard).'
             binance: &binance_config
                 instructions:
                     -   text_html: 'Zaloguj się na swoje konto %{exchange_link}.'

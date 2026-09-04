@@ -2,6 +2,7 @@ el:
     bot:
         setup:
             api_not_available: "Το API του ανταλλακτηρίου δεν είναι διαθέσιμο"
+            connect_to: 'Σύνδεση με %{name}'
             assets_syncing: "Συγχρονίζουμε τα assets αυτού του exchange — δοκίμασε ξανά σε λίγο."
             stocks_ask_admin: "Ζήτησε από τον διαχειριστή σου να ενεργοποιήσει τις συναλλαγές μετοχών."
             stocks_activate_cta: "Ενεργοποίησε τις συναλλαγές μετοχών στις ρυθμίσεις"
@@ -65,7 +66,7 @@ el:
                 limit_exceeded: 'Για να τηρηθεί το όριο του bot σε %{frequency_limit} συναλλαγές ανά ώρα, το πρόγραμμα θα εκτελείται σε εντολές των %{price}%{currency} η καθεμία.'
                 start_the_bot: 'Τροποποίηση και εκκίνηση'
             how_to_add_withdrawal_bot: 'Πώς να ρυθμίσεις bot ανάληψης:'
-            how_to_get_keys: 'Πώς να πάρεις κλειδιά API από %{exchange}:'
+            how_to_get_keys: 'Πώς να πάρεις κλειδιά API από %{exchange}'
             kraken:
                 instructions_1_html: 'Συνδέσου στον λογαριασμό σου στο %{exchange_link}.'
                 instructions_2_html: 'Στο μενού χρήστη πήγαινε στο <b>Security</b> → <b>API</b>.'

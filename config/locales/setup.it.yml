@@ -2,6 +2,7 @@ it:
     bot:
         setup:
             api_not_available: "L'API dell'exchange non è disponibile"
+            connect_to: 'Connetti %{name}'
             assets_syncing: "Stiamo sincronizzando gli asset di questo exchange — riprova tra un momento."
             stocks_ask_admin: "Chiedi al tuo amministratore di attivare il trading di azioni."
             stocks_activate_cta: "Attiva il trading di azioni nelle impostazioni"
@@ -57,7 +58,7 @@ it:
                 limit_exceeded: 'Per soddisfare il limite del bot di %{frequency_limit} transazioni all''ora, il tuo programma sarà eseguito in ordini di %{price}%{currency} ciascuno.'
                 start_the_bot: 'Modifica e avvia'
             how_to_add_withdrawal_bot: 'Come configurare il bot di prelievo:'
-            how_to_get_keys: 'Come ottenere le chiavi API da %{exchange}:'
+            how_to_get_keys: 'Come ottenere le chiavi API da %{exchange}'
             kraken:
                 instructions_1_html: 'Accedi al tuo account %{exchange_link}.'
                 instructions_2_html: 'Nel menu utente vai a <b>Sicurezza</b> → <b>API</b>.'

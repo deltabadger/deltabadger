@@ -2,6 +2,7 @@ da:
     bot:
         setup:
             api_not_available: "Børsens API er ikke tilgængeligt"
+            connect_to: 'Forbind %{name}'
             assets_syncing: "Vi synkroniserer aktiverne for denne børs – kig forbi igen om et øjeblik."
             stocks_ask_admin: "Bed din administrator om at aktivere aktiehandel."
             stocks_activate_cta: "Aktivér aktiehandel i indstillingerne"
@@ -65,7 +66,7 @@ da:
                 limit_exceeded: 'For at overholde botgrænsen på %{frequency_limit} transaktioner i timen, vil din tidsplan udføres med ordrer på %{price}%{currency} ad gangen.'
                 start_the_bot: 'Tilpas og start'
             how_to_add_withdrawal_bot: 'Sådan opsættes en udbetalingsbot:'
-            how_to_get_keys: 'Sådan får du API-nøgler fra %{exchange}:'
+            how_to_get_keys: 'Sådan får du API-nøgler fra %{exchange}'
             kraken:
                 instructions_1_html: 'Log ind på din %{exchange_link}-konto.'
                 instructions_2_html: 'Gå til brugermenuen og vælg <b>Security</b> → <b>API</b>.'

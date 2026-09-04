@@ -52,13 +52,13 @@ class Settings::ApiKeyPermissionsTest < ActionDispatch::IntegrationTest
   # render_instructions_from returns nil for these, and a link to an empty modal is worse than
   # no link at all.
   test 'an exchange with no instructions is not linked' do
-    alpaca = create(:alpaca_exchange)
-    api_key = create(:api_key, user: @user, exchange: alpaca)
+    ibkr = create(:ibkr_exchange)
+    api_key = create(:api_key, user: @user, exchange: ibkr)
 
     get settings_connect_path
 
     assert_response :success
     assert_not_includes @response.body, settings_api_key_permissions_path(id: api_key.id)
-    assert_includes @response.body, alpaca.name
+    assert_includes @response.body, ibkr.name
   end
 end

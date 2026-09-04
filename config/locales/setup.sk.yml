@@ -2,6 +2,7 @@ sk:
     bot:
         setup:
             api_not_available: "API burzy nie je dostupne"
+            connect_to: 'Pripojiť %{name}'
             assets_syncing: "Synchronizujeme aktíva tejto burzy – skús to o chvíľu znova."
             stocks_ask_admin: "Požiadaj svojho administrátora o aktiváciu obchodovania s akciami."
             stocks_activate_cta: "Aktivovať obchodovanie s akciami v nastaveniach"
@@ -65,7 +66,7 @@ sk:
                 limit_exceeded: 'Pre dodrzanie limitu bota %{frequency_limit} transakcii za hodinu bude vas rozvrh vykonavany v prikazoch po %{price}%{currency}.'
                 start_the_bot: 'Upravit a spustit'
             how_to_add_withdrawal_bot: 'Ako nastavit bota na vyber:'
-            how_to_get_keys: 'Ako ziskat API kluce z %{exchange}:'
+            how_to_get_keys: 'Ako ziskat API kluce z %{exchange}'
             kraken:
                 instructions_1_html: 'Prihlasite sa do svojho uctu na %{exchange_link}.'
                 instructions_2_html: 'V pouzivatelskom menu prejdite na <b>Security</b> → <b>API</b>.'

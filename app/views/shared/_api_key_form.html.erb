@@ -1,35 +1,44 @@
-    <div class="set-api">
-      <div class="set-api__form">
-        <h2 class="set-api__header"><%= t('bot.add_api_keys', exchange: exchange.name) %></h2>
-        <%= form_with model: api_key, url: path, method: :post, data: form_data, class: "form" do |f| %>
-          <div class="form__row form__row--input">
-            <%= f.text_field :key, autofocus: true, autocomplete: "off", data: { controller: "autofocus" }, class: "form__input form__input--large", rows: 3 %>
-            <%= f.label :key, api_key_field_label(exchange, :public_key), class: "form__label" %>
-          </div>
-          <div class="form__row form__row--input">
-            <%= f.text_field :secret, autocomplete: "off", class: "form__input form__input--large", rows: 3 %>
-            <%= f.label :secret, api_key_field_label(exchange, :private_key), class: "form__label" %>
-          </div>
-          <% if exchange.is_a?(Exchanges::Alpaca) %>
-            <div class="form__row form__row--input">
-              <%= f.select :passphrase, [[t('settings.stocks.mode_paper'), 'paper'], [t('settings.stocks.mode_live'), 'live']], { selected: api_key.passphrase || 'paper' }, class: "form__input form__input--large" %>
-              <%= f.label :passphrase, "Mode", class: "form__label" %>
-            </div>
-          <% elsif exchange.requires_passphrase? %>
-            <div class="form__row form__row--input">
-              <%= f.text_field :passphrase, autocomplete: "off", class: "form__input form__input--large" %>
-              <%= f.label :passphrase, "API Passphrase", class: "form__label" %>
-            </div>
-          <% end %>
-          <%= f.submit t('button.connect'), class: "button button--success button--large", data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
-        <% end %>
-      </div>
-      <div class="set-api__instructions">
-        <h2 class="set-api__header"><%= t('bot.setup.how_to_get_keys', exchange: exchange.name) %></h2>
-        <% if local_assigns[:instructions_partial] %>
-          <%= render partial: instructions_partial, locals: { exchange: exchange } %>
-        <% else %>
-          <%= render_api_key_instructions(api_key) %>
-        <% end %>
-      </div>
+<%# A venue's key form: the connect card with the venue's own fields.
+    locals: exchange, api_key, path, form_data,
+            instructions_partial (optional) - replaces the venue's default walkthrough %>
+<% instructions = if local_assigns[:instructions_partial]
+                    render(partial: instructions_partial, locals: { exchange: exchange })
+                  else
+                    render_api_key_instructions(api_key)
+                  end %>
+<%= render layout: 'shared/connect_form', locals: {
+      title: t('bot.setup.connect_to', name: exchange.name),
+      mark: "svg/exchange-#{exchange.name_id}",
+      mark_class: "sbutton--exchange--#{exchange.name_id}",
+      model: api_key, path: path, form_data: form_data,
+      instructions_title: t('bot.setup.how_to_get_keys', exchange: exchange.name),
+      instructions: instructions
+    } do |f| %>
+  <% if exchange.is_a?(Exchanges::Alpaca) %>
+    <%# Paper or Live, asked before the keys since it decides which dashboard they come from. The
+        segmented control renders buttons; the hidden field is what the form posts. %>
+    <% mode = api_key.passphrase == 'live' ? 'live' : 'paper' %>
+    <div class="set-api__mode" data-controller="form--segmented-field"
+         data-action="segmented:change->form--segmented-field#set">
+      <%= render 'shared/segmented', label: 'Mode', options: [
+            { value: 'paper', label: t('settings.stocks.mode_paper'), active: mode == 'paper' },
+            { value: 'live', label: t('settings.stocks.mode_live'), active: mode == 'live' }
+          ] %>
+      <%= f.hidden_field :passphrase, value: mode, data: { 'form--segmented-field-target': 'field' } %>
     </div>
+  <% end %>
+  <div class="form__row form__row--input">
+    <%= f.text_field :key, autofocus: true, autocomplete: "off", data: { controller: "autofocus" }, class: "form__input" %>
+    <%= f.label :key, api_key_field_label(exchange, :public_key), class: "form__label" %>
+  </div>
+  <div class="form__row form__row--input">
+    <%= f.text_field :secret, autocomplete: "off", class: "form__input" %>
+    <%= f.label :secret, api_key_field_label(exchange, :private_key), class: "form__label" %>
+  </div>
+  <% if exchange.requires_passphrase? && !exchange.is_a?(Exchanges::Alpaca) %>
+    <div class="form__row form__row--input">
+      <%= f.text_field :passphrase, autocomplete: "off", class: "form__input" %>
+      <%= f.label :passphrase, "API Passphrase", class: "form__label" %>
+    </div>
+  <% end %>
+<% end %>
