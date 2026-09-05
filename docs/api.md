@@ -209,9 +209,9 @@ Errors set both an HTTP status and an envelope `error.code`. Common pairs:
 | 400 | `idempotency_key_required` |
 | 401 | `missing_token`, `invalid_token`, `token_revoked`, `token_expired`, `user_not_found` |
 | 403 | `tool_disabled`, `insufficient_scope`, `api_key_missing`, `withdrawal_key_missing` |
-| 404 | `bot_not_found`, `rule_not_found`, `exchange_not_found`, `pair_not_found`, `asset_not_found`, `no_transactions`, `report_not_found` |
+| 404 | `bot_not_found`, `rule_not_found`, `exchange_not_found`, `pair_not_found`, `asset_not_found`, `index_not_found`, `quote_asset_not_found`, `no_transactions`, `report_not_found` |
 | 409 | `bot_already_running`, `bot_not_running`, `bot_running`, `rule_already_active`, `rule_not_active`, `rule_active`, `rule_exists`, `idempotency_in_progress`, `idempotency_key_reused`, `report_ready`, `report_generating` |
-| 422 | `missing_required_parameter`, `invalid_interval`, `invalid_allocation`, `invalid_date`, `invalid_order_type`, `no_updates_provided`, `exchange_name_required`, `bot_invalid`, `bot_save_failed`, `rule_save_failed`, `unknown_country`, `invalid_year`, `invalid_flag`, `market_data_not_configured`, `invalid_number`, `invalid_threshold_type`, `invalid_network`, `address_not_listed`, `withdrawal_unsupported` |
+| 422 | `missing_required_parameter`, `invalid_interval`, `invalid_allocation`, `invalid_date`, `invalid_order_type`, `no_updates_provided`, `exchange_name_required`, `bot_invalid`, `bot_save_failed`, `rule_save_failed`, `unknown_country`, `invalid_year`, `invalid_flag`, `market_data_not_configured`, `invalid_number`, `invalid_threshold_type`, `invalid_network`, `address_not_listed`, `withdrawal_unsupported`, `invalid_bot_type` |
 | 502 | `order_failed`, `cancel_failed`, `balances_fetch_failed`, `bot_stop_failed` |
 
 ---
@@ -226,7 +226,7 @@ token).
 |---|---|---|---|
 | GET | `/bots` | `list_bots` | Optional `?status=` filter |
 | GET | `/bots/:id` | `get_bot_details` | Includes metrics if available; a multi-asset bot reports its members as `pair` (`BTC+ETH/USD`) plus `allocations` (`{symbol: weight}`; raw weights as set, which may not sum to 1 until normalised) |
-| POST | `/bots` | `create_bot` | 201 on success; required: `exchange_name`, `base_asset`, `quote_asset`, `quote_amount`, `interval` |
+| POST | `/bots` | per-type | 201 on success. `type`: `dca` (default) or `index` — each gated by its own tool. `dca`: `exchange_name`, `base_asset`, `quote_asset`, `quote_amount`, `interval`. `index`: `exchange_name`, `quote_asset`, `quote_amount`, `interval`, plus `index` (id from `/indices`, must be available on that exchange), `num_coins`, `allocation_flattening` |
 | PATCH | `/bots/:id` | `update_bot_settings` | Accepts `quote_amount`, `label`; rule must be stopped |
 | POST | `/bots/:id/start` | `start_bot` | 409 if already running |
 | POST | `/bots/:id/stop` | `stop_bot` | 409 if not running |
@@ -236,6 +236,7 @@ token).
 | GET | `/transactions/account` | `list_account_transactions` | Optional `?exchange_id=`, `?from_date=`, `?to_date=`, `?entry_type=`, `?limit=` (max 200) |
 | GET | `/transactions/export` | `export_transactions_csv` | **CSV** (see section 6) |
 | GET | `/portfolio` | `get_portfolio_summary` | Returns `empty: true` for users with no bots |
+| GET | `/indices` | `list_indices` | Optional `?exchange_name=` |
 | GET | `/orders` | `list_open_orders` | Optional `?exchange_name=`; merges DB + live exchange orders |
 | POST | `/orders` | per-type | **Requires `Idempotency-Key`** (see section 5) |
 | DELETE | `/orders/:id` | `cancel_order` | Numeric ID → DB row; non-numeric → exchange order (then `exchange_name` required) |

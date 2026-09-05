@@ -314,6 +314,12 @@ nl:
                 delete_rule:
                     label: 'Regel verwijderen'
                     description: 'Een gestopte opnameregel verwijderen'
+                list_indices:
+                    label: 'Indexen weergeven'
+                    description: 'Indexen bekijken die een indexbot kan volgen'
+                create_index_bot:
+                    label: 'Indexbot aanmaken'
+                    description: 'Een DCA-indexbot aanmaken en starten'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simuleer transacties met echte marktprijzen. Er worden geen echte orders geplaatst.'
             dry_run_label: 'Paper trading voor handelstools inschakelen'

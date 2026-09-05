@@ -297,6 +297,12 @@ cs:
                 delete_rule:
                     label: 'Smazat pravidlo'
                     description: 'Smazat zastavené pravidlo výběru'
+                list_indices:
+                    label: 'Seznam indexů'
+                    description: 'Zobrazit indexy, které může indexový bot sledovat'
+                create_index_bot:
+                    label: 'Vytvořit indexového bota'
+                    description: 'Vytvořit a spustit indexového DCA bota'
             dry_run_title: 'Papírové obchodování'
             dry_run_description: 'Simulujte obchody s reálnými tržními cenami. Žádné skutečné příkazy nejsou zadávány.'
             dry_run_label: 'Zapnout papírové obchodování pro obchodní nástroje'

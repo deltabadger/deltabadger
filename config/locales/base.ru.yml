@@ -317,6 +317,12 @@ ru:
                 delete_rule:
                     label: 'Удалить правило'
                     description: 'Удалить остановленное правило вывода'
+                list_indices:
+                    label: 'Список индексов'
+                    description: 'Просмотр индексов, которые может отслеживать индексный бот'
+                create_index_bot:
+                    label: 'Создать индексного бота'
+                    description: 'Создать и запустить индексного DCA-бота'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Симуляция сделок с реальными рыночными ценами. Реальные ордера не размещаются.'
             dry_run_label: 'Включить paper trading для торговых инструментов'

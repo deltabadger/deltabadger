@@ -296,6 +296,12 @@ da:
                 delete_rule:
                     label: 'Slet regel'
                     description: 'Slet en stoppet udbetalingsregel'
+                list_indices:
+                    label: 'Vis indeks'
+                    description: 'Se de indeks, en indeksbot kan følge'
+                create_index_bot:
+                    label: 'Opret indeksbot'
+                    description: 'Opret og start en DCA-indeksbot'
             dry_run_title: 'Papirhandel'
             dry_run_description: 'Simulér handler med reelle markedspriser. Der udføres ingen rigtige ordrer.'
             dry_run_label: 'Aktivér papirhandel for handelsværktøjer'

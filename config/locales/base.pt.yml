@@ -313,6 +313,12 @@ pt:
                 delete_rule:
                     label: 'Eliminar regra'
                     description: 'Eliminar uma regra de levantamento parada'
+                list_indices:
+                    label: 'Listar índices'
+                    description: 'Ver os índices que um bot de índice pode seguir'
+                create_index_bot:
+                    label: 'Criar bot de índice'
+                    description: 'Criar e iniciar um bot DCA de índice'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simula transações com preços reais de mercado. Nenhuma ordem real é executada.'
             dry_run_label: 'Ativar paper trading para ferramentas de trading'
