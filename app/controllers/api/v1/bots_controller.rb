@@ -91,7 +91,12 @@ module Api
       # reused with the same body against another bot, or against the other action, must be a
       # reuse (409), never a replay of the first bot's 202.
       def idempotency_fingerprint_payload
-        request.request_parameters.merge('_action' => action_name, '_bot_id' => params[:id].to_s)
+        # Query parameters too, in Rails' own precedence: they are merged into `params`, so a
+        # symbol sent in the query string is what the action acts on, and a body-only
+        # fingerprint would replay the first answer for a different one.
+        request.query_parameters
+               .merge(request.request_parameters)
+               .merge('_action' => action_name, '_bot_id' => params[:id].to_s)
       end
 
       def bot_type = (params[:type].presence || 'dca').to_s

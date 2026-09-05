@@ -193,6 +193,11 @@ class BotApi::Bots::CreateTest < ActiveSupport::TestCase
     assert_equal 'invalid_basket', call.call(assets: [%w[BTC 50], %w[ETH 50]]).error_code
     assert_equal 'invalid_basket', call.call(assets: 'BTC:abc,ETH:40').error_code
     assert_equal 'invalid_basket', call.call(assets: 'BTC:1e2,ETH:40').error_code
+    # A colon with nothing after it is a weight the caller supplied and got wrong, not one they
+    # omitted — it must not quietly become an equal split.
+    assert_equal 'invalid_basket', call.call(assets: 'BTC:,ETH:').error_code
+    assert_equal 'invalid_basket', call.call(assets: [{ 'symbol' => 'BTC', 'allocation' => '' },
+                                                      { 'symbol' => 'ETH', 'allocation' => '' }]).error_code
     assert_equal 'invalid_allocation',
                  BotApi::Bots::Create.call(user: @user, **base_params, second_base_asset: 'ETH', allocation: 'abc').error_code
     assert_equal 'invalid_number', call.call(assets: 'BTC,ETH', quote_amount: 'abc').error_code

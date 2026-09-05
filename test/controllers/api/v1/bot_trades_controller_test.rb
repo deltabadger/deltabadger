@@ -86,6 +86,20 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
     assert_equal 'idempotency_key_reused', JSON.parse(response.body)['error']['code']
   end
 
+  # Rails merges the query string into params, so a symbol sent there is what the action acts on;
+  # a body-only fingerprint would replay the first answer for a different symbol.
+  test 'the same key with a different query parameter is a reuse, not a replay' do
+    Bot::LiquidateExitedJob.stubs(:perform_later)
+    Bots::DcaIndex.any_instance.stubs(:exited_symbols).returns(%w[DOGE SHIB])
+
+    post "/api/v1/bots/#{@bot.id}/liquidations?symbol=DOGE", headers: keyed('k1'), as: :json
+    assert_response :accepted
+    post "/api/v1/bots/#{@bot.id}/liquidations?symbol=SHIB", headers: keyed('k1'), as: :json
+
+    assert_response :conflict
+    assert_equal 'idempotency_key_reused', JSON.parse(response.body)['error']['code']
+  end
+
   test 'the same key across the two actions is a reuse too' do
     Bot::RedeployJob.stubs(:perform_later)
     Bot::LiquidateExitedJob.stubs(:perform_later)

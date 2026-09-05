@@ -108,6 +108,22 @@ class BotApi::Tax::GenerateReportTest < ActiveSupport::TestCase
     FileUtils.rm_f("#{path('ES', 2040)}.stale")
   end
 
+  # The rename is undone on any failure, not just a refusal: an exception mid-enqueue would
+  # otherwise leave the account with no report and a stranded .stale file.
+  test 'an enqueue that raises leaves the previous report where it was' do
+    FileUtils.mkdir_p(File.dirname(path('ES', 2042)))
+    File.write(path('ES', 2042), 'csv')
+    Tax::GenerateReportJob.stubs(:perform_later).raises(StandardError, 'queue down')
+
+    assert_raises(StandardError) { BotApi::Tax::GenerateReport.call(user: @user, country: 'ES', year: 2042, force: true) }
+
+    assert File.exist?(path('ES', 2042))
+    assert_not File.exist?("#{path('ES', 2042)}.stale")
+  ensure
+    FileUtils.rm_f(path('ES', 2042))
+    FileUtils.rm_f("#{path('ES', 2042)}.stale")
+  end
+
   test 'an enqueue ActiveJob refused outright is a conflict too' do
     Tax::GenerateReportJob.stubs(:perform_later).returns(false)
     assert_equal 'report_generating', BotApi::Tax::GenerateReport.call(user: @user, country: 'ES', year: 2041).error_code

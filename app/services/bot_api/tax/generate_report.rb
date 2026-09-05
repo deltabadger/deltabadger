@@ -56,10 +56,18 @@ module BotApi
           # new report to this very path by then, and the removal would eat it.
           stale = "#{path}.stale"
           File.rename(path, stale) if File.exist?(path)
-          job = ::Tax::GenerateReportJob.perform_later(@user.id, country, year, stablecoin_as_fiat)
-          # The queue's own verdict: a job it discarded on a concurrency conflict this check did
-          # not see is not "accepted".
-          unless Generating.accepted?(job)
+          begin
+            job = ::Tax::GenerateReportJob.perform_later(@user.id, country, year, stablecoin_as_fiat)
+            # The queue's own verdict: a job it discarded on a concurrency conflict this check did
+            # not see is not "accepted".
+            accepted = Generating.accepted?(job)
+          rescue StandardError
+            # Any failure puts it back, not just a refusal — an exception here would otherwise
+            # leave the account with no report and a stranded .stale beside it.
+            File.rename(stale, path) if File.exist?(stale)
+            raise
+          end
+          unless accepted
             File.rename(stale, path) if File.exist?(stale)
             return report_generating
           end
