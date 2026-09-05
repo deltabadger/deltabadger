@@ -58,3 +58,14 @@ services:
     depends_on:
       web:
         condition: service_healthy
+    # The image's HEALTHCHECK curls /up, which only the `web` command serves. This service runs
+    # Solid Queue with no web server, so the inherited probe can never pass and the container
+    # reports unhealthy while working normally. Match a worker procline instead: it also catches
+    # "supervisor alive, workers dead", which probing PID 1 would miss. The bracketed [w] keeps
+    # grep from matching its own cmdline, which would make the check pass in any container.
+    healthcheck:
+      test: ["CMD-SHELL", "grep -qa 'solid-queue.*[w]orker' /proc/[0-9]*/cmdline"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
