@@ -335,6 +335,15 @@ de:
                 answer_redeploy_offer:
                     label: 'Über Wiederanlage entscheiden'
                     description: 'Die Wiederanlage des Verkaufserlöses annehmen oder ablehnen'
+                sync_tracker:
+                    label: 'Tracker synchronisieren'
+                    description: 'Neue Transaktionen und Guthaben von den Börsen abrufen'
+                set_transfer_link:
+                    label: 'Transfer markieren'
+                    description: 'Eine Auszahlung mit ihrer Einzahlung verknüpfen oder die Verknüpfung lösen'
+                set_transaction_price:
+                    label: 'Kurs angeben'
+                    description: 'Den USD-Kurs einer Transaktion setzen, die die Börse nicht bewertet hat'
             dry_run_title: 'Papierhandel'
             dry_run_description: 'Trades mit echten Marktpreisen simulieren. Es werden keine echten Orders ausgeführt.'
             dry_run_label: 'Papierhandel für Trade-Tools aktivieren'

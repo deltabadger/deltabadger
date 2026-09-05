@@ -318,6 +318,15 @@ cs:
                 answer_redeploy_offer:
                     label: 'Rozhodnout o opětovném vložení'
                     description: 'Přijmout nebo odmítnout opětovné vložení výnosu z prodeje'
+                sync_tracker:
+                    label: 'Synchronizovat Tracker'
+                    description: 'Načíst nové transakce a zůstatky z burz'
+                set_transfer_link:
+                    label: 'Označit převod'
+                    description: 'Propojit výběr s jeho vkladem nebo propojení zrušit'
+                set_transaction_price:
+                    label: 'Zadat cenu'
+                    description: 'Nastavit cenu v USD u transakce, kterou burza neocenila'
             dry_run_title: 'Papírové obchodování'
             dry_run_description: 'Simulujte obchody s reálnými tržními cenami. Žádné skutečné příkazy nejsou zadávány.'
             dry_run_label: 'Zapnout papírové obchodování pro obchodní nástroje'

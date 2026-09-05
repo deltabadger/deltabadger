@@ -56,7 +56,12 @@ Rails.application.routes.draw do
         collection do
           get :account
           get :export
+          post 'account/:id/transfer_link', action: :transfer_link
+          patch 'account/:id/price', action: :price
         end
+      end
+      namespace :tracker do
+        post :sync
       end
       resources :exchanges, only: [:index] do
         member do
