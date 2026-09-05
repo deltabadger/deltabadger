@@ -66,9 +66,12 @@ module Api
       end
 
       def create_params
+        # `assets` is permitted twice on purpose: as a scalar for the MCP-style
+        # "BTC:60,ETH:40" string, and as an array of {symbol, allocation} for a JSON body.
         params.permit(
           :exchange_name, :base_asset, :second_base_asset, :quote_asset,
-          :quote_amount, :interval, :allocation, :label, :start_at
+          :quote_amount, :interval, :allocation, :label, :start_at, :assets, :weighting,
+          assets: %i[symbol allocation]
         ).to_h.symbolize_keys
       end
     end

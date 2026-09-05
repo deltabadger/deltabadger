@@ -653,6 +653,28 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
+  test 'POST /api/v1/bots accepts a basket as an array of symbol and allocation' do
+    @user.set_rest_tool_enabled('create_bot', true)
+    exchange = create(:binance_exchange)
+    usd = create(:asset, :usd)
+    [create(:asset, :bitcoin), create(:asset, :ethereum)].each do |asset|
+      create(:ticker, exchange: exchange, base_asset: asset, quote_asset: usd)
+    end
+    create(:api_key, user: @user, exchange: exchange, key_type: :trading, status: :correct)
+    Bot::ActionJob.stubs(:perform_later)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+
+    post '/api/v1/bots',
+         params: { exchange_name: 'Binance', quote_asset: 'USD', quote_amount: 100, interval: 'day',
+                   assets: [{ symbol: 'BTC', allocation: 50 }, { symbol: 'ETH', allocation: 50 }] },
+         headers: bearer(create_token), as: :json
+
+    assert_response :created
+    bot = @user.bots.find(JSON.parse(response.body)['data']['id'])
+    assert_equal 'Bots::DcaMultiAsset', bot.type
+    assert_equal %w[BTC ETH], bot.base_assets.map(&:symbol)
+  end
+
   private
 
   # A Kraken venue with three EUR pairs — the minimum a category index needs to offer that quote.
