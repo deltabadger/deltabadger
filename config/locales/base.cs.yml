@@ -677,6 +677,10 @@ cs:
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Pokyn %{order_id} opuštěn (burza jej již nesleduje)"
             placement_ambiguous: "Stav pokynu nepotvrzen — bez opakování, aby nevznikl duplicitní pokyn"
+            signal_market_closed: "Signál ignorován — trh je zavřený"
+            signal_api_key_pending: "Signál ignorován — API klíč stále čeká na aktivaci"
+            signal_expired: "Signál zahozen — čekal ve frontě příliš dlouho"
+            signal_ignored: "Signál ignorován — bot byl zastaven nebo pravidlo vypnuto dřív, než se stihl zpracovat"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'

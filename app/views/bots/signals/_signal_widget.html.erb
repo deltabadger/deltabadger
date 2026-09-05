@@ -93,6 +93,8 @@
             <span data-form--select-toggle-target="section" data-select-toggle-value="percentage" style="<%= 'display:none' unless signal.percentage? %>"><%= t('bot.signal.of_the_balance') %></span>
             <span><%= t('bot.signal.when_triggered') %></span>
             <span class="tag tag--wrap"><%= request.base_url %><%= signal.webhook_url %></span>
+            <%# The only trace a call leaves while the bot is stopped or the rule is off. %>
+            <span class="text-inactive"><%= signal.last_triggered_at ? t('bot.signal.last_triggered', time: time_ago_in_words(signal.last_triggered_at)) : t('bot.signal.never_triggered') %></span>
           </div>
         </div>
       </div>

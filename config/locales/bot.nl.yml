@@ -120,6 +120,8 @@ nl:
             for: "voor"
             when_triggered: "wanneer deze webhook wordt geactiveerd:"
             of_the_balance: "van het saldo"
+            never_triggered: "nog nooit geactiveerd"
+            last_triggered: "laatst geactiveerd %{time} geleden"
         buy: Kopen
         counter: '%{countdown}'
         day: Dag

@@ -658,6 +658,10 @@ de:
             execution_failed_with_error: 'Orderversuch fehlgeschlagen: %{error}'
             order_abandoned: "Order %{order_id} aufgegeben (Börse erfasst sie nicht mehr)"
             placement_ambiguous: "Orderstatus unbestätigt — kein erneuter Versuch, um eine doppelte Order zu vermeiden"
+            signal_market_closed: "Signal ignoriert — Markt geschlossen"
+            signal_api_key_pending: "Signal ignoriert — der API-Schlüssel ist noch nicht freigeschaltet"
+            signal_expired: "Signal verworfen — es hat zu lange in der Warteschlange gewartet"
+            signal_ignored: "Signal ignoriert — der Bot wurde gestoppt oder die Regel deaktiviert, bevor es ausgeführt werden konnte"
         transactions:
             bought: 'Gekauft: %{amount} %{base} für %{quote_amount} %{quote}'
             sold: 'Verkauft: %{amount} %{base} für %{quote_amount} %{quote}'

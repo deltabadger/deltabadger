@@ -275,7 +275,12 @@ class Exchanges::Ibkr < Exchange
     return result if result.failure?
 
     order_id = extract_order_id(result.data)
-    return Result::Failure.new("IBKR accepted the order but returned no order id for #{ticker.base}") if order_id.blank?
+    # The venue took the order and the acknowledgement went missing: NOT a rejection, and the flag
+    # is how a caller tells the two apart (Exchange#ambiguous_placement_error?).
+    if order_id.blank?
+      return Result::Failure.new("IBKR accepted the order but returned no order id for #{ticker.base}",
+                                 data: { unacknowledged: true })
+    end
 
     Result::Success.new({ order_id: order_id })
   end

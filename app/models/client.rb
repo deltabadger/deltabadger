@@ -109,6 +109,12 @@ class Client
     yield
   rescue *TRANSIENT_NETWORK_ERRORS => e
     raise Client.transient_network_error(e)
+  rescue Faraday::ParsingError => e
+    # The venue answered and we could not read the answer. For a placement that is an accepted
+    # order with no acknowledgement, so the provenance travels with the failure — see
+    # Exchange#ambiguous_placement_error?.
+    Result::Failure.new("Unreadable response (HTTP #{e.response_status || 'error'})",
+                        data: { status: e.response_status, unreadable: true })
   rescue Faraday::Error => e
     body = e.response_body.presence
     error_message = if body&.match?(/<\s*html/i)

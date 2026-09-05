@@ -54,7 +54,9 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
         # A per-order local, NOT `update_missed_quote_amount &&= ...`: this runs inside a loop over
         # every waiting order, so reassigning the method argument would let one rebalance row switch
         # the carry off for every REGULAR order after it in the same sweep.
-        adjust_carry = update_missed_quote_amount && order.transaction_type == 'REGULAR'
+        # ...and only for a bot that carries the carry at all (a signal bot has no Bot::Accountable).
+        adjust_carry = update_missed_quote_amount && order.transaction_type == 'REGULAR' &&
+                       bot.respond_to?(:missed_quote_amount)
 
         # Capture the previous quote execution BEFORE update_with_order_data mutates it.
         previous_quote_amount_exec = order.quote_amount_exec || 0

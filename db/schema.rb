@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_30_230000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_05_190000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -217,6 +217,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_30_230000) do
     t.datetime "created_at", null: false
     t.integer "direction", default: 0, null: false
     t.boolean "enabled", default: true, null: false
+    t.datetime "last_triggered_at"
     t.string "token", null: false
     t.datetime "updated_at", null: false
     t.index ["bot_id"], name: "index_bot_signals_on_bot_id"

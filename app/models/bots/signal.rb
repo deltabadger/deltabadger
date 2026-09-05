@@ -20,6 +20,7 @@ class Bots::Signal < Bot
   include Bots::DcaSingleAsset::Measurable
   # No Bot::Lifecycle: Signal is passive (no scheduling) and keeps its own thin start/stop/delete.
   include Bot::AssetConfigurable # shared asset accessors + validations (single-pair defaults)
+  include Bots::Signal::OrderSetter # what a webhook call does: one market order, recorded like any other
 
   self.asset_id_setting_keys = %i[base_asset_id quote_asset_id]
 

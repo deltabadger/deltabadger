@@ -120,6 +120,8 @@ el:
             for: "για"
             when_triggered: "όταν ενεργοποιηθεί αυτό το webhook:"
             of_the_balance: "του υπολοίπου"
+            never_triggered: "δεν έχει ενεργοποιηθεί ποτέ"
+            last_triggered: "τελευταία ενεργοποίηση πριν από %{time}"
         buy: Αγορά
         counter: '%{countdown}'
         day: Ημέρα

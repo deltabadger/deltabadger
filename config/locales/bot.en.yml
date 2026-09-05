@@ -120,6 +120,8 @@ en:
             for: "for"
             when_triggered: "when this webhook is triggered:"
             of_the_balance: "of the balance"
+            never_triggered: "never triggered"
+            last_triggered: "last triggered %{time} ago"
         buy: Buy
         counter: '%{countdown}'
         day: Day

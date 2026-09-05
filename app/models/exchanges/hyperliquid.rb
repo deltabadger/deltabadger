@@ -457,14 +457,16 @@ class Exchanges::Hyperliquid < Exchange
     return Result::Failure.new("Hyperliquid order failed: #{response}") unless response['status'] == 'ok'
 
     statuses = response.dig('response', 'data', 'statuses')
-    return Result::Failure.new('Hyperliquid order failed: no statuses returned') if statuses.blank?
+    # From here the venue said "ok": a missing acknowledgement is NOT a rejection, and the flag is
+    # how a caller tells the two apart (Exchange#ambiguous_placement_error?).
+    return Result::Failure.new('Hyperliquid order failed: no statuses returned', data: { unacknowledged: true }) if statuses.blank?
 
     order_status = statuses.first
     return Result::Failure.new("Hyperliquid order failed: #{order_status['error']}") if order_status['error'].present?
 
     # Order could be resting (limit) or filled immediately
     oid = order_status.dig('resting', 'oid') || order_status.dig('filled', 'oid')
-    return Result::Failure.new('Hyperliquid order failed: no order ID returned') if oid.nil?
+    return Result::Failure.new('Hyperliquid order failed: no order ID returned', data: { unacknowledged: true }) if oid.nil?
 
     base_coin = ticker.base
     data = { order_id: build_order_id(base_coin, oid) }

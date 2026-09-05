@@ -120,6 +120,8 @@ ru:
             for: "за"
             when_triggered: "при вызове этого вебхука:"
             of_the_balance: "от баланса"
+            never_triggered: "ещё не срабатывал"
+            last_triggered: "последнее срабатывание %{time} назад"
         buy: Купить
         counter: ''
         day: День

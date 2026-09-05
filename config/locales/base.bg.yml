@@ -669,6 +669,10 @@ bg:
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Поръчката %{order_id} е изоставена (борсата вече не я следи)"
             placement_ambiguous: "Статусът на поръчката е непотвърден — без повторен опит, за да не се дублира"
+            signal_market_closed: "Сигналът е игнориран — пазарът е затворен"
+            signal_api_key_pending: "Сигналът е игнориран — API ключът все още чака активиране"
+            signal_expired: "Сигналът е отхвърлен — престоя твърде дълго в опашката"
+            signal_ignored: "Сигналът е игнориран — ботът или правилото бяха спрени, преди да бъде обработен"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'

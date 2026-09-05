@@ -721,6 +721,40 @@ class Exchanges::HyperliquidTest < ActiveSupport::TestCase
     captured
   end
 
+  # Hyperliquid said "ok" and then reported no status, or a status with no oid: the order was
+  # taken and the acknowledgement lost. Not a rejection — the flag is what keeps a caller from
+  # writing it down as a failed order (Exchange#ambiguous_placement_error?).
+  test 'an order Hyperliquid accepted without an id is marked unacknowledged, not rejected' do
+    ticker = hyperliquid_ticker(base_decimals: 2)
+    @exchange.stubs(:order_placement_available?).returns(true)
+    no_statuses = { 'status' => 'ok', 'response' => { 'data' => { 'statuses' => [] } } }
+    no_oid = { 'status' => 'ok', 'response' => { 'data' => { 'statuses' => [{ 'resting' => {} }] } } }
+    client = stub
+    client.stubs(:order).returns(Result::Success.new(no_statuses)).then.returns(Result::Success.new(no_oid))
+    @exchange.stubs(:client).returns(client)
+
+    2.times do
+      result = @exchange.set_limit_order(ticker: ticker, amount: 10, amount_type: :base, side: :buy, price: 100)
+
+      assert_predicate result, :failure?
+      assert result.data[:unacknowledged]
+    end
+  end
+
+  test 'an order Hyperliquid rejected is not marked unacknowledged' do
+    ticker = hyperliquid_ticker(base_decimals: 2)
+    @exchange.stubs(:order_placement_available?).returns(true)
+    rejected = { 'status' => 'ok', 'response' => { 'data' => { 'statuses' => [{ 'error' => 'Insufficient margin' }] } } }
+    client = stub
+    client.stubs(:order).returns(Result::Success.new(rejected))
+    @exchange.stubs(:client).returns(client)
+
+    result = @exchange.set_limit_order(ticker: ticker, amount: 10, amount_type: :base, side: :buy, price: 100)
+
+    assert_predicate result, :failure?
+    assert_nil result.data
+  end
+
   def hyperliquid_ticker(base_decimals:)
     usdc = create(:asset, external_id: 'usdc', symbol: 'USDC', name: 'USDC')
     hype = create(:asset, external_id: 'hype', symbol: 'HYPE', name: 'Hype')

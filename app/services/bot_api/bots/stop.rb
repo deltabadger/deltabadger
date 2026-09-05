@@ -22,7 +22,7 @@ module BotApi
                                 data: { id: bot.id, label: bot.label, status: bot.status.to_s })
         end
 
-        bot.set_missed_quote_amount
+        bot.set_missed_quote_amount if bot.respond_to?(:set_missed_quote_amount) # a signal bot has no carry
         if bot.stop
           Result.success({ id: bot.id, label: bot.label, status: bot.status.to_s })
         else

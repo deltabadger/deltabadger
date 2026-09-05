@@ -115,4 +115,39 @@ class ExchangeTransientRetryTest < ActiveSupport::TestCase
     refute @exchange.transient_error?(['Account has insufficient balance for requested action.'])
     refute @exchange.transient_error?(['Filter failure: MIN_NOTIONAL'])
   end
+
+  # ambiguous_placement_error? is the classifier for a FAILED placement Result: only a definitive
+  # rejection may become a failed order; anything that merely got no clean answer may be live.
+  test 'ambiguous_placement_error? covers network failures, gateway errors and an acceptance without an id' do
+    assert @exchange.ambiguous_placement_error?(Result::Failure.new('Faraday::TimeoutError: Net::ReadTimeout'))
+    assert @exchange.ambiguous_placement_error?(Result::Failure.new('HTTP 504', data: { status: 504 }))
+    assert @exchange.ambiguous_placement_error?(Result::Failure.new('HTTP 502'))
+    # The adapters that turn a missing id into a failure flag it (Ibkr, Kraken, Hyperliquid).
+    assert @exchange.ambiguous_placement_error?(Result::Failure.new('Failed to set Kraken market order (order_id is nil)',
+                                                                    data: { unacknowledged: true }))
+    # A 2xx whose body could not be read: the venue said yes, the acknowledgement was lost on the way in.
+    assert @exchange.ambiguous_placement_error?(Result::Failure.new('{"id":', data: { status: 200 }))
+    assert @exchange.ambiguous_placement_error?(Result::Failure.new('Unreadable response (HTTP 200)', data: { status: 200, unreadable: true }))
+    # Honeymaker: an exception inside the client, possibly while reading a response the venue acted on.
+    assert @exchange.ambiguous_placement_error?(Result::Failure.new('TypeError: no implicit conversion', data: { client_error: true }))
+    # Honeymaker attaches the HTTP status to a failure; the adapters keep it when they re-wrap.
+    assert @exchange.ambiguous_placement_error?(Result::Failure.new('backend unavailable', data: { status: 503 }))
+  end
+
+  # Honeymaker composes "SYMBOL-<id>", so a missing id arrives as "BTCUSDT-".
+  test 'acknowledged_order_id? sees through a composed id with nothing after the dash' do
+    assert @exchange.acknowledged_order_id?('BTCUSDT-12345')
+    assert @exchange.acknowledged_order_id?('OABCDE-FGHIJ-KLMNOP') # a Kraken txid
+    refute @exchange.acknowledged_order_id?('BTCUSDT-')
+    refute @exchange.acknowledged_order_id?('')
+    refute @exchange.acknowledged_order_id?(nil)
+  end
+
+  test 'ambiguous_placement_error? leaves definitive rejections and the -1021 re-place to the caller' do
+    refute @exchange.ambiguous_placement_error?(Result::Failure.new('Account has insufficient balance for requested action.'))
+    refute @exchange.ambiguous_placement_error?(Result::Failure.new('HTTP 401', data: { status: 401 }))
+    refute @exchange.ambiguous_placement_error?(Result::Failure.new('Timestamp for this request is outside of the recvWindow'))
+    # Wording alone is not evidence; the flag is.
+    refute @exchange.ambiguous_placement_error?(Result::Failure.new('Hyperliquid order failed: Insufficient margin'))
+  end
 end

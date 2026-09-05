@@ -677,6 +677,10 @@ sk:
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Pokyn %{order_id} opustený (burza ho už nesleduje)"
             placement_ambiguous: "Stav pokynu nepotvrdený — bez opakovania, aby nevznikol duplicitný pokyn"
+            signal_market_closed: "Signál ignorovaný — trh je zatvorený"
+            signal_api_key_pending: "Signál ignorovaný — API kľúč ešte čaká na aktiváciu"
+            signal_expired: "Signál zahodený — čakal vo fronte príliš dlho"
+            signal_ignored: "Signál ignorovaný — bot bol medzitým zastavený alebo pravidlo vypnuté"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'

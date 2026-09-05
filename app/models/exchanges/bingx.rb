@@ -45,7 +45,7 @@ class Exchanges::Bingx < Exchange
       result = client.get_symbols
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       return Result::Failure.new(result.data['msg']) if result.data['code'].to_i != 0
@@ -82,7 +82,7 @@ class Exchanges::Bingx < Exchange
       result = client.get_ticker
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       return Result::Failure.new(result.data['msg']) if result.data['code'].to_i != 0
@@ -102,7 +102,7 @@ class Exchanges::Bingx < Exchange
     result = client.get_raw_balances
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     return Result::Failure.new(result.data['msg']) if result.data['code'].to_i != 0
@@ -132,7 +132,7 @@ class Exchanges::Bingx < Exchange
       result = client.get_ticker(symbol: ticker.ticker)
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       return Result::Failure.new(result.data['msg']) if result.data['code'].to_i != 0
@@ -154,7 +154,7 @@ class Exchanges::Bingx < Exchange
       result = get_bid_ask_price(ticker)
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       price = result.data[:bid][:price]
@@ -210,7 +210,7 @@ class Exchanges::Bingx < Exchange
     )
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     items = result.data.is_a?(Hash) ? (result.data['data'] || []) : (result.data || [])
@@ -279,7 +279,7 @@ class Exchanges::Bingx < Exchange
     result = client.get_order(symbol: symbol, order_id: ext_order_id)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     normalized_order_data = parse_order_data(order_id, result.data[:raw])
@@ -304,7 +304,7 @@ class Exchanges::Bingx < Exchange
     result = client.cancel_order(symbol: symbol, order_id: ext_order_id)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     Result::Success.new(order_id)
@@ -362,7 +362,7 @@ class Exchanges::Bingx < Exchange
                              network: network_name, tag: address_tag)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     return Result::Failure.new(result.data['msg']) if result.data['code'].to_i != 0
@@ -474,7 +474,7 @@ class Exchanges::Bingx < Exchange
       result = client.get_depth(symbol: ticker.ticker, limit: 1)
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       return Result::Failure.new(result.data['msg']) if result.data['code'].to_i != 0
@@ -513,7 +513,7 @@ class Exchanges::Bingx < Exchange
     result = client.place_order(**order_settings)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     data = {
@@ -542,7 +542,7 @@ class Exchanges::Bingx < Exchange
     result = client.place_order(**order_settings)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     data = {

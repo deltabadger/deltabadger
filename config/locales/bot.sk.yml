@@ -120,6 +120,8 @@ sk:
             for: "za"
             when_triggered: "keď je spustený tento webhook:"
             of_the_balance: "zo zostatku"
+            never_triggered: "zatiaľ nespustený"
+            last_triggered: "naposledy spustený pred %{time}"
         buy: Nákup
         counter: '%{countdown}'
         day: Deň

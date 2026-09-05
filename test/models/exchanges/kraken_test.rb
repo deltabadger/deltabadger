@@ -443,4 +443,24 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
       'status' => status
     }
   end
+
+  # Kraken answered without an order id: the order was taken and the acknowledgement lost. Not a
+  # rejection — the flag is what keeps a caller from writing it down as a failed order
+  # (Exchange#ambiguous_placement_error?).
+  test 'an order Kraken accepted without an id is marked unacknowledged, not rejected' do
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'key', secret: 'dGVzdF9zZWNyZXQ=')
+    @exchange.set_client(api_key: api_key)
+    ticker = stub(ticker: 'XBTUSDT')
+    ticker.stubs(:adjusted_amount).returns(0.01.to_d)
+    ticker.stubs(:adjusted_price).returns(50_000.to_d)
+    Honeymaker::Clients::Kraken.any_instance.stubs(:add_order).returns(Result::Success.new({}))
+
+    market = @exchange.set_market_order(ticker: ticker, amount: 0.01, amount_type: :base, side: :buy)
+    limit = @exchange.set_limit_order(ticker: ticker, amount: 0.01, amount_type: :base, side: :buy, price: 50_000)
+
+    assert_predicate market, :failure?
+    assert market.data[:unacknowledged]
+    assert_predicate limit, :failure?
+    assert limit.data[:unacknowledged]
+  end
 end

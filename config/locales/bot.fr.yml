@@ -120,6 +120,8 @@ fr:
             for: "pour"
             when_triggered: "quand ce webhook est déclenché :"
             of_the_balance: "du solde"
+            never_triggered: "jamais déclenché"
+            last_triggered: "dernier déclenchement il y a %{time}"
         buy: 'Acheter'
         counter: '%{countdown}'
         day: 'Jour'

@@ -120,6 +120,8 @@ pl:
             for: "za"
             when_triggered: "gdy ten webhook zostanie wywołany:"
             of_the_balance: "salda"
+            never_triggered: "nigdy nie wywołano"
+            last_triggered: "ostatnio wywołano %{time} temu"
         buy: Kup
         counter: '%{countdown}'
         day: dzień

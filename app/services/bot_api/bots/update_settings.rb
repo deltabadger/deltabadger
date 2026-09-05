@@ -32,9 +32,15 @@ module BotApi
 
         return Result.failure(:validation_failed, 'no_updates_provided', 'No settings provided to update.') if updates.empty?
 
+        # A signal bot has no per-order amount — its sizing lives on its rules.
+        if updates[:quote_amount] && !bot.respond_to?(:quote_amount=)
+          return Result.failure(:validation_failed, 'unsupported_for_bot_type',
+                                "Bot '#{bot.label}' has no per-order amount to update.")
+        end
+
         bot.quote_amount = updates[:quote_amount] if updates[:quote_amount]
         bot.label = updates[:label] if updates[:label]
-        bot.set_missed_quote_amount
+        bot.set_missed_quote_amount if bot.respond_to?(:set_missed_quote_amount)
 
         if bot.save
           Result.success({ id: bot.id, label: bot.label, updated: updates.keys.map(&:to_s) })

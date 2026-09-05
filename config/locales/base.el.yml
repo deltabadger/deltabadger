@@ -669,6 +669,10 @@ el:
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Η εντολή %{order_id} εγκαταλείφθηκε (το ανταλλακτήριο δεν την παρακολουθεί πλέον)"
             placement_ambiguous: "Η κατάσταση της εντολής δεν επιβεβαιώθηκε — δεν επαναλαμβάνεται, για αποφυγή διπλής εντολής"
+            signal_market_closed: "Το σήμα αγνοήθηκε — η αγορά είναι κλειστή"
+            signal_api_key_pending: "Το σήμα αγνοήθηκε — το κλειδί API περιμένει ακόμη ενεργοποίηση"
+            signal_expired: "Το σήμα απορρίφθηκε — περίμενε πολλή ώρα στην ουρά"
+            signal_ignored: "Το σήμα αγνοήθηκε — το bot είχε σταματήσει ή ο κανόνας είχε απενεργοποιηθεί πριν εκτελεστεί"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'

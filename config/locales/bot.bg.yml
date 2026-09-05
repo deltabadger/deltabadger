@@ -120,6 +120,8 @@ bg:
             for: "за"
             when_triggered: "когато се задейства този webhook:"
             of_the_balance: "от баланса"
+            never_triggered: "никога не е задействан"
+            last_triggered: "последно задействан преди %{time}"
         buy: Покупка
         counter: '%{countdown}'
         day: Ден

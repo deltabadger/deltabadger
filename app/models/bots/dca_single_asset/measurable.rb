@@ -82,8 +82,10 @@ module Bots::DcaSingleAsset::Measurable
       data[:total_realized_proceeds] = totals[:realized_proceeds]
       data[:total_amount_value_in_quote] = totals[:current_value_in_quote]
       data[:pnl] = calculate_pnl(data[:total_quote_amount_invested], data[:total_amount_value_in_quote])
+      # Over buys only, and over nothing it is NaN — which the page cannot round. A signal bot's first
+      # fill can be a sell.
       data[:average_buy_price] =
-        Utilities::Math.weighted_average(totals[:prices], totals[:amounts])
+        totals[:amounts].any? ? Utilities::Math.weighted_average(totals[:prices], totals[:amounts]) : nil
 
       data
     end
