@@ -10,6 +10,9 @@ class BotSignal < ApplicationRecord
 
   before_validation :generate_token, on: :create
 
+  # NOTE: nothing serves this path. There is no `/hook/:token` route, no controller and no token
+  # lookup anywhere in the app, so a signal bot can be started but can never fire. The signal
+  # widget shows this URL to the user regardless. See docs/signal-bots.md.
   def webhook_url
     "/hook/#{token}"
   end
