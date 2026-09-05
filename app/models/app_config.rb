@@ -60,46 +60,22 @@ class AppConfig < ApplicationRecord
     'list_account_transactions' => true
   }.freeze
 
-  MCP_TOOL_GROUPS = {
+  # The tool catalogue, grouped as Settings and the consent screen show it. Both surfaces use
+  # it; only the defaults differ per surface. A tool exists on both or on neither.
+  TOOL_GROUPS = {
     'read' => %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders],
     'control' => %w[create_bot start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings],
     'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order],
     'tax' => %w[list_tax_jurisdictions generate_tax_report get_tax_report_status download_tax_report export_transactions_csv
                 list_account_transactions]
   }.freeze
+  MCP_TOOL_GROUPS = TOOL_GROUPS
+  REST_TOOL_GROUPS = TOOL_GROUPS
 
-  # REST API per-tool permissions. Tool names mirror MCP names; scope is read/control/trade
-  # (no tax report generation, no paper-trading toggles). Defaults are all off — REST is opt-in.
-  REST_TOOL_DEFAULTS = {
-    'list_bots' => false,
-    'get_bot_details' => false,
-    'list_exchanges' => false,
-    'get_exchange_balances' => false,
-    'get_portfolio_summary' => false,
-    'list_transactions' => false,
-    'list_open_orders' => false,
-    'export_transactions_csv' => false,
-    'list_account_transactions' => false,
-    'create_bot' => false,
-    'start_bot' => false,
-    'stop_bot' => false,
-    'update_bot_settings' => false,
-    'start_rule' => false,
-    'stop_rule' => false,
-    'update_rule_settings' => false,
-    'market_buy' => false,
-    'market_sell' => false,
-    'limit_buy' => false,
-    'limit_sell' => false,
-    'cancel_order' => false
-  }.freeze
-
-  REST_TOOL_GROUPS = {
-    'read' => %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary
-                 list_transactions list_open_orders export_transactions_csv list_account_transactions],
-    'control' => %w[create_bot start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings],
-    'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order]
-  }.freeze
+  # REST is opt-in: a personal token or a third-party client switches each tool on. Derived,
+  # so the two surfaces cannot drift; test/controllers/api/v1/tool_gating_test.rb checks
+  # every catalogued tool gates a routed action.
+  REST_TOOL_DEFAULTS = MCP_TOOL_DEFAULTS.transform_values { false }.freeze
 
   SMTP_PROVIDER = 'smtp_provider'.freeze # 'custom_smtp' or 'env_smtp'
   SMTP_USERNAME = 'smtp_username'.freeze

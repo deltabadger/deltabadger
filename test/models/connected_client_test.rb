@@ -29,11 +29,10 @@ class ConnectedClientTest < ActiveSupport::TestCase
   test 'filters tool names that are not real tools' do
     client = ConnectedClient.create!(
       user: @user, oauth_application: @application,
-      mcp_tools: %w[list_bots renamed_away], rest_tools: %w[list_bots generate_tax_report]
+      mcp_tools: %w[list_bots renamed_away], rest_tools: %w[list_bots renamed_away]
     )
 
     assert_equal %w[list_bots], client.granted_mcp_tools
-    # generate_tax_report is an MCP tool with no REST counterpart
     assert_equal %w[list_bots], client.granted_rest_tools
   end
 

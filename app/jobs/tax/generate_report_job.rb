@@ -43,7 +43,10 @@ class Tax::GenerateReportJob < ApplicationJob
 
     file_path = self.class.report_path(user_id, country, year, report_scope)
     FileUtils.mkdir_p(File.dirname(file_path))
-    File.write(file_path, csv_data)
+    # Beside, then renamed: a reader sees a whole report or none.
+    tmp = "#{file_path}.tmp"
+    File.write(tmp, csv_data)
+    File.rename(tmp, file_path)
 
     sleep 0.5 # Allow last progress broadcast to be delivered before replacing
 

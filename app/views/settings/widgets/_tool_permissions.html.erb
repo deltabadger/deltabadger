@@ -1,7 +1,4 @@
-<%# The tool catalogue, once: a row per tool in MCP's grouping, a switch column per surface.
-    REST offers fewer tools and files the two exports under Read, so its column has gaps — an
-    empty cell where REST has no such tool, and no group switch on Tax, which REST has no group
-    for. The REST Read switch therefore also reaches the two export rows down in Tax. %>
+<%# The tool catalogue, once: a row per tool in MCP's grouping, a switch column per surface. %>
 <%
   surfaces = {
     'mcp' => { groups: AppConfig::MCP_TOOL_GROUPS, tools: AppConfig::MCP_TOOL_DEFAULTS,
@@ -33,15 +30,12 @@
             <th><%= t("settings.mcp.tools_#{group}") %></th>
             <% surfaces.each do |surface, s| %>
               <td class="permissions__cell" data-surface="<%= surface %>">
-                <% if (own = s[:groups][group]) %>
-                  <% on = own.count { |tool| s[:permissions][tool] } %>
-                  <%= render 'settings/widgets/permission_switch',
-                             url: s[:group_url], frame: 'tool_permissions', fields: { group: group },
-                             state: (on.zero? ? :off : (on == own.size ? :on : :partial)),
-                             enabled: (on == own.size ? '0' : '1') %>
-                <% else %>
-                  <span class="permissions__none">–</span>
-                <% end %>
+                <% own = s[:groups][group] %>
+                <% on = own.count { |tool| s[:permissions][tool] } %>
+                <%= render 'settings/widgets/permission_switch',
+                           url: s[:group_url], frame: 'tool_permissions', fields: { group: group },
+                           state: (on.zero? ? :off : (on == own.size ? :on : :partial)),
+                           enabled: (on == own.size ? '0' : '1') %>
               </td>
             <% end %>
           </tr>
@@ -53,14 +47,10 @@
               </td>
               <% surfaces.each do |surface, s| %>
                 <td class="permissions__cell" data-surface="<%= surface %>">
-                  <% if s[:tools].key?(tool) %>
-                    <%= render 'settings/widgets/permission_switch',
-                               url: s[:tool_url], frame: 'tool_permissions', fields: { tool_name: tool },
-                               state: (s[:permissions][tool] ? :on : :off),
-                               enabled: (s[:permissions][tool] ? '0' : '1') %>
-                  <% else %>
-                    <span class="permissions__none">–</span>
-                  <% end %>
+                  <%= render 'settings/widgets/permission_switch',
+                             url: s[:tool_url], frame: 'tool_permissions', fields: { tool_name: tool },
+                             state: (s[:permissions][tool] ? :on : :off),
+                             enabled: (s[:permissions][tool] ? '0' : '1') %>
                 </td>
               <% end %>
             </tr>

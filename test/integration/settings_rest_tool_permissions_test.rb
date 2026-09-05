@@ -30,19 +30,15 @@ class SettingsRestToolPermissionsTest < ActionDispatch::IntegrationTest
     assert_select 'turbo-frame#rest_settings input[name=tool_name]', 0
   end
 
-  # The rows follow the MCP grouping. REST files the two export tools under Read and has no Tax
-  # group, so the Tax section shows REST switches for those two rows and none for the rest of it.
-  test 'tools outside REST scope have an empty REST cell, not a switch' do
+  # One catalogue, so every row and every group carries a switch on both surfaces.
+  test 'every tool and every group has a REST switch' do
     get settings_api_path
-    (AppConfig::MCP_TOOL_DEFAULTS.keys - AppConfig::REST_TOOL_DEFAULTS.keys).each do |tool|
-      assert_select "tr.permissions__tool[data-tool=#{tool}] td[data-surface=rest]", 1 do
-        assert_select 'form', 0
+    AppConfig::TOOL_GROUPS.each do |group, tools|
+      assert_select "tr.permissions__group[data-group=#{group}] td[data-surface=rest] form", 1
+      tools.each do |tool|
+        assert_select "tr.permissions__tool[data-tool=#{tool}] td[data-surface=rest] form", 1
       end
     end
-    assert_select 'tr.permissions__group[data-group=tax] td[data-surface=rest]', 1 do
-      assert_select 'form', 0
-    end
-    assert_select 'tr.permissions__tool[data-tool=export_transactions_csv] td[data-surface=rest] form', 1
   end
 
   test 'REST widget renders alongside the MCP widget (both present on the page)' do
@@ -97,11 +93,10 @@ class SettingsRestToolPermissionsTest < ActionDispatch::IntegrationTest
     assert_response :unprocessable_entity
   end
 
-  test 'rejects tax-scoped tool names (not in REST scope)' do
-    # generate_tax_report is a valid MCP tool but is intentionally excluded
-    # from REST. It must be rejected here, not silently accepted.
+  test 'accepts tax tool names, which REST now carries too' do
     patch settings_update_rest_tool_permissions_path, params: { tool_name: 'generate_tax_report', enabled: '1' }
-    assert_response :unprocessable_entity
+    assert_response :success
+    assert @admin.reload.rest_tool_enabled?('generate_tax_report')
   end
 
   test 'non-admin can manage their own REST tool permissions' do
@@ -135,8 +130,17 @@ class SettingsRestToolPermissionsTest < ActionDispatch::IntegrationTest
   end
 
   test 'rejects unknown REST group names' do
-    patch settings_update_rest_tool_group_permissions_path, params: { group: 'tax', enabled: '1' }
+    patch settings_update_rest_tool_group_permissions_path, params: { group: 'telepathy', enabled: '1' }
     assert_response :unprocessable_entity
+  end
+
+  test 'the tax group switch reaches every tax tool on REST' do
+    patch settings_update_rest_tool_group_permissions_path, params: { group: 'tax', enabled: '1' }
+    assert_response :success
+    @admin.reload
+    AppConfig::TOOL_GROUPS['tax'].each do |tool|
+      assert @admin.rest_tool_enabled?(tool), "Expected #{tool} enabled"
+    end
   end
 
   # ---- isolation from MCP -------------------------------------------------

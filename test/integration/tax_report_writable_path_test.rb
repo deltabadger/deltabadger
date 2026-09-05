@@ -3,8 +3,9 @@ require 'tmpdir'
 
 class TaxReportWritablePathTest < ActionDispatch::IntegrationTest
   COUNTRY = 'DE'.freeze
-  YEAR = 1987
-  CSV_DATA = "date,asset,amount\n1987-01-01,BTC,0.5".freeze
+  # Inside the documented 2009..2100 range the API accepts; the report lives in its own tmpdir.
+  YEAR = 2044
+  CSV_DATA = "date,asset,amount\n2044-01-01,BTC,0.5".freeze
 
   setup do
     @user = create(:user, admin: true, setup_completed: true)

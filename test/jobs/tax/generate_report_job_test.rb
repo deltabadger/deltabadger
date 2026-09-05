@@ -136,6 +136,20 @@ class Tax::GenerateReportJobTest < ActiveSupport::TestCase
     assert_equal Rails.root.join('tmp', 'tax_reports', '1_DEXINJECTED_2024_crypto.csv').to_s, crlf
   end
 
+  # A status check or a download landing mid-write must see a whole report or none, so the CSV is
+  # written beside the final path and renamed into place.
+  test 'the report is published atomically, leaving no partial file behind' do
+    user = create(:user)
+    path = Tax::GenerateReportJob.report_path(user.id, 'DE', 2026)
+
+    Tax::GenerateReportJob.perform_now(user.id, 'DE', 2026)
+
+    assert File.exist?(path)
+    assert_not File.exist?("#{path}.tmp")
+  ensure
+    FileUtils.rm_f(path)
+  end
+
   private
 
   # Parallel workers each get their own database but share tmp/, so two tests generating the same

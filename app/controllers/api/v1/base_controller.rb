@@ -40,6 +40,7 @@ module Api
         {
           success: :ok,
           created: :created,
+          accepted: :accepted,
           validation_failed: :unprocessable_entity,
           permission_denied: :forbidden,
           not_found: :not_found,

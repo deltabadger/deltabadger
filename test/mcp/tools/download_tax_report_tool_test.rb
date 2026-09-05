@@ -8,9 +8,9 @@ class DownloadTaxReportToolTest < ActiveSupport::TestCase
 
   test 'returns CSV content when report exists' do
     csv_content = "date,asset,amount\n2025-01-01,BTC,0.5"
-    path = write_report('PL', 1998, csv_content)
+    path = write_report('PL', 2027, csv_content)
 
-    response = DownloadTaxReportTool.call('country' => 'PL', 'year' => 1998)
+    response = DownloadTaxReportTool.call('country' => 'PL', 'year' => 2027)
     text = response.contents.first.text
 
     assert_equal csv_content, text
@@ -19,9 +19,9 @@ class DownloadTaxReportToolTest < ActiveSupport::TestCase
   end
 
   test 'does not delete file after reading' do
-    path = write_report('PL', 1997, 'test')
+    path = write_report('PL', 2028, 'test')
 
-    DownloadTaxReportTool.call('country' => 'PL', 'year' => 1997)
+    DownloadTaxReportTool.call('country' => 'PL', 'year' => 2028)
 
     assert File.exist?(path), 'Expected file to still exist after MCP download'
   ensure
@@ -30,10 +30,10 @@ class DownloadTaxReportToolTest < ActiveSupport::TestCase
 
   test 'returns error when no report found' do
     # Use a unique combo to avoid collisions with file-creating tests
-    path = report_path('ES', 1996)
+    path = report_path('US', 2029)
     FileUtils.rm_f(path)
 
-    response = DownloadTaxReportTool.call('country' => 'ES', 'year' => 1996)
+    response = DownloadTaxReportTool.call('country' => 'US', 'year' => 2029)
     text = response.contents.first.text
 
     assert_match(/No report found/, text)

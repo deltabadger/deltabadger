@@ -167,18 +167,13 @@ The personal API token below is exempt: it is yours, not a third party's, so you
 account-wide toggles are the whole answer for it.
 
 Enable toggles from **Settings → Connect → REST API**. Toggles are grouped
-(`read`, `control`, `trade`); each row is independent. REST toggles are
+(`read`, `control`, `trade`, `tax`); each row is independent. REST toggles are
 **isolated from MCP** — enabling `list_bots` for REST does not affect MCP
 permissions and vice versa.
 
-Tool names mirror the MCP names exactly: `list_bots`, `get_bot_details`,
-`list_exchanges`, `get_exchange_balances`, `get_portfolio_summary`,
-`list_transactions`, `list_open_orders`, `export_transactions_csv`,
-`list_account_transactions`, `create_bot`, `start_bot`, `stop_bot`,
-`update_bot_settings`, `start_rule`, `stop_rule`, `update_rule_settings`,
-`market_buy`, `market_sell`, `limit_buy`, `limit_sell`, `cancel_order`.
-
-Tax-report generation tools are MCP-only and intentionally out of REST scope.
+Tool names are the MCP names exactly; the full list is the matrix under
+**Settings → Connect**. The two surfaces share one catalogue, so every tool MCP
+offers, REST offers too.
 
 ---
 
@@ -210,12 +205,13 @@ Errors set both an HTTP status and an envelope `error.code`. Common pairs:
 
 | Status | Common error codes |
 |---|---|
+| 202 | (success) report generation accepted |
 | 400 | `idempotency_key_required` |
 | 401 | `missing_token`, `invalid_token`, `token_revoked`, `token_expired`, `user_not_found` |
 | 403 | `tool_disabled`, `insufficient_scope`, `api_key_missing` |
-| 404 | `bot_not_found`, `rule_not_found`, `exchange_not_found`, `pair_not_found`, `no_transactions` |
-| 409 | `bot_already_running`, `bot_not_running`, `bot_running`, `rule_already_active`, `rule_not_active`, `rule_active`, `idempotency_in_progress`, `idempotency_key_reused` |
-| 422 | `missing_required_parameter`, `invalid_interval`, `invalid_allocation`, `invalid_date`, `invalid_order_type`, `no_updates_provided`, `exchange_name_required`, `bot_invalid`, `bot_save_failed`, `rule_save_failed` |
+| 404 | `bot_not_found`, `rule_not_found`, `exchange_not_found`, `pair_not_found`, `no_transactions`, `report_not_found` |
+| 409 | `bot_already_running`, `bot_not_running`, `bot_running`, `rule_already_active`, `rule_not_active`, `rule_active`, `idempotency_in_progress`, `idempotency_key_reused`, `report_ready`, `report_generating` |
+| 422 | `missing_required_parameter`, `invalid_interval`, `invalid_allocation`, `invalid_date`, `invalid_order_type`, `no_updates_provided`, `exchange_name_required`, `bot_invalid`, `bot_save_failed`, `rule_save_failed`, `unknown_country`, `invalid_year`, `invalid_flag`, `market_data_not_configured` |
 | 502 | `order_failed`, `cancel_failed`, `balances_fetch_failed`, `bot_stop_failed` |
 
 ---
@@ -246,6 +242,10 @@ token).
 | POST | `/rules/:id/start` | `start_rule` | 409 if already active |
 | POST | `/rules/:id/stop` | `stop_rule` | 409 if not active |
 | PATCH | `/rules/:id` | `update_rule_settings` | Accepts `withdrawal_percentage`, `max_fee_percentage`, `min_amount`, `threshold_type`; rule must be stopped |
+| GET | `/tax/jurisdictions` | `list_tax_jurisdictions` | Supported countries, method, currency |
+| POST | `/tax/reports` | `generate_tax_report` | `country` (any case), `year`, optional `stablecoin_as_fiat`, optional `force` to replace an existing report; **202** — poll status; crypto scope only |
+| GET | `/tax/reports/:country/:year` | `get_tax_report_status` | `{ ready: bool, state: "ready" \| "generating" \| "none" }`; `generating` is per account (one report runs at a time) |
+| GET | `/tax/reports/:country/:year/download` | `download_tax_report` | **CSV** (see section 6); 404 until generated |
 
 ---
 
@@ -362,6 +362,7 @@ curl -X POST https://your.deltabadger.com/oauth/register \
 
 # 3. Confirm the token works against REST.
 curl -H "Authorization: Bearer $TOKEN" https://your.deltabadger.com/api/v1/bots
+curl -H "Authorization: Bearer $TOKEN" https://your.deltabadger.com/api/v1/tax/jurisdictions
 
 # 4. Place an order (after enabling `market_buy` in Settings → Connect → REST API).
 curl -X POST https://your.deltabadger.com/api/v1/orders \
