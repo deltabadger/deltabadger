@@ -113,17 +113,7 @@ class UserMcpPermissionsTest < ActiveSupport::TestCase
     end
   end
 
-  test 'MCP_TOOL_DEFAULTS contains all expected tools' do
-    expected = %w[
-      list_bots get_bot_details list_exchanges get_exchange_balances
-      get_portfolio_summary list_transactions list_open_orders
-      create_bot start_bot stop_bot update_bot_settings
-      start_rule stop_rule update_rule_settings
-      market_buy market_sell
-      limit_buy limit_sell cancel_order
-      list_tax_jurisdictions generate_tax_report get_tax_report_status
-      download_tax_report export_transactions_csv list_account_transactions
-    ]
-    assert_equal expected.sort, AppConfig::MCP_TOOL_DEFAULTS.keys.sort
+  test 'MCP_TOOL_DEFAULTS contains exactly the catalogued tools' do
+    assert_equal AppConfig::TOOL_GROUPS.values.flatten.sort, AppConfig::MCP_TOOL_DEFAULTS.keys.sort
   end
 end

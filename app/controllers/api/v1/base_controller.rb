@@ -36,10 +36,24 @@ module Api
         end
       end
 
+      # Convert a BotApi::Result into the `[status_int, body_hash]` shape the
+      # Idempotency concern expects. The body hash gets JSON-serialized once
+      # by the concern and stored verbatim.
+      def result_to_envelope(result)
+        if result.success?
+          [Rack::Utils.status_code(status_for(result.status)),
+           { data: result.data, error: nil }]
+        else
+          [Rack::Utils.status_code(status_for(result.status)),
+           { data: nil, error: { code: result.error_code, message: result.error_message } }]
+        end
+      end
+
       def status_for(domain_status)
         {
           success: :ok,
           created: :created,
+          accepted: :accepted,
           validation_failed: :unprocessable_entity,
           permission_denied: :forbidden,
           not_found: :not_found,

@@ -7,9 +7,9 @@ class GetTaxReportStatusToolTest < ActiveSupport::TestCase
   end
 
   test 'returns ready when report file exists' do
-    path = write_report('RU', 1995)
+    path = write_report('GB', 2027)
 
-    response = GetTaxReportStatusTool.call('country' => 'RU', 'year' => 1995)
+    response = GetTaxReportStatusTool.call('country' => 'GB', 'year' => 2027)
     text = response.contents.first.text
 
     assert_match(/ready/, text)
@@ -19,10 +19,10 @@ class GetTaxReportStatusToolTest < ActiveSupport::TestCase
   end
 
   test 'returns not ready when no report file' do
-    path = report_path('RU', 1994)
+    path = report_path('GB', 2028)
     FileUtils.rm_f(path)
 
-    response = GetTaxReportStatusTool.call('country' => 'RU', 'year' => 1994)
+    response = GetTaxReportStatusTool.call('country' => 'GB', 'year' => 2028)
     text = response.contents.first.text
 
     assert_match(/not ready/, text)

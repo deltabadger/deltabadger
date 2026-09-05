@@ -56,4 +56,28 @@ class UpdateBotSettingsToolTest < ActiveSupport::TestCase
 
     assert_match(/No settings provided/, response.contents.first.text)
   end
+  test 'an index bot is retuned through the same tool' do
+    bot = create(:dca_index, user: @user, status: :stopped)
+
+    response = UpdateBotSettingsTool.new(bot_id: bot.id, num_coins: 8, allocation_flattening: 0.5).execute
+
+    assert_match(/settings updated/, response.contents.first.text)
+    bot.reload
+    assert_equal 8, bot.num_coins
+    assert_equal 0.5, bot.allocation_flattening
+  end
+
+  test 'a basket is reweighted by symbol' do
+    # The setup's single-asset bot already made BTC and USD; those traits pin external_id, so a
+    # second create(:asset, :bitcoin) in the same test would collide.
+    btc = Asset.find_by!(symbol: 'BTC')
+    eth = create(:asset, :ethereum)
+    bot = create(:dca_multi_asset, :stopped, user: @user, base_assets: [btc, eth],
+                                             exchange: @bot.exchange, quote_asset: Asset.find_by!(symbol: 'USD'))
+
+    response = UpdateBotSettingsTool.new(bot_id: bot.id, allocations: 'BTC:70,ETH:30').execute
+
+    assert_match(/settings updated/, response.contents.first.text)
+    assert_in_delta 0.7, bot.reload.allocation_for(btc.id), 0.0001
+  end
 end

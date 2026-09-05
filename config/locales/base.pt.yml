@@ -304,6 +304,45 @@ pt:
                 list_account_transactions:
                     label: 'Transações da conta'
                     description: 'Ver transações do tracker com filtros'
+                list_rules:
+                    label: 'Listar regras'
+                    description: 'Ver as regras de levantamento e as suas definições'
+                create_rule:
+                    label: 'Criar regra'
+                    description: 'Criar uma regra de levantamento para um endereço autorizado'
+                delete_rule:
+                    label: 'Eliminar regra'
+                    description: 'Eliminar uma regra de levantamento parada'
+                list_indices:
+                    label: 'Listar índices'
+                    description: 'Ver os índices que um bot de índice pode seguir'
+                create_index_bot:
+                    label: 'Criar bot de índice'
+                    description: 'Criar e iniciar um bot DCA de índice'
+                delete_bot:
+                    label: 'Eliminar bot'
+                    description: 'Eliminar um bot, em execução ou não; o seu agendamento é cancelado'
+                archive_bot:
+                    label: 'Arquivar bot'
+                    description: 'Parar um bot e ocultá-lo do painel'
+                unarchive_bot:
+                    label: 'Reativar bot'
+                    description: 'Repor um bot arquivado'
+                liquidate_exited_asset:
+                    label: 'Vender ativo removido'
+                    description: 'Vender um ativo que um bot de índice ou de cabaz removeu'
+                answer_redeploy_offer:
+                    label: 'Responder à oferta de reinvestimento'
+                    description: 'Aceitar ou recusar o reinvestimento dos valores da venda'
+                sync_tracker:
+                    label: 'Sincronizar o Tracker'
+                    description: 'Obter novas transações e saldos das exchanges'
+                set_transfer_link:
+                    label: 'Marcar uma transferência'
+                    description: 'Associar um levantamento ao respetivo depósito ou anular a associação'
+                set_transaction_price:
+                    label: 'Indicar um preço'
+                    description: 'Definir o preço em USD de uma transação que a exchange não avaliou'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simula transações com preços reais de mercado. Nenhuma ordem real é executada.'
             dry_run_label: 'Ativar paper trading para ferramentas de trading'

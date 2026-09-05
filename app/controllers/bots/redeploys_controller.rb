@@ -7,20 +7,13 @@ class Bots::RedeploysController < ApplicationController
   before_action :authenticate_user!
   before_action :set_bot
 
+  # One implementation: BotApi::Bots::AnswerRedeploy also backs the MCP tool and the REST
+  # endpoint, so the market check and the enqueue cannot drift between them. The service
+  # pre-checks the market so a stock composition is told now rather than finding out minutes
+  # later in a worker that will not retry; the job checks again, and both fail OPEN on any other
+  # error, because a convenience check must never be the thing that stops work the job could do.
   def create
-    # A pre-check so a stock composition is told now rather than finding out minutes later in a
-    # worker that will not retry. The job checks again — the market can close between enqueue and
-    # run — and fails OPEN on any other error, because a convenience check must never be the thing
-    # that stops work the job could have done.
-    if market_closed?
-      flash.now[:alert] = t('bot.redeploy.market_closed')
-      return render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
-    end
-
-    Bot::RedeployJob.perform_later(@bot)
-    @bot.log_activity('redeploy_requested', level: :info, details: { user_id: current_user.id })
-    flash.now[:notice] = t('bot.redeploy.started')
-    render turbo_stream: turbo_stream_prepend_flash
+    answer(accept: true, notice: 'bot.redeploy.started')
   end
 
   # Queued, not applied here — Bot::DeclineRedeployJob holds the exchange semaphore, which is the
@@ -29,12 +22,21 @@ class Bots::RedeploysController < ApplicationController
   # strands above the banked total and silently eats every later sale. The job also refuses on its
   # own if a batch is genuinely in flight, and says so in the activity log.
   def destroy
-    Bot::DeclineRedeployJob.perform_later(@bot, user_id: current_user.id)
-    flash.now[:notice] = t('bot.redeploy.declined')
-    render turbo_stream: turbo_stream_prepend_flash
+    answer(accept: false, notice: 'bot.redeploy.declined')
   end
 
   private
+
+  def answer(accept:, notice:)
+    result = BotApi::Bots::AnswerRedeploy.call(user: current_user, bot_id: @bot.id, accept: accept)
+    if result.success?
+      flash.now[:notice] = t(notice)
+      render turbo_stream: turbo_stream_prepend_flash
+    else
+      flash.now[:alert] = result.error_code == 'market_closed' ? t('bot.redeploy.market_closed') : result.error_message
+      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+    end
+  end
 
   # Nested bot routes accept every bot type; only composition bots have an offer to answer.
   def set_bot
@@ -42,16 +44,5 @@ class Bots::RedeploysController < ApplicationController
     return if @bot.respond_to?(:redeploy!)
 
     redirect_back fallback_location: bots_path, alert: t('bot.redeploy.unsupported')
-  end
-
-  # Authenticated first: Alpaca answers this from /v2/clock, which needs credentials, and with a
-  # cold clock cache an unauthenticated call 401s and raises — turning the button into a 500 before
-  # the job that WOULD have authenticated is ever enqueued.
-  def market_closed?
-    @bot.ensure_exchange_authenticated
-    !@bot.exchange.market_open?(tickers: @bot.composition_tickers)
-  rescue StandardError => e
-    Rails.logger.warn("redeploy market check failed bot=#{@bot.id}: #{e.message}")
-    false
   end
 end

@@ -26,7 +26,7 @@ module BotApi
       end
 
       def call
-        rule = @user.rules.find_by(id: @rule_id.to_i)
+        rule = @user.rules.where.not(status: :deleted).find_by(id: @rule_id.to_i)
         return Result.failure(:not_found, 'rule_not_found', 'Rule not found.') unless rule
 
         if rule.working?
@@ -36,6 +36,16 @@ module BotApi
 
         updates = build_updates
         return no_updates if updates.empty?
+
+        # The configuration the rule will END UP with, not just the fields sent: switching to
+        # min_amount on a rule that has none would save and then raise at the next start.
+        effective = {
+          withdrawal_percentage: rule.withdrawal_percentage, max_fee_percentage: rule.max_fee_percentage,
+          min_amount: rule.min_amount
+        }.merge(updates.slice(:withdrawal_percentage, :max_fee_percentage, :min_amount))
+        threshold_type = updates.fetch(:threshold_type, rule.threshold_type.presence || 'fee_percentage')
+        err = Bounds.check(threshold_type: threshold_type, **effective)
+        return err if err
 
         apply(rule, updates)
         if rule.save

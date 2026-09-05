@@ -40,7 +40,10 @@ module BotApi
         scope = scope.in_date_range(from, to)
         scope = scope.where(entry_type: @entry_type) if @entry_type.present?
 
-        rows = scope.includes(:exchange).limit(clamp_limit(@limit)).map { |txn| row_for(txn) }
+        # linked? and the partner id read both sides of the link, so both are preloaded — this
+        # returns up to MAX_LIMIT rows.
+        rows = scope.includes(:exchange, :linked_transaction, :inverse_link)
+                    .limit(clamp_limit(@limit)).map { |txn| row_for(txn) }
         Result.success({ count: rows.size, transactions: rows })
       end
 
@@ -73,7 +76,11 @@ module BotApi
           quote_currency: txn.quote_currency,
           fee_amount: txn.fee_amount,
           fee_currency: txn.fee_currency,
-          exchange: txn.exchange&.name
+          exchange: txn.exchange&.name,
+          linked: txn.linked?,
+          linked_transaction_id: txn.withdrawal? ? txn.linked_transaction_id : txn.inverse_link&.id,
+          stated_price_usd: txn.manual_value(:price)&.to_s('F'),
+          venue_valued: txn.venue_valued?
         }
       end
     end

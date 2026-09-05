@@ -17,6 +17,7 @@ class BotSignal < ApplicationRecord
 
   before_validation :generate_token, on: :create
 
+  # Served by HooksController (POST only, outside the locale scope). See docs/signal-bots.md.
   def webhook_url
     "/hook/#{token}"
   end

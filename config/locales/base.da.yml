@@ -287,6 +287,45 @@ da:
                 list_account_transactions:
                     label: 'Kontotransaktioner'
                     description: 'Se tracker-transaktioner med filtre'
+                list_rules:
+                    label: 'Vis regler'
+                    description: 'Se udbetalingsregler og deres indstillinger'
+                create_rule:
+                    label: 'Opret regel'
+                    description: 'Opret en udbetalingsregel til en godkendt adresse'
+                delete_rule:
+                    label: 'Slet regel'
+                    description: 'Slet en stoppet udbetalingsregel'
+                list_indices:
+                    label: 'Vis indeks'
+                    description: 'Se de indeks, en indeksbot kan følge'
+                create_index_bot:
+                    label: 'Opret indeksbot'
+                    description: 'Opret og start en DCA-indeksbot'
+                delete_bot:
+                    label: 'Slet bot'
+                    description: 'Slet en bot, uanset om den kører; dens tidsplan annulleres'
+                archive_bot:
+                    label: 'Arkivér bot'
+                    description: 'Stop en bot og skjul den fra oversigten'
+                unarchive_bot:
+                    label: 'Genaktivér bot'
+                    description: 'Hent en arkiveret bot tilbage'
+                liquidate_exited_asset:
+                    label: 'Sælg fjernet aktiv'
+                    description: 'Sælg et aktiv, som en indeks- eller kurvbot har fjernet'
+                answer_redeploy_offer:
+                    label: 'Svar på geninvesteringstilbud'
+                    description: 'Accepter eller afvis at geninvestere provenuet fra salget'
+                sync_tracker:
+                    label: 'Synkronisér Tracker'
+                    description: 'Hent nye transaktioner og saldoer fra børserne'
+                set_transfer_link:
+                    label: 'Markér overførsel'
+                    description: 'Knyt en udbetaling til dens indbetaling, eller ophæv forbindelsen'
+                set_transaction_price:
+                    label: 'Angiv en pris'
+                    description: 'Sæt prisen i USD på en transaktion, som børsen ikke har prissat'
             dry_run_title: 'Papirhandel'
             dry_run_description: 'Simulér handler med reelle markedspriser. Der udføres ingen rigtige ordrer.'
             dry_run_label: 'Aktivér papirhandel for handelsværktøjer'

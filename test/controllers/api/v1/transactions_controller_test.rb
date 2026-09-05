@@ -196,6 +196,100 @@ class Api::V1::TransactionsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 'tool_disabled', JSON.parse(response.body)['error']['code']
   end
 
+  # ---- tracker writes ------------------------------------------------------
+
+  def transfer_pair
+    api_key = create(:api_key, user: @user)
+    at = Time.zone.parse('2026-08-01 12:00:00')
+    withdrawal = create(:account_transaction, :withdrawal, api_key: api_key, base_amount: 1, transacted_at: at)
+    deposit = create(:account_transaction, :deposit, api_key: api_key, base_amount: 0.999, transacted_at: at + 2.days)
+    Tracker::LedgerJob.stubs(:perform_later)
+    PortfolioSnapshot::BackfillJob.stubs(:perform_later)
+    [withdrawal, deposit]
+  end
+
+  test 'POST /transactions/account/:id/transfer_link links the pair' do
+    @user.set_rest_tool_enabled('set_transfer_link', true)
+    withdrawal, deposit = transfer_pair
+
+    post "/api/v1/transactions/account/#{withdrawal.id}/transfer_link",
+         params: { linked: true }, headers: bearer(api_token), as: :json
+
+    assert_response :ok
+    assert_equal deposit.id, JSON.parse(response.body)['data']['deposit_id']
+    assert_equal deposit.id, withdrawal.reload.linked_transaction_id
+  end
+
+  test 'POST /transactions/account/:id/transfer_link needs a real boolean' do
+    @user.set_rest_tool_enabled('set_transfer_link', true)
+    withdrawal, = transfer_pair
+
+    post "/api/v1/transactions/account/#{withdrawal.id}/transfer_link",
+         params: {}, headers: bearer(api_token), as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal 'linked_required', JSON.parse(response.body)['error']['code']
+    assert_nil withdrawal.reload.linked_transaction_id
+  end
+
+  test 'PATCH /transactions/account/:id/price states and clears a price' do
+    @user.set_rest_tool_enabled('set_transaction_price', true)
+    _, deposit = transfer_pair
+
+    patch "/api/v1/transactions/account/#{deposit.id}/price",
+          params: { price_usd: '123.45' }, headers: bearer(api_token), as: :json
+    assert_response :ok
+    assert_equal BigDecimal('123.45'), deposit.reload.manual_value(:price)
+
+    patch "/api/v1/transactions/account/#{deposit.id}/price",
+          params: { price_usd: nil }, headers: bearer(api_token), as: :json
+    assert_response :ok
+    assert_nil deposit.reload.manual_value(:price)
+  end
+
+  test 'PATCH /transactions/account/:id/price refuses a body that omits the key' do
+    @user.set_rest_tool_enabled('set_transaction_price', true)
+    _, deposit = transfer_pair
+    deposit.set_manual(:price, '50')
+    deposit.save!
+
+    patch "/api/v1/transactions/account/#{deposit.id}/price", params: {}, headers: bearer(api_token), as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal 'price_usd_required', JSON.parse(response.body)['error']['code']
+    assert_equal BigDecimal('50'), deposit.reload.manual_value(:price)
+  end
+
+  test 'GET /transactions/account reports link state and stated price' do
+    @user.set_rest_tool_enabled('list_account_transactions', true)
+    withdrawal, deposit = transfer_pair
+    withdrawal.update!(linked_transaction: deposit)
+    withdrawal.set_manual(:price, '123.45')
+    withdrawal.save!
+
+    get '/api/v1/transactions/account', headers: bearer(api_token)
+
+    assert_response :ok
+    row = JSON.parse(response.body)['data']['transactions'].find { |r| r['id'] == withdrawal.id }
+    assert_equal true, row['linked']
+    assert_equal deposit.id, row['linked_transaction_id']
+    assert_equal '123.45', row['stated_price_usd']
+    assert_equal false, row['venue_valued']
+  end
+
+  test 'the two write endpoints are gated by their own tools' do
+    withdrawal, = transfer_pair
+    token = api_token
+
+    post "/api/v1/transactions/account/#{withdrawal.id}/transfer_link",
+         params: { linked: true }, headers: bearer(token), as: :json
+    assert_response :forbidden
+
+    patch "/api/v1/transactions/account/#{withdrawal.id}/price",
+          params: { price_usd: '1' }, headers: bearer(token), as: :json
+    assert_response :forbidden
+  end
+
   private
 
   def bearer(token)

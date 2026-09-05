@@ -9,12 +9,18 @@ class GetTaxReportStatusTool < ApplicationMCPTool
   property :year, type: 'number', required: true, description: 'Tax year'
 
   def perform
-    file_path = Tax::GenerateReportJob.report_path(current_user.id, country, year)
+    result = BotApi::Tax::ReportStatus.call(user: current_user, country: country, year: year)
+    return render(text: result.error_message) unless result.success?
 
-    if File.exist?(file_path)
-      render text: "Report for #{country} (#{year.to_i}) is ready. Use 'download_tax_report' to retrieve it."
+    data = result.data
+    case data[:state]
+    when 'ready'
+      render text: "Report for #{data[:country]} (#{data[:year]}) is ready. Use 'download_tax_report' to retrieve it."
+    when 'generating'
+      render text: 'A report is being generated for this account. Check again in a minute.'
     else
-      render text: "Report for #{country} (#{year.to_i}) is not ready yet or has not been generated. Use 'generate_tax_report' to start one."
+      render text: "Report for #{data[:country]} (#{data[:year]}) is not ready yet or has not been generated. " \
+                   "Use 'generate_tax_report' to start one."
     end
   end
 end

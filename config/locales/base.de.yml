@@ -305,6 +305,45 @@ de:
                 list_account_transactions:
                     label: 'Kontotransaktionen'
                     description: 'Tracker-Transaktionen mit Filtern anzeigen'
+                list_rules:
+                    label: 'Regeln auflisten'
+                    description: 'Auszahlungsregeln und ihre Einstellungen anzeigen'
+                create_rule:
+                    label: 'Regel erstellen'
+                    description: 'Auszahlungsregel an eine freigegebene Adresse erstellen'
+                delete_rule:
+                    label: 'Regel löschen'
+                    description: 'Eine gestoppte Auszahlungsregel löschen'
+                list_indices:
+                    label: 'Indizes auflisten'
+                    description: 'Indizes anzeigen, die ein Index-Bot abbilden kann'
+                create_index_bot:
+                    label: 'Index-Bot erstellen'
+                    description: 'Einen Index-DCA-Bot erstellen und starten'
+                delete_bot:
+                    label: 'Bot löschen'
+                    description: 'Einen Bot löschen, ob laufend oder gestoppt; sein Zeitplan wird aufgehoben'
+                archive_bot:
+                    label: 'Bot archivieren'
+                    description: 'Einen Bot stoppen und aus dem Dashboard ausblenden'
+                unarchive_bot:
+                    label: 'Bot reaktivieren'
+                    description: 'Einen archivierten Bot zurückholen'
+                liquidate_exited_asset:
+                    label: 'Entferntes Asset verkaufen'
+                    description: 'Ein Asset verkaufen, das ein Index- oder Korb-Bot entfernt hat'
+                answer_redeploy_offer:
+                    label: 'Über Wiederanlage entscheiden'
+                    description: 'Die Wiederanlage des Verkaufserlöses annehmen oder ablehnen'
+                sync_tracker:
+                    label: 'Tracker synchronisieren'
+                    description: 'Neue Transaktionen und Guthaben von den Börsen abrufen'
+                set_transfer_link:
+                    label: 'Transfer markieren'
+                    description: 'Eine Auszahlung mit ihrer Einzahlung verknüpfen oder die Verknüpfung lösen'
+                set_transaction_price:
+                    label: 'Kurs angeben'
+                    description: 'Den USD-Kurs einer Transaktion setzen, die die Börse nicht bewertet hat'
             dry_run_title: 'Papierhandel'
             dry_run_description: 'Trades mit echten Marktpreisen simulieren. Es werden keine echten Orders ausgeführt.'
             dry_run_label: 'Papierhandel für Trade-Tools aktivieren'

@@ -26,7 +26,9 @@ class AppConfig < ApplicationRecord
   ALPACA_API_SECRET = 'alpaca_api_secret'.freeze
   ALPACA_MODE = 'alpaca_mode'.freeze # 'paper' or 'live'
 
-  # MCP (Model Context Protocol) settings
+  # The per-tool MCP defaults. One catalogue serves both surfaces — TOOL_GROUPS below groups
+  # every tool, and REST_TOOL_DEFAULTS is derived from these keys — so a tool exists on MCP and
+  # REST or on neither.
   #
   # These names are permanent identifiers: they are stored verbatim in each
   # ConnectedClient's grant. Retiring a name is fine — stale grants are filtered out
@@ -57,49 +59,42 @@ class AppConfig < ApplicationRecord
     'get_tax_report_status' => true,
     'download_tax_report' => true,
     'export_transactions_csv' => true,
-    'list_account_transactions' => true
+    'list_account_transactions' => true,
+    'list_rules' => true,
+    'create_rule' => false,
+    'delete_rule' => false,
+    'list_indices' => true,
+    'create_index_bot' => false,
+    'delete_bot' => false,
+    'archive_bot' => false,
+    'unarchive_bot' => false,
+    'liquidate_exited_asset' => false,
+    'answer_redeploy_offer' => false,
+    'sync_tracker' => false,
+    'set_transfer_link' => false,
+    'set_transaction_price' => false
   }.freeze
 
-  MCP_TOOL_GROUPS = {
-    'read' => %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders],
-    'control' => %w[create_bot start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings],
-    'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order],
+  # The catalogue, grouped as Settings and the consent screen show it. Both surfaces alias it;
+  # only the per-surface defaults differ.
+  TOOL_GROUPS = {
+    'read' => %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders
+                 list_rules list_indices],
+    'control' => %w[create_bot start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings
+                    create_rule delete_rule create_index_bot delete_bot archive_bot unarchive_bot
+                    sync_tracker set_transfer_link set_transaction_price],
+    'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order
+                  liquidate_exited_asset answer_redeploy_offer],
     'tax' => %w[list_tax_jurisdictions generate_tax_report get_tax_report_status download_tax_report export_transactions_csv
                 list_account_transactions]
   }.freeze
+  MCP_TOOL_GROUPS = TOOL_GROUPS
+  REST_TOOL_GROUPS = TOOL_GROUPS
 
-  # REST API per-tool permissions. Tool names mirror MCP names; scope is read/control/trade
-  # (no tax report generation, no paper-trading toggles). Defaults are all off — REST is opt-in.
-  REST_TOOL_DEFAULTS = {
-    'list_bots' => false,
-    'get_bot_details' => false,
-    'list_exchanges' => false,
-    'get_exchange_balances' => false,
-    'get_portfolio_summary' => false,
-    'list_transactions' => false,
-    'list_open_orders' => false,
-    'export_transactions_csv' => false,
-    'list_account_transactions' => false,
-    'create_bot' => false,
-    'start_bot' => false,
-    'stop_bot' => false,
-    'update_bot_settings' => false,
-    'start_rule' => false,
-    'stop_rule' => false,
-    'update_rule_settings' => false,
-    'market_buy' => false,
-    'market_sell' => false,
-    'limit_buy' => false,
-    'limit_sell' => false,
-    'cancel_order' => false
-  }.freeze
-
-  REST_TOOL_GROUPS = {
-    'read' => %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary
-                 list_transactions list_open_orders export_transactions_csv list_account_transactions],
-    'control' => %w[create_bot start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings],
-    'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order]
-  }.freeze
+  # REST is opt-in: a personal token or a third-party client switches each tool on. Derived,
+  # so the two surfaces cannot drift; test/controllers/api/v1/tool_gating_test.rb checks
+  # every catalogued tool gates a routed action.
+  REST_TOOL_DEFAULTS = MCP_TOOL_DEFAULTS.transform_values { false }.freeze
 
   SMTP_PROVIDER = 'smtp_provider'.freeze # 'custom_smtp' or 'env_smtp'
   SMTP_USERNAME = 'smtp_username'.freeze

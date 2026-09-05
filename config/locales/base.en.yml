@@ -288,6 +288,45 @@ en:
                 list_account_transactions:
                     label: 'Account transactions'
                     description: 'View tracker transactions with filters'
+                list_rules:
+                    label: 'List rules'
+                    description: 'View withdrawal rules and their settings'
+                create_rule:
+                    label: 'Create rule'
+                    description: 'Create a withdrawal rule to an allow-listed address'
+                delete_rule:
+                    label: 'Delete rule'
+                    description: 'Delete a stopped withdrawal rule'
+                list_indices:
+                    label: 'List indices'
+                    description: 'View indices an index bot can track'
+                create_index_bot:
+                    label: 'Create index bot'
+                    description: 'Create and start an index DCA bot'
+                delete_bot:
+                    label: 'Delete bot'
+                    description: 'Delete a bot, running or not; its schedule is cancelled'
+                archive_bot:
+                    label: 'Archive bot'
+                    description: 'Stop a bot and hide it from the dashboard'
+                unarchive_bot:
+                    label: 'Reactivate bot'
+                    description: 'Bring an archived bot back'
+                liquidate_exited_asset:
+                    label: 'Sell exited holding'
+                    description: 'Sell a holding an index or basket bot has dropped'
+                answer_redeploy_offer:
+                    label: 'Answer redeploy offer'
+                    description: 'Accept or decline redeploying sale proceeds'
+                sync_tracker:
+                    label: 'Sync tracker'
+                    description: 'Pull new transactions and balances from exchanges'
+                set_transfer_link:
+                    label: 'Mark transfer'
+                    description: 'Link or unlink a withdrawal with its deposit'
+                set_transaction_price:
+                    label: 'State a price'
+                    description: 'Set the USD price of a transaction the venue did not value'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simulate trades with real market prices. No real orders are placed.'
             dry_run_label: 'Enable paper trading for trade tools'

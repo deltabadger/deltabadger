@@ -167,18 +167,13 @@ The personal API token below is exempt: it is yours, not a third party's, so you
 account-wide toggles are the whole answer for it.
 
 Enable toggles from **Settings → Connect → REST API**. Toggles are grouped
-(`read`, `control`, `trade`); each row is independent. REST toggles are
+(`read`, `control`, `trade`, `tax`); each row is independent. REST toggles are
 **isolated from MCP** — enabling `list_bots` for REST does not affect MCP
 permissions and vice versa.
 
-Tool names mirror the MCP names exactly: `list_bots`, `get_bot_details`,
-`list_exchanges`, `get_exchange_balances`, `get_portfolio_summary`,
-`list_transactions`, `list_open_orders`, `export_transactions_csv`,
-`list_account_transactions`, `create_bot`, `start_bot`, `stop_bot`,
-`update_bot_settings`, `start_rule`, `stop_rule`, `update_rule_settings`,
-`market_buy`, `market_sell`, `limit_buy`, `limit_sell`, `cancel_order`.
-
-Tax-report generation tools are MCP-only and intentionally out of REST scope.
+Tool names are the MCP names exactly; the full list is the matrix under
+**Settings → Connect**. The two surfaces share one catalogue, so every tool MCP
+offers, REST offers too.
 
 ---
 
@@ -210,12 +205,13 @@ Errors set both an HTTP status and an envelope `error.code`. Common pairs:
 
 | Status | Common error codes |
 |---|---|
+| 202 | (success) report generation accepted |
 | 400 | `idempotency_key_required` |
 | 401 | `missing_token`, `invalid_token`, `token_revoked`, `token_expired`, `user_not_found` |
-| 403 | `tool_disabled`, `insufficient_scope`, `api_key_missing` |
-| 404 | `bot_not_found`, `rule_not_found`, `exchange_not_found`, `pair_not_found`, `no_transactions` |
-| 409 | `bot_already_running`, `bot_not_running`, `bot_running`, `rule_already_active`, `rule_not_active`, `rule_active`, `idempotency_in_progress`, `idempotency_key_reused` |
-| 422 | `missing_required_parameter`, `invalid_interval`, `invalid_allocation`, `invalid_date`, `invalid_order_type`, `no_updates_provided`, `exchange_name_required`, `bot_invalid`, `bot_save_failed`, `rule_save_failed` |
+| 403 | `tool_disabled`, `insufficient_scope`, `api_key_missing`, `withdrawal_key_missing` |
+| 404 | `bot_not_found`, `rule_not_found`, `exchange_not_found`, `pair_not_found`, `asset_not_found`, `holding_not_exited`, `transaction_not_found`, `no_transfer_candidate`, `index_not_found`, `quote_asset_not_found`, `no_transactions`, `report_not_found` |
+| 409 | `bot_already_running`, `bot_not_running`, `bot_running`, `rule_already_active`, `rule_not_active`, `rule_active`, `rule_exists`, `bot_archived`, `bot_not_archived`, `market_closed`, `already_linked`, `not_linked`, `ambiguous_transfer_candidate`, `venue_valued`, `idempotency_in_progress`, `idempotency_key_reused`, `report_ready`, `report_generating` |
+| 422 | `missing_required_parameter`, `invalid_interval`, `invalid_allocation`, `invalid_date`, `invalid_order_type`, `no_updates_provided`, `exchange_name_required`, `bot_invalid`, `bot_save_failed`, `rule_save_failed`, `unknown_country`, `invalid_year`, `invalid_flag`, `market_data_not_configured`, `no_reading_keys`, `linked_required`, `price_usd_required`, `invalid_price`, `invalid_number`, `invalid_threshold_type`, `invalid_network`, `address_not_listed`, `withdrawal_unsupported`, `invalid_bot_type`, `not_composition_bot`, `accept_required`, `invalid_basket`, `invalid_weighting`, `allocations_unbalanced`, `market_cap_unavailable`, `unsupported_setting`, `asset_not_in_basket`, `missing_basket_asset`, `invalid_allocations` |
 | 502 | `order_failed`, `cancel_failed`, `balances_fetch_failed`, `bot_stop_failed` |
 
 ---
@@ -229,32 +225,52 @@ token).
 | Method | Path | Tool | Notes |
 |---|---|---|---|
 | GET | `/bots` | `list_bots` | Optional `?status=` filter |
-| GET | `/bots/:id` | `get_bot_details` | Includes metrics if available; a multi-asset bot reports its members as `pair` (`BTC+ETH/USD`) plus `allocations` (`{symbol: weight}`; raw weights as set, which may not sum to 1 until normalised) |
-| POST | `/bots` | `create_bot` | 201 on success; required: `exchange_name`, `base_asset`, `quote_asset`, `quote_amount`, `interval` |
-| PATCH | `/bots/:id` | `update_bot_settings` | Accepts `quote_amount`, `label`; rule must be stopped |
+| GET | `/bots/:id` | `get_bot_details` | Includes metrics if available; composition bots also report `exited_holdings` (symbols) and `redeploy_offer` (quote amount as a string); a multi-asset bot reports its members as `pair` (`BTC+ETH/USD`) plus `allocations` (`{symbol: weight}`; raw weights as set, which may not sum to 1 until normalised) |
+| POST | `/bots` | per-type | 201 on success. `type`: `dca` (default) or `index` — each gated by its own tool. `dca`: `exchange_name`, `quote_asset`, `quote_amount`, `interval`, plus either `base_asset` or `assets` — an array of `{symbol, allocation}` or the string `"BTC:60,ETH:40"`, 2-20 entries, weights optional (equal split) and summing to 100 when given — with optional `weighting: market_cap`. `index`: `exchange_name`, `quote_asset`, `quote_amount`, `interval`, plus `index` (id from `/indices`, must be available on that exchange), `num_coins`, `allocation_flattening` |
+| PATCH | `/bots/:id` | `update_bot_settings` | Bot must be stopped. Any bot: `quote_amount`, `label`. Index bots: `num_coins`, `allocation_flattening`. Basket bots: `allocations` — every current member, summing to 100, as `{"BTC": 70, "ETH": 30}` or the string `"BTC:70,ETH:30"`; supplying them takes the basket off market-cap weighting. Membership is not editable here |
 | POST | `/bots/:id/start` | `start_bot` | 409 if already running |
 | POST | `/bots/:id/stop` | `stop_bot` | 409 if not running |
+| DELETE | `/bots/:id` | `delete_bot` | Any status; soft delete, and a running bot's schedule is cancelled |
+| POST | `/bots/:id/archive` | `archive_bot` | Stops the bot first |
+| DELETE | `/bots/:id/archive` | `unarchive_bot` | Returns the bot stopped |
+| POST | `/bots/:id/liquidations` | `liquidate_exited_asset` | Body `symbol`; **Requires `Idempotency-Key`** (see section 5); 202; index/basket bots only; irreversible market sale |
+| POST | `/bots/:id/redeploy` | `answer_redeploy_offer` | Body `accept: true\|false` (required); **Requires `Idempotency-Key`**; 202, `data.offer` is what would be redeployed |
 | GET | `/exchanges` | `list_exchanges` | Lists user trading exchanges |
 | GET | `/exchanges/:id/balances` | `get_exchange_balances` | Live exchange call; 502 on upstream failure |
 | GET | `/transactions` | `list_transactions` | Optional `?bot_id=`, `?limit=` (max 100) |
-| GET | `/transactions/account` | `list_account_transactions` | Optional `?exchange_id=`, `?from_date=`, `?to_date=`, `?entry_type=`, `?limit=` (max 200) |
+| GET | `/transactions/account` | `list_account_transactions` | Optional `?exchange_id=`, `?from_date=`, `?to_date=`, `?entry_type=`, `?limit=` (max 200). Each row carries `linked`, `linked_transaction_id`, `stated_price_usd` and `venue_valued` |
 | GET | `/transactions/export` | `export_transactions_csv` | **CSV** (see section 6) |
+| POST | `/transactions/account/:id/transfer_link` | `set_transfer_link` | Body `linked: true\|false` (required); give either side of the pair, the match is found within 14 days |
+| PATCH | `/transactions/account/:id/price` | `set_transaction_price` | Body `price_usd` (key required; `null` or `""` clears it); USD is the ledger's unit |
+| POST | `/tracker/sync` | `sync_tracker` | 202; body-less |
 | GET | `/portfolio` | `get_portfolio_summary` | Returns `empty: true` for users with no bots |
+| GET | `/indices` | `list_indices` | Optional `?exchange_name=` |
 | GET | `/orders` | `list_open_orders` | Optional `?exchange_name=`; merges DB + live exchange orders |
 | POST | `/orders` | per-type | **Requires `Idempotency-Key`** (see section 5) |
 | DELETE | `/orders/:id` | `cancel_order` | Numeric ID → DB row; non-numeric → exchange order (then `exchange_name` required) |
+| GET | `/rules` | `list_rules` | Withdrawal rules; destinations are returned masked |
+| POST | `/rules` | `create_rule` | 201, created stopped; `address` must already be on the exchange's withdrawal allow-list (422 `address_not_listed`) |
+| DELETE | `/rules/:id` | `delete_rule` | Rule must be stopped |
 | POST | `/rules/:id/start` | `start_rule` | 409 if already active |
 | POST | `/rules/:id/stop` | `stop_rule` | 409 if not active |
 | PATCH | `/rules/:id` | `update_rule_settings` | Accepts `withdrawal_percentage`, `max_fee_percentage`, `min_amount`, `threshold_type`; rule must be stopped |
+| GET | `/tax/jurisdictions` | `list_tax_jurisdictions` | Supported countries, method, currency |
+| POST | `/tax/reports` | `generate_tax_report` | `country` (any case), `year`, optional `stablecoin_as_fiat`, optional `force` to replace an existing report; **202** — poll status; crypto scope only |
+| GET | `/tax/reports/:country/:year` | `get_tax_report_status` | `{ ready: bool, state: "ready" \| "generating" \| "none" }`; `generating` is per account (one report runs at a time) |
+| GET | `/tax/reports/:country/:year/download` | `download_tax_report` | **CSV** (see section 6); 404 until generated |
 
 ---
 
-## 5. POST /api/v1/orders — idempotency
+## 5. Idempotency — POST /orders, /bots/:id/liquidations, /bots/:id/redeploy
 
-Order placement is the only state-changing endpoint that requires
+These three endpoints can place orders at a venue, and they are the only ones that require
 idempotency. Cancellation (`DELETE /api/v1/orders/:id`) is intentionally
 **not** idempotency-wrapped — cancelling an already-cancelled order is a
 benign no-op at the exchange level.
+
+On `/bots/:id/liquidations` and `/bots/:id/redeploy` the key is scoped to the bot and the
+action as well as the body, so one key reused against a second bot — or against the other
+action — is `409 idempotency_key_reused`, never a replay of the first answer.
 
 ### Request
 
@@ -362,6 +378,7 @@ curl -X POST https://your.deltabadger.com/oauth/register \
 
 # 3. Confirm the token works against REST.
 curl -H "Authorization: Bearer $TOKEN" https://your.deltabadger.com/api/v1/bots
+curl -H "Authorization: Bearer $TOKEN" https://your.deltabadger.com/api/v1/tax/jurisdictions
 
 # 4. Place an order (after enabling `market_buy` in Settings → Connect → REST API).
 curl -X POST https://your.deltabadger.com/api/v1/orders \

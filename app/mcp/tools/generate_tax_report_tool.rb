@@ -15,35 +15,14 @@ class GenerateTaxReportTool < ApplicationMCPTool
   property :country, type: 'string', required: true, description: "Two-letter country code (e.g. 'US', 'DE', 'GB')"
   property :year, type: 'number', required: true, description: 'Tax year (e.g. 2025)'
   property :stablecoin_as_fiat, type: 'boolean', description: 'Treat stablecoins as fiat (relevant for AT)'
+  property :force, type: 'boolean', description: 'Replace a report that already exists for this country and year'
 
   def perform
-    jurisdiction = Tax::Jurisdictions.for(country)
-    unless jurisdiction
-      render text: "Unknown country code '#{country}'. Use 'list_tax_jurisdictions' to see supported countries."
-      return
-    end
+    result = BotApi::Tax::GenerateReport.call(user: current_user, country: country, year: year,
+                                              stablecoin_as_fiat: stablecoin_as_fiat, force: force)
+    return render(text: result.error_message) unless result.success?
 
-    unless MarketData.configured? || jurisdiction[:method] == :wealth_snapshot
-      render text: 'Market data provider is not configured. Set up CoinGecko or Deltabadger market data in Settings first.'
-      return
-    end
-
-    file_path = Tax::GenerateReportJob.report_path(current_user.id, country, year)
-    if File.exist?(file_path)
-      render text: "A tax report for #{jurisdiction[:name]} (#{year.to_i}) is already available. " \
-                   "Use 'download_tax_report' to retrieve it, or 'generate_tax_report' again after downloading."
-      return
-    end
-
-    Tax::GenerateReportJob.perform_later(current_user.id, country, year.to_i, stablecoin_as_fiat || false)
-
-    # So the tracker auto-downloads it when the user next opens the page. The pending report's
-    # identity only — an MCP call is not the user editing the export form's preferences.
-    current_user.update(tracker_settings: (current_user.tracker_settings || {}).merge(
-      'pending_report' => { 'country' => country, 'year' => year.to_i, 'report_scope' => 'crypto' }
-    ))
-
-    render text: "Tax report generation started for #{jurisdiction[:name]} (#{year.to_i}). " \
+    render text: "Tax report generation started for #{result.data[:name]} (#{result.data[:year]}). " \
                  'This runs in the background and may take a few minutes depending on transaction volume. ' \
                  "Use 'get_tax_report_status' to check when it's ready."
   end

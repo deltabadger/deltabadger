@@ -5,7 +5,9 @@ module Api
     class TransactionsController < BaseController
       before_action -> { require_rest_tool!('list_transactions') },         only: :index
       before_action -> { require_rest_tool!('list_account_transactions') }, only: :account
-      before_action -> { require_rest_tool!('export_transactions_csv') },   only: :export
+      before_action -> { require_rest_tool!('set_transfer_link') },          only: :transfer_link
+      before_action -> { require_rest_tool!('set_transaction_price') },      only: :price
+      before_action -> { require_rest_tool!('export_transactions_csv') }, only: :export
 
       def index
         render_result BotApi::Transactions::List.call(
@@ -19,6 +21,26 @@ module Api
           exchange_id: params[:exchange_id], from_date: params[:from_date],
           to_date: params[:to_date], entry_type: params[:entry_type],
           limit: params[:limit]
+        )
+      end
+
+      def transfer_link
+        render_result BotApi::Tracker::SetTransferLink.call(
+          user: current_user, transaction_id: params[:id], linked: params[:linked]
+        )
+      end
+
+      # `price_usd` must be PRESENT, not merely truthy: JSON `null` and `""` both mean "clear the
+      # stated price", so an omitted key is a mistake rather than a clear.
+      def price
+        unless params.key?(:price_usd)
+          return render json: { data: nil,
+                                error: { code: 'price_usd_required', message: 'price_usd is required (null or "" clears it).' } },
+                        status: :unprocessable_entity
+        end
+
+        render_result BotApi::Tracker::SetTransactionPrice.call(
+          user: current_user, transaction_id: params[:id], price_usd: params[:price_usd]
         )
       end
 

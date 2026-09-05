@@ -27,6 +27,11 @@ class AccountTransaction < ApplicationRecord
   # price history where it cannot; a stated price stands in front of both.
   MANUAL_FIELDS = %w[price].freeze
 
+  # A user-asserted transfer link gets 14 days (not the auto-matcher's 72 hours) and no 2%
+  # tolerance. Changing this also means editing the 15 tracker.transfer_no_candidate translations,
+  # which spell "14 days" out rather than interpolating it.
+  TRANSFER_LINK_WINDOW = 14.days
+
   # Whose figure this is. A number the user typed is theirs, and the row says so — a manual value
   # that looked like the exchange's would be worse than no manual value at all.
   def manual?(field) = manual_value(field).present?
@@ -132,6 +137,30 @@ class AccountTransaction < ApplicationRecord
   end
 
   def linked? = linked_transaction_id.present? || inverse_link.present?
+
+  # At most two rows: one is a link, two is an ambiguity the caller has to report.
+  def transfer_candidates(user)
+    scope = AccountTransaction.for_user(user).where(base_currency: base_currency)
+    at = transacted_at
+
+    if withdrawal?
+      # Claimed deposits must be excluded before update! reaches the unique index.
+      claimed = AccountTransaction.for_user(user).where.not(linked_transaction_id: nil).select(:linked_transaction_id)
+      scope.deposit
+           .where(transacted_at: at..(at + TRANSFER_LINK_WINDOW))
+           .where(base_amount: ..base_amount)
+           .where.not(id: claimed)
+           .limit(2).to_a
+    elsif deposit?
+      scope.withdrawal
+           .where(linked_transaction_id: nil)
+           .where(transacted_at: (at - TRANSFER_LINK_WINDOW)..at)
+           .where(base_amount: base_amount..)
+           .limit(2).to_a
+    else
+      []
+    end
+  end
 
   private
 

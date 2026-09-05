@@ -34,10 +34,10 @@ class UserRestPermissionsTest < ActiveSupport::TestCase
     assert_not @user.rest_tool_enabled?('nonexistent_tool')
   end
 
-  test 'rest_tool_enabled? returns false for tax tools (out of REST scope)' do
+  test 'rest_tool_enabled? returns false for tax tools by default' do
     %w[list_tax_jurisdictions generate_tax_report get_tax_report_status
        download_tax_report].each do |tool|
-      assert_not @user.rest_tool_enabled?(tool), "Expected #{tool} to be disabled (out of REST scope)"
+      assert_not @user.rest_tool_enabled?(tool), "Expected #{tool} to be disabled by default"
     end
   end
 
@@ -171,16 +171,8 @@ class UserRestPermissionsTest < ActiveSupport::TestCase
 
   # REST_TOOL_DEFAULTS / REST_TOOL_GROUPS structure
 
-  test 'REST_TOOL_DEFAULTS contains the in-scope tool set (read/control/trade, no tax)' do
-    expected = %w[
-      list_bots get_bot_details list_exchanges get_exchange_balances
-      get_portfolio_summary list_transactions list_open_orders
-      export_transactions_csv list_account_transactions
-      create_bot start_bot stop_bot update_bot_settings
-      start_rule stop_rule update_rule_settings
-      market_buy market_sell limit_buy limit_sell cancel_order
-    ]
-    assert_equal expected.sort, AppConfig::REST_TOOL_DEFAULTS.keys.sort
+  test 'REST_TOOL_DEFAULTS carries exactly the MCP tool set' do
+    assert_equal AppConfig::MCP_TOOL_DEFAULTS.keys.sort, AppConfig::REST_TOOL_DEFAULTS.keys.sort
   end
 
   test 'REST_TOOL_DEFAULTS defaults every tool to false (opt-in)' do
@@ -194,30 +186,14 @@ class UserRestPermissionsTest < ActiveSupport::TestCase
     assert_empty extra, "REST tool keys must match existing MCP names; unexpected: #{extra.inspect}"
   end
 
-  test 'REST_TOOL_DEFAULTS excludes tax-only tools' do
-    excluded = %w[list_tax_jurisdictions generate_tax_report get_tax_report_status download_tax_report]
-    excluded.each do |tool|
-      assert_not AppConfig::REST_TOOL_DEFAULTS.key?(tool), "#{tool} must not be in REST scope"
-    end
-  end
-
-  test 'REST_TOOL_GROUPS has read, control, and trade groups' do
-    assert_equal %w[control read trade], AppConfig::REST_TOOL_GROUPS.keys.sort
-  end
-
-  test 'REST_TOOL_GROUPS has no tax group (out of REST scope)' do
-    assert_not AppConfig::REST_TOOL_GROUPS.key?('tax')
+  test 'REST_TOOL_GROUPS has read, control, trade and tax groups' do
+    assert_equal %w[control read tax trade], AppConfig::REST_TOOL_GROUPS.keys.sort
   end
 
   test 'REST_TOOL_GROUPS values together cover exactly REST_TOOL_DEFAULTS keys' do
     grouped = AppConfig::REST_TOOL_GROUPS.values.flatten
     assert_equal grouped.sort, grouped.uniq.sort, 'a tool must appear in only one group'
     assert_equal AppConfig::REST_TOOL_DEFAULTS.keys.sort, grouped.sort
-  end
-
-  test "REST_TOOL_GROUPS['read'] includes activity exports moved out of MCP tax group" do
-    assert_includes AppConfig::REST_TOOL_GROUPS['read'], 'export_transactions_csv'
-    assert_includes AppConfig::REST_TOOL_GROUPS['read'], 'list_account_transactions'
   end
 
   test 'REST_TOOL_GROUPS trade group matches MCP trade group' do

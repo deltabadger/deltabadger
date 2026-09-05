@@ -305,6 +305,45 @@ it:
                 list_account_transactions:
                     label: 'Transazioni del conto'
                     description: 'Visualizza le transazioni del tracker con filtri'
+                list_rules:
+                    label: 'Elenco regole'
+                    description: 'Visualizza le regole di prelievo e le loro impostazioni'
+                create_rule:
+                    label: 'Crea regola'
+                    description: 'Crea una regola di prelievo verso un indirizzo autorizzato'
+                delete_rule:
+                    label: 'Elimina regola'
+                    description: 'Elimina una regola di prelievo ferma'
+                list_indices:
+                    label: 'Elenco indici'
+                    description: 'Visualizza gli indici che un bot indice può seguire'
+                create_index_bot:
+                    label: 'Crea bot indice'
+                    description: 'Crea e avvia un bot DCA indice'
+                delete_bot:
+                    label: 'Elimina bot'
+                    description: 'Elimina un bot, attivo o fermo; la sua programmazione viene annullata'
+                archive_bot:
+                    label: 'Archivia bot'
+                    description: 'Ferma un bot e nascondilo dalla dashboard'
+                unarchive_bot:
+                    label: 'Riattiva bot'
+                    description: 'Riporta indietro un bot archiviato'
+                liquidate_exited_asset:
+                    label: 'Vendi asset rimosso'
+                    description: 'Vendi un asset che un bot indice o paniere ha rimosso'
+                answer_redeploy_offer:
+                    label: 'Rispondi alla proposta di reinvestimento'
+                    description: 'Accetta o rifiuta il reinvestimento dei ricavi della vendita'
+                sync_tracker:
+                    label: 'Sincronizza il Tracker'
+                    description: 'Recupera nuove transazioni e saldi dagli exchange'
+                set_transfer_link:
+                    label: 'Segna un trasferimento'
+                    description: 'Collega un prelievo al suo deposito o annulla il collegamento'
+                set_transaction_price:
+                    label: 'Indica un prezzo'
+                    description: 'Imposta il prezzo in USD di una transazione che l''exchange non ha valutato'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simula operazioni con prezzi di mercato reali. Non vengono effettuati ordini reali.'
             dry_run_label: 'Attiva il paper trading per gli strumenti di trading'

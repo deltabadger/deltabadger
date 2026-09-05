@@ -600,7 +600,191 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  # ---- index bots ---------------------------------------------------------
+
+  test 'POST /api/v1/bots with type index creates a DcaIndex bot' do
+    @user.set_rest_tool_enabled('create_index_bot', true)
+    with_index_fixture
+
+    post '/api/v1/bots',
+         params: { type: 'index', exchange_name: 'Kraken', quote_asset: 'EUR', quote_amount: 50,
+                   interval: 'week', index: 'layer-1' },
+         headers: bearer(create_token), as: :json
+
+    assert_response :created
+    bot = @user.bots.find(JSON.parse(response.body)['data']['id'])
+    assert_equal 'Bots::DcaIndex', bot.type
+    assert_equal 'layer-1', bot.index_category_id
+  end
+
+  test 'POST /api/v1/bots with type index is gated by create_index_bot, not create_bot' do
+    @user.set_rest_tool_enabled('create_bot', true)
+
+    post '/api/v1/bots', params: { type: 'index' }, headers: bearer(create_token), as: :json
+
+    assert_response :forbidden
+    assert_equal 'tool_disabled', JSON.parse(response.body)['error']['code']
+  end
+
+  test 'POST /api/v1/bots with an unknown type is a 422' do
+    @user.set_rest_tool_enabled('create_bot', true)
+    @user.set_rest_tool_enabled('create_index_bot', true)
+
+    post '/api/v1/bots', params: { type: 'bogus' }, headers: bearer(create_token), as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal 'invalid_bot_type', JSON.parse(response.body)['error']['code']
+  end
+
+  test 'GET /api/v1/indices lists the indices' do
+    @user.set_rest_tool_enabled('list_indices', true)
+    with_index_fixture
+
+    get '/api/v1/indices', headers: bearer(create_token)
+
+    assert_response :ok
+    body = JSON.parse(response.body)['data']
+    assert_equal 1, body['count']
+    assert_equal 'layer-1', body['indices'].first['id']
+  end
+
+  test 'GET /api/v1/indices is gated' do
+    get '/api/v1/indices', headers: bearer(create_token)
+    assert_response :forbidden
+  end
+
+  test 'POST /api/v1/bots accepts a basket as an array of symbol and allocation' do
+    @user.set_rest_tool_enabled('create_bot', true)
+    exchange = create(:binance_exchange)
+    usd = create(:asset, :usd)
+    [create(:asset, :bitcoin), create(:asset, :ethereum)].each do |asset|
+      create(:ticker, exchange: exchange, base_asset: asset, quote_asset: usd)
+    end
+    create(:api_key, user: @user, exchange: exchange, key_type: :trading, status: :correct)
+    Bot::ActionJob.stubs(:perform_later)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+
+    post '/api/v1/bots',
+         params: { exchange_name: 'Binance', quote_asset: 'USD', quote_amount: 100, interval: 'day',
+                   assets: [{ symbol: 'BTC', allocation: 50 }, { symbol: 'ETH', allocation: 50 }] },
+         headers: bearer(create_token), as: :json
+
+    assert_response :created
+    bot = @user.bots.find(JSON.parse(response.body)['data']['id'])
+    assert_equal 'Bots::DcaMultiAsset', bot.type
+    assert_equal %w[BTC ETH], bot.base_assets.map(&:symbol)
+  end
+
+  test 'PATCH /api/v1/bots/:id reweights a basket from a JSON object' do
+    @user.set_rest_tool_enabled('update_bot_settings', true)
+    btc = create(:asset, :bitcoin)
+    eth = create(:asset, :ethereum)
+    bot = create(:dca_multi_asset, :stopped, user: @user, base_assets: [btc, eth])
+
+    patch "/api/v1/bots/#{bot.id}",
+          params: { allocations: { BTC: 70, ETH: 30 } },
+          headers: bearer(create_token), as: :json
+
+    assert_response :ok
+    assert_in_delta 0.7, bot.reload.allocation_for(btc.id), 0.0001
+  end
+
+  test 'PATCH /api/v1/bots/:id retunes an index bot' do
+    @user.set_rest_tool_enabled('update_bot_settings', true)
+    bot = create(:dca_index, user: @user, status: :stopped)
+
+    patch "/api/v1/bots/#{bot.id}",
+          params: { num_coins: 8, allocation_flattening: 0.25 },
+          headers: bearer(create_token), as: :json
+
+    assert_response :ok
+    bot.reload
+    assert_equal 8, bot.num_coins
+    assert_equal 0.25, bot.allocation_flattening
+  end
+
+  # ---- delete / archive / reactivate ---------------------------------------
+
+  test 'DELETE /api/v1/bots/:id deletes a running bot and cancels its tick' do
+    @user.set_rest_tool_enabled('delete_bot', true)
+    bot = create(:dca_single_asset, user: @user, status: :scheduled, started_at: Time.current)
+    Bots::DcaSingleAsset.any_instance.expects(:cancel_scheduled_action_jobs)
+
+    delete "/api/v1/bots/#{bot.id}", headers: bearer(create_token)
+
+    assert_response :ok
+    assert bot.reload.deleted?
+  end
+
+  test 'POST and DELETE /api/v1/bots/:id/archive archive and reactivate' do
+    @user.set_rest_tool_enabled('archive_bot', true)
+    @user.set_rest_tool_enabled('unarchive_bot', true)
+    bot = create(:dca_single_asset, :stopped, user: @user)
+
+    post "/api/v1/bots/#{bot.id}/archive", headers: bearer(create_token)
+    assert_response :ok
+    assert bot.reload.archived?
+
+    delete "/api/v1/bots/#{bot.id}/archive", headers: bearer(create_token)
+    assert_response :ok
+    assert bot.reload.stopped?
+  end
+
+  test 'archiving twice is a 409' do
+    @user.set_rest_tool_enabled('archive_bot', true)
+    bot = create(:dca_single_asset, :stopped, user: @user)
+
+    post "/api/v1/bots/#{bot.id}/archive", headers: bearer(create_token)
+    post "/api/v1/bots/#{bot.id}/archive", headers: bearer(create_token)
+
+    assert_response :conflict
+    assert_equal 'bot_archived', JSON.parse(response.body)['error']['code']
+  end
+
+  test 'the three lifecycle actions are gated by their own tools' do
+    bot = create(:dca_single_asset, :stopped, user: @user)
+    token = create_token
+
+    delete "/api/v1/bots/#{bot.id}", headers: bearer(token)
+    assert_response :forbidden
+    post "/api/v1/bots/#{bot.id}/archive", headers: bearer(token)
+    assert_response :forbidden
+    delete "/api/v1/bots/#{bot.id}/archive", headers: bearer(token)
+    assert_response :forbidden
+  end
+
+  test 'GET /api/v1/bots/:id reports exited holdings and the redeploy offer' do
+    @user.set_rest_tool_enabled('get_bot_details', true)
+    bot = create(:dca_index, user: @user, status: :stopped)
+    Bots::DcaIndex.any_instance.stubs(:exited_symbols).returns(%w[DOGE])
+    Bots::DcaIndex.any_instance.stubs(:redeploy_offer).returns(25.5.to_d)
+
+    get "/api/v1/bots/#{bot.id}", headers: bearer(create_token)
+
+    assert_response :ok
+    body = JSON.parse(response.body)['data']
+    assert_equal %w[DOGE], body['exited_holdings']
+    assert_equal '25.5', body['redeploy_offer']
+  end
+
   private
+
+  # A Kraken venue with three EUR pairs — the minimum a category index needs to offer that quote.
+  def with_index_fixture
+    exchange = create(:kraken_exchange)
+    eur = create(:asset, :eur)
+    [create(:asset, :bitcoin), create(:asset, :ethereum),
+     create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana', category: 'Cryptocurrency')]
+      .each { |asset| create(:ticker, exchange: exchange, base_asset: asset, quote_asset: eur) }
+    create(:api_key, user: @user, exchange: exchange, key_type: :trading, status: :correct)
+    create(:index, external_id: 'layer-1', source: Index::SOURCE_COINGECKO, name: 'Layer 1',
+                   top_coins: %w[bitcoin ethereum solana], available_exchanges: { 'Exchanges::Kraken' => 3 })
+    MarketData.stubs(:configured?).returns(true)
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+    MarketData.stubs(:get_top_coins).returns(Result::Success.new(%w[bitcoin ethereum solana]))
+    Bot::ActionJob.stubs(:perform_later)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+  end
 
   def bearer(token)
     { 'Authorization' => "Bearer #{token.token}" }

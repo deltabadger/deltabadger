@@ -42,17 +42,26 @@ Rails.application.routes.draw do
     post :remove_invalid_keys, to: 'api_keys#remove_invalid_keys'
 
     namespace :v1 do
-      resources :bots, only: %i[index show create update] do
+      resources :bots, only: %i[index show create update destroy] do
         member do
           post :start
           post :stop
+          post :archive
+          delete :archive, action: :unarchive
+          post :liquidations, action: :liquidate
+          post :redeploy
         end
       end
       resources :transactions, only: [:index] do
         collection do
           get :account
           get :export
+          post 'account/:id/transfer_link', action: :transfer_link
+          patch 'account/:id/price', action: :price
         end
+      end
+      namespace :tracker do
+        post :sync
       end
       resources :exchanges, only: [:index] do
         member do
@@ -61,12 +70,19 @@ Rails.application.routes.draw do
       end
       resources :orders, only: %i[index create destroy]
       resource :portfolio, only: [:show]
-      resources :rules, only: [:update] do
+      resources :indices, only: [:index]
+      resources :rules, only: %i[index create update destroy] do
         member do
           post :start
           post :stop
         end
       end
+      # No constraints on :country / :year on purpose: a malformed value must reach
+      # BotApi::Tax::Params and come back as a documented 422 in the envelope, not a routing 404.
+      get 'tax/jurisdictions', to: 'tax_reports#jurisdictions'
+      post 'tax/reports', to: 'tax_reports#create'
+      get 'tax/reports/:country/:year', to: 'tax_reports#show'
+      get 'tax/reports/:country/:year/download', to: 'tax_reports#download'
     end
   end
 

@@ -288,6 +288,45 @@ sk:
                 list_account_transactions:
                     label: 'Transakcie účtu'
                     description: 'Zobraziť transakcie s filtrami'
+                list_rules:
+                    label: 'Zoznam pravidiel'
+                    description: 'Zobraziť pravidlá výberu a ich nastavenia'
+                create_rule:
+                    label: 'Vytvoriť pravidlo'
+                    description: 'Vytvoriť pravidlo výberu na schválenú adresu'
+                delete_rule:
+                    label: 'Zmazať pravidlo'
+                    description: 'Zmazať zastavené pravidlo výberu'
+                list_indices:
+                    label: 'Zoznam indexov'
+                    description: 'Zobraziť indexy, ktoré môže indexový bot sledovať'
+                create_index_bot:
+                    label: 'Vytvoriť indexového bota'
+                    description: 'Vytvoriť a spustiť indexového DCA bota'
+                delete_bot:
+                    label: 'Zmazať bota'
+                    description: 'Zmazať bota, bežiaceho aj zastaveného; jeho rozvrh sa zruší'
+                archive_bot:
+                    label: 'Archivovať bota'
+                    description: 'Zastaviť bota a skryť ho z prehľadu'
+                unarchive_bot:
+                    label: 'Obnoviť bota'
+                    description: 'Vrátiť archivovaného bota späť'
+                liquidate_exited_asset:
+                    label: 'Predať odstránené aktívum'
+                    description: 'Predať aktívum, ktoré bot odstránil zo svojho indexu alebo koša'
+                answer_redeploy_offer:
+                    label: 'Rozhodnúť o opätovnom vložení'
+                    description: 'Prijať alebo odmietnuť opätovné vloženie výnosu z predaja'
+                sync_tracker:
+                    label: 'Synchronizovať Tracker'
+                    description: 'Načítať nové transakcie a zostatky z búrz'
+                set_transfer_link:
+                    label: 'Označiť prevod'
+                    description: 'Prepojiť výber s jeho vkladom alebo prepojenie zrušiť'
+                set_transaction_price:
+                    label: 'Zadať cenu'
+                    description: 'Nastaviť cenu v USD pri transakcii, ktorú burza neocenila'
             dry_run_title: 'Papierové obchodovanie'
             dry_run_description: 'Simulujte obchody s reálnymi trhovými cenami. Žiadne skutočné príkazy sa nezadávajú.'
             dry_run_label: 'Zapnúť papierové obchodovanie pre obchodné nástroje'

@@ -37,7 +37,9 @@ class ListAccountTransactionsTool < ApplicationMCPTool
       base = "#{row[:base_amount]} #{row[:base_currency]}"
       quote = row[:quote_amount].present? ? " / #{row[:quote_amount]} #{row[:quote_currency]}" : ''
       fee = row[:fee_amount].present? ? " | Fee: #{row[:fee_amount]} #{row[:fee_currency]}" : ''
-      "- [#{date}] #{row[:entry_type].upcase} #{base}#{quote}#{fee} | #{row[:exchange] || 'N/A'}"
+      link = row[:linked] ? " | transfer ↔ ##{row[:linked_transaction_id]}" : ''
+      stated = row[:stated_price_usd].present? ? " | stated price #{row[:stated_price_usd]} USD" : ''
+      "- ##{row[:id]} [#{date}] #{row[:entry_type].upcase} #{base}#{quote}#{fee} | #{row[:exchange] || 'N/A'}#{link}#{stated}"
     end
     "Account transactions (#{data[:count]}):\n#{lines.join("\n")}"
   end

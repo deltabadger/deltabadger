@@ -6,12 +6,10 @@ class ListTaxJurisdictionsTool < ApplicationMCPTool
   read_only
 
   def perform
-    jurisdictions = Tax::Jurisdictions.available
-
-    lines = jurisdictions.map do |code, config|
-      "- #{code} — #{config[:name]} | Method: #{config[:method]} | Currency: #{config[:currency]}"
+    data = BotApi::Tax::ListJurisdictions.call.data
+    lines = data[:jurisdictions].map do |row|
+      "- #{row[:code]} — #{row[:name]} | Method: #{row[:method]} | Currency: #{row[:currency]}"
     end
-
-    render text: "Supported tax jurisdictions (#{lines.size}):\n#{lines.join("\n")}"
+    render text: "Supported tax jurisdictions (#{data[:count]}):\n#{lines.join("\n")}"
   end
 end

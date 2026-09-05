@@ -292,4 +292,14 @@ class CreateBotToolTest < ActiveSupport::TestCase
 
     assert_match(/greater than 0/, response.contents.first.text)
   end
+  test 'a basket is created from a comma-separated list of symbols and weights' do
+    Bot::ActionJob.stubs(:perform_later)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+
+    response = CreateBotTool.new(exchange_name: 'Binance', quote_asset: 'USD', quote_amount: 100.0,
+                                 interval: 'day', assets: 'BTC:50,ETH:50').execute
+
+    assert_match(%r{BTC\+ETH/USD}, response.contents.first.text)
+    assert_equal 'Bots::DcaMultiAsset', @user.bots.last.type
+  end
 end
