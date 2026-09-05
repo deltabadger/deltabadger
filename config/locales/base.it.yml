@@ -320,6 +320,15 @@ it:
                 create_index_bot:
                     label: 'Crea bot indice'
                     description: 'Crea e avvia un bot DCA indice'
+                delete_bot:
+                    label: 'Elimina bot'
+                    description: 'Elimina un bot, attivo o fermo; la sua programmazione viene annullata'
+                archive_bot:
+                    label: 'Archivia bot'
+                    description: 'Ferma un bot e nascondilo dalla dashboard'
+                unarchive_bot:
+                    label: 'Riattiva bot'
+                    description: 'Riporta indietro un bot archiviato'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simula operazioni con prezzi di mercato reali. Non vengono effettuati ordini reali.'
             dry_run_label: 'Attiva il paper trading per gli strumenti di trading'

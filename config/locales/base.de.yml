@@ -320,6 +320,15 @@ de:
                 create_index_bot:
                     label: 'Index-Bot erstellen'
                     description: 'Einen Index-DCA-Bot erstellen und starten'
+                delete_bot:
+                    label: 'Bot löschen'
+                    description: 'Einen Bot löschen, ob laufend oder gestoppt; sein Zeitplan wird aufgehoben'
+                archive_bot:
+                    label: 'Bot archivieren'
+                    description: 'Einen Bot stoppen und aus dem Dashboard ausblenden'
+                unarchive_bot:
+                    label: 'Bot reaktivieren'
+                    description: 'Einen archivierten Bot zurückholen'
             dry_run_title: 'Papierhandel'
             dry_run_description: 'Trades mit echten Marktpreisen simulieren. Es werden keine echten Orders ausgeführt.'
             dry_run_label: 'Papierhandel für Trade-Tools aktivieren'

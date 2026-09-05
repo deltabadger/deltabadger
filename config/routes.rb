@@ -42,10 +42,12 @@ Rails.application.routes.draw do
     post :remove_invalid_keys, to: 'api_keys#remove_invalid_keys'
 
     namespace :v1 do
-      resources :bots, only: %i[index show create update] do
+      resources :bots, only: %i[index show create update destroy] do
         member do
           post :start
           post :stop
+          post :archive
+          delete :archive, action: :unarchive
         end
       end
       resources :transactions, only: [:index] do

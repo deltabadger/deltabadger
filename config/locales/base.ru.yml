@@ -323,6 +323,15 @@ ru:
                 create_index_bot:
                     label: 'Создать индексного бота'
                     description: 'Создать и запустить индексного DCA-бота'
+                delete_bot:
+                    label: 'Удалить бота'
+                    description: 'Удалить бота, работающего или остановленного; его график отменяется'
+                archive_bot:
+                    label: 'Архивировать бота'
+                    description: 'Остановить бота и скрыть его с панели'
+                unarchive_bot:
+                    label: 'Восстановить бота'
+                    description: 'Вернуть бота из архива'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Симуляция сделок с реальными рыночными ценами. Реальные ордера не размещаются.'
             dry_run_label: 'Включить paper trading для торговых инструментов'

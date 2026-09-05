@@ -11,6 +11,9 @@ module Api
       before_action -> { require_rest_tool!('update_bot_settings') }, only: :update
       before_action -> { require_rest_tool!('start_bot') },           only: :start
       before_action -> { require_rest_tool!('stop_bot') },            only: :stop
+      before_action -> { require_rest_tool!('delete_bot') },          only: :destroy
+      before_action -> { require_rest_tool!('archive_bot') },         only: :archive
+      before_action -> { require_rest_tool!('unarchive_bot') },       only: :unarchive
 
       def index
         render_result BotApi::Bots::List.call(user: current_user, status: params[:status])
@@ -46,6 +49,18 @@ module Api
 
       def stop
         render_result BotApi::Bots::Stop.call(user: current_user, bot_id: params[:id])
+      end
+
+      def destroy
+        render_result BotApi::Bots::Delete.call(user: current_user, bot_id: params[:id])
+      end
+
+      def archive
+        render_result BotApi::Bots::Archive.call(user: current_user, bot_id: params[:id])
+      end
+
+      def unarchive
+        render_result BotApi::Bots::Unarchive.call(user: current_user, bot_id: params[:id])
       end
 
       private
