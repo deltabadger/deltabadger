@@ -125,7 +125,13 @@ class Exchanges::Kraken < Exchange
   end
 
   def get_tickers_prices(force: false, symbols: nil)
-    cache_key = "exchange_#{id}_prices"
+    # `symbols:` was declared and ignored, so the per-pair fallback below asked the venue about
+    # every available ticker the bulk endpoint had omitted — on a real tenant 184 sequential calls
+    # per cache miss, through the shared exchange proxy, once a minute. Callers ask for one pair.
+    # The cache key carries the requested set: the cached hash only contains the fallbacks resolved
+    # for that set, so sharing one key across different callers would serve them a missing pair.
+    wanted = Array(symbols).presence
+    cache_key = ["exchange_#{id}_prices", wanted&.sort&.join(',')].compact.join(':')
     tickers_prices = Rails.cache.fetch(cache_key, expires_in: 1.minute, force:) do
       result = client.get_ticker_information
       return result if result.failure?
@@ -140,12 +146,15 @@ class Exchanges::Kraken < Exchange
         prices_hash[ticker] = price
       end
 
-      missing_tickers = tickers.available.pluck(:ticker) - prices_hash.keys
+      missing_tickers = (wanted || tickers.available.pluck(:ticker)) - prices_hash.keys
       missing_tickers.each do |ticker|
         result = client.get_ticker_information(pair: ticker)
         return result if result.failure?
 
         error = Utilities::Hash.dig_or_raise(result.data, 'error')
+        # A pair the venue no longer knows is this bot's problem, not everyone's: failing the whole
+        # fetch blanks live prices for every Kraken bot in the container.
+        next if error.any? { |e| e.to_s.include?('Unknown asset pair') }
         return Result::Failure.new(*error) if error.any?
 
         asset_ticker_info = Utilities::Hash.dig_or_raise(result.data, 'result').map { |_, v| v }.first

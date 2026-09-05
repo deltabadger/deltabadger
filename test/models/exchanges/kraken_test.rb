@@ -463,4 +463,42 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     assert_predicate limit, :failure?
     assert limit.data[:unacknowledged]
   end
+  # B7. get_tickers_prices declares `symbols:` and never read it. The fallback loop iterated EVERY
+  # available ticker the bulk endpoint omitted — 184 on a measured tenant — one sequential proxy
+  # call each, on every 1-minute cache miss. Callers ask for one pair.
+  test 'the price fallback asks only for the requested symbols' do
+    %w[AAAEUR BBBEUR CCCEUR].each do |t|
+      create(:ticker, exchange: @exchange, ticker: t, base_asset: create(:asset, symbol: t[0..2]),
+                      quote_asset: create(:asset, symbol: "Q#{t}"))
+    end
+    @exchange.set_client
+    client = @exchange.send(:client)
+    client.stubs(:get_ticker_information).returns(Result::Success.new({ 'error' => [], 'result' => {} }))
+    client.expects(:get_ticker_information).with(pair: 'BBBEUR').never
+    client.expects(:get_ticker_information).with(pair: 'CCCEUR').never
+    client.expects(:get_ticker_information).with(pair: 'AAAEUR')
+          .returns(Result::Success.new({ 'error' => [], 'result' => { 'AAAEUR' => { 'c' => %w[100.0 1] } } })).once
+
+    result = @exchange.get_tickers_prices(symbols: ['AAAEUR'], force: true)
+
+    assert result.success?
+    assert_equal 100.0.to_d, result.data['AAAEUR']
+  end
+
+  # B7b. One fossilised delisted pair returned Result::Failure for the whole fetch, blanking live
+  # metrics for every Kraken bot in the container.
+  test 'an unknown pair does not fail the whole price fetch' do
+    create(:ticker, exchange: @exchange, ticker: 'DEADEUR', base_asset: create(:asset, symbol: 'DEAD'),
+                    quote_asset: create(:asset, symbol: 'QDEAD'))
+    @exchange.set_client
+    client = @exchange.send(:client)
+    client.stubs(:get_ticker_information)
+          .returns(Result::Success.new({ 'error' => [], 'result' => { 'XBTEUR' => { 'c' => %w[50000.0 1] } } }))
+    client.stubs(:get_ticker_information).with(pair: 'DEADEUR')
+          .returns(Result::Success.new({ 'error' => ['EQuery:Unknown asset pair'], 'result' => {} }))
+
+    result = @exchange.get_tickers_prices(symbols: ['DEADEUR'], force: true)
+
+    assert result.success?, 'a delisted pair must not blank prices for every other bot'
+  end
 end

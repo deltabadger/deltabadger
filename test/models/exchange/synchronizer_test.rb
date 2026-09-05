@@ -48,4 +48,21 @@ class Exchange::SynchronizerTest < ActiveSupport::TestCase
     assert btc_usd.reload.available
     assert_not eth_usd.reload.available, 'pair absent from the feed is delisted'
   end
+  # B10. The self-hosted twin of data-api's join bug: the CoinGecko symbol->coin_id map is keyed on
+  # CoinGecko's casing while the venue reports its own. Bitget publishes baseCoin "rON" where
+  # CoinGecko says "RON", so external_id_from_symbol missed and `next if blank?` dropped a live
+  # pair with no trace. Fixing only data-api leaves every CoinGecko-provider install blind.
+  test 'resolves a CoinGecko symbol to a venue symbol case-insensitively' do
+    ron = create(:asset, symbol: 'RON', name: 'Ronin', external_id: 'ronin')
+    @exchange.send(:set_symbol_to_external_id_hash,
+                   [{ 'base' => 'RON', 'coin_id' => 'ronin', 'target' => 'USD', 'target_coin_id' => 'usd' }])
+
+    sync([{ base: 'rON', quote: 'USD', ticker: 'rONUSD', available: true, trading_enabled: true,
+            minimum_base_size: 0.1, minimum_quote_size: 5, maximum_base_size: nil, maximum_quote_size: nil,
+            base_decimals: 4, quote_decimals: 2, price_decimals: 2 }])
+
+    ticker = @exchange.tickers.find_by(base: 'rON', quote: 'USD')
+    assert_not_nil ticker, 'a mixed-case venue symbol must still resolve'
+    assert_equal ron.id, ticker.base_asset_id
+  end
 end

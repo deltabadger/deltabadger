@@ -37,10 +37,13 @@ module Exchange::Synchronizer
     @coingecko ||= MarketData.coingecko
   end
 
+  # Upcased: the map is keyed on CoinGecko's casing while the venue reports its own. Bitget
+  # publishes baseCoin "rON" where CoinGecko says "RON", and an exact-case miss silently drops a
+  # live pair via the `next if blank?` below. Same fix as data-api's catalogue join.
   def external_id_from_symbol(symbol)
     raise 'Call set_symbol_to_external_id_hash first' unless @symbol_to_external_id_hash.present?
 
-    @symbol_to_external_id_hash[symbol]
+    @symbol_to_external_id_hash[symbol.to_s.upcase]
   end
 
   def external_ids
@@ -54,7 +57,7 @@ module Exchange::Synchronizer
       hash = {}
       coingecko_tickers.each do |ticker|
         [%w[base coin_id], %w[target target_coin_id]].each do |symbol_key, external_id_key|
-          symbol = ticker[symbol_key]
+          symbol = ticker[symbol_key].to_s.upcase
           external_id = ticker[external_id_key] || eodhd_external_id_for_symbol(symbol)
           next if external_id.blank?
 
