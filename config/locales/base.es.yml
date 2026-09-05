@@ -329,6 +329,12 @@ es:
                 unarchive_bot:
                     label: 'Reactivar bot'
                     description: 'Recuperar un bot archivado'
+                liquidate_exited_asset:
+                    label: 'Vender activo eliminado'
+                    description: 'Vender un activo que un bot de índice o de cesta ha eliminado'
+                answer_redeploy_offer:
+                    label: 'Responder a la oferta de reinversión'
+                    description: 'Aceptar o rechazar la reinversión de los fondos de la venta'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simula operaciones con precios reales de mercado. No se ejecutan órdenes reales.'
             dry_run_label: 'Activar paper trading para herramientas de trading'

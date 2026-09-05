@@ -332,6 +332,12 @@ ru:
                 unarchive_bot:
                     label: 'Восстановить бота'
                     description: 'Вернуть бота из архива'
+                liquidate_exited_asset:
+                    label: 'Продать удалённый актив'
+                    description: 'Продать актив, который бот удалил из своего индекса или корзины'
+                answer_redeploy_offer:
+                    label: 'Решение о повторном вложении'
+                    description: 'Принять или отклонить повторное вложение средств от продажи'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Симуляция сделок с реальными рыночными ценами. Реальные ордера не размещаются.'
             dry_run_label: 'Включить paper trading для торговых инструментов'

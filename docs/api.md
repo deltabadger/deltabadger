@@ -209,9 +209,9 @@ Errors set both an HTTP status and an envelope `error.code`. Common pairs:
 | 400 | `idempotency_key_required` |
 | 401 | `missing_token`, `invalid_token`, `token_revoked`, `token_expired`, `user_not_found` |
 | 403 | `tool_disabled`, `insufficient_scope`, `api_key_missing`, `withdrawal_key_missing` |
-| 404 | `bot_not_found`, `rule_not_found`, `exchange_not_found`, `pair_not_found`, `asset_not_found`, `index_not_found`, `quote_asset_not_found`, `no_transactions`, `report_not_found` |
-| 409 | `bot_already_running`, `bot_not_running`, `bot_running`, `rule_already_active`, `rule_not_active`, `rule_active`, `rule_exists`, `bot_archived`, `bot_not_archived`, `idempotency_in_progress`, `idempotency_key_reused`, `report_ready`, `report_generating` |
-| 422 | `missing_required_parameter`, `invalid_interval`, `invalid_allocation`, `invalid_date`, `invalid_order_type`, `no_updates_provided`, `exchange_name_required`, `bot_invalid`, `bot_save_failed`, `rule_save_failed`, `unknown_country`, `invalid_year`, `invalid_flag`, `market_data_not_configured`, `invalid_number`, `invalid_threshold_type`, `invalid_network`, `address_not_listed`, `withdrawal_unsupported`, `invalid_bot_type`, `invalid_basket`, `invalid_weighting`, `allocations_unbalanced`, `market_cap_unavailable`, `unsupported_setting`, `asset_not_in_basket`, `missing_basket_asset`, `invalid_allocations` |
+| 404 | `bot_not_found`, `rule_not_found`, `exchange_not_found`, `pair_not_found`, `asset_not_found`, `holding_not_exited`, `index_not_found`, `quote_asset_not_found`, `no_transactions`, `report_not_found` |
+| 409 | `bot_already_running`, `bot_not_running`, `bot_running`, `rule_already_active`, `rule_not_active`, `rule_active`, `rule_exists`, `bot_archived`, `bot_not_archived`, `market_closed`, `idempotency_in_progress`, `idempotency_key_reused`, `report_ready`, `report_generating` |
+| 422 | `missing_required_parameter`, `invalid_interval`, `invalid_allocation`, `invalid_date`, `invalid_order_type`, `no_updates_provided`, `exchange_name_required`, `bot_invalid`, `bot_save_failed`, `rule_save_failed`, `unknown_country`, `invalid_year`, `invalid_flag`, `market_data_not_configured`, `invalid_number`, `invalid_threshold_type`, `invalid_network`, `address_not_listed`, `withdrawal_unsupported`, `invalid_bot_type`, `not_composition_bot`, `accept_required`, `invalid_basket`, `invalid_weighting`, `allocations_unbalanced`, `market_cap_unavailable`, `unsupported_setting`, `asset_not_in_basket`, `missing_basket_asset`, `invalid_allocations` |
 | 502 | `order_failed`, `cancel_failed`, `balances_fetch_failed`, `bot_stop_failed` |
 
 ---
@@ -225,7 +225,7 @@ token).
 | Method | Path | Tool | Notes |
 |---|---|---|---|
 | GET | `/bots` | `list_bots` | Optional `?status=` filter |
-| GET | `/bots/:id` | `get_bot_details` | Includes metrics if available; a multi-asset bot reports its members as `pair` (`BTC+ETH/USD`) plus `allocations` (`{symbol: weight}`; raw weights as set, which may not sum to 1 until normalised) |
+| GET | `/bots/:id` | `get_bot_details` | Includes metrics if available; composition bots also report `exited_holdings` (symbols) and `redeploy_offer` (quote amount as a string); a multi-asset bot reports its members as `pair` (`BTC+ETH/USD`) plus `allocations` (`{symbol: weight}`; raw weights as set, which may not sum to 1 until normalised) |
 | POST | `/bots` | per-type | 201 on success. `type`: `dca` (default) or `index` — each gated by its own tool. `dca`: `exchange_name`, `quote_asset`, `quote_amount`, `interval`, plus either `base_asset` or `assets` — an array of `{symbol, allocation}` or the string `"BTC:60,ETH:40"`, 2-20 entries, weights optional (equal split) and summing to 100 when given — with optional `weighting: market_cap`. `index`: `exchange_name`, `quote_asset`, `quote_amount`, `interval`, plus `index` (id from `/indices`, must be available on that exchange), `num_coins`, `allocation_flattening` |
 | PATCH | `/bots/:id` | `update_bot_settings` | Bot must be stopped. Any bot: `quote_amount`, `label`. Index bots: `num_coins`, `allocation_flattening`. Basket bots: `allocations` — every current member, summing to 100, as `{"BTC": 70, "ETH": 30}` or the string `"BTC:70,ETH:30"`; supplying them takes the basket off market-cap weighting. Membership is not editable here |
 | POST | `/bots/:id/start` | `start_bot` | 409 if already running |
@@ -233,6 +233,8 @@ token).
 | DELETE | `/bots/:id` | `delete_bot` | Any status; soft delete, and a running bot's schedule is cancelled |
 | POST | `/bots/:id/archive` | `archive_bot` | Stops the bot first |
 | DELETE | `/bots/:id/archive` | `unarchive_bot` | Returns the bot stopped |
+| POST | `/bots/:id/liquidations` | `liquidate_exited_asset` | Body `symbol`; **Requires `Idempotency-Key`** (see section 5); 202; index/basket bots only; irreversible market sale |
+| POST | `/bots/:id/redeploy` | `answer_redeploy_offer` | Body `accept: true\|false` (required); **Requires `Idempotency-Key`**; 202, `data.offer` is what would be redeployed |
 | GET | `/exchanges` | `list_exchanges` | Lists user trading exchanges |
 | GET | `/exchanges/:id/balances` | `get_exchange_balances` | Live exchange call; 502 on upstream failure |
 | GET | `/transactions` | `list_transactions` | Optional `?bot_id=`, `?limit=` (max 100) |
@@ -256,12 +258,16 @@ token).
 
 ---
 
-## 5. POST /api/v1/orders — idempotency
+## 5. Idempotency — POST /orders, /bots/:id/liquidations, /bots/:id/redeploy
 
-Order placement is the only state-changing endpoint that requires
+These three endpoints can place orders at a venue, and they are the only ones that require
 idempotency. Cancellation (`DELETE /api/v1/orders/:id`) is intentionally
 **not** idempotency-wrapped — cancelling an already-cancelled order is a
 benign no-op at the exchange level.
+
+On `/bots/:id/liquidations` and `/bots/:id/redeploy` the key is scoped to the bot and the
+action as well as the body, so one key reused against a second bot — or against the other
+action — is `409 idempotency_key_reused`, never a replay of the first answer.
 
 ### Request
 

@@ -311,6 +311,12 @@ da:
                 unarchive_bot:
                     label: 'Genaktivér bot'
                     description: 'Hent en arkiveret bot tilbage'
+                liquidate_exited_asset:
+                    label: 'Sælg fjernet aktiv'
+                    description: 'Sælg et aktiv, som en indeks- eller kurvbot har fjernet'
+                answer_redeploy_offer:
+                    label: 'Svar på geninvesteringstilbud'
+                    description: 'Accepter eller afvis at geninvestere provenuet fra salget'
             dry_run_title: 'Papirhandel'
             dry_run_description: 'Simulér handler med reelle markedspriser. Der udføres ingen rigtige ordrer.'
             dry_run_label: 'Aktivér papirhandel for handelsværktøjer'

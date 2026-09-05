@@ -3,6 +3,8 @@
 module Api
   module V1
     class BotsController < BaseController
+      include Idempotency
+
       CREATE_TOOLS = { 'dca' => 'create_bot', 'index' => 'create_index_bot' }.freeze
 
       before_action -> { require_rest_tool!('list_bots') },           only: :index
@@ -14,6 +16,8 @@ module Api
       before_action -> { require_rest_tool!('delete_bot') },          only: :destroy
       before_action -> { require_rest_tool!('archive_bot') },         only: :archive
       before_action -> { require_rest_tool!('unarchive_bot') },       only: :unarchive
+      before_action -> { require_rest_tool!('liquidate_exited_asset') }, only: :liquidate
+      before_action -> { require_rest_tool!('answer_redeploy_offer') },  only: :redeploy
 
       def index
         render_result BotApi::Bots::List.call(user: current_user, status: params[:status])
@@ -63,7 +67,32 @@ module Api
         render_result BotApi::Bots::Unarchive.call(user: current_user, bot_id: params[:id])
       end
 
+      # Both can place market orders, so both require an Idempotency-Key exactly like POST /orders.
+      def liquidate
+        idempotent_request do
+          result_to_envelope(
+            BotApi::Bots::LiquidateExited.call(user: current_user, bot_id: params[:id], symbol: params[:symbol])
+          )
+        end
+      end
+
+      def redeploy
+        idempotent_request do
+          result_to_envelope(
+            BotApi::Bots::AnswerRedeploy.call(user: current_user, bot_id: params[:id], accept: params[:accept])
+          )
+        end
+      end
+
       private
+
+      # The shared concern fingerprints the body only — right for POST /orders, where the body is
+      # the whole request. Here the bot is in the path and the verb is the action, so one key
+      # reused with the same body against another bot, or against the other action, must be a
+      # reuse (409), never a replay of the first bot's 202.
+      def idempotency_fingerprint_payload
+        request.request_parameters.merge('_action' => action_name, '_bot_id' => params[:id].to_s)
+      end
 
       def bot_type = (params[:type].presence || 'dca').to_s
 

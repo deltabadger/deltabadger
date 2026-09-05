@@ -311,6 +311,12 @@ sv:
                 unarchive_bot:
                     label: 'Återaktivera bot'
                     description: 'Hämta tillbaka en arkiverad bot'
+                liquidate_exited_asset:
+                    label: 'Sälj borttagen tillgång'
+                    description: 'Sälj en tillgång som en index- eller korgbot har tagit bort'
+                answer_redeploy_offer:
+                    label: 'Svara på återinvesteringsförslag'
+                    description: 'Acceptera eller avböja att återinvestera medlen från försäljningen'
             dry_run_title: 'Pappershandel'
             dry_run_description: 'Simulera affärer med riktiga marknadspriser. Inga riktiga ordrar läggs.'
             dry_run_label: 'Aktivera pappershandel för handelsverktyg'

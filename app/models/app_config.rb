@@ -65,7 +65,9 @@ class AppConfig < ApplicationRecord
     'create_index_bot' => false,
     'delete_bot' => false,
     'archive_bot' => false,
-    'unarchive_bot' => false
+    'unarchive_bot' => false,
+    'liquidate_exited_asset' => false,
+    'answer_redeploy_offer' => false
   }.freeze
 
   # The tool catalogue, grouped as Settings and the consent screen show it. Both surfaces use
@@ -75,7 +77,8 @@ class AppConfig < ApplicationRecord
                  list_rules list_indices],
     'control' => %w[create_bot start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings
                     create_rule delete_rule create_index_bot delete_bot archive_bot unarchive_bot],
-    'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order],
+    'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order
+                  liquidate_exited_asset answer_redeploy_offer],
     'tax' => %w[list_tax_jurisdictions generate_tax_report get_tax_report_status download_tax_report export_transactions_csv
                 list_account_transactions]
   }.freeze

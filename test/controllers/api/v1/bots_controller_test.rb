@@ -753,6 +753,20 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
+  test 'GET /api/v1/bots/:id reports exited holdings and the redeploy offer' do
+    @user.set_rest_tool_enabled('get_bot_details', true)
+    bot = create(:dca_index, user: @user, status: :stopped)
+    Bots::DcaIndex.any_instance.stubs(:exited_symbols).returns(%w[DOGE])
+    Bots::DcaIndex.any_instance.stubs(:redeploy_offer).returns(25.5.to_d)
+
+    get "/api/v1/bots/#{bot.id}", headers: bearer(create_token)
+
+    assert_response :ok
+    body = JSON.parse(response.body)['data']
+    assert_equal %w[DOGE], body['exited_holdings']
+    assert_equal '25.5', body['redeploy_offer']
+  end
+
   private
 
   # A Kraken venue with three EUR pairs — the minimum a category index needs to offer that quote.

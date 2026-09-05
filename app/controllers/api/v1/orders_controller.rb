@@ -72,19 +72,6 @@ module Api
         params.permit(:exchange_name, :base_asset, :quote_asset, :amount, :price, :amount_type)
               .to_h.symbolize_keys
       end
-
-      # Convert a BotApi::Result into the `[status_int, body_hash]` shape the
-      # Idempotency concern expects. The body hash gets JSON-serialized once
-      # by the concern and stored verbatim.
-      def result_to_envelope(result)
-        if result.success?
-          [Rack::Utils.status_code(status_for(result.status)),
-           { data: result.data, error: nil }]
-        else
-          [Rack::Utils.status_code(status_for(result.status)),
-           { data: nil, error: { code: result.error_code, message: result.error_message } }]
-        end
-      end
     end
   end
 end
