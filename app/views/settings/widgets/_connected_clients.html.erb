@@ -1,0 +1,14 @@
+<%= turbo_frame_tag 'connected_clients' do %>
+  <div class="widget widget--settings">
+    <h4 class="modal__title"><%= t('settings.mcp.connected_clients') %></h4>
+    <% clients = connected_applications.order(created_at: :desc) %>
+    <% if clients.any? %>
+      <p class="text-center" style="text-wrap: balance"><%= t('settings.mcp.client_permissions_hint') %></p>
+      <div class="connected-clients">
+        <%= render partial: 'settings/widgets/connected_client', collection: clients, as: :application %>
+      </div>
+    <% else %>
+      <p class="text-center"><%= t('settings.mcp.no_clients') %></p>
+    <% end %>
+  </div>
+<% end %>

@@ -12,7 +12,7 @@
         <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
           <%= t('button.cancel') %>
         <% end %>
-        <%= button_to t('settings.mcp.revoke_client'), settings_revoke_mcp_client_path(@mcp_client), method: :delete, class: 'button button--danger button--large', data: { turbo_frame: "mcp_settings", action: 'modal--base#animateOutCloseAndCleanUp' } %>
+        <%= button_to t('settings.mcp.revoke_client'), settings_revoke_mcp_client_path(@mcp_client), method: :delete, class: 'button button--danger button--large', data: { turbo_frame: "connected_clients", action: 'modal--base#animateOutCloseAndCleanUp' } %>
       </div>
     </div>
   </div>

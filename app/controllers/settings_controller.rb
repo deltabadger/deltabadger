@@ -372,7 +372,7 @@ class SettingsController < ApplicationController
     enabled = params[:enabled] == '1'
     current_user.set_mcp_tool_enabled(tool_name, enabled)
 
-    render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
+    render_tool_permissions
   end
 
   def update_mcp_tool_group_permissions
@@ -386,7 +386,7 @@ class SettingsController < ApplicationController
     enabled = params[:enabled] == '1'
     current_user.set_mcp_tool_group_enabled(group, enabled)
 
-    render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
+    render_tool_permissions
   end
 
   def update_mcp_dry_run
@@ -416,7 +416,7 @@ class SettingsController < ApplicationController
     enabled = params[:enabled] == '1'
     current_user.set_rest_tool_enabled(tool_name, enabled)
 
-    render turbo_stream: turbo_stream.replace('rest_settings', partial: 'settings/widgets/rest')
+    render_tool_permissions
   end
 
   def update_rest_tool_group_permissions
@@ -430,7 +430,7 @@ class SettingsController < ApplicationController
     enabled = params[:enabled] == '1'
     current_user.set_rest_tool_group_enabled(group, enabled)
 
-    render turbo_stream: turbo_stream.replace('rest_settings', partial: 'settings/widgets/rest')
+    render_tool_permissions
   end
 
   def update_advanced_bots
@@ -470,7 +470,7 @@ class SettingsController < ApplicationController
       )
     end
 
-    render turbo_stream: turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp')
+    render turbo_stream: turbo_stream.replace('connected_clients', partial: 'settings/widgets/connected_clients')
   end
 
   def confirm_revoke_mcp_client
@@ -497,7 +497,7 @@ class SettingsController < ApplicationController
     flash.now[:notice] = t('settings.mcp.client_revoked')
 
     render turbo_stream: [
-      turbo_stream.replace('mcp_settings', partial: 'settings/widgets/mcp'),
+      turbo_stream.replace('connected_clients', partial: 'settings/widgets/connected_clients'),
       turbo_stream.prepend('flash', partial: 'layouts/flash')
     ]
   end
@@ -529,6 +529,16 @@ class SettingsController < ApplicationController
   # messages.values rather than full_messages: the locale files translate the inclusion message
   # but carry no activerecord.attributes.user entry for time_zone or locale, so full_messages
   # would post an English field name into a translated flash.
+  # A user-level switch changes what every client may hold: a grant that covered the whole of a
+  # group a moment ago may now cover only part of it. So the client cards re-render with the
+  # matrix, or they would keep showing ON for a tool the client was never granted.
+  def render_tool_permissions
+    render turbo_stream: [
+      turbo_stream.replace('tool_permissions', partial: 'settings/widgets/tool_permissions'),
+      turbo_stream.replace('connected_clients', partial: 'settings/widgets/connected_clients')
+    ]
+  end
+
   def render_preference_error
     flash.now[:alert] = current_user.errors.messages.values.flatten.to_sentence
     render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity

@@ -2,12 +2,12 @@
   <div class="stitle"><%= t('links.api') %></div>
 </div>
 
-<div class="columns">
-  <div class="column gap-1">
-    <%= render partial: 'settings/widgets/mcp' %>
-  </div>
-
-  <div class="column gap-1">
-    <%= render partial: 'settings/widgets/rest' %>
-  </div>
+<%# The two surfaces side by side. Their frames are the grid items — no .column wrappers — so
+    the pair stretches to one height (see .columns--stretch). %>
+<div class="columns columns--stretch">
+  <%= render partial: 'settings/widgets/mcp' %>
+  <%= render partial: 'settings/widgets/rest' %>
 </div>
+
+<%= render partial: 'settings/widgets/tool_permissions' %>
+<%= render partial: 'settings/widgets/connected_clients' %>
