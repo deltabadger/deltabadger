@@ -36,13 +36,16 @@
     &--fullscreen
         .dropdown
             width: 100vw
-            height: 100vh
+            height: 100dvh
+            max-height: 100dvh
             top: 0
             left: 0
             position: fixed
             flex-direction: column
             border-radius: 0
-            justify-content: center
+            // `safe` so an overflowing list starts at the top and stays scrollable, instead of
+            // centring itself and putting the first items past the scroll origin.
+            justify-content: safe center
             align-items: center
             background: var(--paper)
             &__item
@@ -60,7 +63,13 @@
     padding-top: calc(1rem + 0.125rem)
     padding-bottom: calc(1rem + 0.125rem)
     top: 4.5rem
-    overflow: hidden
+    // A long menu (15 languages) used to run off the screen and get clipped. Cap it at the
+    // viewport, less the 4.5rem it is offset from its trigger at either end, and let it scroll.
+    // ponytail: viewport-relative, not trigger-relative — a trigger sitting mid-screen can still
+    // overflow. Anchor positioning (or JS measurement) if that ever shows up.
+    max-height: calc(100dvh - 9rem)
+    overflow-x: hidden
+    overflow-y: auto
     left: 0
     min-width: 28rem
     &--bots

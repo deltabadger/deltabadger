@@ -7,10 +7,7 @@
     <% if !StockTradingSettings.active? && !current_user.admin? %>
       <p><%= t('bot.setup.stocks_ask_admin') %></p>
     <% end %>
-    <div style="margin-top: 2rem; transform: scale(1.5)">
-        <%= button_to new_bot_path, method: :get, class: "sbutton sbutton--sky", data: { turbo_frame: "modal" }, aria: { label: t('bot.new') } do %>
-            <span class="d-none d-sm-inline"><%= t('bot.new') %></span>
-            <%= render partial: 'svg/24x24_plus' %>
-        <% end %>
-    </div>
+    <%= button_to new_bot_path, method: :get, class: "sbutton sbutton--sky", data: { turbo_frame: "modal" }, aria: { label: t('bot.new') } do %>
+        <%= render partial: 'svg/24x24_plus' %>
+    <% end %>
 </div>

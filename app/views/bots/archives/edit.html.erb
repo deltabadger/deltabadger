@@ -16,7 +16,7 @@
         <% end %>
         <%# Unlike Delete this stays on the page, so the modal has to close itself on success. %>
         <%= button_to t('button.archive'), bot_archive_path(@bot), method: :post,
-                      class: 'button button--success button--large',
+                      class: 'button button--sky button--large',
                       form: { data: { action: 'turbo:submit-end->modal--base#submitEnd' } } %>
       </div>
     </div>

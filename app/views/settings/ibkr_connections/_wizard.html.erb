@@ -6,7 +6,7 @@
   <% if api_key.nil? %>
     <p><%= t('settings.ibkr.intro') %></p>
     <%= button_to t('settings.ibkr.start'), settings_ibkr_connect_path,
-                  method: :post, class: 'button button--success button--large' %>
+                  method: :post, class: 'button button--sky button--large' %>
 
   <% elsif api_key.correct? %>
     <p class="text-success"><%= t('settings.ibkr.connected') %></p>
@@ -24,7 +24,7 @@
     </p>
     <p><%= t('settings.ibkr.activation_failed_fix') %></p>
     <%= button_to t('settings.ibkr.start_over'), settings_ibkr_connect_path,
-                  method: :delete, class: 'button button--success button--large' %>
+                  method: :delete, class: 'button button--sky button--large' %>
     <%= render 'settings/ibkr_connections/credentials_form' %>
 
   <% elsif api_key.pending_activation? %>

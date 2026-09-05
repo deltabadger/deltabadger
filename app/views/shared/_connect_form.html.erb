@@ -20,7 +20,7 @@
                 data: form_data, class: "set-api__form form" do |f| %>
     <%= yield f %>
     <div class="set-api__actions">
-      <%= f.submit t('button.connect'), class: "button button--success",
+      <%= f.submit t('button.connect'), class: "button button--sky",
                    data: { turbo_stream: true, turbo_submits_with: t('bot.setup.validating') } %>
       <%= local_assigns[:actions] %>
     </div>
