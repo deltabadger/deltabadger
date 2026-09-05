@@ -11,6 +11,38 @@ module ActionJobBehaviorTests
   included do
     # A stop from another process (user click, admin deactivation sweep) landing mid-execution
     # must not be overwritten by the job's post-execution status writes (resurrection race).
+    # A pair can lose trading_enabled under a RUNNING bot: the flag is served by market data, not
+    # decided by the container, so an upstream revocation reaches every tenant on its own schedule.
+    # ActionJob's per-tick `bot.update!` runs validate_bot_exchange (registered on: :update), which
+    # skipped only stopped/deleted/archived bots — so the tick raised RecordInvalid, the rescue
+    # flipped the bot to :retrying and re-raised on the branch that does NOT reschedule, and
+    # ActiveJob had no retry_on for it. The bot simply stopped ticking, with one email.
+    test 'a tick on a bot whose pair lost trading_enabled still schedules the next run' do
+      bot = create_bot
+      setup_action_job_mocks(bot)
+      bot.stubs(:execute_action).returns(Result::Success.new)
+      Ticker.where(exchange_id: bot.exchange_id).update_all(trading_enabled: false)
+
+      assert_nothing_raised { Bot::ActionJob.new.perform(bot) }
+      assert_not_equal 'retrying', bot.reload.status
+    end
+
+    # The same tick on a bot whose delayed start is being cleared. disable_starting_time! dirties
+    # `settings` and calls save! from inside ActionJob, so a guard keyed on settings_changed?
+    # passes the test above and still kills this bot.
+    test 'a delayed-start bot survives its first tick on a revoked pair' do
+      bot = create_bot
+      bot.start_time_enabled = true
+      bot.set_missed_quote_amount
+      bot.save!
+      setup_action_job_mocks(bot)
+      bot.stubs(:execute_action).returns(Result::Success.new)
+      Ticker.where(exchange_id: bot.exchange_id).update_all(trading_enabled: false)
+
+      assert_nothing_raised { Bot::ActionJob.new.perform(bot) }
+      assert_not_equal 'retrying', bot.reload.status
+    end
+
     test 'does not resurrect a bot stopped externally mid-execution' do
       bot = create_bot
       setup_action_job_mocks(bot)
