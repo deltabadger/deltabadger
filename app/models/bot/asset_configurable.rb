@@ -105,6 +105,25 @@ module Bot::AssetConfigurable
 
   def validate_bot_exchange
     return if stopped? || deleted? || archived?
+    # Only when the exchange or the assets are actually being CHANGED. This validation exists to
+    # refuse a bot moved onto a venue that cannot trade its pair; it has no business running on a
+    # save that touches neither.
+    #
+    # trading_enabled is served by market data, so an upstream revocation lands under a RUNNING bot.
+    # Bot::ActionJob's per-tick `bot.update!` would then raise RecordInvalid, the rescue would flip
+    # the bot to :retrying and re-raise on the branch that does NOT reschedule, and no retry_on
+    # covers RecordInvalid — the bot silently stops ticking. :start still re-validates, which is the
+    # right place to refuse a delisted pair.
+    #
+    # Not settings_changed?: Bot::Startable#disable_starting_time! dirties settings and saves from
+    # inside the same tick, so a broad guard would still let this fire.
+    #
+    # `_changed?`, not the `_was` comparison used by validate_unchangeable_assets below: for a
+    # store_accessor the `_was` reader returns nil when the attribute is unchanged, so comparing it
+    # against the current value is always true. That method gets away with it because it returns
+    # early unless settings_changed?; here there is no such gate.
+    return unless exchange_id_changed? ||
+                  asset_id_setting_keys.any? { |key| public_send("#{key}_changed?") }
     return if exchange_supports_current_assets?
 
     errors.add(:exchange, :unsupported, message: I18n.t('errors.bots.exchange_asset_mismatch', exchange_name: exchange.name))

@@ -920,4 +920,36 @@ class Bots::DcaSingleAssetTest < ActiveSupport::TestCase
     fresh = Bots::DcaSingleAsset.find(bot.id)
     assert fresh.start_blocked_by_unavailable_ticker?, 'unavailable ticker → blocked'
   end
+  # The tick-safety guard on validate_bot_exchange narrows WHEN the validation runs; it must not
+  # stop it running when the exchange or the assets are the thing actually being changed.
+  test 'moving a bot onto a venue that cannot trade its pair is still rejected' do
+    bot = create(:dca_single_asset)
+    other = create(:kraken_exchange)
+
+    bot.exchange = other
+
+    assert_not bot.valid?(:update)
+    assert_includes bot.errors.attribute_names, :exchange
+  end
+
+  test 'changing an asset to one the venue does not list is still rejected' do
+    bot = create(:dca_single_asset)
+    stranger = create(:asset, symbol: 'ZZZ', name: 'Unlisted', external_id: 'unlisted-zzz')
+
+    bot.base_asset_id = stranger.id
+
+    assert_not bot.valid?(:update)
+    assert_includes bot.errors.attribute_names, :exchange
+  end
+
+  # The tick shape: neither exchange nor assets change, so a revoked pair must not block the save
+  # that keeps the bot running.
+  test 'a save that changes neither exchange nor assets is not blocked by a revoked pair' do
+    bot = create(:dca_single_asset, :started)
+    Ticker.where(exchange_id: bot.exchange_id).update_all(trading_enabled: false)
+
+    bot.last_action_job_at = Time.current
+
+    assert bot.valid?(:update)
+  end
 end
