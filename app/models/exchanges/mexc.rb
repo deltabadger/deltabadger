@@ -77,7 +77,10 @@ class Exchanges::Mexc < Exchange
                                                          'quotePrecision')
                           end,
           available: true,
-          trading_enabled: status == '1'
+          # status is "1" for every symbol MEXC lists, including the ones it will reject a spot
+          # order for. isSpotTradingAllowed is the real gate. Kept in step with honeymaker's
+          # copy, which data-api uses — both are driven by the same captured fixture bytes.
+          trading_enabled: status == '1' && product['isSpotTradingAllowed'] != false
         }
       end.compact
     end

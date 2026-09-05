@@ -90,7 +90,11 @@ class Exchanges::Bitget < Exchange
           base_decimals: quantity_precision,
           quote_decimals: quote_precision,
           price_decimals: price_precision,
-          available: status == 'online'
+          # Listed and tradable are two different facts. Folding an offline pair into
+          # `available: false` made this the only venue where the two sync paths disagree:
+          # the direct sync would mark the pair unavailable while market data marks it listed.
+          available: true,
+          trading_enabled: status == 'online'
         }
       end.compact
     end

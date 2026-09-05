@@ -82,4 +82,32 @@ class Exchanges::MexcTest < ActiveSupport::TestCase
     assert result.success?
     assert_equal true, result.data
   end
+  # B8. The container has its own MEXC parser (data-api uses honeymaker's; the container cannot,
+  # because honeymaker's connection takes no proxy and would put the container's own IP at MEXC).
+  # Two implementations of one contract, so both are driven from the SAME captured bytes and both
+  # assert its digest — a hand-edit in either repo would otherwise let them drift again.
+  def mexc_exchange_info
+    JSON.parse(File.read(Rails.root.join('test/fixtures/exchanges/mexc_exchange_info.json')))
+  end
+
+  test 'the MEXC fixture is the same bytes honeymaker tests against' do
+    path = Rails.root.join('test/fixtures/exchanges/mexc_exchange_info.json')
+    assert_equal '13a65c0c8ebde52fac4cdca9a5be9d9a18ba7b5438c496b1b30606cf52fd60d3',
+                 Digest::SHA256.hexdigest(File.read(path))
+    assert_equal '1', mexc_exchange_info['symbols'].first['status']
+  end
+
+  test 'get_tickers_info reads MEXC status and spot permission' do
+    @exchange.set_client
+    @exchange.send(:client).stubs(:exchange_information).returns(Result::Success.new(mexc_exchange_info))
+
+    result = @exchange.get_tickers_info(force: true)
+
+    assert result.success?
+    allowed = result.data.find { |t| t[:ticker] == 'METALUSDT' }
+    disallowed = result.data.find { |t| t[:ticker] == 'PALMAIUSDT' }
+    assert allowed[:trading_enabled], 'status "1" plus spot permission is tradable'
+    assert disallowed[:available], 'still listed'
+    assert_not disallowed[:trading_enabled], 'MEXC rejects a spot order for this symbol'
+  end
 end

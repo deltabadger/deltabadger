@@ -281,4 +281,21 @@ class Exchanges::BitgetTest < ActiveSupport::TestCase
     assert_predicate result, :success?
     assert_equal :closed, result.data[:status]
   end
+  # B9. Bitget emitted `available: status == 'online'` and no trading_enabled at all — one concept
+  # in two columns with opposite failure modes on the two sync paths. Every other venue reports an
+  # offline pair as listed-but-not-tradable.
+  test 'an offline Bitget pair is listed but not trading_enabled' do
+    products = [{
+      'symbol' => 'BTCUSDT', 'baseCoin' => 'BTC', 'quoteCoin' => 'USDT', 'status' => 'offline',
+      'minTradeAmount' => '0.0001', 'minTradeUSDT' => '5', 'maxTradeAmount' => '1000',
+      'quantityPrecision' => '4', 'quotePrecision' => '6', 'pricePrecision' => '2'
+    }]
+    @exchange.set_client
+    @exchange.send(:client).stubs(:get_symbols).returns(Result::Success.new({ 'data' => products }))
+
+    info = @exchange.get_tickers_info(force: true).data.first
+
+    assert info[:available], 'an offline pair is still listed'
+    assert_not info[:trading_enabled], 'but it cannot be traded'
+  end
 end

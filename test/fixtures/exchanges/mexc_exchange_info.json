@@ -1,0 +1,64 @@
+{
+  "_provenance": "Real capture: GET https://api.mexc.com/api/v3/exchangeInfo (2026-09-05), trimmed to two symbols and to the fields this parser reads. MEXC returns status \"1\" for every symbol and PERCENT_PRICE_BY_SIDE as its only filter \u2014 it emits neither \"TRADING\" nor LOT_SIZE/PRICE_FILTER/MIN_NOTIONAL. Re-capture and diff rather than hand-editing; mexc_test.rb asserts this file's SHA-256.",
+  "timezone": "CST",
+  "symbols": [
+    {
+      "symbol": "METALUSDT",
+      "status": "1",
+      "baseAsset": "METAL",
+      "baseAssetPrecision": 2,
+      "quoteAsset": "USDT",
+      "quotePrecision": 5,
+      "quoteAssetPrecision": 5,
+      "orderTypes": [
+        "LIMIT",
+        "MARKET",
+        "LIMIT_MAKER"
+      ],
+      "isSpotTradingAllowed": true,
+      "isMarginTradingAllowed": false,
+      "quoteAmountPrecision": "1",
+      "baseSizePrecision": "0.1",
+      "permissions": [
+        "SPOT"
+      ],
+      "filters": [
+        {
+          "filterType": "PERCENT_PRICE_BY_SIDE",
+          "bidMultiplierUp": "0.2",
+          "askMultiplierDown": "0.2"
+        }
+      ],
+      "maxQuoteAmount": "2000000"
+    },
+    {
+      "symbol": "PALMAIUSDT",
+      "status": "1",
+      "baseAsset": "PALMAI",
+      "baseAssetPrecision": 2,
+      "quoteAsset": "USDT",
+      "quotePrecision": 4,
+      "quoteAssetPrecision": 4,
+      "orderTypes": [
+        "LIMIT",
+        "MARKET",
+        "LIMIT_MAKER"
+      ],
+      "isSpotTradingAllowed": false,
+      "isMarginTradingAllowed": false,
+      "quoteAmountPrecision": "1",
+      "baseSizePrecision": "0",
+      "permissions": [
+        "SPOT"
+      ],
+      "filters": [
+        {
+          "filterType": "PERCENT_PRICE_BY_SIDE",
+          "bidMultiplierUp": "0.2",
+          "askMultiplierDown": "0.2"
+        }
+      ],
+      "maxQuoteAmount": "2000000"
+    }
+  ]
+}
