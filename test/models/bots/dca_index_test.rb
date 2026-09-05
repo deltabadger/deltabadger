@@ -498,4 +498,26 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
   def in_index_external_ids(bot)
     bot.bot_index_assets.in_index.includes(:asset).map { |bia| bia.asset.external_id }.sort
   end
+  # An index bot has no validate_tickers_available of its own; it relied on validate_bot_exchange
+  # firing during start's save. The tick-safety guard on that validation must not take the
+  # start-time gate with it, or a bot whose venue can no longer trade its index would start and
+  # then fail on every order.
+  test 'an index bot whose quote has no tradable pairs cannot start' do
+    MarketData.stubs(:configured?).returns(true)
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    @exchange.tickers.update_all(trading_enabled: false)
+    Bot::ActionJob.stubs(:perform_later)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+
+    assert_not bot.start
+  end
+
+  test 'an index bot whose venue still trades its index can start' do
+    MarketData.stubs(:configured?).returns(true)
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    Bot::ActionJob.stubs(:perform_later)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+
+    assert bot.start
+  end
 end

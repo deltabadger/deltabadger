@@ -122,7 +122,11 @@ module Bot::AssetConfigurable
     # store_accessor the `_was` reader returns nil when the attribute is unchanged, so comparing it
     # against the current value is always true. That method gets away with it because it returns
     # early unless settings_changed?; here there is no such gate.
-    return unless exchange_id_changed? ||
+    # :start always validates. Starting a bot is exactly when a delisted pair must be refused, and
+    # for Bots::DcaIndex this is the ONLY gate — it has no validate_tickers_available of its own and
+    # relied on this validation firing during start's save.
+    return unless validation_context == :start ||
+                  exchange_id_changed? ||
                   asset_id_setting_keys.any? { |key| public_send("#{key}_changed?") }
     return if exchange_supports_current_assets?
 

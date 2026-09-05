@@ -30,7 +30,9 @@ class Bots::DcaIndex < Bot
   validates :num_coins, presence: true, numericality: { greater_than_or_equal_to: MIN_COINS, less_than_or_equal_to: MAX_COINS }
   validates :allocation_flattening, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }
   validates :index_type, presence: true, inclusion: { in: [INDEX_TYPE_TOP, INDEX_TYPE_CATEGORY] }
-  validate :validate_bot_exchange, if: :exchange_id?, on: :update
+  # Both contexts, one registration: Rails dedupes validation callbacks by filter symbol, so a
+  # second `validate :validate_bot_exchange` would silently replace this one rather than add to it.
+  validate :validate_bot_exchange, if: :exchange_id?, on: %i[update start]
   validate :validate_external_ids, on: :update
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
