@@ -334,6 +334,15 @@ pt:
                 answer_redeploy_offer:
                     label: 'Responder à oferta de reinvestimento'
                     description: 'Aceitar ou recusar o reinvestimento dos valores da venda'
+                sync_tracker:
+                    label: 'Sincronizar o Tracker'
+                    description: 'Obter novas transações e saldos das exchanges'
+                set_transfer_link:
+                    label: 'Marcar uma transferência'
+                    description: 'Associar um levantamento ao respetivo depósito ou anular a associação'
+                set_transaction_price:
+                    label: 'Indicar um preço'
+                    description: 'Definir o preço em USD de uma transação que a exchange não avaliou'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simula transações com preços reais de mercado. Nenhuma ordem real é executada.'
             dry_run_label: 'Ativar paper trading para ferramentas de trading'

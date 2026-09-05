@@ -318,6 +318,15 @@ en:
                 answer_redeploy_offer:
                     label: 'Answer redeploy offer'
                     description: 'Accept or decline redeploying sale proceeds'
+                sync_tracker:
+                    label: 'Sync tracker'
+                    description: 'Pull new transactions and balances from exchanges'
+                set_transfer_link:
+                    label: 'Mark transfer'
+                    description: 'Link or unlink a withdrawal with its deposit'
+                set_transaction_price:
+                    label: 'State a price'
+                    description: 'Set the USD price of a transaction the venue did not value'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simulate trades with real market prices. No real orders are placed.'
             dry_run_label: 'Enable paper trading for trade tools'

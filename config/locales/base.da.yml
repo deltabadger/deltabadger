@@ -317,6 +317,15 @@ da:
                 answer_redeploy_offer:
                     label: 'Svar på geninvesteringstilbud'
                     description: 'Accepter eller afvis at geninvestere provenuet fra salget'
+                sync_tracker:
+                    label: 'Synkronisér Tracker'
+                    description: 'Hent nye transaktioner og saldoer fra børserne'
+                set_transfer_link:
+                    label: 'Markér overførsel'
+                    description: 'Knyt en udbetaling til dens indbetaling, eller ophæv forbindelsen'
+                set_transaction_price:
+                    label: 'Angiv en pris'
+                    description: 'Sæt prisen i USD på en transaktion, som børsen ikke har prissat'
             dry_run_title: 'Papirhandel'
             dry_run_description: 'Simulér handler med reelle markedspriser. Der udføres ingen rigtige ordrer.'
             dry_run_label: 'Aktivér papirhandel for handelsværktøjer'

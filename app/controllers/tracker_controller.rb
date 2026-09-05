@@ -1,10 +1,6 @@
 class TrackerController < ApplicationController
   include AdminOnly
 
-  # Changing this also means editing the 15 tracker.transfer_no_candidate translations, which spell
-  # "14 days" out rather than interpolating it.
-  TRANSFER_LINK_WINDOW = 14.days
-
   # The table shows a window, not an archive: an account with five years of Binance fills renders
   # tens of thousands of rows otherwise. `?all=1` still asks for the lot, and Export always has it.
   ROW_LIMIT = 200
@@ -52,45 +48,31 @@ class TrackerController < ApplicationController
   end
 
   def sync
-    api_keys = reading_keys
-    return head :no_content if api_keys.empty?
+    result = BotApi::Tracker::Sync.call(user: current_user)
+    return head :no_content unless result.success?
 
-    AccountTransaction::SyncTrackerJob.perform_later(current_user.id, api_keys.map(&:id))
-    AccountBalance::SyncJob.perform_later(current_user.id, api_keys.map(&:id))
-
-    exchange_names = api_keys.map { |k| k.exchange.name }.join(', ')
     render turbo_stream: turbo_stream.append(
-      'flash', partial: 'tracker/sync_progress', locals: { exchange_name: exchange_names }
+      'flash', partial: 'tracker/sync_progress',
+               locals: { exchange_name: result.data[:exchanges].join(', ') }
     )
   end
 
+  # One implementation: BotApi::Tracker::SetTransferLink also backs the MCP tool and the REST
+  # endpoint, so the candidate rule, the sticky unlink flag and the snapshot rebuild are decided
+  # in one place.
   def toggle_transfer
     transaction = AccountTransaction.for_user(current_user).find(params[:id])
+    result = BotApi::Tracker::SetTransferLink.call(user: current_user, transaction_id: transaction.id,
+                                                   linked: !transaction.linked?)
 
-    if transaction.linked?
-      withdrawal = transaction.withdrawal? ? transaction : transaction.inverse_link
-      partner = withdrawal.linked_transaction
-      # Sticky, or TransferMatcher re-links the pair on the next sync and the undo silently undoes itself.
-      withdrawal.update!(linked_transaction_id: nil, transfer_link_rejected: true)
-      flash.now[:notice] = t('tracker.transfer_unlinked')
-      rows = [withdrawal, partner]
+    if result.success?
+      flash.now[:notice] = t(result.data[:linked] ? 'tracker.transfer_linked' : 'tracker.transfer_unlinked')
+      rows = AccountTransaction.where(id: result.data.values_at(:withdrawal_id, :deposit_id)).to_a
     else
-      candidates = transfer_candidates(transaction)
-      if candidates.size == 1
-        withdrawal, deposit = transaction.withdrawal? ? [transaction, candidates.first] : [candidates.first, transaction]
-        withdrawal.update!(linked_transaction_id: deposit.id, transfer_link_rejected: false)
-        flash.now[:notice] = t('tracker.transfer_linked')
-        rows = [withdrawal, deposit]
-      else
-        flash.now[:alert] = t('tracker.transfer_no_candidate')
-        rows = [transaction]
-      end
+      flash.now[:alert] = t('tracker.transfer_no_candidate')
+      rows = [transaction]
     end
 
-    # Linking a transfer changes whether the coins ever left the portfolio, and the snapshots that
-    # said they did are now wrong. Coverage cannot notice — the dates did not move — so the one
-    # action that edits history asks for the rebuild itself.
-    PortfolioSnapshot::BackfillJob.perform_later(current_user.id)
     streams = rows.compact.map do |row|
       turbo_stream.replace(
         helpers.dom_id(row),
@@ -108,14 +90,24 @@ class TrackerController < ApplicationController
   # the view converts on the way out, or a price typed in euro would be banked as dollars.
   def update_price
     transaction = AccountTransaction.for_user(current_user).find(params[:id])
-    # A row with a price of its own has nothing to state, and a request that tries anyway is refused
-    # rather than stored and ignored.
-    return head :unprocessable_entity if transaction.venue_valued? && params[:price].present?
+    # A row with a price of its own has nothing to state, and a request that tries anyway is
+    # refused by the service rather than stored and ignored.
+    #
+    # Validated before conversion: to_usd(nil) is nil, which set_manual reads as "clear", so an
+    # unparseable figure would silently delete the stated price instead of being refused.
+    raw = params[:price].to_s
+    usd = if raw.blank?
+            ''
+          elsif (number = BotApi::Number.parse(raw))
+            current_user.denomination.to_usd(number).to_d.to_s('F')
+          end
+    return head :unprocessable_entity if usd.nil?
 
-    transaction.set_manual(:price, current_user.denomination.to_usd(transaction.parse_manual(params[:price])))
-    transaction.save!
-    # The ledger is a reading of these rows, and one just changed its worth.
-    Tracker::LedgerJob.perform_later(current_user.id)
+    result = BotApi::Tracker::SetTransactionPrice.call(user: current_user, transaction_id: transaction.id,
+                                                       price_usd: usd)
+    return head :unprocessable_entity unless result.success?
+
+    transaction.reload
     render turbo_stream: turbo_stream.replace(helpers.dom_id(transaction),
                                               partial: 'tracker/transaction_row',
                                               locals: { at: transaction })
@@ -262,31 +254,6 @@ class TrackerController < ApplicationController
     category = row[:fund_category]
     record.fund_category = (category if record.fund? && FundClassification.fund_categories.key?(category))
     record.save
-  end
-
-  def transfer_candidates(transaction)
-    scope = AccountTransaction.for_user(current_user).where(base_currency: transaction.base_currency)
-    at = transaction.transacted_at
-
-    # A user-asserted link gets 14 days (not the auto-matcher's 72 hours) and no 2% tolerance.
-    if transaction.withdrawal?
-      # Claimed deposits must be excluded before update! reaches the unique index.
-      claimed = AccountTransaction.for_user(current_user).where.not(linked_transaction_id: nil)
-                                  .select(:linked_transaction_id)
-      scope.deposit
-           .where(transacted_at: at..(at + TRANSFER_LINK_WINDOW))
-           .where(base_amount: ..transaction.base_amount)
-           .where.not(id: claimed)
-           .limit(2).to_a
-    elsif transaction.deposit?
-      scope.withdrawal
-           .where(linked_transaction_id: nil)
-           .where(transacted_at: (at - TRANSFER_LINK_WINDOW)..at)
-           .where(base_amount: transaction.base_amount..)
-           .limit(2).to_a
-    else
-      []
-    end
   end
 
   # Read-only: a cold scope is warmed by a job and the page shows the bot's loading state until it

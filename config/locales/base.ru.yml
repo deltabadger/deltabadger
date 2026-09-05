@@ -338,6 +338,15 @@ ru:
                 answer_redeploy_offer:
                     label: 'Решение о повторном вложении'
                     description: 'Принять или отклонить повторное вложение средств от продажи'
+                sync_tracker:
+                    label: 'Синхронизировать Трекер'
+                    description: 'Загрузить новые транзакции и балансы с бирж'
+                set_transfer_link:
+                    label: 'Отметить перевод'
+                    description: 'Связать вывод с его пополнением или снять связь'
+                set_transaction_price:
+                    label: 'Указать цену'
+                    description: 'Задать цену в USD для транзакции, которую биржа не оценила'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Симуляция сделок с реальными рыночными ценами. Реальные ордера не размещаются.'
             dry_run_label: 'Включить paper trading для торговых инструментов'

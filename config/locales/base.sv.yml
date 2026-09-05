@@ -317,6 +317,15 @@ sv:
                 answer_redeploy_offer:
                     label: 'Svara på återinvesteringsförslag'
                     description: 'Acceptera eller avböja att återinvestera medlen från försäljningen'
+                sync_tracker:
+                    label: 'Synka Tracker'
+                    description: 'Hämta nya transaktioner och saldon från börserna'
+                set_transfer_link:
+                    label: 'Markera överföring'
+                    description: 'Länka ett uttag till dess insättning eller ta bort länken'
+                set_transaction_price:
+                    label: 'Ange ett pris'
+                    description: 'Sätt priset i USD för en transaktion som börsen inte har prissatt'
             dry_run_title: 'Pappershandel'
             dry_run_description: 'Simulera affärer med riktiga marknadspriser. Inga riktiga ordrar läggs.'
             dry_run_label: 'Aktivera pappershandel för handelsverktyg'

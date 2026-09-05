@@ -335,6 +335,15 @@ nl:
                 answer_redeploy_offer:
                     label: 'Op herinleg reageren'
                     description: 'Het opnieuw inleggen van de verkoopopbrengst accepteren of weigeren'
+                sync_tracker:
+                    label: 'Tracker synchroniseren'
+                    description: 'Nieuwe transacties en saldi van de exchanges ophalen'
+                set_transfer_link:
+                    label: 'Overboeking markeren'
+                    description: 'Een opname aan de bijbehorende storting koppelen of de koppeling ongedaan maken'
+                set_transaction_price:
+                    label: 'Koers opgeven'
+                    description: 'De koers in USD instellen voor een transactie die de exchange niet heeft gewaardeerd'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simuleer transacties met echte marktprijzen. Er worden geen echte orders geplaatst.'
             dry_run_label: 'Paper trading voor handelstools inschakelen'

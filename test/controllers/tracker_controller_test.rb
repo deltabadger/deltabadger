@@ -626,6 +626,17 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     assert_select '.tracker-holdings__value', text: /1,000\.00 zł/
   end
 
+  test 'a price that cannot be read is refused, not treated as a clear' do
+    row = create_transaction(:deposit, base_amount: 1, transacted_at: @transacted_at)
+    row.set_manual(:price, '50')
+    row.save!
+
+    patch price_tracker_transaction_path(row), params: { price: 'abc' }
+
+    assert_response :unprocessable_entity
+    assert_equal BigDecimal('50'), row.reload.manual_value(:price)
+  end
+
   private
 
   def write_report(country:, year:, contents:, report_scope: 'crypto')
