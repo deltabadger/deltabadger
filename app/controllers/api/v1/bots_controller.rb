@@ -32,7 +32,10 @@ module Api
       def update
         result = BotApi::Bots::UpdateSettings.call(
           user: current_user, bot_id: params[:id],
-          quote_amount: params[:quote_amount], label: params[:label]
+          quote_amount: params[:quote_amount], label: params[:label],
+          num_coins: params[:num_coins], allocation_flattening: params[:allocation_flattening],
+          # A String on MCP-shaped bodies, a Hash on JSON ones; the service normalises both.
+          allocations: update_allocations
         )
         render_result(result)
       end
@@ -58,6 +61,10 @@ module Api
                        error: { code: 'invalid_bot_type',
                                 message: "Unknown bot type '#{params[:type]}'. Must be one of: #{CREATE_TOOLS.keys.join(', ')}." } },
                status: :unprocessable_entity
+      end
+
+      def update_allocations
+        params[:allocations].is_a?(ActionController::Parameters) ? params[:allocations].permit! : params[:allocations]
       end
 
       def index_params
