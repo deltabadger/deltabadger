@@ -96,8 +96,12 @@ module BotApi
         entries
       end
 
+      # 'BTC' gives no weight; 'BTC:' gives one and gets it wrong. Only the first may fall through
+      # to the equal split — the second must be refused, or a typo silently reweights the basket.
       def parse_asset(entry)
         symbol, allocation = entry.to_s.strip.split(':', 2)
+        return normalize_asset(symbol: symbol) if allocation.nil?
+
         normalize_asset(symbol: symbol, allocation: allocation)
       end
 
@@ -109,11 +113,13 @@ module BotApi
         attributes = entry.to_h.with_indifferent_access
         symbol = attributes[:symbol].to_s.strip.upcase
         return nil if symbol.blank?
+        # Absent, not blank: a key that is present carries a weight the caller meant.
+        return { symbol: symbol, allocation: nil } unless attributes.key?(:allocation)
 
-        allocation = attributes[:allocation].presence
-        return nil if allocation && Number.within(allocation, 0.0..100.0).nil?
+        allocation = Number.within(attributes[:allocation], 0.0..100.0)
+        return nil if allocation.nil?
 
-        { symbol: symbol, allocation: allocation && Number.parse(allocation) }
+        { symbol: symbol, allocation: allocation }
       end
 
       def create_single(exchange)
