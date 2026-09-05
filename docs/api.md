@@ -211,7 +211,7 @@ Errors set both an HTTP status and an envelope `error.code`. Common pairs:
 | 403 | `tool_disabled`, `insufficient_scope`, `api_key_missing`, `withdrawal_key_missing` |
 | 404 | `bot_not_found`, `rule_not_found`, `exchange_not_found`, `pair_not_found`, `asset_not_found`, `index_not_found`, `quote_asset_not_found`, `no_transactions`, `report_not_found` |
 | 409 | `bot_already_running`, `bot_not_running`, `bot_running`, `rule_already_active`, `rule_not_active`, `rule_active`, `rule_exists`, `idempotency_in_progress`, `idempotency_key_reused`, `report_ready`, `report_generating` |
-| 422 | `missing_required_parameter`, `invalid_interval`, `invalid_allocation`, `invalid_date`, `invalid_order_type`, `no_updates_provided`, `exchange_name_required`, `bot_invalid`, `bot_save_failed`, `rule_save_failed`, `unknown_country`, `invalid_year`, `invalid_flag`, `market_data_not_configured`, `invalid_number`, `invalid_threshold_type`, `invalid_network`, `address_not_listed`, `withdrawal_unsupported`, `invalid_bot_type`, `invalid_basket`, `invalid_weighting`, `allocations_unbalanced`, `market_cap_unavailable` |
+| 422 | `missing_required_parameter`, `invalid_interval`, `invalid_allocation`, `invalid_date`, `invalid_order_type`, `no_updates_provided`, `exchange_name_required`, `bot_invalid`, `bot_save_failed`, `rule_save_failed`, `unknown_country`, `invalid_year`, `invalid_flag`, `market_data_not_configured`, `invalid_number`, `invalid_threshold_type`, `invalid_network`, `address_not_listed`, `withdrawal_unsupported`, `invalid_bot_type`, `invalid_basket`, `invalid_weighting`, `allocations_unbalanced`, `market_cap_unavailable`, `unsupported_setting`, `asset_not_in_basket`, `missing_basket_asset`, `invalid_allocations` |
 | 502 | `order_failed`, `cancel_failed`, `balances_fetch_failed`, `bot_stop_failed` |
 
 ---
@@ -227,7 +227,7 @@ token).
 | GET | `/bots` | `list_bots` | Optional `?status=` filter |
 | GET | `/bots/:id` | `get_bot_details` | Includes metrics if available; a multi-asset bot reports its members as `pair` (`BTC+ETH/USD`) plus `allocations` (`{symbol: weight}`; raw weights as set, which may not sum to 1 until normalised) |
 | POST | `/bots` | per-type | 201 on success. `type`: `dca` (default) or `index` — each gated by its own tool. `dca`: `exchange_name`, `quote_asset`, `quote_amount`, `interval`, plus either `base_asset` or `assets` — an array of `{symbol, allocation}` or the string `"BTC:60,ETH:40"`, 2-20 entries, weights optional (equal split) and summing to 100 when given — with optional `weighting: market_cap`. `index`: `exchange_name`, `quote_asset`, `quote_amount`, `interval`, plus `index` (id from `/indices`, must be available on that exchange), `num_coins`, `allocation_flattening` |
-| PATCH | `/bots/:id` | `update_bot_settings` | Accepts `quote_amount`, `label`; rule must be stopped |
+| PATCH | `/bots/:id` | `update_bot_settings` | Bot must be stopped. Any bot: `quote_amount`, `label`. Index bots: `num_coins`, `allocation_flattening`. Basket bots: `allocations` — every current member, summing to 100, as `{"BTC": 70, "ETH": 30}` or the string `"BTC:70,ETH:30"`; supplying them takes the basket off market-cap weighting. Membership is not editable here |
 | POST | `/bots/:id/start` | `start_bot` | 409 if already running |
 | POST | `/bots/:id/stop` | `stop_bot` | 409 if not running |
 | GET | `/exchanges` | `list_exchanges` | Lists user trading exchanges |

@@ -675,6 +675,34 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
     assert_equal %w[BTC ETH], bot.base_assets.map(&:symbol)
   end
 
+  test 'PATCH /api/v1/bots/:id reweights a basket from a JSON object' do
+    @user.set_rest_tool_enabled('update_bot_settings', true)
+    btc = create(:asset, :bitcoin)
+    eth = create(:asset, :ethereum)
+    bot = create(:dca_multi_asset, :stopped, user: @user, base_assets: [btc, eth])
+
+    patch "/api/v1/bots/#{bot.id}",
+          params: { allocations: { BTC: 70, ETH: 30 } },
+          headers: bearer(create_token), as: :json
+
+    assert_response :ok
+    assert_in_delta 0.7, bot.reload.allocation_for(btc.id), 0.0001
+  end
+
+  test 'PATCH /api/v1/bots/:id retunes an index bot' do
+    @user.set_rest_tool_enabled('update_bot_settings', true)
+    bot = create(:dca_index, user: @user, status: :stopped)
+
+    patch "/api/v1/bots/#{bot.id}",
+          params: { num_coins: 8, allocation_flattening: 0.25 },
+          headers: bearer(create_token), as: :json
+
+    assert_response :ok
+    bot.reload
+    assert_equal 8, bot.num_coins
+    assert_equal 0.25, bot.allocation_flattening
+  end
+
   private
 
   # A Kraken venue with three EUR pairs — the minimum a category index needs to offer that quote.
