@@ -25,7 +25,7 @@
           <%= hidden_field_tag :api_key_id, @result[:candidates].first&.id,
                                data: { 'form--segmented-field-target': 'field' } %>
         </div>
-        <%= f.submit t('tracker.import.confirm'), class: 'button button--success button--large',
+        <%= f.submit t('tracker.import.confirm'), class: 'button button--sky button--large',
                      data: { turbo_submits_with: t('tracker.import.importing') } %>
       <% end %>
     <% else %>

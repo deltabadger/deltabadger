@@ -6,8 +6,6 @@
          data-controller="conversational-sentence"
          data-action="click->conversational-sentence#activate input->conversational-sentence#updateFilled">
       <%= t('rules.withdrawals.sentence.withdraw_all') %>
-      100 <%= t('rules.withdrawals.sentence.of_the_amount') %>
-      <%= t('rules.withdrawals.sentence.of') %>
       <%= form_with url: new_rules_withdrawals_pick_asset_path, method: :get,
                     data: { controller: "form--submit-after-delay", turbo_frame: "asset-picker" },
                     class: "ticker active" do |f| %>

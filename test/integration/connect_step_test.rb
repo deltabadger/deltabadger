@@ -28,7 +28,7 @@ class ConnectStepTest < ActionDispatch::IntegrationTest
       assert_select 'input[name="api_key[secret]"].form__input'
       assert_select '.form__input--large', count: 0
 
-      assert_select 'input[type=submit][value=Connect].button--success[data-turbo-submits-with="Validating…"]'
+      assert_select 'input[type=submit][value=Connect].button--sky[data-turbo-submits-with="Validating…"]'
       assert_select 'input[type=submit].button--large', count: 0
 
       assert_select '.set-api__instructions' do

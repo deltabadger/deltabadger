@@ -48,11 +48,11 @@
     gap: 1rem
     &--main-menu
       position: fixed
-      top: 7.75rem
+      top: 7rem
     &--bottom
       align-items: center
   &__logo
-    margin-top: 1rem
+    margin-top: 0.75rem
     width: 4rem
     height: 4rem
     display: flex
@@ -65,8 +65,9 @@
     justify-content: center
     align-items: center
     position: relative
+    border: 0.125rem dashed transparent
     border-radius: 2rem
-    transition: background-color 0.2s ease-in
+    transition: background-color 0.2s ease-in, border-color 0.2s ease-in
     svg
       width: 3rem
       height: 3rem
@@ -77,7 +78,8 @@
     &:hover
       background: var(--silver)
       @media (prefers-color-scheme: dark)
-        background: var(--washed)
+        border: 0.125rem dashed var(--steel)
+        background: none
     &--active
       background: var(--washed) !important
       box-shadow: var(--shadow-basic)

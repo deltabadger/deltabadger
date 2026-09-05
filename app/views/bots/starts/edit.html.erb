@@ -13,7 +13,7 @@
         </p>
         <div class="buttons buttons--col">
           <%= button_to t('bot.buttons.start.on_schedule.skip'), bot_start_path(@bot, start_fresh: true), method: :patch, class: 'button button--outline button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
-          <%= button_to t('bot.buttons.start.on_schedule.continue'), bot_start_path(@bot, start_fresh: false), method: :patch, class: 'button button--success button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+          <%= button_to t('bot.buttons.start.on_schedule.continue'), bot_start_path(@bot, start_fresh: false), method: :patch, class: 'button button--sky button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
         </div>
       <% else %>
         <p>
@@ -21,7 +21,7 @@
         </p>
         <div class="buttons buttons--col">
           <%= button_to t('bot.buttons.start.missed.skip'), bot_start_path(@bot, start_fresh: true), method: :patch, class: 'button button--outline button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
-          <%= button_to t('bot.buttons.start.missed.continue'), bot_start_path(@bot, start_fresh: false), method: :patch, class: 'button button--success button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
+          <%= button_to t('bot.buttons.start.missed.continue'), bot_start_path(@bot, start_fresh: false), method: :patch, class: 'button button--sky button--large', data: { action: 'click->modal--base#animateOutCloseAndCleanUp' } %>
         </div>
       <% end %>
     </div>

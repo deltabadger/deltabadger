@@ -8,12 +8,9 @@
          data-controller="conversational-sentence"
          data-action="click->conversational-sentence#activate input->conversational-sentence#updateFilled">
       <%= t('rules.withdrawals.sentence.withdraw_all') %>
-      100 <%= t('rules.withdrawals.sentence.of_the_amount') %>
-      <%= t('rules.withdrawals.sentence.of') %>
+      <%# The amount is not settled until the last step, so the sentence only names the asset — and only once it is picked. %>
       <% if @asset %>
         <%= link_to @asset.symbol, new_rules_withdrawals_pick_asset_path, data: { turbo_frame: "modal_content", **ticker_data(@asset) }, class: "ticker", style: "background: #{asset_color}" %>
-      <% else %>
-        …
       <% end %>
       <%= t('rules.withdrawals.sentence.from') %>
       <%= form_with url: new_rules_withdrawals_pick_exchange_path, method: :get, class: "conversational__link filled",
