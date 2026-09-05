@@ -288,6 +288,15 @@ en:
                 list_account_transactions:
                     label: 'Account transactions'
                     description: 'View tracker transactions with filters'
+                list_rules:
+                    label: 'List rules'
+                    description: 'View withdrawal rules and their settings'
+                create_rule:
+                    label: 'Create rule'
+                    description: 'Create a withdrawal rule to an allow-listed address'
+                delete_rule:
+                    label: 'Delete rule'
+                    description: 'Delete a stopped withdrawal rule'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simulate trades with real market prices. No real orders are placed.'
             dry_run_label: 'Enable paper trading for trade tools'

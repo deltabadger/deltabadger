@@ -305,6 +305,15 @@ de:
                 list_account_transactions:
                     label: 'Kontotransaktionen'
                     description: 'Tracker-Transaktionen mit Filtern anzeigen'
+                list_rules:
+                    label: 'Regeln auflisten'
+                    description: 'Auszahlungsregeln und ihre Einstellungen anzeigen'
+                create_rule:
+                    label: 'Regel erstellen'
+                    description: 'Auszahlungsregel an eine freigegebene Adresse erstellen'
+                delete_rule:
+                    label: 'Regel löschen'
+                    description: 'Eine gestoppte Auszahlungsregel löschen'
             dry_run_title: 'Papierhandel'
             dry_run_description: 'Trades mit echten Marktpreisen simulieren. Es werden keine echten Orders ausgeführt.'
             dry_run_label: 'Papierhandel für Trade-Tools aktivieren'

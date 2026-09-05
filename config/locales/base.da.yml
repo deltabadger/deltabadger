@@ -287,6 +287,15 @@ da:
                 list_account_transactions:
                     label: 'Kontotransaktioner'
                     description: 'Se tracker-transaktioner med filtre'
+                list_rules:
+                    label: 'Vis regler'
+                    description: 'Se udbetalingsregler og deres indstillinger'
+                create_rule:
+                    label: 'Opret regel'
+                    description: 'Opret en udbetalingsregel til en godkendt adresse'
+                delete_rule:
+                    label: 'Slet regel'
+                    description: 'Slet en stoppet udbetalingsregel'
             dry_run_title: 'Papirhandel'
             dry_run_description: 'Simulér handler med reelle markedspriser. Der udføres ingen rigtige ordrer.'
             dry_run_label: 'Aktivér papirhandel for handelsværktøjer'

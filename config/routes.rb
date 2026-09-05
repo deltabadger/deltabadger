@@ -61,7 +61,7 @@ Rails.application.routes.draw do
       end
       resources :orders, only: %i[index create destroy]
       resource :portfolio, only: [:show]
-      resources :rules, only: [:update] do
+      resources :rules, only: %i[index create update destroy] do
         member do
           post :start
           post :stop

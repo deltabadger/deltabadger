@@ -36,7 +36,10 @@ class BackfillConnectedClientsTest < ActiveSupport::TestCase
     end
 
     client = ConnectedClient.for(user: @user, application: @application)
-    assert_equal @user.enabled_mcp_tool_names.sort, client.granted_mcp_tools.sort
+    # Against the migration's own frozen list, not the live catalogue: the snapshot records what
+    # the connection could do when this ran, so a tool added later must not appear in it.
+    expected = BackfillConnectedClients::MCP_DEFAULTS.select { |_, on| on }.keys
+    assert_equal expected.sort, client.granted_mcp_tools.sort
   end
 
   test 'an expired access token is still a live connection' do

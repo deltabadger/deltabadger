@@ -308,6 +308,15 @@ ru:
                 list_account_transactions:
                     label: 'Транзакции счёта'
                     description: 'Просмотр транзакций трекера с фильтрами'
+                list_rules:
+                    label: 'Список правил'
+                    description: 'Просмотр правил вывода и их настроек'
+                create_rule:
+                    label: 'Создать правило'
+                    description: 'Создать правило вывода на разрешённый адрес'
+                delete_rule:
+                    label: 'Удалить правило'
+                    description: 'Удалить остановленное правило вывода'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Симуляция сделок с реальными рыночными ценами. Реальные ордера не размещаются.'
             dry_run_label: 'Включить paper trading для торговых инструментов'

@@ -305,6 +305,15 @@ es:
                 list_account_transactions:
                     label: 'Transacciones de la cuenta'
                     description: 'Ver transacciones del tracker con filtros'
+                list_rules:
+                    label: 'Listar reglas'
+                    description: 'Ver las reglas de retiro y sus ajustes'
+                create_rule:
+                    label: 'Crear regla'
+                    description: 'Crear una regla de retiro a una dirección autorizada'
+                delete_rule:
+                    label: 'Eliminar regla'
+                    description: 'Eliminar una regla de retiro detenida'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simula operaciones con precios reales de mercado. No se ejecutan órdenes reales.'
             dry_run_label: 'Activar paper trading para herramientas de trading'

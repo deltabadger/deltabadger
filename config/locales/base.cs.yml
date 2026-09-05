@@ -288,6 +288,15 @@ cs:
                 list_account_transactions:
                     label: 'Transakce účtu'
                     description: 'Zobrazit transakce s filtry'
+                list_rules:
+                    label: 'Seznam pravidel'
+                    description: 'Zobrazit pravidla výběru a jejich nastavení'
+                create_rule:
+                    label: 'Vytvořit pravidlo'
+                    description: 'Vytvořit pravidlo výběru na schválenou adresu'
+                delete_rule:
+                    label: 'Smazat pravidlo'
+                    description: 'Smazat zastavené pravidlo výběru'
             dry_run_title: 'Papírové obchodování'
             dry_run_description: 'Simulujte obchody s reálnými tržními cenami. Žádné skutečné příkazy nejsou zadávány.'
             dry_run_label: 'Zapnout papírové obchodování pro obchodní nástroje'
