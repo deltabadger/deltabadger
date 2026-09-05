@@ -19,7 +19,7 @@ module Bots::Searchable
 
     # Exchanges are display-only, so resolve them for the page rows only — never for the full
     # (now ~10k-asset) result set. See attach_exchanges.
-    attach_exchanges(page)
+    attach_exchanges(page, bot, asset_type)
   end
 
   def render_asset_page(bot:, asset_field:)
@@ -46,27 +46,24 @@ module Bots::Searchable
   end
 
   # Resolve the exchanges each row trades on, for the (≤ ASSET_PAGE_SIZE) page rows ONLY.
-  # Same source as before — exchange_assets.available + Exchange.available — so output is
-  # identical, but membership is a scoped `WHERE asset_id IN (…page ids)` instead of an
-  # O(assets × Σ exchange_assets) Array#include? over every asset. binance_name is derived
-  # independently of the page (Binance available + has assets), so the binance_us → binance
-  # collapse still applies on pages that contain no Binance asset.
-  def attach_exchanges(rows)
+  #
+  # Same relation as the rows themselves (Bot#offered_tickers), a different pluck. It used to be
+  # exchange_assets — "is this asset listed on this venue" — while the rows and the exchange step
+  # ask "is this pair tradable here". The two answers diverged three ways: exchange_assets is never
+  # revoked, it ignores trading_enabled, and it knows nothing about the bot's chosen counterpart or
+  # venue. A row could therefore advertise a venue the very next screen refused.
+  def attach_exchanges(rows, bot, asset_type)
     return rows if rows.empty?
 
-    ids = rows.map(&:first)
     available_exchanges = Exchange.available.index_by(&:id)
     exchanges_by_asset = Hash.new { |hash, key| hash[key] = [] }
-    ExchangeAsset.available
-                 .where(asset_id: ids, exchange_id: available_exchanges.keys)
-                 .pluck(:asset_id, :exchange_id)
-                 .each do |asset_id, exchange_id|
+    bot.offered_exchange_ids_by_asset(rows.map(&:first), asset_type:).each do |asset_id, exchange_id|
       exchange = available_exchanges[exchange_id]
       exchanges_by_asset[asset_id] << [exchange.name_id, exchange.name] if exchange
     end
 
     binance = available_exchanges.values.find { |exchange| exchange.name_id == 'binance' }
-    binance_name = binance.name if binance && ExchangeAsset.available.where(exchange_id: binance.id).exists?
+    binance_name = binance.name if binance && Ticker.available.trading_enabled.exists?(exchange_id: binance.id)
 
     rows.map do |id, symbol, name, color, category, image_url|
       [id, symbol, name, color, category, image_url, parse_exchanges(exchanges_by_asset[id], binance_name)]

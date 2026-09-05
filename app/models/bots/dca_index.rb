@@ -114,8 +114,12 @@ class Bots::DcaIndex < Bot
     Exchange.where(id: exchange_ids)
   end
 
+  # Index bots have no base_asset_id of their own, so they cannot share the single-pair
+  # offered_tickers; they narrow by the index's member coins instead. Same contract: the step's
+  # rows and its exchange logos are two plucks off this one relation.
+  #
   # @param asset_type: :quote_asset (only quote_asset supported for Index bots)
-  def available_assets_for_current_settings(asset_type:, include_exchanges: false)
+  def offered_tickers(asset_type: :quote_asset)
     available_exchanges = exchange.present? ? [exchange] : Exchange.available
     scope = Ticker.available.trading_enabled.where(exchange: available_exchanges)
 
@@ -129,10 +133,16 @@ class Bots::DcaIndex < Bot
       end
     end
 
-    asset_ids = scope.group(:quote_asset_id)
-                     .having('COUNT(*) >= ?', Index::ExchangeAvailability::MINIMUM_SUPPORTED_COINS)
-                     .pluck(:quote_asset_id)
-    include_exchanges ? Asset.includes(:exchanges).where(id: asset_ids) : Asset.where(id: asset_ids)
+    scope
+  end
+
+  # @param asset_type: :quote_asset (only quote_asset supported for Index bots)
+  def available_assets_for_current_settings(asset_type:)
+    asset_ids = offered_tickers(asset_type:)
+                .group(:quote_asset_id)
+                .having('COUNT(*) >= ?', Index::ExchangeAvailability::MINIMUM_SUPPORTED_COINS)
+                .pluck(:quote_asset_id)
+    Asset.where(id: asset_ids)
   end
 
   # Returns { quote_asset_id => [Asset, Asset, ...] } for the bot's current
