@@ -13,7 +13,7 @@ class StopRuleToolTest < ActiveSupport::TestCase
       asset: @asset,
       address: '0xabc123',
       status: :scheduled,
-      settings: { 'max_fee_percentage' => '5', 'threshold_type' => 'max_fee_percentage' }
+      settings: { 'max_fee_percentage' => '5', 'threshold_type' => 'fee_percentage' }
     )
     @user.set_mcp_tool_enabled('stop_rule', true)
     stub_mcp_client(@user)

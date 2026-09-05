@@ -13,7 +13,7 @@ module BotApi
       end
 
       def call
-        rule = @user.rules.find_by(id: @rule_id.to_i)
+        rule = @user.rules.where.not(status: :deleted).find_by(id: @rule_id.to_i)
         return Result.failure(:not_found, 'rule_not_found', 'Rule not found.') unless rule
 
         if rule.working?

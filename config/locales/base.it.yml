@@ -305,6 +305,15 @@ it:
                 list_account_transactions:
                     label: 'Transazioni del conto'
                     description: 'Visualizza le transazioni del tracker con filtri'
+                list_rules:
+                    label: 'Elenco regole'
+                    description: 'Visualizza le regole di prelievo e le loro impostazioni'
+                create_rule:
+                    label: 'Crea regola'
+                    description: 'Crea una regola di prelievo verso un indirizzo autorizzato'
+                delete_rule:
+                    label: 'Elimina regola'
+                    description: 'Elimina una regola di prelievo ferma'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simula operazioni con prezzi di mercato reali. Non vengono effettuati ordini reali.'
             dry_run_label: 'Attiva il paper trading per gli strumenti di trading'

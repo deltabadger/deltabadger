@@ -287,6 +287,15 @@ sv:
                 list_account_transactions:
                     label: 'Kontotransaktioner'
                     description: 'Visa spårartransaktioner med filter'
+                list_rules:
+                    label: 'Lista regler'
+                    description: 'Visa uttagsregler och deras inställningar'
+                create_rule:
+                    label: 'Skapa regel'
+                    description: 'Skapa en uttagsregel till en godkänd adress'
+                delete_rule:
+                    label: 'Ta bort regel'
+                    description: 'Ta bort en stoppad uttagsregel'
             dry_run_title: 'Pappershandel'
             dry_run_description: 'Simulera affärer med riktiga marknadspriser. Inga riktiga ordrar läggs.'
             dry_run_label: 'Aktivera pappershandel för handelsverktyg'

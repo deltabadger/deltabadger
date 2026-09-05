@@ -305,6 +305,15 @@ nl:
                 list_account_transactions:
                     label: 'Rekeningtransacties'
                     description: 'Trackertransacties met filters bekijken'
+                list_rules:
+                    label: 'Regels weergeven'
+                    description: 'Opnameregels en hun instellingen bekijken'
+                create_rule:
+                    label: 'Regel aanmaken'
+                    description: 'Een opnameregel naar een goedgekeurd adres aanmaken'
+                delete_rule:
+                    label: 'Regel verwijderen'
+                    description: 'Een gestopte opnameregel verwijderen'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simuleer transacties met echte marktprijzen. Er worden geen echte orders geplaatst.'
             dry_run_label: 'Paper trading voor handelstools inschakelen'

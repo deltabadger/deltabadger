@@ -288,6 +288,15 @@ sk:
                 list_account_transactions:
                     label: 'Transakcie účtu'
                     description: 'Zobraziť transakcie s filtrami'
+                list_rules:
+                    label: 'Zoznam pravidiel'
+                    description: 'Zobraziť pravidlá výberu a ich nastavenia'
+                create_rule:
+                    label: 'Vytvoriť pravidlo'
+                    description: 'Vytvoriť pravidlo výberu na schválenú adresu'
+                delete_rule:
+                    label: 'Zmazať pravidlo'
+                    description: 'Zmazať zastavené pravidlo výberu'
             dry_run_title: 'Papierové obchodovanie'
             dry_run_description: 'Simulujte obchody s reálnymi trhovými cenami. Žiadne skutočné príkazy sa nezadávajú.'
             dry_run_label: 'Zapnúť papierové obchodovanie pre obchodné nástroje'
