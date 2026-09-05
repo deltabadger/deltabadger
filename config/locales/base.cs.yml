@@ -312,6 +312,12 @@ cs:
                 unarchive_bot:
                     label: 'Obnovit bota'
                     description: 'Vrátit archivovaného bota zpět'
+                liquidate_exited_asset:
+                    label: 'Prodat odebrané aktivum'
+                    description: 'Prodat aktivum, které bot odebral ze svého indexu nebo koše'
+                answer_redeploy_offer:
+                    label: 'Rozhodnout o opětovném vložení'
+                    description: 'Přijmout nebo odmítnout opětovné vložení výnosu z prodeje'
             dry_run_title: 'Papírové obchodování'
             dry_run_description: 'Simulujte obchody s reálnými tržními cenami. Žádné skutečné příkazy nejsou zadávány.'
             dry_run_label: 'Zapnout papírové obchodování pro obchodní nástroje'

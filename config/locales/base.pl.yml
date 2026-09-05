@@ -331,6 +331,12 @@ pl:
                 unarchive_bot:
                     label: 'Przywróć bota'
                     description: 'Wyjmij bota z archiwum'
+                liquidate_exited_asset:
+                    label: 'Sprzedaj usunięte aktywo'
+                    description: 'Sprzedaj aktywo, które bot usunął ze swojego indeksu lub koszyka'
+                answer_redeploy_offer:
+                    label: 'Zdecyduj o ponownej inwestycji'
+                    description: 'Zaakceptuj lub odrzuć ponowne zainwestowanie środków ze sprzedaży'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Symuluj transakcje z rzeczywistymi cenami rynkowymi. Żadne prawdziwe zlecenia nie są składane.'
             dry_run_label: 'Włącz paper trading dla narzędzi handlowych'

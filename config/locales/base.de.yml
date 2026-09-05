@@ -329,6 +329,12 @@ de:
                 unarchive_bot:
                     label: 'Bot reaktivieren'
                     description: 'Einen archivierten Bot zurückholen'
+                liquidate_exited_asset:
+                    label: 'Entferntes Asset verkaufen'
+                    description: 'Ein Asset verkaufen, das ein Index- oder Korb-Bot entfernt hat'
+                answer_redeploy_offer:
+                    label: 'Über Wiederanlage entscheiden'
+                    description: 'Die Wiederanlage des Verkaufserlöses annehmen oder ablehnen'
             dry_run_title: 'Papierhandel'
             dry_run_description: 'Trades mit echten Marktpreisen simulieren. Es werden keine echten Orders ausgeführt.'
             dry_run_label: 'Papierhandel für Trade-Tools aktivieren'

@@ -48,6 +48,8 @@ Rails.application.routes.draw do
           post :stop
           post :archive
           delete :archive, action: :unarchive
+          post :liquidations, action: :liquidate
+          post :redeploy
         end
       end
       resources :transactions, only: [:index] do

@@ -312,6 +312,12 @@ sk:
                 unarchive_bot:
                     label: 'Obnoviť bota'
                     description: 'Vrátiť archivovaného bota späť'
+                liquidate_exited_asset:
+                    label: 'Predať odstránené aktívum'
+                    description: 'Predať aktívum, ktoré bot odstránil zo svojho indexu alebo koša'
+                answer_redeploy_offer:
+                    label: 'Rozhodnúť o opätovnom vložení'
+                    description: 'Prijať alebo odmietnuť opätovné vloženie výnosu z predaja'
             dry_run_title: 'Papierové obchodovanie'
             dry_run_description: 'Simulujte obchody s reálnymi trhovými cenami. Žiadne skutočné príkazy sa nezadávajú.'
             dry_run_label: 'Zapnúť papierové obchodovanie pre obchodné nástroje'

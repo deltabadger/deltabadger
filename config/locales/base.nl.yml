@@ -329,6 +329,12 @@ nl:
                 unarchive_bot:
                     label: 'Bot heractiveren'
                     description: 'Een gearchiveerde bot terughalen'
+                liquidate_exited_asset:
+                    label: 'Verwijderde asset verkopen'
+                    description: 'Een asset verkopen die de bot uit zijn index of mand heeft verwijderd'
+                answer_redeploy_offer:
+                    label: 'Op herinleg reageren'
+                    description: 'Het opnieuw inleggen van de verkoopopbrengst accepteren of weigeren'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simuleer transacties met echte marktprijzen. Er worden geen echte orders geplaatst.'
             dry_run_label: 'Paper trading voor handelstools inschakelen'

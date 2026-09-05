@@ -25,6 +25,8 @@ class Api::V1::ToolGatingTest < ActionDispatch::IntegrationTest
     'limit_buy' => [:post, '/api/v1/orders', { type: 'limit_buy' }],
     'limit_sell' => [:post, '/api/v1/orders', { type: 'limit_sell' }],
     'cancel_order' => [:delete, '/api/v1/orders/1'],
+    'liquidate_exited_asset' => [:post, '/api/v1/bots/1/liquidations'],
+    'answer_redeploy_offer' => [:post, '/api/v1/bots/1/redeploy'],
     'start_rule' => [:post, '/api/v1/rules/1/start'],
     'stop_rule' => [:post, '/api/v1/rules/1/stop'],
     'update_rule_settings' => [:patch, '/api/v1/rules/1'],

@@ -312,6 +312,12 @@ en:
                 unarchive_bot:
                     label: 'Reactivate bot'
                     description: 'Bring an archived bot back'
+                liquidate_exited_asset:
+                    label: 'Sell exited holding'
+                    description: 'Sell a holding an index or basket bot has dropped'
+                answer_redeploy_offer:
+                    label: 'Answer redeploy offer'
+                    description: 'Accept or decline redeploying sale proceeds'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simulate trades with real market prices. No real orders are placed.'
             dry_run_label: 'Enable paper trading for trade tools'
