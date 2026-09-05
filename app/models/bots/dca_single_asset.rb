@@ -8,7 +8,9 @@ class Bots::DcaSingleAsset < Bot
                  :interval
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }
-  validate :validate_bot_exchange, if: :exchange_id?, on: :update
+  # Both contexts, one registration: Rails dedupes validation callbacks by filter symbol, so a
+  # second `validate :validate_bot_exchange` would silently replace this one rather than add to it.
+  validate :validate_bot_exchange, if: :exchange_id?, on: %i[update start]
   validate :validate_external_ids, on: :update
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
