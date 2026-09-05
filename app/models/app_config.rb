@@ -26,7 +26,9 @@ class AppConfig < ApplicationRecord
   ALPACA_API_SECRET = 'alpaca_api_secret'.freeze
   ALPACA_MODE = 'alpaca_mode'.freeze # 'paper' or 'live'
 
-  # MCP (Model Context Protocol) settings
+  # The per-tool MCP defaults. One catalogue serves both surfaces — TOOL_GROUPS below groups
+  # every tool, and REST_TOOL_DEFAULTS is derived from these keys — so a tool exists on MCP and
+  # REST or on neither.
   #
   # These names are permanent identifiers: they are stored verbatim in each
   # ConnectedClient's grant. Retiring a name is fine — stale grants are filtered out
@@ -73,8 +75,8 @@ class AppConfig < ApplicationRecord
     'set_transaction_price' => false
   }.freeze
 
-  # The tool catalogue, grouped as Settings and the consent screen show it. Both surfaces use
-  # it; only the defaults differ per surface. A tool exists on both or on neither.
+  # The catalogue, grouped as Settings and the consent screen show it. Both surfaces alias it;
+  # only the per-surface defaults differ.
   TOOL_GROUPS = {
     'read' => %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders
                  list_rules list_indices],
