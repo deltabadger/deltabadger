@@ -600,7 +600,77 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  # ---- index bots ---------------------------------------------------------
+
+  test 'POST /api/v1/bots with type index creates a DcaIndex bot' do
+    @user.set_rest_tool_enabled('create_index_bot', true)
+    with_index_fixture
+
+    post '/api/v1/bots',
+         params: { type: 'index', exchange_name: 'Kraken', quote_asset: 'EUR', quote_amount: 50,
+                   interval: 'week', index: 'layer-1' },
+         headers: bearer(create_token), as: :json
+
+    assert_response :created
+    bot = @user.bots.find(JSON.parse(response.body)['data']['id'])
+    assert_equal 'Bots::DcaIndex', bot.type
+    assert_equal 'layer-1', bot.index_category_id
+  end
+
+  test 'POST /api/v1/bots with type index is gated by create_index_bot, not create_bot' do
+    @user.set_rest_tool_enabled('create_bot', true)
+
+    post '/api/v1/bots', params: { type: 'index' }, headers: bearer(create_token), as: :json
+
+    assert_response :forbidden
+    assert_equal 'tool_disabled', JSON.parse(response.body)['error']['code']
+  end
+
+  test 'POST /api/v1/bots with an unknown type is a 422' do
+    @user.set_rest_tool_enabled('create_bot', true)
+    @user.set_rest_tool_enabled('create_index_bot', true)
+
+    post '/api/v1/bots', params: { type: 'bogus' }, headers: bearer(create_token), as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal 'invalid_bot_type', JSON.parse(response.body)['error']['code']
+  end
+
+  test 'GET /api/v1/indices lists the indices' do
+    @user.set_rest_tool_enabled('list_indices', true)
+    with_index_fixture
+
+    get '/api/v1/indices', headers: bearer(create_token)
+
+    assert_response :ok
+    body = JSON.parse(response.body)['data']
+    assert_equal 1, body['count']
+    assert_equal 'layer-1', body['indices'].first['id']
+  end
+
+  test 'GET /api/v1/indices is gated' do
+    get '/api/v1/indices', headers: bearer(create_token)
+    assert_response :forbidden
+  end
+
   private
+
+  # A Kraken venue with three EUR pairs — the minimum a category index needs to offer that quote.
+  def with_index_fixture
+    exchange = create(:kraken_exchange)
+    eur = create(:asset, :eur)
+    [create(:asset, :bitcoin), create(:asset, :ethereum),
+     create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana', category: 'Cryptocurrency')]
+      .each { |asset| create(:ticker, exchange: exchange, base_asset: asset, quote_asset: eur) }
+    create(:api_key, user: @user, exchange: exchange, key_type: :trading, status: :correct)
+    create(:index, external_id: 'layer-1', source: Index::SOURCE_COINGECKO, name: 'Layer 1',
+                   top_coins: %w[bitcoin ethereum solana], available_exchanges: { 'Exchanges::Kraken' => 3 })
+    MarketData.stubs(:configured?).returns(true)
+    MarketDataSettings.stubs(:deltabadger?).returns(true)
+    MarketData.stubs(:get_top_coins).returns(Result::Success.new(%w[bitcoin ethereum solana]))
+    Bot::ActionJob.stubs(:perform_later)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+  end
 
   def bearer(token)
     { 'Authorization' => "Bearer #{token.token}" }

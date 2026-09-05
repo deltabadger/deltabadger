@@ -31,6 +31,8 @@ class Api::V1::ToolGatingTest < ActionDispatch::IntegrationTest
     'list_rules' => [:get, '/api/v1/rules'],
     'create_rule' => [:post, '/api/v1/rules'],
     'delete_rule' => [:delete, '/api/v1/rules/1'],
+    'list_indices' => [:get, '/api/v1/indices'],
+    'create_index_bot' => [:post, '/api/v1/bots', { type: 'index' }],
     'list_tax_jurisdictions' => [:get, '/api/v1/tax/jurisdictions'],
     'generate_tax_report' => [:post, '/api/v1/tax/reports'],
     'get_tax_report_status' => [:get, '/api/v1/tax/reports/DE/2025'],

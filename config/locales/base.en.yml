@@ -297,6 +297,12 @@ en:
                 delete_rule:
                     label: 'Delete rule'
                     description: 'Delete a stopped withdrawal rule'
+                list_indices:
+                    label: 'List indices'
+                    description: 'View indices an index bot can track'
+                create_index_bot:
+                    label: 'Create index bot'
+                    description: 'Create and start an index DCA bot'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simulate trades with real market prices. No real orders are placed.'
             dry_run_label: 'Enable paper trading for trade tools'

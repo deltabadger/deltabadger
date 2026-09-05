@@ -296,6 +296,12 @@ sv:
                 delete_rule:
                     label: 'Ta bort regel'
                     description: 'Ta bort en stoppad uttagsregel'
+                list_indices:
+                    label: 'Lista index'
+                    description: 'Visa index som en indexbot kan följa'
+                create_index_bot:
+                    label: 'Skapa indexbot'
+                    description: 'Skapa och starta en DCA-indexbot'
             dry_run_title: 'Pappershandel'
             dry_run_description: 'Simulera affärer med riktiga marknadspriser. Inga riktiga ordrar läggs.'
             dry_run_label: 'Aktivera pappershandel för handelsverktyg'

@@ -6,7 +6,10 @@ module BotApi
     # The MCP tool used to inline this whole flow; pulling it here keeps the
     # decision tree in one place and gives REST callers a structured result.
     class Create
-      VALID_INTERVALS = %w[hour day week month].freeze
+      include CreateSupport
+
+      # Kept as an alias so callers and tests that reach for it through Create still resolve.
+      VALID_INTERVALS = CreateSupport::VALID_INTERVALS
       REQUIRED_PARAMS = %i[exchange_name base_asset quote_asset quote_amount interval].freeze
 
       def self.call(user:, **opts)
@@ -32,19 +35,13 @@ module BotApi
       end
 
       def call
-        missing = REQUIRED_PARAMS.select { |k| instance_variable_get("@#{k}").blank? }
-        return missing_required_parameter(missing) if missing.any?
-
+        err = missing_required(REQUIRED_PARAMS)
+        return err if err
         return invalid_interval unless VALID_INTERVALS.include?(@interval)
 
-        # Retired venues are excluded here rather than left to the missing-key check: the lookup is
-        # unscoped by name, so a retired exchange is still reachable by REST/MCP.
-        exchange = Exchange.where('LOWER(name) = ?', @exchange_name.to_s.downcase)
-                           .where.not(type: Exchange::RETIRED_TYPES).first
+        exchange = find_exchange(@exchange_name)
         return exchange_not_found unless exchange
-
-        api_key = @user.api_keys.find_by(exchange: exchange, key_type: :trading, status: :correct)
-        return api_key_missing(exchange) unless api_key
+        return api_key_missing(exchange) unless trading_key(exchange)
 
         first = find_pair(exchange, @base_asset, @quote_asset)
         return ticker_not_found(exchange, @base_asset) unless first
@@ -57,17 +54,6 @@ module BotApi
       end
 
       private
-
-      def find_pair(exchange, base_symbol, quote_symbol)
-        ticker = exchange.tickers.available
-                         .joins(:base_asset, :quote_asset)
-                         .where(assets: { symbol: base_symbol.to_s.upcase })
-                         .where(quote_assets_tickers: { symbol: quote_symbol.to_s.upcase })
-                         .first
-        return nil unless ticker
-
-        { base_asset_id: ticker.base_asset_id, quote_asset_id: ticker.quote_asset_id }
-      end
 
       def create_single(exchange, asset_ids)
         bot = @user.bots.new(
@@ -111,28 +97,6 @@ module BotApi
         save_and_start(bot)
       end
 
-      def save_and_start(bot)
-        # Distinguish "no start_at given" (nil → start immediately, the documented
-        # default) from "start_at given but blank/garbage" (→ fail validation, never
-        # fall through to an unintended immediate buy).
-        bot.schedule_start_at(@start_at) unless @start_at.nil?
-        bot.set_missed_quote_amount
-        # Validate on the :start context up front so an invalid scheduled date
-        # (past/blank/malformed) fails before anything is persisted. `bot.start`
-        # performs the insert itself, so a failure leaves no orphaned bot.
-        unless bot.valid?(:start)
-          return Result.failure(:validation_failed, 'bot_invalid',
-                                "Failed to create bot: #{bot.errors.full_messages.join(', ')}")
-        end
-
-        if bot.start(start_fresh: true)
-          Result.success(serialize(bot), status: :created)
-        else
-          Result.failure(:validation_failed, 'bot_save_failed',
-                         "Failed to create bot: #{bot.errors.full_messages.join(', ')}")
-        end
-      end
-
       def serialize(bot)
         {
           id: bot.id,
@@ -158,35 +122,9 @@ module BotApi
         end
       end
 
-      def missing_required_parameter(missing)
-        Result.failure(:validation_failed, 'missing_required_parameter',
-                       "Missing required parameter(s): #{missing.join(', ')}.")
-      end
-
-      def invalid_interval
-        Result.failure(:validation_failed, 'invalid_interval',
-                       "Invalid interval '#{@interval}'. Must be one of: #{VALID_INTERVALS.join(', ')}")
-      end
-
       def invalid_allocation
         Result.failure(:validation_failed, 'invalid_allocation',
                        "Invalid allocation '#{@allocation}'. Must be a percentage between 0 and 100.")
-      end
-
-      def exchange_not_found
-        available = Exchange.tradeable.pluck(:name).join(', ')
-        Result.failure(:not_found, 'exchange_not_found',
-                       "Exchange '#{@exchange_name}' not found. Available: #{available}")
-      end
-
-      def api_key_missing(exchange)
-        Result.failure(:permission_denied, 'api_key_missing',
-                       "No valid API key found for #{exchange.name}. Please add an API key in Settings.")
-      end
-
-      def ticker_not_found(exchange, symbol)
-        Result.failure(:not_found, 'pair_not_found',
-                       "Trading pair #{symbol.to_s.upcase}/#{@quote_asset.upcase} not found on #{exchange.name}.")
       end
     end
   end

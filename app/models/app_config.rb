@@ -60,16 +60,18 @@ class AppConfig < ApplicationRecord
     'list_account_transactions' => true,
     'list_rules' => true,
     'create_rule' => false,
-    'delete_rule' => false
+    'delete_rule' => false,
+    'list_indices' => true,
+    'create_index_bot' => false
   }.freeze
 
   # The tool catalogue, grouped as Settings and the consent screen show it. Both surfaces use
   # it; only the defaults differ per surface. A tool exists on both or on neither.
   TOOL_GROUPS = {
     'read' => %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders
-                 list_rules],
+                 list_rules list_indices],
     'control' => %w[create_bot start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings
-                    create_rule delete_rule],
+                    create_rule delete_rule create_index_bot],
     'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order],
     'tax' => %w[list_tax_jurisdictions generate_tax_report get_tax_report_status download_tax_report export_transactions_csv
                 list_account_transactions]

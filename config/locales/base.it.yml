@@ -314,6 +314,12 @@ it:
                 delete_rule:
                     label: 'Elimina regola'
                     description: 'Elimina una regola di prelievo ferma'
+                list_indices:
+                    label: 'Elenco indici'
+                    description: 'Visualizza gli indici che un bot indice può seguire'
+                create_index_bot:
+                    label: 'Crea bot indice'
+                    description: 'Crea e avvia un bot DCA indice'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simula operazioni con prezzi di mercato reali. Non vengono effettuati ordini reali.'
             dry_run_label: 'Attiva il paper trading per gli strumenti di trading'
