@@ -1,4 +1,5 @@
-<%# The tool catalogue, once: a row per tool in MCP's grouping, a switch column per surface. %>
+<%# The tool catalogue, once: a row per tool in AppConfig::TOOL_GROUPS' grouping, a switch
+    column per surface. Both surfaces carry every tool, so every cell has a switch. %>
 <%
   surfaces = {
     'mcp' => { groups: AppConfig::MCP_TOOL_GROUPS, tools: AppConfig::MCP_TOOL_DEFAULTS,
