@@ -700,6 +700,10 @@ pl:
             execution_failed_with_error: 'Próba zlecenia nie powiodła się: %{error}'
             order_abandoned: "Zlecenie %{order_id} porzucone (giełda już go nie śledzi)"
             placement_ambiguous: "Status zlecenia niepotwierdzony — bez ponowienia, aby uniknąć zdublowanego zlecenia"
+            signal_market_closed: "Sygnał zignorowany — rynek zamknięty"
+            signal_api_key_pending: "Sygnał zignorowany — klucz API wciąż czeka na aktywację"
+            signal_expired: "Sygnał odrzucony — zbyt długo czekał w kolejce"
+            signal_ignored: "Sygnał zignorowany — zanim zdążył zadziałać, bot został zatrzymany albo reguła wyłączona"
         transactions:
             bought: 'Kupiono %{amount} %{base} za %{quote_amount} %{quote}'
             sold: 'Sprzedano %{amount} %{base} za %{quote_amount} %{quote}'

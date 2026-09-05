@@ -120,6 +120,8 @@ it:
             for: "per"
             when_triggered: "quando questo webhook viene attivato:"
             of_the_balance: "del saldo"
+            never_triggered: "mai attivato"
+            last_triggered: "ultima attivazione %{time} fa"
         buy: Compra
         counter: '%{countdown}'
         day: Giorno

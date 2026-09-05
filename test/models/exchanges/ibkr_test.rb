@@ -153,5 +153,8 @@ class Exchanges::IbkrTest < ActiveSupport::TestCase
 
     result = @exchange.market_buy(ticker: ticker, amount: 2, amount_type: :base)
     assert_predicate result, :failure?
+    # Not a rejection: IBKR took the order and lost the acknowledgement. The flag is what keeps a
+    # caller from writing it down as a failed order (Exchange#ambiguous_placement_error?).
+    assert result.data[:unacknowledged]
   end
 end

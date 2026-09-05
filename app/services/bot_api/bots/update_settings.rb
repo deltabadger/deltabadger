@@ -51,6 +51,9 @@ module BotApi
         updates = {}
 
         if @quote_amount.present?
+          # A signal bot has no per-order amount — its sizing lives on its rules.
+          return unsupported('quote_amount', 'DCA') unless bot.respond_to?(:quote_amount=)
+
           amount = Number.parse(@quote_amount)
           return invalid_number('quote_amount') unless amount&.positive?
 
@@ -100,7 +103,7 @@ module BotApi
             bot.public_send("#{key}=", value)
           end
         end
-        bot.set_missed_quote_amount
+        bot.set_missed_quote_amount if bot.respond_to?(:set_missed_quote_amount) # a signal bot has no carry
       end
 
       def basket_weights(bot)

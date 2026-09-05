@@ -63,7 +63,7 @@ class Exchanges::Bybit < Exchange
       result = client.instruments_info(category: 'spot')
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       ret_code = result.data['retCode']
@@ -103,7 +103,7 @@ class Exchanges::Bybit < Exchange
       result = client.tickers(category: 'spot')
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       ret_code = result.data['retCode']
@@ -124,7 +124,7 @@ class Exchanges::Bybit < Exchange
     result = client.wallet_balance(account_type: 'UNIFIED')
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     ret_code = result.data['retCode']
@@ -158,7 +158,7 @@ class Exchanges::Bybit < Exchange
       result = client.tickers(category: 'spot', symbol: ticker.ticker)
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       ret_code = result.data['retCode']
@@ -180,7 +180,7 @@ class Exchanges::Bybit < Exchange
       result = get_bid_ask_price(ticker)
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       price = result.data[:bid][:price]
@@ -234,7 +234,7 @@ class Exchanges::Bybit < Exchange
       )
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       ret_code = result.data['retCode']
@@ -308,7 +308,7 @@ class Exchanges::Bybit < Exchange
     result = client.get_order(category: 'spot', order_id: order_id)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     normalized_order_data = parse_order_data(order_id, result.data[:raw])
@@ -342,7 +342,7 @@ class Exchanges::Bybit < Exchange
     result = client.cancel_order(category: 'spot', symbol: symbol, order_id: order_id)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     ret_code = result.data['retCode']
@@ -414,7 +414,7 @@ class Exchanges::Bybit < Exchange
                              amount: amount.to_d.to_s('F'), tag: address_tag)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     withdrawal_id = result.data.dig('result', 'id')
@@ -564,7 +564,7 @@ class Exchanges::Bybit < Exchange
       result = client.orderbook(category: 'spot', symbol: ticker.ticker, limit: 1)
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       ret_code = result.data['retCode']
@@ -605,7 +605,7 @@ class Exchanges::Bybit < Exchange
     result = client.create_order(**order_settings)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     data = {
@@ -641,7 +641,7 @@ class Exchanges::Bybit < Exchange
     result = client.create_order(**order_settings)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     data = {

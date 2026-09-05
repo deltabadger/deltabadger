@@ -120,6 +120,8 @@ da:
             for: "for"
             when_triggered: "når denne webhook udløses:"
             of_the_balance: "af saldoen"
+            never_triggered: "aldrig udløst"
+            last_triggered: "sidst udløst for %{time} siden"
         buy: Køb
         counter: '%{countdown}'
         day: Dag

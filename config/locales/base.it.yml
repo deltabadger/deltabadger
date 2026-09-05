@@ -696,6 +696,10 @@ it:
             execution_failed_with_error: 'Tentativo di ordine fallito: %{error}'
             order_abandoned: "Ordine %{order_id} abbandonato (l'exchange non lo segue più)"
             placement_ambiguous: "Stato dell'ordine non confermato — nessun nuovo tentativo, per evitare un ordine duplicato"
+            signal_market_closed: 'Segnale ignorato — mercato chiuso'
+            signal_api_key_pending: 'Segnale ignorato — la chiave API è ancora in attesa di attivazione'
+            signal_expired: 'Segnale scartato — è rimasto troppo a lungo in coda'
+            signal_ignored: "Segnale ignorato — il bot è stato fermato o la regola disattivata prima dell'esecuzione"
         transactions:
             bought: 'Acquistato %{amount} %{base} per %{quote_amount} %{quote}'
             sold: 'Venduto %{amount} %{base} per %{quote_amount} %{quote}'

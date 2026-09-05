@@ -300,5 +300,9 @@ Rails.application.routes.draw do
   # verbatim, with no session and no locale of its own.
   post '/csp-report', to: 'csp_reports#create'
 
+  # Outside the locale scope for the same reason: a signal bot's webhook is called by an alert
+  # system with no session and no locale. POST only — a GET must never trade. See HooksController.
+  post '/hook/:token', to: 'hooks#create'
+
   # get '*path', to: redirect("/#{I18n.default_locale}")
 end

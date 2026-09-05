@@ -44,8 +44,11 @@ class Bot::RepairOrphanedBotsJob < ApplicationJob
   # SECOND job for the same tick, since cancel_scheduled_action_jobs cannot cancel a claimed one.
   # The duplicate then died on ActionJob's "already has an action job scheduled" guard.
   def find_orphaned_bots
+    # A started signal bot is :scheduled too, and has no scheduler to be orphaned from — the same
+    # guard shape as the `limited?` check below. Without it one signal bot raises here, outside
+    # the per-bot rescue, and orphan repair is off for every DCA bot on the instance.
     Bot.where(status: %i[scheduled retrying]).select do |bot|
-      bot.exchange.present? && !bot.pending_action_job?
+      bot.exchange.present? && bot.respond_to?(:pending_action_job?) && !bot.pending_action_job?
     end
   end
 

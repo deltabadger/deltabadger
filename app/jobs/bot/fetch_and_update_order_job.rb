@@ -37,7 +37,9 @@ class Bot::FetchAndUpdateOrderJob < BotJob
       # otherwise a swap silently satisfies a scheduled contribution. Gated at the source because the
       # flag alone is not enough: Bot::LimitOrderable#execute_action sweeps every waiting order with
       # it set to true, before any bot-level guard runs.
-      update_missed_quote_amount &&= order.transaction_type == 'REGULAR'
+      # ...and only for a bot that carries the carry at all: a signal bot has no Bot::Accountable,
+      # and the cancel button and the CSV export pass the flag for every bot type.
+      update_missed_quote_amount &&= order.transaction_type == 'REGULAR' && bot.respond_to?(:missed_quote_amount)
 
       # Capture the previously-recorded quote execution BEFORE update_with_order_data mutates it —
       # the carry drawdown is the delta between the new and previous quote fill.

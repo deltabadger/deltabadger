@@ -67,6 +67,20 @@ class ClientTest < ActiveSupport::TestCase
     assert_equal ['nope'], result.errors
   end
 
+  # The venue answered and the JSON middleware could not read the answer. For a placement that is
+  # an accepted order with no acknowledgement, so the failure has to say what kind it is.
+  test 'with_rescue marks a response it could not parse as unreadable, with its status' do
+    error = Faraday::ParsingError.new(JSON::ParserError.new("unexpected token at '{\"id\":'"),
+                                      { status: 200, body: '{"id":' })
+
+    result = @client.with_rescue { raise error }
+
+    assert result.failure?
+    assert_equal 'Unreadable response (HTTP 200)', result.errors.first
+    assert result.data[:unreadable]
+    assert_equal 200, result.data[:status]
+  end
+
   test 'with_rescue still returns Result::Failure for generic StandardError' do
     result = @client.with_rescue { raise StandardError, 'something else' }
 

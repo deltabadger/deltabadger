@@ -120,6 +120,8 @@ sv:
             for: "för"
             when_triggered: "när denna webhook utlöses:"
             of_the_balance: "av saldot"
+            never_triggered: "aldrig utlöst"
+            last_triggered: "senast utlöst för %{time} sedan"
         buy: Köp
         counter: '%{countdown}'
         day: Dag

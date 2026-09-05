@@ -708,6 +708,10 @@ da:
             execution_failed_with_error: 'Order attempt failed: %{error}'
             order_abandoned: "Ordre %{order_id} opgivet (børsen sporer den ikke længere)"
             placement_ambiguous: "Ordrestatus ubekræftet — forsøges ikke igen for at undgå en dobbelt ordre"
+            signal_market_closed: "Signal ignoreret — markedet er lukket"
+            signal_api_key_pending: "Signal ignoreret — API-nøglen venter stadig på aktivering"
+            signal_expired: "Signal kasseret — det ventede for længe i køen"
+            signal_ignored: "Signal ignoreret — botten var stoppet, eller reglen var slået fra, inden det nåede at køre"
         # TODO: translate transactions (English placeholders)
         transactions:
             bought: 'Bought %{amount} %{base} for %{quote_amount} %{quote}'

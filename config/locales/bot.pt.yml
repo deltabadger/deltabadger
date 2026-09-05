@@ -118,6 +118,8 @@ pt:
             for: "para"
             when_triggered: "quando este webhook for acionado:"
             of_the_balance: "do saldo"
+            never_triggered: "nunca acionado"
+            last_triggered: "acionado pela última vez há %{time}"
         buy: Comprar
         counter: '%{countdown}'
         day: Dia

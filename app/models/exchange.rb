@@ -399,19 +399,64 @@ class Exchange < ApplicationRecord
     end
   end
 
+  # Does a FAILED placement Result leave the order's fate unknown? A failure that only says the
+  # request got no clean answer may still be on the book: a network error; a gateway 5xx
+  # (Client#with_rescue reports an HTML-bodied one as "HTTP 504" with the status in data, and
+  # honeymaker attaches the status to every HTTP failure — the adapters re-wrap those with the
+  # data kept); a 2xx whose body could not be read (`unreadable`, same place); an exception inside
+  # a honeymaker client (`client_error`), which can be raised while reading a response the venue
+  # already acted on; a venue that took the order and lost the acknowledgement (`unacknowledged`,
+  # set by the adapters that convert a missing id into a failure — Ibkr, Kraken, Hyperliquid).
+  # Only a definitive rejection may be written down as a failed order. A -1021 is excluded on
+  # purpose: that one is definitive (never reached the book) and is the caller's to re-place. The
+  # asymmetry decides the doubtful cases: a wrong "ambiguous" costs a warning line instead of a
+  # failed row, a wrong "failed" costs a live order nobody tracks.
+  def ambiguous_placement_error?(result)
+    errors = Array(result.errors)
+    return false if placement_transient_error?(errors)
+    return true if transient_error?(errors)
+
+    data = result.data.is_a?(Hash) ? result.data : {}
+    return true if data[:unreadable] || data[:unacknowledged] || data[:client_error]
+
+    status = data[:status].to_i
+    return true if status >= 500 || (200..299).cover?(status)
+
+    errors.any? { |err| err.to_s.match?(/\bHTTP 5\d\d\b/) }
+  end
+
+  # Is this the id of an order the venue acknowledged? Honeymaker composes ids as
+  # "SYMBOL-<venue id>", so a response with no id arrives as "BTCUSDT-": present, and empty where
+  # it matters. Kraken and Gemini pass the venue id through, so there blank is blank.
+  def acknowledged_order_id?(order_id)
+    id = order_id.to_s
+    id.present? && !id.end_with?('-')
+  end
+
   # Retry an idempotent READ that returns a Result, when it fails with a transient error
   # (network blip / -1021 timestamp). READS ONLY — never wrap order placement or withdrawals,
   # which must stay single-shot. Bots don't use this (they retry at the job level); this is for
   # the rule path, which has no job-level retry.
+  #
+  # Two shapes of the same blip: honeymaker venues hand a network failure back as a Result, the
+  # app-level clients (Alpaca, IBKR) raise Client::TransientNetworkError. Both are retried here,
+  # and the raised one is re-raised once the attempts are spent.
   def with_transient_retry(attempts: 3, base_delay: 0.5)
-    result = yield
-    tries = 1
-    while tries < attempts && result.respond_to?(:failure?) && result.failure? && transient_error?(result.errors)
-      sleep(base_delay * tries)
-      result = yield
+    tries = 0
+    loop do
       tries += 1
+      begin
+        result = yield
+      rescue Client::TransientNetworkError
+        raise if tries >= attempts
+
+        sleep(base_delay * tries)
+        next
+      end
+      return result unless tries < attempts && result.respond_to?(:failure?) && result.failure? && transient_error?(result.errors)
+
+      sleep(base_delay * tries)
     end
-    result
   end
 
   # Sibling of transient_error?: do the given errors look like an exchange rate-limit /

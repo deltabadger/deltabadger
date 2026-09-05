@@ -1,78 +1,62 @@
-# Signal bots are incomplete
+# Signal bots
 
-**Status: the webhook receiver does not exist.** A signal bot can be created, configured and
-started, and the app will show you a URL to call — but nothing in this application serves that
-URL, so the bot can never fire.
+A signal bot has no schedule. It waits for an HTTP call from an outside system — a TradingView
+alert, a script, another service — and buys or sells when that call arrives. Each rule
+(`BotSignal`) on the bot is one instruction ("buy 100 USDT of BTC when triggered") with its own
+secret token, and the token is the whole address: whoever knows it can fire that rule.
 
-This note records what is built, what is missing, and what finishing it would involve.
+## Calling a rule
 
-## What a signal bot is meant to do
+Each rule's URL is shown on its widget: `https://<host>/hook/<token>`. `POST` it. The request body
+is never read — the rule defines the trade, the URL is only the trigger — so any sender that can
+make an HTTP call works, whatever it puts in the body.
 
-Unlike a DCA bot, a signal bot has no schedule. It waits for an HTTP call from an outside system —
-a TradingView alert, a script, another service — and buys or sells when that call arrives. Each
-`BotSignal` row is one rule ("buy 100 USDT of BTC when triggered") with its own secret token, and
-the token is the whole address: whoever knows it can fire that rule.
+| response | meaning |
+|---|---|
+| `202 {"status":"accepted"}` | the order is being placed |
+| `200 {"status":"ignored","reason":"cooldown"}` | the rule already fired in the last 30 seconds |
+| `200 {"status":"ignored","reason":"bot_not_running"}` | the bot is stopped or archived |
+| `200 {"status":"ignored","reason":"signal_disabled"}` | the rule is switched off |
+| `404` | unknown token |
+| `503` | the queue refused the call; try again |
 
-## What is built
+Ignored calls are acknowledged rather than refused: a sender that treats non-2xx as a failed
+delivery (TradingView does) must not report a call we chose to drop as an error on its side. The
+widget shows when the webhook was last triggered, which is the trace an ignored call leaves.
 
-Everything except the receiver:
+## What a call does
 
-- `Bots::Signal` (`app/models/bots/signal.rb`) — the bot type, with asset/exchange validation and
-  its own `start` / `stop` / `delete`.
-- `BotSignal` (`app/models/bot_signal.rb`) — the individual rules, with direction, amount, amount
-  type, and a unique `token` generated on create.
-- The five-step creation wizard under `app/controllers/bots/signals/`, linked from the bot-type
-  picker on `/bots/new`.
-- `Bots::BotSignalsController` for adding, editing and removing rules on an existing bot.
-- The signal widget (`app/views/bots/signals/_signal_widget.html.erb`), which renders
-  `request.base_url + signal.webhook_url` as the URL to call.
+- **Sizing.** A buy for a fixed amount spends that much of the quote asset; a percentage buy spends
+  that share of the spendable quote balance. A sell for a fixed amount is quote-denominated, sized
+  in base, and never sells more than is free; a percentage sell sells that share of the free base
+  balance. Market orders only, sized at the price the venue says a market order executes at.
+- **Every accepted call leaves one visible row**: a submitted, skipped or failed transaction in the
+  feed, or an activity line saying why nothing was placed — market closed, API key pending
+  activation, the call waited too long in the queue, or the bot was stopped or the rule switched
+  off before it ran.
+- **Email** on the first failure after a success, not on every one.
 
-## What is missing
+## How it is built
 
-`BotSignal#webhook_url` builds `/hook/<token>`, and that path is not routed:
+- `HooksController` (`POST /hook/:token`, outside the locale scope, `ActionController::API`): one
+  lookup, one atomic 30-second claim per rule (`BotSignal#claim_trigger!`, a conditional UPDATE on
+  `last_triggered_at`), one enqueue. A queue refusal hands the claim back and answers 503. The
+  token is masked in the request log line.
+- `Bot::SignalJob`: one-shot, no `retry_on` (a retried placement is the double-buy bug class —
+  `Bot::RebalanceJob` sets the precedent), shares `Bot::ActionJob`'s per-exchange semaphore, drops
+  a call older than five minutes.
+- `Bots::Signal::OrderSetter#execute_signal`: sizing, placement and recording. Failures are
+  classified by where they happen, because that decides whether money moved: before the placement
+  call → a failed row; inside it → `placement_ambiguous` (the request may have gone out; never
+  retried, never written down as failed); after acceptance → the submitted row stays whatever else
+  goes wrong. `Exchange#ambiguous_placement_error?` is the classifier for a failed placement
+  result, and `Exchange#acknowledged_order_id?` for a success that carries no real id.
 
-```ruby
-Rails.application.routes.recognize_path('/hook/abc123', method: :post)
-# => ActionController::RoutingError
-```
+## Deliberately out
 
-There is no route in `config/routes.rb` (the catch-all `get '*path'` is commented out), no
-controller, and no `find_by(token:)` anywhere in `app/` or `lib/`. `git log -S"/hook/"` over
-`config/routes.rb` and `app/controllers` returns nothing, so a receiver was never present and then
-removed — it has not been written.
-
-`Bots::Signal` carries no scheduler (`# No Bot::Lifecycle: Signal is passive (no scheduling)`), so
-the webhook is the only thing that could ever trigger a trade. There is no fallback path.
-
-## What a user sees today
-
-A signal bot can be created and started, reports itself as `scheduled`, and displays a webhook URL
-that returns 404. It never trades, and nothing reports that it cannot.
-
-## Finishing it
-
-The plumbing is small: a route outside the locale scope (`/csp-report` is the existing example of
-one), a controller that looks the token up, and a job that places the order through the same path
-the other bot types use.
-
-The design questions are the ones any trade-triggering webhook has, and they are why this should
-not be added casually:
-
-- **Authentication.** The token is a bearer secret in a URL. URLs end up in logs, browser history
-  and third-party alert configurations. Decide whether the token alone may authorise spending
-  money, or whether a signed body or a second factor is required.
-- **Replay.** An endpoint that places an order must not place two when a sender retries. The
-  `Idempotency` concern (`app/controllers/concerns/idempotency.rb`) is the existing mechanism.
-- **Rate limiting and abuse.** The endpoint is unauthenticated in the ordinary sense and publicly
-  reachable; a leaked token is a way to drain an account by repetition.
-- **Reporting.** A rejected or ignored call should be visible to the account owner — a signal that
-  silently does nothing is the failure mode this feature already has.
-
-Until those are settled, the alternative is to remove the bot type rather than continue offering a
-URL that does not answer.
-
-## Why signal bots are absent from the API
-
-`create_signal_bot` is deliberately not among the MCP/REST tools. A tool that creates signal bots
-would hand out webhook URLs that nothing serves, which is worse than not offering it at all. See
-the "Deliberately out" section of the MCP/REST coverage work for the other scope decisions.
+- A second factor or signed body: alert systems can produce neither. A per-sender secret in the
+  body would be a second bearer in the same request.
+- An IP throttle: behind a CDN the throttle key names the edge, which would let a stranger
+  rate-limit the user's own alerts. The per-rule claim is the bound.
+- Body-carried parameters, limit orders, and `create_signal_bot` on MCP/REST (see the
+  "Deliberately out" section of the MCP/REST coverage work).

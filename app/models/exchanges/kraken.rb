@@ -699,7 +699,8 @@ class Exchanges::Kraken < Exchange
     return result if result.failure?
 
     order_id = result.data[:order_id]
-    return Result::Failure.new("Failed to set #{name} market order (order_id is nil)") if order_id.nil?
+    # Accepted with no id: not a rejection — the flag is how a caller tells the two apart.
+    return Result::Failure.new("Failed to set #{name} market order (order_id is nil)", data: { unacknowledged: true }) if order_id.nil?
 
     data = {
       order_id:
@@ -728,7 +729,7 @@ class Exchanges::Kraken < Exchange
     return result if result.failure?
 
     order_id = result.data[:order_id]
-    return Result::Failure.new("Failed to set #{name} limit order (order_id is nil)") if order_id.nil?
+    return Result::Failure.new("Failed to set #{name} limit order (order_id is nil)", data: { unacknowledged: true }) if order_id.nil?
 
     data = {
       order_id:

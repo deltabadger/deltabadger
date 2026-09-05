@@ -1,6 +1,8 @@
 require 'test_helper'
 
 class BotSignalTest < ActiveSupport::TestCase
+  include ActiveSupport::Testing::TimeHelpers
+
   setup do
     @bot = create(:signal_bot)
     @signal = create(:bot_signal, bot: @bot)
@@ -74,5 +76,53 @@ class BotSignalTest < ActiveSupport::TestCase
 
   test 'belongs to bot' do
     assert_equal @bot, @signal.bot
+  end
+
+  test 'a percentage rule cannot exceed 100' do
+    signal = build(:bot_signal, bot: @bot, amount: 150, amount_type: :percentage)
+    assert_not signal.valid?
+    assert_predicate signal.errors[:amount], :present?
+
+    signal.amount_type = :fixed
+    assert_predicate signal, :valid?
+  end
+
+  # The claim is the replay guard: one UPDATE that only one of two concurrent calls can win.
+  test 'claim_trigger! admits one call per cooldown' do
+    freeze_time do
+      assert @signal.claim_trigger!
+      assert_equal Time.current, @signal.reload.last_triggered_at
+      assert_not @signal.claim_trigger!
+
+      travel BotSignal::TRIGGER_COOLDOWN
+      assert @signal.claim_trigger!
+    end
+  end
+
+  test 'release_trigger! hands back only the claim that was taken' do
+    freeze_time do
+      earlier = 5.minutes.ago
+      @signal.update!(last_triggered_at: earlier)
+      assert @signal.claim_trigger!
+
+      @signal.release_trigger!(previous: earlier)
+      assert_equal earlier, @signal.reload.last_triggered_at
+
+      assert @signal.claim_trigger!
+      newer = 1.minute.from_now
+      BotSignal.where(id: @signal.id).update_all(last_triggered_at: newer)
+      @signal.release_trigger!(previous: earlier)
+      assert_equal newer, @signal.reload.last_triggered_at, 'a newer claim is not ours to release'
+    end
+  end
+
+  test 'ignore_reason names why a call would do nothing' do
+    assert_equal 'bot_not_running', @signal.ignore_reason # the factory bot is :created, not started
+
+    @bot.update!(status: :scheduled)
+    assert_nil @signal.ignore_reason
+
+    @signal.update!(enabled: false)
+    assert_equal 'signal_disabled', @signal.ignore_reason
   end
 end

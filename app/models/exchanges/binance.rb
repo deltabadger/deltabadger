@@ -66,7 +66,7 @@ class Exchanges::Binance < Exchange
       result = client.exchange_information(permissions: ['SPOT'])
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       result.data['symbols'].map do |product|
@@ -109,7 +109,7 @@ class Exchanges::Binance < Exchange
       result = client.symbol_price_ticker
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       result.data.each_with_object({}) do |symbol_price, prices_hash|
@@ -126,7 +126,7 @@ class Exchanges::Binance < Exchange
     result = client.account_information(omit_zero_balances: true, recv_window: READ_RECV_WINDOW)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     asset_ids ||= assets.pluck(:id)
@@ -154,7 +154,7 @@ class Exchanges::Binance < Exchange
       result = client.symbol_price_ticker(symbol: ticker.ticker)
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       price = Utilities::Hash.dig_or_raise(result.data, 'price').to_d
@@ -172,7 +172,7 @@ class Exchanges::Binance < Exchange
       result = get_bid_ask_price(ticker)
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       price = result.data[:bid][:price]
@@ -232,7 +232,7 @@ class Exchanges::Binance < Exchange
       )
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       result.data.each do |candle|
@@ -301,7 +301,7 @@ class Exchanges::Binance < Exchange
     result = client.query_order(symbol: symbol, order_id: ext_order_id, recv_window: READ_RECV_WINDOW)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     normalized_order_data = parse_order_data(order_id, result.data[:raw])
@@ -336,7 +336,7 @@ class Exchanges::Binance < Exchange
         result = client.all_orders(symbol: symbol, order_id: ext_order_ids.min, limit: 1000, recv_window: READ_RECV_WINDOW)
         if result.failure?
           error = parse_error_message(result)
-          return error.present? ? Result::Failure.new(error) : result
+          return error.present? ? Result::Failure.new(error, data: result.data) : result
         end
 
         result.data.each do |order_entry|
@@ -391,7 +391,7 @@ class Exchanges::Binance < Exchange
           result = client.account_trade_list(symbol: symbol, order_id: ext_order_id, limit: limit, recv_window: READ_RECV_WINDOW)
           if result.failure?
             error = parse_error_message(result)
-            return error.present? ? Result::Failure.new(error) : result
+            return error.present? ? Result::Failure.new(error, data: result.data) : result
           end
 
           trade_datas = result.data.map { |trade_data| parse_trade_data(trade_data) }
@@ -406,7 +406,7 @@ class Exchanges::Binance < Exchange
           result = client.account_trade_list(symbol: symbol, end_time: end_time, limit: limit, recv_window: READ_RECV_WINDOW)
           if result.failure?
             error = parse_error_message(result)
-            return error.present? ? Result::Failure.new(error) : result
+            return error.present? ? Result::Failure.new(error, data: result.data) : result
           end
 
           trade_datas = result.data.map do |raw_trade|
@@ -435,7 +435,7 @@ class Exchanges::Binance < Exchange
     result = client.cancel_order(symbol: symbol, order_id: ext_order_id)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     Result::Success.new(order_id)
@@ -601,7 +601,7 @@ class Exchanges::Binance < Exchange
                              network: network, address_tag: address_tag)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     withdrawal_id = result.data['id']
@@ -1034,7 +1034,7 @@ class Exchanges::Binance < Exchange
       result = client.symbol_order_book_ticker(symbol: ticker.ticker)
       if result.failure?
         error = parse_error_message(result)
-        return error.present? ? Result::Failure.new(error) : result
+        return error.present? ? Result::Failure.new(error, data: result.data) : result
       end
 
       formatted_symbol_order_book_ticker = {
@@ -1068,7 +1068,7 @@ class Exchanges::Binance < Exchange
     result = client.new_order(**order_settings)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     data = {
@@ -1097,7 +1097,7 @@ class Exchanges::Binance < Exchange
     result = client.new_order(**order_settings)
     if result.failure?
       error = parse_error_message(result)
-      return error.present? ? Result::Failure.new(error) : result
+      return error.present? ? Result::Failure.new(error, data: result.data) : result
     end
 
     data = {

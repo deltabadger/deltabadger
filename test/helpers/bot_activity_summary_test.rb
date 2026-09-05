@@ -31,6 +31,15 @@ class BotActivitySummaryTest < ActionView::TestCase
     end
   end
 
+  test 'a signal that did nothing says why' do
+    %w[signal_market_closed signal_api_key_pending signal_expired signal_ignored].each do |event|
+      summary = bot_activity_summary(activity(event))
+
+      assert_no_match(/%\{/, summary, "#{event} leaks a placeholder")
+      assert_no_match(/translation missing/i, summary, "#{event} has no English text")
+    end
+  end
+
   private
 
   def activity(event, details = {})

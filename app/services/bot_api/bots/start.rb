@@ -23,7 +23,7 @@ module BotApi
         end
 
         start_fresh = bot.created?
-        bot.set_missed_quote_amount
+        bot.set_missed_quote_amount if bot.respond_to?(:set_missed_quote_amount) # a signal bot has no carry
         if bot.start(start_fresh: start_fresh)
           Result.success({ id: bot.id, label: bot.label, status: bot.status.to_s })
         else

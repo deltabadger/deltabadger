@@ -164,4 +164,24 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
     assert_not @exchange.transient_error?(['Too many requests'])
     assert_not @exchange.transient_error?(['Filter failure: MIN_NOTIONAL'])
   end
+
+  # Honeymaker attaches the HTTP status to a failure. The adapter re-wraps the failure with the
+  # venue's own message, and must keep that metadata: a 503 with a JSON body is not a rejection
+  # (Exchange#ambiguous_placement_error?).
+  test 'a re-wrapped placement failure keeps the status honeymaker attached' do
+    Rails.configuration.stubs(:dry_run).returns(false)
+    @exchange.set_client(api_key: create(:api_key, exchange: @exchange, key_type: :trading))
+    ticker = stub(ticker: 'BTCUSDT')
+    ticker.stubs(:adjusted_amount).returns(100.to_d)
+    Honeymaker::Clients::Binance.any_instance.stubs(:new_order).returns(
+      Result::Failure.new('{"code":-1001,"msg":"backend unavailable"}', data: { status: 503 })
+    )
+
+    result = @exchange.set_market_order(ticker: ticker, amount: 100, amount_type: :quote, side: :buy)
+
+    assert_predicate result, :failure?
+    assert_equal ['backend unavailable'], result.errors
+    assert_equal 503, result.data[:status]
+    assert @exchange.ambiguous_placement_error?(result)
+  end
 end
