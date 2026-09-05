@@ -51,6 +51,16 @@
                 &~ .toggle__style
                     &::after
                         transform: translateX(1.25rem) !important
+    // Some of a group, not all of it: the track is half-lit and the knob rests halfway. Only the
+    // permissions matrix draws this, on --small, so the knob offset is that variant's half.
+    // !important because --small's own checked transform is.
+    &--partial
+        .toggle__style
+            background-color: var(--grass)
+            opacity: 0.5
+    &--small.toggle--partial
+        input[type="checkbox"]:checked ~ .toggle__style::after
+            transform: translateX(0.625rem) !important
     &--vertical
         .toggle__style
             width: 3rem !important

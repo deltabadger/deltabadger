@@ -1,50 +1,60 @@
+<%# One client, as the matrix at group level: a row per group, a switch wherever the client holds
+    the surface's scope and the surface has the group. ON only when everything the user has in
+    the group is granted, PARTIAL while some of it is — never derived from the user's set alone,
+    because a grant left behind after a global switch-off must still show, and still be removable. %>
 <%
   client = ConnectedClient.for(user: current_user, application: application)
   scopes = application.scopes
-  surfaces = []
-  surfaces << ['mcp', AppConfig::MCP_TOOL_GROUPS, client&.granted_mcp_tools || [], current_user.enabled_mcp_tool_names] if scopes.exists?('mcp')
-  surfaces << ['rest', AppConfig::REST_TOOL_GROUPS, client&.granted_rest_tools || [], current_user.enabled_rest_tool_names] if scopes.exists?('api')
+  surfaces = {
+    'mcp' => (if scopes.exists?('mcp')
+                [AppConfig::MCP_TOOL_GROUPS, client&.granted_mcp_tools || [], current_user.enabled_mcp_tool_names]
+              end),
+    'rest' => (if scopes.exists?('api')
+                 [AppConfig::REST_TOOL_GROUPS, client&.granted_rest_tools || [], current_user.enabled_rest_tool_names]
+               end)
+  }
 %>
-<div class="mcp-connected-clients__client">
-  <b><%= application.name %></b>
-  <small><%= l(application.created_at, format: :short) %></small>
-  <%= link_to t('settings.mcp.revoke_client'), settings_confirm_revoke_mcp_client_path(application), data: { turbo_frame: "modal" }, class: "text-danger" %>
-
-  <p class="mcp-tool-permissions__description"><%= t('settings.mcp.client_permissions_hint') %></p>
-
-  <% surfaces.each do |surface, groups, granted, user_enabled| %>
-    <% groups.each do |group, tools| %>
-      <%
-        granted_here = granted & tools
-        available = user_enabled & tools
-        # ON only when everything the user has in this group is granted; PARTIAL
-        # while some of it is. Never derived from `available` alone — a grant left
-        # behind after a global switch-off must still render, and still be removable.
-        state = if granted_here.empty?
-                  :off
-                elsif (available - granted_here).empty?
-                  :on
-                else
-                  :partial
-                end
-      %>
-      <%= form_with url: settings_update_client_tool_permissions_path(application), method: :patch,
-                    data: { controller: "form--submit", turbo_frame: "mcp_settings" }, class: "toggle-group" do |f| %>
-        <%= f.hidden_field :surface, value: surface %>
-        <%= f.hidden_field :group, value: group %>
-        <%= f.hidden_field :enabled, value: granted_here.any? ? '0' : '1' %>
-        <label class="toggle-group__label <%= 'toggle-group__label--active' if state != :off %>">
-          <div class="toggle">
-            <input type="checkbox" <%= 'checked' if state != :off %> data-action="change->form--submit#submit" />
-            <div class="toggle__style"></div>
-          </div>
-          <span>
-            <%= t("settings.mcp.tools_#{group}") %>
-            <% if surface == 'rest' %><small><%= t('settings.mcp.client_surface_rest') %></small><% end %>
-            <% if state == :partial %><small><%= t('settings.mcp.client_group_partial') %></small><% end %>
-          </span>
-        </label>
+<div class="connected-client">
+  <div class="connected-client__head">
+    <b><%= application.name %></b>
+    <small><%= l(application.created_at, format: :short) %></small>
+    <%= link_to t('settings.mcp.revoke_client'), settings_confirm_revoke_mcp_client_path(application),
+                data: { turbo_frame: 'modal' }, class: 'text-danger' %>
+  </div>
+  <table class="permissions">
+    <thead>
+      <tr>
+        <th></th>
+        <th class="permissions__surface">MCP</th>
+        <th class="permissions__surface"><%= t('settings.rest.title') %></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% AppConfig::MCP_TOOL_GROUPS.each_key do |group| %>
+        <tr class="permissions__tool" data-group="<%= group %>">
+          <td class="permissions__name"><%= t("settings.mcp.tools_#{group}") %></td>
+          <% surfaces.each do |surface, (groups, granted, user_enabled)| %>
+            <td class="permissions__cell" data-surface="<%= surface %>">
+              <% if groups && (tools = groups[group]) %>
+                <%
+                  granted_here = granted & tools
+                  available = user_enabled & tools
+                  state = if granted_here.empty? then :off
+                          elsif (available - granted_here).empty? then :on
+                          else :partial
+                          end
+                %>
+                <%= render 'settings/widgets/permission_switch',
+                           url: settings_update_client_tool_permissions_path(application), frame: 'connected_clients',
+                           fields: { surface: surface, group: group }, state: state,
+                           enabled: (granted_here.any? ? '0' : '1') %>
+              <% else %>
+                <span class="permissions__none">–</span>
+              <% end %>
+            </td>
+          <% end %>
+        </tr>
       <% end %>
-    <% end %>
-  <% end %>
+    </tbody>
+  </table>
 </div>

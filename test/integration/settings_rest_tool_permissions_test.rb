@@ -12,10 +12,37 @@ class SettingsRestToolPermissionsTest < ActionDispatch::IntegrationTest
 
   # ---- widget render ------------------------------------------------------
 
-  test 'connect page renders the REST tool permissions block' do
+  # REST shares the tool matrix with MCP: its switches live in the REST column of the same
+  # table, one per REST tool plus one per REST group, and nowhere else.
+  test 'the REST column carries one switch per REST tool and one per REST group' do
     get settings_api_path
     assert_response :success
-    assert_select '#rest_tool_permissions'
+    assert_select 'turbo-frame#tool_permissions td[data-surface=rest] form',
+                  AppConfig::REST_TOOL_DEFAULTS.size + AppConfig::REST_TOOL_GROUPS.size
+    AppConfig::REST_TOOL_DEFAULTS.each_key do |tool|
+      assert_select "tr.permissions__tool[data-tool=#{tool}] td[data-surface=rest] form[action=?]",
+                    settings_update_rest_tool_permissions_path, 1
+    end
+    AppConfig::REST_TOOL_GROUPS.each_key do |group|
+      assert_select "tr.permissions__group[data-group=#{group}] td[data-surface=rest] form[action=?]",
+                    settings_update_rest_tool_group_permissions_path, 1
+    end
+    assert_select 'turbo-frame#rest_settings input[name=tool_name]', 0
+  end
+
+  # The rows follow the MCP grouping. REST files the two export tools under Read and has no Tax
+  # group, so the Tax section shows REST switches for those two rows and none for the rest of it.
+  test 'tools outside REST scope have an empty REST cell, not a switch' do
+    get settings_api_path
+    (AppConfig::MCP_TOOL_DEFAULTS.keys - AppConfig::REST_TOOL_DEFAULTS.keys).each do |tool|
+      assert_select "tr.permissions__tool[data-tool=#{tool}] td[data-surface=rest]", 1 do
+        assert_select 'form', 0
+      end
+    end
+    assert_select 'tr.permissions__group[data-group=tax] td[data-surface=rest]', 1 do
+      assert_select 'form', 0
+    end
+    assert_select 'tr.permissions__tool[data-tool=export_transactions_csv] td[data-surface=rest] form', 1
   end
 
   test 'REST widget renders alongside the MCP widget (both present on the page)' do
@@ -23,6 +50,14 @@ class SettingsRestToolPermissionsTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select 'turbo-frame#mcp_settings'
     assert_select 'turbo-frame#rest_settings'
+  end
+
+  test 'a REST tool switch re-renders the permissions and the clients, not the REST widget' do
+    patch settings_update_rest_tool_permissions_path, params: { tool_name: 'list_bots', enabled: '1' }
+    assert_response :success
+    assert_select 'turbo-stream[action=replace][target=tool_permissions]', 1
+    assert_select 'turbo-stream[action=replace][target=connected_clients]', 1
+    assert_select 'turbo-stream[target=rest_settings]', 0
   end
 
   test 'REST widget exposes a Download API docs link' do

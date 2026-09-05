@@ -32,6 +32,27 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
     assert_includes response.body, token.token
   end
 
+  # Shown in full as well as copied: over plain http from another machine there is no Clipboard
+  # API, so the text itself has to be the fallback.
+  test 'the token chip shows the full token and copies it' do
+    get settings_api_path
+    token = @user.reload.personal_api_token.token
+
+    assert_select 'turbo-frame#rest_settings .tag--copy[data-clipboard-text-value=?]', token do |chips|
+      assert_equal token, chips.first.text.strip
+    end
+  end
+
+  test 'the token, its Regenerate button and the docs link sit in the REST widget' do
+    get settings_api_path
+
+    assert_select 'turbo-frame#rest_settings' do
+      assert_select 'form[action=?][data-turbo-frame=rest_settings][data-turbo-confirm]',
+                    settings_regenerate_api_token_path, 1
+      assert_select 'a[href=?]', settings_download_api_docs_path, 1
+    end
+  end
+
   test 'GET /settings/connect on a second visit reuses the same token (no churn)' do
     get settings_api_path
     first = @user.reload.personal_api_application.access_tokens.where(revoked_at: nil).first
@@ -94,9 +115,8 @@ class SettingsRestTokenTest < ActionDispatch::IntegrationTest
 
     get settings_api_path
     assert_response :success
-    # The personal app's name appears nowhere in the MCP Connected clients section
-    # (which has the `#mcp_connected_clients` DOM id from the MCP widget).
-    assert_select '#mcp_connected_clients' do |frame|
+    # The personal app's name appears nowhere in the Connected clients section.
+    assert_select 'turbo-frame#connected_clients' do |frame|
       assert_no_match(/Personal API token/, frame.to_s)
     end
   end

@@ -1,0 +1,4 @@
+<%# A pill that copies `value` to the clipboard. Shows `text` when given, otherwise the value
+    without its scheme — the way a URL reads when everyone already knows it is one. %>
+<%= tag.span class: 'tag tag--copy', id: local_assigns[:id], title: t('button.copy'),
+             data: { controller: 'clipboard', clipboard_text_value: value, action: 'click->clipboard#copy' } do %><%= render 'svg/16x16_copy' %><%= local_assigns.fetch(:text) { value.to_s.sub(%r{\Ahttps?://}, '') } %><% end %>

@@ -445,35 +445,6 @@ $stack-open: 0.2s ease-out
         color: var(--ash)
     
 
-.mcp-tool-permissions
-    display: flex
-    flex-direction: column
-    gap: 4rem
-    &__grid
-        padding-top: 3rem
-        display: grid
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr))
-        gap: 2rem
-        row-gap: 4rem
-    &__group
-        display: flex
-        flex-direction: column
-        gap: 2rem
-    &__group-title-form
-        display: contents
-    &__group-title--clickable input[type="submit"]
-        all: unset
-        cursor: pointer
-        font: inherit
-        &:hover
-            opacity: 0.7
-.mcp-connected-clients
-    display: flex
-    flex-direction: column
-    gap: 1rem
-    small
-        color: var(--concrete)
-
 .consent
     display: flex
     flex-direction: column
@@ -513,11 +484,3 @@ $stack-open: 0.2s ease-out
         padding: 0
         text-align: center
 
-.rest-api-token
-    display: flex
-    gap: 0.5rem
-    align-items: flex-start
-    flex-wrap: wrap
-    *
-        width: fit-content
-        display: block

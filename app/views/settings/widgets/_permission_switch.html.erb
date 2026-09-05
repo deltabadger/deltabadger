@@ -1,0 +1,14 @@
+<%# One switch of the permissions matrix: a form that submits on change, carrying whatever
+    `fields` its endpoint wants. `state` (:on, :partial, :off) is what the switch shows; `enabled`
+    is what a click sends. The caller decides both, because a half-set switch means different
+    things to a user's own group — a click turns the rest on — and to a client's grant, where a
+    click revokes what is there. %>
+<%= form_with url: url, method: :patch, data: { controller: 'form--submit', turbo_frame: frame },
+              class: 'permissions__switch' do |f| %>
+  <% fields.each do |name, value| %><%= f.hidden_field name, value: value, id: nil %><% end %>
+  <%= f.hidden_field :enabled, value: enabled, id: nil %>
+  <%= tag.label class: ['toggle', 'toggle--small', ('toggle--partial' if state == :partial)], title: local_assigns[:title] do %>
+    <input type="checkbox" <%= 'checked' if state != :off %> data-action="change->form--submit#submit" />
+    <div class="toggle__style"></div>
+  <% end %>
+<% end %>

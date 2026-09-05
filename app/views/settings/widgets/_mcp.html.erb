@@ -1,60 +1,26 @@
 <%= turbo_frame_tag "mcp_settings" do %>
   <div class="widget widget--settings">
     <h4 class="modal__title"><%= t('settings.mcp.title') %></h4>
-
     <p class="text-center" style="text-wrap: balance"><%= t('settings.mcp.description') %></p>
-    <span class="tag tag--copy" id="mcp_url_display" data-controller="clipboard" data-clipboard-text-value="<%= AppConfig.mcp_url %>" data-action="click->clipboard#copy" title="<%= t('button.copy') %>"><%= render 'svg/16x16_copy' %><%= AppConfig.mcp_url&.sub(%r{\Ahttps?://}, '') %></span>
 
-    <div id="mcp_tool_permissions" class="mcp-tool-permissions">
+    <dl class="settings-kv">
+      <dt class="label">URL</dt>
+      <dd><%= render 'settings/widgets/copy_tag', value: AppConfig.mcp_url, id: 'mcp_url_display' %></dd>
+    </dl>
 
-      <% permissions = current_user.mcp_tool_permissions %>
-
-      <div class="mcp-tool-permissions__grid">
-
-        <% AppConfig::MCP_TOOL_GROUPS.each do |group, tools| %>
-          <div class="mcp-tool-permissions__group">
-            <% all_enabled = tools.all? { |t| permissions[t] } %>
-            <%= form_with url: settings_update_mcp_tool_group_permissions_path, method: :patch,
-                         data: { turbo_frame: "mcp_settings" }, class: "mcp-tool-permissions__group-title-form" do |f| %>
-              <%= f.hidden_field :group, value: group %>
-              <%= f.hidden_field :enabled, value: all_enabled ? '0' : '1' %>
-              <h3 class="mcp-tool-permissions__group-title mcp-tool-permissions__group-title--clickable"><%= f.submit t("settings.mcp.tools_#{group}") %></h3>
-            <% end %>
-            <% tools.each do |tool| %>
-              <%= render 'settings/widgets/mcp_tool_toggle', tool: tool, enabled: permissions[tool] %>
-            <% end %>
-          </div>
-        <% end %>
-
+    <%# Paper trading is MCP's alone — the REST endpoints place real orders — so it stays with the
+        MCP connection rather than joining the shared tool matrix below. %>
+    <%= form_with url: settings_update_mcp_dry_run_path, method: :patch,
+                  data: { controller: 'form--submit', turbo_frame: 'mcp_settings' }, class: 'switch-row' do |f| %>
+      <%= f.hidden_field :enabled, value: current_user.mcp_dry_run? ? '0' : '1', id: nil %>
+      <div>
+        <div class="switch-row__title"><%= t('settings.mcp.dry_run_title') %></div>
+        <p class="switch-row__hint"><%= t('settings.mcp.dry_run_description') %></p>
       </div>
-
-      <div class="mcp-tool-permissions__group">
-        <h3 class="mcp-tool-permissions__group-title"><%= t('settings.mcp.dry_run_title') %></h3>
-        <p class="mcp-tool-permissions__description"><%= t('settings.mcp.dry_run_description') %></p>
-        <%= form_with url: settings_update_mcp_dry_run_path, method: :patch,
-                     data: { controller: "form--submit", turbo_frame: "mcp_settings" }, class: "toggle-group" do |f| %>
-          <%= f.hidden_field :enabled, value: current_user.mcp_dry_run? ? '0' : '1' %>
-          <label class="toggle-group__label <%= 'toggle-group__label--active' if current_user.mcp_dry_run? %>">
-            <div class="toggle">
-              <input type="checkbox" <%= 'checked' if current_user.mcp_dry_run? %> data-action="change->form--submit#submit" />
-              <div class="toggle__style"></div>
-            </div>
-            <span><%= t('settings.mcp.dry_run_label') %></span>
-          </label>
-        <% end %>
-      </div>
-    </div>
-
-    <div id="mcp_connected_clients" class="mcp-connected-clients" >
-      <h3 class="mcp-tool-permissions__group-title" style="margin: 2rem 0"><%= t('settings.mcp.connected_clients') %></h3>
-      <% clients = connected_applications.order(created_at: :desc) %>
-      <% if clients.any? %>
-        <% clients.each do |application| %>
-          <%= render 'settings/widgets/connected_client', application: application %>
-        <% end %>
-      <% else %>
-        <p class="text--secondary text-center"><%= t('settings.mcp.no_clients') %></p>
-      <% end %>
-    </div>
+      <label class="toggle" title="<%= t('settings.mcp.dry_run_label') %>">
+        <input type="checkbox" <%= 'checked' if current_user.mcp_dry_run? %> data-action="change->form--submit#submit" />
+        <div class="toggle__style"></div>
+      </label>
+    <% end %>
   </div>
 <% end %>

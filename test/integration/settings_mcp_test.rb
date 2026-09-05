@@ -19,20 +19,47 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
     assert_select '#mcp_url_display'
   end
 
-  test 'mcp widget shows connected clients section' do
+  # The page is four frames: the two surfaces on top, then the shared tool matrix, then the
+  # clients — each re-rendered on its own, so a switch in one never redraws the others.
+  test 'the api page renders the surfaces, the permissions and the clients as separate frames' do
     get settings_api_path
     assert_response :success
-    assert_select '#mcp_connected_clients'
+    assert_select 'turbo-frame#mcp_settings'
+    assert_select 'turbo-frame#rest_settings'
+    assert_select 'turbo-frame#tool_permissions'
+    assert_select 'turbo-frame#connected_clients'
   end
 
-  test 'mcp widget shows client when one exists' do
+  test 'connected clients have their own section' do
+    get settings_api_path
+    assert_response :success
+    assert_select 'turbo-frame#connected_clients', /#{I18n.t('settings.mcp.no_clients')}/
+  end
+
+  test 'connected clients section shows a client when one exists' do
     app = Doorkeeper::Application.create!(name: 'Test Client', redirect_uri: 'http://localhost/callback', confidential: false)
     Doorkeeper::AccessToken.create!(application: app, resource_owner_id: @admin.id, token: SecureRandom.hex(32), expires_in: 3600)
     ConnectedClient.create!(user: @admin, oauth_application: app, mcp_tools: AppConfig::MCP_TOOL_GROUPS['read'])
 
     get settings_api_path
     assert_response :success
-    assert_select '#mcp_connected_clients', /Test Client/
+    assert_select 'turbo-frame#connected_clients .connected-client', /Test Client/
+  end
+
+  test 'the paper trading switch posts within the mcp frame' do
+    get settings_api_path
+    assert_response :success
+    assert_select 'turbo-frame#mcp_settings form[action=?][data-turbo-frame=mcp_settings]',
+                  settings_update_mcp_dry_run_path do
+      assert_select 'input[name=enabled][value=1]', 1, 'off by default, so the switch turns it on'
+      assert_select '.toggle input[type=checkbox]:not([checked])', 1
+    end
+  end
+
+  test 'the mcp widget no longer carries the tool toggles' do
+    get settings_api_path
+    assert_response :success
+    assert_select 'turbo-frame#mcp_settings input[name=tool_name]', 0
   end
 
   test 'revoke client removes application and tokens' do
@@ -52,6 +79,18 @@ class SettingsMcpTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_empty Doorkeeper::AccessToken.where(id: token_ids),
                  'destroying the application cascades its tokens away'
+    assert_select 'turbo-stream[action=replace][target=connected_clients]', 1
+  end
+
+  test 'the revoke confirmation posts back into the clients frame' do
+    app = Doorkeeper::Application.create!(name: 'Test Client', redirect_uri: 'http://localhost/callback', confidential: false)
+    Doorkeeper::AccessToken.create!(application: app, resource_owner_id: @admin.id, token: SecureRandom.hex(32), expires_in: 3600)
+
+    get settings_confirm_revoke_mcp_client_path(id: app.id)
+
+    assert_response :success
+    # button_to puts `data:` on the submitter, and Turbo reads the frame from there.
+    assert_select 'form[action=?] button[data-turbo-frame=connected_clients]', settings_revoke_mcp_client_path(app)
   end
 
   test 'user cannot revoke another users client' do
