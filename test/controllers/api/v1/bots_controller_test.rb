@@ -703,6 +703,56 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
     assert_equal 0.25, bot.allocation_flattening
   end
 
+  # ---- delete / archive / reactivate ---------------------------------------
+
+  test 'DELETE /api/v1/bots/:id deletes a running bot and cancels its tick' do
+    @user.set_rest_tool_enabled('delete_bot', true)
+    bot = create(:dca_single_asset, user: @user, status: :scheduled, started_at: Time.current)
+    Bots::DcaSingleAsset.any_instance.expects(:cancel_scheduled_action_jobs)
+
+    delete "/api/v1/bots/#{bot.id}", headers: bearer(create_token)
+
+    assert_response :ok
+    assert bot.reload.deleted?
+  end
+
+  test 'POST and DELETE /api/v1/bots/:id/archive archive and reactivate' do
+    @user.set_rest_tool_enabled('archive_bot', true)
+    @user.set_rest_tool_enabled('unarchive_bot', true)
+    bot = create(:dca_single_asset, :stopped, user: @user)
+
+    post "/api/v1/bots/#{bot.id}/archive", headers: bearer(create_token)
+    assert_response :ok
+    assert bot.reload.archived?
+
+    delete "/api/v1/bots/#{bot.id}/archive", headers: bearer(create_token)
+    assert_response :ok
+    assert bot.reload.stopped?
+  end
+
+  test 'archiving twice is a 409' do
+    @user.set_rest_tool_enabled('archive_bot', true)
+    bot = create(:dca_single_asset, :stopped, user: @user)
+
+    post "/api/v1/bots/#{bot.id}/archive", headers: bearer(create_token)
+    post "/api/v1/bots/#{bot.id}/archive", headers: bearer(create_token)
+
+    assert_response :conflict
+    assert_equal 'bot_archived', JSON.parse(response.body)['error']['code']
+  end
+
+  test 'the three lifecycle actions are gated by their own tools' do
+    bot = create(:dca_single_asset, :stopped, user: @user)
+    token = create_token
+
+    delete "/api/v1/bots/#{bot.id}", headers: bearer(token)
+    assert_response :forbidden
+    post "/api/v1/bots/#{bot.id}/archive", headers: bearer(token)
+    assert_response :forbidden
+    delete "/api/v1/bots/#{bot.id}/archive", headers: bearer(token)
+    assert_response :forbidden
+  end
+
   private
 
   # A Kraken venue with three EUR pairs — the minimum a category index needs to offer that quote.

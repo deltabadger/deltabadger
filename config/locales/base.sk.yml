@@ -303,6 +303,15 @@ sk:
                 create_index_bot:
                     label: 'Vytvoriť indexového bota'
                     description: 'Vytvoriť a spustiť indexového DCA bota'
+                delete_bot:
+                    label: 'Zmazať bota'
+                    description: 'Zmazať bota, bežiaceho aj zastaveného; jeho rozvrh sa zruší'
+                archive_bot:
+                    label: 'Archivovať bota'
+                    description: 'Zastaviť bota a skryť ho z prehľadu'
+                unarchive_bot:
+                    label: 'Obnoviť bota'
+                    description: 'Vrátiť archivovaného bota späť'
             dry_run_title: 'Papierové obchodovanie'
             dry_run_description: 'Simulujte obchody s reálnymi trhovými cenami. Žiadne skutočné príkazy sa nezadávajú.'
             dry_run_label: 'Zapnúť papierové obchodovanie pre obchodné nástroje'

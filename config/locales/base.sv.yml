@@ -302,6 +302,15 @@ sv:
                 create_index_bot:
                     label: 'Skapa indexbot'
                     description: 'Skapa och starta en DCA-indexbot'
+                delete_bot:
+                    label: 'Ta bort bot'
+                    description: 'Ta bort en bot, oavsett om den körs; dess schema avbryts'
+                archive_bot:
+                    label: 'Arkivera bot'
+                    description: 'Stoppa en bot och dölj den från instrumentpanelen'
+                unarchive_bot:
+                    label: 'Återaktivera bot'
+                    description: 'Hämta tillbaka en arkiverad bot'
             dry_run_title: 'Pappershandel'
             dry_run_description: 'Simulera affärer med riktiga marknadspriser. Inga riktiga ordrar läggs.'
             dry_run_label: 'Aktivera pappershandel för handelsverktyg'

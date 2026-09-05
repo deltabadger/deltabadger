@@ -320,6 +320,15 @@ nl:
                 create_index_bot:
                     label: 'Indexbot aanmaken'
                     description: 'Een DCA-indexbot aanmaken en starten'
+                delete_bot:
+                    label: 'Bot verwijderen'
+                    description: 'Een bot verwijderen, actief of gestopt; het schema vervalt'
+                archive_bot:
+                    label: 'Bot archiveren'
+                    description: 'Een bot stoppen en verbergen op het dashboard'
+                unarchive_bot:
+                    label: 'Bot heractiveren'
+                    description: 'Een gearchiveerde bot terughalen'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simuleer transacties met echte marktprijzen. Er worden geen echte orders geplaatst.'
             dry_run_label: 'Paper trading voor handelstools inschakelen'

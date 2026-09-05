@@ -302,6 +302,15 @@ da:
                 create_index_bot:
                     label: 'Opret indeksbot'
                     description: 'Opret og start en DCA-indeksbot'
+                delete_bot:
+                    label: 'Slet bot'
+                    description: 'Slet en bot, uanset om den kører; dens tidsplan annulleres'
+                archive_bot:
+                    label: 'Arkivér bot'
+                    description: 'Stop en bot og skjul den fra oversigten'
+                unarchive_bot:
+                    label: 'Genaktivér bot'
+                    description: 'Hent en arkiveret bot tilbage'
             dry_run_title: 'Papirhandel'
             dry_run_description: 'Simulér handler med reelle markedspriser. Der udføres ingen rigtige ordrer.'
             dry_run_label: 'Aktivér papirhandel for handelsværktøjer'

@@ -303,6 +303,15 @@ en:
                 create_index_bot:
                     label: 'Create index bot'
                     description: 'Create and start an index DCA bot'
+                delete_bot:
+                    label: 'Delete bot'
+                    description: 'Delete a bot, running or not; its schedule is cancelled'
+                archive_bot:
+                    label: 'Archive bot'
+                    description: 'Stop a bot and hide it from the dashboard'
+                unarchive_bot:
+                    label: 'Reactivate bot'
+                    description: 'Bring an archived bot back'
             dry_run_title: 'Paper Trading'
             dry_run_description: 'Simulate trades with real market prices. No real orders are placed.'
             dry_run_label: 'Enable paper trading for trade tools'

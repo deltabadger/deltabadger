@@ -210,7 +210,7 @@ Errors set both an HTTP status and an envelope `error.code`. Common pairs:
 | 401 | `missing_token`, `invalid_token`, `token_revoked`, `token_expired`, `user_not_found` |
 | 403 | `tool_disabled`, `insufficient_scope`, `api_key_missing`, `withdrawal_key_missing` |
 | 404 | `bot_not_found`, `rule_not_found`, `exchange_not_found`, `pair_not_found`, `asset_not_found`, `index_not_found`, `quote_asset_not_found`, `no_transactions`, `report_not_found` |
-| 409 | `bot_already_running`, `bot_not_running`, `bot_running`, `rule_already_active`, `rule_not_active`, `rule_active`, `rule_exists`, `idempotency_in_progress`, `idempotency_key_reused`, `report_ready`, `report_generating` |
+| 409 | `bot_already_running`, `bot_not_running`, `bot_running`, `rule_already_active`, `rule_not_active`, `rule_active`, `rule_exists`, `bot_archived`, `bot_not_archived`, `idempotency_in_progress`, `idempotency_key_reused`, `report_ready`, `report_generating` |
 | 422 | `missing_required_parameter`, `invalid_interval`, `invalid_allocation`, `invalid_date`, `invalid_order_type`, `no_updates_provided`, `exchange_name_required`, `bot_invalid`, `bot_save_failed`, `rule_save_failed`, `unknown_country`, `invalid_year`, `invalid_flag`, `market_data_not_configured`, `invalid_number`, `invalid_threshold_type`, `invalid_network`, `address_not_listed`, `withdrawal_unsupported`, `invalid_bot_type`, `invalid_basket`, `invalid_weighting`, `allocations_unbalanced`, `market_cap_unavailable`, `unsupported_setting`, `asset_not_in_basket`, `missing_basket_asset`, `invalid_allocations` |
 | 502 | `order_failed`, `cancel_failed`, `balances_fetch_failed`, `bot_stop_failed` |
 
@@ -230,6 +230,9 @@ token).
 | PATCH | `/bots/:id` | `update_bot_settings` | Bot must be stopped. Any bot: `quote_amount`, `label`. Index bots: `num_coins`, `allocation_flattening`. Basket bots: `allocations` — every current member, summing to 100, as `{"BTC": 70, "ETH": 30}` or the string `"BTC:70,ETH:30"`; supplying them takes the basket off market-cap weighting. Membership is not editable here |
 | POST | `/bots/:id/start` | `start_bot` | 409 if already running |
 | POST | `/bots/:id/stop` | `stop_bot` | 409 if not running |
+| DELETE | `/bots/:id` | `delete_bot` | Any status; soft delete, and a running bot's schedule is cancelled |
+| POST | `/bots/:id/archive` | `archive_bot` | Stops the bot first |
+| DELETE | `/bots/:id/archive` | `unarchive_bot` | Returns the bot stopped |
 | GET | `/exchanges` | `list_exchanges` | Lists user trading exchanges |
 | GET | `/exchanges/:id/balances` | `get_exchange_balances` | Live exchange call; 502 on upstream failure |
 | GET | `/transactions` | `list_transactions` | Optional `?bot_id=`, `?limit=` (max 100) |
