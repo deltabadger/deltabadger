@@ -36,23 +36,19 @@ class SettingsConnectedClientPermissionsTest < ActionDispatch::IntegrationTest
   # ---- the card -----------------------------------------------------------
   #
   # A client card is the tool matrix at group level: a row per group, a column per surface.
-  # A switch appears only where the client holds the scope AND the surface has the group.
+  # A switch appears wherever the client holds the scope; both surfaces carry every group.
 
-  test 'a client with both scopes gets a switch per surface, except where REST has no group' do
+  test 'a client with both scopes gets a switch per surface on every group' do
     get settings_api_path
 
     assert_select '.connected-client' do
-      assert_select 'tr[data-group]', AppConfig::MCP_TOOL_GROUPS.size
-      %w[read control trade].each do |group|
+      assert_select 'tr[data-group]', AppConfig::TOOL_GROUPS.size
+      AppConfig::TOOL_GROUPS.each_key do |group|
         assert_select "tr[data-group=#{group}] td[data-surface=mcp] form[action=?]", update_path, 1
         assert_select "tr[data-group=#{group}] td[data-surface=rest] form[action=?]", update_path, 1 do
           assert_select 'input[name=surface][value=rest]', 1
           assert_select 'input[name=group][value=?]', group, 1
         end
-      end
-      assert_select 'tr[data-group=tax] td[data-surface=mcp] form', 1
-      assert_select 'tr[data-group=tax] td[data-surface=rest]', 1 do
-        assert_select 'form', 0
       end
     end
   end

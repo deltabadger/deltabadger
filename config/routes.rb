@@ -67,6 +67,12 @@ Rails.application.routes.draw do
           post :stop
         end
       end
+      # No constraints on :country / :year on purpose: a malformed value must reach
+      # BotApi::Tax::Params and come back as a documented 422 in the envelope, not a routing 404.
+      get 'tax/jurisdictions', to: 'tax_reports#jurisdictions'
+      post 'tax/reports', to: 'tax_reports#create'
+      get 'tax/reports/:country/:year', to: 'tax_reports#show'
+      get 'tax/reports/:country/:year/download', to: 'tax_reports#download'
     end
   end
 

@@ -6,6 +6,7 @@ module BotApi
   #
   #   :success            → 200
   #   :created            → 201
+  #   :accepted           → 202
   #   :validation_failed  → 422
   #   :permission_denied  → 403
   #   :not_found          → 404

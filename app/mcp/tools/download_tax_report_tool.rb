@@ -9,14 +9,9 @@ class DownloadTaxReportTool < ApplicationMCPTool
   property :year, type: 'number', required: true, description: 'Tax year'
 
   def perform
-    file_path = Tax::GenerateReportJob.report_path(current_user.id, country, year)
+    result = BotApi::Tax::DownloadReport.call(user: current_user, country: country, year: year)
+    return render(text: result.error_message) unless result.success?
 
-    unless File.exist?(file_path)
-      render text: "No report found for #{country} (#{year.to_i}). Use 'generate_tax_report' to create one first."
-      return
-    end
-
-    csv_data = File.read(file_path)
-    render text: csv_data
+    render text: result.data[:csv]
   end
 end
