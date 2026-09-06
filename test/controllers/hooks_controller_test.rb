@@ -23,8 +23,10 @@ class HooksControllerTest < ActionDispatch::IntegrationTest
     ActionController::Base.allow_forgery_protection = false
   end
 
+  # +body: Rack rewrites the request body's encoding in place, which a frozen string literal
+  # (the default from Ruby 4 on) would not survive.
   def fire(token = @signal.token, body: 'BUY BTCUSDT', content_type: 'text/plain')
-    post "/hook/#{token}", params: body, headers: { 'CONTENT_TYPE' => content_type }
+    post "/hook/#{token}", params: +body, headers: { 'CONTENT_TYPE' => content_type }
   end
 
   # The job carries the claim time so it can refuse a call that sat in the queue too long.
