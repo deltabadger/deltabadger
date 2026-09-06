@@ -8,11 +8,11 @@ The chart draws the portfolio value against the total invested, marked at the ma
 
 A switch above the plot toggles between **Value** and **P/L**. **Value** plots both curves; it always climbs for a DCA bot because the money going in climbs. **P/L** makes the invested line the zero line and plots the distance from it, so the shape is performance alone.
 
-Point at a row of the holdings table to draw that asset alone; click the row to pin it so you can read along its curve, click again to let go. With **Hide balances** on (see [Account settings](33-account-settings.md)) the chart shows percentages only.
+Point at a row of the holdings table to draw that asset alone; click the row to pin it so you can read along its curve, click again to let go. With **Hide balances** on (see [Account settings](24-account-settings.md)) the chart shows percentages only.
 
 ## Statistics
 
-**Total Invested** (**Total invested** on portfolio and index bots) and **Portfolio Value** are shown in the bot's quote currency. Portfolio and index bots add **Realised P/L** once something has been sold from the basket: it comes from selling assets removed from the portfolio, and rebalancing is not counted, see [Index changes](18-index-changes.md).
+**Total Invested** (**Total invested** on portfolio and index bots) and **Portfolio Value** are shown in the bot's quote currency. Portfolio and index bots add **Realised P/L** once something has been sold from the basket: it comes from selling assets removed from the portfolio, and rebalancing is not counted, see [Index changes](13-direct-indexing.md).
 
 The holdings table lists each asset with **Amount**, **Avg. Price**, **Value** and **P/L**. If the exchange cannot be reached the panel says so: **The exchange API does not respond at the moment. Calculations are based on the last data available.**
 
@@ -27,7 +27,7 @@ The log combines orders and bot events. Tabs appear once there is more than one 
 | **Scheduled** | Open orders, that is limit orders not yet filled |
 | **Other** | Cancelled, skipped and failed orders |
 
-An open order has a **Cancel** button that cancels it on the exchange. A row marked **Skipped (below minimum)** was under the exchange minimum; the amount is carried into the next order, see [Amount and interval](09-amount-and-interval.md). Older rows load on their own below the newest ones.
+An open order has a **Cancel** button that cancels it on the exchange. A row marked **Skipped (below minimum)** was under the exchange minimum; the amount is carried into the next order, see [Amount and interval](10-dollar-cost-averaging.md). Older rows load on their own below the newest ones.
 
 ## Export and Import
 

@@ -4,7 +4,7 @@ The REST API lets your own scripts read and control Deltabadger — the same bot
 
 ## Token and base URL
 
-Open **Settings → Connect → REST API**. The widget shows the base URL — your instance address followed by `/api/v1`, built from `APP_ROOT_URL` (see [Configuration](38-configuration.md)) — and your personal API token. Both copy on click. The token is created for you and does not expire.
+Open **Settings → Connect → REST API**. The widget shows the base URL — your instance address followed by `/api/v1`, built from `APP_ROOT_URL` (see [Configuration](29-configuration.md)) — and your personal API token. Both copy on click. The token is created for you and does not expire.
 
 Send it on every request:
 
@@ -22,7 +22,7 @@ Browser sessions are not accepted on `/api/v1`; only the bearer header counts.
 
 Every endpoint is gated by a toggle in the same widget, grouped as **Read**, **Control** and **Trade**. Click a tool to flip it, or a group title to flip the group. All toggles start off, so a fresh token can do nothing until you switch on what your script needs. A call to a switched-off endpoint returns `403` with error code `tool_disabled`.
 
-These toggles are independent of the MCP toggles (see [Tools and permissions](31-tools-and-permissions.md)): switching **List bots** on here does not switch it on for MCP, and the other way round. The REST **Read** group also holds the two transaction export tools that MCP files under Tax & Reporting. There is no tax-report generation and no Paper Trading over REST.
+These toggles are independent of the MCP toggles (see [Tools and permissions](22-mcp-server.md#tools-and-permissions)): switching **List bots** on here does not switch it on for MCP, and the other way round. The REST **Read** group also holds the two transaction export tools that MCP files under Tax & Reporting. There is no tax-report generation and no Paper Trading over REST.
 
 ## Endpoints
 
@@ -63,4 +63,4 @@ The request must carry an `Idempotency-Key` header with a value unique to this a
 
 ## Other clients
 
-The personal token is for scripts you write yourself. An application someone else wrote connects through the same OAuth flow as an MCP client (see [Connecting Claude](30-connecting-claude.md)) and must ask for the `api` scope when it registers — the default scope only opens the MCP server. On the **Authorize access** page you then choose what it may use over the REST API, group by group; a tool has to be both granted to the client and switched on here. Its tokens last an hour and are refreshed by the client. Your personal token has no per-client grant: your toggles are the whole answer for it.
+The personal token is for scripts you write yourself. An application someone else wrote connects through the same OAuth flow as an MCP client (see [MCP server](22-mcp-server.md)) and must ask for the `api` scope when it registers — the default scope only opens the MCP server. On the **Authorize access** page you then choose what it may use over the REST API, group by group; a tool has to be both granted to the client and switched on here. Its tokens last an hour and are refreshed by the client. Your personal token has no per-client grant: your toggles are the whole answer for it.

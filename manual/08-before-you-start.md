@@ -1,23 +1,23 @@
 # Before you start
 
-## Market Data
+## Market data
 
-**Deltabadger** allows you to search assets, and move bots across different exchanges, but for that is has to know the asset universe first. Out of box, it provides a catalog of top cryptocurrencies, so you'll have not problem to find Bitcoin, Zcash, or other assets from the top 100. 
-
-> [!IMPORTANT]
-> To access full catalog, you need to connect a free [Coingecko account](manual/26-market-data.md#coingecko).
+**Deltabadger** lets you search for assets and move bots between exchanges, but to do that it has to know the asset universe first. Out of the box it ships with a catalog of the top cryptocurrencies, so you will have no trouble finding Bitcoin, Zcash or anything else in the top 100.
 
 > [!IMPORTANT]
-> To trade **stocks**, you need to [connect Alpaca](manual/26-market-data.md#alpaca) first, and sync its asset catalog.
+> For the full catalog, connect a free [CoinGecko account](26-market-data.md#coingecko).
 
-> [!INFO]
-> **Interactive Brokers** API doesn't provide asset catalog at all, and stocks APIs are all paid, so at the momement the only way to use it is with [Deltabadger API](https://deltabadger.com/).
+> [!IMPORTANT]
+> To trade **stocks**, [connect Alpaca](21-supported-exchanges.md#stock-brokers) first and sync its asset catalog.
+
+> [!NOTE]
+> The **Interactive Brokers** API provides no asset catalog at all, and stock data APIs are all paid, so for now the only way to use it is with the [Deltabadger API](https://deltabadger.com/).
 
 ## Is your IP static?
 
-You can run Deltabadger on any computer, but if you run it from home, most likely your IP is not static and it changes from time to time. Some exchange forces you tu whitelist your IP for security reasons, and it's generally advised to do so. Deltabadger shows your IP to whitelist during setup, after two weeks it may change. Your options:
+You can run Deltabadger on any computer, but if you run it at home your IP address is most likely not static and will change from time to time. Some exchanges make you whitelist your IP for security reasons, and it is good practice anyway. Deltabadger shows the IP to whitelist during setup; after a couple of weeks it may change. Your options:
 
-1. Don't whitelist IP at all (not all exchanges allow it).
-2. Accept the hussle and update the whitelisted IP on the exchange when it changes.
-3. Run Deltabadger on your online server or other network with static IP.
-4. Use [Deltabadger Self-hosted plan](https://deltabadger.com/) with proxy server included.
+1. Do not whitelist an IP at all — though some exchanges require it.
+2. Accept the hassle and update the whitelisted IP on the exchange whenever it changes.
+3. Run Deltabadger on an online server, or on another network with a static IP.
+4. Use the [Deltabadger Self-hosted plan](https://deltabadger.com/), which includes a proxy server.

@@ -1,11 +1,11 @@
 # Broker tax report
 
-A calculation basis for the German **Anlage KAP** and **KAP-INV** forms from a connected Alpaca account: which amount belongs on which line, and the worksheets behind each figure. It covers stocks and ETFs; crypto held at Alpaca goes into the [Crypto tax report](25-crypto-tax-report.md). It is a calculation aid, not tax advice — the file says so, and every figure is yours to check.
+A calculation basis for the German **Anlage KAP** and **KAP-INV** forms from a connected Alpaca account: which amount belongs on which line, and the worksheets behind each figure. It covers stocks and ETFs; crypto held at Alpaca goes into the [Crypto tax report](19-crypto-tax-report.md). It is a calculation aid, not tax advice — the file says so, and every figure is yours to check.
 
 ## What you need
 
-- An Alpaca account connected on the Tracker (see [Stocks and ETFs](29-stocks-and-etfs.md)). The option appears only then.
-- Market data configured, as for the crypto report (see [Market data](35-market-data.md)).
+- An Alpaca account connected on the Tracker (see [Stock brokers](21-supported-exchanges.md#stock-brokers)). The option appears only then.
+- Market data configured, as for the crypto report (see [Market data](26-market-data.md)).
 - Germany only. Supported years: 2023, 2024 and 2025.
 
 ## Generating the report

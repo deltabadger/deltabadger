@@ -1,16 +1,10 @@
-## Your Funds Are Safe
-
-Deltabadger always asks only for minimum required scope for your API keys. Trading keys don't allow for withdrawing your funds. They can only buy and sell assets on your behalf. You may notice that [automatic withdrawals](00-automatic-withdrawals.md) are not offered for all exchanges, but only for those that offer it safely. It means that the API doesn't allow to add a new withdrawal address, and you can only withdraw to an address you added in the exchange dashboard. 
-
-
-
-
-
-
-
 # Withdrawal rules
 
 A withdrawal rule sends an asset from an exchange to a wallet address registered on that exchange, on its own, once the balance is worth moving. Use it to keep what your bots buy off the exchange without doing it by hand. Rules live under **Rules** in the left menu.
+
+## Your funds are safe
+
+Deltabadger only ever asks for the minimum scope an API key needs, and a trading key cannot withdraw your funds — it can only buy and sell assets on your behalf. Automatic withdrawals are offered for some exchanges and not others, because only some can do it safely: their API cannot add a new withdrawal address, so funds can only go to an address you registered in the exchange's own dashboard.
 
 ## What a rule says
 
@@ -33,7 +27,7 @@ Press **Add** on the Rules page:
 4. **Address** — chosen from the exchange's own address book; you cannot type one in.
 5. **Settings** — the sentence above, then **Create Rule**.
 
-Steps 3 and 4 are covered in [Withdrawal keys and addresses](20-withdrawal-keys-and-addresses.md). One rule per asset and exchange. A new rule starts switched off.
+Steps 3 and 4 are covered under [Withdrawal keys and addresses](#withdrawal-keys-and-addresses). One rule per asset and exchange. A new rule starts switched off.
 
 ## The rule tile
 
@@ -49,11 +43,11 @@ Every active rule is evaluated every 4 hours, and immediately when you switch it
 
 The table under the tiles lists the last 50 entries across your rules: **Date**, **Status**, **Message**. `success` is a withdrawal ("Withdrew 0.01 BTC"), `failed` is an error from the exchange, and `transient` (gray) is a temporary problem the next check retries on its own. Checks that found the balance below the threshold are not listed.
 
-# Withdrawal keys and addresses
+## Withdrawal keys and addresses
 
 A withdrawal rule needs two things from the exchange: a key that may withdraw but not trade, and an address the exchange already knows. Deltabadger never accepts a typed-in address, so the exchange's own allowlist decides where funds can go.
 
-## Withdrawal keys
+### Withdrawal keys
 
 A withdrawal key is a separate API key from the one a bot trades with. Create it with these permissions and nothing else — in particular, leave trading off:
 
@@ -64,11 +58,11 @@ A withdrawal key is a separate API key from the one a bot trades with. Create it
 | Gemini | Account Balance, Fund Management; key scope Primary |
 | MEXC | View Order Details, Withdraw; Link IP Address |
 
-The **Connect exchange** step of the rule wizard shows the exact clicks for each exchange under **How to get API keys from …**, including the IP to whitelist (see [API keys](28-api-keys.md)). Paste the key and secret and press **Connect**. Binance and Binance.US reject a key whose permissions differ from the table above — trading still on, IP restriction off, or anything extra. On Kraken and Gemini a missing permission shows up as "Failed to validate API key permissions" rather than a rejection.
+The **Connect exchange** step of the rule wizard shows the exact clicks for each exchange under **How to get API keys from …**, including the IP to whitelist (see [API keys](21-supported-exchanges.md#api-keys)). Paste the key and secret and press **Connect**. Binance and Binance.US reject a key whose permissions differ from the table above — trading still on, IP restriction off, or anything extra. On Kraken and Gemini a missing permission shows up as "Failed to validate API key permissions" rather than a rejection.
 
 Withdrawal keys appear under **Settings → Connect → API keys** in the **Withdrawal keys** list. Click the exchange name to see the required permissions again; the X removes the key. Removing it does not stop the rule — the rule fails at its next check.
 
-## Addresses
+### Addresses
 
 Deltabadger reads the destination from the exchange's address book (Binance, Binance.US, MEXC), pre-registered withdrawal addresses (Kraken, verified ones only) or approved addresses (Gemini, active ones only). Add the address on the exchange before creating the rule; where the exchange has a waiting period for new addresses, wait it out. The in-app guide also recommends switching on the exchange's withdrawal whitelist, so a compromised key cannot send funds anywhere else.
 

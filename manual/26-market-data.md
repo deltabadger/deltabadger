@@ -9,7 +9,7 @@ Deltabadger ships with a bundled list of exchanges, assets and trading pairs, so
 - Index bots. The wizard refuses to continue: "A market data provider must be configured for Index bots."
 - The Tracker's USD values. Balances still sync, but crypto holdings cannot be priced and the page warns "Balances synced, but USD pricing is unavailable right now". Stocks priced by the broker itself are unaffected.
 - Tax reports, which need historical prices. Without a provider the **Tax Report** button opens a CoinGecko setup form instead.
-- A display currency other than USD (see [Account settings](33-account-settings.md)).
+- A display currency other than USD (see [Account settings](24-account-settings.md)).
 - Keeping asset names, logos and market caps fresh, and picking up pairs an exchange listed after your install.
 
 ## None
@@ -30,7 +30,7 @@ The free plan covers about two years of price history. For a tax report on older
 
 Select this option, paste the **Connect code** from your Deltabadger.com Self-Hosted subscription and press **Connect**. The code configures market data and, where included, exchange proxies; the widget then reads "Connected to Deltabadger.com for market data and exchange proxies." (or "… Exchange proxies are unavailable."). An invalid or expired code is refused. **Disconnect** removes the connection, proxies included.
 
-The same code can be entered on the setup page (see [First run](06-first-run.md)) or supplied as `CLAIM_TOKEN` (see [Configuration](38-configuration.md)).
+The same code can be entered on the setup page (see [First run](06-first-run.md)) or supplied as `CLAIM_TOKEN` (see [Configuration](29-configuration.md)).
 
 ## Locked by the environment
 

@@ -22,7 +22,7 @@ For HTTPS, put nginx, Traefik or similar in front of the container and set `APP_
 
 ## Secrets
 
-Leave these empty on a normal install. See [Secrets and encryption keys](40-secrets-and-encryption-keys.md) before changing any of them.
+Leave these empty on a normal install. See [Secrets and encryption keys](31-secrets-and-encryption-keys.md) before changing any of them.
 
 | Variable | What it does |
 |---|---|
@@ -32,7 +32,7 @@ Leave these empty on a normal install. See [Secrets and encryption keys](40-secr
 
 ## Databases
 
-Four SQLite files, all under `/app/storage` by default. See [Data and backups](39-data-and-backups.md).
+Four SQLite files, all under `/app/storage` by default. See [Data and backups](30-data-and-backups.md).
 
 | Variable | Default |
 |---|---|
@@ -43,7 +43,7 @@ Four SQLite files, all under `/app/storage` by default. See [Data and backups](3
 
 ## Email
 
-Email can also be set up in the app; see [Email notifications](37-email-notifications.md). When `SMTP_ADDRESS` is set in the environment, **Settings → Account → Email Notifications** is locked to that server and shows it under the name from `SMTP_PROVIDER_NAME`. The example file sets `SMTP_ADDRESS=localhost`; blank it to set up email in the app instead.
+Email can also be set up in the app; see [Email notifications](28-email-notifications.md). When `SMTP_ADDRESS` is set in the environment, **Settings → Account → Email Notifications** is locked to that server and shows it under the name from `SMTP_PROVIDER_NAME`. The example file sets `SMTP_ADDRESS=localhost`; blank it to set up email in the app instead.
 
 | Variable | What it does |
 |---|---|
@@ -56,7 +56,7 @@ Email can also be set up in the app; see [Email notifications](37-email-notifica
 
 ## Market data
 
-See [Market data](35-market-data.md) for what each provider covers.
+See [Market data](26-market-data.md) for what each provider covers.
 
 | Variable | What it does |
 |---|---|
@@ -113,7 +113,7 @@ docker compose run --rm --no-deps deltabadger <command>
 | `migrate` | Creates or migrates the databases, and loads the asset list if it is empty. |
 | `setup` | Prepares and seeds the databases. |
 | `console` | Opens an interactive console on the app. |
-| `rake <task>` | Runs a named task, for example `rake deltabadger:encryption:report`. See [Secrets and encryption keys](40-secrets-and-encryption-keys.md). |
+| `rake <task>` | Runs a named task, for example `rake deltabadger:encryption:report`. See [Secrets and encryption keys](31-secrets-and-encryption-keys.md). |
 | `shell` | Opens a shell inside the container. |
 
 Anything else is run as given. On Umbrel, run them inside the `web` container instead; the command is on the [Umbrel](05-umbrel.md) page.
@@ -127,4 +127,4 @@ Both answer without signing in and are safe to poll.
 | `GET /health-check` | `{"health":"check"}`, without touching the database | `docker-compose.yml` |
 | `GET /up` | `200` once the app has booted | The image's own health check, every 30 seconds |
 
-If a container reports unhealthy, read its logs with `docker compose logs -f`. See [Troubleshooting](41-troubleshooting.md).
+If a container reports unhealthy, read its logs with `docker compose logs -f`. See [Troubleshooting](32-troubleshooting.md).

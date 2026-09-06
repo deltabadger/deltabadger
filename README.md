@@ -10,7 +10,7 @@
 * **Auto-withdrawals**
 * **Portfolio Tracker**
 * **Tax Reporting**
-* **MCP Server + Rest API**
+* **MCP Server + REST API**
 
 ## Quick start
 
@@ -37,7 +37,7 @@ Open `http://localhost:3737`. See the [manual](#manual) for Docker Compose, the 
 ### Bots
 
 8. [Before you start](manual/08-before-you-start.md)
-9. [Create a new bot](manual/09-create-new-bot.md)
+9. [Create a new bot](manual/09-new-bot.md)
 10. [Dollar-cost averaging](manual/10-dollar-cost-averaging.md)
 11. [Advanced bot settings](manual/11-advanced-bot-settings.md)
 12. [Portfolio rebalancing](manual/12-portfolio-rebalancing.md)

@@ -4,7 +4,7 @@ Exchanges do not always hand over their whole history, and a history is worth ke
 
 ## Import
 
-**Import** on the Tracker bar opens a dialog with a **Format** switch and a drop zone. Drop the file, or click to choose it — the import starts as soon as the file is picked. Duplicates are skipped, so importing the same file twice changes nothing, and a file the reader cannot make sense of is refused rather than half-imported. An import is attached to an exchange account, so connect the exchange first (see [Connecting exchanges](21-connecting-exchanges.md)).
+**Import** on the Tracker bar opens a dialog with a **Format** switch and a drop zone. Drop the file, or click to choose it — the import starts as soon as the file is picked. Duplicates are skipped, so importing the same file twice changes nothing, and a file the reader cannot make sense of is refused rather than half-imported. An import is attached to an exchange account, so connect the exchange first (see [API keys](21-supported-exchanges.md#api-keys)).
 
 **Deltabadger CSV** is the app's own format, the same file **Export** writes. Every row names its exchange, so one file can carry several accounts; rows for an exchange you have not connected are left out; if nothing else in the file was new, the dialog lists them: **No account connected for: …**.
 
@@ -30,4 +30,4 @@ When rows land, the dialog closes and the page reloads with **Imported N transac
 
 **Export** downloads `deltabadger-transactions-<date>.csv` with the columns above, oldest row first. It follows the exchange filter and the two date pickers under the record, and it is never limited to the rows shown on the page.
 
-The same export is available from the **Tax Report** button: in the **Generate Report** dialog choose **All**, set **From** and **To**, and press **Download**. Without market data that dialog asks for a CoinGecko API key instead (see [Market data](35-market-data.md)); use **Export** on the bar. The rest of the dialog is described under [Crypto tax report](25-crypto-tax-report.md).
+The same export is available from the **Tax Report** button: in the **Generate Report** dialog choose **All**, set **From** and **To**, and press **Download**. Without market data that dialog asks for a CoinGecko API key instead (see [Market data](26-market-data.md)); use **Export** on the bar. The rest of the dialog is described under [Crypto tax report](19-crypto-tax-report.md).

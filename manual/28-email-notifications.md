@@ -30,8 +30,8 @@ Every email goes to the account's own address. Bot alerts and the test email use
 |---|---|
 | Something went wrong with *bot* | An order failed with an error that will not be retried, or the exchange kept rate-limiting the bot until it gave up. Repeated network failures are not emailed; the bot just tries again at the next interval. The mail quotes the exchange's error and points to the bot log. |
 | Your *exchange* account is running out of *QUOTE* | A buying bot's spendable balance dropped below about three days of scheduled buys, or the exchange rejected an order for insufficient funds. The low-balance warning is sent at most once a day per quote asset; a rejected order emails every time it happens. |
-| *bot* invested full amount / *bot* sold full amount | The amount limit was reached and the bot stopped itself (see [Triggers](11-triggers.md)). |
-| Confirm your email | A new user signed up, or you changed your address (see [Multiple users](36-multiple-users.md)). |
+| *bot* invested full amount / *bot* sold full amount | The amount limit was reached and the bot stopped itself (see [Triggers](11-advanced-bot-settings.md)). |
+| Confirm your email | A new user signed up, or you changed your address (see [Multiple users](27-multiple-users.md)). |
 | Reset password instructions | You used **Forgot password?** on the login page. |
 | Email already taken | Someone tried to sign up with your address. |
 | Deltabadger Test Email | You pressed **Send Test Email**. |
@@ -40,7 +40,7 @@ There is no per-user opt-out: with SMTP configured, every user gets their own al
 
 ## Sender address
 
-Emails come from `NOTIFICATIONS_SENDER` if that is set in the environment, otherwise from the SMTP username, otherwise from `noreply@localhost` (see [Configuration](38-configuration.md)).
+Emails come from `NOTIFICATIONS_SENDER` if that is set in the environment, otherwise from the SMTP username, otherwise from `noreply@localhost` (see [Configuration](29-configuration.md)).
 
 ## Locked by the environment
 

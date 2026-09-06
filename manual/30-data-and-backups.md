@@ -10,9 +10,9 @@ Everything Deltabadger stores lives in one directory inside the container, `/app
 | `production_queue.sqlite3` | Scheduled work: bot runs, syncs, emails |
 | `production_cache.sqlite3` | Cache: market data, chart series, computed metrics |
 | `production_cable.sqlite3` | Live page updates |
-| `.secrets` | This install's generated keys; see [Secrets and encryption keys](40-secrets-and-encryption-keys.md) |
+| `.secrets` | This install's generated keys; see [Secrets and encryption keys](31-secrets-and-encryption-keys.md) |
 
-Each database may have `-wal` and `-shm` companions next to it. Copy the directory whole, never single files. The paths can be changed on [Configuration](38-configuration.md).
+Each database may have `-wal` and `-shm` companions next to it. Copy the directory whole, never single files. The paths can be changed on [Configuration](29-configuration.md).
 
 Logs are not in the volume. They go to the container output: `docker compose logs -f`, or `docker logs deltabadger` for the quick-start container. On Umbrel, read them with `docker logs deltabadger_web_1` and `docker logs deltabadger_jobs_1`; see [Umbrel](05-umbrel.md).
 

@@ -1,12 +1,12 @@
-# Connecting Claude
+# MCP server
 
-Deltabadger runs an MCP server, so Claude and other AI clients that speak MCP can read your bots, balances and transactions, and — if you allow it — start bots, place orders and generate tax reports. What a client may do is up to you; see [Tools and permissions](31-tools-and-permissions.md).
+Deltabadger runs an MCP server, so Claude and other AI clients that speak MCP can read your bots, balances and transactions, and — if you allow it — start bots, place orders and generate tax reports. What a client may do is up to you; see [Tools and permissions](#tools-and-permissions).
 
 ## The MCP URL
 
 Open **Settings → Connect**. The **MCP** widget shows your server URL under "Use this URL to connect Claude (and other AI models)". Click it to copy.
 
-The URL is your instance address followed by `/mcp`, built from `APP_ROOT_URL` (see [Configuration](38-configuration.md)). Set that variable to an address the client can reach — `localhost` only works for a client on the same machine.
+The URL is your instance address followed by `/mcp`, built from `APP_ROOT_URL` (see [Configuration](29-configuration.md)). Set that variable to an address the client can reach — `localhost` only works for a client on the same machine.
 
 Add the URL wherever your client accepts a remote MCP server. There is no token to paste: the client registers itself with your instance and opens the authorization page below.
 
@@ -16,7 +16,7 @@ The first time a client connects, your browser opens Deltabadger's **Authorize a
 
 Untick what you do not want this client to have, then press **Connect**, or **Cancel** to refuse. The ticked groups become the client's grant, limited to the tools switched on at that moment; tools you switch on later are granted from the **Connected** list.
 
-A client that also asked for REST API access shows a second set of checkboxes; see [REST API](32-rest-api.md).
+A client that also asked for REST API access shows a second set of checkboxes; see [REST API](23-rest-api.md).
 
 The client receives a token that lasts an hour and renews it on its own. You do not authorize again unless you revoke the client.
 
@@ -26,23 +26,22 @@ Below the tool toggles, **Connected** lists every client you have authorized wit
 
 **Revoke** disconnects a client and stops its tokens immediately. It has to authorize again to connect.
 
-If Claude reports that a tool is disabled or not available to this client, see [Tools and permissions](31-tools-and-permissions.md).
+If Claude reports that a tool is disabled or not available to this client, see [Tools and permissions](#tools-and-permissions).
 
+## Tools and permissions
 
-# Tools and permissions
+Every MCP tool has its own switch, so you decide whether a connected AI client can only look at your account or also act on it. Connecting a client is covered above.
 
-Every MCP tool has its own switch, so you decide whether a connected AI client can only look at your account or also act on it. Connecting a client is covered in [Connecting Claude](30-connecting-claude.md).
-
-## Two layers of permission
+### Two layers of permission
 
 A tool is usable only when both of these are true:
 
 1. It is switched on in **Settings → Connect → MCP**. The grid groups the tools as **Read**, **Control**, **Trade** and **Tax & Reporting**. Click a tool to flip it, or click a group title to flip the whole group. By default **Read** and **Tax & Reporting** are on, **Control** and **Trade** are off. Switching a tool off takes effect immediately for every client, even mid-conversation.
 2. The client was granted it. A client receives its grant when you authorize it, and the grant only contains tools that were switched on at that moment. Tools you enable later have to be granted to each client from the **Connected** list. A client only sees the tools that pass both checks.
 
-These switches are separate from the REST API's; see [REST API](32-rest-api.md).
+These switches are separate from the REST API's; see [REST API](23-rest-api.md).
 
-## Read
+### Read
 
 | Tool | What it does |
 |---|---|
@@ -54,7 +53,7 @@ These switches are separate from the REST API's; see [REST API](32-rest-api.md).
 | **List transactions** | View recent trades, optionally for one bot (up to 100) |
 | **List open orders** | View currently open (unfilled) orders across exchanges; an exchange that cannot be asked is reported, not skipped |
 
-## Control
+### Control
 
 | Tool | What it does |
 |---|---|
@@ -66,9 +65,9 @@ These switches are separate from the REST API's; see [REST API](32-rest-api.md).
 | **Stop rule** | Stop an active rule |
 | **Update rules** | Change settings on a stopped rule: withdrawal percentage, maximum fee percentage, minimum amount, threshold type |
 
-Rules are the [withdrawal rules](19-withdrawal-rules.md) you created in the app; a client can switch them on and off but cannot create one.
+Rules are the [withdrawal rules](16-withdrawal-rules.md) you created in the app; a client can switch them on and off but cannot create one.
 
-## Trade
+### Trade
 
 | Tool | What it does |
 |---|---|
@@ -78,15 +77,15 @@ Rules are the [withdrawal rules](19-withdrawal-rules.md) you created in the app;
 | **Limit sell** | Place a limit sell order at a specific price |
 | **Cancel order** | Cancel an open order by its ID |
 
-Trade tools work on crypto exchanges and, for stocks, on Alpaca (see [Stocks and ETFs](29-stocks-and-etfs.md)). They act on the exchange account directly and are not tied to a bot.
+Trade tools work on crypto exchanges and, for stocks, on Alpaca (see [Stock brokers](21-supported-exchanges.md#stock-brokers)). They act on the exchange account directly and are not tied to a bot.
 
 > **Note:** With **Trade** on and paper trading off, a client places real orders with real money. Keep the group off unless you want that.
 
-## Paper Trading
+### Paper Trading
 
 Under the grid, **Enable paper trading for trade tools** makes the Trade tools simulate orders with real market prices. No real orders are placed, and every result is prefixed with `[DRY RUN]`. Use it to try a client's trading behaviour before letting it spend anything. The setting applies to MCP only; the REST API has no equivalent.
 
-## Tax & Reporting
+### Tax & Reporting
 
 | Tool | What it does |
 |---|---|
@@ -97,6 +96,6 @@ Under the grid, **Enable paper trading for trade tools** makes the Trade tools s
 | **Export transactions CSV** | Export account transactions as CSV, with optional exchange and date filters |
 | **Account transactions** | View Tracker transactions with exchange, date-range and type filters (up to 200) |
 
-**Generate tax report** produces the [crypto tax report](25-crypto-tax-report.md) only; the [broker tax report](26-broker-tax-report.md) is not available over MCP. For most countries it needs market data (see [Market data](35-market-data.md)) and refuses otherwise. A finished report is also picked up by the Tracker the next time you open it.
+**Generate tax report** produces the [crypto tax report](19-crypto-tax-report.md) only; the [broker tax report](20-broker-tax-report.md) is not available over MCP. For most countries it needs market data (see [Market data](26-market-data.md)) and refuses otherwise. A finished report is also picked up by the Tracker the next time you open it.
 
 The export tools hand a client your complete transaction history; grant **Tax & Reporting** only to clients that need it.

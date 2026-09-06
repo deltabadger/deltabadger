@@ -8,13 +8,13 @@ Open **Settings → Account → Multiple Accounts**. The widget shows ON or OFF.
 
 While it is on, the login page shows a **Sign up** link leading to the **New Account** form: **Name**, **Email**, **Password**, then **Sign Up**. The new user lands on a "Thanks!" page asking them to click the confirmation link in their mailbox. The account cannot sign in until that link is clicked. If the address is already registered, the page still says Thanks! and an "Email already taken" notice goes to the existing owner instead.
 
-Confirmation is an email, so sign-up only works with an email provider configured (see [Email notifications](37-email-notifications.md)). A user who did not get the email can ask for it again with **Resend link** on the login page.
+Confirmation is an email, so sign-up only works with an email provider configured (see [Email notifications](28-email-notifications.md)). A user who did not get the email can ask for it again with **Resend link** on the login page.
 
 ## What every user has
 
 Each user works in their own space. Bots, withdrawal rules, the Tracker, API keys, the REST API token, connected MCP clients, two-factor authentication, language, timezone, display currency, **Hide balances** and the Interactive Brokers connection are all per user. One user cannot see another user's keys, bots or transactions.
 
-Stocks follow the same rule: the admin's Alpaca key only builds the shared catalog, and each user trades with their own (see [Stocks and ETFs](29-stocks-and-etfs.md)).
+Stocks follow the same rule: the admin's Alpaca key only builds the shared catalog, and each user trades with their own (see [Stock brokers](21-supported-exchanges.md#stock-brokers)).
 
 ## What stays with the admin
 
@@ -22,7 +22,7 @@ Settings that affect the whole instance are hidden from other users and refused 
 
 | Setting | Where |
 |---|---|
-| Market data provider | **Settings → Connect → Market Data** (see [Market data](35-market-data.md)) |
+| Market data provider | **Settings → Connect → Market Data** (see [Market data](26-market-data.md)) |
 | Stocks catalog (Alpaca) | **Settings → Connect → Stocks** |
 | Email notifications (SMTP) | **Settings → Account → Email Notifications** |
 | Multiple Accounts | **Settings → Account** |

@@ -32,4 +32,4 @@ Five wrong codes — at login or on the password-reset form — lock the account
 
 ## Losing the secret
 
-The two-factor secret is encrypted with the instance key. The credential reset described in [Secrets and encryption keys](40-secrets-and-encryption-keys.md) clears it along with everything else, which is the only built-in way to remove two-factor from an account you can no longer verify.
+The two-factor secret is encrypted with the instance key. The credential reset described in [Secrets and encryption keys](31-secrets-and-encryption-keys.md) clears it along with everything else, which is the only built-in way to remove two-factor from an account you can no longer verify.
