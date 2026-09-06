@@ -107,6 +107,18 @@ es:
         account: Cuenta
         sign_up: Registrarse
     settings:
+        app_update:
+            title: 'Actualizaciones'
+            up_to_date: 'Deltabadger está actualizado.'
+            available: 'Deltabadger %{version} ya está disponible.'
+            docker: 'Descarga la nueva imagen y reinicia:'
+            umbrel: 'Actualiza Deltabadger desde tu App Store de Umbrel.'
+            manual: 'Cómo actualizar'
+            desktop: 'Deltabadger busca actualizaciones cada vez que se inicia.'
+            release_notes: 'Notas de la versión'
+            check_now: 'Buscar actualizaciones'
+            checking: 'Buscando…'
+            check_failed: 'No se pudo buscar actualizaciones.'
         advanced_bots:
             title: Bots avanzados
             toggle_label: Mostrar bots avanzados

@@ -45,6 +45,14 @@ production:
     class: Asset::SyncAlpacaCryptoFromDeltabadgerJob
     schedule: "15 10 * * *"  # Daily at 10:15 UTC (after data-api's own sync at 07:15)
 
+  # The only thing that asks GitHub whether a newer version exists. It no-ops where updates are
+  # delivered by something else (desktop, hosted) or where the owner switched the check off, and
+  # the settings widget only ever reads what this wrote — so no page render waits on the network.
+  # Twice a day rather than daily so a fresh install fills in within half a day.
+  app_update_check_job:
+    class: AppUpdate::CheckJob
+    schedule: "0 */12 * * *"  # 00:00 and 12:00 UTC
+
   evaluate_all_rules_job:
     class: Rule::EvaluateAllJob
     schedule: "0 */4 * * *"  # Every 4 hours
@@ -134,6 +142,14 @@ development:
   sync_alpaca_crypto_from_deltabadger_job:
     class: Asset::SyncAlpacaCryptoFromDeltabadgerJob
     schedule: "15 10 * * *"  # Daily at 10:15 UTC (after data-api's own sync at 07:15)
+
+  # The only thing that asks GitHub whether a newer version exists. It no-ops where updates are
+  # delivered by something else (desktop, hosted) or where the owner switched the check off, and
+  # the settings widget only ever reads what this wrote — so no page render waits on the network.
+  # Twice a day rather than daily so a fresh install fills in within half a day.
+  app_update_check_job:
+    class: AppUpdate::CheckJob
+    schedule: "0 */12 * * *"  # 00:00 and 12:00 UTC
 
   evaluate_all_rules_job:
     class: Rule::EvaluateAllJob

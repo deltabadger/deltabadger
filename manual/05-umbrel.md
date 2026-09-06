@@ -17,7 +17,7 @@ Everything is kept in the app's data directory on your Umbrel, under `data/`:
 | `data/storage` | The databases and `.secrets`, the file with this install's encryption keys |
 | `data/logs` | Application logs |
 
-The session secret is not in that folder. Umbrel derives it from the app's seed and passes it to both services as `SECRET_KEY_BASE`. A copy of `data/storage`, taken while the app is stopped, is a complete backup of a fresh install. If your install predates the `.secrets` file, its encryption keys are still derived from the Umbrel seed; run `rake deltabadger:encryption:derived_keys` first so they are stored in `.secrets` (see [Secrets and encryption keys](40-secrets-and-encryption-keys.md)). See also [Data and backups](39-data-and-backups.md).
+The session secret is not in that folder. Umbrel derives it from the app's seed and passes it to both services as `SECRET_KEY_BASE`. A copy of `data/storage`, taken while the app is stopped, is a complete backup of a fresh install. If your install predates the `.secrets` file, its encryption keys are still derived from the Umbrel seed; run `rake deltabadger:encryption:derived_keys` first so they are stored in `.secrets` (see [Secrets and encryption keys](31-secrets-and-encryption-keys.md)). See also [Data and backups](30-data-and-backups.md).
 
 ## Two services
 

@@ -2,9 +2,10 @@
 
 ## Running with Tauri (macOS and Linux)
 
-1. Signed desktop releases are not available yet; use the [Docker quick start](02-quick-start.md) until they ship.
-2. Run `./setup.sh` first.
-3. Run `./start.sh` to use the app.
+Signed desktop releases are not available yet, so the app has to be built from a checkout of this repository. Use the [Docker quick start](02-quick-start.md) instead if you would rather not.
+
+1. Run `./setup.sh` once.
+2. Run `./start.sh` to use the app.
 
 On Mac, if you close the app, it continues working in the background. You can find it on the topbar.
 

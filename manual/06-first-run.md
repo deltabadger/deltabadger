@@ -4,11 +4,11 @@ The setup page creates the admin account and, if you have one, connects a Deltab
 
 ## Admin Account
 
-Pick the interface language from the dropdown at the top; it is saved with the account and can be changed later under [Account settings](33-account-settings.md).
+Pick the interface language from the dropdown at the top; it is saved with the account and can be changed later under [Account settings](24-account-settings.md).
 
 Fill in **Name**, **Email** and **Password**. The password needs at least 8 characters, an uppercase and a lowercase letter, a digit and a symbol; the checklist under the field turns green as you type. Press **Continue**.
 
-This account is the admin: confirmed immediately, no email sent, and the only account that can set up market data, email notifications, the stock catalog and sign-up for other people (see [Multiple users](36-multiple-users.md)). After **Continue** you are signed in and land on the **Bots** page with the new-bot wizard already open. Close it if you want to look around first; **New bot** brings it back.
+This account is the admin: confirmed immediately, no email sent, and the only account that can set up market data, email notifications, the stock catalog and sign-up for other people (see [Multiple users](27-multiple-users.md)). After **Continue** you are signed in and land on the **Bots** page with the new-bot wizard already open. Close it if you want to look around first; **New bot** brings it back.
 
 ## Have a Deltabadger.com subscription?
 
@@ -16,7 +16,7 @@ Below the form, **Have a Deltabadger.com subscription?** unfolds a single field.
 
 If you started the container with `CLAIM_TOKEN` (see [Quick start](02-quick-start.md)), the code is redeemed on its own when the page opens and you see the connected message straight away.
 
-This step is optional. Without a subscription, create the account and use a free CoinGecko key later, or paste a connect code later, under **Settings → Connect → Market Data** (see [Market data](35-market-data.md)).
+This step is optional. Without a subscription, create the account and use a free CoinGecko key later, or paste a connect code later, under **Settings → Connect → Market Data** (see [Market data](26-market-data.md)).
 
 ## Syncing assets
 
@@ -26,8 +26,8 @@ You can use the app in the meantime: the bot wizard works from the asset list th
 
 ## What next
 
-- Create a bot: [Creating your first bot](08-creating-your-first-bot.md).
-- Connect the Tracker with read-only keys: [Connecting exchanges](21-connecting-exchanges.md).
-- Set up market data if you skipped it: [Market data](35-market-data.md).
-- Set up email so bots can alert you: [Email notifications](37-email-notifications.md).
-- Protect the account: [Two-factor authentication](34-two-factor-authentication.md).
+- Create a bot: [Creating a new bot](09-new-bot.md).
+- Connect the Tracker with read-only keys: [API keys](21-supported-exchanges.md#api-keys).
+- Set up market data if you skipped it: [Market data](26-market-data.md).
+- Set up email so bots can alert you: [Email notifications](28-email-notifications.md).
+- Protect the account: [Two-factor authentication](25-two-factor-authentication.md).
