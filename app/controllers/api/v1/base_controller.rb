@@ -54,7 +54,7 @@ module Api
           success: :ok,
           created: :created,
           accepted: :accepted,
-          validation_failed: :unprocessable_entity,
+          validation_failed: :unprocessable_content,
           permission_denied: :forbidden,
           not_found: :not_found,
           upstream_failed: :bad_gateway,
