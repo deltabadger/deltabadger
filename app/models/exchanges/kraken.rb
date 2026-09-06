@@ -90,16 +90,25 @@ class Exchanges::Kraken < Exchange
   def get_tickers_info(force: false)
     cache_key = "exchange_#{id}_tickers_info"
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour, force:) do
-      result = client.get_tradable_asset_pairs
+      # aclass_base: 'all' — without it Kraken serves only the 'currency' class and its tokenized
+      # equities (xStocks) are invisible. The two classes are disjoint.
+      result = client.get_tradable_asset_pairs(aclass_base: 'all')
       return result if result.failure?
 
       error = Utilities::Hash.dig_or_raise(result.data, 'error')
       return Result::Failure.new(*error) if error.any?
 
-      result.data['result'].map do |_, info|
+      # Every tokenized pair comes back twice, under an SPV key and an x key, sharing one wsname and
+      # altname; currency pairs are never duplicated. Keying by wsname collapses exactly those
+      # aliases — mapping the raw response would ingest each tokenized pair twice.
+      deduped = result.data['result'].each_with_object({}) do |(_, info), acc|
+        wsname = info['wsname']
+        acc[wsname] ||= info if wsname.present?
+      end
+
+      deduped.map do |wsname, info|
         ticker = Utilities::Hash.dig_or_raise(info, 'altname')
 
-        wsname = Utilities::Hash.dig_or_raise(info, 'wsname')
         base, quote = wsname.split('/')
         minimum_base_size = Utilities::Hash.dig_or_raise(info, 'ordermin').to_d
         # minimum_quote_size = (REAL_COSTMIN[quote] || Utilities::Hash.dig_or_raise(info, 'costmin')).to_d
@@ -116,7 +125,15 @@ class Exchanges::Kraken < Exchange
           quote_decimals: Utilities::Hash.dig_or_raise(info, 'cost_decimals'),
           price_decimals: Utilities::Hash.dig_or_raise(info, 'pair_decimals'),
           available: true,
-          trading_enabled: info.key?('status') ? info['status'] == 'online' : true
+          # Tokenized equities are listed but never tradable from here: AddOrder needs an
+          # asset_class parameter this client does not send, and Kraken closes the tokenized order
+          # books to EEA clients over the API in any case. Listing them is what lets a holding be
+          # resolved and valued instead of silently dropped.
+          trading_enabled: if info['aclass_base'] == 'tokenized_asset'
+                             false
+                           else
+                             info.key?('status') ? info['status'] == 'online' : true
+                           end
         }
       end.compact
     end
@@ -633,7 +650,23 @@ class Exchanges::Kraken < Exchange
   def asset_from_symbol(symbol)
     symbol = symbol.split('.').first
     symbol = ASSET_MAP[symbol] || symbol
-    super(symbol)
+    super(symbol) || tokenized_asset_from_symbol(symbol)
+  end
+
+  # Kraken reports a tokenized equity (xStock) holding under either of two asset codes — NVDAx or
+  # NVDASPV — which both carry altname "NVDAx", while the ticker base we store comes from market
+  # data as "NVDAX". get_balances drops any code it cannot resolve without a word, so without this
+  # the holding is invisible to the tracker and to tax reporting.
+  #
+  # Only consulted after the exact lookup fails, so it can never shadow an ordinary asset.
+  #
+  # ponytail: the SPV → x rewrite is Kraken's naming convention, not a documented contract (every
+  # SPV asset code in /0/public/Assets?aclass=tokenized_asset carries the x form as its altname).
+  # If it ever diverges, resolve altname from that endpoint instead of rewriting the suffix.
+  def tokenized_asset_from_symbol(symbol)
+    @tokenized_asset_from_symbol ||= tickers.available.includes(:base_asset)
+                                            .each_with_object({}) { |t, h| h[t.base.upcase] ||= t.base_asset }
+    @tokenized_asset_from_symbol[symbol.sub(/SPV\z/, 'x').upcase]
   end
 
   def get_ticker_information(ticker)

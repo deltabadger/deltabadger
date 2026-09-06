@@ -252,9 +252,14 @@ class MarketData
       base_asset_id = asset_map[t['base_external_id']]
       quote_asset_id = asset_map[t['quote_external_id']]
       next unless base_asset_id && quote_asset_id
-      # Skip tickers without decimal precision — these are pairs the exchange API didn't return
-      # trading params for (e.g. Kraken tokenized stocks). They exist on the exchange but can't be
-      # traded via API yet. Decimal precision is per-ticker-per-exchange, not a safe default.
+      # Skip tickers without decimal precision — pairs the exchange API returned no trading params
+      # for. Decimal precision is per-ticker-per-exchange, not a safe default.
+      #
+      # This used to cite Kraken tokenized stocks as the example and claim they "can't be traded via
+      # API yet" because the venue returns no params. Both halves were wrong: Kraken supplies
+      # complete params for them (ordermin, costmin, lot/cost/pair decimals), and they were missing
+      # only because the catalogue call never asked for that asset class. The wrong comment is why
+      # nobody looked again for months — so it is worth the correction rather than the deletion.
       next unless t['base_decimals'] && t['quote_decimals'] && t['price_decimals']
 
       upsert_ticker_attributes(t, exchange_id: exchange.id, base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
