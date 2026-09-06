@@ -4,6 +4,8 @@
 
 It places recurring orders (DCA), rebalance portfolios, execute direct indexing, automatically widthraw crypto from exchanges your wallet, tracks what you hold, generate tax reports, and opens MCP/Rest API gate to the markets for your agents. No matter if you run it on your local computer, Umbrel, or an online server, it can be used by multiple users, and your [API keys stay there private and encrypted](40-secrets-and-encryption-keys.md).
 
+<img width="2053" height="1289" alt="Screenshot 2026-09-06 at 18 08 14" src="https://github.com/user-attachments/assets/65e1f71f-97b0-47bb-8dbc-982fecc6728f" />
+
 ## Invest. Track. Connect.
 
 **Bots** can both build your portfolio by dollar-cost averaging, and manage it long-term with rebalancing. When you [creating your bot](08-creating-your-first-bot.md), you can use multiple smart triggers: price suddenly dropped, RSI below 30, price below moving average, and more. You can switch between DCA and portfolio rebalancing or do both, according to your current needs.
