@@ -24,6 +24,34 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
                          status: :submitted, external_status: :open, **attrs)
   end
 
+  # The container fetches its own catalogue on the CoinGecko provider. Same two Kraken quirks as the
+  # market-data service: tokenized equities need aclass_base, and every tokenized pair is returned
+  # twice (SPV key + x key) under one shared wsname.
+  test 'get_tickers_info asks for every asset class' do
+    @exchange.set_client
+    @exchange.send(:client).expects(:get_tradable_asset_pairs).with(aclass_base: 'all')
+             .returns(Result::Success.new(kraken_pairs(status: 'online')))
+
+    assert @exchange.get_tickers_info(force: true).success?
+  end
+
+  test 'get_tickers_info lists a tokenized pair once, and not as tradable' do
+    tok = {
+      'altname' => 'NVDAxUSD', 'wsname' => 'NVDAx/USD', 'aclass_base' => 'tokenized_asset',
+      'ordermin' => '0.00000001', 'costmin' => '0.5', 'lot_decimals' => 8,
+      'cost_decimals' => 5, 'pair_decimals' => 2, 'status' => 'online'
+    }
+    body = { 'error' => [], 'result' => { 'NVDAxUSD' => tok, 'NVDASPVUSD' => tok.dup } }
+    @exchange.set_client
+    @exchange.send(:client).stubs(:get_tradable_asset_pairs).returns(Result::Success.new(body))
+
+    infos = @exchange.get_tickers_info(force: true).data.select { |t| t[:base] == 'NVDAx' }
+
+    assert_equal 1, infos.size, 'the SPV alias is the same pair'
+    assert infos.first[:available], 'listed, so a holding resolves'
+    assert_not infos.first[:trading_enabled], 'we cannot place these orders'
+  end
+
   test 'get_tickers_info marks an online pair available and trading_enabled' do
     @exchange.set_client
     @exchange.send(:client).stubs(:get_tradable_asset_pairs).returns(Result::Success.new(kraken_pairs(status: 'online')))
@@ -500,5 +528,59 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     result = @exchange.get_tickers_prices(symbols: ['DEADEUR'], force: true)
 
     assert result.success?, 'a delisted pair must not blank prices for every other bot'
+  end
+  # Kraken tokenized equities (xStocks). Kraken reports a holding under either of two asset codes -
+  # NVDAx or NVDASPV - which both carry altname "NVDAx", while the ticker we store from market data
+  # is based on the upstream symbol "NVDAX". get_balances resolves every balance key through
+  # asset_from_symbol and does `next unless asset.present?`, so an unresolved code is dropped in
+  # silence: the holding simply does not exist as far as the tracker and the tax report are
+  # concerned. That is the whole bug - Kraken can be read, we just threw the answer away.
+  test 'resolves a tokenized holding reported under the x code' do
+    nvda = create(:asset, symbol: 'NVDAX', name: 'NVIDIA xStock', external_id: 'nvidia-xstock')
+    usd = create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: nvda, quote_asset: usd,
+                    base: 'NVDAX', quote: 'USD', ticker: 'NVDAxUSD', trading_enabled: false)
+    @exchange.set_client
+    @exchange.send(:client).stubs(:get_extended_balance).returns(Result::Success.new(
+                                                                   { 'error' => [],
+                                                                     'result' => { 'NVDAx' => { 'balance' => '2.5', 'hold_trade' => '0' } } }
+                                                                 ))
+
+    balances = @exchange.get_balances(asset_ids: [nvda.id]).data
+
+    assert_equal 2.5.to_d, balances[nvda.id][:free]
+  end
+
+  test 'resolves a tokenized holding reported under the SPV code' do
+    nvda = create(:asset, symbol: 'NVDAX', name: 'NVIDIA xStock', external_id: 'nvidia-xstock')
+    usd = create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: nvda, quote_asset: usd,
+                    base: 'NVDAX', quote: 'USD', ticker: 'NVDAxUSD', trading_enabled: false)
+    @exchange.set_client
+    @exchange.send(:client).stubs(:get_extended_balance).returns(Result::Success.new(
+                                                                   { 'error' => [],
+                                                                     'result' => { 'NVDASPV' => { 'balance' => '1.25', 'hold_trade' => '0.25' } } }
+                                                                 ))
+
+    balances = @exchange.get_balances(asset_ids: [nvda.id]).data
+
+    assert_equal 1.to_d, balances[nvda.id][:free]
+    assert_equal 0.25.to_d, balances[nvda.id][:locked]
+  end
+
+  # The alias rule must not swallow an ordinary asset whose code merely ends in those letters.
+  test 'does not mistake an ordinary asset for a tokenized alias' do
+    usd = create(:asset, :usd)
+    btc = create(:asset, :bitcoin)
+    create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd, base: 'XBT', quote: 'USD')
+    @exchange.set_client
+    @exchange.send(:client).stubs(:get_extended_balance).returns(Result::Success.new(
+                                                                   { 'error' => [],
+                                                                     'result' => { 'XXBT' => { 'balance' => '0.5', 'hold_trade' => '0' } } }
+                                                                 ))
+
+    balances = @exchange.get_balances(asset_ids: [btc.id]).data
+
+    assert_equal 0.5.to_d, balances[btc.id][:free], 'the existing ASSET_MAP path still works'
   end
 end
