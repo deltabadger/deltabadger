@@ -40,24 +40,42 @@ module Bot::AssetConfigurable
     Exchange.where(id: exchange_ids)
   end
 
+  # The single relation behind the asset step: every ticker this bot could pick an asset from,
+  # given its current venue and counterpart. The rows on the step and the exchange logos beside
+  # them are two different plucks off THIS — so they cannot disagree, which they previously did
+  # (the rows came from here, the logos from exchange_assets).
+  #
   # @param asset_type: :base_asset or :quote_asset
-  def available_assets_for_current_settings(asset_type:, include_exchanges: false)
+  def offered_tickers(asset_type:)
     available_exchanges = exchange.present? ? [exchange] : Exchange.available
+    scope = Ticker.available.trading_enabled.where(exchange: available_exchanges)
 
     case asset_type
     when :base_asset
-      scope = Ticker.available.trading_enabled
-                    .where(exchange: available_exchanges)
-                    .where.not(base_asset_id: [base_asset_id, quote_asset_id])
+      scope = scope.where.not(base_asset_id: [base_asset_id, quote_asset_id])
       scope = scope.where(quote_asset_id:) if quote_asset_id.present?
     when :quote_asset
-      scope = Ticker.available.trading_enabled
-                    .where(exchange: available_exchanges)
-                    .where.not(quote_asset_id: [base_asset_id, quote_asset_id])
+      scope = scope.where.not(quote_asset_id: [base_asset_id, quote_asset_id])
       scope = scope.where(base_asset_id:) if base_asset_id.present?
     end
-    asset_ids = scope.pluck("#{asset_type}_id").uniq
-    include_exchanges ? Asset.includes(:exchanges).where(id: asset_ids) : Asset.where(id: asset_ids)
+    scope
+  end
+
+  # @param asset_type: :base_asset or :quote_asset
+  def available_assets_for_current_settings(asset_type:)
+    Asset.where(id: offered_tickers(asset_type:).distinct.pluck("#{asset_type}_id"))
+  end
+
+  # [[asset_id, exchange_id], ...] for the given asset ids only. The id filter goes into SQL:
+  # offered_tickers is not narrowed by asset, so on a stock venue it spans thousands of rows and
+  # plucking it whole on every wizard render would be a per-render regression.
+  def offered_exchange_ids_by_asset(ids, asset_type:)
+    return [] if ids.blank?
+
+    offered_tickers(asset_type:)
+      .where("#{asset_type}_id": ids)
+      .distinct
+      .pluck("#{asset_type}_id", :exchange_id)
   end
 
   private

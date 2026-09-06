@@ -131,7 +131,10 @@ class Bots::DcaMultiAsset < Bot
     Exchange.where(id: eligible_pairs(venues: Exchange.tradeable).map(&:first).uniq)
   end
 
-  def available_assets_for_current_settings(asset_type:, include_exchanges: false)
+  # Exchange.tradeable, not Exchange.available: a retired venue must never re-enter the basket
+  # picker. That difference is why the three bot types keep their own offered_tickers rather than
+  # sharing one scope.
+  def offered_tickers(asset_type:)
     venues = exchange_id? ? Exchange.tradeable.where(id: exchange_id) : Exchange.tradeable
     scope = tickers_on(eligible_pairs(venues:))
     case asset_type
@@ -140,8 +143,11 @@ class Bots::DcaMultiAsset < Bot
     when :quote_asset
       scope = scope.where(base_asset_id: base_asset_ids) if base_asset_ids.any?
     end
-    asset_ids = scope.pluck("#{asset_type}_id").uniq
-    include_exchanges ? Asset.includes(:exchanges).where(id: asset_ids) : Asset.where(id: asset_ids)
+    scope
+  end
+
+  def available_assets_for_current_settings(asset_type:)
+    Asset.where(id: offered_tickers(asset_type:).distinct.pluck("#{asset_type}_id"))
   end
 
   def assets

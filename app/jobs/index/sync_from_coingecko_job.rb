@@ -43,8 +43,14 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
       # Take top 5 for display purposes
       top_coins_for_display = valid_coins.first(Index::ExchangeAvailability::TOP_COINS_COUNT)
 
-      # Calculate available exchanges from live database using ALL valid coins
-      available_exchanges = Index.calculate_available_exchanges(top_coins: valid_coins)
+      # Top coins per exchange FIRST, then availability qualified against exactly those coins.
+      # Qualifying on the whole category while exporting only the top ten offered venues whose
+      # quote picker was then empty, because the picker restricts itself to the exported set.
+      top_coins_by_exchange = calculate_top_coins_by_exchange(valid_coins)
+      available_exchanges = top_coins_by_exchange.filter_map do |exchange_type, coins|
+        count = Index.calculate_available_exchanges(top_coins: coins)[exchange_type]
+        [exchange_type, count] if count
+      end.to_h
 
       # Skip indices with no exchange availability
       next if available_exchanges.empty?
@@ -53,9 +59,6 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
         external_id: category['id'],
         source: Index::SOURCE_COINGECKO
       )
-
-      # Calculate top coins per exchange
-      top_coins_by_exchange = calculate_top_coins_by_exchange(valid_coins)
 
       attrs = {
         name: strip_brackets(category['name']),
@@ -97,7 +100,7 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
     result = {}
 
     Exchange.available.each do |exchange|
-      exchange_coin_ids = exchange.tickers.available
+      exchange_coin_ids = exchange.tickers.available.trading_enabled
                                   .joins(:base_asset)
                                   .where(assets: { external_id: valid_coins })
                                   .pluck('assets.external_id')

@@ -29,20 +29,50 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_match 'title="Kraken"', response.body
   end
 
+  # B1. The logos were read from exchange_assets ("is this asset listed here") while the exchange
+  # step that follows asks tickers ("is this pair tradable here"). The two disagreed, so a venue
+  # could be advertised on the row and then refused on the next screen — the reported symptom.
+  test 'an exchange whose pair is listed but not trading_enabled shows no logo on the search row' do
+    kraken = create(:kraken_exchange)
+    eth = listed(:ethereum)
+    create(:ticker, exchange: kraken, base_asset: eth, quote_asset: @usd, trading_enabled: false)
+
+    get step_path
+    assert_response :ok
+    assert_match 'title="Binance"', response.body
+    assert_no_match 'title="Kraken"', response.body
+  end
+
+  # B2. The same divergence with no ticker at all: an exchange_asset row left behind by a sync that
+  # wrote it before deciding the pair was unusable. Nothing revokes those, so they accumulate.
+  test 'an exchange asset with no ticker at all shows no logo' do
+    kraken = create(:kraken_exchange)
+    eth = listed(:ethereum)
+    create(:exchange_asset, exchange: kraken, asset: eth, available: true)
+
+    get step_path
+    assert_response :ok
+    assert_match 'title="Binance"', response.body
+    assert_no_match 'title="Kraken"', response.body
+  end
+
   # The binance_us → binance collapse must survive page-deferred exchange resolution:
   # binance_name has to come from "is Binance available with assets", NOT from the page rows
   # (a page can legitimately contain a binance_us asset but no binance asset).
   test 'collapses binance_us to Binance even when no Binance asset is on the page' do
-    filler = create(:asset, symbol: 'FILL', name: 'Filler')
-    create(:exchange_asset, exchange: @binance, asset: filler, available: true)
-
+    # The Binance presence that drives the collapse must be a real tradable ticker, and it must sit
+    # OFF this page: if the Binance asset appeared among the rows it would supply title="Binance"
+    # from its own row and stop exercising the page-independent derivation. Ordering is
+    # (market_cap_rank IS NULL, market_cap_rank, symbol) and all of these are nil-rank, so the
+    # twenty A* rows fill page one and ZZZ falls to page two.
     binance_us = create(:binance_us_exchange)
-    aaa = create(:asset, symbol: 'AAA', name: 'Alpha')
-    create(:ticker, exchange: binance_us, base_asset: aaa, quote_asset: @usd)
+    20.times { |i| listed(exchange: binance_us, symbol: format('A%02d', i), name: "Alpha #{i}") }
+    listed(exchange: @binance, symbol: 'ZZZ', name: 'Omega')
 
     get step_path
     assert_response :ok
-    assert_match 'AAA', response.body
+    assert_match 'A00', response.body
+    assert_no_match(/ZZZ/, response.body)
     assert_match 'title="Binance"', response.body, 'binance_us should render under the Binance label'
     assert_no_match 'Binance.US', response.body
   end
