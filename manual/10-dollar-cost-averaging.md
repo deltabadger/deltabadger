@@ -17,6 +17,8 @@ The actual schedule can be affected by *Smart Intervals*.
 
 ## Smart Intervals
 
+<img src="#">
+
 All exchanges and brokers have **minimum order size**, so some schedules are impossible to execute directly. Sometimes, this minimum is defined in base currency, so the value in spending currency is changing.
 
 Deltabadger solves it using **Smart Intervals**:
@@ -25,6 +27,8 @@ Deltabadger solves it using **Smart Intervals**:
 > You want to buy Bitcoin for 5 USD/day, but the minimum order size is 10 USD. Deltabadger spend 10 USD every 2 days, so on average you still achieve your desired ratio.
 
 ## FeeCutter
+
+<img src="#">
 
 Using limit orders can lower the price you pay for assets. For one, many exchanges offer lower trading fees when you use limit orders instead of instant market orders. However, this fee can be cancelled completely if you set your orders below the current price. 
 
