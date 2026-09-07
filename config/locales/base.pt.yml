@@ -479,6 +479,7 @@ pt:
             none: "Não conseguimos avaliar esta linha. Escreve quanto valia uma unidade."
         welcome:
             connect_and_track: "Acompanha a tua carteira."
+            needs_market_data: 'Ligue uma fonte de dados de mercado para ver a sua carteira.'
         sync_key_error_html: 'Falha ao sincronizar <strong>%{exchange}</strong>: %{message}. Atualiza a chave API em baixo.'
         sync_permission_error_html: "Não foi possível sincronizar <strong>%{exchange}</strong>: esta chave API não tem a permissão necessária para ler %{capability}. Atualiza as permissões da chave na %{exchange}, ou cria uma nova chave com todas as permissões indicadas nas instruções."
         sync_transient_error_html: "A <strong>%{exchange}</strong> está temporariamente indisponível. Tenta sincronizar novamente daqui a alguns minutos."

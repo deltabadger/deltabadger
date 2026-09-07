@@ -480,6 +480,7 @@ de:
             none: "Diesen Eintrag konnten wir nicht bewerten. Gib ein, was eine Einheit wert war."
         welcome:
             connect_and_track: "Portfolio tracken."
+            needs_market_data: 'Verbinde eine Marktdatenquelle, um dein Portfolio zu sehen.'
         sync_key_error_html: 'Synchronisierung mit <strong>%{exchange}</strong> fehlgeschlagen: %{message}. Bitte API-Schlüssel unten aktualisieren.'
         sync_permission_error_html: "<strong>%{exchange}</strong> konnte nicht synchronisiert werden: diesem API-Schlüssel fehlt die Berechtigung zum Lesen %{capability}. Bitte die Berechtigungen des Schlüssels auf %{exchange} anpassen oder einen neuen Schlüssel mit allen in der Anleitung genannten Berechtigungen erstellen."
         sync_transient_error_html: "<strong>%{exchange}</strong> ist vorübergehend nicht erreichbar. Bitte in ein paar Minuten erneut synchronisieren."

@@ -480,6 +480,7 @@ es:
             none: "No pudimos valorar esta fila. Escribe cuánto valía una unidad."
         welcome:
             connect_and_track: "Sigue tu portafolio."
+            needs_market_data: 'Conecta una fuente de datos de mercado para ver tu cartera.'
         sync_key_error_html: 'Fallo al sincronizar <strong>%{exchange}</strong>: %{message}. Actualiza la clave API a continuación.'
         sync_permission_error_html: "No se pudo sincronizar <strong>%{exchange}</strong>: esta clave API no tiene el permiso necesario para leer %{capability}. Actualiza los permisos de la clave en %{exchange} o crea una nueva clave con todos los permisos indicados en las instrucciones."
         sync_transient_error_html: "<strong>%{exchange}</strong> no está disponible temporalmente. Vuelve a sincronizar en unos minutos."

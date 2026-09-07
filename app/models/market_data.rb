@@ -55,6 +55,10 @@ class MarketData
   def self.sync_assets_from_coingecko!
     return Result::Failure.new('CoinGecko API key not configured') unless AppConfig.coingecko_configured?
 
+    # Assets can also arrive from a venue's own ticker sync, which never passes through
+    # import_assets!, so classify here too. Idempotent, and one indexed query.
+    Asset.mark_tokenized!
+
     asset_ids = Asset.where(category: 'Cryptocurrency').pluck(:external_id).compact
     return Result::Success.new if asset_ids.empty?
 
@@ -220,6 +224,10 @@ class MarketData
       unique_by: :external_id
     )
     apply_instrument_types!(assets_data)
+    # Then the local registry, for anything the payload did not classify. The bundled seed carries no
+    # instrument_type and the CoinGecko feed never supplies one, so without this a self-hosted
+    # install has no wrapper classification at all.
+    Asset.mark_tokenized!
   end
 
   # Applied after the upsert, not inside it. upsert_all requires every row to carry the same keys, so

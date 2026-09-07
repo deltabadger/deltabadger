@@ -7,6 +7,37 @@ class Asset < ApplicationRecord
 
   include Undeletable
 
+  # Tokenized wrappers: a token whose value derives from an off-chain thing through an issuer, held
+  # as a creditor of that issuer rather than an owner of the underlying. Their tax treatment differs
+  # from crypto and is unsettled, so the tax report refuses on them rather than guessing.
+  #
+  # The market-data service applies the same registry, but a self-hosted install on the CoinGecko
+  # feed never talks to it — and the bundled seed ships without the field. Classifying locally is
+  # what makes the guard real for those users.
+  #
+  # Matched on the external_id FAMILY, never the display name: the catalogue calls "iShares Gold
+  # Trust" an "(Ondo Tokenized Stock)" and gives "SPDR Gold Shares" no suffix at all, so a name rule
+  # would label commodities as equities. The issuer prefix is stable; the marketing suffix is not.
+  #
+  # ponytail: a hand-maintained issuer registry duplicated in deltabadger-data-api, pinned there and
+  # here by a test on its contents — neither repo can read the other, so those tests are what force a
+  # change to be made deliberately in both. Sourcing it from issuer metadata is the upgrade path.
+  TOKENIZED_ID_PATTERNS = ['%-xstock', '%-ondo-tokenized%', '%-bstocks'].freeze
+  TOKENIZED_IDS = %w[pax-gold tether-gold].freeze
+  TOKENIZED_INSTRUMENT_TYPE = 'tokenized'.freeze
+
+  # Never touches category or an existing stock/etf classification: this answers "is it a wrapper",
+  # nothing else.
+  def self.mark_tokenized!
+    scope = TOKENIZED_ID_PATTERNS.reduce(where(external_id: TOKENIZED_IDS)) do |acc, pattern|
+      acc.or(where('external_id LIKE ?', pattern))
+    end
+    # `IS NULL OR !=` rather than `where.not`: SQL makes NOT (NULL = 'tokenized') itself NULL, so
+    # where.not would skip every unclassified row — which is all of them on a first run.
+    scope.where('instrument_type IS NULL OR instrument_type != ?', TOKENIZED_INSTRUMENT_TYPE)
+         .update_all(instrument_type: TOKENIZED_INSTRUMENT_TYPE)
+  end
+
   # https://docs.coingecko.com/reference/simple-supported-currencies
   VS_CURRENCIES = %w[usd eur jpy gbp cad aud chf btc].freeze
   COINGECKO_BLACKLISTED_IDS = [

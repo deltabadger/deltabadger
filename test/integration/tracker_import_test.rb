@@ -18,6 +18,11 @@ class TrackerImportTest < ActionDispatch::IntegrationTest
   ].join("\n").freeze
 
   setup do
+    # The tracker refuses to render a portfolio without a market-data feed, which every
+
+    # real install has.
+
+    configure_deltabadger_market_data
     Tax::EcbFxRates.stubs(:ensure_loaded!)
     Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
     @user = create(:user, admin: true, setup_completed: true)

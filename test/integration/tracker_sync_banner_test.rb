@@ -12,6 +12,10 @@ require 'test_helper'
 # fail" — and a venue with no working key at all still has to be able to answer yes.
 class TrackerSyncBannerTest < ActionDispatch::IntegrationTest
   setup do
+    # The tracker refuses to render a portfolio without a market-data feed, which every real
+    # install has. Stubbed rather than configured: naming a provider would send these tests at a
+    # real endpoint, and what they exercise is the page, not the feed.
+    MarketData.stubs(:configured?).returns(true)
     Tax::EcbFxRates.stubs(:ensure_loaded!)
     Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
     @user = create(:user, admin: true, setup_completed: true)

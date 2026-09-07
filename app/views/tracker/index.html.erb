@@ -6,7 +6,7 @@
 <%= turbo_stream_from "user_#{current_user.id}", :tax_report %>
 <%= turbo_stream_from "user_#{current_user.id}", :sync %>
 <%# A standing warning about the user's data, not a line of the page: it belongs in the flash column. %>
-<% content_for :flash_extra do %><%= render 'sync_warning', exchanges: @sync_failures %><% end %>
+<% content_for :flash_extra do %><%= render 'sync_warning', exchanges: @sync_failures || [] %><% end %>
 <% if @pending_refusal %>
   <div class="flash-stack">
     <%= render 'tracker/report_refused', symbols: @pending_refusal[:symbols] %>
@@ -15,7 +15,15 @@
 <% if @pending_report %>
   <div data-controller="auto-download" data-auto-download-url-value="<%= download_tax_report_tracker_path(country: @pending_report[:country], year: @pending_report[:year], report_scope: @pending_report[:report_scope]) %>"></div>
 <% end %>
-<% if @exchanges.empty? && @account_transactions.empty? %>
+<% if @market_data_missing %>
+  <div class="welcome-screen">
+    <p><%= t('tracker.welcome.needs_market_data') %></p>
+    <%= link_to connect_market_data_tracker_path, class: 'sbutton sbutton--sky',
+                data: { turbo_frame: 'modal' } do %>
+      <%= t('bot.setup.connect_to', name: 'CoinGecko') %>
+    <% end %>
+  </div>
+<% elsif @exchanges.empty? && @account_transactions.empty? %>
   <div class="welcome-screen">
     <p><%= t('tracker.welcome.connect_and_track') %></p>
     <%= link_to new_tracker_pick_exchange_path, class: "sbutton sbutton--sky", data: { turbo_frame: "modal" }, aria: { label: t('tracker.connect_exchange') } do %>
