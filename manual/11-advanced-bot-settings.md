@@ -4,6 +4,28 @@ Advanced triggers were designed for single-asset bots. On a multi-asset bot you 
 
 A **Start buying** trigger fires once and is then deactivated, while **Buy only** works continuously.
 
+## Market Cap based allocation
+
+Multi asset bot allocations can be set either manually or based their market capitalisations:
+
+<p><img width="441" height="30" alt="Screenshot" src="https://github.com/user-attachments/assets/098c84b3-19eb-4b46-8f87-d1a92179aee4" /></p>
+
+
+> [!NOTE]
+> **Market capitalisation** is a way to measure how big or valuable a coin is. It's calculated by multiplying the total number of coins by the current price of > one coin. In your bot, the coin with the bigger market cap gets a larger share of your investment.
+> 
+> Example:
+> 
+> Coin A: 2 millions coins exist, each worth $10. The market cap equals 2M × $10 = $20M.
+> 
+> Coin B: 1 million coins exist, each worth $1. Market cap = 1M × $1 = $1M.
+> 
+> If you invest $100, the bot will split it proportionally to their market caps: $95.2 to Coin A, $4.8 to Coin B.
+> 
+> But if Coin B's price rises to $3, its market cap becomes $3M. Now, the next $100 will allocate $87 to Coin A and $13 to Coin B.
+
+
+
 ## Pick a starting time
 
 You can pick a day of the week, a calendar date, or just an hour.
