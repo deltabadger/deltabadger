@@ -240,6 +240,9 @@ da:
             still_open: "Ordre %{order_id} er stadig åben på din børs. Vent, til den er afviklet."
             resolved: "Ryddet. Botten kan handle igen."
         liquidation:
+            locked: "Karensperiode · %{days} d"
+            harvest_hint: "Under kostprisen på bottens egne portioner (et skøn, først ind først ud) — at sælge hele positionen nu bør realisere et tab"
+            partial_note: "Sælger det, børsen har. Er det mindre end positionen, er det de først solgte portioner, der afgør skatteresultatet, og det kan afvige fra rækkens farve."
             title: "Sælg position"
             sell: "Sælg"
             sell_confirm: "Sælg denne position? Den lukkes til markedspris."
@@ -252,6 +255,11 @@ da:
             still_open: "Ordre %{order_id} er stadig åben på din børs. Vent, til den er afregnet."
             resolved: "Ubekræftet salg ryddet."
         settings:
+            wash_sale:
+                sentence_html: "Efter et salg med tab skal du vente %{select_html}, før det aktiv købes igen"
+                none: "ingen tid"
+                option: "%{days} dage · %{country}"
+                note: "Aktivet holdes uden for alle køb — det faste, rebalanceringen og geninvesteringen — så længe og købes derefter tilbage som den mest undervægtede post. Kun denne bots egne handler tælles med; et køb af det samme aktiv af en anden bot, i hånden eller et andet sted tæller lige så meget for reglen."
             rebalance:
                 sentence_html: "Rebalancér når et aktiv afviger mere end <span>%{value_html} %</span> fra sit mål"
                 note: "Kører videre, selv når DCA-planen er stoppet. Bruger altid markedsordrer."

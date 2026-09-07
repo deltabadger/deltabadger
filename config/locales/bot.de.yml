@@ -226,6 +226,9 @@ de:
             still_open: "Order %{order_id} ist an deiner Börse noch offen. Warte, bis sie abgerechnet ist."
             resolved: "Zurückgesetzt. Der Bot kann wieder handeln."
         liquidation:
+            locked: "Sperrfrist · %{days} T"
+            harvest_hint: "Unter den Anschaffungskosten der eigenen Positionsteile dieses Bots (Schätzung, First-in-First-out) — ein Verkauf der ganzen Position würde jetzt einen Verlust realisieren"
+            partial_note: "Verkauft, was an der Börse liegt. Ist das weniger als die Position, entscheiden die zuerst verkauften Positionsteile über das steuerliche Ergebnis, und es kann von der Farbe der Zeile abweichen."
             title: "Position verkaufen"
             sell: "Verkaufen"
             sell_confirm: "Diese Position verkaufen? Sie wird zum Marktpreis geschlossen."
@@ -238,6 +241,11 @@ de:
             still_open: "Order %{order_id} ist an deiner Börse noch offen. Warte, bis sie abgerechnet ist."
             resolved: "Unbestätigter Verkauf zurückgesetzt."
         settings:
+            wash_sale:
+                sentence_html: "Nach einem Verkauf mit Verlust %{select_html} warten, bevor dieses Asset wieder gekauft wird"
+                none: "nicht"
+                option: "%{days} Tage · %{country}"
+                note: "Das Asset bleibt so lange aus jedem Kauf heraus — aus dem regelmäßigen, aus dem Rebalancing und aus der Wiederanlage — und wird danach als am stärksten untergewichteter Wert zurückgekauft. Gezählt werden nur die Trades dieses Bots; ein Kauf desselben Assets durch einen anderen Bot, von Hand oder anderswo zählt für die Regel genauso."
             rebalance:
                 sentence_html: "Rebalancing, wenn ein Wert um mehr als <span>%{value_html} %</span> vom Ziel abweicht"
                 note: "Läuft weiter, auch wenn der DCA-Zeitplan gestoppt ist. Nutzt immer Market-Orders."

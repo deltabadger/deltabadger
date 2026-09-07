@@ -242,6 +242,9 @@ en:
             still_open: "Order %{order_id} is still open on your exchange. Wait for it to settle first."
             resolved: "Cleared. The bot can trade again."
         liquidation:
+            locked: "Wash sale · %{days} d"
+            harvest_hint: "Under water on this bot's own lots (an estimate, first-in-first-out) — selling the whole position now should realise a loss"
+            partial_note: "Sells what the exchange holds. If that is less than the position, the lots sold first decide the tax outcome, and it can differ from the row's colour."
             title: "Sell position"
             sell: "Sell"
             sell_confirm: "Sell this position? It is closed at market price."
@@ -254,6 +257,11 @@ en:
             still_open: "Order %{order_id} is still open on your exchange. Wait for it to settle first."
             resolved: "Unconfirmed sale cleared."
         settings:
+            wash_sale:
+                sentence_html: "After selling at a loss, wait %{select_html} before buying that asset again"
+                none: "no time"
+                option: "%{days} days · %{country}"
+                note: "The asset is left out of every buy — recurring, rebalancing and redeploying — for that long, then bought back as the most underweight name. Only this bot's own trades are counted; a purchase of the same asset by another bot, by hand or elsewhere counts for the rule just the same."
             rebalance:
                 sentence_html: "Rebalance when an asset drifts more than <span>%{value_html} %</span> from its target"
                 note: "Keeps running while the DCA schedule is stopped. Always uses market orders."

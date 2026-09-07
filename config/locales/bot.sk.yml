@@ -240,6 +240,9 @@ sk:
             still_open: "Pokyn %{order_id} je na burze stále otvorený. Počkaj, kým sa vysporiada."
             resolved: "Vymazané. Bot môže znova obchodovať."
         liquidation:
+            locked: "Čakacia lehota · %{days} d"
+            harvest_hint: "Pod obstarávacou cenou vlastných dávok tohto bota (odhad, prvý dnu prvý von) — predaj celej pozície by teraz mal realizovať stratu"
+            partial_note: "Predá to, čo drží burza. Ak je toho menej než celá pozícia, o daňovom výsledku rozhodnú dávky predané ako prvé a môže sa líšiť od farby riadka."
             title: "Predať pozíciu"
             sell: "Predať"
             sell_confirm: "Predať túto pozíciu? Uzavrie sa za trhovú cenu."
@@ -252,6 +255,11 @@ sk:
             still_open: "Pokyn %{order_id} je na tvojej burze stále otvorený. Počkaj, kým sa vysporiada."
             resolved: "Nepotvrdený predaj vymazaný."
         settings:
+            wash_sale:
+                sentence_html: "Po predaji so stratou počkaj %{select_html}, kým to aktívum kúpiš znova"
+                none: "nič"
+                option: "%{days} dní · %{country}"
+                note: "Aktívum na ten čas vypadne z každého nákupu — pravidelného, pri vyvažovaní aj pri opätovnom investovaní — a potom sa dokúpi ako najviac podvážená položka. Rátajú sa len obchody tohto bota; nákup toho istého aktíva iným botom, ručne alebo inde platí pre pravidlo rovnako."
             rebalance:
                 sentence_html: "Rebalansovať, keď sa aktívum odchýli o viac než <span>%{value_html} %</span> od cieľa"
                 note: "Beží ďalej, aj keď je plán DCA zastavený. Vždy používa trhové pokyny."

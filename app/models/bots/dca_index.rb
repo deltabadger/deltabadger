@@ -68,6 +68,7 @@ class Bots::DcaIndex < Bot
 
   # Type-specific concerns
   include Bot::Rebalanceable # decorators for: parse_params — keep AFTER the limitables
+  include Bot::WashSaleGuard # decorators for: parse_params — keep AFTER Rebalanceable
   include Bot::Composition::Allocatable
   include Bots::DcaIndex::IndexAllocatable
   include Bot::Composition::OrderSetter

@@ -50,6 +50,7 @@ class Bots::DcaMultiAsset < Bot
 
   # Type-specific concerns
   include Bot::Rebalanceable
+  include Bot::WashSaleGuard # decorators for: parse_params — keep AFTER Rebalanceable
   include Bot::Composition::Allocatable
   include Bots::DcaMultiAsset::Allocatable
   include Bot::Composition::OrderSetter

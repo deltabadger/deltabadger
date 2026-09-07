@@ -221,6 +221,9 @@ nl:
             still_open: "Order %{order_id} staat nog open op je exchange. Wacht tot die is afgewikkeld."
             resolved: "Gewist. De bot kan weer handelen."
         liquidation:
+            locked: "Wachttijd · %{days} d"
+            harvest_hint: "Onder de kostprijs van de eigen posities van deze bot (een schatting, first in first out) — de hele positie nu verkopen zou een verlies realiseren"
+            partial_note: "Verkoopt wat de exchange aanhoudt. Is dat minder dan de positie, dan bepalen de eerst verkochte delen de fiscale uitkomst, en die kan afwijken van de kleur van de rij."
             title: "Positie verkopen"
             sell: "Verkopen"
             sell_confirm: "Deze positie verkopen? Ze wordt tegen de marktprijs gesloten."
@@ -233,6 +236,11 @@ nl:
             still_open: "Order %{order_id} staat nog open op je exchange. Wacht tot die is afgewikkeld."
             resolved: "Onbevestigde verkoop gewist."
         settings:
+            wash_sale:
+                sentence_html: "Na een verkoop met verlies %{select_html} wachten voordat dat asset opnieuw wordt gekocht"
+                none: "niet"
+                option: "%{days} dagen · %{country}"
+                note: "Het asset blijft die tijd buiten elke aankoop — de terugkerende, die van het herbalanceren en die van het herbeleggen — en wordt daarna teruggekocht als de sterkst onderwogen naam. Alleen de trades van deze bot tellen; een aankoop van hetzelfde asset door een andere bot, met de hand of elders telt voor de regel net zo goed."
             rebalance:
                 sentence_html: "Herbalanceer wanneer een asset meer dan <span>%{value_html} %</span> van zijn doel afwijkt"
                 note: "Blijft werken terwijl het DCA-schema gestopt is. Gebruikt altijd marktorders."

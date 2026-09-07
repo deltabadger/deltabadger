@@ -27,12 +27,14 @@ module Tax
                 snapshot_date: :end_of_year, summary_only_total: true, income_taxed_separately: true },
       'PL' => { name: 'Poland', method: :fifo, currency: 'PLN', locale: :pl,
                 crypto_to_crypto_taxable: false },
-      'GB' => { name: 'United Kingdom', method: :share_pooling, currency: 'GBP', locale: :en },
-      'US' => { name: 'United States', method: :fifo, currency: 'USD', locale: :en, short_long_term: true },
+      'GB' => { name: 'United Kingdom', method: :share_pooling, currency: 'GBP', locale: :en,
+                wash_sale_days: 30 },
+      'US' => { name: 'United States', method: :fifo, currency: 'USD', locale: :en, short_long_term: true,
+                wash_sale_days: 30 },
       'SE' => { name: 'Sweden', method: :weighted_average, currency: 'SEK', locale: :sv,
                 loss_deduction_rate: 0.7 },
       'IE' => { name: 'Ireland', method: :fifo_4week, currency: 'EUR', locale: :en,
-                annual_exemption: 1270, split_payment: true },
+                annual_exemption: 1270, split_payment: true, wash_sale_days: 28 },
       'DK' => { name: 'Denmark', method: :fifo, currency: 'DKK', locale: :da,
                 danish_wash_sale: true, per_asset_summary: true,
                 loss_deduction_rate_on_losses: 0.26 },
@@ -45,6 +47,14 @@ module Tax
 
     def self.for(code)
       REGISTRY[code]
+    end
+
+    # Jurisdictions with a statutory repurchase window after a loss sale, for the bots' wash-sale
+    # guard: [[code, name, days], ...]. US §1091 disallows the loss (30 days); the UK's 30-day
+    # bed-and-breakfast rule matches the repurchase against the disposal, which cancels it; Ireland's
+    # four-week rule restricts it. Denmark's rule is a different mechanism with no window.
+    def self.wash_sale_options
+      REGISTRY.filter_map { |code, j| [code, j[:name], j[:wash_sale_days]] if j[:wash_sale_days] }
     end
 
     def self.available
