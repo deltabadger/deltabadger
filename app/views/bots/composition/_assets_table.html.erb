@@ -1,17 +1,22 @@
-<%# locals: (values:, logo_assets:, body_id: nil, bot: nil, sellable: false, hide_money: false, quote: nil) %>
+<%# locals: (values:, logo_assets:, body_id: nil, bot: nil, sellable: false, hide_money: false, quote: nil, locks: {}) %>
 <%# Composition holdings come from the metrics hash, not from the bot's own columns, so they need
-    mapping onto the shared table's rows. Only the exited table passes sellable, because a current
-    member is not for sale. %>
-<%= render 'bots/assets_table', body_id: body_id, actions: sellable,
+    mapping onto the shared table's rows. `sellable` is a Hash symbol => true for the rows that may
+    carry Sell (or false for none): direct indexing is the freedom to close one position on its own,
+    but a dust remainder the venue cannot sell must not get a button that 404s. `locks` (symbol =>
+    { days_left:, until: }) is declared here already — strict locals reject an undeclared local, and
+    Phase 2 passes it. %>
+<% sellable = local_assigns.fetch(:sellable, false) || {} %>
+<% locks = local_assigns.fetch(:locks, {}) %>
+<%= render 'bots/assets_table', body_id: body_id, actions: sellable.present? || locks.present?,
            hide_money: local_assigns.fetch(:hide_money, false), quote: local_assigns[:quote],
            rows: values.map { |symbol, data|
       { asset: logo_assets[symbol]&.base_asset, symbol: symbol,
         amount: number_with_precision(data[:amount] || 0, precision: 6, strip_insignificant_zeros: true),
-        avg_price: money_figure(data[:avg_price]),
-        value: money_figure(data[:current_value]),
-        pnl: data[:pnl_percentage] || 0,
-        action: (sellable ? link_to(t('bot.liquidation.sell'),
-                                    new_bot_liquidation_path(bot_id: bot.id, symbol: symbol),
-                                    class: 'rbutton rbutton--danger rbutton--small',
-                                    data: { turbo_frame: 'modal' }) : nil) }
+        avg_price: data[:avg_price] && money_figure(data[:avg_price]),
+        value: data[:current_value] && money_figure(data[:current_value]),
+        pnl: data[:pnl_percentage],
+        action: (sellable[symbol] ? link_to(t('bot.liquidation.sell'),
+                                            new_bot_liquidation_path(bot_id: bot.id, symbol: symbol),
+                                            class: 'rbutton rbutton--small',
+                                            data: { turbo_frame: 'modal' }) : nil) }
     } %>

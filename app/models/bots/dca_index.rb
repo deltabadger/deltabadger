@@ -7,12 +7,13 @@ class Bots::DcaIndex < Bot
   INDEX_TYPE_TOP = 'top'.freeze
   INDEX_TYPE_CATEGORY = 'category'.freeze
 
-  # "Count-named" indices show as "{prefix} {num_coins}" on the user's bot (e.g. a Nasdaq bot
-  # trimmed to 7 reads "Nasdaq 7"), while the picker tile shows the full "{prefix} {TOP_N}".
-  # Explicit per index_category_id so a thematic index (S&P 500, Layer 1) never degrades to
-  # "S&P {num_coins}". Add an entry only for indices that are genuinely top-N ranked.
-  COUNT_NAMED_INDEX_PREFIXES = {
-    'nasdaq-100' => 'Nasdaq'
+  # "Count-named" indices show as "{prefix}{num_coins}" on the user's bot (an ND100 bot trimmed to
+  # seven reads "ND7") and as the index's own name once the bot holds the whole universe. The map is
+  # the source of the name — NOT the feed's Index#name — so the product's wording never depends on
+  # what a data provider happens to publish. Explicit per index_category_id so a thematic index
+  # never degrades to "S&P{num_coins}". Add an entry only for indices that are genuinely top-N ranked.
+  COUNT_NAMED_INDICES = {
+    'nasdaq-100' => { prefix: 'ND', name: 'ND100' }.freeze
   }.freeze
 
   store_accessor :settings,
@@ -24,10 +25,12 @@ class Bots::DcaIndex < Bot
                  :index_type,        # 'top' or 'category'
                  :index_category_id, # CoinGecko category ID (when index_type is 'category')
                  :index_name,        # Cached display name for the index
-                 :index_name_prefix  # Count-named label (e.g. "Nasdaq") → "{prefix} {num_coins}"
+                 :index_name_prefix, # Count-named label (e.g. "ND") → "{prefix}{num_coins}"
+                 :hold_all           # Intent: hold the whole universe of a bounded index
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }
-  validates :num_coins, presence: true, numericality: { greater_than_or_equal_to: MIN_COINS, less_than_or_equal_to: MAX_COINS }
+  validates :num_coins, presence: true,
+                        numericality: { greater_than_or_equal_to: MIN_COINS, less_than_or_equal_to: :validation_max_coins }
   validates :allocation_flattening, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }
   validates :index_type, presence: true, inclusion: { in: [INDEX_TYPE_TOP, INDEX_TYPE_CATEGORY] }
   # Both contexts, one registration: Rails dedupes validation callbacks by filter symbol, so a
@@ -84,9 +87,33 @@ class Bots::DcaIndex < Bot
       quote_asset_id: params[:quote_asset_id].presence&.to_i,
       quote_amount: params[:quote_amount].presence&.to_f,
       interval: params[:interval].presence,
-      num_coins: params[:num_coins].presence&.to_i,
+      num_coins: slider_moved?(params) ? params[:num_coins].to_i : nil,
+      hold_all: hold_all_from(params),
       allocation_flattening: params[:allocation_flattening].presence&.to_f
     }.compact
+  end
+
+  # The settings form says what the slider was RENDERED with (num_coins_rendered) beside what it
+  # submits; the slider was moved only if the two differ. The wizard and the API send no rendered
+  # value, so a submitted count there always counts as moved. This matters because the settings
+  # slider is clamped to what the venue lists right now: on a day a ticker is missing locally a
+  # fixed ND20 renders as 19 of 19, and an unrelated save must neither store 19 nor read "19 of a
+  # 19 ceiling" as the intent to hold all.
+  def slider_moved?(params)
+    return false if params[:num_coins].blank?
+
+    rendered = params[:num_coins_rendered].presence
+    rendered.nil? || params[:num_coins].to_i != rendered.to_i
+  end
+
+  # "All of it" is intent the user expresses by moving the slider to its end; an untouched slider
+  # says nothing (nil, compacted away — the flag stays as it was). A moved slider sets the flag by
+  # whether it sits on the ceiling the form rendered (num_coins_ceiling; the API sends none and is
+  # judged against the universe).
+  def hold_all_from(params)
+    return nil unless slider_moved?(params)
+
+    params[:num_coins].to_i >= (params[:num_coins_ceiling].presence || max_coins).to_i
   end
 
   def execute_action
@@ -208,7 +235,7 @@ class Bots::DcaIndex < Bot
     result = MarketData.get_top_coins(
       index_type: index_type,
       category_id: index_category_id,
-      limit: 150
+      limit: bounded_universe_size || 150
     )
     return [] if result.failure?
 
@@ -224,7 +251,7 @@ class Bots::DcaIndex < Bot
 
     preview = []
     top_coins.each do |coin|
-      break if preview.size >= MAX_COINS
+      break if preview.size >= max_coins
 
       ticker = ticker_by_coingecko_id[coin['id']]
       next unless ticker.present?
@@ -243,19 +270,21 @@ class Bots::DcaIndex < Bot
     preview
   end
 
-  # "Layer 1 · 20". A count-named index ("Nasdaq 7") and a Top-N ("Top 10") already carry their
+  # "Layer 1 · 20". A count-named index ("ND7") and a Top-N ("Top 10") already carry their
   # size in the name, so only a thematic category has the coin count appended.
   def default_label
     # The name must quote the count the bot will actually buy, and the clamp that decides it runs
     # later in the same validation.
     clamp_num_coins_to_bounded_index
-    return display_index_name if index_name_prefix.present? || index_type != INDEX_TYPE_CATEGORY
+    return display_index_name if COUNT_NAMED_INDICES.key?(index_category_id) || index_type != INDEX_TYPE_CATEGORY
 
     [display_index_name, num_coins].compact.join(' · ')
   end
 
   def display_index_name
-    return "#{index_name_prefix} #{num_coins}" if index_name_prefix.present? && num_coins.present?
+    if (named = COUNT_NAMED_INDICES[index_category_id]) && effective_num_coins.present?
+      return holds_whole_universe? ? named[:name] : "#{named[:prefix]}#{effective_num_coins}"
+    end
     return index_name if index_name.present?
 
     if index_type == INDEX_TYPE_TOP || index_type.blank?
@@ -265,7 +294,52 @@ class Bots::DcaIndex < Bot
     end
   end
 
-  def composition_size = num_coins.to_i
+  # Size of a bounded (deltabadger-sourced) index's published universe; nil for a crypto Top or
+  # CoinGecko category index, which publish a ranking rather than a membership. Memoised PER
+  # CATEGORY ID, not per instance: after_initialize asks for it before a factory or the wizard has
+  # assigned the settings, and a nil remembered then would be the answer forever. Dropped on
+  # reload, so a test (or a long-lived job) that reloads the bot after the index changed sees the
+  # new size.
+  def bounded_universe_size
+    @bounded_universe_sizes ||= {}
+    key = index_category_id.to_s
+    return @bounded_universe_sizes[key] if @bounded_universe_sizes.key?(key)
+
+    idx = current_index
+    @bounded_universe_sizes[key] = idx&.source == Index::SOURCE_DELTABADGER && idx.top_coins.present? ? idx.top_coins.size : nil
+  end
+
+  def reload(...)
+    @bounded_universe_sizes = nil
+    super
+  end
+
+  # The slider's ceiling. A bounded index can be held whole, so its ceiling is its own size; the
+  # crypto Top and category indices keep the fixed cap (their ranking has no natural end).
+  def max_coins
+    bounded_universe_size || MAX_COINS
+  end
+
+  # "Hold the whole universe" is intent (Decision 17), so it survives the universe growing or a
+  # one-day shrink. A bot that was saved below the ceiling keeps its count — and a bot whose count
+  # merely EQUALS today's universe (an ND20 bot while the feed still publishes twenty) is not
+  # holding the whole universe, it is holding twenty.
+  def holds_whole_universe?
+    hold_all? && bounded_universe_size.to_i.positive?
+  end
+
+  # What the composition is derived at and what the name quotes.
+  def effective_num_coins
+    return bounded_universe_size if holds_whole_universe?
+
+    num_coins
+  end
+
+  def hold_all?
+    ActiveModel::Type::Boolean.new.cast(hold_all)
+  end
+
+  def composition_size = effective_num_coins.to_i
   def exited_title_key = 'bot.dca_index.left_the_index'
   def metrics_partial = 'bots/composition/metrics'
 
@@ -273,15 +347,24 @@ class Bots::DcaIndex < Bot
 
   # Server-authoritative cap: a bounded (deltabadger-sourced) index publishes its full
   # universe in top_coins, so num_coins can never exceed it. Runs before validation and
-  # before display_index_name, so neither a save nor the bot name can show "Nasdaq 50".
+  # before display_index_name, so neither a save nor the bot name can show a count it cannot buy.
   # Crypto "Top"/coingecko categories are not bounded this way and are left untouched.
   def clamp_num_coins_to_bounded_index
-    return if num_coins.blank?
+    return if num_coins.blank? || bounded_universe_size.nil?
+    # A bot that holds the whole universe keeps the count it was saved with. Rewriting it on a
+    # one-day shrink would dirty the settings of a save that never touched them — which
+    # Bot::Accountable refuses outright, leaving the bot unable even to mark itself executing — and
+    # what such a bot trades is effective_num_coins, the live universe size, not this number.
+    return if holds_whole_universe?
 
-    idx = current_index
-    return unless idx&.source == Index::SOURCE_DELTABADGER && idx.top_coins.present?
+    self.num_coins = bounded_universe_size if num_coins.to_i > bounded_universe_size
+  end
 
-    self.num_coins = idx.top_coins.size if num_coins.to_i > idx.top_coins.size
+  # The ceiling the record is judged against. Same as the slider's, except for a bot holding the
+  # whole universe: its stored count is the size the universe had when it was saved, and a shrink
+  # must not turn the bot invalid.
+  def validation_max_coins
+    holds_whole_universe? ? [max_coins, num_coins.to_i].max : max_coins
   end
 
   def exchange_supports_current_assets?
@@ -292,7 +375,7 @@ class Bots::DcaIndex < Bot
   # picks which side a candidate has to quote on to count (index_allocatable.rb: priced?(:last)
   # against priced?(:ask)). allocation_flattening does not: it moves the WEIGHTS, and both tables
   # read holdings, not targets — the rebalancer re-derives its own targets before it acts.
-  INDEX_DEFINITION_KEYS = %w[num_coins index_type index_category_id quote_asset_id limit_ordered].freeze
+  INDEX_DEFINITION_KEYS = %w[num_coins hold_all index_type index_category_id quote_asset_id limit_ordered].freeze
 
   # Not saved_change_to_settings?: with store_accessor the settings column is written on every save
   # whether or not a value moved (see Automation::Configurable), so the keys have to be compared.

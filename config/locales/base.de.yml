@@ -685,14 +685,15 @@ de:
             rebalance_ambiguous: 'Status der Rebalancing-Order unbestätigt — pausiert, damit sie nicht doppelt platziert wird'
             rebalance_manually_resolved: 'Rebalancing manuell fortgesetzt'
             dca_skipped_rebalance_pending: 'Beitrag übersprungen — ein Rebalancing läuft noch'
-            liquidation_requested: "Verkaufe die Werte, die den Index verlassen haben"
-            liquidation_placed: "Verkaufe einen Wert, der den Index verlassen hat"
-            liquidation_skipped: "Ein Wert, der den Index verlassen hat, konnte nicht verkauft werden — bleibt bestehen"
+            liquidation_requested: "Verkaufe eine Position"
+            liquidation_placed: "Verkaufe eine Position zum Marktpreis"
+            liquidation_skipped: "Eine Position konnte nicht verkauft werden — bleibt bestehen"
             liquidation_ambiguous: "Status der Verkaufsorder unbestätigt — pausiert, damit sie nicht doppelt platziert wird"
             liquidation_manually_resolved: "Unbestätigter Verkauf manuell zurückgesetzt"
             liquidation_market_closed: "Markt geschlossen — nichts verkauft"
             liquidation_not_started: "Nichts verkauft — der Bot war beschäftigt oder der Index ließ sich nicht aktualisieren"
             liquidation_failed: "Verkauf fehlgeschlagen: %{error}"
+            orders_below_minimum: "%{count} Werte lagen diesmal unter dem Börsenminimum und werden übertragen: %{bases}"
             redeploy_requested: "Das Geld wandert zurück in den Korb"
             redeploy_placed: "Kauf zurück in den Korb mit den Erlösen"
             redeploy_skipped: "Ein Teil der Erlöse konnte nicht wieder angelegt werden — bleibt als Bargeld liegen"

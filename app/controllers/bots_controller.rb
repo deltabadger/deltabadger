@@ -184,6 +184,10 @@ class BotsController < ApplicationController
     params.require(:bots_dca_index).permit(
       :label,
       :exchange_id,
+      # What the slider was drawn at and the ceiling it was drawn against: parse_params reads them
+      # to tell a moved slider from an untouched one (they are not settings).
+      :num_coins_ceiling,
+      :num_coins_rendered,
       *Bots::DcaIndex.stored_attributes[:settings]
     )
   end

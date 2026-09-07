@@ -107,14 +107,16 @@ class GetBotDetailsToolTest < ActiveSupport::TestCase
 
     assert_no_match(/Allocations:/, text)
   end
-  test 'a composition bot lists its exited holdings and its redeploy offer' do
+  test 'a composition bot lists its holdings, its exited holdings and its redeploy offer' do
     bot = create(:dca_index, user: @user, status: :stopped)
+    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[AAA DOGE SHIB])
     Bots::DcaIndex.any_instance.stubs(:exited_symbols).returns(%w[DOGE SHIB])
     Bots::DcaIndex.any_instance.stubs(:redeploy_offer).returns(25.5.to_d)
 
     text = GetBotDetailsTool.new(bot_id: bot.id).execute.contents.first.text
 
-    assert_match(/Exited holdings \(sellable with liquidate_exited_asset\): DOGE, SHIB/, text)
+    assert_match(/Holdings \(sellable with liquidate_exited_asset\): AAA, DOGE, SHIB/, text)
+    assert_match(/Exited holdings: DOGE, SHIB/, text)
     assert_match(/Redeploy offer \(answer with answer_redeploy_offer\): 25\.5/, text)
   end
 end

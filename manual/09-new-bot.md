@@ -33,7 +33,7 @@ Your bot has been created. [Finish its settings](10-dollar-cost-averaging.md) be
 For [direct indexing](13-direct-indexing.md), start by picking the index.
 
 > [!IMPORTANT]
-> This is the step where either [CoinGecko](26-market-data.md#coingecko) or a [Deltabadger subscription](https://deltabadger.com) is required. CoinGecko provides over 500 cryptocurrency indexes; the official Deltabadger API adds stock indexes based on the Nasdaq-100 and the S&P 500.
+> This is the step where either [CoinGecko](26-market-data.md#coingecko) or a [Deltabadger subscription](https://deltabadger.com) is required. CoinGecko provides over 500 cryptocurrency indexes; the Deltabadger API adds [ND100](13-direct-indexing.md), a stock index.
 
 <p><img width="512" height="321" alt="Screenshot" src="https://github.com/user-attachments/assets/b73c6e19-e88f-4471-b9b3-757b282367c9" /></p>
 

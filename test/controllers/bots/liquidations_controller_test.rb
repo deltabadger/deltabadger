@@ -41,6 +41,22 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     assert_match(/closed/i, response.body)
   end
 
+  test 'a current member can be sold from its own row' do
+    sellable_quitter # AAA is a member with a holding, CCC a quitter
+
+    post bot_liquidation_path(bot_id: @bot.id, symbol: 'AAA')
+
+    assert_predicate queued(Bot::LiquidateExitedJob), :exists?
+  end
+
+  test 'a symbol the bot does not hold is not found' do
+    sellable_quitter
+
+    get new_bot_liquidation_path(bot_id: @bot.id, symbol: 'ZZZ')
+
+    assert_response :not_found
+  end
+
   test 'a bot type that cannot have quitters is refused' do
     other = create(:dca_single_asset, user: @user)
 
@@ -104,15 +120,15 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     assert_select '.modal form[action=?]', bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC'), count: 1
   end
 
-  test 'an in-index holding has no confirmation to open' do
-    # The symbol rides in the URL, so it is user input. Selling a live constituent by hand-editing
-    # it would be a taxable disposal the index never asked for.
+  test 'an in-index holding opens the same confirmation' do
+    # Direct indexing: a current constituent is a position like any other, and closing it is the
+    # user's call. The symbol still rides in the URL, so it is checked against what the bot holds.
     quitters('AAA' => :in_index, 'CCC' => :exited)
     warm_prices('AAA' => 100, 'CCC' => 20)
 
     get new_bot_liquidation_path(bot_id: @bot.id, symbol: 'AAA')
 
-    assert_response :not_found
+    assert_response :success
   end
 
   test 'an unknown symbol has no confirmation to open' do
@@ -124,14 +140,13 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test 'selling an in-index holding is refused, not queued' do
+  test 'selling an in-index holding is queued like any other position' do
     quitters('AAA' => :in_index, 'CCC' => :exited)
     warm_prices('AAA' => 100, 'CCC' => 20)
 
     post bot_liquidation_path(bot_id: @bot.id, symbol: 'AAA')
 
-    assert_response :not_found
-    assert_not_predicate queued(Bot::LiquidateExitedJob), :exists?
+    assert_predicate queued(Bot::LiquidateExitedJob), :exists?
   end
 
   test 'the sale is queued for the named holding only' do

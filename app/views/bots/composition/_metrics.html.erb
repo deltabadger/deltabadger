@@ -77,6 +77,11 @@
       An empty composition means the first derivation has not landed. Same reasoning as
       Liquidatable#exited_holdings: we do not know the membership, so nothing is claimed about it and
       every holding is shown rather than none. %>
+  <%# Any position can be closed on its own, so Sell sits on every sellable row of both tables — a
+      dust remainder the venue cannot sell gets none. A halted liquidation blocks the lot until it
+      is resolved, and an archived or deleted bot cannot trade at all. %>
+  <% may_sell = !bot.liquidation_ambiguous? && !bot.archived? && !bot.deleted? %>
+  <% sellable = may_sell ? bot.sellable_holdings(metrics).to_h { |h| [h[:symbol], true] } : {} %>
   <% if metrics[:asset_values].present? %>
     <% in_index = bot.bot_index_assets.in_index.includes(:asset).to_set { |bia| bia.asset.symbol } %>
     <% composition_values = if in_index.empty?
@@ -87,7 +92,8 @@
     <% if composition_values.present? %>
       <div id="assets_metrics_table" class="widget widget--table" data-controller="table-fit">
         <%= render 'bots/composition/assets_table', values: composition_values, logo_assets: logo_assets,
-                   body_id: 'assets_metrics_list', hide_money: hide_money, quote: quote %>
+                   body_id: 'assets_metrics_list', bot: bot, sellable: sellable,
+                   hide_money: hide_money, quote: quote %>
       </div>
     <% end %>
   <% end %>
@@ -111,14 +117,11 @@
       </div>
       <% if exited.any? %>
         <%# Sell sits on each row, not over the table: every one of these is a separate taxable
-            disposal, so the user closes them one at a time and always sees which. A halted
-            liquidation blocks the lot until it is resolved, and an archived or deleted bot cannot
-            trade at all — in both cases the button's only outcome would be a refusal in the log. %>
+            disposal, so the user closes them one at a time and always sees which. %>
         <%= render 'bots/composition/assets_table',
                    values: exited.index_by { |holding| holding[:symbol] },
                    logo_assets: logo_assets, body_id: 'exited_metrics_list', bot: bot,
-                   hide_money: hide_money, quote: quote,
-                   sellable: !bot.liquidation_ambiguous? && !bot.archived? && !bot.deleted? %>
+                   hide_money: hide_money, quote: quote, sellable: sellable %>
       <% end %>
     </div>
   <% end %>

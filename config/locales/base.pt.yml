@@ -683,14 +683,15 @@ pt:
             rebalance_ambiguous: 'Estado da ordem de reequilíbrio por confirmar — em pausa para não duplicar'
             rebalance_manually_resolved: 'Reequilíbrio retomado manualmente'
             dca_skipped_rebalance_pending: 'Contribuição ignorada — há um reequilíbrio em curso'
-            liquidation_requested: "A vender os ativos que saíram do índice"
-            liquidation_placed: "A vender um ativo que saiu do índice"
-            liquidation_skipped: "Não foi possível vender um ativo que saiu do índice — mantido"
+            liquidation_requested: "A vender uma posição"
+            liquidation_placed: "A vender uma posição ao preço de mercado"
+            liquidation_skipped: "Não foi possível vender uma posição — mantém-se"
             liquidation_ambiguous: "Estado da ordem de venda por confirmar — em pausa para não ser colocada duas vezes"
             liquidation_manually_resolved: "Venda por confirmar limpa manualmente"
             liquidation_market_closed: "Mercado fechado — nada vendido"
             liquidation_not_started: "Nada foi vendido — o bot estava ocupado ou não foi possível atualizar o índice"
             liquidation_failed: "Venda falhou: %{error}"
+            orders_below_minimum: "%{count} ativos ficaram abaixo do mínimo da corretora desta vez e transitam: %{bases}"
             redeploy_requested: "A devolver o dinheiro ao cabaz"
             redeploy_placed: "A comprar de volta para o cabaz com o valor recebido"
             redeploy_skipped: "Parte do valor não pôde ser reinvestida — ficou como dinheiro"

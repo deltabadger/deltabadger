@@ -9,7 +9,7 @@ class Bot::LiquidateExitedJobTest < ActiveSupport::TestCase
   test 'a refusal is reported rather than dropped' do
     # The controller has already told the user that selling started, so a guard declining in the
     # worker has to leave a trace — otherwise a one-shot command vanishes with no explanation.
-    @bot.stubs(:liquidate_exited!).returns(Result::Failure.new('rebalance_pending'))
+    @bot.stubs(:liquidate!).returns(Result::Failure.new('rebalance_pending'))
 
     Bot::LiquidateExitedJob.new.perform(@bot, symbol: 'CCC')
 
@@ -17,7 +17,7 @@ class Bot::LiquidateExitedJobTest < ActiveSupport::TestCase
   end
 
   test 'a successful run logs no refusal' do
-    @bot.stubs(:liquidate_exited!).returns(Result::Success.new(placed: 1))
+    @bot.stubs(:liquidate!).returns(Result::Success.new(placed: 1))
 
     Bot::LiquidateExitedJob.new.perform(@bot, symbol: 'CCC')
 
@@ -26,7 +26,7 @@ class Bot::LiquidateExitedJobTest < ActiveSupport::TestCase
 
   test 'a closed market says why, and sells nothing' do
     @bot.exchange.stubs(:market_open?).returns(false)
-    @bot.expects(:liquidate_exited!).never
+    @bot.expects(:liquidate!).never
 
     Bot::LiquidateExitedJob.new.perform(@bot, symbol: 'CCC')
 
@@ -36,7 +36,7 @@ class Bot::LiquidateExitedJobTest < ActiveSupport::TestCase
   test 'an archived bot explains itself instead of leaving a false success standing' do
     # The controller has already told the user the sale started.
     @bot.update_columns(status: Bot.statuses[:archived])
-    @bot.expects(:liquidate_exited!).never
+    @bot.expects(:liquidate!).never
 
     Bot::LiquidateExitedJob.new.perform(@bot, symbol: 'CCC')
 
@@ -47,7 +47,7 @@ class Bot::LiquidateExitedJobTest < ActiveSupport::TestCase
     # The gap this closes: every DECLINING guard already logs, but an exception did not — a rejected
     # API key, a rate limit, a balance read that failed. The user was told the sale started and got
     # a flash and nothing else, with the reason buried in solid_queue_failed_executions.
-    @bot.stubs(:liquidate_exited!).raises(RuntimeError, 'Failed to read balance: Invalid API-key')
+    @bot.stubs(:liquidate!).raises(RuntimeError, 'Failed to read balance: Invalid API-key')
 
     assert_raises(RuntimeError) { Bot::LiquidateExitedJob.new.perform(@bot, symbol: 'CCC') }
 

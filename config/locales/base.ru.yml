@@ -688,14 +688,15 @@ ru:
             rebalance_ambiguous: 'Статус ордера ребалансировки не подтверждён — приостановлено, чтобы не разместить дважды'
             rebalance_manually_resolved: 'Ребалансировка возобновлена вручную'
             dca_skipped_rebalance_pending: 'Взнос пропущен — ребалансировка ещё идёт'
-            liquidation_requested: "Продаём активы, покинувшие индекс"
-            liquidation_placed: "Продаём актив, покинувший индекс"
-            liquidation_skipped: "Актив, покинувший индекс, продать не удалось — остаётся в портфеле"
+            liquidation_requested: "Продаём позицию"
+            liquidation_placed: "Продаём позицию по рыночной цене"
+            liquidation_skipped: "Позицию не удалось продать — остаётся"
             liquidation_ambiguous: "Статус ордера на продажу не подтверждён — пауза, чтобы не разместить его дважды"
             liquidation_manually_resolved: "Неподтверждённая продажа сброшена вручную"
             liquidation_market_closed: "Рынок закрыт — ничего не продано"
             liquidation_not_started: "Ничего не продано — бот был занят или индекс не удалось обновить"
             liquidation_failed: "Продажа не удалась: %{error}"
+            orders_below_minimum: "%{count} активов оказались ниже минимума биржи в этот раз и переносятся: %{bases}"
             redeploy_requested: "Возвращаю деньги в корзину"
             redeploy_placed: "Покупаю обратно в корзину на вырученные средства"
             redeploy_skipped: "Часть средств не удалось вложить обратно — осталась в виде наличных"

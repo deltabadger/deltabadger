@@ -38,6 +38,7 @@ module BotApi
           exchange: bot.exchange&.name,
           pair: pair_for(bot, base: base, quote: quote),
           allocations: bot.dca_multi_asset? ? bot.base_assets.to_h { |asset| [asset.symbol, bot.allocation_for(asset.id)] } : nil,
+          holdings: safe_held_symbols(bot),
           exited_holdings: safe_exited_symbols(bot),
           redeploy_offer: safe_redeploy_offer(bot),
           base_asset: base,
@@ -53,6 +54,14 @@ module BotApi
 
       # Both read metrics, which may be cold or failing; a detail view must degrade to nil the
       # way its metrics block already does, never 500 over a field the caller may not need.
+      def safe_held_symbols(bot)
+        return nil unless bot.respond_to?(:held_symbols)
+
+        bot.held_symbols
+      rescue StandardError
+        nil
+      end
+
       def safe_exited_symbols(bot)
         return nil unless bot.respond_to?(:exited_symbols)
 

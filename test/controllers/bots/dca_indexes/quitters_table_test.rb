@@ -77,15 +77,16 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
                   new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC'), count: 1
   end
 
-  test 'the index table itself carries no sell at all' do
-    # The action column belongs to the quitters table only — a constituent is not for sale.
+  test 'the index table carries a Sell on its own rows too' do
+    # Direct indexing: a constituent is a position like any other, and closing it is the user's call.
     in_index('AAA')
     exited('CCC')
     warm_prices({ 'AAA' => 100, 'CCC' => 20 })
 
     get bot_path(id: @bot.id)
 
-    assert_select '#assets_metrics_table a[href*="liquidation"]', 0
+    assert_select '#assets_metrics_table tbody a[href=?]',
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: 'AAA'), count: 1
   end
 
   test 'no quitters means no section at all' do

@@ -3,24 +3,24 @@ require 'test_helper'
 # Guards the cross-repo ordering that bit us once: hosted containers pull the deltabadger-sourced
 # Nasdaq index in `sync_indices_from_coingecko_job`. data-api refreshes that index at 07:30 UTC and
 # the container syncs the underlying stock assets at 10:00 UTC, so the index pull MUST run after both
-# — otherwise a container serves a stale index for a full day (the "Nasdaq 10" vs "Nasdaq 20" lag).
+# — otherwise a container serves a stale index for a full day (the "ND20" vs "ND100" lag).
 # This stops the schedule from silently regressing to the old 00:50 slot.
 class RecurringScheduleTest < ActiveSupport::TestCase
   SCHEDULE = YAML.load_file(Rails.root.join('config/recurring.yml')).freeze
 
   # data-api's sync_nasdaq_index runs at 07:30 UTC; the index pull must start strictly after it.
-  DATA_API_NASDAQ_REFRESH = (7 * 60) + 30 # minutes since midnight UTC
+  DATA_API_ND100_REFRESH = (7 * 60) + 30 # minutes since midnight UTC
 
   %w[production development].each do |env|
-    test "#{env}: deltabadger index sync runs after the stock-asset sync and data-api's Nasdaq refresh" do
+    test "#{env}: deltabadger index sync runs after the stock-asset sync and data-api's ND100 refresh" do
       tasks = SCHEDULE.fetch(env)
       index_at = cron_minutes(tasks.dig('sync_indices_from_coingecko_job', 'schedule'))
       stock_at = cron_minutes(tasks.dig('sync_stocks_from_deltabadger_job', 'schedule'))
 
       assert_operator index_at, :>, stock_at,
                       "index sync (#{fmt(index_at)}) must run after the stock-asset sync (#{fmt(stock_at)})"
-      assert_operator index_at, :>, DATA_API_NASDAQ_REFRESH,
-                      "index sync (#{fmt(index_at)}) must run after data-api's Nasdaq refresh (#{fmt(DATA_API_NASDAQ_REFRESH)})"
+      assert_operator index_at, :>, DATA_API_ND100_REFRESH,
+                      "index sync (#{fmt(index_at)}) must run after data-api's ND100 refresh (#{fmt(DATA_API_ND100_REFRESH)})"
     end
   end
 

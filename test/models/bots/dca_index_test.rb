@@ -119,7 +119,7 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
   # The probe's one irreplaceable job is BACKFILL: deciding which NEW candidate fills a slot.
   # Re-probing a coin already in the index can only ever evict it, and Ticker#priced? cannot tell a
   # delisting from a proxy 502 (an HTTP failure comes back as a plain false), so a network blip was
-  # demoting a held constituent to "Left the index" — where Liquidatable#liquidate_exited!, which
+  # demoting a held constituent to "Left the index" — where Liquidatable#liquidate!, which
   # refreshes strictly before it sells, would then sell it.
 
   test 'an incumbent whose price probe fails keeps its seat instead of being backfilled over' do
@@ -381,12 +381,14 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
 
   # --- Naming (item 6) ---------------------------------------------------------
 
-  test 'display_index_name uses index_name_prefix + num_coins when a prefix is set' do
+  test 'display_index_name names a count-named index from the map, not from the stored prefix' do
     bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'nasdaq-100'
     bot.index_name_prefix = 'Nasdaq'
     bot.num_coins = 7
 
-    assert_equal 'Nasdaq 7', bot.display_index_name
+    assert_equal 'ND7', bot.display_index_name
   end
 
   test 'display_index_name falls back to the cached category name when no prefix' do
@@ -412,7 +414,7 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     bot.valid? # fires the before_validation clamp
 
     assert_equal 20, bot.num_coins, 'should clamp 50 down to the 20-member universe'
-    assert_equal 'Nasdaq 20', bot.display_index_name, 'must not show "Nasdaq 50"'
+    assert_equal 'ND20', bot.display_index_name, 'must not show a count the bot cannot buy'
   end
 
   test 'crypto Top bot is NOT clamped even when the internal index stores few coins' do
@@ -439,7 +441,7 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     assert_equal 20, bot.num_coins
   end
 
-  test 'a bounded index larger than MAX_COINS caps the default at MAX_COINS' do
+  test 'a bounded index larger than the crypto ceiling starts at its whole universe' do
     Index.create!(external_id: 'big-index', source: Index::SOURCE_DELTABADGER,
                   name: 'Big', top_coins: (1..60).map { |i| "s#{i}" })
 
@@ -447,7 +449,8 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
                              settings: { 'index_type' => Bots::DcaIndex::INDEX_TYPE_CATEGORY,
                                          'index_category_id' => 'big-index' })
 
-    assert_equal Bots::DcaIndex::MAX_COINS, bot.num_coins
+    assert_equal 60, bot.num_coins, 'a bounded index can be held whole (the crypto cap is for rankings)'
+    assert bot.hold_all?
   end
 
   test 'a new crypto Top bot defaults num_coins to 10' do
@@ -519,5 +522,211 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
 
     assert bot.start
+  end
+  test 'a bot that holds all of a bounded index follows the universe as it grows or shrinks' do
+    index = Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER,
+                          name: 'ND100', top_coins: (1..101).map { |i| "s#{i}" })
+    bot = build(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'nasdaq-100'
+    bot.num_coins = 101
+    bot.hold_all = true
+    bot.set_missed_quote_amount
+    bot.save!
+
+    index.update!(top_coins: (1..102).map { |i| "s#{i}" })
+    assert_equal 102, bot.reload.effective_num_coins
+    assert_equal 'ND100', bot.display_index_name
+
+    index.update!(top_coins: (1..99).map { |i| "s#{i}" })
+    assert_equal 99, bot.reload.effective_num_coins
+  end
+
+  test 'a bot saved below the ceiling keeps its count when the universe grows' do
+    Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER, name: 'ND100', top_coins: (1..20).map { |i| "s#{i}" })
+    bot = build(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'nasdaq-100'
+    bot.num_coins = 20
+    bot.set_missed_quote_amount
+    bot.save!
+
+    Index.find_by(external_id: 'nasdaq-100').update!(top_coins: (1..101).map { |i| "s#{i}" })
+    assert_equal 20, bot.reload.effective_num_coins
+    assert_equal 'ND20', bot.display_index_name
+  end
+
+  test 'saving the slider at its ceiling records the intent to hold all' do
+    Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER, name: 'ND100', top_coins: (1..101).map { |i| "s#{i}" })
+    bot = build(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'nasdaq-100'
+
+    assert_equal true, bot.parse_params(ActionController::Parameters.new(num_coins: '101').permit!)[:hold_all]
+    assert_equal false, bot.parse_params(ActionController::Parameters.new(num_coins: '40').permit!)[:hold_all]
+  end
+
+  test 'a slider that stops short of the universe still records hold all when it is at its own end' do
+    Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER, name: 'ND100', top_coins: (1..101).map { |i| "s#{i}" })
+    bot = build(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'nasdaq-100'
+
+    # One ticker missing locally today: the form rendered a ceiling of 100 and the slider sits on it.
+    parsed = bot.parse_params(ActionController::Parameters.new(num_coins: '100', num_coins_ceiling: '100').permit!)
+    assert_equal true, parsed[:hold_all]
+    parsed = bot.parse_params(ActionController::Parameters.new(num_coins: '99', num_coins_ceiling: '100').permit!)
+    assert_equal false, parsed[:hold_all]
+  end
+
+  test 'a persisted bot with no hold_all setting is not expanded on load' do
+    index = Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER, name: 'ND100', top_coins: (1..20).map { |i| "s#{i}" })
+    bot = build(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'nasdaq-100'
+    bot.num_coins = 20
+    bot.set_missed_quote_amount
+    bot.save!
+    bot.update_columns(settings: bot.settings.except('hold_all')) # a row from before this feature
+    index.update!(top_coins: (1..101).map { |i| "s#{i}" })
+
+    reloaded = Bots::DcaIndex.find(bot.id)
+    assert_nil reloaded.hold_all, 'after_initialize defaults only a new record'
+    assert_equal 20, reloaded.effective_num_coins
+  end
+
+  test 'an existing fixed-count bot is not expanded by an unrelated save, during the rollout or after it' do
+    # The feed still publishes twenty: the migrated ND20 bot sits exactly on the ceiling. Changing
+    # the contribution submits the untouched slider (20 of 20) — that is not "hold all".
+    index = Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER, name: 'ND100', top_coins: (1..20).map { |i| "s#{i}" })
+    bot = build(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'nasdaq-100'
+    bot.num_coins = 20
+    bot.hold_all = false # what the migration writes
+    bot.set_missed_quote_amount
+    bot.save!
+    bot = Bots::DcaIndex.find(bot.id)
+
+    parsed = bot.parse_params(ActionController::Parameters.new(num_coins: '20', num_coins_rendered: '20', num_coins_ceiling: '20',
+                                                               quote_amount: '250').permit!)
+    bot.set_missed_quote_amount
+    bot.update!(parsed)
+    index.update!(top_coins: (1..101).map { |i| "s#{i}" })
+
+    assert_not bot.reload.hold_all?
+    assert_equal 20, bot.effective_num_coins
+    assert_equal 'ND20', bot.display_index_name
+  end
+
+  test 'a fixed-count bot rendered on a shortened slider is neither shrunk nor expanded by an unrelated save' do
+    # One ticker missing locally today: the form draws the ND20 bot at 19 of a 19 ceiling.
+    Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER, name: 'ND100', top_coins: (1..20).map { |i| "s#{i}" })
+    bot = build(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'nasdaq-100'
+    bot.num_coins = 20
+    bot.hold_all = false
+    bot.set_missed_quote_amount
+    bot.save!
+
+    parsed = bot.parse_params(ActionController::Parameters.new(num_coins: '19', num_coins_rendered: '19', num_coins_ceiling: '19',
+                                                               quote_amount: '250').permit!)
+    assert_not parsed.key?(:num_coins), 'an unmoved slider stores nothing'
+    assert_not parsed.key?(:hold_all)
+    bot.set_missed_quote_amount
+    bot.update!(parsed)
+
+    assert_equal 20, bot.reload.num_coins
+    assert_not bot.hold_all?
+  end
+
+  test 'saving an unrelated setting keeps the intent to hold all' do
+    index = Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER, name: 'ND100', top_coins: (1..101).map { |i| "s#{i}" })
+    bot = build(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'nasdaq-100'
+    bot.num_coins = 101
+    bot.hold_all = true
+    bot.set_missed_quote_amount
+    bot.save!
+    index.update!(top_coins: (1..102).map { |i| "s#{i}" })
+    bot = Bots::DcaIndex.find(bot.id)
+
+    # The settings form always submits the slider, at what the slider shows: effective_num_coins.
+    parsed = bot.parse_params(ActionController::Parameters.new(num_coins: bot.effective_num_coins.to_s, quote_amount: '250').permit!)
+    bot.set_missed_quote_amount
+    bot.update!(parsed)
+
+    assert bot.reload.hold_all?
+    assert_equal 102, bot.effective_num_coins
+  end
+
+  test 'a bounded index lets the bot hold the whole universe' do
+    Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER,
+                  name: 'ND100', top_coins: (1..101).map { |i| "s#{i}" })
+    bot = build(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'nasdaq-100'
+    bot.num_coins = 101
+
+    assert_equal 101, bot.max_coins
+    assert bot.valid?, bot.errors.full_messages.to_sentence
+  end
+
+  test 'a crypto index keeps the fixed ceiling' do
+    bot = build(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
+    bot.num_coins = 51
+
+    assert_equal Bots::DcaIndex::MAX_COINS, bot.max_coins
+    assert_not bot.valid?
+  end
+
+  test 'a new bot on a bounded index starts at the whole universe' do
+    Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER,
+                  name: 'ND100', top_coins: (1..101).map { |i| "s#{i}" })
+    bot = Bots::DcaIndex.new(settings: { 'index_type' => Bots::DcaIndex::INDEX_TYPE_CATEGORY, 'index_category_id' => 'nasdaq-100' })
+
+    assert_equal 101, bot.num_coins
+  end
+
+  test 'the settings preview of an existing bot is not cut at the crypto ceiling' do
+    Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER,
+                  name: 'ND100', top_coins: (1..101).map { |i| "s#{i}" }, weights: (1..101).to_h { |i| ["s#{i}", 1000.0 - i] })
+    bot = create(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
+    bot.stubs(:bounded_universe_size).returns(101)
+    coins = (1..101).map { |i| { 'id' => "s#{i}", 'market_cap' => 1000.0 - i } }
+    MarketData.stubs(:get_top_coins).returns(Result::Success.new(coins))
+    tickers = coins.map do |c|
+      create(:ticker, exchange: bot.exchange, quote_asset: bot.quote_asset,
+                      base_asset: create(:asset, external_id: c['id'], symbol: c['id'].upcase, name: c['id']))
+    end
+    bot.exchange.stubs(:tickers).returns(Ticker.where(id: tickers.map(&:id)))
+
+    assert_equal 101, bot.current_index_preview.size
+  end
+
+  test 'a shrinking universe does not rewrite the stored count' do
+    # The clamp runs before every validation, so rewriting num_coins here would dirty the settings of
+    # a save that never touched them — and Bot::Accountable refuses a settings change the caller did
+    # not prepare, which would leave the bot unable even to mark itself executing.
+    index = Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER,
+                          name: 'ND100', top_coins: (1..101).map { |i| "s#{i}" })
+    bot = build(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'nasdaq-100'
+    bot.num_coins = 101
+    bot.hold_all = true
+    bot.set_missed_quote_amount
+    bot.save!
+
+    index.update!(top_coins: (1..99).map { |i| "s#{i}" })
+    bot = Bots::DcaIndex.find(bot.id)
+    bot.status = :executing
+
+    assert bot.valid?, bot.errors.full_messages.to_sentence
+    assert_equal 101, bot.settings['num_coins'], 'the clamp leaves a whole-universe bot alone'
+    assert_equal 99, bot.effective_num_coins, 'it holds what the universe publishes today'
+    assert bot.hold_all?, 'and still intends to hold all of it when the universe recovers'
   end
 end

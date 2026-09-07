@@ -1,4 +1,4 @@
-# Sells an asset a bot's composition has dropped, at the user's request.
+# Sells one holding of a composition bot, at the user's request.
 #
 # NO retry_on. A job-level retry around order placement replays the placement, which is the known
 # double-buy bug class: placement has no idempotency key, so a retried "failure" that actually landed
@@ -15,7 +15,7 @@ class Bot::LiquidateExitedJob < BotJob
                      group: 'Bot::ActionJob'
 
   def perform(bot, symbol:)
-    return unless bot.respond_to?(:liquidate_exited!)
+    return unless bot.respond_to?(:liquidate!)
     # Logged, not silent: the controller has already told the user the sale started, so a bot that
     # was archived or disconnected between the click and the run must say why nothing happened
     # rather than leaving a false success standing.
@@ -25,7 +25,7 @@ class Bot::LiquidateExitedJob < BotJob
     bot.ensure_exchange_authenticated
     return unless market_open?(bot, symbol)
 
-    result = bot.liquidate_exited!(symbol: symbol)
+    result = bot.liquidate!(symbol: symbol)
     # A refusal here is silent otherwise, and the user has already been told the sale started. Every
     # guard that can decline — a rebalance mid-swap, a standing halt, a composition refresh that
     # failed — has to say so somewhere the user can find it.

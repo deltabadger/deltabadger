@@ -2,9 +2,9 @@
 
 module BotApi
   module Bots
-    # Sells one holding the composition has dropped. Deliberately manual and explicit: it is a
-    # taxable disposal (see Bot::Composition::Liquidatable). The symbol must be one the bot
-    # itself reports as exited — a current member, or something it does not hold, is refused
+    # Sells one holding of a composition bot — a current member or one that left the composition.
+    # Deliberately manual and explicit: it is a taxable disposal (see Bot::Composition::Liquidatable).
+    # The symbol must be one the bot itself reports as held — something it does not hold is refused
     # before any price is read, so a cold metrics cache cannot turn a refusal into a 500.
     class LiquidateExited
       def self.call(user:, bot_id:, symbol:, dry_run: false)
@@ -22,16 +22,16 @@ module BotApi
         bot = @user.bots.not_deleted.find_by(id: @bot_id.to_i)
         return Result.failure(:not_found, 'bot_not_found', 'Bot not found.') unless bot
 
-        unless bot.respond_to?(:exited_symbols)
+        unless bot.respond_to?(:held_symbols)
           return Result.failure(:validation_failed, 'not_composition_bot',
-                                'Only index and basket bots have exited holdings.')
+                                'Only index and basket bots hold sellable positions.')
         end
         return Result.failure(:conflict, 'bot_archived', "Bot '#{bot.label}' is archived; reactivate it first.") if bot.archived?
 
-        unless bot.exited_symbols.include?(@symbol)
-          return Result.failure(:not_found, 'holding_not_exited',
-                                "#{@symbol} is not a holding this bot's composition has dropped. " \
-                                "Exited: #{bot.exited_symbols.join(', ').presence || 'none'}.")
+        unless bot.held_symbols.include?(@symbol)
+          return Result.failure(:not_found, 'holding_not_held',
+                                "#{@symbol} is not a position this bot holds. " \
+                                "Held: #{bot.held_symbols.join(', ').presence || 'none'}.")
         end
         return Result.failure(:conflict, 'market_closed', 'The market is closed; try again when it opens.') if market_closed?(bot)
 

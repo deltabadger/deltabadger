@@ -33,23 +33,24 @@ module Bots::DcaIndex::IndexAllocatable
 
   def initialize_index_allocatable_settings
     self.num_coins ||= default_num_coins
+    # A NEW bot on a bounded index holds all of it (Decision 17); the user trims from there. Only a
+    # new record: this runs on every load too, and a persisted bot saved at twenty must stay at
+    # twenty when the setting is absent (the B1 migration also writes false explicitly).
+    self.hold_all = true if new_record? && hold_all.nil? && bounded_universe_size.present?
     self.allocation_flattening ||= 0.0
   end
 
   # A bounded (deltabadger-sourced) index starts the bot at its full universe — the user
-  # then trims down with the slider (e.g. Nasdaq 20 → "Nasdaq 7"). Crypto/category indices
-  # keep the standard starting count. Only evaluated when num_coins is unset (new bots), so
-  # no extra query on persisted-bot loads.
+  # then trims down with the slider (an ND100 bot down to "ND7"). Crypto/category indices
+  # keep the standard starting count.
   def default_num_coins
-    idx = current_index
-    return [idx.top_coins.size, Bots::DcaIndex::MAX_COINS].min if idx&.source == Index::SOURCE_DELTABADGER && idx.top_coins.present?
-
-    10
+    bounded_universe_size || 10
   end
 
   def derive_composition
-    # Fetch more coins than needed to account for ones not available on exchange
-    fetch_limit = [num_coins.to_i * 3, 100].min
+    # A bounded index publishes its whole membership, so ask for all of it; a ranking is over-fetched
+    # to cover names the venue does not list.
+    fetch_limit = bounded_universe_size || [effective_num_coins.to_i * 3, 100].min
 
     result = MarketData.get_top_coins(
       index_type: index_type,
@@ -74,7 +75,7 @@ module Bots::DcaIndex::IndexAllocatable
     # incumbent can only ever evict it. Ticker#priced? cannot tell a delisting from a proxy 502 or a
     # 429 (an HTTP failure returns a plain `false`), so a network blip was quietly rotating a held
     # constituent out of the index and buying a replacement for it with real money, and leaving the
-    # evicted one under "Left the index" — where liquidate_exited!, which refreshes strictly before
+    # evicted one under "Left the index" — where liquidate!, which refreshes strictly before
     # it sells, would sell it. Liveness for an incumbent now rests on the venue's own listing status
     # in the scope above, refreshed four-hourly by Exchange::SyncAllTickersAndAssetsJob.
     #
@@ -88,7 +89,7 @@ module Bots::DcaIndex::IndexAllocatable
     # Match top coins to available tickers
     coins_data = []
     top_coins.each do |coin|
-      break if coins_data.size >= num_coins.to_i
+      break if coins_data.size >= effective_num_coins.to_i
 
       ticker = ticker_by_coingecko_id[coin['id']]
       next unless ticker.present?

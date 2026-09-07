@@ -32,6 +32,12 @@ class Index < ApplicationRecord
     'zero-knowledge-zk' => 1
   }.freeze
 
+  # The product's name for a count-named index comes from the container's own map, never from the
+  # feed — see Bots::DcaIndex::COUNT_NAMED_INDICES. Everything else is called what its source calls it.
+  def display_name
+    Bots::DcaIndex::COUNT_NAMED_INDICES.dig(external_id, :name) || name
+  end
+
   validates :external_id, presence: true
   validates :source, presence: true
   validates :name, presence: true

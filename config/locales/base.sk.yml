@@ -704,14 +704,15 @@ sk:
             rebalance_ambiguous: 'Stav rebalansovacieho pokynu nepotvrdený — pozastavené, aby nebol zadaný dvakrát'
             rebalance_manually_resolved: 'Rebalansovanie ručne obnovené'
             dca_skipped_rebalance_pending: 'Príspevok preskočený — rebalansovanie stále prebieha'
-            liquidation_requested: "Predávam aktíva, ktoré opustili index"
-            liquidation_placed: "Predávam aktívum, ktoré opustilo index"
-            liquidation_skipped: "Aktívum, ktoré opustilo index, sa nepodarilo predať — zostáva"
+            liquidation_requested: "Predávam pozíciu"
+            liquidation_placed: "Predávam pozíciu za trhovú cenu"
+            liquidation_skipped: "Pozíciu sa nepodarilo predať — zostáva"
             liquidation_ambiguous: "Stav predajného pokynu nepotvrdený — pozastavené, aby nebol zadaný dvakrát"
             liquidation_manually_resolved: "Nepotvrdený predaj vymazaný ručne"
             liquidation_market_closed: "Trh zatvorený — nič sa nepredalo"
             liquidation_not_started: "Nič sa nepredalo — bot bol zaneprázdnený alebo sa index nepodarilo obnoviť"
             liquidation_failed: "Selling failed: %{error}"
+            orders_below_minimum: "%{count} constituents were under the exchange minimum this time and carry forward: %{bases}"
             redeploy_requested: "Vraciam peniaze späť do koša"
             redeploy_placed: "Nakupujem späť do koša za získané prostriedky"
             redeploy_skipped: "Časť prostriedkov sa nepodarilo vložiť späť — zostala v hotovosti"

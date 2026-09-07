@@ -9,7 +9,7 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
   setup do
     @user = create(:user)
     @bot = create(:dca_index, user: @user, status: :scheduled, started_at: Time.current, with_api_key: true)
-    Bots::DcaIndex.any_instance.stubs(:exited_symbols).returns(%w[DOGE])
+    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE])
     Bots::DcaIndex.any_instance.stubs(:redeploy_offer).returns(25.to_d)
     Bots::DcaIndex.any_instance.stubs(:ensure_exchange_authenticated)
     Bots::DcaIndex.any_instance.stubs(:composition_tickers).returns([])
@@ -90,7 +90,7 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
   # a body-only fingerprint would replay the first answer for a different symbol.
   test 'the same key with a different query parameter is a reuse, not a replay' do
     Bot::LiquidateExitedJob.stubs(:perform_later)
-    Bots::DcaIndex.any_instance.stubs(:exited_symbols).returns(%w[DOGE SHIB])
+    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE SHIB])
 
     post "/api/v1/bots/#{@bot.id}/liquidations?symbol=DOGE", headers: keyed('k1'), as: :json
     assert_response :accepted

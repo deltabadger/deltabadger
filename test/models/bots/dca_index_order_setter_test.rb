@@ -174,4 +174,50 @@ class Bots::DcaIndexOrderSetterTest < ActiveSupport::TestCase
                      .with(ticker: @assets[symbol][:ticker], force: anything)
                      .raises(exception)
   end
+
+  # == constituents under the venue floor ==
+
+  test 'a tick that placed something logs the under-floor names once and writes no skipped rows' do
+    add_members('CCC', weights: { 'AAA' => 0.98, 'BBB' => 0.01, 'CCC' => 0.01 })
+    @assets.each_value { |a| a[:ticker].update!(minimum_quote_size: 5) }
+    price_all(100)
+    @bot.stubs(:create_order).returns(Result::Success.new(order_id: 'x'))
+    @bot.stubs(:persist_accepted_order!).returns(@bot.transactions.build)
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+
+    @bot.set_orders(total_orders_amount_in_quote: 100.to_d)
+
+    log = @bot.bot_activity_logs.find_by(event: 'orders_below_minimum')
+    assert log, 'one summary line for the tick'
+    assert_equal 2, log.details['count']
+    assert_equal 'BBB, CCC', log.details['bases']
+    assert_equal 0, @bot.transactions.where(status: :skipped).count
+    assert_nil @bot.bot_activity_logs.find_by(event: 'order_skipped')
+  end
+
+  test 'a tick that placed nothing keeps the per-order skipped rows' do
+    @assets.each_value { |a| a[:ticker].update!(minimum_quote_size: 500) }
+    price_all(100)
+
+    @bot.set_orders(total_orders_amount_in_quote: 100.to_d)
+
+    assert_equal 2, @bot.transactions.where(status: :skipped).count
+    assert_equal 2, @bot.bot_activity_logs.where(event: 'order_skipped').count
+    assert_nil @bot.bot_activity_logs.find_by(event: 'orders_below_minimum')
+  end
+
+  test 'a placement that raises still reports the names it skipped' do
+    add_members('CCC', weights: { 'AAA' => 0.01, 'BBB' => 0.01, 'CCC' => 0.98 })
+    @assets.each_value { |a| a[:ticker].update!(minimum_quote_size: 5) }
+    price_all(100)
+    # Smallest first, so the two names under the floor are collected before the one that reaches
+    # the venue raises.
+    orders = @bot.send(:get_orders_data, 100.to_d).data.sort_by { |order| order[:quote_amount] }
+    @bot.stubs(:get_orders_data).returns(Result::Success.new(orders))
+    @bot.stubs(:create_order).raises(Client::TransientNetworkError, 'gateway timeout')
+
+    assert_raises(Client::TransientNetworkError) { @bot.set_orders(total_orders_amount_in_quote: 100.to_d) }
+
+    assert_equal 2, @bot.transactions.where(status: :skipped).count, 'nothing was placed, so the per-order rows stand'
+  end
 end

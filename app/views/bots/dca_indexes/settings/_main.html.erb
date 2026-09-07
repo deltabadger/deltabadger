@@ -1,8 +1,12 @@
 <% quote_color = ensure_contrast(bot.quote_asset&.color || "#8A9BA8") %>
 <% quote = bot.quote_asset&.symbol || 'USD' %>
 <% index_preview = local_assigns.fetch(:index_preview, nil) || [] %>
-<% max_coins = index_preview.present? ? [Bots::DcaIndex::MAX_COINS, index_preview.size].min : Bots::DcaIndex::MAX_COINS %>
-<% num_coins = [[bot.num_coins || 10, Bots::DcaIndex::MIN_COINS].max, max_coins].min %>
+<% max_coins = index_preview.present? ? [bot.max_coins, index_preview.size].min : bot.max_coins %>
+<%# A rejected save re-renders the bot as it was submitted, so the slider would be drawn at a count
+    that was never stored — and the next submit, matching that as the rendered value, would read as
+    an untouched slider and drop the change without a word. Draw what is actually stored. %>
+<% stored_num_coins = bot.errors.any? && bot.settings_was.present? ? bot.settings_was['num_coins'] : bot.effective_num_coins %>
+<% num_coins = [[stored_num_coins || 10, Bots::DcaIndex::MIN_COINS].max, max_coins].min %>
 <% num_coins_progress = max_coins > Bots::DcaIndex::MIN_COINS ? ((num_coins - Bots::DcaIndex::MIN_COINS).to_f / (max_coins - Bots::DcaIndex::MIN_COINS) * 100).round : 100 %>
 <% flattening = bot.allocation_flattening || 0 %>
 <% flattening_progress = (flattening * 100).round %>
@@ -48,6 +52,8 @@
           <div class="label label--select ellipsis" data-index-allocation-target="numCoinsValue"><%= num_coins %></div>
         </div>
         <div class="slider">
+          <%= hidden_field_tag 'bots_dca_index[num_coins_ceiling]', max_coins %>
+          <%= hidden_field_tag 'bots_dca_index[num_coins_rendered]', num_coins %>
           <input type="range"
                  name="bots_dca_index[num_coins]"
                  min="<%= Bots::DcaIndex::MIN_COINS %>"

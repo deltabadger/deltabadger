@@ -32,7 +32,9 @@ class Bots::AssetsTableTest < ActionDispatch::IntegrationTest
       css_select('#assets_metrics_table thead th').map { |th| th.text.strip }
     end
 
-    assert_equal 1, headers.uniq.size, "columns drifted: #{headers.inspect}"
+    # A composition table adds a trailing action column when one of its positions can be sold; the
+    # columns that carry data must still be identical across the three.
+    assert_equal 1, headers.map { |h| h.first(6) }.uniq.size, "columns drifted: #{headers.inspect}"
     assert_equal ['', '', 'Amount', 'Avg. Price', 'Value', 'P/L'], headers.first
   end
 
