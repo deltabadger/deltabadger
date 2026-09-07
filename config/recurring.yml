@@ -11,14 +11,14 @@ production:
     schedule: "20 0 * * *"  # Daily at 00:20 UTC
 
   # Pulls indices from the market-data source. On hosted containers (deltabadger market data)
-  # this syncs ONLY the deltabadger-sourced indices, incl. the Nasdaq stock index; the CoinGecko
-  # path is self-hosted only. MUST run after BOTH data-api's Nasdaq refresh (07:30 UTC) and the
+  # this syncs ONLY the deltabadger-sourced indices, incl. the ND100 stock index; the CoinGecko
+  # path is self-hosted only. MUST run after BOTH data-api's ND100 refresh (07:30 UTC) and the
   # container's stock-asset sync (10:00) — otherwise hosted containers serve a stale index for a
-  # full day (e.g. "Nasdaq 10" the day after a 20-member bump). Cross-repo dependency:
+  # full day (e.g. an ND20 list the day after a 100-member bump). Cross-repo dependency:
   # deltabadger-data-api config/recurring.yml -> sync_nasdaq_index ("30 7 * * *").
   sync_indices_from_coingecko_job:
     class: Index::SyncFromCoingeckoJob
-    schedule: "30 10 * * *"  # Daily at 10:30 UTC (after data-api Nasdaq refresh + stock-asset sync)
+    schedule: "30 10 * * *"  # Daily at 10:30 UTC (after data-api ND100 refresh + stock-asset sync)
 
   repair_orphaned_bots_job:
     class: Bot::RepairOrphanedBotsJob
@@ -115,14 +115,14 @@ development:
     schedule: "20 0 * * *"  # Daily at 00:20 UTC
 
   # Pulls indices from the market-data source. On hosted containers (deltabadger market data)
-  # this syncs ONLY the deltabadger-sourced indices, incl. the Nasdaq stock index; the CoinGecko
-  # path is self-hosted only. MUST run after BOTH data-api's Nasdaq refresh (07:30 UTC) and the
+  # this syncs ONLY the deltabadger-sourced indices, incl. the ND100 stock index; the CoinGecko
+  # path is self-hosted only. MUST run after BOTH data-api's ND100 refresh (07:30 UTC) and the
   # container's stock-asset sync (10:00) — otherwise hosted containers serve a stale index for a
-  # full day (e.g. "Nasdaq 10" the day after a 20-member bump). Cross-repo dependency:
+  # full day (e.g. an ND20 list the day after a 100-member bump). Cross-repo dependency:
   # deltabadger-data-api config/recurring.yml -> sync_nasdaq_index ("30 7 * * *").
   sync_indices_from_coingecko_job:
     class: Index::SyncFromCoingeckoJob
-    schedule: "30 10 * * *"  # Daily at 10:30 UTC (after data-api Nasdaq refresh + stock-asset sync)
+    schedule: "30 10 * * *"  # Daily at 10:30 UTC (after data-api ND100 refresh + stock-asset sync)
 
   repair_orphaned_bots_job:
     class: Bot::RepairOrphanedBotsJob

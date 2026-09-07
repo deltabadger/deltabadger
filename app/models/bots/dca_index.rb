@@ -269,7 +269,7 @@ class Bots::DcaIndex < Bot
     preview
   end
 
-  # "Layer 1 · 20". A count-named index ("Nasdaq 7") and a Top-N ("Top 10") already carry their
+  # "Layer 1 · 20". A count-named index ("ND7") and a Top-N ("Top 10") already carry their
   # size in the name, so only a thematic category has the coin count appended.
   def default_label
     # The name must quote the count the bot will actually buy, and the clamp that decides it runs
@@ -346,7 +346,7 @@ class Bots::DcaIndex < Bot
 
   # Server-authoritative cap: a bounded (deltabadger-sourced) index publishes its full
   # universe in top_coins, so num_coins can never exceed it. Runs before validation and
-  # before display_index_name, so neither a save nor the bot name can show "Nasdaq 50".
+  # before display_index_name, so neither a save nor the bot name can show a count it cannot buy.
   # Crypto "Top"/coingecko categories are not bounded this way and are left untouched.
   def clamp_num_coins_to_bounded_index
     return if num_coins.blank? || bounded_universe_size.nil?
