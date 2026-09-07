@@ -44,6 +44,12 @@ module Bot::WashSaleGuard
   end
 
   # Buying resumes at the start of the day after the window.
+  #
+  # ponytail: calendar days in the APP's zone, not the jurisdiction's. There is no persisted tax
+  # residence to derive one from, and the countdown and the row render in the app's zone too. The
+  # residue is at most a day, and only where the app's zone runs behind the jurisdiction's — a sale
+  # seen in that hour would unlock on the window's last day. Per-jurisdiction calendars if that
+  # matters; the tax report over the whole account is the authority either way.
   def lock_deadline(from: Time.zone.today)
     (from + wash_sale_days + 1).beginning_of_day
   end

@@ -89,18 +89,21 @@ module Bot::Composition::Measurable
         # this walk from the row). Applied whatever the order's price says, and WITHOUT touching the
         # asset's last mark: an unpriced sale has no price to mark anything with.
         #
-        # Parked in the IN-FLIGHT buckets, never in realised_cash, whatever the order's type says.
-        # A valuation placeholder must not become spendable money: realised_cash is the cap the
-        # redeploy offer is clamped to, and lifting it with an estimate would offer proceeds an
-        # earlier sale had already banked and the DCA leg already spent. In flight it is still
-        # counted in portfolio value and in the chart's cash series, still absorbed a contribution
-        # at a time by apply_regular_buy, and it carries its basis with it exactly as a
-        # half-finished swap's does — which is right here, since the placeholder's "proceeds" ARE
-        # that basis. A later poll that brings the real proceeds recomputes this walk from the row
-        # and the sale becomes an ordinary liquidation with its P/L.
+        # Where the released basis is parked depends on who is owed it. A REBALANCE sell owes its own
+        # buy leg, which is driven by the executed quantity at the order price and will spend the
+        # proceeds whatever this walk could read — so the basis rides the in-flight bucket that leg
+        # drains, or the replacement holding ends up with no cost and the money is counted twice.
+        # A LIQUIDATION sell owes nobody, and its proceeds are what the redeploy offer is capped by,
+        # so its estimate goes to a bucket that is never spendable (Bot::RebalanceAccounting).
+        # Either way it is counted in portfolio value and in the chart's cash series, and a later
+        # poll that brings the real proceeds recomputes this walk from the row.
         if side == 'sell' && amount_exec.to_d.positive? && !raw_quote_exec.to_d.positive?
-          apply_unpriced_sell(ledger, books, key: base,
-                                             amount_exec:, quote_amount_exec: basis_share(ledger, base, amount_exec))
+          released = basis_share(ledger, base, amount_exec)
+          if transaction_type == 'LIQUIDATION'
+            apply_unpriced_sell(ledger, books, key: base, amount_exec:, quote_amount_exec: released)
+          else
+            apply_rebalance_sell(ledger, books, key: base, amount_exec:, quote_amount_exec: released)
+          end
           # A chart point, at the marks that already stand: without one the last snapshot still holds
           # the units this sale removed, and chart_marked_at_market keeps pricing them at market for
           # the whole segment after it. Both sides move together, so the curve gains a vertex, not a

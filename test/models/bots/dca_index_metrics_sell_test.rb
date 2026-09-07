@@ -235,6 +235,22 @@ class Bots::DcaIndexMetricsSellTest < ActiveSupport::TestCase
     assert_in_delta 200, data[:chart][:series][0].last.to_f, 0.01, 'a vertex, not a step: no mark moved'
   end
 
+  test 'an unpriced rebalance sell keeps its basis in flight, so the buy leg it owes can take it' do
+    # A rebalance sell's proceeds are owed to its own buy leg, which is driven by the executed
+    # quantity at the order price and spends them whatever this walk could read. Parking that basis
+    # anywhere the rebalance buy cannot reach leaves the replacement holding with no cost at all and
+    # counts the money twice.
+    buy('AAA', quote: 100, price: 100)
+    create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted, external_status: :closed,
+                         external_id: 'r-1', side: :sell, transaction_type: 'REBALANCE', base: 'AAA',
+                         quote: @bot.quote_asset.symbol, price: 90, amount: 1, amount_exec: 1, quote_amount: 90, quote_amount_exec: nil)
+    rebalance_buy('BBB', quote: 90, price: 90)
+
+    data = @bot.metrics(force: true)
+    assert_in_delta 90, data[:asset_breakdown]['BBB'][:quote_invested].to_f, 0.01, 'the basis travelled with the cash'
+    assert_in_delta 100, data[:total_amount_value_in_quote].to_f, 0.01, 'counted once, not twice'
+  end
+
   test 'a cancelled partial buy with no reported proceeds still opens its lot, at the order price' do
     create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted, external_status: :cancelled,
                          external_id: 'b-2', side: :buy, transaction_type: 'REGULAR', base: 'AAA',
