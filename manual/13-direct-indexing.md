@@ -15,6 +15,16 @@ ND100 trades on [Alpaca](21-supported-exchanges.md). Every constituent is bought
 
 Every position in the bot's table has a **Sell** button. Selling closes the whole position at market; it is a taxable disposal, and the confirmation names exactly what is being sold. A remainder too small for the exchange to trade has no button.
 
+The button turns **green** when the position is under water on this bot's own purchase lots — selling it then realises a loss you can set against gains. That is the moment direct indexing exists for: a fund cannot hand you the loss on one of its holdings, your own account can. The colour follows prices, so it changes.
+
+The figure behind the colour is an estimate: the bot's own purchases, counted first-in-first-out in the bot's currency, one lot per order. The same asset bought elsewhere on the account, by another bot or by hand, is not in that arithmetic; the United Kingdom pools purchases at average cost and Ireland matches sales to purchases of the previous four weeks; and the tax report converts into your reporting currency. For a position that is barely under water those differences can flip the sign. The [tax report](20-broker-tax-report.md) over the whole account is the authority.
+
+## Wash-sale window
+
+Some tax systems disallow a loss if you buy the same asset back too soon: the United States (30 days), the United Kingdom (30 days, where the repurchase is matched against the sale instead of the pool) and Ireland (28 days). Pick your jurisdiction in the bot's settings and the bot enforces the window itself: after a sale at a loss it leaves that constituent out of every buy — the recurring purchases, rebalancing and redeploying proceeds — through the last day of the window, and shows in its row how many days remain until buying resumes. The window runs from the day the bot saw the sale fill. The day after it ends, the constituent is simply the most underweight name in the index and [rebalanced DCA](10-dollar-cost-averaging.md) buys it back.
+
+Two limits. The bot counts only its own trades; a purchase of the same asset by another bot, by hand or on another account counts for the rule just the same. And a partial sale — a rebalance, or a Sell when the exchange holds less than the position — leaves the rest in place: if that name was bought within the window before the sale, part of the loss is washed by those purchases, and the bot cannot prevent it. Turn rebalancing off on a bot you harvest from, or accept it.
+
 ## Index changes
 
 Companies join and leave the index. A constituent that has left is moved to the **Left the index** table and is no longer bought; selling it is your call, from its own row, because it is a disposal with tax consequences. See [Portfolio rebalancing](12-portfolio-rebalancing.md).
