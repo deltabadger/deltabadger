@@ -57,6 +57,13 @@ module Bot::Composition::Rebalancer
     end
 
     normalise_targets(entries)
+    # Every survivor at a zero target: there is nothing left to steer toward. Selling into that
+    # would strand the swap in its buying phase — no positive shortfall to buy — with the DCA leg
+    # standing down behind a pending rebalance. Reachable once a lock takes out every weighted
+    # member and a parked zero-weight holding is all that remains.
+    return nil unless entries.any? { |entry| entry[:target].to_d.positive? }
+
+    entries
   end
 
   # A bulk price response can come back successful but incomplete, and metrics_with_current_prices
