@@ -2,42 +2,50 @@ require 'test_helper'
 
 class Bot::WashSaleGuardTest < ActiveSupport::TestCase
   def setup
-    @bot = create(:dca_index, user: create(:user))
+    @user = create(:user)
+    @bot = create(:dca_index, user: @user)
     @asset = create(:asset, symbol: 'AAA', name: 'Coin AAA', external_id: 'coin-aaa')
     @ticker = create(:ticker, exchange: @bot.exchange, base_asset: @asset, quote_asset: @bot.quote_asset)
     @bot.instance_variable_set(:@tickers, [@ticker])
-    @bia = BotIndexAsset.create!(bot: @bot, asset: @asset, ticker: @ticker, target_allocation: 1.0, in_index: true, entered_at: Time.current)
+    @bia = BotIndexAsset.create!(bot: @bot, asset: @asset, ticker: @ticker, target_allocation: 1.0,
+                                 in_index: true, entered_at: Time.current)
   end
 
+  def lock = @user.wash_sale_locks.find_by(asset_id: @asset.id)
+
   def choose(code)
-    @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: code)
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: code)
   end
 
   test 'switched off means no window and no lock, whatever jurisdiction is selected' do
-    @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_jurisdiction: 'US')
+    @bot.user.update!(wash_sale_jurisdiction: 'US')
 
     assert_equal 0, @bot.wash_sale_days, 'off is off: the selected window is what it would be, not what it is'
-    @bot.lock_buying!(@bia.asset_id, ticker: @ticker)
-    assert_nil @bia.reload.buy_locked_until
+    @bot.lock_buying!(@asset.id)
+    assert_nil lock, 'the rule being off means no row is even created'
     assert_empty @bot.locked_members
   end
 
-  test 'a holding the composition never recorded gets a row for its lock, and keeps the lock on re-entry' do
+  test 'a lock needs no composition row: it belongs to the taxpayer' do
     choose('US')
     @bia.destroy!
 
-    @bot.lock_buying!(@asset.id, ticker: @ticker)
+    @bot.lock_buying!(@asset.id)
 
-    row = @bot.bot_index_assets.find_by(asset_id: @asset.id)
-    assert row, 'a row was created to carry the lock'
-    assert_predicate row, :buy_locked?
-    assert_not row.in_index, 'created as a quitter: the composition never asked for it'
+    assert_predicate lock, :buy_locked?, 'the taxpayer is locked, not the composition row'
+    assert_equal [@asset.id], @user.wash_sale_locks.live.pluck(:asset_id)
+  end
 
-    @bot.send(:update_bot_index_assets, [{ asset_id: @asset.id, ticker_id: @ticker.id, weight: 1.0 }])
-    assert row.reload.in_index, 'the refresh let it in'
-    assert_predicate row, :buy_locked?, 'and the lock survived'
+  test 'the bot lists only the locked names it knows about' do
+    choose('US')
+    stranger = create(:asset, symbol: 'ZZZ', name: 'Coin ZZZ', external_id: 'coin-zzz')
+    WashSaleLock.create!(user: @user, asset: stranger, buy_locked_until: 10.days.from_now)
+    @bot.lock_buying!(@asset.id)
+
+    assert_equal %w[AAA], @bot.locked_members.map { |m| m[:symbol] },
+                 "a lock on an asset this bot never held is not this bot's business"
+    assert_equal %w[AAA ZZZ], @user.locked_assets.map { |m| m[:symbol] }.sort,
+                 'but the account-wide list has both'
   end
 
   test 'the sale day is day zero, buying resumes the day after the window, the countdown is days until then' do
@@ -45,63 +53,64 @@ class Bot::WashSaleGuardTest < ActiveSupport::TestCase
     assert_equal 30, @bot.wash_sale_days
 
     travel_to Time.zone.parse('2026-09-07 12:00') do
-      assert_nil @bot.lock_buying!(@bia.asset_id, ticker: @ticker), 'returns the previous deadline, which was none'
-      assert_equal Time.zone.parse('2026-10-08 00:00'), @bia.reload.buy_locked_until
-      assert_predicate @bia, :buy_locked?
-      assert_equal [{ symbol: 'AAA', days_left: 31, until: @bia.buy_locked_until, in_index: true }], @bot.locked_members
+      assert_nil @bot.lock_buying!(@asset.id)[:previous], 'the deadline it replaced, which was none'
+      assert_equal Time.zone.parse('2026-10-08 00:00'), lock.reload.buy_locked_until
+      assert_predicate lock, :buy_locked?
+      assert_equal [{ symbol: 'AAA', days_left: 31, until: lock.buy_locked_until, in_index: true }], @bot.locked_members
     end
     travel_to Time.zone.parse('2026-10-07 23:59') do
-      assert_predicate @bia.reload, :buy_locked?, 'day 30 is still inside the window'
+      assert_predicate lock.reload, :buy_locked?, 'day 30 is still inside the window'
       assert_equal 1, @bot.locked_members.first[:days_left]
     end
     travel_to Time.zone.parse('2026-10-08 00:00') do
-      assert_not_predicate @bia.reload, :buy_locked?
+      assert_not_predicate lock.reload, :buy_locked?
       assert_empty @bot.locked_members
     end
   end
 
   test 'a second lock never shortens the first, and restore puts the previous deadline back' do
     choose('US')
-    travel_to(Time.zone.parse('2026-09-07 12:00')) { @bot.lock_buying!(@bia.asset_id, ticker: @ticker) }
-    first = @bia.reload.buy_locked_until
+    travel_to(Time.zone.parse('2026-09-07 12:00')) { @bot.lock_buying!(@asset.id) }
+    first = lock.reload.buy_locked_until
 
     travel_to Time.zone.parse('2026-09-01 12:00') do
-      previous = @bot.lock_buying!(@bia.asset_id, ticker: @ticker) # an earlier-dated sale cannot pull the deadline in
-      assert_equal first, previous
-      assert_equal first, @bia.reload.buy_locked_until
+      claim = @bot.lock_buying!(@asset.id) # an earlier-dated sale cannot pull the deadline in
+      assert_equal first, claim[:previous]
+      assert_equal first, lock.reload.buy_locked_until
     end
     travel_to Time.zone.parse('2026-09-20 12:00') do
-      previous = @bot.lock_buying!(@bia.asset_id, ticker: @ticker)
-      assert_equal Time.zone.parse('2026-10-21 00:00'), @bia.reload.buy_locked_until
-      @bot.restore_buy_lock!(@bia.asset_id, previous)
-      assert_equal first, @bia.reload.buy_locked_until, 'a failed second sale leaves the first sale protected'
+      claim = @bot.lock_buying!(@asset.id)
+      assert_equal Time.zone.parse('2026-10-21 00:00'), lock.reload.buy_locked_until
+      @bot.restore_buy_lock!(@asset.id, claim)
+      assert_equal first, lock.reload.buy_locked_until, 'a failed second sale leaves the first sale protected'
     end
   end
 
   test 'a rollback is one statement floored by the row itself, so a fill landing at any instant survives it' do
     choose('US')
-    travel_to(Time.zone.parse('2026-09-07 12:00')) { @bot.lock_buying!(@bia.asset_id, ticker: @ticker) }
+    travel_to(Time.zone.parse('2026-09-07 12:00')) { @bot.lock_buying!(@asset.id) }
     # A fill's confirmation written straight into the row, as the fill path would from another
     # process at any point during the rollback — there is no read in the rollback for it to slip past.
-    @bia.update_column(:confirmed_locked_until, Time.zone.parse('2026-10-12 00:00'))
+    lock.update_column(:confirmed_locked_until, Time.zone.parse('2026-10-12 00:00'))
 
-    @bot.restore_buy_lock!(@bia.asset_id, Time.zone.parse('2026-10-08 00:00'))
+    @bot.restore_buy_lock!(@asset.id, { previous: Time.zone.parse('2026-10-08 00:00'),
+                                        token: lock.reload.claim_token })
 
-    assert_equal Time.zone.parse('2026-10-12 00:00'), @bia.reload.buy_locked_until
-    @bot.restore_buy_lock!(@bia.asset_id, nil)
-    assert_equal Time.zone.parse('2026-10-12 00:00'), @bia.reload.buy_locked_until, 'a nil previous still floors at the confirmed deadline'
+    assert_equal Time.zone.parse('2026-10-12 00:00'), lock.reload.buy_locked_until
+    @bot.restore_buy_lock!(@asset.id, { previous: nil, token: lock.claim_token })
+    assert_equal Time.zone.parse('2026-10-12 00:00'), lock.reload.buy_locked_until, 'a nil previous still floors at the confirmed deadline'
   end
 
   test 'a rollback cannot erase what a fill confirmed in between' do
     choose('US')
-    travel_to(Time.zone.parse('2026-09-07 12:00')) { @bot.lock_buying!(@bia.asset_id, ticker: @ticker) } # sale 1, provisional: Oct 8
+    travel_to(Time.zone.parse('2026-09-07 12:00')) { @bot.lock_buying!(@asset.id) } # sale 1, provisional: Oct 8
     travel_to Time.zone.parse('2026-09-08 12:00') do
-      previous = @bot.lock_buying!(@bia.asset_id, ticker: @ticker)                                       # sale 2, provisional: Oct 9
-      assert_equal Time.zone.parse('2026-10-08 00:00'), previous
+      claim = @bot.lock_buying!(@asset.id)                                          # sale 2, provisional: Oct 9
+      assert_equal Time.zone.parse('2026-10-08 00:00'), claim[:previous]
       assert_not @bot.extend_buy_lock!(base: 'AAA', from: Date.current), 'sale 1 fills now and needs Oct 9: already the deadline'
-      @bot.restore_buy_lock!(@bia.asset_id, previous)                                                    # sale 2 never left
-      assert_equal Time.zone.parse('2026-10-09 00:00'), @bia.reload.buy_locked_until, "sale 1's confirmed Oct 9 stands"
-      assert_equal Time.zone.parse('2026-10-09 00:00'), @bia.confirmed_locked_until
+      @bot.restore_buy_lock!(@asset.id, claim) # sale 2 never left
+      assert_equal Time.zone.parse('2026-10-09 00:00'), lock.reload.buy_locked_until, "sale 1's confirmed Oct 9 stands"
+      assert_equal Time.zone.parse('2026-10-09 00:00'), lock.confirmed_locked_until
     end
   end
 
@@ -109,46 +118,59 @@ class Bot::WashSaleGuardTest < ActiveSupport::TestCase
     choose('US')
     travel_to Time.zone.parse('2026-09-07 12:00') do
       assert @bot.extend_buy_lock!(base: 'AAA', from: Date.current)
-      assert_equal Time.zone.parse('2026-10-08 00:00'), @bia.reload.buy_locked_until
+      assert_equal Time.zone.parse('2026-10-08 00:00'), lock.reload.buy_locked_until
       assert @bot.extend_buy_lock!(base: 'AAA', from: Date.new(2026, 9, 8)), 'filled the next day'
-      assert_equal Time.zone.parse('2026-10-09 00:00'), @bia.reload.buy_locked_until
+      assert_equal Time.zone.parse('2026-10-09 00:00'), lock.reload.buy_locked_until
       assert_not @bot.extend_buy_lock!(base: 'AAA', from: Date.new(2026, 9, 1))
-      assert_equal Time.zone.parse('2026-10-09 00:00'), @bia.reload.buy_locked_until
+      assert_equal Time.zone.parse('2026-10-09 00:00'), lock.reload.buy_locked_until
+    end
+  end
+
+  test 'a rollback whose claim was superseded does nothing' do
+    choose('US')
+    travel_to Time.zone.parse('2026-09-07 12:00') do
+      stale = @bot.lock_buying!(@asset.id)          # placement A claims
+      @bot.lock_buying!(@asset.id)                  # placement B claims the same day, same deadline
+
+      @bot.restore_buy_lock!(@asset.id, stale)      # A fails after B claimed
+
+      assert_predicate lock.reload, :buy_locked?, "A's rollback must not touch B's claim"
+      assert_equal Time.zone.parse('2026-10-08 00:00'), lock.buy_locked_until
+    end
+  end
+
+  test 'a fill invalidates every outstanding claim, so no rollback can lower it' do
+    choose('US')
+    travel_to Time.zone.parse('2026-09-07 12:00') do
+      claim = @bot.lock_buying!(@asset.id)
+      # false: the provisional claim already reached this deadline, so the fill lengthens nothing.
+      # What matters is that it CONFIRMS it — the token goes, and no rollback can lower it again.
+      assert_not @bot.extend_buy_lock!(base: 'AAA', from: Date.current)
+
+      @bot.restore_buy_lock!(@asset.id, claim)
+
+      assert_equal Time.zone.parse('2026-10-08 00:00'), lock.reload.buy_locked_until,
+                   "a confirmed deadline is not a placement's to withdraw"
+      assert_nil lock.claim_token
+    end
+  end
+
+  test 'the ordinary single-claim rollback still releases' do
+    choose('US')
+    travel_to Time.zone.parse('2026-09-07 12:00') do
+      claim = @bot.lock_buying!(@asset.id)
+
+      @bot.restore_buy_lock!(@asset.id, claim)
+
+      assert_nil lock.reload.buy_locked_until
+      assert_nil lock.claim_token
     end
   end
 
   test 'an exited constituent under a lock is reported too' do
     choose('US')
     @bia.update!(in_index: false, exited_at: Time.current)
-    @bot.lock_buying!(@bia.asset_id, ticker: @ticker)
+    @bot.lock_buying!(@asset.id)
     assert_equal false, @bot.locked_members.first[:in_index]
-  end
-
-  test 'an unknown code is rejected' do
-    @bot.wash_sale_jurisdiction = 'XX'
-    assert_not @bot.valid?
-  end
-
-  test 'an unchecked toggle reaches update as false rather than being compacted away' do
-    parsed = @bot.parse_params(ActionController::Parameters.new(wash_sale_enabled: '0').permit!)
-
-    assert parsed.key?(:wash_sale_enabled), 'a deliberate OFF must not be lost'
-    assert_equal false, parsed[:wash_sale_enabled]
-    assert_equal true, @bot.parse_params(ActionController::Parameters.new(wash_sale_enabled: '1').permit!)[:wash_sale_enabled]
-  end
-
-  test 'the window a switched-off bot would use is the first one on the list, never stored' do
-    # The select always submits a value, so the reader has to name one before the user has chosen —
-    # exactly as rebalance_threshold does. Reading it must not dirty the settings.
-    assert_equal Tax::Jurisdictions.wash_sale_options.first.first, @bot.wash_sale_jurisdiction
-    assert_nil @bot.settings['wash_sale_jurisdiction']
-    assert_equal 0, @bot.wash_sale_days
-  end
-
-  test 'the multi-asset bot carries the same setting' do
-    bot = create(:dca_multi_asset, user: create(:user))
-    bot.set_missed_quote_amount
-    bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'IE')
-    assert_equal 28, bot.wash_sale_days
   end
 end

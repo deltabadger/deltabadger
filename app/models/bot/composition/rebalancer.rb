@@ -39,7 +39,8 @@ module Bot::Composition::Rebalancer
     return nil if composition_assets.empty?
 
     # A locked member is treated exactly like a quitter here — see Bot::WashSaleGuard.
-    unlocked = composition_assets.reject(&:buy_locked?)
+    locked = locked_asset_ids
+    unlocked = composition_assets.reject { |bia| locked.include?(bia.asset_id) }
     return nil if unlocked.empty?
 
     in_index_symbols = unlocked.to_set { |bia| bia.asset.symbol }

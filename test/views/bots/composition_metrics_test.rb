@@ -16,8 +16,9 @@ class Bots::CompositionMetricsViewTest < ActionView::TestCase
                             target_allocation: 1.0 / 3, in_index: true, entered_at: Time.current)
     end
     # CCC is a locked member the bot no longer holds: no ledger row, and a countdown to show.
-    @bot.bot_index_assets.find_by(asset: @assets['CCC'][:asset])
-        .update!(buy_locked_until: (Date.current + 12).beginning_of_day)
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    WashSaleLock.create!(user: @bot.user, asset: @assets['CCC'][:asset],
+                         buy_locked_until: (Date.current + 12).beginning_of_day)
     @bot.stubs(:exited_holdings).returns([])
     @bot.stubs(:redeploy_offer).returns(0.to_d)
     @metrics = {

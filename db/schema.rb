@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_07_110000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_08_091000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -196,8 +196,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_110000) do
   create_table "bot_index_assets", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.integer "bot_id", null: false
-    t.datetime "buy_locked_until"
-    t.datetime "confirmed_locked_until"
     t.datetime "created_at", null: false
     t.decimal "current_allocation", precision: 10, scale: 6
     t.datetime "entered_at"
@@ -552,9 +550,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_110000) do
     t.json "tracker_settings", default: {}
     t.string "unconfirmed_email"
     t.datetime "updated_at", precision: nil, null: false
+    t.boolean "wash_sale_enabled", default: false, null: false
+    t.string "wash_sale_jurisdiction"
+    t.datetime "wash_sale_prompted_at"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true
+  end
+
+  create_table "wash_sale_locks", force: :cascade do |t|
+    t.integer "asset_id", null: false
+    t.datetime "buy_locked_until"
+    t.string "claim_token"
+    t.datetime "confirmed_locked_until"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.integer "user_id", null: false
+    t.index ["asset_id"], name: "index_wash_sale_locks_on_asset_id"
+    t.index ["user_id", "asset_id"], name: "index_wash_sale_locks_on_user_id_and_asset_id", unique: true
   end
 
   add_foreign_key "account_balances", "assets"
@@ -593,4 +606,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_110000) do
   add_foreign_key "tickers", "exchanges"
   add_foreign_key "transactions", "bots"
   add_foreign_key "transactions", "exchanges"
+  add_foreign_key "wash_sale_locks", "assets"
+  add_foreign_key "wash_sale_locks", "users"
 end

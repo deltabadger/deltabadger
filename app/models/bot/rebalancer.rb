@@ -59,11 +59,12 @@ module Bot::Rebalancer
     loss = respond_to?(:sell_at_loss?) && sell_at_loss?(order_data)
     ActiveRecord::Base.transaction do
       set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_SELLING)
-      previous = (lock_buying!(order_data[:ticker].base_asset_id, ticker: order_data[:ticker]) if loss)
+      claim = (lock_buying!(order_data[:ticker].base_asset_id) if loss)
       # Always rewritten, never inherited (nil deletes the key). They describe what THIS attempt may
       # undo. A previous attempt whose outcome was unknown keeps its lock for good — it may well
       # have sold — so its keys must not survive to be consumed by a later, unrelated failure.
-      merge_transient_data!(rebalance_previous_lock: (previous&.iso8601 if loss),
+      merge_transient_data!(rebalance_previous_lock: claim && claim[:previous]&.iso8601,
+                            rebalance_claim_token: claim && claim[:token],
                             rebalance_locked_asset_id: (order_data[:ticker].base_asset_id if loss))
     end
     place_rebalance_order(order_data, phase: Bot::Rebalanceable::PHASE_SELLING, loss: loss)
@@ -76,7 +77,11 @@ module Bot::Rebalancer
   # bot without one pays no exchange read; a failed refresh leaves the guard on, which is the safe
   # side.
   def waiting_buy_blocks_sell?(ticker)
-    scope = transactions.waiting.where(side: :buy, base: ticker.base)
+    # Every bot on the account: the lock is the taxpayer's, so a resting buy anywhere on it is what
+    # would undo this sale. The refresh below still sweeps only THIS bot's orders, so a stale row on
+    # another bot keeps the guard on until that bot's own tick clears it — the safe direction.
+    scope = Transaction.waiting.where(side: :buy, base: ticker.base)
+                       .where(bot_id: user.bots.not_deleted.select(:id))
     return false unless scope.exists?
 
     begin
@@ -93,8 +98,10 @@ module Bot::Rebalancer
     return if asset_id.nil?
 
     previous = transient_data['rebalance_previous_lock']
-    restore_buy_lock!(asset_id, previous && Time.zone.parse(previous))
-    merge_transient_data!(rebalance_previous_lock: nil, rebalance_locked_asset_id: nil)
+    restore_buy_lock!(asset_id, { previous: previous && Time.zone.parse(previous),
+                                  token: transient_data['rebalance_claim_token'] })
+    merge_transient_data!(rebalance_previous_lock: nil, rebalance_claim_token: nil,
+                          rebalance_locked_asset_id: nil)
   end
 
   def resume_rebalance!
@@ -242,7 +249,8 @@ module Bot::Rebalancer
     # The sell went out, so the provisional lock stands on its own — no rollback to keep.
     if loss
       log_wash_sale_lock(order_data[:ticker].base)
-      merge_transient_data!(rebalance_previous_lock: nil, rebalance_locked_asset_id: nil)
+      merge_transient_data!(rebalance_previous_lock: nil, rebalance_claim_token: nil,
+                            rebalance_locked_asset_id: nil)
     end
     Result::Success.new(transaction_id: transaction.id)
   end

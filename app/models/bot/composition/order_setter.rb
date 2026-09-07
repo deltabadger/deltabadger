@@ -38,6 +38,14 @@ module Bot::Composition::OrderSetter
           next
         end
 
+        # Re-read the lock immediately before placing: this leg sized its orders before another
+        # exchange's semaphore let a sale through, and a buy submitted after that sale washes the
+        # loss it was protecting. Narrow, but free — one indexed read per order.
+        if locked_asset_ids.include?(order_data[:ticker].base_asset_id)
+          Rails.logger.info("set_orders composition bot=#{id} event=order_wash_sale_locked #{order_log_fields(order_data)}")
+          next
+        end
+
         Rails.logger.info("set_orders composition bot=#{id} event=order_creating #{order_log_fields(order_data)}")
         result = create_order(order_data, amount_info)
         if result.failure?

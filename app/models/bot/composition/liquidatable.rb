@@ -205,7 +205,7 @@ module Bot::Composition::Liquidatable
     previous_lock = nil
     ActiveRecord::Base.transaction do
       start_liquidation_placement!(order_data[:ticker].base)
-      previous_lock = lock_buying!(asset_id, ticker: order_data[:ticker]) if loss
+      previous_lock = lock_buying!(asset_id) if loss # a claim Hash, or nil
     end
 
     result = begin
@@ -277,7 +277,12 @@ module Bot::Composition::Liquidatable
     :skipped
   end
 
+  # Every bot on the account, not just this one: the lock is the taxpayer's, so a resting buy
+  # anywhere on the account is what would undo this sale. Matched on the base SYMBOL, as it always
+  # has been — two venues naming one asset differently (XBT/BTC) is an asset-identity problem this
+  # check has never solved and does not solve here.
   def waiting_buy_for?(ticker)
-    transactions.waiting.where(side: :buy, base: ticker.base).exists?
+    Transaction.waiting.where(side: :buy, base: ticker.base)
+               .where(bot_id: user.bots.not_deleted.select(:id)).exists?
   end
 end

@@ -453,13 +453,14 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
 
   # == the wash-sale clock ==
 
+  def wash_lock = @bot.user.wash_sale_locks.find_by(asset: @assets['AAA'][:asset])
+
   def holding
     { symbol: 'AAA', ticker: @assets['AAA'][:ticker], amount: 2, quote_invested: 200, tax_basis: 200, current_value: 180 }
   end
 
   def choose_us
-    @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
   end
 
   # The lots say the 2 units cost 100 each. `amount` is what the sale submits: the exchange may hold
@@ -483,15 +484,17 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     choose_us
     placement_stubs(price: 90)
     seen_locked = nil
-    @bot.stubs(:create_order)
-        .with { seen_locked = @bot.bot_index_assets.first.reload.buy_locked? || true }
-        .returns(Result::Success.new(order_id: 'x'))
+    watcher = lambda do |*_args|
+      seen_locked = wash_lock&.reload&.buy_locked?
+      true
+    end
+    @bot.stubs(:create_order).with(&watcher).returns(Result::Success.new(order_id: 'x'))
     @bot.stubs(:persist_accepted_order!).returns(@bot.transactions.build)
     Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
 
     assert_equal :placed, @bot.send(:liquidate_holding!, holding, {})
     assert seen_locked, 'locked when the order went out'
-    assert_predicate @bot.bot_index_assets.first.reload, :buy_locked?
+    assert_predicate wash_lock.reload, :buy_locked?
     assert_equal 'AAA', @bot.bot_activity_logs.find_by(event: 'wash_sale_locked').details['base']
   end
 
@@ -505,20 +508,20 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
 
     @bot.send(:liquidate_holding!, holding, {})
 
-    assert_not_predicate @bot.bot_index_assets.first.reload, :buy_locked?
+    assert_not wash_lock&.reload&.buy_locked?
   end
 
   test 'a provable pre-transmission failure restores the previous deadline, not nothing' do
     index_membership('AAA')
     choose_us
     earlier = 5.days.from_now.beginning_of_day
-    @bot.bot_index_assets.first.update!(buy_locked_until: earlier) # an older sale's lock
+    WashSaleLock.create!(user: @bot.user, asset: @assets['AAA'][:asset], buy_locked_until: earlier) # an older sale's lock
     placement_stubs(price: 90)
     @bot.stubs(:create_order).raises(Client::TransientNetworkError.new('dns'))
 
     @bot.send(:liquidate_holding!, holding, {})
 
-    assert_equal earlier, @bot.bot_index_assets.first.reload.buy_locked_until, 'the older lock survives the failed second sale'
+    assert_equal earlier, wash_lock.reload.buy_locked_until, 'the older lock survives the failed second sale'
   end
 
   test 'a provable pre-transmission failure with no earlier lock leaves none' do
@@ -529,7 +532,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
 
     @bot.send(:liquidate_holding!, holding, {})
 
-    assert_nil @bot.bot_index_assets.first.reload.buy_locked_until
+    assert_nil wash_lock&.reload&.buy_locked_until
   end
 
   test 'an ambiguous outcome keeps the lock' do
@@ -539,7 +542,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     @bot.stubs(:create_order).raises(Client::AmbiguousPlacementError.new('timeout'))
 
     assert_equal :ambiguous, @bot.send(:liquidate_holding!, holding, {})
-    assert_predicate @bot.bot_index_assets.first.reload, :buy_locked?
+    assert_predicate wash_lock.reload, :buy_locked?
   end
 
   test 'a gain sale sets no lock' do
@@ -550,7 +553,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
 
     @bot.send(:liquidate_holding!, holding.merge(current_value: 220), {})
 
-    assert_not_predicate @bot.bot_index_assets.first.reload, :buy_locked?
+    assert_not wash_lock&.reload&.buy_locked?
   end
 
   test 'a sale of units whose cost we never learned is locked provisionally, kept on ambiguity, restored on a pre-transmission failure' do
@@ -561,12 +564,12 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
 
     @bot.stubs(:create_order).raises(Client::AmbiguousPlacementError.new('timeout'))
     assert_equal :ambiguous, @bot.send(:liquidate_holding!, holding, {})
-    assert_predicate @bot.bot_index_assets.first.reload, :buy_locked?, 'unknown reads as a loss, and an ambiguous sale keeps it'
+    assert_predicate wash_lock.reload, :buy_locked?, 'unknown reads as a loss, and an ambiguous sale keeps it'
 
-    @bot.bot_index_assets.first.update!(buy_locked_until: nil)
+    wash_lock.update!(buy_locked_until: nil)
     @bot.stubs(:create_order).raises(Client::TransientNetworkError.new('dns'))
     @bot.send(:liquidate_holding!, holding, {})
-    assert_nil @bot.bot_index_assets.first.reload.buy_locked_until, 'never left: restored to what was there, which was nothing'
+    assert_nil wash_lock.reload.buy_locked_until, 'never left: restored to what was there, which was nothing'
   end
 
   private

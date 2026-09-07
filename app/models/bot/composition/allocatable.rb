@@ -28,6 +28,7 @@ module Bot::Composition::Allocatable
   end
 
   def current_allocations
+    locked = locked_asset_ids
     bot_index_assets.in_index.includes(:asset, :ticker).order(target_allocation: :desc).map do |bia|
       {
         asset: bia.asset,
@@ -35,7 +36,7 @@ module Bot::Composition::Allocatable
         target_allocation: bia.target_allocation,
         current_allocation: bia.current_allocation,
         symbol: bia.asset.symbol,
-        locked: bia.buy_locked?
+        locked: locked.include?(bia.asset_id)
       }
     end
   end

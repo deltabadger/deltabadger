@@ -19,45 +19,9 @@
 module Bot::WashSaleGuard
   extend ActiveSupport::Concern
 
-  included do
-    store_accessor :settings, :wash_sale_enabled, :wash_sale_jurisdiction
-
-    validates :wash_sale_jurisdiction,
-              inclusion: { in: ->(_bot) { Tax::Jurisdictions.wash_sale_options.map(&:first) } },
-              allow_blank: true
-
-    # Outermost, like Bot::Rebalanceable's: the inner decorators .compact their result, which would
-    # strip a deliberate "unchecked" false back to "no change".
-    prepend(Module.new do
-      def parse_params(params)
-        parsed = super
-        return parsed unless params.respond_to?(:key?)
-
-        parsed[:wash_sale_enabled] = params[:wash_sale_enabled].presence&.in?(%w[1 true]) || false if params.key?(:wash_sale_enabled)
-        parsed[:wash_sale_jurisdiction] = params[:wash_sale_jurisdiction].presence if params.key?(:wash_sale_jurisdiction)
-        parsed
-      end
-    end)
-  end
-
-  def wash_sale_enabled?
-    ActiveModel::Type::Boolean.new.cast(wash_sale_enabled).present?
-  end
-
-  # Reader fallback, never a persisted default (the Bot::Rebalanceable pattern): the select always
-  # submits a value, so it needs one to render before the user has chosen, and writing one on load
-  # would dirty `settings` and trip Accountable#check_missed_quote_amount_was_set on the next save.
-  def wash_sale_jurisdiction
-    super.presence || Tax::Jurisdictions.wash_sale_options.first.first
-  end
-
-  # Days a sold-at-a-loss constituent stays locked; 0 while the rule is switched off. Every leg
-  # gates on this, so "off" and "no window" are the same state to all of them.
-  def wash_sale_days
-    return 0 unless wash_sale_enabled?
-
-    Tax::Jurisdictions.for(wash_sale_jurisdiction)&.dig(:wash_sale_days).to_i
-  end
+  # The setting lives on the taxpayer (User#wash_sale_days); this concern is the seam every trading
+  # leg talks to, so the legs never learn where it is stored.
+  delegate :wash_sale_days, to: :user
 
   # Buying resumes at the start of the day after the window.
   #
@@ -70,28 +34,47 @@ module Bot::WashSaleGuard
     (from + wash_sale_days + 1).beginning_of_day
   end
 
-  # Locks the constituent through the window that starts on `from`, never pulling an existing
-  # deadline in, and returns the previous deadline so the caller can put it back if the sale it
-  # guards provably never left (restore_buy_lock!). nil without a jurisdiction.
-  def lock_buying!(asset_id, ticker:, from: Time.zone.today)
+  # Locks the asset through the window that starts on `from`, never pulling an existing deadline in.
+  # Returns the CLAIM — what stood before, and the token this placement wrote — so the caller can
+  # put the first back if the sale it guards provably never left, and so the rollback can tell its
+  # own claim from somebody else's. nil while the rule is off.
+  def lock_buying!(asset_id, from: Time.zone.today)
     return if wash_sale_days.zero?
 
-    bia = lock_row_for(asset_id, ticker)
-    previous = bia.buy_locked_until
-    bia.update_column(:buy_locked_until, [previous, lock_deadline(from: from)].compact.max)
-    previous
+    lock = wash_sale_lock_for(asset_id)
+    previous = lock.buy_locked_until
+    token = SecureRandom.hex(8)
+    lock.update_columns(buy_locked_until: [previous, lock_deadline(from: from)].compact.max,
+                        claim_token: token)
+    { previous: previous, token: token }
   end
 
   # Rolls a provisional lock back to what stood before it — but never below what a FILL has
-  # confirmed. The fill path runs outside the trading semaphore, so a fill can land between a
-  # placement's provisional extension and its rollback, and even between a rollback's read and its
-  # write; so there is no read. ONE statement, and the floor is taken from the row inside it.
+  # confirmed, and never over somebody else's claim. The fill path runs outside the trading
+  # semaphore and the semaphore itself is PER VENUE, so between this placement's claim and its
+  # rollback the row can have been raised by a fill or by a second bot on another exchange. So there
+  # is no read: ONE statement, floored at the row's own confirmed deadline, and guarded on the CLAIM
+  # TOKEN this placement wrote. The token, not the deadline: two sales on the same day write the
+  # same deadline, so matching on the value would let a failed placement roll back a second,
+  # still-live one. Anyone raising the row since replaced the token, and the rollback is a no-op.
   # SQLite's scalar MAX is NULL when any argument is, hence the COALESCE; the datetimes are stored
   # as ISO text and compare as such.
-  def restore_buy_lock!(asset_id, previous)
-    bot_index_assets.where(asset_id: asset_id).update_all(
-      ['buy_locked_until = COALESCE(MAX(confirmed_locked_until, ?), confirmed_locked_until, ?)', previous, previous]
-    )
+  #
+  # ponytail: two OVERLAPPING claims that BOTH fail can leave a deadline with no sale behind it —
+  # A claims, B claims (recording A's deadline as its "previous"), A's rollback no-ops on the stale
+  # token, then B restores A's deadline. The name is then locked out of buying for a window nothing
+  # earned. Deliberate: the alternative error is releasing a lock that should hold, which washes a
+  # real loss, and this direction costs a month of not buying one name. A claims table — one row per
+  # outstanding placement, the effective deadline being the max of the live ones — removes it if it
+  # ever shows up in practice.
+  def restore_buy_lock!(asset_id, claim)
+    return if claim.blank?
+
+    user.wash_sale_locks
+        .where(asset_id: asset_id, claim_token: claim[:token])
+        .update_all(['buy_locked_until = COALESCE(MAX(confirmed_locked_until, ?), confirmed_locked_until, ?), ' \
+                     'claim_token = NULL',
+                     claim[:previous], claim[:previous]])
   end
 
   # From the fill: the sale really happened on `from`, so the window runs from there. Raises the
@@ -107,11 +90,14 @@ module Bot::WashSaleGuard
     ticker = tickers.find { |t| t.base == base }
     return false if ticker.nil?
 
-    bia = lock_row_for(ticker.base_asset_id, ticker)
+    lock = wash_sale_lock_for(ticker.base_asset_id)
     deadline = lock_deadline(from: from)
-    was = bia.buy_locked_until
-    bot_index_assets.where(id: bia.id).update_all(
-      ['confirmed_locked_until = COALESCE(MAX(confirmed_locked_until, ?), ?), buy_locked_until = COALESCE(MAX(buy_locked_until, ?), ?)',
+    was = lock.buy_locked_until
+    # Clears the claim token too: once a fill has confirmed this deadline, no placement's rollback
+    # may lower it.
+    WashSaleLock.where(id: lock.id).update_all(
+      ['confirmed_locked_until = COALESCE(MAX(confirmed_locked_until, ?), ?), ' \
+       'buy_locked_until = COALESCE(MAX(buy_locked_until, ?), ?), claim_token = NULL',
        deadline, deadline, deadline, deadline]
     )
     was.nil? || deadline > was
@@ -132,9 +118,11 @@ module Bot::WashSaleGuard
   end
 
   # Says the deadline actually on the row — an earlier sale's longer window wins over this sale's.
+  # Reads the TAXPAYER's lock: the composition row no longer carries one.
   def log_wash_sale_lock(base)
-    row = bot_index_assets.includes(:asset).find { |bia| bia.asset.symbol == base }
-    last_day = ((row&.buy_locked_until || lock_deadline) - 1.day).to_date
+    ticker = tickers.find { |t| t.base == base }
+    lock = ticker && user.wash_sale_locks.find_by(asset_id: ticker.base_asset_id)
+    last_day = ((lock&.buy_locked_until || lock_deadline) - 1.day).to_date
     log_activity('wash_sale_locked', level: :info, details: { base: base, until: last_day.iso8601 })
   end
 
@@ -166,24 +154,33 @@ module Bot::WashSaleGuard
     log_wash_sale_lock(order.base) if extend_buy_lock!(base: order.base, from: Time.zone.today)
   end
 
-  # The row a lock lives on. A holding the composition never recorded — seeded by hand, or a legacy
-  # row — is sellable all the same, and its lock needs a home, or the day it enters the index it
-  # is bought back unprotected. Created as a quitter; the next composition refresh flips in_index
-  # if it belongs (update_bot_index_assets never touches buy_locked_until).
-  def lock_row_for(asset_id, ticker)
-    bot_index_assets.find_or_create_by!(asset_id: asset_id) do |row|
-      row.ticker = ticker
-      row.in_index = false
-      row.exited_at = Time.current
-    end
+  # The row a lock lives on: one per taxpayer and asset, created on demand.
+  def wash_sale_lock_for(asset_id)
+    user.wash_sale_locks.find_or_create_by!(asset_id: asset_id)
   end
 
-  # Every constituent under a lock, member or quitter, as the tables render it. days_left is the
-  # number of days until buying resumes.
+  # The asset ids this taxpayer may not buy right now, for the buy legs. Empty while the rule is
+  # off: switching it off must release buying immediately, and the stored deadlines stay so
+  # switching it back on resumes the windows already running. NOT memoised — a leg that locks and
+  # then re-reads within one job must see its own write.
+  def locked_asset_ids(now = Time.current)
+    return Set.new if wash_sale_days.zero?
+
+    user.wash_sale_locks.live(now).pluck(:asset_id).to_set
+  end
+
+  # The locked names THIS bot has something to say about — a member or a holding it recorded. A lock
+  # on an asset only another bot ever held is the account view's business, not this panel's.
   def locked_members(now: Time.current)
-    bot_index_assets.where('buy_locked_until > ?', now).includes(:asset).map do |bia|
-      { symbol: bia.asset.symbol, days_left: (bia.buy_locked_until.to_date - now.to_date).to_i,
-        until: bia.buy_locked_until, in_index: bia.in_index }
+    return [] if wash_sale_days.zero?
+
+    known = bot_index_assets.includes(:asset).index_by(&:asset_id)
+    user.wash_sale_locks.live(now).includes(:asset).filter_map do |lock|
+      row = known[lock.asset_id]
+      next if row.nil?
+
+      { symbol: lock.asset.symbol, days_left: (lock.buy_locked_until.to_date - now.to_date).to_i,
+        until: lock.buy_locked_until, in_index: row.in_index }
     end
   end
 end
