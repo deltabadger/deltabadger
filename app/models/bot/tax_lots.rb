@@ -48,21 +48,24 @@ module Bot::TaxLots
   # rubocop:disable Style/ReturnNilInPredicateMethodDefinition -- three-valued on purpose: nil is
   # "unknown", which the wash-sale guard must not read as "no loss".
   def loss_in?(lots, amount, proceeds)
-    remaining = amount.to_d
-    return false unless remaining.positive?
+    total = amount.to_d
+    return false unless total.positive?
 
-    price = proceeds.to_d / remaining
+    remaining = total
     unknown = false
     lots.each do |lot|
       break unless remaining.positive?
 
-      take = [lot[:amount], remaining].min
+      # Cross-multiplied, never divided: the consumed slice loses when
+      #   proceeds x (take / total) < lot cost x (take / lot amount),
+      # and `take` cancels. Comparing rounded per-unit figures instead made a break-even sale — 100
+      # for a lot of three that cost 100 — read as a loss and lock the name for a whole window.
       if lot[:cost].nil?
         unknown = true
-      elsif take * price < lot[:cost] * (take / lot[:amount])
+      elsif proceeds.to_d * lot[:amount] < lot[:cost] * total
         return true
       end
-      remaining -= take
+      remaining -= [lot[:amount], remaining].min
     end
     unknown ? nil : false
   end

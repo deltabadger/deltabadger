@@ -87,10 +87,20 @@ module Bot::Composition::Measurable
         # bot no longer holds. Proceeds unknown: assumed equal to the basis those units carried, so
         # the sale is P/L-neutral until the venue reports them (a later poll that does recomputes
         # this walk from the row). Applied whatever the order's price says, and WITHOUT touching the
-        # asset's last mark or the chart: an unpriced sale has no price to mark anything with.
+        # asset's last mark: an unpriced sale has no price to mark anything with.
         if side == 'sell' && amount_exec.to_d.positive? && !raw_quote_exec.to_d.positive?
           apply_fill(ledger, books, key: base, side:, transaction_type:,
                                     amount_exec:, quote_amount_exec: basis_share(ledger, base, amount_exec))
+          # A chart point, at the marks that already stand: without one the last snapshot still holds
+          # the units this sale removed, and chart_marked_at_market keeps pricing them at market for
+          # the whole segment after it. Both sides move together, so the curve gains a vertex, not a
+          # step — the same reasoning as a split's point in apply_due_splits.
+          data[:chart][:labels] << created_at
+          data[:chart][:series][0] << portfolio_value(ledger_value(ledger, asset_prices), books)
+          data[:chart][:series][1] << invested_total(books)
+          data[:chart][:extra_series] << ledger.transform_values { |entry| entry[:amount] }
+          data[:chart][:invested_series] << ledger.transform_values { |entry| entry[:invested] }
+          (data[:chart][:cash_series] ||= []) << uninvested_cash(books)
           next
         end
 

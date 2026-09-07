@@ -360,6 +360,33 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     assert_predicate @bot.bot_index_assets.find_by(asset: @assets['AAA'][:asset]), :buy_locked?
   end
 
+  test 'a later failed sale never rolls back the lock an earlier, resolved one left' do
+    # Sale 1 halts with an unknown outcome and the user clears it by hand; its lock must stand,
+    # because that sale may well have executed. Sale 2 is a different name, at a gain, and provably
+    # never reaches the venue — its rollback belongs to itself.
+    index_membership('AAA' => 0.5, 'BBB' => 0.5)
+    @bot.set_missed_quote_amount
+    @bot.update!(wash_sale_jurisdiction: 'US')
+    @bot.stubs(:metrics).returns(asset_breakdown: {}, asset_lots: { 'AAA' => [{ amount: 2.to_d, cost: 200.to_d }] })
+    @bot.stubs(:calculate_best_amount_info).returns(below_minimum_amount: false)
+    @bot.stubs(:rebalance_sell_order_data).returns(ticker: @assets['AAA'][:ticker], price: 80, amount: 1.to_d,
+                                                   quote_amount: 80.to_d, side: :sell, order_type: :market_order,
+                                                   transaction_type: 'REBALANCE')
+    @bot.stubs(:create_order).raises(Client::AmbiguousPlacementError.new('timeout'))
+    @bot.send(:start_rebalance!)
+    locked_until = @bot.bot_index_assets.find_by(asset: @assets['AAA'][:asset]).buy_locked_until
+    assert locked_until, 'the ambiguous sale locked the name'
+    @bot.clear_rebalance_pending! # what the resolution controller does
+
+    @bot.stubs(:rebalance_sell_order_data).returns(ticker: @assets['BBB'][:ticker], price: 200, amount: 1.to_d,
+                                                   quote_amount: 200.to_d, side: :sell, order_type: :market_order,
+                                                   transaction_type: 'REBALANCE')
+    @bot.stubs(:create_order).raises(Client::TransientNetworkError.new('dns'))
+    @bot.send(:start_rebalance!)
+
+    assert_equal locked_until, @bot.bot_index_assets.find_by(asset: @assets['AAA'][:asset]).buy_locked_until
+  end
+
   test 'a rebalance sell of units whose cost we never learned is locked all the same' do
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
     @bot.set_missed_quote_amount

@@ -59,11 +59,12 @@ module Bot::Rebalancer
     loss = respond_to?(:sell_at_loss?) && sell_at_loss?(order_data)
     ActiveRecord::Base.transaction do
       set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_SELLING)
-      if loss
-        previous = lock_buying!(order_data[:ticker].base_asset_id, ticker: order_data[:ticker])
-        merge_transient_data!(rebalance_previous_lock: previous&.iso8601,
-                              rebalance_locked_asset_id: order_data[:ticker].base_asset_id)
-      end
+      previous = (lock_buying!(order_data[:ticker].base_asset_id, ticker: order_data[:ticker]) if loss)
+      # Always rewritten, never inherited (nil deletes the key). They describe what THIS attempt may
+      # undo. A previous attempt whose outcome was unknown keeps its lock for good — it may well
+      # have sold — so its keys must not survive to be consumed by a later, unrelated failure.
+      merge_transient_data!(rebalance_previous_lock: (previous&.iso8601 if loss),
+                            rebalance_locked_asset_id: (order_data[:ticker].base_asset_id if loss))
     end
     place_rebalance_order(order_data, phase: Bot::Rebalanceable::PHASE_SELLING, loss: loss)
   end

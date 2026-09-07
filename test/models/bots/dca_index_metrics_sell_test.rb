@@ -217,6 +217,23 @@ class Bots::DcaIndexMetricsSellTest < ActiveSupport::TestCase
     end
   end
 
+  test 'an unpriced sale records a chart point, so the curve stops pricing units the bot no longer holds' do
+    # Without a point here the last snapshot still holds two units, and chart_marked_at_market prices
+    # both of them at market for the whole segment after the sale — while the ledger says one unit
+    # and the released basis as cash.
+    buy('AAA', quote: 200, price: 100)
+    create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted, external_status: :closed,
+                         external_id: 'u-chart', side: :sell, transaction_type: 'LIQUIDATION', base: 'AAA',
+                         quote: @bot.quote_asset.symbol, price: 90, amount: 2, amount_exec: 1, quote_amount: 180, quote_amount_exec: nil)
+
+    data = @bot.metrics(force: true)
+    assert_equal 2, data[:chart][:labels].size, 'the sale is a point like any other fill'
+    assert_in_delta 1, data[:chart][:extra_series].last['AAA'].to_f, 0.0001
+    assert_in_delta 100, data[:chart][:invested_series].last['AAA'].to_f, 0.0001
+    assert_in_delta 100, data[:chart][:cash_series].last.to_f, 0.0001
+    assert_in_delta 200, data[:chart][:series][0].last.to_f, 0.01, 'a vertex, not a step: no mark moved'
+  end
+
   test 'a cancelled partial buy with no reported proceeds still opens its lot, at the order price' do
     create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted, external_status: :cancelled,
                          external_id: 'b-2', side: :buy, transaction_type: 'REGULAR', base: 'AAA',

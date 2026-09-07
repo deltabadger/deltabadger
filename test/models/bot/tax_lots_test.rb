@@ -34,6 +34,15 @@ class Bot::TaxLotsTest < ActiveSupport::TestCase
     assert_not Bot::TaxLots.loss_in?([], 1.to_d, 10.to_d), 'units the bot never bought carry no loss'
   end
 
+  # 100 / 3 is not exact, and multiplying the rounded per-unit price back by the quantity lands just
+  # under the cost — which read as a loss and locked the name out of buying for a whole window.
+  test 'a break-even sale is not a loss, whatever the division rounds to' do
+    lots = [{ amount: 3.to_d, cost: 100.to_d }]
+
+    assert_not Bot::TaxLots.loss_in?(lots, 3.to_d, 100.to_d), 'the proceeds are exactly the lot cost'
+    assert Bot::TaxLots.loss_in?(lots, 3.to_d, '99.99'.to_d), 'a penny under is still a loss'
+  end
+
   test 'a lot of unknown cost makes the verdict unknown, never a gain' do
     lots = [{ amount: 1.to_d, cost: nil }, { amount: 1.to_d, cost: 100.to_d }]
 
