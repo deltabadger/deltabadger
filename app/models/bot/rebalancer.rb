@@ -50,7 +50,7 @@ module Bot::Rebalancer
     # inside any wash-sale window, and pointlessly otherwise. The liquidation leg has always refused
     # this (waiting_buy_for?); a rebalance sell must too. Silent, like below-minimum: it repeats
     # every poll until the buy settles or is cancelled.
-    return Result::Success.new(skipped: :open_buy) if transactions.waiting.where(side: :buy, base: order_data[:ticker].base).exists?
+    return Result::Success.new(skipped: :open_buy) if waiting_buy_blocks_sell?(order_data[:ticker])
 
     # Intent BEFORE the network call, and the wash-sale lock with it in one transaction (see
     # Bot::WashSaleGuard): a worker that dies mid-placement must leave evidence that blocks a new
@@ -67,6 +67,24 @@ module Bot::Rebalancer
                             rebalance_locked_asset_id: (order_data[:ticker].base_asset_id if loss))
     end
     place_rebalance_order(order_data, phase: Bot::Rebalanceable::PHASE_SELLING, loss: loss)
+  end
+
+  # The row is REFRESHED before it is believed. This leg runs while the DCA schedule is stopped, and
+  # on a stopped bot nothing else polls a resting DCA order — the tick's own sweep never runs, and
+  # advance_waiting_orders! deliberately fires only for a waiting LIQUIDATION row. A guard that
+  # trusted a stale `open` would stand rebalancing down for good. Gated on the row existing, so a
+  # bot without one pays no exchange read; a failed refresh leaves the guard on, which is the safe
+  # side.
+  def waiting_buy_blocks_sell?(ticker)
+    scope = transactions.waiting.where(side: :buy, base: ticker.base)
+    return false unless scope.exists?
+
+    begin
+      Bot::FetchAndUpdateOpenOrdersJob.perform_now(self, update_missed_quote_amount: true)
+    rescue StandardError => e
+      Rails.logger.warn("rebalance waiting-buy refresh failed bot=#{id}: #{e.message}")
+    end
+    scope.exists?
   end
 
   # Undo the provisional lock of a sell that provably never left. Idempotent: no key, nothing to do.
