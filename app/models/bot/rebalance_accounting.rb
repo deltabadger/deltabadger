@@ -34,6 +34,20 @@ module Bot::RebalanceAccounting
     books[:cash] += quote_amount_exec
   end
 
+  # A sell the venue executed but did not price. The units are gone, so they leave the ledger, and
+  # the basis they carried is parked as an ESTIMATE of what the position was worth — proceeds
+  # assumed equal to that basis, so P/L does not move until the venue reports the real figure.
+  #
+  # Its own bucket, never realised_cash, because realised_cash is spendable: it caps the redeploy
+  # offer, and an estimate that lifted that cap — or that shielded it from a later buy's drain —
+  # would offer money no sale is known to have brought in. Counted in value and in uninvested cash
+  # like any other idle money, absorbed by a later regular buy AFTER every confirmed bucket, and
+  # carrying its basis with it when it goes.
+  def apply_unpriced_sell(ledger, books, key:, amount_exec:, quote_amount_exec:)
+    books[:estimated_basis] += release_basis(ledger, books, key:, amount_exec:, quote_amount_exec:)
+    books[:estimated_cash] += quote_amount_exec
+  end
+
   # The one sell that realizes: nothing buys these proceeds back, so the gain or loss against the
   # released basis is locked in. Negative when the asset sold below cost.
   #
@@ -76,7 +90,12 @@ module Bot::RebalanceAccounting
     from_flight, moved_basis = drain_flight_cash(books, quote_amount_exec)
     from_realised = [books[:realised_cash], quote_amount_exec - from_flight].min
     books[:realised_cash] -= from_realised
-    new_money = quote_amount_exec - from_flight - from_realised
+    # LAST of the recycled buckets, after both confirmed ones. Draining an estimate ahead of
+    # confirmed proceeds would leave those proceeds reading as unspent, and the redeploy offer would
+    # put them back on the table.
+    from_estimated, estimated_basis = drain_estimated_cash(books, quote_amount_exec - from_flight - from_realised)
+    moved_basis += estimated_basis
+    new_money = quote_amount_exec - from_flight - from_realised - from_estimated
     books[:contributed] += new_money
     # The flight portion books the basis that TRAVELLED WITH the cash, not the cash itself — exactly
     # what apply_rebalance_buy does, and for the same reason: a swap's embedded gain stays unrealised
@@ -146,7 +165,7 @@ module Bot::RebalanceAccounting
   # later buy drains the bucket. Portfolio value is therefore cumulative performance value: holdings
   # plus proceeds not yet redeployed.
   def portfolio_value(values_sum, books)
-    values_sum + books[:cash] + books[:realised_cash]
+    values_sum + books[:cash] + books[:realised_cash] + books[:estimated_cash]
   end
 
   def realised_pnl(books)
@@ -158,11 +177,12 @@ module Bot::RebalanceAccounting
   # candle marking reads it back, and without it every point after a sale is re-marked as if the
   # proceeds had vanished.
   def uninvested_cash(books)
-    books[:cash] + books[:realised_cash]
+    books[:cash] + books[:realised_cash] + books[:estimated_cash]
   end
 
   def new_rebalance_books
-    { basis: 0, cash: 0, contributed: 0, realised_cash: 0, realised_pnl: 0 }
+    { basis: 0, cash: 0, contributed: 0, realised_cash: 0, realised_pnl: 0,
+      estimated_basis: 0, estimated_cash: 0 }
   end
 
   # Lives on Transaction — the rule is about how to read one row, and the chart marks need it on
@@ -209,5 +229,18 @@ module Bot::RebalanceAccounting
     books[:basis] -= moved_basis
     books[:cash] -= from_flight
     [from_flight, moved_basis]
+  end
+
+  # The same drain for the unpriced-sale estimate. Its paired basis travels with it, exactly as a
+  # swap's does — and here the pairing is exact by construction, since the estimate IS that basis.
+  def drain_estimated_cash(books, spendable)
+    cash = books[:estimated_cash].to_d
+    return [0.to_d, 0.to_d] unless cash.positive? && spendable.to_d.positive?
+
+    taken = [cash, spendable.to_d].min
+    moved_basis = books[:estimated_basis] * (taken / cash)
+    books[:estimated_basis] -= moved_basis
+    books[:estimated_cash] -= taken
+    [taken, moved_basis]
   end
 end
