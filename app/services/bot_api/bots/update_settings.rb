@@ -103,6 +103,10 @@ module BotApi
             bot.public_send("#{key}=", value)
           end
         end
+        # An explicit count is a fixed count; a count at the ceiling means the whole universe. The
+        # settings form says this with the slider's own ceiling (Bots::DcaIndex#parse_params); over
+        # the API the universe is the only ceiling there is.
+        bot.hold_all = updates[:num_coins].to_i >= bot.max_coins if updates.key?(:num_coins) && bot.respond_to?(:hold_all=)
         bot.set_missed_quote_amount if bot.respond_to?(:set_missed_quote_amount) # a signal bot has no carry
       end
 

@@ -29,7 +29,8 @@ class Bots::DcaIndex < Bot
                  :hold_all           # Intent: hold the whole universe of a bounded index
 
   validates :quote_amount, presence: true, numericality: { greater_than: 0 }
-  validates :num_coins, presence: true, numericality: { greater_than_or_equal_to: MIN_COINS, less_than_or_equal_to: :max_coins }
+  validates :num_coins, presence: true,
+                        numericality: { greater_than_or_equal_to: MIN_COINS, less_than_or_equal_to: :validation_max_coins }
   validates :allocation_flattening, presence: true, numericality: { greater_than_or_equal_to: 0, less_than_or_equal_to: 1 }
   validates :index_type, presence: true, inclusion: { in: [INDEX_TYPE_TOP, INDEX_TYPE_CATEGORY] }
   # Both contexts, one registration: Rails dedupes validation callbacks by filter symbol, so a
@@ -350,8 +351,20 @@ class Bots::DcaIndex < Bot
   # Crypto "Top"/coingecko categories are not bounded this way and are left untouched.
   def clamp_num_coins_to_bounded_index
     return if num_coins.blank? || bounded_universe_size.nil?
+    # A bot that holds the whole universe keeps the count it was saved with. Rewriting it on a
+    # one-day shrink would dirty the settings of a save that never touched them — which
+    # Bot::Accountable refuses outright, leaving the bot unable even to mark itself executing — and
+    # what such a bot trades is effective_num_coins, the live universe size, not this number.
+    return if holds_whole_universe?
 
     self.num_coins = bounded_universe_size if num_coins.to_i > bounded_universe_size
+  end
+
+  # The ceiling the record is judged against. Same as the slider's, except for a bot holding the
+  # whole universe: its stored count is the size the universe had when it was saved, and a shrink
+  # must not turn the bot invalid.
+  def validation_max_coins
+    holds_whole_universe? ? [max_coins, num_coins.to_i].max : max_coins
   end
 
   def exchange_supports_current_assets?

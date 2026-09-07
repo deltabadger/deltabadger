@@ -21,45 +21,49 @@ module Bot::Composition::OrderSetter
     orders_data = result.data
     skipped = []
     placed = 0
-    orders_data.each do |order_data|
-      if order_data[:amount].zero?
-        Rails.logger.info("set_orders composition bot=#{id} event=order_ignored #{order_log_fields(order_data)}")
-        log_activity('order_ignored', details: order_log_details(order_data))
-        next
-      end
+    # ensure, so the names under the venue floor are reported whichever way the loop leaves: the
+    # success path, the failure return, or a placement that raises.
+    begin
+      orders_data.each do |order_data|
+        if order_data[:amount].zero?
+          Rails.logger.info("set_orders composition bot=#{id} event=order_ignored #{order_log_fields(order_data)}")
+          log_activity('order_ignored', details: order_log_details(order_data))
+          next
+        end
 
-      amount_info = calculate_best_amount_info(order_data)
-      if amount_info[:below_minimum_amount]
-        Rails.logger.info("set_orders composition bot=#{id} event=order_skipped #{order_log_fields(order_data)}")
-        skipped << order_data
-        next
-      end
+        amount_info = calculate_best_amount_info(order_data)
+        if amount_info[:below_minimum_amount]
+          Rails.logger.info("set_orders composition bot=#{id} event=order_skipped #{order_log_fields(order_data)}")
+          skipped << order_data
+          next
+        end
 
-      Rails.logger.info("set_orders composition bot=#{id} event=order_creating #{order_log_fields(order_data)}")
-      result = create_order(order_data, amount_info)
-      if result.failure?
-        Rails.logger.error(
-          "set_orders composition bot=#{id} event=order_failed #{order_log_fields(order_data)} " \
-          "errors=#{result.errors.to_sentence}"
-        )
-        # A -1021/timestamp rejection is a no-op pre-trade rejection: no order was placed, so don't
-        # leave a misleading `failed` Transaction row. The bot reschedules cleanly (Bot::ActionJob).
-        create_failed_order!(order_data.merge!(error_messages: result.errors)) unless exchange.placement_transient_error?(result.errors)
-        record_skipped_orders!(skipped, placed_any: placed.positive?)
-        return result
-      else
-        placed += 1
-        order_id = result.data[:order_id]
-        Rails.logger.info("set_orders composition bot=#{id} event=order_accepted order_id=#{order_id} #{order_log_fields(order_data)}")
-        transaction = persist_accepted_order!(order_data, order_id)
-        Bot::FetchAndUpdateOrderJob.perform_later(
-          transaction,
-          update_missed_quote_amount: update_missed_quote_amount
-        )
+        Rails.logger.info("set_orders composition bot=#{id} event=order_creating #{order_log_fields(order_data)}")
+        result = create_order(order_data, amount_info)
+        if result.failure?
+          Rails.logger.error(
+            "set_orders composition bot=#{id} event=order_failed #{order_log_fields(order_data)} " \
+            "errors=#{result.errors.to_sentence}"
+          )
+          # A -1021/timestamp rejection is a no-op pre-trade rejection: no order was placed, so don't
+          # leave a misleading `failed` Transaction row. The bot reschedules cleanly (Bot::ActionJob).
+          create_failed_order!(order_data.merge!(error_messages: result.errors)) unless exchange.placement_transient_error?(result.errors)
+          return result
+        else
+          placed += 1
+          order_id = result.data[:order_id]
+          Rails.logger.info("set_orders composition bot=#{id} event=order_accepted order_id=#{order_id} #{order_log_fields(order_data)}")
+          transaction = persist_accepted_order!(order_data, order_id)
+          Bot::FetchAndUpdateOrderJob.perform_later(
+            transaction,
+            update_missed_quote_amount: update_missed_quote_amount
+          )
+        end
       end
+    ensure
+      record_skipped_orders!(skipped, placed_any: placed.positive?)
     end
 
-    record_skipped_orders!(skipped, placed_any: placed.positive?)
     Result::Success.new
   end
 

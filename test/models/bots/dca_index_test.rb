@@ -705,4 +705,28 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
 
     assert_equal 101, bot.current_index_preview.size
   end
+
+  test 'a shrinking universe does not rewrite the stored count' do
+    # The clamp runs before every validation, so rewriting num_coins here would dirty the settings of
+    # a save that never touched them — and Bot::Accountable refuses a settings change the caller did
+    # not prepare, which would leave the bot unable even to mark itself executing.
+    index = Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER,
+                          name: 'ND100', top_coins: (1..101).map { |i| "s#{i}" })
+    bot = build(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'nasdaq-100'
+    bot.num_coins = 101
+    bot.hold_all = true
+    bot.set_missed_quote_amount
+    bot.save!
+
+    index.update!(top_coins: (1..99).map { |i| "s#{i}" })
+    bot = Bots::DcaIndex.find(bot.id)
+    bot.status = :executing
+
+    assert bot.valid?, bot.errors.full_messages.to_sentence
+    assert_equal 101, bot.settings['num_coins'], 'the clamp leaves a whole-universe bot alone'
+    assert_equal 99, bot.effective_num_coins, 'it holds what the universe publishes today'
+    assert bot.hold_all?, 'and still intends to hold all of it when the universe recovers'
+  end
 end

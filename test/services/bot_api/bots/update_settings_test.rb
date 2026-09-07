@@ -76,4 +76,20 @@ class BotApi::Bots::UpdateSettingsTest < ActiveSupport::TestCase
     assert_equal 'Renamed', bot.label
     assert_equal 'no_updates_provided', BotApi::Bots::UpdateSettings.call(user: @user, bot_id: bot.id).error_code
   end
+
+  test 'a count from the API is a fixed count, one at the ceiling is the whole universe' do
+    create(:index, external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER, name: 'ND100',
+                   top_coins: (1..101).map { |i| "s#{i}" })
+    bot = create(:dca_index, user: @user, status: :stopped)
+    bot.update_columns(settings: bot.settings.merge('index_type' => 'category', 'index_category_id' => 'nasdaq-100',
+                                                    'num_coins' => 101, 'hold_all' => true))
+    bot = Bots::DcaIndex.find(bot.id)
+
+    assert BotApi::Bots::UpdateSettings.call(user: @user, bot_id: bot.id, num_coins: 7).success?
+    assert_equal 7, bot.reload.effective_num_coins, 'trimmed to seven, so it holds seven'
+    assert_not bot.hold_all?
+
+    assert BotApi::Bots::UpdateSettings.call(user: @user, bot_id: bot.id, num_coins: 101).success?
+    assert bot.reload.hold_all?, 'and back at the ceiling it follows the universe again'
+  end
 end
