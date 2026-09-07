@@ -53,8 +53,17 @@ module Tax
     # guard: [[code, name, days], ...]. US §1091 disallows the loss (30 days); the UK's 30-day
     # bed-and-breakfast rule matches the repurchase against the disposal, which cancels it; Ireland's
     # four-week rule restricts it. Denmark's rule is a different mechanism with no window.
+    #
+    # US first, not registry order: the FIRST entry is what a bot shows before the user has chosen,
+    # so it is the one a freshly switched-on rule adopts — and "wash sale" is the American term for
+    # the American rule, so it is the least surprising default to land on.
+    WASH_SALE_ORDER = %w[US GB IE].freeze
+
     def self.wash_sale_options
-      REGISTRY.filter_map { |code, j| [code, j[:name], j[:wash_sale_days]] if j[:wash_sale_days] }
+      WASH_SALE_ORDER.filter_map do |code|
+        j = REGISTRY[code]
+        [code, j[:name], j[:wash_sale_days]] if j && j[:wash_sale_days]
+      end
     end
 
     def self.available

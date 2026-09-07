@@ -242,8 +242,7 @@ de:
             resolved: "Unbestätigter Verkauf zurückgesetzt."
         settings:
             wash_sale:
-                sentence_html: "Nach einem Verkauf mit Verlust %{select_html} warten, bevor dieses Asset wieder gekauft wird"
-                none: "nicht"
+                sentence_html: "Wash Sales vermeiden: nach einem Verkauf mit Verlust %{select_html} warten"
                 option: "%{days} Tage · %{country}"
                 note: "Das Asset bleibt so lange aus jedem Kauf heraus — aus dem regelmäßigen, aus dem Rebalancing und aus der Wiederanlage — und wird danach als am stärksten untergewichteter Wert zurückgekauft. Gezählt werden nur die Trades dieses Bots; ein Kauf desselben Assets durch einen anderen Bot, von Hand oder anderswo zählt für die Regel genauso."
             rebalance:

@@ -459,7 +459,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
 
   def choose_us
     @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_jurisdiction: 'US')
+    @bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
   end
 
   # The lots say the 2 units cost 100 each. `amount` is what the sale submits: the exchange may hold

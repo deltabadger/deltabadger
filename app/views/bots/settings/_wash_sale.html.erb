@@ -1,29 +1,42 @@
-<%# The wash-sale window. NOT a rule with a toggle, and deliberately not styled as one: the other
-    widgets in this column are triggers the bot can be switched on and off, while this is a fact
-    about the user's tax residence that the sale legs consult. "No time" is the off position and it
-    is right there in the dropdown, so a toggle would be a second switch for the same state — and
-    an inactive-looking rule with no toggle reads as broken rather than as off. Always painted
-    active, so the select looks like the live control it is. %>
-<% options = [[t('bot.settings.wash_sale.none'), '']] +
-             Tax::Jurisdictions.wash_sale_options.map { |code, name, days| [t('bot.settings.wash_sale.option', country: name, days: days), code] } %>
-<% current = bot.wash_sale_days.positive? ? t('bot.settings.wash_sale.option', country: Tax::Jurisdictions.for(bot.wash_sale_jurisdiction)[:name], days: bot.wash_sale_days) : t('bot.settings.wash_sale.none') %>
-<%= form_with model: bot, url: path, method: method,
-              class: 'widget rule rule--active',
-              data: { controller: 'form--submit', turbo_stream: true } do |f| %>
-  <div class="toggle-group__info">
-    <%# A div, not f.label: the sentence contains a select, and a select inside a label breaks focus.
-        The note goes INSIDE the conversational sentence, as every other widget's does — the flex row
-        that wraps it is what puts it on its own full-width line instead of in a second column. %>
-    <div class="conversational conversational--small">
-      <% select_html = capture do %>
-        <div class="sinput sinput--select">
-          <%= current %>
-          <%= f.select :wash_sale_jurisdiction, options, { selected: bot.wash_sale_jurisdiction.to_s },
-                       data: { action: "change->form--submit#submit" } %>
+<%# The wash-sale window: a rule like its neighbours, switched on and off by its toggle. The select
+    carries only WHICH window, never whether there is one — off and "no window" are the same state,
+    and offering both would be two switches for it. %>
+<% active = bot.wash_sale_enabled? %>
+<% options = Tax::Jurisdictions.wash_sale_options.map { |code, name, days| [t('bot.settings.wash_sale.option', country: name, days: days), code] } %>
+<% current = t('bot.settings.wash_sale.option', country: Tax::Jurisdictions.for(bot.wash_sale_jurisdiction)[:name],
+                                                days: Tax::Jurisdictions.for(bot.wash_sale_jurisdiction)[:wash_sale_days]) %>
+<%= form_with model: bot,
+              url: path,
+              method: method,
+              class: "widget rule #{active ? 'rule--active' : 'rule--inactive'}",
+              data: {
+                controller: "class-toggle form--submit",
+                class_toggle_target: "togglable",
+                class_toggle_toggle_classes_value: ["rule--active", "rule--inactive"],
+                turbo_stream: true
+              } do |f| %>
+  <div class="toggle-group">
+    <div class="toggle">
+      <%= f.check_box :wash_sale_enabled, data: { action: "change->form--submit#submit change->class-toggle#toggle" } %>
+      <div class="toggle__style"></div>
+    </div>
+    <div class="toggle-group__info">
+      <div class="toggle-group__info__label">
+        <%# A div, not f.label: the sentence contains a select, and a select inside a label breaks focus.
+            The note goes INSIDE the conversational sentence, as every other widget's does — the flex
+            row that wraps it is what puts it on its own full-width line. %>
+        <div class="conversational conversational--small conversational--disabled">
+          <% select_html = capture do %>
+            <div class="sinput sinput--select">
+              <%= current %>
+              <%= f.select :wash_sale_jurisdiction, options, { selected: bot.wash_sale_jurisdiction },
+                           data: { action: "change->form--submit#submit" } %>
+            </div>
+          <% end %>
+          <%= t('bot.settings.wash_sale.sentence_html', select_html: select_html).html_safe %>
+          <small class="small-info"><%= t('bot.settings.wash_sale.note') %></small>
         </div>
-      <% end %>
-      <%= t('bot.settings.wash_sale.sentence_html', select_html: select_html).html_safe %>
-      <small class="small-info"><%= t('bot.settings.wash_sale.note') %></small>
+      </div>
     </div>
   </div>
 <% end %>

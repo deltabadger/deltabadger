@@ -2,7 +2,7 @@ require 'test_helper'
 require 'yaml'
 
 class Bot::WashSaleLocalesTest < ActiveSupport::TestCase
-  KEYS = %w[sentence_html none option note].freeze
+  KEYS = %w[sentence_html option note].freeze
 
   test 'every available_locale carries the wash-sale widget keys in its own bot.<locale>.yml' do
     I18n.available_locales.each do |locale|

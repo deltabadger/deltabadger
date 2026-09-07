@@ -20,26 +20,42 @@ module Bot::WashSaleGuard
   extend ActiveSupport::Concern
 
   included do
-    store_accessor :settings, :wash_sale_jurisdiction
+    store_accessor :settings, :wash_sale_enabled, :wash_sale_jurisdiction
 
     validates :wash_sale_jurisdiction,
               inclusion: { in: ->(_bot) { Tax::Jurisdictions.wash_sale_options.map(&:first) } },
               allow_blank: true
 
     # Outermost, like Bot::Rebalanceable's: the inner decorators .compact their result, which would
-    # strip a deliberate "None" (nil) back to "no change".
+    # strip a deliberate "unchecked" false back to "no change".
     prepend(Module.new do
       def parse_params(params)
         parsed = super
-        return parsed unless params.respond_to?(:key?) && params.key?(:wash_sale_jurisdiction)
+        return parsed unless params.respond_to?(:key?)
 
-        parsed.merge(wash_sale_jurisdiction: params[:wash_sale_jurisdiction].presence)
+        parsed[:wash_sale_enabled] = params[:wash_sale_enabled].presence&.in?(%w[1 true]) || false if params.key?(:wash_sale_enabled)
+        parsed[:wash_sale_jurisdiction] = params[:wash_sale_jurisdiction].presence if params.key?(:wash_sale_jurisdiction)
+        parsed
       end
     end)
   end
 
-  # Days a sold-at-a-loss constituent stays locked; 0 when no jurisdiction is chosen.
+  def wash_sale_enabled?
+    ActiveModel::Type::Boolean.new.cast(wash_sale_enabled).present?
+  end
+
+  # Reader fallback, never a persisted default (the Bot::Rebalanceable pattern): the select always
+  # submits a value, so it needs one to render before the user has chosen, and writing one on load
+  # would dirty `settings` and trip Accountable#check_missed_quote_amount_was_set on the next save.
+  def wash_sale_jurisdiction
+    super.presence || Tax::Jurisdictions.wash_sale_options.first.first
+  end
+
+  # Days a sold-at-a-loss constituent stays locked; 0 while the rule is switched off. Every leg
+  # gates on this, so "off" and "no window" are the same state to all of them.
   def wash_sale_days
+    return 0 unless wash_sale_enabled?
+
     Tax::Jurisdictions.for(wash_sale_jurisdiction)&.dig(:wash_sale_days).to_i
   end
 

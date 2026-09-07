@@ -228,8 +228,7 @@ pt:
             resolved: "Venda por confirmar limpa."
         settings:
             wash_sale:
-                sentence_html: "Depois de vender com prejuízo, esperar %{select_html} antes de voltar a comprar esse ativo"
-                none: "nada"
+                sentence_html: "Evitar wash sales esperando %{select_html} depois de vender com prejuízo"
                 option: "%{days} dias · %{country}"
                 note: "O ativo fica de fora de todas as compras — periódica, de reequilíbrio e de reinvestimento — durante esse tempo e depois é recomprado como o título mais subponderado. Só contam as operações deste bot; uma compra do mesmo ativo por outro bot, à mão ou noutro lado conta igualmente para a regra."
             rebalance:
