@@ -197,6 +197,21 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
     assert_in_delta 90, @bot.redeploy_offer(metrics).to_f, 0.0001, 'once reported, exactly what it fetched'
   end
 
+  # The banked side counts only what the venue reported; the SPEND side must still count what the
+  # ledger counted, or a redeploy buy the venue never priced reads as unspent and the offer hands the
+  # already-declined proceeds back.
+  test 'a redeploy buy the venue did not price still counts as spent' do
+    buy('AAA', quote: 200, price: 100)
+    liquidate('AAA', amount: 1, quote: 100, price: 100)
+    @bot.decline_redeploy!
+    liquidate('AAA', amount: 1, quote: 100, price: 100)
+    order = redeploy('BBB', quote: 100, price: 100)
+    order.update_columns(quote_amount_exec: nil)
+
+    assert_in_delta 0, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001,
+                    'the declined proceeds must not come back on offer'
+  end
+
   # Every other leg gates on the other two. This one was the only one nobody asked about.
   test 'a redeploy in flight stands the other legs down' do
     create_order('BBB', amount: 1, quote: 150, price: 150, side: :buy, type: 'REDEPLOY',
