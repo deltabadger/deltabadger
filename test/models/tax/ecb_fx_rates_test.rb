@@ -54,30 +54,11 @@ class Tax::EcbFxRatesTest < ActiveSupport::TestCase
     assert_equal 4, FxRate.count
   end
 
-  test 'bundesbank_to_sdmx skips the metadata preamble and invalid observations' do
-    csv = <<~CSV
-      "Name","Daily exchange rates"
-      "Source","Deutsche Bundesbank"
-      "Last update","2025-03-07"
-      "TIME_PERIOD","BBEX3.D.USD.EUR.BB.AC.000","OBS_STATUS"
-      "2025-03-03","1.0501",""
-      "2025-03-04",".",""
-      "2025-03-05","",""
-      "2025-03-06","1.0522",""
-    CSV
-
-    expected = <<~CSV
-      USD,2025-03-03,1.0501
-      USD,2025-03-06,1.0522
-    CSV
-
-    assert_equal expected, Tax::EcbFxRates.send(:bundesbank_to_sdmx, csv, 'USD')
-  end
-
-  # The Bundesbank feed opens with a UTF-8 BOM immediately followed by an empty quoted
-  # field, and its metadata preamble is only partly quoted. CSV.parse on the raw body
-  # reads the BOM bytes as field content and then hits a quote mid-field.
-  test 'bundesbank_to_sdmx parses the live feed shape: BOM, half-quoted preamble, "." for no value' do
+  # Verbatim from the live feed: a UTF-8 BOM immediately in front of an empty quoted field,
+  # a half-quoted metadata preamble, "." for a day with no publication and a bare comma for
+  # a missing one. CSV.parse on the raw body reads the BOM bytes as field content and then
+  # hits a quote mid-field, which is how every fall back to this source used to die.
+  test 'bundesbank_to_sdmx keeps only real observations from the live feed shape' do
     csv = "\uFEFF#{<<~CSV}"
       "",BBEX3.D.USD.EUR.BB.AC.000,BBEX3.D.USD.EUR.BB.AC.000_FLAGS
       "",Euro foreign exchange reference rate of the ECB / EUR 1 = USD / United States,
@@ -85,6 +66,7 @@ class Tax::EcbFxRatesTest < ActiveSupport::TestCase
       Decimals,4,
       last update,2026-09-07 15:58:27,
       1999-01-01,.,No value available
+      1999-01-02,,
       1999-01-04,1.1789,
       2026-09-04,1.1712,
     CSV
