@@ -215,6 +215,22 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
     assert_in_delta 0, @bot.redeploy_offer(metrics).to_f, 0.0001
   end
 
+  # And it must not SHIELD the cap either: a buy that drained the placeholder instead of the confirmed
+  # proceeds would leave those proceeds looking unspent. Estimated money is spent last, after every
+  # confirmed bucket, so it can neither lift the cap nor hold it up.
+  test 'an unpriced sale does not shield the cap from the buy that drains it' do
+    buy('AAA', quote: 200, price: 100)
+    liquidate('AAA', amount: 1, quote: 100, price: 100)
+    create_order('AAA', amount: 1, quote: 100, price: 100, side: :sell, type: 'LIQUIDATION')
+    @bot.transactions.liquidation.last.update_columns(quote_amount_exec: nil)
+    buy('BBB', quote: 100, price: 100) # the DCA leg spends the confirmed proceeds, not the estimate
+
+    metrics = @bot.metrics(force: true)
+    assert_in_delta 0, metrics[:realised_cash].to_f, 0.0001, 'the confirmed proceeds went into the buy'
+    assert_in_delta 100, metrics[:rebalance_cash].to_f, 0.0001, 'the estimate is still counted as value'
+    assert_in_delta 0, @bot.redeploy_offer(metrics).to_f, 0.0001
+  end
+
   # The banked side counts only what the venue reported; the SPEND side must still count what the
   # ledger counted, or a redeploy buy the venue never priced reads as unspent and the offer hands the
   # already-declined proceeds back.

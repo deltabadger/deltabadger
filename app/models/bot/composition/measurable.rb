@@ -99,8 +99,8 @@ module Bot::Composition::Measurable
         # that basis. A later poll that brings the real proceeds recomputes this walk from the row
         # and the sale becomes an ordinary liquidation with its P/L.
         if side == 'sell' && amount_exec.to_d.positive? && !raw_quote_exec.to_d.positive?
-          apply_rebalance_sell(ledger, books, key: base,
-                                              amount_exec:, quote_amount_exec: basis_share(ledger, base, amount_exec))
+          apply_unpriced_sell(ledger, books, key: base,
+                                             amount_exec:, quote_amount_exec: basis_share(ledger, base, amount_exec))
           # A chart point, at the marks that already stand: without one the last snapshot still holds
           # the units this sale removed, and chart_marked_at_market keeps pricing them at market for
           # the whole segment after it. Both sides move together, so the curve gains a vertex, not a
