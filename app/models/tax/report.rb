@@ -2,6 +2,9 @@ require 'csv'
 
 module Tax
   class Report
+    # Matches the value data-api stamps on wrapper assets.
+    TOKENIZED_INSTRUMENT_TYPE = 'tokenized'.freeze
+
     attr_reader :country_code, :jurisdiction, :year, :transactions
 
     def initialize(country:, year:, transactions:, stablecoin_as_fiat: false, sync_issues: [])
@@ -96,7 +99,33 @@ module Tax
       jurisdiction.dig(:currency_by_year, year) || jurisdiction[:currency]
     end
 
+    # Tokenized wrappers (Backed xStocks, Ondo, bStocks, PAX Gold) whose activity this report's
+    # calculation would actually consume. A wrapper is a claim on an off-chain asset through an
+    # issuer; its treatment is contested and unsettled, so the report refuses rather than silently
+    # applying the crypto holding exemption to it.
+    #
+    # Scoped by what the CALCULATION reads, not by disposals in the year. A disposal-only rule is
+    # German-shaped: PVCT pools purchases portfolio-wide, so a wrapper purchase changes an unrelated
+    # disposal, and a wealth snapshot reports holdings with no disposal at all.
+    def tokenized_symbols_in_scope
+      symbols = transactions.where(transacted_at: ..detection_cutoff)
+                            .distinct.pluck(:base_currency).compact
+      return [] if symbols.empty?
+
+      Asset.where(symbol: symbols, instrument_type: TOKENIZED_INSTRUMENT_TYPE)
+           .distinct.pluck(:symbol).sort
+    end
+
     private
+
+    # The wealth snapshot applies its own reference date and ignores anything later, so a 2 January
+    # purchase contributes nothing to a 1 January snapshot. Sharing the effective cutoff keeps
+    # detection from refusing a report the calculation would not even have looked at.
+    def detection_cutoff
+      return Time.utc(year + 1) unless wealth_snapshot?
+
+      jurisdiction[:snapshot_date] == :end_of_year ? Time.utc(year, 12, 31, 23, 59, 59) : Time.utc(year, 1, 1)
+    end
 
     def sync_issue_banner(issue)
       message = if issue[:reason] == :never_synced

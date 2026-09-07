@@ -12,7 +12,7 @@ The `+` button on the **Bots** dashboard creates a new bot. You have two options
 
 Pick one of the exchanges.
 
-<p><img width="1250" height="1045" alt="Screenshot" src="https://github.com/user-attachments/assets/c3414ab2-d332-4521-b93e-500c26fd74db" /></p>
+<p><img width="512" height="428" alt="Screenshot" src="https://github.com/user-attachments/assets/c3414ab2-d332-4521-b93e-500c26fd74db" /></p>
 
 Each exchange comes with instructions on how to connect it. For Alpaca, [set it up in Settings first](21-supported-exchanges.md#stock-brokers).
 
@@ -20,11 +20,11 @@ Alternatively, start with the assets and the app shows you which exchanges they 
 
 Add one or more assets. You can edit your choice by clicking on the selected stack. You can also always change it later.
 
-<p><img width="1251" height="843" alt="Screenshot 2026-09-06 at 18 14 53" src="https://github.com/user-attachments/assets/35870150-6bf8-4894-8c49-c8577902a3f1" /></p>
+<p><img width="512" height="345" alt="Screenshot 2026-09-06 at 18 14 53" src="https://github.com/user-attachments/assets/35870150-6bf8-4894-8c49-c8577902a3f1" /></p>
 
 Finally, when you're ready, pick the currency to spend.
 
-<p><img width="1261" height="699" alt="Screenshot" src="https://github.com/user-attachments/assets/7d9b61fd-f06a-4852-8ba7-7b550510d724" /></p>
+<p><img width="512" height="284" alt="Screenshot" src="https://github.com/user-attachments/assets/7d9b61fd-f06a-4852-8ba7-7b550510d724" /></p>
 
 Your bot has been created. [Finish its settings](10-dollar-cost-averaging.md) before you start it.
 
@@ -35,7 +35,7 @@ For [direct indexing](13-direct-indexing.md), start by picking the index.
 > [!IMPORTANT]
 > This is the step where either [CoinGecko](26-market-data.md#coingecko) or a [Deltabadger subscription](https://deltabadger.com) is required. CoinGecko provides over 500 cryptocurrency indexes; the official Deltabadger API adds stock indexes based on the Nasdaq-100 and the S&P 500.
 
-<p><img width="2056" height="1289" alt="Screenshot" src="https://github.com/user-attachments/assets/b73c6e19-e88f-4471-b9b3-757b282367c9" /></p>
+<p><img width="512" height="321" alt="Screenshot" src="https://github.com/user-attachments/assets/b73c6e19-e88f-4471-b9b3-757b282367c9" /></p>
 
 Then you pick the exchange, and when you pick the currency to spend you also see which assets in the index are available for each spending currency.
 

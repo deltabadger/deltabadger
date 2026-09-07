@@ -582,6 +582,7 @@ cs:
             generating: 'Generuji daňový přehled...'
             download_ready: 'Daňový přehled je připraven. Klikněte pro stažení.'
             failed: 'Přehled se nepodařilo vygenerovat. Zkontrolujte vybraná nastavení a zkuste to znovu.'
+            refused_tokenized: 'Tento přehled nelze vygenerovat: %{symbols} jsou tokenizované cenné papíry, jejichž zdanění se liší od kryptoměn. Deltabadger je zatím nevykazuje.'
         holdings: 'Držená aktiva'
         unrealised: 'Nerealizovaný'
         tiles:

@@ -575,6 +575,7 @@ en:
             generating: 'Generating tax report...'
             download_ready: 'Tax report is ready. Click to download.'
             failed: 'The report could not be generated. Check the selected settings and try again.'
+            refused_tokenized: 'This report cannot be generated: %{symbols} are tokenized securities, whose tax treatment differs from crypto. Deltabadger does not report them yet.'
         holdings: 'Holdings'
         unrealised: 'Unrealised'
         tiles:

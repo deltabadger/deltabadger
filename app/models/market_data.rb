@@ -825,6 +825,10 @@ class MarketData
       market_cap: asset_data['market_cap'],
       circulating_supply: asset_data['circulating_supply'],
       url: asset_data['url'],
+      # Only when the key is PRESENT. A stale seed or an older data-api serves no instrument_type at
+      # all, and importing that as nil would erase a classification we already hold — nil means
+      # "unknown", not "not a wrapper".
+      **(asset_data.key?('instrument_type') ? { instrument_type: asset_data['instrument_type'] } : {}),
       created_at: Time.current,
       updated_at: Time.current
     }

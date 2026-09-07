@@ -4,7 +4,7 @@
 
 It places recurring orders (DCA), rebalances portfolios, runs direct indexing, withdraws crypto from exchanges to your own wallet, tracks what you hold, generates tax reports, and opens an MCP/REST API gateway to the markets for your agents. Run it on your own computer, on Umbrel or on an online server; it can serve several people at once, and your [API keys stay private and encrypted](31-secrets-and-encryption-keys.md) on your own instance.
 
-<img width="2053" height="1289" alt="Screenshot 2026-09-06 at 18 08 14" src="https://github.com/user-attachments/assets/65e1f71f-97b0-47bb-8dbc-982fecc6728f" />
+<p><img width="512" height="322" alt="Screenshot" src="https://github.com/user-attachments/assets/65e1f71f-97b0-47bb-8dbc-982fecc6728f" /></p>
 
 ## Invest. Track. Connect.
 

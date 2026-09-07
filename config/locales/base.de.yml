@@ -564,6 +564,7 @@ de:
                 SK: 'Slowakei'
         tax_report:
             failed: 'Der Bericht konnte nicht erstellt werden. Prüfe die ausgewählten Einstellungen und versuche es erneut.'
+            refused_tokenized: 'Dieser Bericht kann nicht erstellt werden: %{symbols} sind tokenisierte Wertpapiere, deren steuerliche Behandlung von Kryptowerten abweicht. Deltabadger erfasst sie noch nicht.'
         holdings: 'Bestände'
         unrealised: 'Unrealisiert'
         tiles:

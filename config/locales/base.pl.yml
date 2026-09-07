@@ -567,6 +567,7 @@ pl:
                 SK: 'Słowacja'
         tax_report:
             failed: 'Nie udało się wygenerować raportu. Sprawdź wybrane ustawienia i spróbuj ponownie.'
+            refused_tokenized: 'Nie można wygenerować raportu: %{symbols} to tokenizowane papiery wartościowe, których zasady opodatkowania różnią się od kryptowalut. Deltabadger jeszcze ich nie uwzględnia.'
         holdings: 'Posiadane aktywa'
         unrealised: 'Niezrealizowany'
         tiles:

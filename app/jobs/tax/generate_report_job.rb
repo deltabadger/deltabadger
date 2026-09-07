@@ -20,6 +20,24 @@ class Tax::GenerateReportJob < ApplicationJob
     Pathname(AppPaths.tmp).join('tax_reports', "#{user_id.to_i}_#{country}_#{year.to_i}_#{scope}.csv").to_s
   end
 
+  # A refusal lives BESIDE the CSV, never at its path: download_tax_report sends whatever is at the
+  # CSV path as a CSV and then deletes it, so one page reload would hand the user nonsense and erase
+  # the record of the refusal.
+  def self.refusal_path(user_id, country, year, report_scope = 'crypto')
+    "#{report_path(user_id, country, year, report_scope)}.refused.json"
+  end
+
+  # nil when there is no refusal. Every consumer of report state reads this: the browser progress
+  # panel, check_pending_report, BotApi::Tax::ReportStatus and the MCP status tool.
+  def self.refusal(user_id, country, year, report_scope = 'crypto')
+    path = refusal_path(user_id, country, year, report_scope)
+    return nil unless File.exist?(path)
+
+    JSON.parse(File.read(path))
+  rescue JSON::ParserError
+    nil
+  end
+
   def self.report_country(country)
     country.to_s.gsub(/[^A-Za-z]/, '').upcase
   end
@@ -31,6 +49,17 @@ class Tax::GenerateReportJob < ApplicationJob
       user.account_transactions.distinct.pluck(:exchange_id)).uniq
     # Alpaca's activity feed is the only broker ledger this report models.
     Exchanges::Alpaca.find_by(id: exchange_ids)
+  end
+
+  # Not an error: an answer the report is entitled to give. Carries the symbols so every consumer
+  # can name them.
+  class TokenizedUnsupported < StandardError
+    attr_reader :symbols
+
+    def initialize(symbols)
+      @symbols = Array(symbols)
+      super("Tokenized securities are not reported: #{@symbols.join(', ')}")
+    end
   end
 
   def perform(user_id, country, year, stablecoin_as_fiat = false, report_scope = 'crypto') # rubocop:disable Style/OptionalBooleanParameter
@@ -47,6 +76,9 @@ class Tax::GenerateReportJob < ApplicationJob
     tmp = "#{file_path}.tmp"
     File.write(tmp, csv_data)
     File.rename(tmp, file_path)
+    # Publishing and clearing an earlier refusal are one step: a user who removed the offending
+    # transactions must not stay blocked by a stale sibling.
+    FileUtils.rm_f(self.class.refusal_path(user_id, country, year, report_scope))
 
     sleep 0.5 # Allow last progress broadcast to be delivered before replacing
 
@@ -56,6 +88,18 @@ class Tax::GenerateReportJob < ApplicationJob
       partial: 'tracker/report_ready',
       locals: { country: country, year: year, report_scope: report_scope.to_s }
     )
+  rescue TokenizedUnsupported => e
+    # Persist first, broadcast second: a caller polling the API, or a browser that missed the
+    # broadcast, must still find the answer. The stale CSV goes, or a reload would download the
+    # earlier report that wrongly applied the exemption.
+    persist_refusal(user_id, country, year, report_scope, e.symbols)
+    Turbo::StreamsChannel.broadcast_replace_to(
+      "user_#{user_id}", :tax_report,
+      target: 'tax-report-progress',
+      partial: 'tracker/report_refused',
+      locals: { symbols: e.symbols }
+    )
+    nil
   rescue StandardError => e
     # The queue still gets the exception; the person still gets a message.
     Turbo::StreamsChannel.broadcast_replace_to(
@@ -67,6 +111,13 @@ class Tax::GenerateReportJob < ApplicationJob
   end
 
   private
+
+  def persist_refusal(user_id, country, year, report_scope, symbols)
+    FileUtils.rm_f(self.class.report_path(user_id, country, year, report_scope))
+    path = self.class.refusal_path(user_id, country, year, report_scope)
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, JSON.generate({ 'reason' => 'tokenized_unsupported', 'symbols' => symbols }))
+  end
 
   def broker_csv(user, country, year)
     unless country == Tax::BrokerReport::COUNTRY && Tax::BrokerReport::SUPPORTED_YEARS.cover?(year.to_i)
@@ -88,6 +139,12 @@ class Tax::GenerateReportJob < ApplicationJob
                       .filter_map(&:sync_issue)
     report = Tax::Report.new(country: country, year: year, transactions: transactions,
                              stablecoin_as_fiat: stablecoin_as_fiat, sync_issues: sync_issues)
+
+    # A tokenized wrapper is a claim on an off-chain asset through an issuer, and its treatment is
+    # contested. Reporting it as crypto would apply a holding exemption we cannot stand behind, and
+    # dropping it silently would make a holding vanish — so refuse, and say which symbols.
+    tokenized = report.tokenized_symbols_in_scope
+    raise TokenizedUnsupported, tokenized if tokenized.any?
 
     last_percent = 0
     report.to_csv do |percent, _total|

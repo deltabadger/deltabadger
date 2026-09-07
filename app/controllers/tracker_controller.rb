@@ -211,6 +211,14 @@ class TrackerController < ApplicationController
     report_scope = params[:report_scope]
     file_path = Tax::GenerateReportJob.report_path(current_user.id, country, year, report_scope)
 
+    refusal = Tax::GenerateReportJob.refusal(current_user.id, country, year, report_scope)
+    if refusal
+      # There is no CSV to send and there never will be for this input; saying "expired" would
+      # invite the user to regenerate it forever.
+      return redirect_to tracker_path,
+                         alert: t('tracker.tax_report.refused_tokenized', symbols: refusal['symbols'].join(', '))
+    end
+
     if File.exist?(file_path)
       csv_data = File.read(file_path)
       File.delete(file_path)
@@ -372,6 +380,14 @@ class TrackerController < ApplicationController
     year = pending['year']
     report_scope = pending['report_scope'].presence || 'crypto'
     return unless country && year
+
+    # A refusal is also a finished report, and the user may have missed the broadcast that carried
+    # it. Surfacing it here is what stops a reload from looking like "still generating".
+    refusal = Tax::GenerateReportJob.refusal(current_user.id, country, year, report_scope)
+    if refusal
+      @pending_refusal = { symbols: refusal['symbols'] }
+      return
+    end
 
     file_path = Tax::GenerateReportJob.report_path(current_user.id, country, year, report_scope)
     return unless File.exist?(file_path)
