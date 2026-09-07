@@ -7,16 +7,18 @@ class Bots::DcaIndexes::PickIndicesControllerTest < ActionDispatch::IntegrationT
 
     @coingecko_index = Index.create!(external_id: 'layer-1', source: Index::SOURCE_COINGECKO,
                                      name: 'Layer 1', weight: 12)
+    # The feed's name is irrelevant to the tile: the container names a count-named index itself.
     @nasdaq_index = Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER,
-                                  name: 'Nasdaq 100', weight: 100)
+                                  name: 'Nasdaq 20', weight: 100)
   end
 
-  test 'shows the Nasdaq (deltabadger) index when the Data API is the provider' do
+  test 'shows the stock (deltabadger) index when the Data API is the provider' do
     configure_deltabadger_market_data
 
     get new_bots_dca_indexes_pick_index_path
     assert_response :success
-    assert_match 'Nasdaq 100', response.body
+    assert_match 'ND100', response.body
+    assert_no_match(/Nasdaq/, response.body)
     assert_match 'Layer 1', response.body
   end
 
@@ -25,7 +27,7 @@ class Bots::DcaIndexes::PickIndicesControllerTest < ActionDispatch::IntegrationT
 
     get new_bots_dca_indexes_pick_index_path
     assert_response :success
-    assert_no_match 'Nasdaq 100', response.body
+    assert_no_match 'ND100', response.body
     assert_match 'Layer 1', response.body
   end
 
@@ -37,7 +39,7 @@ class Bots::DcaIndexes::PickIndicesControllerTest < ActionDispatch::IntegrationT
     get new_bots_dca_indexes_pick_index_path
     assert_response :success
 
-    nasdaq_pos = response.body.index('Nasdaq 100')
+    nasdaq_pos = response.body.index('ND100')
     top_pos = response.body.index('Top Coins')
     layer_pos = response.body.index('Layer 1')
     assert nasdaq_pos && top_pos && layer_pos, 'all three index tiles should render'
@@ -50,7 +52,7 @@ class Bots::DcaIndexes::PickIndicesControllerTest < ActionDispatch::IntegrationT
 
     post bots_dca_indexes_pick_index_path,
          params: { index_type: 'category', index_category_id: 'nasdaq-100', index_name: 'Nasdaq 20' }
-    assert_equal 'Nasdaq', session[:bot_config]['settings']['index_name_prefix']
+    assert_equal 'ND', session[:bot_config]['settings']['index_name_prefix']
 
     post bots_dca_indexes_pick_index_path, params: { index_type: 'top' }
     assert_nil session[:bot_config]['settings']['index_name_prefix'],

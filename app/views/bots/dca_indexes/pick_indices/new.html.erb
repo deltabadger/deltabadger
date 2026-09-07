@@ -23,11 +23,11 @@
                   class="itile <%= 'itile--top' if is_top_coins %>"
                   data-index-filter-target="tile"
                   data-index-order="<%= idx %>"
-                  data-index-name="<%= index.name %>"
+                  data-index-name="<%= index.display_name %>"
                   data-index-category-id="<%= index.external_id %>"
                   data-index-description="<%= index.description %>"
                   data-action="click->index-filter#select">
-            <h4><%= index.name %></h4>
+            <h4><%= index.display_name %></h4>
             <p><%= truncate(index.description, length: 150) %></p>
             <% if index.top_coins.present? %>
               <div class="ticker-group ticker-group--many">

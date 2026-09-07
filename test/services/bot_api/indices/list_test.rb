@@ -16,6 +16,8 @@ class BotApi::Indices::ListTest < ActiveSupport::TestCase
     MarketDataSettings.stubs(:deltabadger?).returns(true)
     data = BotApi::Indices::List.call.data
     assert_equal %w[nasdaq-100 top-coins], data[:indices].map { |row| row[:id] }.sort
+    nd = data[:indices].find { |row| row[:id] == 'nasdaq-100' }
+    assert_equal 'ND100', nd[:name], 'the container names a count-named index, not the feed'
     top = data[:indices].find { |row| row[:id] == 'top-coins' }
     assert_equal 2, top[:coins]
     assert_equal ['Kraken'], top[:exchanges]

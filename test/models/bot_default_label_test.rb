@@ -80,33 +80,46 @@ class BotDefaultLabelTest < ActiveSupport::TestCase
     assert_equal 'Layer 1 · 20', bot.label
   end
 
-  test 'a count-named index carries the count inside its own name' do
+  test 'a count-named index carries the count inside its own name, no space, whatever the feed calls it' do
     Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER,
-                  name: 'Nasdaq 100', top_coins: (1..100).map { |i| "s#{i}" })
+                  name: 'Nasdaq 20', top_coins: (1..100).map { |i| "s#{i}" })
     bot = build(:dca_index, user: @user, quote_asset: @usd)
     bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
     bot.index_category_id = 'nasdaq-100'
-    bot.index_name = 'Nasdaq 100'
-    bot.index_name_prefix = 'Nasdaq'
+    bot.index_name = 'Nasdaq 20'
     bot.num_coins = 7
     bot.set_missed_quote_amount
     bot.save!
 
-    assert_equal 'Nasdaq 7', bot.label
+    assert_equal 'ND7', bot.label
+  end
+
+  test 'a bot holding the whole universe takes the index name itself' do
+    Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER,
+                  name: 'ND100', top_coins: (1..101).map { |i| "s#{i}" })
+    bot = build(:dca_index, user: @user, quote_asset: @usd)
+    bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
+    bot.index_category_id = 'nasdaq-100'
+    bot.num_coins = 101
+    bot.hold_all = true
+    bot.set_missed_quote_amount
+    bot.save!
+
+    assert_equal 'ND100', bot.label, 'the nominal name, not ND101'
   end
 
   test 'the count in the name is the count the bot will actually buy' do
     Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER,
-                  name: 'Nasdaq 20', top_coins: (1..20).map { |i| "s#{i}" })
+                  name: 'ND100', top_coins: (1..20).map { |i| "s#{i}" })
     bot = build(:dca_index, user: @user, quote_asset: @usd)
     bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
     bot.index_category_id = 'nasdaq-100'
-    bot.index_name_prefix = 'Nasdaq'
     bot.num_coins = 50
+    bot.hold_all = false
     bot.set_missed_quote_amount
     bot.save!
 
-    assert_equal 'Nasdaq 20', bot.label, 'the clamp runs before the name is taken'
+    assert_equal 'ND20', bot.label, 'clamped to what the feed publishes today; a fixed count, so named by it'
   end
 
   test 'a top-coins index bot is named by its size' do

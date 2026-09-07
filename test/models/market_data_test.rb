@@ -1530,7 +1530,7 @@ end
 class MarketDataImportIndicesWeightsTest < ActiveSupport::TestCase
   test 'import_indices! persists the weights map' do
     MarketData.import_indices!([
-                                 { 'external_id' => 'nasdaq-100', 'source' => 'deltabadger', 'name' => 'Nasdaq 100',
+                                 { 'external_id' => 'nasdaq-100', 'source' => 'deltabadger', 'name' => 'ND100',
                                    'top_coins' => %w[AAPL.US MSFT.US], 'weights' => { 'AAPL.US' => 9.12, 'MSFT.US' => 8.41 } }
                                ])
 
@@ -1556,7 +1556,7 @@ class MarketDataGetTopCoinsWeightRuleTest < ActiveSupport::TestCase
   end
 
   def nasdaq_index(weights:, top_coins: nil)
-    Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER, name: 'Nasdaq 100',
+    Index.create!(external_id: 'nasdaq-100', source: Index::SOURCE_DELTABADGER, name: 'ND100',
                   top_coins: top_coins || weights.keys, weights: weights)
   end
 

@@ -23,7 +23,7 @@ module BotApi
         names_by_type = Exchange.tradeable.pluck(:type, :name).to_h
         rows = scope.order(:name).map do |index|
           {
-            id: index.external_id, name: index.name, source: index.source,
+            id: index.external_id, name: index.display_name, source: index.source,
             coins: Array(index.top_coins).size,
             exchanges: (index.available_exchanges || {}).keys.filter_map { |type| names_by_type[type] }.sort
           }

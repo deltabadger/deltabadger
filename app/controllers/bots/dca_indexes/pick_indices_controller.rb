@@ -29,7 +29,7 @@ class Bots::DcaIndexes::PickIndicesController < ApplicationController
                                                 'index_type' => Bots::DcaIndex::INDEX_TYPE_CATEGORY,
                                                 'index_category_id' => index_category_id,
                                                 'index_name' => index_name,
-                                                'index_name_prefix' => Bots::DcaIndex::COUNT_NAMED_INDEX_PREFIXES[index_category_id]
+                                                'index_name_prefix' => Bots::DcaIndex::COUNT_NAMED_INDICES.dig(index_category_id, :prefix)
                                               })
       redirect_to new_bots_dca_indexes_pick_exchange_path
     else
