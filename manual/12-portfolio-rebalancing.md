@@ -13,7 +13,7 @@ Deltabadger rebalances whenever an asset drifts further from its target than the
 
 ## Index bot
 
-Rebalancing works on [index bots](13-direct-indexing.md) as well, but assets that drop out of the index are not sold automatically. You sell them yourself, one at a time, from the **Left the index** table.
+Rebalancing works on [index bots](13-direct-indexing.md) as well. Assets that left the index are not rebalanced at all — they sit in their own table and are sold only when you press Sell on their row, because each close is a taxable disposal and the timing is yours. Any current position can be sold the same way; see [Direct indexing](13-direct-indexing.md).
 
 <img width="661" height="182" alt="Screenshot 2026-09-07 at 12 18 44" src="https://github.com/user-attachments/assets/ce6e40f9-9e0d-4a38-827e-a5af1ac1b822" />
 
