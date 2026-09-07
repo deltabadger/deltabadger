@@ -186,8 +186,12 @@ class Transaction < ApplicationRecord
   # `closed`. The metrics count an order only once it is closed (via the legacy fallback even if exec
   # amounts are still nil), so a close with no quote-exec change must still invalidate the cache —
   # otherwise that fill would leave the 30-day metrics cache stale.
+  # Also on the executed BASE amount, and on a sell reaching `cancelled` with units executed: a
+  # cancelled partial with units and no proceeds moves the tax lots and nothing else invalidates the
+  # cache, so the row's colour would sit on a stale quantity until the 30-day cache lapsed.
   def metrics_relevant_change?
-    custom_quote_amount_exec_changed? || (saved_change_to_external_status? && closed?)
+    custom_quote_amount_exec_changed? || custom_amount_exec_changed? ||
+      (saved_change_to_external_status? && (closed? || (cancelled? && amount_exec.to_d.positive?)))
   end
 
   def store_previous_amount_exec

@@ -178,17 +178,23 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
     assert_in_delta 30, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001
   end
 
-  # Bot::FetchAndUpdateOrderJob explicitly allows a closed sell whose base fill is known while its
-  # quote fill is still nil; the ledger values those at price * amount. A plain SUM would read them
-  # as zero, leaving realised_cash showing proceeds the offer could not see — permanently.
-  test 'a fill valued from price and amount is still banked' do
+  # A closed sell whose quote fill the venue never reported has no confirmed proceeds. The ledger
+  # parks its released basis as cash so the holding's value does not vanish (Decision 19), but that
+  # is an estimate of what the position was WORTH, not of what the sale FETCHED — and only fetched
+  # money may be offered for redeployment, or the offer could spend funds the sale never brought in.
+  test 'a fill with no reported proceeds is valued, but not offered' do
     buy('AAA', quote: 100, price: 100)
     create_order('AAA', amount: 1, quote: 150, price: 150, side: :sell, type: 'LIQUIDATION')
     @bot.transactions.liquidation.last.update_columns(quote_amount_exec: nil)
 
     metrics = @bot.metrics(force: true)
-    assert_in_delta 150, metrics[:realised_cash].to_f, 0.0001, 'the ledger values it'
-    assert_in_delta 150, @bot.redeploy_offer(metrics).to_f, 0.0001, 'and so must the offer'
+    assert_in_delta 100, metrics[:realised_cash].to_f, 0.0001, 'the released basis, as a placeholder'
+    assert_in_delta 0, @bot.redeploy_offer(metrics).to_f, 0.0001, 'nothing confirmed, nothing offered'
+
+    @bot.transactions.liquidation.last.update_columns(quote_amount_exec: 90)
+    metrics = @bot.metrics(force: true)
+    assert_in_delta 90, metrics[:realised_cash].to_f, 0.0001
+    assert_in_delta 90, @bot.redeploy_offer(metrics).to_f, 0.0001, 'once reported, exactly what it fetched'
   end
 
   # Every other leg gates on the other two. This one was the only one nobody asked about.

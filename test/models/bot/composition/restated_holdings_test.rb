@@ -161,4 +161,20 @@ class Bot::Composition::RestatedHoldingsTest < ActiveSupport::TestCase
 
     assert_equal ['KLAC'], @bot.metrics(force: true)[:asset_breakdown].keys
   end
+
+  test 'a split restates a tax lot the performance walk never saw' do
+    # A partial buy without reported proceeds: the performance ledger skips it, the tax lots do not.
+    create(:transaction, bot: @bot, exchange: @exchange, base: 'KLAC', quote: 'USD', side: :buy, transaction_type: 'REGULAR',
+                         status: :submitted, external_status: :cancelled, external_id: 'p-1', price: 100,
+                         amount: 2, amount_exec: 1, quote_amount: 200, quote_amount_exec: nil, created_at: 3.days.ago)
+    split(symbol: 'KLAC', ratio: '10:1', at: 2.days.ago)
+    buy('KLAC', amount: 1, price: 11, at: 1.day.ago)
+    sale = create(:transaction, bot: @bot, exchange: @exchange, base: 'KLAC', quote: 'USD', side: :sell, transaction_type: 'LIQUIDATION',
+                                status: :submitted, external_status: :closed, external_id: 's-1', price: 11,
+                                amount: 10, amount_exec: 10, quote_amount: 110, quote_amount_exec: 110, created_at: 1.hour.ago)
+
+    data = @bot.metrics(force: true)
+    assert_equal false, data[:loss_lot_by_transaction][sale.id], 'ten post-split units that cost 100 sold for 110: a gain, not a loss'
+    assert_in_delta 1, data[:asset_breakdown]['KLAC'][:tax_units].to_f, 0.0001, 'the ordinary post-split unit remains'
+  end
 end
