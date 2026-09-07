@@ -129,8 +129,15 @@ module Bot::Composition::OrderSetter
   # to move with it: pricing at the limit discount and then submitting at market spends more than the
   # budget, and on a venue whose market order is an emulated crossing limit the gap is real money.
   def get_orders_data(total_orders_amount_in_quote, market: false)
-    allocations = current_allocations
-    return Result::Failure.new('No assets in composition') if allocations.empty?
+    allocations = buyable_allocations
+    if allocations.empty?
+      return Result::Failure.new('No assets in composition') if current_allocations.empty?
+
+      # Every member is sitting out a wash-sale window. Nothing to buy is not a failure: the
+      # contribution stays in the carry and the next tick with an unlocked member spends it.
+      log_activity('dca_skipped_wash_sale', level: :info)
+      return Result::Success.new([])
+    end
 
     metrics_data = metrics(force: true)
     asset_breakdown = metrics_data[:asset_breakdown] || {}

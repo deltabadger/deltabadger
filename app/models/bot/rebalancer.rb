@@ -363,7 +363,9 @@ module Bot::Rebalancer
     return [nil, 0] if entries.blank?
 
     total = entries.sum { |entry| entry[:value].to_d }
-    return [nil, 0] unless total.positive?
+    # Nothing to sell from an empty portfolio; but a buy with proceeds in hand still has a target,
+    # and with every value at zero the most underweight name is simply the heaviest one.
+    return [nil, 0] if direction == :max && !total.positive?
 
     # Availability is checked HERE rather than in Bot::RebalanceJob because that guard reads
     # tickers_for_start, which the index bot does not implement (it would answer [] and pass
@@ -375,7 +377,7 @@ module Bot::Rebalancer
     end
     return [nil, total] if tradeable.empty?
 
-    deviation = ->(entry) { entry[:value].to_d - (total * entry[:target].to_d) }
+    deviation = ->(entry) { [entry[:value].to_d - (total * entry[:target].to_d), -entry[:target].to_d] }
     entry = direction == :max ? tradeable.max_by(&deviation) : tradeable.min_by(&deviation)
     [entry, total]
   end

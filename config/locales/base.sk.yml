@@ -696,6 +696,7 @@ sk:
     bot_activity:
         events:
             dca_skipped_restatement: "Príspevok preskočený — split, ktorý trh ešte neocenil"
+            dca_skipped_wash_sale: "Nič sa nekúpilo — každá zložka je v čakacej lehote"
             asset_split: "%{base} split %{ratio} — broker prepočítal počet akcií"
             asset_split_unknown_ratio: "%{base} prešiel splitom — broker prepočítal počet akcií"
             rebalance_sell_placed: 'Rebalansovanie — predaj nadváženého aktíva'

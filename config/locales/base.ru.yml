@@ -680,6 +680,7 @@ ru:
     bot_activity:
         events:
             dca_skipped_restatement: "Взнос пропущен — сплит, который рынок ещё не оценил"
+            dca_skipped_wash_sale: "Ничего не куплено — каждая составляющая находится в периоде ожидания"
             asset_split: "%{base} сплит %{ratio} — брокер пересчитал количество акций"
             asset_split_unknown_ratio: "%{base} прошёл сплит — брокер пересчитал количество акций"
             rebalance_sell_placed: 'Ребалансировка — продажа перевешенного актива'

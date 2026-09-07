@@ -34,9 +34,25 @@ module Bot::Composition::Allocatable
         ticker: bia.ticker,
         target_allocation: bia.target_allocation,
         current_allocation: bia.current_allocation,
-        symbol: bia.asset.symbol
+        symbol: bia.asset.symbol,
+        locked: bia.buy_locked?
       }
     end
+  end
+
+  # What the buy legs may act on: current members minus those under a wash-sale lock, re-weighted to
+  # sum to one so the contribution is still spent in full. Out of the denominator for the same reason
+  # a quitter is (Bot::Composition::Rebalancer#rebalance_targets): the weights describe what the
+  # money may buy, and a name it may not buy must not dilute them. When the lock expires the name is
+  # simply the most underweight member and rebalanced DCA buys it back.
+  def buyable_allocations
+    allocations = current_allocations.reject { |alloc| alloc[:locked] }
+    # A member with no recorded weight buys nothing, as it always has (nil.to_d is zero), so it is
+    # not in the denominator either.
+    total = allocations.sum { |alloc| alloc[:target_allocation].to_d }
+    return allocations unless total.positive? && total != 1
+
+    allocations.map { |alloc| alloc.merge(target_allocation: alloc[:target_allocation].to_d / total) }
   end
 
   # The tickers the composition trades right now — NOT bot.tickers, which for a composition bot is
