@@ -200,7 +200,39 @@ class TrackerController < ApplicationController
     ))
 
     stablecoin_as_fiat = params[:stablecoin_as_fiat] == 'true'
-    Tax::GenerateReportJob.perform_later(current_user.id, country, year, stablecoin_as_fiat, report_scope)
+    # An earlier refusal steps aside before the enqueue and comes back if it fails, exactly as the
+    # API service handles the previous report. Left in place it would answer `refused` for the whole
+    # of this run — telling a user who has just removed the offending transactions that the report
+    # they only now asked for cannot be produced. Never removed after the enqueue: an in-process
+    # worker may already have written a NEW refusal to this path.
+    refusal_path = Tax::GenerateReportJob.refusal_path(current_user.id, country, year, report_scope)
+    stale_refusal = "#{refusal_path}.stale"
+    File.rename(refusal_path, stale_refusal) if File.exist?(refusal_path)
+    begin
+      job = Tax::GenerateReportJob.perform_later(current_user.id, country, year, stablecoin_as_fiat, report_scope)
+      # The queue's own verdict: this job is declared on_conflict: :discard, so a concurrent run
+      # makes perform_later return without raising. Deleting the refusal on that would erase a true
+      # answer and show progress for a report that never runs.
+      accepted = BotApi::Tax::Generating.accepted?(job)
+    rescue StandardError
+      File.rename(stale_refusal, refusal_path) if File.exist?(stale_refusal)
+      raise
+    end
+    if accepted
+      FileUtils.rm_f(stale_refusal)
+    elsif File.exist?(stale_refusal)
+      File.rename(stale_refusal, refusal_path)
+    end
+
+    # An idle worker on a short history can refuse before the browser has even rendered the progress
+    # panel, and a broadcast replacing a target that does not exist yet is lost — leaving 0% forever.
+    # Reconciling here costs one file check and closes that race without any client-side timeout.
+    refusal = Tax::GenerateReportJob.refusal(current_user.id, country, year, report_scope)
+    if refusal
+      return render turbo_stream: turbo_stream.append(
+        'flash', partial: 'tracker/report_refused', locals: { symbols: refusal['symbols'] }
+      )
+    end
 
     render turbo_stream: turbo_stream.append('flash', partial: 'tracker/report_progress')
   end
@@ -210,6 +242,14 @@ class TrackerController < ApplicationController
     year = params[:year].to_i
     report_scope = params[:report_scope]
     file_path = Tax::GenerateReportJob.report_path(current_user.id, country, year, report_scope)
+
+    refusal = Tax::GenerateReportJob.refusal(current_user.id, country, year, report_scope)
+    if refusal
+      # There is no CSV to send and there never will be for this input; saying "expired" would
+      # invite the user to regenerate it forever.
+      return redirect_to tracker_path,
+                         alert: t('tracker.tax_report.refused_tokenized', symbols: refusal['symbols'].join(', '))
+    end
 
     if File.exist?(file_path)
       csv_data = File.read(file_path)
@@ -372,6 +412,14 @@ class TrackerController < ApplicationController
     year = pending['year']
     report_scope = pending['report_scope'].presence || 'crypto'
     return unless country && year
+
+    # A refusal is also a finished report, and the user may have missed the broadcast that carried
+    # it. Surfacing it here is what stops a reload from looking like "still generating".
+    refusal = Tax::GenerateReportJob.refusal(current_user.id, country, year, report_scope)
+    if refusal
+      @pending_refusal = { symbols: refusal['symbols'] }
+      return
+    end
 
     file_path = Tax::GenerateReportJob.report_path(current_user.id, country, year, report_scope)
     return unless File.exist?(file_path)

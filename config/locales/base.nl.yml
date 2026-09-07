@@ -563,6 +563,7 @@ nl:
                 SK: 'Slowakije'
         tax_report:
             failed: 'Het rapport kon niet worden gegenereerd. Controleer de geselecteerde instellingen en probeer het opnieuw.'
+            refused_tokenized: 'Dit rapport kan niet worden gegenereerd: %{symbols} zijn getokeniseerde effecten, waarvan de fiscale behandeling afwijkt van die van crypto. Deltabadger verwerkt ze nog niet.'
         holdings: 'Bezit'
         unrealised: 'Ongerealiseerd'
         tiles:

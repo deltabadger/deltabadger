@@ -2,6 +2,9 @@ require 'csv'
 
 module Tax
   class Report
+    # Matches the value data-api stamps on wrapper assets.
+    TOKENIZED_INSTRUMENT_TYPE = 'tokenized'.freeze
+
     attr_reader :country_code, :jurisdiction, :year, :transactions
 
     def initialize(country:, year:, transactions:, stablecoin_as_fiat: false, sync_issues: [])
@@ -96,7 +99,101 @@ module Tax
       jurisdiction.dig(:currency_by_year, year) || jurisdiction[:currency]
     end
 
+    # Tokenized wrappers (Backed xStocks, Ondo, bStocks, PAX Gold) whose activity this report's
+    # calculation would actually consume. A wrapper is a claim on an off-chain asset through an
+    # issuer; its treatment is contested and unsettled, so the report refuses rather than silently
+    # applying the crypto holding exemption to it.
+    #
+    # Scoped by what the CALCULATION reads, not by disposals in the year. A disposal-only rule is
+    # German-shaped: PVCT pools purchases portfolio-wide, so a wrapper purchase changes an unrelated
+    # disposal, and a wealth snapshot reports holdings with no disposal at all.
+    def tokenized_symbols_in_scope
+      # `<`, not `<=`: the wealth engine excludes transactions AT the cutoff instant
+      # (wealth_snapshot.rb:49), so a purchase timestamped exactly 1 January must not block a
+      # 1 January snapshot the calculation itself ignores.
+      rows = transactions.where(transacted_at: ...detection_cutoff)
+                         .includes(:exchange)
+                         .select(:base_currency, :exchange_id, :transacted_at)
+      return [] if rows.empty?
+
+      # Resolved via venue and date, NOT by matching the catalogue on symbol: `TON` is both Toncoin
+      # and a tokenized AT&T, so a symbol-wide lookup would refuse a Toncoin holder's report for an
+      # instrument they never touched.
+      rows.filter_map { |tx| tokenized_symbol_for(tx) }.uniq.sort
+    end
+
     private
+
+    # The wealth snapshot applies its own reference date and ignores anything later, so a 2 January
+    # purchase contributes nothing to a 1 January snapshot. Sharing the effective cutoff keeps
+    # detection from refusing a report the calculation would not even have looked at.
+    def tokenized_symbol_for(transaction)
+      symbol = transaction.base_currency
+      return nil if symbol.blank?
+
+      # A dated alias is a pure lookup, so it stays per row; only the catalogue resolution is
+      # memoised, by venue and symbol. Without that this is three queries per transaction — a few
+      # thousand on an active history, paid before generation even starts.
+      # Venue first, and blind to category: AssetIdentity refuses a non-Cryptocurrency asset on a
+      # crypto venue, which is exactly what a wrapper listed as "Tokenized Stock" is — so asking it
+      # alone would let those through. We are asking "is this a wrapper", not "which coin is this".
+      venue_symbol = venue_wrapper_symbol(symbol, transaction.exchange)
+      return venue_symbol if venue_symbol
+
+      coin_id = Tax::AssetIdentity.alias_coin(symbol, exchange: transaction.exchange,
+                                                      at: transaction.transacted_at) ||
+                catalogue_coin_for(symbol, transaction.exchange)
+      return nil if coin_id.blank?
+
+      # The catalogue's symbol, not the venue's code: the refusal names these to the user, and
+      # "NVDASPV" would mean nothing to them.
+      tokenized_symbol_of(coin_id)
+    end
+
+    # What THIS venue lists under this code, including its canonical spelling, when that asset is a
+    # wrapper. Memoised per venue and symbol.
+    def venue_wrapper_symbol(symbol, exchange)
+      return nil unless exchange
+
+      @venue_wrappers ||= {}
+      key = [symbol, exchange.id]
+      return @venue_wrappers[key] if @venue_wrappers.key?(key)
+
+      asset = exchange.tickers.where(base: [symbol, canonical_venue_symbol(symbol)])
+                      .includes(:base_asset).first&.base_asset
+      @venue_wrappers[key] = asset&.instrument_type == TOKENIZED_INSTRUMENT_TYPE ? asset.symbol : nil
+    end
+
+    def catalogue_coin_for(symbol, exchange)
+      @catalogue_coins ||= {}
+      key = [symbol, exchange&.id]
+      return @catalogue_coins[key] if @catalogue_coins.key?(key)
+
+      coin = Tax::AssetIdentity.catalogue_coin(symbol, exchange: exchange)
+      # Already-synced Kraken history stores the venue's own code (NVDAx, NVDASPV) — normalising the
+      # importer only helps rows inserted after it, and a re-sync skips ids it already has. So fall
+      # back to the canonical spelling for a code the catalogue cannot place.
+      coin ||= Tax::AssetIdentity.catalogue_coin(canonical_venue_symbol(symbol), exchange: exchange)
+      @catalogue_coins[key] = coin
+    end
+
+    def canonical_venue_symbol(symbol)
+      symbol.sub(/SPV\z/, 'x').upcase
+    end
+
+    def tokenized_symbol_of(coin_id)
+      @tokenized_coins ||= {}
+      return @tokenized_coins[coin_id] if @tokenized_coins.key?(coin_id)
+
+      @tokenized_coins[coin_id] =
+        Asset.where(external_id: coin_id, instrument_type: TOKENIZED_INSTRUMENT_TYPE).pick(:symbol)
+    end
+
+    def detection_cutoff
+      return Time.utc(year + 1) unless wealth_snapshot?
+
+      jurisdiction[:snapshot_date] == :end_of_year ? Time.utc(year, 12, 31, 23, 59, 59) : Time.utc(year, 1, 1)
+    end
 
     def sync_issue_banner(issue)
       message = if issue[:reason] == :never_synced

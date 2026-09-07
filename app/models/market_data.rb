@@ -219,6 +219,26 @@ class MarketData
       assets_data.map { |a| upsert_asset_attributes(a) },
       unique_by: :external_id
     )
+    apply_instrument_types!(assets_data)
+  end
+
+  # Applied after the upsert, not inside it. upsert_all requires every row to carry the same keys, so
+  # a batch mixing a classified NVDAX with an unclassified BTC would raise and abort the whole
+  # import. Keeping it out of the attribute hash also preserves the rule that a payload WITHOUT the
+  # key leaves an existing classification alone — unknown is not the same as not-a-wrapper.
+  def self.apply_instrument_types!(assets_data)
+    assets_data.select { |a| a.key?('instrument_type') }
+               .group_by { |a| a['instrument_type'].presence }
+               .each do |type, rows|
+      scope = Asset.where(external_id: rows.map { |a| a['external_id'] })
+      # NULL-safe: `where.not(instrument_type: x)` skips rows where it IS NULL, which is most of them.
+      scope = if type
+                scope.where('instrument_type IS NULL OR instrument_type != ?', type)
+              else
+                scope.where.not(instrument_type: nil)
+              end
+      scope.update_all(instrument_type: type)
+    end
   end
 
   def self.import_indices!(indices_data)

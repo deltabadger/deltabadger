@@ -563,6 +563,7 @@ it:
                 SK: 'Slovacchia'
         tax_report:
             failed: 'Non è stato possibile generare il report. Controlla le impostazioni selezionate e riprova.'
+            refused_tokenized: 'Impossibile generare il report: %{symbols} sono titoli tokenizzati, il cui trattamento fiscale differisce da quello delle criptovalute. Deltabadger non li gestisce ancora.'
         holdings: 'Asset detenuti'
         unrealised: 'Non realizzato'
         tiles:

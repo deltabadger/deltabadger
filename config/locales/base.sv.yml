@@ -574,6 +574,7 @@ sv:
             generating: 'Genererar skatterapport...'
             download_ready: 'Skatterapporten är klar. Klicka för att ladda ner.'
             failed: 'Rapporten kunde inte genereras. Kontrollera de valda inställningarna och försök igen.'
+            refused_tokenized: 'Rapporten kan inte genereras: %{symbols} är tokeniserade värdepapper vars skattemässiga behandling skiljer sig från krypto. Deltabadger hanterar dem inte ännu.'
         holdings: 'Innehav'
         unrealised: 'Orealiserad'
         tiles:

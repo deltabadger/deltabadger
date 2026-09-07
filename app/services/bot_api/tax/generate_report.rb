@@ -56,6 +56,12 @@ module BotApi
           # new report to this very path by then, and the removal would eat it.
           stale = "#{path}.stale"
           File.rename(path, stale) if File.exist?(path)
+          # A refusal steps aside the same way. Left in place it would keep answering `refused` for
+          # the whole of the new run, so a user who removed the offending transactions would be told
+          # their freshly accepted report cannot be generated.
+          refusal_path = ::Tax::GenerateReportJob.refusal_path(@user.id, country, year)
+          stale_refusal = "#{refusal_path}.stale"
+          File.rename(refusal_path, stale_refusal) if File.exist?(refusal_path)
           begin
             job = ::Tax::GenerateReportJob.perform_later(@user.id, country, year, stablecoin_as_fiat)
             # The queue's own verdict: a job it discarded on a concurrency conflict this check did
@@ -65,14 +71,17 @@ module BotApi
             # Any failure puts it back, not just a refusal — an exception here would otherwise
             # leave the account with no report and a stranded .stale beside it.
             File.rename(stale, path) if File.exist?(stale)
+            File.rename(stale_refusal, refusal_path) if File.exist?(stale_refusal)
             raise
           end
           unless accepted
             File.rename(stale, path) if File.exist?(stale)
+            File.rename(stale_refusal, refusal_path) if File.exist?(stale_refusal)
             return report_generating
           end
 
           FileUtils.rm_f(stale)
+          FileUtils.rm_f(stale_refusal)
           # The pending report's identity only, so the tracker auto-downloads it on the next visit.
           @user.update(tracker_settings: (@user.tracker_settings || {}).merge(
             'pending_report' => { 'country' => country, 'year' => year, 'report_scope' => 'crypto' }

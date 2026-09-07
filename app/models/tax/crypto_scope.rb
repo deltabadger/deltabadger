@@ -29,7 +29,11 @@ module Tax
       # The user telling us this is a share or a fund outranks any catalogue guess.
       return false if classified_symbols.include?(symbol)
       # A stock or ETF row for the same ticker means the crypto row is the collision, not the holding.
-      return false if assets.any? { |asset| asset.instrument_type.in?(%w[stock etf]) }
+      # `tokenized` is here so the two reports stay exact complements: a wrapper is not crypto, and
+      # the crypto report refuses on it rather than applying the holding exemption (Tax::Report
+      # #tokenized_symbols_in_scope). Note this predicate is consulted only for STOCK venues by
+      # GenerateReportJob#crypto_transactions — the refusal, not this line, is what covers Kraken.
+      return false if assets.any? { |asset| asset.instrument_type.in?(%w[stock etf tokenized]) }
 
       categories == ['Cryptocurrency']
     end

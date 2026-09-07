@@ -154,6 +154,80 @@ class Tax::GenerateReportJobTest < ActiveSupport::TestCase
 
   # Parallel workers each get their own database but share tmp/, so two tests generating the same
   # (user_id, country, year) would clobber each other's file. One year per test keeps them apart.
+  # THE load-bearing test. crypto_transactions includes every non-stock-venue transaction
+  # unconditionally — CryptoScope is consulted only for stock venues — so before this a Kraken
+  # xStock bought and sold more than a year apart silently took the crypto holding exemption.
+  #
+  # Each of these owns a distinct year: reports are real files under a shared tmp root, keyed on user
+  # id, which repeats across parallel workers. Sharing a year would let one worker's refusal decide
+  # another's report.
+  test 'refuses a crypto report when a tokenized asset was traded on a crypto venue' do
+    user = tokenized_holder(2015)
+
+    Tax::GenerateReportJob.perform_now(user.id, 'DE', 2015)
+
+    assert_not File.exist?(Tax::GenerateReportJob.report_path(user.id, 'DE', 2015)),
+               'no report may be produced for an instrument we cannot classify'
+    refusal = Tax::GenerateReportJob.refusal(user.id, 'DE', 2015)
+    assert_equal 'tokenized_unsupported', refusal['reason']
+    assert_equal ['NVDAX'], refusal['symbols']
+  end
+
+  test 'a report with no tokenized activity is still generated' do
+    user = create(:user)
+    create(:api_key, user: user, exchange: create(:kraken_exchange), last_synced_at: 1.day.ago)
+
+    Tax::GenerateReportJob.perform_now(user.id, 'DE', 2016)
+
+    assert File.exist?(Tax::GenerateReportJob.report_path(user.id, 'DE', 2016))
+    assert_nil Tax::GenerateReportJob.refusal(user.id, 'DE', 2016)
+  end
+
+  # A refusal that outlives its cause is the same bug as the stale CSV it replaces.
+  test 'a successful regeneration clears an earlier refusal' do
+    user = tokenized_holder(2017)
+    Tax::GenerateReportJob.perform_now(user.id, 'DE', 2017)
+    assert Tax::GenerateReportJob.refusal(user.id, 'DE', 2017), 'precondition: refused'
+
+    AccountTransaction.where(user: user, base_currency: 'NVDAX').delete_all
+    Tax::GenerateReportJob.perform_now(user.id, 'DE', 2017)
+
+    assert_nil Tax::GenerateReportJob.refusal(user.id, 'DE', 2017)
+    assert File.exist?(Tax::GenerateReportJob.report_path(user.id, 'DE', 2017))
+  end
+
+  # Refusing must not leave the earlier, wrongly-exempted CSV downloadable.
+  test 'refusing removes a previously generated report' do
+    user = tokenized_holder(2018)
+    path = Tax::GenerateReportJob.report_path(user.id, 'DE', 2018)
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, "stale\n")
+
+    Tax::GenerateReportJob.perform_now(user.id, 'DE', 2018)
+
+    assert_not File.exist?(path)
+  end
+
+  def tokenized_holder(year)
+    user = create(:user)
+    exchange = create(:kraken_exchange)
+    create(:api_key, user: user, exchange: exchange, last_synced_at: 1.day.ago)
+    create(:asset, symbol: 'NVDAX', name: 'NVIDIA xStock',
+                   external_id: 'nvidia-xstock', instrument_type: 'tokenized')
+    create(:account_transaction, user: user, exchange: exchange, base_currency: 'NVDAX',
+                                 entry_type: :buy, transacted_at: Time.utc(year, 3, 1))
+    @cleanup = [user.id, year]
+    user
+  end
+
+  def teardown
+    return unless defined?(@cleanup) && @cleanup
+
+    user_id, year = @cleanup
+    FileUtils.rm_f(Tax::GenerateReportJob.report_path(user_id, 'DE', year))
+    FileUtils.rm_f(Tax::GenerateReportJob.refusal_path(user_id, 'DE', year))
+  end
+
   def generate(user, country, year)
     Tax::GenerateReportJob.perform_now(user.id, country, year)
     CSV.parse(File.read(Tax::GenerateReportJob.report_path(user.id, country, year)))
