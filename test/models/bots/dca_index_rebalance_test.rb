@@ -341,6 +341,19 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     assert_not_predicate @bot, :rebalance_pending?
   end
 
+  test 'a survivor set with nothing to steer toward is not a rebalance' do
+    # Both weighted members are locked and what is left is a parked holding with a zero weight.
+    # Selling it would strand the swap in its buying phase — there is no positive shortfall to buy
+    # into — and the DCA leg stands down behind a pending rebalance until the lock expires.
+    index_membership('AAA' => 0.5, 'BBB' => 0.5, 'CCC' => 0.0)
+    @bot.bot_index_assets.where(asset: [@assets['AAA'][:asset], @assets['BBB'][:asset]])
+        .update_all(buy_locked_until: 10.days.from_now)
+    stub_values({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+
+    assert_nil @bot.send(:rebalance_targets)
+    assert_nil @bot.rebalance_drift
+  end
+
   test 'a resting buy the venue has since filled does not stand the rebalance down for good' do
     # Rebalancing runs while the DCA schedule is stopped, and on a stopped bot nothing else polls a
     # resting DCA order — a guard that trusted the stale row would block this leg permanently.
