@@ -46,10 +46,36 @@ module Bot::Rebalancer
     # as the drift persists. The widget's live drift readout is where the user sees it.
     return Result::Success.new(skipped: :below_minimum) if order_data.nil?
 
-    # Intent BEFORE the network call: a worker that dies mid-placement must leave evidence that
-    # blocks a new sell, or the next poll sells again on top of an order that may have landed.
-    set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_SELLING)
-    place_rebalance_order(order_data, phase: Bot::Rebalanceable::PHASE_SELLING)
+    # A resting buy for the very asset about to be sold would re-acquire it the moment it fills —
+    # inside any wash-sale window, and pointlessly otherwise. The liquidation leg has always refused
+    # this (waiting_buy_for?); a rebalance sell must too. Silent, like below-minimum: it repeats
+    # every poll until the buy settles or is cancelled.
+    return Result::Success.new(skipped: :open_buy) if transactions.waiting.where(side: :buy, base: order_data[:ticker].base).exists?
+
+    # Intent BEFORE the network call, and the wash-sale lock with it in one transaction (see
+    # Bot::WashSaleGuard): a worker that dies mid-placement must leave evidence that blocks a new
+    # sell, or the next poll sells again on top of an order that may have landed. The previous
+    # deadline rides on the pending state so every path that provably never placed can put it back.
+    loss = respond_to?(:sell_at_loss?) && sell_at_loss?(order_data)
+    ActiveRecord::Base.transaction do
+      set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_SELLING)
+      if loss
+        previous = lock_buying!(order_data[:ticker].base_asset_id, ticker: order_data[:ticker])
+        merge_transient_data!(rebalance_previous_lock: previous&.iso8601,
+                              rebalance_locked_asset_id: order_data[:ticker].base_asset_id)
+      end
+    end
+    place_rebalance_order(order_data, phase: Bot::Rebalanceable::PHASE_SELLING, loss: loss)
+  end
+
+  # Undo the provisional lock of a sell that provably never left. Idempotent: no key, nothing to do.
+  def restore_rebalance_lock!
+    asset_id = transient_data['rebalance_locked_asset_id']
+    return if asset_id.nil?
+
+    previous = transient_data['rebalance_previous_lock']
+    restore_buy_lock!(asset_id, previous && Time.zone.parse(previous))
+    merge_transient_data!(rebalance_previous_lock: nil, rebalance_locked_asset_id: nil)
   end
 
   def resume_rebalance!
@@ -163,7 +189,7 @@ module Bot::Rebalancer
 
   # --- placement ----------------------------------------------------------------------------
 
-  def place_rebalance_order(order_data, phase:)
+  def place_rebalance_order(order_data, phase:, loss: false)
     amount_info = calculate_best_amount_info(order_data)
     # Nothing was placed, so the intent persisted a moment ago must not survive — a stale pending
     # row would block every future rebalance, silently and forever.
@@ -177,7 +203,10 @@ module Bot::Rebalancer
     rescue Client::TransientNetworkError => e
       # ExchangeUser re-raises only what it proved PRE-transmission — nothing reached the venue, so
       # the sell owes nothing and the buy is still safely retryable next cycle.
-      clear_rebalance_pending! if phase == Bot::Rebalanceable::PHASE_SELLING
+      if phase == Bot::Rebalanceable::PHASE_SELLING
+        restore_rebalance_lock!
+        clear_rebalance_pending!
+      end
       return Result::Failure.new(e.message)
     end
     return handle_placement_failure(result, phase:, order_data:) if result.failure?
@@ -191,6 +220,11 @@ module Bot::Rebalancer
     carry_pending_forward(phase:, transaction:)
     Bot::FetchAndUpdateOrderJob.perform_later(transaction, update_missed_quote_amount: false)
     log_activity("rebalance_#{order_data[:side]}_placed", details: order_log_details(order_data))
+    # The sell went out, so the provisional lock stands on its own — no rollback to keep.
+    if loss
+      log_wash_sale_lock(order_data[:ticker].base)
+      merge_transient_data!(rebalance_previous_lock: nil, rebalance_locked_asset_id: nil)
+    end
     Result::Success.new(transaction_id: transaction.id)
   end
 
@@ -208,6 +242,7 @@ module Bot::Rebalancer
 
     if phase == Bot::Rebalanceable::PHASE_SELLING
       # Provably never reached the matching engine, so nothing was sold and nothing is owed.
+      restore_rebalance_lock!
       clear_rebalance_pending!
     end
     # A buy that provably never placed still holds the user's cash — keep the state and the
@@ -227,6 +262,7 @@ module Bot::Rebalancer
       # producing trades.
       flag_rebalance_below_minimum!
     end
+    restore_rebalance_lock! if phase == Bot::Rebalanceable::PHASE_SELLING
     clear_rebalance_pending!
     Result::Success.new(skipped: :below_minimum)
   end

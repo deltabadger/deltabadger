@@ -171,7 +171,7 @@ module Bot::Composition::Liquidatable
     amount_info = calculate_best_amount_info(order_data)
     return skip_liquidation(holding, 'below_minimum') if amount_info[:below_minimum_amount]
 
-    submit_liquidation!(order_data, amount_info)
+    submit_liquidation!(order_data, amount_info, loss: sell_at_loss?(order_data))
   end
 
   def liquidation_order_data(holding, fresh)
@@ -196,29 +196,40 @@ module Bot::Composition::Liquidatable
     }
   end
 
-  def submit_liquidation!(order_data, amount_info)
-    # Intent BEFORE the network call. A worker that dies mid-placement must leave evidence, or the
-    # next attempt sells again on top of an order that may have landed.
-    start_liquidation_placement!(order_data[:ticker].base)
+  def submit_liquidation!(order_data, amount_info, loss:)
+    asset_id = order_data[:ticker].base_asset_id
+    # Intent BEFORE the network call, and the wash-sale lock WITH it, in one transaction: a worker
+    # that dies mid-placement must leave both — an order that may have landed, and a name that must
+    # not be bought back. The previous deadline is kept so a provable non-placement can put it back:
+    # a locked remainder may be sold again, and that failing must not unlock the earlier sale.
+    previous_lock = nil
+    ActiveRecord::Base.transaction do
+      start_liquidation_placement!(order_data[:ticker].base)
+      previous_lock = lock_buying!(asset_id, ticker: order_data[:ticker]) if loss
+    end
 
     result = begin
       create_order(order_data, amount_info)
     rescue Client::AmbiguousPlacementError => e
+      # The sale may have happened, so the lock stays.
       return halt_liquidation!(order_data, "placement outcome unknown: #{e.message}")
     rescue Client::TransientNetworkError => e
       # Bot::ExchangeUser re-raises only what it proved PRE-transmission, so nothing reached the
-      # venue and there is nothing to be ambiguous about.
+      # venue and there is nothing to be ambiguous about — and nothing was sold, so nothing to guard.
       clear_liquidation_pending!
+      restore_buy_lock!(asset_id, previous_lock) if loss
       return skip_liquidation({ symbol: order_data[:ticker].base }, "transient: #{e.message}")
     end
 
-    return handle_liquidation_failure(result, order_data) if result.failure?
+    return handle_liquidation_failure(result, order_data, loss:, previous_lock:) if result.failure?
 
     order_id = result.data[:order_id]
     # Accepted but no usable id: the venue may hold a live order we can never look up again.
     return halt_liquidation!(order_data, 'placement returned no order id') if order_id.blank?
 
-    persist_liquidation!(order_data, order_id)
+    outcome = persist_liquidation!(order_data, order_id)
+    log_wash_sale_lock(order_data[:ticker].base) if loss
+    outcome
   end
 
   # The insert and the intent clear commit TOGETHER. That is what makes "a row exists but intent
@@ -239,10 +250,11 @@ module Bot::Composition::Liquidatable
   # A Result::Failure is NOT by itself proof that nothing was placed — only
   # placement_transient_error?, which matches strings that guarantee a PRE-TRADE rejection, is
   # trustworthy enough to unwind. Everything else halts.
-  def handle_liquidation_failure(result, order_data)
+  def handle_liquidation_failure(result, order_data, loss:, previous_lock:)
     return halt_liquidation!(order_data, "placement failed: #{result.errors.to_sentence}") unless exchange.placement_transient_error?(result.errors)
 
     clear_liquidation_pending!
+    restore_buy_lock!(order_data[:ticker].base_asset_id, previous_lock) if loss
     create_failed_order!(order_data.merge(error_messages: result.errors, transaction_type: 'LIQUIDATION'))
     :failed
   end

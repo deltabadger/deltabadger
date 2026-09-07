@@ -40,6 +40,7 @@ module BotApi
           allocations: bot.dca_multi_asset? ? bot.base_assets.to_h { |asset| [asset.symbol, bot.allocation_for(asset.id)] } : nil,
           holdings: safe_held_symbols(bot),
           exited_holdings: safe_exited_symbols(bot),
+          locked_members: safe_locked_members(bot),
           redeploy_offer: safe_redeploy_offer(bot),
           base_asset: base,
           quote_asset: quote,
@@ -66,6 +67,14 @@ module BotApi
         return nil unless bot.respond_to?(:exited_symbols)
 
         bot.exited_symbols
+      rescue StandardError
+        nil
+      end
+
+      def safe_locked_members(bot)
+        return nil unless bot.respond_to?(:locked_members)
+
+        bot.locked_members.map { |m| { symbol: m[:symbol], days_left: m[:days_left] } }
       rescue StandardError
         nil
       end

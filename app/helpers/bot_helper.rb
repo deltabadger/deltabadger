@@ -188,6 +188,8 @@ module BotHelper
       t('bot_activity.events.liquidation_failed', error: activity.details['reason'])
     when 'orders_below_minimum'
       t('bot_activity.events.orders_below_minimum', count: activity.details['count'], bases: activity.details['bases'])
+    when 'wash_sale_locked'
+      t('bot_activity.events.wash_sale_locked', base: activity.details['base'], until: activity.details['until'])
     when 'redeploy_failed'
       t('bot_activity.events.redeploy_failed', error: activity.details['reason'])
     when 'order_abandoned'

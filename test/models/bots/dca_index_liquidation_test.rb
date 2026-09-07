@@ -451,6 +451,124 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     assert_equal 1.to_d, order[:amount]
   end
 
+  # == the wash-sale clock ==
+
+  def holding
+    { symbol: 'AAA', ticker: @assets['AAA'][:ticker], amount: 2, quote_invested: 200, tax_basis: 200, current_value: 180 }
+  end
+
+  def choose_us
+    @bot.set_missed_quote_amount
+    @bot.update!(wash_sale_jurisdiction: 'US')
+  end
+
+  # The lots say the 2 units cost 100 each. `amount` is what the sale submits: the exchange may hold
+  # less than the position (cold storage), and the verdict is about the units actually sold.
+  def placement_stubs(price:, amount: 2)
+    @bot.stubs(:liquidation_order_data).returns(ticker: @assets['AAA'][:ticker], price: price, amount: amount.to_d,
+                                                quote_amount: (amount * price).to_d, side: :sell, order_type: :market_order,
+                                                transaction_type: 'LIQUIDATION')
+    @bot.stubs(:calculate_best_amount_info).returns(below_minimum_amount: false)
+    @bot.stubs(:metrics).returns(asset_breakdown: {}, asset_lots: { 'AAA' => [{ amount: 2.to_d, cost: 200.to_d }] })
+  end
+
+  def placed_stubs
+    @bot.stubs(:create_order).returns(Result::Success.new(order_id: 'x'))
+    @bot.stubs(:persist_accepted_order!).returns(@bot.transactions.build)
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+  end
+
+  test 'the lock is written with the placement intent, before the network call' do
+    index_membership('AAA')
+    choose_us
+    placement_stubs(price: 90)
+    seen_locked = nil
+    @bot.stubs(:create_order)
+        .with { seen_locked = @bot.bot_index_assets.first.reload.buy_locked? || true }
+        .returns(Result::Success.new(order_id: 'x'))
+    @bot.stubs(:persist_accepted_order!).returns(@bot.transactions.build)
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+
+    assert_equal :placed, @bot.send(:liquidate_holding!, holding, {})
+    assert seen_locked, 'locked when the order went out'
+    assert_predicate @bot.bot_index_assets.first.reload, :buy_locked?
+    assert_equal 'AAA', @bot.bot_activity_logs.find_by(event: 'wash_sale_locked').details['base']
+  end
+
+  test 'the verdict is about the units submitted, not the whole holding' do
+    index_membership('AAA')
+    choose_us
+    # Holding of 2 is under water as a whole, but the one unit that can be sold (FIFO cost 100)
+    # goes for 105: a gain. No lock.
+    placement_stubs(price: 105, amount: 1)
+    placed_stubs
+
+    @bot.send(:liquidate_holding!, holding, {})
+
+    assert_not_predicate @bot.bot_index_assets.first.reload, :buy_locked?
+  end
+
+  test 'a provable pre-transmission failure restores the previous deadline, not nothing' do
+    index_membership('AAA')
+    choose_us
+    earlier = 5.days.from_now.beginning_of_day
+    @bot.bot_index_assets.first.update!(buy_locked_until: earlier) # an older sale's lock
+    placement_stubs(price: 90)
+    @bot.stubs(:create_order).raises(Client::TransientNetworkError.new('dns'))
+
+    @bot.send(:liquidate_holding!, holding, {})
+
+    assert_equal earlier, @bot.bot_index_assets.first.reload.buy_locked_until, 'the older lock survives the failed second sale'
+  end
+
+  test 'a provable pre-transmission failure with no earlier lock leaves none' do
+    index_membership('AAA')
+    choose_us
+    placement_stubs(price: 90)
+    @bot.stubs(:create_order).raises(Client::TransientNetworkError.new('dns'))
+
+    @bot.send(:liquidate_holding!, holding, {})
+
+    assert_nil @bot.bot_index_assets.first.reload.buy_locked_until
+  end
+
+  test 'an ambiguous outcome keeps the lock' do
+    index_membership('AAA')
+    choose_us
+    placement_stubs(price: 90)
+    @bot.stubs(:create_order).raises(Client::AmbiguousPlacementError.new('timeout'))
+
+    assert_equal :ambiguous, @bot.send(:liquidate_holding!, holding, {})
+    assert_predicate @bot.bot_index_assets.first.reload, :buy_locked?
+  end
+
+  test 'a gain sale sets no lock' do
+    index_membership('AAA')
+    choose_us
+    placement_stubs(price: 110)
+    placed_stubs
+
+    @bot.send(:liquidate_holding!, holding.merge(current_value: 220), {})
+
+    assert_not_predicate @bot.bot_index_assets.first.reload, :buy_locked?
+  end
+
+  test 'a sale of units whose cost we never learned is locked provisionally, kept on ambiguity, restored on a pre-transmission failure' do
+    index_membership('AAA')
+    choose_us
+    placement_stubs(price: 110)
+    @bot.stubs(:metrics).returns(asset_breakdown: {}, asset_lots: { 'AAA' => [{ amount: 2.to_d, cost: nil }] })
+
+    @bot.stubs(:create_order).raises(Client::AmbiguousPlacementError.new('timeout'))
+    assert_equal :ambiguous, @bot.send(:liquidate_holding!, holding, {})
+    assert_predicate @bot.bot_index_assets.first.reload, :buy_locked?, 'unknown reads as a loss, and an ambiguous sale keeps it'
+
+    @bot.bot_index_assets.first.update!(buy_locked_until: nil)
+    @bot.stubs(:create_order).raises(Client::TransientNetworkError.new('dns'))
+    @bot.send(:liquidate_holding!, holding, {})
+    assert_nil @bot.bot_index_assets.first.reload.buy_locked_until, 'never left: restored to what was there, which was nothing'
+  end
+
   private
 
   def setup_liquidation(holdings, free: {})
