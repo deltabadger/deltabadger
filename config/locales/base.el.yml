@@ -688,6 +688,7 @@ el:
     bot_activity:
         events:
             dca_skipped_restatement: "Η εισφορά παραλείφθηκε — split που η αγορά δεν έχει ακόμη αποτιμήσει"
+            dca_skipped_wash_sale: "Δεν αγοράστηκε τίποτα — κάθε συστατικό βρίσκεται σε περίοδο αναμονής"
             asset_split: "%{base} split %{ratio} — ο χρηματιστής αναπροσάρμοσε τον αριθμό των μετοχών"
             asset_split_unknown_ratio: "%{base} έγινε split — ο χρηματιστής αναπροσάρμοσε τον αριθμό των μετοχών"
             rebalance_sell_placed: 'Επανεξισορρόπηση — πώληση του υπερεκπροσωπούμενου στοιχείου'

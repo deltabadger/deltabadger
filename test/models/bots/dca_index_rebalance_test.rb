@@ -236,6 +236,76 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     assert_not @bot.rebalance_due?
   end
 
+  test 'a locked constituent is neither a rebalance candidate nor in the denominator' do
+    index_membership('AAA' => 0.5, 'BBB' => 0.3, 'CCC' => 0.2)
+    @bot.bot_index_assets.find_by(asset: @assets['CCC'][:asset]).update!(buy_locked_until: 10.days.from_now)
+    stub_values({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 0 })
+
+    targets = @bot.send(:rebalance_targets).index_by { |t| t[:ticker].base }
+
+    assert_nil targets['CCC']
+    assert_in_delta 0.625, targets['AAA'][:target].to_f, 0.0001
+    assert_in_delta 0.375, targets['BBB'][:target].to_f, 0.0001
+    assert_in_delta 0, @bot.rebalance_drift.to_f, 0.0001, 'the unlocked part is exactly on target'
+  end
+
+  test 'an unknown-weight survivor keeps its current share and the known weights fill the rest' do
+    index_membership('AAA' => 0.5, 'BBB' => 0.3)
+    @bot.bot_index_assets.create!(asset: @assets['CCC'][:asset], ticker: @assets['CCC'][:ticker], target_allocation: nil, in_index: true,
+                                  entered_at: Time.current)
+    @bot.bot_index_assets.find_by(asset: @assets['BBB'][:asset]).update!(buy_locked_until: 10.days.from_now)
+    stub_values({ 'AAA' => 70, 'BBB' => 0, 'CCC' => 30 })
+
+    targets = @bot.send(:rebalance_targets).index_by { |t| t[:ticker].base }
+
+    assert_in_delta 0.3, targets['CCC'][:target].to_f, 0.0001, 'its own current share among survivors, so it reads on target'
+    assert_in_delta 0.7, targets['AAA'][:target].to_f, 0.0001, 'the one known survivor takes all the remaining mass'
+    assert_in_delta 1.0, targets.values.sum { |t| t[:target].to_f }, 0.0001
+    assert_in_delta 0, @bot.rebalance_drift.to_f, 0.0001
+  end
+
+  test 'targets always sum to one, locks or not' do
+    index_membership('AAA' => 0.6, 'BBB' => 0.4)
+    @bot.bot_index_assets.create!(asset: @assets['CCC'][:asset], ticker: @assets['CCC'][:ticker], target_allocation: nil, in_index: true,
+                                  entered_at: Time.current)
+    stub_values({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+
+    targets = @bot.send(:rebalance_targets)
+
+    assert_in_delta 1.0, targets.sum { |t| t[:target].to_f }, 0.0001
+    assert_in_delta 0.2, targets.find { |t| t[:ticker].base == 'CCC' }[:target].to_f, 0.0001
+    assert_in_delta 0.48, targets.find { |t| t[:ticker].base == 'AAA' }[:target].to_f, 0.0001 # 0.6 x 0.8
+  end
+
+  test 'the buy leg still finds a name when every unlocked holding is worth nothing' do
+    # 50/50, AAA worth 100 and just sold at a loss (locked), BBB never bought. The proceeds must go
+    # somewhere, or the rebalance sits pending and the DCA leg stands down behind it for a month.
+    index_membership('AAA' => 0.5, 'BBB' => 0.5)
+    @bot.bot_index_assets.find_by(asset: @assets['AAA'][:asset]).update!(buy_locked_until: 10.days.from_now)
+    stub_values({ 'AAA' => 50, 'BBB' => 0 })
+    @bot.stubs(:side_price).returns(10.to_d)
+    @bot.stubs(:live_free_balance).returns(50.to_d)
+
+    order = @bot.send(:rebalance_buy_order_data, quote_amount: 50.to_d)
+
+    assert_equal 'BBB', order[:ticker].base
+    assert_in_delta 50, order[:quote_amount].to_f, 0.0001
+  end
+
+  test 'when unknown-weight holdings carry all the value, the recorded weights scale to zero' do
+    index_membership('AAA' => 0.6, 'BBB' => 0.4)
+    @bot.bot_index_assets.create!(asset: @assets['CCC'][:asset], ticker: @assets['CCC'][:ticker], target_allocation: nil, in_index: true,
+                                  entered_at: Time.current)
+    stub_values({ 'AAA' => 0, 'BBB' => 0, 'CCC' => 100 })
+
+    targets = @bot.send(:rebalance_targets).index_by { |t| t[:ticker].base }
+
+    assert_in_delta 1.0, targets['CCC'][:target].to_f, 0.0001
+    assert_in_delta 0, targets['AAA'][:target].to_f, 0.0001
+    assert_in_delta 1.0, targets.values.sum { |t| t[:target].to_f }, 0.0001
+    assert_in_delta 0, @bot.rebalance_drift.to_f, 0.0001, 'no drift manufactured out of a missing number'
+  end
+
   private
 
   def enable_rebalancing(threshold: 0.05)

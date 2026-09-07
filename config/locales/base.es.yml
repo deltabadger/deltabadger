@@ -677,6 +677,7 @@ es:
     bot_activity:
         events:
             dca_skipped_restatement: "Aportación omitida — un split que el mercado aún no ha valorado"
+            dca_skipped_wash_sale: "No se compró nada — cada componente está en una espera fiscal"
             asset_split: "%{base} split %{ratio} — el bróker recalculó el número de acciones"
             asset_split_unknown_ratio: "%{base} tuvo un split — el bróker recalculó el número de acciones"
             rebalance_sell_placed: 'Reequilibrio — vendiendo el activo sobreponderado'

@@ -38,10 +38,14 @@ module Bot::Composition::Rebalancer
     composition_assets = bot_index_assets.in_index.includes(:asset).to_a
     return nil if composition_assets.empty?
 
-    in_index_symbols = composition_assets.to_set { |bia| bia.asset.symbol }
+    # A locked member is treated exactly like a quitter here — see Bot::WashSaleGuard.
+    unlocked = composition_assets.reject(&:buy_locked?)
+    return nil if unlocked.empty?
+
+    in_index_symbols = unlocked.to_set { |bia| bia.asset.symbol }
     return nil if unpriced_holding?(data, values, tickers_by_symbol, in_index_symbols)
 
-    entries = composition_assets.map do |bia|
+    entries = unlocked.map do |bia|
       symbol = bia.asset.symbol
       {
         ticker: tickers_by_symbol[symbol],
@@ -52,7 +56,7 @@ module Bot::Composition::Rebalancer
       }
     end
 
-    resolve_unknown_targets(entries)
+    normalise_targets(entries)
   end
 
   # A bulk price response can come back successful but incomplete, and metrics_with_current_prices
@@ -72,18 +76,22 @@ module Bot::Composition::Rebalancer
     end
   end
 
-  # A current asset whose weight the composition never wrote gets its own current share, so it
-  # reads as exactly on target: never the most overweight, never the most underweight, and above all
-  # never sold to zero on the strength of a missing number.
-  def resolve_unknown_targets(entries)
-    return entries if entries.none? { |entry| entry[:target].nil? }
+  # One normalisation, so the targets always sum to one whatever was removed (a quitter, a locked
+  # member) or never recorded. A member whose weight the composition never wrote keeps its own
+  # current share of the survivors' value, so it reads as exactly on target: never the most
+  # overweight, never the most underweight, and above all never sold to zero on the strength of a
+  # missing number. The recorded weights of the other survivors are then scaled to fill whatever
+  # mass is left — the same rule whether what is missing is a locked name's weight or an unknown.
+  def normalise_targets(entries)
+    total_value = entries.sum { |entry| entry[:value].to_d }
+    unknown, known = entries.partition { |entry| entry[:target].nil? }
+    unknown.each { |entry| entry[:target] = total_value.positive? ? entry[:value].to_d / total_value : 0.to_d }
 
-    total = entries.sum { |entry| entry[:value] }
-    entries.each do |entry|
-      next unless entry[:target].nil?
-
-      entry[:target] = total.positive? ? entry[:value] / total : 0.to_d
-    end
+    # The mass left for the recorded weights; zero when the unknowns hold every unit of value, in
+    # which case the recorded weights scale to zero rather than being left to sum past one.
+    known_mass = [1 - unknown.sum { |entry| entry[:target] }, 0.to_d].max
+    known_total = known.sum { |entry| entry[:target].to_d }
+    known.each { |entry| entry[:target] = entry[:target].to_d * known_mass / known_total } if known_total.positive?
     entries
   end
 end

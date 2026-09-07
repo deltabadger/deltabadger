@@ -3,7 +3,7 @@ require 'yaml'
 
 # YAML read directly, not I18n: with fallbacks on, a missing key resolves through English.
 class Bot::CompositionLocalesTest < ActiveSupport::TestCase
-  EVENTS = %w[orders_below_minimum].freeze
+  EVENTS = %w[orders_below_minimum dca_skipped_wash_sale].freeze
 
   test 'every available_locale carries the composition activity events in its own base.<locale>.yml' do
     I18n.available_locales.each do |locale|

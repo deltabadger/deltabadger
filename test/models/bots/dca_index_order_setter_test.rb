@@ -129,6 +129,39 @@ class Bots::DcaIndexOrderSetterTest < ActiveSupport::TestCase
     assert_raises(Client::RateLimitedError) { @bot.send(:get_orders_data, 100.to_d) }
   end
 
+  # == the wash-sale lock ==
+
+  test 'a locked constituent gets no order and its weight goes to the others' do
+    add_members('CCC', weights: { 'AAA' => 0.5, 'BBB' => 0.3, 'CCC' => 0.2 })
+    @bot.bot_index_assets.find_by(asset: @assets['CCC'][:asset]).update!(buy_locked_until: 10.days.from_now)
+    price_all(100)
+
+    orders = @bot.send(:get_orders_data, 100.to_d).data.index_by { |o| o[:ticker].base }
+
+    assert_nil orders['CCC']
+    assert_in_delta 62.5, orders['AAA'][:quote_amount], 0.01 # 0.5 / 0.8
+    assert_in_delta 37.5, orders['BBB'][:quote_amount], 0.01 # 0.3 / 0.8
+    assert_in_delta 100, orders.values.sum { |o| o[:quote_amount] }, 0.0001
+  end
+
+  test 'an expired lock is no lock' do
+    @bot.bot_index_assets.find_by(asset: @assets['BBB'][:asset]).update!(buy_locked_until: 1.minute.ago)
+    price_all(100)
+
+    assert_equal %w[AAA BBB], @bot.send(:get_orders_data, 100.to_d).data.map { |o| o[:ticker].base }.sort
+  end
+
+  test 'every constituent locked places nothing and says why' do
+    @bot.bot_index_assets.update_all(buy_locked_until: 10.days.from_now)
+    price_all(100)
+
+    result = @bot.send(:get_orders_data, 100.to_d)
+
+    assert_predicate result, :success?
+    assert_empty result.data
+    assert @bot.bot_activity_logs.find_by(event: 'dca_skipped_wash_sale')
+  end
+
   private
 
   def index_membership(weights)
