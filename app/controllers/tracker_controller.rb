@@ -224,6 +224,16 @@ class TrackerController < ApplicationController
       File.rename(stale_refusal, refusal_path)
     end
 
+    # An idle worker on a short history can refuse before the browser has even rendered the progress
+    # panel, and a broadcast replacing a target that does not exist yet is lost — leaving 0% forever.
+    # Reconciling here costs one file check and closes that race without any client-side timeout.
+    refusal = Tax::GenerateReportJob.refusal(current_user.id, country, year, report_scope)
+    if refusal
+      return render turbo_stream: turbo_stream.append(
+        'flash', partial: 'tracker/report_refused', locals: { symbols: refusal['symbols'] }
+      )
+    end
+
     render turbo_stream: turbo_stream.append('flash', partial: 'tracker/report_progress')
   end
 

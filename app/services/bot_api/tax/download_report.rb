@@ -15,7 +15,9 @@ module BotApi
           # Telling a caller to generate a report we have declined to produce is an infinite loop.
           refusal = ::Tax::GenerateReportJob.refusal(user.id, country, year)
           if refusal
-            return Result.failure(:unprocessable_entity, 'report_refused',
+            # validation_failed is the domain status that maps to 422; an unknown one becomes a 500,
+            # presenting an expected refusal as a retryable server fault.
+            return Result.failure(:validation_failed, 'report_refused',
                                   "No report for #{country} (#{year}): #{refusal['symbols'].join(', ')} " \
                                   'are tokenized securities, whose tax treatment differs from crypto. ' \
                                   'Deltabadger does not report them yet.')

@@ -105,4 +105,20 @@ class Tax::TokenizedScopeTest < ActiveSupport::TestCase
     create(:ticker, exchange: @exchange, base_asset: @nvdax, quote_asset: usd,
                     base: 'NVDAX', quote: 'USD', ticker: 'NVDAxUSD', trading_enabled: false)
   end
+  # A wrapper the catalogue files under its own category — Hyperliquid's RWA shim assets are
+  # "Tokenized Stock" — is rejected by AssetIdentity on a crypto venue, so the identity path alone
+  # would let it through. The venue's own listing answers "is this a wrapper" without that filter.
+  test 'a wrapper listed under a non-crypto category is still detected' do
+    rwa = create(:asset, symbol: 'TSLAH', name: 'Tesla (Hyperliquid)', external_id: 'tesla-hl',
+                         category: 'Tokenized Stock', instrument_type: 'tokenized')
+    usd = create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: rwa, quote_asset: usd,
+                    base: 'TSLAH', quote: 'USD', ticker: 'TSLAHUSD', trading_enabled: false)
+    create(:account_transaction, user: @user, exchange: @exchange, base_currency: 'TSLAH',
+                                 entry_type: :buy, transacted_at: Time.utc(2024, 3, 1))
+
+    report = report_for('DE', 2024, AccountTransaction.where(user: @user))
+
+    assert_equal ['TSLAH'], report.tokenized_symbols_in_scope
+  end
 end

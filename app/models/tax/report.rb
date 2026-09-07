@@ -134,6 +134,12 @@ module Tax
       # A dated alias is a pure lookup, so it stays per row; only the catalogue resolution is
       # memoised, by venue and symbol. Without that this is three queries per transaction — a few
       # thousand on an active history, paid before generation even starts.
+      # Venue first, and blind to category: AssetIdentity refuses a non-Cryptocurrency asset on a
+      # crypto venue, which is exactly what a wrapper listed as "Tokenized Stock" is — so asking it
+      # alone would let those through. We are asking "is this a wrapper", not "which coin is this".
+      venue_symbol = venue_wrapper_symbol(symbol, transaction.exchange)
+      return venue_symbol if venue_symbol
+
       coin_id = Tax::AssetIdentity.alias_coin(symbol, exchange: transaction.exchange,
                                                       at: transaction.transacted_at) ||
                 catalogue_coin_for(symbol, transaction.exchange)
@@ -142,6 +148,20 @@ module Tax
       # The catalogue's symbol, not the venue's code: the refusal names these to the user, and
       # "NVDASPV" would mean nothing to them.
       tokenized_symbol_of(coin_id)
+    end
+
+    # What THIS venue lists under this code, including its canonical spelling, when that asset is a
+    # wrapper. Memoised per venue and symbol.
+    def venue_wrapper_symbol(symbol, exchange)
+      return nil unless exchange
+
+      @venue_wrappers ||= {}
+      key = [symbol, exchange.id]
+      return @venue_wrappers[key] if @venue_wrappers.key?(key)
+
+      asset = exchange.tickers.where(base: [symbol, canonical_venue_symbol(symbol)])
+                      .includes(:base_asset).first&.base_asset
+      @venue_wrappers[key] = asset&.instrument_type == TOKENIZED_INSTRUMENT_TYPE ? asset.symbol : nil
     end
 
     def catalogue_coin_for(symbol, exchange)
