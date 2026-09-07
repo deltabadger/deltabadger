@@ -102,6 +102,7 @@ Rails.application.routes.draw do
     post   '/tracker/sync',                 to: 'tracker#sync',                 as: :sync_tracker
     get    '/tracker/export',               to: 'tracker#export',               as: :export_tracker
     get    '/tracker/export_modal',         to: 'tracker#export_modal',         as: :export_modal_tracker
+    get    '/tracker/connect_market_data',  to: 'tracker#connect_market_data',  as: :connect_market_data_tracker
     post   '/tracker/setup_coingecko',      to: 'tracker#setup_coingecko',      as: :setup_coingecko_tracker
     get    '/tracker/tax_report',           to: 'tracker#tax_report',           as: :tax_report_tracker
     get    '/tracker/download_tax_report',  to: 'tracker#download_tax_report',  as: :download_tax_report_tracker

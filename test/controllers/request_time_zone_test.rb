@@ -18,6 +18,8 @@ class RequestTimeZoneTest < ActionDispatch::IntegrationTest
   ELSEWHERE = 'Tallinn'
 
   setup do
+    # This reads the tracker page, which now refuses to render without a market-data feed.
+    MarketData.stubs(:configured?).returns(true)
     create(:user, admin: true, setup_completed: true) # platform requires an admin to exist
     @user = create(:user, setup_completed: true)
     @api_key = create(:api_key, user: @user)

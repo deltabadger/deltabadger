@@ -9,6 +9,15 @@ class TrackerController < ApplicationController
   before_action :require_admin!, only: :setup_coingecko
 
   def index
+    # Nothing on this page means anything without prices: holdings value to zero, the tiles spin,
+    # the chart has no line. Rendering it first reads as broken rather than unconfigured. The export
+    # modal has always refused on this; the page had not. Returned before any of the portfolio work,
+    # so an unconfigured install pays for none of it.
+    #
+    # Only bites where no provider is set at all — a hosted container is configured on boot.
+    @market_data_missing = !MarketData.configured?
+    return if @market_data_missing
+
     @scope_exchange = Exchange.find(params[:exchange_id]) if params[:exchange_id].present?
     exchange_ids = (current_user.api_keys.pluck(:exchange_id) +
       current_user.account_transactions.distinct.pluck(:exchange_id)).uniq
@@ -145,6 +154,13 @@ class TrackerController < ApplicationController
                                   []
                                 end
     render layout: false
+  end
+
+  # The modal on its own GET, so the tracker's empty state can link to it. The existing route into
+  # this form is a POST from the export modal, and the bot wizard's version redirects into that
+  # wizard afterwards — neither is somewhere to send a user who just opened the tracker.
+  def connect_market_data
+    render :setup_coingecko, layout: false
   end
 
   def setup_coingecko

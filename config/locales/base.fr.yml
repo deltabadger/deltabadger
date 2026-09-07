@@ -480,6 +480,7 @@ fr:
             none: "Nous n'avons pas pu valoriser cette ligne. Saisis ce que valait une unité."
         welcome:
             connect_and_track: "Suis ton portefeuille."
+            needs_market_data: 'Connectez une source de données de marché pour voir votre portefeuille.'
         sync_key_error_html: 'Échec de la synchronisation avec <strong>%{exchange}</strong> : %{message}. Veuillez mettre à jour la clé API ci-dessous.'
         sync_permission_error_html: "Impossible de synchroniser <strong>%{exchange}</strong> : cette clé API n'a pas la permission nécessaire pour lire %{capability}. Mettez à jour les permissions de la clé sur %{exchange}, ou créez une nouvelle clé avec toutes les permissions indiquées dans les instructions."
         sync_transient_error_html: "<strong>%{exchange}</strong> est temporairement indisponible. Réessayez la synchronisation dans quelques minutes."

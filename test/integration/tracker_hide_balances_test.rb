@@ -7,6 +7,10 @@ require 'test_helper'
 # value; the transactions table follows the same rule the bot log does.
 class TrackerHideBalancesTest < ActionDispatch::IntegrationTest
   setup do
+    # The tracker refuses to render a portfolio without a market-data feed, which every real
+    # install has. Stubbed rather than configured: naming a provider would send these tests at a
+    # real endpoint, and what they exercise is the page, not the feed.
+    MarketData.stubs(:configured?).returns(true)
     @user = create(:user, admin: true, setup_completed: true, hide_balances: true)
     @exchange = create(:binance_exchange)
     @api_key = create(:api_key, user: @user, exchange: @exchange)

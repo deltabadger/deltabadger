@@ -10,6 +10,9 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     @transacted_at = Time.zone.parse('2026-08-01 12:00:00')
     @report_paths = []
     self.default_url_options = { locale: nil }
+    # The tracker now refuses to render a portfolio with no market-data feed, which every real
+    # install has. Tests that want the unconfigured state clear it explicitly.
+    configure_deltabadger_market_data
     sign_in @user
   end
 
@@ -690,5 +693,27 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
   def classification_row(symbol:, kind:, fund_category: nil, persisted: false, refusal_reasons: [])
     { symbol: symbol, kind: kind, fund_category: fund_category, classified: !kind.nil?,
       persisted: persisted, refused: refusal_reasons.any?, refusal_reasons: refusal_reasons }
+  end
+  # Deltabadger is open-source software and a self-hosted install has no market-data feed until
+  # someone connects one. Rendering the tracker first shows a portfolio priced from nothing —
+  # holdings with no values, a chart with no line — which reads as broken rather than unconfigured.
+  # The export modal already refuses on this; the page itself did not.
+  test 'the tracker asks for a market data feed before showing anything' do
+    clear_market_data_configuration
+
+    get tracker_path
+
+    assert_response :ok
+    assert_match 'CoinGecko', response.body
+    assert_no_match(/tracker-table/, response.body, 'no portfolio may be shown without prices')
+  end
+
+  test 'a configured feed shows the tracker as usual' do
+    configure_deltabadger_market_data
+
+    get tracker_path
+
+    assert_response :ok
+    assert_no_match(/setup-market-data/, response.body)
   end
 end
