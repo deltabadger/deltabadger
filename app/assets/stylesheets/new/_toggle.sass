@@ -8,24 +8,22 @@
     &__style
         position: relative
         content: ""
-        width: 4.25rem
-        min-width: 4.25rem
-        height: 3rem
+        margin-top: 0.25rem
+        width: 4rem
+        min-width: 4rem
+        height: 2.5rem
         background-color: var(--steel)
         border-radius: 1.5rem
         transition: background-color 0.3s
         pointer-events: none
         box-shadow: var(--shadow-indent)
-        @media (min-width: 768px)
-            width: 5rem
-            min-width: 5rem
         &::after
             content: ""
             position: absolute
             top:    0.25rem
             left:   0.25rem
-            width:  2.5rem
-            height: 2.5rem
+            width:  2rem
+            height: 2rem
             background-color: white
             border-radius: 50%
             transition: transform 0.3s
@@ -82,10 +80,8 @@
             margin: 0
     input[type="checkbox"]
         position: absolute
-        width: 4.25rem
-        @media (min-width: 768px)
-            width: 5rem
-        height: 3rem
+        width: 4rem
+        height: 2.5rem
         opacity: 0
         &~  *
             path
@@ -94,9 +90,7 @@
             &~ .toggle__style
                 background-color: var(--grass)
                 &::after
-                    transform: translateX(1.25rem)
-                    @media (min-width: 768px)
-                        transform: translateX(2rem)
+                    transform: translateX(1.5rem)
             &~ .label
                 color: var(--grass)
             &~  *
