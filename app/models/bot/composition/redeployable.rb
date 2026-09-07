@@ -81,19 +81,36 @@ module Bot::Composition::Redeployable
     Result::Success.new
   end
 
-  def redeploy_banked = executed_quote_total(transactions.liquidation)
+  def redeploy_banked = confirmed_quote_total(transactions.liquidation)
   def redeploy_spent  = executed_quote_total(transactions.redeploy)
   def declined_offset = redeploy_declined_offset.to_d
 
-  # CONFIRMED proceeds only — what the venue actually reported, never an estimate.
+  # What was BANKED: confirmed proceeds only, never an estimate.
   #
   # A closed sell whose quote fill is still nil has its released basis parked as cash by the ledger
   # so the holding's value does not vanish, but that is what the position was WORTH, not what the
   # sale FETCHED. Offering it would let the redeploy spend money the sale never brought in, and the
   # account-wide balance cap would happily find it elsewhere. Such a sale banks nothing here until a
   # later poll reports the figure.
-  def executed_quote_total(scope)
+  def confirmed_quote_total(scope)
     scope.submitted.sum(:quote_amount_exec).to_d
+  end
+
+  # What was SPENT: the same figure the ledger counts, summed in SQL — including the fallback.
+  #
+  # The two sides are deliberately asymmetric. Banking an estimate would offer money that may not
+  # exist; NOT counting a spend the ledger counted would put money back on offer that has already
+  # gone out. Bot::FetchAndUpdateOrderJob explicitly allows a CLOSED order whose base fill is known
+  # while its quote fill is still nil, and `confirmed_exec_amounts` values those at `price * amount`
+  # — so a redeploy buy in that state has to be subtracted here at exactly the same figure, or a
+  # declined offer comes back the moment one lands.
+  def executed_quote_total(scope)
+    closed = Transaction.external_statuses[:closed]
+    scope.submitted.sum(Arel.sql(<<~SQL.squish)).to_d
+      COALESCE(quote_amount_exec,
+               CASE WHEN external_status = #{closed} AND price IS NOT NULL AND amount IS NOT NULL
+                    THEN price * amount ELSE 0 END)
+    SQL
   end
 
   # --- placement state ------------------------------------------------------------------------
