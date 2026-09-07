@@ -3,20 +3,29 @@
     mapping onto the shared table's rows. `sellable` is a Hash symbol => true for the rows that may
     carry Sell (or false for none): direct indexing is the freedom to close one position on its own,
     but a dust remainder the venue cannot sell must not get a button that 404s. `locks` (symbol =>
-    { days_left:, until: }) is declared here already — strict locals reject an undeclared local, and
-    Phase 2 passes it. %>
+    { days_left:, until: }) marks a constituent inside a wash-sale window: the row shows the
+    countdown, and keeps Sell if a remainder is still sellable.
+
+    Green marks the tax-clean moment — a position under water on this bot's OWN lots, whose sale
+    realises a loss. An estimate (Bot::TaxLots), and it moves with the price. %>
 <% sellable = local_assigns.fetch(:sellable, false) || {} %>
 <% locks = local_assigns.fetch(:locks, {}) %>
 <%= render 'bots/assets_table', body_id: body_id, actions: sellable.present? || locks.present?,
            hide_money: local_assigns.fetch(:hide_money, false), quote: local_assigns[:quote],
            rows: values.map { |symbol, data|
+      lock = locks[symbol]
+      harvest = data[:harvestable]
       { asset: logo_assets[symbol]&.base_asset, symbol: symbol,
         amount: number_with_precision(data[:amount] || 0, precision: 6, strip_insignificant_zeros: true),
         avg_price: data[:avg_price] && money_figure(data[:avg_price]),
         value: data[:current_value] && money_figure(data[:current_value]),
         pnl: data[:pnl_percentage],
-        action: (sellable[symbol] ? link_to(t('bot.liquidation.sell'),
-                                            new_bot_liquidation_path(bot_id: bot.id, symbol: symbol),
-                                            class: 'rbutton rbutton--small',
-                                            data: { turbo_frame: 'modal' }) : nil) }
+        action: safe_join([
+          (lock ? tag.span(t('bot.liquidation.locked', days: lock[:days_left]), class: 'text-inactive', title: l(lock[:until].to_date)) : nil),
+          (sellable[symbol] ? link_to(t('bot.liquidation.sell'),
+                                      new_bot_liquidation_path(bot_id: bot.id, symbol: symbol),
+                                      class: "rbutton rbutton--small #{'rbutton--success' if harvest}",
+                                      title: (harvest ? t('bot.liquidation.harvest_hint') : nil),
+                                      data: { turbo_frame: 'modal' }) : nil)
+        ].compact, ' ') }
     } %>
