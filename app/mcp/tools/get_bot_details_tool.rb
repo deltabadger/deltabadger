@@ -29,6 +29,9 @@ class GetBotDetailsTool < ApplicationMCPTool
     end
     lines << "Holdings (sellable with liquidate_exited_asset): #{data[:holdings].join(', ')}" if data[:holdings].present?
     lines << "Exited holdings: #{data[:exited_holdings].join(', ')}" if data[:exited_holdings].present?
+    if data[:locked_members].present?
+      lines << "Locked out of buying (wash sale): #{data[:locked_members].map { |m| "#{m[:symbol]} #{m[:days_left]}d" }.join(', ')}"
+    end
     if data[:redeploy_offer].present? && data[:redeploy_offer] != '0'
       lines << "Redeploy offer (answer with answer_redeploy_offer): #{data[:redeploy_offer]} #{data[:quote_asset]}"
     end

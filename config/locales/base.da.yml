@@ -689,6 +689,7 @@ da:
         events:
             dca_skipped_restatement: "Bidrag sprunget over — en aktiesplit markedet endnu ikke har prissat"
             dca_skipped_wash_sale: "Intet købt — hver bestanddel er i en karensperiode"
+            wash_sale_locked: "%{base} solgt — ingen tilbagekøb til og med %{until}, så tabet ved salget bevares"
             asset_split: "%{base} aktiesplit %{ratio} — mægleren har omregnet antallet af aktier"
             asset_split_unknown_ratio: "%{base} blev aktiesplittet — mægleren har omregnet antallet af aktier"
             rebalance_sell_placed: 'Rebalancering — sælger det overvægtede aktiv'

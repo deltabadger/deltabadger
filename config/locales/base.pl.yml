@@ -681,6 +681,7 @@ pl:
         events:
             dca_skipped_restatement: "Wpłata pominięta — podział akcji, którego rynek jeszcze nie wycenił"
             dca_skipped_wash_sale: "Nic nie kupiono — każdy składnik jest w okresie karencji"
+            wash_sale_locked: "%{base} sprzedane — bez odkupu do %{until} włącznie, żeby strata ze sprzedaży nie przepadła"
             asset_split: "%{base} podział akcji %{ratio} — broker przeliczył liczbę akcji"
             asset_split_unknown_ratio: "%{base} przeszedł podział akcji — broker przeliczył liczbę akcji"
             rebalance_sell_placed: 'Rebalansowanie — sprzedaż nadreprezentowanego aktywa'

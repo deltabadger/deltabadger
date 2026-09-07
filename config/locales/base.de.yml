@@ -678,6 +678,7 @@ de:
         events:
             dca_skipped_restatement: "Beitrag übersprungen — ein Aktiensplit, den der Markt noch nicht bepreist hat"
             dca_skipped_wash_sale: "Nichts gekauft — jeder Bestandteil steckt in einer Sperrfrist"
+            wash_sale_locked: "%{base} verkauft — bis einschließlich %{until} kein Rückkauf, damit der Verlust aus dem Verkauf erhalten bleibt"
             asset_split: "%{base} Aktiensplit %{ratio} — der Broker hat die Stückzahl angepasst"
             asset_split_unknown_ratio: "%{base} wurde gesplittet — der Broker hat die Stückzahl angepasst"
             rebalance_sell_placed: 'Rebalancing — Verkauf des übergewichteten Werts'

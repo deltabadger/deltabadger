@@ -24,6 +24,18 @@ class Transaction < ApplicationRecord
   after_commit lambda {
                  bot.handle_base_amount_limit_update if sell? && bot.class.include?(Bot::BaseAmountLimitable) && base_cap_relevant_change?
                }, on: %i[create update]
+  # The wash-sale clock runs from the fill (Bot::WashSaleGuard#reconcile_wash_sale_from_fill!).
+  # Here and not in the jobs: the single-order poll, the bulk sweep and the cancel button all land
+  # in update_with_order_data, and a hook in one of them would miss the others. On the terminal
+  # transition AND on a later change to the executed amounts of a terminal row — a cancelled partial
+  # can arrive with its base fill known and its proceeds absent, and a re-poll fills them in with
+  # the status unchanged. An identical re-poll saves no change and fires nothing; a late detail can
+  # only lengthen a lock (extend_buy_lock! never shortens), which is the conservative side.
+  after_save :reconcile_wash_sale,
+             if: lambda {
+               sell? && (closed? || cancelled?) &&
+                 (saved_change_to_external_status? || saved_change_to_amount_exec? || saved_change_to_quote_amount_exec?)
+             }
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
   scope :today_for_bot, ->(bot) { for_bot(bot).where('created_at >= ?', Date.today.beginning_of_day) }
@@ -172,6 +184,10 @@ class Transaction < ApplicationRecord
     self.bot_quote_amount = bot_quote_amount&.round(18)
     self.quote_amount = quote_amount&.round(18)
     self.quote_amount_exec = quote_amount_exec&.round(18)
+  end
+
+  def reconcile_wash_sale
+    bot.reconcile_wash_sale_from_fill!(self) if bot.respond_to?(:reconcile_wash_sale_from_fill!)
   end
 
   def store_previous_quote_amount_exec

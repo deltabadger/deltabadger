@@ -95,6 +95,55 @@ module Bot::WashSaleGuard
     was.nil? || deadline > was
   end
 
+  # Whether the units this order submits lose money on ANY of the FIFO lots they consume — the tax
+  # view, not the performance view, lot by lot rather than net, and about what is actually being
+  # sold: the exchange may hold less than the position. False without a jurisdiction, so the legs
+  # skip the lock bookkeeping entirely. An UNKNOWN verdict (a consumed lot whose cost we never
+  # learned) is treated as a loss here as on the fill path: the provisional lock is the only
+  # protection an ambiguous placement will ever get, since the resolution flow cannot reconstruct a
+  # fill it never saw.
+  def sell_at_loss?(order_data)
+    return false if wash_sale_days.zero?
+
+    lots = (metrics[:asset_lots] || {})[order_data[:ticker].base] || []
+    Bot::TaxLots.loss_in?(lots, order_data[:amount], order_data[:quote_amount]) != false
+  end
+
+  # Says the deadline actually on the row — an earlier sale's longer window wins over this sale's.
+  def log_wash_sale_lock(base)
+    row = bot_index_assets.includes(:asset).find { |bia| bia.asset.symbol == base }
+    last_day = ((row&.buy_locked_until || lock_deadline) - 1.day).to_date
+    log_activity('wash_sale_locked', level: :info, details: { base: base, until: last_day.iso8601 })
+  end
+
+  # From Transaction#update_with_order_data, the ONE write path both order jobs (the single-order
+  # poll and the bulk sweep) and the cancel button go through, whenever a terminal sell's status or
+  # executed amounts change — closed, or cancelled after a partial fill. The metrics walk knows
+  # what the fill realised against the lots. A loss on any lot creates or lengthens the lock from
+  # the day the fill was SEEN — never earlier than the fill, so an observation that lags the venue
+  # can only lengthen a lock; an identical re-poll saves nothing and lands nowhere near here. A sale
+  # estimated as a gain that filled under water gets its lock here. Never shortens.
+  #
+  # NO VERDICT means the walk could not price this sale: a cancelled partial whose proceeds the
+  # venue has not reported, and nothing re-polls a terminal order. Something WAS sold, so the
+  # conservative reading is the lock — a window served for nothing costs a month of not buying one
+  # name; a loss washed costs the loss.
+  #
+  # Runs inside the transaction's own save, so the lock commits with the fill or not at all.
+  def reconcile_wash_sale_from_fill!(order)
+    return unless order.sell? && wash_sale_days.positive?
+
+    # The same quantity rule as the metrics walk (Transaction.confirmed_exec_amounts): a closed
+    # order that reported no executed quantity executed what it asked for.
+    units = order.amount_exec || (order.closed? ? order.amount : nil)
+    return unless units.to_d.positive?
+
+    verdict = (metrics(force: true)[:loss_lot_by_transaction] || {}).fetch(order.id, nil)
+    return if verdict == false # nil (no proceeds known) and true both lock
+
+    log_wash_sale_lock(order.base) if extend_buy_lock!(base: order.base, from: Time.zone.today)
+  end
+
   # The row a lock lives on. A holding the composition never recorded — seeded by hand, or a legacy
   # row — is sellable all the same, and its lock needs a home, or the day it enters the index it
   # is bought back unprotected. Created as a quitter; the next composition refresh flips in_index

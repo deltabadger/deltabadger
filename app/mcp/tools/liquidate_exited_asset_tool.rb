@@ -3,7 +3,8 @@
 class LiquidateExitedAssetTool < ApplicationMCPTool
   tool_name 'liquidate_exited_asset'
   description 'Sell, at market, one holding of an index or basket bot — a current constituent or one that left ' \
-              'the composition. Irreversible and a taxable disposal. See get_bot_details for holdings.'
+              'the composition. Irreversible and a taxable disposal. See get_bot_details for holdings. ' \
+              "A sale at a loss on the bot's own lots locks the asset out of buying for the bot's wash-sale window."
   open_world
   destructive
 
