@@ -212,7 +212,8 @@ class Bots::DcaIndexMetricsSellTest < ActiveSupport::TestCase
       assert_in_delta 1, data[:asset_breakdown]['AAA'][:amount].to_f, 0.0001, "#{shape}: one unit left, not two"
       assert_in_delta 100, data[:asset_breakdown]['AAA'][:quote_invested].to_f, 0.0001, shape.inspect
       assert_in_delta 0, data[:realised_pnl].to_f, 0.0001, "#{shape}: neutral until priced"
-      assert_in_delta 100, data[:realised_cash].to_f, 0.0001, "#{shape}: the released basis, not invented proceeds"
+      assert_in_delta 100, data[:rebalance_cash].to_f, 0.0001, "#{shape}: the released basis, not invented proceeds"
+      assert_in_delta 0, data[:realised_cash].to_f, 0.0001, "#{shape}: a valuation placeholder, never spendable"
       assert_in_delta 200, data[:total_amount_value_in_quote].to_f, 0.01, "#{shape}: one unit at the last mark of 100, plus the cash"
     end
   end

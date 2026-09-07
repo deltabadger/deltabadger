@@ -188,13 +188,31 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
     @bot.transactions.liquidation.last.update_columns(quote_amount_exec: nil)
 
     metrics = @bot.metrics(force: true)
-    assert_in_delta 100, metrics[:realised_cash].to_f, 0.0001, 'the released basis, as a placeholder'
+    assert_in_delta 100, metrics[:rebalance_cash].to_f, 0.0001, 'the released basis, as a placeholder'
+    assert_in_delta 0, metrics[:realised_cash].to_f, 0.0001, 'a valuation, never spendable money'
     assert_in_delta 0, @bot.redeploy_offer(metrics).to_f, 0.0001, 'nothing confirmed, nothing offered'
 
     @bot.transactions.liquidation.last.update_columns(quote_amount_exec: 90)
     metrics = @bot.metrics(force: true)
     assert_in_delta 90, metrics[:realised_cash].to_f, 0.0001
     assert_in_delta 90, @bot.redeploy_offer(metrics).to_f, 0.0001, 'once reported, exactly what it fetched'
+  end
+
+  # The cap is what the books still hold in SPENDABLE cash. An unpriced sale parks its released basis
+  # as cash so the holding's value does not vanish, and that placeholder must not lift the cap:
+  # earlier proceeds the DCA leg has already spent would come straight back on offer, and accepting
+  # it would spend account funds no sale ever brought in.
+  test 'an unpriced sale does not replenish the cap' do
+    buy('AAA', quote: 200, price: 100)
+    liquidate('AAA', amount: 1, quote: 100, price: 100)
+    buy('BBB', quote: 100, price: 100) # the DCA leg spends the proceeds
+    create_order('AAA', amount: 1, quote: 100, price: 100, side: :sell, type: 'LIQUIDATION')
+    @bot.transactions.liquidation.last.update_columns(quote_amount_exec: nil)
+
+    metrics = @bot.metrics(force: true)
+    assert_in_delta 100, metrics[:rebalance_cash].to_f, 0.0001, 'still counted in the portfolio'
+    assert_in_delta 0, metrics[:realised_cash].to_f, 0.0001, 'but not as money to spend'
+    assert_in_delta 0, @bot.redeploy_offer(metrics).to_f, 0.0001
   end
 
   # The banked side counts only what the venue reported; the SPEND side must still count what the
