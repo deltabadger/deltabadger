@@ -37,3 +37,5 @@ Using limit orders can lower the price you pay. For one thing, many exchanges ch
 
 > [!IMPORTANT]
 > A limit order can sit in the book for a long time. Open orders appear in the transaction list with a **Cancel** button. The further below the price you place the order, the longer you may wait.
+
+> **Over the API:** create and manage DCA bots from your own scripts or an AI client — see [REST API](23-rest-api.md#bots) and [MCP server](22-mcp-server.md#control).

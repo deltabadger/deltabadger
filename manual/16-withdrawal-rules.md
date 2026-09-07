@@ -74,3 +74,5 @@ Two things can go wrong on the Address step:
 - "Could not fetch withdrawal addresses from Kraken. Please try again later." — the exchange did not answer, the key cannot read the list, or Deltabadger cannot list addresses for that asset on that exchange (Gemini covers a fixed set of coins). The key form is shown again so you can re-enter it; if the key is fine, wait and retry.
 
 > **Note:** The address list is only as safe as your exchange account. Check that the address you register there is your own wallet on the right network; a withdrawal to a wrong address or network cannot be reversed.
+
+> **Over the API:** rules can be listed, created, started, stopped, changed and deleted from a script or an AI client — see [REST API](23-rest-api.md#rules) and [MCP server](22-mcp-server.md#control).

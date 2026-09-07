@@ -52,3 +52,5 @@ After the disposals:
 | Denmark | FIFO | DKK | Per-asset summary; a loss is marked denied when the asset was bought again between acquisition and sale |
 | Czech Republic | FIFO | CZK | A tax-exempt column with its reason — time test (held over three years) or value test (total proceeds for the year up to 100,000 — then every disposal is exempt); summary |
 | Slovakia | FIFO | EUR | Term and tax-rate columns (19% short-term, 7% long-term); coin-to-coin swaps not taxed; stablecoin checkbox |
+
+> **Over the API:** reports can be generated, polled and downloaded from a script or an AI client — see [REST API](23-rest-api.md#tax-reports) and [MCP server](22-mcp-server.md#tax--reporting).

@@ -31,3 +31,5 @@ When rows land, the dialog closes and the page reloads with **Imported N transac
 **Export** downloads `deltabadger-transactions-<date>.csv` with the columns above, oldest row first. It follows the exchange filter and the two date pickers under the record, and it is never limited to the rows shown on the page.
 
 The same export is available from the **Tax Report** button: in the **Generate Report** dialog choose **All**, set **From** and **To**, and press **Download**. Without market data that dialog asks for a CoinGecko API key instead (see [Market data](26-market-data.md)); use **Export** on the bar. The rest of the dialog is described under [Crypto tax report](19-crypto-tax-report.md).
+
+> **Over the API:** account transactions export as CSV from a script or an AI client — see [REST API](23-rest-api.md#transactions-and-tracker) and [MCP server](22-mcp-server.md#tax--reporting).
