@@ -605,6 +605,10 @@ class Exchanges::Kraken < Exchange
     asset = ASSET_MAP[asset_raw] || asset_raw
     # Kraken uses XBT, normalize to BTC
     asset = 'BTC' if asset == 'XBT'
+    # Tokenized equities arrive as the venue's own code — NVDAx, or NVDASPV for the SPV alias —
+    # while the catalogue knows them by the canonical symbol. Left alone they reach the ledger as a
+    # currency nothing can resolve, so holdings, valuation and tax scoping all miss them.
+    asset = canonical_tokenized_symbol(asset)
     amount = entry['amount'].to_d.abs
     fee = entry['fee'].to_d
     transacted_at = Time.at(entry['time']).utc
@@ -663,6 +667,19 @@ class Exchanges::Kraken < Exchange
   # ponytail: the SPV → x rewrite is Kraken's naming convention, not a documented contract (every
   # SPV asset code in /0/public/Assets?aclass=tokenized_asset carries the x form as its altname).
   # If it ever diverges, resolve altname from that endpoint instead of rewriting the suffix.
+  # The canonical symbol when this venue code names a tokenized asset, else the code unchanged.
+  # Consulted only after the plain lookup fails, so an ordinary coin is never rewritten.
+  def canonical_tokenized_symbol(symbol)
+    return symbol if super_asset_from_symbol(symbol)
+
+    tokenized_asset_from_symbol(symbol)&.symbol || symbol
+  end
+
+  def super_asset_from_symbol(symbol)
+    @asset_from_symbol_cache ||= {}
+    @asset_from_symbol_cache[symbol] ||= tickers.available.find_by(base: symbol)&.base_asset
+  end
+
   def tokenized_asset_from_symbol(symbol)
     @tokenized_asset_from_symbol ||= tickers.available.includes(:base_asset)
                                             .each_with_object({}) { |t, h| h[t.base.upcase] ||= t.base_asset }

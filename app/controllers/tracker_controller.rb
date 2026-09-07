@@ -200,7 +200,21 @@ class TrackerController < ApplicationController
     ))
 
     stablecoin_as_fiat = params[:stablecoin_as_fiat] == 'true'
-    Tax::GenerateReportJob.perform_later(current_user.id, country, year, stablecoin_as_fiat, report_scope)
+    # An earlier refusal steps aside before the enqueue and comes back if it fails, exactly as the
+    # API service handles the previous report. Left in place it would answer `refused` for the whole
+    # of this run — telling a user who has just removed the offending transactions that the report
+    # they only now asked for cannot be produced. Never removed after the enqueue: an in-process
+    # worker may already have written a NEW refusal to this path.
+    refusal_path = Tax::GenerateReportJob.refusal_path(current_user.id, country, year, report_scope)
+    stale_refusal = "#{refusal_path}.stale"
+    File.rename(refusal_path, stale_refusal) if File.exist?(refusal_path)
+    begin
+      Tax::GenerateReportJob.perform_later(current_user.id, country, year, stablecoin_as_fiat, report_scope)
+    rescue StandardError
+      File.rename(stale_refusal, refusal_path) if File.exist?(stale_refusal)
+      raise
+    end
+    FileUtils.rm_f(stale_refusal)
 
     render turbo_stream: turbo_stream.append('flash', partial: 'tracker/report_progress')
   end

@@ -583,4 +583,34 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
 
     assert_equal 0.5.to_d, balances[btc.id][:free], 'the existing ASSET_MAP path still works'
   end
+  # Kraken's ledger names a tokenized holding by the venue's own code. Left as-is it reaches
+  # account_transactions as a currency nothing resolves — so the holding is unpriced, absent from
+  # the tracker, and invisible to the tax report's tokenized check.
+  test 'a tokenized ledger entry is stored under the canonical symbol' do
+    nvda = create(:asset, symbol: 'NVDAX', name: 'NVIDIA xStock',
+                          external_id: 'nvidia-xstock', instrument_type: 'tokenized')
+    usd = create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: nvda, quote_asset: usd,
+                    base: 'NVDAX', quote: 'USD', ticker: 'NVDAxUSD', trading_enabled: false)
+
+    %w[NVDAx NVDASPV].each do |code|
+      entry = { 'type' => 'trade', 'asset' => code, 'amount' => '1.5', 'fee' => '0',
+                'time' => Time.utc(2024, 3, 1).to_i, 'refid' => "r#{code}" }
+      normalized = @exchange.send(:normalize_kraken_ledger_entry, "l#{code}", entry)
+
+      assert_equal 'NVDAX', normalized[:base_currency], "#{code} must resolve to the catalogue symbol"
+    end
+  end
+
+  test 'an ordinary ledger entry is left alone' do
+    btc = create(:asset, :bitcoin)
+    usd = create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: btc, quote_asset: usd, base: 'XBT', quote: 'USD')
+
+    entry = { 'type' => 'trade', 'asset' => 'XXBT', 'amount' => '1', 'fee' => '0',
+              'time' => Time.utc(2024, 3, 1).to_i, 'refid' => 'r1' }
+    normalized = @exchange.send(:normalize_kraken_ledger_entry, 'l1', entry)
+
+    assert_equal 'BTC', normalized[:base_currency], 'the existing XBT normalisation still applies'
+  end
 end
