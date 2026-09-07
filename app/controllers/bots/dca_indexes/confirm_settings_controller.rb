@@ -46,7 +46,7 @@ class Bots::DcaIndexes::ConfirmSettingsController < ApplicationController
   def permitted_settings
     Bots::DcaIndex.stored_attributes[:settings].reject do |key|
       key.in?(%i[quote_asset_id])
-    end
+    end + %i[num_coins_ceiling num_coins_rendered]
   end
 
   def fetch_index_preview(bot)
@@ -72,7 +72,7 @@ class Bots::DcaIndexes::ConfirmSettingsController < ApplicationController
     # Collect up to MAX_COINS for live preview (allocations calculated client-side)
     preview = []
     top_coins.each do |coin|
-      break if preview.size >= Bots::DcaIndex::MAX_COINS
+      break if preview.size >= bot.max_coins
 
       ticker = ticker_by_coingecko_id[coin['id']]
       next unless ticker.present?
