@@ -108,12 +108,15 @@ module Tax
     # German-shaped: PVCT pools purchases portfolio-wide, so a wrapper purchase changes an unrelated
     # disposal, and a wealth snapshot reports holdings with no disposal at all.
     def tokenized_symbols_in_scope
-      symbols = transactions.where(transacted_at: ..detection_cutoff)
-                            .distinct.pluck(:base_currency).compact
-      return [] if symbols.empty?
+      rows = transactions.where(transacted_at: ..detection_cutoff)
+                         .includes(:exchange)
+                         .select(:base_currency, :exchange_id, :transacted_at)
+      return [] if rows.empty?
 
-      Asset.where(symbol: symbols, instrument_type: TOKENIZED_INSTRUMENT_TYPE)
-           .distinct.pluck(:symbol).sort
+      # Resolved per row, via venue and date, NOT by matching the catalogue on symbol: `TON` is both
+      # Toncoin and a tokenized AT&T, so a symbol-wide lookup would refuse a Toncoin holder's report
+      # for an instrument they never touched.
+      rows.filter_map { |tx| tokenized_symbol_for(tx) }.uniq.sort
     end
 
     private
@@ -121,6 +124,19 @@ module Tax
     # The wealth snapshot applies its own reference date and ignores anything later, so a 2 January
     # purchase contributes nothing to a 1 January snapshot. Sharing the effective cutoff keeps
     # detection from refusing a report the calculation would not even have looked at.
+    def tokenized_symbol_for(transaction)
+      symbol = transaction.base_currency
+      return nil if symbol.blank?
+
+      # The Exchange object, not its name_id: AssetIdentity asks the venue what it lists.
+      coin_id = Tax::AssetIdentity.coin_id(symbol, exchange: transaction.exchange,
+                                                   at: transaction.transacted_at)
+      return nil if coin_id.blank?
+
+      asset = Asset.find_by(external_id: coin_id)
+      asset&.instrument_type == TOKENIZED_INSTRUMENT_TYPE ? symbol : nil
+    end
+
     def detection_cutoff
       return Time.utc(year + 1) unless wealth_snapshot?
 
