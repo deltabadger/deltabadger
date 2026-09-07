@@ -704,6 +704,7 @@ da:
             liquidation_market_closed: "Markedet er lukket — intet solgt"
             liquidation_not_started: "Intet blev solgt — botten var optaget, eller indekset kunne ikke opdateres"
             liquidation_failed: "Selling failed: %{error}"
+            orders_below_minimum: "%{count} constituents were under the exchange minimum this time and carry forward: %{bases}"
             redeploy_requested: "Pengene ryger tilbage i kurven"
             redeploy_placed: "Køber tilbage i kurven for provenuet"
             redeploy_skipped: "En del af provenuet kunne ikke geninvesteres — blev stående som kontanter"

@@ -693,6 +693,7 @@ fr:
             liquidation_market_closed: "Marché fermé — rien de vendu"
             liquidation_not_started: "Rien n’a été vendu — le bot était occupé ou l’indice n’a pas pu être actualisé"
             liquidation_failed: "Échec de la vente : %{error}"
+            orders_below_minimum: "%{count} actifs sont passés sous le minimum de la plateforme cette fois et sont reportés : %{bases}"
             redeploy_requested: "L’argent retourne dans le panier"
             redeploy_placed: "Rachat dans le panier avec le produit de la vente"
             redeploy_skipped: "Une partie du produit n’a pas pu être réinvestie — laissée en liquidités"

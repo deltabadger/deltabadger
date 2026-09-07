@@ -692,6 +692,7 @@ it:
             liquidation_market_closed: "Mercato chiuso — niente venduto"
             liquidation_not_started: "Non è stato venduto nulla — il bot era occupato o l’indice non si è aggiornato"
             liquidation_failed: "Vendita fallita: %{error}"
+            orders_below_minimum: "%{count} asset sono rimasti sotto il minimo dell'exchange questa volta e vengono riportati: %{bases}"
             redeploy_requested: "Rimetto i soldi nel paniere"
             redeploy_placed: "Riacquisto nel paniere con i ricavi"
             redeploy_skipped: "Parte dei ricavi non è stata reinvestita — lasciata come liquidità"

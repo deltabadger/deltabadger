@@ -19,6 +19,8 @@ module Bot::Composition::OrderSetter
     return result if result.failure?
 
     orders_data = result.data
+    skipped = []
+    placed = 0
     orders_data.each do |order_data|
       if order_data[:amount].zero?
         Rails.logger.info("set_orders composition bot=#{id} event=order_ignored #{order_log_fields(order_data)}")
@@ -29,8 +31,7 @@ module Bot::Composition::OrderSetter
       amount_info = calculate_best_amount_info(order_data)
       if amount_info[:below_minimum_amount]
         Rails.logger.info("set_orders composition bot=#{id} event=order_skipped #{order_log_fields(order_data)}")
-        log_activity('order_skipped', level: :warning, details: order_log_details(order_data))
-        create_skipped_order!(order_data)
+        skipped << order_data
         next
       end
 
@@ -44,8 +45,10 @@ module Bot::Composition::OrderSetter
         # A -1021/timestamp rejection is a no-op pre-trade rejection: no order was placed, so don't
         # leave a misleading `failed` Transaction row. The bot reschedules cleanly (Bot::ActionJob).
         create_failed_order!(order_data.merge!(error_messages: result.errors)) unless exchange.placement_transient_error?(result.errors)
+        record_skipped_orders!(skipped, placed_any: placed.positive?)
         return result
       else
+        placed += 1
         order_id = result.data[:order_id]
         Rails.logger.info("set_orders composition bot=#{id} event=order_accepted order_id=#{order_id} #{order_log_fields(order_data)}")
         transaction = persist_accepted_order!(order_data, order_id)
@@ -56,7 +59,30 @@ module Bot::Composition::OrderSetter
       end
     end
 
+    record_skipped_orders!(skipped, placed_any: placed.positive?)
     Result::Success.new
+  end
+
+  # A constituent whose share of this contribution is under the venue floor is not bought this tick.
+  # Its shortfall stays in the offsets and in the carry (pending_quote_amount is expected minus
+  # invested), so it is bought once enough has accumulated — on a hundred-name index most names sit
+  # under a $1 floor on any ordinary contribution, and this is how the tail gets bought at all.
+  #
+  # One line per tick, not one warning and one `skipped` row per name: a hundred warnings a tick
+  # would drown the feed. A tick that placed NOTHING keeps the per-order rows — that is the "your
+  # amount is too small for this venue" signal broadcast_below_minimums_warning reads.
+  def record_skipped_orders!(skipped, placed_any:)
+    return if skipped.empty?
+
+    if placed_any
+      log_activity('orders_below_minimum', level: :info,
+                                           details: { count: skipped.size, bases: skipped.map { |o| o[:ticker].base }.join(', ') })
+    else
+      skipped.each do |order_data|
+        log_activity('order_skipped', level: :warning, details: order_log_details(order_data))
+        create_skipped_order!(order_data)
+      end
+    end
   end
 
   def broadcast_below_minimums_warning

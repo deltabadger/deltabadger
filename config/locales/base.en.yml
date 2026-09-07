@@ -704,6 +704,7 @@ en:
             liquidation_market_closed: "Market closed — nothing sold"
             liquidation_not_started: "Nothing was sold — the bot was busy, or the index could not be refreshed"
             liquidation_failed: "Selling failed: %{error}"
+            orders_below_minimum: "%{count} constituents were under the exchange minimum this time and carry forward: %{bases}"
             dca_skipped_liquidation_pending: "Contribution skipped — a sale is still in progress"
             redeploy_requested: "Putting the proceeds back into the basket"
             redeploy_placed: "Buying back into the basket with the proceeds"

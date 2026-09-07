@@ -704,6 +704,7 @@ el:
             liquidation_market_closed: "Η αγορά είναι κλειστή — δεν πουλήθηκε τίποτα"
             liquidation_not_started: "Δεν πουλήθηκε τίποτα — το bot ήταν απασχολημένο ή ο δείκτης δεν ανανεώθηκε"
             liquidation_failed: "Selling failed: %{error}"
+            orders_below_minimum: "%{count} constituents were under the exchange minimum this time and carry forward: %{bases}"
             redeploy_requested: "Τα χρήματα επιστρέφουν στο καλάθι"
             redeploy_placed: "Αγορά ξανά στο καλάθι με τα έσοδα"
             redeploy_skipped: "Μέρος των εσόδων δεν μπόρεσε να επανεπενδυθεί — έμεινε ως μετρητά"

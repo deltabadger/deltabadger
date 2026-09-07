@@ -696,6 +696,7 @@ pl:
             liquidation_market_closed: "Rynek zamknięty — nic nie sprzedano"
             liquidation_not_started: "Nic nie sprzedano — bot był zajęty albo nie udało się odświeżyć indeksu"
             liquidation_failed: "Sprzedaż nie powiodła się: %{error}"
+            orders_below_minimum: "%{count} aktywów było tym razem poniżej minimum giełdy i przechodzi na kolejny raz: %{bases}"
             redeploy_requested: "Wkładam środki z powrotem do koszyka"
             redeploy_placed: "Kupuję z powrotem do koszyka za uzyskane środki"
             redeploy_skipped: "Części środków nie udało się ponownie zainwestować — zostały jako gotówka"
