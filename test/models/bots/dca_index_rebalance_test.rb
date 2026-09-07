@@ -328,9 +328,8 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
 
   test 'a rebalance sell is refused while a buy for the same asset is resting' do
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
-    @bot.transactions.create!(exchange: @bot.exchange, base: 'AAA', quote: @bot.quote_asset.symbol, side: :buy,
-                              transaction_type: 'REGULAR', status: :submitted, external_status: :open,
-                              external_id: 'resting', amount: 1, price: 80, order_type: :limit_order)
+    resting_buy
+    venue_says_resting_buy(:open)
     @bot.stubs(:rebalance_sell_order_data).returns(ticker: @assets['AAA'][:ticker], price: 80, amount: 1.to_d,
                                                    quote_amount: 80.to_d, side: :sell, order_type: :market_order,
                                                    transaction_type: 'REBALANCE')
@@ -340,6 +339,26 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
 
     assert_equal :open_buy, result.data[:skipped]
     assert_not_predicate @bot, :rebalance_pending?
+  end
+
+  test 'a resting buy the venue has since filled does not stand the rebalance down for good' do
+    # Rebalancing runs while the DCA schedule is stopped, and on a stopped bot nothing else polls a
+    # resting DCA order — a guard that trusted the stale row would block this leg permanently.
+    index_membership('AAA' => 0.5, 'BBB' => 0.5)
+    order = resting_buy
+    venue_says_resting_buy(:closed)
+    @bot.stubs(:rebalance_sell_order_data).returns(ticker: @assets['AAA'][:ticker], price: 80, amount: 1.to_d,
+                                                   quote_amount: 80.to_d, side: :sell, order_type: :market_order,
+                                                   transaction_type: 'REBALANCE')
+    @bot.stubs(:calculate_best_amount_info).returns(below_minimum_amount: false)
+    @bot.stubs(:create_order).returns(Result::Success.new(order_id: 'x'))
+    @bot.stubs(:persist_accepted_order!).returns(@bot.transactions.build)
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+
+    result = @bot.send(:start_rebalance!)
+
+    assert_equal 'closed', order.reload.external_status, 'the guard refreshed it'
+    assert_nil result.data[:skipped], 'and the sell went out'
   end
 
   test 'a rebalance sell at a loss that goes out stays locked' do
@@ -406,6 +425,23 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
   end
 
   private
+
+  def resting_buy
+    @bot.transactions.create!(exchange: @bot.exchange, base: 'AAA', quote: @bot.quote_asset.symbol, side: :buy,
+                              transaction_type: 'REGULAR', status: :submitted, external_status: :open,
+                              external_id: 'resting', amount: 1, price: 80, order_type: :limit_order)
+  end
+
+  def venue_says_resting_buy(status)
+    @bot.stubs(:get_orders).returns(Result::Success.new(
+                                      orders: { 'resting' => { status: status, price: 80, amount: 1, quote_amount: 80,
+                                                               amount_exec: status == :closed ? 1 : 0,
+                                                               quote_amount_exec: status == :closed ? 80 : 0,
+                                                               ticker: @assets['AAA'][:ticker], side: :buy,
+                                                               order_type: :limit_order } },
+                                      missing: []
+                                    ))
+  end
 
   def enable_rebalancing(threshold: 0.05)
     @bot.settings = @bot.settings.merge('rebalance_enabled' => true, 'rebalance_threshold' => threshold)
