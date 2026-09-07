@@ -19,7 +19,7 @@ class Bots::RedeployPromptRenderTest < ActionDispatch::IntegrationTest
     get bot_path(id: @bot.id)
 
     assert_response :success
-    assert_match(/Redeploy/i, response.body)
+    assert_match(/redeploy-prompt/, response.body)
     assert_match(/150/, response.body)
   end
 
@@ -27,7 +27,7 @@ class Bots::RedeployPromptRenderTest < ActionDispatch::IntegrationTest
     get bot_path(id: @bot.id)
 
     assert_response :success
-    assert_no_match(/Redeploy/i, response.body)
+    assert_no_match(/redeploy-prompt/, response.body)
   end
 
   test 'no prompt once the offer has been declined' do
@@ -37,7 +37,7 @@ class Bots::RedeployPromptRenderTest < ActionDispatch::IntegrationTest
     get bot_path(id: @bot.id)
 
     assert_response :success
-    assert_no_match(/Redeploy/i, response.body)
+    assert_no_match(/redeploy-prompt/, response.body)
   end
 
   # Offering an action the job will refuse is worse than offering nothing.
@@ -48,7 +48,7 @@ class Bots::RedeployPromptRenderTest < ActionDispatch::IntegrationTest
     get bot_path(id: @bot.id)
 
     assert_response :success
-    assert_no_match(/Redeploy/i, response.body)
+    assert_no_match(/redeploy-prompt/, response.body)
   end
 
   test 'a halted batch shows the halt and a way out of it, not the prompt' do

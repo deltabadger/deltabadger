@@ -228,6 +228,9 @@ it:
             still_open: "L’ordine %{order_id} è ancora aperto sul tuo exchange. Aspetta che si chiuda."
             resolved: "Azzerato. Il bot può tornare a operare."
         liquidation:
+            locked: "Attesa fiscale · %{days} g"
+            harvest_hint: "Sotto il costo dei lotti propri di questo bot (una stima, primo entrato primo uscito) — vendere ora l'intera posizione dovrebbe realizzare una perdita"
+            partial_note: "Vende ciò che l'exchange detiene. Se è meno della posizione, sono i primi lotti venduti a decidere l'esito fiscale, che può differire dal colore della riga."
             title: "Vendi posizione"
             sell: "Vendi"
             sell_confirm: "Vendere questa posizione? Verrà chiusa al prezzo di mercato."
@@ -240,6 +243,11 @@ it:
             still_open: "L’ordine %{order_id} è ancora aperto sul tuo exchange. Aspetta che si regoli."
             resolved: "Vendita non confermata azzerata."
         settings:
+            wash_sale:
+                sentence_html: "Dopo una vendita in perdita, aspettare %{select_html} prima di ricomprare quell'asset"
+                none: "niente"
+                option: "%{days} giorni · %{country}"
+                note: "L'asset resta fuori da ogni acquisto — ricorrente, di ribilanciamento e di reinvestimento — per quel periodo, poi viene ricomprato come il titolo più sottopesato. Contano solo le operazioni di questo bot; un acquisto dello stesso asset da parte di un altro bot, a mano o altrove vale allo stesso modo per la regola."
             rebalance:
                 sentence_html: "Ribilancia quando un asset si discosta di più di <span>%{value_html} %</span> dal suo obiettivo"
                 note: "Continua a funzionare anche quando la pianificazione DCA è ferma. Usa sempre ordini a mercato."

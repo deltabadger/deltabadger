@@ -222,6 +222,9 @@ fr:
             still_open: "L’ordre %{order_id} est encore ouvert sur ta plateforme. Attends qu’il soit réglé."
             resolved: "Effacé. Le bot peut de nouveau trader."
         liquidation:
+            locked: "Délai fiscal · %{days} j"
+            harvest_hint: "Sous le prix de revient des lots propres à ce bot (une estimation, premier entré premier sorti) — vendre toute la position maintenant devrait réaliser une perte"
+            partial_note: "Vend ce que détient la plateforme. Si c'est moins que la position, ce sont les premiers lots vendus qui décident du résultat fiscal, et il peut différer de la couleur de la ligne."
             title: "Vendre la position"
             sell: "Vendre"
             sell_confirm: "Vendre cette position ? Elle sera clôturée au prix du marché."
@@ -234,6 +237,11 @@ fr:
             still_open: "L’ordre %{order_id} est encore ouvert sur ta plateforme. Attends qu’il soit réglé."
             resolved: "Vente non confirmée effacée."
         settings:
+            wash_sale:
+                sentence_html: "Après une vente à perte, attendre %{select_html} avant de racheter cet actif"
+                none: "aucun délai"
+                option: "%{days} jours · %{country}"
+                note: "L'actif est écarté de tous les achats — récurrents, de rééquilibrage et de réinvestissement — pendant ce délai, puis racheté en tant que valeur la plus sous-pondérée. Seules les transactions de ce bot sont comptées ; un achat du même actif par un autre bot, à la main ou ailleurs compte tout autant pour la règle."
             rebalance:
                 sentence_html: "Rééquilibrer quand un actif s’écarte de plus de <span>%{value_html} %</span> de sa cible"
                 note: "Continue de fonctionner même si le calendrier DCA est arrêté. Utilise toujours des ordres au marché."

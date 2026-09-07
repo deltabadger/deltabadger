@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_07_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_07_110000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -196,6 +196,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_07_100000) do
   create_table "bot_index_assets", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.integer "bot_id", null: false
+    t.datetime "buy_locked_until"
+    t.datetime "confirmed_locked_until"
     t.datetime "created_at", null: false
     t.decimal "current_allocation", precision: 10, scale: 6
     t.datetime "entered_at"

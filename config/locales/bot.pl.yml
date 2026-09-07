@@ -221,6 +221,9 @@ pl:
             still_open: "Zlecenie %{order_id} jest wciąż otwarte na giełdzie. Poczekaj, aż się rozliczy."
             resolved: "Wyczyszczone. Bot może znowu handlować."
         liquidation:
+            locked: "Karencja · %{days} d"
+            harvest_hint: "Poniżej kosztu własnych partii tego bota (szacunek, pierwsze weszło pierwsze wyszło) — sprzedaż całej pozycji teraz powinna zrealizować stratę"
+            partial_note: "Sprzedaje to, co trzyma giełda. Jeśli to mniej niż pozycja, o wyniku podatkowym decydują partie sprzedane jako pierwsze i może się on różnić od koloru wiersza."
             title: "Sprzedaj pozycję"
             sell: "Sprzedaj"
             sell_confirm: "Sprzedać tę pozycję? Zostanie zamknięta po cenie rynkowej."
@@ -233,6 +236,11 @@ pl:
             still_open: "Zlecenie %{order_id} jest wciąż otwarte na Twojej giełdzie. Poczekaj, aż się rozliczy."
             resolved: "Niepotwierdzona sprzedaż wyczyszczona."
         settings:
+            wash_sale:
+                sentence_html: "Po sprzedaży ze stratą odczekaj %{select_html} przed ponownym kupnem tego aktywa"
+                none: "nic"
+                option: "%{days} dni · %{country}"
+                note: "Przez ten czas aktywo jest pomijane przy każdym kupnie — regularnym, przy równoważeniu i przy ponownym inwestowaniu — a potem odkupywane jako najbardziej niedoważona pozycja. Liczą się tylko transakcje tego bota; kupno tego samego aktywa przez innego bota, ręcznie lub gdzie indziej liczy się do reguły tak samo."
             rebalance:
                 sentence_html: "Rebalansuj, gdy aktywo odchyli się o więcej niż <span>%{value_html} %</span> od celu"
                 note: "Działa nadal, gdy harmonogram DCA jest zatrzymany. Zawsze używa zleceń rynkowych."

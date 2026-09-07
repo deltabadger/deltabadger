@@ -212,6 +212,9 @@ pt:
             still_open: "A ordem %{order_id} ainda está aberta na tua exchange. Espera que liquide."
             resolved: "Limpo. O bot pode voltar a negociar."
         liquidation:
+            locked: "Espera fiscal · %{days} d"
+            harvest_hint: "Abaixo do custo dos lotes próprios deste bot (uma estimativa, primeiro a entrar primeiro a sair) — vender toda a posição agora deverá realizar um prejuízo"
+            partial_note: "Vende o que a exchange tem. Se for menos do que a posição, são os primeiros lotes vendidos que decidem o resultado fiscal, e ele pode diferir da cor da linha."
             title: "Vender posição"
             sell: "Vender"
             sell_confirm: "Vender esta posição? Será fechada ao preço de mercado."
@@ -224,6 +227,11 @@ pt:
             still_open: "A ordem %{order_id} continua aberta na tua exchange. Espera que seja liquidada."
             resolved: "Venda por confirmar limpa."
         settings:
+            wash_sale:
+                sentence_html: "Depois de vender com prejuízo, esperar %{select_html} antes de voltar a comprar esse ativo"
+                none: "nada"
+                option: "%{days} dias · %{country}"
+                note: "O ativo fica de fora de todas as compras — periódica, de reequilíbrio e de reinvestimento — durante esse tempo e depois é recomprado como o título mais subponderado. Só contam as operações deste bot; uma compra do mesmo ativo por outro bot, à mão ou noutro lado conta igualmente para a regra."
             rebalance:
                 sentence_html: "Reequilibrar quando um ativo se afastar mais de <span>%{value_html} %</span> do seu alvo"
                 note: "Continua a funcionar mesmo com o agendamento de DCA parado. Usa sempre ordens a mercado."

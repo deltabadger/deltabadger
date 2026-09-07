@@ -1,0 +1,28 @@
+<%# The wash-sale window. Not a trigger and not toggled: "None" is the off position, and the rule is
+    a fact about the user's tax residence rather than a strategy the bot could be talked out of. %>
+<% active = bot.wash_sale_days.positive? %>
+<% options = [[t('bot.settings.wash_sale.none'), '']] +
+             Tax::Jurisdictions.wash_sale_options.map { |code, name, days| [t('bot.settings.wash_sale.option', country: name, days: days), code] } %>
+<% current = active ? t('bot.settings.wash_sale.option', country: Tax::Jurisdictions.for(bot.wash_sale_jurisdiction)[:name], days: bot.wash_sale_days) : t('bot.settings.wash_sale.none') %>
+<%= form_with model: bot, url: path, method: method,
+              class: "widget rule #{active ? 'rule--active' : 'rule--inactive'}",
+              data: { controller: "form--submit", turbo_stream: true } do |f| %>
+  <div class="toggle-group">
+    <div class="toggle-group__info">
+      <div class="toggle-group__info__label">
+        <%# A div, not f.label: the sentence contains a select, and a select inside a label breaks focus. %>
+        <div class="conversational conversational--small conversational--disabled">
+          <% select_html = capture do %>
+            <div class="sinput sinput--select">
+              <%= current %>
+              <%= f.select :wash_sale_jurisdiction, options, { selected: bot.wash_sale_jurisdiction.to_s },
+                           data: { action: "change->form--submit#submit" } %>
+            </div>
+          <% end %>
+          <%= t('bot.settings.wash_sale.sentence_html', select_html: select_html).html_safe %>
+        </div>
+        <small class="small-info"><%= t('bot.settings.wash_sale.note') %></small>
+      </div>
+    </div>
+  </div>
+<% end %>
