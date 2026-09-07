@@ -36,6 +36,7 @@ class User < ApplicationRecord
           -> { where(personal_access_token: true) },
           class_name: 'Doorkeeper::Application', foreign_key: :personal_owner_id, dependent: :destroy
   has_many :connected_clients, dependent: :destroy
+  has_many :wash_sale_locks, dependent: :destroy
 
   validates :name, presence: true, if: -> { new_record? }
   validate :validate_name, if: -> { new_record? || name_changed? }
@@ -88,6 +89,40 @@ class User < ApplicationRecord
   # icon is the same ring at 24px and is drawn on every page, not only that one. Absent means off —
   # the default is the invested portfolio.
   def show_cash? = tracker_settings&.dig('show_cash').present?
+
+  validates :wash_sale_jurisdiction,
+            inclusion: { in: ->(_user) { Tax::Jurisdictions.wash_sale_options.map(&:first) } },
+            allow_blank: true
+
+  # Wash-sale prevention is a fact about the TAXPAYER, not about a bot: two bots holding the same
+  # asset would otherwise undo each other's harvest, and one person cannot have two tax residences.
+  #
+  # Reader fallback, never a persisted default (the Bot::Rebalanceable pattern): the select has to
+  # render a value before the user has chosen one, and writing one on load would dirty the record.
+  def wash_sale_jurisdiction
+    super.presence || Tax::Jurisdictions.wash_sale_options.first.first
+  end
+
+  # Days a sold-at-a-loss asset stays locked; 0 while the rule is off. Every leg gates on this, so
+  # "off" and "no window" are the same state to all of them.
+  def wash_sale_days
+    return 0 unless wash_sale_enabled?
+
+    Tax::Jurisdictions.for(wash_sale_jurisdiction)&.dig(:wash_sale_days).to_i
+  end
+
+  # Whether the first-start prompt has been answered. A timestamp rather than a nullable boolean:
+  # it keeps "never asked" apart from "asked and declined" without a tri-state, and records when.
+  def wash_sale_prompted? = wash_sale_prompted_at.present?
+
+  # Every asset this taxpayer is inside a wash-sale window on, whatever bot's sale started it.
+  # days_left counts to the day buying resumes, so it reads 1 on the window's last locked day.
+  def locked_assets(now: Time.current)
+    wash_sale_locks.live(now).includes(:asset).map do |lock|
+      { symbol: lock.asset.symbol, days_left: (lock.buy_locked_until.to_date - now.to_date).to_i,
+        until: lock.buy_locked_until }
+    end
+  end
 
   # One per instance: the /bots index reads it for the header and for every tile, and a
   # Solid Cache read is a query.

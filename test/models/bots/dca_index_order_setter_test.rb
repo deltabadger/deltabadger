@@ -133,7 +133,8 @@ class Bots::DcaIndexOrderSetterTest < ActiveSupport::TestCase
 
   test 'a locked constituent gets no order and its weight goes to the others' do
     add_members('CCC', weights: { 'AAA' => 0.5, 'BBB' => 0.3, 'CCC' => 0.2 })
-    @bot.bot_index_assets.find_by(asset: @assets['CCC'][:asset]).update!(buy_locked_until: 10.days.from_now)
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    WashSaleLock.create!(user: @bot.user, asset: @assets['CCC'][:asset], buy_locked_until: 10.days.from_now)
     price_all(100)
 
     orders = @bot.send(:get_orders_data, 100.to_d).data.index_by { |o| o[:ticker].base }
@@ -145,14 +146,16 @@ class Bots::DcaIndexOrderSetterTest < ActiveSupport::TestCase
   end
 
   test 'an expired lock is no lock' do
-    @bot.bot_index_assets.find_by(asset: @assets['BBB'][:asset]).update!(buy_locked_until: 1.minute.ago)
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    WashSaleLock.create!(user: @bot.user, asset: @assets['BBB'][:asset], buy_locked_until: 1.minute.ago)
     price_all(100)
 
     assert_equal %w[AAA BBB], @bot.send(:get_orders_data, 100.to_d).data.map { |o| o[:ticker].base }.sort
   end
 
   test 'every constituent locked places nothing and says why' do
-    @bot.bot_index_assets.update_all(buy_locked_until: 10.days.from_now)
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    @bot.bot_index_assets.includes(:asset).each { |bia| WashSaleLock.create!(user: @bot.user, asset: bia.asset, buy_locked_until: 10.days.from_now) }
     price_all(100)
 
     result = @bot.send(:get_orders_data, 100.to_d)

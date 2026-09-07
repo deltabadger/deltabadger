@@ -238,7 +238,8 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
 
   test 'a locked constituent is neither a rebalance candidate nor in the denominator' do
     index_membership('AAA' => 0.5, 'BBB' => 0.3, 'CCC' => 0.2)
-    @bot.bot_index_assets.find_by(asset: @assets['CCC'][:asset]).update!(buy_locked_until: 10.days.from_now)
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    WashSaleLock.create!(user: @bot.user, asset: @assets['CCC'][:asset], buy_locked_until: 10.days.from_now)
     stub_values({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 0 })
 
     targets = @bot.send(:rebalance_targets).index_by { |t| t[:ticker].base }
@@ -253,7 +254,8 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     index_membership('AAA' => 0.5, 'BBB' => 0.3)
     @bot.bot_index_assets.create!(asset: @assets['CCC'][:asset], ticker: @assets['CCC'][:ticker], target_allocation: nil, in_index: true,
                                   entered_at: Time.current)
-    @bot.bot_index_assets.find_by(asset: @assets['BBB'][:asset]).update!(buy_locked_until: 10.days.from_now)
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    WashSaleLock.create!(user: @bot.user, asset: @assets['BBB'][:asset], buy_locked_until: 10.days.from_now)
     stub_values({ 'AAA' => 70, 'BBB' => 0, 'CCC' => 30 })
 
     targets = @bot.send(:rebalance_targets).index_by { |t| t[:ticker].base }
@@ -281,7 +283,8 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     # 50/50, AAA worth 100 and just sold at a loss (locked), BBB never bought. The proceeds must go
     # somewhere, or the rebalance sits pending and the DCA leg stands down behind it for a month.
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
-    @bot.bot_index_assets.find_by(asset: @assets['AAA'][:asset]).update!(buy_locked_until: 10.days.from_now)
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    WashSaleLock.create!(user: @bot.user, asset: @assets['AAA'][:asset], buy_locked_until: 10.days.from_now)
     stub_values({ 'AAA' => 50, 'BBB' => 0 })
     @bot.stubs(:side_price).returns(10.to_d)
     @bot.stubs(:live_free_balance).returns(50.to_d)
@@ -310,8 +313,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
 
   test 'a rebalance sell at a loss on the FIFO lots locks the name, a pre-transmission failure restores what was there' do
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
-    @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
     @bot.stubs(:metrics).returns(asset_breakdown: {}, asset_lots: { 'AAA' => [{ amount: 2.to_d, cost: 200.to_d }] })
     @bot.stubs(:rebalance_sell_order_data).returns(ticker: @assets['AAA'][:ticker], price: 80, amount: 1.to_d,
                                                    quote_amount: 80.to_d, side: :sell, order_type: :market_order,
@@ -321,7 +323,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
 
     @bot.send(:start_rebalance!)
 
-    assert_nil @bot.bot_index_assets.find_by(asset: @assets['AAA'][:asset]).buy_locked_until
+    assert_nil @bot.user.wash_sale_locks.find_by(asset: @assets['AAA'][:asset])&.buy_locked_until
     assert_not_predicate @bot, :rebalance_pending?
     assert_nil @bot.reload.transient_data['rebalance_locked_asset_id']
   end
@@ -346,8 +348,10 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     # Selling it would strand the swap in its buying phase — there is no positive shortfall to buy
     # into — and the DCA leg stands down behind a pending rebalance until the lock expires.
     index_membership('AAA' => 0.5, 'BBB' => 0.5, 'CCC' => 0.0)
-    @bot.bot_index_assets.where(asset: [@assets['AAA'][:asset], @assets['BBB'][:asset]])
-        .update_all(buy_locked_until: 10.days.from_now)
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    [@assets['AAA'][:asset], @assets['BBB'][:asset]].each do |asset|
+      WashSaleLock.create!(user: @bot.user, asset: asset, buy_locked_until: 10.days.from_now)
+    end
     stub_values({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
 
     assert_nil @bot.send(:rebalance_targets)
@@ -376,8 +380,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
 
   test 'a rebalance sell at a loss that goes out stays locked' do
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
-    @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
     @bot.stubs(:metrics).returns(asset_breakdown: {}, asset_lots: { 'AAA' => [{ amount: 2.to_d, cost: 200.to_d }] })
     @bot.stubs(:rebalance_sell_order_data).returns(ticker: @assets['AAA'][:ticker], price: 80, amount: 1.to_d,
                                                    quote_amount: 80.to_d, side: :sell, order_type: :market_order,
@@ -389,7 +392,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
 
     @bot.send(:start_rebalance!)
 
-    assert_predicate @bot.bot_index_assets.find_by(asset: @assets['AAA'][:asset]), :buy_locked?
+    assert_predicate @bot.user.wash_sale_locks.find_by(asset: @assets['AAA'][:asset]), :buy_locked?
   end
 
   test 'a later failed sale never rolls back the lock an earlier, resolved one left' do
@@ -397,8 +400,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     # because that sale may well have executed. Sale 2 is a different name, at a gain, and provably
     # never reaches the venue — its rollback belongs to itself.
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
-    @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
     @bot.stubs(:metrics).returns(asset_breakdown: {}, asset_lots: { 'AAA' => [{ amount: 2.to_d, cost: 200.to_d }] })
     @bot.stubs(:calculate_best_amount_info).returns(below_minimum_amount: false)
     @bot.stubs(:rebalance_sell_order_data).returns(ticker: @assets['AAA'][:ticker], price: 80, amount: 1.to_d,
@@ -406,7 +408,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
                                                    transaction_type: 'REBALANCE')
     @bot.stubs(:create_order).raises(Client::AmbiguousPlacementError.new('timeout'))
     @bot.send(:start_rebalance!)
-    locked_until = @bot.bot_index_assets.find_by(asset: @assets['AAA'][:asset]).buy_locked_until
+    locked_until = @bot.user.wash_sale_locks.find_by(asset: @assets['AAA'][:asset]).buy_locked_until
     assert locked_until, 'the ambiguous sale locked the name'
     @bot.clear_rebalance_pending! # what the resolution controller does
 
@@ -416,13 +418,12 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     @bot.stubs(:create_order).raises(Client::TransientNetworkError.new('dns'))
     @bot.send(:start_rebalance!)
 
-    assert_equal locked_until, @bot.bot_index_assets.find_by(asset: @assets['AAA'][:asset]).buy_locked_until
+    assert_equal locked_until, @bot.user.wash_sale_locks.find_by(asset: @assets['AAA'][:asset]).reload.buy_locked_until
   end
 
   test 'a rebalance sell of units whose cost we never learned is locked all the same' do
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
-    @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
     @bot.stubs(:metrics).returns(asset_breakdown: {}, asset_lots: { 'AAA' => [{ amount: 2.to_d, cost: nil }] })
     @bot.stubs(:rebalance_sell_order_data).returns(ticker: @assets['AAA'][:ticker], price: 110, amount: 1.to_d,
                                                    quote_amount: 110.to_d, side: :sell, order_type: :market_order,
@@ -434,7 +435,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
 
     @bot.send(:start_rebalance!)
 
-    assert_predicate @bot.bot_index_assets.find_by(asset: @assets['AAA'][:asset]), :buy_locked?
+    assert_predicate @bot.user.wash_sale_locks.find_by(asset: @assets['AAA'][:asset]), :buy_locked?
   end
 
   private
