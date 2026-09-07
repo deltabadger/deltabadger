@@ -22,10 +22,13 @@
     </div>
     <div class="toggle-group__info">
       <div class="toggle-group__info__label">
-        <%# A div, not f.label: the sentence contains a select, and a select inside a label breaks focus.
+        <%# f.label, like _rebalance: clicking the sentence works the toggle. The label carries an
+            explicit `for` pointing at the checkbox, and a click landing on the select is interactive
+            content — the browser opens the dropdown and does not forward it here.
+
             The note goes INSIDE the conversational sentence, as every other widget's does — the flex
             row that wraps it is what puts it on its own full-width line. %>
-        <div class="conversational conversational--small conversational--disabled">
+        <%= f.label :wash_sale_enabled, class: "conversational conversational--small conversational--disabled" do %>
           <% select_html = capture do %>
             <div class="sinput sinput--select">
               <%= current %>
@@ -35,7 +38,7 @@
           <% end %>
           <%= t('bot.settings.wash_sale.sentence_html', select_html: select_html).html_safe %>
           <small class="small-info"><%= t('bot.settings.wash_sale.note') %></small>
-        </div>
+        <% end %>
       </div>
     </div>
   </div>
