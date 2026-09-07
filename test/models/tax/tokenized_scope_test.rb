@@ -70,4 +70,39 @@ class Tax::TokenizedScopeTest < ActiveSupport::TestCase
     assert_empty report.tokenized_symbols_in_scope,
                  'detection must share the calculation cutoff, not the report year'
   end
+  # Already-synced Kraken history stores the venue's own code; the importer's normalisation only
+  # helps rows inserted after it, and a re-sync skips ids it already has.
+  test 'legacy venue codes already in the ledger are still detected' do
+    ticker_for_nvdax
+    # One api_key: its factory builds its own exchange, so creating two would collide on the
+    # single-row-per-type constraint.
+    key = create(:api_key, user: @user, exchange: @exchange)
+    %w[NVDAx NVDASPV].each_with_index do |code, i|
+      create(:account_transaction, user: @user, exchange: @exchange, api_key: key, base_currency: code,
+                                   entry_type: :buy, transacted_at: Time.utc(2024, 3, 1 + i))
+    end
+
+    report = report_for('DE', 2024, AccountTransaction.where(user: @user))
+
+    assert_equal ['NVDAX'], report.tokenized_symbols_in_scope.uniq,
+                 'a stored NVDAx or NVDASPV must still refuse the report'
+  end
+
+  # The wealth engine excludes transactions AT the cutoff instant, so detection must too.
+  test 'a purchase exactly at a wealth snapshot cutoff does not block' do
+    ticker_for_nvdax
+    create(:account_transaction, user: @user, exchange: @exchange, base_currency: 'NVDAX',
+                                 entry_type: :buy, transacted_at: Time.utc(2024, 1, 1))
+
+    report = report_for('NL', 2024, AccountTransaction.where(user: @user))
+
+    skip 'NL is not a wealth-snapshot jurisdiction here' unless report.send(:wealth_snapshot?)
+    assert_empty report.tokenized_symbols_in_scope
+  end
+
+  def ticker_for_nvdax
+    usd = create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: @nvdax, quote_asset: usd,
+                    base: 'NVDAX', quote: 'USD', ticker: 'NVDAxUSD', trading_enabled: false)
+  end
 end

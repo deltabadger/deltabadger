@@ -209,12 +209,20 @@ class TrackerController < ApplicationController
     stale_refusal = "#{refusal_path}.stale"
     File.rename(refusal_path, stale_refusal) if File.exist?(refusal_path)
     begin
-      Tax::GenerateReportJob.perform_later(current_user.id, country, year, stablecoin_as_fiat, report_scope)
+      job = Tax::GenerateReportJob.perform_later(current_user.id, country, year, stablecoin_as_fiat, report_scope)
+      # The queue's own verdict: this job is declared on_conflict: :discard, so a concurrent run
+      # makes perform_later return without raising. Deleting the refusal on that would erase a true
+      # answer and show progress for a report that never runs.
+      accepted = BotApi::Tax::Generating.accepted?(job)
     rescue StandardError
       File.rename(stale_refusal, refusal_path) if File.exist?(stale_refusal)
       raise
     end
-    FileUtils.rm_f(stale_refusal)
+    if accepted
+      FileUtils.rm_f(stale_refusal)
+    elsif File.exist?(stale_refusal)
+      File.rename(stale_refusal, refusal_path)
+    end
 
     render turbo_stream: turbo_stream.append('flash', partial: 'tracker/report_progress')
   end

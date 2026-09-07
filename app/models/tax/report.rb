@@ -108,14 +108,17 @@ module Tax
     # German-shaped: PVCT pools purchases portfolio-wide, so a wrapper purchase changes an unrelated
     # disposal, and a wealth snapshot reports holdings with no disposal at all.
     def tokenized_symbols_in_scope
-      rows = transactions.where(transacted_at: ..detection_cutoff)
+      # `<`, not `<=`: the wealth engine excludes transactions AT the cutoff instant
+      # (wealth_snapshot.rb:49), so a purchase timestamped exactly 1 January must not block a
+      # 1 January snapshot the calculation itself ignores.
+      rows = transactions.where(transacted_at: ...detection_cutoff)
                          .includes(:exchange)
                          .select(:base_currency, :exchange_id, :transacted_at)
       return [] if rows.empty?
 
-      # Resolved per row, via venue and date, NOT by matching the catalogue on symbol: `TON` is both
-      # Toncoin and a tokenized AT&T, so a symbol-wide lookup would refuse a Toncoin holder's report
-      # for an instrument they never touched.
+      # Resolved via venue and date, NOT by matching the catalogue on symbol: `TON` is both Toncoin
+      # and a tokenized AT&T, so a symbol-wide lookup would refuse a Toncoin holder's report for an
+      # instrument they never touched.
       rows.filter_map { |tx| tokenized_symbol_for(tx) }.uniq.sort
     end
 
@@ -128,13 +131,42 @@ module Tax
       symbol = transaction.base_currency
       return nil if symbol.blank?
 
-      # The Exchange object, not its name_id: AssetIdentity asks the venue what it lists.
-      coin_id = Tax::AssetIdentity.coin_id(symbol, exchange: transaction.exchange,
-                                                   at: transaction.transacted_at)
+      # A dated alias is a pure lookup, so it stays per row; only the catalogue resolution is
+      # memoised, by venue and symbol. Without that this is three queries per transaction — a few
+      # thousand on an active history, paid before generation even starts.
+      coin_id = Tax::AssetIdentity.alias_coin(symbol, exchange: transaction.exchange,
+                                                      at: transaction.transacted_at) ||
+                catalogue_coin_for(symbol, transaction.exchange)
       return nil if coin_id.blank?
 
-      asset = Asset.find_by(external_id: coin_id)
-      asset&.instrument_type == TOKENIZED_INSTRUMENT_TYPE ? symbol : nil
+      # The catalogue's symbol, not the venue's code: the refusal names these to the user, and
+      # "NVDASPV" would mean nothing to them.
+      tokenized_symbol_of(coin_id)
+    end
+
+    def catalogue_coin_for(symbol, exchange)
+      @catalogue_coins ||= {}
+      key = [symbol, exchange&.id]
+      return @catalogue_coins[key] if @catalogue_coins.key?(key)
+
+      coin = Tax::AssetIdentity.catalogue_coin(symbol, exchange: exchange)
+      # Already-synced Kraken history stores the venue's own code (NVDAx, NVDASPV) — normalising the
+      # importer only helps rows inserted after it, and a re-sync skips ids it already has. So fall
+      # back to the canonical spelling for a code the catalogue cannot place.
+      coin ||= Tax::AssetIdentity.catalogue_coin(canonical_venue_symbol(symbol), exchange: exchange)
+      @catalogue_coins[key] = coin
+    end
+
+    def canonical_venue_symbol(symbol)
+      symbol.sub(/SPV\z/, 'x').upcase
+    end
+
+    def tokenized_symbol_of(coin_id)
+      @tokenized_coins ||= {}
+      return @tokenized_coins[coin_id] if @tokenized_coins.key?(coin_id)
+
+      @tokenized_coins[coin_id] =
+        Asset.where(external_id: coin_id, instrument_type: TOKENIZED_INSTRUMENT_TYPE).pick(:symbol)
     end
 
     def detection_cutoff
