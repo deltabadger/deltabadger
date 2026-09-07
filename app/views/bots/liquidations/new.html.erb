@@ -8,6 +8,11 @@
     </div>
     <div class="modal__body">
       <p class="text-center"><%= t('bot.liquidation.sell_confirm') %></p>
+      <%# The row's colour judged the WHOLE position; the sale submits what the exchange actually
+          holds, and a request cannot read the live balance to say which it will be. %>
+      <% if @holding&.dig(:harvestable) %>
+        <p class="text-center text-inactive"><%= t('bot.liquidation.partial_note') %></p>
+      <% end %>
 
       <%# Named, not counted: the user is approving the disposal of this one position. The row is
           the bot page's own, hidden columns included — the user got here from a row with no Amount
@@ -34,7 +39,7 @@
             answers 422 and the modal stays up carrying the reason. %>
         <%= button_to t('bot.liquidation.sell'),
                       bot_liquidation_path(bot_id: @bot.id, symbol: @symbol),
-                      class: 'button button--danger button--large',
+                      class: "button button--large #{@holding&.dig(:harvestable) ? 'button--success' : 'button--danger'}",
                       form: { data: { action: 'turbo:submit-end->modal--base#submitEnd' } } %>
       </div>
     </div>
