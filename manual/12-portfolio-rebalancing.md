@@ -4,6 +4,8 @@ Any multi-asset bot can become a portfolio rebalancer. By default it uses **reba
 
 Full rebalancing can be switched on as well, and it works independently from DCA. When it is on, it **places orders whether DCA is on or off**. While DCA is running, full rebalancing is triggered very rarely — only when buying alone cannot restore the target allocation.
 
+<p><img width="440" height="47" alt="Screenshot" src="https://github.com/user-attachments/assets/5e35d40a-cb11-4822-be89-f97d36654a55" /></p>
+
 Deltabadger rebalances whenever an asset drifts further from its target than the threshold you set. It checks every four hours, and it refreshes the bot's targets first, so a bot that has been stopped for a while never rebalances towards an outdated allocation.
 
 > [!NOTE]
