@@ -4,7 +4,7 @@
       <%= render partial: 'svg/24x24_close' %>
     <% end %>
     <div class="modal__header">
-      <h1 class="modal__title"><%= t(@bot.exited_title_key) %></h1>
+      <h1 class="modal__title"><%= @exited ? t(@bot.exited_title_key) : t('bot.liquidation.title') %></h1>
     </div>
     <div class="modal__body">
       <p class="text-center"><%= t('bot.liquidation.sell_confirm') %></p>

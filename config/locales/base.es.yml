@@ -685,9 +685,9 @@ es:
             rebalance_ambiguous: 'Estado de la orden de reequilibrio sin confirmar — en pausa para no duplicarla'
             rebalance_manually_resolved: 'Reequilibrio reanudado manualmente'
             dca_skipped_rebalance_pending: 'Aportación omitida — hay un reequilibrio en curso'
-            liquidation_requested: "Vendiendo los activos que salieron del índice"
-            liquidation_placed: "Vendiendo un activo que salió del índice"
-            liquidation_skipped: "No se pudo vender un activo que salió del índice — se mantiene"
+            liquidation_requested: "Vendiendo una posición"
+            liquidation_placed: "Vendiendo una posición a precio de mercado"
+            liquidation_skipped: "No se pudo vender una posición — se mantiene"
             liquidation_ambiguous: "Estado de la orden de venta sin confirmar — pausado para no colocarla dos veces"
             liquidation_manually_resolved: "Venta sin confirmar limpiada manualmente"
             liquidation_market_closed: "Mercado cerrado — no se vendió nada"

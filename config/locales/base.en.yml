@@ -696,9 +696,9 @@ en:
             rebalance_ambiguous: 'Rebalance order status unconfirmed — paused so it cannot be placed twice'
             rebalance_manually_resolved: 'Rebalancing resumed manually'
             dca_skipped_rebalance_pending: 'Contribution skipped — a rebalance is still in progress'
-            liquidation_requested: "Selling the assets that left the index"
-            liquidation_placed: "Selling an asset that left the index"
-            liquidation_skipped: "An asset that left the index could not be sold — left in place"
+            liquidation_requested: "Selling a position"
+            liquidation_placed: "Selling a position at market"
+            liquidation_skipped: "A position could not be sold — left in place"
             liquidation_ambiguous: "Sell order status unconfirmed — paused so it cannot be placed twice"
             liquidation_manually_resolved: "Unconfirmed sale cleared manually"
             liquidation_market_closed: "Market closed — nothing sold"

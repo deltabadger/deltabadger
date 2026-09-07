@@ -6,7 +6,7 @@ class BotApi::Bots::LiquidateExitedTest < ActiveSupport::TestCase
   setup do
     @user = create(:user)
     @bot = create(:dca_index, user: @user, status: :scheduled, started_at: Time.current, with_api_key: true)
-    Bots::DcaIndex.any_instance.stubs(:exited_symbols).returns(%w[DOGE])
+    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE])
     Bots::DcaIndex.any_instance.stubs(:ensure_exchange_authenticated)
     Exchanges::Kraken.any_instance.stubs(:market_open?).returns(true)
   end
@@ -23,9 +23,9 @@ class BotApi::Bots::LiquidateExitedTest < ActiveSupport::TestCase
     assert_equal 'DOGE', @bot.bot_activity_logs.last.details['base']
   end
 
-  test 'a holding the composition still owns cannot be sold this way' do
+  test 'a symbol the bot does not hold cannot be sold' do
     Bot::LiquidateExitedJob.expects(:perform_later).never
-    assert_equal 'holding_not_exited', BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: 'BTC').error_code
+    assert_equal 'holding_not_held', BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: 'BTC').error_code
   end
 
   test 'only composition bots, and not archived ones' do

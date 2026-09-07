@@ -32,14 +32,16 @@ class Bots::DcaMultiAssetsRemovedAssetsTableTest < ActionDispatch::IntegrationTe
                   new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC'), count: 1
   end
 
-  test 'an in-portfolio asset has no Sell button' do
+  test 'an in-portfolio asset carries a Sell button of its own' do
+    # Any position can be closed on its own, a current member included.
     remove_member('CCC')
     warm_prices('AAA' => 50, 'BBB' => 30, 'CCC' => 20)
 
     get bot_path(id: @bot.id)
 
     assert_select '#assets_metrics_table', /AAA/
-    assert_select '#assets_metrics_table a[href*="liquidation"]', count: 0
+    assert_select '#assets_metrics_table a[href=?][data-turbo-frame="modal"]',
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: 'AAA'), count: 1
   end
 
   test 'the removal broadcasts the metrics panel once' do

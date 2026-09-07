@@ -2,13 +2,13 @@
 
 class LiquidateExitedAssetTool < ApplicationMCPTool
   tool_name 'liquidate_exited_asset'
-  description 'Sell, at market, a holding an index or basket bot no longer includes. Irreversible and a ' \
-              'taxable disposal. See get_bot_details for exited holdings.'
+  description 'Sell, at market, one holding of an index or basket bot — a current constituent or one that left ' \
+              'the composition. Irreversible and a taxable disposal. See get_bot_details for holdings.'
   open_world
   destructive
 
   property :bot_id, type: 'number', required: true, description: 'The bot ID'
-  property :symbol, type: 'string', required: true, description: 'Symbol of the exited holding to sell (e.g., DOGE)'
+  property :symbol, type: 'string', required: true, description: 'Symbol of the holding to sell (e.g., AAPL)'
 
   def perform
     result = BotApi::Bots::LiquidateExited.call(user: current_user, bot_id: bot_id, symbol: symbol,

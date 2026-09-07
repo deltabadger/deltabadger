@@ -1,4 +1,7 @@
-# Selling off assets that a composition has dropped.
+# Selling a holding at the user's request: a constituent the composition has dropped, or any current
+# member — direct indexing is exactly the freedom to close one position on its own. Never a side
+# effect of rebalancing (see the quitter reasoning below), always one named row, always a taxable
+# disposal the user picked the moment for.
 #
 # Deliberately NOT part of rebalancing. Rebalancing tracks the composition and steers members toward
 # their weights; an exited holding has no weight to steer toward, and folding it in produced two bad
@@ -48,12 +51,32 @@ module Bot::Composition::Liquidatable
     amount.to_d >= ticker.minimum_base_size.to_d
   end
 
+  # Every holding the bot could sell right now, members and quitters alike, in the row shape.
+  def sellable_holdings(data = metrics_with_current_prices)
+    values = data[:asset_values] || {}
+    tickers_by_symbol = tickers.index_by(&:base)
+    values.filter_map do |symbol, asset_data|
+      next unless sellable?(tickers_by_symbol[symbol], asset_data[:amount])
+
+      { ticker: tickers_by_symbol[symbol], symbol: symbol }.merge(asset_data)
+    end
+  end
+
+  # The sellable holdings by NAME, no prices involved — what the controller and the API validate a
+  # symbol against, so a cold price cache cannot turn a live Sell button into a 404.
+  def held_symbols
+    tickers_by_symbol = tickers.index_by(&:base)
+    (metrics[:asset_breakdown] || {}).filter_map do |symbol, data|
+      symbol if sellable?(tickers_by_symbol[symbol], data[:amount])
+    end
+  end
+
   # The tickers a liquidation would actually trade — NOT bot.tickers, which for a composition bot is every
   # quote-matching ticker in the catalogue. Market-hours checks have to ask about these: Alpaca skips
   # the stock clock only when EVERY supplied ticker is crypto, so asking with the full catalogue
   # refuses a 24/7 crypto sale any time the stock market happens to be shut.
   def liquidation_tickers(symbol: nil)
-    holdings = exited_holdings
+    holdings = sellable_holdings
     holdings = holdings.select { |holding| holding[:symbol] == symbol } if symbol.present?
     holdings.filter_map { |holding| holding[:ticker] }.presence || tickers.to_a
   end
@@ -74,26 +97,27 @@ module Bot::Composition::Liquidatable
     end
   end
 
-  # Sells an exited holding at market. Runs under Bot::ActionJob's exchange semaphore (see
+  # Sells one holding at market. Runs under Bot::ActionJob's exchange semaphore (see
   # Bot::LiquidateExitedJob), which is what makes the "no placement of ours is running" reasoning in
   # Bot::LiquidationState sound.
   # One holding, named by the user from its own row. There is no sell-everything path: each of these
   # is a separate taxable disposal, and a single button over the table could not say which position
-  # it was closing. The symbol arrives from the URL, so it is untrusted — a caller that names an
-  # current member or something the bot does not hold is refused here as well as in the controller,
-  # which keeps the job safe whatever reaches it.
-  def liquidate_exited!(symbol:)
+  # it was closing. The symbol arrives from the URL, so it is untrusted — a caller that names
+  # something the bot does not hold is refused here as well as in the controller, which keeps the
+  # job safe whatever reaches it.
+  def liquidate!(symbol:)
     advance_waiting_orders!
     promote_stale_liquidation_placement!
 
     blocked = liquidation_blocked_reason
     return Result::Failure.new(blocked) if blocked.present?
 
+    # Best-effort, exactly like Bot::Composition::Rebalancer#before_rebalance. The refusal used to be
+    # strict so that a quitter which had re-entered the composition could not be sold; a current
+    # member may now be sold on purpose, so a stale composition is no longer a reason to decline. The
+    # refresh still runs, so the row this sale touches says whether the name is in the index.
     result = refresh_composition
-    # Stricter than Bot::Composition::Rebalancer#before_rebalance, which is best-effort: a stale
-    # composition there rebalances toward slightly wrong weights, but here it would SELL an asset
-    # that may have re-entered the composition since the page was rendered.
-    return Result::Failure.new(result.errors) if result.failure?
+    Rails.logger.warn("liquidate bot=#{id} composition refresh failed: #{result.errors.to_sentence}") if result.failure?
 
     place_liquidation_orders!(symbol: symbol)
   end
@@ -117,11 +141,9 @@ module Bot::Composition::Liquidatable
     # own five-minute layer and still reads the thirty-day `metrics` cache underneath, so a second
     # queued click would size against a ledger that predates the first sale.
     fresh = metrics(force: true)
-    holdings = exited_holdings(metrics_with_current_prices(force: true))
+    holdings = sellable_holdings(metrics_with_current_prices(force: true))
                .select { |holding| holding[:symbol] == symbol }
-    # Re-derived above, so this also catches an asset that re-entered the composition between the click and
-    # the run — the one case where refusing is the whole point.
-    return Result::Failure.new(:not_a_quitter) if holdings.empty?
+    return Result::Failure.new(:not_held) if holdings.empty?
 
     placed = 0
     holdings.each do |holding|

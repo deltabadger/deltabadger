@@ -685,9 +685,9 @@ fr:
             rebalance_ambiguous: 'Statut de l’ordre de rééquilibrage non confirmé — en pause pour éviter un doublon'
             rebalance_manually_resolved: 'Rééquilibrage repris manuellement'
             dca_skipped_rebalance_pending: 'Versement ignoré — un rééquilibrage est en cours'
-            liquidation_requested: "Vente des actifs sortis de l’indice"
-            liquidation_placed: "Vente d’un actif sorti de l’indice"
-            liquidation_skipped: "Un actif sorti de l’indice n’a pas pu être vendu — conservé"
+            liquidation_requested: "Vente d’une position"
+            liquidation_placed: "Vente d’une position au prix du marché"
+            liquidation_skipped: "Une position n’a pas pu être vendue — conservée"
             liquidation_ambiguous: "Statut de l’ordre de vente non confirmé — mis en pause pour éviter un doublon"
             liquidation_manually_resolved: "Vente non confirmée effacée manuellement"
             liquidation_market_closed: "Marché fermé — rien de vendu"

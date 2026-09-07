@@ -8,6 +8,7 @@ class CompositionTradeToolsTest < ActiveSupport::TestCase
   setup do
     @user = create(:user, admin: true)
     @bot = create(:dca_index, user: @user, status: :scheduled, started_at: Time.current, with_api_key: true)
+    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE])
     Bots::DcaIndex.any_instance.stubs(:exited_symbols).returns(%w[DOGE])
     Bots::DcaIndex.any_instance.stubs(:redeploy_offer).returns(25.to_d)
     Bots::DcaIndex.any_instance.stubs(:ensure_exchange_authenticated)
@@ -31,12 +32,12 @@ class CompositionTradeToolsTest < ActiveSupport::TestCase
     assert_no_match(/DRY RUN/, text)
   end
 
-  test 'liquidate_exited_asset refuses a holding that is still in the composition' do
+  test 'liquidate_exited_asset refuses a symbol the bot does not hold' do
     Bot::LiquidateExitedJob.expects(:perform_later).never
 
     text = LiquidateExitedAssetTool.new(bot_id: @bot.id, symbol: 'BTC').execute.contents.first.text
 
-    assert_match(/not a holding this bot's composition has dropped/, text)
+    assert_match(/not a position this bot holds/, text)
   end
 
   test 'paper trading validates the sale and queues nothing' do

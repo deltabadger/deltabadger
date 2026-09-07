@@ -696,9 +696,9 @@ sv:
             rebalance_ambiguous: 'Rebalanseringsorderns status obekräftad — pausad så den inte läggs två gånger'
             rebalance_manually_resolved: 'Rebalansering återupptagen manuellt'
             dca_skipped_rebalance_pending: 'Insättning hoppades över — en rebalansering pågår fortfarande'
-            liquidation_requested: "Säljer tillgångarna som lämnat indexet"
-            liquidation_placed: "Säljer en tillgång som lämnat indexet"
-            liquidation_skipped: "En tillgång som lämnat indexet kunde inte säljas — behålls"
+            liquidation_requested: "Säljer en position"
+            liquidation_placed: "Säljer en position till marknadspris"
+            liquidation_skipped: "En position kunde inte säljas — behålls"
             liquidation_ambiguous: "Säljorderns status är obekräftad — pausad så att den inte läggs två gånger"
             liquidation_manually_resolved: "Obekräftad försäljning rensad manuellt"
             liquidation_market_closed: "Marknaden stängd — inget såldes"

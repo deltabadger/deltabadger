@@ -119,7 +119,7 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
   # The probe's one irreplaceable job is BACKFILL: deciding which NEW candidate fills a slot.
   # Re-probing a coin already in the index can only ever evict it, and Ticker#priced? cannot tell a
   # delisting from a proxy 502 (an HTTP failure comes back as a plain false), so a network blip was
-  # demoting a held constituent to "Left the index" — where Liquidatable#liquidate_exited!, which
+  # demoting a held constituent to "Left the index" — where Liquidatable#liquidate!, which
   # refreshes strictly before it sells, would then sell it.
 
   test 'an incumbent whose price probe fails keeps its seat instead of being backfilled over' do

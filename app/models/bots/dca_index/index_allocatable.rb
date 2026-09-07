@@ -75,7 +75,7 @@ module Bots::DcaIndex::IndexAllocatable
     # incumbent can only ever evict it. Ticker#priced? cannot tell a delisting from a proxy 502 or a
     # 429 (an HTTP failure returns a plain `false`), so a network blip was quietly rotating a held
     # constituent out of the index and buying a replacement for it with real money, and leaving the
-    # evicted one under "Left the index" — where liquidate_exited!, which refreshes strictly before
+    # evicted one under "Left the index" — where liquidate!, which refreshes strictly before
     # it sells, would sell it. Liveness for an incumbent now rests on the venue's own listing status
     # in the scope above, refreshed four-hourly by Exchange::SyncAllTickersAndAssetsJob.
     #
