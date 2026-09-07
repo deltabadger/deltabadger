@@ -5,6 +5,10 @@ class Tax::EcbFxRatesTest < ActiveSupport::TestCase
     FxRate.create!(currency: currency, date: date, rate: rate)
   end
 
+  def sdmx(currency, date, rate)
+    "CURRENCY,TIME_PERIOD,OBS_VALUE\n#{currency},#{date},#{rate}\n"
+  end
+
   test 'rate is a multiplier: amount_in_to = amount_in_from * rate' do
     seed('USD', Date.new(2025, 3, 3), '1.10'.to_d)
     seed('GBP', Date.new(2025, 3, 3), '0.85'.to_d)
@@ -68,5 +72,51 @@ class Tax::EcbFxRatesTest < ActiveSupport::TestCase
     CSV
 
     assert_equal expected, Tax::EcbFxRates.send(:bundesbank_to_sdmx, csv, 'USD')
+  end
+
+  # The Bundesbank feed opens with a UTF-8 BOM immediately followed by an empty quoted
+  # field, and its metadata preamble is only partly quoted. CSV.parse on the raw body
+  # reads the BOM bytes as field content and then hits a quote mid-field.
+  test 'bundesbank_to_sdmx parses the live feed shape: BOM, half-quoted preamble, "." for no value' do
+    csv = "\uFEFF#{<<~CSV}"
+      "",BBEX3.D.USD.EUR.BB.AC.000,BBEX3.D.USD.EUR.BB.AC.000_FLAGS
+      "",Euro foreign exchange reference rate of the ECB / EUR 1 = USD / United States,
+      Comment (in english),"The ECB publishes daily euro foreign exchange reference rates, which are calculated on the basis of the concertation between central banks at 14.15.",
+      Decimals,4,
+      last update,2026-09-07 15:58:27,
+      1999-01-01,.,No value available
+      1999-01-04,1.1789,
+      2026-09-04,1.1712,
+    CSV
+
+    expected = <<~CSV
+      USD,1999-01-04,1.1789
+      USD,2026-09-04,1.1712
+    CSV
+
+    assert_equal expected, Tax::EcbFxRates.send(:bundesbank_to_sdmx, csv, 'USD')
+  end
+
+  # The ECB only publishes on business days, so from Saturday until Monday's publication
+  # the newest stored rate is Friday's. Comparing against a plain "yesterday" made that
+  # look stale and refetched the whole 1999-onwards history on every single job run.
+  test 'no refetch over the weekend: Friday satisfies Saturday through Monday' do
+    seed('USD', Date.new(2026, 9, 4), '1.1712'.to_d) # Friday
+
+    Tax::EcbFxRates.stubs(:fetch_history_csv).returns(sdmx('USD', '2026-09-07', '9.9999'))
+    [Date.new(2026, 9, 5), Date.new(2026, 9, 6), Date.new(2026, 9, 7)].each do |today|
+      travel_to(today) { Tax::EcbFxRates.ensure_loaded! }
+    end
+
+    assert_equal 1, FxRate.count, 'refetched the full history while the ECB had published nothing new'
+  end
+
+  test 'refetches on Tuesday once Monday publication is due' do
+    seed('USD', Date.new(2026, 9, 4), '1.1712'.to_d) # Friday
+
+    Tax::EcbFxRates.stubs(:fetch_history_csv).returns(sdmx('USD', '2026-09-07', '1.1690'))
+    travel_to(Date.new(2026, 9, 8)) { Tax::EcbFxRates.ensure_loaded! }
+
+    assert_equal '1.1690'.to_d, FxRate.find_by(currency: 'USD', date: Date.new(2026, 9, 7))&.rate
   end
 end

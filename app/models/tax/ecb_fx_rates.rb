@@ -58,7 +58,11 @@ module Tax
 
       def last_expected_publication_date
         # ECB publishes ~16:00 CET on TARGET business days; "yesterday" is always safe.
-        Date.current - 1
+        # Walk back over the weekend too, or Saturday through Monday would each judge
+        # Friday's rate stale and refetch the whole 1999-onwards history on every run.
+        date = Date.current - 1
+        date -= 1 while date.saturday? || date.sunday?
+        date
       end
 
       def fetch_history_csv
@@ -86,10 +90,11 @@ module Tax
         @connection ||= Faraday.new(request: { open_timeout: TIMEOUT, timeout: TIMEOUT })
       end
 
-      # Bundesbank ships a metadata preamble and uses "." for unpublished days, so keep only
-      # rows that are a date plus a number.
+      # Bundesbank ships a UTF-8 BOM, a metadata preamble, and "." for unpublished days.
+      # The BOM has to go before parsing: it sits immediately in front of an empty quoted
+      # field, so CSV reads its bytes as field content and then trips over the quote.
       def bundesbank_to_sdmx(body, currency)
-        CSV.parse(body).filter_map do |row|
+        CSV.parse(body.dup.force_encoding(Encoding::UTF_8).delete_prefix("\uFEFF")).filter_map do |row|
           date, value = row
           next unless date&.match?(/\A\d{4}-\d{2}-\d{2}\z/)
           next unless value&.match?(/\A\d+(\.\d+)?\z/)
