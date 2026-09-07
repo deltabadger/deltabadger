@@ -15,7 +15,7 @@ class TrackerController < ApplicationController
     # so an unconfigured install pays for none of it.
     #
     # Only bites where no provider is set at all — a hosted container is configured on boot.
-    @market_data_missing = !MarketData.configured?
+    @market_data_missing = !MarketData.configured? && needs_market_data?
     return if @market_data_missing
 
     @scope_exchange = Exchange.find(params[:exchange_id]) if params[:exchange_id].present?
@@ -154,6 +154,17 @@ class TrackerController < ApplicationController
                                   []
                                 end
     render layout: false
+  end
+
+  # Only an account with activity somewhere other than a broker needs the central feed: a stock
+  # venue prices its own holdings (Exchanges::Alpaca#get_usd_prices) and cash is valued locally, so
+  # a broker-only portfolio is perfectly usable without one and must not be hidden behind an
+  # unrelated setup step. An account with nothing at all falls through to the welcome screen, where
+  # "connect an exchange" is the right first move anyway.
+  def needs_market_data?
+    stock_venue_ids = Exchange.stock_venues.select(:id)
+    current_user.api_keys.where.not(exchange_id: stock_venue_ids).exists? ||
+      current_user.account_transactions.where.not(exchange_id: stock_venue_ids).exists?
   end
 
   # The modal on its own GET, so the tracker's empty state can link to it. The existing route into

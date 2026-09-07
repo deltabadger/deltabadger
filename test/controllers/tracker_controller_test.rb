@@ -708,6 +708,20 @@ class TrackerControllerTest < ActionDispatch::IntegrationTest
     assert_no_match(/tracker-table/, response.body, 'no portfolio may be shown without prices')
   end
 
+  # A broker prices its own holdings, so a stock-only account is usable without the central feed and
+  # must not be hidden behind an unrelated setup step.
+  test 'a broker-only account is not asked for a market data feed' do
+    clear_market_data_configuration
+    @api_key.destroy!
+    create(:api_key, user: @user, exchange: create(:alpaca_exchange))
+
+    get tracker_path
+
+    assert_response :ok
+    assert_no_match(/needs a market data feed/i, response.body)
+    assert_match(/tracker/, response.body)
+  end
+
   test 'a configured feed shows the tracker as usual' do
     configure_deltabadger_market_data
 
