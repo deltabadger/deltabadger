@@ -256,8 +256,7 @@ cs:
             resolved: "Nepotvrzený prodej vymazán."
         settings:
             wash_sale:
-                sentence_html: "Po prodeji se ztrátou počkej %{select_html}, než to aktivum koupíš znovu"
-                none: "nic"
+                sentence_html: "Vyhnout se wash sale: po prodeji se ztrátou počkat %{select_html}"
                 option: "%{days} dní · %{country}"
                 note: "Aktivum po tu dobu vypadne z každého nákupu — pravidelného, při vyvažování i při opětovném investování — a pak se dokoupí jako nejvíc podvážená položka. Počítají se jen obchody tohoto bota; nákup stejného aktiva jiným botem, ručně nebo jinde platí pro pravidlo úplně stejně."
             rebalance:

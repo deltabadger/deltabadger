@@ -11,11 +11,14 @@ class Bot::WashSaleGuardTest < ActiveSupport::TestCase
 
   def choose(code)
     @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_jurisdiction: code)
+    @bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: code)
   end
 
-  test 'no jurisdiction means no window and no lock' do
-    assert_equal 0, @bot.wash_sale_days
+  test 'switched off means no window and no lock, whatever jurisdiction is selected' do
+    @bot.set_missed_quote_amount
+    @bot.update!(wash_sale_jurisdiction: 'US')
+
+    assert_equal 0, @bot.wash_sale_days, 'off is off: the selected window is what it would be, not what it is'
     @bot.lock_buying!(@bia.asset_id, ticker: @ticker)
     assert_nil @bia.reload.buy_locked_until
     assert_empty @bot.locked_members
@@ -121,18 +124,31 @@ class Bot::WashSaleGuardTest < ActiveSupport::TestCase
     assert_equal false, @bot.locked_members.first[:in_index]
   end
 
-  test 'an unknown code is rejected and a blank one clears the setting' do
+  test 'an unknown code is rejected' do
     @bot.wash_sale_jurisdiction = 'XX'
     assert_not @bot.valid?
-    parsed = @bot.parse_params(ActionController::Parameters.new(wash_sale_jurisdiction: '').permit!)
-    assert parsed.key?(:wash_sale_jurisdiction), 'a deliberate None must reach update, not be compacted away'
-    assert_nil parsed[:wash_sale_jurisdiction]
+  end
+
+  test 'an unchecked toggle reaches update as false rather than being compacted away' do
+    parsed = @bot.parse_params(ActionController::Parameters.new(wash_sale_enabled: '0').permit!)
+
+    assert parsed.key?(:wash_sale_enabled), 'a deliberate OFF must not be lost'
+    assert_equal false, parsed[:wash_sale_enabled]
+    assert_equal true, @bot.parse_params(ActionController::Parameters.new(wash_sale_enabled: '1').permit!)[:wash_sale_enabled]
+  end
+
+  test 'the window a switched-off bot would use is the first one on the list, never stored' do
+    # The select always submits a value, so the reader has to name one before the user has chosen —
+    # exactly as rebalance_threshold does. Reading it must not dirty the settings.
+    assert_equal Tax::Jurisdictions.wash_sale_options.first.first, @bot.wash_sale_jurisdiction
+    assert_nil @bot.settings['wash_sale_jurisdiction']
+    assert_equal 0, @bot.wash_sale_days
   end
 
   test 'the multi-asset bot carries the same setting' do
     bot = create(:dca_multi_asset, user: create(:user))
     bot.set_missed_quote_amount
-    bot.update!(wash_sale_jurisdiction: 'IE')
+    bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'IE')
     assert_equal 28, bot.wash_sale_days
   end
 end

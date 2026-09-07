@@ -237,8 +237,7 @@ nl:
             resolved: "Onbevestigde verkoop gewist."
         settings:
             wash_sale:
-                sentence_html: "Na een verkoop met verlies %{select_html} wachten voordat dat asset opnieuw wordt gekocht"
-                none: "niet"
+                sentence_html: "Wash sales vermijden door %{select_html} te wachten na een verkoop met verlies"
                 option: "%{days} dagen · %{country}"
                 note: "Het asset blijft die tijd buiten elke aankoop — de terugkerende, die van het herbalanceren en die van het herbeleggen — en wordt daarna teruggekocht als de sterkst onderwogen naam. Alleen de trades van deze bot tellen; een aankoop van hetzelfde asset door een andere bot, met de hand of elders telt voor de regel net zo goed."
             rebalance:

@@ -7,7 +7,7 @@ class TransactionWashSaleTest < ActiveSupport::TestCase
     @ticker = create(:ticker, exchange: @bot.exchange, base_asset: asset, quote_asset: @bot.quote_asset)
     @bia = BotIndexAsset.create!(bot: @bot, asset: asset, ticker: @ticker, target_allocation: 1.0, in_index: true, entered_at: Time.current)
     @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_jurisdiction: 'US')
+    @bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
     # Transaction belongs_to :exchange (non-nullable column): every row here names the bot's venue.
     @order = @bot.transactions.create!(exchange: @bot.exchange, base: 'AAA', quote: @bot.quote_asset.symbol, side: :sell,
                                        transaction_type: 'LIQUIDATION', status: :submitted, external_status: :open,

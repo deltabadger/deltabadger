@@ -311,7 +311,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
   test 'a rebalance sell at a loss on the FIFO lots locks the name, a pre-transmission failure restores what was there' do
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
     @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_jurisdiction: 'US')
+    @bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
     @bot.stubs(:metrics).returns(asset_breakdown: {}, asset_lots: { 'AAA' => [{ amount: 2.to_d, cost: 200.to_d }] })
     @bot.stubs(:rebalance_sell_order_data).returns(ticker: @assets['AAA'][:ticker], price: 80, amount: 1.to_d,
                                                    quote_amount: 80.to_d, side: :sell, order_type: :market_order,
@@ -377,7 +377,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
   test 'a rebalance sell at a loss that goes out stays locked' do
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
     @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_jurisdiction: 'US')
+    @bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
     @bot.stubs(:metrics).returns(asset_breakdown: {}, asset_lots: { 'AAA' => [{ amount: 2.to_d, cost: 200.to_d }] })
     @bot.stubs(:rebalance_sell_order_data).returns(ticker: @assets['AAA'][:ticker], price: 80, amount: 1.to_d,
                                                    quote_amount: 80.to_d, side: :sell, order_type: :market_order,
@@ -398,7 +398,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     # never reaches the venue — its rollback belongs to itself.
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
     @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_jurisdiction: 'US')
+    @bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
     @bot.stubs(:metrics).returns(asset_breakdown: {}, asset_lots: { 'AAA' => [{ amount: 2.to_d, cost: 200.to_d }] })
     @bot.stubs(:calculate_best_amount_info).returns(below_minimum_amount: false)
     @bot.stubs(:rebalance_sell_order_data).returns(ticker: @assets['AAA'][:ticker], price: 80, amount: 1.to_d,
@@ -422,7 +422,7 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
   test 'a rebalance sell of units whose cost we never learned is locked all the same' do
     index_membership('AAA' => 0.5, 'BBB' => 0.5)
     @bot.set_missed_quote_amount
-    @bot.update!(wash_sale_jurisdiction: 'US')
+    @bot.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
     @bot.stubs(:metrics).returns(asset_breakdown: {}, asset_lots: { 'AAA' => [{ amount: 2.to_d, cost: nil }] })
     @bot.stubs(:rebalance_sell_order_data).returns(ticker: @assets['AAA'][:ticker], price: 110, amount: 1.to_d,
                                                    quote_amount: 110.to_d, side: :sell, order_type: :market_order,

@@ -258,8 +258,7 @@ en:
             resolved: "Unconfirmed sale cleared."
         settings:
             wash_sale:
-                sentence_html: "After selling at a loss, wait %{select_html} before buying that asset again"
-                none: "no time"
+                sentence_html: "Avoid wash sales by waiting %{select_html} after selling at a loss"
                 option: "%{days} days · %{country}"
                 note: "The asset is left out of every buy — recurring, rebalancing and redeploying — for that long, then bought back as the most underweight name. Only this bot's own trades are counted; a purchase of the same asset by another bot, by hand or elsewhere counts for the rule just the same."
             rebalance:

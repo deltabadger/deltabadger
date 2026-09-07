@@ -256,8 +256,7 @@ da:
             resolved: "Ubekræftet salg ryddet."
         settings:
             wash_sale:
-                sentence_html: "Efter et salg med tab skal du vente %{select_html}, før det aktiv købes igen"
-                none: "ingen tid"
+                sentence_html: "Undgå wash sales ved at vente %{select_html} efter et salg med tab"
                 option: "%{days} dage · %{country}"
                 note: "Aktivet holdes uden for alle køb — det faste, rebalanceringen og geninvesteringen — så længe og købes derefter tilbage som den mest undervægtede post. Kun denne bots egne handler tælles med; et køb af det samme aktiv af en anden bot, i hånden eller et andet sted tæller lige så meget for reglen."
             rebalance:
