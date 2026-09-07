@@ -21,7 +21,7 @@ There are two paths to a valid bearer token. Most users only need the first.
 
 ### 1a. First-party / personal scripts (the simple path)
 
-Open **Settings → Connect → REST API**. Your personal API token is already
+Open **Settings → MCP & REST API**. Your personal API token is already
 there — you don't have to create it. Copy the value.
 
 Use it in your script:
@@ -159,20 +159,20 @@ Content-Type: application/json
 
 `tool_disabled` covers two separate refusals: the tool is switched off for your
 account, **or** it was not granted to the client whose token you are using. Both
-are changed under **Settings → Connect** — the account-wide toggles, and the
+are changed under **Settings → MCP & REST API** — the account-wide toggles, and the
 per-client toggles on the connected client itself. A tool has to pass both.
 Granting is a snapshot taken when you connect a client, so a tool you enable
 account-wide later is not handed to an already-connected client automatically.
 The personal API token below is exempt: it is yours, not a third party's, so your
 account-wide toggles are the whole answer for it.
 
-Enable toggles from **Settings → Connect → REST API**. Toggles are grouped
+Enable toggles from **Settings → MCP & REST API**. Toggles are grouped
 (`read`, `control`, `trade`, `tax`); each row is independent. REST toggles are
 **isolated from MCP** — enabling `list_bots` for REST does not affect MCP
 permissions and vice versa.
 
 Tool names are the MCP names exactly; the full list is the matrix under
-**Settings → Connect**. The two surfaces share one catalogue, so every tool MCP
+**Settings → MCP & REST API**. The two surfaces share one catalogue, so every tool MCP
 offers, REST offers too.
 
 ---
@@ -380,7 +380,7 @@ curl -X POST https://your.deltabadger.com/oauth/register \
 curl -H "Authorization: Bearer $TOKEN" https://your.deltabadger.com/api/v1/bots
 curl -H "Authorization: Bearer $TOKEN" https://your.deltabadger.com/api/v1/tax/jurisdictions
 
-# 4. Place an order (after enabling `market_buy` in Settings → Connect → REST API).
+# 4. Place an order (after enabling `market_buy` in Settings → MCP & REST API).
 curl -X POST https://your.deltabadger.com/api/v1/orders \
   -H "Authorization: Bearer $TOKEN" \
   -H "Idempotency-Key: $(uuidgen)" \

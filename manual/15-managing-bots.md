@@ -34,3 +34,5 @@ An open order has a **Cancel** button that cancels it on the exchange. A row mar
 **Export** refreshes the open orders and downloads `orders.csv` with every filled order: `Timestamp`, `Order ID`, `Type`, `Side`, `Amount`, `Value`, `Price`, `Base Asset`, `Quote Asset`, `Status`.
 
 **Import** takes a CSV exported from Deltabadger and adds its orders to this bot, for example after recreating a bot. Only rows with the status `Closed` are imported, only those whose currencies match the bot's, and rows already imported into this bot are skipped. The result is reported as **Successfully imported N order(s)**, **No new orders to import …**, **Currency mismatch …** or **Invalid CSV format. Please use a file exported from this application.** Imported orders count in the statistics and cannot be cancelled.
+
+> **Over the API:** start, stop, archive, reactivate and delete bots, and read their transactions, from a script or an AI client — see [REST API](23-rest-api.md#bots) and [MCP server](22-mcp-server.md#control).

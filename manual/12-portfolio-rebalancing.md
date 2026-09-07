@@ -19,3 +19,5 @@ Rebalancing works on [index bots](13-direct-indexing.md) as well, but assets tha
 
 > [!IMPORTANT]
 > Assets tend to leave an index and come back later. Selling them automatically would liquidate a large position the moment any other asset drifted out of its band, while an asset that left at 0.1% of the portfolio would never trip the band and would sit there forever. Each sale is also a taxable event, so the timing is yours to pick. For now, this is a manual step.
+
+> **Over the API:** target allocations, sales of assets that left the index and the redeploy offer are all reachable from a script or an AI client — see [REST API](23-rest-api.md#bots) and [MCP server](22-mcp-server.md#trade). Threshold rebalancing itself is switched on here, in the app.

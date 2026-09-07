@@ -324,7 +324,7 @@ class AppConfig < ApplicationRecord
     "#{base}/mcp"
   end
 
-  # REST API base URL — displayed in Settings → Connect → REST API for users
+  # REST API base URL — displayed in Settings → MCP & REST API for users
   # to copy into their scripts. Same env-var source as `mcp_url` for consistency.
   def self.api_url
     base = ENV.fetch('APP_ROOT_URL', 'http://localhost:3000')
