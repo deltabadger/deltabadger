@@ -440,6 +440,17 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     @bot.promote_stale_liquidation_placement!
   end
 
+  test 'a Sell after an unpriced partial sale submits what the bot still holds, not what it once held' do
+    index_membership('AAA')
+    @bot.stubs(:live_free_balance).returns(2.to_d) # the account holds two: one is somebody else's
+    @bot.stubs(:side_price).returns(100.to_d)
+    fresh = { asset_breakdown: { 'AAA' => { amount: 1.to_d, quote_invested: 100.to_d } } }
+
+    order = @bot.send(:liquidation_order_data, { symbol: 'AAA', ticker: @assets['AAA'][:ticker] }, fresh)
+
+    assert_equal 1.to_d, order[:amount]
+  end
+
   private
 
   def setup_liquidation(holdings, free: {})

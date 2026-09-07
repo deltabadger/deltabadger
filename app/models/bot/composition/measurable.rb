@@ -13,6 +13,7 @@ module Bot::Composition::Measurable
     Rails.cache.fetch(metrics_cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
       transactions_array = transactions.submitted.order(created_at: :asc).pluck(
+        :id,
         :created_at,
         :price,
         :amount_exec,
@@ -27,19 +28,72 @@ module Bot::Composition::Measurable
 
       totals = initialize_totals_data
       ledger = Hash.new { |hash, key| hash[key] = { amount: 0, invested: 0 } }
+      # The tax-shaped view of the same fills (Bot::TaxLots), kept beside the performance ledger
+      # because a rebalance moves performance basis between assets and tax basis never travels.
+      lots = Hash.new { |hash, key| hash[key] = [] }
+      tax_pnl = {}
+      loss_lot = {}
       books = new_rebalance_books
       asset_prices = {} # Track last known price for each asset
       # Corporate actions are events in this walk like any fill. A pending queue rather than a
       # merge, because they are rare and this loop runs over every order the bot ever placed.
       pending_splits = split_events
 
-      transactions_array.each do |created_at, price, amount_exec, quote_amount_exec, amount, base, side, external_status, transaction_type|
+      transactions_array.each do |id, created_at, price, amount_exec, quote_amount_exec, amount, base, side, external_status, transaction_type|
         # Before the order, not after: the restatement is a property of the position the order then
         # acts on, so a split sharing an order's timestamp is applied first.
-        pending_splits = apply_due_splits(pending_splits, created_at, ledger, asset_prices, data, books)
+        pending_splits = apply_due_splits(pending_splits, created_at, ledger, asset_prices, data, books, lots)
 
+        raw_amount_exec = amount_exec
+        raw_quote_exec = quote_amount_exec
         amount_exec, quote_amount_exec =
           confirmed_exec_amounts(external_status, price, amount, amount_exec, quote_amount_exec)
+
+        # The tax view of the fill (Bot::TaxLots), BEFORE the performance skip below: a fill the
+        # performance walk cannot use (units executed, proceeds not reported — an open or cancelled
+        # partial) still moved units for tax purposes.
+        #   Sell: the verdict is judged on the RAW proceeds, per transaction, so the fill path can
+        #   start or extend a wash-sale lock from what actually happened; with none reported it is
+        #   unknown (nil), which the guard reads as a loss. The units are gone either way, so the
+        #   lots are consumed either way — the next sale must be judged against what remains.
+        #   Buy: a lot opens at what was actually paid — the reported proceeds when the venue gave
+        #   them, else the order price times the units the venue said were executed. Never
+        #   confirmed_exec_amounts' fallback, which prices the REQUESTED amount: a closed buy that
+        #   asked for 2, got 1 and reported no proceeds would otherwise open one unit costing two.
+        if amount_exec.to_d.positive?
+          if side == 'sell'
+            if raw_quote_exec.present? && raw_quote_exec.to_d.positive?
+              tax_pnl[id] = raw_quote_exec.to_d - Bot::TaxLots.cost_of(lots[base], amount_exec)
+              loss_lot[id] = Bot::TaxLots.loss_in?(lots[base], amount_exec, raw_quote_exec)
+            else
+              loss_lot[id] = nil
+            end
+            Bot::TaxLots.consume(lots[base], amount_exec)
+          else
+            # Alpaca reports a ZERO, not a blank, when it has no average fill price yet, so only a
+            # positive figure counts as reported cost. Failing that, the order price times the
+            # executed units; failing THAT, the lot's cost is unknown (nil) — never zero, which
+            # would turn any later sale of it into a "gain".
+            reported = raw_quote_exec.to_d.positive? ? raw_quote_exec.to_d : nil
+            estimated = price.to_d.positive? ? price.to_d * (raw_amount_exec || amount).to_d : nil
+            lots[base] << { amount: amount_exec.to_d, cost: reported || estimated }
+          end
+        end
+
+        # A sell the venue executed but did not price — judged on the RAW proceeds column, before
+        # confirmed_exec_amounts' fallback invents `price × requested amount` for a closed order.
+        # The units are gone, so the performance ledger must lose them too — the next Sell sizes on
+        # this quantity, and so do the buy legs' offsets — or a second Sell could submit shares the
+        # bot no longer holds. Proceeds unknown: assumed equal to the basis those units carried, so
+        # the sale is P/L-neutral until the venue reports them (a later poll that does recomputes
+        # this walk from the row). Applied whatever the order's price says, and WITHOUT touching the
+        # asset's last mark or the chart: an unpriced sale has no price to mark anything with.
+        if side == 'sell' && amount_exec.to_d.positive? && !raw_quote_exec.to_d.positive?
+          apply_fill(ledger, books, key: base, side:, transaction_type:,
+                                    amount_exec:, quote_amount_exec: basis_share(ledger, base, amount_exec))
+          next
+        end
+
         next if price.blank? || quote_amount_exec.blank? || amount_exec.blank?
         next if quote_amount_exec.zero? || amount_exec.zero?
 
@@ -67,7 +121,7 @@ module Bot::Composition::Measurable
       end
 
       # The ordinary case: a split lands and the bot has not traded since.
-      apply_due_splits(pending_splits, nil, ledger, asset_prices, data, books)
+      apply_due_splits(pending_splits, nil, ledger, asset_prices, data, books, lots)
 
       data[:total_quote_amount_invested] = invested_total(books)
       # Cash realized by a sell whose buy has not landed yet — or by a liquidation the bot has not
@@ -82,8 +136,15 @@ module Bot::Composition::Measurable
       # Public shape kept as-is (:quote_invested, not the ledger's :invested) — the order setter, the
       # live-price pass and the chart all read it. Plain hash: a default proc will not cache.
       data[:asset_breakdown] = ledger.each_with_object({}) do |(symbol, entry), acc|
-        acc[symbol] = { amount: entry[:amount], quote_invested: entry[:invested] }
+        acc[symbol] = { amount: entry[:amount], quote_invested: entry[:invested],
+                        tax_basis: Bot::TaxLots.basis(lots[symbol]),
+                        tax_units: lots[symbol].sum { |lot| lot[:amount] },
+                        tax_cost_unknown: Bot::TaxLots.unknown_cost?(lots[symbol]) }
       end
+      # Plain hash of plain arrays: the lots a sale is judged against (Bot::WashSaleGuard).
+      data[:asset_lots] = lots.transform_values { |list| list.map(&:dup) }
+      data[:tax_pnl_by_transaction] = tax_pnl
+      data[:loss_lot_by_transaction] = loss_lot
       data[:num_assets] = ledger.count { |_symbol, entry| entry[:amount].positive? }
 
       data
@@ -132,13 +193,20 @@ module Bot::Composition::Measurable
         total_value += value
         avg_price = asset_data[:amount].positive? ? asset_data[:quote_invested] / asset_data[:amount] : 0
         pnl_pct = asset_data[:quote_invested].positive? ? (value - asset_data[:quote_invested]) / asset_data[:quote_invested] : 0
+        # The colour is judged on the TAX quantity, not the performance quantity — a sale the
+        # performance walk skipped (no proceeds) still took its units out of the lots — and never on
+        # a position whose lots include one of unknown cost.
+        tax_units = asset_data[:tax_units].to_d
         asset_values[symbol] = {
           amount: asset_data[:amount],
           quote_invested: asset_data[:quote_invested],
           current_value: value,
           current_price: price,
           avg_price: avg_price,
-          pnl_percentage: pnl_pct
+          pnl_percentage: pnl_pct,
+          tax_basis: asset_data[:tax_basis],
+          harvestable: tax_units.positive? && !asset_data[:tax_cost_unknown] &&
+                       tax_units * price < asset_data[:tax_basis].to_d
         }
       end
 
@@ -236,24 +304,33 @@ module Bot::Composition::Measurable
     ledger.sum { |symbol, entry| entry[:amount] * (asset_prices[symbol] || 0) }
   end
 
+  # The cost basis the ledger carries for `amount` of `base` — the same proportion release_basis
+  # takes, read without releasing anything.
+  def basis_share(ledger, base, amount)
+    return 0.to_d unless ledger.key?(base) && ledger[base][:amount].to_d.positive?
+
+    ledger[base][:invested].to_d * [amount.to_d / ledger[base][:amount].to_d, 1].min
+  end
+
   # _v3: realised P/L and the contributed/ledger split. _v4: a per-symbol cost-basis snapshot per
   # transaction, so the chart can draw one holding on its own. _v5: realised_cash split out of
   # rebalance_cash, which the redeploy offer reads — without the bump an existing bot serves a hash
   # with no such key for up to 30 days and the prompt never appears. _v6: holdings are restated
   # through corporate actions, so every count, value and chart point in here can differ.
+  # _v7: per-asset FIFO tax lots and the harvestable flag.
   # The cached shape lives up to 30 days, so this has to move with it or every existing bot serves
   # the old numbers after a deploy.
   # A method, not a literal: the tests that seed this cache were reading the string off the source.
   def metrics_cache_key
-    "bot_#{id}_metrics_v6_#{restatement_generation}"
+    "bot_#{id}_metrics_v7_#{restatement_generation}"
   end
 
   def metrics_with_current_prices_cache_key
-    "bot_#{id}_metrics_with_current_prices_v6_#{restatement_generation}"
+    "bot_#{id}_metrics_with_current_prices_v7_#{restatement_generation}"
   end
 
   def metrics_with_current_prices_and_candles_cache_key
-    "bot_#{id}_metrics_with_current_prices_and_candles_v6_#{restatement_generation}"
+    "bot_#{id}_metrics_with_current_prices_and_candles_v7_#{restatement_generation}"
   end
 
   def optimal_candles_timeframe_for_duration(duration)
@@ -286,13 +363,16 @@ module Bot::Composition::Measurable
   # snapshots stored here, so with no snapshot at the split every candle point between it and the
   # next order would price a pre-split count. Because both sides move together the point's value
   # equals the one before it — the curve gains a vertex, not a step.
-  def apply_due_splits(pending, until_time, ledger, asset_prices, data, books)
+  def apply_due_splits(pending, until_time, ledger, asset_prices, data, books, lots)
     # The overwhelming majority of bots have no corporate actions at all, and this runs once per
     # fill over histories that reach into the millions of them.
     return pending if pending.empty?
 
     due, rest = pending.partition { |at, _symbol, _factor| until_time.nil? || at <= until_time }
     due.each do |at, symbol, factor|
+      # Tax lots first, ahead of the performance guards below: a lot opened by a fill the
+      # performance walk skipped still holds units the split multiplies.
+      Bot::TaxLots.split!(lots[symbol], factor) if lots.key?(symbol)
       # `key?`, not `[]`: the ledger's default proc would CREATE a zero entry for a symbol the bot
       # never actually held, and every one of those becomes a row in `asset_breakdown`.
       next unless ledger.key?(symbol)

@@ -85,20 +85,15 @@ module Bot::Composition::Redeployable
   def redeploy_spent  = executed_quote_total(transactions.redeploy)
   def declined_offset = redeploy_declined_offset.to_d
 
-  # The same figure the ledger counts, summed in SQL — including the fallback.
+  # CONFIRMED proceeds only — what the venue actually reported, never an estimate.
   #
-  # Bot::FetchAndUpdateOrderJob explicitly allows a CLOSED order whose base fill is known while its
-  # quote fill is still nil, and `confirmed_exec_amounts` values those at `price * amount`. A plain
-  # SUM(quote_amount_exec) reads them as zero, so `realised_cash` would show proceeds this method
-  # could not see — and the offer, capped by the smaller of the two, would sit at zero forever with
-  # real money behind it.
+  # A closed sell whose quote fill is still nil has its released basis parked as cash by the ledger
+  # so the holding's value does not vanish, but that is what the position was WORTH, not what the
+  # sale FETCHED. Offering it would let the redeploy spend money the sale never brought in, and the
+  # account-wide balance cap would happily find it elsewhere. Such a sale banks nothing here until a
+  # later poll reports the figure.
   def executed_quote_total(scope)
-    closed = Transaction.external_statuses[:closed]
-    scope.submitted.sum(Arel.sql(<<~SQL.squish)).to_d
-      COALESCE(quote_amount_exec,
-               CASE WHEN external_status = #{closed} AND price IS NOT NULL AND amount IS NOT NULL
-                    THEN price * amount ELSE 0 END)
-    SQL
+    scope.submitted.sum(:quote_amount_exec).to_d
   end
 
   # --- placement state ------------------------------------------------------------------------
