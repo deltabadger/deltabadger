@@ -20,6 +20,16 @@ Three pickers, each saved as soon as you change it.
 
 The **Enable 2FA** / **Disable 2FA** button lives on this page. See [Two-factor authentication](25-two-factor-authentication.md).
 
+## Wash sale protection
+
+Some tax systems disallow a loss if you buy the same asset back too soon. Switch this on, pick the jurisdiction whose window applies to you, and every bot on the account leaves an asset out of every buy for that long after a sale that realised a loss — the money carries to the next asset instead. Selling is never blocked.
+
+It is set here rather than per bot because what counts as a loss is a fact about the taxpayer: two bots holding the same asset would otherwise undo each other's harvest. The box lists every asset inside a window right now, across all bots, with the days remaining.
+
+Deltabadger asks you to choose the first time you arm anything that can sell, and "don't apply this rule" is one of the answers. Until you answer one way or the other it keeps asking, because a switch left off cannot say whether you decided against it or never saw it.
+
+Sales you make on the exchange yourself count too, from the next account sync. See [Direct indexing](13-direct-indexing.md) for the limits.
+
 ## Hide balances
 
 A switch in the **Settings** menu, not on the Account page, that removes money figures from the Bots and Tracker pages. It is per user.

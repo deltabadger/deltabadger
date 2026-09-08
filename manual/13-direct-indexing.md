@@ -21,9 +21,20 @@ The figure behind the colour is an estimate: the bot's own purchases, counted fi
 
 ## Wash-sale window
 
-Some tax systems disallow a loss if you buy the same asset back too soon: the United States (30 days), the United Kingdom (30 days, where the repurchase is matched against the sale instead of the pool) and Ireland (28 days). Switch the wash-sale rule on in the bot's settings and pick the jurisdiction whose window applies to you; the bot then enforces it itself: after a sale at a loss it leaves that constituent out of every buy — the recurring purchases, rebalancing and redeploying proceeds — through the last day of the window, and shows in its row how many days remain until buying resumes. The window runs from the day the bot saw the sale fill. The day after it ends, the constituent is simply the most underweight name in the index and [rebalanced DCA](10-dollar-cost-averaging.md) buys it back.
+Some tax systems disallow a loss if you buy the same asset back too soon: the United States (30 days), the United Kingdom (30 days, where the repurchase is matched against the sale instead of the pool) and Ireland (28 days). The rule is set once for the whole account, in [Account settings](24-account-settings.md) — what counts as a loss is a fact about you, not about one bot — and **every** bot then obeys it. After a sale at a loss the asset is left out of every buy: recurring purchases, rebalancing, redeploying proceeds, multi-asset legs, signal buys and the API's own buy endpoints. The money that buy would have spent goes to the next asset in line, so the schedule is not skipped. Selling is never blocked.
 
-Two limits. The bot counts only its own trades; a purchase of the same asset by another bot, by hand or on another account counts for the rule just the same. And a partial sale — a rebalance, or a Sell when the exchange holds less than the position — leaves the rest in place: if that name was bought within the window before the sale, part of the loss is washed by those purchases, and the bot cannot prevent it. Turn rebalancing off on a bot you harvest from, or accept it.
+Each bot shows a **Wash sale protection** table listing the names it trades that are inside a window, with the days remaining, and the Account page lists every locked name across the whole account. The day after a window ends, the asset is simply the most underweight name again and [rebalanced DCA](10-dollar-cost-averaging.md) buys it back.
+
+The first time you arm anything that can sell, Deltabadger asks you to choose — including "don't apply this rule". It asks once.
+
+Four limits worth knowing:
+
+- **Sales made outside Deltabadger are picked up by the account sync, not instantly.** A sale you make on the exchange's own website arms the window from the next sync, which runs daily and after every order a bot places. Buys that land in the gap are not protected.
+- **What the sync cannot see, the rule cannot serve:** an exchange connected without a read key or with the permission revoked, Interactive Brokers, and swaps of one crypto for another, which the tracker does not treat as disposals.
+- **Whether a bot's own sale was a loss is worked out from that bot's own purchase lots.** The account-wide walk that follows corrects it, within a day.
+- **A partial sale** — a rebalance, or a Sell when the exchange holds less than the position — leaves the rest in place: if that name was bought within the window before the sale, part of the loss is washed by those earlier purchases, and no rule here can prevent it. Turn rebalancing off on a bot you harvest from, or accept it.
+
+The window counts calendar days in the app's timezone, which can differ from your tax residence's by up to a day.
 
 ## Index changes
 
