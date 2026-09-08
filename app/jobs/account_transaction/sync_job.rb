@@ -1,6 +1,13 @@
 class AccountTransaction::SyncJob < ApplicationJob
   queue_as :low_priority
-  limits_concurrency to: 1, key: ->(api_key) { "account_sync_#{api_key.exchange.name_id}" }, on_conflict: :discard
+  # Keyed on the USER as well as the venue. It was venue-only, and with on_conflict: :discard that
+  # did not delay a second user's sync — it threw it away, so on a multi-user instance one user's
+  # Binance sync silently stopped every other user's ledger from catching up.
+  #
+  # Inlined rather than calling a helper: Solid Queue instance_execs this lambda on the job, so a
+  # bare class-method call inside it raises NoMethodError at enqueue time.
+  limits_concurrency to: 1, on_conflict: :discard,
+                     key: ->(api_key) { "account_sync_#{api_key.user_id}_#{api_key.exchange.name_id}" }
 
   def perform(api_key)
     result = AccountTransactionSync.new(api_key).sync!
