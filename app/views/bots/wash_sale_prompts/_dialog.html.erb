@@ -1,0 +1,18 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <div class="modal__header">
+      <h1 class="modal__title"><%= t('settings.wash_sale.title') %></h1>
+    </div>
+    <div class="modal__body">
+      <%# No close button and no cancel: the answer is what stops the question coming back, and
+          "Don't apply" is one of the two answers rather than a way out of being asked. %>
+      <%= form_with url: bot_wash_sale_prompt_path(bot_id: bot.id), method: :post,
+                    data: { action: 'turbo:submit-end->modal--base#submitEnd' } do %>
+        <%= render 'bots/wash_sale_prompts/question' %>
+        <div class="buttons">
+          <%= button_tag t('settings.wash_sale.confirm'), type: :submit, class: 'button button--large' %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>

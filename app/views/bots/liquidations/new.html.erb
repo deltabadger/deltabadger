@@ -31,17 +31,22 @@
         </div>
       <% end %>
 
-      <div class="buttons buttons--row--2">
-        <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
-          <%= t('button.cancel') %>
-        <% end %>
-        <%# Closes itself on a successful submit, like every other modal form here; a refused sale
-            answers 422 and the modal stays up carrying the reason. %>
-        <%= button_to t('bot.liquidation.sell'),
-                      bot_liquidation_path(bot_id: @bot.id, symbol: @symbol),
-                      class: "button button--large #{@holding&.dig(:harvestable) ? 'button--success' : 'button--danger'}",
-                      form: { data: { action: 'turbo:submit-end->modal--base#submitEnd' } } %>
-      </div>
+      <%# One form rather than a bare button, so an account that has never answered the wash-sale
+          question answers it in the same submit that starts the sale. Closes itself on success,
+          like every other modal form here; a refused sale answers 422 and the modal stays up
+          carrying the reason. %>
+      <%= form_with url: bot_liquidation_path(bot_id: @bot.id, symbol: @symbol), method: :post,
+                    data: { action: 'turbo:submit-end->modal--base#submitEnd' } do %>
+        <%= render 'bots/wash_sale_prompts/question' unless current_user.wash_sale_decided? %>
+
+        <div class="buttons buttons--row--2">
+          <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+            <%= t('button.cancel') %>
+          <% end %>
+          <%= button_tag t('bot.liquidation.sell'), type: :submit,
+                         class: "button button--large #{@holding&.dig(:harvestable) ? 'button--success' : 'button--danger'}" %>
+        </div>
+      <% end %>
     </div>
   </div>
 <% end %>

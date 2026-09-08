@@ -13,3 +13,4 @@
 <%= turbo_stream.replace dom_id(@bot, :status_button), partial: 'bots/status/status_button', locals: { bot: @bot } %>
 
 <%= turbo_stream_prepend_flash %>
+<%= wash_sale_prompt_stream(@bot) %>

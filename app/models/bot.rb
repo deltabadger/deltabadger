@@ -131,6 +131,27 @@ class Bot < ApplicationRecord
     false
   end
 
+  # Whether this bot can put a sell order on the book — the moment the wash-sale question first
+  # matters, because it is a sale that starts a window. The capabilities live in concerns only some
+  # types include, hence the respond_to? guards: a bare call would raise on the types without them.
+  def sell_capable?
+    selling? || armed_to_start_selling? ||
+      (respond_to?(:rebalance_enabled?) && rebalance_enabled?) ||
+      (respond_to?(:held_symbols) && held_symbols.any?)
+  end
+
+  # A buy-side trigger set to flip the bot into selling: armed, so the sale is one price move away.
+  # Read off the settings rather than naming the four trigger concerns, so a fifth is covered the
+  # day it is added. The sell-side keys never carry this action — they flip back to buying.
+  def armed_to_start_selling?
+    return false unless reversible?
+
+    settings.any? do |key, value|
+      value == 'start_selling' && key.end_with?('_limit_action') &&
+        ActiveModel::Type::Boolean.new.cast(settings[key.sub(/_limit_action\z/, '_limited')])
+    end
+  end
+
   # Decode the merged trigger "mode" select (issues #1/#2) back into the stored
   # (timing_condition, action) pair, for whichever side(s) the form submitted. The UI collapses the
   # old separate action + timing dropdowns into one direction-aware select; parse_params in each

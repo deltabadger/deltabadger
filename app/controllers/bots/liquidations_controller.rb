@@ -24,19 +24,38 @@ class Bots::LiquidationsController < ApplicationController
   # One implementation: BotApi::Bots::LiquidateExited also backs the MCP tool and the REST
   # endpoint, so the market check, the enqueue and the activity row cannot drift between them.
   def create
+    return refuse(t('settings.wash_sale.prompt_missing')) unless wash_sale_answer_recorded?
+
     result = BotApi::Bots::LiquidateExited.call(user: current_user, bot_id: @bot.id, symbol: @symbol)
     if result.success?
       flash.now[:notice] = t('bot.liquidation.started')
       render turbo_stream: turbo_stream_prepend_flash
     else
-      flash.now[:alert] = result.error_code == 'market_closed' ? t('bot.liquidation.market_closed') : result.error_message
       # Unprocessable on purpose: the modal stays open on a failed submit, so the user reads why
       # and closes it themselves rather than watching it vanish as if the sale had started.
-      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+      refuse(result.error_code == 'market_closed' ? t('bot.liquidation.market_closed') : result.error_message)
     end
   end
 
   private
+
+  # This sale can be the one that starts a window, so the account's answer is recorded BEFORE the
+  # order is enqueued. A modal appended to the response would arrive after the sale was already on
+  # its way, which is the one thing the question cannot be late for.
+  def wash_sale_answer_recorded?
+    return true if current_user.wash_sale_decided?
+
+    answer = params.dig(:wash_sale, :enabled)
+    return false if answer.blank?
+
+    record_wash_sale_decision(enabled: ActiveModel::Type::Boolean.new.cast(answer),
+                              jurisdiction: params.dig(:wash_sale, :jurisdiction))
+  end
+
+  def refuse(message)
+    flash.now[:alert] = message
+    render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+  end
 
   # Nested bot routes accept every bot type; only composition bots hold sellable positions.
   def set_bot

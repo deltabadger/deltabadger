@@ -1,0 +1,28 @@
+<%# The question itself, shared by the modal and the Sell confirmation, so the two seams cannot ask
+    it differently — and worded with the account box's own sentence, so the answer and the setting
+    the user later finds in Account read the same. Neither choice is preselected: a preselected
+    answer is not a decision, and this is the one thing the user has to decide for themselves. %>
+<div class="wash-sale-question">
+  <p class="text-inactive"><%= t('settings.wash_sale.prompt_body') %></p>
+
+  <label class="wash-sale-question__choice">
+    <%= radio_button_tag 'wash_sale[enabled]', '1', false %>
+    <span>
+      <% select_html = capture do %>
+        <div class="sinput sinput--select">
+          <%= t('settings.wash_sale.option', country: Tax::Jurisdictions.for(current_user.wash_sale_jurisdiction)[:name],
+                                             days: Tax::Jurisdictions.for(current_user.wash_sale_jurisdiction)[:wash_sale_days]) %>
+          <%= select_tag 'wash_sale[jurisdiction]',
+                         options_for_select(Tax::Jurisdictions.wash_sale_options.map { |code, name, days| [t('settings.wash_sale.option', country: name, days: days), code] },
+                                            current_user.wash_sale_jurisdiction) %>
+        </div>
+      <% end %>
+      <%= t('settings.wash_sale.sentence_html', select_html: select_html).html_safe %>
+    </span>
+  </label>
+
+  <label class="wash-sale-question__choice">
+    <%= radio_button_tag 'wash_sale[enabled]', '0', false %>
+    <span><%= t('settings.wash_sale.prompt_decline') %></span>
+  </label>
+</div>
