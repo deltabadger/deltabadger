@@ -4,7 +4,9 @@ require 'test_helper'
 class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
   def setup
     create(:user, admin: true, setup_completed: true) # onboarding gate
-    @user = create(:user)
+    # Decided, so the wash-sale question is not part of what these tests are about — its own seam
+    # is covered in liquidation_wash_sale_test.rb.
+    @user = create(:user, wash_sale_enabled: false)
     @bot = create(:dca_index, user: @user)
     sign_in @user
   end

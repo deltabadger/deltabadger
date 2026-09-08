@@ -1,5 +1,6 @@
 class ApplicationController < ActionController::Base
   include SharedHelper
+  include WashSalePromptable
 
   # Every request in the app zone, whatever the request before it left on this thread. `Time.zone`
   # is thread-local and outlives the request that set it, so one caller's zone moved `Date.current`

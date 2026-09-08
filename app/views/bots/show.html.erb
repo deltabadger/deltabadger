@@ -5,6 +5,11 @@
 <%= turbo_stream_from "user_#{current_user.id}", :preferences %>
 <%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
 
+<%# The catch-all seam for the one-time wash-sale question: the turbo_stream actions carry it
+    themselves, and this reaches everyone else — including users who armed selling before the
+    question existed. %>
+<% content_for :modal_src, new_bot_wash_sale_prompt_path(bot_id: @bot.id) if wash_sale_prompt_due?(@bot) %>
+
 <%= turbo_frame_tag "bot" do %>
   <%= tag.div data: @chart_loading ? { controller: "broadcast--on-connect",
                                       broadcast__on_connect_method_value: "metrics_update",

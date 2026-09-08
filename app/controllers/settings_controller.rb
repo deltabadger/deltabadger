@@ -118,13 +118,8 @@ class SettingsController < ApplicationController
   # Turning it ON re-arms from history: the ledger walk covers the trailing 31 days, so a user who
   # switches this on today is protected by sales they already made rather than starting from blank.
   def update_wash_sale
-    attributes = { wash_sale_enabled: params.dig(:user, :wash_sale_enabled) == '1' }
-    jurisdiction = params.dig(:user, :wash_sale_jurisdiction).presence
-    attributes[:wash_sale_jurisdiction] = jurisdiction if jurisdiction
-    was_enabled = current_user.wash_sale_enabled?
-
-    if current_user.update(attributes)
-      Tracker::LedgerJob.perform_later(current_user.id) if current_user.wash_sale_enabled? && !was_enabled
+    if record_wash_sale_decision(enabled: params.dig(:user, :wash_sale_enabled) == '1',
+                                 jurisdiction: params.dig(:user, :wash_sale_jurisdiction))
       redirect_back fallback_location: settings_account_path, status: :see_other
     else
       render_preference_error

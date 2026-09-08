@@ -1,0 +1,8 @@
+<%# Loaded into the layout's modal frame by content_for :modal_src — the catch-all seam, and the one
+    that reaches users who armed selling before this shipped. An empty frame when nothing is due, so
+    a stale page cannot pop a question that has already been answered. %>
+<% if wash_sale_prompt_due?(@bot) %>
+  <%= render 'bots/wash_sale_prompts/dialog', bot: @bot %>
+<% else %>
+  <%= turbo_frame_tag 'modal' %>
+<% end %>

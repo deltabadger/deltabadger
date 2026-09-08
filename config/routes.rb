@@ -271,6 +271,7 @@ Rails.application.routes.draw do
       resources :redeploy_resolutions, only: [:create], controller: 'bots/redeploy_resolutions'
       resource :add_api_key, only: %i[new create], controller: 'bots/add_api_keys'
       resource :asset_search, only: [:edit], controller: 'bots/asset_searches'
+      resource :wash_sale_prompt, only: %i[new create], controller: 'bots/wash_sale_prompts'
       resource :export, only: [:create], controller: 'bots/exports'
       resource :import, only: [:create], controller: 'bots/imports'
       resources :transactions, only: [:destroy], controller: 'bots/cancel_orders'

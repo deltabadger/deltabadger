@@ -18,6 +18,12 @@ class Bots::Signal < Bot
 
   has_many :bot_signals, foreign_key: :bot_id, dependent: :destroy, inverse_of: :bot
 
+  # A signal bot has no direction to read: it sells when a sell rule is switched on and a call
+  # arrives. Kept next to the association it reads.
+  def sell_capable?
+    super || bot_signals.any? { |signal| signal.sell? && signal.enabled? }
+  end
+
   include Exportable
   include Bots::DcaSingleAsset::Measurable
   # No Bot::Lifecycle: Signal is passive (no scheduling) and keeps its own thin start/stop/delete.

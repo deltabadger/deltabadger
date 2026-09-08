@@ -14,6 +14,10 @@ class Bots::BotSignalsController < ApplicationController
     @signal.update!(signal_params)
     if signal_params.key?(:enabled)
       render_settings
+    elsif (prompt = wash_sale_prompt_stream(@bot))
+      # Switching a rule to sell answers `head :ok`, which carries nothing — and that is exactly the
+      # action the question exists for.
+      render turbo_stream: prompt
     else
       head :ok
     end
@@ -34,9 +38,10 @@ class Bots::BotSignalsController < ApplicationController
 
   def render_settings
     @bot.reload
-    render turbo_stream: turbo_stream.replace('settings',
-                                              partial: 'bots/signals/settings',
-                                              locals: { bot: @bot })
+    render turbo_stream: [turbo_stream.replace('settings',
+                                               partial: 'bots/signals/settings',
+                                               locals: { bot: @bot }),
+                          wash_sale_prompt_stream(@bot)].compact
   end
 
   def signal_params
