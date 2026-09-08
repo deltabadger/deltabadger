@@ -115,6 +115,16 @@ class User < ApplicationRecord
   # it keeps "never asked" apart from "asked and declined" without a tri-state, and records when.
   def wash_sale_prompted? = wash_sale_prompted_at.present?
 
+  # The asset ids this taxpayer may not buy right now — read by every buy leg on every bot type and
+  # by the direct-order services. Empty while the rule is off or undecided: switching it off releases
+  # buying at once, and the stored deadlines stay so switching it back on resumes the windows already
+  # running. NOT memoised — a leg that locks and then re-reads within one job must see its own write.
+  def locked_asset_ids(now = Time.current)
+    return Set.new if wash_sale_days.zero?
+
+    wash_sale_locks.live(now).pluck(:asset_id).to_set
+  end
+
   # Every asset this taxpayer is inside a wash-sale window on, whatever bot's sale started it.
   # days_left counts to the day buying resumes, so it reads 1 on the window's last locked day.
   def locked_assets(now: Time.current)

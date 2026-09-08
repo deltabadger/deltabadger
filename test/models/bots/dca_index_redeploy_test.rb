@@ -246,6 +246,27 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
                     'the declined proceeds must not come back on offer'
   end
 
+  # A lock is not a venue-floor problem. place_redeploy_orders! turns "nothing placed" into
+  # Failure(:below_minimums), which the job reports as "your proceeds are too small" — false, and the
+  # money is still there. The offer has to survive.
+  test 'every candidate locked leaves the offer standing, not a below-minimum refusal' do
+    buy('AAA', quote: 100, price: 100)
+    liquidate('AAA', amount: 1, quote: 150, price: 150)
+    index_membership_for_redeploy
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    @bot.bot_index_assets.includes(:asset).each do |bia|
+      WashSaleLock.create!(user: @bot.user, asset: bia.asset, buy_locked_until: 10.days.from_now)
+    end
+    @bot.expects(:create_order).never
+
+    result = @bot.send(:place_redeploy_orders!, 150.to_d)
+
+    assert_predicate result, :success?, 'a window is not a floor'
+    assert_equal :wash_sale_locked, result.data[:skipped]
+    assert_in_delta 150, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001,
+                    'the proceeds are still on offer for when the window passes'
+  end
+
   # Every other leg gates on the other two. This one was the only one nobody asked about.
   test 'a redeploy in flight stands the other legs down' do
     create_order('BBB', amount: 1, quote: 150, price: 150, side: :buy, type: 'REDEPLOY',
@@ -307,6 +328,15 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
       BotIndexAsset.create!(bot: @bot, asset: ticker.base_asset, ticker: ticker,
                             target_allocation: 1.0 / symbols.size, in_index: true,
                             entered_at: Time.current)
+    end
+  end
+
+  def index_membership_for_redeploy
+    %w[AAA BBB].each do |symbol|
+      asset = Asset.find_by(symbol: symbol)
+      ticker = @bot.exchange.tickers.find_by(base: symbol)
+      BotIndexAsset.create!(bot: @bot, asset: asset, ticker: ticker, target_allocation: 0.5,
+                            in_index: true, entered_at: Time.current)
     end
   end
 

@@ -309,6 +309,37 @@ class Bots::DcaIndexRebalanceTest < ActiveSupport::TestCase
     assert_in_delta 0, @bot.rebalance_drift.to_f, 0.0001, 'no drift manufactured out of a missing number'
   end
 
+  test 'the buy leg refuses a name locked between sizing and placement, and stays owed' do
+    # A locked member is already out of rebalance_targets, so the ordinary path never picks one —
+    # the money simply goes to a name the bot may buy. This guard is the race backstop: the
+    # semaphore is per VENUE, so another exchange's sale can lock the asset after this leg sized its
+    # order and before it places it.
+    index_membership('AAA' => 0.5, 'BBB' => 0.5)
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_BUYING, remaining_quote_amount: 20)
+    @bot.stubs(:rebalance_buy_order_data).returns(ticker: @assets['BBB'][:ticker], price: 100.to_d,
+                                                  amount: 0.2.to_d, quote_amount: 20.to_d, side: :buy,
+                                                  order_type: :market_order, transaction_type: 'REBALANCE')
+    WashSaleLock.create!(user: @bot.user, asset: @assets['BBB'][:asset], buy_locked_until: 10.days.from_now)
+    @bot.expects(:create_order).never
+
+    result = @bot.send(:place_pending_buy!)
+
+    assert_equal :wash_sale_locked, result.data[:skipped]
+    assert_predicate @bot, :rebalance_pending?, 'the proceeds are still owed a buy'
+    assert_not @bot.rebalance_pending[:buy_attempted],
+               'skipping after the mark would leave the next poll halting on an unknown outcome'
+  end
+
+  test 'a locked member is simply not a target, so the money goes to one the bot may buy' do
+    index_membership('AAA' => 0.5, 'BBB' => 0.5)
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    stub_values({ 'AAA' => 70, 'BBB' => 30 })
+    WashSaleLock.create!(user: @bot.user, asset: @assets['BBB'][:asset], buy_locked_until: 10.days.from_now)
+
+    assert_equal %w[AAA], @bot.send(:rebalance_targets).map { |t| t[:ticker].base }.sort
+  end
+
   # == the wash-sale clock ==
 
   test 'a rebalance sell at a loss on the FIFO lots locks the name, a pre-transmission failure restores what was there' do

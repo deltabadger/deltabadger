@@ -38,6 +38,15 @@ module Bots::DcaSingleAsset::OrderSetter
 
       result = get_order_data(side: :sell, base_amount: sellable, price: price)
     else
+      # A wash-sale lock is one of several rules that can stop a buy: skip the tick and keep the
+      # money — pending_quote_amount is expected-minus-invested, so the next tick is simply larger.
+      # Ahead of the price read, so a locked asset costs no venue call either. Logger, not the
+      # activity feed: this repeats every tick for as long as the window lasts.
+      if user.locked_asset_ids.include?(ticker.base_asset_id)
+        Rails.logger.info("set_order bot=#{id} event=order_wash_sale_locked base=#{ticker.base}")
+        return Result::Success.new
+      end
+
       validate_order_amount!(order_amount_in_quote)
       return Result::Success.new if order_amount_in_quote.zero?
 

@@ -688,7 +688,6 @@ sv:
     bot_activity:
         events:
             dca_skipped_restatement: "Insättning hoppades över — en aktiesplit marknaden ännu inte prissatt"
-            dca_skipped_wash_sale: "Inget köpt — varje beståndsdel är i karenstid"
             wash_sale_locked: "%{base} sålt — inget återköp till och med %{until}, så att förlusten vid försäljningen består"
             asset_split: "%{base} aktiesplit %{ratio} — mäklaren har räknat om antalet aktier"
             asset_split_unknown_ratio: "%{base} aktiesplittades — mäklaren har räknat om antalet aktier"

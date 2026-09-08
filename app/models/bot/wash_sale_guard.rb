@@ -21,7 +21,7 @@ module Bot::WashSaleGuard
 
   # The setting lives on the taxpayer (User#wash_sale_days); this concern is the seam every trading
   # leg talks to, so the legs never learn where it is stored.
-  delegate :wash_sale_days, to: :user
+  delegate :wash_sale_days, :locked_asset_ids, to: :user
 
   # Buying resumes at the start of the day after the window.
   #
@@ -157,16 +157,6 @@ module Bot::WashSaleGuard
   # The row a lock lives on: one per taxpayer and asset, created on demand.
   def wash_sale_lock_for(asset_id)
     user.wash_sale_locks.find_or_create_by!(asset_id: asset_id)
-  end
-
-  # The asset ids this taxpayer may not buy right now, for the buy legs. Empty while the rule is
-  # off: switching it off must release buying immediately, and the stored deadlines stay so
-  # switching it back on resumes the windows already running. NOT memoised — a leg that locks and
-  # then re-reads within one job must see its own write.
-  def locked_asset_ids(now = Time.current)
-    return Set.new if wash_sale_days.zero?
-
-    user.wash_sale_locks.live(now).pluck(:asset_id).to_set
   end
 
   # The locked names THIS bot has something to say about — a member or a holding it recorded. A lock

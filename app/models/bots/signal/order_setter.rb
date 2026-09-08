@@ -16,6 +16,14 @@ module Bots::Signal::OrderSetter
   include Bot::OrderCreator
 
   def execute_signal(signal)
+    # Before signal_order_data: that one reads the venue and can record a failure the user is emailed
+    # about, all for a signal that is about to be skipped anyway. The asset is known from the bot's
+    # own ticker, so nothing it produces is needed here.
+    if signal.buy? && user.locked_asset_ids.include?(ticker.base_asset_id)
+      Rails.logger.info("execute_signal bot=#{id} event=order_wash_sale_locked base=#{ticker.base}")
+      return
+    end
+
     order_data = signal_order_data(signal)
     return if order_data.nil?
 

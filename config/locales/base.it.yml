@@ -676,7 +676,6 @@ it:
     bot_activity:
         events:
             dca_skipped_restatement: "Versamento saltato — uno split che il mercato non ha ancora prezzato"
-            dca_skipped_wash_sale: "Nessun acquisto — ogni componente è in attesa fiscale"
             wash_sale_locked: "%{base} venduto — nessun riacquisto fino al %{until} incluso, così la perdita della vendita non viene annullata"
             asset_split: "%{base} split %{ratio} — il broker ha ricalcolato il numero di azioni"
             asset_split_unknown_ratio: "%{base} ha subito uno split — il broker ha ricalcolato il numero di azioni"

@@ -198,6 +198,14 @@ module Bot::Rebalancer
     # belongs to place_rebalance_order, which can actually measure it.
     return Result::Success.new(skipped: :buy_unavailable) if order_data.nil?
 
+    # Before mark_buy_attempted!, and that ordering is load-bearing: skipping after the mark would
+    # leave buy_attempted true with no persisted order, which the next poll halts on as an unknown
+    # outcome. The proceeds stay owed and the pending state stands.
+    if locked_asset_ids.include?(order_data[:ticker].base_asset_id)
+      Rails.logger.info("rebalance bot=#{id} event=buy_wash_sale_locked base=#{order_data[:ticker].base}")
+      return Result::Success.new(skipped: :wash_sale_locked)
+    end
+
     # Mark the attempt before the network call, so a worker death after acceptance cannot be replayed.
     mark_buy_attempted!
     place_rebalance_order(order_data, phase: Bot::Rebalanceable::PHASE_BUYING)

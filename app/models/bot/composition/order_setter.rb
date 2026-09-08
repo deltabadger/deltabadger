@@ -143,7 +143,9 @@ module Bot::Composition::OrderSetter
 
       # Every member is sitting out a wash-sale window. Nothing to buy is not a failure: the
       # contribution stays in the carry and the next tick with an unlocked member spends it.
-      log_activity('dca_skipped_wash_sale', level: :info)
+      # Logger only — this repeats every tick for as long as the windows last, and the countdown in
+      # the protection table is the standing surface.
+      Rails.logger.info("get_orders_data composition bot=#{id} event=all_members_wash_sale_locked")
       return Result::Success.new([])
     end
 
