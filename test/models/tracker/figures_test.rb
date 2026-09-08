@@ -169,7 +169,7 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
                                                 unpriced_quantity: 0.to_d)],
       round_trips: [], total_invested_usd: 500.to_d, received_usd: 0.to_d, realised_pnl_usd: 0.to_d,
       fees_usd: 0.to_d, cash_usd: 0.to_d, cash: {}, unpriced_proceeds_usd: 0.to_d, incomplete: false, openings: {},
-      computed_at: Time.current
+      loss_sales: {}, computed_at: Time.current
     )
     balance(@btc, 0.4, 600) # the venue holds less: the rest left at cost, 600...
 

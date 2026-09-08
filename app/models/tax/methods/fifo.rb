@@ -160,7 +160,17 @@ module Tax
           unpriced_quantity: unpriced,
           unpriced_proceeds: amount.positive? ? fiat_value * unpriced / amount : 0.to_d,
           tx_id: transaction[:tx_id],
-          exchange: transaction[:exchange]
+          exchange: transaction[:exchange],
+          # Whether ANY consumed tranche fetched less than it cost, whatever the sale NETTED. Purely
+          # additive — every figure above, gain_loss included, is unchanged — and read only by the
+          # wash-sale guard, which must judge a sale the same way Bot::TaxLots.loss_in? does: US
+          # rules treat the losing blocks of one sale separately from the winning ones, so a sale
+          # that nets a gain can still carry a loss a repurchase would wash.
+          #
+          # Cross-multiplied rather than divided, so a break-even tranche is not rounded into a loss.
+          # Fees are left out, matching Bot::TaxLots; a tranche whose basis was assumed carries cost
+          # zero and therefore reads as a gain, which under-locks — see the plan's disclosed gaps.
+          any_lot_lost: amount.positive? && tranches.any? { |t| fiat_value * t[:amount] < t[:cost] * amount }
         }
 
         disposal[:old_stock] = old_stock?(earliest_date, holding_days) if @old_stock_cutoff
