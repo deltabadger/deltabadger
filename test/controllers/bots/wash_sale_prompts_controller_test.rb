@@ -26,6 +26,29 @@ class Bots::WashSalePromptsControllerTest < ActionDispatch::IntegrationTest
     assert_select "input[name='wash_sale[enabled]'][value='0']"
   end
 
+  test 'the sentence flows as one, pill included' do
+    get new_bot_wash_sale_prompt_path(bot_id: @bot.id)
+
+    # A bare span leaves the pill block-level and breaks the sentence over three rows.
+    assert_select '.wash-sale-question .conversational .sinput--select'
+  end
+
+  test 'Confirm is dead until a choice is made' do
+    get new_bot_wash_sale_prompt_path(bot_id: @bot.id)
+
+    assert_select 'button[type=submit][disabled]'
+    assert_select "button[type=submit][data-form--checkbox-enables-target='submit']"
+    assert_select "input[name='wash_sale[enabled]'][data-form--checkbox-enables-target='checkbox']",
+                  count: 2
+    assert_select "form[data-controller~='form--checkbox-enables']"
+  end
+
+  test 'Confirm carries a colour — the bare class renders as browser chrome' do
+    get new_bot_wash_sale_prompt_path(bot_id: @bot.id)
+
+    assert_select 'button[type=submit].button--sky'
+  end
+
   test 'an account that has already answered is not asked again' do
     @user.update!(wash_sale_enabled: false)
 

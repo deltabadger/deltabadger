@@ -36,14 +36,21 @@
           like every other modal form here; a refused sale answers 422 and the modal stays up
           carrying the reason. %>
       <%= form_with url: bot_liquidation_path(bot_id: @bot.id, symbol: @symbol), method: :post,
-                    data: { action: 'turbo:submit-end->modal--base#submitEnd' } do %>
+                    data: { controller: 'form--checkbox-enables',
+                            action: 'turbo:submit-end->modal--base#submitEnd ' \
+                                    'change->form--checkbox-enables#toggleSubmitButton' } do %>
         <%= render 'bots/wash_sale_prompts/question' unless current_user.wash_sale_decided? %>
 
         <div class="buttons buttons--row--2">
           <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
             <%= t('button.cancel') %>
           <% end %>
+          <%# Dead while the question above is unanswered — the server refuses that submit anyway,
+              and a button that only 422s is worse than one that says it is not ready. Live from the
+              start once the account has decided, because then no radio exists to wake it. %>
           <%= button_tag t('bot.liquidation.sell'), type: :submit,
+                         disabled: !current_user.wash_sale_decided?,
+                         data: { form__checkbox_enables_target: 'submit' },
                          class: "button button--large #{@holding&.dig(:harvestable) ? 'button--success' : 'button--danger'}" %>
         </div>
       <% end %>
