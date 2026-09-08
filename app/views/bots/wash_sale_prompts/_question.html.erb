@@ -9,11 +9,14 @@
 
     The targets gate the submit until one of the two is picked (form--checkbox-enables reads
     `.checked`, which a radio has). They are inert wherever no such controller is an ancestor. %>
+<%# `checked` is the tri-state answer: nil where nothing has been decided (the prompt), true/false
+    where the account already answered (the settings box, which has to show its own state). %>
+<% checked = local_assigns[:checked] %>
 <div class="wash-sale-question">
   <p class="text-inactive"><%= t('settings.wash_sale.prompt_body') %></p>
 
   <label class="form__radio">
-    <%= radio_button_tag 'wash_sale[enabled]', '1', false,
+    <%= radio_button_tag 'wash_sale[enabled]', '1', checked == true,
                          data: { form__checkbox_enables_target: 'checkbox' } %>
     <span class="conversational conversational--small">
       <% select_html = capture do %>
@@ -29,7 +32,7 @@
   </label>
 
   <label class="form__radio">
-    <%= radio_button_tag 'wash_sale[enabled]', '0', false,
+    <%= radio_button_tag 'wash_sale[enabled]', '0', checked == false,
                          data: { form__checkbox_enables_target: 'checkbox' } %>
     <span class="conversational conversational--small"><%= t('settings.wash_sale.prompt_decline') %></span>
   </label>

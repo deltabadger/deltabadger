@@ -14,32 +14,64 @@ class Settings::WashSaleTest < ActionDispatch::IntegrationTest
     sign_in @user
   end
 
-  test 'undecided renders the toggle AND a Confirm button' do
+  test 'the account box asks exactly what the modal asks' do
     get settings_account_path
 
     assert_response :success
-    assert_select '#wash_sale form select[name=?]', 'user[wash_sale_jurisdiction]' do
+    # One question, one partial, one wording.
+    assert_select '#wash_sale .wash-sale-question'
+    assert_select '#wash_sale form select[name=?]', 'wash_sale[jurisdiction]' do
       assert_select 'option', count: Tax::Jurisdictions.wash_sale_options.size
     end
-    assert_select '#wash_sale .rule--inactive'
-    assert_select '#wash_sale', text: /#{I18n.t('settings.wash_sale.confirm')}/,
-                                message: 'a toggle left off cannot say whether the user chose no or never looked'
+    assert_select "#wash_sale input[name='wash_sale[enabled]']", count: 2
   end
 
-  test 'Confirm records the no, and the button never comes back' do
-    patch settings_update_wash_sale_path, params: { user: { wash_sale_enabled: '0' } }
+  test 'undecided preselects neither answer and leaves Confirm dead' do
+    get settings_account_path
+
+    assert_select "#wash_sale input[name='wash_sale[enabled]'][checked]", count: 0,
+                                                                          message: 'a preselected answer is not a decision'
+    assert_select '#wash_sale button[type=submit][disabled]'
+  end
+
+  test 'a decided account sees its own answer, and can change it' do
+    @user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'IE')
+
+    get settings_account_path
+
+    assert_select "#wash_sale input[name='wash_sale[enabled]'][value='1'][checked]"
+    assert_select '#wash_sale button[type=submit][disabled]', count: 0
+    assert_select '#wash_sale option[value=IE][selected]'
+  end
+
+  test 'the button matches the rest of the page' do
+    get settings_account_path
+
+    # Full width comes from .setting-form, like every other widget on this page.
+    assert_select '#wash_sale form.setting-form button.button--sky'
+  end
+
+  test 'an empty answer changes nothing' do
+    patch settings_update_wash_sale_path, params: { wash_sale: { jurisdiction: 'IE' } }
+
+    assert_response :unprocessable_entity
+    assert_not_predicate @user.reload, :wash_sale_decided?
+  end
+
+  test 'Confirm records the no, and the answer sticks' do
+    patch settings_update_wash_sale_path, params: { wash_sale: { enabled: '0' } }
 
     @user.reload
     assert_predicate @user, :wash_sale_decided?
     assert_not_predicate @user, :wash_sale_enabled?
 
     get settings_account_path
-    assert_select '#wash_sale', text: /#{I18n.t('settings.wash_sale.confirm')}/, count: 0
+    assert_select "#wash_sale input[name='wash_sale[enabled]'][value='0'][checked]"
   end
 
   test 'switching it on stores the window and decides' do
     patch settings_update_wash_sale_path,
-          params: { user: { wash_sale_enabled: '1', wash_sale_jurisdiction: 'IE' } }
+          params: { wash_sale: { enabled: '1', jurisdiction: 'IE' } }
 
     assert_equal 28, @user.reload.wash_sale_days
     assert_predicate @user, :wash_sale_decided?
@@ -48,7 +80,7 @@ class Settings::WashSaleTest < ActionDispatch::IntegrationTest
   test 'switching it off keeps the chosen window for next time' do
     @user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'IE')
 
-    patch settings_update_wash_sale_path, params: { user: { wash_sale_enabled: '0' } }
+    patch settings_update_wash_sale_path, params: { wash_sale: { enabled: '0' } }
 
     assert_equal 0, @user.reload.wash_sale_days
     assert_equal 'IE', @user.wash_sale_jurisdiction, 'the choice survives the switch'
@@ -56,7 +88,7 @@ class Settings::WashSaleTest < ActionDispatch::IntegrationTest
 
   test 'turning it on re-arms from history' do
     assert_enqueued_with(job: Tracker::LedgerJob) do
-      patch settings_update_wash_sale_path, params: { user: { wash_sale_enabled: '1' } }
+      patch settings_update_wash_sale_path, params: { wash_sale: { enabled: '1' } }
     end
   end
 
@@ -64,13 +96,13 @@ class Settings::WashSaleTest < ActionDispatch::IntegrationTest
     @user.update!(wash_sale_enabled: true)
 
     assert_no_enqueued_jobs(only: Tracker::LedgerJob) do
-      patch settings_update_wash_sale_path, params: { user: { wash_sale_enabled: '0' } }
+      patch settings_update_wash_sale_path, params: { wash_sale: { enabled: '0' } }
     end
   end
 
   test 'an unknown code is refused without changing anything' do
     patch settings_update_wash_sale_path,
-          params: { user: { wash_sale_enabled: '1', wash_sale_jurisdiction: 'XX' } }
+          params: { wash_sale: { enabled: '1', jurisdiction: 'XX' } }
 
     assert_response :unprocessable_entity
     assert_not_predicate @user.reload, :wash_sale_enabled?

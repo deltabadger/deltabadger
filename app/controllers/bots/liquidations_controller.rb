@@ -45,11 +45,7 @@ class Bots::LiquidationsController < ApplicationController
   def wash_sale_answer_recorded?
     return true if current_user.wash_sale_decided?
 
-    answer = params.dig(:wash_sale, :enabled)
-    return false if answer.blank?
-
-    record_wash_sale_decision(enabled: ActiveModel::Type::Boolean.new.cast(answer),
-                              jurisdiction: params.dig(:wash_sale, :jurisdiction))
+    record_wash_sale_answer == true
   end
 
   def refuse(message)

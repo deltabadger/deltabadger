@@ -23,6 +23,18 @@ module WashSalePromptable
     turbo_stream.replace('modal', partial: 'bots/wash_sale_prompts/dialog', locals: { bot: bot })
   end
 
+  # Record the answer as the question partial submits it — the same shape from the modal, the Sell
+  # confirmation and the account box, because they render the same partial. nil when neither choice
+  # was picked, so a caller can refuse rather than record a "no" nobody made; false when the answer
+  # itself was rejected.
+  def record_wash_sale_answer
+    answer = params.dig(:wash_sale, :enabled)
+    return nil if answer.blank?
+
+    record_wash_sale_decision(enabled: ActiveModel::Type::Boolean.new.cast(answer),
+                              jurisdiction: params.dig(:wash_sale, :jurisdiction))
+  end
+
   # One writer for the decision, wherever it is answered: the account box, the modal, or the Sell
   # confirmation. Switching it on re-walks the account ledger, so a window that started before the
   # answer is still served. Returns false on an unknown jurisdiction, so the caller can refuse.

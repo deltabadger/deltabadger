@@ -1,61 +1,31 @@
 <%# Wash-sale protection, at the scope it belongs to: the taxpayer. Two bots holding the same asset
-    would otherwise undo each other's harvest, and one person cannot have two tax residences. The
-    rule chrome is the bot page's, because that is what this is — a rule every bot obeys — but it is
-    set once, here. %>
-<% decided = current_user.wash_sale_decided? %>
-<% active = current_user.wash_sale_enabled? %>
+    would otherwise undo each other's harvest, and one person cannot have two tax residences.
+
+    The same question the modal asks, from the same partial — a second layout for one setting is a
+    second wording to keep in step, and the user meets both. What is only here is the list of what
+    the rule is doing right now across every bot. %>
 <% locked = current_user.locked_assets %>
-<% options = Tax::Jurisdictions.wash_sale_options.map { |code, _, _| [wash_sale_option_label(code), code] } %>
 <%= turbo_frame_tag 'wash_sale' do %>
   <div class="widget widget--settings">
     <h4 class="modal__title"><%= t('settings.wash_sale.title') %></h4>
 
-    <%= form_with model: current_user, url: settings_update_wash_sale_path, method: :patch,
-                  class: "rule #{active ? 'rule--active' : 'rule--inactive'}",
-                  data: {
-                    controller: "class-toggle form--submit",
-                    class_toggle_target: "togglable",
-                    class_toggle_toggle_classes_value: ["rule--active", "rule--inactive"],
-                    turbo_frame: "wash_sale"
-                  } do |f| %>
-      <div class="toggle-group">
-        <div class="toggle">
-          <%= f.check_box :wash_sale_enabled, checked: active,
-                          data: { action: "change->form--submit#submit change->class-toggle#toggle" } %>
-          <div class="toggle__style"></div>
-        </div>
-        <div class="toggle-group__info">
-          <div class="toggle-group__info__label">
-            <%# f.label, so clicking the sentence works the toggle. A click landing on the select is
-                interactive content — the browser opens the dropdown and does not forward it here. %>
-            <%= f.label :wash_sale_enabled, class: "conversational conversational--small conversational--disabled" do %>
-              <% select_html = capture do %>
-                <div class="sinput sinput--select">
-                  <%= wash_sale_option_label(current_user.wash_sale_jurisdiction) %>
-                  <%= f.select :wash_sale_jurisdiction, options, { selected: current_user.wash_sale_jurisdiction },
-                               data: { action: "change->form--submit#submit" } %>
-                </div>
-              <% end %>
-              <%= t('settings.wash_sale.sentence_html', select_html: select_html).html_safe %>
-              <small class="small-info"><%= t('settings.wash_sale.note') %></small>
-            <% end %>
-          </div>
-        </div>
-      </div>
-    <% end %>
-
-    <%# Undecided is a state of its own. A toggle left off cannot say whether the user chose "no" or
-        never looked, so while it is nil this records the "no" explicitly — and once anything is
-        decided, here or in the prompt, the button never comes back. %>
-    <% unless decided %>
-      <%= button_to t('settings.wash_sale.confirm'), settings_update_wash_sale_path,
-                    method: :patch, params: { user: { wash_sale_enabled: '0' } },
-                    class: 'button button--outline', form: { data: { turbo_frame: 'wash_sale' } } %>
+    <%# .setting-form is where this page's buttons get their width, exactly as in the name, email
+        and password widgets. Confirm is dead until an answer is picked — on a decided account one
+        radio is already checked, so it is live from the start. %>
+    <%= form_with url: settings_update_wash_sale_path, method: :patch, class: 'setting-form',
+                  data: { controller: 'form--checkbox-enables',
+                          action: 'change->form--checkbox-enables#toggleSubmitButton',
+                          turbo_frame: 'wash_sale' } do %>
+      <%= render 'bots/wash_sale_prompts/question', checked: current_user.wash_sale_enabled %>
+      <%= button_tag t('settings.wash_sale.confirm'), type: :submit,
+                     disabled: !current_user.wash_sale_decided?,
+                     class: 'button button--sky',
+                     data: { form__checkbox_enables_target: 'submit' } %>
     <% end %>
 
     <%# What the rule is doing right now, across every bot — the one place the whole picture is
         visible, since a bot's own panel only shows the names that bot trades. %>
-    <% if active %>
+    <% if current_user.wash_sale_enabled? %>
       <div class="settings-prefs__notes">
         <span class="label"><%= t('settings.wash_sale.locked_title') %></span>
         <% if locked.any? %>
