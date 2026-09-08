@@ -17,9 +17,14 @@ class WashSaleLock < ApplicationRecord
     buy_locked_until.present? && buy_locked_until > now
   end
 
-  # Raise the confirmed deadline and, with it, the effective one; never shorten either, and clear any
-  # outstanding placement claim so no rollback can lower a deadline a real sale earned. Returns true
+  # Raise the confirmed deadline and, with it, the effective one; never shorten either. Returns true
   # when the effective lock moved, which is what tells a caller this is news.
+  #
+  # The outstanding placement claim is left alone. It used to be cleared here, to stop a rollback
+  # lowering a deadline a real sale earned — but restore_buy_lock! is already floored at
+  # confirmed_locked_until, so the clear protected nothing and cost something: the ledger replaying
+  # an OLD disposal would strip a live placement's token, and that placement could then never roll
+  # its own provisional lock back when it provably failed.
   #
   # `from` is a Date. It must be — the window is added in DAYS, and a Time here would add seconds and
   # write a lock that has already expired.
@@ -32,7 +37,7 @@ class WashSaleLock < ApplicationRecord
     was = lock.buy_locked_until
     where(id: lock.id).update_all(
       ['confirmed_locked_until = COALESCE(MAX(confirmed_locked_until, ?), ?), ' \
-       'buy_locked_until = COALESCE(MAX(buy_locked_until, ?), ?), claim_token = NULL, source = ?',
+       'buy_locked_until = COALESCE(MAX(buy_locked_until, ?), ?), source = ?',
        deadline, deadline, deadline, deadline, source]
     )
     was.nil? || deadline > was

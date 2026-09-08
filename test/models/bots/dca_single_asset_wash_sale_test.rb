@@ -34,6 +34,18 @@ class Bots::DcaSingleAssetWashSaleTest < ActiveSupport::TestCase
     @bot.set_order(order_amount_in_quote: 100.to_d)
   end
 
+  test 'a lock armed while the price was being fetched still stops the buy' do
+    # The venue call is the window: the trading semaphore is per exchange, so a sale on ANOTHER one
+    # can arm the lock while this order is being sized.
+    @bot.stubs(:get_order_data).with { lock_it || true }
+        .returns(Result::Success.new(ticker: @bot.ticker, price: 100.to_d, amount: 1.to_d,
+                                     quote_amount: 100.to_d, side: :buy, order_type: :market_order))
+    @bot.expects(:create_order).never
+
+    assert_predicate @bot.set_order(order_amount_in_quote: 100.to_d), :success?
+    assert_equal 0, @bot.transactions.count
+  end
+
   test 'a lock on another asset leaves this bot alone' do
     other = create(:asset, symbol: 'ZZZ', name: 'Coin ZZZ', external_id: 'coin-zzz')
     WashSaleLock.create!(user: @user, asset: other, buy_locked_until: 10.days.from_now)

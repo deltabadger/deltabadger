@@ -35,6 +35,13 @@ module Bots::Signal::OrderSetter
       return
     end
 
+    # Re-read the lock immediately before placing, exactly as the composition leg does: this order
+    # was sized before another exchange's semaphore let a sale through.
+    if signal.buy? && user.locked_asset_ids.include?(ticker.base_asset_id)
+      Rails.logger.info("execute_signal bot=#{id} event=order_wash_sale_locked base=#{ticker.base}")
+      return
+    end
+
     order_id = place_signal_order(signal, order_data, amount_info)
     track_signal_order(order_data, order_id) if order_id
   end

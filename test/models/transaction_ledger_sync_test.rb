@@ -25,6 +25,15 @@ class TransactionLedgerSyncTest < ActiveSupport::TestCase
     end
   end
 
+  test 'the ask is delayed past a sync that may already be running' do
+    enqueued_jobs.clear # the placement already pulled one; this is about the FILL's
+    @order.update!(external_status: :closed, amount_exec: 1, quote_amount_exec: 90)
+
+    job = enqueued_jobs.find { |enqueued| enqueued['job_class'] == 'AccountTransaction::SyncJob' }
+    assert job['scheduled_at'].present?,
+           'the sync discards a conflict, so an immediate enqueue during one is simply dropped'
+  end
+
   test 'a cancelled sell that partially filled asks too — it realised just as much' do
     assert_enqueued_with(job: AccountTransaction::SyncJob) do
       @order.update!(external_status: :cancelled, amount_exec: 0.4, quote_amount_exec: 36)

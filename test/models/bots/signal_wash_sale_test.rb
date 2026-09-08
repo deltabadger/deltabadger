@@ -36,6 +36,19 @@ class Bots::SignalWashSaleTest < ActiveSupport::TestCase
     @bot.send(:execute_signal, signal)
   end
 
+  test 'a lock armed while the venue was being read still stops the buy' do
+    signal = create(:bot_signal, bot: @bot, direction: :buy)
+    @bot.stubs(:signal_order_data).with { lock_it || true }
+        .returns(ticker: @bot.ticker, price: 100.to_d, amount: 1.to_d, quote_amount: 100.to_d,
+                 side: :buy, order_type: :market_order)
+    @bot.stubs(:calculate_best_amount_info).returns(below_minimum_amount: false)
+    @bot.expects(:place_signal_order).never
+
+    @bot.send(:execute_signal, signal)
+
+    assert_equal 0, @bot.transactions.count
+  end
+
   test 'an unlocked asset is unaffected' do
     signal = create(:bot_signal, bot: @bot, direction: :buy)
     @bot.expects(:signal_order_data).once.returns(nil)
