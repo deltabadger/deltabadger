@@ -240,7 +240,7 @@ cs:
             still_open: "Pokyn %{order_id} je na burze stále otevřený. Počkej, až se vypořádá."
             resolved: "Vymazáno. Bot může znovu obchodovat."
         wash_sale:
-            table_title: "Ochrana před wash sale"
+            table_title: "Ochrana daňové ztráty"
             settings_link: "Nastavení →"
             from_ledger: "z prodeje na burze"
         liquidation:

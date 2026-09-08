@@ -28,13 +28,13 @@ module Tax
       'PL' => { name: 'Poland', method: :fifo, currency: 'PLN', locale: :pl,
                 crypto_to_crypto_taxable: false },
       'GB' => { name: 'United Kingdom', method: :share_pooling, currency: 'GBP', locale: :en,
-                wash_sale_days: 30 },
+                wash_sale_days: 30, wash_sale_label: 'UK' },
       'US' => { name: 'United States', method: :fifo, currency: 'USD', locale: :en, short_long_term: true,
-                wash_sale_days: 30 },
+                wash_sale_days: 30, wash_sale_label: 'US' },
       'SE' => { name: 'Sweden', method: :weighted_average, currency: 'SEK', locale: :sv,
                 loss_deduction_rate: 0.7 },
       'IE' => { name: 'Ireland', method: :fifo_4week, currency: 'EUR', locale: :en,
-                annual_exemption: 1270, split_payment: true, wash_sale_days: 28 },
+                annual_exemption: 1270, split_payment: true, wash_sale_days: 28, wash_sale_label: 'IE' },
       'DK' => { name: 'Denmark', method: :fifo, currency: 'DKK', locale: :da,
                 danish_wash_sale: true, per_asset_summary: true,
                 loss_deduction_rate_on_losses: 0.26 },
@@ -50,7 +50,9 @@ module Tax
     end
 
     # Jurisdictions with a statutory repurchase window after a loss sale, for the bots' wash-sale
-    # guard: [[code, name, days], ...]. US §1091 disallows the loss (30 days); the UK's 30-day
+    # guard: [[code, label, days], ...]. The LABEL, not :name — this is read inside a pill in the
+    # middle of a sentence, and "30 days (United Kingdom)" does not fit on the line "30 days (UK)"
+    # fits on. :name stays the full form the tax report prints. US §1091 disallows the loss (30 days); the UK's 30-day
     # bed-and-breakfast rule matches the repurchase against the disposal, which cancels it; Ireland's
     # four-week rule restricts it. Denmark's rule is a different mechanism with no window.
     #
@@ -62,7 +64,7 @@ module Tax
     def self.wash_sale_options
       WASH_SALE_ORDER.filter_map do |code|
         j = REGISTRY[code]
-        [code, j[:name], j[:wash_sale_days]] if j && j[:wash_sale_days]
+        [code, j[:wash_sale_label], j[:wash_sale_days]] if j && j[:wash_sale_days]
       end
     end
 

@@ -108,11 +108,11 @@ pt:
         sign_up: Registar
     settings:
         wash_sale:
-            title: "Proteção wash sale"
-            sentence_html: "Evitar wash sales esperando %{select_html} depois de vender com prejuízo"
-            option: "%{days} dias · %{country}"
+            title: "Proteção da dedução do prejuízo"
+            sentence_html: "Não recomprar durante %{select_html} depois de vender com prejuízo"
+            option: "%{days} dias (%{country})"
             note: "Aplica-se a todos os bots desta conta. Quando um deles vende um ativo com prejuízo, todos o deixam de fora de qualquer compra — periódica, de reequilíbrio e de reinvestimento — durante esse tempo, e depois recompram-no como o título mais subponderado. As vendas que fizeres tu na exchange também contam, a partir da sincronização seguinte. Se uma venda foi prejuízo apura-se pelo histórico desta conta."
-            prompt_body: "Um dos teus bots já pode vender. Quando uma venda dá prejuízo, algumas regras fiscais ignoram essa perda se recomprares o mesmo ativo cedo demais."
+            prompt_body: "Nos EUA, no Reino Unido e na Irlanda aplica-se a regra «wash sale»: se recomprares o mesmo ativo cedo demais, o prejuízo da venda deixa de reduzir o imposto. Escolhe o período do país onde pagas impostos ou «Não aplicar esta regra»."
             prompt_decline: "Não aplicar esta regra"
             prompt_missing: "Escolhe uma das duas respostas para continuar."
             confirm: "Confirmar"

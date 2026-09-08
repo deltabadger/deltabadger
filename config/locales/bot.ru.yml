@@ -220,7 +220,7 @@ ru:
             still_open: "Ордер %{order_id} всё ещё открыт на бирже. Дождитесь его исполнения."
             resolved: "Сброшено. Бот может снова торговать."
         wash_sale:
-            table_title: "Защита от wash sale"
+            table_title: "Защита вычета убытка"
             settings_link: "Настройки →"
             from_ledger: "из продажи на бирже"
         liquidation:

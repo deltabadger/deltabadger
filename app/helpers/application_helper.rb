@@ -81,4 +81,13 @@ module ApplicationHelper
   def asset_type_label(category)
     TICKER_TYPE_LABELS[category.to_s]
   end
+
+  # "30 days (US)" — the wash-sale window as it reads inside a sentence. Built from the same tuples
+  # the select is, so the pill showing the current choice and the option the user picks from can
+  # never word it differently.
+  def wash_sale_option_label(code)
+    options = Tax::Jurisdictions.wash_sale_options
+    _code, label, days = options.find { |option_code, _| option_code == code } || options.first
+    t('settings.wash_sale.option', country: label, days: days)
+  end
 end

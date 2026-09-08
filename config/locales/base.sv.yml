@@ -109,11 +109,11 @@ sv:
         sign_up: 'Skapa konto'
     settings:
         wash_sale:
-            title: "Wash sale-skydd"
-            sentence_html: "Undvik wash sales genom att vänta %{select_html} efter en försäljning med förlust"
-            option: "%{days} dagar · %{country}"
+            title: "Skydd för förlustavdrag"
+            sentence_html: "Köp inte tillbaka tillgången förrän %{select_html} efter en försäljning med förlust"
+            option: "%{days} dagar (%{country})"
             note: "Gäller alla bottar på det här kontot. När en av dem säljer en tillgång med förlust håller alla bottar den utanför varje köp — det återkommande, ombalanseringen och återinvesteringen — så länge, och köper sedan tillbaka den som den mest undervägda posten. Försäljningar du gör själv på börsen räknas också, från nästa synkronisering. Om en försäljning var en förlust räknas ut från det här kontots historik."
-            prompt_body: "En av dina bottar kan nu sälja. När en försäljning ger förlust bortser vissa skatteregler från förlusten om du köper tillbaka samma tillgång för snabbt."
+            prompt_body: "I USA, Storbritannien och Irland gäller regeln ”wash sale”: om du säljer med förlust och köper tillbaka samma tillgång för snabbt får du inte dra av förlusten. Deklarerar du i något av dessa länder, välj landets karenstid. Välj annars ”Tillämpa inte den här regeln”."
             prompt_decline: "Tillämpa inte den här regeln"
             prompt_missing: "Välj ett av de två svaren för att fortsätta."
             confirm: "Bekräfta"

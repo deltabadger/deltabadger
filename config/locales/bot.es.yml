@@ -221,7 +221,7 @@ es:
             still_open: "La orden %{order_id} sigue abierta en tu exchange. Espera a que se liquide."
             resolved: "Descartado. El bot puede operar de nuevo."
         wash_sale:
-            table_title: "Protección contra wash sale"
+            table_title: "Protección de la deducción de pérdidas"
             settings_link: "Ajustes →"
             from_ledger: "de una venta en el exchange"
         liquidation:

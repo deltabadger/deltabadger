@@ -108,11 +108,11 @@ nl:
         sign_up: Registreren
     settings:
         wash_sale:
-            title: "Wash sale-bescherming"
-            sentence_html: "Wash sales vermijden door %{select_html} te wachten na een verkoop met verlies"
-            option: "%{days} dagen · %{country}"
+            title: "Verliesaftrek beschermen"
+            sentence_html: "Na een verkoop met verlies %{select_html} niet terugkopen"
+            option: "%{days} dagen (%{country})"
             note: "Geldt voor elke bot van dit account. Verkoopt er één een asset met verlies, dan houden alle bots dat asset zolang buiten elke aankoop — de terugkerende, die van het herbalanceren en die van het herbeleggen — en kopen het daarna terug als de sterkst onderwogen naam. Verkopen die je zelf op de exchange doet tellen ook mee, vanaf de volgende synchronisatie. Of een verkoop verlies was, volgt uit de historie van dit account."
-            prompt_body: "Een van je bots kan nu verkopen. Als een verkoop verlies oplevert, negeren sommige belastingregels dat verlies wanneer je hetzelfde asset te snel terugkoopt."
+            prompt_body: "In de VS, het Verenigd Koninkrijk en Ierland geldt de “wash sale”-regel: verkoop je met verlies en koop je hetzelfde asset te snel terug, dan verlaagt dat verlies je belasting niet. Doe je in een van die landen aangifte, kies dan de termijn van dat land. Kies anders “Deze regel niet toepassen”."
             prompt_decline: "Deze regel niet toepassen"
             prompt_missing: "Kies een van de twee antwoorden om verder te gaan."
             confirm: "Bevestigen"

@@ -5,8 +5,7 @@
 <% decided = current_user.wash_sale_decided? %>
 <% active = current_user.wash_sale_enabled? %>
 <% locked = current_user.locked_assets %>
-<% options = Tax::Jurisdictions.wash_sale_options.map { |code, name, days| [t('settings.wash_sale.option', country: name, days: days), code] } %>
-<% jurisdiction = Tax::Jurisdictions.for(current_user.wash_sale_jurisdiction) %>
+<% options = Tax::Jurisdictions.wash_sale_options.map { |code, _, _| [wash_sale_option_label(code), code] } %>
 <%= turbo_frame_tag 'wash_sale' do %>
   <div class="widget widget--settings">
     <h4 class="modal__title"><%= t('settings.wash_sale.title') %></h4>
@@ -32,7 +31,7 @@
             <%= f.label :wash_sale_enabled, class: "conversational conversational--small conversational--disabled" do %>
               <% select_html = capture do %>
                 <div class="sinput sinput--select">
-                  <%= t('settings.wash_sale.option', country: jurisdiction[:name], days: jurisdiction[:wash_sale_days]) %>
+                  <%= wash_sale_option_label(current_user.wash_sale_jurisdiction) %>
                   <%= f.select :wash_sale_jurisdiction, options, { selected: current_user.wash_sale_jurisdiction },
                                data: { action: "change->form--submit#submit" } %>
                 </div>

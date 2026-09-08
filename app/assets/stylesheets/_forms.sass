@@ -110,12 +110,15 @@ $formUnit: 2rem
     gap: 1.5rem
   &__radio
     display: flex
-    align-items: center
+    // Top, not centre: a label that wraps to two lines left the ring floating in the middle of the
+    // sentence instead of marking its first line. The nudge puts it on that line's optical centre.
+    align-items: flex-start
     gap: 1rem
     cursor: pointer
     font-size: 2rem
     color: var(--ash)
     input[type="radio"]
+      top: 0.5rem
       appearance: none
       width: 2.4rem
       height: 2.4rem

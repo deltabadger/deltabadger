@@ -226,7 +226,7 @@ de:
             still_open: "Order %{order_id} ist an deiner Börse noch offen. Warte, bis sie abgerechnet ist."
             resolved: "Zurückgesetzt. Der Bot kann wieder handeln."
         wash_sale:
-            table_title: "Wash-Sale-Schutz"
+            table_title: "Schutz der Verlustverrechnung"
             settings_link: "Einstellungen →"
             from_ledger: "aus einem Verkauf an der Börse"
         liquidation:

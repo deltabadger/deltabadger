@@ -240,7 +240,7 @@ bg:
             still_open: "Поръчка %{order_id} все още е отворена на борсата. Изчакай да се уреди."
             resolved: "Изчистено. Ботът може да търгува отново."
         wash_sale:
-            table_title: "Защита от wash sale"
+            table_title: "Защита на данъчната загуба"
             settings_link: "Настройки →"
             from_ledger: "от продажба на борсата"
         liquidation:

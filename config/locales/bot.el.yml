@@ -240,7 +240,7 @@ el:
             still_open: "Η εντολή %{order_id} είναι ακόμη ανοιχτή στο exchange σου. Περίμενε να διακανονιστεί."
             resolved: "Έγινε εκκαθάριση. Το bot μπορεί να συναλλάσσεται ξανά."
         wash_sale:
-            table_title: "Προστασία wash sale"
+            table_title: "Προστασία φορολογικής ζημιάς"
             settings_link: "Ρυθμίσεις →"
             from_ledger: "από πώληση στο exchange"
         liquidation:

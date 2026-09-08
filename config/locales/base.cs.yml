@@ -110,11 +110,11 @@ cs:
         sign_up: 'Registrace'
     settings:
         wash_sale:
-            title: "Ochrana před wash sale"
-            sentence_html: "Vyhnout se wash sale: po prodeji se ztrátou počkat %{select_html}"
-            option: "%{days} dní · %{country}"
+            title: "Ochrana daňové ztráty"
+            sentence_html: "Po prodeji se ztrátou nekupovat stejné aktivum zpět %{select_html}"
+            option: "%{days} dní (%{country})"
             note: "Platí pro každého bota na tomto účtu. Když některý prodá aktivum se ztrátou, všichni boti ho po tu dobu vynechají z každého nákupu — pravidelného, při vyvažování i při opětovném investování — a pak ho dokoupí jako nejvíc podváženou položku. Počítají se i prodeje, které uděláš na burze sám, od příští synchronizace. Zda šlo o ztrátu, se určuje z historie tohoto účtu."
-            prompt_body: "Jeden z tvých botů teď může prodávat. Když prodej skončí ztrátou, některá daňová pravidla ji neuznají, pokud stejné aktivum koupíš zpět příliš brzy."
+            prompt_body: "V USA, Velké Británii a Irsku platí pravidlo „wash sale“: když prodáš se ztrátou a stejné aktivum koupíš zpět příliš brzy, ztráta ti nesníží daň. Vyber lhůtu země, ve které platíš daně, nebo zvol „Toto pravidlo nepoužívat“."
             prompt_decline: "Toto pravidlo nepoužívat"
             prompt_missing: "Pokračuj výběrem jedné ze dvou odpovědí."
             confirm: "Potvrdit"

@@ -109,11 +109,11 @@ da:
         sign_up: 'Opret konto'
     settings:
         wash_sale:
-            title: "Wash sale-beskyttelse"
-            sentence_html: "Undgå wash sales ved at vente %{select_html} efter et salg med tab"
-            option: "%{days} dage · %{country}"
+            title: "Beskyttelse af tabsfradrag"
+            sentence_html: "Køb ikke tilbage i %{select_html} efter et salg med tab"
+            option: "%{days} dage (%{country})"
             note: "Gælder for alle bots på denne konto. Når en af dem sælger et aktiv med tab, holder alle bots det uden for ethvert køb — det faste, rebalanceringen og geninvesteringen — så længe og køber det derefter tilbage som den mest undervægtede post. Salg, du selv laver på børsen, tæller også med fra næste synkronisering. Om et salg var et tab, udledes af denne kontos historik."
-            prompt_body: "En af dine bots kan nu sælge. Når et salg giver tab, ser nogle skatteregler bort fra tabet, hvis du køber det samme aktiv tilbage for hurtigt."
+            prompt_body: "I USA, Storbritannien og Irland gælder reglen om »wash sale«: sælger du med tab og køber det samme aktiv tilbage for tidligt, kan du ikke trække tabet fra i skat. Betaler du skat i et af dem, så vælg landets karensperiode. Ellers vælg »Anvend ikke denne regel«."
             prompt_decline: "Anvend ikke denne regel"
             prompt_missing: "Vælg et af de to svar for at fortsætte."
             confirm: "Bekræft"
