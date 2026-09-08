@@ -688,7 +688,6 @@ en:
     bot_activity:
         events:
             dca_skipped_restatement: "Contribution skipped — a split the market has not priced yet"
-            dca_skipped_wash_sale: "Nothing bought — every constituent is inside a wash-sale window"
             wash_sale_locked: "%{base} sold — not bought again through %{until}, so the sale's loss is not washed"
             asset_split: "%{base} split %{ratio} — the broker restated the share count"
             asset_split_unknown_ratio: "%{base} was split — the broker restated the share count"

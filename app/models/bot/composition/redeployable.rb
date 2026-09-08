@@ -265,8 +265,17 @@ module Bot::Composition::Redeployable
     result = get_orders_data(amount, market: true)
     return result if result.failure?
 
+    # Every candidate was filtered out by buyable_allocations before sizing, so the loop below would
+    # never run and the batch would fall through to :below_minimums — telling the user their proceeds
+    # are under the venue floor when the real reason is a window. The offer stays standing.
+    if result.data.blank? && current_allocations.present?
+      Rails.logger.info("redeploy bot=#{id} event=all_members_wash_sale_locked")
+      return Result::Success.new(skipped: :wash_sale_locked)
+    end
+
     remaining = amount
     placed = 0
+    locked = 0
 
     fold_below_minimums(result.data).each do |order_data|
       break if remaining <= 0
@@ -276,6 +285,8 @@ module Bot::Composition::Redeployable
       # it, and continuing would place orders the halt is supposed to be blocking.
       break if outcome == :ambiguous
 
+      locked += 1 if outcome == :wash_sale_locked
+
       remaining -= outcome[:spent] if outcome.is_a?(Hash)
       placed += 1 if outcome.is_a?(Hash)
     end
@@ -284,6 +295,8 @@ module Bot::Composition::Redeployable
     # most underweight member and even that will not clear the floor, there is genuinely nothing to
     # do — and a button that says "putting the money back" and then does nothing at all is the one
     # outcome the user cannot tell from a bug. The job turns this into a line in the activity feed.
+    # A lock is not a floor problem: say so, and leave the offer where it is.
+    return Result::Success.new(skipped: :wash_sale_locked) if placed.zero? && locked.positive?
     return Result::Failure.new(:below_minimums) if placed.zero?
 
     Result::Success.new(placed: placed)
@@ -295,6 +308,14 @@ module Bot::Composition::Redeployable
   # `remaining` fell by only what we intended.
   def place_one_redeploy!(order_data, remaining)
     ticker = order_data[:ticker]
+    # Not skip_redeploy: that writes an activity row (forbidden for a lock, which repeats for weeks)
+    # and returns an undifferentiated :skipped that place_redeploy_orders! cannot tell from a
+    # below-minimum one.
+    if user.locked_asset_ids.include?(ticker.base_asset_id)
+      Rails.logger.info("redeploy bot=#{id} event=order_wash_sale_locked base=#{ticker.base}")
+      return :wash_sale_locked
+    end
+
     price_result = exchange.market_price_for(ticker: ticker, side: :buy)
     return skip_redeploy(ticker, 'unpriced') if price_result.failure?
 

@@ -162,7 +162,8 @@ class Bots::DcaIndexOrderSetterTest < ActiveSupport::TestCase
 
     assert_predicate result, :success?
     assert_empty result.data
-    assert @bot.bot_activity_logs.find_by(event: 'dca_skipped_wash_sale')
+    assert_empty @bot.bot_activity_logs.where("event LIKE '%wash_sale%'"),
+                 'logger only — this repeats every tick for as long as the windows last'
   end
 
   private

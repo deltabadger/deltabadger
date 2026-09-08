@@ -37,6 +37,9 @@ module BotApi
         ticker = Lookup.find_ticker(exchange, @base_asset, @quote_asset)
         return Lookup.ticker_not_found(exchange, @base_asset, @quote_asset) unless ticker
 
+        refusal = Lookup.wash_sale_refusal(@user, ticker)
+        return refusal if refusal
+
         exchange.set_client(api_key: api_key)
         effective_type = (@amount_type.presence || 'quote').to_sym
         upstream = Lookup.with_dry_run(@dry_run) do

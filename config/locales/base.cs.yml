@@ -696,7 +696,6 @@ cs:
     bot_activity:
         events:
             dca_skipped_restatement: "Příspěvek přeskočen — split, který trh ještě neocenil"
-            dca_skipped_wash_sale: "Nic nekoupeno — každá složka je v čekací lhůtě"
             wash_sale_locked: "%{base} prodáno — do %{until} včetně bez zpětného nákupu, aby ztráta z prodeje nepropadla"
             asset_split: "%{base} split %{ratio} — broker přepočítal počet akcií"
             asset_split_unknown_ratio: "%{base} prošel splitem — broker přepočítal počet akcií"

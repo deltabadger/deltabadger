@@ -40,6 +40,24 @@ module BotApi
                 .first
       end
 
+      # A deliberate manual buy is still a repurchase, and washing the loss is exactly what the window
+      # exists to prevent — so this refuses rather than skipping. Nothing to carry forward here: there
+      # is no bot and no schedule, only a caller who asked for a buy and must be told why it did not
+      # happen. Returns nil when there is nothing to refuse.
+      #
+      # Gated on the SETTING as well as the row: locks deliberately survive the rule being switched
+      # off, so querying rows alone would keep refusing API buys after bot buys had resumed.
+      def wash_sale_refusal(user, ticker)
+        return nil if user.wash_sale_days.zero?
+
+        lock = user.wash_sale_locks.live.find_by(asset_id: ticker.base_asset_id)
+        return nil if lock.nil?
+
+        Result.failure(:conflict, 'wash_sale_locked',
+                       "#{ticker.base} is locked until #{(lock.buy_locked_until - 1.day).to_date} " \
+                       'after a sale at a loss. Change this in account settings.')
+      end
+
       def ticker_not_found(exchange, base_symbol, quote_symbol)
         Result.failure(:not_found, 'pair_not_found',
                        "Trading pair #{base_symbol.to_s.upcase}/#{quote_symbol.to_s.upcase} not found on #{exchange.name}.")
