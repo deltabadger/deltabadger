@@ -22,6 +22,9 @@ class Bot::WashSaleLocalesTest < ActiveSupport::TestCase
       %w[locked harvest_hint partial_note].each do |key|
         assert data.dig('bot', 'liquidation', key), "bot.#{locale}.yml is missing bot.liquidation.#{key}"
       end
+      %w[table_title settings_link from_ledger].each do |key|
+        assert data.dig('bot', 'wash_sale', key), "bot.#{locale}.yml is missing bot.wash_sale.#{key}"
+      end
     end
   end
 end

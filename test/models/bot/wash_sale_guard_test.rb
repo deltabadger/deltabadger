@@ -56,7 +56,7 @@ class Bot::WashSaleGuardTest < ActiveSupport::TestCase
       assert_nil @bot.lock_buying!(@asset.id)[:previous], 'the deadline it replaced, which was none'
       assert_equal Time.zone.parse('2026-10-08 00:00'), lock.reload.buy_locked_until
       assert_predicate lock, :buy_locked?
-      assert_equal [{ symbol: 'AAA', days_left: 31, until: lock.buy_locked_until, in_index: true }], @bot.locked_members
+      assert_equal [{ symbol: 'AAA', days_left: 31, until: lock.buy_locked_until, source: 'bot' }], @bot.locked_members
     end
     travel_to Time.zone.parse('2026-10-07 23:59') do
       assert_predicate lock.reload, :buy_locked?, 'day 30 is still inside the window'
@@ -171,6 +171,8 @@ class Bot::WashSaleGuardTest < ActiveSupport::TestCase
     choose('US')
     @bia.update!(in_index: false, exited_at: Time.current)
     @bot.lock_buying!(@asset.id)
-    assert_equal false, @bot.locked_members.first[:in_index]
+
+    assert_equal %w[AAA], @bot.locked_members.map { |member| member[:symbol] },
+                 'a name the composition dropped still has a window to serve'
   end
 end

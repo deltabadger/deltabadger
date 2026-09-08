@@ -221,6 +221,10 @@ fr:
             resolve_confirm: "Ne continue que si tu as vérifié ta plateforme et qu’aucun ordre d’achat n’est encore ouvert."
             still_open: "L’ordre %{order_id} est encore ouvert sur ta plateforme. Attends qu’il soit réglé."
             resolved: "Effacé. Le bot peut de nouveau trader."
+        wash_sale:
+            table_title: "Protection wash sale"
+            settings_link: "Paramètres →"
+            from_ledger: "depuis une vente sur la plateforme"
         liquidation:
             locked: "Délai fiscal · %{days} j"
             harvest_hint: "Sous le prix de revient des lots propres à ce bot (une estimation, premier entré premier sorti) — vendre toute la position maintenant devrait réaliser une perte"

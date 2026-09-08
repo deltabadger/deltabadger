@@ -37,4 +37,9 @@
     <%= render 'bots/assets_table', rows: rows, body_id: 'assets_metrics_list', loading: loading, hide_money: hide_money,
                quote: quote %>
   </div>
+
+  <%# The account-wide rule, said here too — this panel serves single-asset AND signal bots, and both
+      obey it. No Sell column: neither type closes a position from a row. %>
+  <%= render 'bots/composition/locked_table', bot: bot, members: bot.locked_members,
+             hide_money: hide_money, quote: quote %>
 </div>

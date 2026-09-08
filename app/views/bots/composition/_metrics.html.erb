@@ -2,8 +2,8 @@
 <%# A failed live price read empties asset_values, and the wash-sale rows must survive that: a
     constituent the bot sold in full is exactly the one with no ledger row and a window to serve. %>
 <% asset_values = metrics[:asset_values] || {} %>
-<% locks = bot.locked_members.index_by { |m| m[:symbol] } %>
-<% member_locks, exited_locks = locks.partition { |_symbol, lock| lock[:in_index] }.map(&:to_h) %>
+<% locked = bot.locked_members %>
+<% locked_symbols = locked.to_set { |member| member[:symbol] } %>
 <% realised = metrics[:realised_pnl].to_d %>
 <% hide_money = hide_balances?(bot) %>
 <% quote = bot.quote_asset&.symbol %>
@@ -72,7 +72,7 @@
   <%# Resolve the row's base symbol through the exchange's tickers, the same way the
       metrics do — current bot_index_assets rows cannot identify holdings that exited after a
       rotation. %>
-  <% logo_assets = bot.exchange.tickers.where(base: asset_values.keys | locks.keys).includes(:base_asset).index_by(&:base) %>
+  <% logo_assets = bot.exchange.tickers.where(base: asset_values.keys).includes(:base_asset).index_by(&:base) %>
   <%# MEMBERS, listed because the composition wants them — not "whatever is left after removing the
       quitters". Those two agreed only while every held asset was one or the other, and they stopped
       agreeing once a quitter too small to sell was ruled out of its own table: defined by
@@ -87,20 +87,19 @@
       is resolved, and an archived or deleted bot cannot trade at all. %>
   <% may_sell = !bot.liquidation_ambiguous? && !bot.archived? && !bot.deleted? %>
   <% sellable = may_sell ? bot.sellable_holdings(metrics).to_h { |h| [h[:symbol], true] } : {} %>
-  <% if asset_values.present? || member_locks.any? %>
+  <% if asset_values.present? %>
     <% in_index = bot.bot_index_assets.in_index.includes(:asset).to_set { |bia| bia.asset.symbol } %>
     <% composition_values = if in_index.empty?
                               asset_values.reject { |symbol, _| exited_symbols.include?(symbol) }
                             else
                               asset_values.select { |symbol, _| in_index.include?(symbol) }
                             end %>
-    <%# A locked member with nothing left to hold has no ledger row, and the lock is the one thing
-        the table must say about it. %>
-    <% member_locks.each_key { |symbol| composition_values[symbol] ||= { amount: 0, current_value: nil, avg_price: nil, pnl_percentage: nil } } %>
+    <%# A locked name is listed once, in its own table below. %>
+    <% composition_values = composition_values.except(*locked_symbols) %>
     <% if composition_values.present? %>
       <div id="assets_metrics_table" class="widget widget--table" data-controller="table-fit">
         <%= render 'bots/composition/assets_table', values: composition_values, logo_assets: logo_assets,
-                   body_id: 'assets_metrics_list', bot: bot, sellable: sellable, locks: locks,
+                   body_id: 'assets_metrics_list', bot: bot, sellable: sellable,
                    hide_money: hide_money, quote: quote %>
       </div>
     <% end %>
@@ -109,10 +108,9 @@
   <%# NOT nested under asset_values: a failed live price read empties that hash, and it is exactly
       the network trouble that produces an unresolved placement in the first place. The Clear action
       has to survive it — resolving an untracked order needs no prices at all. %>
-  <% if exited.any? || exited_locks.any? || bot.liquidation_ambiguous? %>
-    <% exited_values = exited.index_by { |holding| holding[:symbol] } %>
-    <%# A quitter sold in full at a loss still has a window to serve, and its row is where it says so. %>
-    <% exited_locks.each_key { |symbol| exited_values[symbol] ||= { amount: 0, current_value: nil, avg_price: nil, pnl_percentage: nil } } %>
+  <% if exited.any? || bot.liquidation_ambiguous? %>
+    <%# A locked quitter is listed once, in its own table below. %>
+    <% exited_values = exited.index_by { |holding| holding[:symbol] }.except(*locked_symbols) %>
     <div id="exited_metrics_table" class="widget widget--table" data-controller="table-fit">
       <div class="exited-header">
         <span class="label"><%= t(exited_title_key) %></span>
@@ -132,10 +130,13 @@
         <%= render 'bots/composition/assets_table',
                    values: exited_values,
                    logo_assets: logo_assets, body_id: 'exited_metrics_list', bot: bot,
-                   hide_money: hide_money, quote: quote, sellable: sellable, locks: locks %>
+                   hide_money: hide_money, quote: quote, sellable: sellable %>
       <% end %>
     </div>
   <% end %>
+
+  <%= render 'bots/composition/locked_table', bot: bot, members: locked, values: asset_values,
+             sellable: sellable, hide_money: hide_money, quote: quote %>
 
   <%# The proceeds of a sale, waiting to go back into the basket. The amount IS the display: realised
       cash has no line of its own anywhere else, and it would otherwise sit inside portfolio value

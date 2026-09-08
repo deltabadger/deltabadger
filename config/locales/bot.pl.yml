@@ -220,6 +220,10 @@ pl:
             resolve_confirm: "Kontynuuj tylko wtedy, gdy sprawdziłeś giełdę i żadne zlecenie kupna nie jest otwarte."
             still_open: "Zlecenie %{order_id} jest wciąż otwarte na giełdzie. Poczekaj, aż się rozliczy."
             resolved: "Wyczyszczone. Bot może znowu handlować."
+        wash_sale:
+            table_title: "Ochrona przed wash sale"
+            settings_link: "Ustawienia →"
+            from_ledger: "ze sprzedaży na giełdzie"
         liquidation:
             locked: "Karencja · %{days} d"
             harvest_hint: "Poniżej kosztu własnych partii tego bota (szacunek, pierwsze weszło pierwsze wyszło) — sprzedaż całej pozycji teraz powinna zrealizować stratę"

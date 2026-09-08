@@ -154,13 +154,12 @@ module Bot::WashSaleGuard
   def locked_members(now: Time.current)
     return [] if wash_sale_days.zero?
 
-    known = bot_index_assets.includes(:asset).index_by(&:asset_id)
+    known = bot_index_assets.pluck(:asset_id).to_set
     user.wash_sale_locks.live(now).includes(:asset).filter_map do |lock|
-      row = known[lock.asset_id]
-      next if row.nil?
+      next unless known.include?(lock.asset_id)
 
       { symbol: lock.asset.symbol, days_left: (lock.buy_locked_until.to_date - now.to_date).to_i,
-        until: lock.buy_locked_until, in_index: row.in_index }
+        until: lock.buy_locked_until, source: lock.source }
     end
   end
 end

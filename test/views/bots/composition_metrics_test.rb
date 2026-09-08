@@ -47,31 +47,47 @@ class Bots::CompositionMetricsViewTest < ActionView::TestCase
     assert_not_includes html.at_css('tr[data-symbol=BBB] .table__action a')['class'], 'rbutton--success'
   end
 
-  test 'a locked member with nothing held is listed with its countdown and no Sell' do
-    row = render_panel.at_css('tr[data-symbol=CCC]')
-    assert row, 'a locked member still has a row'
-    assert_nil row.at_css('.table__action a')
+  test 'a locked constituent is in the protection table, and nowhere else' do
+    html = render_panel
+    row = html.at_css('#wash_sale_list tr[data-symbol=CCC]')
+    assert row, 'a locked member has a row of its own'
     assert_includes row.at_css('.table__action').text, '12'
+    assert_nil html.at_css('#assets_metrics_list tr[data-symbol=CCC]'),
+               'each name appears exactly once — the window is what there is to say about it'
   end
 
-  test 'a locked member with a sellable remainder shows both the countdown and Sell' do
+  test 'the protection table says what it is and where the rule is set' do
+    html = render_panel
+    assert_includes html.at_css('#wash_sale_table').text, I18n.t('bot.wash_sale.table_title')
+    assert_equal settings_account_path, html.at_css('#wash_sale_table a')['href']
+  end
+
+  test 'a locked holding with a sellable remainder keeps Sell — the window blocks buying' do
     @metrics[:asset_values]['CCC'] = { amount: 1, quote_invested: 100, current_value: 90, avg_price: 100, pnl_percentage: -0.1, harvestable: true }
-    cell = render_panel.at_css('tr[data-symbol=CCC] .table__action')
-    assert cell.at_css('a'), 'still sellable'
+    cell = render_panel.at_css('#wash_sale_list tr[data-symbol=CCC] .table__action')
+    assert cell.at_css('a'), 'selling is never blocked'
     assert_includes cell.text, '12'
   end
 
-  test 'a locked quitter with nothing held is listed under Left the index with its countdown' do
+  test 'a locked quitter is in the protection table, not under Left the index' do
     bia = @bot.bot_index_assets.find_by(asset: @assets['CCC'][:asset])
     bia.update!(in_index: false, exited_at: Time.current)
-    row = render_panel.at_css('#exited_metrics_list tr[data-symbol=CCC]')
-    assert row, 'the quitters table is not gated on priced holdings alone'
-    assert_includes row.at_css('.table__action').text, '12'
-    assert_nil render_panel.at_css('#assets_metrics_list tr[data-symbol=CCC]')
+
+    html = render_panel
+    assert html.at_css('#wash_sale_list tr[data-symbol=CCC]')
+    assert_nil html.at_css('#exited_metrics_list tr[data-symbol=CCC]')
   end
 
-  test 'a panel with no priced holdings still renders the locks' do
+  test 'the protection table survives a failed price read' do
     @metrics[:asset_values] = nil
-    assert render_panel.at_css('tr[data-symbol=CCC]')
+
+    assert render_panel.at_css('#wash_sale_list tr[data-symbol=CCC]'),
+           'a constituent sold in full is exactly the one with a window and no ledger row'
+  end
+
+  test 'no locks, no table' do
+    WashSaleLock.delete_all
+
+    assert_nil render_panel.at_css('#wash_sale_table')
   end
 end

@@ -140,6 +140,24 @@ class Bot < ApplicationRecord
       (respond_to?(:held_symbols) && held_symbols.any?)
   end
 
+  # The locked assets THIS bot has something to say about. Composition bots override with their
+  # bot_index_assets version; a single-asset or signal bot filters to the tickers it trades. The
+  # default lives here rather than on Bots::DcaSingleAsset because Bots::Signal inherits straight
+  # from Bot and renders the same panel — a per-type method would raise there.
+  def locked_members(now: Time.current)
+    # user.wash_sale_days, not wash_sale_days: the delegation lives in Bot::WashSaleGuard, which
+    # only the composition types include.
+    return [] if user.wash_sale_days.zero? || !respond_to?(:tickers)
+
+    traded = tickers.to_set(&:base_asset_id)
+    user.wash_sale_locks.live(now).includes(:asset).filter_map do |lock|
+      next unless traded.include?(lock.asset_id)
+
+      { symbol: lock.asset.symbol, days_left: (lock.buy_locked_until.to_date - now.to_date).to_i,
+        until: lock.buy_locked_until, source: lock.source }
+    end
+  end
+
   # A buy-side trigger set to flip the bot into selling: armed, so the sale is one price move away.
   # Read off the settings rather than naming the four trigger concerns, so a fifth is covered the
   # day it is added. The sell-side keys never carry this action — they flip back to buying.
