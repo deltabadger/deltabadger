@@ -11,14 +11,10 @@ class Bots::WashSalePromptsController < ApplicationController
   # reason, not a 500. Nothing is enqueued and nothing is written on a refusal, so the question
   # comes back exactly as it was.
   def create
-    answer = params.dig(:wash_sale, :enabled)
-    return render_refusal(t('settings.wash_sale.prompt_missing')) if answer.blank?
-
-    if record_wash_sale_decision(enabled: ActiveModel::Type::Boolean.new.cast(answer),
-                                 jurisdiction: params.dig(:wash_sale, :jurisdiction))
-      render turbo_stream: turbo_stream_prepend_flash
-    else
-      render_refusal(current_user.errors.full_messages.to_sentence)
+    case record_wash_sale_answer
+    when nil then render_refusal(t('settings.wash_sale.prompt_missing'))
+    when false then render_refusal(current_user.errors.full_messages.to_sentence)
+    else render turbo_stream: turbo_stream_prepend_flash
     end
   end
 

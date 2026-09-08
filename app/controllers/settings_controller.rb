@@ -118,11 +118,12 @@ class SettingsController < ApplicationController
   # Turning it ON re-arms from history: the ledger walk covers the trailing 31 days, so a user who
   # switches this on today is protected by sales they already made rather than starting from blank.
   def update_wash_sale
-    if record_wash_sale_decision(enabled: params.dig(:user, :wash_sale_enabled) == '1',
-                                 jurisdiction: params.dig(:user, :wash_sale_jurisdiction))
-      redirect_back fallback_location: settings_account_path, status: :see_other
-    else
-      render_preference_error
+    case record_wash_sale_answer
+    when nil
+      flash.now[:alert] = t('settings.wash_sale.prompt_missing')
+      render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
+    when false then render_preference_error
+    else redirect_back fallback_location: settings_account_path, status: :see_other
     end
   end
 
