@@ -688,6 +688,7 @@ nl:
     bot_activity:
         events:
             dca_skipped_restatement: "Inleg overgeslagen — een aandelensplitsing die de markt nog niet heeft verwerkt"
+            dca_skipped_wash_sale: "Niets gekocht — elk bestanddeel zit in een wachttijd"
             wash_sale_locked: "%{base} verkocht — tot en met %{until} niet teruggekocht, zodat het verlies van de verkoop blijft staan"
             asset_split: "%{base} aandelensplitsing %{ratio} — de broker heeft het aantal aandelen herberekend"
             asset_split_unknown_ratio: "%{base} is gesplitst — de broker heeft het aantal aandelen herberekend"

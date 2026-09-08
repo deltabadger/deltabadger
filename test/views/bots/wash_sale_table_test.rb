@@ -46,6 +46,12 @@ class Bots::WashSaleTableViewTest < ActionView::TestCase
     assert_equal settings_account_path, html.at_css('#wash_sale_table a')['href']
   end
 
+  test 'the settings link leaves the bot frame — the account page has no such frame' do
+    lock!
+
+    assert_equal '_top', render_panel.at_css('#wash_sale_table a')['data-turbo-frame']
+  end
+
   test 'a lock armed by an exchange sale says so' do
     lock!(source: 'ledger')
 

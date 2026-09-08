@@ -16,6 +16,16 @@ class Bot::WashSaleLocalesTest < ActiveSupport::TestCase
     end
   end
 
+  # Activity rows persist. The composition leg no longer writes this event, but the rows it already
+  # wrote render through t("bot_activity.events.\#{event}") forever.
+  test 'the retired skip event is still translatable, because its rows still exist' do
+    I18n.available_locales.each do |locale|
+      data = YAML.load_file(Rails.root.join("config/locales/base.#{locale}.yml"))[locale.to_s]
+      assert data.dig('bot_activity', 'events', 'dca_skipped_wash_sale'),
+             "base.#{locale}.yml is missing bot_activity.events.dca_skipped_wash_sale"
+    end
+  end
+
   test 'every available_locale carries the liquidation keys in its own bot.<locale>.yml' do
     I18n.available_locales.each do |locale|
       data = YAML.load_file(Rails.root.join("config/locales/bot.#{locale}.yml"))[locale.to_s]
