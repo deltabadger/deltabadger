@@ -221,7 +221,7 @@ nl:
             still_open: "Order %{order_id} staat nog open op je exchange. Wacht tot die is afgewikkeld."
             resolved: "Gewist. De bot kan weer handelen."
         wash_sale:
-            table_title: "Wash sale-bescherming"
+            table_title: "Verliesaftrek beschermen"
             settings_link: "Instellingen →"
             from_ledger: "uit een verkoop op de exchange"
         liquidation:

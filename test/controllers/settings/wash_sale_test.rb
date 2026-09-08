@@ -95,4 +95,11 @@ class Settings::WashSaleTest < ActionDispatch::IntegrationTest
     assert_select '#wash_sale .settings-locked li', count: 0
     assert_select '#wash_sale', text: /#{I18n.t('settings.wash_sale.locked_none')}/
   end
+  test 'the window reads as days and a country code' do
+    get settings_account_path
+
+    assert_select '#wash_sale option', text: '30 days (US)'
+    assert_select '#wash_sale option', text: '30 days (UK)'
+    assert_select '#wash_sale option', text: '28 days (IE)'
+  end
 end

@@ -108,11 +108,11 @@ fr:
         sign_up: 'S''inscrire'
     settings:
         wash_sale:
-            title: "Protection wash sale"
-            sentence_html: "Éviter les wash sales en attendant %{select_html} après une vente à perte"
-            option: "%{days} jours · %{country}"
+            title: "Protection des pertes déductibles"
+            sentence_html: "Après une vente à perte, attendre %{select_html} avant de racheter"
+            option: "%{days} jours (%{country})"
             note: "S'applique à tous les bots de ce compte. Quand l'un d'eux vend un actif à perte, tous les bots l'écartent de tous les achats — récurrents, de rééquilibrage et de réinvestissement — pendant ce délai, puis le rachètent en tant que valeur la plus sous-pondérée. Les ventes que vous faites vous-même sur la plateforme comptent aussi, dès la synchronisation suivante. Le caractère de perte est établi à partir de l'historique de ce compte."
-            prompt_body: "Un de vos bots peut désormais vendre. Quand une vente enregistre une perte, certaines règles fiscales l’ignorent si vous rachetez le même actif trop tôt."
+            prompt_body: "Les États-Unis, le Royaume-Uni et l’Irlande refusent la déduction d’une perte si vous rachetez le même actif trop tôt. Choisissez le délai du pays où vous payez vos impôts, ou « Ne pas appliquer cette règle »."
             prompt_decline: "Ne pas appliquer cette règle"
             prompt_missing: "Choisissez une des deux réponses pour continuer."
             confirm: "Confirmer"

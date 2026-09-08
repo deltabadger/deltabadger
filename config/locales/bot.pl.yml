@@ -221,7 +221,7 @@ pl:
             still_open: "Zlecenie %{order_id} jest wciąż otwarte na giełdzie. Poczekaj, aż się rozliczy."
             resolved: "Wyczyszczone. Bot może znowu handlować."
         wash_sale:
-            table_title: "Ochrona przed wash sale"
+            table_title: "Ochrona odliczenia straty"
             settings_link: "Ustawienia →"
             from_ledger: "ze sprzedaży na giełdzie"
         liquidation:

@@ -222,7 +222,7 @@ fr:
             still_open: "L’ordre %{order_id} est encore ouvert sur ta plateforme. Attends qu’il soit réglé."
             resolved: "Effacé. Le bot peut de nouveau trader."
         wash_sale:
-            table_title: "Protection wash sale"
+            table_title: "Protection des pertes déductibles"
             settings_link: "Paramètres →"
             from_ledger: "depuis une vente sur la plateforme"
         liquidation:

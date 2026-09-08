@@ -108,11 +108,11 @@ de:
         sign_up: Registrieren
     settings:
         wash_sale:
-            title: "Wash-Sale-Schutz"
-            sentence_html: "Wash Sales vermeiden: nach einem Verkauf mit Verlust %{select_html} warten"
-            option: "%{days} Tage · %{country}"
+            title: "Schutz der Verlustverrechnung"
+            sentence_html: "Nach einem Verkauf mit Verlust das Asset %{select_html} nicht zurückkaufen"
+            option: "%{days} Tage (%{country})"
             note: "Gilt für jeden Bot dieses Kontos. Verkauft einer davon ein Asset mit Verlust, lässt jeder Bot dieses Asset so lange aus jedem Kauf heraus — aus dem regelmäßigen, aus dem Rebalancing und aus der Wiederanlage — und kauft es danach als am stärksten untergewichteten Wert zurück. Verkäufe, die du selbst an der Börse machst, zählen ab der nächsten Synchronisierung ebenfalls. Ob ein Verkauf ein Verlust war, wird aus der Historie dieses Kontos ermittelt."
-            prompt_body: "Einer deiner Bots kann jetzt verkaufen. Macht ein Verkauf Verlust, erkennen manche Steuerregeln diesen Verlust nicht an, wenn du dasselbe Asset zu früh zurückkaufst."
+            prompt_body: "In den USA, in Großbritannien und Irland gilt die „Wash-Sale“-Regel: Wenn du mit Verlust verkaufst und dasselbe Asset zu früh zurückkaufst, mindert der Verlust deine Steuer nicht. Zahlst du in einem dieser Länder Steuern, wähle die dortige Frist. Andernfalls wähle „Diese Regel nicht anwenden“."
             prompt_decline: "Diese Regel nicht anwenden"
             prompt_missing: "Wähle eine der beiden Antworten, um fortzufahren."
             confirm: "Bestätigen"
