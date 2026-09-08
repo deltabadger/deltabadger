@@ -220,6 +220,10 @@ nl:
             resolve_confirm: "Ga alleen verder als je je exchange hebt gecontroleerd en er geen kooporder meer openstaat."
             still_open: "Order %{order_id} staat nog open op je exchange. Wacht tot die is afgewikkeld."
             resolved: "Gewist. De bot kan weer handelen."
+        wash_sale:
+            table_title: "Wash sale-bescherming"
+            settings_link: "Instellingen →"
+            from_ledger: "uit een verkoop op de exchange"
         liquidation:
             locked: "Wachttijd · %{days} d"
             harvest_hint: "Onder de kostprijs van de eigen posities van deze bot (een schatting, first in first out) — de hele positie nu verkopen zou een verlies realiseren"

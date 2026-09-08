@@ -211,6 +211,10 @@ pt:
             resolve_confirm: "Só continua se verificaste a tua exchange e nenhuma ordem de compra continua aberta."
             still_open: "A ordem %{order_id} ainda está aberta na tua exchange. Espera que liquide."
             resolved: "Limpo. O bot pode voltar a negociar."
+        wash_sale:
+            table_title: "Proteção contra wash sale"
+            settings_link: "Definições →"
+            from_ledger: "de uma venda na exchange"
         liquidation:
             locked: "Espera fiscal · %{days} d"
             harvest_hint: "Abaixo do custo dos lotes próprios deste bot (uma estimativa, primeiro a entrar primeiro a sair) — vender toda a posição agora deverá realizar um prejuízo"

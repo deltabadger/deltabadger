@@ -239,6 +239,10 @@ sv:
             resolve_confirm: "Fortsätt bara om du har kontrollerat din börs och ingen köporder fortfarande är öppen."
             still_open: "Order %{order_id} är fortfarande öppen på din börs. Vänta tills den är avslutad."
             resolved: "Rensat. Boten kan handla igen."
+        wash_sale:
+            table_title: "Wash sale-skydd"
+            settings_link: "Inställningar →"
+            from_ledger: "från en försäljning på börsen"
         liquidation:
             locked: "Karenstid · %{days} d"
             harvest_hint: "Under anskaffningsvärdet på bottens egna poster (en uppskattning, först in först ut) — att sälja hela innehavet nu bör realisera en förlust"

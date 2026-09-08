@@ -239,6 +239,10 @@ da:
             resolve_confirm: "Fortsæt kun, hvis du har tjekket din børs, og ingen købsordre stadig er åben."
             still_open: "Ordre %{order_id} er stadig åben på din børs. Vent, til den er afviklet."
             resolved: "Ryddet. Botten kan handle igen."
+        wash_sale:
+            table_title: "Wash sale-beskyttelse"
+            settings_link: "Indstillinger →"
+            from_ledger: "fra et salg på børsen"
         liquidation:
             locked: "Karensperiode · %{days} d"
             harvest_hint: "Under kostprisen på bottens egne portioner (et skøn, først ind først ud) — at sælge hele positionen nu bør realisere et tab"

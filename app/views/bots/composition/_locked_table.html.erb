@@ -1,0 +1,23 @@
+<%# locals: (bot:, members:, values: {}, sellable: {}, hide_money: false, quote: nil) %>
+<%# What the account-wide rule is doing to THIS bot. A table of its own rather than a marker inside
+    the holdings and quitters tables: a locked name has one thing worth saying about it, and saying
+    it in three places meant the same name was listed twice on the page.
+
+    Selling is never blocked, so a locked row keeps Sell whenever a sellable remainder is left —
+    the window blocks buying and nothing else. %>
+<% if members.any? %>
+  <% logo_assets = bot.exchange.tickers.where(base: members.map { |member| member[:symbol] })
+                      .includes(:base_asset).index_by(&:base) %>
+  <div id="wash_sale_table" class="widget widget--table" data-controller="table-fit">
+    <div class="exited-header">
+      <span class="label"><%= t('bot.wash_sale.table_title') %></span>
+      <%# The rule itself is not a bot setting, so the link goes where it is actually set. %>
+      <%= link_to t('bot.wash_sale.settings_link'), settings_account_path, class: 'rbutton rbutton--small' %>
+    </div>
+    <%= render 'bots/composition/assets_table',
+               values: members.to_h { |member| [member[:symbol], values[member[:symbol]] || { amount: 0 }] },
+               logo_assets: logo_assets, body_id: 'wash_sale_list', bot: bot,
+               sellable: sellable, locks: members.index_by { |member| member[:symbol] },
+               hide_money: hide_money, quote: quote %>
+  </div>
+<% end %>

@@ -225,6 +225,10 @@ de:
             resolve_confirm: "Fahre nur fort, wenn du deine Börse geprüft hast und keine Kauforder mehr offen ist."
             still_open: "Order %{order_id} ist an deiner Börse noch offen. Warte, bis sie abgerechnet ist."
             resolved: "Zurückgesetzt. Der Bot kann wieder handeln."
+        wash_sale:
+            table_title: "Wash-Sale-Schutz"
+            settings_link: "Einstellungen →"
+            from_ledger: "aus einem Verkauf an der Börse"
         liquidation:
             locked: "Sperrfrist · %{days} T"
             harvest_hint: "Unter den Anschaffungskosten der eigenen Positionsteile dieses Bots (Schätzung, First-in-First-out) — ein Verkauf der ganzen Position würde jetzt einen Verlust realisieren"

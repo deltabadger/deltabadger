@@ -239,6 +239,10 @@ cs:
             resolve_confirm: "Pokračuj jen tehdy, když jsi zkontroloval burzu a žádný nákupní pokyn už není otevřený."
             still_open: "Pokyn %{order_id} je na burze stále otevřený. Počkej, až se vypořádá."
             resolved: "Vymazáno. Bot může znovu obchodovat."
+        wash_sale:
+            table_title: "Ochrana před wash sale"
+            settings_link: "Nastavení →"
+            from_ledger: "z prodeje na burze"
         liquidation:
             locked: "Čekací lhůta · %{days} d"
             harvest_hint: "Pod pořizovací cenou vlastních dávek tohoto bota (odhad, první dovnitř první ven) — prodej celé pozice by teď měl realizovat ztrátu"

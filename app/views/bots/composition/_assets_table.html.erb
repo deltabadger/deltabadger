@@ -22,6 +22,7 @@
         pnl: data[:pnl_percentage],
         action: safe_join([
           (lock ? tag.span(t('bot.liquidation.locked', days: lock[:days_left]), class: 'text-inactive', title: l(lock[:until].to_date)) : nil),
+          (lock && lock[:source] == 'ledger' ? tag.span(t('bot.wash_sale.from_ledger'), class: 'text-inactive') : nil),
           (sellable[symbol] ? link_to(t('bot.liquidation.sell'),
                                       new_bot_liquidation_path(bot_id: bot.id, symbol: symbol),
                                       class: "rbutton rbutton--small #{'rbutton--success' if harvest}",

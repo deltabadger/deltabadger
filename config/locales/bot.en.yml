@@ -241,6 +241,10 @@ en:
             resolve_confirm: "Only continue if you have checked your exchange and no buy order is still open."
             still_open: "Order %{order_id} is still open on your exchange. Wait for it to settle first."
             resolved: "Cleared. The bot can trade again."
+        wash_sale:
+            table_title: "Wash sale protection"
+            settings_link: "Settings →"
+            from_ledger: "from an exchange sale"
         liquidation:
             locked: "Wash sale · %{days} d"
             harvest_hint: "Under water on this bot's own lots (an estimate, first-in-first-out) — selling the whole position now should realise a loss"
