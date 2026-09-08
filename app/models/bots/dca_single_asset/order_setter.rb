@@ -69,6 +69,14 @@ module Bots::DcaSingleAsset::OrderSetter
       return Result::Success.new
     end
 
+    # Re-read the lock immediately before placing, exactly as the composition leg does: this order
+    # was sized before another exchange's semaphore let a sale through, and a buy submitted after
+    # that sale washes the loss it was protecting.
+    if side == :buy && user.locked_asset_ids.include?(ticker.base_asset_id)
+      Rails.logger.info("set_order bot=#{id} event=order_wash_sale_locked base=#{ticker.base}")
+      return Result::Success.new
+    end
+
     Rails.logger.info("set_order bot=#{id} event=order_creating #{order_log_fields(order_data)}")
     result = create_order(order_data, amount_info)
     if result.failure?

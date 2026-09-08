@@ -1,4 +1,8 @@
 class Transaction < ApplicationRecord
+  # Long enough to clear a sync already running for the same account and venue, short enough that a
+  # window a sale just earned is served well before the next buy tick.
+  LEDGER_SYNC_DELAY = 2.minutes
+
   belongs_to :bot
   belongs_to :exchange
 
@@ -33,9 +37,14 @@ class Transaction < ApplicationRecord
   # already-terminal row counts too — a cancelled partial can land with its base fill known and its
   # proceeds absent. A cancellation that never filled is asked for nothing: stale limit orders are
   # cancelled routinely, and a sync each time buys nothing.
+  #
+  # Enqueued with a delay, not immediately: the sync limits its concurrency per (user, venue) and
+  # DISCARDS a conflict, so a fill landing while a sync is mid-flight would be dropped — and the
+  # running sync fetched its ledger before this fill existed. A short wait puts the dispatch after
+  # the sync in progress rather than on top of it.
   after_commit lambda {
                  api_key = ApiKey.find_by(user_id: bot.user_id, exchange_id: bot.exchange_id, key_type: :trading)
-                 AccountTransaction::SyncJob.perform_later(api_key) if api_key
+                 AccountTransaction::SyncJob.set(wait: LEDGER_SYNC_DELAY).perform_later(api_key) if api_key
                }, on: :update, if: lambda {
                  sell? && (closed? || (cancelled? && amount_exec.to_d.positive?)) &&
                    (saved_change_to_external_status? || saved_change_to_amount_exec? ||

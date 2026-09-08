@@ -39,4 +39,31 @@ class WashSaleLockTest < ActiveSupport::TestCase
 
     assert_equal 1, @user.wash_sale_locks.live.count, 'the taxpayer is still inside the window'
   end
+  test 'a ledger confirmation of an OLDER sale leaves a live placement claim alone' do
+    @user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    bot = create(:dca_index, user: @user)
+    claim = bot.lock_buying!(@asset.id) # a provisional lock this placement owns
+    far = @user.wash_sale_locks.find_by(asset_id: @asset.id).buy_locked_until
+
+    # The nightly walk reconfirms a disposal from a week ago: nearer deadline, same row.
+    WashSaleLock.confirm!(user: @user, asset_id: @asset.id, from: 7.days.ago.to_date, source: 'ledger')
+
+    lock = @user.wash_sale_locks.find_by(asset_id: @asset.id)
+    assert_equal far, lock.buy_locked_until, 'the longer window still stands'
+    assert_equal claim[:token], lock.claim_token,
+                 'stripping it would leave this placement unable to undo its own lock'
+  end
+
+  test 'and that placement can still roll its lock back when it provably failed' do
+    @user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    bot = create(:dca_index, user: @user)
+    claim = bot.lock_buying!(@asset.id)
+    WashSaleLock.confirm!(user: @user, asset_id: @asset.id, from: 7.days.ago.to_date, source: 'ledger')
+    confirmed = @user.wash_sale_locks.find_by(asset_id: @asset.id).confirmed_locked_until
+
+    bot.restore_buy_lock!(@asset.id, claim)
+
+    assert_equal confirmed, @user.wash_sale_locks.find_by(asset_id: @asset.id).buy_locked_until,
+                 'back to what the real sale earned, and no further'
+  end
 end
