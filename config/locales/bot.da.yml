@@ -255,10 +255,6 @@ da:
             still_open: "Ordre %{order_id} er stadig åben på din børs. Vent, til den er afregnet."
             resolved: "Ubekræftet salg ryddet."
         settings:
-            wash_sale:
-                sentence_html: "Undgå wash sales ved at vente %{select_html} efter et salg med tab"
-                option: "%{days} dage · %{country}"
-                note: "Aktivet holdes uden for alle køb — det faste, rebalanceringen og geninvesteringen — så længe og købes derefter tilbage som den mest undervægtede post. Kun denne bots egne handler tælles med; et køb af det samme aktiv af en anden bot, i hånden eller et andet sted tæller lige så meget for reglen."
             rebalance:
                 sentence_html: "Rebalancér når et aktiv afviger mere end <span>%{value_html} %</span> fra sit mål"
                 note: "Kører videre, selv når DCA-planen er stoppet. Bruger altid markedsordrer."

@@ -255,10 +255,6 @@ sk:
             still_open: "Pokyn %{order_id} je na tvojej burze stále otvorený. Počkaj, kým sa vysporiada."
             resolved: "Nepotvrdený predaj vymazaný."
         settings:
-            wash_sale:
-                sentence_html: "Vyhnúť sa wash sale: po predaji so stratou počkať %{select_html}"
-                option: "%{days} dní · %{country}"
-                note: "Aktívum na ten čas vypadne z každého nákupu — pravidelného, pri vyvažovaní aj pri opätovnom investovaní — a potom sa dokúpi ako najviac podvážená položka. Rátajú sa len obchody tohto bota; nákup toho istého aktíva iným botom, ručne alebo inde platí pre pravidlo rovnako."
             rebalance:
                 sentence_html: "Rebalansovať, keď sa aktívum odchýli o viac než <span>%{value_html} %</span> od cieľa"
                 note: "Beží ďalej, aj keď je plán DCA zastavený. Vždy používa trhové pokyny."

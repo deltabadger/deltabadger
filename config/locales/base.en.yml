@@ -109,6 +109,15 @@ en:
         account: Account
         sign_up: 'Sign up'
     settings:
+        wash_sale:
+            title: "Wash sale protection"
+            sentence_html: "Avoid wash sales by waiting %{select_html} after selling at a loss"
+            option: "%{days} days · %{country}"
+            note: "Applies to every bot on this account. When one of them sells an asset at a loss, every bot leaves that asset out of every buy — recurring, rebalancing and redeploying — for that long, then buys it back as the most underweight name. Sales you make on the exchange yourself count too, from the next sync. Whether a sale was a loss is worked out from this account's own history."
+            confirm: "Confirm"
+            locked_title: "Locked right now"
+            locked_none: "Nothing is inside a window."
+            locked_entry: "%{days} days left"
         app_update:
             title: 'Updates'
             up_to_date: 'Deltabadger is up to date.'

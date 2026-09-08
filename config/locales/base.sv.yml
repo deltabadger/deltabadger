@@ -108,6 +108,15 @@ sv:
         account: Konto
         sign_up: 'Skapa konto'
     settings:
+        wash_sale:
+            title: "Wash sale-skydd"
+            sentence_html: "Undvik wash sales genom att vänta %{select_html} efter en försäljning med förlust"
+            option: "%{days} dagar · %{country}"
+            note: "Gäller alla bottar på det här kontot. När en av dem säljer en tillgång med förlust håller alla bottar den utanför varje köp — det återkommande, ombalanseringen och återinvesteringen — så länge, och köper sedan tillbaka den som den mest undervägda posten. Försäljningar du gör själv på börsen räknas också, från nästa synkronisering. Om en försäljning var en förlust räknas ut från det här kontots historik."
+            confirm: "Bekräfta"
+            locked_title: "Blockerat just nu"
+            locked_none: "Inget är i karenstid."
+            locked_entry: "%{days} dagar kvar"
         app_update:
             title: "Uppdateringar"
             up_to_date: "Deltabadger är uppdaterad."

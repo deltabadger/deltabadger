@@ -255,10 +255,6 @@ sv:
             still_open: "Order %{order_id} är fortfarande öppen på din börs. Vänta tills den har avräknats."
             resolved: "Obekräftad försäljning rensad."
         settings:
-            wash_sale:
-                sentence_html: "Undvik wash sales genom att vänta %{select_html} efter en försäljning med förlust"
-                option: "%{days} dagar · %{country}"
-                note: "Tillgången hålls utanför alla köp — det återkommande, ombalanseringen och återinvesteringen — så länge och köps sedan tillbaka som den mest undervägda posten. Bara den här bottens egna affärer räknas; ett köp av samma tillgång av en annan bot, för hand eller någon annanstans räknas lika mycket för regeln."
             rebalance:
                 sentence_html: "Rebalansera när en tillgång avviker mer än <span>%{value_html} %</span> från sitt mål"
                 note: "Fortsätter köra även när DCA-schemat är stoppat. Använder alltid marknadsordrar."

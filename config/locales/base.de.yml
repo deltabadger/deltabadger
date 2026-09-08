@@ -107,6 +107,15 @@ de:
         account: Konto
         sign_up: Registrieren
     settings:
+        wash_sale:
+            title: "Wash-Sale-Schutz"
+            sentence_html: "Wash Sales vermeiden: nach einem Verkauf mit Verlust %{select_html} warten"
+            option: "%{days} Tage · %{country}"
+            note: "Gilt für jeden Bot dieses Kontos. Verkauft einer davon ein Asset mit Verlust, lässt jeder Bot dieses Asset so lange aus jedem Kauf heraus — aus dem regelmäßigen, aus dem Rebalancing und aus der Wiederanlage — und kauft es danach als am stärksten untergewichteten Wert zurück. Verkäufe, die du selbst an der Börse machst, zählen ab der nächsten Synchronisierung ebenfalls. Ob ein Verkauf ein Verlust war, wird aus der Historie dieses Kontos ermittelt."
+            confirm: "Bestätigen"
+            locked_title: "Aktuell gesperrt"
+            locked_none: "Nichts ist in einer Sperrfrist."
+            locked_entry: "noch %{days} Tage"
         app_update:
             title: 'Updates'
             up_to_date: 'Deltabadger ist aktuell.'

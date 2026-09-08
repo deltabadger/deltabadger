@@ -257,10 +257,6 @@ en:
             still_open: "Order %{order_id} is still open on your exchange. Wait for it to settle first."
             resolved: "Unconfirmed sale cleared."
         settings:
-            wash_sale:
-                sentence_html: "Avoid wash sales by waiting %{select_html} after selling at a loss"
-                option: "%{days} days · %{country}"
-                note: "The asset is left out of every buy — recurring, rebalancing and redeploying — for that long, then bought back as the most underweight name. Only this bot's own trades are counted; a purchase of the same asset by another bot, by hand or elsewhere counts for the rule just the same."
             rebalance:
                 sentence_html: "Rebalance when an asset drifts more than <span>%{value_html} %</span> from its target"
                 note: "Keeps running while the DCA schedule is stopped. Always uses market orders."
