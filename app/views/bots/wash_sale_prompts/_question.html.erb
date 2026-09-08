@@ -19,12 +19,19 @@
     <%= radio_button_tag 'wash_sale[enabled]', '1', checked == true,
                          data: { form__checkbox_enables_target: 'checkbox' } %>
     <span class="conversational conversational--small">
+      <%# The pill's select is invisible (.sinput--select) and the label beside it is what the user
+          reads, so the two only stay in step if something copies the picked option across. Every
+          other pill in the app gets that for free by submitting on change; this form waits for
+          Confirm, so it takes the form--select-display wiring instead — controller on the pill,
+          target on the label, action on the select. Without it the pill still said "US" after the
+          user picked another country, in the modal and in the account box alike. %>
       <% select_html = capture do %>
-        <div class="sinput sinput--select">
-          <%= wash_sale_option_label(current_user.wash_sale_jurisdiction) %>
+        <div class="sinput sinput--select" data-controller="form--select-display">
+          <span data-form--select-display-target="label"><%= wash_sale_option_label(current_user.wash_sale_jurisdiction) %></span>
           <%= select_tag 'wash_sale[jurisdiction]',
                          options_for_select(Tax::Jurisdictions.wash_sale_options.map { |code, _, _| [wash_sale_option_label(code), code] },
-                                            current_user.wash_sale_jurisdiction) %>
+                                            current_user.wash_sale_jurisdiction),
+                         data: { action: 'change->form--select-display#update' } %>
         </div>
       <% end %>
       <%= t('settings.wash_sale.sentence_html', select_html: select_html).html_safe %>

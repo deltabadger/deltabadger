@@ -44,6 +44,17 @@ class Settings::WashSaleTest < ActionDispatch::IntegrationTest
     assert_select '#wash_sale option[value=IE][selected]'
   end
 
+  test 'the jurisdiction pill can show a country other than the one it was rendered with' do
+    get settings_account_path
+
+    # The select is invisible; the label beside it is what the user reads. Nothing here submits on
+    # change, so without this wiring the pill keeps the country it was rendered with forever.
+    assert_select '#wash_sale .sinput--select[data-controller=?]', 'form--select-display' do
+      assert_select 'span[data-form--select-display-target=?]', 'label'
+      assert_select 'select[data-action=?]', 'change->form--select-display#update'
+    end
+  end
+
   test 'the button matches the rest of the page' do
     get settings_account_path
 
