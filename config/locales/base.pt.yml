@@ -687,6 +687,7 @@ pt:
     bot_activity:
         events:
             dca_skipped_restatement: "Contribuição ignorada — um split que o mercado ainda não avaliou"
+            dca_skipped_wash_sale: "Nada comprado — cada componente está numa espera fiscal"
             wash_sale_locked: "%{base} vendido — sem recompra até %{until} inclusive, para que o prejuízo da venda não seja anulado"
             asset_split: "%{base} split %{ratio} — a corretora ajustou o número de ações"
             asset_split_unknown_ratio: "%{base} sofreu um split — a corretora ajustou o número de ações"

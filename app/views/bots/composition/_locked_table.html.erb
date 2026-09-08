@@ -11,8 +11,11 @@
   <div id="wash_sale_table" class="widget widget--table" data-controller="table-fit">
     <div class="exited-header">
       <span class="label"><%= t('bot.wash_sale.table_title') %></span>
-      <%# The rule itself is not a bot setting, so the link goes where it is actually set. %>
-      <%= link_to t('bot.wash_sale.settings_link'), settings_account_path, class: 'rbutton rbutton--small' %>
+      <%# The rule itself is not a bot setting, so the link goes where it is actually set. _top
+          because this table lives inside the `bot` frame and the account page has no such frame —
+          a plain link would swap the panel for "Content missing". %>
+      <%= link_to t('bot.wash_sale.settings_link'), settings_account_path,
+                  class: 'rbutton rbutton--small', data: { turbo_frame: '_top' } %>
     </div>
     <%= render 'bots/composition/assets_table',
                values: members.to_h { |member| [member[:symbol], values[member[:symbol]] || { amount: 0 }] },
