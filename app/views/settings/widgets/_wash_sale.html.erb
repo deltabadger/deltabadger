@@ -1,0 +1,78 @@
+<%# Wash-sale protection, at the scope it belongs to: the taxpayer. Two bots holding the same asset
+    would otherwise undo each other's harvest, and one person cannot have two tax residences. The
+    rule chrome is the bot page's, because that is what this is — a rule every bot obeys — but it is
+    set once, here. %>
+<% decided = current_user.wash_sale_decided? %>
+<% active = current_user.wash_sale_enabled? %>
+<% locked = current_user.locked_assets %>
+<% options = Tax::Jurisdictions.wash_sale_options.map { |code, name, days| [t('settings.wash_sale.option', country: name, days: days), code] } %>
+<% jurisdiction = Tax::Jurisdictions.for(current_user.wash_sale_jurisdiction) %>
+<%= turbo_frame_tag 'wash_sale' do %>
+  <div class="widget widget--settings">
+    <h4 class="modal__title"><%= t('settings.wash_sale.title') %></h4>
+
+    <%= form_with model: current_user, url: settings_update_wash_sale_path, method: :patch,
+                  class: "rule #{active ? 'rule--active' : 'rule--inactive'}",
+                  data: {
+                    controller: "class-toggle form--submit",
+                    class_toggle_target: "togglable",
+                    class_toggle_toggle_classes_value: ["rule--active", "rule--inactive"],
+                    turbo_frame: "wash_sale"
+                  } do |f| %>
+      <div class="toggle-group">
+        <div class="toggle">
+          <%= f.check_box :wash_sale_enabled, checked: active,
+                          data: { action: "change->form--submit#submit change->class-toggle#toggle" } %>
+          <div class="toggle__style"></div>
+        </div>
+        <div class="toggle-group__info">
+          <div class="toggle-group__info__label">
+            <%# f.label, so clicking the sentence works the toggle. A click landing on the select is
+                interactive content — the browser opens the dropdown and does not forward it here. %>
+            <%= f.label :wash_sale_enabled, class: "conversational conversational--small conversational--disabled" do %>
+              <% select_html = capture do %>
+                <div class="sinput sinput--select">
+                  <%= t('settings.wash_sale.option', country: jurisdiction[:name], days: jurisdiction[:wash_sale_days]) %>
+                  <%= f.select :wash_sale_jurisdiction, options, { selected: current_user.wash_sale_jurisdiction },
+                               data: { action: "change->form--submit#submit" } %>
+                </div>
+              <% end %>
+              <%= t('settings.wash_sale.sentence_html', select_html: select_html).html_safe %>
+              <small class="small-info"><%= t('settings.wash_sale.note') %></small>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <%# Undecided is a state of its own. A toggle left off cannot say whether the user chose "no" or
+        never looked, so while it is nil this records the "no" explicitly — and once anything is
+        decided, here or in the prompt, the button never comes back. %>
+    <% unless decided %>
+      <%= button_to t('settings.wash_sale.confirm'), settings_update_wash_sale_path,
+                    method: :patch, params: { user: { wash_sale_enabled: '0' } },
+                    class: 'button button--outline', form: { data: { turbo_frame: 'wash_sale' } } %>
+    <% end %>
+
+    <%# What the rule is doing right now, across every bot — the one place the whole picture is
+        visible, since a bot's own panel only shows the names that bot trades. %>
+    <% if active %>
+      <div class="settings-prefs__notes">
+        <span class="label"><%= t('settings.wash_sale.locked_title') %></span>
+        <% if locked.any? %>
+          <ul class="settings-locked">
+            <% locked.sort_by { |entry| entry[:days_left] }.each do |entry| %>
+              <li>
+                <b><%= entry[:symbol] %></b>
+                <%= t('settings.wash_sale.locked_entry', days: entry[:days_left]) %>
+                <small><%= l((entry[:until] - 1.day).to_date) %></small>
+              </li>
+            <% end %>
+          </ul>
+        <% else %>
+          <small><%= t('settings.wash_sale.locked_none') %></small>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

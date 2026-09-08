@@ -110,6 +110,27 @@ class SettingsController < ApplicationController
     redirect_back fallback_location: bots_path, status: :see_other
   end
 
+  # Wash-sale protection, for the whole account. The jurisdiction is written only when one is sent:
+  # switching the rule off posts the checkbox alone, and the chosen window has to survive so that
+  # switching it back on resumes with it. Answering here IS deciding — the first-sale prompt asks
+  # until wash_sale_enabled stops being nil, and must never ask someone who has already been here.
+  #
+  # Turning it ON re-arms from history: the ledger walk covers the trailing 31 days, so a user who
+  # switches this on today is protected by sales they already made rather than starting from blank.
+  def update_wash_sale
+    attributes = { wash_sale_enabled: params.dig(:user, :wash_sale_enabled) == '1' }
+    jurisdiction = params.dig(:user, :wash_sale_jurisdiction).presence
+    attributes[:wash_sale_jurisdiction] = jurisdiction if jurisdiction
+    was_enabled = current_user.wash_sale_enabled?
+
+    if current_user.update(attributes)
+      Tracker::LedgerJob.perform_later(current_user.id) if current_user.wash_sale_enabled? && !was_enabled
+      redirect_back fallback_location: settings_account_path, status: :see_other
+    else
+      render_preference_error
+    end
+  end
+
   # The tracker's allocation switch. Same shape as the one above — it posts its own state rather
   # than flipping what it finds, and comes back to the page it was thrown on, since the holdings
   # card, the ring and the positions table all have to be rebuilt from the filtered list.

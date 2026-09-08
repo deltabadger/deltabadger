@@ -109,6 +109,15 @@ sk:
         account: Účet
         sign_up: 'Registrácia'
     settings:
+        wash_sale:
+            title: "Ochrana pred wash sale"
+            sentence_html: "Vyhnúť sa wash sale: po predaji so stratou počkať %{select_html}"
+            option: "%{days} dní · %{country}"
+            note: "Platí pre každého bota na tomto účte. Keď niektorý predá aktívum so stratou, všetci boti ho na ten čas vynechajú z každého nákupu — pravidelného, pri vyvažovaní aj pri opätovnom investovaní — a potom ho dokúpia ako najviac podváženú položku. Rátajú sa aj predaje, ktoré urobíš na burze sám, od nasledujúcej synchronizácie. Či šlo o stratu, sa určuje z histórie tohto účtu."
+            confirm: "Potvrdiť"
+            locked_title: "Práve blokované"
+            locked_none: "Nič nie je v čakacej lehote."
+            locked_entry: "zostáva %{days} dní"
         app_update:
             title: "Aktualizácie"
             up_to_date: "Deltabadger je aktuálny."

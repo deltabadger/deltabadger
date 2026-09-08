@@ -111,9 +111,10 @@ class User < ApplicationRecord
     Tax::Jurisdictions.for(wash_sale_jurisdiction)&.dig(:wash_sale_days).to_i
   end
 
-  # Whether the first-start prompt has been answered. A timestamp rather than a nullable boolean:
-  # it keeps "never asked" apart from "asked and declined" without a tri-state, and records when.
-  def wash_sale_prompted? = wash_sale_prompted_at.present?
+  # Three states, not two: nil is "never decided", and the prompt keeps appearing until the user
+  # answers — including to answer no. A toggle left off cannot say which of those it is, which is
+  # why the account box carries a Confirm button while this is nil.
+  def wash_sale_decided? = !wash_sale_enabled.nil?
 
   # The asset ids this taxpayer may not buy right now — read by every buy leg on every bot type and
   # by the direct-order services. Empty while the rule is off or undecided: switching it off releases

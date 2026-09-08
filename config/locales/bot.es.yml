@@ -236,10 +236,6 @@ es:
             still_open: "La orden %{order_id} sigue abierta en tu exchange. Espera a que se liquide."
             resolved: "Venta sin confirmar limpiada."
         settings:
-            wash_sale:
-                sentence_html: "Evitar wash sales esperando %{select_html} después de vender con pérdida"
-                option: "%{days} días · %{country}"
-                note: "El activo queda fuera de toda compra — periódica, de reequilibrio y de reinversión — durante ese tiempo, y después se recompra como el valor más infraponderado. Solo se cuentan las operaciones de este bot; una compra del mismo activo por otro bot, a mano o en otro sitio cuenta igual para la regla."
             rebalance:
                 sentence_html: "Reequilibrar cuando un activo se desvíe más de <span>%{value_html} %</span> de su objetivo"
                 note: "Sigue funcionando aunque el calendario de DCA esté detenido. Usa siempre órdenes de mercado."

@@ -108,6 +108,15 @@ da:
         account: Konto
         sign_up: 'Opret konto'
     settings:
+        wash_sale:
+            title: "Wash sale-beskyttelse"
+            sentence_html: "Undgå wash sales ved at vente %{select_html} efter et salg med tab"
+            option: "%{days} dage · %{country}"
+            note: "Gælder for alle bots på denne konto. Når en af dem sælger et aktiv med tab, holder alle bots det uden for ethvert køb — det faste, rebalanceringen og geninvesteringen — så længe og køber det derefter tilbage som den mest undervægtede post. Salg, du selv laver på børsen, tæller også med fra næste synkronisering. Om et salg var et tab, udledes af denne kontos historik."
+            confirm: "Bekræft"
+            locked_title: "Blokeret lige nu"
+            locked_none: "Intet er i en karensperiode."
+            locked_entry: "%{days} dage tilbage"
         app_update:
             title: "Opdateringer"
             up_to_date: "Deltabadger er opdateret."

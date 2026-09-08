@@ -107,6 +107,15 @@ nl:
         account: Account
         sign_up: Registreren
     settings:
+        wash_sale:
+            title: "Wash sale-bescherming"
+            sentence_html: "Wash sales vermijden door %{select_html} te wachten na een verkoop met verlies"
+            option: "%{days} dagen · %{country}"
+            note: "Geldt voor elke bot van dit account. Verkoopt er één een asset met verlies, dan houden alle bots dat asset zolang buiten elke aankoop — de terugkerende, die van het herbalanceren en die van het herbeleggen — en kopen het daarna terug als de sterkst onderwogen naam. Verkopen die je zelf op de exchange doet tellen ook mee, vanaf de volgende synchronisatie. Of een verkoop verlies was, volgt uit de historie van dit account."
+            confirm: "Bevestigen"
+            locked_title: "Nu geblokkeerd"
+            locked_none: "Niets zit in een wachttijd."
+            locked_entry: "nog %{days} dagen"
         app_update:
             title: 'Updates'
             up_to_date: 'Deltabadger is up-to-date.'

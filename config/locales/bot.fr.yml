@@ -237,10 +237,6 @@ fr:
             still_open: "L’ordre %{order_id} est encore ouvert sur ta plateforme. Attends qu’il soit réglé."
             resolved: "Vente non confirmée effacée."
         settings:
-            wash_sale:
-                sentence_html: "Éviter les wash sales en attendant %{select_html} après une vente à perte"
-                option: "%{days} jours · %{country}"
-                note: "L'actif est écarté de tous les achats — récurrents, de rééquilibrage et de réinvestissement — pendant ce délai, puis racheté en tant que valeur la plus sous-pondérée. Seules les transactions de ce bot sont comptées ; un achat du même actif par un autre bot, à la main ou ailleurs compte tout autant pour la règle."
             rebalance:
                 sentence_html: "Rééquilibrer quand un actif s’écarte de plus de <span>%{value_html} %</span> de sa cible"
                 note: "Continue de fonctionner même si le calendrier DCA est arrêté. Utilise toujours des ordres au marché."

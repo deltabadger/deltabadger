@@ -3,8 +3,17 @@ require 'test_helper'
 class UserWashSaleTest < ActiveSupport::TestCase
   setup { @user = create(:user) }
 
-  test 'a fresh account has never been asked and enforces nothing' do
-    assert_not_predicate @user, :wash_sale_prompted?
+  test 'a fresh account has never decided and enforces nothing' do
+    assert_nil @user.wash_sale_enabled, 'nil is a state of its own: never decided'
+    assert_not_predicate @user, :wash_sale_decided?
+    assert_not_predicate @user, :wash_sale_enabled?
+    assert_equal 0, @user.wash_sale_days
+  end
+
+  test 'deciding no is decided, and looks nothing like never having decided' do
+    @user.update!(wash_sale_enabled: false)
+
+    assert_predicate @user, :wash_sale_decided?
     assert_not_predicate @user, :wash_sale_enabled?
     assert_equal 0, @user.wash_sale_days
   end

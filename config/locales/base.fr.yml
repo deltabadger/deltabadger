@@ -107,6 +107,15 @@ fr:
         account: Compte
         sign_up: 'S''inscrire'
     settings:
+        wash_sale:
+            title: "Protection wash sale"
+            sentence_html: "Éviter les wash sales en attendant %{select_html} après une vente à perte"
+            option: "%{days} jours · %{country}"
+            note: "S'applique à tous les bots de ce compte. Quand l'un d'eux vend un actif à perte, tous les bots l'écartent de tous les achats — récurrents, de rééquilibrage et de réinvestissement — pendant ce délai, puis le rachètent en tant que valeur la plus sous-pondérée. Les ventes que vous faites vous-même sur la plateforme comptent aussi, dès la synchronisation suivante. Le caractère de perte est établi à partir de l'historique de ce compte."
+            confirm: "Confirmer"
+            locked_title: "Bloqué actuellement"
+            locked_none: "Rien n'est dans un délai."
+            locked_entry: "%{days} jours restants"
         app_update:
             title: 'Mises à jour'
             up_to_date: 'Deltabadger est à jour.'

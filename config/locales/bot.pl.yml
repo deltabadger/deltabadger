@@ -236,10 +236,6 @@ pl:
             still_open: "Zlecenie %{order_id} jest wciąż otwarte na Twojej giełdzie. Poczekaj, aż się rozliczy."
             resolved: "Niepotwierdzona sprzedaż wyczyszczona."
         settings:
-            wash_sale:
-                sentence_html: "Unikaj wash sale, czekając %{select_html} po sprzedaży ze stratą"
-                option: "%{days} dni · %{country}"
-                note: "Przez ten czas aktywo jest pomijane przy każdym kupnie — regularnym, przy równoważeniu i przy ponownym inwestowaniu — a potem odkupywane jako najbardziej niedoważona pozycja. Liczą się tylko transakcje tego bota; kupno tego samego aktywa przez innego bota, ręcznie lub gdzie indziej liczy się do reguły tak samo."
             rebalance:
                 sentence_html: "Rebalansuj, gdy aktywo odchyli się o więcej niż <span>%{value_html} %</span> od celu"
                 note: "Działa nadal, gdy harmonogram DCA jest zatrzymany. Zawsze używa zleceń rynkowych."
