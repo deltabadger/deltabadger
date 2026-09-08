@@ -1,13 +1,21 @@
 <%# The question itself, shared by the modal and the Sell confirmation, so the two seams cannot ask
     it differently — and worded with the account box's own sentence, so the answer and the setting
     the user later finds in Account read the same. Neither choice is preselected: a preselected
-    answer is not a decision, and this is the one thing the user has to decide for themselves. %>
+    answer is not a decision, and this is the one thing the user has to decide for themselves.
+
+    .conversational, not a bare span: it is a flex container whose nested `span` rule is what lets a
+    .sinput pill sit in the middle of a sentence. Without it the pill is block-level and the one
+    line becomes three. .form__radio carries the radio itself, as everywhere else in the app.
+
+    The targets gate the submit until one of the two is picked (form--checkbox-enables reads
+    `.checked`, which a radio has). They are inert wherever no such controller is an ancestor. %>
 <div class="wash-sale-question">
   <p class="text-inactive"><%= t('settings.wash_sale.prompt_body') %></p>
 
-  <label class="wash-sale-question__choice">
-    <%= radio_button_tag 'wash_sale[enabled]', '1', false %>
-    <span>
+  <label class="form__radio">
+    <%= radio_button_tag 'wash_sale[enabled]', '1', false,
+                         data: { form__checkbox_enables_target: 'checkbox' } %>
+    <span class="conversational conversational--small">
       <% select_html = capture do %>
         <div class="sinput sinput--select">
           <%= t('settings.wash_sale.option', country: Tax::Jurisdictions.for(current_user.wash_sale_jurisdiction)[:name],
@@ -21,8 +29,9 @@
     </span>
   </label>
 
-  <label class="wash-sale-question__choice">
-    <%= radio_button_tag 'wash_sale[enabled]', '0', false %>
-    <span><%= t('settings.wash_sale.prompt_decline') %></span>
+  <label class="form__radio">
+    <%= radio_button_tag 'wash_sale[enabled]', '0', false,
+                         data: { form__checkbox_enables_target: 'checkbox' } %>
+    <span class="conversational conversational--small"><%= t('settings.wash_sale.prompt_decline') %></span>
   </label>
 </div>

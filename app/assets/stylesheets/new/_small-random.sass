@@ -25,37 +25,15 @@
     input
         align-self: flex-end
         width: 21.5rem
-// The one-time wash-sale question. Two stacked choices, neither preselected, sharing the radio
-// styling .form__radio already defines — this only stacks them and gives the sentence room.
+// The one-time wash-sale question. A stack of .form__radio choices, each sentence a
+// .conversational so its jurisdiction pill sits inside the line instead of breaking it.
 .wash-sale-question
     display: flex
     flex-direction: column
-    gap: 1.5rem
+    gap: 2rem
     margin-bottom: 3rem
     text-align: left
-    &__choice
-        display: flex
-        align-items: center
-        gap: 1.5rem
-        cursor: pointer
-        input[type="radio"]
-            appearance: none
-            width: 2.4rem
-            height: 2.4rem
-            border: .2rem solid var(--input-border)
-            border-radius: 50%
-            cursor: pointer
-            position: relative
-            flex-shrink: 0
-            &:checked
-                border-color: var(--link)
-                &::after
-                    content: ''
-                    position: absolute
-                    top: 50%
-                    left: 50%
-                    transform: translate(-50%, -50%)
-                    width: 1.2rem
-                    height: 1.2rem
-                    background: var(--link)
-                    border-radius: 50%
+    // .form__radio brings the radio and its centred row; the sentence takes the rest of the width
+    // so it wraps inside the line rather than pushing the pill onto one of its own.
+    .conversational
+        flex: 1

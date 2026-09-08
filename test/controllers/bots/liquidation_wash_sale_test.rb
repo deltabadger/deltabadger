@@ -28,6 +28,21 @@ class Bots::LiquidationWashSaleTest < ActionDispatch::IntegrationTest
     assert_select '.wash-sale-question', count: 0
   end
 
+  test 'Sell is dead until the question is answered' do
+    get new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC')
+
+    assert_select 'button[type=submit][disabled]'
+  end
+
+  test 'a decided account gets a live Sell button' do
+    @user.update!(wash_sale_enabled: false)
+
+    get new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC')
+
+    assert_select 'button[type=submit][disabled]', count: 0,
+                                                   message: 'no radios render, so nothing would ever re-enable it'
+  end
+
   test 'an unanswered question refuses the sale rather than selling first and asking later' do
     post bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC')
 

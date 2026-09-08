@@ -6,11 +6,17 @@
     <div class="modal__body">
       <%# No close button and no cancel: the answer is what stops the question coming back, and
           "Don't apply" is one of the two answers rather than a way out of being asked. %>
+      <%# Confirm starts dead and the radios wake it: there is nothing to confirm before a choice,
+          and a live button over an unanswered question invites a submit that only 422s. %>
       <%= form_with url: bot_wash_sale_prompt_path(bot_id: bot.id), method: :post,
-                    data: { action: 'turbo:submit-end->modal--base#submitEnd' } do %>
+                    data: { controller: 'form--checkbox-enables',
+                            action: 'turbo:submit-end->modal--base#submitEnd ' \
+                                    'change->form--checkbox-enables#toggleSubmitButton' } do %>
         <%= render 'bots/wash_sale_prompts/question' %>
         <div class="buttons">
-          <%= button_tag t('settings.wash_sale.confirm'), type: :submit, class: 'button button--large' %>
+          <%= button_tag t('settings.wash_sale.confirm'), type: :submit, disabled: true,
+                         class: 'button button--sky button--large',
+                         data: { form__checkbox_enables_target: 'submit' } %>
         </div>
       <% end %>
     </div>
