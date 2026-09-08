@@ -31,6 +31,14 @@ class Transaction < ApplicationRecord
   # can arrive with its base fill known and its proceeds absent, and a re-poll fills them in with
   # the status unchanged. An identical re-poll saves no change and fires nothing; a late detail can
   # only lengthen a lock (extend_buy_lock! never shortens), which is the conservative side.
+  # The account ledger is what arms a wash-sale lock for every bot type that cannot judge its own
+  # sale, and `after_create_commit` above pulls it only when an order is PLACED. A resting limit sale
+  # fills later, so without this the ledger would not hear about it until the 02:00 run.
+  after_commit lambda {
+                 api_key = ApiKey.find_by(user_id: bot.user_id, exchange_id: bot.exchange_id, key_type: :trading)
+                 AccountTransaction::SyncJob.perform_later(api_key) if api_key
+               }, on: :update, if: -> { sell? && closed? && saved_change_to_external_status? }
+
   after_save :reconcile_wash_sale,
              if: lambda {
                sell? && (closed? || cancelled?) &&

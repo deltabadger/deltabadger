@@ -25,7 +25,8 @@ module Tracker
     # `cash`: the cash the ledger holds, per currency, in that currency's units; `cash_usd` its sum
     # at today's rate. `unpriced_proceeds_usd`: what was sold out of coins nobody could price.
     Summary = Data.define(:positions, :round_trips, :total_invested_usd, :received_usd, :realised_pnl_usd,
-                          :fees_usd, :cash_usd, :cash, :unpriced_proceeds_usd, :incomplete, :openings, :computed_at)
+                          :fees_usd, :cash_usd, :cash, :unpriced_proceeds_usd, :incomplete, :openings,
+                          :loss_sales, :computed_at)
     # One term of money in, as the chart reads it day by day: the row's instant, what it moved, and
     # whether the figure could be stated in full.
     # `opens`, on an opening balance's term, is `[symbol, quantity]`: what the walk booked as held
@@ -176,6 +177,7 @@ module Tracker
           cash: cash,
           cash_usd: cash_in_usd(cash, price_service),
           unpriced_proceeds_usd: disposals.sum(0.to_d) { |disposal| disposal[:unpriced_proceeds].to_d },
+          loss_sales: loss_sales(disposals),
           # Incomplete is a figure NOBODY could state — a price nobody had, a sale out of nothing —
           # not one that had to be estimated: an estimate is stated, and noted.
           incomplete: positions.any? { |position| position.unpriced_quantity.positive? } || engine.uncovered ||
@@ -221,6 +223,31 @@ module Tracker
       # That ceiling is the tax engine's, not this file's: `Tax::Methods::Fifo` keys its lots by
       # `base_currency`, so the tracker cannot be more precise than the ledger it reads. Lifting it
       # means giving AccountTransaction an instrument identity, everywhere at once.
+      # The most recent loss-making disposal per symbol inside the wash-sale horizon, for
+      # Bot::WashSaleGuard. Whole account, every venue — a sale is a sale whoever made it, and this
+      # is the only place that sees the ones made on an exchange's own website.
+      #
+      # any_lot_lost, NOT gain_loss: the engine's figure is the sale's NET, and a sale that nets a
+      # gain can still consume a losing lot that a repurchase would wash. Matching Bot::TaxLots keeps
+      # the two arming layers from disagreeing about what a loss is.
+      #
+      # ponytail: USD FIFO, not the user's jurisdiction method. A per-jurisdiction walk would flip
+      # the sign on marginal UK/Ireland disposals and costs the most expensive stage in the pipeline;
+      # the tax report stays the authority, as Bot::TaxLots already says.
+      def loss_sales(disposals)
+        horizon = Date.current - 31
+        disposals.each_with_object({}) do |disposal, acc|
+          next unless disposal[:any_lot_lost]
+
+          # to_date, and not the raw value: this is a TimeWithZone, and the window is added in DAYS.
+          on = disposal[:date]&.in_time_zone&.to_date
+          next if on.nil? || on < horizon
+
+          symbol = disposal[:asset]
+          acc[symbol] = on if acc[symbol].nil? || on > acc[symbol]
+        end
+      end
+
       def asset_index(user, symbols)
         held = AccountBalance.for_user(user).includes(:asset).each_with_object({}) do |balance, index|
           index[balance.asset.symbol] ||= balance.asset

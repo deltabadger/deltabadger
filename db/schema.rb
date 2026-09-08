@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_08_091000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_08_120000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -564,6 +564,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_08_091000) do
     t.string "claim_token"
     t.datetime "confirmed_locked_until"
     t.datetime "created_at", null: false
+    t.string "source", default: "bot", null: false
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.index ["asset_id"], name: "index_wash_sale_locks_on_asset_id"

@@ -90,17 +90,7 @@ module Bot::WashSaleGuard
     ticker = tickers.find { |t| t.base == base }
     return false if ticker.nil?
 
-    lock = wash_sale_lock_for(ticker.base_asset_id)
-    deadline = lock_deadline(from: from)
-    was = lock.buy_locked_until
-    # Clears the claim token too: once a fill has confirmed this deadline, no placement's rollback
-    # may lower it.
-    WashSaleLock.where(id: lock.id).update_all(
-      ['confirmed_locked_until = COALESCE(MAX(confirmed_locked_until, ?), ?), ' \
-       'buy_locked_until = COALESCE(MAX(buy_locked_until, ?), ?), claim_token = NULL',
-       deadline, deadline, deadline, deadline]
-    )
-    was.nil? || deadline > was
+    WashSaleLock.confirm!(user: user, asset_id: ticker.base_asset_id, from: from, source: 'bot')
   end
 
   # Whether the units this order submits lose money on ANY of the FIFO lots they consume — the tax

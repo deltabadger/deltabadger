@@ -167,9 +167,11 @@ weekday and returns `{}` on failure — a boundary price is never guessed, the s
   measured *from start_time*, so a watermark parked at a quiet account's last trade would query a
   window ending before today and the account would go blind.
   - **The default must stay `nil`.** Alpaca, Kraken, Coinbase and Hyperliquid paginate a cursor from
-    `start_time` to the present, and **there is no recurring ledger sync** — `AccountTransactionSync`
-    runs only from `TrackerController#index` and `Transaction#after_create`. A floor there would drop
-    every month between two tracker visits, and the watermark would then advance past them.
+    `start_time` to the present. `AccountTransactionSync` runs from `AccountTransaction::SyncAllJob`
+    (recurring, daily at 02:00), from `Transaction`'s commit hooks on every bot order AND on every
+    terminal sell fill, and from `TrackerController#index`. A floor would drop everything between two
+    of those runs, and the watermark would then advance past it. (This paragraph used to claim there
+    was no recurring sync; there is — `config/recurring.yml`.)
   - Residual on a capped venue: anchoring at the present costs everything between the cap and an
     older watermark. On a Bybit or KuCoin account quiet for longer than 7 days, **any row in that
     gap — fills included, not just transfers** — falls outside every window, and Bybit's 30-day
