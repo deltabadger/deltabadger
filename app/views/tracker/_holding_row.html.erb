@@ -9,7 +9,7 @@
 <% type = holding_type_label(asset) %>
 <div class="tracker-holdings__row">
   <span class="tracker-holdings__name">
-    <%= render 'assets/logo', image_url: asset.image_url, color: asset.color %>
+    <%= render 'assets/logo', image_url: asset.image_url, color: asset.color, symbol: asset.symbol, category: asset.category %>
     <b><%= asset.symbol %></b>
     <span class="tracker-holdings__full"><%= asset.name %></span>
   </span>

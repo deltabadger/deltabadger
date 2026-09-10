@@ -1,6 +1,6 @@
 class AccountBalance::Sync
   # Cash, by the asset table's own reckoning. Everything else is something with a market price.
-  CASH_CATEGORIES = %w[Fiat Currency].freeze
+  CASH_CATEGORIES = Fiat::CATEGORIES
 
   # Returned in Result::Success.data. Tells the caller which assets were synced
   # and whether pricing could be refreshed for any of them.
