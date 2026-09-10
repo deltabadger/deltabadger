@@ -82,6 +82,21 @@ module ApplicationHelper
     TICKER_TYPE_LABELS[category.to_s]
   end
 
+  # What to draw an asset with. Cash draws its flag from this repo — see Fiat::FLAGS for why it
+  # wins over whatever the row carries — and everything else its own image.
+  #
+  # Takes values, not a record: the asset pickers reach the view through a `pluck`, and the
+  # transactions table can have no record at all for a symbol nothing on the account holds. A
+  # blank category is therefore "not known to be anything else" and still draws a flag; a category
+  # that says otherwise does not, because `usd` is also a CoinGecko coin id — a micro-cap token —
+  # and a token ticker'd USD is not the dollar.
+  def asset_logo_url(image_url, symbol: nil, category: nil)
+    return image_url if category.present? && Fiat::CATEGORIES.exclude?(category)
+
+    flag = Fiat.flag(symbol)
+    flag ? image_path("flags/#{flag}.svg") : image_url
+  end
+
   # "30 days (US)" — the wash-sale window as it reads inside a sentence. Built from the same tuples
   # the select is, so the pill showing the current choice and the option the user picks from can
   # never word it differently.

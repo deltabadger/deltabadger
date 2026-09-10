@@ -29,7 +29,7 @@
           one holding, clicking pins it there. Delegated from the document, so no controller
           lives here — these tables are replaced by a broadcast of their own. %>
       <tr data-symbol="<%= row[:symbol] %>">
-        <td class="table__logo"><%= render 'assets/logo', image_url: row[:asset]&.image_url, color: row[:asset]&.color %></td>
+        <td class="table__logo"><%= render 'assets/logo', image_url: row[:asset]&.image_url, color: row[:asset]&.color, symbol: row[:asset]&.symbol, category: row[:asset]&.category %></td>
         <td scope="row"><%= row[:symbol] %></td>
         <% unless hide_money %><td><%= row[:amount] %></td><% end %>
         <td><%= row[:avg_price] ? quoted_figure(row[:avg_price], quote) : no_value %></td>

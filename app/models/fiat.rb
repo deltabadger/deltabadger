@@ -1,4 +1,28 @@
 class Fiat
+  # The two `assets.category` values that mean cash. 'Currency' is what `currencies` below creates;
+  # 'Fiat' is the local `usd` row the Alpaca sync keeps to its own convention.
+  CATEGORIES = %w[Fiat Currency].freeze
+
+  # A currency's logo is its flag, and the files ship in this repo (app/assets/images/flags) rather
+  # than being fetched: a self-hosted install reads its market data from CoinGecko, which has no
+  # image for a currency, so anything fetched would leave those installs blank forever. The hosted
+  # market-data API does serve one now, and the flag deliberately wins over it — one currency, one
+  # picture, whichever way the install gets its data.
+  #
+  # flag-icons' square (1x1) SVGs, the same set the language selector uses. EUR takes the EU flag.
+  # A currency added to `currencies` needs its flag here too, or it renders logo-less; the test in
+  # test/models/fiat_test.rb fails until it does.
+  FLAGS = {
+    'USD' => 'us', 'EUR' => 'eu', 'GBP' => 'gb', 'JPY' => 'jp', 'CHF' => 'ch',
+    'CAD' => 'ca', 'AUD' => 'au', 'PLN' => 'pl', 'ARS' => 'ar', 'BRL' => 'br',
+    'TRY' => 'tr', 'MXN' => 'mx', 'ZAR' => 'za', 'UAH' => 'ua', 'CZK' => 'cz',
+    'RUB' => 'ru', 'IDR' => 'id'
+  }.freeze
+
+  def self.flag(symbol)
+    FLAGS[symbol.to_s.upcase]
+  end
+
   def self.currencies
     [
       {

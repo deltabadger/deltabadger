@@ -69,4 +69,36 @@ class ApplicationHelperTest < ActionView::TestCase
       assert I18n.exists?('time.formats.table_clock', locale, fallback: false), "#{locale} falls back for the table clock"
     end
   end
+
+  # --- asset_logo_url: cash draws its flag, everything else its own image -----
+  # The flag wins over whatever the row carries, so a hosted install (which now receives a fiat
+  # logo_url from the market-data API) and a self-hosted one (which never will) draw the same
+  # currency the same way.
+
+  test 'asset_logo_url: a currency draws its flag, over any image it carries' do
+    assert_equal image_path('flags/us.svg'), asset_logo_url(nil, symbol: 'USD', category: 'Currency')
+    assert_equal image_path('flags/eu.svg'), asset_logo_url(nil, symbol: 'EUR', category: 'Currency')
+    assert_equal image_path('flags/us.svg'),
+                 asset_logo_url('https://data.example.com/logos/26/101.svg', symbol: 'USD', category: 'Fiat')
+  end
+
+  test 'asset_logo_url: everything else keeps its own image' do
+    coingecko = 'https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png'
+    assert_equal coingecko, asset_logo_url(coingecko, symbol: 'BTC', category: 'Cryptocurrency')
+    assert_nil asset_logo_url(nil, symbol: 'BTC', category: 'Cryptocurrency')
+  end
+
+  # `usd` is also a CoinGecko coin id — a micro-cap token — and AccountBalance::Sync already keeps
+  # it out of pricing by CATEGORY for the same reason. A token ticker'd USD is not the dollar.
+  test 'asset_logo_url: a token that happens to be ticker\'d USD gets no flag' do
+    token = 'https://coin-images.coingecko.com/coins/images/9999/large/usd.png'
+    assert_equal token, asset_logo_url(token, symbol: 'USD', category: 'Cryptocurrency')
+  end
+
+  # The transactions table resolves its rows through Tracker::Ledger.asset_index, which can still
+  # come back empty for a symbol nothing on the account holds. A currency is drawable anyway.
+  test 'asset_logo_url: a currency with no asset row behind it still draws its flag' do
+    assert_equal image_path('flags/gb.svg'), asset_logo_url(nil, symbol: 'GBP', category: nil)
+    assert_nil asset_logo_url(nil, symbol: 'BTC', category: nil)
+  end
 end

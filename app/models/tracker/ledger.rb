@@ -253,9 +253,15 @@ module Tracker
           index[balance.asset.symbol] ||= balance.asset
         end
         missing = symbols - held.keys
-        crypto = Asset.where(symbol: missing, category: 'Cryptocurrency').order(:id)
-                      .each_with_object({}) { |asset, index| index[asset.symbol] ||= asset }
-        held.slice(*symbols).merge(crypto)
+        # Crypto first and cash second, never a stock: a coin and a security can share a ticker and
+        # a crypto row means the coin, which is what the `order` below preserves through `||=`.
+        # Cash is in the fallback at all because a currency the account does not hold a balance in
+        # — a EUR fee, a GBP deposit — resolved to nothing, and the row was then drawn with no
+        # logo, no colour and no name while the catalog held all three.
+        catalog = Asset.where(symbol: missing, category: ['Cryptocurrency', *Fiat::CATEGORIES])
+                       .order(Arel.sql("category = 'Cryptocurrency' DESC"), :id)
+                       .each_with_object({}) { |asset, index| index[asset.symbol] ||= asset }
+        held.slice(*symbols).merge(catalog)
       end
 
       # What one row does to the quantity of every non-cash asset it touches, as the engine reads
