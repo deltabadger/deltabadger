@@ -9,6 +9,10 @@ if git diff --quiet && git diff --cached --quiet; then
   exit 0
 fi
 
+branch="deps-$(date +%Y%m%d)"
+git switch -c "$branch"
 git commit -am "dependency update"
-git push origin main
-git push origin main:nightly
+git push -u origin "$branch"
+gh pr create --fill
+
+echo "Push main:nightly after the PR is merged."
