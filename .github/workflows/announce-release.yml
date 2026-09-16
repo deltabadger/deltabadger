@@ -42,22 +42,46 @@ jobs:
                 + "\n\n" + $url'
           }
 
+          # Both APIs explain a refusal in the response body — Telegram's "description" names the
+          # exact missing right — so the body is what gets printed. Failing on the status code
+          # alone reports a bare 403 and costs a release to guess at.
+          failed=0
+          post() {
+            local label=$1 response code body
+            shift
+            if ! response=$(curl -sS -w '\n%{http_code}' "$@"); then
+              echo "::error::$label announcement failed: could not reach the API."
+              failed=1
+              return
+            fi
+            code=${response##*$'\n'}
+            body=${response%$'\n'*}
+            if [ "$code" -ge 200 ] && [ "$code" -lt 300 ]; then
+              echo "Posted to $label."
+            else
+              echo "::error::$label announcement failed (HTTP $code): $body"
+              failed=1
+            fi
+          }
+
           # A channel that is not configured yet is skipped with a notice; one that is configured
           # but fails is a hard error, because a silent announcement is the failure worth seeing.
+          # Each channel is attempted regardless of the other: a misconfigured Telegram should not
+          # cost Discord its announcement too.
           if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
-            curl -fsS -o /dev/null -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+            post Telegram -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
               --data-urlencode "chat_id=@deltabadger" \
               --data-urlencode "text=$(message 3900)"
-            echo "Posted to Telegram."
           else
             echo "::notice::Telegram announcement skipped — set the TELEGRAM_BOT_TOKEN repository secret."
           fi
 
           if [ -n "$DISCORD_WEBHOOK" ]; then
-            curl -fsS -o /dev/null -H 'Content-Type: application/json' \
+            post Discord -H 'Content-Type: application/json' \
               --data-raw "$(jq -n --arg content "$(message 1850)" '{content: $content}')" \
               "$DISCORD_WEBHOOK"
-            echo "Posted to Discord."
           else
             echo "::notice::Discord announcement skipped — set the DISCORD_WEBHOOK repository secret."
           fi
+
+          exit $failed
