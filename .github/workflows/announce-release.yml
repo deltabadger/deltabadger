@@ -1,0 +1,48 @@
+name: Announce Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  announce:
+    # Prereleases stay quiet — the channels are for users, not for release candidates.
+    if: github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    permissions: {}
+
+    steps:
+      - name: Post the release link to Telegram and Discord
+        shell: bash
+        env:
+          # Read as env, never inline: an unset secret is an empty string here rather than an empty
+          # expression spliced into the script, and nothing from the release can reach the shell.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          TAG: ${{ github.event.release.tag_name }}
+          URL: ${{ github.event.release.html_url }}
+        run: |
+          set -euo pipefail
+          text="🦡 Deltabadger $TAG is out
+
+          $URL"
+
+          # A channel that is not configured yet is skipped with a notice; one that is configured
+          # but fails is a hard error, because a silent announcement is the failure worth seeing.
+          if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+            curl -fsS -o /dev/null -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+              --data-urlencode "chat_id=@deltabadger" \
+              --data-urlencode "text=$text"
+            echo "Posted to Telegram."
+          else
+            echo "::notice::Telegram announcement skipped — set the TELEGRAM_BOT_TOKEN repository secret."
+          fi
+
+          if [ -n "$DISCORD_WEBHOOK" ]; then
+            curl -fsS -o /dev/null -H 'Content-Type: application/json' \
+              --data-raw "$(jq -n --arg content "$text" '{content: $content}')" \
+              "$DISCORD_WEBHOOK"
+            echo "Posted to Discord."
+          else
+            echo "::notice::Discord announcement skipped — set the DISCORD_WEBHOOK repository secret."
+          fi
