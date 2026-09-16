@@ -729,6 +729,7 @@ bg:
             dca_skipped_liquidation_pending: "Вноската е пропусната — все още тече продажба"
             started: 'Bot started'
             stopped: 'Bot stopped'
+            stopped_with_reason: 'Ботът е спрян: %{reason}'
             reschedule_disabled: 'Auto scheduling paused'
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'

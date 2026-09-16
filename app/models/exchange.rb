@@ -260,22 +260,65 @@ class Exchange < ApplicationRecord
     raise NotImplementedError, "#{self.class.name} must implement cancel_order"
   end
 
-  # Translate a raw exchange error string into a user-friendly localized
-  # message via Honeymaker's per-exchange classifier. Falls back to the raw
-  # message when the exchange or pattern is unknown, so unmatched errors
-  # still surface verbatim instead of disappearing.
+  # What KIND of "no" is this? Every other predicate below answers that for one caller and one
+  # bucket; this answers it once, and both the sentence the user reads (#humanize_error) and what
+  # the bot does next (Bot::ActionJob) are derived from the same answer.
+  #
+  # Substring, blank-guarded and ordered — the same rules as its siblings, for the same reasons: a
+  # venue message arrives as a bare msg, a JSON envelope or a prefixed wrap, and `''.include?` is
+  # true for every message, so a blank pattern would file every failure on that venue into its
+  # bucket. Deliberately takes strings only, never an HTTP status: #invalid_key_error? accepts a
+  # bare 401 because surfacing is cheap and reversible, but this answer can STOP a bot, and a
+  # Coinbase clock-skew 401 or our own authenticated proxy must never be able to do that.
+  #
+  # nil is a real answer, not a failure: an unrecognised string is not evidence of anything, and
+  # the caller treats it as recoverable.
+  FAILURE_KINDS = %i[insufficient_funds invalid_key permission_denied restricted throttle transient].freeze
+
+  # Generic copy for a kind, used when the venue has no Honeymaker pattern — which is 14 of 15
+  # venues. :transient reuses the key that already exists in all 15 locales rather than adding a
+  # second sentence that says the same thing.
+  KIND_ERROR_KEYS = {
+    insufficient_funds: 'insufficient_funds',
+    invalid_key: 'invalid_key',
+    permission_denied: 'permission_denied',
+    restricted: 'restricted',
+    throttle: 'rate_limited',
+    transient: 'transient_unavailable'
+  }.freeze
+
+  def failure_kind(errors)
+    messages = Array(errors).map(&:to_s)
+
+    FAILURE_KINDS.find do |kind|
+      patterns = Array(known_errors[kind]).map(&:to_s).reject(&:blank?)
+      patterns.any? { |pattern| messages.any? { |message| message.include?(pattern) } }
+    end
+  end
+
+  # Translate a raw exchange error string into a user-friendly localized message. Three rungs, most
+  # specific first: Honeymaker's per-exchange classifier (which can name the asset and the country),
+  # then the generic sentence for the bucket the message falls in, then the raw message.
+  #
+  # The middle rung is what makes this useful at all: in honeymaker 0.11.4 only Kraken defines
+  # ERROR_PATTERNS, so without it every other venue renders its raw string and "humanize" is a
+  # no-op. It also catches what the top rung cannot — Kraken's regional_restriction regex is
+  # anchored, so a response carrying two errors (joined by to_sentence before it ever reaches here)
+  # misses it, while the substring bucket match still lands.
   def humanize_error(message)
     return nil if message.nil?
 
-    klass = Honeymaker::EXCHANGES[name_id]
-    return message unless klass
+    classification = Honeymaker::EXCHANGES[name_id]&.new&.classify_error(message)
+    if classification
+      code = classification[:code]
+      params = classification.except(:code).merge(exchange: name)
+      return I18n.t("errors.exchange.#{code}", **params)
+    end
 
-    classification = klass.new.classify_error(message)
-    return message unless classification
+    key = KIND_ERROR_KEYS[failure_kind([message])]
+    return message if key.nil?
 
-    code = classification[:code]
-    params = classification.except(:code).merge(exchange: name)
-    I18n.t("errors.exchange.#{code}", **params)
+    I18n.t("errors.exchange.#{key}", exchange: name)
   end
 
   # Heuristic: does the given errors array look like an invalid-key / auth error?

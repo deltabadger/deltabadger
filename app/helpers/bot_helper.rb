@@ -178,12 +178,18 @@ module BotHelper
     when 'limit_paused'
       t('bot_activity.events.limit_paused', limit: activity.details['limit_type'].to_s.tr('_', ' '))
     when 'execution_failed'
-      error = activity.details['error']
+      error = humanized_bot_error(activity.bot, activity.details['error'])
       if error.present?
         t('bot_activity.events.execution_failed_with_error', error: error)
       else
         t('bot_activity.events.execution_failed')
       end
+    when 'stopped'
+      # A bot the SYSTEM stopped carries the reason as an i18n key. Without this branch the feed
+      # said a flat "Bot stopped" for a permission problem the user has to go and fix, and
+      # stop_message_key — the other place the reason lives — is wiped by the next start.
+      key = activity.details['stop_message_key']
+      key.present? ? t('bot_activity.events.stopped_with_reason', reason: t(key)) : t('bot_activity.events.stopped')
     when 'liquidation_failed'
       t('bot_activity.events.liquidation_failed', error: activity.details['reason'])
     when 'orders_below_minimum'
@@ -469,7 +475,7 @@ module BotHelper
   # Failed orders include the attempted amounts when known (so you can see what
   # failed); otherwise (e.g. a price-fetch failure) fall back to a plain message.
   def transaction_failed_summary(order, decimals)
-    error = order.error_messages.to_sentence
+    error = humanized_bot_error(order.bot, order.error_messages)
     base_amount = round_amount(order.amount, decimals[order.base], order.base)
     quote_amount = round_amount(order.quote_amount, decimals[order.quote], order.quote)
 
@@ -491,6 +497,21 @@ module BotHelper
     else
       t('bot_activity.transactions.failed')
     end
+  end
+
+  # Turn raw venue error text into the sentence the user reads, at RENDER time so it lands in the
+  # viewer's language — humanize_error resolves I18n.t eagerly, and the background job that wrote
+  # the row had no request locale to resolve it in.
+  #
+  # Maps each message BEFORE joining. Honeymaker's Kraken regional_restriction pattern is anchored,
+  # so a joined sentence never matches it; per-message it does, and the user gets "Kraken restricts
+  # trading USDT in AT" instead of the generic bucket copy.
+  def humanized_bot_error(bot, messages)
+    list = Array(messages).map(&:to_s).reject(&:blank?)
+    return nil if list.empty?
+    return list.to_sentence if bot&.exchange.blank?
+
+    list.map { |message| bot.exchange.humanize_error(message) }.to_sentence
   end
 
   def format_activity_time(value)

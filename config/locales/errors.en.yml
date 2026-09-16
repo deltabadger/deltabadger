@@ -66,6 +66,11 @@ en:
             regional_restriction: "%{exchange} restricts trading %{asset} in %{country}"
             transient_nonce: "%{exchange} rejected the request nonce. If you also use this API key in another app, increase its Nonce Window in your %{exchange} API settings."
             transient_unavailable: "%{exchange} is temporarily unavailable. The bot will retry automatically."
+            insufficient_funds: "Not enough funds on your %{exchange} account."
+            invalid_key: "%{exchange} rejected the API key. Check it's still active, that trading is enabled for it, and that no IP restriction blocks it."
+            permission_denied: "The API key is missing a permission %{exchange} needs for this."
+            restricted: "%{exchange} doesn't allow trading this asset from your region."
+            rate_limited: "%{exchange} is rate-limiting requests. The bot will retry automatically."
         bots:
             multi_asset:
                 condition_subject: "This condition must watch an asset the bot holds."

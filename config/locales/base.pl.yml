@@ -721,6 +721,7 @@ pl:
             dca_skipped_liquidation_pending: "Wpłata pominięta — trwa jeszcze sprzedaż"
             started: 'Bot uruchomiony'
             stopped: 'Bot zatrzymany'
+            stopped_with_reason: 'Bot zatrzymany: %{reason}'
             reschedule_disabled: 'Automatyczne planowanie wstrzymane'
             market_closed: 'Rynek zamknięty — następne otwarcie %{time}'
             limit_paused: 'Wstrzymano: limit %{limit} nie został spełniony'

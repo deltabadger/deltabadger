@@ -721,6 +721,7 @@ ru:
             dca_skipped_liquidation_pending: "Взнос пропущен — продажа ещё выполняется"
             started: 'Бот запущен'
             stopped: 'Бот остановлен'
+            stopped_with_reason: 'Бот остановлен: %{reason}'
             reschedule_disabled: 'Автопланирование приостановлено'
             market_closed: 'Рынок закрыт — следующее открытие %{time}'
             limit_paused: 'Приостановлено: лимит %{limit} не достигнут'

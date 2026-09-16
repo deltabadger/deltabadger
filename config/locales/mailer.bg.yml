@@ -15,6 +15,9 @@ bg:
         notify_about_error:
             subject: "Нещо се обърка с %{label}"
             template_html: "<p>Нещо се обърка при обработката на последната транзакция на бота <b>%{label}</b>.</p><p>Грешката ще намерите в лога на бота. Влезте и я проверете.</p><p>Грешки:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        stopped_by_error:
+            subject: "%{label} беше спрян"
+            template_html: "<p>Вашият бот <b>%{label}</b> беше спрян — борсата продължи да отхвърля поръчките му, а това няма да се оправи само.</p><p>Оправете проблема и стартирайте бота отново.</p><blockquote><b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Опа! Ще опитаме отново…"
             template_html: "<p>Ботът <b>%{label}</b> не успя да изпълни поръчката ви. Изглежда проблемът е от борсата. Ще опитаме отново след %{delay}.</p><p>Всички грешки ще намерите в лога на бота. Влезте и проверете.</p><p>Грешки:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"

@@ -4,8 +4,20 @@ class Exchanges::Gemini < Exchange
   COINGECKO_ID = 'gemini'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['InsufficientFunds', 'Insufficient Funds'],
-    invalid_key: %w[InvalidSignature InvalidApiKey InvalidNonce]
+    invalid_key: %w[InvalidSignature InvalidApiKey],
+    # InvalidNonce is NOT an invalid key: Gemini signs each request with a monotonic nonce, so this
+    # is what the same key reused from two places, or a request that arrived out of order, looks
+    # like. The credentials are fine and the next request usually succeeds. It sat in :invalid_key
+    # until :invalid_key started stopping bots, at which point two consecutive nonce rejections
+    # would have parked a working bot and told the user to replace a key that was never the
+    # problem. Kraken files its equivalent (EAPI:Invalid nonce) under :transient for the same
+    # reason.
+    transient: %w[InvalidNonce]
   }.freeze
+  # Key VALIDATION still treats a nonce rejection as "this key did not pass", the same split Kraken
+  # makes: at submission time a probe we could not get past is no use whatever the reason, and the
+  # user can simply try again.
+  CREDENTIAL_REJECTED = (ERRORS[:invalid_key] + ERRORS[:transient]).freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -291,7 +303,7 @@ class Exchanges::Gemini < Exchange
     return Result::Success.new(true) unless result.data.is_a?(Hash) && result.data['result'] == 'error'
 
     reason = result.data['reason']
-    return Result::Success.new(false) if ERRORS[:invalid_key].any? { |msg| reason&.include?(msg) }
+    return Result::Success.new(false) if CREDENTIAL_REJECTED.any? { |msg| reason&.include?(msg) }
 
     # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
     api_key.withdrawal? ? Result::Failure.new(result.data['message']) : Result::Success.new(true)

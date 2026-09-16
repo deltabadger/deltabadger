@@ -718,6 +718,7 @@ fr:
             dca_skipped_liquidation_pending: "Versement ignoré — une vente est encore en cours"
             started: 'Bot démarré'
             stopped: 'Bot arrêté'
+            stopped_with_reason: 'Bot arrêté : %{reason}'
             reschedule_disabled: 'Planification automatique en pause'
             market_closed: 'Marché fermé — prochaine ouverture %{time}'
             limit_paused: 'En pause : limite %{limit} non atteinte'

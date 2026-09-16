@@ -18,7 +18,8 @@ class ApiKeyFailureHandlingTest < ActiveSupport::TestCase
   end
 
   test 'a missing permission does not condemn the key' do
-    expect_broadcast(message: 'EGeneral:Permission denied', reason: :permission)
+    expect_broadcast(message: I18n.t('errors.exchange.permission_denied', exchange: 'Kraken'),
+                     reason: :permission)
 
     fail_with('EGeneral:Permission denied')
 
@@ -28,7 +29,7 @@ class ApiKeyFailureHandlingTest < ActiveSupport::TestCase
   end
 
   test 'an invalid key is still condemned' do
-    expect_broadcast(message: 'EAPI:Invalid key', reason: :invalid)
+    expect_broadcast(message: I18n.t('errors.exchange.invalid_key', exchange: 'Kraken'), reason: :invalid)
 
     fail_with('EAPI:Invalid key')
 

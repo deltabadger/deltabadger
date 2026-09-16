@@ -15,6 +15,9 @@ ru:
         notify_about_error:
             subject: "Что-то пошло не так с %{label}"
             template_html: "<p>Что-то пошло не так при обработке последней транзакции для бота <b>%{label}</b>.</p><p>Вы можете увидеть ошибку в логе бота. Войдите, чтобы проверить.</p><p>Ошибки:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        stopped_by_error:
+            subject: "%{label} остановлен"
+            template_html: "<p>Ваш бот <b>%{label}</b> остановлен — биржа раз за разом отклоняла его ордера, и само собой это не исправится.</p><p>Разберитесь с проблемой и запустите бота снова.</p><blockquote><b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Упс! Следующая попытка..."
             template_html: "<p>Бот <b>%{label}</b> не смог выполнить ваш ордер. Похоже на проблему с биржей. Мы попробуем снова через %{delay}.</p><p>Все ошибки видны в логе бота. Войдите, чтобы проверить.</p><p>Ошибки:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"

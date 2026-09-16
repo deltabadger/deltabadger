@@ -65,6 +65,11 @@ es:
             regional_restriction: "%{exchange} restringe la negociación de %{asset} en %{country}"
             transient_nonce: "%{exchange} rechazó el nonce de la solicitud. Si también usas esta clave API en otra aplicación, aumenta su Nonce Window en los ajustes de API de %{exchange}."
             transient_unavailable: "%{exchange} no está disponible temporalmente. El bot lo reintentará automáticamente."
+            insufficient_funds: "No hay fondos suficientes en tu cuenta de %{exchange}."
+            invalid_key: "%{exchange} ha rechazado la clave API. Comprueba que siga activa, que tenga el trading habilitado y que ninguna restricción de IP la bloquee."
+            permission_denied: "A la clave API le falta un permiso que %{exchange} necesita para esto."
+            restricted: "%{exchange} no permite operar con este activo desde tu región."
+            rate_limited: "%{exchange} está limitando el número de solicitudes. El bot lo reintentará automáticamente."
         bots:
             multi_asset:
                 condition_subject: "Esta condición debe referirse a un activo que el bot posee."

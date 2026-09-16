@@ -15,6 +15,9 @@ es:
         notify_about_error:
             subject: "Algo ha salido mal con %{label}"
             template_html: "<p>Algo ha salido mal al procesar la última transacción para el bot <b>%{label}</b>.</p><p>Puedes ver el error en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        stopped_by_error:
+            subject: "%{label} se ha detenido"
+            template_html: "<p>Tu bot <b>%{label}</b> se ha detenido — el exchange no dejaba de rechazar sus órdenes, y eso no se va a arreglar solo.</p><p>Soluciona el problema y vuelve a iniciar el bot.</p><blockquote><b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "¡Ups! Próximo intento..."
             template_html: "<p>El bot <b>%{label}</b> no ha podido realizar tu orden. Parece un problema con el exchange. Lo intentaremos de nuevo en %{delay}.</p><p>Todos los errores son visibles en el registro del bot. Inicia sesión para comprobarlo.</p><p>Errores:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"

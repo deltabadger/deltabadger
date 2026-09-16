@@ -716,6 +716,7 @@ pt:
             dca_skipped_liquidation_pending: "Contribuição ignorada — ainda decorre uma venda"
             started: 'Bot iniciado'
             stopped: 'Bot parado'
+            stopped_with_reason: 'Bot parado: %{reason}'
             reschedule_disabled: 'Agendamento automático em pausa'
             market_closed: 'Mercado fechado — próxima abertura %{time}'
             limit_paused: 'Em pausa: limite %{limit} não atingido'

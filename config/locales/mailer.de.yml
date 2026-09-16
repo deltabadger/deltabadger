@@ -15,6 +15,9 @@ de:
         notify_about_error:
             subject: "Etwas ist mit %{label} schiefgelaufen"
             template_html: "<p>Bei der Verarbeitung der letzten Transaktion für Bot <b>%{label}</b> ist etwas schiefgelaufen.</p><p>Sie können den Fehler im Bot-Protokoll sehen. Melden Sie sich an, um es zu überprüfen.</p><p>Fehler:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        stopped_by_error:
+            subject: "%{label} wurde gestoppt"
+            template_html: "<p>Ihr Bot <b>%{label}</b> wurde gestoppt — die Börse hat seine Orders immer wieder abgelehnt, und das löst sich nicht von selbst.</p><p>Beheben Sie das Problem und starten Sie den Bot erneut.</p><blockquote><b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Hoppla! Nächster Versuch..."
             template_html: "<p>Der Bot <b>%{label}</b> konnte Ihren Auftrag nicht ausführen. Es scheint ein Problem mit der Börse zu sein. Wir versuchen es in %{delay} erneut.</p><p>Alle Fehler sind im Bot-Protokoll sichtbar. Melden Sie sich an, um es zu überprüfen.</p><p>Fehler:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"

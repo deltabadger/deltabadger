@@ -58,6 +58,11 @@ da:
             regional_restriction: "%{exchange} begrænser handel med %{asset} i %{country}"
             transient_nonce: "%{exchange} afviste anmodningens nonce. Hvis du også bruger denne API-nøgle i en anden app, så øg dens Nonce Window i dine %{exchange}-API-indstillinger."
             transient_unavailable: "%{exchange} er midlertidigt utilgængelig. Botten prøver automatisk igen."
+            insufficient_funds: "Der er ikke nok midler på din %{exchange}-konto."
+            invalid_key: "%{exchange} afviste API-nøglen. Tjek, at den stadig er aktiv, at handel er slået til for den, og at ingen IP-begrænsning blokerer den."
+            permission_denied: "API-nøglen mangler en tilladelse, som %{exchange} kræver til det her."
+            restricted: "%{exchange} tillader ikke handel med dette aktiv fra din region."
+            rate_limited: "%{exchange} begrænser antallet af anmodninger. Botten prøver automatisk igen."
         bots:
             multi_asset:
                 condition_subject: "Denne betingelse skal gælde et aktiv, som botten ejer."

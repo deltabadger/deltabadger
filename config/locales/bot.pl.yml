@@ -59,6 +59,10 @@ pl:
             locked_while_rebalancing: 'Równoważenie portfela nadal trwa — giełdę będzie można zmienić po jego zakończeniu.'
         status:
             exchange_retired: 'Ta giełda już nie działa — przenieś bota na inną.'
+            stopped_by_error:
+                invalid_key: 'Giełda ciągle odrzucała klucz API — dodaj działający i uruchom bota ponownie.'
+                permission_denied: 'Kluczowi API brakuje uprawnienia, którego ten bot potrzebuje — zaktualizuj go i uruchom bota ponownie.'
+                restricted: 'Giełda nie pozwala handlować tym aktywem z Twojego regionu — zmień aktywo albo giełdę.'
             setting_orders: "Ustawianie zleceń…"
             paused: "Wstrzymany"
             archived: "Zarchiwizowany"
@@ -294,6 +298,8 @@ pl:
                 flip_buying: "Zacznij sprzedawać"
                 flip_selling: "Zacznij kupować"
             extra_amount_limit:
+                amount_spent: 'Cała kwota została zainwestowana.'
+                amount_sold: 'Cała kwota została sprzedana.'
                 sentence_html: "Nie wydawaj więcej niż <span>%{value_html} %{quote}</span>"
                 sell_sentence_html: "Nie sprzedawaj więcej niż <span>%{value_html} %{base}</span>"
                 info:

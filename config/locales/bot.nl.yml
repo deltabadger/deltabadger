@@ -59,6 +59,10 @@ nl:
             locked_while_rebalancing: 'Er wordt nog geherbalanceerd — zodra dat klaar is, kan de exchange worden gewijzigd.'
         status:
             exchange_retired: 'Deze exchange bestaat niet meer — zet de bot over naar een andere.'
+            stopped_by_error:
+                invalid_key: 'De exchange bleef de API-sleutel weigeren — voeg een werkende sleutel toe en start de bot opnieuw.'
+                permission_denied: 'De API-sleutel mist een recht dat deze bot nodig heeft — werk hem bij en start de bot opnieuw.'
+                restricted: 'De exchange staat handel in deze asset vanuit jouw regio niet toe — kies een andere asset of een andere exchange.'
             setting_orders: "Orders instellen…"
             paused: "Gepauzeerd"
             archived: "Gearchiveerd"
@@ -294,6 +298,8 @@ nl:
                 flip_buying: "Begin met verkopen"
                 flip_selling: "Begin met kopen"
             extra_amount_limit:
+                amount_spent: 'Het volledige bedrag is geïnvesteerd.'
+                amount_sold: 'Het volledige bedrag is verkocht.'
                 sentence_html: "Besteed niet meer dan <span>%{value_html} %{quote}</span>"
                 sell_sentence_html: "Verkoop niet meer dan <span>%{value_html} %{base}</span>"
                 info:

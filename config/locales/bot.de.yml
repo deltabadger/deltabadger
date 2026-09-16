@@ -58,6 +58,10 @@ de:
             locked_while_rebalancing: 'Eine Neugewichtung läuft noch — die Börse kann nach ihrem Abschluss gewechselt werden.'
         status:
             exchange_retired: 'Diese Börse gibt es nicht mehr — wechsle den Bot zu einer anderen.'
+            stopped_by_error:
+                invalid_key: 'Die Börse hat den API-Schlüssel immer wieder abgelehnt — hinterlege einen funktionierenden und starte den Bot erneut.'
+                permission_denied: 'Dem API-Schlüssel fehlt eine Berechtigung, die dieser Bot braucht — aktualisiere ihn und starte den Bot erneut.'
+                restricted: 'Die Börse erlaubt den Handel mit diesem Asset aus deiner Region nicht — wechsle das Asset oder die Börse.'
             setting_orders: "Orders werden erstellt…"
             paused: "Pausiert"
             archived: "Archiviert"
@@ -299,6 +303,8 @@ de:
                 flip_buying: "Verkauf starten"
                 flip_selling: "Kauf starten"
             extra_amount_limit:
+                amount_spent: 'Der gesamte Betrag wurde investiert.'
+                amount_sold: 'Der gesamte Betrag wurde verkauft.'
                 sentence_html: "Nicht mehr ausgeben als <span>%{value_html} %{quote}</span>"
                 sell_sentence_html: "Nicht mehr verkaufen als <span>%{value_html} %{base}</span>"
                 info:

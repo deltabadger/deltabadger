@@ -58,6 +58,11 @@ sk:
             regional_restriction: "%{exchange} obmedzuje obchodovanie s %{asset} v krajine %{country}"
             transient_nonce: "%{exchange} odmietol nonce požiadavky. Ak tento API kľúč používate aj v inej aplikácii, zvýšte jeho Nonce Window v nastaveniach API na %{exchange}."
             transient_unavailable: "%{exchange} je dočasne nedostupná. Bot to automaticky skúsi znova."
+            insufficient_funds: "Na vašom účte %{exchange} nie je dosť prostriedkov."
+            invalid_key: "API kľúč bol na %{exchange} odmietnutý. Skontrolujte, či je stále aktívny, či má povolené obchodovanie a či ho neblokuje obmedzenie na IP adresu."
+            permission_denied: "API kľúču chýba oprávnenie, ktoré %{exchange} na toto potrebuje."
+            restricted: "%{exchange} neumožňuje obchodovať toto aktívum z vašej krajiny."
+            rate_limited: "%{exchange} obmedzuje počet požiadaviek. Bot to automaticky skúsi znova."
         bots:
             multi_asset:
                 condition_subject: "Táto podmienka sa musí týkať aktíva, ktoré bot drží."

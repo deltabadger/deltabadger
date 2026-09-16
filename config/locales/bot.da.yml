@@ -58,6 +58,10 @@ da:
             locked_while_rebalancing: 'En rebalancering er stadig i gang — børsen kan ændres, når den er færdig.'
         status:
             exchange_retired: 'Denne børs findes ikke længere — flyt botten til en anden.'
+            stopped_by_error:
+                invalid_key: 'Børsen blev ved med at afvise API-nøglen — tilføj en, der virker, og start botten igen.'
+                permission_denied: 'API-nøglen mangler en tilladelse, som botten skal bruge — opdatér den, og start botten igen.'
+                restricted: 'Børsen tillader ikke handel med dette aktiv fra din region — skift aktiv eller børs.'
             setting_orders: "Opretter ordrer…"
             paused: "Sat på pause"
             archived: "Arkiveret"
@@ -313,6 +317,8 @@ da:
                 flip_buying: "Begynd at sælge"
                 flip_selling: "Begynd at købe"
             extra_amount_limit:
+                amount_spent: 'Hele beløbet er investeret.'
+                amount_sold: 'Hele beløbet er solgt.'
                 sentence_html: "Brug ikke mere end <span>%{value_html} %{quote}</span>"
                 sell_sentence_html: "Sælg ikke mere end <span>%{value_html} %{base}</span>"
                 info:

@@ -58,6 +58,10 @@ sk:
             locked_while_rebalancing: 'Vyvažovanie stále prebieha — burzu bude možné zmeniť po jeho dokončení.'
         status:
             exchange_retired: 'Táto burza už nefunguje — presuň bota na inú.'
+            stopped_by_error:
+                invalid_key: 'Burza stále odmietala API kľúč — pridaj funkčný a spusti bota znova.'
+                permission_denied: 'API kľúču chýba oprávnenie, ktoré tento bot potrebuje — uprav ho a spusti bota znova.'
+                restricted: 'Burza neumožňuje obchodovať toto aktívum z tvojej krajiny — zmeň aktívum alebo burzu.'
             setting_orders: "Zadávanie príkazov…"
             paused: "Pozastavené"
             archived: "Archivované"
@@ -313,6 +317,8 @@ sk:
                 flip_buying: "Začať predávať"
                 flip_selling: "Začať nakupovať"
             extra_amount_limit:
+                amount_spent: 'Celá čiastka bola investovaná.'
+                amount_sold: 'Celá čiastka bola predaná.'
                 sentence_html: "Neutratit viac ako <span>%{value_html} %{quote}</span>"
                 sell_sentence_html: "Nepredať viac ako <span>%{value_html} %{base}</span>"
                 info:

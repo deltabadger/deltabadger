@@ -10,6 +10,17 @@ class BotAlertsMailer < ApplicationMailer
     mail(to: @user.email, subject: t('.subject', label: @label))
   end
 
+  def stopped_by_error
+    @user = params[:user]
+    @errors = params[:errors].to_sentence
+    @bot = params[:bot]
+    @label = @bot.label
+    @exchange_name = Exchange.find(@bot.exchange_id).name.upcase
+    set_locale(@user)
+
+    mail(to: @user.email, subject: t('.subject', label: @label))
+  end
+
   def notify_about_restart
     @user = params[:user]
     @restart_at = params[:restart_at]

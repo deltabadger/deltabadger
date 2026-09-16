@@ -81,7 +81,11 @@ module Bot::Lifecycle
   def stop(stop_message_key: nil)
     # A stop that lands after archiving — a queued Bot::StopJob, a stale tab — must not write
     # :stopped over :archived and drop the bot back into Inactive. It is already stopped.
-    return true if archived?
+    #
+    # :deleted is the same case and was simply missed: Automation::Executable#destroy is a soft
+    # delete, so a REST/MCP delete racing a queued stop would have been resurrected as a live
+    # :stopped bot. Both are terminal, both already mean "not running".
+    return true if archived? || deleted?
 
     # A freshly loaded bot can carry recomputed settings defaults (after_initialize
     # concerns), which marks settings dirty — Accountable then requires

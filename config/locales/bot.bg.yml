@@ -58,6 +58,10 @@ bg:
             locked_while_rebalancing: 'Ребалансирането още е в ход — борсата може да се смени, след като приключи.'
         status:
             exchange_retired: 'Тази борса вече не работи — прехвърли бота към друга.'
+            stopped_by_error:
+                invalid_key: 'Борсата продължи да отхвърля API ключа — добави работещ и стартирай бота отново.'
+                permission_denied: 'На API ключа му липсва разрешение, което този бот изисква — обнови го и стартирай бота отново.'
+                restricted: 'Борсата не позволява търговия с този актив от твоя регион — смени актива или борсата.'
             setting_orders: "Подаване на поръчки…"
             paused: "На пауза"
             archived: "Архивиран"
@@ -313,6 +317,8 @@ bg:
                 flip_buying: "Започни да продаваш"
                 flip_selling: "Започни да купуваш"
             extra_amount_limit:
+                amount_spent: 'Цялата сума е инвестирана.'
+                amount_sold: 'Цялата сума е продадена.'
                 sentence_html: "Да не се харчи повече от <span>%{value_html} %{quote}</span>"
                 sell_sentence_html: "Да не се продава повече от <span>%{value_html} %{base}</span>"
                 info:
