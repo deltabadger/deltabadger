@@ -53,7 +53,7 @@ jobs:
                 | split("\n") | map(sub("^#+ +"; "")) | join("\n")
                 | sub("^\n+"; "") | sub("\n+$"; "")) as $notes
               | ($notes | if length > $max then .[0:$max] + "…" else . end) as $notes
-              | "📢 Deltabadger \($tag) is out"
+              | "📢 Deltabadger \($tag | ltrimstr("v"))"
                 + (if $notes == "" then "" else "\n\n" + $notes end)
                 + "\n\n" + $url'
           }
