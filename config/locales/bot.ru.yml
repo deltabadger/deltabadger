@@ -59,6 +59,10 @@ ru:
             locked_while_rebalancing: 'Ребалансировка ещё продолжается — биржу можно будет сменить после её завершения.'
         status:
             exchange_retired: 'Эта биржа больше не работает — переведите бота на другую.'
+            stopped_by_error:
+                invalid_key: 'Биржа раз за разом отклоняла API-ключ — добавьте рабочий и запустите бота снова.'
+                permission_denied: 'У API-ключа нет разрешения, которое нужно этому боту — обновите ключ и запустите бота снова.'
+                restricted: 'Биржа не разрешает торговать этим активом из вашего региона — смените актив или биржу.'
             setting_orders: "Настройка ордеров…"
             paused: "На паузе"
             archived: "В архиве"
@@ -293,6 +297,8 @@ ru:
                 flip_buying: "Начать продавать"
                 flip_selling: "Начать покупать"
             extra_amount_limit:
+                amount_spent: 'Вся сумма была инвестирована.'
+                amount_sold: 'Вся сумма была продана.'
                 sentence_html: "Не тратить больше чем <span>%{value_html} %{quote}</span>"
                 sell_sentence_html: "Не продавать больше чем <span>%{value_html} %{base}</span>"
                 info:

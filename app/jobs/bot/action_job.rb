@@ -1,8 +1,4 @@
 class Bot::ActionJob < BotJob
-  DO_NOT_RETRY_ERRORS = [
-    :insufficient_funds
-  ].freeze
-
   # Retries exhausted. Keep the bot in :retrying and reschedule a fresh attempt at the next
   # interval. Transient (network / -1021 timestamp) exhaustion is self-recovering: log a calm,
   # de-emphasized (:info) entry and DON'T email "your bot failed". Everything else (incl.
@@ -14,15 +10,29 @@ class Bot::ActionJob < BotJob
     next unless Bot::ActionJob.transition_working_bot!(bot, 'retrying')
 
     if exhausted_detail[:transient_exhausted]
+      bot.record_failure!(:transient)
       bot.log_activity('execution_retrying', level: :info,
                                              details: { error: error.message }.merge(exhausted_detail))
     else
+      kind = bot.exchange&.failure_kind([error.message])
+      notify = bot.notify_about_failure?(kind)
+      bot.record_failure!(kind, notified: notify)
       bot.log_activity('execution_failed', level: :error,
-                                           details: { error: error.message, ignorable: nil }.merge(exhausted_detail))
-      bot.notify_about_error(errors: [bot.exchange.humanize_error(error.message)])
+                                           details: { error: error.message, kind: kind }.merge(exhausted_detail))
+      bot.notify_about_error(errors: Bot::ActionJob.humanized_errors(bot, error.message)) if notify
     end
     Bot::ActionJob.set(wait_until: bot.next_interval_checkpoint_at).perform_later(bot)
     Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
+  end
+
+  # Humanize for an EMAIL, in the recipient's language. humanize_error resolves I18n.t eagerly and a
+  # job thread carries no request locale, so translating here and handing the sentence to
+  # BotAlertsMailer — which only calls set_locale afterwards — put English error text inside an
+  # otherwise translated email.
+  def self.humanized_errors(bot, message)
+    I18n.with_locale(bot.user&.locale || I18n.default_locale) do
+      [bot.exchange&.humanize_error(message) || message]
+    end
   end
 
   retry_on Client::TransientNetworkError,
@@ -59,7 +69,15 @@ class Bot::ActionJob < BotJob
   def perform(bot)
     action_started_at = Time.current
     return unless bot.scheduled? || bot.retrying?
-    raise "ActionJob for bot #{bot.id}: The bot already has an action job scheduled" if bot.next_action_job_at.present?
+
+    # Another ActionJob is already queued for this bot, so THIS one is the duplicate. Return without
+    # touching anything: raising used to flip a perfectly healthy bot to :retrying on its way to the
+    # dead-letter, and now that the rescue reschedules instead of re-raising it would also queue a
+    # second successor and keep the duplicate chain alive.
+    if bot.next_action_job_at.present?
+      Rails.logger.warn("ActionJob for bot #{bot.id}: an action job is already scheduled, skipping this duplicate")
+      return
+    end
 
     # An IBKR key registered but not yet activated by IBKR (24h–2wk). Reschedule WITHOUT touching
     # the exchange — a pending key must never reach a live IBKR call. Ibkr::CheckActivationJob flips
@@ -98,6 +116,11 @@ class Bot::ActionJob < BotJob
       if bot.exchange.placement_transient_error?(result.errors)
         return unless self.class.transition_working_bot!(bot, 'retrying')
 
+        # Records a kind even though nothing is notified here: Bot::Failable's strike is "the same
+        # blocking kind TWICE IN A ROW", so every failing exit has to write what it was. Skip this
+        # and invalid_key -> timestamp rejection -> invalid_key would stop the bot, on the strength
+        # of two failures that were not consecutive.
+        bot.record_failure!(:transient)
         bot.log_activity('execution_retrying', level: :info,
                                                details: { error: result.errors.to_sentence, placement_transient: true })
         schedule_next_action_job(bot)
@@ -105,6 +128,11 @@ class Bot::ActionJob < BotJob
       end
       raise result.errors.to_sentence
     end
+
+    # A clean run ends the streak. The notification budget deliberately survives it — see
+    # Bot::Failable — so a bot that fails, recovers and fails the same way an hour later does not
+    # mail twice.
+    bot.clear_failure_state!
 
     # The starting-time feature only affects the FIRST execution; flip it off
     # afterwards so the rule UI is free to be reconfigured for a future restart.
@@ -151,6 +179,7 @@ class Bot::ActionJob < BotJob
     Rails.logger.warn("ActionJob for bot #{bot.id}: placement outcome unknown, not retrying. #{e.message}")
     return unless self.class.transition_working_bot!(bot, 'retrying')
 
+    bot.record_failure!(nil)
     bot.log_activity('placement_ambiguous', level: :warning, details: { error: e.message })
     # NOTE: start_time_enabled is deliberately left as-is here, and in the post-placement branch
     # below. Disarming it would be more correct when a leg was already accepted (a date-mode
@@ -198,6 +227,7 @@ class Bot::ActionJob < BotJob
       )
       return unless self.class.transition_working_bot!(bot, 'retrying')
 
+      bot.record_failure!(:transient)
       # start_time_enabled is left as-is for the resurrection reason documented on the
       # ambiguous-placement branch above: disable_starting_time! saves, and bot.status is dirty
       # here because transition_working_bot! wrote it via update_all without persisting the model.
@@ -206,10 +236,13 @@ class Bot::ActionJob < BotJob
     end
 
     # Nothing placed yet: replaying is safe, and it is what carries bots through exchange-proxy
-    # blips. Skip the noisy execution_failed / notify_retry path. Leaving the bot in :retrying
-    # ensures the ActiveJob retry chain (and any post-exhaustion reschedule) passes the line-8
-    # guard on the next perform.
-    bot.broadcast_status_bar_update if self.class.transition_working_bot!(bot, 'retrying')
+    # blips. Skip the noisy execution_failed path. Leaving the bot in :retrying ensures the
+    # ActiveJob retry chain (and any post-exhaustion reschedule) passes the line-8 guard on the next
+    # perform.
+    if self.class.transition_working_bot!(bot, 'retrying')
+      bot.record_failure!(:transient) # breaks a blocking streak — see the placement branch above
+      bot.broadcast_status_bar_update
+    end
     raise
   rescue StandardError => e
     Rails.logger.error("ActionJob for bot #{bot.id} failed to perform. Errors: #{e.message}")
@@ -219,19 +252,24 @@ class Bot::ActionJob < BotJob
     end
 
     bot.broadcast_status_bar_update
-    category = ignorable_error_category(bot, e)
+
+    kind = bot.exchange&.failure_kind([e.message])
+    blocking = bot.blocking_failure?(kind)
+    # Read the budget BEFORE writing the row that would answer it.
+    notify = blocking || bot.notify_about_failure?(kind)
+    bot.record_failure!(kind, notified: notify)
+
     # A failed order already records its own Transaction row; only log execution_failed
     # for failures that left no transaction (auth, market/API, unexpected errors).
     unless bot.transactions.failed.where('created_at >= ?', action_started_at).exists?
-      bot.log_activity('execution_failed', level: :error, details: { error: e.message, ignorable: category })
+      bot.log_activity('execution_failed', level: :error, details: { error: e.message, kind: kind })
     end
-    if category
-      notify_ignorable(bot, category, e)
-      schedule_next_action_job(bot)
+
+    if blocking
+      stop_for_blocking_failure(bot, kind, e)
     else
-      notify_retry(bot, e)
-      Bot::BroadcastAfterScheduledActionJob.perform_later(bot)
-      raise e
+      notify_recoverable(bot, kind, e) if notify
+      schedule_next_action_job(bot)
     end
   end
 
@@ -243,53 +281,44 @@ class Bot::ActionJob < BotJob
     bot.merge_transient_data!('waiting_for_market_open' => nil)
   end
 
-  # Substring, not equality — the same rule as its four siblings (Exchange#invalid_key_error?,
-  # #transient_error?, #placement_transient_error?, #throttled_error?). Exact equality only ever
-  # worked for the venues whose model happens to unwrap the response to a bare `msg` (Binance and
-  # its clones, Kraken, Coinbase). Everywhere else the raised string is a JSON envelope
-  # ({"code":"43012","msg":"Insufficient balance",…}) or carries a prefix ("Hyperliquid order
-  # failed: …", "Failed to read BTC balance for bot 88: …"), so a genuine out-of-funds rejection
-  # was never recognised: the bot took the red path — retry storm, "your bot failed" email — and
-  # notify_end_of_funds could not fire.
+  # The venue is refusing the credentials, a scope, or the asset itself, and has now done so on two
+  # consecutive runs. Nothing here recovers on a schedule, so the bot is stopped rather than left
+  # failing daily and mailing about it.
   #
-  # The trade is a false positive silencing a real error, so the patterns must stay whole phrases.
-  # Blank ones are dropped: "".include? is true for every message and would file every failure on
-  # that venue as out-of-funds.
-  def ignorable_error_category(bot, error)
-    DO_NOT_RETRY_ERRORS.find do |category|
-      messages = Array(bot.exchange.known_errors[category]).map(&:to_s).reject(&:blank?)
-      messages.any? { |m| error.message.include?(m) }
-    end
+  # perform_now, not perform_later: perform_later would leave the bot :retrying until a worker picks
+  # the job up, and Bot::RepairOrphanedBotsJob only looks for a missing ActionJob — so a delayed or
+  # failed stop leaves a window in which the sweep re-arms the bot and it trades again. It also lets
+  # the "we stopped your bot" mail overtake the stop itself, since mailers share a worker group with
+  # :default. Stopping inline closes both: perform does not return until the row says :stopped.
+  #
+  # On a FRESHLY loaded bot, because transition_working_bot! above left `status` dirty in memory via
+  # update_all, and a save from that instance is the documented resurrection hazard. A new instance
+  # cannot carry that dirt, which is a stronger guarantee than ordering the writes carefully.
+  #
+  # Through Bot::StopJob rather than Bot#stop, because the job also rebroadcasts the settings and
+  # exchange-select panels; an inline stop leaves them rendering the running state. It raises if the
+  # stop fails, and that raise propagates — loud, no mail, bot still :retrying, next sweep retries.
+  def stop_for_blocking_failure(bot, kind, error)
+    # Re-read and re-check: a stop, archive or (soft) delete from a web request can land between the
+    # transition above and here, and the user who just deleted this bot should not be told we
+    # stopped it. Bot#stop refuses to write over :archived/:deleted anyway — this keeps the mail
+    # honest too.
+    fresh = Bot.find(bot.id)
+    return unless fresh.working?
+
+    Bot::StopJob.perform_now(fresh, stop_message_key: "bot.status.stopped_by_error.#{kind}")
+    bot.notify_stopped_by_error(errors: self.class.humanized_errors(bot, error.message))
   end
 
   # notify_end_of_funds always names the QUOTE asset (Bot::Notifyable), but a selling bot spends
   # base — so for a sell it would tell the user to top up the asset that did not run out.
   # Bot::Fundable skips its own low-funds check while selling for exactly this reason. The
   # classification still stands (don't retry-storm a balance rejection); only the wording changes.
-  def notify_ignorable(bot, category, error)
-    if category == :insufficient_funds && !bot.selling?
+  def notify_recoverable(bot, kind, error)
+    if kind == :insufficient_funds && !bot.selling?
       bot.notify_end_of_funds
     else
-      bot.notify_about_error(errors: humanized_errors(bot, error))
-    end
-  end
-
-  def humanized_errors(bot, error)
-    [bot.exchange.humanize_error(error.message)]
-  end
-
-  def estimated_retry_delay
-    @estimated_retry_delay ||= begin
-      next_retry_count = retry_count + 1
-      ((next_retry_count**4) + 15 + (rand(10) * (next_retry_count + 1))).seconds
-    end
-  end
-
-  def notify_retry(bot, error)
-    if estimated_retry_delay > bot.effective_interval_duration
-      bot.notify_about_error(errors: humanized_errors(bot, error))
-    elsif estimated_retry_delay > 1.minute # 3 failed attempts
-      bot.notify_about_error(errors: humanized_errors(bot, error))
+      bot.notify_about_error(errors: self.class.humanized_errors(bot, error.message))
     end
   end
 

@@ -737,6 +737,7 @@ sk:
             dca_skipped_liquidation_pending: "Príspevok preskočený — stále prebieha predaj"
             started: 'Bot started'
             stopped: 'Bot stopped'
+            stopped_with_reason: 'Bot zastavený: %{reason}'
             reschedule_disabled: 'Auto scheduling paused'
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'

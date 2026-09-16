@@ -729,6 +729,7 @@ da:
             dca_skipped_liquidation_pending: "Indbetaling sprunget over — et salg er stadig i gang"
             started: 'Bot started'
             stopped: 'Bot stopped'
+            stopped_with_reason: 'Bot stoppet: %{reason}'
             reschedule_disabled: 'Auto scheduling paused'
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'

@@ -729,6 +729,7 @@ sv:
             dca_skipped_liquidation_pending: "Insättning hoppades över — en försäljning pågår fortfarande"
             started: 'Bot started'
             stopped: 'Bot stopped'
+            stopped_with_reason: 'Boten stoppad: %{reason}'
             reschedule_disabled: 'Auto scheduling paused'
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'

@@ -717,6 +717,7 @@ nl:
             dca_skipped_liquidation_pending: "Inleg overgeslagen — er loopt nog een verkoop"
             started: 'Bot gestart'
             stopped: 'Bot gestopt'
+            stopped_with_reason: 'Bot gestopt: %{reason}'
             reschedule_disabled: 'Automatische planning gepauzeerd'
             market_closed: 'Markt gesloten — volgende opening %{time}'
             limit_paused: 'Gepauzeerd: %{limit}-limiet niet bereikt'

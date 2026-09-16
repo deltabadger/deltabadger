@@ -15,6 +15,9 @@ el:
         notify_about_error:
             subject: "Κάτι πήγε στραβά με %{label}"
             template_html: "<p>Κάτι πήγε στραβά κατά την επεξεργασία της τελευταίας συναλλαγής του bot <b>%{label}</b>.</p><p>Μπορείς να δεις το σφάλμα στο αρχείο καταγραφής του bot. Συνδέσου για να το ελέγξεις.</p><p>Σφάλματα:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        stopped_by_error:
+            subject: "Το %{label} σταμάτησε"
+            template_html: "<p>Το bot σου <b>%{label}</b> σταμάτησε — το ανταλλακτήριο συνέχιζε να απορρίπτει τις εντολές του, και αυτό δεν πρόκειται να διορθωθεί από μόνο του.</p><p>Τακτοποίησε το πρόβλημα και ξεκίνα ξανά το bot.</p><blockquote><b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Ωχ! Επόμενη προσπάθεια…"
             template_html: "<p>Το bot <b>%{label}</b> δεν κατάφερε να εκτελέσει την εντολή σου. Μοιάζει με πρόβλημα του ανταλλακτηρίου. Θα δοκιμάσουμε ξανά σε %{delay}.</p><p>Όλα τα σφάλματα φαίνονται στο αρχείο καταγραφής του bot. Συνδέσου για να τα ελέγξεις.</p><p>Σφάλματα:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"

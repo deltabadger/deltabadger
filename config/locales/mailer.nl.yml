@@ -15,6 +15,9 @@ nl:
         notify_about_error:
             subject: "Er is iets misgegaan met %{label}"
             template_html: "<p>Er is iets misgegaan bij het verwerken van de laatste transactie voor bot <b>%{label}</b>.</p><p>U kunt de fout bekijken in het botlogboek. Log in om het te controleren.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        stopped_by_error:
+            subject: "%{label} is gestopt"
+            template_html: "<p>Uw bot <b>%{label}</b> is gestopt — de exchange bleef zijn orders weigeren, en dat lost zichzelf niet op.</p><p>Los het probleem op en start de bot opnieuw.</p><blockquote><b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Oeps! Volgende poging..."
             template_html: "<p>De bot <b>%{label}</b> kon uw order niet uitvoeren. Het lijkt op een probleem met de exchange. We proberen het opnieuw over %{delay}.</p><p>Alle fouten zijn zichtbaar in het botlogboek. Log in om het te bekijken.</p><p>Fouten:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"

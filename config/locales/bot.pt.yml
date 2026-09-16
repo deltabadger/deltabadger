@@ -59,6 +59,10 @@ pt:
             locked_while_rebalancing: 'Ainda está a decorrer um rebalanceamento — poderás mudar de exchange quando terminar.'
         status:
             exchange_retired: 'Esta exchange já não opera — muda o bot para outra.'
+            stopped_by_error:
+                invalid_key: 'A exchange continuou a rejeitar a chave de API — adiciona uma que funcione e inicia o bot outra vez.'
+                permission_denied: 'Falta à chave de API uma permissão de que este bot precisa — atualiza-a e inicia o bot outra vez.'
+                restricted: 'A exchange não permite negociar este ativo a partir da tua região — muda o ativo ou a exchange.'
             setting_orders: "Configurando ordens…"
             paused: "Pausado"
             archived: "Arquivado"
@@ -285,6 +289,8 @@ pt:
                 flip_buying: "Começar a vender"
                 flip_selling: "Começar a comprar"
             extra_amount_limit:
+                amount_spent: 'O montante total foi investido.'
+                amount_sold: 'O montante total foi vendido.'
                 sentence_html: "Não gaste mais do que <span>%{value_html} %{quote}</span>"
                 sell_sentence_html: "Não venda mais do que <span>%{value_html} %{base}</span>"
                 info:

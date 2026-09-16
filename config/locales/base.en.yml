@@ -734,6 +734,7 @@ en:
             dca_skipped_redeploy_pending: "Contribution skipped — a redeploy is still in progress"
             started: 'Bot started'
             stopped: 'Bot stopped'
+            stopped_with_reason: 'Bot stopped: %{reason}'
             reschedule_disabled: 'Auto scheduling paused'
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'

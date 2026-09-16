@@ -42,6 +42,13 @@ class Exchanges::Kraken < Exchange
     # 2026-08 and condemned working keys (issue #153). An expired or disabled key returns
     # EAPI:Invalid key instead, so nothing is lost by moving it out.
     permission_denied: ['EGeneral:Permission denied'],
+    # The venue refuses this ASSET for this account's jurisdiction (MiCA delistings and the like).
+    # The credentials are valid and their permissions are fine, so this is neither :invalid_key nor
+    # :permission_denied — and keeping it out of the latter keeps it out of CREDENTIAL_REJECTED
+    # below, which would otherwise reject a perfectly good key at validation time over a restriction
+    # that has nothing to do with the key. Unanchored on purpose: the venue appends
+    # ":<ASSET> trading restricted for <CC>." and may join it with a second error.
+    restricted: ['EAccount:Invalid permissions'],
     # Transient/retryable HTTP-200 failures. Excludes EGeneral:Temporary lockout
     # (retrying extends Kraken's penalty box) and rate-limit codes (see :throttle below —
     # they retry on a longer, escalating wait rather than the transient polynomial backoff).

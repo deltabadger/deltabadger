@@ -15,6 +15,9 @@ sv:
         notify_about_error:
             subject: "Något gick fel med %{label}"
             template_html: "<p>Något gick fel vid bearbetningen av den senaste transaktionen för bot <b>%{label}</b>.</p><p>Du kan se felet i botloggen. Logga in för att kontrollera.</p><p>Fel:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        stopped_by_error:
+            subject: "%{label} har stoppats"
+            template_html: "<p>Din bot <b>%{label}</b> har stoppats — börsen fortsatte att avvisa dess ordrar, och det löser sig inte av sig självt.</p><p>Åtgärda problemet och starta boten igen.</p><blockquote><b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Hoppsan! Nytt försök…"
             template_html: "<p>Boten <b>%{label}</b> kunde inte genomföra din order. Det verkar vara ett börsproblem. Vi försöker igen om %{delay}.</p><p>Alla fel syns i botloggen. Logga in för att kolla.</p><p>Fel:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"

@@ -58,6 +58,10 @@ en:
             locked_while_rebalancing: 'A rebalance is still in progress — the exchange can change once it completes.'
         status:
             exchange_retired: 'This exchange no longer operates — switch the bot to another one.'
+            stopped_by_error:
+                invalid_key: 'The exchange kept rejecting the API key — add a working one and start the bot again.'
+                permission_denied: 'The API key is missing a permission this bot needs — update it and start the bot again.'
+                restricted: 'The exchange does not allow trading this asset from your region — switch the asset or the exchange.'
             setting_orders: "Setting orders…"
             paused: "Paused"
             archived: "Archived"
@@ -315,6 +319,8 @@ en:
                 flip_buying: "Start selling"
                 flip_selling: "Start buying"
             extra_amount_limit:
+                amount_spent: 'The whole amount has been invested.'
+                amount_sold: 'The whole amount has been sold.'
                 sentence_html: "Don't spend more than <span>%{value_html} %{quote}</span>"
                 sell_sentence_html: "Don't sell more than <span>%{value_html} %{base}</span>"
                 info:

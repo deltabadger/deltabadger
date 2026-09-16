@@ -13,6 +13,44 @@ class BotActivitySummaryTest < ActionView::TestCase
     assert_no_match(/%\{error\}/, summary)
   end
 
+  # The feed used to print the venue's own words — "EAccount:Invalid permissions:USDT trading
+  # restricted for AT." — while the email got the translated sentence. Humanizing happens at RENDER
+  # time so it lands in the viewer's language, not the background job's.
+  test 'an execution failure is humanized, not printed raw' do
+    bot = create(:dca_single_asset, :started, exchange: create(:kraken_exchange))
+    raw = 'EAccount:Invalid permissions:USDT trading restricted for AT.'
+    log = BotActivityLog.new(event: 'execution_failed', details: { 'error' => raw }, level: :error, bot: bot)
+
+    summary = bot_activity_summary(log)
+
+    assert_match(/Kraken restricts trading USDT in AT/, summary)
+    assert_no_match(/EAccount/, summary)
+  end
+
+  test 'an execution failure with no exchange still shows the raw text rather than nothing' do
+    summary = bot_activity_summary(activity('execution_failed', error: 'boom'))
+
+    assert_match(/boom/, summary)
+  end
+
+  # stop_message_key is wiped by the next start, so the feed is the only durable record of WHY the
+  # system stopped a bot. Without this branch every stop read a flat "Bot stopped".
+  test 'a stop carries its reason' do
+    summary = bot_activity_summary(
+      activity('stopped', stop_message_key: 'bot.status.stopped_by_error.restricted')
+    )
+
+    assert_match(/does not allow trading this asset from your region/, summary)
+    assert_no_match(/translation missing/i, summary)
+  end
+
+  test 'a plain user stop still reads as a stop' do
+    summary = bot_activity_summary(activity('stopped'))
+
+    assert_no_match(/%\{/, summary)
+    assert_no_match(/translation missing/i, summary)
+  end
+
   test 'a liquidation failure still names its reason' do
     summary = bot_activity_summary(activity('liquidation_failed', reason: 'Invalid API-key'))
 

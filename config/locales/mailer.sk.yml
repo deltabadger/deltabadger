@@ -15,6 +15,9 @@ sk:
         notify_about_error:
             subject: "Nieco sa pokazilo u %{label}"
             template_html: "<p>Pri spracovani poslednej transakcie bota <b>%{label}</b> sa nieco pokazilo.</p><p>Chybu najdete v logu bota. Prihlasite sa a skontrolujte ju.</p><p>Chyby:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        stopped_by_error:
+            subject: "%{label} bol zastavený"
+            template_html: "<p>Váš bot <b>%{label}</b> bol zastavený — burza opakovane odmietala jeho príkazy a samo sa to nespraví.</p><p>Vyriešte problém a spustite bota znova.</p><blockquote><b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Ups! Skusime to znova…"
             template_html: "<p>Bot <b>%{label}</b> nemohol vykonat vas prikaz. Vyzera to na problem burzy. Skusime to znova o %{delay}.</p><p>Vsetky chyby najdete v logu bota. Prihlasite sa a pozrite sa.</p><p>Chyby:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"

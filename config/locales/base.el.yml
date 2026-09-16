@@ -729,6 +729,7 @@ el:
             dca_skipped_liquidation_pending: "Η εισφορά παραλείφθηκε — μια πώληση είναι ακόμη σε εξέλιξη"
             started: 'Bot started'
             stopped: 'Bot stopped'
+            stopped_with_reason: 'Το bot σταμάτησε: %{reason}'
             reschedule_disabled: 'Auto scheduling paused'
             market_closed: 'Market closed — next open %{time}'
             limit_paused: 'Paused: %{limit} limit not met'

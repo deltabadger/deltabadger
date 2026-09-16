@@ -59,6 +59,10 @@ fr:
             locked_while_rebalancing: 'Un rééquilibrage est toujours en cours — la plateforme pourra être changée une fois celui-ci terminé.'
         status:
             exchange_retired: "Cette plateforme n'existe plus — bascule le bot vers une autre."
+            stopped_by_error:
+                invalid_key: "La plateforme n'a cessé de rejeter la clé API — ajoutes-en une qui fonctionne et relance le bot."
+                permission_denied: "Il manque à la clé API une autorisation dont ce bot a besoin — mets-la à jour et relance le bot."
+                restricted: "La plateforme n'autorise pas le trading de cet actif depuis ton pays — change d'actif ou de plateforme."
             setting_orders: "Configuration des commandes…"
             paused: "En pause"
             archived: "Archivé"
@@ -295,6 +299,8 @@ fr:
                 flip_buying: "Commencer à vendre"
                 flip_selling: "Commencer à acheter"
             extra_amount_limit:
+                amount_spent: "Le montant total a été investi."
+                amount_sold: "Le montant total a été vendu."
                 sentence_html: "Ne pas dépenser plus de <span>%{value_html} %{quote}</span>"
                 sell_sentence_html: "Ne pas vendre plus de <span>%{value_html} %{base}</span>"
                 info:

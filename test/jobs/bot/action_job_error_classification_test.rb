@@ -1,8 +1,10 @@
 require 'test_helper'
 
-# Bot::ActionJob#ignorable_error_category decides whether a failed run is "out of funds"
-# (notify_end_of_funds, reschedule cleanly) or "something broke" (red email, retry storm,
-# bot parked in :retrying). Getting it wrong in the second direction is the silent-bot class.
+# Exchange#failure_kind decides what a failed run WAS — and therefore what happens next: out of
+# funds (notify_end_of_funds, reschedule), a credential/scope/region problem (stop the bot on the
+# second one in a row), or anything else (reschedule quietly). Getting it wrong towards
+# insufficient_funds tells a user to send money for a problem money cannot fix; getting it wrong
+# towards a blocking kind stops a working bot.
 #
 # Every other test around known_errors asserts the constants against themselves, which proves
 # nothing about matching. These feed the message a venue ACTUALLY produces — reconstructed from
@@ -57,8 +59,10 @@ class Bot::ActionJobErrorClassificationTest < ActiveSupport::TestCase
   NOT_OUT_OF_FUNDS.each do |key, message|
     test "#{key} does not classify #{message.truncate(60).inspect} as insufficient_funds" do
       factory = key.to_s.sub(/_permissions\z/, '').to_sym
-      assert_nil classify(factory, message),
-                 "#{key}: a non-funding failure must not be silenced as \"add funds\""
+      # Not assert_nil: failure_kind answers with the kind it IS (an invalid key is :invalid_key),
+      # and the only thing that matters here is that it is not the one that says "send money".
+      assert_not_equal :insufficient_funds, classify(factory, message),
+                       "#{key}: a non-funding failure must not be silenced as \"add funds\""
     end
   end
 
@@ -69,8 +73,69 @@ class Bot::ActionJobErrorClassificationTest < ActiveSupport::TestCase
     exchange = create(:binance_exchange)
     exchange.stubs(:known_errors).returns(insufficient_funds: ['', nil])
 
-    assert_nil Bot::ActionJob.new.send(:ignorable_error_category, stub(exchange: exchange),
-                                       RuntimeError.new('some unrelated explosion'))
+    assert_nil exchange.failure_kind(['some unrelated explosion'])
+  end
+
+  # The kinds that stop a bot. A false positive here parks a working bot until the user notices;
+  # a false negative leaves it failing on a schedule forever. Both bodies are production strings.
+  BLOCKING = [
+    # Geo/MiCA restriction. NOT :invalid_key (the key is fine) and NOT :permission_denied (no scope
+    # would fix it) — see the CREDENTIAL_REJECTED test below for why the distinction is load-bearing.
+    [:kraken_exchange, 'EAccount:Invalid permissions:USDT trading restricted for DE.', :restricted],
+    [:kraken_exchange, 'EGeneral:Permission denied', :permission_denied],
+    [:binance_exchange, 'Invalid API-key, IP, or permissions for action.', :invalid_key],
+    [:kraken_exchange, 'EAPI:Invalid key', :invalid_key]
+  ].freeze
+
+  BLOCKING.each do |(factory, body, kind)|
+    test "#{factory} classifies #{body.truncate(48).inspect} as #{kind}" do
+      assert_equal kind, classify(factory, body)
+      assert_includes Bot::Failable::BLOCKING_KINDS, kind
+    end
+  end
+
+  # Unrecognised is a real answer, and it must stay recoverable: an unknown string is not evidence
+  # of a permanent problem, and treating it as one would stop bots over a venue's new wording.
+  NOT_CLASSIFIED = [
+    # A collateral rejection, not an out-of-funds one — filing it under insufficient_funds would
+    # tell the user to top up the asset that is not the problem.
+    [:kraken_exchange, 'EOrder:Insufficient initial margin'],
+    # Our own code breaking must never look like a venue verdict.
+    [:binance_exchange, "undefined method 'price' for nil"]
+  ].freeze
+
+  NOT_CLASSIFIED.each do |(factory, body)|
+    test "#{factory} leaves #{body.truncate(48).inspect} unclassified" do
+      assert_nil classify(factory, body),
+                 "#{factory}: an unrecognised string must stay recoverable, not become a verdict"
+    end
+  end
+
+  # The invariant behind the whole stop rule: a string that means "this may fix itself" must never
+  # also mean "stop the bot". They are separate buckets, and the ordering in Exchange::FAILURE_KINDS
+  # makes the blocking one win on any overlap — so an overlap is a silent, permanent bot stop.
+  # Gemini's InvalidNonce was exactly that: a nonce is a request-ordering problem, and it sat in
+  # :invalid_key.
+  test 'no venue files one string as both blocking and recoverable' do
+    recoverable = Exchange::FAILURE_KINDS - Bot::Failable::BLOCKING_KINDS
+    overlaps = Exchange.subclasses.filter_map do |klass|
+      errors = klass.const_defined?(:ERRORS) ? klass::ERRORS : {}
+      blocking = Bot::Failable::BLOCKING_KINDS.flat_map { |kind| Array(errors[kind]).map(&:to_s) }
+      shared = blocking & recoverable.flat_map { |kind| Array(errors[kind]).map(&:to_s) }
+      "#{klass.name}: #{shared.inspect}" if shared.any?
+    end
+
+    assert_empty overlaps, "A recoverable rejection would stop the bot: #{overlaps.inspect}"
+  end
+
+  # Kraken composes CREDENTIAL_REJECTED from :invalid_key + :permission_denied, and that constant
+  # decides whether a key the user just pasted is rejected outright. A regional restriction says
+  # nothing about the key, so it must not leak into it.
+  test 'a regional restriction never rejects the API key at validation time' do
+    Exchanges::Kraken::ERRORS[:restricted].each do |pattern|
+      assert_not_includes Exchanges::Kraken::CREDENTIAL_REJECTED, pattern
+    end
+    assert_not create(:kraken_exchange).invalid_key_error?(['EAccount:Invalid permissions:USDT trading restricted for DE.'])
   end
 
   # Exchange#invalid_key_error? decides whether a live failure flips the key to :incorrect and
@@ -124,7 +189,6 @@ class Bot::ActionJobErrorClassificationTest < ActiveSupport::TestCase
   private
 
   def classify(factory, message)
-    exchange = create(factory)
-    Bot::ActionJob.new.send(:ignorable_error_category, stub(exchange: exchange), RuntimeError.new(message))
+    create(factory).failure_kind([message])
   end
 end

@@ -155,6 +155,8 @@ class BotSchedulingCycleRecoveryTest < ActiveSupport::TestCase
     assert bot.reload.next_action_job_at.present?
   end
 
+  # The job reschedules itself now rather than dead-lettering, so the repair sweep is back to being
+  # a safety net instead of the only thing keeping a failing bot alive.
   test 'reschedules after recoverable error' do
     bot = create(:dca_single_asset, :started)
     bot.stubs(:broadcast_below_minimums_warning)
@@ -163,15 +165,9 @@ class BotSchedulingCycleRecoveryTest < ActiveSupport::TestCase
     bot.stubs(:execute_action).returns(Result::Failure.new('Temporary error'))
     bot.stubs(:notify_about_error)
 
-    assert_raises(RuntimeError, 'Temporary error') do
-      Bot::ActionJob.perform_now(bot)
-    end
+    assert_nothing_raised { Bot::ActionJob.perform_now(bot) }
 
     assert_equal 'retrying', bot.reload.status
-
-    # Repair job should detect and reschedule
-    Bot::RepairOrphanedBotsJob.perform_now
-
-    assert bot.reload.next_action_job_at.present?
+    assert bot.reload.next_action_job_at.present?, 'the failing tick must queue its own successor'
   end
 end

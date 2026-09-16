@@ -65,6 +65,11 @@ nl:
             regional_restriction: "%{exchange} beperkt de handel in %{asset} in %{country}"
             transient_nonce: "%{exchange} heeft de nonce van het verzoek geweigerd. Gebruik je deze API-sleutel ook in een andere app, verhoog dan het Nonce Window in je %{exchange}-API-instellingen."
             transient_unavailable: "%{exchange} is tijdelijk niet beschikbaar. De bot probeert het automatisch opnieuw."
+            insufficient_funds: "Niet genoeg saldo op je %{exchange}-account."
+            invalid_key: "%{exchange} heeft de API-sleutel geweigerd. Check of hij nog actief is, of handelen ervoor aanstaat en of er geen IP-beperking op zit."
+            permission_denied: "De API-sleutel mist een recht dat %{exchange} hiervoor nodig heeft."
+            restricted: "%{exchange} staat handel in deze asset vanuit jouw regio niet toe."
+            rate_limited: "%{exchange} beperkt het aantal verzoeken. De bot probeert het automatisch opnieuw."
         bots:
             multi_asset:
                 condition_subject: "Deze voorwaarde moet betrekking hebben op een asset die de bot aanhoudt."

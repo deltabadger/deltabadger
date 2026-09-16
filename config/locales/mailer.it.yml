@@ -15,6 +15,9 @@ it:
         notify_about_error:
             subject: "Qualcosa è andato storto con %{label}"
             template_html: "<p>Qualcosa è andato storto durante l'elaborazione dell'ultima transazione per il bot <b>%{label}</b>.</p><p>Puoi vedere l'errore nel registro del bot. Accedi per controllarlo.</p><p>Errori:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        stopped_by_error:
+            subject: "%{label} è stato fermato"
+            template_html: "<p>Il tuo bot <b>%{label}</b> è stato fermato — l'exchange ha continuato a rifiutare i suoi ordini, e non si sistemerà da solo.</p><p>Risolvi il problema e riavvia il bot.</p><blockquote><b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Ops! Prossimo tentativo..."
             template_html: "<p>Il bot <b>%{label}</b> non è riuscito a eseguire il tuo ordine. Sembra un problema con l'exchange. Riproveremo tra %{delay}.</p><p>Tutti gli errori sono visibili nel registro del bot. Accedi per controllarlo.</p><p>Errori:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"

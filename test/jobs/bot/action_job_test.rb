@@ -186,26 +186,35 @@ module ActionJobBehaviorTests
       Bot::ActionJob.new.perform(bot)
     end
 
-    test 'raises error when bot already has a scheduled action job' do
+    # A duplicate tick is a no-op, not a failure. It used to raise, which flipped a perfectly
+    # healthy bot to :retrying on its way to the dead-letter — and now that the rescue reschedules
+    # rather than re-raising, that raise would have queued a SECOND successor as well.
+    test 'skips a duplicate tick without touching the bot or queueing another job' do
       bot = create_bot
       setup_action_job_mocks(bot)
       bot.stubs(:next_action_job_at).returns(1.hour.from_now)
+      bot.expects(:execute_action).never
+      Bot::ActionJob.unstub(:set)
+      Bot::ActionJob.expects(:set).never
 
-      error = assert_raises(RuntimeError) do
-        Bot::ActionJob.new.perform(bot)
-      end
-      assert_match(/already has an action job scheduled/, error.message)
+      assert_nothing_raised { Bot::ActionJob.new.perform(bot) }
+      assert_equal 'scheduled', bot.reload.status
     end
 
-    test 'raises error when execute_action fails' do
+    # The defect this whole change exists for: an unrecognised venue rejection used to re-raise,
+    # and with retry_on StandardError commented out in ApplicationJob that dead-lettered the job,
+    # scheduled nothing, and left the bot parked in :retrying until the orphan sweep found it.
+    test 'an unrecognised failure reschedules instead of dead-lettering' do
       bot = create_bot
       setup_action_job_mocks(bot)
       bot.stubs(:execute_action).returns(Result::Failure.new('Test error'))
       bot.stubs(:notify_about_error)
+      Bot::ActionJob.unstub(:set)
+      Bot::ActionJob.expects(:set).with(wait_until: bot.next_interval_checkpoint_at)
+                    .returns(stub(perform_later: true))
 
-      assert_raises(RuntimeError, 'Test error') do
-        Bot::ActionJob.new.perform(bot)
-      end
+      assert_nothing_raised { Bot::ActionJob.new.perform(bot) }
+      assert_equal 'retrying', bot.reload.status
     end
 
     test 'sets bot status to retrying when execute_action fails' do
@@ -281,16 +290,20 @@ module ActionJobBehaviorTests
       assert_equal original_status, bot.reload.status
     end
 
-    test 'humanized_errors helper humanizes the raw error message' do
+    test 'humanized_errors humanizes the raw message in the RECIPIENT\'s language' do
       bot = create_bot
       raw = 'EAccount:Invalid permissions:XAUT trading restricted for DK.'
-      error = StandardError.new(raw)
-      bot.exchange.stubs(:humanize_error).with(raw).returns('humanized message')
+      bot.user.update!(locale: 'pl')
+      # BotAlertsMailer calls set_locale AFTER it is handed these strings, so resolving them in the
+      # job's default locale put English error text inside an otherwise translated email.
+      bot.exchange.expects(:humanize_error).with(raw).returns('humanized message').with do
+        I18n.locale == :pl
+      end
 
-      assert_equal ['humanized message'], Bot::ActionJob.new.send(:humanized_errors, bot, error)
+      assert_equal ['humanized message'], Bot::ActionJob.humanized_errors(bot, raw)
     end
 
-    test 'notify_retry long-delay branch passes humanized message' do
+    test 'an unrecognised failure emails the humanized message' do
       bot = create_bot
       setup_action_job_mocks(bot)
       raw = 'boom'
@@ -298,29 +311,21 @@ module ActionJobBehaviorTests
       bot.exchange.stubs(:humanize_error).with(raw).returns('humanized')
       bot.expects(:notify_about_error).with(errors: ['humanized'])
 
-      job = Bot::ActionJob.new
-      # estimated_retry_delay > 1.minute and <= effective_interval_duration -> line 78 branch
-      job.stubs(:estimated_retry_delay).returns(2.minutes)
-
-      begin
-        job.perform(bot)
-      rescue StandardError
-        nil
-      end
+      Bot::ActionJob.new.perform(bot)
       assert_equal 'retrying', bot.reload.status
     end
 
-    test 'notify_ignorable for a non-insufficient_funds category passes humanized message' do
+    test 'notify_recoverable for a non-insufficient_funds kind passes the humanized message' do
       bot = create_bot
-      raw = 'some other ignorable error'
+      raw = 'some other recoverable error'
       error = StandardError.new(raw)
       bot.exchange.stubs(:humanize_error).with(raw).returns('humanized')
       bot.expects(:notify_about_error).with(errors: ['humanized'])
 
-      Bot::ActionJob.new.send(:notify_ignorable, bot, :some_other_category, error)
+      Bot::ActionJob.new.send(:notify_recoverable, bot, :some_other_kind, error)
     end
 
-    test 'notify_retry past-interval branch passes humanized message' do
+    test 'a second failure inside the day does not email again' do
       bot = create_bot
       setup_action_job_mocks(bot)
       raw = 'boom'
@@ -354,7 +359,7 @@ module ActionJobBehaviorTests
       end
     end
 
-    test 'logs an execution_failed activity tagged with the ignorable category' do
+    test 'logs an execution_failed activity tagged with the failure kind' do
       bot = create_bot
       setup_action_job_mocks(bot)
       bot.stubs(:execute_action).returns(Result::Failure.new('insufficient buying power'))
@@ -367,7 +372,7 @@ module ActionJobBehaviorTests
 
       log = bot.bot_activity_logs.where(event: 'execution_failed').last
       assert_equal 'error', log.level
-      assert_equal 'insufficient_funds', log.details['ignorable']
+      assert_equal 'insufficient_funds', log.details['kind']
     end
 
     test 'does not log execution_failed when a failed transaction was recorded this cycle' do
@@ -667,16 +672,19 @@ class Bot::ActionJobTransientNetworkTest < ActiveSupport::TestCase
     assert_equal 'info', log.level
   end
 
-  test 'placement: a genuine non-transient failure still raises (red path unchanged)' do
+  test 'placement: a genuine non-transient failure is reported, not silently retried' do
     bot = create(:dca_single_asset, :started)
     setup_action_job_mocks(bot)
+    bot.stubs(:notify_about_error)
     bot.define_singleton_method(:execute_action) do
       update!(status: :executing)
       Result::Failure.new('Filter failure: MIN_NOTIONAL')
     end
-    # The genuine-rejection path is unchanged: re-raise as today (rescue StandardError handles it).
-    assert_raises(RuntimeError) { Bot::ActionJob.new.perform(bot) }
+    # Still the red path — an execution_failed row and an email — but it reschedules rather than
+    # dead-lettering, because a rejected order is not a reason to stop ticking.
+    assert_nothing_raised { Bot::ActionJob.new.perform(bot) }
     assert_equal 'retrying', bot.reload.status
+    assert bot.bot_activity_logs.where(event: 'execution_failed').exists?
   end
 
   private
@@ -1015,5 +1023,209 @@ class Bot::ActionJobAmbiguousPlacementTest < ActiveSupport::TestCase
     bot.stubs(:broadcast_below_minimums_warning)
     Bot::ActionJob.stubs(:set).returns(stub(perform_later: true))
     Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+  end
+end
+
+# "Stop the bot when it cannot recover" — and, just as importantly, when NOT to. The blocking kinds
+# are credential/scope/region rejections, and on most venues a single one of those is ambiguous:
+# Binance and Bybit file a wrong IP, a missing scope and a revoked key under one string, Alpaca's
+# whole bucket is the substring "unauthorized", and IBKR 401s identically for a competing login.
+# So the rule is two in a row, and these tests pin both halves.
+class Bot::ActionJobBlockingFailureTest < ActiveSupport::TestCase
+  include ActiveJob::TestHelper
+
+  BLOCKING_MESSAGE = 'Invalid API-key, IP, or permissions for action.'.freeze
+
+  setup do
+    @bot = create(:dca_single_asset, :started)
+    setup_bot_execution_mocks(@bot)
+    @bot.stubs(:broadcast_below_minimums_warning)
+    @bot.stubs(:execute_action).returns(Result::Failure.new(BLOCKING_MESSAGE))
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+  end
+
+  test 'the first credential rejection reschedules rather than stopping the bot' do
+    @bot.stubs(:notify_about_error)
+    @bot.expects(:notify_stopped_by_error).never
+
+    Bot::ActionJob.new.perform(@bot)
+
+    assert_equal 'retrying', @bot.reload.status
+    assert @bot.reload.next_action_job_at.present?, 'a one-off auth blip must not end the chain'
+  end
+
+  test 'the second consecutive credential rejection stops the bot and says why' do
+    @bot.stubs(:notify_about_error)
+    @bot.record_failure!(:invalid_key)
+    @bot.expects(:notify_stopped_by_error).once
+
+    Bot::ActionJob.new.perform(@bot)
+
+    assert_equal 'stopped', @bot.reload.status
+    assert_equal 'bot.status.stopped_by_error.invalid_key', @bot.reload.stop_message_key
+  end
+
+  # perform_now, not perform_later: Bot::RepairOrphanedBotsJob sweeps every :scheduled/:retrying bot
+  # with no pending ActionJob, so a stop that has not landed by the time perform returns is a window
+  # in which the sweep re-arms the bot and it trades again.
+  test 'the stop has landed before the orphan sweep can see the bot' do
+    @bot.stubs(:notify_about_error)
+    @bot.stubs(:notify_stopped_by_error)
+    @bot.record_failure!(:invalid_key)
+
+    Bot::ActionJob.new.perform(@bot)
+    Bot::RepairOrphanedBotsJob.perform_now
+
+    assert_equal 'stopped', @bot.reload.status
+    assert_nil @bot.reload.next_action_job_at
+  end
+
+  # The stop mail is the one bot-failure mail exempt from the daily budget: it is sent once, at the
+  # moment the bot stops, and there is no later one to fall back on.
+  test 'the stop mail is sent even with the daily budget already spent' do
+    @bot.record_failure!(:invalid_key, notified: true)
+    @bot.expects(:notify_stopped_by_error).once
+    @bot.expects(:notify_about_error).never
+
+    Bot::ActionJob.new.perform(@bot)
+
+    assert_equal 'stopped', @bot.reload.status
+  end
+
+  test 'an intervening failure of another kind keeps the bot running' do
+    @bot.stubs(:notify_about_error)
+    @bot.record_failure!(:invalid_key)
+    @bot.record_failure!(:transient)
+    @bot.expects(:notify_stopped_by_error).never
+
+    Bot::ActionJob.new.perform(@bot)
+
+    assert_equal 'retrying', @bot.reload.status
+  end
+
+  test 'a repeated recoverable rejection never stops the bot' do
+    @bot.stubs(:execute_action).returns(Result::Failure.new('EOrder:Insufficient initial margin'))
+    @bot.stubs(:notify_about_error)
+    @bot.expects(:notify_stopped_by_error).never
+
+    3.times { Bot::ActionJob.new.perform(@bot) }
+
+    assert_equal 'retrying', @bot.reload.status
+  end
+end
+
+# "Notify him enough, but not too much." Before this, the classified path mailed on EVERY interval
+# and the unclassified path mailed never.
+class Bot::ActionJobNotificationBudgetTest < ActiveSupport::TestCase
+  include ActiveSupport::Testing::TimeHelpers
+
+  setup do
+    @bot = create(:dca_single_asset, :started)
+    setup_bot_execution_mocks(@bot)
+    @bot.stubs(:broadcast_below_minimums_warning)
+    Bot::ActionJob.stubs(:set).returns(stub(perform_later: true))
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+  end
+
+  test 'the same failure twice in a day mails once' do
+    @bot.stubs(:execute_action).returns(Result::Failure.new('boom'))
+    @bot.expects(:notify_about_error).once
+
+    2.times { perform_failing_tick }
+  end
+
+  test 'the same failure a day later mails again' do
+    @bot.stubs(:execute_action).returns(Result::Failure.new('boom'))
+    @bot.expects(:notify_about_error).twice
+
+    perform_failing_tick
+    travel(25.hours) { perform_failing_tick }
+  end
+
+  test 'a different failure inside the window is news and mails immediately' do
+    @bot.stubs(:execute_action).returns(Result::Failure.new('boom'))
+    @bot.expects(:notify_about_error).twice
+
+    perform_failing_tick
+    # A genuinely different KIND, not just different words: an unrecognised string and a credential
+    # rejection share no budget, so the second one is news even inside the window.
+    @bot.stubs(:execute_action).returns(Result::Failure.new('Invalid API-key, IP, or permissions for action.'))
+    perform_failing_tick
+
+    assert_equal 'invalid_key', @bot.reload.last_failure_kind
+  end
+
+  # A rejected order used to mail end_of_funds on every single interval, because Bot::Fundable's
+  # day-long budget guards only the PREEMPTIVE low-balance warning, never the rejection path.
+  test 'a repeated out-of-funds rejection mails once a day, not once an interval' do
+    @bot.stubs(:execute_action).returns(Result::Failure.new('EOrder:Insufficient funds'))
+    @bot.exchange.stubs(:known_errors).returns(insufficient_funds: ['EOrder:Insufficient funds'])
+    @bot.expects(:notify_end_of_funds).once
+
+    3.times { perform_failing_tick }
+  end
+
+  private
+
+  def perform_failing_tick
+    # next_action_job_at is derived from the queue, and Bot::ActionJob.set is stubbed here, so
+    # resetting the status is all a fresh tick needs.
+    @bot.update_columns(status: 'scheduled')
+    Bot::ActionJob.new.perform(@bot)
+  end
+end
+
+# A blocking stop is the one place this job writes a terminal status, so a user action landing in
+# the window between the :retrying transition and the stop itself must win. Before the guard, a
+# soft delete in that window came back as a live :stopped bot with a "we stopped it" email.
+class Bot::ActionJobBlockingStopRaceTest < ActiveSupport::TestCase
+  setup do
+    @bot = create(:dca_single_asset, :started)
+    setup_bot_execution_mocks(@bot)
+    @bot.stubs(:broadcast_below_minimums_warning)
+    @bot.stubs(:notify_about_error)
+    @bot.stubs(:execute_action).returns(Result::Failure.new('Invalid API-key, IP, or permissions for action.'))
+    @bot.record_failure!(:invalid_key)
+    Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
+  end
+
+  # The re-read lands after the delete: Bot.find answers with a row that is no longer working.
+  test 'a delete landing in the stop window is neither overwritten nor emailed about' do
+    deleted = terminal_copy('deleted')
+    Bot.stubs(:find).with(@bot.id).returns(deleted)
+    Bot::StopJob.expects(:perform_now).never
+    @bot.expects(:notify_stopped_by_error).never
+
+    Bot::ActionJob.new.perform(@bot)
+
+    assert_equal 'retrying', @bot.reload.status, 'the job must leave the terminal write to the deleter'
+  end
+
+  test 'an archive landing in the stop window is left alone too' do
+    archived = terminal_copy('archived')
+    Bot.stubs(:find).with(@bot.id).returns(archived)
+    Bot::StopJob.expects(:perform_now).never
+    @bot.expects(:notify_stopped_by_error).never
+
+    Bot::ActionJob.new.perform(@bot)
+  end
+
+  # ...and the model refuses the write even if something does reach it, which covers the other
+  # callers of Bot#stop (the API-key sweep, the settings controller, a queued Bot::StopJob).
+  test 'Bot#stop never writes over a soft-deleted bot' do
+    @bot.update_columns(status: 'deleted')
+
+    assert @bot.stop(stop_message_key: 'bot.status.stopped_by_error.invalid_key')
+    assert_equal 'deleted', @bot.reload.status
+    assert_nil @bot.reload.stop_message_key
+  end
+
+  private
+
+  # .where.first, not .find: Bot.find is stubbed by the caller and DcaSingleAsset inherits it.
+  def terminal_copy(status)
+    copy = Bots::DcaSingleAsset.where(id: @bot.id).first
+    copy.status = status
+    copy
   end
 end

@@ -58,6 +58,11 @@ bg:
             regional_restriction: "%{exchange} ограничава търговията с %{asset} в %{country}"
             transient_nonce: "%{exchange} отхвърли nonce на заявката. Ако използвате този API ключ и в друго приложение, увеличете неговия Nonce Window в настройките за API на %{exchange}."
             transient_unavailable: "%{exchange} е временно недостъпна. Ботът ще опита отново автоматично."
+            insufficient_funds: "Няма достатъчно средства в акаунта ви в %{exchange}."
+            invalid_key: "%{exchange} отхвърли API ключа. Проверете дали е още активен, дали търговията е разрешена за него и дали IP ограничение не го блокира."
+            permission_denied: "На API ключа му липсва разрешение, което %{exchange} изисква за това."
+            restricted: "%{exchange} не позволява търговия с този актив от вашия регион."
+            rate_limited: "%{exchange} ограничава броя на заявките. Ботът ще опита отново автоматично."
         bots:
             multi_asset:
                 condition_subject: "Това условие трябва да се отнася до актив, който ботът притежава."

@@ -10,6 +10,7 @@ class Bot < ApplicationRecord
   include Typeable
   include Rankable
   include Notifyable
+  include Failable
   include ExchangeUser
   include ActivityLoggable
   include ChartSeries # chart marked at market (candle grid), shared by every measurable

@@ -15,6 +15,9 @@ da:
         notify_about_error:
             subject: "Noget gik galt med %{label}"
             template_html: "<p>Noget gik galt under behandlingen af den seneste transaktion for bot <b>%{label}</b>.</p><p>Du kan se fejlen i bot-loggen. Log ind for at tjekke den.</p><p>Fejl:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        stopped_by_error:
+            subject: "%{label} er blevet stoppet"
+            template_html: "<p>Din bot <b>%{label}</b> er blevet stoppet — børsen blev ved med at afvise dens ordrer, og det går ikke over af sig selv.</p><p>Få styr på problemet, og start botten igen.</p><blockquote><b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Ups! Næste forsøg…"
             template_html: "<p>Botten <b>%{label}</b> kunne ikke udføre din ordre. Det ser ud til at være et børsproblem. Vi prøver igen om %{delay}.</p><p>Alle fejl er synlige i bot-loggen. Log ind for at se dem.</p><p>Fejl:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"

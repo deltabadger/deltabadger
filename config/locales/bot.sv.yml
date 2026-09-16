@@ -58,6 +58,10 @@ sv:
             locked_while_rebalancing: 'En ombalansering pågår fortfarande — börsen kan bytas när den är klar.'
         status:
             exchange_retired: 'Den här börsen finns inte längre — flytta boten till en annan.'
+            stopped_by_error:
+                invalid_key: 'Börsen fortsatte att avvisa API-nyckeln — lägg till en som fungerar och starta boten igen.'
+                permission_denied: 'API-nyckeln saknar en behörighet som boten behöver — uppdatera den och starta boten igen.'
+                restricted: 'Börsen tillåter inte handel med den här tillgången från din region — byt tillgång eller börs.'
             setting_orders: "Lägger ordrar…"
             paused: "Pausad"
             archived: "Arkiverad"
@@ -313,6 +317,8 @@ sv:
                 flip_buying: "Börja sälja"
                 flip_selling: "Börja köpa"
             extra_amount_limit:
+                amount_spent: 'Hela beloppet har investerats.'
+                amount_sold: 'Hela beloppet har sålts.'
                 sentence_html: "Spendera inte mer än <span>%{value_html} %{quote}</span>"
                 sell_sentence_html: "Sälj inte mer än <span>%{value_html} %{base}</span>"
                 info:

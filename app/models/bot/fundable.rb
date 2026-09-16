@@ -29,8 +29,9 @@ module Bot::Fundable
     exchange.spendable_balance(result.data, tickers: tickers) < required_balance_buffer
   end
 
-  private
-
+  # Public because Bot::Failable shares this budget from the order-rejection path: the preemptive
+  # low-balance warning here and a venue's "insufficient funds" rejection are the same email to the
+  # user, and two independent day-long throttles on one email is two emails a day.
   def notified_in_last_day?
     # notified_in_last_day? per asset - check all bots with the same quote_asset
     user.bots
@@ -39,6 +40,8 @@ module Bot::Fundable
         .where('last_end_of_funds_notification > ?', 1.day.ago)
         .exists?
   end
+
+  private
 
   def required_balance_buffer
     quote_amount / interval_duration.to_f * 3.days.to_f

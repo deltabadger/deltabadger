@@ -15,6 +15,9 @@ en:
         notify_about_error:
             subject: "Something went wrong with %{label}"
             template_html: "<p>Something went wrong while processing the last transaction for bot <b>%{label}</b>.</p><p>You can see the error in the bot log. Sign in to check it.</p><p>Errors:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        stopped_by_error:
+            subject: "%{label} has been stopped"
+            template_html: "<p>Your bot <b>%{label}</b> has been stopped — the exchange kept rejecting its orders, and that will not fix itself.</p><p>Sort the problem out and start the bot again.</p><blockquote><b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Oops! Next try…"
             template_html: "<p>The bot <b>%{label}</b> couldn't perform your order. It looks like an exchange issue. We'll try again in %{delay}.</p><p>All errors are visible in the bot log. Sign in to check it out.</p><p>Errors:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"

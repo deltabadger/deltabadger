@@ -87,7 +87,8 @@ class AccountTransaction::SyncTrackerJobTest < ActiveSupport::TestCase
       "user_#{@user.id}", :sync,
       target: 'flash',
       partial: 'tracker/sync_key_error',
-      locals: { exchange_name: 'Kraken', message: 'EGeneral:Permission denied',
+      locals: { exchange_name: 'Kraken',
+                message: I18n.t('errors.exchange.permission_denied', exchange: 'Kraken'),
                 reason: :permission, capability: :transactions }
     )
 

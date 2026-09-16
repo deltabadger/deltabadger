@@ -15,6 +15,9 @@ pl:
         notify_about_error:
             subject: "Coś poszło nie tak z %{label}"
             template_html: "<p>Coś poszło nie tak podczas przetwarzania ostatniej transakcji dla bota <b>%{label}</b>.</p><p>Możesz zobaczyć błąd w dzienniku bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
+        stopped_by_error:
+            subject: "%{label} został zatrzymany"
+            template_html: "<p>Twój bot <b>%{label}</b> został zatrzymany — giełda ciągle odrzucała jego zlecenia, a to samo się nie naprawi.</p><p>Rozwiąż problem i uruchom bota ponownie.</p><blockquote><b>%{exchange_name}:</b> <b>%{errors}</b></blockquote>"
         notify_about_restart:
             subject: "Ups! Następna próba..."
             template_html: "<p>Bot <b>%{label}</b> nie mógł wykonać Twojego zlecenia. Wygląda na problem z giełdą. Spróbujemy ponownie za %{delay}.</p><p>Wszystkie błędy są widoczne w dzienniku bota. Zaloguj się, aby to sprawdzić.</p><p>Błędy:</p><blockquote> <b>%{exchange_name}:</b> <b>%{errors}</b> </blockquote>"

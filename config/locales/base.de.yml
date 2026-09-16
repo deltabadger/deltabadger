@@ -718,6 +718,7 @@ de:
             dca_skipped_liquidation_pending: "Beitrag übersprungen — ein Verkauf läuft noch"
             started: 'Bot gestartet'
             stopped: 'Bot gestoppt'
+            stopped_with_reason: 'Bot gestoppt: %{reason}'
             reschedule_disabled: 'Automatische Planung pausiert'
             market_closed: 'Markt geschlossen — nächste Öffnung %{time}'
             limit_paused: 'Pausiert: Limit %{limit} nicht erfüllt'

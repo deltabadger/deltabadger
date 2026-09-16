@@ -717,6 +717,7 @@ it:
             dca_skipped_liquidation_pending: "Contributo saltato — una vendita è ancora in corso"
             started: 'Bot avviato'
             stopped: 'Bot arrestato'
+            stopped_with_reason: 'Bot arrestato: %{reason}'
             reschedule_disabled: 'Pianificazione automatica in pausa'
             market_closed: 'Mercato chiuso — prossima apertura %{time}'
             limit_paused: 'In pausa: limite %{limit} non soddisfatto'
