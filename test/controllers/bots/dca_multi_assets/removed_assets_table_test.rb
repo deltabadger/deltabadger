@@ -32,6 +32,23 @@ class Bots::DcaMultiAssetsRemovedAssetsTableTest < ActionDispatch::IntegrationTe
                   new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC'), count: 1
   end
 
+  test 'Sell all sits over the removed-assets table too' do
+    # The widget is shared with index bots; the band must not become index-only. A fourth member,
+    # because a basket validates down to two and this removes two.
+    @assets['DDD'] = create(:asset, symbol: 'DDD', name: 'Coin DDD', external_id: 'coin-ddd')
+    allocations = @assets.values.index_with { 0.25 }
+    @bot = create(:dca_multi_asset, user: @user, exchange: @bot.exchange, quote_asset: @bot.quote_asset,
+                                    base_assets: allocations.keys, allocations: allocations)
+    remove_member('BBB')
+    remove_member('CCC')
+    warm_prices('AAA' => 50, 'BBB' => 30, 'CCC' => 20, 'DDD' => 10)
+
+    get bot_path(id: @bot.id)
+
+    assert_select '.exited-header a[href=?][data-turbo-frame="modal"]',
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: %w[BBB CCC]), count: 1
+  end
+
   test 'an in-portfolio asset carries a Sell button of its own' do
     # Any position can be closed on its own, a current member included.
     remove_member('CCC')

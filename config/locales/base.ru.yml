@@ -708,6 +708,7 @@ ru:
             liquidation_ambiguous: "Статус ордера на продажу не подтверждён — пауза, чтобы не разместить его дважды"
             liquidation_manually_resolved: "Неподтверждённая продажа сброшена вручную"
             liquidation_market_closed: "Рынок закрыт — ничего не продано"
+            liquidation_batch_cut_short: "Остановлено раньше — %{bases} ещё не проданы"
             liquidation_not_started: "Ничего не продано — бот был занят или индекс не удалось обновить"
             liquidation_failed: "Продажа не удалась: %{error}"
             orders_below_minimum: "%{count} активов оказались ниже минимума биржи в этот раз и переносятся: %{bases}"

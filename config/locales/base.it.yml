@@ -704,6 +704,7 @@ it:
             liquidation_ambiguous: "Stato dell’ordine di vendita non confermato — in pausa per non inviarlo due volte"
             liquidation_manually_resolved: "Vendita non confermata azzerata manualmente"
             liquidation_market_closed: "Mercato chiuso — niente venduto"
+            liquidation_batch_cut_short: "Interrotto prima — %{bases} non ancora venduti"
             liquidation_not_started: "Non è stato venduto nulla — il bot era occupato o l’indice non si è aggiornato"
             liquidation_failed: "Vendita fallita: %{error}"
             orders_below_minimum: "%{count} asset sono rimasti sotto il minimo dell'exchange questa volta e vengono riportati: %{bases}"

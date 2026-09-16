@@ -716,6 +716,7 @@ da:
             liquidation_ambiguous: "Salgsordrens status er ubekræftet — sat på pause, så den ikke placeres to gange"
             liquidation_manually_resolved: "Ubekræftet salg ryddet manuelt"
             liquidation_market_closed: "Markedet er lukket — intet solgt"
+            liquidation_batch_cut_short: "Stoppet tidligt — %{bases} er ikke solgt endnu"
             liquidation_not_started: "Intet blev solgt — botten var optaget, eller indekset kunne ikke opdateres"
             liquidation_failed: "Selling failed: %{error}"
             orders_below_minimum: "%{count} constituents were under the exchange minimum this time and carry forward: %{bases}"

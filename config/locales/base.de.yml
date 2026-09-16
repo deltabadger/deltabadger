@@ -705,6 +705,7 @@ de:
             liquidation_ambiguous: "Status der Verkaufsorder unbestätigt — pausiert, damit sie nicht doppelt platziert wird"
             liquidation_manually_resolved: "Unbestätigter Verkauf manuell zurückgesetzt"
             liquidation_market_closed: "Markt geschlossen — nichts verkauft"
+            liquidation_batch_cut_short: "Früh gestoppt — %{bases} noch nicht verkauft"
             liquidation_not_started: "Nichts verkauft — der Bot war beschäftigt oder der Index ließ sich nicht aktualisieren"
             liquidation_failed: "Verkauf fehlgeschlagen: %{error}"
             orders_below_minimum: "%{count} Werte lagen diesmal unter dem Börsenminimum und werden übertragen: %{bases}"

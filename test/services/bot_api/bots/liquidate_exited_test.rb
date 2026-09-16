@@ -12,7 +12,7 @@ class BotApi::Bots::LiquidateExitedTest < ActiveSupport::TestCase
   end
 
   test 'enqueues the sale and logs the request' do
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbol: 'DOGE')
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE])
 
     result = BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: 'DOGE')
 
@@ -26,6 +26,46 @@ class BotApi::Bots::LiquidateExitedTest < ActiveSupport::TestCase
   test 'a symbol the bot does not hold cannot be sold' do
     Bot::LiquidateExitedJob.expects(:perform_later).never
     assert_equal 'holding_not_held', BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: 'BTC').error_code
+  end
+
+  test 'several symbols are queued as one job' do
+    # Not one job per symbol: liquidation_blocked_reason refuses while an earlier sale's order is
+    # still working, so jobs 2..N would be declined after the caller was told the sale started.
+    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE SHIB])
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE SHIB]).once
+
+    result = BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: %w[DOGE SHIB])
+
+    assert result.success?, result.error_message
+    assert_equal %w[DOGE SHIB], result.data[:symbols]
+    assert_equal 'DOGE, SHIB', @bot.bot_activity_logs.last.details['base']
+  end
+
+  test 'a one-symbol sale answers exactly as it always has' do
+    # `symbol` is the REST body's field and the MCP sentence's subject; a one-element join IS that
+    # element, so nothing downstream sees a change.
+    Bot::LiquidateExitedJob.expects(:perform_later)
+
+    result = BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: 'DOGE')
+
+    assert_equal 'DOGE', result.data[:symbol]
+  end
+
+  test 'a list containing an unheld position is refused whole' do
+    # No confirmation step here in which to show a reduced list, unlike the page.
+    Bot::LiquidateExitedJob.expects(:perform_later).never
+
+    result = BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: %w[DOGE ZZZ])
+
+    assert_equal 'holding_not_held', result.error_code
+    assert_match(/ZZZ/, result.error_message)
+  end
+
+  test 'naming nothing sells nothing' do
+    Bot::LiquidateExitedJob.expects(:perform_later).never
+
+    assert_equal 'holding_not_held',
+                 BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: []).error_code
   end
 
   test 'only composition bots, and not archived ones' do

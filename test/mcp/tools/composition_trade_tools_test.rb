@@ -24,7 +24,7 @@ class CompositionTradeToolsTest < ActiveSupport::TestCase
   end
 
   test 'liquidate_exited_asset queues the sale' do
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbol: 'DOGE')
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE])
 
     text = LiquidateExitedAssetTool.new(bot_id: @bot.id, symbol: 'DOGE').execute.contents.first.text
 

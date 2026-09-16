@@ -85,7 +85,7 @@
   <%# Any position can be closed on its own, so Sell sits on every sellable row of both tables — a
       dust remainder the venue cannot sell gets none. A halted liquidation blocks the lot until it
       is resolved, and an archived or deleted bot cannot trade at all. %>
-  <% may_sell = !bot.liquidation_ambiguous? && !bot.archived? && !bot.deleted? %>
+  <% may_sell = !bot.liquidation_halted? && !bot.archived? && !bot.deleted? %>
   <% sellable = may_sell ? bot.sellable_holdings(metrics).to_h { |h| [h[:symbol], true] } : {} %>
   <% if asset_values.present? %>
     <% in_index = bot.bot_index_assets.in_index.includes(:asset).to_set { |bia| bia.asset.symbol } %>
@@ -108,20 +108,51 @@
   <%# NOT nested under asset_values: a failed live price read empties that hash, and it is exactly
       the network trouble that produces an unresolved placement in the first place. The Clear action
       has to survive it — resolving an untracked order needs no prices at all. %>
-  <% if exited.any? || bot.liquidation_ambiguous? %>
+  <% if exited.any? || bot.liquidation_halted? %>
     <%# A locked quitter is listed once, in its own table below. %>
     <% exited_values = exited.index_by { |holding| holding[:symbol] }.except(*locked_symbols) %>
     <div id="exited_metrics_table" class="widget widget--table" data-controller="table-fit">
       <div class="exited-header">
         <span class="label"><%= t(exited_title_key) %></span>
-        <% if bot.liquidation_ambiguous? %>
+        <%# if/elsif, so the halt and the batch action can never render side by side: one of them
+            says "do not trade this bot" and the other offers to. %>
+        <% halt = bot.liquidation_halt %>
+        <% if halt[:bases].any? %>
           <%# A halted liquidation is the one thing that must not be re-run: the outcome of the last
-              placement is unknown, so selling again could sell assets that are already gone. %>
-          <span class="text-error"><%= t('bot.liquidation.halted') %></span>
+              placement is unknown, so selling again could sell assets that are already gone.
+              Named, because a sale can cover several positions and "Sale unconfirmed" alone would
+              point at all of them. The names cover both halves: a placement with no row to point
+              at, and orders the venue stopped reporting. %>
+          <span class="text-error">
+            <%= "#{t('bot.liquidation.halted')} · #{halt[:bases].join(', ')}" %>
+          </span>
+          <%# The order ids ride along, so the attestation covers exactly the rows listed here —
+              anything given up on after this render keeps blocking instead of being cleared by an
+              answer that was never about it.
+
+              The nonce goes only with an AMBIGUOUS intent, which is the only kind the text above
+              names. A `placing` one is not shown — its placement may still be running — so sending
+              its nonce would let this answer clear a sale the user was never asked about, if it
+              turned ambiguous between this render and the job.
+
+              Names and ids come from ONE snapshot: asked separately they can disagree, and a row
+              given up on between the two reads would be submitted here without appearing above. %>
           <%= button_to t('bot.liquidation.resolve'),
-                        bot_liquidation_resolutions_path(bot_id: bot.id, intent_id: bot.liquidation_pending[:id]),
+                        bot_liquidation_resolutions_path(bot_id: bot.id, intent_id: halt[:intent_id],
+                                                         order_ids: halt[:order_ids]),
                         class: 'rbutton rbutton--danger',
                         form: { data: { turbo_confirm: t('bot.liquidation.resolve_confirm') } } %>
+        <%# The list is built FROM the rows this table renders, so the button can never name a
+            position the page is not showing — members, dust and wash-sale names are already out.
+            A link into the confirmation, never a form that places from here.
+
+            may_sell as well as the branch above: that one covers the halt, but archived and deleted
+            are exactly what gates the row Sells. .many?, because over a single row this would be
+            that row's own Sell, twice, on a money path. %>
+        <% elsif may_sell && exited_values.many? %>
+          <%= link_to t('bot.liquidation.sell_all'),
+                      new_bot_liquidation_path(bot_id: bot.id, symbol: exited_values.keys),
+                      class: 'rbutton rbutton--small rbutton--danger', data: { turbo_frame: 'modal' } %>
         <% end %>
       </div>
       <% if exited_values.any? %>

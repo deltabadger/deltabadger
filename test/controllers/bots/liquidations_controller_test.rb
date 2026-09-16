@@ -101,7 +101,87 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
   #
   # A market sale of everything that left the index is the most destructive thing on the page, and a
   # browser confirm() names nothing it is about to sell. It gets the app's own modal, like every
-  # other irreversible action here, and the modal lists the positions.
+  # other irreversible action here, and the modal lists the positions — which is what makes a bulk
+  # button answerable at all.
+
+  test 'the confirmation names every position it will sell' do
+    quitters('AAA' => :in_index, 'CCC' => :exited, 'DDD' => :exited)
+    warm_prices('AAA' => 100, 'CCC' => 20, 'DDD' => 30)
+
+    get new_bot_liquidation_path(bot_id: @bot.id, symbol: %w[CCC DDD])
+
+    assert_response :success
+    assert_select '.modal .widget--table #liquidation_confirm_list tr', 2
+    assert_select '.modal', /CCC/
+    assert_select '.modal', /DDD/
+    # The member was not named and must not be swept in.
+    assert_select '.modal', { text: /AAA/, count: 0 }
+    assert_select '.modal form[action=?]', bot_liquidation_path(bot_id: @bot.id, symbol: %w[CCC DDD]), count: 1
+  end
+
+  test 'a stale name drops out of the confirmation instead of failing it' do
+    # Sold from another tab between the render and the click. Refusing the whole click with a bare
+    # 404 would show the user nothing at all; dropping it shows them the reduced list to approve.
+    quitters('AAA' => :in_index, 'CCC' => :exited)
+    warm_prices('AAA' => 100, 'CCC' => 20)
+
+    get new_bot_liquidation_path(bot_id: @bot.id, symbol: %w[CCC GONE])
+
+    assert_response :success
+    assert_select '#liquidation_confirm_list tr', 1
+    assert_select '.modal', /CCC/
+  end
+
+  test 'a cold price cache still names the positions, with their amounts' do
+    # The modal exists to say WHICH positions are being sold. An empty list names none of them, and
+    # a row with no amount renders as a flat 0, which is worse than saying nothing.
+    quitters('AAA' => :in_index, 'CCC' => :exited, 'DDD' => :exited)
+    warm_prices('AAA' => 100, 'CCC' => 20, 'DDD' => 30)
+    @bot.stubs(:metrics_with_current_prices_from_cache).returns(nil)
+
+    get new_bot_liquidation_path(bot_id: @bot.id, symbol: %w[CCC DDD])
+
+    assert_response :success
+    assert_select '#liquidation_confirm_list tr', 2
+    assert_select '#liquidation_confirm_list tr td', text: '0', count: 0
+  end
+
+  test 'the whole list is queued as one job' do
+    # Not one job per symbol: liquidation_blocked_reason refuses while an earlier sale's order is
+    # still working, so jobs 2..N would be declined after the user was told the sale started.
+    quitters('AAA' => :in_index, 'CCC' => :exited, 'DDD' => :exited)
+    warm_prices('AAA' => 100, 'CCC' => 20, 'DDD' => 30)
+
+    post bot_liquidation_path(bot_id: @bot.id, symbol: %w[CCC DDD])
+
+    assert_equal 1, queued(Bot::LiquidateExitedJob).count
+    assert_match(/CCC.*DDD/m, queued(Bot::LiquidateExitedJob).last.arguments.to_s)
+  end
+
+  test 'the flash is plural for a batch and unchanged for one' do
+    quitters('AAA' => :in_index, 'CCC' => :exited, 'DDD' => :exited)
+    warm_prices('AAA' => 100, 'CCC' => 20, 'DDD' => 30)
+
+    post bot_liquidation_path(bot_id: @bot.id, symbol: %w[CCC DDD])
+    assert_match I18n.t('bot.liquidation.started_all'), response.body
+
+    post bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC')
+    assert_match I18n.t('bot.liquidation.started'), response.body
+  end
+
+  test 'a sale that names nothing sells nothing' do
+    # No fallback to "everything exited": a request that names no position is a bug, and a bug must
+    # not be able to mean sell the lot.
+    sellable_quitter
+
+    post bot_liquidation_path(bot_id: @bot.id)
+    assert_response :not_found
+
+    post bot_liquidation_path(bot_id: @bot.id, symbol: [])
+    assert_response :not_found
+
+    assert_not_predicate queued(Bot::LiquidateExitedJob), :exists?
+  end
 
   test 'the confirmation names the one holding it will sell' do
     quitters('AAA' => :in_index, 'CCC' => :exited, 'DDD' => :exited)
@@ -119,7 +199,8 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     assert_select '.modal', /CCC/
     # The other quitter is not part of this sale and must not appear in the list.
     assert_select '.modal', { text: /DDD/, count: 0 }
-    assert_select '.modal form[action=?]', bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC'), count: 1
+    # The approved list rides in the action, so it is an array even when it names one position.
+    assert_select '.modal form[action=?]', bot_liquidation_path(bot_id: @bot.id, symbol: %w[CCC]), count: 1
   end
 
   test 'an in-index holding opens the same confirmation' do
@@ -197,6 +278,24 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     post bot_liquidation_resolutions_path(bot_id: @bot.id, intent_id: @bot.liquidation_pending[:id])
 
     assert_predicate queued(Bot::ResolveLiquidationJob), :exists?
+  end
+
+  test 'the clear attests about the orders it was shown' do
+    # An order the venue gave up on AFTER the page rendered was never part of the question, so it
+    # must not be covered by the answer.
+    asset = create(:asset, symbol: 'CCC', name: 'Coin CCC', external_id: 'coin-ccc')
+    create(:ticker, exchange: @bot.exchange, base_asset: asset, quote_asset: @bot.quote_asset)
+    Bot.any_instance.stubs(:broadcast_new_order)
+    gone = create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted,
+                                external_status: :abandoned, external_id: 'gone', side: :sell, base: 'CCC',
+                                quote: @bot.quote_asset.symbol, transaction_type: 'LIQUIDATION',
+                                price: 100, amount: 1)
+
+    post bot_liquidation_resolutions_path(bot_id: @bot.id, intent_id: 'none', order_ids: [gone.id])
+
+    job = queued(Bot::ResolveLiquidationJob).last
+    assert job, 'the clear has to reach the queue'
+    assert_match(/#{gone.id}/, job.arguments.to_s)
   end
 
   test 'a halt is not clearable while one of its orders is still working' do

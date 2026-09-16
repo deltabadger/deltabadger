@@ -19,7 +19,13 @@ class Bots::LiquidationResolutionsController < ApplicationController
 
     # Enqueued rather than cleared here: the job holds the exchange semaphore, so it cannot clear an
     # intent while a placement is still in flight. It also re-checks the generation id.
-    Bot::ResolveLiquidationJob.perform_later(@bot, intent_id: params[:intent_id].to_s, user_id: current_user.id)
+    #
+    # The order ids come from the request, so the attestation covers exactly what the page listed.
+    # Anything the venue gave up on between that render and this click is not in the list and goes
+    # on blocking, rather than being cleared by an answer the user never gave about it.
+    Bot::ResolveLiquidationJob.perform_later(@bot, intent_id: params[:intent_id].to_s,
+                                                   order_ids: Array(params[:order_ids]).map(&:to_i),
+                                                   user_id: current_user.id)
     redirect_back fallback_location: bot_path(@bot), notice: t('bot.liquidation.resolved')
   end
 

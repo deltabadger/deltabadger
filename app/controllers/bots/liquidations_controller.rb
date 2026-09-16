@@ -1,5 +1,5 @@
-# Sells one holding of a composition bot — a current member or one the composition has dropped — at
-# the user's request.
+# Sells the positions a user named on a composition bot — one row's Sell, or every row of the
+# quitters table via its Sell all.
 #
 # Deliberately manual: closing one of these positions is a taxable disposal, and folding it into
 # rebalancing meant a member hovering at the composition boundary got sold and re-bought on every
@@ -7,18 +7,25 @@
 class Bots::LiquidationsController < ApplicationController
   before_action :authenticate_user!
   before_action :set_bot
-  before_action :set_symbol
+  before_action :set_symbols
 
-  # The confirmation modal. It names the position rather than asking in the abstract: this is an
-  # irreversible market sale and a browser confirm() says nothing about what it is closing.
+  # The confirmation modal. It names every position rather than asking in the abstract: these are
+  # irreversible market sales and a browser confirm() says nothing about what it is closing. That
+  # is what answers the old objection to a bulk button.
   #
   # Reads the cached metrics only — a live price sweep does not belong in a request, and the page
-  # that offered the button has just rendered this same row, so the cache is warm. With no cache the
-  # modal degrades to the question alone, which is why the symbol is NOT validated against this.
+  # that offered the button has just rendered these same rows, so the cache is warm. A row whose
+  # price is missing still gets listed, with the amount off the price-free ledger: "Sell these
+  # positions?" over an empty list names nothing it is about to sell, and a row with no amount at
+  # all renders as a flat 0, which is worse than saying nothing.
   def new
-    @holding = @bot.sellable_holdings(@bot.metrics_with_current_prices_from_cache || {})
-                   .find { |holding| holding[:symbol] == @symbol }
-    @exited = @bot.exited_symbols.include?(@symbol)
+    priced = @bot.sellable_holdings(@bot.metrics_with_current_prices_from_cache || {}).index_by { |h| h[:symbol] }
+    tickers = @bot.tickers.index_by(&:base)
+    ledger = @bot.metrics[:asset_breakdown] || {}
+    @holdings = @symbols.map do |symbol|
+      priced[symbol] || { symbol: symbol, ticker: tickers[symbol], amount: ledger.dig(symbol, :amount) }
+    end
+    @exited = (@symbols - @bot.exited_symbols).empty?
   end
 
   # One implementation: BotApi::Bots::LiquidateExited also backs the MCP tool and the REST
@@ -26,9 +33,9 @@ class Bots::LiquidationsController < ApplicationController
   def create
     return refuse(t('settings.wash_sale.prompt_missing')) unless wash_sale_answer_recorded?
 
-    result = BotApi::Bots::LiquidateExited.call(user: current_user, bot_id: @bot.id, symbol: @symbol)
+    result = BotApi::Bots::LiquidateExited.call(user: current_user, bot_id: @bot.id, symbol: @symbols)
     if result.success?
-      flash.now[:notice] = t('bot.liquidation.started')
+      flash.now[:notice] = t(@symbols.many? ? 'bot.liquidation.started_all' : 'bot.liquidation.started')
       render turbo_stream: turbo_stream_prepend_flash
     else
       # Unprocessable on purpose: the modal stays open on a failed submit, so the user reads why
@@ -59,11 +66,16 @@ class Bots::LiquidationsController < ApplicationController
     redirect_back fallback_location: bots_path, alert: t('bot.liquidation.unsupported') unless @bot.respond_to?(:held_symbols)
   end
 
-  # The symbol comes from the URL, so it is user input: something the bot does not hold must not be
-  # reachable by hand-editing it. Checked against held_symbols, which needs no prices, so a cold
-  # metrics cache cannot turn a live Sell button into a 404.
-  def set_symbol
-    @symbol = params[:symbol].to_s
-    head :not_found unless @bot.held_symbols.include?(@symbol)
+  # The symbols come from the URL, so they are user input: something the bot does not hold must not
+  # be reachable by hand-editing it. INTERSECTED with held_symbols rather than checked for
+  # membership — a name sold from another tab between the render and the click drops out of the sale
+  # instead of refusing the whole click with a bare 404. held_symbols needs no prices, so a cold
+  # metrics cache still cannot turn a live Sell button into one.
+  #
+  # There is deliberately no "no symbols means everything" fallback: a request that names nothing is
+  # a bug, and a bug must not be able to mean sell everything.
+  def set_symbols
+    @symbols = Array(params[:symbol]).map(&:to_s).uniq & @bot.held_symbols
+    head :not_found if @symbols.empty?
   end
 end

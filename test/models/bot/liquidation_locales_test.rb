@@ -5,7 +5,8 @@ require 'yaml'
 # missing key through English and reports true for every locale — so the obvious version of this test
 # passes while half the languages render in English.
 class Bot::LiquidationLocalesTest < ActiveSupport::TestCase
-  KEYS = %w[title sell sell_confirm started market_closed unsupported halted resolve resolve_confirm
+  KEYS = %w[title sell sell_all sell_all_confirm sell_confirm started started_all market_closed
+            unsupported halted resolve resolve_confirm
             still_open resolved].freeze
 
   test 'every available_locale carries the sell-position keys in its own bot.<locale>.yml' do

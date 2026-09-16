@@ -705,6 +705,7 @@ fr:
             liquidation_ambiguous: "Statut de l’ordre de vente non confirmé — mis en pause pour éviter un doublon"
             liquidation_manually_resolved: "Vente non confirmée effacée manuellement"
             liquidation_market_closed: "Marché fermé — rien de vendu"
+            liquidation_batch_cut_short: "Arrêté plus tôt — %{bases} pas encore vendus"
             liquidation_not_started: "Rien n’a été vendu — le bot était occupé ou l’indice n’a pas pu être actualisé"
             liquidation_failed: "Échec de la vente : %{error}"
             orders_below_minimum: "%{count} actifs sont passés sous le minimum de la plateforme cette fois et sont reportés : %{bases}"

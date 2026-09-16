@@ -192,6 +192,8 @@ module BotHelper
       key.present? ? t('bot_activity.events.stopped_with_reason', reason: t(key)) : t('bot_activity.events.stopped')
     when 'liquidation_failed'
       t('bot_activity.events.liquidation_failed', error: activity.details['reason'])
+    when 'liquidation_batch_cut_short'
+      t('bot_activity.events.liquidation_batch_cut_short', bases: activity.details['bases'])
     when 'orders_below_minimum'
       t('bot_activity.events.orders_below_minimum', count: activity.details['count'], bases: activity.details['bases'])
     when 'wash_sale_locked'
