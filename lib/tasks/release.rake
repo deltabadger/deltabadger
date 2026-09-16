@@ -36,9 +36,20 @@ namespace :release do
     bump(:minor)
   end
 
-  desc 'Bump major version and release (1.2.5 → 2.0.0)'
+  desc 'Bump major version and release (1.2.5 → 2.0.0); takes a hand-written notes.md'
   task :major do
-    bump(:major)
+    bump(:major, major_notes)
+  end
+
+  # A major is an announcement, not a changelog, so its prose is written by a person and passed
+  # in as markdown. Rails' rake shim rejects an unknown top-level task before any task runs, so
+  # the file name only survives as a bare word thanks to the no-op task defined at the bottom.
+  def major_notes
+    file = ARGV.grep(/\.md\z/).first
+    abort 'Write the announcement first, then: rails release:major notes.md' if file.nil?
+    abort "#{file}: no such file" unless File.exist?(file)
+
+    File.expand_path(file)
   end
 
   def current_version
@@ -56,7 +67,7 @@ namespace :release do
     end
   end
 
-  def bump(type)
+  def bump(type, notes_file = nil)
     old_version = current_version
     new_version = next_version(type)
 
@@ -66,7 +77,7 @@ namespace :release do
 
     update_files(old_version, new_version)
     commit_tag_push(new_version)
-    create_github_release(new_version)
+    create_github_release(new_version, notes_file || summarize_changes(type))
 
     puts "\nReleased v#{new_version}; GitHub Actions is attaching the desktop artifacts"
   end
@@ -102,17 +113,19 @@ namespace :release do
   # its DMG, installer and updater manifest into it once every arch has finished — so a tag meant
   # only for the Docker image still gets its notes, and a desktop build that fails or is skipped
   # costs the assets, not the release.
-  def create_github_release(version)
+  def create_github_release(version, notes)
     tag = "v#{version}"
-    notes = summarize_changes
-    flags = notes ? "--notes-file #{notes}" : ''
-    system("gh release create #{tag} --title #{tag} --generate-notes #{flags}") || abort('gh release create failed')
+    # Argument form, not a command line: the notes path comes from whatever the operator typed,
+    # and a quote in it would otherwise break the shell after the tag has already been pushed.
+    flags = notes ? ['--notes-file', notes.to_s] : []
+    system('gh', 'release', 'create', tag, '--title', tag, '--generate-notes', *flags) ||
+      abort('gh release create failed')
   end
 
   # A few plain lines above GitHub's generated commit list, written by the local Claude CLI from
   # the commit subjects. Best effort: no claude on PATH, no previous tag, or a non-zero exit just
   # means the release keeps the generated notes alone.
-  def summarize_changes
+  def summarize_changes(type)
     previous = `git describe --tags --abbrev=0 HEAD^ 2>/dev/null`.strip
     return if previous.empty?
 
@@ -120,18 +133,38 @@ namespace :release do
     return if log.empty?
 
     puts '  writing release notes...'
-    summary = IO.popen(['claude', '-p', <<~PROMPT], in: File::NULL, &:read).to_s.strip
-      Summarize these commits as 2-4 bullets, one line each, for the release notes of an
-      open-source trading bot. User-facing language, what changed and why it matters.
-      Output the bullets and nothing else: no preamble, no closing remarks, no notes on
-      what you left out.
-
-      #{log}
-    PROMPT
+    summary = IO.popen(['claude', '-p', "#{notes_prompt(type)}\n#{log}"], in: File::NULL, &:read).to_s.strip
     return unless $CHILD_STATUS.success? && summary.present?
 
     Rails.root.join('tmp/release-notes.md').tap { |file| File.write(file, "#{summary}\n") }
   rescue Errno::ENOENT
     nil
   end
+
+  # The same prose goes to the release page, Telegram and Discord, so it is written for a reader
+  # scrolling a channel: a patch is one sentence saying where the fixes landed, and a minor is
+  # only what a user can now see or do. Nobody subscribes to a list of internals.
+  def notes_prompt(type)
+    intro = 'These commits are a release of an open-source trading bot.'
+
+    if type == :patch
+      <<~PROMPT
+        #{intro} Reply with ONE short sentence naming what was fixed, starting with
+        "Fixes in ". No bullets, no preamble, no closing remarks.
+      PROMPT
+    else
+      <<~PROMPT
+        #{intro} Reply with 2-4 bullets, one line each, covering ONLY what a user can now
+        see or do that they could not before. Skip bug fixes, refactors and internals
+        entirely. Write what it does for them, not how it was built. Output the bullets and
+        nothing else: no preamble, no closing remarks, no notes on what you left out. If
+        nothing here is user-facing, output nothing at all.
+      PROMPT
+    end
+  end
 end
+
+# `rails release:major notes.md`: rake reads the file name as a second task to run and Rails
+# aborts on it as unrecognized before release:major ever starts. Declaring it as a no-op lets
+# the word through; major_notes is what actually reads it.
+ARGV.grep(/\.md\z/) { |file| task(file) }
