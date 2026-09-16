@@ -305,6 +305,9 @@ jobs:
               }
             }' > release-assets/latest.json
 
+      # If this step ever publishes the release itself rather than uploading to one published
+      # by hand, announce-release.yml will not fire: events made with GITHUB_TOKEN do not
+      # trigger workflows. Call that workflow from here when this leg goes live.
       - name: Create GitHub release and upload assets
         shell: bash
         env:

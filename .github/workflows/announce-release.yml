@@ -1,5 +1,9 @@
 name: Announce Release
 
+# Fires on the release being published by a person. A release published by a workflow using
+# GITHUB_TOKEN does NOT trigger this — GitHub does not cascade token-generated events — so if
+# desktop-release.yml is ever configured and starts publishing releases itself, this stops firing
+# silently and has to be called from there instead.
 on:
   release:
     types: [published]
