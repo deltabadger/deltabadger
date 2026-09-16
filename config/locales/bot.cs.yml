@@ -254,6 +254,7 @@ cs:
             title: "Prodej pozice"
             sell: "Prodat"
             sell_all: "Prodat vše"
+            selling: "Prodává se…"
             sell_all_confirm: "Prodat tyto pozice? Každá se uzavře za tržní cenu."
             started_all: "Prodávám pozice."
             sell_confirm: "Prodat tuto pozici? Bude uzavřena za tržní cenu."

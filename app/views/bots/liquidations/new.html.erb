@@ -49,9 +49,13 @@
           <%# Dead while the question above is unanswered — the server refuses that submit anyway,
               and a button that only 422s is worse than one that says it is not ready. Live from the
               start once the account has decided, because then no radio exists to wake it. %>
+          <%# turbo_submits_with, so the button the user actually pressed says so while the request
+              is in flight. The tables behind it are covered by the bot's own selling marker; this
+              only has to carry the moment before the modal closes. %>
           <%= button_tag t('bot.liquidation.sell'), type: :submit,
                          disabled: !current_user.wash_sale_decided?,
-                         data: { form__checkbox_enables_target: 'submit' },
+                         data: { form__checkbox_enables_target: 'submit',
+                                 turbo_submits_with: t('bot.liquidation.selling') },
                          class: "button button--large #{@holdings.one? && harvest ? 'button--success' : 'button--danger'}" %>
         </div>
       <% end %>

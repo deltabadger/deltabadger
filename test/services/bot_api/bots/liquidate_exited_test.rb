@@ -12,7 +12,7 @@ class BotApi::Bots::LiquidateExitedTest < ActiveSupport::TestCase
   end
 
   test 'enqueues the sale and logs the request' do
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE])
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE], selling_token: anything)
 
     result = BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: 'DOGE')
 
@@ -32,7 +32,7 @@ class BotApi::Bots::LiquidateExitedTest < ActiveSupport::TestCase
     # Not one job per symbol: liquidation_blocked_reason refuses while an earlier sale's order is
     # still working, so jobs 2..N would be declined after the caller was told the sale started.
     Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE SHIB])
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE SHIB]).once
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE SHIB], selling_token: anything).once
 
     result = BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: %w[DOGE SHIB])
 
@@ -95,5 +95,63 @@ class BotApi::Bots::LiquidateExitedTest < ActiveSupport::TestCase
 
   test 'an unknown bot is a 404' do
     assert_equal 'bot_not_found', BotApi::Bots::LiquidateExited.call(user: @user, bot_id: 0, symbol: 'DOGE').error_code
+  end
+
+  test 'the request itself marks the bot as selling, and repaints' do
+    # The job queues behind the exchange semaphore, so liquidation_in_flight? is still false when
+    # this returns. Without the marker the page goes on offering Sell for the whole wait — which is
+    # exactly when someone clicks it again.
+    Bot::LiquidateExitedJob.stubs(:perform_later)
+    Bots::DcaIndex.any_instance.expects(:broadcast_selling_state).once
+
+    BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: 'DOGE')
+
+    assert @bot.reload.liquidation_selling?
+  end
+
+  test 'the token handed to the job is the one that can clear the marker' do
+    token = nil
+    Bot::LiquidateExitedJob.stubs(:perform_later).with { |_bot, kw| token = kw[:selling_token] }
+
+    BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: 'DOGE')
+
+    assert token.present?
+    assert @bot.reload.clear_selling!(token)
+    assert_not @bot.liquidation_selling?
+  end
+
+  test 'a dry run marks nothing' do
+    BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: 'DOGE', dry_run: true)
+
+    assert_not @bot.reload.liquidation_selling?
+  end
+
+  test 'a refused sale marks nothing' do
+    BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: 'BTC')
+
+    assert_not @bot.reload.liquidation_selling?
+  end
+
+  test 'the repaint lands before the job is queued, so a fast worker cannot be painted over' do
+    # A job that ran to completion in between would clear the marker and broadcast the idle tables;
+    # a repaint after the enqueue, from an instance still holding the marker, would put the spinners
+    # back over a sale that was already done and leave nothing to take them down.
+    order = []
+    Bots::DcaIndex.any_instance.stubs(:broadcast_selling_state).with { |*| order << :repaint }
+    Bot::LiquidateExitedJob.stubs(:perform_later).with { |*| order << :enqueue }
+
+    BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: 'DOGE')
+
+    assert_equal %i[repaint enqueue], order
+  end
+
+  test 'an enqueue that fails takes its own marker back down' do
+    # The marker is cleared by the JOB. A failure that produced no job leaves nothing to clear it,
+    # so the page would spin for the whole TTL over a sale that never started.
+    Bot::LiquidateExitedJob.stubs(:perform_later).raises(RuntimeError, 'queue unavailable')
+
+    assert_raises(RuntimeError) { BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: 'DOGE') }
+
+    assert_not @bot.reload.liquidation_selling?
   end
 end

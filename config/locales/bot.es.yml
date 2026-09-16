@@ -235,6 +235,7 @@ es:
             title: "Vender posición"
             sell: "Vender"
             sell_all: "Vender todo"
+            selling: "Vendiendo…"
             sell_all_confirm: "¿Vender estas posiciones? Cada una se cierra a precio de mercado."
             started_all: "Vendiendo las posiciones."
             sell_confirm: "¿Vender esta posición? Se cerrará a precio de mercado."

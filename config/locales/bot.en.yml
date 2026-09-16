@@ -256,6 +256,7 @@ en:
             title: "Sell position"
             sell: "Sell"
             sell_all: "Sell all"
+            selling: "Selling…"
             sell_all_confirm: "Sell these positions? Each is closed at market price."
             started_all: "Selling the positions."
             sell_confirm: "Sell this position? It is closed at market price."

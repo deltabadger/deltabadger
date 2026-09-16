@@ -254,6 +254,7 @@ sk:
             title: "Predať pozíciu"
             sell: "Predať"
             sell_all: "Predať všetko"
+            selling: "Predáva sa…"
             sell_all_confirm: "Predať tieto pozície? Každá sa uzavrie za trhovú cenu."
             started_all: "Predávam pozície."
             sell_confirm: "Predať túto pozíciu? Uzavrie sa za trhovú cenu."

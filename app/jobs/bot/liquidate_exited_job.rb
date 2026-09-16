@@ -25,7 +25,9 @@ class Bot::LiquidateExitedJob < BotJob
                      key: ->(bot, *, **) { "exchange_#{bot.exchange&.name_id}" },
                      group: 'Bot::ActionJob'
 
-  def perform(bot, symbols: nil, symbol: nil)
+  # selling_token defaults to nil so a job serialised before this shipped still deserialises — and a
+  # nil token simply clears nothing, leaving its marker to expire on the TTL.
+  def perform(bot, symbols: nil, symbol: nil, selling_token: nil)
     # ponytail: `symbol:` is the pre-plural name, kept for sales enqueued in the seconds before this
     # deploy. These arguments are serialised in solid_queue_jobs, and a keyword mismatch raises
     # BEFORE the rescue below — leaving the user a "sale started" flash and no activity row at all.
@@ -61,6 +63,12 @@ class Bot::LiquidateExitedJob < BotJob
     # Re-raised, so the failure is still a failed execution for the operator as well.
     bot.log_activity('liquidation_failed', level: :error, details: { reason: e.message })
     raise
+  ensure
+    # Every exit takes the spinner down: the two refusals above, the market-closed return, the
+    # failure log and the rescue that re-raises. Clearing is owner-checked, so a second request that
+    # queued behind us keeps its own marker and its own spinner — and the broadcast only fires when
+    # this job's clear actually landed, so a losing clear does not repaint over a live one.
+    bot.broadcast_selling_state if bot.respond_to?(:clear_selling!) && bot.clear_selling!(selling_token)
   end
 
   private

@@ -34,9 +34,14 @@ module Bot::LiquidationState
 
   PENDING_KEY = 'liquidation_pending'.freeze
   RESOLVED_KEY = 'liquidation_resolved_orders'.freeze
+  SELLING_KEY = 'liquidation_selling_since'.freeze
 
   STATE_PLACING = 'placing'.freeze
   STATE_AMBIGUOUS = 'ambiguous'.freeze
+
+  # How long a marker nobody cleared is believed. The batch itself is bounded by the exchange
+  # semaphore's lease, so this only has to outlive a queue wait.
+  SELLING_TTL = 15.minutes
 
   def liquidation_pending
     value = transient_data[PENDING_KEY]
@@ -178,6 +183,89 @@ module Bot::LiquidationState
     broadcast_metrics_update if respond_to?(:broadcast_metrics_update)
   rescue StandardError => e
     Rails.logger.warn("liquidation broadcast failed bot=#{id}: #{e.message}")
+  end
+
+  # --- "a sale is under way", for the page only ---------------------------------------------
+  #
+  # NOT a trading guard. liquidation_blocked_reason never reads any of this, so a marker whose job
+  # died before clearing it cannot wedge the bot — the worst it does is show a spinner where a Sell
+  # button belongs, for at most SELLING_TTL.
+  #
+  # It is exactly the lifetime of the request plus its job: written in the REQUEST, which is what
+  # covers the unbounded wait on the exchange semaphore, and cleared in the job's ensure. Bounded by
+  # SELLING_TTL so a worker killed before its ensure cannot leave it up forever.
+  #
+  # Deliberately NOT liquidation_in_flight?, even though that is the thing actually refusing a
+  # second Sell. Every extra state it counts can outlive the sale, and each one is recovered by
+  # pressing Sell again — which is precisely what a spinner would be hiding:
+  #
+  #   placing intent  — indistinguishable from a worker that died before promoting it, and only a
+  #                     further Sell promotes it to the halt that offers Clear
+  #   waiting rows    — Bot::FetchAndUpdateOrderJob is one-shot, and on a stopped bot nothing
+  #                     re-polls; a further Sell is refused but sweeps them on its way through
+  #   ambiguous/abandoned — these make the bot HALTED, which is not progress: it draws its own
+  #                     Clear, and the caller gates on may_sell so a halt never reads as selling
+  #
+  # So the page believes only the marker. The worst it costs is a Sell offered in the seconds after
+  # a batch while its orders settle — which is what the page did before any of this, and clicking it
+  # is how those orders get swept.
+  def liquidation_selling?
+    current = transient_data[SELLING_KEY]
+    # An epoch Integer rather than a timestamp String: nothing to parse, so a garbage value reads as
+    # 0 — expired — instead of raising in a view.
+    current.is_a?(Hash) && current['at'].to_i > SELLING_TTL.ago.to_i
+  end
+
+  # Returns the token the caller has to hand back to clear it.
+  def mark_selling!
+    SecureRandom.hex(6).tap do |token|
+      merge_transient_data!(SELLING_KEY => { 'id' => token, 'at' => Time.current.to_i })
+    end
+  end
+
+  # Compare-and-clear under ONE lock, against the row the comparison read.
+  #
+  # Checking the token on this instance and then calling merge_transient_data! would be two separate
+  # reads: a second request writing its own token in between would have that token deleted by our
+  # unconditional write, dropping the spinner while its sale is still queued. So the owner check and
+  # the delete share the lock, and a stale owner clears nothing.
+  def clear_selling!(token)
+    return false if token.blank?
+
+    remaining = nil
+    self.class.transaction do
+      fresh = self.class.lock.find(id)
+      current = fresh.transient_data[SELLING_KEY]
+      if current.is_a?(Hash) && current['id'] == token
+        remaining = fresh.transient_data.except(SELLING_KEY)
+        fresh.update_columns(transient_data: remaining)
+      end
+    end
+    return false if remaining.nil?
+
+    write_attribute(:transient_data, remaining)
+    clear_attribute_change(:transient_data)
+    true
+  end
+
+  # The tables only, unlike broadcast_liquidation_state: no holding moves here and the chart is the
+  # expensive half, which matters when one of the two callers is a web request. Same rescue as its
+  # neighbour — a failed repaint must not fail the request that started the sale, nor mask a job's
+  # own exception from the ensure block that calls it.
+  #
+  # cached_only is for the REQUEST caller. broadcast_metrics_panel renders
+  # metrics_with_current_prices, which on a cold five-minute cache goes and asks the exchange — and
+  # blocking a request that has just queued a trade, to draw a spinner, is the wrong trade. The page
+  # that submitted has rendered this same panel moments ago, so the cache is warm exactly when
+  # somebody is watching; a cold one skips, and the job's own repaint still lands. A worker has no
+  # such deadline and fetches if it must.
+  def broadcast_selling_state(cached_only: false)
+    return unless respond_to?(:broadcast_metrics_panel)
+    return if cached_only && metrics_with_current_prices_from_cache.nil?
+
+    broadcast_metrics_panel
+  rescue StandardError => e
+    Rails.logger.warn("selling broadcast failed bot=#{id}: #{e.message}")
   end
 
   private

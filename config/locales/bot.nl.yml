@@ -235,6 +235,7 @@ nl:
             title: "Positie verkopen"
             sell: "Verkopen"
             sell_all: "Alles verkopen"
+            selling: "Wordt verkocht…"
             sell_all_confirm: "Deze posities verkopen? Elke positie wordt tegen marktprijs gesloten."
             started_all: "De posities worden verkocht."
             sell_confirm: "Deze positie verkopen? Ze wordt tegen de marktprijs gesloten."

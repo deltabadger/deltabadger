@@ -184,3 +184,26 @@
   text-align: right
   width: 1%
   white-space: nowrap
+
+// A sale is running, so the button that lived here is kept and emptied rather than removed, with
+// the spinner centred over it.
+//
+// The column above is `width: 1%` shrink-to-fit: it is exactly as wide as the widest button's TEXT,
+// which is a different width in every language. Letting it measure the spinner instead would narrow
+// it, and on a batch that is fifty rows changing at once — taking every column beside them with it.
+// Reserving the real box costs nothing and hard-codes no width.
+//
+// .loader--small is the app's existing grey ring (see _spinner.sass), already used by this very
+// table for its loading cells; it positions itself into a corner, which the descendant selector
+// below outranks. Sized down to sit with the row's 1.75rem text rather than above it.
+.table__busy
+  position: relative
+  display: inline-flex
+  > .rbutton
+    visibility: hidden
+  > .loader--small
+    position: absolute
+    inset: 0
+    margin: auto
+    width: 1.5rem
+    height: 1.5rem
