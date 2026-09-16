@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'English'
+
 # IMPORTANT: this task commits ONLY the three version files listed in
 # RELEASE_VERSION_FILES. It does NOT stage anything else.
 #
@@ -102,6 +104,34 @@ namespace :release do
   # costs the assets, not the release.
   def create_github_release(version)
     tag = "v#{version}"
-    system("gh release create #{tag} --title #{tag} --generate-notes") || abort('gh release create failed')
+    notes = summarize_changes
+    flags = notes ? "--notes-file #{notes}" : ''
+    system("gh release create #{tag} --title #{tag} --generate-notes #{flags}") || abort('gh release create failed')
+  end
+
+  # A few plain lines above GitHub's generated commit list, written by the local Claude CLI from
+  # the commit subjects. Best effort: no claude on PATH, no previous tag, or a non-zero exit just
+  # means the release keeps the generated notes alone.
+  def summarize_changes
+    previous = `git describe --tags --abbrev=0 HEAD^ 2>/dev/null`.strip
+    return if previous.empty?
+
+    log = `git log #{previous}..HEAD^ --no-merges --format=%s`.strip
+    return if log.empty?
+
+    puts '  writing release notes...'
+    summary = IO.popen(['claude', '-p', <<~PROMPT], in: File::NULL, &:read).to_s.strip
+      Summarize these commits as 2-4 bullets, one line each, for the release notes of an
+      open-source trading bot. User-facing language, what changed and why it matters.
+      Output the bullets and nothing else: no preamble, no closing remarks, no notes on
+      what you left out.
+
+      #{log}
+    PROMPT
+    return unless $CHILD_STATUS.success? && summary.present?
+
+    Rails.root.join('tmp/release-notes.md').tap { |file| File.write(file, "#{summary}\n") }
+  rescue Errno::ENOENT
+    nil
   end
 end
