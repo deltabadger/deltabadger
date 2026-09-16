@@ -25,18 +25,29 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           TAG: ${{ github.event.release.tag_name }}
           URL: ${{ github.event.release.html_url }}
+          BODY: ${{ github.event.release.body }}
         run: |
           set -euo pipefail
-          text="🦡 Deltabadger $TAG is out
 
-          $URL"
+          # The notes are built by jq, not by the shell: it slices on codepoints rather than bytes,
+          # so a cut never lands mid-character and leaves the channels invalid UTF-8 to reject.
+          # Telegram caps a message at 4096 characters and Discord caps content at 2000, so each
+          # gets the same message with its own room for the notes.
+          message() {
+            jq -rn --arg tag "$TAG" --arg url "$URL" --arg body "$BODY" --argjson max "$1" '
+              ($body | gsub("\r"; "") | sub("^\n+"; "") | sub("\n+$"; "")) as $notes
+              | ($notes | if length > $max then .[0:$max] + "…" else . end) as $notes
+              | "🦡 Deltabadger \($tag) is out"
+                + (if $notes == "" then "" else "\n\n" + $notes end)
+                + "\n\n" + $url'
+          }
 
           # A channel that is not configured yet is skipped with a notice; one that is configured
           # but fails is a hard error, because a silent announcement is the failure worth seeing.
           if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
             curl -fsS -o /dev/null -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
               --data-urlencode "chat_id=@deltabadger" \
-              --data-urlencode "text=$text"
+              --data-urlencode "text=$(message 3900)"
             echo "Posted to Telegram."
           else
             echo "::notice::Telegram announcement skipped — set the TELEGRAM_BOT_TOKEN repository secret."
@@ -44,7 +55,7 @@ jobs:
 
           if [ -n "$DISCORD_WEBHOOK" ]; then
             curl -fsS -o /dev/null -H 'Content-Type: application/json' \
-              --data-raw "$(jq -n --arg content "$text" '{content: $content}')" \
+              --data-raw "$(jq -n --arg content "$(message 1850)" '{content: $content}')" \
               "$DISCORD_WEBHOOK"
             echo "Posted to Discord."
           else
