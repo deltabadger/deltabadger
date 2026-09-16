@@ -34,8 +34,24 @@ jobs:
           # Telegram caps a message at 4096 characters and Discord caps content at 2000, so each
           # gets the same message with its own room for the notes.
           message() {
-            jq -rn --arg tag "$TAG" --arg url "$URL" --arg body "$BODY" --argjson max "$1" '
-              ($body | gsub("\r"; "") | sub("^\n+"; "") | sub("\n+$"; "")) as $notes
+            # Only the prose written for the release survives. Everything from GitHub's generated
+            # "What's Changed" onwards is a restatement of the page being linked, and the markers
+            # around it are markup Telegram does not render — it prints ## and ** literally.
+            # The markers are passed as arguments rather than written into the program, so the
+            # apostrophe in "What's Changed" does not have to fight the shell quoting.
+            #
+            # The "// \"\"" guards a release with no prose at all: jq splits an empty string into
+            # an empty array, so the first element is null rather than "", and the next filter
+            # would fail on it and take the whole announcement down with it.
+            jq -rn --arg tag "$TAG" --arg url "$URL" --arg body "$BODY" --argjson max "$1" \
+              --arg generated "## What's Changed" --arg changelog "**Full Changelog**" '
+              ($body
+                | gsub("\r"; "")
+                | (split($generated)[0] // "")
+                | (split($changelog)[0] // "")
+                | gsub("\\*\\*"; "")
+                | split("\n") | map(sub("^#+ +"; "")) | join("\n")
+                | sub("^\n+"; "") | sub("\n+$"; "")) as $notes
               | ($notes | if length > $max then .[0:$max] + "…" else . end) as $notes
               | "📢 Deltabadger \($tag) is out"
                 + (if $notes == "" then "" else "\n\n" + $notes end)
