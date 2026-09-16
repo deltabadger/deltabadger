@@ -37,7 +37,7 @@ jobs:
             jq -rn --arg tag "$TAG" --arg url "$URL" --arg body "$BODY" --argjson max "$1" '
               ($body | gsub("\r"; "") | sub("^\n+"; "") | sub("\n+$"; "")) as $notes
               | ($notes | if length > $max then .[0:$max] + "…" else . end) as $notes
-              | "🦡 Deltabadger \($tag) is out"
+              | "📢 Deltabadger \($tag) is out"
                 + (if $notes == "" then "" else "\n\n" + $notes end)
                 + "\n\n" + $url'
           }
