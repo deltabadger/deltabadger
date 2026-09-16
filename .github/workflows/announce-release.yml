@@ -64,6 +64,11 @@ jobs:
             fi
           }
 
+          # Link previews stay off on both: the notes are a list of pull request links, and every one
+          # of them unfurls into its own card — three per release on Discord, and on Telegram a
+          # preview of whichever pull request happens to be listed first rather than the release.
+          # Discord flag 4 is SUPPRESS_EMBEDS.
+          #
           # A channel that is not configured yet is skipped with a notice; one that is configured
           # but fails is a hard error, because a silent announcement is the failure worth seeing.
           # Each channel is attempted regardless of the other: a misconfigured Telegram should not
@@ -71,14 +76,15 @@ jobs:
           if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
             post Telegram -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
               --data-urlencode "chat_id=@deltabadger" \
-              --data-urlencode "text=$(message 3900)"
+              --data-urlencode "text=$(message 3900)" \
+              --data-urlencode 'link_preview_options={"is_disabled": true}'
           else
             echo "::notice::Telegram announcement skipped — set the TELEGRAM_BOT_TOKEN repository secret."
           fi
 
           if [ -n "$DISCORD_WEBHOOK" ]; then
             post Discord -H 'Content-Type: application/json' \
-              --data-raw "$(jq -n --arg content "$(message 1850)" '{content: $content}')" \
+              --data-raw "$(jq -n --arg content "$(message 1850)" '{content: $content, flags: 4}')" \
               "$DISCORD_WEBHOOK"
           else
             echo "::notice::Discord announcement skipped — set the DISCORD_WEBHOOK repository secret."
