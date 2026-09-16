@@ -254,6 +254,7 @@ sv:
             title: "Sälj position"
             sell: "Sälj"
             sell_all: "Sälj alla"
+            selling: "Säljer…"
             sell_all_confirm: "Sälja de här positionerna? Var och en stängs till marknadspris."
             started_all: "Säljer positionerna."
             sell_confirm: "Sälja den här positionen? Den stängs till marknadspris."

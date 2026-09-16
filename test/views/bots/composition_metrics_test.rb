@@ -29,6 +29,9 @@ class Bots::CompositionMetricsViewTest < ActionView::TestCase
   end
 
   def render_panel
+    # `rendered` accumulates, so a test that renders the panel twice — to compare one state against
+    # the other — would parse both at once.
+    @rendered = +''
     render partial: 'bots/composition/metrics', locals: { bot: @bot, metrics: @metrics, loading: false, exited_title_key: @bot.exited_title_key }
     Nokogiri::HTML(rendered)
   end
@@ -89,5 +92,103 @@ class Bots::CompositionMetricsViewTest < ActionView::TestCase
     WashSaleLock.delete_all
 
     assert_nil render_panel.at_css('#wash_sale_table')
+  end
+
+  # --- a sale already running -------------------------------------------------------------------
+  #
+  # Every Sell on the bot is refused while one is working (liquidation_blocked_reason is bot-wide,
+  # not per symbol), so none is offered — and the button is replaced in place rather than removed,
+  # or the column resizes under a table that is fifty rows changing at once.
+
+  def selling!
+    @bot.stubs(:liquidation_selling?).returns(true)
+  end
+
+  def exit_two!
+    %w[AAA BBB].each { |s| @bot.bot_index_assets.find_by(asset: @assets[s][:asset]).update!(in_index: false, exited_at: Time.current) }
+    @bot.unstub(:exited_holdings)
+    @bot.stubs(:exited_holdings).returns(
+      %w[AAA BBB].map do |s|
+        { symbol: s, ticker: @assets[s][:ticker], amount: 1, quote_invested: 100,
+          current_value: 90, avg_price: 100, pnl_percentage: -0.1, harvestable: false }
+      end
+    )
+  end
+
+  test 'while a sale is running nothing anywhere offers Sell' do
+    selling!
+
+    assert_empty render_panel.css('a[href*="liquidation"]'),
+                 'a Sell placed now would be refused, so none is offered'
+  end
+
+  test 'a row that had a Sell says a sale is running, rather than going blank' do
+    selling!
+    cell = render_panel.at_css('tr[data-symbol=AAA] .table__action')
+
+    assert cell.at_css('.table__busy'), 'the placeholder stands in for the button'
+    assert cell.at_css('.table__busy .rbutton'), 'the button box is kept, so the column cannot narrow'
+    assert cell.at_css('.table__busy .loader--small'), 'and the spinner sits over it'
+    assert_equal I18n.t('bot.liquidation.selling'), cell.at_css('.loader--small')['aria-label']
+  end
+
+  test 'the reserved box carries the translated label, which is what sets the column width' do
+    selling!
+    I18n.with_locale(:de) do
+      ghost = render_panel.at_css('tr[data-symbol=AAA] .table__busy .rbutton')
+      assert_equal I18n.t('bot.liquidation.sell', locale: :de), ghost.text.strip
+      assert_equal 'true', ghost['aria-hidden'], 'a button nobody can press is not announced'
+    end
+  end
+
+  test 'a row with nothing sellable gets no placeholder either' do
+    # It never had a button, so there is no box to reserve.
+    selling!
+
+    assert_nil render_panel.at_css('#wash_sale_list tr[data-symbol=CCC] .table__busy')
+  end
+
+  test 'the action column survives the sale, so the table does not reflow' do
+    idle = render_panel.css('#assets_metrics_list .table__action').size
+    selling!
+
+    assert_equal idle, render_panel.css('#assets_metrics_list .table__action').size
+  end
+
+  test 'Sell all is replaced by the placeholder, not merely removed' do
+    exit_two!
+    selling!
+    header = render_panel.at_css('#exited_metrics_table .exited-header')
+
+    assert header.at_css('.table__busy'), 'the band says the batch it started is still running'
+    assert_equal I18n.t('bot.liquidation.sell_all'), header.at_css('.table__busy .rbutton').text.strip
+    assert_nil header.at_css('a[href*="liquidation"]'), 'and offers no second Sell all'
+  end
+
+  test 'a single quitter gains no Sell all it never had' do
+    selling!
+
+    assert_nil render_panel.at_css('#exited_metrics_table .exited-header .table__busy')
+  end
+
+  test 'a halt outranks a sale: Clear stays reachable and nothing spins' do
+    # A halt means nobody knows what happened, which is the opposite of progress — and Clear is the
+    # only way out of it.
+    exit_two!
+    selling!
+    @bot.stubs(:liquidation_halted?).returns(true)
+    @bot.stubs(:liquidation_halt).returns(bases: %w[AAA], order_ids: [1], intent_id: 'abc')
+
+    html = render_panel
+    assert_includes html.at_css('#exited_metrics_table .exited-header').text, I18n.t('bot.liquidation.halted')
+    assert html.at_css('#exited_metrics_table .exited-header form'), 'Clear is the one action a halt must not hide'
+    assert_empty html.css('.table__busy')
+  end
+
+  test 'with nothing selling the Sell links are exactly as they were' do
+    html = render_panel
+
+    assert html.at_css('tr[data-symbol=AAA] .table__action a')
+    assert_empty html.css('.table__busy')
   end
 end

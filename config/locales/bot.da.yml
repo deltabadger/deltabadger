@@ -254,6 +254,7 @@ da:
             title: "Sælg position"
             sell: "Sælg"
             sell_all: "Sælg alle"
+            selling: "Sælger…"
             sell_all_confirm: "Sælg disse positioner? Hver enkelt lukkes til markedspris."
             started_all: "Sælger positionerne."
             sell_confirm: "Sælg denne position? Den lukkes til markedspris."

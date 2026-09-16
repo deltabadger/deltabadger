@@ -1,4 +1,4 @@
-<%# locals: (values:, logo_assets:, body_id: nil, bot: nil, sellable: false, hide_money: false, quote: nil, locks: {}) %>
+<%# locals: (values:, logo_assets:, body_id: nil, bot: nil, sellable: false, hide_money: false, quote: nil, locks: {}, selling: false) %>
 <%# Composition holdings come from the metrics hash, not from the bot's own columns, so they need
     mapping onto the shared table's rows. `sellable` is a Hash symbol => true for the rows that may
     carry Sell (or false for none): direct indexing is the freedom to close one position on its own,
@@ -10,6 +10,11 @@
     realises a loss. An estimate (Bot::TaxLots), and it moves with the price. %>
 <% sellable = local_assigns.fetch(:sellable, false) || {} %>
 <% locks = local_assigns.fetch(:locks, {}) %>
+<%# A sale is already running, so no row's Sell can be placed — the refusal is bot-wide, not per
+    symbol. The button is replaced in place rather than removed: a row that simply loses its button
+    says nothing about why, and the whole column would resize as the last one went. Only rows that
+    HAD a button get the placeholder; dust and nothing-held rows have no box to reserve. %>
+<% selling = local_assigns.fetch(:selling, false) %>
 <%= render 'bots/assets_table', body_id: body_id, actions: sellable.present? || locks.present?,
            hide_money: local_assigns.fetch(:hide_money, false), quote: local_assigns[:quote],
            rows: values.map { |symbol, data|
@@ -23,10 +28,16 @@
         action: safe_join([
           (lock ? tag.span(t('bot.liquidation.locked', days: lock[:days_left]), class: 'text-inactive', title: l(lock[:until].to_date)) : nil),
           (lock && lock[:source] == 'ledger' ? tag.span(t('bot.wash_sale.from_ledger'), class: 'text-inactive') : nil),
-          (sellable[symbol] ? link_to(t('bot.liquidation.sell'),
-                                      new_bot_liquidation_path(bot_id: bot.id, symbol: symbol),
-                                      class: "rbutton rbutton--small #{'rbutton--success' if harvest}",
-                                      title: (harvest ? t('bot.liquidation.harvest_hint') : nil),
-                                      data: { turbo_frame: 'modal' }) : nil)
+          (if !sellable[symbol]
+             nil
+           elsif selling
+             selling_placeholder(t('bot.liquidation.sell'))
+           else
+             link_to(t('bot.liquidation.sell'),
+                     new_bot_liquidation_path(bot_id: bot.id, symbol: symbol),
+                     class: "rbutton rbutton--small #{'rbutton--success' if harvest}",
+                     title: (harvest ? t('bot.liquidation.harvest_hint') : nil),
+                     data: { turbo_frame: 'modal' })
+           end)
         ].compact, ' ') }
     } %>

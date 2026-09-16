@@ -29,7 +29,7 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test 'POST /bots/:id/liquidations queues the sale and returns 202' do
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE])
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE], selling_token: anything)
 
     post "/api/v1/bots/#{@bot.id}/liquidations",
          params: { symbol: 'DOGE' }, headers: keyed('k1'), as: :json
@@ -59,7 +59,7 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test 'the same key replayed against the same bot returns the stored response and queues once' do
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE]).once
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE], selling_token: anything).once
 
     post "/api/v1/bots/#{@bot.id}/liquidations", params: { symbol: 'DOGE' }, headers: keyed('k1'), as: :json
     first = response.body
@@ -90,7 +90,7 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
     # The page sends the positions its confirmation displayed, and the same service backs all three
     # surfaces — so REST closes several positions in one call too.
     Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE SHIB])
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE SHIB])
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE SHIB], selling_token: anything)
 
     post "/api/v1/bots/#{@bot.id}/liquidations",
          params: { symbol: %w[DOGE SHIB] }, headers: keyed('k1'), as: :json

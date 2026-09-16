@@ -564,6 +564,22 @@ module BotHelper
     end
   end
 
+  # The button that would be here, kept in the flow and emptied, with the spinner centred over it.
+  #
+  # `.table__action` is `width: 1%` shrink-to-fit, so the column is exactly as wide as the widest
+  # button's TEXT — which is a different width in every language. Dropping the button and letting
+  # the column measure the spinner instead would narrow it, and on a batch that is 50 rows resizing
+  # at once, taking every column beside them with it. Reserving the real box is what makes the swap
+  # cost nothing, in any locale, with no width hard-coded anywhere.
+  #
+  # aria-hidden on the ghost, the status role on the spinner: a screen reader hears "selling", not
+  # a Sell button it cannot press.
+  def selling_placeholder(label)
+    ghost = tag.span(label, class: 'rbutton rbutton--small', aria: { hidden: 'true' })
+    spinner = tag.span('', class: 'loader--small', role: 'status', aria: { label: t('bot.liquidation.selling') })
+    tag.span(ghost + spinner, class: 'table__busy')
+  end
+
   # == the menu's dashboard icon ==
   #
   # The icon IS the number of live bots — the same figure the bots page counts in its headline, so

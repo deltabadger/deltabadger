@@ -101,4 +101,74 @@ class Bot::LiquidateExitedJobTest < ActiveSupport::TestCase
 
     Bot::LiquidateExitedJob.new.perform(@bot, symbol: 'CCC')
   end
+
+  # --- the page's "a sale is under way" marker -------------------------------------------------
+  #
+  # Written in the request (the job queues behind the exchange semaphore for an unbounded wait), so
+  # every way out of this job has to take it down again or the spinner outlives the sale.
+
+  test 'a successful run takes the marker down' do
+    token = @bot.mark_selling!
+    @bot.stubs(:liquidate!).returns(Result::Success.new(placed: 1))
+
+    Bot::LiquidateExitedJob.new.perform(@bot, symbols: %w[CCC], selling_token: token)
+
+    assert_not @bot.reload.liquidation_selling?
+  end
+
+  test 'a refusal takes the marker down too' do
+    token = @bot.mark_selling!
+    @bot.stubs(:liquidate!).returns(Result::Failure.new('rebalance_pending'))
+
+    Bot::LiquidateExitedJob.new.perform(@bot, symbols: %w[CCC], selling_token: token)
+
+    assert_not @bot.reload.liquidation_selling?
+  end
+
+  test 'an archived bot never reaches liquidate! and still takes the marker down' do
+    token = @bot.mark_selling!
+    @bot.update_columns(status: Bot.statuses[:archived])
+
+    Bot::LiquidateExitedJob.new.perform(@bot, symbols: %w[CCC], selling_token: token)
+
+    assert_not @bot.reload.liquidation_selling?
+  end
+
+  test 'a closed market takes the marker down' do
+    token = @bot.mark_selling!
+    @bot.exchange.stubs(:market_open?).returns(false)
+
+    Bot::LiquidateExitedJob.new.perform(@bot, symbols: %w[CCC], selling_token: token)
+
+    assert_not @bot.reload.liquidation_selling?
+  end
+
+  test 'a raise takes the marker down on its way out' do
+    # The ensure runs before the re-raise. Without it a crashed sale would spin until the TTL.
+    token = @bot.mark_selling!
+    @bot.stubs(:liquidate!).raises(RuntimeError, 'boom')
+
+    assert_raises(RuntimeError) { Bot::LiquidateExitedJob.new.perform(@bot, symbols: %w[CCC], selling_token: token) }
+
+    assert_not @bot.reload.liquidation_selling?
+  end
+
+  test 'a job whose token has been superseded leaves the newer marker standing' do
+    # Two requests queued before either placed. The first to finish must not drop the spinner for
+    # the sale still coming.
+    stale = @bot.mark_selling!
+    Bot.find(@bot.id).mark_selling!
+    @bot.stubs(:liquidate!).returns(Result::Success.new(placed: 1))
+    @bot.expects(:broadcast_selling_state).never
+
+    Bot::LiquidateExitedJob.new.perform(@bot, symbols: %w[CCC], selling_token: stale)
+
+    assert Bot.find(@bot.id).liquidation_selling?
+  end
+
+  test 'a sale enqueued before the marker shipped carries no token and still runs' do
+    @bot.expects(:liquidate!).with(symbols: %w[CCC], deadline: nil).returns(Result::Success.new(placed: 1))
+
+    assert_nothing_raised { Bot::LiquidateExitedJob.new.perform(@bot, symbols: %w[CCC]) }
+  end
 end

@@ -240,6 +240,7 @@ de:
             title: "Position verkaufen"
             sell: "Verkaufen"
             sell_all: "Alle verkaufen"
+            selling: "Wird verkauft…"
             sell_all_confirm: "Diese Positionen verkaufen? Jede wird zum Marktpreis geschlossen."
             started_all: "Die Positionen werden verkauft."
             sell_confirm: "Diese Position verkaufen? Sie wird zum Marktpreis geschlossen."

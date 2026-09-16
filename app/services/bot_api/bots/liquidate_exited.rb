@@ -43,7 +43,25 @@ module BotApi
         return Result.failure(:conflict, 'market_closed', 'The market is closed; try again when it opens.') if market_closed?(bot)
 
         unless @dry_run
-          Bot::LiquidateExitedJob.perform_later(bot, symbols: @symbols)
+          # Marked HERE, in the request, rather than in the job: the job queues behind the exchange
+          # semaphore for an unbounded wait, and the page has to say a sale is coming for all of it.
+          # The token comes back so only this request's own job can clear it again.
+          token = bot.mark_selling!
+          # Repainted BEFORE the enqueue, not after. A job that ran and finished in between would
+          # clear the marker and broadcast the idle tables, and this instance still holds the marker
+          # in memory — so a repaint after the enqueue could put the spinners back over a sale that
+          # is already done, with nothing left to take them down again.
+          bot.broadcast_selling_state(cached_only: true)
+          begin
+            Bot::LiquidateExitedJob.perform_later(bot, symbols: @symbols, selling_token: token)
+          rescue StandardError
+            # The marker is cleared by the JOB, so an enqueue that never produced one leaves nothing
+            # to take it down: a quarter of an hour of spinner for a sale that never started, which
+            # is worse than the failure itself. Unwound here, then raised on as before.
+            bot.clear_selling!(token)
+            bot.broadcast_selling_state(cached_only: true)
+            raise
+          end
           bot.log_activity('liquidation_requested', level: :info,
                                                     details: { user_id: @user.id, base: @symbols.join(', ') })
         end

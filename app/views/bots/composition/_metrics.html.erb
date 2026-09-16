@@ -87,6 +87,11 @@
       is resolved, and an archived or deleted bot cannot trade at all. %>
   <% may_sell = !bot.liquidation_halted? && !bot.archived? && !bot.deleted? %>
   <% sellable = may_sell ? bot.sellable_holdings(metrics).to_h { |h| [h[:symbol], true] } : {} %>
+  <%# A sale is already under way, so every Sell on this bot would be refused — the block is
+      bot-wide, not per symbol. Gated on may_sell so a HALT never renders as "selling": a halt means
+      nobody knows what happened, which is the opposite of progress, and it has its own Clear to
+      offer instead. %>
+  <% selling = may_sell && bot.liquidation_selling? %>
   <% if asset_values.present? %>
     <% in_index = bot.bot_index_assets.in_index.includes(:asset).to_set { |bia| bia.asset.symbol } %>
     <% composition_values = if in_index.empty?
@@ -100,7 +105,7 @@
       <div id="assets_metrics_table" class="widget widget--table" data-controller="table-fit">
         <%= render 'bots/composition/assets_table', values: composition_values, logo_assets: logo_assets,
                    body_id: 'assets_metrics_list', bot: bot, sellable: sellable,
-                   hide_money: hide_money, quote: quote %>
+                   hide_money: hide_money, quote: quote, selling: selling %>
       </div>
     <% end %>
   <% end %>
@@ -142,6 +147,11 @@
                                                          order_ids: halt[:order_ids]),
                         class: 'rbutton rbutton--danger',
                         form: { data: { turbo_confirm: t('bot.liquidation.resolve_confirm') } } %>
+        <%# The batch this band started is still running. Same treatment as the rows: the button's
+            own box, emptied, with the spinner over it — and still gated on .many?, so a single
+            quitter does not gain a "Sell all" placeholder for a button it never had. %>
+        <% elsif selling && exited_values.many? %>
+          <%= selling_placeholder(t('bot.liquidation.sell_all')) %>
         <%# The list is built FROM the rows this table renders, so the button can never name a
             position the page is not showing — members, dust and wash-sale names are already out.
             A link into the confirmation, never a form that places from here.
@@ -161,13 +171,13 @@
         <%= render 'bots/composition/assets_table',
                    values: exited_values,
                    logo_assets: logo_assets, body_id: 'exited_metrics_list', bot: bot,
-                   hide_money: hide_money, quote: quote, sellable: sellable %>
+                   hide_money: hide_money, quote: quote, sellable: sellable, selling: selling %>
       <% end %>
     </div>
   <% end %>
 
   <%= render 'bots/composition/locked_table', bot: bot, members: locked, values: asset_values,
-             sellable: sellable, hide_money: hide_money, quote: quote %>
+             sellable: sellable, hide_money: hide_money, quote: quote, selling: selling %>
 
   <%# The proceeds of a sale, waiting to go back into the basket. The amount IS the display: realised
       cash has no line of its own anywhere else, and it would otherwise sit inside portfolio value
