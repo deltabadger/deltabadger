@@ -2,10 +2,14 @@
 
 module BotApi
   module Bots
-    # Sells one holding of a composition bot — a current member or one that left the composition.
-    # Deliberately manual and explicit: it is a taxable disposal (see Bot::Composition::Liquidatable).
-    # The symbol must be one the bot itself reports as held — something it does not hold is refused
-    # before any price is read, so a cold metrics cache cannot turn a refusal into a 500.
+    # Sells holdings of a composition bot — current members, or ones that left the composition.
+    # Deliberately manual and explicit: each is a taxable disposal (see
+    # Bot::Composition::Liquidatable). Every symbol must be one the bot itself reports as held —
+    # something it does not hold is refused before any price is read, so a cold metrics cache cannot
+    # turn a refusal into a 500.
+    #
+    # `symbol` is a String or an Array: it is the REST body's name and the MCP tool's property, so it
+    # keeps that name. The page sends the list its confirmation displayed.
     class LiquidateExited
       def self.call(user:, bot_id:, symbol:, dry_run: false)
         new(user: user, bot_id: bot_id, symbol: symbol, dry_run: dry_run).call
@@ -14,7 +18,7 @@ module BotApi
       def initialize(user:, bot_id:, symbol:, dry_run: false)
         @user = user
         @bot_id = bot_id
-        @symbol = symbol.to_s.upcase
+        @symbols = Array(symbol).map { |value| value.to_s.upcase }.uniq
         @dry_run = dry_run
       end
 
@@ -28,18 +32,26 @@ module BotApi
         end
         return Result.failure(:conflict, 'bot_archived', "Bot '#{bot.label}' is archived; reactivate it first.") if bot.archived?
 
-        unless bot.held_symbols.include?(@symbol)
+        # All or nothing, unlike the web controller, which intersects: that path has a confirmation
+        # in which to show the user a reduced list, and this one does not.
+        missing = @symbols - bot.held_symbols
+        if @symbols.empty? || missing.any?
           return Result.failure(:not_found, 'holding_not_held',
-                                "#{@symbol} is not a position this bot holds. " \
+                                "#{missing.to_sentence.presence || 'No symbol'} is not a position this bot holds. " \
                                 "Held: #{bot.held_symbols.join(', ').presence || 'none'}.")
         end
         return Result.failure(:conflict, 'market_closed', 'The market is closed; try again when it opens.') if market_closed?(bot)
 
         unless @dry_run
-          Bot::LiquidateExitedJob.perform_later(bot, symbol: @symbol)
-          bot.log_activity('liquidation_requested', level: :info, details: { user_id: @user.id, base: @symbol })
+          Bot::LiquidateExitedJob.perform_later(bot, symbols: @symbols)
+          bot.log_activity('liquidation_requested', level: :info,
+                                                    details: { user_id: @user.id, base: @symbols.join(', ') })
         end
-        Result.success({ id: bot.id, label: bot.label, symbol: @symbol, dry_run: @dry_run }, status: :accepted)
+        # `symbol` stays, and a one-element join IS that element — so the REST envelope and the MCP
+        # sentence are byte-identical for every caller that names one position. `symbols` is the
+        # honest field for a batch.
+        Result.success({ id: bot.id, label: bot.label, symbol: @symbols.join(', '), symbols: @symbols,
+                         dry_run: @dry_run }, status: :accepted)
       end
 
       private
@@ -48,7 +60,7 @@ module BotApi
       # a convenience check must never be the thing that stops a sale the job could have made.
       def market_closed?(bot)
         bot.ensure_exchange_authenticated
-        !bot.exchange.market_open?(tickers: bot.liquidation_tickers(symbol: @symbol))
+        !bot.exchange.market_open?(tickers: bot.liquidation_tickers(symbols: @symbols))
       rescue StandardError => e
         Rails.logger.warn("liquidation market check failed bot=#{bot.id}: #{e.message}")
         false

@@ -117,15 +117,17 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
 
   # == placing ==
 
-  # == one holding at a time ==
+  # == the positions the user named ==
   #
-  # There is no "sell everything that left" any more. The button lives on the row, so the symbol is
-  # what the user picked — and because it arrives in the URL it is untrusted input.
+  # One row's Sell, or the band's Sell all carrying exactly the symbols that table rendered. Either
+  # way the names arrive in the URL, so they are untrusted input and are refused here as well as in
+  # the controller. Each is still a separate disposal: its own order, row, wash-sale verdict and
+  # activity line, nothing netted.
 
   test 'only the named quitter is sold' do
     setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
 
-    @bot.liquidate!(symbol: 'CCC')
+    @bot.liquidate!(symbols: %w[CCC])
 
     assert_equal %w[CCC], @bot.transactions.liquidation.map(&:base)
   end
@@ -134,7 +136,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     # Direct indexing: any position can be closed on its own, a current constituent included.
     setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
 
-    result = @bot.liquidate!(symbol: 'AAA')
+    result = @bot.liquidate!(symbols: %w[AAA])
 
     assert_predicate result, :success?
     assert_equal %w[AAA], @bot.transactions.liquidation.map(&:base)
@@ -143,10 +145,146 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
   test 'naming a holding that does not exist sells nothing' do
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
 
-    result = @bot.liquidate!(symbol: 'ZZZ')
+    result = @bot.liquidate!(symbols: %w[ZZZ])
 
     assert_predicate result, :failure?
     assert_empty @bot.transactions.liquidation
+  end
+
+  # == the whole table at once ==
+
+  test 'every named position gets its own order' do
+    setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+
+    result = @bot.liquidate!(symbols: %w[BBB CCC])
+
+    assert_predicate result, :success?
+    assert_equal 2, result.data[:placed]
+    assert_equal %w[BBB CCC], @bot.transactions.liquidation.map(&:base).sort
+  end
+
+  test 'a member the batch did not name is left alone' do
+    setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+
+    @bot.liquidate!(symbols: %w[BBB CCC])
+
+    assert_not_includes @bot.transactions.liquidation.map(&:base), 'AAA'
+  end
+
+  test 'the orders go in the order the confirmation listed' do
+    setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+
+    @bot.liquidate!(symbols: %w[CCC BBB])
+
+    assert_equal %w[CCC BBB], @bot.transactions.liquidation.order(:id).map(&:base)
+  end
+
+  test 'a repeated name places one order, not two' do
+    # Both placements would be sized off the same snapshot, so a duplicate in the list is a double
+    # sale. The callers dedupe; this is the money path's own guard.
+    setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
+
+    @bot.liquidate!(symbols: %w[CCC CCC])
+
+    assert_equal 1, @bot.transactions.liquidation.count
+  end
+
+  test 'an unknown outcome stops the batch where it happened' do
+    # The halt exists so nothing is sold twice. Continuing past it would place the very orders it is
+    # meant to be blocking.
+    setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+    @bot.exchange.stubs(:market_sell)
+        .returns(Result::Success.new(order_id: 's-1'))
+        .then.raises(Client::AmbiguousPlacementError, 'timeout')
+
+    @bot.liquidate!(symbols: %w[BBB CCC])
+
+    assert_equal %w[BBB], @bot.transactions.liquidation.map(&:base), 'only the one that landed'
+    assert_predicate @bot, :liquidation_ambiguous?
+    assert_equal 'CCC', @bot.liquidation_pending[:symbol], 'the halt names the one in doubt'
+  end
+
+  test 'a skipped position does not stop the ones after it' do
+    setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+    @assets['BBB'][:ticker].update!(minimum_quote_size: 1_000)
+
+    result = @bot.liquidate!(symbols: %w[BBB CCC])
+
+    assert_equal %w[CCC], @bot.transactions.liquidation.map(&:base)
+    assert_equal 1, result.data[:placed]
+    assert_not_predicate @bot, :liquidation_ambiguous?
+    skipped = @bot.bot_activity_logs.find_by(event: 'liquidation_skipped')
+    assert_equal 'BBB', skipped.details['base']
+  end
+
+  test 'a name the bot no longer holds is dropped and the rest still sell' do
+    setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
+
+    result = @bot.liquidate!(symbols: %w[CCC ZZZ])
+
+    assert_predicate result, :success?
+    assert_equal %w[CCC], @bot.transactions.liquidation.map(&:base)
+  end
+
+  test 'a named position that is dropped says so instead of vanishing' do
+    # For one symbol the :not_held refusal WAS the whole answer. In a batch the others still sell,
+    # so a dropped one has to explain itself — otherwise the user asks for two, gets one, and
+    # nothing anywhere says why. A live price missing for CCC is the realistic way in.
+    setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+    @bot.stubs(:metrics_with_current_prices).returns(
+      asset_values: { 'BBB' => { amount: 0.3.to_d, current_value: 30.to_d } }, prices_stale: false
+    )
+
+    result = @bot.liquidate!(symbols: %w[BBB CCC])
+
+    assert_predicate result, :success?
+    assert_equal %w[BBB], @bot.transactions.liquidation.map(&:base)
+    skipped = @bot.bot_activity_logs.where(event: 'liquidation_skipped')
+    assert_equal 'CCC', skipped.sole.details['base']
+    assert_equal 'not_held', skipped.sole.details['reason']
+  end
+
+  test 'each sale at a loss locks its own name and no other' do
+    setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+    @bot.user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    @bot.stubs(:sell_at_loss?).returns(true)
+
+    @bot.liquidate!(symbols: %w[BBB CCC])
+
+    locked = @bot.user.wash_sale_locks.live.pluck(:asset_id)
+    assert_equal [@assets['BBB'][:asset].id, @assets['CCC'][:asset].id].sort, locked.sort
+    assert_not_includes locked, @assets['AAA'][:asset].id, 'the member was never sold'
+  end
+
+  test 'the batch stops before its exclusion can lapse, and says what it did not try' do
+    # The exchange semaphore is acquired at dispatch and never renewed. Overrun it and a second sale
+    # can run beside us, with no intent and no waiting row between holdings to stand it down.
+    setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+    @bot.stubs(:liquidation_batch_deadline).returns(Time.current - 1.second)
+
+    @bot.liquidate!(symbols: %w[BBB CCC])
+
+    assert_empty @bot.transactions.liquidation, 'the deadline was already past'
+    cut = @bot.bot_activity_logs.find_by(event: 'liquidation_batch_cut_short')
+    assert cut, 'a partial run has to say so where the user looks'
+    assert_equal 'BBB, CCC', cut.details['bases']
+  end
+
+  test 'a lease that lapses during the price and balance reads stops the placement' do
+    # The window is checked before the reads, but each of those is a network call that can take tens
+    # of seconds — so it is asked again at the last moment nothing has been recorded or sent.
+    setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
+    deadline = 30.seconds.from_now
+    @bot.stubs(:side_price).with do
+      travel 60.seconds
+      true
+    end.returns(100.to_d)
+
+    result = @bot.liquidate!(symbols: %w[CCC], deadline: deadline)
+
+    assert_predicate result, :success?
+    assert_empty @bot.transactions.liquidation, 'placing past the lease is what lets a second sale in'
+    assert_equal 'exclusion_lapsed', @bot.bot_activity_logs.find_by(event: 'liquidation_skipped').details['reason']
   end
 
   test 'the market-hours check asks only about the ticker being sold' do
@@ -154,14 +292,36 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     # 24/7 crypto sale whenever the stock market happens to be shut.
     setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
 
-    assert_equal [@assets['CCC'][:ticker]], @bot.liquidation_tickers(symbol: 'CCC')
+    assert_equal [@assets['CCC'][:ticker]], @bot.liquidation_tickers(symbols: %w[CCC])
+  end
+
+  test 'the market-hours check asks about every ticker in the batch' do
+    setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+
+    assert_equal [@assets['BBB'][:ticker], @assets['CCC'][:ticker]],
+                 @bot.liquidation_tickers(symbols: %w[BBB CCC])
+  end
+
+  test 'a name with no live price still reaches the market-hours check' do
+    # Resolved off the ticker table, not off priced holdings. Through the holdings, a name whose
+    # price read failed drops out — and a [crypto, stock] batch that loses its stock here is judged
+    # all-crypto by Alpaca, skips the stock clock, then sells the stock anyway once
+    # place_liquidation_orders! forces a fresh price.
+    setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
+    @bot.stubs(:metrics_with_current_prices).returns(
+      asset_values: { 'BBB' => { amount: 0.3.to_d, current_value: 30.to_d } }, prices_stale: false
+    )
+
+    assert_equal [@assets['BBB'][:ticker], @assets['CCC'][:ticker]],
+                 @bot.liquidation_tickers(symbols: %w[BBB CCC]),
+                 'CCC has no price, but the clock still has to be asked about it'
   end
 
   test 'the sell is capped at what is actually on the exchange' do
     # Coins moved to cold storage still count toward the portfolio but cannot be traded.
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 }, free: { 'CCC' => 0.15 })
 
-    @bot.liquidate!(symbol: 'CCC')
+    @bot.liquidate!(symbols: %w[CCC])
 
     assert_in_delta 0.15, @bot.transactions.liquidation.last.amount.to_f, 0.0001,
                     'held 0.2, but only 0.15 is on the exchange'
@@ -170,7 +330,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
   test 'liquidation orders are market orders and not contributions' do
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
 
-    @bot.liquidate!(symbol: 'CCC')
+    @bot.liquidate!(symbols: %w[CCC])
 
     order = @bot.transactions.liquidation.last
     assert_equal 'market_order', order.order_type
@@ -184,7 +344,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
     @assets['CCC'][:ticker].update!(minimum_quote_size: 1_000)
 
-    @bot.liquidate!(symbol: 'CCC')
+    @bot.liquidate!(symbols: %w[CCC])
 
     assert_empty @bot.transactions.liquidation
   end
@@ -196,7 +356,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
                          transaction_type: 'REGULAR', price: 100, amount: 1)
     @bot.stubs(:advance_waiting_orders!)
 
-    @bot.liquidate!(symbol: 'CCC')
+    @bot.liquidate!(symbols: %w[CCC])
 
     assert_empty @bot.transactions.liquidation
   end
@@ -205,7 +365,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
     @assets['CCC'][:ticker].update!(available: false)
 
-    @bot.liquidate!(symbol: 'CCC')
+    @bot.liquidate!(symbols: %w[CCC])
 
     assert_empty @bot.transactions.liquidation
   end
@@ -216,7 +376,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
     @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_SELLING)
 
-    assert_predicate @bot.liquidate!(symbol: 'CCC'), :failure?
+    assert_predicate @bot.liquidate!(symbols: %w[CCC]), :failure?
     assert_empty @bot.transactions.liquidation
   end
 
@@ -227,7 +387,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
                          transaction_type: 'LIQUIDATION', price: 100, amount: 1)
     @bot.stubs(:advance_waiting_orders!)
 
-    assert_predicate @bot.liquidate!(symbol: 'CCC'), :failure?
+    assert_predicate @bot.liquidate!(symbols: %w[CCC]), :failure?
     assert_equal 1, @bot.transactions.liquidation.count, 'no second order on top of the live one'
   end
 
@@ -236,7 +396,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     @bot.start_liquidation_placement!('CCC')
     @bot.flag_liquidation_ambiguous!
 
-    assert_predicate @bot.liquidate!(symbol: 'CCC'), :failure?
+    assert_predicate @bot.liquidate!(symbols: %w[CCC]), :failure?
     assert_empty @bot.transactions.liquidation
   end
 
@@ -246,7 +406,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
     @bot.stubs(:refresh_composition).returns(Result::Failure.new('upstream down'))
 
-    assert_predicate @bot.liquidate!(symbol: 'CCC'), :success?
+    assert_predicate @bot.liquidate!(symbols: %w[CCC]), :success?
     assert_equal %w[CCC], @bot.transactions.liquidation.map(&:base)
   end
 
@@ -256,7 +416,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'BBB' => 30, 'CCC' => 20 })
     @bot.exchange.stubs(:market_sell).raises(Client::AmbiguousPlacementError, 'timeout')
 
-    @bot.liquidate!(symbol: 'CCC')
+    @bot.liquidate!(symbols: %w[CCC])
 
     assert_predicate @bot, :liquidation_ambiguous?
     assert_empty @bot.transactions.liquidation
@@ -266,7 +426,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
     @bot.exchange.stubs(:market_sell).returns(Result::Success.new(order_id: nil))
 
-    @bot.liquidate!(symbol: 'CCC')
+    @bot.liquidate!(symbols: %w[CCC])
 
     assert_predicate @bot, :liquidation_ambiguous?
   end
@@ -275,7 +435,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
     @bot.exchange.stubs(:market_sell).returns(Result::Failure.new('gateway timeout'))
 
-    @bot.liquidate!(symbol: 'CCC')
+    @bot.liquidate!(symbols: %w[CCC])
 
     assert_predicate @bot, :liquidation_ambiguous?
   end
@@ -285,7 +445,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     @bot.exchange.stubs(:market_sell).returns(Result::Failure.new('Insufficient balance'))
     @bot.exchange.stubs(:placement_transient_error?).returns(true)
 
-    @bot.liquidate!(symbol: 'CCC')
+    @bot.liquidate!(symbols: %w[CCC])
 
     assert_not_predicate @bot, :liquidation_pending?
     assert_equal 'failed', @bot.transactions.liquidation.last.status
@@ -295,7 +455,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
     @bot.exchange.stubs(:market_sell).raises(Client::TransientNetworkError, 'connection refused')
 
-    @bot.liquidate!(symbol: 'CCC')
+    @bot.liquidate!(symbols: %w[CCC])
 
     assert_not_predicate @bot, :liquidation_pending?
   end
@@ -303,7 +463,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
   test 'an accepted order clears its own intent' do
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
 
-    @bot.liquidate!(symbol: 'CCC')
+    @bot.liquidate!(symbols: %w[CCC])
 
     assert_not_predicate @bot, :liquidation_pending?
     assert_equal 1, @bot.transactions.liquidation.count
@@ -314,7 +474,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
     @bot.start_liquidation_placement!('CCC')
 
-    @bot.liquidate!(symbol: 'CCC')
+    @bot.liquidate!(symbols: %w[CCC])
 
     assert_predicate @bot, :liquidation_ambiguous?
   end
@@ -420,16 +580,81 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     # non-authoritative venue that is not proof it never executed, and a fresh Sell placed on top of
     # an unrecorded fill can sell coins the bot does not own.
     index_membership('AAA')
-    create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted, external_status: :open,
-                         external_id: 'gone', side: :sell, base: 'CCC', quote: @bot.quote_asset.symbol,
-                         transaction_type: 'LIQUIDATION', price: 100, amount: 1, created_at: 20.days.ago)
-    @bot.stubs(:get_orders).returns(Result::Success.new(orders: {}, missing: %w[gone]))
-    @bot.stubs(:broadcast_metrics_update)
+    abandon('CCC')
 
     @bot.advance_waiting_orders!
 
-    assert_predicate @bot, :liquidation_ambiguous?
+    assert_predicate @bot, :liquidation_halted?
+    assert_equal %w[CCC], @bot.halted_liquidation_bases
+    assert_predicate @bot.liquidate!(symbols: %w[CCC]), :failure?
+  end
+
+  test 'every order the venue gave up on blocks, not just the first' do
+    # A sale can cover several positions, so several can be outstanding at once. One naming the
+    # first would let its attestation lift the block while the others are unaccounted for.
+    index_membership('AAA')
+    abandon('BBB', 'CCC')
+
+    @bot.advance_waiting_orders!
+
+    assert_equal %w[BBB CCC], @bot.halted_liquidation_bases.sort
+  end
+
+  test 'an order given up on behind a standing halt is not lost' do
+    # A batch can accept BBB and then halt on CCC. When BBB is later abandoned it leaves `waiting`
+    # too and no sweep looks at it again, so the ROW has to carry its own block.
+    index_membership('AAA')
+    abandon('BBB')
+    @bot.start_liquidation_placement!('CCC')
+    @bot.flag_liquidation_ambiguous!
+
+    @bot.advance_waiting_orders!
+
+    assert_equal %w[CCC BBB], @bot.halted_liquidation_bases
+  end
+
+  test 'clearing the intent leaves an unaccounted-for order still blocking' do
+    # The heart of it: one attestation must not lift the block for a sale it never covered.
+    index_membership('AAA')
+    abandon('BBB')
+    @bot.start_liquidation_placement!('CCC')
+    @bot.flag_liquidation_ambiguous!
+    @bot.advance_waiting_orders!
+
+    @bot.clear_liquidation_pending!
+
+    assert_predicate @bot, :liquidation_halted?
+    assert_equal %w[BBB], @bot.halted_liquidation_bases
+    assert_predicate @bot.liquidate!(symbols: %w[BBB]), :failure?
+  end
+
+  test 'attesting about the listed orders clears them, and only them' do
+    index_membership('AAA')
+    listed = abandon('BBB')
+    @bot.advance_waiting_orders!
+    later = abandon('CCC')
+    @bot.advance_waiting_orders!
+
+    @bot.resolve_liquidation_orders!(listed.map(&:id))
+
+    assert_equal %w[CCC], @bot.halted_liquidation_bases,
+                 'an order given up on after the render was never part of the answer'
+    @bot.resolve_liquidation_orders!(later.map(&:id))
+    assert_not_predicate @bot, :liquidation_halted?
+  end
+
+  test 'a placement still in flight is never overwritten by the abandoned sweep' do
+    # `placing` means a network call may be happening right now; its outcome is not the sweep's to
+    # decide. The abandoned row blocks on its own account either way.
+    index_membership('AAA')
+    abandon('BBB')
+    @bot.start_liquidation_placement!('CCC')
+
+    @bot.advance_waiting_orders!
+
     assert_equal 'CCC', @bot.liquidation_pending[:symbol]
+    assert_not_predicate @bot, :liquidation_ambiguous?
+    assert_predicate @bot, :liquidation_halted?
   end
 
   test 'a halt repaints the widget, since nothing else will while trading is blocked' do
@@ -596,6 +821,18 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     stub_exchange_balances(@bot.exchange, balances)
   end
 
+  # Orders the venue has stopped reporting: placed, then old enough for StaleOrderResolver.
+  def abandon(*bases)
+    @bot.stubs(:broadcast_metrics_update)
+    rows = bases.map do |base|
+      create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted, external_status: :open,
+                           external_id: "gone-#{base}", side: :sell, base: base, quote: @bot.quote_asset.symbol,
+                           transaction_type: 'LIQUIDATION', price: 100, amount: 1, created_at: 20.days.ago)
+    end
+    @bot.stubs(:get_orders).returns(Result::Success.new(orders: {}, missing: rows.map(&:external_id)))
+    rows
+  end
+
   def index_membership(*symbols)
     symbols.each do |symbol|
       BotIndexAsset.create!(bot: @bot, asset: @assets[symbol][:asset], ticker: @assets[symbol][:ticker],
@@ -642,14 +879,14 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     stub_holdings('AAA' => 50, 'BBB' => 30)
     @bot.expects(:liquidate_holding!).with { |holding, _| holding[:symbol] == 'AAA' }.returns(:placed)
 
-    assert_predicate @bot.liquidate!(symbol: 'AAA'), :success?
+    assert_predicate @bot.liquidate!(symbols: %w[AAA]), :success?
   end
 
   test 'a symbol the bot does not hold is refused' do
     index_membership('AAA')
     stub_holdings('AAA' => 50)
 
-    result = @bot.liquidate!(symbol: 'ZZZ')
+    result = @bot.liquidate!(symbols: %w[ZZZ])
 
     assert_predicate result, :failure?
     assert_equal [:not_held], result.errors

@@ -716,6 +716,7 @@ el:
             liquidation_ambiguous: "Η κατάσταση της εντολής πώλησης δεν επιβεβαιώθηκε — σε παύση για να μην σταλεί δύο φορές"
             liquidation_manually_resolved: "Η ανεπιβεβαίωτη πώληση εκκαθαρίστηκε χειροκίνητα"
             liquidation_market_closed: "Η αγορά είναι κλειστή — δεν πουλήθηκε τίποτα"
+            liquidation_batch_cut_short: "Σταμάτησε νωρίς — %{bases} δεν πουλήθηκαν ακόμη"
             liquidation_not_started: "Δεν πουλήθηκε τίποτα — το bot ήταν απασχολημένο ή ο δείκτης δεν ανανεώθηκε"
             liquidation_failed: "Selling failed: %{error}"
             orders_below_minimum: "%{count} constituents were under the exchange minimum this time and carry forward: %{bases}"

@@ -1,7 +1,7 @@
-# Selling a holding at the user's request: a constituent the composition has dropped, or any current
-# member — direct indexing is exactly the freedom to close one position on its own. Never a side
-# effect of rebalancing (see the quitter reasoning below), always one named row, always a taxable
-# disposal the user picked the moment for.
+# Selling holdings at the user's request: constituents the composition has dropped, or any current
+# member — direct indexing is exactly the freedom to close a position on its own. Never a side
+# effect of rebalancing (see the quitter reasoning below), always positions the user named, always a
+# taxable disposal they picked the moment for.
 #
 # Deliberately NOT part of rebalancing. Rebalancing tracks the composition and steers members toward
 # their weights; an exited holding has no weight to steer toward, and folding it in produced two bad
@@ -75,10 +75,17 @@ module Bot::Composition::Liquidatable
   # quote-matching ticker in the catalogue. Market-hours checks have to ask about these: Alpaca skips
   # the stock clock only when EVERY supplied ticker is crypto, so asking with the full catalogue
   # refuses a 24/7 crypto sale any time the stock market happens to be shut.
-  def liquidation_tickers(symbol: nil)
-    holdings = sellable_holdings
-    holdings = holdings.select { |holding| holding[:symbol] == symbol } if symbol.present?
-    holdings.filter_map { |holding| holding[:ticker] }.presence || tickers.to_a
+  def liquidation_tickers(symbols: [])
+    # Named symbols resolve straight off the ticker table, NOT through priced holdings: a name whose
+    # price read failed silently drops out of sellable_holdings, and a [crypto, stock] batch that
+    # loses its stock here is judged all-crypto, skips the stock clock, and then sells the stock
+    # anyway once place_liquidation_orders! forces a fresh price. Membership needs no price.
+    if symbols.present?
+      tickers_by_symbol = tickers.index_by(&:base)
+      return symbols.filter_map { |symbol| tickers_by_symbol[symbol] }.presence || tickers.to_a
+    end
+
+    sellable_holdings.filter_map { |holding| holding[:ticker] }.presence || tickers.to_a
   end
 
   # The exited holdings by NAME, with no prices involved. exited_holdings needs a live-priced hash, and the
@@ -97,15 +104,21 @@ module Bot::Composition::Liquidatable
     end
   end
 
-  # Sells one holding at market. Runs under Bot::ActionJob's exchange semaphore (see
-  # Bot::LiquidateExitedJob), which is what makes the "no placement of ours is running" reasoning in
-  # Bot::LiquidationState sound.
-  # One holding, named by the user from its own row. There is no sell-everything path: each of these
-  # is a separate taxable disposal, and a single button over the table could not say which position
-  # it was closing. The symbol arrives from the URL, so it is untrusted — a caller that names
-  # something the bot does not hold is refused here as well as in the controller, which keeps the
-  # job safe whatever reaches it.
-  def liquidate!(symbol:)
+  # Sells at market. Runs under Bot::ActionJob's exchange semaphore (see Bot::LiquidateExitedJob),
+  # which is what makes the "no placement of ours is running" reasoning in Bot::LiquidationState
+  # sound — and `deadline` is when that semaphore's lease runs out, so the run can stop before the
+  # reasoning stops holding.
+  #
+  # The positions the user named — one row's Sell, or the band's Sell all carrying exactly the
+  # symbols that table rendered. Each is still a separate taxable disposal: its own order, its own
+  # transaction, its own wash-sale verdict and lock, its own activity row, nothing netted. The old
+  # objection to a bulk button was that it could not say which position it was closing; this one
+  # routes through a confirmation that names every one of them, and the intent slot still holds the
+  # single symbol being placed, so a halt says which sale is in doubt and nothing after it is tried.
+  #
+  # The symbols arrive from the URL, so they are untrusted — names the bot does not hold are refused
+  # here as well as in the controller, which keeps the job safe whatever reaches it.
+  def liquidate!(symbols:, deadline: nil)
     advance_waiting_orders!
     promote_stale_liquidation_placement!
 
@@ -119,7 +132,7 @@ module Bot::Composition::Liquidatable
     result = refresh_composition
     Rails.logger.warn("liquidate bot=#{id} composition refresh failed: #{result.errors.to_sentence}") if result.failure?
 
-    place_liquidation_orders!(symbol: symbol)
+    place_liquidation_orders!(symbols: symbols, deadline: deadline)
   end
 
   private
@@ -128,6 +141,10 @@ module Bot::Composition::Liquidatable
     return :rebalance_pending if rebalance_pending?
     return :halted if liquidation_pending?
     return :orders_waiting if transactions.liquidation.waiting.exists?
+    # An order the venue stopped reporting is not proof it never executed, and being abandoned takes
+    # it out of `waiting` — so without this it would stop blocking anything the moment we gave up on
+    # it, and a fresh sale could place on top of a fill we never recorded.
+    return :orders_unresolved if unresolved_liquidation_orders.exists?
     # A redeploy is buying the members with cash a previous sale realized. Selling underneath it —
     # or worse, selling while its outcome is unknown — trades against money that may already be
     # committed. try: this concern is shared with types that have no redeploy leg.
@@ -136,18 +153,41 @@ module Bot::Composition::Liquidatable
     nil
   end
 
-  def place_liquidation_orders!(symbol:)
+  def place_liquidation_orders!(symbols:, deadline: nil)
     # metrics(force: true), NOT metrics_with_current_prices(force: true): the latter forces only its
     # own five-minute layer and still reads the thirty-day `metrics` cache underneath, so a second
     # queued click would size against a ledger that predates the first sale.
     fresh = metrics(force: true)
-    holdings = sellable_holdings(metrics_with_current_prices(force: true))
-               .select { |holding| holding[:symbol] == symbol }
+    by_symbol = sellable_holdings(metrics_with_current_prices(force: true)).index_by { |holding| holding[:symbol] }
+    # .uniq is load-bearing, not tidiness: a repeated name would place the same holding twice, both
+    # sized off this one snapshot. The order is the confirmation's, so the feed reads as listed.
+    named = Array(symbols).uniq
+    holdings = named.filter_map { |symbol| by_symbol[symbol] }
     return Result::Failure.new(:not_held) if holdings.empty?
 
+    # A named position with no sellable holding right now — no price in the refreshed read, no
+    # ticker, or under the venue floor — is dropped here. For a single sale that WAS the whole sale
+    # and the refusal above said so; in a batch the others still sell, so each dropped one has to
+    # say why on its own. Otherwise the user asks for three, gets two, and nothing anywhere
+    # explains the third.
+    (named - holdings.map { |holding| holding[:symbol] }).each do |symbol|
+      skip_liquidation({ symbol: symbol }, 'not_held')
+    end
+
+    deadline ||= liquidation_batch_deadline
     placed = 0
-    holdings.each do |holding|
-      outcome = liquidate_holding!(holding, fresh)
+    holdings.each_with_index do |holding, index|
+      # The exchange semaphore is this run's clock: Solid Queue takes it at DISPATCH, never renews
+      # it, and queue delay spends it too. Once it lapses a second sale can run beside us, and
+      # between holdings there is no intent and no waiting row for it to stand down on — so both
+      # runs could size the same position. Stop starting holdings before that gets likely; what is
+      # left stays on the table and the user clicks again.
+      if Time.current > deadline
+        cut_liquidation_batch_short(holdings.drop(index))
+        break
+      end
+
+      outcome = liquidate_holding!(holding, fresh, deadline)
       placed += 1 if outcome == :placed
       # An unknown outcome halts the whole batch: nothing else may trade until the user has resolved
       # it, and continuing would place orders the halt is supposed to be blocking.
@@ -157,7 +197,18 @@ module Bot::Composition::Liquidatable
     Result::Success.new(placed: placed)
   end
 
-  def liquidate_holding!(holding, fresh)
+  # The fallback when no lease can be read — a direct call, or a run with no semaphore row behind it.
+  # Bot::LiquidateExitedJob passes the real expiry, which is the only thing that accounts for queue
+  # delay. Do NOT raise the job's `duration:` to buy room instead: that also delays the sweep which
+  # recovers a worker that died holding the lock.
+  def liquidation_batch_deadline = Time.current + 1.minute
+
+  def cut_liquidation_batch_short(untried)
+    log_activity('liquidation_batch_cut_short', level: :info,
+                                                details: { bases: untried.map { |holding| holding[:symbol] }.join(', ') })
+  end
+
+  def liquidate_holding!(holding, fresh, deadline = nil)
     ticker = holding[:ticker]
     return skip_liquidation(holding, 'unavailable') unless ticker&.available? && ticker.trading_enabled?
     # With FeeCutter on, the DCA leg can have a resting limit buy for an asset that has since exited.
@@ -170,6 +221,12 @@ module Bot::Composition::Liquidatable
 
     amount_info = calculate_best_amount_info(order_data)
     return skip_liquidation(holding, 'below_minimum') if amount_info[:below_minimum_amount]
+
+    # Asked AGAIN, because liquidation_order_data just made two network reads and each can take tens
+    # of seconds — so the window that was open at the top of the loop may be gone. This is the last
+    # moment a stop is free: no intent recorded, nothing sent. Placing past the lease is what lets
+    # another sale run beside this one and size the same position.
+    return skip_liquidation(holding, 'exclusion_lapsed') if deadline && Time.current > deadline
 
     submit_liquidation!(order_data, amount_info, loss: sell_at_loss?(order_data))
   end

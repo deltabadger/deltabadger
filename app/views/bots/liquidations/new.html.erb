@@ -7,35 +7,36 @@
       <h1 class="modal__title"><%= @exited ? t(@bot.exited_title_key) : t('bot.liquidation.title') %></h1>
     </div>
     <div class="modal__body">
-      <p class="text-center"><%= t('bot.liquidation.sell_confirm') %></p>
+      <% harvest = @holdings.any? { |holding| holding[:harvestable] } %>
+      <p class="text-center"><%= t(@holdings.many? ? 'bot.liquidation.sell_all_confirm' : 'bot.liquidation.sell_confirm') %></p>
       <%# The row's colour judged the WHOLE position; the sale submits what the exchange actually
           holds, and a request cannot read the live balance to say which it will be. %>
-      <% if @holding&.dig(:harvestable) %>
+      <% if harvest %>
         <p class="text-center text-inactive"><%= t('bot.liquidation.partial_note') %></p>
       <% end %>
 
-      <%# Named, not counted: the user is approving the disposal of this one position. The row is
-          the bot page's own, hidden columns included — the user got here from a row with no Amount
-          and no Value, and a confirmation that put them back would be the one place the preference
-          did not hold. The symbol is what identifies the position being sold. The bot page's
-          own table, widget shell included — every row rule (padding, alignment, the logo gutter)
-          hangs off .widget--table, so the table is bare without it. Absent when the price cache has
-          gone cold, which is why the sale never depends on it. %>
-      <% if @holding %>
-        <div class="widget widget--table" data-controller="table-fit">
-          <%= render 'bots/composition/assets_table',
-                     values: { @holding[:symbol] => @holding },
-                     logo_assets: { @holding[:symbol] => @holding[:ticker] },
-                     body_id: 'liquidation_confirm_list', quote: @bot.quote_asset&.symbol,
-                     hide_money: hide_balances?(@bot) %>
-        </div>
-      <% end %>
+      <%# Named, not counted: the user is approving the disposal of these positions, one row each.
+          A count would say how many and not which, and "which" is the whole reason this modal
+          exists. The rows are the bot page's own, hidden columns included — the user got here from
+          rows with no Amount and no Value, and a confirmation that put them back would be the one
+          place the preference did not hold. The bot page's own table, widget shell included — every
+          row rule (padding, alignment, the logo gutter) hangs off .widget--table, so the table is
+          bare without it. %>
+      <div class="widget widget--table" data-controller="table-fit">
+        <%= render 'bots/composition/assets_table',
+                   values: @holdings.index_by { |holding| holding[:symbol] },
+                   logo_assets: @holdings.to_h { |holding| [holding[:symbol], holding[:ticker]] },
+                   body_id: 'liquidation_confirm_list', quote: @bot.quote_asset&.symbol,
+                   hide_money: hide_balances?(@bot) %>
+      </div>
 
       <%# One form rather than a bare button, so an account that has never answered the wash-sale
           question answers it in the same submit that starts the sale. Closes itself on success,
           like every other modal form here; a refused sale answers 422 and the modal stays up
           carrying the reason. %>
-      <%= form_with url: bot_liquidation_path(bot_id: @bot.id, symbol: @symbol), method: :post,
+      <%# The approved list, frozen into the action. What the user saw above is literally what the
+          request names — the sale cannot grow past the confirmation. %>
+      <%= form_with url: bot_liquidation_path(bot_id: @bot.id, symbol: @symbols), method: :post,
                     data: { controller: 'form--checkbox-enables',
                             action: 'turbo:submit-end->modal--base#submitEnd ' \
                                     'change->form--checkbox-enables#toggleSubmitButton' } do %>
@@ -51,7 +52,7 @@
           <%= button_tag t('bot.liquidation.sell'), type: :submit,
                          disabled: !current_user.wash_sale_decided?,
                          data: { form__checkbox_enables_target: 'submit' },
-                         class: "button button--large #{@holding&.dig(:harvestable) ? 'button--success' : 'button--danger'}" %>
+                         class: "button button--large #{@holdings.one? && harvest ? 'button--success' : 'button--danger'}" %>
         </div>
       <% end %>
     </div>

@@ -716,6 +716,7 @@ en:
             liquidation_ambiguous: "Sell order status unconfirmed — paused so it cannot be placed twice"
             liquidation_manually_resolved: "Unconfirmed sale cleared manually"
             liquidation_market_closed: "Market closed — nothing sold"
+            liquidation_batch_cut_short: "Stopped early — %{bases} not sold yet"
             liquidation_not_started: "Nothing was sold — the bot was busy, or the index could not be refreshed"
             liquidation_failed: "Selling failed: %{error}"
             orders_below_minimum: "%{count} constituents were under the exchange minimum this time and carry forward: %{bases}"

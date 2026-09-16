@@ -45,10 +45,8 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
     assert_select '#exited_metrics_table', /CCC/
   end
 
-  test 'the sell sits on the row, not on the section' do
-    # One Sell per holding, in a last column with no header. A single button over the whole table
-    # cannot say which position it is closing, and closing all of them at once is not a thing the
-    # user ever asked for — each one is a separate taxable disposal.
+  test 'one quitter gets a row Sell and no Sell all' do
+    # Over a single row the band's button would be that row's own Sell, twice, on a money path.
     in_index('AAA')
     exited('CCC')
     warm_prices({ 'AAA' => 100, 'CCC' => 20 })
@@ -57,8 +55,56 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
 
     assert_select '#exited_metrics_table tbody a[href=?][data-turbo-frame="modal"]',
                   new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC'), count: 1
-    assert_select '.exited-header a[href*="liquidation"]', 0, 'no global sell'
+    assert_select '.exited-header a[href*="liquidation"]', 0, 'nothing to batch'
     assert_select '#exited_metrics_table form[action=?]', bot_liquidation_path(bot_id: @bot.id), count: 0
+  end
+
+  test 'the band sells every row the table lists' do
+    add_asset('BBB')
+    in_index('AAA')
+    exited('BBB')
+    exited('CCC')
+    warm_prices({ 'AAA' => 100, 'BBB' => 50, 'CCC' => 20 })
+
+    get bot_path(id: @bot.id)
+
+    # Built FROM the rendered rows, so it can never name a position the page is not showing.
+    assert_select '.exited-header a[href=?][data-turbo-frame="modal"]',
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: %w[BBB CCC]), count: 1
+    # And every row keeps its own Sell: one position at a time is still the default.
+    assert_select '#exited_metrics_table tbody a[data-turbo-frame="modal"]', 2
+    # A link into the confirmation, never a form that places straight from the page.
+    assert_select '#exited_metrics_table form[action=?]', bot_liquidation_path(bot_id: @bot.id), count: 0
+  end
+
+  test 'a wash-sale locked quitter is not part of Sell all' do
+    # It is listed once, in its own table, with its own Sell. The band sells what ITS table shows.
+    add_asset('BBB')
+    add_asset('DDD')
+    in_index('AAA')
+    %w[BBB CCC DDD].each { |symbol| exited(symbol) }
+    warm_prices({ 'AAA' => 100, 'BBB' => 50, 'CCC' => 20, 'DDD' => 10 })
+    @user.update!(wash_sale_enabled: true, wash_sale_jurisdiction: 'US')
+    WashSaleLock.create!(user: @user, asset: @assets['DDD'][:asset], buy_locked_until: 10.days.from_now)
+
+    get bot_path(id: @bot.id)
+
+    assert_select '.exited-header a[href=?]',
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: %w[BBB CCC]), count: 1
+    assert_select '#wash_sale_table', /DDD/
+  end
+
+  test 'an archived bot gets no Sell all' do
+    add_asset('BBB')
+    in_index('AAA')
+    exited('BBB')
+    exited('CCC')
+    warm_prices({ 'AAA' => 100, 'BBB' => 50, 'CCC' => 20 })
+    @bot.update!(status: :archived)
+
+    get bot_path(id: @bot.id)
+
+    assert_select '.exited-header a[href*="liquidation"]', 0
   end
 
   test 'every quitter gets its own sell' do
@@ -111,6 +157,40 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
 
     assert_select "#exited_metrics_table form[action='#{bot_liquidation_path(bot_id: @bot.id)}']", 0
     assert_select '#exited_metrics_table form[action*="liquidation_resolutions"]', 1
+    assert_select '.exited-header a[href*="liquidation"]', 0, 'and no Sell all beside the Clear'
+  end
+
+  test 'the clear never carries the nonce of a placement it did not name' do
+    # A `placing` intent is not shown — its placement may still be running — so its nonce must not
+    # ride along on an answer about something else. It could turn ambiguous before the job runs.
+    in_index('AAA')
+    exited('CCC')
+    warm_prices({ 'AAA' => 100, 'CCC' => 20 })
+    Bot.any_instance.stubs(:broadcast_new_order)
+    create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted, external_status: :abandoned,
+                         external_id: 'gone', side: :sell, base: 'CCC', quote: @bot.quote_asset.symbol,
+                         transaction_type: 'LIQUIDATION', price: 100, amount: 1)
+    @bot.start_liquidation_placement!('AAA')
+
+    get bot_path(id: @bot.id)
+
+    assert_select '.exited-header form[action*="liquidation_resolutions"]', 1
+    assert_select ".exited-header form[action*='#{@bot.liquidation_pending[:id]}']", 0
+  end
+
+  test 'the halt names the position whose sale is unconfirmed' do
+    # With several rows on the table, "Sale unconfirmed" alone points at all of them.
+    add_asset('BBB')
+    in_index('AAA')
+    exited('BBB')
+    exited('CCC')
+    warm_prices({ 'AAA' => 100, 'BBB' => 50, 'CCC' => 20 })
+    @bot.start_liquidation_placement!('CCC')
+    @bot.flag_liquidation_ambiguous!
+
+    get bot_path(id: @bot.id)
+
+    assert_select '.exited-header .text-error', /CCC/
   end
 
   test 'realised P/L only appears once something has been realised' do

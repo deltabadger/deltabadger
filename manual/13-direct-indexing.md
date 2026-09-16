@@ -38,4 +38,4 @@ The window counts calendar days in the app's timezone, which can differ from you
 
 ## Index changes
 
-Companies join and leave the index. A constituent that has left is moved to the **Left the index** table and is no longer bought; selling it is your call, from its own row, because it is a disposal with tax consequences. See [Portfolio rebalancing](12-portfolio-rebalancing.md).
+Companies join and leave the index. A constituent that has left is moved to the **Left the index** table and is no longer bought; selling it is your call, from its own row or with **Sell all** above the table, because it is a disposal with tax consequences. See [Portfolio rebalancing](12-portfolio-rebalancing.md).

@@ -27,6 +27,15 @@ class BotActivitySummaryTest < ActionView::TestCase
     assert_no_match(/EAccount/, summary)
   end
 
+  test 'a batch cut short names the positions it did not get to' do
+    # The whole value of the event is which positions are still unsold; without the detail the feed
+    # says a batch stopped early and leaves the reader to work out what is left.
+    summary = bot_activity_summary(activity('liquidation_batch_cut_short', bases: 'BBB, CCC'))
+
+    assert_match(/BBB, CCC/, summary)
+    assert_no_match(/%\{bases\}/, summary)
+  end
+
   test 'an execution failure with no exchange still shows the raw text rather than nothing' do
     summary = bot_activity_summary(activity('execution_failed', error: 'boom'))
 

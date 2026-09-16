@@ -29,7 +29,7 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test 'POST /bots/:id/liquidations queues the sale and returns 202' do
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbol: 'DOGE')
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE])
 
     post "/api/v1/bots/#{@bot.id}/liquidations",
          params: { symbol: 'DOGE' }, headers: keyed('k1'), as: :json
@@ -59,7 +59,7 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test 'the same key replayed against the same bot returns the stored response and queues once' do
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbol: 'DOGE').once
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE]).once
 
     post "/api/v1/bots/#{@bot.id}/liquidations", params: { symbol: 'DOGE' }, headers: keyed('k1'), as: :json
     first = response.body
@@ -84,6 +84,19 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :conflict
     assert_equal 'idempotency_key_reused', JSON.parse(response.body)['error']['code']
+  end
+
+  test 'the symbol parameter accepts a list' do
+    # The page sends the positions its confirmation displayed, and the same service backs all three
+    # surfaces — so REST closes several positions in one call too.
+    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE SHIB])
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE SHIB])
+
+    post "/api/v1/bots/#{@bot.id}/liquidations",
+         params: { symbol: %w[DOGE SHIB] }, headers: keyed('k1'), as: :json
+
+    assert_response :accepted
+    assert_equal %w[DOGE SHIB], JSON.parse(response.body)['data']['symbols']
   end
 
   # Rails merges the query string into params, so a symbol sent there is what the action acts on;

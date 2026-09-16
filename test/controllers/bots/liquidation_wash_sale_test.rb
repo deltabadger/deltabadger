@@ -43,6 +43,16 @@ class Bots::LiquidationWashSaleTest < ActionDispatch::IntegrationTest
                                                    message: 'no radios render, so nothing would ever re-enable it'
   end
 
+  test 'an unanswered question refuses the whole batch, not just its first position' do
+    # A batch is exactly the sale that can open several windows at once, so the account's answer
+    # has to be in place before any of it is enqueued.
+    post bot_liquidation_path(bot_id: @bot.id, symbol: %w[CCC AAA])
+
+    assert_response :unprocessable_entity
+    assert_not_predicate queued(Bot::LiquidateExitedJob), :exists?
+    assert_not_predicate @user.reload, :wash_sale_decided?
+  end
+
   test 'an unanswered question refuses the sale rather than selling first and asking later' do
     post bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC')
 

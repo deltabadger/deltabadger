@@ -41,7 +41,7 @@ All paths are under `/api/v1`. The toggle column names the switch that must be o
 | POST | `/bots/:id/archive` | Archive bot | Stops the bot first |
 | DELETE | `/bots/:id/archive` | Reactivate bot | Returns the bot stopped |
 | DELETE | `/bots/:id` | Delete bot | Any status; the schedule is cancelled and the history hidden |
-| POST | `/bots/:id/liquidations` | Sell exited holding | Body `symbol`; index and basket bots only; irreversible market sale; needs `Idempotency-Key` (see below) |
+| POST | `/bots/:id/liquidations` | Sell exited holdings | Body `symbol`, or `symbol[]` repeated to close several positions in one call; index and basket bots only; irreversible market sale; needs `Idempotency-Key` (see below) |
 | POST | `/bots/:id/redeploy` | Answer redeploy offer | Body `accept: true\|false`; needs `Idempotency-Key` |
 | GET | `/indices` | List indices | Optional `?exchange_name=` |
 

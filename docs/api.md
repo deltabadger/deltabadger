@@ -233,7 +233,7 @@ token).
 | DELETE | `/bots/:id` | `delete_bot` | Any status; soft delete, and a running bot's schedule is cancelled |
 | POST | `/bots/:id/archive` | `archive_bot` | Stops the bot first |
 | DELETE | `/bots/:id/archive` | `unarchive_bot` | Returns the bot stopped |
-| POST | `/bots/:id/liquidations` | `liquidate_exited_asset` | Body `symbol`; **Requires `Idempotency-Key`** (see section 5); 202; index/basket bots only; irreversible market sale |
+| POST | `/bots/:id/liquidations` | `liquidate_exited_asset` | Body `symbol`, or `symbol[]` repeated to close several positions in one call; **Requires `Idempotency-Key`** (see section 5); 202; index/basket bots only; irreversible market sale |
 | POST | `/bots/:id/redeploy` | `answer_redeploy_offer` | Body `accept: true\|false` (required); **Requires `Idempotency-Key`**; 202, `data.offer` is what would be redeployed |
 | GET | `/exchanges` | `list_exchanges` | Lists user trading exchanges |
 | GET | `/exchanges/:id/balances` | `get_exchange_balances` | Live exchange call; 502 on upstream failure |
