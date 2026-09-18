@@ -103,10 +103,12 @@ class Bot::PriceLimitableDirectionTest < ActiveSupport::TestCase
 
   # == Shared-concern safety: non-reversible bots never flip ==
 
-  test 'a non-reversible bot (basket) never treats a flip action as a flip' do
-    bot = create(:dca_multi_asset)
+  test 'a bot that cannot reverse never treats a flip action as a flip' do
+    # Every type that carries price conditions can reverse today; the guard stays for the next one.
+    bot = create(:dca_single_asset)
+    bot.stubs(:reversible?).returns(false)
     bot.price_limited = true
-    bot.price_limit_action = 'start_selling' # crafted; UI never offers this for a basket
+    bot.price_limit_action = 'start_selling' # crafted; the UI never offers this without reversing
     assert_not_predicate bot, :reversible?
     assert_not bot.active_price_limit_flip?, 'a buy-only bot must never flip (no flip_direction!)'
   end

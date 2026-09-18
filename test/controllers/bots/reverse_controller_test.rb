@@ -50,6 +50,30 @@ class Bots::ReverseControllerTest < ActionDispatch::IntegrationTest
     assert_predicate bot.reload, :buying?
   end
 
+  test 'POST reverse toggles a basket between buying and selling for a quote amount, with no base step' do
+    # A basket has no single price to size "sell N base" against, so its control has two states.
+    bot = create(:dca_multi_asset, :started, user: @user)
+
+    post reverse_bot_path(id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+
+    assert_response :success
+    assert_predicate bot.reload, :sells_quote_amount?
+    assert_match 'bots_dca_multi_asset[sell_quote_amount]', response.body
+
+    post reverse_bot_path(id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+
+    assert_response :success
+    assert_predicate bot.reload, :buying?
+  end
+
+  test 'POST reverse is not found for bot types that cannot sell' do
+    [create(:dca_index, user: @user), create(:signal_bot, user: @user)].each do |bot|
+      post reverse_bot_path(id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+
+      assert_response :not_found, bot.type
+    end
+  end
+
   test 'POST reverse does NOT flip an executing bot (defers with a notice)' do
     bot = create(:dca_single_asset, :executing, user: @user)
 

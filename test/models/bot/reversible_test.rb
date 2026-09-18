@@ -271,6 +271,25 @@ class Bot::ReversibleTest < ActiveSupport::TestCase
     assert_in_delta 40, bot.send(:cancel_unfilled_orders).to_f, 1e-6, 'only the cancelled buy counts'
   end
 
+  test 'a basket flip cancels its waiting DCA buy and leaves its rebalance and liquidation orders alone' do
+    # Those legs own their orders and their own resume state; a flip reverses the schedule, not them.
+    bot = create(:dca_multi_asset, :started)
+    bot.set_missed_quote_amount
+    bot.save!
+    create(:transaction, bot: bot, side: :buy, transaction_type: 'REGULAR', status: :submitted, external_status: :open,
+                         external_id: 'dca', amount: 0.4, price: 100, quote_amount: 40,
+                         amount_exec: nil, quote_amount_exec: nil)
+    create(:transaction, bot: bot, side: :buy, transaction_type: 'REBALANCE', status: :submitted, external_status: :open,
+                         external_id: 'swap', amount: 0.3, price: 100, quote_amount: 30,
+                         amount_exec: nil, quote_amount_exec: nil)
+    create(:transaction, bot: bot, side: :sell, transaction_type: 'LIQUIDATION', status: :submitted, external_status: :open,
+                         external_id: 'exit', amount: 1, price: 100, quote_amount: 100,
+                         amount_exec: nil, quote_amount_exec: nil)
+    Transaction.any_instance.expects(:cancel).once.returns(Result::Success.new)
+
+    assert_in_delta 40, bot.send(:cancel_unfilled_orders).to_f, 1e-6, 'only the DCA buy\'s reserve returns to the carry'
+  end
+
   test 'a failed buy cancel is not counted in the restored reserve (order may still be live)' do
     bot = create(:dca_single_asset, :started)
     bot.set_missed_quote_amount

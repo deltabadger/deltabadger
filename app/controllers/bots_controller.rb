@@ -146,12 +146,13 @@ class BotsController < ApplicationController
     end
   end
 
-  # Manual ⇄ rotation: buy → sell N base → sell for N quote → buy. Rotating only changes the
-  # direction/denomination + reschedules; flip_direction! owns the Accountable guard and the
-  # reschedule. Deferred (with a notice, no error) while the bot is mid-execution or a job is
-  # claimed — flip_direction!'s cancellation cannot reach an already-claimed job.
+  # Manual ⇄ rotation: buy → sell N base → sell for N quote → buy on a pair bot, buy ⇄ sell for N
+  # quote on a basket. Rotating only changes the direction/denomination + reschedules;
+  # flip_direction! owns the Accountable guard and the reschedule. Deferred (with a notice, no error)
+  # while the bot is mid-execution or a job is claimed — flip_direction!'s cancellation cannot reach
+  # an already-claimed job.
   def reverse
-    return head :not_found unless @bot.dca_single_asset?
+    return head :not_found unless @bot.reversible?
 
     if @bot.executing? || @bot.flip_blocked_by_inflight_job?
       flash.now[:notice] = t('bot.reverse_in_progress')
@@ -201,6 +202,7 @@ class BotsController < ApplicationController
       :normalize_allocations,
       *(Bots::DcaMultiAsset.stored_attributes[:settings] - %i[allocations base_asset_ids]),
       *BUY_TRIGGER_MODE_KEYS,
+      *SELL_TRIGGER_MODE_KEYS,
       allocations: {}
     )
   end

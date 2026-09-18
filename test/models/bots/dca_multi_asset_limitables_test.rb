@@ -2,7 +2,7 @@ require 'test_helper'
 
 # The four trading-condition concerns on a basket bot. They resolve their subject through
 # <prefix>_in_ticker_id rather than a single base asset, so they work on a composition unchanged —
-# these tests pin that, and pin that the flip actions they offer stay inert on a buy-only type.
+# these tests pin that, and pin that their sell-side twins and flip actions work on a basket too.
 class Bots::DcaMultiAssetLimitablesTest < ActiveSupport::TestCase
   setup do
     @btc = create(:asset, :bitcoin)
@@ -21,10 +21,10 @@ class Bots::DcaMultiAssetLimitablesTest < ActiveSupport::TestCase
     @bot
   end
 
-  test 'a basket bot answers the buy-only direction fallbacks, so trigger concerns stay inert' do
+  test 'a basket defaults to buying and can reverse into selling' do
     assert @bot.buying?
     assert_not @bot.selling?
-    assert_not @bot.reversible?
+    assert @bot.reversible?
   end
 
   test 'a price condition watches one named member of the basket' do
@@ -46,12 +46,22 @@ class Bots::DcaMultiAssetLimitablesTest < ActiveSupport::TestCase
     assert_equal eth_ticker.id, @bot.indicator_limit_in_ticker_id
   end
 
-  test 'a flip action can never fire on a non-reversible basket bot' do
+  test 'a start_selling action flips a basket' do
     configure!(price_limited: true, price_limit: 50_000.0,
                price_limit_in_ticker_id: @btc_ticker.id)
     @bot.settings['price_limit_action'] = 'start_selling'
 
-    assert_not @bot.active_price_limit_flip?
+    assert @bot.active_price_limit_flip?
+  end
+
+  test 'a sell-side condition may only watch a member of the basket' do
+    sol = create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana')
+    outside = create(:ticker, exchange: @bot.exchange, base_asset: sol, quote_asset: @bot.quote_asset)
+
+    assert_raises(ActiveRecord::RecordInvalid) do
+      configure!(direction: 'selling', sell_price_limited: true, sell_price_limit: 50_000.0,
+                 sell_price_limit_in_ticker_id: outside.id)
+    end
   end
 
   test 'an unmet price condition pauses the whole basket instead of placing orders' do

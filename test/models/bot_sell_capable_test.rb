@@ -17,6 +17,13 @@ class BotSellCapableTest < ActiveSupport::TestCase
     assert_predicate bot, :sell_capable?
   end
 
+  test 'a basket set to selling can' do
+    bot = create(:dca_multi_asset, user: @user)
+    bot.settings = bot.settings.merge('direction' => 'selling')
+
+    assert_predicate bot, :sell_capable?
+  end
+
   test 'a buy-side trigger armed to flip into selling can, even while it is still buying' do
     bot = create(:dca_single_asset, user: @user)
     bot.settings = bot.settings.merge('price_limited' => true, 'price_limit' => 100,
