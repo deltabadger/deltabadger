@@ -65,6 +65,43 @@ class Bot::RotationTest < ActiveSupport::TestCase
     assert_predicate bot.reload, :buying?
   end
 
+  test 'a one-asset basket rotates buy → sell N base → sell for N quote → buy, as the pair bot did' do
+    bot = create(:dca_multi_asset, base_assets: [create(:asset, :bitcoin)])
+    bot.set_missed_quote_amount
+    bot.save!
+
+    bot.rotate_direction!
+    assert_predicate bot.reload, :sells_base_amount?
+    bot.rotate_direction!
+    assert_predicate bot.reload, :sells_quote_amount?
+    bot.rotate_direction!
+    assert_predicate bot.reload, :buying?
+  end
+
+  test 'a one-asset basket with no stored denomination sells for a quote amount' do
+    # A basket reduced to one member keeps the sentence it had.
+    bot = create(:dca_multi_asset, base_assets: [create(:asset, :bitcoin)])
+    bot.set_missed_quote_amount
+    bot.update!(direction: 'selling')
+
+    assert_predicate bot, :sells_quote_amount?
+  end
+
+  test 'a basket that gains a second asset sells for a quote amount whatever was stored' do
+    bitcoin = create(:asset, :bitcoin)
+    bot = create(:dca_multi_asset, base_assets: [bitcoin])
+    bot.set_missed_quote_amount
+    bot.update!(direction: 'selling', sell_denomination: 'base')
+    assert_predicate bot, :sells_base_amount?
+
+    ether = create(:asset, :ethereum)
+    create(:ticker, exchange: bot.exchange, base_asset: ether, quote_asset: bot.quote_asset)
+    bot.set_missed_quote_amount
+    bot.update!(allocations: bot.allocations.merge(ether.id.to_s => 0.0))
+
+    assert_predicate bot, :sells_quote_amount?, '"sell N base" has no meaning across two prices'
+  end
+
   # == sell_quote_amount ==
 
   test 'sell_quote_amount is blank by default and rejects a non-positive value' do

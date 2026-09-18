@@ -17,7 +17,25 @@
                 turbo_stream: true,
                 controller: "form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations#{' bot--allocation' unless lone}"
               } do |f| %>
-  <% if bot.selling? %>
+  <% if bot.sells_base_amount? %>
+    <%# One asset only: "Sell …[base] / [period] to [quote]", as the pair bot said it. %>
+    <div class="conversational flex-justify-center">
+      <%= t('bot.conversational.sell') %>
+      <div class="ticker-input ticker-input--autoscale">
+        <% sell_value = bot.sell_amount.present? ? bot.sell_amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
+        <%= amount_field f, :sell_amount, value: sell_value, class: 'numeric-input', step: :any, size: 2, placeholder: "0", data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, autofocus: bot.sell_amount.blank? %>
+        <%= tag.div lone.symbol, class: "ticker", data: ticker_data(lone) %>
+      </div>
+      /
+      <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? %>">
+        <%= t("bot.#{bot.sell_interval}") %>
+        <%= f.select :sell_interval, bot_intervals_select_options, { selected: bot.sell_interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
+      </div>
+      <%= t('bot.conversational.to') %>
+      <%= tag.div quote, class: "ticker", data: ticker_data(bot.quote_asset) %>
+      <%= render 'bots/settings/reverse_toggle', bot: bot %>
+    </div>
+  <% elsif bot.selling? %>
     <%# DCA-out: "Sell for …[quote] / [period]". Each tick sells that amount from the member furthest
         above its weight, so the weights below still decide what is sold. %>
     <div class="conversational flex-justify-center">

@@ -104,7 +104,12 @@ class Bots::DcaMultiAsset < Bot
     result = if selling?
                # Never pending_quote_amount while selling: that is the FROZEN buy carry
                # (Bot::Accountable), and handing it to set_orders would place a buy.
-               set_orders(total_orders_amount_in_quote: sell_quote_amount || 0.to_d, side: :sell)
+               if sells_base_amount?
+                 set_orders(total_orders_amount_in_quote: 0.to_d, sell_base_amount: sell_base_amount_per_tick,
+                            side: :sell)
+               else
+                 set_orders(total_orders_amount_in_quote: sell_quote_amount || 0.to_d, side: :sell)
+               end
              else
                set_orders(total_orders_amount_in_quote: pending_quote_amount, update_missed_quote_amount: true)
              end
@@ -173,9 +178,15 @@ class Bots::DcaMultiAsset < Bot
   # validate_tickers_available on :start are the real checks.
   def tickers_for_start = []
 
-  # Memoized whole, guard included: the chart calls this once per data point.
+  # Memoized whole, guard included: the chart calls this once per data point. A one-asset basket also
+  # rounds base, as the pair bot did, for its base cap and Smart Intervals split.
   def decimals
-    @decimals ||= tickers.any? ? { quote: tickers.pluck(:quote_decimals).compact.min } : {}
+    @decimals ||= if tickers.any?
+                    { quote: tickers.pluck(:quote_decimals).compact.min,
+                      base: (composition_tickers.first&.base_decimals if one_asset?) }.compact
+                  else
+                    {}
+                  end
   end
 
   def minimum_for_exchange
@@ -203,12 +214,26 @@ class Bots::DcaMultiAsset < Bot
     Asset.where(id: ids).where.not(market_cap: nil).where(market_cap: 1..).count == ids.size
   end
 
-  # One sell sentence — "sell for N quote". "Sell N base" has no meaning across several prices.
-  def sell_denomination = 'quote'
+  # "Sell N base" has no meaning across several prices, so a basket sells for N quote. A one-asset
+  # basket has one price and offers both, as the pair bot it replaces did — with nothing stored it sells
+  # for a quote amount, so a basket reduced to one member keeps the sentence it had.
+  def sell_denomination
+    return 'quote' unless one_asset?
 
-  # So the ⇄ control is a toggle, not the pair bot's three-state rotation, and no denomination is
-  # ever written: the shared rotation's first step would store 'base' for a sentence a basket lacks.
-  def rotate_direction! = flip_direction!(to_direction: buying? ? 'selling' : 'buying')
+    settings['sell_denomination'].presence || 'quote'
+  end
+
+  # A one-asset basket rotates through the pair bot's three states. A wider basket toggles, and writes no
+  # denomination: the shared rotation's first step would store 'base' for a sentence it lacks.
+  def rotate_direction!
+    return super if one_asset?
+
+    flip_direction!(to_direction: buying? ? 'selling' : 'buying')
+  end
+
+  # The asset of a one-asset basket, which the pair bot's shared partials and Smart Intervals read. nil
+  # for a wider basket, which every duck-typed caller already treats as "no single base".
+  def base_asset = (base_assets.first if one_asset?)
 
   def composition_size = base_asset_ids.size
 

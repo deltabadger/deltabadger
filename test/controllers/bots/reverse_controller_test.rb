@@ -68,6 +68,21 @@ class Bots::ReverseControllerTest < ActionDispatch::IntegrationTest
     assert_predicate bot.reload, :buying?
   end
 
+  test 'POST reverse rotates a one-asset basket through the three states the pair bot had' do
+    bot = create(:dca_multi_asset, :stopped, user: @user, base_assets: [create(:asset, :bitcoin)])
+
+    post reverse_bot_path(id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+    assert_predicate bot.reload, :sells_base_amount?
+    assert_match 'bots_dca_multi_asset[sell_amount]', response.body
+
+    post reverse_bot_path(id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+    assert_predicate bot.reload, :sells_quote_amount?
+    assert_match 'bots_dca_multi_asset[sell_quote_amount]', response.body
+
+    post reverse_bot_path(id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+    assert_predicate bot.reload, :buying?
+  end
+
   test 'POST reverse is not found for bot types that cannot sell' do
     [create(:dca_index, user: @user), create(:signal_bot, user: @user)].each do |bot|
       post reverse_bot_path(id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
