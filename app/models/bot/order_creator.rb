@@ -68,12 +68,15 @@ module Bot::OrderCreator
   # separates them everywhere downstream: contribution accounting (Accountable, QuoteAmountLimitable)
   # and Bot#last_transaction all scope to 'REGULAR'. Threaded here rather than at each creator so
   # submitted, failed and skipped rows can never disagree about what an order was.
+  # The assets are the ticker's: exact, where the symbols are what was shown.
   def base_order_values(order_data = {})
     {
       bot_interval: interval,
       bot_quote_amount: quote_amount,
       transaction_type: order_data[:transaction_type].presence || 'REGULAR',
-      exchange: exchange
+      exchange: exchange,
+      base_asset_id: order_data[:ticker]&.base_asset_id,
+      quote_asset_id: order_data[:ticker]&.quote_asset_id
     }
   end
 end

@@ -560,6 +560,9 @@ FactoryBot.define do
 
     transient do
       use_bot_assets { true }
+      # Records the bot's own asset the final symbols name, as an order placed by the bot would. Off for a
+      # row recorded before orders stored their assets.
+      resolve_asset_ids { true }
     end
 
     after(:build) do |txn, evaluator|
@@ -569,6 +572,14 @@ FactoryBot.define do
       else
         txn.base ||= 'BTC'
         txn.quote ||= 'USD'
+      end
+
+      if evaluator.resolve_asset_ids && txn.bot.present?
+        bot = txn.bot
+        owned = [bot.try(:base_asset), *bot.try(:base_assets), *bot.try(:bot_index_assets)&.map(&:asset)].compact.uniq
+        named = owned.select { |asset| asset.symbol&.casecmp?(txn.base) }
+        txn.base_asset_id ||= named.first.id if named.one?
+        txn.quote_asset_id ||= bot.quote_asset.id if bot.quote_asset&.symbol&.casecmp?(txn.quote)
       end
     end
 
