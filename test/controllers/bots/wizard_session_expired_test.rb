@@ -33,7 +33,7 @@ class WizardSessionExpiredTest < ActionDispatch::IntegrationTest
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: @btc.id } }
     assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
-    assert_equal @btc.id, session[:bot_config].dig('settings', 'base_asset_id')
+    assert_equal [@btc.id], session[:bot_config].dig('settings', 'base_asset_ids')
   end
 
   test 'the DCA asset step cold remove turbo-redirects to root' do

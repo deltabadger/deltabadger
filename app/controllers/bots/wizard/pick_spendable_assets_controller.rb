@@ -1,5 +1,5 @@
-# Shared "pick the spendable (quote) asset" wizard step. For single/dual/index
-# this is the final step: it applies the wizard defaults and creates the bot in
+# Shared "pick the spendable (quote) asset" wizard step. For DCA (always a basket)
+# and index bots this is the final step: it applies the wizard defaults and creates the bot in
 # its initial :created state, then breaks out of the modal_content Turbo frame
 # to the bot's show page where the user fine-tunes settings. Signals overrides
 # the post-pick hand-off (its wizard continues to confirm_settings). Subclasses
@@ -50,7 +50,7 @@ class Bots::Wizard::PickSpendableAssetsController < ApplicationController
   def build_bot = bot_relation.new(sanitized_bot_config)
 
   # An earlier-step prerequisite is missing (stale/direct URL) — subclasses
-  # return a path to bounce back to; nil means proceed. (single/dual derive this
+  # return a path to bounce back to; nil means proceed. (the DCA step derives this
   # from the step order via Navigable; index/signals keep the default no-op.)
   def prerequisite_redirect_path = nil
 

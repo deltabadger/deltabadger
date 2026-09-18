@@ -103,15 +103,15 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
 
   # ── picking stays on the step ────────────────────────────────────────────────
 
-  test 'picking an asset stays on the step, stores it as the single base, and renders it' do
+  test 'picking an asset stays on the step, stores it as a basket of one, and renders it' do
     eth = listed(:ethereum)
 
     get step_path
     pick eth
 
     assert_redirected_to step_path
-    assert_equal eth.id, settings['base_asset_id']
-    assert_nil settings['base_asset_ids']
+    assert_equal [eth.id], settings['base_asset_ids']
+    assert_nil settings['base_asset_id']
 
     follow_redirect!
     assert_select '.conversational__lead', text: 'Buy'
@@ -143,7 +143,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_select '.wizard-assets .modal--search__input[placeholder=?]', I18n.t('utils.search.placeholder.asset')
   end
 
-  test 'a second pick turns the base into a list in pick order; removing back to one restores the base; removing the last clears both' do
+  test 'picks form a list in pick order; removing back to one keeps a list of one; removing the last clears it' do
     eth = listed(:ethereum)
     sol = listed(symbol: 'SOL', name: 'Solana')
 
@@ -157,8 +157,8 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_redirected_to step_path(basket: 'open')
     follow_redirect!
     assert_select '.wizard-assets__list:not(.hidden)', count: 1
-    assert_equal sol.id, settings['base_asset_id']
-    assert_nil settings['base_asset_ids']
+    assert_equal [sol.id], settings['base_asset_ids']
+    assert_nil settings['base_asset_id']
 
     remove sol
     assert_nil settings['base_asset_id']
@@ -173,10 +173,10 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     pick btc
     outside = create(:asset, symbol: 'OUT', name: 'Outside')
     pick outside
-    assert_equal btc.id, settings['base_asset_id']
+    assert_equal [btc.id], settings['base_asset_ids']
 
     pick btc
-    assert_equal btc.id, settings['base_asset_id']
+    assert_equal [btc.id], settings['base_asset_ids']
 
     additions = 20.times.map { |i| listed(symbol: "A#{i}", name: "Asset #{i}") }
     additions.first(19).each { |asset| pick asset }
@@ -213,7 +213,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
 
     assert_redirected_to step_path
     assert_equal @binance.id.to_s, session[:bot_config]['exchange_id'].to_s
-    assert_equal btc.id, settings['base_asset_id']
+    assert_equal [btc.id], settings['base_asset_ids']
   end
 
   test 'asset-first: an exchange left behind with an empty basket is neither shown nor carried into the next pick' do
@@ -224,7 +224,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     create(:api_key, user: @user, exchange: other, key_type: :trading, status: :correct)
     pick btc
     advance
-    post bots_dca_single_assets_pick_exchange_path, params: { bots_dca_single_asset: { exchange_id: other.id } }
+    post bots_dca_multi_assets_pick_exchange_path, params: { bots_dca_multi_asset: { exchange_id: other.id } }
     remove btc
     assert_equal other.id.to_s, session[:bot_config]['exchange_id'].to_s
 
@@ -238,10 +238,10 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     pick eth
     assert_nil session[:bot_config]['exchange_id']
     advance
-    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
+    assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
   end
 
-  test 'the prerequisite bounce follows the basket: a basket of two with an invalid key lands on the multi API step' do
+  test 'the prerequisite bounce follows the basket: any basket with an invalid key lands on the multi API step' do
     btc = listed(:bitcoin)
     eth = listed(:ethereum)
     create(:api_key, user: @user, exchange: @binance, key_type: :trading, status: :correct)
@@ -257,6 +257,13 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
 
     ApiKey.any_instance.unstub(:correct?)
     remove eth
+    ApiKey.any_instance.stubs(:correct?).returns(false)
+    get step_path
+    assert_redirected_to new_bots_dca_multi_assets_add_api_key_path
+
+    # Before any asset (exchange-first) the key step is still the one the order started in.
+    ApiKey.any_instance.unstub(:correct?)
+    remove btc
     ApiKey.any_instance.stubs(:correct?).returns(false)
     get step_path
     assert_redirected_to new_bots_dca_single_assets_add_api_key_path
@@ -275,15 +282,15 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_redirected_to step_path
   end
 
-  test 'Next with one crypto asset continues as a single bot to the exchange step' do
+  test 'Next with one crypto asset continues as a basket to the multi exchange step' do
     btc = listed(:bitcoin)
     pick btc
 
     advance
 
-    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
-    assert_equal btc.id, settings['base_asset_id']
-    assert_nil settings['base_asset_ids']
+    assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
+    assert_equal [btc.id], settings['base_asset_ids']
+    assert_nil settings['base_asset_id']
   end
 
   test 'Next with two assets continues as a multi bot to the exchange step' do
@@ -305,14 +312,14 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     create(:api_key, user: @user, exchange: @binance, key_type: :trading, status: :correct)
     pick btc
     advance
-    post bots_dca_single_assets_pick_exchange_path, params: { bots_dca_single_asset: { exchange_id: @binance.id } }
+    post bots_dca_multi_assets_pick_exchange_path, params: { bots_dca_multi_asset: { exchange_id: @binance.id } }
 
     # Back on the step (the stack link), Next skips what is still complete.
     get step_path
     advance
-    assert_redirected_to new_bots_dca_single_assets_pick_spendable_asset_path
+    assert_redirected_to new_bots_dca_multi_assets_pick_spendable_asset_path
 
-    # The same for a basket that grew into a multi bot.
+    # The same for a basket that grew.
     pick eth
     advance
     assert_redirected_to new_bots_dca_multi_assets_pick_spendable_asset_path
@@ -374,7 +381,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
 
     advance
 
-    assert_redirected_to new_bots_dca_single_assets_add_api_key_path
+    assert_redirected_to new_bots_dca_multi_assets_add_api_key_path
     assert_equal alpaca.id.to_s, session[:bot_config]['exchange_id'].to_s
     assert_equal @usd.id, settings['quote_asset_id']
   end
@@ -387,10 +394,10 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
 
     advance
 
-    assert_redirected_to new_bots_dca_single_assets_pick_stock_broker_path
+    assert_redirected_to new_bots_dca_multi_assets_pick_stock_broker_path
   end
 
-  test 'Next keeps an already chosen broker instead of reopening the picker (single and multi)' do
+  test 'Next keeps an already chosen broker instead of reopening the picker (one asset and more)' do
     alpaca = create(:alpaca_exchange)
     ibkr = create(:ibkr_exchange)
     aapl = stock('AAPL', 'Apple Inc', alpaca, ibkr)
@@ -398,12 +405,12 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     create(:api_key, user: @user, exchange: ibkr, key_type: :trading, status: :correct)
     pick aapl
     advance
-    post bots_dca_single_assets_pick_stock_broker_path, params: { bots_dca_single_asset: { exchange_id: ibkr.id } }
-    assert_redirected_to new_bots_dca_single_assets_add_api_key_path
+    post bots_dca_multi_assets_pick_stock_broker_path, params: { bots_dca_multi_asset: { exchange_id: ibkr.id } }
+    assert_redirected_to new_bots_dca_multi_assets_add_api_key_path
 
     get step_path
     advance
-    assert_redirected_to new_bots_dca_single_assets_pick_spendable_asset_path
+    assert_redirected_to new_bots_dca_multi_assets_pick_spendable_asset_path
     assert_equal ibkr.id.to_s, session[:bot_config]['exchange_id'].to_s
 
     pick msft
@@ -427,7 +434,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_select '.conversational form[action=?]', advance_path
   end
 
-  test 'on the step the chosen exchange chip advances to the exchange step of the decided kind' do
+  test 'on the step the chosen exchange chip advances to the basket exchange step' do
     btc = listed(:bitcoin)
     eth = listed(:ethereum)
     create(:api_key, user: @user, exchange: @binance, key_type: :trading, status: :correct)
@@ -441,7 +448,8 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_select '.conversational form[action=?]', new_bots_dca_single_assets_pick_exchange_path, count: 0
 
     post advance_path, params: { to: 'exchange' }
-    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
+    assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
+    assert_equal [btc.id], settings['base_asset_ids']
 
     pick eth
     post advance_path, params: { to: 'exchange' }
@@ -535,7 +543,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsStaleSessionTest < ActionControlle
     create(:ticker, exchange: @binance, base_asset: @eth, quote_asset: @usd)
   end
 
-  test 'a one-element list renders as one chosen asset, GET leaves it untouched, and Next writes the single shape' do
+  test 'a one-element list renders as one chosen asset, GET leaves it untouched, and Next keeps the list' do
     get :new, session: { bot_config: { 'flow' => 'asset_first', 'settings' => { 'base_asset_ids' => [@btc.id] } } }
 
     assert_response :ok
@@ -544,18 +552,31 @@ class Bots::DcaSingleAssets::PickBuyableAssetsStaleSessionTest < ActionControlle
     assert_nil session[:bot_config]['settings']['base_asset_id']
 
     post :advance
-    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
-    assert_equal @btc.id, session[:bot_config]['settings']['base_asset_id']
-    assert_nil session[:bot_config]['settings']['base_asset_ids']
+    assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
+    assert_equal [@btc.id], session[:bot_config]['settings']['base_asset_ids']
+    assert_nil session[:bot_config]['settings']['base_asset_id']
   end
 
-  test 'the exchange chip hop normalises a one-element list before the single exchange step' do
+  # The previous release kept one asset under the pair bot's key. Such a session, left open across the
+  # update, still ends in a basket: the step reads the old key, and Next rewrites it as a list.
+  test "one asset under the previous release's single key is committed as a basket of one" do
+    get :new, session: { bot_config: { 'flow' => 'asset_first', 'settings' => { 'base_asset_id' => @btc.id } } }
+    assert_response :ok
+    assert_select '.wizard-assets__row', count: 1
+
+    post :advance
+    assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
+    assert_equal [@btc.id], session[:bot_config]['settings']['base_asset_ids']
+    assert_nil session[:bot_config]['settings']['base_asset_id']
+  end
+
+  test 'the exchange chip hop takes a one-element list to the basket exchange step' do
     post :advance, params: { to: 'exchange' },
                    session: { bot_config: { 'flow' => 'asset_first', 'settings' => { 'base_asset_ids' => [@btc.id] } } }
 
-    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
-    assert_equal @btc.id, session[:bot_config]['settings']['base_asset_id']
-    assert_nil session[:bot_config]['settings']['base_asset_ids']
+    assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
+    assert_equal [@btc.id], session[:bot_config]['settings']['base_asset_ids']
+    assert_nil session[:bot_config]['settings']['base_asset_id']
   end
 
   test 'a duplicate and a dead id are dropped, and writes scrub the legacy dual keys' do
@@ -568,9 +589,9 @@ class Bots::DcaSingleAssets::PickBuyableAssetsStaleSessionTest < ActionControlle
     assert_select '.wizard-assets__warning', count: 0
 
     post :advance
-    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
-    assert_equal @btc.id, session[:bot_config]['settings']['base_asset_id']
-    assert_nil session[:bot_config]['settings']['base_asset_ids']
+    assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
+    assert_equal [@btc.id], session[:bot_config]['settings']['base_asset_ids']
+    assert_nil session[:bot_config]['settings']['base_asset_id']
     assert_nil session[:bot_config]['settings']['base0_asset_id']
     assert_nil session[:bot_config]['settings']['base1_asset_id']
   end

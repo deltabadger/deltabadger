@@ -76,8 +76,8 @@ class Bots::DcaMultiAssets::PickStockBrokersControllerTest < ActionDispatch::Int
     list_ibkr_for_both
     pick @aapl
     advance
-    post bots_dca_single_assets_pick_stock_broker_path,
-         params: { bots_dca_single_asset: { exchange_id: @alpaca.id } }
+    post bots_dca_multi_assets_pick_stock_broker_path,
+         params: { bots_dca_multi_asset: { exchange_id: @alpaca.id } }
     assert_equal @alpaca.id.to_s, session[:bot_config]['exchange_id'].to_s
 
     pick @msft

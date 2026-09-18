@@ -14,7 +14,7 @@ class ConnectStepTest < ActionDispatch::IntegrationTest
   end
 
   test 'an exchange key step is the connect card, standard-size fields, help under a label' do
-    seed_single_asset_wizard(create(:binance_exchange))
+    seed_exchange_first_wizard(create(:binance_exchange))
 
     get new_bots_dca_single_assets_add_api_key_path
     assert_response :success
@@ -41,7 +41,7 @@ class ConnectStepTest < ActionDispatch::IntegrationTest
   test 'the Alpaca step asks Paper or Live with the segmented control, posted through a hidden field' do
     seed_alpaca_wizard
 
-    get new_bots_dca_single_assets_add_api_key_path
+    get new_bots_dca_multi_assets_add_api_key_path
     assert_response :success
 
     assert_select '.set-api--connect' do
@@ -110,15 +110,13 @@ class ConnectStepTest < ActionDispatch::IntegrationTest
 
   private
 
-  def seed_single_asset_wizard(exchange)
+  # Exchange-first, the default order: the venue, then its key, before any asset.
+  def seed_exchange_first_wizard(exchange)
     btc = create(:asset, :bitcoin)
     usd = create(:asset, :usd)
     create(:ticker, :btc_usd, exchange: exchange, base_asset: btc, quote_asset: usd)
 
-    get new_bots_dca_single_assets_pick_buyable_asset_path
-    post bots_dca_single_assets_pick_buyable_asset_path,
-         params: { bots_dca_single_asset: { base_asset_id: btc.id } }
-    post advance_bots_dca_single_assets_pick_buyable_asset_path
+    get new_bots_dca_single_assets_pick_exchange_path
     post bots_dca_single_assets_pick_exchange_path,
          params: { bots_dca_single_asset: { exchange_id: exchange.id } }
   end

@@ -25,7 +25,7 @@
     bot:          @bot (DcaSingleAsset or DcaMultiAsset)
     current_step: :currencies | :exchange | :api | :spendable
     chosen:       (optional) the chosen Assets in pick order — the asset step passes its basket
-    multi:        (optional) whether the basket continues as a multi bot — selects the namespace
+    multi:        (optional) whether anything is chosen yet — a basket continues in the multi namespace
 %>
 <%
   order   = current_order
@@ -52,7 +52,8 @@
   advance_url    = advance_bots_dca_single_assets_pick_buyable_asset_path
   order_url      = bots_dca_single_assets_order_path
   exchange_url   = multi ? new_bots_dca_multi_assets_pick_exchange_path : new_bots_dca_single_assets_pick_exchange_path
-  quote_search_url = multi ? new_bots_dca_multi_assets_pick_spendable_asset_path : new_bots_dca_single_assets_pick_spendable_asset_path
+  # The quote is only ever picked for a basket.
+  quote_search_url = new_bots_dca_multi_assets_pick_spendable_asset_path
 
   # The default first step has nothing to narrate yet: the sentence only offers the other route.
   invite_only = current_step == :exchange && on_first_step && chosen.empty?

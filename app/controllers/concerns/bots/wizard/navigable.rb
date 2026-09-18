@@ -53,11 +53,8 @@ module Bots::Wizard::Navigable
   def step_complete?(key)
     return @bot&.api_key&.correct? || false if key == :api
 
-    # A list of one is not a multi-asset composition; the step stays incomplete until two are chosen.
-    if key == :assets
-      ids = session.dig(:bot_config, *Bots::Wizard::StepOrder::BASE_IDS_KEY)
-      return Array(ids).size >= Bots::DcaMultiAsset::MIN_ASSETS
-    end
+    # One asset is a basket too; only an empty list leaves the step incomplete.
+    return Array(session.dig(:bot_config, *Bots::Wizard::StepOrder::BASE_IDS_KEY)).any? if key == :assets
 
     current_order.owned_keys(key).all? { |path| session.dig(:bot_config, *path).present? }
   end

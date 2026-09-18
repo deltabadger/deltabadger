@@ -40,28 +40,6 @@ class DcaSingleAssetWizardCreateFailureTest < ActionDispatch::IntegrationTest
     assert_match(/value="#{@binance.id}"/, response.body)
   end
 
-  test 'pick_spendable_assets create with a blank quote re-renders the asset list with 422' do
-    seed_through_exchange
-    post bots_dca_single_assets_pick_spendable_asset_path,
-         params: { bots_dca_single_asset: { quote_asset_id: '' } }
-
-    assert_response :unprocessable_entity
-    assert_match 'USD', response.body
-  end
-
-  test 'pick_spendable_assets create re-renders the asset list with 422 when the bot fails to save' do
-    seed_through_exchange
-    Bots::DcaSingleAsset.any_instance.stubs(:save).returns(false)
-
-    assert_no_difference -> { Bot.count } do
-      post bots_dca_single_assets_pick_spendable_asset_path,
-           params: { bots_dca_single_asset: { quote_asset_id: @usd.id } }
-    end
-
-    assert_response :unprocessable_entity
-    assert_match 'USD', response.body
-  end
-
   private
 
   def seed_base_pick
@@ -70,14 +48,10 @@ class DcaSingleAssetWizardCreateFailureTest < ActionDispatch::IntegrationTest
          params: { bots_dca_single_asset: { base_asset_id: @btc.id } }
     post advance_bots_dca_single_assets_pick_buyable_asset_path
   end
-
-  def seed_through_exchange
-    seed_base_pick
-    post bots_dca_single_assets_pick_exchange_path,
-         params: { bots_dca_single_asset: { exchange_id: @binance.id } }
-  end
 end
 
+# One asset or several, the quote step is the basket's (the single namespace keeps only the steps
+# before any asset is chosen).
 class DcaMultiAssetWizardCreateFailureTest < ActionDispatch::IntegrationTest
   setup do
     @user = create(:user, admin: true, setup_completed: true)

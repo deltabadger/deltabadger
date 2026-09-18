@@ -43,7 +43,7 @@ class Bots::DcaSingleAssets::PickExchangesControllerTest < ActionDispatch::Integ
     assert_not_equal new_bots_dca_single_assets_pick_buyable_asset_path, request.path
   end
 
-  test 'single-asset flow: pick BTC, Next, then Binance proceeds to api key (no loop)' do
+  test 'one asset: pick BTC, Next, then Binance proceeds to the basket api key (no loop)' do
     btc = create(:asset, :bitcoin)
     usd = create(:asset, :usd)
     binance = create(:binance_exchange)
@@ -54,11 +54,11 @@ class Bots::DcaSingleAssets::PickExchangesControllerTest < ActionDispatch::Integ
          params: { bots_dca_single_asset: { base_asset_id: btc.id } }
     assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
     post advance_bots_dca_single_assets_pick_buyable_asset_path
-    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
+    assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
 
-    post bots_dca_single_assets_pick_exchange_path,
-         params: { bots_dca_single_asset: { exchange_id: binance.id } }
-    assert_redirected_to new_bots_dca_single_assets_add_api_key_path
+    post bots_dca_multi_assets_pick_exchange_path,
+         params: { bots_dca_multi_asset: { exchange_id: binance.id } }
+    assert_redirected_to new_bots_dca_multi_assets_add_api_key_path
 
     follow_redirect!
     assert_not_equal new_bots_dca_single_assets_pick_buyable_asset_path, request.path
@@ -75,7 +75,7 @@ class Bots::DcaSingleAssets::PickExchangesControllerTest < ActionDispatch::Integ
     post bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: btc.id } }
     post advance_bots_dca_single_assets_pick_buyable_asset_path
-    get new_bots_dca_single_assets_pick_exchange_path
+    get new_bots_dca_multi_assets_pick_exchange_path
 
     assert_response :success
     assert_select "button.exchange-grid__item[value='#{hyperliquid.id}'][disabled]"

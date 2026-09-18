@@ -1,13 +1,11 @@
-# The DCA wizard's asset step, shared by the single- and multi-asset bots. Assets are collected
-# here — picking stays on the step — and the bot type is decided only when the user leaves it:
-# one asset continues as a DcaSingleAsset, two or more as a DcaMultiAsset. The URL stays in the
-# single namespace, which also hosts the exchange/API steps that precede the decision in the
-# exchange-first order.
+# The DCA wizard's asset step. Assets are collected here — picking stays on the step — and every
+# DCA bot the wizard creates is a basket (Bots::DcaMultiAsset), one asset included: once anything is
+# chosen, the steps after this one are the multi namespace's. The URL stays in the single namespace,
+# which also hosts the exchange/API steps that come before any asset in the exchange-first order.
 #
-# The session shape follows the count: one asset → settings.base_asset_id (what every single step
-# understands), two or more → settings.base_asset_ids. Reads tolerate either — and anything stale —
-# and every POST out of the step rewrites the canonical shape. GET never writes: Turbo prefetches
-# it on hover.
+# The basket lives in settings.base_asset_ids. Reads also tolerate settings.base_asset_id — a session
+# left open by a release that kept one asset there — and anything stale; every POST out of the step
+# rewrites the list. GET never writes: Turbo prefetches it on hover.
 class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
   before_action :authenticate_user!
   before_action :redirect_if_session_expired, only: %i[remove advance]
@@ -59,7 +57,6 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
   # step with the exchange and key in place lands on the quote instead of re-asking.
   def advance
     ids = chosen_asset_ids
-    multi = multi_basket?
 
     if params[:to] == 'exchange'
       write_ids(ids)
@@ -74,15 +71,12 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
     end
 
     write_ids(ids)
-    @bot = build_bot
-    decided = multi ? basket : @bot
-    if asset_first? && stock_bot? && !broker_chosen?(decided)
-      route_to_stock_broker(decided, multi:)
-    elsif multi
+    @bot = basket # step_complete?(:api) reads its key
+    if asset_first? && stock_bot? && !broker_chosen?(basket)
+      route_to_stock_broker(basket)
+    else
       order = Bots::Wizard::StepOrder.for(bot_type: :multi, variant: current_variant)
       redirect_to step_path(first_incomplete_after(order, :assets))
-    else
-      redirect_to step_path(first_incomplete_after(current_order, :currencies))
     end
   end
 
@@ -92,24 +86,14 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
   def bot_relation = current_user.bots.dca_single_asset
   def build_bot = bot_relation.new(sanitized_bot_config)
 
-  # Paths follow the basket: a basket of two or more belongs to the multi namespace, whichever step
-  # is asked for — the prerequisite bounce in `new` included (a 2+ basket whose key turned invalid
-  # must land on the multi API step, whose exchange back-link keeps the list).
+  # Paths follow the basket: once anything is chosen, every step belongs to the multi namespace — the
+  # prerequisite bounce in `new` included (a basket whose key turned invalid must land on the multi API
+  # step, whose exchange back-link keeps the list). An empty basket is still before the asset, where
+  # the exchange-first order starts in the single namespace.
   def step_path(key)
     return new_bots_dca_single_assets_pick_buyable_asset_path if key.in?(%i[currencies assets])
+    return empty_basket_step_path(key) if chosen_assets.empty?
 
-    multi_basket? ? multi_step_path(key) : single_step_path(key)
-  end
-
-  def single_step_path(key)
-    case key
-    when :exchange  then new_bots_dca_single_assets_pick_exchange_path
-    when :api       then new_bots_dca_single_assets_add_api_key_path
-    when :spendable then new_bots_dca_single_assets_pick_spendable_asset_path
-    end
-  end
-
-  def multi_step_path(key)
     case key
     when :exchange  then new_bots_dca_multi_assets_pick_exchange_path
     when :api       then new_bots_dca_multi_assets_add_api_key_path
@@ -117,15 +101,21 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
     end
   end
 
-  def multi_basket? = chosen_assets.size >= Bots::DcaMultiAsset::MIN_ASSETS
+  def empty_basket_step_path(key)
+    case key
+    when :exchange  then new_bots_dca_single_assets_pick_exchange_path
+    when :api       then new_bots_dca_single_assets_add_api_key_path
+    when :spendable then new_bots_dca_multi_assets_pick_spendable_asset_path
+    end
+  end
 
   # In asset-first an empty basket is a fresh start: an exchange left behind by another wizard, or
   # by emptying the basket, is neither shown nor searched against, and the first pick drops it. In
   # exchange-first the venue was chosen first, on purpose, and stays.
   def fresh_start? = asset_first? && chosen_assets.empty?
 
-  # step_complete?(:exchange/:api/:spendable) reads the same session keys in both orders, so the
-  # single and multi branches share it; only the asset step itself is keyed differently.
+  # step_complete?(:exchange/:api/:spendable) reads the same session keys in both orders; only the
+  # asset step itself is keyed differently (:currencies in the single order, :assets in the multi one).
   def first_incomplete_after(order, step)
     rest = order.steps.drop(order.steps.index(step) + 1)
     rest.find { |key| !step_complete?(key) } || order.steps.last
@@ -150,17 +140,12 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
   def stock_bot? = chosen_assets.any? { |asset| asset.category == 'Stock' }
 
   # Every wizard key but the exchange goes (both base shapes, the legacy dual base0/base1 scrub and
-  # the quote — the step owns everything from the quote onward), then the one key matching the
-  # count is written. The exchange stays: its chip keeps showing, eligibility narrows to it.
+  # the quote — the step owns everything from the quote onward), then the list is written. The
+  # exchange stays: its chip keeps showing, eligibility narrows to it.
   def write_ids(ids)
     session[:bot_config] ||= {}
     (Bots::Wizard::StepOrder::ALL_WIZARD_KEYS - [Bots::Wizard::StepOrder::EXCHANGE_KEY]).each { |path| delete_session_path(path) }
-    settings = (session[:bot_config]['settings'] ||= {})
-    case ids.size
-    when 0 then nil
-    when 1 then settings['base_asset_id'] = ids.first
-    else settings['base_asset_ids'] = ids
-    end
+    (session[:bot_config]['settings'] ||= {})['base_asset_ids'] = ids if ids.any?
   end
 
   # A DcaMultiAsset holding the basket gives the list semantics — only assets sharing a venue and
@@ -209,24 +194,15 @@ class Bots::DcaSingleAssets::PickBuyableAssetsController < ApplicationController
     bot.exchange_id.present? && available_stock_brokers(bot).any? { |venue| venue.id == bot.exchange_id.to_i }
   end
 
-  def route_to_stock_broker(bot, multi:)
-    if multi
-      # The routing concern is deliberately silent when no venue qualifies; the user needs the
-      # reason they remained on the asset step.
-      flash[:alert] = t('bot.dca_multi_asset.no_common_exchange') if available_stock_brokers(bot).empty?
-      redirect_after_stock_asset(
-        bot,
-        picker_path: new_bots_dca_multi_assets_pick_stock_broker_path,
-        add_api_key_path: new_bots_dca_multi_assets_add_api_key_path,
-        repick_path: new_bots_dca_single_assets_pick_buyable_asset_path
-      )
-    else
-      redirect_after_stock_asset(
-        bot,
-        picker_path: new_bots_dca_single_assets_pick_stock_broker_path,
-        add_api_key_path: new_bots_dca_single_assets_add_api_key_path,
-        repick_path: new_bots_dca_single_assets_pick_buyable_asset_path
-      )
-    end
+  def route_to_stock_broker(bot)
+    # The routing concern is deliberately silent when no venue qualifies; the user needs the
+    # reason they remained on the asset step.
+    flash[:alert] = t('bot.dca_multi_asset.no_common_exchange') if available_stock_brokers(bot).empty?
+    redirect_after_stock_asset(
+      bot,
+      picker_path: new_bots_dca_multi_assets_pick_stock_broker_path,
+      add_api_key_path: new_bots_dca_multi_assets_add_api_key_path,
+      repick_path: new_bots_dca_single_assets_pick_buyable_asset_path
+    )
   end
 end

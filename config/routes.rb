@@ -210,21 +210,18 @@ Rails.application.routes.draw do
     }
 
     namespace :bots do
-      resources :dca_single_assets, only: [:create]
       namespace :dca_single_assets do
         # POST-only order switch (asset-first ⇄ exchange-first). Never a GET —
         # Turbo prefetches GETs on hover, which must not flip the variant.
         resource :order, only: [:create]
-        # The asset step is shared with the multi-asset bot: the basket is collected here and the
-        # type decided on advance (one asset → single, more → multi).
+        # The DCA wizard's asset step: the basket is collected here and continues in the multi
+        # namespace. The exchange and API-key steps here come before any asset (exchange-first).
         resource :pick_buyable_asset, only: %i[new create] do
           post :remove, on: :collection
           post :advance, on: :collection
         end
         resource :pick_exchange, only: %i[new create]
-        resource :pick_stock_broker, only: %i[new create]
         resource :add_api_key, only: %i[new create]
-        resource :pick_spendable_asset, only: %i[new create]
       end
       resources :dca_multi_assets, only: [:create]
       namespace :dca_multi_assets do

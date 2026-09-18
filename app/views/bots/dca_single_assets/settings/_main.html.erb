@@ -60,11 +60,7 @@
         <% value = bot.quote_amount.present? ? bot.quote_amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : 100 %>
         <%= amount_field f, :quote_amount, value: value, class: 'numeric-input', step: :any, size: 2, data: { controller: "autowidth-input", action: "input->form--submit-after-delay#submit input->autowidth-input#resize", form__move_cursor_to_end_target: "input" }, autofocus: bot.new_record? && bot.quote_amount.blank?, disabled: bot.working? %>
 
-        <% if bot.new_record? %>
-          <%= link_to quote, new_bots_dca_single_assets_pick_spendable_asset_path, data: { turbo_frame: "modal_content", **ticker_data(bot.quote_asset) }, class: "ticker" %>
-        <% else %>
-          <%= tag.div quote, class: "ticker", data: ticker_data(bot.quote_asset) %>
-        <% end %>
+        <%= tag.div quote, class: "ticker", data: ticker_data(bot.quote_asset) %>
       </div>
       /
       <div class="sinput sinput--select <%= 'sinput--disabled' if bot.working? %>">
@@ -73,11 +69,7 @@
       </div>
       <%= t('bot.conversational.into') %>
 
-      <% if bot.new_record? %>
-        <%= link_to base, new_bots_dca_single_assets_pick_buyable_asset_path, data: { turbo_frame: "modal_content", **ticker_data(bot.base_asset) }, class: ticker_class(bot.base_asset), style: "background: #{base_color}" %>
-      <% else %>
-        <%= tag.div base, class: ticker_class(bot.base_asset), style: "background: #{base_color}", data: ticker_data(bot.base_asset) %>
-      <% end %>
+      <%= tag.div base, class: ticker_class(bot.base_asset), style: "background: #{base_color}", data: ticker_data(bot.base_asset) %>
       <%= render 'bots/settings/reverse_toggle', bot: bot %>
     </div>
   <% end %>

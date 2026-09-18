@@ -90,7 +90,7 @@ class Bots::Wizard::StepOrderTest < ActiveSupport::TestCase
 
   test 'owned_keys maps each step to the session key it writes' do
     order = SO.for(bot_type: :single, variant: :asset_first)
-    assert_equal [BASE], order.owned_keys(:currencies)
+    assert_equal [BASE_IDS], order.owned_keys(:currencies), 'the asset step writes the basket list'
     assert_equal [EXCHANGE], order.owned_keys(:exchange)
     assert_equal [QUOTE], order.owned_keys(:spendable)
     assert_equal [], order.owned_keys(:api), 'api key lives in the DB, not the session'
@@ -121,7 +121,7 @@ class Bots::Wizard::StepOrderTest < ActiveSupport::TestCase
     # exchange re-pick must NOT discard the asset — in either variant.
     order = SO.for(bot_type: :single, variant: :exchange_first)
     keys = order.reset_keys(:exchange)
-    refute_includes keys, BASE, 'the chosen asset survives an exchange re-pick'
+    refute_includes keys, BASE_IDS, 'the chosen asset survives an exchange re-pick'
     assert_includes keys, EXCHANGE
     assert_includes keys, QUOTE
   end

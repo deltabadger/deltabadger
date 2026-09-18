@@ -1,4 +1,4 @@
-# Shared "pick a stock broker" wizard step (single/dual). Stock bots route
+# Shared "pick a stock broker" wizard step (DCA baskets). Stock bots route
 # through this step instead of the crypto exchange picker — see
 # Bots::StockBrokerRoutable for the auto-skip rules. Subclasses supply the bot
 # relation, routes, params and the stock test as explicit overrides.

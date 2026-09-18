@@ -49,26 +49,35 @@ class Bots::DcaMultiAssetsCreationTest < ActionDispatch::IntegrationTest
     assert_match %(action="redirect" target="#{bot_path(bot)}"), response.body
   end
 
-  test 'a basket of one does not satisfy the multi exchange step' do
+  test 'a basket of one satisfies the multi exchange step' do
     pick @bitcoin
+
+    get new_bots_dca_multi_assets_pick_exchange_path
+
+    assert_response :ok
+  end
+
+  test 'a basket emptied of its last asset does not satisfy the multi exchange step' do
+    pick @bitcoin
+    remove @bitcoin
 
     get new_bots_dca_multi_assets_pick_exchange_path
 
     assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
   end
 
-  test 'removing down to one asset keeps the step and Next continues as a single bot' do
+  test 'removing down to one asset keeps the step and Next continues as a basket' do
     pick @bitcoin
     pick @ethereum
 
     remove @ethereum
 
     assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path(basket: 'open')
-    assert_equal @bitcoin.id, session[:bot_config].dig('settings', 'base_asset_id')
-    assert_nil session[:bot_config].dig('settings', 'base_asset_ids')
+    assert_equal [@bitcoin.id], session[:bot_config].dig('settings', 'base_asset_ids')
+    assert_nil session[:bot_config].dig('settings', 'base_asset_id')
 
     advance
-    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
+    assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
   end
 
   test 'the asset step reads Buy with the chosen chips and rows; later steps show the basket as one link back' do

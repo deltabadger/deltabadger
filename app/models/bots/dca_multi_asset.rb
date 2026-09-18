@@ -1,9 +1,6 @@
 class Bots::DcaMultiAsset < Bot
   include ActionCable::Channel::Broadcasting
 
-  # The fewest assets a NEW bot needs to be created as a basket rather than a pair bot. A basket itself
-  # may hold one (Bots::DcaMultiAsset::Allocatable#validate_allocations).
-  MIN_ASSETS = 2
   MAX_ASSETS = 20
   # How the basket's weights are decided. 'manual' is the sliders; 'market_cap' derives them from
   # each asset's stored market cap, which is what the retired pair bot's market-cap switch did.
