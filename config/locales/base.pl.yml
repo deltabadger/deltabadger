@@ -12,6 +12,7 @@ pl:
             <p>To <b style="color: #00A36C;">%{sp500_diff}%</b> więcej niż S&P 500 w tym samym okresie.</p>
     button:
         ok: 'OK'
+        understand: 'Rozumiem!'
         update: 'Aktualizuj'
         save: 'Zapisz'
         cancel: 'Anuluj'
@@ -117,6 +118,7 @@ pl:
             prompt_body: "W USA, Wielkiej Brytanii i Irlandii obowiązuje zasada „wash sale”: jeśli sprzedasz ze stratą i za szybko odkupisz to samo aktywo, strata nie pomniejszy podatku. Jeśli rozliczasz się w jednym z tych krajów, wybierz jego okres. W przeciwnym razie wybierz „Nie stosuj tej zasady”."
             prompt_decline: "Nie stosuj tej zasady"
             prompt_missing: "Wybierz jedną z dwóch odpowiedzi, aby kontynuować."
+            selling_warning: "Gdy ten bot sprzedaje, ochrona tylko powstrzymuje Deltabadgera przed odkupieniem aktywa po sprzedaży ze stratą. Nie sprawdza, co kupiono przed sprzedażą — zależnie od tego, gdzie płacisz podatki, niedawne zakupy wciąż mogą zmniejszyć stratę, którą możesz rozliczyć."
             confirm: "Potwierdź"
             locked_title: "Zablokowane teraz"
             locked_none: "Nic nie jest w okresie karencji."

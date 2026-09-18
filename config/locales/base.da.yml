@@ -116,6 +116,7 @@ da:
             prompt_body: "I USA, Storbritannien og Irland gælder reglen om »wash sale«: sælger du med tab og køber det samme aktiv tilbage for tidligt, kan du ikke trække tabet fra i skat. Betaler du skat i et af dem, så vælg landets karensperiode. Ellers vælg »Anvend ikke denne regel«."
             prompt_decline: "Anvend ikke denne regel"
             prompt_missing: "Vælg et af de to svar for at fortsætte."
+            selling_warning: "Mens denne bot sælger, forhindrer beskyttelsen kun Deltabadger i at købe et aktiv tilbage efter et salg med tab. Den tjekker ikke, hvad der blev købt før salget — afhængigt af hvor du betaler skat, kan nylige køb stadig mindske det tab, du kan trække fra."
             confirm: "Bekræft"
             locked_title: "Blokeret lige nu"
             locked_none: "Intet er i en karensperiode."

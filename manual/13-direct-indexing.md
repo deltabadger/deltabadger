@@ -32,7 +32,7 @@ Four limits worth knowing:
 - **Sales made outside Deltabadger are picked up by the account sync, not instantly.** A sale you make on the exchange's own website arms the window from the next sync, which runs daily and after every order a bot places. Buys that land in the gap are not protected.
 - **What the sync cannot see, the rule cannot serve:** an exchange connected without a read key or with the permission revoked, Interactive Brokers, and swaps of one crypto for another, which the tracker does not treat as disposals.
 - **Whether a bot's own sale was a loss is worked out from that bot's own purchase lots.** The account-wide walk that follows corrects it, within a day.
-- **A partial sale** — a rebalance, or a Sell when the exchange holds less than the position — leaves the rest in place: if that name was bought within the window before the sale, part of the loss is washed by those earlier purchases, and no rule here can prevent it. Turn rebalancing off on a bot you harvest from, or accept it.
+- **A partial sale** — a rebalance, a multi-asset bot selling on schedule, or a Sell when the exchange holds less than the position — leaves the rest in place: if that name was bought within the window before the sale, part of the loss is washed by those earlier purchases, and no rule here can prevent it. Turn rebalancing off on a bot you harvest from, or accept it. A multi-asset bot that sells always sells in parts, so the first time you set one to sell, Deltabadger tells you once.
 
 The window counts calendar days in the app's timezone, which can differ from your tax residence's by up to a day.
 

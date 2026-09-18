@@ -116,6 +116,7 @@ sv:
             prompt_body: "I USA, Storbritannien och Irland gäller regeln ”wash sale”: om du säljer med förlust och köper tillbaka samma tillgång för snabbt får du inte dra av förlusten. Deklarerar du i något av dessa länder, välj landets karenstid. Välj annars ”Tillämpa inte den här regeln”."
             prompt_decline: "Tillämpa inte den här regeln"
             prompt_missing: "Välj ett av de två svaren för att fortsätta."
+            selling_warning: "Medan den här boten säljer hindrar skyddet bara Deltabadger från att köpa tillbaka en tillgång efter en försäljning med förlust. Det kontrollerar inte vad som köptes före försäljningen — beroende på var du deklarerar kan nya köp ändå minska förlusten du får dra av."
             confirm: "Bekräfta"
             locked_title: "Blockerat just nu"
             locked_none: "Inget är i karenstid."

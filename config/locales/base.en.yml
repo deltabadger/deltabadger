@@ -117,6 +117,7 @@ en:
             prompt_body: "The United States, the United Kingdom and Ireland disallow a loss if you buy the same asset back too soon. Pick the window for the country you pay tax in, or choose \"Don't apply this rule\"."
             prompt_decline: "Don't apply this rule"
             prompt_missing: "Choose one of the two answers to continue."
+            selling_warning: "While this bot sells, protection only stops Deltabadger buying an asset back after a loss sale. It doesn't check what was bought before the sale — depending on where you pay tax, recent buys can still cut the loss you can claim."
             confirm: "Confirm"
             locked_title: "Locked right now"
             locked_none: "Nothing is inside a window."

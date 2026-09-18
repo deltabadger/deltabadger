@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_08_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_18_090000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -552,6 +552,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_08_130000) do
     t.datetime "updated_at", precision: nil, null: false
     t.boolean "wash_sale_enabled"
     t.string "wash_sale_jurisdiction"
+    t.datetime "wash_sale_selling_warned_at"
     t.index ["confirmation_token"], name: "index_users_on_confirmation_token", unique: true
     t.index ["email"], name: "index_users_on_email", unique: true
     t.index ["reset_password_token"], name: "index_users_on_reset_password_token", unique: true

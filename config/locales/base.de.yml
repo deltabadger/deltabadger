@@ -12,6 +12,7 @@ de:
             <p>Das sind <b style="color: #00A36C;">%{sp500_diff}%</b> mehr als der S&P 500 im gleichen Zeitraum.</p>
     button:
         ok: 'OK'
+        understand: 'Verstanden!'
         update: 'Aktualisieren'
         save: 'Speichern'
         cancel: 'Abbrechen'
@@ -115,6 +116,7 @@ de:
             prompt_body: "In den USA, in Großbritannien und Irland gilt die „Wash-Sale“-Regel: Wenn du mit Verlust verkaufst und dasselbe Asset zu früh zurückkaufst, mindert der Verlust deine Steuer nicht. Zahlst du in einem dieser Länder Steuern, wähle die dortige Frist. Andernfalls wähle „Diese Regel nicht anwenden“."
             prompt_decline: "Diese Regel nicht anwenden"
             prompt_missing: "Wähle eine der beiden Antworten, um fortzufahren."
+            selling_warning: "Solange dieser Bot verkauft, verhindert der Schutz nur, dass Deltabadger ein Asset nach einem Verkauf mit Verlust zurückkauft. Er prüft nicht, was vor dem Verkauf gekauft wurde — je nachdem, wo du Steuern zahlst, können frühere Käufe den Verlust, den du geltend machen kannst, trotzdem schmälern."
             confirm: "Bestätigen"
             locked_title: "Aktuell gesperrt"
             locked_none: "Nichts ist in einer Sperrfrist."

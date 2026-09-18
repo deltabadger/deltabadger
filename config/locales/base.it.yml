@@ -12,6 +12,7 @@ it:
             <p>Questo è <b style="color: #00A36C;">%{sp500_diff}%</b> in più rispetto all'S&P 500 nello stesso periodo.</p>
     button:
         ok: 'OK'
+        understand: 'Capito!'
         update: 'Aggiorna'
         save: 'Salva'
         cancel: 'Annulla'
@@ -115,6 +116,7 @@ it:
             prompt_body: "Negli USA, nel Regno Unito e in Irlanda vale la regola del «wash sale»: se vendi in perdita e ricompri lo stesso asset troppo presto, non puoi dedurre la perdita. Se paghi le tasse in uno di questi paesi, scegli il periodo di quel paese. Altrimenti scegli «Non applicare questa regola»."
             prompt_decline: "Non applicare questa regola"
             prompt_missing: "Scegli una delle due risposte per continuare."
+            selling_warning: "Finché questo bot vende, la protezione impedisce solo a Deltabadger di ricomprare un asset dopo una vendita in perdita. Non controlla cosa è stato comprato prima della vendita — a seconda di dove paghi le tasse, gli acquisti recenti possono comunque ridurre la perdita che puoi dedurre."
             confirm: "Conferma"
             locked_title: "Bloccato ora"
             locked_none: "Nulla è in attesa."
