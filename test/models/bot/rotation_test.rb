@@ -47,9 +47,22 @@ class Bot::RotationTest < ActiveSupport::TestCase
 
   test 'non-reversible bot types answer both predicates with false' do
     # SmartIntervalable and its partials are shared with these types, which never include Reversible.
-    bot = build(:dca_multi_asset)
+    bot = build(:signal_bot)
     assert_not_predicate bot, :sells_base_amount?
     assert_not_predicate bot, :sells_quote_amount?
+  end
+
+  test 'a basket rotates buy → sell for N quote → buy, with no base step' do
+    bot = create(:dca_multi_asset)
+    bot.set_missed_quote_amount
+    bot.save!
+
+    bot.rotate_direction!
+    assert_predicate bot.reload, :sells_quote_amount?
+    assert_nil bot.settings['sell_denomination'], 'the one sell sentence is never written as a choice'
+
+    bot.rotate_direction!
+    assert_predicate bot.reload, :buying?
   end
 
   # == sell_quote_amount ==

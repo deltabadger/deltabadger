@@ -24,6 +24,18 @@ class Bot::ReversibleSchedulingTest < ActiveSupport::TestCase
     bot
   end
 
+  test 'a selling basket runs on its own sell cadence' do
+    bot = create(:dca_multi_asset, :started) # buy interval 'day'
+    bot.sell_interval = 'week'
+    bot.set_missed_quote_amount
+    bot.save!
+    bot.direction = 'selling'
+    bot.set_missed_quote_amount
+    bot.save!
+
+    assert_equal 1.week, bot.effective_interval_duration
+  end
+
   # == effective_interval_duration is direction-aware ==
 
   test 'effective_interval_duration uses the sell cadence while selling' do

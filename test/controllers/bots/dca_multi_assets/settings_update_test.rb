@@ -150,6 +150,44 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
     assert_equal 125.0, @bot.reload.quote_amount
   end
 
+  # == selling ==
+
+  test 'PATCH saves the sell sentence: the amount and its own interval' do
+    start_selling
+
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { sell_quote_amount: '40', sell_interval: 'week' } },
+                                 as: :turbo_stream
+
+    assert_response :success
+    @bot.reload
+    assert_equal 40.0, @bot.sell_quote_amount.to_f
+    assert_equal 'week', @bot.sell_interval
+  end
+
+  test 'a selling basket renders its sell sentence and none of the controls that belong to buying' do
+    start_selling
+
+    get bot_path(id: @bot.id)
+
+    assert_response :success
+    assert_select 'input[name=?]', 'bots_dca_multi_asset[sell_quote_amount]'
+    # The buy cap, the smart-interval split, and adding a member all describe money going IN.
+    assert_select '[name^="bots_dca_multi_asset[quote_amount_limit"], [name^="bots_dca_multi_asset[base_amount_limit"]', count: 0
+    assert_select '[name^="bots_dca_multi_asset[smart_interval"]', count: 0
+    assert_select 'a.asset-allocation__add', count: 0
+  end
+
+  test 'the redeploy prompt is offered while buying and withheld while selling' do
+    Bots::DcaMultiAsset.any_instance.stubs(:redeploy_offer).returns(50.to_d)
+
+    get bot_path(id: @bot.id)
+    assert_select '.redeploy-prompt', count: 1
+
+    start_selling
+    get bot_path(id: @bot.id)
+    assert_select '.redeploy-prompt', count: 0
+  end
+
   test 'the show page renders the multi-asset settings and metrics partials' do
     get bot_path(id: @bot.id)
 
@@ -184,5 +222,10 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
 
   def composition_weights
     @bot.bot_index_assets.in_index.pluck(:asset_id, :target_allocation).to_h
+  end
+
+  def start_selling
+    @bot.set_missed_quote_amount
+    @bot.update!(direction: 'selling')
   end
 end

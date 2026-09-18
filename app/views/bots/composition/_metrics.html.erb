@@ -199,7 +199,8 @@
                     class: 'rbutton rbutton--danger',
                     form: { data: { turbo_confirm: t('bot.redeploy.resolve_confirm') } } %>
     </div>
-  <% elsif !hide_money && !bot.archived? && !bot.deleted? &&
+  <%# Not while selling: buying the proceeds back is the opposite of what a selling basket is doing. %>
+  <% elsif !hide_money && !bot.archived? && !bot.deleted? && !bot.selling? &&
            !bot.redeploy_in_flight? && !bot.rebalance_pending? && !bot.liquidation_in_flight? %>
     <% offer = bot.redeploy_offer(metrics) %>
     <% if offer.positive? %>

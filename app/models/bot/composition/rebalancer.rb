@@ -29,7 +29,12 @@ module Bot::Composition::Rebalancer
   # permanently the most-overweight entry, which sold them automatically — and an asset that left at
   # 0.1% of the portfolio never tripped a 5-point band at all, so it was never sold either. Neither
   # behaviour was wanted.
-  def rebalance_targets
+  def rebalance_targets = composition_targets(locked: locked_asset_ids)
+
+  # The composition's members with their live value and normalised target. `locked` is who sits out:
+  # the rebalance leg passes the wash-sale locks (a locked member is treated exactly like a quitter —
+  # see Bot::WashSaleGuard), the sell leg passes none, because a lock forbids buying, not selling.
+  def composition_targets(locked:)
     data = metrics_with_current_prices
     return nil if data[:prices_stale]
 
@@ -38,8 +43,6 @@ module Bot::Composition::Rebalancer
     composition_assets = bot_index_assets.in_index.includes(:asset).to_a
     return nil if composition_assets.empty?
 
-    # A locked member is treated exactly like a quitter here — see Bot::WashSaleGuard.
-    locked = locked_asset_ids
     unlocked = composition_assets.reject { |bia| locked.include?(bia.asset_id) }
     return nil if unlocked.empty?
 
@@ -50,6 +53,8 @@ module Bot::Composition::Rebalancer
       symbol = bia.asset.symbol
       {
         ticker: tickers_by_symbol[symbol],
+        symbol: symbol,
+        amount: values.dig(symbol, :amount).to_d,
         value: values.dig(symbol, :current_value).to_d,
         # nil weight means we do not know what this asset is supposed to be — resolved below to
         # "whatever it currently is", never to 0.

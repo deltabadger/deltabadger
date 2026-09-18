@@ -29,9 +29,8 @@ class Bots::DcaMultiAsset < Bot
                       if: -> { composition_changed? || saved_change_to_exchange_id? }
 
   # Trading condition concerns. Each resolves its subject through <prefix>_in_ticker_id against
-  # `tickers`, so they read one named member of the basket rather than assuming a single pair.
-  # The flip actions they offer stay inert here: they are gated on reversible?, which Bot defines
-  # as false for buy-only types (bot.rb:129) and only Bot::Reversible overrides.
+  # `tickers`, so they read one named member of the basket rather than assuming a single pair — on
+  # the sell side as on the buy side.
   include SmartIntervalable
   include LimitOrderable
   include QuoteAmountLimitable
@@ -63,11 +62,14 @@ class Bots::DcaMultiAsset < Bot
   include Bot::Lifecycle
   include Bot::AssetConfigurable
   include Bot::LimitCheckable # live limit-check job from limit_paused log (recovery/rescue)
+  include Bot::Reversible     # direction (buying/selling) + the ⇄ flip; outermost parse_params decorator, keep LAST
 
   self.asset_id_setting_keys = %i[quote_asset_id]
 
   COMPOSITION_KEYS = %w[allocations quote_asset_id weighting].freeze
-  CONDITION_TICKER_KEYS = %w[price_limit price_drop_limit moving_average_limit indicator_limit].freeze
+  CONDITION_TICKER_KEYS = %w[price_limit price_drop_limit moving_average_limit indicator_limit
+                             sell_price_limit sell_price_drop_limit sell_moving_average_limit
+                             sell_indicator_limit].freeze
 
   def parse_params(params)
     parsed = {
@@ -75,7 +77,8 @@ class Bots::DcaMultiAsset < Bot
       quote_amount: params[:quote_amount].presence&.to_f,
       interval: params[:interval].presence,
       weighting: params[:weighting].presence,
-      allocations: parse_allocations(params[:allocations])
+      allocations: parse_allocations(params[:allocations]),
+      sell_interval: params[:sell_interval].presence
     }.compact
 
     # Structural edits apply in order on top of sliders posted in the same request, so one submit
@@ -96,10 +99,13 @@ class Bots::DcaMultiAsset < Bot
     result = refresh_composition
     return result if result.failure?
 
-    result = set_orders(
-      total_orders_amount_in_quote: pending_quote_amount,
-      update_missed_quote_amount: true
-    )
+    result = if selling?
+               # Never pending_quote_amount while selling: that is the FROZEN buy carry
+               # (Bot::Accountable), and handing it to set_orders would place a buy.
+               set_orders(total_orders_amount_in_quote: sell_quote_amount || 0.to_d, side: :sell)
+             else
+               set_orders(total_orders_amount_in_quote: pending_quote_amount, update_missed_quote_amount: true)
+             end
     return result if result.failure?
 
     update!(status: :waiting)
@@ -194,6 +200,13 @@ class Bots::DcaMultiAsset < Bot
 
     Asset.where(id: ids).where.not(market_cap: nil).where(market_cap: 1..).count == ids.size
   end
+
+  # One sell sentence — "sell for N quote". "Sell N base" has no meaning across several prices.
+  def sell_denomination = 'quote'
+
+  # So the ⇄ control is a toggle, not the pair bot's three-state rotation, and no denomination is
+  # ever written: the shared rotation's first step would store 'base' for a sentence a basket lacks.
+  def rotate_direction! = flip_direction!(to_direction: buying? ? 'selling' : 'buying')
 
   def composition_size = base_asset_ids.size
   def exited_title_key = 'bot.dca_multi_asset.removed_from_portfolio'

@@ -5,17 +5,18 @@ module Bot::Composition::OrderSetter
 
   def set_orders(
     total_orders_amount_in_quote:,
-    update_missed_quote_amount: false
+    update_missed_quote_amount: false,
+    side: :buy
   )
     Rails.logger.info(
-      "set_orders for composition bot #{id} " \
+      "set_orders for composition bot #{id} side=#{side} " \
       "with total_orders_amount_in_quote: #{total_orders_amount_in_quote}, " \
       "update_missed_quote_amount: #{update_missed_quote_amount}"
     )
     validate_orders_amount!(total_orders_amount_in_quote)
     return Result::Success.new if total_orders_amount_in_quote.zero?
 
-    result = get_orders_data(total_orders_amount_in_quote)
+    result = side == :sell ? get_sell_orders_data(total_orders_amount_in_quote) : get_orders_data(total_orders_amount_in_quote)
     return result if result.failure?
 
     orders_data = result.data
@@ -40,11 +41,18 @@ module Bot::Composition::OrderSetter
 
         # Re-read the lock immediately before placing: this leg sized its orders before another
         # exchange's semaphore let a sale through, and a buy submitted after that sale washes the
-        # loss it was protecting. Narrow, but free — one indexed read per order.
-        if locked_asset_ids.include?(order_data[:ticker].base_asset_id)
+        # loss it was protecting. Narrow, but free — one indexed read per order. Buys only: a lock
+        # forbids buying, not selling.
+        if order_data[:side] == :buy && locked_asset_ids.include?(order_data[:ticker].base_asset_id)
           Rails.logger.info("set_orders composition bot=#{id} event=order_wash_sale_locked #{order_log_fields(order_data)}")
           next
         end
+
+        # A sale at a loss locks the name BEFORE it leaves, as the rebalance and liquidation legs do: the
+        # fill path only locks from a terminal fill, and a resting or partly filled sell would leave the
+        # name open to a buy from any bot on the account in the meantime. Taken per order, so a later
+        # order's failure can never hand back an earlier sale's claim.
+        claim = lock_buying!(order_data[:ticker].base_asset_id) if order_data[:side] == :sell && sell_at_loss?(order_data)
 
         Rails.logger.info("set_orders composition bot=#{id} event=order_creating #{order_log_fields(order_data)}")
         result = create_order(order_data, amount_info)
@@ -53,12 +61,16 @@ module Bot::Composition::OrderSetter
             "set_orders composition bot=#{id} event=order_failed #{order_log_fields(order_data)} " \
             "errors=#{result.errors.to_sentence}"
           )
+          # Only a definitive rejection proves nothing was sold. A timeout, a gateway 5xx or a lost
+          # acknowledgement may be on the book, and keeps the lock — as does a placement that raises.
+          restore_buy_lock!(order_data[:ticker].base_asset_id, claim) if claim && !exchange.ambiguous_placement_error?(result)
           # A -1021/timestamp rejection is a no-op pre-trade rejection: no order was placed, so don't
           # leave a misleading `failed` Transaction row. The bot reschedules cleanly (Bot::ActionJob).
           create_failed_order!(order_data.merge!(error_messages: result.errors)) unless exchange.placement_transient_error?(result.errors)
           return result
         else
           placed += 1
+          log_wash_sale_lock(order_data[:ticker].base) if claim
           order_id = result.data[:order_id]
           Rails.logger.info("set_orders composition bot=#{id} event=order_accepted order_id=#{order_id} #{order_log_fields(order_data)}")
           transaction = persist_accepted_order!(order_data, order_id)
@@ -113,13 +125,13 @@ module Bot::Composition::OrderSetter
 
   private
 
-  # Base amounts already claimed by orders that are open but not yet filled, per symbol.
+  # Base amounts already claimed by orders on `side` that are open but not yet filled, per symbol.
   #
   # Only the UNEXECUTED remainder. A partially filled order has its `amount_exec` in the ledger
-  # already, so reserving the whole `amount` would count the filled part twice and under-buy that
-  # member by exactly what it has already received.
-  def reserved_waiting_buy_amounts
-    transactions.waiting.buy.pluck(:base, :amount, :amount_exec)
+  # already, so reserving the whole `amount` would count the filled part twice and under-buy (or
+  # oversell) that member by exactly what it has already received.
+  def reserved_waiting_amounts(side)
+    transactions.waiting.where(side:).pluck(:base, :amount, :amount_exec)
                 .each_with_object(Hash.new(0)) do |(base, amount, amount_exec), acc|
       remainder = amount.to_d - amount_exec.to_d
       acc[base] += remainder if remainder.positive?
@@ -129,6 +141,103 @@ module Bot::Composition::OrderSetter
   def validate_orders_amount!(total_orders_amount_in_quote)
     raise 'Orders quote_amount is required' if total_orders_amount_in_quote.blank?
     raise 'Orders quote_amount must be positive' if total_orders_amount_in_quote.negative?
+  end
+
+  # DCA-out: the withdrawal comes out of the member that will sit furthest above its share of what is
+  # left after it, one order per member, capped at what this bot holds (net of its own resting sells)
+  # and at what is free on the venue; a member that cannot cover it hands the rest to the next-ranked
+  # one. One order per tick in the ordinary case, whatever the basket's width — slicing a withdrawal
+  # across twenty members would put every slice under the venue floor. No carry: a remainder nobody can
+  # sell is dropped, as the pair bot's sell leg drops it.
+  def get_sell_orders_data(withdrawal)
+    holdings = metrics(force: true)[:asset_breakdown] || {}
+    if holdings.none? { |_symbol, holding| holding[:amount].to_d.positive? }
+      Rails.logger.info("set_orders composition bot=#{id} event=sell_skipped reason=no_holdings")
+      return Result::Success.new([])
+    end
+
+    # Holdings but no valuation: retryable, and raised before anything is placed — the buy leg's Step 1
+    # reasoning. Selling on a guessed ranking would pick the wrong member.
+    entries = composition_targets(locked: [])
+    raise Client::TransientNetworkError, "No valuation for bot #{id}'s holdings" if entries.nil?
+
+    resting = reserved_waiting_amounts(:sell)
+    entries.each do |entry|
+      pending = resting.fetch(entry[:symbol], 0)
+      next unless pending.positive? && entry[:amount].positive?
+
+      entry[:value] *= 1 - [pending / entry[:amount], 1].min
+    end
+
+    portfolio = entries.sum { |entry| entry[:value].to_d }
+    deviation = rebalance_deviation([portfolio - withdrawal, 0].max)
+    # Most over first, with rebalance_deviation's tie-break, then the composition's own order — the
+    # ordering max_by would give, extended to the whole list.
+    ranked = tradeable_rebalance_entries(entries).sort_by.with_index do |entry, index|
+      over, tie = deviation.call(entry)
+      [-over, -tie, index]
+    end
+
+    remaining = withdrawal
+    orders = []
+    below_floor = nil
+    ranked.each do |entry|
+      break unless remaining.positive?
+
+      ticker = entry[:ticker]
+      held = holdings.dig(ticker.base, :amount).to_d - resting.fetch(ticker.base, 0)
+      next unless held.positive?
+
+      price = sell_price(ticker)
+      order = sell_order_data(ticker, price, [remaining / price, held].min)
+      if calculate_best_amount_info(order)[:below_minimum_amount]
+        below_floor ||= order
+        next
+      end
+      # A loss sold while a buy for the same name rests anywhere on the account is washed the moment
+      # that buy fills. A gain cannot be washed, so it is sold regardless.
+      next if sell_at_loss?(order) && waiting_buy_blocks_sell?(ticker)
+
+      free = live_free_balance(ticker.base_asset_id)
+      next unless free.positive?
+
+      order = sell_order_data(ticker, price, [order[:amount], free].min) if free < order[:amount]
+      if calculate_best_amount_info(order)[:below_minimum_amount]
+        below_floor ||= order
+        next
+      end
+
+      orders << order
+      remaining -= order[:quote_amount]
+    end
+
+    # Nothing cleared a floor: the top member's attempt is what the skip path records, once.
+    Result::Success.new(orders.presence || [below_floor].compact)
+  end
+
+  def sell_price(ticker)
+    result = begin
+      reference_price(ticker, :sell)
+    rescue Client::TransientNetworkError, Client::RateLimitedError
+      raise
+    rescue StandardError => e
+      # Same shape as the buy leg: a zero book raises in the clients rather than failing.
+      Result::Failure.new(e.message)
+    end
+    raise Client::TransientNetworkError, "No price for #{ticker.base}: #{result.errors.to_sentence}" if result.failure?
+
+    order_price(ticker, :sell, result.data)
+  end
+
+  def sell_order_data(ticker, price, amount)
+    {
+      ticker: ticker,
+      price: price,
+      amount: amount,
+      quote_amount: amount * price,
+      side: :sell,
+      order_type: limit_ordered? ? :limit_order : :market_order
+    }
   end
 
   # market: forces the crossing price and a market order regardless of the bot's limit setting. The
@@ -151,7 +260,7 @@ module Bot::Composition::OrderSetter
 
     metrics_data = metrics(force: true)
     asset_breakdown = metrics_data[:asset_breakdown] || {}
-    reserved = reserved_waiting_buy_amounts
+    reserved = reserved_waiting_amounts(:buy)
 
     # Step 1: Get current prices for all assets
     asset_prices = {}

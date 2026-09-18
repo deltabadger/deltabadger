@@ -443,14 +443,25 @@ module Bot::Rebalancer
     # vacuously). Checking the asset actually about to trade is both type-agnostic and stricter: a
     # delisted or halted asset drops out of the candidates while the rest of the portfolio still
     # rebalances around it.
-    tradeable = entries.select do |entry|
-      entry[:ticker].present? && entry[:ticker].available? && entry[:ticker].trading_enabled?
-    end
+    tradeable = tradeable_rebalance_entries(entries)
     return [nil, total] if tradeable.empty?
 
-    deviation = ->(entry) { [entry[:value].to_d - (total * entry[:target].to_d), -entry[:target].to_d] }
+    deviation = rebalance_deviation(total)
     entry = direction == :max ? tradeable.max_by(&deviation) : tradeable.min_by(&deviation)
     [entry, total]
+  end
+
+  def tradeable_rebalance_entries(entries)
+    entries.select do |entry|
+      entry[:ticker].present? && entry[:ticker].available? && entry[:ticker].trading_enabled?
+    end
+  end
+
+  # How far an entry sits above its share of `portfolio` — the whole portfolio for a rebalance, or
+  # what will be left of it after a withdrawal for the sell leg. On a tie the smaller target reads as
+  # further over: its share is the one a trade moves most.
+  def rebalance_deviation(portfolio)
+    ->(entry) { [entry[:value].to_d - (portfolio * entry[:target].to_d), -entry[:target].to_d] }
   end
 
   def rebalance_order_data(ticker:, price:, amount:, quote_amount:, side:)

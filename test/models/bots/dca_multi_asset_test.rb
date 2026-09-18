@@ -476,12 +476,11 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
       assert_includes ancestors, concern
     end
 
-    # Selling stays out: a basket has no agreed meaning for "sell 0.01 BTC per day", and the flip
-    # actions the conditions above offer are gated on reversible?, which stays false here.
-    [Bot::Reversible, Bot::BaseAmountLimitable].each do |concern|
-      assert_not_includes ancestors, concern
-    end
-    assert_not Bots::DcaMultiAsset.new.reversible?
+    # A basket reverses into selling for a quote amount. The base sentence and its cap stay out: a
+    # basket has no agreed meaning for "sell 0.01 BTC per day".
+    assert_includes ancestors, Bot::Reversible
+    assert_not_includes ancestors, Bot::BaseAmountLimitable
+    assert Bots::DcaMultiAsset.new.reversible?
   end
 
   test 'an exchange change is refused while a rebalance is pending, even when stopped' do

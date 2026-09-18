@@ -77,6 +77,25 @@ module Bot::OrderSetter
     }
   end
 
+  # Market price tracks the side of the spread we cross: buys take the ask, sells take the bid.
+  # Limit orders price off the last trade and adjust by limit distance (below for buys, above
+  # for sells), so both fetch get_last_price.
+  def reference_price(ticker, side)
+    return ticker.get_last_price if limit_ordered?
+
+    side == :sell ? ticker.get_bid_price : ticker.get_ask_price
+  end
+
+  # The price the order will actually be placed at: the reference price plus the limit-order
+  # adjustment. A quote-denominated sell sizes itself off this very value.
+  def order_price(ticker, side, raw_price)
+    return raw_price unless limit_ordered?
+
+    distance = limit_order_pcnt_distance_decimal
+    multiplier = side == :sell ? (1.to_d + distance) : (1.to_d - distance)
+    ticker.adjusted_price(price: raw_price * multiplier)
+  end
+
   def create_order(order_data, amount_info)
     sell = order_data[:side] == :sell
     case order_data[:order_type]

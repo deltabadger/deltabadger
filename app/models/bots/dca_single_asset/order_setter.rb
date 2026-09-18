@@ -129,7 +129,7 @@ module Bots::DcaSingleAsset::OrderSetter
   # The price the order will actually be placed at: the reference price plus the limit-order
   # adjustment. Extracted so a quote-denominated sell can size itself off the very same value.
   def fetch_order_price(side)
-    result = reference_price(side)
+    result = reference_price(ticker, side)
     if result.failure?
       # A transient/throttle price read must retry via Bot::ActionJob's typed-error chain, not leave
       # a permanent failed Transaction (mirror of the fetch jobs). Any other failure keeps the
@@ -142,24 +142,7 @@ module Bots::DcaSingleAsset::OrderSetter
       return result
     end
 
-    Result::Success.new(order_price(side, result.data))
-  end
-
-  # Market price tracks the side of the spread we cross: buys take the ask, sells take the bid.
-  # Limit orders price off the last trade and adjust by limit distance (below for buys, above
-  # for sells), so both fetch get_last_price.
-  def reference_price(side)
-    return ticker.get_last_price if limit_ordered?
-
-    side == :sell ? ticker.get_bid_price : ticker.get_ask_price
-  end
-
-  def order_price(side, raw_price)
-    return raw_price unless limit_ordered?
-
-    distance = limit_order_pcnt_distance_decimal
-    multiplier = side == :sell ? (1.to_d + distance) : (1.to_d - distance)
-    ticker.adjusted_price(price: raw_price * multiplier)
+    Result::Success.new(order_price(ticker, side, result.data))
   end
 
   def calculate_order_data(side:, price:, order_type:, order_amount_in_quote: nil, base_amount: nil)
