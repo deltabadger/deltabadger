@@ -173,7 +173,18 @@ module Bot::Reversible
     cancel_scheduled_limit_check_jobs
     reset_trigger_condition_timestamps
     Bot::ActionJob.set(wait_until: next_interval_checkpoint_at).perform_later(self)
-    Bot::BroadcastAfterScheduledActionJob.perform_later(self)
+    # A running bot is flipped by a trigger, inside its own job (the manual control is locked while
+    # it runs), so no request redraws the page: the broadcast job does.
+    Bot::BroadcastAfterScheduledActionJob.perform_later(self, reversed: true)
+  end
+
+  # The panels the manual path re-renders (bots/reverse.turbo_stream.erb), for an open page: the
+  # settings, which now carry the other side's sentence, and a basket's metrics panel, which carries
+  # the Redeploy prompt it offers only while buying.
+  def broadcast_reversal
+    broadcast_replace_to(["user_#{user_id}", :bot_updates],
+                         target: 'settings', partial: "#{model_name.collection}/settings", locals: { bot: self })
+    broadcast_metrics_panel if respond_to?(:redeploy_offer)
   end
 
   # Manual-flip deferral guard. cancel_scheduled_* (step 3 above) cannot cancel a job that
