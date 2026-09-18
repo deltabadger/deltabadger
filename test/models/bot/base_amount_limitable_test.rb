@@ -133,6 +133,30 @@ class Bot::BaseAmountLimitableTest < ActiveSupport::TestCase
     assert_not bot.quote_amount_limit_reached?, 'the quote cap is a buy-side concept; sells must not count'
   end
 
+  # == a cancelled or abandoned order counts what it already sold ==
+
+  test 'a cancelled partial sale still counts what it sold against the pair bot\'s base cap' do
+    bot = selling_capped_bot(limit: 1.0)
+    create(:transaction, bot:, side: :sell, status: :submitted, external_status: :cancelled, external_id: 'c1',
+                         amount: 1.0, amount_exec: 0.4, created_at: bot.base_amount_limit_enabled_at + 1.second)
+    create(:transaction, bot:, side: :sell, status: :submitted, external_status: :abandoned, external_id: 'a1',
+                         amount: 1.0, amount_exec: nil, created_at: bot.base_amount_limit_enabled_at + 1.second)
+
+    assert_in_delta 0.6, bot.reload.base_amount_available_before_limit_reached.to_f, 1e-9,
+                    'the 0.4 it sold counts; an order that never filled counts nothing'
+  end
+
+  test 'a cancelled partial sale still counts against a one-asset basket\'s base cap' do
+    bot, base = one_asset_basket
+    bot.set_missed_quote_amount
+    bot.update!(direction: 'selling', base_amount_limited: true, base_amount_limit: 1)
+    create(:transaction, bot:, exchange: bot.exchange, status: :submitted, external_status: :cancelled, side: :sell,
+                         transaction_type: 'REGULAR', external_id: 'c2', base: base.symbol, quote: bot.quote_asset.symbol,
+                         price: 100, amount: 1, amount_exec: 0.4, quote_amount: 100, quote_amount_exec: 40)
+
+    assert_in_delta 0.6, bot.base_amount_available_before_limit_reached.to_f, 1e-9
+  end
+
   # == one-asset basket: the pair bot's cap, on the basket that replaces it ==
 
   { 'for N quote' => { sell_quote_amount: 100 }, 'N base' => { sell_denomination: 'base', sell_amount: 1 } }.each do |label, sentence|

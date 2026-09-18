@@ -40,6 +40,21 @@ class Bot::QuoteAmountLimitableTest < ActiveSupport::TestCase
     end
   end
 
+  test 'a cancelled partial buy still counts what it spent against the buy cap' do
+    bot = create(:dca_single_asset, :started)
+    bot.set_missed_quote_amount
+    bot.update!(settings: bot.settings.merge('quote_amount_limited' => true, 'quote_amount_limit' => 500))
+    bot.reload
+    after_enabled = bot.quote_amount_limit_enabled_at + 1.second
+    create(:transaction, bot:, status: :submitted, external_status: :cancelled, external_id: 'c1',
+                         quote_amount: 200, amount_exec: 0.8, quote_amount_exec: 80, created_at: after_enabled)
+    create(:transaction, bot:, status: :submitted, external_status: :abandoned, external_id: 'a1',
+                         quote_amount: 200, amount_exec: nil, quote_amount_exec: nil, created_at: after_enabled)
+
+    assert_in_delta 420, bot.reload.quote_amount_available_before_limit_reached.to_f, 1e-9,
+                    'the 80 it spent counts; an order that never filled counts nothing'
+  end
+
   test 'available-before-limit counts submitted/unknown orders as spent' do
     bot = create(:dca_single_asset, :started)
     bot.set_missed_quote_amount
