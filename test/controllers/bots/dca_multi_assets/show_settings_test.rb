@@ -205,6 +205,23 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
 
   private
 
+  # The single-asset bot's page rendered with its pair delisted; the one-asset basket that replaces it must
+  # too. Its tradeable tickers are empty then, so precision comes from the membership's ticker.
+  test 'a one-asset basket whose pair was delisted renders its page and its start question' do
+    bot = one_asset_bot
+    bot.composition_tickers.sole.update!(available: false)
+    bot.set_missed_quote_amount
+    bot.update!(quote_amount_limited: true, quote_amount_limit: 500)
+    bot.update_columns(status: Bot.statuses[:stopped])
+
+    get bot_path(id: bot.id)
+    assert_response :success
+    assert_select '#settings-amount-limit-info'
+
+    get edit_bot_start_path(bot_id: bot.id)
+    assert_response :success
+  end
+
   def one_asset_bot
     @one_asset_bot ||= create(:dca_multi_asset, user: @user, exchange: @bot.exchange, quote_asset: @bot.quote_asset,
                                                 base_assets: [@assets[0]])
