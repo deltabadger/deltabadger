@@ -479,10 +479,11 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
       assert_includes ancestors, concern
     end
 
-    # A basket reverses into selling for a quote amount. The base sentence and its cap stay out: a
-    # basket has no agreed meaning for "sell 0.01 BTC per day".
+    # A basket reverses into selling. The base sentence and its cap are included for the one-asset
+    # basket, which has one price; a wider basket has no agreed meaning for "sell 0.01 BTC per day" and
+    # reads them as off (Bot::BaseAmountLimitableTest).
     assert_includes ancestors, Bot::Reversible
-    assert_not_includes ancestors, Bot::BaseAmountLimitable
+    assert_includes ancestors, Bot::BaseAmountLimitable
     assert Bots::DcaMultiAsset.new.reversible?
   end
 

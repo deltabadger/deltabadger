@@ -232,7 +232,7 @@ module Bot::Composition::OrderSetter
   # set_orders', as for the pair.
   def one_asset_sell_orders_data(quote:, base:)
     ticker = composition_tickers.first
-    cap = try(:base_amount_available_before_limit_reached) || Float::INFINITY
+    cap = base_amount_available_before_limit_reached
     return sell_skipped('cap_reached') unless cap.positive? # before any exchange call, as the pair does
 
     price = sell_price(ticker)

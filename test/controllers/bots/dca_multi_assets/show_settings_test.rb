@@ -74,6 +74,19 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
     assert_select "[name='bots_dca_multi_asset[rebalance_enabled]']", count: 0
   end
 
+  test 'a selling one-asset basket offers the base cap; a selling two-asset basket does not' do
+    bot = one_asset_bot
+    bot.set_missed_quote_amount
+    bot.update!(direction: 'selling', sell_denomination: 'base')
+    get bot_path(id: bot.id)
+    assert_select "[name='bots_dca_multi_asset[base_amount_limit]']", count: 1
+
+    @bot.set_missed_quote_amount
+    @bot.update!(direction: 'selling')
+    get bot_path(id: @bot.id)
+    assert_select "[name='bots_dca_multi_asset[base_amount_limit]']", count: 0
+  end
+
   test "a two-asset basket's sentence names no asset" do
     get bot_path(id: @bot.id)
 
