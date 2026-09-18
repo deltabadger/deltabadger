@@ -8,6 +8,18 @@ class Bot::FetchAndUpdateOrderJob < BotJob
   # Kraken's decaying counter). The durable row remains for the next sweep if exhausted.
   retry_on Client::RateLimitedError, wait: BotJob::RATE_LIMIT_WAIT, attempts: 4
 
+  # A market order the venue had accepted but not filled when it was asked (Alpaca answers :open
+  # for a just-accepted order). A scheduled bot sweeps its waiting orders on its next tick; a
+  # signal bot has no tick, so this job is the only clock its order has. Read-only — a retry
+  # re-reads an order, it never places one — and bounded: a market order fills in moments or not
+  # at all, and the open row stays for the page's own refresh if it never does.
+  class OrderStillOpen < StandardError; end
+
+  retry_on OrderStillOpen, wait: :polynomially_longer, attempts: 8 do |job, _error|
+    order = job.arguments.first
+    Rails.logger.warn("[order-still-open] bot_id=#{order.bot_id} order_id=#{order.external_id} polling stopped")
+  end
+
   def perform(order, update_missed_quote_amount: false, success_or_kill: false)
     # Keyed off the ORDER's venue, not the bot's: bot.exchange is mutable, so once a stranded bot
     # is moved to a live exchange, a job still queued for the old order would otherwise ask the new
@@ -55,6 +67,11 @@ class Bot::FetchAndUpdateOrderJob < BotJob
         missed_quote_amount = [0, order.bot.missed_quote_amount - quote_amount_diff].max
         order.bot.update!(missed_quote_amount: missed_quote_amount)
       end
+
+      # Not order.market_order?: the update above has just overwritten order_type with the venue's,
+      # and an emulated market order reads as a limit from then on. A signal bot places market
+      # orders only, so the bot is the condition.
+      raise OrderStillOpen if order_data[:status] == :open && bot.signal?
     when :unknown
       raise "Order #{order.external_id} status is unknown."
     end

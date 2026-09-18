@@ -342,4 +342,90 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
     assert_nothing_raised { Bot::FetchAndUpdateOrderJob.perform_now(txn) }
     assert_equal 'abandoned', txn.reload.external_status
   end
+
+  # A signal bot has no tick to sweep its waiting orders, so this job is the only clock its market
+  # order has: still open means "ask again", bounded, and read-only.
+  def open_market_order_for(bot, external_id:)
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: external_id,
+                               amount_exec: nil, quote_amount_exec: nil)
+    txn.stubs(:bot).returns(bot)
+    bot.stubs(:get_order).returns(Result::Success.new({
+                                                        status: :open, price: 50_000, amount: 0.002, quote_amount: 100,
+                                                        amount_exec: 0, quote_amount_exec: 0,
+                                                        ticker: bot.ticker, side: :buy, order_type: :market_order
+                                                      }))
+    txn
+  end
+
+  test "a signal bot's market order that is still open is recorded as open and asked about again" do
+    bot = create(:signal_bot, :started)
+    txn = open_market_order_for(bot, external_id: 'sig-open')
+
+    assert_raises(Bot::FetchAndUpdateOrderJob::OrderStillOpen) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+
+    assert_equal 'open', txn.reload.external_status
+  end
+
+  test 'the re-read is scheduled by retry_on, not left to a page view' do
+    bot = create(:signal_bot, :started)
+    txn = open_market_order_for(bot, external_id: 'sig-open-2')
+    relation = SolidQueue::Job.where(class_name: 'Bot::FetchAndUpdateOrderJob')
+    relation.destroy_all
+
+    assert_nothing_raised { Bot::FetchAndUpdateOrderJob.new(txn).perform_now }
+
+    assert_equal 1, relation.count
+    assert_operator relation.last.scheduled_at, :>, Time.current
+  end
+
+  test 'once the order closes the job finishes and fills in the execution' do
+    bot = create(:signal_bot, :started)
+    txn = open_market_order_for(bot, external_id: 'sig-closed')
+    bot.stubs(:get_order).returns(Result::Success.new({
+                                                        status: :closed, price: 50_000, amount: 0.002, quote_amount: 100,
+                                                        amount_exec: 0.002, quote_amount_exec: 100,
+                                                        ticker: bot.ticker, side: :buy, order_type: :market_order
+                                                      }))
+
+    assert_nothing_raised { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+
+    assert_equal 'closed', txn.reload.external_status
+    assert_equal 100, txn.quote_amount_exec
+  end
+
+  # Hyperliquid and Gemini emulate a market order with a crossing limit and report it as one, and
+  # confirmation writes that type onto the row — so the second poll sees a limit order. It must
+  # still be asked about, or the clock stops on exactly the venues whose orders can rest.
+  test 'an emulated market order keeps its clock after the venue reports it as a limit order' do
+    bot = create(:signal_bot, :started)
+    txn = open_market_order_for(bot, external_id: 'sig-emulated')
+    still_open = { status: :open, price: 50_000, amount: 0.002, quote_amount: 100, amount_exec: 0.001,
+                   quote_amount_exec: 50, ticker: bot.ticker, side: :buy, order_type: :limit_order }
+    bot.stubs(:get_order).returns(Result::Success.new(still_open))
+
+    2.times do
+      assert_raises(Bot::FetchAndUpdateOrderJob::OrderStillOpen) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    end
+    assert_predicate txn.reload, :limit_order?
+
+    bot.stubs(:get_order).returns(Result::Success.new(still_open.merge(status: :closed, amount_exec: 0.002,
+                                                                       quote_amount_exec: 100)))
+    assert_nothing_raised { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    assert_equal 'closed', txn.reload.external_status
+  end
+
+  # A scheduled bot sweeps its own waiting orders on its next tick; nothing changes for it.
+  test "a scheduled bot's open order is left to its own tick" do
+    bot = create(:dca_single_asset, :started)
+    txn = open_market_order_for(bot, external_id: 'dca-open')
+
+    assert_nothing_raised { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+  end
+
+  test 'a caller that asked for success_or_kill is still never raised at' do
+    bot = create(:signal_bot, :started)
+    txn = open_market_order_for(bot, external_id: 'sig-open-3')
+
+    assert_nothing_raised { Bot::FetchAndUpdateOrderJob.new.perform(txn, success_or_kill: true) }
+  end
 end
