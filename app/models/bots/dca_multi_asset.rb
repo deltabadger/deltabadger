@@ -195,9 +195,11 @@ class Bots::DcaMultiAsset < Bot
     composition_tickers.filter_map(&:minimum_quote_size).max.to_f
   end
 
-  # Named after what it holds: "BTC, ETH, XRP + 3".
+  # Named after what it holds: "BTC, ETH, XRP + 3", or for one asset its name ("Bitcoin"), as the
+  # single-asset bot was. Read from the table, not the base_assets memo, which would answer for an
+  # earlier pick on the wizard's in-memory bot.
   def default_label
-    basket_label(*base_asset_ids)
+    one_asset? ? Asset.find_by(id: base_asset_ids.first)&.name : basket_label(*base_asset_ids)
   end
 
   # Defaults live in readers, never written to settings: a stored default would dirty every legacy
