@@ -37,7 +37,7 @@ class Bot::SignalJob < BotJob
     # Only the checks above can raise into here — the order setter answers for its own phases —
     # and nothing has reached the venue yet.
     Rails.logger.error("SignalJob for bot #{bot.id}: #{e.class}: #{e.message}")
-    bot.record_signal_failure(signal, [e.message])
+    bot.record_signal_failure(signal.direction.to_sym, [e.message])
   end
 
   private
