@@ -16,7 +16,9 @@ module Bot::QuoteAmountLimitable
     validates :quote_amount_limit,
               numericality: { greater_than_or_equal_to: lambda(&:minimum_quote_amount_limit) },
               if: :quote_amount_limited?
-    validate :validate_quote_amount_limit_not_reached, if: :quote_amount_limited?, on: :start
+    # The cap bounds what a bot BUYS. Having spent it is the usual reason to reverse into selling, so
+    # a selling bot is not held to it (and the control is hidden while selling).
+    validate :validate_quote_amount_limit_not_reached, if: -> { quote_amount_limited? && !selling? }, on: :start
 
     decorators = Module.new do
       def parse_params(params)

@@ -30,6 +30,15 @@ class Bot::RebalanceableTest < ActiveSupport::TestCase
     assert @bot.rebalance_due?
   end
 
+  test 'a basket that is selling never starts a rebalance, however far it has drifted' do
+    # The sell leg already pays out of the most overweight member; a band trip here would buy back
+    # what it just sold.
+    stub_values(base0: 70, base1: 30)
+    @bot.stubs(:selling?).returns(true)
+
+    assert_not @bot.rebalance_due?
+  end
+
   test 'drift is symmetric — an underweight base0 triggers exactly like an overweight one' do
     stub_values(base0: 30, base1: 70)
 

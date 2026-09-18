@@ -119,7 +119,7 @@ module Bot::Composition::Liquidatable
   # The symbols arrive from the URL, so they are untrusted — names the bot does not hold are refused
   # here as well as in the controller, which keeps the job safe whatever reaches it.
   def liquidate!(symbols:, deadline: nil)
-    advance_waiting_orders!
+    advance_waiting_orders!(sweep_if: transactions.sell.waiting)
     promote_stale_liquidation_placement!
 
     blocked = liquidation_blocked_reason
@@ -140,7 +140,10 @@ module Bot::Composition::Liquidatable
   def liquidation_blocked_reason
     return :rebalance_pending if rebalance_pending?
     return :halted if liquidation_pending?
-    return :orders_waiting if transactions.liquidation.waiting.exists?
+    # Any sell of ours, not just a liquidation: a scheduled (DCA-out) sell resting on the book would be
+    # sold a second time underneath it. liquidate! refreshes these first, so a stale `open` does not
+    # block for good.
+    return :orders_waiting if transactions.sell.waiting.exists?
     # An order the venue stopped reporting is not proof it never executed, and being abandoned takes
     # it out of `waiting` — so without this it would stop blocking anything the moment we gave up on
     # it, and a fresh sale could place on top of a fill we never recorded.

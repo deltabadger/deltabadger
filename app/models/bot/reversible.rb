@@ -196,8 +196,10 @@ module Bot::Reversible
 
   private
 
-  # Cancel every still-open order on reversal — they belong to the side we are leaving, and an
-  # unfilled buy must not be counted as accumulated base on the new sell side. Best-effort: a failed
+  # Cancel every still-open DCA order on reversal — they belong to the side we are leaving, and an
+  # unfilled buy must not be counted as accumulated base on the new sell side. REGULAR only: a
+  # composition bot's rebalance, liquidation and redeploy legs own their orders and their resume state,
+  # and a flip reverses the schedule, not them. Best-effort: a failed
   # cancel (e.g. the order just filled, or an exchange hiccup) is logged, not fatal, so a flip never
   # crashes. Transaction#cancel hits the exchange and enqueues a re-fetch that marks the row cancelled.
   # Returns the total reserved quote of successfully-cancelled BUY orders, so flip_direction! can
@@ -205,7 +207,7 @@ module Bot::Reversible
   # are NOT counted — that order may still be live on the exchange.
   def cancel_unfilled_orders
     cancelled_buy_reserve = 0.to_d
-    transactions.waiting.find_each do |order|
+    transactions.regular.waiting.find_each do |order|
       result = order.cancel
       if result.success?
         if order.buy?
