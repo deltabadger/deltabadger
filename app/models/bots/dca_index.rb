@@ -117,6 +117,13 @@ class Bots::DcaIndex < Bot
     params[:num_coins].to_i >= (params[:num_coins_ceiling].presence || max_coins).to_i
   end
 
+  # The members are re-checked before every action, and starting is one. The first order re-checks
+  # again, but until it runs the tables and their Sell buttons read the stored composition, and a
+  # delayed start can be days away.
+  def start(...)
+    super.tap { |started| Bot::ResyncIndexCompositionJob.perform_later(self) if started }
+  end
+
   def execute_action
     first_tick = transactions.none? # before anything is placed: see broadcast_below_minimums_warning
     update!(status: :executing)

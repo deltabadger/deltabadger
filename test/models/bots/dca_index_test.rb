@@ -161,6 +161,21 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     bot.refresh_composition
   end
 
+  # A buy re-derives the composition itself, so it can run beside the daily re-check of the same bot.
+  # Both may add the same new member: the second insert hits the unique (bot_id, asset_id) index.
+  test 'a refresh that loses the race to add a member updates the row the other one inserted' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    bot.num_coins = 1
+    stub_all_priced(:get_ask_price)
+    inserted = BotIndexAsset.create!(bot: bot, asset: @asset_a, ticker: @ticker_a, target_allocation: 0.5)
+    looked_up_before_the_insert = BotIndexAsset.new(bot: bot, asset_id: @asset_a.id)
+    bot.bot_index_assets.stubs(:find_or_initialize_by).with(asset_id: @asset_a.id)
+       .returns(looked_up_before_the_insert).then.returns(inserted)
+
+    assert_predicate bot.refresh_composition, :success?
+    assert_equal 1.0, inserted.reload.target_allocation
+  end
+
   test 'current_index_preview excludes trading-disabled pairs' do
     bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
     @ticker_dead.update!(trading_enabled: false)
@@ -258,6 +273,24 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
       assert_equal 'scheduled', bot.status
       assert_equal Time.current, bot.started_at
     end
+  end
+
+  # The members are re-checked before every action, and starting is one. The first order re-checks
+  # again, but until it runs the tables and their Sell buttons read the stored composition, and a
+  # delayed start can be days away.
+  test 'starting re-checks the members' do
+    MarketData.stubs(:configured?).returns(true)
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+
+    assert_enqueued_with(job: Bot::ResyncIndexCompositionJob, args: [bot]) { assert bot.start }
+  end
+
+  test 'restarting re-checks the members too' do
+    MarketData.stubs(:configured?).returns(true)
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    bot.update_columns(status: Bot.statuses[:stopped], started_at: 1.day.ago)
+
+    assert_enqueued_with(job: Bot::ResyncIndexCompositionJob, args: [bot]) { assert bot.start(start_fresh: false) }
   end
 
   test 'start clears stop_message_key and last_action_job_at' do
