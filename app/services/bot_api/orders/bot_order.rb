@@ -72,13 +72,13 @@ module BotApi
       # The pair is the bot's. It may be left out; sent, it must agree — a caller that says ETH to a
       # BTC bot must not end up holding BTC.
       def pair_mismatch(bot)
-        given = { exchange_name: [@exchange_name, bot.exchange.name], base_asset: [@base_asset, bot.ticker.base],
-                  quote_asset: [@quote_asset, bot.ticker.quote] }
+        given = { exchange_name: [@exchange_name, bot.exchange.name], base_asset: [@base_asset, base(bot)],
+                  quote_asset: [@quote_asset, quote(bot)] }
         wrong = given.select { |_, (sent, actual)| sent.present? && !sent.to_s.casecmp?(actual.to_s) }.keys
         return nil if wrong.empty?
 
         failure(:validation_failed, 'bot_pair_mismatch',
-                "Bot #{bot.id} trades #{bot.ticker.base}/#{bot.ticker.quote} on #{bot.exchange.name}; " \
+                "Bot #{bot.id} trades #{pair(bot)} on #{bot.exchange.name}; " \
                 "#{wrong.join(', ')} say otherwise. Leave them out to use the bot's pair.")
       end
 
@@ -101,7 +101,7 @@ module BotApi
         bot.ensure_exchange_authenticated
         return nil if bot.exchange.market_open?(tickers: [bot.ticker])
 
-        failure(:conflict, 'market_closed', "The market for #{bot.ticker.base} on #{bot.exchange.name} is closed.")
+        failure(:conflict, 'market_closed', "The market for #{base(bot)} on #{bot.exchange.name} is closed.")
       rescue StandardError => e
         failure(:upstream_failed, 'exchange_unavailable', "Could not reach #{bot.exchange.name}: #{e.message}")
       end
@@ -112,9 +112,9 @@ module BotApi
         when :submitted then success(bot, outcome)
         when :skipped
           failure(:validation_failed, 'below_minimum_amount',
-                  "The order is below #{bot.exchange.name}'s minimum for #{bot.ticker.base}/#{bot.ticker.quote}.")
+                  "The order is below #{bot.exchange.name}'s minimum for #{pair(bot)}.")
         when :locked
-          failure(:conflict, 'wash_sale_locked', "#{bot.ticker.base} is locked after a sale at a loss.")
+          failure(:conflict, 'wash_sale_locked', "#{base(bot)} is locked after a sale at a loss.")
         when :ambiguous
           failure(:upstream_failed, 'placement_ambiguous',
                   "The order may or may not have been placed: #{errors}. Check #{bot.exchange.name} before sending it again.")
@@ -128,10 +128,16 @@ module BotApi
         Result.success({
                          dry_run: @dry_run, bot_id: bot.id,
                          transaction_id: outcome&.transaction&.id, order_id: outcome&.order_id,
-                         exchange: bot.exchange.name, pair: "#{bot.ticker.base}/#{bot.ticker.quote}",
+                         exchange: bot.exchange.name, pair: pair(bot),
                          side: @side.to_s, order_type: 'market', amount: @amount, amount_type: @amount_type
                        }, status: :created)
       end
+
+      # Asset symbols, the API's one vocabulary — creating the bot, reading it and its transaction
+      # rows all use them. The ticker's own base/quote are the exchange's aliases (Kraken's XBT).
+      def base(bot) = bot.base_asset.symbol
+      def quote(bot) = bot.quote_asset.symbol
+      def pair(bot) = "#{base(bot)}/#{quote(bot)}"
 
       def failure(status, code, message) = Result.failure(status, code, message)
     end

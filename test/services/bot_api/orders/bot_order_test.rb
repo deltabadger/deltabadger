@@ -66,6 +66,19 @@ class BotApi::Orders::BotOrderTest < ActiveSupport::TestCase
     assert buy(exchange_name: 'binance', base_asset: 'btc', quote_asset: 'usd').success?
   end
 
+  # An exchange may list an asset under its own alias (Kraken's XBT). The API speaks asset
+  # symbols everywhere else — creating the bot, reading it, its transaction rows — so a caller
+  # repeating the bot's own pair must be understood, and answered in the same words.
+  test 'the pair is judged and reported in asset symbols, not the exchange alias' do
+    @bot.ticker.update_columns(base: 'XBT', ticker: 'XBTUSD')
+    Exchanges::Binance.any_instance.stubs(:market_buy).returns(Result::Success.new(order_id: 'api-alias'))
+
+    result = buy(exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD')
+
+    assert result.success?, result.error_message
+    assert_equal 'BTC/USD', result.data[:pair]
+  end
+
   test "another user's bot is not found" do
     result = BotApi::Orders::MarketBuy.call(user: create(:user), bot_id: @bot.id, amount: 100)
 
