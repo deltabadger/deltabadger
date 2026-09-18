@@ -12,6 +12,12 @@ class Ticker < ApplicationRecord
   include Undeletable
   include TechnicallyAnalyzable
 
+  # The venue's own name for the base asset (Kraken lists Bitcoin as XBT), without the prefix a replaced
+  # listing carries.
+  def base_spelling
+    base.to_s.sub(/\A#{MarketData::TICKER_TOMBSTONE_PREFIX}\d+_/o, '')
+  end
+
   # Whether the pair currently has a live, non-zero market price for the given
   # price type (:ask, :bid, :last). Tolerates the exchange price methods raising
   # on a zero price.

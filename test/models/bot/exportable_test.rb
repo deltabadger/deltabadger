@@ -353,6 +353,10 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
     StringIO.new(content)
   end
+
+  def row(order_id, base, quote)
+    ['2025-01-15 12:00:00', order_id, 'Market', 'Buy', '1', '100', '100', base, quote, 'closed']
+  end
   # A basket bot has no base_asset of its own. Without a branch of its own it fell through to the
   # index bot's "accept any base asset", silently widening what a CSV could import.
   test 'a basket bot only imports rows for assets it holds' do
@@ -370,5 +374,64 @@ class Bot::ExportableTest < ActiveSupport::TestCase
 
   test 'an index bot still accepts any base asset' do
     assert_nil create(:dca_index).importable_base_symbols
+  end
+
+  # == Import records each order's asset ==
+
+  test "an imported order records the single-asset bot's assets" do
+    @bot.import_orders_csv(generate_csv([row('order-1', @bot.base_asset.symbol, @bot.quote_asset.symbol)]))
+
+    txn = @bot.transactions.sole
+    assert_equal [@bot.base_asset_id, @bot.quote_asset_id], [txn.base_asset_id, txn.quote_asset_id]
+  end
+
+  test 'an imported order records the basket member it names, by symbol or by the venue spelling' do
+    usd = @bot.quote_asset
+    btc = @bot.base_asset
+    eth = create(:asset, :ethereum)
+    kraken = create(:kraken_exchange)
+    create(:ticker, exchange: kraken, base_asset: btc, quote_asset: usd, base_symbol: 'XBT')
+    basket = create(:dca_multi_asset, exchange: kraken, quote_asset: usd, base_assets: [btc, eth])
+
+    basket.import_orders_csv(generate_csv([row('b-1', 'BTC', 'USD'), row('b-2', 'XBT', 'USD'), row('e-1', 'ETH', 'USD')]))
+
+    assert_equal({ "imported_#{basket.id}_b-1" => btc.id, "imported_#{basket.id}_b-2" => btc.id,
+                   "imported_#{basket.id}_e-1" => eth.id },
+                 basket.transactions.pluck(:external_id, :base_asset_id).to_h)
+    assert_equal [usd.id], basket.transactions.distinct.pluck(:quote_asset_id)
+  end
+
+  test 'a symbol two basket members share is skipped, never guessed' do
+    usd = @bot.quote_asset
+    fan = create(:asset, symbol: 'POR', name: 'Portugal Fan Token', external_id: 'por-fan')
+    portuma = create(:asset, symbol: 'POR', name: 'Portuma', external_id: 'portuma')
+    mexc = create(:mexc_exchange)
+    create(:ticker, exchange: mexc, base_asset: fan, quote_asset: usd)
+    create(:ticker, exchange: mexc, base_asset: portuma, quote_asset: usd, base_symbol: 'PORTUMA')
+    basket = create(:dca_multi_asset, exchange: mexc, quote_asset: usd, base_assets: [fan, portuma])
+
+    result = basket.import_orders_csv(generate_csv([row('p-1', 'POR', 'USD'), row('p-2', 'PORTUMA', 'USD')]))
+
+    assert_equal 1, result[:imported_count]
+    assert_equal 1, result[:skipped_ambiguous]
+    assert_equal portuma.id, basket.transactions.sole.base_asset_id, 'the venue spelling names one member'
+  end
+
+  test "an index bot's imported order records its member, else the one asset the venue knows by that name" do
+    usd = @bot.quote_asset
+    btc = @bot.base_asset
+    sol = create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana')
+    kraken = create(:kraken_exchange)
+    xbt = create(:ticker, exchange: kraken, base_asset: btc, quote_asset: usd, base_symbol: 'XBT')
+    create(:ticker, exchange: kraken, base_asset: sol, quote_asset: usd)
+    index = create(:dca_index, exchange: kraken, quote_asset: usd)
+    BotIndexAsset.create!(bot: index, asset: btc, ticker: xbt, target_allocation: 1.0, in_index: true,
+                          entered_at: Time.current)
+
+    index.import_orders_csv(generate_csv([row('b-1', 'BTC', 'USD'), row('s-1', 'SOL', 'USD'), row('x-1', 'NOPE', 'USD')]))
+
+    assert_equal({ "imported_#{index.id}_b-1" => btc.id, "imported_#{index.id}_s-1" => sol.id,
+                   "imported_#{index.id}_x-1" => nil },
+                 index.transactions.pluck(:external_id, :base_asset_id).to_h)
   end
 end

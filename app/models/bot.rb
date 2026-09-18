@@ -286,12 +286,7 @@ class Bot < ApplicationRecord
   end
 
   def broadcast_new_order(order)
-    # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
-    ticker = order.exchange.tickers.find_by(base_asset: order.base_asset, quote_asset: order.quote_asset)
-    decimals = {
-      order.base_asset.symbol => ticker.base_decimals,
-      order.quote_asset.symbol => ticker.quote_decimals
-    }
+    decimals = order_decimals(order)
 
     if transactions.limit(2).count == 1
       broadcast_remove_to(
@@ -334,12 +329,7 @@ class Bot < ApplicationRecord
   end
 
   def broadcast_updated_order(order)
-    # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
-    ticker = order.exchange.tickers.find_by(base_asset: order.base_asset, quote_asset: order.quote_asset)
-    decimals = {
-      order.base_asset.symbol => ticker.base_decimals,
-      order.quote_asset.symbol => ticker.quote_decimals
-    }
+    decimals = order_decimals(order)
 
     # Refresh both rows so the "All" timeline can't go stale (e.g. a filled order
     # still showing an "open" sentence + Cancel button) — see show.turbo_stream.erb.
@@ -358,6 +348,15 @@ class Bot < ApplicationRecord
     )
 
     broadcast_order_filters_update
+  end
+
+  # The order row's rounding, keyed by the symbols the row shows. Empty when its ticker is unknown: the row
+  # then shows its amounts unrounded.
+  def order_decimals(order)
+    ticker = order.ticker
+    return {} if ticker.nil?
+
+    { order.base => ticker.base_decimals, order.quote => ticker.quote_decimals }
   end
 
   # Override broadcast methods to use user's locale for translated partials

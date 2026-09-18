@@ -5,6 +5,11 @@ class Transaction < ApplicationRecord
 
   belongs_to :bot
   belongs_to :exchange
+  # The assets the order traded, from the ticker it was placed on. `base` / `quote` are the symbols shown at the
+  # time; a symbol can name two assets on one venue, so identity is read here. Nil on a row recorded before
+  # orders stored their assets that could not be resolved — read it by its symbol.
+  belongs_to :base_asset, class_name: 'Asset', optional: true
+  belongs_to :quote_asset, class_name: 'Asset', optional: true
 
   before_save :round_numeric_fields
   before_save :store_previous_quote_amount_exec
@@ -58,10 +63,12 @@ class Transaction < ApplicationRecord
   # can arrive with its base fill known and its proceeds absent, and a re-poll fills them in with
   # the status unchanged. An identical re-poll saves no change and fires nothing; a late detail can
   # only lengthen a lock (extend_buy_lock! never shortens), which is the conservative side.
+  # A sale that learns its asset on a poll is reconciled like one that learns its fill.
   after_save :reconcile_wash_sale,
              if: lambda {
                sell? && (closed? || cancelled?) &&
-                 (saved_change_to_external_status? || saved_change_to_amount_exec? || saved_change_to_quote_amount_exec?)
+                 (saved_change_to_external_status? || saved_change_to_amount_exec? ||
+                  saved_change_to_quote_amount_exec? || saved_change_to_base_asset_id?)
              }
 
   scope :for_bot, ->(bot) { where(bot_id: bot.id).order(created_at: :desc) }
@@ -110,8 +117,6 @@ class Transaction < ApplicationRecord
   enum :order_type, %i[market_order limit_order]
   enum :external_status, %i[unknown open closed cancelled abandoned]
 
-  BTC = %w[XXBT XBT BTC].freeze
-
   # The "null exec means it filled for the requested amount" fallback covers legacy rows that were
   # never backfilled, and is only sound for CONFIRMED ones. An accepted-but-unfilled order
   # (open/unknown) or a cancelled one must not be assumed filled, or its requested amount becomes
@@ -127,19 +132,11 @@ class Transaction < ApplicationRecord
     [amount_exec, quote_amount_exec]
   end
 
-  # TODO: Migrate Transaction to directly reference assets instead of symbols
-  def base_asset
-    @base_asset ||= exchange.assets.find_by(symbol: base) ||
-                    exchange.tickers.find_by(base: base)&.base_asset ||
-                    exchange.tickers.find_by(quote: base)&.quote_asset ||
-                    Asset.find_by(symbol: base)
-  end
+  # The ticker this order was placed on, nil when either asset is unknown.
+  def ticker
+    return if base_asset_id.nil? || quote_asset_id.nil?
 
-  def quote_asset
-    @quote_asset ||= exchange.assets.find_by(symbol: quote) ||
-                     exchange.tickers.find_by(quote: quote)&.quote_asset ||
-                     exchange.tickers.find_by(base: quote)&.base_asset ||
-                     Asset.find_by(symbol: quote)
+    exchange.tickers.find_by(base_asset_id:, quote_asset_id:)
   end
 
   # def count_by_status_and_exchange(status, exchange)
@@ -170,6 +167,8 @@ class Transaction < ApplicationRecord
       quote_amount: order_data[:quote_amount],
       base: base.presence || order_data[:ticker]&.base_asset&.symbol,
       quote: quote.presence || order_data[:ticker]&.quote_asset&.symbol,
+      base_asset_id: base_asset_id || order_data[:ticker]&.base_asset_id,
+      quote_asset_id: quote_asset_id || order_data[:ticker]&.quote_asset_id,
       side: order_data[:side],
       order_type: order_data[:order_type],
       amount_exec: order_data[:amount_exec],
@@ -232,8 +231,9 @@ class Transaction < ApplicationRecord
   # Also on the executed BASE amount, and on a sell reaching `cancelled` with units executed: a
   # cancelled partial with units and no proceeds moves the tax lots and nothing else invalidates the
   # cache, so the row's colour would sit on a stale quantity until the 30-day cache lapsed.
+  # And on a newly known asset: the row moves into that asset's holding.
   def metrics_relevant_change?
-    custom_quote_amount_exec_changed? || custom_amount_exec_changed? ||
+    custom_quote_amount_exec_changed? || custom_amount_exec_changed? || saved_change_to_base_asset_id? ||
       (saved_change_to_external_status? && (closed? || (cancelled? && amount_exec.to_d.positive?)))
   end
 

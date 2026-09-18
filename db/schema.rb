@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_18_090000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_18_120000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -494,6 +494,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_090000) do
     t.decimal "amount"
     t.decimal "amount_exec"
     t.string "base"
+    t.integer "base_asset_id"
     t.bigint "bot_id"
     t.string "bot_interval", default: "", null: false
     t.decimal "bot_quote_amount", default: "0.0", null: false
@@ -507,6 +508,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_090000) do
     t.string "quote"
     t.decimal "quote_amount"
     t.decimal "quote_amount_exec"
+    t.integer "quote_asset_id"
     t.integer "side"
     t.integer "status"
     t.string "transaction_type", default: "REGULAR", null: false
