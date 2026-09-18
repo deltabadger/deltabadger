@@ -118,6 +118,7 @@ class Bots::DcaIndex < Bot
   end
 
   def execute_action
+    first_tick = transactions.none? # before anything is placed: see broadcast_below_minimums_warning
     update!(status: :executing)
 
     # Orders must use the composition derived for this tick.
@@ -131,7 +132,7 @@ class Bots::DcaIndex < Bot
     return result if result.failure?
 
     update!(status: :waiting)
-    broadcast_below_minimums_warning
+    broadcast_below_minimums_warning(first_tick:)
     Result::Success.new
   end
 

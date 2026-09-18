@@ -96,6 +96,22 @@ module Bot::OrderSetter
     ticker.adjusted_price(price: raw_price * multiplier)
   end
 
+  # What the pair bot's below-minimums warning names: the asset of the one skipped order, the venue and
+  # its minimums. Shared, because a one-asset basket says it in the same words.
+  def locals_for_below_minimums_warning(skipped_transaction)
+    ticker = skipped_transaction.exchange.tickers.find_by(
+      base_asset_id: skipped_transaction.base_asset.id,
+      quote_asset_id: skipped_transaction.quote_asset.id
+    )
+    {
+      quote_symbol: skipped_transaction.quote_asset.symbol,
+      missed_symbol: skipped_transaction.base_asset.symbol,
+      missed_minimum_base_size: ticker.minimum_base_size,
+      missed_minimum_quote_size: ticker.minimum_quote_size,
+      exchange_name: skipped_transaction.exchange.name
+    }
+  end
+
   def create_order(order_data, amount_info)
     sell = order_data[:side] == :sell
     case order_data[:order_type]

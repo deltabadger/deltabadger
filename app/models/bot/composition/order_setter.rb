@@ -119,18 +119,25 @@ module Bot::Composition::OrderSetter
     end
   end
 
-  def broadcast_below_minimums_warning
-    # Kept unordered so extracting the shared concern does not redefine which transactions qualify.
-    recent_transactions = transactions.limit(composition_size * 2)
-    skipped_count = recent_transactions.count(&:skipped?)
-    return unless skipped_count.positive? && recent_transactions.count == skipped_count
+  # Said once, on the bot's first tick, when every order it wrote was below the venue floor — the pair
+  # bot's rule. Whether the tick was the first is captured by execute_action BEFORE placement: a row
+  # count cannot tell, because a two-member basket's ranked sell writes one skipped row per tick and
+  # parked or locked members underfill a buy. One skipped order is named in the pair bot's words.
+  def broadcast_below_minimums_warning(first_tick:)
+    return unless first_tick
 
-    broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
-      target: 'modal',
-      partial: 'bots/composition/warning_below_minimums',
-      locals: { bot: self, skipped_count: skipped_count }
-    )
+    rows = transactions.to_a # all of them written by this, the first, tick
+    return unless rows.any? && rows.all?(&:skipped?)
+
+    if rows.one?
+      broadcast_replace_to(["user_#{user_id}", :bot_updates], target: 'modal',
+                                                              partial: 'bots/dca_single_assets/warning_below_minimums',
+                                                              locals: locals_for_below_minimums_warning(rows.first))
+    else
+      broadcast_replace_to(["user_#{user_id}", :bot_updates], target: 'modal',
+                                                              partial: 'bots/composition/warning_below_minimums',
+                                                              locals: { bot: self, skipped_count: rows.size })
+    end
   end
 
   private
