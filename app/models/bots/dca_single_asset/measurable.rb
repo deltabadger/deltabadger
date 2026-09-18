@@ -304,7 +304,7 @@ module Bots::DcaSingleAsset::Measurable
 
     marks = result.data.map { |candle| [candle[0], candle[1]] } +
             chart_live_marks(metrics_data, ticker.base)
-    chart_split_pinned_grids(ticker.base => marks.sort_by(&:first))
+    chart_split_pinned_grids({ ticker.base => marks.sort_by(&:first) }, metrics_data)
   end
 
   # The overlay's own grid: the venue's history as it reads TODAY, restated across every split it

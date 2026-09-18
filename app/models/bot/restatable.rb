@@ -26,14 +26,27 @@ module Bot::Restatable
   # instead of a wait. Two days so a session always intervenes, weekend or holiday.
   SPLIT_PRICE_QUARANTINE = 2.days
 
-  # `[[at, symbol, factor], ...]`, oldest first: what the position is multiplied by, and when.
+  # `[[at, key, factor], ...]`, oldest first: what the holding under `key` is multiplied by, and when.
+  # `holdings` is `{ key => [asset_id or nil, [strings its rows were recorded under]] }`
+  # (see #split_holdings).
   #
   # ponytail: read per walk, and each walk memoizes it. A bot with enough corporate actions for
   # that lookup to show up belongs in the metrics cache with the rest of them.
-  def split_events
-    grouped_split_rows.filter_map { |(symbol, date), group| split_event(symbol, date, group) }
-                      .select { |at, _symbol, _factor| at <= Time.current }
-                      .sort_by { |at, symbol, _factor| [at, symbol] }
+  def split_events(holdings = split_holdings)
+    grouped_split_rows(holdings).filter_map { |(key, date), group| split_event(key, date, group) }
+                                .select { |at, _key, _factor| at <= Time.current }
+                                .sort_by { |at, key, _factor| [at, key] }
+  end
+
+  # The holdings a split can apply to. A single-pair bot sums every row into one position, whatever symbol
+  # a row was recorded under, so it has one holding: its ticker's. A composition bot has one per asset
+  # (Bot::Composition::Measurable overrides this).
+  def split_holdings(_payload = nil)
+    return {} unless transactions.submitted.exists?
+
+    strings = transactions.submitted.distinct.pluck(:base).compact_blank
+    key = try(:ticker)&.base || strings.first
+    { key => [try(:base_asset_id), strings] }
   end
 
   # Whether a live price can be multiplied by this bot's holdings at all.
@@ -51,7 +64,7 @@ module Bot::Restatable
   # ponytail: the unresolved case is deliberately not narrowed to the symbols still held. It should
   # not happen at all, and while it does, over-broad means safe.
   def restated_prices_untrusted?(metrics_data = nil)
-    return true if unresolved_split?
+    return true if unresolved_split?(split_holdings(metrics_data.is_a?(Hash) ? metrics_data : nil))
 
     restated_at = metrics_data.is_a?(Hash) ? metrics_data[:restated_at] : nil
     restated_at.present? && restated_at > SPLIT_PRICE_QUARANTINE.ago
@@ -60,8 +73,8 @@ module Bot::Restatable
   # A split this bot can see and cannot size — one leg with no counterpart, or two sources naming
   # different factors. Its position stays on the old basis while the market moves to the new one,
   # which no amount of waiting fixes.
-  def unresolved_split?
-    effective_split_rows.any? { |(_symbol, date), group| date.nil? || resolved_factor(group).nil? }
+  def unresolved_split?(holdings = split_holdings)
+    effective_split_rows(holdings).any? { |(_key, date), group| date.nil? || resolved_factor(group).nil? }
   end
 
   # Everything a bot has cached is computed from a position a corporate action moves, so when one
@@ -88,45 +101,84 @@ module Bot::Restatable
 
   private
 
-  # The marked split rows this bot is eligible for, grouped by the action they describe.
-  #
-  # A corporate action is an event of the SECURITY on an effective date, so that is the key: two
-  # venues reporting one restatement must apply it once, and they need not agree on the hour.
   # The actions already in effect. A broker can store a pending one dated ahead of today, and a
   # position restated before its split is simply wrong — as is standing a bot's automation down
   # for an event that has not happened.
-  def effective_split_rows
-    grouped_split_rows.reject do |_key, group|
+  def effective_split_rows(holdings)
+    grouped_split_rows(holdings).reject do |_key, group|
       group.map(&:transacted_at).compact.min.try(:>, Time.current)
     end
   end
 
-  def grouped_split_rows
-    pairs = traded_pairs
-    return {} if pairs.empty?
+  # The marked split rows this bot is eligible for, grouped per holding and effective date.
+  #
+  # A corporate action is an event of the SECURITY on an effective date, so that is the key: two
+  # venues reporting one restatement must apply it once, and they need not agree on the hour — every
+  # report that applies to one holding on one date is reconciled together.
+  #
+  # A report applies to a holding when:
+  # - it names exactly one asset on its venue (by spelling or symbol): only to that asset's holding;
+  # - it names none or several: to every holding with a row recorded under its string;
+  # - the holding has no asset (rows recorded before orders stored theirs): whenever it names the string.
+  def grouped_split_rows(holdings)
+    string_pairs, asset_pairs = traded_pairs
+    return {} if string_pairs.empty? && asset_pairs.empty?
 
-    AccountTransaction.where(user_id: user_id, entry_type: :adjustment)
-                      .where(exchange_id: pairs.map(&:first).uniq,
-                             base_currency: pairs.map(&:last).uniq)
-                      .select { |row| pairs.include?([row.exchange_id, row.base_currency]) && split_row?(row) }
-                      .group_by { |row| [row.base_currency, effective_date(row)] }
+    exchange_ids = (string_pairs + asset_pairs).map(&:first).uniq
+    rows = AccountTransaction.where(user_id: user_id, entry_type: :adjustment, exchange_id: exchange_ids)
+                             .where(base_currency: string_pairs.map(&:last) + traded_asset_names(asset_pairs))
+                             .select { |row| split_row?(row) }
+    report_assets = Hash.new { |hash, (exchange_id, name)| hash[[exchange_id, name]] = split_report_asset(exchange_id, name) }
+
+    rows.each_with_object({}) do |row, groups|
+      report_asset = report_assets[[row.exchange_id, row.base_currency]]
+      holdings.each do |key, (asset_id, strings)|
+        applies = if asset_id && report_asset
+                    report_asset == asset_id && asset_pairs.include?([row.exchange_id, asset_id])
+                  else
+                    Array(strings).include?(row.base_currency) && string_pairs.include?([row.exchange_id, row.base_currency])
+                  end
+        (groups[[key, effective_date(row)]] ||= []) << row if applies
+      end
+    end
+  end
+
+  # Every name the venues list the traded assets under — spelling and symbol — which a report about them
+  # may use.
+  def traded_asset_names(asset_pairs)
+    return [] if asset_pairs.empty?
+
+    Ticker.where(exchange_id: asset_pairs.map(&:first).uniq, base_asset_id: asset_pairs.map(&:last).uniq)
+          .includes(:base_asset).flat_map { |ticker| [ticker.base_spelling, ticker.base_asset&.symbol] }
+          .compact_blank.uniq
+  end
+
+  # The one asset a report's name stands for on its venue, by spelling or symbol; nil for none or several.
+  def split_report_asset(exchange_id, name)
+    spelled = Ticker.where(exchange_id:).where('tickers.base LIKE ?', "%#{Ticker.sanitize_sql_like(name)}")
+                    .select { |ticker| ticker.base_spelling.casecmp?(name) }.map(&:base_asset_id)
+    symbolled = Ticker.where(exchange_id:, base_asset_id: Asset.where('upper(symbol) = ?', name.upcase).select(:id))
+                      .pluck(:base_asset_id)
+    ids = (spelled + symbolled).uniq
+    ids.first if ids.one?
   end
 
   def split_row?(row)
     row.raw_data.is_a?(Hash) && row.raw_data['corporate_action'] == 'split'
   end
 
-  # The (venue, symbol) pairs this bot actually traded — its eligibility, and deliberately not its
-  # current venue. A bot can be moved between brokers and its orders keep the one they were placed
-  # on, so reading the present venue would both miss the restatement that moved its position and
-  # apply one that never touched it.
+  # The (venue, symbol) and (venue, asset) pairs this bot actually traded — its eligibility, and
+  # deliberately not its current venue. A bot can be moved between brokers and its orders keep the one
+  # they were placed on, so reading the present venue would both miss the restatement that moved its
+  # position and apply one that never touched it. Every row's symbol counts, resolved or not, so what a
+  # string made eligible before orders recorded their asset stays eligible.
   #
   # `submitted` rather than executed: an order that never filled bought nothing, so a pair it alone
   # contributes can only apply a factor to a position of zero.
   def traded_pairs
-    transactions.submitted.distinct.pluck(:exchange_id, :base)
-                .filter_map { |exchange_id, base| [exchange_id, base] if exchange_id && base.present? }
-                .uniq
+    rows = transactions.submitted.distinct.pluck(:exchange_id, :base, :base_asset_id)
+    [rows.filter_map { |exchange_id, base, _id| [exchange_id, base] if exchange_id && base.present? }.uniq,
+     rows.filter_map { |exchange_id, _base, id| [exchange_id, id] if exchange_id && id }.uniq]
   end
 
   def effective_date(row)
@@ -141,13 +193,13 @@ module Bot::Restatable
   # string in `Time.zone`, so reconstructing an instant from a UTC date would move the event by a
   # day for every zone ahead of UTC — and `Time.zone` is per-request here. The row's own instant is
   # zone-independent and already says when the venue booked it.
-  def split_event(symbol, date, group)
+  def split_event(key, date, group)
     return nil if date.nil?
 
     factor = resolved_factor(group)
     return nil unless factor
 
-    [group.map(&:transacted_at).min, symbol, factor]
+    [group.map(&:transacted_at).min, key, factor]
   end
 
   # One factor, or none. A row that names no factor is silent, not dissenting: Alpaca can ship the

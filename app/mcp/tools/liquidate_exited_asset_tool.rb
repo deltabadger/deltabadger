@@ -9,7 +9,9 @@ class LiquidateExitedAssetTool < ApplicationMCPTool
   destructive
 
   property :bot_id, type: 'number', required: true, description: 'The bot ID'
-  property :symbol, type: 'string', required: true, description: 'Symbol of the holding to sell (e.g., AAPL)'
+  property :symbol, type: 'string', required: true,
+                    description: 'The holding to sell: its key as get_bot_details lists it, its asset id, or its ' \
+                                 'symbol when no other holding shares it (e.g., AAPL)'
 
   def perform
     result = BotApi::Bots::LiquidateExited.call(user: current_user, bot_id: bot_id, symbol: symbol,

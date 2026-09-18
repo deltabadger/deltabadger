@@ -116,7 +116,7 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     assert_select '.modal', /DDD/
     # The member was not named and must not be swept in.
     assert_select '.modal', { text: /AAA/, count: 0 }
-    assert_select '.modal form[action=?]', bot_liquidation_path(bot_id: @bot.id, symbol: %w[CCC DDD]), count: 1
+    assert_select '.modal form[action=?]', bot_liquidation_path(bot_id: @bot.id, symbol: %w[CCC DDD], asset_id: asset_ids_of(%w[CCC DDD])), count: 1
   end
 
   test 'a stale name drops out of the confirmation instead of failing it' do
@@ -137,7 +137,7 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     # a row with no amount renders as a flat 0, which is worse than saying nothing.
     quitters('AAA' => :in_index, 'CCC' => :exited, 'DDD' => :exited)
     warm_prices('AAA' => 100, 'CCC' => 20, 'DDD' => 30)
-    @bot.stubs(:metrics_with_current_prices_from_cache).returns(nil)
+    @bot.stubs(:metrics_with_current_prices_from_cache).returns(keyed_payload(nil))
 
     get new_bot_liquidation_path(bot_id: @bot.id, symbol: %w[CCC DDD])
 
@@ -200,7 +200,7 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     # The other quitter is not part of this sale and must not appear in the list.
     assert_select '.modal', { text: /DDD/, count: 0 }
     # The approved list rides in the action, so it is an array even when it names one position.
-    assert_select '.modal form[action=?]', bot_liquidation_path(bot_id: @bot.id, symbol: %w[CCC]), count: 1
+    assert_select '.modal form[action=?]', bot_liquidation_path(bot_id: @bot.id, symbol: %w[CCC], asset_id: asset_ids_of(%w[CCC])), count: 1
   end
 
   test 'an in-index holding opens the same confirmation' do
@@ -350,6 +350,7 @@ class Bots::LiquidationsControllerTest < ActionDispatch::IntegrationTest
     end
     # The ledger underneath, which is what exited_symbols reads — see the quitters-table test.
     data[:asset_breakdown] = values.transform_values { |v| { amount: v.to_d / 100, quote_invested: v.to_d } }
+    data = keyed_payload(data)
     Rails.cache.write(@bot.send(:metrics_cache_key), data)
     Rails.cache.write(@bot.send(:metrics_with_current_prices_cache_key), data)
   end

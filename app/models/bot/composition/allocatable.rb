@@ -62,7 +62,44 @@ module Bot::Composition::Allocatable
     bot_index_assets.in_index.includes(:ticker).filter_map(&:ticker)
   end
 
+  # The key the bot's holding of this asset is known by (Bot::Composition::HoldingKeys), or nil when the bot
+  # holds no rows of it — a member's first purchase reads no holding, never another same-symbol asset's.
+  def key_for(asset_id, payload)
+    return if asset_id.nil?
+
+    (payload[:key_assets] || {}).key(asset_id)
+  end
+
+  # The asset each holding is, for its logo: by id, or for a holding known only by its string, the asset the
+  # venue spells that way.
+  def holding_assets(payload)
+    key_assets = payload[:key_assets] || {}
+    assets = Asset.where(id: key_assets.values.compact).index_by(&:id)
+    key_assets.to_h { |key, asset_id| [key, asset_id ? assets[asset_id] : ticker_for_key(key, payload)&.base_asset] }
+  end
+
+  # The bot's ticker for an asset, whatever the venue spells it.
+  def ticker_for_asset(asset_id) = ticker_index.first[asset_id]
+
+  # The ticker a holding is priced and traded on: its asset's. A holding recorded only by a symbol string is
+  # matched on the venue's spelling of it, and is for valuation only — it is never sold.
+  def ticker_for_key(key, payload)
+    by_asset, by_spelling = ticker_index
+    asset_id = (payload[:key_assets] || {})[key]
+    return by_asset[asset_id] if asset_id
+
+    by_spelling[(payload[:key_strings] || {})[key]&.first || key]
+  end
+
   private
+
+  # The bot's tickers by asset and by venue spelling, rebuilt whenever the ticker list is.
+  def ticker_index
+    list = tickers
+    @ticker_index = nil unless @ticker_index&.first.equal?(list)
+    @ticker_index ||= [list, list.index_by(&:base_asset_id), list.index_by(&:base)]
+    @ticker_index.drop(1)
+  end
 
   def derive_composition
     raise NotImplementedError, "#{self.class.name} must implement derive_composition"

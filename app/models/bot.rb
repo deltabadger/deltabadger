@@ -154,7 +154,7 @@ class Bot < ApplicationRecord
     user.wash_sale_locks.live(now).includes(:asset).filter_map do |lock|
       next unless traded.include?(lock.asset_id)
 
-      { symbol: lock.asset.symbol, days_left: (lock.buy_locked_until.to_date - now.to_date).to_i,
+      { symbol: lock.asset.symbol, asset_id: lock.asset_id, days_left: (lock.buy_locked_until.to_date - now.to_date).to_i,
         until: lock.buy_locked_until, source: lock.source }
     end
   end

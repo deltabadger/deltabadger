@@ -6,13 +6,13 @@ class BotApi::Bots::LiquidateExitedTest < ActiveSupport::TestCase
   setup do
     @user = create(:user)
     @bot = create(:dca_index, user: @user, status: :scheduled, started_at: Time.current, with_api_key: true)
-    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE])
+    Bots::DcaIndex.any_instance.stubs(:held_assets).returns('DOGE' => 1)
     Bots::DcaIndex.any_instance.stubs(:ensure_exchange_authenticated)
     Exchanges::Kraken.any_instance.stubs(:market_open?).returns(true)
   end
 
   test 'enqueues the sale and logs the request' do
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE], selling_token: anything)
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, holdings: [['DOGE', 1]], selling_token: anything)
 
     result = BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: 'DOGE')
 
@@ -31,8 +31,8 @@ class BotApi::Bots::LiquidateExitedTest < ActiveSupport::TestCase
   test 'several symbols are queued as one job' do
     # Not one job per symbol: liquidation_blocked_reason refuses while an earlier sale's order is
     # still working, so jobs 2..N would be declined after the caller was told the sale started.
-    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE SHIB])
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE SHIB], selling_token: anything).once
+    Bots::DcaIndex.any_instance.stubs(:held_assets).returns('DOGE' => 1, 'SHIB' => 2)
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, holdings: [['DOGE', 1], ['SHIB', 2]], selling_token: anything).once
 
     result = BotApi::Bots::LiquidateExited.call(user: @user, bot_id: @bot.id, symbol: %w[DOGE SHIB])
 

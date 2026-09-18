@@ -188,7 +188,7 @@ class Bots::DcaIndexOrderSetterTest < ActiveSupport::TestCase
 
   def hold(holdings)
     asset_breakdown = holdings.transform_values { |amount| { amount: amount, quote_invested: 0 } }
-    @bot.stubs(:metrics).with(force: true).returns(asset_breakdown: asset_breakdown)
+    @bot.stubs(:metrics).with(force: true).returns(keyed_payload(asset_breakdown: asset_breakdown))
   end
 
   # Stubbed on the exchange, not on the Ticker objects in @assets: current_allocations reloads its

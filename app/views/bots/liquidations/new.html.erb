@@ -25,7 +25,7 @@
       <div class="widget widget--table" data-controller="table-fit">
         <%= render 'bots/composition/assets_table',
                    values: @holdings.index_by { |holding| holding[:symbol] },
-                   logo_assets: @holdings.to_h { |holding| [holding[:symbol], holding[:ticker]] },
+                   logo_assets: @holdings.to_h { |holding| [holding[:symbol], holding[:ticker]&.base_asset] },
                    body_id: 'liquidation_confirm_list', quote: @bot.quote_asset&.symbol,
                    hide_money: hide_balances?(@bot) %>
       </div>
@@ -36,7 +36,8 @@
           carrying the reason. %>
       <%# The approved list, frozen into the action. What the user saw above is literally what the
           request names — the sale cannot grow past the confirmation. %>
-      <%= form_with url: bot_liquidation_path(bot_id: @bot.id, symbol: @symbols), method: :post,
+      <%= form_with url: bot_liquidation_path(bot_id: @bot.id, symbol: @symbols,
+                                              asset_id: @symbols.map { |symbol| @held[symbol] }), method: :post,
                     data: { controller: 'form--checkbox-enables',
                             action: 'turbo:submit-end->modal--base#submitEnd ' \
                                     'change->form--checkbox-enables#toggleSubmitButton' } do %>

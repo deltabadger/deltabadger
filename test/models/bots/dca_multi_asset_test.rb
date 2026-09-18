@@ -451,10 +451,11 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     # metrics.) get_orders_data reads metrics(force: true)[:asset_breakdown] keyed by symbol.
     first_symbol = bot.base_assets.first.symbol
     second_symbol = bot.base_assets.last.symbol
-    bot.stubs(:metrics).returns(
+    stubbed = keyed_payload(
       asset_breakdown: { first_symbol => { amount: 1_000.to_d, quote_invested: 0.to_d },
                          second_symbol => { amount: 0.to_d, quote_invested: 0.to_d } }
     )
+    bot.stubs(:metrics).returns(stubbed)
     first_ticker = bot.composition_tickers.find { |t| t.base_asset_id == bot.base_assets.first.id }
     second_ticker = bot.composition_tickers.find { |t| t.base_asset_id == bot.base_assets.last.id }
     bot.exchange.unstub(:market_buy)
@@ -594,9 +595,10 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
 
   test 'a one-asset basket has no drift to rebalance' do
     bot = create(:dca_multi_asset, user: @user, exchange: @exchange, base_assets: [member_assets.first], quote_asset: @quote)
-    bot.stubs(:metrics_with_current_prices).returns(
+    stubbed = keyed_payload(
       asset_values: { member_assets.first.symbol => { amount: 1.to_d, current_value: 100.to_d } }, prices_stale: false
     )
+    bot.stubs(:metrics_with_current_prices).returns(stubbed)
 
     assert_in_delta 0, bot.rebalance_drift.to_f, 1e-9
   end

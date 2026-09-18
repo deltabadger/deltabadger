@@ -135,8 +135,8 @@ module Bot::ChartSeries
   # happens within one basis on each side, and the only interval spanning the two is a second wide,
   # which no point can land inside. A symbol whose grid does not reach both sides is left alone —
   # there is nothing to pin it to.
-  def chart_split_pinned_grids(grids)
-    events = split_events
+  def chart_split_pinned_grids(grids, metrics_data = nil)
+    events = split_events(split_holdings(metrics_data))
     return grids if events.empty? || grids.blank?
 
     events.each do |at, symbol, _factor|

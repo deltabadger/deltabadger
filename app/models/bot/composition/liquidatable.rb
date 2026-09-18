@@ -19,28 +19,21 @@ module Bot::Composition::Liquidatable
   #
   # Built from priced holdings, so a DELISTED asset does not appear: it has no ticker, no price,
   # and no way to be sold. That matches the main table, which has never shown it either.
+  #
+  # Every row names its holding's key AND its asset: a key's text can change (a rename, a second asset
+  # with the same symbol), so whatever acts on a row checks the asset it was shown.
   def exited_holdings(data = metrics_with_current_prices)
-    values = data[:asset_values] || {}
-    return [] if values.empty?
-
-    in_index = bot_index_assets.in_index.includes(:asset).to_set { |bia| bia.asset.symbol }
+    in_index = bot_index_assets.in_index.pluck(:asset_id).to_set
     # No composition on record means we do not KNOW the target — a bot whose first refresh has not
     # landed, or one whose derivation failed. Reading that as "the composition is empty" would mark
     # every holding as exited and offer to liquidate the entire portfolio.
     return [] if in_index.empty?
 
-    tickers_by_symbol = tickers.index_by(&:base)
-
-    values.filter_map do |symbol, asset_data|
-      next if in_index.include?(symbol)
-      # The dust rule belongs HERE and only here — on assets the composition no longer wants. Size
-      # alone is not what makes a holding worth showing; size against the desired allocation is. A
-      # member holding 0.0001 stays on the page because the bot is going to buy more of it, while a
-      # quitter holding 0.0001 is a remainder no sale can clear and nothing plans to add to.
-      next unless sellable?(tickers_by_symbol[symbol], asset_data[:amount])
-
-      { ticker: tickers_by_symbol[symbol], symbol: symbol }.merge(asset_data)
-    end
+    # The dust rule belongs HERE and only here — on assets the composition no longer wants. Size
+    # alone is not what makes a holding worth showing; size against the desired allocation is. A
+    # member holding 0.0001 stays on the page because the bot is going to buy more of it, while a
+    # quitter holding 0.0001 is a remainder no sale can clear and nothing plans to add to.
+    sellable_holdings(data).reject { |holding| in_index.include?(holding[:asset_id]) }
   end
 
   # Judged on the venue's base floor, which needs no price: an amount under it cannot be submitted at
@@ -51,38 +44,44 @@ module Bot::Composition::Liquidatable
     amount.to_d >= ticker.minimum_base_size.to_d
   end
 
-  # Every holding the bot could sell right now, members and quitters alike, in the row shape.
+  # Every holding the bot could sell right now, members and quitters alike, in the row shape. Only a
+  # holding whose asset is known: one recorded solely by a symbol string is never sold — a sale is recorded
+  # under its asset and could never reduce it.
   def sellable_holdings(data = metrics_with_current_prices)
-    values = data[:asset_values] || {}
-    tickers_by_symbol = tickers.index_by(&:base)
-    values.filter_map do |symbol, asset_data|
-      next unless sellable?(tickers_by_symbol[symbol], asset_data[:amount])
+    key_assets = data[:key_assets] || {}
+    (data[:asset_values] || {}).filter_map do |key, asset_data|
+      asset_id = key_assets[key]
+      ticker = asset_id && ticker_for_asset(asset_id)
+      next unless sellable?(ticker, asset_data[:amount])
 
-      { ticker: tickers_by_symbol[symbol], symbol: symbol }.merge(asset_data)
+      { ticker:, symbol: key, asset_id: }.merge(asset_data)
     end
   end
 
-  # The sellable holdings by NAME, no prices involved — what the controller and the API validate a
-  # symbol against, so a cold price cache cannot turn a live Sell button into a 404.
-  def held_symbols
-    tickers_by_symbol = tickers.index_by(&:base)
-    (metrics[:asset_breakdown] || {}).filter_map do |symbol, data|
-      symbol if sellable?(tickers_by_symbol[symbol], data[:amount])
+  # The sellable holdings by KEY, with their asset, no prices involved — what the controller and the API
+  # validate a request against, so a cold price cache cannot turn a live Sell button into a 404.
+  def held_assets
+    payload = metrics
+    (payload[:asset_breakdown] || {}).each_with_object({}) do |(key, data), acc|
+      asset_id = (payload[:key_assets] || {})[key]
+      acc[key] = asset_id if asset_id && sellable?(ticker_for_asset(asset_id), data[:amount])
     end
   end
+
+  def held_symbols = held_assets.keys
 
   # The tickers a liquidation would actually trade — NOT bot.tickers, which for a composition bot is every
   # quote-matching ticker in the catalogue. Market-hours checks have to ask about these: Alpaca skips
   # the stock clock only when EVERY supplied ticker is crypto, so asking with the full catalogue
   # refuses a 24/7 crypto sale any time the stock market happens to be shut.
-  def liquidation_tickers(symbols: [])
-    # Named symbols resolve straight off the ticker table, NOT through priced holdings: a name whose
+  def liquidation_tickers(holdings: [])
+    # Named holdings resolve straight off the ticker table, NOT through priced holdings: a name whose
     # price read failed silently drops out of sellable_holdings, and a [crypto, stock] batch that
     # loses its stock here is judged all-crypto, skips the stock clock, and then sells the stock
     # anyway once place_liquidation_orders! forces a fresh price. Membership needs no price.
-    if symbols.present?
-      tickers_by_symbol = tickers.index_by(&:base)
-      return symbols.filter_map { |symbol| tickers_by_symbol[symbol] }.presence || tickers.to_a
+    if holdings.present?
+      held = held_assets
+      return holdings.filter_map { |key, asset_id| ticker_for_asset(asset_id || held[key]) }.presence || tickers.to_a
     end
 
     sellable_holdings.filter_map { |holding| holding[:ticker] }.presence || tickers.to_a
@@ -93,15 +92,12 @@ module Bot::Composition::Liquidatable
   # click — membership is knowable without any of that. Same two rules as exited_holdings: an empty
   # composition means we do not KNOW the target, so nothing is exited.
   def exited_symbols
-    in_index = bot_index_assets.in_index.includes(:asset).to_set { |bia| bia.asset.symbol }
+    in_index = bot_index_assets.in_index.pluck(:asset_id).to_set
     return [] if in_index.empty?
 
-    tickers_by_symbol = tickers.index_by(&:base)
-    (metrics[:asset_breakdown] || {}).filter_map do |symbol, data|
-      # Same dust rule as exited_holdings, or the controller would accept a symbol the table does not
-      # show — a Sell that 404s from the page and one that is refused by the job.
-      symbol if !in_index.include?(symbol) && sellable?(tickers_by_symbol[symbol], data[:amount])
-    end
+    # Same dust rule as exited_holdings (held_assets is sellable holdings only), or the controller would
+    # accept a key the table does not show — a Sell that 404s from the page and one refused by the job.
+    held_assets.reject { |_key, asset_id| in_index.include?(asset_id) }.keys
   end
 
   # Sells at market. Runs under Bot::ActionJob's exchange semaphore (see Bot::LiquidateExitedJob),
@@ -116,9 +112,10 @@ module Bot::Composition::Liquidatable
   # routes through a confirmation that names every one of them, and the intent slot still holds the
   # single symbol being placed, so a halt says which sale is in doubt and nothing after it is tried.
   #
-  # The symbols arrive from the URL, so they are untrusted — names the bot does not hold are refused
-  # here as well as in the controller, which keeps the job safe whatever reaches it.
-  def liquidate!(symbols:, deadline: nil)
+  # The holdings arrive from the URL, so they are untrusted — `[key, asset_id]` pairs, resolved when the
+  # request was made. A key the bot does not hold, or one that now names another asset, is refused here as
+  # well as in the controller, which keeps the job safe whatever reaches it.
+  def liquidate!(holdings:, deadline: nil)
     advance_waiting_orders!(sweep_if: transactions.sell.waiting)
     promote_stale_liquidation_placement!
 
@@ -132,7 +129,7 @@ module Bot::Composition::Liquidatable
     result = refresh_composition
     Rails.logger.warn("liquidate bot=#{id} composition refresh failed: #{result.errors.to_sentence}") if result.failure?
 
-    place_liquidation_orders!(symbols: symbols, deadline: deadline)
+    place_liquidation_orders!(holdings: holdings, deadline: deadline)
   end
 
   private
@@ -156,16 +153,21 @@ module Bot::Composition::Liquidatable
     nil
   end
 
-  def place_liquidation_orders!(symbols:, deadline: nil)
+  def place_liquidation_orders!(holdings:, deadline: nil)
     # metrics(force: true), NOT metrics_with_current_prices(force: true): the latter forces only its
     # own five-minute layer and still reads the thirty-day `metrics` cache underneath, so a second
     # queued click would size against a ledger that predates the first sale.
     fresh = metrics(force: true)
-    by_symbol = sellable_holdings(metrics_with_current_prices(force: true)).index_by { |holding| holding[:symbol] }
+    by_key = sellable_holdings(metrics_with_current_prices(force: true)).index_by { |holding| holding[:symbol] }
     # .uniq is load-bearing, not tidiness: a repeated name would place the same holding twice, both
     # sized off this one snapshot. The order is the confirmation's, so the feed reads as listed.
-    named = Array(symbols).uniq
-    holdings = named.filter_map { |symbol| by_symbol[symbol] }
+    named = Array(holdings).map { |key, asset_id| [key, asset_id] }.uniq(&:first)
+    # A key whose holding is now another asset than the one the request named is not the position the
+    # user approved. nil expected: a request queued before holdings carried their asset.
+    holdings = named.filter_map do |key, expected|
+      holding = by_key[key]
+      holding if holding && (expected.nil? || holding[:asset_id] == expected.to_i)
+    end
     return Result::Failure.new(:not_held) if holdings.empty?
 
     # A named position with no sellable holding right now — no price in the refreshed read, no
@@ -173,8 +175,8 @@ module Bot::Composition::Liquidatable
     # and the refusal above said so; in a batch the others still sell, so each dropped one has to
     # say why on its own. Otherwise the user asks for three, gets two, and nothing anywhere
     # explains the third.
-    (named - holdings.map { |holding| holding[:symbol] }).each do |symbol|
-      skip_liquidation({ symbol: symbol }, 'not_held')
+    (named.map(&:first) - holdings.map { |holding| holding[:symbol] }).each do |key|
+      skip_liquidation({ symbol: key }, 'not_held')
     end
 
     deadline ||= liquidation_batch_deadline
@@ -239,7 +241,7 @@ module Bot::Composition::Liquidatable
     price = side_price(ticker, :sell)
     return nil if price.nil? || price <= 0
 
-    held = fresh.dig(:asset_breakdown, holding[:symbol], :amount).to_d
+    held = fresh.dig(:asset_breakdown, key_for(ticker.base_asset_id, fresh), :amount).to_d
     # Never sell more than is actually on the exchange: holdings the user moved to cold storage are
     # part of the portfolio for accounting but cannot be traded.
     amount = [held, live_free_balance(ticker.base_asset_id)].min
@@ -288,7 +290,7 @@ module Bot::Composition::Liquidatable
     return halt_liquidation!(order_data, 'placement returned no order id') if order_id.blank?
 
     outcome = persist_liquidation!(order_data, order_id)
-    log_wash_sale_lock(order_data[:ticker].base) if loss
+    log_wash_sale_lock(asset_id) if loss
     outcome
   end
 
@@ -338,11 +340,6 @@ module Bot::Composition::Liquidatable
   end
 
   # Every bot on the account, not just this one: the lock is the taxpayer's, so a resting buy
-  # anywhere on the account is what would undo this sale. Matched on the base SYMBOL, as it always
-  # has been — two venues naming one asset differently (XBT/BTC) is an asset-identity problem this
-  # check has never solved and does not solve here.
-  def waiting_buy_for?(ticker)
-    Transaction.waiting.where(side: :buy, base: ticker.base)
-               .where(bot_id: user.bots.not_deleted.select(:id)).exists?
-  end
+  # anywhere on the account is what would undo this sale — by asset, or under any name for it.
+  def waiting_buy_for?(ticker) = account_waiting_buys(ticker).exists?
 end

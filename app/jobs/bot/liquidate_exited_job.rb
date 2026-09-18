@@ -27,12 +27,14 @@ class Bot::LiquidateExitedJob < BotJob
 
   # selling_token defaults to nil so a job serialised before this shipped still deserialises — and a
   # nil token simply clears nothing, leaving its marker to expire on the TTL.
-  def perform(bot, symbols: nil, symbol: nil, selling_token: nil)
-    # ponytail: `symbol:` is the pre-plural name, kept for sales enqueued in the seconds before this
-    # deploy. These arguments are serialised in solid_queue_jobs, and a keyword mismatch raises
-    # BEFORE the rescue below — leaving the user a "sale started" flash and no activity row at all.
-    # Delete after one deploy.
-    symbols = Array(symbols.nil? ? symbol : symbols)
+  #
+  # holdings: `[[key, asset_id], ...]`, the asset each key named when the sale was requested.
+  def perform(bot, holdings: nil, symbols: nil, symbol: nil, selling_token: nil)
+    # ponytail: `symbols:` / `symbol:` are the names before holdings carried their asset, kept for sales
+    # enqueued in the seconds before this deploy (no asset to check: sold by key as then). These arguments
+    # are serialised in solid_queue_jobs, and a keyword mismatch raises BEFORE the rescue below — leaving
+    # the user a "sale started" flash and no activity row at all. Delete after one deploy.
+    holdings ||= Array(symbols.nil? ? symbol : symbols).map { |key| [key, nil] }
     return unless bot.respond_to?(:liquidate!)
     # Logged, not silent: the controller has already told the user the sale started, so a bot that
     # was archived or disconnected between the click and the run must say why nothing happened
@@ -41,9 +43,9 @@ class Bot::LiquidateExitedJob < BotJob
     return refuse(bot, 'api_key_pending') if bot.api_key&.pending_activation?
 
     bot.ensure_exchange_authenticated
-    return unless market_open?(bot, symbols)
+    return unless market_open?(bot, holdings)
 
-    result = bot.liquidate!(symbols: symbols, deadline: batch_deadline)
+    result = bot.liquidate!(holdings: holdings, deadline: batch_deadline)
     # A refusal here is silent otherwise, and the user has already been told the sale started. Every
     # guard that can decline — a rebalance mid-swap, a standing halt, a composition refresh that
     # failed — has to say so somewhere the user can find it.
@@ -96,8 +98,8 @@ class Bot::LiquidateExitedJob < BotJob
   # A stock composition must not place into a closed market. Asked about the tickers actually being sold,
   # not the whole catalogue. Logged rather than silently dropped: this is a one-shot user command, so
   # the reason has to land somewhere the user can find it.
-  def market_open?(bot, symbols)
-    return true if bot.exchange.market_open?(tickers: bot.liquidation_tickers(symbols: symbols))
+  def market_open?(bot, holdings)
+    return true if bot.exchange.market_open?(tickers: bot.liquidation_tickers(holdings: holdings))
 
     bot.log_activity('liquidation_market_closed', level: :info)
     false

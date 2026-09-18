@@ -80,7 +80,7 @@ module Bot::Composition::OrderSetter
           return result
         else
           placed += 1
-          log_wash_sale_lock(order_data[:ticker].base) if claim
+          log_wash_sale_lock(order_data[:ticker].base_asset_id) if claim
           order_id = result.data[:order_id]
           Rails.logger.info("set_orders composition bot=#{id} event=order_accepted order_id=#{order_id} #{order_log_fields(order_data)}")
           transaction = persist_accepted_order!(order_data, order_id)
@@ -142,16 +142,35 @@ module Bot::Composition::OrderSetter
 
   private
 
-  # Base amounts already claimed by orders on `side` that are open but not yet filled, per symbol.
+  # Base amounts already claimed by orders on `side` that are open but not yet filled, per asset id.
   #
   # Only the UNEXECUTED remainder. A partially filled order has its `amount_exec` in the ledger
   # already, so reserving the whole `amount` would count the filled part twice and under-buy (or
   # oversell) that member by exactly what it has already received.
+  #
+  # An order recorded before orders stored their asset is never ignored: it is reserved against every
+  # asset of this bot its name matches (it may reserve against two, which only holds back more). One whose
+  # name matches none of them stands the leg down, retryably, until a poll fills in its asset — which it
+  # does from the order's own ticker.
   def reserved_waiting_amounts(side)
-    transactions.waiting.where(side:).pluck(:base, :amount, :amount_exec)
-                .each_with_object(Hash.new(0)) do |(base, amount, amount_exec), acc|
+    names = nil
+    transactions.waiting.where(side:).pluck(:base_asset_id, :base, :amount, :amount_exec)
+                .each_with_object(Hash.new(0)) do |(asset_id, base, amount, amount_exec), acc|
       remainder = amount.to_d - amount_exec.to_d
-      acc[base] += remainder if remainder.positive?
+      next unless remainder.positive?
+
+      ids = asset_id ? [asset_id] : (names ||= member_names)[base.to_s.upcase].to_a
+      raise Client::TransientNetworkError, "Resting order #{base} of bot #{id} has no known asset yet" if ids.empty?
+
+      ids.each { |id| acc[id] += remainder }
+    end
+  end
+
+  # { NAME => [asset ids] }: every name the venue lists a member under at the bot's quote, spelling and symbol.
+  def member_names
+    Ticker.where(exchange_id:, quote_asset_id:, base_asset_id: bot_index_assets.select(:asset_id))
+          .includes(:base_asset).each_with_object(Hash.new { |hash, name| hash[name] = [] }) do |ticker, acc|
+      [ticker.base_spelling, ticker.base_asset&.symbol].compact_blank.uniq.each { |name| acc[name.upcase] |= [ticker.base_asset_id] }
     end
   end
 
@@ -167,7 +186,8 @@ module Bot::Composition::OrderSetter
   # across twenty members would put every slice under the venue floor. No carry: a remainder nobody can
   # sell is dropped, as the pair bot's sell leg drops it.
   def get_sell_orders_data(withdrawal)
-    holdings = metrics(force: true)[:asset_breakdown] || {}
+    fresh = metrics(force: true)
+    holdings = fresh[:asset_breakdown] || {}
     if holdings.none? { |_symbol, holding| holding[:amount].to_d.positive? }
       Rails.logger.info("set_orders composition bot=#{id} event=sell_skipped reason=no_holdings")
       return Result::Success.new([])
@@ -180,7 +200,7 @@ module Bot::Composition::OrderSetter
 
     resting = reserved_waiting_amounts(:sell)
     entries.each do |entry|
-      pending = resting.fetch(entry[:symbol], 0)
+      pending = resting.fetch(entry[:asset_id], 0)
       next unless pending.positive? && entry[:amount].positive?
 
       entry[:value] *= 1 - [pending / entry[:amount], 1].min
@@ -202,7 +222,7 @@ module Bot::Composition::OrderSetter
       break unless remaining.positive?
 
       ticker = entry[:ticker]
-      held = holdings.dig(ticker.base, :amount).to_d - resting.fetch(ticker.base, 0)
+      held = holdings.dig(key_for(ticker.base_asset_id, fresh), :amount).to_d - resting.fetch(ticker.base_asset_id, 0)
       next unless held.positive?
 
       price = sell_price(ticker)
@@ -370,35 +390,37 @@ module Bot::Composition::OrderSetter
                 price_result.data
               end
 
-      asset_prices[alloc[:symbol]] = { price: price, ticker: ticker, target_allocation: alloc[:target_allocation].to_f }
+      # By asset, not symbol: two members that share a symbol are two positions.
+      asset_prices[alloc[:asset].id] = { price: price, ticker: ticker, target_allocation: alloc[:target_allocation].to_f,
+                                         symbol: alloc[:symbol] }
     end
 
     # Step 2: Calculate current portfolio value and per-asset values
     current_values = {}
     total_current_value = 0
-    asset_prices.each do |symbol, data|
+    asset_prices.each do |asset_id, data|
       # Waiting buys count as if they had filled. `metrics` only sees EXECUTED amounts, so a resting
       # limit buy is invisible here and its member reads underweight — the leg would then buy it a
       # second time with money the resting order has already claimed.
-      current_amount = (asset_breakdown.dig(symbol, :amount) || 0) + reserved.fetch(symbol, 0)
+      current_amount = (asset_breakdown.dig(key_for(asset_id, metrics_data), :amount) || 0) + reserved.fetch(asset_id, 0)
       current_value = current_amount * data[:price]
-      current_values[symbol] = current_value
+      current_values[asset_id] = current_value
       total_current_value += current_value
     end
 
     # Step 3: Calculate target values after adding new investment
     total_portfolio_value = total_current_value + total_orders_amount_in_quote
     target_values = {}
-    asset_prices.each do |symbol, data|
-      target_values[symbol] = total_portfolio_value * data[:target_allocation]
+    asset_prices.each do |asset_id, data|
+      target_values[asset_id] = total_portfolio_value * data[:target_allocation]
     end
 
     # Step 4: Calculate how much each asset is underweight (offset)
     offsets = {}
     total_offset = 0
-    asset_prices.each_key do |symbol|
-      offset = [0, target_values[symbol] - current_values[symbol]].max
-      offsets[symbol] = offset
+    asset_prices.each_key do |asset_id|
+      offset = [0, target_values[asset_id] - current_values[asset_id]].max
+      offsets[asset_id] = offset
       total_offset += offset
     end
 
@@ -406,8 +428,8 @@ module Bot::Composition::OrderSetter
     orders_data = []
     remaining_investment = total_orders_amount_in_quote
 
-    asset_prices.each do |symbol, data|
-      offset = offsets[symbol]
+    asset_prices.each do |asset_id, data|
+      offset = offsets[asset_id]
       next if offset.zero?
 
       # Allocate proportionally to offset. The pot is the WHOLE contribution, not what is left of it:
@@ -435,8 +457,8 @@ module Bot::Composition::OrderSetter
       }
 
       Rails.logger.info(
-        "Composition bot #{id} rebalance: #{symbol} current=#{current_values[symbol].round(2)}, " \
-        "target=#{target_values[symbol].round(2)}, offset=#{offset.round(2)}, " \
+        "Composition bot #{id} rebalance: #{data[:symbol]} current=#{current_values[asset_id].round(2)}, " \
+        "target=#{target_values[asset_id].round(2)}, offset=#{offset.round(2)}, " \
         "order=#{order_amount_in_quote.round(2)}"
       )
     end

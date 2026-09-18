@@ -65,8 +65,8 @@ class Bots::DcaMultiAssetCompositionTest < ActiveSupport::TestCase
       'BBB' => { amount: 0.25.to_d, current_value: 25.to_d },
       'CCC' => { amount: 0.25.to_d, current_value: 25.to_d }
     }
-    bot.stubs(:metrics_with_current_prices).returns(asset_values: values)
-    bot.stubs(:metrics).returns(asset_breakdown: values)
+    bot.stubs(:metrics_with_current_prices).returns(keyed_payload(asset_values: values))
+    bot.stubs(:metrics).returns(keyed_payload(asset_breakdown: values))
 
     assert_equal(['BBB'], bot.exited_holdings.map { it[:symbol] })
     assert_equal ['BBB'], bot.exited_symbols
@@ -74,13 +74,14 @@ class Bots::DcaMultiAssetCompositionTest < ActiveSupport::TestCase
 
   test 'the metrics panel is broadcast after a composition change and not after an amount change' do
     bot = create_bot('AAA' => 0.5, 'BBB' => 0.5)
-    bot.stubs(:metrics_with_current_prices).returns(
+    stubbed = keyed_payload(
       realised_pnl: 0,
       prices_stale: false,
       total_quote_amount_invested: 0,
       total_amount_value_in_quote: 0,
       asset_values: {}
     )
+    bot.stubs(:metrics_with_current_prices).returns(stubbed)
     stream = bot.page_stream
 
     broadcasts = capture_turbo_stream_broadcasts(stream) do
@@ -116,7 +117,7 @@ class Bots::DcaMultiAssetCompositionTest < ActiveSupport::TestCase
 
   test 'rebalance_targets come from the in-index rows with the user weights' do
     bot = create_bot('AAA' => 0.625, 'BBB' => 0.375)
-    bot.stubs(:metrics_with_current_prices).returns(
+    stubbed = keyed_payload(
       asset_values: {
         'AAA' => { amount: 0.5.to_d, current_value: 50.to_d },
         'BBB' => { amount: 0.3.to_d, current_value: 30.to_d }
@@ -124,6 +125,7 @@ class Bots::DcaMultiAssetCompositionTest < ActiveSupport::TestCase
       asset_breakdown: {},
       prices_stale: false
     )
+    bot.stubs(:metrics_with_current_prices).returns(stubbed)
 
     targets = bot.send(:rebalance_targets).index_by { it[:ticker].base }
 
@@ -165,7 +167,7 @@ class Bots::DcaMultiAssetCompositionTest < ActiveSupport::TestCase
   end
 
   def stub_rebalance_metrics(bot)
-    bot.stubs(:metrics_with_current_prices).returns(
+    stubbed = keyed_payload(
       asset_values: {
         'AAA' => { amount: 0.5.to_d, current_value: 50.to_d },
         'BBB' => { amount: 0.25.to_d, current_value: 25.to_d }
@@ -173,5 +175,6 @@ class Bots::DcaMultiAssetCompositionTest < ActiveSupport::TestCase
       asset_breakdown: {},
       prices_stale: false
     )
+    bot.stubs(:metrics_with_current_prices).returns(stubbed)
   end
 end

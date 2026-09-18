@@ -8,7 +8,7 @@ class CompositionTradeToolsTest < ActiveSupport::TestCase
   setup do
     @user = create(:user, admin: true)
     @bot = create(:dca_index, user: @user, status: :scheduled, started_at: Time.current, with_api_key: true)
-    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE])
+    Bots::DcaIndex.any_instance.stubs(:held_assets).returns('DOGE' => 1)
     Bots::DcaIndex.any_instance.stubs(:exited_symbols).returns(%w[DOGE])
     Bots::DcaIndex.any_instance.stubs(:redeploy_offer).returns(25.to_d)
     Bots::DcaIndex.any_instance.stubs(:ensure_exchange_authenticated)
@@ -24,7 +24,7 @@ class CompositionTradeToolsTest < ActiveSupport::TestCase
   end
 
   test 'liquidate_exited_asset queues the sale' do
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE], selling_token: anything)
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, holdings: [['DOGE', 1]], selling_token: anything)
 
     text = LiquidateExitedAssetTool.new(bot_id: @bot.id, symbol: 'DOGE').execute.contents.first.text
 

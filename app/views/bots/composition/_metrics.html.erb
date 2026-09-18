@@ -3,7 +3,8 @@
     constituent the bot sold in full is exactly the one with no ledger row and a window to serve. %>
 <% asset_values = metrics[:asset_values] || {} %>
 <% locked = bot.locked_members %>
-<% locked_symbols = locked.to_set { |member| member[:symbol] } %>
+<% key_assets = metrics[:key_assets] || {} %>
+<% locked_symbols = locked.map { |member| key_assets.key(member[:asset_id]) || member[:symbol] } %>
 <% realised = metrics[:realised_pnl].to_d %>
 <% hide_money = hide_balances?(bot) %>
 <% quote = bot.quote_asset&.symbol %>
@@ -69,10 +70,9 @@
   <% end %>
 
   <% exited_symbols = exited.map { |holding| holding[:symbol] }.to_set %>
-  <%# Resolve the row's base symbol through the exchange's tickers, the same way the
-      metrics do — current bot_index_assets rows cannot identify holdings that exited after a
-      rotation. %>
-  <% logo_assets = bot.exchange.tickers.where(base: asset_values.keys).includes(:base_asset).index_by(&:base) %>
+  <%# Each holding's asset, by the id its orders recorded — current bot_index_assets rows cannot identify
+      holdings that exited after a rotation. %>
+  <% logo_assets = bot.holding_assets(metrics) %>
   <%# MEMBERS, listed because the composition wants them — not "whatever is left after removing the
       quitters". Those two agreed only while every held asset was one or the other, and they stopped
       agreeing once a quitter too small to sell was ruled out of its own table: defined by
@@ -86,18 +86,22 @@
       dust remainder the venue cannot sell gets none. A halted liquidation blocks the lot until it
       is resolved, and an archived or deleted bot cannot trade at all. %>
   <% may_sell = !bot.liquidation_halted? && !bot.archived? && !bot.deleted? %>
-  <% sellable = may_sell ? bot.sellable_holdings(metrics).to_h { |h| [h[:symbol], true] } : {} %>
+  <%# key => asset id: the Sell link names the asset it showed, so a key that comes to mean another asset
+      between the render and the click sells nothing. %>
+  <% sellable = may_sell ? bot.sellable_holdings(metrics).to_h { |h| [h[:symbol], h[:asset_id]] } : {} %>
   <%# A sale is already under way, so every Sell on this bot would be refused — the block is
       bot-wide, not per symbol. Gated on may_sell so a HALT never renders as "selling": a halt means
       nobody knows what happened, which is the opposite of progress, and it has its own Clear to
       offer instead. %>
   <% selling = may_sell && bot.liquidation_selling? %>
   <% if asset_values.present? %>
-    <% in_index = bot.bot_index_assets.in_index.includes(:asset).to_set { |bia| bia.asset.symbol } %>
+    <% in_index = bot.bot_index_assets.in_index.pluck(:asset_id).to_set %>
+    <%# A holding known only by its symbol string (recorded before orders stored their asset) is listed
+        with the members and never offered for sale. %>
     <% composition_values = if in_index.empty?
                               asset_values.reject { |symbol, _| exited_symbols.include?(symbol) }
                             else
-                              asset_values.select { |symbol, _| in_index.include?(symbol) }
+                              asset_values.select { |symbol, _| key_assets[symbol].nil? || in_index.include?(key_assets[symbol]) }
                             end %>
     <%# A locked name is listed once, in its own table below. %>
     <% composition_values = composition_values.except(*locked_symbols) %>
@@ -161,7 +165,8 @@
             that row's own Sell, twice, on a money path. %>
         <% elsif may_sell && exited_values.many? %>
           <%= link_to t('bot.liquidation.sell_all'),
-                      new_bot_liquidation_path(bot_id: bot.id, symbol: exited_values.keys),
+                      new_bot_liquidation_path(bot_id: bot.id, symbol: exited_values.keys,
+                                               asset_id: exited_values.values.map { |holding| holding[:asset_id] }),
                       class: 'rbutton rbutton--small rbutton--danger', data: { turbo_frame: 'modal' } %>
         <% end %>
       </div>
@@ -176,7 +181,7 @@
     </div>
   <% end %>
 
-  <%= render 'bots/composition/locked_table', bot: bot, members: locked, values: asset_values,
+  <%= render 'bots/composition/locked_table', bot: bot, members: locked, values: asset_values, key_assets: key_assets,
              sellable: sellable, hide_money: hide_money, quote: quote, selling: selling %>
 
   <%# The proceeds of a sale, waiting to go back into the basket. The amount IS the display: realised

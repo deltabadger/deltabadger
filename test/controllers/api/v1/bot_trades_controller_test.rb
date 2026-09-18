@@ -9,7 +9,7 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
   setup do
     @user = create(:user)
     @bot = create(:dca_index, user: @user, status: :scheduled, started_at: Time.current, with_api_key: true)
-    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE])
+    Bots::DcaIndex.any_instance.stubs(:held_assets).returns('DOGE' => 1)
     Bots::DcaIndex.any_instance.stubs(:redeploy_offer).returns(25.to_d)
     Bots::DcaIndex.any_instance.stubs(:ensure_exchange_authenticated)
     Bots::DcaIndex.any_instance.stubs(:composition_tickers).returns([])
@@ -29,7 +29,7 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test 'POST /bots/:id/liquidations queues the sale and returns 202' do
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE], selling_token: anything)
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, holdings: [['DOGE', 1]], selling_token: anything)
 
     post "/api/v1/bots/#{@bot.id}/liquidations",
          params: { symbol: 'DOGE' }, headers: keyed('k1'), as: :json
@@ -59,7 +59,7 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
   end
 
   test 'the same key replayed against the same bot returns the stored response and queues once' do
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE], selling_token: anything).once
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, holdings: [['DOGE', 1]], selling_token: anything).once
 
     post "/api/v1/bots/#{@bot.id}/liquidations", params: { symbol: 'DOGE' }, headers: keyed('k1'), as: :json
     first = response.body
@@ -89,8 +89,8 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
   test 'the symbol parameter accepts a list' do
     # The page sends the positions its confirmation displayed, and the same service backs all three
     # surfaces — so REST closes several positions in one call too.
-    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE SHIB])
-    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, symbols: %w[DOGE SHIB], selling_token: anything)
+    Bots::DcaIndex.any_instance.stubs(:held_assets).returns('DOGE' => 1, 'SHIB' => 2)
+    Bot::LiquidateExitedJob.expects(:perform_later).with(@bot, holdings: [['DOGE', 1], ['SHIB', 2]], selling_token: anything)
 
     post "/api/v1/bots/#{@bot.id}/liquidations",
          params: { symbol: %w[DOGE SHIB] }, headers: keyed('k1'), as: :json
@@ -103,7 +103,7 @@ class Api::V1::BotTradesControllerTest < ActionDispatch::IntegrationTest
   # a body-only fingerprint would replay the first answer for a different symbol.
   test 'the same key with a different query parameter is a reuse, not a replay' do
     Bot::LiquidateExitedJob.stubs(:perform_later)
-    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[DOGE SHIB])
+    Bots::DcaIndex.any_instance.stubs(:held_assets).returns('DOGE' => 1, 'SHIB' => 2)
 
     post "/api/v1/bots/#{@bot.id}/liquidations?symbol=DOGE", headers: keyed('k1'), as: :json
     assert_response :accepted
