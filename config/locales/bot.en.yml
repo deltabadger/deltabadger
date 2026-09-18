@@ -126,6 +126,7 @@ en:
             of_the_balance: "of the balance"
             never_triggered: "never triggered"
             last_triggered: "last triggered %{time} ago"
+            api_hint: "This bot also takes orders from the API and MCP: call market_buy or market_sell with bot_id %{id}."
         buy: Buy
         counter: '%{countdown}'
         day: Day

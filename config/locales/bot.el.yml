@@ -126,6 +126,7 @@ el:
             of_the_balance: "του υπολοίπου"
             never_triggered: "δεν έχει ενεργοποιηθεί ποτέ"
             last_triggered: "τελευταία ενεργοποίηση πριν από %{time}"
+            api_hint: "Αυτό το bot δέχεται εντολές και μέσω API και MCP: καλέστε market_buy ή market_sell με bot_id %{id}."
         buy: Αγορά
         counter: '%{countdown}'
         day: Ημέρα

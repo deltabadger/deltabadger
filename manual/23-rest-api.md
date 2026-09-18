@@ -34,7 +34,7 @@ All paths are under `/api/v1`. The toggle column names the switch that must be o
 |---|---|---|---|
 | GET | `/bots` | List bots | Optional `?status=` |
 | GET | `/bots/:id` | Bot details | Includes metrics when available; a basket bot also reports its members and their weights, and an index or basket bot reports any holdings that left the composition plus a pending redeploy offer |
-| POST | `/bots` | Create bot / Create index bot | `type` picks the toggle: `dca` (default) or `index`. Both need `exchange_name`, `quote_asset`, `quote_amount`, `interval`. `dca` also takes `base_asset`, or `assets` for a basket of 1–20 — an array of `{symbol, allocation}` or the string `"BTC:60,ETH:40"`, weights optional and summing to 100 when given, with optional `weighting: market_cap`. `index` also takes `index` (id from `GET /indices`), `num_coins`, `allocation_flattening` |
+| POST | `/bots` | Create bot / Create index bot / Create signal bot | `type` picks the toggle: `dca` (default), `index` or `signal`. Both need `exchange_name`, `quote_asset`, `quote_amount`, `interval`. `dca` also takes `base_asset`, or `assets` for a basket of 1–20 — an array of `{symbol, allocation}` or the string `"BTC:60,ETH:40"`, weights optional and summing to 100 when given, with optional `weighting: market_cap`. `index` also takes `index` (id from `GET /indices`), `num_coins`, `allocation_flattening`. `signal` takes `exchange_name`, `base_asset`, `quote_asset` and optional `label` instead: a bot with no schedule that trades one pair when told to |
 | PATCH | `/bots/:id` | Update bots | Bot must be stopped. Any bot: `quote_amount`, `label`. Index bots: `num_coins`, `allocation_flattening`. Basket bots: `allocations` — every current member, summing to 100. Membership is not editable |
 | POST | `/bots/:id/start` | Start bot | `409` if already running |
 | POST | `/bots/:id/stop` | Stop bot | `409` if not running |
@@ -97,7 +97,7 @@ The exceptions are `GET /transactions/export` and the tax report download, which
 
 ## Placing orders
 
-`POST /orders` takes `type` (`market_buy`, `market_sell`, `limit_buy`, `limit_sell`), `exchange_name`, `base_asset`, `quote_asset`, `amount`, optional `amount_type` (`quote` or `base`) and, for limit orders, `price`. A successful placement answers `201`.
+`POST /orders` takes `type` (`market_buy`, `market_sell`, `limit_buy`, `limit_sell`), `exchange_name`, `base_asset`, `quote_asset`, `amount`, optional `amount_type` (`quote` or `base`) and, for limit orders, `price`. A successful placement answers `201`. Add `bot_id` — a running signal bot — to a `market_buy` or `market_sell` and the order is recorded on that bot's page; the pair then comes from the bot and may be left out. Limit orders cannot be placed through a bot.
 
 The request must carry an `Idempotency-Key` header with a value unique to this attempt (a UUID is fine); without it the call fails with `400 idempotency_key_required`. Repeating the same key with the same body returns the stored response without touching the exchange again, so a retry after a network error cannot place a second order. The same key with a different body is refused with `409 idempotency_key_reused`; a retry while the first attempt is still running gets `409 idempotency_in_progress`. Keys are kept for 24 hours.
 

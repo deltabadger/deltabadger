@@ -126,6 +126,7 @@ es:
             of_the_balance: "del saldo"
             never_triggered: "nunca se ha activado"
             last_triggered: "última activación hace %{time}"
+            api_hint: "Este bot también acepta órdenes desde la API y MCP: llama a market_buy o market_sell con bot_id %{id}."
         buy: Comprar
         counter: '%{countdown}'
         day: Día

@@ -226,7 +226,7 @@ token).
 |---|---|---|---|
 | GET | `/bots` | `list_bots` | Optional `?status=` filter |
 | GET | `/bots/:id` | `get_bot_details` | Includes metrics if available; composition bots also report `exited_holdings` (symbols) and `redeploy_offer` (quote amount as a string); a multi-asset bot reports its members as `pair` (`BTC+ETH/USD`) plus `allocations` (`{symbol: weight}`; raw weights as set, which may not sum to 1 until normalised) |
-| POST | `/bots` | per-type | 201 on success. `type`: `dca` (default) or `index` — each gated by its own tool. `dca`: `exchange_name`, `quote_asset`, `quote_amount`, `interval`, plus either `base_asset` or `assets` — an array of `{symbol, allocation}` or the string `"BTC:60,ETH:40"`, 2-20 entries, weights optional (equal split) and summing to 100 when given — with optional `weighting: market_cap`. `index`: `exchange_name`, `quote_asset`, `quote_amount`, `interval`, plus `index` (id from `/indices`, must be available on that exchange), `num_coins`, `allocation_flattening` |
+| POST | `/bots` | per-type | 201 on success. `type`: `dca` (default), `index` or `signal` — each gated by its own tool. `dca`: `exchange_name`, `quote_asset`, `quote_amount`, `interval`, plus either `base_asset` or `assets` — an array of `{symbol, allocation}` or the string `"BTC:60,ETH:40"`, 2-20 entries, weights optional (equal split) and summing to 100 when given — with optional `weighting: market_cap`. `index`: `exchange_name`, `quote_asset`, `quote_amount`, `interval`, plus `index` (id from `/indices`, must be available on that exchange), `num_coins`, `allocation_flattening`. `signal` (gated by `create_signal_bot`): `exchange_name`, `base_asset`, `quote_asset`, optional `label` — a bot with no schedule that trades one pair when told to, created running and without webhook rules |
 | PATCH | `/bots/:id` | `update_bot_settings` | Bot must be stopped. Any bot: `quote_amount`, `label`. Index bots: `num_coins`, `allocation_flattening`. Basket bots: `allocations` — every current member, summing to 100, as `{"BTC": 70, "ETH": 30}` or the string `"BTC:70,ETH:30"`; supplying them takes the basket off market-cap weighting. Membership is not editable here |
 | POST | `/bots/:id/start` | `start_bot` | 409 if already running |
 | POST | `/bots/:id/stop` | `stop_bot` | 409 if not running |
@@ -281,6 +281,20 @@ action — is `409 idempotency_key_reused`, never a replay of the first answer.
 - `market_sell` — sell `amount` of `base_asset` (default) or receive
   `amount` in `quote_asset` if `amount_type=quote`.
 - `limit_buy` / `limit_sell` — same shape plus a required `price`.
+
+**Through a bot.** Add `bot_id` (a running signal bot) to a `market_buy` or `market_sell` and the
+order is recorded on that bot — a row on its page, confirmed, charted and taxed like any of its
+orders — instead of going to the exchange and belonging to nothing. The pair comes from the bot,
+so `exchange_name`, `base_asset` and `quote_asset` become optional and must agree with it when
+sent. The `201` carries `bot_id`, `transaction_id` and `order_id` (`transaction_id` is null in
+the rare case the exchange accepted the order but the row could not be written). Stopping the
+bot refuses further orders. Errors specific to this path: `bot_not_found` (404);
+`invalid_number`, `invalid_amount_type`, `bot_not_orderable`, `bot_pair_mismatch`,
+`below_minimum_amount`, `bot_limit_orders_unsupported` (422); `bot_not_running`,
+`api_key_pending`, `market_closed`, `wash_sale_locked` (409); `exchange_unavailable`,
+`order_failed`, `placement_ambiguous` (502). `placement_ambiguous` means the order may have been
+placed: resend it with the same `Idempotency-Key` to get the stored answer, never with a new one
+before checking the exchange. Limit orders cannot be placed through a bot.
 
 Required headers and params:
 

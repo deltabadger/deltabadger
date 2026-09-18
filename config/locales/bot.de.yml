@@ -124,6 +124,7 @@ de:
             of_the_balance: "des Guthabens"
             never_triggered: "noch nie ausgelöst"
             last_triggered: "zuletzt ausgelöst vor %{time}"
+            api_hint: "Dieser Bot nimmt auch Aufträge über API und MCP an: market_buy oder market_sell mit bot_id %{id} aufrufen."
         buy: Kauf
         counter: '%{countdown}'
         day: Tag

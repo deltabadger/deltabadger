@@ -3,6 +3,9 @@
   <% bot.bot_signals.each_with_index do |signal, index| %>
     <%= render partial: "bots/signals/signal_widget", locals: { bot: bot, signal: signal, index: index } %>
   <% end %>
+  <% unless bot.new_record? %>
+    <p class="text-inactive"><%= t('bot.signal.api_hint', id: bot.id) %></p>
+  <% end %>
   <% if bot.new_record? %>
     <div id="add-signal-button">
       <%= button_to t('bot.signal.add_signal'), add_signal_bots_signals_confirm_settings_path, method: :post, class: "sbutton sbutton--sky" %>

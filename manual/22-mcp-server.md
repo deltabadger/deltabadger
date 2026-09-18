@@ -63,6 +63,7 @@ A tool is usable only when both of these are true:
 |---|---|
 | **Create bot** | Create and start a [DCA](10-dollar-cost-averaging.md) bot: one asset, or a basket of up to 20 with weights (or market-cap weighting), plus exchange, quote currency, amount, interval (hour, day, week or month), optional label and start time |
 | **Create index bot** | Create and start an [index bot](13-direct-indexing.md): an index from **List indices**, how many assets to hold, and how far to flatten market-cap weights towards equal |
+| **Create signal bot** | Create and start a signal bot: one pair, no schedule. Orders placed with **Market buy** / **Market sell** and its bot id are recorded on the bot's page |
 | **Start bot** | Start a stopped or newly created bot |
 | **Stop bot** | Stop a running bot |
 | **Update bots** | Change settings on a stopped bot: amount and label on any bot, the index knobs on an index bot, the weights on a basket bot. Membership is not editable |
@@ -82,8 +83,8 @@ A tool is usable only when both of these are true:
 
 | Tool | What it does |
 |---|---|
-| **Market buy** | Execute a market buy order on a connected exchange; amount in quote currency by default, or in the asset |
-| **Market sell** | Execute a market sell order; amount in the asset by default, or in quote currency |
+| **Market buy** | Execute a market buy order on a connected exchange; amount in quote currency by default, or in the asset; with a signal bot's id, the order is recorded on that bot |
+| **Market sell** | Execute a market sell order; amount in the asset by default, or in quote currency; with a signal bot's id, the sale is recorded on that bot |
 | **Limit buy** | Place a limit buy order at a specific price |
 | **Limit sell** | Place a limit sell order at a specific price |
 | **Cancel order** | Cancel an open order by its ID |
