@@ -100,4 +100,47 @@ class ChartGridBackfillTest < ActiveSupport::TestCase
 
     assert_equal times.sort, times
   end
+
+  # == Which fills mark a price ==
+
+  test 'a fill inside the span the candles cover never replaces their reading' do
+    record_fill!(@btc, T0 + 1.day, 90) # before the candles: kept
+    record_fill!(@btc, T1 + 7.hours, 50) # between two candles: the venue's reading stands
+
+    grid = backfilled('BTC' => daily_marks(100, from: T1), 'ETH' => daily_marks(10, from: T0))['BTC']
+
+    assert_includes grid, [T0 + 1.day, 90.to_d]
+    assert_not(grid.any? { |time, _price| time == T1 + 7.hours })
+  end
+
+  test 'an order that executed nothing marks nothing' do
+    record_fill!(@btc, T0 + 1.day, 90)
+    record_fill!(@btc, T0 + 1.day + 3.hours, 50).update_columns(external_status: Transaction.external_statuses[:open],
+                                                                amount_exec: nil, quote_amount_exec: nil)
+
+    grid = backfilled('ETH' => daily_marks(10, from: T0))['BTC']
+
+    assert_equal [[T0 + 1.day, 90.to_d]], grid
+  end
+
+  test 'a sale that reported neither its executed amount nor its proceeds marks nothing' do
+    record_fill!(@btc, T0 + 1.day, 90)
+    record_fill!(@btc, T0 + 1.day + 3.hours, 50).update_columns(side: Transaction.sides[:sell], amount_exec: nil,
+                                                                quote_amount_exec: nil)
+
+    grid = backfilled('ETH' => daily_marks(10, from: T0))['BTC']
+
+    assert_equal [[T0 + 1.day, 90.to_d]], grid
+  end
+
+  test 'of two fills at one moment the later one stands' do
+    record_fill!(@btc, T0 + 1.day, 100)
+    @bot.transactions.create!(exchange: @bot.exchange, base: @btc.symbol, quote: @bot.quote_asset.symbol, side: :buy,
+                              status: :submitted, external_status: :closed, amount: 1, amount_exec: 1, quote_amount: 80,
+                              quote_amount_exec: 80, price: 80, created_at: T0 + 1.day, external_id: 'fill-later')
+
+    grid = backfilled('ETH' => daily_marks(10, from: T0))['BTC']
+
+    assert_equal [[T0 + 1.day, 80.to_d]], grid
+  end
 end
