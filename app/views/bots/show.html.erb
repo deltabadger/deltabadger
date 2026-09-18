@@ -4,9 +4,6 @@
     Only the pages that state balances have anything to re-render. %>
 <%= turbo_stream_from "user_#{current_user.id}", :preferences %>
 <%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
-<%# This bot's own panels (Bot#page_stream): replaced by ids every bot page shares, so they must not
-    arrive on the stream every page of the user listens to. %>
-<%= turbo_stream_from(*@bot.page_stream) %>
 
 <%# The catch-all seam for the one-time wash-sale question: the turbo_stream actions carry it
     themselves, and this reaches everyone else — including users who armed selling before the
@@ -14,6 +11,11 @@
 <% content_for :modal_src, new_bot_wash_sale_prompt_path(bot_id: @bot.id) if wash_sale_prompt_due?(@bot) %>
 
 <%= turbo_frame_tag "bot" do %>
+  <%# This bot's own panels (Bot#page_stream): replaced by ids every bot page shares, so they must not
+      arrive on the stream every page of the user listens to. Inside the frame, because the bot
+      switcher swaps only the frame: out here it would outlast the swap and keep listening to the bot
+      the page just left. %>
+  <%= turbo_stream_from(*@bot.page_stream) %>
   <%= tag.div data: @chart_loading ? { controller: "broadcast--on-connect",
                                       broadcast__on_connect_method_value: "metrics_update",
                                       broadcast__on_connect_method_args_value: { bot_id: @bot.id }.to_json } : {} %>
