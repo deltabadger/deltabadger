@@ -66,7 +66,14 @@ module Bot::QuoteAmountLimitable
                                     .map { |quote_amount, amount, price| quote_amount || (amount * price) }
                                     .sum
 
-    total_quote_amount_invested = closed_quote_amount + open_quote_amount
+    # A cancelled or abandoned order counts what it already spent: a partial fill is still spent. Executed
+    # amount only — an order that reported nothing filled nothing.
+    stopped_quote_amount = transactions.submitted.buy.regular.cancelled_or_abandoned
+                                       .where('created_at >= ?', quote_amount_limit_enabled_at)
+                                       .pluck(Arel.sql('COALESCE(quote_amount_exec, 0)'))
+                                       .sum
+
+    total_quote_amount_invested = closed_quote_amount + open_quote_amount + stopped_quote_amount
 
     [quote_amount_limit - total_quote_amount_invested, 0].max
   end

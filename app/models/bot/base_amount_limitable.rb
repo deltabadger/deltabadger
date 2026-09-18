@@ -70,7 +70,13 @@ module Bot::BaseAmountLimitable
                             .waiting
                             .pluck(:amount).compact.sum
 
-    [base_amount_limit.to_d - (closed_base + open_base), 0].max
+    # A cancelled or abandoned order counts what it already sold: a partial fill is still sold. Executed
+    # amount only — an order that reported nothing filled nothing.
+    stopped_base = transactions.submitted.sell.regular.cancelled_or_abandoned
+                               .where('created_at >= ?', base_amount_limit_enabled_at)
+                               .pluck(Arel.sql('COALESCE(amount_exec, 0)')).sum
+
+    [base_amount_limit.to_d - (closed_base + open_base + stopped_base), 0].max
   end
 
   def base_amount_limit_reached?
