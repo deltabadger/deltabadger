@@ -468,6 +468,30 @@ module BotHelper
   # column of dollars is read by comparing the figures in it, and 10.0 beside 9.99 beside 0.001407
   # cannot be. Anything else keeps the venue's decimals, where the difference between eight places
   # and two is the difference between a quantity and nothing at all.
+  # { key => member } for the wash-sale table, each member marked `held:` when the key is its own holding's.
+  # A member the bot does not hold goes by its symbol, suffixed like a holding key (Bot::Composition::
+  # HoldingKeys) where locked members share one, and with its asset id while a holding already has that key.
+  def locked_member_keys(members, key_assets)
+    unheld = members.reject { |member| key_assets.key(member[:asset_id]) }
+    candidates = Bot::Composition::HoldingKeys.call(
+      unheld.to_h { |member| [member[:asset_id], member[:symbol].presence || "##{member[:asset_id]}"] }
+    )
+    # Unheld candidates are distinct among themselves (HoldingKeys). Those no holding has keep their key;
+    # the rest take their id against every key taken so far, so no suffix lands on another's key.
+    taken = key_assets.keys.to_set | candidates.values.reject { |key| key_assets.key?(key) }
+    keys = candidates.to_h do |asset_id, key|
+      next [asset_id, key] unless key_assets.key?(key)
+
+      key = "#{key}##{asset_id}" while taken.include?(key)
+      taken << key
+      [asset_id, key]
+    end
+    members.to_h do |member|
+      held = key_assets.key(member[:asset_id])
+      [held || keys[member[:asset_id]], member.merge(held: held.present?)]
+    end
+  end
+
   # An order's precision on one side: by its asset, or by its symbol for a row recorded before orders
   # stored their asset.
   def order_decimals(decimals, order, side)

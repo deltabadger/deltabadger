@@ -52,6 +52,27 @@ class AssetIdentityHoldingsTest < ActiveSupport::TestCase
     assert bot.sell_at_loss?(ticker: @xbt, amount: 1, quote_amount: 50)
   end
 
+  test 'a lot recorded without its asset, under a name of the asset being sold, reads as a possible loss' do
+    bot = kraken_basket
+    wash_sale_on(bot)
+    fill(bot, 'XBT', amount: 1, price: 100, asset: nil) # before orders stored their asset
+    fill(bot, 'BTC', amount: 1, price: 10)
+    sale = fill(bot, 'BTC', amount: 1, price: 50, side: :sell)
+
+    assert bot.sell_at_loss?(ticker: @xbt, amount: 1, quote_amount: 50), 'FIFO may consume the 100 lot'
+    assert_nil bot.metrics(force: true)[:loss_lot_by_transaction][sale.id], 'unknown, which locks'
+    bot.reconcile_wash_sale_from_fill!(sale)
+    assert_includes bot.user.locked_asset_ids, @btc.id
+  end
+
+  test 'a history recorded entirely without its asset still reads as a possible loss' do
+    bot = kraken_basket(@btc)
+    wash_sale_on(bot)
+    fill(bot, 'XBT', amount: 1, price: 100, asset: nil)
+
+    assert bot.sell_at_loss?(ticker: @xbt, amount: 1, quote_amount: 50)
+  end
+
   test 'a filled Kraken BTC loss sale locks BTC' do
     bot = kraken_basket
     wash_sale_on(bot)
@@ -76,6 +97,17 @@ class AssetIdentityHoldingsTest < ActiveSupport::TestCase
 
     resting.update_columns(base: 'BTC', base_asset_id: create(:asset, symbol: 'BTC', name: 'Other', external_id: 'o').id)
     assert bot.send(:waiting_buy_blocks_sell?, @xbt), 'a matching name with another id still blocks: matching more only blocks more'
+  end
+
+  test "a resting buy without its asset, under another venue's name for it, blocks a sale" do
+    kraken_basket # the XBT ticker
+    binance_bot = create(:dca_multi_asset, user: @user, quote_asset: @usd, base_assets: [@btc, @eth])
+    binance_btc = Ticker.find_by!(exchange: binance_bot.exchange, base_asset: @btc, quote_asset: @usd)
+    kraken_bot = create(:dca_multi_asset, user: @user, exchange: @kraken, quote_asset: @usd, base_assets: [@btc, @eth])
+    fill(kraken_bot, 'XBT', amount: 1, price: 100, status: :open, asset: nil)
+    Bot::FetchAndUpdateOpenOrdersJob.stubs(:perform_now)
+
+    assert binance_bot.send(:waiting_buy_blocks_sell?, binance_btc)
   end
 
   # == Two assets called POR on MEXC ==

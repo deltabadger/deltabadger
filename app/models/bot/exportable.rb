@@ -75,16 +75,17 @@ module Bot::Exportable
         next
       end
 
-      # A name two of the bot's assets answer to is never guessed. An index bot's row is still imported,
-      # without an asset; any other bot's is skipped.
-      if base_asset_id == :ambiguous
-        base_asset_id = nil
-        if members
-          skipped_ambiguous += 1
-          next
-        end
-      elsif base_asset_id.nil?
-        base_asset_id = (venue_names ||= venue_import_names)[csv_base]
+      # A name two of the bot's assets answer to is never guessed: the row is skipped. An index bot's row can
+      # be any asset the venue lists — its membership is no proof — so it records the one asset its members
+      # and the venue together know by that name, or none, and is imported either way.
+      if members.nil?
+        ids = base_names.fetch(csv_base, Set.new) | (venue_names ||= venue_import_names).fetch(csv_base, Set.new)
+        base_asset_id = ids.first if ids.one?
+      elsif base_asset_id.many?
+        skipped_ambiguous += 1
+        next
+      else
+        base_asset_id = base_asset_id.first
       end
 
       original_order_id = CsvSafe.unescape(row['Order ID'])
@@ -173,24 +174,25 @@ module Bot::Exportable
     base_assets if respond_to?(:allocations)
   end
 
-  # Each name the assets answer to, by symbol or venue spelling: the asset's id, or :ambiguous when two share it.
+  # { NAME => Set of asset ids }: every name the assets answer to, by symbol or venue spelling.
   def import_names(assets)
-    names = Hash.new { |hash, name| hash[name] = Set.new }
-    assets.each { |asset| names[asset.symbol.upcase] << asset.id if asset.symbol.present? }
+    names = {}
+    assets.each { |asset| (names[asset.symbol.upcase] ||= Set.new) << asset.id if asset.symbol.present? }
     exchange.tickers.where(base_asset_id: assets.map(&:id)).each do |ticker|
-      names[ticker.base_spelling.upcase] << ticker.base_asset_id if ticker.base_spelling.present?
+      (names[ticker.base_spelling.upcase] ||= Set.new) << ticker.base_asset_id if ticker.base_spelling.present?
     end
-    names.transform_values { |ids| ids.one? ? ids.first : :ambiguous }
+    names
   end
 
-  # Each name the bot's exchange lists an asset under at the bot's quote, by spelling or symbol: the asset's
-  # id, or nil when two share it.
+  # { NAME => Set of asset ids }: every name the bot's exchange lists an asset under at the bot's quote.
   def venue_import_names
-    names = Hash.new { |hash, name| hash[name] = Set.new }
+    names = {}
     exchange.tickers.where(quote_asset_id:).includes(:base_asset).each do |ticker|
-      [ticker.base_spelling, ticker.base_asset.symbol].compact_blank.each { |name| names[name.upcase] << ticker.base_asset_id }
+      [ticker.base_spelling, ticker.base_asset.symbol].compact_blank.each do |name|
+        (names[name.upcase] ||= Set.new) << ticker.base_asset_id
+      end
     end
-    names.transform_values { |ids| ids.first if ids.one? }
+    names
   end
 
   def parsed_csv_values(transactions_data)

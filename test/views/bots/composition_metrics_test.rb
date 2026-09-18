@@ -74,6 +74,58 @@ class Bots::CompositionMetricsViewTest < ActionView::TestCase
     assert_includes cell.text, '12'
   end
 
+  test "a locked asset the bot does not hold never shows another asset's holding of the same symbol" do
+    fan = create(:asset, symbol: 'POR', name: 'Portugal Fan Token', external_id: 'por-fan')
+    portuma = create(:asset, symbol: 'POR', name: 'Portuma', external_id: 'portuma')
+    [fan, portuma].each_with_index do |asset, index|
+      ticker = create(:ticker, exchange: @bot.exchange, base_asset: asset, quote_asset: @bot.quote_asset,
+                               base_symbol: %w[POR PORTUMA][index])
+      BotIndexAsset.create!(bot: @bot, asset:, ticker:, target_allocation: 0.1, in_index: true, entered_at: Time.current)
+    end
+    WashSaleLock.create!(user: @bot.user, asset: portuma, buy_locked_until: (Date.current + 5).beginning_of_day)
+    @metrics[:asset_values]['POR'] = { amount: 3, quote_invested: 30, current_value: 30, avg_price: 10, pnl_percentage: 0 }
+    @metrics[:key_assets]['POR'] = fan.id
+
+    html = render_panel
+
+    assert html.at_css('#assets_metrics_list tr[data-symbol=POR] .table__action a'), "the fan token's own row and Sell"
+    locked = html.at_css("#wash_sale_list tr[data-symbol='POR##{portuma.id}']")
+    assert locked, 'Portuma is listed under a key of its own'
+    assert_nil locked.at_css('a'), 'with nothing of its own to sell'
+  end
+
+  test 'two locked assets of one symbol are both listed before the bot has placed anything' do
+    fan = create(:asset, symbol: 'POR', name: 'Portugal Fan Token', external_id: 'por-fan')
+    portuma = create(:asset, symbol: 'POR', name: 'Portuma', external_id: 'portuma')
+    [fan, portuma].each_with_index do |asset, index|
+      ticker = create(:ticker, exchange: @bot.exchange, base_asset: asset, quote_asset: @bot.quote_asset,
+                               base_symbol: %w[POR PORTUMA][index])
+      BotIndexAsset.create!(bot: @bot, asset:, ticker:, target_allocation: 0.1, in_index: true, entered_at: Time.current)
+      WashSaleLock.create!(user: @bot.user, asset:, buy_locked_until: (Date.current + 5).beginning_of_day)
+    end
+    @metrics = @metrics.merge(asset_values: {}, key_assets: {})
+
+    rows = render_panel.css('#wash_sale_list tr[data-symbol]').map { |row| row['data-symbol'] }
+
+    assert_equal 3, rows.size, 'CCC and both POR assets'
+  end
+
+  test 'two locked assets of one symbol that the bot does not hold are both listed' do
+    fan = create(:asset, symbol: 'POR', name: 'Portugal Fan Token', external_id: 'por-fan')
+    portuma = create(:asset, symbol: 'POR', name: 'Portuma', external_id: 'portuma')
+    [fan, portuma].each_with_index do |asset, index|
+      ticker = create(:ticker, exchange: @bot.exchange, base_asset: asset, quote_asset: @bot.quote_asset,
+                               base_symbol: %w[POR PORTUMA][index])
+      BotIndexAsset.create!(bot: @bot, asset:, ticker:, target_allocation: 0.1, in_index: true, entered_at: Time.current)
+      WashSaleLock.create!(user: @bot.user, asset:, buy_locked_until: (Date.current + 5).beginning_of_day)
+    end
+
+    rows = render_panel.css('#wash_sale_list tr[data-symbol]').map { |row| row['data-symbol'] }
+
+    assert_includes rows, "POR##{fan.id}"
+    assert_includes rows, "POR##{portuma.id}"
+  end
+
   test 'a locked quitter is in the protection table, not under Left the index' do
     bia = @bot.bot_index_assets.find_by(asset: @assets['CCC'][:asset])
     bia.update!(in_index: false, exited_at: Time.current)

@@ -56,6 +56,18 @@ class Bot::Composition::RestatedIdentityTest < ActiveSupport::TestCase
     assert_equal({ 'KLAC' => 20, 'XYZ' => 2 }, held)
   end
 
+  test 'reported names are resolved in one batch, not a query each' do
+    names = %w[AAA BBB CCC DDD EEE FFF]
+    names.each_with_index do |name, index|
+      buy(name, asset: nil, at: (30 - index).days.ago) # recorded before orders stored their asset
+      split(name, at: (20 - index).days.ago) if index.zero?
+    end
+    one = count_queries { @bot.metrics(force: true) }
+    names.drop(1).each_with_index { |name, index| split(name, at: (19 - index).days.ago) }
+
+    assert_equal one, count_queries { @bot.metrics(force: true) }, 'five more reported names, no more queries'
+  end
+
   test 'a restatement expires a bot that holds the asset under an older symbol' do
     buy('KLA', asset: @klac, at: 8.days.ago)
 
@@ -93,4 +105,11 @@ class Bot::Composition::RestatedIdentityTest < ActiveSupport::TestCase
   end
 
   def held = @bot.metrics(force: true)[:asset_breakdown].transform_values { |holding| holding[:amount].to_i }
+
+  def count_queries(&)
+    count = 0
+    counter = ->(*, payload) { count += 1 unless payload[:name] == 'SCHEMA' || payload[:cached] }
+    ActiveSupport::Notifications.subscribed(counter, 'sql.active_record', &)
+    count
+  end
 end

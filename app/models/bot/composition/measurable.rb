@@ -34,6 +34,7 @@ module Bot::Composition::Measurable
       data[:key_strings] = transactions_array.each_with_object({}) do |row, acc|
         (acc[keys[holding_identity(row)]] ||= []) << row[6].to_s
       end.transform_values(&:uniq)
+      data[:shadowed_by] = unresolved_shadows(keys)
 
       totals = initialize_totals_data
       ledger = Hash.new { |hash, key| hash[key] = { amount: 0, invested: 0 } }
@@ -79,6 +80,8 @@ module Bot::Composition::Measurable
             else
               loss_lot[id] = unpriced_sale_verdict(lots[base])
             end
+            # Lots of the same asset recorded without it may be the ones FIFO consumed: unknown, which locks.
+            loss_lot[id] = nil if shadowed_lots?(data[:shadowed_by], row[7], lots)
             Bot::TaxLots.consume(lots[base], amount_exec)
           else
             # Alpaca reports a ZERO, not a blank, when it has no average fill price yet, so only a
@@ -375,6 +378,22 @@ module Bot::Composition::Measurable
 
   # A row's holding: its asset, or — recorded before orders stored their asset — its symbol string.
   def holding_identity(row) = row[7] || row[6].to_s
+
+  # { asset_id => [keys] }: the holdings recorded without an asset under one of that asset's names (its
+  # symbol, or its spelling on the bot's exchange). Their lots may be that asset's, so a sale of it cannot
+  # be judged on its own holding's lots alone.
+  def unresolved_shadows(keys)
+    unresolved = keys.reject { |identity, _key| identity.is_a?(Integer) }.transform_keys(&:upcase)
+    ids = keys.keys.grep(Integer)
+    return {} if unresolved.empty? || ids.empty?
+
+    Ticker.where(exchange_id:, base_asset_id: ids).includes(:base_asset).each_with_object({}) do |ticker, acc|
+      [ticker.base_spelling, ticker.base_asset&.symbol].compact_blank.each do |name|
+        key = unresolved[name.upcase]
+        acc[ticker.base_asset_id] = (acc[ticker.base_asset_id] || []) | [key] if key
+      end
+    end
+  end
 
   def holding_keys(rows)
     identities = rows.map { |row| holding_identity(row) }.uniq

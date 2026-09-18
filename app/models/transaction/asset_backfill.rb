@@ -8,13 +8,15 @@
 # app code of older migrations must not see these columns. Idempotent: an id already on a row is never
 # overwritten, and a second run finds nothing to do.
 #
-# Rules, per (bot, exchange, base, quote, recorded quote id, transaction type):
+# Rules, per (bot, exchange, base, quote, recorded quote id, transaction type, imported or placed):
 # - quote: the row's own id when set; else the bot's quote asset when the string is its symbol or its spelling
 #   on the row's exchange; else the one asset the venue quotes under that name.
 # - single-asset and signal bots: their one base asset — they trade a single pair, fixed once they have orders.
 # - baskets: the one member (allocations and every membership, exited included) the string names on the
 #   row's exchange, by symbol or venue spelling.
-# - index bots, regular and redeploy rows: the same member rule. Rebalance and liquidation rows picked their
+# - index bots, regular and redeploy rows the bot placed: the same member rule. A row imported from a CSV may
+#   be any asset the venue lists, so it takes the one asset its members and the venue together know by
+#   that name, else stays NULL. Rebalance and liquidation rows picked their
 #   ticker by matching a string against the venue's SPELLINGS across the whole venue and recorded the traded
 #   asset's symbol, so any asset with that symbol whose ticker is spelled like a string the leg could have
 #   routed by (a member's symbol; for a liquidation, also a string the bot held) is a candidate. With no
@@ -37,6 +39,7 @@ module Transaction::AssetBackfill
     resolve_quotes
     resolve_single_pairs
     resolve_members
+    resolve_imported
     resolve_routed
     resolve_by_venue
     apply
@@ -46,6 +49,9 @@ module Transaction::AssetBackfill
   end
 
   # A ticker's venue spelling, upper-cased, without a data-api tombstone prefix (__stale_<id>_).
+  # Whether a row came from a CSV import rather than from an order the bot placed.
+  def imported(column) = "CASE WHEN #{column} LIKE 'imported\\_%' ESCAPE '\\' THEN 1 ELSE 0 END"
+
   def spelling(column)
     "upper(CASE WHEN #{column} LIKE '\\_\\_stale\\_%' ESCAPE '\\' " \
       "THEN substr(substr(#{column}, 9), instr(substr(#{column}, 9), '_') + 1) ELSE #{column} END)"
@@ -77,13 +83,13 @@ module Transaction::AssetBackfill
     execute(<<~SQL)
       CREATE TEMP TABLE backfill_combos AS
       SELECT t.bot_id, t.exchange_id, t.base, t.quote, t.quote_asset_id AS recorded_quote, t.transaction_type,
-             b.type AS bot_type,
+             #{imported('t.external_id')} AS imported, b.type AS bot_type,
              CASE WHEN json_valid(b.settings) THEN json_extract(b.settings, '$.quote_asset_id') END AS bot_quote,
              CASE WHEN json_valid(b.settings) THEN json_extract(b.settings, '$.base_asset_id') END AS bot_base,
              count(*) AS n, NULL AS q, 0 AS h, NULL AS b, NULL AS rule
         FROM transactions t JOIN bots b ON b.id = t.bot_id
        WHERE t.base_asset_id IS NULL OR t.quote_asset_id IS NULL
-       GROUP BY t.bot_id, t.exchange_id, t.base, t.quote, t.quote_asset_id, t.transaction_type
+       GROUP BY t.bot_id, t.exchange_id, t.base, t.quote, t.quote_asset_id, t.transaction_type, imported
     SQL
   end
 
@@ -126,7 +132,22 @@ module Transaction::AssetBackfill
                 OR EXISTS (SELECT 1 FROM tickers t WHERE t.exchange_id = backfill_combos.exchange_id
                               AND t.base_asset_id = u.asset_id AND #{spelling('t.base')} = upper(backfill_combos.base))))
        WHERE bot_type = '#{BASKET}'
-          OR (bot_type = '#{INDEX}' AND transaction_type NOT IN (#{quoted(ROUTED_TYPES)}))
+          OR (bot_type = '#{INDEX}' AND imported = 0 AND transaction_type NOT IN (#{quoted(ROUTED_TYPES)}))
+    SQL
+  end
+
+  # An index bot's imported row: every asset named that way that is a member or listed at the row's quote.
+  def resolve_imported
+    execute(<<~SQL)
+      UPDATE backfill_combos SET rule = 'imported', (h, b) = (
+        SELECT count(DISTINCT a.id), max(a.id) FROM assets a
+         WHERE (upper(a.symbol) = upper(backfill_combos.base)
+                OR a.id IN (SELECT t.base_asset_id FROM tickers t WHERE t.exchange_id = backfill_combos.exchange_id
+                              AND #{spelling('t.base')} = upper(backfill_combos.base)))
+           AND (EXISTS (SELECT 1 FROM tickers t WHERE t.exchange_id = backfill_combos.exchange_id
+                          AND t.quote_asset_id = backfill_combos.q AND t.base_asset_id = a.id)
+                OR EXISTS (SELECT 1 FROM backfill_universe u WHERE u.bot_id = backfill_combos.bot_id AND u.asset_id = a.id)))
+       WHERE bot_type = '#{INDEX}' AND imported = 1 AND transaction_type NOT IN (#{quoted(ROUTED_TYPES)})
     SQL
   end
 
@@ -165,7 +186,7 @@ module Transaction::AssetBackfill
           FROM tickers t JOIN assets a ON a.id = t.base_asset_id
          WHERE t.exchange_id = backfill_combos.exchange_id AND t.quote_asset_id = backfill_combos.q
            AND (#{spelling('t.base')} = upper(backfill_combos.base) OR upper(a.symbol) = upper(backfill_combos.base)))
-       WHERE bot_type = '#{INDEX}' AND h = 0
+       WHERE bot_type = '#{INDEX}' AND h = 0 AND imported = 0
     SQL
   end
 
@@ -179,6 +200,7 @@ module Transaction::AssetBackfill
          AND transactions.base IS c.base AND transactions.quote IS c.quote
          AND transactions.quote_asset_id IS c.recorded_quote
          AND transactions.transaction_type = c.transaction_type
+         AND #{imported('transactions.external_id')} = c.imported
          AND (transactions.base_asset_id IS NULL OR transactions.quote_asset_id IS NULL)
     SQL
   end

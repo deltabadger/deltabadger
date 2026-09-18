@@ -19,14 +19,24 @@ class Ticker < ApplicationRecord
   end
 
   # Every asset a venue lists under this name, by its spelling or by the asset's symbol.
-  def self.asset_ids_named(exchange_id, name)
-    return [] if name.blank?
+  def self.asset_ids_named(exchange_id, name) = asset_ids_by_name(exchange_id, [name]).fetch(name.to_s.upcase, [])
 
-    spelled = where(exchange_id:).where('tickers.base LIKE ?', "%#{sanitize_sql_like(name)}")
-                                 .select { |ticker| ticker.base_spelling.casecmp?(name) }.map(&:base_asset_id)
-    symbolled = where(exchange_id:, base_asset_id: Asset.where('upper(symbol) = ?', name.upcase).select(:id))
-                .pluck(:base_asset_id)
-    (spelled + symbolled).uniq
+  # { NAME => [asset ids] } for every name at once (upper-cased): two queries whatever the number of names.
+  def self.asset_ids_by_name(exchange_id, names)
+    wanted = names.compact_blank.map(&:upcase).uniq
+    return {} if wanted.empty?
+
+    found = {}
+    add = ->(name, asset_id) { (found[name] ||= []) << asset_id unless found[name]&.include?(asset_id) }
+    tombstoned = "#{sanitize_sql_like(MarketData::TICKER_TOMBSTONE_PREFIX)}%"
+    where(exchange_id:).where("upper(tickers.base) IN (?) OR tickers.base LIKE ? ESCAPE '\\'", wanted, tombstoned)
+                       .pluck(:base, :base_asset_id).each do |base, asset_id|
+      spelling = new(base:).base_spelling.upcase
+      add.call(spelling, asset_id) if wanted.include?(spelling)
+    end
+    where(exchange_id:).joins(:base_asset).where('upper(assets.symbol) IN (?)', wanted)
+                       .pluck(Arel.sql('upper(assets.symbol)'), :base_asset_id).each { |name, asset_id| add.call(name, asset_id) }
+    found
   end
 
   # Whether the pair currently has a live, non-zero market price for the given

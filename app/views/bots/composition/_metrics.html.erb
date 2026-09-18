@@ -4,7 +4,8 @@
 <% asset_values = metrics[:asset_values] || {} %>
 <% locked = bot.locked_members %>
 <% key_assets = metrics[:key_assets] || {} %>
-<% locked_symbols = locked.map { |member| key_assets.key(member[:asset_id]) || member[:symbol] } %>
+<%# The holdings of the locked assets, by asset: an unheld locked asset hides no row. %>
+<% locked_symbols = locked.filter_map { |member| key_assets.key(member[:asset_id]) } %>
 <% realised = metrics[:realised_pnl].to_d %>
 <% hide_money = hide_balances?(bot) %>
 <% quote = bot.quote_asset&.symbol %>

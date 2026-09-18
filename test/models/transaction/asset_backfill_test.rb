@@ -109,6 +109,19 @@ class Transaction::AssetBackfillTest < ActiveSupport::TestCase
     assert_nil liquidation.reload.base_asset_id
   end
 
+  test "an index bot's imported row stays NULL when the venue has two assets by its name" do
+    fan, portuma, mexc = por_assets
+    bot = index_bot(mexc, Ticker.find_by!(exchange: mexc, base_asset: fan))
+    placed = row(bot, 'POR')
+    imported = row(bot, 'POR', external_id: "imported_#{bot.id}_x")
+
+    backfill
+
+    assert_equal fan.id, placed.reload.base_asset_id, 'placed by the bot on its member ticker'
+    assert_nil imported.reload.base_asset_id
+    assert portuma
+  end
+
   test 'a tombstoned venue spelling is compared without its prefix' do
     btc = create(:asset, :bitcoin)
     eth = create(:asset, :ethereum)
@@ -184,9 +197,9 @@ class Transaction::AssetBackfillTest < ActiveSupport::TestCase
 
   def backfill = Transaction::AssetBackfill.run!(ActiveRecord::Base.connection)
 
-  def row(bot, base, quote: 'USD', transaction_type: 'REGULAR', **ids)
+  def row(bot, base, quote: 'USD', transaction_type: 'REGULAR', external_id: "r-#{SecureRandom.hex(4)}", **ids)
     create(:transaction, bot:, exchange: bot.exchange, status: :submitted, external_status: :closed, side: :buy,
-                         transaction_type:, external_id: "r-#{SecureRandom.hex(4)}", base:, quote:, price: 1, amount: 1,
+                         transaction_type:, external_id:, base:, quote:, price: 1, amount: 1,
                          amount_exec: 1, quote_amount: 1, quote_amount_exec: 1, resolve_asset_ids: false,
                          base_asset_id: nil, quote_asset_id: nil, **ids)
   end

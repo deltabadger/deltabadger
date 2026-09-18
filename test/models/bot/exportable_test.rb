@@ -385,6 +385,13 @@ class Bot::ExportableTest < ActiveSupport::TestCase
     assert_equal [@bot.base_asset_id, @bot.quote_asset_id], [txn.base_asset_id, txn.quote_asset_id]
   end
 
+  test "a single-asset bot's import skips a row of another asset" do
+    result = @bot.import_orders_csv(generate_csv([row('o-1', 'NOTTHEASSET', @bot.quote_asset.symbol)]))
+
+    assert_equal 0, @bot.transactions.count
+    assert_equal false, result[:success]
+  end
+
   test 'an imported order records the basket member it names, by symbol or by the venue spelling' do
     usd = @bot.quote_asset
     btc = @bot.base_asset
@@ -415,6 +422,24 @@ class Bot::ExportableTest < ActiveSupport::TestCase
     assert_equal 1, result[:imported_count]
     assert_equal 1, result[:skipped_ambiguous]
     assert_equal portuma.id, basket.transactions.sole.base_asset_id, 'the venue spelling names one member'
+  end
+
+  test "an index bot's imported order is left without an asset when the venue has two by that name" do
+    usd = @bot.quote_asset
+    fan = create(:asset, symbol: 'POR', name: 'Portugal Fan Token', external_id: 'por-fan')
+    portuma = create(:asset, symbol: 'POR', name: 'Portuma', external_id: 'portuma')
+    mexc = create(:mexc_exchange)
+    fan_ticker = create(:ticker, exchange: mexc, base_asset: fan, quote_asset: usd)
+    create(:ticker, exchange: mexc, base_asset: portuma, quote_asset: usd, base_symbol: 'PORTUMA')
+    index = create(:dca_index, exchange: mexc, quote_asset: usd)
+    BotIndexAsset.create!(bot: index, asset: fan, ticker: fan_ticker, target_allocation: 1.0, in_index: true,
+                          entered_at: Time.current)
+
+    index.import_orders_csv(generate_csv([row('p-1', 'POR', 'USD'), row('p-2', 'PORTUMA', 'USD')]))
+
+    assert_equal({ "imported_#{index.id}_p-1" => nil, "imported_#{index.id}_p-2" => portuma.id },
+                 index.transactions.pluck(:external_id, :base_asset_id).to_h,
+                 'a CSV row may be any asset the venue lists; being a member is no proof')
   end
 
   test "an index bot's imported order records its member, else the one asset the venue knows by that name" do

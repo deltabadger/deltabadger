@@ -101,13 +101,17 @@ module Bot::WashSaleGuard
   # resting sell of the cheap lot, the next unit sold is the dear one.
   #
   # The lots are the holding's of this asset — one chronological list whatever symbol each purchase was
-  # recorded under. A resting sell recorded before orders stored their asset counts by its name.
+  # recorded under. A resting sell recorded before orders stored their asset counts by its name, and lots
+  # recorded that way under one of the asset's names make the verdict unknown — a loss, here.
   def sell_at_loss?(order_data)
     return false if wash_sale_days.zero?
 
     ticker = order_data[:ticker]
     payload = metrics
-    lots = ((payload[:asset_lots] || {})[key_for(ticker.base_asset_id, payload)] || []).map(&:dup)
+    all_lots = payload[:asset_lots] || {}
+    return true if unresolved_lots_named?(ticker, payload, all_lots)
+
+    lots = (all_lots[key_for(ticker.base_asset_id, payload)] || []).map(&:dup)
     resting_sells = transactions.waiting.sell
     resting = resting_sells.where(base_asset_id: ticker.base_asset_id)
                            .or(resting_sells.where(base_asset_id: nil, base: [ticker.base_spelling, ticker.base_asset&.symbol].compact))
@@ -155,6 +159,22 @@ module Bot::WashSaleGuard
     # The order's own asset. Only a row recorded before orders stored theirs is looked up by its name.
     asset_id = order.base_asset_id || tickers.find { |t| t.base == order.base }&.base_asset_id
     log_wash_sale_lock(asset_id) if extend_buy_lock!(asset_id:, from: Time.zone.today)
+  end
+
+  # Whether a holding recorded without an asset under one of this ticker's names — the venue's spelling or
+  # the asset's symbol — still holds units. Matched on the ticker itself, so it holds whether or not the bot
+  # has any row recorded with the asset.
+  def unresolved_lots_named?(ticker, payload, lots)
+    names = [ticker.base_spelling, ticker.base_asset&.symbol].compact_blank.map(&:upcase)
+    (payload[:key_assets] || {}).any? do |key, asset_id|
+      asset_id.nil? && Array((payload[:key_strings] || {})[key]).any? { |string| names.include?(string.upcase) } &&
+        lots.fetch(key, []).sum { |lot| lot[:amount].to_d }.positive?
+    end
+  end
+
+  # Whether holdings recorded without an asset, under one of this asset's names, still hold units.
+  def shadowed_lots?(shadowed_by, asset_id, lots)
+    Array((shadowed_by || {})[asset_id]).any? { |key| lots.fetch(key, []).sum { |lot| lot[:amount].to_d }.positive? }
   end
 
   # The row a lock lives on: one per taxpayer and asset, created on demand.
