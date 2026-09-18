@@ -126,6 +126,7 @@ bg:
             of_the_balance: "от баланса"
             never_triggered: "никога не е задействан"
             last_triggered: "последно задействан преди %{time}"
+            api_hint: "Този бот приема поръчки и през API и MCP: извикайте market_buy или market_sell с bot_id %{id}."
         buy: Покупка
         counter: '%{countdown}'
         day: Ден

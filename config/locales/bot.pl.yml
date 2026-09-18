@@ -126,6 +126,7 @@ pl:
             of_the_balance: "salda"
             never_triggered: "nigdy nie wywołano"
             last_triggered: "ostatnio wywołano %{time} temu"
+            api_hint: "Ten bot przyjmuje też zlecenia z API i MCP: wywołaj market_buy lub market_sell z bot_id %{id}."
         buy: Kup
         counter: '%{countdown}'
         day: dzień

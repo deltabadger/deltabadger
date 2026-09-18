@@ -126,6 +126,7 @@ nl:
             of_the_balance: "van het saldo"
             never_triggered: "nog nooit geactiveerd"
             last_triggered: "laatst geactiveerd %{time} geleden"
+            api_hint: "Deze bot neemt ook orders aan via de API en MCP: roep market_buy of market_sell aan met bot_id %{id}."
         buy: Kopen
         counter: '%{countdown}'
         day: Dag

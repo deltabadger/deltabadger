@@ -126,6 +126,7 @@ ru:
             of_the_balance: "от баланса"
             never_triggered: "ещё не срабатывал"
             last_triggered: "последнее срабатывание %{time} назад"
+            api_hint: "Этот бот также принимает ордера через API и MCP: вызовите market_buy или market_sell с bot_id %{id}."
         buy: Купить
         counter: ''
         day: День

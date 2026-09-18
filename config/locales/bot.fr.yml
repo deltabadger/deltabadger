@@ -126,6 +126,7 @@ fr:
             of_the_balance: "du solde"
             never_triggered: "jamais déclenché"
             last_triggered: "dernier déclenchement il y a %{time}"
+            api_hint: "Ce bot accepte aussi les ordres via l'API et MCP : appelez market_buy ou market_sell avec bot_id %{id}."
         buy: 'Acheter'
         counter: '%{countdown}'
         day: 'Jour'

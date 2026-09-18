@@ -126,6 +126,7 @@ sk:
             of_the_balance: "zo zostatku"
             never_triggered: "zatiaľ nespustený"
             last_triggered: "naposledy spustený pred %{time}"
+            api_hint: "Tento bot prijíma príkazy aj cez API a MCP: zavolajte market_buy alebo market_sell s bot_id %{id}."
         buy: Nákup
         counter: '%{countdown}'
         day: Deň

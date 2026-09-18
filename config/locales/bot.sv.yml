@@ -126,6 +126,7 @@ sv:
             of_the_balance: "av saldot"
             never_triggered: "aldrig utlöst"
             last_triggered: "senast utlöst för %{time} sedan"
+            api_hint: "Den här boten tar också emot order via API och MCP: anropa market_buy eller market_sell med bot_id %{id}."
         buy: Köp
         counter: '%{countdown}'
         day: Dag

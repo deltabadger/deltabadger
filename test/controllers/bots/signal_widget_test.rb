@@ -31,4 +31,27 @@ class Bots::SignalWidgetTest < ActionDispatch::IntegrationTest
     assert_no_match I18n.t('bot.signal.never_triggered'), response.body
     assert_match(/3 minutes/, response.body)
   end
+
+  # The only place in the app that says a signal bot can be driven from the API, and with which id.
+  test 'says the bot takes orders from the API, with its id' do
+    get bot_path(id: @bot.id)
+
+    assert_match I18n.t('bot.signal.api_hint', id: @bot.id), response.body
+  end
+
+  test 'a bot with no rules still renders, with the hint' do
+    @signal.destroy!
+
+    get bot_path(id: @bot.id)
+
+    assert_response :ok
+    assert_match I18n.t('bot.signal.api_hint', id: @bot.id), response.body
+  end
+
+  # fallback: false, or the English string satisfies every locale.
+  test 'the hint exists natively in every locale' do
+    I18n.available_locales.each do |locale|
+      assert I18n.exists?('bot.signal.api_hint', locale, fallback: false), "#{locale}: bot.signal.api_hint is missing"
+    end
+  end
 end
