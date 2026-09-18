@@ -522,8 +522,10 @@ module Bot::Composition::Measurable
 
     # One member the candles do not cover would otherwise blank the interpolation for every member.
     labels = metrics_data[:chart][:labels]
+    splits = split_events(split_holdings(metrics_data)).group_by { |_at, key, _factor| key }
+                                                       .transform_values { |events| events.map(&:first) }
     chart_split_pinned_grids(
-      chart_backfilled_grids(grids, symbols: symbols, from: labels.first, to: labels.last), metrics_data
+      chart_backfilled_grids(grids, symbols: symbols, from: labels.first, to: labels.last, splits:), metrics_data
     )
   end
 

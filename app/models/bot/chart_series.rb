@@ -113,9 +113,11 @@ module Bot::ChartSeries
   # So what the candles do not span is backfilled from the bot's OWN fills. Those are real observed
   # prices, the same ones the chart falls back to when there are no candles at all, and they exist
   # for exactly the period the asset was held. Only OUTSIDE the candles' span: inside it the venue's
-  # reading stands, and a fill between two candles would otherwise replace it at that moment. A grid
-  # that already spans the window is left untouched, so a healthy chart is unchanged.
-  def chart_backfilled_grids(grids, symbols:, from:, to:)
+  # reading stands, and a fill between two candles would otherwise replace it at that moment. And only
+  # on the candles' side of any split (`splits`: { symbol => [times] }): a fill on the other basis would
+  # give the split a side to pin the candles to, where the walk's restated valuation is the reading. A
+  # grid that already spans the window is left untouched, so a healthy chart is unchanged.
+  def chart_backfilled_grids(grids, symbols:, from:, to:, splits: {})
     fills = nil
     symbols.each do |symbol|
       marks = grids[symbol]
@@ -125,7 +127,16 @@ module Bot::ChartSeries
       extra = fills[symbol]
       next if extra.blank?
 
-      extra = extra.reject { |time, _price| time.between?(marks.first[0], marks.last[0]) } if marks.present?
+      if marks.present?
+        first = marks.first[0]
+        last = marks.last[0]
+        cuts = splits.fetch(symbol, [])
+        floor = cuts.select { |at| at <= first }.max
+        ceiling = cuts.select { |at| at > last }.min
+        extra = extra.reject do |time, _price|
+          time.between?(first, last) || (floor && time < floor) || (ceiling && time >= ceiling)
+        end
+      end
       grids[symbol] = (Array(marks) + extra).sort_by(&:first)
     end
     grids
