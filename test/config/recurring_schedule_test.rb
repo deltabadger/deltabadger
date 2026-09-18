@@ -2,15 +2,17 @@ require 'test_helper'
 require 'fugit'
 
 # Guards the cross-repo ordering that bit us once: hosted containers pull the deltabadger-sourced
-# Nasdaq index in `sync_indices_from_coingecko_job`. data-api refreshes that index at 07:30 UTC and
-# the container syncs the underlying stock assets at 10:00 UTC, so the index pull MUST run after both
-# — otherwise a container serves a stale index for a full day (the "ND20" vs "ND100" lag).
+# Nasdaq index in `sync_indices_from_coingecko_job`. data-api publishes that index when its 10:00 UTC
+# fundamentals run has captured the members' caps (a few minutes in), and the container syncs the
+# underlying stock assets at 10:00 UTC, so the index pull MUST run after both — otherwise a container
+# serves a stale index for a full day (the "ND20" vs "ND100" lag).
 # This stops the schedule from silently regressing to the old 00:50 slot.
 class RecurringScheduleTest < ActiveSupport::TestCase
   SCHEDULE = YAML.load_file(Rails.root.join('config/recurring.yml')).freeze
 
-  # data-api's sync_nasdaq_index runs at 07:30 UTC; the index pull must start strictly after it.
-  DATA_API_ND100_REFRESH = (7 * 60) + 30 # minutes since midnight UTC
+  # data-api's sync_fundamentals starts at 10:00 UTC and publishes the ND100 index once the members'
+  # caps are in; the index pull must start strictly after it.
+  DATA_API_ND100_REFRESH = 10 * 60 # minutes since midnight UTC
 
   %w[production development].each do |env|
     test "#{env}: deltabadger index sync runs after the stock-asset sync and data-api's ND100 refresh" do

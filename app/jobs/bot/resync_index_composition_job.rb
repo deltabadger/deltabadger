@@ -1,14 +1,16 @@
-# Re-derives the index composition after the user has changed what the index IS — the coins slider,
-# most of all. Out of the request because deriving it reads live prices (Ticker#priced?), which this
-# codebase keeps out of the request path, and because a price read raises on a network blip: inline,
-# that would 500 a settings change that had already been saved.
+# Re-derives the index composition when what the index holds may have changed: after the user has
+# changed what the index IS (the coins slider, most of all), when the bot starts, and after each day's
+# index pull (Index::SyncFromCoingeckoJob). Out of the request because deriving it reads live prices
+# (Ticker#priced?), which this codebase keeps out of the request path, and because a price read raises
+# on a network blip: inline, that would 500 a settings change that had already been saved.
 class Bot::ResyncIndexCompositionJob < ApplicationJob
   queue_as :default
 
   # Deliberately NOT a BotJob: that base class serialises on `exchange_<name_id>`, one job at a time
   # per venue, so the tables would queue behind whatever trading the venue is doing — the wait this
   # is meant to remove. It needs no trading lock either: it writes only bot_index_assets, and the
-  # rebalancer and the liquidation each re-derive the composition themselves before they act. Its
+  # rebalancer and the liquidation each re-derive the composition themselves before they act, and a
+  # buy re-deriving beside it cannot collide with it on a new member (Allocatable#save_member). Its
   # exchange traffic is one whole-market price read behind the per-exchange one-minute cache.
   #
   # Serialised per bot. Two refreshes in flight can each be working from a different reading of

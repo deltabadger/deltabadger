@@ -2,12 +2,18 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
   queue_as :low_priority
   limits_concurrency to: 1, key: 'sync_indices_from_coingecko', on_conflict: :discard, duration: 1.hour
 
+  # A failed pull leaves every index bot on yesterday's index until tomorrow's run, so it is tried again.
+  class PullFailed < StandardError; end
+  retry_on PullFailed, wait: 15.minutes, attempts: 4
+
   def perform
     return unless MarketData.configured?
 
     if MarketDataSettings.deltabadger?
       result = MarketData.sync_indices_from_deltabadger!
-      Rails.logger.warn "[MarketData] Failed to sync indices: #{result.errors.to_sentence}" if result.failure?
+      raise PullFailed, result.errors.to_sentence if result.failure?
+
+      recheck_index_bots
       return
     end
 
@@ -83,9 +89,19 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
     Index.coingecko.where.not(id: synced_ids).delete_all
 
     Rails.logger.info "[Index Sync] Synced #{synced_ids.size} indices from CoinGecko"
+    recheck_index_bots
   end
 
   private
+
+  # The pull is what changes an index bot's members, so every bot that can still act re-checks them now,
+  # not at its next buy, rebalance or sale. Until then it would offer to sell, as having left the
+  # index, names that are back in it.
+  def recheck_index_bots
+    Bots::DcaIndex.where.not(status: %i[deleted archived]).where.not(exchange_id: nil).find_each do |bot|
+      Bot::ResyncIndexCompositionJob.perform_later(bot)
+    end
+  end
 
   # Remove bracketed text from names, e.g. "Layer 1 (L1)" → "Layer 1"
   # Also handles brackets in the middle: "YZi Labs (Prev. Binance Labs) Portfolio" → "YZi Labs Portfolio"

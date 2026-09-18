@@ -118,8 +118,15 @@ module Bot::Composition::Allocatable
       )
     end
 
-    # Upsert current allocations
-    allocations.each do |alloc|
+    allocations.each { |alloc| save_member(alloc) }
+  end
+
+  # A buy re-derives the composition itself, so it can run beside a re-check of the same bot, and
+  # both may add the same new member. The unique (bot_id, asset_id) index refuses the second insert;
+  # the row the other one made is updated instead.
+  def save_member(alloc)
+    retried = false
+    begin
       bia = bot_index_assets.find_or_initialize_by(asset_id: alloc[:asset_id])
       bia.ticker_id = alloc[:ticker_id]
       bia.target_allocation = alloc[:weight]
@@ -127,6 +134,11 @@ module Bot::Composition::Allocatable
       bia.entered_at ||= Time.current
       bia.exited_at = nil
       bia.save!
+    rescue ActiveRecord::RecordNotUnique
+      raise if retried
+
+      retried = true
+      retry
     end
   end
 end
