@@ -118,20 +118,4 @@ class Bots::DcaSingleAsset < Bot
       locals: locals_for_below_minimums_warning(first_transaction)
     )
   end
-
-  private
-
-  def locals_for_below_minimums_warning(first_transaction)
-    ticker = first_transaction.exchange.tickers.find_by(
-      base_asset_id: first_transaction.base_asset.id,
-      quote_asset_id: first_transaction.quote_asset.id
-    )
-    {
-      quote_symbol: first_transaction.quote_asset.symbol,
-      missed_symbol: first_transaction.base_asset.symbol,
-      missed_minimum_base_size: ticker.minimum_base_size,
-      missed_minimum_quote_size: ticker.minimum_quote_size,
-      exchange_name: first_transaction.exchange.name
-    }
-  end
 end
