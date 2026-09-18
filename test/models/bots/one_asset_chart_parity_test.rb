@@ -59,6 +59,16 @@ class Bots::OneAssetChartParityTest < ActiveSupport::TestCase
     assert_same_chart
   end
 
+  test 'with a split between the purchases and candles that start after it' do
+    create(:account_transaction, user: @pair.user, api_key: ApiKey.find_by!(user: @pair.user, exchange: @pair.exchange),
+                                 exchange: @pair.exchange, entry_type: :adjustment, base_currency: 'BTC', base_amount: 2,
+                                 quote_currency: nil, quote_amount: nil, transacted_at: T0 + 3.days + 12.hours,
+                                 raw_data: { 'corporate_action' => 'split', 'split_ratio' => '2:1' })
+    candles(from: T0 + 4.days, price: 60)
+
+    assert_same_chart
+  end
+
   test 'with the live price unavailable' do
     candles(from: T0 + 2.days, price: 200)
     Exchanges::Binance.any_instance.stubs(:get_tickers_prices).returns(Result::Failure.new('down'))
