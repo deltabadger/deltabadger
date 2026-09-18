@@ -132,4 +132,100 @@ class Bot::BaseAmountLimitableTest < ActiveSupport::TestCase
 
     assert_not bot.quote_amount_limit_reached?, 'the quote cap is a buy-side concept; sells must not count'
   end
+
+  # == one-asset basket: the pair bot's cap, on the basket that replaces it ==
+
+  { 'for N quote' => { sell_quote_amount: 100 }, 'N base' => { sell_denomination: 'base', sell_amount: 1 } }.each do |label, sentence|
+    test "a one-asset basket never sells past its base cap, selling #{label}" do
+      bot, base = one_asset_basket
+      bot.exchange.expects(:market_sell).once.returns(Result::Success.new(order_id: 's-2'))
+      bot.set_missed_quote_amount
+      bot.update!(direction: 'selling', base_amount_limited: true, base_amount_limit: 0.3, **sentence)
+      sold(bot, base, 0.25)
+
+      bot.execute_action # wants 1.0 BTC either way; 0.05 is left under the cap
+
+      order = bot.transactions.find_by!(external_id: 's-2')
+      assert_predicate order, :submitted?
+      assert_in_delta 0.05, order.amount.to_f, 1e-9
+    end
+  end
+
+  test 'a one-asset basket stops once the base cap is reached' do
+    bot, base = one_asset_basket
+    bot.set_missed_quote_amount
+    bot.update!(direction: 'selling', base_amount_limited: true, base_amount_limit: 0.3)
+    sold(bot, base, 0.3)
+
+    Bot::StopJob.expects(:perform_later).once
+
+    bot.handle_base_amount_limit_update
+  end
+
+  test 'a one-asset basket whose base cap is reached cannot be started' do
+    bot, base = one_asset_basket
+    bot.set_missed_quote_amount
+    bot.update!(direction: 'selling', base_amount_limited: true, base_amount_limit: 0.3)
+    sold(bot, base, 0.3)
+
+    bot.valid?(:start)
+    assert(bot.errors.details[:settings].any? { |detail| detail[:error] == :base_amount_limit_reached })
+  end
+
+  test 'a cap switched on at two assets still counts after a reduction to one' do
+    # The cap is inert at two assets, but the moment it was switched on is recorded all the same — else
+    # a reduction to one would find a cap with nothing ever counted against it.
+    bot = create(:dca_multi_asset)
+    bot.set_missed_quote_amount
+    bot.update!(direction: 'selling', base_amount_limited: true, base_amount_limit: 0.3)
+    assert_not_nil bot.reload.base_amount_limit_enabled_at
+
+    bot.set_missed_quote_amount
+    bot.update!(allocations: bot.allocations.first(1).to_h)
+    sold(bot, bot.base_assets.first, 0.3)
+    assert_predicate bot.reload, :base_amount_limit_reached?
+  end
+
+  test 'a basket with two assets ignores a stored base cap' do
+    bot = create(:dca_multi_asset)
+    bot.set_missed_quote_amount
+    bot.update!(direction: 'selling', base_amount_limited: true, base_amount_limit: 0.3)
+
+    assert_not_predicate bot, :base_amount_limited?
+    assert_equal Float::INFINITY, bot.base_amount_available_before_limit_reached
+  end
+
+  test 'liquidation and rebalance sells do not use up the base cap' do
+    bot, base = one_asset_basket
+    bot.set_missed_quote_amount
+    bot.update!(direction: 'selling', base_amount_limited: true, base_amount_limit: 1)
+    sold(bot, base, 0.2, transaction_type: 'LIQUIDATION')
+    sold(bot, base, 0.3, transaction_type: 'REBALANCE')
+    sold(bot, base, 0.1)
+
+    assert_in_delta 0.9, bot.base_amount_available_before_limit_reached.to_f, 1e-9
+  end
+
+  private
+
+  def one_asset_basket
+    base = create(:asset, :bitcoin)
+    bot = create(:dca_multi_asset, user: create(:user), base_assets: [base])
+    ticker = bot.composition_tickers.sole
+    ticker.update!(minimum_quote_size: 0.5, minimum_base_size: 0.00001) # 0.05 BTC at 100 must place
+    bot.instance_variable_set(:@tickers, [ticker])
+    bot.stubs(:composition_tickers).returns([ticker])
+    bot.stubs(:refresh_composition).returns(Result::Success.new)
+    setup_bot_execution_mocks(bot, price: 100)
+    Bot::FetchAndUpdateOrderJob.stubs(:perform_later)
+    stub_exchange_balances(bot.exchange, bot.quote_asset_id => { free: 0, locked: 0 }, base.id => { free: 10, locked: 0 })
+    [bot, base]
+  end
+
+  def sold(bot, base, amount, transaction_type: 'REGULAR')
+    create(:transaction, bot:, exchange: bot.exchange, status: :submitted, external_status: :closed, side: :sell,
+                         transaction_type:, external_id: "s-#{SecureRandom.hex(3)}", base: base.symbol,
+                         quote: bot.quote_asset.symbol, price: 100, amount:, amount_exec: amount,
+                         quote_amount: amount * 100, quote_amount_exec: amount * 100)
+  end
 end

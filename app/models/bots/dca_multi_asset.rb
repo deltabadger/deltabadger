@@ -36,6 +36,7 @@ class Bots::DcaMultiAsset < Bot
   include SmartIntervalable
   include LimitOrderable
   include QuoteAmountLimitable
+  include BaseAmountLimitable # "don't sell more than N base": one-asset baskets only (base_amount_limited?)
   include PriceLimitable
   include PriceDropLimitable
   include MovingAverageLimitable
@@ -230,6 +231,10 @@ class Bots::DcaMultiAsset < Bot
 
     flip_direction!(to_direction: buying? ? 'selling' : 'buying')
   end
+
+  # "Don't sell more than N base" needs one base, so it applies to a one-asset basket only. Stored either
+  # way, and in force again whenever the basket is back to one asset.
+  def base_amount_limited? = one_asset? && super
 
   # The asset of a one-asset basket, which the pair bot's shared partials and Smart Intervals read. nil
   # for a wider basket, which every duck-typed caller already treats as "no single base".

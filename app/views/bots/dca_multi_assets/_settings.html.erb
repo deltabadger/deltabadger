@@ -21,8 +21,9 @@
   <%= render partial: "bots/settings/price_drop_limit", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/moving_average_limit", locals: { bot: bot, method: method, path: path } %>
   <%= render partial: "bots/settings/indicator_limit", locals: { bot: bot, method: method, path: path } %>
-  <%# The cap bounds buying. The pair bot's sell-side cap counts base, which a basket has no single one of. %>
-  <% unless bot.selling? %>
+  <%# While buying, the cap bounds spending. While selling it counts base, which only a one-asset
+      basket has a single one of. %>
+  <% unless bot.selling? && !bot.one_asset? %>
     <%= render partial: "bots/settings/amount_limit", locals: { bot: bot, method: method, path: path } %>
   <% end %>
   <%# Threshold rebalancing stands down while selling (Bot::Rebalanceable#rebalance_due?), and one asset

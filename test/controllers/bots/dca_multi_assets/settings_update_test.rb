@@ -175,6 +175,22 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
     assert_equal 'week', @bot.sell_interval
   end
 
+  test 'a one-asset basket selling N base saves its amount, its base cap and its Smart Intervals split' do
+    @bot.set_missed_quote_amount
+    @bot.update!(allocations: { @first.id.to_s => 1.0 }, direction: 'selling', sell_denomination: 'base')
+
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: {
+      sell_amount: '0.5', base_amount_limited: '1', base_amount_limit: '2', smart_intervaled: '1',
+      smart_interval_base_amount: '0.1'
+    } }, as: :turbo_stream
+
+    assert_response :success
+    @bot.reload
+    assert_equal [0.5, true, 2.0, 0.1],
+                 [@bot.sell_amount.to_f, @bot.base_amount_limited?, @bot.base_amount_limit.to_f,
+                  @bot.smart_interval_base_amount.to_f]
+  end
+
   test 'a selling basket renders its sell sentence and none of the controls that belong to buying' do
     start_selling
 

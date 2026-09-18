@@ -1,7 +1,9 @@
-# The sell-side mirror of Bot::QuoteAmountLimitable: "Don't sell more than N <base>". Only
-# DcaSingleAsset (reversible) includes it, and every path is gated to selling? so it stays inert
-# while the bot is buying. Accounting is denominated in BASE and counts open sells too, so lagging
-# confirmations can never oversell past the cap.
+# The sell-side mirror of Bot::QuoteAmountLimitable: "Don't sell more than N <base>". The pair bot
+# and the one-asset basket use it (a wider basket has no single base, see
+# Bots::DcaMultiAsset#base_amount_limited?), and every path is gated to selling? so it stays inert
+# while the bot is buying. Accounting is denominated in BASE, counts scheduled (REGULAR) sells only —
+# a liquidation or a rebalance swap is not the schedule's selling — and counts open sells too, so
+# lagging confirmations can never oversell past the cap.
 module Bot::BaseAmountLimitable
   extend ActiveSupport::Concern
 
@@ -58,12 +60,12 @@ module Bot::BaseAmountLimitable
 
     # Closed rows fall back to the requested `amount` when amount_exec was never backfilled — matching
     # Bot#total_amount and the metrics, so a nil-exec close can't silently regain cap allowance.
-    closed_base = transactions.submitted.sell
+    closed_base = transactions.submitted.sell.regular
                               .where('created_at >= ?', base_amount_limit_enabled_at)
                               .closed
                               .pluck(Arel.sql('COALESCE(amount_exec, amount)')).compact.sum
 
-    open_base = transactions.submitted.sell
+    open_base = transactions.submitted.sell.regular
                             .where('created_at >= ?', base_amount_limit_enabled_at)
                             .waiting
                             .pluck(:amount).compact.sum
@@ -99,7 +101,9 @@ module Bot::BaseAmountLimitable
   def set_base_amount_limit_enabled_at
     return if base_amount_limited_was == base_amount_limited
 
-    self.base_amount_limit_enabled_at = base_amount_limited? ? Time.current : nil
+    # The stored switch, not base_amount_limited?, which a type may gate (a basket with more than one
+    # asset reads false): the cap must count from when it was switched on, whenever it comes into force.
+    self.base_amount_limit_enabled_at = base_amount_limited == true ? Time.current : nil
   end
 
   def validate_base_amount_limit_not_reached
