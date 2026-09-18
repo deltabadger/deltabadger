@@ -188,6 +188,21 @@ class Bots::DcaMultiAssetSellingTest < ActiveSupport::TestCase
     assert_includes @bot.user.locked_asset_ids, @base0.id
   end
 
+  test 'a sale is judged against the lots its own resting sells will not already have taken' do
+    # FIFO: the resting sell takes the 50 lot when it fills, so the next unit sold is the 150 one — a
+    # loss at 100, though the executed lots alone would call it a gain against the 50.
+    wash_sale_rule_on
+    filled_buy(@base0, amount: 1, cost: 50)
+    filled_buy(@base0, amount: 1, cost: 150)
+    resting_sell(@base0, amount: 1)
+
+    assert @bot.sell_at_loss?(ticker: @ticker0, amount: 1.to_d, quote_amount: 100.to_d)
+  end
+
+  test 'a selling basket refuses to redeploy: buying the proceeds back is the opposite of selling' do
+    assert_equal :selling, @bot.send(:redeploy_blocked_reason)
+  end
+
   test 'a limit sell is priced above the last trade by the limit distance, and sized at that price' do
     hold(base0: 700, base1: 300)
     @bot.stubs(:limit_ordered?).returns(true)
@@ -275,6 +290,13 @@ class Bots::DcaMultiAssetSellingTest < ActiveSupport::TestCase
   def placed = @bot.transactions.where.not(external_id: 'resting')
 
   def placed_by_this_bot = @bot.transactions.sell
+
+  def filled_buy(asset, amount:, cost:)
+    create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted, external_status: :closed,
+                         external_id: "b-#{SecureRandom.hex(3)}", side: :buy, transaction_type: 'REGULAR',
+                         base: asset.symbol, quote: @bot.quote_asset.symbol, price: cost.to_d / amount,
+                         amount:, amount_exec: amount, quote_amount: cost, quote_amount_exec: cost)
+  end
 
   def weigh(base0:, base1:)
     @bot.bot_index_assets.find_by(asset_id: @base0.id).update_columns(target_allocation: base0)

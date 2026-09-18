@@ -24,5 +24,10 @@
   <% unless bot.selling? %>
     <%= render partial: "bots/settings/amount_limit", locals: { bot: bot, method: method, path: path } %>
   <% end %>
-  <%= render partial: "bots/settings/rebalance", locals: { bot: bot, method: method, path: path } %>
+  <%# Threshold rebalancing stands down while selling (Bot::Rebalanceable#rebalance_due?), so it is not
+      offered then — the setting is kept and comes back with buying. A swap already under way still
+      finishes, so its widget stays while it does. %>
+  <% if !bot.selling? || bot.rebalance_pending? %>
+    <%= render partial: "bots/settings/rebalance", locals: { bot: bot, method: method, path: path } %>
+  <% end %>
 </div>

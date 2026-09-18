@@ -59,6 +59,8 @@ class Bots::ReverseControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_predicate bot.reload, :sells_quote_amount?
     assert_match 'bots_dca_multi_asset[sell_quote_amount]', response.body
+    # The metrics panel carries the Redeploy prompt, which a selling basket must not offer.
+    assert_match(/<turbo-stream action="replace" target="metrics"/, response.body)
 
     post reverse_bot_path(id: bot.id), headers: { 'Accept' => TURBO_STREAM_ACCEPT }
 

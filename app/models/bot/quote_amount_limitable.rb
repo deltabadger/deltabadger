@@ -86,6 +86,10 @@ module Bot::QuoteAmountLimitable
 
   def handle_quote_amount_limit_update
     return unless quote_amount_limited?
+    # A buy can still fill after a flip into selling (a swap's buy leg, a DCA buy whose cancel failed).
+    # The buy cap neither stops a selling bot nor has a widget on screen: while selling the cap partial
+    # shows the SELL side's cap, which has its own handler.
+    return if selling?
 
     broadcast_quote_amount_limit_update
     return unless quote_amount_limit_reached?

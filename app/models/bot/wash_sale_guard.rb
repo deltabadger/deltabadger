@@ -100,10 +100,18 @@ module Bot::WashSaleGuard
   # learned) is treated as a loss here as on the fill path: the provisional lock is the only
   # protection an ambiguous placement will ever get, since the resolution flow cannot reconstruct a
   # fill it never saw.
+  #
+  # This bot's sells still resting on the book take the oldest lots first when they fill (FIFO), so a
+  # new sale is judged against what they leave, not against lots they have already claimed: behind a
+  # resting sell of the cheap lot, the next unit sold is the dear one.
   def sell_at_loss?(order_data)
     return false if wash_sale_days.zero?
 
-    lots = (metrics[:asset_lots] || {})[order_data[:ticker].base] || []
+    base = order_data[:ticker].base
+    lots = ((metrics[:asset_lots] || {})[base] || []).map(&:dup)
+    resting = transactions.waiting.sell.where(base:).pluck(:amount, :amount_exec)
+                          .sum { |amount, amount_exec| [amount.to_d - amount_exec.to_d, 0.to_d].max }
+    Bot::TaxLots.consume(lots, resting)
     Bot::TaxLots.loss_in?(lots, order_data[:amount], order_data[:quote_amount]) != false
   end
 

@@ -23,6 +23,21 @@ class Bot::QuoteAmountLimitableTest < ActiveSupport::TestCase
       bot.valid?(:start)
       assert_not cap_reached_error?(bot), 'a selling bot spends nothing'
     end
+
+    # A buy can still fill after the flip — a swap's buy leg, or a DCA buy whose cancel failed. The buy
+    # cap has nothing to say about a selling bot: it must neither stop it nor redraw the cap, whose
+    # partial shows the SELL side's cap while selling (which a basket does not have).
+    test "a buy filling after a #{type} bot turned to selling neither stops it nor redraws the buy cap" do
+      bot = create(type)
+      bot.set_missed_quote_amount
+      bot.update!(settings: bot.settings.merge('quote_amount_limited' => true, 'quote_amount_limit' => 500,
+                                               'direction' => 'selling'))
+      bot.stubs(:quote_amount_limit_reached?).returns(true)
+      Bot::StopJob.expects(:perform_later).never
+      bot.expects(:broadcast_quote_amount_limit_update).never
+
+      bot.handle_quote_amount_limit_update
+    end
   end
 
   test 'available-before-limit counts submitted/unknown orders as spent' do

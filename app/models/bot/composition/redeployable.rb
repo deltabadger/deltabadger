@@ -242,6 +242,9 @@ module Bot::Composition::Redeployable
   def redeploy_blocked_reason
     return :halted if redeploy_pending?
     return :orders_waiting if transactions.redeploy.waiting.exists?
+    # Buying the proceeds back is the opposite of what a selling bot is doing. The prompt is hidden
+    # while selling; this holds for a stale tab too.
+    return :selling if selling?
     # Its proceeds are mid-flight and owed to its own buy leg.
     return :rebalance_pending if rebalance_pending?
     # A resting liquidation sell is a live claim, and its proceeds are not in yet. The self-healing
