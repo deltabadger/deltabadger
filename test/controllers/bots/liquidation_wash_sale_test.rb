@@ -110,6 +110,7 @@ class Bots::LiquidationWashSaleTest < ActionDispatch::IntegrationTest
         current_price: 100, avg_price: 100, pnl_percentage: 0 }
     end
     data[:asset_breakdown] = values.transform_values { |v| { amount: v.to_d / 100, quote_invested: v.to_d } }
+    data = keyed_payload(data)
     Rails.cache.write(@bot.send(:metrics_cache_key), data)
     Rails.cache.write(@bot.send(:metrics_with_current_prices_cache_key), data)
   end

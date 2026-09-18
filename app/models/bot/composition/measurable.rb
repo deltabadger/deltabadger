@@ -20,11 +20,20 @@ module Bot::Composition::Measurable
         :quote_amount_exec,
         :amount,
         :base,
+        :base_asset_id,
         :side,
         :external_status,
         :transaction_type
       )
       return data if transactions_array.empty?
+
+      # One holding per asset, whatever symbol its rows were recorded under; a row recorded before orders
+      # stored their asset is its own holding, by its string (Bot::Composition::HoldingKeys).
+      keys = holding_keys(transactions_array)
+      data[:key_assets] = keys.to_h { |identity, key| [key, identity.is_a?(Integer) ? identity : nil] }
+      data[:key_strings] = transactions_array.each_with_object({}) do |row, acc|
+        (acc[keys[holding_identity(row)]] ||= []) << row[6].to_s
+      end.transform_values(&:uniq)
 
       totals = initialize_totals_data
       ledger = Hash.new { |hash, key| hash[key] = { amount: 0, invested: 0 } }
@@ -37,9 +46,11 @@ module Bot::Composition::Measurable
       asset_prices = {} # Track last known price for each asset
       # Corporate actions are events in this walk like any fill. A pending queue rather than a
       # merge, because they are rare and this loop runs over every order the bot ever placed.
-      pending_splits = split_events
+      pending_splits = split_events(split_holdings(data))
 
-      transactions_array.each do |id, created_at, price, amount_exec, quote_amount_exec, amount, base, side, external_status, transaction_type|
+      transactions_array.each do |row|
+        id, created_at, price, amount_exec, quote_amount_exec, amount, _recorded, _asset_id, side, external_status, transaction_type = row
+        base = keys[holding_identity(row)]
         # Before the order, not after: the restatement is a property of the position the order then
         # acts on, so a split sharing an order's timestamp is applied first.
         pending_splits = apply_due_splits(pending_splits, created_at, ledger, asset_prices, data, books, lots)
@@ -215,7 +226,7 @@ module Bot::Composition::Measurable
         # rebalances accumulates a zero row per asset it has ever rotated out of.
         next unless asset_data[:amount].positive?
 
-        ticker = tickers.find { |t| t.base == symbol }
+        ticker = ticker_for_key(symbol, metrics_data)
         next unless ticker.present?
 
         price = ticker_prices[ticker.ticker]
@@ -286,7 +297,7 @@ module Bot::Composition::Measurable
       # tickered, on a real bot) while the headline priced only the 20. A symbol that HAS a
       # ticker but no candles still blocks: there the chart would disagree with a headline that
       # prices it live.
-      priceable = tickers.map(&:base)
+      priceable = metrics_data[:asset_breakdown].keys.select { |key| ticker_for_key(key, metrics_data) }
       metrics_data[:chart] = chart_marked_at_market(
         metrics_data[:chart], grids,
         display_grids: chart_display_grids(metrics_data, grids),
@@ -332,6 +343,12 @@ module Bot::Composition::Measurable
     Rails.cache.read(metrics_with_current_prices_cache_key)
   end
 
+  # One holding per key of the walk (Bot::Restatable#split_events).
+  def split_holdings(payload = nil)
+    payload ||= metrics
+    (payload[:key_assets] || {}).to_h { |key, asset_id| [key, [asset_id, (payload[:key_strings] || {})[key]]] }
+  end
+
   def metrics_with_current_prices_and_candles_from_cache
     Rails.cache.read(metrics_with_current_prices_and_candles_cache_key)
   end
@@ -341,8 +358,17 @@ module Bot::Composition::Measurable
   # Holdings valued at the last price each asset traded at. Used for the chart's running value and
   # for the fallback headline when the live read fails.
   def unpriced_lone_holding?(metrics_data, live_prices)
-    symbol = base_assets.first&.symbol
-    metrics_data[:asset_breakdown].dig(symbol, :amount).to_d.positive? && !live_prices.key?(symbol)
+    key = key_for(base_assets.first&.id, metrics_data)
+    metrics_data[:asset_breakdown].dig(key, :amount).to_d.positive? && !live_prices.key?(key)
+  end
+
+  # A row's holding: its asset, or — recorded before orders stored their asset — its symbol string.
+  def holding_identity(row) = row[7] || row[6].to_s
+
+  def holding_keys(rows)
+    identities = rows.map { |row| holding_identity(row) }.uniq
+    symbols = Bot::Composition::HoldingKeys.candidates_for(identities.grep(Integer))
+    Bot::Composition::HoldingKeys.call(identities.to_h { |identity| [identity, symbols[identity] || identity.to_s] })
   end
 
   # A sale the venue did not price is unknown, which locks — unless no lot of the bot's own stood behind
@@ -369,20 +395,21 @@ module Bot::Composition::Measurable
   # through corporate actions, so every count, value and chart point in here can differ.
   # _v7: per-asset FIFO tax lots and the harvestable flag. _v8: a scheduled (REGULAR) sell realizes into
   # its own never-drained bucket instead of reading as a half-finished swap — CSV-imported sells are
-  # REGULAR, so a basket that imported any reads different figures.
+  # REGULAR, so a basket that imported any reads different figures. _v9: one holding per asset, keyed
+  # through Bot::Composition::HoldingKeys, with key_assets / key_strings beside them.
   # The cached shape lives up to 30 days, so this has to move with it or every existing bot serves
   # the old numbers after a deploy.
   # A method, not a literal: the tests that seed this cache were reading the string off the source.
   def metrics_cache_key
-    "bot_#{id}_metrics_v8_#{restatement_generation}"
+    "bot_#{id}_metrics_v9_#{restatement_generation}"
   end
 
   def metrics_with_current_prices_cache_key
-    "bot_#{id}_metrics_with_current_prices_v7_#{restatement_generation}"
+    "bot_#{id}_metrics_with_current_prices_v8_#{restatement_generation}"
   end
 
   def metrics_with_current_prices_and_candles_cache_key
-    "bot_#{id}_metrics_with_current_prices_and_candles_v7_#{restatement_generation}"
+    "bot_#{id}_metrics_with_current_prices_and_candles_v8_#{restatement_generation}"
   end
 
   def optimal_candles_timeframe_for_duration(duration)
@@ -463,7 +490,7 @@ module Bot::Composition::Measurable
     # One member the candles do not cover would otherwise blank the interpolation for every member.
     labels = metrics_data[:chart][:labels]
     chart_split_pinned_grids(
-      chart_backfilled_grids(grids, symbols: symbols, from: labels.first, to: labels.last)
+      chart_backfilled_grids(grids, symbols: symbols, from: labels.first, to: labels.last), metrics_data
     )
   end
 
@@ -475,7 +502,7 @@ module Bot::Composition::Measurable
   # crypto, and one ticker whose restated fetch failed must not take the other nineteen back with
   # it. A symbol left behind keeps the raw line this chart has always drawn.
   def chart_display_grids(metrics_data, grids)
-    restating = restating_symbols & metrics_data[:asset_breakdown].keys
+    restating = restating_symbols(metrics_data)
     return grids if restating.empty?
 
     since, timeframe = chart_candle_window(metrics_data[:chart])
@@ -483,24 +510,22 @@ module Bot::Composition::Measurable
                                                             restated: true))
   end
 
-  # Which members have a history their venue rewrites. One query for the categories rather than
-  # one per member: the question reaches `ticker.base_asset`, and a chart drawn from warm candle
-  # caches otherwise loads no asset row at all.
-  def restating_symbols
-    list = tickers
-    list = list.preload(:base_asset) if list.is_a?(ActiveRecord::Relation)
-    list.select(&:restated_candles?).map(&:base)
+  # Which holdings have a history their venue rewrites. `restated_candles?` reads `ticker.base_asset`, so the
+  # held tickers' assets load in one query: a chart drawn from warm candle caches otherwise loads none.
+  def restating_symbols(metrics_data)
+    held = metrics_data[:asset_breakdown].keys.index_with { |key| ticker_for_key(key, metrics_data) }.compact
+    ActiveRecord::Associations::Preloader.new(records: held.values.grep(Ticker), associations: :base_asset).call
+    held.select { |_key, ticker| ticker.restated_candles? }.keys
   end
 
   # Bounded parallel batches. A raise in one worker becomes a per-symbol failure (logged);
   # failed symbols are skipped and retried on the next 5-minute metrics cycle.
   def chart_candle_grids(symbols, metrics_data, since:, timeframe:, restated: false)
-    ticker_by_symbol = tickers.index_by(&:base)
     grids = {}
 
     symbols.each_slice(CANDLE_FETCH_THREADS) do |batch|
       threads = batch.filter_map do |symbol|
-        ticker = ticker_by_symbol[symbol]
+        ticker = ticker_for_key(symbol, metrics_data)
         next unless ticker.present?
 
         Thread.new do
@@ -557,6 +582,8 @@ module Bot::Composition::Measurable
       pnl: nil,
       asset_breakdown: {},
       asset_values: {},
+      key_assets: {},
+      key_strings: {},
       num_assets: 0
     }
   end

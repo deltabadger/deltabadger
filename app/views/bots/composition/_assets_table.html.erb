@@ -1,8 +1,9 @@
 <%# locals: (values:, logo_assets:, body_id: nil, bot: nil, sellable: false, hide_money: false, quote: nil, locks: {}, selling: false) %>
 <%# Composition holdings come from the metrics hash, not from the bot's own columns, so they need
-    mapping onto the shared table's rows. `sellable` is a Hash symbol => true for the rows that may
-    carry Sell (or false for none): direct indexing is the freedom to close one position on its own,
-    but a dust remainder the venue cannot sell must not get a button that 404s. `locks` (symbol =>
+    mapping onto the shared table's rows. `logo_assets` is key => Asset. `sellable` is a Hash
+    key => asset id for the rows that may carry Sell (or false for none): direct indexing is the freedom
+    to close one position on its own, but a dust remainder the venue cannot sell must not get a button
+    that 404s. `locks` (symbol =>
     { days_left:, until: }) marks a constituent inside a wash-sale window: the row shows the
     countdown, and keeps Sell if a remainder is still sellable.
 
@@ -20,7 +21,7 @@
            rows: values.map { |symbol, data|
       lock = locks[symbol]
       harvest = data[:harvestable]
-      { asset: logo_assets[symbol]&.base_asset, symbol: symbol,
+      { asset: logo_assets[symbol], symbol: symbol,
         amount: number_with_precision(data[:amount] || 0, precision: 6, strip_insignificant_zeros: true),
         avg_price: data[:avg_price] && money_figure(data[:avg_price]),
         value: data[:current_value] && money_figure(data[:current_value]),
@@ -34,7 +35,7 @@
              selling_placeholder(t('bot.liquidation.sell'))
            else
              link_to(t('bot.liquidation.sell'),
-                     new_bot_liquidation_path(bot_id: bot.id, symbol: symbol),
+                     new_bot_liquidation_path(bot_id: bot.id, symbol: symbol, asset_id: sellable[symbol]),
                      class: "rbutton rbutton--small #{'rbutton--success' if harvest}",
                      title: (harvest ? t('bot.liquidation.harvest_hint') : nil),
                      data: { turbo_frame: 'modal' })

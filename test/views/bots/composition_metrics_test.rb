@@ -26,6 +26,7 @@ class Bots::CompositionMetricsViewTest < ActionView::TestCase
       asset_values: { 'AAA' => { amount: 1, quote_invested: 100, current_value: 90, avg_price: 100, pnl_percentage: -0.1, harvestable: true },
                       'BBB' => { amount: 1, quote_invested: 100, current_value: 110, avg_price: 100, pnl_percentage: 0.1, harvestable: false } }
     }
+    @metrics = keyed_payload(@metrics)
   end
 
   def render_panel
@@ -67,6 +68,7 @@ class Bots::CompositionMetricsViewTest < ActionView::TestCase
 
   test 'a locked holding with a sellable remainder keeps Sell — the window blocks buying' do
     @metrics[:asset_values]['CCC'] = { amount: 1, quote_invested: 100, current_value: 90, avg_price: 100, pnl_percentage: -0.1, harvestable: true }
+    @metrics = keyed_payload(@metrics)
     cell = render_panel.at_css('#wash_sale_list tr[data-symbol=CCC] .table__action')
     assert cell.at_css('a'), 'selling is never blocked'
     assert_includes cell.text, '12'

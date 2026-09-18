@@ -122,10 +122,11 @@ class Bot::RebalanceableTest < ActiveSupport::TestCase
   # Drift is read off live values, never off cost basis — an asset that doubled is overweight
   # regardless of what it cost.
   def stub_values(base0:, base1:, stale: false)
-    @bot.stubs(:metrics_with_current_prices).returns(
+    stubbed = keyed_payload(
       asset_values: { @base0.symbol => { amount: base0.to_d / 100, current_value: base0.to_d },
                       @base1.symbol => { amount: base1.to_d / 100, current_value: base1.to_d } },
       prices_stale: stale
     )
+    @bot.stubs(:metrics_with_current_prices).returns(stubbed)
   end
 end

@@ -20,10 +20,10 @@ class Bots::LiquidationsController < ApplicationController
   # all renders as a flat 0, which is worse than saying nothing.
   def new
     priced = @bot.sellable_holdings(@bot.metrics_with_current_prices_from_cache || {}).index_by { |h| h[:symbol] }
-    tickers = @bot.tickers.index_by(&:base)
     ledger = @bot.metrics[:asset_breakdown] || {}
     @holdings = @symbols.map do |symbol|
-      priced[symbol] || { symbol: symbol, ticker: tickers[symbol], amount: ledger.dig(symbol, :amount) }
+      priced[symbol] || { symbol: symbol, asset_id: @held[symbol], ticker: @bot.ticker_for_asset(@held[symbol]),
+                          amount: ledger.dig(symbol, :amount) }
     end
     @exited = (@symbols - @bot.exited_symbols).empty?
   end
@@ -33,7 +33,8 @@ class Bots::LiquidationsController < ApplicationController
   def create
     return refuse(t('settings.wash_sale.prompt_missing')) unless wash_sale_answer_recorded?
 
-    result = BotApi::Bots::LiquidateExited.call(user: current_user, bot_id: @bot.id, symbol: @symbols)
+    result = BotApi::Bots::LiquidateExited.call(user: current_user, bot_id: @bot.id, symbol: @symbols,
+                                                asset_id: @symbols.map { |symbol| @held[symbol] })
     if result.success?
       flash.now[:notice] = t(@symbols.many? ? 'bot.liquidation.started_all' : 'bot.liquidation.started')
       render turbo_stream: turbo_stream_prepend_flash
@@ -74,8 +75,13 @@ class Bots::LiquidationsController < ApplicationController
   #
   # There is deliberately no "no symbols means everything" fallback: a request that names nothing is
   # a bug, and a bug must not be able to mean sell everything.
+  #
+  # Each key arrives with the asset the page showed it as (`asset_id`, same order). A key that now names
+  # another asset — renamed, or joined by a second asset of that symbol — drops out like a sold one.
   def set_symbols
-    @symbols = Array(params[:symbol]).map(&:to_s).uniq & @bot.held_symbols
+    @held = @bot.held_assets
+    shown = Array(params[:symbol]).map(&:to_s).zip(Array(params[:asset_id]).map(&:to_s))
+    @symbols = shown.filter_map { |key, asset_id| key if @held.key?(key) && (asset_id.blank? || @held[key].to_s == asset_id) }.uniq
     head :not_found if @symbols.empty?
   end
 end

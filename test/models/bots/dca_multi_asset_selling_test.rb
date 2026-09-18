@@ -329,14 +329,16 @@ class Bots::DcaMultiAssetSellingTest < ActiveSupport::TestCase
   # Values at a price of 100, so value / 100 units each.
   def hold(base0:, base1:, free: {}, stale: false)
     values = { @base0.symbol => base0, @base1.symbol => base1 }
-    @bot.stubs(:metrics).returns(
+    stubbed = keyed_payload(
       asset_breakdown: values.transform_values { |value| { amount: value.to_d / 100, quote_invested: value.to_d } }
     )
-    @bot.stubs(:metrics_with_current_prices).returns(
+    @bot.stubs(:metrics).returns(stubbed)
+    stubbed = keyed_payload(
       asset_values: values.transform_values { |value| { amount: value.to_d / 100, current_value: value.to_d } },
       asset_breakdown: values.transform_values { |value| { amount: value.to_d / 100 } },
       prices_stale: stale
     )
+    @bot.stubs(:metrics_with_current_prices).returns(stubbed)
     stub_exchange_balances(@bot.exchange,
                            @bot.quote_asset_id => { free: 10_000, locked: 0 },
                            @base0.id => { free: free.fetch(:base0, 100), locked: 0 },

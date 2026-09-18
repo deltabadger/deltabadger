@@ -80,8 +80,7 @@ module Bot::Rebalancer
     # Every bot on the account: the lock is the taxpayer's, so a resting buy anywhere on it is what
     # would undo this sale. The refresh below still sweeps only THIS bot's orders, so a stale row on
     # another bot keeps the guard on until that bot's own tick clears it — the safe direction.
-    scope = Transaction.waiting.where(side: :buy, base: ticker.base)
-                       .where(bot_id: user.bots.not_deleted.select(:id))
+    scope = account_waiting_buys(ticker)
     return false unless scope.exists?
 
     begin
@@ -90,6 +89,15 @@ module Bot::Rebalancer
       Rails.logger.warn("rebalance waiting-buy refresh failed bot=#{id}: #{e.message}")
     end
     scope.exists?
+  end
+
+  # Every waiting buy on the account for this ticker's asset: by id, or — recorded before orders stored
+  # their asset, or under another venue's name for it — by the venue's spelling or the asset's symbol.
+  # Matching more only blocks more.
+  def account_waiting_buys(ticker)
+    buys = Transaction.waiting.where(side: :buy, bot_id: user.bots.not_deleted.select(:id))
+    buys.where(base_asset_id: ticker.base_asset_id)
+        .or(buys.where(base: [ticker.base_spelling, ticker.base_asset&.symbol].compact.uniq))
   end
 
   # Undo the provisional lock of a sell that provably never left. Idempotent: no key, nothing to do.
@@ -256,7 +264,7 @@ module Bot::Rebalancer
     log_activity("rebalance_#{order_data[:side]}_placed", details: order_log_details(order_data))
     # The sell went out, so the provisional lock stands on its own — no rollback to keep.
     if loss
-      log_wash_sale_lock(order_data[:ticker].base)
+      log_wash_sale_lock(order_data[:ticker].base_asset_id)
       merge_transient_data!(rebalance_previous_lock: nil, rebalance_claim_token: nil,
                             rebalance_locked_asset_id: nil)
     end

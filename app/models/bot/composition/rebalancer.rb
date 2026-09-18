@@ -39,23 +39,23 @@ module Bot::Composition::Rebalancer
     return nil if data[:prices_stale]
 
     values = data[:asset_values] || {}
-    tickers_by_symbol = tickers.index_by(&:base)
     composition_assets = bot_index_assets.in_index.includes(:asset).to_a
     return nil if composition_assets.empty?
 
     unlocked = composition_assets.reject { |bia| locked.include?(bia.asset_id) }
     return nil if unlocked.empty?
+    return nil if unpriced_holding?(data, values, unlocked)
 
-    in_index_symbols = unlocked.to_set { |bia| bia.asset.symbol }
-    return nil if unpriced_holding?(data, values, tickers_by_symbol, in_index_symbols)
-
+    # By asset: the member's own ticker and its own holding, whatever the venue spells it and whatever
+    # other asset shares its symbol.
     entries = unlocked.map do |bia|
-      symbol = bia.asset.symbol
+      key = key_for(bia.asset_id, data)
       {
-        ticker: tickers_by_symbol[symbol],
-        symbol: symbol,
-        amount: values.dig(symbol, :amount).to_d,
-        value: values.dig(symbol, :current_value).to_d,
+        ticker: ticker_for_asset(bia.asset_id),
+        symbol: key || bia.asset.symbol,
+        asset_id: bia.asset_id,
+        amount: values.dig(key, :amount).to_d,
+        value: values.dig(key, :current_value).to_d,
         # nil weight means we do not know what this asset is supposed to be — resolved below to
         # "whatever it currently is", never to 0.
         target: bia.target_allocation&.to_d
@@ -77,15 +77,14 @@ module Bot::Composition::Rebalancer
   # at zero would manufacture drift out of nothing: the bot would read the asset as worthless, sell
   # others to fund it and buy more of it. Defer instead.
   #
-  # Scoped to current symbols that still have a tradeable ticker. An exited holding no longer takes part in
+  # Scoped to current members that still have a tradeable ticker. An exited holding no longer takes part in
   # the arithmetic, so its price is nobody's business here; and a genuinely delisted holding — which
   # can never be priced again — must not wedge rebalancing forever.
-  def unpriced_holding?(data, values, tickers_by_symbol, in_index_symbols)
-    (data[:asset_breakdown] || {}).any? do |symbol, holding|
-      in_index_symbols.include?(symbol) &&
-        holding[:amount].to_d.positive? &&
-        !values.key?(symbol) &&
-        tickers_by_symbol.key?(symbol)
+  def unpriced_holding?(data, values, members)
+    members.any? do |bia|
+      key = key_for(bia.asset_id, data)
+      key && data.dig(:asset_breakdown, key, :amount).to_d.positive? && !values.key?(key) &&
+        ticker_for_asset(bia.asset_id).present?
     end
   end
 

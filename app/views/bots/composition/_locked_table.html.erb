@@ -1,4 +1,4 @@
-<%# locals: (bot:, members:, values: {}, sellable: {}, hide_money: false, quote: nil, selling: false) %>
+<%# locals: (bot:, members:, values: {}, key_assets: {}, sellable: {}, hide_money: false, quote: nil, selling: false) %>
 <%# What the account-wide rule is doing to THIS bot. A table of its own rather than a marker inside
     the holdings and quitters tables: a locked name has one thing worth saying about it, and saying
     it in three places meant the same name was listed twice on the page.
@@ -6,8 +6,10 @@
     Selling is never blocked, so a locked row keeps Sell whenever a sellable remainder is left —
     the window blocks buying and nothing else. %>
 <% if members.any? %>
-  <% logo_assets = bot.exchange.tickers.where(base: members.map { |member| member[:symbol] })
-                      .includes(:base_asset).index_by(&:base) %>
+  <%# Each locked asset under the key its holding has in `values`, or its symbol when the bot holds none. %>
+  <% keyed = members.to_h { |member| [key_assets.key(member[:asset_id]) || member[:symbol], member] } %>
+  <% logo_assets = Asset.where(id: members.map { |member| member[:asset_id] }).index_by(&:id)
+                        .then { |assets| keyed.transform_values { |member| assets[member[:asset_id]] } } %>
   <div id="wash_sale_table" class="widget widget--table" data-controller="table-fit">
     <div class="exited-header">
       <span class="label"><%= t('bot.wash_sale.table_title') %></span>
@@ -18,9 +20,9 @@
                   class: 'rbutton rbutton--small', data: { turbo_frame: '_top' } %>
     </div>
     <%= render 'bots/composition/assets_table',
-               values: members.to_h { |member| [member[:symbol], values[member[:symbol]] || { amount: 0 }] },
+               values: keyed.keys.to_h { |key| [key, values[key] || { amount: 0 }] },
                logo_assets: logo_assets, body_id: 'wash_sale_list', bot: bot,
-               sellable: sellable, locks: members.index_by { |member| member[:symbol] },
+               sellable: sellable, locks: keyed,
                hide_money: hide_money, quote: quote, selling: selling %>
   </div>
 <% end %>

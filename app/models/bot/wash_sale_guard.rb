@@ -82,15 +82,10 @@ module Bot::WashSaleGuard
   # either. One statement for the same reason as restore_buy_lock!. True when the effective lock
   # is now later than it was — read before the write only for the return value, which feeds a log
   # line and nothing else.
-  def extend_buy_lock!(base:, from:)
-    return false if wash_sale_days.zero?
+  def extend_buy_lock!(asset_id:, from:)
+    return false if wash_sale_days.zero? || asset_id.nil?
 
-    # find with a block, not find_by: the bot's tickers may be a relation or, in tests that pin them,
-    # a plain Array.
-    ticker = tickers.find { |t| t.base == base }
-    return false if ticker.nil?
-
-    WashSaleLock.confirm!(user: user, asset_id: ticker.base_asset_id, from: from, source: 'bot')
+    WashSaleLock.confirm!(user: user, asset_id: asset_id, from: from, source: 'bot')
   end
 
   # Whether the units this order submits lose money on ANY of the FIFO lots they consume — the tax
@@ -104,23 +99,30 @@ module Bot::WashSaleGuard
   # This bot's sells still resting on the book take the oldest lots first when they fill (FIFO), so a
   # new sale is judged against what they leave, not against lots they have already claimed: behind a
   # resting sell of the cheap lot, the next unit sold is the dear one.
+  #
+  # The lots are the holding's of this asset — one chronological list whatever symbol each purchase was
+  # recorded under. A resting sell recorded before orders stored their asset counts by its name.
   def sell_at_loss?(order_data)
     return false if wash_sale_days.zero?
 
-    base = order_data[:ticker].base
-    lots = ((metrics[:asset_lots] || {})[base] || []).map(&:dup)
-    resting = transactions.waiting.sell.where(base:).pluck(:amount, :amount_exec)
-                          .sum { |amount, amount_exec| [amount.to_d - amount_exec.to_d, 0.to_d].max }
+    ticker = order_data[:ticker]
+    payload = metrics
+    lots = ((payload[:asset_lots] || {})[key_for(ticker.base_asset_id, payload)] || []).map(&:dup)
+    resting_sells = transactions.waiting.sell
+    resting = resting_sells.where(base_asset_id: ticker.base_asset_id)
+                           .or(resting_sells.where(base_asset_id: nil, base: [ticker.base_spelling, ticker.base_asset&.symbol].compact))
+                           .pluck(:amount, :amount_exec)
+                           .sum { |amount, amount_exec| [amount.to_d - amount_exec.to_d, 0.to_d].max }
     Bot::TaxLots.consume(lots, resting)
     Bot::TaxLots.loss_in?(lots, order_data[:amount], order_data[:quote_amount]) != false
   end
 
   # Says the deadline actually on the row — an earlier sale's longer window wins over this sale's.
   # Reads the TAXPAYER's lock: the composition row no longer carries one.
-  def log_wash_sale_lock(base)
-    ticker = tickers.find { |t| t.base == base }
-    lock = ticker && user.wash_sale_locks.find_by(asset_id: ticker.base_asset_id)
+  def log_wash_sale_lock(asset_id)
+    lock = user.wash_sale_locks.includes(:asset).find_by(asset_id:)
     last_day = ((lock&.buy_locked_until || lock_deadline) - 1.day).to_date
+    base = lock&.asset&.symbol || Asset.find_by(id: asset_id)&.symbol
     log_activity('wash_sale_locked', level: :info, details: { base: base, until: last_day.iso8601 })
   end
 
@@ -150,7 +152,9 @@ module Bot::WashSaleGuard
     verdict = (metrics(force: true)[:loss_lot_by_transaction] || {}).fetch(order.id, nil)
     return if verdict == false # nil (no proceeds known) and true both lock
 
-    log_wash_sale_lock(order.base) if extend_buy_lock!(base: order.base, from: Time.zone.today)
+    # The order's own asset. Only a row recorded before orders stored theirs is looked up by its name.
+    asset_id = order.base_asset_id || tickers.find { |t| t.base == order.base }&.base_asset_id
+    log_wash_sale_lock(asset_id) if extend_buy_lock!(asset_id:, from: Time.zone.today)
   end
 
   # The row a lock lives on: one per taxpayer and asset, created on demand.
@@ -167,7 +171,7 @@ module Bot::WashSaleGuard
     user.wash_sale_locks.live(now).includes(:asset).filter_map do |lock|
       next unless known.include?(lock.asset_id)
 
-      { symbol: lock.asset.symbol, days_left: (lock.buy_locked_until.to_date - now.to_date).to_i,
+      { symbol: lock.asset.symbol, asset_id: lock.asset_id, days_left: (lock.buy_locked_until.to_date - now.to_date).to_i,
         until: lock.buy_locked_until, source: lock.source }
     end
   end

@@ -54,7 +54,7 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
     get bot_path(id: @bot.id)
 
     assert_select '#exited_metrics_table tbody a[href=?][data-turbo-frame="modal"]',
-                  new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC'), count: 1
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC', asset_id: asset_id_of('CCC')), count: 1
     assert_select '.exited-header a[href*="liquidation"]', 0, 'nothing to batch'
     assert_select '#exited_metrics_table form[action=?]', bot_liquidation_path(bot_id: @bot.id), count: 0
   end
@@ -70,7 +70,7 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
 
     # Built FROM the rendered rows, so it can never name a position the page is not showing.
     assert_select '.exited-header a[href=?][data-turbo-frame="modal"]',
-                  new_bot_liquidation_path(bot_id: @bot.id, symbol: %w[BBB CCC]), count: 1
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: %w[BBB CCC], asset_id: asset_ids_of(%w[BBB CCC])), count: 1
     # And every row keeps its own Sell: one position at a time is still the default.
     assert_select '#exited_metrics_table tbody a[data-turbo-frame="modal"]', 2
     # A link into the confirmation, never a form that places straight from the page.
@@ -90,7 +90,7 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
     get bot_path(id: @bot.id)
 
     assert_select '.exited-header a[href=?]',
-                  new_bot_liquidation_path(bot_id: @bot.id, symbol: %w[BBB CCC]), count: 1
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: %w[BBB CCC], asset_id: asset_ids_of(%w[BBB CCC])), count: 1
     assert_select '#wash_sale_table', /DDD/
   end
 
@@ -118,9 +118,9 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
 
     assert_select '#exited_metrics_table tbody a[data-turbo-frame="modal"]', 2
     assert_select '#exited_metrics_table tbody a[href=?]',
-                  new_bot_liquidation_path(bot_id: @bot.id, symbol: 'BBB'), count: 1
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: 'BBB', asset_id: asset_id_of('BBB')), count: 1
     assert_select '#exited_metrics_table tbody a[href=?]',
-                  new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC'), count: 1
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: 'CCC', asset_id: asset_id_of('CCC')), count: 1
   end
 
   test 'the index table carries a Sell on its own rows too' do
@@ -132,7 +132,7 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
     get bot_path(id: @bot.id)
 
     assert_select '#assets_metrics_table tbody a[href=?]',
-                  new_bot_liquidation_path(bot_id: @bot.id, symbol: 'AAA'), count: 1
+                  new_bot_liquidation_path(bot_id: @bot.id, symbol: 'AAA', asset_id: asset_id_of('AAA')), count: 1
   end
 
   test 'no quitters means no section at all' do
@@ -312,6 +312,7 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
     # exited_symbols, which reads the ledger underneath rather than the priced layer, so that a cold
     # price cache cannot turn a live button into a 404.
     data[:asset_breakdown] = values.transform_values { |v| { amount: v.to_d / 100, quote_invested: v.to_d } }
+    data = keyed_payload(data)
     Rails.cache.write(@bot.send(:metrics_cache_key), data)
     Rails.cache.write(@bot.send(:metrics_with_current_prices_cache_key), data)
   end

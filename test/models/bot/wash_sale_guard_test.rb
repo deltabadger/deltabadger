@@ -56,7 +56,8 @@ class Bot::WashSaleGuardTest < ActiveSupport::TestCase
       assert_nil @bot.lock_buying!(@asset.id)[:previous], 'the deadline it replaced, which was none'
       assert_equal Time.zone.parse('2026-10-08 00:00'), lock.reload.buy_locked_until
       assert_predicate lock, :buy_locked?
-      assert_equal [{ symbol: 'AAA', days_left: 31, until: lock.buy_locked_until, source: 'bot' }], @bot.locked_members
+      assert_equal [{ symbol: 'AAA', asset_id: @asset.id, days_left: 31, until: lock.buy_locked_until, source: 'bot' }],
+                   @bot.locked_members
     end
     travel_to Time.zone.parse('2026-10-07 23:59') do
       assert_predicate lock.reload, :buy_locked?, 'day 30 is still inside the window'
@@ -107,7 +108,7 @@ class Bot::WashSaleGuardTest < ActiveSupport::TestCase
     travel_to Time.zone.parse('2026-09-08 12:00') do
       claim = @bot.lock_buying!(@asset.id)                                          # sale 2, provisional: Oct 9
       assert_equal Time.zone.parse('2026-10-08 00:00'), claim[:previous]
-      assert_not @bot.extend_buy_lock!(base: 'AAA', from: Date.current), 'sale 1 fills now and needs Oct 9: already the deadline'
+      assert_not @bot.extend_buy_lock!(asset_id: @asset.id, from: Date.current), 'sale 1 fills now and needs Oct 9: already the deadline'
       @bot.restore_buy_lock!(@asset.id, claim) # sale 2 never left
       assert_equal Time.zone.parse('2026-10-09 00:00'), lock.reload.buy_locked_until, "sale 1's confirmed Oct 9 stands"
       assert_equal Time.zone.parse('2026-10-09 00:00'), lock.confirmed_locked_until
@@ -117,11 +118,11 @@ class Bot::WashSaleGuardTest < ActiveSupport::TestCase
   test 'extend from a fill creates a missing lock and lengthens a short one, never shortens' do
     choose('US')
     travel_to Time.zone.parse('2026-09-07 12:00') do
-      assert @bot.extend_buy_lock!(base: 'AAA', from: Date.current)
+      assert @bot.extend_buy_lock!(asset_id: @asset.id, from: Date.current)
       assert_equal Time.zone.parse('2026-10-08 00:00'), lock.reload.buy_locked_until
-      assert @bot.extend_buy_lock!(base: 'AAA', from: Date.new(2026, 9, 8)), 'filled the next day'
+      assert @bot.extend_buy_lock!(asset_id: @asset.id, from: Date.new(2026, 9, 8)), 'filled the next day'
       assert_equal Time.zone.parse('2026-10-09 00:00'), lock.reload.buy_locked_until
-      assert_not @bot.extend_buy_lock!(base: 'AAA', from: Date.new(2026, 9, 1))
+      assert_not @bot.extend_buy_lock!(asset_id: @asset.id, from: Date.new(2026, 9, 1))
       assert_equal Time.zone.parse('2026-10-09 00:00'), lock.reload.buy_locked_until
     end
   end
@@ -145,7 +146,7 @@ class Bot::WashSaleGuardTest < ActiveSupport::TestCase
       claim = @bot.lock_buying!(@asset.id)
       # false: the provisional claim already reached this deadline, so the fill lengthens nothing.
       # What matters is that it CONFIRMS it — the token goes, and no rollback can lower it again.
-      assert_not @bot.extend_buy_lock!(base: 'AAA', from: Date.current)
+      assert_not @bot.extend_buy_lock!(asset_id: @asset.id, from: Date.current)
 
       @bot.restore_buy_lock!(@asset.id, claim)
 

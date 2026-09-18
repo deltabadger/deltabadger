@@ -109,7 +109,7 @@ class GetBotDetailsToolTest < ActiveSupport::TestCase
   end
   test 'a composition bot lists its holdings, its exited holdings and its redeploy offer' do
     bot = create(:dca_index, user: @user, status: :stopped)
-    Bots::DcaIndex.any_instance.stubs(:held_symbols).returns(%w[AAA DOGE SHIB])
+    Bots::DcaIndex.any_instance.stubs(:held_assets).returns('AAA' => 9, 'DOGE' => 1, 'SHIB' => 2)
     Bots::DcaIndex.any_instance.stubs(:exited_symbols).returns(%w[DOGE SHIB])
     Bots::DcaIndex.any_instance.stubs(:redeploy_offer).returns(25.5.to_d)
 

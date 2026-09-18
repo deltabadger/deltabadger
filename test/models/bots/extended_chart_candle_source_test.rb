@@ -9,7 +9,9 @@ require 'test_helper'
 # methods, never mocha — Task 5 makes these calls run on threads, and mocha's
 # invocation bookkeeping is not thread-safe.
 class ExtendedChartCandleSourceTest < ActiveSupport::TestCase
-  TickerDouble = Data.define(:base)
+  TickerDouble = Data.define(:base) do
+    def base_asset_id = nil
+  end
 
   # Installs a plain-Ruby (thread-safe) fetch_candle_series override returning
   # per-symbol Results from a frozen hash.

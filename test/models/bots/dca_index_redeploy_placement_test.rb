@@ -301,10 +301,11 @@ class Bots::DcaIndexRedeployPlacementTest < ActiveSupport::TestCase
   end
 
   def stub_holdings(values)
-    @bot.stubs(:metrics).returns(
+    stubbed = keyed_payload(
       asset_breakdown: values.transform_values { |v| { amount: v.to_d / 100, quote_invested: v.to_d } },
       realised_cash: 100.to_d
     )
+    @bot.stubs(:metrics).returns(stubbed)
   end
 
   def sized_orders(*quote_amounts)

@@ -48,6 +48,7 @@ ensure
 end
 
 require_relative 'support/exchange_mock_helpers'
+require_relative 'support/holding_payload_helpers'
 
 WebMock.disable_net_connect!(allow_localhost: true)
 
