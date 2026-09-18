@@ -138,6 +138,9 @@ module Bot::Rebalanceable
   def rebalance_due?
     return false unless rebalance_enabled?
     return false if rebalance_pending?
+    # The sell leg already pays out of the most overweight member; a band trip here would buy back
+    # what it just sold.
+    return false if selling?
     # Same reason the DCA leg stands down: a resting liquidation sell must not be bought against,
     # and a redeploy in flight has already claimed the quote a swap's buy leg would need.
     # Guards NEW work only — Bot::Rebalancer#rebalance! resumes a swap already mid-flight regardless,

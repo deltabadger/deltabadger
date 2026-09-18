@@ -391,6 +391,34 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
     assert_equal 1, @bot.transactions.liquidation.count, 'no second order on top of the live one'
   end
 
+  test 'refuses while one of its own scheduled sells is still working' do
+    # A DCA-out sell resting on the book. Sell all on top of it would sell the same units twice over.
+    setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
+    create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted, external_status: :open,
+                         external_id: 'scheduled', side: :sell, base: 'CCC', quote: @bot.quote_asset.symbol,
+                         transaction_type: 'REGULAR', price: 100, amount: 0.1)
+    @bot.stubs(:advance_waiting_orders!)
+
+    assert_predicate @bot.liquidate!(symbols: %w[CCC]), :failure?
+    assert_empty @bot.transactions.liquidation
+  end
+
+  test 'a scheduled sell last seen open is asked about before it blocks a stopped bot' do
+    # Nothing polls a stopped bot's orders, so a sell that filled at the venue after the last look
+    # still reads `open` here. Believed as-is it would refuse every Sell all for good.
+    setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
+    scheduled = create(:transaction, bot: @bot, exchange: @bot.exchange, status: :submitted, external_status: :open,
+                                     external_id: 'scheduled', side: :sell, base: 'CCC', quote: @bot.quote_asset.symbol,
+                                     transaction_type: 'REGULAR', price: 100, amount: 0.1)
+    Bot::FetchAndUpdateOpenOrdersJob.expects(:perform_now).with do |bot, **|
+      scheduled.update_columns(external_status: 'closed', amount_exec: 0.1, quote_amount_exec: 10) if bot == @bot
+      true
+    end
+
+    assert_predicate @bot.liquidate!(symbols: %w[CCC]), :success?
+    assert_equal 1, @bot.transactions.liquidation.count
+  end
+
   test 'refuses while halted' do
     setup_liquidation({ 'AAA' => 50, 'CCC' => 20 })
     @bot.start_liquidation_placement!('CCC')

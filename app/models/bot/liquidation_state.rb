@@ -141,12 +141,16 @@ module Bot::LiquidationState
   # update_missed_quote_amount: true because the sweep covers EVERY waiting row, DCA buys included,
   # and recording a buy's fill without drawing down the carry leaves it claiming money already spent.
   # Non-contributions are excluded inside the sweep itself.
-  def advance_waiting_orders!
+  #
+  # `sweep_if` widens the gate for a caller that trusts more than LIQUIDATION rows — liquidate!, whose
+  # blocker also reads a resting scheduled sell, which on a stopped bot nothing else will ever re-poll.
+  def advance_waiting_orders!(sweep_if: transactions.liquidation.waiting)
     watched = transactions.liquidation.waiting.pluck(:id)
-    # Gated on LIQUIDATION rows, not on waiting rows generally. The sweep itself covers everything
-    # waiting in one call, and Bot::LimitOrderable already runs it for a resting DCA order — firing
-    # here as well would double every exchange read on a bot that has one, for no gain.
-    return if watched.empty?
+    # Gated on LIQUIDATION rows by default, not on waiting rows generally. The sweep itself covers
+    # everything waiting in one call, and Bot::LimitOrderable already runs it for a resting DCA order
+    # on a running bot — firing here on every tick as well would double every exchange read on a bot
+    # that has one, for no gain.
+    return unless sweep_if.exists?
 
     Bot::FetchAndUpdateOpenOrdersJob.perform_now(self, update_missed_quote_amount: true)
     halt_abandoned_liquidations!(watched)
