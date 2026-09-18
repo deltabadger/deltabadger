@@ -23,6 +23,7 @@ jobs:
           # expression spliced into the script, and nothing from the release can reach the shell.
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_WEBHOOK_GENERAL: ${{ secrets.DISCORD_WEBHOOK_GENERAL }}
           TAG: ${{ github.event.release.tag_name }}
           URL: ${{ github.event.release.html_url }}
           BODY: ${{ github.event.release.body }}
@@ -104,6 +105,18 @@ jobs:
               "$DISCORD_WEBHOOK"
           else
             echo "::notice::Discord announcement skipped — set the DISCORD_WEBHOOK repository secret."
+          fi
+
+          # A Discord webhook is bound to one channel, so the general channel has its own. A patch
+          # stays in the releases channel; a minor or major (x.y.0) is news for everyone.
+          if [[ "$TAG" =~ ^v?[0-9]+\.[0-9]+\.0$ ]]; then
+            if [ -n "$DISCORD_WEBHOOK_GENERAL" ]; then
+              post "Discord general" -H 'Content-Type: application/json' \
+                --data-raw "$(jq -n --arg content "$(message 1850)" '{content: $content, flags: 4}')" \
+                "$DISCORD_WEBHOOK_GENERAL"
+            else
+              echo "::notice::Discord general announcement skipped — set the DISCORD_WEBHOOK_GENERAL repository secret."
+            fi
           fi
 
           exit $failed
