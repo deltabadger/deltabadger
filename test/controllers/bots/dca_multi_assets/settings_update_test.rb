@@ -177,6 +177,29 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
     assert_select 'a.asset-allocation__add', count: 0
   end
 
+  test 'threshold rebalancing is not offered while selling: it stands down, so the page must not promise it' do
+    @bot.set_missed_quote_amount
+    @bot.update!(rebalance_enabled: true, rebalance_threshold: 0.05)
+
+    get bot_path(id: @bot.id)
+    assert_select '[name=?]', 'bots_dca_multi_asset[rebalance_enabled]', minimum: 1
+
+    start_selling
+    get bot_path(id: @bot.id)
+    assert_select '[name=?]', 'bots_dca_multi_asset[rebalance_enabled]', count: 0
+  end
+
+  test 'a swap already under way stays visible while selling: it still finishes' do
+    @bot.set_missed_quote_amount
+    @bot.update!(rebalance_enabled: true, rebalance_threshold: 0.05)
+    start_selling
+    @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_SELLING)
+
+    get bot_path(id: @bot.id)
+
+    assert_select '[name=?]', 'bots_dca_multi_asset[rebalance_enabled]', minimum: 1
+  end
+
   test 'the redeploy prompt is offered while buying and withheld while selling' do
     Bots::DcaMultiAsset.any_instance.stubs(:redeploy_offer).returns(50.to_d)
 
