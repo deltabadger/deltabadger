@@ -1,75 +1,10 @@
 require 'test_helper'
 
 # Characterization tests for the pick-spendable-asset wizard step, written before
-# extracting a shared step base class. This step finalises single/dual/index bots
+# extracting a shared step base class. This step finalises multi-asset and index bots
 # (defaults + save in :created state, NOT started) and, for signals, only merges the
 # quote asset and hands off to confirm_settings. The wizard session is seeded through
 # real requests (same pattern as Bots::DcaSingleAssets::PickExchangesControllerTest).
-class Bots::DcaSingleAssets::PickSpendableAssetsControllerTest < ActionDispatch::IntegrationTest
-  setup do
-    @user = create(:user, admin: true, setup_completed: true)
-    sign_in @user
-    @btc = create(:asset, :bitcoin)
-    @usd = create(:asset, :usd)
-    @binance = create(:binance_exchange)
-    create(:ticker, :btc_usd, exchange: @binance, base_asset: @btc, quote_asset: @usd)
-  end
-
-  def seed_wizard_session
-    get new_bots_dca_single_assets_pick_buyable_asset_path
-    post bots_dca_single_assets_pick_buyable_asset_path,
-         params: { bots_dca_single_asset: { base_asset_id: @btc.id } }
-    post advance_bots_dca_single_assets_pick_buyable_asset_path
-    post bots_dca_single_assets_pick_exchange_path,
-         params: { bots_dca_single_asset: { exchange_id: @binance.id } }
-  end
-
-  test 'new renders the quote asset list' do
-    seed_wizard_session
-    get new_bots_dca_single_assets_pick_spendable_asset_path
-    assert_response :success
-    assert_match 'USD', response.body
-  end
-
-  test 'new redirects to the api-key step when the key is not correct' do
-    seed_wizard_session
-    ApiKey.any_instance.stubs(:correct?).returns(false)
-    get new_bots_dca_single_assets_pick_spendable_asset_path
-    assert_redirected_to new_bots_dca_single_assets_add_api_key_path
-  end
-
-  test 'create finalises an unstarted bot with default quote_amount 100 and weekly interval' do
-    seed_wizard_session
-    assert_difference -> { @user.bots.count }, 1 do
-      post bots_dca_single_assets_pick_spendable_asset_path,
-           params: { bots_dca_single_asset: { quote_asset_id: @usd.id } }
-    end
-    assert_response :success
-
-    bot = @user.bots.order(:id).last
-    assert_instance_of Bots::DcaSingleAsset, bot
-    assert_predicate bot, :created?, 'finalise must NOT start the bot'
-    assert_equal 100, bot.quote_amount
-    assert_equal 'week', bot.interval
-    assert_equal @usd.id, bot.quote_asset_id
-    assert_nil session[:bot_config], 'wizard session must be cleared after finalise'
-    assert_match 'turbo-stream', response.body
-    assert_match bot_path(bot), response.body
-  end
-
-  # The blank-param and failed-save 422 re-render branches are characterized in
-  # wizard_create_failure_rerender_test.rb (for every wizard step).
-
-  test 'create with an expired wizard session turbo-redirects to root' do
-    # No seeding: session[:bot_config] is blank.
-    post bots_dca_single_assets_pick_spendable_asset_path,
-         params: { bots_dca_single_asset: { quote_asset_id: @usd.id } }
-    assert_response :success
-    assert_match 'turbo-stream', response.body
-    assert_match %(action="redirect"), response.body
-  end
-end
-
 class Bots::DcaMultiAssets::PickSpendableAssetsControllerTest < ActionDispatch::IntegrationTest
   setup do
     @user = create(:user, admin: true, setup_completed: true)

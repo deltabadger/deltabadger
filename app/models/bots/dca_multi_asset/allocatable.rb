@@ -119,8 +119,7 @@ module Bots::DcaMultiAsset::Allocatable
     self.allocations = allocations.transform_values { 1.0 } if allocations.one?
   end
 
-  # One member is a basket too — the pair bot it will replace. MIN_ASSETS is the threshold for CREATING
-  # a basket, not this floor.
+  # One member is a basket too — the single-asset bot it replaces.
   def validate_allocations
     keys = allocations.keys
     max = self.class::MAX_ASSETS

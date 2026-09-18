@@ -64,11 +64,12 @@ class Bots::Wizard::StepOrder
     ((index + 1) * 100.0 / @steps.size).round
   end
 
-  # The session key(s) a step writes. :api lives in the DB, so it owns nothing here.
+  # The session key(s) a step writes. :api lives in the DB, so it owns nothing here. Both orders' asset
+  # step is the same step writing the same list — every DCA bot is a basket; BASE_KEY is only read, from
+  # sessions an earlier release left open.
   def owned_keys(step)
     case step
-    when :currencies then [BASE_KEY]
-    when :assets     then [BASE_IDS_KEY]
+    when :currencies, :assets then [BASE_IDS_KEY]
     when :exchange   then [EXCHANGE_KEY]
     when :spendable  then [QUOTE_KEY]
     else []

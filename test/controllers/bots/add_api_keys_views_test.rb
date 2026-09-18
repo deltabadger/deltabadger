@@ -49,16 +49,14 @@ class Bots::DcaSingleAssets::AddApiKeysViewsTest < ActionDispatch::IntegrationTe
   def add_api_key_path = new_bots_dca_single_assets_add_api_key_path
   def add_api_keys_path = bots_dca_single_assets_add_api_key_path
 
+  # This key step comes before any asset: exchange-first, the default order.
   def seed_wizard_session
     btc = create(:asset, :bitcoin)
     usd = create(:asset, :usd)
     binance = create(:binance_exchange)
     create(:ticker, :btc_usd, exchange: binance, base_asset: btc, quote_asset: usd)
 
-    get new_bots_dca_single_assets_pick_buyable_asset_path
-    post bots_dca_single_assets_pick_buyable_asset_path,
-         params: { bots_dca_single_asset: { base_asset_id: btc.id } }
-    post advance_bots_dca_single_assets_pick_buyable_asset_path
+    get new_bots_dca_single_assets_pick_exchange_path
     post bots_dca_single_assets_pick_exchange_path,
          params: { bots_dca_single_asset: { exchange_id: binance.id } }
   end

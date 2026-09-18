@@ -16,12 +16,16 @@ class Bots::DcaSingleAssets::PickExchangesController < Bots::Wizard::PickExchang
     when :currencies then new_bots_dca_single_assets_pick_buyable_asset_path
     when :exchange   then new_bots_dca_single_assets_pick_exchange_path
     when :api        then new_bots_dca_single_assets_add_api_key_path
-    when :spendable  then new_bots_dca_single_assets_pick_spendable_asset_path
+    when :spendable  then new_bots_dca_multi_assets_pick_spendable_asset_path
     end
   end
 
   # exchange → api is invariant across both variants.
   def add_api_key_path = new_bots_dca_single_assets_add_api_key_path
+
+  # This step comes before any asset. Once a basket is chosen, re-picking the venue is the basket's
+  # exchange step (a stale page or a direct URL is the only way back here).
+  def prerequisite_redirect_path = step_complete?(:assets) ? new_bots_dca_multi_assets_pick_exchange_path : super
 
   # Re-picking the exchange keeps the chosen asset (the exchange list is
   # asset-filtered, so it stays valid) and drops the pair-specific quote.

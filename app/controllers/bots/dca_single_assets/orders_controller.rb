@@ -31,7 +31,7 @@ class Bots::DcaSingleAssets::OrdersController < ApplicationController
     when :currencies then new_bots_dca_single_assets_pick_buyable_asset_path
     when :exchange   then new_bots_dca_single_assets_pick_exchange_path
     when :api        then new_bots_dca_single_assets_add_api_key_path
-    when :spendable  then new_bots_dca_single_assets_pick_spendable_asset_path
+    when :spendable  then new_bots_dca_multi_assets_pick_spendable_asset_path
     end
   end
 end

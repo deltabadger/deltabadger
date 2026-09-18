@@ -22,7 +22,7 @@ class Bots::StaleSessionTest < ActionDispatch::IntegrationTest
   # (which adds 'signals' to session[:bot_config]), then switches to DcaIndex wizard
   # (which doesn't reset session). DcaIndex.new blows up with UnknownAttributeError.
   # The DcaIndex bot is now persisted at pick_spendable_asset (matches the
-  # DCA Single Asset flow), so the failure mode would surface there.
+  # DCA flow), so the failure mode would surface there.
   test 'switching from Signal wizard to DcaIndex wizard does not raise UnknownAttributeError' do
     walk_signal_wizard_to_confirm_settings
 
@@ -49,7 +49,7 @@ class Bots::StaleSessionTest < ActionDispatch::IntegrationTest
     assert_match %(action="redirect" target="#{bot_path(bot)}"), response.body
   end
 
-  test 'switching from Signal wizard to DCA single asset wizard works cleanly' do
+  test 'switching from Signal wizard to the DCA wizard with one asset works cleanly' do
     walk_signal_wizard_to_confirm_settings
 
     # The DCA wizard keeps the session (sanitized_bot_config protects the full flow).
@@ -63,16 +63,16 @@ class Bots::StaleSessionTest < ActionDispatch::IntegrationTest
     post advance_bots_dca_single_assets_pick_buyable_asset_path
     follow_redirect!
 
-    post bots_dca_single_assets_pick_exchange_path, params: {
-      bots_dca_single_asset: { exchange_id: @exchange.id }
+    post bots_dca_multi_assets_pick_exchange_path, params: {
+      bots_dca_multi_asset: { exchange_id: @exchange.id }
     }
     follow_redirect!
     follow_redirect! # skip API key
 
     # Picking the spendable asset persists the bot in :created state — no confirm step.
-    assert_difference 'Bots::DcaSingleAsset.count', 1 do
-      post bots_dca_single_assets_pick_spendable_asset_path, params: {
-        bots_dca_single_asset: { quote_asset_id: @usd.id }
+    assert_difference 'Bots::DcaMultiAsset.count', 1 do
+      post bots_dca_multi_assets_pick_spendable_asset_path, params: {
+        bots_dca_multi_asset: { quote_asset_id: @usd.id }
       }
     end
   end

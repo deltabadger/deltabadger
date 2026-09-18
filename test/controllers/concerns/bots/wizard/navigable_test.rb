@@ -76,14 +76,14 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
   # ── step_complete? ─────────────────────────────────────────────────────────
 
   test 'step_complete? checks the owned session key for asset/exchange/quote steps' do
-    h = harness(config: config_with(exchange: 7, base: 3, quote: 9))
+    h = harness(config: config_with(exchange: 7, base_ids: [3], quote: 9))
     assert h.call(:step_complete?, :currencies)
     assert h.call(:step_complete?, :exchange)
     assert h.call(:step_complete?, :spendable)
   end
 
   test 'step_complete? is false when the owned key is missing' do
-    h = harness(config: config_with(base: 3))
+    h = harness(config: config_with(base_ids: [3]))
     refute h.call(:step_complete?, :exchange)
     refute h.call(:step_complete?, :spendable)
   end
@@ -97,24 +97,24 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
     refute h.call(:step_complete?, :api)
   end
 
-  test 'step_complete? for multi assets requires at least two ids' do
+  test 'step_complete? for multi assets requires at least one id: one asset is a basket too' do
+    none = harness(bot_type: :multi, current_step: :assets, config: config_with(base_ids: []))
     one = harness(bot_type: :multi, current_step: :assets, config: config_with(base_ids: [5]))
-    two = harness(bot_type: :multi, current_step: :assets, config: config_with(base_ids: [5, 6]))
 
-    refute one.call(:step_complete?, :assets)
-    assert two.call(:step_complete?, :assets)
+    refute none.call(:step_complete?, :assets)
+    assert one.call(:step_complete?, :assets)
   end
 
   # ── first_incomplete ───────────────────────────────────────────────────────
 
   test 'first_incomplete returns the earliest unsatisfied step in order' do
-    h = harness(config: config_with(base: 3)) # exchange missing
+    h = harness(config: config_with(base_ids: [3])) # exchange missing
     h.bot = stub(api_key: stub(correct?: false))
     assert_equal :exchange, h.call(:first_incomplete)
   end
 
   test 'first_incomplete returns the last step when everything is complete' do
-    h = harness(config: config_with(exchange: 7, base: 3, quote: 9))
+    h = harness(config: config_with(exchange: 7, base_ids: [3], quote: 9))
     h.bot = stub(api_key: stub(correct?: true))
     assert_equal :spendable, h.call(:first_incomplete)
   end
@@ -129,13 +129,13 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
   end
 
   test 'prerequisite_redirect_path is nil when prerequisites are satisfied' do
-    h = harness(current_step: :exchange, config: config_with(base: 3))
+    h = harness(current_step: :exchange, config: config_with(base_ids: [3]))
     h.bot = stub(api_key: stub(correct?: false))
     assert_nil h.call(:prerequisite_redirect_path)
   end
 
   test 'prerequisite_redirect_path bounces spendable back to api when the key is invalid' do
-    h = harness(current_step: :spendable, config: config_with(exchange: 7, base: 3))
+    h = harness(current_step: :spendable, config: config_with(exchange: 7, base_ids: [3]))
     h.bot = stub(api_key: stub(correct?: false))
     assert_equal '/single/api', h.call(:prerequisite_redirect_path)
   end
@@ -144,7 +144,7 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
 
   test 'reset_downstream! on the first asset step is a full wipe but keeps the flow' do
     h = harness(current_step: :currencies,
-                config: config_with(exchange: 7, base: 3, base0: 4, base1: 5, quote: 9,
+                config: config_with(exchange: 7, base: 2, base_ids: [3], base0: 4, base1: 5, quote: 9,
                                     flow: 'asset_first'))
     h.call(:reset_downstream!)
     cfg = h.session[:bot_config]
@@ -155,11 +155,11 @@ class Bots::Wizard::NavigableTest < ActiveSupport::TestCase
 
   test 'reset_downstream! when re-picking the asset in exchange_first keeps the exchange' do
     h = harness(current_step: :currencies,
-                config: config_with(exchange: 7, base: 3, quote: 9, flow: 'exchange_first'))
+                config: config_with(exchange: 7, base_ids: [3], quote: 9, flow: 'exchange_first'))
     h.call(:reset_downstream!)
     cfg = h.session[:bot_config]
     assert_equal 7, cfg['exchange_id'], 'exchange is upstream of the asset in exchange_first'
-    assert_nil cfg.dig('settings', 'base_asset_id')
+    assert_nil cfg.dig('settings', 'base_asset_ids')
     assert_nil cfg.dig('settings', 'quote_asset_id')
   end
 

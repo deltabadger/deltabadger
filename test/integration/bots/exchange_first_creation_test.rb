@@ -85,7 +85,7 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
     # The exchange step reads "Pick exchange" to parallel "Pick asset".
     pick @bitcoin
     advance
-    get new_bots_dca_single_assets_pick_exchange_path
+    get new_bots_dca_multi_assets_pick_exchange_path
     assert_response :ok
     assert_select 'div.process-progress h4', 'Pick exchange'
   end
@@ -107,9 +107,9 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
     # With an asset and an exchange both chosen, the spending slot is shown.
     pick @bitcoin
     advance
-    post bots_dca_single_assets_pick_exchange_path,
-         params: { bots_dca_single_asset: { exchange_id: @binance.id } }
-    get new_bots_dca_single_assets_pick_spendable_asset_path
+    post bots_dca_multi_assets_pick_exchange_path,
+         params: { bots_dca_multi_asset: { exchange_id: @binance.id } }
+    get new_bots_dca_multi_assets_pick_spendable_asset_path
     assert_select '.conversational .conversational__lead', text: 'spending'
   end
 
@@ -174,9 +174,9 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
     assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
   end
 
-  # ── single exchange-first happy path ─────────────────────────────────────────
+  # ── one-asset exchange-first happy path ──────────────────────────────────────
 
-  test 'single exchange-first: exchange → api → asset → Next → quote creates the bot' do
+  test 'one asset exchange-first: exchange → api → asset → Next → quote creates a one-asset basket' do
     switch_to_exchange_first
     assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
     follow_redirect!
@@ -190,20 +190,20 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
     follow_redirect!
     assert_response :ok
 
-    # Picking stays on the step; Next moves on to the quote.
+    # Picking stays on the step; Next moves on to the quote — a basket's, one asset included.
     pick @bitcoin
     assert_redirected_to new_bots_dca_single_assets_pick_buyable_asset_path
     advance
-    assert_redirected_to new_bots_dca_single_assets_pick_spendable_asset_path
+    assert_redirected_to new_bots_dca_multi_assets_pick_spendable_asset_path
     follow_redirect!
     assert_response :ok
 
-    assert_difference 'Bots::DcaSingleAsset.count', 1 do
-      post bots_dca_single_assets_pick_spendable_asset_path,
-           params: { bots_dca_single_asset: { quote_asset_id: @usd.id } }, as: :turbo_stream
+    assert_difference 'Bots::DcaMultiAsset.count', 1 do
+      post bots_dca_multi_assets_pick_spendable_asset_path,
+           params: { bots_dca_multi_asset: { quote_asset_id: @usd.id } }, as: :turbo_stream
     end
 
-    bot = Bots::DcaSingleAsset.last
+    bot = Bots::DcaMultiAsset.last
     assert_equal @bitcoin, bot.base_asset
     assert_equal @usd, bot.quote_asset
     assert_equal @binance, bot.exchange
@@ -244,24 +244,26 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
   test 'exchange-first: re-picking the exchange keeps the chosen asset and only re-asks the exchange' do
     reach_asset_step
     pick @bitcoin
-    assert_equal @bitcoin.id.to_s, session[:bot_config].dig('settings', 'base_asset_id').to_s
+    assert_equal [@bitcoin.id], session[:bot_config].dig('settings', 'base_asset_ids')
 
     # Go back and re-pick a different exchange (Kraken also lists BTC). The asset
     # is the anchor — it survives; the exchange is swapped and the quote dropped.
-    post bots_dca_single_assets_pick_exchange_path,
-         params: { bots_dca_single_asset: { exchange_id: @kraken.id } }
+    advance(to: 'exchange')
+    assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
+    post bots_dca_multi_assets_pick_exchange_path,
+         params: { bots_dca_multi_asset: { exchange_id: @kraken.id } }
     assert_equal @kraken.id.to_s, session[:bot_config]['exchange_id'].to_s
-    assert_equal @bitcoin.id.to_s, session[:bot_config].dig('settings', 'base_asset_id').to_s,
+    assert_equal [@bitcoin.id], session[:bot_config].dig('settings', 'base_asset_ids'),
                  'the chosen asset must survive an exchange re-pick'
     assert_nil session[:bot_config].dig('settings', 'quote_asset_id')
 
     # And the wizard does not re-ask the asset: after the key it lands on spendable.
     follow_redirect! # add_api_key (Kraken key valid in dry-run)
     follow_redirect! # → pick_spendable, NOT the asset step
-    assert_equal new_bots_dca_single_assets_pick_spendable_asset_path, request.path
+    assert_equal new_bots_dca_multi_assets_pick_spendable_asset_path, request.path
   end
 
-  test 'exchange-first: the exchange chip on the asset step re-picks for two assets (multi) and for one (single), keeping the basket' do
+  test 'exchange-first: the exchange chip on the asset step re-picks for two assets and for one, keeping the basket' do
     reach_asset_step
     pick @bitcoin
     pick @ethereum
@@ -284,26 +286,31 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
     assert_equal new_bots_dca_multi_assets_pick_spendable_asset_path, request.path
     assert_equal [@bitcoin.id, @ethereum.id], session[:bot_config].dig('settings', 'base_asset_ids')
 
-    # Back to one asset: the single exchange step (Kraken lists BTC too).
+    # Back to one asset: still the basket's exchange step, now offering Kraken too (it lists BTC).
     get new_bots_dca_single_assets_pick_buyable_asset_path
     post remove_bots_dca_single_assets_pick_buyable_asset_path,
          params: { bots_dca_single_asset: { base_asset_id: @ethereum.id } }
     advance(to: 'exchange')
-    assert_redirected_to new_bots_dca_single_assets_pick_exchange_path
-    post bots_dca_single_assets_pick_exchange_path,
-         params: { bots_dca_single_asset: { exchange_id: @kraken.id } }
+    assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
+    follow_redirect!
+    assert_select "button.exchange-grid__item[value='#{@kraken.id}']"
+    post bots_dca_multi_assets_pick_exchange_path,
+         params: { bots_dca_multi_asset: { exchange_id: @kraken.id } }
     follow_redirect! # add_api_key
     follow_redirect! # pick_spendable: the asset survived
-    assert_equal new_bots_dca_single_assets_pick_spendable_asset_path, request.path
-    assert_equal @bitcoin.id, session[:bot_config].dig('settings', 'base_asset_id')
+    assert_equal new_bots_dca_multi_assets_pick_spendable_asset_path, request.path
+    assert_equal [@bitcoin.id], session[:bot_config].dig('settings', 'base_asset_ids')
   end
 
   test 'exchange-first: re-opening the exchange picker shows the chosen asset as a chip, not a doubled empty slot' do
     reach_asset_step
     pick @bitcoin
 
-    # Re-open the exchange picker.
+    # Re-open the exchange picker (a stale page or direct URL): with a basket chosen it is the
+    # basket's exchange step.
     get new_bots_dca_single_assets_pick_exchange_path
+    assert_redirected_to new_bots_dca_multi_assets_pick_exchange_path
+    follow_redirect!
     assert_response :ok
     # The chosen asset renders as a chip linking back to the asset step (not an empty switch placeholder).
     assert_select '.conversational a.conversational__stack .ticker', text: 'BTC'
@@ -341,17 +348,17 @@ class Bots::ExchangeFirstCreationTest < ActionDispatch::IntegrationTest
     # Picking the stock stays; Next must NOT bounce to the broker picker — the venue is set.
     pick aapl
     advance
-    assert_redirected_to new_bots_dca_single_assets_pick_spendable_asset_path
+    assert_redirected_to new_bots_dca_multi_assets_pick_spendable_asset_path
     assert_equal alpaca.id.to_s, session[:bot_config]['exchange_id'].to_s, 'chosen venue must be preserved'
     follow_redirect!
     assert_response :ok
 
-    assert_difference 'Bots::DcaSingleAsset.count', 1 do
-      post bots_dca_single_assets_pick_spendable_asset_path,
-           params: { bots_dca_single_asset: { quote_asset_id: @usd.id } }, as: :turbo_stream
+    assert_difference 'Bots::DcaMultiAsset.count', 1 do
+      post bots_dca_multi_assets_pick_spendable_asset_path,
+           params: { bots_dca_multi_asset: { quote_asset_id: @usd.id } }, as: :turbo_stream
     end
 
-    bot = Bots::DcaSingleAsset.last
+    bot = Bots::DcaMultiAsset.last
     assert_equal aapl, bot.base_asset
     assert_equal alpaca, bot.exchange
     assert_equal @usd, bot.quote_asset

@@ -1,7 +1,7 @@
 require 'test_helper'
 
-# Characterization tests for the four top-level <type>s_controller#create actions,
-# written before extracting a shared base. All four: build from session[:bot_config]
+# Characterization tests for the three top-level <type>s_controller#create actions,
+# written before extracting a shared base. All three: build from session[:bot_config]
 # → save && start(start_fresh: true) → clear session → turbo-stream redirect to the
 # bot page; on failure → flash + 422 turbo stream, session kept. Signals additionally
 # build bot_signals from the session (and skip set_missed_quote_amount — Bots::Signal
@@ -10,7 +10,7 @@ require 'test_helper'
 # These are functional (ActionController::TestCase) tests: the wizard session is
 # seeded directly because the live wizard finalises bots in pick_spendable_assets
 # (clearing the session), so a full session config is not reachable through requests
-# for single/dual/index. The create actions remain routed and reachable directly
+# for multi/index. The create actions remain routed and reachable directly
 # (and via the legacy index/signals confirm_settings forms).
 module TopLevelCreateBehavior
   extend ActiveSupport::Concern
@@ -52,39 +52,9 @@ module TopLevelCreateBehavior
 
   private
 
-  # Single/dual/index fail at save (quote_amount presence) → nothing persisted.
+  # Multi/index fail at save (quote_amount presence) → nothing persisted.
   # Signals overrides: its bare config saves fine and only fails on :start.
   def invalid_create_persisted_bots = 0
-end
-
-class Bots::DcaSingleAssetsControllerTest < ActionController::TestCase
-  include TopLevelCreateBehavior
-
-  private
-
-  def expected_bot_class = Bots::DcaSingleAsset
-
-  def valid_bot_config
-    btc = create(:asset, :bitcoin)
-    usd = create(:asset, :usd)
-    binance = create(:binance_exchange)
-    create(:ticker, :btc_usd, exchange: binance, base_asset: btc, quote_asset: usd)
-    {
-      'label' => 'Test Bot',
-      'exchange_id' => binance.id,
-      'settings' => {
-        'base_asset_id' => btc.id,
-        'quote_asset_id' => usd.id,
-        'quote_amount' => 100,
-        'interval' => 'week'
-      }
-    }
-  end
-
-  def invalid_bot_config
-    # No quote_amount → quote_amount presence validation fails.
-    { 'label' => 'Test Bot', 'settings' => { 'interval' => 'week' } }
-  end
 end
 
 class Bots::DcaMultiAssetsControllerTest < ActionController::TestCase

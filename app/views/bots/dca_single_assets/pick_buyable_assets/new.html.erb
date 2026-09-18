@@ -8,7 +8,7 @@
     } %>
 
     <%= render "bots/wizard/sentence", bot: @bot, current_step: :currencies,
-               chosen: @chosen, multi: @chosen.size >= Bots::DcaMultiAsset::MIN_ASSETS %>
+               chosen: @chosen, multi: @chosen.any? %>
 
     <div class="wizard-assets vt-step-body">
       <% if @chosen.any? %>

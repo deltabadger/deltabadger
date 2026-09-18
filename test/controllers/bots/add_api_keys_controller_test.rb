@@ -76,7 +76,9 @@ class Bots::DcaSingleAssets::AddApiKeysControllerTest < ActionDispatch::Integrat
 
   def add_api_key_path = new_bots_dca_single_assets_add_api_key_path
   def add_api_keys_path = bots_dca_single_assets_add_api_key_path
-  def after_api_key_path = new_bots_dca_single_assets_pick_spendable_asset_path
+  # This key step comes before any asset (exchange-first, the default order): a correct key moves on
+  # to the asset step.
+  def after_api_key_path = new_bots_dca_single_assets_pick_buyable_asset_path
   def missing_exchange_redirect_path = new_bots_dca_single_assets_pick_exchange_path
 
   def seed_assets
@@ -88,10 +90,7 @@ class Bots::DcaSingleAssets::AddApiKeysControllerTest < ActionDispatch::Integrat
 
   def seed_session_without_exchange
     seed_assets
-    get new_bots_dca_single_assets_pick_buyable_asset_path
-    post bots_dca_single_assets_pick_buyable_asset_path,
-         params: { bots_dca_single_asset: { base_asset_id: @btc.id } }
-    post advance_bots_dca_single_assets_pick_buyable_asset_path
+    get new_bots_dca_single_assets_pick_exchange_path
   end
 
   def seed_wizard_session
@@ -103,7 +102,7 @@ end
 
 # Container-global activation is admin/Settings-only: a per-user Alpaca connect
 # in bot creation must touch ONLY the connecting user's ApiKey.
-class Bots::DcaSingleAssets::AddApiKeysAlpacaIsolationTest < ActionDispatch::IntegrationTest
+class Bots::DcaMultiAssets::AddApiKeysAlpacaIsolationTest < ActionDispatch::IntegrationTest
   setup do
     # Simulate a self-hosted container the admin already activated: the
     # container sync credential belongs to the admin.
@@ -135,7 +134,7 @@ class Bots::DcaSingleAssets::AddApiKeysAlpacaIsolationTest < ActionDispatch::Int
     ApiKey.any_instance.stubs(:get_validity).returns(Result::Success.new(true))
     Exchange::SyncAlpacaAssetsJob.expects(:perform_later).never
 
-    post bots_dca_single_assets_add_api_key_path,
+    post bots_dca_multi_assets_add_api_key_path,
          params: { api_key: { key: 'user-key', secret: 'user-secret', passphrase: 'live' } }
 
     assert_response :success

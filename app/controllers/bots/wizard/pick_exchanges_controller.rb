@@ -43,7 +43,7 @@ class Bots::Wizard::PickExchangesController < ApplicationController
   def prerequisite_redirect_path = nil
 
   # Hook to adjust the session before storing a (re-)picked exchange. Default
-  # no-op; single/dual override it to reset downstream picks (exchange-first
+  # no-op; the DCA steps override it to reset downstream picks (exchange-first
   # re-pick clears base + quote). Index/Signals keep the no-op.
   def prepare_session_for_exchange_pick; end
 
