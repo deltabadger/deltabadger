@@ -374,7 +374,7 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
 
   # ---- create -------------------------------------------------------------
 
-  test 'POST /api/v1/bots creates and starts a single-asset bot' do
+  test 'POST /api/v1/bots with one base_asset creates and starts a one-asset basket' do
     @user.set_rest_tool_enabled('create_bot', true)
     Bot::ActionJob.stubs(:perform_later)
     Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
@@ -394,10 +394,31 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :created
     body = JSON.parse(response.body)
-    assert_equal 'Bots::DcaSingleAsset', body['data']['type']
+    assert_equal 'Bots::DcaMultiAsset', body['data']['type']
     assert_equal 'BTC/USD', body['data']['pair']
     bot = @user.bots.last
     assert bot.working?
+    assert_equal [btc], bot.base_assets
+  end
+
+  test 'POST /api/v1/bots refuses a basket that lists nothing, even beside a base_asset' do
+    @user.set_rest_tool_enabled('create_bot', true)
+    exchange = create(:binance_exchange)
+    btc = create(:asset, :bitcoin)
+    usd = create(:asset, :usd)
+    create(:ticker, exchange: exchange, base_asset: btc, quote_asset: usd)
+    create(:api_key, user: @user, exchange: exchange, key_type: :trading, status: :correct)
+    token = create_token(scopes: 'api')
+
+    assert_no_difference -> { Bot.count } do
+      post '/api/v1/bots',
+           params: { exchange_name: 'Binance', base_asset: 'BTC', assets: ',', quote_asset: 'USD',
+                     quote_amount: 100, interval: 'day' },
+           headers: bearer(token), as: :json
+    end
+
+    assert_response :unprocessable_entity
+    assert_equal 'invalid_basket', JSON.parse(response.body).dig('error', 'code')
   end
 
   test 'POST /api/v1/bots schedules a bot for a future start_at' do

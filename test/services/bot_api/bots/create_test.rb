@@ -180,10 +180,44 @@ class BotApi::Bots::CreateTest < ActiveSupport::TestCase
   end
 
   test 'basket size is bounded and symbols are unique' do
+    too_many = (1..21).map { |i| "A#{i}" }.join(',')
     assert_equal 'invalid_basket',
-                 BotApi::Bots::Create.call(user: @user, **base_params.except(:base_asset), assets: 'BTC').error_code
+                 BotApi::Bots::Create.call(user: @user, **base_params.except(:base_asset), assets: too_many).error_code
     assert_equal 'invalid_basket',
                  BotApi::Bots::Create.call(user: @user, **base_params.except(:base_asset), assets: 'BTC:50,btc:50').error_code
+  end
+
+  # ---------- one asset ----------
+
+  test 'a base_asset alone creates a one-asset basket, answered as one' do
+    basket_pairs
+
+    result = BotApi::Bots::Create.call(user: @user, **base_params.merge(base_asset: ' btc '))
+
+    assert result.success?, result.error_message
+    bot = @user.bots.find(result.data[:id])
+    assert_equal 'Bots::DcaMultiAsset', bot.type
+    assert_equal({ @btc.id.to_s => 1.0 }, bot.allocations)
+    assert_equal ['Bots::DcaMultiAsset', 'BTC/USD'], result.data.values_at(:type, :pair)
+    assert_equal 0, Bots::DcaSingleAsset.count
+  end
+
+  test 'a basket may list one asset' do
+    basket_pairs
+
+    result = BotApi::Bots::Create.call(user: @user, **base_params.except(:base_asset), assets: 'BTC')
+
+    assert result.success?, result.error_message
+    assert_equal({ @btc.id.to_s => 1.0 }, @user.bots.find(result.data[:id]).allocations)
+    assert_equal 'allocations_unbalanced',
+                 BotApi::Bots::Create.call(user: @user, **base_params.except(:base_asset), assets: 'BTC:50').error_code
+  end
+
+  test 'a basket that lists nothing is refused, with or without a base_asset' do
+    assert_equal 'invalid_basket', BotApi::Bots::Create.call(user: @user, **base_params, assets: ',').error_code
+    assert_equal 'invalid_basket',
+                 BotApi::Bots::Create.call(user: @user, **base_params.except(:base_asset), assets: ',,,').error_code
+    assert_equal 0, @user.bots.count
   end
 
   test 'malformed input is a 422, never a 500 or a silent zero' do

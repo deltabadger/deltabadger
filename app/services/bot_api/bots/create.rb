@@ -2,7 +2,8 @@
 
 module BotApi
   module Bots
-    # Creates and immediately starts a new DCA bot: one base asset, or a basket of 2-20.
+    # Creates and immediately starts a new DCA bot — always a basket (Bots::DcaMultiAsset): one base
+    # asset, or a list of up to 20.
     # The MCP tool used to inline this whole flow; pulling it here keeps the
     # decision tree in one place and gives REST callers a structured result.
     #
@@ -61,7 +62,7 @@ module BotApi
         basket = basket_entries
         return invalid_basket if basket.nil?
 
-        basket.empty? ? create_single(exchange) : create_basket(exchange, basket)
+        create_basket(exchange, basket)
       end
 
       private
@@ -74,8 +75,8 @@ module BotApi
         @second_base_asset.present? && @allocation.present? && Number.within(@allocation, 0.0..100.0).nil?
       end
 
-      # [{symbol:, allocation:}] from whichever shape arrived; [] means single-asset; nil means
-      # unparseable, malformed, duplicated, or out of bounds — every one of those is a 422.
+      # [{symbol:, allocation:}] from whichever shape arrived — a lone base_asset is a basket of one;
+      # nil means unparseable, malformed, empty, duplicated, or out of bounds — every one of those is a 422.
       def basket_entries
         entries =
           if @assets.present?
@@ -86,11 +87,11 @@ module BotApi
 
             [{ symbol: @base_asset, allocation: first }, { symbol: @second_base_asset, allocation: 100 - first }]
           else
-            []
+            [normalize_asset(symbol: @base_asset)]
           end
-        return entries if entries.empty?
-        return nil if entries.any?(&:nil?)
-        return nil unless entries.size.between?(::Bots::DcaMultiAsset::MIN_ASSETS, ::Bots::DcaMultiAsset::MAX_ASSETS)
+        # Asked for and parsed to nothing (assets: ","): a refusal, not an empty basket.
+        return nil if entries.empty? || entries.any?(&:nil?)
+        return nil if entries.size > ::Bots::DcaMultiAsset::MAX_ASSETS
         return nil if entries.map { |e| e[:symbol] }.uniq.size != entries.size
 
         entries
@@ -120,24 +121,6 @@ module BotApi
         return nil if allocation.nil?
 
         { symbol: symbol, allocation: allocation }
-      end
-
-      def create_single(exchange)
-        first = find_pair(exchange, @base_asset, @quote_asset)
-        return ticker_not_found(exchange, @base_asset) unless first
-
-        bot = @user.bots.new(
-          type: 'Bots::DcaSingleAsset',
-          exchange: exchange,
-          label: @label,
-          settings: {
-            'base_asset_id' => first[:base_asset_id],
-            'quote_asset_id' => first[:quote_asset_id],
-            'quote_amount' => @amount.to_f,
-            'interval' => @interval
-          }
-        )
-        save_and_start(bot)
       end
 
       def create_basket(exchange, entries)
@@ -198,12 +181,7 @@ module BotApi
         }
       end
 
-      # Keyed off the request, not the bot's type: a basket and a single-asset bot no longer differ
-      # by class in a way this can read, and falling through would label a two-asset bot as one.
-      def pair_label
-        symbols = @basket_symbols || [@base_asset.to_s.upcase]
-        "#{symbols.join('+')}/#{@quote_asset.to_s.upcase}"
-      end
+      def pair_label = "#{@basket_symbols.join('+')}/#{@quote_asset.to_s.upcase}"
 
       def invalid_allocation
         Result.failure(:validation_failed, 'invalid_allocation',
@@ -212,7 +190,7 @@ module BotApi
 
       def invalid_basket
         Result.failure(:validation_failed, 'invalid_basket',
-                       "assets must list #{::Bots::DcaMultiAsset::MIN_ASSETS} to #{::Bots::DcaMultiAsset::MAX_ASSETS} " \
+                       "assets must list 1 to #{::Bots::DcaMultiAsset::MAX_ASSETS} " \
                        "symbols, e.g. 'BTC:60,ETH:40' or 'BTC,ETH'.")
       end
 
