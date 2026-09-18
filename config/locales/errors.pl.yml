@@ -73,7 +73,7 @@ pl:
         bots:
             multi_asset:
                 condition_subject: "Ten warunek musi dotyczyć aktywa, które bot posiada."
-                min_assets: "Minimalna liczba aktywów w portfelu: %{min}."
+                min_assets: "Portfel musi zawierać co najmniej jedno aktywo."
                 max_assets: "Maksymalna liczba aktywów w portfelu: %{max}."
                 pair_missing: "Na giełdzie %{exchange_name} nie można handlować aktywami %{assets} względem wybranego aktywa kwotowanego."
                 locked_while_running: "Nie można zmieniać aktywów ani wag portfela, gdy bot działa."

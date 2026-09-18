@@ -1,6 +1,8 @@
 class Bots::DcaMultiAsset < Bot
   include ActionCable::Channel::Broadcasting
 
+  # The fewest assets a NEW bot needs to be created as a basket rather than a pair bot. A basket itself
+  # may hold one (Bots::DcaMultiAsset::Allocatable#validate_allocations).
   MIN_ASSETS = 2
   MAX_ASSETS = 20
   # How the basket's weights are decided. 'manual' is the sliders; 'market_cap' derives them from
@@ -209,6 +211,10 @@ class Bots::DcaMultiAsset < Bot
   def rotate_direction! = flip_direction!(to_direction: buying? ? 'selling' : 'buying')
 
   def composition_size = base_asset_ids.size
+
+  # The configured members, not the tradeable ones: a two-member basket with one member delisted is not
+  # a pair bot.
+  def one_asset? = composition_size == 1
   def exited_title_key = 'bot.dca_multi_asset.removed_from_portfolio'
   def metrics_partial = 'bots/composition/metrics'
 

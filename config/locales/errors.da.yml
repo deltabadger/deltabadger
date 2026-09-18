@@ -66,7 +66,7 @@ da:
         bots:
             multi_asset:
                 condition_subject: "Denne betingelse skal gælde et aktiv, som botten ejer."
-                min_assets: "En portefølje skal indeholde mindst %{min} aktiver."
+                min_assets: "En portefølje skal indeholde mindst ét aktiv."
                 max_assets: "En portefølje kan højst indeholde %{max} aktiver."
                 pair_missing: "%{assets} kan ikke handles mod det valgte noteringsaktiv på %{exchange_name}."
                 locked_while_running: "Porteføljens aktiver og fordelinger kan ikke ændres, mens botten kører."

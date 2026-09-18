@@ -20,8 +20,7 @@ class Bots::DcaMultiAssets::ConditionSettingsTest < ActionDispatch::IntegrationT
     @bot.refresh_composition
   end
 
-  # MIN_ASSETS is 2, so removing from a two-asset basket is refused by the size validation whatever
-  # the conditions say — the removal tests below would prove nothing without a third member.
+  # A third member, so each removal below leaves a real basket rather than a one-asset one.
   def add_third_member!
     sol = create(:asset, symbol: 'SOL', name: 'Solana')
     create(:ticker, exchange: @exchange, base_asset: sol, quote_asset: @quote)
@@ -83,6 +82,18 @@ class Bots::DcaMultiAssets::ConditionSettingsTest < ActionDispatch::IntegrationT
       price_limited: '1', price_limit: '50000', price_limit_in_ticker_id: watched.id.to_s
     } }, as: :turbo_stream
     assert_equal watched.id, @bot.reload.price_limit_in_ticker_id
+
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { remove_asset_id: @eth.id.to_s } },
+                                 as: :turbo_stream
+
+    assert_includes @bot.reload.base_asset_ids, @eth.id
+  end
+
+  test 'removing the watched member of a two-asset basket is refused too, down to one or not' do
+    watched = @bot.composition_tickers.find { |ticker| ticker.base_asset_id == @eth.id }
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: {
+      price_limited: '1', price_limit: '50000', price_limit_in_ticker_id: watched.id.to_s
+    } }, as: :turbo_stream
 
     patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { remove_asset_id: @eth.id.to_s } },
                                  as: :turbo_stream

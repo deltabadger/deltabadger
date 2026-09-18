@@ -90,7 +90,8 @@
                    aria-label="<%= asset.symbol %>"
                    <%= 'disabled' if weights_locked %>>%
           </div>
-          <% if !composition_locked && base_assets.size > Bots::DcaMultiAsset::MIN_ASSETS %>
+          <%# Down to one, never to none. %>
+          <% if !composition_locked && base_assets.many? %>
             <%# This stays inside the PATCH form so a removal preserves every slider value posted
                 with the click; a second form here would be invalid HTML and lose those edits. %>
             <%= button_tag '×', type: :submit, name: 'bots_dca_multi_asset[remove_asset_id]', value: asset.id,

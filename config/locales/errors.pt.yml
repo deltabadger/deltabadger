@@ -73,7 +73,7 @@ pt:
         bots:
             multi_asset:
                 condition_subject: "Esta condição tem de incidir sobre um ativo que o bot detém."
-                min_assets: "Uma carteira tem de incluir pelo menos %{min} ativos."
+                min_assets: "Uma carteira tem de incluir pelo menos um ativo."
                 max_assets: "Uma carteira pode incluir, no máximo, %{max} ativos."
                 pair_missing: "%{assets} não podem ser negociados contra o ativo de cotação selecionado na %{exchange_name}."
                 locked_while_running: "Os ativos e as ponderações da carteira não podem ser alterados enquanto o bot estiver em execução."

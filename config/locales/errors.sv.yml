@@ -66,7 +66,7 @@ sv:
         bots:
             multi_asset:
                 condition_subject: "Det här villkoret måste gälla en tillgång som boten innehar."
-                min_assets: "En portfölj måste innehålla minst %{min} tillgångar."
+                min_assets: "En portfölj måste innehålla minst en tillgång."
                 max_assets: "En portfölj kan innehålla högst %{max} tillgångar."
                 pair_missing: "%{assets} kan inte handlas mot den valda noteringstillgången på %{exchange_name}."
                 locked_while_running: "Portföljens tillgångar och viktningar kan inte ändras medan boten körs."
