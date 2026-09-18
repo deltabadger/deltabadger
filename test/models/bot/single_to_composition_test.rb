@@ -285,6 +285,22 @@ class Bot::SingleToCompositionTest < ActiveSupport::TestCase
     assert_not bot.settings.key?('base_asset_id')
   end
 
+  test "a stale save that changed an order-free bot's asset is repaired onto that asset" do
+    eth = create(:asset, :ethereum)
+    eth_ticker = create(:ticker, exchange: @pair.exchange, base_asset: eth, quote_asset: @usd)
+    run!
+    Bot::SingleToComposition::Row.where(id: @pair.id).update_all(
+      settings: converted.settings.except('allocations').merge('base_asset_id' => eth.id)
+    )
+
+    run!
+    bot = converted
+
+    assert_equal({ eth.id.to_s => 1.0 }, bot.allocations)
+    assert_equal [[eth.id, eth_ticker.id]], bot.bot_index_assets.in_index.pluck(:asset_id, :ticker_id)
+    assert_not bot.bot_index_assets.find_by(asset_id: @btc.id).in_index, "the conversion's own membership is exited"
+  end
+
   test 'a repair waits while a job naming the converted bot is claimed' do
     run!
     Bot::SingleToComposition::Row.where(id: @pair.id).update_all(
