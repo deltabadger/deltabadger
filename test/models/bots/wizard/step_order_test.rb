@@ -122,6 +122,7 @@ class Bots::Wizard::StepOrderTest < ActiveSupport::TestCase
     order = SO.for(bot_type: :single, variant: :exchange_first)
     keys = order.reset_keys(:exchange)
     refute_includes keys, BASE_IDS, 'the chosen asset survives an exchange re-pick'
+    refute_includes keys, BASE, 'so does one asset a session from an earlier release still holds'
     assert_includes keys, EXCHANGE
     assert_includes keys, QUOTE
   end
