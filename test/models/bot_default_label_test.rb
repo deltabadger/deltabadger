@@ -19,6 +19,12 @@ class BotDefaultLabelTest < ActiveSupport::TestCase
     assert_equal 'Bitcoin', bot.label
   end
 
+  test 'a one-asset basket is named after its asset, as the single-asset bot it replaces was' do
+    bot = create(:dca_multi_asset, user: @user, base_assets: [@btc], quote_asset: @usd)
+
+    assert_equal 'Bitcoin', bot.label
+  end
+
   test 'a signal bot is named after its asset too' do
     bot = create(:signal_bot, user: @user, base_asset: @btc, quote_asset: @usd)
 
