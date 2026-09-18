@@ -350,13 +350,13 @@ class Bot < ApplicationRecord
     broadcast_order_filters_update
   end
 
-  # The order row's rounding, keyed by the symbols the row shows. Empty when its ticker is unknown: the row
-  # then shows its amounts unrounded.
+  # The order row's rounding (BotHelper#order_decimals). Empty when its ticker is unknown: the row then shows
+  # its amounts unrounded.
   def order_decimals(order)
     ticker = order.ticker
     return {} if ticker.nil?
 
-    { order.base => ticker.base_decimals, order.quote => ticker.quote_decimals }
+    { order.base_asset_id.to_s => ticker.base_decimals, order.quote_asset_id.to_s => ticker.quote_decimals }
   end
 
   # Override broadcast methods to use user's locale for translated partials

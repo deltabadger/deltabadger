@@ -41,10 +41,15 @@ module Bot::ChartSeries
   # through `Transaction.confirmed_exec_amounts` rather than in SQL, because a closed row is
   # allowed to have its execution missing and is read back from amount * price — one branch, in
   # one place, rather than the same rule spelled twice in two languages.
+  #
+  # Each mark is keyed like the holding it bought into (#chart_row_key), which is what the price lines and
+  # the logos are keyed by.
   def chart_buy_marks
+    key = chart_row_key
     marks = transactions.submitted.buy.order(:created_at)
-                        .pluck(:created_at, :base, :price, :amount, :amount_exec, :quote_amount_exec, :external_status)
-                        .filter_map do |at, base, price, amount, amount_exec, quote_amount_exec, external_status|
+                        .pluck(:created_at, :base, :base_asset_id, :price, :amount, :amount_exec, :quote_amount_exec,
+                               :external_status)
+                        .filter_map do |at, base, asset_id, price, amount, amount_exec, quote_amount_exec, external_status|
       amount_exec, quote_amount_exec =
         Transaction.confirmed_exec_amounts(external_status, price, amount, amount_exec, quote_amount_exec)
       next if price.blank? || amount_exec.blank? || quote_amount_exec.blank?
@@ -53,9 +58,21 @@ module Bot::ChartSeries
       # Amounts as EXECUTED, not as requested — `price` on the row is what was asked for, and a
       # market order rarely gets exactly that. The fill price the tooltip shows is derived from
       # these two, so it is the price the money actually moved at.
-      [at, base, amount_exec.to_d, quote_amount_exec.to_d, 1]
+      [at, key.call(base, asset_id), amount_exec.to_d, quote_amount_exec.to_d, 1]
     end
     chart_thinned_marks(marks)
+  end
+
+  # The key a row is charted under: its holding's. A single-pair bot has one holding, charted under its
+  # ticker's spelling — the key its price line has.
+  def chart_row_key
+    key = try(:ticker)&.base
+    ->(base, _asset_id) { key || base }
+  end
+
+  # The asset behind each charted key, for its logo and colour.
+  def chart_logo_assets(keys)
+    exchange.tickers.where(base: keys).includes(:base_asset).index_by(&:base).transform_values(&:base_asset)
   end
 
   # One mark per symbol per bucket, timed at the FIRST in each — so the first and last buys of
@@ -116,10 +133,11 @@ module Bot::ChartSeries
   # Every confirmed fill's price, per symbol. Read straight from the rows rather than the metrics
   # walk, which keeps only the LAST price it saw for each asset.
   def chart_fill_marks_by_symbol
+    key = chart_row_key
     transactions.submitted.where.not(price: nil).order(:created_at)
-                .pluck(:created_at, :base, :price)
-                .group_by { |_time, base, _price| base }
-                .transform_values { |rows| rows.map { |time, _base, price| [time, price] } }
+                .pluck(:created_at, :base, :base_asset_id, :price)
+                .group_by { |_time, base, asset_id, _price| key.call(base, asset_id) }
+                .transform_values { |rows| rows.map { |time, _base, _asset_id, price| [time, price] } }
   end
 
   # Two marks pinned either side of every restatement: the last observed pre-split price at one

@@ -11,7 +11,8 @@ class UpdateBotSettingsTool < ApplicationMCPTool
   property :num_coins, type: 'number', description: 'Index bots: how many top assets to hold (2-50)'
   property :allocation_flattening, type: 'number', description: 'Index bots: 0 = market-cap weights, 1 = equal'
   property :allocations, type: 'string',
-                         description: "Basket bots: new weights for every current asset, e.g. 'BTC:70,ETH:30' (sum 100)"
+                         description: "Basket bots: new weights for every current asset, e.g. 'BTC:70,ETH:30' (sum 100). " \
+                                      'Name an asset by its key from get_bot_details when two share a symbol, or by asset id'
 
   def perform
     result = BotApi::Bots::UpdateSettings.call(

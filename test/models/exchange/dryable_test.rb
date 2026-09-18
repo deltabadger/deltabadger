@@ -48,6 +48,13 @@ class Exchange::DryableTest < ActiveSupport::TestCase
     assert_in_delta 3, free('BTC'), 0.00000001
   end
 
+  test 'rows count toward their asset whatever symbol they recorded; rows with no asset count by symbol' do
+    order!('XBT', :buy, 2, :submitted, 2).update_columns(base_asset_id: @btc.id)
+    order!('BTC', :buy, 1, :submitted, 1).update_columns(base_asset_id: nil)
+
+    assert_in_delta 3, free('BTC'), 0.00000001
+  end
+
   test 'another exchange holdings do not count toward this one' do
     other_bot = create(:dca_index, user: create(:user), exchange: create(:binance_exchange),
                                    quote_asset: @bot.quote_asset)

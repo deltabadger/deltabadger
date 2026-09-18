@@ -117,20 +117,43 @@ module BotApi
                                 "allocations must be 'SYMBOL:percent,…' or {symbol: percent}.")
         end
 
-        by_symbol = bot.base_assets.index_by(&:symbol)
-        if (stranger = given.keys.find { |symbol| !by_symbol.key?(symbol) })
-          return Result.failure(:validation_failed, 'asset_not_in_basket',
-                                "#{stranger} is not in this basket; membership cannot be changed here.")
+        # Every identifier to its asset FIRST, so completeness and the total are judged on assets.
+        keys = bot.member_keys
+        weights = {}
+        given.each do |identifier, pct|
+          ids = member_ids_named(bot, keys, identifier)
+          if ids.empty?
+            return Result.failure(:validation_failed, 'asset_not_in_basket',
+                                  "#{identifier} is not in this basket; membership cannot be changed here.")
+          end
+          if ids.many?
+            return Result.failure(:validation_failed, 'ambiguous_basket_asset',
+                                  "#{identifier} names more than one basket asset: #{keys.values_at(*ids).join(', ')}. " \
+                                  'Use one of those.')
+          end
+          return Result.failure(:validation_failed, 'invalid_allocations', "#{keys[ids.first]} is given twice.") if weights.key?(ids.first)
+
+          weights[ids.first] = pct
         end
-        if (missing = by_symbol.keys - given.keys).any?
+        if (missing = keys.keys - weights.keys).any?
           return Result.failure(:validation_failed, 'missing_basket_asset',
-                                "Give a weight for every basket asset; missing: #{missing.join(', ')}.")
+                                "Give a weight for every basket asset; missing: #{keys.values_at(*missing).join(', ')}.")
         end
-        balanced = (given.values.sum - 100).abs <= 0.1
+        balanced = (weights.values.sum - 100).abs <= 0.1
         return Result.failure(:validation_failed, 'allocations_unbalanced', 'Weights must sum to 100.') unless balanced
 
         # Floats keyed by asset id, as the composition stores them.
-        given.to_h { |symbol, pct| [by_symbol[symbol].id.to_s, (pct / 100).to_f] }
+        weights.to_h { |asset_id, pct| [asset_id.to_s, (pct / 100).to_f] }
+      end
+
+      # The members an identifier names: the one its key or asset id names, else every member with that
+      # symbol (case-insensitive).
+      def member_ids_named(bot, keys, identifier)
+        by_key = keys.key(identifier)
+        return [by_key] if by_key
+        return [identifier.to_i] if identifier.match?(/\A\d+\z/) && keys.key?(identifier.to_i)
+
+        bot.base_assets.select { |asset| asset.symbol&.casecmp?(identifier) }.map(&:id)
       end
 
       # 'BTC:60,ETH:40' or a hash-shaped body; anything else — a bare array, a nested list, a
@@ -146,10 +169,10 @@ module BotApi
         return nil if pairs.nil? || pairs.empty?
         return nil if pairs.any? { |symbol, pct| symbol.blank? || Number.within(pct, 0.0..100.0).nil? }
 
-        symbols = pairs.map { |symbol, _| symbol.to_s.strip.upcase }
-        return nil if symbols.uniq.size != symbols.size
+        identifiers = pairs.map { |identifier, _| identifier.to_s.strip }
+        return nil if identifiers.map(&:upcase).uniq.size != identifiers.size
 
-        symbols.zip(pairs.map { |_, pct| Number.parse(pct) }).to_h
+        identifiers.zip(pairs.map { |_, pct| Number.parse(pct) }).to_h
       end
 
       def unsupported(setting, kind)

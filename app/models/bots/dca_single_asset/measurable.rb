@@ -11,7 +11,8 @@ module Bots::DcaSingleAsset::Measurable
   # liquidations dilute PnL% while the $ profit comes only from the bot's real buys.
   # v5: holdings, the average buy price and the running value are restated through corporate
   # actions, so every figure in here can differ for a bot that held through one.
-  METRICS_CACHE_VERSION = 'v5'.freeze
+  # v6: a split is matched to the bot's asset as well as to the symbols its rows recorded.
+  METRICS_CACHE_VERSION = 'v6'.freeze
 
   def metrics(force: false)
     Rails.cache.fetch(metrics_cache_key, expires_in: 30.days, force: force) do

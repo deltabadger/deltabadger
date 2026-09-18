@@ -149,6 +149,40 @@ class AssetIdentityHoldingsTest < ActiveSupport::TestCase
     assert_in_delta 1, breakdown['BTC'][:amount].to_f, 1e-9
   end
 
+  # == The chart ==
+
+  test "a basket's buy marks and their logos are keyed like its holdings" do
+    fan, portuma, mexc = por_assets
+    bot = create(:dca_multi_asset, user: @user, exchange: mexc, quote_asset: @usd, base_assets: [fan, portuma])
+    fill(bot, 'POR', amount: 1, price: 1, asset: fan)
+    fill(bot, 'POR', amount: 1, price: 10, asset: portuma)
+    keys = ["POR##{fan.id}", "POR##{portuma.id}"]
+
+    assert_equal(keys, bot.chart_buy_marks.map { |mark| mark[1] })
+    assert_equal({ keys[0] => fan, keys[1] => portuma }, bot.chart_logo_assets(keys))
+  end
+
+  test "a Kraken pair bot's marks sit under its ticker, beside its prices" do
+    kraken_basket # the XBT ticker
+    pair = create(:dca_single_asset, user: @user, exchange: @kraken, base_asset: @btc, quote_asset: @usd)
+    fill(pair, 'BTC', amount: 1, price: 100)
+
+    assert_equal(['XBT'], pair.chart_buy_marks.map { |mark| mark[1] })
+    assert_equal({ 'XBT' => @btc }, pair.chart_logo_assets(['XBT']))
+  end
+
+  # == Order history ==
+
+  test "a Kraken BTC order rounds on the XBT ticker's precision" do
+    bot = kraken_basket
+    @xbt.update!(base_decimals: 5)
+    order = fill(bot, 'BTC', amount: 1, price: 100)
+
+    decimals = BotsController.new.send(:composition_decimals, bot)
+
+    assert_equal 5, Object.new.extend(BotHelper).send(:order_decimals, decimals, order, :base)
+  end
+
   # == Rows recorded before orders stored their asset ==
 
   test 'an unresolved history reads by its string and is never offered for sale' do

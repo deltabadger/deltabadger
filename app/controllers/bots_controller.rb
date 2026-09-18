@@ -93,17 +93,15 @@ class BotsController < ApplicationController
       feed = BotActivityFeed.new(bot: @bot, before: params[:before], limit: 10)
       @feed_items = feed.items
       @next_cursor = feed.next_cursor
-      permitted_params = params.require(:decimals).permit(*Asset.all.pluck(:symbol))
+      permitted_params = params.require(:decimals).permit(*Asset.pluck(:symbol, :id).flatten.map(&:to_s))
       @decimals = permitted_params.transform_values(&:to_i)
     else
       @other_bots = current_user.bots.not_deleted.not_archived.ordered.where.not(id: @bot.id).pluck(:id, :label, :type)
 
-      # TODO: When transactions point to real asset ids, we can use the asset ids directly instead of symbols
+      # Keyed by asset id, and by symbol for rows recorded before orders stored their asset
+      # (BotHelper#order_decimals).
       if @bot.dca_single_asset?
-        @decimals = {
-          @bot.base_asset.symbol => @bot.decimals[:base],
-          @bot.quote_asset.symbol => @bot.decimals[:quote]
-        }
+        @decimals = pair_decimals(@bot)
       elsif @bot.dca_index?
         @decimals = composition_decimals(@bot)
         # Build index preview from bot's current state
@@ -111,10 +109,7 @@ class BotsController < ApplicationController
       elsif @bot.dca_multi_asset?
         @decimals = composition_decimals(@bot)
       elsif @bot.signal?
-        @decimals = {
-          @bot.base_asset.symbol => @bot.decimals[:base],
-          @bot.quote_asset.symbol => @bot.decimals[:quote]
-        }
+        @decimals = pair_decimals(@bot)
       end
 
       combined_data = @bot.metrics_with_current_prices_and_candles_from_cache
@@ -253,14 +248,20 @@ class BotsController < ApplicationController
     end
   end
 
+  def pair_decimals(bot)
+    { bot.base_asset_id.to_s => bot.decimals[:base], bot.quote_asset_id.to_s => bot.decimals[:quote],
+      bot.base_asset.symbol => bot.decimals[:base], bot.quote_asset.symbol => bot.decimals[:quote] }
+  end
+
   def composition_decimals(bot)
     decimals = {}
-    decimals[bot.quote_asset.symbol] = bot.decimals[:quote] if bot.quote_asset.present?
+    decimals[bot.quote_asset_id.to_s] = decimals[bot.quote_asset.symbol] = bot.decimals[:quote] if bot.quote_asset.present?
     # Exited holdings still appear in the orders feed and need their ticker precision.
-    bot.bot_index_assets.includes(:ticker).each do |membership|
+    bot.bot_index_assets.includes(:ticker, :asset).each do |membership|
       next unless membership.ticker.present?
 
-      decimals[membership.ticker.base] = membership.ticker.base_decimals
+      decimals[membership.asset_id.to_s] = decimals[membership.ticker.base] = membership.ticker.base_decimals
+      decimals[membership.asset.symbol] ||= membership.ticker.base_decimals if membership.asset&.symbol.present?
     end
     decimals
   end

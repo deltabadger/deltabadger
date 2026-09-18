@@ -37,7 +37,8 @@ module BotApi
           status: bot.status.to_s,
           exchange: bot.exchange&.name,
           pair: pair_for(bot, base: base, quote: quote),
-          allocations: bot.dca_multi_asset? ? bot.base_assets.to_h { |asset| [asset.symbol, bot.allocation_for(asset.id)] } : nil,
+          allocations: allocation_assets(bot)&.to_h { |member| member.values_at(:key, :weight) },
+          allocation_assets: allocation_assets(bot),
           holdings: safe_held_symbols(bot),
           exited_holdings: safe_exited_symbols(bot),
           locked_members: safe_locked_members(bot),
@@ -71,6 +72,20 @@ module BotApi
         nil
       end
 
+      # Every member under the key it goes by (Bots::DcaMultiAsset::Allocatable#member_keys), with the
+      # asset behind it — the key is what update_settings takes back.
+      def allocation_assets(bot)
+        return nil unless bot.dca_multi_asset?
+
+        @allocation_assets ||= begin
+          keys = bot.member_keys
+          bot.base_assets.map do |asset|
+            { key: keys[asset.id], asset_id: asset.id, symbol: asset.symbol, name: asset.name,
+              weight: bot.allocation_for(asset.id) }
+          end
+        end
+      end
+
       def safe_locked_members(bot)
         return nil unless bot.respond_to?(:locked_members)
 
@@ -102,7 +117,7 @@ module BotApi
       def holding(bot, metrics)
         return metrics.values_at(:total_base_amount, :average_buy_price) unless bot.try(:one_asset?)
 
-        row = metrics.dig(:asset_breakdown, bot.base_asset&.symbol) || {}
+        row = metrics.dig(:asset_breakdown, bot.key_for(bot.base_asset&.id, metrics)) || {}
         amount = row[:amount].to_d
         [amount, (row[:quote_invested].to_d / amount if amount.positive?)]
       end

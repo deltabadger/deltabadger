@@ -112,6 +112,7 @@ class Bot::ChartBuyMarksTest < ActiveSupport::TestCase
   end
 
   test 'a history too dense to draw is thinned, keeping each symbol once per bucket' do
+    @bot = create(:dca_multi_asset, :started) # a pair bot's rows are all its one holding
     seed_dense_history(4000, symbols: %w[BTC ETH])
 
     marks = bot.chart_buy_marks

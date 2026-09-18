@@ -343,6 +343,17 @@ module Bot::Composition::Measurable
     Rails.cache.read(metrics_with_current_prices_cache_key)
   end
 
+  # A row is charted under its holding's key (Bot::ChartSeries).
+  def chart_row_key
+    payload = metrics
+    unresolved = (payload[:key_strings] || {}).each_with_object({}) do |(key, strings), acc|
+      strings.each { |string| acc[string] = key } if (payload[:key_assets] || {})[key].nil?
+    end
+    ->(base, asset_id) { (asset_id ? key_for(asset_id, payload) : unresolved[base.to_s]) || base }
+  end
+
+  def chart_logo_assets(keys) = holding_assets(metrics).slice(*keys)
+
   # One holding per key of the walk (Bot::Restatable#split_events).
   def split_holdings(payload = nil)
     payload ||= metrics
