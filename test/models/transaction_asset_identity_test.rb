@@ -26,6 +26,32 @@ class TransactionAssetIdentityTest < ActiveSupport::TestCase
     end
   end
 
+  # A signal bot goes through the same creators but says what belongs on every row in its own words
+  # — it has no interval and no per-order amount — so it has to say the assets too. Its failed and
+  # skipped rows are never polled, so nothing would fill them in later.
+  test 'a signal bot records the assets on every kind of row' do
+    bot = create(:signal_bot, :started, user: create(:user), exchange: @kraken, base_asset: @btc, quote_asset: @usd)
+    order = { ticker: @xbt, side: :buy, order_type: :market_order, price: 100, amount: 1, quote_amount: 100 }
+
+    placed = bot.persist_accepted_order!(order, 's-1')
+    failed = bot.create_failed_order!(order.merge(error_messages: ['nope']))
+    skipped = bot.send(:create_skipped_order!, order)
+
+    [placed, failed, skipped].each do |row|
+      assert_equal [@btc.id, @usd.id], [row.base_asset_id, row.quote_asset_id], row.status
+    end
+  end
+
+  test 'an order placed through a signal bot from the API records the assets' do
+    bot = create(:signal_bot, :started, user: create(:user), exchange: @kraken, base_asset: @btc, quote_asset: @usd)
+    stub_ticker_ask_price(bot.ticker, price: 50_000)
+    bot.exchange.stubs(:market_buy).returns(Result::Success.new(order_id: 'api-asset'))
+
+    row = bot.execute_api_order(side: :buy, amount: 100.to_d, amount_type: :quote).transaction
+
+    assert_equal [@btc.id, @usd.id], [row.base_asset_id, row.quote_asset_id]
+  end
+
   test "a poll fills a row's missing ids from the order's ticker and never overwrites one" do
     row = open_row(resolve_asset_ids: false)
     row.update_with_order_data(poll(@xbt))
