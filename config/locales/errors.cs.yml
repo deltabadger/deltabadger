@@ -78,7 +78,6 @@ cs:
             coingecko_required: "Pro indexové boty je vyžadován CoinGecko API klíč"
             market_data_required: "Pro indexové boty musí být nakonfigurován poskytovatel tržních dat. Přejděte do Nastavení a připojte ho."
             index_change_after_transactions: "Typ indexu nelze změnit po zadání příkazů"
-            signal_required: "Je vyžadován alespoň jeden signál"
             signal_minimum: "Poslední signál nelze odebrat"
         messages:
             accepted: 'musí být přijato'

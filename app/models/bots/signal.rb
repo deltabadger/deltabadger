@@ -12,7 +12,6 @@ class Bots::Signal < Bot
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_exchange, on: :update
   validate :validate_tickers_available, on: :start
-  validate :validate_has_signals, on: :start
 
   before_save :set_tickers, if: :will_save_change_to_exchange_id?
 
@@ -125,13 +124,5 @@ class Bots::Signal < Bot
 
   def restarting?
     false
-  end
-
-  private
-
-  def validate_has_signals
-    return if bot_signals.any?
-
-    errors.add(:base, I18n.t('errors.bots.signal_required'))
   end
 end

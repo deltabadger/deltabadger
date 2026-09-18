@@ -78,7 +78,6 @@ el:
             coingecko_required: "Απαιτείται κλειδί CoinGecko API για bots δείκτη"
             market_data_required: "Πρέπει να ρυθμιστεί πάροχος δεδομένων αγοράς για bots δείκτη. Πήγαινε στις ρυθμίσεις για σύνδεση."
             index_change_after_transactions: "Ο τύπος δείκτη δεν μπορεί να αλλάξει μετά την τοποθέτηση εντολών"
-            signal_required: "Απαιτείται τουλάχιστον ένα σήμα"
             signal_minimum: "Δεν μπορείς να αφαιρέσεις το τελευταίο σήμα"
         messages:
             accepted: 'πρέπει να γίνει αποδεκτό'

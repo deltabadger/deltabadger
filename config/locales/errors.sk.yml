@@ -78,7 +78,6 @@ sk:
             coingecko_required: "Pre indexovych botov je potrebny CoinGecko API kluc"
             market_data_required: "Pre indexovych botov musi byt nastaveny poskytovatel trznych dat. Prejdite do Nastaveni a pripojte ho."
             index_change_after_transactions: "Typ indexu nemozno zmenit po zadani prikazov"
-            signal_required: "Je potrebny aspon jeden signal"
             signal_minimum: "Posledny signal nemozno odobrat"
         messages:
             accepted: 'musi byt prijate'

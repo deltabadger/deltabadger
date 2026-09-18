@@ -84,11 +84,13 @@ class Bots::SignalTest < ActiveSupport::TestCase
     assert_predicate @bot.started_at, :present?
   end
 
-  test 'start fails without signals' do
-    assert_predicate @bot, :created?
-    result = @bot.start
-    assert_not result
-    assert_includes @bot.errors[:base], I18n.t('errors.bots.signal_required')
+  # A rule is a bearer URL that trades. A bot driven through the API (market_buy with its bot_id)
+  # must not be made to own one.
+  test 'starts without rules' do
+    assert_empty @bot.bot_signals
+
+    assert @bot.start
+    assert_predicate @bot.reload, :scheduled?
   end
 
   test 'stop sets status to stopped' do

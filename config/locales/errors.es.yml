@@ -84,7 +84,6 @@ es:
             api_key_success: "claves API guardadas con éxito"
             coingecko_required: "Se requiere una clave API de CoinGecko para los bots de índice"
             market_data_required: "Se debe configurar un proveedor de datos de mercado para los bots de índice. Ve a Configuración para conectar uno."
-            signal_required: "Se requiere al menos una señal"
             signal_minimum: "No se puede eliminar la última señal"
         messages:
             accepted: 'debe ser aceptado'

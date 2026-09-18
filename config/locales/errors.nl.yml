@@ -84,7 +84,6 @@ nl:
             api_key_success: "API-sleutels succesvol opgeslagen"
             coingecko_required: "CoinGecko API-sleutel is vereist voor Index bots"
             market_data_required: "Er moet een marktgegevensprovider worden geconfigureerd voor Index bots. Ga naar Instellingen om er een te verbinden."
-            signal_required: "Minimaal één signaal is vereist"
             signal_minimum: "Kan het laatste signaal niet verwijderen"
         messages:
             accepted: 'moet worden geaccepteerd'

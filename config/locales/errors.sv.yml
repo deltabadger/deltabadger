@@ -78,7 +78,6 @@ sv:
             coingecko_required: "CoinGecko API-nyckel krävs för indexbotar"
             market_data_required: "En marknadsdataleverantör måste konfigureras för indexbotar. Gå till Inställningar för att ansluta en."
             index_change_after_transactions: "Indextyp kan inte ändras efter att ordrar har lagts"
-            signal_required: "Minst en signal krävs"
             signal_minimum: "Kan inte ta bort den sista signalen"
         messages:
             accepted: 'måste accepteras'
