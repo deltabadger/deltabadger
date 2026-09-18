@@ -288,7 +288,9 @@ orders — instead of going to the exchange and belonging to nothing. The pair c
 so `exchange_name`, `base_asset` and `quote_asset` become optional and must agree with it when
 sent. The `201` carries `bot_id`, `transaction_id` and `order_id` (`transaction_id` is null in
 the rare case the exchange accepted the order but the row could not be written). Stopping the
-bot refuses further orders. Errors specific to this path: `bot_not_found` (404);
+bot refuses further orders. `amount_type` is sent to the exchange as given where the exchange takes
+it; a sell is always placed in base, and a buy is converted at the current price where the exchange
+takes only one denomination. Errors specific to this path: `bot_not_found` (404);
 `invalid_number`, `invalid_amount_type`, `bot_not_orderable`, `bot_pair_mismatch`,
 `below_minimum_amount`, `bot_limit_orders_unsupported` (422); `bot_not_running`,
 `api_key_pending`, `market_closed`, `wash_sale_locked` (409); `exchange_unavailable`,

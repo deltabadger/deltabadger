@@ -52,6 +52,10 @@ the bot own it: send `market_buy` or `market_sell` with the bot's `bot_id`.
 - A stopped or archived bot refuses the order (`bot_not_running`), so the stop button is the kill
   switch for whatever is calling.
 - The caller's amount is the order: no balance is read and a sell is not capped to the wallet.
+- `amount_type` reaches the exchange as sent wherever the exchange takes it. A sell is always
+  placed in base, and a buy is converted at the current price on an exchange that takes only one
+  denomination (whole shares are base only; notional orders quote only) — the conversion every
+  scheduled bot on that exchange already gets. The row records both the base and quote amounts.
 - Market orders only. A signal bot has no schedule on which a resting limit order would be
   confirmed, so `limit_buy` / `limit_sell` with a `bot_id` are refused
   (`bot_limit_orders_unsupported`) rather than placed without the bot.

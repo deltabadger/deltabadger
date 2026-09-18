@@ -65,10 +65,8 @@ module Bots::Signal::OrderSetter
     end
     return amount_info if amount_info.is_a?(Outcome)
 
-    # The caller's denomination reaches the venue as sent, exactly as on an order without a bot:
-    # "spend 100" must not become "buy 0.002" at a price that has moved by the time it lands. The
-    # venue's amount logic has done its one job above — the minimum check.
-    place_and_track(side, order_data, amount_info.merge(amount:, amount_type:))
+    amount_info = amount_info.merge(amount:, amount_type:) if venue_takes?(side, amount_type)
+    place_and_track(side, order_data, amount_info)
   end
 
   # A failure nothing reached the venue for: one row, and one email decision, whatever raised it.
@@ -90,6 +88,22 @@ module Bots::Signal::OrderSetter
 
     Rails.logger.info("execute_signal bot=#{id} event=order_wash_sale_locked base=#{ticker.base}")
     true
+  end
+
+  # Whether the caller's denomination can reach the venue as sent. Where it can, it does, exactly
+  # as on an order without a bot: "spend 100" must not become "buy 0.002" at a price that has moved
+  # by the time it lands. Where the venue takes only the other one — whole shares are base only,
+  # notional orders quote only, and every bot in the app sizes a sell in base (one venue raises on a
+  # quote-sized sell before any request leaves) — calculate_best_amount_info has already converted
+  # it at the current price, the same conversion every scheduled bot on that venue gets.
+  def venue_takes?(side, amount_type)
+    return amount_type == :base if side == :sell
+
+    case exchange.minimum_amount_logic(side: side, order_type: :market_order)
+    when :base_or_quote, :base_and_quote then true
+    when :quote then amount_type == :quote
+    else amount_type == :base
+    end
   end
 
   # The last checks before placement, for both callers: the venue's minimum, and the wash-sale

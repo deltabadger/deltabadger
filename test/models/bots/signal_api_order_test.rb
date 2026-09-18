@@ -128,19 +128,44 @@ class Bots::SignalApiOrderTest < ActiveSupport::TestCase
     assert_nil last_transaction
   end
 
-  # The denomination is the caller's, as on an order without a bot. Bots that derive both numbers
-  # from one let the venue's amount logic pick; here that would turn "spend 100" into a base amount
-  # at a price that may have moved.
-  test 'the amount and its denomination reach the venue exactly as sent' do
-    { %i[buy quote] => 100.to_d, %i[buy base] => '0.01'.to_d,
-      %i[sell base] => '0.5'.to_d, %i[sell quote] => 100.to_d }.each do |(side, amount_type), amount|
-      @exchange.expects(:"market_#{side}").with(ticker: @ticker, amount: amount, amount_type: amount_type)
-               .returns(Result::Success.new(order_id: "api-#{side}-#{amount_type}"))
+  # The denomination is the caller's wherever the venue takes it, as on an order without a bot.
+  # Bots that derive both numbers from one let the venue's amount logic pick; here that would
+  # turn "spend 100" into a base amount at a price that may have moved. (The test venue takes
+  # either denomination on a market buy.)
+  test 'a buy reaches the venue in the denomination it was sent in' do
+    { quote: 100.to_d, base: '0.01'.to_d }.each do |amount_type, amount|
+      @exchange.expects(:market_buy).with(ticker: @ticker, amount: amount, amount_type: amount_type)
+               .returns(Result::Success.new(order_id: "api-buy-#{amount_type}"))
 
-      outcome = @bot.execute_api_order(side: side, amount: amount, amount_type: amount_type)
-
-      assert_equal :submitted, outcome.status, "#{side} #{amount_type}"
+      assert_equal :submitted, @bot.execute_api_order(side: :buy, amount: amount, amount_type: amount_type).status
     end
+  end
+
+  # Every bot in the app sizes a sell in base, and some venues take nothing else (one raises on a
+  # quote-sized sell before any request leaves). A quote-sized sell is converted at the bid.
+  test 'a sell is always submitted in base' do
+    @exchange.expects(:market_sell).with(ticker: @ticker, amount: '0.5'.to_d, amount_type: :base)
+             .returns(Result::Success.new(order_id: 'api-sell-base'))
+    assert_equal :submitted, @bot.execute_api_order(side: :sell, amount: '0.5'.to_d, amount_type: :base).status
+
+    @exchange.expects(:market_sell).with(ticker: @ticker, amount: 98.to_d / 49_000, amount_type: :base)
+             .returns(Result::Success.new(order_id: 'api-sell-quote'))
+    assert_equal :submitted, @bot.execute_api_order(side: :sell, amount: 98.to_d, amount_type: :quote).status
+  end
+
+  # A venue that trades whole shares takes base only; one that trades notional takes quote only.
+  # Sending the other denomination fails inside the adapter, so it is converted at the current
+  # price — the same conversion every scheduled bot on that venue already gets.
+  test 'a buy is converted where the venue takes only the other denomination' do
+    @exchange.stubs(:minimum_amount_logic).returns(:base)
+    @exchange.expects(:market_buy).with(ticker: @ticker, amount: 100.to_d / 50_000, amount_type: :base)
+             .returns(Result::Success.new(order_id: 'api-base-only'))
+    assert_equal :submitted, @bot.execute_api_order(side: :buy, amount: 100.to_d, amount_type: :quote).status
+
+    @exchange.stubs(:minimum_amount_logic).returns(:quote)
+    @exchange.expects(:market_buy).with(ticker: @ticker, amount: '0.01'.to_d * 50_000, amount_type: :quote)
+             .returns(Result::Success.new(order_id: 'api-quote-only'))
+    assert_equal :submitted, @bot.execute_api_order(side: :buy, amount: '0.01'.to_d, amount_type: :base).status
   end
 
   # Once the venue has accepted the order, nothing that goes wrong on our side may be reported as a
