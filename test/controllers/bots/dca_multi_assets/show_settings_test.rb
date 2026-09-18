@@ -29,6 +29,57 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
     assert_equal @assets.map { |asset| "bots_dca_multi_asset[allocations][#{asset.id}]" }, names
   end
 
+  # == one asset: it reads like the pair bot it replaces ==
+
+  test 'a one-asset basket says what it buys: Invest 100 USD / day into AAA' do
+    get bot_path(id: one_asset_bot.id)
+
+    assert_select '.main-rule .conversational', text: /#{I18n.t('bot.conversational.into')}/
+    assert_select '.main-rule .conversational .ticker', text: 'AAA'
+  end
+
+  test 'a selling one-asset basket names the asset it sells' do
+    bot = one_asset_bot
+    bot.set_missed_quote_amount
+    bot.update!(direction: 'selling')
+
+    get bot_path(id: bot.id)
+
+    assert_select '.main-rule .conversational .ticker', text: 'AAA'
+  end
+
+  test 'a one-asset basket has no weight controls' do
+    get bot_path(id: one_asset_bot.id)
+
+    assert_select '.asset-allocation', count: 0
+    assert_select '[data-bot--allocation-target="total"]', count: 0
+    assert_select '.asset-allocations__normalize', count: 0
+    assert_select '.asset-allocation__remove', count: 0
+    assert_select 'form.main-rule[data-controller~="bot--allocation"]', count: 0
+  end
+
+  test 'a one-asset basket can still grow into a basket' do
+    get bot_path(id: one_asset_bot.id)
+
+    assert_select 'a.asset-allocation__add', count: 1
+  end
+
+  test 'a one-asset basket offers neither the market-cap nor the rebalance rule' do
+    # One asset weighs 100% by any rule, and has nothing to drift from.
+    @assets[0].update!(market_cap: 750.0)
+
+    get bot_path(id: one_asset_bot.id)
+
+    assert_select "input[name='bots_dca_multi_asset[weighting]']", count: 0
+    assert_select "[name='bots_dca_multi_asset[rebalance_enabled]']", count: 0
+  end
+
+  test "a two-asset basket's sentence names no asset" do
+    get bot_path(id: @bot.id)
+
+    assert_select '.main-rule .conversational', text: /#{I18n.t('bot.conversational.into')}/, count: 0
+  end
+
   test 'a two-asset basket offers remove on both members' do
     two = create(:dca_multi_asset, user: @user, exchange: @bot.exchange, quote_asset: @bot.quote_asset,
                                    base_assets: @assets.first(2), allocations: { @assets[0] => 0.5, @assets[1] => 0.5 })
@@ -137,5 +188,12 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
 
     assert_select '#settings form form', count: 0
     assert_select '#settings [formmethod]', count: 0
+  end
+
+  private
+
+  def one_asset_bot
+    @one_asset_bot ||= create(:dca_multi_asset, user: @user, exchange: @bot.exchange, quote_asset: @bot.quote_asset,
+                                                base_assets: [@assets[0]])
   end
 end
