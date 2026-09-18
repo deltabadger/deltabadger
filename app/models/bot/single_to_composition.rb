@@ -104,7 +104,10 @@ module Bot::SingleToComposition
       settings["#{name}_in_ticker_id"].presence&.to_i if ActiveModel::Type::Boolean.new.cast(settings["#{name}ed"])
     end
     return 'condition watches another ticker' if (watched - [ticker.id]).any?
-    return 'unexpected composition rows' if Membership.where(bot_id: row.id).where.not(asset_id: base).exists?
+    # A repair meets the membership its own conversion wrote, which a stale save may have moved away from:
+    # the single-asset bot refuses an asset change once it has orders, so such a bot has none to lose, and
+    # the membership is exited instead (convert!).
+    return 'unexpected composition rows' if !repair && Membership.where(bot_id: row.id).where.not(asset_id: base).exists?
 
     divergence = history_divergence(row.id, base)
     return divergence if divergence
@@ -168,6 +171,8 @@ module Bot::SingleToComposition
       # settings_changed_at and trip the carry guard, and run every callback of a class being retired.
       row.update_columns(type: MULTI, settings:, updated_at: Time.current)
 
+      Membership.where(bot_id: row.id, in_index: true).where.not(asset_id: plan[:base])
+                .update_all(in_index: false, exited_at: Time.current, updated_at: Time.current)
       membership = Membership.find_or_initialize_by(bot_id: row.id, asset_id: plan[:base])
       membership.ticker_id = plan[:ticker].id
       membership.target_allocation = 1.0
