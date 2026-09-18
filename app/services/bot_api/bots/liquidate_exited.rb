@@ -92,11 +92,12 @@ module BotApi
 
       private
 
-      # The held keys an identifier names: the key itself, the holding of that asset id, or every holding
-      # whose asset has that symbol (case-insensitive).
+      # The held keys an identifier names: the holding with that key and the holding of that asset id — both,
+      # when a numeric key and an id point at different holdings, which the caller refuses — else every
+      # holding whose asset has that symbol (case-insensitive).
       def held_matching(held, identifier)
-        return held.slice(identifier) if held.key?(identifier)
-        return held.select { |_key, asset_id| asset_id.to_s == identifier } if identifier.match?(/\A\d+\z/)
+        exact = held.slice(identifier).merge(held.select { |_key, asset_id| asset_id.to_s == identifier })
+        return exact if exact.any?
 
         symbols = Asset.where(id: held.values).pluck(:id, :symbol).to_h
         held.select { |_key, asset_id| symbols[asset_id]&.casecmp?(identifier) }

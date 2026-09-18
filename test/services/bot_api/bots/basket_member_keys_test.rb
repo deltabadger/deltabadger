@@ -46,6 +46,17 @@ class BotApi::Bots::BasketMemberKeysTest < ActiveSupport::TestCase
     assert_in_delta 0.5, @bot.reload.allocation_for(@literal.id), 0.0001
   end
 
+  test "an identifier that is one member's key and another member's asset id is refused" do
+    numeric = create(:asset, symbol: @fan.id.to_s, name: 'Numeric', external_id: 'numeric')
+    create(:ticker, exchange: @bot.exchange, base_asset: numeric, quote_asset: @usd, base_symbol: 'NUMERIC')
+    bot = create(:dca_multi_asset, :stopped, user: @user, exchange: @bot.exchange, quote_asset: @usd,
+                                             base_assets: [@fan, numeric])
+
+    result = BotApi::Bots::UpdateSettings.call(user: @user, bot_id: bot.id, allocations: "#{@fan.id}:50,NUMERIC:50")
+
+    assert_equal 'ambiguous_basket_asset', result.error_code
+  end
+
   test 'a bare symbol two members share is refused' do
     result = update("POR:50,#{@portuma.id}:30,#{@literal.id}:20")
 

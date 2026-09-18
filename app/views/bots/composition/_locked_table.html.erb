@@ -6,8 +6,10 @@
     Selling is never blocked, so a locked row keeps Sell whenever a sellable remainder is left —
     the window blocks buying and nothing else. %>
 <% if members.any? %>
-  <%# Each locked asset under the key its holding has in `values`, or its symbol when the bot holds none. %>
-  <% keyed = members.to_h { |member| [key_assets.key(member[:asset_id]) || member[:symbol], member] } %>
+  <%# Each locked asset under the key of its own holding, joined by asset, never by name. One the bot does
+      not hold shows no balance and no Sell, under a key no holding or other locked asset has
+      (BotHelper#locked_member_keys). %>
+  <% keyed = locked_member_keys(members, key_assets) %>
   <% logo_assets = Asset.where(id: members.map { |member| member[:asset_id] }).index_by(&:id)
                         .then { |assets| keyed.transform_values { |member| assets[member[:asset_id]] } } %>
   <div id="wash_sale_table" class="widget widget--table" data-controller="table-fit">
@@ -20,9 +22,9 @@
                   class: 'rbutton rbutton--small', data: { turbo_frame: '_top' } %>
     </div>
     <%= render 'bots/composition/assets_table',
-               values: keyed.keys.to_h { |key| [key, values[key] || { amount: 0 }] },
+               values: keyed.to_h { |key, member| [key, (values[key] if member[:held]) || { amount: 0 }] },
                logo_assets: logo_assets, body_id: 'wash_sale_list', bot: bot,
-               sellable: sellable, locks: keyed,
+               sellable: sellable.select { |key, _asset_id| keyed.dig(key, :held) }, locks: keyed,
                hide_money: hide_money, quote: quote, selling: selling %>
   </div>
 <% end %>

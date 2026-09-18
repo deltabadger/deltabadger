@@ -146,12 +146,12 @@ module BotApi
         weights.to_h { |asset_id, pct| [asset_id.to_s, (pct / 100).to_f] }
       end
 
-      # The members an identifier names: the one its key or asset id names, else every member with that
-      # symbol (case-insensitive).
+      # The members an identifier names: the one with that key and the one with that asset id — both, when a
+      # numeric key and an id name different members — else every member with that symbol (case-insensitive).
       def member_ids_named(bot, keys, identifier)
-        by_key = keys.key(identifier)
-        return [by_key] if by_key
-        return [identifier.to_i] if identifier.match?(/\A\d+\z/) && keys.key?(identifier.to_i)
+        by_id = identifier.to_i if identifier.match?(/\A\d+\z/) && keys.key?(identifier.to_i)
+        exact = [keys.key(identifier), by_id].compact.uniq
+        return exact if exact.any?
 
         bot.base_assets.select { |asset| asset.symbol&.casecmp?(identifier) }.map(&:id)
       end

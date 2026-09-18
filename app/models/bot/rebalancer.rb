@@ -92,12 +92,12 @@ module Bot::Rebalancer
   end
 
   # Every waiting buy on the account for this ticker's asset: by id, or — recorded before orders stored
-  # their asset, or under another venue's name for it — by the venue's spelling or the asset's symbol.
-  # Matching more only blocks more.
+  # their asset — by any name a venue lists it under, or its symbol. Matching more only blocks more.
   def account_waiting_buys(ticker)
+    names = Ticker.where(base_asset_id: ticker.base_asset_id).pluck(:base).map { |base| Ticker.new(base:).base_spelling }
     buys = Transaction.waiting.where(side: :buy, bot_id: user.bots.not_deleted.select(:id))
     buys.where(base_asset_id: ticker.base_asset_id)
-        .or(buys.where(base: [ticker.base_spelling, ticker.base_asset&.symbol].compact.uniq))
+        .or(buys.where(base: (names + [ticker.base_asset&.symbol]).compact_blank.uniq))
   end
 
   # Undo the provisional lock of a sell that provably never left. Idempotent: no key, nothing to do.

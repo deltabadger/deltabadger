@@ -126,10 +126,11 @@ module Bot::Restatable
 
     exchange_ids = (string_pairs + asset_pairs).map(&:first).uniq
     rows = AccountTransaction.where(user_id: user_id, entry_type: :adjustment, exchange_id: exchange_ids)
-                             .where(base_currency: string_pairs.map(&:last) + traded_asset_names(asset_pairs))
+                             .where("CASE WHEN json_valid(raw_data) THEN json_extract(raw_data, '$.corporate_action') END = 'split'")
                              .select { |row| split_row?(row) }
-    report_assets = Hash.new { |hash, (exchange_id, name)| hash[[exchange_id, name]] = split_report_asset(exchange_id, name) }
+    return {} if rows.empty?
 
+    report_assets = split_report_assets(rows)
     rows.each_with_object({}) do |row, groups|
       report_asset = report_assets[[row.exchange_id, row.base_currency]]
       holdings.each do |key, (asset_id, strings)|
@@ -143,20 +144,16 @@ module Bot::Restatable
     end
   end
 
-  # Every name the venues list the traded assets under — spelling and symbol — which a report about them
-  # may use.
-  def traded_asset_names(asset_pairs)
-    return [] if asset_pairs.empty?
-
-    Ticker.where(exchange_id: asset_pairs.map(&:first).uniq, base_asset_id: asset_pairs.map(&:last).uniq)
-          .includes(:base_asset).flat_map { |ticker| [ticker.base_spelling, ticker.base_asset&.symbol] }
-          .compact_blank.uniq
-  end
-
-  # The one asset a report's name stands for on its venue, by spelling or symbol; nil for none or several.
-  def split_report_asset(exchange_id, name)
-    ids = Ticker.asset_ids_named(exchange_id, name)
-    ids.first if ids.one?
+  # { [exchange_id, name] => asset id } for the one asset each report's name stands for on its venue, by
+  # spelling or symbol; nil for none or several. One batch per venue.
+  def split_report_assets(rows)
+    rows.group_by(&:exchange_id).each_with_object({}) do |(exchange_id, reports), acc|
+      found = Ticker.asset_ids_by_name(exchange_id, reports.map(&:base_currency))
+      reports.each do |row|
+        ids = found.fetch(row.base_currency.to_s.upcase, [])
+        acc[[exchange_id, row.base_currency]] = (ids.first if ids.one?)
+      end
+    end
   end
 
   def split_row?(row)

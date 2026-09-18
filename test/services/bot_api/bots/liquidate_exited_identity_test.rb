@@ -37,6 +37,13 @@ class BotApi::Bots::LiquidateExitedIdentityTest < ActiveSupport::TestCase
     end
   end
 
+  test 'an identifier that is one holding\'s key and another\'s asset id is refused' do
+    Bot::LiquidateExitedJob.expects(:perform_later).never
+    Bots::DcaMultiAsset.any_instance.stubs(:held_assets).returns('BTC' => 42, '42' => 99)
+
+    assert_equal 'holding_ambiguous', call('42').error_code
+  end
+
   test 'a key the page showed as another asset is not held' do
     Bot::LiquidateExitedJob.expects(:perform_later).never
 
