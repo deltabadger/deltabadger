@@ -65,6 +65,7 @@ class AppConfig < ApplicationRecord
     'delete_rule' => false,
     'list_indices' => true,
     'create_index_bot' => false,
+    'create_signal_bot' => false,
     'delete_bot' => false,
     'archive_bot' => false,
     'unarchive_bot' => false,
@@ -81,7 +82,7 @@ class AppConfig < ApplicationRecord
     'read' => %w[list_bots get_bot_details list_exchanges get_exchange_balances get_portfolio_summary list_transactions list_open_orders
                  list_rules list_indices],
     'control' => %w[create_bot start_bot stop_bot update_bot_settings start_rule stop_rule update_rule_settings
-                    create_rule delete_rule create_index_bot delete_bot archive_bot unarchive_bot
+                    create_rule delete_rule create_index_bot create_signal_bot delete_bot archive_bot unarchive_bot
                     sync_tracker set_transfer_link set_transaction_price],
     'trade' => %w[market_buy market_sell limit_buy limit_sell cancel_order
                   liquidate_exited_asset answer_redeploy_offer],

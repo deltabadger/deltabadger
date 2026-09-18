@@ -327,6 +327,9 @@ sv:
                 create_index_bot:
                     label: 'Skapa indexbot'
                     description: 'Skapa och starta en DCA-indexbot'
+                create_signal_bot:
+                    label: 'Skapa signalbot'
+                    description: 'Skapa och starta en signalbot som handlar ett par på begäran'
                 delete_bot:
                     label: 'Ta bort bot'
                     description: 'Ta bort en bot, oavsett om den körs; dess schema avbryts'

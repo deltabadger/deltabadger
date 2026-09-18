@@ -346,6 +346,9 @@ de:
                 create_index_bot:
                     label: 'Index-Bot erstellen'
                     description: 'Einen Index-DCA-Bot erstellen und starten'
+                create_signal_bot:
+                    label: 'Signal-Bot erstellen'
+                    description: 'Einen Signal-Bot erstellen und starten, der ein Paar auf Abruf handelt'
                 delete_bot:
                     label: 'Bot löschen'
                     description: 'Einen Bot löschen, ob laufend oder gestoppt; sein Zeitplan wird aufgehoben'

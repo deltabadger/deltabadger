@@ -5,7 +5,7 @@ module Api
     class BotsController < BaseController
       include Idempotency
 
-      CREATE_TOOLS = { 'dca' => 'create_bot', 'index' => 'create_index_bot' }.freeze
+      CREATE_TOOLS = { 'dca' => 'create_bot', 'index' => 'create_index_bot', 'signal' => 'create_signal_bot' }.freeze
 
       before_action -> { require_rest_tool!('list_bots') },           only: :index
       before_action -> { require_rest_tool!('get_bot_details') },     only: :show
@@ -28,10 +28,10 @@ module Api
       end
 
       def create
-        result = if bot_type == 'index'
-                   BotApi::Bots::CreateIndex.call(user: current_user, **index_params)
-                 else
-                   BotApi::Bots::Create.call(user: current_user, **create_params)
+        result = case bot_type
+                 when 'index' then BotApi::Bots::CreateIndex.call(user: current_user, **index_params)
+                 when 'signal' then BotApi::Bots::CreateSignal.call(user: current_user, **signal_params)
+                 else BotApi::Bots::Create.call(user: current_user, **create_params)
                  end
         render_result result
       end
@@ -119,6 +119,10 @@ module Api
       def index_params
         params.permit(:exchange_name, :quote_asset, :quote_amount, :interval, :index, :num_coins,
                       :allocation_flattening, :label, :start_at).to_h.symbolize_keys
+      end
+
+      def signal_params
+        params.permit(:exchange_name, :base_asset, :quote_asset, :label).to_h.symbolize_keys
       end
 
       def create_params

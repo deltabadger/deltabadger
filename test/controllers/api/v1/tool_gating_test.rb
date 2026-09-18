@@ -35,6 +35,7 @@ class Api::V1::ToolGatingTest < ActionDispatch::IntegrationTest
     'delete_rule' => [:delete, '/api/v1/rules/1'],
     'list_indices' => [:get, '/api/v1/indices'],
     'create_index_bot' => [:post, '/api/v1/bots', { type: 'index' }],
+    'create_signal_bot' => [:post, '/api/v1/bots', { type: 'signal' }],
     'delete_bot' => [:delete, '/api/v1/bots/1'],
     'archive_bot' => [:post, '/api/v1/bots/1/archive'],
     'unarchive_bot' => [:delete, '/api/v1/bots/1/archive'],

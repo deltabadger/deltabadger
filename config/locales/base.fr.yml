@@ -347,6 +347,9 @@ fr:
                 create_index_bot:
                     label: "Créer un bot d'indice"
                     description: "Créer et démarrer un bot DCA d'indice"
+                create_signal_bot:
+                    label: "Créer un bot de signaux"
+                    description: "Créer et démarrer un bot de signaux qui négocie une paire à la demande"
                 delete_bot:
                     label: 'Supprimer le bot'
                     description: "Supprimer un bot, en cours d'exécution ou non ; sa programmation est annulée"
