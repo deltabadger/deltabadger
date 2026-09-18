@@ -12,6 +12,7 @@ nl:
             <p>Dat is <b style="color: #00A36C;">%{sp500_diff}%</b> meer dan de S&P 500 in dezelfde periode.</p>
     button:
         ok: 'OK'
+        understand: 'Begrepen!'
         update: 'Bijwerken'
         save: 'Opslaan'
         cancel: 'Annuleren'
@@ -115,6 +116,7 @@ nl:
             prompt_body: "In de VS, het Verenigd Koninkrijk en Ierland geldt de “wash sale”-regel: verkoop je met verlies en koop je hetzelfde asset te snel terug, dan verlaagt dat verlies je belasting niet. Doe je in een van die landen aangifte, kies dan de termijn van dat land. Kies anders “Deze regel niet toepassen”."
             prompt_decline: "Deze regel niet toepassen"
             prompt_missing: "Kies een van de twee antwoorden om verder te gaan."
+            selling_warning: "Zolang deze bot verkoopt, voorkomt de bescherming alleen dat Deltabadger een asset terugkoopt na een verkoop met verlies. Ze controleert niet wat er vóór de verkoop is gekocht — afhankelijk van waar je belasting betaalt, kunnen recente aankopen het verlies dat je mag aftrekken toch verkleinen."
             confirm: "Bevestigen"
             locked_title: "Nu geblokkeerd"
             locked_none: "Niets zit in een wachttijd."

@@ -117,6 +117,7 @@ cs:
             prompt_body: "V USA, Velké Británii a Irsku platí pravidlo „wash sale“: když prodáš se ztrátou a stejné aktivum koupíš zpět příliš brzy, ztráta ti nesníží daň. Vyber lhůtu země, ve které platíš daně, nebo zvol „Toto pravidlo nepoužívat“."
             prompt_decline: "Toto pravidlo nepoužívat"
             prompt_missing: "Pokračuj výběrem jedné ze dvou odpovědí."
+            selling_warning: "Dokud tento bot prodává, ochrana jen brání Deltabadgeru koupit aktivum zpět po prodeji se ztrátou. Nekontroluje, co bylo koupeno před prodejem — podle toho, kde platíš daně, můžou nedávné nákupy i tak snížit ztrátu, kterou si můžeš uplatnit."
             confirm: "Potvrdit"
             locked_title: "Právě blokováno"
             locked_none: "Nic není v čekací lhůtě."

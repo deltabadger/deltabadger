@@ -12,6 +12,7 @@ pt:
             <p>Isso é <b style="color: #00A36C;">%{sp500_diff}%</b> mais do que o S&P 500 no mesmo período.</p>
     button:
         ok: 'OK'
+        understand: 'Entendido!'
         update: 'Atualizar'
         save: 'Guardar'
         cancel: 'Cancelar'
@@ -115,6 +116,7 @@ pt:
             prompt_body: "Nos EUA, no Reino Unido e na Irlanda aplica-se a regra «wash sale»: se recomprares o mesmo ativo cedo demais, o prejuízo da venda deixa de reduzir o imposto. Escolhe o período do país onde pagas impostos ou «Não aplicar esta regra»."
             prompt_decline: "Não aplicar esta regra"
             prompt_missing: "Escolhe uma das duas respostas para continuar."
+            selling_warning: "Enquanto este bot vende, a proteção só impede o Deltabadger de recomprar um ativo depois de uma venda com prejuízo. Não verifica o que foi comprado antes da venda — conforme o país onde pagas impostos, compras recentes podem ainda assim reduzir o prejuízo que podes deduzir."
             confirm: "Confirmar"
             locked_title: "Bloqueado agora"
             locked_none: "Nada está numa espera."

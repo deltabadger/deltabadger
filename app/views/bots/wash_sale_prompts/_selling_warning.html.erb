@@ -1,0 +1,18 @@
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <div class="modal__header">
+      <h1 class="modal__title"><%= t('settings.wash_sale.title') %></h1>
+    </div>
+    <div class="modal__body">
+      <p><%= t('settings.wash_sale.selling_warning') %></p>
+      <%# Recorded only on this button (Bots::WashSaleSellingWarningsController): closed any other way,
+          it comes back. %>
+      <%= form_with url: bot_wash_sale_selling_warning_path(bot_id: bot.id), method: :post,
+                    data: { action: 'turbo:submit-end->modal--base#submitEnd' } do %>
+        <div class="buttons">
+          <%= button_tag t('button.understand'), type: :submit, class: 'button button--sky button--large' %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+<% end %>

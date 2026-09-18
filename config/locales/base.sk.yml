@@ -117,6 +117,7 @@ sk:
             prompt_body: "V USA, Spojenom kráľovstve a Írsku ti strata z predaja nezníži daň, ak rovnaké aktívum kúpiš späť príliš skoro. Ak platíš dane v jednej z týchto krajín, vyber jej lehotu. Inak vyber „Toto pravidlo nepoužívať“."
             prompt_decline: "Toto pravidlo nepoužívať"
             prompt_missing: "Pokračuj výberom jednej z dvoch odpovedí."
+            selling_warning: "Kým tento bot predáva, ochrana len bráni Deltabadgeru kúpiť aktívum späť po predaji so stratou. Nekontroluje, čo sa kúpilo pred predajom — podľa toho, kde platíš dane, môžu nedávne nákupy aj tak znížiť stratu, ktorú si môžeš uplatniť."
             confirm: "Potvrdiť"
             locked_title: "Práve blokované"
             locked_none: "Nič nie je v čakacej lehote."

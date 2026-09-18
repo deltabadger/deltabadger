@@ -3,6 +3,8 @@
     a stale page cannot pop a question that has already been answered. %>
 <% if wash_sale_prompt_due?(@bot) %>
   <%= render 'bots/wash_sale_prompts/dialog', bot: @bot %>
+<% elsif wash_sale_selling_warning_due?(@bot) %>
+  <%= render 'bots/wash_sale_prompts/selling_warning', bot: @bot %>
 <% else %>
   <%= turbo_frame_tag 'modal' %>
 <% end %>

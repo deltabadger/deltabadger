@@ -12,6 +12,7 @@ fr:
             <p>C'est <b style="color: #00A36C;">%{sp500_diff}%</b> de plus que le S&P 500 sur la même période.</p>
     button:
         ok: 'OK'
+        understand: 'Compris !'
         update: 'Mettre à jour'
         save: 'Enregistrer'
         cancel: 'Annuler'
@@ -115,6 +116,7 @@ fr:
             prompt_body: "Les États-Unis, le Royaume-Uni et l’Irlande refusent la déduction d’une perte si vous rachetez le même actif trop tôt. Choisissez le délai du pays où vous payez vos impôts, ou « Ne pas appliquer cette règle »."
             prompt_decline: "Ne pas appliquer cette règle"
             prompt_missing: "Choisissez une des deux réponses pour continuer."
+            selling_warning: "Tant que ce bot vend, la protection empêche seulement Deltabadger de racheter un actif après une vente à perte. Elle ne vérifie pas ce qui a été acheté avant la vente — selon le pays où vous payez vos impôts, des achats récents peuvent quand même réduire la perte que vous pouvez déduire."
             confirm: "Confirmer"
             locked_title: "Bloqué actuellement"
             locked_none: "Rien n'est dans un délai."
