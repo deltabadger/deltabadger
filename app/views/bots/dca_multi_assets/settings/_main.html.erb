@@ -1,5 +1,7 @@
 <% quote = bot.quote_asset&.symbol || 'USD' %>
 <% base_assets = bot.base_assets %>
+<%# A one-asset basket reads like the pair bot it replaces: the asset in the sentence, no weights to set. %>
+<% lone = base_assets.one? ? base_assets.first : nil %>
 <% composition_locked = bot.composition_locked? %>
 <% allocations_balanced = bot.allocations_balanced? %>
 <%# Derived weights are not the user's sliders, so both the rows and this total have to read the
@@ -13,13 +15,14 @@
               class: "widget main-rule main-rule--multi-asset",
               data: {
                 turbo_stream: true,
-                controller: "form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations bot--allocation"
+                controller: "form--submit form--submit-after-delay form--move-cursor-to-end form--html5-validations#{' bot--allocation' unless lone}"
               } do |f| %>
   <% if bot.selling? %>
     <%# DCA-out: "Sell for …[quote] / [period]". Each tick sells that amount from the member furthest
         above its weight, so the weights below still decide what is sold. %>
     <div class="conversational flex-justify-center">
       <%= t('bot.conversational.sell') %>
+      <%= tag.div lone.symbol, class: "ticker", data: ticker_data(lone) if lone %>
       <%= t('bot.for') %>
       <div class="ticker-input ticker-input--autoscale">
         <% sell_quote_value = bot.sell_quote_amount.present? ? bot.sell_quote_amount.to_d.to_s('F').sub(/([0-9]\d*)\.0$/, '\1') : nil %>
@@ -46,10 +49,15 @@
         <%= t("bot.#{bot.interval}") %>
         <%= f.select :interval, bot_intervals_select_options, { selected: bot.interval }, data: { action: "change->form--submit#submit" }, disabled: bot.working? %>
       </div>
+      <% if lone %>
+        <%= t('bot.conversational.into') %>
+        <%= tag.div lone.symbol, class: ticker_class(lone), style: "background: #{ensure_contrast(lone.color || '#8A9BA8')}", data: ticker_data(lone) %>
+      <% end %>
       <%= render 'bots/settings/reverse_toggle', bot: bot %>
     </div>
   <% end %>
 
+  <% unless lone %>
   <div class="asset-allocations">
     <% base_assets.each do |asset| %>
       <% color = ensure_contrast(asset.color || '#8A9BA8') %>
@@ -116,6 +124,7 @@
                      hidden: allocations_balanced %>
     <% end %>
   </div>
+  <% end %>
 
   <%# A member is added by buying it, which a selling basket does not do. %>
   <% if !composition_locked && !bot.selling? && base_assets.size < Bots::DcaMultiAsset::MAX_ASSETS %>
