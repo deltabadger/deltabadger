@@ -33,6 +33,16 @@ class Bots::DcaMultiAssetDelistedMemberTest < ActiveSupport::TestCase
     assert_in_delta pair_value.to_f, basket_value.to_f, 1e-9
   end
 
+  test "a one-asset basket keeps its pair's precision after the pair was delisted" do
+    bot = create(:dca_multi_asset, user: create(:user), base_assets: [@base])
+    delist(bot)
+
+    decimals = Bot.find(bot.id).decimals
+
+    assert decimals[:quote], 'the page rounds with it'
+    assert decimals[:base]
+  end
+
   test 'a two-asset basket with an unpriced member is not flagged stale: its rebalancing is not stopped' do
     # prices_stale also gates the rebalance leg's targets, so a wider basket keeps today's reading.
     bot = create(:dca_multi_asset, user: create(:user), base_assets: [@base, create(:asset, :ethereum)])

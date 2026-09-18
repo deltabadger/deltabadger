@@ -178,17 +178,25 @@ class Bots::DcaMultiAsset < Bot
   def tickers_for_start = []
 
   # Memoized whole, guard included: the chart calls this once per data point. A one-asset basket also
-  # rounds base, as the pair bot did, for its base cap and Smart Intervals split.
+  # rounds base, as the pair bot did, for its base cap and Smart Intervals split. With no tradeable ticker
+  # left — its members delisted — the memberships still know the precision the page rounds with.
   def decimals
-    @decimals ||= if tickers.any?
-                    { quote: tickers.pluck(:quote_decimals).compact.min,
-                      base: (composition_tickers.first&.base_decimals if one_asset?) }.compact
-                  else
-                    {}
-                  end
+    @decimals ||= begin
+      quotes = tickers.any? ? tickers.pluck(:quote_decimals) : composition_tickers.map(&:quote_decimals)
+      if quotes.compact.any?
+        { quote: quotes.compact.min, base: (composition_tickers.first&.base_decimals if one_asset?) }.compact
+      else
+        {}
+      end
+    end
   end
 
+  # A one-asset basket keeps the single-asset bot's Smart Intervals floor, which never included the venue
+  # minimum: an order under it is skipped and carried. The floor is validated on every save, so one the
+  # bot never had would refuse even its stop.
   def minimum_for_exchange
+    return super if one_asset?
+
     composition_tickers.filter_map(&:minimum_quote_size).max.to_f
   end
 
