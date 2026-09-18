@@ -12,7 +12,8 @@ module Bot::Composition::Measurable
   def metrics(force: false)
     Rails.cache.fetch(metrics_cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
-      transactions_array = transactions.submitted.order(created_at: :asc).pluck(
+      # By id within one moment, as the chart's fill marks are read: the later of two fills stands.
+      transactions_array = transactions.submitted.order(:created_at, :id).pluck(
         :id,
         :created_at,
         :price,
@@ -516,6 +517,8 @@ module Bot::Composition::Measurable
 
     since, timeframe = chart_candle_window(metrics_data[:chart])
     grids = chart_candle_grids(symbols, metrics_data, since: since, timeframe: timeframe)
+    # No candles for any holding: the fill marks the walk drew ARE the chart, as for a single-asset bot.
+    return nil if grids.empty?
 
     # One member the candles do not cover would otherwise blank the interpolation for every member.
     labels = metrics_data[:chart][:labels]

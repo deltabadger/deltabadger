@@ -17,7 +17,7 @@ module Bots::DcaSingleAsset::Measurable
   def metrics(force: false)
     Rails.cache.fetch(metrics_cache_key, expires_in: 30.days, force: force) do
       data = initialize_metrics_data
-      transactions_array = transactions.submitted.order(created_at: :asc).pluck(:created_at,
+      transactions_array = transactions.submitted.order(:created_at, :id).pluck(:created_at,
                                                                                 :price,
                                                                                 :amount_exec,
                                                                                 :quote_amount_exec,

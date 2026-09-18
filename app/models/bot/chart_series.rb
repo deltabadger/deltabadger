@@ -110,10 +110,11 @@ module Bot::ChartSeries
   # transaction times, and one whose candles begin late takes it to 99. The remaining points are
   # still correct — they are just the purchases, which is the shape this exists to avoid.
   #
-  # So a symbol the candles do not span is backfilled from the bot's OWN fills. Those are real
-  # observed prices, the same ones the chart falls back to when there are no candles at all, and
-  # they exist for exactly the period the asset was held. A grid that already spans the window is
-  # left untouched, so a healthy chart is unchanged.
+  # So what the candles do not span is backfilled from the bot's OWN fills. Those are real observed
+  # prices, the same ones the chart falls back to when there are no candles at all, and they exist
+  # for exactly the period the asset was held. Only OUTSIDE the candles' span: inside it the venue's
+  # reading stands, and a fill between two candles would otherwise replace it at that moment. A grid
+  # that already spans the window is left untouched, so a healthy chart is unchanged.
   def chart_backfilled_grids(grids, symbols:, from:, to:)
     fills = nil
     symbols.each do |symbol|
@@ -124,20 +125,32 @@ module Bot::ChartSeries
       extra = fills[symbol]
       next if extra.blank?
 
-      # Candles first, so uniq keeps the venue's own reading where the two coincide.
-      grids[symbol] = (Array(marks) + extra).uniq { |time, _price| time }.sort_by(&:first)
+      extra = extra.reject { |time, _price| time.between?(marks.first[0], marks.last[0]) } if marks.present?
+      grids[symbol] = (Array(marks) + extra).sort_by(&:first)
     end
     grids
   end
 
-  # Every confirmed fill's price, per symbol. Read straight from the rows rather than the metrics
-  # walk, which keeps only the LAST price it saw for each asset.
+  # The price each fill marked its holding at, per symbol, by the metrics walk's own rules: an order
+  # that executed nothing marks nothing, nor does a sale whose proceeds were never reported, and of two
+  # fills at one moment the later one stands — the holding the chart values there is the one after both.
+  # Read straight from the rows rather than the walk, which keeps only the LAST price per asset.
   def chart_fill_marks_by_symbol
     key = chart_row_key
-    transactions.submitted.where.not(price: nil).order(:created_at)
-                .pluck(:created_at, :base, :base_asset_id, :price)
-                .group_by { |_time, base, asset_id, _price| key.call(base, asset_id) }
-                .transform_values { |rows| rows.map { |time, _base, _asset_id, price| [time, price] } }
+    transactions.submitted.where.not(price: nil).order(:created_at, :id)
+                .pluck(:created_at, :base, :base_asset_id, :side, :price, :amount, :amount_exec, :quote_amount_exec,
+                       :external_status)
+                .filter_map do |time, base, asset_id, side, price, amount, amount_exec, quote_amount_exec, status|
+      executed, proceeds = Transaction.confirmed_exec_amounts(status, price, amount, amount_exec, quote_amount_exec)
+      next if executed.to_d.zero? || proceeds.to_d.zero?
+      # Judged on the RAW proceeds, as the walk does: the fallback above prices a closed sale that never
+      # reported them, and the walk books that sale without a price.
+      next if side == 'sell' && !quote_amount_exec.to_d.positive?
+
+      [key.call(base, asset_id), time, price]
+    end.group_by(&:first).transform_values do |rows|
+      rows.to_h { |_key, time, price| [time, price] }.to_a
+    end
   end
 
   # Two marks pinned either side of every restatement: the last observed pre-split price at one
