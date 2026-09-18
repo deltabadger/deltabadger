@@ -85,16 +85,17 @@ class Bots::Wizard::StepOrder
   # The chosen asset is additionally STICKY: only an asset step clears it. So
   # re-picking the exchange keeps the asset (the exchange list is asset-filtered,
   # so the asset stays valid) and just drops the pair-specific quote — in either
-  # variant, not only asset-first.
+  # variant, not only asset-first. BASE_KEY is sticky with it: a session an earlier
+  # release left open holds its one asset there until the asset step rewrites it.
   def reset_keys(step)
     index = @steps.index(step)
     earlier = index ? @steps[0...index] : []
     preserved = earlier.flat_map { |s| owned_keys(s) }
-    preserved += asset_keys unless ASSET_STEPS.include?(step)
+    preserved += [*asset_keys, BASE_KEY] unless ASSET_STEPS.include?(step)
     ALL_WIZARD_KEYS - preserved
   end
 
-  # The asset keys this flow actually uses (base for single, list for multi).
+  # The asset key this flow's asset step writes: the basket list, in either order.
   def asset_keys
     (@steps & ASSET_STEPS).flat_map { |s| owned_keys(s) }
   end

@@ -82,3 +82,26 @@ class Bots::DcaSingleAssets::PickExchangesControllerTest < ActionDispatch::Integ
     assert_select '.exchange-grid__unavailable-note', text: I18n.t('bot.hyperliquid_trading_unavailable')
   end
 end
+
+# A wizard the previous release left open keeps its one asset in settings.base_asset_id. Re-picking the
+# exchange keeps it, as it always did, until the asset step rewrites it as a list.
+class Bots::DcaSingleAssets::PickExchangesLegacySessionTest < ActionController::TestCase
+  tests Bots::DcaSingleAssets::PickExchangesController
+  include Devise::Test::ControllerHelpers
+
+  test 're-picking the exchange keeps a one-asset selection from the previous release' do
+    sign_in create(:user, admin: true, setup_completed: true)
+    btc = create(:asset, :bitcoin)
+    usd = create(:asset, :usd)
+    binance = create(:binance_exchange)
+    kraken = create(:kraken_exchange)
+    [binance, kraken].each { |venue| create(:ticker, exchange: venue, base_asset: btc, quote_asset: usd) }
+
+    post :create, params: { bots_dca_single_asset: { exchange_id: kraken.id } },
+                  session: { bot_config: { 'flow' => 'exchange_first', 'exchange_id' => binance.id,
+                                           'settings' => { 'base_asset_id' => btc.id } } }
+
+    assert_equal kraken.id.to_s, session[:bot_config]['exchange_id'].to_s
+    assert_equal btc.id, session[:bot_config].dig('settings', 'base_asset_id')
+  end
+end
