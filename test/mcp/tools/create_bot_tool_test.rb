@@ -22,7 +22,7 @@ class CreateBotToolTest < ActiveSupport::TestCase
 
   # --- Single Asset ---
 
-  test 'creates a single asset DCA bot' do
+  test 'one base asset creates a one-asset basket' do
     Bot::ActionJob.stubs(:perform_later)
     Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
 
@@ -36,11 +36,11 @@ class CreateBotToolTest < ActiveSupport::TestCase
 
     assert_match(/created and started/i, response.contents.first.text)
     bot = @user.bots.last
-    assert bot.dca_single_asset?
+    assert bot.dca_multi_asset?
     assert bot.working?
     assert_equal 50.0, bot.quote_amount
     assert_equal 'day', bot.settings['interval']
-    assert_equal @btc.id, bot.base_asset_id
+    assert_equal({ @btc.id.to_s => 1.0 }, bot.allocations)
     assert_equal @usd.id, bot.quote_asset_id
     assert_equal @exchange.id, bot.exchange_id
   end
@@ -133,7 +133,7 @@ class CreateBotToolTest < ActiveSupport::TestCase
     assert_equal 'BTC+ETH/USD', result.data[:pair]
   end
 
-  test 'a single-asset request is unaffected' do
+  test 'a single-asset request is answered as the one-asset basket it created' do
     Bot::ActionJob.stubs(:perform_later)
     Bot::BroadcastAfterScheduledActionJob.stubs(:perform_later)
 
@@ -142,7 +142,8 @@ class CreateBotToolTest < ActiveSupport::TestCase
       quote_asset: 'USD', quote_amount: 100.0, interval: 'day'
     ).call
 
-    assert_equal 'Bots::DcaSingleAsset', Bot.find(result.data[:id]).type
+    assert_equal 'Bots::DcaMultiAsset', Bot.find(result.data[:id]).type
+    assert_equal 'Bots::DcaMultiAsset', result.data[:type]
     assert_equal 'BTC/USD', result.data[:pair]
   end
 

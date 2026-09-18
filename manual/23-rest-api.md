@@ -34,7 +34,7 @@ All paths are under `/api/v1`. The toggle column names the switch that must be o
 |---|---|---|---|
 | GET | `/bots` | List bots | Optional `?status=` |
 | GET | `/bots/:id` | Bot details | Includes metrics when available; a basket bot also reports its members and their weights, and an index or basket bot reports any holdings that left the composition plus a pending redeploy offer |
-| POST | `/bots` | Create bot / Create index bot | `type` picks the toggle: `dca` (default) or `index`. Both need `exchange_name`, `quote_asset`, `quote_amount`, `interval`. `dca` also takes `base_asset`, or `assets` for a basket of 2–20 — an array of `{symbol, allocation}` or the string `"BTC:60,ETH:40"`, weights optional and summing to 100 when given, with optional `weighting: market_cap`. `index` also takes `index` (id from `GET /indices`), `num_coins`, `allocation_flattening` |
+| POST | `/bots` | Create bot / Create index bot | `type` picks the toggle: `dca` (default) or `index`. Both need `exchange_name`, `quote_asset`, `quote_amount`, `interval`. `dca` also takes `base_asset`, or `assets` for a basket of 1–20 — an array of `{symbol, allocation}` or the string `"BTC:60,ETH:40"`, weights optional and summing to 100 when given, with optional `weighting: market_cap`. `index` also takes `index` (id from `GET /indices`), `num_coins`, `allocation_flattening` |
 | PATCH | `/bots/:id` | Update bots | Bot must be stopped. Any bot: `quote_amount`, `label`. Index bots: `num_coins`, `allocation_flattening`. Basket bots: `allocations` — every current member, summing to 100. Membership is not editable |
 | POST | `/bots/:id/start` | Start bot | `409` if already running |
 | POST | `/bots/:id/stop` | Stop bot | `409` if not running |

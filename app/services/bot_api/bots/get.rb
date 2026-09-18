@@ -96,16 +96,28 @@ module BotApi
         end
       end
 
+      # A one-asset basket reports the holding the single-asset bot it replaces did, from its current
+      # member's row — the breakdown also keeps rows for assets the basket once held. Wider baskets have
+      # no single holding and report none.
+      def holding(bot, metrics)
+        return metrics.values_at(:total_base_amount, :average_buy_price) unless bot.try(:one_asset?)
+
+        row = metrics.dig(:asset_breakdown, bot.base_asset&.symbol) || {}
+        amount = row[:amount].to_d
+        [amount, (row[:quote_invested].to_d / amount if amount.positive?)]
+      end
+
       def safe_metrics(bot)
         metrics = bot.metrics
         return [nil, nil] if metrics.blank?
 
+        amount, average = holding(bot, metrics)
         [{
           invested: metrics[:total_quote_amount_invested],
           value: metrics[:total_amount_value_in_quote],
           pnl: metrics[:pnl],
-          average_buy_price: metrics[:average_buy_price],
-          total_base_amount: metrics[:total_base_amount]
+          average_buy_price: average,
+          total_base_amount: amount
         }, nil]
       rescue StandardError => e
         [nil, e.message]
