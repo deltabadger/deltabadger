@@ -129,6 +129,26 @@ class Bot::ReversibleTest < ActiveSupport::TestCase
            'flip must schedule a fresh Bot::ActionJob so the bot is not stranded'
   end
 
+  # A running bot is flipped by a trigger, inside its own job — the manual control is locked while it
+  # runs — so no request redraws the page, and the job that broadcasts the status bar has to redraw
+  # the panels the manual path re-renders.
+  test 'a flip on a running bot asks for the reversal panels to be redrawn' do
+    bot = create(:dca_single_asset, :started)
+    Bot::BroadcastAfterScheduledActionJob.expects(:perform_later).with(bot, reversed: true)
+
+    bot.flip_direction!
+  end
+
+  test 'the reversal redraws the settings, and a basket\'s metrics panel with its Redeploy prompt' do
+    bot = create(:dca_multi_asset)
+    bot.stubs(:broadcast_status_bar_update)
+    bot.expects(:broadcast_replace_to).with(["user_#{bot.user_id}", :bot_updates],
+                                            has_entries(target: 'settings', partial: 'bots/dca_multi_assets/settings'))
+    bot.expects(:broadcast_metrics_panel)
+
+    Bot::BroadcastAfterScheduledActionJob.perform_now(bot, reversed: true)
+  end
+
   # Reversing must NOT start an inactive bot — it only changes the stored direction, so the bot
   # runs the new way when the user next starts it (no trade scheduled outside the start lifecycle).
   test 'flip_direction! on a stopped bot only changes direction and does not start it' do

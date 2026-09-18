@@ -189,7 +189,19 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
     assert_select '[name=?]', 'bots_dca_multi_asset[rebalance_enabled]', count: 0
   end
 
-  test 'a swap already under way stays visible while selling: it still finishes' do
+  test 'a halted swap stays reachable while selling: only the user can resolve it' do
+    @bot.set_missed_quote_amount
+    @bot.update!(rebalance_enabled: true, rebalance_threshold: 0.05)
+    start_selling
+    @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_AMBIGUOUS)
+
+    get bot_path(id: @bot.id)
+
+    assert_select 'a[href=?]', bot_rebalance_resolutions_path(bot_id: @bot.id)
+  end
+
+  test 'a swap that is only finishing does not keep the widget up while selling' do
+    # It completes on its own; a widget kept for it would outlive it until the next reload.
     @bot.set_missed_quote_amount
     @bot.update!(rebalance_enabled: true, rebalance_threshold: 0.05)
     start_selling
@@ -197,7 +209,7 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
 
     get bot_path(id: @bot.id)
 
-    assert_select '[name=?]', 'bots_dca_multi_asset[rebalance_enabled]', minimum: 1
+    assert_select '[name=?]', 'bots_dca_multi_asset[rebalance_enabled]', count: 0
   end
 
   test 'the redeploy prompt is offered while buying and withheld while selling' do
