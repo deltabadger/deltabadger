@@ -243,6 +243,13 @@ module Bot::Composition::Measurable
         }
       end
 
+      # The pair bot's rule, for the one-asset basket that replaces it: a holding it cannot price makes the
+      # figures stale — valued at its last fill by the walk, never at zero. A delisted lone member stays
+      # in the composition (derive fails before it can leave), so this is the pair's page exactly. Not
+      # for a wider basket: prices_stale also gates its rebalance targets, and one unpriced member must
+      # not stop the others trading.
+      return stale(metrics_data) if try(:one_asset?) && unpriced_lone_holding?(metrics_data, live_prices)
+
       total_value += metrics_data[:rebalance_cash].to_d
       metrics_data[:total_amount_value_in_quote] = total_value
       metrics_data[:pnl] = calculate_pnl(metrics_data[:total_quote_amount_invested], total_value)
@@ -333,6 +340,11 @@ module Bot::Composition::Measurable
 
   # Holdings valued at the last price each asset traded at. Used for the chart's running value and
   # for the fallback headline when the live read fails.
+  def unpriced_lone_holding?(metrics_data, live_prices)
+    symbol = base_assets.first&.symbol
+    metrics_data[:asset_breakdown].dig(symbol, :amount).to_d.positive? && !live_prices.key?(symbol)
+  end
+
   # A sale the venue did not price is unknown, which locks — unless no lot of the bot's own stood behind
   # it (coins it never bought, which a one-asset basket may sell as the pair bot did). Then there is
   # nothing to judge, as Bot::TaxLots.loss_in? says of an empty list.
