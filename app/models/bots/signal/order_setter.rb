@@ -269,8 +269,8 @@ module Bots::Signal::OrderSetter
   end
 
   # A signal has no interval and no per-order amount; those columns keep their defaults, and nothing
-  # reads them.
+  # reads them. Everything else a row carries is the shared part, taken whole.
   def base_order_values(order_data = {})
-    { transaction_type: order_data[:transaction_type].presence || 'REGULAR', exchange: exchange }
+    order_identity_values(order_data)
   end
 end

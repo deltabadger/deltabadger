@@ -68,11 +68,16 @@ module Bot::OrderCreator
   # separates them everywhere downstream: contribution accounting (Accountable, QuoteAmountLimitable)
   # and Bot#last_transaction all scope to 'REGULAR'. Threaded here rather than at each creator so
   # submitted, failed and skipped rows can never disagree about what an order was.
-  # The assets are the ticker's: exact, where the symbols are what was shown.
   def base_order_values(order_data = {})
+    { bot_interval: interval, bot_quote_amount: quote_amount }.merge(order_identity_values(order_data))
+  end
+
+  # What every order row carries, whatever placed it. Kept apart from the schedule's two columns so a
+  # bot with no schedule (Bots::Signal) takes all of this and none of that — and so a column added
+  # here reaches every bot type, instead of being missed by an override that lists them again.
+  # The assets are the ticker's: exact, where the symbols are what was shown.
+  def order_identity_values(order_data = {})
     {
-      bot_interval: interval,
-      bot_quote_amount: quote_amount,
       transaction_type: order_data[:transaction_type].presence || 'REGULAR',
       exchange: exchange,
       base_asset_id: order_data[:ticker]&.base_asset_id,
