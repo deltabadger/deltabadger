@@ -1,4 +1,5 @@
 require 'test_helper'
+require 'fugit'
 
 # Guards the cross-repo ordering that bit us once: hosted containers pull the deltabadger-sourced
 # Nasdaq index in `sync_indices_from_coingecko_job`. data-api refreshes that index at 07:30 UTC and
@@ -21,6 +22,18 @@ class RecurringScheduleTest < ActiveSupport::TestCase
                       "index sync (#{fmt(index_at)}) must run after the stock-asset sync (#{fmt(stock_at)})"
       assert_operator index_at, :>, DATA_API_ND100_REFRESH,
                       "index sync (#{fmt(index_at)}) must run after data-api's ND100 refresh (#{fmt(DATA_API_ND100_REFRESH)})"
+    end
+
+    # A bot waiting on a condition re-checks it on every minute boundary, and the conversion defers a bot
+    # while one of its jobs is due. Run on the minute, the pass would find that job due every time and
+    # never convert the bot; half a minute later the check has run and its next one is not due yet.
+    test "#{env}: the single-asset conversion runs between minute boundaries" do
+      schedule = SCHEDULE.fetch(env).dig('convert_single_asset_bots_job', 'schedule')
+      runs = [Time.utc(2026, 9, 18, 20, 0, 0), Time.utc(2026, 9, 18, 20, 9, 59)].map do |from|
+        Fugit.parse_cron(schedule).next_time(from).to_t.utc
+      end
+
+      assert(runs.all? { |at| at.sec.between?(15, 45) }, "#{schedule.inspect} runs at #{runs.map(&:iso8601)}")
     end
   end
 
