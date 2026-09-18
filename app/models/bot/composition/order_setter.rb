@@ -3,20 +3,30 @@ module Bot::Composition::OrderSetter
 
   include Bot::OrderSetter
 
+  # sell_base_amount: a one-asset basket selling a fixed amount of base ("Sell 0.01 BTC / day") rather
+  # than for a fixed amount of quote.
   def set_orders(
     total_orders_amount_in_quote:,
     update_missed_quote_amount: false,
-    side: :buy
+    side: :buy,
+    sell_base_amount: nil
   )
     Rails.logger.info(
       "set_orders for composition bot #{id} side=#{side} " \
       "with total_orders_amount_in_quote: #{total_orders_amount_in_quote}, " \
-      "update_missed_quote_amount: #{update_missed_quote_amount}"
+      "sell_base_amount: #{sell_base_amount}, update_missed_quote_amount: #{update_missed_quote_amount}"
     )
-    validate_orders_amount!(total_orders_amount_in_quote)
-    return Result::Success.new if total_orders_amount_in_quote.zero?
+    amount = sell_base_amount || total_orders_amount_in_quote
+    validate_orders_amount!(amount)
+    return Result::Success.new if amount.zero?
 
-    result = side == :sell ? get_sell_orders_data(total_orders_amount_in_quote) : get_orders_data(total_orders_amount_in_quote)
+    result = if side == :buy
+               get_orders_data(total_orders_amount_in_quote)
+             elsif try(:one_asset?)
+               one_asset_sell_orders_data(quote: total_orders_amount_in_quote, base: sell_base_amount)
+             else
+               get_sell_orders_data(total_orders_amount_in_quote)
+             end
     return result if result.failure?
 
     orders_data = result.data
@@ -213,6 +223,34 @@ module Bot::Composition::OrderSetter
 
     # Nothing cleared a floor: the top member's attempt is what the skip path records, once.
     Result::Success.new(orders.presence || [below_floor].compact)
+  end
+
+  # A one-asset basket sells as the pair bot did (Bots::DcaSingleAsset::OrderSetter#sellable_base_amount):
+  # up to the whole free wallet, not only what it bought. No ledger, ranking or valuation, so a stale
+  # bulk price or an unweighted row cannot stop it, and its own resting sells need no subtracting — the
+  # venue already holds them back from the free balance. The venue floor and the skipped row are
+  # set_orders', as for the pair.
+  def one_asset_sell_orders_data(quote:, base:)
+    ticker = composition_tickers.first
+    cap = try(:base_amount_available_before_limit_reached) || Float::INFINITY
+    return sell_skipped('cap_reached') unless cap.positive? # before any exchange call, as the pair does
+
+    price = sell_price(ticker)
+    amount = [base || (quote / price), cap].min
+    free = live_free_balance(ticker.base_asset_id) # raises on a failed read, never reads as empty
+    return sell_skipped('no_holdings') unless free.positive?
+
+    order = sell_order_data(ticker, price, [amount, free].min)
+    return sell_skipped('wash_sale_resting_buy') if sell_at_loss?(order) && waiting_buy_blocks_sell?(ticker)
+
+    Result::Success.new([order])
+  end
+
+  # Nothing to sell this tick, and nothing wrong: the bot keeps running. Logged, so a permanently idle
+  # selling bot is findable.
+  def sell_skipped(reason)
+    Rails.logger.info("set_orders composition bot=#{id} event=sell_skipped reason=#{reason}")
+    Result::Success.new([])
   end
 
   def sell_price(ticker)

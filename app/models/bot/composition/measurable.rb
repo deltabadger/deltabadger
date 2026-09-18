@@ -66,7 +66,7 @@ module Bot::Composition::Measurable
               tax_pnl[id] = raw_quote_exec.to_d - Bot::TaxLots.cost_of(lots[base], amount_exec)
               loss_lot[id] = Bot::TaxLots.loss_in?(lots[base], amount_exec, raw_quote_exec)
             else
-              loss_lot[id] = nil
+              loss_lot[id] = unpriced_sale_verdict(lots[base])
             end
             Bot::TaxLots.consume(lots[base], amount_exec)
           else
@@ -333,6 +333,11 @@ module Bot::Composition::Measurable
 
   # Holdings valued at the last price each asset traded at. Used for the chart's running value and
   # for the fallback headline when the live read fails.
+  # A sale the venue did not price is unknown, which locks — unless no lot of the bot's own stood behind
+  # it (coins it never bought, which a one-asset basket may sell as the pair bot did). Then there is
+  # nothing to judge, as Bot::TaxLots.loss_in? says of an empty list.
+  def unpriced_sale_verdict(lots) = (false if lots.empty?)
+
   def ledger_value(ledger, asset_prices)
     ledger.sum { |symbol, entry| entry[:amount] * (asset_prices[symbol] || 0) }
   end

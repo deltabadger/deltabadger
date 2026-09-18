@@ -135,7 +135,8 @@ module Bot::WashSaleGuard
   # NO VERDICT means the walk could not price this sale: a cancelled partial whose proceeds the
   # venue has not reported, and nothing re-polls a terminal order. Something WAS sold, so the
   # conservative reading is the lock — a window served for nothing costs a month of not buying one
-  # name; a loss washed costs the loss.
+  # name; a loss washed costs the loss. A sale with no lot of the bot's own behind it (coins it never
+  # bought) gets a false verdict from the walk instead: there is no loss of its own to protect.
   #
   # Runs inside the transaction's own save, so the lock commits with the fill or not at all.
   def reconcile_wash_sale_from_fill!(order)
