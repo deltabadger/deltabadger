@@ -191,6 +191,18 @@
       Hidden whenever the answer would be refused — a halt, a rebalance mid-swap, a liquidation still
       working, this leg's own batch — rather than offering an action the job will decline. "No" is
       guarded server-side as well: hiding a button does not stop a stale tab. %>
+  <%# A halted rebalance swap blocks every tick, sells included, until the user resolves it. Its own
+      widget, outside every balance, price and direction condition: the settings rule it used to live
+      in is hidden while a basket sells, and a user can switch the rule off mid-halt. %>
+  <% if bot.respond_to?(:rebalance_ambiguous?) && bot.rebalance_ambiguous? %>
+    <div class="widget redeploy-prompt">
+      <span class="text-error"><%= t('bot.settings.rebalance.paused') %></span>
+      <%= button_to t('bot.settings.rebalance.resume'),
+                    bot_rebalance_resolutions_path(bot_id: bot.id),
+                    class: 'rbutton rbutton--danger',
+                    form: { data: { turbo_confirm: t('bot.settings.rebalance.resume_confirm') } } %>
+    </div>
+  <% end %>
   <% if bot.redeploy_ambiguous? %>
     <div class="widget redeploy-prompt">
       <span class="text-error"><%= t('bot.redeploy.halted') %></span>

@@ -19,6 +19,22 @@ class Bots::DcaMultiAssetRebalanceTest < ActiveSupport::TestCase
     enable_rebalancing
   end
 
+  test 'a halt redraws the metrics panel, where its Resume lives' do
+    @bot.expects(:broadcast_metrics_panel)
+
+    @bot.send(:halt_ambiguous!, 'placement returned no order id')
+
+    assert_predicate @bot.reload, :rebalance_ambiguous?
+  end
+
+  test 'a halt is recorded even when the redraw fails' do
+    @bot.stubs(:broadcast_metrics_panel).raises(StandardError, 'render failed')
+
+    @bot.send(:halt_ambiguous!, 'placement returned no order id')
+
+    assert_predicate @bot.reload, :rebalance_ambiguous?
+  end
+
   test 'sells the overweight asset down to its target, not to the band edge' do
     # 70/30 against a 50/50 target on a 100-unit portfolio: 20 units of value are on the wrong side.
     stub_values(base0: 70, base1: 30)

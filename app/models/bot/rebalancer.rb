@@ -330,7 +330,16 @@ module Bot::Rebalancer
       buy_attempted: rebalance_pending&.dig(:buy_attempted)
     )
     log_activity('rebalance_ambiguous', level: :error, details: { reason: reason })
+    broadcast_rebalance_halt
     Result::Success.new(skipped: :ambiguous)
+  end
+
+  # The halt's Resume lives in the metrics panel, so an open page is redrawn to show it. Rescued like the
+  # redeploy halt's broadcast: the halt is recorded above, and a failed render must not undo that.
+  def broadcast_rebalance_halt
+    broadcast_metrics_panel if respond_to?(:broadcast_metrics_panel)
+  rescue StandardError => e
+    Rails.logger.warn("rebalance halt broadcast failed bot=#{id}: #{e.message}")
   end
 
   def clear_and_succeed!(reason)

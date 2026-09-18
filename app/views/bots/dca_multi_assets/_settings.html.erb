@@ -25,9 +25,9 @@
     <%= render partial: "bots/settings/amount_limit", locals: { bot: bot, method: method, path: path } %>
   <% end %>
   <%# Threshold rebalancing stands down while selling (Bot::Rebalanceable#rebalance_due?), so it is not
-      offered then — the setting is kept and comes back with buying. A swap already under way still
-      finishes on its own; only a HALTED one needs the user, and its Resume link lives here. %>
-  <% if !bot.selling? || bot.rebalance_ambiguous? %>
+      offered then — the setting is kept and comes back with buying. A halted swap's Resume is in the
+      metrics panel, so nothing here is needed to resolve one. %>
+  <% unless bot.selling? %>
     <%= render partial: "bots/settings/rebalance", locals: { bot: bot, method: method, path: path } %>
   <% end %>
 </div>

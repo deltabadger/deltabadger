@@ -189,7 +189,8 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
     assert_select '[name=?]', 'bots_dca_multi_asset[rebalance_enabled]', count: 0
   end
 
-  test 'a halted swap stays reachable while selling: only the user can resolve it' do
+  test 'the rule is gone while selling even for a halted swap, whose Resume is in the metrics panel' do
+    # A halt blocks every tick, sells included, so its Resume must stay reachable — from the panel.
     @bot.set_missed_quote_amount
     @bot.update!(rebalance_enabled: true, rebalance_threshold: 0.05)
     start_selling
@@ -197,7 +198,8 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
 
     get bot_path(id: @bot.id)
 
-    assert_select 'a[href=?]', bot_rebalance_resolutions_path(bot_id: @bot.id)
+    assert_select '#settings [name=?]', 'bots_dca_multi_asset[rebalance_enabled]', count: 0
+    assert_select '#metrics form[action=?]', bot_rebalance_resolutions_path(bot_id: @bot.id), count: 1
   end
 
   test 'a swap that is only finishing does not keep the widget up while selling' do
