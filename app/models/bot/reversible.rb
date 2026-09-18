@@ -95,6 +95,19 @@ module Bot::Reversible
     selling? && sell_denomination == 'base'
   end
 
+  # The per-tick sell size in BASE while selling a fixed amount of base: the Smart Intervals split while
+  # that rule is on, else the whole configured amount. The split only subdivides a sell amount that
+  # still exists — without the sell_amount guard a bot whose sell sentence was cleared would keep
+  # selling the stale split.
+  def sell_base_amount_per_tick
+    if sells_base_amount? && smart_intervaled? && smart_interval_base_amount.present? &&
+       sell_amount.present? && sell_amount.positive?
+      return smart_interval_base_amount.to_d
+    end
+
+    sell_amount || 0
+  end
+
   def sells_quote_amount?
     selling? && sell_denomination == 'quote'
   end

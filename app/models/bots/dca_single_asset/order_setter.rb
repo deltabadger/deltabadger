@@ -193,14 +193,7 @@ module Bots::DcaSingleAsset::OrderSetter
       return effective_sell_quote_amount / price
     end
 
-    # The split only subdivides a sell amount that still exists — without the sell_amount guard a
-    # bot whose sell sentence was cleared would keep selling the stale split.
-    if sells_base_amount? && smart_intervaled? && smart_interval_base_amount.present? &&
-       sell_amount.present? && sell_amount.positive?
-      return smart_interval_base_amount.to_d
-    end
-
-    sell_amount || 0
+    sell_base_amount_per_tick
   end
 
   # The per-tick sell size in QUOTE. No smart split: Smart Intervals is not offered in this mode

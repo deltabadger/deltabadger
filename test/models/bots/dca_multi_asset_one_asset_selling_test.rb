@@ -108,9 +108,74 @@ class Bots::DcaMultiAssetOneAssetSellingTest < ActiveSupport::TestCase
     assert_empty @bot.user.locked_asset_ids, 'no lot of its own was sold, so there is no loss of its own to protect'
   end
 
+  # == selling a fixed amount of base ("Sell 0.01 BTC / day") ==
+
+  test 'selling N base sells exactly N base, priced like the pair bot' do
+    sell_base(0.01)
+    wallet(free: 10)
+    @bot.exchange.unstub(:market_sell)
+    @bot.exchange.expects(:market_sell).once.returns(Result::Success.new(order_id: 's-1'))
+
+    @bot.set_orders(total_orders_amount_in_quote: 0.to_d, sell_base_amount: @bot.sell_base_amount_per_tick, side: :sell)
+
+    order = @bot.transactions.sole
+    assert_predicate order, :submitted?, 'placed, not skipped under the venue floor'
+    assert_in_delta 0.01, order.amount.to_f, 1e-9
+    assert_in_delta 100, order.price.to_f, 1e-9
+  end
+
+  test 'with Smart Intervals it sells the base split per tick' do
+    sell_base(1.0, smart_split: 0.1)
+
+    assert_in_delta 0.1, @bot.sell_base_amount_per_tick.to_f, 1e-9
+  end
+
+  test 'a blank base amount asks the exchange for nothing' do
+    @bot.set_missed_quote_amount
+    @bot.update!(sell_denomination: 'base', sell_amount: nil)
+    @bot.stubs(:refresh_composition).returns(Result::Success.new)
+    @bot.exchange.expects(:get_balances).never
+
+    assert_predicate @bot.execute_action, :success?
+    assert_empty @bot.transactions
+  end
+
+  test 'a base sale below the venue floor writes one skipped row' do
+    sell_base(0.000001)
+    wallet(free: 10)
+    @bot.exchange.expects(:market_sell).never
+
+    @bot.set_orders(total_orders_amount_in_quote: 0.to_d, sell_base_amount: @bot.sell_base_amount_per_tick, side: :sell)
+
+    assert_equal ['skipped'], @bot.transactions.pluck(:status)
+  end
+
+  test 'execute_action sells base while selling N base, and quote while selling for N quote' do
+    wallet(free: 10)
+    @bot.stubs(:refresh_composition).returns(Result::Success.new)
+    @bot.exchange.stubs(:market_sell).returns(Result::Success.new(order_id: 'q-1'), Result::Success.new(order_id: 'b-1'))
+
+    @bot.execute_action
+    # Filled, as the order poll would record it — the next tick sweeps anything still open.
+    @bot.transactions.find_by!(external_id: 'q-1').update_columns(external_status: 'closed', amount_exec: 1,
+                                                                  quote_amount_exec: 100)
+    sell_base(0.02)
+    @bot.execute_action
+
+    assert_in_delta 1.0, @bot.transactions.find_by!(external_id: 'q-1').amount.to_f, 1e-9, '100 USD at 100'
+    assert_in_delta 0.02, @bot.transactions.find_by!(external_id: 'b-1').amount.to_f, 1e-9
+  end
+
   private
 
   def sell_tick(amount = 100) = @bot.set_orders(total_orders_amount_in_quote: amount.to_d, side: :sell)
+
+  def sell_base(amount, smart_split: nil)
+    @bot.set_missed_quote_amount
+    attributes = { sell_denomination: 'base', sell_amount: amount }
+    attributes.merge!(smart_intervaled: true, smart_interval_base_amount: smart_split) if smart_split
+    @bot.update!(**attributes)
+  end
 
   def wallet(free:)
     stub_exchange_balances(@bot.exchange, @bot.quote_asset_id => { free: 0, locked: 0 },

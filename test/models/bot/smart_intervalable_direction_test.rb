@@ -66,6 +66,22 @@ class Bot::SmartIntervalableDirectionTest < ActiveSupport::TestCase
     assert_in_delta (1.week / 10).to_f, bot.effective_interval_duration.to_f, 1.0
   end
 
+  test 'a one-asset basket selling N base seeds and validates the split, and sells on the split cadence' do
+    bot = create(:dca_multi_asset, base_assets: [create(:asset, :bitcoin)]) # not started: editable
+    bot.direction = 'selling'
+    bot.sell_denomination = 'base'
+    bot.sell_interval = 'week'
+    bot.sell_amount = 1.0
+    bot.smart_intervaled = true
+    bot.set_missed_quote_amount
+
+    assert bot.valid?, bot.errors.full_messages.to_sentence
+    assert bot.smart_interval_base_amount.to_d.positive?, 'seeded, as on the pair bot'
+    bot.smart_interval_base_amount = 0.1
+    bot.save!
+    assert_in_delta (1.week / 10).to_f, bot.effective_interval_duration.to_f, 1.0
+  end
+
   # == buying path is untouched ==
 
   test 'the buying smart-interval cadence is unchanged' do
