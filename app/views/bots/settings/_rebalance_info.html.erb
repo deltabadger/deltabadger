@@ -10,17 +10,10 @@
     <%# The standing explanation first, then the live readout under it: the note describes what the
         rule IS, the readout is what it happens to say right now. %>
     <div><%= t("bot.settings.rebalance.note") %></div>
-    <% if bot.rebalance_ambiguous? %>
-      <div class="text-error">
-        <%= t("bot.settings.rebalance.paused") %>
-        <%# A link, not button_to: this renders INSIDE the settings form_with, and button_to's nested
-            <form> would be dropped by the browser, leaving the button wired to the settings route. %>
-        <%= link_to t("bot.settings.rebalance.resume"),
-                    bot_rebalance_resolutions_path(bot_id: bot.id),
-                    data: { turbo_method: :post,
-                            turbo_confirm: t("bot.settings.rebalance.resume_confirm") } %>
-      </div>
-    <% else %>
+    <%# A halted swap reads no drift, and its Resume is in the metrics panel (composition/_metrics): a halt
+        blocks every tick until resolved, so it has to be reachable whether this rule is on or not,
+        and while a selling basket hides the rule altogether. %>
+    <% unless bot.rebalance_ambiguous? %>
       <% drift = bot.rebalance_drift %>
       <% if drift.present? %>
         <% tripped = drift > bot.rebalance_threshold %>

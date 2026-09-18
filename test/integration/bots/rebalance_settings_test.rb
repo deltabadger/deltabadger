@@ -70,17 +70,41 @@ class Bots::RebalanceSettingsTest < ActionDispatch::IntegrationTest
     assert_select '#settings-rebalance-info', text: /off its target split/
   end
 
-  test 'a halted rule offers the resume control instead of a drift reading' do
+  # A halt blocks every tick until the user resolves it, so its Resume lives in the metrics panel, which
+  # every direction and every rule state shows — not in this rule, which a selling basket hides and a
+  # user can switch off mid-halt.
+  test 'a halted rule shows no drift reading, and its Resume is in the metrics panel' do
     enable_rebalancing
     @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_AMBIGUOUS)
 
     get bot_path(id: @bot.id)
 
-    assert_select '#settings-rebalance-info div.text-error'
-    # A link, not a nested <form>: this partial renders inside the settings form_with, and a browser
-    # drops the inner form, which would wire the button to the settings route instead.
-    assert_select '#settings-rebalance-info a[href=?]', bot_rebalance_resolutions_path(bot_id: @bot.id)
-    assert_select '#settings-rebalance-info form', count: 0
+    assert_select '#settings-rebalance-info .text-error', count: 0
+    assert_select '#settings-rebalance-info a[href=?]', bot_rebalance_resolutions_path(bot_id: @bot.id), count: 0
+    assert_select '#metrics .text-error'
+    # button_to is fine here: the metrics panel is outside the settings form_with.
+    assert_select '#metrics form[action=?]', bot_rebalance_resolutions_path(bot_id: @bot.id), count: 1
+  end
+
+  test 'a halt stays resolvable after the rule is switched off' do
+    enable_rebalancing
+    @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_AMBIGUOUS)
+    @bot.set_missed_quote_amount
+    @bot.update!(rebalance_enabled: false)
+
+    get bot_path(id: @bot.id)
+
+    assert_select '#metrics form[action=?]', bot_rebalance_resolutions_path(bot_id: @bot.id), count: 1
+  end
+
+  test 'a halt stays resolvable with balances hidden' do
+    enable_rebalancing
+    @bot.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_AMBIGUOUS)
+    @user.update!(hide_balances: true)
+
+    get bot_path(id: @bot.id)
+
+    assert_select '#metrics form[action=?]', bot_rebalance_resolutions_path(bot_id: @bot.id), count: 1
   end
 
   # == The index bot runs the same widget off the same shared concern ==
@@ -92,6 +116,15 @@ class Bots::RebalanceSettingsTest < ActionDispatch::IntegrationTest
 
     assert_select 'input[name=?]', 'bots_dca_index[rebalance_enabled]'
     assert_select 'input[name=?]', 'bots_dca_index[rebalance_threshold]'
+  end
+
+  test 'a halted index offers its Resume in the same metrics panel' do
+    index = create(:dca_index, user: @user, status: :stopped)
+    index.set_rebalance_pending!(phase: Bot::Rebalanceable::PHASE_AMBIGUOUS)
+
+    get bot_path(id: index.id)
+
+    assert_select '#metrics form[action=?]', bot_rebalance_resolutions_path(bot_id: index.id), count: 1
   end
 
   test 'an active index rule shows the same small-info block' do
