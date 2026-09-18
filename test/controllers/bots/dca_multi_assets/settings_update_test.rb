@@ -99,11 +99,22 @@ class Bots::DcaMultiAssetsSettingsUpdateTest < ActionDispatch::IntegrationTest
     assert_equal [@first.id, @second.id], @bot.reload.base_asset_ids
   end
 
-  test 'PATCH remove_asset_id below two assets is refused with 422' do
+  test 'PATCH remove_asset_id down to one keeps a one-asset basket at 100%' do
     patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { remove_asset_id: @second.id } }, as: :turbo_stream
 
+    assert_response :success
+    assert_equal({ @first.id.to_s => 1.0 }, @bot.reload.allocations)
+    @bot.valid?(:start)
+    assert_not(@bot.errors.details[:allocations].any? { |detail| detail[:error] == :unbalanced },
+               'a lone member is the whole portfolio')
+  end
+
+  test 'PATCH remove_asset_id of the last asset is refused with 422' do
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { remove_asset_id: @second.id } }, as: :turbo_stream
+    patch bot_path(id: @bot.id), params: { bots_dca_multi_asset: { remove_asset_id: @first.id } }, as: :turbo_stream
+
     assert_response :unprocessable_entity
-    assert_equal [@first.id, @second.id], @bot.reload.base_asset_ids
+    assert_equal [@first.id], @bot.reload.base_asset_ids
   end
 
   test 'PATCH normalize_allocations squeezes to 100' do

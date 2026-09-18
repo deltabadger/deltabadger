@@ -29,6 +29,15 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
     assert_equal @assets.map { |asset| "bots_dca_multi_asset[allocations][#{asset.id}]" }, names
   end
 
+  test 'a two-asset basket offers remove on both members' do
+    two = create(:dca_multi_asset, user: @user, exchange: @bot.exchange, quote_asset: @bot.quote_asset,
+                                   base_assets: @assets.first(2), allocations: { @assets[0] => 0.5, @assets[1] => 0.5 })
+
+    get bot_path(id: two.id)
+
+    assert_select 'button.asset-allocation__remove', count: 2
+  end
+
   test 'renders the total, and reveals Normalize with a hint only when unbalanced' do
     get bot_path(id: @bot.id)
 

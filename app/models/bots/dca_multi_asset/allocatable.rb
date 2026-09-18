@@ -6,6 +6,7 @@ module Bots::DcaMultiAsset::Allocatable
 
   included do
     before_validation :derive_allocations_from_base_asset_ids, on: :create
+    before_validation :pin_lone_weight
     validate :validate_allocations
     validate :validate_allocations_balanced, on: :start
     validate :validate_composition_pairs,
@@ -111,14 +112,19 @@ module Bots::DcaMultiAsset::Allocatable
     settings.delete('base_asset_ids')
   end
 
+  # One member is the whole portfolio, whatever a removal or a stray slider left behind: 50/50 minus one
+  # would otherwise leave 50%, unstartable, and a lone member at 0% fails every derivation. A weight that
+  # is already 100% is written unchanged, which the store accessor does not count as a change.
+  def pin_lone_weight
+    self.allocations = allocations.transform_values { 1.0 } if allocations.one?
+  end
+
+  # One member is a basket too — the pair bot it will replace. MIN_ASSETS is the threshold for CREATING
+  # a basket, not this floor.
   def validate_allocations
     keys = allocations.keys
-    min = self.class::MIN_ASSETS
     max = self.class::MAX_ASSETS
-    if keys.size < min
-      errors.add(:allocations, :too_few,
-                 message: I18n.t('errors.bots.multi_asset.min_assets', min:))
-    end
+    errors.add(:allocations, :too_few, message: I18n.t('errors.bots.multi_asset.min_assets')) if keys.empty?
     if keys.size > max
       errors.add(:allocations, :too_many,
                  message: I18n.t('errors.bots.multi_asset.max_assets', max:))

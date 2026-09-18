@@ -66,7 +66,7 @@ sk:
         bots:
             multi_asset:
                 condition_subject: "Táto podmienka sa musí týkať aktíva, ktoré bot drží."
-                min_assets: "Portfólio musí obsahovať aspoň %{min} aktíva."
+                min_assets: "Portfólio musí obsahovať aspoň jedno aktívum."
                 max_assets: "Portfólio môže obsahovať najviac %{max} aktív."
                 pair_missing: "%{assets} nemožno na burze %{exchange_name} obchodovať voči vybranému kótovanému aktívu."
                 locked_while_running: "Aktíva ani váhy portfólia nemožno meniť, kým bot beží."

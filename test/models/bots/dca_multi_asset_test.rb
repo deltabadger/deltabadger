@@ -34,11 +34,14 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     assert_not bot.settings.key?('base_asset_ids')
   end
 
-  test 'needs at least two and at most twenty assets' do
+  test 'needs at least one and at most twenty assets' do
     bot = build_bot
-    bot.allocations = { @assets['AAA'][:asset].id.to_s => 1.0 }
+    bot.allocations = {}
     assert_not bot.valid?
     assert_predicate bot.errors[:allocations], :present?
+
+    bot.allocations = { @assets['AAA'][:asset].id.to_s => 1.0 }
+    assert bot.valid?, 'a one-asset basket is the pair bot it will replace'
 
     twenty_one = Array.new(21) do |index|
       create(:asset, symbol: "X#{index}", external_id: "x-#{index}")
@@ -552,6 +555,60 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
   end
 
   private
+
+  # == one asset ==
+
+  test 'a lone member always weighs 100%, whatever a removal or a stray slider left behind' do
+    bot = build_bot
+    lone = @assets['AAA'][:asset].id.to_s
+
+    bot.allocations = { lone => 0.5 }
+    assert bot.valid?
+    assert_equal({ lone => 1.0 }, bot.allocations)
+
+    bot.allocations = { lone => 0.0 }
+    assert bot.valid?
+    assert_equal({ lone => 1.0 }, bot.allocations)
+  end
+
+  test 'removing down to one leaves a basket that is balanced and starts' do
+    bot = create(:dca_multi_asset, user: @user, exchange: @exchange, base_assets: member_assets, quote_asset: @quote)
+    bot.set_missed_quote_amount
+    bot.update!(allocations: bot.allocations.except(member_ids.last))
+
+    assert_predicate bot, :allocations_balanced?
+    bot.valid?(:start)
+    assert_not(bot.errors.details[:allocations].any? { |detail| detail[:error] == :unbalanced })
+  end
+
+  test 'a lone member left at 0% still derives a composition, at 100%' do
+    bot = create(:dca_multi_asset, user: @user, exchange: @exchange, base_assets: member_assets, quote_asset: @quote,
+                                   allocations: { member_assets.first => 0.0, member_assets.last => 1.0 })
+    bot.set_missed_quote_amount
+    bot.update!(allocations: bot.allocations.except(member_ids.last))
+
+    assert_predicate bot.refresh_composition, :success?
+    assert_equal({ member_assets.first.id => 1.0 }, bot.bot_index_assets.in_index.pluck(:asset_id, :target_allocation).to_h)
+  end
+
+  test 'a one-asset basket has no drift to rebalance' do
+    bot = create(:dca_multi_asset, user: @user, exchange: @exchange, base_assets: [member_assets.first], quote_asset: @quote)
+    bot.stubs(:metrics_with_current_prices).returns(
+      asset_values: { member_assets.first.symbol => { amount: 1.to_d, current_value: 100.to_d } }, prices_stale: false
+    )
+
+    assert_in_delta 0, bot.rebalance_drift.to_f, 1e-9
+  end
+
+  test 'one_asset? counts the configured members, not the tradeable ones' do
+    bot = create(:dca_multi_asset, user: @user, exchange: @exchange, base_assets: member_assets, quote_asset: @quote)
+    @assets['BBB'][:ticker].update!(available: false)
+
+    assert_not_predicate bot, :one_asset?
+    bot.set_missed_quote_amount
+    bot.update!(allocations: bot.allocations.except(member_ids.last))
+    assert_predicate bot, :one_asset?
+  end
 
   def member_assets
     @assets.values.first(2).map { it[:asset] }

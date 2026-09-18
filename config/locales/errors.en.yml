@@ -74,7 +74,7 @@ en:
         bots:
             multi_asset:
                 condition_subject: "This condition must watch an asset the bot holds."
-                min_assets: "A portfolio needs at least %{min} assets."
+                min_assets: "A portfolio needs at least one asset."
                 max_assets: "A portfolio can hold up to %{max} assets."
                 pair_missing: "%{assets} cannot be traded against the selected quote asset on %{exchange_name}."
                 locked_while_running: "Portfolio assets and allocations cannot be changed while the bot is running."
