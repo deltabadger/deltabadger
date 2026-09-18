@@ -328,6 +328,9 @@ cs:
                 create_index_bot:
                     label: 'Vytvořit indexového bota'
                     description: 'Vytvořit a spustit indexového DCA bota'
+                create_signal_bot:
+                    label: 'Vytvořit signálního bota'
+                    description: 'Vytvořit a spustit signálního bota, který na vyžádání obchoduje jeden pár'
                 delete_bot:
                     label: 'Smazat bota'
                     description: 'Smazat bota, běžícího i zastaveného; jeho rozvrh se zruší'

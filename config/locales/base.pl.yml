@@ -348,6 +348,9 @@ pl:
                 create_index_bot:
                     label: 'Utwórz bota indeksowego'
                     description: 'Utwórz i uruchom indeksowego bota DCA'
+                create_signal_bot:
+                    label: 'Utwórz bota sygnałowego'
+                    description: 'Utwórz i uruchom bota sygnałowego, który handluje jedną parą na żądanie'
                 delete_bot:
                     label: 'Usuń bota'
                     description: 'Usuń bota, działającego lub zatrzymanego; jego harmonogram zostaje anulowany'

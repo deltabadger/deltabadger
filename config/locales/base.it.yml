@@ -346,6 +346,9 @@ it:
                 create_index_bot:
                     label: 'Crea bot indice'
                     description: 'Crea e avvia un bot DCA indice'
+                create_signal_bot:
+                    label: 'Crea bot di segnali'
+                    description: 'Crea e avvia un bot di segnali che opera su una coppia su richiesta'
                 delete_bot:
                     label: 'Elimina bot'
                     description: 'Elimina un bot, attivo o fermo; la sua programmazione viene annullata'

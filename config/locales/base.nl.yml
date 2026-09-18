@@ -346,6 +346,9 @@ nl:
                 create_index_bot:
                     label: 'Indexbot aanmaken'
                     description: 'Een DCA-indexbot aanmaken en starten'
+                create_signal_bot:
+                    label: 'Signaalbot maken'
+                    description: 'Een signaalbot maken en starten die één paar op verzoek verhandelt'
                 delete_bot:
                     label: 'Bot verwijderen'
                     description: 'Een bot verwijderen, actief of gestopt; het schema vervalt'

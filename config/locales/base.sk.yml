@@ -328,6 +328,9 @@ sk:
                 create_index_bot:
                     label: 'Vytvoriť indexového bota'
                     description: 'Vytvoriť a spustiť indexového DCA bota'
+                create_signal_bot:
+                    label: 'Vytvoriť signálneho bota'
+                    description: 'Vytvoriť a spustiť signálneho bota, ktorý na požiadanie obchoduje jeden pár'
                 delete_bot:
                     label: 'Zmazať bota'
                     description: 'Zmazať bota, bežiaceho aj zastaveného; jeho rozvrh sa zruší'

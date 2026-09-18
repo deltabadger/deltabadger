@@ -327,6 +327,9 @@ el:
                 create_index_bot:
                     label: 'Δημιουργία bot δείκτη'
                     description: 'Δημιουργία και εκκίνηση ενός DCA bot δείκτη'
+                create_signal_bot:
+                    label: 'Δημιουργία bot σημάτων'
+                    description: 'Δημιουργία και εκκίνηση bot σημάτων που συναλλάσσεται σε ένα ζεύγος κατά παραγγελία'
                 delete_bot:
                     label: 'Διαγραφή bot'
                     description: 'Διαγραφή ενός bot, ενεργού ή μη· το πρόγραμμά του ακυρώνεται'

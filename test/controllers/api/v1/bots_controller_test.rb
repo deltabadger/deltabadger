@@ -788,6 +788,19 @@ class Api::V1::BotsControllerTest < ActionDispatch::IntegrationTest
     assert_equal '25.5', body['redeploy_offer']
   end
 
+  test 'POST /api/v1/bots with type signal creates a running signal bot' do
+    exchange = create(:binance_exchange)
+    create(:ticker, exchange: exchange, base_asset: create(:asset, :bitcoin), quote_asset: create(:asset, :usd))
+    create(:api_key, user: @user, exchange: exchange, key_type: :trading, status: :correct)
+    @user.set_rest_tool_enabled('create_signal_bot', true)
+
+    post '/api/v1/bots', params: { type: 'signal', exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD' },
+                         headers: bearer(create_token), as: :json
+
+    assert_response :created
+    assert_equal 'Bots::Signal', JSON.parse(response.body)['data']['type']
+  end
+
   private
 
   # A Kraken venue with three EUR pairs — the minimum a category index needs to offer that quote.

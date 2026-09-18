@@ -328,6 +328,9 @@ en:
                 create_index_bot:
                     label: 'Create index bot'
                     description: 'Create and start an index DCA bot'
+                create_signal_bot:
+                    label: 'Create signal bot'
+                    description: 'Create and start a signal bot that trades one pair on demand'
                 delete_bot:
                     label: 'Delete bot'
                     description: 'Delete a bot, running or not; its schedule is cancelled'

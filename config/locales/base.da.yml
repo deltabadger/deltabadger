@@ -327,6 +327,9 @@ da:
                 create_index_bot:
                     label: 'Opret indeksbot'
                     description: 'Opret og start en DCA-indeksbot'
+                create_signal_bot:
+                    label: 'Opret signalbot'
+                    description: 'Opret og start en signalbot, der handler ét par efter behov'
                 delete_bot:
                     label: 'Slet bot'
                     description: 'Slet en bot, uanset om den kører; dens tidsplan annulleres'
