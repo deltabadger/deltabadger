@@ -94,13 +94,23 @@ module Bot::Composition::Measurable
         # proceeds whatever this walk could read — so the basis rides the in-flight bucket that leg
         # drains, or the replacement holding ends up with no cost and the money is counted twice.
         # A LIQUIDATION sell owes nobody, and its proceeds are what the redeploy offer is capped by,
-        # so its estimate goes to a bucket that is never spendable (Bot::RebalanceAccounting).
+        # so its estimate goes to a bucket that is never spendable (Bot::RebalanceAccounting). A
+        # scheduled (REGULAR) sell owes nobody and is never spent: it parks as its priced twin does.
         # Either way it is counted in portfolio value and in the chart's cash series, and a later
         # poll that brings the real proceeds recomputes this walk from the row.
         if side == 'sell' && amount_exec.to_d.positive? && !raw_quote_exec.to_d.positive?
           released = basis_share(ledger, base, amount_exec)
-          if transaction_type == 'LIQUIDATION'
+          case transaction_type
+          when 'LIQUIDATION'
             apply_unpriced_sell(ledger, books, key: base, amount_exec:, quote_amount_exec: released)
+          when 'REGULAR'
+            # A scheduled sale owes nobody either, but its proceeds are money leaving, never money to
+            # spend, so the estimate parks where the priced sale would. Only the units the ledger holds:
+            # with none held (a sell-only history, or a sale after the holding reached zero) there is
+            # no basis to estimate from, and nothing is booked.
+            held = ledger.key?(base) ? ledger[base][:amount] : 0
+            owned = [amount_exec, held].min
+            apply_regular_sell(ledger, books, key: base, amount_exec: owned, quote_amount_exec: released) if owned.positive?
           else
             apply_rebalance_sell(ledger, books, key: base, amount_exec:, quote_amount_exec: released)
           end
@@ -340,12 +350,14 @@ module Bot::Composition::Measurable
   # rebalance_cash, which the redeploy offer reads — without the bump an existing bot serves a hash
   # with no such key for up to 30 days and the prompt never appears. _v6: holdings are restated
   # through corporate actions, so every count, value and chart point in here can differ.
-  # _v7: per-asset FIFO tax lots and the harvestable flag.
+  # _v7: per-asset FIFO tax lots and the harvestable flag. _v8: a scheduled (REGULAR) sell realizes into
+  # its own never-drained bucket instead of reading as a half-finished swap — CSV-imported sells are
+  # REGULAR, so a basket that imported any reads different figures.
   # The cached shape lives up to 30 days, so this has to move with it or every existing bot serves
   # the old numbers after a deploy.
   # A method, not a literal: the tests that seed this cache were reading the string off the source.
   def metrics_cache_key
-    "bot_#{id}_metrics_v7_#{restatement_generation}"
+    "bot_#{id}_metrics_v8_#{restatement_generation}"
   end
 
   def metrics_with_current_prices_cache_key

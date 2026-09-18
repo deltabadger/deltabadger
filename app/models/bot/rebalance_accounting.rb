@@ -2,7 +2,7 @@
 # rebalance or a liquidation, so the two bot types can never drift apart on the arithmetic.
 #
 # The ledger is `{ key => { amount:, invested: } }` (the key is whatever the type indexes by: an
-# asset id for the pair, a symbol for the index). Alongside it sit five scalars that no single asset
+# asset id for the pair, a symbol for the index). Alongside it sit scalars that no single asset
 # owns:
 #
 #   basis          — cost basis released by a rebalance sell, not yet re-attached to an asset
@@ -11,6 +11,8 @@
 #                    "invested" line: once a sale realizes a gain and the bot re-spends it, the two
 #                    diverge, because the recycled dollar is not a new contribution.
 #   realised_cash  — liquidation proceeds not yet re-spent
+#   divested       — proceeds of scheduled sales (DCA-out). Counted in value for good and never
+#                    spent by a buy: nothing is owed them, exactly like the pair bot's realized proceeds
 #   realised_pnl   — permanent. Displayed as "Realised P/L".
 #
 # basis/cash are counted in the totals, so a rebalance conserves both invested and value even while
@@ -58,6 +60,24 @@ module Bot::RebalanceAccounting
     released = release_basis(ledger, books, key:, amount_exec:, quote_amount_exec:)
     books[:realised_cash] += quote_amount_exec
     books[:realised_pnl] += quote_amount_exec - released
+  end
+
+  # A scheduled sale — the DCA leg running in reverse. It realizes like a liquidation, but its proceeds
+  # are money on the way OUT: no buy is owed them and no redeploy may offer them, so they park in
+  # `divested`, which nothing drains. That is the pair bot's bookkeeping (realized proceeds stay in
+  # value, invested never moves on a sale, a later buy is new money counted in full), so a basket and a
+  # pair bot that DCA out the same way report the same invested, value and P/L.
+  #
+  # Base sold beyond what the ledger holds (coins the bot never bought) is valued at its own sale
+  # price — added to contributed and to proceeds alike, zero P/L — as the pair bot values it.
+  # `amount_exec` is positive on every path that reaches here.
+  def apply_regular_sell(ledger, books, key:, amount_exec:, quote_amount_exec:)
+    owned = [amount_exec, ledger[key][:amount]].min
+    excess_proceeds = quote_amount_exec * (amount_exec - owned) / amount_exec
+    released = owned.positive? ? release_basis(ledger, books, key:, amount_exec: owned, quote_amount_exec:) : 0
+    books[:contributed] += excess_proceeds
+    books[:divested] += quote_amount_exec
+    books[:realised_pnl] += quote_amount_exec - released - excess_proceeds
   end
 
   def apply_rebalance_buy(ledger, books, key:, amount_exec:, quote_amount_exec:)
@@ -132,9 +152,13 @@ module Bot::RebalanceAccounting
   # whether the fill also belongs in its average-entry-price accumulators (only a regular buy does).
   def apply_fill(ledger, books, key:, side:, transaction_type:, amount_exec:, quote_amount_exec:)
     if side == 'sell'
-      if transaction_type == 'LIQUIDATION'
+      case transaction_type
+      when 'LIQUIDATION'
         apply_liquidation_sell(ledger, books, key:, amount_exec:, quote_amount_exec:)
         :liquidation_sell
+      when 'REGULAR'
+        apply_regular_sell(ledger, books, key:, amount_exec:, quote_amount_exec:)
+        :regular_sell
       else
         apply_rebalance_sell(ledger, books, key:, amount_exec:, quote_amount_exec:)
         :sell
@@ -165,7 +189,7 @@ module Bot::RebalanceAccounting
   # later buy drains the bucket. Portfolio value is therefore cumulative performance value: holdings
   # plus proceeds not yet redeployed.
   def portfolio_value(values_sum, books)
-    values_sum + books[:cash] + books[:realised_cash] + books[:estimated_cash]
+    values_sum + uninvested_cash(books)
   end
 
   def realised_pnl(books)
@@ -177,12 +201,12 @@ module Bot::RebalanceAccounting
   # candle marking reads it back, and without it every point after a sale is re-marked as if the
   # proceeds had vanished.
   def uninvested_cash(books)
-    books[:cash] + books[:realised_cash] + books[:estimated_cash]
+    books[:cash] + books[:realised_cash] + books[:estimated_cash] + books[:divested]
   end
 
   def new_rebalance_books
     { basis: 0, cash: 0, contributed: 0, realised_cash: 0, realised_pnl: 0,
-      estimated_basis: 0, estimated_cash: 0 }
+      estimated_basis: 0, estimated_cash: 0, divested: 0 }
   end
 
   # Lives on Transaction — the rule is about how to read one row, and the chart marks need it on
