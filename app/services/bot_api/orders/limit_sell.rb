@@ -8,7 +8,7 @@ module BotApi
       end
 
       def initialize(user:, exchange_name: nil, base_asset: nil, quote_asset: nil,
-                     amount: nil, price: nil, amount_type: nil, dry_run: false)
+                     amount: nil, price: nil, amount_type: nil, bot_id: nil, dry_run: false)
         @user = user
         @exchange_name = exchange_name
         @base_asset = base_asset
@@ -16,10 +16,13 @@ module BotApi
         @amount = amount
         @price = price
         @amount_type = amount_type
+        @bot_id = bot_id
         @dry_run = dry_run
       end
 
       def call
+        return Lookup.bot_limit_unsupported unless @bot_id.nil? # sent at all, however malformed
+
         missing = %i[exchange_name base_asset quote_asset amount price].select do |k|
           instance_variable_get("@#{k}").blank?
         end
