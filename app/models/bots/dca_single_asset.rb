@@ -1,6 +1,16 @@
 class Bots::DcaSingleAsset < Bot
   include ActionCable::Channel::Broadcasting
 
+  # A job enqueued before its bot was converted into a multi-asset bot (Bot::SingleToComposition) names
+  # this class, and the conversion cannot atomically repoint it: the queue is another database. Hand back
+  # the row as it is now, so the job runs against the converted bot instead of failing. Removed with this
+  # class.
+  def self.find(...)
+    super
+  rescue ActiveRecord::RecordNotFound
+    Bot.find(...)
+  end
+
   store_accessor :settings,
                  :base_asset_id,
                  :quote_asset_id,

@@ -46,9 +46,6 @@ module Bot::DualToComposition
     price_limit_in_ticker_id price_drop_limit_in_ticker_id
     moving_average_limit_in_ticker_id indicator_limit_in_ticker_id
   ].freeze
-  # Running, dispatched, and waiting on the per-exchange semaphore. Scheduled is handled separately:
-  # only a FUTURE scheduled execution is safe, and .due is exactly the set about to become Ready.
-  BUSY_EXECUTIONS = %w[ClaimedExecution ReadyExecution BlockedExecution].freeze
 
   module_function
 
@@ -179,19 +176,7 @@ module Bot::DualToComposition
   # A status check is not enough: Bot::ActionJob authenticates against the exchange and checks market
   # hours while the row still reads `scheduled` (action_job.rb:59-75), and a placement whose outcome
   # is unknown can leave no Transaction row at all (action_job.rb:138-152).
-  def busy_job?(bot_id)
-    return false unless defined?(SolidQueue)
-
-    fragment = "%#{DUAL}/#{bot_id}\"%"
-    busy = BUSY_EXECUTIONS.any? do |execution|
-      SolidQueue.const_get(execution).joins(:job)
-                .where('solid_queue_jobs.arguments LIKE ?', fragment).exists?
-    end
-    return true if busy
-
-    SolidQueue::ScheduledExecution.due.joins(:job)
-                                  .where('solid_queue_jobs.arguments LIKE ?', fragment).exists?
-  end
+  def busy_job?(bot_id) = Bot::ConversionQueue.busy?(["#{DUAL}/#{bot_id}"])
 
   # @param from_type [String] the type the row is expected to still carry
   # @param force [Boolean] see preflight
@@ -393,41 +378,14 @@ module Bot::DualToComposition
     Bot::Composition::Weightable.blend(market_caps: caps, flattening: 0).transform_keys(&:to_s)
   end
 
-  # A bot finds and cancels its own queued jobs by matching the GlobalID it computes NOW
-  # (schedulable.rb:132), and that string embeds the class name. After the type flip it can neither
-  # see nor cancel the jobs enqueued under the old name — and those jobs would fail to deserialize,
-  # since Bots::DcaDualAsset.find no longer matches the row.
-  #
   # Repointing rather than deleting keeps the scheduled ActionJob's wait_until, so the bot holds its
-  # exact cadence, and keeps one-shot work (a queued stop, an order poll) no repair path recreates.
-  # Solid Queue is a separate database, so this cannot join the transaction above.
-  def repoint_queued_jobs(bot_id)
-    return 0 unless defined?(SolidQueue)
-
-    old_gid = "#{DUAL}/#{bot_id}"
-    new_gid = "#{MULTI}/#{bot_id}"
-
-    SolidQueue::Job.where('arguments LIKE ?', "%#{old_gid}\"%").find_each do |job|
-      job.update_columns(arguments: rewrite_gids(job.arguments, old_gid, new_gid))
-    end
-  end
+  # exact cadence, and keeps one-shot work (a queued stop, an order poll) no repair path recreates
+  # (Bot::ConversionQueue).
+  def repoint_queued_jobs(bot_id) = Bot::ConversionQueue.repoint(bot_id, from: DUAL, to: MULTI)
 
   # Any queued job still addressed to the retired class whose bot has already been converted. Covers
   # an interrupted conversion, and a worker that finished a claimed job after its row was flipped.
-  def sweep_stray_jobs!
-    return 0 unless defined?(SolidQueue)
-
-    converted_ids = Row.where(type: MULTI).pluck(:id).to_set
-    swept = 0
-    SolidQueue::Job.where('arguments LIKE ?', "%#{DUAL}/%").find_each do |job|
-      id = job.arguments.to_s[%r{#{Regexp.escape(DUAL)}/(\d+)}, 1]&.to_i
-      next unless id && converted_ids.include?(id)
-
-      repoint_queued_jobs(id)
-      swept += 1
-    end
-    swept
-  end
+  def sweep_stray_jobs! = Bot::ConversionQueue.sweep!(from: DUAL, to: MULTI)
 
   # A converted row carrying pair-shaped settings again was written by a stale instance after its
   # flip. Put it back through the conversion, which is idempotent and re-locks.
@@ -439,16 +397,5 @@ module Bot::DualToComposition
   # changes on a conversion that succeeds.
   def repair_clobbered!
     clobbered.count { |row| !convert!(row, from_type: MULTI).is_a?(String) }
-  end
-
-  # Rebuilds rather than mutating: the parsed JSON may hold frozen strings, and sub! on one raises.
-  # end_with? anchors the match so a pass for bot 7 can never rewrite bot 71's GlobalID.
-  def rewrite_gids(node, old_gid, new_gid)
-    case node
-    when Hash   then node.transform_values { |value| rewrite_gids(value, old_gid, new_gid) }
-    when Array  then node.map { |value| rewrite_gids(value, old_gid, new_gid) }
-    when String then node.end_with?(old_gid) ? node.sub(old_gid, new_gid) : node
-    else node
-    end
   end
 end
