@@ -238,6 +238,139 @@ class Api::V1::OrdersControllerTest < ActionDispatch::IntegrationTest
     assert_equal 'exchange_name_required', JSON.parse(response.body)['error']['code']
   end
 
+  test 'POST /api/v1/orders with bot_id records the order on the signal bot' do
+    bot = create(:signal_bot, :started, user: @user, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
+    Ticker.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000))
+    Exchanges::Binance.any_instance.expects(:market_buy).once.returns(Result::Success.new(order_id: 'rest-1'))
+    @user.set_rest_tool_enabled('market_buy', true)
+
+    post '/api/v1/orders',
+         params: { type: 'market_buy', bot_id: bot.id, amount: 100 },
+         headers: bearer(api_token).merge('Idempotency-Key' => SecureRandom.uuid), as: :json
+
+    assert_response :created
+    data = JSON.parse(response.body)['data']
+    assert_equal bot.id, data['bot_id']
+    assert_equal 'rest-1', data['order_id']
+    assert_equal bot.transactions.sole.id, data['transaction_id']
+  end
+
+  # The reason REST orders carry an Idempotency-Key: a client that never saw the answer sends the
+  # same key again and gets the stored answer back, not a second placement.
+  test 'POST /api/v1/orders with bot_id replays an ambiguous answer without placing again' do
+    bot = create(:signal_bot, :started, user: @user, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
+    Ticker.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000))
+    Exchanges::Binance.any_instance.expects(:market_buy).once.raises(Client::AmbiguousPlacementError, 'Net::ReadTimeout')
+    @user.set_rest_tool_enabled('market_buy', true)
+    headers = bearer(api_token).merge('Idempotency-Key' => SecureRandom.uuid)
+    body = { type: 'market_buy', bot_id: bot.id, amount: 100 }
+
+    2.times do
+      post '/api/v1/orders', params: body, headers: headers, as: :json
+
+      assert_response :bad_gateway
+      assert_equal 'placement_ambiguous', JSON.parse(response.body)['error']['code']
+    end
+    assert_empty bot.transactions
+  end
+
+  # Past acceptance nothing on our side may turn the answer into a failure — and that has to survive
+  # serialization and the stored replay, not just the service.
+  test 'POST /api/v1/orders with bot_id answers 201 with the order id when the row could not be written, and replays it' do
+    bot = create(:signal_bot, :started, user: @user, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
+    Ticker.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000))
+    Exchanges::Binance.any_instance.expects(:market_buy).once.returns(Result::Success.new(order_id: 'rest-norow'))
+    Bots::Signal.any_instance.stubs(:persist_accepted_order!).raises(ActiveRecord::StatementInvalid, 'database is locked')
+    Bots::Signal.any_instance.stubs(:notify_about_error)
+    @user.set_rest_tool_enabled('market_buy', true)
+    headers = bearer(api_token).merge('Idempotency-Key' => SecureRandom.uuid)
+
+    bodies = Array.new(2) do
+      post '/api/v1/orders', params: { type: 'market_buy', bot_id: bot.id, amount: 100 }, headers: headers, as: :json
+
+      assert_response :created
+      response.body
+    end
+
+    assert_equal bodies.first, bodies.last
+    data = JSON.parse(bodies.first)['data']
+    assert_equal 'rest-norow', data['order_id']
+    assert_nil data['transaction_id']
+  end
+
+  test 'POST /api/v1/orders with bot_id answers 502 placement_ambiguous for an acceptance with no order id' do
+    bot = create(:signal_bot, :started, user: @user, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
+    Ticker.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000))
+    Exchanges::Binance.any_instance.stubs(:market_buy).returns(Result::Success.new(order_id: nil))
+    @user.set_rest_tool_enabled('market_buy', true)
+
+    post '/api/v1/orders', params: { type: 'market_buy', bot_id: bot.id, amount: 100 },
+                           headers: bearer(api_token).merge('Idempotency-Key' => SecureRandom.uuid), as: :json
+
+    assert_response :bad_gateway
+    assert_equal 'placement_ambiguous', JSON.parse(response.body)['error']['code']
+  end
+
+  test 'POST /api/v1/orders with a blank bot_id beside a complete pair is 422, not an unattributed order' do
+    Exchanges::Binance.any_instance.expects(:market_buy).never
+    @user.set_rest_tool_enabled('market_buy', true)
+
+    post '/api/v1/orders',
+         params: { type: 'market_buy', bot_id: '', exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 100 },
+         headers: bearer(api_token).merge('Idempotency-Key' => SecureRandom.uuid), as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal 'invalid_number', JSON.parse(response.body)['error']['code']
+  end
+
+  # Strong parameters drop a non-scalar value without a word, and a dropped bot_id reads as "no
+  # bot". Every shape that was SENT must reach the service and be refused.
+  test 'POST /api/v1/orders with a bot_id of the wrong shape is 422 for market and limit orders alike' do
+    Exchanges::Binance.any_instance.expects(:market_buy).never
+    Exchanges::Binance.any_instance.expects(:limit_buy).never
+    @user.set_rest_tool_enabled('market_buy', true)
+    @user.set_rest_tool_enabled('limit_buy', true)
+    pair = { exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 100 }
+
+    [[12], { id: 12 }, [[]]].each do |shape|
+      post '/api/v1/orders', params: pair.merge(type: 'market_buy', bot_id: shape),
+                             headers: bearer(api_token).merge('Idempotency-Key' => SecureRandom.uuid), as: :json
+      assert_response :unprocessable_entity, "market_buy bot_id=#{shape.inspect}"
+      assert_equal 'invalid_number', JSON.parse(response.body)['error']['code']
+
+      post '/api/v1/orders', params: pair.merge(type: 'limit_buy', price: 40_000, bot_id: shape),
+                             headers: bearer(api_token).merge('Idempotency-Key' => SecureRandom.uuid), as: :json
+      assert_response :unprocessable_entity, "limit_buy bot_id=#{shape.inspect}"
+      assert_equal 'bot_limit_orders_unsupported', JSON.parse(response.body)['error']['code']
+    end
+  end
+
+  test 'POST /api/v1/orders with an explicit null bot_id is an order without a bot' do
+    Exchanges::Binance.any_instance.expects(:market_buy).once.returns(Result::Success.new(order_id: 'plain-null'))
+    @user.set_rest_tool_enabled('market_buy', true)
+
+    post '/api/v1/orders',
+         params: { type: 'market_buy', bot_id: nil, exchange_name: 'Binance', base_asset: 'BTC', quote_asset: 'USD', amount: 100 },
+         headers: bearer(api_token).merge('Idempotency-Key' => SecureRandom.uuid), as: :json
+
+    assert_response :created
+    assert_nil JSON.parse(response.body)['data']['bot_id']
+  end
+
+  test 'POST /api/v1/orders with bot_id and a limit type is 422 bot_limit_orders_unsupported' do
+    bot = create(:signal_bot, :started, user: @user, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
+    Exchanges::Binance.any_instance.expects(:limit_buy).never
+    @user.set_rest_tool_enabled('limit_buy', true)
+
+    post '/api/v1/orders',
+         params: { type: 'limit_buy', bot_id: bot.id, exchange_name: 'Binance', base_asset: 'BTC',
+                   quote_asset: 'USD', amount: 100, price: 40_000 },
+         headers: bearer(api_token).merge('Idempotency-Key' => SecureRandom.uuid), as: :json
+
+    assert_response :unprocessable_entity
+    assert_equal 'bot_limit_orders_unsupported', JSON.parse(response.body)['error']['code']
+  end
+
   private
 
   def bearer(token)

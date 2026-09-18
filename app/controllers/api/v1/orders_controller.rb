@@ -69,8 +69,14 @@ module Api
       end
 
       def create_params
-        params.permit(:exchange_name, :base_asset, :quote_asset, :amount, :price, :amount_type)
-              .to_h.symbolize_keys
+        opts = params.permit(:exchange_name, :base_asset, :quote_asset, :amount, :price, :amount_type)
+                     .to_h.symbolize_keys
+        # Deliberately NOT through permit: strong parameters silently drop a non-scalar value, and a
+        # dropped bot_id reads as "no bot" — with a complete pair beside it the order would be placed
+        # on the account while the caller believes a bot owns it. Whatever was sent is handed over as
+        # text, for the service to refuse. An explicit null is the one shape that means "no bot".
+        opts[:bot_id] = params[:bot_id].to_s unless params[:bot_id].nil?
+        opts
       end
     end
   end
