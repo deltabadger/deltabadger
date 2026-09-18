@@ -62,17 +62,17 @@ export default class extends Controller {
     });
   }
 
+  // EVERY subscription on the page, not any one of them. The answer arrives on whichever stream its
+  // broadcast rides — the user's, or the bot's own (Bot#page_stream, subscribed inside the bot frame,
+  // so it can connect after the user's) — and one sent before that stream is connected lands nowhere.
   #isConnectedToTurboStreamsChannel() {
     if (!window.Turbo) {
       return false;
     }
 
-    // Check for Turbo::StreamsChannel subscriptions
-    const turboStreamElements = document.querySelectorAll(
-      'turbo-cable-stream-source[channel="Turbo::StreamsChannel"][connected]'
-    );
+    const sources = document.querySelectorAll('turbo-cable-stream-source[channel="Turbo::StreamsChannel"]');
 
-    return turboStreamElements.length > 0;
+    return sources.length > 0 && Array.from(sources).every((source) => source.hasAttribute("connected"));
   }
 
   #getLocaleFromUrl(defaultLocale = 'en') {
