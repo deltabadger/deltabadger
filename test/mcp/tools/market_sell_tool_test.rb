@@ -64,4 +64,25 @@ class MarketSellToolTest < ActiveSupport::TestCase
 
     assert_match(/Insufficient funds/, response.contents.first.text)
   end
+
+  # MCP casts a `number` property to Float; a small one must not be refused as malformed.
+  test 'a small base amount is taken as an amount' do
+    bot = create(:signal_bot, :started, user: @user, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
+    Ticker.any_instance.stubs(:get_bid_price).returns(Result::Success.new(49_000))
+
+    text = MarketSellTool.new(bot_id: bot.id, amount: 0.00005).execute.contents.first.text
+
+    assert_no_match(/must be a number/, text)
+  end
+
+  test 'with a bot_id the sale is recorded on the signal bot' do
+    bot = create(:signal_bot, :started, user: @user, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
+    Ticker.any_instance.stubs(:get_bid_price).returns(Result::Success.new(49_000))
+    Exchanges::Binance.any_instance.expects(:market_sell).returns(Result::Success.new(order_id: 'mcp-2'))
+
+    text = MarketSellTool.new(bot_id: bot.id, amount: 0.5).execute.contents.first.text
+
+    assert_match(/placed by bot #{bot.id}/, text)
+    assert_predicate bot.transactions.sole, :sell?
+  end
 end

@@ -70,4 +70,29 @@ class MarketBuyToolTest < ActiveSupport::TestCase
 
     assert_match(/Insufficient funds/, response.contents.first.text)
   end
+
+  test 'with a bot_id the order is recorded on the signal bot and the pair is optional' do
+    bot = create(:signal_bot, :started, user: @user, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
+    Ticker.any_instance.stubs(:get_ask_price).returns(Result::Success.new(50_000))
+    Exchanges::Binance.any_instance.expects(:market_buy).returns(Result::Success.new(order_id: 'mcp-1'))
+
+    response = MarketBuyTool.new(bot_id: bot.id, amount: 100.0).execute
+
+    text = response.contents.first.text
+    assert_match(/placed by bot #{bot.id}/, text)
+    assert_match(/mcp-1/, text)
+    assert_equal 'mcp-1', bot.transactions.sole.external_id
+  end
+
+  test 'with a bot_id a dry run says nothing was placed or recorded' do
+    bot = create(:signal_bot, :started, user: @user, exchange: @exchange, base_asset: @btc, quote_asset: @usd)
+    @user.mcp_dry_run = true
+    Exchanges::Binance.any_instance.expects(:market_buy).never
+
+    text = MarketBuyTool.new(bot_id: bot.id, amount: 100.0).execute.contents.first.text
+
+    assert_match(/\[DRY RUN\]/, text)
+    assert_match(/nothing was placed or recorded/i, text)
+    assert_empty bot.transactions
+  end
 end
