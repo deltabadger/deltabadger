@@ -8,17 +8,22 @@ module BotApi
       end
 
       def initialize(user:, exchange_name: nil, base_asset: nil, quote_asset: nil,
-                     amount: nil, amount_type: nil, dry_run: false)
+                     amount: nil, amount_type: nil, bot_id: nil, dry_run: false)
         @user = user
         @exchange_name = exchange_name
         @base_asset = base_asset
         @quote_asset = quote_asset
         @amount = amount
         @amount_type = amount_type
+        @bot_id = bot_id
         @dry_run = dry_run
       end
 
       def call
+        # nil, not blank: a bot_id that was SENT — empty, whitespace, false — must be refused by
+        # BotOrder, never read as "no bot" and placed on the account unattributed.
+        return through_bot unless @bot_id.nil?
+
         missing = required_missing
         return missing_params(missing) if missing.any?
 
@@ -58,6 +63,12 @@ module BotApi
       end
 
       private
+
+      def through_bot
+        BotOrder.call(user: @user, bot_id: @bot_id, side: :buy, amount: @amount, amount_type: @amount_type,
+                      exchange_name: @exchange_name, base_asset: @base_asset, quote_asset: @quote_asset,
+                      dry_run: @dry_run)
+      end
 
       def required_missing
         %i[exchange_name base_asset quote_asset amount].select do |k|

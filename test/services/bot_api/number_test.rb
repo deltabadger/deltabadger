@@ -26,4 +26,22 @@ class BotApi::NumberTest < ActiveSupport::TestCase
     assert_nil BotApi::Number.within('100.01', 0.0..100.0)
     assert_nil BotApi::Number.within('abc', 0.0..100.0)
   end
+
+  # A number that arrived AS a number — JSON, or an MCP `number` property — is a Float, and a small
+  # Float prints in scientific notation. That is not text anybody typed; it is 0.00005.
+  test 'a small Float is the decimal it is; typed text stays strict' do
+    assert_equal BigDecimal('0.00005'), BotApi::Number.parse(0.00005)
+    assert_equal BigDecimal('0.3'), BotApi::Number.parse(0.1 + 0.2)
+    assert_nil BotApi::Number.parse('5.0e-05'), 'typed exponents are still refused'
+    [-0.5, 1e20, Float::INFINITY, Float::NAN].each { |bad| assert_nil BotApi::Number.parse(bad), bad.inspect }
+  end
+
+  # Writing a Float out as a decimal rounds to 16 significant digits. An id is asked of the Float
+  # itself, or 1.0000000000000002 would name bot 1.
+  test 'a Float that is not whole is never an integer, however close' do
+    assert_nil BotApi::Number.integer(1.0000000000000002)
+    assert_nil BotApi::Number.integer(Float::INFINITY)
+    assert_nil BotApi::Number.integer(Float::NAN)
+    assert_equal 12, BotApi::Number.integer(12.0)
+  end
 end

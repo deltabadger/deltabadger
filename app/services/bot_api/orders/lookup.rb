@@ -63,6 +63,13 @@ module BotApi
                        "Trading pair #{base_symbol.to_s.upcase}/#{quote_symbol.to_s.upcase} not found on #{exchange.name}.")
       end
 
+      # Refused rather than placed without the bot: the caller believes the order is attributed.
+      def bot_limit_unsupported
+        Result.failure(:validation_failed, 'bot_limit_orders_unsupported',
+                       'A bot takes market orders only: a signal bot has no schedule on which a resting ' \
+                       'order would be confirmed. Leave bot_id out to place the limit order on the account.')
+      end
+
       # Wraps a block in the legacy `Thread.current[:force_dry_run]` flag
       # so exchange code paths that consult it behave consistently regardless
       # of whether the call originated from MCP (where dry_run can be on)
