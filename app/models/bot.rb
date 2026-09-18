@@ -251,6 +251,12 @@ class Bot < ApplicationRecord
     )
   end
 
+  # The stream only this bot's own page listens on (bots/show.html.erb). Everything that replaces a
+  # panel every bot page has under the same id — settings, metrics, chart, exchange select, the orders
+  # feed — goes here, not to the user-wide stream: there a broadcast about one bot would redraw the
+  # page of whichever bot the user has open, and an edit there would save to the wrong one.
+  def page_stream = [self, :bot_updates]
+
   def broadcast_status_bar_update
     broadcast_replace_to(
       ["user_#{user_id}", :bot_updates],
@@ -289,7 +295,7 @@ class Bot < ApplicationRecord
 
     if transactions.limit(2).count == 1
       broadcast_remove_to(
-        ["user_#{user_id}", :bot_updates],
+        page_stream,
         target: 'orders_list_placeholder'
       )
     end
@@ -300,7 +306,7 @@ class Bot < ApplicationRecord
     # Prepend the timeline row first so the columnar row lands on top, matching the
     # initial-load order.
     broadcast_prepend_to(
-      ["user_#{user_id}", :bot_updates],
+      page_stream,
       target: 'orders_list',
       partial: 'bots/orders/order_timeline',
       locals: { order:, decimals:, current_user: user }
@@ -308,7 +314,7 @@ class Bot < ApplicationRecord
 
     if order.submitted?
       broadcast_prepend_to(
-        ["user_#{user_id}", :bot_updates],
+        page_stream,
         target: 'orders_list',
         partial: 'bots/orders/order',
         locals: { order:, decimals:, current_user: user }

@@ -14,6 +14,8 @@ class Bot::BroadcastOrdersTest < ActiveSupport::TestCase
     @bot = create(:dca_single_asset, :started)
   end
 
+  # An existing row is replaced by its own dom_id, so it rides the user-wide stream; a new row is
+  # prepended to the feed, whose id every bot page shares, so it rides the bot's own (Bot#page_stream).
   def stream
     ["user_#{@bot.user_id}", :bot_updates]
   end
@@ -40,7 +42,7 @@ class Bot::BroadcastOrdersTest < ActiveSupport::TestCase
   test 'broadcast_new_order prepends both the columnar and the All-timeline row for a submitted order' do
     tx = create(:transaction, bot: @bot)
 
-    streams = capture_turbo_stream_broadcasts(stream) { @bot.broadcast_new_order(tx) }
+    streams = capture_turbo_stream_broadcasts(@bot.page_stream) { @bot.broadcast_new_order(tx) }
 
     html = prepended_orders_html(streams)
     assert_includes html, %(id="#{@bot.dom_id(tx)}"), 'expected the columnar order row to be prepended'
@@ -50,7 +52,7 @@ class Bot::BroadcastOrdersTest < ActiveSupport::TestCase
   test 'broadcast_new_order prepends only the All-timeline row for a non-submitted (skipped) order' do
     tx = create(:transaction, :skipped, bot: @bot)
 
-    streams = capture_turbo_stream_broadcasts(stream) { @bot.broadcast_new_order(tx) }
+    streams = capture_turbo_stream_broadcasts(@bot.page_stream) { @bot.broadcast_new_order(tx) }
 
     html = prepended_orders_html(streams)
     assert_includes html, %(id="#{@bot.dom_id(tx, :timeline)}"), 'expected the All-timeline row to be prepended'

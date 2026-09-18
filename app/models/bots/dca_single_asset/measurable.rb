@@ -150,14 +150,14 @@ module Bots::DcaSingleAsset::Measurable
 
   def broadcast_metrics_update
     broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
+      page_stream,
       target: 'metrics',
       partial: 'bots/dca_single_assets/metrics',
       locals: { bot: self, metrics: metrics_with_current_prices, loading: false }
     )
 
     broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
+      page_stream,
       target: 'chart',
       partial: 'bots/chart',
       locals: { bot: self, metrics: metrics_with_current_prices_and_candles, loading: false, current_user: user }

@@ -64,7 +64,7 @@ class Bots::DcaMultiAssetsRemovedAssetsTableTest < ActionDispatch::IntegrationTe
   test 'the removal broadcasts the metrics panel once' do
     stub_broadcast_metrics
 
-    broadcasts = capture_turbo_stream_broadcasts(["user_#{@user.id}", :bot_updates]) do
+    broadcasts = capture_turbo_stream_broadcasts(@bot.page_stream) do
       remove_member('CCC')
     end
     metrics_broadcasts = broadcasts.count { |broadcast| broadcast['target'] == 'metrics' }

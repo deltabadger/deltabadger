@@ -108,7 +108,7 @@ module Bot::BaseAmountLimitable
 
   def broadcast_base_amount_limit_update
     broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
+      page_stream,
       target: 'settings-amount-limit-info',
       partial: 'bots/settings/amount_limit_info',
       locals: { bot: self }

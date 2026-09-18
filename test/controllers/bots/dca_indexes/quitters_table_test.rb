@@ -268,7 +268,7 @@ class Bots::DcaIndexes::QuittersTableTest < ActionDispatch::IntegrationTest
     warm_prices({ 'AAA' => 100, 'CCC' => 20 })
     stub_top_coins(%w[coin-aaa coin-ccc])
 
-    assert_turbo_stream_broadcasts(["user_#{@user.id}", :bot_updates], count: 1) do
+    assert_turbo_stream_broadcasts(@bot.page_stream, count: 1) do
       patch_num_coins(2)
     end
   end

@@ -109,8 +109,7 @@ class Bots::DcaMultiAssetLimitablesTest < ActiveSupport::TestCase
     # The catch-all goes first — a stop also broadcasts the status bar and the exchange select.
     @bot.stubs(:broadcast_replace_to)
     @bot.expects(:broadcast_replace_to)
-        .with(["user_#{@bot.user_id}", :bot_updates],
-              has_entries(target: 'settings', partial: 'bots/dca_multi_assets/settings'))
+        .with(@bot.page_stream, has_entries(target: 'settings', partial: 'bots/dca_multi_assets/settings'))
         .at_least_once
 
     Bot::StopJob.perform_now(@bot)

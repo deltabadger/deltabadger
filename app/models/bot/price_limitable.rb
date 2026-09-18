@@ -241,7 +241,7 @@ module Bot::PriceLimitable
     end
 
     broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
+      page_stream,
       target: new_record? ? 'new-settings-price-limit-info' : 'settings-price-limit-info',
       partial: 'bots/settings/price_limit_info',
       locals: { bot: self, info: }

@@ -81,7 +81,7 @@ class Bots::DcaMultiAssetCompositionTest < ActiveSupport::TestCase
       total_amount_value_in_quote: 0,
       asset_values: {}
     )
-    stream = ["user_#{bot.user_id}", :bot_updates]
+    stream = bot.page_stream
 
     broadcasts = capture_turbo_stream_broadcasts(stream) do
       bot.allocations = { @assets['AAA'][:asset].id.to_s => 0.6, @assets['BBB'][:asset].id.to_s => 0.4 }
