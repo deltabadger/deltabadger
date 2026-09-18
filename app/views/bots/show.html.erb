@@ -4,6 +4,9 @@
     Only the pages that state balances have anything to re-render. %>
 <%= turbo_stream_from "user_#{current_user.id}", :preferences %>
 <%= turbo_stream_from "user_#{current_user.id}", :bot_updates %>
+<%# This bot's own panels (Bot#page_stream): replaced by ids every bot page shares, so they must not
+    arrive on the stream every page of the user listens to. %>
+<%= turbo_stream_from(*@bot.page_stream) %>
 
 <%# The catch-all seam for the one-time wash-sale question: the turbo_stream actions carry it
     themselves, and this reaches everyone else — including users who armed selling before the

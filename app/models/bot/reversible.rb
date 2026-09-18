@@ -182,8 +182,7 @@ module Bot::Reversible
   # settings, which now carry the other side's sentence, and a basket's metrics panel, which carries
   # the Redeploy prompt it offers only while buying.
   def broadcast_reversal
-    broadcast_replace_to(["user_#{user_id}", :bot_updates],
-                         target: 'settings', partial: "#{model_name.collection}/settings", locals: { bot: self })
+    broadcast_replace_to(page_stream, target: 'settings', partial: "#{model_name.collection}/settings", locals: { bot: self })
     broadcast_metrics_panel if respond_to?(:redeploy_offer)
   end
 

@@ -5,6 +5,7 @@ require 'test_helper'
 # claimed-job deferral guard are a separate batch).
 class Bot::ReversibleTest < ActiveSupport::TestCase
   include ActiveSupport::Testing::TimeHelpers
+  include Turbo::Broadcastable::TestHelper
 
   # == Defaults & predicates (reader fallback — no persisted-on-load default) ==
 
@@ -142,11 +143,31 @@ class Bot::ReversibleTest < ActiveSupport::TestCase
   test 'the reversal redraws the settings, and a basket\'s metrics panel with its Redeploy prompt' do
     bot = create(:dca_multi_asset)
     bot.stubs(:broadcast_status_bar_update)
-    bot.expects(:broadcast_replace_to).with(["user_#{bot.user_id}", :bot_updates],
+    bot.expects(:broadcast_replace_to).with(bot.page_stream,
                                             has_entries(target: 'settings', partial: 'bots/dca_multi_assets/settings'))
     bot.expects(:broadcast_metrics_panel)
 
     Bot::BroadcastAfterScheduledActionJob.perform_now(bot, reversed: true)
+  end
+
+  # The panels are replaced by id ('settings', 'metrics'), which every bot page shares. On the stream
+  # every page of the user listens to, a flip of one bot would draw its forms over the page of another
+  # — and an edit there would then save to the flipped bot.
+  test 'the reversal reaches only the flipped bot\'s own page' do
+    flipped = create(:dca_multi_asset)
+    viewed = create(:dca_multi_asset, user: flipped.user, exchange: flipped.exchange,
+                                      base_assets: flipped.base_assets, quote_asset: flipped.quote_asset)
+
+    on_viewed_page = capture_turbo_stream_broadcasts(viewed.page_stream) do
+      on_user_stream = capture_turbo_stream_broadcasts(["user_#{flipped.user_id}", :bot_updates]) do
+        flipped.broadcast_reversal
+      end
+      assert_empty(on_user_stream.select { |b| %w[settings metrics].include?(b['target']) })
+    end
+    on_flipped_page = capture_turbo_stream_broadcasts(flipped.page_stream) { flipped.broadcast_reversal }
+
+    assert_empty on_viewed_page
+    assert_equal %w[metrics settings], on_flipped_page.map { |b| b['target'] }.sort
   end
 
   # Reversing must NOT start an inactive bot — it only changes the stored direction, so the bot

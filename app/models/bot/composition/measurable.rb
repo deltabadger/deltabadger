@@ -304,7 +304,7 @@ module Bot::Composition::Measurable
   # broadcasts this one on its own and lands immediately.
   def broadcast_metrics_panel
     broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
+      page_stream,
       target: 'metrics',
       partial: metrics_partial,
       locals: { bot: self, metrics: metrics_with_current_prices, loading: false,
@@ -314,7 +314,7 @@ module Bot::Composition::Measurable
 
   def broadcast_chart
     broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
+      page_stream,
       target: 'chart',
       partial: 'bots/chart',
       locals: { bot: self, metrics: metrics_with_current_prices_and_candles, loading: false, current_user: user }

@@ -253,7 +253,7 @@ module Bot::MovingAverageLimitable
     end
 
     broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
+      page_stream,
       target: new_record? ? 'new-settings-moving-average-limit-info' : 'settings-moving-average-limit-info',
       partial: 'bots/settings/moving_average_limit_info',
       locals: { bot: self, info: }

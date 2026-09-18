@@ -276,7 +276,7 @@ module Bot::IndicatorLimitable
     end
 
     broadcast_replace_to(
-      ["user_#{user_id}", :bot_updates],
+      page_stream,
       target: new_record? ? 'new-settings-indicator-limit-info' : 'settings-indicator-limit-info',
       partial: 'bots/settings/indicator_limit_info',
       locals: { bot: self, info: }
