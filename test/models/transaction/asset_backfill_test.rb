@@ -137,6 +137,22 @@ class Transaction::AssetBackfillTest < ActiveSupport::TestCase
     assert_equal [btc.id, eur.id], [kept.reload.base_asset_id, kept.quote_asset_id]
   end
 
+  test 'rows alike but for their recorded quote id each resolve against their own quote' do
+    btc = create(:asset, :bitcoin)
+    eur = create(:asset, :eur)
+    exchange = create(:mexc_exchange)
+    usd_ticker = create(:ticker, exchange:, base_asset: btc, quote_asset: @usd)
+    create(:ticker, exchange:, base_asset: btc, quote_asset: eur, base_symbol: 'XBT')
+    bot = index_bot(exchange, usd_ticker)
+    in_usd = row(bot, 'BTC', transaction_type: 'REBALANCE', quote_asset_id: @usd.id)
+    in_eur = row(bot, 'BTC', transaction_type: 'REBALANCE', quote_asset_id: eur.id)
+
+    backfill
+
+    assert_equal([[btc.id, @usd.id], [btc.id, eur.id]],
+                 [in_usd, in_eur].map { |t| t.reload.values_at(:base_asset_id, :quote_asset_id) })
+  end
+
   test 'a second run changes nothing, and an id already on a row is never overwritten' do
     btc = create(:asset, :bitcoin)
     eth = create(:asset, :ethereum)

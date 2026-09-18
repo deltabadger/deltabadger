@@ -155,11 +155,7 @@ module Bot::Restatable
 
   # The one asset a report's name stands for on its venue, by spelling or symbol; nil for none or several.
   def split_report_asset(exchange_id, name)
-    spelled = Ticker.where(exchange_id:).where('tickers.base LIKE ?', "%#{Ticker.sanitize_sql_like(name)}")
-                    .select { |ticker| ticker.base_spelling.casecmp?(name) }.map(&:base_asset_id)
-    symbolled = Ticker.where(exchange_id:, base_asset_id: Asset.where('upper(symbol) = ?', name.upcase).select(:id))
-                      .pluck(:base_asset_id)
-    ids = (spelled + symbolled).uniq
+    ids = Ticker.asset_ids_named(exchange_id, name)
     ids.first if ids.one?
   end
 

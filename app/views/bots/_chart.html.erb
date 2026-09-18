@@ -47,21 +47,20 @@
           Tuples plus one symbol => logo map, NOT a logo per mark: an hourly bot running for a
           year is ~9,000 of them, and repeating a CDN image URL on each would put megabytes into
           one data attribute for the browser to parse on every broadcast.
-          Logos resolved through the exchange's tickers the same way the holdings tables do it. %>
+          Logos come from the asset behind each key, the same way the holdings tables get theirs. %>
       <% marks = bot.chart_buy_marks %>
       <%# Every asset that was bought, plus every asset that is priced. A price line wears its
           ticker's colour, and an asset the bot holds without having bought it inside the window
           would otherwise have no colour to wear. %>
       <% symbols = (marks.map { |mark| mark[1] } + prices.keys).uniq %>
-      <% logo_assets = bot.exchange.tickers.where(base: symbols).includes(:base_asset).index_by(&:base) %>
+      <% logo_assets = bot.chart_logo_assets(symbols).compact %>
       <%# `to_f` on the amounts, not `to_s`: a BigDecimal serializes into a data attribute as a
           JSON STRING, and the stack would then sort its logos alphabetically by a number. %>
       <% buys = marks.map do |at, base, amount, quote, fills|
            [at.in_time_zone(current_user.time_zone), base, amount.to_f, quote.to_f, fills]
          end %>
-      <% buy_logos = logo_assets.transform_values do |ticker|
-           { image: ticker.base_asset&.image_url,
-             color: ensure_contrast(ticker.base_asset&.color || '#8A9BA8') }
+      <% buy_logos = logo_assets.transform_values do |asset|
+           { image: asset.image_url, color: ensure_contrast(asset.color || '#8A9BA8') }
          end %>
       <%= tag.div data: {
         controller: "bot--chart",

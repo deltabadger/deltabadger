@@ -89,9 +89,8 @@ module Exchange::Dryable
   private
 
   # Only assets something on this venue actually PRICES in. Handing the fallback to any asset we
-  # failed to match a ledger row against — a legacy `base` string, say (Transaction still carries
-  # BTC = %w[XXBT XBT BTC] and a four-level resolver for exactly that reason) — would size a sale
-  # against a million units that do not exist, which is the oversizing mirror of the bug above.
+  # failed to match a ledger row against — a legacy `base` string, say — would size a sale against a
+  # million units that do not exist, which is the oversizing mirror of the bug above.
   # Unmatched assets read as zero instead, and a zero skips the sale rather than inventing one.
   def dry_funding(asset_id)
     dry_quote_asset_ids.include?(asset_id) ? DRY_UNTRADED_BALANCE : 0.to_d
@@ -109,22 +108,25 @@ module Exchange::Dryable
   # An asset with no rows at all is ABSENT from the result rather than zero, which is what lets the
   # caller tell "never traded" from "sold out".
   def dry_held_amounts(asset_ids)
+    wanted = asset_ids.to_set
     ids_by_symbol = Asset.where(id: asset_ids).pluck(:symbol, :id)
                          .group_by(&:first).transform_values { |pairs| pairs.map(&:last) }
     # No IN list on the transactions side: a stock exchange lists ~11.5k assets and there are only a
-    # handful of distinct `base` values, so filtering by asset would mean a bind parameter each.
-    net = transactions.submitted.closed.group(:base, :side).sum(Arel.sql('COALESCE(amount_exec, amount)'))
+    # handful of distinct assets and `base` values, so filtering by asset would mean a bind parameter each.
+    net = transactions.submitted.closed.group(:base_asset_id, :base, :side)
+                      .sum(Arel.sql('COALESCE(amount_exec, amount)'))
 
     totals = Hash.new(0.to_d)
-    net.each { |(base, side), amount| totals[base] += side.to_s == 'sell' ? -amount.to_d : amount.to_d }
-
-    totals.each_with_object({}) do |(base, amount), acc|
-      # Symbols are NOT unique — a Hyperliquid RWA and the stock it tracks share one, and the FIGI
-      # work split them into separate rows on purpose. A transaction records only the symbol, so
-      # neither asset can claim the ledger alone and both report the same figure; dividing it would
-      # be inventing a split the ledger does not record.
-      ids_by_symbol.fetch(base, []).each { |id| acc[id] = [amount, 0.to_d].max }
+    net.each do |(asset_id, base, side), amount|
+      signed = side.to_s == 'sell' ? -amount.to_d : amount.to_d
+      # A row counts toward the asset it traded. One recorded before orders stored their asset has only
+      # its symbol, and symbols are NOT unique — a Hyperliquid RWA and the stock it tracks share one, and
+      # the FIGI work split them into separate rows on purpose — so every asset with that symbol reports
+      # it; dividing it would be inventing a split the ledger does not record.
+      ids = asset_id ? [asset_id] : ids_by_symbol.fetch(base, [])
+      ids.each { |id| totals[id] += signed if wanted.include?(id) }
     end
+    totals.transform_values { |amount| [amount, 0.to_d].max }
   end
 
   def get_dry_order(order_id:)

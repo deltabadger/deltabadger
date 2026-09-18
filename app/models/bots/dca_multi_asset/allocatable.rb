@@ -33,6 +33,12 @@ module Bots::DcaMultiAsset::Allocatable
 
   def allocation_for(asset_id) = allocations[asset_id.to_s].to_f
 
+  # { asset_id => key }: the name each member goes by through the API — its symbol, or, where members share
+  # one, a key carrying its id (Bot::Composition::HoldingKeys).
+  def member_keys
+    Bot::Composition::HoldingKeys.call(Bot::Composition::HoldingKeys.candidates_for(base_asset_ids))
+  end
+
   def allocations_total = allocations.values.sum(&:to_f)
 
   def allocations_balanced?

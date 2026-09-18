@@ -18,6 +18,17 @@ class Ticker < ApplicationRecord
     base.to_s.sub(/\A#{MarketData::TICKER_TOMBSTONE_PREFIX}\d+_/o, '')
   end
 
+  # Every asset a venue lists under this name, by its spelling or by the asset's symbol.
+  def self.asset_ids_named(exchange_id, name)
+    return [] if name.blank?
+
+    spelled = where(exchange_id:).where('tickers.base LIKE ?', "%#{sanitize_sql_like(name)}")
+                                 .select { |ticker| ticker.base_spelling.casecmp?(name) }.map(&:base_asset_id)
+    symbolled = where(exchange_id:, base_asset_id: Asset.where('upper(symbol) = ?', name.upcase).select(:id))
+                .pluck(:base_asset_id)
+    (spelled + symbolled).uniq
+  end
+
   # Whether the pair currently has a live, non-zero market price for the given
   # price type (:ask, :bid, :last). Tolerates the exchange price methods raising
   # on a zero price.

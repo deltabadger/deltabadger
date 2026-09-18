@@ -123,9 +123,7 @@ class AccountTransactionSync
   def self.expire_restated_bots(user:, exchange:, symbol:)
     return if symbol.blank?
 
-    Bot.where(id: Transaction.submitted.where(base: symbol, exchange: exchange)
-                             .where(bot_id: Bot.where(user: user).select(:id))
-                             .select(:bot_id))
+    Bot.where(id: rows_naming(user, exchange, symbol).select(:bot_id))
        .find_each do |bot|
       bot.expire_restated_metrics!
       # Dropping the caches fixes the next render; a page already open would go on showing the
@@ -183,11 +181,10 @@ class AccountTransactionSync
     # session close, and a split is booked at the day boundary — so acceptance and fill are always
     # on the same side of one. Crypto orders are GTC and can span midnight, but crypto has no
     # corporate actions. Revisit if stock orders ever become GTC.
-    rows = Transaction.submitted.where(base: symbol, exchange: exchange)
-                      .where(created_at: ...at)
-                      .where(bot_id: Bot.where(user: user).select(:id))
-                      .pluck(:bot_id, :side, :external_status, :price, :amount, :amount_exec,
-                             :quote_amount_exec, :created_at)
+    rows = rows_naming(user, exchange, symbol)
+           .where(created_at: ...at)
+           .pluck(:bot_id, :side, :external_status, :price, :amount, :amount_exec,
+                  :quote_amount_exec, :created_at)
 
     net = Hash.new(0.to_d)
     opened = {}
@@ -210,6 +207,19 @@ class AccountTransactionSync
     Bot.where(id: net.keys - flat.keys)
   end
   private_class_method :bots_holding
+
+  # The user's submitted orders on this venue for the asset a symbol names: recorded under that symbol, or
+  # recorded with an asset the venue lists under it (spelling or symbol). A superset — a renamed asset's
+  # older rows included — since the walk decides what a restatement actually moves.
+  #
+  # Guarded on the column: a migration that ran before transactions gained it calls this too.
+  def self.rows_naming(user, exchange, symbol)
+    rows = Transaction.submitted.where(exchange: exchange, bot_id: Bot.where(user: user).select(:id))
+    return rows.where(base: symbol) unless Transaction.column_names.include?('base_asset_id')
+
+    rows.where(base: symbol).or(rows.where(base_asset_id: Ticker.asset_ids_named(exchange.id, symbol)))
+  end
+  private_class_method :rows_naming
 
   # When this symbol was last restated on this venue before now, or nil. Matched on the marker OR
   # on Alpaca's own activity type, so it reads correctly while the backfill is still walking rows

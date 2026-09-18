@@ -282,8 +282,10 @@ module BotHelper
     return t('bot_activity.transactions.cancelled') if order.cancelled? || order.abandoned?
 
     pending = order.open? || order.unknown?
-    base_amount = round_amount(display_amount(order.amount_exec, order.amount, pending:), decimals[order.base], order.base)
-    quote_amount = round_amount(display_amount(order.quote_amount_exec, order.quote_amount, pending:), decimals[order.quote], order.quote)
+    base_amount = round_amount(display_amount(order.amount_exec, order.amount, pending:), order_decimals(decimals, order, :base),
+                               order.base)
+    quote_amount = round_amount(display_amount(order.quote_amount_exec, order.quote_amount, pending:),
+                                order_decimals(decimals, order, :quote), order.quote)
     key = if order.sell?
             pending ? 'open_sell' : 'sold'
           else
@@ -466,6 +468,13 @@ module BotHelper
   # column of dollars is read by comparing the figures in it, and 10.0 beside 9.99 beside 0.001407
   # cannot be. Anything else keeps the venue's decimals, where the difference between eight places
   # and two is the difference between a quantity and nothing at all.
+  # An order's precision on one side: by its asset, or by its symbol for a row recorded before orders
+  # stored their asset.
+  def order_decimals(decimals, order, side)
+    asset_id, symbol = side == :base ? [order.base_asset_id, order.base] : [order.quote_asset_id, order.quote]
+    decimals[asset_id.to_s].presence || decimals[symbol]
+  end
+
   def round_amount(value, decimals, currency = nil)
     return value if value.nil?
     return number_with_precision(value, precision: 2) if Tax::PriceService.money?(currency)
@@ -478,8 +487,8 @@ module BotHelper
   # failed); otherwise (e.g. a price-fetch failure) fall back to a plain message.
   def transaction_failed_summary(order, decimals)
     error = humanized_bot_error(order.bot, order.error_messages)
-    base_amount = round_amount(order.amount, decimals[order.base], order.base)
-    quote_amount = round_amount(order.quote_amount, decimals[order.quote], order.quote)
+    base_amount = round_amount(order.amount, order_decimals(decimals, order, :base), order.base)
+    quote_amount = round_amount(order.quote_amount, order_decimals(decimals, order, :quote), order.quote)
 
     # Failed rows are the one kind of sentence the Other tab still shows while balances are
     # hidden, and the attempted amounts are the only money in them — dropping them leaves the
