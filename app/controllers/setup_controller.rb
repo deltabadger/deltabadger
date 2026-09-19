@@ -2,6 +2,7 @@ class SetupController < ApplicationController
   layout 'devise'
 
   before_action :ensure_no_admin_exists, only: %i[new create connect_platform]
+  before_action :require_setup_token, only: %i[new create connect_platform]
 
   # Step 1: Show admin account creation form
   def new
@@ -43,6 +44,7 @@ class SetupController < ApplicationController
 
     if @user.save
       session.delete(:platform_identity)
+      session.delete(:setup_token)
       sign_in(@user)
       session[:auto_open_bot_wizard] = true
       redirect_to bots_path
@@ -60,6 +62,30 @@ class SetupController < ApplicationController
 
   def ensure_no_admin_exists
     redirect_to root_path if User.exists?(admin: true)
+  end
+
+  # A provisioning platform that starts this server before its owner arrives can set SETUP_TOKEN.
+  # Setup then opens only for a visitor who presents the same value, so whoever finds the address
+  # first cannot claim the admin account. The platform sends the owner to /setup?token=<value>; the
+  # value moves into the session and out of the URL, and later requests are checked against it.
+  #
+  # Without SETUP_TOKEN in the environment nothing changes. A SETUP_TOKEN that is set but blank
+  # matches nothing: a platform that failed to supply a value must leave setup closed, not open.
+  #
+  # Rendered, never raised: while no admin exists every error page redirects back here.
+  def require_setup_token
+    return unless ENV.key?('SETUP_TOKEN')
+
+    given = (params[:token].presence || session[:setup_token]).to_s
+    return render :locked, status: :forbidden, formats: [:html] unless setup_token_matches?(given)
+
+    session[:setup_token] = given
+    redirect_to new_setup_path if request.get? && params[:token].present?
+  end
+
+  def setup_token_matches?(given)
+    expected = ENV['SETUP_TOKEN'].to_s
+    expected.present? && ActiveSupport::SecurityUtils.secure_compare(given, expected)
   end
 
   def redeem_claim_token
