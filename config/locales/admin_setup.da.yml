@@ -8,6 +8,9 @@ da:
       connect: "Opret forbindelse"
       connected_with_proxies: "Forbundet ✓ — markedsdata og børsproxyer er aktive"
       connected_without_proxies: "Forbundet ✓ — markedsdata er aktive; børsproxyer er ikke tilgængelige"
+    locked:
+      title: "Opsætningen er låst"
+      text: "Åbn denne server fra kontrolpanelet hos den tjeneste, der hoster den, for at oprette administratorkontoen."
     validations:
       name_required: "Navn er påkrævet"
       email_required: "E-mail er påkrævet"

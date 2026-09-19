@@ -8,6 +8,9 @@ pl:
       connect: "Połącz"
       connected_with_proxies: "Połączono ✓ — dane rynkowe i serwery proxy giełd są aktywne"
       connected_without_proxies: "Połączono ✓ — dane rynkowe są aktywne; serwery proxy giełd są niedostępne"
+    locked:
+      title: "Konfiguracja jest zablokowana"
+      text: "Aby utworzyć konto administratora, otwórz ten serwer z panelu usługi, która go hostuje."
     validations:
       name_required: "Imię jest wymagane"
       email_required: "E-mail jest wymagany"

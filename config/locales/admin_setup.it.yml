@@ -8,6 +8,9 @@ it:
       connect: "Connetti"
       connected_with_proxies: "Connesso ✓ — i dati di mercato e i proxy degli exchange sono attivi"
       connected_without_proxies: "Connesso ✓ — i dati di mercato sono attivi; i proxy degli exchange non sono disponibili"
+    locked:
+      title: "La configurazione è bloccata"
+      text: "Per creare l'account amministratore, apri questo server dalla dashboard del servizio che lo ospita."
     validations:
       name_required: "Il nome è obbligatorio"
       email_required: "L'e-mail è obbligatoria"
