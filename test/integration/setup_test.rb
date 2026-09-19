@@ -338,6 +338,15 @@ class SetupTest < ActionDispatch::IntegrationTest
     end
   end
 
+  # Compose loads .env.docker through env_file, and a SETUP_TOKEN that is set but blank locks setup.
+  # The example may only mention it commented out.
+  test 'the shipped example env file documents SETUP_TOKEN without setting it' do
+    lines = File.readlines(Rails.root.join('.env.docker.example')).map(&:strip)
+
+    assert_includes lines, '# SETUP_TOKEN=', 'expected a commented SETUP_TOKEN line in .env.docker.example'
+    assert_empty lines.grep(/\ASETUP_TOKEN=/), 'an uncommented SETUP_TOKEN line locks setup for everyone who copies the example'
+  end
+
   # == When admin already exists ==
 
   test 'redirects away from setup form when admin exists' do

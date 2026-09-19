@@ -86,6 +86,7 @@ See [Market data](26-market-data.md) for what each provider covers.
 | `RAILS_SERVE_STATIC_FILES` | Set by the image. The app serves its own assets; keep it unless a web server in front serves `/public`. |
 | `DELTABADGER_UPDATE_CHECK` | `false` stops the twice-daily check for a newer release. See [Updating](07-updating.md). |
 | `DELTABADGER_PLATFORM` | How this copy was installed — `docker`, `umbrel` or `desktop` — which decides what **Settings → Account** offers when an update exists. Set for you by the Compose file, the Umbrel app and the desktop app. Set it yourself only if you start the container some other way and want the Compose instructions: `docker` if you use Compose, otherwise leave it unset and the manual is linked instead. |
+| `SETUP_TOKEN` | Locks the first-run setup page. While set, the page only opens at `/setup?token=<value>`, and everyone else sees **Setup is locked**. Meant for platforms that start the server before its owner arrives and then send the owner that link. Leave it unset otherwise — a value that is set but empty locks setup for everyone. See [First run](06-first-run.md). |
 
 ## Command modes
 
