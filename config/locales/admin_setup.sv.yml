@@ -8,6 +8,9 @@ sv:
       connect: "Anslut"
       connected_with_proxies: "Ansluten ✓ — marknadsdata och börsproxyservrar är aktiva"
       connected_without_proxies: "Ansluten ✓ — marknadsdata är aktiva; börsproxyservrar är inte tillgängliga"
+    locked:
+      title: "Installationen är låst"
+      text: "Öppna den här servern från kontrollpanelen hos tjänsten som hostar den för att skapa administratörskontot."
     validations:
       name_required: "Namn krävs"
       email_required: "E-post krävs"

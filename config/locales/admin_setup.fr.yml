@@ -8,6 +8,9 @@ fr:
       connect: "Connecter"
       connected_with_proxies: "Connecté ✓ — les données de marché et les proxys des plateformes d’échange sont actifs"
       connected_without_proxies: "Connecté ✓ — les données de marché sont actives ; les proxys des plateformes d’échange ne sont pas disponibles"
+    locked:
+      title: "La configuration est verrouillée"
+      text: "Pour créer le compte administrateur, ouvrez ce serveur depuis le tableau de bord du service qui l'héberge."
     validations:
       name_required: "Le nom est requis"
       email_required: "L'e-mail est requis"

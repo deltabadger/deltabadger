@@ -330,6 +330,14 @@ class SetupTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test 'locked page copy exists in every locale' do
+    I18n.available_locales.each do |locale|
+      %w[title text].each do |key|
+        assert I18n.exists?("setup.locked.#{key}", locale, fallback: false), "missing setup.locked.#{key} in #{locale}"
+      end
+    end
+  end
+
   # == When admin already exists ==
 
   test 'redirects away from setup form when admin exists' do

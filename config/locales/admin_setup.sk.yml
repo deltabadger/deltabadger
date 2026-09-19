@@ -8,6 +8,9 @@ sk:
       connect: "Pripojiť"
       connected_with_proxies: "Pripojené ✓ — trhové dáta a proxy servery búrz sú aktívne"
       connected_without_proxies: "Pripojené ✓ — trhové dáta sú aktívne; proxy servery búrz nie sú k dispozícii"
+    locked:
+      title: "Nastavenie je uzamknuté"
+      text: "Ak chcete vytvoriť účet správcu, otvorte tento server z ovládacieho panela služby, ktorá ho hostuje."
     validations:
       name_required: "Meno je povinné"
       email_required: "E-mail je povinný"

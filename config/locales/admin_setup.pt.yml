@@ -8,6 +8,9 @@ pt:
       connect: "Ligar"
       connected_with_proxies: "Ligado ✓ — os dados de mercado e os proxies das corretoras estão ativos"
       connected_without_proxies: "Ligado ✓ — os dados de mercado estão ativos; os proxies das corretoras não estão disponíveis"
+    locked:
+      title: "A configuração está bloqueada"
+      text: "Para criar a conta de administrador, abra este servidor a partir do painel do serviço que o aloja."
     validations:
       name_required: "O nome é obrigatório"
       email_required: "O e-mail é obrigatório"

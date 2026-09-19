@@ -8,6 +8,9 @@ nl:
       connect: "Verbinden"
       connected_with_proxies: "Verbonden ✓ — marktgegevens en beursproxy's zijn actief"
       connected_without_proxies: "Verbonden ✓ — marktgegevens zijn actief; beursproxy's zijn niet beschikbaar"
+    locked:
+      title: "De installatie is vergrendeld"
+      text: "Open deze server via het dashboard van de dienst die hem host om het beheerdersaccount aan te maken."
     validations:
       name_required: "Naam is verplicht"
       email_required: "E-mail is verplicht"
