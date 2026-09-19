@@ -8,6 +8,9 @@ en:
       connect: "Connect"
       connected_with_proxies: "Connected ✓ — market data and exchange proxies active"
       connected_without_proxies: "Connected ✓ — market data active; exchange proxies unavailable"
+    locked:
+      title: "Setup is locked"
+      text: "To create the admin account, open this server from the dashboard of the service that hosts it."
     validations:
       name_required: "Name is required"
       email_required: "Email is required"

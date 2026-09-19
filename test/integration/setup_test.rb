@@ -178,6 +178,158 @@ class SetupTest < ActionDispatch::IntegrationTest
     assert_equal 0, User.count
   end
 
+  # == When SETUP_TOKEN is set ==
+
+  test 'locks the setup form when the token is missing' do
+    with_env('SETUP_TOKEN', 'expected-token') do
+      get new_setup_path
+
+      assert_response :forbidden
+      assert_select 'h1', I18n.t('setup.locked.title')
+      assert_select 'input#user_email', false
+      assert_select 'a.dropdown__item[href=?]', '/setup?locale=de'
+    end
+  end
+
+  test 'the locked page follows the locale parameter' do
+    with_env('SETUP_TOKEN', 'expected-token') do
+      get new_setup_path(locale: 'de')
+
+      assert_response :forbidden
+      assert_select 'html[lang=de]'
+    end
+  end
+
+  test 'locks the setup form when the token is wrong' do
+    with_env('SETUP_TOKEN', 'expected-token') do
+      get new_setup_path(token: 'wrong-token')
+
+      assert_response :forbidden
+    end
+  end
+
+  test 'a blank SETUP_TOKEN locks setup and matches nothing, not even a blank token' do
+    with_env('SETUP_TOKEN', '') do
+      get new_setup_path
+      assert_response :forbidden
+
+      get new_setup_path(token: '')
+      assert_response :forbidden
+
+      assert_no_difference 'User.count' do
+        post setup_path, params: { token: '', user: { name: 'Admin', email: 'admin@example.com', password: 'SecurePass1!' } }
+      end
+      assert_response :forbidden
+    end
+  end
+
+  test 'a malformed token parameter is rejected rather than raising' do
+    with_env('SETUP_TOKEN', 'expected-token') do
+      get '/setup?token[]=expected-token'
+      assert_response :forbidden
+
+      get '/setup?token[a]=expected-token'
+      assert_response :forbidden
+    end
+  end
+
+  test 'the locked page answers non-HTML requests with 403 as well' do
+    with_env('SETUP_TOKEN', 'expected-token') do
+      get '/setup.json'
+
+      assert_response :forbidden
+    end
+  end
+
+  test 'does not create an admin without the token' do
+    with_env('SETUP_TOKEN', 'expected-token') do
+      assert_no_difference 'User.count' do
+        post setup_path, params: { user: { name: 'Admin', email: 'admin@example.com', password: 'SecurePass1!' } }
+      end
+
+      assert_response :forbidden
+    end
+  end
+
+  test 'does not redeem a pasted claim code without the token' do
+    with_env('SETUP_TOKEN', 'expected-token') do
+      Platform::RedeemClaim.expects(:call).never
+
+      post setup_platform_connection_path, params: { claim_code: 'dbc_manual' }, as: :turbo_stream
+
+      assert_response :forbidden
+    end
+  end
+
+  test 'does not auto-redeem CLAIM_TOKEN while setup is locked' do
+    with_env('SETUP_TOKEN', 'expected-token') do
+      with_env('CLAIM_TOKEN', 'dbc_from_docker') do
+        Platform::RedeemClaim.expects(:call).never
+
+        get new_setup_path
+
+        assert_response :forbidden
+      end
+    end
+  end
+
+  test 'the token unlocks setup, leaves the URL, and lets the admin be created' do
+    with_env('SETUP_TOKEN', 'expected-token') do
+      get new_setup_path(token: 'expected-token')
+      assert_redirected_to new_setup_path
+
+      follow_redirect!
+      assert_response :ok
+      assert_select 'form[action^="/setup"]'
+
+      assert_difference 'User.count', 1 do
+        post setup_path, params: { user: { name: 'Admin', email: 'admin@example.com', password: 'SecurePass1!' } }
+      end
+      assert_redirected_to bots_path
+      assert_predicate User.last, :admin?
+      assert_nil session[:setup_token]
+    end
+  end
+
+  test 'an unlocked session can switch language and redeem a claim code' do
+    with_env('SETUP_TOKEN', 'expected-token') do
+      get new_setup_path(token: 'expected-token')
+
+      get new_setup_path(locale: 'de')
+      assert_response :ok
+
+      Platform::RedeemClaim.expects(:call).with(code: 'dbc_manual').returns(
+        Result::Success.new(email: 'owner@example.com', name: 'Owner')
+      )
+      post setup_platform_connection_path, params: { claim_code: 'dbc_manual' }, as: :turbo_stream
+      assert_response :success
+    end
+  end
+
+  test 'a session unlocked with an old token is locked again when SETUP_TOKEN changes' do
+    with_env('SETUP_TOKEN', 'expected-token') do
+      get new_setup_path(token: 'expected-token')
+    end
+
+    with_env('SETUP_TOKEN', 'rotated-token') do
+      get new_setup_path
+
+      assert_response :forbidden
+    end
+  end
+
+  test 'an existing admin still redirects to root when SETUP_TOKEN is set' do
+    create(:user, admin: true)
+
+    with_env('SETUP_TOKEN', 'expected-token') do
+      get new_setup_path
+      assert_redirected_to root_path
+
+      get new_setup_path(token: 'expected-token')
+      assert_redirected_to root_path
+    end
+  end
+
   # == When admin already exists ==
 
   test 'redirects away from setup form when admin exists' do
