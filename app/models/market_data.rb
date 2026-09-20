@@ -275,22 +275,21 @@ class MarketData
   # Returns the post-dedup base_asset_ids actually upserted (Array, [] when nothing imported). The
   # caller's stale-ticker sweep keys off exactly this set so import-wrote and sweep-keep can never
   # disagree (Fix A — a base import skipped/deduped must not be treated as "kept" by the sweep).
-  def self.import_tickers!(exchange, tickers_data)
+  # The importable, fully-deduped ticker rows for this payload. Pure: no writes.
+  #
+  # Extracted so the degraded-payload guard in sync_alpaca_listings_from_deltabadger! can count
+  # exactly what an import WOULD write. The guard used to run its own resolve+decimals filter and
+  # stop there, which is the same filter minus the three uniq! passes below — so a payload
+  # colliding on ticker symbol or asset pair cleared the baseline at full size, wrote a handful of
+  # rows, and let the sweep unavailable the rest. Two filters that must agree will eventually
+  # disagree; one function cannot.
+  def self.ticker_records_for(exchange, tickers_data)
     return [] if tickers_data.blank?
 
-    # Single query to map external_id -> asset id
     external_ids = tickers_data.flat_map { |t| [t['base_external_id'], t['quote_external_id']] }.uniq
     asset_map = Asset.where(external_id: external_ids).pluck(:external_id, :id).to_h
 
-    # Batch upsert exchange assets
-    now = Time.current
-    ea_records = asset_map.values.map do |asset_id|
-      { asset_id: asset_id, exchange_id: exchange.id, available: true, created_at: now, updated_at: now }
-    end
-    ExchangeAsset.upsert_all(ea_records, unique_by: %i[asset_id exchange_id]) if ea_records.any?
-
-    # Batch upsert tickers
-    ticker_records = tickers_data.filter_map do |t|
+    records = tickers_data.filter_map do |t|
       base_asset_id = asset_map[t['base_external_id']]
       quote_asset_id = asset_map[t['quote_external_id']]
       next unless base_asset_id && quote_asset_id
@@ -306,12 +305,29 @@ class MarketData
 
       upsert_ticker_attributes(t, exchange_id: exchange.id, base_asset_id: base_asset_id, quote_asset_id: quote_asset_id)
     end
-    return [] if ticker_records.empty?
 
     # Deduplicate within the batch (keep first occurrence per constraint key)
-    ticker_records.uniq! { |r| [r[:exchange_id], r[:base_asset_id], r[:quote_asset_id]] }
-    ticker_records.uniq! { |r| [r[:exchange_id], r[:base], r[:quote]] }
-    ticker_records.uniq! { |r| [r[:exchange_id], r[:ticker]] }
+    records.uniq! { |r| [r[:exchange_id], r[:base_asset_id], r[:quote_asset_id]] }
+    records.uniq! { |r| [r[:exchange_id], r[:base], r[:quote]] }
+    records.uniq! { |r| [r[:exchange_id], r[:ticker]] }
+    records
+  end
+
+  def self.import_tickers!(exchange, tickers_data)
+    return [] if tickers_data.blank?
+
+    # ExchangeAssets come from the raw payload's assets, not the deduped ticker rows, and are
+    # written even when nothing is importable as a ticker — unchanged by the extraction above.
+    external_ids = tickers_data.flat_map { |t| [t['base_external_id'], t['quote_external_id']] }.uniq
+    asset_map = Asset.where(external_id: external_ids).pluck(:external_id, :id).to_h
+    now = Time.current
+    ea_records = asset_map.values.map do |asset_id|
+      { asset_id: asset_id, exchange_id: exchange.id, available: true, created_at: now, updated_at: now }
+    end
+    ExchangeAsset.upsert_all(ea_records, unique_by: %i[asset_id exchange_id]) if ea_records.any?
+
+    ticker_records = ticker_records_for(exchange, tickers_data)
+    return [] if ticker_records.empty?
 
     # Pre-align existing tickers so secondary constraints don't conflict
     reconcile_ticker_conflicts!(exchange, ticker_records)
@@ -494,12 +510,14 @@ class MarketData
     # the sweep would blank every previously-available ticker (the AV=0 strand). Measured BEFORE the
     # ambiguity guard so local legacy-collision state can't shrink the count. A degraded feed bails
     # out of the WHOLE method (no import, no reconcile, no sweep), leaving availability at last-good.
-    resolve_ext_ids = listings.flat_map { |l| [l['base_external_id'], l['quote_external_id']] }.uniq
-    resolve_map = Asset.where(external_id: resolve_ext_ids).pluck(:external_id, :id).to_h
-    resolved_count = listings.count do |l|
-      resolve_map[l['base_external_id']] && resolve_map[l['quote_external_id']] &&
-        l['base_decimals'] && l['quote_decimals'] && l['price_decimals']
-    end
+    #
+    # Counted with import_tickers!'s OWN builder, post-dedup. A resolve+decimals filter alone is
+    # the same test minus the three uniq! passes, so a payload colliding on ticker symbol or asset
+    # pair passed it at full size and then imported almost nothing.
+    alpaca = Exchanges::Alpaca.first
+    return Result::Success.new unless alpaca
+
+    resolved_count = ticker_records_for(alpaca, listings).size
     if alpaca_listings_degraded?(resolved_count, AppConfig.get(ALPACA_LISTINGS_LAST_GOOD_KEY))
       Rails.logger.warn '[MarketData] sync_alpaca_listings: degraded/partial payload ' \
                         "(#{resolved_count} importable of #{listings.size} listings; " \
@@ -507,9 +525,6 @@ class MarketData
                         'skipping import + sweep to preserve availability'
       return Result::Success.new
     end
-
-    alpaca = Exchanges::Alpaca.first
-    return Result::Success.new unless alpaca
 
     # Listing-import ambiguity guard (Phase 2.5, post-incident 2026-05-28). Drop any
     # incoming listing whose `ticker` symbol already maps locally to a legacy
