@@ -6,8 +6,16 @@ class Bots::StartsController < ApplicationController
 
   # The restart question — or, while the wash-sale question is still owed, that one instead. Both
   # land in the same modal frame, and answering is what makes this one reachable.
+  #
+  # Nothing to ask of a bot that is not restarting: the question is "carry the buy your stop went
+  # through, or skip to the next checkpoint", and both halves are an interval bot's. A schedule-less
+  # bot (Bots::Signal) has neither — it has no Bot::Lifecycle at all — so the template used to 500
+  # on the first thing it asked. An empty frame, the same answer bots/wash_sale_prompts/new gives a
+  # stale page whose question is no longer due.
   def edit
-    render partial: 'bots/wash_sale_prompts/dialog', locals: { bot: @bot } if wash_sale_prompt_due?(@bot)
+    return render partial: 'bots/wash_sale_prompts/dialog', locals: { bot: @bot } if wash_sale_prompt_due?(@bot)
+
+    render html: helpers.turbo_frame_tag('modal') unless @bot.restarting?
   end
 
   # Starting a bot that can sell is the loudest "I am about to trade" there is, so it is where the
