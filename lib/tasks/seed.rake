@@ -72,7 +72,7 @@ namespace :seed do
         print "       [#{idx + 1}/#{exchanges.size}] #{exchange.name} "
         $stdout.flush
 
-        result = exchange.sync_tickers_and_assets_with_external_data(skip_async_jobs: true, on_progress: dot)
+        result = exchange.sync_tickers_and_assets_with_external_data(skip_async_jobs: true, on_progress: dot, force: true)
 
         if result.failure?
           puts "\n       FAILED (#{result.errors.first.to_s.truncate(60)})"

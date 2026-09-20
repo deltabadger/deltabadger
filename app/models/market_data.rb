@@ -46,8 +46,14 @@ class MarketData
     )
   end
 
+  # Keyed on the configured api key, like .client above: the key is rotatable from the settings page,
+  # and a bare `||=` kept the first one — and with it the wrong base URL and header name — for the
+  # life of the process.
   def self.coingecko
-    @coingecko ||= Coingecko.new(api_key: AppConfig.coingecko_api_key)
+    key = AppConfig.coingecko_api_key
+    @coingecko = nil if @coingecko_key != key
+    @coingecko_key = key
+    @coingecko ||= Coingecko.new(api_key: key)
   end
 
   # CoinGecko sync methods (delegate to existing job logic)
@@ -65,8 +71,16 @@ class MarketData
     result = coingecko.get_coins_list_with_market_data(ids: asset_ids)
     return result if result.failure?
 
+    by_id = result.data.index_by { |coin| coin['id'] }
+
     Asset.where(category: 'Cryptocurrency').find_each do |asset|
-      prefetched = result.data.find { |coin| coin['id'] == asset.external_id }
+      prefetched = by_id[asset.external_id]
+      # A coin is absent from coins/markets precisely BECAUSE CoinGecko has no market data for it,
+      # and Asset#sync_data_with_coingecko answers a nil prefetch with a per-coin coins/{id} call.
+      # That was ~2% of the table asked for again every single day, and the shipped seed data shows
+      # it never filled them. Asset::FetchDataFromCoingeckoJob still fetches one on purpose.
+      next if prefetched.nil?
+
       image_url_was = asset.image_url
       asset.sync_data_with_coingecko(prefetched_data: prefetched)
       Asset::InferColorFromImageJob.perform_later(asset) if image_url_was != asset.image_url

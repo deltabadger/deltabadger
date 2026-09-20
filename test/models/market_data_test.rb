@@ -19,6 +19,70 @@ class MarketDataClientTest < ActiveSupport::TestCase
   end
 end
 
+# The key is stored in AppConfig and can be rotated from the settings page. `@coingecko ||=` kept
+# the first key for the life of the process — and with it the wrong base URL and header name.
+class MarketDataCoingeckoMemoTest < ActiveSupport::TestCase
+  teardown do
+    MarketData.instance_variable_set(:@coingecko, nil)
+    MarketData.instance_variable_set(:@coingecko_key, nil)
+  end
+
+  test 'a new api key replaces the memoised coingecko client' do
+    AppConfig.coingecko_api_key = 'original_key'
+    original = MarketData.coingecko
+
+    AppConfig.coingecko_api_key = 'rotated_key'
+    rotated = MarketData.coingecko
+
+    refute_same original, rotated
+    assert_equal 'rotated_key', rotated.instance_variable_get(:@api_key)
+  end
+
+  test 'the same api key keeps the memoised client' do
+    AppConfig.coingecko_api_key = 'stable_key'
+
+    assert_same MarketData.coingecko, MarketData.coingecko
+  end
+end
+
+# A coin absent from the batched coins/markets response is absent BECAUSE CoinGecko has no market
+# data for it. The per-asset coins/{id} fallback therefore bought nothing and was paid for daily.
+class MarketDataSyncAssetsTest < ActiveSupport::TestCase
+  setup do
+    AppConfig.coingecko_api_key = 'test_key'
+    AppConfig.market_data_provider = MarketDataSettings::PROVIDER_COINGECKO
+    @known = create(:asset, :bitcoin)
+    @absent = create(:asset, external_id: 'delisted-coin', symbol: nil, name: nil)
+  end
+
+  teardown do
+    MarketData.instance_variable_set(:@coingecko, nil)
+    MarketData.instance_variable_set(:@coingecko_key, nil)
+  end
+
+  def stub_batch(coins)
+    provider = stub(get_coins_list_with_market_data: Result::Success.new(coins))
+    MarketData.stubs(:coingecko).returns(provider)
+    provider
+  end
+
+  test 'an asset absent from the batched response is skipped, not fetched individually' do
+    provider = stub_batch([{ 'id' => 'bitcoin', 'symbol' => 'btc', 'name' => 'Bitcoin', 'market_cap' => 1 }])
+    provider.expects(:get_coin_data_by_id).never
+
+    assert MarketData.sync_assets_from_coingecko!.success?
+    assert_nil @absent.reload.symbol, 'a coin with no market data is left alone, not asked for again'
+  end
+
+  test 'an asset present in the batch is still updated from it' do
+    stub_batch([{ 'id' => 'bitcoin', 'symbol' => 'btc', 'name' => 'Bitcoin', 'market_cap' => 42 }])
+
+    MarketData.sync_assets_from_coingecko!
+
+    assert_equal 42, @known.reload.market_cap
+  end
+end
+
 class MarketDataImportTickersTest < ActiveSupport::TestCase
   setup do
     @exchange = create(:binance_exchange)

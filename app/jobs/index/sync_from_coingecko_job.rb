@@ -2,6 +2,16 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
   queue_as :low_priority
   limits_concurrency to: 1, key: 'sync_indices_from_coingecko', on_conflict: :discard, duration: 1.hour
 
+  # Each category costs one request, and the live feed carries ~435 eligible ones — a daily full
+  # crawl is 13,000 requests a month against a free plan's 10,000. Refreshing a fourteenth of them a
+  # day keeps every category current within a fortnight for ~31 requests a day.
+  #
+  # The bucket is a hash of the id, not the category's position: the feed is market-cap ordered and
+  # reshuffles continuously, so a position-keyed slice can starve a category indefinitely. And the
+  # day is the Julian Day Number, not yday: 365 % 14 != 0, so a yday slice repeats a bucket across
+  # New Year and can skip another entirely.
+  SLICE_DAYS = 14
+
   # A failed pull leaves every index bot on yesterday's index until tomorrow's run, so it is tried again.
   class PullFailed < StandardError; end
   retry_on PullFailed, wait: 15.minutes, attempts: 4
@@ -24,13 +34,27 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
     # Build lookup of available asset external_ids
     available_asset_ids = Asset.where.not(external_id: nil).pluck(:external_id).to_set
 
-    categories = result.data
-    synced_ids = []
+    # Eligibility is free — three field checks on a response we already have — so it is also what
+    # the sweep keys off. A category that loses its description, or joins EXCLUDED_CATEGORY_IDS,
+    # is removed even though the feed still lists it.
+    eligible = result.data.select do |category|
+      category['id'].present? &&
+        Index::EXCLUDED_CATEGORY_IDS.exclude?(category['id']) &&
+        category['content'].present?
+    end
+    eligible_ids = eligible.map { |category| category['id'] }
 
-    categories.each do |category|
-      next if category['id'].blank?
-      next if Index::EXCLUDED_CATEGORY_IDS.include?(category['id'])
-      next if category['content'].blank?
+    # `where.not(external_id: [])` compiles to WHERE 1=1, which is how the old sweep emptied the
+    # whole picker any time a run upserted nothing. A feed that offers nothing eligible is a bad
+    # feed, not an instruction to delete.
+    return if eligible_ids.empty?
+
+    Index.coingecko.where.not(external_id: eligible_ids).delete_all
+
+    disqualified_ids = []
+
+    eligible.each do |category|
+      next unless due_today?(category['id'])
 
       # Fetch ALL coins for this category (up to 250)
       coins_result = fetch_category_coins(category['id'])
@@ -43,8 +67,12 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
       # Filter to coins that exist in our database
       valid_coins = all_category_coins.select { |coin_id| available_asset_ids.include?(coin_id) }
 
-      # Skip if not enough coins in our database
-      next if valid_coins.size < Index::ExchangeAvailability::MINIMUM_SUPPORTED_COINS
+      # Conclusively disqualifying, unlike availability below: this is the feed's own membership,
+      # measured against assets we hold, and it does not flicker with a venue's ticker state.
+      if valid_coins.size < Index::ExchangeAvailability::MINIMUM_SUPPORTED_COINS
+        disqualified_ids << category['id']
+        next
+      end
 
       # Take top 5 for display purposes
       top_coins_for_display = valid_coins.first(Index::ExchangeAvailability::TOP_COINS_COUNT)
@@ -58,7 +86,11 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
         [exchange_type, count] if count
       end.to_h
 
-      # Skip indices with no exchange availability
+      # Skip, but do NOT disqualify. Availability is live ticker state: the venue sync's own stale
+      # sweep flips it on a single feed gap, and refresh_availability below re-derives it for free
+      # on every row every day. Deleting on it would hold the row out until its next slice day —
+      # where keeping it heals the moment the venue lists those coins again. An index carrying an
+      # empty map is a shape the app already handles (the exchange step falls back to every venue).
       next if available_exchanges.empty?
 
       index = Index.find_or_initialize_by(
@@ -79,20 +111,39 @@ class Index::SyncFromCoingeckoJob < ApplicationJob
       attrs[:weight] = Index::WEIGHTED_CATEGORIES[category['id']] || 0 if index.new_record?
 
       index.update!(attrs)
-
-      synced_ids << index.id
     rescue StandardError => e
+      # Deliberately NOT added to disqualified_ids: an error is not evidence that a category stopped
+      # qualifying, and treating it as such would delete a picker tile on a transient fault.
       Rails.logger.warn "[Index Sync] Failed to sync category #{category['id']}: #{e.message}"
     end
 
-    # Remove indices that no longer meet criteria
-    Index.coingecko.where.not(id: synced_ids).delete_all
+    # Only categories this run actually fetched AND conclusively rejected.
+    Index.coingecko.where(external_id: disqualified_ids).delete_all if disqualified_ids.any?
 
-    Rails.logger.info "[Index Sync] Synced #{synced_ids.size} indices from CoinGecko"
+    refresh_availability
+
+    Rails.logger.info "[Index Sync] Refreshed #{eligible_ids.count { |id| due_today?(id) }} of " \
+                      "#{eligible_ids.size} categories from CoinGecko"
     recheck_index_bots
   end
 
   private
+
+  # available_exchanges gates which venues the index wizard offers, and top_coins_by_exchange gates
+  # the quote picker — so slicing the FETCHES must not slice this. It reads live ticker rows and
+  # costs no request at all, which is why every index gets it daily, not just the day's slice.
+  def refresh_availability
+    Index.coingecko.find_each do |index|
+      index.refresh_available_exchanges!
+    rescue StandardError => e
+      # Per row: this runs after both sweeps, so one unreadable index must not abort the rest.
+      Rails.logger.warn "[Index Sync] Failed to refresh availability for #{index.external_id}: #{e.message}"
+    end
+  end
+
+  def due_today?(category_id)
+    Digest::MD5.hexdigest(category_id).to_i(16) % SLICE_DAYS == Date.current.jd % SLICE_DAYS
+  end
 
   # The pull is what changes an index bot's members, so every bot that can still act re-checks them now,
   # not at its next buy, rebalance or sale. Until then it would offer to sell, as having left the
