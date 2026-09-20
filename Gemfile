@@ -23,6 +23,11 @@ gem 'sqlite3', '~> 2.9'
 gem 'puma', '~> 8.0'
 gem 'rack-attack'
 gem 'rails', '~> 8.1.3'
+# json 3.0 made JSON.parse's options keyword-only; Rails 8.1 still passes them
+# positionally (ActiveSupport::JSON.decode), which breaks every JSON request body,
+# json column and encrypted cookie read. Only Oj.optimize_rails is hiding it here.
+# Unpin once Rails ships a compatible release.
+gem 'json', '< 3'
 gem 'rqrcode'
 gem 'solid_queue'
 gem 'solid_cache'
