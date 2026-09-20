@@ -229,6 +229,37 @@ class MarketDataImportTickersTest < ActiveSupport::TestCase
     assert_not_equal %w[BTC USD], [a.base, a.quote], 'stale holder must no longer occupy the [base, quote] pair'
   end
 
+  # Two listed pairs trading ticker strings in one payload. Neither row is stale — both are still
+  # in the feed — so the conflict path tombstones a row the very same payload is about to write,
+  # and the upsert has to put it back. An earlier reconcile that DELETED the stale holder instead
+  # of tombstoning it lost that row outright; this pins that it comes back with its id.
+  #
+  # Measured, so the comment does not overclaim: merging the two passes into one loop (what
+  # Style/CombinableLoops autocorrects to) does NOT break this case — the asset-pair upsert repairs
+  # the over-tombstoning afterwards. The split stays because the ordering argument in the method is
+  # subtle enough to be worth not rearranging, not because this test catches the merge.
+  test 'reconciles two live pairs that swap ticker strings' do
+    a = create(:ticker, exchange: @exchange, base_asset: @btc, quote_asset: @usd,
+                        base: 'BTC', quote: 'USD', ticker: 'PAIR-A')
+    b = create(:ticker, exchange: @exchange, base_asset: @eth, quote_asset: @usd,
+                        base: 'ETH', quote: 'USD', ticker: 'PAIR-B')
+
+    data = [
+      ticker_data(base_ext_id: 'bitcoin', quote_ext_id: 'usd', base: 'BTC', quote: 'USD', ticker: 'PAIR-B'),
+      ticker_data(base_ext_id: 'ethereum', quote_ext_id: 'usd', base: 'ETH', quote: 'USD', ticker: 'PAIR-A')
+    ]
+
+    assert_nothing_raised { MarketData.import_tickers!(@exchange, data) }
+
+    assert_equal 'PAIR-B', a.reload.ticker
+    assert_equal 'PAIR-A', b.reload.ticker
+    assert a.available?, 'a pair still in the feed stays available'
+    assert b.available?, 'a pair still in the feed stays available'
+    assert_equal 2, @exchange.tickers.count, 'no row is lost to the swap'
+    assert_not a.ticker.start_with?(MarketData::TICKER_TOMBSTONE_PREFIX), 'no tombstone is left behind'
+    assert_not b.base.start_with?(MarketData::TICKER_TOMBSTONE_PREFIX), 'no tombstone is left behind'
+  end
+
   # Regression for the 2.9.2 upgrade path: that release tombstoned `ticker` but NOT `base`, so a
   # deployed row can have a tombstoned ticker while still owning a real [base, quote] pair. The
   # reconcile must still free that [base, quote] slot (not skip the row just because its ticker is
@@ -794,6 +825,37 @@ class MarketDataSyncAlpacaListingsFromDeltabadgerTest < ActiveSupport::TestCase
 
     assert @alpaca.tickers.find_by(base_asset: @aapl).available?,
            'empty incoming payload must not flip every Alpaca ticker to unavailable'
+  end
+
+  # The guard and the importer must agree on what a row IS. The guard counted listings that pass a
+  # resolve + decimals filter; import_tickers! then applies three uniq! passes the guard never saw.
+  # A payload that collides heavily on ticker symbol therefore clears the baseline at full size,
+  # writes a handful of rows, and the sweep unavailables the rest — the same fail-safe hole as the
+  # resolve door, reached one step further along. Counting with the importer's own builder closes
+  # it by construction rather than by keeping two filters in step.
+  test 'fail-safe: a payload that dedupes down to almost nothing is degraded, not imported' do
+    msft = Asset.create!(external_id: 'MSFT.US', symbol: 'MSFT', name: 'Microsoft', category: 'Stock')
+    create(:ticker, exchange: @alpaca, base_asset: msft, quote_asset: usd_asset,
+                    base: 'MSFT', quote: 'USD', ticker: 'MSFT', available: true)
+
+    AppConfig.set(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY, '10')
+
+    # Ten rows that all resolve and all carry decimals, so the resolve-door count says 10 — but
+    # every one of them claims the same ticker symbol, so the importer keeps exactly one.
+    rows = 10.times.map do |i|
+      asset = Asset.create!(external_id: "DUP#{i}.US", symbol: "DUP#{i}", name: "Dup #{i}", category: 'Stock')
+      listing_row(base_ext: asset.external_id, symbol: 'AAPL').merge('listing_id' => "NASDAQ:DUP#{i}")
+    end
+    @fake.stubs(:get_alpaca_listings).returns(Result::Success.new('metadata' => { 'count' => rows.size }, 'data' => rows))
+
+    assert_no_difference ['Ticker.count'] do
+      MarketData.sync_alpaca_listings_from_deltabadger!
+    end
+
+    assert @alpaca.tickers.find_by(base_asset: msft).available?,
+           'a payload whose importable universe collapses under dedup must not blank availability'
+    assert_equal '10', AppConfig.get(MarketData::ALPACA_LISTINGS_LAST_GOOD_KEY),
+                 'baseline must not ratchet down on a bailed run'
   end
 
   # == Fix A: availability fail-safe ==
