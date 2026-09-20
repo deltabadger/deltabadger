@@ -31,7 +31,7 @@ class Setup::SeedAndSyncJob < ApplicationJob
     exchanges = syncable_exchanges
     exchanges.each_with_index do |exchange, index|
       # Skip async jobs during setup - we fetch asset data synchronously at the end
-      exchange.sync_tickers_and_assets_with_external_data(skip_async_jobs: true)
+      exchange.sync_tickers_and_assets_with_external_data(skip_async_jobs: true, force: true)
       # Wait between exchanges to avoid CoinGecko rate limiting (30 req/min)
       sleep(65) if index < exchanges.length - 1
     rescue StandardError => e

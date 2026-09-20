@@ -1,20 +1,24 @@
 module Exchange::Synchronizer
   extend ActiveSupport::Concern
 
-  def sync_tickers_and_assets_with_external_data(skip_async_jobs: false, on_progress: nil)
+  # The market-data crawl's ONLY product is @symbol_to_external_id_hash, a symbol -> coin_id map,
+  # and that map is read in exactly one place: the new-ticker branch of
+  # sync_existing_exchange_assets_and_tickers!. So it is needed iff the venue reports a (base, quote)
+  # pair we do not already hold a Ticker for. Deciding on PAIRS rather than on resolvable symbols is
+  # what keeps a venue's first pair in a new fiat quote working: a fiat Asset row is only ever minted
+  # by create_missing_assets!, from the eodhd fallback inside the crawl.
+  #
+  # The venue's own catalogue is read FIRST and applied unconditionally. It used to come second, so
+  # any CoinGecko hiccup returned before it and left trading_enabled, the min/max sizes and the three
+  # decimal precisions stale across every venue — and those size orders.
+  def sync_tickers_and_assets_with_external_data(skip_async_jobs: false, on_progress: nil, force: false)
     @on_progress = on_progress
     return Result::Success.new unless MarketData.configured?
-
-    result = coingecko.get_exchange_tickers_by_id(exchange_id: coingecko_id)
-    return result if result.failure?
-
-    set_symbol_to_external_id_hash(result.data)
 
     result = get_tickers_info(force: true)
     return result if result.failure?
 
-    # Only create assets that exist in CoinGecko or Eodhd!
-    create_missing_assets!(external_ids, skip_async_jobs:)
+    resolve_external_ids(skip_async_jobs:) if new_pairs?(result.data) && (force || claim_crawl_window)
 
     # Never destroy an Asset, ExchangeAsset or Ticker!
     sync_existing_exchange_assets_and_tickers!(result.data)
@@ -22,16 +26,38 @@ module Exchange::Synchronizer
     Result::Success.new
   end
 
-  # only used in exchange_implementation_helpers.rake
-  def coingecko_symbols
-    result = coingecko.get_exchange_tickers_by_id(exchange_id: coingecko_id)
-    return result if result.failure?
+  private
 
-    set_symbol_to_external_id_hash(result.data)
-    @symbol_to_external_id_hash.keys
+  def new_pairs?(tickers_info)
+    known = tickers.pluck(:base, :quote).to_set
+    tickers_info.any? { |info| known.exclude?([info[:base], info[:quote]]) }
   end
 
-  private
+  # One crawl per venue per day. Claimed BEFORE the request, so a crawl that raises cannot
+  # retry-storm an already-tight quota; a failed crawl keeps the window too, costing at most a day's
+  # latency on a new pair, which is logged. Setup and `rake seed:generate` pass force: true — both
+  # drive every venue in one process against a database with no tickers at all.
+  # ponytail: 24h ceiling, shorten it if new listings need to be tradeable sooner than a day.
+  def claim_crawl_window
+    Rails.cache.write("coingecko_tickers_crawl_#{coingecko_id}", true, expires_in: 1.day, unless_exist: true)
+  end
+
+  # Discovery is best-effort and must never cost the venue catalogue. get_exchange_tickers_by_id both
+  # RETURNS a failure (any page 4xx/5xx) and RAISES (Client::TransientNetworkError, and its own
+  # page-cap guard), so both are handled here.
+  def resolve_external_ids(skip_async_jobs:)
+    result = coingecko.get_exchange_tickers_by_id(exchange_id: coingecko_id)
+    if result.failure?
+      Rails.logger.warn "[Sync] #{name}: market data unavailable, new pairs deferred: #{result.errors.to_sentence}"
+      return
+    end
+
+    set_symbol_to_external_id_hash(result.data)
+    # Only create assets that exist in CoinGecko or Eodhd!
+    create_missing_assets!(external_ids, skip_async_jobs:)
+  rescue StandardError => e
+    Rails.logger.warn "[Sync] #{name}: market data lookup failed, new pairs deferred: #{e.message}"
+  end
 
   def coingecko
     @coingecko ||= MarketData.coingecko
@@ -41,15 +67,11 @@ module Exchange::Synchronizer
   # publishes baseCoin "rON" where CoinGecko says "RON", and an exact-case miss silently drops a
   # live pair via the `next if blank?` below. Same fix as data-api's catalogue join.
   def external_id_from_symbol(symbol)
-    raise 'Call set_symbol_to_external_id_hash first' unless @symbol_to_external_id_hash.present?
-
-    @symbol_to_external_id_hash[symbol.to_s.upcase]
+    @symbol_to_external_id_hash.to_h[symbol.to_s.upcase]
   end
 
   def external_ids
-    raise 'Call set_symbol_to_external_id_hash first' unless @symbol_to_external_id_hash.present?
-
-    @symbol_to_external_id_hash.values
+    @symbol_to_external_id_hash.to_h.values
   end
 
   def set_symbol_to_external_id_hash(coingecko_tickers)
@@ -122,12 +144,12 @@ module Exchange::Synchronizer
       Rails.logger.warn "[Sync] Skipping asset #{external_id}: #{e.message}"
     end
     return if new_crypto_assets.empty? || skip_async_jobs
+    # The bulk job's limits_concurrency is NOT a rate limit — Solid Queue signals the semaphore when
+    # a job finishes, and `duration:` only reclaims a lock from a crashed worker. Thirteen venue
+    # discoveries in a day were thirteen full backfills. One claim a day, however many venues fire.
+    return unless Rails.cache.write('coingecko_new_asset_backfill', true, expires_in: 1.day, unless_exist: true)
 
-    if new_crypto_assets.count == 1
-      Asset::FetchDataFromCoingeckoJob.perform_later(new_crypto_assets.first)
-    else
-      Asset::FetchAllAssetsDataFromCoingeckoJob.perform_later
-    end
+    Asset::FetchAllAssetsDataFromCoingeckoJob.perform_later
   end
 
   def sync_existing_exchange_assets_and_tickers!(tickers_info)
@@ -144,7 +166,10 @@ module Exchange::Synchronizer
       else
         base_asset_external_id = external_id_from_symbol(base)
         quote_asset_external_id = external_id_from_symbol(quote)
-        next if base_asset_external_id.blank? || quote_asset_external_id.blank?
+        if base_asset_external_id.blank? || quote_asset_external_id.blank?
+          Rails.logger.info "[Sync] #{name}: #{base}/#{quote} unresolved, deferred to the next market-data pull"
+          next
+        end
 
         base_asset = Asset.find_by(external_id: base_asset_external_id)
         quote_asset = Asset.find_by(external_id: quote_asset_external_id)

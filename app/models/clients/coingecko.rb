@@ -36,8 +36,10 @@ class Clients::Coingecko < Client
     false
   end
 
+  # Per key: a bare `@detect_plan ||=` ignores its argument, so the first key seen in a process
+  # pinned the plan — and therefore the base URL and the header name — for every later key.
   def self.detect_plan(key)
-    @detect_plan ||= pro_key?(key) ? :pro : :demo
+    (@detect_plan ||= {})[key] ||= pro_key?(key) ? :pro : :demo
   end
 
   # https://docs.coingecko.com/reference/coins-list
