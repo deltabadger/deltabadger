@@ -1,7 +1,7 @@
 {
   "metadata": {
     "exchange_name_id": "gemini",
-    "count": 387,
+    "count": 383,
     "generated_at": "2026-02-23T23:47:40Z"
   },
   "data": [
@@ -510,16 +510,16 @@
       "price_decimals": 3
     },
     {
-      "ticker": "avaxgusdperp",
+      "ticker": "avaxgusd",
       "base": "AVAX",
       "quote": "GUSD",
       "base_external_id": "avalanche-2",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "0.1",
+      "minimum_base_size": "0.00499999",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
+      "base_decimals": 6,
       "quote_decimals": 3,
       "price_decimals": 3
     },
@@ -552,16 +552,16 @@
       "price_decimals": 3
     },
     {
-      "ticker": "avaxusdcperp",
+      "ticker": "avaxusdc",
       "base": "AVAX",
       "quote": "USDC",
       "base_external_id": "avalanche-2",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "0.1",
+      "minimum_base_size": "0.00499999",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
+      "base_decimals": 6,
       "quote_decimals": 3,
       "price_decimals": 3
     },
@@ -622,7 +622,7 @@
       "price_decimals": 5
     },
     {
-      "ticker": "bchgusdperp",
+      "ticker": "bchgusd",
       "base": "BCH",
       "quote": "GUSD",
       "base_external_id": "bitcoin-cash",
@@ -631,7 +631,7 @@
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 3,
+      "base_decimals": 6,
       "quote_decimals": 2,
       "price_decimals": 2
     },
@@ -664,7 +664,7 @@
       "price_decimals": 2
     },
     {
-      "ticker": "bchusdcperp",
+      "ticker": "bchusdc",
       "base": "BCH",
       "quote": "USDC",
       "base_external_id": "bitcoin-cash",
@@ -673,23 +673,23 @@
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 3,
+      "base_decimals": 6,
       "quote_decimals": 2,
       "price_decimals": 2
     },
     {
-      "ticker": "bnbgusdperp",
+      "ticker": "bnbgusd",
       "base": "BNB",
       "quote": "GUSD",
       "base_external_id": "binancecoin",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "0.01",
+      "minimum_base_size": "0.0002",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 2,
-      "quote_decimals": 2,
-      "price_decimals": 2
+      "base_decimals": 6,
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "bnbrlusd",
@@ -720,18 +720,18 @@
       "price_decimals": 4
     },
     {
-      "ticker": "bnbusdcperp",
+      "ticker": "bnbusdc",
       "base": "BNB",
       "quote": "USDC",
       "base_external_id": "binancecoin",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "0.01",
+      "minimum_base_size": "0.0002",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 2,
-      "quote_decimals": 2,
-      "price_decimals": 2
+      "base_decimals": 6,
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "bomegusd",
@@ -790,16 +790,16 @@
       "price_decimals": 6
     },
     {
-      "ticker": "bonkgusdperp",
+      "ticker": "bonkgusd",
       "base": "BONK",
       "quote": "GUSD",
       "base_external_id": "bonk",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "5000.0",
+      "minimum_base_size": "4000.0",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
+      "base_decimals": 6,
       "quote_decimals": 9,
       "price_decimals": 9
     },
@@ -832,16 +832,16 @@
       "price_decimals": 9
     },
     {
-      "ticker": "bonkusdcperp",
+      "ticker": "bonkusdc",
       "base": "BONK",
       "quote": "USDC",
       "base_external_id": "bonk",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "5000.0",
+      "minimum_base_size": "4000.0",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
+      "base_decimals": 6,
       "quote_decimals": 9,
       "price_decimals": 9
     },
@@ -874,18 +874,18 @@
       "price_decimals": 2
     },
     {
-      "ticker": "btcgusdperp",
+      "ticker": "btcgusd",
       "base": "BTC",
       "quote": "GUSD",
       "base_external_id": "bitcoin",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "0.0001",
+      "minimum_base_size": "0.00001",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 4,
-      "quote_decimals": 1,
-      "price_decimals": 1
+      "base_decimals": 8,
+      "quote_decimals": 2,
+      "price_decimals": 2
     },
     {
       "ticker": "btcrlusd",
@@ -916,18 +916,18 @@
       "price_decimals": 2
     },
     {
-      "ticker": "btcusdcperp",
+      "ticker": "btcusdc",
       "base": "BTC",
       "quote": "USDC",
       "base_external_id": "bitcoin",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "0.0001",
+      "minimum_base_size": "0.00001",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 4,
-      "quote_decimals": 1,
-      "price_decimals": 1
+      "base_decimals": 8,
+      "quote_decimals": 2,
+      "price_decimals": 2
     },
     {
       "ticker": "btcusdt",
@@ -1364,16 +1364,16 @@
       "price_decimals": 8
     },
     {
-      "ticker": "dogegusdperp",
+      "ticker": "dogegusd",
       "base": "DOGE",
       "quote": "GUSD",
       "base_external_id": "dogecoin",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "0.1",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
+      "base_decimals": 6,
       "quote_decimals": 5,
       "price_decimals": 5
     },
@@ -1406,16 +1406,16 @@
       "price_decimals": 5
     },
     {
-      "ticker": "dogeusdcperp",
+      "ticker": "dogeusdc",
       "base": "DOGE",
       "quote": "USDC",
       "base_external_id": "dogecoin",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "0.1",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
+      "base_decimals": 6,
       "quote_decimals": 5,
       "price_decimals": 5
     },
@@ -1686,7 +1686,7 @@
       "price_decimals": 2
     },
     {
-      "ticker": "ethgusdperp",
+      "ticker": "ethgusd",
       "base": "ETH",
       "quote": "GUSD",
       "base_external_id": "ethereum",
@@ -1695,7 +1695,7 @@
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 3,
+      "base_decimals": 6,
       "quote_decimals": 2,
       "price_decimals": 2
     },
@@ -1728,7 +1728,7 @@
       "price_decimals": 2
     },
     {
-      "ticker": "ethusdcperp",
+      "ticker": "ethusdc",
       "base": "ETH",
       "quote": "USDC",
       "base_external_id": "ethereum",
@@ -1737,7 +1737,7 @@
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 3,
+      "base_decimals": 6,
       "quote_decimals": 2,
       "price_decimals": 2
     },
@@ -2008,20 +2008,6 @@
       "price_decimals": 4
     },
     {
-      "ticker": "flokigusdperp",
-      "base": "FLOKI",
-      "quote": "GUSD",
-      "base_external_id": "floki",
-      "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "500.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": null,
-      "maximum_quote_size": null,
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 8
-    },
-    {
       "ticker": "flokirlusd",
       "base": "FLOKI",
       "quote": "RLUSD",
@@ -2048,20 +2034,6 @@
       "base_decimals": 6,
       "quote_decimals": 7,
       "price_decimals": 7
-    },
-    {
-      "ticker": "flokiusdcperp",
-      "base": "FLOKI",
-      "quote": "USDC",
-      "base_external_id": "floki",
-      "quote_external_id": "usd-coin",
-      "minimum_base_size": "500.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": null,
-      "maximum_quote_size": null,
-      "base_decimals": 0,
-      "quote_decimals": 8,
-      "price_decimals": 8
     },
     {
       "ticker": "ftmgusd",
@@ -2414,18 +2386,18 @@
       "price_decimals": 4
     },
     {
-      "ticker": "hypegusdperp",
+      "ticker": "hypegusd",
       "base": "HYPE",
       "quote": "GUSD",
       "base_external_id": "hyperliquid",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "0.1",
+      "minimum_base_size": "0.002",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
-      "quote_decimals": 3,
-      "price_decimals": 3
+      "base_decimals": 6,
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "hyperlusd",
@@ -2456,18 +2428,18 @@
       "price_decimals": 4
     },
     {
-      "ticker": "hypeusdcperp",
+      "ticker": "hypeusdc",
       "base": "HYPE",
       "quote": "USDC",
       "base_external_id": "hyperliquid",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "0.1",
+      "minimum_base_size": "0.002",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
-      "quote_decimals": 3,
-      "price_decimals": 3
+      "base_decimals": 6,
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "imxgusd",
@@ -2526,18 +2498,18 @@
       "price_decimals": 5
     },
     {
-      "ticker": "injgusdperp",
+      "ticker": "injgusd",
       "base": "INJ",
       "quote": "GUSD",
       "base_external_id": "injective-protocol",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "0.1",
+      "minimum_base_size": "0.01",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
-      "quote_decimals": 3,
-      "price_decimals": 3
+      "base_decimals": 6,
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "injrlusd",
@@ -2568,18 +2540,18 @@
       "price_decimals": 4
     },
     {
-      "ticker": "injusdcperp",
+      "ticker": "injusdc",
       "base": "INJ",
       "quote": "USDC",
       "base_external_id": "injective-protocol",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "0.1",
+      "minimum_base_size": "0.01",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
-      "quote_decimals": 3,
-      "price_decimals": 3
+      "base_decimals": 6,
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "iotxgusd",
@@ -2932,7 +2904,7 @@
       "price_decimals": 3
     },
     {
-      "ticker": "linkgusdperp",
+      "ticker": "linkgusd",
       "base": "LINK",
       "quote": "GUSD",
       "base_external_id": "chainlink",
@@ -2941,9 +2913,9 @@
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
-      "quote_decimals": 3,
-      "price_decimals": 3
+      "base_decimals": 6,
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "linkrlusd",
@@ -2988,7 +2960,7 @@
       "price_decimals": 5
     },
     {
-      "ticker": "linkusdcperp",
+      "ticker": "linkusdc",
       "base": "LINK",
       "quote": "USDC",
       "base_external_id": "chainlink",
@@ -2997,9 +2969,9 @@
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
-      "quote_decimals": 3,
-      "price_decimals": 3
+      "base_decimals": 6,
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "lptgusd",
@@ -3142,16 +3114,16 @@
       "price_decimals": 5
     },
     {
-      "ticker": "ltcgusdperp",
+      "ticker": "ltcgusd",
       "base": "LTC",
       "quote": "GUSD",
       "base_external_id": "litecoin",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "0.1",
+      "minimum_base_size": "0.01",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
+      "base_decimals": 5,
       "quote_decimals": 2,
       "price_decimals": 2
     },
@@ -3184,16 +3156,16 @@
       "price_decimals": 2
     },
     {
-      "ticker": "ltcusdcperp",
+      "ticker": "ltcusdc",
       "base": "LTC",
       "quote": "USDC",
       "base_external_id": "litecoin",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "0.1",
+      "minimum_base_size": "0.01",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
+      "base_decimals": 5,
       "quote_decimals": 2,
       "price_decimals": 2
     },
@@ -3310,20 +3282,6 @@
       "price_decimals": 3
     },
     {
-      "ticker": "mewgusdperp",
-      "base": "MEW",
-      "quote": "GUSD",
-      "base_external_id": "cat-in-a-dogs-world",
-      "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "10.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": null,
-      "maximum_quote_size": null,
-      "base_decimals": 0,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
       "ticker": "mewrlusd",
       "base": "MEW",
       "quote": "RLUSD",
@@ -3348,20 +3306,6 @@
       "maximum_base_size": null,
       "maximum_quote_size": null,
       "base_decimals": 2,
-      "quote_decimals": 6,
-      "price_decimals": 6
-    },
-    {
-      "ticker": "mewusdcperp",
-      "base": "MEW",
-      "quote": "USDC",
-      "base_external_id": "cat-in-a-dogs-world",
-      "quote_external_id": "usd-coin",
-      "minimum_base_size": "10.0",
-      "minimum_quote_size": "0.0",
-      "maximum_base_size": null,
-      "maximum_quote_size": null,
-      "base_decimals": 0,
       "quote_decimals": 6,
       "price_decimals": 6
     },
@@ -3478,16 +3422,16 @@
       "price_decimals": 6
     },
     {
-      "ticker": "opgusdperp",
+      "ticker": "opgusd",
       "base": "OP",
       "quote": "GUSD",
       "base_external_id": "optimism",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "0.07",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
+      "base_decimals": 6,
       "quote_decimals": 4,
       "price_decimals": 4
     },
@@ -3520,16 +3464,16 @@
       "price_decimals": 4
     },
     {
-      "ticker": "opusdcperp",
+      "ticker": "opusdc",
       "base": "OP",
       "quote": "USDC",
       "base_external_id": "optimism",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "0.07",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
+      "base_decimals": 6,
       "quote_decimals": 4,
       "price_decimals": 4
     },
@@ -3646,16 +3590,16 @@
       "price_decimals": 7
     },
     {
-      "ticker": "pepegusdperp",
+      "ticker": "pepegusd",
       "base": "PEPE",
       "quote": "GUSD",
       "base_external_id": "pepe",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "1000.0",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
+      "base_decimals": 6,
       "quote_decimals": 9,
       "price_decimals": 9
     },
@@ -3688,16 +3632,16 @@
       "price_decimals": 9
     },
     {
-      "ticker": "pepeusdcperp",
+      "ticker": "pepeusdc",
       "base": "PEPE",
       "quote": "USDC",
       "base_external_id": "pepe",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "1000.0",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
+      "base_decimals": 6,
       "quote_decimals": 9,
       "price_decimals": 9
     },
@@ -3758,18 +3702,18 @@
       "price_decimals": 4
     },
     {
-      "ticker": "polgusdperp",
+      "ticker": "polgusd",
       "base": "POL",
       "quote": "GUSD",
       "base_external_id": "polygon-ecosystem-token",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "0.4",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
-      "quote_decimals": 4,
-      "price_decimals": 4
+      "base_decimals": 6,
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
       "ticker": "polrlusd",
@@ -3800,30 +3744,30 @@
       "price_decimals": 6
     },
     {
-      "ticker": "polusdcperp",
+      "ticker": "polusdc",
       "base": "POL",
       "quote": "USDC",
       "base_external_id": "polygon-ecosystem-token",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "0.4",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
-      "quote_decimals": 4,
-      "price_decimals": 4
+      "base_decimals": 6,
+      "quote_decimals": 6,
+      "price_decimals": 6
     },
     {
-      "ticker": "popcatgusdperp",
+      "ticker": "popcatgusd",
       "base": "POPCAT",
       "quote": "GUSD",
       "base_external_id": "popcat",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "0.07",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
+      "base_decimals": 6,
       "quote_decimals": 4,
       "price_decimals": 4
     },
@@ -3856,16 +3800,16 @@
       "price_decimals": 4
     },
     {
-      "ticker": "popcatusdcperp",
+      "ticker": "popcatusdc",
       "base": "POPCAT",
       "quote": "USDC",
       "base_external_id": "popcat",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "0.07",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
+      "base_decimals": 6,
       "quote_decimals": 4,
       "price_decimals": 4
     },
@@ -4248,16 +4192,16 @@
       "price_decimals": 5
     },
     {
-      "ticker": "shibgusdperp",
+      "ticker": "shibgusd",
       "base": "SHIB",
       "quote": "GUSD",
       "base_external_id": "shiba-inu",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "50.0",
+      "minimum_base_size": "1000.0",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
+      "base_decimals": 6,
       "quote_decimals": 9,
       "price_decimals": 9
     },
@@ -4290,16 +4234,16 @@
       "price_decimals": 9
     },
     {
-      "ticker": "shibusdcperp",
+      "ticker": "shibusdc",
       "base": "SHIB",
       "quote": "USDC",
       "base_external_id": "shiba-inu",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "50.0",
+      "minimum_base_size": "1000.0",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
+      "base_decimals": 6,
       "quote_decimals": 9,
       "price_decimals": 9
     },
@@ -4444,16 +4388,16 @@
       "price_decimals": 6
     },
     {
-      "ticker": "solgusdperp",
+      "ticker": "solgusd",
       "base": "SOL",
       "quote": "GUSD",
       "base_external_id": "solana",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "0.1",
+      "minimum_base_size": "0.001",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
+      "base_decimals": 6,
       "quote_decimals": 3,
       "price_decimals": 3
     },
@@ -4486,16 +4430,16 @@
       "price_decimals": 3
     },
     {
-      "ticker": "solusdcperp",
+      "ticker": "solusdc",
       "base": "SOL",
       "quote": "USDC",
       "base_external_id": "solana",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "0.1",
+      "minimum_base_size": "0.001",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
+      "base_decimals": 6,
       "quote_decimals": 3,
       "price_decimals": 3
     },
@@ -4668,18 +4612,18 @@
       "price_decimals": 4
     },
     {
-      "ticker": "trumpgusdperp",
+      "ticker": "trumpgusd",
       "base": "TRUMP",
       "quote": "GUSD",
       "base_external_id": "official-trump",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "0.1",
+      "minimum_base_size": "0.01",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 3,
-      "quote_decimals": 3,
-      "price_decimals": 3
+      "base_decimals": 6,
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "trumprlusd",
@@ -4780,18 +4724,18 @@
       "price_decimals": 4
     },
     {
-      "ticker": "unigusdperp",
+      "ticker": "unigusd",
       "base": "UNI",
       "quote": "GUSD",
       "base_external_id": "uniswap",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "0.1",
+      "minimum_base_size": "0.01",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
-      "quote_decimals": 3,
-      "price_decimals": 3
+      "base_decimals": 6,
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "unirlusd",
@@ -4822,18 +4766,18 @@
       "price_decimals": 4
     },
     {
-      "ticker": "uniusdcperp",
+      "ticker": "uniusdc",
       "base": "UNI",
       "quote": "USDC",
       "base_external_id": "uniswap",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "0.1",
+      "minimum_base_size": "0.01",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 1,
-      "quote_decimals": 3,
-      "price_decimals": 3
+      "base_decimals": 6,
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "usd1usd",
@@ -5032,18 +4976,18 @@
       "price_decimals": 6
     },
     {
-      "ticker": "wifgusdperp",
+      "ticker": "wifgusd",
       "base": "WIF",
       "quote": "GUSD",
       "base_external_id": "dogwifcoin",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "0.07",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "base_decimals": 6,
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "wifrlusd",
@@ -5074,18 +5018,18 @@
       "price_decimals": 4
     },
     {
-      "ticker": "wifusdcperp",
+      "ticker": "wifusdc",
       "base": "WIF",
       "quote": "USDC",
       "base_external_id": "dogwifcoin",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "0.07",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
-      "quote_decimals": 5,
-      "price_decimals": 5
+      "base_decimals": 6,
+      "quote_decimals": 4,
+      "price_decimals": 4
     },
     {
       "ticker": "wldgusd",
@@ -5200,18 +5144,18 @@
       "price_decimals": 6
     },
     {
-      "ticker": "xrpgusdperp",
+      "ticker": "xrpgusd",
       "base": "XRP",
       "quote": "GUSD",
       "base_external_id": "ripple",
       "quote_external_id": "gemini-dollar",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "0.1",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
-      "quote_decimals": 4,
-      "price_decimals": 4
+      "base_decimals": 6,
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "xrprlusd",
@@ -5242,18 +5186,18 @@
       "price_decimals": 5
     },
     {
-      "ticker": "xrpusdcperp",
+      "ticker": "xrpusdc",
       "base": "XRP",
       "quote": "USDC",
       "base_external_id": "ripple",
       "quote_external_id": "usd-coin",
-      "minimum_base_size": "1.0",
+      "minimum_base_size": "0.1",
       "minimum_quote_size": "0.0",
       "maximum_base_size": null,
       "maximum_quote_size": null,
-      "base_decimals": 0,
-      "quote_decimals": 4,
-      "price_decimals": 4
+      "base_decimals": 6,
+      "quote_decimals": 5,
+      "price_decimals": 5
     },
     {
       "ticker": "xtzgusd",

@@ -372,6 +372,40 @@ class Bot::ExchangeUserPlacementTest < ActiveSupport::TestCase
     assert_equal ['Account has insufficient balance for requested action.'], result.errors
   end
 
+  # --- a pair the venue no longer trades is refused before it is sent --------------------------
+  # The same test a bot must pass to start (Bot::AssetConfigurable#validate_tickers_available). A
+  # bot started before its pair was delisted or halted would otherwise keep sending orders for it.
+
+  test 'an order on an unavailable or trading-disabled pair is refused without reaching the exchange' do
+    @bot.exchange.expects(:market_buy).never
+    @bot.exchange.expects(:limit_sell).never
+
+    [{ available: false }, { available: true, trading_enabled: false }].each do |attrs|
+      @ticker.update!(attrs)
+
+      buy = @bot.market_buy(ticker: @ticker, amount: 10, amount_type: :quote)
+      sell = @bot.limit_sell(ticker: @ticker, amount: 10, amount_type: :base, price: 100)
+
+      [buy, sell].each do |result|
+        assert_predicate result, :failure?
+        assert_match(%r{#{@ticker.base_asset.symbol}/#{@ticker.quote_asset.symbol} is not tradable}, result.errors.to_sentence)
+      end
+    end
+  end
+
+  # Nothing was sent, so this is a definitive rejection: callers record a failed order. Read as
+  # transient it would be re-placed; read as ambiguous it would be left as possibly on the book.
+  test 'the refusal is neither transient nor ambiguous' do
+    @ticker.update!(available: false)
+    result = @bot.market_buy(ticker: @ticker, amount: 10, amount_type: :quote)
+    exchange = @bot.exchange
+
+    refute exchange.placement_transient_error?(result.errors)
+    refute exchange.transient_error?(result.errors)
+    refute exchange.ambiguous_placement_error?(result)
+    assert_nil exchange.failure_kind(result.errors)
+  end
+
   test 'a non-network StandardError from placement is not converted' do
     @bot.exchange.stubs(:market_buy).raises(ArgumentError.new('bad size'))
 
