@@ -116,6 +116,21 @@ class ExchangeTransientRetryTest < ActiveSupport::TestCase
     refute @exchange.transient_error?(['Filter failure: MIN_NOTIONAL'])
   end
 
+  # A caller with its own notion of "worth retrying" (e.g. an HTTP status) passes retry_if:, which
+  # replaces the message check rather than adding to it.
+  test 'retry_if: decides instead of the message patterns' do
+    seq = [Result::Failure.new('end of file reached', data: { status: nil }), Result::Success.new(:ok)]
+    result = @exchange.with_transient_retry(base_delay: 0, retry_if: ->(r) { r.data[:status].nil? }) { seq.shift }
+    assert result.success?, 'retried a failure the message patterns do not list'
+
+    calls = 0
+    @exchange.with_transient_retry(base_delay: 0, retry_if: ->(_r) { false }) do
+      calls += 1
+      Result::Failure.new('Net::ReadTimeout with #<TCPSocket:(closed)>')
+    end
+    assert_equal 1, calls, 'did not retry a failure the message patterns would have'
+  end
+
   # ambiguous_placement_error? is the classifier for a FAILED placement Result: only a definitive
   # rejection may become a failed order; anything that merely got no clean answer may be live.
   test 'ambiguous_placement_error? covers network failures, gateway errors and an acceptance without an id' do

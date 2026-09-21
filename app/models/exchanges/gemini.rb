@@ -1,6 +1,11 @@
 class Exchanges::Gemini < Exchange
   MARKET_CROSS = BigDecimal('0.01')
 
+  # Gemini has no bulk symbol-details endpoint, so the catalogue costs one request per symbol, a few
+  # hundred in all, against a public limit of 120 a minute. One a second is Gemini's own
+  # recommendation, and leaves room for the app's other public requests.
+  CATALOGUE_REQUEST_INTERVAL = 1
+
   COINGECKO_ID = 'gemini'.freeze # https://docs.coingecko.com/reference/exchanges-list
   ERRORS = {
     insufficient_funds: ['InsufficientFunds', 'Insufficient Funds'],
@@ -42,15 +47,20 @@ class Exchanges::Gemini < Exchange
   def get_tickers_info(force: false)
     cache_key = "exchange_#{id}_tickers_info"
     tickers_info = Rails.cache.fetch(cache_key, expires_in: 1.hour, force: force) do
-      result = client.get_symbols
+      result = with_transient_retry(base_delay: 2, retry_if: method(:catalogue_retry?)) { client.get_symbols }
       return result if result.failure?
 
       symbols = result.data
       return Result::Failure.new("Failed to get #{name} symbols") if symbols.nil?
 
       symbols.map do |symbol|
-        detail_result = client.get_symbol_details(symbol: symbol)
-        next if detail_result.failure?
+        sleep(CATALOGUE_REQUEST_INTERVAL)
+        detail_result = with_transient_retry(base_delay: 2, retry_if: method(:catalogue_retry?)) do
+          client.get_symbol_details(symbol: symbol)
+        end
+        # All or nothing. The sync marks every ticker missing from this list unavailable, so a symbol
+        # that could not be read fails the catalogue instead of dropping out of it.
+        return detail_result if detail_result.failure?
 
         detail = detail_result.data
         base = Utilities::Hash.dig_or_raise(detail, 'base_currency').upcase
@@ -74,7 +84,7 @@ class Exchanges::Gemini < Exchange
           available: true,
           trading_enabled: status == 'open'
         }
-      end.compact
+      end
     end
 
     Result::Success.new(tickers_info)
@@ -418,6 +428,17 @@ class Exchanges::Gemini < Exchange
   end
 
   private
+
+  # Worth another try: no HTTP answer at all (a dropped connection, a timeout), or one that says to
+  # come back later. Decided on the status because a dropped persistent connection arrives as a bare
+  # "end of file reached", which the shared message patterns do not list, and a 429 carries none.
+  def catalogue_retry?(result)
+    data = result.data.is_a?(Hash) ? result.data : {}
+    return false if data[:client_error]
+
+    status = data[:status]
+    status.nil? || [408, 429].include?(status) || status >= 500
+  end
 
   def get_bid_ask_price(ticker)
     cache_key = "exchange_#{id}_bid_ask_price_#{ticker.id}"

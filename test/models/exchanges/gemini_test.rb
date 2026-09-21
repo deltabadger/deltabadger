@@ -192,4 +192,142 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     result = @exchange.get_candles(ticker: ticker, start_at: 20.years.ago, timeframe: 1.week)
     assert_predicate result, :failure?
   end
+
+  # --- get_tickers_info: the catalogue is all or nothing -------------------------------------------
+  #
+  # Gemini has no bulk symbol-details endpoint, so the catalogue is one request per symbol. The sync
+  # marks every ticker missing from the result unavailable, so a symbol that could not be read must
+  # fail the whole catalogue rather than drop out of it.
+
+  test 'get_tickers_info returns every symbol, pausing a second before each detail request' do
+    sleeps = record_sleeps
+    stub_catalogue(%w[btcusd ethusd])
+
+    result = @exchange.get_tickers_info(force: true)
+
+    assert_predicate result, :success?
+    assert_equal(%w[btcusd ethusd], result.data.map { |t| t[:ticker] })
+    assert_equal [1, 1], sleeps
+  end
+
+  test 'get_tickers_info retries a detail request dropped by the network' do
+    sleeps = record_sleeps
+    requested = stub_catalogue(%w[btcusd ethusd], details: { 'ethusd' => [no_answer, gemini_detail('ethusd')] })
+
+    result = @exchange.get_tickers_info(force: true)
+
+    assert_predicate result, :success?
+    assert_equal 2, result.data.size
+    assert_equal %w[btcusd ethusd ethusd], requested
+    assert_equal [1, 1, 2], sleeps
+  end
+
+  test 'get_tickers_info retries a rate-limited or failing detail request' do
+    record_sleeps
+    [429, 408, 503].each do |status|
+      failure = Result::Failure.new("HTTP #{status}", data: { status: status })
+      requested = stub_catalogue(%w[btcusd], details: { 'btcusd' => [failure, gemini_detail('btcusd')] })
+
+      assert_predicate @exchange.get_tickers_info(force: true), :success?, "HTTP #{status} is retried"
+      assert_equal %w[btcusd btcusd], requested
+    end
+  end
+
+  test 'get_tickers_info fails the whole catalogue when a symbol keeps failing' do
+    sleeps = record_sleeps
+    requested = stub_catalogue(%w[btcusd ethusd solusd], details: { 'ethusd' => no_answer })
+
+    result = @exchange.get_tickers_info(force: true)
+
+    assert_predicate result, :failure?
+    assert_equal ['end of file reached'], result.errors
+    assert_equal %w[btcusd ethusd ethusd ethusd], requested, 'three attempts, then nothing after it'
+    assert_equal [1, 1, 2, 4], sleeps
+  end
+
+  test 'get_tickers_info does not retry a rejection or a client error' do
+    record_sleeps
+    [Result::Failure.new('{"result":"error","reason":"InvalidSymbol"}', data: { status: 400 }),
+     Result::Failure.new('NoMethodError: undefined method', data: { client_error: true })].each do |failure|
+      requested = stub_catalogue(%w[btcusd ethusd], details: { 'ethusd' => failure })
+
+      assert_predicate @exchange.get_tickers_info(force: true), :failure?
+      assert_equal %w[btcusd ethusd], requested
+    end
+  end
+
+  test 'get_tickers_info retries the symbol list, and fails once it keeps failing' do
+    record_sleeps
+    stub_catalogue(%w[btcusd], symbols: [no_answer, Result::Success.new(%w[btcusd])])
+    assert_predicate @exchange.get_tickers_info(force: true), :success?
+
+    stub_catalogue(%w[btcusd], symbols: no_answer)
+    assert_predicate @exchange.get_tickers_info(force: true), :failure?
+  end
+
+  test 'a failed catalogue is not cached' do
+    record_sleeps
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+    stub_catalogue(%w[btcusd ethusd], details: { 'ethusd' => no_answer })
+    assert_predicate @exchange.get_tickers_info, :failure?
+
+    stub_catalogue(%w[btcusd ethusd])
+    result = @exchange.get_tickers_info
+
+    assert_predicate result, :success?
+    assert_equal 2, result.data.size, 'the next read fetches again rather than serving a partial list'
+  end
+
+  test 'a symbol that cannot be read does not take its ticker out of the app' do
+    record_sleeps
+    usd = create(:asset, :usd)
+    btc_usd = create(:ticker, exchange: @exchange, base_asset: create(:asset, :bitcoin), quote_asset: usd,
+                              base: 'BTC', quote: 'USD', ticker: 'btcusd')
+    eth_usd = create(:ticker, exchange: @exchange, base_asset: create(:asset, :ethereum), quote_asset: usd,
+                              base: 'ETH', quote: 'USD', ticker: 'ethusd')
+    stub_catalogue(%w[btcusd ethusd], details: { 'ethusd' => no_answer })
+    MarketData.stubs(:configured?).returns(true)
+
+    assert_predicate @exchange.sync_tickers_and_assets_with_external_data, :failure?
+    assert btc_usd.reload.available
+    assert eth_usd.reload.available, 'an unread symbol is not a delisted one'
+  end
+
+  private
+
+  # Recorded, not slept, so the pacing and the retry backoff can be asserted as a sequence.
+  def record_sleeps
+    sleeps = []
+    @exchange.define_singleton_method(:sleep) { |seconds| sleeps << seconds }
+    sleeps
+  end
+
+  # What honeymaker returns when the request got no HTTP answer at all: a persistent connection the
+  # venue had already closed.
+  def no_answer
+    Result::Failure.new('end of file reached', data: { status: nil })
+  end
+
+  def gemini_detail(symbol)
+    Result::Success.new({ 'symbol' => symbol.upcase, 'base_currency' => symbol[0, 3], 'quote_currency' => symbol[3..],
+                          'tick_size' => '0.00000001', 'quote_increment' => '0.01', 'min_order_size' => '0.00001',
+                          'status' => 'open' })
+  end
+
+  # A client serving the symbol list (`symbols:`, default every symbol) and each symbol's details
+  # (`details`, default a valid one). An Array is answered one element per call, anything else every
+  # time. Returns the symbols whose details were requested, in order.
+  def stub_catalogue(symbol_list, details: {}, symbols: Result::Success.new(symbol_list))
+    answers = symbol_list.to_h { |symbol| [symbol, gemini_detail(symbol)] }.merge(details)
+    requested = []
+    client = Object.new
+    client.define_singleton_method(:get_symbols) { symbols.is_a?(Array) ? symbols.shift : symbols }
+    client.define_singleton_method(:get_symbol_details) do |symbol:|
+      requested << symbol
+      answer = answers.fetch(symbol)
+      answer.is_a?(Array) ? answer.shift : answer
+    end
+    @exchange.stubs(:client).returns(client)
+    requested
+  end
 end
