@@ -240,7 +240,7 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     result = @exchange.get_tickers_info(force: true)
 
     assert_predicate result, :failure?
-    assert_equal ['end of file reached'], result.errors
+    assert_equal ['Gemini ethusd: end of file reached'], result.errors, 'names the symbol that failed'
     assert_equal %w[btcusd ethusd ethusd ethusd], requested, 'three attempts, then nothing after it'
     assert_equal [1, 1, 2, 4], sleeps
   end
@@ -257,12 +257,15 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
   end
 
   test 'get_tickers_info retries the symbol list, and fails once it keeps failing' do
-    record_sleeps
+    sleeps = record_sleeps
     stub_catalogue(%w[btcusd], symbols: [no_answer, Result::Success.new(%w[btcusd])])
     assert_predicate @exchange.get_tickers_info(force: true), :success?
+    assert_equal [2, 1], sleeps, 'one backoff, then the pause before the detail request'
 
+    sleeps.clear
     stub_catalogue(%w[btcusd], symbols: no_answer)
     assert_predicate @exchange.get_tickers_info(force: true), :failure?
+    assert_equal [2, 4], sleeps, 'three attempts, and no detail request after them'
   end
 
   test 'a failed catalogue is not cached' do

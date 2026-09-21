@@ -60,7 +60,8 @@ class Exchanges::Gemini < Exchange
         end
         # All or nothing. The sync marks every ticker missing from this list unavailable, so a symbol
         # that could not be read fails the catalogue instead of dropping out of it.
-        return detail_result if detail_result.failure?
+        failure = "#{name} #{symbol}: #{detail_result.errors.to_sentence}" if detail_result.failure?
+        return Result::Failure.new(failure, data: detail_result.data) if failure
 
         detail = detail_result.data
         base = Utilities::Hash.dig_or_raise(detail, 'base_currency').upcase
