@@ -243,6 +243,24 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
     assert_match(/exchange down/, error.message)
   end
 
+  # A failure that carries its exception chain is classified by the chain: a dropped connection is
+  # retried, a proxy refusing CONNECT fails loudly rather than retrying on and on.
+  test 'classifies a transport failure by its exception chain' do
+    bot = create(:dca_single_asset, :started)
+    txn = create(:transaction, bot: bot, status: :submitted, external_status: :unknown, external_id: 'u1')
+    txn.stubs(:bot).returns(bot)
+
+    bot.stubs(:get_order).returns(Result::Failure.new('end of file reached',
+                                                      data: { status: nil, error_chain: %w[Faraday::ConnectionFailed EOFError] }))
+    assert_raises(Client::TransientNetworkError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+
+    bot.stubs(:get_order).returns(Result::Failure.new('Faraday::ConnectionFailed: 407 "Proxy Authentication Required"',
+                                                      data: { status: nil,
+                                                              error_chain: %w[Faraday::ConnectionFailed Net::HTTPClientException] }))
+    error = assert_raises(RuntimeError) { Bot::FetchAndUpdateOrderJob.new.perform(txn) }
+    refute_kind_of Client::TransientNetworkError, error
+  end
+
   test 'a Kraken transient failure does NOT short-circuit the stale not_found path' do
     # A not_found result for an old order is still abandoned — the transient check
     # sits AFTER the stale handling, and a not_found sentence is not a transient code.

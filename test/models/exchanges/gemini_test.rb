@@ -256,6 +256,23 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     end
   end
 
+  # With the exception chain reported, a dropped connection is still retried, and a failure no retry
+  # can fix — a proxy refusing CONNECT — is not.
+  test 'get_tickers_info decides on the exception chain when there is one' do
+    record_sleeps
+    closed = Result::Failure.new('end of file reached',
+                                 data: { status: nil, error_chain: %w[Faraday::ConnectionFailed EOFError] })
+    requested = stub_catalogue(%w[btcusd], details: { 'btcusd' => [closed, gemini_detail('btcusd')] })
+    assert_predicate @exchange.get_tickers_info(force: true), :success?
+    assert_equal %w[btcusd btcusd], requested
+
+    refused = Result::Failure.new('407 "Proxy Authentication Required"',
+                                  data: { status: nil, error_chain: %w[Faraday::ConnectionFailed Net::HTTPClientException] })
+    requested = stub_catalogue(%w[btcusd], details: { 'btcusd' => refused })
+    assert_predicate @exchange.get_tickers_info(force: true), :failure?
+    assert_equal %w[btcusd], requested
+  end
+
   test 'get_tickers_info retries the symbol list, and fails once it keeps failing' do
     sleeps = record_sleeps
     stub_catalogue(%w[btcusd], symbols: [no_answer, Result::Success.new(%w[btcusd])])

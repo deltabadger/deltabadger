@@ -43,15 +43,19 @@ class Clients::Launchpad < Client
   end
 
   # Claim redemption is an interactive, idempotent lookup. Unlike trading calls, callers need a
-  # Result they can display rather than a retry-signalling exception.
+  # Result they can display rather than a retry-signalling exception. A transport failure no retry
+  # can fix comes back from Client.network_failure as a Result with its exception chain instead of
+  # raising, and gets the same two messages.
   def with_rescue
-    super
+    result = super
+    chain = result.data[:error_chain] if result.failure? && result.data.is_a?(Hash)
+    chain ? claim_network_failure(Client.most_specific_cause(chain)) : result
   rescue Client::TransientNetworkError => e
-    message = definitely_pre_send?(e) ? RETRYABLE_CLAIM_MESSAGE : AMBIGUOUS_CLAIM_MESSAGE
-    Result::Failure.new(message)
+    claim_network_failure(e.original_class)
   end
 
-  def definitely_pre_send?(error)
-    PRE_SEND_FAILURES.include?(error.original_class) || error.original_class&.start_with?('Resolv::')
+  def claim_network_failure(cause)
+    definitely_pre_send = PRE_SEND_FAILURES.include?(cause) || cause&.start_with?('Resolv::')
+    Result::Failure.new(definitely_pre_send ? RETRYABLE_CLAIM_MESSAGE : AMBIGUOUS_CLAIM_MESSAGE)
   end
 end

@@ -135,7 +135,7 @@ module Bots::DcaSingleAsset::OrderSetter
       # a permanent failed Transaction (mirror of the fetch jobs). Any other failure keeps the
       # existing failed-order record.
       raise Client::RateLimitedError, result.errors.to_sentence if exchange.throttled_error?(result.errors)
-      raise Client::TransientNetworkError, result.errors.to_sentence if exchange.transient_error?(result.errors)
+      raise Client::TransientNetworkError, result.errors.to_sentence if exchange.transient_failure?(result)
 
       Rails.logger.error("set_order for bot #{id} failed to get order. Errors: #{result.errors.to_sentence}")
       create_failed_order!(ticker: ticker, error_messages: result.errors)
@@ -210,7 +210,7 @@ module Bots::DcaSingleAsset::OrderSetter
     result = get_balance(asset_id: base_asset_id)
     if result.failure?
       raise Client::RateLimitedError, result.errors.to_sentence if exchange.throttled_error?(result.errors)
-      raise Client::TransientNetworkError, result.errors.to_sentence if exchange.transient_error?(result.errors)
+      raise Client::TransientNetworkError, result.errors.to_sentence if exchange.transient_failure?(result)
 
       raise "Failed to read #{base_asset&.symbol} balance for bot #{id}: #{result.errors.to_sentence}"
     end

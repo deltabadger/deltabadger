@@ -22,27 +22,6 @@ class Exchange < ApplicationRecord
   # Exchanges::Alpaca as the sole stock venue.
   STOCK_TYPES = %w[Exchanges::Alpaca Exchanges::Ibkr].freeze
 
-  # Exchange-agnostic network failures that are ALWAYS retryable — any exchange can hit these through
-  # the HTTP proxy / network (the UK proxy's latency spikes surfaced these as terminal order-fetch
-  # errors). Matched as narrow substrings of the error string the exchange returns (no broad "Timeout"/
-  # "TCPSocket" — those risk false positives on business/config messages).
-  NETWORK_TRANSIENT_PATTERNS = [
-    'Net::ReadTimeout',
-    'Net::OpenTimeout',
-    'Faraday::TimeoutError',
-    'Faraday::ConnectionFailed',
-    'execution expired',
-    'Connection reset',
-    'Errno::ECONNRESET',
-    # A dead exchange proxy. The net_http_persistent adapter reports this as a BARE
-    # "connection refused: HOST:PORT" (no 'Faraday::ConnectionFailed' prefix), so the class-name
-    # pattern above never matched it and every proxied bot failed loudly. Both cases are listed:
-    # net_http_persistent lowercases it, Errno::ECONNREFUSED does not.
-    'connection refused',
-    'Connection refused',
-    'Errno::ECONNREFUSED'
-  ].freeze
-
   # Placement-SAFE transient errors: a strict allowlist of strings that each guarantee the exchange
   # rejected the order BEFORE it reached the matching engine (no order placed → re-placing with a
   # fresh timestamp is safe). Currently only the Binance-family -1021/timestamp rejection qualifies.
@@ -364,6 +343,13 @@ class Exchange < ApplicationRecord
     result.data[:status] if result.data.is_a?(Hash)
   end
 
+  # The exception classes behind a failure that got no HTTP answer, outermost first, when the client
+  # reported them (honeymaker, and Client.network_failure); nil otherwise — including every failure
+  # from a honeymaker release that predates the chain.
+  def error_chain(result)
+    result.data[:error_chain].presence if result.data.is_a?(Hash)
+  end
+
   # Enough to CONDEMN the stored key — persistent, and only the user can undo it. Deliberately
   # narrower than #invalid_key_error?: the venue's own words, never a bare status. Every 401 we
   # cannot attribute (Coinbase's JWT clock skew, a proxy rejecting its own credential, a WAF) would
@@ -399,14 +385,26 @@ class Exchange < ApplicationRecord
     end
   end
 
+  # Is a failed call worth retrying? The version of #transient_error? for a caller holding the Result.
+  # A transport failure whose client reported the exception chain behind it (honeymaker, and the app's
+  # own clients via Client.network_failure) is decided by that chain, the same rule for both families
+  # — its text rarely says what happened. Anything else keeps the text rules.
+  def transient_failure?(result)
+    chain = error_chain(result)
+    return transient_error?(result.errors) unless chain
+
+    Client.transient_cause?(Client.most_specific_cause(chain), Array(result.errors).join(' '))
+  end
+
   # Heuristic: do the given errors look like a transient/retryable exchange API
   # failure (e.g. Kraken's HTTP-200 "EGeneral:Internal error" / "EAPI:Invalid nonce")?
   # Used by the fetch jobs to convert such failures into Client::TransientNetworkError
   # so they flow into the existing retry-with-backoff path instead of failing loudly.
+  # The text rule only: a caller holding the Result wants #transient_failure?.
   def transient_error?(errors)
     # Base network patterns apply to EVERY exchange (incl. those with no exchange-specific :transient
     # set, e.g. Binance) — so this must not early-return on an empty known_errors[:transient].
-    patterns = NETWORK_TRANSIENT_PATTERNS + (known_errors[:transient] || []).map(&:to_s)
+    patterns = Client::NETWORK_TRANSIENT_PATTERNS + (known_errors[:transient] || []).map(&:to_s)
 
     Array(errors).any? do |err|
       msg = err.to_s
@@ -448,9 +446,17 @@ class Exchange < ApplicationRecord
   # purpose: that one is definitive (never reached the book) and is the caller's to re-place. The
   # asymmetry decides the doubtful cases: a wrong "ambiguous" costs a warning line instead of a
   # failed row, a wrong "failed" costs a live order nobody tracks.
+  #
+  # A transport failure that carries its exception chain is decided by the chain alone: definitive
+  # only when the request provably never left (Client.pre_transmission? — no name resolution, a
+  # refused connection or proxy CONNECT, a connect timeout), ambiguous otherwise, however retryable it
+  # is on a read.
   def ambiguous_placement_error?(result)
     errors = Array(result.errors)
     return false if placement_transient_error?(errors)
+
+    chain = error_chain(result)
+    return !Client.pre_transmission?(Client.most_specific_cause(chain), errors.join(' ')) if chain
     return true if transient_error?(errors)
 
     data = result.data.is_a?(Hash) ? result.data : {}
@@ -479,7 +485,7 @@ class Exchange < ApplicationRecord
   # app-level clients (Alpaca, IBKR) raise Client::TransientNetworkError. Both are retried here,
   # and the raised one is re-raised once the attempts are spent.
   #
-  # retry_if: replaces the message check for a caller that decides on something else, such as the
+  # retry_if: replaces #transient_failure? for a caller that decides on something else, such as the
   # HTTP status honeymaker attaches to a failure.
   def with_transient_retry(attempts: 3, base_delay: 0.5, retry_if: nil)
     tries = 0
@@ -494,7 +500,7 @@ class Exchange < ApplicationRecord
         next
       end
       return result unless tries < attempts && result.respond_to?(:failure?) && result.failure? &&
-                           (retry_if ? retry_if.call(result) : transient_error?(result.errors))
+                           (retry_if ? retry_if.call(result) : transient_failure?(result))
 
       sleep(base_delay * tries)
     end

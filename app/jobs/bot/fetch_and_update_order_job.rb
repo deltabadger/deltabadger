@@ -36,7 +36,7 @@ class Bot::FetchAndUpdateOrderJob < BotJob
       return if resolve_not_found(bot, order, result) == :handled
 
       raise Client::RateLimitedError, result.errors.to_sentence if bot.exchange.throttled_error?(result.errors)
-      raise Client::TransientNetworkError, result.errors.to_sentence if bot.exchange.transient_error?(result.errors)
+      raise Client::TransientNetworkError, result.errors.to_sentence if bot.exchange.transient_failure?(result)
 
       raise "Failed to fetch order #{order.id}. Result: #{result.errors}"
     end

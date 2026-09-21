@@ -231,7 +231,7 @@ class Bot::ExchangeUserPlacementTest < ActiveSupport::TestCase
 
   # The net_http_persistent adapter (used by Clients::Alpaca) wraps ECONNREFUSED in its own
   # Net::HTTP::Persistent::Error before Faraday wraps that, so wrapped_exception alone stops one
-  # level short and reports the adapter wrapper. Exchange::NETWORK_TRANSIENT_PATTERNS already
+  # level short and reports the adapter wrapper. Client::NETWORK_TRANSIENT_PATTERNS already
   # carries a comment about this exact adapter quirk biting a previous fix. Getting it wrong here
   # means a dead exchange proxy — the documented recurring outage — reads as ambiguous and costs
   # every Alpaca bot a full interval instead of a safe retry.
@@ -309,7 +309,7 @@ class Bot::ExchangeUserPlacementTest < ActiveSupport::TestCase
   # --- reads and cancels stay retryable ------------------------------------------------------
   # Scoping matters as much as the conversion. A balance read or an order poll is idempotent, so
   # converting those too would throw away the retry behaviour that keeps bots alive through the
-  # documented AWS tinyproxy blips (see Exchange::NETWORK_TRANSIENT_PATTERNS).
+  # documented AWS tinyproxy blips (see Client::NETWORK_TRANSIENT_PATTERNS).
 
   test 'get_balances still raises TransientNetworkError' do
     @bot.exchange.stubs(:get_balances).raises(@timeout)

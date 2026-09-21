@@ -116,10 +116,27 @@ class ExchangeTransientRetryTest < ActiveSupport::TestCase
     refute @exchange.transient_error?(['Filter failure: MIN_NOTIONAL'])
   end
 
+  # Where honeymaker reports the exception chain, the chain decides: a dropped connection is retried,
+  # a proxy refusing CONNECT is not, whatever the text happens to say.
+  test 'retries a transport failure by its exception chain' do
+    closed = Result::Failure.new('end of file reached',
+                                 data: { status: nil, error_chain: %w[Faraday::ConnectionFailed EOFError] })
+    seq = [closed, Result::Success.new(:ok)]
+    assert @exchange.with_transient_retry(base_delay: 0) { seq.shift }.success?
+
+    calls = 0
+    @exchange.with_transient_retry(base_delay: 0) do
+      calls += 1
+      Result::Failure.new('407 "Proxy Authentication Required"',
+                          data: { status: nil, error_chain: %w[Faraday::ConnectionFailed Net::HTTPClientException] })
+    end
+    assert_equal 1, calls
+  end
+
   # A caller with its own notion of "worth retrying" (e.g. an HTTP status) passes retry_if:, which
   # replaces the message check rather than adding to it.
   test 'retry_if: decides instead of the message patterns' do
-    seq = [Result::Failure.new('end of file reached', data: { status: nil }), Result::Success.new(:ok)]
+    seq = [Result::Failure.new('closed stream', data: { status: nil }), Result::Success.new(:ok)]
     result = @exchange.with_transient_retry(base_delay: 0, retry_if: ->(r) { r.data[:status].nil? }) { seq.shift }
     assert result.success?, 'retried a failure the message patterns do not list'
 

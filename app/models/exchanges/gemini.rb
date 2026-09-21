@@ -445,12 +445,15 @@ class Exchanges::Gemini < Exchange
 
   private
 
-  # Worth another try: no HTTP answer at all (a dropped connection, a timeout), or one that says to
-  # come back later. Decided on the status because a dropped persistent connection arrives as a bare
-  # "end of file reached", which the shared message patterns do not list, and a 429 carries none.
+  # Worth another try: no HTTP answer that a retry can fix (a dropped connection, a timeout), or an
+  # answer that says to come back later. Decided on the status because a 429 carries no text worth
+  # matching. Where the client reported the exception chain behind a status-less failure, the chain
+  # decides (Exchange#transient_failure?) — a proxy refusing CONNECT or a TLS certificate failure is
+  # not retried. Without one, any status-less failure is retried, as before the chain existed.
   def catalogue_retry?(result)
     data = result.data.is_a?(Hash) ? result.data : {}
     return false if data[:client_error]
+    return transient_failure?(result) if error_chain(result)
 
     status = data[:status]
     status.nil? || [408, 429].include?(status) || status >= 500

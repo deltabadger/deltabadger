@@ -1,41 +1,6 @@
 module Bot::ExchangeUser
   extend ActiveSupport::Concern
 
-  # Network failures that provably occurred BEFORE the request was transmitted: the connection was
-  # never established, so nothing reached the exchange and a retry cannot place a second order.
-  # These keep the ordinary retry — converting them would cost a bot a full interval (up to a
-  # month) every time the AWS exchange proxy is down, a documented recurring outage.
-  #
-  # Everything else — read timeouts, connection RESETS, and anything of unknown provenance — is
-  # ambiguous and must not be retried. The asymmetry is deliberate: a wrongly-retried placement
-  # spends the user's money twice, a wrongly-skipped one costs one tick.
-  # Failures that PROVE nothing reached the exchange: the connection was never established, so a
-  # retry cannot place a second order.
-  #
-  # This is an ALLOWLIST, and it is deliberately incomplete. A denylist ("everything except the
-  # errnos that can happen mid-flight") was tried and rejected: it fails toward RETRYING an
-  # unrecognised error, and something like Errno::ECONNABORTED can fire on an established socket
-  # after the request bytes went out. The cost asymmetry decides it — an errno missing from this
-  # list costs one skipped tick, an errno wrongly on it spends the user's money twice. So unknown
-  # provenance must mean "assume it may have landed".
-  #
-  # Socket::ResolutionError is Ruby 3.3+'s DNS failure and a SUBCLASS of SocketError, so an exact
-  # name match needs both spellings. ETIMEDOUT is deliberately ABSENT: a bare socket timeout is
-  # ambiguous, and a genuine CONNECT timeout arrives as Net::OpenTimeout because
-  # Client.specific_cause_name prefers the phase-naming Net:: class over its errno cause.
-  PRE_TRANSMISSION_ERRORS = %w[
-    Net::OpenTimeout
-    SocketError
-    Socket::ResolutionError
-    Resolv::ResolvError
-    Errno::ECONNREFUSED
-    Errno::EHOSTUNREACH
-    Errno::EHOSTDOWN
-    Errno::ENETUNREACH
-    Errno::ENETDOWN
-    Errno::EADDRNOTAVAIL
-  ].freeze
-
   def get_balance(asset_id:)
     with_api_key do
       exchange.get_balance(asset_id: asset_id)
@@ -111,7 +76,7 @@ module Bot::ExchangeUser
   #
   # Reads (get_balance/get_balances/get_order/get_orders) and cancels are idempotent, so they are
   # NOT wrapped: they keep the retry that carries bots through the AWS exchange-proxy blips
-  # catalogued in Exchange::NETWORK_TRANSIENT_PATTERNS.
+  # catalogued in Client::NETWORK_TRANSIENT_PATTERNS.
   #
   # KNOWN LIMITATION — the boundary is the whole placement method, not the submit request alone.
   # Where an exchange makes NETWORK CALLS BEFORE submitting, a failure in that preflight is
@@ -122,6 +87,14 @@ module Bot::ExchangeUser
   # create_order directly with no preflight. Narrowing the boundary to the submit call itself needs
   # a per-client change, and 13 of those clients live in the honeymaker gem — so it is deliberately
   # left as a follow-up. The failure mode is a skipped interval, never a duplicate buy.
+  #
+  # Network failures that provably occurred BEFORE the request was transmitted (Client.pre_transmission?:
+  # the connection was never established, so nothing reached the exchange and a retry cannot place a
+  # second order) keep the ordinary retry — converting them would cost a bot a full interval (up to a
+  # month) every time an exchange proxy is down. Everything else — read timeouts, connection RESETS,
+  # and anything of unknown provenance — is ambiguous and must not be retried. The asymmetry is
+  # deliberate: a wrongly-retried placement spends the user's money twice, a wrongly-skipped one costs
+  # one tick.
   #
   # A pair the venue no longer trades (delisted, halted, or swept by the catalogue sync) is refused
   # before anything is sent: the same test a bot must pass to start
@@ -135,18 +108,8 @@ module Bot::ExchangeUser
 
     yield
   rescue Client::TransientNetworkError => e
-    raise if pre_transmission?(e)
+    raise if Client.pre_transmission?(e.original_class, e.message)
 
     raise Client::AmbiguousPlacementError, e.message
-  end
-
-  def pre_transmission?(error)
-    return true if error.original_class.in?(PRE_TRANSMISSION_ERRORS)
-
-    # The net_http_persistent adapter can surface a dead proxy as a BARE
-    # "connection refused: HOST:PORT" with no errno anywhere in the cause chain — the same quirk
-    # Exchange::NETWORK_TRANSIENT_PATTERNS documents having been bitten by. A refusal means the
-    # connection was never accepted, so nothing was transmitted.
-    error.message.to_s.match?(/connection refused/i)
   end
 end
