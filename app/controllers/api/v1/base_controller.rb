@@ -5,7 +5,7 @@ module Api
     # OAuth-only base for the versioned REST API. Per-action tool gating
     # uses `current_user.rest_tool_enabled?(tool_name)`. Existing
     # session-auth `Api::BaseController` is unaffected and continues to
-    # serve `/api/api_keys` and `/api/exchanges`.
+    # serve `/api/api_keys`.
     class BaseController < ActionController::API
       include ApiOauthAuthentication
 

@@ -35,7 +35,7 @@ module Bot::ExchangeUser
   # Everything above only reads or cancels, and deliberately keeps its retry.
 
   def market_buy(ticker:, amount:, amount_type:)
-    with_placement_guard do
+    with_placement_guard(ticker) do
       with_api_key do
         exchange.market_buy(ticker: ticker, amount: amount, amount_type: amount_type)
       end
@@ -43,7 +43,7 @@ module Bot::ExchangeUser
   end
 
   def market_sell(ticker:, amount:, amount_type:)
-    with_placement_guard do
+    with_placement_guard(ticker) do
       with_api_key do
         exchange.market_sell(ticker: ticker, amount: amount, amount_type: amount_type)
       end
@@ -51,7 +51,7 @@ module Bot::ExchangeUser
   end
 
   def limit_buy(ticker:, amount:, amount_type:, price:)
-    with_placement_guard do
+    with_placement_guard(ticker) do
       with_api_key do
         exchange.limit_buy(ticker: ticker, amount: amount, amount_type: amount_type, price: price)
       end
@@ -59,7 +59,7 @@ module Bot::ExchangeUser
   end
 
   def limit_sell(ticker:, amount:, amount_type:, price:)
-    with_placement_guard do
+    with_placement_guard(ticker) do
       with_api_key do
         exchange.limit_sell(ticker: ticker, amount: amount, amount_type: amount_type, price: price)
       end
@@ -95,7 +95,17 @@ module Bot::ExchangeUser
   # and anything of unknown provenance — is ambiguous and must not be retried. The asymmetry is
   # deliberate: a wrongly-retried placement spends the user's money twice, a wrongly-skipped one costs
   # one tick.
-  def with_placement_guard
+  #
+  # A pair the venue no longer trades (delisted, halted, or swept by the catalogue sync) is refused
+  # before anything is sent: the same test a bot must pass to start
+  # (Bot::AssetConfigurable#validate_tickers_available), applied to a bot that was already running
+  # when the pair went. The refusal matches none of the transient or ambiguous patterns, so callers
+  # handle it like any venue rejection.
+  def with_placement_guard(ticker)
+    unless ticker.available? && ticker.trading_enabled?
+      return Result::Failure.new("#{ticker.base_asset.symbol}/#{ticker.quote_asset.symbol} is not tradable on #{exchange.name}")
+    end
+
     yield
   rescue Client::TransientNetworkError => e
     raise if Client.pre_transmission?(e.original_class, e.message)

@@ -53,7 +53,7 @@ class Exchanges::Gemini < Exchange
       symbols = result.data
       return Result::Failure.new("Failed to get #{name} symbols") if symbols.nil?
 
-      symbols.map do |symbol|
+      catalogue = symbols.filter_map do |symbol|
         sleep(CATALOGUE_REQUEST_INTERVAL)
         detail_result = with_transient_retry(base_delay: 2, retry_if: method(:catalogue_retry?)) do
           client.get_symbol_details(symbol: symbol)
@@ -64,6 +64,14 @@ class Exchanges::Gemini < Exchange
         return Result::Failure.new(failure, data: detail_result.data) if failure
 
         detail = detail_result.data
+        # Spot only. Gemini lists its perpetuals (product_type 'swap') in the same symbol list and
+        # under the same base and quote as spot — BTCGUSDPERP is BTC/GUSD, like BTCGUSD — and the sync
+        # matches rows on base and quote, so a perpetual left in would take over its spot twin's row.
+        # A detail that does not say what it is fails the catalogue rather than passing as spot.
+        product_type = detail['product_type']
+        return Result::Failure.new("#{name} #{symbol}: no product_type in its details") unless product_type.is_a?(String)
+        next unless product_type == 'spot'
+
         base = Utilities::Hash.dig_or_raise(detail, 'base_currency').upcase
         quote = Utilities::Hash.dig_or_raise(detail, 'quote_currency').upcase
         status = Utilities::Hash.dig_or_raise(detail, 'status')
@@ -86,6 +94,13 @@ class Exchanges::Gemini < Exchange
           trading_enabled: status == 'open'
         }
       end
+
+      # Two symbols for one pair would both be written to the same row, and whichever came last
+      # would win. Refuse the list rather than guess which one is spot.
+      (base, quote), twins = catalogue.group_by { |info| [info[:base], info[:quote]] }.find { |_, infos| infos.size > 1 }
+      return Result::Failure.new("#{name} #{base}/#{quote} is listed as both #{twins.map { |t| t[:ticker] }.join(' and ')}") if twins
+
+      catalogue
     end
 
     Result::Success.new(tickers_info)

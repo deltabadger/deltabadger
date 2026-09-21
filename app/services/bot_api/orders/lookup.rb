@@ -63,6 +63,16 @@ module BotApi
                        "Trading pair #{base_symbol.to_s.upcase}/#{quote_symbol.to_s.upcase} not found on #{exchange.name}.")
       end
 
+      # A pair the venue no longer trades keeps its row (bots and history point at it), so
+      # find_ticker still finds it; this is what stops the order. The same test a bot must pass to
+      # start (Bot::AssetConfigurable#validate_tickers_available). Returns nil when the pair trades.
+      def untradable_refusal(exchange, ticker)
+        return nil if ticker.available? && ticker.trading_enabled?
+
+        Result.failure(:conflict, 'ticker_not_tradable',
+                       "Trading pair #{ticker.base_asset.symbol}/#{ticker.quote_asset.symbol} is not tradable on #{exchange.name}.")
+      end
+
       # Refused rather than placed without the bot: the caller believes the order is attributed.
       def bot_limit_unsupported
         Result.failure(:validation_failed, 'bot_limit_orders_unsupported',

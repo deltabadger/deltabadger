@@ -313,6 +313,76 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     assert eth_usd.reload.available, 'an unread symbol is not a delisted one'
   end
 
+  # --- get_tickers_info: spot only ------------------------------------------------------------------
+  #
+  # Gemini lists its perpetuals in the same symbol list as spot and under the same base and quote
+  # (BTCGUSDPERP is BTC/GUSD, like BTCGUSD). The sync matches rows on base and quote, so a perpetual
+  # left in the catalogue overwrites its spot twin's row.
+
+  test 'get_tickers_info keeps the spot symbol and leaves out its perpetual twin' do
+    record_sleeps
+    stub_catalogue(%w[btcgusd btcgusdperp],
+                   details: { 'btcgusdperp' => gemini_detail('btcgusdperp', product_type: 'swap', quote: 'gusd') })
+
+    result = @exchange.get_tickers_info(force: true)
+
+    assert_predicate result, :success?
+    assert_equal(%w[btcgusd], result.data.map { |t| t[:ticker] })
+  end
+
+  test 'get_tickers_info fails the whole catalogue when a symbol does not say what it is' do
+    record_sleeps
+    [nil, 1, %w[spot]].each do |product_type|
+      stub_catalogue(%w[btcusd ethusd], details: { 'ethusd' => gemini_detail('ethusd', product_type: product_type) })
+
+      result = @exchange.get_tickers_info(force: true)
+
+      assert_predicate result, :failure?, "product_type #{product_type.inspect} is not read as spot"
+      assert_match(/Gemini ethusd/, result.errors.to_sentence)
+    end
+  end
+
+  test 'get_tickers_info fails the whole catalogue when two symbols claim one pair' do
+    record_sleeps
+    stub_catalogue(%w[btcusd xbtusd], details: { 'xbtusd' => gemini_detail('xbtusd', base: 'btc') })
+
+    result = @exchange.get_tickers_info(force: true)
+
+    assert_predicate result, :failure?
+    message = result.errors.to_sentence
+    assert_match(%r{BTC/USD}, message)
+    assert_match(/btcusd/, message)
+    assert_match(/xbtusd/, message)
+  end
+
+  test 'a row pointed at a perpetual is moved to its spot twin, and a perpetual-only pair is swept' do
+    record_sleeps
+    gusd = create(:asset, symbol: 'GUSD', name: 'Gemini Dollar', external_id: 'gemini-dollar')
+    usd = create(:asset, :usd)
+    btc_gusd = create(:ticker, exchange: @exchange, base_asset: create(:asset, :bitcoin), quote_asset: gusd,
+                               base: 'BTC', quote: 'GUSD', ticker: 'btcgusdperp',
+                               minimum_base_size: 0.0001, base_decimals: 4, quote_decimals: 1, price_decimals: 1)
+    eth_usd = create(:ticker, exchange: @exchange, base_asset: create(:asset, :ethereum), quote_asset: usd,
+                              base: 'ETH', quote: 'USD', ticker: 'ethusd')
+    mew_gusd = create(:ticker, exchange: @exchange, base_asset: create(:asset, symbol: 'MEW'), quote_asset: gusd,
+                               base: 'MEW', quote: 'GUSD', ticker: 'mewgusdperp')
+    stub_catalogue(%w[btcgusd btcgusdperp ethusd mewgusdperp], details: {
+                     'btcgusdperp' => gemini_detail('btcgusdperp', product_type: 'swap', quote: 'gusd'),
+                     'mewgusdperp' => gemini_detail('mewgusdperp', product_type: 'swap', quote: 'gusd')
+                   })
+    MarketData.stubs(:configured?).returns(true)
+
+    assert_predicate @exchange.sync_tickers_and_assets_with_external_data, :success?
+
+    btc_gusd.reload
+    assert_equal 'btcgusd', btc_gusd.ticker
+    assert_equal 0.00001.to_d, btc_gusd.minimum_base_size
+    assert_equal [8, 2, 2], [btc_gusd.base_decimals, btc_gusd.quote_decimals, btc_gusd.price_decimals]
+    assert btc_gusd.available
+    assert eth_usd.reload.available
+    refute mew_gusd.reload.available, 'a pair Gemini trades only as a perpetual is not a spot pair'
+  end
+
   private
 
   # Recorded, not slept, so the pacing and the retry backoff can be asserted as a sequence.
@@ -328,10 +398,11 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     Result::Failure.new('end of file reached', data: { status: nil })
   end
 
-  def gemini_detail(symbol)
-    Result::Success.new({ 'symbol' => symbol.upcase, 'base_currency' => symbol[0, 3], 'quote_currency' => symbol[3..],
+  # product_type nil leaves the key out.
+  def gemini_detail(symbol, product_type: 'spot', base: symbol[0, 3], quote: symbol[3..])
+    Result::Success.new({ 'symbol' => symbol.upcase, 'base_currency' => base, 'quote_currency' => quote,
                           'tick_size' => '0.00000001', 'quote_increment' => '0.01', 'min_order_size' => '0.00001',
-                          'status' => 'open' })
+                          'status' => 'open', 'product_type' => product_type }.compact)
   end
 
   # A client serving the symbol list (`symbols:`, default every symbol) and each symbol's details
