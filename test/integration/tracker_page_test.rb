@@ -392,6 +392,30 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_select '.tracker-positions img.asset-logo[src=?]', 'https://logos.example/snps-v2.png'
   end
 
+  # The symbol was the Dash coin once — a little, years ago, on another venue — and DoorDash in
+  # the trip on the page. The trip is drawn as what it traded.
+  test 'a stock round trip is drawn as the stock though the symbol was a coin years before' do
+    coin = create(:asset, external_id: 'dash', symbol: 'DASH', category: 'Cryptocurrency', image_url: 'https://logos.example/dash-coin.png')
+    doordash = create(:asset, external_id: 'DASH.US', symbol: 'DASH', category: 'Stock', image_url: 'https://logos.example/doordash.png')
+    alpaca = create(:alpaca_exchange)
+    key = create(:api_key, user: @user, exchange: alpaca)
+    create(:account_transaction, api_key: @key_binance, entry_type: :other_income, base_currency: 'DASH', base_amount: 0.01,
+                                 base_asset_id: coin.id, quote_currency: nil, quote_amount: nil, transacted_at: Time.utc(2021, 3, 1))
+    create(:account_transaction, api_key: @key_binance, entry_type: :swap_out, base_currency: 'DASH', base_amount: 0.01,
+                                 base_asset_id: coin.id, quote_currency: nil, quote_amount: nil, transacted_at: Time.utc(2021, 3, 10))
+    [[:buy, 1_000, @t - 5.days], [:sell, 1_200, @t - 5.days + 3.minutes]].each do |side, quote, at|
+      create(:account_transaction, api_key: key, entry_type: side, base_currency: 'DASH', base_amount: 2, base_asset_id: doordash.id,
+                                   quote_currency: 'USD', quote_amount: quote, transacted_at: at)
+    end
+    warm_ledger
+    get tracker_path
+
+    assert_select '.tracker-positions tr[data-order-type~="win"]', text: /DASH/ do
+      assert_select 'img.asset-logo[src=?]', 'https://logos.example/doordash.png'
+      assert_select '.pill--quiet', text: 'Stock'
+    end
+  end
+
   # ── 8 · exchange scope ───────────────────────────────────────────────────────────────────────
   test 'exchange_id scopes the whole view: holdings, transactions, positions and the figures' do
     warm_ledger
