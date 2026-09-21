@@ -79,17 +79,6 @@ class RetiredExchangeTest < ActiveSupport::TestCase
     assert_equal api_key, @retired.api_key
   end
 
-  # Exchange#symbols builds an ExchangeMarket, whose initializer calls Honeymaker.exchange(name_id)
-  # — and honeymaker 0.10.0 has no 'bitmart'.
-  test 'symbols never reaches honeymaker' do
-    ExchangeMarket.expects(:new).never
-
-    result = @retired.symbols
-
-    assert_predicate result, :success?
-    assert_empty result.data
-  end
-
   test 'known_errors is a hash so the shared error classifiers keep working' do
     assert_kind_of Hash, @retired.known_errors
     refute @retired.throttled_error?(['some error'])

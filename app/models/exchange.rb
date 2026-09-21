@@ -95,12 +95,6 @@ class Exchange < ApplicationRecord
   include Synchronizer
   include CandleBuilder
 
-  def symbols
-    return Result::Success.new([]) if name.downcase == 'alpaca'
-
-    ExchangeMarket.new(self).all_symbols("#{name.downcase}_all_symbols")
-  end
-
   def name_id
     self.class.name.demodulize.underscore
   end
