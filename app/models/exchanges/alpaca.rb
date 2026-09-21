@@ -496,6 +496,33 @@ class Exchanges::Alpaca < Exchange
     Result::Success.new(merge_split_entries(entries))
   end
 
+  # Alpaca's stored names lose what the activity said: a crypto fill and the bitcoin ETF are both
+  # `BTC`, the ProShares fund and cash are both `USD`, and a compact pair stays whole (`BTCUSD`) when
+  # no crypto listing was available at sync. Its tickers cannot tell either, since one venue holds one
+  # (base, quote) slot. So the activity decides: its type says cash, its raw symbol says coin or security.
+  def ledger_asset_ids(rows)
+    names = rows.flat_map { |row| [row[:base_currency], ledger_activity(row)['symbol']] }.compact_blank.map(&:upcase)
+    coins, securities = ledger_listings(names)
+    rows.map do |row|
+      activity = ledger_activity(row)
+      type = activity['activity_type']
+      base = row[:base_currency].to_s.upcase
+      if type.nil?
+        # A row from a file: no activity behind it. A name Alpaca also trades as a coin could be either.
+        next if Tax::PriceService::FIAT_CURRENCIES.include?(base) || CRYPTO_COINGECKO_IDS.key?(base) || coins.key?(base)
+
+        next only(securities[base])
+      end
+      next if CASH_ACTIVITY_TYPES.include?(type)
+
+      symbol = activity['symbol'].to_s.upcase
+      coin = (ledger_coin(symbol, coins) if %w[FILL CFEE].include?(type)) || (base if type == 'CFEE')
+      next only(coins[coin]) || coin_asset_id(coin) if coin
+
+      only(securities[symbol])
+    end
+  end
+
   def search_assets(query)
     all_assets = get_cached_assets
     return [] if all_assets.blank? || query.blank?
@@ -560,6 +587,41 @@ class Exchanges::Alpaca < Exchange
     crypto_position_index[symbol]&.base_asset
   end
 
+  def ledger_activity(row) = row[:raw_data].is_a?(Hash) ? row[:raw_data] : {}
+
+  def only(ids) = (ids.first if ids&.one?)
+
+  # [coins, securities], each { SPELLING => [asset ids] }: every coin this venue lists, and the securities
+  # spelled like one of `names` — replaced listings included, split by the listed asset's category.
+  def ledger_listings(names)
+    tombstoned = "#{Ticker.sanitize_sql_like(MarketData::TICKER_TOMBSTONE_PREFIX)}%"
+    tickers.joins(:base_asset)
+           .where("upper(tickers.base) IN (?) OR tickers.base LIKE ? ESCAPE '\\' OR assets.category = 'Cryptocurrency'",
+                  names, tombstoned)
+           .pluck(:base, 'assets.category', :base_asset_id)
+           .each_with_object([{}, {}]) do |(base, category, asset_id), (coins, securities)|
+      index = category == 'Cryptocurrency' ? coins : securities
+      spelling = Ticker.new(base:).base_spelling.upcase
+      (index[spelling] ||= []) << asset_id unless index[spelling]&.include?(asset_id)
+    end
+  end
+
+  # The coin a raw crypto symbol names — `BTC/USD`, or the compact `BTCUSD` — or nil for a security's.
+  def ledger_coin(symbol, coins)
+    return symbol.split('/', 2).first if symbol.include?('/')
+
+    CRYPTO_QUOTES.each do |quote|
+      coin = symbol.delete_suffix(quote)
+      return coin if coin != symbol && coin.present? && (coins.key?(coin) || CRYPTO_COINGECKO_IDS.key?(coin))
+    end
+    nil
+  end
+
+  def coin_asset_id(coin)
+    external_id = CRYPTO_COINGECKO_IDS[coin]
+    Asset.where(external_id: external_id).pick(:id) if external_id
+  end
+
   def crypto_position_index
     @crypto_position_index ||= tickers.available.includes(:base_asset)
                                       .select { |t| crypto_ticker?(t) }
@@ -609,6 +671,10 @@ class Exchanges::Alpaca < Exchange
   CASH_FEE_TYPES = %w[FEE DIVFEE PTC].freeze
   CASH_JOURNAL_TYPES = %w[JNLC OCT ACATC].freeze
   SPLIT_TYPES = %w[SPLIT SSP].freeze
+  # The activities that move cash and nothing else: their row is `USD` whatever symbol they name.
+  CASH_ACTIVITY_TYPES = (%w[CSD CSW INT PTR] + CASH_JOURNAL_TYPES + DIVIDEND_INCOME_TYPES +
+                         WITHHOLDING_TYPES + CASH_FEE_TYPES).freeze
+  CRYPTO_QUOTES = %w[USD USDT USDC BTC].freeze
 
   def normalize_activity(activity)
     type = activity['activity_type']

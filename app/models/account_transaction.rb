@@ -5,6 +5,10 @@ class AccountTransaction < ApplicationRecord
   belongs_to :api_key, optional: true
   belongs_to :exchange
   belongs_to :bot_transaction, class_name: 'Transaction', foreign_key: 'transaction_id', optional: true
+  # The asset the row moved, as the venue that booked it lists it — recorded when the row is stored
+  # (`Exchange#ledger_asset_ids`) and never overwritten. NULL is read by `base_currency`, as every row
+  # was before; only the page's drawing reads it so far, every figure is still keyed by the symbol.
+  belongs_to :base_asset, class_name: 'Asset', optional: true
   belongs_to :linked_transaction, class_name: 'AccountTransaction', optional: true
   has_one :inverse_link, class_name: 'AccountTransaction', foreign_key: :linked_transaction_id,
                          inverse_of: :linked_transaction, dependent: :nullify
@@ -94,6 +98,22 @@ class AccountTransaction < ApplicationRecord
     scope = scope.where(transacted_at: ..to) if to.present?
     scope
   }
+
+  # Records the asset of every row in `rows` that has none, by its venue's rule. Never replaces one:
+  # a name the venue lists NOW says nothing new about a row already read against its listings.
+  # `exchange:` resolves with that very instance, for a caller that already holds it.
+  def self.resolve_base_assets!(rows, exchange: nil)
+    rows = rows.where(base_asset_id: nil)
+    venues = exchange ? [exchange] : Exchange.where(id: rows.select(:exchange_id))
+    venues.each do |venue|
+      list = rows.where(exchange_id: venue.id).select(:id, :base_currency, :transacted_at, :raw_data).to_a
+      list.zip(venue.ledger_asset_ids(list)).group_by(&:last).each do |asset_id, pairs|
+        next if asset_id.nil?
+
+        where(id: pairs.map { |row, _| row.id }, base_asset_id: nil).update_all(base_asset_id: asset_id)
+      end
+    end
+  end
 
   # Blank, a word, a stray keystroke: none of them are a value. Public because the currency has to be
   # converted between reading the box and storing the figure, and only a number can be converted.

@@ -15,11 +15,15 @@ module Tracker
     # `estimated`: some of its cost is an assumption (a deposit at market, an opening balance).
     # `unpriced_quantity`: the units that opened at a price nobody had, taken at zero cost.
     # `incomplete` is `estimated` under its old name.
-    Position = Data.define(:symbol, :asset, :quantity, :cost_usd, :avg_cost_usd, :opened_at, :estimated,
+    #
+    # Neither carries its Asset: what a symbol is drawn with is looked up when the page is drawn
+    # (`asset_index`), so a logo fixed, or an asset a row records later, shows without waiting for
+    # the transactions to move or for this cache to expire.
+    Position = Data.define(:symbol, :quantity, :cost_usd, :avg_cost_usd, :opened_at, :estimated,
                            :unpriced_quantity) do
       def incomplete = estimated
     end
-    RoundTrip = Data.define(:symbol, :asset, :opened_at, :closed_at, :quantity, :invested_usd,
+    RoundTrip = Data.define(:symbol, :opened_at, :closed_at, :quantity, :invested_usd,
                             :proceeds_usd, :fees_usd, :realised_pnl_usd, :incomplete)
     # `openings`: per asset, what must have been held before its history begins (see `openings`).
     # `cash`: the cash the ledger holds, per currency, in that currency's units; `cash_usd` its sum
@@ -157,13 +161,12 @@ module Tracker
     class << self
       def for(user, exchange: nil)
         price_service, rows, engine, disposals = walk(user, exchange)
-        assets = asset_index(user, engine.lots.keys | disposals.map { |disposal| disposal[:asset] })
-        positions = positions_from(engine.lots, assets)
+        positions = positions_from(engine.lots)
         terms, cash = money_in_terms(rows, price_service, engine)
 
         Summary.new(
           positions: positions,
-          round_trips: round_trips(disposals, assets),
+          round_trips: round_trips(disposals),
           total_invested_usd: terms.sum(0.to_d) { |_, term| term.amount },
           # The part of money in nobody paid for — rewards, rebates, airdrops, dust credits, a swap
           # credit with nothing behind it — so the tile is not read as a claim it was all deposited.
@@ -214,15 +217,6 @@ module Tracker
         summary
       end
 
-      # Logos and colours. The user's own balance row first — that is the asset the rest of the page
-      # draws this symbol with — then the crypto asset of that ticker, never a stock that happens to
-      # share it. Public because the transactions table resolves its rows the same way.
-      #
-      # ponytail: keyed by SYMBOL, and `assets.symbol` is not unique — a user holding both a stock
-      # and a coin called XYZ gets one of them here, and one merged position in the ledger above.
-      # That ceiling is the tax engine's, not this file's: `Tax::Methods::Fifo` keys its lots by
-      # `base_currency`, so the tracker cannot be more precise than the ledger it reads. Lifting it
-      # means giving AccountTransaction an instrument identity, everywhere at once.
       # The most recent loss-making disposal per symbol inside the wash-sale horizon, for
       # Bot::WashSaleGuard. Whole account, every venue — a sale is a sale whoever made it, and this
       # is the only place that sees the ones made on an exchange's own website.
@@ -248,7 +242,29 @@ module Tracker
         end
       end
 
-      def asset_index(user, symbols)
+      # Logos and colours for a SYMBOL, as a position merges it: the asset its rows recorded (see
+      # `AccountTransaction#base_asset`) — the venue that booked them said which instrument it was,
+      # so a stock sold down to nothing is still drawn as that stock. Rows that recorded two assets
+      # under one symbol — a coin on one venue, a stock on another — are one merged position here,
+      # and drawing it as either would be a statement about the other: nil. A symbol no row
+      # identifies is read by its string, as before (`symbol_index`).
+      #
+      # ponytail: for DRAWING only. The positions themselves are still keyed by symbol, because
+      # `Tax::Methods::Fifo` keys its lots by `base_currency` and the tracker cannot be more precise
+      # than the ledger it reads; splitting a merged position means keying the lots by asset too.
+      def asset_index(user, symbols, exchange: nil)
+        recorded = transactions(user, exchange).where(base_currency: symbols).where.not(base_asset_id: nil)
+                                               .distinct.pluck(:base_currency, :base_asset_id).group_by(&:first)
+        ids = recorded.filter_map { |symbol, pairs| [symbol, pairs.sole.last] if pairs.one? }.to_h
+        assets = Asset.where(id: ids.values).index_by(&:id)
+        symbol_index(user, symbols - recorded.keys).merge(ids.transform_values { |id| assets[id] }.compact)
+      end
+
+      # What a symbol is drawn with when nothing recorded its asset: the user's own balance row first —
+      # that is the asset the rest of the page draws this symbol with — then the crypto asset of that
+      # ticker, never a stock that happens to share it. Public because the transactions table draws a
+      # row that recorded no asset the same way, and `Figures` matches holdings to positions by it.
+      def symbol_index(user, symbols)
         held = AccountBalance.for_user(user).includes(:asset).each_with_object({}) do |balance, index|
           index[balance.asset.symbol] ||= balance.asset
         end
@@ -553,7 +569,7 @@ module Tracker
                                    timestamp: row[:transacted_at])
       end
 
-      def positions_from(lots, assets)
+      def positions_from(lots)
         lots.filter_map do |symbol, asset_lots|
           # Cash is a balance, not a position: it has no cost and no gain to report.
           next if FIAT.include?(symbol) || STABLECOINS.include?(symbol)
@@ -562,7 +578,7 @@ module Tracker
           next unless quantity.positive?
 
           cost = asset_lots.sum(0.to_d) { |lot| lot[:amount] * lot[:cost_per_unit] }
-          Position.new(symbol: symbol, asset: assets[symbol], quantity: quantity, cost_usd: cost,
+          Position.new(symbol: symbol, quantity: quantity, cost_usd: cost,
                        avg_cost_usd: cost / quantity,
                        opened_at: asset_lots.filter_map { |lot| lot[:date] }.min,
                        estimated: asset_lots.any? { |lot| lot[:basis_assumed] },
@@ -578,7 +594,7 @@ module Tracker
       # still accumulating when the disposals run out is flushed as its own row, sitting beside the
       # open position the coins were sold out of. Only when FIFO matched a basis: a disposal that
       # matched nothing never opened a position here, and belongs to the transactions pane.
-      def round_trips(disposals, assets)
+      def round_trips(disposals)
         open = {}
         closed = disposals.filter_map do |disposal|
           symbol = disposal[:asset]
@@ -596,13 +612,13 @@ module Tracker
           next unless disposal[:closes_position]
 
           open.delete(symbol)
-          round_trip(symbol, trip, assets)
+          round_trip(symbol, trip)
         end
-        closed + open.filter_map { |symbol, trip| round_trip(symbol, trip, assets) if trip[:invested].positive? }
+        closed + open.filter_map { |symbol, trip| round_trip(symbol, trip) if trip[:invested].positive? }
       end
 
-      def round_trip(symbol, trip, assets)
-        RoundTrip.new(symbol: symbol, asset: assets[symbol], opened_at: trip[:opened_at],
+      def round_trip(symbol, trip)
+        RoundTrip.new(symbol: symbol, opened_at: trip[:opened_at],
                       closed_at: trip[:closed_at], quantity: trip[:quantity], invested_usd: trip[:invested],
                       proceeds_usd: trip[:proceeds], fees_usd: trip[:fees], realised_pnl_usd: trip[:gain],
                       incomplete: trip[:incomplete])

@@ -27,9 +27,10 @@ module Tracker
     # would walk the whole account history a second time, on every sync.
     #
     # Symbols resolve through Ticker#base_asset_id and NOT Tracker::Ledger.asset_index: that one is
-    # built from AccountBalance rows, and a fully liquidated position — exactly the harvest this
-    # feature exists to protect — has none, so it would arm nothing. A symbol matching two tickers
-    # locks both asset ids; over-locking is the safe direction.
+    # for drawing — a symbol whose rows recorded two assets resolves to neither, and a row that
+    # recorded none falls back to AccountBalance rows, which a fully liquidated position (exactly the
+    # harvest this feature exists to protect) does not have. A symbol matching two tickers locks
+    # both asset ids; over-locking is the safe direction.
     def arm_wash_sale_locks(user, summary)
       return if user.wash_sale_days.zero? || summary.loss_sales.blank?
 

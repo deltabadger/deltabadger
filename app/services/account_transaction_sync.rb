@@ -22,6 +22,7 @@ class AccountTransactionSync
 
     entries = result.data
     outcome = store!(entries, &progress)
+    resolve_recent_assets
 
     # The watermark must come from the data — Time.current silently drops anything the fetch did not
     # return. It must also never advance past a row that failed to save: that row would fall outside
@@ -50,6 +51,7 @@ class AccountTransactionSync
     min_skipped = nil
 
     @file_pairs = entries.select { |entry| entry[:group_id].to_s.start_with?('swapcsv_') }.group_by { |entry| entry[:group_id] }
+    asset_ids = ledger_asset_ids(entries)
 
     entries.each_with_index do |entry, index|
       # A blank id identifies nothing, and several adapters produce one (Bybit's txID is empty for
@@ -81,7 +83,8 @@ class AccountTransactionSync
         group_id: entry[:group_id],
         description: entry[:description],
         transacted_at: entry[:transacted_at],
-        raw_data: entry[:raw_data] || {}
+        raw_data: entry[:raw_data] || {},
+        base_asset_id: asset_ids[index]
       )
 
       match_bot_transaction!(at) if at.buy? || at.sell? || at.swap_in? || at.swap_out?
@@ -240,6 +243,27 @@ class AccountTransactionSync
   private_class_method :last_split_before
 
   private
+
+  # How long after a row is stored its asset may still be looked up: long enough for a first sync that
+  # ran before the venue's listings arrived to be caught by the next daily one, and no longer — past
+  # it, a name the venue lists now is not evidence of what it meant when the row was read.
+  ASSET_CATCH_UP = 7.days
+
+  # Which asset each entry moved, by the venue's rule. A failure here costs the drawing, never the
+  # rows: they are stored with no asset and read by their symbol, as before.
+  def ledger_asset_ids(entries)
+    @exchange.ledger_asset_ids(entries)
+  rescue StandardError => e
+    Rails.logger.error("[#{@exchange.name_id}] Could not resolve ledger assets: #{e.class}: #{e.message}")
+    []
+  end
+
+  def resolve_recent_assets
+    recent = AccountTransaction.where(user: @api_key.user, exchange: @exchange, created_at: ASSET_CATCH_UP.ago..)
+    AccountTransaction.resolve_base_assets!(recent, exchange: @exchange)
+  rescue StandardError => e
+    Rails.logger.error("[#{@exchange.name_id}] Could not resolve ledger assets: #{e.class}: #{e.message}")
+  end
 
   # A split changes a share count with nothing bought or sold, so a bot's feed would otherwise show
   # its holding jump for no stated reason. One info line, dated at the split so it lands beside the

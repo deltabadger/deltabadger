@@ -598,6 +598,27 @@ class Exchange < ApplicationRecord
     false
   end
 
+  # The asset each ledger row moved, as this venue lists it: one id or nil per row, in order. Rows are
+  # entry hashes or records — anything answering `[:base_currency]`, `[:transacted_at]`, `[:raw_data]`.
+  #
+  # What this returns is stored on the row and never replaced, so it only ever answers with the
+  # venue's own fact: a dated alias where a name changed hands (2021's LUNA is not the LUNA listed
+  # today, and an alias whose coin the catalogue lacks answers nothing rather than the listing), else
+  # the one asset the venue lists under that spelling. Two candidates, or none, is nil — never the
+  # catalogue's coin of that symbol.
+  def ledger_asset_ids(rows)
+    listed = Ticker.asset_ids_by_spelling(id, rows.map { |row| row[:base_currency] })
+    aliased = {}
+    rows.map do |row|
+      name = row[:base_currency].to_s
+      coin = Tax::AssetIdentity.alias_coin(name, exchange: self, at: row[:transacted_at]) unless stock_venue?
+      next aliased.fetch(coin) { aliased[coin] = Asset.where(external_id: coin).pick(:id) } if coin
+
+      ids = listed.fetch(name.upcase, [])
+      ids.first if ids.one?
+    end
+  end
+
   private
 
   def client

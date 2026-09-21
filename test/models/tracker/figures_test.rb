@@ -90,6 +90,24 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
     assert_empty(result.notes.select { |note| note.kind.to_s.start_with?('cash') }, '600 EUR left, at 1.25: 750, as the ledger has it')
   end
 
+  # Figures match holdings to the ledger by symbol. A row's recorded asset can carry another symbol
+  # than the row (Binance lists Ronin as RONIN, the asset is RON), so it is for drawing only: whether
+  # a row recorded one must not move a single figure.
+  test 'the asset a row recorded moves no figure, even under another symbol' do
+    ronin = create(:asset, external_id: 'ronin', symbol: 'RON')
+    tx(:deposit, day: 1, base_currency: 'USDC', base_amount: 1_000)
+    tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 900)
+    tx(:buy, day: 4, base_currency: 'RONIN', base_amount: 50, quote_currency: 'USDC', quote_amount: 100, base_asset_id: ronin.id)
+    balance(@btc, 1, 1_500)
+    pending = Tracker::Figures.moved_since(AccountTransaction.for_user(@user), { @binance.id => @day.call(3) })
+    stated = ->(result) { [result.invested, result.value, result.total, result.holdings.map { |h| h.asset.symbol }.sort] }
+
+    recorded = stated.call(figures(pending: pending))
+    AccountTransaction.update_all(base_asset_id: nil)
+
+    assert_equal stated.call(figures(pending: pending)), recorded
+  end
+
   test 'cash moved since the sync is read as the ledger reads it: net of its own fee, and never borrowed' do
     tx(:deposit, day: 4, base_currency: 'USDC', base_amount: 1_000, fee_currency: 'USDC', fee_amount: 5)
     tx(:buy, day: 5, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDT', quote_amount: 100, tx_id: 'futures-1')
@@ -164,7 +182,7 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
   # contradict each other. It runs whatever else was noted.
   test 'figures that do not add up say so, even beside another note' do
     broken = Tracker::Ledger::Summary.new(
-      positions: [Tracker::Ledger::Position.new(symbol: 'BTC', asset: @btc, quantity: 1.to_d, cost_usd: 1_000.to_d,
+      positions: [Tracker::Ledger::Position.new(symbol: 'BTC', quantity: 1.to_d, cost_usd: 1_000.to_d,
                                                 avg_cost_usd: 1_000.to_d, opened_at: @day.call(1), estimated: false,
                                                 unpriced_quantity: 0.to_d)],
       round_trips: [], total_invested_usd: 500.to_d, received_usd: 0.to_d, realised_pnl_usd: 0.to_d,

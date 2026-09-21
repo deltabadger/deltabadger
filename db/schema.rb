@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_21_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_21_180000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -32,6 +32,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_21_120000) do
   create_table "account_transactions", force: :cascade do |t|
     t.integer "api_key_id"
     t.decimal "base_amount", null: false
+    t.integer "base_asset_id"
     t.string "base_currency", null: false
     t.datetime "created_at", null: false
     t.string "description"

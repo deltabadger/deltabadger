@@ -23,6 +23,25 @@ class Ticker < ApplicationRecord
 
   # { NAME => [asset ids] } for every name at once (upper-cased): two queries whatever the number of names.
   def self.asset_ids_by_name(exchange_id, names)
+    base_spellings(exchange_id, names) do |wanted, add|
+      where(exchange_id:).joins(:base_asset).where('upper(assets.symbol) IN (?)', wanted)
+                         .pluck(Arel.sql('upper(assets.symbol)'), :base_asset_id).each { |name, asset_id| add.call(name, asset_id) }
+    end
+  end
+
+  # { NAME => [asset ids] } by the venue's own names only: a base spelling, or a quote spelling for a coin
+  # the venue only ever quotes. What a ledger row records, for good — so NOT another listing's asset symbol,
+  # which would read a dead spelling as whatever live asset now carries that symbol (Binance's BEAM as the
+  # asset it lists as BEAMX).
+  def self.asset_ids_by_spelling(exchange_id, names)
+    base_spellings(exchange_id, names) do |wanted, add|
+      where(exchange_id:).where('upper(tickers.quote) IN (?)', wanted)
+                         .pluck(Arel.sql('upper(tickers.quote)'), :quote_asset_id).each { |name, asset_id| add.call(name, asset_id) }
+    end
+  end
+
+  # The base-spelling half both lookups share, tombstoned listings included; the block adds its own arm.
+  def self.base_spellings(exchange_id, names)
     wanted = names.compact_blank.map(&:upcase).uniq
     return {} if wanted.empty?
 
@@ -34,10 +53,10 @@ class Ticker < ApplicationRecord
       spelling = new(base:).base_spelling.upcase
       add.call(spelling, asset_id) if wanted.include?(spelling)
     end
-    where(exchange_id:).joins(:base_asset).where('upper(assets.symbol) IN (?)', wanted)
-                       .pluck(Arel.sql('upper(assets.symbol)'), :base_asset_id).each { |name, asset_id| add.call(name, asset_id) }
+    yield wanted, add
     found
   end
+  private_class_method :base_spellings
 
   # Whether the pair currently has a live, non-zero market price for the given
   # price type (:ask, :bid, :last). Tolerates the exchange price methods raising
