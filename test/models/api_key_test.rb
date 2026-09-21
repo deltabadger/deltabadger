@@ -259,4 +259,35 @@ class ApiKeyTest < ActiveSupport::TestCase
 
     assert_equal 'Invalid API-key', key.reload.last_sync_error
   end
+
+  # The pattern rules only catch tokens of twenty-plus characters containing a digit. A short key,
+  # an all-letters secret or a passphrase echoed back in an exchange error would otherwise be
+  # written to last_sync_error in plain text — a column that is not encrypted, while the
+  # credential itself is.
+  test "a recorded sync error redacts the key's own credentials whatever their shape" do
+    key = create(:api_key, raw_key: 'shortkey', raw_secret: 'lettersonlysecret', raw_passphrase: 'pw42')
+
+    key.record_sync_error!('rejected shortkey / lettersonlysecret with passphrase pw42')
+
+    stored = key.reload.last_sync_error
+    assert_not_includes stored, 'shortkey'
+    assert_not_includes stored, 'lettersonlysecret'
+    assert_not_includes stored, 'pw42'
+  end
+
+  test 'scrub removes the credentials without truncating, so it is usable for a log line' do
+    key = create(:api_key, raw_key: 'shortkey', raw_secret: 'lettersonlysecret')
+    text = "rejected shortkey #{'x' * (ApiKey::SYNC_ERROR_LIMIT + 50)}"
+
+    scrubbed = key.scrub(text)
+
+    assert_not_includes scrubbed, 'shortkey'
+    assert_operator scrubbed.length, :>, ApiKey::SYNC_ERROR_LIMIT, 'a log line keeps its full context'
+  end
+
+  test 'scrub leaves text that carries no credential alone' do
+    key = create(:api_key, raw_key: 'shortkey', raw_secret: 'lettersonlysecret')
+
+    assert_equal 'connection reset by peer', key.scrub('connection reset by peer')
+  end
 end

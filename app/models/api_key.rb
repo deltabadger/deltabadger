@@ -82,7 +82,21 @@ class ApiKey < ApplicationRecord
   def record_sync_error!(error)
     text = error.is_a?(Exception) ? "#{error.class}: #{error.message}" : error.to_s
 
-    update_column(:last_sync_error, sanitize_sync_error(text))
+    update_column(:last_sync_error, scrub(text)[0, SYNC_ERROR_LIMIT])
+  end
+
+  # Text from an exchange with this key's own credentials removed, then the generic patterns
+  # applied. For anything written somewhere a person or a backup can read it: the sync-error
+  # column, and the log lines around a failed sync. Not truncated — a log keeps its full context;
+  # the column truncates on its own.
+  #
+  # The credentials go first, by VALUE. The patterns only catch tokens of twenty-plus characters
+  # that contain a digit, so a short key, an all-letters secret or a passphrase echoed back in an
+  # error would slip through them — into a column that is not encrypted, while the credential
+  # itself is. A mangled message is harmless; a leaked secret is not, so every non-blank value is
+  # redacted whatever its length.
+  def scrub(text)
+    redact_patterns(redact_own_credentials(text.to_s))
   end
 
   # A report that silently omits an exchange is the worst outcome for a tax document, so the
@@ -175,13 +189,24 @@ class ApiKey < ApplicationRecord
   private
 
   # Credentials and PII must never land in this user-visible-adjacent diagnostics column.
-  def sanitize_sync_error(text)
+  # Every credential this key holds, including the IBKR ones — all of them are encrypted at rest,
+  # so none of them may reappear in plain text anywhere else. Longest first, so a value that
+  # happens to contain a shorter one is replaced whole.
+  CREDENTIAL_ATTRIBUTES = %i[key secret passphrase access_token rsa_signature_key rsa_encryption_key dh_param].freeze
+
+  def redact_own_credentials(text)
+    CREDENTIAL_ATTRIBUTES.filter_map { |attr| public_send(attr).presence&.to_s }
+                         .uniq.sort_by { |value| -value.length }
+                         .reduce(text) { |out, value| out.gsub(value, '[redacted]') }
+  end
+
+  def redact_patterns(text)
     text
       .gsub(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i, '[redacted]')
       .gsub(%r{(https?://\S+?)\?\S*}, '\\1?[redacted]')
       .gsub(/(?<![A-Za-z0-9_-])(?=[A-Za-z0-9_-]{20,}(?![A-Za-z0-9_-]))(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]+/,
             '[redacted]')
-      .gsub(/\d{9,}/, '[redacted]')[0, SYNC_ERROR_LIMIT]
+      .gsub(/\d{9,}/, '[redacted]')
   end
 
   # Assigns only the credential fields actually present in the submitted params. The generic
