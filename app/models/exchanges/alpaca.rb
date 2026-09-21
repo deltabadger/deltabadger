@@ -517,7 +517,8 @@ class Exchanges::Alpaca < Exchange
 
       symbol = activity['symbol'].to_s.upcase
       coin = (ledger_coin(symbol, coins) if %w[FILL CFEE].include?(type)) || (base if type == 'CFEE')
-      next only(coins[coin]) || coin_asset_id(coin) if coin
+      # The curated map only where the venue lists no coin by that name: listings that disagree stay nil.
+      next coins.key?(coin) ? only(coins[coin]) : coin_asset_id(coin) if coin
 
       only(securities[symbol])
     end

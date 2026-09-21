@@ -113,6 +113,16 @@ class ExchangeLedgerAssetIdsTest < ActiveSupport::TestCase
       assert_equal [mana.id, mana.id], @alpaca.ledger_asset_ids([fill('MANA/USD', 'MANA'), fill('MANAUSD')])
     end
 
+    # The curated map speaks only where the venue lists no coin by that name. Two listings naming
+    # two coins is conflicting evidence, and a conflict is not settled by a map.
+    test 'a coin name two listings disagree about stays nil' do
+      solana = create(:asset, external_id: 'solana', symbol: 'SOL')
+      listing(@alpaca, create(:asset, external_id: 'old-sol', symbol: 'SOL'), @usd, base: '__stale_4_SOL', available: false)
+      listing(@alpaca, solana, @usd)
+
+      assert_equal [nil], @alpaca.ledger_asset_ids([fill('SOL/USD', 'SOL')])
+    end
+
     test 'a USD fill is the security that trades as USD; cash, fees and dividends record nothing' do
       proshares = stock('USD')
       rows = [
