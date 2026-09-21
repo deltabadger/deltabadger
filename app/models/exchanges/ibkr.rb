@@ -201,7 +201,12 @@ class Exchanges::Ibkr < Exchange
     # identically — so it keeps meaning "registered, not yet usable". Anything else is not ambiguous
     # at all: a 500 or a lock timeout used to tell the user IBKR was activating their key and reset
     # the 14-day activation clock (ApiKey#activation_stalled?) over a blip.
+    #
+    # A failure carrying an exception chain got no answer from IBKR at all (Client.network_failure:
+    # a proxy refusing CONNECT, a TLS certificate failure, ...). It has no status either, so it
+    # must be surfaced before the rule below reads that as "not activated yet".
     if result.failure?
+      return result if error_chain(result)
       return Result::Success.new(:pending_activation) if http_status(result).nil? ||
                                                          http_status(result) == UNAUTHORIZED_STATUS
 

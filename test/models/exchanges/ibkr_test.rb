@@ -99,6 +99,31 @@ class Exchanges::IbkrTest < ActiveSupport::TestCase
     assert_predicate result, :failure?
   end
 
+  # A request that never reached IBKR says nothing about the key, and the client hands such a failure
+  # back with no status — the same shape the status rule above reads as "not activated yet".
+  test 'get_api_key_validity surfaces a failure that never reached IBKR instead of calling it pending activation' do
+    {
+      'TLS certificate' => [
+        Faraday::SSLError.new(OpenSSL::SSL::SSLError.new('SSL_connect returned=1 errno=0 state=error: certificate verify failed')),
+        %w[Faraday::SSLError OpenSSL::SSL::SSLError]
+      ],
+      'proxy' => [
+        Faraday::ConnectionFailed.new(Net::HTTPClientException.new('407 "Proxy Authentication Required"', nil)),
+        %w[Faraday::ConnectionFailed Net::HTTPClientException]
+      ]
+    }.each do |name, (error, chain)|
+      session = stub
+      session.stubs(:signed_request).raises(error)
+      Clients::Ibkr.any_instance.stubs(:session).returns(session)
+      IbkrLock.stubs(:with_lock).yields
+
+      result = @exchange.get_api_key_validity(api_key: stub(id: 1, key: 'C'))
+
+      assert_predicate result, :failure?, name
+      assert_equal chain, result.data[:error_chain], name
+    end
+  end
+
   # account_id returning a bare nil made all three callers substitute "No IBKR account available" —
   # telling the user their brokerage account is gone, and hiding the real text from
   # Exchange#transient_error?, which classifies on exactly the strings IBKR sends here.

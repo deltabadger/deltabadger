@@ -517,7 +517,7 @@ module Bot::Rebalancer
     result = get_balance(asset_id: asset_id)
     if result.failure?
       raise Client::RateLimitedError, result.errors.to_sentence if exchange.throttled_error?(result.errors)
-      raise Client::TransientNetworkError, result.errors.to_sentence if exchange.transient_error?(result.errors)
+      raise Client::TransientNetworkError, result.errors.to_sentence if exchange.transient_failure?(result)
 
       raise "Failed to read balance for bot #{id}: #{result.errors.to_sentence}"
     end

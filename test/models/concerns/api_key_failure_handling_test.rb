@@ -45,6 +45,22 @@ class ApiKeyFailureHandlingTest < ActiveSupport::TestCase
     assert_equal 'correct', @api_key.reload.status
   end
 
+  # The text of a transport failure rarely says what happened; the chain the client reports does.
+  test 'a transport failure is classified by its exception chain' do
+    expect_broadcast(message: 'closed stream', reason: :transient)
+    @host.handle_api_key_failure(@api_key, Result::Failure.new('closed stream', data: {
+                                                                 status: nil, error_chain: %w[Faraday::ConnectionFailed EOFError]
+                                                               }), capability: :transactions)
+
+    expect_broadcast(message: '407 "Proxy Authentication Required"', reason: :failed)
+    @host.handle_api_key_failure(@api_key, Result::Failure.new('407 "Proxy Authentication Required"', data: {
+                                                                 status: nil,
+                                                                 error_chain: %w[Faraday::ConnectionFailed Net::HTTPClientException]
+                                                               }), capability: :transactions)
+
+    assert_equal 'correct', @api_key.reload.status
+  end
+
   test 'an unclassified failure falls through to the generic reason' do
     expect_broadcast(message: 'EGeneral:Something new', reason: :failed)
 

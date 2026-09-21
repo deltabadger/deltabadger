@@ -81,10 +81,63 @@ class ClientTest < ActiveSupport::TestCase
     assert_equal 200, result.data[:status]
   end
 
+  # The walk and the preference were extracted so a chain honeymaker reports can be classified the same
+  # way. Whatever a chain resolved to before must resolve to the same thing now.
+  test 'specific_cause_name is unchanged for the chains it already handled' do
+    open_timeout = caused(Net::OpenTimeout.new('execution expired'), Errno::ETIMEDOUT.new)
+    refused = Faraday::ConnectionFailed.new(
+      caused(Net::HTTP::Persistent::Error.new('connection refused: 203.0.113.10:9100'), Errno::ECONNREFUSED.new)
+    )
+
+    assert_equal 'Net::OpenTimeout', Client.specific_cause_name(open_timeout)
+    assert_equal 'Errno::ECONNREFUSED', Client.specific_cause_name(refused)
+    assert_equal 'Faraday::TimeoutError', Client.specific_cause_name(Faraday::TimeoutError.new('execution expired'))
+  end
+
+  test 'most_specific_cause names what a wrapper hides, and the wrapper when nothing does' do
+    assert_equal 'EOFError', Client.most_specific_cause(%w[Faraday::ConnectionFailed EOFError])
+    assert_equal 'OpenSSL::SSL::SSLError', Client.most_specific_cause(%w[Faraday::SSLError OpenSSL::SSL::SSLError])
+    assert_equal 'Net::HTTPClientException',
+                 Client.most_specific_cause(%w[Faraday::ConnectionFailed Net::HTTPClientException])
+    assert_equal 'Faraday::ConnectionFailed',
+                 Client.most_specific_cause(%w[Faraday::ConnectionFailed Net::HTTP::Persistent::Error])
+  end
+
+  test 'with_rescue returns a TLS failure that cannot be retried instead of raising it' do
+    error = Faraday::SSLError.new(OpenSSL::SSL::SSLError.new('certificate verify failed'))
+
+    result = @client.with_rescue { raise error }
+
+    assert_predicate result, :failure?
+    assert_equal ['Faraday::SSLError: certificate verify failed'], result.errors
+    assert_equal({ status: nil, error_chain: %w[Faraday::SSLError OpenSSL::SSL::SSLError] }, result.data)
+  end
+
   test 'with_rescue still returns Result::Failure for generic StandardError' do
     result = @client.with_rescue { raise StandardError, 'something else' }
 
     assert_predicate result, :failure?
     assert_equal ['something else'], result.errors
+  end
+
+  private
+
+  # Raises inner, then outer while handling it, so Ruby links them through #cause.
+  def caused(outer, inner)
+    raise inner
+  rescue StandardError
+    begin
+      raise outer
+    rescue StandardError => e
+      e
+    end
+  end
+
+  # An adapter can re-wrap in the class it already used; the cause beneath the second instance still
+  # counts. Before, a class seen once stopped the walk there and ECONNREFUSED went missing.
+  test 'error_chain follows a class that wraps itself' do
+    error = Faraday::ConnectionFailed.new(Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new))
+
+    assert_equal %w[Faraday::ConnectionFailed Errno::ECONNREFUSED], Client.error_chain(error)
   end
 end
