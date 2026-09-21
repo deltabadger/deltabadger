@@ -38,7 +38,6 @@ Rails.application.routes.draw do
 
   namespace :api do
     resources :api_keys, only: [:create]
-    resources :exchanges, only: [:index]
     post :remove_invalid_keys, to: 'api_keys#remove_invalid_keys'
 
     namespace :v1 do

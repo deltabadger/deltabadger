@@ -30,12 +30,6 @@ class Exchanges::Bitmart < Exchange
     @client = nil
   end
 
-  # Exchange#symbols builds an ExchangeMarket, whose initializer calls
-  # Honeymaker.exchange('bitmart') — gone in honeymaker 0.10.0.
-  def symbols
-    Result::Success.new([])
-  end
-
   def get_tickers_info(force: false) = retired_failure
   def get_tickers_prices(force: false, symbols: nil) = retired_failure
   def get_balances(asset_ids: nil) = retired_failure
