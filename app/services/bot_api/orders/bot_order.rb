@@ -66,7 +66,7 @@ module BotApi
         return failure(:conflict, 'bot_not_running', "Bot #{bot.id} is not running. Start it to place orders through it.") unless bot.working?
         return failure(:not_found, 'pair_not_found', "Bot #{bot.id} has no tradable pair on its exchange.") unless bot.ticker
 
-        pair_mismatch(bot)
+        pair_mismatch(bot) || Lookup.untradable_refusal(bot.exchange, bot.ticker)
       end
 
       # The pair is the bot's. It may be left out; sent, it must agree — a caller that says ETH to a

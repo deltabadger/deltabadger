@@ -217,6 +217,18 @@ class BotApi::Orders::BotOrderTest < ActiveSupport::TestCase
     assert_equal :conflict, result.status
   end
 
+  # Refused at the door, like a closed market, rather than recorded as a failed order on the bot.
+  test 'a pair the venue no longer trades refuses the order, dry run or not' do
+    @bot.ticker.update!(trading_enabled: false)
+    Exchanges::Binance.any_instance.expects(:market_buy).never
+
+    [buy, buy(dry_run: true)].each do |result|
+      assert_equal 'ticker_not_tradable', result.error_code
+      assert_equal :conflict, result.status
+    end
+    assert_empty @bot.transactions
+  end
+
   # The MCP dry-run setting. A dry order id in the bot's ledger would be polled against the real
   # venue by the confirmation job, so a dry run validates and records nothing.
   test 'a dry run places nothing and records nothing' do

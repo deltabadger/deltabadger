@@ -36,7 +36,7 @@ module BotApi
         ticker = Lookup.find_ticker(exchange, @base_asset, @quote_asset)
         return Lookup.ticker_not_found(exchange, @base_asset, @quote_asset) unless ticker
 
-        refusal = Lookup.wash_sale_refusal(@user, ticker)
+        refusal = Lookup.untradable_refusal(exchange, ticker) || Lookup.wash_sale_refusal(@user, ticker)
         return refusal if refusal
 
         exchange.set_client(api_key: api_key)
