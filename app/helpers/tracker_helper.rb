@@ -175,9 +175,9 @@ module TrackerHelper
     @tracker_positions = figures.ledger.positions.index_by(&:symbol)
     held = figures.holdings.map { |holding| held_row(holding, @tracker_positions[holding.asset.symbol]) }
     trips = figures.ledger.round_trips
-    assets = Tracker::Ledger.asset_index(current_user, trips.map(&:symbol).uniq, exchange: @scope_exchange)
+    assets = Tracker::Ledger.trip_assets(current_user, trips, exchange: @scope_exchange)
 
-    (held + trips.map { |trip| round_trip_row(trip, assets[trip.symbol]) })
+    (held + trips.map { |trip| round_trip_row(trip, assets[trip]) })
       .sort_by { |row| row[:opened] || Time.at(0) }.reverse
   end
 

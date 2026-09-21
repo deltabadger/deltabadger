@@ -260,6 +260,25 @@ module Tracker
         symbol_index(user, symbols - recorded.keys).merge(ids.transform_values { |id| assets[id] }.compact)
       end
 
+      # What each round trip is drawn with: the asset its OWN rows recorded — the rows of its symbol
+      # from the moment it opened to the moment it closed. A symbol can be two instruments over an
+      # account's life (the Dash coin in older rows, DoorDash in a later trip), and a trip only ever traded the
+      # one its rows name; judged over the whole account, the older rows would make it ambiguous. A
+      # trip whose own rows recorded two assets did merge them, and is drawn as neither; one whose
+      # rows recorded none is drawn as its symbol is (`asset_index`).
+      def trip_assets(user, trips, exchange: nil)
+        symbols = trips.map(&:symbol).uniq
+        recorded = transactions(user, exchange).where(base_currency: symbols).where.not(base_asset_id: nil)
+                                               .pluck(:base_currency, :base_asset_id, :transacted_at).group_by(&:first)
+        own = trips.to_h do |trip|
+          window = (trip.opened_at || trip.closed_at)..trip.closed_at
+          [trip, recorded.fetch(trip.symbol, []).filter_map { |_, id, at| id if window.cover?(at) }.uniq]
+        end
+        assets = Asset.where(id: own.values.flatten).index_by(&:id)
+        by_symbol = asset_index(user, symbols, exchange: exchange)
+        own.to_h { |trip, ids| [trip, ids.empty? ? by_symbol[trip.symbol] : (assets[ids.sole] if ids.one?)] }
+      end
+
       # What a symbol is drawn with when nothing recorded its asset: the user's own balance row first —
       # that is the asset the rest of the page draws this symbol with — then the crypto asset of that
       # ticker, never a stock that happens to share it. Public because the transactions table draws a
