@@ -349,6 +349,49 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_select '.tracker-record__switch .segmented__option.is-on', text: I18n.t('tracker.positions')
   end
 
+  # A stock bought and sold again has no balance left, and a stock is never in the catalog the
+  # page falls back on. What its rows recorded is what the page draws it with.
+  def sold_stock
+    alpaca = create(:alpaca_exchange)
+    key = create(:api_key, user: @user, exchange: alpaca)
+    create(:asset, external_id: 'SNPS.TO', symbol: 'SNPS', category: 'Stock', image_url: 'https://logos.example/snps-to.png')
+    snps = create(:asset, external_id: 'SNPS.US', symbol: 'SNPS', category: 'Stock', image_url: 'https://logos.example/snps.png')
+    rows = [[:buy, 1_000, @t - 5.days], [:sell, 1_200, @t - 4.days]].map do |side, quote, at|
+      create(:account_transaction, api_key: key, entry_type: side, base_currency: 'SNPS', base_amount: 2, base_asset_id: snps.id,
+                                   quote_currency: 'USD', quote_amount: quote, transacted_at: at)
+    end
+    [snps, rows]
+  end
+
+  test 'a closed stock round trip with no balance is drawn with its own logo and type' do
+    sold_stock
+    warm_ledger
+    get tracker_path
+
+    assert_select '.tracker-positions tr[data-order-type~="win"]', text: /SNPS/ do
+      assert_select 'img.asset-logo[src=?]', 'https://logos.example/snps.png'
+      assert_select '.pill--quiet', text: 'Stock'
+    end
+  end
+
+  test 'a sold stock\'s transaction rows are drawn with its logo' do
+    _, rows = sold_stock
+    warm_ledger
+    get tracker_path
+
+    rows.each { |row| assert_select "tr##{ActionView::RecordIdentifier.dom_id(row)} img.asset-logo[src=?]", 'https://logos.example/snps.png' }
+  end
+
+  # The ledger is cached for days and reads no asset table; the logo is not part of what it caches.
+  test 'a logo changed after the ledger was cached reaches the positions table' do
+    snps, = sold_stock
+    warm_ledger
+    snps.update!(image_url: 'https://logos.example/snps-v2.png')
+    get tracker_path
+
+    assert_select '.tracker-positions img.asset-logo[src=?]', 'https://logos.example/snps-v2.png'
+  end
+
   # ── 8 · exchange scope ───────────────────────────────────────────────────────────────────────
   test 'exchange_id scopes the whole view: holdings, transactions, positions and the figures' do
     warm_ledger

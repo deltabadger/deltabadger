@@ -142,7 +142,9 @@ module Tracker
       held = rows.sum(0.to_d) { |row| row.free.to_d + row.locked.to_d } + @pending.fetch(symbol, 0.to_d)
       return if held <= 0
 
-      asset = rows.first&.asset || Ledger.asset_index(@user, [symbol])[symbol] || Asset.find_by(symbol: symbol)
+      # By the symbol, not by what the rows recorded: reconciliation below matches holdings to positions
+      # by `asset.symbol`, and a recorded asset can carry another symbol than the rows (RONIN is RON).
+      asset = rows.first&.asset || Ledger.symbol_index(@user, [symbol])[symbol] || Asset.find_by(symbol: symbol)
       return if asset.nil?
 
       exchange = rows.map { |row| row.exchange.name }.uniq.then { |names| names.one? ? names.first : nil }

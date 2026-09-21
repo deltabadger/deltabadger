@@ -162,4 +162,36 @@ class TickerTest < ActiveSupport::TestCase
     @ticker.update!(price_decimals: 2)
     assert_equal BigDecimal('100.13'), @ticker.adjusted_price(price: BigDecimal('100.12999'), method: :round)
   end
+
+  # == .asset_ids_by_spelling : the venue's own names, nothing else ==
+
+  # A ledger row is stamped with what this returns, for good. A dead spelling that only resolves
+  # through ANOTHER listing's asset symbol (BEAM → the asset Binance now lists as BEAMX) would be a
+  # wrong asset recorded permanently, so the symbol arm `asset_ids_by_name` has is not here.
+  test 'asset_ids_by_spelling ignores another listing\'s asset symbol' do
+    binance = create(:binance_exchange)
+    beam = create(:asset, external_id: 'beam-2', symbol: 'BEAM')
+    create(:ticker, exchange: binance, base_asset: beam, quote_asset: create(:asset, :usdt),
+                    base: 'BEAMX', quote: 'USDT', ticker: 'BEAMXUSDT')
+
+    assert_equal({ 'BEAMX' => [beam.id] }, Ticker.asset_ids_by_spelling(binance.id, %w[BEAM BEAMX]))
+    assert_equal [beam.id], Ticker.asset_ids_named(binance.id, 'BEAM'), 'the name rule restatements use is unchanged'
+  end
+
+  test 'asset_ids_by_spelling counts quote spellings and tombstoned listings' do
+    venue = create(:hyperliquid_exchange)
+    usdc = create(:asset, external_id: 'usd-coin', symbol: 'USDC')
+    hype = create(:asset, external_id: 'hyperliquid', symbol: 'HYPE')
+    old = create(:asset, external_id: 'old-coin', symbol: 'OLD')
+    create(:ticker, exchange: venue, base_asset: hype, quote_asset: usdc, base: 'HYPE', quote: 'USDC', ticker: 'HYPE')
+    create(:ticker, exchange: venue, base_asset: old, quote_asset: usdc, base: '__stale_7_OLD', quote: 'USDC',
+                    ticker: '__stale_7_OLD', available: false)
+
+    found = Ticker.asset_ids_by_spelling(venue.id, %w[usdc HYPE OLD NOPE])
+
+    assert_equal [usdc.id], found['USDC'], 'a coin the venue only ever quotes is still its own name'
+    assert_equal [hype.id], found['HYPE']
+    assert_equal [old.id], found['OLD'], 'a replaced listing still says what the name meant'
+    assert_nil found['NOPE']
+  end
 end

@@ -2,7 +2,7 @@
 <%# The row is rendered both by the page and on its own from a turbo stream, where no controller has
     set up the page's instance variables. `User#denomination` memoises, so this costs one object. %>
 <% denomination = current_user.denomination %>
-<% asset = tracker_row_asset(at.base_currency) %>
+<% asset = tracker_row_asset(at) %>
 <%# Amount, Price and Fee are the RECORD. Amount and Fee are the venue's, in its own currency per
     row, and so is Price where the venue booked one. Where it did not, our own price is the
     PLACEHOLDER — shown rather than hidden, and a typed price replaces it; clearing the box hands

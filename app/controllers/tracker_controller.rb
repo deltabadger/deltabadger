@@ -32,7 +32,7 @@ class TrackerController < ApplicationController
     user_transactions = AccountTransaction.for_user(current_user)
     @date_from = params[:from].presence || user_transactions.minimum(:transacted_at)&.to_date&.iso8601
     @date_to = params[:to].presence || Date.current.iso8601
-    rows = filtered_transactions.by_date.includes(:exchange, :bot_transaction, :linked_transaction, :inverse_link)
+    rows = filtered_transactions.by_date.includes(:exchange, :base_asset, :bot_transaction, :linked_transaction, :inverse_link)
     @account_transactions = params[:all].present? ? rows : rows.limit(ROW_LIMIT)
     # A sync failure survives the page it was broadcast onto, so the banner has to be rebuilt on
     # load — otherwise a persisted failure is invisible until the next sync. Only `:failed`: a

@@ -174,8 +174,10 @@ module TrackerHelper
 
     @tracker_positions = figures.ledger.positions.index_by(&:symbol)
     held = figures.holdings.map { |holding| held_row(holding, @tracker_positions[holding.asset.symbol]) }
+    trips = figures.ledger.round_trips
+    assets = Tracker::Ledger.asset_index(current_user, trips.map(&:symbol).uniq, exchange: @scope_exchange)
 
-    (held + figures.ledger.round_trips.map { |trip| round_trip_row(trip) })
+    (held + trips.map { |trip| round_trip_row(trip, assets[trip.symbol]) })
       .sort_by { |row| row[:opened] || Time.at(0) }.reverse
   end
 
@@ -307,15 +309,18 @@ module TrackerHelper
     "#{number_with_precision(days / 365.0, precision: 1, strip_insignificant_zeros: true)}y"
   end
 
-  # symbol → Asset for the rows on this page: the user's own balance row first (the asset the rest
-  # of the page draws this symbol with), then the crypto asset of that ticker. Primed once from the
-  # listed transactions; the single-row fallback is for the transfer toggle, which re-renders one
-  # row through the same partial with no page around it.
-  def tracker_row_asset(symbol)
-    @tracker_row_assets ||= Tracker::Ledger.asset_index(current_user, tracker_row_symbols)
-    return @tracker_row_assets[symbol] if @tracker_row_assets.key?(symbol)
+  # What a row is drawn with: the asset it recorded, the venue's own word for what it moved. A row
+  # that recorded none is read by its symbol, as before — the user's own balance row first, then the
+  # crypto asset of that ticker — and never by another row's asset: the same symbol on another venue
+  # can be another instrument. Primed once from the listed transactions; the single-row fallback is
+  # for the transfer toggle, which re-renders one row through the same partial with no page around it.
+  def tracker_row_asset(at)
+    return at.base_asset if at.base_asset
 
-    @tracker_row_assets[symbol] = Tracker::Ledger.asset_index(current_user, [symbol])[symbol]
+    @tracker_row_assets ||= Tracker::Ledger.symbol_index(current_user, tracker_row_symbols)
+    return @tracker_row_assets[at.base_currency] if @tracker_row_assets.key?(at.base_currency)
+
+    @tracker_row_assets[at.base_currency] = Tracker::Ledger.symbol_index(current_user, [at.base_currency])[at.base_currency]
   end
 
   # One rule for every filter on this page, the bot log's own: offer the options that EXIST, and
@@ -431,11 +436,11 @@ module TrackerHelper
 
   # A trip whose basis was assumed anywhere along the way is CLOSED and nothing more: calling it a
   # win or a loss, to a decimal place, would state a figure the ledger cannot stand behind.
-  def round_trip_row(trip)
+  def round_trip_row(trip, asset)
     complete = !trip.incomplete && trip.invested_usd.positive?
     outcome = trip.realised_pnl_usd.negative? ? 'loss' : 'win'
     { status: trip.incomplete ? 'closed' : outcome,
-      symbol: trip.symbol, asset: trip.asset, opened: trip.opened_at, closed: trip.closed_at,
+      symbol: trip.symbol, asset: asset, opened: trip.opened_at, closed: trip.closed_at,
       invested: trip.invested_usd,
       avg_buy: (trip.invested_usd / trip.quantity if trip.quantity.positive?),
       price: (trip.proceeds_usd / trip.quantity if trip.quantity.positive?),

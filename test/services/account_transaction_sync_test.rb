@@ -964,4 +964,69 @@ class AccountTransactionSyncTest < ActiveSupport::TestCase
     assert_predicate sync_split!, :success?
     assert_equal 1, AccountTransaction.where(entry_type: :adjustment).count, 'the row still landed'
   end
+
+  # ── the asset each row moved ──────────────────────────────────────────────────────────────────
+
+  def list_btc_usd
+    @bitcoin = create(:asset, :bitcoin)
+    @usd = create(:asset, :usd)
+    create(:ticker, exchange: @exchange, base_asset: @bitcoin, quote_asset: @usd, base: 'BTC', quote: 'USD', ticker: 'BTCUSD')
+  end
+
+  test 'store! records the asset the venue lists for each row' do
+    list_btc_usd
+    @exchange.stubs(:get_ledger).returns(Result::Success.new(@ledger_entries))
+
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_equal @bitcoin, AccountTransaction.find_by(tx_id: 'trade-1').base_asset
+    assert_equal @usd, AccountTransaction.find_by(tx_id: 'deposit-1').base_asset, 'a quote spelling is the venue\'s name too'
+  end
+
+  test 'a resolver error still saves every row, with no asset' do
+    list_btc_usd
+    @exchange.stubs(:get_ledger).returns(Result::Success.new(@ledger_entries))
+    @exchange.stubs(:ledger_asset_ids).raises(StandardError, 'boom')
+    Rails.logger.expects(:error).with(regexp_matches(/could not resolve.*boom/i)).at_least_once
+
+    assert_predicate AccountTransactionSync.new(@api_key).sync!, :success?
+    assert_equal [nil, nil], AccountTransaction.order(:id).pluck(:base_asset_id)
+  end
+
+  # A first sync can run before the venue's listings have arrived. The next sync — daily, whether or
+  # not anyone visits — asks again for rows stored within the window.
+  test 'a row stored before its listing existed is resolved by the next sync' do
+    @exchange.stubs(:get_ledger).returns(Result::Success.new(@ledger_entries))
+    AccountTransactionSync.new(@api_key).sync!
+    assert_nil AccountTransaction.find_by(tx_id: 'trade-1').base_asset_id
+
+    list_btc_usd
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_equal @bitcoin.id, AccountTransaction.find_by(tx_id: 'trade-1').base_asset_id
+  end
+
+  # Past the window a name the venue lists NOW is not evidence of what it meant when the row was
+  # stored: a later relisting of a dead spelling must not be stamped onto it.
+  test 'a row stored longer ago than the window is left as it is' do
+    @exchange.stubs(:get_ledger).returns(Result::Success.new(@ledger_entries))
+    travel_to(8.days.ago) { AccountTransactionSync.new(@api_key).sync! }
+
+    list_btc_usd
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_nil AccountTransaction.find_by(tx_id: 'trade-1').base_asset_id
+  end
+
+  test 'a recorded asset is never overwritten' do
+    list_btc_usd
+    other = create(:asset)
+    @exchange.stubs(:get_ledger).returns(Result::Success.new(@ledger_entries.first(1)))
+    AccountTransactionSync.new(@api_key).sync!
+    AccountTransaction.update_all(base_asset_id: other.id)
+
+    AccountTransactionSync.new(@api_key).sync!
+
+    assert_equal other.id, AccountTransaction.sole.base_asset_id
+  end
 end
