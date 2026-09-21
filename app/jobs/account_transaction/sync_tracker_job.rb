@@ -40,7 +40,9 @@ class AccountTransaction::SyncTrackerJob < ApplicationJob
     api_key.record_sync_error!(Array(result.errors).first.to_s)
     exchange_name
   rescue StandardError => e
-    Rails.logger.error("[SyncTracker] #{api_key.exchange.name} failed: #{e.message}")
+    # Scrubbed: nothing upstream cleans an exception message, and this line is read by whatever
+    # watches the logs.
+    Rails.logger.error("[SyncTracker] #{api_key.exchange.name} failed: #{api_key.scrub(e.message)}")
     api_key.record_sync_error!(e)
     exchange_name
   end

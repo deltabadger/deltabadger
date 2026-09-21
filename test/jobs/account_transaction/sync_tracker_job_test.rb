@@ -117,4 +117,24 @@ class AccountTransaction::SyncTrackerJobTest < ActiveSupport::TestCase
 
     assert_equal deposit.id, withdrawal.reload.linked_transaction_id
   end
+
+  # This path swallows the exception so one exchange cannot stop the others, and logs its message
+  # first. An exception message is not scrubbed by anything upstream, so the log line scrubs it.
+  test "a logged sync failure never carries the key's own credentials" do
+    api_key = @api_key_binance
+    api_key.update!(key: 'shortkey', secret: 'lettersonlysecret')
+    AccountTransactionSync.any_instance.stubs(:sync!).raises(StandardError, 'rejected shortkey / lettersonlysecret')
+    logged = []
+    Rails.logger.stubs(:error).with do |msg|
+      logged << msg
+      true
+    end
+
+    AccountTransaction::SyncTrackerJob.new.send(:sync_exchange, api_key.user_id, api_key)
+
+    line = logged.find { |m| m.to_s.include?('[SyncTracker]') }
+    assert line, 'the failure is still logged'
+    assert_not_includes line, 'shortkey'
+    assert_not_includes line, 'lettersonlysecret'
+  end
 end
