@@ -484,7 +484,10 @@ class Exchange < ApplicationRecord
   # Two shapes of the same blip: honeymaker venues hand a network failure back as a Result, the
   # app-level clients (Alpaca, IBKR) raise Client::TransientNetworkError. Both are retried here,
   # and the raised one is re-raised once the attempts are spent.
-  def with_transient_retry(attempts: 3, base_delay: 0.5)
+  #
+  # retry_if: replaces the message check for a caller that decides on something else, such as the
+  # HTTP status honeymaker attaches to a failure.
+  def with_transient_retry(attempts: 3, base_delay: 0.5, retry_if: nil)
     tries = 0
     loop do
       tries += 1
@@ -496,7 +499,8 @@ class Exchange < ApplicationRecord
         sleep(base_delay * tries)
         next
       end
-      return result unless tries < attempts && result.respond_to?(:failure?) && result.failure? && transient_error?(result.errors)
+      return result unless tries < attempts && result.respond_to?(:failure?) && result.failure? &&
+                           (retry_if ? retry_if.call(result) : transient_error?(result.errors))
 
       sleep(base_delay * tries)
     end
