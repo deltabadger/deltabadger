@@ -18,7 +18,9 @@ class Settings::PlatformConnectionsControllerTest < ActionDispatch::IntegrationT
         assert_select '.segmented__option[data-value=coingecko]', text: 'CoinGecko'
         assert_select '.segmented__option[data-value=deltabadger]', text: 'Deltabadger.com'
       end
-      assert_select 'input[type=hidden][name=market_data_provider]', count: 1
+      # Counted in the switch's own form: with no CoinGecko key saved, the widget also carries the
+      # CoinGecko connect card, a separate form with its own provider field.
+      assert_select 'form.set-api__mode input[type=hidden][name=market_data_provider]', count: 1
       assert_select 'input[type=radio][name=market_data_provider]', count: 0
       # The claim is the same connect card, with what the subscription brings in place of a walkthrough.
       assert_select '[data-form--market-data-target=deltabadgerButtons] .set-api--connect' do
