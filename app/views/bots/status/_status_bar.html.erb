@@ -7,6 +7,12 @@
     <div class="bot-control__status__text" data-marquee-target="text">
       <%= t('bot.status.setting_orders') %>
     </div>
+  <% elsif bot.respond_to?(:excess_members) && bot.excess_members.positive? %>
+    <%# A merge can leave a basket over the cap. Before the unbalanced text: removing members leaves the
+        other weights as they were, so once the count is right that is the next thing to say. %>
+    <div class="bot-control__status__text" data-marquee-target="text">
+      <%= t('bot.dca_multi_asset.too_many_assets', count: bot.excess_members) %>
+    </div>
   <% elsif bot.respond_to?(:allocations_balanced?) && !bot.allocations_balanced? %>
     <%# The Start button next to this is disabled while the weights do not add up: say what unblocks it. %>
     <div class="bot-control__status__text" data-marquee-target="text">

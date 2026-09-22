@@ -168,7 +168,7 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_select '.wizard-assets__row', count: 0
   end
 
-  test 'a duplicate, an asset outside the search scope, and the twenty-first are ignored' do
+  test 'a duplicate, an asset outside the search scope, and the one past the cap are ignored' do
     btc = listed(:bitcoin)
     pick btc
     outside = create(:asset, symbol: 'OUT', name: 'Outside')
@@ -178,18 +178,20 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     pick btc
     assert_equal [btc.id], settings['base_asset_ids']
 
-    additions = 20.times.map { |i| listed(symbol: "A#{i}", name: "Asset #{i}") }
-    additions.first(19).each { |asset| pick asset }
-    assert_equal Bots::DcaMultiAsset::MAX_ASSETS, settings['base_asset_ids'].size
+    cap = Bots::DcaMultiAsset::MAX_ASSETS
+    additions = cap.times.map { |i| listed(symbol: "A#{i}", name: "Asset #{i}") }
+    additions.first(cap - 1).each { |asset| pick asset }
+    assert_equal cap, settings['base_asset_ids'].size
 
     pick additions.last
-    assert_equal Bots::DcaMultiAsset::MAX_ASSETS, settings['base_asset_ids'].size
+    assert_equal cap, settings['base_asset_ids'].size
     refute_includes settings['base_asset_ids'], additions.last.id
   end
 
-  test 'with twenty assets the step renders the cap note and no search input' do
-    assets = 21.times.map { |i| listed(symbol: "A#{i}", name: "Asset #{i}") }
-    assets.first(20).each { |asset| pick asset }
+  test 'at the cap the step renders the cap note and no search input' do
+    cap = Bots::DcaMultiAsset::MAX_ASSETS
+    assets = (cap + 1).times.map { |i| listed(symbol: "A#{i}", name: "Asset #{i}") }
+    assets.first(cap).each { |asset| pick asset }
 
     get step_path
 
@@ -197,9 +199,9 @@ class Bots::DcaSingleAssets::PickBuyableAssetsControllerTest < ActionDispatch::I
     assert_select '.modal--search__input', count: 0
     # The stack previews five chips and counts the rest as a plain number.
     assert_select '.conversational__stack .ticker', count: 5
-    assert_select '.conversational__stack .conversational__stack-count', text: '+15'
+    assert_select '.conversational__stack .conversational__stack-count', text: "+#{cap - 5}"
     assert_select '.conversational__stack .ticker--more', count: 0
-    assert_select '.text-inactive', text: I18n.t('bot.dca_multi_asset.max_assets_reached', max: 20)
+    assert_select '.text-inactive', text: I18n.t('bot.dca_multi_asset.max_assets_reached', max: cap)
   end
 
   test 'picking with an exchange already chosen keeps the exchange' do

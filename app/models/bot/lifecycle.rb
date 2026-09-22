@@ -38,7 +38,16 @@ module Bot::Lifecycle
     # since BroadcastAfterScheduledActionJob will handle it after the job is persisted
     @skip_status_bar_broadcast = !set_orders_now
 
-    if valid?(:start) && save
+    # One transaction for the check and the save: a Start that loaded this row before a delete or a
+    # merge committed must not write :scheduled over :deleted and arm a tick for an emptied bot. The
+    # adapter opens transactions as BEGIN IMMEDIATE, so the read here is serialised with that commit.
+    started = transaction do
+      next false if self.class.where(id:, status: :deleted).exists?
+
+      valid?(:start) && save
+    end
+
+    if started
       # Cancel any chain that is already live before arming a new one. Without this a start leaves
       # TWO chains for one bot, and because start_fresh also resets started_at — the anchor
       # next_interval_checkpoint_at computes the grid from — both chains reschedule off the SAME

@@ -8,6 +8,7 @@ module Bots::DcaMultiAsset::Allocatable
     before_validation :derive_allocations_from_base_asset_ids, on: :create
     before_validation :pin_lone_weight
     validate :validate_allocations
+    validate :validate_member_count, on: :start
     validate :validate_allocations_balanced, on: :start
     validate :validate_composition_pairs,
              if: -> { exchange_id? && (new_record? || composition_changed_pending? || will_save_change_to_exchange_id?) }
@@ -41,6 +42,10 @@ module Bots::DcaMultiAsset::Allocatable
 
   def allocations_total = allocations.values.sum(&:to_f)
 
+  # How many members past the cap. Members only, never exited rows: the cap is about what the bot
+  # buys, and the status bar tells the user this many to remove.
+  def excess_members = [base_asset_ids.size - self.class::MAX_ASSETS, 0].max
+
   def allocations_balanced?
     # A derived basket does not own its weights, so the slider total is not a gate on starting it.
     return true if try(:market_cap_weighted?)
@@ -69,20 +74,26 @@ module Bots::DcaMultiAsset::Allocatable
 
   # String keys (JSON), floats, 3 dp, sum exactly 1. Three decimals is the slider's 0.1% step: a
   # finer weight would be snapped by the range input on the next render and stop adding up to 100%.
-  # Negative inputs clamp to 0. The residual goes to the largest weight: on the last key it could
-  # make a tiny allocation negative. Zero is a legal weight — a parked asset stays a member.
+  # Negative inputs clamp to 0. Zero is a legal weight — a parked asset stays a member.
+  #
+  # Thousandths are handed out by largest remainder: each share is floored, and the units left over
+  # go to the biggest fractional parts, ties in insertion order. Rounding each share and dumping the
+  # residual on the largest key went negative past a hundred members — 102 equal shares all round up
+  # to 0.010 and the largest ends at -0.02 — which validate_allocations then refuses.
   def normalize_allocations(hash)
     entries = hash.to_h { |key, value| [key.to_s, [value.to_f, 0].max] }
-    total = entries.values.sum
     return entries if entries.empty?
 
+    total = entries.values.sum
     entries.transform_values! { 1.0 } unless total.positive?
     total = entries.values.sum
 
-    rounded = entries.transform_values { |value| (value / total).round(3) }
-    largest = rounded.max_by { |_, value| value }.first
-    rounded[largest] = (rounded[largest] + (1 - rounded.values.sum)).round(3)
-    rounded
+    exact = entries.transform_values { |value| value / total * 1000 }
+    units = exact.transform_values(&:floor)
+    leftover = 1000 - units.values.sum
+    exact.keys.sort_by.with_index { |key, index| [-(exact[key] - units[key]), index] }
+         .first(leftover).each { |key| units[key] += 1 }
+    units.transform_values { |value| value / 1000.0 }
   end
 
   def equal_allocations(ids) = normalize_allocations(ids.uniq.to_h { |id| [id, 1.0] })
@@ -125,15 +136,12 @@ module Bots::DcaMultiAsset::Allocatable
     self.allocations = allocations.transform_values { 1.0 } if allocations.one?
   end
 
-  # One member is a basket too — the single-asset bot it replaces.
+  # One member is a basket too — the single-asset bot it replaces. The cap is not checked here: a
+  # merge can leave a basket over it, and the user then has to be able to save every removal on the
+  # way back under it. It gates starting instead (validate_member_count).
   def validate_allocations
     keys = allocations.keys
-    max = self.class::MAX_ASSETS
     errors.add(:allocations, :too_few, message: I18n.t('errors.bots.multi_asset.min_assets')) if keys.empty?
-    if keys.size > max
-      errors.add(:allocations, :too_many,
-                 message: I18n.t('errors.bots.multi_asset.max_assets', max:))
-    end
 
     # A malformed value is a validation error, not an exception from #sum or #between?.
     values = allocations.values
@@ -145,6 +153,15 @@ module Bots::DcaMultiAsset::Allocatable
     end
     errors.add(:allocations, :invalid) if quote_asset_id.present? && keys.include?(quote_asset_id.to_s)
     errors.add(:allocations, :invalid) unless Asset.where(id: keys).count == keys.size
+  end
+
+  # On :base, not :allocations: the REST and MCP start paths return full_messages, and "Allocations Too
+  # many assets. Remove 3." is not a sentence.
+  def validate_member_count
+    return unless excess_members.positive?
+
+    errors.add(:base, :too_many_assets,
+               message: I18n.t('bot.dca_multi_asset.too_many_assets', count: excess_members))
   end
 
   def validate_allocations_balanced

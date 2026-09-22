@@ -71,6 +71,16 @@ pl:
             restricted: "%{exchange} nie pozwala handlować tym aktywem z Twojego regionu."
             rate_limited: "%{exchange} ogranicza liczbę żądań. Bot automatycznie ponowi próbę."
         bots:
+            merge:
+                missing: "Jednego z tych botów już nie ma. Wybierz ponownie."
+                too_few: "Wybierz co najmniej dwa boty."
+                unavailable: "%{label} nie może teraz zostać połączony."
+                no_common_exchange: "Żadna giełda nie notuje wszystkich tych aktywów razem."
+                open_orders: "%{label} ma otwarte zlecenia na %{exchange}. Najpierw je anuluj."
+                external_sales: "%{label} sprzedał aktywa, których tu nie kupił, więc jego historii nie da się połączyć."
+                interleaved: "Wspólna historia tych botów zmieniłaby ich łączny wynik, więc nie da się ich połączyć."
+                quote: "Wszystkie boty muszą wydawać tę samą walutę."
+                nothing_to_buy: "Żadne z tych aktywów nie jest już notowane na tej giełdzie."
             multi_asset:
                 condition_subject: "Ten warunek musi dotyczyć aktywa, które bot posiada."
                 min_assets: "Portfel musi zawierać co najmniej jedno aktywo."

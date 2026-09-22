@@ -71,6 +71,16 @@ de:
             restricted: "%{exchange} erlaubt den Handel mit diesem Asset aus deiner Region nicht."
             rate_limited: "%{exchange} drosselt gerade die Anfragen. Der Bot versucht es automatisch erneut."
         bots:
+            merge:
+                missing: "Einer dieser Bots existiert nicht mehr. Wähle erneut."
+                too_few: "Wähle mindestens zwei Bots."
+                unavailable: "%{label} kann gerade nicht zusammengeführt werden."
+                no_common_exchange: "Keine Börse listet alle diese Assets zusammen."
+                open_orders: "%{label} hat offene Orders auf %{exchange}. Storniere sie zuerst."
+                external_sales: "%{label} hat Assets verkauft, die es hier nie gekauft hat, daher lässt sich seine Historie nicht zusammenführen."
+                interleaved: "Zusammen ergäben die Historien dieser Bots ein anderes Gesamtergebnis, daher lassen sie sich nicht zusammenführen."
+                quote: "Alle Bots müssen dieselbe Währung ausgeben."
+                nothing_to_buy: "Keines dieser Assets wird an dieser Börse noch gehandelt."
             multi_asset:
                 condition_subject: "Diese Bedingung muss sich auf einen Vermögenswert beziehen, den der Bot hält."
                 min_assets: "Ein Portfolio benötigt mindestens ein Asset."

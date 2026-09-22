@@ -120,8 +120,9 @@ export default class extends Controller {
     }
   }
 
-  // Pin below the pill, clamped to the viewport. The shared popover lives in the top layer,
-  // so these viewport coordinates are correct even inside transformed/overflow ancestors.
+  // Pin below the pill — above it when the card would run off the bottom (the merge bar) — clamped
+  // to the viewport. The shared popover lives in the top layer, so these viewport coordinates are
+  // correct even inside transformed/overflow ancestors.
   #position(pill) {
     const tip = this.tooltip;
     const anchor = pill.getBoundingClientRect();
@@ -138,8 +139,11 @@ export default class extends Controller {
     if (left + rect.width > window.innerWidth - margin) left = window.innerWidth - margin - rect.width;
     if (left < margin) left = margin;
 
+    let top = anchor.bottom + 6;
+    if (top + rect.height > window.innerHeight - margin) top = Math.max(margin, anchor.top - 6 - rect.height);
+
     tip.style.left = `${left}px`;
-    tip.style.top = `${anchor.bottom + 6}px`;
+    tip.style.top = `${top}px`;
   }
 
   #buildTooltip() {

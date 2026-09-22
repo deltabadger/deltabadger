@@ -64,6 +64,16 @@ cs:
             restricted: "%{exchange} neumožňuje obchodovat toto aktivum z vašeho regionu."
             rate_limited: "%{exchange} omezuje počet požadavků. Bot to automaticky zkusí znovu."
         bots:
+            merge:
+                missing: "Jeden z těchto botů už neexistuje. Vyberte znovu."
+                too_few: "Vyberte alespoň dva boty."
+                unavailable: "%{label} teď nelze sloučit."
+                no_common_exchange: "Žádná burza neobchoduje všechna tato aktiva společně."
+                open_orders: "%{label} má otevřené příkazy na %{exchange}. Nejprve je zrušte."
+                external_sales: "%{label} prodal aktiva, která zde nikdy nekoupil, takže jeho historii nelze sloučit."
+                interleaved: "Spojením historií těchto botů by se změnil jejich celkový výsledek, proto je nelze sloučit."
+                quote: "Všichni boti musí utrácet stejnou měnu."
+                nothing_to_buy: "Žádné z těchto aktiv se na této burze už neobchoduje."
             multi_asset:
                 condition_subject: "Tato podmínka se musí týkat aktiva, které bot drží."
                 min_assets: "Portfolio musí obsahovat alespoň jedno aktivum."

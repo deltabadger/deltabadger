@@ -2,7 +2,7 @@
 
 class CreateBotTool < ApplicationMCPTool
   tool_name 'create_bot'
-  description 'Create and start a DCA bot: one base asset, or a basket of up to 20 with weights.'
+  description 'Create and start a DCA bot: one base asset, or a basket of up to 100 with weights.'
 
   property :exchange_name, type: 'string', required: true, description: 'Exchange name (e.g., Binance, Kraken, Coinbase, Alpaca)'
   property :base_asset, type: 'string', description: 'Asset symbol to buy (e.g., BTC, ETH, QQQM). Required unless assets is given.'

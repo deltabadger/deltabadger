@@ -8,6 +8,16 @@ ru:
             pick_exchange_first: "Начни инвестировать."
             connect_alpaca_html: "Чтобы инвестировать в акции, сначала подключите Alpaca в %{settings_link}."
             settings_link: "Настройках"
+        merge:
+            title: "Объединение ботов: %{count}"
+            pick_hint: "Выберите ботов."
+            explanation_html: "История их покупок будет объединена в одном новом боте, который инвестирует %{quote} на %{exchange} в:"
+            deleted_note: "Исходные боты будут удалены."
+            success: "Боты объединены."
+            no_partner: "Ни один другой бот не тратит %{quote}."
+            no_shared_exchange: "Ни один другой бот в %{quote} не торгует с ним на одной бирже."
+            other_exchange: "Новый бот будет на %{exchange}."
+            assets_stay: "Активы, купленные на других биржах, остаются там же."
         dca_multi_asset:
             add_asset: "Добавить актив"
             remove_asset: "Удалить"
@@ -18,6 +28,7 @@ ru:
             allocation_sum: "Итого"
             normalize: "Нормализовать"
             normalize_first: "Сначала нормализуйте доли."
+            too_many_assets: "Слишком много активов. Удалите %{count}."
         dca_index:
             setup:
                 step_index: "Индекс"

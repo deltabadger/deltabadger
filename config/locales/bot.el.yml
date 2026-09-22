@@ -7,6 +7,16 @@ el:
             pick_exchange_first: "Ξεκίνα να επενδύεις."
             connect_alpaca_html: "Για να επενδύσεις σε μετοχές, σύνδεσε πρώτα το Alpaca στις %{settings_link}."
             settings_link: "Ρυθμίσεις"
+        merge:
+            title: "Συγχώνευση %{count} bots"
+            pick_hint: "Επιλέξτε bots."
+            explanation_html: "Το ιστορικό αγορών τους θα συγχωνευθεί σε ένα νέο bot που επενδύει %{quote} στο %{exchange} σε:"
+            deleted_note: "Τα αρχικά bots θα διαγραφούν."
+            success: "Τα bots συγχωνεύθηκαν."
+            no_partner: "Κανένα άλλο bot δεν ξοδεύει %{quote}."
+            no_shared_exchange: "Κανένα άλλο bot σε %{quote} δεν μοιράζεται ανταλλακτήριο με αυτό."
+            other_exchange: "Το νέο bot θα είναι στο %{exchange}."
+            assets_stay: "Τα περιουσιακά στοιχεία που αγοράστηκαν σε άλλα ανταλλακτήρια μένουν εκεί που είναι."
         dca_multi_asset:
             add_asset: "Προσθήκη περιουσιακού στοιχείου"
             remove_asset: "Αφαίρεση"
@@ -17,6 +27,7 @@ el:
             allocation_sum: "Σύνολο"
             normalize: "Κανονικοποίηση"
             normalize_first: "Πρώτα κανονικοποιήστε την κατανομή."
+            too_many_assets: "Πάρα πολλά περιουσιακά στοιχεία. Αφαιρέστε %{count}."
         dca_index:
             setup:
                 step_index: "Δείκτης"

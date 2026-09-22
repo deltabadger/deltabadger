@@ -11,6 +11,8 @@ de:
             <p>Wenn Sie in den letzten %{years}&nbsp;Jahren regelmäßig in Bitcoin investiert hätten, lägen Sie jetzt <b style="color: #00A36C;">%{profit}%</b> im Plus.</p>
             <p>Das sind <b style="color: #00A36C;">%{sp500_diff}%</b> mehr als der S&P 500 im gleichen Zeitraum.</p>
     button:
+        merge: 'Zusammenführen'
+        confirm: 'Bestätigen'
         ok: 'OK'
         understand: 'Verstanden!'
         update: 'Aktualisieren'
@@ -693,6 +695,7 @@ de:
         other: 'Sonstige'
     bot_activity:
         events:
+            merged: "Zusammengeführt aus %{labels}"
             dca_skipped_restatement: "Beitrag übersprungen — ein Aktiensplit, den der Markt noch nicht bepreist hat"
             dca_skipped_wash_sale: "Nichts gekauft — jeder Bestandteil steckt in einer Sperrfrist"
             wash_sale_locked: "%{base} verkauft — bis einschließlich %{until} kein Rückkauf, damit der Verlust aus dem Verkauf erhalten bleibt"

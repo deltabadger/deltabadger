@@ -7,6 +7,16 @@ da:
             pick_exchange_first: "Begynd at investere."
             connect_alpaca_html: "For at investere i aktier skal du først forbinde Alpaca i %{settings_link}."
             settings_link: "Indstillinger"
+        merge:
+            title: "Flet %{count} botter"
+            pick_hint: "Vælg botter."
+            explanation_html: "Deres købshistorik flettes til én ny bot, der investerer %{quote} på %{exchange} i:"
+            deleted_note: "De oprindelige botter slettes."
+            success: "Botterne er flettet."
+            no_partner: "Ingen anden bot bruger %{quote}."
+            no_shared_exchange: "Ingen anden %{quote}-bot deler børs med denne."
+            other_exchange: "Den nye bot kommer på %{exchange}."
+            assets_stay: "Aktiver købt på andre børser bliver, hvor de er."
         dca_multi_asset:
             add_asset: "Tilføj aktiv"
             remove_asset: "Fjern"
@@ -17,6 +27,7 @@ da:
             allocation_sum: "I alt"
             normalize: "Normaliser"
             normalize_first: "Normaliser fordelingen først."
+            too_many_assets: "For mange aktiver. Fjern %{count}."
         dca_index:
             setup:
                 step_index: "Indeks"

@@ -24,6 +24,8 @@ class BotsController < ApplicationController
             else scope.not_archived
             end
     @bots = @bots.ordered
+    # Which tiles the dashboard's Merge can pick; computed once here, read by the button and every tile.
+    @mergeable_ids = @bots.select { |bot| Bot::Merge.mergeable?(bot) }.to_set(&:id)
 
     @total_bots = current_user.bots.not_deleted.not_archived.size
     @has_active = current_user.bots.not_deleted.working.exists?

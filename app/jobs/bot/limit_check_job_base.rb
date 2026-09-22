@@ -15,7 +15,10 @@ class Bot::LimitCheckJobBase < ApplicationJob
     end
 
     if result.data
-      bot.update!(status: :scheduled)
+      # Atomic, against the row as it is now: `waiting?` above was read before the price lookup, and a
+      # bot stopped, deleted or merged away in the meantime must not be re-armed by a stale instance.
+      return unless rearm!(bot)
+
       Bot::ActionJob.perform_later(bot)
     else
       enqueue_next_poll(bot, next_check_at(bot))
@@ -31,6 +34,20 @@ class Bot::LimitCheckJobBase < ApplicationJob
   end
 
   private
+
+  # waiting → scheduled as one conditional write, so only a bot that is still waiting changes. The
+  # instance is synced without a reload (which would drop memoised associations), and the tile is
+  # told the way a save would have told it.
+  def rearm!(bot)
+    updated = Bot.where(id: bot.id, status: Bot.statuses[:waiting])
+                 .update_all(status: Bot.statuses[:scheduled], updated_at: Time.current) == 1
+    return false unless updated
+
+    bot.status = :scheduled
+    bot.broadcast_status_bar_update
+    bot.broadcast_status_button_update
+    true
+  end
 
   def reschedule_after_transient(bot, reason)
     Rails.logger.warn("#{self.class.name.demodulize} for bot #{bot.id} failed: #{reason}. Retrying in 1 minute.")

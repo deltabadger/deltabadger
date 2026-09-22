@@ -11,6 +11,8 @@ it:
             <p>Se avessi fatto dollar-cost averaging in Bitcoin negli ultimi %{years}&nbsp;anni, ora saresti in attivo del <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Questo è <b style="color: #00A36C;">%{sp500_diff}%</b> in più rispetto all'S&P 500 nello stesso periodo.</p>
     button:
+        merge: 'Unisci'
+        confirm: 'Conferma'
         ok: 'OK'
         understand: 'Capito!'
         update: 'Aggiorna'
@@ -692,6 +694,7 @@ it:
         other: 'Altri'
     bot_activity:
         events:
+            merged: "Unito da %{labels}"
             dca_skipped_restatement: "Versamento saltato — uno split che il mercato non ha ancora prezzato"
             dca_skipped_wash_sale: "Nessun acquisto — ogni componente è in attesa fiscale"
             wash_sale_locked: "%{base} venduto — nessun riacquisto fino al %{until} incluso, così la perdita della vendita non viene annullata"

@@ -1,7 +1,7 @@
 class Bots::DcaIndex < Bot
   include ActionCable::Channel::Broadcasting
 
-  MAX_COINS = 50
+  MAX_COINS = 100
   MIN_COINS = 2
 
   INDEX_TYPE_TOP = 'top'.freeze
@@ -125,7 +125,7 @@ class Bots::DcaIndex < Bot
   end
 
   def execute_action
-    first_tick = transactions.none? # before anything is placed: see broadcast_below_minimums_warning
+    first_tick = own_transactions.none? # before anything is placed: see broadcast_below_minimums_warning
     update!(status: :executing)
 
     # Orders must use the composition derived for this tick.
@@ -244,7 +244,7 @@ class Bots::DcaIndex < Bot
     result = MarketData.get_top_coins(
       index_type: index_type,
       category_id: index_category_id,
-      limit: bounded_universe_size || 150
+      limit: bounded_universe_size || 250
     )
     return [] if result.failure?
 

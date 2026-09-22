@@ -64,6 +64,16 @@ da:
             restricted: "%{exchange} tillader ikke handel med dette aktiv fra din region."
             rate_limited: "%{exchange} begrænser antallet af anmodninger. Botten prøver automatisk igen."
         bots:
+            merge:
+                missing: "En af disse botter findes ikke længere. Vælg igen."
+                too_few: "Vælg mindst to botter."
+                unavailable: "%{label} kan ikke flettes lige nu."
+                no_common_exchange: "Ingen børs handler alle disse aktiver sammen."
+                open_orders: "%{label} har åbne ordrer på %{exchange}. Annuller dem først."
+                external_sales: "%{label} solgte aktiver, den aldrig købte her, så dens historik kan ikke flettes."
+                interleaved: "Samlet ville disse botters historik give et andet samlet resultat, så de kan ikke flettes."
+                quote: "Alle botter skal bruge samme valuta."
+                nothing_to_buy: "Ingen af disse aktiver handles længere på denne børs."
             multi_asset:
                 condition_subject: "Denne betingelse skal gælde et aktiv, som botten ejer."
                 min_assets: "En portefølje skal indeholde mindst ét aktiv."

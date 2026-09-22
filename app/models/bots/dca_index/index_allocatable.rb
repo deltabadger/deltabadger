@@ -50,7 +50,7 @@ module Bots::DcaIndex::IndexAllocatable
   def derive_composition
     # A bounded index publishes its whole membership, so ask for all of it; a ranking is over-fetched
     # to cover names the venue does not list.
-    fetch_limit = bounded_universe_size || [effective_num_coins.to_i * 3, 100].min
+    fetch_limit = bounded_universe_size || [effective_num_coins.to_i * 3, 250].min
 
     result = MarketData.get_top_coins(
       index_type: index_type,

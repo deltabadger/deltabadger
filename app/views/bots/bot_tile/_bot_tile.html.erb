@@ -1,7 +1,27 @@
 <%# draggable="false" on the link is load-bearing: an anchor is implicitly draggable, so without it
     the browser drags the link out of the page instead of picking the tile up. Clicking through to
     the bot is unaffected — a completed drag fires no click. %>
-<div class="widget bot-tile" id="<%= dom_id(bot, :tile) %>" data-bot-id="<%= bot.id %>" draggable="true">
+<%# What the dashboard's Merge needs to know about this tile, on the root because nothing ever replaces
+    the root: whether it can be picked, what it spends, whether it has orders resting on its venue, and
+    its members as the chips the merge bar shows — each chip naming the venues that list it at this
+    quote, so the bar can tell whether one venue lists everything picked. Computed once per page in
+    BotsController#index; the fallback keeps the partial renderable on its own. %>
+<% mergeable = local_assigns.key?(:mergeable_ids) ? mergeable_ids.include?(bot.id) : Bot::Merge.mergeable?(bot) %>
+<div class="widget bot-tile" id="<%= dom_id(bot, :tile) %>" data-bot-id="<%= bot.id %>" draggable="true"
+     data-merge-ok="<%= mergeable %>" data-merge-exchange="<%= bot.exchange_id %>"
+     data-merge-quote="<%= bot.try(:quote_asset_id) %>" data-merge-quote-symbol="<%= bot.try(:quote_asset)&.symbol %>"
+     data-merge-open-orders="<%= mergeable && bot.transactions.waiting.exists? %>">
+  <% if mergeable %>
+    <% members = Bot::Merge.members(bot) %>
+    <% venues = Bot::Merge.venues_for(members.map(&:id), bot.quote_asset_id) %>
+    <template data-merge-chips>
+      <% members.each do |asset| %>
+        <%= tag.div asset.symbol, class: ticker_class(asset),
+                    style: "background: #{ensure_contrast(asset.color || '#8A9BA8')}",
+                    data: ticker_data(asset).merge(exchanges: Array(venues[asset.id]).join(',')) %>
+      <% end %>
+    </template>
+  <% end %>
   <%= link_to bot_path(bot), draggable: "false" do %>
     <div class="bot-tile__header">
       <div class="bot-tile__hgroup">

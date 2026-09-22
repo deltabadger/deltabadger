@@ -180,7 +180,7 @@ class BotApi::Bots::CreateTest < ActiveSupport::TestCase
   end
 
   test 'basket size is bounded and symbols are unique' do
-    too_many = (1..21).map { |i| "A#{i}" }.join(',')
+    too_many = (1..(Bots::DcaMultiAsset::MAX_ASSETS + 1)).map { |i| "A#{i}" }.join(',')
     assert_equal 'invalid_basket',
                  BotApi::Bots::Create.call(user: @user, **base_params.except(:base_asset), assets: too_many).error_code
     assert_equal 'invalid_basket',

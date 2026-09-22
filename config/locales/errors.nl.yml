@@ -71,6 +71,16 @@ nl:
             restricted: "%{exchange} staat handel in deze asset vanuit jouw regio niet toe."
             rate_limited: "%{exchange} beperkt het aantal verzoeken. De bot probeert het automatisch opnieuw."
         bots:
+            merge:
+                missing: "Een van deze bots bestaat niet meer. Kies opnieuw."
+                too_few: "Kies minstens twee bots."
+                unavailable: "%{label} kan nu niet worden samengevoegd."
+                no_common_exchange: "Geen enkele exchange noteert al deze assets samen."
+                open_orders: "%{label} heeft openstaande orders op %{exchange}. Annuleer die eerst."
+                external_sales: "%{label} heeft assets verkocht die het hier nooit heeft gekocht, dus zijn geschiedenis kan niet worden samengevoegd."
+                interleaved: "Samen zouden de geschiedenissen van deze bots een ander totaalresultaat geven, dus ze kunnen niet worden samengevoegd."
+                quote: "Alle bots moeten dezelfde valuta uitgeven."
+                nothing_to_buy: "Geen van deze assets wordt nog op deze exchange verhandeld."
             multi_asset:
                 condition_subject: "Deze voorwaarde moet betrekking hebben op een asset die de bot aanhoudt."
                 min_assets: "Een portefeuille moet minstens één activum bevatten."
