@@ -56,28 +56,48 @@ class Bots::DcaIndexLiquidationAccountingTest < ActiveSupport::TestCase
     assert_in_delta 150, metrics[:rebalance_cash].to_f, 0.0001
   end
 
-  test 'recycling the proceeds does not count them as new money invested' do
+  # The schedule keeps its own rhythm and its own money: it buys what the user set it to buy,
+  # funded by whatever the user pays in. The proceeds of a sale are a question the user answers
+  # themselves, so they wait for that answer instead of being spent by the next contribution.
+  test 'a contribution after a sale is new money, and the proceeds keep waiting' do
     buy('AAA', quote: 100, price: 100)
     buy('BBB', quote: 100, price: 100)
     liquidate('AAA', amount: 1, quote: 150, price: 150)
 
-    buy('BBB', quote: 150, price: 100) # the DCA leg spends the proceeds
+    buy('BBB', quote: 150, price: 100)
 
     metrics = @bot.metrics(force: true)
-    assert_in_delta 200, metrics[:total_quote_amount_invested].to_f, 0.0001,
-                    'still only the 200 the user actually contributed'
-    assert_in_delta 250, metrics[:total_amount_value_in_quote].to_f, 0.0001
-    assert_in_delta 50, metrics[:realised_pnl].to_f, 0.0001, 'recycling profit does not un-realise it'
+    assert_in_delta 350, metrics[:total_quote_amount_invested].to_f, 0.0001,
+                    'the user paid in 350 across three contributions'
+    assert_in_delta 400, metrics[:total_amount_value_in_quote].to_f, 0.0001,
+                    '250 of BBB plus the 150 the sale fetched'
+    assert_in_delta 150, metrics[:realised_cash].to_f, 0.0001, 'still there to be redeployed'
+    assert_in_delta 50, metrics[:realised_pnl].to_f, 0.0001
   end
 
-  test 'a buy larger than the proceeds counts only the excess as contributed' do
+  test 'no run of contributions eats the proceeds' do
     buy('AAA', quote: 100, price: 100)
     liquidate('AAA', amount: 1, quote: 100, price: 100)
 
-    buy('BBB', quote: 160, price: 100)
+    4.times { buy('BBB', quote: 40, price: 100) }
 
-    assert_in_delta 160, @bot.metrics(force: true)[:total_quote_amount_invested].to_f, 0.0001,
-                    '100 recycled + 60 of new money, on top of the original 100'
+    metrics = @bot.metrics(force: true)
+    assert_in_delta 100, metrics[:realised_cash].to_f, 0.0001
+    assert_in_delta 260, metrics[:total_quote_amount_invested].to_f, 0.0001, '100 + four contributions of 40'
+  end
+
+  # The one thing that does spend them, and the money is then not new.
+  test 'redeploying the proceeds is what finally spends them' do
+    buy('AAA', quote: 100, price: 100)
+    liquidate('AAA', amount: 1, quote: 150, price: 150)
+    buy('BBB', quote: 50, price: 100)
+
+    redeploy('BBB', quote: 150, price: 100)
+
+    metrics = @bot.metrics(force: true)
+    assert_in_delta 0, metrics[:realised_cash].to_f, 0.0001
+    assert_in_delta 150, metrics[:total_quote_amount_invested].to_f, 0.0001,
+                    'the 100 and the 50 the user paid in; the redeploy was their own money coming back'
   end
 
   test 'the bought asset books what it actually cost, not the recycled basis' do
@@ -183,6 +203,10 @@ class Bots::DcaIndexLiquidationAccountingTest < ActiveSupport::TestCase
 
   def buy(symbol, quote:, price:)
     create_order(symbol, amount: quote.to_d / price, quote:, price:, side: :buy, type: 'REGULAR')
+  end
+
+  def redeploy(symbol, quote:, price:)
+    create_order(symbol, amount: quote.to_d / price, quote:, price:, side: :buy, type: 'REDEPLOY')
   end
 
   def rebalance_buy(symbol, quote:, price:)

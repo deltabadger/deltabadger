@@ -432,6 +432,9 @@ module Bot::Composition::Measurable
   # rebalance_cash, which the redeploy offer reads — without the bump an existing bot serves a hash
   # with no such key for up to 30 days and the prompt never appears. _v6: holdings are restated
   # through corporate actions, so every count, value and chart point in here can differ.
+  # _v10: a scheduled contribution no longer spends a liquidation's proceeds, so every bot that sold a
+  # position and kept contributing reads a higher invested and a higher value — and its redeploy offer
+  # comes back if it was never answered.
   # _v7: per-asset FIFO tax lots and the harvestable flag. _v8: a scheduled (REGULAR) sell realizes into
   # its own never-drained bucket instead of reading as a half-finished swap — CSV-imported sells are
   # REGULAR, so a basket that imported any reads different figures. _v9: one holding per asset, keyed
@@ -440,7 +443,7 @@ module Bot::Composition::Measurable
   # the old numbers after a deploy.
   # A method, not a literal: the tests that seed this cache were reading the string off the source.
   def metrics_cache_key
-    "bot_#{id}_metrics_v9_#{restatement_generation}"
+    "bot_#{id}_metrics_v10_#{restatement_generation}"
   end
 
   def metrics_with_current_prices_cache_key

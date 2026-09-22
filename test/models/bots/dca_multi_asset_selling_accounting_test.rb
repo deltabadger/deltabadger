@@ -91,11 +91,23 @@ class Bots::DcaMultiAssetSellingAccountingTest < ActiveSupport::TestCase
     assert_in_delta 100, metrics[:total_amount_value_in_quote].to_f, 0.0001
   end
 
-  test 'a scheduled sale never re-opens a liquidation offer the DCA leg already spent' do
+  test 'a scheduled sale adds nothing to what a liquidation put on offer' do
     buy('AAA', quote: 100, price: 100)
     buy('BBB', quote: 100, price: 100)
     create_order('AAA', amount: 1, quote: 100, price: 100, side: :sell, transaction_type: 'LIQUIDATION')
-    buy('BBB', quote: 100, price: 100) # drains the liquidation's realised cash
+
+    sell('BBB', amount: 0.6, quote: 60, price: 100)
+
+    assert_equal 100, @bot.redeploy_offer(@bot.metrics(force: true)),
+                 'money on its way out is not money to put back in'
+  end
+
+  test 'a scheduled sale never re-opens an offer the user declined' do
+    buy('AAA', quote: 100, price: 100)
+    buy('BBB', quote: 100, price: 100)
+    create_order('AAA', amount: 1, quote: 100, price: 100, side: :sell, transaction_type: 'LIQUIDATION')
+    @bot.decline_redeploy!
+
     sell('BBB', amount: 0.6, quote: 60, price: 100)
 
     assert_equal 0, @bot.redeploy_offer(@bot.metrics(force: true))
