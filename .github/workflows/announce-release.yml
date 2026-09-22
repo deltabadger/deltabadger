@@ -90,13 +90,21 @@ jobs:
           # but fails is a hard error, because a silent announcement is the failure worth seeing.
           # Each channel is attempted regardless of the other: a misconfigured Telegram should not
           # cost Discord its announcement too.
-          if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
-            post Telegram -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
-              --data-urlencode "chat_id=@deltabadger" \
-              --data-urlencode "text=$(message 3900)" \
-              --data-urlencode 'link_preview_options={"is_disabled": true}'
-          else
-            echo "::notice::Telegram announcement skipped — set the TELEGRAM_BOT_TOKEN repository secret."
+          #
+          # A patch stays in Discord's releases channel; a minor or major (x.y.0) is news for
+          # everyone, so only those reach Telegram and Discord's general channel.
+          minor_or_major=false
+          [[ "$TAG" =~ ^v?[0-9]+\.[0-9]+\.0$ ]] && minor_or_major=true
+
+          if [ "$minor_or_major" = true ]; then
+            if [ -n "$TELEGRAM_BOT_TOKEN" ]; then
+              post Telegram -X POST "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+                --data-urlencode "chat_id=@deltabadger" \
+                --data-urlencode "text=$(message 3900)" \
+                --data-urlencode 'link_preview_options={"is_disabled": true}'
+            else
+              echo "::notice::Telegram announcement skipped — set the TELEGRAM_BOT_TOKEN repository secret."
+            fi
           fi
 
           if [ -n "$DISCORD_WEBHOOK" ]; then
@@ -107,9 +115,8 @@ jobs:
             echo "::notice::Discord announcement skipped — set the DISCORD_WEBHOOK repository secret."
           fi
 
-          # A Discord webhook is bound to one channel, so the general channel has its own. A patch
-          # stays in the releases channel; a minor or major (x.y.0) is news for everyone.
-          if [[ "$TAG" =~ ^v?[0-9]+\.[0-9]+\.0$ ]]; then
+          # A Discord webhook is bound to one channel, so the general channel has its own.
+          if [ "$minor_or_major" = true ]; then
             if [ -n "$DISCORD_WEBHOOK_GENERAL" ]; then
               post "Discord general" -H 'Content-Type: application/json' \
                 --data-raw "$(jq -n --arg content "$(message 1850)" '{content: $content, flags: 4}')" \
