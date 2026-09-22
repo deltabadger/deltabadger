@@ -62,13 +62,13 @@ class SettingsRestToolPermissionsTest < ActionDispatch::IntegrationTest
     assert_select 'a[href=?]', settings_download_api_docs_path
   end
 
-  test 'GET /settings/download_api_docs returns docs/api.md as a markdown attachment' do
+  test 'GET /settings/download_api_docs returns the API reference as a markdown attachment' do
     get settings_download_api_docs_path
 
     assert_response :success
     assert_match(%r{text/markdown}, response.headers['Content-Type'])
     assert_match(/attachment; filename="deltabadger-api.md"/, response.headers['Content-Disposition'])
-    # Sanity-check that the served content is the docs file, not a stub.
+    # Sanity-check that the served content is the reference, not a stub.
     assert_match(/Deltabadger REST API/, response.body)
     assert_match(/Idempotency-Key/, response.body)
   end

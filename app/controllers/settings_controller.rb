@@ -412,7 +412,7 @@ class SettingsController < ApplicationController
   end
 
   def download_api_docs
-    send_file Rails.root.join('docs/api.md'),
+    send_file Rails.root.join('manual/api.md'),
               type: 'text/markdown',
               disposition: 'attachment; filename="deltabadger-api.md"'
   end
