@@ -11,6 +11,8 @@ sk:
             <p>Keby ste pravidelne investovali do Bitcoinu za posledných %{years}&nbsp;rokov, boli by ste teraz v zisku <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>To je o <b style="color: #00A36C;">%{sp500_diff}%</b> viac než S&P 500 za rovnaké obdobie.</p>
     button:
+        merge: 'Zlúčiť'
+        confirm: 'Potvrdiť'
         ok: 'OK'
         update: 'Aktualizovať'
         save: 'Uložiť'
@@ -711,6 +713,7 @@ sk:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            merged: "Zlúčené z: %{labels}"
             dca_skipped_restatement: "Príspevok preskočený — split, ktorý trh ešte neocenil"
             dca_skipped_wash_sale: "Nič sa nekúpilo — každá zložka je v čakacej lehote"
             wash_sale_locked: "%{base} predané — do %{until} vrátane bez spätného nákupu, aby strata z predaja neprepadla"

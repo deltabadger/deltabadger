@@ -61,7 +61,7 @@ A tool is usable only when both of these are true:
 
 | Tool | What it does |
 |---|---|
-| **Create bot** | Create and start a [DCA](10-dollar-cost-averaging.md) bot: one asset, or a basket of up to 20 with weights (or market-cap weighting), plus exchange, quote currency, amount, interval (hour, day, week or month), optional label and start time |
+| **Create bot** | Create and start a [DCA](10-dollar-cost-averaging.md) bot: one asset, or a basket of up to 100 with weights (or market-cap weighting), plus exchange, quote currency, amount, interval (hour, day, week or month), optional label and start time |
 | **Create index bot** | Create and start an [index bot](13-direct-indexing.md): an index from **List indices**, how many assets to hold, and how far to flatten market-cap weights towards equal |
 | **Create signal bot** | Create and start a signal bot: one pair, no schedule. Orders placed with **Market buy** / **Market sell** and its bot id are recorded on the bot's page |
 | **Start bot** | Start a stopped or newly created bot |

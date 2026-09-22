@@ -25,6 +25,9 @@ application.register("bot--allocation", Bot__AllocationController)
 import Bot__ChartController from "./bot/chart_controller"
 application.register("bot--chart", Bot__ChartController)
 
+import BotsMergeController from "./bots_merge_controller"
+application.register("bots-merge", BotsMergeController)
+
 import BotsReorderController from "./bots_reorder_controller"
 application.register("bots-reorder", BotsReorderController)
 
@@ -165,6 +168,9 @@ application.register("table-fit", TableFitController)
 
 import ThreeDotsController from "./three_dots_controller"
 application.register("three-dots", ThreeDotsController)
+
+import TickerFoldController from "./ticker_fold_controller"
+application.register("ticker-fold", TickerFoldController)
 
 import TickerTooltipsController from "./ticker_tooltips_controller"
 application.register("ticker-tooltips", TickerTooltipsController)

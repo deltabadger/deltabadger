@@ -9,10 +9,15 @@ export default class extends Controller {
     // needed because ESC key does not trigger close event
     this.enableBodyScrollBound = this.#enableBodyScroll.bind(this);
     this.element.addEventListener("close", this.enableBodyScrollBound)
+    // A modal still open when the page is left (a turbo_stream redirect) would be cloned into Turbo's
+    // snapshot and flash back on the next visit's preview or on Back.
+    this.cleanUpBound = this.#cleanUp.bind(this)
+    document.addEventListener("turbo:before-cache", this.cleanUpBound)
   }
 
   disconnect() {
     this.element.removeEventListener("close", this.enableBodyScrollBound)
+    document.removeEventListener("turbo:before-cache", this.cleanUpBound)
   }
 
   // hide modal on successful form submission
@@ -69,17 +74,20 @@ export default class extends Controller {
 
   #closeAndCleanUp() {
     const closeUrl = this.hasCloseUrlValue ? this.closeUrlValue : null
-    this.element.close()
-    // clean up modal content
-    const frame = document.getElementById('modal')
-    frame.removeAttribute("src")
-    frame.innerHTML = ""
-    this.#dispatchModalOpenEvent(false)
+    this.#cleanUp()
     // Full-page dialogs navigate back to a known page after closing — unless that is the page
     // already behind the dialog, which would only re-render it.
     if (closeUrl && new URL(closeUrl, window.location.href).pathname !== window.location.pathname) {
       Turbo.visit(closeUrl)
     }
+  }
+
+  #cleanUp() {
+    this.element.close()
+    const frame = document.getElementById('modal')
+    frame.removeAttribute("src")
+    frame.innerHTML = ""
+    this.#dispatchModalOpenEvent(false)
   }
 
   #dispatchModalOpenEvent(detail) {

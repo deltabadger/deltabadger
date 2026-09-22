@@ -119,6 +119,18 @@ module Bot::Composition::OrderSetter
     end
   end
 
+  # A merged bot is born with the histories of its sources; Bot::Merge records the id of the last row
+  # it inherited here. Ids, not timestamps: created_at is whole seconds, and a bot started the second
+  # it was created places its first orders inside that second.
+  MERGED_HISTORY_KEY = 'merged_history_until_id'.freeze
+
+  # The orders this bot placed itself. Everything, unless a merge left inherited rows behind, in
+  # which case those must not make the bot's own first tick look like a hundredth.
+  def own_transactions
+    cutoff = transient_data[MERGED_HISTORY_KEY]
+    cutoff ? transactions.where('transactions.id > ?', cutoff) : transactions
+  end
+
   # Said once, on the bot's first tick, when every order it wrote was below the venue floor — the pair
   # bot's rule. Whether the tick was the first is captured by execute_action BEFORE placement: a row
   # count cannot tell, because a two-member basket's ranked sell writes one skipped row per tick and
@@ -126,7 +138,7 @@ module Bot::Composition::OrderSetter
   def broadcast_below_minimums_warning(first_tick:)
     return unless first_tick
 
-    rows = transactions.to_a # all of them written by this, the first, tick
+    rows = own_transactions.to_a # all of them written by this, the first, tick
     return unless rows.any? && rows.all?(&:skipped?)
 
     if rows.one?

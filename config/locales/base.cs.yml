@@ -11,6 +11,8 @@ cs:
             <p>Kdybyste pravidelně investovali do Bitcoinu za posledních %{years}&nbsp;let, byli byste teď v zisku <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>To je o <b style="color: #00A36C;">%{sp500_diff}%</b> více než S&P 500 za stejné období.</p>
     button:
+        merge: 'Sloučit'
+        confirm: 'Potvrdit'
         ok: 'OK'
         update: 'Aktualizovat'
         save: 'Uložit'
@@ -711,6 +713,7 @@ cs:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            merged: "Sloučeno z: %{labels}"
             dca_skipped_restatement: "Příspěvek přeskočen — split, který trh ještě neocenil"
             dca_skipped_wash_sale: "Nic nekoupeno — každá složka je v čekací lhůtě"
             wash_sale_locked: "%{base} prodáno — do %{until} včetně bez zpětného nákupu, aby ztráta z prodeje nepropadla"

@@ -23,6 +23,10 @@ class Bot::ResyncIndexCompositionJob < ApplicationJob
   retry_on Client::TransientNetworkError, wait: :polynomially_longer, attempts: 3
 
   def perform(bot)
+    # A resync queued before the bot was deleted or archived (a merge, a delete racing the daily
+    # recheck) must not write composition rows on a dead bot.
+    return if bot.deleted? || bot.archived?
+
     bot.refresh_composition
     # The tables only, not Bot::BroadcastMetricsUpdateJob: that one also re-renders the chart, whose
     # candle series a composition change cannot alter — and waiting on it is what made the split

@@ -5,7 +5,9 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
 
     # TODO: The imported filter may be removed in the future once all users have re-exported
     # from the old app (which now correctly excludes unfilled orders from export)
-    external_order_ids = bot.transactions.waiting
+    # This venue's orders only: a merged bot inherits rows placed elsewhere, and an id is only unique
+    # per venue.
+    external_order_ids = bot.transactions.waiting.where(exchange_id: bot.exchange_id)
                             .where.not("external_id LIKE 'imported_%'")
                             .pluck(:external_id)
     return if external_order_ids.empty?
@@ -22,7 +24,7 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
 
     young_missing_ids = []
     result.data[:missing].each do |missing_order_id|
-      order = bot.transactions.find_by(external_id: missing_order_id)
+      order = bot.transactions.find_by(exchange_id: bot.exchange_id, external_id: missing_order_id)
       next if order.nil?
 
       case Bot::StaleOrderResolver.resolve(order)
@@ -39,7 +41,7 @@ class Bot::FetchAndUpdateOpenOrdersJob < BotJob
 
     calc_since = [bot.started_at, bot.settings_changed_at].compact.max
     result.data[:orders].each do |order_id, order_data|
-      order = bot.transactions.find_by(external_id: order_id)
+      order = bot.transactions.find_by(exchange_id: bot.exchange_id, external_id: order_id)
       raise "Order #{order_id} not found" if order.nil?
       next unless order.submitted? && (order.open? || order.unknown?)
 

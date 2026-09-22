@@ -8,7 +8,7 @@ class UpdateBotSettingsTool < ApplicationMCPTool
   property :bot_id, type: 'number', required: true, description: 'The bot ID'
   property :quote_amount, type: 'number', description: 'Amount per order in quote currency (optional)'
   property :label, type: 'string', description: 'Bot label (optional)'
-  property :num_coins, type: 'number', description: 'Index bots: how many top assets to hold (2-50)'
+  property :num_coins, type: 'number', description: 'Index bots: how many top assets to hold (2-100)'
   property :allocation_flattening, type: 'number', description: 'Index bots: 0 = market-cap weights, 1 = equal'
   property :allocations, type: 'string',
                          description: "Basket bots: new weights for every current asset, e.g. 'BTC:70,ETH:30' (sum 100). " \

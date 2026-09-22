@@ -11,6 +11,8 @@ pt:
             <p>Se tivesse feito dollar-cost averaging em Bitcoin nos últimos %{years}&nbsp;anos, agora estaria com um lucro de <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Isso é <b style="color: #00A36C;">%{sp500_diff}%</b> mais do que o S&P 500 no mesmo período.</p>
     button:
+        merge: 'Juntar'
+        confirm: 'Confirmar'
         ok: 'OK'
         understand: 'Entendido!'
         update: 'Atualizar'
@@ -691,6 +693,7 @@ pt:
         other: 'Outros'
     bot_activity:
         events:
+            merged: "Juntado a partir de %{labels}"
             dca_skipped_restatement: "Contribuição ignorada — um split que o mercado ainda não avaliou"
             dca_skipped_wash_sale: "Nada comprado — cada componente está numa espera fiscal"
             wash_sale_locked: "%{base} vendido — sem recompra até %{until} inclusive, para que o prejuízo da venda não seja anulado"

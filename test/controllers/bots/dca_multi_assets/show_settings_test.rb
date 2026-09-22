@@ -183,6 +183,32 @@ class Bots::DcaMultiAssetsShowSettingsTest < ActionDispatch::IntegrationTest
     assert_select 'button[name=?][value=?]', 'bots_dca_multi_asset[add_asset_id]', candidate.id.to_s, count: 1
   end
 
+  test 'over the cap the status bar says how many to remove and Start stays disabled' do
+    assets = Array.new(Bots::DcaMultiAsset::MAX_ASSETS + 3) do |index|
+      create(:asset, symbol: "M#{index}", name: "Member #{index}", external_id: "member-#{index}")
+    end
+    bot = create(:dca_multi_asset, user: @user, exchange: @bot.exchange, quote_asset: @bot.quote_asset,
+                                   base_assets: assets, status: :stopped)
+
+    get bot_path(id: bot.id)
+
+    assert_response :success
+    assert_select "##{dom_id(bot, :status_bar)} .bot-control__status__text",
+                  text: I18n.t('bot.dca_multi_asset.too_many_assets', count: 3)
+    assert_select "##{dom_id(bot, :status_button)} .status-button__hint", count: 0
+    assert_select "##{dom_id(bot, :status_button)} button[disabled]", count: 1
+    assert_select '.asset-allocation__add', count: 0
+    assert_select 'button.asset-allocation__remove', count: assets.size
+
+    # Back under the cap the weights no longer add up, and that is the next thing to say.
+    bot.update_columns(settings: bot.settings.merge('allocations' => bot.allocations.except(*assets.first(3).map { |a| a.id.to_s })))
+    get bot_path(id: bot.id)
+
+    assert_select "##{dom_id(bot, :status_bar)} .bot-control__status__text",
+                  text: I18n.t('bot.dca_multi_asset.normalize_first')
+    assert_select "##{dom_id(bot, :status_button)} button[disabled]", count: 1
+  end
+
   test 'at MAX_ASSETS the add link is gone' do
     assets = Array.new(Bots::DcaMultiAsset::MAX_ASSETS) do |index|
       create(:asset, symbol: "M#{index}", name: "Member #{index}", external_id: "member-#{index}")

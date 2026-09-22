@@ -40,6 +40,9 @@ ol, ul
         max-width: calc(100vw - 4rem)
         max-width: 192rem
     flex: 1
+    // A flex item's default min-width is its content's: without this, a row that should fold on a
+    // phone (the bots filter) widens the whole column past the screen instead, and so always fits.
+    min-width: 0
 .columns
     display: grid
     gap: 1rem
@@ -58,6 +61,8 @@ ol, ul
     padding: 1rem 0 0
     font-weight: 600
     justify-content: space-between
+    &--bots
+        padding-bottom: 1rem !important
     @media only screen and (max-width: 767.9px)
         justify-content: flex-end
     &__controls

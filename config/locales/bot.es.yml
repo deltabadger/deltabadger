@@ -8,6 +8,16 @@ es:
             pick_exchange_first: "Empieza a invertir."
             connect_alpaca_html: "Para invertir en acciones, conecta antes Alpaca en %{settings_link}."
             settings_link: "Ajustes"
+        merge:
+            title: "Fusionar %{count} bots"
+            pick_hint: "Elige los bots."
+            explanation_html: "Su historial de compras se fusionará en un nuevo bot que invierte %{quote} en %{exchange} en:"
+            deleted_note: "Los bots originales se eliminarán."
+            success: "Bots fusionados."
+            no_partner: "Ningún otro bot gasta %{quote}."
+            no_shared_exchange: "Ningún otro bot de %{quote} comparte exchange con este."
+            other_exchange: "El nuevo bot estará en %{exchange}."
+            assets_stay: "Los activos comprados en otros exchanges se quedan donde están."
         dca_multi_asset:
             add_asset: "Añadir activo"
             remove_asset: "Eliminar"
@@ -18,6 +28,7 @@ es:
             allocation_sum: "Suma total"
             normalize: "Normalizar"
             normalize_first: "Normaliza primero las asignaciones."
+            too_many_assets: "Demasiados activos. Quita %{count}."
         dca_index:
             setup:
                 step_index: "Índice"

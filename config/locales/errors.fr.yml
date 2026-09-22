@@ -58,6 +58,16 @@ fr:
             restricted: "%{exchange} n'autorise pas le trading de cet actif depuis votre pays."
             rate_limited: "%{exchange} limite le nombre de requêtes. Le bot réessaiera automatiquement."
         bots:
+            merge:
+                missing: "L'un de ces bots n'existe plus. Choisissez à nouveau."
+                too_few: "Choisissez au moins deux bots."
+                unavailable: "%{label} ne peut pas être fusionné pour le moment."
+                no_common_exchange: "Aucune plateforme ne liste tous ces actifs ensemble."
+                open_orders: "%{label} a des ordres ouverts sur %{exchange}. Annulez-les d'abord."
+                external_sales: "%{label} a vendu des actifs qu'il n'a jamais achetés ici, son historique ne peut donc pas être fusionné."
+                interleaved: "Combiner les historiques de ces bots changerait leur résultat global, ils ne peuvent donc pas être fusionnés."
+                quote: "Tous les bots doivent dépenser la même devise."
+                nothing_to_buy: "Aucun de ces actifs ne se négocie plus sur cette plateforme."
             multi_asset:
                 condition_subject: "Cette condition doit porter sur un actif détenu par le bot."
                 min_assets: "Un portefeuille doit contenir au moins un actif."

@@ -11,6 +11,8 @@ el:
             <p>Αν έκανες μέση τιμή κόστους σε Bitcoin τα τελευταία %{years}&nbsp;χρόνια, τώρα θα ήσουν <b style="color: #00A36C;">%{profit}%</b> στο πλεονέκτημα.</p>
             <p>Δηλαδή <b style="color: #00A36C;">%{sp500_diff}%</b> περισσότερο από τον S&P 500 στο ίδιο διάστημα.</p>
     button:
+        merge: 'Συγχώνευση'
+        confirm: 'Επιβεβαίωση'
         ok: 'OK'
         update: 'Ενημέρωση'
         save: 'Αποθήκευση'
@@ -703,6 +705,7 @@ el:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            merged: "Συγχωνεύθηκε από %{labels}"
             dca_skipped_restatement: "Η εισφορά παραλείφθηκε — split που η αγορά δεν έχει ακόμη αποτιμήσει"
             dca_skipped_wash_sale: "Δεν αγοράστηκε τίποτα — κάθε συστατικό βρίσκεται σε περίοδο αναμονής"
             wash_sale_locked: "%{base} πουλήθηκε — καμία επαναγορά έως και %{until}, ώστε να μη χαθεί η ζημιά της πώλησης"

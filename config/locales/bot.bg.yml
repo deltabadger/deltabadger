@@ -7,6 +7,16 @@ bg:
             pick_exchange_first: "Започни да инвестираш."
             connect_alpaca_html: "За да инвестирате в акции, първо свържете Alpaca в %{settings_link}."
             settings_link: "Настройки"
+        merge:
+            title: "Обединяване на %{count} бота"
+            pick_hint: "Изберете ботове."
+            explanation_html: "Историята на покупките им ще бъде обединена в един нов бот, който инвестира %{quote} в %{exchange} в:"
+            deleted_note: "Оригиналните ботове ще бъдат изтрити."
+            success: "Ботовете са обединени."
+            no_partner: "Никой друг бот не харчи %{quote}."
+            no_shared_exchange: "Никой друг бот с %{quote} не споделя борса с този."
+            other_exchange: "Новият бот ще бъде в %{exchange}."
+            assets_stay: "Активите, купени на други борси, остават там, където са."
         dca_multi_asset:
             add_asset: "Добавяне на актив"
             remove_asset: "Премахване"
@@ -17,6 +27,7 @@ bg:
             allocation_sum: "Общо"
             normalize: "Нормализиране"
             normalize_first: "Първо нормализирайте разпределението."
+            too_many_assets: "Твърде много активи. Премахнете %{count}."
         dca_index:
             setup:
                 step_index: "Индекс"

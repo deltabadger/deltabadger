@@ -14,6 +14,12 @@
     box-shadow: none
     outline: 0.2rem dashed var(--concrete)
     outline-offset: -0.2rem
+  // The merge's select mode: picked, and cannot join the picked (other venue, other quote, busy).
+  &--selected
+    outline: 0.25rem solid var(--sky)
+    outline-offset: -0.25rem
+  &--faded
+    filter: opacity(0.35) saturate(0.8)
   a
     text-decoration: none
   &__header
