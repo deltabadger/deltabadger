@@ -228,7 +228,7 @@
                 amount: number_with_precision(offer, precision: 2, delimiter: ','),
                 symbol: bot.quote_asset&.symbol) %>
         </span>
-        <div class="redeploy-prompt__actions">
+        <div class="redeploy-prompt__actions" id="redeploy-prompt-actions">
           <%= button_to t('bot.redeploy.confirm'), bot_redeploy_path(bot_id: bot.id),
                         class: 'rbutton rbutton--success' %>
           <%= button_to t('bot.redeploy.decline'), bot_redeploy_path(bot_id: bot.id),

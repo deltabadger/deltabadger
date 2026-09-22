@@ -91,6 +91,35 @@ class Bots::RedeploysControllerTest < ActionDispatch::IntegrationTest
     assert_not_predicate queued(Bot::RedeployJob), :exists?
   end
 
+  # == the prompt once answered ==
+  #
+  # The job runs seconds later, and until it repaints the panel the same Yes and No stay on screen —
+  # a second tap there is an answer to a question that has already been answered.
+
+  test 'Yes swaps the answers for a spinner' do
+    liquidated(150)
+
+    post bot_redeploy_path(bot_id: @bot.id), as: :turbo_stream
+
+    assert_answers_replaced_by_spinner
+  end
+
+  test 'No swaps the answers for a spinner' do
+    liquidated(150)
+
+    delete bot_redeploy_path(bot_id: @bot.id), as: :turbo_stream
+
+    assert_answers_replaced_by_spinner
+  end
+
+  test 'a refused answer keeps the buttons, since nothing is in motion' do
+    @bot.exchange.class.any_instance.stubs(:market_open?).returns(false)
+
+    post bot_redeploy_path(bot_id: @bot.id), as: :turbo_stream
+
+    assert_no_match(/redeploy-prompt-actions/, response.body)
+  end
+
   # == resolution ==
 
   test 'the halt is cleared only through a job that holds the semaphore' do
@@ -117,6 +146,14 @@ class Bots::RedeploysControllerTest < ActionDispatch::IntegrationTest
   end
 
   private
+
+  def assert_answers_replaced_by_spinner
+    assert_response :success
+    assert_select 'turbo-stream[target="redeploy-prompt-actions"]' do
+      assert_select 'template [role="status"]'
+      assert_select 'template form', count: 0
+    end
+  end
 
   def queued(job_class)
     SolidQueue::Job.where(class_name: job_class.name)

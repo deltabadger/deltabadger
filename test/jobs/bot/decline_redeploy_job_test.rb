@@ -25,11 +25,21 @@ class Bot::DeclineRedeployJobTest < ActiveSupport::TestCase
   test 'it refuses while a batch is still working, and says so' do
     liquidated(150)
     waiting_redeploy
+    @bot.stubs(:broadcast_redeploy_state)
 
     Bot::DeclineRedeployJob.new.perform(@bot)
 
     assert_in_delta 0, @bot.reload.redeploy_declined_offset.to_d.to_f, 0.0001
     assert @bot.bot_activity_logs.exists?(event: 'redeploy_decline_refused')
+  end
+
+  # The answer left a spinner where the buttons were; a refusal has to take it away as well.
+  test 'the panel is repainted after a refusal too' do
+    liquidated(150)
+    waiting_redeploy
+    @bot.expects(:broadcast_redeploy_state).once
+
+    Bot::DeclineRedeployJob.new.perform(@bot)
   end
 
   test 'it shares the exchange semaphore with the placement leg' do

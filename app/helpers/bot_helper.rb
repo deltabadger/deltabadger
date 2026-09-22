@@ -464,6 +464,11 @@ module BotHelper
     end
   end
 
+  # Stands where the redeploy prompt's Yes and No were, from the answer until the job repaints.
+  def redeploy_answer_spinner(label)
+    tag.span('', class: 'loader--small', role: 'status', aria: { label: label })
+  end
+
   private
 
   # Money is written to the cent, whatever precision the venue happens to publish for the pair: a

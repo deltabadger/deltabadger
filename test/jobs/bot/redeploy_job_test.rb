@@ -66,6 +66,36 @@ class Bot::RedeployJobTest < ActiveSupport::TestCase
     assert_match(/Invalid API-key/, log.details['reason'])
   end
 
+  # The answer left a spinner where the buttons were, and only a repaint takes it away — so every
+  # way out of the job has to repaint, not just the ones that place.
+  test 'the panel is repainted after a run that placed' do
+    @bot.stubs(:redeploy!).returns(Result::Success.new(placed: 2))
+    @bot.expects(:broadcast_redeploy_state).once
+
+    Bot::RedeployJob.new.perform(@bot)
+  end
+
+  test 'the panel is repainted after a refusal' do
+    @bot.stubs(:redeploy!).returns(Result::Failure.new(:nothing_to_redeploy))
+    @bot.expects(:broadcast_redeploy_state).once
+
+    Bot::RedeployJob.new.perform(@bot)
+  end
+
+  test 'the panel is repainted after a raise' do
+    @bot.stubs(:redeploy!).raises(RuntimeError, 'boom')
+    @bot.expects(:broadcast_redeploy_state).once
+
+    assert_raises(RuntimeError) { Bot::RedeployJob.new.perform(@bot) }
+  end
+
+  test 'the panel is repainted for an archived bot too' do
+    @bot.update_columns(status: Bot.statuses[:archived])
+    @bot.expects(:broadcast_redeploy_state).once
+
+    Bot::RedeployJob.new.perform(@bot)
+  end
+
   test 'a batch that was all below minimums says so in its own words' do
     @bot.stubs(:redeploy!).returns(Result::Failure.new(:below_minimums))
 
