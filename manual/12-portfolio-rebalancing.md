@@ -15,6 +15,8 @@ Deltabadger rebalances whenever an asset drifts further from its target than the
 
 Rebalancing works on [index bots](13-direct-indexing.md) as well. Assets that left the index are not rebalanced at all — they sit in their own table and are sold only when you press Sell on their row — or Sell all above the table, which closes every row it is showing. Either way each close is a taxable disposal and the timing is yours. Any current position can be sold the same way; see [Direct indexing](13-direct-indexing.md).
 
+What a sale fetched is then offered back to the basket: "Redeploy 243 USD?" — Yes spreads it over the assets that are furthest below their targets, No takes the question away. The offer waits for that answer. Your recurring purchases carry on unchanged in the meantime, and they buy with the money you pay in, so they never quietly spend the proceeds.
+
 <img width="661" height="182" alt="Screenshot 2026-09-07 at 12 18 44" src="https://github.com/user-attachments/assets/ce6e40f9-9e0d-4a38-827e-a5af1ac1b822" />
 
 > [!IMPORTANT]
