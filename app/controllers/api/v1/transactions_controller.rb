@@ -45,9 +45,8 @@ module Api
       end
 
       # NOTE: This is the documented exception to the JSON envelope — we
-      # serve `text/csv` directly. See docs/api.md (when added) or the
-      # plan's "CSV export" section for context. Errors still use the JSON
-      # envelope so clients can parse them uniformly.
+      # serve `text/csv` directly. See manual/api.md section 6. Errors still
+      # use the JSON envelope so clients can parse them uniformly.
       def export
         result = BotApi::Transactions::ExportCsv.call(
           user: current_user,

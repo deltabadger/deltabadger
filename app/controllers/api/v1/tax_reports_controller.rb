@@ -24,7 +24,7 @@ module Api
       end
 
       # The second non-JSON success in the API (with the transactions export): text/csv on
-      # success, the JSON envelope on every error. See docs/api.md section 6.
+      # success, the JSON envelope on every error. See manual/api.md section 6.
       def download
         result = BotApi::Tax::DownloadReport.call(user: current_user, country: params[:country], year: params[:year])
         return render_result(result) unless result.success?

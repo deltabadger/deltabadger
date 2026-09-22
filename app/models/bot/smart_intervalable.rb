@@ -214,7 +214,7 @@ module Bot::SmartIntervalable
   # The venue's own floor on the SELL side. Still 0 everywhere: DcaSingleAsset is the only type that
   # sells, and giving it a ticker-derived floor here would make the numericality check reject splits
   # already stored on live bots — including during Bot::Lifecycle#stop, which goes through `update`.
-  # That change needs its own backfill; see docs/superpowers/plans/2026-09-02-conversational-validation-feedback.md.
+  # That change needs its own backfill.
   def minimum_base_for_exchange
     0
   end

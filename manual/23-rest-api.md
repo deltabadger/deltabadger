@@ -16,7 +16,7 @@ Browser sessions are not accepted on `/api/v1`; only the bearer header counts.
 
 **Regenerate** revokes the current token immediately and shows a new one. The confirmation warns that scripts using the old token stop working until you update them. Do this whenever you suspect the token has leaked.
 
-**Download API docs** saves the full reference (`deltabadger-api.md`), including the OAuth flow, request and response examples and every error code.
+**Download API docs** saves the full reference (`deltabadger-api.md`), including the OAuth flow, request and response examples and every error code. The same file is [in this manual](api.md).
 
 ## Permissions
 
