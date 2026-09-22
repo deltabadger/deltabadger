@@ -11,6 +11,8 @@ da:
             <p>Hvis du havde gennemsnitsomkostningsinvesteret i Bitcoin de sidste %{years}&nbsp;år, ville du nu være oppe med <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>Det er <b style="color: #00A36C;">%{sp500_diff}%</b> mere end S&P 500 i samme periode.</p>
     button:
+        merge: 'Flet'
+        confirm: 'Bekræft'
         ok: 'OK'
         update: 'Opdatér'
         save: 'Gem'
@@ -703,6 +705,7 @@ da:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            merged: "Flettet fra %{labels}"
             dca_skipped_restatement: "Bidrag sprunget over — en aktiesplit markedet endnu ikke har prissat"
             dca_skipped_wash_sale: "Intet købt — hver bestanddel er i en karensperiode"
             wash_sale_locked: "%{base} solgt — ingen tilbagekøb til og med %{until}, så tabet ved salget bevares"

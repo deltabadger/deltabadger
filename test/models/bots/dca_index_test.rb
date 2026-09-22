@@ -709,10 +709,14 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
 
   test 'a crypto index keeps the fixed ceiling' do
     bot = build(:dca_index, user: create(:user), exchange: @exchange, quote_asset: @quote)
-    bot.num_coins = 51
+    bot.num_coins = Bots::DcaIndex::MAX_COINS + 1
 
+    assert_equal 100, Bots::DcaIndex::MAX_COINS
     assert_equal Bots::DcaIndex::MAX_COINS, bot.max_coins
     assert_not bot.valid?
+
+    bot.num_coins = Bots::DcaIndex::MAX_COINS
+    assert bot.valid?, bot.errors.full_messages.to_sentence
   end
 
   test 'a new bot on a bounded index starts at the whole universe' do

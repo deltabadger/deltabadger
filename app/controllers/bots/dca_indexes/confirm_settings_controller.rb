@@ -55,7 +55,7 @@ class Bots::DcaIndexes::ConfirmSettingsController < ApplicationController
     result = MarketData.get_top_coins(
       index_type: bot.index_type,
       category_id: bot.index_category_id,
-      limit: 150
+      limit: 250
     )
     return [] if result.failure?
 

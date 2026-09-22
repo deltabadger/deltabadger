@@ -11,6 +11,8 @@ sv:
             <p>Om du hade sparat regelbundet i Bitcoin de senaste %{years}&nbsp;åren, hade du nu gått <b style="color: #00A36C;">%{profit}%</b> plus.</p>
             <p>Det är <b style="color: #00A36C;">%{sp500_diff}%</b> mer än S&P 500 under samma period.</p>
     button:
+        merge: 'Slå ihop'
+        confirm: 'Bekräfta'
         ok: 'OK'
         update: 'Uppdatera'
         save: 'Spara'
@@ -703,6 +705,7 @@ sv:
     # TODO: translate bot_activity events (English placeholders)
     bot_activity:
         events:
+            merged: "Sammanslagen från %{labels}"
             dca_skipped_restatement: "Insättning hoppades över — en aktiesplit marknaden ännu inte prissatt"
             dca_skipped_wash_sale: "Inget köpt — varje beståndsdel är i karenstid"
             wash_sale_locked: "%{base} sålt — inget återköp till och med %{until}, så att förlusten vid försäljningen består"

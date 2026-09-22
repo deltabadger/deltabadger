@@ -6,7 +6,7 @@ class Bot::FetchAndCreateOrderJob < BotJob
     # A retired venue has nothing left to fetch (see Exchange::RETIRED_TYPES).
     return if bot.exchange&.retired?
 
-    existing = bot.transactions.find_by(external_id: order_id)
+    existing = bot.transactions.find_by(exchange_id: bot.exchange_id, external_id: order_id)
     if existing
       Bot::FetchAndUpdateOrderJob.perform_later(existing, update_missed_quote_amount: update_missed_quote_amount)
       return

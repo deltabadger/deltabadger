@@ -44,7 +44,7 @@
 @use "new/devise";
 @use "new/page-head";
 @use "new/bot-control";
-@use "new/bot-tile";
+@use "new/bot-tile"; @use "new/merge-bar";
 @use "new/itiles";
 @use "new/set-api";
 @use "new/settings-api";

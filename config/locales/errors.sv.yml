@@ -64,6 +64,16 @@ sv:
             restricted: "%{exchange} tillåter inte handel med den här tillgången från din region."
             rate_limited: "%{exchange} begränsar antalet förfrågningar. Boten försöker igen automatiskt."
         bots:
+            merge:
+                missing: "En av dessa bottar finns inte längre. Välj igen."
+                too_few: "Välj minst två bottar."
+                unavailable: "%{label} kan inte slås ihop just nu."
+                no_common_exchange: "Ingen börs listar alla dessa tillgångar tillsammans."
+                open_orders: "%{label} har öppna ordrar på %{exchange}. Avbryt dem först."
+                external_sales: "%{label} sålde tillgångar som den aldrig köpte här, så dess historik kan inte slås ihop."
+                interleaved: "Tillsammans skulle dessa bottars historik ge ett annat totalresultat, så de kan inte slås ihop."
+                quote: "Alla bottar måste spendera samma valuta."
+                nothing_to_buy: "Ingen av dessa tillgångar handlas längre på den här börsen."
             multi_asset:
                 condition_subject: "Det här villkoret måste gälla en tillgång som boten innehar."
                 min_assets: "En portfölj måste innehålla minst en tillgång."

@@ -29,6 +29,15 @@ class Bot::FetchAndUpdateOrderJob < BotJob
     return if order.exchange&.retired?
 
     bot = order.bot
+    # Same rule for a bot that is simply on another venue than the order: a merged bot inherits its
+    # sources' rows, and a bot can be moved. The merge refuses a source with orders still resting
+    # elsewhere, so a poll landing here is one queued for a row another sweep has since settled.
+    if order.exchange_id != bot.exchange_id
+      Rails.logger.info("FetchAndUpdateOrderJob: order #{order.id} was placed on exchange #{order.exchange_id}, " \
+                        "bot #{bot.id} is on #{bot.exchange_id}; nothing to ask")
+      return
+    end
+
     result = bot.get_order(order_id: order.external_id)
     if result.failure?
       # A not_found Result may be resolved quietly (abandoned, or confirmed-never-executed on an
@@ -40,6 +49,12 @@ class Bot::FetchAndUpdateOrderJob < BotJob
 
       raise "Failed to fetch order #{order.id}. Result: #{result.errors}"
     end
+
+    # The venue took its time answering; the row may have changed hands meanwhile (a merge moves it
+    # to the bot it now belongs to). Read it back so the callbacks the update fires — the broadcast,
+    # the metrics refresh — address that bot, not the one this job was handed.
+    order.reload
+    bot = order.bot
 
     calc_since = [bot.started_at, bot.settings_changed_at].compact.max
     order_data = result.data

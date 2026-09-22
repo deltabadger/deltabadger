@@ -7,6 +7,16 @@ sk:
             pick_exchange_first: "Začni investovať."
             connect_alpaca_html: "Ak chceš investovať do akcií, najprv prepoj Alpaca v %{settings_link}."
             settings_link: "Nastaveniach"
+        merge:
+            title: "Zlúčenie botov: %{count}"
+            pick_hint: "Vyberte boty."
+            explanation_html: "História ich nákupov sa zlúči do jedného nového bota, ktorý investuje %{quote} na %{exchange} do:"
+            deleted_note: "Pôvodné boty budú vymazané."
+            success: "Boty zlúčené."
+            no_partner: "Žiadny iný bot nemíňa %{quote}."
+            no_shared_exchange: "Žiadny iný bot s %{quote} nezdieľa s týmto burzu."
+            other_exchange: "Nový bot bude na %{exchange}."
+            assets_stay: "Aktíva nakúpené na iných burzách zostávajú tam, kde sú."
         dca_multi_asset:
             add_asset: "Pridať aktívum"
             remove_asset: "Odstrániť"
@@ -17,6 +27,7 @@ sk:
             allocation_sum: "Celkom"
             normalize: "Normalizovať"
             normalize_first: "Najprv normalizujte alokácie."
+            too_many_assets: "Príliš veľa aktív. Odstráňte %{count}."
         dca_index:
             setup:
                 step_index: "Index"

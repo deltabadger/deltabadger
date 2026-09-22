@@ -1,0 +1,80 @@
+<%# What the merge will do, in the words the POST then acts on: the ids below are the ones the user
+    was shown, so the request cannot name a bot this modal did not. %>
+<%= render 'layouts/modal/base' do %>
+  <div class="modal">
+    <%# Picking another venue re-requests this page and Turbo swaps only this frame, so the dialog does
+        not open again. Everything is inside it, refusal included: a pick that no longer holds still
+        finds its frame. %>
+    <%= turbo_frame_tag 'merge_modal' do %>
+      <%= button_tag type: 'button', class: 'modal__close', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+        <%= render partial: 'svg/24x24_close' %>
+      <% end %>
+      <% refusal = @merge.refusal %>
+      <div class="modal__header">
+        <h1 class="modal__title">
+          <%= refusal ? t('button.merge') : t('bot.merge.title', count: @merge.bots.size) %>
+        </h1>
+      </div>
+      <div class="modal__body text-center">
+        <% if refusal %>
+          <p><%= refusal %></p>
+          <div class="buttons">
+            <%= button_tag t('button.close'), type: 'button', class: 'button button--outline button--large',
+                           data: { action: 'modal--base#animateOutCloseAndCleanUp' } %>
+          </div>
+        <% else %>
+          <% bot = @merge.bot %>
+          <% assets = @merge.assets %>
+          <% exchanges = @merge.exchanges %>
+          <% stack_class = case assets.size
+                           when 0, 1 then ''
+                           when 2 then 'ticker-group--2'
+                           else 'ticker-group--many'
+                           end %>
+          <%= form_with url: new_bots_merge_path, method: :get,
+                        data: { controller: 'form--submit', turbo_frame: 'merge_modal' } do %>
+            <% @merge.bots.each do |source| %>
+              <%= hidden_field_tag 'ids[]', source.id, id: nil %>
+            <% end %>
+            <%# The venue as a pill when there is a choice. Confirm below still carries the venue this
+                render shows until the next render replaces it; bots_merge_controller disables it the
+                moment the pick changes. %>
+            <% exchange = @merge.exchange.name %>
+            <% if exchanges.many? %>
+              <% exchange = capture do %>
+                <span class="sinput sinput--small sinput--select merge-modal__exchange">
+                  <%= @merge.exchange.name %>
+                  <%= select_tag :exchange_id, options_from_collection_for_select(exchanges, :id, :name, @merge.exchange.id),
+                                 id: nil, data: { action: 'change->form--submit#submit' } %>
+                </span>
+              <% end %>
+            <% end %>
+            <p><%= t('bot.merge.explanation_html', quote: bot.quote_asset.symbol, exchange:) %></p>
+          <% end %>
+          <div class="merge-modal__stack">
+            <%# Every asset, stacked; the tail folds into "+N" only when the row runs out of width
+                (ticker_fold_controller). %>
+            <div class="ticker-group ticker-group--fold <%= stack_class %>" data-controller="ticker-fold">
+              <% assets.each do |asset| %>
+                <%= tag.div asset.symbol, class: ticker_class(asset),
+                            style: "background: #{ensure_contrast(asset.color || '#8A9BA8')}", data: ticker_data(asset) %>
+              <% end %>
+            </div>
+          </div>
+          <% if @merge.other_exchanges.any? %>
+            <p class="text-inactive"><%= t('bot.merge.assets_stay') %></p>
+          <% end %>
+          <p class="text-danger mb-3"><%= t('bot.merge.deleted_note') %></p>
+          <div class="buttons buttons--row--2">
+            <%= button_tag type: 'button', class: 'button button--outline button--large', data: { action: 'modal--base#animateOutCloseAndCleanUp' } do %>
+              <%= t('button.cancel') %>
+            <% end %>
+            <%= button_to t('button.confirm'), bots_merge_path, method: :post,
+                          params: { ids: @merge.bots.map(&:id), exchange_id: @merge.exchange.id },
+                          class: 'button button--sky button--large', form: { data: { bots_merge_form: true } } %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+<% end %>

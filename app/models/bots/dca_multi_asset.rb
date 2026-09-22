@@ -1,7 +1,7 @@
 class Bots::DcaMultiAsset < Bot
   include ActionCable::Channel::Broadcasting
 
-  MAX_ASSETS = 20
+  MAX_ASSETS = 100
   # How the basket's weights are decided. 'manual' is the sliders; 'market_cap' derives them from
   # each asset's stored market cap, which is what the retired pair bot's market-cap switch did.
   WEIGHTINGS = %w[manual market_cap].freeze
@@ -94,7 +94,7 @@ class Bots::DcaMultiAsset < Bot
   end
 
   def execute_action
-    first_tick = transactions.none? # before anything is placed: see broadcast_below_minimums_warning
+    first_tick = own_transactions.none? # before anything is placed: see broadcast_below_minimums_warning
     update!(status: :executing)
 
     result = refresh_composition

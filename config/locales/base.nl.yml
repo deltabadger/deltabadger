@@ -11,6 +11,8 @@ nl:
             <p>Als u de afgelopen %{years}&nbsp;jaar aan dollar-cost averaging had gedaan met Bitcoin, zou u nu <b style="color: #00A36C;">%{profit}%</b> in de plus staan.</p>
             <p>Dat is <b style="color: #00A36C;">%{sp500_diff}%</b> meer dan de S&P 500 in dezelfde periode.</p>
     button:
+        merge: 'Samenvoegen'
+        confirm: 'Bevestigen'
         ok: 'OK'
         understand: 'Begrepen!'
         update: 'Bijwerken'
@@ -692,6 +694,7 @@ nl:
         other: 'Overige'
     bot_activity:
         events:
+            merged: "Samengevoegd uit %{labels}"
             dca_skipped_restatement: "Inleg overgeslagen — een aandelensplitsing die de markt nog niet heeft verwerkt"
             dca_skipped_wash_sale: "Niets gekocht — elk bestanddeel zit in een wachttijd"
             wash_sale_locked: "%{base} verkocht — tot en met %{until} niet teruggekocht, zodat het verlies van de verkoop blijft staan"

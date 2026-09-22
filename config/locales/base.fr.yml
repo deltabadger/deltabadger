@@ -11,6 +11,8 @@ fr:
             <p>Si vous aviez fait du dollar-cost averaging sur Bitcoin ces %{years}&nbsp;dernières années, vous seriez maintenant en hausse de <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>C'est <b style="color: #00A36C;">%{sp500_diff}%</b> de plus que le S&P 500 sur la même période.</p>
     button:
+        merge: 'Fusionner'
+        confirm: 'Confirmer'
         ok: 'OK'
         understand: 'Compris !'
         update: 'Mettre à jour'
@@ -693,6 +695,7 @@ fr:
         other: 'Autres'
     bot_activity:
         events:
+            merged: "Fusionné à partir de %{labels}"
             dca_skipped_restatement: "Versement ignoré — un split que le marché n'a pas encore valorisé"
             dca_skipped_wash_sale: "Rien acheté — chaque composant est dans un délai fiscal"
             wash_sale_locked: "%{base} vendu — pas de rachat jusqu'au %{until} inclus, pour que la perte de la vente ne soit pas annulée"

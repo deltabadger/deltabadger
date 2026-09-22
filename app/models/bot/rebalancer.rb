@@ -522,6 +522,37 @@ module Bot::Rebalancer
       raise "Failed to read balance for bot #{id}: #{result.errors.to_sentence}"
     end
 
-    result.data[:free].to_d
+    free = result.data[:free].to_d
+    return free if asset_id.to_i == quote_asset_id.to_i || !foreign_rows?(asset_id)
+
+    # A merged bot's ledger can carry units of this asset bought on another venue. They sit there,
+    # not here: what this venue may sell in their name is only what this bot bought on it, whatever
+    # the account holds. An asset whose every row is local reads the account as before.
+    [free, local_units(asset_id)].min
+  end
+
+  # Whether any of this bot's orders for the asset were placed on another venue — only a merge does that.
+  def foreign_rows?(asset_id)
+    transactions.submitted.where(base_asset_id: asset_id).where.not(exchange_id:).exists?
+  end
+
+  # Asset categories whose unit counts a corporate action never restates. Anything else — a share, a
+  # tokenized one — could have been split since it was bought, and a sum of its fills is not what is
+  # held; such an asset with rows from another venue is not sold from here at all.
+  UNSPLITTABLE_CATEGORIES = %w[Cryptocurrency Currency Fiat Stablecoin].freeze
+
+  # Net units of an asset this bot bought on its own venue: executed buys minus executed sells there,
+  # each fill read the way the ledger walk reads it (a closed legacy fill with no executed figure
+  # counts at its ordered amount).
+  def local_units(asset_id)
+    return 0.to_d unless UNSPLITTABLE_CATEGORIES.include?(Asset.where(id: asset_id).pick(:category))
+
+    rows = transactions.submitted.where(exchange_id:, base_asset_id: asset_id)
+                       .pluck(:side, :external_status, :price, :amount, :amount_exec, :quote_amount_exec)
+    net = rows.sum do |side, external_status, price, amount, amount_exec, quote_amount_exec|
+      executed, = Transaction.confirmed_exec_amounts(external_status, price, amount, amount_exec, quote_amount_exec)
+      side == 'sell' ? -executed.to_d : executed.to_d
+    end
+    [net, 0.to_d].max
   end
 end

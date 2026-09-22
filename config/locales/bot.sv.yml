@@ -7,6 +7,16 @@ sv:
             pick_exchange_first: "Börja investera."
             connect_alpaca_html: "För att investera i aktier, anslut först Alpaca i %{settings_link}."
             settings_link: "Inställningar"
+        merge:
+            title: "Slå ihop %{count} bottar"
+            pick_hint: "Välj bottar."
+            explanation_html: "Deras köphistorik slås ihop i en ny bot som investerar %{quote} på %{exchange} i:"
+            deleted_note: "De ursprungliga bottarna tas bort."
+            success: "Bottarna har slagits ihop."
+            no_partner: "Ingen annan bot spenderar %{quote}."
+            no_shared_exchange: "Ingen annan %{quote}-bot delar börs med den här."
+            other_exchange: "Den nya boten hamnar på %{exchange}."
+            assets_stay: "Tillgångar köpta på andra börser stannar där de är."
         dca_multi_asset:
             add_asset: "Lägg till tillgång"
             remove_asset: "Ta bort"
@@ -17,6 +27,7 @@ sv:
             allocation_sum: "Totalt"
             normalize: "Normalisera"
             normalize_first: "Normalisera fördelningen först."
+            too_many_assets: "För många tillgångar. Ta bort %{count}."
         dca_index:
             setup:
                 step_index: "Index"

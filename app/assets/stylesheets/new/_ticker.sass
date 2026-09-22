@@ -62,7 +62,7 @@
         text-align: left
         @media (max-width: 767.9px)
             margin-left: 5rem
-    @for $i from 1 through 20
+    @for $i from 1 through 100
         .ticker:nth-child(#{$i})
             z-index: 21 - $i
     &--2
@@ -76,6 +76,28 @@
         .ticker:not(:first-child):not(.ticker--more)
             border-radius: 0 2rem 2rem 0
             color: transparent
+    // One stacked row; when it runs out of width ticker_fold_controller folds the tail into "+N".
+    // Every chip overhangs the next by the overlap, the last one too, and the padding takes that
+    // overhang: the box is exactly as wide as the chips look, which is what the fold measures.
+    // min-width: 0 lets it shrink below its chips inside a flex row, or it would never overflow.
+    &--fold
+        min-width: 0
+        padding-right: 8.75rem
+        // Never squeezed: a chip or "+N" that shrank to fit would pass for room the fold never found.
+        .ticker
+            margin-right: -8.75rem
+            flex-shrink: 0
+        // Its margin skips the last chip's overhang, so "+N" starts at that chip's edge however wide
+        // the chip is, and its own padding is the gap. Only as wide as its text.
+        .ticker--more
+            margin-left: 8.75rem
+            min-width: 0
+        @media (max-width: 767.9px)
+            padding-right: 6.75rem
+            .ticker
+                margin-right: -6.75rem
+            .ticker--more
+                margin-left: 6rem
 
     .ticker-group--many
         .ticker:not(:last-child)
@@ -342,11 +364,11 @@
         box-shadow: none !important
         opacity: 0.5
         background: none !important
-        border: 0.25rem solid var(--stone)
+        border: 0.25rem solid var(--steel)
         path
-            fill: var(--stone) !important
+            fill: var(--steel) !important
         .animicon__a, .animicon__b
-            background-color: var(--stone) !important
+            background-color: var(--steel) !important
 
     &--multi
         color: var(--label-select-inactive)

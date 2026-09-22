@@ -11,6 +11,8 @@ pl:
             <p>Gdybyś stosował strategię dollar-cost averaging w Bitcoinie przez ostatnie %{years}&nbsp;lata, byłbyś teraz na plusie <b style="color: #00A36C;">%{profit}%</b>.</p>
             <p>To <b style="color: #00A36C;">%{sp500_diff}%</b> więcej niż S&P 500 w tym samym okresie.</p>
     button:
+        merge: 'Połącz'
+        confirm: 'Potwierdź'
         ok: 'OK'
         understand: 'Rozumiem!'
         update: 'Aktualizuj'
@@ -696,6 +698,7 @@ pl:
         other: 'Inne'
     bot_activity:
         events:
+            merged: "Połączono z: %{labels}"
             dca_skipped_restatement: "Wpłata pominięta — podział akcji, którego rynek jeszcze nie wycenił"
             dca_skipped_wash_sale: "Nic nie kupiono — każdy składnik jest w okresie karencji"
             wash_sale_locked: "%{base} sprzedane — bez odkupu do %{until} włącznie, żeby strata ze sprzedaży nie przepadła"

@@ -1,0 +1,100 @@
+@use "../variables" as *
+
+// The dashboard's merge bar: fixed to the bottom of the viewport while the select mode is on. Above
+// the fixed left menu (100), below the drawer, the dialog and the flash stack. On desktop it starts
+// where the content does, right of the menu.
+.merge-bar
+  position: fixed
+  bottom: 1rem
+  left: 1rem
+  right: 1rem
+  z-index: 500
+  display: flex
+  flex-wrap: wrap
+  align-items: center
+  justify-content: space-between
+  gap: 1.5rem 2rem
+  padding: 1rem 1rem 1rem 1.5rem
+  background: var(--washed)
+  color: var(--ash)
+  border-radius: 2rem
+  box-shadow: var(--shadow-strong)
+  animation: merge-bar-in 0.3s ease-out both
+  max-width: 100rem
+  margin: 0 auto
+  @media (min-width: 768px)
+    left: 9.125rem
+    right: 2rem
+  // display: flex above would beat the UA's [hidden] rule.
+  &[hidden]
+    display: none
+  // Listed after the entrance so removing the class does not replay the slide-in.
+  &--shake
+    animation: merge-bar-in 0.3s ease-out both, merge-bar-shake 0.4s ease-in-out
+  &__assets
+    display: flex
+    flex-direction: column
+    justify-content: center
+    gap: 1rem
+    min-width: 0
+    // From zero: the column takes whatever the buttons leave and the stack folds into it, so the
+    // buttons keep the row instead of wrapping under a stack that could have folded.
+    flex: 1 1 0
+  &__hint
+    color: var(--ash)
+    font-weight: 600
+    padding: 0 0.5rem
+    font-size: 1.75rem
+  &__warning
+    color: var(--warning)
+    font-weight: 600
+  &__actions
+    display: flex
+    gap: 1rem
+    margin-left: auto
+    form
+      display: contents
+    // .rbutton has no disabled look of its own: Confirm waits, dimmed, for the second pick.
+    .rbutton[disabled]
+      background: var(--steel)
+      cursor: not-allowed
+      pointer-events: none
+      box-shadow: none
+
+@keyframes merge-bar-in
+  from
+    opacity: 0
+    transform: translateY(1rem)
+  to
+    opacity: 1
+    transform: translateY(0)
+
+@keyframes merge-bar-shake
+  0%, 100%
+    transform: translateX(0)
+  20%, 60%
+    transform: translateX(-0.75rem)
+  40%, 80%
+    transform: translateX(0.75rem)
+
+// While the mode is on: room for the bar under the grid, and the Merge button gives way to the bar.
+.bots-merge--active
+  .itiles
+    padding-bottom: 10rem
+  [data-bots-merge-target="merge"]
+    display: none
+
+.merge-modal
+  &__stack
+    display: flex
+    justify-content: center
+    margin: 2rem 0
+    .ticker-group
+      justify-content: center
+  &__symbols
+    color: var(--stone)
+    overflow-wrap: anywhere
+  // The venue pill, inline in the sentence rather than a block of its own.
+  &__exchange
+    display: inline-block
+    vertical-align: middle

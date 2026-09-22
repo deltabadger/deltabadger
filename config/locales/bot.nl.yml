@@ -8,6 +8,16 @@ nl:
             pick_exchange_first: "Begin met beleggen."
             connect_alpaca_html: "Wil je in aandelen beleggen? Koppel eerst Alpaca via %{settings_link}."
             settings_link: "Instellingen"
+        merge:
+            title: "%{count} bots samenvoegen"
+            pick_hint: "Kies bots."
+            explanation_html: "Hun aankoopgeschiedenis wordt samengevoegd in één nieuwe bot die %{quote} op %{exchange} investeert in:"
+            deleted_note: "De oorspronkelijke bots worden verwijderd."
+            success: "Bots samengevoegd."
+            no_partner: "Geen andere bot geeft %{quote} uit."
+            no_shared_exchange: "Geen andere %{quote}-bot deelt een exchange met deze."
+            other_exchange: "De nieuwe bot komt op %{exchange}."
+            assets_stay: "Assets die op andere exchanges zijn gekocht, blijven waar ze zijn."
         dca_multi_asset:
             add_asset: "Asset toevoegen"
             remove_asset: "Verwijderen"
@@ -18,6 +28,7 @@ nl:
             allocation_sum: "Totaal"
             normalize: "Normaliseren"
             normalize_first: "Normaliseer eerst de allocatie."
+            too_many_assets: "Te veel assets. Verwijder er %{count}."
         dca_index:
             setup:
                 step_index: "Index"

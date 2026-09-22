@@ -3,7 +3,7 @@
 module BotApi
   module Bots
     # Creates and immediately starts a new DCA bot — always a basket (Bots::DcaMultiAsset): one base
-    # asset, or a list of up to 20.
+    # asset, or a list of up to 100.
     # The MCP tool used to inline this whole flow; pulling it here keeps the
     # decision tree in one place and gives REST callers a structured result.
     #

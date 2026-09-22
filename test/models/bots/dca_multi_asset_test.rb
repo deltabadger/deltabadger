@@ -34,7 +34,7 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     assert_not bot.settings.key?('base_asset_ids')
   end
 
-  test 'needs at least one and at most twenty assets' do
+  test 'needs at least one asset; the cap only blocks starting' do
     bot = build_bot
     bot.allocations = {}
     assert_not bot.valid?
@@ -43,18 +43,57 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     bot.allocations = { @assets['AAA'][:asset].id.to_s => 1.0 }
     assert bot.valid?, 'a one-asset basket is the pair bot it will replace'
 
-    twenty_one = Array.new(21) do |index|
+    # The cap is a start gate, not a save gate: a merge can leave a basket over it, and the user
+    # then has to be able to save each removal on the way back under it.
+    over = Array.new(Bots::DcaMultiAsset::MAX_ASSETS + 1) do |index|
       create(:asset, symbol: "X#{index}", external_id: "x-#{index}")
     end
-    twenty_one.each { |asset| create(:ticker, exchange: @exchange, base_asset: asset, quote_asset: @quote) }
-    bot.allocations = bot.equal_allocations(twenty_one.map(&:id))
-    assert_not bot.valid?
-    assert_predicate bot.errors[:allocations], :present?
+    over.each { |asset| create(:ticker, exchange: @exchange, base_asset: asset, quote_asset: @quote) }
+    bot.allocations = bot.equal_allocations(over.map(&:id))
+    assert bot.valid?, bot.errors.full_messages.to_sentence
+    assert_empty bot.errors[:allocations]
+    assert_not bot.valid?(:start)
+    assert_equal ['Too many assets. Remove 1.'], bot.errors[:base]
+    assert_equal 1, bot.excess_members
 
-    bot.allocations = bot.equal_allocations(twenty_one.first(2).map(&:id))
+    bot.allocations = bot.equal_allocations(over.first(Bots::DcaMultiAsset::MAX_ASSETS).map(&:id))
     assert bot.valid?
-    bot.allocations = bot.equal_allocations(twenty_one.first(20).map(&:id))
-    assert bot.valid?
+    assert bot.valid?(:start), bot.errors.full_messages.to_sentence
+    assert_equal 0, bot.excess_members
+  end
+
+  test 'the API start refuses a basket over the cap with the bare sentence' do
+    over = Array.new(Bots::DcaMultiAsset::MAX_ASSETS + 3) do |index|
+      create(:asset, symbol: "X#{index}", external_id: "x-#{index}")
+    end
+    bot = create(:dca_multi_asset, user: @user, exchange: @exchange, base_assets: over, quote_asset: @quote,
+                                   status: :stopped)
+
+    result = BotApi::Bots::Start.call(user: @user, bot_id: bot.id)
+
+    assert_equal 'bot_start_failed', result.error_code
+    assert_includes result.error_message, 'Too many assets. Remove 3.'
+    assert_not_includes result.error_message, 'Allocations Too many', 'the sentence stands on its own over the API'
+    assert_predicate bot.reload, :stopped?
+  end
+
+  test 'normalize_allocations never goes negative and always sums to one, however wide the basket' do
+    bot = build_bot
+
+    [102, 103].each do |size|
+      normalized = bot.normalize_allocations((1..size).to_h { |i| [i, 1.0] })
+
+      assert_equal size, normalized.size
+      assert(normalized.values.all? { it >= 0 }, "a weight went negative at #{size}")
+      assert_equal 1.0, normalized.values.sum.round(6)
+      assert(normalized.values.all? { ((it * 1000) - (it * 1000).round).abs < 1e-9 }, 'thousandths only')
+      assert_equal [0.009, 0.01], normalized.values.uniq.sort
+    end
+
+    uneven = bot.normalize_allocations((1..101).to_h { |i| [i, i.to_f] })
+    assert_equal 1.0, uneven.values.sum.round(6)
+    assert(uneven.values.all? { it >= 0 })
+    assert_operator uneven['101'], :>, uneven['1']
   end
 
   test 'weights are stored as posted; the sum is checked on start, not on save' do

@@ -62,6 +62,11 @@ module Bot::Composition::Measurable
         amount_exec, quote_amount_exec =
           confirmed_exec_amounts(external_status, price, amount, amount_exec, quote_amount_exec)
 
+        # A sale of more than the ledger held: units that reached the venue some other way. Tolerated
+        # in one bot's history; two histories combined would let it consume the other's units, which
+        # is why Bot::Merge refuses a bot that ever did it.
+        data[:external_sales] = true if side == 'sell' && amount_exec.to_d > (ledger.key?(base) ? ledger[base][:amount].to_d : 0)
+
         # The tax view of the fill (Bot::TaxLots), BEFORE the performance skip below: a fill the
         # performance walk cannot use (units executed, proceeds not reported — an open or cancelled
         # partial) still moved units for tax purposes.
@@ -129,6 +134,9 @@ module Bot::Composition::Measurable
           else
             apply_rebalance_sell(ledger, books, key: base, amount_exec:, quote_amount_exec: released)
           end
+          # Every estimate booked (zero when nothing was held). Bot::Merge adds it back: a merged pool
+          # estimates at the pooled cost, which is the merged history, not money lost.
+          data[:estimated_proceeds] += released
           # A chart point, at the marks that already stand: without one the last snapshot still holds
           # the units this sale removed, and chart_marked_at_market keeps pricing them at market for
           # the whole segment after it. Both sides move together, so the curve gains a vertex, not a
@@ -613,6 +621,7 @@ module Bot::Composition::Measurable
       total_quote_amount_invested: 0,
       total_amount_value_in_quote: 0,
       rebalance_cash: 0,
+      estimated_proceeds: 0,
       realised_pnl: 0,
       pnl: nil,
       asset_breakdown: {},

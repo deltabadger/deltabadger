@@ -35,6 +35,16 @@
                                                      hide_balances: current_user.hide_balances? } %>
   <% end %>
   
+  <%# Merge's select mode lives on this wrapper: the button, the tiles it picks from and the bar are
+      all inside it, and the grid keeps its own reorder controller untouched. The values are what the
+      bar needs to say where the merged bot will live: the venues the user has keys on, every venue's
+      name, and the three lines it may show. %>
+  <%= tag.div data: { controller: 'bots-merge',
+                      bots_merge_connected_value: Bot::Merge.connected_exchange_ids(current_user).to_json,
+                      bots_merge_names_value: Exchange.tradeable.pluck(:id, :name).to_h.to_json,
+                      bots_merge_no_partner_value: t('bot.merge.no_partner', quote: '%{quote}'),
+                      bots_merge_no_shared_exchange_value: t('bot.merge.no_shared_exchange', quote: '%{quote}'),
+                      bots_merge_other_exchange_value: t('bot.merge.other_exchange', exchange: '%{exchange}') } do %>
   <div class="page-head page-head--bots">
     <div class="filters">
       <%# Fluid: "All" and "Inactive" are nowhere near the same width, so equal columns would
@@ -48,7 +58,15 @@
       <% end %>
     </div>
 
-    <div>
+    <div class="page-head__actions">
+      <% if @mergeable_ids.size >= 2 %>
+        <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
+          <%= render "svg/24x24_dot_menu" %>
+          <div class="dropdown">
+            <%= button_tag t('button.merge'), type: 'button', class: 'dropdown__item', data: { action: 'bots-merge#enter' } %>
+          </div>
+        </div>
+      <% end %>
       <%= button_to new_bot_path, method: :get, class: "sbutton sbutton--sky", data: { turbo_frame: "modal" }, aria: { label: t('bot.new') } do %>
         <span class="d-none d-sm-inline"><%= t('bot.new') %></span>
         <%= render partial: 'svg/24x24_plus' %>
@@ -73,6 +91,35 @@
   <%= tag.div class: 'itiles', data: tile_data do %>
     <%= render partial: 'bots/bot_tile/bot_tile', collection: @bots, as: :bot,
                locals: { pnl_hash: @pnl_hash, profit_usd_hash: @profit_usd_hash,
-                         loading_hash: @loading_hash, denomination: @denomination } %>
+                         loading_hash: @loading_hash, denomination: @denomination,
+                         mergeable_ids: @mergeable_ids } %>
+  <% end %>
+
+  <% if @mergeable_ids.size >= 2 %>
+    <%# The select mode's bar: the union of the picked bots' assets, Cancel, and a Merge that opens
+        the confirmation modal with the picked ids. Hidden until Merge is pressed; while it shows, the
+        rest of the page is locked and shakes it. %>
+    <div class="merge-bar" data-bots-merge-target="bar" hidden>
+      <div class="merge-bar__assets">
+        <span class="merge-bar__hint" data-bots-merge-target="hint"><%= t('bot.merge.pick_hint') %></span>
+        <%# A lone pick no other bot can join: why, in the hint's place, instead of its chips. %>
+        <span class="merge-bar__hint text-danger" data-bots-merge-target="alone" hidden></span>
+        <%# Every picked asset, stacked in one row; the tail folds into "+N" only when the row runs out
+            of width (ticker_fold_controller). %>
+        <div class="ticker-group ticker-group--fold" data-controller="ticker-fold" data-bots-merge-target="stack" hidden></div>
+        <span class="merge-bar__warning" data-bots-merge-target="warning" hidden></span>
+      </div>
+      <div class="merge-bar__actions">
+        <%= button_tag t('button.cancel'), type: 'button', class: 'rbutton',
+                       data: { action: 'bots-merge#cancel' } %>
+        <%= form_with url: new_bots_merge_path, method: :get, data: { turbo_frame: 'modal', bots_merge_target: 'form' } do %>
+          <%# Hidden: the form is display: contents, so a visible span would take a gap in the row. %>
+          <span data-bots-merge-target="ids" hidden></span>
+          <%= button_tag t('button.merge'), type: 'submit', class: 'rbutton rbutton--primary', disabled: true,
+                         data: { bots_merge_target: 'confirm' } %>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
   <% end %>
 <% end %>

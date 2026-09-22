@@ -11,7 +11,7 @@ class CreateIndexBotTool < ApplicationMCPTool
   property :interval, type: 'string', required: true, description: 'Order interval: hour, day, week, or month'
   property :index, type: 'string', description: "Index id from list_indices. Default: 'top-coins'"
   property :num_coins, type: 'number',
-                       description: 'How many top assets to hold (2-50). Default: 10, or the whole index when it is smaller'
+                       description: 'How many top assets to hold (2-100). Default: 10, or the whole index when it is smaller'
   property :allocation_flattening, type: 'number', description: '0 = pure market-cap weights, 1 = equal weights. Default: 0'
   property :label, type: 'string', description: 'Custom bot label (optional)'
   property :start_at, type: 'string', description: 'Optional ISO8601 datetime for the first buy. Must be in the future.'

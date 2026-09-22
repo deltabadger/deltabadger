@@ -40,3 +40,11 @@ For [direct indexing](13-direct-indexing.md), start by picking the index.
 Then you pick the exchange, and when you pick the currency to spend you also see which assets in the index are available for each spending currency.
 
 Your bot has been created. [Finish its settings](10-dollar-cost-averaging.md) before you start it.
+
+## Merging bots
+
+**Merge** on the **Bots** dashboard turns several bots into one portfolio bot that keeps all of their purchase history. Press it, pick the bots, and confirm in the bar at the bottom; until you cancel or confirm, the rest of the page stays locked.
+
+Bots can be merged when they spend the same currency and some exchange lists every asset they hold. The first bot you pick sets the schedule: the new bot invests its amount at its interval, on its exchange when that exchange lists everything, otherwise on another exchange that does. The bar tells you when the new bot lands somewhere else, and the confirmation lets you move it to any other exchange that lists every asset. Assets bought on another exchange stay on that exchange.
+
+The new bot starts paused, with every rule switched off, and its allocation is the sum of the merged bots' allocations, normalised to 100%. The original bots are deleted. A portfolio bot holds up to 100 assets; a merge past that still goes through, but the bot cannot start until you remove the extra ones — the status bar says how many.

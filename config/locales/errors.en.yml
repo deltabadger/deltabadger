@@ -72,6 +72,16 @@ en:
             restricted: "%{exchange} doesn't allow trading this asset from your region."
             rate_limited: "%{exchange} is rate-limiting requests. The bot will retry automatically."
         bots:
+            merge:
+                missing: "One of these bots is gone. Pick again."
+                too_few: "Pick at least two bots."
+                unavailable: "%{label} can't be merged right now."
+                no_common_exchange: "No exchange lists all of these assets together."
+                open_orders: "%{label} has open orders on %{exchange}. Cancel them first."
+                external_sales: "%{label} sold assets it never bought here, so its history can't be merged."
+                interleaved: "Combining these bots' histories would change their overall result, so they can't be merged."
+                quote: "All bots must spend the same currency."
+                nothing_to_buy: "None of these assets trade on this exchange anymore."
             multi_asset:
                 condition_subject: "This condition must watch an asset the bot holds."
                 min_assets: "A portfolio needs at least one asset."
