@@ -10,7 +10,9 @@
 #   contributed    — lifetime money in from OUTSIDE. This, not the sum of the ledger, is the
 #                    "invested" line: once a sale realizes a gain and the bot re-spends it, the two
 #                    diverge, because the recycled dollar is not a new contribution.
-#   realised_cash  — liquidation proceeds not yet re-spent
+#   realised_cash  — liquidation proceeds, waiting for the answer to "Redeploy them?". Counted in
+#                    value, and spent by nothing but a redeploy: the schedule buys what the user
+#                    set it to buy, out of whatever they pay in
 #   divested       — proceeds of scheduled sales (DCA-out). Counted in value for good and never
 #                    spent by a buy: nothing is owed them, exactly like the pair bot's realized proceeds
 #   realised_pnl   — permanent. Displayed as "Realised P/L".
@@ -40,13 +42,12 @@ module Bot::RebalanceAccounting
   # the basis they carried is parked as an ESTIMATE of what the position was worth — proceeds
   # assumed equal to that basis, so P/L does not move until the venue reports the real figure.
   #
-  # Its own bucket, never realised_cash, because realised_cash is spendable: it caps the redeploy
-  # offer, and an estimate that lifted that cap — or that shielded it from a later buy's drain —
-  # would offer money no sale is known to have brought in. Counted in value and in uninvested cash
-  # like any other idle money, absorbed by a later regular buy AFTER every confirmed bucket, and
-  # carrying its basis with it when it goes.
+  # Its own bucket, never realised_cash, because realised_cash is what the redeploy offer is capped
+  # by: an estimate that lifted that cap would offer money no sale is known to have brought in.
+  # Counted in value like any other idle money, and waiting exactly as the reported proceeds it will
+  # become do — a later poll turns this into realised_cash, and only the figure changes.
   def apply_unpriced_sell(ledger, books, key:, amount_exec:, quote_amount_exec:)
-    books[:estimated_basis] += release_basis(ledger, books, key:, amount_exec:, quote_amount_exec:)
+    release_basis(ledger, books, key:, amount_exec:, quote_amount_exec:)
     books[:estimated_cash] += quote_amount_exec
   end
 
@@ -98,42 +99,37 @@ module Bot::RebalanceAccounting
     # ENTRY price, and a swap is not an entry.
   end
 
-  # Recycled cash is spent before new money is counted. Without this, selling an asset and letting
-  # the DCA leg spend the proceeds counts that money twice: once as value sitting in a bucket, once
-  # as fresh capital contributed.
+  # A scheduled contribution is new money, whatever else the books are holding.
   #
   # The exchange has ONE quote balance, so a recycled dollar and a freshly deposited one are
-  # indistinguishable. Draining first is the better guess — the money is demonstrably sitting there —
-  # the error is bounded by the proceeds, and it vanishes once the bucket empties.
+  # indistinguishable, and either reading is a guess. This one matches what a schedule is: the user
+  # set an amount and an interval and pays it in. A sale's proceeds are a question they were asked —
+  # the redeploy prompt — and a contribution is not an answer to it, so it leaves them alone.
+  #
+  # Flight cash is the exception, and not the same kind of money: it is what a half-finished
+  # rebalance owes its own buy leg. Left undrained, a swap that ended in a dust remainder would be
+  # counted twice by every later contribution — once as cash in the value, once as fresh capital.
   def apply_regular_buy(ledger, books, key:, amount_exec:, quote_amount_exec:)
     entry = ledger[key]
     from_flight, moved_basis = drain_flight_cash(books, quote_amount_exec)
-    from_realised = [books[:realised_cash], quote_amount_exec - from_flight].min
-    books[:realised_cash] -= from_realised
-    # LAST of the recycled buckets, after both confirmed ones. Draining an estimate ahead of
-    # confirmed proceeds would leave those proceeds reading as unspent, and the redeploy offer would
-    # put them back on the table.
-    from_estimated, estimated_basis = drain_estimated_cash(books, quote_amount_exec - from_flight - from_realised)
-    moved_basis += estimated_basis
-    new_money = quote_amount_exec - from_flight - from_realised - from_estimated
+    new_money = quote_amount_exec - from_flight
     books[:contributed] += new_money
     # The flight portion books the basis that TRAVELLED WITH the cash, not the cash itself — exactly
     # what apply_rebalance_buy does, and for the same reason: a swap's embedded gain stays unrealised
     # in whatever asset the money ends up in. Booking the proceeds instead would quietly write that
     # gain off, and a later liquidation of this asset would realize nothing where it should realize
-    # the difference. The other two portions have no embedded gain left to carry — a realised sale
-    # already booked its P/L, and new money is new money — so they book at face value.
-    entry[:invested] += moved_basis + from_realised + new_money
+    # the difference. New money has no embedded gain to carry, so it books at face value.
+    entry[:invested] += moved_basis + new_money
     entry[:amount] += amount_exec
   end
 
   # Spending a liquidation's proceeds back into the composition, on the user's command.
   #
   # Drains realised_cash and NOTHING ELSE — deliberately not apply_regular_buy, which drains flight
-  # cash first. Flight cash is money a half-finished swap owes its own buy leg, and the offer the
-  # user was shown is measured against realised_cash alone: draining 10 of flight cash on a 100
-  # redeploy would leave 10 of realised_cash undeployed while the offer read zero, because the sum of
-  # REDEPLOY fills is what the offer subtracts. The two have to measure the same money.
+  # cash. Flight cash is money a half-finished swap owes its own buy leg, and the offer the user was
+  # shown is measured against realised_cash alone: draining 10 of flight cash on a 100 redeploy would
+  # leave 10 of realised_cash undeployed while the offer read zero, because the sum of REDEPLOY fills
+  # is what the offer subtracts. The two have to measure the same money.
   def apply_redeploy_buy(ledger, books, key:, amount_exec:, quote_amount_exec:)
     entry = ledger[key]
     from_realised = [books[:realised_cash], quote_amount_exec].min
@@ -186,8 +182,8 @@ module Bot::RebalanceAccounting
   # not re-spent — are still the user's money.
   #
   # Nothing tells the app if the user WITHDREW those proceeds instead, so they stay counted until a
-  # later buy drains the bucket. Portfolio value is therefore cumulative performance value: holdings
-  # plus proceeds not yet redeployed.
+  # redeploy spends them. Portfolio value is therefore cumulative performance value: holdings plus
+  # proceeds not yet redeployed.
   def portfolio_value(values_sum, books)
     values_sum + uninvested_cash(books)
   end
@@ -206,7 +202,7 @@ module Bot::RebalanceAccounting
 
   def new_rebalance_books
     { basis: 0, cash: 0, contributed: 0, realised_cash: 0, realised_pnl: 0,
-      estimated_basis: 0, estimated_cash: 0, divested: 0 }
+      estimated_cash: 0, divested: 0 }
   end
 
   # Lives on Transaction — the rule is about how to read one row, and the chart marks need it on
@@ -253,18 +249,5 @@ module Bot::RebalanceAccounting
     books[:basis] -= moved_basis
     books[:cash] -= from_flight
     [from_flight, moved_basis]
-  end
-
-  # The same drain for the unpriced-sale estimate. Its paired basis travels with it, exactly as a
-  # swap's does — and here the pairing is exact by construction, since the estimate IS that basis.
-  def drain_estimated_cash(books, spendable)
-    cash = books[:estimated_cash].to_d
-    return [0.to_d, 0.to_d] unless cash.positive? && spendable.to_d.positive?
-
-    taken = [cash, spendable.to_d].min
-    moved_basis = books[:estimated_basis] * (taken / cash)
-    books[:estimated_basis] -= moved_basis
-    books[:estimated_cash] -= taken
-    [taken, moved_basis]
   end
 end

@@ -39,7 +39,7 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
     liquidate('AAA', amount: 2.43, quote: 243, price: 100)
     @bot.decline_redeploy!
 
-    buy('BBB', quote: 100, price: 100) # the DCA leg drains 100 of the declined cash
+    buy('BBB', quote: 100, price: 100) # the schedule goes on with its own money
     liquidate('AAA', amount: 0.5, quote: 50, price: 100) # a new quitter banks 50
 
     assert_in_delta 50, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001,
@@ -66,6 +66,20 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
     order.update!(amount_exec: 1.3, quote_amount_exec: 130)
 
     assert_in_delta 30, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001
+  end
+
+  # "No" answers the offer, not the money: the proceeds are still the user's and still counted in
+  # what the bot is worth. Nothing spends them afterwards either, so the answer stays answered.
+  test 'declined proceeds stay counted and stay unspent' do
+    buy('AAA', quote: 100, price: 100)
+    liquidate('AAA', amount: 1, quote: 150, price: 150)
+    @bot.decline_redeploy!
+
+    buy('BBB', quote: 150, price: 100)
+
+    metrics = @bot.metrics(force: true)
+    assert_in_delta 150, metrics[:realised_cash].to_f, 0.0001
+    assert_in_delta 0, @bot.redeploy_offer(metrics).to_f, 0.0001, 'declined is declined'
   end
 
   test 'the decline survives a cache flush' do
@@ -170,12 +184,22 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
     assert_in_delta 50, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001
   end
 
-  test 'the offer never exceeds what the books still hold' do
+  # The offer is a question only the user answers: Yes, No, or leave it standing. A scheduled
+  # contribution is not an answer, so it takes nothing off the table.
+  test 'the schedule buying in the meantime does not take the offer off the table' do
     buy('AAA', quote: 100, price: 100)
     liquidate('AAA', amount: 1, quote: 150, price: 150)
-    buy('BBB', quote: 120, price: 100) # the DCA leg has already spent most of it
+    buy('BBB', quote: 120, price: 100)
 
-    assert_in_delta 30, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001
+    assert_in_delta 150, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001
+  end
+
+  test 'the offer is still whole after a year of contributions' do
+    buy('AAA', quote: 100, price: 100)
+    liquidate('AAA', amount: 1, quote: 150, price: 150)
+    52.times { buy('BBB', quote: 100, price: 100) }
+
+    assert_in_delta 150, @bot.redeploy_offer(@bot.metrics(force: true)).to_f, 0.0001
   end
 
   # A closed sell whose quote fill the venue never reported has no confirmed proceeds. The ledger
@@ -200,35 +224,54 @@ class Bots::DcaIndexRedeployTest < ActiveSupport::TestCase
 
   # The cap is what the books still hold in SPENDABLE cash. An unpriced sale parks its released basis
   # as cash so the holding's value does not vanish, and that placeholder must not lift the cap:
-  # earlier proceeds the DCA leg has already spent would come straight back on offer, and accepting
-  # it would spend account funds no sale ever brought in.
-  test 'an unpriced sale does not replenish the cap' do
+  # accepting it would spend account funds no sale ever brought in.
+  test 'an unpriced sale does not lift the cap' do
     buy('AAA', quote: 200, price: 100)
     liquidate('AAA', amount: 1, quote: 100, price: 100)
-    buy('BBB', quote: 100, price: 100) # the DCA leg spends the proceeds
     create_order('AAA', amount: 1, quote: 100, price: 100, side: :sell, type: 'LIQUIDATION')
     @bot.transactions.liquidation.last.update_columns(quote_amount_exec: nil)
 
     metrics = @bot.metrics(force: true)
-    assert_in_delta 100, metrics[:rebalance_cash].to_f, 0.0001, 'still counted in the portfolio'
-    assert_in_delta 0, metrics[:realised_cash].to_f, 0.0001, 'but not as money to spend'
-    assert_in_delta 0, @bot.redeploy_offer(metrics).to_f, 0.0001
+    assert_in_delta 200, metrics[:rebalance_cash].to_f, 0.0001, 'both are counted in the portfolio'
+    assert_in_delta 100, metrics[:realised_cash].to_f, 0.0001, 'only the reported one is money to spend'
+    assert_in_delta 100, @bot.redeploy_offer(metrics).to_f, 0.0001
   end
 
-  # And it must not SHIELD the cap either: a buy that drained the placeholder instead of the confirmed
-  # proceeds would leave those proceeds looking unspent. Estimated money is spent last, after every
-  # confirmed bucket, so it can neither lift the cap nor hold it up.
-  test 'an unpriced sale does not shield the cap from the buy that drains it' do
+  # The estimate waits for its own figure exactly as reported proceeds wait for the user: a
+  # contribution takes neither. Otherwise the books would move when a later poll fills the figure in.
+  test 'a contribution spends neither the proceeds nor the estimate' do
     buy('AAA', quote: 200, price: 100)
     liquidate('AAA', amount: 1, quote: 100, price: 100)
     create_order('AAA', amount: 1, quote: 100, price: 100, side: :sell, type: 'LIQUIDATION')
     @bot.transactions.liquidation.last.update_columns(quote_amount_exec: nil)
-    buy('BBB', quote: 100, price: 100) # the DCA leg spends the confirmed proceeds, not the estimate
+
+    buy('BBB', quote: 100, price: 100)
 
     metrics = @bot.metrics(force: true)
-    assert_in_delta 0, metrics[:realised_cash].to_f, 0.0001, 'the confirmed proceeds went into the buy'
-    assert_in_delta 100, metrics[:rebalance_cash].to_f, 0.0001, 'the estimate is still counted as value'
-    assert_in_delta 0, @bot.redeploy_offer(metrics).to_f, 0.0001
+    assert_in_delta 100, metrics[:realised_cash].to_f, 0.0001, 'untouched by the contribution'
+    assert_in_delta 200, metrics[:rebalance_cash].to_f, 0.0001, 'and so is the estimate'
+    assert_in_delta 100, @bot.redeploy_offer(metrics).to_f, 0.0001
+    assert_in_delta 300, metrics[:total_quote_amount_invested].to_f, 0.0001, 'the contribution was new money'
+  end
+
+  # The estimate is a placeholder for a figure the venue has not given yet. When it arrives the sale
+  # is worth what it fetched — above or below the basis it was standing in for — and the difference
+  # lands in P/L and in the offer. What it never touches is what the user paid in.
+  test 'proceeds reported later than the contributions correct the value, not the contributions' do
+    buy('AAA', quote: 200, price: 100)
+    create_order('AAA', amount: 1, quote: 100, price: 100, side: :sell, type: 'LIQUIDATION')
+    sale = @bot.transactions.liquidation.last
+    sale.update_columns(quote_amount_exec: nil)
+    buy('BBB', quote: 100, price: 100)
+    invested = @bot.metrics(force: true)[:total_quote_amount_invested].to_f
+
+    sale.update_columns(quote_amount_exec: 130)
+
+    metrics = @bot.metrics(force: true)
+    assert_in_delta invested, metrics[:total_quote_amount_invested].to_f, 0.0001, 'the user paid in no more'
+    assert_in_delta 130, metrics[:realised_cash].to_f, 0.0001, 'what it actually fetched'
+    assert_in_delta 30, metrics[:realised_pnl].to_f, 0.0001, 'sold 30 above the basis it was estimated at'
+    assert_in_delta 130, @bot.redeploy_offer(metrics).to_f, 0.0001
   end
 
   # The banked side counts only what the venue reported; the SPEND side must still count what the

@@ -401,7 +401,8 @@ class Bot::MergeTest < ActiveSupport::TestCase
     assert_equal 1, books[:asset_breakdown]['BTC'][:amount].to_d
   end
 
-  test 'a buy after another source kept its sale proceeds reads as spending them' do
+  # Proceeds wait for the user on one bot; pooling two histories must not answer for them.
+  test 'a buy after another source kept its sale proceeds leaves them on offer' do
     anchor = basket([@btc])
     other = basket([@eth])
     t = 2.days.ago
@@ -410,10 +411,12 @@ class Bot::MergeTest < ActiveSupport::TestCase
                   quote_amount: 120, quote_amount_exec: 120)
     order!(anchor, base: 'BTC', created_at: t + 2.hours)
 
-    books = merge!(anchor, other).metrics(force: true)
+    merged = merge!(anchor, other)
 
-    assert_equal 100, books[:total_quote_amount_invested].to_d, 'the BTC buy spent the ETH proceeds, not new money'
-    assert_equal 20, books[:rebalance_cash].to_d
+    books = merged.metrics(force: true)
+    assert_equal 200, books[:total_quote_amount_invested].to_d, 'two contributions, both of them new money'
+    assert_equal 120, books[:realised_cash].to_d
+    assert_equal 120, merged.redeploy_offer(books).to_d, 'what the source was offering, still offered'
   end
 
   test 'a sale the venue never priced is estimated at the pooled cost' do

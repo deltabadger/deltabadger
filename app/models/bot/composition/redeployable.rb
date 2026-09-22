@@ -1,9 +1,9 @@
 # Putting a liquidation's proceeds back into the composition, on the user's command.
 #
 # Selling a holding the composition dropped leaves the money in `books[:realised_cash]`, and nothing
-# buys it back: the rebalance leg only swaps between members, and the DCA leg absorbs it a
-# contribution at a time (`apply_regular_buy` drains realised cash before counting new money), so a
-# large sale takes `ceil(proceeds / quote_amount)` intervals to re-enter the basket.
+# buys it back: the rebalance leg only swaps between members, and the DCA leg spends what the user
+# pays in, never these proceeds (Bot::RebalanceAccounting). So the money waits here until the user
+# answers — Yes puts it back into the composition, No takes the question away — however long that is.
 #
 # This is a peer of Bot::Rebalanceable, NOT a branch of the DCA leg: a composition bot is a portfolio
 # container and the schedule is only one of the ways money reaches it. So it runs while the bot is
