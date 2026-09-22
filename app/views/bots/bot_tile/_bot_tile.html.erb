@@ -31,7 +31,16 @@
           <% elsif bot.dca_index? && bot.quote_asset_id.present? && bot.num_coins.present? %>
             <span><%= bot.display_index_name %></span>
           <% elsif bot.dca_multi_asset? && bot.quote_asset_id.present? %>
-            <span><%= bot.base_assets.first(3).map(&:symbol).join(', ') %><%= " +#{bot.base_assets.size - 3}" if bot.base_assets.size > 3 %></span>
+            <% symbols = bot.base_assets.map(&:symbol) %>
+            <% if symbols.size >= 3 %>
+              <%# Three symbols while they fit on one line, two otherwise. %>
+              <span data-controller="title-fit">
+                <span><%= symbols.first(3).join(', ') %><%= " +#{symbols.size - 3}" if symbols.size > 3 %></span>
+                <span hidden><%= symbols.first(2).join(', ') %> +<%= symbols.size - 2 %></span>
+              </span>
+            <% else %>
+              <span><%= symbols.join(', ') %></span>
+            <% end %>
           <% elsif bot.signal? && bot.quote_asset_id.present? && bot.base_asset_id.present? %>
             <span><%= bot.base_asset.symbol %></span>
           <% end %>

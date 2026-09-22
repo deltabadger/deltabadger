@@ -171,6 +171,8 @@ application.register("three-dots", ThreeDotsController)
 
 import TickerFoldController from "./ticker_fold_controller"
 application.register("ticker-fold", TickerFoldController)
+import TitleFitController from "./title_fit_controller"
+application.register("title-fit", TitleFitController)
 
 import TickerTooltipsController from "./ticker_tooltips_controller"
 application.register("ticker-tooltips", TickerTooltipsController)
