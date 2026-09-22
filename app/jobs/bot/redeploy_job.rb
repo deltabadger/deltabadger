@@ -50,6 +50,10 @@ class Bot::RedeployJob < BotJob
     # Re-raised, so it is still a failed execution for the operator too.
     bot.log_activity('redeploy_failed', level: :error, details: { reason: e.message })
     raise
+  ensure
+    # The answer left a spinner where Yes and No were, and only a repaint takes it away — whichever
+    # way this run ended.
+    bot.broadcast_redeploy_state if bot.respond_to?(:broadcast_redeploy_state)
   end
 
   private

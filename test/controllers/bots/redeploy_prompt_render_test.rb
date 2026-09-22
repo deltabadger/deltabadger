@@ -23,6 +23,15 @@ class Bots::RedeployPromptRenderTest < ActionDispatch::IntegrationTest
     assert_match(/150/, response.body)
   end
 
+  # The target the answer's spinner lands in.
+  test 'the answers sit in a target the spinner can replace' do
+    liquidated(150)
+
+    get bot_path(id: @bot.id)
+
+    assert_select '#redeploy-prompt-actions form', count: 2
+  end
+
   test 'no prompt when there is nothing to redeploy' do
     get bot_path(id: @bot.id)
 

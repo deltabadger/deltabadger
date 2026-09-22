@@ -31,7 +31,10 @@ class Bots::RedeploysController < ApplicationController
     result = BotApi::Bots::AnswerRedeploy.call(user: current_user, bot_id: @bot.id, accept: accept)
     if result.success?
       flash.now[:notice] = t(notice)
-      render turbo_stream: turbo_stream_prepend_flash
+      # The job answers seconds later; until its repaint lands, the same Yes and No would still be
+      # there to tap.
+      render turbo_stream: [turbo_stream_prepend_flash,
+                            turbo_stream.update('redeploy-prompt-actions', helpers.redeploy_answer_spinner(t(notice)))]
     else
       flash.now[:alert] = result.error_code == 'market_closed' ? t('bot.redeploy.market_closed') : result.error_message
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity

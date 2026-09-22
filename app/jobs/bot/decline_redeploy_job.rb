@@ -25,7 +25,9 @@ class Bot::DeclineRedeployJob < BotJob
     end
 
     bot.log_activity('redeploy_declined', level: :info, details: { user_id: user_id })
-    # Nothing else repaints the panel on its own — the prompt has to disappear.
-    bot.broadcast_redeploy_state
+  ensure
+    # Nothing else repaints the panel on its own — the prompt has to disappear on success, and the
+    # answer's spinner has to give way to the buttons again on a refusal.
+    bot.broadcast_redeploy_state if bot.respond_to?(:broadcast_redeploy_state)
   end
 end
