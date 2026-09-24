@@ -11,7 +11,7 @@ en:
                 -   text_html: 'Click <b class="pbutton">Create API</b>.'
                 -   text_html: 'Select <b class="pbutton">System generated</b>.'
                 -   text_html: 'Label your keys (e.g. "deltabadger-tracker") and pass the security verification if necessary.'
-                -   text_html: 'Leave the permissions alone. <b>Enable Reading</b> is on by default and is the only one the tracker uses — it never places an order or moves funds.<br><strong>⚠️ Important:</strong> Do not enable Spot Trading or Withdrawals.'
+                -   text_html: 'Leave the permissions alone. <b>Enable Reading</b> is on by default and is the only one the tracker uses — it never places an order or moves funds.<br>Spot Trading is not needed.<br><strong>⚠️ Important:</strong> Do not enable Withdrawals — the key is refused if it can withdraw.'
                 -   text_html: 'Optional: click <b class="pbutton">Edit restrictions</b> and whitelist %{whitelist_ip}, which ties the key to this machine. A reading key works without it.'
                 -   text_html: 'Copy and paste your new API keys above.'
         binance_us: *binance_read_only_config

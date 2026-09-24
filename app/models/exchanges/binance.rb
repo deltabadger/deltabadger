@@ -476,6 +476,23 @@ class Exchanges::Binance < Exchange
     end
   end
 
+  # The tracker's reading key, held to its own steps (read_only_api.binance): Enable Reading on and
+  # Withdrawals off. Trading is "not needed" there, so it is not held against the key. Binance.US
+  # inherits this; its flags may omit fields the trading check reads, so only these two are asked.
+  def get_read_api_key_validity(api_key:)
+    return Result::Success.new(true) if dry_run?
+
+    result = Honeymaker.client(name_id, api_key: api_key.key, api_secret: api_key.secret,
+                                        proxy: ExchangeProxy.for(name_id)).api_description
+    if result.success?
+      Result::Success.new(result.data['enableReading'] == true && result.data['enableWithdrawals'] != true)
+    elsif parse_error_code(result).in?(ERROR_CODES[:invalid_key])
+      Result::Success.new(false)
+    else
+      result
+    end
+  end
+
   def minimum_amount_logic(order_type:, **)
     if order_type == :market_order
       :base_and_quote
