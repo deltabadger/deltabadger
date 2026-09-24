@@ -16,6 +16,6 @@
 
 <% if @next_cursor.present? %>
   <%= turbo_stream.replace 'orders_pagination' do %>
-    <%= turbo_frame_tag 'orders_pagination', src: bot_path(before: @next_cursor, format: :turbo_stream, params: { decimals: @decimals }) %>
+    <%= turbo_frame_tag 'orders_pagination', src: bot_path(before: @next_cursor, format: :turbo_stream) %>
   <% end %>
 <% end %>

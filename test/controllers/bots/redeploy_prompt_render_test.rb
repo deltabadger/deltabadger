@@ -94,19 +94,21 @@ class Bots::RedeployPromptRenderTest < ActionDispatch::IntegrationTest
     dust = create(:asset, symbol: 'DUST', name: 'Dust', external_id: 'coin-dust')
     create(:ticker, exchange: @bot.exchange, base_asset: dust, quote_asset: @bot.quote_asset,
                     minimum_base_size: 1)
-    @bot.stubs(:metrics_with_current_prices).returns(
+    # On any instance: the controller loads its own copy of the bot, which a stub on @bot never reaches.
+    Bots::DcaIndex.any_instance.stubs(:metrics_with_current_prices_from_cache).returns(
       asset_values: { 'MEM' => { amount: 10.to_d, current_value: 100.to_d, quote_invested: 90.to_d,
                                  avg_price: 9.to_d, pnl_percentage: 0.1 },
                       'DUST' => { amount: 0.004.to_d, current_value: 0.to_d, quote_invested: 1.to_d,
                                   avg_price: 1.to_d, pnl_percentage: 0 } },
+      key_assets: { 'MEM' => member.id, 'DUST' => dust.id },
       prices_stale: false, asset_breakdown: {}, chart: { labels: [] }
     )
 
     get bot_path(id: @bot.id)
 
     assert_response :success
-    assert_match(/MEM/, response.body, 'the member belongs in the composition table')
-    assert_no_match(/DUST/, response.body, 'dust is neither a member nor a sellable quitter')
+    assert_select '#assets_metrics_list tr[data-symbol=MEM]', 1, 'the member belongs in the composition table'
+    assert_select 'tr[data-symbol=DUST]', false, 'dust is neither a member nor a sellable quitter'
   end
 
   # The note used to be small print under the figure, competing with it.

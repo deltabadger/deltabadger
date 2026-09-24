@@ -18,11 +18,10 @@ class Bots::TransactionUnitPriceTest < ActionDispatch::IntegrationTest
     create(:transaction, bot: @bot, status: :submitted, external_status: :closed,
                          amount: 0.001, amount_exec: 0.00694239,
                          quote_amount: 50, quote_amount_exec: 27.000331, price: 3889.15)
-    decimals = { @bot.base_asset.symbol => 8, @bot.quote_asset.symbol => 4 }
-    get bot_path(id: @bot.id, format: :turbo_stream), params: { decimals: decimals }
+    get bot_path(id: @bot.id, format: :turbo_stream), headers: { 'Turbo-Frame' => 'orders_pagination' }
     assert_response :ok
     # 27.000331 / 0.00694239 = 3889.1982..., and a fiat quote is written to the cent whatever
-    # `decimals` says. Still the EXECUTED amounts: the configured 50 / 0.001 would read 50000.00.
+    # the bot's precision says. Still the EXECUTED amounts: the configured 50 / 0.001 would read 50000.00.
     assert_match(%r{3889\.20\s+<small>#{@bot.quote_asset.symbol}</small>}, response.body)
     refute_match(%r{50000\.00\s+<small>#{@bot.quote_asset.symbol}</small>}, response.body)
   end
@@ -31,8 +30,7 @@ class Bots::TransactionUnitPriceTest < ActionDispatch::IntegrationTest
     create(:transaction, :pending, bot: @bot,
                                    amount: 0.5, quote_amount: 100,
                                    amount_exec: nil, quote_amount_exec: nil, price: 200)
-    decimals = { @bot.base_asset.symbol => 8, @bot.quote_asset.symbol => 2 }
-    get bot_path(id: @bot.id, format: :turbo_stream), params: { decimals: decimals }
+    get bot_path(id: @bot.id, format: :turbo_stream), headers: { 'Turbo-Frame' => 'orders_pagination' }
     assert_response :ok
     # 100 / 0.5 = 200.00
     assert_match(%r{200\.0+\s+<small>#{@bot.quote_asset.symbol}</small>}, response.body)
@@ -42,8 +40,7 @@ class Bots::TransactionUnitPriceTest < ActionDispatch::IntegrationTest
     # Open order: amount + price set, quote_amount nil; partial computes quote_amount = price * amount
     create(:transaction, :open, bot: @bot,
                                 amount: 0.5, price: 200, quote_amount: nil)
-    decimals = { @bot.base_asset.symbol => 8, @bot.quote_asset.symbol => 2 }
-    get bot_path(id: @bot.id, format: :turbo_stream), params: { decimals: decimals }
+    get bot_path(id: @bot.id, format: :turbo_stream), headers: { 'Turbo-Frame' => 'orders_pagination' }
     assert_response :ok
     # quote_amount derived as 200 * 0.5 = 100; unit price = 100 / 0.5 = 200
     assert_match(%r{200\.0+\s+<small>#{@bot.quote_asset.symbol}</small>}, response.body)
@@ -52,8 +49,7 @@ class Bots::TransactionUnitPriceTest < ActionDispatch::IntegrationTest
   test 'order with zero amount renders bare dash (no quote suffix), no ZeroDivisionError' do
     # Skipped orders have nil amount; assert no crash AND no "- QUOTE" output
     create(:transaction, :skipped, bot: @bot)
-    decimals = { @bot.base_asset.symbol => 8, @bot.quote_asset.symbol => 2 }
-    get bot_path(id: @bot.id, format: :turbo_stream), params: { decimals: decimals }
+    get bot_path(id: @bot.id, format: :turbo_stream), headers: { 'Turbo-Frame' => 'orders_pagination' }
     assert_response :ok
     refute_match(%r{-\s+<small>#{@bot.quote_asset.symbol}</small>}, response.body,
                  'dash should not be followed by a quote-asset suffix when unit price is not computable')
@@ -69,8 +65,7 @@ class Bots::TransactionUnitPriceTest < ActionDispatch::IntegrationTest
   test 'order_timeline row spans the new column (colspan=3 for Amount+Value+UnitPrice)' do
     create(:transaction, bot: @bot, amount: 0.001, quote_amount: 50,
                          amount_exec: 0.001, quote_amount_exec: 50, price: 50_000)
-    decimals = { @bot.base_asset.symbol => 8, @bot.quote_asset.symbol => 2 }
-    get bot_path(id: @bot.id, format: :turbo_stream), params: { decimals: decimals }
+    get bot_path(id: @bot.id, format: :turbo_stream), headers: { 'Turbo-Frame' => 'orders_pagination' }
     assert_response :ok
     # _order_timeline renders the sentence-style row under the "All" view;
     # its combined cell must span Amount + Value + UnitPrice (3 columns).
