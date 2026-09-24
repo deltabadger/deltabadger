@@ -10,6 +10,21 @@ class SyncKeyErrorFlashTest < ActionView::TestCase
     assert_not_includes rendered, 'update the API key below'
   end
 
+  # The key is still :correct, so nothing else on the page offers to replace it.
+  test 'a permission failure links to the key form' do
+    render_flash(reason: :permission, capability: :transactions)
+
+    assert_select 'a.rbutton[href=?]', new_tracker_add_api_key_path(exchange_id: 7)
+  end
+
+  test 'no other failure offers the key form' do
+    %i[invalid transient failed].each do |reason|
+      render_flash(reason: reason)
+
+      assert_select 'a.rbutton', count: 0
+    end
+  end
+
   test 'the balances capability is named for the other caller' do
     render_flash(reason: :permission, capability: :balances)
 
@@ -49,6 +64,7 @@ class SyncKeyErrorFlashTest < ActionView::TestCase
 
   def render_flash(reason:, message: 'Some error', capability: :transactions)
     render partial: 'tracker/sync_key_error',
-           locals: { exchange_name: 'Kraken', message: message, reason: reason, capability: capability }
+           locals: { exchange_name: 'Kraken', exchange_id: 7, message: message, reason: reason,
+                     capability: capability }
   end
 end

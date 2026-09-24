@@ -7,7 +7,7 @@ class AccountTransaction::SyncTrackerJob < ApplicationJob
   def perform(user_id, api_key_ids)
     api_keys = ApiKey.where(id: api_key_ids).includes(:exchange)
 
-    failed = api_keys.filter_map { |api_key| sync_exchange(user_id, api_key) }
+    api_keys.each { |api_key| sync_exchange(user_id, api_key) }
     TransferMatcher.run!(User.find(user_id))
 
     sleep 0.5
@@ -15,12 +15,7 @@ class AccountTransaction::SyncTrackerJob < ApplicationJob
     Tracker::LedgerJob.perform_later(user_id)
     broadcast_done(user_id)
     # Broadcast unconditionally so a clean sync clears any stale warning.
-    Turbo::StreamsChannel.broadcast_replace_to(
-      "user_#{user_id}", :sync,
-      target: 'sync-warnings',
-      partial: 'tracker/sync_warning',
-      locals: { exchanges: failed }
-    )
+    broadcast_sync_warnings(User.find(user_id))
   rescue StandardError => e
     broadcast_done(user_id)
     raise e
@@ -38,13 +33,11 @@ class AccountTransaction::SyncTrackerJob < ApplicationJob
 
     handle_api_key_failure(api_key, result, capability: :transactions)
     api_key.record_sync_error!(Array(result.errors).first.to_s)
-    exchange_name
   rescue StandardError => e
     # Scrubbed: nothing upstream cleans an exception message, and this line is read by whatever
     # watches the logs.
     Rails.logger.error("[SyncTracker] #{api_key.exchange.name} failed: #{api_key.scrub(e.message)}")
     api_key.record_sync_error!(e)
-    exchange_name
   end
 
   def broadcast_done(user_id)

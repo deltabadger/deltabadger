@@ -7,7 +7,7 @@ class ApiKeyFailureHandlingTest < ActiveSupport::TestCase
   class Host
     include ApiKeyFailureHandling
 
-    public :handle_api_key_failure
+    public :handle_api_key_failure, :broadcast_sync_warnings
   end
 
   setup do
@@ -89,6 +89,17 @@ class ApiKeyFailureHandlingTest < ActiveSupport::TestCase
     assert_equal :en, I18n.locale, 'the wrapper must not leak the user locale into the caller'
   end
 
+  # The banner is rendered by jobs too, which run with no request locale — the button label and its
+  # locale-prefixed link would come out in the default language.
+  test 'the sync banner renders in the owner locale' do
+    @user.update!(locale: 'pl')
+    Turbo::StreamsChannel.expects(:broadcast_update_to).with { I18n.locale == :pl }
+
+    @host.broadcast_sync_warnings(@user)
+
+    assert_equal :en, I18n.locale
+  end
+
   # THE regression pin for a 401. It is enough to SAY the venue rejected us, never enough to condemn
   # a stored key: Coinbase signs every request with a two-minute JWT built from local time, so clock
   # skew 401s a perfectly good key, and our own authenticated exchange proxy answers a wrong password
@@ -135,7 +146,8 @@ class ApiKeyFailureHandlingTest < ActiveSupport::TestCase
       "user_#{@user.id}", :sync,
       target: 'flash',
       partial: 'tracker/sync_key_error',
-      locals: { exchange_name: 'Kraken', message: message, reason: reason, capability: capability }
+      locals: { exchange_name: 'Kraken', exchange_id: @api_key.exchange_id, message: message, reason: reason,
+                capability: capability }
     )
   end
 end

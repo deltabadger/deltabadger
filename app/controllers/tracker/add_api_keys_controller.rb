@@ -16,7 +16,9 @@ class Tracker::AddApiKeysController < ApplicationController
       result = @api_key.get_validity
       @api_key.update_status!(result)
     end
-    return redirect_to tracker_path if @api_key.correct?
+    # A key missing a permission is still :correct — it trades — but the tracker cannot read with
+    # it, and this form is the only place a replacement can go.
+    return redirect_to tracker_path if @api_key.correct? && !@api_key.missing_permission?
 
     render :reconnect if turbo_frame_request_id == 'modal'
   end
@@ -35,7 +37,13 @@ class Tracker::AddApiKeysController < ApplicationController
     if @api_key.correct?
       session.delete(:tracker_connect)
       AccountTransaction::SyncJob.perform_later(@api_key)
-      render turbo_stream: turbo_stream_redirect(tracker_path)
+      # Updated here, before the redirect: #sync-warnings is data-turbo-permanent, so the visit
+      # carries the old banner over and it would keep offering to replace the key just replaced.
+      render turbo_stream: [
+        turbo_stream.update('sync-warnings', partial: 'tracker/sync_warnings',
+                                             locals: ApiKey.sync_warnings(current_user)),
+        turbo_stream_redirect(tracker_path)
+      ]
     elsif @api_key.incorrect?
       flash.now[:alert] = t('errors.incorrect_api_key_permissions')
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity

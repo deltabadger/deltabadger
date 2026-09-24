@@ -511,6 +511,7 @@ cs:
             needs_market_data: 'Připojte zdroj tržních dat, abyste viděli své portfolio.'
         sync_key_error_html: 'Synchronizace s <strong>%{exchange}</strong> selhala: %{message}. Aktualizuj API klíč níže.'
         sync_permission_error_html: "<strong>%{exchange}</strong> se nepodařilo synchronizovat: tento API klíč nemá oprávnění potřebné ke čtení %{capability}. Uprav oprávnění klíče na %{exchange}, nebo vytvoř nový klíč se všemi oprávněními uvedenými v návodu."
+        replace_key: 'Vyměnit klíč pro %{exchange}'
         sync_transient_error_html: "<strong>%{exchange}</strong> je dočasně nedostupná. Zkus synchronizaci znovu za pár minut."
         sync_generic_error_html: "Synchronizace s <strong>%{exchange}</strong> selhala: %{message}. Zkus to prosím znovu."
         capabilities:

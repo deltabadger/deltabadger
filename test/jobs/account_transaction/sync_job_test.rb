@@ -24,6 +24,25 @@ class AccountTransaction::SyncJobTest < ActiveSupport::TestCase
     AccountTransaction::SyncJob.perform_now(@api_key)
   end
 
+  # The sync a replaced key runs. A key that validates for trading can still lack the ledger scope,
+  # and the banner the replacement just cleared has to come back with its button.
+  test 'a permission failure brings the warning back with its replace button' do
+    kraken = create(:kraken_exchange)
+    key = create(:api_key, user: @user, exchange: kraken, key_type: :trading, status: :correct)
+    sync = mock('sync')
+    sync.expects(:sync!).once.returns(Result::Failure.new('EGeneral:Permission denied'))
+    AccountTransactionSync.expects(:new).with(key).returns(sync)
+    Turbo::StreamsChannel.stubs(:broadcast_remove_to)
+    Turbo::StreamsChannel.expects(:broadcast_update_to).with(
+      "user_#{@user.id}", :sync,
+      target: 'sync-warnings',
+      partial: 'tracker/sync_warnings',
+      locals: { exchanges: ['Kraken'], replace: [kraken] }
+    )
+
+    AccountTransaction::SyncJob.perform_now(key)
+  end
+
   test 'records the sync error on the API key when the sync raises' do
     sync = mock('sync')
     sync.expects(:sync!).once.raises(StandardError, 'API error')

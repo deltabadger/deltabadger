@@ -27,17 +27,19 @@
       <%= f.hidden_field :passphrase, value: mode, data: { 'form--segmented-field-target': 'field' } %>
     </div>
   <% end %>
+  <%# value: nil on every credential. The form is bound to the stored row, which on a reconnect or a
+      replacement is a key that may still be trading — its secret has no business in the page. %>
   <div class="form__row form__row--input">
-    <%= f.text_field :key, autofocus: true, autocomplete: "off", data: { controller: "autofocus" }, class: "form__input" %>
+    <%= f.text_field :key, value: nil, autofocus: true, autocomplete: "off", data: { controller: "autofocus" }, class: "form__input" %>
     <%= f.label :key, api_key_field_label(exchange, :public_key), class: "form__label" %>
   </div>
   <div class="form__row form__row--input">
-    <%= f.text_field :secret, autocomplete: "off", class: "form__input" %>
+    <%= f.text_field :secret, value: nil, autocomplete: "off", class: "form__input" %>
     <%= f.label :secret, api_key_field_label(exchange, :private_key), class: "form__label" %>
   </div>
   <% if exchange.requires_passphrase? && !exchange.is_a?(Exchanges::Alpaca) %>
     <div class="form__row form__row--input">
-      <%= f.text_field :passphrase, autocomplete: "off", class: "form__input" %>
+      <%= f.text_field :passphrase, value: nil, autocomplete: "off", class: "form__input" %>
       <%= f.label :passphrase, "API Passphrase", class: "form__label" %>
     </div>
   <% end %>

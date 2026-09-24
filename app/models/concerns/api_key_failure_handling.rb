@@ -34,8 +34,23 @@ module ApiKeyFailureHandling
         "user_#{api_key.user_id}", :sync,
         target: 'flash',
         partial: 'tracker/sync_key_error',
-        locals: { exchange_name: exchange.name, message: exchange.humanize_error(message),
-                  reason: reason, capability: capability }
+        locals: { exchange_name: exchange.name, exchange_id: exchange.id,
+                  message: exchange.humanize_error(message), reason: reason, capability: capability }
+      )
+    end
+  end
+
+  # The tracker's banner, rebuilt from what every key has recorded. `update`, never `replace`: the
+  # target is data-turbo-permanent, and Turbo swaps a streamed element carrying that same permanent
+  # id back for a clone of the old one, so a replaced banner would never change.
+  # In the owner's locale for the same reason as the flash above: the callers are jobs.
+  def broadcast_sync_warnings(user)
+    I18n.with_locale(user.locale || I18n.default_locale) do
+      Turbo::StreamsChannel.broadcast_update_to(
+        "user_#{user.id}", :sync,
+        target: 'sync-warnings',
+        partial: 'tracker/sync_warnings',
+        locals: ApiKey.sync_warnings(user)
       )
     end
   end
