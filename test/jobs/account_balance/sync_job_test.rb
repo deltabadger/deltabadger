@@ -39,7 +39,8 @@ class AccountBalance::SyncJobTest < ActiveSupport::TestCase
       "user_#{@user.id}", :sync,
       target: 'flash',
       partial: 'tracker/sync_key_error',
-      locals: { exchange_name: 'Kraken', message: I18n.t('errors.exchange.permission_denied', exchange: 'Kraken'),
+      locals: { exchange_name: 'Kraken', exchange_id: @kraken.id,
+                message: I18n.t('errors.exchange.permission_denied', exchange: 'Kraken'),
                 reason: :permission, capability: :balances }
     )
     Turbo::StreamsChannel.expects(:broadcast_refresh_to).with("user_#{@user.id}", :sync)

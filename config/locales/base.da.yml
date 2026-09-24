@@ -504,6 +504,7 @@ da:
             needs_market_data: 'Forbind en markedsdatakilde for at se din portefølje.'
         sync_key_error_html: 'Synkronisering med <strong>%{exchange}</strong> mislykkedes: %{message}. Opdatér API-nøglen nedenfor.'
         sync_permission_error_html: "<strong>%{exchange}</strong> kunne ikke synkronisere: denne API-nøgle mangler den tilladelse, der skal til for at læse %{capability}. Opdatér nøglens tilladelser på %{exchange}, eller opret en ny nøgle med alle tilladelserne fra vejledningen."
+        replace_key: 'Udskift %{exchange}-nøgle'
         sync_transient_error_html: "<strong>%{exchange}</strong> er midlertidigt utilgængelig. Prøv at synkronisere igen om et par minutter."
         sync_generic_error_html: "Synkronisering med <strong>%{exchange}</strong> mislykkedes: %{message}. Prøv venligst igen."
         capabilities:

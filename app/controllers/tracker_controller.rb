@@ -37,19 +37,7 @@ class TrackerController < ApplicationController
     # A sync failure survives the page it was broadcast onto, so the banner has to be rebuilt on
     # load — otherwise a persisted failure is invisible until the next sync. Only `:failed`: a
     # never-synced key is `sync_issue`'s other reason and is not a failure to shout about here.
-    #
-    # And only from the key this venue is READ WITH. `last_sync_error` is a note left on a key and
-    # erased only when that key syncs again, so a key the tracker has stopped using keeps its note
-    # forever — a rejected trading key would warn that Binance history is missing on a page showing
-    # that history, read through the key beside it. A venue with no working key has no such
-    # replacement, so its failure still speaks.
-    read_with = reading_keys.index_by(&:exchange_id)
-    @sync_failures = current_user.api_keys.includes(:exchange).filter_map do |api_key|
-      next if read_with[api_key.exchange_id] && read_with[api_key.exchange_id] != api_key
-
-      issue = api_key.sync_issue
-      issue[:exchange] if issue && issue[:reason] == :failed
-    end
+    @sync_warnings = ApiKey.sync_warnings(current_user)
     load_ledgers
     load_portfolio
     load_history

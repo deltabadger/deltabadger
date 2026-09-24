@@ -53,11 +53,13 @@ class AccountTransaction::SyncTrackerJobTest < ActiveSupport::TestCase
 
     Turbo::StreamsChannel.expects(:broadcast_remove_to).with("user_#{@user.id}", :sync, target: 'sync-progress')
     Turbo::StreamsChannel.expects(:broadcast_refresh_to).with("user_#{@user.id}", :sync)
-    Turbo::StreamsChannel.expects(:broadcast_replace_to).with(
+    # update, not replace: #sync-warnings is data-turbo-permanent, and Turbo swaps a replacement
+    # carrying the same permanent id back for a clone of the old one — the banner would never change.
+    Turbo::StreamsChannel.expects(:broadcast_update_to).with(
       "user_#{@user.id}", :sync,
       target: 'sync-warnings',
-      partial: 'tracker/sync_warning',
-      locals: { exchanges: ['Binance'] }
+      partial: 'tracker/sync_warnings',
+      locals: { exchanges: ['Binance'], replace: [] }
     )
 
     AccountTransaction::SyncTrackerJob.perform_now(@user.id, [@api_key_binance.id, @api_key_kraken.id])
@@ -87,7 +89,7 @@ class AccountTransaction::SyncTrackerJobTest < ActiveSupport::TestCase
       "user_#{@user.id}", :sync,
       target: 'flash',
       partial: 'tracker/sync_key_error',
-      locals: { exchange_name: 'Kraken',
+      locals: { exchange_name: 'Kraken', exchange_id: @kraken.id,
                 message: I18n.t('errors.exchange.permission_denied', exchange: 'Kraken'),
                 reason: :permission, capability: :transactions }
     )
@@ -97,6 +99,21 @@ class AccountTransaction::SyncTrackerJobTest < ActiveSupport::TestCase
     assert_equal 'correct', @api_key_kraken.reload.status
     assert_equal 'EGeneral:Permission denied', @api_key_kraken.last_sync_error,
                  'the failure must still persist — TrackerController#index rebuilds the banner from it'
+  end
+
+  test 'a permission failure puts the replace button in the warning broadcast' do
+    sync_kraken = mock('sync_kraken')
+    sync_kraken.expects(:sync!).once.returns(Result::Failure.new('EGeneral:Permission denied'))
+    AccountTransactionSync.expects(:new).with(@api_key_kraken).returns(sync_kraken)
+    Turbo::StreamsChannel.stubs(:broadcast_append_to)
+    Turbo::StreamsChannel.expects(:broadcast_update_to).with(
+      "user_#{@user.id}", :sync,
+      target: 'sync-warnings',
+      partial: 'tracker/sync_warnings',
+      locals: { exchanges: ['Kraken'], replace: [@kraken] }
+    )
+
+    AccountTransaction::SyncTrackerJob.perform_now(@user.id, [@api_key_kraken.id])
   end
 
   test 'matches transfers for the tracked user after syncing' do

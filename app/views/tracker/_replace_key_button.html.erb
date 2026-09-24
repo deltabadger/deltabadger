@@ -1,0 +1,5 @@
+<%# Locals: exchange_name, exchange_id. A key missing a permission is still :correct, so nothing
+    else on the page offers to replace it. %>
+<%= link_to t('tracker.replace_key', exchange: exchange_name),
+            new_tracker_add_api_key_path(exchange_id: exchange_id),
+            class: 'rbutton rbutton--small', data: { turbo_frame: 'modal' } %>

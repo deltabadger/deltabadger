@@ -1,4 +1,6 @@
 class AccountTransaction::SyncJob < ApplicationJob
+  include ApiKeyFailureHandling
+
   queue_as :low_priority
   # Keyed on the USER as well as the venue. It was venue-only, and with on_conflict: :discard that
   # did not delay a second user's sync — it threw it away, so on a multi-user instance one user's
@@ -19,9 +21,13 @@ class AccountTransaction::SyncJob < ApplicationJob
     # the sync rather than waiting for the next visit to notice they are stale.
     Tracker::LedgerJob.perform_later(api_key.user_id)
     broadcast_done(api_key.user_id)
+    # This is the sync a freshly connected or replaced key runs. A replacement that validates for
+    # trading can still lack the scope this sync needs, and the warning it cleared has to come back.
+    broadcast_sync_warnings(api_key.user)
   rescue StandardError => e
     api_key.record_sync_error!(e)
     broadcast_done(api_key.user_id)
+    broadcast_sync_warnings(api_key.user)
     raise e
   end
 

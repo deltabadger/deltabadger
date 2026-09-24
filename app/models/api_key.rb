@@ -113,6 +113,32 @@ class ApiKey < ApplicationRecord
     nil
   end
 
+  # The venue accepted this key but refused a scope the sync needed. The key stays :correct — its
+  # bots keep trading — so this is the only thing that tells the tracker to offer a replacement.
+  def missing_permission?
+    last_sync_error.present? && exchange.permission_error?(last_sync_error)
+  end
+
+  # What the tracker's sync banner shows, rebuilt from what the keys have recorded: a sync clears
+  # `last_sync_error` on success and every failure path writes it, so this is the same answer the
+  # last sync gave, for every venue at once.
+  #
+  # Only from the key each venue is READ WITH. `last_sync_error` is a note left on a key and erased
+  # only when that key syncs again, so a key the tracker has stopped using keeps its note forever —
+  # a rejected trading key would warn that Binance history is missing on a page showing that
+  # history, read through the key beside it. A venue with no working key has no such replacement,
+  # so its failure still speaks.
+  def self.sync_warnings(user)
+    keys = user.api_keys.includes(:exchange)
+    read_with = reading(keys).index_by(&:exchange_id)
+    failed = keys.select do |api_key|
+      (read_with[api_key.exchange_id].nil? || read_with[api_key.exchange_id] == api_key) &&
+        api_key.sync_issue&.dig(:reason) == :failed
+    end
+    { exchanges: failed.map { |api_key| api_key.exchange.name },
+      replace: failed.select(&:missing_permission?).map(&:exchange) }
+  end
+
   # Anchored on updated_at, which on a key awaiting IBKR activation moves only when the user
   # submits credentials: Ibkr::CheckActivationJob writes only on success, and the nightly balance
   # and transaction syncs both scope to :correct, so nothing else touches the row.

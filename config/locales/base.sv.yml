@@ -504,6 +504,7 @@ sv:
             needs_market_data: 'Anslut en marknadsdatakälla för att se din portfölj.'
         sync_key_error_html: 'Synkroniseringen med <strong>%{exchange}</strong> misslyckades: %{message}. Uppdatera API-nyckeln nedan.'
         sync_permission_error_html: "<strong>%{exchange}</strong> kunde inte synkroniseras: den här API-nyckeln saknar behörigheten som krävs för att läsa %{capability}. Uppdatera nyckelns behörigheter på %{exchange}, eller skapa en ny nyckel med alla behörigheter som anges i instruktionerna."
+        replace_key: 'Byt %{exchange}-nyckel'
         sync_transient_error_html: "<strong>%{exchange}</strong> är tillfälligt otillgänglig. Försök synkronisera igen om några minuter."
         sync_generic_error_html: "Synkroniseringen med <strong>%{exchange}</strong> misslyckades: %{message}. Försök igen."
         capabilities:

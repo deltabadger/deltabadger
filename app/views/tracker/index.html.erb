@@ -6,7 +6,12 @@
 <%= turbo_stream_from "user_#{current_user.id}", :tax_report %>
 <%= turbo_stream_from "user_#{current_user.id}", :sync %>
 <%# A standing warning about the user's data, not a line of the page: it belongs in the flash column. %>
-<% content_for :flash_extra do %><%= render 'sync_warning', exchanges: @sync_failures || [] %><% end %>
+<%# turbo-permanent so the page refresh broadcast that follows a sync cannot morph the warning away. %>
+<% content_for :flash_extra do %>
+  <div id="sync-warnings" data-turbo-permanent>
+    <%= render 'sync_warnings', **(@sync_warnings || { exchanges: [], replace: [] }) %>
+  </div>
+<% end %>
 <% if @pending_refusal %>
   <div class="flash-stack">
     <%= render 'tracker/report_refused', symbols: @pending_refusal[:symbols] %>

@@ -505,6 +505,7 @@ en:
             needs_market_data: 'Connect a market data feed to see your portfolio.'
         sync_key_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please update the API key below."
         sync_permission_error_html: "<strong>%{exchange}</strong> could not sync: this API key is missing the permission needed to read %{capability}. Update the key's permissions on %{exchange}, or create a new key with every permission listed in its setup steps."
+        replace_key: 'Replace %{exchange} key'
         sync_transient_error_html: "<strong>%{exchange}</strong> is temporarily unavailable. Try syncing again in a few minutes."
         sync_generic_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please try again."
         capabilities:
