@@ -32,7 +32,7 @@ class Bots::HideBalancesShowTest < ActionDispatch::IntegrationTest
   test 'the chart offers no Value mode to switch to' do
     seed_chart
 
-    get bot_path(id: @bot.id)
+    get bot_chart_path(bot_id: @bot.id)
 
     assert_select '.widget--chart__modes .segmented__option', false
   end
@@ -40,7 +40,7 @@ class Bots::HideBalancesShowTest < ActionDispatch::IntegrationTest
   test 'the chart comes up in Return mode rather than Value' do
     seed_chart
 
-    get bot_path(id: @bot.id)
+    get bot_chart_path(bot_id: @bot.id)
 
     assert_select '#chart [data-bot--chart-pnl-only-value="true"]', 1
   end
@@ -48,7 +48,7 @@ class Bots::HideBalancesShowTest < ActionDispatch::IntegrationTest
   test 'the chart summary keeps its percentage and drops its money' do
     seed_chart
 
-    get bot_path(id: @bot.id)
+    get bot_chart_path(bot_id: @bot.id)
 
     assert_select '[data-bot--chart-target="percent"]', 1
     assert_select '[data-bot--chart-target="pnl"]', false
@@ -59,7 +59,7 @@ class Bots::HideBalancesShowTest < ActionDispatch::IntegrationTest
   test 'the percentage takes the big pnl slot instead of the small one below it' do
     seed_chart
 
-    get bot_path(id: @bot.id)
+    get bot_chart_path(bot_id: @bot.id)
 
     assert_select '.widget--chart__pnl[data-bot--chart-target="percent"]', 1
     assert_select '.widget--chart__percent', false

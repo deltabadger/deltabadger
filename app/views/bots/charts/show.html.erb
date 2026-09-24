@@ -1,0 +1,6 @@
+<%= turbo_frame_tag "bot_chart" do %>
+  <%= tag.div data: { controller: "broadcast--on-connect",
+                      broadcast__on_connect_method_value: "metrics_update",
+                      broadcast__on_connect_method_args_value: { bot_id: @bot.id }.to_json } if @refresh %>
+  <%= render partial: "bots/chart", locals: { bot: @bot, metrics: @metrics, loading: @metrics.nil? } %>
+<% end %>

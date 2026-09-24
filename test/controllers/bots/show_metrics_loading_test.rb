@@ -30,7 +30,8 @@ class Bots::ShowMetricsLoadingTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select '#assets_metrics_table tbody tr', 1 # balances rendered
-    # the on-connect trigger must still fire so the chart gets broadcast:
+    # the chart's frame fires the on-connect trigger so the chart gets broadcast:
+    get chart_frame_src
     assert_select '[data-controller="broadcast--on-connect"]', 1
   end
 
@@ -61,6 +62,15 @@ class Bots::ShowMetricsLoadingTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select '#assets_metrics_table tbody tr', 0
+    get chart_frame_src
     assert_select '[data-controller="broadcast--on-connect"]', 1
+  end
+
+  private
+
+  # The refresh request lives in the chart's lazy frame, one per page.
+  def chart_frame_src
+    assert_select '[data-controller="broadcast--on-connect"]', 0
+    css_select('turbo-frame#bot_chart').first['src']
   end
 end
