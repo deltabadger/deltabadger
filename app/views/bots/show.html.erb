@@ -59,7 +59,7 @@
         <% elsif @bot.signal? %>
           <%= render partial: "bots/dca_single_assets/metrics", locals: { bot: @bot, metrics: @metrics, loading: @metrics_loading } %>
         <% end %>
-        <%= render partial: "bots/orders/orders", locals: { bot: @bot, decimals: @decimals } %>
+        <%= render partial: "bots/orders/orders", locals: { bot: @bot } %>
       </div>
     </div>
   </div>

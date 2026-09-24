@@ -89,30 +89,17 @@ class BotsController < ApplicationController
   def show
     # A plain revisit can arrive with this same Accept header: browsers replay a form
     # submission's headers when following its redirect, so any redirect landing here looks
-    # turbo_stream too. `decimals` is what the orders-pagination frame always sends and nothing
-    # else does, so its absence means this isn't that frame — fall through to the full page.
-    if request.format.turbo_stream? && params[:decimals].present?
+    # turbo_stream too. Only the orders-pagination frame names itself in Turbo-Frame, so anything
+    # else falls through to the full page.
+    if request.format.turbo_stream? && turbo_frame_request_id == 'orders_pagination'
       feed = BotActivityFeed.new(bot: @bot, before: params[:before], limit: 10)
       @feed_items = feed.items
       @next_cursor = feed.next_cursor
-      permitted_params = params.require(:decimals).permit(*Asset.pluck(:symbol, :id).flatten.map(&:to_s))
-      @decimals = permitted_params.transform_values(&:to_i)
+      @decimals = feed_decimals(@bot)
     else
       @other_bots = current_user.bots.not_deleted.not_archived.ordered.where.not(id: @bot.id).pluck(:id, :label, :type)
-
-      # Keyed by asset id, and by symbol for rows recorded before orders stored their asset
-      # (BotHelper#order_decimals).
-      if @bot.dca_single_asset?
-        @decimals = pair_decimals(@bot)
-      elsif @bot.dca_index?
-        @decimals = composition_decimals(@bot)
-        # Build index preview from bot's current state
-        @index_preview = @bot.current_index_preview
-      elsif @bot.dca_multi_asset?
-        @decimals = composition_decimals(@bot)
-      elsif @bot.signal?
-        @decimals = pair_decimals(@bot)
-      end
+      # Build index preview from bot's current state
+      @index_preview = @bot.current_index_preview if @bot.dca_index?
 
       combined_data = @bot.metrics_with_current_prices_and_candles_from_cache
       prices_data = @bot.metrics_with_current_prices_from_cache
@@ -247,6 +234,16 @@ class BotsController < ApplicationController
       }.compact
     else
       raise "Unknown bot type: #{@bot.type}"
+    end
+  end
+
+  # Keyed by asset id, and by symbol for rows recorded before orders stored their asset
+  # (BotHelper#order_decimals).
+  def feed_decimals(bot)
+    if bot.dca_single_asset? || bot.signal?
+      pair_decimals(bot)
+    elsif bot.dca_index? || bot.dca_multi_asset?
+      composition_decimals(bot)
     end
   end
 

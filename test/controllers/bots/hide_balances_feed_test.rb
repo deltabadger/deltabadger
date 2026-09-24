@@ -13,7 +13,6 @@ class Bots::HideBalancesFeedTest < ActionDispatch::IntegrationTest
     @bot = create(:dca_single_asset, :started)
     @bot.user.update!(hide_balances: true)
     sign_in @bot.user
-    @decimals = { @bot.base_asset.symbol => 8, @bot.quote_asset.symbol => 2 }
   end
 
   def row(row_id)
@@ -32,7 +31,7 @@ class Bots::HideBalancesFeedTest < ActionDispatch::IntegrationTest
   test 'a filled order keeps its columnar row and an empty placeholder sentence row' do
     txn = create(:transaction, bot: @bot, external_id: 't1', external_status: :closed, created_at: 1.minute.ago)
 
-    get bot_path(id: @bot.id, format: :turbo_stream, decimals: @decimals)
+    get bot_path(id: @bot.id, format: :turbo_stream), headers: { 'Turbo-Frame' => 'orders_pagination' }
 
     assert_equal 'successful', row_tabs(dom_id(txn))
     assert_equal '', row_tabs(dom_id(txn, :timeline))
@@ -44,7 +43,7 @@ class Bots::HideBalancesFeedTest < ActionDispatch::IntegrationTest
   test 'a cancelled order lands its Other sentence on the row that was holding the place' do
     txn = create(:transaction, bot: @bot, external_id: 'c1', external_status: :cancelled, created_at: 1.minute.ago)
 
-    get bot_path(id: @bot.id, format: :turbo_stream, decimals: @decimals)
+    get bot_path(id: @bot.id, format: :turbo_stream), headers: { 'Turbo-Frame' => 'orders_pagination' }
 
     assert_match 'Order cancelled', @response.body
     assert_equal 'other', row_tabs(dom_id(txn, :timeline))
@@ -56,7 +55,7 @@ class Bots::HideBalancesFeedTest < ActionDispatch::IntegrationTest
     failed = create(:transaction, :failed, bot: @bot, amount: 0.5, quote_amount: 4321,
                                            error_messages: ['Insufficient balance'], created_at: 1.minute.ago)
 
-    get bot_path(id: @bot.id, format: :turbo_stream, decimals: @decimals)
+    get bot_path(id: @bot.id, format: :turbo_stream), headers: { 'Turbo-Frame' => 'orders_pagination' }
 
     assert_equal 'other', row_tabs(dom_id(failed, :timeline))
     assert_match 'Insufficient balance', row(dom_id(failed, :timeline))
@@ -67,7 +66,7 @@ class Bots::HideBalancesFeedTest < ActionDispatch::IntegrationTest
   test 'a bot event moves to Other rather than becoming unreachable' do
     log = @bot.bot_activity_logs.create!(event: 'started', created_at: 1.minute.ago)
 
-    get bot_path(id: @bot.id, format: :turbo_stream, decimals: @decimals)
+    get bot_path(id: @bot.id, format: :turbo_stream), headers: { 'Turbo-Frame' => 'orders_pagination' }
 
     assert_equal 'other', row_tabs(dom_id(log))
   end

@@ -37,6 +37,6 @@
         <% end %>
       </tbody>
     </table>
-    <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream, params: { decimals: decimals }) %>
+    <%= turbo_frame_tag 'orders_pagination', src: bot_path(bot, format: :turbo_stream) %>
   <% end %>
 </div>
