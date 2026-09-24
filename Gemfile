@@ -27,7 +27,7 @@ gem 'rails', '~> 8.1.3'
 # positionally (ActiveSupport::JSON.decode), which breaks every JSON request body,
 # json column and encrypted cookie read. Only Oj.optimize_rails is hiding it here.
 # Unpin once Rails ships a compatible release.
-gem 'json', '< 3'
+gem 'json', '< 4'
 gem 'rqrcode'
 gem 'solid_queue'
 gem 'solid_cache'
