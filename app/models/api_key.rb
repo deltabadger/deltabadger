@@ -146,6 +146,15 @@ class ApiKey < ApplicationRecord
     pending_activation? && updated_at <= ACTIVATION_DEADLINE.ago
   end
 
+  # What the last check found wrong with this key's permissions, as the venue's flags — for the
+  # message that names them. In memory only, and reset by every check.
+  def missing_permissions = @missing_permissions || []
+  def forbidden_permissions = @forbidden_permissions || []
+
+  def permission_problem?
+    missing_permissions.any? || forbidden_permissions.any?
+  end
+
   def validate_credentials!(params)
     assign_credentials(params)
     # A retired venue has no API left to ask; short-circuit before calling the stub so the caller
@@ -156,7 +165,12 @@ class ApiKey < ApplicationRecord
     end
 
     result = get_validity
-    if result.success? && result.data == :pending_activation
+    note_permission_problem(result)
+    if permission_problem?
+      # Not persisted, as with any rejected submission: a working key being replaced stays as it was.
+      self.status = :incorrect
+      Rails.logger.warn("[#{exchange.name}] API key validation: permissions do not match the steps")
+    elsif result.success? && result.data == :pending_activation
       # IBKR: keys registered, awaiting IBKR activation — persist so the parked bot can start later.
       # updated_at is bumped explicitly even when nothing else changed: activation_stalled? reads it
       # as "when the user last submitted credentials", and resubmitting IDENTICAL credentials — the
@@ -191,7 +205,10 @@ class ApiKey < ApplicationRecord
   end
 
   def update_status!(result)
-    if result.success?
+    note_permission_problem(result)
+    if permission_problem?
+      update!(status: :incorrect)
+    elsif result.success?
       case result.data
       when :pending_activation
         # This runs on a passive GET re-poll (the wizard/tracker/withdrawal "new" actions check
@@ -213,6 +230,14 @@ class ApiKey < ApplicationRecord
   end
 
   private
+
+  # A venue that can report a key's permissions answers with the flags that do not match its steps.
+  # Any truthy answer used to read as valid — this Hash included — so both status paths ask here first.
+  def note_permission_problem(result)
+    data = result.success? && result.data.is_a?(Hash) ? result.data : {}
+    @missing_permissions = Array(data[:missing_permissions])
+    @forbidden_permissions = Array(data[:forbidden_permissions])
+  end
 
   # Credentials and PII must never land in this user-visible-adjacent diagnostics column.
   # Every credential this key holds, including the IBKR ones — all of them are encrypted at rest,

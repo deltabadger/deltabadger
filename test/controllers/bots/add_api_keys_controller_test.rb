@@ -49,6 +49,19 @@ module AddApiKeyStepBranchTests
       assert_match I18n.t('errors.incorrect_api_key_permissions'), response.body
     end
 
+    test 'create with a key missing a permission names it' do
+      seed_wizard_session
+      ApiKey.any_instance.stubs(:validate_credentials!)
+      ApiKey.any_instance.stubs(:correct?).returns(false)
+      ApiKey.any_instance.stubs(:incorrect?).returns(true)
+      ApiKey.any_instance.stubs(:missing_permissions).returns(%w[query-ledger])
+
+      post add_api_keys_path, params: { api_key: { key: 'k', secret: 's' } },
+                              headers: { 'Accept' => TURBO_STREAM_ACCEPT }
+      assert_response :unprocessable_entity
+      assert_match 'This key is missing', response.body
+    end
+
     test 'create when validation cannot complete re-renders with the validation-failed error' do
       seed_wizard_session
       ApiKey.any_instance.stubs(:validate_credentials!)

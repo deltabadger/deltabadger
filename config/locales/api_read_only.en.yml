@@ -15,3 +15,20 @@ en:
                 -   text_html: 'Optional: click <b class="pbutton">Edit restrictions</b> and whitelist %{whitelist_ip}, which ties the key to this machine. A reading key works without it.'
                 -   text_html: 'Copy and paste your new API keys above.'
         binance_us: *binance_read_only_config
+        kraken:
+            instructions:
+                -   text_html: 'Log into your %{exchange_link} account.'
+                -   text_html: 'In user menu go to <b>Settings</b> → <b>Connections & API</b>.'
+                -   text_html: 'Press <b>Create API key</b>.'
+                -   text_html: 'Set permissions for:'
+                    sub_instructions:
+                        -   text_html: 'Funds permissions:'
+                            sub_instructions:
+                                -   text_html: '<b>Query</b>'
+                        -   text_html: 'Data:'
+                            sub_instructions:
+                                -   text_html: '<b>Query ledger entries</b>'
+                        -   text_html: 'Nothing else — the tracker only reads, so it needs no Order and Trades permission.<br><strong>⚠️ Important:</strong> For security, do not enable <b>Withdraw</b>.'
+                -   text_html: 'Optional: under <b>IP address restriction</b>, whitelist %{whitelist_ip}, which ties the key to this machine. A reading key works without it.'
+                -   text_html: 'Press <b>Generate key</b>.'
+                -   text_html: 'Copy and paste your new API keys above.'

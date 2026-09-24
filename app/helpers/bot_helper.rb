@@ -434,6 +434,38 @@ module BotHelper
     end
   end
 
+  # "This key is missing: … For your safety, turn off: … Update the key on …" — the permissions a
+  # key check named, in the words of the steps rendered under the form.
+  def api_key_permission_message(api_key)
+    labels = lambda do |flags|
+      flags.map { |flag| api_key_permission_label(api_key.exchange, api_key.key_type, flag) }.join(', ')
+    end
+    [
+      (t('errors.api_key_missing_permissions', permissions: labels.call(api_key.missing_permissions)) if api_key.missing_permissions.any?),
+      (t('errors.api_key_forbidden_permissions', permissions: labels.call(api_key.forbidden_permissions)) if api_key.forbidden_permissions.any?),
+      t('errors.api_key_update_permissions', exchange: api_key.exchange.name)
+    ].compact.join(' ')
+  end
+
+  # A permission's label in the language its steps render in: the user's locale where that key
+  # type's list exists in it, English where the list falls back (read-only and withdrawal steps are
+  # English-only). Labels live beside the steps, in api.<locale>.yml.
+  def api_key_permission_label(exchange, key_type, flag)
+    list = api_key_instructions_key(exchange, key_type.to_s)
+    steps_locale = I18n.exists?(list, locale: I18n.locale, fallback: false) ? I18n.locale : I18n.default_locale
+    t("api_key_permissions.#{exchange.name_id}.#{flag.tr('-', '_')}", locale: steps_locale, default: flag)
+  end
+
+  # The same choice render_api_key_instructions makes, as the key it renders.
+  def api_key_instructions_key(exchange, key_type)
+    read_only = "read_only_api.#{exchange.name_id}.instructions"
+    case key_type
+    when 'withdrawal' then "withdrawal_api.#{exchange.name_id}.instructions"
+    when 'read_only' then I18n.exists?(read_only) ? read_only : "bot.api.#{exchange.name_id}.instructions"
+    else "bot.api.#{exchange.name_id}.instructions"
+    end
+  end
+
   # Whether there is anything to show — Alpaca, IBKR and retired venues have no instruction list,
   # and a link to an empty modal is worse than no link. Same I18n.exists? probe the renderer uses,
   # EN fallback included on purpose: withdrawal_api exists only in English, and an English list

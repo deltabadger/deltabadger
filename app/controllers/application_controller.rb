@@ -32,6 +32,13 @@ class ApplicationController < ActionController::Base
 
   private
 
+  # The alert for a key the exchange refused: the permissions its check named, where it named any.
+  def incorrect_api_key_message(api_key)
+    return t('errors.incorrect_api_key_permissions') unless api_key.permission_problem?
+
+    helpers.api_key_permission_message(api_key)
+  end
+
   def handle_unverified_request
     flash[:alert] = t('errors.unverified_request')
     redirect_back fallback_location: root_path

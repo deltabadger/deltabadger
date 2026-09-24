@@ -1,4 +1,13 @@
 pl:
+    api_key_permissions:
+        kraken:
+            query_funds: 'Uprawnienia funduszy → Zapytanie'
+            withdraw_funds: 'Uprawnienia funduszy → Wypłata'
+            query_open_trades: 'Zlecenia i transakcje → Zapytanie o otwarte zlecenia i transakcje'
+            query_closed_trades: 'Zlecenia i transakcje → Zapytanie o zamknięte zlecenia i transakcje'
+            modify_trades: 'Zlecenia i transakcje → Twórz i modyfikuj zlecenia'
+            close_trades: 'Zlecenia i transakcje → Anuluj i zamknij zlecenia'
+            query_ledger: 'Dane → Zapytanie o wpisy księgi'
     bot:
         api:
             public_key_label: Klucz API
@@ -64,7 +73,7 @@ pl:
                                     -   text_html: '<b>Anuluj i zamknij zlecenia</b>'
                             -   text_html: 'Dane:'
                                 sub_instructions:
-                                    -   text_html: '<b>Zapytanie o wpisy księgi</b> (Query ledger entries) — wymagane przez tracker portfela.<br><strong>⚠️ Ważne:</strong> Ze względów bezpieczeństwa włącz tylko uprawnienia wymienione powyżej.'
+                                    -   text_html: '<b>Zapytanie o wpisy księgi</b> (Query ledger entries) — wymagane przez tracker portfela.<br><strong>⚠️ Ważne:</strong> Ze względów bezpieczeństwa nie włączaj <b>Wypłata</b>.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
                                     -   text_html: '🔘 Dodaj %{whitelist_ip}.'
