@@ -77,77 +77,12 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
     assert @exchange.get_tickers_info(force: true).data.first[:trading_enabled]
   end
 
-  test 'get_api_key_validity uses add_order for trading keys' do
-    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'dGVzdF9zZWNyZXQ=')
-
-    Honeymaker::Clients::Kraken.any_instance.stubs(:add_order).returns(
-      Result::Success.new({ 'error' => [] })
-    )
-    Honeymaker::Clients::Kraken.any_instance.expects(:get_extended_balance).never
-
-    result = @exchange.get_api_key_validity(api_key: api_key)
-    assert result.success?
-    assert_equal true, result.data
-  end
-
-  test 'get_api_key_validity uses get_extended_balance for withdrawal keys' do
-    api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'dGVzdF9zZWNyZXQ=')
-
-    Honeymaker::Clients::Kraken.any_instance.stubs(:get_extended_balance).returns(
-      Result::Success.new({ 'error' => [], 'result' => {} })
-    )
-    Honeymaker::Clients::Kraken.any_instance.expects(:add_order).never
-
-    result = @exchange.get_api_key_validity(api_key: api_key)
-    assert result.success?
-    assert_equal true, result.data
-  end
-
-  test 'get_api_key_validity returns incorrect for invalid withdrawal key' do
-    api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'bad_key', secret: 'dGVzdF9zZWNyZXQ=')
-
-    Honeymaker::Clients::Kraken.any_instance.stubs(:get_extended_balance).returns(
-      Result::Success.new({ 'error' => ['EAPI:Invalid key'] })
-    )
-
-    result = @exchange.get_api_key_validity(api_key: api_key)
-    assert result.success?
-    assert_equal false, result.data
-  end
-
-  # Permission denied is no longer an invalid-key error (issue #153) — but a key the validation
-  # probe itself cannot get past is still unusable, so key SUBMISSION must keep answering
-  # "incorrect" rather than degrading to :pending_validation.
-  test 'get_api_key_validity returns incorrect for permission denied on trading key' do
-    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'bad_key', secret: 'dGVzdF9zZWNyZXQ=')
-
-    Honeymaker::Clients::Kraken.any_instance.stubs(:add_order).returns(
-      Result::Failure.new('EGeneral:Permission denied')
-    )
-
-    result = @exchange.get_api_key_validity(api_key: api_key)
-    assert result.success?
-    assert_equal false, result.data
-  end
-
   test 'permission denied is classified as a scope problem, not a dead credential' do
     assert @exchange.permission_error?(['EGeneral:Permission denied'])
     assert_not @exchange.invalid_key_error?(['EGeneral:Permission denied']),
                'flipping the key to :incorrect drops it from every correct-scoped sync'
     assert @exchange.invalid_key_error?(['EAPI:Invalid key'])
     assert_not @exchange.permission_error?(['EAPI:Invalid key'])
-  end
-
-  test 'get_api_key_validity returns incorrect for permission denied on withdrawal key' do
-    api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'bad_key', secret: 'dGVzdF9zZWNyZXQ=')
-
-    Honeymaker::Clients::Kraken.any_instance.stubs(:get_extended_balance).returns(
-      Result::Success.new({ 'error' => ['EGeneral:Permission denied'] })
-    )
-
-    result = @exchange.get_api_key_validity(api_key: api_key)
-    assert result.success?
-    assert_equal false, result.data
   end
 
   # list_withdrawal_addresses includes key field

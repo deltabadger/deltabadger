@@ -17,7 +17,7 @@ class Bots::AddApiKeysController < ApplicationController
       flash[:notice] = t('errors.bots.api_key_success')
       render turbo_stream: turbo_stream_page_refresh
     elsif @api_key.incorrect?
-      flash.now[:alert] = t('errors.incorrect_api_key_permissions')
+      flash.now[:alert] = incorrect_api_key_message(@api_key)
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
     else
       flash.now[:alert] = t('errors.api_key_permission_validation_failed')

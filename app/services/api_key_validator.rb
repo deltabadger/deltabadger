@@ -1,13 +1,16 @@
 class ApiKeyValidator < BaseService
+  # The same check as every form: ApiKey#get_validity, which names what a venue reports missing.
   def call(api_key_id)
     api_key = ApiKey.find(api_key_id)
 
-    unless api_key.valid? && validate(api_key)
+    unless api_key.valid?
       api_key.update(status: 'incorrect')
       return Result::Failure.new(I18n.t('errors.invalid_api_keys'))
     end
 
-    api_key.update(status: 'correct')
+    api_key.update_status!(api_key.get_validity)
+    return Result::Failure.new(I18n.t('errors.invalid_api_keys')) unless api_key.correct?
+
     enqueue_balance_sync(api_key)
     Result::Success.new
   end
@@ -16,21 +19,5 @@ class ApiKeyValidator < BaseService
     return unless api_key.key_type == 'trading'
 
     AccountBalance::SyncJob.perform_later(api_key.user_id, [api_key.id])
-  end
-
-  private
-
-  def validate(api_key)
-    return true if Rails.configuration.dry_run
-
-    exchange_name = api_key.exchange.name_id
-    client_params = { api_key: api_key.key, api_secret: api_key.secret }
-    client_params[:passphrase] = api_key.passphrase if api_key.passphrase.present?
-    client_params[:proxy] = ExchangeProxy.for(exchange_name)
-
-    result = Honeymaker.client(exchange_name, **client_params).validate(:trading)
-    result.success?
-  rescue StandardError
-    false
   end
 end

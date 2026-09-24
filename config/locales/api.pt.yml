@@ -1,4 +1,13 @@
 pt:
+    api_key_permissions:
+        kraken:
+            query_funds: 'Permissões de fundos → Consulta'
+            withdraw_funds: 'Permissões de fundos → Levantar'
+            query_open_trades: 'Ordens e negociações → Negociações e ordens em aberto da consulta'
+            query_closed_trades: 'Ordens e negociações → Ordens e negociações encerradas da consulta'
+            modify_trades: 'Ordens e negociações → Criar e modificar ordens'
+            close_trades: 'Ordens e negociações → Cancelar e encerrar ordens'
+            query_ledger: 'Dados → Consultar entradas do livro-razão'
     bot:
         api:
             public_key_label: Chave API
@@ -63,7 +72,7 @@ pt:
                                     -   text_html: '<b>Cancelar e encerrar ordens</b>'
                             -   text_html: 'Dados:'
                                 sub_instructions:
-                                    -   text_html: '<b>Consultar entradas do livro-razão</b> (Query ledger entries) — necessário para o tracker de carteira.<br><strong>⚠️ Importante:</strong> Por segurança, ativa apenas as permissões indicadas acima.'
+                                    -   text_html: '<b>Consultar entradas do livro-razão</b> (Query ledger entries) — necessário para o tracker de carteira.<br><strong>⚠️ Importante:</strong> Por segurança, não atives <b>Levantar</b>.'
                             -   text_html: 'Restrição de endereço IP:'
                                 sub_instructions:
                                     -   text_html: '🔘 Adicione %{whitelist_ip}.'

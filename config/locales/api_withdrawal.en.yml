@@ -82,7 +82,7 @@ en:
                         -   text_html: 'Funds permissions:'
                             sub_instructions:
                                 -   text_html: '<b>Query</b>'
-                                -   text_html: '<b>Withdraw</b><br><strong>⚠️ Important:</strong> Do not enable Order & Trades or other permissions.'
+                                -   text_html: '<b>Withdraw</b><br><strong>⚠️ Important:</strong> Do not enable any Order and Trades permission.'
                         -   text_html: 'IP address restriction:'
                             sub_instructions:
                                 -   text_html: '🔘 Whitelist %{whitelist_ip}.'

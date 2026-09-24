@@ -1,4 +1,13 @@
 nl:
+    api_key_permissions:
+        kraken:
+            query_funds: 'Fondstoestemmingen → Vraag'
+            withdraw_funds: 'Fondstoestemmingen → Opnemen'
+            query_open_trades: 'Orders en trades → Openstaande orders en transacties opvragen'
+            query_closed_trades: 'Orders en trades → Gesloten orders en transacties opvragen'
+            modify_trades: 'Orders en trades → Orders aanmaken en wijzigen'
+            close_trades: 'Orders en trades → Orders annuleren en sluiten'
+            query_ledger: 'Gegevens → Grootboekvermeldingen opvragen'
     bot:
         api:
             public_key_label: API-sleutel
@@ -64,7 +73,7 @@ nl:
                                     -   text_html: '<b>Orders annuleren en sluiten</b>'
                             -   text_html: 'Gegevens:'
                                 sub_instructions:
-                                    -   text_html: '<b>Grootboekvermeldingen opvragen</b> (Query ledger entries) — nodig voor de portfolio-tracker.<br><strong>⚠️ Belangrijk:</strong> Schakel voor de veiligheid alleen de hierboven genoemde rechten in.'
+                                    -   text_html: '<b>Grootboekvermeldingen opvragen</b> (Query ledger entries) — nodig voor de portfolio-tracker.<br><strong>⚠️ Belangrijk:</strong> Schakel voor de veiligheid <b>Opnemen</b> niet in.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
                                     -   text_html: '🔘 Voeg %{whitelist_ip} toe.'

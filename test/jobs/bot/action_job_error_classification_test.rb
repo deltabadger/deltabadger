@@ -128,12 +128,11 @@ class Bot::ActionJobErrorClassificationTest < ActiveSupport::TestCase
     assert_empty overlaps, "A recoverable rejection would stop the bot: #{overlaps.inspect}"
   end
 
-  # Kraken composes CREDENTIAL_REJECTED from :invalid_key + :permission_denied, and that constant
-  # decides whether a key the user just pasted is rejected outright. A regional restriction says
-  # nothing about the key, so it must not leak into it.
+  # :invalid_key decides whether a key the user just pasted is rejected outright. A regional
+  # restriction says nothing about the key, so it must not leak into it.
   test 'a regional restriction never rejects the API key at validation time' do
     Exchanges::Kraken::ERRORS[:restricted].each do |pattern|
-      assert_not_includes Exchanges::Kraken::CREDENTIAL_REJECTED, pattern
+      assert_not_includes Exchanges::Kraken::ERRORS[:invalid_key], pattern
     end
     assert_not create(:kraken_exchange).invalid_key_error?(['EAccount:Invalid permissions:USDT trading restricted for DE.'])
   end

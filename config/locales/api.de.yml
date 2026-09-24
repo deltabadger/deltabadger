@@ -1,4 +1,13 @@
 de:
+    api_key_permissions:
+        kraken:
+            query_funds: 'Mittelberechtigungen → Abfrage'
+            withdraw_funds: 'Mittelberechtigungen → Auszahlen'
+            query_open_trades: 'Orders und Trades → Offene Order und Trades abfragen'
+            query_closed_trades: 'Orders und Trades → Abfrage geschlossener Order & Trades'
+            modify_trades: 'Orders und Trades → Orders erstellen und ändern'
+            close_trades: 'Orders und Trades → Orders stornieren und schließen'
+            query_ledger: 'Daten → Hauptbucheinträge abfragen'
     bot:
         api:
             public_key_label: API-Schlüssel
@@ -64,7 +73,7 @@ de:
                                     -   text_html: '<b>Orders stornieren und schließen</b>'
                             -   text_html: 'Daten:'
                                 sub_instructions:
-                                    -   text_html: '<b>Hauptbucheinträge abfragen</b> (Query ledger entries) — wird vom Portfolio-Tracker benötigt.<br><strong>⚠️ Wichtig:</strong> Aktivieren Sie aus Sicherheitsgründen nur die oben aufgeführten Berechtigungen.'
+                                    -   text_html: '<b>Hauptbucheinträge abfragen</b> (Query ledger entries) — wird vom Portfolio-Tracker benötigt.<br><strong>⚠️ Wichtig:</strong> Aktivieren Sie aus Sicherheitsgründen nicht <b>Auszahlen</b>.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
                                     -   text_html: '🔘 Fügen Sie %{whitelist_ip} hinzu.'

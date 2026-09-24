@@ -1,24 +1,17 @@
 require 'test_helper'
 
+# The legacy POST /api/api_keys path. It runs the same check as every form (ApiKey#get_validity) —
+# it used to call honeymaker's own validate(:trading), a third check agreeing with neither the
+# steps nor the forms.
 class ApiKeyValidatorTest < ActiveSupport::TestCase
   setup do
-    @original_dry_run = Rails.configuration.dry_run
-    Rails.configuration.dry_run = false
-
     @user = create(:user)
     @exchange = create(:binance_exchange)
     @api_key = create(:api_key, user: @user, exchange: @exchange, status: :pending_validation)
   end
 
-  teardown do
-    Rails.configuration.dry_run = @original_dry_run
-  end
-
   test 'marks api key as correct when validation succeeds' do
-    mock_client = mock('honeymaker_client')
-    mock_client.expects(:validate).with(:trading).returns(Honeymaker::Result::Success.new(true))
-    Honeymaker.expects(:client).with('binance', api_key: @api_key.key, api_secret: @api_key.secret,
-                                                proxy: nil).returns(mock_client)
+    ApiKey.any_instance.stubs(:get_validity).returns(Result::Success.new(true))
 
     result = ApiKeyValidator.call(@api_key.id)
 
@@ -26,11 +19,8 @@ class ApiKeyValidatorTest < ActiveSupport::TestCase
     assert_equal 'correct', @api_key.reload.status
   end
 
-  test 'marks api key as incorrect when validation fails' do
-    mock_client = mock('honeymaker_client')
-    mock_client.expects(:validate).with(:trading).returns(Honeymaker::Result::Failure.new('Invalid key'))
-    Honeymaker.expects(:client).with('binance', api_key: @api_key.key, api_secret: @api_key.secret,
-                                                proxy: nil).returns(mock_client)
+  test 'marks api key as incorrect when the exchange rejects it' do
+    ApiKey.any_instance.stubs(:get_validity).returns(Result::Success.new(false))
 
     result = ApiKeyValidator.call(@api_key.id)
 
@@ -38,11 +28,9 @@ class ApiKeyValidatorTest < ActiveSupport::TestCase
     assert_equal 'incorrect', @api_key.reload.status
   end
 
-  test 'marks api key as incorrect when validation raises error' do
-    mock_client = mock('honeymaker_client')
-    mock_client.expects(:validate).with(:trading).raises(StandardError, 'Connection timeout')
-    Honeymaker.expects(:client).with('binance', api_key: @api_key.key, api_secret: @api_key.secret,
-                                                proxy: nil).returns(mock_client)
+  test 'a key missing a permission is incorrect' do
+    ApiKey.any_instance.stubs(:get_validity)
+          .returns(Result::Success.new({ missing_permissions: %w[query-ledger], forbidden_permissions: [] }))
 
     result = ApiKeyValidator.call(@api_key.id)
 
@@ -50,47 +38,27 @@ class ApiKeyValidatorTest < ActiveSupport::TestCase
     assert_equal 'incorrect', @api_key.reload.status
   end
 
-  test 'skips honeymaker validation in dry_run mode' do
+  # An exchange that cannot be asked has not said no.
+  test 'a check that cannot complete leaves the key pending' do
+    ApiKey.any_instance.stubs(:get_validity).returns(Result::Failure.new('execution expired'))
+
+    result = ApiKeyValidator.call(@api_key.id)
+
+    assert result.failure?
+    assert_equal 'pending_validation', @api_key.reload.status
+  end
+
+  test 'uses the same check as the forms, never honeymaker validate' do
+    ApiKey.any_instance.expects(:get_validity).returns(Result::Success.new(true))
     Honeymaker.expects(:client).never
 
-    result = with_dry_run(true) { ApiKeyValidator.call(@api_key.id) }
-
-    assert result.success?
-    assert_equal 'correct', @api_key.reload.status
+    ApiKeyValidator.call(@api_key.id)
   end
 
-  test 'passes passphrase when present' do
-    api_key_with_passphrase = create(:api_key, user: @user, exchange: create(:bitget_exchange),
-                                               raw_passphrase: 'my_passphrase', status: :pending_validation)
+  test 'a valid trading key starts a balance sync' do
+    ApiKey.any_instance.stubs(:get_validity).returns(Result::Success.new(true))
+    AccountBalance::SyncJob.expects(:perform_later).with(@user.id, [@api_key.id])
 
-    mock_client = mock('honeymaker_client')
-    mock_client.expects(:validate).with(:trading).returns(Honeymaker::Result::Success.new(true))
-    Honeymaker.expects(:client).with(
-      'bitget',
-      api_key: api_key_with_passphrase.key,
-      api_secret: api_key_with_passphrase.secret,
-      passphrase: 'my_passphrase',
-      proxy: nil
-    ).returns(mock_client)
-
-    result = ApiKeyValidator.call(api_key_with_passphrase.id)
-
-    assert result.success?
-  end
-
-  test 'uses the exchange proxy when validating an api key' do
-    AppConfig.set('proxy_binance', 'http://claimed-proxy.test:9000')
-    mock_client = mock('honeymaker_client')
-    mock_client.expects(:validate).with(:trading).returns(Honeymaker::Result::Success.new(true))
-    Honeymaker.expects(:client).with(
-      'binance',
-      api_key: @api_key.key,
-      api_secret: @api_key.secret,
-      proxy: 'http://claimed-proxy.test:9000'
-    ).returns(mock_client)
-
-    result = ApiKeyValidator.call(@api_key.id)
-
-    assert result.success?
+    ApiKeyValidator.call(@api_key.id)
   end
 end

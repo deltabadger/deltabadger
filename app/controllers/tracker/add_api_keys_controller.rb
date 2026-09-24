@@ -45,7 +45,7 @@ class Tracker::AddApiKeysController < ApplicationController
         turbo_stream_redirect(tracker_path)
       ]
     elsif @api_key.incorrect?
-      flash.now[:alert] = t('errors.incorrect_api_key_permissions')
+      flash.now[:alert] = incorrect_api_key_message(@api_key)
       render turbo_stream: turbo_stream_prepend_flash, status: :unprocessable_entity
     else
       flash.now[:alert] = t('errors.api_key_permission_validation_failed')

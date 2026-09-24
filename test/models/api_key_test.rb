@@ -88,6 +88,63 @@ class ApiKeyTest < ActiveSupport::TestCase
     assert_predicate api_key, :incorrect?
   end
 
+  # --- a check that names the permissions ----------------------------------------------------
+
+  def permission_problem(missing: [], forbidden: [])
+    Result::Success.new({ missing_permissions: missing, forbidden_permissions: forbidden })
+  end
+
+  # Both status paths used to take any truthy validity as valid — a Hash included.
+  test 'validate_credentials! takes a permission problem as incorrect, and says which' do
+    api_key = create(:api_key, :pending)
+    api_key.exchange.stubs(:get_api_key_validity)
+           .returns(permission_problem(missing: %w[query-ledger], forbidden: %w[withdraw-funds]))
+
+    api_key.validate_credentials!(key: 'k', secret: 's')
+
+    assert_predicate api_key, :incorrect?
+    assert_predicate api_key.reload, :pending_validation?, 'a rejected submission persists nothing'
+    assert_equal %w[query-ledger], api_key.missing_permissions
+    assert_equal %w[withdraw-funds], api_key.forbidden_permissions
+  end
+
+  # The case the tracker's Replace button creates: a working key, and a new one that falls short.
+  test 'a replacement missing a permission leaves the stored key as it was' do
+    api_key = create(:api_key, status: :correct, last_sync_error: 'EGeneral:Permission denied')
+    stored = api_key.key
+    api_key.exchange.stubs(:get_api_key_validity).returns(permission_problem(missing: %w[query-ledger]))
+
+    api_key.validate_credentials!(key: 'new-key', secret: 's')
+
+    api_key.reload
+    assert_predicate api_key, :correct?
+    assert_equal stored, api_key.key
+    assert_equal 'EGeneral:Permission denied', api_key.last_sync_error
+  end
+
+  test 'update_status! takes a permission problem as incorrect, and says which' do
+    api_key = create(:api_key, status: :pending_validation)
+
+    api_key.update_status!(permission_problem(forbidden: %w[withdraw-funds]))
+
+    assert_predicate api_key.reload, :incorrect?
+    assert_equal %w[withdraw-funds], api_key.forbidden_permissions
+  end
+
+  test 'the named permissions are forgotten on the next answer' do
+    api_key = create(:api_key, :pending)
+    api_key.exchange.stubs(:get_api_key_validity).returns(permission_problem(missing: %w[query-ledger]))
+    api_key.validate_credentials!(key: 'k', secret: 's')
+
+    api_key.exchange.stubs(:get_api_key_validity).returns(Result::Success.new(true))
+    api_key.validate_credentials!(key: 'k', secret: 's')
+    assert_empty api_key.missing_permissions
+
+    api_key.update_status!(permission_problem(missing: %w[query-ledger]))
+    api_key.update_status!(Result::Failure.new('EService:Unavailable'))
+    assert_empty api_key.missing_permissions
+  end
+
   test 'stop_dependent_bots! stops only the working bots on the key exchange' do
     api_key = create(:api_key) # binance, trading
     user = api_key.user

@@ -1,4 +1,13 @@
 it:
+    api_key_permissions:
+        kraken:
+            query_funds: 'Autorizzazioni dei fondi → Query'
+            withdraw_funds: 'Autorizzazioni dei fondi → Preleva'
+            query_open_trades: 'Ordini e trade → Esegui query su ordini e trade aperti'
+            query_closed_trades: 'Ordini e trade → Esegui query su ordini e trade chiusi'
+            modify_trades: 'Ordini e trade → Crea e modifica ordini'
+            close_trades: 'Ordini e trade → Annulla e chiudi ordini'
+            query_ledger: 'Dati → Consulta voci del registro'
     bot:
         api:
             public_key_label: Chiave API
@@ -64,7 +73,7 @@ it:
                                     -   text_html: '<b>Annulla e chiudi ordini</b>'
                             -   text_html: 'Dati:'
                                 sub_instructions:
-                                    -   text_html: '<b>Consulta voci del registro</b> (Query ledger entries) — necessario per il tracker di portafoglio.<br><strong>⚠️ Importante:</strong> Per sicurezza, attiva solo i permessi elencati sopra.'
+                                    -   text_html: '<b>Consulta voci del registro</b> (Query ledger entries) — necessario per il tracker di portafoglio.<br><strong>⚠️ Importante:</strong> Per sicurezza, non attivare <b>Preleva</b>.'
                             -   text_html: 'IP address restriction:'
                                 sub_instructions:
                                     -   text_html: '🔘 Aggiungi %{whitelist_ip}.'

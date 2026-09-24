@@ -44,9 +44,8 @@ class Exchanges::Kraken < Exchange
     permission_denied: ['EGeneral:Permission denied'],
     # The venue refuses this ASSET for this account's jurisdiction (MiCA delistings and the like).
     # The credentials are valid and their permissions are fine, so this is neither :invalid_key nor
-    # :permission_denied — and keeping it out of the latter keeps it out of CREDENTIAL_REJECTED
-    # below, which would otherwise reject a perfectly good key at validation time over a restriction
-    # that has nothing to do with the key. Unanchored on purpose: the venue appends
+    # :permission_denied — a restriction says nothing about the key, so it must never condemn one or
+    # read as a missing scope. Unanchored on purpose: the venue appends
     # ":<ASSET> trading restricted for <CC>." and may join it with a second error.
     restricted: ['EAccount:Invalid permissions'],
     # Transient/retryable HTTP-200 failures. Excludes EGeneral:Temporary lockout
@@ -61,10 +60,6 @@ class Exchanges::Kraken < Exchange
     # is a trading-engine counter that never reaches these query-order fetch jobs.
     throttle: ['EAPI:Rate limit exceeded']
   }.freeze
-  # What get_api_key_validity treats as "this key is unusable, tell the user it is incorrect".
-  # Both buckets, because at KEY-SUBMISSION time the distinction the sync path cares about does
-  # not apply: a key the validation probe cannot get past is no use whichever reason Kraken gives.
-  CREDENTIAL_REJECTED = (ERRORS[:invalid_key] + ERRORS[:permission_denied]).freeze
   # pending, open, closed, canceled, expired
   ORDER_STATUS_MAP = {
     'pending' => :unknown,
@@ -441,46 +436,28 @@ class Exchanges::Kraken < Exchange
     Result::Success.new(order_id)
   end
 
+  # Kraken reports a key's own permission flags (GetApiKeyInfo needs no permission itself), so the
+  # check compares them with what that key type's setup steps ask for: every line of the steps is
+  # proven by one request, instead of an order probe standing in for all of them. Keep this table and
+  # the steps (bot.api / read_only_api / withdrawal_api .kraken) in step — a test renders the steps in
+  # every locale and checks each flag's label appears in them.
+  KEY_PERMISSIONS = {
+    trading: { required: %w[query-funds query-open-trades query-closed-trades modify-trades close-trades query-ledger],
+               forbidden: %w[withdraw-funds] },
+    read_only: { required: %w[query-funds query-ledger], forbidden: %w[withdraw-funds] },
+    withdrawal: { required: %w[query-funds withdraw-funds],
+                  forbidden: %w[query-open-trades query-closed-trades modify-trades close-trades] }
+  }.freeze
+
   def get_api_key_validity(api_key:)
-    temp_client = Honeymaker.client('kraken',
-                                    api_key: api_key.key,
-                                    api_secret: api_key.secret,
-                                    proxy: ExchangeProxy.for('kraken'))
+    key_permission_validity(api_key)
+  end
 
-    result = if api_key.withdrawal?
-               temp_client.get_extended_balance
-             else
-               temp_client.add_order(
-                 ordertype: 'market',
-                 type: 'buy',
-                 volume: 100,
-                 pair: 'XBTUSD',
-                 oflags: ['viqc'],
-                 validate: true
-               )
-             end
+  # The shared reading check only proves a balance read; the tracker also reads the ledger.
+  def get_read_api_key_validity(api_key:)
+    return Result::Success.new(true) if dry_run?
 
-    if result.success?
-      if api_key.withdrawal?
-        errors = Utilities::Hash.dig_or_raise(result.data, 'error')
-        if errors.empty?
-          Result::Success.new(true)
-        elsif errors.first.in?(CREDENTIAL_REJECTED)
-          Result::Success.new(false)
-        else
-          Result::Failure.new(*errors)
-        end
-      else
-        Result::Success.new(true)
-      end
-    else
-      error_msg = result.errors.first
-      if error_msg.in?(CREDENTIAL_REJECTED)
-        Result::Success.new(false)
-      else
-        result
-      end
-    end
+    key_permission_validity(api_key)
   end
 
   def minimum_amount_logic(side:, order_type:)
@@ -895,5 +872,27 @@ class Exchanges::Kraken < Exchange
     else
       raise "Unknown #{name} order type: #{order_type}"
     end
+  end
+
+  # Success(true) when the key holds everything its type needs and nothing it must not; the named
+  # flags when it does not; Success(false) when Kraken does not recognise the key. Anything else — a
+  # throttle, a lockout, an outage, an answer without a permission list — is inconclusive, and the
+  # key stays unverified rather than judged on it.
+  def key_permission_validity(api_key)
+    result = Honeymaker.client('kraken', api_key: api_key.key, api_secret: api_key.secret,
+                                         proxy: ExchangeProxy.for('kraken')).get_api_key_info
+    errors = result.failure? ? Array(result.errors) : Array(result.data['error'])
+    return Result::Success.new(false) if errors.any? { |error| error.to_s.in?(ERRORS[:invalid_key]) }
+    return Result::Failure.new(*errors) if errors.any?
+
+    held = result.data.dig('result', 'permissions')
+    return Result::Failure.new('Kraken returned no permission list for this key') unless held.is_a?(Array)
+
+    rules = KEY_PERMISSIONS.fetch(api_key.key_type.to_sym)
+    missing = rules[:required] - held
+    forbidden = rules[:forbidden] & held
+    return Result::Success.new(true) if missing.empty? && forbidden.empty?
+
+    Result::Success.new({ missing_permissions: missing, forbidden_permissions: forbidden })
   end
 end
