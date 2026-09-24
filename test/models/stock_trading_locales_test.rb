@@ -1,7 +1,7 @@
 require 'test_helper'
 
 # Repo convention: no default:, no EN-only strings — every locale carries a
-# native translation for GA features (config/locales/CLAUDE.md).
+# native translation for GA features (config/locales/AGENTS.md).
 class StockTradingLocalesTest < ActiveSupport::TestCase
   KEYS = %w[
     settings.stocks.title

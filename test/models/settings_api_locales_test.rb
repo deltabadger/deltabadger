@@ -1,7 +1,7 @@
 require 'test_helper'
 
 # Repo convention: no default:, no EN-only strings — every locale carries a
-# native translation (config/locales/CLAUDE.md).
+# native translation (config/locales/AGENTS.md).
 class SettingsApiLocalesTest < ActiveSupport::TestCase
   KEYS = %w[
     settings.rest.token
