@@ -76,11 +76,12 @@ class ReadOnlyApiKeyTest < ActiveSupport::TestCase
   end
 
   # ── proven by reading ────────────────────────────────────────────────────────────────────────
-  test 'a reading key is validated by reading, not by a permission report' do
-    api_key = create(:api_key, user: @user, exchange: @binance, key_type: :read_only)
-    @binance.expects(:set_client).with(api_key: api_key)
-    @binance.expects(:get_balances).with(asset_ids: []).returns(Result::Success.new({}))
-    api_key.stubs(:exchange).returns(@binance)
+  test 'a reading key is validated by reading where the venue has no key report' do
+    @kucoin = create(:kucoin_exchange)
+    api_key = create(:api_key, user: @user, exchange: @kucoin, key_type: :read_only)
+    @kucoin.expects(:set_client).with(api_key: api_key)
+    @kucoin.expects(:get_balances).with(asset_ids: []).returns(Result::Success.new({}))
+    api_key.stubs(:exchange).returns(@kucoin)
 
     assert api_key.get_validity.data
   end
@@ -94,10 +95,11 @@ class ReadOnlyApiKeyTest < ActiveSupport::TestCase
   end
 
   test 'credentials the venue names as bad are condemned' do
-    api_key = create(:api_key, user: @user, exchange: @binance, key_type: :read_only)
-    @binance.stubs(:set_client)
-    @binance.stubs(:get_balances).returns(Result::Failure.new('API-key format invalid.'))
-    api_key.stubs(:exchange).returns(@binance)
+    @kucoin = create(:kucoin_exchange)
+    api_key = create(:api_key, user: @user, exchange: @kucoin, key_type: :read_only)
+    @kucoin.stubs(:set_client)
+    @kucoin.stubs(:get_balances).returns(Result::Failure.new('Invalid API-Key'))
+    api_key.stubs(:exchange).returns(@kucoin)
 
     result = api_key.get_validity
 
@@ -109,10 +111,11 @@ class ReadOnlyApiKeyTest < ActiveSupport::TestCase
   # :incorrect drops it from every sync until new credentials are pasted, and there was never
   # anything wrong with these.
   test 'a venue that simply would not answer condemns nothing' do
-    api_key = create(:api_key, user: @user, exchange: @binance, key_type: :read_only)
-    @binance.stubs(:set_client)
-    @binance.stubs(:get_balances).returns(Result::Failure.new('503 Service Unavailable'))
-    api_key.stubs(:exchange).returns(@binance)
+    @kucoin = create(:kucoin_exchange)
+    api_key = create(:api_key, user: @user, exchange: @kucoin, key_type: :read_only)
+    @kucoin.stubs(:set_client)
+    @kucoin.stubs(:get_balances).returns(Result::Failure.new('503 Service Unavailable'))
+    api_key.stubs(:exchange).returns(@kucoin)
 
     result = api_key.get_validity
 

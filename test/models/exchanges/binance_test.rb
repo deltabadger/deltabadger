@@ -184,4 +184,47 @@ class Exchanges::BinanceTest < ActiveSupport::TestCase
     assert_equal 503, result.data[:status]
     assert @exchange.ambiguous_placement_error?(result)
   end
+
+  # --- the tracker's reading key: the steps ask for Enable Reading and rule out Withdrawals ---------
+
+  def reading_validity(**flags)
+    Honeymaker::Clients::Binance.any_instance.stubs(:api_description)
+                                .returns(Result::Success.new({ 'enableReading' => true }.merge(flags)))
+    @exchange.get_read_api_key_validity(api_key: create(:api_key, exchange: @exchange, key_type: :read_only))
+  end
+
+  test 'a reading key that reads and cannot withdraw is valid' do
+    assert_equal true, reading_validity('enableWithdrawals' => false).data
+  end
+
+  # "Not needed" in the steps, so not held against the key.
+  test 'a reading key may also trade' do
+    assert_equal true, reading_validity('enableWithdrawals' => false, 'enableSpotAndMarginTrading' => true).data
+  end
+
+  test 'a reading key that can withdraw is refused' do
+    assert_equal false, reading_validity('enableWithdrawals' => true).data
+  end
+
+  test 'a reading key without Enable Reading is refused' do
+    assert_equal false, reading_validity('enableReading' => false).data
+  end
+
+  test 'a rejected reading key is incorrect, an outage is inconclusive' do
+    api_key = create(:api_key, exchange: @exchange, key_type: :read_only)
+    Honeymaker::Clients::Binance.any_instance.stubs(:api_description)
+                                .returns(Result::Failure.new('{"code":-2014,"msg":"API-key format invalid."}'))
+    assert_equal false, @exchange.get_read_api_key_validity(api_key:).data
+
+    Honeymaker::Clients::Binance.any_instance.stubs(:api_description).returns(Result::Failure.new('execution expired'))
+    assert_predicate @exchange.get_read_api_key_validity(api_key:), :failure?
+  end
+
+  test 'the reading steps say what the check holds the key to' do
+    steps = I18n.t('read_only_api.binance.instructions').map { |step| step[:text_html] }.join(' ')
+
+    assert_includes steps, '<b>Enable Reading</b>'
+    assert_includes steps, 'Do not enable Withdrawals'
+    assert_not_includes steps, 'Do not enable Spot'
+  end
 end
