@@ -127,8 +127,30 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select '#chart [data-controller="bot--chart"]', 0
-    assert_select '#chart [role="radiogroup"]', 0
     assert_select '#chart .widget--chart__plot .loader', 1
+  end
+
+  # The placeholder is the loaded chart's shape: every row the chart will have stands in its place,
+  # so the widget does not change height when the chart lands. Nothing in it can be used.
+  test 'the loading placeholder holds the place of every row the chart has' do
+    get bot_chart_path(bot_id: @bot.id)
+
+    assert_select '#chart .widget--chart__head .widget--chart__modes[inert] [role="radiogroup"]', 1
+    assert_select '#chart .widget--chart__axis', 1
+    assert_select '#chart [inert] .widget--chart__orders', 1
+    assert_select '#chart [role="radiogroup"]', 1, 'the only switch is the inert stand-in'
+    assert_equal css_select('#chart input[type="checkbox"]').size, css_select('#chart [inert] input[type="checkbox"]').size,
+                 'every toggle in the placeholder is inert'
+    assert_select '#chart [data-segmented-key]', 0, 'a stand-in must not touch the remembered mode'
+  end
+
+  test 'a placeholder with balances hidden holds no switch, as the chart has none' do
+    @user.update!(hide_balances: true)
+
+    get bot_chart_path(bot_id: @bot.id)
+
+    assert_select '#chart .widget--chart__modes', 0
+    assert_select '#chart .widget--chart__axis', 1
   end
 
   # A bot that has never traded gets no widget at all — an empty frame is worse than nothing.
