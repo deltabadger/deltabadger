@@ -101,15 +101,11 @@ class BotsController < ApplicationController
       # Build index preview from bot's current state
       @index_preview = @bot.current_index_preview if @bot.dca_index?
 
-      combined_data = @bot.metrics_with_current_prices_and_candles_from_cache
+      # The chart's cache is read by its own frame (Bots::ChartsController). This one is the source
+      # for the panels; the chart's cache is derived from it and expires with it.
       prices_data = @bot.metrics_with_current_prices_from_cache
-      @chart_loading = combined_data.nil?
-      @metrics_loading = combined_data.nil? && prices_data.nil?
-      # Prices first: the combined cache is derived from the prices cache and is never
-      # force-refreshed (UpdateMetricsJob forces prices after transaction changes), so
-      # prices is always the at-least-as-fresh source for the balances table.
-      @metrics = prices_data || combined_data || @bot.metrics
-      @chart_metrics = combined_data || @metrics
+      @metrics_loading = prices_data.nil?
+      @metrics = prices_data || @bot.metrics
 
       # Force html: a stray turbo_stream Accept (see above) would otherwise resolve to
       # show.turbo_stream.erb, which expects the pagination frame's @feed_items/@next_cursor.

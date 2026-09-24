@@ -260,6 +260,7 @@ Rails.application.routes.draw do
       resources :bot_signals, only: %i[create update destroy], controller: 'bots/bot_signals'
       resource :start, only: %i[edit update], controller: 'bots/starts'
       resource :stop, only: [:update], controller: 'bots/stops'
+      resource :chart, only: [:show], controller: 'bots/charts'
       resource :delete, only: %i[edit destroy], controller: 'bots/deletes'
       resource :archive, only: %i[edit create destroy], controller: 'bots/archives'
       resources :rebalance_resolutions, only: [:create], controller: 'bots/rebalance_resolutions'

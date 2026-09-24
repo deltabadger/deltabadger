@@ -2,9 +2,10 @@
 
 require 'test_helper'
 
-# The chart summary (date, PnL in quote currency, PnL in %) is rendered by the Stimulus
-# controller from the series it gets in the data attributes, so the view's job is to hand
-# over the flat labels/series pair and the targets to write into.
+# The chart loads in its own frame (Bots::ChartsController). Its summary (date, PnL in quote
+# currency, PnL in %) is rendered by the Stimulus controller from the series it gets in the data
+# attributes, so the view's job is to hand over the flat labels/series pair and the targets to
+# write into.
 class Bots::ShowChartTest < ActionDispatch::IntegrationTest
   setup do
     create(:user, admin: true, setup_completed: true) # satisfies the onboarding gate
@@ -26,7 +27,7 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     data[:chart][:series] = [[100.0, 260.0], [100.0, 200.0]]
     Rails.cache.write(@bot.send(:metrics_with_current_prices_and_candles_cache_key), data)
 
-    get bot_path(id: @bot.id)
+    get bot_chart_path(bot_id: @bot.id)
 
     assert_response :success
     assert_select '#chart [data-controller="bot--chart"]', 1 do |chart|
@@ -50,7 +51,7 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     data[:chart][:series] = [[100.0, 260.0], [100.0, 200.0]]
     Rails.cache.write(@bot.send(:metrics_with_current_prices_and_candles_cache_key), data)
 
-    get bot_path(id: @bot.id)
+    get bot_chart_path(bot_id: @bot.id)
 
     assert_select '#chart [data-controller="bot--chart"]', 1 do |chart|
       assert_equal [0.0, 60.0], JSON.parse(chart.first['data-bot--chart-pnl-value'])
@@ -66,7 +67,7 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     data[:chart][:assets] = { 'AAA' => { value: [nil, 260.to_d], invested: [100.to_d, 200.to_d] } }
     Rails.cache.write(@bot.send(:metrics_with_current_prices_and_candles_cache_key), data)
 
-    get bot_path(id: @bot.id)
+    get bot_chart_path(bot_id: @bot.id)
 
     assert_select '#chart [data-controller="bot--chart"]', 1 do |chart|
       assert_equal({ 'AAA' => { 'value' => [nil, 260.0], 'invested' => [100.0, 200.0] } },
@@ -87,7 +88,7 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     data[:chart][:series] = [[0.0, 0.0], [0.0, 0.0]]
     Rails.cache.write(@bot.send(:metrics_with_current_prices_and_candles_cache_key), data)
 
-    get bot_path(id: @bot.id)
+    get bot_chart_path(bot_id: @bot.id)
 
     assert_response :success
     assert_select '#chart [data-controller="bot--chart"]', 1
@@ -103,7 +104,7 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
     data[:chart][:series] = [[100.0, 260.0], [100.0, 200.0]]
     Rails.cache.write(@bot.send(:metrics_with_current_prices_and_candles_cache_key), data)
 
-    get bot_path(id: @bot.id)
+    get bot_chart_path(bot_id: @bot.id)
 
     assert_select '#chart [role="radiogroup"]', 1
     assert_select '#chart [role="radio"]', 2
@@ -122,7 +123,7 @@ class Bots::ShowChartTest < ActionDispatch::IntegrationTest
   end
 
   test 'chart shows the placeholder while metrics are still loading' do
-    get bot_path(id: @bot.id)
+    get bot_chart_path(bot_id: @bot.id)
 
     assert_response :success
     assert_select '#chart [data-controller="bot--chart"]', 0

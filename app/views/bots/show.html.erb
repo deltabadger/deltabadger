@@ -22,9 +22,6 @@
       the modal due for the bot switched to arrives here instead, as a stream that runs when it
       connects. Frame requests only — a full load already has the modal source, and would show it twice. %>
   <%= wash_sale_prompt_stream(@bot) if turbo_frame_request? %>
-  <%= tag.div data: @chart_loading ? { controller: "broadcast--on-connect",
-                                      broadcast__on_connect_method_value: "metrics_update",
-                                      broadcast__on_connect_method_args_value: { bot_id: @bot.id }.to_json } : {} %>
   <div class="page-head">
     <%= render "bots/header", bot: @bot, other_bots: @other_bots %>
   </div>
@@ -35,7 +32,11 @@
       <%= render partial: "bots/status/status_button", locals: { bot: @bot } %>
     </div>
 
-    <%= render partial: "bots/chart", locals: { bot: @bot, metrics: @chart_metrics, loading: @chart_loading } %>
+    <%# The chart arrives in its own frame (Bots::ChartsController), which also asks for a metrics
+        refresh when a cache is cold; the placeholder keeps the page's layout until it lands. %>
+    <%= turbo_frame_tag "bot_chart", src: bot_chart_path(@bot, metrics_missing: (1 if @metrics_loading)) do %>
+      <%= render partial: "bots/chart", locals: { bot: @bot, metrics: nil, loading: true } %>
+    <% end %>
 
     <div id="<%= dom_id(@bot, :columns) %>" class="columns<%= ' bot-locked' if @bot.working? %>">
       <div class="column gap-1">
