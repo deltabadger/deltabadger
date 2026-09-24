@@ -20,6 +20,6 @@ To add a friendly message for a new error:
 
 1. In honeymaker, add a `{ code:, pattern: }` entry to the exchange's `ERROR_PATTERNS` (e.g. `lib/honeymaker/exchanges/kraken.rb`). Use named captures for values to interpolate.
 2. Release honeymaker (`rake release`) and bump the version in this repo's `Gemfile`.
-3. Add `errors.exchange.<code>` to every `config/locales/errors.*.yml` with native phrasing (no `default:`, per `config/locales/CLAUDE.md`). The `humanize_error` call automatically passes the matched named captures plus `exchange: <name>` as interpolation params.
+3. Add `errors.exchange.<code>` to every `config/locales/errors.*.yml` with native phrasing (no `default:`, per `config/locales/AGENTS.md`). The `humanize_error` call automatically passes the matched named captures plus `exchange: <name>` as interpolation params.
 
 Unmatched errors fall through to the raw message — they still surface, just untranslated.

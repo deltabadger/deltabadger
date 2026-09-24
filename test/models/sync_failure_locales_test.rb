@@ -1,7 +1,7 @@
 require 'test_helper'
 
 # Repo convention: no default:, no EN-only strings — every locale carries a native translation
-# (config/locales/CLAUDE.md).
+# (config/locales/AGENTS.md).
 class SyncFailureLocalesTest < ActiveSupport::TestCase
   KEYS = %w[
     tracker.sync_permission_error_html

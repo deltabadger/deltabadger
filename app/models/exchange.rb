@@ -544,7 +544,7 @@ class Exchange < ApplicationRecord
   end
 
   # A reading key is proven by READING. Shared by every venue, and deliberately not overridable per
-  # venue: `exchanges/CLAUDE.md` requires a trade-permission endpoint for a trading key precisely
+  # venue: `exchanges/AGENTS.md` requires a trade-permission endpoint for a trading key precisely
   # because a read endpoint would accept any valid key — which is the exact property wanted here.
   # Nothing a permission bitmap could add is in scope: a key that reads is all the tracker asks for,
   # and a TRADING key passes this trivially, because trade permission contains read permission.
