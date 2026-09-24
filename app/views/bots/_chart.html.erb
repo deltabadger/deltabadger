@@ -2,23 +2,72 @@
     in the DOM either way so the first metrics broadcast still finds its target. %>
 <% charted = bot.transactions.any? %>
 <% hide_money = hide_balances?(bot) %>
+<%# Captured once: the loaded chart shows it, and the placeholder holds its place with it. %>
+<% orders_row = capture do %>
+<%# Off by choice, not by default: the marks sit over the curve, and a reader who came for
+    the shape of the line should get the line. The choice is remembered per browser. %>
+<%# The account menu's switch, in its shape: small toggle, label as the hit area. No form
+    behind it — this one is a way of reading the chart in front of you, so it is
+    remembered in the browser rather than posted and stored against the account. %>
+<div class="widget--chart__orders">
+  <label class="toggle-inline">
+    <div class="toggle toggle--small">
+      <input type="checkbox" data-bot--chart-target="orders"
+             data-action="change->bot--chart#toggleOrders">
+      <div class="toggle__style"></div>
+    </div>
+    <span class="label"><%= t('bot.details.stats.chart.orders') %></span>
+  </label>
+  <%# The same shape beside it: the prices are the other way of reading this chart, and
+      the two switches belong on one line under it. %>
+  <label class="toggle-inline">
+    <div class="toggle toggle--small">
+      <input type="checkbox" data-bot--chart-target="prices"
+             data-action="change->bot--chart#togglePrices">
+      <div class="toggle__style"></div>
+    </div>
+    <span class="label"><%= t('bot.details.stats.chart.prices') %></span>
+  </label>
+</div>
+<% end %>
 <div id="chart" <%= tag.attributes(class: ('widget widget--chart' if charted), hidden: !charted) %>>
   <% if charted %>
     <% if loading || metrics[:chart][:labels].empty? %>
-      <div class="widget--chart__head">
-        <div class="widget--chart__summary">
-          <div class="widget--chart__date">&nbsp;</div>
-          <% unless hide_money %><div class="widget--chart__pnl">&nbsp;</div><% end %>
-          <%# With no money slot, the percentage IS the headline: it takes the big __pnl
-              styling rather than sitting small underneath nothing. %>
-          <div class="<%= hide_money ? 'widget--chart__pnl' : 'widget--chart__percent' %>">&nbsp;</div>
+      <%# One box, like the chart's controller element: the widget's gap falls between its own
+          children, and rows it saw separately would stand further apart than the chart's do. %>
+      <div>
+        <div class="widget--chart__head">
+          <%# The switch's place, for the same reason as the rows under the plot: on a phone it is
+              what wraps the head onto a second line. %>
+          <% if loading && !hide_money %>
+            <div class="widget--chart__modes" style="visibility: hidden;" inert aria-hidden="true">
+              <%= render 'shared/segmented', fluid: true,
+                         label: t('bot.details.stats.chart.modes'),
+                         options: [{ value: 'pnl', label: t('bot.details.stats.chart.pnl'), active: true },
+                                   { value: 'value', label: t('bot.details.stats.chart.value') }] %>
+            </div>
+          <% end %>
+          <div class="widget--chart__summary">
+            <div class="widget--chart__date">&nbsp;</div>
+            <%# The headline's shape — a figure and its <small> unit — which sets the line's height. %>
+            <% unless hide_money %><div class="widget--chart__pnl">&nbsp;<small>&nbsp;</small></div><% end %>
+            <%# With no money slot, the percentage IS the headline: it takes the big __pnl
+                styling rather than sitting small underneath nothing. %>
+            <div class="<%= hide_money ? 'widget--chart__pnl' : 'widget--chart__percent' %>">&nbsp;</div>
+          </div>
         </div>
-      </div>
-      <div class="widget--chart__plot">
+        <div class="widget--chart__plot">
+          <% if loading %>
+            <div class="loader" style="position: relative; left: calc(50% - 2rem); top: calc(50% - 6rem);"></div>
+          <% else %>
+            <%= render 'svg/landscape_empty' %>
+          <% end %>
+        </div>
+        <%# While loading, the rows under the plot stand in their places — the axis at its fixed
+            height, the toggles hidden — so the widget keeps the height of the chart it waits for. %>
         <% if loading %>
-          <div class="loader" style="position: relative; left: calc(50% - 2rem); top: calc(50% - 6rem);"></div>
-        <% else %>
-          <%= render 'svg/landscape_empty' %>
+          <div class="widget--chart__axis"></div>
+          <div style="visibility: hidden;" inert aria-hidden="true"><%= orders_row %></div>
         <% end %>
       </div>
     <% else %>
@@ -125,31 +174,7 @@
         <%# The dates, under everything: the marks hang off the plot's floor and grow upward over
             the curve, so a label only has room to stand below the plot itself. %>
         <div class="widget--chart__axis" data-bot--chart-target="axis"></div>
-        <%# Off by choice, not by default: the marks sit over the curve, and a reader who came for
-            the shape of the line should get the line. The choice is remembered per browser. %>
-        <%# The account menu's switch, in its shape: small toggle, label as the hit area. No form
-            behind it — this one is a way of reading the chart in front of you, so it is
-            remembered in the browser rather than posted and stored against the account. %>
-        <div class="widget--chart__orders">
-          <label class="toggle-inline">
-            <div class="toggle toggle--small">
-              <input type="checkbox" data-bot--chart-target="orders"
-                     data-action="change->bot--chart#toggleOrders">
-              <div class="toggle__style"></div>
-            </div>
-            <span class="label"><%= t('bot.details.stats.chart.orders') %></span>
-          </label>
-          <%# The same shape beside it: the prices are the other way of reading this chart, and
-              the two switches belong on one line under it. %>
-          <label class="toggle-inline">
-            <div class="toggle toggle--small">
-              <input type="checkbox" data-bot--chart-target="prices"
-                     data-action="change->bot--chart#togglePrices">
-              <div class="toggle__style"></div>
-            </div>
-            <span class="label"><%= t('bot.details.stats.chart.prices') %></span>
-          </label>
-        </div>
+        <%= orders_row %>
 
       <% end %>
     <% end %>
