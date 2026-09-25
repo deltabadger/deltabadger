@@ -33,17 +33,20 @@
             <%= tag.div class: 'split-modal__row mb-3', data: { split_row: state, bot_id: bot.id } do %>
               <% if state == 'halted' %>
                 <p class="text-danger"><%= bot.label %>: <%= t('bot.redeploy.halted') %></p>
-              <% elsif state == 'pending' %>
-                <p><%= t('bot.split.reinvesting', label: bot.label) %> <%= redeploy_answer_spinner(t('bot.redeploy.started')) %></p>
               <% else %>
+                <%# The question stays while its reinvestment runs; only the answer turns into the spinner. %>
                 <p><%= t('bot.split.proceeds', label: bot.label,
                          amount: number_with_precision(offer, precision: 2, delimiter: ','),
                          symbol: bot.quote_asset&.symbol) %></p>
                 <div class="redeploy-prompt__actions split-modal__answers" data-split-actions>
-                  <%= button_to t('bot.redeploy.confirm'), bot_redeploy_path(bot_id: bot.id),
-                                class: 'rbutton rbutton--success', form: { data: { split_answer: true } } %>
-                  <%= button_tag t('bot.redeploy.decline'), type: 'button', class: 'rbutton rbutton--danger',
-                                 data: { action: 'bots-split-modal#keep', bots_split_modal_id_param: bot.id } %>
+                  <% if state == 'pending' %>
+                    <%= redeploy_answer_spinner(t('bot.redeploy.started')) %>
+                  <% else %>
+                    <%= button_to t('bot.redeploy.confirm'), bot_redeploy_path(bot_id: bot.id),
+                                  class: 'rbutton rbutton--success', form: { data: { split_answer: true } } %>
+                    <%= button_tag t('bot.redeploy.decline'), type: 'button', class: 'rbutton rbutton--danger',
+                                   data: { action: 'bots-split-modal#keep', bots_split_modal_id_param: bot.id } %>
+                  <% end %>
                 </div>
                 <p class="text-inactive" data-split-kept hidden><%= t('bot.split.kept') %></p>
               <% end %>

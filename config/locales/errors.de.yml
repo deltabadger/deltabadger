@@ -75,6 +75,7 @@ de:
             rate_limited: "%{exchange} drosselt gerade die Anfragen. Der Bot versucht es automatisch erneut."
         bots:
             split:
+                busy: "%{exchange} bearbeitet gerade eine andere Order. Versuch es gleich noch einmal."
                 missing: "Einer dieser Bots existiert nicht mehr. Bitte neu auswählen."
                 none: "Wähle mindestens einen Bot."
                 unavailable: "%{label} kann gerade nicht aufgeteilt werden."

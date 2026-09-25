@@ -10,7 +10,6 @@ da:
         split:
             explanation: "Alle bots stoppes og opdeles i bots med ét aktiv for:"
             proceeds: "Botten \"%{label}\" har %{amount} %{symbol} fra tidligere salg. Geninvester?"
-            reinvesting: "Geninvesterer for \"%{label}\"…"
             kept: "Beholdes som realiseret gevinst/tab."
             success: "Bots opdelt."
         merge:

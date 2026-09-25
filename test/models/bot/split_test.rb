@@ -237,7 +237,9 @@ class Bot::SplitTest < ActiveSupport::TestCase
     key = Bot::VenueLease::ExchangeLease.for(@exchange).concurrency_key
     SolidQueue::Semaphore.create!(key:, value: 0, expires_at: 5.minutes.from_now)
 
-    assert_nil Bot::Split.new(@user, [source.id]).perform!
+    split = Bot::Split.new(@user, [source.id])
+    assert_nil split.perform!
+    assert_equal I18n.t('errors.bots.split.busy', exchange: @exchange.name), split.error
     assert_not_predicate source.reload, :deleted?
     assert_equal [source.id], Transaction.distinct.pluck(:bot_id)
   end

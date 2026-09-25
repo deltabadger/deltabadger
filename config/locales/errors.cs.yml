@@ -68,6 +68,7 @@ cs:
             rate_limited: "%{exchange} omezuje počet požadavků. Bot to automaticky zkusí znovu."
         bots:
             split:
+                busy: "%{exchange} právě zpracovává jiný pokyn. Zkuste to za chvíli."
                 missing: "Jeden z těchto botů už neexistuje. Vyberte znovu."
                 none: "Vyberte alespoň jednoho bota."
                 unavailable: "%{label} teď nelze rozdělit."

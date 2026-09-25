@@ -75,6 +75,7 @@ nl:
             rate_limited: "%{exchange} beperkt het aantal verzoeken. De bot probeert het automatisch opnieuw."
         bots:
             split:
+                busy: "%{exchange} verwerkt nog een andere order. Probeer het zo opnieuw."
                 missing: "Een van deze bots bestaat niet meer. Kies opnieuw."
                 none: "Kies minstens één bot."
                 unavailable: "%{label} kan nu niet worden gesplitst."

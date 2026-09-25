@@ -11,7 +11,6 @@ fr:
         split:
             explanation: "Tous les bots seront arrêtés et divisés en bots à actif unique pour :"
             proceeds: "Le bot « %{label} » a %{amount} %{symbol} issus de ventes passées. Réinvestir ?"
-            reinvesting: "Réinvestissement pour « %{label} »…"
             kept: "Conservé en P/P réalisé."
             success: "Bots divisés."
         merge:

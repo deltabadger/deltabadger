@@ -28,7 +28,6 @@ class Bot::MergeLocalesTest < ActiveSupport::TestCase
       %w[bot merge assets_stay] => nil,
       %w[bot split explanation] => nil,
       %w[bot split proceeds] => '%{amount}',
-      %w[bot split reinvesting] => '%{label}',
       %w[bot split kept] => nil,
       %w[bot split success] => nil
     },
@@ -43,6 +42,7 @@ class Bot::MergeLocalesTest < ActiveSupport::TestCase
       %w[errors bots merge quote] => nil,
       %w[errors bots merge nothing_to_buy] => nil,
       %w[errors bots split missing] => nil,
+      %w[errors bots split busy] => '%{exchange}',
       %w[errors bots split none] => nil,
       %w[errors bots split unavailable] => '%{label}',
       %w[errors bots split reinvesting] => '%{label}',

@@ -10,7 +10,6 @@ cs:
         split:
             explanation: "Všichni boti budou zastaveni a rozděleni na boty s jedním aktivem pro:"
             proceeds: "Bot „%{label}“ má %{amount} %{symbol} z dřívějších prodejů. Znovu investovat?"
-            reinvesting: "Opětovné investování pro „%{label}“…"
             kept: "Zůstává jako realizovaný zisk/ztráta."
             success: "Boti rozděleni."
         merge:

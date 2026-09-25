@@ -109,7 +109,8 @@ class Bot::Split
         source.cancel_scheduled_limit_check_jobs if source.respond_to?(:cancel_scheduled_limit_check_jobs)
       end
     end
-    return fail!(unavailable) unless held
+    # A trading job is dispatched or running on one of the venues: say so, it clears on its own.
+    return fail!([:busy, { exchange: venues.map(&:name).to_sentence }]) unless held
 
     children
   rescue ActiveRecord::RecordInvalid
