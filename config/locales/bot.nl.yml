@@ -11,7 +11,6 @@ nl:
         split:
             explanation: "Alle bots worden gestopt en gesplitst in bots met één asset voor:"
             proceeds: "Bot \"%{label}\" heeft %{amount} %{symbol} uit eerdere verkopen. Herinvesteren?"
-            reinvesting: "Herinvesteren voor \"%{label}\"…"
             kept: "Blijft als gerealiseerde W/V."
             success: "Bots gesplitst."
         merge:

@@ -51,7 +51,11 @@ class Bots::SplitsControllerTest < ActionDispatch::IntegrationTest
 
     get new_bots_split_path(ids: [@one.id, @two.id])
 
-    assert_select "[data-split-row=pending][data-bot-id='#{@one.id}']"
+    assert_select "[data-split-row=pending][data-bot-id='#{@one.id}']" do
+      assert_select 'p', text: /from past sales/, message: 'the question stays while it is answered'
+      assert_select '.redeploy-prompt__actions > .loader--small', count: 1
+      assert_select 'button', count: 0
+    end
     assert_select "[data-split-row=halted][data-bot-id='#{@two.id}']"
   end
 

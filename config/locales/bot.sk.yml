@@ -10,7 +10,6 @@ sk:
         split:
             explanation: "Všetky boty sa zastavia a rozdelia na boty s jedným aktívom pre:"
             proceeds: "Bot „%{label}“ má %{amount} %{symbol} z minulých predajov. Znova investovať?"
-            reinvesting: "Opätovné investovanie pre „%{label}“…"
             kept: "Zostáva ako realizovaný zisk/strata."
             success: "Boty rozdelené."
         merge:

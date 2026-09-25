@@ -68,6 +68,7 @@ da:
             rate_limited: "%{exchange} begrænser antallet af anmodninger. Botten prøver automatisk igen."
         bots:
             split:
+                busy: "%{exchange} behandler en anden ordre. Prøv igen om et øjeblik."
                 missing: "En af disse bots findes ikke længere. Vælg igen."
                 none: "Vælg mindst én bot."
                 unavailable: "%{label} kan ikke opdeles lige nu."

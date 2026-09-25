@@ -68,6 +68,7 @@ sv:
             rate_limited: "%{exchange} begränsar antalet förfrågningar. Boten försöker igen automatiskt."
         bots:
             split:
+                busy: "%{exchange} hanterar en annan order. Försök igen om en stund."
                 missing: "En av botarna finns inte längre. Välj igen."
                 none: "Välj minst en bot."
                 unavailable: "%{label} kan inte delas upp just nu."

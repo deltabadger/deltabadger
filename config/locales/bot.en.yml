@@ -10,7 +10,6 @@ en:
         split:
             explanation: "All bots will be stopped and split into single-asset bots for:"
             proceeds: "Bot \"%{label}\" has %{amount} %{symbol} from past sales. Reinvest?"
-            reinvesting: "Reinvesting for \"%{label}\"…"
             kept: "Kept as realised P/L."
             success: "Bots split."
         merge:

@@ -11,7 +11,6 @@ es:
         split:
             explanation: "Todos los bots se detendrán y se dividirán en bots de un solo activo para:"
             proceeds: "El bot «%{label}» tiene %{amount} %{symbol} de ventas anteriores. ¿Reinvertir?"
-            reinvesting: "Reinvirtiendo para «%{label}»…"
             kept: "Se queda como P/G realizada."
             success: "Bots divididos."
         merge:
