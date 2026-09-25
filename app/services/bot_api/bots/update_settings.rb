@@ -34,6 +34,8 @@ module BotApi
         return updates if updates.is_a?(Result)
         return Result.failure(:validation_failed, 'no_updates_provided', 'No settings provided to update.') if updates.empty?
 
+        # Before the edit, so the carry is what was owed under the settings as they were.
+        bot.set_missed_quote_amount if bot.respond_to?(:set_missed_quote_amount) # a signal bot has no carry
         apply(bot, updates)
 
         if bot.save
@@ -107,7 +109,6 @@ module BotApi
         # settings form says this with the slider's own ceiling (Bots::DcaIndex#parse_params); over
         # the API the universe is the only ceiling there is.
         bot.hold_all = updates[:num_coins].to_i >= bot.max_coins if updates.key?(:num_coins) && bot.respond_to?(:hold_all=)
-        bot.set_missed_quote_amount if bot.respond_to?(:set_missed_quote_amount) # a signal bot has no carry
       end
 
       def basket_weights(bot)
