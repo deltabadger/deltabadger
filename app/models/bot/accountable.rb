@@ -92,6 +92,11 @@ module Bot::Accountable
     # Raise an error in the before_save instead of validate to avoid having to set_missed_quote_amount before
     # any .valid? call.
     unless missed_quote_amount_was_set
+      # Defaults a load filled into a stored row that lacked them are not a settings change
+      # (Automation::Configurable#settings_changed_since_load?): nothing to capture, and the carry
+      # window stays where it is.
+      return unless settings_changed_since_load?
+
       Rails.logger.error(
         'Attempting to save settings with missed_quote_amount not set, call ' \
         "set_missed_quote_amount before saving: #{settings_was.inspect} != #{settings.inspect}"
@@ -99,6 +104,10 @@ module Bot::Accountable
       raise 'Attempting to save settings with missed_quote_amount not set, call set_missed_quote_amount before saving'
     end
 
+    # A capture is everything owed up to now, so the carry window restarts with it. Configurable does
+    # that only for a real settings change; a capture on a load-time fill restarts it as it always
+    # has, or the owed intervals would be counted in the window and in the carry.
+    self.settings_changed_at = Time.current
     # Cap at the new effective_quote_amount to prevent accumulated debt from
     # carrying through schedule changes (e.g. switching to smart intervals).
     self.missed_quote_amount = [missed_quote_amount, effective_quote_amount].min

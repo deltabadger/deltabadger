@@ -16,8 +16,6 @@ class BackfillMultiAssetConditionDefaultsTest < ActiveSupport::TestCase
   test 'a row written before the concerns existed can be saved again afterwards' do
     bot = legacy_bot
 
-    assert_raises(RuntimeError) { Bot.find(bot.id).update!(label: 'renamed') }
-
     BackfillMultiAssetConditionDefaults.new.up
 
     assert_nothing_raised { Bot.find(bot.id).update!(label: 'renamed') }
