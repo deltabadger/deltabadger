@@ -77,57 +77,63 @@ class Exchanges::CoinbaseTest < ActiveSupport::TestCase
     assert result.failure?
   end
 
-  test 'get_api_key_validity falls back to probing when key_permissions returns 500' do
-    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
-
-    Honeymaker::Clients::Coinbase.any_instance.stubs(:get_api_key_permissions).returns(
-      Result::Failure.new('Internal Server Error', data: { status: 500 })
-    )
-    Honeymaker::Clients::Coinbase.any_instance.stubs(:list_accounts).returns(
-      Result::Success.new({ 'accounts' => [] })
-    )
-    # Order rejected for insufficient funds (HTTP 200, success=false) proves trade permission
-    Honeymaker::Clients::Coinbase.any_instance.stubs(:create_order).returns(
-      Result::Success.new({ 'success' => false, 'error_response' => { 'error' => 'INSUFFICIENT_FUND' } })
-    )
-
-    result = @exchange.get_api_key_validity(api_key: api_key)
-    assert result.success?
-    assert_equal true, result.data
+  # key_permissions sometimes answers 500 for a good key. It is asked again; what it never does is
+  # place an order to find out — the old fallback bought $1 of BTC-USD, and filled whenever the account
+  # held a dollar.
+  def permissions_answers(*answers)
+    Honeymaker::Clients::Coinbase.any_instance.stubs(:get_api_key_permissions).returns(*answers)
+    Honeymaker::Clients::Coinbase.any_instance.expects(:create_order).never
+    @exchange.stubs(:sleep)
   end
 
-  test 'get_api_key_validity returns false when key_permissions returns 500 and list_accounts fails' do
-    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
+  def server_error = Result::Failure.new('Internal Server Error', data: { status: 500 })
 
-    Honeymaker::Clients::Coinbase.any_instance.stubs(:get_api_key_permissions).returns(
-      Result::Failure.new('Internal Server Error', data: { status: 500 })
-    )
-    Honeymaker::Clients::Coinbase.any_instance.stubs(:list_accounts).returns(
-      Result::Failure.new('Unauthorized', data: { status: 401 })
-    )
+  test 'a 500 is asked again, and the next answer decides' do
+    trading = create(:api_key, exchange: @exchange, key_type: :trading)
+    permissions_answers(server_error, Result::Success.new({ 'can_view' => true, 'can_trade' => true, 'can_transfer' => false }))
+    assert_equal true, @exchange.get_api_key_validity(api_key: trading).data
 
-    result = @exchange.get_api_key_validity(api_key: api_key)
-    assert result.success?
-    assert_equal false, result.data
+    withdrawal = create(:api_key, exchange: @exchange, key_type: :withdrawal)
+    permissions_answers(server_error, Result::Success.new({ 'can_view' => true, 'can_trade' => true, 'can_transfer' => true }))
+    assert_equal false, @exchange.get_api_key_validity(api_key: withdrawal).data
   end
 
-  test 'get_api_key_validity returns false when key_permissions returns 500 and order returns 403' do
-    api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
+  test 'a 500 followed by a 401 is a rejected key' do
+    permissions_answers(server_error, Result::Failure.new('Unauthorized', data: { status: 401 }))
 
-    Honeymaker::Clients::Coinbase.any_instance.stubs(:get_api_key_permissions).returns(
-      Result::Failure.new('Internal Server Error', data: { status: 500 })
-    )
-    Honeymaker::Clients::Coinbase.any_instance.stubs(:list_accounts).returns(
-      Result::Success.new({ 'accounts' => [] })
-    )
-    # HTTP 403 means no trade permission
-    Honeymaker::Clients::Coinbase.any_instance.stubs(:create_order).returns(
-      Result::Failure.new('Forbidden', data: { status: 403 })
-    )
+    assert_equal false, @exchange.get_api_key_validity(api_key: create(:api_key, exchange: @exchange)).data
+  end
 
-    result = @exchange.get_api_key_validity(api_key: api_key)
-    assert result.success?
-    assert_equal false, result.data
+  test 'a 500 followed by another failure returns that failure' do
+    permissions_answers(server_error, Result::Failure.new('Connection reset by peer'))
+
+    result = @exchange.get_api_key_validity(api_key: create(:api_key, exchange: @exchange))
+    assert result.failure?
+    assert_equal ['Connection reset by peer'], result.errors
+  end
+
+  test 'a persistent 500 is inconclusive after three asks, and nothing is inferred' do
+    Honeymaker::Clients::Coinbase.any_instance.expects(:get_api_key_permissions).times(3).returns(server_error)
+    Honeymaker::Clients::Coinbase.any_instance.expects(:create_order).never
+    Honeymaker::Clients::Coinbase.any_instance.expects(:list_accounts).never
+    @exchange.stubs(:sleep)
+
+    assert_predicate @exchange.get_api_key_validity(api_key: create(:api_key, exchange: @exchange)), :failure?
+  end
+
+  # The form path: an inconclusive answer is a "could not verify", and the stored key stays as it was.
+  test 'a replacement Coinbase cannot verify leaves the stored key as it was' do
+    api_key = create(:api_key, exchange: @exchange, key_type: :trading, status: :correct)
+    stored = api_key.key
+    Honeymaker::Clients::Coinbase.any_instance.stubs(:get_api_key_permissions).returns(server_error)
+    @exchange.stubs(:sleep)
+    api_key.stubs(:exchange).returns(@exchange)
+
+    api_key.validate_credentials!(key: 'new-key', secret: 'new-secret')
+
+    assert_predicate api_key, :pending_validation?
+    assert_equal stored, api_key.reload.key
+    assert_predicate api_key, :correct?
   end
 
   # == get_orders shape contract ==
