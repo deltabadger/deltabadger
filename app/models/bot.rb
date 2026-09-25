@@ -32,6 +32,7 @@ class Bot < ApplicationRecord
   validate :not_archived, on: :start
 
   before_save :store_previous_exchange_id
+  before_update :refuse_stale_type
   after_update_commit :broadcast_status_bar_update, if: -> { saved_change_to_status? && !@skip_status_bar_broadcast }
   after_update_commit :broadcast_status_button_update, if: :saved_change_to_status?
   after_update_commit :broadcast_columns_lock_update, if: :saved_change_to_status?
@@ -414,6 +415,17 @@ class Bot < ApplicationRecord
 
   def store_previous_exchange_id
     @previous_exchange_id = exchange_id_was
+  end
+
+  # A bot row can change class in place (Bot::IndexSwitch). An instance loaded as the old class — a
+  # request or a job that read the row just before — would otherwise save the old class's settings
+  # over the new row. Checked inside the save's transaction, which the adapter opens as BEGIN
+  # IMMEDIATE, so it is serialised with the switch's commit. A switch's own save passes: its
+  # type_in_database is still the type the row carries.
+  def refuse_stale_type
+    return if Bot.unscoped.where(id:, type: type_in_database).exists?
+
+    raise ActiveRecord::StaleObjectError.new(self, 'update')
   end
 
   # A new bot goes to the end of the user's list. `0` is the unset sentinel rather than `nil`,

@@ -50,9 +50,14 @@ sk:
             asset_breakdown: "Rozloženie aktív"
             realised_pnl: "Realizovaný zisk/strata"
             realised_pnl_note: "Z predaja aktív. Rebalansovanie sa nepočíta."
-            left_the_index: "Mimo indexu"
+            out_of_the_index: "Mimo indexu"
             warning:
                 intro: "Niektoré príkazy (%{skipped_count}) boli pod minimálnou veľkosťou príkazu na %{exchange_name}. Takto to bot rieši:"
+        index_switch:
+            follow_index: "Sledovať index"
+            custom_allocation: "Vlastná alokácia"
+            change_index: "Zmeniť index"
+            none: "Žiadny index nemá dosť aktív na %{exchange} pre %{quote}."
         types:
             dca:
                 title: "DCA / Rebalancovanie"

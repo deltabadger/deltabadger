@@ -85,6 +85,13 @@ en:
                 interleaved: "Combining these bots' histories would change their overall result, so they can't be merged."
                 quote: "All bots must spend the same currency."
                 nothing_to_buy: "None of these assets trade on this exchange anymore."
+            index_switch:
+                stop_first: "Stop the bot first."
+                in_flight: "Wait for the pending swap or sale to finish."
+                selling: "A bot that is selling can't follow an index. Switch it back to buying first."
+                no_members: "This index has no assets that still trade on this exchange."
+                gone: "This bot changed in the meantime. Reload the page."
+                not_offered: "This index isn't available for this bot."
             multi_asset:
                 condition_subject: "This condition must watch an asset the bot holds."
                 min_assets: "A portfolio needs at least one asset."
@@ -98,7 +105,6 @@ en:
             api_key_success: "API keys saved successfully"
             coingecko_required: "CoinGecko API key is required for Index bots"
             market_data_required: "A market data provider must be configured for Index bots. Go to Settings to connect one."
-            index_change_after_transactions: "Index type cannot be changed after orders have been placed"
             signal_minimum: "Cannot remove the last signal"
         messages:
             accepted: 'must be accepted'

@@ -53,7 +53,7 @@ class Bots::DcaIndexLiquidationTest < ActiveSupport::TestCase
 
   # Selling rounds the base amount down to the venue's precision, so a holding with more decimals
   # than the venue trades in always leaves a remainder. It is `positive?`, so the row used to sit
-  # under "Left the index" forever showing 0.00 over a Sell button that could never clear it.
+  # under "Out of the index" forever showing 0.00 over a Sell button that could never clear it.
   test 'a dust remainder is not a quitter' do
     index_membership('AAA', 'BBB')
     exited('CCC')

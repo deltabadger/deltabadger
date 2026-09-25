@@ -84,6 +84,13 @@ es:
                 interleaved: "Combinar los historiales de estos bots cambiaría su resultado total, así que no se pueden fusionar."
                 quote: "Todos los bots deben gastar la misma moneda."
                 nothing_to_buy: "Ninguno de estos activos se negocia ya en este exchange."
+            index_switch:
+                stop_first: "Primero detén el bot."
+                in_flight: "Espera a que termine el intercambio o la venta pendiente."
+                selling: "Un bot que está vendiendo no puede seguir un índice. Vuelve a ponerlo en compra primero."
+                no_members: "Este índice no tiene activos que sigan cotizando en este exchange."
+                gone: "El bot ha cambiado mientras tanto. Recarga la página."
+                not_offered: "Este índice no está disponible para este bot."
             multi_asset:
                 condition_subject: "Esta condición debe referirse a un activo que el bot posee."
                 min_assets: "Una cartera necesita al menos un activo."

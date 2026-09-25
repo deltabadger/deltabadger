@@ -13,30 +13,11 @@
 # Three uses, one object: the tile asks `mergeable?` and `venues_for` to describe itself, the modal
 # asks `reason`, `exchange` and `bot` to say what will happen, and the POST calls `perform!`.
 #
-# The fence is each venue's own trading lock. Every job that trades for a bot — the tick, a rebalance,
-# a sale, a redeploy — runs under one Solid Queue semaphore per exchange (BotJob, group
-# Bot::ActionJob), and a job holds it from the moment it is dispatched to the moment it finishes. The
-# merge takes that semaphore on every source's exchange for the duration of its transaction: while it
-# holds them no tick can be dispatched or claimed on those venues, and if one is running the merge is
-# refused instead of racing it. A status check alone would miss the window where a worker has claimed
-# a tick but not yet written `executing`; a queue check alone would miss a tick that becomes due after
-# the check. The semaphore misses neither, because Solid Queue itself will not let a tick become ready
-# without it.
+# The fence is each venue's own trading lock (Bot::VenueLease), taken on every source's exchange for the
+# duration of the transaction: while it is held no tick can be dispatched or claimed on those venues,
+# and if one is running the merge is refused instead of racing it.
 class Bot::Merge
   TYPES = %w[Bots::DcaMultiAsset Bots::DcaIndex].freeze
-
-  # How long a venue is ours. Far above what a merge takes (a handful of DB writes), because the
-  # queue's maintenance pass deletes an expired semaphore whoever holds it: a merge that outlives its
-  # lease has lost exclusivity, and must not signal a semaphore a later holder may own.
-  LEASE = 5.minutes
-
-  # What SolidQueue::Semaphore reads off a job: the key the trading jobs compute
-  # (concurrency group / key), a limit of one, and how long a lease a dead process leaves behind.
-  ExchangeLease = Struct.new(:concurrency_key, :concurrency_limit, :concurrency_duration) do
-    def self.for(exchange)
-      new("Bot::ActionJob/exchange_#{exchange.name_id}", 1, LEASE)
-    end
-  end
 
   # Can this bot be picked at all? Server-computed per tile; re-run in perform! against fresh rows.
   # An index bot that never derived its composition has no rows and no history: nothing to merge.
@@ -187,19 +168,9 @@ class Bot::Merge
   def perform!
     return fail!(reason) if reason
 
-    venues = bots.map(&:exchange).uniq.sort_by(&:id)
-    leases = venues.map { |venue| ExchangeLease.for(venue) }
-    held = leases.take_while { |lease| SolidQueue::Semaphore.wait(lease) }
-    leased_at = Time.current
-    # A tick, rebalance, sale or redeploy on one of these venues is dispatched or running: refuse,
-    # never race. What was taken is handed straight back.
-    unless held.size == leases.size
-      release(held, leased_at)
-      return fail!(unavailable)
-    end
-
+    venues = bots.map(&:exchange).uniq
     merged = nil
-    begin
+    held = Bot::VenueLease.hold(venues, holder: "Bot::Merge for #{@ids.inspect}") do
       Bot.transaction do
         load_bots(lock: true)
         return fail!(reason) if reason
@@ -216,9 +187,9 @@ class Bot::Merge
       bots.each { |source| cancel_queued_jobs(source) }
     rescue Interleaved
       return fail!(:interleaved)
-    ensure
-      release(held, leased_at)
     end
+    return fail!(unavailable) unless held
+
     merged&.reload
   end
 
@@ -303,21 +274,6 @@ class Bot::Merge
   def fail!(reason)
     @error = self.class.translate(reason)
     nil
-  end
-
-  # Hand the venues back, and let a tick parked meanwhile on each run now rather than at the
-  # dispatcher's next maintenance pass. Unless the lease has run out: a semaphore may then already be
-  # someone else's, and signalling it would let a third party in beside them. They expire on their own.
-  def release(leases, leased_at)
-    if Time.current - leased_at >= LEASE
-      Rails.logger.warn("Bot::Merge for #{@ids.inspect} outlived its #{LEASE.inspect} lease; not signalling")
-      return
-    end
-
-    leases.each do |lease|
-      SolidQueue::Semaphore.signal(lease)
-      SolidQueue::BlockedExecution.release_one(lease.concurrency_key)
-    end
   end
 
   # Scheduled, ready and blocked ticks and limit checks. Nothing here can be claimed while the lease

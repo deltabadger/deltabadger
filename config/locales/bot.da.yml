@@ -50,9 +50,14 @@ da:
             asset_breakdown: "Aktivopdeling"
             realised_pnl: "Realiseret gevinst/tab"
             realised_pnl_note: "Fra salg af aktiver. Rebalancering tæller ikke med."
-            left_the_index: "Forladt indekset"
+            out_of_the_index: "Uden for indekset"
             warning:
                 intro: "Nogle ordrer (%{skipped_count}) var under %{exchange_name}s minimumsordrestørrelse. Sådan håndterer botten det:"
+        index_switch:
+            follow_index: "Følg indeks"
+            custom_allocation: "Egen fordeling"
+            change_index: "Skift indeks"
+            none: "Intet indeks har nok aktiver på %{exchange} for %{quote}."
         types:
             dca:
                 title: "DCA / Rebalancering"

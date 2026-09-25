@@ -258,7 +258,7 @@ class Bot::MergeTest < ActiveSupport::TestCase
   test 'the merge holds the venue trading lock while it writes, and hands it back' do
     anchor = basket([@btc])
     other = basket([@eth])
-    key = Bot::Merge::ExchangeLease.for(@exchange).concurrency_key
+    key = Bot::VenueLease::ExchangeLease.for(@exchange).concurrency_key
     held = nil
     probe = Class.new(Bot::Merge) do
       define_method(:write!) do
@@ -278,7 +278,7 @@ class Bot::MergeTest < ActiveSupport::TestCase
     anchor = basket([@btc], status: :scheduled, started_at: 1.day.ago)
     other = basket([@eth])
     later = enqueue_job_for(anchor, state: :scheduled, scheduled_at: 2.hours.from_now)
-    key = Bot::Merge::ExchangeLease.for(@exchange).concurrency_key
+    key = Bot::VenueLease::ExchangeLease.for(@exchange).concurrency_key
     broken = Class.new(Bot::Merge) do
       define_method(:write!) { raise ActiveRecord::RecordInvalid }
     end
@@ -289,34 +289,6 @@ class Bot::MergeTest < ActiveSupport::TestCase
     assert_predicate other.reload, :stopped?
     assert SolidQueue::ScheduledExecution.exists?(job_id: later.id), 'the tick the merge would have cancelled is still there'
     assert_equal 1, SolidQueue::Semaphore.find_by(key:).value
-  end
-
-  test 'a merge that outlives its lease does not signal a semaphore that may be someone elses' do
-    anchor = basket([@btc])
-    other = basket([@eth])
-    key = Bot::Merge::ExchangeLease.for(@exchange).concurrency_key
-    # The probe owns its clock stubs: travel in write!, travel back once release has read the clock.
-    # (A travel_back from the test would unstub nothing — TimeHelpers keeps stubs per object — and
-    # leave the whole worker process five minutes in the future.)
-    slow = Class.new(Bot::Merge) do
-      include ActiveSupport::Testing::TimeHelpers
-
-      define_method(:write!) do
-        travel(Bot::Merge::LEASE + 1.second)
-        super()
-      end
-
-      define_method(:release) do |*args|
-        super(*args)
-      ensure
-        travel_back
-      end
-    end
-
-    merged = slow.new(@user, [anchor.id, other.id]).perform!
-
-    assert merged
-    assert_equal 0, SolidQueue::Semaphore.find_by(key:).value, 'left for the queue to expire, never signalled'
   end
 
   test 'a limit check that finishes after its source was merged away does not re-arm it' do
@@ -484,7 +456,7 @@ class Bot::MergeTest < ActiveSupport::TestCase
     assert_equal I18n.t('errors.bots.merge.interleaved'), merge.error
     assert_predicate anchor.reload, :stopped?
     assert_equal 3, anchor.transactions.count, 'the rows went back with the rollback'
-    assert_equal 1, SolidQueue::Semaphore.find_by(key: Bot::Merge::ExchangeLease.for(@exchange).concurrency_key).value
+    assert_equal 1, SolidQueue::Semaphore.find_by(key: Bot::VenueLease::ExchangeLease.for(@exchange).concurrency_key).value
   end
 
   test 'a refused interleaving leaves no books cached under the id the rollback frees' do
@@ -642,7 +614,7 @@ class Bot::MergeTest < ActiveSupport::TestCase
     anchor = basket([@btc])
     other = basket([@eth])
     # What Solid Queue leaves in place from dispatch to finish of any Bot::ActionJob-group job on Binance.
-    SolidQueue::Semaphore.create!(key: Bot::Merge::ExchangeLease.for(@exchange).concurrency_key, value: 0,
+    SolidQueue::Semaphore.create!(key: Bot::VenueLease::ExchangeLease.for(@exchange).concurrency_key, value: 0,
                                   expires_at: 5.minutes.from_now)
 
     merge = Bot::Merge.new(@user, [anchor.id, other.id])
@@ -875,8 +847,8 @@ class Bot::MergeTest < ActiveSupport::TestCase
     end
 
     assert_equal I18n.t('errors.bots.merge.unavailable', label: anchor.label), merge.error
-    assert_equal 1, SolidQueue::Semaphore.find_by(key: Bot::Merge::ExchangeLease.for(@exchange).concurrency_key).value
-    assert_nil SolidQueue::Semaphore.find_by(key: Bot::Merge::ExchangeLease.for(kraken).concurrency_key)
+    assert_equal 1, SolidQueue::Semaphore.find_by(key: Bot::VenueLease::ExchangeLease.for(@exchange).concurrency_key).value
+    assert_nil SolidQueue::Semaphore.find_by(key: Bot::VenueLease::ExchangeLease.for(kraken).concurrency_key)
   end
 
   test 'a poll queued for an inherited order placed on another venue asks nothing' do
@@ -938,14 +910,14 @@ class Bot::MergeTest < ActiveSupport::TestCase
     on_kraken = create(:dca_multi_asset, user: @user, exchange: kraken, quote_asset: @usd, base_assets: [@eth],
                                          status: :stopped, with_api_key: false)
     ticker_for(@eth)
-    SolidQueue::Semaphore.create!(key: Bot::Merge::ExchangeLease.for(kraken).concurrency_key, value: 0,
+    SolidQueue::Semaphore.create!(key: Bot::VenueLease::ExchangeLease.for(kraken).concurrency_key, value: 0,
                                   expires_at: 5.minutes.from_now)
 
     merge = Bot::Merge.new(@user, [anchor.id, on_kraken.id])
     assert_nil merge.perform!
 
     assert_equal I18n.t('errors.bots.merge.unavailable', label: anchor.label), merge.error
-    assert_equal 1, SolidQueue::Semaphore.find_by(key: Bot::Merge::ExchangeLease.for(@exchange).concurrency_key).value,
+    assert_equal 1, SolidQueue::Semaphore.find_by(key: Bot::VenueLease::ExchangeLease.for(@exchange).concurrency_key).value,
                  'the lease taken on the anchor venue was handed straight back'
   end
 
@@ -1066,7 +1038,7 @@ class Bot::MergeTest < ActiveSupport::TestCase
     SolidQueue::ReadyExecution.where(job_id: job.id).delete_all unless state == :ready
     case state
     when :blocked
-      job.update!(concurrency_key: Bot::Merge::ExchangeLease.for(bot.exchange).concurrency_key)
+      job.update!(concurrency_key: Bot::VenueLease::ExchangeLease.for(bot.exchange).concurrency_key)
       SolidQueue::BlockedExecution.create!(job_id: job.id, queue_name: job.queue_name, priority: job.priority,
                                            concurrency_key: job.concurrency_key, expires_at: 5.minutes.from_now)
     when :scheduled

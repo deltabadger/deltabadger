@@ -51,9 +51,14 @@ pt:
             asset_breakdown: "Detalhamento de Ativos"
             realised_pnl: "L/P realizado"
             realised_pnl_note: "Da venda de ativos. O rebalanceamento não conta."
-            left_the_index: "Fora do índice"
+            out_of_the_index: "Fora do índice"
             warning:
                 intro: "Algumas ordens (%{skipped_count}) estavam abaixo do tamanho mínimo de ordem de %{exchange_name}. Veja como o bot lida com isso:"
+        index_switch:
+            follow_index: "Seguir um índice"
+            custom_allocation: "Alocação personalizada"
+            change_index: "Mudar o índice"
+            none: "Nenhum índice tem ativos suficientes na %{exchange} para %{quote}."
         types:
             dca:
                 title: "DCA / Reequilíbrio"

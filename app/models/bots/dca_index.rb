@@ -40,7 +40,6 @@ class Bots::DcaIndex < Bot
   validate :validate_unchangeable_assets, on: :update
   validate :validate_unchangeable_interval, on: :update
   validate :validate_unchangeable_exchange, on: :update
-  validate :validate_unchangeable_index, on: :update
   validate :validate_market_data_configured, on: :start
 
   before_validation :clamp_num_coins_to_bounded_index
@@ -49,7 +48,7 @@ class Bots::DcaIndex < Bot
   # The composition is DERIVED from these, and used to be re-derived only at the next buy or
   # rebalance. So moving the coins slider redrew the donut — which is live, straight from the
   # preview — and left both tables under it describing the old index: a coin the slider had just
-  # taken back in went on sitting under "Left the index" with a Sell button over it, for up to a
+  # taken back in went on sitting under "Out of the index" with a Sell button over it, for up to a
   # whole interval. Re-derive it now, then push the tables the split they now belong on.
   after_update_commit :resync_index_composition,
                       if: -> { index_definition_changed? || custom_exchange_id_changed? }
@@ -349,7 +348,7 @@ class Bots::DcaIndex < Bot
   end
 
   def composition_size = effective_num_coins.to_i
-  def exited_title_key = 'bot.dca_index.left_the_index'
+  def exited_title_key = 'bot.dca_index.out_of_the_index'
   def metrics_partial = 'bots/composition/metrics'
 
   private
@@ -395,16 +394,6 @@ class Bots::DcaIndex < Bot
 
   def resync_index_composition
     Bot::ResyncIndexCompositionJob.perform_later(self)
-  end
-
-  def validate_unchangeable_index
-    return unless settings_changed?
-    return unless transactions.any?
-
-    return unless index_type_was != index_type || index_category_id_was != index_category_id
-
-    errors.add(:index_type, :unchangeable,
-               message: I18n.t('errors.bots.index_change_after_transactions'))
   end
 
   def validate_market_data_configured

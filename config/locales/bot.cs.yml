@@ -50,9 +50,14 @@ cs:
             asset_breakdown: "Rozložení aktiv"
             realised_pnl: "Realizovaný zisk/ztráta"
             realised_pnl_note: "Z prodeje aktiv. Rebalancování se nepočítá."
-            left_the_index: "Mimo index"
+            out_of_the_index: "Mimo index"
             warning:
                 intro: "Některé příkazy (%{skipped_count}) byly pod minimální velikostí příkazu na %{exchange_name}. Takto s tím bot pracuje:"
+        index_switch:
+            follow_index: "Sledovat index"
+            custom_allocation: "Vlastní alokace"
+            change_index: "Změnit index"
+            none: "Žádný index nemá dost aktiv na %{exchange} pro %{quote}."
         types:
             dca:
                 title: "DCA / Rebalancování"

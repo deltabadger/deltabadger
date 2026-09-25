@@ -50,9 +50,14 @@ de:
             asset_breakdown: "Asset-Aufschlüsselung"
             realised_pnl: "Realisierter G/V"
             realised_pnl_note: "Aus dem Verkauf von Werten. Rebalancing zählt nicht."
-            left_the_index: "Nicht mehr im Index"
+            out_of_the_index: "Nicht im Index"
             warning:
                 intro: "Einige Orders (%{skipped_count}) lagen unter der minimalen Bestellgröße von %{exchange_name}. So geht der Bot damit um:"
+        index_switch:
+            follow_index: "Index folgen"
+            custom_allocation: "Eigene Gewichtung"
+            change_index: "Index wechseln"
+            none: "Kein Index hat genug Assets auf %{exchange} für %{quote}."
         types:
             dca:
                 title: "DCA / Rebalancing"

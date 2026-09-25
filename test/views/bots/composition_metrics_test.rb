@@ -126,7 +126,7 @@ class Bots::CompositionMetricsViewTest < ActionView::TestCase
     assert_includes rows, "POR##{portuma.id}"
   end
 
-  test 'a locked quitter is in the protection table, not under Left the index' do
+  test 'a locked quitter is in the protection table, not under Out of the index' do
     bia = @bot.bot_index_assets.find_by(asset: @assets['CCC'][:asset])
     bia.update!(in_index: false, exited_at: Time.current)
 

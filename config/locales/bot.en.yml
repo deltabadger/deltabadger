@@ -50,9 +50,14 @@ en:
             asset_breakdown: "Asset Breakdown"
             realised_pnl: "Realised P/L"
             realised_pnl_note: "From selling assets. Rebalancing is not counted."
-            left_the_index: "Left the index"
+            out_of_the_index: "Out of the index"
             warning:
                 intro: "Some orders (%{skipped_count}) were below the %{exchange_name} minimum order size. Here's how the bot handles it:"
+        index_switch:
+            follow_index: "Follow index"
+            custom_allocation: "Custom allocation"
+            change_index: "Change the index"
+            none: "No index has enough assets on %{exchange} for %{quote}."
         types:
             dca:
                 title: "DCA / Rebalance"

@@ -43,7 +43,7 @@ module BotApi
         return api_key_missing(exchange) unless trading_key(exchange)
 
         # Scoped to the venue: an index the picker would not offer here must not be creatable here.
-        index = visible_indices.available_on_exchange(exchange).find_by(external_id: @index)
+        index = Index.for_picker.available_on_exchange(exchange).find_by(external_id: @index)
         unless index
           return Result.failure(:not_found, 'index_not_found',
                                 "Index '#{@index}' not found or not available on #{exchange.name}. " \
@@ -68,7 +68,7 @@ module BotApi
         # Floats at the model boundary: DcaIndex stores floats, and these are validated numbers now.
         bot = @user.bots.new(type: 'Bots::DcaIndex', exchange: exchange, label: @label,
                              settings: { 'interval' => @interval,
-                                         'allocation_flattening' => flattening.to_f }.merge(index_settings(index)))
+                                         'allocation_flattening' => flattening.to_f }.merge(index.bot_settings))
         quote = bot.available_assets_for_current_settings(asset_type: :quote_asset).find_by(symbol: @quote_asset.to_s.upcase)
         unless quote
           return Result.failure(:not_found, 'quote_asset_not_found',
@@ -87,22 +87,6 @@ module BotApi
       end
 
       private
-
-      def visible_indices
-        MarketDataSettings.deltabadger? ? Index.all : Index.where.not(source: Index::SOURCE_DELTABADGER)
-      end
-
-      # Exactly what Bots::DcaIndexes::PickIndicesController#create writes into the wizard session.
-      def index_settings(index)
-        if index.external_id == Index::TOP_COINS_EXTERNAL_ID
-          { 'index_type' => ::Bots::DcaIndex::INDEX_TYPE_TOP, 'index_category_id' => nil,
-            'index_name' => nil, 'index_name_prefix' => nil }
-        else
-          { 'index_type' => ::Bots::DcaIndex::INDEX_TYPE_CATEGORY, 'index_category_id' => index.external_id,
-            'index_name' => index.name,
-            'index_name_prefix' => ::Bots::DcaIndex::COUNT_NAMED_INDICES.dig(index.external_id, :prefix) }
-        end
-      end
 
       def serialize(bot)
         {

@@ -38,11 +38,12 @@ module Bot::Lifecycle
     # since BroadcastAfterScheduledActionJob will handle it after the job is persisted
     @skip_status_bar_broadcast = !set_orders_now
 
-    # One transaction for the check and the save: a Start that loaded this row before a delete or a
-    # merge committed must not write :scheduled over :deleted and arm a tick for an emptied bot. The
+    # One transaction for the check and the save: a Start that loaded this row before a delete, a
+    # merge or a class switch (Bot::IndexSwitch) committed must not write :scheduled over it and arm
+    # a tick. `self.class.where` is STI-scoped, so a row that is now another class reads as gone. The
     # adapter opens transactions as BEGIN IMMEDIATE, so the read here is serialised with that commit.
     started = transaction do
-      next false if self.class.where(id:, status: :deleted).exists?
+      next false if persisted? && !self.class.where(id:).where.not(status: :deleted).exists?
 
       valid?(:start) && save
     end

@@ -51,9 +51,14 @@ pl:
             asset_breakdown: "Podział Aktywów"
             realised_pnl: "Zrealizowany wynik"
             realised_pnl_note: "Ze sprzedaży aktywów. Rebalansowanie nie jest wliczane."
-            left_the_index: "Poza indeksem"
+            out_of_the_index: "Poza indeksem"
             warning:
                 intro: "Niektóre zlecenia (%{skipped_count}) były poniżej minimalnego rozmiaru zlecenia %{exchange_name}. Oto jak bot to obsługuje:"
+        index_switch:
+            follow_index: "Śledź indeks"
+            custom_allocation: "Własna alokacja"
+            change_index: "Zmień indeks"
+            none: "Żaden indeks nie ma wystarczająco aktywów na %{exchange} dla %{quote}."
         types:
             dca:
                 title: "DCA / Rebalansowanie"

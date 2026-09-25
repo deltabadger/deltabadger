@@ -50,9 +50,14 @@ sv:
             asset_breakdown: "Tillgångsfördelning"
             realised_pnl: "Realiserad vinst/förlust"
             realised_pnl_note: "Från försäljning av tillgångar. Ombalansering räknas inte."
-            left_the_index: "Lämnat indexet"
+            out_of_the_index: "Utanför indexet"
             warning:
                 intro: "Vissa ordrar (%{skipped_count}) var under %{exchange_name}s minsta orderstorlek. Så här hanterar boten det:"
+        index_switch:
+            follow_index: "Följ index"
+            custom_allocation: "Egen fördelning"
+            change_index: "Byt index"
+            none: "Inget index har tillräckligt med tillgångar på %{exchange} för %{quote}."
         types:
             dca:
                 title: "DCA / Ombalansering"

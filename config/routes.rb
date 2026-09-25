@@ -263,6 +263,9 @@ Rails.application.routes.draw do
       resource :chart, only: [:show], controller: 'bots/charts'
       resource :delete, only: %i[edit destroy], controller: 'bots/deletes'
       resource :archive, only: %i[edit create destroy], controller: 'bots/archives'
+      # The menu's index entries (Bot::IndexSwitch): pick an index to follow, or keep the members as a portfolio.
+      resource :index, only: %i[new create], controller: 'bots/indices'
+      resource :custom_allocation, only: :create, controller: 'bots/custom_allocations'
       resources :rebalance_resolutions, only: [:create], controller: 'bots/rebalance_resolutions'
       resource :liquidation, only: %i[new create], controller: 'bots/liquidations'
       resources :liquidation_resolutions, only: [:create], controller: 'bots/liquidation_resolutions'
