@@ -15,6 +15,12 @@ class Bot::IndexSwitchTest < ActiveSupport::TestCase
     @btc = create(:asset, :bitcoin)
     @eth = create(:asset, :ethereum)
     @sol = create(:asset, symbol: 'SOL', name: 'Solana', external_id: 'solana')
+    # Market caps 3 : 2 : 1, so pure market-cap weights and equal weights differ.
+    MarketData.stubs(:get_top_coins).returns(Result::Success.new(
+                                               [{ 'id' => 'bitcoin', 'market_cap' => 300 }, { 'id' => 'ethereum', 'market_cap' => 200 },
+                                                { 'id' => 'solana', 'market_cap' => 100 }]
+                                             ))
+    Ticker.any_instance.stubs(:priced?).returns(true)
     @top = Index.create!(external_id: Index::TOP_COINS_EXTERNAL_ID, source: Index::SOURCE_INTERNAL, name: 'Top Coins',
                          top_coins: %w[bitcoin ethereum solana])
   end
@@ -39,6 +45,19 @@ class Bot::IndexSwitchTest < ActiveSupport::TestCase
     assert_equal 100.0, switched.quote_amount.to_f
     %w[allocations weighting direction].each { |key| assert_not switched.settings.key?(key), "#{key} leaked" }
     assert_equal 'Top 10', switched.label, 'a name the user never changed follows the new composition'
+  end
+
+  test 'the new members are derived before the switch returns, so the page shows them at once' do
+    bot = basket([@btc, @eth])
+    layer1 = Index.create!(external_id: 'layer-1', source: Index::SOURCE_COINGECKO, name: 'Layer 1',
+                           top_coins: %w[solana])
+    stub_top_coins('solana' => 100)
+    ticker_for(@sol)
+
+    switched = Bot::IndexSwitch.follow!(bot, layer1)
+
+    assert_equal [@sol.id], switched.bot_index_assets.in_index.pluck(:asset_id)
+    assert_equal [@btc.id, @eth.id].sort, switched.bot_index_assets.where(in_index: false).pluck(:asset_id).sort
   end
 
   test 'a bounded index is held whole, like a new bot on it' do
@@ -85,6 +104,7 @@ class Bot::IndexSwitchTest < ActiveSupport::TestCase
   # == Custom allocation ==
 
   test 'an index bot becomes a portfolio of its current members at their weights' do
+    stub_top_coins('bitcoin' => 300, 'ethereum' => 200)
     bot = index_bot
     membership!(bot, @btc, 0.6)
     membership!(bot, @eth, 0.4)
@@ -101,7 +121,28 @@ class Bot::IndexSwitchTest < ActiveSupport::TestCase
     assert_equal 'BTC, ETH', switched.label
   end
 
+  test 'the portfolio keeps the weights the flattening slider set, even before a resync ran' do
+    bot = index_bot
+    bot.update_columns(settings: bot.settings.merge('num_coins' => 3, 'allocation_flattening' => 0.0))
+    Bot.find(bot.id).refresh_composition # market-cap targets 1/2 : 1/3 : 1/6 on record
+    bot.update_columns(settings: bot.settings.merge('allocation_flattening' => 1.0)) # slider moved, not re-derived
+
+    switched = Bot::IndexSwitch.customize!(Bot.find(bot.id))
+
+    assert_equal [0.333, 0.333, 0.334], switched.allocations.values.sort
+  end
+
+  test 'moving the flattening slider re-derives the stored weights' do
+    bot = index_bot
+    Bot::ResyncIndexCompositionJob.unstub(:perform_later)
+    Bot::ResyncIndexCompositionJob.expects(:perform_later).once
+
+    bot.set_missed_quote_amount
+    bot.update!(allocation_flattening: 1.0)
+  end
+
   test 'a member the venue no longer trades is left out of the portfolio' do
+    stub_top_coins('bitcoin' => 100, 'ethereum' => 100)
     bot = index_bot
     membership!(bot, @btc, 0.5)
     membership!(bot, @eth, 0.5)
@@ -199,8 +240,8 @@ class Bot::IndexSwitchTest < ActiveSupport::TestCase
     stale.set_missed_quote_amount # what every settings save does first (BotsController#update)
     assert_raises(ActiveRecord::StaleObjectError) { stale.update!(label: 'Overwritten') }
     assert_not stale.start, 'a start from the old class arms nothing'
-    stale.send(:update_bot_index_assets, [{ asset_id: @sol.id, ticker_id: ticker_for(@sol).id, weight: 1.0 }])
-    assert_not BotIndexAsset.exists?(bot_id: bot.id, asset_id: @sol.id), 'a stale derivation writes no members'
+    stale.send(:update_bot_index_assets, [{ asset_id: doge.id, ticker_id: ticker_for(doge).id, weight: 1.0 }])
+    assert_not BotIndexAsset.exists?(bot_id: bot.id, asset_id: doge.id), 'a stale derivation writes no members'
     assert_instance_of Bots::DcaMultiAsset, Bot.find(bot.id)
   end
 
@@ -212,9 +253,9 @@ class Bot::IndexSwitchTest < ActiveSupport::TestCase
                            top_coins: %w[bitcoin ethereum solana])
 
     Bot::IndexSwitch.follow!(bot, layer1)
-    stale.send(:update_bot_index_assets, [{ asset_id: @sol.id, ticker_id: ticker_for(@sol).id, weight: 1.0 }])
+    stale.send(:update_bot_index_assets, [{ asset_id: doge.id, ticker_id: ticker_for(doge).id, weight: 1.0 }])
 
-    assert_not BotIndexAsset.exists?(bot_id: bot.id, asset_id: @sol.id)
+    assert_not BotIndexAsset.exists?(bot_id: bot.id, asset_id: doge.id)
   end
 
   test 'a future job is repointed to the new class, and the portfolio condition polls are dropped' do
@@ -229,6 +270,14 @@ class Bot::IndexSwitchTest < ActiveSupport::TestCase
   end
 
   private
+
+  def doge
+    @doge ||= create(:asset, symbol: 'DOGE', name: 'Dogecoin', external_id: 'dogecoin')
+  end
+
+  def stub_top_coins(caps)
+    MarketData.stubs(:get_top_coins).returns(Result::Success.new(caps.map { |id, cap| { 'id' => id, 'market_cap' => cap } }))
+  end
 
   def basket(assets, **attrs)
     create(:dca_multi_asset, user: @user, exchange: @exchange, quote_asset: @usd, base_assets: assets,

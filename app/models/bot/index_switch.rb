@@ -33,13 +33,17 @@ module Bot::IndexSwitch
   # @raise [Refused]
   # @return [Bots::DcaIndex]
   def follow!(bot, index)
-    switch!(bot, Bots::DcaIndex) do |_source, target|
+    switched = switch!(bot, Bots::DcaIndex) do |_source, target|
       target.assign_attributes(index.bot_settings)
       size = target.bounded_universe_size
       target.num_coins = size || 10
       target.hold_all = size.present?
       target.allocation_flattening ||= 0.0
     end
+    # Derived now, so the page the user lands on already shows the new members and what left. The
+    # resync the save queued stays as the fallback when the market-data service does not answer.
+    switched.refresh_composition
+    switched
   end
 
   # An index bot becomes a portfolio of its current members at their current weights, rounded to the
@@ -47,6 +51,10 @@ module Bot::IndexSwitch
   # @raise [Refused]
   # @return [Bots::DcaMultiAsset]
   def customize!(bot)
+    # The stored weights follow the settings through a background resync; read them fresh, so a
+    # flattening slider moved a moment ago is what the portfolio keeps. Outside the lease: deriving
+    # asks the market-data service, and a failure leaves the stored weights to be used as they are.
+    bot.refresh_composition if bot.dca_index?
     switch!(bot, Bots::DcaMultiAsset) do |source, target|
       tradeable = Ticker.available.trading_enabled
                         .where(exchange_id: source.exchange_id, quote_asset_id: source.quote_asset_id)
