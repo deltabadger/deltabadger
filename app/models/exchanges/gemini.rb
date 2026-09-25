@@ -19,10 +19,6 @@ class Exchanges::Gemini < Exchange
     # reason.
     transient: %w[InvalidNonce]
   }.freeze
-  # Key VALIDATION still treats a nonce rejection as "this key did not pass", the same split Kraken
-  # makes: at submission time a probe we could not get past is no use whatever the reason, and the
-  # user can simply try again.
-  CREDENTIAL_REJECTED = (ERRORS[:invalid_key] + ERRORS[:transient]).freeze
 
   include Exchange::Dryable # decorators for: get_order, get_orders, cancel_order, get_api_key_validity, set_market_order, set_limit_order
 
@@ -123,7 +119,9 @@ class Exchanges::Gemini < Exchange
   end
 
   def get_balances(asset_ids: nil)
-    result = client.get_balances
+    # The raw rows: honeymaker's get_balances hands back a hash keyed by currency, which the loop below
+    # cannot read.
+    result = client.get_raw_balances
     return result if result.failure?
 
     data = result.data
@@ -308,6 +306,11 @@ class Exchanges::Gemini < Exchange
     Result::Success.new(order_id)
   end
 
+  # Decided by Gemini's documented reasons (https://developer.gemini.com/error-codes), read from an
+  # error body or an HTTP-200 envelope. The trading probe cancels an order that does not exist: Gemini
+  # answers HTTP 404 OrderNotFound, meaning the key got past the role check — that used to arrive as a
+  # failure and leave every good trading key unverified. MissingRole (HTTP 403) means the key lacks
+  # the role. A nonce rejection is a retry, never a verdict on the key.
   def get_api_key_validity(api_key:)
     temp_client = Honeymaker.client('gemini',
                                     api_key: api_key.key,
@@ -315,24 +318,18 @@ class Exchanges::Gemini < Exchange
                                     proxy: ExchangeProxy.for('gemini'))
 
     result = if api_key.withdrawal?
-               temp_client.get_balances
+               temp_client.get_raw_balances
              else
                temp_client.cancel_order(order_id: 0)
              end
 
-    unless result.success?
-      return Result::Success.new(false) if result.data.is_a?(Hash) && result.data[:status] == 400
+    reason = response_field(result, 'reason').to_s
+    return Result::Success.new(true) if result.success? && response_field(result, 'result') != 'error'
+    return Result::Success.new(true) if !api_key.withdrawal? && reason == 'OrderNotFound'
+    return Result::Success.new(false) if reason == 'MissingRole' || reason.in?(ERRORS[:invalid_key])
+    return result if result.failure?
 
-      return result
-    end
-
-    return Result::Success.new(true) unless result.data.is_a?(Hash) && result.data['result'] == 'error'
-
-    reason = result.data['reason']
-    return Result::Success.new(false) if CREDENTIAL_REJECTED.any? { |msg| reason&.include?(msg) }
-
-    # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
-    api_key.withdrawal? ? Result::Failure.new(result.data['message']) : Result::Success.new(true)
+    Result::Failure.new(response_field(result, 'message').presence || "Gemini answered #{reason.presence || 'an error'}")
   end
 
   def minimum_amount_logic(**)

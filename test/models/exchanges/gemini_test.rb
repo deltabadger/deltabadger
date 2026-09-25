@@ -57,11 +57,11 @@ class Exchanges::GeminiTest < ActiveSupport::TestCase
     assert_equal true, result.data
   end
 
-  test 'get_api_key_validity uses get_balances for withdrawal keys' do
+  test 'get_api_key_validity reads the raw balances for withdrawal keys' do
     Rails.configuration.stubs(:dry_run).returns(false)
     api_key = create(:api_key, exchange: @exchange, key_type: :withdrawal, key: 'test_key', secret: 'test_secret')
 
-    Honeymaker::Clients::Gemini.any_instance.stubs(:get_balances).returns(
+    Honeymaker::Clients::Gemini.any_instance.stubs(:get_raw_balances).returns(
       Result::Success.new([{ 'currency' => 'BTC', 'amount' => '0.5' }])
     )
     Honeymaker::Clients::Gemini.any_instance.expects(:cancel_order).never

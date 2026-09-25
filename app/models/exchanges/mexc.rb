@@ -309,25 +309,30 @@ class Exchanges::Mexc < Exchange
     Result::Success.new(order_id)
   end
 
-  def get_api_key_validity(api_key:)
-    result = Honeymaker.client('mexc',
-                               api_key: api_key.key,
-                               api_secret: api_key.secret,
-                               proxy: ExchangeProxy.for('mexc')).account_information
+  # Decided by MEXC's documented codes (https://mexcdevelop.github.io/apidocs/spot_v3_en/), read from an
+  # error body: 700007 "no permission to access the endpoint", 10072 "invalid access key". A trading key
+  # is held to the account's canTrade flag; an answer without a boolean canTrade proves nothing (an
+  # empty payload used to read as "cannot trade" for a trading key and "valid" for a withdrawal key).
+  KEY_CHECK_REJECTED = [700_007, 10_072].freeze
 
-    if result.success?
-      valid = api_key.withdrawal? || result.data['canTrade'] == true
-      Result::Success.new(valid)
-    elsif result.data.is_a?(Hash) && result.data[:status] == 401
-      Result::Success.new(false)
-    else
-      error = parse_error_message(result)
-      if error.present? && ERRORS[:invalid_key].any? { |msg| error.include?(msg) }
-        Result::Success.new(false)
-      else
-        result
-      end
-    end
+  def get_api_key_validity(api_key:)
+    hm_client = key_check_client(api_key)
+    result = account_check(hm_client)
+    return result unless result.success? && result.data.is_a?(Hash)
+
+    Result::Success.new(api_key.withdrawal? || result.data[:can_trade])
+  end
+
+  # The tracker reads the account and the deposit/withdrawal history, and MEXC grants the history
+  # under its own permission — so a tracker key proves both.
+  def get_read_api_key_validity(api_key:)
+    return Result::Success.new(true) if dry_run?
+
+    hm_client = key_check_client(api_key)
+    result = account_check(hm_client)
+    return result unless result.success? && result.data.is_a?(Hash)
+
+    key_check_verdict(hm_client.deposit_history(limit: 1)) || Result::Success.new(true)
   end
 
   def minimum_amount_logic(order_type:, **)
@@ -628,5 +633,35 @@ class Exchanges::Mexc < Exchange
     else
       raise "Unknown #{name} order type: #{order_type}"
     end
+  end
+
+  def key_check_client(api_key)
+    Honeymaker.client('mexc', api_key: api_key.key, api_secret: api_key.secret, proxy: ExchangeProxy.for('mexc'))
+  end
+
+  # Success({ can_trade: }) for a readable account; a verdict (false, or the inconclusive failure)
+  # otherwise.
+  def account_check(hm_client)
+    result = hm_client.account_information
+    verdict = key_check_verdict(result)
+    return verdict if verdict
+
+    can_trade = result.data['canTrade'] if result.data.is_a?(Hash)
+    return Result::Failure.new('MEXC answered without an account payload') unless [true, false].include?(can_trade)
+
+    Result::Success.new({ can_trade: can_trade })
+  end
+
+  # nil when the call succeeded; Success(false) for a documented rejection; the failure otherwise.
+  def key_check_verdict(result)
+    code = response_field(result, 'code')
+    return Result::Success.new(false) if code.in?(KEY_CHECK_REJECTED)
+    return if result.success? && (code.nil? || code.to_i.zero?)
+    return Result::Failure.new(response_field(result, 'msg').presence || "MEXC answered code #{code}") if result.success?
+
+    error = parse_error_message(result)
+    return Result::Success.new(false) if error.present? && ERRORS[:invalid_key].any? { |msg| error.include?(msg) }
+
+    result
   end
 end

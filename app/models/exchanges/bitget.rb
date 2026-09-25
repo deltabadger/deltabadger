@@ -129,7 +129,10 @@ class Exchanges::Bitget < Exchange
     # As in Exchanges::Kucoin: this path calls get_account_assets directly and so bypasses the
     # client's code check. Carry the venue's reason through instead of flattening it, or
     # invalid_key_error? has nothing to read on the tracker-sync path.
-    return Result::Failure.new("Failed to get #{name} balances: #{result.data.values_at('code', 'msg').compact.join(' ')}") if data.nil?
+    # An error envelope can still carry `data: []` — only the success code means these are balances.
+    if data.nil? || result.data['code'].to_s != '00000'
+      return Result::Failure.new("Failed to get #{name} balances: #{result.data.values_at('code', 'msg').compact.join(' ')}")
+    end
 
     asset_ids ||= assets.pluck(:id)
     balances = asset_ids.to_h do |asset_id|
@@ -473,12 +476,11 @@ class Exchanges::Bitget < Exchange
       # withdrawal-permission check (done at withdrawal time), which this probe does not prove.
       api_key.withdrawal? ? Result::Success.new(false) : Result::Success.new(true)
     elsif NO_TRADE_PERMISSION_CODES.include?(code) ||
-          (msg.present? && ERRORS[:invalid_key].any? { |m| msg.include?(m) }) ||
-          (result.data.is_a?(Hash) && result.data[:status] == 401)
+          (msg.present? && ERRORS[:invalid_key].any? { |m| msg.include?(m) })
       Result::Success.new(false)
     elsif result.success?
-      # Recognized envelope, unrecognized non-zero code — preserve prior lenient behavior.
-      api_key.withdrawal? ? Result::Success.new(false) : Result::Success.new(true)
+      # An envelope with a code nobody documented as "order not found" proves nothing either way.
+      Result::Failure.new(msg.presence || "Bitget answered code #{code.inspect}")
     else
       # Genuine transport/unknown failure → surfaces as pending_validation (retryable).
       result

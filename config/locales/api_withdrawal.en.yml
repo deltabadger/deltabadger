@@ -119,7 +119,7 @@ en:
                 -   text_html: 'Set permissions:'
                     sub_instructions:
                         -   text_html: '☑️ <b>General</b> (for reading account data)'
-                        -   text_html: '☑️ <b>Transfer</b><br><strong>⚠️ Important:</strong> Do not enable Spot Trading or Futures permissions.'
+                        -   text_html: '☑️ <b>Withdraw</b><br><strong>⚠️ Important:</strong> Do not enable Spot Trading or Futures permissions.'
                         -   text_html: 'IP whitelist:'
                             sub_instructions:
                                 -   text_html: '🔘 Whitelist %{whitelist_ip}.'

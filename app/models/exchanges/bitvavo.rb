@@ -310,6 +310,13 @@ class Exchanges::Bitvavo < Exchange
     Result::Success.new(order_id)
   end
 
+  # Decided by Bitvavo's documented errorCodes (https://docs.bitvavo.com/docs/errors/), read from the
+  # error body. The trading probe cancels an order that does not exist: 240 "no order found" means the
+  # key got past the permission check; 310 means it lacks Trade. Everything else — a timeout, a rate
+  # limit, an outage, an unknown code — leaves the key unverified (all of these used to pass).
+  KEY_CHECK_ORDER_NOT_FOUND = 240
+  KEY_CHECK_NO_TRADE = 310
+
   def get_api_key_validity(api_key:)
     temp_client = Honeymaker.client('bitvavo',
                                     api_key: api_key.key,
@@ -322,20 +329,15 @@ class Exchanges::Bitvavo < Exchange
                temp_client.cancel_order(market: 'BTC-EUR', order_id: '00000000-0000-0000-0000-000000000000')
              end
 
-    if result.success?
-      # For trading keys: any non-error response (including "order not found") means the key has trade permissions
-      Result::Success.new(true)
-    elsif result.data.is_a?(Hash) && result.data[:status] == 401
-      Result::Success.new(false)
-    else
-      error_msg = result.errors.first
-      if error_msg.present? && ERRORS[:invalid_key].any? { |msg| error_msg.include?(msg) }
-        Result::Success.new(false)
-      else
-        # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
-        api_key.withdrawal? ? result : Result::Success.new(true)
-      end
-    end
+    code = response_field(result, 'errorCode')
+    return Result::Success.new(true) if result.success? && code.nil?
+
+    message = response_field(result, 'error').to_s.presence || result.errors.first.to_s
+    return Result::Success.new(true) if !api_key.withdrawal? && code == KEY_CHECK_ORDER_NOT_FOUND
+    return Result::Success.new(false) if code == KEY_CHECK_NO_TRADE && !api_key.withdrawal?
+    return Result::Success.new(false) if ERRORS[:invalid_key].any? { |msg| message.include?(msg) }
+
+    result.failure? ? result : Result::Failure.new(message.presence || "Bitvavo answered errorCode #{code}")
   end
 
   def minimum_amount_logic(order_type:, **)

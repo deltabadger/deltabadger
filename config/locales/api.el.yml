@@ -125,7 +125,7 @@ el:
                     -   text_html: 'Δώσε ένα όνομα στο κλειδί (π.χ. "Deltabadger").'
                     -   text_html: 'Ρύθμισε τα δικαιώματα:'
                         sub_instructions:
-                            -   text_html: '☑️ <b>Read-Only</b>'
+                            -   text_html: '☑️ <b>Read-Write</b>'
                             -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Withdraw ή Derivatives.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
@@ -142,6 +142,7 @@ el:
                     -   text_html: 'Δώσε ένα όνομα στο κλειδί (π.χ. "Deltabadger").'
                     -   text_html: 'Ρύθμισε τα δικαιώματα:'
                         sub_instructions:
+                            -   text_html: '☑️ <b>View Account Details</b>'
                             -   text_html: '☑️ <b>View Order Details</b>'
                             -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Σημαντικό:</strong> Μην ενεργοποιήσεις δικαιώματα Withdraw.'
                             -   text_html: 'Link IP Address:'

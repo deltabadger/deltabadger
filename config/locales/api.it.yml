@@ -125,7 +125,7 @@ it:
                     -   text_html: 'Label your key (e.g. "Deltabadger").'
                     -   text_html: 'Set permissions:'
                         sub_instructions:
-                            -   text_html: '☑️ <b>Read-Only</b>'
+                            -   text_html: '☑️ <b>Read-Write</b>'
                             -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Important:</strong> Do not enable Withdraw or Derivatives permissions.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
@@ -142,6 +142,7 @@ it:
                     -   text_html: 'Label your key (e.g. "Deltabadger").'
                     -   text_html: 'Set permissions:'
                         sub_instructions:
+                            -   text_html: '☑️ <b>View Account Details</b>'
                             -   text_html: '☑️ <b>View Order Details</b>'
                             -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Important:</strong> Do not enable Withdraw permissions.'
                             -   text_html: 'Link IP Address:'

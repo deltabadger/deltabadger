@@ -41,7 +41,7 @@ class Exchanges::BingxTest < ActiveSupport::TestCase
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
 
     Honeymaker::Clients::BingX.any_instance.stubs(:cancel_order).returns(
-      Result::Success.new({ 'code' => 100_400, 'msg' => 'Order does not exist' })
+      Result::Success.new({ 'code' => 100_404, 'msg' => 'Order does not exist' })
     )
     Honeymaker::Clients::BingX.any_instance.expects(:get_raw_balances).never
 

@@ -116,7 +116,10 @@ class Exchanges::Kucoin < Exchange
     # a rejected read arrives as a 200 envelope with no 'data'. Carry the venue's reason through:
     # invalid_key_error? reads this text to decide whether to flag the key, and a bare
     # "Failed to get KuCoin balances" tells it (and an operator) nothing.
-    return Result::Failure.new("Failed to get #{name} balances: #{result.data.values_at('code', 'msg').compact.join(' ')}") if data.nil?
+    # An error envelope can still carry `data: []` — only the success code means these are balances.
+    if data.nil? || result.data['code'].to_s != '200000'
+      return Result::Failure.new("Failed to get #{name} balances: #{result.data.values_at('code', 'msg').compact.join(' ')}")
+    end
 
     asset_ids ||= assets.pluck(:id)
     balances = asset_ids.to_h do |asset_id|
@@ -317,6 +320,14 @@ class Exchanges::Kucoin < Exchange
     Result::Success.new(order_id)
   end
 
+  # Decided by KuCoin's documented codes (https://www.kucoin.com/docs-new/error-code/spot), read from
+  # the envelope or an error body. KuCoin does not document the code for cancelling an order that does
+  # not exist, so the trading probe stays lenient for any OTHER venue code — keys have validated
+  # through that path — but never for a clock, throttle, busy or internal error, or no answer at all.
+  KEY_CHECK_REJECTED = %w[400003 400004 400005 400006 400007].freeze # key, passphrase, signature, IP, permission
+  # headers, clock, throttle, internal, busy, URL not found, cancellation suspended
+  KEY_CHECK_INCONCLUSIVE = %w[400001 400002 429000 500000 230005 404000 200002].freeze
+
   def get_api_key_validity(api_key:)
     temp_client = Honeymaker.client('kucoin',
                                     api_key: api_key.key,
@@ -330,21 +341,15 @@ class Exchanges::Kucoin < Exchange
                temp_client.cancel_order(order_id: '000000000000000000000000')
              end
 
-    if result.success? && result.data['code'] == '200000'
-      Result::Success.new(true)
-    elsif result.success?
-      error_msg = result.data['msg']
-      if ERRORS[:invalid_key].any? { |msg| error_msg&.include?(msg) }
-        Result::Success.new(false)
-      else
-        # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
-        api_key.withdrawal? ? Result::Success.new(false) : Result::Success.new(true)
-      end
-    elsif result.data.is_a?(Hash) && result.data[:status] == 401
-      Result::Success.new(false)
-    else
-      result
+    code = response_field(result, 'code')&.to_s
+    message = response_field(result, 'msg').to_s
+    return Result::Success.new(true) if code == '200000'
+    return Result::Success.new(false) if code.in?(KEY_CHECK_REJECTED) || ERRORS[:invalid_key].any? { |msg| message.include?(msg) }
+    if code.nil? || code.in?(KEY_CHECK_INCONCLUSIVE) || api_key.withdrawal?
+      return result.failure? ? result : Result::Failure.new(message.presence || "KuCoin answered code #{code.inspect}")
     end
+
+    Result::Success.new(true)
   end
 
   def minimum_amount_logic(order_type:, **)

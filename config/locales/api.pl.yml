@@ -125,7 +125,7 @@ pl:
                     -   text_html: 'Oznacz klucz (np. "Deltabadger").'
                     -   text_html: 'Ustaw uprawnienia:'
                         sub_instructions:
-                            -   text_html: '☑️ <b>Read-Only</b>'
+                            -   text_html: '☑️ <b>Read-Write</b>'
                             -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat ani Derivatives.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
@@ -142,6 +142,7 @@ pl:
                     -   text_html: 'Oznacz klucz (np. "Deltabadger").'
                     -   text_html: 'Ustaw uprawnienia:'
                         sub_instructions:
+                            -   text_html: '☑️ <b>View Account Details</b>'
                             -   text_html: '☑️ <b>View Order Details</b>'
                             -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Ważne:</strong> Nie włączaj uprawnień do wypłat.'
                             -   text_html: 'Link IP Address:'
