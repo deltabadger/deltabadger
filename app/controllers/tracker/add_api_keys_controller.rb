@@ -11,14 +11,18 @@ class Tracker::AddApiKeysController < ApplicationController
     return if reject_retired_exchange(tracker_exchange, fallback: tracker_path)
 
     @exchange = tracker_exchange
-    @api_key = find_or_build_api_key
+    # Untyped (the + menu, a broken exchange chip): a bot key that reads fine needs nothing more.
+    return redirect_to tracker_path if requested_key_type.nil? && healthy_trading_key
+
+    @key_type = requested_key_type || 'read_only'
+    @api_key = current_user.api_keys.find_or_initialize_by(exchange: @exchange, key_type: @key_type)
     if @api_key.key.present? && @api_key.secret.present? && !@api_key.correct?
       result = @api_key.get_validity
       @api_key.update_status!(result)
     end
-    # A key missing a permission is still :correct — it trades — but the tracker cannot read with
-    # it, and this form is the only place a replacement can go.
-    return redirect_to tracker_path if @api_key.correct? && !@api_key.missing_permission?
+    # An explicit choice always gets its form — the user asked to replace that key, even if it
+    # checks out again. Untyped, a tracker key that already works needs nothing.
+    return redirect_to tracker_path if requested_key_type.nil? && @api_key.correct? && !@api_key.missing_permission?
 
     render :reconnect if turbo_frame_request_id == 'modal'
   end
@@ -31,7 +35,10 @@ class Tracker::AddApiKeysController < ApplicationController
     end
     return if reject_retired_exchange(@exchange, fallback: tracker_path)
 
-    @api_key = find_or_build_api_key
+    # Untyped submissions only ever write the tracker's own slot: the trading key is replaced only
+    # when the user chose "Replace trading key".
+    @key_type = requested_key_type || 'read_only'
+    @api_key = current_user.api_keys.find_or_initialize_by(exchange: @exchange, key_type: @key_type)
     @api_key.validate_credentials!(api_key_params)
 
     if @api_key.correct?
@@ -71,13 +78,18 @@ class Tracker::AddApiKeysController < ApplicationController
     Exchange.find_by(id: exchange_id) if exchange_id
   end
 
-  # The smallest key that works. A venue a bot already connected needs nothing — trade permission
-  # contains read permission — so that key is handed back and the page redirects. Otherwise the ask
-  # is for a reading key, INCLUDING when a trading key is sitting there rejected: that row belongs
-  # to the bots, which are entitled to keep failing on it, and a venue that will no longer issue the
-  # permission they need must not take the tracker down with it.
-  def find_or_build_api_key
-    current_user.api_keys.find_by(exchange: @exchange, key_type: :trading, status: :correct) ||
-      current_user.api_keys.find_or_initialize_by(exchange: @exchange, key_type: :read_only)
+  # The two slots the tracker may write: the bots' trading key (only on "Replace trading key") and
+  # its own read-only key. Anything else in the parameter is ignored.
+  KEY_TYPES = %w[trading read_only].freeze
+
+  def requested_key_type
+    params[:key_type].presence_in(KEY_TYPES)
+  end
+
+  # Trade permission contains read permission, so a bot key that reads is all the tracker needs —
+  # unless it is missing a permission the sync needs.
+  def healthy_trading_key
+    key = current_user.api_keys.find_by(exchange: @exchange, key_type: :trading, status: :correct)
+    key unless key&.missing_permission?
   end
 end

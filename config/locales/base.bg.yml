@@ -504,7 +504,16 @@ bg:
             needs_market_data: 'Свържете източник на пазарни данни, за да видите портфейла си.'
         sync_key_error_html: 'Синхронизацията с <strong>%{exchange}</strong> е неуспешна: %{message}. Моля, обнови API ключа по-долу.'
         sync_permission_error_html: "<strong>%{exchange}</strong> не можа да синхронизира: този API ключ няма разрешението, необходимо за четене на %{capability}. Обнови разрешенията на ключа в %{exchange} или създай нов ключ с всички разрешения от инструкциите."
-        replace_key: 'Смени ключа за %{exchange}'
+        replace_trading_key: 'Смени търговския ключ за %{exchange}'
+        add_tracker_key: 'Добави ключ за тракера за %{exchange}'
+        replace_tracker_key: 'Смени ключа за тракера за %{exchange}'
+        key_fix:
+            trading:
+                missing_permission: '%{exchange}: тракерът чете с търговския ти ключ, но на него му липсва разрешение.'
+                dead: '%{exchange}: търговският ти ключ вече не работи.'
+            read_only:
+                missing_permission: '%{exchange}: на ключа за тракера липсва разрешение.'
+                dead: '%{exchange}: ключът за тракера вече не работи.'
         sync_transient_error_html: "<strong>%{exchange}</strong> е временно недостъпна. Опитай да синхронизираш отново след няколко минути."
         sync_generic_error_html: "Синхронизацията с <strong>%{exchange}</strong> е неуспешна: %{message}. Моля, опитай отново."
         capabilities:

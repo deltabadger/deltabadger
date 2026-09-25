@@ -83,115 +83,210 @@ class TrackerReadOnlyKeyTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  # A key the venue accepts but that lacks a scope stays :correct — its bots keep trading — so
-  # "a bot already connected this venue" is no longer the whole answer: the key the tracker reads
-  # with cannot read. The user's fix is a new key, and this step is where it goes.
-  class MissingPermissionTest < ActionDispatch::IntegrationTest
+  # When the key the tracker reads with cannot read, the user chooses: replace the trading key (fixes
+  # bots and tracker, needs every trading permission) or add a tracker key (read-only, bots untouched).
+  # Nothing picks for them: an untyped request only ever works on the tracker's own slot.
+  class KeyChoiceTest < ActionDispatch::IntegrationTest
     setup do
       MarketData.stubs(:configured?).returns(true)
       Tax::EcbFxRates.stubs(:ensure_loaded!)
       Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
       @user = create(:user, admin: true, setup_completed: true)
       @kraken = create(:kraken_exchange)
-      @key = create(:api_key, user: @user, exchange: @kraken, key_type: :trading, status: :correct,
-                              last_sync_error: 'EGeneral:Permission denied')
+      @trading = create(:api_key, user: @user, exchange: @kraken, key_type: :trading, status: :correct,
+                                  last_sync_error: 'EGeneral:Permission denied')
+      @stored = @trading.key
       Exchanges::Kraken.any_instance.stubs(:set_client)
       sign_in @user
     end
 
-    def replace_with(valid:)
-      Exchanges::Kraken.any_instance.stubs(:get_api_key_validity).returns(Result::Success.new(valid))
-      post tracker_add_api_key_path,
-           params: { exchange_id: @kraken.id, api_key: { key: 'new-key', secret: 'new-secret' } }
+    def open_form(key_type: nil)
+      get new_tracker_add_api_key_path(exchange_id: @kraken.id, key_type:), headers: { 'Turbo-Frame' => 'modal' }
     end
 
-    test 'a trading key missing a permission gets its form instead of a redirect' do
-      get new_tracker_add_api_key_path(exchange_id: @kraken.id), headers: { 'Turbo-Frame' => 'modal' }
+    def submit(key_type: nil, valid: true, exchange: @kraken)
+      Exchanges::Kraken.any_instance.stubs(:get_api_key_validity).returns(Result::Success.new(valid))
+      Exchanges::Kraken.any_instance.stubs(:get_read_api_key_validity).returns(Result::Success.new(valid))
+      post tracker_add_api_key_path(exchange_id: exchange.id, key_type:),
+           params: { api_key: { key: 'new-key', secret: 'new-secret' } }
+    end
+
+    def assert_trading_untouched
+      @trading.reload
+      assert_equal @stored, @trading.key
+      assert_predicate @trading, :correct?
+    end
+
+    # --- which form ------------------------------------------------------------------------------
+
+    test 'untyped, a trading key missing a permission gets the tracker key form' do
+      open_form
 
       assert_response :success
-      assert_select 'form[action=?]', tracker_add_api_key_path
+      assert_select 'form[action=?]', tracker_add_api_key_path(exchange_id: @kraken.id, key_type: 'read_only')
+      assert_includes response.body, 'the tracker only reads'
     end
 
-    # The form is bound to the stored row, and this row is a live trading key.
-    test 'the form never echoes the stored credentials' do
-      get new_tracker_add_api_key_path(exchange_id: @kraken.id), headers: { 'Turbo-Frame' => 'modal' }
-
-      assert_not_includes response.body, @key.key
-      assert_not_includes response.body, @key.secret
-    end
-
-    test 'a trading key with any other sync error still redirects' do
-      @key.update_column(:last_sync_error, 'EAPI:Rate limit exceeded')
+    test 'untyped, a trading key with any other sync error still redirects' do
+      @trading.update_column(:last_sync_error, 'EAPI:Rate limit exceeded')
 
       get new_tracker_add_api_key_path(exchange_id: @kraken.id)
 
       assert_redirected_to tracker_path
     end
 
-    # Into the same row, so the bots on it carry on with the new credentials and nothing is stopped.
-    test 'the new key takes the trading key’s place and syncs' do
-      AccountTransaction::SyncJob.expects(:perform_later).with(@key).once
+    test 'an unknown or withdrawal key type is treated as untyped' do
+      open_form(key_type: 'withdrawal')
 
-      replace_with(valid: true)
-
-      assert_equal [@key.id], @user.api_keys.pluck(:id)
-      @key.reload
-      assert_equal 'new-key', @key.key
-      assert_predicate @key, :trading?
-      assert_predicate @key, :correct?
-      assert_nil @key.last_sync_error
+      assert_select 'form[action=?]', tracker_add_api_key_path(exchange_id: @kraken.id, key_type: 'read_only')
     end
 
-    # The row is updated, never destroyed, so none of the key-deletion paths that stop bots runs.
-    test 'bots trading on the key keep running through the replacement' do
+    test 'Replace trading key opens the trading form, with the trading steps' do
+      open_form(key_type: 'trading')
+
+      assert_select 'form[action=?]', tracker_add_api_key_path(exchange_id: @kraken.id, key_type: 'trading')
+      assert_includes response.body, 'Create & modify orders'
+    end
+
+    test 'an explicit replacement still opens even if the stored key checks out again' do
+      @trading.update_columns(status: ApiKey.statuses[:incorrect])
+      ApiKey.any_instance.stubs(:get_validity).returns(Result::Success.new(true))
+
+      open_form(key_type: 'trading')
+
+      assert_response :success
+      assert_select 'form[action=?]', tracker_add_api_key_path(exchange_id: @kraken.id, key_type: 'trading')
+    end
+
+    test 'the form never echoes the stored credentials' do
+      open_form(key_type: 'trading')
+
+      assert_not_includes response.body, @trading.key
+      assert_not_includes response.body, @trading.secret
+    end
+
+    # The session names the exchange of the LAST form opened; the form carries its own.
+    test 'a form submits to the exchange it was opened for, whatever another tab opened since' do
+      open_form(key_type: 'read_only')
+      binance = create(:binance_exchange)
+      get new_tracker_add_api_key_path(exchange_id: binance.id), headers: { 'Turbo-Frame' => 'modal' }
+      AccountTransaction::SyncJob.stubs(:perform_later)
+
+      submit(key_type: 'read_only')
+
+      assert_equal @kraken, @user.api_keys.read_only.sole.exchange
+    end
+
+    # --- Replace trading key -------------------------------------------------------------------
+
+    test 'Replace trading key writes into the trading row, and bots keep running' do
       bot = create(:dca_single_asset, user: @user, exchange: @kraken, status: :scheduled)
-      AccountTransaction::SyncJob.stubs(:perform_later)
+      AccountTransaction::SyncJob.expects(:perform_later).with(@trading).once
 
-      replace_with(valid: true)
+      submit(key_type: 'trading')
 
+      @trading.reload
+      assert_equal 'new-key', @trading.key
+      assert_predicate @trading, :correct?
+      assert_nil @trading.last_sync_error
+      assert_equal [@trading.id], @user.api_keys.pluck(:id)
       assert_predicate bot.reload, :scheduled?
-      assert_equal [@key.id], ApiKey.where(user: @user, exchange: @kraken).pluck(:id)
+      assert_includes response.body, '<turbo-stream action="update" target="sync-warnings">'
     end
 
-    # The banner is data-turbo-permanent, so the redirect alone would carry the old warning over.
-    test 'a replacement clears the warning in the same response' do
+    test 'a trading replacement the venue rejects, or cannot check, leaves the key as it was' do
+      AccountTransaction::SyncJob.expects(:perform_later).never
+
+      submit(key_type: 'trading', valid: false)
+      assert_response :unprocessable_entity
+      assert_trading_untouched
+
+      Exchanges::Kraken.any_instance.stubs(:get_api_key_validity).returns(Result::Failure.new('EService:Unavailable'))
+      post tracker_add_api_key_path(exchange_id: @kraken.id, key_type: 'trading'),
+           params: { api_key: { key: 'new-key', secret: 'new-secret' } }
+      assert_response :unprocessable_entity
+      assert_trading_untouched
+    end
+
+    # --- Add tracker key -----------------------------------------------------------------------
+
+    test 'Add tracker key puts a reading key beside the trading key, and the tracker reads with it' do
+      bot = create(:dca_single_asset, user: @user, exchange: @kraken, status: :scheduled)
+      AccountTransaction::SyncJob.expects(:perform_later).with(&:read_only?).once
+
+      submit(key_type: 'read_only')
+
+      reading = @user.api_keys.read_only.sole
+      assert_predicate reading, :correct?
+      assert_trading_untouched
+      assert_predicate bot.reload, :scheduled?
+      assert_equal [reading], ApiKey.reading(@user.api_keys.includes(:exchange))
+    end
+
+    test 'an untyped submission never writes the trading row' do
       AccountTransaction::SyncJob.stubs(:perform_later)
 
-      replace_with(valid: true)
+      submit
 
-      assert_includes response.body, '<turbo-stream action="update" target="sync-warnings">'
-      assert_not_includes response.body, new_tracker_add_api_key_path(exchange_id: @kraken.id)
+      assert_trading_untouched
+      assert_predicate @user.api_keys.read_only.sole, :correct?
     end
 
-    test 'a venue that cannot be asked leaves the working key untouched' do
-      Exchanges::Kraken.any_instance.stubs(:get_api_key_validity).returns(Result::Failure.new('EService:Unavailable'))
-      AccountTransaction::SyncJob.expects(:perform_later).never
+    # --- the banner ----------------------------------------------------------------------------
 
-      post tracker_add_api_key_path,
-           params: { exchange_id: @kraken.id, api_key: { key: 'new-key', secret: 'new-secret' } }
-
-      assert_response :unprocessable_entity
-      @key.reload
-      assert_not_equal 'new-key', @key.key
-      assert_predicate @key, :correct?
-    end
-
-    test 'a new key the venue rejects leaves the working one untouched' do
-      AccountTransaction::SyncJob.expects(:perform_later).never
-
-      replace_with(valid: false)
-
-      assert_response :unprocessable_entity
-      @key.reload
-      assert_not_equal 'new-key', @key.key
-      assert_predicate @key, :correct?
-      assert_equal 'EGeneral:Permission denied', @key.last_sync_error
-    end
-
-    test 'the tracker banner links to the form' do
+    def banner
       get tracker_path
+      css_select('#sync-warnings').first&.to_html.to_s
+    end
 
-      assert_select '#sync-warnings a.rbutton[href=?]', new_tracker_add_api_key_path(exchange_id: @kraken.id)
+    test 'a trading key missing a permission offers both, and says what is wrong' do
+      html = CGI.unescapeHTML(banner)
+
+      assert_includes html, 'the tracker reads with your trading key, but it is missing a permission'
+      assert_includes html, new_tracker_add_api_key_path(exchange_id: @kraken.id, key_type: 'trading')
+      assert_includes html, new_tracker_add_api_key_path(exchange_id: @kraken.id, key_type: 'read_only')
+    end
+
+    test 'a dead trading key says so, and offers both' do
+      @trading.update_columns(status: ApiKey.statuses[:incorrect], last_sync_error: 'EAPI:Invalid key')
+      html = CGI.unescapeHTML(banner)
+
+      assert_includes html, 'your trading key no longer works'
+      assert_includes html, new_tracker_add_api_key_path(exchange_id: @kraken.id, key_type: 'trading')
+      assert_includes html, new_tracker_add_api_key_path(exchange_id: @kraken.id, key_type: 'read_only')
+    end
+
+    test 'a failing tracker key offers only to replace it' do
+      create(:api_key, user: @user, exchange: @kraken, key_type: :read_only, status: :correct,
+                       last_sync_error: 'EGeneral:Permission denied')
+      html = CGI.unescapeHTML(banner)
+
+      assert_includes html, 'your tracker key is missing a permission'
+      assert_includes html, new_tracker_add_api_key_path(exchange_id: @kraken.id, key_type: 'read_only')
+      assert_not_includes html, new_tracker_add_api_key_path(exchange_id: @kraken.id, key_type: 'trading')
+    end
+
+    test 'a rate limit gets no buttons' do
+      @trading.update_column(:last_sync_error, 'EAPI:Rate limit exceeded')
+
+      assert_select_in_banner = banner
+      assert_not_includes assert_select_in_banner, 'add_api_key'
+    end
+
+    test 'a working tracker key hides the trading key it replaced' do
+      create(:api_key, user: @user, exchange: @kraken, key_type: :read_only, status: :correct)
+
+      assert_not_includes banner, 'Kraken'
+    end
+
+    test 'both keys dead: one fix, for the tracker key' do
+      @trading.update_columns(status: ApiKey.statuses[:incorrect], last_sync_error: 'EAPI:Invalid key')
+      create(:api_key, user: @user, exchange: @kraken, key_type: :read_only, status: :incorrect,
+                       last_sync_error: 'EAPI:Invalid key')
+      html = CGI.unescapeHTML(banner)
+
+      assert_equal 1, html.scan('Kraken:').size
+      assert_includes html, 'your tracker key no longer works'
     end
   end
 end

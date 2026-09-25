@@ -50,21 +50,22 @@ class ApiKey < ApplicationRecord
     where(user_id: user_id, exchange_id: exchange_id, key_type: key_type)
   }
 
-  # Every key that can READ, at most one per venue. A subset query, not a list of two types: reading
-  # is contained in trading, so a working bot key IS the best reading key that venue has and the
-  # fallback needs no rule of its own.
+  # Every key that can READ, at most one per venue. Reading is contained in trading, so a working bot
+  # key is the venue's reading key — unless it is missing a permission the sync needs and the user
+  # added a tracker key for exactly that; then the tracker key reads and the bot key is left alone.
   #
-  # One per venue is load-bearing rather than tidy. `AccountTransactionSync#duplicate?` scopes rows
-  # the venue gives no id for to the api_key on purpose — so two sub-accounts on one venue do not
-  # swallow each other's identical rows — and syncing two keys of the SAME account would therefore
-  # import every id-less row twice.
+  # One per venue so each venue is synced once. Switching which key reads does not duplicate rows:
+  # rows with an id are unique per (user, exchange, tx_id), and AccountTransactionSync#duplicate?
+  # matches id-less rows regardless of the key that wrote them.
   #
   # ponytail: grouped in Ruby. One user holds a handful of keys, so the row count is the reason —
   # upgrade to a NOT EXISTS correlated subquery only if this ever runs over a fleet-wide scope.
   def self.reading(scope = all)
     scope.correct.where.not(key_type: :withdrawal)
          .group_by { |api_key| [api_key.user_id, api_key.exchange_id] }
-         .values.map { |keys| keys.find(&:trading?) || keys.first }
+         .values.map do |keys|
+           keys.find { |key| key.trading? && !key.missing_permission? } || keys.find(&:read_only?) || keys.first
+         end
   end
 
   # A key is validated against the capability it CLAIMS. Trade and withdrawal permission have to be
@@ -123,20 +124,33 @@ class ApiKey < ApplicationRecord
   # `last_sync_error` on success and every failure path writes it, so this is the same answer the
   # last sync gave, for every venue at once.
   #
-  # Only from the key each venue is READ WITH. `last_sync_error` is a note left on a key and erased
-  # only when that key syncs again, so a key the tracker has stopped using keeps its note forever —
-  # a rejected trading key would warn that Binance history is missing on a page showing that
-  # history, read through the key beside it. A venue with no working key has no such replacement,
-  # so its failure still speaks.
+  # One key per venue speaks. The key the venue is READ WITH, when there is one: `last_sync_error` is
+  # a note erased only when that key syncs again, so a key the tracker has stopped using keeps its note
+  # forever and must not warn over a venue another key reads fine. When no key reads, the tracker's own
+  # key speaks if it failed, else the trading key.
+  #
+  # `fixes` are the failures a new key can mend — a missing permission or a dead key, not a rate limit
+  # or an outage — with the failing key's type, so the banner can offer the right choice.
   def self.sync_warnings(user)
-    keys = user.api_keys.includes(:exchange)
+    keys = user.api_keys.includes(:exchange).where.not(key_type: :withdrawal)
     read_with = reading(keys).index_by(&:exchange_id)
-    failed = keys.select do |api_key|
-      (read_with[api_key.exchange_id].nil? || read_with[api_key.exchange_id] == api_key) &&
-        api_key.sync_issue&.dig(:reason) == :failed
+    failed = keys.group_by(&:exchange_id).filter_map do |exchange_id, venue_keys|
+      failing = venue_keys.select { |key| key.sync_issue&.dig(:reason) == :failed }
+      if read_with[exchange_id]
+        read_with[exchange_id] if failing.include?(read_with[exchange_id])
+      else
+        failing.find(&:read_only?) || failing.first
+      end
     end
-    { exchanges: failed.map { |api_key| api_key.exchange.name },
-      replace: failed.select(&:missing_permission?).map(&:exchange) }
+    { exchanges: failed.map { |key| key.exchange.name },
+      fixes: failed.filter_map(&:key_fix) }
+  end
+
+  def key_fix
+    reason = if missing_permission? then :missing_permission
+             elsif incorrect? then :dead
+             end
+    { exchange: exchange, key_type: key_type, reason: reason } if reason
   end
 
   # Anchored on updated_at, which on a key awaiting IBKR activation moves only when the user

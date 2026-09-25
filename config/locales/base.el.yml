@@ -504,7 +504,16 @@ el:
             needs_market_data: 'Συνδέστε μια πηγή δεδομένων αγοράς για να δείτε το χαρτοφυλάκιό σας.'
         sync_key_error_html: 'Ο συγχρονισμός με το <strong>%{exchange}</strong> απέτυχε: %{message}. Ενημέρωσε το κλειδί API παρακάτω.'
         sync_permission_error_html: "Ο συγχρονισμός με το <strong>%{exchange}</strong> δεν ολοκληρώθηκε: αυτό το κλειδί API δεν έχει το δικαίωμα που χρειάζεται για να διαβάσει %{capability}. Ενημέρωσε τα δικαιώματα του κλειδιού στο %{exchange} ή δημιούργησε νέο κλειδί με όλα τα δικαιώματα των οδηγιών."
-        replace_key: 'Αντικατάσταση κλειδιού %{exchange}'
+        replace_trading_key: 'Αντικατάσταση κλειδιού συναλλαγών %{exchange}'
+        add_tracker_key: 'Προσθήκη κλειδιού tracker %{exchange}'
+        replace_tracker_key: 'Αντικατάσταση κλειδιού tracker %{exchange}'
+        key_fix:
+            trading:
+                missing_permission: '%{exchange}: ο tracker διαβάζει με το κλειδί συναλλαγών σου, αλλά του λείπει ένα δικαίωμα.'
+                dead: '%{exchange}: το κλειδί συναλλαγών σου δεν λειτουργεί πια.'
+            read_only:
+                missing_permission: '%{exchange}: στο κλειδί tracker λείπει ένα δικαίωμα.'
+                dead: '%{exchange}: το κλειδί tracker δεν λειτουργεί πια.'
         sync_transient_error_html: "Το <strong>%{exchange}</strong> δεν είναι προσωρινά διαθέσιμο. Δοκίμασε ξανά σε λίγα λεπτά."
         sync_generic_error_html: "Ο συγχρονισμός με το <strong>%{exchange}</strong> απέτυχε: %{message}. Δοκίμασε ξανά."
         capabilities:

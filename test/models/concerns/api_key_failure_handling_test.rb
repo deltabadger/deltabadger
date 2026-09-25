@@ -146,7 +146,8 @@ class ApiKeyFailureHandlingTest < ActiveSupport::TestCase
       "user_#{@user.id}", :sync,
       target: 'flash',
       partial: 'tracker/sync_key_error',
-      locals: { exchange_name: 'Kraken', exchange_id: @api_key.exchange_id, message: message, reason: reason,
+      locals: { exchange_name: 'Kraken', exchange_id: @api_key.exchange_id, key_type: @api_key.key_type,
+                message: message, reason: reason,
                 capability: capability }
     )
   end

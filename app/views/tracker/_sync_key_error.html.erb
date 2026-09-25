@@ -1,4 +1,4 @@
-<%# Locals: exchange_name, exchange_id, message, reason, capability %>
+<%# Locals: exchange_name, exchange_id, key_type, message, reason, capability %>
 <%#
   No .html_safe on the t() calls: the _html key suffix already makes the translate helper escape
   the interpolated values, and `message` is an exchange-controlled string. Adding .html_safe back
@@ -13,7 +13,7 @@
     <%= t('tracker.sync_permission_error_html',
           exchange: exchange_name,
           capability: t("tracker.capabilities.#{capability}")) %>
-    <%= render 'tracker/replace_key_button', exchange_name: exchange_name, exchange_id: exchange_id %>
+    <%= render 'tracker/key_fix_buttons', exchange_name: exchange_name, exchange_id: exchange_id, key_type: key_type %>
   <% when :invalid %>
     <%= t('tracker.sync_key_error_html', exchange: exchange_name, message: message) %>
   <% when :transient %>

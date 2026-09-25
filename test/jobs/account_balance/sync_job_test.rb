@@ -39,7 +39,7 @@ class AccountBalance::SyncJobTest < ActiveSupport::TestCase
       "user_#{@user.id}", :sync,
       target: 'flash',
       partial: 'tracker/sync_key_error',
-      locals: { exchange_name: 'Kraken', exchange_id: @kraken.id,
+      locals: { exchange_name: 'Kraken', exchange_id: @kraken.id, key_type: 'trading',
                 message: I18n.t('errors.exchange.permission_denied', exchange: 'Kraken'),
                 reason: :permission, capability: :balances }
     )

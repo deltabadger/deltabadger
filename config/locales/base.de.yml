@@ -502,7 +502,16 @@ de:
             needs_market_data: 'Verbinde eine Marktdatenquelle, um dein Portfolio zu sehen.'
         sync_key_error_html: 'Synchronisierung mit <strong>%{exchange}</strong> fehlgeschlagen: %{message}. Bitte API-Schlüssel unten aktualisieren.'
         sync_permission_error_html: "<strong>%{exchange}</strong> konnte nicht synchronisiert werden: diesem API-Schlüssel fehlt die Berechtigung zum Lesen %{capability}. Bitte die Berechtigungen des Schlüssels auf %{exchange} anpassen oder einen neuen Schlüssel mit allen in der Anleitung genannten Berechtigungen erstellen."
-        replace_key: '%{exchange}-Schlüssel ersetzen'
+        replace_trading_key: '%{exchange}-Handelsschlüssel ersetzen'
+        add_tracker_key: '%{exchange}-Tracker-Schlüssel hinzufügen'
+        replace_tracker_key: '%{exchange}-Tracker-Schlüssel ersetzen'
+        key_fix:
+            trading:
+                missing_permission: '%{exchange}: Der Tracker liest mit dem Handelsschlüssel, aber ihm fehlt eine Berechtigung.'
+                dead: '%{exchange}: Der Handelsschlüssel funktioniert nicht mehr.'
+            read_only:
+                missing_permission: '%{exchange}: Dem Tracker-Schlüssel fehlt eine Berechtigung.'
+                dead: '%{exchange}: Der Tracker-Schlüssel funktioniert nicht mehr.'
         sync_transient_error_html: "<strong>%{exchange}</strong> ist vorübergehend nicht erreichbar. Bitte in ein paar Minuten erneut synchronisieren."
         sync_generic_error_html: "Synchronisierung mit <strong>%{exchange}</strong> fehlgeschlagen: %{message}. Bitte erneut versuchen."
         capabilities:
