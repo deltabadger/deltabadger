@@ -698,6 +698,17 @@ class Exchanges::AlpacaTest < ActiveSupport::TestCase
     assert_predicate result, :success?
   end
 
+  # The clock was the one read left on the bare client. An index derivation asks it (whether a
+  # newcomer's market is closed) from the composition resync and the index switch, neither of which
+  # sets a key — so every such derivation 401'd and raised as a rejected key.
+  test 'market_open? authenticates with a resolved trading key when no client was set' do
+    trading_key!(key: 'mk', secret: 'ms', passphrase: 'paper')
+    Clients::Alpaca.expects(:new).with(api_key: 'mk', api_secret: 'ms', paper: true)
+                   .returns(stub(get_clock: Result::Success.new({ 'is_open' => false })))
+
+    assert_not @exchange.market_open?
+  end
+
   test 'market-data reads are non-mutating: @api_key and @client stay untouched' do
     trading_key!
     Clients::Alpaca.stubs(:new).returns(stub(get_snapshots: Result::Success.new({})))
