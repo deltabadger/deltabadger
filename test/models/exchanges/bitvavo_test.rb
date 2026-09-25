@@ -48,8 +48,9 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     Rails.configuration.stubs(:dry_run).returns(false)
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'test_key', secret: 'test_secret')
 
+    # The shape honeymaker hands back for Bitvavo's HTTP 404: the raw body, and the status.
     Honeymaker::Clients::Bitvavo.any_instance.stubs(:cancel_order).returns(
-      Result::Failure.new('Order not found')
+      Result::Failure.new({ errorCode: 240, error: 'No order found.' }.to_json, data: { status: 404 })
     )
     Honeymaker::Clients::Bitvavo.any_instance.expects(:get_raw_balance).never
 
@@ -76,8 +77,9 @@ class Exchanges::BitvavoTest < ActiveSupport::TestCase
     Rails.configuration.stubs(:dry_run).returns(false)
     api_key = create(:api_key, exchange: @exchange, key_type: :trading, key: 'bad_key', secret: 'bad_secret')
 
+    # Bitvavo's own words for a dead key (ERRORS[:invalid_key]); a bare 401 could be our proxy.
     Honeymaker::Clients::Bitvavo.any_instance.stubs(:cancel_order).returns(
-      Result::Failure.new('Invalid API key.', data: { status: 401 })
+      Result::Failure.new({ errorCode: 305, error: 'No active API key found.' }.to_json, data: { status: 403 })
     )
 
     result = @exchange.get_api_key_validity(api_key: api_key)

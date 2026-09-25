@@ -125,7 +125,7 @@ bg:
                     -   text_html: 'Дайте име на ключа (напр. „Deltabadger").'
                     -   text_html: 'Задайте разрешения:'
                         sub_instructions:
-                            -   text_html: '☑️ <b>Read-Only</b>'
+                            -   text_html: '☑️ <b>Read-Write</b>'
                             -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Важно:</strong> Не активирайте разрешения за Withdraw и Derivatives.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
@@ -142,6 +142,7 @@ bg:
                     -   text_html: 'Дайте име на ключа (напр. „Deltabadger").'
                     -   text_html: 'Задайте разрешения:'
                         sub_instructions:
+                            -   text_html: '☑️ <b>View Account Details</b>'
                             -   text_html: '☑️ <b>View Order Details</b>'
                             -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Важно:</strong> Не активирайте разрешение за Withdraw.'
                             -   text_html: 'Link IP Address:'

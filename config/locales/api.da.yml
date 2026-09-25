@@ -125,7 +125,7 @@ da:
                     -   text_html: 'Giv din nøgle et navn (f.eks. "Deltabadger").'
                     -   text_html: 'Indstil tilladelser:'
                         sub_instructions:
-                            -   text_html: '☑️ <b>Read-Only</b>'
+                            -   text_html: '☑️ <b>Read-Write</b>'
                             -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Vigtigt:</strong> Aktivér ikke Withdraw eller Derivatives-tilladelser.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
@@ -142,6 +142,7 @@ da:
                     -   text_html: 'Giv din nøgle et navn (f.eks. "Deltabadger").'
                     -   text_html: 'Indstil tilladelser:'
                         sub_instructions:
+                            -   text_html: '☑️ <b>View Account Details</b>'
                             -   text_html: '☑️ <b>View Order Details</b>'
                             -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Vigtigt:</strong> Aktivér ikke Withdraw-tilladelser.'
                             -   text_html: 'Link IP Address:'

@@ -310,6 +310,15 @@ class Exchanges::Bingx < Exchange
     Result::Success.new(order_id)
   end
 
+  # Decided by BingX's documented codes (from BingX's own API reference repo), read from the envelope or
+  # an error body. The trading probe cancels an order that does not exist: 100404 means the key got past
+  # the permission check. A missing code is no longer read as 0 ("ok") — it and any unknown code leave
+  # the key unverified.
+  # 100404 counts only when its message is about the order: BingX also answers it for a gateway path
+  # it does not know. 100400 never counts — it also means a missing parameter or an unknown symbol.
+  KEY_CHECK_ORDER_NOT_FOUND = 100_404
+  KEY_CHECK_REJECTED = [100_413, 100_004].freeze # invalid key, missing permission
+
   def get_api_key_validity(api_key:)
     temp_client = Honeymaker.client('bingx',
                                     api_key: api_key.key,
@@ -322,15 +331,16 @@ class Exchanges::Bingx < Exchange
                temp_client.cancel_order(symbol: 'BTC-USDT', order_id: '0')
              end
 
-    return check_bingx_api_key_error(result) unless result.success?
+    raw_code = response_field(result, 'code')
+    code = Integer(raw_code, exception: false) unless raw_code.nil?
+    message = response_field(result, 'msg').to_s
+    return Result::Success.new(true) if code&.zero?
+    return Result::Success.new(true) if !api_key.withdrawal? && code == KEY_CHECK_ORDER_NOT_FOUND && message.match?(/order/i)
+    return Result::Success.new(false) if code.in?(KEY_CHECK_REJECTED)
+    return Result::Success.new(false) if ERRORS[:invalid_key].any? { |msg| message.include?(msg) }
+    return check_bingx_api_key_error(result) if result.failure?
 
-    return Result::Success.new(true) if result.data['code'].to_i.zero?
-
-    error_msg = result.data['msg']
-    return Result::Success.new(false) if ERRORS[:invalid_key].any? { |msg| error_msg&.include?(msg) }
-
-    # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
-    api_key.withdrawal? ? Result::Failure.new(error_msg) : Result::Success.new(true)
+    Result::Failure.new(message.presence || "BingX answered code #{raw_code.inspect}")
   end
 
   def minimum_amount_logic(**)

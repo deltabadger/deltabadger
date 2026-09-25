@@ -555,6 +555,24 @@ class Exchange < ApplicationRecord
   # Only the venue's own words about the key condemn it. A 401 we cannot attribute, a venue that is
   # down, a proxy hiccup: :incorrect would drop the key from every sync until the user pastes
   # credentials that were never the problem — see #condemning_invalid_key_error?.
+  # A field of the venue's answer, wherever the venue put it: honeymaker hands an HTTP-200 envelope back
+  # as Success with the body in `data`, and an HTTP error as Failure with the raw body in errors.first
+  # (data[:status] is the HTTP status, never the venue's code). Nil when there is no parseable body —
+  # a timeout, a dropped connection.
+  def response_field(result, field)
+    body = if result.success?
+             result.data
+           else
+             raw = result.errors.first
+             begin
+               raw.is_a?(Hash) ? raw : JSON.parse(raw.to_s)
+             rescue JSON::ParserError
+               nil
+             end
+           end
+    body[field] if body.is_a?(Hash)
+  end
+
   def get_read_api_key_validity(api_key:)
     set_client(api_key: api_key)
     result = get_balances(asset_ids: [])

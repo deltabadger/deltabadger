@@ -125,7 +125,7 @@ sv:
                     -   text_html: 'Namnge din nyckel (t.ex. "Deltabadger").'
                     -   text_html: 'Ange behörigheter:'
                         sub_instructions:
-                            -   text_html: '☑️ <b>Read-Only</b>'
+                            -   text_html: '☑️ <b>Read-Write</b>'
                             -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Viktigt:</strong> Aktivera inte Withdraw- eller Derivatives-behörigheter.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
@@ -142,6 +142,7 @@ sv:
                     -   text_html: 'Namnge din nyckel (t.ex. "Deltabadger").'
                     -   text_html: 'Ange behörigheter:'
                         sub_instructions:
+                            -   text_html: '☑️ <b>View Account Details</b>'
                             -   text_html: '☑️ <b>View Order Details</b>'
                             -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Viktigt:</strong> Aktivera inte Withdraw-behörigheter.'
                             -   text_html: 'Link IP Address:'

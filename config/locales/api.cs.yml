@@ -125,7 +125,7 @@ cs:
                     -   text_html: 'Pojmenujte klíč (např. „Deltabadger").'
                     -   text_html: 'Nastavte oprávnění:'
                         sub_instructions:
-                            -   text_html: '☑️ <b>Read-Only</b>'
+                            -   text_html: '☑️ <b>Read-Write</b>'
                             -   text_html: '☑️ <b>Spot - Trade</b><br><strong>⚠️ Důležité:</strong> Nepovolujte oprávnění Withdraw ani Derivatives.'
                             -   text_html: 'IP whitelist:'
                                 sub_instructions:
@@ -142,6 +142,7 @@ cs:
                     -   text_html: 'Pojmenujte klíč (např. „Deltabadger").'
                     -   text_html: 'Nastavte oprávnění:'
                         sub_instructions:
+                            -   text_html: '☑️ <b>View Account Details</b>'
                             -   text_html: '☑️ <b>View Order Details</b>'
                             -   text_html: '☑️ <b>Trade</b><br><strong>⚠️ Důležité:</strong> Nepovolujte oprávnění Withdraw.'
                             -   text_html: 'Link IP Address:'

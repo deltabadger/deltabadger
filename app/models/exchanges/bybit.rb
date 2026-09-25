@@ -351,6 +351,13 @@ class Exchanges::Bybit < Exchange
     Result::Success.new(order_id)
   end
 
+  # Decided by Bybit's documented retCodes (https://bybit-exchange.github.io/docs/v5/error), read from
+  # the envelope or an error body. The trading probe cancels an order that does not exist: "order does
+  # not exist" means the key got past the permission check. Anything else — a rate limit, a clock
+  # error, an unknown code, no answer — leaves the key unverified.
+  KEY_CHECK_VALID = %w[170213 110001].freeze
+  KEY_CHECK_REJECTED = %w[10003 10004 10005].freeze # invalid key, bad signature, permission denied
+
   def get_api_key_validity(api_key:)
     temp_client = Honeymaker.client('bybit',
                                     api_key: api_key.key,
@@ -363,24 +370,15 @@ class Exchanges::Bybit < Exchange
                temp_client.cancel_order(category: 'spot', symbol: 'BTCUSDT', order_id: '0')
              end
 
-    if result.success?
-      ret_code = result.data['retCode']
-      if ret_code.zero?
-        Result::Success.new(true)
-      elsif ret_code.to_s.in?(INVALID_KEY_CODES)
-        Result::Success.new(false)
-      else
-        # For trading keys: non-auth errors (e.g. order not found) mean the key has trade permissions
-        api_key.withdrawal? ? Result::Failure.new(result.data['retMsg']) : Result::Success.new(true)
-      end
-    else
-      error = parse_error_message(result)
-      if error.present? && ERRORS[:invalid_key].any? { |msg| error.include?(msg) }
-        Result::Success.new(false)
-      else
-        result
-      end
-    end
+    code = response_field(result, 'retCode')&.to_s
+    return Result::Success.new(true) if code == '0'
+    return Result::Success.new(true) if !api_key.withdrawal? && code.in?(KEY_CHECK_VALID)
+    return Result::Success.new(false) if code.in?(KEY_CHECK_REJECTED)
+
+    error = response_field(result, 'retMsg') || parse_error_message(result)
+    return Result::Success.new(false) if error.present? && ERRORS[:invalid_key].any? { |msg| error.include?(msg) }
+
+    result.failure? ? result : Result::Failure.new(error.presence || "Bybit answered retCode #{code.inspect}")
   end
 
   def minimum_amount_logic(order_type:, **)
