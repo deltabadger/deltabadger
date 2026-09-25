@@ -49,6 +49,9 @@ application.register("coarse-slider", CoarseSliderController)
 import ConversationalSentenceController from "./conversational_sentence_controller"
 application.register("conversational-sentence", ConversationalSentenceController)
 
+import ConvertingController from "./converting_controller"
+application.register("converting", ConvertingController)
+
 import CountdownController from "./countdown_controller"
 application.register("countdown", CountdownController)
 

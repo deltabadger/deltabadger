@@ -57,6 +57,7 @@ cs:
             follow_index: "Sledovat index"
             custom_allocation: "Vlastní alokace"
             change_index: "Změnit index"
+            converting: "Převádím…"
             none: "Žádný index nemá dost aktiv na %{exchange} pro %{quote}."
         types:
             dca:

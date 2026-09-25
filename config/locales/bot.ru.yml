@@ -58,6 +58,7 @@ ru:
             follow_index: "Следовать индексу"
             custom_allocation: "Своё распределение"
             change_index: "Сменить индекс"
+            converting: "Преобразование…"
             none: "Ни в одном индексе нет достаточно активов на %{exchange} для %{quote}."
         types:
             dca:

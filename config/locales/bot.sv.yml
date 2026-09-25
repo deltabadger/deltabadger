@@ -57,6 +57,7 @@ sv:
             follow_index: "Följ index"
             custom_allocation: "Egen fördelning"
             change_index: "Byt index"
+            converting: "Konverterar…"
             none: "Inget index har tillräckligt med tillgångar på %{exchange} för %{quote}."
         types:
             dca:

@@ -57,6 +57,7 @@ da:
             follow_index: "Følg indeks"
             custom_allocation: "Egen fordeling"
             change_index: "Skift indeks"
+            converting: "Konverterer…"
             none: "Intet indeks har nok aktiver på %{exchange} for %{quote}."
         types:
             dca:
