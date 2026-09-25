@@ -39,7 +39,7 @@
                 <p><%= t('bot.split.proceeds', label: bot.label,
                          amount: number_with_precision(offer, precision: 2, delimiter: ','),
                          symbol: bot.quote_asset&.symbol) %></p>
-                <div class="buttons buttons--row--2" data-split-actions>
+                <div class="redeploy-prompt__actions split-modal__answers" data-split-actions>
                   <%= button_to t('bot.redeploy.confirm'), bot_redeploy_path(bot_id: bot.id),
                                 class: 'rbutton rbutton--success', form: { data: { split_answer: true } } %>
                   <%= button_tag t('bot.redeploy.decline'), type: 'button', class: 'rbutton rbutton--danger',
