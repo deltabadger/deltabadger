@@ -207,6 +207,22 @@ html:has(#modal dialog[open])
             min-width: 4rem
     &--2fa
         text-align: center
+    // Work in progress (bots/_converting): a spinner and one line, centred both ways.
+    &--busy
+        padding: 5rem 4rem
+        display: flex
+        flex-direction: column
+        align-items: center
+        gap: 3rem
+        text-align: center
+        .loader
+            position: static
+            width: 8rem
+            height: 8rem
+            &::before
+                border-width: 0.5rem
+        p
+            margin: 0
     &__close
         cursor: pointer
         position: absolute
