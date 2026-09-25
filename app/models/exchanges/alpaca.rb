@@ -646,9 +646,12 @@ class Exchanges::Alpaca < Exchange
   # turned a dead key into "the market is open" at 04:00 UTC and sent the bot on to work that could
   # only fail. Raise it here, at the first call the job makes, instead of somewhere downstream that
   # cannot tell why nothing has a price. Nothing is cached on either path.
+  #
+  # Through the market-data client, like the price reads: an index derivation asks the clock from a
+  # background resync or a web request, where no key was set and the bare client carries none.
   def get_clock_cached
     Rails.cache.fetch("exchange_#{id}_clock", expires_in: 1.minute) do
-      result = client.get_clock
+      result = market_data_client.get_clock
       if result.failure?
         raise_on_invalid_key!(result)
         return nil
