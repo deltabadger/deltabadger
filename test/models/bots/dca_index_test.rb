@@ -37,7 +37,7 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
       assert_includes Bots::DcaIndex.ancestors, "Bot::Composition::#{name}".constantize
     end
     assert_equal bot.num_coins, bot.composition_size
-    assert_equal 'bot.dca_index.left_the_index', bot.exited_title_key
+    assert_equal 'bot.dca_index.out_of_the_index', bot.exited_title_key
     assert_equal 'bots/composition/metrics', bot.metrics_partial
   end
 
@@ -119,7 +119,7 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
   # The probe's one irreplaceable job is BACKFILL: deciding which NEW candidate fills a slot.
   # Re-probing a coin already in the index can only ever evict it, and Ticker#priced? cannot tell a
   # delisting from a proxy 502 (an HTTP failure comes back as a plain false), so a network blip was
-  # demoting a held constituent to "Left the index" — where Liquidatable#liquidate!, which
+  # demoting a held constituent to "Out of the index" — where Liquidatable#liquidate!, which
   # refreshes strictly before it sells, would then sell it.
 
   test 'an incumbent whose price probe fails keeps its seat instead of being backfilled over' do
@@ -369,15 +369,17 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     assert bot.errors[:exchange].present?
   end
 
-  test 'prevents changing the index after transactions exist' do
+  # "Change the index" in the bot menu (Bot::IndexSwitch): held assets outside the new index land in
+  # Out of the index, so the history no longer pins the index.
+  test 'allows changing the index after transactions exist' do
     bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
     create(:transaction, bot: bot, base: 'AAA', quote: 'EUR')
 
     bot.set_missed_quote_amount
     bot.index_type = Bots::DcaIndex::INDEX_TYPE_CATEGORY
     bot.index_category_id = 'layer-1'
-    assert_not bot.valid?(:update)
-    assert bot.errors[:index_type].present?
+    bot.valid?(:update)
+    assert_empty bot.errors[:index_type]
   end
 
   # --- start: status-bar broadcast ----------------------------------------------

@@ -84,6 +84,13 @@ nl:
                 interleaved: "Samen zouden de geschiedenissen van deze bots een ander totaalresultaat geven, dus ze kunnen niet worden samengevoegd."
                 quote: "Alle bots moeten dezelfde valuta uitgeven."
                 nothing_to_buy: "Geen van deze assets wordt nog op deze exchange verhandeld."
+            index_switch:
+                stop_first: "Stop eerst de bot."
+                in_flight: "Wacht tot de lopende ruil of verkoop klaar is."
+                selling: "Een bot die verkoopt kan geen index volgen. Zet hem eerst terug op kopen."
+                no_members: "Deze index heeft geen assets meer die op deze exchange verhandeld worden."
+                gone: "De bot is intussen gewijzigd. Herlaad de pagina."
+                not_offered: "Deze index is niet beschikbaar voor deze bot."
             multi_asset:
                 condition_subject: "Deze voorwaarde moet betrekking hebben op een asset die de bot aanhoudt."
                 min_assets: "Een portefeuille moet minstens één activum bevatten."

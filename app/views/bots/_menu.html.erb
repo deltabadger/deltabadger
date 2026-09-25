@@ -6,6 +6,13 @@
     <div class="dropdown">
       <%= link_to t('utils.change_name'), edit_bot_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } %>
       <% unless bot.archived? %>
+        <%# Bot::IndexSwitch: offered on a running bot too — the refusal says to stop it first. %>
+        <% if bot.dca_index? %>
+          <%= link_to t('bot.index_switch.change_index'), new_bot_index_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } %>
+          <%= button_to t('bot.index_switch.custom_allocation'), bot_custom_allocation_path(bot), class: "dropdown__item" %>
+        <% elsif bot.dca_multi_asset? && !bot.selling? && MarketData.configured? %>
+          <%= link_to t('bot.index_switch.follow_index'), new_bot_index_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } %>
+        <% end %>
         <%= link_to t('button.archive'), edit_bot_archive_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } %>
       <% end %>
       <div class="dropdown__item dropdown__item--divider"></div>

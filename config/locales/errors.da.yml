@@ -77,6 +77,13 @@ da:
                 interleaved: "Samlet ville disse botters historik give et andet samlet resultat, så de kan ikke flettes."
                 quote: "Alle botter skal bruge samme valuta."
                 nothing_to_buy: "Ingen af disse aktiver handles længere på denne børs."
+            index_switch:
+                stop_first: "Stop botten først."
+                in_flight: "Vent, til det igangværende bytte eller salg er færdigt."
+                selling: "En bot, der sælger, kan ikke følge et indeks. Sæt den tilbage til køb først."
+                no_members: "Dette indeks har ingen aktiver, der stadig handles på denne børs."
+                gone: "Botten er ændret i mellemtiden. Genindlæs siden."
+                not_offered: "Dette indeks er ikke tilgængeligt for denne bot."
             multi_asset:
                 condition_subject: "Denne betingelse skal gælde et aktiv, som botten ejer."
                 min_assets: "En portefølje skal indeholde mindst ét aktiv."
@@ -90,7 +97,6 @@ da:
             api_key_success: "API-nøgler gemt"
             coingecko_required: "CoinGecko API-nøgle er påkrævet for indeksbots"
             market_data_required: "En markedsdataudbyder skal konfigureres for indeksbots. Gå til Indstillinger for at forbinde en."
-            index_change_after_transactions: "Indekstype kan ikke ændres, efter ordrer er blevet afgivet"
             signal_minimum: "Kan ikke fjerne det sidste signal"
         messages:
             accepted: 'skal accepteres'

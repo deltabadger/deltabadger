@@ -51,9 +51,14 @@ ru:
             asset_breakdown: "Разбор активов"
             realised_pnl: "Зафиксированный P/L"
             realised_pnl_note: "От продажи активов. Ребалансировка не учитывается."
-            left_the_index: "Вне индекса"
+            out_of_the_index: "Вне индекса"
             warning:
                 intro: "Некоторые ордеры (%{skipped_count}) были ниже минимального размера ордера на %{exchange_name}. Вот как бот это обрабатывает:"
+        index_switch:
+            follow_index: "Следовать индексу"
+            custom_allocation: "Своё распределение"
+            change_index: "Сменить индекс"
+            none: "Ни в одном индексе нет достаточно активов на %{exchange} для %{quote}."
         types:
             dca:
                 title: "DCA / Ребалансировка"

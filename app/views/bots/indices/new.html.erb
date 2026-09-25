@@ -1,0 +1,14 @@
+<%= render 'layouts/modal/full_page', close_url: bot_path(@bot) do %>
+  <div class="bot-creation-layout index-picker-layout" data-controller="index-filter" data-dialog-size="wide">
+    <div class="modal__header">
+      <h1 class="modal__title"><%= t(@bot.dca_index? ? 'bot.index_switch.change_index' : 'bot.index_switch.follow_index') %></h1>
+    </div>
+
+    <% if @indices.any? %>
+      <%= render 'bots/dca_indexes/pick_indices/tiles', indices: @indices, assets_by_coingecko_id: @assets_by_coingecko_id,
+                                                        url: bot_index_path(@bot) %>
+    <% else %>
+      <p class="text-center"><%= t('bot.index_switch.none', exchange: @bot.exchange.name, quote: @bot.quote_asset&.symbol) %></p>
+    <% end %>
+  </div>
+<% end %>

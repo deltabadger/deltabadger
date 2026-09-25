@@ -77,6 +77,13 @@ sk:
                 interleaved: "Spojením histórií týchto botov by sa zmenil ich celkový výsledok, preto ich nemožno zlúčiť."
                 quote: "Všetky boty musia míňať rovnakú menu."
                 nothing_to_buy: "Žiadne z týchto aktív sa na tejto burze už neobchoduje."
+            index_switch:
+                stop_first: "Najprv bota zastav."
+                in_flight: "Počkaj, kým sa skončí prebiehajúca výmena alebo predaj."
+                selling: "Bot, ktorý predáva, nemôže sledovať index. Najprv ho prepni späť na nákup."
+                no_members: "Tento index nemá aktíva, ktoré sa na tejto burze stále obchodujú."
+                gone: "Bot sa medzitým zmenil. Obnov stránku."
+                not_offered: "Tento index nie je pre tohto bota dostupný."
             multi_asset:
                 condition_subject: "Táto podmienka sa musí týkať aktíva, ktoré bot drží."
                 min_assets: "Portfólio musí obsahovať aspoň jedno aktívum."
@@ -90,7 +97,6 @@ sk:
             api_key_success: "API kluce boli uspesne ulozene"
             coingecko_required: "Pre indexovych botov je potrebny CoinGecko API kluc"
             market_data_required: "Pre indexovych botov musi byt nastaveny poskytovatel trznych dat. Prejdite do Nastaveni a pripojte ho."
-            index_change_after_transactions: "Typ indexu nemozno zmenit po zadani prikazov"
             signal_minimum: "Posledny signal nemozno odobrat"
         messages:
             accepted: 'musi byt prijate'

@@ -77,6 +77,13 @@ sv:
                 interleaved: "Tillsammans skulle dessa bottars historik ge ett annat totalresultat, så de kan inte slås ihop."
                 quote: "Alla bottar måste spendera samma valuta."
                 nothing_to_buy: "Ingen av dessa tillgångar handlas längre på den här börsen."
+            index_switch:
+                stop_first: "Stoppa boten först."
+                in_flight: "Vänta tills det pågående bytet eller försäljningen är klar."
+                selling: "En bot som säljer kan inte följa ett index. Ställ tillbaka den på köp först."
+                no_members: "Det här indexet har inga tillgångar som fortfarande handlas på den här börsen."
+                gone: "Boten har ändrats under tiden. Ladda om sidan."
+                not_offered: "Det här indexet är inte tillgängligt för den här boten."
             multi_asset:
                 condition_subject: "Det här villkoret måste gälla en tillgång som boten innehar."
                 min_assets: "En portfölj måste innehålla minst en tillgång."
@@ -90,7 +97,6 @@ sv:
             api_key_success: "API-nycklar sparade"
             coingecko_required: "CoinGecko API-nyckel krävs för indexbotar"
             market_data_required: "En marknadsdataleverantör måste konfigureras för indexbotar. Gå till Inställningar för att ansluta en."
-            index_change_after_transactions: "Indextyp kan inte ändras efter att ordrar har lagts"
             signal_minimum: "Kan inte ta bort den sista signalen"
         messages:
             accepted: 'måste accepteras'

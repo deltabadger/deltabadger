@@ -51,9 +51,14 @@ fr:
             asset_breakdown: "Ventilation des Actifs"
             realised_pnl: "P/P réalisé"
             realised_pnl_note: "Issu de la vente d’actifs. Le rééquilibrage n’est pas compté."
-            left_the_index: "Sortis de l’indice"
+            out_of_the_index: "Hors de l’indice"
             warning:
                 intro: "Certaines ordres (%{skipped_count}) étaient en dessous de la taille minimale de commande de %{exchange_name}. Voici comment le bot le gère :"
+        index_switch:
+            follow_index: "Suivre un indice"
+            custom_allocation: "Allocation personnalisée"
+            change_index: "Changer d’indice"
+            none: "Aucun indice n’a assez d’actifs sur %{exchange} pour %{quote}."
         types:
             dca:
                 title: "DCA / Rééquilibrage"

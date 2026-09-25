@@ -106,19 +106,29 @@ module Bot::Composition::Allocatable
   end
 
   def update_bot_index_assets(allocations)
-    current_asset_ids = bot_index_assets.in_index.pluck(:asset_id)
-    new_asset_ids = allocations.map { |a| a[:asset_id] }
+    transaction do
+      # The derivation read this instance's class and settings. If the row has since become another
+      # class or taken other settings (Bot::IndexSwitch, a settings save) — a resync job loaded
+      # before either committed — these members describe a composition the bot no longer has.
+      # BEGIN IMMEDIATE serialises the read with that commit. Compared as JSON: an in-memory value
+      # (a BigDecimal) reads back from the column as what JSON made of it.
+      stored = Bot.unscoped.where(id:, type: type_in_database).pick(:settings)
+      next unless stored == ActiveSupport::JSON.decode(ActiveSupport::JSON.encode(settings_in_database))
 
-    # Mark exited assets
-    exited_asset_ids = current_asset_ids - new_asset_ids
-    if exited_asset_ids.any?
-      bot_index_assets.where(asset_id: exited_asset_ids, in_index: true).update_all(
-        in_index: false,
-        exited_at: Time.current
-      )
+      current_asset_ids = bot_index_assets.in_index.pluck(:asset_id)
+      new_asset_ids = allocations.map { |a| a[:asset_id] }
+
+      # Mark exited assets
+      exited_asset_ids = current_asset_ids - new_asset_ids
+      if exited_asset_ids.any?
+        bot_index_assets.where(asset_id: exited_asset_ids, in_index: true).update_all(
+          in_index: false,
+          exited_at: Time.current
+        )
+      end
+
+      allocations.each { |alloc| save_member(alloc) }
     end
-
-    allocations.each { |alloc| save_member(alloc) }
   end
 
   # A buy re-derives the composition itself, so it can run beside a re-check of the same bot, and

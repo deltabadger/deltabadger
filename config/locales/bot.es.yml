@@ -51,9 +51,14 @@ es:
             asset_breakdown: "Desglose de Activos"
             realised_pnl: "P/G realizada"
             realised_pnl_note: "De la venta de activos. El rebalanceo no cuenta."
-            left_the_index: "Fuera del índice"
+            out_of_the_index: "Fuera del índice"
             warning:
                 intro: "Algunas órdenes (%{skipped_count}) estaban por debajo del tamaño mínimo de orden de %{exchange_name}. Así es como el bot lo maneja:"
+        index_switch:
+            follow_index: "Seguir un índice"
+            custom_allocation: "Asignación personalizada"
+            change_index: "Cambiar el índice"
+            none: "Ningún índice tiene suficientes activos en %{exchange} para %{quote}."
         types:
             dca:
                 title: "DCA / Rebalanceo"

@@ -38,4 +38,13 @@ The window counts calendar days in the app's timezone, which can differ from you
 
 ## Index changes
 
-Companies join and leave the index. A constituent that has left is moved to the **Left the index** table and is no longer bought; selling it is your call, from its own row or with **Sell all** above the table, because it is a disposal with tax consequences. See [Portfolio rebalancing](12-portfolio-rebalancing.md).
+Companies join and leave the index. A constituent that has left is moved to the **Out of the index** table and is no longer bought; selling it is your call, from its own row or with **Sell all** above the table, because it is a disposal with tax consequences. See [Portfolio rebalancing](12-portfolio-rebalancing.md).
+
+## Switching between an index and your own allocation
+
+The menu at the top right of a stopped bot switches it without losing its history:
+
+- On a portfolio bot, **Follow index** opens the index picker, showing only the indices whose members trade on the bot's exchange in the currency it spends. The bot starts following the one you pick.
+- On an index bot, **Change the index** does the same, and **Custom allocation** turns it back into a portfolio holding its current members at their current weights.
+
+Anything the bot holds that is not in the new index lands in **Out of the index**, where it waits for you to sell it or not. A bot that is running, selling, or in the middle of a rebalance is not switched until it is stopped and the swap has finished.
