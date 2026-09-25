@@ -47,6 +47,17 @@ module Bots::DcaIndex::IndexAllocatable
     bounded_universe_size || 10
   end
 
+  # The quote a newcomer has to show to earn a seat: the ask a market buy would take, or the last
+  # price for a limit order, which is placed off it. A stock venue quotes no ask while its market is
+  # closed — nothing can be bought then anyway — so outside hours the last price is what says the
+  # pair trades; an ask probe read every newcomer as unpriced and kept lower-ranked names instead.
+  # The market is asked per ticker because a venue can list crypto, which never closes, beside stocks.
+  def probe_side(ticker)
+    return :last if limit_ordered?
+
+    exchange.market_open?(tickers: [ticker]) ? :ask : :last
+  end
+
   def derive_composition
     # A bounded index publishes its whole membership, so ask for all of it; a ranking is over-fetched
     # to cover names the venue does not list.
@@ -93,7 +104,7 @@ module Bots::DcaIndex::IndexAllocatable
 
       ticker = ticker_by_coingecko_id[coin['id']]
       next unless ticker.present?
-      next unless incumbent_ticker_ids.include?(ticker.id) || ticker.priced?(limit_ordered? ? :last : :ask)
+      next unless incumbent_ticker_ids.include?(ticker.id) || ticker.priced?(probe_side(ticker))
 
       coins_data << {
         asset_id: ticker.base_asset_id,
