@@ -379,11 +379,12 @@ class Bots::DcaIndex < Bot
     exchange.tickers.available.trading_enabled.exists?(quote_asset_id:)
   end
 
-  # Everything the derivation reads to decide MEMBERSHIP. limit_ordered belongs here because it
-  # picks which side a candidate has to quote on to count (index_allocatable.rb: priced?(:last)
-  # against priced?(:ask)). allocation_flattening does not: it moves the WEIGHTS, and both tables
-  # read holdings, not targets — the rebalancer re-derives its own targets before it acts.
-  INDEX_DEFINITION_KEYS = %w[num_coins hold_all index_type index_category_id quote_asset_id limit_ordered].freeze
+  # Everything the stored composition is derived from. limit_ordered belongs here because it picks
+  # which side a candidate has to quote on to count (index_allocatable.rb: priced?(:last) against
+  # priced?(:ask)). allocation_flattening moves only the weights, but the stored weights are read
+  # between buys — a merge sums them, "Custom allocation" keeps them — so they must follow the slider.
+  INDEX_DEFINITION_KEYS = %w[num_coins hold_all index_type index_category_id quote_asset_id limit_ordered
+                             allocation_flattening].freeze
 
   # Not saved_change_to_settings?: with store_accessor the settings column is written on every save
   # whether or not a value moved (see Automation::Configurable), so the keys have to be compared.
