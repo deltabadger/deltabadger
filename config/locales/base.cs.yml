@@ -511,7 +511,16 @@ cs:
             needs_market_data: 'Připojte zdroj tržních dat, abyste viděli své portfolio.'
         sync_key_error_html: 'Synchronizace s <strong>%{exchange}</strong> selhala: %{message}. Aktualizuj API klíč níže.'
         sync_permission_error_html: "<strong>%{exchange}</strong> se nepodařilo synchronizovat: tento API klíč nemá oprávnění potřebné ke čtení %{capability}. Uprav oprávnění klíče na %{exchange}, nebo vytvoř nový klíč se všemi oprávněními uvedenými v návodu."
-        replace_key: 'Vyměnit klíč pro %{exchange}'
+        replace_trading_key: 'Vyměnit obchodní klíč pro %{exchange}'
+        add_tracker_key: 'Přidat klíč pro tracker pro %{exchange}'
+        replace_tracker_key: 'Vyměnit klíč pro tracker pro %{exchange}'
+        key_fix:
+            trading:
+                missing_permission: '%{exchange}: tracker čte přes tvůj obchodní klíč, ale tomu chybí oprávnění.'
+                dead: '%{exchange}: tvůj obchodní klíč už nefunguje.'
+            read_only:
+                missing_permission: '%{exchange}: klíči pro tracker chybí oprávnění.'
+                dead: '%{exchange}: klíč pro tracker už nefunguje.'
         sync_transient_error_html: "<strong>%{exchange}</strong> je dočasně nedostupná. Zkus synchronizaci znovu za pár minut."
         sync_generic_error_html: "Synchronizace s <strong>%{exchange}</strong> selhala: %{message}. Zkus to prosím znovu."
         capabilities:

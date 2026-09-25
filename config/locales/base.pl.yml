@@ -504,7 +504,16 @@ pl:
             needs_market_data: 'Podłącz źródło danych rynkowych, aby zobaczyć swój portfel.'
         sync_key_error_html: 'Synchronizacja z <strong>%{exchange}</strong> nie powiodła się: %{message}. Zaktualizuj klucz API poniżej.'
         sync_permission_error_html: "Nie udało się zsynchronizować <strong>%{exchange}</strong>: ten klucz API nie ma uprawnienia potrzebnego do odczytu %{capability}. Zaktualizuj uprawnienia klucza na %{exchange} lub utwórz nowy klucz ze wszystkimi uprawnieniami z instrukcji."
-        replace_key: 'Zmień klucz %{exchange}'
+        replace_trading_key: 'Zmień klucz handlowy %{exchange}'
+        add_tracker_key: 'Dodaj klucz trackera %{exchange}'
+        replace_tracker_key: 'Zmień klucz trackera %{exchange}'
+        key_fix:
+            trading:
+                missing_permission: '%{exchange}: tracker czyta przez Twój klucz handlowy, ale brakuje mu uprawnienia.'
+                dead: '%{exchange}: Twój klucz handlowy już nie działa.'
+            read_only:
+                missing_permission: '%{exchange}: kluczowi trackera brakuje uprawnienia.'
+                dead: '%{exchange}: klucz trackera już nie działa.'
         sync_transient_error_html: "<strong>%{exchange}</strong> jest chwilowo niedostępna. Spróbuj zsynchronizować ponownie za kilka minut."
         sync_generic_error_html: "Synchronizacja z <strong>%{exchange}</strong> nie powiodła się: %{message}. Spróbuj ponownie."
         capabilities:

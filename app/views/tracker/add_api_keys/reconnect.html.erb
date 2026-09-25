@@ -6,7 +6,7 @@
     <%= render partial: 'shared/api_key_form', locals: {
       exchange: @exchange,
       api_key: @api_key,
-      path: tracker_add_api_key_path,
+      path: tracker_add_api_key_path(exchange_id: @exchange.id, key_type: @key_type),
       form_data: { controller: "", action: "turbo:submit-end->modal--base#submitEnd" }
     } %>
   </div>

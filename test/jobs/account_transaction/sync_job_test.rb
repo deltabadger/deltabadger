@@ -37,7 +37,8 @@ class AccountTransaction::SyncJobTest < ActiveSupport::TestCase
       "user_#{@user.id}", :sync,
       target: 'sync-warnings',
       partial: 'tracker/sync_warnings',
-      locals: { exchanges: ['Kraken'], replace: [kraken] }
+      locals: { exchanges: ['Kraken'],
+                fixes: [{ exchange: kraken, key_type: 'trading', reason: :missing_permission }] }
     )
 
     AccountTransaction::SyncJob.perform_now(key)

@@ -9,7 +9,7 @@
 <%# turbo-permanent so the page refresh broadcast that follows a sync cannot morph the warning away. %>
 <% content_for :flash_extra do %>
   <div id="sync-warnings" data-turbo-permanent>
-    <%= render 'sync_warnings', **(@sync_warnings || { exchanges: [], replace: [] }) %>
+    <%= render 'sync_warnings', **(@sync_warnings || { exchanges: [], fixes: [] }) %>
   </div>
 <% end %>
 <% if @pending_refusal %>

@@ -123,4 +123,27 @@ class ReadOnlyApiKeyTest < ActiveSupport::TestCase
     api_key.update_status!(result)
     assert api_key.reload.pending_validation?
   end
+
+  # ── which key the tracker reads with ─────────────────────────────────────────────────────────
+  test 'the trading key reads while it can' do
+    trading = create(:api_key, user: @user, exchange: @kraken, key_type: :trading, status: :correct)
+    create(:api_key, user: @user, exchange: @kraken, key_type: :read_only, status: :correct)
+
+    assert_equal [trading], ApiKey.reading(@user.api_keys.includes(:exchange))
+  end
+
+  test 'a trading key missing a permission gives way to a working tracker key' do
+    create(:api_key, user: @user, exchange: @kraken, key_type: :trading, status: :correct,
+                     last_sync_error: 'EGeneral:Permission denied')
+    reading = create(:api_key, user: @user, exchange: @kraken, key_type: :read_only, status: :correct)
+
+    assert_equal [reading], ApiKey.reading(@user.api_keys.includes(:exchange))
+  end
+
+  test 'a trading key missing a permission still reads when there is nothing else' do
+    trading = create(:api_key, user: @user, exchange: @kraken, key_type: :trading, status: :correct,
+                               last_sync_error: 'EGeneral:Permission denied')
+
+    assert_equal [trading], ApiKey.reading(@user.api_keys.includes(:exchange))
+  end
 end

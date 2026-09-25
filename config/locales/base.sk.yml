@@ -511,7 +511,16 @@ sk:
             needs_market_data: 'Pripojte zdroj trhových dát, aby ste videli svoje portfólio.'
         sync_key_error_html: 'Synchronizácia s <strong>%{exchange}</strong> zlyhala: %{message}. Aktualizuj API kľúč nižšie.'
         sync_permission_error_html: "<strong>%{exchange}</strong> sa nepodarilo synchronizovať: tento API kľúč nemá oprávnenie potrebné na čítanie %{capability}. Aktualizuj oprávnenia kľúča na %{exchange} alebo vytvor nový kľúč so všetkými oprávneniami z návodu."
-        replace_key: 'Vymeniť kľúč pre %{exchange}'
+        replace_trading_key: 'Vymeniť obchodný kľúč pre %{exchange}'
+        add_tracker_key: 'Pridať kľúč pre tracker pre %{exchange}'
+        replace_tracker_key: 'Vymeniť kľúč pre tracker pre %{exchange}'
+        key_fix:
+            trading:
+                missing_permission: '%{exchange}: tracker číta cez tvoj obchodný kľúč, ale tomu chýba oprávnenie.'
+                dead: '%{exchange}: tvoj obchodný kľúč už nefunguje.'
+            read_only:
+                missing_permission: '%{exchange}: kľúču pre tracker chýba oprávnenie.'
+                dead: '%{exchange}: kľúč pre tracker už nefunguje.'
         sync_transient_error_html: "<strong>%{exchange}</strong> je dočasne nedostupná. Skús synchronizáciu znova o pár minút."
         sync_generic_error_html: "Synchronizácia s <strong>%{exchange}</strong> zlyhala: %{message}. Skús to znova."
         capabilities:

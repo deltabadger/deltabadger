@@ -1,4 +1,4 @@
-<%# Locals: exchanges (names), replace (Exchanges whose key is missing a permission). The contents of
+<%# Locals: exchanges (names), fixes ([{ exchange:, key_type:, reason: }] — failures a new key mends). The contents of
     #sync-warnings only — every stream targets it with `update`. The wrapper is data-turbo-permanent,
     and Turbo swaps a streamed element carrying that same permanent id back for a clone of the old
     one, so a `replace` would never change what the reader sees. %>
@@ -9,8 +9,12 @@
     </button>
     <%# join, not to_sentence: rails-i18n is absent, so to_sentence glues the list with an English "and" in all 15 locales. %>
     <%= t('tracker.sync_failed_for', exchanges: exchanges.join(', ')) %>
-    <% replace.each do |exchange| %>
-      <%= render 'tracker/replace_key_button', exchange_name: exchange.name, exchange_id: exchange.id %>
+    <% fixes.each do |fix| %>
+      <p class="key-fix__line">
+        <%= t("tracker.key_fix.#{fix[:key_type]}.#{fix[:reason]}", exchange: fix[:exchange].name) %>
+        <%= render 'tracker/key_fix_buttons', exchange_name: fix[:exchange].name, exchange_id: fix[:exchange].id,
+                                              key_type: fix[:key_type] %>
+      </p>
     <% end %>
   </div>
 <% end %>

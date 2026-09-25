@@ -12,7 +12,7 @@ en:
                 -   text_html: 'Select <b class="pbutton">System generated</b>.'
                 -   text_html: 'Label your keys (e.g. "deltabadger-tracker") and pass the security verification if necessary.'
                 -   text_html: 'Keep <b>Enable Reading</b> on (it is by default). It is the only permission the tracker needs — it never places an order or moves funds, so Spot Trading is not needed.<br><strong>⚠️ Important:</strong> Do not enable Withdrawals — the key is refused if it can withdraw.'
-                -   text_html: 'Optional: click <b class="pbutton">Edit restrictions</b> and whitelist %{whitelist_ip}, which ties the key to this machine. A reading key works without it.'
+                -   text_html: 'Optional, to tie the key to this machine: click <b class="pbutton">Edit restrictions</b> and whitelist %{whitelist_ip}. A reading key works without it.'
                 -   text_html: 'Copy and paste your new API keys above.'
         binance_us: *binance_read_only_config
         kraken:
@@ -29,6 +29,6 @@ en:
                             sub_instructions:
                                 -   text_html: '<b>Query ledger entries</b>'
                         -   text_html: 'Nothing else — the tracker only reads, so it needs no Order and Trades permission.<br><strong>⚠️ Important:</strong> For security, do not enable <b>Withdraw</b>.'
-                -   text_html: 'Optional: under <b>IP address restriction</b>, whitelist %{whitelist_ip}, which ties the key to this machine. A reading key works without it.'
+                -   text_html: 'Optional, to tie the key to this machine: under <b>IP address restriction</b>, whitelist %{whitelist_ip}. A reading key works without it.'
                 -   text_html: 'Press <b>Generate key</b>.'
                 -   text_html: 'Copy and paste your new API keys above.'

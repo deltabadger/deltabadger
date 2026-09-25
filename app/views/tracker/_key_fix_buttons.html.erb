@@ -1,0 +1,17 @@
+<%# Locals: exchange_name, exchange_id, key_type (of the key that cannot read). A failing trading key
+    can be replaced (fixes bots and tracker, needs every trading permission) or left to the bots with a
+    tracker key beside it; a failing tracker key can only be replaced. %>
+<span class="key-fix">
+  <% if key_type.to_s == 'trading' %>
+    <%= link_to t('tracker.replace_trading_key', exchange: exchange_name),
+                new_tracker_add_api_key_path(exchange_id: exchange_id, key_type: 'trading'),
+                class: 'rbutton rbutton--small', data: { turbo_frame: 'modal' } %>
+    <%= link_to t('tracker.add_tracker_key', exchange: exchange_name),
+                new_tracker_add_api_key_path(exchange_id: exchange_id, key_type: 'read_only'),
+                class: 'rbutton rbutton--small', data: { turbo_frame: 'modal' } %>
+  <% else %>
+    <%= link_to t('tracker.replace_tracker_key', exchange: exchange_name),
+                new_tracker_add_api_key_path(exchange_id: exchange_id, key_type: 'read_only'),
+                class: 'rbutton rbutton--small', data: { turbo_frame: 'modal' } %>
+  <% end %>
+</span>

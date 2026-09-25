@@ -505,7 +505,16 @@ en:
             needs_market_data: 'Connect a market data feed to see your portfolio.'
         sync_key_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please update the API key below."
         sync_permission_error_html: "<strong>%{exchange}</strong> could not sync: this API key is missing the permission needed to read %{capability}. Update the key's permissions on %{exchange}, or create a new key with every permission listed in its setup steps."
-        replace_key: 'Replace %{exchange} key'
+        replace_trading_key: 'Replace %{exchange} trading key'
+        add_tracker_key: 'Add %{exchange} tracker key'
+        replace_tracker_key: 'Replace %{exchange} tracker key'
+        key_fix:
+            trading:
+                missing_permission: '%{exchange}: the tracker reads with your trading key, but it is missing a permission.'
+                dead: '%{exchange}: your trading key no longer works.'
+            read_only:
+                missing_permission: '%{exchange}: your tracker key is missing a permission.'
+                dead: '%{exchange}: your tracker key no longer works.'
         sync_transient_error_html: "<strong>%{exchange}</strong> is temporarily unavailable. Try syncing again in a few minutes."
         sync_generic_error_html: "<strong>%{exchange}</strong> sync failed: %{message}. Please try again."
         capabilities:

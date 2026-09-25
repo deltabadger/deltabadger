@@ -34,7 +34,7 @@ module ApiKeyFailureHandling
         "user_#{api_key.user_id}", :sync,
         target: 'flash',
         partial: 'tracker/sync_key_error',
-        locals: { exchange_name: exchange.name, exchange_id: exchange.id,
+        locals: { exchange_name: exchange.name, exchange_id: exchange.id, key_type: api_key.key_type,
                   message: exchange.humanize_error(message), reason: reason, capability: capability }
       )
     end

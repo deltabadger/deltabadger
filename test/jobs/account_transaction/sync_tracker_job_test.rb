@@ -59,7 +59,7 @@ class AccountTransaction::SyncTrackerJobTest < ActiveSupport::TestCase
       "user_#{@user.id}", :sync,
       target: 'sync-warnings',
       partial: 'tracker/sync_warnings',
-      locals: { exchanges: ['Binance'], replace: [] }
+      locals: { exchanges: ['Binance'], fixes: [] }
     )
 
     AccountTransaction::SyncTrackerJob.perform_now(@user.id, [@api_key_binance.id, @api_key_kraken.id])
@@ -89,7 +89,7 @@ class AccountTransaction::SyncTrackerJobTest < ActiveSupport::TestCase
       "user_#{@user.id}", :sync,
       target: 'flash',
       partial: 'tracker/sync_key_error',
-      locals: { exchange_name: 'Kraken', exchange_id: @kraken.id,
+      locals: { exchange_name: 'Kraken', exchange_id: @kraken.id, key_type: 'trading',
                 message: I18n.t('errors.exchange.permission_denied', exchange: 'Kraken'),
                 reason: :permission, capability: :transactions }
     )
@@ -110,7 +110,8 @@ class AccountTransaction::SyncTrackerJobTest < ActiveSupport::TestCase
       "user_#{@user.id}", :sync,
       target: 'sync-warnings',
       partial: 'tracker/sync_warnings',
-      locals: { exchanges: ['Kraken'], replace: [@kraken] }
+      locals: { exchanges: ['Kraken'],
+                fixes: [{ exchange: @kraken, key_type: 'trading', reason: :missing_permission }] }
     )
 
     AccountTransaction::SyncTrackerJob.perform_now(@user.id, [@api_key_kraken.id])

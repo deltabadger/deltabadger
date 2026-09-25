@@ -10,11 +10,19 @@ class SyncKeyErrorFlashTest < ActionView::TestCase
     assert_not_includes rendered, 'update the API key below'
   end
 
-  # The key is still :correct, so nothing else on the page offers to replace it.
-  test 'a permission failure links to the key form' do
+  # The key is still :correct, so nothing else on the page offers a way out.
+  test 'a permission failure on the trading key offers both fixes' do
     render_flash(reason: :permission, capability: :transactions)
 
-    assert_select 'a.rbutton[href=?]', new_tracker_add_api_key_path(exchange_id: 7)
+    assert_select 'a.rbutton[href=?]', new_tracker_add_api_key_path(exchange_id: 7, key_type: 'trading')
+    assert_select 'a.rbutton[href=?]', new_tracker_add_api_key_path(exchange_id: 7, key_type: 'read_only')
+  end
+
+  test 'a permission failure on the tracker key offers to replace it' do
+    render_flash(reason: :permission, capability: :transactions, key_type: 'read_only')
+
+    assert_select 'a.rbutton', count: 1
+    assert_select 'a.rbutton[href=?]', new_tracker_add_api_key_path(exchange_id: 7, key_type: 'read_only')
   end
 
   test 'no other failure offers the key form' do
@@ -62,9 +70,9 @@ class SyncKeyErrorFlashTest < ActionView::TestCase
 
   private
 
-  def render_flash(reason:, message: 'Some error', capability: :transactions)
+  def render_flash(reason:, message: 'Some error', capability: :transactions, key_type: 'trading')
     render partial: 'tracker/sync_key_error',
-           locals: { exchange_name: 'Kraken', exchange_id: 7, message: message, reason: reason,
+           locals: { exchange_name: 'Kraken', exchange_id: 7, key_type: key_type, message: message, reason: reason,
                      capability: capability }
   end
 end
