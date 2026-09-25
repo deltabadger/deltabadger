@@ -225,6 +225,8 @@ Rails.application.routes.draw do
       resources :dca_multi_assets, only: [:create]
       # The dashboard's Merge: the confirmation modal (GET, ids[] in the query) and the merge itself.
       resource :merge, only: %i[new create]
+      # The dashboard's Split: the confirmation modal (GET, ids[] in the query) and the split itself.
+      resource :split, only: %i[new create]
       namespace :dca_multi_assets do
         resource :pick_exchange, only: %i[new create]
         resource :pick_stock_broker, only: %i[new create]

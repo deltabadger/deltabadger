@@ -7,6 +7,12 @@ sv:
             pick_exchange_first: "Börja investera."
             connect_alpaca_html: "För att investera i aktier, anslut först Alpaca i %{settings_link}."
             settings_link: "Inställningar"
+        split:
+            explanation: "Alla botar stoppas och delas upp i botar med en tillgång för:"
+            proceeds: "Boten \"%{label}\" har %{amount} %{symbol} från tidigare försäljningar. Återinvestera?"
+            reinvesting: "Återinvesterar för \"%{label}\"…"
+            kept: "Behålls som realiserad vinst/förlust."
+            success: "Botarna har delats upp."
         merge:
             title: "Slå ihop %{count} bottar"
             pick_hint: "Välj bottar."

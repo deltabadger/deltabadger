@@ -8,6 +8,12 @@ ru:
             pick_exchange_first: "Начни инвестировать."
             connect_alpaca_html: "Чтобы инвестировать в акции, сначала подключите Alpaca в %{settings_link}."
             settings_link: "Настройках"
+        split:
+            explanation: "Все боты будут остановлены и разделены на боты с одним активом для:"
+            proceeds: "У бота «%{label}» %{amount} %{symbol} от прошлых продаж. Реинвестировать?"
+            reinvesting: "Реинвестирование для «%{label}»…"
+            kept: "Остаётся как зафиксированный P/L."
+            success: "Боты разделены."
         merge:
             title: "Объединение ботов: %{count}"
             pick_hint: "Выберите ботов."

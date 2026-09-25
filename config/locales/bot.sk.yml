@@ -7,6 +7,12 @@ sk:
             pick_exchange_first: "Začni investovať."
             connect_alpaca_html: "Ak chceš investovať do akcií, najprv prepoj Alpaca v %{settings_link}."
             settings_link: "Nastaveniach"
+        split:
+            explanation: "Všetky boty sa zastavia a rozdelia na boty s jedným aktívom pre:"
+            proceeds: "Bot „%{label}“ má %{amount} %{symbol} z minulých predajov. Znova investovať?"
+            reinvesting: "Opätovné investovanie pre „%{label}“…"
+            kept: "Zostáva ako realizovaný zisk/strata."
+            success: "Boty rozdelené."
         merge:
             title: "Zlúčenie botov: %{count}"
             pick_hint: "Vyberte boty."

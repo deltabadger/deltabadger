@@ -12,6 +12,7 @@ en:
             <p>That's <b style="color: #00A36C;">%{sp500_diff}%</b> more than S&P 500 in the same time.</p>
     button:
         merge: 'Merge'
+        split: "Split"
         confirm: 'Confirm'
         ok: 'OK'
         update: 'Update'
@@ -716,6 +717,7 @@ en:
     bot_activity:
         events:
             merged: "Merged from %{labels}"
+            split: "Split from %{label}"
             dca_skipped_restatement: "Contribution skipped — a split the market has not priced yet"
             dca_skipped_wash_sale: "Nothing bought — every constituent is inside a wash-sale window"
             wash_sale_locked: "%{base} sold — not bought again through %{until}, so the sale's loss is not washed"

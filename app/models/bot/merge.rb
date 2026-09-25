@@ -99,9 +99,10 @@ class Bot::Merge
     reason && self.class.translate(reason)
   end
 
-  def self.translate(reason)
+  # Bot::Split shares it under its own scope.
+  def self.translate(reason, scope: :merge)
     key, interpolation = Array(reason)
-    I18n.t("errors.bots.merge.#{key}", **(interpolation || {}))
+    I18n.t("errors.bots.#{scope}.#{key}", **(interpolation || {}))
   end
 
   # Where the merged bot lives: the venue the user picked, if it lists every member at the quote — a

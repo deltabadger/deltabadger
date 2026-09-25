@@ -27,6 +27,8 @@ application.register("bot--chart", Bot__ChartController)
 
 import BotsMergeController from "./bots_merge_controller"
 application.register("bots-merge", BotsMergeController)
+import BotsSplitModalController from "./bots_split_modal_controller"
+application.register("bots-split-modal", BotsSplitModalController)
 
 import BotsReorderController from "./bots_reorder_controller"
 application.register("bots-reorder", BotsReorderController)

@@ -35,11 +35,14 @@
                                                      hide_balances: current_user.hide_balances? } %>
   <% end %>
   
-  <%# Merge's select mode lives on this wrapper: the button, the tiles it picks from and the bar are
-      all inside it, and the grid keeps its own reorder controller untouched. The values are what the
-      bar needs to say where the merged bot will live: the venues the user has keys on, every venue's
-      name, and the three lines it may show. %>
+  <%# Merge's and Split's select mode lives on this wrapper: the buttons, the tiles it picks from and the
+      bar are all inside it, and the grid keeps its own reorder controller untouched. The values are what
+      the bar needs to say where the merged bot will live: the venues the user has keys on, every venue's
+      name, and the three lines it may show; and where Split's Confirm goes instead of Merge's. %>
+  <% select_mode = @mergeable_ids.size >= 2 || @splittable_ids.any? %>
   <%= tag.div data: { controller: 'bots-merge',
+                      bots_merge_split_url_value: new_bots_split_path,
+                      bots_merge_split_label_value: t('button.split'),
                       bots_merge_connected_value: Bot::Merge.connected_exchange_ids(current_user).to_json,
                       bots_merge_names_value: Exchange.tradeable.pluck(:id, :name).to_h.to_json,
                       bots_merge_no_partner_value: t('bot.merge.no_partner', quote: '%{quote}'),
@@ -59,11 +62,17 @@
     </div>
 
     <div class="page-head__actions">
-      <% if @mergeable_ids.size >= 2 %>
+      <% if select_mode %>
         <div data-controller="dropdown" data-action="click->dropdown#toggle" data-dropdown-target="wrapper" class="sbutton sbutton--link dropdown-wrapper dropdown-wrapper--right">
           <%= render "svg/24x24_dot_menu" %>
           <div class="dropdown">
-            <%= button_tag t('button.merge'), type: 'button', class: 'dropdown__item', data: { action: 'bots-merge#enter' } %>
+            <% if @mergeable_ids.size >= 2 %>
+              <%= button_tag t('button.merge'), type: 'button', class: 'dropdown__item', data: { action: 'bots-merge#enter' } %>
+            <% end %>
+            <% if @splittable_ids.any? %>
+              <%= button_tag t('button.split'), type: 'button', class: 'dropdown__item',
+                             data: { action: 'bots-merge#enter', bots_merge_mode_param: 'split' } %>
+            <% end %>
           </div>
         </div>
       <% end %>
@@ -92,10 +101,10 @@
     <%= render partial: 'bots/bot_tile/bot_tile', collection: @bots, as: :bot,
                locals: { pnl_hash: @pnl_hash, profit_usd_hash: @profit_usd_hash,
                          loading_hash: @loading_hash, denomination: @denomination,
-                         mergeable_ids: @mergeable_ids } %>
+                         mergeable_ids: @mergeable_ids, splittable_ids: @splittable_ids } %>
   <% end %>
 
-  <% if @mergeable_ids.size >= 2 %>
+  <% if select_mode %>
     <%# The select mode's bar: the union of the picked bots' assets, Cancel, and a Merge that opens
         the confirmation modal with the picked ids. Hidden until Merge is pressed; while it shows, the
         rest of the page is locked and shakes it. %>
@@ -112,6 +121,7 @@
       <div class="merge-bar__actions">
         <%= button_tag t('button.cancel'), type: 'button', class: 'rbutton',
                        data: { action: 'bots-merge#cancel' } %>
+        <%# Split mode points this form at the split modal (bots_merge_controller). %>
         <%= form_with url: new_bots_merge_path, method: :get, data: { turbo_frame: 'modal', bots_merge_target: 'form' } do %>
           <%# Hidden: the form is display: contents, so a visible span would take a gap in the row. %>
           <span data-bots-merge-target="ids" hidden></span>

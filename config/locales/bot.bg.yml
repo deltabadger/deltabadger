@@ -7,6 +7,12 @@ bg:
             pick_exchange_first: "Започни да инвестираш."
             connect_alpaca_html: "За да инвестирате в акции, първо свържете Alpaca в %{settings_link}."
             settings_link: "Настройки"
+        split:
+            explanation: "Всички ботове ще бъдат спрени и разделени на ботове с един актив за:"
+            proceeds: "Ботът „%{label}“ има %{amount} %{symbol} от минали продажби. Реинвестиране?"
+            reinvesting: "Реинвестиране за „%{label}“…"
+            kept: "Остава като реализирана П/З."
+            success: "Ботовете са разделени."
         merge:
             title: "Обединяване на %{count} бота"
             pick_hint: "Изберете ботове."

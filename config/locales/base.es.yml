@@ -12,6 +12,7 @@ es:
             <p>Eso es un <b style="color: #00A36C;">%{sp500_diff}%</b> más que el S&P 500 en el mismo período.</p>
     button:
         merge: 'Fusionar'
+        split: "Dividir"
         confirm: 'Confirmar'
         ok: 'OK'
         understand: '¡Entendido!'
@@ -706,6 +707,7 @@ es:
     bot_activity:
         events:
             merged: "Fusionado a partir de %{labels}"
+            split: "Separado de %{label}"
             dca_skipped_restatement: "Aportación omitida — un split que el mercado aún no ha valorado"
             dca_skipped_wash_sale: "No se compró nada — cada componente está en una espera fiscal"
             wash_sale_locked: "%{base} vendido — sin recompra hasta el %{until} inclusive, para que la pérdida de la venta no se anule"

@@ -12,6 +12,7 @@ ru:
             <p>Это на <b style="color: #00A36C;">%{sp500_diff}%</b> больше, чем S&P 500 за тот же период.</p>
     button:
         merge: 'Объединить'
+        split: "Разделить"
         confirm: 'Подтвердить'
         ok: 'OK'
         understand: 'Понятно!'
@@ -709,6 +710,7 @@ ru:
     bot_activity:
         events:
             merged: "Объединено из: %{labels}"
+            split: "Выделен из %{label}"
             dca_skipped_restatement: "Взнос пропущен — сплит, который рынок ещё не оценил"
             dca_skipped_wash_sale: "Ничего не куплено — каждая составляющая находится в периоде ожидания"
             wash_sale_locked: "%{base} продано — без обратной покупки по %{until} включительно, чтобы убыток от продажи не пропал"

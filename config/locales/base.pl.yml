@@ -12,6 +12,7 @@ pl:
             <p>To <b style="color: #00A36C;">%{sp500_diff}%</b> więcej niż S&P 500 w tym samym okresie.</p>
     button:
         merge: 'Połącz'
+        split: "Rozdziel"
         confirm: 'Potwierdź'
         ok: 'OK'
         understand: 'Rozumiem!'
@@ -709,6 +710,7 @@ pl:
     bot_activity:
         events:
             merged: "Połączono z: %{labels}"
+            split: "Wydzielono z %{label}"
             dca_skipped_restatement: "Wpłata pominięta — podział akcji, którego rynek jeszcze nie wycenił"
             dca_skipped_wash_sale: "Nic nie kupiono — każdy składnik jest w okresie karencji"
             wash_sale_locked: "%{base} sprzedane — bez odkupu do %{until} włącznie, żeby strata ze sprzedaży nie przepadła"

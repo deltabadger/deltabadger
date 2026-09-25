@@ -75,6 +75,15 @@ en:
             restricted: "%{exchange} doesn't allow trading this asset from your region."
             rate_limited: "%{exchange} is rate-limiting requests. The bot will retry automatically."
         bots:
+            split:
+                missing: "One of these bots is gone. Pick again."
+                none: "Pick at least one bot."
+                unavailable: "%{label} can't be split right now."
+                reinvesting: "%{label} is still reinvesting. Try again in a moment."
+                proceeds: "%{label} still has money from past sales. Reinvest it or keep it first."
+                external_sales: "%{label} sold assets it never bought here, so its history can't be split."
+                unpriced_sales: "%{label} has a sale the exchange hasn't priced yet. Try again once it has."
+                nothing_to_buy: "None of %{label}'s assets trade on its exchange anymore."
             merge:
                 missing: "One of these bots is gone. Pick again."
                 too_few: "Pick at least two bots."

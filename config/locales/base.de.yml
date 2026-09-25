@@ -12,6 +12,7 @@ de:
             <p>Das sind <b style="color: #00A36C;">%{sp500_diff}%</b> mehr als der S&P 500 im gleichen Zeitraum.</p>
     button:
         merge: 'Zusammenführen'
+        split: "Aufteilen"
         confirm: 'Bestätigen'
         ok: 'OK'
         understand: 'Verstanden!'
@@ -706,6 +707,7 @@ de:
     bot_activity:
         events:
             merged: "Zusammengeführt aus %{labels}"
+            split: "Abgeteilt von %{label}"
             dca_skipped_restatement: "Beitrag übersprungen — ein Aktiensplit, den der Markt noch nicht bepreist hat"
             dca_skipped_wash_sale: "Nichts gekauft — jeder Bestandteil steckt in einer Sperrfrist"
             wash_sale_locked: "%{base} verkauft — bis einschließlich %{until} kein Rückkauf, damit der Verlust aus dem Verkauf erhalten bleibt"

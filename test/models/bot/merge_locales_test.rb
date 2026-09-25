@@ -3,7 +3,7 @@
 require 'test_helper'
 require 'yaml'
 
-# Read the files directly: I18n fallbacks make a missing translation look present in every locale.
+# Merge's and Split's strings. Read the files directly: I18n fallbacks make a missing translation look present in every locale.
 class Bot::MergeLocalesTest < ActiveSupport::TestCase
   # These are I18n interpolation tokens under test, not format strings built by this test.
   # rubocop:disable Style/FormatStringToken
@@ -11,7 +11,9 @@ class Bot::MergeLocalesTest < ActiveSupport::TestCase
     'base' => {
       %w[button merge] => nil,
       %w[button confirm] => nil,
-      %w[bot_activity events merged] => '%{labels}'
+      %w[bot_activity events merged] => '%{labels}',
+      %w[button split] => nil,
+      %w[bot_activity events split] => '%{label}'
     },
     'bot' => {
       %w[bot dca_multi_asset too_many_assets] => '%{count}',
@@ -23,7 +25,12 @@ class Bot::MergeLocalesTest < ActiveSupport::TestCase
       %w[bot merge no_partner] => '%{quote}',
       %w[bot merge no_shared_exchange] => '%{quote}',
       %w[bot merge other_exchange] => '%{exchange}',
-      %w[bot merge assets_stay] => nil
+      %w[bot merge assets_stay] => nil,
+      %w[bot split explanation] => nil,
+      %w[bot split proceeds] => '%{amount}',
+      %w[bot split reinvesting] => '%{label}',
+      %w[bot split kept] => nil,
+      %w[bot split success] => nil
     },
     'errors' => {
       %w[errors bots merge missing] => nil,
@@ -34,7 +41,15 @@ class Bot::MergeLocalesTest < ActiveSupport::TestCase
       %w[errors bots merge external_sales] => '%{label}',
       %w[errors bots merge interleaved] => nil,
       %w[errors bots merge quote] => nil,
-      %w[errors bots merge nothing_to_buy] => nil
+      %w[errors bots merge nothing_to_buy] => nil,
+      %w[errors bots split missing] => nil,
+      %w[errors bots split none] => nil,
+      %w[errors bots split unavailable] => '%{label}',
+      %w[errors bots split reinvesting] => '%{label}',
+      %w[errors bots split proceeds] => '%{label}',
+      %w[errors bots split external_sales] => '%{label}',
+      %w[errors bots split unpriced_sales] => '%{label}',
+      %w[errors bots split nothing_to_buy] => '%{label}'
     }
   }.freeze
 

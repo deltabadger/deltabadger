@@ -8,6 +8,12 @@ pt:
             pick_exchange_first: "Começa a investir."
             connect_alpaca_html: "Para investires em ações, liga primeiro a Alpaca nas %{settings_link}."
             settings_link: "Definições"
+        split:
+            explanation: "Todos os bots serão parados e divididos em bots de um só ativo para:"
+            proceeds: "O bot «%{label}» tem %{amount} %{symbol} de vendas anteriores. Reinvestir?"
+            reinvesting: "A reinvestir para «%{label}»…"
+            kept: "Fica como L/P realizado."
+            success: "Bots divididos."
         merge:
             title: "Juntar %{count} bots"
             pick_hint: "Escolha os bots."

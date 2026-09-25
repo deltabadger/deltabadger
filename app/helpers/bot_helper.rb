@@ -177,6 +177,8 @@ module BotHelper
       t('bot_activity.events.market_closed', time: format_activity_time(activity.details['next_market_open_at']))
     when 'merged'
       t('bot_activity.events.merged', labels: Array(activity.details['source_labels']).to_sentence)
+    when 'split'
+      t('bot_activity.events.split', label: activity.details['source_label'])
     when 'limit_paused'
       t('bot_activity.events.limit_paused', limit: activity.details['limit_type'].to_s.tr('_', ' '))
     when 'execution_failed'

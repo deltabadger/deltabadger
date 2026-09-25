@@ -74,6 +74,15 @@ de:
             restricted: "%{exchange} erlaubt den Handel mit diesem Asset aus deiner Region nicht."
             rate_limited: "%{exchange} drosselt gerade die Anfragen. Der Bot versucht es automatisch erneut."
         bots:
+            split:
+                missing: "Einer dieser Bots existiert nicht mehr. Bitte neu auswählen."
+                none: "Wähle mindestens einen Bot."
+                unavailable: "%{label} kann gerade nicht aufgeteilt werden."
+                reinvesting: "%{label} reinvestiert noch. Versuch es gleich noch einmal."
+                proceeds: "%{label} hat noch Geld aus früheren Verkäufen. Reinvestiere es oder behalte es zuerst."
+                external_sales: "%{label} hat Assets verkauft, die hier nie gekauft wurden, daher lässt sich der Verlauf nicht aufteilen."
+                unpriced_sales: "%{label} hat einen Verkauf, den die Börse noch nicht bepreist hat. Versuch es danach erneut."
+                nothing_to_buy: "Keines der Assets von %{label} wird mehr an seiner Börse gehandelt."
             merge:
                 missing: "Einer dieser Bots existiert nicht mehr. Wähle erneut."
                 too_few: "Wähle mindestens zwei Bots."

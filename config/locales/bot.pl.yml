@@ -8,6 +8,12 @@ pl:
             pick_exchange_first: "Zacznij inwestować."
             connect_alpaca_html: "Żeby inwestować w akcje, najpierw podłącz Alpaca w %{settings_link}."
             settings_link: "Ustawieniach"
+        split:
+            explanation: "Wszystkie boty zostaną zatrzymane i rozdzielone na boty jednoaktywowe dla:"
+            proceeds: "Bot „%{label}” ma %{amount} %{symbol} ze sprzedaży. Zainwestować ponownie?"
+            reinvesting: "Ponowne inwestowanie dla „%{label}”…"
+            kept: "Zostaje jako zrealizowany wynik."
+            success: "Boty rozdzielone."
         merge:
             title: "Łączenie botów: %{count}"
             pick_hint: "Wybierz boty."

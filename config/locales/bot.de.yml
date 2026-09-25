@@ -7,6 +7,12 @@ de:
             pick_exchange_first: "Investieren starten."
             connect_alpaca_html: "Um in Aktien zu investieren, verbinde zuerst Alpaca in den %{settings_link}."
             settings_link: "Einstellungen"
+        split:
+            explanation: "Alle Bots werden gestoppt und in Einzel-Asset-Bots aufgeteilt für:"
+            proceeds: "Bot „%{label}“ hat %{amount} %{symbol} aus früheren Verkäufen. Reinvestieren?"
+            reinvesting: "„%{label}“ wird reinvestiert…"
+            kept: "Bleibt als realisierter G/V."
+            success: "Bots aufgeteilt."
         merge:
             title: "%{count} Bots zusammenführen"
             pick_hint: "Wähle Bots aus."
