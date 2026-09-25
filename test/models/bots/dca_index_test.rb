@@ -73,6 +73,36 @@ class Bots::DcaIndexTest < ActiveSupport::TestCase
     assert_not_includes in_index_external_ids(bot), 'coin-dead'
   end
 
+  # A stock venue quotes no ask while its market is closed, so an ask probe outside hours read every
+  # newcomer as unpriced: an ND100 bot set to ten outside hours kept lower-ranked incumbents and left
+  # AMZN, AVGO and MU out while the donut showed them in. Closed, a market order cannot be placed
+  # anyway; the last price is what says the pair trades.
+  test 'while the market is closed a newcomer counts by its last price, not an ask the venue is not quoting' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    bot.num_coins = 2
+    Exchanges::Kraken.any_instance.stubs(:market_open?).returns(false)
+    stub_all_unpriced(:get_ask_price)
+    stub_all_priced(:get_last_price)
+
+    result = bot.refresh_composition
+
+    assert_predicate result, :success?
+    assert_equal %w[coin-a coin-dead], in_index_external_ids(bot)
+  end
+
+  test 'while the market is open a newcomer with no ask is still skipped' do
+    bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
+    bot.num_coins = 2
+    Exchanges::Kraken.any_instance.stubs(:market_open?).returns(true)
+    stub_all_priced(:get_ask_price)
+    stub_all_priced(:get_last_price)
+    stub_unpriced(:get_ask_price, @ticker_dead)
+
+    bot.refresh_composition
+
+    assert_equal %w[coin-a coin-b], in_index_external_ids(bot)
+  end
+
   test 'a pair that raises on price (zero-price guard) is treated as unpriced and skipped' do
     bot = create(:dca_index, exchange: @exchange, quote_asset: @quote)
     bot.num_coins = 2
