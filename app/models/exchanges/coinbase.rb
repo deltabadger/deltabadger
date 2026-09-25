@@ -317,7 +317,7 @@ class Exchanges::Coinbase < Exchange
                                api_secret: api_key.secret,
                                proxy: ExchangeProxy.for('coinbase'))
 
-    result = client.get_api_key_permissions
+    result = api_key_permissions_with_retry(client)
 
     if result.success?
       valid = if api_key.withdrawal?
@@ -332,12 +332,24 @@ class Exchanges::Coinbase < Exchange
       Result::Success.new(valid)
     elsif result.data&.dig(:status) == 401 # unauthorized (due to invalid key)
       Result::Success.new(false)
-    elsif result.data&.dig(:status) == 500
-      # Coinbase key_permissions endpoint sometimes returns 500 for valid keys.
-      # Fall back to probing permissions directly.
-      validate_api_key_by_probing(client: client, api_key: api_key)
     else
       result
+    end
+  end
+
+  KEY_PERMISSIONS_ATTEMPTS = 3
+
+  # key_permissions sometimes answers 500 for a good key, so it is asked again. Nothing else is asked
+  # in its place: no other endpoint reports the transfer flag the steps rule on, and the order probe
+  # this replaced placed a real $1 market buy. Still 500 after the last attempt → inconclusive.
+  def api_key_permissions_with_retry(client)
+    attempts = 0
+    loop do
+      attempts += 1
+      result = client.get_api_key_permissions
+      return result unless result.failure? && result.data&.dig(:status) == 500 && attempts < KEY_PERMISSIONS_ATTEMPTS
+
+      sleep(1)
     end
   end
 
@@ -526,28 +538,6 @@ class Exchanges::Coinbase < Exchange
       transacted_at: transacted_at,
       raw_data: txn
     }
-  end
-
-  # Fallback when Coinbase's key_permissions endpoint returns 500.
-  # Probes actual permissions: list_accounts for view, a small order for trade.
-  def validate_api_key_by_probing(client:, api_key:)
-    accounts_result = client.list_accounts
-    return Result::Success.new(false) if accounts_result.failure?
-
-    if api_key.trading?
-      # Attempt a tiny order that will be rejected for insufficient funds.
-      # HTTP 200 with success=false (e.g. INSUFFICIENT_FUND) proves trade permission.
-      # HTTP 403 (Faraday error) means no trade permission.
-      order_result = client.create_order(
-        client_order_id: SecureRandom.uuid,
-        product_id: 'BTC-USD',
-        side: 'BUY',
-        order_configuration: { market_market_ioc: { quote_size: '1' } }
-      )
-      Result::Success.new(order_result.success?)
-    else
-      Result::Success.new(true)
-    end
   end
 
   def get_portfolio_uuid
