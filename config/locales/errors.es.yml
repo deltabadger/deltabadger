@@ -74,6 +74,15 @@ es:
             restricted: "%{exchange} no permite operar con este activo desde tu región."
             rate_limited: "%{exchange} está limitando el número de solicitudes. El bot lo reintentará automáticamente."
         bots:
+            split:
+                missing: "Uno de estos bots ya no existe. Vuelve a elegir."
+                none: "Elige al menos un bot."
+                unavailable: "%{label} no se puede dividir ahora mismo."
+                reinvesting: "%{label} sigue reinvirtiendo. Inténtalo de nuevo en un momento."
+                proceeds: "%{label} aún tiene dinero de ventas anteriores. Reinviértelo o quédatelo primero."
+                external_sales: "%{label} vendió activos que nunca compró aquí, así que su historial no se puede dividir."
+                unpriced_sales: "%{label} tiene una venta que el exchange aún no ha valorado. Inténtalo cuando lo haga."
+                nothing_to_buy: "Ninguno de los activos de %{label} cotiza ya en su exchange."
             merge:
                 missing: "Uno de estos bots ya no existe. Elige de nuevo."
                 too_few: "Elige al menos dos bots."

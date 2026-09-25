@@ -8,6 +8,12 @@ nl:
             pick_exchange_first: "Begin met beleggen."
             connect_alpaca_html: "Wil je in aandelen beleggen? Koppel eerst Alpaca via %{settings_link}."
             settings_link: "Instellingen"
+        split:
+            explanation: "Alle bots worden gestopt en gesplitst in bots met één asset voor:"
+            proceeds: "Bot \"%{label}\" heeft %{amount} %{symbol} uit eerdere verkopen. Herinvesteren?"
+            reinvesting: "Herinvesteren voor \"%{label}\"…"
+            kept: "Blijft als gerealiseerde W/V."
+            success: "Bots gesplitst."
         merge:
             title: "%{count} bots samenvoegen"
             pick_hint: "Kies bots."

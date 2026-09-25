@@ -7,6 +7,12 @@ el:
             pick_exchange_first: "Ξεκίνα να επενδύεις."
             connect_alpaca_html: "Για να επενδύσεις σε μετοχές, σύνδεσε πρώτα το Alpaca στις %{settings_link}."
             settings_link: "Ρυθμίσεις"
+        split:
+            explanation: "Όλα τα bots θα σταματήσουν και θα διαχωριστούν σε bots ενός περιουσιακού στοιχείου για:"
+            proceeds: "Το bot «%{label}» έχει %{amount} %{symbol} από προηγούμενες πωλήσεις. Επανεπένδυση;"
+            reinvesting: "Επανεπένδυση για «%{label}»…"
+            kept: "Παραμένει ως πραγματοποιημένο Κ/Ζ."
+            success: "Τα bots διαχωρίστηκαν."
         merge:
             title: "Συγχώνευση %{count} bots"
             pick_hint: "Επιλέξτε bots."

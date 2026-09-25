@@ -12,6 +12,7 @@ da:
             <p>Det er <b style="color: #00A36C;">%{sp500_diff}%</b> mere end S&P 500 i samme periode.</p>
     button:
         merge: 'Flet'
+        split: "Opdel"
         confirm: 'Bekræft'
         ok: 'OK'
         update: 'Opdatér'
@@ -716,6 +717,7 @@ da:
     bot_activity:
         events:
             merged: "Flettet fra %{labels}"
+            split: "Opdelt fra %{label}"
             dca_skipped_restatement: "Bidrag sprunget over — en aktiesplit markedet endnu ikke har prissat"
             dca_skipped_wash_sale: "Intet købt — hver bestanddel er i en karensperiode"
             wash_sale_locked: "%{base} solgt — ingen tilbagekøb til og med %{until}, så tabet ved salget bevares"

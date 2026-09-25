@@ -14,16 +14,22 @@ import { Controller } from "@hotwired/stimulus"
 // link and form observers run in the bubble phase and honour defaultPrevented, so one listener on
 // `document` covers them all without any per-element wiring.
 //
+// Split uses the same mode (`enter` with mode "split"): a tile is pickable on its own — a multi-asset bot,
+// data-split-ok — so there is no joining, venue or dead-end logic, one pick is enough, and the bar's
+// form opens the split modal instead of the merge one.
+//
 // The mode is client state and nothing more: a reload, a full-body refresh or Back through the
 // snapshot cache drops it, and the dashboard comes back normal. Nothing here survives a navigation.
 export default class extends Controller {
-  static targets = ["bar", "stack", "hint", "alone", "warning", "confirm", "ids"]
+  static targets = ["bar", "stack", "hint", "alone", "warning", "confirm", "ids", "form"]
   static values = {
     connected: { type: Array, default: [] },
     names: { type: Object, default: {} },
     noPartner: String,
     noSharedExchange: String,
-    otherExchange: String
+    otherExchange: String,
+    splitUrl: String,
+    splitLabel: String
   }
 
   connect() {
@@ -47,9 +53,16 @@ export default class extends Controller {
     if (this.hasBarTarget) this.barTarget.removeEventListener("animationend", this.onShaken)
   }
 
-  enter() {
+  enter(event) {
     if (this.active || !this.hasBarTarget) return
 
+    this.split = event?.params?.mode === "split"
+    if (!this.mergeUrl) {
+      this.mergeUrl = this.formTarget.action
+      this.mergeLabel = this.confirmTarget.textContent
+    }
+    this.formTarget.action = this.split ? this.splitUrlValue : this.mergeUrl
+    this.confirmTarget.textContent = this.split ? this.splitLabelValue : this.mergeLabel
     this.active = true
     this.merged = false
     this.selected = []
@@ -94,7 +107,7 @@ export default class extends Controller {
 
     const tile = event.target.closest(".bot-tile")
     const pickable = tile && !event.target.closest(".bot-control") &&
-      tile.dataset.mergeOk === "true" && !tile.classList.contains("bot-tile--faded")
+      tile.dataset[this.okKey] === "true" && !tile.classList.contains("bot-tile--faded")
     if (pickable) {
       this.toggle(tile.dataset.botId)
       this.render()
@@ -152,14 +165,14 @@ export default class extends Controller {
 
     tiles.forEach(tile => {
       const isPicked = picked.includes(tile)
-      const joinable = tile.dataset.mergeOk === "true" && (!anchor || this.joinable(picked, tile))
+      const joinable = tile.dataset[this.okKey] === "true" && (this.split || !anchor || this.joinable(picked, tile))
       tile.classList.toggle("bot-tile--selected", isPicked)
       tile.classList.toggle("bot-tile--faded", !isPicked && !joinable)
     })
 
-    const alone = this.alone(anchor, picked, tiles)
+    const alone = this.split ? null : this.alone(anchor, picked, tiles)
     this.renderStack(alone ? [] : this.members(picked))
-    this.renderWarning(alone ? null : anchor, picked)
+    this.renderWarning(alone || this.split ? null : anchor, picked)
     this.hintTarget.hidden = picked.length > 0
     this.aloneTarget.textContent = alone || ""
     this.aloneTarget.hidden = !alone
@@ -171,7 +184,11 @@ export default class extends Controller {
       input.value = id
       return input
     }))
-    this.confirmTarget.disabled = picked.length < 2
+    this.confirmTarget.disabled = picked.length < (this.split ? 1 : 2)
+  }
+
+  get okKey() {
+    return this.split ? "splitOk" : "mergeOk"
   }
 
   // Same currency, and one venue that lists every asset picked so far and this tile's — the anchor's

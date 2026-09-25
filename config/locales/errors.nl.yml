@@ -74,6 +74,15 @@ nl:
             restricted: "%{exchange} staat handel in deze asset vanuit jouw regio niet toe."
             rate_limited: "%{exchange} beperkt het aantal verzoeken. De bot probeert het automatisch opnieuw."
         bots:
+            split:
+                missing: "Een van deze bots bestaat niet meer. Kies opnieuw."
+                none: "Kies minstens één bot."
+                unavailable: "%{label} kan nu niet worden gesplitst."
+                reinvesting: "%{label} is nog aan het herinvesteren. Probeer het zo opnieuw."
+                proceeds: "%{label} heeft nog geld uit eerdere verkopen. Herinvesteer of behoud het eerst."
+                external_sales: "%{label} heeft assets verkocht die hier nooit zijn gekocht, dus de geschiedenis kan niet worden gesplitst."
+                unpriced_sales: "%{label} heeft een verkoop die de exchange nog niet heeft geprijsd. Probeer het daarna opnieuw."
+                nothing_to_buy: "Geen van de assets van %{label} wordt nog verhandeld op de exchange."
             merge:
                 missing: "Een van deze bots bestaat niet meer. Kies opnieuw."
                 too_few: "Kies minstens twee bots."

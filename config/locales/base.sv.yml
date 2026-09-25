@@ -12,6 +12,7 @@ sv:
             <p>Det är <b style="color: #00A36C;">%{sp500_diff}%</b> mer än S&P 500 under samma period.</p>
     button:
         merge: 'Slå ihop'
+        split: "Dela upp"
         confirm: 'Bekräfta'
         ok: 'OK'
         update: 'Uppdatera'
@@ -716,6 +717,7 @@ sv:
     bot_activity:
         events:
             merged: "Sammanslagen från %{labels}"
+            split: "Uppdelad från %{label}"
             dca_skipped_restatement: "Insättning hoppades över — en aktiesplit marknaden ännu inte prissatt"
             dca_skipped_wash_sale: "Inget köpt — varje beståndsdel är i karenstid"
             wash_sale_locked: "%{base} sålt — inget återköp till och med %{until}, så att förlusten vid försäljningen består"

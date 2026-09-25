@@ -67,6 +67,15 @@ cs:
             restricted: "%{exchange} neumožňuje obchodovat toto aktivum z vašeho regionu."
             rate_limited: "%{exchange} omezuje počet požadavků. Bot to automaticky zkusí znovu."
         bots:
+            split:
+                missing: "Jeden z těchto botů už neexistuje. Vyberte znovu."
+                none: "Vyberte alespoň jednoho bota."
+                unavailable: "%{label} teď nelze rozdělit."
+                reinvesting: "%{label} stále znovu investuje. Zkuste to za chvíli."
+                proceeds: "%{label} má ještě peníze z dřívějších prodejů. Nejdřív je znovu investujte, nebo si je ponechte."
+                external_sales: "%{label} prodal aktiva, která tu nikdy nekoupil, takže jeho historii nelze rozdělit."
+                unpriced_sales: "%{label} má prodej, který burza ještě neocenila. Zkuste to znovu, až se tak stane."
+                nothing_to_buy: "Žádné z aktiv bota %{label} se už na jeho burze neobchoduje."
             merge:
                 missing: "Jeden z těchto botů už neexistuje. Vyberte znovu."
                 too_few: "Vyberte alespoň dva boty."

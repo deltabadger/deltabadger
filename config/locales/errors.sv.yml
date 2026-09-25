@@ -67,6 +67,15 @@ sv:
             restricted: "%{exchange} tillåter inte handel med den här tillgången från din region."
             rate_limited: "%{exchange} begränsar antalet förfrågningar. Boten försöker igen automatiskt."
         bots:
+            split:
+                missing: "En av botarna finns inte längre. Välj igen."
+                none: "Välj minst en bot."
+                unavailable: "%{label} kan inte delas upp just nu."
+                reinvesting: "%{label} återinvesterar fortfarande. Försök igen om en stund."
+                proceeds: "%{label} har fortfarande pengar från tidigare försäljningar. Återinvestera eller behåll dem först."
+                external_sales: "%{label} sålde tillgångar den aldrig köpt här, så dess historik kan inte delas upp."
+                unpriced_sales: "%{label} har en försäljning som börsen inte har prissatt än. Försök igen när den har det."
+                nothing_to_buy: "Ingen av tillgångarna i %{label} handlas längre på dess börs."
             merge:
                 missing: "En av dessa bottar finns inte längre. Välj igen."
                 too_few: "Välj minst två bottar."

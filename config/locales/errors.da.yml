@@ -67,6 +67,15 @@ da:
             restricted: "%{exchange} tillader ikke handel med dette aktiv fra din region."
             rate_limited: "%{exchange} begrænser antallet af anmodninger. Botten prøver automatisk igen."
         bots:
+            split:
+                missing: "En af disse bots findes ikke længere. Vælg igen."
+                none: "Vælg mindst én bot."
+                unavailable: "%{label} kan ikke opdeles lige nu."
+                reinvesting: "%{label} geninvesterer stadig. Prøv igen om et øjeblik."
+                proceeds: "%{label} har stadig penge fra tidligere salg. Geninvester eller behold dem først."
+                external_sales: "%{label} har solgt aktiver, den aldrig har købt her, så dens historik kan ikke opdeles."
+                unpriced_sales: "%{label} har et salg, som børsen endnu ikke har prissat. Prøv igen, når det er sket."
+                nothing_to_buy: "Ingen af aktiverne i %{label} handles længere på dens børs."
             merge:
                 missing: "En af disse botter findes ikke længere. Vælg igen."
                 too_few: "Vælg mindst to botter."
