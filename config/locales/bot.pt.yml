@@ -58,6 +58,7 @@ pt:
             follow_index: "Seguir um índice"
             custom_allocation: "Alocação personalizada"
             change_index: "Mudar o índice"
+            converting: "A converter…"
             none: "Nenhum índice tem ativos suficientes na %{exchange} para %{quote}."
         types:
             dca:

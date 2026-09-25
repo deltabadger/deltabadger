@@ -9,7 +9,10 @@
         <%# Bot::IndexSwitch: offered on a running bot too — the refusal says to stop it first. %>
         <% if bot.dca_index? %>
           <%= link_to t('bot.index_switch.change_index'), new_bot_index_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } %>
-          <%= button_to t('bot.index_switch.custom_allocation'), bot_custom_allocation_path(bot), class: "dropdown__item" %>
+          <%= tag.div data: { controller: 'converting', action: 'turbo:submit-start->converting#show turbo:submit-end->converting#hide' } do %>
+            <%= render 'bots/converting' %>
+            <%= button_to t('bot.index_switch.custom_allocation'), bot_custom_allocation_path(bot), class: "dropdown__item" %>
+          <% end %>
         <% elsif bot.dca_multi_asset? && !bot.selling? && MarketData.configured? %>
           <%= link_to t('bot.index_switch.follow_index'), new_bot_index_path(bot), class: "dropdown__item", data: { turbo_frame: "modal" } %>
         <% end %>

@@ -1,0 +1,14 @@
+<%# The "Converting…" modal the converting controller opens while a bot switches between index and
+    portfolio (Bot::IndexSwitch). %>
+<template data-converting-target="template">
+  <dialog class="dialog dialog--open">
+    <div class="dialog__vertical-center">
+      <div class="modal">
+        <div class="modal__body text-center">
+          <div class="loader" style="position: relative; top: 0; right: 0; margin: 0 auto 2rem;"></div>
+          <p><%= t('bot.index_switch.converting') %></p>
+        </div>
+      </div>
+    </div>
+  </dialog>
+</template>

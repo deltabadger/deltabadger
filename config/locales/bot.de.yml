@@ -57,6 +57,7 @@ de:
             follow_index: "Index folgen"
             custom_allocation: "Eigene Gewichtung"
             change_index: "Index wechseln"
+            converting: "Wird umgestellt…"
             none: "Kein Index hat genug Assets auf %{exchange} für %{quote}."
         types:
             dca:

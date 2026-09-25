@@ -57,6 +57,7 @@ it:
             follow_index: "Segui un indice"
             custom_allocation: "Allocazione personalizzata"
             change_index: "Cambia indice"
+            converting: "Conversione…"
             none: "Nessun indice ha abbastanza asset su %{exchange} per %{quote}."
         types:
             dca:

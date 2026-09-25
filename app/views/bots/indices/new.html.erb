@@ -1,5 +1,7 @@
 <%= render 'layouts/modal/full_page', close_url: bot_path(@bot) do %>
-  <div class="bot-creation-layout index-picker-layout" data-controller="index-filter" data-dialog-size="wide">
+  <div class="bot-creation-layout index-picker-layout" data-controller="index-filter converting" data-dialog-size="wide"
+       data-action="turbo:submit-start->converting#show turbo:submit-end->converting#hide">
+    <%= render 'bots/converting' %>
     <div class="modal__header">
       <h1 class="modal__title"><%= t(@bot.dca_index? ? 'bot.index_switch.change_index' : 'bot.index_switch.follow_index') %></h1>
     </div>

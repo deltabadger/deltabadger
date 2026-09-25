@@ -45,6 +45,10 @@ class Bots::IndicesControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select '.itile[data-index-category-id=layer-1]'
     assert_select '.itile[data-index-category-id=meme-token]', count: 0
+    # A pick waits for the new composition to be derived; the modal says so meanwhile.
+    assert_select "[data-controller~=converting][data-action*='turbo:submit-start->converting#show']"
+    assert_includes css_select('template[data-converting-target=template]').first.inner_html,
+                    I18n.t('bot.index_switch.converting')
   end
 
   test 'picking an index switches the bot and sends the browser to it' do

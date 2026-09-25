@@ -57,6 +57,7 @@ el:
             follow_index: "Ακολούθησε δείκτη"
             custom_allocation: "Δική σου κατανομή"
             change_index: "Άλλαξε δείκτη"
+            converting: "Μετατροπή…"
             none: "Κανένας δείκτης δεν έχει αρκετά στοιχεία στο %{exchange} για %{quote}."
         types:
             dca:

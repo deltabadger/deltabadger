@@ -57,6 +57,7 @@ bg:
             follow_index: "Следвай индекс"
             custom_allocation: "Собствено разпределение"
             change_index: "Смени индекса"
+            converting: "Преобразуване…"
             none: "Нито един индекс няма достатъчно активи в %{exchange} за %{quote}."
         types:
             dca:

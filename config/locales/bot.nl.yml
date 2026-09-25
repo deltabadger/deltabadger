@@ -58,6 +58,7 @@ nl:
             follow_index: "Index volgen"
             custom_allocation: "Eigen verdeling"
             change_index: "Index wijzigen"
+            converting: "Bezig met omzetten…"
             none: "Geen index heeft genoeg assets op %{exchange} voor %{quote}."
         types:
             dca:

@@ -57,6 +57,7 @@ en:
             follow_index: "Follow index"
             custom_allocation: "Custom allocation"
             change_index: "Change the index"
+            converting: "Converting…"
             none: "No index has enough assets on %{exchange} for %{quote}."
         types:
             dca:
