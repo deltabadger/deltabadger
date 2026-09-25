@@ -545,6 +545,18 @@ class Exchanges::Kraken < Exchange
     'nft_trade' => nil
   }.freeze
 
+  # Each Ledgers page costs 2 points on Kraken's private-call counter, which gives back ~0.33 points
+  # a second on the slowest tier, so a long history runs out part way. A throttled page is waited out
+  # (10 s covers one page on any tier) up to a few times in a row before the sync gives up.
+  #
+  # A long wait can outlast the sync job's concurrency lease (Solid Queue's 3 minutes), letting a
+  # second sync start beside it. That is tolerated rather than fixed by a longer lease, which would
+  # also hold a dead worker's lock longer: every ledger row has a tx_id and account_transactions is
+  # unique on (user, exchange, tx_id), so the overlap cannot duplicate rows — it only shares the
+  # counter, and the capped retries bound that.
+  LEDGER_THROTTLE_WAIT = 10
+  LEDGER_THROTTLE_RETRIES = 6
+
   def get_ledger(api_key:, start_time: nil)
     hm_client = Honeymaker.client('kraken',
                                   api_key: api_key.key,
@@ -555,12 +567,23 @@ class Exchanges::Kraken < Exchange
 
     # Paginate through ledger
     offset = 0
+    throttled = 0
     loop do
       result = hm_client.get_ledgers(start: start_unix, ofs: offset)
       return result if result.failure?
 
       errors = result.data['error']
-      return Result::Failure.new(*errors) if errors.is_a?(Array) && errors.any?
+      if errors.is_a?(Array) && errors.any?
+        # Wait the counter out and ask for the SAME page: failing here throws away every page read
+        # so far, and the next sync starts over from the first one.
+        if throttled_error?(errors) && throttled < LEDGER_THROTTLE_RETRIES
+          throttled += 1
+          sleep(LEDGER_THROTTLE_WAIT)
+          next
+        end
+        return Result::Failure.new(*errors)
+      end
+      throttled = 0
 
       ledger = result.data.dig('result', 'ledger') || {}
       break if ledger.empty?

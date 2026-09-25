@@ -218,4 +218,57 @@ class Exchanges::KrakenGetLedgerTest < ActiveSupport::TestCase
     result = @exchange.get_ledger(api_key: @api_key)
     assert result.failure?
   end
+
+  # --- Kraken's decaying rate counter ---------------------------------------------------------
+  # Each Ledgers page costs counter points that come back slowly, so a long history runs out part
+  # way through. Giving up there threw every page away and the next sync started over from page
+  # one — an account with a long history could never sync at all.
+
+  def ledger_page(id, count:)
+    Result::Success.new({ 'error' => [], 'result' => {
+                          'ledger' => { id => { 'refid' => "R#{id}", 'time' => 1_710_936_000.0, 'type' => 'deposit',
+                                                'subtype' => '', 'aclass' => 'currency', 'asset' => 'XXBT',
+                                                'amount' => '0.1', 'fee' => '0', 'balance' => '1.0' } },
+                          'count' => count
+                        } })
+  end
+
+  def throttled
+    Result::Success.new({ 'error' => ['EAPI:Rate limit exceeded'] })
+  end
+
+  test 'a throttled page is waited out and fetched again, not the whole history' do
+    client = mock('honeymaker_client')
+    Honeymaker.stubs(:client).returns(client)
+    client.expects(:get_ledgers).with(start: nil, ofs: 0).returns(ledger_page('L1', count: 2))
+    client.expects(:get_ledgers).with(start: nil, ofs: 1).times(3)
+          .returns(throttled).then.returns(throttled).then.returns(ledger_page('L2', count: 2))
+    @exchange.expects(:sleep).with(Exchanges::Kraken::LEDGER_THROTTLE_WAIT).twice
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    assert result.success?
+    assert_equal(%w[L1 L2], result.data.map { |entry| entry[:tx_id] })
+  end
+
+  test 'a counter that never recovers still fails, after a bounded wait' do
+    client = mock('honeymaker_client')
+    Honeymaker.stubs(:client).returns(client)
+    client.stubs(:get_ledgers).returns(throttled)
+    @exchange.expects(:sleep).times(Exchanges::Kraken::LEDGER_THROTTLE_RETRIES)
+
+    result = @exchange.get_ledger(api_key: @api_key)
+
+    assert result.failure?
+    assert_equal ['EAPI:Rate limit exceeded'], result.errors
+  end
+
+  test 'other errors are not waited on' do
+    client = mock('honeymaker_client')
+    Honeymaker.stubs(:client).returns(client)
+    client.stubs(:get_ledgers).returns(Result::Success.new({ 'error' => ['EGeneral:Permission denied'] }))
+    @exchange.expects(:sleep).never
+
+    assert @exchange.get_ledger(api_key: @api_key).failure?
+  end
 end
