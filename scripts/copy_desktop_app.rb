@@ -2,7 +2,6 @@
 
 require 'fileutils'
 require 'find'
-require 'pathname'
 
 repo_dir = Pathname.new(ARGV.fetch(0)).expand_path
 app_dir = Pathname.new(ARGV.fetch(1)).expand_path

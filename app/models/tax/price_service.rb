@@ -225,7 +225,7 @@ module Tax
       # "Any row at all" would cache a truncated first fetch forever, and the caller takes the LAST
       # price in the window — so a window ending nine days early would quietly become a year-boundary
       # value in a Vorabpauschale. Keep fetching until the window reaches its last weekday.
-      last_weekday = (from..to).reverse_each.find { |date| (1..5).cover?(date.wday) } || to
+      last_weekday = to.downto(from).find { |date| (1..5).cover?(date.wday) } || to
       if db_prices.where(date: last_weekday..).none?
         ticker = exchange.tickers.find_by(base: symbol)
         return {} unless ticker

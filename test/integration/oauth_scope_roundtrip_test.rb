@@ -71,7 +71,7 @@ class OauthScopeRoundtripTest < ActionDispatch::IntegrationTest
 
     assert_response :redirect, "expected redirect after authorize, got #{response.status}: #{response.body[0, 500]}"
     location = response.headers['Location']
-    code = CGI.parse(URI.parse(location).query)['code'].first
+    code = Rack::Utils.parse_query(URI.parse(location).query)['code']
     assert code.present?, "no authorization code in redirect: #{location}"
 
     post '/oauth/token', params: {

@@ -2,7 +2,7 @@
 # Deltabadger - Multi-stage Dockerfile for Umbrel/Docker deployment
 
 # Ruby base image version, pinned in one place (matches .ruby-version).
-ARG RUBY_VERSION=3.4.8
+ARG RUBY_VERSION=4.0.7
 
 # Stage 1: Build frontend assets
 FROM oven/bun:1.3-slim AS frontend-builder

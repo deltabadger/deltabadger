@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Ruby 3.4.8
+- Ruby 4.0.7
 - Node.js 18.19.1
 
 Use [asdf](https://asdf-vm.com) or your preferred version manager.

@@ -148,7 +148,7 @@ jobs:
         if: runner.os == 'Windows'
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.4.8'
+          ruby-version: '4.0.7'
           bundler-cache: false
 
       - name: Build signed and notarized macOS app

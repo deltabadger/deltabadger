@@ -5,9 +5,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$RubyVersion = '3.4.8'
-$RubyInstallerVersion = '3.4.8-1'
-$RubyInstallerSha256 = 'D1C3BA83AE748C08E35E0B1D9939D45DBCA7925E0A8BF84A42860BF19847E0D6'
+$RubyVersion = '4.0.7'
+$RubyInstallerVersion = '4.0.7-1'
+$RubyInstallerSha256 = '7A9BE96D3448ECBD9A81ECCAE1F619131DFCC761F2C98DDED03ECE6C05D0474F'
 $RubyInstallerUrl = "https://github.com/oneclick/rubyinstaller2/releases/download/RubyInstaller-$RubyInstallerVersion/rubyinstaller-$RubyInstallerVersion-x64.7z"
 
 $RepoDir = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))

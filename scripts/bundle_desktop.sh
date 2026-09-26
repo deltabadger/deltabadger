@@ -8,7 +8,7 @@ set -euo pipefail
 #   find _bundle/ruby _bundle/app/vendor/bundle -type f -print0 | while IFS= read -r -d '' f; do file "$f" | grep -q 'Mach-O' && otool -L "$f"; done | grep -E '/(opt/homebrew|usr/local|\.rbenv|\.asdf)/'
 # The command must print nothing; any match falsifies the relocatability claim.
 
-RUBY_VERSION=3.4.8
+RUBY_VERSION=4.0.7
 
 repo_dir=$(cd "$(dirname "$0")/.." && pwd)
 bundle_dir="$repo_dir/_bundle"
