@@ -20,7 +20,7 @@ check_prereqs() {
         echo "Missing:$missing"
         echo ""
         echo "Please install:"
-        [[ "$missing" == *"ruby"* ]] && echo "  Ruby 3.4.8: brew install rbenv && rbenv install 3.4.8"
+        [[ "$missing" == *"ruby"* ]] && echo "  Ruby 4.0.7: brew install rbenv && rbenv install 4.0.7"
         [[ "$missing" == *"node"* ]] && echo "  Node 18+:   brew install node@18"
         [[ "$missing" == *"rust"* ]] && echo "  Rust:       curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
         exit 1

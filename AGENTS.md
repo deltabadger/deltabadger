@@ -2,7 +2,7 @@ Deltabadger is an open-source DCA bot, portfolio-rebalancing tool, and portfolio
 
 ## Stack
 
-- Ruby 3.4.8 / Rails 8.1
+- Ruby 4.0.7 / Rails 8.1
 - Node.js 18.19.1
 - Hotwire (Turbo + Stimulus) for frontend
 - SQLite with Solid Queue (background jobs), Solid Cache, Solid Cable (websockets)
