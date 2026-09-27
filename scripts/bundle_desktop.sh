@@ -36,7 +36,7 @@ esac
 [ "$host_arch" = "$target_arch" ] || fail \
   "cannot build $target_arch on $host_arch: rbsecp256k1 is compiled for the build host"
 
-for command_name in file install_name_tool lipo npm otool python3 ruby ruby-build; do
+for command_name in codesign file install_name_tool lipo npm otool python3 ruby ruby-build; do
   require_command "$command_name"
 done
 
@@ -63,7 +63,10 @@ echo "Copying the Rails application..."
 ruby "$repo_dir/scripts/copy_desktop_app.rb" "$repo_dir" "$app_dir"
 
 echo "Building relocatable Ruby $RUBY_VERSION for $target_arch..."
+# Header padding lets install_name_tool add the bundle rpath later; without it the debug gem's
+# extension, built by ruby-build, has no room. mkmf reuses LDFLAGS for every native gem after it.
 RUBY_CONFIGURE_OPTS="${RUBY_CONFIGURE_OPTS:-} --enable-load-relative" \
+LDFLAGS="${LDFLAGS:-} -Wl,-headerpad_max_install_names" \
   ruby-build "$RUBY_VERSION" "$ruby_dir"
 
 ruby_archs=$(lipo -archs "$ruby_dir/bin/ruby")
@@ -75,7 +78,9 @@ esac
 bundler_version=$(awk '/^BUNDLED WITH$/ { getline; gsub(/^[[:space:]]+/, ""); print; exit }' \
   "$repo_dir/Gemfile.lock")
 [ -n "$bundler_version" ] || fail "could not read the Bundler version from Gemfile.lock"
-"$ruby_dir/bin/gem" install bundler --version "$bundler_version" --no-document
+# --force: Ruby 4.0 ships its own Bundler with a `bundle` executable, and RubyGems refuses to
+# overwrite it non-interactively.
+"$ruby_dir/bin/gem" install bundler --version "$bundler_version" --no-document --force
 
 echo "Installing production gems..."
 (
@@ -138,6 +143,10 @@ normalize_dylib_id() {
   esac
 }
 
+# Ruby 4.0's build leaves .dSYM debug-symbol bundles beside each extension; their DWARF files are
+# Mach-O that install_name_tool cannot rewrite, and the app never loads them.
+find "$ruby_dir" "$app_dir/vendor/bundle" -name '*.dSYM' -type d -prune -exec rm -rf {} +
+
 echo "Vendoring non-system dynamic libraries..."
 scan_list=$(mktemp "${TMPDIR:-/tmp}/deltabadger-mach-o.XXXXXX")
 trap 'rm -f "$scan_list"' EXIT INT TERM
@@ -170,9 +179,12 @@ done
 
 # Give each Mach-O an rpath to the bundle's common dylib directory. This works
 # for Ruby itself, its standard extensions, and native extensions in gems.
+# Only Mach-O that loads through @rpath needs one: prebuilt executables that link just the
+# system (sass-embedded's dart) have no header room for it and nothing to find there.
 find "$ruby_dir" "$app_dir/vendor/bundle" -type f -print0 > "$scan_list"
 while IFS= read -r -d '' macho; do
   is_macho "$macho" || continue
+  otool -L "$macho" | tail -n +2 | grep -q '@rpath/' || continue
   while IFS= read -r old_rpath; do
     case "$old_rpath" in
       /*) install_name_tool -delete_rpath "$old_rpath" "$macho" ;;
@@ -193,6 +205,15 @@ PY
     }
   fi
   rm -f "$rpath_error"
+done < "$scan_list"
+
+# install_name_tool invalidates each signature it touches, and Apple Silicon kills a binary whose
+# signature is invalid. Re-sign every Mach-O: with the release identity when CI provides one,
+# ad hoc otherwise.
+echo "Re-signing bundled Mach-O files..."
+while IFS= read -r -d '' macho; do
+  is_macho "$macho" || continue
+  codesign --force --sign "${APPLE_SIGNING_IDENTITY:--}" "$macho"
 done < "$scan_list"
 
 echo "Auditing bundled Mach-O paths and architectures..."

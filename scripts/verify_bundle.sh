@@ -34,7 +34,9 @@ case "$ruby_arch" in
   *) fail "bundled Ruby is not for this host ($host_arch): $ruby_arch" ;;
 esac
 
-tmp_dir=$(mktemp -d "${TMPDIR:-/tmp}/deltabadger-bundle-verify.XXXXXX")
+# Physical path: macOS's TMPDIR sits under the /var -> /private/var symlink, and Ruby reports its
+# prefix resolved, so every comparison below needs the resolved spelling.
+tmp_dir=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/deltabadger-bundle-verify.XXXXXX")" && pwd -P)
 server_pid=
 cleanup() {
   if [ -n "$server_pid" ] && kill -0 "$server_pid" 2>/dev/null; then
@@ -92,7 +94,7 @@ common_env=(
 
 verified_features="runner, databases, and /health-check"
 if [ -f "$ruby_dir/lib/libsodium.dylib" ]; then
-  env -i "${common_env[@]}" "$ruby_bin" -rrbnacl -e \
+  env -i "${common_env[@]}" "$ruby_bin" -rbundler/setup -rrbnacl -e \
     'abort "libsodium unavailable" unless RbNaCl::Sodium::Version::STRING' \
     || fail "rbnacl could not load the bundled libsodium"
   verified_features="runner, libsodium, databases, and /health-check"
