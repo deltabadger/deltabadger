@@ -206,6 +206,11 @@ module Tax
         next if price.to_d.zero?
 
         date = Time.at(timestamp_ms / 1000.0).utc.to_date
+        # The request ends at the midnight after `to`, and the answer can include it. That day may
+        # belong to another coin under the same symbol (the day after a dated alias ends), and a
+        # stored price is never replaced — so keep only the days this coin was asked for.
+        next unless (from..to).cover?(date)
+
         cache_key = "#{symbol}/#{currency}/#{date}"
         next if @price_cache[cache_key] # already from DB
 

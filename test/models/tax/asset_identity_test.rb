@@ -63,4 +63,22 @@ class Tax::AssetIdentityTest < ActiveSupport::TestCase
     assert_equal 'litentry', Tax::AssetIdentity.coin_id('LIT', exchange: @binance)
     assert_equal 'lighter', Tax::AssetIdentity.coin_id('LIT', exchange: @kraken)
   end
+
+  # QuickSwap redenominated QUICK 1 old = 1000 new. Binance traded the old token through 2023-07-17,
+  # suspended, and reopened in new units on 2023-07-21; no venue carried the new token before that.
+  # CoinGecko keeps the old token as `quick`, the new one as `quickswap`.
+  test 'QUICK means the old token until venues switched' do
+    coin('QUICK', 'quickswap', rank: 1500)
+
+    assert_equal 'quick', Tax::AssetIdentity.coin_id('QUICK', exchange: @binance, at: Time.utc(2021, 9, 17))
+    assert_equal 'quick', Tax::AssetIdentity.coin_id('QUICK', exchange: @binance, at: Time.utc(2023, 7, 20, 23))
+    assert_equal 'quickswap', Tax::AssetIdentity.coin_id('QUICK', exchange: @binance, at: Time.utc(2023, 7, 21))
+    assert_equal 'quickswap', Tax::AssetIdentity.coin_id('QUICK', exchange: create(:coinbase_exchange), at: Time.utc(2023, 9, 1)),
+                 'one coin per symbol per day: prices are stored by symbol'
+    assert_equal 'quickswap', Tax::AssetIdentity.coin_id('QUICK', exchange: @kraken, at: Time.utc(2024, 1, 1)),
+                 'after the switch any other venue resolves through its listing or the catalogue'
+    assert_equal [[Date.new(2021, 9, 4)..Date.new(2023, 7, 20), 'quick'],
+                  [Date.new(2023, 7, 21)..Date.new(2024, 1, 1), 'quickswap']],
+                 Tax::AssetIdentity.coin_ids_over('QUICK', exchange: @binance, from: Date.new(2021, 9, 4), to: Date.new(2024, 1, 1))
+  end
 end

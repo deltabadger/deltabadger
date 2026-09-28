@@ -125,7 +125,13 @@ Only aliases verified against the provider's coin records go in `ALIASES`; a sym
 name a coin for stays unpriced rather than guessed. Adding an alias means adding a migration that
 clears the dates it speaks for (`20260825200000_refetch_prices_under_their_coin.rb` is the shape):
 storage is insert-only, so a price fetched under the former identity would stand forever. The
-one-day fallback window is clipped at a dated alias for the same reason. Prices are still stored by SYMBOL, so two
+one-day fallback window is clipped at a dated alias for the same reason, `fetch_price_range` stores
+only the days it asked for (the request's closing midnight belongs to the next day, possibly the next
+coin), and the portfolio backfill never carries a price across a day where the coin changes.
+Because of that one-price-per-symbol-per-day storage, a dated alias must mean ONE coin on each day
+across all venues: QUICK is the old token everywhere through 2023-07-20 even though Coinbase kept
+trading it afterwards — a venue-scoped alias past that date would let one venue's price overwrite
+the other's. Prices are still stored by SYMBOL, so two
 coins sharing a ticker at the same time would share one price row — keying by coin id is the
 upgrade path.
 
