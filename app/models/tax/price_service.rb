@@ -173,6 +173,10 @@ module Tax
     # One API call for a whole window, and only when the table does not already cover it. Public
     # because the portfolio backfill fetches on the same terms — one range per symbol, once.
     def fetch_price_range(coin_id:, symbol:, currency:, from:, to:)
+      # A share, not a coin — a stock venue's symbol means its stock. The history endpoint serves
+      # coins only, so asking it costs a call on every ledger rebuild and can only come back empty.
+      return if Asset.exists?(external_id: coin_id, category: PortfolioSnapshot::BackfillJob::STOCK_CATEGORIES)
+
       # Load existing prices from DB first
       db_prices = HistoricalPrice.where(asset: symbol, currency: currency, date: from..to)
       db_prices.each do |hp|

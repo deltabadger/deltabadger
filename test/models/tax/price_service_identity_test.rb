@@ -48,6 +48,23 @@ class Tax::PriceServiceIdentityTest < ActiveSupport::TestCase
     assert rows.sole[:price_missing], 'unpriced, honestly — not priced as a share of XYZ Inc'
   end
 
+  # A stock venue's symbol means its share (AssetIdentity says so on purpose), and data-api's history
+  # endpoint serves CoinGecko coins only: asking it about DOCN.US costs a call on every ledger
+  # rebuild and can only fail.
+  test 'a share on a stock venue is never sent to the coin history endpoint' do
+    alpaca = create(:alpaca_exchange)
+    alpaca_key = create(:api_key, user: @user, exchange: alpaca)
+    create(:asset, symbol: 'DOCN', name: 'DigitalOcean', external_id: 'DOCN.US', category: 'Stock')
+    create(:account_transaction, api_key: alpaca_key, exchange: alpaca, entry_type: :other_income, base_currency: 'DOCN',
+                                 base_amount: 1, quote_currency: nil, quote_amount: nil,
+                                 transacted_at: Time.utc(2026, 7, 15, 12))
+    MarketData.expects(:get_historical_price_range).never
+
+    rows = enrich
+
+    assert rows.sole[:price_missing], 'unpriced, as before — just without the call'
+  end
+
   # The one-day fallback fetches a window around the day, and a window that crossed the day the
   # symbol changed coin would store one coin's prices under the other's days — for good, since
   # storage is insert-only.
