@@ -387,4 +387,31 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
 
     travel_to(Time.utc(2022, 6, 11, 12)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
   end
+
+  # A carried price is the same coin's price on an earlier day. Across the day a symbol changed coin
+  # it is another coin's — QUICK's old token is ~1000x the new one — so the carry stops there.
+  def quick_around_the_switch(api_key: @key, catalogued: true)
+    create(:asset, symbol: 'QUICK', name: 'Quickswap', external_id: 'quickswap', category: 'Cryptocurrency') if catalogued
+    tx(:other_income, day: 0, api_key: api_key, base_currency: 'QUICK', base_amount: 1, quote_currency: nil,
+                      quote_amount: nil, transacted_at: Time.utc(2023, 7, 19, 12))
+    Tax::PriceService.any_instance.stubs(:fetch_price_range)
+    { 19 => 70, 20 => 71, 22 => 0.055 }.each do |day, usd|
+      HistoricalPrice.create!(asset: 'QUICK', currency: 'USD', date: Date.new(2023, 7, day), price: usd)
+    end
+    travel_to(Time.utc(2023, 7, 23, 12)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+    PortfolioSnapshot.for_user(@user).where(date: Date.new(2023, 7, 19)..).order(:date).to_a
+  end
+
+  test 'a price is never carried across the day a symbol changed coin' do
+    rows = quick_around_the_switch
+
+    assert_equal [false, false, true, false], rows.map(&:partial), '07-20 is the old token: not 07-21\'s price'
+    assert_equal [70, 71, 0.055].map(&:to_d), rows.reject(&:partial).map(&:value_usd)
+  end
+
+  test 'a symbol whose coin nobody can name after a change is unpriced from that day, not carried' do
+    rows = quick_around_the_switch(catalogued: false)
+
+    assert_equal [false, false, true, false], rows.map(&:partial), 'a hole on 07-21 stays a hole; a stored 07-22 still counts'
+  end
 end

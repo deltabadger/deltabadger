@@ -83,4 +83,33 @@ class Tax::PriceServiceIdentityTest < ActiveSupport::TestCase
 
     assert_equal ['litentry'], fetched
   end
+
+  test 'QUICK before the redenomination is fetched as the old token' do
+    create(:asset, symbol: 'QUICK', name: 'Quickswap', external_id: 'quickswap', category: 'Cryptocurrency')
+    row('QUICK', Time.utc(2021, 9, 17, 5))
+    MarketData.expects(:get_historical_price_range).with(has_entries(coin_id: 'quick'))
+              .returns(Result::Success.new('prices' => [[Time.utc(2021, 9, 17).to_i * 1000, 492.2]]))
+    MarketData.expects(:get_historical_price_range).with(has_entries(coin_id: 'quickswap')).never
+
+    assert_equal([492.2.to_d], enrich.map { |r| r[:fiat_value] })
+  end
+
+  # The request runs to the midnight after `to`, and the archive answers that midnight too. Kept, the
+  # old token's first day past a cut would be stored under the symbol before the new coin's range is
+  # fetched — and storage is insert-only.
+  test 'a range stores only its own days, so neither coin writes into the other one\'s' do
+    ms = ->(date) { date.to_time(:utc).to_i * 1000 }
+    MarketData.stubs(:get_historical_price_range).with(has_entries(coin_id: 'quick'))
+              .returns(Result::Success.new('prices' => [[ms.call(Date.new(2023, 7, 18)), 1], [ms.call(Date.new(2023, 7, 19)), 70.0],
+                                                        [ms.call(Date.new(2023, 7, 20)), 71.0], [ms.call(Date.new(2023, 7, 21)), 72.0]]))
+    MarketData.stubs(:get_historical_price_range).with(has_entries(coin_id: 'quickswap'))
+              .returns(Result::Success.new('prices' => [[ms.call(Date.new(2023, 7, 21)), 0.06], [ms.call(Date.new(2023, 7, 22)), 0.055]]))
+    service = Tax::PriceService.new
+
+    service.fetch_price_range(coin_id: 'quick', symbol: 'QUICK', currency: 'USD', from: Date.new(2023, 7, 19), to: Date.new(2023, 7, 20))
+    service.fetch_price_range(coin_id: 'quickswap', symbol: 'QUICK', currency: 'USD', from: Date.new(2023, 7, 21), to: Date.new(2023, 7, 22))
+
+    assert_equal({ Date.new(2023, 7, 19) => 70, Date.new(2023, 7, 20) => 71, Date.new(2023, 7, 21) => 0.06, Date.new(2023, 7, 22) => 0.055 },
+                 HistoricalPrice.where(asset: 'QUICK').order(:date).pluck(:date, :price).to_h.transform_values(&:to_f))
+  end
 end

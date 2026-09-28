@@ -22,6 +22,11 @@ module Tax
     ALIASES = [
       # Terra collapsed in May 2022: the chain relaunched as `terra-luna-2`, the original became LUNC.
       Alias.new(symbol: 'LUNA', coin: 'terra-luna', exchange: nil, until: Date.new(2022, 5, 27)),
+      # QuickSwap redenominated QUICK 1 old = 1000 new: `quick` is the old token, `quickswap` the new.
+      # No venue carried the new one before 2023-07-21, when Binance reopened in new units. Coinbase
+      # kept trading the old token afterwards, but a venue-scoped alias past this date would give
+      # QUICK two coins on one day, and prices are stored by symbol and day (see above).
+      Alias.new(symbol: 'QUICK', coin: 'quick', exchange: nil, until: Date.new(2023, 7, 20)),
       # MATIC migrated to POL; its whole history stays under the original id.
       Alias.new(symbol: 'MATIC', coin: 'matic-network', exchange: nil, until: nil),
       # Listed on Binance under a symbol the catalogue no longer carries, or carries as another coin.

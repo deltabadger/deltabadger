@@ -277,12 +277,18 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
       # priced as the coin on a crypto venue.
       stock = Asset.find_by(symbol: symbol, category: STOCK_CATEGORIES) if exchange.stock_venue?
       key = stock ? "stock:#{symbol}" : symbol
-      fetch_missing(symbol, stock, exchange, from)
+      coins = stock ? [] : Tax::AssetIdentity.coin_ids_over(symbol, exchange: exchange, from: from, to: @last_date)
+      fetch_missing(symbol, stock, from, coins)
       observed = HistoricalPrice.where(asset: key, currency: 'USD', date: from..@last_date)
                                 .pluck(:date, :price).to_h
+      # A price carries over a hole only while the symbol still means the same coin: across the day
+      # it changed coin (or stopped meaning any), the last price is another coin's — QUICK's old
+      # token is ~1000x the new one.
+      coin_on = ->(date) { stock ? key : coins.find { |days, _| days.cover?(date) }&.last }
       last = nil
       carried = 0
       @prices[symbol] = (from..@last_date).index_with do |date|
+        last = nil if date > from && coin_on.call(date) != coin_on.call(date - 1)
         # ponytail: `stock_price_range` makes ONE candle request and Alpaca pages bars, so a stock
         # history longer than a page comes back truncated. The carry limit turns that into an
         # honest gap rather than a price repeated forever; paginating `get_bars` would remove it.
@@ -311,7 +317,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # One range per coin, and only when the table does not already cover it — both fetchers check
   # that for themselves. A symbol that changed coin is two ranges; a symbol nobody can name a coin
   # for has nowhere to fetch from and stays unpriced.
-  def fetch_missing(symbol, stock, exchange, from)
+  def fetch_missing(symbol, stock, from, coins)
     if stock
       key = @user.api_keys.includes(:exchange).find { |api_key| api_key.exchange.tickers.exists?(base: symbol) }
       return unless key
@@ -319,7 +325,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
       price_service.stock_price_range(exchange: key.exchange, api_key: key, symbol: symbol,
                                       from: from, to: @last_date)
     else
-      Tax::AssetIdentity.coin_ids_over(symbol, exchange: exchange, from: from, to: @last_date).each do |range, coin_id|
+      coins.each do |range, coin_id|
         price_service.fetch_price_range(coin_id: coin_id, symbol: symbol, currency: 'USD',
                                         from: range.begin, to: range.end)
       end
