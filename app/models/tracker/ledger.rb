@@ -608,12 +608,17 @@ module Tracker
           [[venue, base, -amount], [destination, base, amount - row[:transfer_fee_amount].to_d]]
       end
 
-      # Located, a transfer between venues is walked ahead of whatever shares its instant: the coins
-      # land on the far venue at the withdrawal, so a sale there stamped the same second is a sale of
-      # coins already there, not of coins it never had. Nothing else moves.
+      # Located, the coins land on the far venue at the withdrawal, so what the far venue did in that
+      # same second is walked after it: a sale there stamped with the transfer's instant sells coins
+      # already there, not coins it never had. The source venue keeps its order — a buy in that second
+      # still comes before the coins leave — and nothing else moves.
       def transfers_first(rows)
-        rows.each_with_index.sort_by { |row, index| [row[:transacted_at], transfer_between_venues?(row) ? 0 : 1, index] }
-            .map(&:first)
+        arriving = rows.select { |row| transfer_between_venues?(row) }.to_set { |row| [row[:transacted_at], row[:to_exchange]] }
+        return rows if arriving.empty?
+
+        rows.each_with_index.sort_by do |row, index|
+          [row[:transacted_at], arriving.include?([row[:transacted_at], row[:exchange]]) ? 1 : 0, index]
+        end.map(&:first)
       end
 
       def transfer_between_venues?(row)

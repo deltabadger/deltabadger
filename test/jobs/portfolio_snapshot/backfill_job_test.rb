@@ -539,4 +539,24 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     assert_not day.partial, 'a debt is not a hole in the history'
     assert_equal [0.to_d], PortfolioSnapshot.series(@user, exchange: alpaca).map(&:value_usd)
   end
+
+  test 'a transfer unlinked since the last sweep leaves no day behind on the venue it no longer reached' do
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 100)
+    kraken = create(:kraken_exchange)
+    kraken_key = create(:api_key, user: @user, exchange: kraken)
+    deposit = create(:account_transaction, api_key: kraken_key, entry_type: :deposit, base_currency: 'USD', base_amount: 100,
+                                           quote_currency: nil, quote_amount: nil, transacted_at: @day.call(2))
+    withdrawal = tx(:withdrawal, day: 1, base_currency: 'USD', base_amount: 100, linked_transaction: deposit)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(4)) do
+      PortfolioSnapshot::BackfillJob.perform_now(@user.id)
+      assert_equal @d0 + 1, PortfolioSnapshot.series(@user, exchange: kraken).first.date
+
+      withdrawal.update!(linked_transaction: nil)
+      PortfolioSnapshot::BackfillJob.perform_now(@user.id)
+    end
+
+    assert_equal [@d0 + 2, @d0 + 3], PortfolioSnapshot.series(@user, exchange: kraken).map(&:date)
+  end
 end
