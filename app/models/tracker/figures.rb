@@ -13,7 +13,8 @@ module Tracker
   #   * history AHEAD of the balance: the extra LEFT at cost — the holding costs its average cost
   #     times what the venue holds, and money in is debited what left;
   #   * balance AHEAD of the history: the extra ARRIVED at the balance's own price, carrying no gain;
-  #   * cash the venue lacks MOVED OUT; cash beyond the history MOVED IN;
+  #   * cash the venue lacks MOVED OUT at the basis it carried; cash beyond the history MOVED IN at
+  #     today's rate; what the cash held is worth beyond its basis is unrealised (a currency's move);
   #   * a coin bought since the venue's last sync is held at cost until the next sync;
   #   * a lot that opened at a price nobody had is taken at ZERO cost.
   # Each moves money in and basis together, so what is held less what went in is what was banked
@@ -105,6 +106,7 @@ module Tracker
       @pending = pending
       @notes = []
       @moved = 0.to_d
+      @cash_unrealised = 0.to_d
     end
 
     # A ledger still warming is NOT a ledger that disagrees. What the balances alone can say is
@@ -117,7 +119,8 @@ module Tracker
       resolve_cash(holdings)
       value = holdings.sum(0.to_d, &:value)
       invested = @ledger.total_invested_usd + @moved
-      unrealised = holdings.filter_map(&:unrealised).sum(0.to_d)
+      # A cash row has no cost to show, so the move of a currency held is added here, not on it.
+      unrealised = holdings.filter_map(&:unrealised).sum(0.to_d) + @cash_unrealised
       unpriced_note
       backstop(value, invested, unrealised)
 
@@ -221,19 +224,37 @@ module Tracker
       names.one? ? names.first : nil
     end
 
-    # Cash, per currency, in its own units — a euro against a euro — converted once, at today's rate,
-    # for what the assumption moved. A currency with no rate is taken at par, and says so.
+    # Cash, per currency, in its own units — a euro against a euro — resolved against the basis the
+    # ledger carried it at (`CashBook`): what the venue lacks left at that basis, as a coin leaves
+    # at cost; what it has beyond the history arrived at today's rate. What the cash held is worth
+    # beyond its basis is the currency's own move — unrealised, and stated in the total rather than
+    # on a cash row, which has no cost to show. A currency with no rate is taken at par, and says so.
     def resolve_cash(holdings)
-      venue = holdings.each_with_object(Hash.new(0.to_d)) do |holding, units|
-        units[holding.asset.symbol] += holding.quantity if cash?(holding.asset.symbol)
+      venue = Hash.new(0.to_d)
+      worth = Hash.new(0.to_d)
+      holdings.each do |holding|
+        next unless cash?(holding.asset.symbol)
+
+        venue[holding.asset.symbol] += holding.quantity
+        worth[holding.asset.symbol] += holding.value
       end
       (@ledger.cash.keys | venue.keys).each do |currency|
-        gap = @ledger.cash.fetch(currency, 0.to_d) - venue.fetch(currency, 0.to_d)
-        next if gap.zero?
-
-        usd = gap * rate(currency)
-        @moved -= usd
-        note(usd.positive? ? :cash_out : :cash_in, currency, nil, @ledger.cash.fetch(currency, 0.to_d), venue.fetch(currency, 0.to_d), usd.abs)
+        history = @ledger.cash.fetch(currency, 0.to_d)
+        held = venue.fetch(currency, 0.to_d)
+        basis = @ledger.cash_basis.fetch(currency, 0.to_d)
+        gap = history - held
+        if gap.positive?
+          left = basis * gap / history
+          @moved -= left
+          basis -= left
+          note(:cash_out, currency, nil, history, held, left)
+        elsif gap.negative?
+          arrived = -gap * rate(currency)
+          @moved += arrived
+          basis += arrived
+          note(:cash_in, currency, nil, history, held, arrived)
+        end
+        @cash_unrealised += worth.fetch(currency, 0.to_d) - basis
       end
     end
 

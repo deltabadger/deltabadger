@@ -16,7 +16,13 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
     @key = create(:api_key, user: @user, exchange: @binance)
     @key_kraken = create(:api_key, user: @user, exchange: @kraken)
     @btc = create(:asset, :bitcoin)
+    @eur = create(:asset, symbol: 'EUR', name: 'Euro')
+    @usd = create(:asset, symbol: 'USD', name: 'US Dollar')
     @day = ->(n) { Time.utc(2026, 1, n, 12) }
+  end
+
+  def euro(day, usd)
+    FxRate.create!(currency: 'USD', date: @day.call(day).to_date, rate: usd)
   end
 
   def tx(type, day:, key: @key, **attrs)
@@ -258,5 +264,66 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
     assert_nil warming.without_cash.invested
     assert_equal 900.to_d, warming.without_cash.value
     assert_equal(%w[BTC], warming.without_cash.holdings.map { |holding| holding.asset.symbol })
+  end
+
+  # A euro held is a position in dollars: its rise is a gain like any other, and until it is spent
+  # an unrealised one. Before the cash book the page had nowhere to put it, and said so.
+  test 'euro held through a rise is an unrealised gain, and the figures agree' do
+    euro(1, '1.10'.to_d)
+    FxRate.create!(currency: 'USD', date: Date.current, rate: '1.20'.to_d)
+    tx(:deposit, day: 1, base_currency: 'EUR', base_amount: 1_000)
+    balance(@eur, 1_000, 1_200)
+
+    result = figures
+
+    assert_empty result.notes
+    assert_equal 1_100.to_d, result.invested
+    assert_equal 100.to_d, result.unrealised
+    assert_equal result.value - result.invested, result.realised + result.unrealised
+  end
+
+  test 'euro the venue lacks left at the basis it carried' do
+    euro(1, '1.10'.to_d)
+    FxRate.create!(currency: 'USD', date: Date.current, rate: '1.20'.to_d)
+    tx(:deposit, day: 1, base_currency: 'EUR', base_amount: 1_000)
+    balance(@eur, 600, 720)
+
+    result = figures
+
+    assert_equal 440.to_d, result.notes.find { |note| note.kind == :cash_out }.amount_usd
+    assert_equal 660.to_d, result.invested
+    assert_equal result.value - result.invested, result.realised + result.unrealised
+  end
+
+  # The venue prices its euro, the ECB prices the assumption: two rates a few cents apart are not a
+  # bug, and must not read as one.
+  test 'a venue pricing its euro off the ECB rate does not trip the backstop' do
+    FxRate.create!(currency: 'USD', date: Date.current, rate: '1.1379'.to_d)
+    balance(@eur, '850.0905'.to_d, '966.28'.to_d)
+
+    result = figures
+
+    assert_not result.notes.any? { |note| note.kind == :figures_disagree }
+    assert_equal result.value - result.invested, result.realised + result.unrealised
+  end
+
+  # The account that found all three: a euro-funded exchange through the euro's rise, and a broker
+  # whose funding wallet charges a conversion fee as a row of its own.
+  test 'euro funding, a rise, a purchase and a broker fee still add up' do
+    euro(1, '1.05'.to_d)
+    tx(:deposit, day: 1, key: @key_kraken, base_currency: 'EUR', base_amount: 1_000)
+    euro(4, '1.17'.to_d)
+    tx(:buy, day: 4, key: @key_kraken, base_currency: 'BTC', base_amount: 1, quote_currency: 'EUR', quote_amount: 1_000)
+    tx(:deposit, day: 5, base_currency: 'USD', base_amount: '571.9'.to_d)
+    tx(:fee, day: 5, base_currency: 'USD', base_amount: '8.58'.to_d)
+    FxRate.create!(currency: 'USD', date: Date.current, rate: '1.17'.to_d)
+    balance(@btc, 1, 1_500)
+    balance(@usd, '563.32'.to_d, '563.32'.to_d)
+
+    result = figures
+
+    assert_not result.notes.any? { |note| note.kind == :figures_disagree }
+    assert_equal result.value - result.invested, result.realised + result.unrealised
+    assert_equal 120.to_d - '8.58'.to_d, result.realised, 'the euro rise, less the broker fee'
   end
 end
