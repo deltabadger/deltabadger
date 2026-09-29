@@ -608,21 +608,24 @@ module Tracker
           [[venue, base, -amount], [destination, base, amount - row[:transfer_fee_amount].to_d]]
       end
 
-      # Located, the coins land on the far venue at the withdrawal, so what the far venue did WITH THAT
-      # COIN in the same second is walked after it: a sale there stamped with the transfer's instant
-      # sells coins already there, not coins it never had. The source keeps its order — a buy in that
-      # second still comes before the coins leave — and nothing else moves.
+      # Located, the coins land on the far venue at the withdrawal, so within its second the withdrawal
+      # is walked as early as its own venue allows: ahead of anything the far venue did in that second
+      # — a sale there sells coins already there, not coins it never had — but never ahead of a row of
+      # its own venue that moves the same coin (a buy in that second still comes first). Only the
+      # withdrawal moves: every other row keeps its order, so a swap's legs and the cash a deposit
+      # brings stay where the venue put them.
       def transfers_first(rows)
-        arriving = rows.select { |row| transfer_between_venues?(row) }
-                       .to_set { |row| [row[:transacted_at], row[:to_exchange], row[:base_currency]] }
-        return rows if arriving.empty?
+        rows.chunk_while { |earlier, later| earlier[:transacted_at] == later[:transacted_at] }.flat_map do |instant|
+          instant.each_with_object([]) do |row, walked|
+            next walked << row unless transfer_between_venues?(row)
 
-        rows.each_with_index.sort_by do |row, index|
-          waits = [row[:base_currency], row[:fee_currency]].compact.any? do |symbol|
-            arriving.include?([row[:transacted_at], row[:exchange], symbol])
+            coin = row[:base_currency]
+            after = walked.rindex do |earlier|
+              earlier[:exchange] == row[:exchange] && earlier.values_at(:base_currency, :quote_currency, :fee_currency).include?(coin)
+            end
+            walked.insert(after ? after + 1 : 0, row)
           end
-          [row[:transacted_at], waits ? 1 : 0, index]
-        end.map(&:first)
+        end
       end
 
       def transfer_between_venues?(row)
