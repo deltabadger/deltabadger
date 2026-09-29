@@ -38,6 +38,11 @@ class Tracker::LocatedLedgerTest < ActiveSupport::TestCase
     end
     assert_equal all.positions.sum(0.to_d, &:cost_usd),
                  venues.sum(0.to_d) { |venue| scopes.fetch(venue.id).positions.sum(0.to_d, &:cost_usd) }
+    (all.cash_basis.keys | venues.flat_map { |venue| scopes.fetch(venue.id).cash_basis.keys }).each do |currency|
+      assert_equal all.cash_basis.fetch(currency, 0.to_d),
+                   venues.sum(0.to_d) { |venue| scopes.fetch(venue.id).cash_basis.fetch(currency, 0.to_d) },
+                   "#{currency} basis: the venues add up to the whole"
+    end
   end
 
   test 'a transferred coin keeps its cost on the venue it went to, and money in follows it' do
@@ -55,8 +60,8 @@ class Tracker::LocatedLedgerTest < ActiveSupport::TestCase
 
     binance = scopes.fetch(@binance.id)
     assert_empty binance.positions
-    assert_equal 200.to_d, binance.total_invested_usd, 'the network fee is what stayed behind, as a loss'
-    assert_equal 0.to_d, binance.realised_pnl_usd
+    assert_equal 200.to_d, binance.total_invested_usd, 'the network fee is what stayed behind'
+    assert_equal(-200.to_d, binance.realised_pnl_usd, '… as a loss')
 
     all = scopes.fetch(nil)
     assert_equal 20_000.to_d, all.total_invested_usd

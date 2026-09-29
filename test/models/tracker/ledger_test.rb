@@ -306,7 +306,9 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     assert_equal 0.to_d, summary.realised_pnl_usd
   end
 
-  test 'a linked transfer that arrived lighter lost the network fee at zero gain' do
+  # Not a disposal — nothing is sold, no round trip, nothing a tax report sees — but the fee's slice
+  # of the cost is gone, and a loss nobody books is a figure that no longer adds up.
+  test 'a linked transfer that arrived lighter lost the network fee, at its cost' do
     tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
     deposit = tx(:deposit, key: @key_kraken, day: 3, base_currency: 'BTC', base_amount: 0.99)
     tx(:withdrawal, day: 2, base_currency: 'BTC', base_amount: 1, linked_transaction: deposit)
@@ -316,7 +318,8 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     btc = summary.positions.sole
     assert_equal 0.99.to_d, btc.quantity
     assert_equal 19_800.to_d, btc.cost_usd
-    assert_equal 0.to_d, summary.realised_pnl_usd
+    assert_equal(-200.to_d, summary.realised_pnl_usd)
+    assert_empty summary.round_trips
   end
 
   test 'an unlinked crypto deposit opens an assumed-basis position at that day\'s price and counts as money in' do
@@ -394,7 +397,8 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     assert summary.incomplete
   end
 
-  test 'a standalone in-kind fee row shrinks the position at zero gain and counts as a fee at that day\'s price' do
+  # The fee is stated at what it was worth that day; what the account lost is what those coins cost.
+  test 'a standalone in-kind fee row shrinks the position, loses its cost and counts as a fee at that day\'s price' do
     price('BTC', 2, 50_000)
     tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
     tx(:fee, day: 2, base_currency: 'BTC', base_amount: 0.001)
@@ -402,7 +406,8 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     summary = Tracker::Ledger.for(@user)
 
     assert_equal 0.999.to_d, summary.positions.sole.quantity
-    assert_equal 0.to_d, summary.realised_pnl_usd
+    assert_equal(-20.to_d, summary.realised_pnl_usd)
+    assert_empty summary.round_trips
     assert_equal 50.to_d, summary.fees_usd
   end
 

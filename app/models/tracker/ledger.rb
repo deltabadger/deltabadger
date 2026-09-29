@@ -29,9 +29,11 @@ module Tracker
                             :proceeds_usd, :fees_usd, :realised_pnl_usd, :incomplete)
     # `openings`: per asset, what must have been held before its history begins (see `openings`).
     # `cash`: the cash the ledger holds, per currency, in that currency's units; `cash_usd` its sum
-    # at today's rate. `unpriced_proceeds_usd`: what was sold out of coins nobody could price.
+    # at today's rate; `cash_basis` the dollars it carried in (`CashBook`) — so what went in plus
+    # what was banked is what is held at cost plus the cash at its basis.
+    # `unpriced_proceeds_usd`: what was sold out of coins nobody could price.
     Summary = Data.define(:positions, :round_trips, :total_invested_usd, :received_usd, :realised_pnl_usd,
-                          :fees_usd, :cash_usd, :cash, :unpriced_proceeds_usd, :incomplete, :openings,
+                          :fees_usd, :cash_usd, :cash, :cash_basis, :unpriced_proceeds_usd, :incomplete, :openings,
                           :loss_sales, :computed_at)
     # One term of money in, as the chart reads it day by day: the row's instant, what it moved, and
     # whether the figure could be stated in full.
@@ -43,9 +45,14 @@ module Tracker
       def initialize(at:, amount:, complete:, opens: nil, exchange: nil) = super
     end
     # One enrichment, two FIFO walks: the located one every figure reads, and the account-wide one
-    # only `loss_sales` reads.
-    Walk = Data.define(:price_service, :rows, :engine, :disposals, :global_disposals, :terms, :cash)
+    # only `loss_sales` reads. `book` is the cash (`CashBook`); `costs`, per venue, what coins cost
+    # when they left for nothing.
+    Walk = Data.define(:price_service, :rows, :engine, :disposals, :global_disposals, :terms, :book, :costs)
     ENGINE_OPTIONS = { crypto_to_crypto_taxable: false, stablecoin_as_fiat: true }.freeze
+    # Rows whose base leaving is a cost: nothing came back for it.
+    COSTS = %w[fee withholding_tax lost].freeze
+    # Coin rows whose cash fee FIFO puts into an acquisition's cost (`AcquisitionFee`).
+    ACQUISITIONS = %w[buy staking_reward lending_interest airdrop mining other_income swap_in].freeze
 
     CACHE_TTL = 30.days
     COMPUTE_PASSES = 3
@@ -109,6 +116,8 @@ module Tracker
         @released = Hash.new { |basis, key| basis[key] = [] }
         @moved = {}.compare_by_identity
         @roc = Hash.new(0.to_d)
+        @fee_basis = {}.compare_by_identity
+        @fee_asset_realised = Hash.new(0.to_d)
         super(transactions.map { |tx| remap(tx) }, **options)
       end
 
@@ -132,6 +141,13 @@ module Tracker
 
       def roc_at(venue) = @roc[venue]
 
+      # What the fee slice of a linked coin transfer cost — gone on the way, bought nothing.
+      def transfer_fee_basis(row) = @fee_basis[row]
+
+      # What third-coin fees realised on a venue: the value each was counted at, less the basis its
+      # coins carried.
+      def fee_asset_realised_at(venue) = @fee_asset_realised[venue]
+
       def uncovered_at?(venue) = @uncovered_venues.include?(venue)
 
       private
@@ -150,11 +166,15 @@ module Tracker
       # reads the same located moves); what still gets through travels as a tranche of nothing,
       # exactly as a swap's uncovered out-leg does.
       def shrink_pool_for_transfer_fee(asset_lots, transaction)
+        before = pool_basis(asset_lots)
         super
+        # Cash is not held as lots (a sale into USDT credits a pot, not a pool); it moves in the
+        # cash book, fee and all.
+        return if UnfundedCash.cash?(transaction[:base_currency])
+
+        @fee_basis[transaction] = before - pool_basis(asset_lots)
         destination = transaction[:to_exchange]
         return unless @located && destination && destination != transaction[:exchange]
-        # Cash is not held as lots (a sale into USDT credits a pot, not a pool); it moves as money in.
-        return if UnfundedCash.cash?(transaction[:base_currency])
 
         move_to(destination, asset_lots, transaction)
       end
@@ -217,9 +237,33 @@ module Tracker
 
       def consume_disposal_fee(lots, transaction)
         @paying_trade_fee = true
+        @fee_value = transaction[:fee_fiat_value].to_d
+        # Off a coin's gain it was counted at its value; off cash sold, nothing counts it — a cost.
+        @fee_is_cost = UnfundedCash.cash?(transaction[:base_currency])
         super
       ensure
         @paying_trade_fee = false
+      end
+
+      def apply_acquisition_fee(store, transaction, amount, fiat_value)
+        @fee_value = transaction[:fee_fiat_value].to_d
+        # Cash bought is the cash book's, which carries what the cash cost and nothing else: a coin
+        # paid as its fee has no lot to go into, and leaves at its basis — a cost.
+        @fee_is_cost = UnfundedCash.cash?(transaction[:base_currency])
+        super
+      end
+
+      # A fee paid in a third coin leaves that coin at the value it was counted at — capitalised
+      # into what was bought, or deducted from what was sold — and FIFO records no disposal. The
+      # difference from the basis the coins carried is theirs to realise.
+      def consume_fee_asset(lots, fee_asset, fee_amount)
+        before = pool_basis(lots[fee_asset])
+        super
+        # A stablecoin fee is cash: the cash book pays it, at face, and it gains nothing.
+        return if UnfundedCash.cash?(fee_asset)
+
+        released = before - pool_basis(lots[fee_asset])
+        @fee_asset_realised[venue] += (@fee_is_cost ? 0.to_d : @fee_value) - released
       end
 
       def pool_basis(lots)
@@ -227,6 +271,16 @@ module Tracker
       end
 
       def record_disposal(lots, disposals, transaction, asset, amount, fiat_value)
+        # Cash is the cash book's (`CashBook`): a stablecoin sold or lost leaves its lots silently,
+        # and the book realises what the currency did — once, at the basis it carried. As a disposal
+        # it would realise against whatever stablecoin lots happened to exist, and none do when the
+        # dollars came from a sale's quote leg. A third coin paid as its fee still leaves (a cost).
+        if UnfundedCash.cash?(asset)
+          dequeue_tranches(lots[asset], amount)
+          consume_disposal_fee(lots, transaction)
+          return
+        end
+
         held = lots[asset].sum(0.to_d) { |lot| lot[:amount] }
         super
         disposals.last[:closes_position] = held.positive? && held >= amount && lots[asset].empty?
@@ -442,7 +496,7 @@ module Tracker
       # again — which for a position they have closed is never.
       def cache_key(user)
         scope = AccountTransaction.for_user(user)
-        "tracker_ledger_v9_#{shape}_#{user.id}_" \
+        "tracker_ledger_v10_#{shape}_#{user.id}_" \
           "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}_#{HistoricalPrice.generation}"
       end
 
@@ -451,7 +505,8 @@ module Tracker
       #
       # `v8` still means "the FIGURES changed": a calculation the members cannot see (v2 and v3 were
       # both bumped for exactly that). Forgetting it serves a stale number until the transactions
-      # move — visible, and self-limiting.
+      # move — visible, and self-limiting. (`v10`: what cash and coins cost when they left for nothing,
+      # what a third coin paid as a fee gained, and what a currency did while held — `CashBook`.)
       #
       # `shape` means "the PAYLOAD changed", and forgetting that is neither. What is cached is a
       # Marshal'd Data, so its member list is part of the payload: add a member and every entry the
@@ -486,9 +541,9 @@ module Tracker
         located = open_with_what_must_have_been_held(located_order, price_service, located: true)
         engine = Engine.new(located: true)
         disposals = engine.calculate(taxable(located), **ENGINE_OPTIONS)
-        terms, cash = money_in_terms(located, price_service, engine)
+        terms, book, costs = money_in_terms(located, price_service, engine)
         Walk.new(price_service: price_service, rows: located, engine: engine, disposals: disposals,
-                 global_disposals: global_disposals, terms: terms, cash: cash)
+                 global_disposals: global_disposals, terms: terms, book: book, costs: costs)
       end
 
       # Sorted BEFORE enrichment, which preserves order and drops the id — in the one order every
@@ -511,9 +566,7 @@ module Tracker
         terms = walk.terms.select { |_, term| term.exchange == venue }
         disposals = walk.disposals.select { |disposal| disposal[:exchange] == venue }
         rows = walk.rows.select { |row| row[:exchange] == venue }
-        cash = walk.cash.each_with_object(Hash.new(0.to_d)) do |((at, currency), amount), total|
-          total[currency] += amount if at == venue
-        end
+        cash = per_venue(walk.book.cash, venue)
         kept = price_service.warnings.size
         cash_usd = cash_in_usd(cash, price_service)
         fees = fees(rows, price_service)
@@ -522,9 +575,13 @@ module Tracker
           round_trips: round_trips(disposals),
           total_invested_usd: terms.sum(0.to_d) { |_, term| term.amount },
           received_usd: terms.sum(0.to_d) { |row, term| in_kind?(row) ? term.amount : 0.to_d },
-          realised_pnl_usd: disposals.sum(0.to_d) { |disposal| disposal[:gain_loss].to_d } + walk.engine.roc_at(venue),
+          # What was sold, and — booked nowhere else — what cash and coins cost when they left for
+          # nothing, what a third coin paid as a fee gained, and what a currency did while it was held.
+          realised_pnl_usd: disposals.sum(0.to_d) { |disposal| disposal[:gain_loss].to_d } + walk.engine.roc_at(venue) +
+                            walk.engine.fee_asset_realised_at(venue) + walk.book.realised[venue] + walk.costs[venue],
           fees_usd: fees,
           cash: cash,
+          cash_basis: per_venue(walk.book.basis, venue).reject { |_, usd| usd.zero? },
           cash_usd: cash_usd,
           unpriced_proceeds_usd: disposals.sum(0.to_d) { |disposal| disposal[:unpriced_proceeds].to_d },
           # Only the account-wide walk judges a loss — see `walk`.
@@ -560,6 +617,9 @@ module Tracker
           # Cash is a balance, not a position, and the ledger knows it after every row — stated so
           # the page can hold it against what the venue reports, as it does every coin.
           cash: cash,
+          cash_basis: venues.each_with_object(Hash.new(0.to_d)) do |summary, total|
+            summary.cash_basis.each { |currency, usd| total[currency] += usd }
+          end.reject { |_, usd| usd.zero? },
           cash_usd: sum.call(:cash_usd),
           unpriced_proceeds_usd: sum.call(:unpriced_proceeds_usd),
           loss_sales: loss_sales(walk.global_disposals),
@@ -575,9 +635,16 @@ module Tracker
 
       def empty_summary(computed_at = Time.current)
         Summary.new(positions: [], round_trips: [], total_invested_usd: 0.to_d, received_usd: 0.to_d,
-                    realised_pnl_usd: 0.to_d, fees_usd: 0.to_d, cash: {}, cash_usd: 0.to_d,
+                    realised_pnl_usd: 0.to_d, fees_usd: 0.to_d, cash: {}, cash_basis: {}, cash_usd: 0.to_d,
                     unpriced_proceeds_usd: 0.to_d, incomplete: false, openings: {}, loss_sales: {},
                     computed_at: computed_at)
+      end
+
+      # One venue's pots out of the book's, by currency.
+      def per_venue(pots, venue)
+        pots.each_with_object(Hash.new(0.to_d)) do |((at, currency), amount), total|
+          total[currency] += amount if at == venue
+        end
       end
 
       # One position per symbol across the venues holding it.
@@ -737,34 +804,34 @@ module Tracker
       # A linked transfer between venues is capital MOVED: the cost the coins carried leaves the
       # source and arrives at the destination, both at the withdrawal, so the two cancel in the whole.
       def money_in_terms(rows, price_service, engine)
-        cash = Hash.new(0.to_d)
+        book = CashBook.new(price_service)
+        costs = Hash.new(0.to_d)
+        carried = {}.compare_by_identity
         closes = UnfundedCash.closers(rows.map { |row| [row[:exchange], row[:group_id]] })
         terms = rows.each_with_index.flat_map do |row, index|
-          cash_moves(row).each { |currency, amount| cash[[row[:exchange], currency]] += amount }
+          # Before the book: a rate it could not find is a figure this row could not state.
           kept = price_service.warnings.size
-          amount = contribution(row, price_service, engine)
-          amount += unfunded_contribution(cash, closes[index], row, price_service) if closes[index]
+          withdrawn = book_cash(book, row, carried)
+          costs[row[:exchange]] -= coin_cost(row, engine)
+          amount = contribution(row, price_service, engine, withdrawn)
+          amount += unfunded_contribution(book, closes[index], row) if closes[index]
           complete = price_service.warnings.size == kept && !(row[:price_missing] && valued_by_price?(row))
           [[row, Term.new(at: row[:transacted_at], amount: amount, complete: complete, exchange: row[:exchange],
                           opens: row[:opening] ? [row[:base_currency], row[:base_amount]] : nil)]] +
-            transfer_terms(row, price_service, engine).map { |term| [row, term] }
+            transfer_terms(row, price_service, engine, carried).map { |term| [row, term] }
         end
-        [terms, cash]
+        [terms, book, costs]
       end
 
-      # Cash carries its face value (a fiat at the day's rate); a coin the cost of the lots it took.
-      def transfer_terms(row, price_service, engine)
+      # Cash carries the basis it had in the pot it left (`CashBook#carry`); a coin the cost of the
+      # lots it took.
+      def transfer_terms(row, price_service, engine, carried)
         return [] unless transfer_between_venues?(row)
 
         symbol = row[:base_currency]
         kept = price_service.warnings.size
         moved = if UnfundedCash.cash?(symbol)
-                  arrived = row[:base_amount].to_d - row[:transfer_fee_amount].to_d
-                  if STABLECOINS.include?(symbol)
-                    arrived
-                  else
-                    price_service.convert_fiat(amount: arrived, from: symbol, to: 'USD', timestamp: row[:transacted_at])
-                  end
+                  carried.fetch(row, 0.to_d)
                 else
                   engine.moved_basis(row) || 0.to_d
                 end
@@ -799,24 +866,372 @@ module Tracker
         UnfundedCash.moves(**row.slice(*UnfundedCash::MOVE_KEYS))
       end
 
-      def unfunded_contribution(cash, venue, row, price_service)
+      # Every cash move of the row into the book, each outflow sorted into what it paid for, what it
+      # cost, what was withdrawn and what was carried to another pot (see `CashBook`). Returns the
+      # basis the withdrawn cash carried; a carried basis is left in `carried` for `transfer_terms`.
+      def book_cash(book, row, carried)
+        return 0.to_d if UnfundedCash.borrowed?(row[:tx_id])
+
+        at = row[:transacted_at]
+        venue = row[:exchange]
+        base = row[:base_currency]
+        type = row[:entry_type].to_s
+        costs = cash_costs(row)
+        moves = cash_moves(row)
+        if row[:linked] && UnfundedCash.cash?(base)
+          if type == 'withdrawal'
+            # The whole amount leaves; what arrives lands on the far pot, at the withdrawal, with
+            # the basis it carried — as the engine moves a coin's lots.
+            fee = [row[:transfer_fee_amount].to_d, 0.to_d].max
+            carried[row] = book.carry(venue, base, row[:base_amount].to_d, to: row[:to_exchange] || venue, at: at, cost: fee)
+          else
+            # Already landed by its withdrawal. A fee it netted on arrival leaves that pot as a cost.
+            netted = row[:base_amount].to_d - moves.sum(0.to_d) { |currency, amount| currency == base ? amount : 0.to_d }
+            book.move(venue, base, -netted, at: at, cost: netted) if netted.positive?
+          end
+          moves = moves.reject { |currency, _| currency == base }
+          costs.delete(base)
+        end
+        withdrawing = (type == 'withdrawal' && !row[:linked]) || (type == 'swap_out' && row[:orphan])
+        worth = cash_counterpart_worth(book, row)
+        moves.sum(0.to_d) do |currency, amount|
+          out = amount.negative? ? -amount : 0.to_d
+          cost = [costs[currency], out].min
+          costs[currency] -= cost
+          taken = withdrawing && currency == base ? out - cost : 0.to_d
+          book.move(venue, currency, amount, at: at, cost: cost, withdrawn: taken, worth: worth[currency])
+        end.tap do
+          # What is left never reached a pot — a fee netted out of cash on its way in, at most what it
+          # actually took (`moves` never lets an arrival go below nothing).
+          costs.each { |currency, units| book.expense(venue, currency, units, at: at) if units.positive? }
+        end
+      end
+
+      # Units of cash, per currency, that left this row with nothing in return.
+      def cash_costs(row)
+        type = row[:entry_type].to_s
+        base = row[:base_currency]
+        fee_currency = row[:fee_currency]
+        fee = row[:fee_amount].to_d
+        costs = Hash.new(0.to_d)
+        costs[base] += row[:base_amount].to_d.abs if COSTS.include?(type) && UnfundedCash.cash?(base)
+        return costs unless fee.positive? && UnfundedCash.cash?(fee_currency)
+        return costs if fee_already_counted?(row)
+
+        if fee_currency == base && UnfundedCash::BASE_IN.include?(type)
+          # Netted out of an arrival — never more than the arrival itself (`UnfundedCash.moves`).
+          costs[base] += [fee, row[:base_amount].to_d].min
+        elsif fee_currency == base
+          # Charged on top of what left (`FEE_ON_TOP`): all of it.
+          costs[base] += fee
+        else
+          costs[fee_currency] += fee
+        end
+        costs
+      end
+
+      # Whether a cash fee already sits somewhere: in a coin's cost or off a coin's gain, as FIFO's
+      # branch for the row puts it (`Tax::Methods::FIFO#calculate`), in the basis of a currency bought
+      # with cash, or inside the amount of what left.
+      def fee_already_counted?(row)
+        type = row[:entry_type].to_s
+        base = row[:base_currency]
+        if row[:fee_currency] == base
+          # Inside the amount that left — except a settlement leg's, which `UnfundedCash.moves` adds
+          # ON TOP (`FEE_ON_TOP`, no quote of its own): that extra bought nothing.
+          return true if COSTS.include?(type) || type == 'withdrawal'
+          return row[:quote_amount].present? if %w[sell swap_out].include?(type)
+        end
+        return type == 'buy' && cash_for_cash?(row) if UnfundedCash.cash?(base)
+
+        # `fiat_disposal?` reads the quote CURRENCY only — a grouped leg `enrich` settled against cash
+        # has one and no amount — and sends the swap to `record_disposal`, which deducts the fee.
+        ACQUISITIONS.include?(type) || (type == 'deposit' && !row[:linked]) || type == 'sell' ||
+          (type == 'swap_out' && !row[:orphan] && UnfundedCash.cash?(row[:quote_currency]))
+      end
+
+      def cash_for_cash?(row)
+        row[:quote_amount].present? && UnfundedCash.cash?(row[:base_currency]) && UnfundedCash.cash?(row[:quote_currency])
+      end
+
+      # A single-row trade of cash for cash: the base side is worth what the quote side came to, not
+      # the day's rate — euro sold for 125 dollars realises against 125, and dollars that bought euro
+      # give that euro their face as its basis, with a fee paid in other cash on top (a buy's fee is
+      # capitalised, `fee_already_counted?`). The quote side keeps its own value (face, for dollars).
+      def cash_counterpart_worth(book, row)
+        return {} unless cash_for_cash?(row)
+
+        at = row[:transacted_at]
+        worth = book.value(row[:quote_currency], row[:quote_amount].to_d, at)
+        fee_currency = row[:fee_currency]
+        if row[:entry_type].to_s == 'buy' && row[:fee_amount].to_d.positive? && fee_currency != row[:base_currency] &&
+           UnfundedCash.cash?(fee_currency)
+          worth += book.value(fee_currency, row[:fee_amount].to_d, at)
+        end
+        { row[:base_currency] => worth }
+      end
+
+      # The basis coins took with them when they left for nothing: an in-kind fee row, or the slice a
+      # linked transfer paid on the way. Read in walk order, as `contribution` reads a withdrawal's.
+      def coin_cost(row, engine)
+        return 0.to_d if UnfundedCash.cash?(row[:base_currency])
+
+        case row[:entry_type].to_s
+        when 'fee' then engine.basis_released(row[:base_currency], row[:base_amount].to_d, row[:exchange]) || 0.to_d
+        when 'withdrawal' then (row[:linked] && engine.transfer_fee_basis(row)) || 0.to_d
+        else 0.to_d
+        end
+      end
+
+      # Every cash move of the row into the book, each outflow sorted into what it paid for, what it
+      # cost, what was withdrawn and what was carried to another pot (see `CashBook`). Returns the
+      # basis the withdrawn cash carried; a carried basis is left in `carried` for `transfer_terms`.
+      def book_cash(book, row, carried)
+        return 0.to_d if UnfundedCash.borrowed?(row[:tx_id])
+
+        at = row[:transacted_at]
+        venue = row[:exchange]
+        base = row[:base_currency]
+        type = row[:entry_type].to_s
+        costs = cash_costs(row)
+        moves = cash_moves(row)
+        if row[:linked] && UnfundedCash.cash?(base)
+          if type == 'withdrawal'
+            # The whole amount leaves; what arrives lands on the far pot, at the withdrawal, with
+            # the basis it carried — as the engine moves a coin's lots.
+            fee = [row[:transfer_fee_amount].to_d, 0.to_d].max
+            carried[row] = book.carry(venue, base, row[:base_amount].to_d, to: row[:to_exchange] || venue, at: at, cost: fee)
+          else
+            # Already landed by its withdrawal. A fee it netted on arrival leaves that pot as a cost.
+            netted = row[:base_amount].to_d - moves.sum(0.to_d) { |currency, amount| currency == base ? amount : 0.to_d }
+            book.move(venue, base, -netted, at: at, cost: netted) if netted.positive?
+          end
+          moves = moves.reject { |currency, _| currency == base }
+          costs.delete(base)
+        end
+        withdrawing = (type == 'withdrawal' && !row[:linked]) || (type == 'swap_out' && row[:orphan])
+        worth = cash_counterpart_worth(book, row)
+        moves.sum(0.to_d) do |currency, amount|
+          out = amount.negative? ? -amount : 0.to_d
+          cost = [costs[currency], out].min
+          costs[currency] -= cost
+          taken = withdrawing && currency == base ? out - cost : 0.to_d
+          book.move(venue, currency, amount, at: at, cost: cost, withdrawn: taken, worth: worth[currency])
+        end.tap do
+          # What is left never reached a pot — a fee netted out of cash on its way in, at most what it
+          # actually took (`moves` never lets an arrival go below nothing).
+          costs.each { |currency, units| book.expense(venue, currency, units, at: at) if units.positive? }
+        end
+      end
+
+      # Units of cash, per currency, that left this row with nothing in return.
+      def cash_costs(row)
+        type = row[:entry_type].to_s
+        base = row[:base_currency]
+        fee_currency = row[:fee_currency]
+        fee = row[:fee_amount].to_d
+        costs = Hash.new(0.to_d)
+        costs[base] += row[:base_amount].to_d.abs if COSTS.include?(type) && UnfundedCash.cash?(base)
+        return costs unless fee.positive? && UnfundedCash.cash?(fee_currency)
+        return costs if fee_already_counted?(row)
+
+        if fee_currency == base && UnfundedCash::BASE_IN.include?(type)
+          # Netted out of an arrival — never more than the arrival itself (`UnfundedCash.moves`).
+          costs[base] += [fee, row[:base_amount].to_d].min
+        elsif fee_currency == base
+          # Charged on top of what left (`FEE_ON_TOP`): all of it.
+          costs[base] += fee
+        else
+          costs[fee_currency] += fee
+        end
+        costs
+      end
+
+      # Whether a cash fee already sits somewhere: in a coin's cost or off a coin's gain, as FIFO's
+      # branch for the row puts it (`Tax::Methods::FIFO#calculate`), in the basis of a currency bought
+      # with cash, or inside the amount of what left.
+      def fee_already_counted?(row)
+        type = row[:entry_type].to_s
+        base = row[:base_currency]
+        if row[:fee_currency] == base
+          # Inside the amount that left — except a settlement leg's, which `UnfundedCash.moves` adds
+          # ON TOP (`FEE_ON_TOP`, no quote of its own): that extra bought nothing.
+          return true if COSTS.include?(type) || type == 'withdrawal'
+          return row[:quote_amount].present? if %w[sell swap_out].include?(type)
+        end
+        return type == 'buy' && cash_for_cash?(row) if UnfundedCash.cash?(base)
+
+        # `fiat_disposal?` reads the quote CURRENCY only — a grouped leg `enrich` settled against cash
+        # has one and no amount — and sends the swap to `record_disposal`, which deducts the fee.
+        ACQUISITIONS.include?(type) || (type == 'deposit' && !row[:linked]) || type == 'sell' ||
+          (type == 'swap_out' && !row[:orphan] && UnfundedCash.cash?(row[:quote_currency]))
+      end
+
+      def cash_for_cash?(row)
+        row[:quote_amount].present? && UnfundedCash.cash?(row[:base_currency]) && UnfundedCash.cash?(row[:quote_currency])
+      end
+
+      # A single-row trade of cash for cash: the base side is worth what the quote side came to, not
+      # the day's rate — euro sold for 125 dollars realises against 125, and dollars that bought euro
+      # give that euro their face as its basis, with a fee paid in other cash on top (a buy's fee is
+      # capitalised, `fee_already_counted?`). The quote side keeps its own value (face, for dollars).
+      def cash_counterpart_worth(book, row)
+        return {} unless cash_for_cash?(row)
+
+        at = row[:transacted_at]
+        worth = book.value(row[:quote_currency], row[:quote_amount].to_d, at)
+        fee_currency = row[:fee_currency]
+        if row[:entry_type].to_s == 'buy' && row[:fee_amount].to_d.positive? && fee_currency != row[:base_currency] &&
+           UnfundedCash.cash?(fee_currency)
+          worth += book.value(fee_currency, row[:fee_amount].to_d, at)
+        end
+        { row[:base_currency] => worth }
+      end
+
+      # The basis coins took with them when they left for nothing: an in-kind fee row, or the slice a
+      # linked transfer paid on the way. Read in walk order, as `contribution` reads a withdrawal's.
+      def coin_cost(row, engine)
+        return 0.to_d if UnfundedCash.cash?(row[:base_currency])
+
+        case row[:entry_type].to_s
+        when 'fee' then engine.basis_released(row[:base_currency], row[:base_amount].to_d, row[:exchange]) || 0.to_d
+        when 'withdrawal' then (row[:linked] && engine.transfer_fee_basis(row)) || 0.to_d
+        else 0.to_d
+        end
+      end
+
+      # Units of cash, per currency, that left this row with nothing in return.
+      def cash_costs(row)
+        type = row[:entry_type].to_s
+        base = row[:base_currency]
+        fee_currency = row[:fee_currency]
+        fee = row[:fee_amount].to_d
+        costs = Hash.new(0.to_d)
+        costs[base] += row[:base_amount].to_d.abs if COSTS.include?(type) && UnfundedCash.cash?(base)
+        return costs unless fee.positive? && UnfundedCash.cash?(fee_currency)
+        return costs if fee_already_counted?(row)
+
+        if fee_currency == base && UnfundedCash::BASE_IN.include?(type)
+          # Netted out of an arrival — never more than the arrival itself (`UnfundedCash.moves`).
+          costs[base] += [fee, row[:base_amount].to_d].min
+        elsif fee_currency == base
+          # Charged on top of what left (`FEE_ON_TOP`): all of it.
+          costs[base] += fee
+        else
+          costs[fee_currency] += fee
+        end
+        costs
+      end
+
+      # Whether a cash fee already sits somewhere: in a coin's cost or off a coin's gain, as FIFO's
+      # branch for the row puts it (`Tax::Methods::FIFO#calculate`), in the basis of a currency bought
+      # with cash, or inside the amount of what left.
+      def fee_already_counted?(row)
+        type = row[:entry_type].to_s
+        base = row[:base_currency]
+        if row[:fee_currency] == base
+          # Inside the amount that left — except a settlement leg's, which `UnfundedCash.moves` adds
+          # ON TOP (`FEE_ON_TOP`, no quote of its own): that extra bought nothing.
+          return true if COSTS.include?(type) || type == 'withdrawal'
+          return row[:quote_amount].present? if %w[sell swap_out].include?(type)
+        end
+        return type == 'buy' && cash_for_cash?(row) if UnfundedCash.cash?(base)
+
+        # `fiat_disposal?` reads the quote CURRENCY only — a grouped leg `enrich` settled against cash
+        # has one and no amount — and sends the swap to `record_disposal`, which deducts the fee.
+        ACQUISITIONS.include?(type) || (type == 'deposit' && !row[:linked]) || type == 'sell' ||
+          (type == 'swap_out' && !row[:orphan] && UnfundedCash.cash?(row[:quote_currency]))
+      end
+
+      def cash_for_cash?(row)
+        row[:quote_amount].present? && UnfundedCash.cash?(row[:base_currency]) && UnfundedCash.cash?(row[:quote_currency])
+      end
+
+      # A single-row trade of cash for cash: the base side is worth what the quote side came to, not
+      # the day's rate — euro sold for 125 dollars realises against 125, and dollars that bought euro
+      # give that euro their face as its basis, with a fee paid in other cash on top (a buy's fee is
+      # capitalised, `fee_already_counted?`). The quote side keeps its own value (face, for dollars).
+      def cash_counterpart_worth(book, row)
+        return {} unless cash_for_cash?(row)
+
+        at = row[:transacted_at]
+        worth = book.value(row[:quote_currency], row[:quote_amount].to_d, at)
+        fee_currency = row[:fee_currency]
+        if row[:entry_type].to_s == 'buy' && row[:fee_amount].to_d.positive? && fee_currency != row[:base_currency] &&
+           UnfundedCash.cash?(fee_currency)
+          worth += book.value(fee_currency, row[:fee_amount].to_d, at)
+        end
+        { row[:base_currency] => worth }
+      end
+
+      # The basis coins took with them when they left for nothing: an in-kind fee row, or the slice a
+      # linked transfer paid on the way. Read in walk order, as `contribution` reads a withdrawal's.
+      def coin_cost(row, engine)
+        return 0.to_d if UnfundedCash.cash?(row[:base_currency])
+
+        case row[:entry_type].to_s
+        when 'fee' then engine.basis_released(row[:base_currency], row[:base_amount].to_d, row[:exchange]) || 0.to_d
+        when 'withdrawal' then (row[:linked] && engine.transfer_fee_basis(row)) || 0.to_d
+        else 0.to_d
+        end
+      end
+
+      # A single-row trade of cash for cash: the base side is worth what the quote side came to, not
+      # the day's rate — euro sold for 125 dollars realises against 125, and dollars that bought euro
+      # give that euro their face as its basis, with a fee paid in other cash on top (a buy's fee is
+      # capitalised, `fee_already_counted?`). The quote side keeps its own value (face, for dollars).
+      def cash_counterpart_worth(book, row)
+        return {} unless cash_for_cash?(row)
+
+        at = row[:transacted_at]
+        worth = book.value(row[:quote_currency], row[:quote_amount].to_d, at)
+        fee_currency = row[:fee_currency]
+        if row[:entry_type].to_s == 'buy' && row[:fee_amount].to_d.positive? && fee_currency != row[:base_currency] &&
+           UnfundedCash.cash?(fee_currency)
+          worth += book.value(fee_currency, row[:fee_amount].to_d, at)
+        end
+        { row[:base_currency] => worth }
+      end
+
+      # The basis coins took with them when they left for nothing: an in-kind fee row, or the slice a
+      # linked transfer paid on the way. Read in walk order, as `contribution` reads a withdrawal's.
+      def coin_cost(row, engine)
+        return 0.to_d if UnfundedCash.cash?(row[:base_currency])
+
+        case row[:entry_type].to_s
+        when 'fee' then engine.basis_released(row[:base_currency], row[:base_amount].to_d, row[:exchange]) || 0.to_d
+        when 'withdrawal' then (row[:linked] && engine.transfer_fee_basis(row)) || 0.to_d
+        else 0.to_d
+        end
+      end
+
+      # The basis coins took with them when they left for nothing: an in-kind fee row, or the slice a
+      # linked transfer paid on the way. Read in walk order, as `contribution` reads a withdrawal's.
+      def coin_cost(row, engine)
+        return 0.to_d if UnfundedCash.cash?(row[:base_currency])
+
+        case row[:entry_type].to_s
+        when 'fee' then engine.basis_released(row[:base_currency], row[:base_amount].to_d, row[:exchange]) || 0.to_d
+        when 'withdrawal' then (row[:linked] && engine.transfer_fee_basis(row)) || 0.to_d
+        else 0.to_d
+        end
+      end
+
+      def unfunded_contribution(book, venue, row)
         return 0.to_d if UnfundedCash.lends_cash?(venue)
 
-        cash.sum(0.to_d) do |(exchange, currency), balance|
+        book.cash.to_a.sum(0.to_d) do |(exchange, currency), balance|
           next 0.to_d unless exchange == venue
 
           shortfall = UnfundedCash.shortfall(currency, balance)
           next 0.to_d if shortfall.zero?
 
-          cash[[exchange, currency]] += shortfall
-          next shortfall if STABLECOINS.include?(currency)
-
-          price_service.convert_fiat(amount: shortfall, from: currency, to: 'USD',
-                                     timestamp: row[:transacted_at])
+          book.move(exchange, currency, shortfall, at: row[:transacted_at])
+          book.value(currency, shortfall, row[:transacted_at])
         end
       end
 
-      def contribution(row, price_service, engine)
+      def contribution(row, price_service, engine, withdrawn)
         direction = case row[:entry_type].to_s
                     when 'deposit' then 1
                     when 'withdrawal' then -1
@@ -827,7 +1242,10 @@ module Tracker
 
         symbol = row[:base_currency]
         amount = row[:base_amount].to_d
-        value = if FIAT.include?(symbol)
+        value = if UnfundedCash.cash?(symbol) && direction.negative? && !UnfundedCash.borrowed?(row[:tx_id])
+                  # Cash leaving takes out what it carried in (`CashBook`), as a coin leaving does.
+                  withdrawn
+                elsif FIAT.include?(symbol)
                   price_service.convert_fiat(amount: amount, from: symbol, to: 'USD', timestamp: row[:transacted_at])
                 elsif STABLECOINS.include?(symbol)
                   amount
