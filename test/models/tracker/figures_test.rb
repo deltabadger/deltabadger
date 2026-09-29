@@ -303,7 +303,7 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
 
     result = figures
 
-    assert_not result.notes.any? { |note| note.kind == :figures_disagree }
+    assert_not_includes result.notes.map(&:kind), :figures_disagree
     assert_equal result.value - result.invested, result.realised + result.unrealised
   end
 
@@ -322,7 +322,7 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
 
     result = figures
 
-    assert_not result.notes.any? { |note| note.kind == :figures_disagree }
+    assert_not_includes result.notes.map(&:kind), :figures_disagree
     assert_equal result.value - result.invested, result.realised + result.unrealised
     assert_equal 120.to_d - '8.58'.to_d, result.realised, 'the euro rise, less the broker fee'
   end
