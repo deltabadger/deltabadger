@@ -176,7 +176,7 @@ class Tracker::CashCostsTest < ActiveSupport::TestCase
     tx(:buy, day: 1, base_currency: 'BNB', base_amount: 1, quote_currency: 'USDC', quote_amount: 5)
     price('BNB', 2, 10)
     tx(:buy, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 1_000,
-               fee_currency: 'BNB', fee_amount: 1)
+             fee_currency: 'BNB', fee_amount: 1)
 
     summary = Tracker::Ledger.for(@user)
 
@@ -191,7 +191,7 @@ class Tracker::CashCostsTest < ActiveSupport::TestCase
     tx(:deposit, day: 1, base_currency: 'BTC', base_amount: 1)
     tx(:sell, day: 2, base_currency: 'BTC', base_amount: 1, quote_currency: 'USDC', quote_amount: 1_000)
     tx(:buy, day: 3, base_currency: 'ETH', base_amount: 1, quote_currency: 'USD', quote_amount: 500,
-               fee_currency: 'USDC', fee_amount: 10)
+             fee_currency: 'USDC', fee_amount: 10)
 
     summary = Tracker::Ledger.for(@user)
 
@@ -249,7 +249,7 @@ class Tracker::CashCostsTest < ActiveSupport::TestCase
     tx(:deposit, day: 1, base_currency: 'USD', base_amount: 125)
     euro(2, '1.20'.to_d)
     tx(:buy, day: 2, base_currency: 'EUR', base_amount: 100, quote_currency: 'USD', quote_amount: 125,
-               fee_currency: 'EUR', fee_amount: 2)
+             fee_currency: 'EUR', fee_amount: 2)
 
     summary = Tracker::Ledger.for(@user)
 
@@ -277,7 +277,7 @@ class Tracker::CashCostsTest < ActiveSupport::TestCase
     tx(:buy, day: 1, base_currency: 'BNB', base_amount: 1, quote_currency: 'USD', quote_amount: 5)
     price('BNB', 2, 10)
     tx(:buy, day: 2, base_currency: 'USDC', base_amount: 1_000, quote_currency: 'USD', quote_amount: 1_000,
-               fee_currency: 'BNB', fee_amount: 1)
+             fee_currency: 'BNB', fee_amount: 1)
 
     summary = Tracker::Ledger.for(@user)
 
@@ -313,12 +313,25 @@ class Tracker::CashCostsTest < ActiveSupport::TestCase
     tx(:buy, day: 1, base_currency: 'BNB', base_amount: 1, quote_currency: 'USDC', quote_amount: 5)
     price('BNB', 2, 10)
     tx(:sell, day: 2, base_currency: 'USDC', base_amount: 1_000, quote_currency: 'USD', quote_amount: 1_000,
-                fee_currency: 'BNB', fee_amount: 1)
+              fee_currency: 'BNB', fee_amount: 1)
 
     summary = Tracker::Ledger.for(@user)
 
     assert_empty summary.positions, 'the BNB paid the fee'
     assert_equal(-5.to_d, summary.realised_pnl_usd)
+    assert_every_scope_balanced
+  end
+
+  test 'euro bought with dollars whose fee took all of it is a loss of what it cost' do
+    tx(:deposit, day: 1, base_currency: 'USD', base_amount: 100)
+    euro(2, '1.20'.to_d)
+    tx(:buy, day: 2, base_currency: 'EUR', base_amount: 1, quote_currency: 'USD', quote_amount: 100,
+             fee_currency: 'EUR', fee_amount: 1)
+
+    summary = Tracker::Ledger.for(@user)
+
+    assert_equal(-100.to_d, summary.realised_pnl_usd)
+    assert_empty summary.cash_basis
     assert_every_scope_balanced
   end
 

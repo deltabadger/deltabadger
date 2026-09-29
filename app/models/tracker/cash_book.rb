@@ -55,7 +55,11 @@ module Tracker
 
     # A fee taken out of cash on its way in never reaches the pot: a cost at the day's value.
     def expense(venue, currency, units, at:)
-      @realised[venue] -= value(currency, units, at)
+      lose(venue, value(currency, units, at))
+    end
+
+    def lose(venue, usd)
+      @realised[venue] -= usd
     end
 
     def value(currency, units, at)
