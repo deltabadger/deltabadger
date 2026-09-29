@@ -192,4 +192,21 @@ class Tracker::LocatedLedgerTest < ActiveSupport::TestCase
     assert_equal 1.to_d, all.positions.sole.quantity, 'nothing opened ahead of the buy'
     assert_equal 20_000.to_d, all.total_invested_usd
   end
+
+  test 'two transfers crossing in the same second each land before what their far venue does with the coin' do
+    at = @day.call(2)
+    create(:asset, symbol: 'SOL', external_id: 'solana')
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 100)
+    tx(:buy, key: @key_kraken, day: 1, base_currency: 'SOL', base_amount: 1, quote_currency: 'USD', quote_amount: 20)
+    tx(:sell, key: @key_kraken, at: at, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 150)
+    btc_in = tx(:deposit, key: @key_kraken, at: at, base_currency: 'BTC', base_amount: 1)
+    sol_in = tx(:deposit, at: at, base_currency: 'SOL', base_amount: 1)
+    tx(:withdrawal, key: @key_kraken, at: at, base_currency: 'SOL', base_amount: 1, linked_transaction: sol_in)
+    tx(:withdrawal, at: at, base_currency: 'BTC', base_amount: 1, linked_transaction: btc_in)
+
+    all = Tracker::Ledger.scopes(@user).fetch(nil)
+
+    assert_equal %w[SOL], all.positions.map(&:symbol), 'no BTC left, none invented'
+    assert_equal 120.to_d, all.total_invested_usd
+  end
 end
