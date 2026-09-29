@@ -179,4 +179,17 @@ class Tracker::LocatedLedgerTest < ActiveSupport::TestCase
     assert_equal 10_000.to_d, scopes.fetch(@kraken.id).realised_pnl_usd, 'sold at 30k the coin that cost 20k'
     assert_empty scopes.fetch(@kraken.id).openings
   end
+
+  test 'a buy and the transfer of what it bought in the same second stay in that order' do
+    at = @day.call(1)
+    price('BTC', 1, 20_000)
+    tx(:buy, at: at, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    deposit = tx(:deposit, key: @key_kraken, at: at, base_currency: 'BTC', base_amount: 1)
+    tx(:withdrawal, at: at, base_currency: 'BTC', base_amount: 1, linked_transaction: deposit)
+
+    all = Tracker::Ledger.scopes(@user).fetch(nil)
+
+    assert_equal 1.to_d, all.positions.sole.quantity, 'nothing opened ahead of the buy'
+    assert_equal 20_000.to_d, all.total_invested_usd
+  end
 end

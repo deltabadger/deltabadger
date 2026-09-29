@@ -50,7 +50,10 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   def store(whole, venues, version)
     ActiveRecord::Base.transaction do
       PortfolioSnapshot.upsert_all(whole, unique_by: %i[user_id date], record_timestamps: true)
-      PortfolioVenueSnapshot.upsert_all(venues, unique_by: %i[user_id exchange_id date], record_timestamps: true) if venues.any?
+      # Rewritten whole, not merged: a transfer unlinked since the last sweep moves the day a venue's
+      # history starts, and a day it no longer has must not stay behind. Today is `record!`'s.
+      PortfolioVenueSnapshot.for_user(@user).where(date: ..@last_date).delete_all
+      PortfolioVenueSnapshot.insert_all(venues, record_timestamps: true) if venues.any?
       PortfolioSnapshot.mark_history_swept!(@user, version)
     end
     # Stamped AFTER the sweep, so a price this run fetched itself counts as already read.
