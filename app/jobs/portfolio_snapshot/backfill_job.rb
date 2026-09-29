@@ -319,7 +319,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     end
     instruments.each do |key, (symbol, stock, from, exchange)|
       coins = stock ? [] : Tax::AssetIdentity.coin_ids_over(symbol, exchange: exchange, from: from, to: @last_date)
-      fetch_missing(symbol, stock, from, coins)
+      fetch_missing(symbol, stock, from, coins, exchange)
       observed = HistoricalPrice.where(asset: key, currency: 'USD', date: from..@last_date)
                                 .pluck(:date, :price).to_h
       # A price carries over a hole only while the symbol still means the same coin: across the day
@@ -359,9 +359,13 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # One range per coin, and only when the table does not already cover it — both fetchers check
   # that for themselves. A symbol that changed coin is two ranges; a symbol nobody can name a coin
   # for has nowhere to fetch from and stays unpriced.
-  def fetch_missing(symbol, stock, from, coins)
+  #
+  # A stock's closes come from the venue that holds it, and only that one: `stock:SYM` is the table
+  # the tax report prices the broker from too, and a crypto venue listing the same ticker would store
+  # the coin's candles under the stock's name.
+  def fetch_missing(symbol, stock, from, coins, exchange)
     if stock
-      key = @user.api_keys.includes(:exchange).find { |api_key| api_key.exchange.tickers.exists?(base: symbol) }
+      key = @user.api_keys.find_by(exchange_id: exchange.id)
       return unless key
 
       price_service.stock_price_range(exchange: key.exchange, api_key: key, symbol: symbol,

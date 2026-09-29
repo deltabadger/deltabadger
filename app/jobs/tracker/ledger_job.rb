@@ -24,7 +24,6 @@ module Tracker
       # The balance job can easily beat the transaction one, so the row it left carries yesterday's
       # invested figure until this rewrites it. From the ledger just computed, not a second walk.
       PortfolioSnapshot.record!(user, scopes: scopes)
-      PortfolioSnapshot::BackfillJob.perform_later(user_id) if PortfolioSnapshot.history_stale?(user)
       arm_wash_sale_locks(user, scopes[nil])
       Turbo::StreamsChannel.broadcast_refresh_to("user_#{user_id}", :sync)
     end

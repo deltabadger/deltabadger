@@ -495,4 +495,23 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
       assert PortfolioSnapshot.history_stale?(@user)
     end
   end
+
+  # `stock:SYM` is the table the tax report prices the broker from: a crypto venue listing the same
+  # ticker must never be asked for the stock's closes.
+  test 'a stock\'s closes are fetched from the venue that holds it, never a crypto venue sharing the ticker' do
+    alpaca = create(:alpaca_exchange)
+    usd = Asset.find_by(symbol: 'USD') || create(:asset, :usd)
+    stock = create(:asset, symbol: 'XX', external_id: 'XX.US', category: 'Stock', instrument_type: 'etf')
+    coin = create(:asset, symbol: 'XX', external_id: 'coin-xx')
+    create(:ticker, exchange: @binance, base_asset: coin, quote_asset: usd)
+    tx(:buy, day: 1, base_currency: 'XX', base_amount: 10, quote_currency: 'USD', quote_amount: 10)
+    alpaca_key = create(:api_key, user: @user, exchange: alpaca)
+    create(:ticker, exchange: alpaca, base_asset: stock, quote_asset: usd)
+    create(:account_transaction, api_key: alpaca_key, entry_type: :buy, base_currency: 'XX', base_amount: 1,
+                                 quote_currency: 'USD', quote_amount: 300, transacted_at: @day.call(1))
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+    Tax::PriceService.any_instance.expects(:stock_price_range).with { |exchange:, **| exchange == alpaca }.returns({})
+
+    travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+  end
 end

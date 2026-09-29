@@ -525,19 +525,6 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     assert_empty Tracker::Ledger.cached(@user, exchange: @binance).positions
   end
 
-  test 'the job asks for a sweep when the history was swept from other rows, and not otherwise' do
-    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
-    Turbo::StreamsChannel.stubs(:broadcast_refresh_to)
-    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
-
-    PortfolioSnapshot::BackfillJob.expects(:perform_later).with(@user.id).once
-    Tracker::LedgerJob.perform_now(@user.id)
-
-    PortfolioSnapshot.mark_history_swept!(@user, PortfolioSnapshot.history_version(@user))
-    PortfolioSnapshot::BackfillJob.expects(:perform_later).never
-    Tracker::LedgerJob.perform_now(@user.id)
-  end
-
   test 'a row arriving mid-walk is never published as current' do
     Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
     tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)

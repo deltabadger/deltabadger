@@ -154,4 +154,15 @@ class Tracker::LocatedLedgerTest < ActiveSupport::TestCase
     assert_equal 5_000.to_d, scopes.fetch(@binance.id).realised_pnl_usd
     assert_sums(scopes, @binance, @kraken)
   end
+
+  test 'a coin whose cost nobody had carries that doubt to the venue it went to' do
+    tx(:deposit, day: 1, base_currency: 'BTC', base_amount: 1) # no price anywhere
+    transfer(amount: 1, arrives: 1)
+
+    money_in = Tracker::Ledger.money_in(@user)
+
+    arriving = money_in.find { |term| term.exchange == 'kraken' }
+    assert_not arriving.complete, 'an unknown basis is not a known zero'
+    assert Tracker::Ledger.scopes(@user).fetch(@kraken.id).incomplete
+  end
 end
