@@ -272,12 +272,17 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # A negative balance is history we do not have — an exchange whose ledger window starts after the
   # funding deposit leaves a sale with nothing behind it. Dropping it silently would show the whole
   # position as profit, so the day says it is an estimate instead.
+  #
+  # Cash below zero at a venue that lends it is not a hole but a debt — a margin buy — and is valued
+  # as one: the whole account is what is held less what is owed, as it was when the venues' cash was
+  # netted in one pot.
   def value_on(venue, balances, date)
-    unpriced = balances.any? { |_symbol, quantity| quantity < -DUST }
+    owed = ->(symbol, quantity) { quantity.negative? && Tracker::UnfundedCash.cash?(symbol) && Tracker::UnfundedCash.lends_cash?(venue) }
+    unpriced = balances.any? { |symbol, quantity| quantity < -DUST && !owed.call(symbol, quantity) }
     total = 0.to_d
     held = 0.to_d
     balances.each do |symbol, quantity|
-      next unless quantity.positive?
+      next unless quantity.positive? || owed.call(symbol, quantity)
 
       value = if STABLECOINS.include?(symbol)
                 quantity

@@ -165,4 +165,18 @@ class Tracker::LocatedLedgerTest < ActiveSupport::TestCase
     assert_not arriving.complete, 'an unknown basis is not a known zero'
     assert Tracker::Ledger.scopes(@user).fetch(@kraken.id).incomplete
   end
+
+  test 'a sale stamped the same second as the transfer that fed it sells the coins that arrived' do
+    at = @day.call(2)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:sell, key: @key_kraken, at: at, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 30_000)
+    deposit = tx(:deposit, key: @key_kraken, at: at, base_currency: 'BTC', base_amount: 1)
+    tx(:withdrawal, at: at, base_currency: 'BTC', base_amount: 1, linked_transaction: deposit)
+
+    scopes = Tracker::Ledger.scopes(@user)
+
+    assert_empty scopes.fetch(nil).positions, 'nothing is left, and nothing was invented'
+    assert_equal 10_000.to_d, scopes.fetch(@kraken.id).realised_pnl_usd, 'sold at 30k the coin that cost 20k'
+    assert_empty scopes.fetch(@kraken.id).openings
+  end
 end

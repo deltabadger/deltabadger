@@ -514,4 +514,29 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
 
     travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
   end
+
+  # Dollars below zero at a broker that lends them are owed, not missing: the whole is what is held
+  # less what is owed, as it was when every venue's cash sat in one pot.
+  test 'a margin debt at a broker is valued as a debt, not dropped' do
+    kraken_key = create(:api_key, user: @user, exchange: create(:kraken_exchange))
+    alpaca = create(:alpaca_exchange)
+    alpaca_key = create(:api_key, user: @user, exchange: alpaca)
+    stock = create(:asset, symbol: 'QQQM', external_id: 'QQQM.US', category: 'Stock', instrument_type: 'etf')
+    create(:ticker, exchange: alpaca, base_asset: stock, quote_asset: Asset.find_by(symbol: 'USD') || create(:asset, :usd))
+    create(:account_transaction, api_key: kraken_key, entry_type: :deposit, base_currency: 'USD', base_amount: 1_000,
+                                 quote_currency: nil, quote_amount: nil, transacted_at: @day.call(0))
+    create(:account_transaction, api_key: alpaca_key, entry_type: :buy, base_currency: 'QQQM', base_amount: 1,
+                                 quote_currency: 'USD', quote_amount: 500, transacted_at: @day.call(0))
+    HistoricalPrice.create!(asset: 'stock:QQQM', currency: 'USD', date: @d0, price: 500)
+    Exchanges::Alpaca.any_instance.stubs(:set_client)
+    Exchanges::Alpaca.any_instance.stubs(:get_candles).returns(Result::Failure.new('offline'))
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(1)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    day = PortfolioSnapshot.for_user(@user).sole
+    assert_equal 1_000.to_d, day.value_usd, '1,000 of cash and a 500 stock bought with 500 borrowed'
+    assert_not day.partial, 'a debt is not a hole in the history'
+    assert_equal [0.to_d], PortfolioSnapshot.series(@user, exchange: alpaca).map(&:value_usd)
+  end
 end

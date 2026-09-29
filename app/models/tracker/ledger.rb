@@ -477,12 +477,13 @@ module Tracker
       def walk(user)
         price_service = Tax::PriceService.new
         rows = enriched_rows(user, price_service)
+        located_order = transfers_first(rows)
         # Account-wide first, so its opening lookups meet the price service exactly as they always
         # have, before any located lookup has filled its cache.
         global_disposals = Engine.new.calculate(
           taxable(open_with_what_must_have_been_held(rows, price_service, located: false)), **ENGINE_OPTIONS
         )
-        located = open_with_what_must_have_been_held(rows, price_service, located: true)
+        located = open_with_what_must_have_been_held(located_order, price_service, located: true)
         engine = Engine.new(located: true)
         disposals = engine.calculate(taxable(located), **ENGINE_OPTIONS)
         terms, cash = money_in_terms(located, price_service, engine)
@@ -605,6 +606,14 @@ module Tracker
         amount = row[:base_amount].to_d
         moves.reject { |_, symbol, _| symbol == base } +
           [[venue, base, -amount], [destination, base, amount - row[:transfer_fee_amount].to_d]]
+      end
+
+      # Located, a transfer between venues is walked ahead of whatever shares its instant: the coins
+      # land on the far venue at the withdrawal, so a sale there stamped the same second is a sale of
+      # coins already there, not of coins it never had. Nothing else moves.
+      def transfers_first(rows)
+        rows.each_with_index.sort_by { |row, index| [row[:transacted_at], transfer_between_venues?(row) ? 0 : 1, index] }
+            .map(&:first)
       end
 
       def transfer_between_venues?(row)
