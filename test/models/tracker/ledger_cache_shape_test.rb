@@ -16,28 +16,28 @@ class Tracker::LedgerCacheShapeTest < ActiveSupport::TestCase
   end
 
   test 'the cache key moves when the summary gains a member' do
-    before = Tracker::Ledger.send(:cache_key, @user, nil)
+    before = Tracker::Ledger.send(:cache_key, @user)
 
     with_summary_shape(Tracker::Ledger::Summary.members + [:extra]) do
-      assert_not_equal before, Tracker::Ledger.send(:cache_key, @user, nil)
+      assert_not_equal before, Tracker::Ledger.send(:cache_key, @user)
     end
   end
 
   test 'the cache key moves when a nested position gains a member' do
-    before = Tracker::Ledger.send(:cache_key, @user, nil)
+    before = Tracker::Ledger.send(:cache_key, @user)
 
     with_shape(:Position, Tracker::Ledger::Position.members + [:extra]) do
-      assert_not_equal before, Tracker::Ledger.send(:cache_key, @user, nil)
+      assert_not_equal before, Tracker::Ledger.send(:cache_key, @user)
     end
   end
 
   test 'the cache key is stable across processes for one shape' do
-    assert_equal Tracker::Ledger.send(:cache_key, @user, nil), Tracker::Ledger.send(:cache_key, @user, nil)
-    assert_match(/\Atracker_ledger_v\d+_[0-9a-f]{8}_/, Tracker::Ledger.send(:cache_key, @user, nil))
+    assert_equal Tracker::Ledger.send(:cache_key, @user), Tracker::Ledger.send(:cache_key, @user)
+    assert_match(/\Atracker_ledger_v\d+_[0-9a-f]{8}_/, Tracker::Ledger.send(:cache_key, @user))
   end
 
   test 'an entry written under an older shape reads as nil, not a raise' do
-    key = Tracker::Ledger.send(:cache_key, @user, nil)
+    key = Tracker::Ledger.send(:cache_key, @user)
     with_summary_shape(%i[positions]) { Rails.cache.write(key, Tracker::Ledger::Summary.new(positions: [])) }
 
     assert_nil Tracker::Ledger.cached(@user)

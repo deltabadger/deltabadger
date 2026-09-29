@@ -125,12 +125,42 @@ class Tracker::LedgerWashSaleTest < ActiveSupport::TestCase
     assert_empty @user.wash_sale_locks.live
   end
 
-  test 'a per-exchange run arms nothing — only the whole-account walk does' do
+  # An exchange-scoped job still in the queue from before one walk stated every venue: it is run as
+  # the whole-account walk it now is, and arms from the account, never from one venue.
+  test 'a job enqueued with an exchange id arms the whole account' do
     bought(1, 100, at: 40.days.ago)
     sold(1, 60, at: 2.days.ago)
 
     Tracker::LedgerJob.new.perform(@user.id, @exchange.id)
 
-    assert_empty @user.wash_sale_locks, 'one venue is not the taxpayer'
+    assert lock
+  end
+
+  # Global FIFO sold the older, dearer lot: a loss the tax engine sees. The located walk sold the
+  # cheaper lot on the venue the sale happened on — a gain on the page. Arming follows the tax engine.
+  test 'arming reads the account-wide FIFO, not the per-venue lots' do
+    kraken_key = create(:api_key, user: @user, exchange: create(:kraken_exchange))
+    bought(1, 100, at: 20.days.ago)
+    create(:account_transaction, api_key: kraken_key, entry_type: :buy, base_currency: 'AAA', base_amount: 1,
+                                 quote_currency: 'USD', quote_amount: 20, transacted_at: 10.days.ago)
+    create(:account_transaction, api_key: kraken_key, entry_type: :sell, base_currency: 'AAA', base_amount: 1,
+                                 quote_currency: 'USD', quote_amount: 60, transacted_at: 2.days.ago)
+
+    arm!
+
+    assert lock, 'the 100 lot sold for 60 is a loss, whichever venue the page puts it on'
+  end
+
+  # Rows kept arriving through every pass of the walk: the job asks for a run that WAITS for its
+  # guard rather than one the guard would discard, so the sale that arrived is still armed.
+  test 'a ledger still moving after every pass asks for a run that waits for the guard' do
+    Tracker::Ledger.stubs(:cache_key).returns('a', 'b').then.returns('c', 'd').then.returns('e', 'f').then.returns('g')
+    Tracker::LedgerJob::Retry.expects(:perform_later).with(@user.id).once
+
+    arm!
+
+    assert_equal :block, Tracker::LedgerJob::Retry.concurrency_on_conflict
+    assert_equal Tracker::LedgerJob.new(@user.id).send(:concurrency_key),
+                 Tracker::LedgerJob::Retry.new(@user.id).send(:concurrency_key), 'one guard for both'
   end
 end

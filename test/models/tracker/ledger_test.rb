@@ -370,12 +370,14 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     # the outbound leg was valued at the day's 28k against 20k that ever went in. Everything that
     # arrived here has left again, so nothing of theirs is here: zero.
     assert_equal 0.to_d, on_binance.total_invested_usd,
-                 'per venue: 20k of unreported funding in, and the same 20k of cost back out'
-    assert_equal 30_000.to_d, on_kraken.total_invested_usd
+                 'per venue: 20k of unreported funding in, and the same 20k of cost carried out'
+    # This used to expect 30,000 and an estimated basis: the scoped walk could not see the far end
+    # of the transfer, so the coin arrived at market with no history. The lot now travels with it.
+    assert_equal 20_000.to_d, on_kraken.total_invested_usd, 'the 20k followed the coin'
     kraken_btc = on_kraken.positions.sole
     assert_equal 1.to_d, kraken_btc.quantity
-    assert_equal 30_000.to_d, kraken_btc.cost_usd
-    assert kraken_btc.incomplete, 'per venue the arriving coin has no basis of its own'
+    assert_equal 20_000.to_d, kraken_btc.cost_usd, 'at what it cost on Binance'
+    assert_not kraken_btc.incomplete, 'a carried cost is not an assumption'
   end
 
   test 'fiat and stablecoins never appear as positions; fees sum the priced fees; a missing price marks the summary incomplete' do
@@ -511,15 +513,52 @@ class Tracker::LedgerTest < ActiveSupport::TestCase
     assert_equal 1, Tracker::Ledger.cached(@user).positions.size
   end
 
-  test 'the job can compute an exchange-scoped ledger and caches it under its own key' do
+  test 'one run caches every scope; a venue with no rows reads empty, not cold' do
     Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
     tx(:buy, key: @key_kraken, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
     Turbo::StreamsChannel.stubs(:broadcast_refresh_to)
 
-    Tracker::LedgerJob.perform_now(@user.id, @kraken.id)
+    Tracker::LedgerJob.perform_now(@user.id)
 
-    assert_nil Tracker::Ledger.cached(@user)
+    assert_equal 1, Tracker::Ledger.cached(@user).positions.size
     assert_equal 1, Tracker::Ledger.cached(@user, exchange: @kraken).positions.size
+    assert_empty Tracker::Ledger.cached(@user, exchange: @binance).positions
+  end
+
+  test 'the job asks for a sweep when the history was swept from other rows, and not otherwise' do
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+    Turbo::StreamsChannel.stubs(:broadcast_refresh_to)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+
+    PortfolioSnapshot::BackfillJob.expects(:perform_later).with(@user.id).once
+    Tracker::LedgerJob.perform_now(@user.id)
+
+    PortfolioSnapshot.mark_history_swept!(@user, PortfolioSnapshot.history_version(@user))
+    PortfolioSnapshot::BackfillJob.expects(:perform_later).never
+    Tracker::LedgerJob.perform_now(@user.id)
+  end
+
+  test 'a row arriving mid-walk is never published as current' do
+    Rails.stubs(:cache).returns(ActiveSupport::Cache::MemoryStore.new)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    walks = 0
+    arrive = -> { tx(:buy, day: 2, base_currency: 'ETH', base_amount: 1, quote_currency: 'USD', quote_amount: 1_000) }
+    original = Tracker::Ledger.method(:scopes)
+    Tracker::Ledger.define_singleton_method(:scopes) do |user|
+      walks += 1
+      original.call(user).tap do
+        # Lands while the first walk is running, after the key was taken.
+        arrive.call if walks == 1
+      end
+    end
+
+    Tracker::Ledger.compute!(@user)
+
+    assert_equal 2, walks, 'the walk ran again for the row it missed'
+    assert_equal %w[BTC ETH], Tracker::Ledger.cached(@user).positions.map(&:symbol).sort
+  ensure
+    Tracker::Ledger.singleton_class.send(:remove_method, :scopes)
+    Tracker::Ledger.define_singleton_method(:scopes, original) if original
   end
 
   # The chart's history is this same figure read day by day, so it reads these rather than keeping
