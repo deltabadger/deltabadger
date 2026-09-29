@@ -608,16 +608,20 @@ module Tracker
           [[venue, base, -amount], [destination, base, amount - row[:transfer_fee_amount].to_d]]
       end
 
-      # Located, the coins land on the far venue at the withdrawal, so what the far venue did in that
-      # same second is walked after it: a sale there stamped with the transfer's instant sells coins
-      # already there, not coins it never had. The source venue keeps its order — a buy in that second
-      # still comes before the coins leave — and nothing else moves.
+      # Located, the coins land on the far venue at the withdrawal, so what the far venue did WITH THAT
+      # COIN in the same second is walked after it: a sale there stamped with the transfer's instant
+      # sells coins already there, not coins it never had. The source keeps its order — a buy in that
+      # second still comes before the coins leave — and nothing else moves.
       def transfers_first(rows)
-        arriving = rows.select { |row| transfer_between_venues?(row) }.to_set { |row| [row[:transacted_at], row[:to_exchange]] }
+        arriving = rows.select { |row| transfer_between_venues?(row) }
+                       .to_set { |row| [row[:transacted_at], row[:to_exchange], row[:base_currency]] }
         return rows if arriving.empty?
 
         rows.each_with_index.sort_by do |row, index|
-          [row[:transacted_at], arriving.include?([row[:transacted_at], row[:exchange]]) ? 1 : 0, index]
+          waits = [row[:base_currency], row[:fee_currency]].compact.any? do |symbol|
+            arriving.include?([row[:transacted_at], row[:exchange], symbol])
+          end
+          [row[:transacted_at], waits ? 1 : 0, index]
         end.map(&:first)
       end
 
