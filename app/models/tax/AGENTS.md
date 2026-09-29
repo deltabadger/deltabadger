@@ -306,6 +306,9 @@ to refuse, and an all-refused report still returns an all-zero KAP.
   `stablecoin_as_fiat`, where a stablecoin swap leg also touches no lot). A coin traded for a coin
   is a swap however the venue books it. A cash leg with no rate values nothing — the coin is priced
   as any other row. A stated value is never overwritten.
+- `Fifo#new_lot_store` / `#enter_row` are hooks for the tracker only (`Tracker::Ledger::Engine`
+  keeps one pool per venue through them). No tax engine overrides them: a report matches lots
+  across the whole account, whatever venue a row came from.
 - Wealth snapshot engines skip per-transaction price enrichment entirely (raw entry type, currency,
   amount and timestamp only — they never see `linked`)
 - Historical prices and FX rates persisted permanently (immutable reference data)

@@ -1,19 +1,31 @@
 module Tracker
-  # Warms the tracker ledger for one scope and refreshes whoever is looking at it. Building it
+  # Warms the tracker ledger — every scope, in one walk — and refreshes whoever is looking at it. Building it
   # prices every unpriced row, so it belongs here and never in a request.
   class LedgerJob < ApplicationJob
     queue_as :low_priority
-    limits_concurrency to: 1, key: ->(user_id, exchange_id = nil) { "tracker_ledger_#{user_id}_#{exchange_id}" },
+    # Per user: one walk states every venue. The second argument is what an exchange-scoped run was
+    # enqueued with before that, still read so a job already in the queue runs.
+    limits_concurrency to: 1, key: ->(user_id, *) { "tracker_ledger_#{user_id}" }, group: 'Tracker::LedgerJob',
                        on_conflict: :discard
 
-    def perform(user_id, exchange_id = nil)
+    # The run a job asks for when rows kept arriving through every pass of its own walk: what it
+    # arms from is not the current ledger. A plain LedgerJob enqueued now would be DISCARDED by the
+    # guard this one still holds, whenever it came due; this one shares the guard and WAITS for it,
+    # so the sale that arrived is still armed.
+    class Retry < LedgerJob
+      limits_concurrency to: 1, key: ->(user_id, *) { "tracker_ledger_#{user_id}" }, group: 'Tracker::LedgerJob',
+                         on_conflict: :block
+    end
+
+    def perform(user_id, _exchange_id = nil)
       user = User.find(user_id)
-      summary = Tracker::Ledger.compute!(user, exchange: exchange_id && Exchange.find(exchange_id))
+      scopes = Tracker::Ledger.compute!(user) { Retry.perform_later(user_id) }
       # Today's snapshot is half balances and half ledger, written by whichever sync finishes last.
       # The balance job can easily beat the transaction one, so the row it left carries yesterday's
-      # invested figure until this rewrites it.
-      PortfolioSnapshot.record!(user) if exchange_id.nil?
-      arm_wash_sale_locks(user, summary) if exchange_id.nil?
+      # invested figure until this rewrites it. From the ledger just computed, not a second walk.
+      PortfolioSnapshot.record!(user, scopes: scopes)
+      PortfolioSnapshot::BackfillJob.perform_later(user_id) if PortfolioSnapshot.history_stale?(user)
+      arm_wash_sale_locks(user, scopes[nil])
       Turbo::StreamsChannel.broadcast_refresh_to("user_#{user_id}", :sync)
     end
 

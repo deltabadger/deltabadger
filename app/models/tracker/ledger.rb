@@ -8,9 +8,11 @@ module Tracker
   # an ECB fetch and a price lookup per unpriced row — so it is computed in a job and read from the
   # cache, never built inside a request.
   #
-  # Scope. `exchange:` gives the ledger of ONE venue: a transfer's far leg is not in scope, so both
-  # legs are treated as unlinked — the outbound venue lost the coins at their cost, the inbound one
-  # received them with no history of its own.
+  # Scope. Lots sit on the venue that holds them: a sale takes its own venue's lots, and a linked
+  # transfer carries its lots — cost and date — to the venue it went to, with the money in behind
+  # them. So one walk states every venue, each venue is a slice of the whole, and the whole is their
+  # sum (`scopes`). What this reading does NOT decide is tax: a report matches lots by its
+  # jurisdiction's rule, and the wash-sale arming below keeps reading the account-wide FIFO.
   class Ledger
     # `estimated`: some of its cost is an assumption (a deposit at market, an opening balance).
     # `unpriced_quantity`: the units that opened at a price nobody had, taken at zero cost.
@@ -35,11 +37,18 @@ module Tracker
     # whether the figure could be stated in full.
     # `opens`, on an opening balance's term, is `[symbol, quantity]`: what the walk booked as held
     # before the history begins, for the chart to hold from that day as the ledger does.
-    Term = Data.define(:at, :amount, :complete, :opens) do
-      def initialize(at:, amount:, complete:, opens: nil) = super
+    # `exchange` is the venue the term is money in AT — a linked transfer is two terms, money leaving
+    # one venue and arriving at the other.
+    Term = Data.define(:at, :amount, :complete, :opens, :exchange) do
+      def initialize(at:, amount:, complete:, opens: nil, exchange: nil) = super
     end
+    # One enrichment, two FIFO walks: the located one every figure reads, and the account-wide one
+    # only `loss_sales` reads.
+    Walk = Data.define(:price_service, :rows, :engine, :disposals, :global_disposals, :terms, :cash)
+    ENGINE_OPTIONS = { crypto_to_crypto_taxable: false, stablecoin_as_fiat: true }.freeze
 
     CACHE_TTL = 30.days
+    COMPUTE_PASSES = 3
     FIAT = Tax::PriceService::FIAT_CURRENCIES
     STABLECOINS = Tax::PriceService::STABLECOINS
     # What arrives without a purchase behind it: money in at its value on arrival, and "received".
@@ -75,21 +84,107 @@ module Tracker
       # asset: a broken LTC history says nothing about BTC.
       attr_reader :overdrawn
 
+      # The engine indexes its lots by asset; located, the store answers for the venue of the row
+      # being walked (`enter_row`), so every entry type acts on the lots of its own venue.
+      class VenueLots
+        attr_accessor :venue
+        attr_reader :by_venue
+
+        def initialize
+          @by_venue = Hash.new { |lots, key| lots[key] = [] }
+        end
+
+        def [](asset) = @by_venue[[venue, asset]]
+      end
+
+      def initialize(located: false)
+        super()
+        @located = located
+      end
+
       def calculate(transactions, **options)
         @uncovered = false
+        @uncovered_venues = Set.new
         @overdrawn = Hash.new(0.to_d)
         @released = Hash.new { |basis, key| basis[key] = [] }
+        @moved = {}.compare_by_identity
+        @roc = Hash.new(0.to_d)
         super(transactions.map { |tx| remap(tx) }, **options)
+      end
+
+      # [venue, asset] → lots. Unlocated, every lot is on no venue in particular.
+      def located_lots
+        @located ? @lots.by_venue : @lots.transform_keys { |asset| [nil, asset] }
       end
 
       # What the lots gave up when these coins left, in the order they left. MEASURED, not inferred:
       # whatever the pool lost is exactly what those coins had contributed to it, so subtracting it
       # from "money in" can never take out more than was put in.
-      def basis_released(asset, amount)
-        @released[[asset, amount]].shift
+      def basis_released(asset, amount, venue = nil)
+        @released[[(venue if @located), asset, amount]].shift
       end
 
+      # The cost a linked transfer carried to the far venue — what money in moves with it.
+      def moved_basis(row) = @moved[row]
+
+      def roc_at(venue) = @roc[venue]
+
+      def uncovered_at?(venue) = @uncovered_venues.include?(venue)
+
       private
+
+      def new_lot_store = @located ? VenueLots.new : super
+
+      def enter_row(transaction)
+        @lots.venue = transaction[:exchange] if @located
+      end
+
+      def venue = (@lots.venue if @located)
+
+      # The fee slice leaves the source pool as it always has. Located, the rest of the coins go to
+      # the venue they arrived at, as the lots they were: same cost, same date, same doubts. A source
+      # short of what it sent has normally been opened already (`open_with_what_must_have_been_held`
+      # reads the same located moves); what still gets through travels as a tranche of nothing,
+      # exactly as a swap's uncovered out-leg does.
+      def shrink_pool_for_transfer_fee(asset_lots, transaction)
+        super
+        destination = transaction[:to_exchange]
+        return unless @located && destination && destination != transaction[:exchange]
+        # Cash is not held as lots (a sale into USDT credits a pot, not a pool); it moves as money in.
+        return if UnfundedCash.cash?(transaction[:base_currency])
+
+        move_to(destination, asset_lots, transaction)
+      end
+
+      def move_to(destination, asset_lots, transaction)
+        amount = transaction[:base_amount].to_d - transaction[:transfer_fee_amount].to_d
+        return unless amount.positive?
+
+        tranches, held = dequeue_tranches(asset_lots, amount)
+        uncovered = amount - [amount, held].min
+        if uncovered.positive?
+          @uncovered = true
+          @uncovered_venues << venue
+          @overdrawn[transaction[:base_currency]] += uncovered
+          tranches << { amount: uncovered, cost: 0.to_d, date: transaction[:transacted_at], basis_assumed: true,
+                        unpriced: uncovered }
+        end
+        lots = @lots.by_venue[[destination, transaction[:base_currency]]]
+        tranches.each do |tranche|
+          next unless tranche[:amount].positive?
+
+          lot = { amount: tranche[:amount], cost_per_unit: tranche[:cost] / tranche[:amount], date: tranche[:date],
+                  basis_assumed: tranche[:basis_assumed], unpriced: tranche[:unpriced].to_d }
+          lot[:holding_start] = tranche[:holding_start] if tranche[:holding_start]
+          lots << lot
+        end
+        lots.sort_by!.with_index { |lot, index| [lot[:date], index] }
+        @moved[transaction] = tranches.sum(0.to_d) { |tranche| tranche[:cost] }
+      end
+
+      def reduce_lot_basis(asset_lots, transaction)
+        super.tap { |excess| @roc[venue] += excess }
+      end
 
       def remap(transaction)
         case transaction[:entry_type].to_s
@@ -112,7 +207,7 @@ module Tracker
 
         before = pool_basis(asset_lots)
         result = yield
-        @released[[asset, amount]] << (before - pool_basis(asset_lots))
+        @released[[venue, asset, amount]] << (before - pool_basis(asset_lots))
         result
       end
 
@@ -137,6 +232,7 @@ module Tracker
         # were ANY lots, so a partly covered sale reads as clean — and the round-trip built from it
         # would state a percentage measured against a basis that was never paid.
         @uncovered = true
+        @uncovered_venues << venue
         @overdrawn[asset] += amount - held
         disposals.last[:data_incomplete] = true
       end
@@ -159,50 +255,34 @@ module Tracker
     end
 
     class << self
-      def for(user, exchange: nil)
-        price_service, rows, engine, disposals = walk(user, exchange)
-        positions = positions_from(engine.lots)
-        terms, cash = money_in_terms(rows, price_service, engine)
-
-        Summary.new(
-          positions: positions,
-          round_trips: round_trips(disposals),
-          total_invested_usd: terms.sum(0.to_d) { |_, term| term.amount },
-          # The part of money in nobody paid for — rewards, rebates, airdrops, dust credits, a swap
-          # credit with nothing behind it — so the tile is not read as a claim it was all deposited.
-          received_usd: terms.sum(0.to_d) { |row, term| in_kind?(row) ? term.amount : 0.to_d },
-          # A return of capital beyond the basis is realised gain the moment it lands; the engine
-          # already isolates it, and until now nothing read it.
-          realised_pnl_usd: disposals.sum(0.to_d) { |disposal| disposal[:gain_loss].to_d } + engine.excess_roc.to_d,
-          fees_usd: fees(rows, price_service),
-          # Cash is a balance, not a position, and the ledger knows it after every row — stated so
-          # the page can hold it against what the venue reports, as it does every coin.
-          cash: cash,
-          cash_usd: cash_in_usd(cash, price_service),
-          unpriced_proceeds_usd: disposals.sum(0.to_d) { |disposal| disposal[:unpriced_proceeds].to_d },
-          loss_sales: loss_sales(disposals),
-          # Incomplete is a figure NOBODY could state — a price nobody had, a sale out of nothing —
-          # not one that had to be estimated: an estimate is stated, and noted.
-          incomplete: positions.any? { |position| position.unpriced_quantity.positive? } || engine.uncovered ||
-                      disposals.any? { |disposal| disposal[:unpriced_quantity].to_d.positive? } ||
-                      price_service.warnings.any?,
-          openings: rows.each_with_object({}) { |row, map| map[row[:base_currency]] = row[:base_amount] if row[:opening] },
-          computed_at: Time.current
-        )
+      # Every scope from one walk: exchange id → that venue's summary, and nil → the whole account.
+      # A venue appears when any row of the account is on it or was sent to it.
+      def scopes(user)
+        walk = walk(user)
+        venues = walk.rows.flat_map { |row| [row[:exchange], row[:to_exchange]] }.compact.uniq
+        ids = Exchange.all.to_h { |exchange| [exchange.name_id, exchange.id] } # name_id is the class, not a column
+        by_venue = venues.to_h { |venue| [ids.fetch(venue), summarise(walk, venue)] }
+        by_venue.merge(nil => whole(walk, by_venue.values))
       end
 
-      # Money in, one term per ledger row in the ledger's own order. The chart's history reads
-      # these rather than keeping a second opinion about what a row contributed.
-      def money_in(user, exchange: nil)
-        price_service, rows, engine, = walk(user, exchange)
-        money_in_terms(rows, price_service, engine).first.map { |_, term| term }
+      def for(user, exchange: nil)
+        scopes(user)[exchange&.id] || empty_summary
+      end
+
+      # Money in, one term per ledger row in the ledger's own order — two for a linked transfer
+      # between venues, one leaving and one arriving. The chart's history reads these rather than
+      # keeping a second opinion about what a row contributed.
+      def money_in(user)
+        walk(user).terms.map(&:last)
       end
 
       # nil until a job has computed it. The key follows the transactions and nothing else — a
       # balance sync must not invalidate a ledger it cannot change (the reconciliation against
-      # balances happens at render time).
+      # balances happens at render time). One entry holds every scope: a venue's figures read the
+      # rows of the venues its coins came from.
       def cached(user, exchange: nil)
-        Rails.cache.read(cache_key(user, exchange))
+        scopes = Rails.cache.read(cache_key(user))
+        scopes && (scopes[exchange&.id] || empty_summary(scopes[nil]&.computed_at))
       rescue TypeError
         # Belt to the braces of the shape-derived key: a shape the key cannot see — a Data nested
         # deeper, an Asset whose columns moved — reads as a COLD cache rather than raising, and the
@@ -211,10 +291,33 @@ module Tracker
         nil
       end
 
-      def compute!(user, exchange: nil)
-        summary = self.for(user, exchange: exchange)
-        Rails.cache.write(cache_key(user, exchange), summary, expires_in: CACHE_TTL)
-        summary
+      # The key is taken BEFORE the walk and the entry written under it: a row arriving mid-walk
+      # moves the key, so the entry it missed is never published as current. The walk is then
+      # repeated for it — here rather than by a follow-up job, which the job's own concurrency
+      # guard would discard while this one still holds it. Still moving after the last pass, the
+      # block is told, so the caller can come back once the rows settle.
+      def compute!(user)
+        passes = 0
+        loop do
+          key = cache_key(user)
+          scopes = scopes(user)
+          Rails.cache.write(key, scopes, expires_in: CACHE_TTL)
+          return scopes if cache_key(user) == key
+
+          passes += 1
+          next if passes < COMPUTE_PASSES
+
+          yield if block_given?
+          return scopes
+        end
+      end
+
+      # For jobs: the scope out of `scopes` when the caller already computed them, else the cached
+      # scope, else every scope computed and cached.
+      def summary(user, exchange: nil, scopes: nil)
+        return scopes[exchange&.id] || empty_summary if scopes
+
+        cached(user, exchange: exchange) || compute!(user)[exchange&.id] || empty_summary
       end
 
       # The most recent loss-making disposal per symbol inside the wash-sale horizon, for
@@ -333,9 +436,9 @@ module Tracker
       # the whole round-trip marked incomplete; when the price later arrives, the transactions have
       # not moved, so without this the poisoned summary stays cached until the user trades that coin
       # again — which for a position they have closed is never.
-      def cache_key(user, exchange)
-        scope = transactions(user, exchange)
-        "tracker_ledger_v8_#{shape}_#{user.id}_#{exchange&.id || 'all'}_" \
+      def cache_key(user)
+        scope = AccountTransaction.for_user(user)
+        "tracker_ledger_v9_#{shape}_#{user.id}_" \
           "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}_#{HistoricalPrice.generation}"
       end
 
@@ -364,23 +467,145 @@ module Tracker
         exchange ? scope.for_exchange(exchange) : scope
       end
 
-      # Every figure comes off one walk: the rows priced once, the engine run once.
-      def walk(user, exchange)
+      # Every figure comes off one walk: the rows priced once, and the lots walked twice over them —
+      # located for the figures, account-wide for `loss_sales`, which arms the wash-sale guard the
+      # way the tax engine matches lots and must not move with the page's reading.
+      def walk(user)
         price_service = Tax::PriceService.new
-        rows = enriched_rows(user, exchange, price_service)
-        engine = Engine.new
-        disposals = engine.calculate(taxable(rows), crypto_to_crypto_taxable: false, stablecoin_as_fiat: true)
-        [price_service, rows, engine, disposals]
+        rows = enriched_rows(user, price_service)
+        # Account-wide first, so its opening lookups meet the price service exactly as they always
+        # have, before any located lookup has filled its cache.
+        global_disposals = Engine.new.calculate(
+          taxable(open_with_what_must_have_been_held(rows, price_service, located: false)), **ENGINE_OPTIONS
+        )
+        located = open_with_what_must_have_been_held(rows, price_service, located: true)
+        engine = Engine.new(located: true)
+        disposals = engine.calculate(taxable(located), **ENGINE_OPTIONS)
+        terms, cash = money_in_terms(located, price_service, engine)
+        Walk.new(price_service: price_service, rows: located, engine: engine, disposals: disposals,
+                 global_disposals: global_disposals, terms: terms, cash: cash)
       end
 
       # Sorted BEFORE enrichment, which preserves order and drops the id — in the one order every
       # reader of the ledger shares, so the report and the page can never chain a swap differently.
-      def enriched_rows(user, exchange, price_service)
-        ordered = Tax::PriceService.ordered(transactions(user, exchange).includes(:exchange).to_a)
+      # `enrich` maps one row per transaction in order, which is what lets a withdrawal be told the
+      # venue its coins went to.
+      def enriched_rows(user, price_service)
+        ordered = Tax::PriceService.ordered(
+          AccountTransaction.for_user(user).includes(:exchange, linked_transaction: :exchange).to_a
+        )
         rows = price_service.enrich(ordered, currency: 'USD')
-        # Flattened once, here, so the contributions and the engine read the same truth.
-        rows.each { |row| row[:linked] = false } if exchange
-        open_with_what_must_have_been_held(mark_orphans(rows), price_service)
+        rows.zip(ordered) { |row, transaction| row[:to_exchange] = transaction.linked_transaction&.exchange&.name_id }
+        mark_orphans(rows)
+      end
+
+      # A venue's slice of the walk.
+      def summarise(walk, venue)
+        price_service = walk.price_service
+        positions = positions_from(walk.engine.located_lots.filter_map { |(at, asset), lots| [asset, lots] if at == venue }.to_h)
+        terms = walk.terms.select { |_, term| term.exchange == venue }
+        disposals = walk.disposals.select { |disposal| disposal[:exchange] == venue }
+        rows = walk.rows.select { |row| row[:exchange] == venue }
+        cash = walk.cash.each_with_object(Hash.new(0.to_d)) do |((at, currency), amount), total|
+          total[currency] += amount if at == venue
+        end
+        kept = price_service.warnings.size
+        cash_usd = cash_in_usd(cash, price_service)
+        fees = fees(rows, price_service)
+        Summary.new(
+          positions: positions,
+          round_trips: round_trips(disposals),
+          total_invested_usd: terms.sum(0.to_d) { |_, term| term.amount },
+          received_usd: terms.sum(0.to_d) { |row, term| in_kind?(row) ? term.amount : 0.to_d },
+          realised_pnl_usd: disposals.sum(0.to_d) { |disposal| disposal[:gain_loss].to_d } + walk.engine.roc_at(venue),
+          fees_usd: fees,
+          cash: cash,
+          cash_usd: cash_usd,
+          unpriced_proceeds_usd: disposals.sum(0.to_d) { |disposal| disposal[:unpriced_proceeds].to_d },
+          # Only the account-wide walk judges a loss — see `walk`.
+          loss_sales: {},
+          # What the whole reads off the price service's warnings, a venue reads off its own rows:
+          # a price its rows or terms could not state, or its cash and fees could not be valued at.
+          incomplete: positions.any? { |position| position.unpriced_quantity.positive? } ||
+                      walk.engine.uncovered_at?(venue) ||
+                      disposals.any? { |disposal| disposal[:unpriced_quantity].to_d.positive? } ||
+                      rows.any? { |row| row[:price_missing] } || terms.any? { |_, term| !term.complete } ||
+                      price_service.warnings.size > kept,
+          openings: rows.each_with_object({}) { |row, map| map[row[:base_currency]] = row[:base_amount] if row[:opening] },
+          computed_at: Time.current
+        )
+      end
+
+      # The whole account: the venues added up.
+      def whole(walk, venues)
+        sum = ->(figure) { venues.sum(0.to_d) { |summary| summary.public_send(figure) } }
+        cash = venues.each_with_object(Hash.new(0.to_d)) do |summary, total|
+          summary.cash.each { |currency, amount| total[currency] += amount }
+        end
+        positions = merge_positions(venues.flat_map(&:positions))
+        Summary.new(
+          positions: positions,
+          round_trips: venues.flat_map(&:round_trips),
+          total_invested_usd: sum.call(:total_invested_usd),
+          # The part of money in nobody paid for — rewards, rebates, airdrops, dust credits, a swap
+          # credit with nothing behind it — so the tile is not read as a claim it was all deposited.
+          received_usd: sum.call(:received_usd),
+          realised_pnl_usd: sum.call(:realised_pnl_usd),
+          fees_usd: sum.call(:fees_usd),
+          # Cash is a balance, not a position, and the ledger knows it after every row — stated so
+          # the page can hold it against what the venue reports, as it does every coin.
+          cash: cash,
+          cash_usd: sum.call(:cash_usd),
+          unpriced_proceeds_usd: sum.call(:unpriced_proceeds_usd),
+          loss_sales: loss_sales(walk.global_disposals),
+          # Incomplete is a figure NOBODY could state — a price nobody had, a sale out of nothing —
+          # not one that had to be estimated: an estimate is stated, and noted.
+          incomplete: venues.any?(&:incomplete) || walk.engine.uncovered || walk.price_service.warnings.any?,
+          openings: venues.each_with_object(Hash.new(0.to_d)) do |summary, total|
+            summary.openings.each { |symbol, quantity| total[symbol] += quantity }
+          end.to_h,
+          computed_at: Time.current
+        )
+      end
+
+      def empty_summary(computed_at = Time.current)
+        Summary.new(positions: [], round_trips: [], total_invested_usd: 0.to_d, received_usd: 0.to_d,
+                    realised_pnl_usd: 0.to_d, fees_usd: 0.to_d, cash: {}, cash_usd: 0.to_d,
+                    unpriced_proceeds_usd: 0.to_d, incomplete: false, openings: {}, loss_sales: {},
+                    computed_at: computed_at)
+      end
+
+      # One position per symbol across the venues holding it.
+      def merge_positions(positions)
+        positions.group_by(&:symbol).map do |symbol, held|
+          next held.sole if held.one?
+
+          quantity = held.sum(0.to_d, &:quantity)
+          cost = held.sum(0.to_d, &:cost_usd)
+          Position.new(symbol: symbol, quantity: quantity, cost_usd: cost, avg_cost_usd: cost / quantity,
+                       opened_at: held.filter_map(&:opened_at).min, estimated: held.any?(&:estimated),
+                       unpriced_quantity: held.sum(0.to_d, &:unpriced_quantity))
+        end.sort_by { |position| -position.cost_usd }
+      end
+
+      # What one row does to quantities, per venue. A linked transfer between two venues takes the
+      # whole amount off the source and lands what arrived on the destination, both at the
+      # withdrawal — the instant the engine moves the lots. Everything else stays on its own venue.
+      def located_moves(row)
+        venue = row[:exchange]
+        destination = row[:to_exchange]
+        moves = quantity_moves(row).map { |symbol, amount| [venue, symbol, amount] }
+        return moves unless transfer_between_venues?(row)
+
+        base = row[:base_currency]
+        amount = row[:base_amount].to_d
+        moves.reject { |_, symbol, _| symbol == base } +
+          [[venue, base, -amount], [destination, base, amount - row[:transfer_fee_amount].to_d]]
+      end
+
+      def transfer_between_venues?(row)
+        row[:linked] && row[:entry_type].to_s == 'withdrawal' && row[:to_exchange].present? &&
+          row[:to_exchange] != row[:exchange]
       end
 
       # What must have been held before an asset's history begins. A running quantity that goes
@@ -392,36 +617,44 @@ module Tracker
       # a sale, a sweep, a withdrawal, a lost coin, a fee row, a fee paid in the asset on another
       # row, the fee slice of a linked transfer. A day with no price opens an unpriced lot, taken
       # at zero cost. Nothing is written into the record; this is a reading of it.
-      def open_with_what_must_have_been_held(rows, price_service)
+      #
+      # Located, per venue: a venue's history can be short of its own start however full the account
+      # is, and the lot it opens is on that venue.
+      def open_with_what_must_have_been_held(rows, price_service, located:)
         running = Hash.new(0.to_d)
         lowest = Hash.new(0.to_d)
         first = {}
         rows.each do |row|
-          quantity_moves(row).each do |symbol, amount|
+          moves = located ? located_moves(row) : quantity_moves(row).map { |symbol, amount| [nil, symbol, amount] }
+          moves.each do |venue, symbol, amount|
             next if UnfundedCash.cash?(symbol)
 
-            first[symbol] ||= row
-            running[symbol] += amount
-            lowest[symbol] = running[symbol] if running[symbol] < lowest[symbol]
+            key = [venue, symbol]
+            first[key] ||= row
+            running[key] += amount
+            lowest[key] = running[key] if running[key] < lowest[key]
           end
         end
-        openings = lowest.select { |_, low| low.negative? }.map { |symbol, low| opening(symbol, -low, first[symbol], price_service) }
+        openings = lowest.select { |_, low| low.negative? }.map do |(venue, symbol), low|
+          first_row = first[[venue, symbol]]
+          opening(symbol, -low, first_row, venue || first_row[:exchange], price_service)
+        end
         return rows if openings.empty?
 
         # Each opening sits just ahead of the first row that touches its asset.
         rows.flat_map { |row| openings.select { |opening| opening[:before].equal?(row) }.map { |o| o.except(:before) } + [row] }
       end
 
-      def opening(symbol, quantity, first_row, price_service)
+      def opening(symbol, quantity, first_row, venue, price_service)
         at = first_row[:transacted_at] - 1.second
         kept = price_service.warnings.size
-        price = price_service.price_at(asset: symbol, currency: 'USD', timestamp: at, exchange: first_row[:exchange])
+        price = price_service.price_at(asset: symbol, currency: 'USD', timestamp: at, exchange: venue)
         # A day with no price is the asset's own gap, not the report's: the lot is unpriced and says so.
         price_service.warnings.slice!(kept..)
         { entry_type: 'deposit', base_currency: symbol, base_amount: quantity, quote_currency: nil, quote_amount: nil,
           fiat_value: price.to_d * quantity, fee_fiat_value: 0.to_d, fee_currency: nil, fee_amount: nil,
           transacted_at: at, tx_id: nil, group_id: nil, price_missing: price.to_d.zero?, stated_value: false,
-          exchange: first_row[:exchange], linked: false, transfer_fee_amount: nil, opening: true, before: first_row }
+          exchange: venue, linked: false, transfer_fee_amount: nil, opening: true, before: first_row }
       end
 
       # A swap leg with no counterpart — no leg going the other way in its group, or no group — is a
@@ -474,20 +707,45 @@ module Tracker
       #
       # One term per row, complete unless a figure in it had to be guessed: an arrival nobody could
       # price, a fiat amount with no rate, a shortfall the same. And, from the same walk, the cash
-      # left standing at the end of it, per currency.
+      # left standing at the end of it, per venue and currency.
+      #
+      # A linked transfer between venues is capital MOVED: the cost the coins carried leaves the
+      # source and arrives at the destination, both at the withdrawal, so the two cancel in the whole.
       def money_in_terms(rows, price_service, engine)
         cash = Hash.new(0.to_d)
         closes = UnfundedCash.closers(rows.map { |row| [row[:exchange], row[:group_id]] })
-        terms = rows.each_with_index.map do |row, index|
+        terms = rows.each_with_index.flat_map do |row, index|
           cash_moves(row).each { |currency, amount| cash[[row[:exchange], currency]] += amount }
           kept = price_service.warnings.size
           amount = contribution(row, price_service, engine)
           amount += unfunded_contribution(cash, closes[index], row, price_service) if closes[index]
           complete = price_service.warnings.size == kept && !(row[:price_missing] && valued_by_price?(row))
-          [row, Term.new(at: row[:transacted_at], amount: amount, complete: complete,
-                         opens: row[:opening] ? [row[:base_currency], row[:base_amount]] : nil)]
+          [[row, Term.new(at: row[:transacted_at], amount: amount, complete: complete, exchange: row[:exchange],
+                          opens: row[:opening] ? [row[:base_currency], row[:base_amount]] : nil)]] +
+            transfer_terms(row, price_service, engine).map { |term| [row, term] }
         end
-        [terms, cash.each_with_object(Hash.new(0.to_d)) { |((_, currency), amount), total| total[currency] += amount }]
+        [terms, cash]
+      end
+
+      # Cash carries its face value (a fiat at the day's rate); a coin the cost of the lots it took.
+      def transfer_terms(row, price_service, engine)
+        return [] unless transfer_between_venues?(row)
+
+        symbol = row[:base_currency]
+        kept = price_service.warnings.size
+        moved = if UnfundedCash.cash?(symbol)
+                  arrived = row[:base_amount].to_d - row[:transfer_fee_amount].to_d
+                  if STABLECOINS.include?(symbol)
+                    arrived
+                  else
+                    price_service.convert_fiat(amount: arrived, from: symbol, to: 'USD', timestamp: row[:transacted_at])
+                  end
+                else
+                  engine.moved_basis(row) || 0.to_d
+                end
+        complete = price_service.warnings.size == kept
+        [Term.new(at: row[:transacted_at], amount: -moved, complete: complete, exchange: row[:exchange]),
+         Term.new(at: row[:transacted_at], amount: moved, complete: complete, exchange: row[:to_exchange])]
       end
 
       def cash_in_usd(cash, price_service)
@@ -557,7 +815,7 @@ module Tracker
                   # any tax report), but it would debit money-in with appreciation nobody
                   # contributed, and once that passed the deposits the figure went negative. Money
                   # in cannot be negative.
-                  engine.basis_released(symbol, amount) || 0.to_d
+                  engine.basis_released(symbol, amount, row[:exchange]) || 0.to_d
                 end
         value * direction
       end
