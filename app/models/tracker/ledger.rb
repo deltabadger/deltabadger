@@ -124,8 +124,11 @@ module Tracker
         @released[[(venue if @located), asset, amount]].shift
       end
 
-      # The cost a linked transfer carried to the far venue — what money in moves with it.
-      def moved_basis(row) = @moved[row]
+      # The cost a linked transfer carried to the far venue — what money in moves with it — and
+      # whether any of it was a price nobody had.
+      def moved_basis(row) = @moved[row]&.first
+
+      def moved_unpriced?(row) = @moved[row]&.last || false
 
       def roc_at(venue) = @roc[venue]
 
@@ -179,7 +182,8 @@ module Tracker
           lots << lot
         end
         lots.sort_by!.with_index { |lot, index| [lot[:date], index] }
-        @moved[transaction] = tranches.sum(0.to_d) { |tranche| tranche[:cost] }
+        @moved[transaction] = [tranches.sum(0.to_d) { |tranche| tranche[:cost] },
+                               tranches.any? { |tranche| tranche[:unpriced].to_d.positive? }]
       end
 
       def reduce_lot_basis(asset_lots, transaction)
@@ -743,7 +747,8 @@ module Tracker
                 else
                   engine.moved_basis(row) || 0.to_d
                 end
-        complete = price_service.warnings.size == kept
+        # A coin whose cost nobody had carries that doubt to the venue it went to.
+        complete = price_service.warnings.size == kept && !engine.moved_unpriced?(row)
         [Term.new(at: row[:transacted_at], amount: -moved, complete: complete, exchange: row[:exchange]),
          Term.new(at: row[:transacted_at], amount: moved, complete: complete, exchange: row[:to_exchange])]
       end
