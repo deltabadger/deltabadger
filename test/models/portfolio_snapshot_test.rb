@@ -73,4 +73,41 @@ class PortfolioSnapshotTest < ActiveSupport::TestCase
     PortfolioSnapshot.record!(stranger)
     assert_not PortfolioSnapshot.for_user(stranger).exists?
   end
+
+  test 'record! writes today for every venue too; the values add up to the whole' do
+    kraken = create(:kraken_exchange)
+    create(:api_key, user: @user, exchange: kraken)
+    balance(@btc, free: 1, price: 40_000)
+    AccountBalance.create!(user: @user, exchange: kraken, asset: @eth, free: 10, locked: 0, usd_price: 2_000,
+                           usd_value: 20_000, synced_at: Time.current, priced_at: Time.current)
+    deposit(30_000)
+
+    PortfolioSnapshot.record!(@user)
+
+    whole = PortfolioSnapshot.for_user(@user).sole
+    venues = PortfolioVenueSnapshot.for_user(@user).to_a
+    assert_equal [@binance.id, kraken.id].sort, venues.map(&:exchange_id).sort
+    assert_equal whole.value_usd, venues.sum(&:value_usd)
+    assert_equal [whole.date], venues.map(&:date).uniq
+  end
+
+  # Each scope is reconciled against its own balances. For the whole, history on one venue and a
+  # balance on another read as a move between the user's own venues; each venue on its own can only
+  # read a coin leaving and a coin arriving. So invested need not add up here — the swept history's does.
+  test 'today\'s invested is reconciled per scope, and does not have to add up' do
+    kraken = create(:kraken_exchange)
+    create(:api_key, user: @user, exchange: kraken)
+    create(:account_transaction, api_key: @key, entry_type: :buy, base_currency: 'BTC', base_amount: 1,
+                                 quote_currency: 'USD', quote_amount: 10_000, transacted_at: 3.days.ago)
+    AccountBalance.create!(user: @user, exchange: kraken, asset: @btc, free: 1, locked: 0, usd_price: 30_000,
+                           usd_value: 30_000, synced_at: Time.current, priced_at: Time.current)
+
+    PortfolioSnapshot.record!(@user)
+
+    whole = PortfolioSnapshot.for_user(@user).sole
+    venues = PortfolioVenueSnapshot.for_user(@user).to_a
+    assert_equal 10_000.to_d, whole.invested_usd, 'the coin moved; what went in is what it cost'
+    assert_not_equal whole.invested_usd, venues.sum(&:invested_usd)
+    assert_equal whole.value_usd, venues.sum(&:value_usd)
+  end
 end

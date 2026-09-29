@@ -89,7 +89,7 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
   end
 
   test 'a cold ledger shows the bot\'s loading placeholder in the ledger tiles and warms itself once' do
-    Tracker::LedgerJob.expects(:perform_later).with(@user.id, nil).once
+    Tracker::LedgerJob.expects(:perform_later).with(@user.id).once
     get tracker_path
 
     assert_select '.data-grid__item .loader--small', 5,
@@ -202,8 +202,8 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
   end
 
   test 'the switch scopes the chart and the tiles, not just the card below them' do
-    Tracker::Ledger.compute!(@user, exchange: @binance)
-    PortfolioSnapshot::BackfillJob.perform_now(@user.id, @binance.id)
+    Tracker::Ledger.compute!(@user)
+    PortfolioSnapshot::BackfillJob.perform_now(@user.id)
 
     get tracker_path(exchange_id: @binance.id)
 
@@ -215,8 +215,8 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
                   'as is the money-in tile'
   end
 
-  test 'a cold scoped history warms itself once' do
-    PortfolioSnapshot::BackfillJob.expects(:perform_later).with(@user.id, @binance.id).once
+  test 'a venue with no history of its own yet asks for the one sweep that writes every scope' do
+    PortfolioSnapshot::BackfillJob.expects(:perform_later).with(@user.id).once
 
     get tracker_path(exchange_id: @binance.id)
 
@@ -419,7 +419,6 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
   # ── 8 · exchange scope ───────────────────────────────────────────────────────────────────────
   test 'exchange_id scopes the whole view: holdings, transactions, positions and the figures' do
     warm_ledger
-    Tracker::Ledger.compute!(@user, exchange: @binance)
     get tracker_path(exchange_id: @binance.id)
 
     assert_select '.tracker-exchanges a.segmented__option[aria-current="page"]', text: 'Binance'
@@ -437,12 +436,13 @@ class TrackerPageTest < ActionDispatch::IntegrationTest
     assert_select '.data-grid__item__value', text: /\$80,000\.00/, count: 0
   end
 
-  test 'a cold exchange-scoped ledger warms its own key' do
+  # One walk states every venue, so switching reads what the whole already built.
+  test 'the exchange switch reads the ledger the whole already built — nothing to warm' do
     warm_ledger
-    Tracker::LedgerJob.expects(:perform_later).with(@user.id, @binance.id).once
+    Tracker::LedgerJob.expects(:perform_later).never
     get tracker_path(exchange_id: @binance.id)
 
-    assert_select '.tracker-positions .loader--small'
+    assert_select '.tracker-positions .loader--small', false
   end
 
   # ── 9 · hide balances ────────────────────────────────────────────────────────────────────────

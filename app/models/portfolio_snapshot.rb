@@ -4,7 +4,9 @@
 class PortfolioSnapshot < ApplicationRecord
   belongs_to :user
 
-  CACHE_TTL = 2.days
+  # Bumped when the sweep's own calculation changes, so every stored history is swept again.
+  HISTORY_VERSION = 1
+  HISTORY_VERSION_KEY = 'snapshot_history_version'.freeze
 
   scope :for_user, ->(user) { where(user_id: user.id) }
 
@@ -12,19 +14,31 @@ class PortfolioSnapshot < ApplicationRecord
   # ledger's, computed here when the cache is cold — this runs inside a sync job, never in a
   # request. A user with neither balances nor transactions has no portfolio to record; one who
   # sold everything still has a day on the chart, at zero.
-  def self.record!(user)
-    row = today_row(user)
+  #
+  # And the same day for every venue the account has rows or balances on. Each is reconciled against
+  # its own balances, so their invested figures need not add up to the whole's — see
+  # `Tracker::Figures`; their values do.
+  def self.record!(user, scopes: nil)
+    row = today_row(user, scopes: scopes)
     upsert(row, unique_by: %i[user_id date], record_timestamps: true) if row
+    rows = venues(user).filter_map do |exchange|
+      today_row(user, exchange: exchange, scopes: scopes)&.merge(exchange_id: exchange.id)
+    end
+    PortfolioVenueSnapshot.upsert_all(rows, unique_by: %i[user_id exchange_id date], record_timestamps: true) if rows.any?
+  end
+
+  def self.venues(user)
+    ids = AccountTransaction.for_user(user).distinct.pluck(:exchange_id) |
+          AccountBalance.for_user(user).nonzero.distinct.pluck(:exchange_id)
+    Exchange.where(id: ids).to_a
   end
 
   # Today, from the balances and the ledger rather than from a price table that has not closed yet.
-  # Stored for the whole portfolio; handed back for one venue, whose series is cached rather than
-  # kept — see `series`.
-  def self.today_row(user, exchange: nil)
+  def self.today_row(user, exchange: nil, scopes: nil)
     balances = AccountBalance.for_user(user).nonzero.then { |scope| exchange ? scope.for_exchange(exchange) : scope }.to_a
-    return if balances.empty? && !AccountTransaction.for_user(user).exists?
+    return if balances.empty? && !pending_scope(user, exchange).exists?
 
-    ledger = Tracker::Ledger.cached(user, exchange: exchange) || Tracker::Ledger.compute!(user, exchange: exchange)
+    ledger = Tracker::Ledger.summary(user, exchange: exchange, scopes: scopes)
     # The same resolution the tiles show, so the chart's last point and the tile are one figure.
     figures = Tracker::Figures.for(user, ledger: ledger, balances: balances,
                                          pending: Tracker::Figures.moved_since(pending_scope(user, exchange), watermarks(user, exchange)))
@@ -72,25 +86,33 @@ class PortfolioSnapshot < ApplicationRecord
     "#{PRICE_GENERATION_KEY}_#{user.id}"
   end
 
-  # The chart's series. The whole portfolio is a table — the nightly sync appends to it and every
-  # page load reads it. One venue is a question asked occasionally, so it is swept on demand and
-  # cached, the way a scoped ledger is: nil until a job has built it.
+  # The chart's series: the whole portfolio's table, or one venue's. The nightly sync appends today
+  # to both and the sweep writes every day before it.
   def self.series(user, exchange: nil)
     return for_user(user).order(:date).to_a unless exchange
 
-    Rails.cache.read(series_key(user, exchange))&.map { |row| new(row.except(:user_id)) }
+    PortfolioVenueSnapshot.for_user(user).where(exchange_id: exchange.id).order(:date).to_a
   end
 
-  def self.cache_series(user, exchange, rows)
-    Rails.cache.write(series_key(user, exchange), rows, expires_in: CACHE_TTL)
+  # What a stored history was swept FROM. Every transaction counts, today's included: a sale today
+  # that overdraws opens a lot before the history begins, and moves every day since. The sweep
+  # reads this before it loads the rows and stores what it read, so a row landing mid-sweep leaves
+  # the history stale rather than stamped current.
+  def self.history_version(user)
+    scope = AccountTransaction.for_user(user)
+    "#{HISTORY_VERSION}_#{scope.count}_#{scope.maximum(:updated_at)&.utc&.iso8601(6)}"
   end
 
-  # Follows the transactions, as the ledger's key does, plus the day itself: a series ends at
-  # today, and tomorrow's answer is a different one.
-  def self.series_key(user, exchange)
-    scope = AccountTransaction.for_user(user).for_exchange(exchange)
-    "tracker_history_v4_#{user.id}_#{exchange.id}_#{Date.current.iso8601}_#{watermarks(user, exchange)[exchange.id]&.to_i}_" \
-      "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}"
+  def self.history_stale?(user)
+    AppConfig.get(history_version_key(user)).to_s != history_version(user)
+  end
+
+  def self.mark_history_swept!(user, version)
+    AppConfig.set(history_version_key(user), version)
+  end
+
+  def self.history_version_key(user)
+    "#{HISTORY_VERSION_KEY}_#{user.id}"
   end
 
   # What "we could not state this day in full" means on the BALANCE side: something held that we

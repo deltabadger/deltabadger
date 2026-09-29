@@ -1,16 +1,18 @@
 # The history the nightly sync cannot know: one forward sweep over the whole ledger, from the first
-# transaction to yesterday, valuing what was held on each day at that day's price.
+# transaction to yesterday, valuing what was held on each day at that day's price — on every venue,
+# and the whole as their sum.
 #
-# One price-range fetch per symbol, over the interval it was actually held — not per day and not per
-# row. A hole inside a symbol's history carries the last observed price forward; a day BEFORE its
+# One price-range fetch per instrument, over the interval it was actually held — not per day and not
+# per row. A hole inside a symbol's history carries the last observed price forward; a day BEFORE its
 # first observed price, or a symbol with no price at all, leaves the day `partial` rather than
 # valuing the holding at zero.
 #
 # Idempotent: rerunning upserts the same rows, so a failed run costs nothing.
 class PortfolioSnapshot::BackfillJob < ApplicationJob
   queue_as :low_priority
-  limits_concurrency to: 1, key: ->(user_id, exchange_id = nil) { "portfolio_backfill_#{user_id}_#{exchange_id}" },
-                     on_conflict: :discard
+  # Per user: one sweep writes every venue. The second argument is what a venue-scoped run was
+  # enqueued with before that, still read so a job already in the queue runs.
+  limits_concurrency to: 1, key: ->(user_id, *) { "portfolio_backfill_#{user_id}" }, on_conflict: :discard
 
   FIAT = Tax::PriceService::FIAT_CURRENCIES
   STABLECOINS = Tax::PriceService::STABLECOINS
@@ -24,51 +26,42 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # Below this a negative balance is the adapters disagreeing about gross and net, not a hole.
   DUST = '0.00000001'.to_d
 
-  # With an exchange, the same sweep over that venue's rows alone, cached for the chart to read;
-  # without one, the whole portfolio, written to the table the nightly sync appends to.
-  def perform(user_id, exchange_id = nil)
+  def perform(user_id, _exchange_id = nil)
     # Fiat cash is valued straight off the ECB table, and a history of nothing but cash never builds
     # a price service — which is the only other thing that loads it.
     Tax::EcbFxRates.ensure_loaded!
     @user = User.find(user_id)
-    @exchange = exchange_id && Exchange.find(exchange_id)
-    @transactions = transactions_in_scope
-    return if @transactions.empty?
-
+    # Read before the rows are, so a row landing mid-sweep leaves the history stale.
+    version = PortfolioSnapshot.history_version(@user)
+    @transactions = AccountTransaction.for_user(@user).by_date_asc
+                                      .includes(:exchange, :inverse_link, linked_transaction: :exchange).to_a
     @last_date = Date.current - 1
-    first_date = @transactions.first.transacted_at.to_date
-    return if first_date > @last_date
+    first_date = @transactions.first&.transacted_at&.to_date
+    return PortfolioSnapshot.mark_history_swept!(@user, version) if first_date.nil? || first_date > @last_date
 
     load_prices(first_date)
-    @exchange ? cache_series(sweep(first_date)) : store_history(sweep(first_date))
+    store(*sweep(first_date), version)
   end
 
   private
 
-  def transactions_in_scope
-    scope = AccountTransaction.for_user(@user).by_date_asc.includes(:exchange, :linked_transaction, :inverse_link)
-    scope = scope.for_exchange(@exchange) if @exchange
-    scope.to_a
-  end
-
-  def store_history(rows)
-    PortfolioSnapshot.upsert_all(rows, unique_by: %i[user_id date], record_timestamps: true)
+  # Both tables and the version they were swept from, together: a history is never half written,
+  # nor stamped current for rows it did not read.
+  def store(whole, venues, version)
+    ActiveRecord::Base.transaction do
+      PortfolioSnapshot.upsert_all(whole, unique_by: %i[user_id date], record_timestamps: true)
+      PortfolioVenueSnapshot.upsert_all(venues, unique_by: %i[user_id exchange_id date], record_timestamps: true) if venues.any?
+      PortfolioSnapshot.mark_history_swept!(@user, version)
+    end
     # Stamped AFTER the sweep, so a price this run fetched itself counts as already read.
     PortfolioSnapshot.mark_prices_swept!(@user)
-    warm_ledgers
+    # The prices that just arrived are the ones the cached ledger was missing, so it gets another
+    # chance at a complete figure — and refreshes whoever is looking.
+    Tracker::LedgerJob.perform_later(@user.id)
   end
 
-  # Today closes the scoped series the way `record!` closes the stored one: from the balances and
-  # the ledger, because the price table has not closed today yet.
-  def cache_series(rows)
-    today = PortfolioSnapshot.today_row(@user, exchange: @exchange)
-    rows << today if today
-    PortfolioSnapshot.cache_series(@user, @exchange, rows)
-    Turbo::StreamsChannel.broadcast_refresh_to("user_#{@user.id}", :sync)
-  end
-
-  # One row per day. Transactions are applied as their day comes round, then the balances standing
-  # at the end of it are valued.
+  # One row per venue per day, and the whole as their sum. Transactions are applied as their day
+  # comes round, then the balances standing at the end of it are valued.
   #
   # Money in is not worked out here: it is the ledger's figure, read term by term in the ledger's
   # own order (`Tracker::Ledger.money_in`) and summed up to each day — so the history's last point
@@ -81,7 +74,9 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # value it stands in, and the money in that funds it. Both come off the day already swept; the
   # cash of the day is the one extra figure, and the sweep is already valuing it.
   def sweep(first_date)
-    balances = Hash.new(0.to_d)
+    # Quantities per VENUE — a coin is valued on the venue that holds it, and the lots moved by a
+    # linked transfer move here at the same instant.
+    balances = Hash.new { |venues, venue| venues[venue] = Hash.new(0.to_d) }
     # Cash per VENUE, beside the balances the day is valued from: dollars at a broker cannot pay for
     # an exchange's trade, and a broker's own deficit is borrowed rather than missing. Both readers
     # of the ledger enumerate the moves with `UnfundedCash.moves`, so neither can hold a second
@@ -89,12 +84,22 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     cash = Hash.new(0.to_d)
     closers = event_closers
     pending = @transactions.dup
-    terms = Tracker::Ledger.money_in(@user, exchange: @exchange)
-    invested = 0.to_d
+    terms = Tracker::Ledger.money_in(@user)
+    invested = Hash.new(0.to_d)
     # A term nobody could state in full leaves the money-in figure an estimate from that day on.
-    invested_incomplete = false
+    incomplete = Hash.new(false)
+    ids = Exchange.all.to_h { |exchange| [exchange.name_id, exchange.id] }
+    # A venue's days start at its first row — or at the first transfer sent to it, which lands there
+    # at the withdrawal.
+    opened = @transactions.each_with_object({}) do |transaction, first|
+      [transaction.exchange, transaction.linked_transaction&.exchange].compact.each do |exchange|
+        first[exchange.name_id] ||= transaction.transacted_at.to_date
+      end
+    end
 
-    (first_date..@last_date).map do |date|
+    whole = []
+    venues = []
+    (first_date..@last_date).each do |date|
       while pending.first && pending.first.transacted_at.to_date <= date
         transaction = pending.shift
         apply(balances, transaction)
@@ -104,36 +109,52 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
       end
       while terms.first && terms.first.at.to_date <= date
         term = terms.shift
-        invested += term.amount
-        invested_incomplete ||= !term.complete
+        invested[term.exchange] += term.amount
+        incomplete[term.exchange] ||= !term.complete
         # An opening balance is held from the day the ledger booked it, as the ledger holds it.
-        balances[term.opens.first] += term.opens.last if term.opens
+        balances[term.exchange][term.opens.first] += term.opens.last if term.opens
       end
-      value, held, unpriced = value_on(balances, date)
-      { user_id: @user.id, date: date, value_usd: value, invested_usd: invested,
-        held_value_usd: held, held_cost_usd: invested - (value - held),
-        partial: unpriced || invested_incomplete }
+      days = (balances.keys | invested.keys).map do |venue|
+        value, held, unpriced = value_on(venue, balances[venue], date)
+        { venue: venue, value_usd: value, invested_usd: invested[venue], held_value_usd: held,
+          held_cost_usd: invested[venue] - (value - held), partial: unpriced || incomplete[venue] }
+      end
+      whole << day(date, days)
+      days.each do |row|
+        next unless (since = opened[row[:venue]]) && date >= since && ids[row[:venue]]
+
+        venues << row.except(:venue).merge(user_id: @user.id, exchange_id: ids[row[:venue]], date: date)
+      end
     end
+    [whole, venues]
+  end
+
+  def day(date, venues)
+    sum = ->(figure) { venues.sum(0.to_d) { |row| row[figure] } }
+    { user_id: @user.id, date: date, value_usd: sum.call(:value_usd), invested_usd: sum.call(:invested_usd),
+      held_value_usd: sum.call(:held_value_usd), held_cost_usd: sum.call(:held_cost_usd),
+      partial: venues.any? { |row| row[:partial] } }
   end
 
   # Quantities move exactly as the tax engines move them, fees included: a fee in the asset being
   # acquired only shrinks what arrived, a fee in a third asset leaves that asset, and a fee in the
   # asset being SOLD is not taken off again — the adapters already report those sales net.
-  def apply(balances, transaction)
+  def apply(venues, transaction)
     symbol = transaction.base_currency
     amount = transaction.base_amount.to_d
+    balances = venues[transaction.exchange.name_id]
 
     case transaction.entry_type.to_sym
     when *ACQUISITIONS
       balances[symbol] += acquired(transaction, amount)
     when :deposit
-      # A linked deposit is the far end of the user's own transfer: the withdrawal never removed
+      # A linked deposit is the far end of the user's own transfer: the withdrawal already moved
       # the coins, so this leg adds nothing.
       balances[symbol] += acquired(transaction, amount) unless linked?(transaction)
     when :sell, :swap_out
       balances[symbol] -= amount
     when :withdrawal
-      balances[symbol] -= linked?(transaction) ? network_fee(transaction) : amount
+      withdraw(venues, balances, transaction, amount)
     when :fee, :lost
       balances[symbol] -= amount
     when :withholding_tax
@@ -201,11 +222,23 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     end
   end
 
-  # Linked as the ledger of this scope reads it: a transfer whose far end lies outside the scope
-  # is a coin leaving, or arriving, whole.
   def linked?(transaction)
-    partner = transaction.linked_transaction || transaction.inverse_link
-    partner.present? && @transactions.any? { |row| row.id == partner.id }
+    (transaction.linked_transaction || transaction.inverse_link).present?
+  end
+
+  # Unlinked, the coins left the account. Linked, the network fee leaves and the rest lands on the
+  # venue it was sent to, at the withdrawal — the instant the ledger moves the lots.
+  def withdraw(venues, balances, transaction, amount)
+    return balances[transaction.base_currency] -= amount unless linked?(transaction)
+
+    fee = network_fee(transaction)
+    destination = transaction.linked_transaction.exchange.name_id
+    if destination == transaction.exchange.name_id
+      balances[transaction.base_currency] -= fee
+    else
+      balances[transaction.base_currency] -= amount
+      venues[destination][transaction.base_currency] += amount - fee
+    end
   end
 
   def network_fee(withdrawal)
@@ -227,7 +260,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
       next if shortfall.zero?
 
       cash[[exchange, symbol]] += shortfall
-      balances[symbol] += shortfall
+      balances[venue][symbol] += shortfall
     end
   end
 
@@ -239,7 +272,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
   # A negative balance is history we do not have — an exchange whose ledger window starts after the
   # funding deposit leaves a sale with nothing behind it. Dropping it silently would show the whole
   # position as profit, so the day says it is an estimate instead.
-  def value_on(balances, date)
+  def value_on(venue, balances, date)
     unpriced = balances.any? { |_symbol, quantity| quantity < -DUST }
     total = 0.to_d
     held = 0.to_d
@@ -251,7 +284,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
               elsif FIAT.include?(symbol)
                 fiat_value(symbol, quantity, date)
               else
-                price = @prices.dig(symbol, date)
+                price = @prices.dig(@price_keys.fetch([venue, symbol], symbol), date)
                 price && (quantity * price)
               end
       unpriced ||= value.nil?
@@ -267,16 +300,24 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     nil
   end
 
-  # symbol → { date => price }, last observed carried forward. Built once, over the interval each
-  # symbol was actually touched, so a coin bought last week costs one small window rather than the
-  # whole history.
+  # price key → { date => price }, last observed carried forward. Built once per INSTRUMENT, over the
+  # interval it was actually touched, so a coin bought last week costs one small window rather than
+  # the whole history. A [venue, symbol] names its instrument (`@price_keys`): a stock is a stock only
+  # on a venue that trades them — a coin sharing a ticker with a stock is priced as the coin on a
+  # crypto venue, and both can be held at once.
   def load_prices(first_date)
     @prices = {}
-    touched(first_date).each do |symbol, (from, exchange)|
-      # A stock is a stock only on a venue that trades them: a coin sharing a ticker with a stock is
-      # priced as the coin on a crypto venue.
+    @price_keys = {}
+    instruments = {}
+    touched(first_date).each do |(venue, symbol), (from, exchange)|
       stock = Asset.find_by(symbol: symbol, category: STOCK_CATEGORIES) if exchange.stock_venue?
       key = stock ? "stock:#{symbol}" : symbol
+      @price_keys[[venue, symbol]] = key
+      # The venue that first touched a coin is the one its identity is read off (`Tax::AssetIdentity`).
+      known = instruments[key]
+      instruments[key] = [symbol, stock, [from, known&.dig(2) || from].min, known&.dig(3) || exchange]
+    end
+    instruments.each do |key, (symbol, stock, from, exchange)|
       coins = stock ? [] : Tax::AssetIdentity.coin_ids_over(symbol, exchange: exchange, from: from, to: @last_date)
       fetch_missing(symbol, stock, from, coins)
       observed = HistoricalPrice.where(asset: key, currency: 'USD', date: from..@last_date)
@@ -287,7 +328,7 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
       coin_on = ->(date) { stock ? key : coins.find { |days, _| days.cover?(date) }&.last }
       last = nil
       carried = 0
-      @prices[symbol] = (from..@last_date).index_with do |date|
+      @prices[key] = (from..@last_date).index_with do |date|
         last = nil if date > from && coin_on.call(date) != coin_on.call(date - 1)
         # ponytail: `stock_price_range` makes ONE candle request and Alpaca pages bars, so a stock
         # history longer than a page comes back truncated. The carry limit turns that into an
@@ -299,16 +340,17 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
     end
   end
 
-  # Cash needs no price, and a symbol nothing ever touched needs no window. The venue that first
-  # touched a symbol is the one its coin is read off (`Tax::AssetIdentity`).
+  # Cash needs no price, and a symbol nothing ever touched needs no window. [venue, symbol] → the
+  # first day it was touched there, and that venue. A linked transfer touches its destination too.
   def touched(first_date)
     dates = {}
     @transactions.each do |transaction|
       date = [transaction.transacted_at.to_date, first_date].max
+      venues = [transaction.exchange, transaction.linked_transaction&.exchange].compact
       [transaction.base_currency, transaction.quote_currency, transaction.fee_currency].compact.each do |symbol|
         next if FIAT.include?(symbol) || STABLECOINS.include?(symbol)
 
-        dates[symbol] ||= [date, transaction.exchange]
+        venues.each { |exchange| dates[[exchange.name_id, symbol]] ||= [date, exchange] }
       end
     end
     dates
@@ -334,12 +376,5 @@ class PortfolioSnapshot::BackfillJob < ApplicationJob
 
   def price_service
     @price_service ||= Tax::PriceService.new
-  end
-
-  # The prices that just arrived are the ones every cached ledger was missing, so each scope gets
-  # another chance at a complete figure.
-  def warm_ledgers
-    Tracker::LedgerJob.perform_later(@user.id)
-    @user.api_keys.distinct.pluck(:exchange_id).each { |id| Tracker::LedgerJob.perform_later(@user.id, id) }
   end
 end
