@@ -23,11 +23,12 @@ module Tax
         @swap_in_groups = @crypto_to_crypto_taxable ? {} : build_swap_in_groups(transactions)
         @swap_out_groups = @crypto_to_crypto_taxable ? {} : build_swap_out_groups(transactions)
 
-        lots = @lots = Hash.new { |h, k| h[k] = [] }
+        lots = @lots = new_lot_store
         disposals = []
         transferred_tranches = Hash.new { |groups, key| groups[key] = [] }
 
         transactions.each do |tx|
+          enter_row(tx)
           asset = tx[:base_currency]
           amount = tx[:base_amount]
           fiat_value = tx[:fiat_value] || 0.to_d
@@ -94,6 +95,16 @@ module Tax
       end
 
       private
+
+      # Where the lots live, indexed by asset. The tracker keeps one pool per venue through these two
+      # hooks (`Tracker::Ledger::Engine`); no tax engine overrides them, so a report walks one pool
+      # per asset whatever venue a row came from.
+      def new_lot_store
+        Hash.new { |lots, asset| lots[asset] = [] }
+      end
+
+      # Called before each row is applied.
+      def enter_row(_transaction); end
 
       # A split restates the same investment in a different number of shares: every lot keeps its
       # total cost and its acquisition date, or every holding-period exemption silently resets.
