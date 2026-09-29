@@ -209,4 +209,33 @@ class Tracker::LocatedLedgerTest < ActiveSupport::TestCase
     assert_equal %w[SOL], all.positions.map(&:symbol), 'no BTC left, none invented'
     assert_equal 120.to_d, all.total_invested_usd
   end
+
+  test 'a coin swapped on arrival, in the transfer\'s second, carries its cost into the swap' do
+    at = @day.call(2)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 20_000)
+    tx(:swap_out, key: @key_kraken, at: at, base_currency: 'BTC', base_amount: 1, group_id: 'g1')
+    tx(:swap_in, key: @key_kraken, at: at, base_currency: 'ETH', base_amount: 10, group_id: 'g1')
+    deposit = tx(:deposit, key: @key_kraken, at: at, base_currency: 'BTC', base_amount: 1)
+    tx(:withdrawal, at: at, base_currency: 'BTC', base_amount: 1, linked_transaction: deposit)
+    price('ETH', 2, 3_000)
+    price('BTC', 2, 30_000)
+
+    eth = Tracker::Ledger.scopes(@user).fetch(@kraken.id).positions.sole
+
+    assert_equal 'ETH', eth.symbol
+    assert_equal 20_000.to_d, eth.cost_usd, 'the BTC cost carried through the swap, not the day\'s market'
+  end
+
+  test 'cash that arrives in the second it is spent pays for what it bought' do
+    at = @day.call(2)
+    tx(:deposit, day: 1, base_currency: 'USDT', base_amount: 1_000)
+    deposit = tx(:deposit, key: @key_kraken, at: at, base_currency: 'USDT', base_amount: 1_000)
+    tx(:buy, key: @key_kraken, at: at, base_currency: 'BTC', base_amount: 0.01, quote_currency: 'USDT', quote_amount: 1_000)
+    tx(:withdrawal, at: at, base_currency: 'USDT', base_amount: 1_000, linked_transaction: deposit)
+
+    all = Tracker::Ledger.scopes(@user).fetch(nil)
+
+    assert_equal 1_000.to_d, all.total_invested_usd, 'no funding invented for a buy the transfer paid for'
+    assert_equal 0.to_d, all.cash.values.sum
+  end
 end
