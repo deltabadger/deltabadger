@@ -46,7 +46,6 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     seed_prices
     MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
     Tracker::LedgerJob.expects(:perform_later).with(@user.id).once
-    Tracker::LedgerJob.expects(:perform_later).with(@user.id, @binance.id).once
 
     travel_to @day.call(6) do
       PortfolioSnapshot::BackfillJob.perform_now(@user.id)
@@ -413,5 +412,87 @@ class PortfolioSnapshot::BackfillJobTest < ActiveSupport::TestCase
     rows = quick_around_the_switch(catalogued: false)
 
     assert_equal [false, false, true, false], rows.map(&:partial), 'a hole on 07-21 stays a hole; a stored 07-22 still counts'
+  end
+
+  test 'one sweep writes every venue\'s days beside the whole, and a transferred coin is valued where it went' do
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 10_000)
+    tx(:buy, day: 1, base_currency: 'BTC', base_amount: 1, quote_currency: 'USD', quote_amount: 10_000)
+    kraken = create(:kraken_exchange)
+    kraken_key = create(:api_key, user: @user, exchange: kraken)
+    deposit = create(:account_transaction, api_key: kraken_key, entry_type: :deposit, base_currency: 'BTC', base_amount: 0.99,
+                                           quote_currency: nil, quote_amount: nil, transacted_at: @day.call(3))
+    tx(:withdrawal, day: 2, base_currency: 'BTC', base_amount: 1, linked_transaction: deposit)
+    (0..4).each { |n| price('BTC', n, 10_000) }
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(5)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    whole = PortfolioSnapshot.series(@user)
+    on_binance = PortfolioSnapshot.series(@user, exchange: @binance)
+    on_kraken = PortfolioSnapshot.series(@user, exchange: kraken)
+    assert_equal [10_000, 10_000, 0, 0, 0].map(&:to_d), on_binance.map(&:value_usd)
+    assert_equal [@d0 + 2, @d0 + 3, @d0 + 4], on_kraken.map(&:date), 'a venue starts on its first row'
+    assert_equal [9_900, 9_900, 9_900].map(&:to_d), on_kraken.map(&:value_usd), 'valued where it went, from the withdrawal'
+    assert_equal [10_000, 10_000, 100, 100, 100].map(&:to_d), on_binance.map(&:invested_usd),
+                 'the carried cost left with the coin; the network fee stayed behind'
+    assert_equal [9_900, 9_900, 9_900].map(&:to_d), on_kraken.map(&:invested_usd)
+    whole.each do |day|
+      venues = (on_binance + on_kraken).select { |row| row.date == day.date }
+      %i[value_usd invested_usd held_value_usd held_cost_usd].each do |figure|
+        assert_equal day.public_send(figure), venues.sum(0.to_d, &figure), "#{figure} on #{day.date}: the venues add up"
+      end
+    end
+  end
+
+  test 'a stock and a coin sharing a ticker are each valued as themselves' do
+    alpaca = create(:alpaca_exchange)
+    alpaca_key = create(:api_key, user: @user, exchange: alpaca)
+    stock = create(:asset, symbol: 'COIN', external_id: 'COIN.US', category: 'Stock', instrument_type: 'stock')
+    create(:ticker, exchange: alpaca, base_asset: stock, quote_asset: Asset.find_by(symbol: 'USD') || create(:asset, :usd))
+    create(:account_transaction, api_key: alpaca_key, entry_type: :buy, base_currency: 'COIN', base_amount: 1,
+                                 quote_currency: 'USD', quote_amount: 300, transacted_at: @day.call(1))
+    tx(:buy, day: 1, base_currency: 'COIN', base_amount: 10, quote_currency: 'USD', quote_amount: 10)
+    HistoricalPrice.create!(asset: 'stock:COIN', currency: 'USD', date: @d0 + 1, price: 300)
+    price('COIN', 1, 1)
+    Exchanges::Alpaca.any_instance.stubs(:set_client)
+    Exchanges::Alpaca.any_instance.stubs(:get_candles).returns(Result::Failure.new('offline'))
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+    Tax::AssetIdentity.stubs(:coin_ids_over).returns([[(@d0..(@d0 + 10)), 'coin-coin']])
+
+    travel_to(@day.call(2)) { PortfolioSnapshot::BackfillJob.perform_now(@user.id) }
+
+    assert_equal [300.to_d], PortfolioSnapshot.series(@user, exchange: alpaca).map(&:held_value_usd)
+    assert_equal [10.to_d], PortfolioSnapshot.series(@user, exchange: @binance).map(&:held_value_usd)
+  end
+
+  test 'the history knows what it was swept from' do
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 1_000)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+
+    travel_to(@day.call(2)) do
+      assert PortfolioSnapshot.history_stale?(@user), 'never swept'
+      PortfolioSnapshot::BackfillJob.perform_now(@user.id)
+      assert_not PortfolioSnapshot.history_stale?(@user)
+
+      tx(:deposit, day: 1, base_currency: 'USD', base_amount: 500)
+      assert PortfolioSnapshot.history_stale?(@user), 'a backdated row'
+      PortfolioSnapshot::BackfillJob.perform_now(@user.id)
+      AccountTransaction.for_user(@user).first.touch
+      assert PortfolioSnapshot.history_stale?(@user), 'an edited row'
+    end
+  end
+
+  test 'a row landing mid-sweep leaves the history stale rather than stamped current' do
+    tx(:deposit, day: 0, base_currency: 'USD', base_amount: 1_000)
+    MarketData.stubs(:get_historical_price_range).returns(Result::Failure.new('offline'))
+    Tracker::Ledger.stubs(:money_in).with do
+      tx(:deposit, day: 1, base_currency: 'USD', base_amount: 500)
+      true
+    end.returns([])
+
+    travel_to(@day.call(2)) do
+      PortfolioSnapshot::BackfillJob.perform_now(@user.id)
+      assert PortfolioSnapshot.history_stale?(@user)
+    end
   end
 end

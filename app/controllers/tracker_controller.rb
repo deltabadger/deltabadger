@@ -311,63 +311,42 @@ class TrackerController < ApplicationController
     record.save
   end
 
-  # Read-only: a cold scope is warmed by a job and the page shows the bot's loading state until it
-  # lands. Two scopes, because the page reads at two altitudes — the tiles and the chart are the
-  # whole portfolio, the holdings card and the record follow the exchange switch.
+  # Read-only: a cold ledger is warmed by a job and the page shows the bot's loading state until it
+  # lands. One entry holds every scope, so the exchange switch reads what the whole already built.
   def load_ledgers
     @ledger = Tracker::Ledger.cached(current_user)
-    Tracker::LedgerJob.perform_later(current_user.id, nil) if @ledger.nil?
+    Tracker::LedgerJob.perform_later(current_user.id) if @ledger.nil?
     @scoped_ledger = @scope_exchange ? Tracker::Ledger.cached(current_user, exchange: @scope_exchange) : @ledger
-    return if @scoped_ledger || @scope_exchange.nil?
-
-    Tracker::LedgerJob.perform_later(current_user.id, @scope_exchange.id)
   end
 
-  # The chart's series. Coverage decides the backfill, not "are there any snapshots": the nightly
-  # sync only ever appends today, so a history that starts after the first transaction has a gap
-  # nothing else will fill. A user whose first transaction is today has no gap yet.
+  # The chart's series — the whole portfolio's, or the switched venue's; one sweep writes both. It is
+  # asked for when the history does not reach back to the scope's first transaction (the nightly
+  # sync only ever appends today, so a gap there is filled by nothing else), when the transactions
+  # it was swept from have moved since (`history_stale?`), and when prices it lacked have arrived.
+  # Only a gap or an unswept stretch leaves the chart spinning; otherwise it shows the rows it has
+  # while the sweep runs.
   def load_history
     @history = PortfolioSnapshot.series(current_user, exchange: @scope_exchange)
-    if @history.nil?
-      # A venue's series is swept on demand: the chart spins until the job lands.
-      PortfolioSnapshot::BackfillJob.perform_later(current_user.id, @scope_exchange.id)
-      @history = []
-      @history_loading = true
-      return
-    end
-
-    first_transaction = AccountTransaction.for_user(current_user).minimum(:transacted_at)&.to_date
+    first_transaction = PortfolioSnapshot.pending_scope(current_user, @scope_exchange).minimum(:transacted_at)&.to_date
     # The curve follows the switch too, and a day swept before it cannot answer for the positions —
     # the cash standing on it is not recoverable from a row that never stated it. Those days are not
     # drawn (a nil read as zero would be a lie in the shape of a figure), and a sweep is asked for
     # while any of them is a day a sweep can still reach: the first transaction to yesterday, which
-    # is exactly the window the job writes. Nothing else is asked for on every page load — a row
-    # older than the account's own history is dropped for good, and TODAY's row is the sync's to
-    # rewrite (`record!` states both readings), which it does on the next one.
+    # is exactly the window the job writes. A row older than the account's own history is dropped
+    # for good, and TODAY's row is the sync's to rewrite (`record!` states both readings).
     unless show_cash?
       unswept, @history = @history.partition { |row| row.held_cost_usd.nil? }
-      if unswept.any? { |row| first_transaction && row.date.between?(first_transaction, Date.yesterday) }
-        PortfolioSnapshot::BackfillJob.perform_later(current_user.id, @scope_exchange&.id)
-        @history_loading = @history.empty?
-        return
-      end
+      unswept = unswept.any? { |row| first_transaction && row.date.between?(first_transaction, Date.yesterday) }
     end
+    gap = first_transaction.present? && first_transaction < Date.current &&
+          !(@history.first && @history.first.date <= first_transaction)
+    # A day already swept can still be wrong: it was valued at the prices that existed then. Bounded
+    # by the generation, so a day no price can fix does not re-enqueue on every page load.
+    return unless unswept || gap || PortfolioSnapshot.history_stale?(current_user) ||
+                  PortfolioSnapshot.stale_prices?(current_user)
 
-    # A day already swept can still be wrong: it was valued at the prices that existed then, and the
-    # sweep only ever runs forwards. Prices arriving since — a range the provider could not answer
-    # before — change days nothing else revisits, so a history with unvalued days asks for one more
-    # pass. Bounded by the generation: once swept, it does not ask again until a price actually
-    # arrives, so a day no price can fix does not re-enqueue on every page load.
-    if PortfolioSnapshot.stale_prices?(current_user)
-      PortfolioSnapshot::BackfillJob.perform_later(current_user.id)
-      return
-    end
-
-    return if @scope_exchange || first_transaction.nil? || first_transaction >= Date.current
-    return if @history.first && @history.first.date <= first_transaction
-
-    @history_loading = @history.empty?
     PortfolioSnapshot::BackfillJob.perform_later(current_user.id)
+    @history_loading = @history.empty? && (unswept || gap)
   end
 
   def load_portfolio

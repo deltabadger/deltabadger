@@ -36,6 +36,8 @@ class TrackerShowCashTest < ActionDispatch::IntegrationTest
                                  base_currency: 'BTC', base_amount: 1, quote_currency: 'USDT',
                                  quote_amount: 30_000, transacted_at: 9.days.ago)
     Tracker::Ledger.compute!(@user)
+    # Swept from exactly these transactions: the only reasons left to sweep are the ones tested here.
+    PortfolioSnapshot.mark_history_swept!(@user, PortfolioSnapshot.history_version(@user))
     sign_in @user
   end
 
@@ -196,7 +198,7 @@ class TrackerShowCashTest < ActionDispatch::IntegrationTest
     # Dated at the first transaction, so the only reason to sweep is the missing pair.
     PortfolioSnapshot.create!(user: @user, date: 10.days.ago.to_date, value_usd: 46_000,
                               invested_usd: 40_000, partial: false)
-    PortfolioSnapshot::BackfillJob.expects(:perform_later).with(@user.id, nil).once
+    PortfolioSnapshot::BackfillJob.expects(:perform_later).with(@user.id).once
 
     get tracker_path
 

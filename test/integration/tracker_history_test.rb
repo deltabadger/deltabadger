@@ -19,6 +19,8 @@ class TrackerHistoryTest < ActionDispatch::IntegrationTest
     create(:account_transaction, api_key: @key, entry_type: :deposit, base_currency: 'USD', base_amount: 30_000,
                                  quote_currency: nil, quote_amount: nil, transacted_at: 3.days.ago)
     Tracker::Ledger.compute!(@user)
+    # Swept from exactly these transactions: nothing has moved since.
+    PortfolioSnapshot.mark_history_swept!(@user, PortfolioSnapshot.history_version(@user))
     # Spread over months, not days: a window shorter than the history is what makes the range
     # control a choice at all, and 30D on a three-day history draws the same picture as ALL.
     (1..3).each do |n|

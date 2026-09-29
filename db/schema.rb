@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_28_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_29_120000) do
   create_table "account_balances", force: :cascade do |t|
     t.integer "asset_id", null: false
     t.datetime "created_at", null: false
@@ -429,6 +429,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_28_120000) do
     t.decimal "value_usd", precision: 20, scale: 8, default: "0.0", null: false
     t.index ["user_id", "date"], name: "index_portfolio_snapshots_on_user_id_and_date", unique: true
     t.index ["user_id"], name: "index_portfolio_snapshots_on_user_id"
+  end
+
+  create_table "portfolio_venue_snapshots", force: :cascade do |t|
+    t.integer "user_id", null: false
+    t.integer "exchange_id", null: false
+    t.date "date", null: false
+    t.decimal "value_usd", precision: 20, scale: 8, default: "0.0", null: false
+    t.decimal "invested_usd", precision: 20, scale: 8, default: "0.0", null: false
+    t.decimal "held_value_usd", precision: 20, scale: 8
+    t.decimal "held_cost_usd", precision: 20, scale: 8
+    t.boolean "partial", default: false, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["user_id", "exchange_id", "date"], name: "idx_on_user_id_exchange_id_date_16fb7188ca", unique: true
   end
 
   create_table "rule_logs", force: :cascade do |t|
