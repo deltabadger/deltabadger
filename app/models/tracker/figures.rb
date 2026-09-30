@@ -73,15 +73,15 @@ module Tracker
       return {} if watermarks.empty?
 
       since = watermarks.values.min
+      # Not the futures or margin wallets' rows: the ledger never walks them (`Ledger.enriched_rows`).
       rows = transactions.where(transacted_at: since..).includes(:linked_transaction, :inverse_link).to_a
+                         .reject { |tx| UnfundedCash.borrowed?(tx.tx_id) }
                          .select { |tx| (taken = watermarks[tx.exchange_id]) && tx.transacted_at >= taken }
       pending_ids = rows.to_set(&:id)
       rows.each_with_object(Hash.new(0.to_d)) do |tx, moved|
         Ledger.quantity_moves(quantity_row(tx, pending_ids)).each { |symbol, amount| moved[symbol] += amount unless UnfundedCash.cash?(symbol) }
         # Every cash move as the ledger reads it — a cash base net of its own fee, the quote leg, a
-        # cash fee — and none from a borrowed wallet, whose cash is not the account's.
-        next if UnfundedCash.borrowed?(tx.tx_id)
-
+        # cash fee.
         UnfundedCash.moves(**tx.slice(*UnfundedCash::MOVE_KEYS).symbolize_keys).each do |currency, amount|
           moved[currency] += amount
         end
