@@ -1,19 +1,34 @@
-//! Embeds db/sql/migrate/*.sql (the SQL twins of Rails migrations) in version order.
+//! Records the Rails migration versions this build understands.
 use std::{env, fs, path::PathBuf};
 
 fn main() {
-    let dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("../db/sql/migrate");
+    let dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("../db/migrate");
     println!("cargo:rerun-if-changed={}", dir.display());
-    let mut twins: Vec<(String, PathBuf)> = fs::read_dir(&dir)
-        .map(|entries| entries.filter_map(Result::ok).map(|e| e.path())
-            .filter(|p| p.extension().is_some_and(|x| x == "sql"))
-            .map(|p| (p.file_name().unwrap().to_string_lossy()[..14].to_string(), p))
-            .collect())
-        .unwrap_or_default();
-    twins.sort();
-    let body: String = twins.iter()
-        .map(|(v, p)| format!("    ({v:?}, include_str!({:?})),\n", p.canonicalize().unwrap()))
-        .collect();
-    let out = PathBuf::from(env::var("OUT_DIR").unwrap()).join("twins.rs");
-    fs::write(out, format!("pub const TWINS: &[(&str, &str)] = &[\n{body}];\n")).unwrap();
+    let mut versions = Vec::new();
+    for entry in fs::read_dir(&dir).expect("read Rails migrations") {
+        let entry = entry.expect("read migration entry");
+        if !entry
+            .file_type()
+            .expect("read migration file type")
+            .is_file()
+        {
+            continue;
+        }
+        let name = entry.file_name();
+        let name = name.to_str().expect("migration filename is UTF-8");
+        let version = name.get(..14).expect("migration has a version prefix");
+        assert!(
+            version.bytes().all(|b| b.is_ascii_digit()),
+            "invalid migration version: {name}"
+        );
+        versions.push(version.to_owned());
+    }
+    versions.sort();
+    let body: String = versions.iter().map(|v| format!("    {v:?},\n")).collect();
+    let out = PathBuf::from(env::var("OUT_DIR").unwrap()).join("migrations.rs");
+    fs::write(
+        out,
+        format!("pub const MIGRATIONS: &[&str] = &[\n{body}];\n"),
+    )
+    .unwrap();
 }

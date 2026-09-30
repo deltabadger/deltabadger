@@ -17,8 +17,6 @@
 *.sqlite3-*
 *.dump
 *.sql
-# The SQL the Rust backend builds databases from (db/sql/README.md)
-!/db/sql/**/*.sql
 /storage/development.sqlite3
 
 # Dependencies

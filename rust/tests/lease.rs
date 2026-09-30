@@ -1,7 +1,8 @@
+mod common;
 use chrono::{Duration, TimeZone, Utc};
 use deltabadger::crypto::{Cipher, EncryptionKeys};
 use deltabadger::lease::{self, Claim, LeaseError};
-use deltabadger::store::{self, Paths, EMBEDDED};
+use deltabadger::store::{self, Paths};
 use std::fs::OpenOptions;
 
 fn t0() -> chrono::DateTime<Utc> { Utc.with_ymd_and_hms(2026, 9, 30, 12, 0, 0).unwrap() }
@@ -42,9 +43,8 @@ fn a_rails_process_holding_the_shared_lock_blocks_rust() {
 
 #[test]
 fn a_live_pre_floor_rails_blocks_until_its_heartbeat_is_stale() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = common::rails_install();
     let p = paths(dir.path());
-    drop(store::open(&p, &EMBEDDED).unwrap());
     rails_heartbeat(&p, t0());
     assert!(matches!(lease::lock(&p, t0() + Duration::seconds(119)), Err(LeaseError::RailsAlive { seconds_ago: 119 })));
     assert!(lease::lock(&p, t0() + Duration::seconds(121)).is_ok());
@@ -52,10 +52,10 @@ fn a_live_pre_floor_rails_blocks_until_its_heartbeat_is_stale() {
 
 #[test]
 fn claim_records_rust_ownership_encrypted_and_names_where_it_came_from() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = common::rails_install();
     let p = paths(dir.path());
     let l = lease::lock(&p, t0()).unwrap();
-    let o = store::open(&p, &EMBEDDED).unwrap();
+    let o = store::open(&p).unwrap();
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap(), Claim::FromRails));
     let raw: String = o.primary.query_row("SELECT value FROM app_configs WHERE key = 'engine_lease'", [], |r| r.get(0)).unwrap();
     let envelope: serde_json::Value = serde_json::from_str(&raw).unwrap();
@@ -66,10 +66,10 @@ fn claim_records_rust_ownership_encrypted_and_names_where_it_came_from() {
 
 #[test]
 fn hand_back_is_recorded_and_the_next_claim_sees_it() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = common::rails_install();
     let p = paths(dir.path());
     let l = lease::lock(&p, t0()).unwrap();
-    let o = store::open(&p, &EMBEDDED).unwrap();
+    let o = store::open(&p).unwrap();
     lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()).unwrap();
     lease::hand_back(&l, &o.primary, &cipher(), t0()).unwrap();
     let v = lease::read(&o.primary, &cipher()).unwrap().unwrap();
@@ -79,10 +79,10 @@ fn hand_back_is_recorded_and_the_next_claim_sees_it() {
 
 #[test]
 fn an_unreadable_row_is_refused_not_overwritten() {
-    let dir = tempfile::tempdir().unwrap();
+    let dir = common::rails_install();
     let p = paths(dir.path());
     let l = lease::lock(&p, t0()).unwrap();
-    let o = store::open(&p, &EMBEDDED).unwrap();
+    let o = store::open(&p).unwrap();
     let foreign = Cipher::new(&EncryptionKeys::resolve(&|_| None, "another-install").unwrap());
     lease::claim(&l, &o.primary, &foreign, "0.1.0", t0()).unwrap();
     assert!(matches!(lease::claim(&l, &o.primary, &cipher(), "0.1.0", t0()), Err(LeaseError::Unreadable)));
