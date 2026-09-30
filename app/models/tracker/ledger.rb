@@ -550,9 +550,15 @@ module Tracker
       # reader of the ledger shares, so the report and the page can never chain a swap differently.
       # `enrich` maps one row per transaction in order, which is what lets a withdrawal be told the
       # venue its coins went to.
+      #
+      # The futures and margin wallets are accounts the tracker holds no balance for, so their rows
+      # never enter the walk: they would open positions nobody paid for (a futures fill is its whole
+      # notional), count their P/L as money in, and spend the spot wallet's coins on margin interest.
+      # They stay in the record and in tax reports; the figures are the spot account's.
       def enriched_rows(user, price_service)
         ordered = Tax::PriceService.ordered(
           AccountTransaction.for_user(user).includes(:exchange, linked_transaction: :exchange).to_a
+                            .reject { |transaction| UnfundedCash.borrowed?(transaction.tx_id) }
         )
         rows = price_service.enrich(ordered, currency: 'USD')
         rows.zip(ordered) { |row, transaction| row[:to_exchange] = transaction.linked_transaction&.exchange&.name_id }
@@ -870,8 +876,6 @@ module Tracker
       # cost, what was withdrawn and what was carried to another pot (see `CashBook`). Returns the
       # basis the withdrawn cash carried; a carried basis is left in `carried` for `transfer_terms`.
       def book_cash(book, row, carried)
-        return 0.to_d if UnfundedCash.borrowed?(row[:tx_id])
-
         at = row[:transacted_at]
         venue = row[:exchange]
         base = row[:base_currency]
@@ -1011,7 +1015,7 @@ module Tracker
 
         symbol = row[:base_currency]
         amount = row[:base_amount].to_d
-        value = if UnfundedCash.cash?(symbol) && direction.negative? && !UnfundedCash.borrowed?(row[:tx_id])
+        value = if UnfundedCash.cash?(symbol) && direction.negative?
                   # Cash leaving takes out what it carried in (`CashBook`), as a coin leaving does.
                   withdrawn
                 elsif FIAT.include?(symbol)

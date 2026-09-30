@@ -120,7 +120,8 @@ class Tracker::FiguresTest < ActiveSupport::TestCase
 
     pending = Tracker::Figures.moved_since(AccountTransaction.for_user(@user), { @binance.id => @day.call(3) })
 
-    assert_equal({ 'USDC' => 995.to_d, 'BTC' => 1.to_d }, pending)
+    # The futures fill is the futures wallet's, coin and cash alike: the ledger never walks it.
+    assert_equal({ 'USDC' => 995.to_d }, pending)
   end
 
   test 'a venue with no watermark is not brought forward' do

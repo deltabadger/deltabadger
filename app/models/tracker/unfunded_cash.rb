@@ -51,16 +51,17 @@ module Tracker
       -balance
     end
 
-    # A row from a borrowed wallet — one whose funding this ledger only ever sees a corner of.
+    # A row from a borrowed wallet — futures or margin — whose balance the tracker never holds.
     #
     # A futures fill reserves margin: the notional it reports as its quote never left an account,
     # and read as cash spent it would book a multiple of the position as money from outside. Its
-    # realised P/L and funding fees are the same wallet from the other side, and interest on a
-    # margin loan is the price of money that was borrowed rather than money that was put in.
+    # realised P/L and funding fees are the same wallet from the other side, interest on a margin
+    # loan is the price of money that was borrowed rather than money that was put in, and a margin
+    # liquidation sells the margin wallet's coins, not the spot wallet's.
     #
     # ponytail: recognised by the ids the importers give them, because a row carries no flag saying
     # which account it belongs to. Upgrade path: set one at import and read it here.
-    BORROWED_MARKERS = %w[futures margin-interest].freeze
+    BORROWED_MARKERS = %w[futures margin-interest liquidation-].freeze
 
     def self.borrowed?(tx_id)
       BORROWED_MARKERS.any? { |marker| tx_id.to_s.include?(marker) }
