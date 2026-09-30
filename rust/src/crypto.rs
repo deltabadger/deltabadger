@@ -114,3 +114,39 @@ fn envelope(stored: &str) -> Option<(String, serde_json::Map<String, Value>)> {
     let v: Value = serde_json::from_str(stored).ok()?;
     Some((v.get("p")?.as_str()?.to_string(), v.get("h")?.as_object()?.clone()))
 }
+
+/// Devise's database_authenticatable with this app's settings (stretches 11, no pepper).
+/// Ruby's bcrypt truncates the password at 72 bytes; the bcrypt crate's `hash`/`verify` do too.
+pub fn hash_password(plain: &str) -> String {
+    bcrypt::hash_with_result(plain, 11).expect("bcrypt hash").format_for_version(bcrypt::Version::TwoA)
+}
+
+pub fn verify_password(plain: &str, stored_hash: &str) -> bool {
+    bcrypt::verify(plain, stored_hash).unwrap_or(false)
+}
+
+/// ROTP::TOTP#at: RFC 6238, SHA1, 6 digits, 30-second step.
+pub fn totp_at(seed_base32: &str, unix_seconds: u64) -> Option<String> {
+    use hmac::Mac;
+    let key = base32_decode(seed_base32)?;
+    let mut mac = <hmac::Hmac<sha1::Sha1> as Mac>::new_from_slice(&key).ok()?;
+    mac.update(&(unix_seconds / 30).to_be_bytes());
+    let d = mac.finalize().into_bytes();
+    let o = (d[19] & 0x0f) as usize;
+    let n = u32::from_be_bytes([d[o] & 0x7f, d[o + 1], d[o + 2], d[o + 3]]) % 1_000_000;
+    Some(format!("{n:06}"))
+}
+
+fn base32_decode(s: &str) -> Option<Vec<u8>> {
+    const ALPHABET: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+    let (mut bits, mut acc, mut out) = (0u32, 0u64, Vec::new());
+    for c in s.trim_end_matches('=').chars() {
+        acc = (acc << 5) | ALPHABET.find(c.to_ascii_uppercase())? as u64;
+        bits += 5;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((acc >> bits) as u8);
+        }
+    }
+    Some(out)
+}
