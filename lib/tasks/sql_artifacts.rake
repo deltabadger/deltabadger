@@ -3,13 +3,11 @@ require 'tmpdir'
 namespace :db do
   namespace :sql do
     # Boot against scratch databases: the runner boots Rails before the script switches connections.
+    # <NAME>_DATABASE_URL overrides database.yml in every environment.
     runner = lambda do |*args|
       Dir.mktmpdir do |boot|
-        env = %w[DATABASE_PATH QUEUE_DATABASE_PATH CACHE_DATABASE_PATH CABLE_DATABASE_PATH]
-              .each_with_index.to_h { |var, i| [var, "#{boot}/#{i}.sqlite3"] }
-              .merge(%w[DATABASE_URL PRIMARY_DATABASE_URL QUEUE_DATABASE_URL CACHE_DATABASE_URL CABLE_DATABASE_URL]
-                .to_h { |v| [v, nil] }) # a URL would override the paths
-        sh(env, 'bin/rails', 'runner', 'script/sql_artifacts.rb', *args)
+        env = %w[primary queue cache cable].to_h { |db| ["#{db.upcase}_DATABASE_URL", "sqlite3:#{boot}/#{db}.sqlite3"] }
+        sh(env.merge('DATABASE_URL' => nil), 'bin/rails', 'runner', 'script/sql_artifacts.rb', *args)
       end
     end
 
