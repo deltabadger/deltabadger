@@ -1,18 +1,16 @@
-use deltabadger::store::{self, Artifacts, Paths, Preflight, StoreError, EMBEDDED};
-use std::io::Write;
+mod common;
+use deltabadger::store::{self, Paths, StoreError, MIGRATIONS};
+use rusqlite::Connection;
 use std::path::Path;
 
 fn paths(dir: &Path) -> Paths { Paths::from_env(&|_| None, dir) }
 
-fn versions(c: &rusqlite::Connection) -> Vec<String> {
-    let mut s = c.prepare("SELECT version FROM schema_migrations ORDER BY version").unwrap();
-    s.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect()
-}
+fn exec(path: &Path, sql: &str) { Connection::open(path).unwrap().execute_batch(sql).unwrap(); }
 
-fn gz(sql: &str) -> &'static [u8] {
-    let mut z = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
-    z.write_all(sql.as_bytes()).unwrap();
-    Box::leak(z.finish().unwrap().into_boxed_slice())
+fn refusal(p: &Paths) -> StoreError {
+    let checked = store::check(p).expect_err("check refuses");
+    assert!(store::open(p).is_err(), "open refuses whatever check refuses");
+    checked
 }
 
 #[test]
@@ -20,101 +18,102 @@ fn paths_follow_rails_env_names_with_storage_defaults() {
     let p = Paths::from_env(&|k| (k == "QUEUE_DATABASE_PATH").then(|| "/q/queue.sqlite3".to_string()), Path::new("/data"));
     assert_eq!(p.primary, Path::new("/data/production.sqlite3"));
     assert_eq!(p.queue, Path::new("/q/queue.sqlite3"));
-    assert_eq!(p.cable, Path::new("/data/production_cable.sqlite3"));
     assert_eq!(p.lock_file(), Path::new("/data/.engine.lock"));
 }
 
 #[test]
-fn a_missing_install_is_created_complete_and_seeded() {
-    let dir = tempfile::tempdir().unwrap();
-    assert!(matches!(store::preflight(&paths(dir.path()), &EMBEDDED).unwrap(), Preflight::Create));
-    let opened = store::open(&paths(dir.path()), &EMBEDDED).unwrap();
-    assert!(opened.created);
-    let kraken: i64 = opened.primary.query_row("SELECT count(*) FROM exchanges WHERE type = 'Exchanges::Kraken'", [], |r| r.get(0)).unwrap();
-    assert_eq!(kraken, 1);
-    let jm: String = opened.primary.query_row("PRAGMA journal_mode", [], |r| r.get(0)).unwrap();
-    assert_eq!(jm, "wal");
-    let sq: i64 = opened.queue.query_row("SELECT count(*) FROM sqlite_master WHERE name = 'solid_queue_processes'", [], |r| r.get(0)).unwrap();
-    assert_eq!(sq, 1);
-    for name in ["production_cache.sqlite3", "production_cable.sqlite3"] { assert!(dir.path().join(name).exists(), "{name}"); }
-    let leftovers: Vec<_> = std::fs::read_dir(dir.path()).unwrap().filter_map(Result::ok)
-        .filter(|e| e.file_name().to_string_lossy().contains(".creating")).collect();
-    assert!(leftovers.is_empty(), "temporary build files are renamed into place");
+fn the_build_knows_exactly_the_migrations_in_db_migrate() {
+    let mut on_disk: Vec<String> = std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("../db/migrate")).unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy()[..14].to_string()).collect();
+    on_disk.sort();
+    assert_eq!(MIGRATIONS, on_disk.iter().map(String::as_str).collect::<Vec<_>>().as_slice());
 }
 
 #[test]
-fn a_failed_creation_leaves_nothing_that_looks_like_an_install() {
-    let dir = tempfile::tempdir().unwrap();
-    let broken = Artifacts { seed_gz: gz("INSERT INTO no_such_table VALUES (1);"), ..EMBEDDED };
-    assert!(store::open(&paths(dir.path()), &broken).is_err());
-    assert!(!dir.path().join("production.sqlite3").exists(), "no half-built primary");
-    let opened = store::open(&paths(dir.path()), &EMBEDDED).unwrap();
-    assert!(opened.created, "the next start builds it from scratch, seed included");
-}
-
-#[test]
-fn reopening_is_a_no_op() {
-    let dir = tempfile::tempdir().unwrap();
-    let before = versions(&store::open(&paths(dir.path()), &EMBEDDED).unwrap().primary);
-    assert!(matches!(store::preflight(&paths(dir.path()), &EMBEDDED).unwrap(), Preflight::Upgrade { pending } if pending.is_empty()));
-    let again = store::open(&paths(dir.path()), &EMBEDDED).unwrap();
-    assert!(!again.created && again.applied_twins.is_empty());
-    assert_eq!(versions(&again.primary), before);
-}
-
-#[test]
-fn pending_twins_are_applied_in_order_with_their_version() {
-    let dir = tempfile::tempdir().unwrap();
-    store::open(&paths(dir.path()), &EMBEDDED).unwrap();
-    let with_twin = Artifacts { twins: &[("29990101000000", "CREATE TABLE rust_twin_probe (id integer);")], ..EMBEDDED };
-    let opened = store::open(&paths(dir.path()), &with_twin).unwrap();
-    assert_eq!(opened.applied_twins, vec!["29990101000000".to_string()]);
-    assert!(versions(&opened.primary).contains(&"29990101000000".to_string()));
-}
-
-#[test]
-fn a_database_from_a_newer_app_is_refused_before_any_file_is_touched() {
-    let dir = tempfile::tempdir().unwrap();
+fn an_install_rails_prepared_is_accepted_and_opened_read_write() {
+    let dir = common::rails_install();
     let p = paths(dir.path());
-    drop(store::open(&p, &EMBEDDED).unwrap()); // WAL mode, as Rails runs it
-    rusqlite::Connection::open(&p.primary).unwrap().execute("INSERT INTO schema_migrations VALUES ('29991231000000')", []).unwrap();
-    for aux in [&p.queue, &p.cache, &p.cable] { std::fs::remove_file(aux).unwrap(); }
-    // The guarantee is about database CONTENTS: a read-only WAL reader may create -shm/-wal sidecars,
-    // but never writes the main file (it cannot checkpoint).
-    let before = std::fs::read(&p.primary).unwrap();
-    match store::open(&p, &EMBEDDED) {
-        Err(StoreError::NewerSchema { unknown }) => assert_eq!(unknown, vec!["29991231000000".to_string()]),
-        other => panic!("expected NewerSchema, got {:?}", other.map(|o| o.created)),
+    store::check(&p).unwrap();
+    let o = store::open(&p).unwrap();
+    o.primary.execute("INSERT INTO app_configs (key, value, created_at, updated_at) VALUES ('probe', 'x', '2026-01-01 00:00:00', '2026-01-01 00:00:00')", []).unwrap();
+    let n: i64 = o.queue.query_row("SELECT count(*) FROM solid_queue_processes", [], |r| r.get(0)).unwrap();
+    assert_eq!(n, 0);
+}
+
+#[test]
+fn a_missing_or_empty_database_is_refused_and_never_created() {
+    for victim in ["production.sqlite3", "production_queue.sqlite3"] {
+        let dir = common::rails_install();
+        let path = dir.path().join(victim);
+        std::fs::remove_file(&path).unwrap();
+        assert!(matches!(refusal(&paths(dir.path())), StoreError::Missing { path: ref m } if *m == path), "{victim}");
+        assert!(!path.exists(), "{victim} not created");
+        std::fs::write(&path, b"").unwrap();
+        assert!(matches!(refusal(&paths(dir.path())), StoreError::Missing { .. }), "empty {victim}");
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), 0, "empty {victim} left as it was");
     }
-    assert_eq!(std::fs::read(&p.primary).unwrap(), before, "primary unchanged");
-    for aux in [&p.queue, &p.cache, &p.cable] { assert!(!aux.exists(), "{aux:?} must not be created on refusal"); }
 }
 
 #[test]
 fn a_foreign_sqlite_file_is_refused_and_preserved() {
     for victim in ["production.sqlite3", "production_queue.sqlite3"] {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = common::rails_install();
         let path = dir.path().join(victim);
-        rusqlite::Connection::open(&path).unwrap().execute_batch("CREATE TABLE sentinel (v text); INSERT INTO sentinel VALUES ('keep');").unwrap();
-        assert!(matches!(store::open(&paths(dir.path()), &EMBEDDED), Err(StoreError::Unrecognised { .. })), "{victim}");
-        let v: String = rusqlite::Connection::open(&path).unwrap().query_row("SELECT v FROM sentinel", [], |r| r.get(0)).unwrap();
+        std::fs::remove_file(&path).unwrap();
+        exec(&path, "CREATE TABLE sentinel (v text); INSERT INTO sentinel VALUES ('keep');");
+        assert!(matches!(refusal(&paths(dir.path())), StoreError::Unrecognised { .. }), "{victim}");
+        let v: String = Connection::open(&path).unwrap().query_row("SELECT v FROM sentinel", [], |r| r.get(0)).unwrap();
         assert_eq!(v, "keep", "{victim} left intact");
-        assert!(!dir.path().join("production_cache.sqlite3").exists(), "nothing else created");
     }
 }
 
 #[test]
-fn a_zero_byte_file_counts_as_missing() {
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("production.sqlite3"), b"").unwrap();
-    assert!(store::open(&paths(dir.path()), &EMBEDDED).unwrap().created);
+fn a_database_rails_has_not_fully_migrated_is_behind() {
+    let dir = common::rails_install();
+    let p = paths(dir.path());
+    let last = *MIGRATIONS.last().unwrap();
+    exec(&p.primary, &format!("DELETE FROM schema_migrations WHERE version = '{last}'"));
+    assert!(matches!(refusal(&p), StoreError::Behind { missing } if missing == vec![last.to_string()]));
 }
 
 #[test]
-fn a_database_older_than_the_baseline_is_refused() {
-    let dir = tempfile::tempdir().unwrap();
+fn a_migration_this_build_does_not_know_is_unsupported_and_nothing_is_written() {
+    let dir = common::rails_install();
     let p = paths(dir.path());
-    let first = versions(&store::open(&p, &EMBEDDED).unwrap().primary).remove(0);
-    rusqlite::Connection::open(&p.primary).unwrap().execute("DELETE FROM schema_migrations WHERE version = ?1", [&first]).unwrap();
-    assert!(matches!(store::open(&p, &EMBEDDED), Err(StoreError::OlderSchema { missing }) if missing == vec![first]));
+    exec(&p.primary, "INSERT INTO schema_migrations VALUES ('29991231000000')");
+    let before = std::fs::read(&p.primary).unwrap();
+    assert!(matches!(refusal(&p), StoreError::Unsupported { unknown } if unknown == vec!["29991231000000".to_string()]));
+    assert_eq!(std::fs::read(&p.primary).unwrap(), before, "primary contents unchanged");
+}
+
+#[test]
+fn missing_and_unknown_migrations_together_are_a_diverged_history() {
+    let dir = common::rails_install();
+    let p = paths(dir.path());
+    let first = MIGRATIONS[0];
+    exec(&p.primary, &format!("DELETE FROM schema_migrations WHERE version = '{first}'; INSERT INTO schema_migrations VALUES ('29991231000000');"));
+    assert!(matches!(refusal(&p), StoreError::Diverged { missing, unknown }
+        if missing == vec![first.to_string()] && unknown == vec!["29991231000000".to_string()]));
+}
+
+/// Matching versions do not prove matching structure: the tables Rust reads and writes are checked too.
+#[test]
+fn a_table_rust_uses_that_differs_in_structure_is_incompatible() {
+    let cases = [ // (name, in the queue database?, change, what the problem must name)
+        ("dropped column", false, "ALTER TABLE app_configs DROP COLUMN value", "app_configs.value"),
+        ("nullability", false,
+         "ALTER TABLE app_configs RENAME TO old; CREATE TABLE app_configs (id integer PRIMARY KEY, created_at datetime(6) NOT NULL, key varchar, updated_at datetime(6) NOT NULL, value text); DROP TABLE old; CREATE UNIQUE INDEX index_app_configs_on_key ON app_configs (key);",
+         "app_configs.key"),
+        ("unique index", false, "DROP INDEX index_app_configs_on_key", "app_configs (key)"),
+        ("queue column", true, "ALTER TABLE solid_queue_processes RENAME COLUMN last_heartbeat_at TO heartbeat", "solid_queue_processes.last_heartbeat_at"),
+    ];
+    for (name, in_queue, sql, named) in cases {
+        let dir = common::rails_install();
+        let p = paths(dir.path());
+        exec(if in_queue { &p.queue } else { &p.primary }, sql);
+        match refusal(&p) {
+            StoreError::Incompatible { problems } => assert!(problems.iter().any(|m| m.contains(named)), "{name}: {problems:?}"),
+            other => panic!("{name}: expected Incompatible, got {other:?}"),
+        }
+    }
 }
