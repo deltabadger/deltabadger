@@ -1,0 +1,35 @@
+{
+  "bcrypt": [
+    {
+      "hash": "$2a$11$4xag8iC0SgQS6Ia/3ein9u9k6vNpuRd/KkPLlBCU9cOOKV4zYB9Za",
+      "password": "correct horse ☃"
+    },
+    {
+      "hash": "$2a$11$NvhKqVhSUQpDyjCAto5QL.GniU265ES1E/iFJmWXpy33HwrTrJwfe",
+      "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  ],
+  "ciphertexts": {
+    "app_config": {
+      "cipher": "{\"h\":{\"at\":\"63V+9+/fFf0U9HZHOj9sFg==\",\"iv\":\"kcM2KO4DGUwQCWbQ\"},\"p\":\"9ujJLDf+pyx6RzsGstKBKc4=\"}",
+      "plain": "{\"engine\":\"rust\"}"
+    },
+    "compressed": {
+      "cipher": "{\"h\":{\"at\":\"JLA7N7FOyP9Ft3QpCM9fdg==\",\"c\":true,\"iv\":\"54P7LvJgRpb0v+w1\"},\"p\":\"Acp9zFCjiY6t2APCj/Jxh8onwTKd6S36MLLokR40yyeSU7K33dsAjuxqguRyNSkCVUk9qDZF6pqIOVyI9hYxDwlGXFcLNv+Am/6esVlIrdXjiukxIQT3gw==\"}",
+      "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----"
+    },
+    "otp_seed": {
+      "cipher": "{\"h\":{\"at\":\"2v75zj8t/ELRbuKksQY+Kw==\",\"iv\":\"3By5NOUDZKmuNES1\"},\"p\":\"F90rRGF5HaPKLLAqyouFX2UWmmDXxD9I\"}",
+      "plain": "JBSWY3DPEHPK3PXPJBSWY3DP"
+    },
+    "short": {
+      "cipher": "{\"h\":{\"at\":\"l5AeietfD6FXJEulUvQF7g==\",\"iv\":\"/CozeK/uDiamYK/X\"},\"p\":\"sX9rFEmolmZYhlOeryAzD7A=\"}",
+      "plain": "kR4k3n-s3cr3t/+=="
+    },
+    "unicode": {
+      "cipher": "{\"h\":{\"at\":\"Oo/UwxvfyS7gnlfCiEfDmg==\",\"iv\":\"IQk6UFGOKgWObWJx\"},\"p\":\"7Jge6ikQx9gm6QTzTkBY\"}",
+      "plain": "zażółć 🦡"
+    }
+  },
+  "secret_key_base": "rust-fixture-secret-key-base"
+}
