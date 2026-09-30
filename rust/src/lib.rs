@@ -3,3 +3,4 @@
 pub mod codec;
 pub mod crypto;
 pub mod enums;
+pub mod store;
