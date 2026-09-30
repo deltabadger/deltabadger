@@ -118,7 +118,12 @@ module Tracker
         @roc = Hash.new(0.to_d)
         @fee_basis = {}.compare_by_identity
         @fee_asset_realised = Hash.new(0.to_d)
-        super(transactions.map { |tx| remap(tx) }, **options)
+        @row = nil
+        # `remap` loses what settling a row's fee needs (an orphan swap-out becomes a fee, a loss
+        # sheds its fee), so each walked row keeps the row as recorded beside it.
+        @original = {}.compare_by_identity
+        remapped = transactions.map { |tx| remap(tx).tap { |walked| @original[walked] = tx } }
+        super(remapped, **options).tap { settle_fee }
       end
 
       # [venue, asset] → lots. Unlocated, every lot is on no venue in particular.
@@ -154,8 +159,33 @@ module Tracker
 
       def new_lot_store = @located ? VenueLots.new : super
 
+      # The row before is settled first, while the lots still stand on its venue.
       def enter_row(transaction)
+        settle_fee
+        @row = @original.fetch(transaction, transaction)
+        @fee_consumed = false
         @lots.venue = transaction[:exchange] if @located
+      end
+
+      # A fee in a coin that FIFO never applied — on a withdrawal, a fee row, a loss, a transfer, a
+      # swap it hands on, a stablecoin swap it skips, a row in fiat — still left the account: the
+      # coins go from their lots, as a cost at the basis they carried. Read off the row as recorded,
+      # not as remapped. The same-coin fee of an out-leg FIFO did not dispose of (a coin-for-coin
+      # swap it hands on, one to nowhere) is charged on top, and goes the same way.
+      def settle_fee
+        row = @row
+        @row = nil
+        return unless row && !@fee_consumed
+
+        fee_asset = row[:fee_currency]
+        amount = row[:fee_amount].to_d
+        return unless amount.positive? && fee_asset.present? && !UnfundedCash.cash?(fee_asset)
+        return if fee_asset == row[:quote_currency] # the quote leg of a single-row trade is never tracked
+        return if fee_asset == row[:base_currency] && %w[sell swap_out].exclude?(row[:entry_type].to_s)
+
+        @fee_value = 0.to_d
+        @fee_is_cost = true
+        consume_fee_asset(@lots, fee_asset, amount)
       end
 
       def venue = (@lots.venue if @located)
@@ -211,6 +241,10 @@ module Tracker
       end
 
       def remap(transaction)
+        # A fiat row only reaches the engine to pay a fee in a coin (`Ledger.taxable`); it moves
+        # nothing else.
+        return transaction.merge(entry_type: :unsupported_activity) if FIAT.include?(transaction[:base_currency])
+
         case transaction[:entry_type].to_s
         when 'lost'
           # Proceeds are known exactly — nothing — so no price is asked for, and none can be missing.
@@ -240,7 +274,15 @@ module Tracker
         @fee_value = transaction[:fee_fiat_value].to_d
         # Off a coin's gain it was counted at its value; off cash sold, nothing counts it — a cost.
         @fee_is_cost = UnfundedCash.cash?(transaction[:base_currency])
-        super
+        fee = transaction[:fee_amount].to_d
+        if transaction[:fee_currency] == transaction[:base_currency] && !@fee_is_cost
+          # Kraken and Binance take a coin's own sale fee on top of what was sold; FIFO leaves those
+          # coins in the lots (the tax report's deliberate choice). The gain already deducted their
+          # value, so they leave realising that value less their basis — net, their basis is lost.
+          consume_fee_asset(lots, transaction[:base_currency], fee) if fee.positive?
+        else
+          super
+        end
       ensure
         @paying_trade_fee = false
       end
@@ -250,13 +292,23 @@ module Tracker
         # Cash bought is the cash book's, which carries what the cash cost and nothing else: a coin
         # paid as its fee has no lot to go into, and leaves at its basis — a cost.
         @fee_is_cost = UnfundedCash.cash?(transaction[:base_currency])
-        super
+        super.tap do |quantity, cost|
+          # A same-coin fee that took everything that arrived opens a lot of nothing, and its cost
+          # goes with it: spent. Cash bought is the cash book's, which already loses a netted fee;
+          # a swap's arrival is opened from the tranches it was handed, not from this cost, and one
+          # whose fee took all of it stays outside.
+          next if @fee_is_cost || transaction[:entry_type].to_s == 'swap_in'
+          next unless quantity.zero? && cost.positive?
+
+          @fee_asset_realised[venue] -= cost
+        end
       end
 
       # A fee paid in a third coin leaves that coin at the value it was counted at — capitalised
       # into what was bought, or deducted from what was sold — and FIFO records no disposal. The
       # difference from the basis the coins carried is theirs to realise.
       def consume_fee_asset(lots, fee_asset, fee_amount)
+        @fee_consumed = true
         before = pool_basis(lots[fee_asset])
         super
         # A stablecoin fee is cash: the cash book pays it, at face, and it gains nothing.
@@ -476,7 +528,10 @@ module Tracker
         elsif type == 'withdrawal'
           moves << [base, -(row[:linked] ? row[:transfer_fee_amount].to_d : amount)]
         elsif UnfundedCash::BASE_OUT.include?(type)
-          moves << [base, -amount]
+          # A coin sold with its fee in the coin sold pays it on top — Kraken's balance falls by the
+          # amount and the fee, Binance's commission is separate from the quantity.
+          on_top = %w[sell swap_out].include?(type) && !UnfundedCash.cash?(base) ? fee_in_base : 0.to_d
+          moves << [base, -(amount + on_top)]
         end
         if row[:fee_currency].present? && row[:fee_currency] != base && row[:fee_amount].to_d.positive?
           moves << [row[:fee_currency], -row[:fee_amount].to_d]
@@ -496,7 +551,7 @@ module Tracker
       # again — which for a position they have closed is never.
       def cache_key(user)
         scope = AccountTransaction.for_user(user)
-        "tracker_ledger_v10_#{shape}_#{user.id}_" \
+        "tracker_ledger_v11_#{shape}_#{user.id}_" \
           "#{scope.maximum(:updated_at)&.utc&.iso8601(6)}_#{scope.count}_#{HistoricalPrice.generation}"
       end
 
@@ -505,7 +560,9 @@ module Tracker
       #
       # `v8` still means "the FIGURES changed": a calculation the members cannot see (v2 and v3 were
       # both bumped for exactly that). Forgetting it serves a stale number until the transactions
-      # move — visible, and self-limiting. (`v10`: what cash and coins cost when they left for nothing,
+      # move — visible, and self-limiting. (`v11`: futures and margin wallets out of the walk,
+      # two-leg cash conversions, fee coins FIFO never applied, a coin sale's own fee on top.
+      # `v10`: what cash and coins cost when they left for nothing,
       # what a third coin paid as a fee gained, and what a currency did while held — `CashBook`.)
       #
       # `shape` means "the PAYLOAD changed", and forgetting that is neither. What is cached is a
@@ -780,9 +837,14 @@ module Tracker
       end
 
       # A fiat ledger row is one leg of a trade or bank funding, never a lot — the tax report's own
-      # rule, applied after enrichment so a Kraken fee has already moved onto its crypto leg.
+      # rule, applied after enrichment so a Kraken fee has already moved onto its crypto leg. One that
+      # paid its fee in a coin still reaches the engine, which takes the coins (`Engine#settle_fee`).
       def taxable(rows)
-        rows.reject { |row| FIAT.include?(row[:base_currency]) }
+        rows.reject { |row| FIAT.include?(row[:base_currency]) && !coin_fee?(row) }
+      end
+
+      def coin_fee?(row)
+        row[:fee_amount].to_d.positive? && row[:fee_currency].present? && !UnfundedCash.cash?(row[:fee_currency])
       end
 
       # Money in from OUTSIDE, denominated in BASIS, of three kinds.
