@@ -3,6 +3,8 @@
 # install would trade every bot twice. Every process of this app holds a SHARED lock on .engine.lock
 # (next to the primary database) for its whole life; the other engine takes it EXCLUSIVE, so the two
 # can never run together. Forked Puma workers inherit it. See engine_lease.rb for the handover record.
+require 'active_record/database_configurations'
+
 module EngineLease
   KEY = 'engine_lease'.freeze
 
@@ -11,9 +13,11 @@ module EngineLease
   module_function
 
   # From ActiveRecord's RESOLVED configuration, so DATABASE_URL / PRIMARY_DATABASE_URL overrides are
-  # honoured: the lock must sit next to the file this process actually opens.
+  # honoured: the lock must sit next to the file this process actually opens. Resolved without
+  # ActiveRecord::Base, whose loading would apply config.active_record before later initializers set it.
   def primary_dir
-    database = ActiveRecord::Base.configurations.configs_for(env_name: Rails.env, name: 'primary').database
+    configurations = ActiveRecord::DatabaseConfigurations.new(Rails.application.config.database_configuration)
+    database = configurations.configs_for(env_name: Rails.env, name: 'primary').database
     File.dirname(File.expand_path(database, Rails.root))
   end
 

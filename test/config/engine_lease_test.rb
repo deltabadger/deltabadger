@@ -28,6 +28,23 @@ class EngineLeaseTest < ActiveSupport::TestCase
     end
   end
 
+  # The lock is taken before every other initializer, so finding the database must not load
+  # ActiveRecord::Base: that applies config.active_record, encryption keys included, before the
+  # initializers that set it. Tests skip the lock, so this boots a development process that takes it.
+  test 'taking the lock at boot leaves the encryption keys configured' do
+    Dir.mktmpdir do |dir|
+      urls = %w[DATABASE_URL PRIMARY_DATABASE_URL QUEUE_DATABASE_URL CACHE_DATABASE_URL CABLE_DATABASE_URL]
+      env = { 'RAILS_ENV' => 'development', **urls.to_h { |v| [v, nil] },
+              'DATABASE_PATH' => "#{dir}/p.sqlite3", 'QUEUE_DATABASE_PATH' => "#{dir}/q.sqlite3",
+              'CACHE_DATABASE_PATH' => "#{dir}/c.sqlite3", 'CABLE_DATABASE_PATH' => "#{dir}/w.sqlite3" }
+      out, status = Open3.capture2e(env, 'bin/rails', 'runner', 'print ActiveRecord::Encryption.config.primary_key.present?',
+                                    chdir: Rails.root.to_s)
+      assert status.success?, out
+      assert_equal 'true', out.lines.last.strip
+      assert_path_exists File.join(dir, '.engine.lock')
+    end
+  end
+
   test 'holds a shared lock that the rust engine cannot take, and fails while rust holds it' do
     Dir.mktmpdir do |dir|
       held = EngineLease.lock!(dir)
