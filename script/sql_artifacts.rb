@@ -3,7 +3,7 @@
 #   bin/rails runner script/sql_artifacts.rb generate <dir>          # queue/cache/cable baselines + seed.sql.gz
 #   bin/rails runner script/sql_artifacts.rb dump_schema <db> <out.rb>
 # Every database it builds is a temporary file. Run it through lib/tasks/sql_artifacts.rake (or as the
-# test does), which also points the *_DATABASE_PATH variables at scratch files, so the app's own databases
+# test does), which also points the *_DATABASE_URL variables at scratch files, so the app's own databases
 # are not opened even while Rails boots.
 require 'sqlite3'
 require 'tmpdir'

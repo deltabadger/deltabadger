@@ -13,11 +13,8 @@ class SqlArtifactsTest < ActiveSupport::TestCase
   # (e.g. Solid Queue's stale-record cleanup), so every database it could open points into a scratch dir.
   def generate(*args)
     Dir.mktmpdir do |boot|
-      urls = %w[DATABASE_URL PRIMARY_DATABASE_URL QUEUE_DATABASE_URL CACHE_DATABASE_URL CABLE_DATABASE_URL]
-      env = { 'SMTP_ADDRESS' => nil, 'MARKET_DATA_URL' => nil, 'MARKET_DATA_TOKEN' => nil,
-              **urls.to_h { |v| [v, nil] }, # a URL would override the paths below
-              'DATABASE_PATH' => "#{boot}/p.sqlite3", 'QUEUE_DATABASE_PATH' => "#{boot}/q.sqlite3",
-              'CACHE_DATABASE_PATH' => "#{boot}/c.sqlite3", 'CABLE_DATABASE_PATH' => "#{boot}/w.sqlite3" }
+      env = { 'SMTP_ADDRESS' => nil, 'MARKET_DATA_URL' => nil, 'MARKET_DATA_TOKEN' => nil, 'DATABASE_URL' => nil,
+              **%w[primary queue cache cable].to_h { |db| ["#{db.upcase}_DATABASE_URL", "sqlite3:#{boot}/#{db}.sqlite3"] } }
       out, status = Open3.capture2e(env, 'bin/rails', 'runner', 'script/sql_artifacts.rb', *args, chdir: Rails.root.to_s)
       assert status.success?, out
     end
