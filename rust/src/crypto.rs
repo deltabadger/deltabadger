@@ -88,9 +88,6 @@ impl Cipher {
         let payload = payload.as_str();
         let field = |k: &str| headers.get(k).and_then(Value::as_str).ok_or_else(|| DecryptError::Malformed(format!("missing {k}")));
         let decode = |s: &str| B64.decode(s).map_err(|e| DecryptError::Malformed(e.to_string()));
-        if headers.get("e").is_some() {
-            return Err(DecryptError::Malformed("non-UTF-8 encoding header".into()));
-        }
         let (iv, tag) = (decode(field("iv")?)?, decode(field("at")?)?);
         if iv.len() != 12 || tag.len() != 16 {
             return Err(DecryptError::Malformed(format!("iv {} bytes, tag {} bytes", iv.len(), tag.len())));
@@ -105,6 +102,8 @@ impl Cipher {
         } else {
             opened
         };
+        // "e" names the Ruby encoding when it was not UTF-8 (2FA seeds are binary strings of base32
+        // text). The bytes are the same either way; anything that is not valid UTF-8 is refused here.
         String::from_utf8(bytes).map_err(|e| DecryptError::Malformed(e.to_string()))
     }
 }

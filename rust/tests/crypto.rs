@@ -40,6 +40,8 @@ fn decrypts_every_rails_ciphertext() {
     for (name, c) in common::vectors()["ciphertexts"].as_object().unwrap() {
         assert_eq!(cipher.decrypt(c["cipher"].as_str().unwrap()).unwrap(), c["plain"].as_str().unwrap(), "{name}");
     }
+    let otp = common::vectors()["ciphertexts"]["otp_seed"]["cipher"].as_str().unwrap().to_string();
+    assert!(otp.contains("\"e\":"), "the OTP vector carries the encoding header Rails writes for 2FA seeds");
 }
 
 #[test]
