@@ -813,11 +813,12 @@ module Tracker
         book = CashBook.new(price_service)
         costs = Hash.new(0.to_d)
         carried = {}.compare_by_identity
+        conversions = cash_conversions(rows, book)
         closes = UnfundedCash.closers(rows.map { |row| [row[:exchange], row[:group_id]] })
         terms = rows.each_with_index.flat_map do |row, index|
           # Before the book: a rate it could not find is a figure this row could not state.
           kept = price_service.warnings.size
-          withdrawn = book_cash(book, row, carried)
+          withdrawn = book_cash(book, row, carried, conversions)
           costs[row[:exchange]] -= coin_cost(row, engine)
           amount = contribution(row, price_service, engine, withdrawn)
           amount += unfunded_contribution(book, closes[index], row) if closes[index]
@@ -875,7 +876,7 @@ module Tracker
       # Every cash move of the row into the book, each outflow sorted into what it paid for, what it
       # cost, what was withdrawn and what was carried to another pot (see `CashBook`). Returns the
       # basis the withdrawn cash carried; a carried basis is left in `carried` for `transfer_terms`.
-      def book_cash(book, row, carried)
+      def book_cash(book, row, carried, conversions)
         at = row[:transacted_at]
         venue = row[:exchange]
         base = row[:base_currency]
@@ -898,6 +899,7 @@ module Tracker
         end
         withdrawing = (type == 'withdrawal' && !row[:linked]) || (type == 'swap_out' && row[:orphan])
         worth = cash_counterpart_worth(book, row)
+        worth[base] ||= conversions[row] if conversions.key?(row)
         moves.sum(0.to_d) do |currency, amount|
           out = amount.negative? ? -amount : 0.to_d
           cost = [costs[currency], out].min
@@ -959,6 +961,26 @@ module Tracker
 
       def cash_for_cash?(row)
         row[:quote_amount].present? && UnfundedCash.cash?(row[:base_currency]) && UnfundedCash.cash?(row[:quote_currency])
+      end
+
+      # A conversion booked as legs of its own — Kraken books EUR→USD as a sale of euro and a
+      # purchase of dollars under one reference, neither with a quote — is valued as a single-row
+      # one is (`cash_counterpart_worth`): what the out-legs paid is worth what the in-legs came to,
+      # shared by their own values that day. Gross: an in-leg's own netted fee is a cost of its own
+      # (`cash_costs`). Returns out-leg → USD.
+      def cash_conversions(rows, book)
+        rows.group_by { |row| [row[:exchange], row[:group_id]] }.each_with_object({}.compare_by_identity) do |((_, group), legs), worths|
+          next if group.blank? || legs.any? { |leg| !UnfundedCash.cash?(leg[:base_currency]) || leg[:quote_amount].present? }
+
+          outs = legs.select { |leg| %w[sell swap_out].include?(leg[:entry_type].to_s) }
+          ins = legs.select { |leg| %w[buy swap_in].include?(leg[:entry_type].to_s) }
+          next if outs.empty? || ins.empty?
+
+          came = ins.sum(0.to_d) { |leg| book.value(leg[:base_currency], leg[:base_amount].to_d, leg[:transacted_at]) }
+          went = outs.map { |leg| book.value(leg[:base_currency], leg[:base_amount].to_d, leg[:transacted_at]) }
+          total = went.sum(0.to_d)
+          outs.zip(went) { |leg, value| worths[leg] = total.positive? ? came * value / total : value }
+        end
       end
 
       # A single-row trade of cash for cash: the base side is worth what the quote side came to, not
