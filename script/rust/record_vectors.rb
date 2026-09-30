@@ -40,7 +40,8 @@ plains = {
   'short' => [ApiKey, :secret, 'kR4k3n-s3cr3t/+=='],
   'unicode' => [ApiKey, :key, 'zażółć 🦡'],
   'compressed' => [ApiKey, :rsa_signature_key, long],
-  'otp_seed' => [User, :otp_secret_key, 'JBSWY3DPEHPK3PXPJBSWY3DP'],
+  # Through the app's own path: ROTP returns a binary string, so Rails adds an "e" (encoding) header.
+  'otp_seed' => [User, :otp_secret_key, User.new.tap(&:otp_regenerate_secret).otp_secret_key],
   'app_config' => [AppConfig, :value, '{"engine":"rust"}']
 }
 passwords = ['correct horse ☃', 'x' * 100] # the second is past bcrypt's 72-byte limit
