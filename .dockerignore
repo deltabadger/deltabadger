@@ -60,6 +60,9 @@ public/assets/*
 public/packs
 .sass-cache
 
+# Rust build output (rust/, src-tauri/)
+**/target
+
 # Storage (mounted as volume)
 storage/*
 !storage/.keep
