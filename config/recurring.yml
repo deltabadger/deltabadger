@@ -14,9 +14,13 @@ production:
     class: Exchange::SyncAllTickersAndAssetsJob
     schedule: "15 */4 * * *"  # every 4 hours at minute 15
 
+  # `jitter: true`: instances on the deltabadger market-data provider spread this fetch over a few
+  # minutes instead of all asking at once. Must still land before the 00:30 rebalancer — see
+  # Asset::FetchAllAssetsDataFromCoingeckoJob::JITTER_WINDOW.
   fetch_all_assets_data_from_coingecko_job:
     class: Asset::FetchAllAssetsDataFromCoingeckoJob
     schedule: "20 0 * * *"  # Daily at 00:20 UTC
+    args: [{ jitter: true }]
 
   # Pulls indices from the market-data source. On hosted containers (deltabadger market data)
   # this syncs ONLY the deltabadger-sourced indices, incl. the ND100 stock index; the CoinGecko
@@ -128,9 +132,13 @@ development:
     class: Exchange::SyncAllTickersAndAssetsJob
     schedule: "15 */4 * * *"  # every 4 hours at minute 15
 
+  # `jitter: true`: instances on the deltabadger market-data provider spread this fetch over a few
+  # minutes instead of all asking at once. Must still land before the 00:30 rebalancer — see
+  # Asset::FetchAllAssetsDataFromCoingeckoJob::JITTER_WINDOW.
   fetch_all_assets_data_from_coingecko_job:
     class: Asset::FetchAllAssetsDataFromCoingeckoJob
     schedule: "20 0 * * *"  # Daily at 00:20 UTC
+    args: [{ jitter: true }]
 
   # Pulls indices from the market-data source. On hosted containers (deltabadger market data)
   # this syncs ONLY the deltabadger-sourced indices, incl. the ND100 stock index; the CoinGecko
