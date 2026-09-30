@@ -43,6 +43,24 @@ class EngineLeaseTest < ActiveSupport::TestCase
     end
   end
 
+  # Some network filesystems cannot lock at all. No install runs the Rust engine yet, so there is
+  # nothing to exclude, and refusing to boot there would take the app down for nothing.
+  test 'boots with a warning where the filesystem cannot lock' do
+    unlockable = Object.new
+    def unlockable.flock(*) = raise(Errno::ENOLCK)
+    def unlockable.close = nil
+
+    Dir.mktmpdir do |dir|
+      Rails.logger.expects(:warn).with(regexp_matches(/could not lock/i)).twice
+      File.stubs(:open).returns(unlockable)
+      assert_nil EngineLease.lock!(dir), 'flock unsupported'
+      File.stubs(:open).raises(Errno::EACCES)
+      assert_nil EngineLease.lock!(dir), 'lock file cannot be opened'
+    ensure
+      File.unstub(:open)
+    end
+  end
+
   test 'holds a shared lock that the rust engine cannot take, and fails while rust holds it' do
     Dir.mktmpdir do |dir|
       held = EngineLease.lock!(dir)

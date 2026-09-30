@@ -21,6 +21,11 @@ module EngineLease
     File.dirname(File.expand_path(database, Rails.root))
   end
 
+  # Errors meaning this filesystem or directory cannot hold the lock at all (some network mounts),
+  # as opposed to another engine holding it.
+  UNLOCKABLE = [Errno::ENOLCK, Errno::EOPNOTSUPP, Errno::ENOSYS, Errno::EINVAL, Errno::EACCES, Errno::EPERM,
+                Errno::EROFS].freeze
+
   def lock!(dir)
     FileUtils.mkdir_p(dir)
     file = File.open(File.join(dir, '.engine.lock'), File::RDONLY | File::CREAT, 0o666) # rubocop:disable Style/FileOpen -- held for the process lifetime
@@ -29,6 +34,12 @@ module EngineLease
       raise HeldError, 'The Deltabadger Rust engine is running on this data. Stop it and run `deltabadger handback` first.'
     end
     @lock = file # held until the process exits
+  rescue *UNLOCKABLE => e
+    # ponytail: boots unguarded where locking is impossible; fine while no install runs the Rust engine,
+    # revisit before one does (that engine refuses to start without the lock).
+    file&.close
+    Rails.logger.warn("Engine lock: could not lock #{dir}/.engine.lock (#{e.class}); starting without it")
+    nil
   end
 end
 
