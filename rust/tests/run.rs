@@ -110,3 +110,29 @@ async fn a_bot_made_ineligible_while_running_stops_the_engine() {
     e.primary.execute("UPDATE bots SET settings = json_set(settings, '$.price_limited', json('true')) WHERE id = ?1", [id]).unwrap();
     assert!(matches!(run::step(&mut e, &at("2026-09-01T10:00:01Z")).await, Err(EngineError::Ineligible(_))));
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn sub_millisecond_anchor_ticks_once_per_checkpoint() {
+    let v = priced();
+    let (_d, mut e, _, _) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00.123456"), v.clone());
+    run::step(&mut e, &at("2026-09-01T10:00:00.1235Z")).await.unwrap();
+    assert_eq!(v.sent().len(), 1);
+    let stamp = |e: &Engine<FakeFactory>| -> String { e.primary.query_row("SELECT json_extract(transient_data, '$.last_action_job_at') FROM bots", [], |r| r.get(0)).unwrap() };
+    let first = stamp(&e);
+    e.primary.execute("UPDATE transactions SET external_status = 2, quote_amount_exec = 60", []).unwrap();
+    run::step(&mut e, &at("2026-09-01T10:00:05.2Z")).await.unwrap();
+    assert_eq!(v.sent().len(), 1);
+    assert_eq!(stamp(&e), first, "the same checkpoint is not ticked again");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_stale_retry_entry_does_not_spin_the_loop() {
+    let (_d, mut e, id, _) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), priced());
+    run::step(&mut e, &at("2026-09-01T10:00:01Z")).await.unwrap();
+    e.primary.execute("UPDATE transactions SET external_status = 2, quote_amount_exec = 60", []).unwrap();
+    run::step(&mut e, &at("2026-09-01T10:00:10Z")).await.unwrap();
+    e.inject_stale_retry(id, us("2026-09-01T10:00:00Z"));
+    let now = us("2026-09-01T11:00:00Z");
+    let wake = run::step(&mut e, &at("2026-09-01T11:00:00Z")).await.unwrap();
+    assert!(wake > now + 1_000_000, "wake {wake} must not be now+1us");
+}
