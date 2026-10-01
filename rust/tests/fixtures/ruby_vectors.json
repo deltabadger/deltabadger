@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"UqqIjiCa5XF6Tpye1DAYsVw=\",\"h\":{\"iv\":\"zXTDk2GXGOxMri9k\",\"at\":\"/SOy34TJw3038StYqgbTHw==\"}}"
+      "cipher": "{\"p\":\"3Quuijmw3NoFBR2hCvLxZz4=\",\"h\":{\"iv\":\"otDiD/ha2GFGs+T2\",\"at\":\"T0xQD0Y3YOc29vBJRspS4w==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"HmzsPXQ7qsXuwo2zQJI1\",\"h\":{\"iv\":\"wkuked1ouVbheUjg\",\"at\":\"yFEhDxUE7u5dgqjrP3K6oQ==\"}}"
+      "cipher": "{\"p\":\"JBucXsBH2rh0jt6XUwDv\",\"h\":{\"iv\":\"hNOMMrB+lIHNv9rC\",\"at\":\"3nPW407kgPakPSfRa/UYuQ==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"G+qTMy7QNSe5TNcEcN7h/ku1ZvzbFO19ZJouXStWfnprSyAQ+3N+n22+MXHbs5JSZcvreImGohct44AZbl+aikz14n3eAmoHVX2yjQQ=\",\"h\":{\"iv\":\"5y2HZlp+BUzYSuQN\",\"at\":\"SEcKAxd0emeuIoGk+ZPa/A==\",\"c\":true}}"
+      "cipher": "{\"p\":\"ORDNFsRdzSLWLJCdsAj+Whr1tpeyDyyY+BT9meQCaL5cu2fOvPcsvNz6TIIMLDZBR+X0B+x6nLJ9g/p1dgKMdn/hWnVv0M7l+GLWcK4=\",\"h\":{\"iv\":\"A3onSCERXrUhP1gM\",\"at\":\"A87N4YmpXev7Y7uRoqmZog==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "SCQ5ZZKWBLYSNWIDJOAHMEEAPGOKTAQH",
-      "cipher": "{\"p\":\"vR1obI4+P0xY9rSjsqwodnXEfVoVuIlfH6+mH9kPFcc=\",\"h\":{\"iv\":\"xc5Zt+QfL+VnFSJY\",\"at\":\"LXnejIsOX2/mITjAepXm1A==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "NGGC4ZOF5NVZJ3HXGZPWLDMBGUBG4ZG2",
+      "cipher": "{\"p\":\"bqEQy6TMAqA0JBi43zJgK50sMEXRj+NeiCIprYwEH/U=\",\"h\":{\"iv\":\"W3kjtYP0lL7rDpin\",\"at\":\"2KwKd32fA15h23zy0upUfw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"buRADXlpdsNdDrr1459n/So=\",\"h\":{\"iv\":\"GVoEdNWcIHkB7u0L\",\"at\":\"1w0AnzcAZHkITCbvPcWPGg==\"}}"
+      "cipher": "{\"p\":\"uXONvD0lqg6E2Y3YMLDhiiw=\",\"h\":{\"iv\":\"ad4uHFNZsgG5yyvK\",\"at\":\"izJTBQ64Q9plWr/QqTcVww==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$d6sJ1VEoOtjB4yW5CuDtye3uiQNj9k.Y55WIJ0/05jFb3S344ealq"
+      "hash": "$2a$11$9M0SbXv5706iexSWWPNk5e9PbV4reWYZNNPByubmRV8fWgTQmfhIO"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$WKxjB.fxKhgpRM1eHnXPIe/yBCZjm05usLmpi5CoeS1bQh/9ueBTm"
+      "hash": "$2a$11$55iY63QmRXdvrmZSoD/P8.BrVa6O61m9f/oOoWdYs1bHmr/U0vy1i"
     }
   ],
   "totp": {
@@ -34813,5 +34813,2296 @@
         "[\"EOrder:Insufficient funds\", \"a \\\"quoted\\\" one\"]"
       ]
     ]
-  }
+  },
+  "schedule": [
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T09:00:00.123456Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-31T09:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:00.123456Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-31T09:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:01.123456Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-01-31T11:00:00.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T11:00:00.123455Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-01-31T11:00:00.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-02-03T10:00:07.123456Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-02-03T11:00:00.123456Z",
+      "last": "2026-02-03T10:00:00.123456Z",
+      "count": 73
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-03-17T10:00:00.123456Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-03-17T10:00:00.123456Z",
+      "last": "2026-03-17T09:00:00.123456Z",
+      "count": 1080
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2027-03-07T10:00:00.623456Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2027-03-07T11:00:00.123456Z",
+      "last": "2027-03-07T10:00:00.123456Z",
+      "count": 9601
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T09:00:00.123456Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-30T10:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:00.123456Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-30T10:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:01.123456Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-02-01T10:00:00.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T11:00:00.123455Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-02-01T10:00:00.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-02-03T10:00:07.123456Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-02-04T10:00:00.123456Z",
+      "last": "2026-02-03T10:00:00.123456Z",
+      "count": 4
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-03-17T10:00:00.123456Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-03-17T10:00:00.123456Z",
+      "last": "2026-03-16T10:00:00.123456Z",
+      "count": 45
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2027-03-07T10:00:00.623456Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2027-03-08T10:00:00.123456Z",
+      "last": "2027-03-07T10:00:00.123456Z",
+      "count": 401
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T09:00:00.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-24T10:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:00.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-24T10:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:01.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-02-07T10:00:00.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T11:00:00.123455Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-02-07T10:00:00.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-02-03T10:00:07.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-02-07T10:00:00.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-03-17T10:00:00.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-03-21T10:00:00.123456Z",
+      "last": "2026-03-14T10:00:00.123456Z",
+      "count": 7
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2027-03-07T10:00:00.623456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2027-03-13T10:00:00.123456Z",
+      "last": "2027-03-06T10:00:00.123456Z",
+      "count": 58
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T09:00:00.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2025-12-31T10:00:00.123456Z",
+      "count": -1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:00.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-02-28T10:00:00.123456Z",
+      "last": "2026-01-28T10:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:01.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-02-28T10:00:00.123456Z",
+      "last": "2026-01-28T10:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T11:00:00.123455Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-02-28T10:00:00.123456Z",
+      "last": "2026-01-28T10:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-02-03T10:00:07.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-02-28T10:00:00.123456Z",
+      "last": "2026-01-28T10:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-03-17T10:00:00.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-03-28T10:00:00.123456Z",
+      "last": "2026-02-28T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2027-03-07T10:00:00.623456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2027-03-28T10:00:00.123456Z",
+      "last": "2027-02-28T10:00:00.123456Z",
+      "count": 13
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T09:00:00.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-27T22:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:00.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-27T22:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:01.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-02-03T22:00:00.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T11:00:00.123455Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-02-03T22:00:00.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-02-03T10:00:07.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-02-03T22:00:00.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-03-17T10:00:00.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-03-17T22:00:00.123456Z",
+      "last": "2026-03-14T10:00:00.123456Z",
+      "count": 13
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2027-03-07T10:00:00.623456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2027-03-09T22:00:00.123456Z",
+      "last": "2027-03-06T10:00:00.123456Z",
+      "count": 115
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T09:00:00.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-30T22:14:24.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:00.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-30T22:14:24.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:01.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-01-31T21:45:36.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T11:00:00.123455Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-01-31T21:45:36.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-02-03T10:00:07.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-02-03T20:19:12.123456Z",
+      "last": "2026-02-03T08:33:36.123456Z",
+      "count": 7
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-03-17T10:00:00.123456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-03-17T11:55:12.123456Z",
+      "last": "2026-03-17T00:09:36.123456Z",
+      "count": 92
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2027-03-07T10:00:00.623456Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2027-03-07T17:55:12.123456Z",
+      "last": "2027-03-07T06:09:36.123456Z",
+      "count": 817
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T09:00:00.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2025-12-31T23:30:54.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:00.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-03-02T20:29:06.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:01.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-03-02T20:29:06.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T11:00:00.123455Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-03-02T20:29:06.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-02-03T10:00:07.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-03-02T20:29:06.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-03-17T10:00:00.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-04-02T06:58:12.123456Z",
+      "last": "2026-03-02T20:29:06.123456Z",
+      "count": 2
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2027-03-07T10:00:00.623456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2027-04-02T12:47:24.123456Z",
+      "last": "2027-03-03T02:18:18.123456Z",
+      "count": 14
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T09:00:00.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-21T08:56:23.943456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:00.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-21T08:56:23.943456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:01.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-02-10T11:03:36.303456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T11:00:00.123455Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-02-10T11:03:36.303456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-02-03T10:00:07.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-02-10T11:03:36.303456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-03-17T10:00:00.123456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-03-22T15:18:01.023456Z",
+      "last": "2026-03-12T14:14:24.843456Z",
+      "count": 5
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2027-03-07T10:00:00.623456Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2027-03-09T04:24:07.323456Z",
+      "last": "2027-02-27T03:20:31.143456Z",
+      "count": 40
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T09:00:00.123456Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-30T10:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:00.123456Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-01-31T10:00:00.123456Z",
+      "last": "2026-01-30T10:00:00.123456Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T10:00:01.123456Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-02-01T10:00:00.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-01-31T11:00:00.123455Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-02-01T10:00:00.123456Z",
+      "last": "2026-01-31T10:00:00.123456Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-02-03T10:00:07.123456Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-02-04T10:00:00.123456Z",
+      "last": "2026-02-03T10:00:00.123456Z",
+      "count": 4
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2026-03-17T10:00:00.123456Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-03-17T10:00:00.123456Z",
+      "last": "2026-03-16T10:00:00.123456Z",
+      "count": 45
+    },
+    {
+      "anchor": "2026-01-31T10:00:00.123456Z",
+      "now": "2027-03-07T10:00:00.623456Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2027-03-08T10:00:00.123456Z",
+      "last": "2027-03-07T10:00:00.123456Z",
+      "count": 401
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T21:01:03.000000Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-09-01T21:01:03.000000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:03.000000Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-09-01T21:01:03.000000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:04.000000Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-09-01T23:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T23:01:02.999999Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-09-01T23:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-04T22:01:10.000000Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-09-04T23:01:03.000000Z",
+      "last": "2026-09-04T22:01:03.000000Z",
+      "count": 73
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-10-16T22:01:03.000000Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-10-16T22:01:03.000000Z",
+      "last": "2026-10-16T21:01:03.000000Z",
+      "count": 1080
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2027-10-06T22:01:03.500000Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2027-10-06T23:01:03.000000Z",
+      "last": "2027-10-06T22:01:03.000000Z",
+      "count": 9601
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T21:01:03.000000Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-08-31T22:01:03.000000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:03.000000Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-08-31T22:01:03.000000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:04.000000Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-09-02T22:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T23:01:02.999999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-09-02T22:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-04T22:01:10.000000Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-09-05T22:01:03.000000Z",
+      "last": "2026-09-04T22:01:03.000000Z",
+      "count": 4
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-10-16T22:01:03.000000Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-10-16T22:01:03.000000Z",
+      "last": "2026-10-15T22:01:03.000000Z",
+      "count": 45
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2027-10-06T22:01:03.500000Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2027-10-07T22:01:03.000000Z",
+      "last": "2027-10-06T22:01:03.000000Z",
+      "count": 401
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T21:01:03.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-08-25T22:01:03.000000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:03.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-08-25T22:01:03.000000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:04.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-09-08T22:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T23:01:02.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-09-08T22:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-04T22:01:10.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-09-08T22:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-10-16T22:01:03.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-10-20T22:01:03.000000Z",
+      "last": "2026-10-13T22:01:03.000000Z",
+      "count": 7
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2027-10-06T22:01:03.500000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2027-10-12T22:01:03.000000Z",
+      "last": "2027-10-05T22:01:03.000000Z",
+      "count": 58
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T21:01:03.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-08-01T22:01:03.000000Z",
+      "count": -1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:03.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-10-01T22:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:04.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-10-01T22:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T23:01:02.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-10-01T22:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-04T22:01:10.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-10-01T22:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-10-16T22:01:03.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-11-01T22:01:03.000000Z",
+      "last": "2026-10-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2027-10-06T22:01:03.500000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2027-11-01T22:01:03.000000Z",
+      "last": "2027-10-01T22:01:03.000000Z",
+      "count": 13
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T21:01:03.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-08-29T10:01:03.000000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:03.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-08-29T10:01:03.000000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:04.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-09-05T10:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T23:01:02.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-09-05T10:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-04T22:01:10.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-09-05T10:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-10-16T22:01:03.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-10-17T10:01:03.000000Z",
+      "last": "2026-10-13T22:01:03.000000Z",
+      "count": 13
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2027-10-06T22:01:03.500000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2027-10-09T10:01:03.000000Z",
+      "last": "2027-10-05T22:01:03.000000Z",
+      "count": 115
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T21:01:03.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-09-01T10:15:27.000000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:03.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-09-01T10:15:27.000000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:04.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-09-02T09:46:39.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T23:01:02.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-09-02T09:46:39.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-04T22:01:10.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-09-05T08:20:15.000000Z",
+      "last": "2026-09-04T20:34:39.000000Z",
+      "count": 7
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-10-16T22:01:03.000000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-10-16T23:56:15.000000Z",
+      "last": "2026-10-16T12:10:39.000000Z",
+      "count": 92
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2027-10-06T22:01:03.500000Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2027-10-07T05:56:15.000000Z",
+      "last": "2027-10-06T18:10:39.000000Z",
+      "count": 817
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T21:01:03.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-08-02T11:31:57.000000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:03.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-10-02T08:30:09.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:04.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-10-02T08:30:09.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T23:01:02.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-10-02T08:30:09.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-04T22:01:10.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-10-02T08:30:09.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-10-16T22:01:03.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-11-01T18:59:15.000000Z",
+      "last": "2026-10-02T08:30:09.000000Z",
+      "count": 2
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2027-10-06T22:01:03.500000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2027-11-02T00:48:27.000000Z",
+      "last": "2027-10-02T14:19:21.000000Z",
+      "count": 14
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T21:01:03.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-08-22T20:57:26.820000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:03.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-08-22T20:57:26.820000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:04.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-09-11T23:04:39.180000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T23:01:02.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-09-11T23:04:39.180000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-04T22:01:10.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-09-11T23:04:39.180000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-10-16T22:01:03.000000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-10-22T03:19:03.900000Z",
+      "last": "2026-10-12T02:15:27.720000Z",
+      "count": 5
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2027-10-06T22:01:03.500000Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2027-10-08T16:25:10.200000Z",
+      "last": "2027-09-28T15:21:34.020000Z",
+      "count": 40
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T21:01:03.000000Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-08-31T22:01:03.000000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:03.000000Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-09-01T22:01:03.000000Z",
+      "last": "2026-08-31T22:01:03.000000Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T22:01:04.000000Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-09-02T22:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-01T23:01:02.999999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-09-02T22:01:03.000000Z",
+      "last": "2026-09-01T22:01:03.000000Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-09-04T22:01:10.000000Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-09-05T22:01:03.000000Z",
+      "last": "2026-09-04T22:01:03.000000Z",
+      "count": 4
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2026-10-16T22:01:03.000000Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-10-16T22:01:03.000000Z",
+      "last": "2026-10-15T22:01:03.000000Z",
+      "count": 45
+    },
+    {
+      "anchor": "2026-09-01T22:01:03.000000Z",
+      "now": "2027-10-06T22:01:03.500000Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2027-10-07T22:01:03.000000Z",
+      "last": "2027-10-06T22:01:03.000000Z",
+      "count": 401
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T22:59:59.999999Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-28T22:59:59.999999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T23:59:59.999999Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-28T22:59:59.999999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:00:00.999999Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-03-01T00:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:59:59.999998Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-03-01T00:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-04T00:00:06.999999Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-03-04T00:59:59.999999Z",
+      "last": "2026-03-03T23:59:59.999999Z",
+      "count": 73
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-04-14T23:59:59.999999Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2026-04-14T23:59:59.999999Z",
+      "last": "2026-04-14T22:59:59.999999Z",
+      "count": 1080
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2027-04-05T00:00:00.499999Z",
+      "settings": {
+        "interval": "hour",
+        "quote_amount": 10.0
+      },
+      "next": "2027-04-05T00:59:59.999999Z",
+      "last": "2027-04-04T23:59:59.999999Z",
+      "count": 9601
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T22:59:59.999999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-27T23:59:59.999999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T23:59:59.999999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-27T23:59:59.999999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:00:00.999999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-03-01T23:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:59:59.999998Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-03-01T23:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-04T00:00:06.999999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-03-04T23:59:59.999999Z",
+      "last": "2026-03-03T23:59:59.999999Z",
+      "count": 4
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-04-14T23:59:59.999999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2026-04-14T23:59:59.999999Z",
+      "last": "2026-04-13T23:59:59.999999Z",
+      "count": 45
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2027-04-05T00:00:00.499999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0
+      },
+      "next": "2027-04-05T23:59:59.999999Z",
+      "last": "2027-04-04T23:59:59.999999Z",
+      "count": 401
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T22:59:59.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-21T23:59:59.999999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T23:59:59.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-21T23:59:59.999999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:00:00.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-03-07T23:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:59:59.999998Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-03-07T23:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-04T00:00:06.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-03-07T23:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-04-14T23:59:59.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2026-04-18T23:59:59.999999Z",
+      "last": "2026-04-11T23:59:59.999999Z",
+      "count": 7
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2027-04-05T00:00:00.499999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0
+      },
+      "next": "2027-04-10T23:59:59.999999Z",
+      "last": "2027-04-03T23:59:59.999999Z",
+      "count": 58
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T22:59:59.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-01-28T23:59:59.999999Z",
+      "count": -1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T23:59:59.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-03-28T23:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:00:00.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-03-28T23:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:59:59.999998Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-03-28T23:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-04T00:00:06.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-03-28T23:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-04-14T23:59:59.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2026-04-28T23:59:59.999999Z",
+      "last": "2026-03-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2027-04-05T00:00:00.499999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0
+      },
+      "next": "2027-04-28T23:59:59.999999Z",
+      "last": "2027-03-28T23:59:59.999999Z",
+      "count": 13
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T22:59:59.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-25T11:59:59.999999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T23:59:59.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-25T11:59:59.999999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:00:00.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-03-04T11:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:59:59.999998Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-03-04T11:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-04T00:00:06.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-03-04T11:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-04-14T23:59:59.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2026-04-15T11:59:59.999999Z",
+      "last": "2026-04-11T23:59:59.999999Z",
+      "count": 13
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2027-04-05T00:00:00.499999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 60.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 30.0
+      },
+      "next": "2027-04-07T11:59:59.999999Z",
+      "last": "2027-04-03T23:59:59.999999Z",
+      "count": 115
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T22:59:59.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-28T12:14:23.999999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T23:59:59.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-28T12:14:23.999999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:00:00.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-03-01T11:45:35.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:59:59.999998Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-03-01T11:45:35.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-04T00:00:06.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-03-04T10:19:11.999999Z",
+      "last": "2026-03-03T22:33:35.999999Z",
+      "count": 7
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-04-14T23:59:59.999999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2026-04-15T01:55:11.999999Z",
+      "last": "2026-04-14T14:09:35.999999Z",
+      "count": 92
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2027-04-05T00:00:00.499999Z",
+      "settings": {
+        "interval": "week",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 7.0
+      },
+      "next": "2027-04-05T07:55:11.999999Z",
+      "last": "2027-04-04T20:09:35.999999Z",
+      "count": 817
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T22:59:59.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-01-29T13:30:53.999999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T23:59:59.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-03-31T10:29:05.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:00:00.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-03-31T10:29:05.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:59:59.999998Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-03-31T10:29:05.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-04T00:00:06.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-03-31T10:29:05.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-04-14T23:59:59.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2026-04-30T20:58:11.999999Z",
+      "last": "2026-03-31T10:29:05.999999Z",
+      "count": 2
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2027-04-05T00:00:00.499999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 100.0
+      },
+      "next": "2027-05-01T02:47:23.999999Z",
+      "last": "2027-03-31T16:18:17.999999Z",
+      "count": 14
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T22:59:59.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-18T22:56:23.819999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T23:59:59.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-18T22:56:23.819999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:00:00.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-03-11T01:03:36.179999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:59:59.999998Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-03-11T01:03:36.179999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-04T00:00:06.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-03-11T01:03:36.179999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-04-14T23:59:59.999999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2026-04-20T05:18:00.899999Z",
+      "last": "2026-04-10T04:14:24.719999Z",
+      "count": 5
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2027-04-05T00:00:00.499999Z",
+      "settings": {
+        "interval": "month",
+        "quote_amount": 100.0,
+        "smart_intervaled": true,
+        "smart_interval_quote_amount": 33.0
+      },
+      "next": "2027-04-06T18:24:07.199999Z",
+      "last": "2027-03-27T17:20:31.019999Z",
+      "count": 40
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T22:59:59.999999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-27T23:59:59.999999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-02-28T23:59:59.999999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-02-28T23:59:59.999999Z",
+      "last": "2026-02-27T23:59:59.999999Z",
+      "count": 0
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:00:00.999999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-03-01T23:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-01T00:59:59.999998Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-03-01T23:59:59.999999Z",
+      "last": "2026-02-28T23:59:59.999999Z",
+      "count": 1
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-03-04T00:00:06.999999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-03-04T23:59:59.999999Z",
+      "last": "2026-03-03T23:59:59.999999Z",
+      "count": 4
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2026-04-14T23:59:59.999999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2026-04-14T23:59:59.999999Z",
+      "last": "2026-04-13T23:59:59.999999Z",
+      "count": 45
+    },
+    {
+      "anchor": "2026-02-28T23:59:59.999999Z",
+      "now": "2027-04-05T00:00:00.499999Z",
+      "settings": {
+        "interval": "day",
+        "quote_amount": 10.0,
+        "smart_intervaled": false,
+        "smart_interval_quote_amount": 3.0
+      },
+      "next": "2027-04-05T23:59:59.999999Z",
+      "last": "2027-04-04T23:59:59.999999Z",
+      "count": 401
+    }
+  ]
 }
