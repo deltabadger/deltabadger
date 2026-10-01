@@ -53,7 +53,10 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
     let wash: Option<Option<bool>> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0)).optional()?;
     match wash { None => r.push("user not found".into()), Some(Some(true)) => r.push("wash_sale enabled for the user".into()), _ => {} }
     // Bots::DcaMultiAsset#set_tickers adds bot_index_assets to the asset list: not modelled in the slice.
-    let index_assets: i64 = c.query_row("SELECT count(*) FROM bot_index_assets WHERE bot_id = ?1", [bot.id], |r| r.get(0))?;
+    // Rails keeps a row for the bot's own allocated asset too; set_tickers uniq's it away, so only other assets count.
+    let own = bot.asset_ids();
+    let mut s = c.prepare("SELECT asset_id FROM bot_index_assets WHERE bot_id = ?1")?;
+    let index_assets = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?.into_iter().filter(|a| !own.contains(a)).count();
     if index_assets > 0 { r.push(format!("index assets present ({index_assets})")); }
     match model::ticker_for(c, bot)? {
         None => r.push("no ticker for the asset on this venue".into()),
