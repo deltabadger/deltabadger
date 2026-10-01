@@ -62,6 +62,9 @@ pub fn client_with(connect: Duration, read: Duration, total: Duration) -> reqwes
         .connect_timeout(connect)
         .read_timeout(read)
         .timeout(total)
+        // Drop idle pooled connections after 5 s: a server has likely closed an older one, and an order POST written to a
+        // dead socket would fail as a spurious MaybeSent and cost a needless recovery wait.
+        .pool_idle_timeout(Duration::from_secs(5))
         // Rails' effective User-Agent: Clients::Alpaca replaces Faraday's headers, so Net::HTTP sends "Ruby".
         .user_agent("Ruby")
         // Rails reaches Alpaca directly (there is no PROXY_ALPACA); never pick up HTTP(S)_PROXY from the environment.
@@ -111,26 +114,45 @@ impl Transport for ReqwestTransport {
 }
 
 /// Client.network_failure's split, then Client.pre_transmission?:
-/// - Permanent: a TLS failure other than the peer closing the connection (rustls reports certificate and protocol
-///   errors as io::ErrorKind::InvalidData), or a permission refusal (EACCES/EPERM → PermissionDenied). Rails returns these
-///   as a Failure: not retried, and for a placement a failed row.
+/// - Permanent: only while connecting (`is_connect`, so provably before any request byte), a TLS failure other than the
+///   peer closing the connection (rustls reports certificate and protocol errors as io::ErrorKind::InvalidData) or a
+///   permission refusal (EACCES/EPERM → PermissionDenied). Rails returns these as a Failure: not retried, and for a
+///   placement a failed row. Outside connect they stay MaybeSent: on Linux sendmsg returns EPERM when netfilter drops a
+///   packet on an established connection, possibly after request bytes went out, and a failed row would read as "absent".
 /// - NotSent: `is_connect` (DNS, refusal, a connect timeout): no request byte was written.
 /// - MaybeSent: anything else, as Rails rules for unknown provenance.
 fn classify(e: reqwest::Error) -> TransportError {
     let m = describe(&e);
     let lower = m.to_ascii_lowercase();
+    let eof = lower.contains("unexpected eof") || lower.contains("end of file");
+    let mut io_kind = None;
     let mut source = std::error::Error::source(&e);
     while let Some(s) = source {
         // reqwest 0.13 wraps the rustls InvalidData io::Error inside another io::Error whose own source() skips it.
-        let io = s.downcast_ref::<std::io::Error>().map(|io| (io, io.get_ref().and_then(|i| i.downcast_ref::<std::io::Error>())));
-        if let Some((io, inner)) = io {
-            let io = inner.unwrap_or(io);
-            let tls = io.kind() == std::io::ErrorKind::InvalidData && e.is_connect() && !lower.contains("unexpected eof") && !lower.contains("end of file");
-            if tls || io.kind() == std::io::ErrorKind::PermissionDenied { return TransportError::Permanent(m); }
+        if let Some(io) = s.downcast_ref::<std::io::Error>() {
+            let io = io.get_ref().and_then(|i| i.downcast_ref::<std::io::Error>()).unwrap_or(io);
+            if matches!(io.kind(), std::io::ErrorKind::InvalidData | std::io::ErrorKind::PermissionDenied) { io_kind = Some(io.kind()); break; }
         }
         source = std::error::Error::source(s);
     }
-    if e.is_connect() { TransportError::NotSent(m) } else { TransportError::MaybeSent(m) }
+    match transport_kind(io_kind, eof, e.is_connect()) {
+        Kind::Permanent => TransportError::Permanent(m),
+        Kind::NotSent => TransportError::NotSent(m),
+        Kind::MaybeSent => TransportError::MaybeSent(m),
+    }
+}
+
+#[doc(hidden)]
+#[derive(Debug, PartialEq)]
+pub enum Kind { Permanent, NotSent, MaybeSent }
+
+/// The pure decision behind `classify` (reqwest::Error cannot be built in a test). `io_kind` is the innermost io error
+/// kind in the source chain, `eof` whether the message says the peer closed the stream.
+#[doc(hidden)]
+pub fn transport_kind(io_kind: Option<std::io::ErrorKind>, eof: bool, is_connect: bool) -> Kind {
+    use std::io::ErrorKind::{InvalidData, PermissionDenied};
+    let permanent = match io_kind { Some(InvalidData) => !eof, Some(PermissionDenied) => true, _ => false };
+    if is_connect { if permanent { Kind::Permanent } else { Kind::NotSent } } else { Kind::MaybeSent }
 }
 
 fn describe(e: &reqwest::Error) -> String {
@@ -181,9 +203,10 @@ impl Transport for ScriptedTransport {
         match reply["network"].as_str() {
             Some("pre_send") => Err(TransportError::NotSent(message)),
             Some("permanent") => Err(TransportError::Permanent(message)),
-            Some(_) => Err(TransportError::MaybeSent(message)),
+            Some("post_send") => Err(TransportError::MaybeSent(message)),
+            Some(other) => panic!("unknown network kind {other:?} scripted for {key}"),
             None => Ok(HttpResponse {
-                status: reply["status"].as_u64().unwrap_or(200) as u16,
+                status: reply["status"].as_u64().unwrap_or_else(|| panic!("scripted reply for {key} has no status: {reply}")) as u16,
                 body: match &reply["body"] { Value::String(s) => s.clone(), other => other.to_string() },
             }),
         }

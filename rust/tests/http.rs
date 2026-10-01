@@ -132,3 +132,36 @@ async fn a_script_replays_in_order_repeats_the_last_and_strips_the_client_order_
 async fn an_unscripted_call_is_loud() {
     let _ = ScriptedTransport::default().send(&req("https://paper-api.alpaca.markets", "GET", "/v2/clock", vec![], None)).await;
 }
+
+#[test]
+fn transport_kind_gates_permanent_on_connect() {
+    use std::io::ErrorKind::{InvalidData, PermissionDenied};
+    assert_eq!(transport_kind(Some(PermissionDenied), false, true), Kind::Permanent);
+    assert_eq!(transport_kind(Some(PermissionDenied), false, false), Kind::MaybeSent);
+    assert_eq!(transport_kind(Some(InvalidData), false, true), Kind::Permanent);
+    assert_eq!(transport_kind(Some(InvalidData), false, false), Kind::MaybeSent);
+    assert_eq!(transport_kind(Some(InvalidData), true, true), Kind::NotSent); // peer closed: not a TLS verdict
+    assert_eq!(transport_kind(None, false, true), Kind::NotSent);
+    assert_eq!(transport_kind(None, false, false), Kind::MaybeSent); // timeout after connect
+}
+
+#[test]
+#[should_panic(expected = "unknown network kind")]
+fn a_misspelt_network_kind_fails_loudly() {
+    let t = ScriptedTransport::default();
+    t.network("GET /x", "postsend", "boom");
+    let r = req("http://x", "GET", "/x", vec![], None);
+    let _ = futures_lite_block(t.send(&r));
+}
+
+#[test]
+#[should_panic(expected = "has no status")]
+fn a_reply_without_a_status_fails_loudly() {
+    let t = ScriptedTransport::from_script(&json!({ "GET /x": [{ "body": "{}" }] }));
+    let r = req("http://x", "GET", "/x", vec![], None);
+    let _ = futures_lite_block(t.send(&r));
+}
+
+fn futures_lite_block<F: std::future::Future>(f: F) -> F::Output {
+    tokio::runtime::Builder::new_current_thread().build().unwrap().block_on(f)
+}
