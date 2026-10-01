@@ -7,7 +7,8 @@ pub fn rails(args: &[&str]) {
     let run = |rails_args: &[&str]| {
         let mut cmd = Command::new(root.join("bin/rails"));
         cmd.current_dir(root).args(rails_args).env_remove("DATABASE_URL")
-            .env("PROXY_KRAKEN", "http://127.0.0.1:9"); // any unscripted real call fails fast instead of trading
+            .env("PROXY_KRAKEN", "http://127.0.0.1:9") // any unscripted real call fails fast instead of trading
+            .env("SKIP_TEST_DATABASE", "true"); // schema:load in development also purges the repo's storage/test*.sqlite3
         for db in ["primary", "queue", "cache", "cable"] {
             cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", scratch.path().display()));
         }
@@ -34,7 +35,7 @@ async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 180, "the grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 207, "the grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 

@@ -120,6 +120,9 @@ module Decisions
           'transactions' => [{ 'status' => 0, 'external_status' => 1, 'external_id' => 'OOPEN-1', 'order_type' => 1, 'amount' => '0.001',
                                'price' => '50000', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:01' }],
           'http' => { '/0/private/QueryOrders' => [query_body('OOPEN-1' => raw_order(status: 'open', vol: '0.001', vol_exec: '0', cost: '0', price: '0', viqc: false, limit_price: '50000'))] } },
+        # The tick's sweep of an open, unfilled limit order beside a carry stored as a JSON string. The tick's own
+        # last_action_job_at write moves updated_at anyway, so an extra or missing carry write is invisible here;
+        # poll_open_carry is the scenario that sees it.
         'carry_with_open_limit' => { 'at' => after.(1), 'transient' => { 'missed_quote_amount' => '25.0' },
           'transactions' => [{ 'status' => 0, 'external_status' => 1, 'external_id' => 'OOPEN-2', 'order_type' => 1, 'amount' => '0.001',
                                'price' => '50000', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:01' }],
@@ -152,16 +155,34 @@ module Decisions
             { 'error' => [], 'result' => { 'count' => 2, 'trades' => { 'T1' => { 'ordertxid' => 'OMKT-9', 'vol' => '0.0006', 'cost' => '30', 'fee' => '0.078', 'type' => 'buy', 'ordertype' => 'market', 'pair' => 'XXBTZEUR' } } } },
             { 'error' => [], 'result' => { 'count' => 2, 'trades' => { 'T2' => { 'ordertxid' => 'OMKT-9', 'vol' => '0.0006', 'cost' => '30.012', 'fee' => '0.078', 'type' => 'buy', 'ordertype' => 'market', 'pair' => 'XXBTZEUR' } } } }] } },
         'untradable' => { 'at' => after.(1), 'ticker_after' => { 'trading_enabled' => false } },
+        # Poll-only (no tick): Bot::FetchAndUpdateOrderJob for one seeded waiting order at at + 5 s, as
+        # Transaction#after_create enqueues it. Still open and unfilled, so the carry rewrite is the only write.
+        'poll_open_carry' => { 'at' => after.(1), 'tick' => false, 'poll' => 'OOPEN-3', 'transient' => { 'missed_quote_amount' => '25.0' },
+          'transactions' => [{ 'status' => 0, 'external_status' => 1, 'external_id' => 'OOPEN-3', 'order_type' => 1, 'amount' => '0.001',
+                               'price' => '50000', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:01' }],
+          'http' => { '/0/private/QueryOrders' => [query_body('OOPEN-3' => raw_order(status: 'open', vol: '0.001', vol_exec: '0', cost: '0', price: '0', viqc: false, limit_price: '50000'))] } },
+        # Poll-only: the same order closes with a fill, which draws the carry down.
+        'poll_closed_fill' => { 'at' => after.(1), 'tick' => false, 'poll' => 'OOPEN-4', 'transient' => { 'missed_quote_amount' => '80.0' },
+          'transactions' => [{ 'status' => 0, 'external_status' => 1, 'external_id' => 'OOPEN-4', 'order_type' => 1, 'amount' => '0.001',
+                               'price' => '50000', 'amount_exec' => '0', 'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:01' }],
+          'http' => { '/0/private/QueryOrders' => [query_body('OOPEN-4' => raw_order(status: 'closed', vol: '0.001', vol_exec: '0.001', cost: '50', price: '50000', viqc: false, limit_price: '50000'))] } },
+        # A tick that places OTX-1, then that order's follow-up poll at at + 5 s finds it filled.
+        'tick_then_poll' => { 'at' => after.(1), 'poll' => 'OTX-1', 'transient' => { 'missed_quote_amount' => '12.5' },
+          'http' => ->(mode) { { '/0/private/QueryOrders' => [query_body('OTX-1' => raw_order(status: 'closed', vol: '0.0012', vol_exec: '0.0012', cost: '59.99', price: '49991.7', viqc: false,
+                                                                                             limit_price: mode == 'limit' ? '49870.3' : '0'))] } } },
         'coarse_ticker' => { 'at' => after.(1), 'ticker' => { 'base_decimals' => 0, 'quote_decimals' => 0, 'price_decimals' => 0,
                                                               'minimum_base_size' => '1', 'minimum_quote_size' => '5' },
                              'http' => { '/0/public/Ticker' => [ticker_body('9.9', '10.1', '10.0')] } }
       }
       modes.flat_map do |mode, settings|
         variants.map do |name, v|
+          v_http = v.fetch('http', {})
+          v_http = v_http.(mode) if v_http.respond_to?(:call)
           { 'name' => "#{interval}-#{mode}-#{name}", 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
             'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
             'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => v.fetch('ticker', ticker),
-            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'http' => http.merge(v.fetch('http', {})) } }
+            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'http' => http.merge(v_http) },
+            'tick' => v.fetch('tick', true), 'poll' => v['poll'] }
         end
       end
     end
@@ -173,7 +194,8 @@ module Decisions
       FileUtils.mkdir_p(dir)
       bot = build(dir, sc)
       File.write(File.join(dir, 'scenario.json'),
-                 JSON.pretty_generate('parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'script' => sc['script']))
+                 JSON.pretty_generate({ 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'script' => sc['script'],
+                                      'tick' => sc['tick'], 'poll' => sc['poll'] }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
     end
     puts "built #{scenarios.size} scenarios in #{root}"
@@ -201,11 +223,17 @@ module Decisions
       ScriptedKraken.http = sc['script']['http'].transform_values(&:dup)
       ScriptedKraken.sent = []
       before = snapshot
-      travel_to(Time.iso8601(sc['at']), with_usec: true) { Bot::ActionJob.perform_now(Bot.find(sc['bot_id'])) }
-      (MAX_ATTEMPTS - 1).times do
-        job = retry_of(sc['bot_id']) or break
-        ActiveJob::Base.queue_adapter.enqueued_jobs.clear
-        travel_to(Time.at(job[:at]), with_usec: true) { ActiveJob::Base.execute(job.stringify_keys) }
+      if sc.fetch('tick', true)
+        travel_to(Time.iso8601(sc['at']), with_usec: true) { Bot::ActionJob.perform_now(Bot.find(sc['bot_id'])) }
+        (MAX_ATTEMPTS - 1).times do
+          job = retry_of(sc['bot_id']) or break
+          ActiveJob::Base.queue_adapter.enqueued_jobs.clear
+          travel_to(Time.at(job[:at]), with_usec: true) { ActiveJob::Base.execute(job.stringify_keys) }
+        end
+      end
+      if sc['poll'] # the follow-up poll Transaction enqueues for one order; its retries are not replayed
+        order = Transaction.find_by!(bot_id: sc['bot_id'], external_id: sc['poll'])
+        travel_to(Time.iso8601(sc['at']) + 5, with_usec: true) { Bot::FetchAndUpdateOrderJob.perform_now(order, update_missed_quote_amount: true) }
       end
       File.write(File.join(dir, 'rails.json'), JSON.pretty_generate('sent' => ScriptedKraken.sent, 'changes' => diff(before, snapshot)))
       travel_back
