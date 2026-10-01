@@ -56,8 +56,24 @@ fn main() {
                 Err(e) => fail(&format!("{e:?}")),
             }
         }
+        Some("resolve-placement") => {
+            let args: Vec<String> = std::env::args().skip(2).collect();
+            let bot_id: i64 = args.first().and_then(|a| a.parse().ok()).unwrap_or_else(|| fail("usage: deltabadger resolve-placement <bot_id> --placed <txid> | --not-placed"));
+            let resolution = match (args.get(1).map(String::as_str), args.get(2)) {
+                (Some("--placed"), Some(txid)) => deltabadger::engine::placement::OperatorResolution::Placed(txid.clone()),
+                (Some("--not-placed"), None) => deltabadger::engine::placement::OperatorResolution::NotPlaced,
+                _ => fail("usage: deltabadger resolve-placement <bot_id> --placed <txid> | --not-placed"),
+            };
+            let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
+            let paths = Paths::from_env(&env, storage.as_ref());
+            let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!("{e:?}")));
+            let o = store::open(&paths).unwrap_or_else(|e| fail(&format!("{e:?}")));
+            deltabadger::engine::placement::resolve_by_operator(&o.primary, bot_id, resolution, chrono::Utc::now())
+                .unwrap_or_else(|e| fail(&format!("{e:?}")));
+            println!("resolved");
+        }
         _ => println!(
-            "deltabadger {}\nusage: deltabadger check",
+            "deltabadger {}\nusage: deltabadger check | resolve-placement",
             env!("CARGO_PKG_VERSION")
         ),
     }
