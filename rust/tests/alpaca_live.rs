@@ -53,14 +53,33 @@ fn refuse_inside_repo(dir: &str) {
 
 /// Each exchange as `<dir>/NN.json` {key, query, status, body}. Keys are headers and are never recorded; the account's own
 /// identifiers are redacted.
-fn write_bodies(dir: &str, log: &[(HttpRequest, HttpResponse)]) {
-    refuse_inside_repo(dir);
-    std::fs::create_dir_all(dir).unwrap();
+fn write_bodies(dir: &str, log: &[(HttpRequest, HttpResponse)]) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)?;
     for (n, (r, resp)) in log.iter().enumerate() {
-        let mut body: Value = serde_json::from_str(&resp.body).unwrap_or_else(|_| Value::String(resp.body.clone()));
+        let parsed = serde_json::from_str::<Value>(&resp.body);
+        // A non-JSON /v2/account body cannot be redacted, so it is never written.
+        let mut body = match parsed {
+            Ok(v) => v,
+            Err(_) if r.path == "/v2/account" => Value::String("REDACTED: non-JSON account body".into()),
+            Err(_) => Value::String(resp.body.clone()),
+        };
         if r.path == "/v2/account" { for k in ["id", "account_number"] { if body.get(k).is_some() { body[k] = json!("REDACTED"); } } }
         let record = json!({ "key": format!("{} {}", r.method, r.path), "query": r.query, "status": resp.status, "body": body });
-        std::fs::write(std::path::Path::new(dir).join(format!("{n:02}.json")), serde_json::to_string_pretty(&record).unwrap()).unwrap();
+        std::fs::write(std::path::Path::new(dir).join(format!("{n:02}.json")), serde_json::to_string_pretty(&record).unwrap())?;
+    }
+    Ok(())
+}
+
+/// Writes whatever was logged when the test ends, passed or panicked, so a failed run still leaves its bodies. Never panics.
+struct Recorder(Option<String>, Rc<RefCell<Vec<(HttpRequest, HttpResponse)>>>);
+
+impl Drop for Recorder {
+    fn drop(&mut self) {
+        let Some(dir) = &self.0 else { return };
+        match write_bodies(dir, &self.1.borrow()) {
+            Ok(()) => eprintln!("recorded {} answers in {dir}", self.1.borrow().len()),
+            Err(e) => eprintln!("could not record into {dir}: {e}"),
+        }
     }
 }
 
@@ -68,8 +87,10 @@ fn write_bodies(dir: &str, log: &[(HttpRequest, HttpResponse)]) {
 #[ignore = "places a real order on the owner's Alpaca PAPER account; run by hand with --ignored"]
 async fn a_paper_market_buy_is_found_by_client_order_id_and_fills() {
     let Some((key, secret)) = paper_key() else { return };
-    if let Ok(dir) = std::env::var("ALPACA_RECORD_DIR") { refuse_inside_repo(&dir); }
+    let dir = std::env::var("ALPACA_RECORD_DIR").ok();
+    if let Some(d) = &dir { refuse_inside_repo(d); }
     let log = Rc::new(RefCell::new(vec![]));
+    let _recorder = Recorder(dir, log.clone());
     let v = AlpacaVenue::new(Recording(ReqwestTransport::new(client(), key, secret), log.clone()), Urls::for_passphrase(Some("paper")));
     assert_eq!(v.urls().trading, PAPER_TRADING_URL, "paper only");
     let t = btc_usd();
@@ -93,10 +114,6 @@ async fn a_paper_market_buy_is_found_by_client_order_id_and_fills() {
     assert_eq!(state.status, OrderStatus::Closed, "{state:?}");
     assert!(state.amount_exec.is_positive() && state.quote_amount_exec.is_positive(), "{state:?}");
     assert_eq!(state.quote_amount, Some(BigDec::parse("10").unwrap()));
-    if let Ok(dir) = std::env::var("ALPACA_RECORD_DIR") {
-        write_bodies(&dir, &log.borrow());
-        eprintln!("recorded {} answers in {dir}", log.borrow().len());
-    }
 }
 
 #[test]
