@@ -7,3 +7,4 @@ pub mod enums;
 pub mod lease;
 pub mod ruby;
 pub mod store;
+pub mod venue;
