@@ -164,5 +164,31 @@ anchors.each do |anchor|
   end
 end
 vectors['schedule'] = schedule_cases
+kraken = Exchanges::Kraken.new
+sizing = []
+sizing_tickers = [
+  { minimum_base_size: '0.00005', minimum_quote_size: '0.5', base_decimals: 8, quote_decimals: 5, price_decimals: 1 },
+  { minimum_base_size: '0.0001', minimum_quote_size: '5', base_decimals: 8, quote_decimals: 2, price_decimals: 2 },
+  { minimum_base_size: '1', minimum_quote_size: '500', base_decimals: 0, quote_decimals: 0, price_decimals: 0 }
+]
+%w[50000.2 49995.37 0.00123456 1234567.8].each do |price_s|
+  %w[60 0.4 5.00001 0.0001 123.456789].each do |x_s|
+    sizing_tickers.each do |t|
+      %i[market_order limit_order].each do |order_type|
+        ticker = Ticker.new(exchange: kraken, **t.transform_values { |v| v.is_a?(String) ? BigDecimal(v) : v })
+        bot = Bots::DcaMultiAsset.new(exchange: kraken)
+        price = order_type == :limit_order ? ticker.adjusted_price(price: BigDecimal(price_s) * (1.to_d - 0.0025.to_d)) : BigDecimal(price_s)
+        next if price.zero? # both refuse before sizing ("limit price rounds to zero..."), covered by unit tests on each side
+        x = BigDecimal(x_s)
+        info = bot.send(:calculate_best_amount_info, { ticker:, price:, amount: x / price, quote_amount: x, side: :buy, order_type: })
+        volume = ticker.adjusted_amount(amount: info[:amount], amount_type: info[:amount_type])
+        sizing << { 'ticker' => t.transform_values(&:to_s), 'last_or_ask' => price_s, 'x' => x_s, 'order_type' => order_type.to_s,
+                    'price' => price.to_s('F'), 'amount' => (x / price).to_s('F'), 'amount_type' => info[:amount_type].to_s,
+                    'below_minimum' => info[:below_minimum_amount], 'volume' => volume.to_d.to_s('F') }
+      end
+    end
+  end
+end
+vectors['sizing'] = sizing
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate(vectors)}\n")
 puts "wrote #{ARGV.fetch(0)}"

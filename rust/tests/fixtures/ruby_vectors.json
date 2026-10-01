@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"ANE5e1v2JTjnrgemv/B2Svk=\",\"h\":{\"iv\":\"ZSzBykLnsSbXqYSm\",\"at\":\"3JWNLbzSGXpC26gaGuMCPQ==\"}}"
+      "cipher": "{\"p\":\"NA3bOtCeBnvik0/GdcZZ0m4=\",\"h\":{\"iv\":\"w3W+dXetcsTjeWuX\",\"at\":\"/N50EYRN35Z7oKkEr21fpg==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"Pmk+Ig7BJMTaktvsPrND\",\"h\":{\"iv\":\"iAHJCkrCa1mfhSOa\",\"at\":\"EJbpeLZhHHDZW1klY78XnQ==\"}}"
+      "cipher": "{\"p\":\"5OnyiRtJvrtkwS3a4/2s\",\"h\":{\"iv\":\"4YckxNU2RRF7R45w\",\"at\":\"iqa+/DqFWEJTcIITp2ArRA==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"fC+mhLthH2qxWSn7AzL19dqiBHkRprGcNnF2y6tHTwy2XF6vHggDnFaHf5/HzKGfrK8TyAvib36aI7Zm35lMfb1DvZy0Yc2UkqqhGzw=\",\"h\":{\"iv\":\"JqAOCkIvF3KbwSo2\",\"at\":\"sobGakbOA02EUP3OiSAxdQ==\",\"c\":true}}"
+      "cipher": "{\"p\":\"zEYHJ8iHrPi6vJtMR5/yDpVqvMV8oIcHYnZjkITmoVMaZkjzHVHAL3cmUtyxbCTUs1RsHgPI0E7afJ8WYucEHqTH2WLMXLazvKKhk+s=\",\"h\":{\"iv\":\"6iltldGZ5FVS6Fc+\",\"at\":\"kj3AijyXuEaafLFlEyMQIg==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "6WXCLOTWUBKBLIQK7SL34VIBGOIUHVZW",
-      "cipher": "{\"p\":\"9aAo83TuYjiV4DWX4+eWfig3FvZnMM+w3AwQKRAykoM=\",\"h\":{\"iv\":\"AehS8oodzRPXQ0xd\",\"at\":\"BqOmg07aWnh09nPFTskxhQ==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "2WF3FBYSOX6JQMFRA26QMWSC3EH7HTTR",
+      "cipher": "{\"p\":\"GbD2Rpe0ZHzLOPb8ktlBak0f+3apJmTVvSyVkQLODww=\",\"h\":{\"iv\":\"2NV03sUsW7AeVj+I\",\"at\":\"YcEqQaOGysuDsfaL1ISZpw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"Dz8F/8/g4ijafda1ZRcICmE=\",\"h\":{\"iv\":\"/biyqi28FmUER12g\",\"at\":\"huB36HrZ9zFkj8xGpB8fZA==\"}}"
+      "cipher": "{\"p\":\"W90f0zfDmAhZqasUDQup1k4=\",\"h\":{\"iv\":\"RFlnBdeQh636cRmx\",\"at\":\"oWYC6DeFoKHHGuVv8jPQ3A==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$Rmxq6HZqsL84Z5mzuAw3zuggU8pPuOASlzZ7Bzwa4/z8M038mTSge"
+      "hash": "$2a$11$iPxxfAqO.MP8Vg2aP2Xh0eWWzJY8MUdfFlvTkkQ5VFvM0Sk1FwBkK"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$UjcCa/SLZtbeeEeMmUsPduxcN1GHZOfWMSTnNv/LcUkpRirAaR62i"
+      "hash": "$2a$11$6ESHEfc8tX6vFsw6YYLNIuCn7y/IV0CMDRj2VwhBoSUipszInCdmy"
     }
   ],
   "totp": {
@@ -39065,6 +39065,1793 @@
       "next": "2026-03-03T23:59:59.999999Z",
       "last": "2026-03-02T23:59:59.999999Z",
       "count": 3
+    }
+  ],
+  "sizing": [
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "50000.2",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.0011999952000191999232003071987712",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00119999"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "50000.2",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "49875.1",
+      "amount": "0.0012030051067566781820988830097584",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.001203"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "50000.2",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.0011999952000191999232003071987712",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00119999"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "50000.2",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "49875.19",
+      "amount": "0.0012030029359286651339072593006663",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.001203"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "50000.2",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.0011999952000191999232003071987712",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "50000.2",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "49875.0",
+      "amount": "0.001203007518796992481203007518797",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "50000.2",
+      "x": "0.4",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.000007999968000127999488002047991808",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000799"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "50000.2",
+      "x": "0.4",
+      "order_type": "limit_order",
+      "price": "49875.1",
+      "amount": "0.0000080200340450445212139925533983892",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000802"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "50000.2",
+      "x": "0.4",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.000007999968000127999488002047991808",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000799"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "50000.2",
+      "x": "0.4",
+      "order_type": "limit_order",
+      "price": "49875.19",
+      "amount": "0.0000080200195728577675593817286711088",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000802"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "50000.2",
+      "x": "0.4",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.000007999968000127999488002047991808",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "50000.2",
+      "x": "0.4",
+      "order_type": "limit_order",
+      "price": "49875.0",
+      "amount": "0.0000080200501253132832080200501253133",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "50000.2",
+      "x": "5.00001",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.0000999998000007999968000127999488",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00009999"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "50000.2",
+      "x": "5.00001",
+      "order_type": "limit_order",
+      "price": "49875.1",
+      "amount": "0.0001002506260639076412879372672937",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00010025"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "50000.2",
+      "x": "5.00001",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.0000999998000007999968000127999488",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00009999"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "50000.2",
+      "x": "5.00001",
+      "order_type": "limit_order",
+      "price": "49875.19",
+      "amount": "0.00010025044516121141593646059293208",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00010025"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "50000.2",
+      "x": "5.00001",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.0000999998000007999968000127999488",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "50000.2",
+      "x": "5.00001",
+      "order_type": "limit_order",
+      "price": "49875.0",
+      "amount": "0.00010025082706766917293233082706767",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "50000.2",
+      "x": "0.0001",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.000000001999992000031999872000511997952",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "50000.2",
+      "x": "0.0001",
+      "order_type": "limit_order",
+      "price": "49875.1",
+      "amount": "0.0000000020050085112611303034981383495973",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "50000.2",
+      "x": "0.0001",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.000000001999992000031999872000511997952",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "50000.2",
+      "x": "0.0001",
+      "order_type": "limit_order",
+      "price": "49875.19",
+      "amount": "0.0000000020050048932144418898454321677772",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "50000.2",
+      "x": "0.0001",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.000000001999992000031999872000511997952",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "50000.2",
+      "x": "0.0001",
+      "order_type": "limit_order",
+      "price": "49875.0",
+      "amount": "0.0000000020050125313283208020050125313283",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "50000.2",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.0024691259034963860144559421762313",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00246912"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "50000.2",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "49875.1",
+      "amount": "0.0024753191271796948778047562811904",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00247531"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "50000.2",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.0024691259034963860144559421762313",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00246912"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "50000.2",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "49875.19",
+      "amount": "0.0024753146604554288414740876175108",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00247531"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "50000.2",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "50000.2",
+      "amount": "0.0024691259034963860144559421762313",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "50000.2",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "49875.0",
+      "amount": "0.0024753240902255639097744360902256",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "49995.37",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.0012001111302906649155711818914431",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00120011"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "49995.37",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "49870.3",
+      "amount": "0.0012031208956031946870181250162923",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00120312"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "49995.37",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.0012001111302906649155711818914431",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "volume": "60.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "49995.37",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "49870.38",
+      "amount": "0.0012031189656064381302087531717224",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00120311"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "49995.37",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.0012001111302906649155711818914431",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "49995.37",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "49870.0",
+      "amount": "0.0012031281331461800681772608782835",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "49995.37",
+      "x": "0.4",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.0000080007408686044327704745459429543",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.000008"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "49995.37",
+      "x": "0.4",
+      "order_type": "limit_order",
+      "price": "49870.3",
+      "amount": "0.0000080208059706879645801208334419484",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000802"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "49995.37",
+      "x": "0.4",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.0000080007408686044327704745459429543",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "volume": "0.4"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "49995.37",
+      "x": "0.4",
+      "order_type": "limit_order",
+      "price": "49870.38",
+      "amount": "0.0000080207931040429208680583544781492",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000802"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "49995.37",
+      "x": "0.4",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.0000080007408686044327704745459429543",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "49995.37",
+      "x": "0.4",
+      "order_type": "limit_order",
+      "price": "49870.0",
+      "amount": "0.0000080208542209745337878484058552236",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "49995.37",
+      "x": "5.00001",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.00010000946087607712474175108615058",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.0001"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "49995.37",
+      "x": "5.00001",
+      "order_type": "limit_order",
+      "price": "49870.3",
+      "amount": "0.00010026027515374882445062492104519",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00010026"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "49995.37",
+      "x": "5.00001",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.00010000946087607712474175108615058",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "volume": "5.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "49995.37",
+      "x": "5.00001",
+      "order_type": "limit_order",
+      "price": "49870.38",
+      "amount": "0.00010026011432036411192375113243573",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00010026"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "49995.37",
+      "x": "5.00001",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.00010000946087607712474175108615058",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "49995.37",
+      "x": "5.00001",
+      "order_type": "limit_order",
+      "price": "49870.0",
+      "amount": "0.00010026087828353719671144976940044",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "49995.37",
+      "x": "0.0001",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.0000000020001852171511081926186364857386",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "49995.37",
+      "x": "0.0001",
+      "order_type": "limit_order",
+      "price": "49870.3",
+      "amount": "0.0000000020052014926719911450302083604871",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "49995.37",
+      "x": "0.0001",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.0000000020001852171511081926186364857386",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "49995.37",
+      "x": "0.0001",
+      "order_type": "limit_order",
+      "price": "49870.38",
+      "amount": "0.0000000020051982760107302170145886195373",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "49995.37",
+      "x": "0.0001",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.0000000020001852171511081926186364857386",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "49995.37",
+      "x": "0.0001",
+      "order_type": "limit_order",
+      "price": "49870.0",
+      "amount": "0.0000000020052135552436334469621014638059",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "49995.37",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.0024693644431474354525229036208753",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00246936"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "49995.37",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "49870.3",
+      "amount": "0.0024755573758329105700186283218669",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00247555"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "49995.37",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.0024693644431474354525229036208753",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "volume": "123.45"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "49995.37",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "49870.38",
+      "amount": "0.0024755534046462048213789427712402",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00247555"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "49995.37",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "49995.37",
+      "amount": "0.0024693644431474354525229036208753",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "49995.37",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "49870.0",
+      "amount": "0.0024755722678965309805494285141368",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "48600.311041990668740279937791602",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "volume": "60.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "48600.311041990668740279937791602",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "volume": "60.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "48600.311041990668740279937791602",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "volume": "60.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "0.4",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "324.00207361327112493519958527735",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "volume": "0.4"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "0.4",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "324.00207361327112493519958527735",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "volume": "0.4"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "0.4",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "324.00207361327112493519958527735",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "5.00001",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "4050.0340202177293934681181959565",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "volume": "5.00001"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "5.00001",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "4050.0340202177293934681181959565",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "volume": "5.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "5.00001",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "4050.0340202177293934681181959565",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "volume": "5.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "0.0001",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "0.081000518403317781233799896319336",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "volume": "0.0001"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "0.0001",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "0.081000518403317781233799896319336",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "0.0001",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "0.081000518403317781233799896319336",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "100000.63909409020217729393468118",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "volume": "123.45678"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "100000.63909409020217729393468118",
+      "amount_type": "quote",
+      "below_minimum": false,
+      "volume": "123.45"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "0.00123456",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "0.00123456",
+      "amount": "100000.63909409020217729393468118",
+      "amount_type": "quote",
+      "below_minimum": true,
+      "volume": "123.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.000048600003985200326786426796486997",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0000486"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "1231481.3",
+      "amount": "0.000048721811691334655264355211889941",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00004872"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.000048600003985200326786426796486997",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0000486"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "1231481.38",
+      "amount": "0.000048721808526248281561512525670506",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00004872"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "60",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.000048600003985200326786426796486997",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "60",
+      "order_type": "limit_order",
+      "price": "1231481.0",
+      "amount": "0.000048721823560412219108536794315138",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "0.4",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.00000032400002656800217857617864324665",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000032"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "0.4",
+      "order_type": "limit_order",
+      "price": "1231481.3",
+      "amount": "0.00000032481207794223103509570141259961",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000032"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "0.4",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.00000032400002656800217857617864324665",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000032"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "0.4",
+      "order_type": "limit_order",
+      "price": "1231481.38",
+      "amount": "0.00000032481205684165521041008350447004",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000032"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "0.4",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.00000032400002656800217857617864324665",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "0.4",
+      "order_type": "limit_order",
+      "price": "1231481.0",
+      "amount": "0.00000032481215706941479405691196210092",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "5.00001",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.0000040500084321006914322566974450492",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000405"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "5.00001",
+      "order_type": "limit_order",
+      "price": "1231481.3",
+      "amount": "0.0000040601590945798364944721450500304",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000406"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "5.00001",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.0000040500084321006914322566974450492",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000405"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "5.00001",
+      "order_type": "limit_order",
+      "price": "1231481.38",
+      "amount": "0.0000040601588308221111715063040579631",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.00000406"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "5.00001",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.0000040500084321006914322566974450492",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "5.00001",
+      "order_type": "limit_order",
+      "price": "1231481.0",
+      "amount": "0.0000040601600836716116610812509490605",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "0.0001",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.000000000081000006642000544644044660811662",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "0.0001",
+      "order_type": "limit_order",
+      "price": "1231481.3",
+      "amount": "0.000000000081203019485557758773925353149902",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "0.0001",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.000000000081000006642000544644044660811662",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "0.0001",
+      "order_type": "limit_order",
+      "price": "1231481.38",
+      "amount": "0.00000000008120301421041380260252087611751",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "0.0001",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.000000000081000006642000544644044660811662",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "0.0001",
+      "order_type": "limit_order",
+      "price": "1231481.0",
+      "amount": "0.000000000081203039267353698514227990525229",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.00010000000729000059778004901796402",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.0001"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.00005",
+        "minimum_quote_size": "0.5",
+        "base_decimals": "8",
+        "quote_decimals": "5",
+        "price_decimals": "1"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "1231481.3",
+      "amount": "0.00010025064042791392772265401025578",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00010025"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.00010000000729000059778004901796402",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.0001"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "0.0001",
+        "minimum_quote_size": "5",
+        "base_decimals": "8",
+        "quote_decimals": "2",
+        "price_decimals": "2"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "1231481.38",
+      "amount": "0.00010025063391539058430587070670935",
+      "amount_type": "base",
+      "below_minimum": false,
+      "volume": "0.00010025"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "123.456789",
+      "order_type": "market_order",
+      "price": "1234567.8",
+      "amount": "0.00010000000729000059778004901796402",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
+    },
+    {
+      "ticker": {
+        "minimum_base_size": "1",
+        "minimum_quote_size": "500",
+        "base_decimals": "0",
+        "quote_decimals": "0",
+        "price_decimals": "0"
+      },
+      "last_or_ask": "1234567.8",
+      "x": "123.456789",
+      "order_type": "limit_order",
+      "price": "1231481.0",
+      "amount": "0.00010025066484988400145840658524167",
+      "amount_type": "base",
+      "below_minimum": true,
+      "volume": "0.0"
     }
   ]
 }
