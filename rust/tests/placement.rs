@@ -94,3 +94,67 @@ async fn an_operator_decision_resolves_an_intent_kraken_cannot_answer_for() {
     assert!(reload(&o, &bot).rust_placement().is_none());
     assert!(placement::resolve_by_operator(&o.primary, bot.id, OperatorResolution::NotPlaced, t0()).is_err(), "nothing left to resolve");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_stale_snapshot_cannot_record_an_order_twice() {
+    let (_d, o, bot, plan) = setup();
+    let venue = FakeVenue::new().next_add(AddOutcome::Accept("OTX-1".into()));
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    assert!(matches!(placement::send(&venue, &intent).await, Sent::Accepted(_)));
+    let stale = reload(&o, &bot); // still carries the intent
+    placement::record_accepted(&o.primary, &stale, &intent, "OTX-1").unwrap();
+    let later = FixedClock(t0() + Duration::hours(2));
+    assert!(matches!(placement::recover(&o.primary, &venue, &stale, &later).await.unwrap(), Recovery::NoIntent));
+    assert!(placement::record_accepted(&o.primary, &stale, &intent, "OTX-1").is_err());
+    assert!(placement::record_rejected(&o.primary, &stale, &intent, &["EOrder:x".to_string()]).is_err());
+    assert_eq!(count(&o, "SELECT count(*) FROM transactions WHERE external_id = 'OTX-1'"), 1);
+    assert_eq!(count(&o, "SELECT count(*) FROM transactions"), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_operator_cannot_record_a_blank_or_already_recorded_order_id() {
+    let (_d, o, bot, plan) = setup();
+    placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    for blank in ["", "  "] {
+        assert!(placement::resolve_by_operator(&o.primary, bot.id, OperatorResolution::Placed(blank.into()), t0()).is_err());
+    }
+    o.primary.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, created_at, updated_at) SELECT id, exchange_id, 'OTX-DUP', 0, '2026-09-30 11:00:00', '2026-09-30 11:00:00' FROM bots WHERE id = ?1", [bot.id]).unwrap();
+    assert!(placement::resolve_by_operator(&o.primary, bot.id, OperatorResolution::Placed("OTX-DUP".into()), t0()).is_err());
+    assert_eq!(count(&o, "SELECT count(*) FROM transactions"), 1);
+    assert!(reload(&o, &bot).rust_placement().is_some(), "nothing was written");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_intent_missing_a_boolean_is_unreadable_not_false() {
+    let (_d, o, bot, plan) = setup();
+    placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    o.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement.limit') WHERE id = ?1", [bot.id]).unwrap();
+    let venue = FakeVenue::new();
+    assert!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &FixedClock(t0() + Duration::days(1))).await.is_err());
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement.limit', 'false') WHERE id = ?1", [bot.id]).unwrap();
+    assert!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &FixedClock(t0() + Duration::days(1))).await.is_err());
+    assert!(reload(&o, &bot).rust_placement().is_some());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_placement_safe_rejection_writes_no_row_and_clears_the_intent() {
+    let (_d, o, bot, plan) = setup();
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    let msg = format!("EAPI:{}", placement::PLACEMENT_SAFE_TRANSIENT_ERRORS[0]);
+    assert!(!placement::record_rejected(&o.primary, &bot, &intent, &[msg]).unwrap());
+    assert_eq!(count(&o, "SELECT count(*) FROM transactions"), 0);
+    assert!(reload(&o, &bot).rust_placement().is_none());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_ambiguous_send_keeps_the_intent_and_a_not_sent_one_can_drop_it() {
+    let (_d, o, bot, plan) = setup();
+    let venue = FakeVenue::new().next_add(AddOutcome::AmbiguousPlaced("OTX-9".into()));
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    assert!(matches!(placement::send(&venue, &intent).await, Sent::Ambiguous(_)));
+    assert!(reload(&o, &bot).rust_placement().is_some());
+    let refused = FakeVenue::new().next_add(AddOutcome::NotSent("refused".into())); // the fake books a duplicate cl_ord_id, so a fresh venue
+    assert!(matches!(placement::send(&refused, &intent).await, Sent::NotSent(_)));
+    placement::drop_intent(&o.primary, bot.id).unwrap();
+    assert!(reload(&o, &bot).rust_placement().is_none());
+}

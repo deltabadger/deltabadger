@@ -30,12 +30,19 @@ impl Intent {
         let bad = || EngineError::Data(format!("rust_placement {v}"));
         let d = |k: &str| v[k].as_str().and_then(|s| BigDec::parse(s).ok()).ok_or_else(bad);
         let t = |k: &str| v[k].as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| t.with_timezone(&Utc)).ok_or_else(bad);
+        let b = |k: &str| v[k].as_bool().ok_or_else(bad);
         let ticker = model::ticker_for(c, bot)?.filter(|t| Some(t.id) == v["ticker_id"].as_i64()).ok_or_else(bad)?;
         Ok(Self { cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
-                  plan: OrderPlan { ticker, limit: v["limit"] == true, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
-                                    quote_type: v["quote_type"] == true, volume: d("volume")? } })
+                  plan: OrderPlan { ticker, limit: b("limit")?, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
+                                    quote_type: b("quote_type")?, volume: d("volume")? } })
     }
 }
+
+/// Re-read under the write lock: is the intent with this cl_ord_id still the bot's unresolved one?
+fn still_pending(c: &Connection, bot_id: i64, cl_ord_id: &str) -> Result<bool, EngineError> {
+    Ok(model::load_bot(c, bot_id)?.rust_placement().is_some_and(|v| v["cl_ord_id"] == cl_ord_id))
+}
+fn gone(bot_id: i64) -> EngineError { EngineError::Data(format!("bot {bot_id} has no matching unresolved order")) }
 
 // A Rust-only key, written and removed without touching updated_at: a clean tick leaves nothing Rails would not.
 fn set_intent(c: &Connection, bot_id: i64, v: Option<&Value>) -> Result<(), EngineError> {
@@ -72,6 +79,7 @@ pub async fn send<V: Venue>(venue: &V, intent: &Intent) -> Sent {
 
 pub fn record_accepted(c: &Connection, bot: &Bot, intent: &Intent, txid: &str) -> Result<i64, EngineError> {
     let tx = model::immediate(c)?;
+    if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
     let id = write_order_row(&tx, bot, &intent.plan, RowKind::Submitted { external_id: txid.to_string() }, intent.at)?;
     set_intent(&tx, bot.id, None)?;
     tx.commit()?;
@@ -80,6 +88,7 @@ pub fn record_accepted(c: &Connection, bot: &Bot, intent: &Intent, txid: &str) -
 
 pub fn record_rejected(c: &Connection, bot: &Bot, intent: &Intent, errors: &[String]) -> Result<bool, EngineError> {
     let tx = model::immediate(c)?;
+    if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Err(gone(bot.id)); }
     let safe = errors.iter().any(|m| PLACEMENT_SAFE_TRANSIENT_ERRORS.iter().any(|p| m.contains(p)));
     if !safe { write_order_row(&tx, bot, &intent.plan, RowKind::Failed { errors: errors.to_vec() }, intent.at)?; }
     set_intent(&tx, bot.id, None)?;
@@ -101,6 +110,7 @@ pub async fn recover<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn
         Ok(Some(state)) => {
             let now = clock.now();
             let tx = model::immediate(c)?;
+            if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             let id = write_order_row(&tx, bot, &intent.plan, RowKind::Submitted { external_id: state.txid.clone() }, intent.at)?;
             polling::apply_in(&tx, bot.id, id, &state, true, now)?; // as FetchAndUpdateOrderJob would, after placement
             set_intent(&tx, bot.id, None)?;
@@ -109,6 +119,7 @@ pub async fn recover<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn
         }
         Ok(None) if started >= intent.deadline + Duration::seconds(ABSENCE_AFTER_SECONDS) => {
             let tx = model::immediate(c)?;
+            if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             set_intent(&tx, bot.id, None)?;
             model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning,
                 json!({ "error": "the order never reached Kraken", "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
@@ -124,10 +135,17 @@ pub enum OperatorResolution { Placed(String), NotPlaced }
 
 /// `deltabadger resolve-placement`: a human checked Kraken's own site because Kraken's API could not answer.
 pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorResolution, now: DateTime<Utc>) -> Result<(), EngineError> {
-    let bot = model::load_bot(c, bot_id)?;
-    let raw = bot.rust_placement().ok_or_else(|| EngineError::Data(format!("bot {bot_id} has no unresolved order")))?;
-    let intent = Intent::from_json(c, &bot, &raw)?;
+    if let OperatorResolution::Placed(t) = &resolution {
+        if t.trim().is_empty() { return Err(EngineError::Data("an order id is required".into())); }
+    }
     let tx = model::immediate(c)?;
+    let bot = model::load_bot(&tx, bot_id)?; // under the write lock, so two resolvers cannot both pass
+    let raw = bot.rust_placement().ok_or_else(|| EngineError::Data(format!("bot {bot_id} has no unresolved order")))?;
+    let intent = Intent::from_json(&tx, &bot, &raw)?;
+    if let OperatorResolution::Placed(t) = &resolution {
+        let dup: i64 = tx.query_row("SELECT count(*) FROM transactions WHERE exchange_id = ?1 AND external_id = ?2", params![bot.exchange_id, t], |r| r.get(0))?;
+        if dup > 0 { return Err(EngineError::Data(format!("order {t} is already recorded"))); }
+    }
     let (label, txid) = match resolution {
         OperatorResolution::Placed(txid) => { write_order_row(&tx, &bot, &intent.plan, RowKind::Submitted { external_id: txid.clone() }, intent.at)?; ("placed", Some(txid)) }
         OperatorResolution::NotPlaced => ("not_placed", None),
