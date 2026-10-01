@@ -44,3 +44,4 @@ pub mod eligibility;
 pub mod amount;
 pub mod placement;
 pub mod polling;
+pub mod kraken_errors;
