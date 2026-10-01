@@ -33,19 +33,31 @@ fn dec(v: &Value) -> Option<BigDec> { v.as_str().and_then(|s| BigDec::parse(s).o
 
 /// A raw Kraken QueryOrders/ClosedOrders order, parsed as Exchanges::Kraken#parse_order_data does.
 pub fn kraken_order(txid: &str, o: &Value) -> OrderState {
+    parse_order(txid, o).expect("a parseable Kraken order")
+}
+
+/// `parse_order_data` raises on an unknown status or order type; here that is an error, never a guess.
+fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueError> {
+    let status = match o["status"].as_str() {
+        Some("open") => OrderStatus::Open, Some("closed") => OrderStatus::Closed,
+        Some("canceled") | Some("expired") => OrderStatus::Cancelled, Some("pending") => OrderStatus::Unknown,
+        other => return Err(VenueError::Ambiguous(format!("Unknown Kraken order status: {}", other.unwrap_or("")))),
+    };
+    if !matches!(o["descr"]["ordertype"].as_str(), Some("market") | Some("limit")) {
+        return Err(VenueError::Ambiguous(format!("Unknown Kraken order type: {}", o["descr"]["ordertype"].as_str().unwrap_or(""))));
+    }
     let viqc = o["oflags"].as_str().is_some_and(|f| f.split(',').any(|x| x == "viqc"));
     let limit = o["descr"]["ordertype"] == "limit";
     let vol = dec(&o["vol"]);
     let mut price = dec(&o["price"]).unwrap_or_else(BigDec::zero);
     if price.is_zero() && limit { price = dec(&o["descr"]["price"]).unwrap_or_else(BigDec::zero); }
-    OrderState {
+    Ok(OrderState {
         txid: txid.into(),
-        status: match o["status"].as_str() { Some("open") => OrderStatus::Open, Some("closed") => OrderStatus::Closed,
-                                             Some("canceled") | Some("expired") => OrderStatus::Cancelled, _ => OrderStatus::Unknown },
+        status,
         price: (!price.is_zero()).then_some(price), amount: if viqc { None } else { vol.clone() }, quote_amount: if viqc { vol } else { None },
         amount_exec: dec(&o["vol_exec"]).unwrap_or_else(BigDec::zero), quote_amount_exec: dec(&o["cost"]).unwrap_or_else(BigDec::zero), limit,
         sell: o["descr"]["type"] == "sell",
-    }
+    })
 }
 
 impl FakeVenue {
@@ -84,20 +96,29 @@ impl FakeVenue {
     }
 }
 
-fn errors(body: &Value) -> Option<Vec<String>> {
-    body["error"].as_array().filter(|e| !e.is_empty()).map(|e| e.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())
+/// `Ok(())` for a clean body; `Rejected` for a non-empty `error`; `Ambiguous` when `error` is missing or not an
+/// array, or a success body has no `result` (honeymaker 0.12.3: unreadable).
+fn check(body: &Value) -> Result<(), VenueError> {
+    let Some(e) = body["error"].as_array() else { return Err(unreadable()) };
+    if !e.is_empty() { return Err(VenueError::Rejected(e.iter().filter_map(|x| x.as_str().map(str::to_string)).collect())); }
+    if body.get("result").is_none() { return Err(unreadable()); }
+    Ok(())
 }
+fn unreadable() -> VenueError { VenueError::Ambiguous("Kraken: unreadable response".into()) }
 
 impl Venue for FakeVenue {
     async fn prices(&self, _pair: &str) -> Result<Prices, VenueError> {
         let body = self.body("/0/public/Ticker").ok_or_else(|| VenueError::Transient("no scripted Ticker".into()))?;
-        if let Some(e) = errors(&body) { return Err(VenueError::Rejected(e)); }
-        let (_, t) = body["result"].as_object().and_then(|m| m.iter().next()).ok_or_else(|| VenueError::Ambiguous("Kraken: unreadable response".into()))?;
+        check(&body)?;
+        let (_, t) = body["result"].as_object().and_then(|m| m.iter().next()).ok_or_else(unreadable)?;
         let p = |k: &str| dec(&t[k][0]).unwrap_or_else(BigDec::zero);
         Ok(Prices { bid: p("b"), ask: p("a"), last: p("c") })
     }
 
     async fn add_order(&self, order: &NewOrder) -> Result<String, VenueError> {
+        if self.s.borrow().book.iter().any(|(c, _, _)| c == &order.cl_ord_id) {
+            return Err(VenueError::Rejected(vec!["EOrder:Duplicate order".into()])); // Kraken refuses a repeated client order id
+        }
         self.s.borrow_mut().sent.push(order.clone());
         let hook = self.s.borrow().on_add.clone();
         if let Some(f) = hook { f(); }
@@ -105,10 +126,11 @@ impl Venue for FakeVenue {
         let outcome = match scripted {
             Some(o) => o,
             None => match self.body("/0/private/AddOrder") {
-                Some(b) => match (errors(&b), b["result"]["txid"][0].as_str()) {
-                    (Some(e), _) => AddOutcome::Reject(e),
-                    (None, Some(t)) => AddOutcome::Accept(t.to_string()),
-                    (None, None) => AddOutcome::AmbiguousNotPlaced("Failed to set Kraken order (order_id is nil)".into()),
+                Some(b) => match (check(&b), b["result"]["txid"][0].as_str()) {
+                    (Err(VenueError::Rejected(e)), _) => AddOutcome::Reject(e),
+                    (Err(e), _) => AddOutcome::AmbiguousNotPlaced(match e { VenueError::Ambiguous(m) => m, _ => String::new() }),
+                    (Ok(()), Some(t)) => AddOutcome::Accept(t.to_string()),
+                    (Ok(()), None) => AddOutcome::AmbiguousNotPlaced("Failed to set Kraken order (order_id is nil)".into()),
                 },
                 None => AddOutcome::Accept(format!("OFAKE-{}", self.s.borrow().sent.len())),
             },
@@ -128,29 +150,41 @@ impl Venue for FakeVenue {
         if let Some(f) = hook { f(); }
         let mut out = vec![];
         if let Some(body) = self.body("/0/private/QueryOrders") {
-            if let Some(e) = errors(&body) { return Err(VenueError::Rejected(e)); }
-            for t in txids { if let Some(raw) = body["result"].get(t) { out.push(kraken_order(t, raw)); } }
+            check(&body)?;
+            for t in txids { if let Some(raw) = body["result"].get(t) { out.push(parse_order(t, raw)?); } }
         }
         let s = self.s.borrow();
         for t in txids {
             if out.iter().any(|o| &o.txid == t) { continue; }
-            if let Some(raw) = s.orders.get(t) { out.push(kraken_order(t, raw)); }
+            if let Some(raw) = s.orders.get(t) { out.push(parse_order(t, raw)?); }
         }
         Ok(out)
     }
 
+    /// `since` is unused: the fake's scripted bodies and book are not time-windowed. Never touches QueryOrders.
     async fn order_by_client_id(&self, cl_ord_id: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
         {
             let mut s = self.s.borrow_mut();
             if s.lookup_failures > 0 { s.lookup_failures -= 1; return Err(VenueError::Transient("ClosedOrders page failed".into())); }
         }
+        // OpenOrders first, then ClosedOrders (each repeats its last body, so one read per path).
+        for (path, key) in [("/0/private/OpenOrders", "open"), ("/0/private/ClosedOrders", "closed")] {
+            let Some(body) = self.body(path) else { continue };
+            check(&body)?;
+            for (txid, raw) in body["result"][key].as_object().into_iter().flatten() {
+                if raw["cl_ord_id"] == cl_ord_id { return parse_order(txid, raw).map(Some); }
+            }
+        }
         let found = self.s.borrow().book.iter().find(|(c, _, _)| c == cl_ord_id).cloned();
         let Some((_, txid, order)) = found else { return Ok(None) };
-        let known = self.orders(std::slice::from_ref(&txid)).await?;
-        Ok(Some(known.into_iter().next().unwrap_or(OrderState {
-            txid, status: OrderStatus::Open, price: None, amount: None, quote_amount: None,
-            amount_exec: BigDec::zero(), quote_amount_exec: BigDec::zero(), limit: matches!(order.kind, OrderKind::Limit { .. }), sell: false,
-        })))
+        let raw = self.s.borrow().orders.get(&txid).cloned();
+        Ok(Some(match raw {
+            Some(raw) => parse_order(&txid, &raw)?,
+            None => OrderState {
+                txid, status: OrderStatus::Open, price: None, amount: None, quote_amount: None,
+                amount_exec: BigDec::zero(), quote_amount_exec: BigDec::zero(), limit: matches!(order.kind, OrderKind::Limit { .. }), sell: false,
+            },
+        }))
     }
 
     async fn fills_from_trades(&self, txids: &[String], _since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError> {
@@ -159,7 +193,7 @@ impl Venue for FakeVenue {
         let mut seen = std::collections::HashSet::new();
         for _ in 0..20 {
             let Some(body) = self.body("/0/private/TradesHistory") else { break };
-            if let Some(e) = errors(&body) { return Err(VenueError::Rejected(e)); }
+            check(&body)?;
             let page = body["result"]["trades"].as_object().cloned().unwrap_or_default();
             if page.is_empty() || page.keys().all(|k| seen.contains(k)) { break; } // the script's last page repeats
             for (id, t) in page { if seen.insert(id) { trades.push(t); } }
@@ -181,12 +215,14 @@ impl Venue for FakeVenue {
 
     async fn balance(&self, asset_symbol: &str) -> Result<BigDec, VenueError> {
         let Some(body) = self.body("/0/private/BalanceEx") else { return Err(VenueError::Transient("no scripted BalanceEx".into())) };
-        if let Some(e) = errors(&body) { return Err(VenueError::Rejected(e)); }
+        check(&body)?;
+        // Rails assigns per row, so with several rows for one asset (ZEUR, EUR.HOLD) the last in body order wins.
         let mut free = BigDec::zero();
         for (code, b) in body["result"].as_object().into_iter().flatten() {
-            let name = ASSET_MAP.iter().find(|(k, _)| k == code).map(|(_, v)| *v).unwrap_or(code.as_str());
+            let head = code.split('.').next().unwrap_or(code);
+            let name = ASSET_MAP.iter().find(|(k, _)| *k == head).map(|(_, v)| *v).unwrap_or(head);
             if name == asset_symbol {
-                free = &(&free + &dec(&b["balance"]).unwrap_or_else(BigDec::zero)) - &dec(&b["hold_trade"]).unwrap_or_else(BigDec::zero);
+                free = &dec(&b["balance"]).unwrap_or_else(BigDec::zero) - &dec(&b["hold_trade"]).unwrap_or_else(BigDec::zero);
             }
         }
         Ok(free)

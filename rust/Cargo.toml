@@ -26,7 +26,7 @@ pbkdf2 = { version = "0.12", features = ["hmac"] }
 rand = "0.8"
 rusqlite = { version = "0.37", features = ["bundled"] }
 rust_decimal = { version = "1", features = ["std"] }
-serde_json = { version = "1", features = ["float_roundtrip"] }
+serde_json = { version = "1", features = ["float_roundtrip", "preserve_order"] }
 sha1 = "0.10"
 sha2 = "0.10"
 tokio = { version = "1", features = ["rt", "time", "macros", "sync"] }
