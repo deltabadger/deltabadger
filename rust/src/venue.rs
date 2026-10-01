@@ -3,6 +3,7 @@
 //! `http::ScriptedTransport`.
 #![allow(async_fn_in_trait)] // single-threaded runtime: no Send bound needed
 pub mod fake;
+pub mod http;
 
 use crate::crypto::Credentials;
 use crate::engine::model::Ticker;
