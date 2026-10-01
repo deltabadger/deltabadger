@@ -5,4 +5,5 @@ pub mod crypto;
 pub mod engine;
 pub mod enums;
 pub mod lease;
+pub mod ruby;
 pub mod store;

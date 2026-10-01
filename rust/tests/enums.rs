@@ -12,6 +12,7 @@ macro_rules! pairs { ($t:ty) => { <$t>::ALL.iter().map(|(k, v)| (*k, *v as i64))
 #[test]
 fn every_enum_matches_rails() {
     assert_matches("bot_status", &pairs!(BotStatus));
+    assert_matches("rule_status", &pairs!(RuleStatus));
     assert_matches("transaction_status", &pairs!(TxStatus));
     assert_matches("transaction_side", &pairs!(TxSide));
     assert_matches("transaction_order_type", &pairs!(TxOrderType));
