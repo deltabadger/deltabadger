@@ -52,6 +52,25 @@ fn an_ineligible_install_is_refused_before_anything_is_written() {
     assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs"), 1, "Rails' job untouched");
 }
 
+#[test]
+fn a_takeover_repeated_after_a_failure_following_the_claim_finishes_the_job() {
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let b = seed::insert_bot(&o.primary, &s, &BotSpec { status: 4, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+    // The state a crash right after the claim leaves: lease is Rust's, job still queued, bot still executing.
+    deltabadger::lease::claim(&l, &o.primary, &seed::cipher(), "0.2.0", now()).unwrap();
+    job(&o.queue, "Bot::ActionJob", &format!("gid://deltabadger/Bots::DcaMultiAsset/{b}"));
+    let t = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert!(matches!(t.claim, Claim::AfterCrash));
+    assert_eq!((t.deleted_jobs, t.normalised), (1, 1));
+    let again = handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    assert_eq!((again.deleted_jobs, again.normalised), (0, 0), "idempotent");
+    assert_eq!(count(&o.queue, "SELECT count(*) FROM solid_queue_jobs WHERE class_name LIKE 'Bot::%'"), 0);
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn an_unresolved_order_blocks_handback_and_rails_keeps_refusing() {
     let dir = common::rails_install();
@@ -71,7 +90,8 @@ async fn an_unresolved_order_blocks_handback_and_rails_keeps_refusing() {
     assert!(matches!(handover::hand_back(&l, &o, &factory, &seed::cipher(), &deltabadger::engine::FixedClock(now())).await, Err(EngineError::Unresolved(ref v)) if v == &vec![b]));
     assert_eq!(lease::read(&o.primary, &seed::cipher()).unwrap().unwrap()["engine"], "rust", "still Rust's: Rails must refuse");
     drop((l, o));
-    assert!(!rails_boots(dir.path()), "Rails refuses to start on an install Rust has not handed back");
+    let (booted, stderr) = rails_boot(dir.path());
+    assert!(!booted && stderr.contains("still owns this data"), "Rails refuses because the lease says rust: {stderr}");
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -86,14 +106,14 @@ async fn a_completed_handback_is_adopted_by_rails() {
     assert_eq!(handover::hand_back(&l, &o, &FakeFactory::default(), &seed::cipher(), &deltabadger::engine::FixedClock(now())).await.unwrap(), 1);
     assert_eq!(model::load_bot(&o.primary, b).unwrap().status, deltabadger::enums::BotStatus::Scheduled);
     drop((l, o));
-    assert!(rails_boots(dir.path()), "Rails starts after a completed handback");
+    assert!(rails_boot(dir.path()).0, "Rails starts after a completed handback");
     let q = rusqlite::Connection::open(dir.path().join("production_queue.sqlite3")).unwrap();
     assert_eq!(count(&q, "SELECT count(*) FROM solid_queue_jobs WHERE class_name = 'Bot::RepairOrphanedBotsJob'"), 1, "adopted: repair enqueued");
 }
 
 /// Boots the real Rails app (development env, not test, so the engine-lease initializers run) against this
 /// install's files, with the test cipher's keys, and reports whether it started.
-fn rails_boots(dir: &std::path::Path) -> bool {
+fn rails_boot(dir: &std::path::Path) -> (bool, String) {
     let keys = deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "engine-test-secret").unwrap();
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let scratch = tempfile::tempdir().unwrap();
@@ -105,5 +125,5 @@ fn rails_boots(dir: &std::path::Path) -> bool {
         .env("CABLE_DATABASE_URL", format!("sqlite3:{}/cable.sqlite3", scratch.path().display()))
         .env("ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY", keys.primary_key).env("ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT", keys.key_derivation_salt)
         .output().expect("bin/rails runs");
-    out.status.success() && String::from_utf8_lossy(&out.stdout).contains("booted")
+    (out.status.success() && String::from_utf8_lossy(&out.stdout).contains("booted"), String::from_utf8_lossy(&out.stderr).into_owned())
 }
