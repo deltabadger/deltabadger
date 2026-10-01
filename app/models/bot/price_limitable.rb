@@ -87,7 +87,8 @@ module Bot::PriceLimitable
         elsif met
           super
         else
-          update!(status: :waiting)
+          return Result::Success.new unless transition_working!(:waiting) # stopped meanwhile
+
           log_activity('limit_paused', details: { limit_type: :price })
           Bot::PriceLimitCheckJob.set(wait_until: Time.now.utc.end_of_minute).perform_later(self)
           Result::Success.new({ break_reschedule: true })

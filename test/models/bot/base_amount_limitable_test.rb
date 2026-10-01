@@ -166,6 +166,7 @@ class Bot::BaseAmountLimitableTest < ActiveSupport::TestCase
       bot.set_missed_quote_amount
       bot.update!(direction: 'selling', base_amount_limited: true, base_amount_limit: 0.3, **sentence)
       sold(bot, base, 0.25)
+      bot.update_column(:status, :scheduled) # ActionJob ticks only a working bot
 
       bot.execute_action # wants 1.0 BTC either way; 0.05 is left under the cap
 

@@ -455,6 +455,9 @@ module Bot::Composition::OrderSetter
                               end
 
       next if order_amount_in_quote <= 0
+      # A limit price under the pair's precision floors to zero, and the division below would send the
+      # exchange a volume of Infinity.
+      return Result::Failure.new("limit price rounds to zero at #{data[:ticker].price_decimals} decimals") if data[:price].zero?
 
       order_amount_in_base = order_amount_in_quote / data[:price]
       remaining_investment -= order_amount_in_quote

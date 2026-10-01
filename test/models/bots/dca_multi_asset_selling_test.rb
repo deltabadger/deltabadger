@@ -275,6 +275,7 @@ class Bots::DcaMultiAssetSellingTest < ActiveSupport::TestCase
     hold(base0: 700, base1: 300)
     @bot.update_columns(transient_data: @bot.transient_data.merge('missed_quote_amount' => 250))
     @bot.stubs(:refresh_composition).returns(Result::Success.new)
+    @bot.update_column(:status, :scheduled) # ActionJob ticks only a working bot
 
     assert_predicate @bot.execute_action, :success?
 

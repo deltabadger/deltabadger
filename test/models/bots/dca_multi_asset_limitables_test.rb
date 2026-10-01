@@ -69,6 +69,7 @@ class Bots::DcaMultiAssetLimitablesTest < ActiveSupport::TestCase
                price_limit_in_ticker_id: @btc_ticker.id)
     @bot.stubs(:get_price_limit_condition_met?).returns(Result::Success.new(false))
     @bot.expects(:set_orders).never
+    @bot.update_column(:status, :scheduled) # ActionJob ticks only a working bot
 
     result = @bot.execute_action
 
@@ -83,6 +84,7 @@ class Bots::DcaMultiAssetLimitablesTest < ActiveSupport::TestCase
     @bot.stubs(:get_price_limit_condition_met?).returns(Result::Success.new(true))
     @bot.stubs(:funds_are_low?).returns(false)
     @bot.expects(:set_orders).returns(Result::Success.new)
+    @bot.update_column(:status, :scheduled) # ActionJob ticks only a working bot
 
     assert @bot.execute_action.success?
   end

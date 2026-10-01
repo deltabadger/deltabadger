@@ -65,7 +65,8 @@ class Bots::DcaSingleAsset < Bot
 
   def execute_action
     with_api_key do
-      update!(status: :executing)
+      return Result::Success.new unless transition_working!(:executing) # stopped meanwhile: place nothing
+
       result = if selling?
                  # DCA-out: sell a fixed base amount per period. The buy carry is frozen
                  # (Accountable) and the carry subtraction is gated to buys at the job source,
@@ -76,7 +77,7 @@ class Bots::DcaSingleAsset < Bot
                end
       return result if result.failure?
 
-      update!(status: :waiting)
+      transition_working!(:waiting)
       broadcast_below_minimums_warning
       Result::Success.new
     end

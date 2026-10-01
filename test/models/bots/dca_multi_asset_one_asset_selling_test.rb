@@ -154,6 +154,7 @@ class Bots::DcaMultiAssetOneAssetSellingTest < ActiveSupport::TestCase
     wallet(free: 10)
     @bot.stubs(:refresh_composition).returns(Result::Success.new)
     @bot.exchange.stubs(:market_sell).returns(Result::Success.new(order_id: 'q-1'), Result::Success.new(order_id: 'b-1'))
+    @bot.update_column(:status, :scheduled) # ActionJob ticks only a working bot
 
     @bot.execute_action
     # Filled, as the order poll would record it — the next tick sweeps anything still open.
