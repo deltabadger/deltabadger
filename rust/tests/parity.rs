@@ -101,7 +101,7 @@ fn alive(pid: &str) -> bool {
 }
 
 #[test]
-fn a_killed_parity_run_leaves_no_copies_and_no_children() {
+fn a_killed_or_failed_parity_run_leaves_no_copies_and_no_children() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let src = tempfile::tempdir().unwrap();
     let grid = tempfile::tempdir().unwrap();
@@ -113,10 +113,11 @@ fn a_killed_parity_run_leaves_no_copies_and_no_children() {
     std::fs::write(&tickers, serde_json::json!({ "XBTEUR": body }).to_string()).unwrap();
     // A stand-in `sh` for the script's Rails step: it records its sleeping child's pid and then idles, so the run is
     // still mid-Rails (copies on disk, child alive) when the SIGTERM lands, however fast the real Rails would be.
+    for kill_it in [true, false] {
     let fake = tempfile::tempdir().unwrap();
     let pid_file = fake.path().join("pid");
     let sh = fake.path().join("sh");
-    std::fs::write(&sh, format!("#!/bin/bash\nsleep 600 &\necho $! > '{}'\nwait\n", pid_file.display())).unwrap();
+    std::fs::write(&sh, format!("#!/bin/bash\nsleep 600 &\necho $! > '{}'\n{}\n", pid_file.display(), if kill_it { "wait" } else { "kill $!; sleep 0.3; exit 1" })).unwrap();
     std::fs::set_permissions(&sh, std::os::unix::fs::PermissionsExt::from_mode(0o755)).unwrap();
     let tmp = tempfile::tempdir().unwrap();
     let mut child = Command::new(root.join("script/rust/parity_on_copy.sh")).arg(src.path()).arg(&tickers)
@@ -129,13 +130,15 @@ fn a_killed_parity_run_leaves_no_copies_and_no_children() {
     }
     std::thread::sleep(std::time::Duration::from_millis(200)); // the pid file is written before the line ends
     let pid = std::fs::read_to_string(&pid_file).unwrap().trim().to_string();
-    assert!(Command::new("kill").args(["-TERM", &child.id().to_string()]).status().unwrap().success());
+    if kill_it { assert!(Command::new("kill").args(["-TERM", &child.id().to_string()]).status().unwrap().success()); }
     child.wait().unwrap();
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
     while alive(&pid) && std::time::Instant::now() < deadline { std::thread::sleep(std::time::Duration::from_millis(50)); }
     let still = alive(&pid);
     if still { Command::new("kill").args(["-KILL", &pid]).status().ok(); } // do not leak from a red run
     let left: Vec<_> = std::fs::read_dir(tmp.path()).unwrap().map(|e| e.unwrap().file_name()).collect();
-    assert!(left.is_empty(), "scratch copies survived SIGTERM: {left:?}");
-    assert!(!still, "the Rails step's child survived SIGTERM");
+    let how = if kill_it { "SIGTERM" } else { "a failing Rails step" };
+    assert!(left.is_empty(), "scratch copies survived {how}: {left:?}");
+    assert!(!still, "the Rails step's child survived {how}");
+    }
 }

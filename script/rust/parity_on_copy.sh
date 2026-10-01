@@ -17,13 +17,15 @@ if [ -e "$src/.engine.lock" ]; then
     echo "refusing: $src is in use by a running engine; copy it first (cp -a)" >&2; exit 2
   fi
 fi
-rails_root=$(mktemp -d); rust_root=$(mktemp -d); scratch=$(mktemp -d)
+# explicit template: macOS mktemp -d ignores $TMPDIR without one
+t=${TMPDIR:-/tmp}; rails_root=$(mktemp -d "${t%/}/parity.XXXXXX"); rust_root=$(mktemp -d "${t%/}/parity.XXXXXX"); scratch=$(mktemp -d "${t%/}/parity.XXXXXX")
 # Job control gives the backgrounded Rails step its own process group, so cleanup can kill the whole tree (env -> sh ->
 # bin/rails -> ruby), not just its first process. The step runs in the background and is waited on because bash defers a
 # trap while a foreground command runs: a SIGTERM would otherwise sit unhandled until Rails finished, or orphan it.
 set -m
 rails_pid=
 cleanup() {
+  set +e # best effort throughout: a failed kill (the group already exited) must not skip the rm
   [ -n "$rails_pid" ] && kill -- "-$rails_pid" 2>/dev/null
   rm -rf "$rails_root" "$rust_root" "$scratch"
 }
