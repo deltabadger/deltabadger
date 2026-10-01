@@ -17,3 +17,8 @@ fn matches(kind: &str, messages: &[String]) -> bool {
 }
 pub fn is_throttle(messages: &[String]) -> bool { matches("throttle", messages) }
 pub fn is_transient(messages: &[String]) -> bool { matches("transient", messages) }
+/// An AddOrder answered with one of these may or may not have been placed (Kraken failed while handling it), so the
+/// answer settles nothing: the intent stays for cl_ord_id recovery. The transient kind minus "EAPI:Invalid nonce",
+/// which Kraken returns before it looks at the order. A sanctioned divergence: Rails writes a failed row.
+const ADD_OUTCOME_UNKNOWN: [&str; 4] = ["EGeneral:Internal error", "EService:Unavailable", "EService:Busy", "EService:Deadline elapsed"];
+pub fn add_outcome_unknown(messages: &[String]) -> bool { ADD_OUTCOME_UNKNOWN.iter().any(|p| messages.iter().any(|m| m.contains(p))) }

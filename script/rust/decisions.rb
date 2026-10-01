@@ -142,6 +142,9 @@ module Decisions
         'settings_changed' => { 'at' => after.(1), 'settings_changed_at' => '2026-09-01T18:00:00Z' },
         'below_minimum' => { 'at' => after.(1), 'quote_amount' => 0.4 },
         'rejected' => { 'at' => after.(1), 'http' => { '/0/private/AddOrder' => [{ 'error' => ['EOrder:Insufficient funds'] }] } },
+        # A sanctioned divergence (rust/tests/parity.rs DIVERGENCES): Rails writes a failed row, Rust keeps the intent
+        # and settles it by cl_ord_id, since Kraken may have placed the order while it failed.
+        'add_service_unavailable' => { 'at' => after.(1), 'http' => { '/0/private/AddOrder' => [{ 'error' => ['EService:Unavailable'] }] } },
         'rejected_throttle' => { 'at' => after.(1), 'http' => { '/0/private/AddOrder' => [{ 'error' => ['EAPI:Rate limit exceeded'] }] } },
         'blocking' => { 'at' => after.(1), 'transient' => { 'last_failure_kind' => 'invalid_key' },
                         'http' => { '/0/private/AddOrder' => [{ 'error' => ['EAPI:Invalid key'] }] } },
