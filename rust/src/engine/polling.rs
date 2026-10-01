@@ -1,6 +1,6 @@
 //! Bot::FetchAndUpdateOpenOrdersJob (the strict sweep before a tick), Bot::FetchAndUpdateOrderJob (the
 //! lenient poll after a placement), and Transaction#update_with_order_data.
-use super::kraken_errors::{is_throttle, is_transient};
+use super::venue_rules::KRAKEN;
 use super::model::{self, Level};
 use super::EngineError;
 use crate::codec::{format_time, parse_time};
@@ -99,8 +99,8 @@ pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, update_
 
 fn classify(e: VenueError, ids: &[String]) -> PollFailure {
     match e {
-        VenueError::Rejected(errs) if is_throttle(&errs) => PollFailure::RateLimited(to_sentence(&errs)),
-        VenueError::Rejected(errs) if is_transient(&errs) => PollFailure::Transient(to_sentence(&errs)),
+        VenueError::Rejected(errs) if KRAKEN.is_throttle(&errs) => PollFailure::RateLimited(to_sentence(&errs)),
+        VenueError::Rejected(errs) if KRAKEN.is_transient(&errs) => PollFailure::Transient(to_sentence(&errs)),
         VenueError::Rejected(errs) => PollFailure::General(format!("Failed to fetch orders {}. Result: {}", to_sentence(ids), inspect(&errs))),
         VenueError::Transient(m) | VenueError::Ambiguous(m) => PollFailure::Transient(m),
     }

@@ -4,7 +4,7 @@
 //! complete lookup that STARTED after the deadline + 60 s.
 use super::amount::{write_order_row, OrderPlan, RowKind};
 use super::model::{self, Bot, Level};
-use super::{kraken_errors, polling, Clock, EngineError};
+use super::{polling, venue_rules::KRAKEN, Clock, EngineError};
 use crate::ruby::BigDec;
 use crate::venue::{Venue, VenueError};
 use chrono::{DateTime, Duration, Utc};
@@ -71,7 +71,7 @@ pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotS
 pub async fn send<V: Venue>(venue: &V, intent: &Intent) -> Sent {
     match venue.add_order(&intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline)).await {
         Ok(txid) => Sent::Accepted(txid),
-        Err(VenueError::Rejected(e)) if kraken_errors::add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
+        Err(VenueError::Rejected(e)) if KRAKEN.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
         Err(VenueError::Rejected(e)) => Sent::Rejected(e),
         Err(VenueError::Ambiguous(m)) => Sent::Ambiguous(m),
         Err(VenueError::Transient(m)) => Sent::NotSent(m),

@@ -44,7 +44,7 @@ pub mod eligibility;
 pub mod amount;
 pub mod placement;
 pub mod polling;
-pub mod kraken_errors;
+pub mod venue_rules;
 pub mod tick;
 pub mod handover;
 pub mod run;

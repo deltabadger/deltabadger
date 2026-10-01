@@ -1,7 +1,7 @@
 //! One tick of an eligible bot: Bot::ActionJob#perform around DcaMultiAsset#execute_action (with the
 //! Fundable and LimitOrderable decorators), and the failure handling of ActionJob's rescues.
 use super::amount::{self, RowKind, Sizing};
-use super::kraken_errors::failure_kind;
+use super::venue_rules::KRAKEN;
 use super::model::{self, Level};
 use super::placement::{self, Recovery, Sent};
 use super::polling::{self, PollFailure};
@@ -207,7 +207,7 @@ fn handle_failure(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, at
             attempts.rate += 1;
             if attempts.rate < MAX_ATTEMPTS { return Ok(TickOutcome::RetryAfter(retry_wait(attempts.rate, true))); }
             *attempts = Attempts::default();
-            let kind = failure_kind(std::slice::from_ref(&m));
+            let kind = KRAKEN.failure_kind(std::slice::from_ref(&m));
             record_failure(c, bot_id, kind)?;
             model::log_activity(c, bot_id, "execution_failed", Level::Error, json!({ "error": m, "kind": kind, "rate_limited_exhausted": true }), now)?;
             Ok(TickOutcome::Rescheduled)
@@ -226,7 +226,7 @@ fn handle_failure(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, at
         }
         Fail::General { message, errors, failed_row } => {
             *attempts = Attempts::default();
-            let kind = failure_kind(if errors.is_empty() { std::slice::from_ref(&message) } else { &errors });
+            let kind = KRAKEN.failure_kind(if errors.is_empty() { std::slice::from_ref(&message) } else { &errors });
             let previous = model::load_bot(c, bot_id)?.last_failure_kind();
             let blocking = kind.is_some_and(|k| BLOCKING_KINDS.contains(&k) && previous.as_deref() == Some(k));
             record_failure(c, bot_id, kind)?;

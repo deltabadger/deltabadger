@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"NA3bOtCeBnvik0/GdcZZ0m4=\",\"h\":{\"iv\":\"w3W+dXetcsTjeWuX\",\"at\":\"/N50EYRN35Z7oKkEr21fpg==\"}}"
+      "cipher": "{\"p\":\"o91KVDO2jLNTZoFrCluWR9Y=\",\"h\":{\"iv\":\"6jGvmp2YWNRbjL4q\",\"at\":\"TYgD/dKIkLdwx1VBnrA5Gg==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"5OnyiRtJvrtkwS3a4/2s\",\"h\":{\"iv\":\"4YckxNU2RRF7R45w\",\"at\":\"iqa+/DqFWEJTcIITp2ArRA==\"}}"
+      "cipher": "{\"p\":\"W1Ph1vPlKNV0kmdEciZC\",\"h\":{\"iv\":\"27SwBzUOXK+ZY0cU\",\"at\":\"xohhp1dQWd2rOpoQJKsSIg==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"zEYHJ8iHrPi6vJtMR5/yDpVqvMV8oIcHYnZjkITmoVMaZkjzHVHAL3cmUtyxbCTUs1RsHgPI0E7afJ8WYucEHqTH2WLMXLazvKKhk+s=\",\"h\":{\"iv\":\"6iltldGZ5FVS6Fc+\",\"at\":\"kj3AijyXuEaafLFlEyMQIg==\",\"c\":true}}"
+      "cipher": "{\"p\":\"7W0IabUnZgl0n+JNcfsBTBl/HFqIDmrWUBw9yr0sc9G1pQSy/UD+7i1SpuTylsifNOl4zvduf7FOgXXtyKGdHCHNhNYLBVU9oDM/tL4=\",\"h\":{\"iv\":\"9HGu1zqZlhJz184V\",\"at\":\"JpxtzCykhtONEpzcq5gmgA==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "2WF3FBYSOX6JQMFRA26QMWSC3EH7HTTR",
-      "cipher": "{\"p\":\"GbD2Rpe0ZHzLOPb8ktlBak0f+3apJmTVvSyVkQLODww=\",\"h\":{\"iv\":\"2NV03sUsW7AeVj+I\",\"at\":\"YcEqQaOGysuDsfaL1ISZpw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "EZSTG523AWNSOHZRNX6UKL6DUXUDDHMO",
+      "cipher": "{\"p\":\"thw0L0E+owtoQiPc2wJcoFVN9goXtKLL6qk0tqzmTWY=\",\"h\":{\"iv\":\"jxoNtS0SdAZ4d3+k\",\"at\":\"xHC0yZplRtkQzIqHD4zKhw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"W90f0zfDmAhZqasUDQup1k4=\",\"h\":{\"iv\":\"RFlnBdeQh636cRmx\",\"at\":\"oWYC6DeFoKHHGuVv8jPQ3A==\"}}"
+      "cipher": "{\"p\":\"i7As916rK8/l5KdD3JgOCOc=\",\"h\":{\"iv\":\"ohy/bO1JjPD2jYmE\",\"at\":\"CRzqHxdVF86RJQ0++TvBsg==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$iPxxfAqO.MP8Vg2aP2Xh0eWWzJY8MUdfFlvTkkQ5VFvM0Sk1FwBkK"
+      "hash": "$2a$11$jKpnWXOD/CEIIO0sfDH4/.iKEftGFc2c25M4AXYsxRi1YWkdp09aa"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$6ESHEfc8tX6vFsw6YYLNIuCn7y/IV0CMDRj2VwhBoSUipszInCdmy"
+      "hash": "$2a$11$efEi717pxUweZSscduWWReKH/Lwl9mu5oQONisReMWev3QaSxCtFC"
     }
   ],
   "totp": {
@@ -40853,5 +40853,236 @@
       "below_minimum": true,
       "volume": "0.0"
     }
-  ]
+  ],
+  "failure_kinds": [
+    [
+      "Exchanges::Alpaca",
+      "insufficient buying power",
+      "insufficient_funds",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "unauthorized.",
+      "invalid_key",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "HTTP 401",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "HTTP 403",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "forbidden.",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "rate limit exceeded",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "Faraday::ConnectionFailed: Connection refused - connect(2) for \"paper-api.alpaca.markets\" port 443",
+      null,
+      true,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "Faraday::TimeoutError: Net::ReadTimeout",
+      null,
+      true,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "internal server error",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "Connection reset by peer",
+      null,
+      true,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EOrder:Insufficient funds",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EAPI:Invalid key",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EAPI:Rate limit exceeded",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EService:Unavailable",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EAPI:Invalid nonce",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "qty must be >= 0.000027",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "insufficient buying power",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "unauthorized.",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "HTTP 401",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "HTTP 403",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "forbidden.",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "rate limit exceeded",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "Faraday::ConnectionFailed: Connection refused - connect(2) for \"paper-api.alpaca.markets\" port 443",
+      null,
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "Faraday::TimeoutError: Net::ReadTimeout",
+      null,
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "internal server error",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "Connection reset by peer",
+      null,
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EOrder:Insufficient funds",
+      "insufficient_funds",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EAPI:Invalid key",
+      "invalid_key",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EAPI:Rate limit exceeded",
+      "throttle",
+      false,
+      true
+    ],
+    [
+      "Exchanges::Kraken",
+      "EService:Unavailable",
+      "transient",
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EAPI:Invalid nonce",
+      "transient",
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "qty must be >= 0.000027",
+      null,
+      false,
+      false
+    ]
+  ],
+  "ported_sources": {
+    "app/models/clients/alpaca.rb": "00e5b9bb3bd88c88c38abad1e4246bc89482b822239d6a067bb7906dd7ab9601",
+    "app/models/exchanges/alpaca.rb": "29a2fa34f228a49c43f779631bfe36dbda413208cf09f8d7cc8924d972caf33a",
+    "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b"
+  }
 }
