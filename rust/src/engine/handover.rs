@@ -97,6 +97,13 @@ pub async fn hand_back_retrying<F: VenueFactory>(lock: &EngineLock, o: &Opened, 
     }
 }
 
+/// What `deltabadger handback` runs: this process starts now, so an Alpaca "not found" is trusted only a full margin after
+/// `clock.now()` (placement::recover_since); when the first pass leaves an order unaccounted for, it waits that margin + 1 s once.
+pub async fn hand_back_cli<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock) -> Result<usize, EngineError> {
+    let wait = std::time::Duration::from_secs(super::venue_rules::ALPACA.absence_margin_secs as u64 + 1);
+    hand_back_retrying(lock, o, factory, cipher, clock, clock.now(), wait).await
+}
+
 /// 0 handed back, 3 an order still unaccounted for (use resolve-placement), 1 anything else.
 pub fn handback_exit_code(r: &Result<usize, EngineError>) -> i32 {
     match r { Ok(_) => 0, Err(EngineError::Unresolved(_)) => 3, Err(_) => 1 }

@@ -185,3 +185,36 @@ async fn an_unresolved_handback_waits_once_then_settles_or_exits_3() {
     assert!(matches!(r, Err(EngineError::Unresolved(_))), "{r:?}");
     assert_eq!((lookups, handover::handback_exit_code(&r)), (2, 3), "still unaccounted for after one retry: exit 3, nothing written");
 }
+
+/// Wall time that follows tokio's (paused) clock, so a test can watch what the CLI's handback does across its wait.
+struct TokioClock { base: DateTime<Utc>, start: tokio::time::Instant }
+impl deltabadger::engine::Clock for TokioClock {
+    fn now(&self) -> DateTime<Utc> { self.base + chrono::Duration::from_std(self.start.elapsed()).unwrap() }
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn the_cli_handback_trusts_no_absence_before_a_full_margin_after_its_own_start_and_waits_exactly_that() {
+    use deltabadger::engine::{amount, venue_rules::ALPACA};
+    let dir = common::rails_install();
+    let p = Paths::from_env(&|_| None, dir.path());
+    let l = lease::lock(&p, now()).unwrap();
+    let o = store::open(&p).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    handover::take_over(&l, &o, &seed::cipher(), "0.2.0", now()).unwrap();
+    let bot = model::load_bot(&o.primary, id).unwrap();
+    let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    let amount::Sizing::Place(plan) = amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60), &deltabadger::ruby::BigDec::from_i64(64_000), ALPACA.minimum_logic) else { panic!() };
+    // The intent is far older than the margin: only this process's own (fresh) start can hold the absence back.
+    placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now() - chrono::Duration::seconds(2000))).unwrap();
+    let not_found = json!({ "status": 404, "body": { "code": 40410000, "message": "order not found for client order id" } });
+    let t = deltabadger::venue::http::ScriptedTransport::from_script(&json!({ "GET /v2/orders:by_client_order_id": [not_found] }));
+    let factory = ScriptedAlpaca(deltabadger::venue::alpaca::AlpacaVenue::new(t.clone(), deltabadger::venue::alpaca::Urls::for_passphrase(Some("paper"))));
+    let clock = TokioClock { base: now(), start: tokio::time::Instant::now() };
+    let r = handover::hand_back_cli(&l, &o, &factory, &seed::cipher(), &clock).await;
+    assert!(matches!(r, Ok(1)), "{r:?}");
+    assert_eq!(t.requests().len(), 2, "the first not-found came from a process started < 1200 s ago and settled nothing");
+    assert_eq!(clock.start.elapsed(), std::time::Duration::from_secs(ALPACA.absence_margin_secs as u64 + 1), "waited exactly the margin + 1 s");
+    let intent: Option<String> = o.primary.query_row("SELECT json_extract(transient_data, '$.rust_placement') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert!(intent.is_none(), "settled as not placed by the second, trustworthy lookup");
+}

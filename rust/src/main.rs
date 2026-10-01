@@ -7,7 +7,6 @@
 //! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). Rails creates and migrates the databases.
 use deltabadger::crypto::{Cipher, EncryptionKeys};
 use deltabadger::engine::run::{self, Engine};
-use deltabadger::engine::venue_rules::ALPACA;
 use deltabadger::engine::{handover, log, EngineError, SystemClock};
 use deltabadger::lease::{self, EngineLock, LeaseError};
 use deltabadger::store::{self, Paths, StoreError};
@@ -141,14 +140,8 @@ fn run_engine(env: &dyn Fn(&str) -> Option<String>) -> i32 {
 fn hand_back(env: &dyn Fn(&str) -> Option<String>) -> i32 {
     let (lock, o, cipher) = open_install(env);
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
-    // A fresh process trusts an Alpaca absence only a full window after it started (recover_since): wait out that window once
-    // and look again before giving up. The factory and the sleep live inside the runtime.
-    let process_start = chrono::Utc::now();
-    let wait = std::time::Duration::from_secs(ALPACA.absence_margin_secs as u64 + 1);
-    let result = rt.block_on(async {
-        let factory = LiveFactory::new();
-        handover::hand_back_retrying(&lock, &o, &factory, &cipher, &SystemClock, process_start, wait).await
-    });
+    // The factory and the wait live inside the runtime; the process start and the wait are hand_back_cli's.
+    let result = rt.block_on(async { handover::hand_back_cli(&lock, &o, &LiveFactory::new(), &cipher, &SystemClock).await });
     let code = handover::handback_exit_code(&result);
     match result {
         Ok(n) => log(&format!("handed back: {n} bot(s) scheduled; the Rails app may start now")),

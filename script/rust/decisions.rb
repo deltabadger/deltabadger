@@ -15,6 +15,10 @@ module Harness
   class Unscripted < Exception; end # rubocop:disable Lint/InheritException
 end
 
+# The backstop for every command (grid builds run model callbacks too): no real Net::HTTP connection, ever.
+# ponytail: Net::HTTP only; httpx (eth, Hyperliquid signing) and raw sockets bypass it, and no Kraken/Alpaca tick reaches them.
+Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real connection to #{address}:#{port}") })
+
 module ScriptedKraken
   mattr_accessor :http, :sent
 
@@ -407,7 +411,6 @@ module Decisions
     # A real cache, as production has: development's :null_store would skip Exchange#get_*_price's 5 s cache.
     Rails.cache = ActiveSupport::Cache::MemoryStore.new
     Honeymaker::Clients::Kraken.prepend(ScriptedKraken::Http)
-    Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real connection to #{address}:#{port}") })
     Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(ScriptedAlpaca::Adapter)
     Bot.prepend(Module.new do # broadcasts are UI side effects outside the comparison
       %i[broadcast_status_bar_update broadcast_new_order broadcast_updated_order broadcast_metrics_panel].each { |m| define_method(m) { |*| nil } }

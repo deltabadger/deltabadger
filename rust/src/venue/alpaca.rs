@@ -12,7 +12,6 @@ use crate::ruby::BigDec;
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 
-pub const TRADING_URL: &str = "https://api.alpaca.markets";
 pub const PAPER_TRADING_URL: &str = "https://paper-api.alpaca.markets";
 pub const DATA_URL: &str = "https://data.alpaca.markets";
 
@@ -20,9 +19,10 @@ pub const DATA_URL: &str = "https://data.alpaca.markets";
 pub struct Urls { pub trading: String, pub data: String }
 
 impl Urls {
-    /// Exchanges::Alpaca#paper_mode?: anything but exactly "live" (nil included) is paper. The data host never changes.
-    pub fn for_passphrase(passphrase: Option<&str>) -> Self {
-        Self { trading: if passphrase == Some("live") { TRADING_URL } else { PAPER_TRADING_URL }.into(), data: DATA_URL.into() }
+    /// Exchanges::Alpaca#paper_mode? picks the live host for exactly "live". Before 3.0 this build is paper only: every
+    /// passphrase gets the paper host, and the live host is not in the binary (LiveFactory and preflight refuse "live").
+    pub fn for_passphrase(_passphrase: Option<&str>) -> Self {
+        Self { trading: PAPER_TRADING_URL.into(), data: DATA_URL.into() }
     }
 }
 

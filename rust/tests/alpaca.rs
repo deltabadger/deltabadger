@@ -1,7 +1,7 @@
 mod common;
 use deltabadger::engine::model::Ticker;
 use deltabadger::ruby::BigDec;
-use deltabadger::venue::alpaca::{self, AlpacaVenue, Urls, DATA_URL, PAPER_TRADING_URL, TRADING_URL};
+use deltabadger::venue::alpaca::{self, AlpacaVenue, Urls, DATA_URL, PAPER_TRADING_URL};
 use deltabadger::venue::http::{client, ReqwestTransport, ScriptedTransport};
 use deltabadger::venue::{NewOrder, OrderKind, OrderStatus, PriceSide, Venue, VenueError};
 use serde_json::{json, Value};
@@ -27,10 +27,12 @@ fn market(volume: &str) -> NewOrder {
 }
 
 #[test]
-fn paper_unless_the_passphrase_is_exactly_live() {
-    assert_eq!(Urls::for_passphrase(Some("live")).trading, TRADING_URL);
-    for p in [None, Some("paper"), Some("Live"), Some("live "), Some("")] { assert_eq!(Urls::for_passphrase(p).trading, PAPER_TRADING_URL, "{p:?}"); }
-    assert_eq!(Urls::for_passphrase(Some("live")).data, DATA_URL, "one data host for both modes");
+fn paper_whatever_the_passphrase_before_3_0() {
+    for p in [Some("live"), None, Some("paper"), Some("Live"), Some("live "), Some("")] {
+        let u = Urls::for_passphrase(p);
+        assert_eq!((u.trading.as_str(), u.data.as_str()), (PAPER_TRADING_URL, DATA_URL), "{p:?}");
+        assert!(![&u.trading, &u.data].iter().any(|h| h.contains("//api.alpaca.markets")), "never the live host: {p:?}");
+    }
 }
 
 #[test]
@@ -207,7 +209,7 @@ async fn live_factory_connects_paper_only() {
         assert_eq!(f.for_bot("Exchanges::Alpaca", creds(p)).urls().trading, PAPER_TRADING_URL, "{p:?}");
     }
     let live = f.for_bot("Exchanges::Alpaca", creds(Some("live")));
-    assert_ne!(live.urls().trading, TRADING_URL, "never the live host");
+    assert_eq!(live.urls().trading, PAPER_TRADING_URL, "never the live host");
     match live.price(&btc_usd(), PriceSide::Ask).await {
         Err(VenueError::Transient(m)) => assert_eq!(m, alpaca::LIVE_REFUSED),
         other => panic!("a live key sends nothing: {other:?}"),
