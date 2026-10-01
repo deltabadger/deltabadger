@@ -38,3 +38,4 @@ pub enum EngineError {
 impl From<rusqlite::Error> for EngineError { fn from(e: rusqlite::Error) -> Self { Self::Sqlite(e) } }
 impl From<crate::lease::LeaseError> for EngineError { fn from(e: crate::lease::LeaseError) -> Self { Self::Lease(e) } }
 impl From<crate::store::StoreError> for EngineError { fn from(e: crate::store::StoreError) -> Self { Self::Store(e) } }
+pub mod schedule;

@@ -126,5 +126,37 @@ vectors['ruby'] = {
   'to_sentence' => [%w[a], %w[a b], %w[a b c]].map { |a| [a, a.to_sentence] },
   'inspect' => [['EGeneral:Internal error'], ['EOrder:Insufficient funds', 'a "quoted" one']].map { |a| [a, a.inspect] }
 }
+require 'active_support/testing/time_helpers'
+include ActiveSupport::Testing::TimeHelpers
+# Unsaved bots: the schedule only reads started_at and settings. Every case is recorded through the real
+# model methods (Automation::Schedulable, Bot::SmartIntervalable, Bot::Accountable's interval count).
+schedule_cases = []
+anchors = [Time.utc(2026, 1, 31, 10, 0, 0, 123_456), Time.utc(2026, 9, 1, 22, 1, 3), Time.utc(2026, 2, 28, 23, 59, 59, 999_999)]
+settings = [
+  { 'interval' => 'hour', 'quote_amount' => 10.0 }, { 'interval' => 'day', 'quote_amount' => 10.0 },
+  { 'interval' => 'week', 'quote_amount' => 60.0 }, { 'interval' => 'month', 'quote_amount' => 100.0 },
+  { 'interval' => 'week', 'quote_amount' => 60.0, 'smart_intervaled' => true, 'smart_interval_quote_amount' => 30.0 },
+  { 'interval' => 'week', 'quote_amount' => 100.0, 'smart_intervaled' => true, 'smart_interval_quote_amount' => 7.0 },
+  { 'interval' => 'month', 'quote_amount' => 100.0, 'smart_intervaled' => true, 'smart_interval_quote_amount' => 100.0 },
+  { 'interval' => 'month', 'quote_amount' => 100.0, 'smart_intervaled' => true, 'smart_interval_quote_amount' => 33.0 },
+  { 'interval' => 'day', 'quote_amount' => 10.0, 'smart_intervaled' => false, 'smart_interval_quote_amount' => 3.0 }
+]
+offsets = [-3600, 0, 1, 3599.9999995, 86_400 * 3 + 7, 86_400 * 45, 86_400 * 400 + 0.5]
+anchors.each do |anchor|
+  settings.each do |s|
+    offsets.each do |off|
+      now = anchor + off
+      bot = Bots::DcaMultiAsset.new(started_at: anchor, settings: s)
+      travel_to(now, with_usec: true) do
+        nxt = bot.next_interval_checkpoint_at
+        last = bot.last_interval_checkpoint_at
+        count = ((last.round(6) - anchor.round(6)) / bot.effective_interval_duration).floor + 1
+        schedule_cases << { 'anchor' => anchor.iso8601(6), 'now' => now.iso8601(6), 'settings' => s,
+                            'next' => nxt.round(6).iso8601(6), 'last' => last.round(6).iso8601(6), 'count' => count }
+      end
+    end
+  end
+end
+vectors['schedule'] = schedule_cases
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate(vectors)}\n")
 puts "wrote #{ARGV.fetch(0)}"
