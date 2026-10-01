@@ -84,7 +84,7 @@ async fn an_unresolved_order_blocks_handback_and_rails_keeps_refusing() {
     let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
     let px = deltabadger::ruby::BigDec::from_i64(50_000);
     let deltabadger::engine::amount::Sizing::Place(plan) = deltabadger::engine::amount::size(&bot, &ticker, &deltabadger::ruby::BigDec::from_i64(60),
-        &deltabadger::venue::Prices { bid: px.clone(), ask: px.clone(), last: px }) else { panic!() };
+        &px, deltabadger::engine::venue_rules::KRAKEN.minimum_logic) else { panic!() };
     placement::begin(&o.primary, &bot, &plan, &deltabadger::engine::FixedClock(now())).unwrap();
     let factory = FakeFactory(FakeVenue::new().lookup_fails(1));
     assert!(matches!(handover::hand_back(&l, &o, &factory, &seed::cipher(), &deltabadger::engine::FixedClock(now())).await, Err(EngineError::Unresolved(ref v)) if v == &vec![b]));

@@ -130,7 +130,7 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
             if chosen.is_zero() {
                 return Ok(Err(Fail::Transient(format!("No price for {}: Wrong {side} price for {}: {}", ticker.base_symbol, ticker.ticker, chosen.to_s_f()))));
             }
-            match amount::size(&bot, ticker, &x, &prices) {
+            match amount::size(&bot, ticker, &x, chosen, KRAKEN.minimum_logic) {
                 Sizing::Nothing => {}
                 Sizing::Ignored(plan) => model::log_activity(c, bot_id, "order_ignored", Level::Info, plan.log_details(), clock.now())?,
                 Sizing::BelowMinimum(plan) => {

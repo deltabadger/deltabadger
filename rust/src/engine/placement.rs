@@ -69,7 +69,7 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
 pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String) }
 
 pub async fn send<V: Venue>(venue: &V, intent: &Intent) -> Sent {
-    match venue.add_order(&intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline)).await {
+    match venue.add_order(&intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, KRAKEN.wire)).await {
         Ok(txid) => Sent::Accepted(txid),
         Err(VenueError::Rejected(e)) if KRAKEN.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
         Err(VenueError::Rejected(e)) => Sent::Rejected(e),
