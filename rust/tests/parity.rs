@@ -28,6 +28,24 @@ fn copy_dir(from: &Path, to: &Path) {
     for f in ["production.sqlite3", "production_queue.sqlite3", "scenario.json"] { std::fs::copy(from.join(f), to.join(f)).unwrap(); }
 }
 
+/// Grid variants where Rust deliberately decides otherwise than Rails, each asserted on its own terms below.
+/// add_service_unavailable: AddOrder answered EService:Unavailable may still have been placed. Rails writes a failed
+/// row; Rust keeps the intent and settles it by cl_ord_id recovery, as for a lost reply.
+const DIVERGENCES: [&str; 1] = ["add_service_unavailable"];
+
+fn intent_kept(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
+    let failed_rows = |out: &serde_json::Value| out["changes"]["transactions"].as_array().unwrap().iter().filter(|t| t["after"]["status"] == 1).count();
+    if failed_rows(rails_out) == 0 { return Err(format!("Rails no longer writes a failed row: drop the listed divergence\n  rails: {rails_out}")); }
+    if rust_out["sent"].as_array().map(Vec::len) != Some(1) { return Err(format!("Rust must send exactly one AddOrder: {rust_out}")); }
+    if !rust_out["changes"]["transactions"].as_array().unwrap().is_empty() { return Err(format!("Rust wrote an order row: {rust_out}")); }
+    let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
+    let (status, intent): (i64, Option<String>) = c.query_row(
+        "SELECT status, json_extract(transient_data, '$.rust_placement') FROM bots", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    let logged: i64 = c.query_row("SELECT count(*) FROM bot_activity_logs WHERE event = 'placement_ambiguous'", [], |r| r.get(0)).unwrap();
+    if (status, intent.is_some(), logged) != (5, true, 1) { return Err(format!("expected retrying with the intent kept and one placement_ambiguous log, got status {status}, intent {intent:?}, {logged} log(s)")); }
+    Ok(())
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
     let rails_root = tempfile::tempdir().unwrap();
@@ -35,7 +53,7 @@ async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 207, "the grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 216, "the grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -44,6 +62,10 @@ async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
         let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
         let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.unwrap();
+        if DIVERGENCES.iter().any(|v| name.ends_with(&format!("-{v}"))) {
+            if let Err(e) = intent_kept(&rust_root.path().join(&name), &rails_out, &rust_out) { failures.push(format!("{name} (listed divergence): {e}")); }
+            continue;
+        }
         if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), dirs.len(), failures.join("\n"));

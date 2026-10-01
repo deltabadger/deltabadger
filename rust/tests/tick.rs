@@ -217,3 +217,19 @@ async fn a_stop_during_the_pre_tick_sweep_places_nothing() {
     assert!(v.sent().is_empty(), "nothing placed for a bot stopped mid-tick");
     assert_eq!(bot(&o, id).status, BotStatus::Stopped);
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_transient_kraken_answer_to_addorder_is_ambiguous_not_a_rejection() {
+    for err in ["EService:Unavailable", "EService:Busy", "EService:Deadline elapsed", "EGeneral:Internal error"] {
+        let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+        let v = priced().next_add(AddOutcome::Reject(vec![err.into()])).next_add(AddOutcome::Accept("OTX-2".into()));
+        let out = run(&o, &v, id, "2026-09-01T10:00:01Z").await;
+        assert!(matches!(out, TickOutcome::AwaitingReconciliation), "{err}: {out:?}");
+        assert!(bot(&o, id).rust_placement().is_some(), "{err}: the intent stays until cl_ord_id recovery settles it");
+        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0, "{err}: no failed row");
+        assert_eq!(one::<String>(&o, "SELECT event FROM bot_activity_logs ORDER BY id DESC LIMIT 1"), "placement_ambiguous");
+        assert!(matches!(run(&o, &v, id, "2026-09-01T10:00:41Z").await, TickOutcome::AwaitingReconciliation), "{err}: absent before deadline + 60 s proves nothing");
+        assert!(matches!(run(&o, &v, id, "2026-09-01T10:01:12Z").await, TickOutcome::Done { placed: true }), "{err}: absent after it: not placed, buy now");
+        assert_eq!(one::<String>(&o, "SELECT external_id FROM transactions"), "OTX-2");
+    }
+}
