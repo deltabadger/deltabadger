@@ -43,7 +43,7 @@ pub fn decimal_from_sql(v: ValueRef<'_>) -> Result<Option<Decimal>, CodecError> 
 
 /// Rails' `BigDecimal(float, 0)`: the shortest round-trip digits of the float, which bigdecimal
 /// truncates (not rounds) to 16 significant digits. `{:e}` prints exactly those shortest digits.
-fn real_to_decimal(f: f64) -> Result<Decimal, CodecError> {
+pub fn real_to_decimal(f: f64) -> Result<Decimal, CodecError> {
     let err = || CodecError::Decimal(format!("{f:e} is outside the decimal range"));
     if !f.is_finite() { return Err(err()); }
     let sci = format!("{f:e}"); // e.g. "-1.2345678912345679e8"

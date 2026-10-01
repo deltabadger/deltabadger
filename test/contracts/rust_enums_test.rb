@@ -7,7 +7,7 @@ class RustEnumsTest < ActiveSupport::TestCase
 
   test 'the enums the rust crate mirrors are unchanged' do
     current = {
-      'bot_status' => Bot.statuses, 'transaction_status' => Transaction.statuses, 'transaction_side' => Transaction.sides,
+      'bot_status' => Bot.statuses, 'rule_status' => Rule.statuses, 'transaction_status' => Transaction.statuses, 'transaction_side' => Transaction.sides,
       'transaction_order_type' => Transaction.order_types, 'transaction_external_status' => Transaction.external_statuses,
       'api_key_status' => ApiKey.statuses, 'api_key_key_type' => ApiKey.key_types, 'user_otp_module' => User.otp_modules
     }

@@ -13,6 +13,7 @@ macro_rules! rails_enum {
 
 rails_enum!(BotStatus { Created = 0 => "created", Scheduled = 1 => "scheduled", Stopped = 2 => "stopped", Deleted = 3 => "deleted",
     Executing = 4 => "executing", Retrying = 5 => "retrying", Waiting = 6 => "waiting", Archived = 7 => "archived" });
+rails_enum!(RuleStatus { Created = 0 => "created", Scheduled = 1 => "scheduled", Stopped = 2 => "stopped", Deleted = 3 => "deleted", Executing = 4 => "executing", Retrying = 5 => "retrying", Waiting = 6 => "waiting", Archived = 7 => "archived" });
 rails_enum!(TxStatus { Submitted = 0 => "submitted", Failed = 1 => "failed", Skipped = 2 => "skipped" });
 rails_enum!(TxSide { Buy = 0 => "buy", Sell = 1 => "sell" });
 rails_enum!(TxOrderType { MarketOrder = 0 => "market_order", LimitOrder = 1 => "limit_order" });
