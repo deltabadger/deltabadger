@@ -1,7 +1,7 @@
 //! Ruby semantics that Rails' output depends on, each pinned by vectors recorded from Ruby
 //! (script/rust/record_vectors.rb: "bigdec", "ruby"). BigDec is Ruby's BigDecimal as bigdecimal 3.3.1
 //! computes it: exact + − ×, and division rounded half-up to a precision that depends on the operands.
-use crate::codec::{real_to_decimal, CodecError};
+use crate::codec::CodecError;
 use bigdecimal::num_bigint::{BigInt, Sign};
 use bigdecimal::{BigDecimal, RoundingMode};
 use chrono::{DateTime, Utc};
@@ -18,8 +18,19 @@ impl BigDec {
         BigDecimal::from_str(s.trim()).map(|d| Self(d.normalized())).map_err(|e| CodecError::Decimal(format!("{s:?}: {e}")))
     }
     pub fn from_i64(i: i64) -> Self { Self(BigDecimal::from(i)) }
-    /// Float#to_d: the shortest round-trip digits, truncated to 16 (Plan 1's codec rule).
-    pub fn from_f64(f: f64) -> Result<Self, CodecError> { Self::parse(&real_to_decimal(f)?.to_string()) }
+    /// Float#to_d: the shortest round-trip digits, truncated (not rounded) to 16 significant digits.
+    /// Built directly as digits x 10^exp, so there is no range limit besides f64's own.
+    pub fn from_f64(f: f64) -> Result<Self, CodecError> {
+        let err = || CodecError::Decimal(format!("{f:e} is not finite"));
+        if !f.is_finite() { return Err(err()); }
+        let sci = format!("{f:e}"); // e.g. "-1.2345678912345679e8": the shortest round-trip digits
+        let (mantissa, exp) = sci.split_once('e').ok_or_else(err)?;
+        let exp: i64 = exp.parse().map_err(|_| err())?;
+        let digits: String = mantissa.chars().filter(char::is_ascii_digit).take(16).collect();
+        let int: BigInt = digits.parse().map_err(|_| err())?;
+        let int = if mantissa.starts_with('-') { -int } else { int };
+        Ok(Self(BigDecimal::new(int, digits.len() as i64 - 1 - exp).normalized()))
+    }
     pub fn zero() -> Self { Self::from_i64(0) }
     pub fn one() -> Self { Self::from_i64(1) }
     pub fn is_zero(&self) -> bool { bigdecimal::Zero::is_zero(&self.0) }

@@ -62,6 +62,9 @@ vectors = {
   'times' => times.map { |t| [t.iso8601(6), Transaction.connection.quoted_date(t)] },
   # IEEE bits, not JSON numbers: Ruby's JSON.generate prints 123456789.12345679 as 123456789.1234568.
   'decimals' => floats.map { |f| [[f].pack('G').unpack1('H*'), decimal.cast(f).to_s('F')] },
+  # Floats outside rust_decimal's range (scale > 28, >= ~1e29): Ruby reads them fine, and so must BigDec.
+  'decimals_wide' => [1.234567890123456e-14, 3.0e-20, 1.5e30, -2.5e-15, 1.0e-30, 123_456_789_012_345.6e20, 5.0e-324, 1.7976931348623157e308]
+                       .map { |f| [[f].pack('G').unpack1('H*'), decimal.cast(f).to_s('F')] },
   'enums' => {
     'bot_status' => Bot.statuses, 'rule_status' => Rule.statuses, 'transaction_status' => Transaction.statuses, 'transaction_side' => Transaction.sides,
     'transaction_order_type' => Transaction.order_types, 'transaction_external_status' => Transaction.external_statuses,
@@ -100,6 +103,26 @@ vectors['ruby'] = {
                [Time.utc(2026, 9, 1, 10, 0, 0), 0.0000005], [Time.utc(2026, 9, 1, 10, 0, 0), 0.0000004999],
                [Time.utc(2026, 9, 1, 10, 0, 0, 1), 86_400.0 / 7]]
                 .map { |t, off| [t.iso8601(6), [off].pack('G').unpack1('H*'), (t + off).round(6).iso8601(6)] },
+  # Several terms, as Ruby does it: one Time +/- Float per repetition (negative k subtracts).
+  'round6_multi' => [
+    [Time.utc(2026, 9, 1, 10, 0, 0, 123_456), [[604_800.0 / 3 * 7, 3]]],
+    [Time.utc(2026, 9, 1, 10, 0, 0, 999_999), [[86_400.0 / 7, -2]]],
+    [Time.utc(2026, 9, 1, 10, 0, 0), [[0.1, 1], [86_400.0 / 7, 2]]],
+    [Time.utc(2026, 9, 1, 10, 0, 0, 5), [[0.0000005, 1], [-0.0000004999, 1], [3600.0 / 11, -3]]],
+    [Time.utc(2026, 9, 1, 10, 0, 0), [[1.0 / 3, 3], [0.2, 5]]]
+  ].map do |t, terms|
+    r = terms.reduce(t) { |acc, (f, k)| k.abs.times.reduce(acc) { |a, _| k.positive? ? a + f : a - f } }
+    [t.iso8601(6), terms.map { |f, k| [[f].pack('G').unpack1('H*'), k] }, r.round(6).iso8601(6)]
+  end,
+  # exceeds: anchor + k*f > now, on the exact boundary and one microsecond either side.
+  'exceeds' => [[Time.utc(2026, 9, 1, 10, 0, 0), 90.5, 3], [Time.utc(2026, 9, 1, 10, 0, 0, 250_000), 0.25, 4],
+                [Time.utc(2026, 9, 1, 10, 0, 0, 123_456), 86_400.0 / 7, 1], [Time.utc(2026, 9, 1, 10, 0, 0), 0.1, 3]].flat_map do |t, f, k|
+    due = k.times.reduce(t) { |a, _| a + f }
+    [-1, 0, 1].map do |d|
+      now = due.round(6) + Rational(d, 1_000_000)
+      [t.iso8601(6), [f].pack('G').unpack1('H*'), k, now.iso8601(6), due > now]
+    end
+  end,
   'to_sentence' => [%w[a], %w[a b], %w[a b c]].map { |a| [a, a.to_sentence] },
   'inspect' => [['EGeneral:Internal error'], ['EOrder:Insufficient funds', 'a "quoted" one']].map { |a| [a, a.inspect] }
 }

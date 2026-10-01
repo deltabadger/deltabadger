@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"hn0j0n4YNh/PTXG5jatSBkw=\",\"h\":{\"iv\":\"wXbo1/w2I8CbsGFx\",\"at\":\"KSy6AzRN1X8tWd6whwtzhg==\"}}"
+      "cipher": "{\"p\":\"UqqIjiCa5XF6Tpye1DAYsVw=\",\"h\":{\"iv\":\"zXTDk2GXGOxMri9k\",\"at\":\"/SOy34TJw3038StYqgbTHw==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"kMQ4mZNo2nQhaQkhmCWy\",\"h\":{\"iv\":\"z6kCk8TS4GIcXYeV\",\"at\":\"Wde59IYWMwFfDGTL3dxPSA==\"}}"
+      "cipher": "{\"p\":\"HmzsPXQ7qsXuwo2zQJI1\",\"h\":{\"iv\":\"wkuked1ouVbheUjg\",\"at\":\"yFEhDxUE7u5dgqjrP3K6oQ==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"glfoE2ssZ7nlNLvbUtLCsXGT5TB+zCHuIz7A3kaJQrKPJQokFLSIpOhCPE+WKJdmFQ62yFMU90sfFEeEfdbWDrx+PnET/YTXKUXdyrY=\",\"h\":{\"iv\":\"/XxDQ+tRgVtLcAyT\",\"at\":\"FeRggeoilOQ8lXqKZv7kig==\",\"c\":true}}"
+      "cipher": "{\"p\":\"G+qTMy7QNSe5TNcEcN7h/ku1ZvzbFO19ZJouXStWfnprSyAQ+3N+n22+MXHbs5JSZcvreImGohct44AZbl+aikz14n3eAmoHVX2yjQQ=\",\"h\":{\"iv\":\"5y2HZlp+BUzYSuQN\",\"at\":\"SEcKAxd0emeuIoGk+ZPa/A==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "XWPTNISSFSUIGCK3A6TEMGDKPKJENV23",
-      "cipher": "{\"p\":\"6nEuq09RFw8vhxCOCkb5kZGZY2E+XQPjzZKGBXvyZzE=\",\"h\":{\"iv\":\"qOTDCBD1gtjWfEhB\",\"at\":\"b8/5z1ENXw/+O2NkUC2HGw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "SCQ5ZZKWBLYSNWIDJOAHMEEAPGOKTAQH",
+      "cipher": "{\"p\":\"vR1obI4+P0xY9rSjsqwodnXEfVoVuIlfH6+mH9kPFcc=\",\"h\":{\"iv\":\"xc5Zt+QfL+VnFSJY\",\"at\":\"LXnejIsOX2/mITjAepXm1A==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"WyCezAhsST7soZdE1yqg1O8=\",\"h\":{\"iv\":\"pyjaTM3ApKzLXttI\",\"at\":\"hMr0AqX8TSbypECt8ZsmtA==\"}}"
+      "cipher": "{\"p\":\"buRADXlpdsNdDrr1459n/So=\",\"h\":{\"iv\":\"GVoEdNWcIHkB7u0L\",\"at\":\"1w0AnzcAZHkITCbvPcWPGg==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$xAxfh5TGCpDZwgNNYMvP9.w4ogdKmxVtB815zS27dlV5Fz7tIDj9S"
+      "hash": "$2a$11$d6sJ1VEoOtjB4yW5CuDtye3uiQNj9k.Y55WIJ0/05jFb3S344ealq"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$lsgTvi9k28ng6NJ/s.35b.mY/nm6yrWCgKbHVu8MAwa/TTJPaRO8W"
+      "hash": "$2a$11$WKxjB.fxKhgpRM1eHnXPIe/yBCZjm05usLmpi5CoeS1bQh/9ueBTm"
     }
   ],
   "totp": {
@@ -1313,6 +1313,40 @@
     [
       "3f4b17b37aec2f69",
       "0.0008268"
+    ]
+  ],
+  "decimals_wide": [
+    [
+      "3d0bcccca202fe01",
+      "0.00000000000001234567890123456"
+    ],
+    [
+      "3be1b578c96db19b",
+      "0.00000000000000000003"
+    ],
+    [
+      "4632eec2eb3869af",
+      "1500000000000000000000000000000.0"
+    ],
+    [
+      "bce6849b86a12b9b",
+      "-0.0000000000000025"
+    ],
+    [
+      "39b4484bfeebc2a0",
+      "0.000000000000000000000000000001"
+    ],
+    [
+      "47030582ffdf3fe2",
+      "12345678901234560000000000000000000.0"
+    ],
+    [
+      "0000000000000001",
+      "0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000005"
+    ],
+    [
+      "7fefffffffffffff",
+      "179769313486231500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0"
     ]
   ],
   "enums": {
@@ -34585,6 +34619,160 @@
         "2026-09-01T10:00:00.000001Z",
         "40c81b6db6db6db7",
         "2026-09-01T13:25:42.857144Z"
+      ]
+    ],
+    "round6_multi": [
+      [
+        "2026-09-01T10:00:00.123456Z",
+        [
+          [
+            "4135888000000000",
+            3
+          ]
+        ],
+        "2026-10-20T10:00:00.123456Z"
+      ],
+      [
+        "2026-09-01T10:00:00.999999Z",
+        [
+          [
+            "40c81b6db6db6db7",
+            -2
+          ]
+        ],
+        "2026-09-01T03:08:35.285713Z"
+      ],
+      [
+        "2026-09-01T10:00:00.000000Z",
+        [
+          [
+            "3fb999999999999a",
+            1
+          ],
+          [
+            "40c81b6db6db6db7",
+            2
+          ]
+        ],
+        "2026-09-01T16:51:25.814286Z"
+      ],
+      [
+        "2026-09-01T10:00:00.000005Z",
+        [
+          [
+            "3ea0c6f7a0b5ed8d",
+            1
+          ],
+          [
+            "bea0c61bb9b71ecf",
+            1
+          ],
+          [
+            "4074745d1745d174",
+            -3
+          ]
+        ],
+        "2026-09-01T09:43:38.181823Z"
+      ],
+      [
+        "2026-09-01T10:00:00.000000Z",
+        [
+          [
+            "3fd5555555555555",
+            3
+          ],
+          [
+            "3fc999999999999a",
+            5
+          ]
+        ],
+        "2026-09-01T10:00:02.000000Z"
+      ]
+    ],
+    "exceeds": [
+      [
+        "2026-09-01T10:00:00.000000Z",
+        "4056a00000000000",
+        3,
+        "2026-09-01T10:04:31.499999Z",
+        true
+      ],
+      [
+        "2026-09-01T10:00:00.000000Z",
+        "4056a00000000000",
+        3,
+        "2026-09-01T10:04:31.500000Z",
+        false
+      ],
+      [
+        "2026-09-01T10:00:00.000000Z",
+        "4056a00000000000",
+        3,
+        "2026-09-01T10:04:31.500001Z",
+        false
+      ],
+      [
+        "2026-09-01T10:00:00.250000Z",
+        "3fd0000000000000",
+        4,
+        "2026-09-01T10:00:01.249999Z",
+        true
+      ],
+      [
+        "2026-09-01T10:00:00.250000Z",
+        "3fd0000000000000",
+        4,
+        "2026-09-01T10:00:01.250000Z",
+        false
+      ],
+      [
+        "2026-09-01T10:00:00.250000Z",
+        "3fd0000000000000",
+        4,
+        "2026-09-01T10:00:01.250001Z",
+        false
+      ],
+      [
+        "2026-09-01T10:00:00.123456Z",
+        "40c81b6db6db6db7",
+        1,
+        "2026-09-01T13:25:42.980598Z",
+        true
+      ],
+      [
+        "2026-09-01T10:00:00.123456Z",
+        "40c81b6db6db6db7",
+        1,
+        "2026-09-01T13:25:42.980599Z",
+        false
+      ],
+      [
+        "2026-09-01T10:00:00.123456Z",
+        "40c81b6db6db6db7",
+        1,
+        "2026-09-01T13:25:42.980600Z",
+        false
+      ],
+      [
+        "2026-09-01T10:00:00.000000Z",
+        "3fb999999999999a",
+        3,
+        "2026-09-01T10:00:00.299999Z",
+        true
+      ],
+      [
+        "2026-09-01T10:00:00.000000Z",
+        "3fb999999999999a",
+        3,
+        "2026-09-01T10:00:00.300000Z",
+        true
+      ],
+      [
+        "2026-09-01T10:00:00.000000Z",
+        "3fb999999999999a",
+        3,
+        "2026-09-01T10:00:00.300001Z",
+        false
       ]
     ],
     "to_sentence": [

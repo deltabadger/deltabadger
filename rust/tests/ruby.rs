@@ -73,3 +73,35 @@ fn to_sentence_and_inspect_match_ruby() {
     for p in r["to_sentence"].as_array().unwrap() { assert_eq!(to_sentence(&strs(&p[0])), p[1].as_str().unwrap()); }
     for p in r["inspect"].as_array().unwrap() { assert_eq!(inspect(&strs(&p[0])), p[1].as_str().unwrap()); }
 }
+
+#[test]
+fn float_to_d_reads_what_the_codec_cannot() {
+    let cases = common::vectors()["decimals_wide"].as_array().unwrap().clone();
+    assert!(cases.len() >= 8);
+    for pair in &cases {
+        let f = f64::from_bits(u64::from_str_radix(pair[0].as_str().unwrap(), 16).unwrap());
+        assert_eq!(BigDec::from_f64(f).unwrap().to_s_f(), pair[1].as_str().unwrap(), "{pair}");
+    }
+}
+
+fn bits(v: &serde_json::Value) -> f64 { f64::from_bits(u64::from_str_radix(v.as_str().unwrap(), 16).unwrap()) }
+
+#[test]
+fn multi_term_round6_matches_ruby_time_arithmetic() {
+    let rows = common::vectors()["ruby"]["round6_multi"].as_array().unwrap().clone();
+    assert!(rows.len() >= 5);
+    for p in &rows {
+        let terms: Vec<(f64, i64)> = p[1].as_array().unwrap().iter().map(|t| (bits(&t[0]), t[1].as_i64().unwrap())).collect();
+        assert_eq!(round6_micros(micros(p[0].as_str().unwrap()), &terms), micros(p[2].as_str().unwrap()), "{p}");
+    }
+}
+
+#[test]
+fn exceeds_matches_ruby_on_the_boundary_and_either_side() {
+    let rows = common::vectors()["ruby"]["exceeds"].as_array().unwrap().clone();
+    assert!(rows.len() >= 12);
+    for p in &rows {
+        let got = exceeds(micros(p[0].as_str().unwrap()), (bits(&p[1]), p[2].as_i64().unwrap()), micros(p[3].as_str().unwrap()));
+        assert_eq!(got, p[4].as_bool().unwrap(), "{p}");
+    }
+}
