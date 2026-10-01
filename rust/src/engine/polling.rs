@@ -177,5 +177,24 @@ pub async fn follow_up<V: Venue>(c: &Connection, venue: &V, bot_id: i64, tx_id: 
     let db = |e: EngineError| PollFailure::General(format!("{e:?}"));
     let bot = model::load_bot(c, bot_id).map_err(db)?;
     let rows: Vec<_> = waiting_ids(c, &bot).map_err(db)?.into_iter().filter(|(id, _, _)| *id == tx_id).collect();
+    if venue.rules().follow_up_strict { return follow_up_strict(c, venue, &bot, rows, tx_id, now).await; }
     poll_rows(c, venue, &bot, rows, now, false).await
+}
+
+/// Bot::FetchAndUpdateOrderJob through Exchange#get_order, as Rails runs it for Alpaca: one GET; a throttle or transient
+/// failure is retried by the caller (retry_on); any other failure raises "Failed to fetch order <transaction id>"; an
+/// unknown status (partially_filled included) raises. A raise changes no row, as in Rails.
+async fn follow_up_strict<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, rows: Vec<(i64, String, i64)>, tx_id: i64, now: DateTime<Utc>) -> Result<(), PollFailure> {
+    let Some((id, ext, _)) = rows.into_iter().next() else { return Ok(()) };
+    let rules = venue.rules();
+    let state = match venue.orders(std::slice::from_ref(&ext)).await {
+        Ok(mut found) if !found.is_empty() => found.remove(0),
+        Ok(_) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: []"))),
+        Err(VenueError::Rejected(errs)) if rules.is_throttle(&errs) => return Err(PollFailure::RateLimited(to_sentence(&errs))),
+        Err(VenueError::Rejected(errs)) if rules.is_transient(&errs) => return Err(PollFailure::Transient(to_sentence(&errs))),
+        Err(VenueError::Rejected(errs)) => return Err(PollFailure::General(format!("Failed to fetch order {tx_id}. Result: {}", inspect(&errs)))),
+        Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Err(PollFailure::Transient(m)),
+    };
+    if state.status == OrderStatus::Unknown { return Err(PollFailure::General(format!("Order {ext} status is unknown."))); }
+    apply_committed(c, bot.id, id, &state, now).map_err(|e| PollFailure::General(format!("{e:?}")))
 }

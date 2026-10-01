@@ -1,7 +1,7 @@
 //! The Rust half of the decision-parity harness (script/rust/decisions.rb is the Rails half): the same
 //! ticks, with retries, on a marked scratch copy, reported in the canonical shape Rails reports.
 use crate::engine::polling;
-use crate::engine::tick::{self, Attempts, TickOutcome};
+use crate::engine::tick::{self, Attempts, PriceCache, TickContext, TickOutcome};
 use crate::engine::{EngineError, FixedClock};
 use crate::lease;
 use crate::store::{self, Paths};
@@ -91,8 +91,11 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     let before = snapshot(&o.primary)?;
     if scenario["tick"] != false {
         let (mut at, mut attempts) = (start, Attempts::default());
+        // One cache across the scenario's retries, as Rails' cache spans its retried jobs.
+        let prices = PriceCache::default();
+        let cx = TickContext { prices: &prices, process_start: DateTime::<Utc>::MIN_UTC, stopping: &|| false };
         for _ in 0..MAX_ATTEMPTS {
-            match tick::tick(&o.primary, &venue, bot_id, &FixedClock(at), &mut attempts).await? {
+            match tick::tick_recovering(&o.primary, &venue, bot_id, &FixedClock(at), &mut attempts, &mut None, &cx).await? {
                 TickOutcome::RetryAfter(d) => at += chrono::Duration::from_std(d).unwrap(),
                 _ => break,
             }

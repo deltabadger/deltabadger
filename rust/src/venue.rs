@@ -13,7 +13,7 @@ use crate::ruby::BigDec;
 use chrono::{DateTime, Utc};
 
 /// Which price a buy needs (Bot::OrderSetter#reference_price): the ask for a market buy, the last trade for a limit.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PriceSide { Ask, Last }
 
 #[derive(Clone, Debug, PartialEq)]

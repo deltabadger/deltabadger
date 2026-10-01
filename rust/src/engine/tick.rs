@@ -43,6 +43,34 @@ enum Fail {
     General { message: String, errors: Vec<String>, failed_row: bool },
     PlacementSafe(String),
     Ambiguous(String),
+    /// A transport failure after this run already placed an order (Bot::ActionJob's TransientNetworkError rescue with a
+    /// submitted row since action_started_at): never retried, because the replay would place a second order.
+    TransientAfterPlacement,
+}
+
+type PriceKey = (i64, i64, PriceSide);
+
+/// Exchange#get_{ask,last}_price's Rails.cache entry (exchanges/alpaca.rb:273-335, exchanges/kraken.rb:218-260): kept
+/// 5 s from when it was written, keyed by exchange, ticker and side; only a usable (non-zero) price is stored. It lives
+/// in the engine (and across a parity scenario's retries), never in a venue instance, so it survives venue recreation.
+#[derive(Default)]
+pub struct PriceCache(std::cell::RefCell<std::collections::HashMap<PriceKey, (chrono::DateTime<chrono::Utc>, BigDec)>>);
+
+impl PriceCache {
+    pub fn get(&self, key: PriceKey, now: chrono::DateTime<chrono::Utc>) -> Option<BigDec> {
+        // ActiveSupport::Cache::Entry#expired?: created_at + expires_in <= now.
+        self.0.borrow().get(&key).filter(|(at, _)| now < *at + chrono::Duration::seconds(5)).map(|(_, p)| p.clone())
+    }
+    pub fn put(&self, key: PriceKey, now: chrono::DateTime<chrono::Utc>, price: BigDec) { self.0.borrow_mut().insert(key, (now, price)); }
+}
+
+/// What a tick borrows from the engine that runs it.
+pub struct TickContext<'a> {
+    pub prices: &'a PriceCache,
+    /// When this process started: Alpaca absence is trusted only a full window after it (placement::recover_since).
+    pub process_start: chrono::DateTime<chrono::Utc>,
+    /// A stop was requested (the engine's Shutdown); checked between recovery and execution.
+    pub stopping: &'a dyn Fn() -> bool,
 }
 
 fn record_failure(c: &Connection, bot_id: i64, kind: Option<&str>) -> Result<(), EngineError> {
@@ -50,19 +78,23 @@ fn record_failure(c: &Connection, bot_id: i64, kind: Option<&str>) -> Result<(),
 }
 
 pub async fn tick<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts) -> Result<TickOutcome, EngineError> {
-    tick_recovering(c, venue, bot_id, clock, attempts, &mut None).await
+    let prices = PriceCache::default();
+    let cx = TickContext { prices: &prices, process_start: chrono::DateTime::<chrono::Utc>::MIN_UTC, stopping: &|| false };
+    tick_recovering(c, venue, bot_id, clock, attempts, &mut None, &cx).await
 }
 
 /// `tick`, also reporting the transaction a persisted intent was settled into this tick (its row carries the intent's
 /// earlier `created_at`, so the caller cannot find it by time and must queue its follow-up poll itself).
-pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts, recovered: &mut Option<i64>) -> Result<TickOutcome, EngineError> {
+pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts, recovered: &mut Option<i64>, cx: &TickContext<'_>) -> Result<TickOutcome, EngineError> {
     let bot = model::load_bot(c, bot_id)?;
     // An intent is settled whatever the status: a bot stopped after an ambiguous send still owns that order.
-    match placement::recover(c, venue, &bot, clock).await? {
+    match placement::recover_since(c, venue, &bot, clock, cx.process_start).await? {
         Recovery::Pending => return Ok(TickOutcome::AwaitingReconciliation),
         Recovery::Recorded(tx) => *recovered = Some(tx),
         Recovery::NoIntent | Recovery::NotPlaced => {}
     }
+    // A stop requested while the venue answered the lookup: the intent is settled; nothing new starts.
+    if (cx.stopping)() { return Ok(TickOutcome::Skipped); }
     let bot = model::load_bot(c, bot_id)?;
     if !matches!(bot.status, BotStatus::Scheduled | BotStatus::Retrying) { return Ok(TickOutcome::Skipped); }
 
@@ -75,7 +107,7 @@ pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, c
 
     // Anything that goes wrong inside execute_action fails this bot's tick the way a StandardError does in
     // Rails (retrying, execution_failed, next checkpoint) — it never leaves the bot `executing`.
-    let executed = match execute(c, venue, bot_id, clock).await {
+    let executed = match execute(c, venue, bot_id, clock, cx).await {
         Ok(r) => r,
         Err(e @ (EngineError::Lease(_) | EngineError::Store(_))) => return Err(e),
         Err(e) => Err(Fail::General { message: format!("{e:?}"), errors: vec![], failed_row: false }),
@@ -92,7 +124,7 @@ pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, c
 }
 
 /// DcaMultiAsset#execute_action with the sweep in front and Fundable behind. Ok(placed) = success.
-async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock) -> Result<Result<bool, Fail>, EngineError> {
+async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, cx: &TickContext<'_>) -> Result<Result<bool, Fail>, EngineError> {
     let bot = model::load_bot(c, bot_id)?;
     if let Err(f) = polling::sweep(c, venue, &bot, clock.now()).await {
         return Ok(Err(match f {
@@ -123,9 +155,18 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
             // Bot::OrderSetter#reference_price: the last trade for a limit buy, the ask for a market buy. A zero book is the
             // venue's own "Wrong … price" error, which Rails' composition rescues into "No price for …".
             let side = if bot.limit_distance().is_some() { PriceSide::Last } else { PriceSide::Ask };
-            let reference = match venue.price(ticker, side).await {
+            let key = (bot.exchange_id, ticker.id, side);
+            let fetched = match cx.prices.get(key, clock.now()) {
+                Some(hit) => Ok(hit),
+                // Only a usable price is stored (the venue returns a zero book as an error).
+                None => venue.price(ticker, side).await.inspect(|p| cx.prices.put(key, clock.now(), p.clone())),
+            };
+            let reference = match fetched {
                 Ok(p) => p,
                 Err(VenueError::Rejected(e)) => return Ok(Err(Fail::Transient(format!("No price for {}: {}", ticker.base_symbol, to_sentence(&e))))),
+                // An in-app client raises the transport failure itself (Client.network_failure); the composition re-raises
+                // it unwrapped, so it reaches retry_on with its own message.
+                Err(VenueError::Transient(m)) if venue.rules().transport_raises => return Ok(Err(Fail::Transient(m))),
                 Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Ok(Err(Fail::Transient(format!("No price for {}: {m}", ticker.base_symbol)))),
             };
             match amount::size(&bot, ticker, &x, &reference, venue.rules().minimum_logic) {
@@ -168,6 +209,11 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
                 let now = format_time(clock.now());
                 c.execute("UPDATE bots SET last_end_of_funds_notification = ?1, updated_at = ?1 WHERE id = ?2", params![now, bot_id])?;
             }
+        }
+        // Clients::Alpaca raises a transport failure out of Bot::Fundable's balance read. Bot::ActionJob then refuses to
+        // replay a run that already placed an order (retrying, rescheduled), and retries one that placed nothing.
+        Err(VenueError::Transient(m)) if venue.rules().transport_raises => {
+            return Ok(Err(if placed { Fail::TransientAfterPlacement } else { Fail::Transient(m) }));
         }
         // honeymaker's with_rescue turns a network failure into a Failure result: "not low", the tick succeeds.
         Err(VenueError::Rejected(_) | VenueError::Transient(_)) => {}
@@ -222,11 +268,25 @@ fn handle_failure(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, at
             model::log_activity(c, bot_id, "placement_ambiguous", Level::Warning, json!({ "error": m }), now)?;
             Ok(TickOutcome::AwaitingReconciliation)
         }
+        Fail::TransientAfterPlacement => {
+            *attempts = Attempts::default();
+            record_failure(c, bot_id, Some("transient"))?;
+            Ok(TickOutcome::Rescheduled)
+        }
         Fail::General { message, errors, failed_row } => {
             *attempts = Attempts::default();
             let kind = rules.failure_kind(if errors.is_empty() { std::slice::from_ref(&message) } else { &errors });
             let previous = model::load_bot(c, bot_id)?.last_failure_kind();
             let blocking = kind.is_some_and(|k| BLOCKING_KINDS.contains(&k) && previous.as_deref() == Some(k));
+            // Bot::Failable#record_failure!(kind, notified:): a buy-side insufficient-funds failure shares Bot::Fundable's daily
+            // budget (#notified_in_last_day?, per user and quote asset); when it notifies, it stamps last_end_of_funds_notification
+            // with update_column, so updated_at does not move.
+            if kind == Some("insufficient_funds") {
+                let bot = model::load_bot(c, bot_id)?;
+                if !notified_in_last_day(c, &bot, clock)? {
+                    c.execute("UPDATE bots SET last_end_of_funds_notification = ?1 WHERE id = ?2", params![format_time(now), bot_id])?;
+                }
+            }
             record_failure(c, bot_id, kind)?;
             if !failed_row {
                 model::log_activity(c, bot_id, "execution_failed", Level::Error, json!({ "error": message, "kind": kind }), now)?;

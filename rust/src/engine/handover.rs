@@ -54,13 +54,18 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
 }
 
 pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock) -> Result<usize, EngineError> {
+    hand_back_since(lock, o, factory, cipher, clock, DateTime::<Utc>::MIN_UTC).await
+}
+
+/// `hand_back` by a process that started at `process_start` (placement::recover_since).
+pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock, process_start: DateTime<Utc>) -> Result<usize, EngineError> {
     let mut unresolved = vec![];
     let mut s = o.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
     let pending: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
     for id in pending {
         let bot = model::load_bot(&o.primary, id)?;
         let venue = factory.for_bot(&model::exchange_type(&o.primary, &bot)?, model::credentials_for(&o.primary, cipher, &bot)?);
-        if let placement::Recovery::Pending = placement::recover(&o.primary, &venue, &bot, clock).await? { unresolved.push(id); }
+        if let placement::Recovery::Pending = placement::recover_since(&o.primary, &venue, &bot, clock, process_start).await? { unresolved.push(id); }
     }
     if !unresolved.is_empty() { return Err(EngineError::Unresolved(unresolved)); }
 

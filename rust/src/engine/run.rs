@@ -2,11 +2,12 @@
 //! ticks the due ones, and sleeps until the earliest next event. What Rails would hold in Solid Queue —
 //! follow-up polls, retries — is kept in memory and rebuilt from the database on start.
 use super::schedule::{checkpoints, effective};
-use super::tick::{self, Attempts, TickOutcome};
+use super::tick::{self, Attempts, PriceCache, TickContext, TickOutcome};
 use super::{eligibility, model, placement, polling, Clock, EngineError};
 use crate::crypto::Cipher;
 use crate::lease::EngineLock;
 use crate::venue::VenueFactory;
+use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::convert::Infallible;
@@ -24,11 +25,16 @@ pub struct Engine<F: VenueFactory> {
     /// Follow-up polls owed, one per ORDER (FetchAndUpdateOrderJob): tx id → (bot, due time, that job's own retry counters).
     polls: HashMap<i64, (i64, i64, Attempts)>,
     reconcile_at: HashMap<i64, i64>,
+    /// Rails' 5 s price cache (Rails.cache), shared by every tick of this process.
+    prices: PriceCache,
+    /// Set by the first `step`: an Alpaca absence is trusted only a full window after it (placement::recover_since).
+    process_start: Option<DateTime<Utc>>,
 }
 
 impl<F: VenueFactory> Engine<F> {
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
-        Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), polls: HashMap::new(), reconcile_at: HashMap::new() }
+        Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), polls: HashMap::new(), reconcile_at: HashMap::new(),
+               prices: PriceCache::default(), process_start: None }
     }
     #[doc(hidden)] pub fn inject_stale_retry(&mut self, bot: i64, at_us: i64) { self.retry_at.insert(bot, at_us); }
     fn venue_for(&self, bot: &model::Bot) -> Result<F::V, EngineError> {
@@ -57,7 +63,7 @@ async fn reconcile_idle<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn
     if e.reconcile_at.get(&id).is_some_and(|&t| t > clock.now().timestamp_micros()) { *wake = (*wake).min(e.reconcile_at[&id]); return Ok(()); }
     let bot = model::load_bot(&e.primary, id)?;
     let venue = e.venue_for(&bot)?;
-    match placement::recover(&e.primary, &venue, &bot, clock).await? {
+    match placement::recover_since(&e.primary, &venue, &bot, clock, e.process_start.expect("set by step")).await? {
         placement::Recovery::Pending => {
             let at = clock.now().timestamp_micros() + RECONCILE_EVERY_US;
             e.reconcile_at.insert(id, at);
@@ -73,6 +79,7 @@ async fn reconcile_idle<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn
 }
 
 pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<i64, EngineError> {
+    e.process_start.get_or_insert(clock.now());
     let report = eligibility::check_install(&e.primary)?;
     if !report.problems.is_empty() { return Err(EngineError::Ineligible(report.problems)); }
     for (id, err) in &report.unreadable { eprintln!("[engine] bot {id} is unreadable and skipped: {err}"); }
@@ -161,7 +168,8 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         let tick_start = crate::codec::format_time(clock.now());
         let attempts = e.attempts.entry(id).or_default();
         let mut recovered = None;
-        let outcome = tick::tick_recovering(&e.primary, &venue, id, clock, attempts, &mut recovered).await?;
+        let cx = TickContext { prices: &e.prices, process_start: e.process_start.expect("set by step"), stopping: &|| false };
+        let outcome = tick::tick_recovering(&e.primary, &venue, id, clock, attempts, &mut recovered, &cx).await?;
         // An order accepted this tick gets one follow-up poll shortly after (a deliberate small delay; Rails enqueues
         // FetchAndUpdateOrderJob at placement), whatever the tick's final outcome.
         let mut s = e.primary.prepare(

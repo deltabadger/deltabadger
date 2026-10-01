@@ -81,3 +81,14 @@ async fn an_intent_delayed_before_its_send_is_never_sent_and_is_settled_as_not_p
     let bot = model::load_bot(&o.primary, bot.id).unwrap();
     assert!(matches!(placement::recover(&o.primary, &v, &bot, &FixedClock(t0 + Duration::seconds(70))).await.unwrap(), placement::Recovery::NotPlaced));
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_kraken_insufficient_funds_rejection_stamps_the_budget_too() {
+    let (_d, o, s) = common::install();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let v = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("ZEUR", "100000", "0")
+        .next_add(deltabadger::venue::fake::AddOutcome::Reject(vec!["EOrder:Insufficient funds".into()]));
+    deltabadger::engine::tick::tick(&o.primary, &v, id, &FixedClock("2026-09-01T10:00:00.5Z".parse().unwrap()), &mut Default::default()).await.unwrap();
+    let stamped: bool = o.primary.query_row("SELECT last_end_of_funds_notification IS NOT NULL FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert!(stamped, "Bot::Failable#record_failure! (Plan 2 left it unported)");
+}

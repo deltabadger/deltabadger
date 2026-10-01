@@ -100,6 +100,10 @@ impl Transport for ReqwestTransport {
         if let Some(body) = &r.body { b = b.body(body.to_string()); }
         if let Some(not_after) = r.not_after {
             // Read immediately before the send: what is left of the absolute bound becomes this request's whole timeout.
+            // LISTED RESIDUAL: this bounds when a send may start and how long reqwest keeps it alive, not when the bytes leave.
+            // A process frozen mid-write of the order request (SIGSTOP, a VM pause) and resumed later can deliver it after
+            // the absence window (placement::recover_since) has already declared it never placed. Escape hatch: the operator
+            // checks the Alpaca paper dashboard and settles the intent with `deltabadger resolve-placement`.
             match (not_after - Utc::now()).to_std().ok().filter(|left| !left.is_zero()) {
                 None => return Err(TransportError::NotSent(format!("past the send bound {}; not sent", not_after.to_rfc3339()))),
                 Some(left) => b = b.timeout(left.min(TOTAL_TIMEOUT)),
