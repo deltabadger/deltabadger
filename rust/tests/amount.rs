@@ -114,7 +114,8 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
     let limit = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
         .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.0025)))).unwrap();
     let cases = common::vectors()["alpaca_sizing"].as_array().unwrap().clone();
-    assert_eq!(cases.len(), 132);
+    assert_eq!(cases.len(), 180);
+    let mut float_changed = 0;
     let deadline = "2026-09-01T10:00:10Z".parse().unwrap();
     for c in cases {
         let bot = if c["order_type"] == "limit_order" { &limit } else { &market };
@@ -129,25 +130,42 @@ fn every_recorded_rails_alpaca_sizing_and_wire_is_reproduced() {
         let order = plan.to_order("cl".into(), deadline, ALPACA.wire);
         let w = &c["wire"];
         assert_eq!((w["symbol"].as_str(), w["side"].as_str(), w["time_in_force"].as_str()), (Some("BTC/USD"), Some("buy"), Some("gtc")), "{c}");
+        assert_eq!(order.pair, w["symbol"].as_str().unwrap(), "pair {c}");
         match order.kind {
             OrderKind::Market => {
                 assert_eq!(w["type"], "market", "{c}");
                 assert_eq!(order.volume, w["notional"].as_str().unwrap(), "notional {c}");
+                float_changed += (order.volume != plan.volume.to_s_f()) as usize;
                 assert!(order.quote_volume);
             }
             OrderKind::Limit { price } => {
                 assert_eq!(w["type"], "limit", "{c}");
                 assert_eq!(order.volume, w["qty"].as_str().unwrap(), "qty {c}");
                 assert_eq!(price, w["limit_price"].as_str().unwrap(), "limit_price {c}");
+                let qty_exact = plan.volume.div(&plan.price.floor(t.price_decimals)).unwrap().floor(t.base_decimals);
+                float_changed += (order.volume != qty_exact.to_s_f()) as usize;
                 assert!(!order.quote_volume);
             }
         }
     }
+    assert!(float_changed > 0, "no vector exercises Float formatting any more");
 }
 
 #[test]
 fn printf_goes_through_float_as_ruby_format_does() {
     // Both recorded in Ruby 4.0.7: format("%.2f", BigDecimal("0.125")), format("%.9f", BigDecimal("123456789012.123456789")).
-    assert_eq!(amount::printf(&bd("0.125"), 2), "0.12");
+    assert_eq!(amount::printf(&bd("0.12"), 2), "0.12");
+    assert_eq!(amount::float_format(&bd("0.125"), 2), "0.12");
     assert_eq!(amount::printf(&bd("123456789012.123456789"), 9), "123456789012.123458862");
 }
+
+#[test]
+fn printf_is_not_ruby_on_unfloored_input_so_callers_must_floor() {
+    // Ruby 4.0.7: format("%.4f", BigDecimal("0.00265")) == "0.0026"; correct rounding of the binary value gives 0.0027.
+    assert_eq!(amount::float_format(&bd("0.00265"), 4), "0.0027");
+}
+
+#[test]
+#[cfg(debug_assertions)]
+#[should_panic(expected = "already floored")]
+fn printf_refuses_unfloored_input_in_debug() { amount::printf(&bd("0.00265"), 4); }

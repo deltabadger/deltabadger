@@ -102,9 +102,17 @@ pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, logic: M
     if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) }
 }
 
-/// Kernel#format('%.Nf', BigDecimal): the value goes through Float, then is rounded at N places. Rust formats the exact
-/// binary value and rounds half to even, as Ruby does (pinned by the alpaca_sizing vectors).
-pub fn printf(d: &BigDec, places: i64) -> String { format!("{:.*}", places.max(0) as usize, d.to_f()) }
+/// Kernel#format('%.Nf', BigDecimal) for a value ALREADY floored to `places`: the value goes through Float, then is
+/// formatted at N places. Only for such input does this equal Ruby (0 differences in 32,000 cases; pinned by the
+/// alpaca_sizing vectors). On unfloored input they differ: format("%.4f", BigDecimal("0.00265")) is "0.0026" in Ruby
+/// 4.0.7, "0.0027" here. Callers floor first, as Exchanges::Alpaca does.
+pub fn printf(d: &BigDec, places: i64) -> String {
+    debug_assert!(d.floor(places) == *d, "printf needs a value already floored to {places} places");
+    float_format(d, places)
+}
+
+/// The raw Float formatter behind `printf`, without the precondition. Exposed so a test can pin the unfloored difference.
+pub fn float_format(d: &BigDec, places: i64) -> String { format!("{:.*}", places.max(0) as usize, d.to_f()) }
 
 impl OrderPlan {
     pub fn to_order(&self, cl_ord_id: String, deadline: DateTime<Utc>, wire: WireFormat) -> NewOrder {
