@@ -71,3 +71,63 @@ async fn trades_history_recovers_fills_per_order() {
     assert_eq!((fills[0].status, fills[0].amount_exec.to_s_f(), fills[0].quote_amount_exec.to_s_f()), (OrderStatus::Closed, "0.0012".into(), "60.012".into()));
     assert_eq!(fills[0].price, BigDec::parse("60.012").unwrap().div(&bd("0.0012")));
 }
+
+fn raw(status: &str, ordertype: &str) -> serde_json::Value {
+    json!({ "status": status, "price": "0", "vol": "1", "vol_exec": "0", "cost": "0", "oflags": "", "descr": { "ordertype": ordertype, "price": "0", "type": "buy" } })
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unknown_status_or_order_type_is_an_error_not_a_guess() {
+    let v = FakeVenue::new().order("O1", raw("weird", "market")).order("O2", raw("open", "stop-loss")).order("O3", raw("pending", "market"));
+    assert!(v.orders(&["O1".into()]).await.is_err());
+    assert!(v.orders(&["O2".into()]).await.is_err());
+    assert_eq!(v.orders(&["O3".into()]).await.unwrap()[0].status, OrderStatus::Unknown);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_body_without_error_or_result_is_unreadable() {
+    let v = FakeVenue::from_script(&json!({ "http": { "/0/public/Ticker": [{ "result": {} }], "/0/private/BalanceEx": [{ "error": [] }] } }));
+    let unreadable = VenueError::Ambiguous("Kraken: unreadable response".into());
+    assert_eq!(v.prices("XBTEUR").await, Err(unreadable.clone()));
+    assert_eq!(v.balance("EUR").await, Err(unreadable));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_client_id_lookup_never_goes_through_query_orders() {
+    let hits = std::rc::Rc::new(std::cell::Cell::new(0));
+    let h = hits.clone();
+    let v = FakeVenue::from_script(&json!({ "http": { "/0/private/QueryOrders": [{ "error": [], "result": {} }] } })).on_query(move || h.set(h.get() + 1));
+    v.add_order(&order("c-1")).await.unwrap();
+    assert!(v.order_by_client_id("c-1", at()).await.unwrap().is_some());
+    assert_eq!((v.calls("/0/private/QueryOrders"), hits.get()), (0, 0));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_lookup_finds_an_order_in_a_scripted_closed_orders_body() {
+    let mut closed = raw("closed", "market");
+    closed["cl_ord_id"] = json!("c-7");
+    let v = FakeVenue::from_script(&json!({ "http": {
+        "/0/private/OpenOrders": [{ "error": [], "result": { "open": {} } }],
+        "/0/private/ClosedOrders": [{ "error": [], "result": { "closed": { "OTX-7": closed }, "count": 1 } }] } }));
+    let o = v.order_by_client_id("c-7", at()).await.unwrap().unwrap();
+    assert_eq!((o.txid.as_str(), o.status), ("OTX-7", OrderStatus::Closed));
+    assert_eq!(v.order_by_client_id("c-8", at()).await.unwrap(), None);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_registered_filled_order_is_reported_closed_and_a_duplicate_client_id_is_refused() {
+    let v = FakeVenue::new().next_add(AddOutcome::AmbiguousPlaced("OTX-3".into())).order("OTX-3", raw("closed", "market"));
+    assert!(v.add_order(&order("c-3")).await.is_err());
+    assert_eq!(v.order_by_client_id("c-3", at()).await.unwrap().unwrap().status, OrderStatus::Closed);
+    assert_eq!(v.add_order(&order("c-3")).await, Err(VenueError::Rejected(vec!["EOrder:Duplicate order".into()])));
+    assert_eq!(v.sent().len(), 1, "the duplicate was not booked or sent");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn balance_splits_dotted_codes_and_the_last_row_wins() {
+    let v = FakeVenue::new().balance_body("EUR.F", "10", "1");
+    assert_eq!(v.balance("EUR").await.unwrap(), bd("9"));
+    let v = FakeVenue::from_script(&json!({ "http": { "/0/private/BalanceEx": [{ "error": [], "result": {
+        "ZEUR": { "balance": "100", "hold_trade": "0" }, "EUR.HOLD": { "balance": "7", "hold_trade": "2" } } }] } }));
+    assert_eq!(v.balance("EUR").await.unwrap(), bd("5"));
+}
