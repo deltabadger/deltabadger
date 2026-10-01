@@ -76,3 +76,32 @@ fn a_stopped_bot_outside_the_slice_refuses_only_when_it_has_pending_work() {
         assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains(&format!("bot {gone}"))), "status {status}");
     }
 }
+
+#[test]
+fn a_missing_user_row_never_passes() {
+    let (_d, o, s) = install();
+    let id = seed::insert_bot(&o.primary, &s, &plain());
+    o.primary.execute("PRAGMA foreign_keys = OFF", []).unwrap();
+    o.primary.execute("DELETE FROM users", []).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.eligible.is_empty());
+    assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("user not found")) || r.unreadable.iter().any(|(i, _)| *i == id), "{:?}", r.problems);
+}
+
+#[test]
+fn index_assets_refuse_the_bot() {
+    let (_d, o, s) = install();
+    let id = seed::insert_bot(&o.primary, &s, &plain());
+    o.primary.execute("INSERT INTO bot_index_assets (asset_id, bot_id, ticker_id, created_at, updated_at) VALUES (?1, ?2, ?3, '2026-01-01', '2026-01-01')", [s.eur, id, s.ticker_id]).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("index assets present (1)")), "{:?}", r.problems);
+    assert!(r.eligible.is_empty());
+}
+
+#[test]
+fn a_retrying_rule_refuses_the_install() {
+    let (_d, o, s) = install();
+    seed::insert_bot(&o.primary, &s, &plain());
+    o.primary.execute("INSERT INTO rules (type, status, user_id, settings, created_at, updated_at) VALUES ('Rules::Withdrawal', 5, ?1, '{}', '2026-01-01', '2026-01-01')", [s.user_id]).unwrap();
+    assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains("rule")));
+}

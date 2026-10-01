@@ -4,7 +4,7 @@
 use super::model::{self, Bot};
 use super::EngineError;
 use crate::enums::BOT_WORKING;
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
 
 /// `unreadable`: bots whose rows this build cannot read. Takeover refuses them; the running engine skips them.
@@ -34,7 +34,7 @@ fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
 pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     let mut r = rails_work(c, bot)?;
     if bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only one-asset DCA baskets)", bot.bot_type)); }
-    let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).ok();
+    let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
     if exchange.as_deref() != Some("Exchanges::Kraken") { r.push(format!("exchange {} (only Kraken)", exchange.unwrap_or_default())); }
     if bot.asset_ids().len() != 1 { r.push(format!("allocations: {} assets (only one)", bot.asset_ids().len())); }
     match bot.settings.get("direction") { None | Some(Value::Null) => {}, Some(v) if v == "buying" => {}, Some(d) => r.push(format!("direction {d}")) }
@@ -50,8 +50,11 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
     if bot.interval().is_none() { r.push("interval".into()); }
     if !bot.quote_amount().is_some_and(|q| q > 0.0) { r.push("quote_amount".into()); }
     if bot.restatement_generation > 0 { r.push("restated prices".into()); }
-    let wash: Option<bool> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0)).ok().flatten();
-    if wash == Some(true) { r.push("wash_sale enabled for the user".into()); }
+    let wash: Option<Option<bool>> = c.query_row("SELECT wash_sale_enabled FROM users WHERE id = ?1", [bot.user_id], |r| r.get(0)).optional()?;
+    match wash { None => r.push("user not found".into()), Some(Some(true)) => r.push("wash_sale enabled for the user".into()), _ => {} }
+    // Bots::DcaMultiAsset#set_tickers adds bot_index_assets to the asset list: not modelled in the slice.
+    let index_assets: i64 = c.query_row("SELECT count(*) FROM bot_index_assets WHERE bot_id = ?1", [bot.id], |r| r.get(0))?;
+    if index_assets > 0 { r.push(format!("index assets present ({index_assets})")); }
     match model::ticker_for(c, bot)? {
         None => r.push("no ticker for the asset on this venue".into()),
         Some(t) => {
@@ -69,7 +72,7 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
 
 pub fn check_install(c: &Connection) -> Result<Report, EngineError> {
     let mut report = Report { eligible: vec![], problems: vec![], unreadable: vec![] };
-    let rules: i64 = c.query_row("SELECT count(*) FROM rules WHERE status = 1", [], |r| r.get(0))?;
+    let rules: i64 = c.query_row(&format!("SELECT count(*) FROM rules WHERE status IN ({})", model::working_list()), [], |r| r.get(0))?;
     if rules > 0 { report.problems.push(format!("{rules} active rule(s): rules run only in the full app")); }
     // Every status, archived and deleted included: archiving or deleting a bot leaves its orders at the venue,
     // and Rails keeps accounting for them, so their pending work refuses the install like any other bot's.
