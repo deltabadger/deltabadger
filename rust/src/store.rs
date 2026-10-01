@@ -84,23 +84,48 @@ const MIGRATIONS_TABLE: &[TableContract] = &[TableContract {
     columns: &[("version", "varchar", true)],
     unique_indexes: &[],
 }];
+// Every table and column the engine reads or writes (Plan 2). Extend whenever Rust touches more.
 const PRIMARY: &[TableContract] = &[
-    TableContract {
-        name: "app_configs",
-        columns: &[
-            ("key", "varchar", true),
-            ("value", "text", false),
-            ("created_at", "datetime(6)", true),
-            ("updated_at", "datetime(6)", true),
-        ],
-        unique_indexes: &[&["key"]],
-    },
+    TableContract { name: "app_configs", columns: &[("key", "varchar", true), ("value", "text", false), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true)], unique_indexes: &[&["key"]] },
+    TableContract { name: "bots", columns: &[
+        ("id", "integer", true), ("type", "varchar", false), ("status", "integer", true), ("exchange_id", "bigint", false),
+        ("user_id", "bigint", false), ("settings", "json", true), ("transient_data", "json", true),
+        ("started_at", "datetime", false), ("stopped_at", "datetime", false), ("stop_message_key", "varchar", false),
+        ("settings_changed_at", "datetime", false), ("updated_at", "datetime", true), ("restatement_generation", "integer", true),
+    ], unique_indexes: &[] },
+    TableContract { name: "transactions", columns: &[
+        ("id", "integer", true), ("bot_id", "bigint", false), ("exchange_id", "bigint", true), ("external_id", "varchar", false),
+        ("status", "integer", false), ("external_status", "integer", false), ("side", "integer", false), ("order_type", "integer", false),
+        ("price", "decimal", false), ("amount", "decimal", false), ("quote_amount", "decimal", false),
+        ("amount_exec", "decimal", false), ("quote_amount_exec", "decimal", false), ("base", "varchar", false), ("quote", "varchar", false),
+        ("base_asset_id", "integer", false), ("quote_asset_id", "integer", false), ("bot_interval", "varchar", true),
+        ("bot_quote_amount", "decimal", true), ("transaction_type", "varchar", true), ("error_messages", "json", true),
+        ("created_at", "datetime", true), ("updated_at", "datetime", true),
+    ], unique_indexes: &[&["external_id"]] },
+    TableContract { name: "tickers", columns: &[
+        ("id", "integer", true), ("exchange_id", "bigint", true), ("ticker", "varchar", true), ("base", "varchar", true),
+        ("quote", "varchar", true), ("base_asset_id", "bigint", true), ("quote_asset_id", "bigint", true),
+        ("base_decimals", "integer", true), ("quote_decimals", "integer", true), ("price_decimals", "integer", true),
+        ("minimum_base_size", "decimal", true), ("minimum_quote_size", "decimal", true),
+        ("trading_enabled", "boolean", true), ("available", "boolean", false),
+    ], unique_indexes: &[] },
+    TableContract { name: "assets", columns: &[("id", "integer", true), ("symbol", "varchar", false), ("category", "varchar", false), ("instrument_type", "varchar", false)], unique_indexes: &[] },
+    TableContract { name: "exchanges", columns: &[("id", "integer", true), ("type", "varchar", false), ("name", "varchar", false)], unique_indexes: &[] },
+    TableContract { name: "api_keys", columns: &[
+        ("id", "integer", true), ("user_id", "bigint", true), ("exchange_id", "bigint", true), ("key", "varchar", false),
+        ("secret", "varchar", false), ("status", "integer", true), ("key_type", "integer", true),
+    ], unique_indexes: &[] },
+    TableContract { name: "users", columns: &[("id", "integer", true), ("wash_sale_enabled", "boolean", false)], unique_indexes: &[] },
+    TableContract { name: "rules", columns: &[("id", "integer", true), ("status", "integer", true)], unique_indexes: &[] },
+    TableContract { name: "bot_activity_logs", columns: &[
+        ("id", "integer", true), ("bot_id", "integer", true), ("event", "varchar", true), ("level", "integer", true),
+        ("details", "json", true), ("message", "varchar", false), ("created_at", "datetime(6)", true),
+    ], unique_indexes: &[] },
 ];
-const QUEUE: &[TableContract] = &[TableContract {
-    name: "solid_queue_processes",
-    columns: &[("last_heartbeat_at", "datetime(6)", true)],
-    unique_indexes: &[],
-}];
+const QUEUE: &[TableContract] = &[
+    TableContract { name: "solid_queue_processes", columns: &[("last_heartbeat_at", "datetime(6)", true)], unique_indexes: &[] },
+    TableContract { name: "solid_queue_jobs", columns: &[("id", "integer", true), ("class_name", "varchar", true), ("arguments", "text", false)], unique_indexes: &[] },
+];
 
 fn check_structure(
     c: &Connection,

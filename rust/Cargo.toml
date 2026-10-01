@@ -17,6 +17,7 @@ path = "src/main.rs"
 aes-gcm = "0.10"
 base64 = "0.22"
 bcrypt = "0.17"
+bigdecimal = "0.4"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 flate2 = "1"
 hex = "0.4"
@@ -28,6 +29,11 @@ rust_decimal = { version = "1", features = ["std"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 sha1 = "0.10"
 sha2 = "0.10"
+tokio = { version = "1", features = ["rt", "time", "macros", "sync"] }
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 tempfile = "3"
+
+[profile.release]
+panic = "abort" # a panicking engine must not leave a server up with nothing trading (spec §3 Supervision)
