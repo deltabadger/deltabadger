@@ -3,6 +3,7 @@
 //! SQLite transaction — every working bot `scheduled` and the handover row set to handed back.
 use super::{eligibility, model, placement, Clock, EngineError};
 use crate::crypto::Cipher;
+use crate::enums::BotStatus;
 use crate::lease::{self, Claim, EngineLock};
 use crate::store::Opened;
 use crate::venue::VenueFactory;
@@ -46,9 +47,7 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     let tx = model::immediate(&o.primary)?;
     let mut normalised = 0;
     for id in &report.eligible {
-        // `executing`/`waiting` only exist mid-tick: here they mean the last run (Rails' or ours) was cut short.
-        normalised += tx.execute("UPDATE bots SET status = 1, updated_at = ?1 WHERE id = ?2 AND status IN (4, 6)",
-                                        params![crate::codec::format_time(now), id])?;
+        normalised += model::unstick(&tx, *id, now)? as usize; // the last run (Rails' or ours) was cut short
     }
     tx.commit()?;
     Ok(Takeover { claim, eligible: report.eligible, deleted_jobs: doomed.len(), normalised })
@@ -67,8 +66,9 @@ pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: 
 
     let now = clock.now();
     let tx = model::immediate(&o.primary)?;
-    tx.execute("UPDATE bots SET status = 1, updated_at = ?1 WHERE status IN (4, 5, 6)", [crate::codec::format_time(now)])?;
-    let scheduled: usize = tx.query_row("SELECT count(*) FROM bots WHERE status = 1", [], |r| r.get::<_, i64>(0))? as usize;
+    let (scheduled, working) = (BotStatus::Scheduled as i64, model::working_list());
+    tx.execute(&format!("UPDATE bots SET status = ?1, updated_at = ?2 WHERE status IN ({working}) AND status <> ?1"), params![scheduled, crate::codec::format_time(now)])?;
+    let scheduled: usize = tx.query_row("SELECT count(*) FROM bots WHERE status = ?1", [scheduled], |r| r.get::<_, i64>(0))? as usize;
     lease::hand_back(lock, &tx, cipher, now)?;
     tx.commit()?;
     Ok(scheduled)

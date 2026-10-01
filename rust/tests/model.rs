@@ -91,3 +91,37 @@ fn activity_logs_are_written_like_log_activity() {
     assert_eq!((event.as_str(), level, created.as_str()), ("order_skipped", 1, "2026-09-30 12:00:00.123456"));
     assert_eq!(serde_json::from_str::<serde_json::Value>(&details).unwrap(), json!({"base": "BTC"}));
 }
+
+#[test]
+fn a_key_that_does_not_decrypt_is_an_error_not_a_missing_key() {
+    let (_d, o, s) = install();
+    let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
+    let foreign = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "another-install").unwrap());
+    o.primary.execute("UPDATE api_keys SET key = ?1", [foreign.encrypt("test-key")]).unwrap();
+    let err = model::credentials_for(&o.primary, &seed::cipher(), &bot).unwrap_err();
+    assert!(matches!(&err, deltabadger::engine::EngineError::Data(m) if m.contains("api key unreadable")), "{err:?}");
+}
+
+#[test]
+fn an_unparseable_last_action_job_at_is_a_data_error() {
+    let (_d, o, s) = install();
+    let read = |v: serde_json::Value| model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").transient("last_action_job_at", v))).unwrap().last_action_job_at_us();
+    assert!(matches!(read(json!("yesterday")), Err(deltabadger::engine::EngineError::Data(_))));
+    assert!(matches!(read(json!(12)), Err(deltabadger::engine::EngineError::Data(_))));
+    assert_eq!(read(json!(null)).unwrap(), None);
+    assert_eq!(read(json!("2026-09-01T10:00:00.500Z")).unwrap(), Some("2026-09-01T10:00:00.5Z".parse::<chrono::DateTime<chrono::Utc>>().unwrap().timestamp_micros()));
+}
+
+#[test]
+fn a_blank_limit_distance_is_rails_default_and_garbage_is_unreadable() {
+    let (_d, o, s) = install();
+    let read = |v: serde_json::Value| model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00")
+        .with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", v))).unwrap().limit_distance().map(|d| d.to_s_f());
+    for blank in [json!(""), json!("   "), json!(null), json!(false), json!([]), json!({})] {
+        assert_eq!(read(blank.clone()).as_deref(), Some("0.001"), "{blank}: blank? → BigDecimal('0.001')");
+    }
+    for garbage in [json!("abc"), json!(true), json!([1]), json!({"a": 1})] {
+        assert_eq!(read(garbage.clone()), None, "{garbage}: not a distance");
+    }
+    assert_eq!(read(json!(0)).as_deref(), Some("0.0"), "a real 0 stays 0");
+}

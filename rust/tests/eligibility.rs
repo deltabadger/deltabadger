@@ -105,3 +105,35 @@ fn a_retrying_rule_refuses_the_install() {
     o.primary.execute("INSERT INTO rules (type, status, user_id, settings, created_at, updated_at) VALUES ('Rules::Withdrawal', 5, ?1, '{}', '2026-01-01', '2026-01-01')", [s.user_id]).unwrap();
     assert!(eligibility::check_install(&o.primary).unwrap().problems.iter().any(|p| p.contains("rule")));
 }
+
+#[test]
+fn an_index_asset_row_for_the_bots_own_asset_is_tolerated() {
+    let (_d, o, s) = install();
+    let id = seed::insert_bot(&o.primary, &s, &plain());
+    o.primary.execute("INSERT INTO bot_index_assets (asset_id, bot_id, ticker_id, created_at, updated_at) VALUES (?1, ?2, ?3, '2026-01-01', '2026-01-01')", [s.btc, id, s.ticker_id]).unwrap();
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.is_empty(), "{:?}", r.problems);
+    assert_eq!(r.eligible, vec![id]);
+}
+
+#[test]
+fn a_limit_bot_whose_distance_is_not_a_number_is_refused() {
+    for garbage in [json!("abc"), json!(true), json!([1])] {
+        let (_d, o, s) = install();
+        let id = seed::insert_bot(&o.primary, &s, &plain().with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", garbage.clone()));
+        let r = eligibility::check_install(&o.primary).unwrap();
+        assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("limit_order_pcnt_distance")), "{garbage}: {:?}", r.problems);
+    }
+    let (_d, o, s) = install();
+    let blank = seed::insert_bot(&o.primary, &s, &plain().with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!("")));
+    assert_eq!(eligibility::check_install(&o.primary).unwrap().eligible, vec![blank], "blank is Rails' 0.001 default");
+}
+
+#[test]
+fn a_working_bot_that_was_never_started_is_refused() {
+    let (_d, o, s) = install();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec { started_at: None, ..plain() });
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("started_at")), "{:?}", r.problems);
+    assert!(r.eligible.is_empty());
+}
