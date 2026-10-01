@@ -32,6 +32,7 @@ fn a_second_rust_process_is_locked_out() {
 
 #[test]
 fn a_rails_process_holding_the_shared_lock_blocks_rust() {
+    drop(common::rails_install()); // finish the one bin/rails spawn first: a child forked meanwhile inherits the fd below
     let dir = tempfile::tempdir().unwrap();
     let p = paths(dir.path());
     let rails = OpenOptions::new().write(true).create(true).truncate(false).open(p.lock_file()).unwrap();
