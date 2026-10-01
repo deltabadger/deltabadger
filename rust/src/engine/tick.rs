@@ -31,16 +31,15 @@ pub fn retry_wait(executions: u32, rate_limited: bool) -> Duration {
 }
 
 pub fn stop(c: &Connection, bot_id: i64, stop_message_key: &str, now: chrono::DateTime<chrono::Utc>) -> Result<(), EngineError> {
-    c.execute("UPDATE bots SET status = ?1, stopped_at = ?2, stop_message_key = ?3, updated_at = ?2 WHERE id = ?4 AND status NOT IN (3, 7)",
+    let n = c.execute(&format!("UPDATE bots SET status = ?1, stopped_at = ?2, stop_message_key = ?3, updated_at = ?2 WHERE id = ?4 AND status IN ({})", model::working_list()),
               params![BotStatus::Stopped as i64, format_time(now), stop_message_key, bot_id])?;
+    if n == 0 { return Ok(()); }
     model::log_activity(c, bot_id, "stopped", Level::Info, json!({ "stop_message_key": stop_message_key }), now)
 }
 
 enum Fail {
     Transient(String),
     RateLimited(String),
-    /// A transport failure after an order was placed this tick: never retried (ActionJob lines 196-207).
-    TransientAfterPlacement,
     General { message: String, errors: Vec<String>, failed_row: bool },
     PlacementSafe(String),
     Ambiguous(String),
@@ -115,7 +114,7 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
             let prices = match venue.prices(&ticker.ticker).await {
                 Ok(p) => p,
                 Err(VenueError::Rejected(e)) => return Ok(Err(Fail::Transient(format!("No price for {}: {}", ticker.base_symbol, to_sentence(&e))))),
-                Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Ok(Err(Fail::Transient(m))),
+                Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Ok(Err(Fail::Transient(format!("No price for {}: {m}", ticker.base_symbol)))),
             };
             let (side, chosen) = if limit { ("last", &prices.last) } else { ("ask", &prices.ask) };
             if chosen.is_zero() {
@@ -162,10 +161,10 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
                 c.execute("UPDATE bots SET last_end_of_funds_notification = ?1, updated_at = ?1 WHERE id = ?2", params![now, bot_id])?;
             }
         }
-        Err(VenueError::Rejected(_)) => {}
-        Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => {
-            return Ok(Err(if placed { Fail::TransientAfterPlacement } else { Fail::Transient(m) }));
-        }
+        // honeymaker's with_rescue turns a network failure into a Failure result: "not low", the tick succeeds.
+        Err(VenueError::Rejected(_) | VenueError::Transient(_)) => {}
+        // An unreadable body raises a plain StandardError in Rails: execution_failed, no retry.
+        Err(VenueError::Ambiguous(m)) => return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false })),
     }
     Ok(Ok(placed))
 }
@@ -201,11 +200,6 @@ fn handle_failure(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, at
             let kind = failure_kind(std::slice::from_ref(&m));
             record_failure(c, bot_id, kind)?;
             model::log_activity(c, bot_id, "execution_failed", Level::Error, json!({ "error": m, "kind": kind, "rate_limited_exhausted": true }), now)?;
-            Ok(TickOutcome::Rescheduled)
-        }
-        Fail::TransientAfterPlacement => {
-            record_failure(c, bot_id, Some("transient"))?;
-            *attempts = Attempts::default();
             Ok(TickOutcome::Rescheduled)
         }
         Fail::PlacementSafe(m) => {

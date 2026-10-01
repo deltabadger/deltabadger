@@ -132,14 +132,45 @@ async fn transient_and_rate_limit_retries_count_separately_as_activejob_does() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_transport_failure_of_the_funds_check_after_an_order_does_not_retry_the_order() {
+async fn a_transport_failure_of_the_funds_check_is_not_low_and_the_tick_succeeds() {
     let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
-    let v = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0"); // BalanceEx unscripted → Transient
-    let mut attempts = Attempts::default();
-    let out = tick::tick(&o.primary, &v, id, &clock("2026-09-01T10:00:01Z"), &mut attempts).await.unwrap();
-    assert!(matches!(out, TickOutcome::Rescheduled), "retry_on must not replay a tick that already placed: {out:?}");
-    assert_eq!(v.sent().len(), 1);
+    let v = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0"); // BalanceEx unscripted → Transient → Failure result in Rails
+    let out = run(&o, &v, id, "2026-09-01T10:00:01Z").await;
+    assert!(matches!(out, TickOutcome::Done { placed: true }), "{out:?}");
+    assert_eq!((v.sent().len(), one::<i64>(&o, "SELECT count(*) FROM transactions")), (1, 1));
+    assert_eq!(bot(&o, id).status, BotStatus::Scheduled);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_balance_body_fails_the_tick_without_a_retry() {
+    let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let v = FakeVenue::from_script(&json!({ "http": {
+        "/0/public/Ticker": [{ "error": [], "result": { "XXBTZEUR": { "a": ["50000.0", "1", "1.000"], "b": ["49990.1", "1", "1.000"], "c": ["49995.0", "0.001"], "v": ["1", "1"], "p": ["1", "1"], "t": [1, 1], "l": ["1", "1"], "h": ["1", "1"], "o": "1" } } }],
+        "/0/private/BalanceEx": ["not an object"] } }));
+    let out = run(&o, &v, id, "2026-09-01T10:00:01Z").await;
+    assert!(matches!(out, TickOutcome::Rescheduled), "{out:?}");
     assert_eq!(bot(&o, id).status, BotStatus::Retrying);
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_failed'"), 1);
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'execution_retrying'"), 0);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_price_read_failure_carries_rails_no_price_message() {
+    let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let mut attempts = Attempts::default();
+    for _ in 0..4 { tick::tick(&o.primary, &FakeVenue::new(), id, &clock("2026-09-01T10:00:01Z"), &mut attempts).await.unwrap(); }
+    let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'execution_retrying'");
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&details).unwrap()["error"], "No price for BTC: no scripted Ticker");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn tick_stop_leaves_a_bot_the_user_stopped_alone() {
+    let (_d, o, id) = setup(BotSpec { status: 2, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") });
+    o.primary.execute("UPDATE bots SET stopped_at = '2026-08-01 00:00:00', stop_message_key = 'bot.status.stopped_by_user' WHERE id = ?1", [id]).unwrap();
+    tick::stop(&o.primary, id, "bot.status.stopped_by_error.invalid_key", clock("2026-09-01T10:00:01Z").0).unwrap();
+    assert_eq!(one::<String>(&o, &format!("SELECT stop_message_key FROM bots WHERE id = {id}")), "bot.status.stopped_by_user");
+    assert_eq!(one::<String>(&o, &format!("SELECT stopped_at FROM bots WHERE id = {id}")), "2026-08-01 00:00:00");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'stopped'"), 0);
 }
 
 #[tokio::test(flavor = "current_thread")]
