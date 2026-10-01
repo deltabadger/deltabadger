@@ -1,5 +1,6 @@
 # The Rails half of the decision-parity harness (rust/tests/parity.rs, script/rust/parity_on_copy.sh).
 #   bin/rails runner script/rust/decisions.rb grid <root>    # one install per scenario, built with Rails' own models
+#   bin/rails runner script/rust/decisions.rb grid-alpaca <root> # the same for Alpaca, scripted beneath Clients::Alpaca at the Faraday adapter
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
 # scripted beneath the real client (Honeymaker::Clients::Kraken#get_public/#post_private), so every line of
@@ -20,6 +21,51 @@ module ScriptedKraken
   module Http
     def get_public(path, params = {}) = ScriptedKraken.reply(path, params)
     def post_private(path, body = {}) = ScriptedKraken.reply(path, body)
+  end
+end
+
+# Alpaca is scripted one layer lower than Kraken: beneath Clients::Alpaca, at the Faraday adapter its connections use, so
+# Rails' own middleware (json, raise_error), Clients::Alpaca#with_rescue, Client.network_failure and Exchanges::Alpaca's
+# parsing all run. Only while an Alpaca scenario runs (http set); a Kraken scenario never reaches this adapter.
+module ScriptedAlpaca
+  # An Exception, not a StandardError: with_rescue would turn a harness gap into an ordinary Failure.
+  class Unscripted < Exception; end # rubocop:disable Lint/InheritException
+
+  mattr_accessor :http, :sent
+
+  NETWORK = {
+    'pre_send' => -> { Faraday::ConnectionFailed.new(Errno::ECONNREFUSED.new('connect(2) for "paper-api.alpaca.markets" port 443')) },
+    'post_send' => -> { Faraday::TimeoutError.new(Net::ReadTimeout.new) },
+    # Client.network_failure returns a Failure for an SSL cause (not retried): "Faraday::SSLError: certificate verify failed".
+    'permanent' => -> { Faraday::SSLError.new(OpenSSL::SSL::SSLError.new('certificate verify failed')) }
+  }.freeze
+
+  def self.reply(env)
+    raise Unscripted, "unscripted HTTP call to #{env.url}" unless env.url.host.to_s.end_with?('alpaca.markets')
+
+    key = "#{env.method.to_s.upcase} #{env.url.path}"
+    sent << JSON.parse(env.request_body).except('client_order_id') if key == 'POST /v2/orders'
+    queue = http[key] or raise Unscripted, "unscripted Alpaca call #{key}"
+    queue.size > 1 ? queue.shift : queue.first
+  end
+
+  module Adapter
+    def call(env)
+      return super if ScriptedAlpaca.http.nil?
+
+      reply = ScriptedAlpaca.reply(env)
+      if (kind = reply['network'])
+        error = ScriptedAlpaca::NETWORK.fetch(kind).call
+        actual = "#{error.class}: #{error.message}" # what Client.network_failure reports
+        raise Unscripted, "#{kind}: the script says #{reply['message'].inspect}, Ruby says #{actual.inspect}" unless actual == reply['message']
+
+        raise error
+      end
+      body = reply['body'].is_a?(String) ? reply['body'] : JSON.generate(reply['body'])
+      env.response = Faraday::Response.new
+      save_response(env, reply.fetch('status', 200), body, { 'Content-Type' => 'application/json' })
+      @app.call(env)
+    end
   end
 end
 
@@ -47,6 +93,27 @@ module Decisions
     after.to_h { |t, rows| [t, rows.filter_map { |id, row| row == before[t][id] ? nil : { 'id' => id, 'before' => before[t][id], 'after' => row } }] }
   end
 
+  def kraken_venue(sc)
+    kraken = Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
+    btc = Asset.create!(external_id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', category: 'Cryptocurrency')
+    eur = Asset.create!(external_id: 'EUR.FOREX', symbol: 'EUR', name: 'Euro', category: 'Currency')
+    [btc, eur].each { |a| ExchangeAsset.create!(exchange: kraken, asset: a, available: true) }
+    ticker = Ticker.create!(exchange: kraken, ticker: 'XBTEUR', base: 'XBT', quote: 'EUR', base_asset: btc, quote_asset: eur,
+                            **sc['ticker'].symbolize_keys)
+    [kraken, btc, eur, ticker, nil]
+  end
+
+  # As MarketData.sync_alpaca_crypto_listings_from_deltabadger! imports it: the pair as the ticker, quote USD.
+  def alpaca_venue(sc)
+    alpaca = Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
+    btc = Asset.create!(external_id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', category: 'Cryptocurrency')
+    usd = Asset.create!(external_id: 'usd', symbol: 'USD', name: 'US Dollar', category: 'Currency')
+    [btc, usd].each { |a| ExchangeAsset.create!(exchange: alpaca, asset: a, available: true) }
+    ticker = Ticker.create!(exchange: alpaca, ticker: 'BTC/USD', base: 'BTC', quote: 'USD', base_asset: btc, quote_asset: usd,
+                            **sc['ticker'].symbolize_keys)
+    [alpaca, btc, usd, ticker, 'paper']
+  end
+
   def build(dir, sc)
     { 'production.sqlite3' => 'db/schema.rb', 'production_queue.sqlite3' => 'db/queue_schema.rb' }.each do |file, schema|
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, file))
@@ -57,16 +124,11 @@ module Decisions
     user = User.new(name: 'Owner', email: 'owner@example.com', password: 'correct horse battery staple', admin: true,
                     confirmed_at: Time.current, setup_completed: true)
     user.save!(validate: false)
-    kraken = Exchanges::Kraken.create!(name: 'Kraken', maker_fee: '0.25', taker_fee: '0.4')
-    btc = Asset.create!(external_id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin', category: 'Cryptocurrency')
-    eur = Asset.create!(external_id: 'EUR.FOREX', symbol: 'EUR', name: 'Euro', category: 'Currency')
-    [btc, eur].each { |a| ExchangeAsset.create!(exchange: kraken, asset: a, available: true) }
-    ticker = Ticker.create!(exchange: kraken, ticker: 'XBTEUR', base: 'XBT', quote: 'EUR', base_asset: btc, quote_asset: eur,
-                            **sc['ticker'].symbolize_keys)
-    ApiKey.new(user:, exchange: kraken, key: 'k', secret: 's', status: :correct, key_type: :trading).save!(validate: false)
+    exchange, btc, quote, ticker, passphrase = sc['venue'] == 'alpaca' ? alpaca_venue(sc) : kraken_venue(sc)
+    ApiKey.new(user:, exchange:, key: 'k', secret: 's', passphrase:, status: :correct, key_type: :trading).save!(validate: false)
     # As BotApi::Bots::Create does (create_basket + save_and_start), without starting a job.
-    bot = user.bots.new(type: 'Bots::DcaMultiAsset', exchange: kraken, settings: {
-      'quote_asset_id' => eur.id, 'quote_amount' => sc['quote_amount'], 'interval' => sc['interval'], 'weighting' => 'manual',
+    bot = user.bots.new(type: 'Bots::DcaMultiAsset', exchange:, settings: {
+      'quote_asset_id' => quote.id, 'quote_amount' => sc['quote_amount'], 'interval' => sc['interval'], 'weighting' => 'manual',
       'allocations' => { btc.id.to_s => 1.0 }
     }.merge(sc['settings']))
     bot.set_missed_quote_amount
@@ -75,8 +137,8 @@ module Decisions
                        settings_changed_at: sc['settings_changed_at'] && Time.iso8601(sc['settings_changed_at']),
                        transient_data: bot.reload.transient_data.merge(sc['transient']))
     sc['transactions'].each do |t|
-      Transaction.insert!(t.merge('bot_id' => bot.id, 'exchange_id' => kraken.id, 'base_asset_id' => btc.id, 'quote_asset_id' => eur.id,
-                                  'base' => 'BTC', 'quote' => 'EUR', 'side' => 0, 'transaction_type' => 'REGULAR', 'bot_interval' => sc['interval'],
+      Transaction.insert!(t.merge('bot_id' => bot.id, 'exchange_id' => exchange.id, 'base_asset_id' => btc.id, 'quote_asset_id' => quote.id,
+                                  'base' => 'BTC', 'quote' => quote.symbol, 'side' => 0, 'transaction_type' => 'REGULAR', 'bot_interval' => sc['interval'],
                                   'bot_quote_amount' => sc['quote_amount'], 'error_messages' => [], 'updated_at' => t['created_at']))
     end
     ticker.update_columns(sc['ticker_after']) if sc['ticker_after'] # e.g. delisted after the bot was set up
@@ -191,17 +253,143 @@ module Decisions
     end
   end
 
-  def grid(root)
-    scenarios.each do |sc|
+  PRE_SEND = { 'network' => 'pre_send', 'message' => 'Faraday::ConnectionFailed: Connection refused - connect(2) for "paper-api.alpaca.markets" port 443' }.freeze
+  POST_SEND = { 'network' => 'post_send', 'message' => 'Faraday::TimeoutError: Net::ReadTimeout' }.freeze
+  CERTIFICATE = { 'network' => 'permanent', 'message' => 'Faraday::SSLError: certificate verify failed' }.freeze
+
+  def ok(body) = { 'status' => 200, 'body' => body }
+  # An order as Alpaca documents it (GET /v2/orders/{id}); only the fields Exchanges::Alpaca#parse_order_data reads matter.
+  def alpaca_order(id, status, type: 'market', notional: '60', qty: nil, filled_qty: '0', filled_avg_price: nil, limit_price: nil)
+    { 'id' => id, 'client_order_id' => "rails-#{id}", 'symbol' => 'BTC/USD', 'asset_class' => 'crypto', 'notional' => notional, 'qty' => qty,
+      'filled_qty' => filled_qty, 'filled_avg_price' => filled_avg_price, 'order_type' => type, 'type' => type, 'side' => 'buy',
+      'time_in_force' => 'gtc', 'limit_price' => limit_price, 'status' => status }
+  end
+  def quotes(ask) = ok('quotes' => { 'BTC/USD' => { 'ap' => ask, 'as' => 0.5, 'bp' => 64_300.25, 'bs' => 0.4, 't' => '2026-09-01T10:00:00Z' } })
+  def trades(last) = ok('trades' => { 'BTC/USD' => { 'p' => last, 's' => 0.01, 't' => '2026-09-01T10:00:00Z', 'i' => 1, 'tks' => 'B' } })
+  def account(cash, non_marginable = cash) = ok('id' => 'paper-account', 'status' => 'ACTIVE', 'currency' => 'USD', 'cash' => cash,
+                                                'buying_power' => (cash.to_d * 2).to_s('F'), 'non_marginable_buying_power' => non_marginable)
+  def clock(open) = ok('timestamp' => '2026-09-01T06:00:00-04:00', 'is_open' => open, 'next_open' => '2026-09-08T09:30:00-04:00',
+                       'next_close' => '2026-09-01T16:00:00-04:00')
+
+  def alpaca_scenarios
+    started = '2026-09-01T10:00:00.123456Z'
+    ticker = { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000027', 'minimum_quote_size' => '1' }
+    http = {
+      'GET /v1beta3/crypto/us/latest/quotes' => [quotes(64_321.5)],
+      'GET /v1beta3/crypto/us/latest/trades' => [trades(64_310.75)],
+      'POST /v2/orders' => [ok(alpaca_order('OTX-1', 'pending_new'))],
+      'GET /v2/account' => [account('100000')],
+      'GET /v2/positions' => [ok([])]
+    }
+    modes = { 'market' => {}, 'limit' => { 'limit_ordered' => true, 'limit_order_pcnt_distance' => 0.0025 },
+              'smart' => { 'smart_intervaled' => true, 'smart_interval_quote_amount' => 20.0 } }
+    closed = { 'status' => 0, 'external_status' => 2, 'external_id' => 'OCLOSED-1', 'order_type' => 0, 'quote_amount' => '60',
+               'quote_amount_exec' => '60', 'amount_exec' => '0.00093', 'price' => '64500', 'created_at' => '2026-09-01 10:00:01' }
+    waiting = lambda do |ext, limit: false|
+      { 'status' => 0, 'external_status' => limit ? 1 : 0, 'external_id' => ext, 'order_type' => limit ? 1 : 0,
+        'quote_amount' => limit ? nil : '60', 'amount' => limit ? '0.000935' : nil, 'price' => '64150', 'amount_exec' => '0',
+        'quote_amount_exec' => '0', 'created_at' => '2026-09-01 10:00:01' }.compact
+    end
+    %w[hour day week].flat_map do |interval|
+      step = { 'hour' => 1.hour, 'day' => 1.day, 'week' => 1.week }.fetch(interval)
+      after = ->(n) { (Time.iso8601(started) + (n * step) + 1.second).iso8601(6) }
+      variants = {
+        'first_tick' => { 'at' => (Time.iso8601(started) + 0.5).iso8601(6) },
+        'on_schedule' => { 'at' => after.(1), 'transactions' => [closed] },
+        'late_3' => { 'at' => after.(3), 'transactions' => [closed] },
+        'carry' => { 'at' => after.(1), 'transient' => { 'missed_quote_amount' => '12.5' } },
+        'settings_changed' => { 'at' => after.(1), 'settings_changed_at' => '2026-09-01T10:30:00Z' },
+        'below_minimum' => { 'at' => after.(1), 'quote_amount' => 0.4 },
+        'insufficient_buying_power' => { 'at' => after.(1), 'http' => { 'POST /v2/orders' => [{ 'status' => 403,
+          'body' => { 'buying_power' => '0', 'code' => 40_310_000, 'cost_basis' => '60', 'message' => 'insufficient buying power' } }] } },
+        'unauthorized_twice' => { 'at' => after.(1), 'transient' => { 'last_failure_kind' => 'invalid_key' },
+                                  'http' => { 'POST /v2/orders' => [{ 'status' => 401, 'body' => { 'code' => 40_110_000, 'message' => 'unauthorized.' } }] } },
+        # Sanctioned divergences (rust/tests/parity.rs ALPACA_DIVERGENCES): Rails writes a failed row, Rust keeps the intent.
+        'add_server_error' => { 'at' => after.(1), 'http' => { 'POST /v2/orders' => [{ 'status' => 500,
+                                'body' => { 'code' => 50_010_000, 'message' => 'internal server error' } }] } },
+        'add_unreadable' => { 'at' => after.(1), 'http' => { 'POST /v2/orders' => [{ 'status' => 200, 'body' => 'upstream connect error' }] } },
+        'add_rate_limited' => { 'at' => after.(1), 'http' => { 'POST /v2/orders' => [{ 'status' => 429,
+                                'body' => { 'code' => 42_910_000, 'message' => 'rate limit exceeded' } }] } },
+        'add_network_pre_send' => { 'at' => after.(1), 'http' => { 'POST /v2/orders' => [PRE_SEND] } },
+        'add_network_after_send' => { 'at' => after.(1), 'http' => { 'POST /v2/orders' => [POST_SEND] } },
+        # The price changes between reads; the POST fails before sending, and the retry 3 s later must reuse the cached price.
+        'retry_reuses_cached_price' => { 'at' => after.(1),
+          'http' => { 'GET /v1beta3/crypto/us/latest/quotes' => [quotes(64_321.5), quotes(70_000)],
+                      'GET /v1beta3/crypto/us/latest/trades' => [trades(64_310.75), trades(70_000)],
+                      'POST /v2/orders' => [PRE_SEND, ok(alpaca_order('OTX-1', 'pending_new'))] } },
+        'zero_price' => { 'at' => after.(1), 'http' => { 'GET /v1beta3/crypto/us/latest/quotes' => [quotes(0)],
+                                                         'GET /v1beta3/crypto/us/latest/trades' => [trades(0)] } },
+        'missing_price' => { 'at' => after.(1), 'http' => { 'GET /v1beta3/crypto/us/latest/quotes' => [ok('quotes' => {})],
+                                                            'GET /v1beta3/crypto/us/latest/trades' => [ok('trades' => {})] } },
+        'sweep_partially_filled' => { 'at' => after.(1), 'transactions' => [waiting.('OOPEN-1', limit: true)],
+          'http' => { 'GET /v2/orders/OOPEN-1' => [ok(alpaca_order('OOPEN-1', 'partially_filled', type: 'limit', notional: nil, qty: '0.000935',
+                                                                   filled_qty: '0.0004', filled_avg_price: '64150', limit_price: '64150'))] } },
+        'sweep_rejected_ignored' => { 'at' => after.(1), 'transactions' => [waiting.('OMKT-1')],
+                                      'http' => { 'GET /v2/orders/OMKT-1' => [ok(alpaca_order('OMKT-1', 'rejected'))] } },
+        'sweep_fills_with_carry' => { 'at' => after.(1), 'transient' => { 'missed_quote_amount' => '100.0' }, 'transactions' => [waiting.('OMKT-2')],
+          'http' => { 'GET /v2/orders/OMKT-2' => [ok(alpaca_order('OMKT-2', 'filled', filled_qty: '0.000932719', filled_avg_price: '64328.1'))] } },
+        'sweep_http_error' => { 'at' => after.(1), 'transactions' => [waiting.('OMKT-3')],
+          'http' => { 'GET /v2/orders/OMKT-3' => [{ 'status' => 500, 'body' => { 'code' => 50_010_000, 'message' => 'internal server error' } }] } },
+        # Cash and non-marginable buying power on opposite sides of the buffer: only the latter decides (#spendable_balance).
+        'funds_low_buying_power' => { 'at' => after.(1), 'http' => { 'GET /v2/account' => [account('100000', '1')] } },
+        'funds_low_cash_only' => { 'at' => after.(1), 'http' => { 'GET /v2/account' => [account('1', '100000')] } },
+        'balance_certificate' => { 'at' => after.(1), 'http' => { 'GET /v2/account' => [CERTIFICATE] } },
+        'add_certificate' => { 'at' => after.(1), 'http' => { 'POST /v2/orders' => [CERTIFICATE] } },
+        # Poll-only, failing: Bot::FetchAndUpdateOrderJob raises (no row changes); both sides report the message.
+        'poll_partially_filled' => { 'at' => after.(1), 'tick' => false, 'poll' => 'OOPEN-5', 'transactions' => [waiting.('OOPEN-5', limit: true)],
+          'http' => { 'GET /v2/orders/OOPEN-5' => [ok(alpaca_order('OOPEN-5', 'partially_filled', type: 'limit', notional: nil, qty: '0.000935',
+                                                                   filled_qty: '0.0004', filled_avg_price: '64150', limit_price: '64150'))] } },
+        'poll_http_error' => { 'at' => after.(1), 'tick' => false, 'poll' => 'OOPEN-6', 'transactions' => [waiting.('OOPEN-6', limit: true)],
+          'http' => { 'GET /v2/orders/OOPEN-6' => [{ 'status' => 500, 'body' => { 'code' => 50_010_000, 'message' => 'internal server error' } }] } },
+        'balance_network' => { 'at' => after.(1), 'http' => { 'GET /v2/account' => [POST_SEND] } },
+        'untradable' => { 'at' => after.(1), 'ticker_after' => { 'trading_enabled' => false }, 'http' => { 'GET /v2/clock' => [clock(true)] } },
+        # Sanctioned divergence: Rails parks a crypto bot whose ticker went untradable behind the stock market's clock.
+        'untradable_clock_closed' => { 'at' => after.(1), 'ticker_after' => { 'trading_enabled' => false }, 'http' => { 'GET /v2/clock' => [clock(false)] } },
+        # Poll-only (no tick): Bot::FetchAndUpdateOrderJob for one seeded waiting order at at + 5 s.
+        'poll_open_carry' => { 'at' => after.(1), 'tick' => false, 'poll' => 'OOPEN-3', 'transient' => { 'missed_quote_amount' => '25.0' },
+          'transactions' => [waiting.('OOPEN-3', limit: true)],
+          'http' => { 'GET /v2/orders/OOPEN-3' => [ok(alpaca_order('OOPEN-3', 'new', type: 'limit', notional: nil, qty: '0.000935', limit_price: '64150'))] } },
+        'poll_closed_fill' => { 'at' => after.(1), 'tick' => false, 'poll' => 'OOPEN-4', 'transient' => { 'missed_quote_amount' => '80.0' },
+          'transactions' => [waiting.('OOPEN-4', limit: true)],
+          'http' => { 'GET /v2/orders/OOPEN-4' => [ok(alpaca_order('OOPEN-4', 'filled', type: 'limit', notional: nil, qty: '0.000935',
+                                                                   filled_qty: '0.000935', filled_avg_price: '64150', limit_price: '64150'))] } },
+        # A tick that places OTX-1; its follow-up poll at at + 5 s finds it filled (a notional market buy, or the limit).
+        'tick_then_poll' => { 'at' => after.(1), 'poll' => 'OTX-1', 'transient' => { 'missed_quote_amount' => '12.5' },
+          'http' => lambda do |mode|
+            filled = if mode == 'limit'
+                       alpaca_order('OTX-1', 'filled', type: 'limit', notional: nil, qty: '0.001130165', filled_qty: '0.001130165',
+                                                       filled_avg_price: '64149.97', limit_price: '64149.97')
+                     else
+                       alpaca_order('OTX-1', 'filled', notional: '72.5', filled_qty: '0.001127108', filled_avg_price: '64321.5')
+                     end
+            { 'GET /v2/orders/OTX-1' => [ok(filled)] }
+          end }
+      }
+      modes.flat_map do |mode, settings|
+        variants.map do |name, v|
+          v_http = v.fetch('http', {})
+          v_http = v_http.(mode) if v_http.respond_to?(:call)
+          { 'name' => "#{interval}-#{mode}-#{name}", 'venue' => 'alpaca', 'interval' => interval, 'quote_amount' => v.fetch('quote_amount', 60.0),
+            'started_at' => started, 'settings' => settings, 'settings_changed_at' => v['settings_changed_at'],
+            'transient' => v.fetch('transient', {}), 'transactions' => v.fetch('transactions', []), 'ticker' => ticker,
+            'ticker_after' => v['ticker_after'], 'at' => v.fetch('at'), 'script' => { 'alpaca' => http.merge(v_http) },
+            'tick' => v.fetch('tick', true), 'poll' => v['poll'] }
+        end
+      end
+    end
+  end
+
+  def grid(root, list)
+    list.each do |sc|
       dir = File.join(root, sc['name'])
       FileUtils.mkdir_p(dir)
       bot = build(dir, sc)
       File.write(File.join(dir, 'scenario.json'),
-                 JSON.pretty_generate({ 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'script' => sc['script'],
-                                      'tick' => sc['tick'], 'poll' => sc['poll'] }.compact))
+                 JSON.pretty_generate({ 'parity_scratch' => true, 'bot_id' => bot.id, 'at' => sc['at'], 'venue' => sc['venue'], 'script' => sc['script'],
+                                        'tick' => sc['tick'], 'poll' => sc['poll'] }.compact))
       ActiveRecord::Base.connection_pool.disconnect!
     end
-    puts "built #{scenarios.size} scenarios in #{root}"
+    puts "built #{list.size} scenarios in #{root}"
   end
 
   def retry_of(bot_id)
@@ -213,7 +401,10 @@ module Decisions
   def record(root)
     ActiveJob::Base.queue_adapter = :test # jobs are Rust's to replace; only retries are replayed below
     ActiveJob::Base.retry_jitter = 0.0
+    # A real cache, as production has: development's :null_store would skip Exchange#get_*_price's 5 s cache.
+    Rails.cache = ActiveSupport::Cache::MemoryStore.new
     Honeymaker::Clients::Kraken.prepend(ScriptedKraken::Http)
+    Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(ScriptedAlpaca::Adapter)
     Bot.prepend(Module.new do # broadcasts are UI side effects outside the comparison
       %i[broadcast_status_bar_update broadcast_new_order broadcast_updated_order broadcast_metrics_panel].each { |m| define_method(m) { |*| nil } }
     end)
@@ -223,8 +414,11 @@ module Decisions
       ActiveRecord::Base.establish_connection(adapter: 'sqlite3', database: File.join(dir, 'production.sqlite3'))
       Rails.cache.clear # Exchanges::Kraken caches prices by exchange/ticker id, which every scenario shares
       ActiveJob::Base.queue_adapter.enqueued_jobs.clear
-      ScriptedKraken.http = sc['script']['http'].transform_values(&:dup)
+      alpaca = sc['venue'] == 'alpaca'
+      ScriptedKraken.http = alpaca ? {} : sc['script']['http'].transform_values(&:dup)
       ScriptedKraken.sent = []
+      ScriptedAlpaca.http = alpaca ? sc['script']['alpaca'].transform_values(&:dup) : nil
+      ScriptedAlpaca.sent = []
       before = snapshot
       if sc.fetch('tick', true)
         travel_to(Time.iso8601(sc['at']), with_usec: true) { Bot::ActionJob.perform_now(Bot.find(sc['bot_id'])) }
@@ -234,11 +428,21 @@ module Decisions
           travel_to(Time.at(job[:at]), with_usec: true) { ActiveJob::Base.execute(job.stringify_keys) }
         end
       end
+      poll_error = nil
       if sc['poll'] # the follow-up poll Transaction enqueues for one order; its retries are not replayed
         order = Transaction.find_by!(bot_id: sc['bot_id'], external_id: sc['poll'])
-        travel_to(Time.iso8601(sc['at']) + 5, with_usec: true) { Bot::FetchAndUpdateOrderJob.perform_now(order, update_missed_quote_amount: true) }
+        travel_to(Time.iso8601(sc['at']) + 5, with_usec: true) do
+          Bot::FetchAndUpdateOrderJob.perform_now(order, update_missed_quote_amount: true)
+        rescue StandardError => e
+          raise unless alpaca # a Kraken scenario must not fail its poll
+
+          poll_error = e.message # the job raised (a retry_on error is enqueued instead, and does not land here)
+        end
       end
-      File.write(File.join(dir, 'rails.json'), JSON.pretty_generate('sent' => ScriptedKraken.sent, 'changes' => diff(before, snapshot)))
+      out = { 'sent' => alpaca ? ScriptedAlpaca.sent : ScriptedKraken.sent, 'changes' => diff(before, snapshot) }
+      # Alpaca only: the funds notification (its column is excluded from the snapshot) and the follow-up's raise.
+      out.merge!('funds_notified' => Bot.find(sc['bot_id']).last_end_of_funds_notification.present?, 'poll_error' => poll_error) if alpaca
+      File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(out))
       travel_back
       ActiveRecord::Base.connection_pool.disconnect!
     end
@@ -246,6 +450,11 @@ module Decisions
 end
 
 command, root = ARGV
-raise ArgumentError, 'usage: grid <root> | record <root>' unless %w[grid record].include?(command) && root
+raise ArgumentError, 'usage: grid <root> | grid-alpaca <root> | record <root>' unless root
 
-Decisions.public_send(command, root)
+case command
+when 'grid' then Decisions.grid(root, Decisions.scenarios)
+when 'grid-alpaca' then Decisions.grid(root, Decisions.alpaca_scenarios)
+when 'record' then Decisions.record(root)
+else raise ArgumentError, 'usage: grid <root> | grid-alpaca <root> | record <root>'
+end
