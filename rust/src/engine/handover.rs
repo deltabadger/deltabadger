@@ -25,22 +25,25 @@ pub fn take_over(lock: &EngineLock, o: &Opened, cipher: &Cipher, version: &str, 
     let mut problems = report.problems.clone();
     problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
     if !problems.is_empty() { return Err(EngineError::Ineligible(problems)); }
-    let tx = model::immediate(&o.primary)?; // claim and normalisation land together or not at all
-    let claim = lease::claim(lock, &tx, cipher, version, now)?;
+    // Claim first and on its own: once committed, Rails refuses, and a failure below is repaired by the next
+    // start, which repeats the deletes and the normalisation idempotently.
+    let claim = lease::claim(lock, &o.primary, cipher, version, now)?;
 
     let mut gids: Vec<String> = report.eligible.iter().map(|id| format!("gid://deltabadger/Bots::DcaMultiAsset/{id}")).collect();
     for id in &report.eligible {
-        let mut s = tx.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1)")?;
-        for tx in s.query_map([id], |r| r.get::<_, i64>(0))? { gids.push(format!("gid://deltabadger/Transaction/{}", tx?)); }
+        let mut s = o.primary.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1)")?;
+        for t in s.query_map([id], |r| r.get::<_, i64>(0))? { gids.push(format!("gid://deltabadger/Transaction/{}", t?)); }
     }
     let placeholders = RAILS_BOT_JOBS.iter().map(|_| "?").collect::<Vec<_>>().join(",");
     let mut s = o.queue.prepare(&format!("SELECT id, arguments FROM solid_queue_jobs WHERE finished_at IS NULL AND class_name IN ({placeholders})"))?;
-    let doomed: Vec<i64> = s.query_map(rusqlite::params_from_iter(RAILS_BOT_JOBS), |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))?
-        .filter_map(Result::ok)
+    let jobs: Vec<(i64, Option<String>)> = s.query_map(rusqlite::params_from_iter(RAILS_BOT_JOBS), |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?)))?
+        .collect::<Result<_, _>>()?;
+    let doomed: Vec<i64> = jobs.into_iter()
         .filter(|(_, args)| args.as_deref().and_then(first_gid).is_some_and(|g| gids.contains(&g)))
         .map(|(id, _)| id).collect();
     for id in &doomed { o.queue.execute("DELETE FROM solid_queue_jobs WHERE id = ?1", [id])?; } // executions cascade
 
+    let tx = model::immediate(&o.primary)?;
     let mut normalised = 0;
     for id in &report.eligible {
         // `executing`/`waiting` only exist mid-tick: here they mean the last run (Rails' or ours) was cut short.
