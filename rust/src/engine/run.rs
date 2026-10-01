@@ -30,6 +30,7 @@ impl<F: VenueFactory> Engine<F> {
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
         Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), polls: HashMap::new(), reconcile_at: HashMap::new() }
     }
+    #[doc(hidden)] pub fn inject_stale_retry(&mut self, bot: i64, at_us: i64) { self.retry_at.insert(bot, at_us); }
     fn venue_for(&self, bot: &model::Bot) -> Result<F::V, EngineError> {
         Ok(self.factory.for_key(model::credentials_for(&self.primary, &self.cipher, bot)?))
     }
@@ -96,7 +97,8 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     }
     for id in model::working_bot_ids(&e.primary)? {
         if let Err(err) = step_bot(e, id, clock, &mut wake).await {
-            // A lease/store error may follow an accepted order: never replay the tick, end the engine.
+            // Lease/store errors end the engine. Sqlite errors stay per bot and are retried next pass; a replay after an
+            // accepted order is prevented by the early last_action_job_at write and the persisted intent.
             if matches!(err, EngineError::Lease(_) | EngineError::Store(_)) { return Err(err); }
             eprintln!("[engine] bot {id}: {err:?}; retrying at the next pass");
         }
@@ -116,7 +118,11 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
         e.polls.remove(&tx);
         let venue = match model::load_bot(&e.primary, id).and_then(|bot| e.venue_for(&bot)) {
             Ok(v) => v,
-            Err(err) => { eprintln!("[engine] bot {id}: follow-up poll skipped: {err:?}"); continue; }
+            Err(err) => {
+                eprintln!("[engine] bot {id}: follow-up poll deferred 30 s: {err:?}");
+                e.polls.insert(tx, (id, clock.now().timestamp_micros() + RECONCILE_EVERY_US, attempts));
+                continue;
+            }
         };
         let retry = match polling::follow_up(&e.primary, &venue, id, tx, clock.now()).await {
             Ok(()) => None,
@@ -145,7 +151,7 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     } else if bot.status == crate::enums::BotStatus::Retrying {
         e.retry_at.get(&id).is_none_or(|&t| t <= now_us) // no in-memory state (a restart): due at once
     } else {
-        anchor <= now_us && bot.last_action_job_at_us().is_none_or(|t| t < cps.last_us)
+        anchor <= now_us && bot.last_action_job_at_us().is_none_or(|t| t.div_euclid(1000) < cps.last_us.div_euclid(1000)) // stored value is ms-truncated
     };
 
     if due {
@@ -168,6 +174,9 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
             TickOutcome::Skipped | TickOutcome::Stopped => { e.retry_at.remove(&id); e.reconcile_at.remove(&id); e.attempts.remove(&id); }
         }
     }
+    // Only entries that still apply count: a stale one (bot stopped and restarted) would spin the loop.
+    if bot.status != crate::enums::BotStatus::Retrying && !due { e.retry_at.remove(&id); }
+    if bot.rust_placement().is_none() && !due { e.reconcile_at.remove(&id); }
     for at in [e.retry_at.get(&id), e.reconcile_at.get(&id)].into_iter().flatten() { *wake = (*wake).min(*at); }
     let next = checkpoints(anchor, clock.now().timestamp_micros(), eff).next_us;
     *wake = (*wake).min(next + AFTER_CHECKPOINT_US);
