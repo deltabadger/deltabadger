@@ -59,6 +59,10 @@ pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: 
 
 /// `hand_back` by a process that started at `process_start` (placement::recover_since).
 pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock, process_start: DateTime<Utc>) -> Result<usize, EngineError> {
+    // The row Rails will read back must open with this secret before anything is written. With a wrong SECRET_KEY_BASE the
+    // handback would otherwise overwrite it with a row Rails cannot decrypt and report success. An absent row (never taken
+    // over by Rust) holds nothing to protect.
+    lease::read(&o.primary, cipher)?;
     let mut unresolved = vec![];
     let mut s = o.primary.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
     let pending: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
@@ -77,4 +81,23 @@ pub async fn hand_back_since<F: VenueFactory>(lock: &EngineLock, o: &Opened, fac
     lease::hand_back(lock, &tx, cipher, now)?;
     tx.commit()?;
     Ok(scheduled)
+}
+
+/// `deltabadger handback`: one pass; when it leaves an order unaccounted for, wait (a full window, so a fresh process may
+/// trust Alpaca's "not found") and pass once more.
+pub async fn hand_back_retrying<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: &F, cipher: &Cipher, clock: &dyn Clock,
+                                                 process_start: DateTime<Utc>, wait: std::time::Duration) -> Result<usize, EngineError> {
+    match hand_back_since(lock, o, factory, cipher, clock, process_start).await {
+        Err(EngineError::Unresolved(_)) => {
+            super::log(&format!("an order is not accounted for yet; waiting {} s before looking again", wait.as_secs()));
+            tokio::time::sleep(wait).await;
+            hand_back_since(lock, o, factory, cipher, clock, process_start).await
+        }
+        other => other,
+    }
+}
+
+/// 0 handed back, 3 an order still unaccounted for (use resolve-placement), 1 anything else.
+pub fn handback_exit_code(r: &Result<usize, EngineError>) -> i32 {
+    match r { Ok(_) => 0, Err(EngineError::Unresolved(_)) => 3, Err(_) => 1 }
 }

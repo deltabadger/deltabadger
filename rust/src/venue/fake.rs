@@ -22,6 +22,7 @@ struct State {
     lookup_failures: u32,
     on_add: Option<Rc<dyn Fn()>>,   // runs while AddOrder "awaits its reply": a test's concurrent writer
     on_query: Option<Rc<dyn Fn()>>, // the same, while QueryOrders does (the pre-tick sweep)
+    on_lookup: Option<Rc<dyn Fn()>>, // the same, while a recovery lookup by cl_ord_id does
 }
 
 #[derive(Clone, Default)]
@@ -84,6 +85,7 @@ impl FakeVenue {
     pub fn lookup_fails(self, n: u32) -> Self { self.s.borrow_mut().lookup_failures = n; self }
     pub fn on_add(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_add = Some(Rc::new(f)); self }
     pub fn on_query(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_query = Some(Rc::new(f)); self }
+    pub fn on_lookup(self, f: impl Fn() + 'static) -> Self { self.s.borrow_mut().on_lookup = Some(Rc::new(f)); self }
     pub fn sent(&self) -> Vec<NewOrder> { self.s.borrow().sent.clone() }
     pub fn calls(&self, path: &str) -> usize { self.s.borrow().calls.get(path).copied().unwrap_or(0) }
 
@@ -169,6 +171,8 @@ impl Venue for FakeVenue {
 
     /// `since` is unused: the fake's scripted bodies and book are not time-windowed. Never touches QueryOrders.
     async fn order_by_client_id(&self, cl_ord_id: &str, _since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError> {
+        let hook = self.s.borrow().on_lookup.clone();
+        if let Some(f) = hook { f(); }
         {
             let mut s = self.s.borrow_mut();
             if s.lookup_failures > 0 { s.lookup_failures -= 1; return Err(VenueError::Transient("ClosedOrders page failed".into())); }

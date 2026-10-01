@@ -1,6 +1,10 @@
 //! Exchanges::Alpaca + Clients::Alpaca for one-asset crypto buys, over a Transport. Rails is the oracle; each method
 //! names the Ruby it ports. Market data uses the bot's own key, as Rails' market_data_client does.
-use super::http::{HttpRequest, HttpResponse, Transport, TransportError};
+use super::http::{self, HttpRequest, HttpResponse, ReqwestTransport, Transport, TransportError};
+use super::VenueFactory;
+use crate::crypto::{Cipher, Credentials};
+use crate::engine::{eligibility, model, EngineError};
+use rusqlite::Connection;
 use super::{NewOrder, OrderKind, OrderState, OrderStatus, PriceSide, Venue, VenueError};
 use crate::engine::model::Ticker;
 use crate::engine::venue_rules::{VenueRules, ALPACA};
@@ -196,4 +200,73 @@ impl<T: Transport> Venue for AlpacaVenue<T> {
         if asset_symbol != "USD" { return Ok(BigDec::zero()); }
         Ok(ruby_opt_to_d(&account["non_marginable_buying_power"]).unwrap_or_else(|| ruby_to_d(&account["cash"])))
     }
+}
+
+/// Before 3.0 the engine trades Alpaca paper only (the amendment's rollout rule).
+pub const LIVE_REFUSED: &str = "live Alpaca trading is not enabled in this build (paper only before 3.0)";
+
+/// The real venues by exchange type. This build connects Alpaca paper only; anything else gets a venue that sends nothing
+/// (`run`'s preflight refuses such bots before it claims the install, so this is the second line). A passphrase that does
+/// not decrypt never reaches here: `model::credentials_for` fails that bot's tick (and preflight refuses it).
+#[derive(Clone)]
+pub struct LiveFactory { client: reqwest::Client }
+
+impl LiveFactory {
+    pub fn new() -> Self { Self { client: http::client() } }
+}
+
+impl Default for LiveFactory {
+    fn default() -> Self { Self::new() }
+}
+
+impl VenueFactory for LiveFactory {
+    type V = AlpacaVenue<ReqwestTransport>;
+    fn for_bot(&self, exchange_type: &str, credentials: Option<Credentials>) -> Self::V {
+        let live = credentials.as_ref().is_some_and(|c| c.passphrase.as_deref() == Some("live"));
+        let transport = match (exchange_type, credentials) {
+            ("Exchanges::Alpaca", _) if live => ReqwestTransport::refused(LIVE_REFUSED),
+            ("Exchanges::Alpaca", Some(c)) => ReqwestTransport::new(self.client.clone(), c.key, c.secret),
+            // Rails' unsaved fallback key: Alpaca answers 401 and the tick fails, per bot.
+            ("Exchanges::Alpaca", None) => ReqwestTransport::new(self.client.clone(), String::new(), String::new()),
+            (other, _) => ReqwestTransport::refused(&format!("{other} is not connected in this build")),
+        };
+        // Every key that gets this far is paper (anything but exactly "live"), so the live host is never even named.
+        AlpacaVenue::new(transport, Urls::for_passphrase(None))
+    }
+}
+
+/// What `deltabadger run` refuses before it claims anything: anything `check` refuses, and then every bot the engine will
+/// call a venue for — each eligible bot, and each bot of ANY status with an outstanding order or a placement intent (the
+/// loop polls and reconciles those too) — that is on a venue this build cannot reach, has no key, has a key this
+/// SECRET_KEY_BASE cannot decrypt, or has a live key.
+pub fn preflight(c: &Connection, cipher: &Cipher) -> Result<Vec<i64>, Vec<String>> {
+    let report = eligibility::check_install(c).map_err(|e| vec![format!("{e:?}")])?;
+    let mut problems = report.problems.clone();
+    problems.extend(report.unreadable.iter().map(|(id, e)| format!("bot {id}: unreadable ({e})")));
+    let mut ids = report.eligible.clone();
+    let mut s = c.prepare(
+        "SELECT bot_id FROM transactions WHERE status = 0 AND external_status IN (0, 1) AND bot_id IS NOT NULL \
+         UNION SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY 1")
+        .map_err(|e| vec![format!("{e:?}")])?;
+    let owing = s.query_map([], |r| r.get::<_, i64>(0)).and_then(|rows| rows.collect::<Result<Vec<_>, _>>()).map_err(|e| vec![format!("{e:?}")])?;
+    for id in owing { if !ids.contains(&id) { ids.push(id); } }
+    for id in &ids {
+        match bot_problem(c, cipher, *id) {
+            Ok(None) => {}
+            Ok(Some(p)) => problems.push(format!("bot {id}: {p}")),
+            Err(e) => problems.push(format!("bot {id}: {e:?} (is SECRET_KEY_BASE this instance's own?)")),
+        }
+    }
+    if problems.is_empty() { Ok(ids) } else { Err(problems) }
+}
+
+fn bot_problem(c: &Connection, cipher: &Cipher, id: i64) -> Result<Option<String>, EngineError> {
+    let bot = model::load_bot(c, id)?;
+    let exchange = model::exchange_type(c, &bot)?;
+    if exchange != ALPACA.exchange_type { return Ok(Some(format!("{exchange} is not connected in this build (Alpaca paper only)"))); }
+    Ok(match model::credentials_for(c, cipher, &bot)? {
+        None => Some("no Alpaca API key".into()),
+        Some(k) if k.passphrase.as_deref() == Some("live") => Some(LIVE_REFUSED.into()),
+        Some(_) => None,
+    })
 }

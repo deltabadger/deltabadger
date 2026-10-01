@@ -2,7 +2,11 @@ mod common;
 use chrono::{DateTime, Utc};
 use common::seed::{self, BotSpec, TxSpec};
 use deltabadger::engine::run::{self, Engine};
+use deltabadger::engine::amount::{self, Sizing};
+use deltabadger::engine::placement;
+use deltabadger::engine::venue_rules::KRAKEN;
 use deltabadger::engine::{model, EngineError, FixedClock};
+use deltabadger::ruby::BigDec;
 use deltabadger::lease;
 use deltabadger::store::{self, Paths};
 use deltabadger::venue::fake::{AddOutcome, FakeFactory, FakeVenue};
@@ -187,4 +191,62 @@ async fn an_order_recovered_in_a_working_bots_tick_gets_its_follow_up_poll() {
     assert_eq!(ext(&e), 1, "not before its +5 s");
     run::step(&mut e, &at("2026-09-01T10:00:46Z")).await.unwrap();
     assert_eq!(ext(&e), 2, "the follow-up poll recorded the fill");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_stop_request_lets_the_tick_in_hand_finish_and_starts_nothing_new() {
+    let v = priced();
+    let (dir, e, first, s) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
+    let second = seed::insert_bot(&e.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    let stop = e.stop_handle();
+    let _ = v.clone().on_add(move || stop.request()); // the stop lands while the first bot's AddOrder awaits its reply
+    let r = run::run(e, &at("2026-09-01T10:00:00.5Z")).await;
+    assert!(matches!(r, Err(EngineError::Stopped)), "{r:?}");
+    assert_eq!(v.sent().len(), 1, "the second due bot is not ticked");
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let rows: Vec<(i64, i64)> = c.prepare("SELECT id, status FROM bots ORDER BY id").unwrap()
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?))).unwrap().map(Result::unwrap).collect();
+    assert_eq!(rows, vec![(first, 1), (second, 1)], "the first tick finished back to scheduled; the second never started");
+    assert_eq!(c.query_row("SELECT count(*) FROM transactions", [], |r| r.get::<_, i64>(0)).unwrap(), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_stop_during_recovery_starts_no_new_placement() {
+    let v = priced();
+    let (dir, e, id, _) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
+    // An intent left by a crash before its send; at 10:05 the lookup proves it absent and the bot would tick next.
+    let bot = model::load_bot(&e.primary, id).unwrap();
+    let ticker = model::ticker_for(&e.primary, &bot).unwrap().unwrap();
+    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), KRAKEN.minimum_logic) else { panic!() };
+    placement::begin(&e.primary, &bot, &plan, &at("2026-09-01T10:00:00.5Z")).unwrap();
+    let stop = e.stop_handle();
+    let _ = v.clone().on_lookup(move || stop.request()); // SIGTERM lands while the venue answers the lookup
+    let r = run::run(e, &at("2026-09-01T10:05:00Z")).await;
+    assert!(matches!(r, Err(EngineError::Stopped)), "{r:?}");
+    assert!(v.sent().is_empty(), "recovery finished, but no new order was placed after the stop");
+    let c = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
+    let intent: Option<String> = c.query_row("SELECT json_extract(transient_data, '$.rust_placement') FROM bots WHERE id = ?1", [id], |r| r.get(0)).unwrap();
+    assert!(intent.is_none(), "the intent was settled as not placed");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_bot_made_due_and_notified_is_ticked_without_waiting_for_the_idle_cap() {
+    let v = priced();
+    let (dir, e, id, _) = engine(BotSpec::weekly(60.0, "2099-01-01 00:00:00"), v.clone()); // not due for decades
+    let (wake, stop) = (e.wake_handle(), e.stop_handle());
+    let db = dir.path().join("production.sqlite3");
+    let driver = async {
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await; // the loop is asleep on its 60 s idle cap by now
+        let started = deltabadger::codec::format_time(chrono::Utc::now() - chrono::Duration::seconds(1));
+        rusqlite::Connection::open(&db).unwrap().execute("UPDATE bots SET started_at = ?1 WHERE id = ?2", rusqlite::params![started, id]).unwrap();
+        wake.notify_one(); // what Plan 3's UI does after starting a bot
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while v.sent().is_empty() && std::time::Instant::now() < deadline { tokio::time::sleep(std::time::Duration::from_millis(20)).await; }
+        stop.request();
+    };
+    let t0 = std::time::Instant::now();
+    let (r, ()) = tokio::join!(run::run(e, &deltabadger::engine::SystemClock), driver);
+    assert!(matches!(r, Err(EngineError::Stopped)), "{r:?}");
+    assert_eq!(v.sent().len(), 1, "ticked on the notify");
+    assert!(t0.elapsed() < std::time::Duration::from_secs(30), "well inside the 60 s idle cap: {:?}", t0.elapsed());
 }

@@ -11,6 +11,9 @@ use chrono::{DateTime, Utc};
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::convert::Infallible;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use tokio::sync::Notify;
 
 const IDLE_US: i64 = 60_000_000;
 const AFTER_CHECKPOINT_US: i64 = 1_000;
@@ -29,16 +32,45 @@ pub struct Engine<F: VenueFactory> {
     prices: PriceCache,
     /// Set by the first `step`: an Alpaca absence is trusted only a full margin (20 min) after it (placement::recover_since).
     process_start: Option<DateTime<Utc>>,
+    /// Notified to make the loop step now (a stop request; Plan 3's UI after it starts or stops a bot).
+    wake: Arc<Notify>,
+    stop: Arc<AtomicBool>,
 }
 
 impl<F: VenueFactory> Engine<F> {
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
         Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), polls: HashMap::new(), reconcile_at: HashMap::new(),
-               prices: PriceCache::default(), process_start: None }
+               prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)) }
     }
+    pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
+    pub fn stop_handle(&self) -> Shutdown { Shutdown { flag: self.stop.clone(), wake: self.wake.clone() } }
+    fn stopping(&self) -> bool { self.stop.load(Ordering::SeqCst) }
     #[doc(hidden)] pub fn inject_stale_retry(&mut self, bot: i64, at_us: i64) { self.retry_at.insert(bot, at_us); }
     fn venue_for(&self, bot: &model::Bot) -> Result<F::V, EngineError> {
         Ok(self.factory.for_bot(&model::exchange_type(&self.primary, bot)?, model::credentials_for(&self.primary, &self.cipher, bot)?))
+    }
+}
+
+/// A stop request for the loop: the tick in hand finishes, nothing new starts, and `run` returns `EngineError::Stopped`.
+#[derive(Clone)]
+pub struct Shutdown { flag: Arc<AtomicBool>, wake: Arc<Notify> }
+
+impl Shutdown {
+    pub fn request(&self) {
+        self.flag.store(true, Ordering::SeqCst);
+        self.wake.notify_one(); // a permit is stored if the loop is not asleep yet
+    }
+    /// Requests the stop on SIGTERM (`docker stop`) or SIGINT. The handlers are registered before this returns, so a
+    /// signal that arrives afterwards is never lost. Call inside the runtime.
+    pub fn on_signals(&self) {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut term = signal(SignalKind::terminate()).expect("a SIGTERM handler");
+        let mut int = signal(SignalKind::interrupt()).expect("a SIGINT handler");
+        let me = self.clone();
+        tokio::spawn(async move {
+            tokio::select! { _ = term.recv() => {}, _ = int.recv() => {} }
+            me.request();
+        });
     }
 }
 
@@ -82,7 +114,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     e.process_start.get_or_insert(clock.now());
     let report = eligibility::check_install(&e.primary)?;
     if !report.problems.is_empty() { return Err(EngineError::Ineligible(report.problems)); }
-    for (id, err) in &report.unreadable { eprintln!("[engine] bot {id} is unreadable and skipped: {err}"); }
+    for (id, err) in &report.unreadable { super::log(&format!("[engine] bot {id} is unreadable and skipped: {err}")); }
 
     if !e.started {
         // Rebuilt obligation: every outstanding order is polled once, as Rails' adopt_handback! does.
@@ -94,20 +126,22 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     let mut wake = clock.now().timestamp_micros() + IDLE_US;
     run_polls(e, clock, &mut wake).await;
     for id in idle_bots_with_intents(&e.primary)? {
+        if e.stopping() { break; }
         if let Err(err) = reconcile_idle(e, id, clock, &mut wake).await {
             if matches!(err, EngineError::Lease(_) | EngineError::Store(_)) { return Err(err); }
-            eprintln!("[engine] bot {id}: placement reconciliation failed: {err:?}; retrying in 30 s");
+            super::log(&format!("[engine] bot {id}: placement reconciliation failed: {err:?}; retrying in 30 s"));
             let at = clock.now().timestamp_micros() + RECONCILE_EVERY_US;
             e.reconcile_at.insert(id, at);
             wake = wake.min(at);
         }
     }
     for id in report.eligible {
+        if e.stopping() { break; }
         if let Err(err) = step_bot(e, id, clock, &mut wake).await {
             // Lease/store errors end the engine. Sqlite errors stay per bot and are retried next pass; a replay after an
             // accepted order is prevented by the early last_action_job_at write and the persisted intent.
             if matches!(err, EngineError::Lease(_) | EngineError::Store(_)) { return Err(err); }
-            eprintln!("[engine] bot {id}: {err:?}; retrying at the next pass");
+            super::log(&format!("[engine] bot {id}: {err:?}; retrying at the next pass"));
         }
     }
     // Polls queued during this pass (a placement, a recovered intent) must pull the wake in too.
@@ -122,11 +156,12 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
     let now_us = clock.now().timestamp_micros();
     let due: Vec<(i64, i64, Attempts)> = e.polls.iter().filter(|(_, (_, at, _))| *at <= now_us).map(|(tx, (bot, _, a))| (*tx, *bot, *a)).collect();
     for (tx, id, mut attempts) in due {
+        if e.stopping() { break; }
         e.polls.remove(&tx);
         let venue = match model::load_bot(&e.primary, id).and_then(|bot| e.venue_for(&bot)) {
             Ok(v) => v,
             Err(err) => {
-                eprintln!("[engine] bot {id}: follow-up poll deferred 30 s: {err:?}");
+                super::log(&format!("[engine] bot {id}: follow-up poll deferred 30 s: {err:?}"));
                 e.polls.insert(tx, (id, clock.now().timestamp_micros() + RECONCILE_EVERY_US, attempts));
                 continue;
             }
@@ -135,10 +170,10 @@ async fn run_polls<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock, wake: 
             Ok(()) => None,
             Err(polling::PollFailure::Transient(m)) => { attempts.transient += 1; (attempts.transient < 3).then(|| (tick::retry_wait(attempts.transient, false), m)) }
             Err(polling::PollFailure::RateLimited(m)) => { attempts.rate += 1; (attempts.rate < 4).then(|| (tick::retry_wait(attempts.rate, true), m)) }
-            Err(polling::PollFailure::General(m)) => { eprintln!("[engine] bot {id}: follow-up poll failed: {m}"); None }
+            Err(polling::PollFailure::General(m)) => { super::log(&format!("[engine] bot {id}: follow-up poll failed: {m}")); None }
         };
         if let Some((wait, m)) = retry {
-            eprintln!("[engine] bot {id}: follow-up poll failed ({m}); retrying in {}s", wait.as_secs());
+            super::log(&format!("[engine] bot {id}: follow-up poll failed ({m}); retrying in {}s", wait.as_secs()));
             e.polls.insert(tx, (id, clock.now().timestamp_micros() + wait.as_micros() as i64, attempts));
         }
     }
@@ -164,12 +199,15 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     if due {
         // The loop is single-threaded: a due bot met `executing`/`waiting` was left there by an error that escaped its
         // tick, and the tick would skip it forever.
-        if model::unstick(&e.primary, id, clock.now())? { eprintln!("[engine] bot {id}: left {:?} by an earlier tick; back to scheduled", bot.status); }
+        if model::unstick(&e.primary, id, clock.now())? { super::log(&format!("[engine] bot {id}: left {:?} by an earlier tick; back to scheduled", bot.status)); }
         let tick_start = crate::codec::format_time(clock.now());
         let attempts = e.attempts.entry(id).or_default();
         let mut recovered = None;
-        let cx = TickContext { prices: &e.prices, process_start: e.process_start.expect("set by step"), stopping: &|| false };
+        let stop = e.stop.clone();
+        let stopping = move || stop.load(Ordering::SeqCst);
+        let cx = TickContext { prices: &e.prices, process_start: e.process_start.expect("set by step"), stopping: &stopping };
         let outcome = tick::tick_recovering(&e.primary, &venue, id, clock, attempts, &mut recovered, &cx).await?;
+        super::log(&format!("bot {id}: {outcome:?}"));
         // An order accepted this tick gets one follow-up poll shortly after (a deliberate small delay; Rails enqueues
         // FetchAndUpdateOrderJob at placement), whatever the tick's final outcome.
         let mut s = e.primary.prepare(
@@ -195,12 +233,18 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     Ok(())
 }
 
-/// Runs until an engine-level error; the caller exits non-zero. Release builds abort on panic, so a
-/// half-alive process that serves pages while nothing trades cannot exist (spec §3 Supervision).
+/// Runs until a stop request (`Err(EngineError::Stopped)`) or an engine-level error; the caller exits accordingly.
+/// Release builds abort on panic, so a half-alive process that serves pages while nothing trades cannot exist (spec §3).
 pub async fn run<F: VenueFactory>(mut e: Engine<F>, clock: &dyn Clock) -> Result<Infallible, EngineError> {
     loop {
+        if e.stopping() { return Err(EngineError::Stopped); }
         let wake = step(&mut e, clock).await?;
+        if e.stopping() { return Err(EngineError::Stopped); }
         let wait = (wake - clock.now().timestamp_micros()).max(0) as u64;
-        tokio::time::sleep(std::time::Duration::from_micros(wait)).await;
+        // A notify (a stop, or Plan 3's UI) cuts the sleep short; one stored before the sleep began counts too.
+        tokio::select! {
+            _ = tokio::time::sleep(std::time::Duration::from_micros(wait)) => {}
+            _ = e.wake.notified() => {}
+        }
     }
 }

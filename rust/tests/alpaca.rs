@@ -195,3 +195,41 @@ async fn the_real_transport_speaks_to_alpaca_shaped_endpoints() {
     assert_eq!(v.price(&btc_usd(), PriceSide::Ask).await, Ok(bd("64321.5")));
     assert_eq!(v.add_order(&market("60.00")).await, Ok("OTX-1".into()));
 }
+
+// Paper only before 3.0: the factory never connects a live key or another exchange, and preflight refuses both before run claims.
+#[tokio::test(flavor = "current_thread")]
+async fn live_factory_connects_paper_only() {
+    use deltabadger::crypto::Credentials;
+    use deltabadger::venue::VenueFactory;
+    let f = alpaca::LiveFactory::new();
+    let creds = |p: Option<&str>| Some(Credentials { key: "PK".into(), secret: "s".into(), passphrase: p.map(str::to_string) });
+    for p in [Some("paper"), None, Some("Live"), Some("live ")] {
+        assert_eq!(f.for_bot("Exchanges::Alpaca", creds(p)).urls().trading, PAPER_TRADING_URL, "{p:?}");
+    }
+    let live = f.for_bot("Exchanges::Alpaca", creds(Some("live")));
+    assert_ne!(live.urls().trading, TRADING_URL, "never the live host");
+    match live.price(&btc_usd(), PriceSide::Ask).await {
+        Err(VenueError::Transient(m)) => assert_eq!(m, alpaca::LIVE_REFUSED),
+        other => panic!("a live key sends nothing: {other:?}"),
+    }
+    match f.for_bot("Exchanges::Kraken", creds(None)).price(&btc_usd(), PriceSide::Ask).await {
+        Err(VenueError::Transient(m)) => assert!(m.contains("Exchanges::Kraken is not connected"), "{m}"),
+        other => panic!("another exchange sends nothing: {other:?}"),
+    }
+}
+
+#[test]
+fn preflight_refuses_a_live_key_and_an_undecryptable_passphrase() {
+    use common::seed::{self, BotSpec};
+    let (_d, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    assert_eq!(alpaca::preflight(&o.primary, &seed::cipher()), Ok(vec![id]));
+    o.primary.execute("UPDATE api_keys SET passphrase = ?1", [seed::cipher().encrypt("live")]).unwrap();
+    let e = alpaca::preflight(&o.primary, &seed::cipher()).unwrap_err();
+    assert!(e.iter().any(|p| p == &format!("bot {id}: {}", alpaca::LIVE_REFUSED)), "{e:?}");
+    // Only the passphrase is unreadable: it must never default to paper.
+    let other = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "another-instance").unwrap());
+    o.primary.execute("UPDATE api_keys SET passphrase = ?1", [other.encrypt("paper")]).unwrap();
+    let e = alpaca::preflight(&o.primary, &seed::cipher()).unwrap_err();
+    assert!(e.iter().any(|p| p.starts_with(&format!("bot {id}:")) && p.contains("api key unreadable")), "{e:?}");
+}

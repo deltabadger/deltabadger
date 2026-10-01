@@ -24,6 +24,9 @@ impl Clock for SteppingClock {
     fn now(&self) -> DateTime<Utc> { let t = self.now.get(); self.now.set(t + self.step); t }
 }
 
+/// One line to stdout, UTC-timestamped: `docker logs` is the engine's console.
+pub fn log(line: &str) { println!("{} {line}", Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ")); }
+
 #[derive(Debug)]
 pub enum EngineError {
     Sqlite(rusqlite::Error),
@@ -32,6 +35,8 @@ pub enum EngineError {
     Ineligible(Vec<String>),
     /// Bots whose order Kraken could not yet account for (handback refuses while any exist).
     Unresolved(Vec<i64>),
+    /// A requested stop (SIGTERM/SIGINT): the tick in hand finished and nothing new started.
+    Stopped,
     Lease(crate::lease::LeaseError),
     Store(crate::store::StoreError),
 }
