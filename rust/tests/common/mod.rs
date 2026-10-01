@@ -34,3 +34,11 @@ pub fn rails_install() -> tempfile::TempDir {
     }
     dir
 }
+
+/// A Rails-prepared install with the Kraken fixtures seeded.
+pub fn install() -> (tempfile::TempDir, deltabadger::store::Opened, seed::Seeded) {
+    let dir = rails_install();
+    let o = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    (dir, o, s)
+}

@@ -149,3 +149,6 @@ fn base32_decode(s: &str) -> Option<Vec<u8>> {
     }
     Some(out)
 }
+/// A venue API key, decrypted.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Credentials { pub key: String, pub secret: String }

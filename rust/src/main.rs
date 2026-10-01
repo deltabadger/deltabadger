@@ -37,7 +37,16 @@ fn main() {
                 Err(e) => fail(&format!("{e:?}")),
             };
             match store::check(&paths) {
-                Ok(()) => println!("ready"),
+                Ok(()) => {
+                    let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+                        .unwrap_or_else(|e| fail(&format!("{e}")));
+                    match deltabadger::engine::eligibility::check_install(&c) {
+                        Ok(r) if r.problems.is_empty() && r.unreadable.is_empty() => println!("ready: {} bot(s) this engine can run", r.eligible.len()),
+                        Ok(r) if r.problems.is_empty() => fail(&format!("unreadable bot rows: {:?}", r.unreadable)),
+                        Ok(r) => fail(&format!("this install uses things only the full app runs:\n{}", r.problems.join("\n"))),
+                        Err(e) => fail(&format!("{e:?}")),
+                    }
+                },
                 Err(StoreError::Missing { path }) => fail(&format!("{} does not exist yet: start the Rails app once to set up this install", path.display())),
                 Err(StoreError::Unrecognised { path }) => fail(&format!("{} is not a Deltabadger database; refusing to touch it", path.display())),
                 Err(StoreError::Behind { missing }) => fail(&format!("this data is behind this build ({} migration(s) missing): run the matching Rails app until its background jobs have finished, stop it, then start this again", missing.len())),
