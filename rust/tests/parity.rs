@@ -1,10 +1,12 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-pub fn rails(args: &[&str]) {
+pub fn rails(args: &[&str]) { if let Err(e) = try_rails(args) { panic!("{e}"); } }
+
+pub fn try_rails(args: &[&str]) -> Result<(), String> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     let scratch = tempfile::tempdir().unwrap();
-    let run = |rails_args: &[&str]| {
+    let run = |rails_args: &[&str]| -> Result<(), String> {
         let mut cmd = Command::new(root.join("bin/rails"));
         cmd.current_dir(root).args(rails_args).env_remove("DATABASE_URL")
             .env("PROXY_KRAKEN", "http://127.0.0.1:9") // any unscripted real call fails fast instead of trading
@@ -13,14 +15,14 @@ pub fn rails(args: &[&str]) {
             cmd.env(format!("{}_DATABASE_URL", db.to_uppercase()), format!("sqlite3:{}/{db}.sqlite3", scratch.path().display()));
         }
         let out = cmd.output().expect("bin/rails runs");
-        assert!(out.status.success(), "bin/rails {rails_args:?} failed:\n{}", String::from_utf8_lossy(&out.stderr));
+        if out.status.success() { Ok(()) } else { Err(format!("bin/rails {rails_args:?} failed:\n{}", String::from_utf8_lossy(&out.stderr))) }
     };
     // The oracle's own queue/cache/cable databases must exist (ActionJob queries Solid Queue directly,
     // broadcasts write Solid Cable): load every schema into the scratch files first.
-    run(&["db:schema:load"]);
+    run(&["db:schema:load"])?;
     let mut full = vec!["runner", "script/rust/decisions.rb"];
     full.extend_from_slice(args);
-    run(&full);
+    run(&full)
 }
 
 fn copy_dir(from: &Path, to: &Path) {
@@ -236,4 +238,27 @@ async fn an_alpaca_copy_is_planned_with_alpaca_bodies() {
     assert_eq!((sc["parity_scratch"].as_bool(), sc["venue"].as_str()), (Some(true), Some("alpaca")));
     assert_eq!(sc["script"]["alpaca"]["GET /v1beta3/crypto/us/latest/quotes"][0]["body"], quotes);
     assert_eq!(sc["script"]["alpaca"]["GET /v2/orders/OMKT-1"][0]["body"]["status"], "accepted", "a waiting order is answered as resting");
+}
+
+/// A scenario whose script lacks a path the tick needs must fail the run loudly, on either venue (never reach the network).
+#[test]
+fn an_unscripted_call_fails_the_run_on_both_venues() {
+    for (grid, scenario) in [("grid", "script"), ("grid-alpaca", "alpaca")] {
+        let built = tempfile::tempdir().unwrap();
+        rails(&[grid, built.path().to_str().unwrap()]);
+        let mut dirs: Vec<PathBuf> = std::fs::read_dir(built.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
+        dirs.sort();
+        let root = tempfile::tempdir().unwrap();
+        let from = dirs.iter().find(|d| {
+            let sc: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("scenario.json")).unwrap()).unwrap();
+            sc.get("tick").and_then(|t| t.as_bool()).unwrap_or(true)
+        }).unwrap();
+        copy_dir(from, &root.path().join("one"));
+        let path = root.path().join("one/scenario.json");
+        let mut sc: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        if scenario == "script" { sc["script"]["http"] = serde_json::json!({}); } else { sc["script"]["alpaca"] = serde_json::json!({}); }
+        std::fs::write(&path, sc.to_string()).unwrap();
+        let err = try_rails(&["record", root.path().to_str().unwrap()]).expect_err(&format!("{grid}: an unscripted call must fail the run"));
+        assert!(err.contains("unscripted"), "{grid}: {err}");
+    }
 }

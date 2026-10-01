@@ -4,17 +4,23 @@
 #   bin/rails runner script/rust/decisions.rb record <root>  # Rails' ticks (and retries) per <root>/<scenario>/ -> rails.json
 # Always run with every *_DATABASE_URL pointing at scratch files and PROXY_KRAKEN at a dead address. Kraken is
 # scripted beneath the real client (Honeymaker::Clients::Kraken#get_public/#post_private), so every line of
-# Rails' own parsing runs; any path a scenario did not script raises.
+# Rails' own parsing runs. Any path a scenario did not script raises Harness::Unscripted, on either venue, and so does any
+# other real connection (a Net::HTTP#connect backstop beneath every client).
 require 'json'
 require 'fileutils'
 require 'active_support/testing/time_helpers'
+
+module Harness
+  # An Exception, not a StandardError: with_rescue / honeymaker would turn a harness gap into an ordinary Failure.
+  class Unscripted < Exception; end # rubocop:disable Lint/InheritException
+end
 
 module ScriptedKraken
   mattr_accessor :http, :sent
 
   def self.reply(path, params)
     sent << params.transform_keys(&:to_s).except('nonce').compact if path == '/0/private/AddOrder'
-    queue = http[path] or raise "unscripted Kraken call #{path}"
+    queue = http&.[](path) or raise Harness::Unscripted, "unscripted Kraken call #{path}"
     Result::Success.new(queue.size > 1 ? queue.shift : queue.first)
   end
 
@@ -28,9 +34,6 @@ end
 # Rails' own middleware (json, raise_error), Clients::Alpaca#with_rescue, Client.network_failure and Exchanges::Alpaca's
 # parsing all run. Only while an Alpaca scenario runs (http set); a Kraken scenario never reaches this adapter.
 module ScriptedAlpaca
-  # An Exception, not a StandardError: with_rescue would turn a harness gap into an ordinary Failure.
-  class Unscripted < Exception; end # rubocop:disable Lint/InheritException
-
   mattr_accessor :http, :sent
 
   NETWORK = {
@@ -41,23 +44,23 @@ module ScriptedAlpaca
   }.freeze
 
   def self.reply(env)
-    raise Unscripted, "unscripted HTTP call to #{env.url}" unless env.url.host.to_s.end_with?('alpaca.markets')
+    raise Harness::Unscripted, "unscripted HTTP call to #{env.url}" unless env.url.host.to_s.end_with?('alpaca.markets')
 
     key = "#{env.method.to_s.upcase} #{env.url.path}"
     sent << JSON.parse(env.request_body).except('client_order_id') if key == 'POST /v2/orders'
-    queue = http[key] or raise Unscripted, "unscripted Alpaca call #{key}"
+    queue = http[key] or raise Harness::Unscripted, "unscripted Alpaca call #{key}"
     queue.size > 1 ? queue.shift : queue.first
   end
 
   module Adapter
     def call(env)
-      return super if ScriptedAlpaca.http.nil?
+      raise Harness::Unscripted, "unscripted HTTP call #{env.method.to_s.upcase} #{env.url}" if ScriptedAlpaca.http.nil?
 
       reply = ScriptedAlpaca.reply(env)
       if (kind = reply['network'])
         error = ScriptedAlpaca::NETWORK.fetch(kind).call
         actual = "#{error.class}: #{error.message}" # what Client.network_failure reports
-        raise Unscripted, "#{kind}: the script says #{reply['message'].inspect}, Ruby says #{actual.inspect}" unless actual == reply['message']
+        raise Harness::Unscripted, "#{kind}: the script says #{reply['message'].inspect}, Ruby says #{actual.inspect}" unless actual == reply['message']
 
         raise error
       end
@@ -404,6 +407,7 @@ module Decisions
     # A real cache, as production has: development's :null_store would skip Exchange#get_*_price's 5 s cache.
     Rails.cache = ActiveSupport::Cache::MemoryStore.new
     Honeymaker::Clients::Kraken.prepend(ScriptedKraken::Http)
+    Net::HTTP.prepend(Module.new { def connect = raise(Harness::Unscripted, "real connection to #{address}:#{port}") })
     Faraday::Adapter.lookup_middleware(:net_http_persistent).prepend(ScriptedAlpaca::Adapter)
     Bot.prepend(Module.new do # broadcasts are UI side effects outside the comparison
       %i[broadcast_status_bar_update broadcast_new_order broadcast_updated_order broadcast_metrics_panel].each { |m| define_method(m) { |*| nil } }
@@ -417,7 +421,7 @@ module Decisions
       alpaca = sc['venue'] == 'alpaca'
       ScriptedKraken.http = alpaca ? {} : sc['script']['http'].transform_values(&:dup)
       ScriptedKraken.sent = []
-      ScriptedAlpaca.http = alpaca ? sc['script']['alpaca'].transform_values(&:dup) : nil
+      ScriptedAlpaca.http = alpaca ? sc['script']['alpaca'].transform_values(&:dup) : {} # {}: any Alpaca call in a Kraken scenario is unscripted
       ScriptedAlpaca.sent = []
       before = snapshot
       if sc.fetch('tick', true)
