@@ -24,6 +24,7 @@ fn each_venue_carries_rails_minimum_logic_wire_and_absence_window() {
     assert_eq!((ALPACA.minimum_logic, ALPACA.wire, ALPACA.deadline_sent, ALPACA.transport_raises), (MinimumLogic::Quote, WireFormat::Alpaca, false, true));
     assert!(ALPACA.follow_up_strict && !KRAKEN.follow_up_strict, "Kraken's follow-up stays as merged");
     assert_eq!(ALPACA.reach_within_secs, 55, "send window 10 + connect 5 + write 10 + read 30 (Client::OPTIONS)");
+    assert_eq!(ALPACA.absence_margin_secs, 1200, "20 minutes: past Linux's tcp_retries2 (~924 s) and tcp_orphan_retries (~100 s)");
     assert!(!ALPACA.add_outcome_unknown(&["internal server error".into()]), "a 5xx is ambiguous at the venue, not by text");
     assert!(for_exchange("Exchanges::Binance").is_none());
     assert_eq!(for_exchange("Exchanges::Alpaca").unwrap().name, "Alpaca");

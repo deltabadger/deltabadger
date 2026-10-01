@@ -27,7 +27,7 @@ pub struct Engine<F: VenueFactory> {
     reconcile_at: HashMap<i64, i64>,
     /// Rails' 5 s price cache (Rails.cache), shared by every tick of this process.
     prices: PriceCache,
-    /// Set by the first `step`: an Alpaca absence is trusted only a full window after it (placement::recover_since).
+    /// Set by the first `step`: an Alpaca absence is trusted only a full margin (20 min) after it (placement::recover_since).
     process_start: Option<DateTime<Utc>>,
 }
 

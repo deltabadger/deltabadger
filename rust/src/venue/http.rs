@@ -104,6 +104,10 @@ impl Transport for ReqwestTransport {
             // A process frozen mid-write of the order request (SIGSTOP, a VM pause) and resumed later can deliver it after
             // the absence window (placement::recover_since) has already declared it never placed. Escape hatch: the operator
             // checks the Alpaca paper dashboard and settles the intent with `deltabadger resolve-placement`.
+            // LISTED RESIDUAL: bytes delivered later than the 20-minute absence margin (VenueRules::absence_margin_secs): a
+            // kernel configured with a longer retransmission window than Linux's defaults, or a path (proxy, middlebox) that
+            // buffers longer than TCP does. Escape hatch: `deltabadger resolve-placement`; before resolving "not placed" the
+            // operator checks Alpaca's order list for the intent's client_order_id.
             match (not_after - Utc::now()).to_std().ok().filter(|left| !left.is_zero()) {
                 None => return Err(TransportError::NotSent(format!("past the send bound {}; not sent", not_after.to_rfc3339()))),
                 Some(left) => b = b.timeout(left.min(TOTAL_TIMEOUT)),

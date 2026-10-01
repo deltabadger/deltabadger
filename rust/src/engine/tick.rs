@@ -67,7 +67,7 @@ impl PriceCache {
 /// What a tick borrows from the engine that runs it.
 pub struct TickContext<'a> {
     pub prices: &'a PriceCache,
-    /// When this process started: Alpaca absence is trusted only a full window after it (placement::recover_since).
+    /// When this process started: Alpaca absence is trusted only a full margin (20 min) after it (placement::recover_since).
     pub process_start: chrono::DateTime<chrono::Utc>,
     /// A stop was requested (the engine's Shutdown); checked between recovery and execution.
     pub stopping: &'a dyn Fn() -> bool,

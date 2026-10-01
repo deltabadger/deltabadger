@@ -36,10 +36,14 @@ pub struct VenueRules {
     pub minimum_logic: MinimumLogic,
     pub wire: WireFormat,
     /// Kraken's AddOrder carries the intent's `deadline`, after which Kraken drops the order: absence is provable from
-    /// deadline + 60 s. A venue without one is reachable until `at` + reach_within_secs: the send window
-    /// (placement::SEND_WINDOW_SECONDS, after which an intent is never sent) plus the client's whole request budget.
+    /// deadline + 60 s. A venue without one: reach_within_secs is `at` + the send window (placement::SEND_WINDOW_SECONDS,
+    /// after which an intent is never sent) plus the client's whole request budget, the bound the transport enforces;
+    /// absence there waits absence_margin_secs, which also covers the kernel's retransmissions.
     pub deadline_sent: bool,
     pub reach_within_secs: i64,
+    /// A venue without a server-side deadline (deadline_sent false): absence is concluded only from a lookup that starts
+    /// this long after BOTH the intent's `at` and this process's start. Unused where the deadline is sent.
+    pub absence_margin_secs: i64,
     /// Rails' in-app clients (Clients::Alpaca) raise Client::TransientNetworkError on a transport failure; honeymaker's
     /// return a Failure. It decides what a failed price or balance read does to a tick.
     pub transport_raises: bool,
@@ -77,6 +81,7 @@ pub static KRAKEN: VenueRules = VenueRules {
     wire: WireFormat::Kraken,
     deadline_sent: true,
     reach_within_secs: 10,
+    absence_margin_secs: 0, // Kraken enforces the deadline server-side: absence is deadline + 60 s (placement::recover_since)
     transport_raises: false,
     follow_up_strict: false,
 };
@@ -99,6 +104,13 @@ pub static ALPACA: VenueRules = VenueRules {
     wire: WireFormat::Alpaca,
     deadline_sent: false,
     reach_within_secs: 55, // send window 10 s + request budget 45 s (connect 5 + write 10 + read 30)
+    // 20 minutes, NOT reach_within_secs + 60. reqwest's timeout ends our wait, not the kernel's: bytes already handed to the
+    // socket can still reach Alpaca after the client gave up. Linux defaults bound how long:
+    // - an orphaned socket (closed by us, data unacknowledged) retransmits for tcp_orphan_retries, about 100 s;
+    // - a socket still owned by a stalled or frozen process retransmits until tcp_retries2 = 15, about 924 s (15.4 min).
+    // 1200 s clears both with margin. Do not tune it down: a shorter margin can declare "not placed" for an order that
+    // later lands, and the next tick buys twice. Kraken is unaffected: its `deadline` is enforced server-side.
+    absence_margin_secs: 1200,
     transport_raises: true,
     follow_up_strict: true,
 };

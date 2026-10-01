@@ -1,7 +1,8 @@
 //! Spec §3 placement protocol. The intent is committed (with a deadline read from the clock at that
 //! moment) before AddOrder, which is sent at most once. A lost reply is resolved by cl_ord_id, and a
 //! found order is recorded, filled and cleared in one transaction. "Not placed" is concluded only from a
-//! complete lookup that STARTED after the deadline + 60 s.
+//! complete lookup that STARTED after the deadline + 60 s (Kraken), or 20 minutes after both the intent and the
+//! process start on a venue without a server-side deadline (Alpaca, VenueRules::absence_margin_secs).
 use super::amount::{write_order_row, OrderPlan, RowKind};
 use super::model::{self, Bot, Level};
 use super::{polling, Clock, EngineError};
@@ -120,13 +121,12 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
     let Some(raw) = bot.rust_placement() else { return Ok(Recovery::NoIntent) };
     let intent = Intent::from_json(c, bot, &raw)?;
     let rules = venue.rules();
-    // The last moment the order could still reach the venue: Kraken drops it after the deadline it was sent with; a
-    // venue without one may receive it until the client gives up (VenueRules::reach_within_secs after `at`).
-    let reach_by = if rules.deadline_sent { intent.deadline } else { intent.at + Duration::seconds(rules.reach_within_secs) };
-    // A venue without a server-side deadline: the lookup must also start a full window after this process started, because
-    // a process suspended (or killed and restarted) after its send cannot vouch for when that send left. Kraken drops a late
-    // order at its deadline, so its cutoff stays deadline + 60 s whatever the process start.
-    let not_before = if rules.deadline_sent { reach_by } else { reach_by.max(process_start + Duration::seconds(rules.reach_within_secs)) };
+    // Kraken drops an order after the deadline it was sent with, so absence is provable from deadline + 60 s whatever the
+    // process start. A venue without one (VenueRules::absence_margin_secs): the lookup must start a full margin after the
+    // intent AND after this process started, because a process suspended (or killed and restarted) after its send cannot
+    // vouch for when that send left.
+    let absent_from = if rules.deadline_sent { intent.deadline + Duration::seconds(ABSENCE_AFTER_SECONDS) }
+                      else { intent.at.max(process_start) + Duration::seconds(rules.absence_margin_secs) };
     let started = clock.now(); // only a scan that starts after the cutoff can prove absence
     match venue.order_by_client_id(&intent.cl_ord_id, intent.at - Duration::hours(1)).await {
         Ok(Some(state)) => {
@@ -139,7 +139,7 @@ pub async fn recover_since<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock
             tx.commit()?;
             Ok(Recovery::Recorded(id))
         }
-        Ok(None) if started >= not_before + Duration::seconds(ABSENCE_AFTER_SECONDS) => {
+        Ok(None) if started >= absent_from => {
             let tx = model::immediate(c)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             set_intent(&tx, bot.id, None)?;

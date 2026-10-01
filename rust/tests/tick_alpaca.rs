@@ -149,7 +149,7 @@ async fn a_poll_answered_with_an_http_error_is_a_general_failure() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn a_lost_reply_is_absent_only_after_115_seconds_and_never_sent_twice() {
+async fn a_lost_reply_is_absent_only_after_20_minutes_and_never_sent_twice() {
     let (_d, o, id, _) = setup(weekly());
     let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }] }));
     let v = venue(&t);
@@ -157,9 +157,9 @@ async fn a_lost_reply_is_absent_only_after_115_seconds_and_never_sent_twice() {
     assert!(matches!(tick::tick(&o.primary, &v, id, &FixedClock(t0), &mut Attempts::default()).await.unwrap(), TickOutcome::AwaitingReconciliation));
     t.reply("GET /v2/orders:by_client_order_id", 404, json!({ "code": 40410000, "message": "order not found for client order id" })); // Alpaca's own envelope
     let bot = || model::load_bot(&o.primary, id).unwrap();
-    assert!(matches!(placement::recover(&o.primary, &v, &bot(), &FixedClock(t0 + Duration::seconds(114))).await.unwrap(), Recovery::Pending),
-            "inside send window 10 + connect 5 + write 10 + read 30 + 60 s");
-    assert!(matches!(placement::recover(&o.primary, &v, &bot(), &FixedClock(t0 + Duration::seconds(115))).await.unwrap(), Recovery::NotPlaced));
+    assert!(matches!(placement::recover(&o.primary, &v, &bot(), &FixedClock(t0 + Duration::seconds(1199))).await.unwrap(), Recovery::Pending),
+            "inside the 20-minute margin (Linux tcp_retries2 gives a still-owned socket ~924 s)");
+    assert!(matches!(placement::recover(&o.primary, &v, &bot(), &FixedClock(t0 + Duration::seconds(1200))).await.unwrap(), Recovery::NotPlaced));
     assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 0);
     let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'placement_ambiguous' ORDER BY id DESC LIMIT 1");
     assert_eq!(serde_json::from_str::<Value>(&details).unwrap()["error"], "the order never reached Alpaca");
@@ -272,9 +272,30 @@ async fn a_restarted_process_trusts_an_alpaca_absence_only_a_full_window_after_i
     let restart = t0 + Duration::seconds(600); // killed after the send, restarted ten minutes later
     let bot = || model::load_bot(&o.primary, id).unwrap();
     assert!(matches!(placement::recover_since(&o.primary, &v, &bot(), &FixedClock(restart), restart).await.unwrap(), Recovery::Pending),
-            "long past at + 115 s, but this process has not watched a full window");
-    assert!(matches!(placement::recover_since(&o.primary, &v, &bot(), &FixedClock(restart + Duration::seconds(114)), restart).await.unwrap(), Recovery::Pending));
-    assert!(matches!(placement::recover_since(&o.primary, &v, &bot(), &FixedClock(restart + Duration::seconds(115)), restart).await.unwrap(), Recovery::NotPlaced));
+            "past at + 20 min, but this process has not watched a full margin");
+    assert!(matches!(placement::recover_since(&o.primary, &v, &bot(), &FixedClock(restart + Duration::seconds(1199)), restart).await.unwrap(), Recovery::Pending));
+    assert!(matches!(placement::recover_since(&o.primary, &v, &bot(), &FixedClock(restart + Duration::seconds(1200)), restart).await.unwrap(), Recovery::NotPlaced));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_five_minute_smart_bot_waits_on_its_unresolved_intent_and_never_places_twice() {
+    // Hourly 60 in smart chunks of 5: a checkpoint every 5 minutes, each one blocked by the ambiguous first send.
+    let (_d, o, id, _) = setup(weekly().with("interval", json!("hour")).with("smart_intervaled", json!(true)).with("smart_interval_quote_amount", json!(5.0)));
+    let t = script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }, { "status": 200, "body": { "id": "OTX-2", "status": "pending_new" } }],
+                           "GET /v2/orders:by_client_order_id": [{ "status": 404, "body": { "code": 40410000, "message": "order not found for client order id" } }] }));
+    let v = venue(&t);
+    let t0 = at(T0);
+    assert!(matches!(tick::tick(&o.primary, &v, id, &FixedClock(t0), &mut Attempts::default()).await.unwrap(), TickOutcome::AwaitingReconciliation));
+    for k in 1..4 {
+        let out = tick::tick(&o.primary, &v, id, &FixedClock(t0 + Duration::minutes(5 * k)), &mut Attempts::default()).await.unwrap();
+        assert!(matches!(out, TickOutcome::AwaitingReconciliation), "checkpoint +{} min: {out:?}", 5 * k);
+    }
+    assert!(matches!(tick::tick(&o.primary, &v, id, &FixedClock(t0 + Duration::seconds(1199)), &mut Attempts::default()).await.unwrap(), TickOutcome::AwaitingReconciliation));
+    assert_eq!(t.posted_orders().len(), 1, "no second placement while the first may still land");
+    assert!(model::load_bot(&o.primary, id).unwrap().rust_placement().is_some());
+    // At the margin the absence is proven and that same tick buys again, once.
+    tick::tick(&o.primary, &v, id, &FixedClock(t0 + Duration::seconds(1200)), &mut Attempts::default()).await.unwrap();
+    assert_eq!(t.posted_orders().len(), 2);
 }
 
 #[tokio::test(flavor = "current_thread")]
