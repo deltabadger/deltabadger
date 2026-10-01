@@ -9,22 +9,7 @@ fn main() {
     match std::env::args().nth(1).as_deref() {
         Some("check") => {
             let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
-            // Rails would open the database a URL names; this build only knows paths. Refusing keeps both
-            // engines' lock next to the same file.
-            if let Some(var) = [
-                "DATABASE_URL",
-                "PRIMARY_DATABASE_URL",
-                "QUEUE_DATABASE_URL",
-                "CACHE_DATABASE_URL",
-                "CABLE_DATABASE_URL",
-            ]
-            .into_iter()
-            .find(|v| env(v).is_some_and(|x| !x.trim().is_empty()))
-            {
-                fail(&format!(
-                    "{var} is set; this build supports only *_DATABASE_PATH"
-                ));
-            }
+            refuse_url_overrides(&env);
             let paths = Paths::from_env(&env, storage.as_ref());
             let _lock = match lease::lock(&paths, chrono::Utc::now()) {
                 Ok(l) => l,
@@ -64,6 +49,7 @@ fn main() {
                 (Some("--not-placed"), None) => deltabadger::engine::placement::OperatorResolution::NotPlaced,
                 _ => fail("usage: deltabadger resolve-placement <bot_id> --placed <txid> | --not-placed"),
             };
+            refuse_url_overrides(&env);
             let storage = env("STORAGE_DIR").unwrap_or_else(|| "storage".into());
             let paths = Paths::from_env(&env, storage.as_ref());
             let _lock = lease::lock(&paths, chrono::Utc::now()).unwrap_or_else(|e| fail(&format!("{e:?}")));
@@ -91,6 +77,17 @@ fn main() {
             "deltabadger {}\nusage: deltabadger check | resolve-placement | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
             env!("CARGO_PKG_VERSION")
         ),
+    }
+}
+
+/// Rails would open the database a URL names; this build only knows paths. Refusing keeps both engines' lock next to
+/// the same file, and keeps a command from settling work against an install the operator did not mean.
+fn refuse_url_overrides(env: &dyn Fn(&str) -> Option<String>) {
+    if let Some(var) = ["DATABASE_URL", "PRIMARY_DATABASE_URL", "QUEUE_DATABASE_URL", "CACHE_DATABASE_URL", "CABLE_DATABASE_URL"]
+        .into_iter()
+        .find(|v| env(v).is_some_and(|x| !x.trim().is_empty()))
+    {
+        fail(&format!("{var} is set; this build supports only *_DATABASE_PATH"));
     }
 }
 

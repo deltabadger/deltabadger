@@ -160,14 +160,15 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
         if model::unstick(&e.primary, id, clock.now())? { eprintln!("[engine] bot {id}: left {:?} by an earlier tick; back to scheduled", bot.status); }
         let tick_start = crate::codec::format_time(clock.now());
         let attempts = e.attempts.entry(id).or_default();
-        let outcome = tick::tick(&e.primary, &venue, id, clock, attempts).await?;
+        let mut recovered = None;
+        let outcome = tick::tick_recovering(&e.primary, &venue, id, clock, attempts, &mut recovered).await?;
         // An order accepted this tick gets one follow-up poll shortly after (a deliberate small delay; Rails enqueues
         // FetchAndUpdateOrderJob at placement), whatever the tick's final outcome.
         let mut s = e.primary.prepare(
             "SELECT id FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1) AND created_at >= ?2")?;
         let accepted = s.query_map(rusqlite::params![id, tick_start], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?;
         drop(s);
-        for tx in accepted { e.polls.insert(tx, (id, clock.now().timestamp_micros() + POLL_AFTER_US, Attempts::default())); }
+        for tx in accepted.into_iter().chain(recovered) { e.polls.insert(tx, (id, clock.now().timestamp_micros() + POLL_AFTER_US, Attempts::default())); }
         match outcome {
             TickOutcome::RetryAfter(d) => { e.retry_at.insert(id, clock.now().timestamp_micros() + d.as_micros() as i64); }
             TickOutcome::AwaitingReconciliation => { e.retry_at.remove(&id); e.reconcile_at.insert(id, clock.now().timestamp_micros() + RECONCILE_EVERY_US); }
