@@ -91,7 +91,8 @@ const PRIMARY: &[TableContract] = &[
         ("id", "integer", true), ("type", "varchar", false), ("status", "integer", true), ("exchange_id", "bigint", false),
         ("user_id", "bigint", false), ("settings", "json", true), ("transient_data", "json", true),
         ("started_at", "datetime", false), ("stopped_at", "datetime", false), ("stop_message_key", "varchar", false),
-        ("settings_changed_at", "datetime", false), ("updated_at", "datetime", true), ("restatement_generation", "integer", true),
+        ("settings_changed_at", "datetime", false), ("last_end_of_funds_notification", "datetime", false),
+        ("updated_at", "datetime", true), ("restatement_generation", "integer", true),
     ], unique_indexes: &[] },
     TableContract { name: "transactions", columns: &[
         ("id", "integer", true), ("bot_id", "bigint", false), ("exchange_id", "bigint", true), ("external_id", "varchar", false),
