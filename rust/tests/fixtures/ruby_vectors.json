@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"1r9rGTJCgRK3RGJeULHokKw=\",\"h\":{\"iv\":\"wvcnyR7tBewQ1Qv9\",\"at\":\"mBMoZHziszXJ5X8b3d1f5A==\"}}"
+      "cipher": "{\"p\":\"doTKxwzea4mA83oaW5vfZs8=\",\"h\":{\"iv\":\"+RHXpbotCsMkFBwh\",\"at\":\"v39pz5tw6a+kcFs5UTmggw==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"YdlZevdaHJMEvAR2nhjv\",\"h\":{\"iv\":\"opJXuHM0lH2Tsp7p\",\"at\":\"aXH3GrHduVMJhC3MnLVN/Q==\"}}"
+      "cipher": "{\"p\":\"1Uspf48rQ8JxAI2Y75mk\",\"h\":{\"iv\":\"xw25E+m73Rng1LX1\",\"at\":\"ZkYpL00UUNbxUFN1wYnpcw==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"DxsGYZxQVBaMr0juwmh4OAokHHRir2O/kRM9Si7JM/xJdywwL9661o8Tuln5e2RPYXq2jBNy9c7x1H5kPHjd1+mYc1rkPZ/8ASRLGnU=\",\"h\":{\"iv\":\"zNfvUY3ly141yCDo\",\"at\":\"NXN6rETD+G4tNsWeRpmVVA==\",\"c\":true}}"
+      "cipher": "{\"p\":\"sE5Iai3oBZLDqfH+p4nsbEDUv0pUDO1f/bnczP72x4LDj6jocRdPCjgDB5lirsBCuOUsomV1p8eNN2oGfcvXLwL/nnRhLtSbTnhY8X8=\",\"h\":{\"iv\":\"ywxkohxuittc/2sW\",\"at\":\"1a5VGzk7uYIKkJg99vv2eQ==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "3BXQY7ZHVNAY24YP3FPWBMNORTTEGDWS",
-      "cipher": "{\"p\":\"Bp9mHRrGYtjDxGh19W5HMT4wgZz63pmulkZgLq3FYiA=\",\"h\":{\"iv\":\"E3FUT325p5f8HtH9\",\"at\":\"hbvWBdL8iEYg8sQXR0NyCw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "ZBCQKSTTJKFR7U6O2A623I3XGXNR7HNZ",
+      "cipher": "{\"p\":\"Fnz29EAiW6fdsOtS+BTuQpXrXiutOsM80qw4TcQhV8Q=\",\"h\":{\"iv\":\"kYOsYVYxByFyZOyC\",\"at\":\"GK7lsZgLm0lAKDtYNMCnaQ==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"1JpYPwDYKEQC61A+XfaNxlg=\",\"h\":{\"iv\":\"42Qs5eXwLBru02fM\",\"at\":\"tSv6Vfz1y6k4nqA2msXxPg==\"}}"
+      "cipher": "{\"p\":\"5GAtva1/XepbU2/h6JGcCWE=\",\"h\":{\"iv\":\"i8xR2CVgz4ZvMhi4\",\"at\":\"tjrDsNJo1NeshGTaTmIthw==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$n43WdwWQ4YamFK.DryiBLO4BLtNAyMfiGt3uXkIansW0mlZOJmHMO"
+      "hash": "$2a$11$dp9WErFysM/H2vmcbjEQoOhswZObNwke8IlUYUkWamQwuZLXXgxLe"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$RJ/1emsOCbQxdSOgteJlrebSaWXtEgXerpDkfeLyTe4AG1NB6zFfC"
+      "hash": "$2a$11$PQFncZUJSPXCMV.c87VZFuursrM2LDygmaw9hepGnPcAGNS9idli."
     }
   ],
   "totp": {
@@ -45396,5 +45396,943 @@
         "limit_price": "123148147039.59313965"
       }
     }
+  ],
+  "alpaca_orders": [
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "new"
+      },
+      {
+        "status": "open",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "new"
+      },
+      {
+        "status": "open",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "new"
+      },
+      {
+        "status": "open",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "accepted"
+      },
+      {
+        "status": "open",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "accepted"
+      },
+      {
+        "status": "open",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "accepted"
+      },
+      {
+        "status": "open",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "pending_new"
+      },
+      {
+        "status": "open",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "pending_new"
+      },
+      {
+        "status": "open",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "pending_new"
+      },
+      {
+        "status": "open",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      {
+        "status": "closed",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      {
+        "status": "closed",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "filled"
+      },
+      {
+        "status": "closed",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "canceled"
+      },
+      {
+        "status": "cancelled",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "canceled"
+      },
+      {
+        "status": "cancelled",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "canceled"
+      },
+      {
+        "status": "cancelled",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "expired"
+      },
+      {
+        "status": "cancelled",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "expired"
+      },
+      {
+        "status": "cancelled",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "expired"
+      },
+      {
+        "status": "cancelled",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "replaced"
+      },
+      {
+        "status": "cancelled",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "replaced"
+      },
+      {
+        "status": "cancelled",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "replaced"
+      },
+      {
+        "status": "cancelled",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "rejected"
+      },
+      {
+        "status": "failed",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "rejected"
+      },
+      {
+        "status": "failed",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "rejected"
+      },
+      {
+        "status": "failed",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "partially_filled"
+      },
+      {
+        "status": "unknown",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "partially_filled"
+      },
+      {
+        "status": "unknown",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "partially_filled"
+      },
+      {
+        "status": "unknown",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "done_for_day"
+      },
+      {
+        "status": "unknown",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "done_for_day"
+      },
+      {
+        "status": "unknown",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "done_for_day"
+      },
+      {
+        "status": "unknown",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "pending_cancel"
+      },
+      {
+        "status": "unknown",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "pending_cancel"
+      },
+      {
+        "status": "unknown",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "pending_cancel"
+      },
+      {
+        "status": "unknown",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "held"
+      },
+      {
+        "status": "unknown",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "held"
+      },
+      {
+        "status": "unknown",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "held"
+      },
+      {
+        "status": "unknown",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0",
+        "filled_avg_price": null,
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "mystery"
+      },
+      {
+        "status": "unknown",
+        "price": "0.0",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.0",
+        "quote_amount_exec": "0.0",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "market",
+        "side": "buy",
+        "notional": "60",
+        "qty": null,
+        "filled_qty": "0.000932719",
+        "filled_avg_price": "64328.1",
+        "limit_price": null,
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "mystery"
+      },
+      {
+        "status": "unknown",
+        "price": "64328.1",
+        "amount": null,
+        "quote_amount": "60.0",
+        "amount_exec": "0.000932719",
+        "quote_amount_exec": "60.0000411039",
+        "order_type": "market_order",
+        "side": "buy"
+      }
+    ],
+    [
+      {
+        "type": "limit",
+        "side": "buy",
+        "notional": null,
+        "qty": "0.00093525",
+        "filled_qty": "0.0004",
+        "filled_avg_price": "64149.97",
+        "limit_price": "64149.97",
+        "id": "O1",
+        "symbol": "BTC/USD",
+        "status": "mystery"
+      },
+      {
+        "status": "unknown",
+        "price": "64149.97",
+        "amount": "0.00093525",
+        "quote_amount": null,
+        "amount_exec": "0.0004",
+        "quote_amount_exec": "25.659988",
+        "order_type": "limit_order",
+        "side": "buy"
+      }
+    ]
   ]
 }
