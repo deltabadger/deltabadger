@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 #[test]
 fn every_recorded_rails_classification_is_reproduced() {
     let cases = common::vectors()["failure_kinds"].as_array().unwrap().clone();
-    assert_eq!(cases.len(), 32);
+    assert_eq!(cases.len(), 44);
     for c in cases {
         let rules = for_exchange(c[0].as_str().unwrap()).unwrap();
         let m = vec![c[1].as_str().unwrap().to_string()];

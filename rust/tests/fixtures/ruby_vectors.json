@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"o91KVDO2jLNTZoFrCluWR9Y=\",\"h\":{\"iv\":\"6jGvmp2YWNRbjL4q\",\"at\":\"TYgD/dKIkLdwx1VBnrA5Gg==\"}}"
+      "cipher": "{\"p\":\"zefy14Wf/cebVAUX0AXkAZE=\",\"h\":{\"iv\":\"jMx9TIhDNGtRwyWz\",\"at\":\"lj9TG06tlQiVNzlKBWnOtA==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"W1Ph1vPlKNV0kmdEciZC\",\"h\":{\"iv\":\"27SwBzUOXK+ZY0cU\",\"at\":\"xohhp1dQWd2rOpoQJKsSIg==\"}}"
+      "cipher": "{\"p\":\"1Nx4lCL7Bh9KWTuMQlG+\",\"h\":{\"iv\":\"4acc0Hfyoz+hA/rY\",\"at\":\"tOOtE73JZG+3Esz8TN9IDQ==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"7W0IabUnZgl0n+JNcfsBTBl/HFqIDmrWUBw9yr0sc9G1pQSy/UD+7i1SpuTylsifNOl4zvduf7FOgXXtyKGdHCHNhNYLBVU9oDM/tL4=\",\"h\":{\"iv\":\"9HGu1zqZlhJz184V\",\"at\":\"JpxtzCykhtONEpzcq5gmgA==\",\"c\":true}}"
+      "cipher": "{\"p\":\"ecF/pkLvbD1edrOUId6Sdu9AmEr2cUSQ6uXknyTjKgaSWQdPTiSIiQt6kbWhT0PiaNJbvbk6M1sqpy+j7yyCp0OPI1Uq+5/Bq3Nc1wg=\",\"h\":{\"iv\":\"VPkWadb5EkjQgfzj\",\"at\":\"af3v4GRlqD/P4MU6KBLIKQ==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "EZSTG523AWNSOHZRNX6UKL6DUXUDDHMO",
-      "cipher": "{\"p\":\"thw0L0E+owtoQiPc2wJcoFVN9goXtKLL6qk0tqzmTWY=\",\"h\":{\"iv\":\"jxoNtS0SdAZ4d3+k\",\"at\":\"xHC0yZplRtkQzIqHD4zKhw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "P6ZENTO7TZ2FZUKNLJNUTLTTPBLCPUMO",
+      "cipher": "{\"p\":\"kdqbaVnR75IE/0tDXJ6lkqs+cfORewW/6lF8zdvTEbY=\",\"h\":{\"iv\":\"RVyZrOsug4x+jFqw\",\"at\":\"b9LNX6MLFWE+OyQPEnFNOw==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"i7As916rK8/l5KdD3JgOCOc=\",\"h\":{\"iv\":\"ohy/bO1JjPD2jYmE\",\"at\":\"CRzqHxdVF86RJQ0++TvBsg==\"}}"
+      "cipher": "{\"p\":\"7BZpV1ogvUk9Jdw5J1AvlBw=\",\"h\":{\"iv\":\"+qhIEEfZW75o86eN\",\"at\":\"3TJHRBT2C76qtSid75+QqQ==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$jKpnWXOD/CEIIO0sfDH4/.iKEftGFc2c25M4AXYsxRi1YWkdp09aa"
+      "hash": "$2a$11$OZeiU0dySkrygEg.4C1Oe.PYYS22WEBrgD8fAVsI608l6ov1eCUTi"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$efEi717pxUweZSscduWWReKH/Lwl9mu5oQONisReMWev3QaSxCtFC"
+      "hash": "$2a$11$9H.YfWkwiAcD60jLxyw.kuritdS/F03mMG9XxVqyoKmn35SwRGdtW"
     }
   ],
   "totp": {
@@ -40968,6 +40968,48 @@
       false
     ],
     [
+      "Exchanges::Alpaca",
+      "EAPI:Invalid signature",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EGeneral:Permission denied",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EAccount:Invalid permissions:USDT trading restricted for AT.",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EGeneral:Internal error",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EService:Busy",
+      null,
+      false,
+      false
+    ],
+    [
+      "Exchanges::Alpaca",
+      "EService:Deadline elapsed",
+      null,
+      false,
+      false
+    ],
+    [
       "Exchanges::Kraken",
       "insufficient buying power",
       null,
@@ -41078,11 +41120,55 @@
       null,
       false,
       false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EAPI:Invalid signature",
+      "invalid_key",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EGeneral:Permission denied",
+      "permission_denied",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EAccount:Invalid permissions:USDT trading restricted for AT.",
+      "restricted",
+      false,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EGeneral:Internal error",
+      "transient",
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EService:Busy",
+      "transient",
+      true,
+      false
+    ],
+    [
+      "Exchanges::Kraken",
+      "EService:Deadline elapsed",
+      "transient",
+      true,
+      false
     ]
   ],
   "ported_sources": {
     "app/models/clients/alpaca.rb": "00e5b9bb3bd88c88c38abad1e4246bc89482b822239d6a067bb7906dd7ab9601",
     "app/models/exchanges/alpaca.rb": "29a2fa34f228a49c43f779631bfe36dbda413208cf09f8d7cc8924d972caf33a",
-    "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b"
+    "app/models/client.rb": "f5a9f759c2007fae9a264dca94d315b1092c8cb391381905bc686e374c22683b",
+    "app/models/exchange.rb": "80774c3f6e4f556c73fb876ad2d1e3b2b72ba93bd12122a80ef605135df7c43a",
+    "app/models/exchanges/kraken.rb": "59c8298dbc7cc8078ce65f65ed3e0d907c8e77abf151c4ba515fe16bb908f096"
   }
 }

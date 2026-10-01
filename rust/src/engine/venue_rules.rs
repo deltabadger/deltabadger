@@ -54,7 +54,7 @@ impl VenueRules {
     pub fn failure_kind(&self, messages: &[String]) -> Option<&'static str> {
         self.kinds.iter().find(|(_, pats)| any(pats, messages)).map(|(k, _)| *k)
     }
-    pub fn is_throttle(&self, messages: &[String]) -> bool { any(self.kinds[4].1, messages) }
+    pub fn is_throttle(&self, messages: &[String]) -> bool { self.kinds.iter().any(|(k, pats)| *k == "throttle" && any(pats, messages)) }
     pub fn is_transient(&self, messages: &[String]) -> bool { any(self.transient_text, messages) }
     pub fn add_outcome_unknown(&self, messages: &[String]) -> bool { any(self.add_outcome_unknown, messages) }
 }
