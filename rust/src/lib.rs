@@ -2,6 +2,7 @@
 //! schema.
 pub mod codec;
 pub mod crypto;
+pub mod engine;
 pub mod enums;
 pub mod lease;
 pub mod store;

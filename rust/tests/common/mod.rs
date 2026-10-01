@@ -1,5 +1,7 @@
 #![allow(dead_code)] // each test binary uses a different part of this module
 
+pub mod seed;
+
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::OnceLock;
