@@ -108,3 +108,37 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     let after = snapshot(&o.primary)?;
     Ok(json!({ "sent": venue.sent().iter().map(wire).collect::<Vec<_>>(), "changes": diff(&before, &after) }))
 }
+
+/// For every bot this engine would run on the copy at `src`: its own scenario, ticking 1 s after its next
+/// checkpoint. The copy is duplicated per bot, so each engine writes only into its own.
+pub fn plan_copy(src: &Path, tickers: &Value, out: &Path, now: DateTime<Utc>) -> Result<usize, EngineError> {
+    use crate::engine::{eligibility, model, schedule};
+    store::check(&Paths::from_env(&|_| None, src))?;
+    let c = Connection::open_with_flags(src.join("production.sqlite3"), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    let report = eligibility::check_install(&c)?;
+    if !report.problems.is_empty() { return Err(EngineError::Ineligible(report.problems)); }
+    for id in &report.eligible {
+        let bot = model::load_bot(&c, *id)?;
+        let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) else { continue };
+        let next = schedule::checkpoints(anchor, now.timestamp_micros(), schedule::effective(interval, quote, bot.smart_quote_amount())).next_us;
+        let at = DateTime::from_timestamp_micros(next + 1_000_000).unwrap();
+        let dir = out.join(format!("bot-{id}"));
+        std::fs::create_dir_all(&dir).map_err(|e| EngineError::Data(e.to_string()))?;
+        for f in ["production.sqlite3", "production_queue.sqlite3"] {
+            // `VACUUM INTO` gives a consistent single-file copy even when the source has a -wal file.
+            let target = dir.join(f);
+            Connection::open_with_flags(src.join(f), rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?
+                .execute("VACUUM INTO ?1", [target.to_string_lossy()])?;
+        }
+        let pair = model::ticker_for(&c, &bot)?.map(|t| t.ticker).unwrap_or_default();
+        let ticker_body = tickers.get(&pair).cloned().ok_or_else(|| EngineError::Data(format!("no recorded Ticker body for {pair}")))?;
+        let scenario = json!({ "parity_scratch": true, "bot_id": id, "at": at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true), "script": { "http": {
+            "/0/public/Ticker": [ticker_body],
+            "/0/private/AddOrder": [{ "error": [], "result": { "txid": [format!("OPARITY-{id}")] } }],
+            "/0/private/BalanceEx": [{ "error": [], "result": { "ZEUR": { "balance": "1000000000", "hold_trade": "0" }, "ZUSD": { "balance": "1000000000", "hold_trade": "0" } } }],
+            "/0/private/QueryOrders": [{ "error": [], "result": {} }],
+            "/0/private/TradesHistory": [{ "error": [], "result": { "trades": {}, "count": 0 } }] } } });
+        std::fs::write(dir.join("scenario.json"), serde_json::to_string_pretty(&scenario).unwrap()).map_err(|e| EngineError::Data(e.to_string()))?;
+    }
+    Ok(report.eligible.len())
+}

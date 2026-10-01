@@ -73,13 +73,22 @@ fn main() {
             println!("resolved");
         }
         Some("decide") => {
-            let dir = std::env::args().nth(3).unwrap_or_else(|| fail("usage: deltabadger decide run <scenario_dir>"));
+            let args: Vec<String> = std::env::args().skip(2).collect();
             let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-            let out = rt.block_on(deltabadger::parity::decide(std::path::Path::new(&dir))).unwrap_or_else(|e| fail(&format!("{e:?}")));
+            let out = match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+                ["run", dir] => rt.block_on(deltabadger::parity::decide(std::path::Path::new(dir))).unwrap_or_else(|e| fail(&format!("{e:?}"))),
+                ["plan", src, tickers, out, now] => {
+                    let tickers = std::fs::read_to_string(tickers).ok().and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_else(|| fail("tickers.json is unreadable"));
+                    let now = now.parse().unwrap_or_else(|_| fail("<now> must be RFC 3339, e.g. 2026-09-10T00:00:00Z"));
+                    let n = deltabadger::parity::plan_copy(std::path::Path::new(src), &tickers, std::path::Path::new(out), now).unwrap_or_else(|e| fail(&format!("{e:?}")));
+                    serde_json::json!({ "planned": n })
+                }
+                _ => fail("usage: deltabadger decide run <scenario_dir> | decide plan <src> <tickers.json> <out> <now>"),
+            };
             println!("{}", serde_json::to_string_pretty(&out).unwrap());
         }
         _ => println!(
-            "deltabadger {}\nusage: deltabadger check | resolve-placement | decide run <dir>",
+            "deltabadger {}\nusage: deltabadger check | resolve-placement | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
             env!("CARGO_PKG_VERSION")
         ),
     }

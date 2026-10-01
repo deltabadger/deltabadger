@@ -56,3 +56,20 @@ async fn decide_refuses_anything_but_a_marked_scratch_copy() {
     let err = deltabadger::parity::decide(dir.path()).await.unwrap_err();
     assert!(matches!(&err, deltabadger::engine::EngineError::Data(m) if m.contains("parity_scratch")), "{err:?}");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_copy_is_planned_per_eligible_bot_at_its_next_checkpoint() {
+    let src = tempfile::tempdir().unwrap();
+    let rails_root = tempfile::tempdir().unwrap();
+    rails(&["grid", rails_root.path().to_str().unwrap()]);
+    let one = rails_root.path().join("week-market-on_schedule");
+    for f in ["production.sqlite3", "production_queue.sqlite3"] { std::fs::copy(one.join(f), src.path().join(f)).unwrap(); }
+    let out = tempfile::tempdir().unwrap();
+    let body = serde_json::json!({ "error": [], "result": { "XXBTZEUR": { "a": ["2", "1", "1.000"], "b": ["1", "1", "1.000"], "c": ["1.5", "0.1"], "v": ["12.5", "30.1"], "p": ["1.5", "1.5"], "t": [100, 250], "l": ["1.5", "1.5"], "h": ["1.5", "1.5"], "o": "1.5" } } });
+    let n = deltabadger::parity::plan_copy(src.path(), &serde_json::json!({ "XBTEUR": body }), out.path(), "2026-09-10T00:00:00Z".parse().unwrap()).unwrap();
+    assert_eq!(n, 1);
+    let sc: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(out.path().join("bot-1/scenario.json")).unwrap()).unwrap();
+    assert_eq!(sc["parity_scratch"], true);
+    assert_eq!(sc["at"], "2026-09-15T10:00:01.123456Z", "one second after the next weekly checkpoint");
+    assert_eq!(sc["script"]["http"]["/0/public/Ticker"][0], body);
+}
