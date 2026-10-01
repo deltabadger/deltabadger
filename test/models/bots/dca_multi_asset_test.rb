@@ -433,6 +433,54 @@ class Bots::DcaMultiAssetTest < ActiveSupport::TestCase
     assert_predicate bot.reload, :waiting?
   end
 
+  # A stop is a separate request that can land while this tick waits on the exchange. The tick's own
+  # status writes must not undo it: a resurrected bot keeps buying after the user stopped it.
+  test 'a stop that lands while an order is being sent stays a stop' do
+    bot = create(:dca_multi_asset, :started, user: @user, exchange: @exchange,
+                                             base_assets: member_assets.first(1), quote_asset: @quote)
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(100.to_d))
+    Exchanges::Binance.any_instance.stubs(:market_buy).with do
+      Bot.where(id: bot.id).update_all(status: Bot.statuses[:stopped])
+      true
+    end.returns(Result::Success.new(order_id: 'OID-1'))
+
+    result = bot.execute_action
+
+    assert_predicate result, :success?
+    assert_predicate bot.reload, :stopped?
+    assert_equal ['OID-1'], bot.transactions.pluck(:external_id), 'the order already sent is still recorded'
+  end
+
+  test 'a stop that lands before the tick starts executing places nothing' do
+    bot = create(:dca_multi_asset, :started, user: @user, exchange: @exchange,
+                                             base_assets: member_assets.first(1), quote_asset: @quote)
+    Exchanges::Binance.any_instance.stubs(:get_ask_price).returns(Result::Success.new(100.to_d))
+    Exchanges::Binance.any_instance.expects(:market_buy).never
+    Bot.where(id: bot.id).update_all(status: Bot.statuses[:stopped]) # the in-memory bot still reads scheduled
+
+    result = bot.execute_action
+
+    assert_predicate result, :success?
+    assert_predicate bot.reload, :stopped?
+    assert_empty bot.transactions
+  end
+
+  # Kraken quotes some assets below the pair's price precision; floored, the limit price is zero, and
+  # dividing by it sent Kraken a volume of "Infinity".
+  test 'a limit price that floors to zero fails the tick before anything is sent' do
+    bot = create(:dca_multi_asset, :started, user: @user, exchange: @exchange,
+                                             base_assets: member_assets.first(1), quote_asset: @quote)
+    bot.stubs(:limit_ordered?).returns(true)
+    Exchanges::Binance.any_instance.stubs(:get_last_price).returns(Result::Success.new(0.004.to_d))
+    Exchanges::Binance.any_instance.expects(:limit_buy).never
+
+    result = bot.execute_action
+
+    assert_predicate result, :failure?
+    assert_equal ['limit price rounds to zero at 2 decimals'], result.errors
+    assert_empty bot.transactions
+  end
+
   # == Placement -1021 partial-success (Option B, double-order safety) ==
   # set_orders places each member in turn and returns on the FIRST failure. Worst case for a -1021
   # is "first member accepted, second member rejected". The accepted order is persisted (waiting),

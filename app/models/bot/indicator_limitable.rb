@@ -108,7 +108,8 @@ module Bot::IndicatorLimitable
         elsif met
           super
         else
-          update!(status: :waiting)
+          return Result::Success.new unless transition_working!(:waiting) # stopped meanwhile
+
           log_activity('limit_paused', details: { limit_type: :indicator })
           next_check_at = Time.now.utc + Utilities::Time.seconds_to_current_candle_close(indicator_limit_in_timeframe_duration)
           Bot::IndicatorLimitCheckJob.set(wait_until: next_check_at).perform_later(self)

@@ -55,6 +55,7 @@ class Bots::DcaMultiAssetBelowMinimumsTest < ActiveSupport::TestCase
 
   test "a basket's execute_action tells the warning whether the tick was the bot's first" do
     bot = create(:dca_multi_asset, user: create(:user), base_assets: [@base])
+    bot.update_column(:status, :scheduled) # ActionJob ticks only a working bot
     quiet_tick(bot)
 
     bot.expects(:broadcast_below_minimums_warning).with(first_tick: true)
@@ -66,6 +67,7 @@ class Bots::DcaMultiAssetBelowMinimumsTest < ActiveSupport::TestCase
 
   test "an index bot's execute_action does the same" do
     bot = create(:dca_index, user: create(:user))
+    bot.update_column(:status, :scheduled) # ActionJob ticks only a working bot
     quiet_tick(bot)
 
     bot.expects(:broadcast_below_minimums_warning).with(first_tick: true)

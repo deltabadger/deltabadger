@@ -95,7 +95,7 @@ class Bots::DcaMultiAsset < Bot
 
   def execute_action
     first_tick = own_transactions.none? # before anything is placed: see broadcast_below_minimums_warning
-    update!(status: :executing)
+    return Result::Success.new unless transition_working!(:executing) # stopped meanwhile: place nothing
 
     result = refresh_composition
     return result if result.failure?
@@ -114,7 +114,7 @@ class Bots::DcaMultiAsset < Bot
              end
     return result if result.failure?
 
-    update!(status: :waiting)
+    transition_working!(:waiting)
     broadcast_below_minimums_warning(first_tick:)
     Result::Success.new
   end

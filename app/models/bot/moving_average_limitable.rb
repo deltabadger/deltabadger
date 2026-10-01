@@ -93,7 +93,8 @@ module Bot::MovingAverageLimitable
         elsif met
           super
         else
-          update!(status: :waiting)
+          return Result::Success.new unless transition_working!(:waiting) # stopped meanwhile
+
           log_activity('limit_paused', details: { limit_type: :moving_average })
           next_check_at = Time.now.utc + Utilities::Time.seconds_to_current_candle_close(moving_average_limit_in_timeframe_duration)
           Bot::MovingAverageLimitCheckJob.set(wait_until: next_check_at).perform_later(self)
