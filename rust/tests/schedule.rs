@@ -7,7 +7,7 @@ fn micros(t: &str) -> i64 { t.parse::<DateTime<Utc>>().unwrap().timestamp_micros
 #[test]
 fn every_recorded_rails_schedule_is_reproduced() {
     let cases = common::vectors()["schedule"].as_array().unwrap().clone();
-    assert!(cases.len() >= 180);
+    assert_eq!(cases.len(), 351);
     for c in cases {
         let s = &c["settings"];
         let smart = (s["smart_intervaled"] == true).then(|| s["smart_interval_quote_amount"].as_f64()).flatten();
