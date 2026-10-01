@@ -1,0 +1,140 @@
+//! Spec §3 placement protocol. The intent is committed (with a deadline read from the clock at that
+//! moment) before AddOrder, which is sent at most once. A lost reply is resolved by cl_ord_id, and a
+//! found order is recorded, filled and cleared in one transaction. "Not placed" is concluded only from a
+//! complete lookup that STARTED after the deadline + 60 s.
+use super::amount::{write_order_row, OrderPlan, RowKind};
+use super::model::{self, Bot, Level};
+use super::{polling, Clock, EngineError};
+use crate::ruby::BigDec;
+use crate::venue::{Venue, VenueError};
+use chrono::{DateTime, Duration, Utc};
+use rusqlite::{params, Connection};
+use serde_json::{json, Value};
+
+pub const DEADLINE_SECONDS: i64 = 10;
+pub const ABSENCE_AFTER_SECONDS: i64 = 60;
+/// Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS: definitive pre-trade rejections.
+pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 2] = ["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was"];
+
+#[derive(Debug, Clone)]
+pub struct Intent { pub cl_ord_id: String, pub deadline: DateTime<Utc>, pub at: DateTime<Utc>, pub plan: OrderPlan }
+
+impl Intent {
+    fn to_json(&self) -> Value {
+        let p = &self.plan;
+        json!({ "cl_ord_id": self.cl_ord_id, "deadline": self.deadline.to_rfc3339(), "at": self.at.to_rfc3339(), "ticker_id": p.ticker.id,
+                "limit": p.limit, "price": p.price.to_s_f(), "amount": p.amount.to_s_f(), "quote_amount": p.quote_amount.to_s_f(),
+                "quote_type": p.quote_type, "volume": p.volume.to_s_f() })
+    }
+    fn from_json(c: &Connection, bot: &Bot, v: &Value) -> Result<Self, EngineError> {
+        let bad = || EngineError::Data(format!("rust_placement {v}"));
+        let d = |k: &str| v[k].as_str().and_then(|s| BigDec::parse(s).ok()).ok_or_else(bad);
+        let t = |k: &str| v[k].as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| t.with_timezone(&Utc)).ok_or_else(bad);
+        let ticker = model::ticker_for(c, bot)?.filter(|t| Some(t.id) == v["ticker_id"].as_i64()).ok_or_else(bad)?;
+        Ok(Self { cl_ord_id: v["cl_ord_id"].as_str().ok_or_else(bad)?.to_string(), deadline: t("deadline")?, at: t("at")?,
+                  plan: OrderPlan { ticker, limit: v["limit"] == true, price: d("price")?, amount: d("amount")?, quote_amount: d("quote_amount")?,
+                                    quote_type: v["quote_type"] == true, volume: d("volume")? } })
+    }
+}
+
+// A Rust-only key, written and removed without touching updated_at: a clean tick leaves nothing Rails would not.
+fn set_intent(c: &Connection, bot_id: i64, v: Option<&Value>) -> Result<(), EngineError> {
+    match v {
+        Some(v) => c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_placement', json(?1)) WHERE id = ?2", params![v.to_string(), bot_id])?,
+        None => c.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_placement') WHERE id = ?1", [bot_id])?,
+    };
+    Ok(())
+}
+
+pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> Result<Intent, EngineError> {
+    let tx = model::immediate(c)?; // check-and-set under one write lock
+    if model::load_bot(&tx, bot.id)?.rust_placement().is_some() {
+        return Err(EngineError::Data(format!("bot {} already has an unresolved order", bot.id)));
+    }
+    let now = clock.now(); // the deadline must be in the future when Kraken receives the order
+    let intent = Intent { cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now + Duration::seconds(DEADLINE_SECONDS), at: now, plan: plan.clone() };
+    set_intent(&tx, bot.id, Some(&intent.to_json()))?;
+    tx.commit()?; // durable before the send
+    Ok(intent)
+}
+
+#[derive(Debug)]
+pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String) }
+
+pub async fn send<V: Venue>(venue: &V, intent: &Intent) -> Sent {
+    match venue.add_order(&intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline)).await {
+        Ok(txid) => Sent::Accepted(txid),
+        Err(VenueError::Rejected(e)) => Sent::Rejected(e),
+        Err(VenueError::Ambiguous(m)) => Sent::Ambiguous(m),
+        Err(VenueError::Transient(m)) => Sent::NotSent(m),
+    }
+}
+
+pub fn record_accepted(c: &Connection, bot: &Bot, intent: &Intent, txid: &str) -> Result<i64, EngineError> {
+    let tx = model::immediate(c)?;
+    let id = write_order_row(&tx, bot, &intent.plan, RowKind::Submitted { external_id: txid.to_string() }, intent.at)?;
+    set_intent(&tx, bot.id, None)?;
+    tx.commit()?;
+    Ok(id)
+}
+
+pub fn record_rejected(c: &Connection, bot: &Bot, intent: &Intent, errors: &[String]) -> Result<bool, EngineError> {
+    let tx = model::immediate(c)?;
+    let safe = errors.iter().any(|m| PLACEMENT_SAFE_TRANSIENT_ERRORS.iter().any(|p| m.contains(p)));
+    if !safe { write_order_row(&tx, bot, &intent.plan, RowKind::Failed { errors: errors.to_vec() }, intent.at)?; }
+    set_intent(&tx, bot.id, None)?;
+    tx.commit()?;
+    Ok(!safe)
+}
+
+/// Nothing reached the venue (VenueError::Transient).
+pub fn drop_intent(c: &Connection, bot_id: i64) -> Result<(), EngineError> { set_intent(c, bot_id, None) }
+
+#[derive(Debug)]
+pub enum Recovery { NoIntent, Recorded(i64), NotPlaced, Pending }
+
+pub async fn recover<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock) -> Result<Recovery, EngineError> {
+    let Some(raw) = bot.rust_placement() else { return Ok(Recovery::NoIntent) };
+    let intent = Intent::from_json(c, bot, &raw)?;
+    let started = clock.now(); // only a scan that starts after the cutoff can prove absence
+    match venue.order_by_client_id(&intent.cl_ord_id, intent.at - Duration::hours(1)).await {
+        Ok(Some(state)) => {
+            let now = clock.now();
+            let tx = model::immediate(c)?;
+            let id = write_order_row(&tx, bot, &intent.plan, RowKind::Submitted { external_id: state.txid.clone() }, intent.at)?;
+            polling::apply_in(&tx, bot.id, id, &state, true, now)?; // as FetchAndUpdateOrderJob would, after placement
+            set_intent(&tx, bot.id, None)?;
+            tx.commit()?;
+            Ok(Recovery::Recorded(id))
+        }
+        Ok(None) if started >= intent.deadline + Duration::seconds(ABSENCE_AFTER_SECONDS) => {
+            let tx = model::immediate(c)?;
+            set_intent(&tx, bot.id, None)?;
+            model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning,
+                json!({ "error": "the order never reached Kraken", "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
+            tx.commit()?;
+            Ok(Recovery::NotPlaced)
+        }
+        Ok(None) | Err(_) => Ok(Recovery::Pending),
+    }
+}
+
+#[derive(Debug)]
+pub enum OperatorResolution { Placed(String), NotPlaced }
+
+/// `deltabadger resolve-placement`: a human checked Kraken's own site because Kraken's API could not answer.
+pub fn resolve_by_operator(c: &Connection, bot_id: i64, resolution: OperatorResolution, now: DateTime<Utc>) -> Result<(), EngineError> {
+    let bot = model::load_bot(c, bot_id)?;
+    let raw = bot.rust_placement().ok_or_else(|| EngineError::Data(format!("bot {bot_id} has no unresolved order")))?;
+    let intent = Intent::from_json(c, &bot, &raw)?;
+    let tx = model::immediate(c)?;
+    let (label, txid) = match resolution {
+        OperatorResolution::Placed(txid) => { write_order_row(&tx, &bot, &intent.plan, RowKind::Submitted { external_id: txid.clone() }, intent.at)?; ("placed", Some(txid)) }
+        OperatorResolution::NotPlaced => ("not_placed", None),
+    };
+    set_intent(&tx, bot_id, None)?;
+    model::log_activity(&tx, bot_id, "placement_ambiguous", Level::Warning,
+        json!({ "error": "resolved by the operator", "resolution": label, "source": "operator", "cl_ord_id": intent.cl_ord_id, "order_id": txid }), now)?;
+    tx.commit()?;
+    Ok(())
+}

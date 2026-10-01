@@ -1,0 +1,96 @@
+mod common;
+use chrono::{DateTime, Duration, Utc};
+use common::seed::{self, BotSpec};
+use deltabadger::engine::amount::{self, Sizing};
+use deltabadger::engine::placement::{self, OperatorResolution, Recovery, Sent};
+use deltabadger::engine::{model, FixedClock, SteppingClock};
+use deltabadger::ruby::BigDec;
+use deltabadger::store::{self, Paths};
+use deltabadger::venue::fake::{AddOutcome, FakeVenue};
+use deltabadger::venue::Prices;
+use serde_json::json;
+
+fn t0() -> DateTime<Utc> { "2026-09-30T12:00:00Z".parse().unwrap() }
+fn setup() -> (tempfile::TempDir, store::Opened, model::Bot, amount::OrderPlan) {
+    let dir = common::rails_install();
+    let o = store::open(&Paths::from_env(&|_| None, dir.path())).unwrap();
+    let s = seed::seed_kraken(&o.primary, &seed::cipher());
+    let bot = model::load_bot(&o.primary, seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00"))).unwrap();
+    let ticker = model::ticker_for(&o.primary, &bot).unwrap().unwrap();
+    let p = BigDec::from_i64(50_000);
+    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &Prices { bid: p.clone(), ask: p.clone(), last: p }) else { panic!() };
+    (dir, o, bot, plan)
+}
+fn count(o: &store::Opened, sql: &str) -> i64 { o.primary.query_row(sql, [], |r| r.get(0)).unwrap() }
+fn reload(o: &store::Opened, b: &model::Bot) -> model::Bot { model::load_bot(&o.primary, b.id).unwrap() }
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_intent_is_committed_with_a_deadline_from_the_moment_of_commit() {
+    let (_d, o, bot, plan) = setup();
+    let clock = SteppingClock::new(t0(), Duration::seconds(7)); // time passes between reads
+    let _ = deltabadger::engine::Clock::now(&clock); // e.g. the tick read the clock earlier
+    let intent = placement::begin(&o.primary, &bot, &plan, &clock).unwrap();
+    assert_eq!(intent.at, t0() + Duration::seconds(7), "read at commit, not earlier in the tick");
+    assert_eq!(intent.deadline, intent.at + Duration::seconds(10));
+    assert_eq!(reload(&o, &bot).rust_placement().unwrap()["cl_ord_id"], intent.cl_ord_id.as_str());
+    assert!(placement::begin(&o.primary, &reload(&o, &bot), &plan, &clock).is_err(), "a second intent is refused while one exists");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_crash_after_kraken_accepted_is_recorded_exactly_once_with_its_fill_and_original_time() {
+    let (_d, o, bot, plan) = setup();
+    let venue = FakeVenue::new().next_add(AddOutcome::Accept("OTX-1".into())).order("OTX-1", json!({
+        "status": "closed", "price": "50000", "vol": "0.0012", "vol_exec": "0.0012", "cost": "60", "oflags": "", "descr": { "ordertype": "market", "price": "0" } }));
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    assert!(matches!(placement::send(&venue, &intent).await, Sent::Accepted(ref t) if t == "OTX-1"));
+    // crash here: the reply never reached the database
+    let later = FixedClock(t0() + Duration::hours(2));
+    assert!(matches!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &later).await.unwrap(), Recovery::Recorded(_)));
+    let (ext, created): (i64, String) = o.primary.query_row("SELECT external_status, created_at FROM transactions", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!((ext, created.as_str()), (2, "2026-09-30 12:00:00"), "closed in the same commit, dated when it was placed");
+    assert!(reload(&o, &bot).rust_placement().is_none());
+    assert!(matches!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &later).await.unwrap(), Recovery::NoIntent));
+    assert_eq!((venue.sent().len(), count(&o, "SELECT count(*) FROM transactions")), (1, 1), "never a second order or row");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_crash_before_the_send_is_not_placed_only_after_deadline_plus_a_minute() {
+    let (_d, o, bot, plan) = setup();
+    let venue = FakeVenue::new();
+    placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    let at = |s: i64| FixedClock(t0() + Duration::seconds(s));
+    assert!(matches!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &at(69)).await.unwrap(), Recovery::Pending));
+    assert!(matches!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &at(70)).await.unwrap(), Recovery::NotPlaced));
+    assert!(reload(&o, &bot).rust_placement().is_none());
+    assert_eq!(count(&o, "SELECT count(*) FROM transactions"), 0);
+    assert_eq!(count(&o, "SELECT count(*) FROM bot_activity_logs WHERE event = 'placement_ambiguous'"), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_incomplete_lookup_keeps_the_intent_however_late_it_is() {
+    let (_d, o, bot, plan) = setup();
+    let venue = FakeVenue::new().lookup_fails(1);
+    placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    assert!(matches!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &FixedClock(t0() + Duration::days(3))).await.unwrap(), Recovery::Pending));
+    assert!(reload(&o, &bot).rust_placement().is_some());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_rejection_writes_a_failed_row_with_krakens_errors_and_clears_the_intent() {
+    let (_d, o, bot, plan) = setup();
+    let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    assert!(placement::record_rejected(&o.primary, &bot, &intent, &["EOrder:Insufficient funds".to_string()]).unwrap());
+    let (status, errors): (i64, String) = o.primary.query_row("SELECT status, error_messages FROM transactions", [], |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+    assert_eq!((status, errors.as_str()), (1, "[\"EOrder:Insufficient funds\"]"));
+    assert!(reload(&o, &bot).rust_placement().is_none());
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_operator_decision_resolves_an_intent_kraken_cannot_answer_for() {
+    let (_d, o, bot, plan) = setup();
+    placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
+    placement::resolve_by_operator(&o.primary, bot.id, OperatorResolution::Placed("OTX-HUMAN".into()), t0()).unwrap();
+    assert_eq!(count(&o, "SELECT count(*) FROM transactions"), 1);
+    assert!(reload(&o, &bot).rust_placement().is_none());
+    assert!(placement::resolve_by_operator(&o.primary, bot.id, OperatorResolution::NotPlaced, t0()).is_err(), "nothing left to resolve");
+}
