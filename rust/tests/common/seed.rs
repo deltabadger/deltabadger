@@ -6,7 +6,8 @@ use serde_json::{json, Value};
 
 pub fn cipher() -> Cipher { Cipher::new(&EncryptionKeys::resolve(&|_| None, "engine-test-secret").unwrap()) }
 
-pub struct Seeded { pub user_id: i64, pub kraken_id: i64, pub btc: i64, pub eur: i64, pub ticker_id: i64, pub api_key_id: i64 }
+/// What a seed created. `exchange_id`/`quote` are the seeded venue and quote asset (Kraken + EUR, or Alpaca + USD).
+pub struct Seeded { pub user_id: i64, pub exchange_id: i64, pub btc: i64, pub quote: i64, pub ticker_id: i64, pub api_key_id: i64 }
 
 const T: &str = "2026-01-01 00:00:00";
 
@@ -29,7 +30,7 @@ pub fn seed_kraken(c: &Connection, cipher: &Cipher) -> Seeded {
         "INSERT INTO api_keys (user_id, exchange_id, key, secret, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, 1, 0, ?5, ?5)",
         params![user_id, kraken_id, cipher.encrypt("test-key"), cipher.encrypt("dGVzdC1zZWNyZXQ="), T]).unwrap();
     let api_key_id = c.last_insert_rowid();
-    Seeded { user_id, kraken_id, btc, eur, ticker_id, api_key_id }
+    Seeded { user_id, exchange_id: kraken_id, btc, quote: eur, ticker_id, api_key_id }
 }
 
 pub struct BotSpec { pub status: i64, pub started_at: Option<String>, pub settings_changed_at: Option<String>, pub settings: Value, pub transient: Value }
@@ -46,12 +47,12 @@ impl BotSpec {
 
 pub fn insert_bot(c: &Connection, s: &Seeded, b: &BotSpec) -> i64 {
     let mut settings = b.settings.clone();
-    settings["quote_asset_id"] = json!(s.eur);
+    settings["quote_asset_id"] = json!(s.quote);
     if settings.get("allocations").is_none() { settings["allocations"] = json!({ s.btc.to_string(): 1.0 }); }
     c.execute(
         "INSERT INTO bots (type, status, exchange_id, user_id, settings, transient_data, started_at, settings_changed_at, created_at, updated_at) \
          VALUES ('Bots::DcaMultiAsset', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
-        params![b.status, s.kraken_id, s.user_id, settings.to_string(), b.transient.to_string(), b.started_at, b.settings_changed_at, T]).unwrap();
+        params![b.status, s.exchange_id, s.user_id, settings.to_string(), b.transient.to_string(), b.started_at, b.settings_changed_at, T]).unwrap();
     c.last_insert_rowid()
 }
 
@@ -64,8 +65,32 @@ pub fn insert_tx(c: &Connection, s: &Seeded, bot_id: i64, t: &TxSpec) -> i64 {
         "INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, price, \
          amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, \
          error_messages, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7, ?8, ?9, ?10, ?11, 'BTC', 'EUR', ?12, ?13, 'week', 60, 'REGULAR', '[]', ?14, ?14)",
-        params![bot_id, s.kraken_id, t.external_id, t.status, t.external_status, t.order_type, t.amount, t.quote_amount, t.price,
-                t.amount_exec, t.quote_amount_exec, s.btc, s.eur, t.created_at]).unwrap();
+         VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7, ?8, ?9, ?10, ?11, 'BTC', (SELECT symbol FROM assets WHERE id = ?13), ?12, ?13, 'week', 60, 'REGULAR', '[]', ?14, ?14)",
+        params![bot_id, s.exchange_id, t.external_id, t.status, t.external_status, t.order_type, t.amount, t.quote_amount, t.price,
+                t.amount_exec, t.quote_amount_exec, s.btc, s.quote, t.created_at]).unwrap();
     c.last_insert_rowid()
+}
+
+/// An Alpaca paper install: BTC/USD as data-api's listing sync imports it (base 9 / quote 2 / price 2 decimals,
+/// minimum quote 1 USD), and a trading key whose passphrase is its mode, as the API-key form writes it.
+pub fn seed_alpaca(c: &Connection, cipher: &Cipher) -> Seeded {
+    c.execute("INSERT INTO users (email, encrypted_password, name, admin, created_at, updated_at) VALUES ('o@example.com', 'x', 'Owner', 1, ?1, ?1)", [T]).unwrap();
+    let user_id = c.last_insert_rowid();
+    c.execute("INSERT INTO exchanges (type, name, maker_fee, taker_fee, created_at, updated_at) VALUES ('Exchanges::Alpaca', 'Alpaca', '0.15', '0.25', ?1, ?1)", [T]).unwrap();
+    let exchange_id = c.last_insert_rowid();
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('bitcoin', 'BTC', 'Bitcoin', 'Cryptocurrency', ?1, ?1)", [T]).unwrap();
+    let btc = c.last_insert_rowid();
+    c.execute("INSERT INTO assets (external_id, symbol, name, category, created_at, updated_at) VALUES ('usd', 'USD', 'US Dollar', 'Currency', ?1, ?1)", [T]).unwrap();
+    let quote = c.last_insert_rowid();
+    c.execute(
+        "INSERT INTO tickers (exchange_id, ticker, base, quote, base_asset_id, quote_asset_id, base_decimals, quote_decimals, price_decimals, \
+         minimum_base_size, minimum_quote_size, trading_enabled, available, created_at, updated_at) \
+         VALUES (?1, 'BTC/USD', 'BTC', 'USD', ?2, ?3, 9, 2, 2, '0.000027', '1', 1, 1, ?4, ?4)",
+        params![exchange_id, btc, quote, T]).unwrap();
+    let ticker_id = c.last_insert_rowid();
+    c.execute(
+        "INSERT INTO api_keys (user_id, exchange_id, key, secret, passphrase, status, key_type, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 1, 0, ?6, ?6)",
+        params![user_id, exchange_id, cipher.encrypt("PKTEST"), cipher.encrypt("paper-secret"), cipher.encrypt("paper"), T]).unwrap();
+    let api_key_id = c.last_insert_rowid();
+    Seeded { user_id, exchange_id, btc, quote, ticker_id, api_key_id }
 }

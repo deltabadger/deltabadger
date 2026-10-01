@@ -42,3 +42,11 @@ pub fn install() -> (tempfile::TempDir, deltabadger::store::Opened, seed::Seeded
     let s = seed::seed_kraken(&o.primary, &seed::cipher());
     (dir, o, s)
 }
+
+/// A Rails-prepared install with the Alpaca fixtures seeded.
+pub fn install_alpaca() -> (tempfile::TempDir, deltabadger::store::Opened, seed::Seeded) {
+    let dir = rails_install();
+    let o = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap();
+    let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+    (dir, o, s)
+}

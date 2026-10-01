@@ -114,7 +114,7 @@ const PRIMARY: &[TableContract] = &[
     TableContract { name: "exchanges", columns: &[("id", "integer", true), ("type", "varchar", false), ("name", "varchar", false)], unique_indexes: &[] },
     TableContract { name: "api_keys", columns: &[
         ("id", "integer", true), ("user_id", "bigint", true), ("exchange_id", "bigint", true), ("key", "varchar", false),
-        ("secret", "varchar", false), ("status", "integer", true), ("key_type", "integer", true),
+        ("secret", "varchar", false), ("passphrase", "varchar", false), ("status", "integer", true), ("key_type", "integer", true),
     ], unique_indexes: &[] },
     TableContract { name: "users", columns: &[("id", "integer", true), ("wash_sale_enabled", "boolean", false)], unique_indexes: &[] },
     TableContract { name: "bot_index_assets", columns: &[("bot_id", "integer", true)], unique_indexes: &[] },

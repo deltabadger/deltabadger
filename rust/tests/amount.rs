@@ -55,7 +55,7 @@ fn never_negative() {
 
 fn sizing_ticker(t: &serde_json::Value) -> Ticker {
     let n = |k: &str| t[k].as_str().unwrap().parse::<i64>().unwrap();
-    Ticker { id: 1, ticker: "XBTEUR".into(), base_symbol: "BTC".into(), quote_symbol: "EUR".into(), exchange_name: "Kraken".into(),
+    Ticker { id: 1, ticker: "XBTEUR".into(), base_code: "XBT".into(), base_symbol: "BTC".into(), quote_symbol: "EUR".into(), exchange_name: "Kraken".into(),
              base_asset_id: 1, quote_asset_id: 2, base_decimals: n("base_decimals"), quote_decimals: n("quote_decimals"), price_decimals: n("price_decimals"),
              minimum_base_size: bd(t["minimum_base_size"].as_str().unwrap()), minimum_quote_size: bd(t["minimum_quote_size"].as_str().unwrap()),
              trading_enabled: true, available: true }

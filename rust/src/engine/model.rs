@@ -96,7 +96,9 @@ impl Bot {
 
 #[derive(Debug, Clone)]
 pub struct Ticker {
-    pub id: i64, pub ticker: String, pub base_symbol: String, pub quote_symbol: String, pub exchange_name: String,
+    pub id: i64, pub ticker: String,
+    /// tickers.base: the venue's own code for the base (Kraken "XBT", Alpaca "BTC").
+    pub base_code: String, pub base_symbol: String, pub quote_symbol: String, pub exchange_name: String,
     pub base_asset_id: i64, pub quote_asset_id: i64, pub base_decimals: i64, pub quote_decimals: i64, pub price_decimals: i64,
     pub minimum_base_size: BigDec, pub minimum_quote_size: BigDec, pub trading_enabled: bool, pub available: bool,
 }
@@ -106,14 +108,14 @@ pub fn ticker_for(c: &Connection, bot: &Bot) -> Result<Option<Ticker>, EngineErr
     let (Some(&base), Some(quote)) = (bot.asset_ids().first(), bot.quote_asset_id()) else { return Ok(None) };
     let row = c.query_row(
         "SELECT t.id, t.ticker, b.symbol, q.symbol, e.name, t.base_asset_id, t.quote_asset_id, t.base_decimals, t.quote_decimals, t.price_decimals, \
-                t.minimum_base_size, t.minimum_quote_size, t.trading_enabled, t.available \
+                t.minimum_base_size, t.minimum_quote_size, t.trading_enabled, t.available, t.base \
          FROM tickers t JOIN assets b ON b.id = t.base_asset_id JOIN assets q ON q.id = t.quote_asset_id JOIN exchanges e ON e.id = t.exchange_id \
          WHERE t.exchange_id = ?1 AND t.base_asset_id = ?2 AND t.quote_asset_id = ?3",
         params![bot.exchange_id, base, quote],
         |r| {
             let dec = |i: usize| from_sql(r.get_ref(i)?).map_err(|e| rusqlite::Error::InvalidColumnName(format!("{e:?}")));
             Ok(Ticker {
-                id: r.get(0)?, ticker: r.get(1)?, base_symbol: r.get::<_, Option<String>>(2)?.unwrap_or_default(),
+                id: r.get(0)?, ticker: r.get(1)?, base_code: r.get(14)?, base_symbol: r.get::<_, Option<String>>(2)?.unwrap_or_default(),
                 quote_symbol: r.get::<_, Option<String>>(3)?.unwrap_or_default(), exchange_name: r.get::<_, Option<String>>(4)?.unwrap_or_default(),
                 base_asset_id: r.get(5)?, quote_asset_id: r.get(6)?, base_decimals: r.get(7)?, quote_decimals: r.get(8)?, price_decimals: r.get(9)?,
                 minimum_base_size: dec(10)?.unwrap_or_else(BigDec::zero), minimum_quote_size: dec(11)?.unwrap_or_else(BigDec::zero),
@@ -132,15 +134,22 @@ pub fn exchange_name(c: &Connection, bot: &Bot) -> Result<String, EngineError> {
 
 /// Bot#api_key: `user.api_keys.find_by(exchange_id:, key_type: :trading)`, any status.
 pub fn credentials_for(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<Option<Credentials>, EngineError> {
-    let row: Option<(Option<String>, Option<String>)> = c.query_row(
-        "SELECT key, secret FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND key_type = 0 LIMIT 1",
-        params![bot.user_id, bot.exchange_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
-    let Some((key, secret)) = row else { return Ok(None) };
-    // A row that does not decrypt is not "no key": sent keyless, Kraken would answer EAPI:Invalid key and the bot
+    let row: Option<KeyRow> = c.query_row(
+        "SELECT k.key, k.secret, k.passphrase, e.type FROM api_keys k JOIN exchanges e ON e.id = k.exchange_id \
+         WHERE k.user_id = ?1 AND k.exchange_id = ?2 AND k.key_type = 0 LIMIT 1",
+        params![bot.user_id, bot.exchange_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))).optional()?;
+    let Some((key, secret, passphrase, exchange_type)) = row else { return Ok(None) };
+    // A row that does not decrypt is not "no key": sent keyless, the venue would answer invalid key and the bot
     // would be stopped as invalid_key. As in Rails (ActiveRecord::Encryption raises), the tick fails instead.
     let open = |v: Option<String>| v.map(|v| cipher.decrypt(&v).map_err(|e| EngineError::Data(format!("api key unreadable for bot {}: {e:?}", bot.id)))).transpose();
-    Ok(match (open(key)?, open(secret)?) { (Some(key), Some(secret)) => Some(Credentials { key, secret }), _ => None })
+    // Only Alpaca reads the passphrase (its mode). Elsewhere it is never decrypted, so an unreadable unused value cannot
+    // fail a Kraken bot's otherwise valid key: Kraken's credential loading stays exactly as merged.
+    let passphrase = if exchange_type.as_deref() == Some("Exchanges::Alpaca") { open(passphrase)? } else { None };
+    Ok(match (open(key)?, open(secret)?) { (Some(key), Some(secret)) => Some(Credentials { key, secret, passphrase }), _ => None })
 }
+
+/// api_keys.key, secret, passphrase and the exchange's STI type, all still encrypted.
+type KeyRow = (Option<String>, Option<String>, Option<String>, Option<String>);
 
 #[derive(Debug, Clone, Copy)]
 pub enum Level { Info = 0, Warning = 1, Error = 2 }
