@@ -142,19 +142,25 @@ settings = [
   { 'interval' => 'day', 'quote_amount' => 10.0, 'smart_intervaled' => false, 'smart_interval_quote_amount' => 3.0 }
 ]
 offsets = [-3600, 0, 1, 3599.9999995, 86_400 * 3 + 7, 86_400 * 45, 86_400 * 400 + 0.5]
+record = lambda do |anchor, s, now, bot|
+  travel_to(now, with_usec: true) do
+    nxt = bot.next_interval_checkpoint_at
+    last = bot.last_interval_checkpoint_at
+    count = ((last.round(6) - anchor.round(6)) / bot.effective_interval_duration).floor + 1
+    schedule_cases << { 'anchor' => anchor.iso8601(6), 'now' => now.iso8601(6), 'settings' => s,
+                        'next' => nxt.round(6).iso8601(6), 'last' => last.round(6).iso8601(6), 'count' => count }
+    nxt
+  end
+end
 anchors.each do |anchor|
   settings.each do |s|
-    offsets.each do |off|
-      now = anchor + off
-      bot = Bots::DcaMultiAsset.new(started_at: anchor, settings: s)
-      travel_to(now, with_usec: true) do
-        nxt = bot.next_interval_checkpoint_at
-        last = bot.last_interval_checkpoint_at
-        count = ((last.round(6) - anchor.round(6)) / bot.effective_interval_duration).floor + 1
-        schedule_cases << { 'anchor' => anchor.iso8601(6), 'now' => now.iso8601(6), 'settings' => s,
-                            'next' => nxt.round(6).iso8601(6), 'last' => last.round(6).iso8601(6), 'count' => count }
-      end
-    end
+    bot = Bots::DcaMultiAsset.new(started_at: anchor, settings: s)
+    offsets.each { |off| record.call(anchor, s, anchor + off, bot) }
+    # On the grid: the bot's own first two checkpoints after the anchor, each exactly on, and one microsecond either side.
+    grid = []
+    point = anchor
+    2.times { point = travel_to(point + Rational(1, 1_000_000), with_usec: true) { bot.next_interval_checkpoint_at.round(6) }; grid << point }
+    grid.each { |g| [-1, 0, 1].each { |d| record.call(anchor, s, g + Rational(d, 1_000_000), bot) } }
   end
 end
 vectors['schedule'] = schedule_cases
