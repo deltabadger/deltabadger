@@ -95,7 +95,7 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
             wake = wake.min(at);
         }
     }
-    for id in model::working_bot_ids(&e.primary)? {
+    for id in report.eligible {
         if let Err(err) = step_bot(e, id, clock, &mut wake).await {
             // Lease/store errors end the engine. Sqlite errors stay per bot and are retried next pass; a replay after an
             // accepted order is prevented by the early last_action_job_at write and the persisted intent.
@@ -151,10 +151,13 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     } else if bot.status == crate::enums::BotStatus::Retrying {
         e.retry_at.get(&id).is_none_or(|&t| t <= now_us) // no in-memory state (a restart): due at once
     } else {
-        anchor <= now_us && bot.last_action_job_at_us().is_none_or(|t| t.div_euclid(1000) < cps.last_us.div_euclid(1000)) // stored value is ms-truncated
+        anchor <= now_us && bot.last_action_job_at_us()?.is_none_or(|t| t.div_euclid(1000) < cps.last_us.div_euclid(1000)) // stored value is ms-truncated
     };
 
     if due {
+        // The loop is single-threaded: a due bot met `executing`/`waiting` was left there by an error that escaped its
+        // tick, and the tick would skip it forever.
+        if model::unstick(&e.primary, id, clock.now())? { eprintln!("[engine] bot {id}: left {:?} by an earlier tick; back to scheduled", bot.status); }
         let tick_start = crate::codec::format_time(clock.now());
         let attempts = e.attempts.entry(id).or_default();
         let outcome = tick::tick(&e.primary, &venue, id, clock, attempts).await?;

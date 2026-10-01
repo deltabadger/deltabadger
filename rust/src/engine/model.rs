@@ -39,12 +39,6 @@ pub fn load_bot(c: &Connection, id: i64) -> Result<Bot, EngineError> {
     })
 }
 
-pub fn working_bot_ids(c: &Connection) -> Result<Vec<i64>, EngineError> {
-    let mut s = c.prepare(&format!("SELECT id FROM bots WHERE status IN ({}) ORDER BY id", working_list()))?;
-    let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
-    Ok(ids)
-}
-
 impl Bot {
     pub fn interval(&self) -> Option<Interval> { self.settings.get("interval")?.as_str().and_then(Interval::parse) }
     pub fn quote_amount(&self) -> Option<f64> { self.settings.get("quote_amount")?.as_f64() }
@@ -54,15 +48,20 @@ impl Bot {
         if self.settings.get("smart_intervaled") != Some(&Value::Bool(true)) || self.quote_amount().is_none() { return None; }
         self.settings.get("smart_interval_quote_amount")?.as_f64()
     }
-    /// Bot::LimitOrderable: `limit_ordered?` is `== true`; `limit_order_pcnt_distance ||= 0.001`, then `.to_d`.
+    pub fn limit_ordered(&self) -> bool { self.settings.get("limit_ordered") == Some(&Value::Bool(true)) }
+    /// Bot::LimitOrderable: `limit_ordered?` is `== true`; #limit_order_pcnt_distance_decimal is 0.001 for a blank
+    /// value, else `.to_d`. None on a limit bot = a shape this build does not read as a number: eligibility refuses it.
     pub fn limit_distance(&self) -> Option<BigDec> {
-        if self.settings.get("limit_ordered") != Some(&Value::Bool(true)) { return None; }
-        Some(match self.settings.get("limit_order_pcnt_distance") {
-            None | Some(Value::Null) | Some(Value::Bool(false)) => BigDec::from_f64(0.001).ok()?,
-            Some(Value::Number(n)) => match n.as_i64() { Some(i) => BigDec::from_i64(i), None => BigDec::from_f64(n.as_f64()?).ok()? },
-            Some(Value::String(s)) => BigDec::parse(s).unwrap_or_else(|_| BigDec::zero()), // String#to_d: garbage is 0
-            Some(_) => return None,
-        })
+        if !self.limit_ordered() { return None; }
+        match self.settings.get("limit_order_pcnt_distance") {
+            None | Some(Value::Null) | Some(Value::Bool(false)) => BigDec::parse("0.001").ok(),
+            Some(Value::String(s)) if s.trim().is_empty() => BigDec::parse("0.001").ok(),
+            Some(Value::Array(a)) if a.is_empty() => BigDec::parse("0.001").ok(),
+            Some(Value::Object(o)) if o.is_empty() => BigDec::parse("0.001").ok(),
+            Some(Value::Number(n)) => match n.as_i64() { Some(i) => Some(BigDec::from_i64(i)), None => BigDec::from_f64(n.as_f64()?).ok() },
+            Some(Value::String(s)) => BigDec::parse(s).ok(),
+            Some(_) => None,
+        }
     }
     pub fn asset_ids(&self) -> Vec<i64> {
         self.settings.get("allocations").and_then(Value::as_object).map(|m| m.keys().filter_map(|k| k.parse().ok()).collect()).unwrap_or_default()
@@ -83,9 +82,13 @@ impl Bot {
     }
     pub fn rust_placement(&self) -> Option<Value> { self.transient.get("rust_placement").filter(|v| !v.is_null()).cloned() }
     pub fn last_failure_kind(&self) -> Option<String> { self.transient.get("last_failure_kind")?.as_str().map(str::to_string) }
-    pub fn last_action_job_at_us(&self) -> Option<i64> {
-        let s = self.transient.get("last_action_job_at")?.as_str()?;
-        DateTime::parse_from_rfc3339(s).ok().map(|t| t.with_timezone(&Utc).timestamp_micros())
+    pub fn last_action_job_at_us(&self) -> Result<Option<i64>, EngineError> {
+        match self.transient.get("last_action_job_at") {
+            None | Some(Value::Null) => Ok(None),
+            Some(v) => v.as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+                .map(|t| Some(t.with_timezone(&Utc).timestamp_micros()))
+                .ok_or_else(|| EngineError::Data(format!("bot {}: last_action_job_at {v}", self.id))),
+        }
     }
     /// Bot::Accountable#carry_window_marks.compact.max
     pub fn calc_since_us(&self) -> Option<i64> { [self.started_at_us, self.settings_changed_at_us].into_iter().flatten().max() }
@@ -133,8 +136,10 @@ pub fn credentials_for(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<Opt
         "SELECT key, secret FROM api_keys WHERE user_id = ?1 AND exchange_id = ?2 AND key_type = 0 LIMIT 1",
         params![bot.user_id, bot.exchange_id], |r| Ok((r.get(0)?, r.get(1)?))).optional()?;
     let Some((key, secret)) = row else { return Ok(None) };
-    let open = |v: Option<String>| v.and_then(|v| cipher.decrypt(&v).ok());
-    Ok(match (open(key), open(secret)) { (Some(key), Some(secret)) => Some(Credentials { key, secret }), _ => None })
+    // A row that does not decrypt is not "no key": sent keyless, Kraken would answer EAPI:Invalid key and the bot
+    // would be stopped as invalid_key. As in Rails (ActiveRecord::Encryption raises), the tick fails instead.
+    let open = |v: Option<String>| v.map(|v| cipher.decrypt(&v).map_err(|e| EngineError::Data(format!("api key unreadable for bot {}: {e:?}", bot.id)))).transpose();
+    Ok(match (open(key)?, open(secret)?) { (Some(key), Some(secret)) => Some(Credentials { key, secret }), _ => None })
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -144,6 +149,13 @@ pub enum Level { Info = 0, Warning = 1, Error = 2 }
 pub fn update_status(c: &Connection, bot_id: i64, status: BotStatus, now: DateTime<Utc>) -> Result<(), EngineError> {
     c.execute("UPDATE bots SET status = ?1, updated_at = ?2 WHERE id = ?3", params![status as i64, format_time(now), bot_id])?;
     Ok(())
+}
+
+/// `executing`/`waiting` exist only mid-tick: met outside one, the last run was cut short. Back to scheduled.
+pub fn unstick(c: &Connection, bot_id: i64, now: DateTime<Utc>) -> Result<bool, EngineError> {
+    let n = c.execute("UPDATE bots SET status = ?1, updated_at = ?2 WHERE id = ?3 AND status IN (?4, ?5)",
+                      params![BotStatus::Scheduled as i64, format_time(now), bot_id, BotStatus::Executing as i64, BotStatus::Waiting as i64])?;
+    Ok(n == 1)
 }
 
 /// Bot::ActionJob.transition_working_bot!: only while the row is still working.

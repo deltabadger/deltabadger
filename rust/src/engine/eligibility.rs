@@ -47,6 +47,8 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
     if bot.settings.get("smart_intervaled").is_some_and(set) && !bot.smart_quote_amount().is_some_and(|a| a > 0.0) {
         r.push("smart interval amount missing, not a JSON number, or not positive".into());
     }
+    if bot.limit_ordered() && bot.limit_distance().is_none() { r.push("limit_order_pcnt_distance is not a number".into()); }
+    if BOT_WORKING.contains(&bot.status) && bot.started_at_us.is_none() { r.push("started_at missing (never ticks)".into()); }
     if bot.interval().is_none() { r.push("interval".into()); }
     if !bot.quote_amount().is_some_and(|q| q > 0.0) { r.push("quote_amount".into()); }
     if bot.restatement_generation > 0 { r.push("restated prices".into()); }

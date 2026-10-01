@@ -136,3 +136,37 @@ async fn a_stale_retry_entry_does_not_spin_the_loop() {
     let wake = run::step(&mut e, &at("2026-09-01T11:00:00Z")).await.unwrap();
     assert!(wake > now + 1_000_000, "wake {wake} must not be now+1us");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_key_that_does_not_decrypt_fails_the_tick_and_never_stops_the_bot() {
+    let v = priced();
+    let (_d, mut e, id, _) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
+    let foreign = deltabadger::crypto::Cipher::new(&deltabadger::crypto::EncryptionKeys::resolve(&|_| None, "another-install").unwrap());
+    e.primary.execute("UPDATE api_keys SET key = ?1, secret = ?2", [foreign.encrypt("test-key"), foreign.encrypt("dGVzdC1zZWNyZXQ=")]).unwrap();
+    for t in ["2026-09-01T10:00:01Z", "2026-09-08T10:00:01Z", "2026-09-15T10:00:01Z"] { run::step(&mut e, &at(t)).await.unwrap(); }
+    assert!(v.sent().is_empty(), "no AddOrder without a readable key");
+    assert_eq!(model::load_bot(&e.primary, id).unwrap().status, deltabadger::enums::BotStatus::Scheduled, "never stopped as invalid_key");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_working_bot_eligibility_cannot_read_is_not_ticked() {
+    let v = priced();
+    let (_d, mut e, id, _) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
+    e.primary.execute("UPDATE users SET wash_sale_enabled = 'garbage'", []).unwrap(); // bot_reasons cannot read it
+    let report = deltabadger::engine::eligibility::check_install(&e.primary).unwrap();
+    assert!(report.unreadable.iter().any(|(i, _)| *i == id), "{:?}", report.unreadable);
+    run::step(&mut e, &at("2026-09-01T10:00:01Z")).await.unwrap();
+    assert!(v.sent().is_empty(), "an unreadable bot is skipped, not traded");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_bot_left_executing_ticks_at_its_next_checkpoint() {
+    for stuck in [4, 6] {
+        let v = priced();
+        let (_d, mut e, id, _) = engine(BotSpec { status: stuck, ..BotSpec::weekly(60.0, "2026-09-01 10:00:00") }, v.clone());
+        e.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.last_action_job_at', '2026-09-01T10:00:01.000Z') WHERE id = ?1", [id]).unwrap();
+        run::step(&mut e, &at("2026-09-08T10:00:01Z")).await.unwrap();
+        assert_eq!(v.sent().len(), 1, "status {stuck}: ticked at the next checkpoint");
+        assert_eq!(model::load_bot(&e.primary, id).unwrap().status, deltabadger::enums::BotStatus::Scheduled, "status {stuck}");
+    }
+}
