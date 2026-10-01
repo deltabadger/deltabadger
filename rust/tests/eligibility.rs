@@ -137,3 +137,48 @@ fn a_working_bot_that_was_never_started_is_refused() {
     assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("started_at")), "{:?}", r.problems);
     assert!(r.eligible.is_empty());
 }
+
+fn refused(c: &rusqlite::Connection, id: i64) -> Option<String> {
+    eligibility::check_install(c).unwrap().problems.into_iter().find(|p| p.starts_with(&format!("bot {id} ")))
+}
+
+#[test]
+fn rebalance_enabled_refuses_only_where_evaluate_rebalancers_would_pick_the_bot() {
+    // Bot::EvaluateRebalancersJob#candidates: DcaIndex/DcaMultiAsset, not deleted or archived. A stopped bot still rebalances.
+    for (status, ty, refuses) in [(2, "Bots::DcaMultiAsset", true), (0, "Bots::DcaMultiAsset", true), (2, "Bots::DcaIndex", true),
+                                  (3, "Bots::DcaMultiAsset", false), (7, "Bots::DcaMultiAsset", false), (2, "Bots::DcaSingleAsset", false)] {
+        let (_d, o, s) = install();
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec { status, ..plain().with("rebalance_enabled", json!(true)) });
+        o.primary.execute("UPDATE bots SET type = ?1 WHERE id = ?2", rusqlite::params![ty, id]).unwrap();
+        assert_eq!(refused(&o.primary, id).is_some(), refuses, "status {status} {ty}: {:?}", refused(&o.primary, id));
+    }
+}
+
+#[test]
+fn an_abandoned_liquidation_the_user_accounted_for_no_longer_refuses() {
+    // Bot::LiquidationState#unresolved_liquidation_orders skips the ids in transient liquidation_resolved_orders.
+    let (_d, o, s) = install();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec { status: 2, ..plain() });
+    let abandon = |ext: &str| -> i64 {
+        o.primary.execute("INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, transaction_type, error_messages, bot_interval, bot_quote_amount, created_at, updated_at) \
+                           VALUES (?1, ?2, ?3, 0, 4, 1, 0, 'LIQUIDATION', '[]', 'week', 60, '2026-09-01', '2026-09-01')", rusqlite::params![id, s.kraken_id, ext]).unwrap();
+        o.primary.last_insert_rowid()
+    };
+    let first = abandon("OAB1");
+    o.primary.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.liquidation_resolved_orders', json_array(?1)) WHERE id = ?2", [first, id]).unwrap();
+    assert_eq!(refused(&o.primary, id), None, "an attested order is accounted for");
+    abandon("OAB2");
+    assert!(refused(&o.primary, id).is_some_and(|p| p.contains("1 unresolved abandoned LIQUIDATION")), "{:?}", refused(&o.primary, id));
+}
+
+#[test]
+fn the_refusal_names_the_bots_real_status() {
+    for (status, label) in [(0, "created"), (2, "stopped"), (3, "deleted"), (7, "archived")] {
+        let (_d, o, s) = install();
+        let id = seed::insert_bot(&o.primary, &s, &BotSpec { status, ..plain().with("price_limited", json!(true)) });
+        seed::insert_tx(&o.primary, &s, id, &TxSpec { status: 0, external_status: Some(1), external_id: Some("OOPEN".into()), order_type: 1,
+            amount: Some("0.001"), quote_amount: None, price: Some("50000"), quote_amount_exec: None, amount_exec: None, created_at: "2026-09-20 10:00:00".into() });
+        let p = refused(&o.primary, id).expect("an outstanding order refuses");
+        assert!(p.starts_with(&format!("bot {id} ({label}) ")), "{p}");
+    }
+}

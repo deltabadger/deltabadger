@@ -3,7 +3,7 @@
 //! use: a flag Rails might treat as on must never be quietly ignored.
 use super::model::{self, Bot};
 use super::EngineError;
-use crate::enums::BOT_WORKING;
+use crate::enums::{BotStatus, BOT_WORKING};
 use rusqlite::{Connection, OptionalExtension};
 use serde_json::Value;
 
@@ -15,18 +15,29 @@ const PENDING_KEYS: [&str; 3] = ["rebalance_pending", "liquidation_pending", "re
 
 fn set(v: &Value) -> bool { !matches!(v, Value::Null | Value::Bool(false)) && v != "false" && v != 0 && v != "" }
 
-/// Work only Rails carries out, whatever the bot's status: Bot::LiquidationState#liquidation_in_flight?,
-/// Bot::Composition::Redeployable#redeploy_in_flight?, Bot::EvaluateRebalancersJob's candidates.
+/// Work only Rails carries out: Bot::LiquidationState#liquidation_in_flight?, Bot::Composition::Redeployable#redeploy_in_flight?,
+/// Bot::EvaluateRebalancersJob's candidates. Each rule covers the statuses Rails handles it for. The pending keys stay on
+/// every status: Rails' automatic legs skip deleted/archived bots, but its halt resolutions (Bots::*ResolutionsController,
+/// Bot::Resolve*Job) take any bot, and an archived bot's page offers them.
 fn rails_work(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError> {
     let mut r = vec![];
+    // Deliberately broader than Rails' automatic jobs: a false refusal costs one check message, a takeover mid-liquidation costs money.
     for key in PENDING_KEYS { if bot.transient.get(key).is_some_and(|v| !v.is_null()) { r.push(key.to_string()); } }
-    if bot.settings.get("rebalance_enabled").is_some_and(set) { r.push("rebalance_enabled".into()); }
+    // Bot::EvaluateRebalancersJob#candidates: REBALANCEABLE_TYPES, `.where.not(status: %i[deleted archived])`. A stopped bot still rebalances.
+    let rebalanceable = matches!(bot.bot_type.as_str(), "Bots::DcaIndex" | "Bots::DcaMultiAsset") && !matches!(bot.status, BotStatus::Deleted | BotStatus::Archived);
+    if rebalanceable && bot.settings.get("rebalance_enabled").is_some_and(set) { r.push("rebalance_enabled".into()); }
     let non_regular: i64 = c.query_row(
         "SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type <> 'REGULAR' AND status = 0 AND external_status IN (0, 1)",
         [bot.id], |r| r.get(0))?;
     if non_regular > 0 { r.push(format!("{non_regular} waiting LIQUIDATION/REDEPLOY/REBALANCE order(s)")); }
-    let abandoned: i64 = c.query_row(
-        "SELECT count(*) FROM transactions WHERE bot_id = ?1 AND transaction_type = 'LIQUIDATION' AND external_status = 4", [bot.id], |r| r.get(0))?;
+    // Bot::LiquidationState#unresolved_liquidation_orders: ids the user attested to (liquidation_resolved_orders) are accounted for.
+    // Ruby's `to_i`; an id this cannot read counts as unresolved.
+    let resolved: Vec<i64> = match bot.transient.get("liquidation_resolved_orders") {
+        Some(Value::Array(a)) => a.iter().filter_map(|v| v.as_i64().or_else(|| v.as_str()?.trim().parse().ok())).collect(),
+        _ => vec![],
+    };
+    let mut s = c.prepare("SELECT id FROM transactions WHERE bot_id = ?1 AND transaction_type = 'LIQUIDATION' AND external_status = 4")?;
+    let abandoned = s.query_map([bot.id], |r| r.get::<_, i64>(0))?.collect::<Result<Vec<_>, _>>()?.into_iter().filter(|id| !resolved.contains(id)).count();
     if abandoned > 0 { r.push(format!("{abandoned} unresolved abandoned LIQUIDATION order(s)")); }
     Ok(r)
 }
@@ -94,14 +105,14 @@ pub fn check_install(c: &Connection) -> Result<Report, EngineError> {
             continue;
         }
         if working {
-            report.problems.push(format!("bot {id} (running): {}", reasons.join(", ")));
+            report.problems.push(format!("bot {id} ({}): {}", bot.status.label(), reasons.join(", ")));
             continue;
         }
         let outstanding: i64 = c.query_row("SELECT count(*) FROM transactions WHERE bot_id = ?1 AND status = 0 AND external_status IN (0, 1)", [id], |r| r.get(0))?;
         let mut work = rails_work(c, &bot)?;
         if outstanding > 0 { work.push(format!("{outstanding} outstanding order(s)")); }
         if !work.is_empty() {
-            report.problems.push(format!("bot {id} (stopped) has work only the full app handles ({}); outside the slice: {}", work.join(", "), reasons.join(", ")));
+            report.problems.push(format!("bot {id} ({}) has work only the full app handles ({}); outside the slice: {}", bot.status.label(), work.join(", "), reasons.join(", ")));
         }
     }
     Ok(report)

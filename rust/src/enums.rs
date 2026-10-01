@@ -7,6 +7,7 @@ macro_rules! rails_enum {
         impl $name {
             pub const ALL: &'static [(&'static str, Self)] = &[$(($label, Self::$variant)),+];
             pub fn from_i64(v: i64) -> Option<Self> { Self::ALL.iter().find(|(_, e)| *e as i64 == v).map(|(_, e)| *e) }
+            pub fn label(self) -> &'static str { match self { $(Self::$variant => $label),+ } }
         }
     };
 }
