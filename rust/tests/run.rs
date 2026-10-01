@@ -170,3 +170,21 @@ async fn a_bot_left_executing_ticks_at_its_next_checkpoint() {
         assert_eq!(model::load_bot(&e.primary, id).unwrap().status, deltabadger::enums::BotStatus::Scheduled, "status {stuck}");
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_order_recovered_in_a_working_bots_tick_gets_its_follow_up_poll() {
+    let v = priced().next_add(AddOutcome::AmbiguousPlaced("OTX-R".into()));
+    let (_d, mut e, id, _) = engine(BotSpec::weekly(60.0, "2026-09-01 10:00:00"), v.clone());
+    run::step(&mut e, &at("2026-09-01T10:00:01Z")).await.unwrap(); // reply lost: the intent stays
+    run::step(&mut e, &at("2026-09-01T10:00:40Z")).await.unwrap(); // the working bot's tick finds the order open by cl_ord_id
+    let ext = |e: &Engine<FakeFactory>| e.primary.query_row("SELECT external_status FROM transactions WHERE external_id = 'OTX-R'", [], |r| r.get::<_, i64>(0)).unwrap();
+    assert_eq!(ext(&e), 1, "recovered open");
+    assert!(model::load_bot(&e.primary, id).unwrap().rust_placement().is_none());
+    v.order("OTX-R", json!({ "status": "closed", "price": "50000", "vol": "0.0012", "vol_exec": "0.0012", "cost": "60", "oflags": "", "descr": { "type": "buy", "ordertype": "market", "price": "0" } }));
+    e.primary.execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap(); // stopped: only the queued poll can settle it
+    let wake = run::step(&mut e, &at("2026-09-01T10:00:41Z")).await.unwrap();
+    assert!(wake <= us("2026-09-01T10:00:45Z"), "wake pulled forward to the poll");
+    assert_eq!(ext(&e), 1, "not before its +5 s");
+    run::step(&mut e, &at("2026-09-01T10:00:46Z")).await.unwrap();
+    assert_eq!(ext(&e), 2, "the follow-up poll recorded the fill");
+}

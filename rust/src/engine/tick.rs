@@ -50,9 +50,19 @@ fn record_failure(c: &Connection, bot_id: i64, kind: Option<&str>) -> Result<(),
 }
 
 pub async fn tick<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts) -> Result<TickOutcome, EngineError> {
+    tick_recovering(c, venue, bot_id, clock, attempts, &mut None).await
+}
+
+/// `tick`, also reporting the transaction a persisted intent was settled into this tick (its row carries the intent's
+/// earlier `created_at`, so the caller cannot find it by time and must queue its follow-up poll itself).
+pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn Clock, attempts: &mut Attempts, recovered: &mut Option<i64>) -> Result<TickOutcome, EngineError> {
     let bot = model::load_bot(c, bot_id)?;
     // An intent is settled whatever the status: a bot stopped after an ambiguous send still owns that order.
-    if let Recovery::Pending = placement::recover(c, venue, &bot, clock).await? { return Ok(TickOutcome::AwaitingReconciliation); }
+    match placement::recover(c, venue, &bot, clock).await? {
+        Recovery::Pending => return Ok(TickOutcome::AwaitingReconciliation),
+        Recovery::Recorded(tx) => *recovered = Some(tx),
+        Recovery::NoIntent | Recovery::NotPlaced => {}
+    }
     let bot = model::load_bot(c, bot_id)?;
     if !matches!(bot.status, BotStatus::Scheduled | BotStatus::Retrying) { return Ok(TickOutcome::Skipped); }
 
