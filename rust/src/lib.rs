@@ -5,6 +5,7 @@ pub mod crypto;
 pub mod engine;
 pub mod enums;
 pub mod lease;
+pub mod parity;
 pub mod ruby;
 pub mod store;
 pub mod venue;

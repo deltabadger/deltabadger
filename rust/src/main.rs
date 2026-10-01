@@ -72,8 +72,14 @@ fn main() {
                 .unwrap_or_else(|e| fail(&format!("{e:?}")));
             println!("resolved");
         }
+        Some("decide") => {
+            let dir = std::env::args().nth(3).unwrap_or_else(|| fail("usage: deltabadger decide run <scenario_dir>"));
+            let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+            let out = rt.block_on(deltabadger::parity::decide(std::path::Path::new(&dir))).unwrap_or_else(|e| fail(&format!("{e:?}")));
+            println!("{}", serde_json::to_string_pretty(&out).unwrap());
+        }
         _ => println!(
-            "deltabadger {}\nusage: deltabadger check | resolve-placement",
+            "deltabadger {}\nusage: deltabadger check | resolve-placement | decide run <dir>",
             env!("CARGO_PKG_VERSION")
         ),
     }
