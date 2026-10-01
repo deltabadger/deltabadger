@@ -59,7 +59,7 @@ pub async fn hand_back<F: VenueFactory>(lock: &EngineLock, o: &Opened, factory: 
     let pending: Vec<i64> = s.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
     for id in pending {
         let bot = model::load_bot(&o.primary, id)?;
-        let venue = factory.for_key(model::credentials_for(&o.primary, cipher, &bot)?);
+        let venue = factory.for_bot(&model::exchange_type(&o.primary, &bot)?, model::credentials_for(&o.primary, cipher, &bot)?);
         if let placement::Recovery::Pending = placement::recover(&o.primary, &venue, &bot, clock).await? { unresolved.push(id); }
     }
     if !unresolved.is_empty() { return Err(EngineError::Unresolved(unresolved)); }

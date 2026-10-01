@@ -132,6 +132,12 @@ pub fn exchange_name(c: &Connection, bot: &Bot) -> Result<String, EngineError> {
     Ok(name.unwrap_or_default())
 }
 
+/// The bot's exchanges.type (Exchanges::Kraken, Exchanges::Alpaca): it picks the venue and its VenueRules.
+pub fn exchange_type(c: &Connection, bot: &Bot) -> Result<String, EngineError> {
+    let t: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?.flatten();
+    Ok(t.unwrap_or_default())
+}
+
 /// Bot#api_key: `user.api_keys.find_by(exchange_id:, key_type: :trading)`, any status.
 pub fn credentials_for(c: &Connection, cipher: &Cipher, bot: &Bot) -> Result<Option<Credentials>, EngineError> {
     let row: Option<KeyRow> = c.query_row(

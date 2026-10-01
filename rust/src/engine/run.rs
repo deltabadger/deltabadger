@@ -32,7 +32,7 @@ impl<F: VenueFactory> Engine<F> {
     }
     #[doc(hidden)] pub fn inject_stale_retry(&mut self, bot: i64, at_us: i64) { self.retry_at.insert(bot, at_us); }
     fn venue_for(&self, bot: &model::Bot) -> Result<F::V, EngineError> {
-        Ok(self.factory.for_key(model::credentials_for(&self.primary, &self.cipher, bot)?))
+        Ok(self.factory.for_bot(&model::exchange_type(&self.primary, bot)?, model::credentials_for(&self.primary, &self.cipher, bot)?))
     }
 }
 

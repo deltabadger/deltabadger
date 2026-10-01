@@ -1,7 +1,7 @@
 //! One tick of an eligible bot: Bot::ActionJob#perform around DcaMultiAsset#execute_action (with the
 //! Fundable and LimitOrderable decorators), and the failure handling of ActionJob's rescues.
 use super::amount::{self, RowKind, Sizing};
-use super::venue_rules::KRAKEN;
+use super::venue_rules::VenueRules;
 use super::model::{self, Level};
 use super::placement::{self, Recovery, Sent};
 use super::polling::{self, PollFailure};
@@ -9,7 +9,7 @@ use super::{Clock, EngineError};
 use crate::codec::format_time;
 use crate::enums::BotStatus;
 use crate::ruby::{iso8601_ms, to_sentence, BigDec};
-use crate::venue::{Venue, VenueError};
+use crate::venue::{PriceSide, Venue, VenueError};
 use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -87,7 +87,7 @@ pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, c
             if model::load_bot(c, bot_id)?.last_failure_kind().is_some() { record_failure(c, bot_id, None)?; }
             Ok(if model::transition_working(c, bot_id, BotStatus::Scheduled, clock.now())? { TickOutcome::Done { placed } } else { TickOutcome::Skipped })
         }
-        Err(fail) => handle_failure(c, bot_id, fail, clock, attempts),
+        Err(fail) => handle_failure(c, bot_id, fail, clock, attempts, venue.rules()),
     }
 }
 
@@ -120,17 +120,15 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
         };
         let x = amount::pending_quote_amount(c, &bot, clock.now().timestamp_micros())?;
         if !x.is_zero() {
-            let limit = bot.limit_distance().is_some();
-            let prices = match venue.prices(&ticker.ticker).await {
+            // Bot::OrderSetter#reference_price: the last trade for a limit buy, the ask for a market buy. A zero book is the
+            // venue's own "Wrong … price" error, which Rails' composition rescues into "No price for …".
+            let side = if bot.limit_distance().is_some() { PriceSide::Last } else { PriceSide::Ask };
+            let reference = match venue.price(ticker, side).await {
                 Ok(p) => p,
                 Err(VenueError::Rejected(e)) => return Ok(Err(Fail::Transient(format!("No price for {}: {}", ticker.base_symbol, to_sentence(&e))))),
                 Err(VenueError::Transient(m) | VenueError::Ambiguous(m)) => return Ok(Err(Fail::Transient(format!("No price for {}: {m}", ticker.base_symbol)))),
             };
-            let (side, chosen) = if limit { ("last", &prices.last) } else { ("ask", &prices.ask) };
-            if chosen.is_zero() {
-                return Ok(Err(Fail::Transient(format!("No price for {}: Wrong {side} price for {}: {}", ticker.base_symbol, ticker.ticker, chosen.to_s_f()))));
-            }
-            match amount::size(&bot, ticker, &x, chosen, KRAKEN.minimum_logic) {
+            match amount::size(&bot, ticker, &x, &reference, venue.rules().minimum_logic) {
                 Sizing::Nothing => {}
                 Sizing::Ignored(plan) => model::log_activity(c, bot_id, "order_ignored", Level::Info, plan.log_details(), clock.now())?,
                 Sizing::BelowMinimum(plan) => {
@@ -143,7 +141,7 @@ async fn execute<V: Venue>(c: &Connection, venue: &V, bot_id: i64, clock: &dyn C
                 }
                 Sizing::Place(plan) => {
                     let intent = placement::begin(c, &bot, &plan, clock)?;
-                    match placement::send(venue, &intent).await {
+                    match placement::send(venue, &intent, clock).await {
                         Sent::Accepted(txid) => { placement::record_accepted(c, &bot, &intent, &txid)?; placed = true; }
                         Sent::Rejected(errs) => {
                             let row = placement::record_rejected(c, &bot, &intent, &errs)?;
@@ -189,7 +187,7 @@ fn notified_in_last_day(c: &Connection, bot: &model::Bot, clock: &dyn Clock) -> 
     Ok(n > 0)
 }
 
-fn handle_failure(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, attempts: &mut Attempts) -> Result<TickOutcome, EngineError> {
+fn handle_failure(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, attempts: &mut Attempts, rules: &VenueRules) -> Result<TickOutcome, EngineError> {
     let now = clock.now();
     if !model::transition_working(c, bot_id, BotStatus::Retrying, now)? { return Ok(TickOutcome::Skipped); }
     match fail {
@@ -207,7 +205,7 @@ fn handle_failure(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, at
             attempts.rate += 1;
             if attempts.rate < MAX_ATTEMPTS { return Ok(TickOutcome::RetryAfter(retry_wait(attempts.rate, true))); }
             *attempts = Attempts::default();
-            let kind = KRAKEN.failure_kind(std::slice::from_ref(&m));
+            let kind = rules.failure_kind(std::slice::from_ref(&m));
             record_failure(c, bot_id, kind)?;
             model::log_activity(c, bot_id, "execution_failed", Level::Error, json!({ "error": m, "kind": kind, "rate_limited_exhausted": true }), now)?;
             Ok(TickOutcome::Rescheduled)
@@ -226,7 +224,7 @@ fn handle_failure(c: &Connection, bot_id: i64, fail: Fail, clock: &dyn Clock, at
         }
         Fail::General { message, errors, failed_row } => {
             *attempts = Attempts::default();
-            let kind = KRAKEN.failure_kind(if errors.is_empty() { std::slice::from_ref(&message) } else { &errors });
+            let kind = rules.failure_kind(if errors.is_empty() { std::slice::from_ref(&message) } else { &errors });
             let previous = model::load_bot(c, bot_id)?.last_failure_kind();
             let blocking = kind.is_some_and(|k| BLOCKING_KINDS.contains(&k) && previous.as_deref() == Some(k));
             record_failure(c, bot_id, kind)?;

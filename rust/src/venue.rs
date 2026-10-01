@@ -1,65 +1,80 @@
-//! What the engine needs from an exchange (Kraken in this milestone). One instance per API key.
-//! The real Kraken implementation is Plan 2b (honeymaker's client); tests use `fake::FakeVenue`.
+//! What the engine needs from an exchange. One instance per API key; the factory picks the venue by the bot's
+//! exchange type. Tests use `fake::FakeVenue` (raw Kraken bodies) and, from Task 6, `alpaca::AlpacaVenue` over
+//! `http::ScriptedTransport`.
 #![allow(async_fn_in_trait)] // single-threaded runtime: no Send bound needed
 pub mod fake;
 
 use crate::crypto::Credentials;
+use crate::engine::model::Ticker;
+use crate::engine::venue_rules::VenueRules;
 use crate::ruby::BigDec;
 use chrono::{DateTime, Utc};
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct Prices { pub bid: BigDec, pub ask: BigDec, pub last: BigDec }
+/// Which price a buy needs (Bot::OrderSetter#reference_price): the ask for a market buy, the last trade for a limit.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PriceSide { Ask, Last }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum OrderKind { Market, Limit { price: String } }
 
-/// A buy, formatted as the wire expects: volume and price already floored and in `to_s('F')` form.
+/// A buy, formatted as the venue's wire expects (VenueRules::wire).
 #[derive(Clone, Debug, PartialEq)]
 pub struct NewOrder {
     pub pair: String, pub kind: OrderKind, pub volume: String,
-    /// Kraken `oflags=viqc`: the volume is in quote currency.
+    /// The volume is in quote currency (Kraken `oflags=viqc`, Alpaca `notional`).
     pub quote_volume: bool,
-    pub cl_ord_id: String, pub deadline: DateTime<Utc>,
+    /// The venue-neutral client order id (Kraken `cl_ord_id`, Alpaca `client_order_id`).
+    pub cl_ord_id: String,
+    /// Kraken's AddOrder `deadline`. Recorded for every intent; sent only where VenueRules::deadline_sent.
+    pub deadline: DateTime<Utc>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum OrderStatus { Unknown, Open, Closed, Cancelled }
+pub enum OrderStatus {
+    Unknown, Open, Closed, Cancelled,
+    /// Alpaca `rejected` → :failed. Neither Rails poll job has a branch for it: the row is left as it is.
+    Failed,
+}
 
-/// An order as Exchanges::Kraken#parse_order_data reports it.
+/// An order as the venue's parse_order_data reports it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct OrderState {
     pub txid: String, pub status: OrderStatus, pub price: Option<BigDec>, pub amount: Option<BigDec>, pub quote_amount: Option<BigDec>,
     pub amount_exec: BigDec, pub quote_amount_exec: BigDec, pub limit: bool,
-    /// `descr.type == "sell"`: kept as the exchange reports it (a buying bot can still hold an old sell).
+    /// The side as the exchange reports it (a buying bot can still hold an old sell).
     pub sell: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum VenueError {
-    /// Kraken answered with errors (its `error` array, verbatim). Nothing was placed.
+    /// The venue answered and refused (its own error text). Nothing was placed.
     Rejected(Vec<String>),
-    /// The request may have reached Kraken (lost reply, timeout after send, unreadable 2xx).
+    /// The request may have reached the venue (lost reply, timeout after send, a 5xx or unreadable answer to a placement).
     Ambiguous(String),
-    /// Nothing reached Kraken (refused connection, DNS, TLS before send).
+    /// Nothing reached the venue (refused connection, DNS, TLS before send), or a read failed in transport.
     Transient(String),
 }
 
 pub trait Venue {
-    async fn prices(&self, pair: &str) -> Result<Prices, VenueError>;
+    /// This venue's Rails rules (errors, minimums, wire, absence window).
+    fn rules(&self) -> &'static VenueRules;
+    /// One reference price. A zero or missing price is `Rejected` with the venue's own "Wrong … price" message.
+    async fn price(&self, ticker: &Ticker, side: PriceSide) -> Result<BigDec, VenueError>;
     /// Sent at most once per call. Never retried inside.
     async fn add_order(&self, order: &NewOrder) -> Result<String, VenueError>;
-    /// QueryOrders; ids Kraken does not report are simply absent.
+    /// The orders asked for; ids the venue does not report are simply absent.
     async fn orders(&self, txids: &[String]) -> Result<Vec<OrderState>, VenueError>;
-    /// OpenOrders, then every page of ClosedOrders since `since`. `Err` unless the whole scan completed.
+    /// The order with this client order id, if the venue holds one. `Err` unless the answer is complete.
     async fn order_by_client_id(&self, cl_ord_id: &str, since: DateTime<Utc>) -> Result<Option<OrderState>, VenueError>;
-    /// TradesHistory aggregated per order (Exchanges::Kraken#recover_missing_from_trades).
+    /// Fills recovered from trade history (Kraken TradesHistory). Alpaca has none: Rails has no trade fallback there.
     async fn fills_from_trades(&self, txids: &[String], since: DateTime<Utc>) -> Result<Vec<OrderState>, VenueError>;
-    /// Free balance of an asset (Exchanges::Kraken#get_balances: balance − hold_trade; absent → 0).
+    /// What Bot::Fundable compares with its buffer (Kraken: balance − hold_trade; Alpaca: #spendable_balance).
     async fn balance(&self, asset_symbol: &str) -> Result<BigDec, VenueError>;
 }
 
 pub trait VenueFactory {
     type V: Venue;
-    /// `None` is Rails' unsaved fallback key: private calls fail at the venue, per bot.
-    fn for_key(&self, credentials: Option<Credentials>) -> Self::V;
+    /// `exchange_type` is the bot's exchanges.type. `None` credentials is Rails' unsaved fallback key: private calls
+    /// fail at the venue, per bot.
+    fn for_bot(&self, exchange_type: &str, credentials: Option<Credentials>) -> Self::V;
 }

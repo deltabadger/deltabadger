@@ -41,7 +41,7 @@ async fn a_crash_after_kraken_accepted_is_recorded_exactly_once_with_its_fill_an
     let venue = FakeVenue::new().next_add(AddOutcome::Accept("OTX-1".into())).order("OTX-1", json!({
         "status": "closed", "price": "50000", "vol": "0.0012", "vol_exec": "0.0012", "cost": "60", "oflags": "", "descr": { "ordertype": "market", "price": "0" } }));
     let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
-    assert!(matches!(placement::send(&venue, &intent).await, Sent::Accepted(ref t) if t == "OTX-1"));
+    assert!(matches!(placement::send(&venue, &intent, &FixedClock(t0())).await, Sent::Accepted(ref t) if t == "OTX-1"));
     // crash here: the reply never reached the database
     let later = FixedClock(t0() + Duration::hours(2));
     assert!(matches!(placement::recover(&o.primary, &venue, &reload(&o, &bot), &later).await.unwrap(), Recovery::Recorded(_)));
@@ -99,7 +99,7 @@ async fn a_stale_snapshot_cannot_record_an_order_twice() {
     let (_d, o, bot, plan) = setup();
     let venue = FakeVenue::new().next_add(AddOutcome::Accept("OTX-1".into()));
     let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
-    assert!(matches!(placement::send(&venue, &intent).await, Sent::Accepted(_)));
+    assert!(matches!(placement::send(&venue, &intent, &FixedClock(t0())).await, Sent::Accepted(_)));
     let stale = reload(&o, &bot); // still carries the intent
     placement::record_accepted(&o.primary, &stale, &intent, "OTX-1").unwrap();
     let later = FixedClock(t0() + Duration::hours(2));
@@ -150,10 +150,10 @@ async fn an_ambiguous_send_keeps_the_intent_and_a_not_sent_one_can_drop_it() {
     let (_d, o, bot, plan) = setup();
     let venue = FakeVenue::new().next_add(AddOutcome::AmbiguousPlaced("OTX-9".into()));
     let intent = placement::begin(&o.primary, &bot, &plan, &FixedClock(t0())).unwrap();
-    assert!(matches!(placement::send(&venue, &intent).await, Sent::Ambiguous(_)));
+    assert!(matches!(placement::send(&venue, &intent, &FixedClock(t0())).await, Sent::Ambiguous(_)));
     assert!(reload(&o, &bot).rust_placement().is_some());
     let refused = FakeVenue::new().next_add(AddOutcome::NotSent("refused".into())); // the fake books a duplicate cl_ord_id, so a fresh venue
-    assert!(matches!(placement::send(&refused, &intent).await, Sent::NotSent(_)));
+    assert!(matches!(placement::send(&refused, &intent, &FixedClock(t0())).await, Sent::NotSent(_)));
     placement::drop_intent(&o.primary, bot.id).unwrap();
     assert!(reload(&o, &bot).rust_placement().is_none());
 }

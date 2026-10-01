@@ -4,7 +4,7 @@
 //! complete lookup that STARTED after the deadline + 60 s.
 use super::amount::{write_order_row, OrderPlan, RowKind};
 use super::model::{self, Bot, Level};
-use super::{polling, venue_rules::KRAKEN, Clock, EngineError};
+use super::{polling, Clock, EngineError};
 use crate::ruby::BigDec;
 use crate::venue::{Venue, VenueError};
 use chrono::{DateTime, Duration, Utc};
@@ -12,6 +12,10 @@ use rusqlite::{params, Connection};
 use serde_json::{json, Value};
 
 pub const DEADLINE_SECONDS: i64 = 10;
+/// How long after `at` an intent may still be sent. Never later: absence is measured from `at`, so a send delayed by a slow
+/// commit or a suspended process must not land after "not placed" became provable. Equal to Kraken's deadline, which
+/// Kraken enforces server-side anyway.
+pub const SEND_WINDOW_SECONDS: i64 = DEADLINE_SECONDS;
 pub const ABSENCE_AFTER_SECONDS: i64 = 60;
 /// Exchange::PLACEMENT_SAFE_TRANSIENT_ERRORS: definitive pre-trade rejections.
 pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 2] = ["Timestamp for this request is outside of the recvWindow", "Timestamp for this request was"];
@@ -68,10 +72,14 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
 #[derive(Debug)]
 pub enum Sent { Accepted(String), Rejected(Vec<String>), Ambiguous(String), NotSent(String) }
 
-pub async fn send<V: Venue>(venue: &V, intent: &Intent) -> Sent {
-    match venue.add_order(&intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, KRAKEN.wire)).await {
+pub async fn send<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Sent {
+    if clock.now() > intent.at + Duration::seconds(SEND_WINDOW_SECONDS) {
+        return Sent::NotSent(format!("the order intent from {} is older than {SEND_WINDOW_SECONDS} s; not sent", intent.at.to_rfc3339()));
+    }
+    let rules = venue.rules();
+    match venue.add_order(&intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, rules.wire)).await {
         Ok(txid) => Sent::Accepted(txid),
-        Err(VenueError::Rejected(e)) if KRAKEN.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
+        Err(VenueError::Rejected(e)) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
         Err(VenueError::Rejected(e)) => Sent::Rejected(e),
         Err(VenueError::Ambiguous(m)) => Sent::Ambiguous(m),
         Err(VenueError::Transient(m)) => Sent::NotSent(m),
@@ -106,6 +114,10 @@ pub enum Recovery { NoIntent, Recorded(i64), NotPlaced, Pending }
 pub async fn recover<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn Clock) -> Result<Recovery, EngineError> {
     let Some(raw) = bot.rust_placement() else { return Ok(Recovery::NoIntent) };
     let intent = Intent::from_json(c, bot, &raw)?;
+    let rules = venue.rules();
+    // The last moment the order could still reach the venue: Kraken drops it after the deadline it was sent with; a
+    // venue without one may receive it until the client gives up (VenueRules::reach_within_secs after `at`).
+    let reach_by = if rules.deadline_sent { intent.deadline } else { intent.at + Duration::seconds(rules.reach_within_secs) };
     let started = clock.now(); // only a scan that starts after the cutoff can prove absence
     match venue.order_by_client_id(&intent.cl_ord_id, intent.at - Duration::hours(1)).await {
         Ok(Some(state)) => {
@@ -118,12 +130,12 @@ pub async fn recover<V: Venue>(c: &Connection, venue: &V, bot: &Bot, clock: &dyn
             tx.commit()?;
             Ok(Recovery::Recorded(id))
         }
-        Ok(None) if started >= intent.deadline + Duration::seconds(ABSENCE_AFTER_SECONDS) => {
+        Ok(None) if started >= reach_by + Duration::seconds(ABSENCE_AFTER_SECONDS) => {
             let tx = model::immediate(c)?;
             if !still_pending(&tx, bot.id, &intent.cl_ord_id)? { return Ok(Recovery::NoIntent); }
             set_intent(&tx, bot.id, None)?;
             model::log_activity(&tx, bot.id, "placement_ambiguous", Level::Warning,
-                json!({ "error": "the order never reached Kraken", "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
+                json!({ "error": format!("the order never reached {}", rules.name), "resolution": "not_placed", "source": "rust", "cl_ord_id": intent.cl_ord_id }), started)?;
             tx.commit()?;
             Ok(Recovery::NotPlaced)
         }
