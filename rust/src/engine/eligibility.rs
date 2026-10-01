@@ -46,7 +46,9 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
     let mut r = rails_work(c, bot)?;
     if bot.bot_type != "Bots::DcaMultiAsset" { r.push(format!("type {} (only one-asset DCA baskets)", bot.bot_type)); }
     let exchange: Option<String> = c.query_row("SELECT type FROM exchanges WHERE id = ?1", [bot.exchange_id], |r| r.get(0)).optional()?;
-    if exchange.as_deref() != Some("Exchanges::Kraken") { r.push(format!("exchange {} (only Kraken)", exchange.unwrap_or_default())); }
+    if !matches!(exchange.as_deref(), Some("Exchanges::Kraken" | "Exchanges::Alpaca")) {
+        r.push(format!("exchange {} (only Kraken and Alpaca)", exchange.as_deref().unwrap_or_default()));
+    }
     if bot.asset_ids().len() != 1 { r.push(format!("allocations: {} assets (only one)", bot.asset_ids().len())); }
     match bot.settings.get("direction") { None | Some(Value::Null) => {}, Some(v) if v == "buying" => {}, Some(d) => r.push(format!("direction {d}")) }
     if let Some(obj) = bot.settings.as_object() {
@@ -80,6 +82,11 @@ pub fn bot_reasons(c: &Connection, bot: &Bot) -> Result<Vec<String>, EngineError
                 "SELECT category, instrument_type FROM assets WHERE id = ?1", [t.base_asset_id], |r| Ok((r.get(0)?, r.get(1)?)))?;
             if category.as_deref() != Some("Cryptocurrency") || instrument.is_some() {
                 r.push(format!("asset category {} / instrument {} (only plain cryptocurrencies)", category.unwrap_or_default(), instrument.unwrap_or_default()));
+            }
+            // Both Alpaca catalogs import only USD-quoted crypto (MarketData.sync_alpaca_crypto_listings_from_deltabadger!,
+            // Exchange::SyncAlpacaAssetsJob), and Exchanges::Alpaca#get_balances resolves the quote from USD only.
+            if exchange.as_deref() == Some("Exchanges::Alpaca") && t.quote_symbol != "USD" {
+                r.push(format!("quote {} (Alpaca: only USD)", t.quote_symbol));
             }
         }
     }

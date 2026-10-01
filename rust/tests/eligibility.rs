@@ -182,3 +182,45 @@ fn the_refusal_names_the_bots_real_status() {
         assert!(p.starts_with(&format!("bot {id} ({label}) ")), "{p}");
     }
 }
+
+#[test]
+fn the_alpaca_crypto_slice_is_eligible_with_its_two_options() {
+    let (_d, o, s) = common::install_alpaca();
+    let a = seed::insert_bot(&o.primary, &s, &plain());
+    let b = seed::insert_bot(&o.primary, &s, &plain().with("limit_ordered", json!(true)).with("limit_order_pcnt_distance", json!(0.0025)));
+    let c = seed::insert_bot(&o.primary, &s, &plain().with("smart_intervaled", json!(true)).with("smart_interval_quote_amount", json!(20.0)));
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.is_empty(), "{:?}", r.problems);
+    assert_eq!(r.eligible, vec![a, b, c]);
+}
+
+#[test]
+fn alpaca_stocks_etfs_baskets_index_bots_amount_limits_and_other_quotes_are_refused() {
+    // The owner's production instance is exactly the first six (spec amendment): it is not the canary.
+    let cases: Vec<(&str, Make)> = vec![
+        ("category stock", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'stock' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
+        ("category etf", Box::new(|c, s| { c.execute("UPDATE assets SET category = 'etf' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
+        ("instrument tokenized", Box::new(|c, s| { c.execute("UPDATE assets SET instrument_type = 'tokenized' WHERE id = ?1", [s.btc]).unwrap(); seed::insert_bot(c, s, &plain()) })),
+        ("allocations: 2", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("allocations", json!({ s.btc.to_string(): 0.5, s.quote.to_string(): 0.5 }))))),
+        ("type Bots::DcaIndex", Box::new(|c, s| { let id = seed::insert_bot(c, s, &plain()); c.execute("UPDATE bots SET type = 'Bots::DcaIndex' WHERE id = ?1", [id]).unwrap(); id })),
+        ("quote_amount_limited", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("quote_amount_limited", json!(true))))),
+        ("direction", Box::new(|c, s| seed::insert_bot(c, s, &plain().with("direction", json!("selling"))))),
+        ("quote USDT (Alpaca: only USD)", Box::new(|c, s| { c.execute("UPDATE assets SET symbol = 'USDT' WHERE id = ?1", [s.quote]).unwrap(); seed::insert_bot(c, s, &plain()) })),
+    ];
+    for (reason, make) in cases {
+        let (_d, o, s) = common::install_alpaca();
+        let id = make(&o.primary, &s);
+        let r = eligibility::check_install(&o.primary).unwrap();
+        assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains(reason)), "{reason}: {:?}", r.problems);
+        assert!(r.eligible.is_empty(), "{reason}");
+    }
+}
+
+#[test]
+fn any_other_exchange_is_refused() {
+    let (_d, o, s) = common::install_alpaca();
+    o.primary.execute("UPDATE exchanges SET type = 'Exchanges::Binance', name = 'Binance'", []).unwrap();
+    let id = seed::insert_bot(&o.primary, &s, &plain());
+    let r = eligibility::check_install(&o.primary).unwrap();
+    assert!(r.problems.iter().any(|p| p.contains(&format!("bot {id}")) && p.contains("exchange Exchanges::Binance (only Kraken and Alpaca)")), "{:?}", r.problems);
+}
