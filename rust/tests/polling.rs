@@ -141,3 +141,26 @@ async fn imported_rows_are_never_polled_and_a_follow_up_ignores_unknown() {
     let ext: i64 = o.primary.query_row("SELECT external_status FROM transactions WHERE external_id = 'OTX-6'", [], |r| r.get(0)).unwrap();
     assert_eq!(ext, 0);
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_carry_is_rewritten_even_when_the_value_is_unchanged() {
+    let (_d, o, s, b) = setup(json!({ "missed_quote_amount": "100.0" }));
+    seed::insert_tx(&o.primary, &s, b, &TxSpec { external_status: Some(1), order_type: 1, quote_amount: None, amount_exec: Some("0"),
+        quote_amount_exec: Some("0"), ..open_market("2026-09-29 10:00:00", "OTX-C") });
+    let v = FakeVenue::new().order("OTX-C", json!({ "status": "open", "price": "0", "vol": "0.0012", "vol_exec": "0", "cost": "0", "oflags": "",
+                                                     "descr": { "type": "buy", "ordertype": "limit", "price": "50000" } }));
+    polling::sweep(&o.primary, &v, &bot(&o, b), now()).await.unwrap();
+    let at: String = o.primary.query_row("SELECT updated_at FROM bots WHERE id = ?1", [b], |r| r.get(0)).unwrap();
+    assert_eq!(at, deltabadger::codec::format_time(now()));
+    assert_eq!(bot(&o, b).transient["missed_quote_amount"], json!("100.0"));
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_created_at_fails_the_sweep_and_abandons_nothing() {
+    let (_d, o, s, b) = setup(json!({}));
+    let tx = seed::insert_tx(&o.primary, &s, b, &open_market("2026-09-29 10:00:00", "OTX-G"));
+    o.primary.execute("UPDATE transactions SET created_at = 'garbage' WHERE id = ?1", [tx]).unwrap();
+    assert!(matches!(polling::sweep(&o.primary, &FakeVenue::new(), &bot(&o, b), now()).await, Err(PollFailure::General(_))));
+    let ext: i64 = o.primary.query_row("SELECT external_status FROM transactions WHERE id = ?1", [tx], |r| r.get(0)).unwrap();
+    assert_eq!(ext, 0);
+}

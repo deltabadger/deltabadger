@@ -23,6 +23,11 @@ struct Row {
     order_type: Option<i64>, base: Option<String>, quote: Option<String>, base_asset_id: Option<i64>, quote_asset_id: Option<i64>,
 }
 
+/// An unreadable created_at fails the row (and so the bot's tick); it must never read as the epoch.
+fn created_us(s: &str) -> Result<i64, EngineError> {
+    parse_time(s).map(|t| t.timestamp_micros()).map_err(|e| EngineError::Data(format!("{e:?}")))
+}
+
 fn load(c: &Connection, id: i64) -> Result<Row, EngineError> {
     let row = c.query_row(
         "SELECT id, created_at, side, transaction_type, external_status, price, amount, quote_amount, amount_exec, quote_amount_exec, \
@@ -30,7 +35,7 @@ fn load(c: &Connection, id: i64) -> Result<Row, EngineError> {
         |r| {
             let dec = |i: usize| from_sql(r.get_ref(i)?).map_err(|e| rusqlite::Error::InvalidColumnName(format!("{e:?}")));
             Ok(Row { id: r.get(0)?,
-                     created_at_us: parse_time(&r.get::<_, String>(1)?).map(|t| t.timestamp_micros()).unwrap_or(0),
+                     created_at_us: created_us(&r.get::<_, String>(1)?).map_err(|e| rusqlite::Error::InvalidColumnName(format!("{e:?}")))?,
                      side: r.get(2)?, transaction_type: r.get(3)?, external_status: r.get(4)?,
                      price: dec(5)?, amount: dec(6)?, quote_amount: dec(7)?, amount_exec: dec(8)?, quote_amount_exec: dec(9)?,
                      order_type: r.get(10)?, base: r.get(11)?, quote: r.get(12)?, base_asset_id: r.get(13)?, quote_asset_id: r.get(14)? })
@@ -51,7 +56,7 @@ pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, update_
     // update_with_order_data(...).compact under ActiveRecord's dirty check: only changed attributes are written.
     let mut sets: Vec<(&str, Sql)> = vec![];
     let mut decimal = |col: &'static str, old: &Option<BigDec>, new: Option<&BigDec>| {
-        if let Some(new) = new { if old.as_ref() != Some(new) { sets.push((col, Sql::Real(to_sql(new)))); } }
+        if let Some(new) = new { if old.as_ref() != Some(&new.round(18)) { sets.push((col, Sql::Real(to_sql(new)))); } }
     };
     decimal("price", &row.price, s.price.as_ref());
     decimal("amount", &row.amount, s.amount.as_ref());
@@ -84,7 +89,8 @@ pub fn apply_in(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, update_
         let missed = &bot.missed_quote_amount()? - &(&s.quote_amount_exec - &previous_quote_amount_exec);
         // [0, x].max: Ruby returns the Integer 0 unless x is strictly greater.
         let value = if missed.is_positive() { json!(missed.to_s_f()) } else { json!(0) };
-        if bot.transient.get("missed_quote_amount") != Some(&value) {
+        // Rails assigns a BigDecimal against the stored String, so it always writes; only Integer 0 over Integer 0 is a no-op.
+        if !(value == json!(0) && bot.transient.get("missed_quote_amount") == Some(&json!(0))) {
             model::update_transient(c, bot_id, &[("missed_quote_amount", value)], now)?;
         }
     }
@@ -106,7 +112,7 @@ fn waiting_ids(c: &Connection, bot: &model::Bot) -> Result<Vec<(i64, String, i64
          AND (external_id IS NULL OR external_id NOT LIKE 'imported_%') ORDER BY id")?;
     let rows = s.query_map(params![bot.id, bot.exchange_id], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Option<String>>(1)?.unwrap_or_default(), r.get::<_, String>(2)?)))?
         .collect::<Result<Vec<_>, _>>()?;
-    Ok(rows.into_iter().map(|(id, ext, at)| (id, ext, parse_time(&at).map(|t| t.timestamp_micros()).unwrap_or(0))).collect())
+    rows.into_iter().map(|(id, ext, at)| Ok((id, ext, created_us(&at)?))).collect()
 }
 
 fn apply_committed(c: &Connection, bot_id: i64, tx_id: i64, s: &OrderState, now: DateTime<Utc>) -> Result<(), EngineError> {
