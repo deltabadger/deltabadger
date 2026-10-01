@@ -126,7 +126,7 @@ const PRIMARY: &[TableContract] = &[
 ];
 const QUEUE: &[TableContract] = &[
     TableContract { name: "solid_queue_processes", columns: &[("last_heartbeat_at", "datetime(6)", true)], unique_indexes: &[] },
-    TableContract { name: "solid_queue_jobs", columns: &[("id", "integer", true), ("class_name", "varchar", true), ("arguments", "text", false)], unique_indexes: &[] },
+    TableContract { name: "solid_queue_jobs", columns: &[("id", "integer", true), ("class_name", "varchar", true), ("arguments", "text", false), ("finished_at", "datetime(6)", false)], unique_indexes: &[] },
 ];
 
 fn check_structure(
