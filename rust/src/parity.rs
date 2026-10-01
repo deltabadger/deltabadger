@@ -1,5 +1,6 @@
 //! The Rust half of the decision-parity harness (script/rust/decisions.rb is the Rails half): the same
 //! ticks, with retries, on a marked scratch copy, reported in the canonical shape Rails reports.
+use crate::engine::polling;
 use crate::engine::tick::{self, Attempts, TickOutcome};
 use crate::engine::{EngineError, FixedClock};
 use crate::lease;
@@ -79,7 +80,7 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     if scenario["parity_scratch"] != true {
         return Err(EngineError::Data(format!("{} is not a parity scratch copy (no parity_scratch marker)", dir.display())));
     }
-    let mut at: DateTime<Utc> = scenario["at"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data("scenario.at".into()))?;
+    let start: DateTime<Utc> = scenario["at"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data("scenario.at".into()))?;
     let bot_id = scenario["bot_id"].as_i64().ok_or_else(|| EngineError::Data("scenario.bot_id".into()))?;
     let paths = Paths::from_env(&|_| None, dir);
     // The same exclusive lock the engine takes, judged at the real clock: the scenario time is for the tick only, and a
@@ -88,12 +89,21 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
     let o = store::open(&paths)?;
     let venue = FakeVenue::from_script(&scenario["script"]);
     let before = snapshot(&o.primary)?;
-    let mut attempts = Attempts::default();
-    for _ in 0..MAX_ATTEMPTS {
-        match tick::tick(&o.primary, &venue, bot_id, &FixedClock(at), &mut attempts).await? {
-            TickOutcome::RetryAfter(d) => at += chrono::Duration::from_std(d).unwrap(),
-            _ => break,
+    if scenario["tick"] != false {
+        let (mut at, mut attempts) = (start, Attempts::default());
+        for _ in 0..MAX_ATTEMPTS {
+            match tick::tick(&o.primary, &venue, bot_id, &FixedClock(at), &mut attempts).await? {
+                TickOutcome::RetryAfter(d) => at += chrono::Duration::from_std(d).unwrap(),
+                _ => break,
+            }
         }
+    }
+    // The follow-up poll Rails enqueues for one order (Bot::FetchAndUpdateOrderJob), 5 s after the tick; its retries
+    // are not replayed (ponytail: no grid scenario fails a poll, add the retry loop when one does).
+    if let Some(ext) = scenario["poll"].as_str() {
+        let tx: i64 = o.primary.query_row("SELECT id FROM transactions WHERE bot_id = ?1 AND external_id = ?2", rusqlite::params![bot_id, ext], |r| r.get(0))?;
+        polling::follow_up(&o.primary, &venue, bot_id, tx, start + chrono::Duration::seconds(5)).await
+            .map_err(|e| EngineError::Data(format!("follow-up poll of {ext}: {e:?}")))?;
     }
     let after = snapshot(&o.primary)?;
     Ok(json!({ "sent": venue.sent().iter().map(wire).collect::<Vec<_>>(), "changes": diff(&before, &after) }))
