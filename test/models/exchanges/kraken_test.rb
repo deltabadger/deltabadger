@@ -27,6 +27,20 @@ class Exchanges::KrakenTest < ActiveSupport::TestCase
   # The container fetches its own catalogue on the CoinGecko provider. Same two Kraken quirks as the
   # market-data service: tokenized equities need aclass_base, and every tokenized pair is returned
   # twice (SPV key + x key) under one shared wsname.
+  # A 2xx that is not a JSON object (a maintenance page, "null") says nothing about whether Kraken took
+  # the order. Through the real client it must read as ambiguous, never as an answer.
+  test 'an order placement answered with a non-object body is ambiguous' do
+    ticker = waiting_kraken_tx('OPRIOR').bot.ticker
+    @exchange.set_client(api_key: create(:api_key, exchange: @exchange))
+    stub_request(:post, 'https://api.kraken.com/0/private/AddOrder')
+      .to_return(status: 200, body: 'null', headers: { 'Content-Type' => 'application/json' })
+
+    result = @exchange.send(:set_market_order, ticker:, amount: 10.to_d, amount_type: :quote, side: :buy)
+
+    assert_predicate result, :failure?
+    assert @exchange.ambiguous_placement_error?(result), result.errors.to_sentence
+  end
+
   test 'get_tickers_info asks for every asset class' do
     @exchange.set_client
     @exchange.send(:client).expects(:get_tradable_asset_pairs).with(aclass_base: 'all')
