@@ -4,11 +4,13 @@
 pub mod assets;
 pub mod i18n;
 pub mod layout;
+pub mod locale;
 pub mod server;
 
 use crate::crypto::{Cipher, EncryptionKeys};
 use crate::engine::{Clock, EngineError};
-use axum::http::{header, HeaderMap, StatusCode};
+use axum::extract::{Request, State};
+use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, MethodRouter};
 use axum::Router;
@@ -17,6 +19,7 @@ use hmac::{Hmac, Mac};
 use rusqlite::Connection;
 use sha2::Sha256;
 use std::sync::{Arc, Mutex, PoisonError};
+use tower::ServiceExt;
 
 #[derive(Debug)]
 pub enum WebError {
@@ -179,7 +182,87 @@ fn routes(app: App) -> Router {
         .with_state(app)
 }
 
+/// What `entry` learned about the request before routing.
+pub struct Params {
+    /// The path as requested, slashes squeezed, locale prefix included: Rails' `request.path`.
+    pub full_path: String,
+    /// `full_path` with the query string: Rails' `request.fullpath`.
+    pub fullpath: String,
+    /// The path the routes match: `full_path` without its locale prefix.
+    pub route_path: String,
+    pub path_locale: Option<&'static str>,
+    pub query: Vec<(String, String)>,
+    /// The fields of an `application/x-www-form-urlencoded` POST body, by their literal names (`user[email]`).
+    pub form: Vec<(String, String)>,
+}
+
+impl Params {
+    pub fn query(&self, name: &str) -> Option<&str> {
+        self.query.iter().find(|(k, _)| k == name).map(|(_, v)| v.as_str())
+    }
+
+    pub fn form(&self, name: &str) -> Option<&str> {
+        self.form.iter().find(|(k, _)| k == name).map(|(_, v)| v.as_str())
+    }
+
+    /// `params[:locale].presence`: the path prefix, else the form field, else the query parameter.
+    pub fn locale(&self) -> Option<&str> {
+        self.path_locale.or_else(|| self.form("locale")).or_else(|| self.query("locale")).filter(|v| !v.trim().is_empty())
+    }
+}
+
+/// RackAttackPaths.normalize, which is also how Rails' router reads a path: repeated slashes are one,
+/// and a trailing slash is dropped.
+pub fn normalize_path(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    for c in path.chars() {
+        if !(c == '/' && out.ends_with('/')) {
+            out.push(c);
+        }
+    }
+    if out.len() > 1 && out.ends_with('/') {
+        out.pop();
+    }
+    out
+}
+
+fn pairs(encoded: &[u8]) -> Vec<(String, String)> {
+    form_urlencoded::parse(encoded).map(|(k, v)| (k.into_owned(), v.into_owned())).collect()
+}
+
+#[derive(Clone)]
+struct Entry {
+    routes: Router,
+}
+
+/// Everything that has to happen before a route is chosen:
+/// - a static file is answered at once, as Rails' static file server sits in front of the app;
+/// - the path is normalised and its locale prefix taken off, so one set of routes serves `/login`
+///   and `/de/login`.
+async fn entry(State(entry): State<Entry>, request: Request) -> Response {
+    let (mut parts, body) = request.into_parts();
+    let full_path = normalize_path(parts.uri.path());
+    if matches!(parts.method, Method::GET | Method::HEAD) {
+        if let Some(file) = assets::find(&full_path) {
+            return assets::respond(file, parts.method == Method::HEAD);
+        }
+    }
+    let query = parts.uri.query().map(|q| pairs(q.as_bytes())).unwrap_or_default();
+    let form = Vec::new();
+    let with_query = |path: &str| parts.uri.query().map_or_else(|| path.to_string(), |q| format!("{path}?{q}"));
+    let fullpath = with_query(&full_path);
+    let (path_locale, route_path) = locale::split(&full_path);
+    let route_path = route_path.to_string();
+    let Ok(uri) = with_query(&route_path).parse::<Uri>() else { return (StatusCode::BAD_REQUEST, "Bad Request\n").into_response() };
+    parts.uri = uri;
+    parts.extensions.insert(Arc::new(Params { full_path, fullpath, route_path, path_locale, query, form }));
+    match entry.routes.oneshot(Request::from_parts(parts, body)).await {
+        Ok(response) => response,
+        Err(never) => match never {},
+    }
+}
+
 /// The whole web application as one service. `serve` binds it; tests call it with `oneshot`.
 pub fn router(app: App) -> Router {
-    routes(app)
+    Router::new().fallback(entry).with_state(Entry { routes: routes(app) })
 }

@@ -38,3 +38,64 @@ mod embedded_assets {
         assert_eq!(response.headers()["cache-control"], "public, max-age=31536000");
     }
 }
+
+mod locales {
+    use super::common;
+    use deltabadger::web::{locale, normalize_path};
+
+    #[test]
+    fn the_locales_are_rails_available_locales() {
+        let recorded = &common::vectors()["i18n"];
+        assert_eq!(serde_json::json!(locale::LOCALES), recorded["locales"]);
+        assert_eq!(locale::DEFAULT, recorded["default"].as_str().unwrap());
+    }
+
+    #[test]
+    fn a_locale_prefix_is_split_off_only_for_known_locales_and_scoped_routes() {
+        assert_eq!(locale::split("/de/login"), (Some("de"), "/login"));
+        assert_eq!(locale::split("/en/bots/12"), (Some("en"), "/bots/12"));
+        assert_eq!(locale::split("/de"), (Some("de"), "/"));
+        assert_eq!(locale::split("/login"), (None, "/login"));
+        assert_eq!(locale::split("/zz/login"), (None, "/zz/login"));
+        assert_eq!(locale::split("/de/up"), (None, "/de/up"));
+        assert_eq!(locale::split("/de/cable"), (None, "/de/cable"));
+        assert_eq!(locale::split("/"), (None, "/"));
+    }
+
+    #[test]
+    fn switch_locale_prefers_the_parameter_then_the_user_and_ignores_unknown_values() {
+        assert_eq!(locale::switch(Some("de"), Some("pl")), "de");
+        assert_eq!(locale::switch(None, Some("pl")), "pl");
+        assert_eq!(locale::switch(Some(""), Some("pl")), "pl");
+        assert_eq!(locale::switch(Some("zz"), Some("pl")), "en", "an invalid parameter is not replaced by the user's locale");
+        assert_eq!(locale::switch(None, Some("zz")), "en");
+        assert_eq!(locale::switch(None, None), "en");
+    }
+
+    #[test]
+    fn generated_paths_are_prefixed_for_every_locale_but_the_default() {
+        assert_eq!(locale::path("en", "/bots"), "/bots");
+        assert_eq!(locale::path("de", "/bots"), "/de/bots");
+        assert_eq!(locale::path("de", "/"), "/de");
+        assert_eq!(locale::path("en", "/"), "/");
+        assert_eq!(locale::path("de", "/bots/new?auto_open=true"), "/de/bots/new?auto_open=true");
+    }
+
+    #[test]
+    fn the_language_switch_keeps_the_page_and_its_query_without_reserved_keys() {
+        let query = |pairs: &[(&str, &str)]| pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect::<Vec<_>>();
+        assert_eq!(locale::switch_path("de", "/login", &[]), "/de/login");
+        assert_eq!(locale::switch_path("en", "/login", &[]), "/en/login", "English is explicit here, unlike a generated path");
+        assert_eq!(locale::switch_path("de", "/", &[]), "/de");
+        // Recorded from Rails by the login_page_query scenario of tests/pages.rs.
+        let given = query(&[("x", "1"), ("host", "evil.example"), ("locale", "de"), ("b", "two words"), ("a[]", "1")]);
+        assert_eq!(locale::switch_path("nl", "/login", &given), "/nl/login?a%5B%5D=1&b=two+words&x=1");
+    }
+
+    #[test]
+    fn paths_are_normalised_as_rails_routes_them() {
+        for pair in common::vectors()["rack_attack"]["normalize"].as_array().unwrap() {
+            assert_eq!(normalize_path(pair[0].as_str().unwrap()), pair[1].as_str().unwrap());
+        }
+    }
+}

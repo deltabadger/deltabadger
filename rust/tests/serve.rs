@@ -95,3 +95,25 @@ async fn a_page_this_build_does_not_serve_is_a_501_that_names_it() {
     let escaped = browser.get(&app, "/search?a=1&b=%3Cscript%3E").await;
     assert!(escaped.body.contains("GET /search?a=1&#38;b=%3Cscript%3E"), "the path is text, never markup: {}", escaped.body);
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn static_files_and_locale_prefixes_are_handled_before_routing() {
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+
+    let css_path = deltabadger::web::assets::path("application.css");
+    let css = browser.get(&app, css_path).await;
+    assert_eq!((css.status, css.header("content-type"), css.header("cache-control")), (200, Some("text/css; charset=utf-8"), Some("public, max-age=31536000")));
+    assert!(css.body.len() > 100_000 && css.header("set-cookie").is_none());
+    let head = browser.send(&app, "HEAD", css_path, None, web::Csrf::None, &[]).await;
+    assert_eq!((head.status, head.body.as_str(), head.header("content-length")), (200, "", css.header("content-length")));
+    assert_eq!(browser.get(&app, "/fonts/Dosis-digits.woff2").await.header("content-type"), Some("font/woff2"));
+
+    assert_eq!(browser.get(&app, "//up/").await.status, 200, "repeated and trailing slashes are not part of a path");
+    for (path, named) in [("/de/up", "GET /de/up"), ("/en/nothing?x=1", "GET /en/nothing?x=1"), ("/de/cable", "GET /de/cable")] {
+        let answer = browser.get(&app, path).await;
+        assert!(answer.status == 501 && answer.body.contains(named), "{path}: {} {}", answer.status, answer.body);
+    }
+}

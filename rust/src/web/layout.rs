@@ -1,9 +1,10 @@
 //! The answer for pages this build does not serve.
-use super::{header_text, WebError};
+use super::{header_text, Params, WebError};
 use askama::Template;
 use axum::extract::Request;
 use axum::http::{header, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
+use std::sync::Arc;
 
 #[derive(Template)]
 #[template(path = "not_ported.html")]
@@ -29,6 +30,7 @@ pub fn not_ported_response(method: &Method, path: &str, frame: Option<&str>) -> 
 }
 
 pub async fn not_ported(request: Request) -> Response {
-    let path = request.uri().path_and_query().map_or_else(|| request.uri().path().to_string(), |p| p.as_str().to_string());
+    // The path as it was requested: `entry` has taken the locale prefix off the URI by now.
+    let path = request.extensions().get::<Arc<Params>>().map_or_else(|| request.uri().path().to_string(), |params| params.fullpath.clone());
     not_ported_response(request.method(), &path, header_text(request.headers(), "turbo-frame"))
 }
