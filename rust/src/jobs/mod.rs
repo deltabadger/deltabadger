@@ -68,7 +68,14 @@ impl Db {
     /// `BEGIN IMMEDIATE` for a multi-statement write, and no transaction outlives the closure.
     pub async fn run<R: Send + 'static>(&self, f: impl FnOnce(&Connection, &Cipher) -> Result<R, String> + Send + 'static) -> Result<R, String> {
         let me = self.clone();
-        tokio::task::spawn_blocking(move || f(&me.conn.lock().unwrap_or_else(PoisonError::into_inner), &me.cipher))
+        tokio::task::spawn_blocking(move || {
+            let c = me.conn.lock().unwrap_or_else(PoisonError::into_inner);
+            let out = f(&c, &me.cipher);
+            // A closure that returned early inside its own transaction must not leave the shared connection holding the
+            // write lock into the next job.
+            if !c.is_autocommit() { let _ = c.execute_batch("ROLLBACK"); }
+            out
+        })
             .await
             .map_err(|e| format!("the blocking pool lost the work: {e}"))?
     }
