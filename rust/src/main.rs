@@ -52,7 +52,11 @@ fn main() {
             let config = deltabadger::web::Config::from_env(&env).unwrap_or_else(|e| fail(&web_problem(e)));
             let app = deltabadger::web::App::new(config, &env, opened.primary, std::sync::Arc::new(SystemClock)).unwrap_or_else(|e| fail(&web_problem(e)));
             let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
-            rt.block_on(deltabadger::web::server::serve(app, port)).unwrap_or_else(|e| fail(&web_problem(e)));
+            rt.block_on(async {
+                let listener = deltabadger::web::server::bind(&app, port).await?;
+                eprintln!("deltabadger: serving on port {port}");
+                deltabadger::web::server::serve_on(listener, app, deltabadger::web::server::Limits::default()).await
+            }).unwrap_or_else(|e| fail(&web_problem(e)));
         }
         Some("resolve-placement") => {
             let args: Vec<String> = std::env::args().skip(2).collect();

@@ -1,4 +1,5 @@
-//! `deltabadger serve`: the web server on its own. The engine loop joins this process in a later plan.
+//! The web server. `bind` refuses what cannot be served and listens; `serve_on` serves. `deltabadger serve` binds
+//! before it takes the install over, then runs `serve_on` beside the engine (`supervisor::serve`).
 use super::{router_with, App, WebError};
 use axum::body::Body;
 use axum::extract::ConnectInfo;
@@ -34,17 +35,17 @@ impl Default for Limits {
     }
 }
 
-/// Binds 0.0.0.0:`port` and serves until the process is stopped. Refuses an install with no admin
-/// user: until 3.0 Rails creates the install, and setup is a Rails page.
-pub async fn serve(app: App, port: u16) -> Result<(), WebError> {
+/// Refuses an install with no admin user (until 3.0 Rails creates the install, and setup is a Rails
+/// page), then binds 0.0.0.0:`port`. Nothing is served until `serve_on`: connections wait in the
+/// backlog meanwhile, while `deltabadger serve` takes the install over.
+pub async fn bind(app: &App, port: u16) -> Result<TcpListener, WebError> {
     let admins: i64 = app.db(|c| Ok(c.query_row("SELECT count(*) FROM users WHERE admin = 1", [], |r| r.get(0))?)).await?;
     if admins == 0 {
         return Err(WebError::Config("this install has no admin user yet: set it up with the Rails app first".into()));
     }
     let listener = TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], port))).await
         .map_err(|e| WebError::Config(format!("cannot listen on port {port}: {e}")))?;
-    eprintln!("deltabadger: serving on port {port}");
-    serve_on(listener, app, Limits::default()).await
+    Ok(listener)
 }
 
 /// A connection that holds one of the server's places for as long as it is open. The place is part
@@ -90,6 +91,9 @@ impl AsyncWrite for Counted {
 pub async fn serve_on(listener: TcpListener, app: App, limits: Limits) -> Result<(), WebError> {
     let router = router_with(app, limits.body_read_timeout);
     let places = Arc::new(Semaphore::new(limits.max_connections));
+    // Dropped with this future (`supervisor::serve` drops it when the engine returns): every open connection then
+    // answers the request in hand and closes, so no keep-alive connection serves without an engine.
+    let (closing, _) = tokio::sync::watch::channel(());
     loop {
         let place = places.clone().acquire_owned().await.map_err(|e| WebError::Config(format!("the server stopped: {e}")))?;
         let (stream, peer) = match listener.accept().await {
@@ -101,15 +105,36 @@ pub async fn serve_on(listener: TcpListener, app: App, limits: Limits) -> Result
             }
         };
         let router = router.clone();
+        // Admission: a request dispatched once the server is closed (`closing` dropped: the engine returned) is
+        // answered 503 without reaching the app; a request dispatched before finishes normally.
+        let gate = closing.subscribe();
+        let mut closed = gate.clone();
         let service = service_fn(move |mut request: hyper::Request<Incoming>| {
             request.extensions_mut().insert(ConnectInfo(peer));
-            router.clone().oneshot(request.map(Body::new))
+            let (router, shut) = (router.clone(), gate.has_changed().is_err()); // Err: the sender is gone
+            async move {
+                if shut {
+                    let mut stopped = axum::response::Response::new(Body::from("Service Unavailable"));
+                    *stopped.status_mut() = axum::http::StatusCode::SERVICE_UNAVAILABLE;
+                    stopped.headers_mut().insert(axum::http::header::CONNECTION, axum::http::HeaderValue::from_static("close"));
+                    return Ok(stopped);
+                }
+                router.oneshot(request.map(Body::new)).await
+            }
         });
         tokio::spawn(async move {
             let io = TokioIo::new(Counted { stream, _place: place });
             // An error here is one client's broken connection; there is nobody to tell.
-            let _ = http1::Builder::new().timer(TokioTimer::new()).header_read_timeout(limits.header_read_timeout)
-                .serve_connection(io, service).with_upgrades().await;
+            let connection = http1::Builder::new().timer(TokioTimer::new()).header_read_timeout(limits.header_read_timeout)
+                .serve_connection(io, service).with_upgrades();
+            tokio::pin!(connection);
+            tokio::select! {
+                _ = connection.as_mut() => {}
+                _ = closed.changed() => {
+                    connection.as_mut().graceful_shutdown();
+                    let _ = connection.await;
+                }
+            }
         });
     }
 }

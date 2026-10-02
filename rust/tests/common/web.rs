@@ -149,3 +149,33 @@ pub async fn until_closed(address: std::net::SocketAddr, sent: &'static [u8], pa
         std::io::Read::read_to_string(&mut stream, &mut answer).map(|_| answer)
     }).await.unwrap()
 }
+
+/// Sends one GET on an open keep-alive connection; `false` when the write failed.
+pub fn send_get(stream: &mut std::net::TcpStream, path: &str) -> bool {
+    use std::io::Write;
+    write!(stream, "GET {path} HTTP/1.1\r\nHost: localhost\r\n\r\n").is_ok()
+}
+
+/// Reads one answer to the end of its body (by Content-Length); `None` when the server closed the connection instead.
+pub fn read_answer(stream: &mut std::net::TcpStream) -> Option<String> {
+    use std::io::Read;
+    let mut head = Vec::new();
+    let mut byte = [0u8; 1];
+    while !head.ends_with(b"\r\n\r\n") {
+        if stream.read(&mut byte).ok()? == 0 { return None; }
+        head.push(byte[0]);
+    }
+    let head = String::from_utf8(head).ok()?;
+    let length = head.lines()
+        .find_map(|l| l.to_ascii_lowercase().strip_prefix("content-length:").map(|v| v.trim().parse::<usize>().ok()))
+        .flatten().unwrap_or(0);
+    let mut body = vec![0; length];
+    stream.read_exact(&mut body).ok()?;
+    Some(head + &String::from_utf8_lossy(&body))
+}
+
+/// One GET on an open keep-alive connection; `None` when the server closed it instead of answering.
+pub fn keep_alive_get(stream: &mut std::net::TcpStream, path: &str) -> Option<String> {
+    if !send_get(stream, path) { return None; }
+    read_answer(stream)
+}
