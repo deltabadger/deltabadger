@@ -2,6 +2,7 @@
 //! JavaScript and CSS the Rails app ships. Rails is the oracle: tests/pages.rs renders every page in
 //! both and compares.
 pub mod assets;
+pub mod i18n;
 pub mod layout;
 pub mod server;
 

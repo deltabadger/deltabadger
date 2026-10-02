@@ -1,12 +1,16 @@
-//! Build-time inputs from the Rails app: the migration versions this build understands, and the
-//! files `serve` hands out (src/web/assets.rs).
+//! Build-time inputs from the Rails app: the migration versions this build understands, the
+//! translations in config/locales (src/web/i18n.rs), and the files `serve` hands out (src/web/assets.rs).
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use std::{env, fs, path::{Path, PathBuf}};
+use yaml_rust2::parser::{Event, EventReceiver, Parser};
+use yaml_rust2::scanner::TScalarStyle;
 
 fn main() {
     let root = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap()).join("..");
     let out = PathBuf::from(env::var("OUT_DIR").unwrap());
     migrations(&root, &out);
+    locales(&root, &out);
     assets(&root, &out);
 }
 
@@ -124,4 +128,121 @@ fn assets(root: &Path, out: &Path) {
                 content_type(url), path.canonicalize().unwrap().to_str().expect("asset path is UTF-8"))
     }).collect();
     fs::write(out.join("assets.rs"), format!("pub static EMBEDDED: &[Embedded] = &[\n{body}];\n")).unwrap();
+}
+
+/// config/locales/*.yml as one sorted table of ("<locale>.<full.key>", "<text>"). Files are merged in
+/// name order, a later file winning, as Rails' I18n load path does. An array adds its index as a key
+/// segment. Rails reads these files with Psych (YAML 1.1), where an unquoted `yes`, `no`, `on`, `off`,
+/// `true` or `false` is a boolean: as a KEY it becomes `true`/`false` (base.en.yml has `yes:` and `no:`
+/// under tax_report.summary, so Rails' keys there are `true` and `false`), and that is reproduced. As
+/// a VALUE it would render as "true"/"false"; that, and a null, stop the build, so it gets quoted.
+fn locales(root: &Path, out: &Path) {
+    let dir = root.join("config/locales");
+    println!("cargo:rerun-if-changed={}", dir.display());
+    let mut files: Vec<PathBuf> = fs::read_dir(&dir).expect("read config/locales")
+        .map(|e| e.expect("read locale entry").path())
+        .filter(|p| p.extension().is_some_and(|x| x == "yml"))
+        .collect();
+    files.sort();
+    let mut flat = BTreeMap::new();
+    for file in &files {
+        let text = fs::read_to_string(file).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
+        let mut reader = Flatten::default();
+        Parser::new_from_str(&text).load(&mut reader, true).unwrap_or_else(|e| panic!("{}: {e}", file.display()));
+        assert!(reader.problems.is_empty(), "{}: {}", file.display(), reader.problems.join("; "));
+        flat.extend(reader.flat);
+    }
+    let body: String = flat.iter().map(|(k, v)| format!("    ({k:?}, {v:?}),\n")).collect();
+    fs::write(out.join("translations.rs"), format!("pub static TRANSLATIONS: &[(&str, &str)] = &[\n{body}];\n")).unwrap();
+}
+
+enum Frame {
+    Map { path: String, key: Option<String> },
+    Seq { path: String, next: usize },
+}
+
+/// One file's leaves. `anchors` maps a YAML anchor id to the path of the value it marks, so an alias
+/// (`binance_us: *binance_config`) copies that value's leaves under its own path.
+#[derive(Default)]
+struct Flatten {
+    stack: Vec<Frame>,
+    flat: BTreeMap<String, String>,
+    anchors: BTreeMap<usize, String>,
+    problems: Vec<String>,
+}
+
+fn psych_boolean(plain: &str) -> Option<&'static str> {
+    match plain.to_ascii_lowercase().as_str() {
+        "yes" | "true" | "on" => Some("true"),
+        "no" | "false" | "off" => Some("false"),
+        _ => None,
+    }
+}
+
+impl Flatten {
+    /// The full key of the value now starting, or None when the scalar just read is a mapping key.
+    fn value_path(&mut self, scalar: Option<(&str, TScalarStyle)>) -> Option<String> {
+        let join = |path: &str, segment: &str| if path.is_empty() { segment.to_string() } else { format!("{path}.{segment}") };
+        match self.stack.last_mut() {
+            None => Some(String::new()),
+            Some(Frame::Seq { path, next }) => {
+                *next += 1;
+                Some(join(path, &(*next - 1).to_string()))
+            }
+            Some(Frame::Map { path, key }) => match key.take() {
+                Some(k) => Some(join(path, &k)),
+                None => {
+                    let (text, style) = scalar?; // a mapping or sequence as a key: left unset, reported below
+                    let boolean = if style == TScalarStyle::Plain { psych_boolean(text) } else { None };
+                    *key = Some(boolean.unwrap_or(text).to_string());
+                    None
+                }
+            },
+        }
+    }
+}
+
+impl EventReceiver for Flatten {
+    fn on_event(&mut self, event: Event) {
+        let mapping = matches!(event, Event::MappingStart(..));
+        match event {
+            Event::MappingStart(anchor, _) | Event::SequenceStart(anchor, _) => {
+                let path = self.value_path(None).unwrap_or_else(|| {
+                    self.problems.push("a mapping or sequence used as a key".into());
+                    String::new()
+                });
+                if anchor != 0 {
+                    self.anchors.insert(anchor, path.clone());
+                }
+                self.stack.push(if mapping { Frame::Map { path, key: None } } else { Frame::Seq { path, next: 0 } });
+            }
+            Event::MappingEnd | Event::SequenceEnd => {
+                self.stack.pop();
+            }
+            Event::Scalar(text, style, anchor, _) => {
+                let Some(path) = self.value_path(Some((&text, style))) else { return };
+                if anchor != 0 {
+                    self.anchors.insert(anchor, path.clone());
+                }
+                let null = matches!(text.as_str(), "" | "~" | "null" | "Null" | "NULL");
+                if style == TScalarStyle::Plain && (null || psych_boolean(&text).is_some()) {
+                    self.problems.push(format!("{path} is `{text}`, which Rails reads as a boolean or null, not text; quote it"));
+                }
+                self.flat.insert(path, text);
+            }
+            Event::Alias(anchor) => {
+                let (Some(to), Some(from)) = (self.value_path(None), self.anchors.get(&anchor).cloned()) else {
+                    self.problems.push("an alias used as a key, or to an unknown anchor".into());
+                    return;
+                };
+                let below = format!("{from}.");
+                let copied: Vec<(String, String)> = self.flat.iter()
+                    .filter(|(k, _)| **k == from || k.starts_with(&below))
+                    .map(|(k, v)| (format!("{to}{}", &k[from.len()..]), v.clone()))
+                    .collect();
+                self.flat.extend(copied);
+            }
+            _ => {}
+        }
+    }
 }
