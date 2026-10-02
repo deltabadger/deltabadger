@@ -162,10 +162,15 @@ const PRIMARY: &[TableContract] = &[
         ("rest_tools", "json", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
     ], unique_indexes: &[&["user_id", "oauth_application_id"]] },
     TableContract { name: "bot_index_assets", columns: &[("bot_id", "integer", true)], unique_indexes: &[] },
-    // The bots page refuses an account whose navbar would need the tracker ring (src/web/bots.rs).
+    // The balance sync writes every column and upserts on the unique index (src/sync/balances.rs); the bots page
+    // refuses an account whose navbar would need the tracker ring (src/web/bots.rs).
     TableContract { name: "account_balances", columns: &[
-        ("user_id", "integer", true), ("asset_id", "integer", true), ("usd_value", "decimal(20,8)", false),
-    ], unique_indexes: &[] },
+        ("id", "integer", true), ("user_id", "integer", true), ("exchange_id", "integer", true), ("asset_id", "integer", true),
+        ("free", "decimal(32,16)", true), ("locked", "decimal(32,16)", true), ("usd_price", "decimal(20,8)", false), ("usd_value", "decimal(20,8)", false),
+        ("priced_at", "datetime(6)", false), ("synced_at", "datetime(6)", true), ("created_at", "datetime(6)", true), ("updated_at", "datetime(6)", true),
+    ], unique_indexes: &[&["user_id", "exchange_id", "asset_id"]] },
+    // `exchange.assets`: what the venue lists, and the order balance rows are written in.
+    TableContract { name: "exchange_assets", columns: &[("id", "integer", true), ("asset_id", "bigint", true), ("exchange_id", "bigint", true)], unique_indexes: &[] },
     TableContract { name: "rules", columns: &[("id", "integer", true), ("status", "integer", true)], unique_indexes: &[] },
     TableContract { name: "bot_activity_logs", columns: &[
         ("id", "integer", true), ("bot_id", "integer", true), ("event", "varchar", true), ("level", "integer", true),

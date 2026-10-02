@@ -380,3 +380,39 @@ fn the_harness_reads_json_without_losing_an_integer() {
     assert_ne!(exact("[18446744073709551617]").unwrap(), exact("[18446744073709551616]").unwrap(), "which plain parsing reads as the same double");
     assert_eq!(serde_json::from_str::<Value>("[18446744073709551617]").unwrap(), serde_json::from_str::<Value>("[18446744073709551616]").unwrap());
 }
+// ---- the balance sync's pure parts (Task 5) ----
+
+fn bits(f: f64) -> String { format!("{:016x}", f.to_bits()) }
+
+#[test]
+fn decimal_columns_are_cast_as_active_model_casts_them() {
+    use deltabadger::sync::balances;
+    let cases = list(&vectors()["float_round_8"]);
+    let failures: Vec<String> = cases.iter().filter_map(|c| { let got = bits(balances::float_round(float(&c[0]), 8)); (json!(got) != c[1]).then(|| format!("{c} = {got}")) }).collect();
+    report("Float#round(8)", failures, cases.len());
+    let cases = list(&vectors()["cast_float_8"]);
+    assert!(cases.len() > 800);
+    let failures: Vec<String> = cases.iter().filter_map(|c| {
+        let got = balances::cast_float(float(&c[0]), 8).unwrap();
+        (json!(got.to_s_f()) != c[1] || json!(bits(got.to_f())) != c[2]).then(|| format!("{c} = {} {}", got.to_s_f(), bits(got.to_f())))
+    }).collect();
+    report("float casts", failures, cases.len());
+    let cases = list(&vectors()["cast_decimal"]);
+    assert!(cases.len() > 600);
+    let failures: Vec<String> = cases.iter().filter_map(|c| {
+        let got = balances::cast_decimal(&bd(c[0].as_str().unwrap()), c[1].as_i64().unwrap());
+        (json!(got.to_s_f()) != c[2] || json!(bits(got.to_f())) != c[3]).then(|| format!("{c} = {} {}", got.to_s_f(), bits(got.to_f())))
+    }).collect();
+    report("decimal casts", failures, cases.len());
+}
+
+#[test]
+fn a_market_price_is_read_as_rails_reads_it() {
+    use deltabadger::sync::balances;
+    for c in list(&vectors()["price_to_f"]) {
+        let found = balances::parse_prices(&json!({ "data": { "coin": { "usd": c[0] } } }), &["coin".to_string(), "absent".to_string()]);
+        assert_eq!(json!(found.get("coin").map(|f| bits(*f))), c[1], "{c}");
+        assert!(!found.contains_key("absent"));
+    }
+    assert_eq!(vectors()["constants"]["cash_categories"], json!(["Fiat", "Currency"]));
+}

@@ -1,5 +1,6 @@
 //! The Rust half of the sync row-parity harness (script/rust/sync.rb is the Rails half): the scenario's steps on a
 //! marked scratch copy, each a real sync over the recorded bodies Rails' jobs read, reported in the shape Rails reports.
+use super::balances::{self, ScriptedPrices, PRICES_PATH};
 use super::job_api::Db;
 use super::{ledger, reading_keys, SyncError};
 use crate::crypto::{Cipher, Credentials};
@@ -121,16 +122,19 @@ pub async fn run(dir: &Path, cipher: Arc<Cipher>) -> Result<Value, SyncError> {
         let transport = ScriptedTransport::from_script(&step["alpaca"]);
         let served = Served { script: transport.clone(), filters_after: step["server_filters_after"] == true };
         let venue = AlpacaVenue::new(served, Urls::for_passphrase(credentials.passphrase.as_deref()));
+        let prices = ScriptedPrices::from_script(&step["market"]);
         let raised = match step["kind"].as_str() {
             Some("ledger") => ledger::sync(&db, &venue, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
+            Some("balances") => balances::sync(&db, &venue, &prices, key_id, &credentials, &FixedClock(at)).await?.is_err_and(|f| f.raised),
             other => return Err(SyncError(format!("unknown step kind {other:?}"))),
         };
         // As Rails' harness logs them: "METHOD path" and the query pairs, sorted.
-        let requests: Vec<Value> = transport.requests().iter().map(|r| {
+        let mut requests: Vec<Value> = transport.requests().iter().map(|r| {
             let mut query: Vec<(String, String)> = r.query.iter().map(|(k, v)| (k.to_string(), v.clone())).collect();
             query.sort();
             json!([format!("{} {}", r.method, r.path), query])
         }).collect();
+        requests.extend(prices.requests().iter().map(|ids| json!([format!("GET {PRICES_PATH}"), [["coin_ids", ids.join(",")], ["vs_currencies", "usd"]]])));
         let generations = db.run(|c, _| generations(c).map_err(|e| e.0)).await.map_err(SyncError)?;
         steps.push(json!({ "requests": requests, "raised": raised, "generations": generations }));
     }

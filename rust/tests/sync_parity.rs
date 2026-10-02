@@ -142,6 +142,61 @@ fn listed(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>>
         // A split quantity no ratio can be made of: both fail the sync and store nothing.
         "ledger-split_hostile_quantity" => only_the_error_text_differs(rails, rust, "FloatDomainError: NaN", "unreadable qty: beyond 10^±40")
             .and_then(|()| check(tx(rust).is_empty() && rust["steps"][0]["raised"] == true, "nothing of the read is stored, and the job raised")),
+        _ => return listed_balances(name, rails, rust),
+    })
+}
+
+/// Keeps the first `keep` requests of the first step, and of those only the ones not sent to `but`.
+fn only_requests(out: &mut Value, keep: usize, but: &str) {
+    if let Some(requests) = out["steps"][0]["requests"].as_array_mut() { requests.truncate(keep); requests.retain(|r| r[0] != but); }
+}
+/// The balance sync's listed divergences (Task 5).
+fn listed_balances(name: &str, rails: &Value, rust: &Value) -> Option<Result<(), String>> {
+    // R3: a stock snapshot with no latest trade. Rails: price 0, value 0, freshly priced.
+    let stock = if name.ends_with("unpriced") { 3 } else { 2 };
+    let balance = |out: &Value| rows(out, "account_balances").into_iter().find(|r| r["after"]["asset_id"] == stock).map(|r| r["after"].clone()).unwrap_or(Value::Null);
+    let figures = |r: &Value| (num(&r["usd_price"]), num(&r["usd_value"]), r["priced_at"].as_str().map(str::to_string));
+    let fresh = Some("2026-09-20 02:30:00.750000".to_string());
+    let (rails_row, rust_row) = (balance(rails), balance(rust));
+    let prices_asked = |out: &Value| out["steps"][0]["requests"].as_array().unwrap().iter().filter(|r| r[0] == "GET /api/v1/prices").count();
+    // Permitted: that stock's price, value and pricing time, and the question Rust puts to the market source for it.
+    let no_trade = |rust_figures: (Option<f64>, Option<f64>, Option<String>), asked: (usize, usize)| -> Result<(), String> {
+        check(figures(&rails_row) == (Some(0.0), Some(0.0), fresh.clone()), "Rails no longer values a stock with no latest trade at 0: drop the listed divergence")?;
+        check(figures(&rust_row) == rust_figures, &format!("Rust's row: {rust_row}"))?;
+        check((prices_asked(rails), prices_asked(rust)) == asked, &format!("the market source is asked {} and {} times", prices_asked(rails), prices_asked(rust)))?;
+        rest_is_identical(rails, rust, &|out| {
+            for row in out["changes"]["account_balances"].as_array_mut().into_iter().flatten().filter(|r| r["after"]["asset_id"] == stock) {
+                if let Some(after) = row["after"].as_object_mut() { for c in ["usd_price", "usd_value", "priced_at"] { after.shift_remove(c); } }
+            }
+            only_requests(out, usize::MAX, "GET /api/v1/prices");
+        })
+    };
+    // A malformed answer Rails reads as an empty holding: it removes balances and stamps the key; Rust fails the sync,
+    // removes nothing and stamps nothing. Permitted: the balance rows, the key's two columns, and the requests after
+    // the positions (Rails goes on to price what it kept).
+    let refused = |rust_text: &str, rails_removed: &[i64]| -> Result<(), String> {
+        let removed: Vec<i64> = rows(rails, "account_balances").iter().filter(|r| r["after"].is_null()).filter_map(|r| r["id"].as_i64()).collect();
+        check(removed == rails_removed && rows(rails, "api_keys")[0]["after"]["balances_synced_at"] == fresh.clone().unwrap() && key_error(rails).is_null(),
+              &format!("Rails no longer removes {rails_removed:?} and reports success (it removed {removed:?}): drop the listed divergence"))?;
+        check(rows(rust, "account_balances").is_empty(), "Rust: no balance row is touched")?;
+        let key = rows(rust, "api_keys")[0].clone();
+        check(key["after"]["last_sync_error"] == rust_text && key["after"]["balances_synced_at"] == key["before"]["balances_synced_at"], &format!("Rust: the error, and the clock unmoved: {key}"))?;
+        rest_is_identical(rails, rust, &|out| {
+            without_rows(out, "account_balances");
+            without_columns(out, "api_keys", &["last_sync_error", "balances_synced_at"]);
+            only_requests(out, 2, "");
+        })
+    };
+    Some(match name {
+        "balances-no_trade_market_price" => no_trade((Some(226.4), Some(2377.2), fresh.clone()), (0, 1)),
+        "balances-no_trade_keeps_last_price" => no_trade((Some(220.5), Some(2315.25), Some("2026-09-10 02:30:00".to_string())), (0, 1)),
+        "balances-no_trade_unpriced" => no_trade((None, None, None), (0, 1)),
+        "balances-account_null" => only_the_error_text_differs(rails, rust, "NoMethodError: undefined method '[]' for nil", "unreadable account"),
+        "balances-positions_not_array" => only_the_error_text_differs(rails, rust, "TypeError: no implicit conversion of String into Integer", "unreadable positions"),
+        "balances-account_no_cash" => refused("the account has no cash figure", &[1]),
+        "balances-cash_only_null_cash" => refused("the account has no cash figure", &[1, 2, 3, 4]),
+        "balances-position_no_symbol" => refused("a position without a symbol", &[2]),
+        "balances-position_no_quantity" => refused("a position without a quantity", &[2]),
         _ => return None,
     })
 }
@@ -161,7 +216,7 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() {
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
     let cipher = cipher();
-    let ported = ["ledger-"]; // the balance sync is Task 5
+    let ported = ["ledger-", "balances-"];
     let mut outputs: Vec<(String, Value, Value)> = vec![];
     for d in &dirs {
         let name = d.file_name().unwrap().to_string_lossy().to_string();
@@ -179,7 +234,10 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() {
         }
     }
     assert!(failures.is_empty(), "{} of {} scenarios differ:\n{}", failures.len(), outputs.len(), failures.join("\n"));
-    assert_eq!(divergences, ["ledger-pages_stalled", "ledger-split_future", "ledger-split_hostile_quantity"], "the listed divergences");
+    assert_eq!(divergences, ["balances-account_no_cash", "balances-account_null", "balances-cash_only_null_cash", "balances-no_trade_keeps_last_price",
+                             "balances-no_trade_market_price", "balances-no_trade_unpriced", "balances-position_no_quantity", "balances-position_no_symbol",
+                             "balances-positions_not_array",
+                             "ledger-pages_stalled", "ledger-split_future", "ledger-split_hostile_quantity"], "the listed divergences");
 
     // What the grid must have exercised, read from Rails' own output: a scenario that silently stopped doing its thing
     // (a renamed column, a changed default) would otherwise still pass by agreeing on nothing.
@@ -261,6 +319,9 @@ async fn rails_and_rust_write_identical_rows_across_the_sync_grid() {
     let big = rows(&rails_of("ledger-raw_large_integer"), "account_transactions")[0]["after"]["raw_data"].clone();
     assert_eq!((&big["reference"], &big["nested"]["ids"]), (&json!("<integer 18446744073709551617>"), &json!(["<integer -9223372036854775809>", "<integer 123456789012345678901234567890>"])));
     assert_eq!(rows(&rails_of("ledger-split_holders"), "bots").len(), 8);
+    assert_eq!(rows(&rails_of("balances-first"), "account_balances").len(), 6);
+    assert_eq!(rows(&rails_of("balances-account_unauthorized"), "api_keys")[0]["after"]["status"], 2);
+    assert!(rows(&rails_of("balances-empty_account"), "account_balances").iter().all(|r| r["after"].is_null()), "gone positions are removed");
 
     // Handbacks: Rust runs a scenario's first night, Rails runs its second on Rust's copy.
     let hand_back = |scenario: &str| {

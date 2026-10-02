@@ -17,6 +17,7 @@
 //!   `transient_data`, where the engine keeps its placement intent). No JSON column of an existing row is rewritten
 //!   except the `details` of an `asset_split` line the sync itself wrote.
 pub mod activities;
+pub mod balances;
 pub mod job_api;
 pub mod ledger;
 pub mod parity;
