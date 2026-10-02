@@ -1,5 +1,6 @@
 #![allow(dead_code)] // each test binary uses a different part of this module
 
+pub mod html;
 pub mod seed;
 pub mod web;
 
