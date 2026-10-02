@@ -84,6 +84,11 @@ fn fingerprinted(logical: &str, bytes: &[u8]) -> String {
 ///   file's fingerprinted path, which is all the ERB there does;
 /// - everything under public/ (fonts, service worker, error pages) at its own path, as Rails' static
 ///   file server does. public/assets is Sprockets' output and is skipped.
+///
+/// The two built files are not committed. A release build without them stops here: a binary that
+/// ships must have them. Any other build (debug, tests) compiles with an empty table and
+/// `BUILT = false`: the engine and its tests need neither Bun nor the web UI, `deltabadger serve`
+/// refuses to start, and a test that needs the web app fails with `assets::MISSING`.
 fn assets(root: &Path, out: &Path) {
     let (builds, images, public) = (root.join("app/assets/builds"), root.join("app/assets/images"), root.join("public"));
     for dir in [&builds, &images, &public] {
@@ -92,7 +97,13 @@ fn assets(root: &Path, out: &Path) {
     let mut sources: Vec<(String, PathBuf)> = Vec::new();
     for built in ["application.js", "application.css"] {
         let path = builds.join(built);
-        assert!(path.is_file(), "{} is missing: run script/rust/build_assets.sh first", path.display());
+        if !path.is_file() {
+            let release = env::var("PROFILE").is_ok_and(|profile| profile == "release");
+            assert!(!release, "{} is missing, and a release build embeds the web assets: run script/rust/build_assets.sh (it needs Bun), then build again", path.display());
+            println!("cargo:warning=built without web assets ({built} is missing): `deltabadger serve` will not start; run script/rust/build_assets.sh");
+            fs::write(out.join("assets.rs"), "pub const BUILT: bool = false;\npub static EMBEDDED: &[Embedded] = &[];\n").unwrap();
+            return;
+        }
         sources.push((built.to_string(), path));
     }
     sources.extend(files_under(&images).into_iter().filter(|(name, _)| !name.ends_with(".md")));
@@ -127,7 +138,7 @@ fn assets(root: &Path, out: &Path) {
         format!("    Embedded {{ url: {url:?}, logical: {logical:?}, content_type: {:?}, body: include_bytes!({:?}) }},\n",
                 content_type(url), path.canonicalize().unwrap().to_str().expect("asset path is UTF-8"))
     }).collect();
-    fs::write(out.join("assets.rs"), format!("pub static EMBEDDED: &[Embedded] = &[\n{body}];\n")).unwrap();
+    fs::write(out.join("assets.rs"), format!("pub const BUILT: bool = true;\npub static EMBEDDED: &[Embedded] = &[\n{body}];\n")).unwrap();
 }
 
 /// config/locales/*.yml as one sorted table of ("<locale>.<full.key>", "<text>"). Files are merged in

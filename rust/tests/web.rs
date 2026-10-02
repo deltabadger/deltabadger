@@ -4,8 +4,14 @@ mod common;
 mod embedded_assets {
     use deltabadger::web::assets;
 
+    /// A debug build compiles without the built assets (build.rs); these tests are about them.
+    fn built() {
+        assets::require().unwrap();
+    }
+
     #[test]
     fn every_asset_a_template_names_is_embedded_under_a_fingerprinted_path() {
+        built();
         for logical in ["application.js", "application.css", "favicon/favicon-96x96.png", "favicon/favicon.svg", "favicon/favicon.ico",
                         "favicon/apple-touch-icon.png", "favicon/site.webmanifest", "flags/eu.svg"] {
             let path = assets::path(logical);
@@ -20,6 +26,7 @@ mod embedded_assets {
 
     #[test]
     fn the_web_manifest_points_at_its_fingerprinted_icons() {
+        built();
         let manifest = std::str::from_utf8(assets::find(assets::path("favicon/site.webmanifest")).unwrap().body).unwrap();
         assert!(!manifest.contains("<%"), "{manifest}");
         for icon in ["favicon/web-app-manifest-192x192.png", "favicon/web-app-manifest-512x512.png"] {
@@ -29,6 +36,7 @@ mod embedded_assets {
 
     #[test]
     fn public_files_keep_their_own_paths_and_types() {
+        built();
         for (path, content_type) in [("/fonts/Dosis-digits.woff2", "font/woff2"), ("/service-worker.js", "text/javascript; charset=utf-8"),
                                      ("/500.html", "text/html; charset=utf-8"), ("/robots.txt", "text/plain; charset=utf-8"), ("/icon.png", "image/png")] {
             assert_eq!(assets::find(path).unwrap_or_else(|| panic!("{path} is not embedded")).content_type, content_type);

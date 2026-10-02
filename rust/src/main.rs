@@ -37,6 +37,9 @@ fn main() {
         Some("run") => std::process::exit(run_engine(&env)),
         Some("handback") => std::process::exit(hand_back(&env)),
         Some("serve") => {
+            if !deltabadger::web::assets::BUILT {
+                fail(deltabadger::web::assets::MISSING);
+            }
             refuse_url_overrides(&env);
             let paths = paths(&env);
             // Held until the process exits: neither Rails nor `run` can use this install while the web UI serves it.

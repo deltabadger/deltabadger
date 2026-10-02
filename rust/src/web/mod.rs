@@ -271,6 +271,7 @@ impl std::ops::Deref for App {
 impl App {
     /// `primary` is a connection `store::open` returned, so the install has passed `store::check`.
     pub fn new(config: Config, env: &dyn Fn(&str) -> Option<String>, primary: Connection, clock: Arc<dyn Clock + Send + Sync>) -> Result<Self, WebError> {
+        assets::require()?;
         let encryption = EncryptionKeys::resolve(env, &config.secret_key_base).map_err(|e| WebError::Config(format!("{e:?}")))?;
         let keys = Keys { session: derive(&config.secret_key_base, "deltabadger rust session v1")?, streams: derive(&config.secret_key_base, "deltabadger rust turbo streams v1")? };
         Ok(Self(Arc::new(Inner {

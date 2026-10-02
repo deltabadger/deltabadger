@@ -13,7 +13,16 @@ pub struct Embedded {
     pub body: &'static [u8],
 }
 
+// `EMBEDDED`, and `BUILT`: whether this build has the web assets at all (build.rs `assets`).
 include!(concat!(env!("OUT_DIR"), "/assets.rs"));
+
+/// What a build without the web assets says instead of serving pages with no script and no style.
+pub const MISSING: &str = "built without web assets; run script/rust/build_assets.sh and build again";
+
+/// `Err` with that sentence in a build that has no web assets.
+pub fn require() -> Result<(), super::WebError> {
+    if BUILT { Ok(()) } else { Err(super::WebError::Config(MISSING.into())) }
+}
 
 pub fn find(url: &str) -> Option<&'static Embedded> {
     EMBEDDED.binary_search_by(|file| file.url.cmp(url)).ok().map(|i| &EMBEDDED[i])
