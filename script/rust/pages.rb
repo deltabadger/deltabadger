@@ -61,7 +61,7 @@ module Pages
       'login_page_unknown_locale_param' => { 'steps' => [get('/login?locale=zz')] },
       'login_page_query' => { 'steps' => [get('/login?x=1&host=evil.example&locale=de&b=two+words&a%5B%5D=1')] },
       'login_page_repeated_query_keys' => { 'steps' => [get('/login?locale=de&x=1&user%5Bemail%5D=first%40example.com&locale=pl&x=2' \
-                                                            '&user%5Bemail%5D=last%40example.com&a%5B%5D=1&a%5B%5D=2')] },
+                                                            '&user%5Bemail%5D=last%40example.com&a%5B%5D=2&z=0&a%5B%5D=10&a%5B%5D=1')] },
       'login_page_trailing_slash' => { 'steps' => [get('/login/'), get('//de//login/')] },
       'login_page_registration_open' => { 'app_configs' => { 'registration_open' => 'true' }, 'steps' => [get('/login')] },
       'login_page_turbo_frame' => { 'steps' => [get('/login', 'Turbo-Frame' => 'modal')] },

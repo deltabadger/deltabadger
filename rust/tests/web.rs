@@ -93,6 +93,9 @@ mod locales {
         // Recorded by the login_page_repeated_query_keys scenario: the last value of a repeated key, every value of a list.
         let repeated = query(&[("x", "1"), ("user[email]", "first"), ("x", "2"), ("user[email]", "last"), ("a[]", "1"), ("a[]", "2")]);
         assert_eq!(locale::switch_path("en", "/login", &locale::switch_query(&repeated)), "/en/login?a%5B%5D=1&a%5B%5D=2&user%5Bemail%5D=last&x=2");
+        // A list is one entry among the keys, and its values stay as they came: they are not sorted.
+        let list = query(&[("b", "1"), ("a[]", "2"), ("z", "0"), ("a[]", "10"), ("a[]", "1")]);
+        assert_eq!(locale::switch_query(&list), "a%5B%5D=2&a%5B%5D=10&a%5B%5D=1&b=1&z=0");
     }
 
     /// The language dropdown has a link per locale, each carrying the page's query. What that costs

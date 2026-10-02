@@ -1,6 +1,6 @@
 //! The `(:locale)` route scope: config/routes.rb, ApplicationController#switch_locale and
 //! #default_url_options, and LocaleHelper#locale_switch_path.
-use std::collections::HashSet;
+use std::collections::hash_map::{Entry, HashMap};
 
 /// config.i18n.available_locales, in Rails' order (pinned by tests/locale.rs).
 pub const LOCALES: [&str; 15] = ["en", "pl", "es", "de", "nl", "fr", "pt", "ru", "it", "bg", "el", "sv", "da", "cs", "sk"];
@@ -64,17 +64,22 @@ fn cgi_escape(text: &str) -> String {
 }
 
 /// The query locale_switch_path gives every language link: the page's own, without the reserved
-/// keys, sorted, as `to_query` writes it. A repeated key keeps its last value, as Rack parsed it,
-/// unless it is a list (`a[]`), which keeps all. One pass over the query, made once per page
-/// (`Ctx::languages`), whatever the number of links.
+/// keys, as `Hash#to_query` writes it. Each key is one entry: a repeated key keeps its last value,
+/// as Rack parsed it, and a list (`a[]`) keeps all its values in the order they came. The entries
+/// are then sorted as whole strings, so keys are in order and a list's values are not reordered.
+/// One pass over the query, made once per page (`Ctx::languages`), whatever the number of links.
 /// ponytail: Rack's nesting beyond that (`a[][b]`, `a` beside `a[b]`) is not modelled; no link of this app writes such a query.
 pub fn switch_query(query: &[(String, String)]) -> String {
-    let mut later = HashSet::new();
-    let mut kept: Vec<String> = query.iter().rev()
-        .filter(|(key, _)| !RESERVED.contains(&key.split('[').next().unwrap_or(key)))
-        .filter(|(key, _)| key.ends_with("[]") || later.insert(key.as_str()))
-        .map(|(key, value)| format!("{}={}", cgi_escape(key), cgi_escape(value)))
-        .collect();
+    let mut by_key: HashMap<&str, String> = HashMap::new();
+    for (key, value) in query.iter().filter(|(key, _)| !RESERVED.contains(&key.split('[').next().unwrap_or(key))) {
+        let pair = format!("{}={}", cgi_escape(key), cgi_escape(value));
+        match by_key.entry(key.as_str()) {
+            Entry::Occupied(mut entry) if key.ends_with("[]") => { entry.get_mut().push('&'); entry.get_mut().push_str(&pair); }
+            Entry::Occupied(mut entry) => { entry.insert(pair); }
+            Entry::Vacant(entry) => { entry.insert(pair); }
+        }
+    }
+    let mut kept: Vec<String> = by_key.into_values().collect();
     kept.sort();
     kept.join("&")
 }
