@@ -117,3 +117,76 @@ mod time_zones {
         assert_eq!(timezone::local(at("2026-01-01T12:00:00Z"), "Nowhere").to_rfc3339(), "2026-01-01T12:00:00+00:00");
     }
 }
+
+mod sessions {
+    use super::common;
+    use super::common::web::{at, header_map};
+    use deltabadger::web::session::{self, Pending, SessionData};
+    use deltabadger::web::Config;
+
+    fn full_session() -> SessionData {
+        SessionData {
+            user: Some((7, "$2a$11$abcdefghijklmnopqrstuv".into())), csrf: Some("c3Jm".into()),
+            flash: vec![("alert".into(), "Zażółć \"it\"".into()), ("notice".into(), "ok".into())],
+            pending: Some(Pending { user_id: 7, started_at: 1_789_041_630 }), return_to: Some("/bots?filter=active".into()), auto_open_bot_wizard: true,
+        }
+    }
+
+    #[test]
+    fn a_session_survives_the_cookie_and_nothing_else_opens_it() {
+        let (key, now) = ([3u8; 32], at("2026-09-10T12:00:30Z"));
+        let data = full_session();
+        let cookie = session::seal(&key, &data, now);
+        assert_eq!(session::open(&key, &cookie, now), Some(data.clone()));
+        assert_ne!(session::seal(&key, &data, now), cookie, "a fresh nonce every time");
+        assert!(!cookie.contains("bots") && cookie.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_'), "opaque and cookie-safe");
+        assert_eq!(session::open(&[4u8; 32], &cookie, now), None, "another key");
+        let mut tampered = cookie.clone().into_bytes();
+        tampered[20] = if tampered[20] == b'A' { b'B' } else { b'A' };
+        assert_eq!(session::open(&key, std::str::from_utf8(&tampered).unwrap(), now), None, "one changed character");
+        for junk in ["", "abc", "!!!", &cookie[..30]] { assert_eq!(session::open(&key, junk, now), None, "{junk:?}"); }
+    }
+
+    #[test]
+    fn a_session_expires_thirty_days_after_it_was_last_written() {
+        let (key, now) = ([3u8; 32], at("2026-09-10T12:00:30Z"));
+        assert_eq!(session::LIFETIME_SECONDS, common::vectors()["devise"]["session_expire_after"].as_i64().unwrap());
+        let cookie = session::seal(&key, &full_session(), now);
+        assert!(session::open(&key, &cookie, at("2026-10-10T12:00:29Z")).is_some());
+        assert_eq!(session::open(&key, &cookie, at("2026-10-10T12:00:30Z")), None, "the expiry is enforced here, not left to the browser");
+    }
+
+    #[test]
+    fn a_cookie_carries_its_own_expiry_and_reading_it_does_not_move_it() {
+        let (key, now) = ([3u8; 32], at("2026-09-10T12:00:30Z"));
+        let cookie = session::seal(&key, &full_session(), now);
+        let opened = session::read(&key, &cookie, now).unwrap();
+        assert_eq!((opened.expires_at, opened.data), (now.timestamp() + session::LIFETIME_SECONDS, full_session()));
+        assert_eq!(session::read(&key, &cookie, at("2026-10-09T12:00:30Z")).unwrap().expires_at, opened.expires_at, "29 days of use later: the same end");
+    }
+
+    #[test]
+    fn the_cookie_header_is_rails_session_cookie_under_our_name() {
+        let now = at("2026-09-10T12:00:30.123456Z");
+        assert_eq!(session::set_cookie("v", now, false), "_deltabadger_rust_session=v; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; httponly; samesite=lax");
+        assert_eq!(session::set_cookie("v", now, true), "_deltabadger_rust_session=v; path=/; expires=Sat, 10 Oct 2026 12:00:30 GMT; secure; httponly; samesite=lax");
+        let headers = header_map(&[("cookie", "other=1; _deltabadger_rust_session=abc-_; _deltabadger_session=rails")]);
+        assert_eq!(session::cookie_value(&headers).as_deref(), Some("abc-_"));
+        assert_eq!(session::cookie_value(&header_map(&[("cookie", "_deltabadger_session=rails")])), None, "Rails' cookie is not ours");
+    }
+
+    #[test]
+    fn secure_cookies_and_the_proxy_rule_follow_rails_env_resolution() {
+        let config = |pairs: &'static [(&'static str, &'static str)]| {
+            Config::from_env(&move |name| pairs.iter().find(|(k, _)| *k == name).map(|(_, v)| v.to_string()).or((name == "SECRET_KEY_BASE").then(|| "s".to_string()))).unwrap()
+        };
+        assert!(!config(&[]).force_ssl && !config(&[]).behind_proxy);
+        assert!(config(&[("APP_ROOT_URL", "https://x.example")]).force_ssl && config(&[("APP_ROOT_URL", "https://x.example")]).behind_proxy);
+        assert!(!config(&[("APP_ROOT_URL", "https://x.example"), ("FORCE_SSL", "off")]).force_ssl);
+        assert!(config(&[("FORCE_SSL", " Yes ")]).force_ssl);
+        assert!(config(&[("APP_ROOT_URL", "https://x.example"), ("FORCE_SSL", "maybe")]).force_ssl, "an unrecognised spelling is no answer");
+        assert!(config(&[("BEHIND_PROXY", "1")]).behind_proxy && !config(&[("BEHIND_PROXY", "1")]).force_ssl);
+        assert!(!config(&[("APP_ROOT_URL", "https://x.example"), ("BEHIND_PROXY", "false")]).behind_proxy);
+        assert!(Config::from_env(&|_| None).is_err(), "SECRET_KEY_BASE is required");
+    }
+}

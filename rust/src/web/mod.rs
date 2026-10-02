@@ -6,6 +6,7 @@ pub mod i18n;
 pub mod layout;
 pub mod locale;
 pub mod server;
+pub mod session;
 pub mod timezone;
 
 use crate::crypto::{Cipher, EncryptionKeys};
