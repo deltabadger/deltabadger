@@ -55,3 +55,26 @@ fn the_embedded_table_is_exactly_what_rails_loads_from_config_locales() {
     assert!(only_rails.is_empty() && only_rust.is_empty() && different.is_empty(),
             "only in Rails: {only_rails:?}\nonly in Rust: {only_rust:?}\ndifferent text: {different:?}");
 }
+
+/// Listed divergence (R2(b)): Rails commits a write the engine cannot run; Rust answers 422 with this copy.
+/// One key, English only; every other locale falls back to it, as Rails' fallbacks do.
+#[test]
+fn the_write_refused_copy_carries_the_reason_in_english_in_every_locale() {
+    let reason = "bot 7 (scheduled): quote_amount_limited";
+    let en = i18n::text("en", "engine.write_refused", &[("reason", Arg::Text(reason))]);
+    assert_eq!(en, format!("This app can't run that yet: {reason}"));
+    for locale in ["de", "pl", "ru"] {
+        assert_eq!(i18n::text(locale, "engine.write_refused", &[("reason", Arg::Text(reason))]), en, "{locale}");
+    }
+}
+
+/// R2(c), ruled: a web start on a bot that is already working is refused, as Rails' API refuses it (409
+/// `bot_already_running`); the page re-renders with this flash. Listed divergence: Rails' web controller restarts the bot.
+#[test]
+fn the_already_running_refusal_is_one_english_key_every_locale_falls_back_to() {
+    let en = i18n::text("en", "engine.already_running", &[]);
+    assert_eq!(en, "This bot is already running.");
+    for locale in ["de", "pl", "ru"] {
+        assert_eq!(i18n::text(locale, "engine.already_running", &[]), en, "{locale}");
+    }
+}

@@ -27,11 +27,11 @@ fn main() {
             if let Err(e) = store::check(&paths) { fail(&explain(e)); }
             let c = rusqlite::Connection::open_with_flags(&paths.primary, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
                 .unwrap_or_else(|e| fail(&format!("{e}")));
-            match deltabadger::engine::eligibility::check_install(&c) {
-                Ok(r) if r.problems.is_empty() && r.unreadable.is_empty() => println!("ready: {} bot(s) this engine can run", r.eligible.len()),
-                Ok(r) if r.problems.is_empty() => fail(&format!("unreadable bot rows: {:?}", r.unreadable)),
-                Ok(r) => fail(&format!("this install uses things only the full app runs:\n{}", r.problems.join("\n"))),
-                Err(e) => fail(&format!("{e:?}")),
+            // The words `serve` refuses with too (Refusal::message).
+            use deltabadger::engine::eligibility::{check_install, Refusal};
+            match check_install(&c).map_err(Refusal::Failed).and_then(|r| r.refusal()) {
+                Ok(eligible) => println!("ready: {} bot(s) this engine can run", eligible.len()),
+                Err(refusal) => fail(&refusal.message()),
             }
         }
         Some("run") => std::process::exit(run_engine(&env)),

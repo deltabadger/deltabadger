@@ -43,6 +43,22 @@ impl Intent {
     }
 }
 
+/// Bots whose unresolved order (`rust_placement`) no longer matches them as the row stands now: `Intent::from_json`
+/// fails (the ticker their asset, exchange and quote select is not the intent's). Recovery, `handback` and
+/// `resolve-placement` could not settle such an order, so `eligibility::guard` refuses the write that would leave one.
+pub fn stranded(c: &Connection) -> Result<Vec<i64>, EngineError> {
+    let mut s = c.prepare("SELECT id FROM bots WHERE json_extract(transient_data, '$.rust_placement') IS NOT NULL ORDER BY id")?;
+    let ids = s.query_map([], |r| r.get(0))?.collect::<Result<Vec<i64>, _>>()?;
+    let mut out = vec![];
+    for id in ids {
+        let bot = model::load_bot(c, id)?;
+        if let Some(v) = bot.rust_placement() {
+            if Intent::from_json(c, &bot, &v).is_err() { out.push(id); }
+        }
+    }
+    Ok(out)
+}
+
 /// Re-read under the write lock: is the intent with this cl_ord_id still the bot's unresolved one?
 fn still_pending(c: &Connection, bot_id: i64, cl_ord_id: &str) -> Result<bool, EngineError> {
     Ok(model::load_bot(c, bot_id)?.rust_placement().is_some_and(|v| v["cl_ord_id"] == cl_ord_id))

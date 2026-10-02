@@ -130,3 +130,13 @@ fn run_takes_over_and_stops_cleanly_on_sigterm_then_handback_returns_the_install
     let row = lease_of(dir.path()).unwrap();
     assert_eq!((row["engine"].as_str(), row["handed_back"].as_bool()), (Some("none"), Some(true)));
 }
+
+#[test]
+fn check_names_each_ineligible_bot_and_its_reason() {
+    let (dir, o, s) = common::install_alpaca();
+    let id = seed::insert_bot(&o.primary, &s, &BotSpec::weekly(60.0, "2026-09-01 10:00:00").with("quote_amount_limited", serde_json::json!(true)));
+    drop(o);
+    let out = cli(dir.path(), &["check"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    assert_eq!(stderr(&out), format!("deltabadger: this install uses things only the full app runs:\nbot {id} (scheduled): quote_amount_limited\n"));
+}
