@@ -9,3 +9,4 @@ pub mod parity;
 pub mod ruby;
 pub mod store;
 pub mod venue;
+pub mod web;

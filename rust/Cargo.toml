@@ -15,13 +15,21 @@ path = "src/main.rs"
 
 [dependencies]
 aes-gcm = "0.10"
+askama = "0.16"
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "ws"] }
 base64 = "0.22"
 bcrypt = "0.17"
 bigdecimal = "0.4"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+chrono-tz = "0.10"
 flate2 = "1"
+form_urlencoded = "1"
 hex = "0.4"
 hmac = "0.12"
+# Both are axum's own dependencies, with the features it already turns on: named here because
+# web::server runs hyper's connection itself (axum::serve has no header-read timeout and no connection cap).
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
 pbkdf2 = { version = "0.12", features = ["hmac"] }
 rand = "0.8"
 rusqlite = { version = "0.37", features = ["bundled"] }
@@ -30,12 +38,22 @@ rust_decimal = { version = "1", features = ["std"] }
 serde_json = { version = "1", features = ["float_roundtrip", "preserve_order"] }
 sha1 = "0.10"
 sha2 = "0.10"
-tokio = { version = "1", features = ["rt", "time", "macros", "sync", "signal"] }
+subtle = "2"
+tokio = { version = "1", features = ["rt", "time", "macros", "sync", "signal", "net"] }
+tower = { version = "0.5", features = ["util"] }
 uuid = { version = "1", features = ["v4"] }
 
+[build-dependencies]
+sha2 = "0.10"
+yaml-rust2 = "0.13"
+
 [dev-dependencies]
+ego-tree = "0.11"
+futures-util = { version = "0.3", default-features = false, features = ["sink"] }
+scraper = "0.27"
 tempfile = "3"
 tokio = { version = "1", features = ["test-util"] } # paused time: the handback CLI's 1201 s wait runs instantly in tests
+tokio-tungstenite = "0.29"
 wiremock = "0.6"
 
 [profile.release]

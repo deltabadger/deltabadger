@@ -1,0 +1,85 @@
+{#- layouts/navbar/_signed_in.html.haml with its two partials (hide_balances_toggle, display_currency_picker),
+    each rendered twice. ponytail: single-bot mode (the bots links go to the one bot's page, labelled links.bot)
+    and the tracker ring with holdings arrive with the bot page and the tracker; /bots answers 501 for both until then. -#}
+{%- macro hide_balances_toggle(item_class) -%}
+<form class="switch-row-form" data-controller="form--submit" action="{{ v.path("/settings/update_hide_balances") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><label class="{{ item_class }} {{ item_class }}--switch" data-dropdown-keep-open>
+<span>{{ v.t("links.hide_balances")|safe }}</span>
+<div class="toggle toggle--small">
+<input type="hidden" name="hide_balances" id="hide_balances" value="0" />
+<input type="checkbox" name="hide_balances" id="hide_balances" value="1" data-action="change->form--submit#submit"{% if user.hide_balances %} checked="checked"{% endif %} />
+<div class="toggle__style"></div>
+</div>
+</label>
+</form>
+{%- endmacro -%}
+{%- macro display_currency_picker(item_class) -%}
+<form class="switch-row-form" data-controller="form--segmented-field form--submit" data-action="segmented:change->form--segmented-field#set segmented:change->form--submit#submit" action="{{ v.path("/settings/update_display_currency") }}" accept-charset="UTF-8" method="post"><input type="hidden" name="_method" value="patch" /><input type="hidden" name="authenticity_token" value="{{ csrf }}" /><div class="{{ item_class }} {{ item_class }}--currency" data-dropdown-keep-open title="{{ v.t("settings.language_and_timezone.currency_is_used_for")|safe }}">
+
+<div class="segmented segmented--fluid" role="radiogroup" aria-label="{{ v.t("links.display_currency")|safe }}" data-controller="segmented" data-action="click->segmented#toggle" data-currency="true">
+  <span class="segmented__thumb" data-segmented-target="thumb"></span>
+  <div class="segmented__dropdown" data-segmented-target="dropdown">
+    <div class="segmented__panes">
+      <div class="segmented__pane segmented__menu">
+{% for (code, unit) in currencies %}
+            <button type="button" class="segmented__option{% if user.display_currency == *code %} is-on{% endif %}" role="radio" aria-checked="{% if user.display_currency == *code %}true{% else %}false{% endif %}" tabindex="{% if user.display_currency == *code %}0{% else %}-1{% endif %}" data-value="{{ code }}" data-segmented-target="option" data-action="segmented#select keydown->segmented#keys">{{ unit }}</button>
+{% endfor %}
+      </div>
+    </div>
+  </div>
+  <span class="segmented__caret" aria-hidden="true">
+    {% include "svg/_16x16_down.html" %}
+</span></div>
+</div>
+<input data-form--segmented-field-target="field" type="hidden" value="{{ user.display_currency }}" name="user[display_currency]" />
+</form>
+{%- endmacro -%}
+    <input data-turbo-permanent id="hamburger" type="checkbox">
+<div class="hamburger hamburger__a"></div>
+<div class="hamburger hamburger__b"></div>
+<div class="menu-mobile" data-action="click->menu-mobile#close" data-controller="menu-mobile">
+<a class="menu-mobile__item menu-mobile__item--bots {% if v.current_page("/bots") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/bots") }}">{{ v.t("links.bots")|safe }}
+</a><a class="menu-mobile__item menu-mobile__item--tracker {% if v.current_page("/tracker") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/tracker") }}">{{ v.t("links.tracker")|safe }}
+</a><a class="menu-mobile__item menu-mobile__item--rules {% if v.current_page("/rules") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/rules") }}">{{ v.t("links.rules")|safe }}
+</a><a class="menu-mobile__item menu-mobile__item--account {% if v.current_page("/settings/account") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/settings/account") }}">{{ v.t("links.account")|safe }}
+</a><a class="menu-mobile__item menu-mobile__item--connections {% if v.current_page("/settings/connect") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/settings/connect") }}">{{ v.t("links.connections")|safe }}
+</a><a class="menu-mobile__item menu-mobile__item--api {% if v.current_page("/settings/api") %}menu-mobile__item--active{% endif %}" href="{{ v.path("/settings/api") }}">{{ v.t("links.api")|safe }}
+</a>{% call hide_balances_toggle("menu-mobile__item") %}{% endcall %}
+{% call display_currency_picker("menu-mobile__item") %}{% endcall %}
+<div class="menu-mobile__divider"></div>
+<form class="button_to" method="post" action="{{ v.path("/logout") }}"><input type="hidden" name="_method" value="delete" /><button class="menu-mobile__item menu-mobile__button" data-turbo="false" type="submit">{{ v.t("links.log_out")|safe }}
+</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form></div>
+<div class="menu">
+<div class="menu__section menu__section--top menu__section--logo">
+<a class="menu__logo" aria-label="Deltabadger" href="{{ v.path("/bots") }}">{% include "svg/_40x30_logo.html" %}
+</a></div>
+<div class="menu__section menu__section--top menu__section--main-menu" data-controller="menu">
+<a class="menu__item menu__item--bots {% if v.current_page("/bots") %}menu__item--active{% endif %}" aria-label="{{ v.t("links.bots")|safe }}" data-action="click->menu#select" data-menu-target="tile" data-tile="bots" href="{{ v.path("/bots") }}"><svg id="bot-count" class="icon-24 icon-24--count" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <text class="fill--icon" x="12" y="{{ bot_count_baseline }}" text-anchor="middle"
+        font-size="{{ bot_count_font_size }}">{{ shell.bot_count }}</text>
+</svg>
+
+</a><a class="menu__item menu__item--tracker {% if v.current_page("/tracker") %}menu__item--active{% endif %}" aria-label="{{ v.t("links.tracker")|safe }}" data-action="click->menu#select" data-menu-target="tile" data-tile="tracker" href="{{ v.path("/tracker") }}"><svg class="icon-24 icon-24--allocation" viewbox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle class="stroke--icon" cx="12" cy="12" r="9"
+            fill="none" stroke-width="2"/>
+</svg>
+
+</a><a class="menu__item menu__item--rules {% if v.current_page("/rules") %}menu__item--active{% endif %}" aria-label="{{ v.t("links.rules")|safe }}" data-action="click->menu#select" data-menu-target="tile" data-tile="rules" href="{{ v.path("/rules") }}">{% include "svg/_24x24_withdrawal.html" %}
+</a><div class="menu__chip" data-menu-target="chip"></div>
+</div>
+<div class="menu__section menu__section--bottom">
+<div class="dropdown-wrapper dropdown-wrapper--bottom-left" data-action="click->dropdown#toggle" data-controller="dropdown" data-dropdown-active-class="menu__item--active" data-dropdown-target="wrapper" data-turbo-permanent id="settings-menu">
+<div class="menu__item menu__button" data-dropdown-target="trigger">
+{% include "svg/_24x24_sliders.html" %}
+</div>
+<div class="dropdown">
+<a class="dropdown__item" href="{{ v.path("/settings/account") }}">{{ v.t("links.account")|safe }}</a>
+<a class="dropdown__item" href="{{ v.path("/settings/connect") }}">{{ v.t("links.connections")|safe }}</a>
+<a class="dropdown__item" href="{{ v.path("/settings/api") }}">{{ v.t("links.api")|safe }}</a>
+{% call hide_balances_toggle("dropdown__item") %}{% endcall %}
+{% call display_currency_picker("dropdown__item") %}{% endcall %}
+<div class="dropdown__item dropdown__item--divider"></div>
+<form class="button_to" method="post" action="{{ v.path("/logout") }}"><input type="hidden" name="_method" value="delete" /><button class="dropdown__item dropdown__item--danger" data-turbo="false" type="submit">{{ v.t("links.log_out")|safe }}
+</button><input type="hidden" name="authenticity_token" value="{{ csrf }}" /></form></div>
+</div>
+</div>
+</div>

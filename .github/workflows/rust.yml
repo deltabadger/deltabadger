@@ -9,6 +9,17 @@ on:
       # Gemfile.lock, venue_rules.rs hashes the ported Ruby (keep in sync with ruby_vectors.json "ported_sources").
       - 'db/migrate/**'
       - 'Gemfile.lock'
+      # The web UI the binary embeds (rust/build.rs): the JavaScript and stylesheets that
+      # script/rust/build_assets.sh builds (app/javascript, app/assets, and what package.json and bun.lock
+      # resolve; Gemfile.lock above pins the Sass version), the images under app/assets/images, the static
+      # files under public, and the translations in config/locales.
+      - 'app/javascript/**'
+      - 'app/assets/**'
+      - 'public/**'
+      - 'config/locales/**'
+      - 'package.json'
+      - 'bun.lock*'
+      - 'script/rust/build_assets.sh'
       - 'app/models/client.rb'
       - 'app/models/clients/alpaca.rb'
       - 'app/models/exchange.rb'
@@ -22,6 +33,17 @@ on:
       # Gemfile.lock, venue_rules.rs hashes the ported Ruby (keep in sync with ruby_vectors.json "ported_sources").
       - 'db/migrate/**'
       - 'Gemfile.lock'
+      # The web UI the binary embeds (rust/build.rs): the JavaScript and stylesheets that
+      # script/rust/build_assets.sh builds (app/javascript, app/assets, and what package.json and bun.lock
+      # resolve; Gemfile.lock above pins the Sass version), the images under app/assets/images, the static
+      # files under public, and the translations in config/locales.
+      - 'app/javascript/**'
+      - 'app/assets/**'
+      - 'public/**'
+      - 'config/locales/**'
+      - 'package.json'
+      - 'bun.lock*'
+      - 'script/rust/build_assets.sh'
       - 'app/models/client.rb'
       - 'app/models/clients/alpaca.rb'
       - 'app/models/exchange.rb'
@@ -70,6 +92,16 @@ jobs:
           workspaces: rust
           key: ${{ matrix.name }}
 
+      # A release build embeds the web UI's JavaScript and CSS, which are built, not committed
+      # (rust/build.rs stops without them). The script runs `bun install --frozen-lockfile`, the
+      # bundle, and dart-sass at the version Gemfile.lock pins.
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Build the web assets
+        shell: bash
+        working-directory: .
+        run: bash script/rust/build_assets.sh
+
       - run: cargo build --release --locked
 
       - run: cargo clippy --all-targets --locked -- -D warnings
@@ -83,4 +115,4 @@ jobs:
           --test codec --test crypto --test enums
           --test ruby --test schedule --test venue_fake
           --test http --test http_proxy_env --test venue_rules --test alpaca_live
-          --test lease_portable
+          --test lease_portable --test web --test normaliser

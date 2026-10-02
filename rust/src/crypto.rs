@@ -116,8 +116,9 @@ fn envelope(stored: &str) -> Option<(String, serde_json::Map<String, Value>)> {
 
 /// Devise's database_authenticatable with this app's settings (stretches 11, no pepper).
 /// Ruby's bcrypt truncates the password at 72 bytes; the bcrypt crate's `hash`/`verify` do too.
-pub fn hash_password(plain: &str) -> String {
-    bcrypt::hash_with_result(plain, 11).expect("bcrypt hash").format_for_version(bcrypt::Version::TwoA)
+/// An error only when the system's random source has no salt to give: no password causes one.
+pub fn hash_password(plain: &str) -> Result<String, bcrypt::BcryptError> {
+    Ok(bcrypt::hash_with_result(plain, 11)?.format_for_version(bcrypt::Version::TwoA))
 }
 
 pub fn verify_password(plain: &str, stored_hash: &str) -> bool {

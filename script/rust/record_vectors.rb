@@ -70,7 +70,7 @@ vectors = {
     'transaction_order_type' => Transaction.order_types, 'transaction_external_status' => Transaction.external_statuses,
     'api_key_status' => ApiKey.statuses, 'api_key_key_type' => ApiKey.key_types, 'user_otp_module' => User.otp_modules
   },
-  'gems' => %w[activerecord bcrypt bigdecimal rotp].to_h { |g| [g, Gem.loaded_specs.fetch(g).version.to_s] }
+  'gems' => %w[activerecord bcrypt bigdecimal rotp actionpack actionview activesupport devise i18n rack-attack turbo-rails rack puma].to_h { |g| [g, Gem.loaded_specs.fetch(g).version.to_s] }
 }
 # Ruby BigDecimal, as Rails computes with it (rust/src/ruby.rs BigDec). Seeded, so the file is stable.
 bd_rng = Random.new(11)
@@ -261,5 +261,179 @@ vectors['alpaca_orders'] = order_statuses.product(order_shapes).map do |status, 
            'quote_amount' => dec_s.(parsed[:quote_amount]), 'amount_exec' => dec_s.(parsed[:amount_exec]),
            'quote_amount_exec' => dec_s.(parsed[:quote_amount_exec]), 'order_type' => parsed[:order_type].to_s, 'side' => parsed[:side].to_s }]
 end
+# The web UI (rust/src/web). Everything below is what Rails itself answers, so the Rust port is held to it.
+helpers = ApplicationController.helpers
+shown = ->(value) { ERB::Util.html_escape(value).to_s } # what a view prints: escaped unless html_safe
+i18n_calls = [
+  ['en', 'devise.sessions.new.title', {}], ['de', 'devise.sessions.new.title', {}],
+  ['en', 'links.api', {}], ['de', 'links.api', {}], # English only: the German page falls back; `&` is escaped
+  ['en', 'bot.add_api_keys', { 'exchange' => %q(A<b>&"') }], # a plain key: the whole text is escaped
+  ['en', 'ads.dca_profit_html', { 'years' => '<4>', 'profit' => '12', 'sp500_diff' => 'a&b' }], # an HTML key: only the arguments are
+  ['en', 'devise.failure.invalid', { 'authentication_keys' => 'email' }],
+  ['en', 'devise.failure.locked', {}], ['de', 'devise.failure.locked', {}], # from the Devise gem, English only
+  ['en', 'devise.sessions.two_factor.title', {}], ['de', 'devise.sessions.two_factor.title', {}], # missing everywhere
+  ['en', 'nowhere.some_key_html', {}], ['en', 'nowhere.user_id', { 'name' => 'a<b' }], ['en', 'nowhere._odd__key', { 'count' => 3 }]
+] + %w[en pl ru].product([0, 1, 2, 4, 5, 11, 12, 21, 22, 24, 25, 101, 112]).flat_map { |locale, n| %w[days_left errors.messages.too_short].map { |key| [locale, key, { 'count' => n }] } }
+vectors['i18n'] = {
+  'locales' => I18n.available_locales.map(&:to_s),
+  'default' => I18n.default_locale.to_s,
+  'calls' => i18n_calls.map do |locale, key, args|
+    I18n.with_locale(locale) do
+      { 'locale' => locale, 'key' => key, 'args' => args,
+        'view' => shown.(helpers.t(key, **args.symbolize_keys)), 'text' => I18n.t(key, **args.symbolize_keys) }
+    end
+  end,
+  'escape' => [%q(a<b>&"'c), 'plain', 'ż & ☃'].map { |s| [s, shown.(s)] }
+}
+ts = helpers.turbo_stream
+vectors['turbo'] = {
+  'replace' => ts.replace('bot_1', '<p>a &amp; b</p>'.html_safe), 'update' => ts.update('bot_1', '<p>x</p>'.html_safe),
+  'append' => ts.append('orders', '<tr></tr>'.html_safe), 'prepend' => ts.prepend('flash', '<div>hi</div>'.html_safe),
+  'remove' => ts.remove('bot_1'), 'refresh' => ts.refresh(request_id: nil),
+  'redirect' => ts.action(:redirect, '/de/bots?a=1&b=2'), # SharedHelper#turbo_stream_redirect
+  # Bot#broadcast_columns_lock_update, as Turbo::StreamsChannel.broadcast_action_to renders it.
+  'add_class' => helpers.turbo_stream_action_tag(:add_class, target: 'columns_bot_1', template: nil, 'class-name': 'bot-locked'),
+  'remove_class' => helpers.turbo_stream_action_tag(:remove_class, target: 'columns_bot_1', template: nil, 'class-name': 'bot-locked'),
+  'stream_from' => helpers.turbo_stream_from('user_7', :bot_updates),
+  'stream_name' => Turbo::StreamsChannel.verified_stream_name(Turbo::StreamsChannel.signed_stream_name(['user_7', :bot_updates])),
+  'content_type' => Mime[:turbo_stream].to_s
+}
+remote_ip = lambda do |remote_addr, forwarded_for, client_ip|
+  env = { 'REMOTE_ADDR' => remote_addr, 'HTTP_X_FORWARDED_FOR' => forwarded_for, 'HTTP_CLIENT_IP' => client_ip }.compact
+  ActionDispatch::RemoteIp::GetIp.new(ActionDispatch::Request.new(env), false, ActionDispatch::RemoteIp::TRUSTED_PROXIES).to_s
+end
+trusted_proxy = ->(addr) { ActionDispatch::RemoteIp::TRUSTED_PROXIES.any? { |proxy| proxy === addr } }
+vectors['remote_ip'] = [
+  # a peer that is a trusted proxy: one hop, a private hop behind it, several hops, nothing but private hops
+  ['10.0.0.5', '198.51.100.7', nil], ['10.0.0.5', '198.51.100.7, 10.0.0.9', nil], ['10.0.0.5', '1.1.1.1, 198.51.100.7', nil],
+  ['10.0.0.5', '203.0.113.50, 198.51.100.7, 10.0.0.9, 192.168.1.4', nil], ['10.0.0.5', '10.1.1.1, 192.168.1.1', nil],
+  ['172.16.0.1', '172.32.0.1', nil], ['169.254.1.1', 'fe80::1', nil],
+  # malformed entries
+  ['10.0.0.5', 'not-an-ip, 198.51.100.7', nil], ['10.0.0.5', '198.51.100.7, unknown, , 10.0.0.9', nil], ['10.0.0.5', '198.51.100.7/8', nil],
+  ['10.0.0.5', '', nil],
+  # entries with a port, as a proxy may write its peer, also behind an entry only the caller wrote
+  ['10.0.0.5', '203.0.113.7:54321', nil], ['10.0.0.5', '[2001:db8::7]:54321', nil], ['10.0.0.5', '[2001:db8::7]', nil],
+  ['10.0.0.5', '198.51.100.99, 203.0.113.7:54321', nil], ['10.0.0.5', '198.51.100.99, [2001:db8::7]:54321', nil],
+  ['10.0.0.5', '198.51.100.99, 203.0.113.7:54321, 10.0.0.9:443', nil], ['10.0.0.5', '198.51.100.99 203.0.113.7', nil],
+  # entries Rails cannot read, behind an entry only the caller wrote; IPv4-mapped addresses
+  ['10.0.0.5', '198.51.100.99, garbage, 10.0.0.9', nil], ['10.0.0.5', '198.51.100.99, 203.0.113.7:notaport', nil],
+  ['10.0.0.5', '198.51.100.99, 203.0.113.7/32', nil], ['10.0.0.5', '198.51.100.99, ::ffff:10.0.0.9', nil],
+  ['10.0.0.5', '198.51.100.99, ::ffff:203.0.113.7', nil], ['10.0.0.5', '198.51.100.99, [::ffff:203.0.113.7]:443', nil],
+  # Client-Ip
+  ['127.0.0.1', nil, '198.51.100.8'], ['127.0.0.1', '198.51.100.7', '198.51.100.8'], ['10.0.0.5', nil, '198.51.100.8:1234'],
+  ['10.0.0.5', nil, '198.51.100.9, 198.51.100.8'],
+  # IPv6
+  ['10.0.0.5', '2001:db8::1', nil], ['::1', 'fd00::1, 2001:db8::2', nil], ['fd00::5', '2001:db8::7', nil],
+  # a peer that is not a trusted proxy, with and without headers of its own making
+  ['203.0.113.9', nil, nil], ['203.0.113.9', '198.51.100.7', nil], ['203.0.113.9', '198.51.100.7, 10.0.0.9', nil],
+  ['203.0.113.9', nil, '198.51.100.8'], ['2001:db8::9', '198.51.100.7', nil]
+].map do |addr, forwarded, client|
+  { 'remote_addr' => addr, 'forwarded_for' => forwarded, 'client_ip' => client, 'peer_trusted' => trusted_proxy.(addr),
+    'ip' => remote_ip.(addr, forwarded, client) }
+end
+vectors['tracker'] = {
+  'cash' => (Tracker::UnfundedCash::FIAT + Tracker::UnfundedCash::STABLECOINS).sort,
+  # User#show_cash? for what the tracker_settings column can hold.
+  'show_cash' => [nil, {}, { 'other' => true }, { 'show_cash' => true }, { 'show_cash' => false }, { 'show_cash' => nil },
+                  { 'show_cash' => '' }, { 'show_cash' => ' ' }, { 'show_cash' => 'false' }, { 'show_cash' => 0 }, { 'show_cash' => [] },
+                  { 'show_cash' => [1] }, { 'show_cash' => {} }].map do |settings|
+    { 'column' => settings&.to_json, 'shown' => User.new(tracker_settings: settings).show_cash? }
+  end
+}
+vectors['navbar'] = {
+  'bot_count' => [0, 1, 9, 10, 99, 100, 999, 1000, 12_345].map do |count|
+    size = helpers.send(:bot_count_font_size, count)
+    { 'count' => count, 'font_size' => size.to_s, 'baseline' => helpers.send(:bot_count_baseline, size).to_s }
+  end
+}
+vectors['rack_attack'] = {
+  'throttles' => Rack::Attack.throttles.slice('users/login', 'users/verify_two_factor').transform_values { |t| { 'limit' => t.limit, 'period' => t.period } },
+  'normalize' => ['/login', '/login/', '//login', '/de//login/', '/'].map { |p| [p, RackAttackPaths.normalize(p)] },
+  'body' => "#{I18n.t('errors.throttled')}\n"
+}
+vectors['devise'] = { 'maximum_attempts' => Devise.maximum_attempts, 'unlock_in' => Devise.unlock_in.to_i,
+                      'pending_ttl' => Users::SessionsController::PENDING_TTL.to_i, 'session_expire_after' => Rails.application.config.session_options[:expire_after].to_i }
+# request.base_url, which the Origin header of a form POST must equal (valid_request_origin?), from the
+# stack production runs: Puma builds the env (it derives rack.url_scheme from the forwarded headers),
+# ActionDispatch::AssumeSSL sits in front of the app when config/environments/production.rb turns SSL
+# on ('ssl' below: it sets assume_ssl and force_ssl from the one flag), and Rack and Action Dispatch
+# read the result. Each request goes over a raw socket, so header lines arrive as written, repeats included.
+require 'puma'
+require 'puma/server'
+require 'socket'
+unless Rails.root.join('config/environments/production.rb').read.match?(/config\.assume_ssl = ssl_enabled\n\s*config\.force_ssl = ssl_enabled\n/)
+  raise 'production.rb no longer sets assume_ssl and force_ssl from the one flag, which the base_url vectors assume'
+end
+base_url_app = ->(env) { [200, { 'content-type' => 'text/plain' }, [ActionDispatch::Request.new(env).base_url]] }
+# [server, port] of `app` behind Puma on a local port.
+over_puma = lambda do |app|
+  server = Puma::Server.new(app, nil, log_writer: Puma::LogWriter.null)
+  port = server.add_tcp_listener('127.0.0.1', 0).addr[1]
+  server.run
+  [server, port]
+end
+# The body of the answer to one GET with exactly these header lines.
+ask_puma = lambda do |port, host, headers|
+  answer = TCPSocket.open('127.0.0.1', port) do |socket|
+    socket.write("GET / HTTP/1.1\r\nHost: #{host}\r\n#{headers.map { |line| "#{line}\r\n" }.join}Connection: close\r\n\r\n")
+    socket.read
+  end
+  head, body = answer.split("\r\n\r\n", 2)
+  raise "#{host} #{headers}: #{head}" unless head.start_with?('HTTP/1.1 200')
+
+  body
+end
+base_url_servers = { false => base_url_app, true => ActionDispatch::AssumeSSL.new(base_url_app) }.transform_values(&over_puma)
+base_url = ->(ssl, host, headers) { ask_puma.(base_url_servers.fetch(ssl).last, host, headers) }
+forwarded_headers = [
+  [], ['X-Forwarded-Proto: https'], ['X-Forwarded-Proto: http'], ['X-Forwarded-Proto: https,http'], ['X-Forwarded-Proto: http,https'],
+  ['X-Forwarded-Proto: https, http'], ['X-Forwarded-Proto: http https'], ['X-Forwarded-Proto: https', 'X-Forwarded-Proto: http'],
+  ['X-Forwarded-Proto: HTTPS'], ['X-Forwarded-Proto: ftp'], ['X-Forwarded-Proto: https,ftp'], ['X-Forwarded-Proto: httpsx'],
+  ['X-Forwarded-Proto: wss'], ['X-Forwarded-Proto: ws'],
+  ['X-Forwarded-Ssl: on'], ['X-Forwarded-Ssl: off'], ['X-Forwarded-Ssl: On'], ['X-Forwarded-Ssl: on', 'X-Forwarded-Proto: http'],
+  ['X-Forwarded-Scheme: https'], ['X-Forwarded-Scheme: http'], ['X-Forwarded-Proto: http', 'X-Forwarded-Scheme: https'],
+  ['X-Forwarded-Proto: ftp', 'X-Forwarded-Scheme: https'], ['X-Forwarded-Proto: https', 'X-Forwarded-Scheme: http'],
+  ['X-Forwarded-Proto: ftp', 'X-Forwarded-Scheme: HTTPS'],
+  ['Forwarded: proto=https'], ['Forwarded: proto=http', 'X-Forwarded-Proto: https'], ['Forwarded: proto=https', 'X-Forwarded-Proto: http'],
+  ['Forwarded: for=192.0.2.1;proto=https, for=198.51.100.2;proto=http'], ['Forwarded: for=192.0.2.1;proto=http, for=198.51.100.2;proto=https'],
+  ['Forwarded: Proto = "https"'], ['Forwarded: for="[2001:db8::1]:4711";proto=https;by=203.0.113.43'], ['Forwarded: proto="ht\\tps" ; for=x'],
+  ['Forwarded: proto=https;secret=1'], ['Forwarded: proto=ftp', 'X-Forwarded-Proto: https'], ['Forwarded: for=192.0.2.1', 'X-Forwarded-Proto: https'],
+  ['Forwarded: proto=http', 'X-Forwarded-Ssl: on'], ['Forwarded: proto="https'], ['Forwarded: proto=https', 'Forwarded: proto=http'],
+  ['X-Forwarded-Host: public.example.org'], ['X-Forwarded-Host: public.example.org', 'X-Forwarded-Proto: https'],
+  ['X-Forwarded-Host: public.example.org:8443', 'X-Forwarded-Proto: https'], ['X-Forwarded-Host: public.example.org:443', 'X-Forwarded-Proto: https'],
+  ['X-Forwarded-Host: first.example, public.example.org'], ['X-Forwarded-Host: first.example,public.example.org:81'],
+  ['X-Forwarded-Host: public.example.org,'], ['X-Forwarded-Host:'],
+  ['X-Forwarded-Port: 8443', 'X-Forwarded-Proto: https'], ['Forwarded: host=public.example.org;proto=https'],
+  # a header sent as several lines: Puma hands Rack one value
+  ['X-Forwarded-Proto: http', 'X-Forwarded-Proto: https'], ['X-Forwarded-Scheme: https', 'X-Forwarded-Scheme: http'],
+  ['X-Forwarded-Ssl: on', 'X-Forwarded-Ssl: on'], ['X-Forwarded-Host: first.example', 'X-Forwarded-Host: public.example.org'],
+  ['X-Forwarded-Host: public.example.org', 'X-Forwarded-Proto: https', 'X-Forwarded-Host: last.example:8443']
+]
+base_url_cases = forwarded_headers.map { |headers| ['bot.example.com:8080', headers] } +
+                 ['bot.example.com', 'bot.example.com:443', 'bot.example.com:80', '[::1]:3000', '[::1]'].product([[], ['X-Forwarded-Proto: https']])
+vectors['base_url'] = [false, true].product(base_url_cases).map do |ssl, (host, headers)|
+  { 'ssl' => ssl, 'host' => host, 'headers' => headers, 'base_url' => base_url.(ssl, host, headers) }
+end
+base_url_servers.each_value { |server, _| server.stop(true) }
+# The client address when a forwarding header arrives as several lines (a proxy that appends its
+# own line after whatever the caller sent): what Puma makes of the lines, and the address Rails
+# then takes. The peer is 127.0.0.1, a trusted proxy.
+remote_ip_server = over_puma.(lambda do |env|
+  ip = ActionDispatch::RemoteIp::GetIp.new(ActionDispatch::Request.new(env), false, ActionDispatch::RemoteIp::TRUSTED_PROXIES).to_s
+  [200, { 'content-type' => 'application/json' }, [{ 'remote_addr' => env['REMOTE_ADDR'], 'forwarded_for' => env['HTTP_X_FORWARDED_FOR'],
+                                                     'client_ip' => env['HTTP_CLIENT_IP'], 'ip' => ip }.to_json]]
+end)
+vectors['remote_ip_lines'] = [
+  ['X-Forwarded-For: 198.51.100.7'], ['X-Forwarded-For: 1.1.1.1', 'X-Forwarded-For: 198.51.100.7'],
+  ['X-Forwarded-For: 1.1.1.1, 2.2.2.2', 'X-Forwarded-For: 198.51.100.7, 10.0.0.9'],
+  ['X-Forwarded-For: 198.51.100.7', 'X-Forwarded-For: 10.0.0.9', 'X-Forwarded-For: 192.168.1.4'],
+  ['X-Forwarded-For: 198.51.100.7', 'X-Forwarded-For: 1.1.1.1'],
+  ['Client-Ip: 1.1.1.1', 'Client-Ip: 198.51.100.8'],
+  ['X-Forwarded-For: 1.1.1.1', 'Client-Ip: 198.51.100.8', 'X-Forwarded-For: 198.51.100.7']
+].map { |headers| { 'headers' => headers }.merge(JSON.parse(ask_puma.(remote_ip_server.last, 'bot.example.com', headers))) }
+remote_ip_server.first.stop(true)
+# users.time_zone holds one of these names; the crate embeds the table (src/web/time_zones.json).
+time_zones = ActiveSupport::TimeZone::MAPPING
+File.write(Rails.root.join('rust/src/web/time_zones.json'), "#{JSON.pretty_generate(time_zones)}\n")
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate(vectors)}\n")
 puts "wrote #{ARGV.fetch(0)}"

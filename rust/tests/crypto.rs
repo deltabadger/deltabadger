@@ -88,7 +88,9 @@ fn verifies_devise_hashes_including_past_72_bytes() {
 
 #[test]
 fn hashes_like_devise() {
-    let h = hash_password("correct horse ☃");
+    // A Result: hashing needs the system's random source for its salt, and POST /login reaches it
+    // (an unknown email), where a panic would end the whole server.
+    let h: String = hash_password("correct horse ☃").expect("the random source works here");
     assert!(h.starts_with("$2a$11$"), "{h}");
     assert!(verify_password("correct horse ☃", &h));
     assert!(!verify_password("", "not-a-bcrypt-hash"), "a malformed hash never verifies");

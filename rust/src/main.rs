@@ -1,10 +1,12 @@
-//! `deltabadger check | run | handback | resolve-placement | decide`.
+//! `deltabadger check | run | handback | serve | resolve-placement | decide`.
 //! - check: take the engine lock, check the Rails-prepared install read-only, and exit.
 //! - run: take the install over from Rails and trade its eligible bots until SIGTERM/SIGINT.
 //! - handback: settle every unresolved order, then return the install to Rails.
+//! - serve: take the engine lock, check the install, and serve the web UI until stopped. It runs no engine.
 //!
-//! Env: STORAGE_DIR (default ./storage), DATABASE_PATH and QUEUE_DATABASE_PATH; run and handback also need
-//! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). Rails creates and migrates the databases.
+//! Env: STORAGE_DIR (default ./storage), DATABASE_PATH and QUEUE_DATABASE_PATH; run, handback and serve also need
+//! SECRET_KEY_BASE (and ACTIVE_RECORD_ENCRYPTION_* where the instance sets them). serve also reads PORT (default 3000),
+//! APP_ROOT_URL, FORCE_SSL, BEHIND_PROXY and MARKET_DATA_URL. Rails creates and migrates the databases.
 use deltabadger::crypto::{Cipher, EncryptionKeys};
 use deltabadger::engine::run::{self, Engine};
 use deltabadger::engine::{handover, log, EngineError, SystemClock};
@@ -34,6 +36,24 @@ fn main() {
         }
         Some("run") => std::process::exit(run_engine(&env)),
         Some("handback") => std::process::exit(hand_back(&env)),
+        Some("serve") => {
+            if !deltabadger::web::assets::BUILT {
+                fail(deltabadger::web::assets::MISSING);
+            }
+            refuse_url_overrides(&env);
+            let paths = paths(&env);
+            // Held until the process exits: neither Rails nor `run` can use this install while the web UI serves it.
+            let _lock = take_lock(&paths);
+            let opened = store::open(&paths).unwrap_or_else(|e| fail(&explain(e)));
+            let port = match env("PORT").filter(|p| !p.trim().is_empty()) {
+                Some(port) => port.trim().parse::<u16>().unwrap_or_else(|_| fail("PORT must be a port number")),
+                None => 3000,
+            };
+            let config = deltabadger::web::Config::from_env(&env).unwrap_or_else(|e| fail(&web_problem(e)));
+            let app = deltabadger::web::App::new(config, &env, opened.primary, std::sync::Arc::new(SystemClock)).unwrap_or_else(|e| fail(&web_problem(e)));
+            let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a tokio runtime");
+            rt.block_on(deltabadger::web::server::serve(app, port)).unwrap_or_else(|e| fail(&web_problem(e)));
+        }
         Some("resolve-placement") => {
             let args: Vec<String> = std::env::args().skip(2).collect();
             let bot_id: i64 = args.first().and_then(|a| a.parse().ok()).unwrap_or_else(|| fail("usage: deltabadger resolve-placement <bot_id> --placed <txid> | --not-placed"));
@@ -67,7 +87,7 @@ fn main() {
             println!("{}", serde_json::to_string_pretty(&out).unwrap());
         }
         _ => println!(
-            "deltabadger {}\nusage: deltabadger check | run | handback | resolve-placement <bot_id> --placed <order_id> | --not-placed | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
+            "deltabadger {}\nusage: deltabadger check | run | handback | serve | resolve-placement <bot_id> --placed <order_id> | --not-placed | decide run <dir> | decide plan <src> <tickers.json> <out> <now>",
             env!("CARGO_PKG_VERSION")
         ),
     }
@@ -163,6 +183,13 @@ fn refuse_url_overrides(env: &dyn Fn(&str) -> Option<String>) {
         .find(|v| env(v).is_some_and(|x| !x.trim().is_empty()))
     {
         fail(&format!("{var} is set; this build supports only *_DATABASE_PATH"));
+    }
+}
+
+fn web_problem(e: deltabadger::web::WebError) -> String {
+    match e {
+        deltabadger::web::WebError::Config(message) => message,
+        other => format!("{other:?}"),
     }
 }
 

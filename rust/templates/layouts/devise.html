@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="{{ v.locale }}">
+  <head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="ie=edge" http-equiv="X-UA-Compatible">
+    <meta name="theme-color" content="#f5f6f8" id="theme-color-meta">
+
+    <title>{{ v.t("meta.title")|safe }}</title>
+    {% include "layouts/_favicon.html" %}
+
+    <link rel="stylesheet" href="{{ v.asset("application.css") }}" media="all" data-turbo-track="reload" />
+    <script src="{{ v.asset("application.js") }}" data-turbo-track="reload" defer="defer"></script>
+
+    <meta name="csrf-param" content="authenticity_token" />
+<meta name="csrf-token" content="{{ csrf }}" />
+    <meta name="csp-nonce" content="{{ v.nonce }}" />
+  </head>
+
+  <body data-controller="hotwire-animations">
+    <div data-tauri-drag-region class="titlebar-drag-region"></div>
+    <div class="devise">
+
+      <div class="devise__row">
+        <div class="devise__col">
+          {{ body|safe }}
+        </div>
+      </div>
+      <div id="flash" class="flash-stack">
+        {{ flash|safe }}
+      </div>
+
+    </div>
+  </body>
+</html>
