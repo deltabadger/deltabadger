@@ -251,3 +251,136 @@ async fn a_restart_after_a_placed_settlement_waits_for_the_next_checkpoint() { r
 
 #[tokio::test(flavor = "current_thread")]
 async fn a_restart_after_a_not_placed_settlement_waits_for_the_next_checkpoint() { restart_after_settlement(false).await; }
+
+/// An install at `paths` with a weekly bot of 60 USD over BTC (and ETH, SOL at `weights` when given), its engines built on
+/// demand over one shared script, as separate processes would be.
+struct Install { _dir: tempfile::TempDir, paths: store::Paths, id: i64, t: ScriptedTransport }
+impl Install {
+    fn new(weights: &[f64], t: ScriptedTransport) -> Self {
+        let dir = common::rails_install();
+        let paths = store::Paths::from_env(&|_| None, dir.path());
+        let o = store::open(&paths).unwrap();
+        let s = seed::seed_alpaca(&o.primary, &seed::cipher());
+        let (eth, sol) = seed::add_eth_sol(&o.primary, &s);
+        let spec = BotSpec::weekly(60.0, "2026-09-01 10:00:00");
+        let spec = if weights.is_empty() { spec } else {
+            let assets = [s.btc, eth, sol];
+            spec.weights(&weights.iter().enumerate().map(|(i, w)| (assets[i], *w)).collect::<Vec<_>>())
+        };
+        let id = seed::insert_bot(&o.primary, &s, &spec);
+        Self { _dir: dir, paths, id, t }
+    }
+    fn engine(&self, now: &str) -> deltabadger::engine::run::Engine<ScriptedFactory> {
+        let lock = deltabadger::lease::lock(&self.paths, at(now)).unwrap();
+        deltabadger::engine::run::Engine::new(store::open(&self.paths).unwrap().primary, ScriptedFactory(self.t.clone()), seed::cipher(), lock)
+    }
+    fn sql(&self, sql: &str) { store::open(&self.paths).unwrap().primary.execute(sql, []).unwrap(); }
+    fn bot(&self) -> model::Bot { model::load_bot(&store::open(&self.paths).unwrap().primary, self.id).unwrap() }
+}
+async fn step(e: &mut deltabadger::engine::run::Engine<ScriptedFactory>, now: &str) { deltabadger::engine::run::step(e, &FixedClock(at(now))).await.unwrap(); }
+
+/// A settled bot that the user stops and starts fresh (Bot::Lifecycle#start: started_at = now, last_action_job_at = nil)
+/// buys at once, as Rails does: the wait was computed under the old start.
+#[tokio::test(flavor = "current_thread")]
+async fn a_settled_bot_stopped_and_started_fresh_buys_at_once() {
+    let i = Install::new(&[], script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }, accepted("OTX-2")] })));
+    i.t.reply("GET /v2/orders:by_client_order_id", 404, not_found()["body"].clone());
+    let mut e = i.engine(T0);
+    step(&mut e, T0).await;
+    i.sql("UPDATE bots SET status = 2"); // stopped while its order is unresolved
+    step(&mut e, "2026-09-01T10:20:01Z").await; // the idle reconciliation settles it as not placed
+    assert!(i.bot().rust_placement().is_none());
+    assert!(i.bot().rust_defer_until_us().unwrap().is_some(), "the wait is written for a stopped bot too");
+    i.sql("UPDATE bots SET status = 1, started_at = '2026-09-02 09:00:00', transient_data = json_remove(transient_data, '$.last_action_job_at')");
+    step(&mut e, "2026-09-02T09:00:01Z").await;
+    assert_eq!(i.t.posted_orders().len(), 2, "a fresh start buys at once");
+}
+
+/// A settled weekly bot switched to hourly follows the hourly schedule: no week-long stall.
+#[tokio::test(flavor = "current_thread")]
+async fn a_settled_bot_whose_interval_changes_follows_the_new_schedule() {
+    let i = Install::new(&[], script(json!({ "POST /v2/orders": [{ "network": "post_send", "message": POST_SEND }, accepted("OTX-2")] })));
+    i.t.reply("GET /v2/orders:by_client_order_id", 404, not_found()["body"].clone());
+    let mut e = i.engine(T0);
+    step(&mut e, T0).await;
+    step(&mut e, "2026-09-01T10:20:01Z").await;
+    assert_eq!(i.bot().rust_defer_until_us().unwrap(), Some(at("2026-09-08T10:00:00Z").timestamp_micros()));
+    i.sql("UPDATE bots SET settings = json_set(settings, '$.interval', 'hour'), settings_changed_at = '2026-09-01 10:30:00'");
+    step(&mut e, "2026-09-01T10:30:01Z").await;
+    assert_eq!(i.t.posted_orders().len(), 1, "the 10:00 hour was this run's");
+    step(&mut e, "2026-09-01T11:00:01Z").await;
+    assert_eq!(i.t.posted_orders().len(), 2, "the next hourly checkpoint buys");
+}
+
+/// Any rescheduled run waits for the next checkpoint across a restart, not only a settled one: here a basket whose leg 2
+/// was rejected, or failed before it left after leg 1 was placed.
+async fn restart_after_a_rescheduled_leg(leg2: Value) {
+    let i = Install::new(&[0.5, 0.3, 0.2], script(json!({
+        "POST /v2/orders": [accepted("OTX-1"), leg2, accepted("OTX-3"), accepted("OTX-4"), accepted("OTX-5")],
+        "GET /v2/orders/OTX-1": [ok(json!({ "id": "OTX-1", "status": "filled", "symbol": "BTC/USD", "type": "market", "side": "buy", "notional": "30",
+                                            "qty": null, "filled_qty": "0.00046875", "filled_avg_price": "64000", "limit_price": null }))],
+    })));
+    let mut a = i.engine(T0);
+    step(&mut a, T0).await;
+    assert_eq!(i.t.posted_orders().len(), 2);
+    assert_eq!(i.bot().rust_defer_until_us().unwrap(), Some(at("2026-09-08T10:00:00Z").timestamp_micros()), "persisted with the reschedule");
+    drop(a);
+    let mut b = i.engine("2026-09-01T10:05:00Z");
+    for now in ["2026-09-01T10:05:00Z", "2026-09-07T23:59:59Z"] {
+        step(&mut b, now).await;
+        assert_eq!(i.t.posted_orders().len(), 2, "{now}: nothing before the next checkpoint");
+    }
+    step(&mut b, "2026-09-08T10:00:01Z").await;
+    assert_eq!(i.t.posted_orders().len(), 5, "the next checkpoint buys every member");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_restart_after_a_rejected_middle_leg_waits_for_the_next_checkpoint() {
+    restart_after_a_rescheduled_leg(json!({ "status": 403, "body": { "code": 40310000, "message": "insufficient buying power" } })).await;
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_restart_after_a_pre_send_failure_waits_for_the_next_checkpoint() {
+    restart_after_a_rescheduled_leg(json!({ "network": "pre_send", "message": PRE_SEND })).await;
+}
+
+/// A wait the engine cannot read is ignored (and logged), never a silent stall on every pass.
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_stored_wait_is_ignored() {
+    let i = Install::new(&[], script(json!({})));
+    i.sql("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_defer_until', 'not a time')");
+    let mut e = i.engine(T0);
+    step(&mut e, T0).await;
+    assert_eq!(i.t.posted_orders().len(), 1);
+    assert!(i.bot().transient.get("rust_defer_until").is_none(), "removed");
+}
+
+/// Alpaca whose AddOrder runs `hook` first: a test's concurrent writer while the order is in flight.
+struct Hooked(AlpacaVenue<ScriptedTransport>, Box<dyn Fn()>);
+impl deltabadger::venue::Venue for Hooked {
+    fn rules(&self) -> &'static deltabadger::engine::venue_rules::VenueRules { self.0.rules() }
+    async fn price(&self, t: &model::Ticker, s: deltabadger::venue::PriceSide) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.price(t, s).await }
+    async fn add_order(&self, o: &deltabadger::venue::NewOrder) -> Result<String, deltabadger::venue::VenueError> { (self.1)(); self.0.add_order(o).await }
+    async fn orders(&self, ids: &[String]) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.orders(ids).await }
+    async fn order_by_client_id(&self, cl: &str, since: DateTime<Utc>) -> Result<Option<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.order_by_client_id(cl, since).await }
+    async fn fills_from_trades(&self, ids: &[String], since: DateTime<Utc>) -> Result<Vec<deltabadger::venue::OrderState>, deltabadger::venue::VenueError> { self.0.fills_from_trades(ids, since).await }
+    async fn balance(&self, a: &str) -> Result<deltabadger::ruby::BigDec, deltabadger::venue::VenueError> { self.0.balance(a).await }
+}
+
+/// A stop always wins over a tick in progress: the order in hand finishes, nothing more is placed.
+#[tokio::test(flavor = "current_thread")]
+async fn a_web_stop_between_legs_places_nothing_more() {
+    let (_d, o, id, _, _) = basket_bot(60.0, &[0.5, 0.3, 0.2]);
+    let db = o.primary.path().unwrap().to_string();
+    let t = script(json!({}));
+    let v = Hooked(venue(&t), Box::new(move || {
+        rusqlite::Connection::open(&db).unwrap().execute("UPDATE bots SET status = 2 WHERE id = ?1", [id]).unwrap();
+    }));
+    run_on(&o, &v, id, at(T0)).await;
+    assert_eq!(notionals(&t), vec![("BTC/USD".into(), "30.00".into())], "leg 1 finishes; legs 2 and 3 are never sent");
+    assert_eq!(one::<i64>(&o, "SELECT count(*) FROM transactions"), 1);
+    assert_eq!(model::load_bot(&o.primary, id).unwrap().status, BotStatus::Stopped);
+}
+async fn run_on<V: deltabadger::venue::Venue>(o: &store::Opened, v: &V, id: i64, when: DateTime<Utc>) -> TickOutcome {
+    tick::tick(&o.primary, v, id, &FixedClock(when), &mut Attempts::default()).await.unwrap()
+}

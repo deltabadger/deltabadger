@@ -92,7 +92,7 @@ async fn an_operator_decision_resolves_an_intent_kraken_cannot_answer_for() {
     assert_eq!(count(&o, "SELECT count(*) FROM transactions"), 1);
     assert!(reload(&o, &bot).rust_placement().is_none());
     let next: DateTime<Utc> = "2026-10-06T10:00:00Z".parse().unwrap();
-    assert_eq!(reload(&o, &bot).rust_defer_until_us().unwrap(), Some(next.timestamp_micros()), "nothing is placed before the next checkpoint");
+    assert_eq!(reload(&o, &bot).rust_defer_until_us().unwrap(), Some(next.timestamp_micros()), "the wait for the next checkpoint is persisted");
     assert!(placement::resolve_by_operator(&o.primary, bot.id, OperatorResolution::NotPlaced, t0()).is_err(), "nothing left to resolve");
 }
 

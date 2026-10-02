@@ -240,16 +240,30 @@ async fn step_bot<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn Clock
     let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) else { return Ok(()) };
     let eff = effective(interval, quote, bot.smart_quote_amount());
     let cps = checkpoints(anchor, now_us, eff);
-    // After a settled intent nothing runs before the next checkpoint, across a restart too.
-    let deferred = bot.rust_defer_until_us()?.filter(|&t| t > now_us);
+    // A rescheduled run waits for the next checkpoint, across a restart too, while the schedule it was computed under holds.
+    // A fresh start or an interval edit voids it: the bot then follows its schedule as a scheduled bot does.
+    let defer = match bot.rust_defer() {
+        Ok(d) => d.map(|(t, schedule)| (Some(schedule) == bot.schedule_key()).then_some(t)),
+        Err(err) => {
+            super::log(&format!("[engine] warning: bot {id}: {err:?}; ignored and removed"));
+            e.primary.execute("UPDATE bots SET transient_data = json_remove(transient_data, '$.rust_defer_until') WHERE id = ?1", [id])?;
+            None
+        }
+    };
+    let deferred = defer.flatten().filter(|&t| t > now_us);
+    let on_schedule = || -> Result<bool, EngineError> {
+        Ok(anchor <= now_us && bot.last_action_job_at_us()?.is_none_or(|t| t.div_euclid(1000) < cps.last_us.div_euclid(1000))) // stored value is ms-truncated
+    };
     let due = if bot.rust_placement().is_some() {
         e.reconcile_at.get(&id).is_none_or(|&t| t <= now_us)
     } else if deferred.is_some() {
         false
+    } else if defer == Some(None) {
+        on_schedule()? // a retrying bot too: its in-memory wait was computed under the old schedule
     } else if bot.status == crate::enums::BotStatus::Retrying {
         e.retry_at.get(&id).is_none_or(|&t| t <= now_us) // no in-memory state (a restart): due at once
     } else {
-        anchor <= now_us && bot.last_action_job_at_us()?.is_none_or(|t| t.div_euclid(1000) < cps.last_us.div_euclid(1000)) // stored value is ms-truncated
+        on_schedule()?
     };
 
     if due {

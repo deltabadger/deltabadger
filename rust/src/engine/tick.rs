@@ -8,7 +8,7 @@ use super::polling::{self, PollFailure};
 use super::{basket, staleness, Clock, EngineError};
 use chrono::{DateTime, Utc};
 use crate::codec::format_time;
-use crate::enums::BotStatus;
+use crate::enums::{BotStatus, BOT_WORKING};
 use crate::ruby::{iso8601_ms, to_sentence, BigDec};
 use crate::venue::{PriceSide, Venue, VenueError};
 use rusqlite::{params, Connection};
@@ -138,7 +138,12 @@ pub async fn tick_recovering<V: Venue>(c: &Connection, venue: &V, bot_id: i64, c
             if model::load_bot(c, bot_id)?.last_failure_kind().is_some() { record_failure(c, bot_id, None)?; }
             Ok(if model::transition_working(c, bot_id, BotStatus::Scheduled, clock.now())? { TickOutcome::Done { placed } } else { TickOutcome::Skipped })
         }
-        Err(fail) => handle_failure(c, bot_id, fail, clock, attempts, venue.rules()),
+        Err(fail) => {
+            let outcome = handle_failure(c, bot_id, fail, clock, attempts, venue.rules())?;
+            // Every rescheduled run waits for the next checkpoint, across a restart too.
+            if matches!(outcome, TickOutcome::Rescheduled) { placement::defer_to_next_checkpoint(c, &model::load_bot(c, bot_id)?, clock.now())?; }
+            Ok(outcome)
+        }
     }
 }
 
@@ -257,6 +262,8 @@ async fn buy<V: Venue>(c: &Connection, venue: &V, bot: &model::Bot, x: &BigDec, 
                 return Ok(Err(Fail::General { errors: vec![m.clone()], message: m, failed_row: false }));
             }
             Sizing::Place(plan) => {
+                // A stop always wins over a tick in progress: the leg in hand finishes, nothing more is placed.
+                if !BOT_WORKING.contains(&model::load_bot(c, bot.id)?.status) { break; }
                 let intent = placement::begin(c, bot, &plan, clock)?;
                 match placement::send(venue, &intent, clock).await {
                     Sent::Accepted(txid) => { placement::record_accepted(c, bot, &intent, &txid)?; legs.placed = true; }

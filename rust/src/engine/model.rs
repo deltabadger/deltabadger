@@ -127,13 +127,21 @@ impl Bot {
             Some(other) => Err(EngineError::Data(format!("missed_quote_amount {other}"))),
         }
     }
-    /// transient_data.rust_defer_until (placement::defer_to_next_checkpoint): no tick before it, in µs.
-    pub fn rust_defer_until_us(&self) -> Result<Option<i64>, EngineError> {
+    /// transient_data.rust_defer_until (placement::defer_to_next_checkpoint): `{"until": RFC 3339, "schedule": schedule_key}`,
+    /// no tick before `until` (in µs) while the bot's schedule is still `schedule`.
+    pub fn rust_defer(&self) -> Result<Option<(i64, String)>, EngineError> {
         match self.transient.get("rust_defer_until") {
             None | Some(Value::Null) => Ok(None),
-            Some(v) => v.as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).map(|t| Some(t.with_timezone(&Utc).timestamp_micros()))
+            Some(v) => v["until"].as_str().and_then(|s| DateTime::parse_from_rfc3339(s).ok()).zip(v["schedule"].as_str())
+                .map(|(t, s)| Some((t.with_timezone(&Utc).timestamp_micros(), s.to_string())))
                 .ok_or_else(|| EngineError::Data(format!("bot {}: rust_defer_until {v}", self.id))),
         }
+    }
+    pub fn rust_defer_until_us(&self) -> Result<Option<i64>, EngineError> { Ok(self.rust_defer()?.map(|(t, _)| t)) }
+    /// What the bot's checkpoints are computed from: its start (a fresh start moves it) and its effective interval.
+    pub fn schedule_key(&self) -> Option<String> {
+        let (anchor, interval, quote) = (self.started_at_us?, self.interval()?, self.quote_amount()?);
+        Some(format!("{anchor}/{:?}", super::schedule::effective(interval, quote, self.smart_quote_amount())))
     }
     pub fn rust_placement(&self) -> Option<Value> { self.transient.get("rust_placement").filter(|v| !v.is_null()).cloned() }
     pub fn last_failure_kind(&self) -> Option<String> { self.transient.get("last_failure_kind")?.as_str().map(str::to_string) }

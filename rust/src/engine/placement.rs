@@ -103,15 +103,17 @@ fn set_intent(c: &Connection, bot_id: i64, v: Option<&Value>) -> Result<(), Engi
     Ok(())
 }
 
-/// After an intent is settled (placed or not), nothing is placed before the bot's next checkpoint, as Bot::ActionJob's next
-/// run of a failed run is at next_interval_checkpoint_at (action_job.rb:325-328). Written with `json_set` in the transaction
-/// that settles the intent, so a restart honours it (run::step_bot); the deferred tick removes it (tick::tick_recovering). A
-/// Rust-only key, outside the parity snapshots, like `rust_placement`.
-fn defer_to_next_checkpoint(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
-    let (Some(anchor), Some(interval), Some(quote)) = (bot.started_at_us, bot.interval(), bot.quote_amount()) else { return Ok(()) };
+/// After a run is rescheduled (an intent settled, placed or not, or a failure that reschedules), nothing is placed before
+/// the bot's next checkpoint, as Bot::ActionJob's next run of a failed run is at next_interval_checkpoint_at
+/// (action_job.rb:325-328). Written with `json_set` (in the transaction that settles an intent), so a restart honours it
+/// (run::step_bot), together with the schedule it was computed under: a fresh start or an interval edit voids it. The
+/// deferred tick removes it (tick::tick_recovering). A Rust-only key, outside the parity snapshots, like `rust_placement`.
+pub fn defer_to_next_checkpoint(c: &Connection, bot: &Bot, now: DateTime<Utc>) -> Result<(), EngineError> {
+    let (Some(anchor), Some(interval), Some(quote), Some(schedule)) = (bot.started_at_us, bot.interval(), bot.quote_amount(), bot.schedule_key()) else { return Ok(()) };
     let next = checkpoints(anchor, now.timestamp_micros(), effective(interval, quote, bot.smart_quote_amount())).next_us;
     let until = DateTime::from_timestamp_micros(next).expect("time in range").to_rfc3339_opts(chrono::SecondsFormat::Micros, true);
-    c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_defer_until', ?1) WHERE id = ?2", params![until, bot.id])?;
+    c.execute("UPDATE bots SET transient_data = json_set(transient_data, '$.rust_defer_until', json(?1)) WHERE id = ?2",
+              params![json!({ "until": until, "schedule": schedule }).to_string(), bot.id])?;
     Ok(())
 }
 
