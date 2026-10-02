@@ -28,8 +28,9 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
     assert_equal 100, txn.quote_amount_exec
   end
 
-  # The missed-quote carry is a BUY-side concept. A buy fill draws it down...
-  test 'a BUY fill draws down the buy-side missed_quote_amount carry' do
+  # A fill is credited by its row (Bot::Accountable#pending_quote_amount counts it), never by drawing
+  # the carry down as well: that counted the same quote twice.
+  test 'a BUY fill leaves the missed_quote_amount carry alone' do
     bot = create(:dca_single_asset, :started)
     bot.missed_quote_amount = 100
     bot.missed_quote_amount_was_set = true
@@ -45,11 +46,9 @@ class Bot::FetchAndUpdateOrderJobTest < ActiveSupport::TestCase
 
     Bot::FetchAndUpdateOrderJob.new.perform(txn, update_missed_quote_amount: true)
 
-    assert_in_delta 60, bot.reload.missed_quote_amount.to_f, 1e-6 # 100 - 40
+    assert_in_delta 100, bot.reload.missed_quote_amount.to_f, 1e-6
   end
 
-  # ...but a SELL fill must NOT touch it — gated on order.buy? at the source so the carry stays
-  # coherent regardless of which caller passed update_missed_quote_amount: true.
   test 'a SELL fill leaves the buy-side missed_quote_amount carry untouched' do
     bot = create(:dca_single_asset, :started)
     bot.missed_quote_amount = 100

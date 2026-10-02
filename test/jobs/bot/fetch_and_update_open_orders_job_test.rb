@@ -238,12 +238,10 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
 
     assert_raises(Client::RateLimitedError) { bot.execute_action }
   end
-  # == The carry gate ==
+  # == The carry ==
   #
-  # Bot::FetchAndUpdateOrderJob has gated the carry on transaction_type == 'REGULAR' for a while, and
-  # its comment says why: "the flag alone is not enough: Bot::LimitOrderable#execute_action sweeps
-  # every waiting order with it set to true". This sweep — the one LimitOrderable actually calls — did
-  # not have the gate, so a rebalance fill silently satisfied a scheduled contribution.
+  # The sweep never moves the carry. A rebalance or liquidation fill must not satisfy a scheduled
+  # contribution, and a regular fill is already counted by its row.
 
   test 'a rebalance buy does not draw down the DCA carry' do
     bot = create(:dca_single_asset, :started)
@@ -272,7 +270,9 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
     assert_equal 100, bot.reload.missed_quote_amount
   end
 
-  test 'a regular buy still draws down the carry' do
+  # A fill is credited by its row (Bot::Accountable#pending_quote_amount counts it); drawing the carry
+  # down as well counted the same quote twice, and the bot under-bought by the carry.
+  test 'a regular buy fill leaves the carry alone' do
     bot = create(:dca_single_asset, :started)
     bot.update_columns(transient_data: bot.transient_data.merge('missed_quote_amount' => 100))
     create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'g1',
@@ -282,12 +282,11 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
 
     Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot, update_missed_quote_amount: true)
 
-    assert_equal 60, bot.reload.missed_quote_amount
+    assert_equal 'closed', bot.transactions.find_by(external_id: 'g1').external_status
+    assert_equal 100, bot.reload.missed_quote_amount
   end
 
-  test 'a rebalance row does not switch the carry off for the regular rows after it' do
-    # The gate is a per-order local, not a reassignment of the method argument — one sweep carries
-    # rows of every type, and they must not contaminate each other.
+  test 'a sweep over rows of every type leaves the carry alone' do
     bot = create(:dca_single_asset, :started)
     bot.update_columns(transient_data: bot.transient_data.merge('missed_quote_amount' => 100))
     create(:transaction, bot: bot, status: :submitted, external_status: :open, external_id: 'a-rebalance',
@@ -303,7 +302,7 @@ class Bot::FetchAndUpdateOpenOrdersJobTest < ActiveSupport::TestCase
 
     Bot::FetchAndUpdateOpenOrdersJob.new.perform(bot, update_missed_quote_amount: true)
 
-    assert_equal 60, bot.reload.missed_quote_amount, 'only the regular fill counted'
+    assert_equal 100, bot.reload.missed_quote_amount
   end
 
   private

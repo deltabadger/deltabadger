@@ -56,32 +56,10 @@ class Bot::FetchAndUpdateOrderJob < BotJob
     order.reload
     bot = order.bot
 
-    calc_since = [bot.started_at, bot.settings_changed_at].compact.max
     order_data = result.data
     case order_data[:status]
     when :open, :closed, :cancelled
-      # A rebalance spends quote the bot already owned, so its fills must never move the DCA carry —
-      # otherwise a swap silently satisfies a scheduled contribution. Gated at the source because the
-      # flag alone is not enough: Bot::LimitOrderable#execute_action sweeps every waiting order with
-      # it set to true, before any bot-level guard runs.
-      # ...and only for a bot that carries the carry at all: a signal bot has no Bot::Accountable,
-      # and the cancel button and the CSV export pass the flag for every bot type.
-      update_missed_quote_amount &&= order.transaction_type == 'REGULAR' && bot.respond_to?(:missed_quote_amount)
-
-      # Capture the previously-recorded quote execution BEFORE update_with_order_data mutates it —
-      # the carry drawdown is the delta between the new and previous quote fill.
-      previous_quote_amount_exec = order.quote_amount_exec || 0
       raise "Failed to update order #{order.external_id}" unless order.update_with_order_data(order_data)
-
-      # The missed-quote carry is buy-only. Gate the subtraction on order.buy? at the source so
-      # a sell flowing through ANY caller (LimitOrderable, Transaction#cancel, exports) is inert. The
-      # diff is computed HERE (inside the buy guard) so a sell payload with a nil quote_amount_exec —
-      # base fill known, quote fill absent — never hits `nil - x` and crashes the job.
-      if update_missed_quote_amount && order.buy? && order.created_at >= calc_since
-        quote_amount_diff = order_data[:quote_amount_exec].to_d - previous_quote_amount_exec
-        missed_quote_amount = [0, order.bot.missed_quote_amount - quote_amount_diff].max
-        order.bot.update!(missed_quote_amount: missed_quote_amount)
-      end
 
       # Not order.market_order?: the update above has just overwritten order_type with the venue's,
       # and an emulated market order reads as a limit from then on. A signal bot places market
