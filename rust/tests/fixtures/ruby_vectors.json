@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"doTKxwzea4mA83oaW5vfZs8=\",\"h\":{\"iv\":\"+RHXpbotCsMkFBwh\",\"at\":\"v39pz5tw6a+kcFs5UTmggw==\"}}"
+      "cipher": "{\"p\":\"tmhRS/Yo7+M/trh/ZJWpo/I=\",\"h\":{\"iv\":\"CZEC8Uy0BZtdde5O\",\"at\":\"KXT+urpPZA5uODRiJXsoTw==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"1Uspf48rQ8JxAI2Y75mk\",\"h\":{\"iv\":\"xw25E+m73Rng1LX1\",\"at\":\"ZkYpL00UUNbxUFN1wYnpcw==\"}}"
+      "cipher": "{\"p\":\"4TV5VURpermWoLvOUq6g\",\"h\":{\"iv\":\"adUFhSI/r+k1LzzB\",\"at\":\"BiLMP1Ph1JmTCvuMHfGeqw==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"sE5Iai3oBZLDqfH+p4nsbEDUv0pUDO1f/bnczP72x4LDj6jocRdPCjgDB5lirsBCuOUsomV1p8eNN2oGfcvXLwL/nnRhLtSbTnhY8X8=\",\"h\":{\"iv\":\"ywxkohxuittc/2sW\",\"at\":\"1a5VGzk7uYIKkJg99vv2eQ==\",\"c\":true}}"
+      "cipher": "{\"p\":\"MZ7QQ4STy1UUdc1J+BHoBm3F5R0II5wP1LsXZhctoAmlEA5ZuRix2/dZt20Vx448j+rMWcBBa0EYXRI5x2j6T1i/ZE2mIbj6wbWA0BM=\",\"h\":{\"iv\":\"OoddWGmvw7Q/nnjB\",\"at\":\"Los5DbG5XxenSf5By0pikg==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "ZBCQKSTTJKFR7U6O2A623I3XGXNR7HNZ",
-      "cipher": "{\"p\":\"Fnz29EAiW6fdsOtS+BTuQpXrXiutOsM80qw4TcQhV8Q=\",\"h\":{\"iv\":\"kYOsYVYxByFyZOyC\",\"at\":\"GK7lsZgLm0lAKDtYNMCnaQ==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "X6Z57Y2JKIIRKBZHASI2MVHUQPRJ5TZ6",
+      "cipher": "{\"p\":\"CiL6ok31FXKEKoJ8EqXvmlFj1aSdwIAXLah8qMQK/2E=\",\"h\":{\"iv\":\"0iorx3h1/+cISNQh\",\"at\":\"6G+a+Ri5tYIGp6rT7/PFcA==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"5GAtva1/XepbU2/h6JGcCWE=\",\"h\":{\"iv\":\"i8xR2CVgz4ZvMhi4\",\"at\":\"tjrDsNJo1NeshGTaTmIthw==\"}}"
+      "cipher": "{\"p\":\"9h2I42pbnFQ0uH4ipDRIgN8=\",\"h\":{\"iv\":\"ILVsPNW3Gg4tzcMn\",\"at\":\"c867Yg5/NAI0DN/ODQpJ8Q==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$dp9WErFysM/H2vmcbjEQoOhswZObNwke8IlUYUkWamQwuZLXXgxLe"
+      "hash": "$2a$11$wEC0sZ4gdKB6hUkuq1hxC.dYcVdbCxNPkFMOExlsjdFqZTukLhM3O"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$PQFncZUJSPXCMV.c87VZFuursrM2LDygmaw9hepGnPcAGNS9idli."
+      "hash": "$2a$11$yTinn9ygVPBTlj3diUNXQeI5G6S6o8QNDDPUVrBnBsuWZwk6utmHm"
     }
   ],
   "totp": {
@@ -1410,7 +1410,14 @@
     "activerecord": "8.1.4",
     "bcrypt": "3.1.22",
     "bigdecimal": "3.3.1",
-    "rotp": "6.3.0"
+    "rotp": "6.3.0",
+    "actionpack": "8.1.4",
+    "actionview": "8.1.4",
+    "activesupport": "8.1.4",
+    "devise": "5.0.4",
+    "i18n": "1.15.2",
+    "rack-attack": "6.8.0",
+    "turbo-rails": "2.0.23"
   },
   "bigdec": [
     [
@@ -46334,5 +46341,1290 @@
         "side": "buy"
       }
     ]
-  ]
+  ],
+  "i18n": {
+    "locales": [
+      "en",
+      "pl",
+      "es",
+      "de",
+      "nl",
+      "fr",
+      "pt",
+      "ru",
+      "it",
+      "bg",
+      "el",
+      "sv",
+      "da",
+      "cs",
+      "sk"
+    ],
+    "default": "en",
+    "calls": [
+      {
+        "locale": "en",
+        "key": "devise.sessions.new.title",
+        "args": {},
+        "view": "Welcome back!",
+        "text": "Welcome back!"
+      },
+      {
+        "locale": "de",
+        "key": "devise.sessions.new.title",
+        "args": {},
+        "view": "Willkommen zurück!",
+        "text": "Willkommen zurück!"
+      },
+      {
+        "locale": "en",
+        "key": "links.api",
+        "args": {},
+        "view": "MCP &amp; REST API",
+        "text": "MCP & REST API"
+      },
+      {
+        "locale": "de",
+        "key": "links.api",
+        "args": {},
+        "view": "MCP &amp; REST API",
+        "text": "MCP & REST API"
+      },
+      {
+        "locale": "en",
+        "key": "bot.add_api_keys",
+        "args": {
+          "exchange": "A<b>&\"'"
+        },
+        "view": "Add API keys for A&lt;b&gt;&amp;&quot;&#39;",
+        "text": "Add API keys for A<b>&\"'"
+      },
+      {
+        "locale": "en",
+        "key": "ads.dca_profit_html",
+        "args": {
+          "years": "<4>",
+          "profit": "12",
+          "sp500_diff": "a&b"
+        },
+        "view": "<p>If you were dollar-cost averaging into Bitcoin for the last &lt;4&gt;&nbsp;years, you're now up <b style=\"color: #00A36C;\">12%</b>.</p>\n<p>That's <b style=\"color: #00A36C;\">a&amp;b%</b> more than S&P 500 in the same time.</p>\n",
+        "text": "<p>If you were dollar-cost averaging into Bitcoin for the last <4>&nbsp;years, you're now up <b style=\"color: #00A36C;\">12%</b>.</p>\n<p>That's <b style=\"color: #00A36C;\">a&b%</b> more than S&P 500 in the same time.</p>\n"
+      },
+      {
+        "locale": "en",
+        "key": "devise.failure.invalid",
+        "args": {
+          "authentication_keys": "email"
+        },
+        "view": "Invalid email or password.",
+        "text": "Invalid email or password."
+      },
+      {
+        "locale": "en",
+        "key": "devise.failure.locked",
+        "args": {},
+        "view": "Your account is locked.",
+        "text": "Your account is locked."
+      },
+      {
+        "locale": "de",
+        "key": "devise.failure.locked",
+        "args": {},
+        "view": "Your account is locked.",
+        "text": "Your account is locked."
+      },
+      {
+        "locale": "en",
+        "key": "devise.sessions.two_factor.title",
+        "args": {},
+        "view": "<span class=\"translation_missing\" title=\"translation missing: en.devise.sessions.two_factor.title\">Title</span>",
+        "text": "Translation missing: en.devise.sessions.two_factor.title"
+      },
+      {
+        "locale": "de",
+        "key": "devise.sessions.two_factor.title",
+        "args": {},
+        "view": "<span class=\"translation_missing\" title=\"translation missing: de.devise.sessions.two_factor.title\">Title</span>",
+        "text": "Translation missing: de.devise.sessions.two_factor.title"
+      },
+      {
+        "locale": "en",
+        "key": "nowhere.some_key_html",
+        "args": {},
+        "view": "<span class=\"translation_missing\" title=\"translation missing: en.nowhere.some_key_html\">Some Key Html</span>",
+        "text": "Translation missing: en.nowhere.some_key_html"
+      },
+      {
+        "locale": "en",
+        "key": "nowhere.user_id",
+        "args": {
+          "name": "a<b"
+        },
+        "view": "<span class=\"translation_missing\" title=\"translation missing: en.nowhere.user_id, name: a&amp;lt;b\">User</span>",
+        "text": "Translation missing: en.nowhere.user_id"
+      },
+      {
+        "locale": "en",
+        "key": "nowhere._odd__key",
+        "args": {
+          "count": 3
+        },
+        "view": "<span class=\"translation_missing\" title=\"translation missing: en.nowhere._odd__key, count: 3\">Odd  Key</span>",
+        "text": "Translation missing: en.nowhere._odd__key"
+      },
+      {
+        "locale": "en",
+        "key": "days_left",
+        "args": {
+          "count": 0
+        },
+        "view": "0 days left",
+        "text": "0 days left"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 0
+        },
+        "view": "is too short (minimum is 0 characters)",
+        "text": "is too short (minimum is 0 characters)"
+      },
+      {
+        "locale": "en",
+        "key": "days_left",
+        "args": {
+          "count": 1
+        },
+        "view": "1 day left",
+        "text": "1 day left"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 1
+        },
+        "view": "is too short (minimum is 1 character)",
+        "text": "is too short (minimum is 1 character)"
+      },
+      {
+        "locale": "en",
+        "key": "days_left",
+        "args": {
+          "count": 2
+        },
+        "view": "2 days left",
+        "text": "2 days left"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 2
+        },
+        "view": "is too short (minimum is 2 characters)",
+        "text": "is too short (minimum is 2 characters)"
+      },
+      {
+        "locale": "en",
+        "key": "days_left",
+        "args": {
+          "count": 4
+        },
+        "view": "4 days left",
+        "text": "4 days left"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 4
+        },
+        "view": "is too short (minimum is 4 characters)",
+        "text": "is too short (minimum is 4 characters)"
+      },
+      {
+        "locale": "en",
+        "key": "days_left",
+        "args": {
+          "count": 5
+        },
+        "view": "5 days left",
+        "text": "5 days left"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 5
+        },
+        "view": "is too short (minimum is 5 characters)",
+        "text": "is too short (minimum is 5 characters)"
+      },
+      {
+        "locale": "en",
+        "key": "days_left",
+        "args": {
+          "count": 11
+        },
+        "view": "11 days left",
+        "text": "11 days left"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 11
+        },
+        "view": "is too short (minimum is 11 characters)",
+        "text": "is too short (minimum is 11 characters)"
+      },
+      {
+        "locale": "en",
+        "key": "days_left",
+        "args": {
+          "count": 12
+        },
+        "view": "12 days left",
+        "text": "12 days left"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 12
+        },
+        "view": "is too short (minimum is 12 characters)",
+        "text": "is too short (minimum is 12 characters)"
+      },
+      {
+        "locale": "en",
+        "key": "days_left",
+        "args": {
+          "count": 21
+        },
+        "view": "21 days left",
+        "text": "21 days left"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 21
+        },
+        "view": "is too short (minimum is 21 characters)",
+        "text": "is too short (minimum is 21 characters)"
+      },
+      {
+        "locale": "en",
+        "key": "days_left",
+        "args": {
+          "count": 22
+        },
+        "view": "22 days left",
+        "text": "22 days left"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 22
+        },
+        "view": "is too short (minimum is 22 characters)",
+        "text": "is too short (minimum is 22 characters)"
+      },
+      {
+        "locale": "en",
+        "key": "days_left",
+        "args": {
+          "count": 24
+        },
+        "view": "24 days left",
+        "text": "24 days left"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 24
+        },
+        "view": "is too short (minimum is 24 characters)",
+        "text": "is too short (minimum is 24 characters)"
+      },
+      {
+        "locale": "en",
+        "key": "days_left",
+        "args": {
+          "count": 25
+        },
+        "view": "25 days left",
+        "text": "25 days left"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 25
+        },
+        "view": "is too short (minimum is 25 characters)",
+        "text": "is too short (minimum is 25 characters)"
+      },
+      {
+        "locale": "en",
+        "key": "days_left",
+        "args": {
+          "count": 101
+        },
+        "view": "101 days left",
+        "text": "101 days left"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 101
+        },
+        "view": "is too short (minimum is 101 characters)",
+        "text": "is too short (minimum is 101 characters)"
+      },
+      {
+        "locale": "en",
+        "key": "days_left",
+        "args": {
+          "count": 112
+        },
+        "view": "112 days left",
+        "text": "112 days left"
+      },
+      {
+        "locale": "en",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 112
+        },
+        "view": "is too short (minimum is 112 characters)",
+        "text": "is too short (minimum is 112 characters)"
+      },
+      {
+        "locale": "pl",
+        "key": "days_left",
+        "args": {
+          "count": 0
+        },
+        "view": "Pozostało 0 dni",
+        "text": "Pozostało 0 dni"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 0
+        },
+        "view": "Za mało znaków (musi być co najmniej 0 znaków)",
+        "text": "Za mało znaków (musi być co najmniej 0 znaków)"
+      },
+      {
+        "locale": "pl",
+        "key": "days_left",
+        "args": {
+          "count": 1
+        },
+        "view": "Pozostał 1 dzień",
+        "text": "Pozostał 1 dzień"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 1
+        },
+        "view": "Za mało znaków (musi być co najmniej 1 znak)",
+        "text": "Za mało znaków (musi być co najmniej 1 znak)"
+      },
+      {
+        "locale": "pl",
+        "key": "days_left",
+        "args": {
+          "count": 2
+        },
+        "view": "Pozostało 2 dni",
+        "text": "Pozostało 2 dni"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 2
+        },
+        "view": "Za mało znaków (musi być co najmniej 2 znaków)",
+        "text": "Za mało znaków (musi być co najmniej 2 znaków)"
+      },
+      {
+        "locale": "pl",
+        "key": "days_left",
+        "args": {
+          "count": 4
+        },
+        "view": "Pozostało 4 dni",
+        "text": "Pozostało 4 dni"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 4
+        },
+        "view": "Za mało znaków (musi być co najmniej 4 znaków)",
+        "text": "Za mało znaków (musi być co najmniej 4 znaków)"
+      },
+      {
+        "locale": "pl",
+        "key": "days_left",
+        "args": {
+          "count": 5
+        },
+        "view": "Pozostało 5 dni",
+        "text": "Pozostało 5 dni"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 5
+        },
+        "view": "Za mało znaków (musi być co najmniej 5 znaków)",
+        "text": "Za mało znaków (musi być co najmniej 5 znaków)"
+      },
+      {
+        "locale": "pl",
+        "key": "days_left",
+        "args": {
+          "count": 11
+        },
+        "view": "Pozostało 11 dni",
+        "text": "Pozostało 11 dni"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 11
+        },
+        "view": "Za mało znaków (musi być co najmniej 11 znaków)",
+        "text": "Za mało znaków (musi być co najmniej 11 znaków)"
+      },
+      {
+        "locale": "pl",
+        "key": "days_left",
+        "args": {
+          "count": 12
+        },
+        "view": "Pozostało 12 dni",
+        "text": "Pozostało 12 dni"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 12
+        },
+        "view": "Za mało znaków (musi być co najmniej 12 znaków)",
+        "text": "Za mało znaków (musi być co najmniej 12 znaków)"
+      },
+      {
+        "locale": "pl",
+        "key": "days_left",
+        "args": {
+          "count": 21
+        },
+        "view": "Pozostało 21 dni",
+        "text": "Pozostało 21 dni"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 21
+        },
+        "view": "Za mało znaków (musi być co najmniej 21 znaków)",
+        "text": "Za mało znaków (musi być co najmniej 21 znaków)"
+      },
+      {
+        "locale": "pl",
+        "key": "days_left",
+        "args": {
+          "count": 22
+        },
+        "view": "Pozostało 22 dni",
+        "text": "Pozostało 22 dni"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 22
+        },
+        "view": "Za mało znaków (musi być co najmniej 22 znaków)",
+        "text": "Za mało znaków (musi być co najmniej 22 znaków)"
+      },
+      {
+        "locale": "pl",
+        "key": "days_left",
+        "args": {
+          "count": 24
+        },
+        "view": "Pozostało 24 dni",
+        "text": "Pozostało 24 dni"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 24
+        },
+        "view": "Za mało znaków (musi być co najmniej 24 znaków)",
+        "text": "Za mało znaków (musi być co najmniej 24 znaków)"
+      },
+      {
+        "locale": "pl",
+        "key": "days_left",
+        "args": {
+          "count": 25
+        },
+        "view": "Pozostało 25 dni",
+        "text": "Pozostało 25 dni"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 25
+        },
+        "view": "Za mało znaków (musi być co najmniej 25 znaków)",
+        "text": "Za mało znaków (musi być co najmniej 25 znaków)"
+      },
+      {
+        "locale": "pl",
+        "key": "days_left",
+        "args": {
+          "count": 101
+        },
+        "view": "Pozostało 101 dni",
+        "text": "Pozostało 101 dni"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 101
+        },
+        "view": "Za mało znaków (musi być co najmniej 101 znaków)",
+        "text": "Za mało znaków (musi być co najmniej 101 znaków)"
+      },
+      {
+        "locale": "pl",
+        "key": "days_left",
+        "args": {
+          "count": 112
+        },
+        "view": "Pozostało 112 dni",
+        "text": "Pozostało 112 dni"
+      },
+      {
+        "locale": "pl",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 112
+        },
+        "view": "Za mało znaków (musi być co najmniej 112 znaków)",
+        "text": "Za mało znaków (musi być co najmniej 112 znaków)"
+      },
+      {
+        "locale": "ru",
+        "key": "days_left",
+        "args": {
+          "count": 0
+        },
+        "view": "Осталось 0 дней",
+        "text": "Осталось 0 дней"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 0
+        },
+        "view": "слишком короткий (минимум 0 символов)",
+        "text": "слишком короткий (минимум 0 символов)"
+      },
+      {
+        "locale": "ru",
+        "key": "days_left",
+        "args": {
+          "count": 1
+        },
+        "view": "Остался 1 день",
+        "text": "Остался 1 день"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 1
+        },
+        "view": "слишком короткий (минимум 1 символ)",
+        "text": "слишком короткий (минимум 1 символ)"
+      },
+      {
+        "locale": "ru",
+        "key": "days_left",
+        "args": {
+          "count": 2
+        },
+        "view": "Осталось 2 дней",
+        "text": "Осталось 2 дней"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 2
+        },
+        "view": "слишком короткий (минимум 2 символа)",
+        "text": "слишком короткий (минимум 2 символа)"
+      },
+      {
+        "locale": "ru",
+        "key": "days_left",
+        "args": {
+          "count": 4
+        },
+        "view": "Осталось 4 дней",
+        "text": "Осталось 4 дней"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 4
+        },
+        "view": "слишком короткий (минимум 4 символа)",
+        "text": "слишком короткий (минимум 4 символа)"
+      },
+      {
+        "locale": "ru",
+        "key": "days_left",
+        "args": {
+          "count": 5
+        },
+        "view": "Осталось 5 дней",
+        "text": "Осталось 5 дней"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 5
+        },
+        "view": "слишком короткий (минимум 5 символов)",
+        "text": "слишком короткий (минимум 5 символов)"
+      },
+      {
+        "locale": "ru",
+        "key": "days_left",
+        "args": {
+          "count": 11
+        },
+        "view": "Осталось 11 дней",
+        "text": "Осталось 11 дней"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 11
+        },
+        "view": "слишком короткий (минимум 11 символов)",
+        "text": "слишком короткий (минимум 11 символов)"
+      },
+      {
+        "locale": "ru",
+        "key": "days_left",
+        "args": {
+          "count": 12
+        },
+        "view": "Осталось 12 дней",
+        "text": "Осталось 12 дней"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 12
+        },
+        "view": "слишком короткий (минимум 12 символов)",
+        "text": "слишком короткий (минимум 12 символов)"
+      },
+      {
+        "locale": "ru",
+        "key": "days_left",
+        "args": {
+          "count": 21
+        },
+        "view": "Осталось 21 дней",
+        "text": "Осталось 21 дней"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 21
+        },
+        "view": "слишком короткий (минимум 21 символов)",
+        "text": "слишком короткий (минимум 21 символов)"
+      },
+      {
+        "locale": "ru",
+        "key": "days_left",
+        "args": {
+          "count": 22
+        },
+        "view": "Осталось 22 дней",
+        "text": "Осталось 22 дней"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 22
+        },
+        "view": "слишком короткий (минимум 22 символов)",
+        "text": "слишком короткий (минимум 22 символов)"
+      },
+      {
+        "locale": "ru",
+        "key": "days_left",
+        "args": {
+          "count": 24
+        },
+        "view": "Осталось 24 дней",
+        "text": "Осталось 24 дней"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 24
+        },
+        "view": "слишком короткий (минимум 24 символов)",
+        "text": "слишком короткий (минимум 24 символов)"
+      },
+      {
+        "locale": "ru",
+        "key": "days_left",
+        "args": {
+          "count": 25
+        },
+        "view": "Осталось 25 дней",
+        "text": "Осталось 25 дней"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 25
+        },
+        "view": "слишком короткий (минимум 25 символов)",
+        "text": "слишком короткий (минимум 25 символов)"
+      },
+      {
+        "locale": "ru",
+        "key": "days_left",
+        "args": {
+          "count": 101
+        },
+        "view": "Осталось 101 дней",
+        "text": "Осталось 101 дней"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 101
+        },
+        "view": "слишком короткий (минимум 101 символов)",
+        "text": "слишком короткий (минимум 101 символов)"
+      },
+      {
+        "locale": "ru",
+        "key": "days_left",
+        "args": {
+          "count": 112
+        },
+        "view": "Осталось 112 дней",
+        "text": "Осталось 112 дней"
+      },
+      {
+        "locale": "ru",
+        "key": "errors.messages.too_short",
+        "args": {
+          "count": 112
+        },
+        "view": "слишком короткий (минимум 112 символов)",
+        "text": "слишком короткий (минимум 112 символов)"
+      }
+    ],
+    "escape": [
+      [
+        "a<b>&\"'c",
+        "a&lt;b&gt;&amp;&quot;&#39;c"
+      ],
+      [
+        "plain",
+        "plain"
+      ],
+      [
+        "ż & ☃",
+        "ż &amp; ☃"
+      ]
+    ]
+  },
+  "turbo": {
+    "replace": "<turbo-stream action=\"replace\" target=\"bot_1\"><template><p>a &amp; b</p></template></turbo-stream>",
+    "update": "<turbo-stream action=\"update\" target=\"bot_1\"><template><p>x</p></template></turbo-stream>",
+    "append": "<turbo-stream action=\"append\" target=\"orders\"><template><tr></tr></template></turbo-stream>",
+    "prepend": "<turbo-stream action=\"prepend\" target=\"flash\"><template><div>hi</div></template></turbo-stream>",
+    "remove": "<turbo-stream action=\"remove\" target=\"bot_1\"></turbo-stream>",
+    "refresh": "<turbo-stream action=\"refresh\"></turbo-stream>",
+    "redirect": "<turbo-stream action=\"redirect\" target=\"/de/bots?a=1&amp;b=2\"><template></template></turbo-stream>",
+    "add_class": "<turbo-stream class-name=\"bot-locked\" action=\"add_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
+    "remove_class": "<turbo-stream class-name=\"bot-locked\" action=\"remove_class\" target=\"columns_bot_1\"><template></template></turbo-stream>",
+    "stream_from": "<turbo-cable-stream-source channel=\"Turbo::StreamsChannel\" signed-stream-name=\"InVzZXJfNzpib3RfdXBkYXRlcyI=--eae86931dddabcaf4e8afa5141be28bb162b45e836752461d892aa594350fb0c\"></turbo-cable-stream-source>",
+    "stream_name": "user_7:bot_updates",
+    "content_type": "text/vnd.turbo-stream.html"
+  },
+  "remote_ip": [
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.7",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "198.51.100.7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.7, 10.0.0.9",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "198.51.100.7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "1.1.1.1, 198.51.100.7",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "198.51.100.7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "203.0.113.50, 198.51.100.7, 10.0.0.9, 192.168.1.4",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "198.51.100.7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "10.1.1.1, 192.168.1.1",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "10.1.1.1"
+    },
+    {
+      "remote_addr": "172.16.0.1",
+      "forwarded_for": "172.32.0.1",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "172.32.0.1"
+    },
+    {
+      "remote_addr": "169.254.1.1",
+      "forwarded_for": "fe80::1",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "fe80::1"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "not-an-ip, 198.51.100.7",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "198.51.100.7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.7, unknown, , 10.0.0.9",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "198.51.100.7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.7/8",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "10.0.0.5"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "10.0.0.5"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "203.0.113.7:54321",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "203.0.113.7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "[2001:db8::7]:54321",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "2001:db8::7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "[2001:db8::7]",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "2001:db8::7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.99, 203.0.113.7:54321",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "203.0.113.7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.99, [2001:db8::7]:54321",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "2001:db8::7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.99, 203.0.113.7:54321, 10.0.0.9:443",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "203.0.113.7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.99 203.0.113.7",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "203.0.113.7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.99, garbage, 10.0.0.9",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "198.51.100.99"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.99, 203.0.113.7:notaport",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "198.51.100.99"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.99, 203.0.113.7/32",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "198.51.100.99"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.99, ::ffff:10.0.0.9",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "::ffff:10.0.0.9"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.99, ::ffff:203.0.113.7",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "::ffff:203.0.113.7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "198.51.100.99, [::ffff:203.0.113.7]:443",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "::ffff:203.0.113.7"
+    },
+    {
+      "remote_addr": "127.0.0.1",
+      "forwarded_for": null,
+      "client_ip": "198.51.100.8",
+      "peer_trusted": true,
+      "ip": "198.51.100.8"
+    },
+    {
+      "remote_addr": "127.0.0.1",
+      "forwarded_for": "198.51.100.7",
+      "client_ip": "198.51.100.8",
+      "peer_trusted": true,
+      "ip": "198.51.100.7"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": null,
+      "client_ip": "198.51.100.8:1234",
+      "peer_trusted": true,
+      "ip": "10.0.0.5"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": null,
+      "client_ip": "198.51.100.9, 198.51.100.8",
+      "peer_trusted": true,
+      "ip": "198.51.100.8"
+    },
+    {
+      "remote_addr": "10.0.0.5",
+      "forwarded_for": "2001:db8::1",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "2001:db8::1"
+    },
+    {
+      "remote_addr": "::1",
+      "forwarded_for": "fd00::1, 2001:db8::2",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "2001:db8::2"
+    },
+    {
+      "remote_addr": "fd00::5",
+      "forwarded_for": "2001:db8::7",
+      "client_ip": null,
+      "peer_trusted": true,
+      "ip": "2001:db8::7"
+    },
+    {
+      "remote_addr": "203.0.113.9",
+      "forwarded_for": null,
+      "client_ip": null,
+      "peer_trusted": false,
+      "ip": "203.0.113.9"
+    },
+    {
+      "remote_addr": "203.0.113.9",
+      "forwarded_for": "198.51.100.7",
+      "client_ip": null,
+      "peer_trusted": false,
+      "ip": "198.51.100.7"
+    },
+    {
+      "remote_addr": "203.0.113.9",
+      "forwarded_for": "198.51.100.7, 10.0.0.9",
+      "client_ip": null,
+      "peer_trusted": false,
+      "ip": "198.51.100.7"
+    },
+    {
+      "remote_addr": "203.0.113.9",
+      "forwarded_for": null,
+      "client_ip": "198.51.100.8",
+      "peer_trusted": false,
+      "ip": "198.51.100.8"
+    },
+    {
+      "remote_addr": "2001:db8::9",
+      "forwarded_for": "198.51.100.7",
+      "client_ip": null,
+      "peer_trusted": false,
+      "ip": "198.51.100.7"
+    }
+  ],
+  "tracker": {
+    "cash": [
+      "AED",
+      "AUD",
+      "BGN",
+      "BUSD",
+      "CAD",
+      "CHF",
+      "CZK",
+      "DAI",
+      "DKK",
+      "EUR",
+      "FDUSD",
+      "GBP",
+      "JPY",
+      "PLN",
+      "PYUSD",
+      "RLUSD",
+      "SEK",
+      "TUSD",
+      "USD",
+      "USDC",
+      "USDT"
+    ],
+    "show_cash": [
+      {
+        "column": null,
+        "shown": false
+      },
+      {
+        "column": "{}",
+        "shown": false
+      },
+      {
+        "column": "{\"other\":true}",
+        "shown": false
+      },
+      {
+        "column": "{\"show_cash\":true}",
+        "shown": true
+      },
+      {
+        "column": "{\"show_cash\":false}",
+        "shown": false
+      },
+      {
+        "column": "{\"show_cash\":null}",
+        "shown": false
+      },
+      {
+        "column": "{\"show_cash\":\"\"}",
+        "shown": false
+      },
+      {
+        "column": "{\"show_cash\":\" \"}",
+        "shown": false
+      },
+      {
+        "column": "{\"show_cash\":\"false\"}",
+        "shown": true
+      },
+      {
+        "column": "{\"show_cash\":0}",
+        "shown": true
+      },
+      {
+        "column": "{\"show_cash\":[]}",
+        "shown": false
+      },
+      {
+        "column": "{\"show_cash\":[1]}",
+        "shown": true
+      },
+      {
+        "column": "{\"show_cash\":{}}",
+        "shown": false
+      }
+    ]
+  },
+  "navbar": {
+    "bot_count": [
+      {
+        "count": 0,
+        "font_size": "19",
+        "baseline": "18.94"
+      },
+      {
+        "count": 1,
+        "font_size": "19",
+        "baseline": "18.94"
+      },
+      {
+        "count": 9,
+        "font_size": "19",
+        "baseline": "18.94"
+      },
+      {
+        "count": 10,
+        "font_size": "19",
+        "baseline": "18.94"
+      },
+      {
+        "count": 99,
+        "font_size": "19",
+        "baseline": "18.94"
+      },
+      {
+        "count": 100,
+        "font_size": "13",
+        "baseline": "16.75"
+      },
+      {
+        "count": 999,
+        "font_size": "13",
+        "baseline": "16.75"
+      },
+      {
+        "count": 1000,
+        "font_size": "10",
+        "baseline": "15.66"
+      },
+      {
+        "count": 12345,
+        "font_size": "8",
+        "baseline": "14.92"
+      }
+    ]
+  },
+  "rack_attack": {
+    "throttles": {
+      "users/login": {
+        "limit": 10,
+        "period": 60
+      },
+      "users/verify_two_factor": {
+        "limit": 5,
+        "period": 60
+      }
+    },
+    "normalize": [
+      [
+        "/login",
+        "/login"
+      ],
+      [
+        "/login/",
+        "/login"
+      ],
+      [
+        "//login",
+        "/login"
+      ],
+      [
+        "/de//login/",
+        "/de/login"
+      ],
+      [
+        "/",
+        "/"
+      ]
+    ],
+    "body": "Too many requests from this address. Wait a minute and try again.\n"
+  },
+  "devise": {
+    "maximum_attempts": 5,
+    "unlock_in": 900,
+    "pending_ttl": 300,
+    "session_expire_after": 2592000
+  }
 }

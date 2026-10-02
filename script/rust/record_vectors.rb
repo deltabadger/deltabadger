@@ -70,7 +70,7 @@ vectors = {
     'transaction_order_type' => Transaction.order_types, 'transaction_external_status' => Transaction.external_statuses,
     'api_key_status' => ApiKey.statuses, 'api_key_key_type' => ApiKey.key_types, 'user_otp_module' => User.otp_modules
   },
-  'gems' => %w[activerecord bcrypt bigdecimal rotp].to_h { |g| [g, Gem.loaded_specs.fetch(g).version.to_s] }
+  'gems' => %w[activerecord bcrypt bigdecimal rotp actionpack actionview activesupport devise i18n rack-attack turbo-rails].to_h { |g| [g, Gem.loaded_specs.fetch(g).version.to_s] }
 }
 # Ruby BigDecimal, as Rails computes with it (rust/src/ruby.rs BigDec). Seeded, so the file is stable.
 bd_rng = Random.new(11)
@@ -261,5 +261,100 @@ vectors['alpaca_orders'] = order_statuses.product(order_shapes).map do |status, 
            'quote_amount' => dec_s.(parsed[:quote_amount]), 'amount_exec' => dec_s.(parsed[:amount_exec]),
            'quote_amount_exec' => dec_s.(parsed[:quote_amount_exec]), 'order_type' => parsed[:order_type].to_s, 'side' => parsed[:side].to_s }]
 end
+# The web UI (rust/src/web). Everything below is what Rails itself answers, so the Rust port is held to it.
+helpers = ApplicationController.helpers
+shown = ->(value) { ERB::Util.html_escape(value).to_s } # what a view prints: escaped unless html_safe
+i18n_calls = [
+  ['en', 'devise.sessions.new.title', {}], ['de', 'devise.sessions.new.title', {}],
+  ['en', 'links.api', {}], ['de', 'links.api', {}], # English only: the German page falls back; `&` is escaped
+  ['en', 'bot.add_api_keys', { 'exchange' => %q(A<b>&"') }], # a plain key: the whole text is escaped
+  ['en', 'ads.dca_profit_html', { 'years' => '<4>', 'profit' => '12', 'sp500_diff' => 'a&b' }], # an HTML key: only the arguments are
+  ['en', 'devise.failure.invalid', { 'authentication_keys' => 'email' }],
+  ['en', 'devise.failure.locked', {}], ['de', 'devise.failure.locked', {}], # from the Devise gem, English only
+  ['en', 'devise.sessions.two_factor.title', {}], ['de', 'devise.sessions.two_factor.title', {}], # missing everywhere
+  ['en', 'nowhere.some_key_html', {}], ['en', 'nowhere.user_id', { 'name' => 'a<b' }], ['en', 'nowhere._odd__key', { 'count' => 3 }]
+] + %w[en pl ru].product([0, 1, 2, 4, 5, 11, 12, 21, 22, 24, 25, 101, 112]).flat_map { |locale, n| %w[days_left errors.messages.too_short].map { |key| [locale, key, { 'count' => n }] } }
+vectors['i18n'] = {
+  'locales' => I18n.available_locales.map(&:to_s),
+  'default' => I18n.default_locale.to_s,
+  'calls' => i18n_calls.map do |locale, key, args|
+    I18n.with_locale(locale) do
+      { 'locale' => locale, 'key' => key, 'args' => args,
+        'view' => shown.(helpers.t(key, **args.symbolize_keys)), 'text' => I18n.t(key, **args.symbolize_keys) }
+    end
+  end,
+  'escape' => [%q(a<b>&"'c), 'plain', 'ż & ☃'].map { |s| [s, shown.(s)] }
+}
+ts = helpers.turbo_stream
+vectors['turbo'] = {
+  'replace' => ts.replace('bot_1', '<p>a &amp; b</p>'.html_safe), 'update' => ts.update('bot_1', '<p>x</p>'.html_safe),
+  'append' => ts.append('orders', '<tr></tr>'.html_safe), 'prepend' => ts.prepend('flash', '<div>hi</div>'.html_safe),
+  'remove' => ts.remove('bot_1'), 'refresh' => ts.refresh(request_id: nil),
+  'redirect' => ts.action(:redirect, '/de/bots?a=1&b=2'), # SharedHelper#turbo_stream_redirect
+  # Bot#broadcast_columns_lock_update, as Turbo::StreamsChannel.broadcast_action_to renders it.
+  'add_class' => helpers.turbo_stream_action_tag(:add_class, target: 'columns_bot_1', template: nil, 'class-name': 'bot-locked'),
+  'remove_class' => helpers.turbo_stream_action_tag(:remove_class, target: 'columns_bot_1', template: nil, 'class-name': 'bot-locked'),
+  'stream_from' => helpers.turbo_stream_from('user_7', :bot_updates),
+  'stream_name' => Turbo::StreamsChannel.verified_stream_name(Turbo::StreamsChannel.signed_stream_name(['user_7', :bot_updates])),
+  'content_type' => Mime[:turbo_stream].to_s
+}
+remote_ip = lambda do |remote_addr, forwarded_for, client_ip|
+  env = { 'REMOTE_ADDR' => remote_addr, 'HTTP_X_FORWARDED_FOR' => forwarded_for, 'HTTP_CLIENT_IP' => client_ip }.compact
+  ActionDispatch::RemoteIp::GetIp.new(ActionDispatch::Request.new(env), false, ActionDispatch::RemoteIp::TRUSTED_PROXIES).to_s
+end
+trusted_proxy = ->(addr) { ActionDispatch::RemoteIp::TRUSTED_PROXIES.any? { |proxy| proxy === addr } }
+vectors['remote_ip'] = [
+  # a peer that is a trusted proxy: one hop, a private hop behind it, several hops, nothing but private hops
+  ['10.0.0.5', '198.51.100.7', nil], ['10.0.0.5', '198.51.100.7, 10.0.0.9', nil], ['10.0.0.5', '1.1.1.1, 198.51.100.7', nil],
+  ['10.0.0.5', '203.0.113.50, 198.51.100.7, 10.0.0.9, 192.168.1.4', nil], ['10.0.0.5', '10.1.1.1, 192.168.1.1', nil],
+  ['172.16.0.1', '172.32.0.1', nil], ['169.254.1.1', 'fe80::1', nil],
+  # malformed entries
+  ['10.0.0.5', 'not-an-ip, 198.51.100.7', nil], ['10.0.0.5', '198.51.100.7, unknown, , 10.0.0.9', nil], ['10.0.0.5', '198.51.100.7/8', nil],
+  ['10.0.0.5', '', nil],
+  # entries with a port, as a proxy may write its peer, also behind an entry only the caller wrote
+  ['10.0.0.5', '203.0.113.7:54321', nil], ['10.0.0.5', '[2001:db8::7]:54321', nil], ['10.0.0.5', '[2001:db8::7]', nil],
+  ['10.0.0.5', '198.51.100.99, 203.0.113.7:54321', nil], ['10.0.0.5', '198.51.100.99, [2001:db8::7]:54321', nil],
+  ['10.0.0.5', '198.51.100.99, 203.0.113.7:54321, 10.0.0.9:443', nil], ['10.0.0.5', '198.51.100.99 203.0.113.7', nil],
+  # entries Rails cannot read, behind an entry only the caller wrote; IPv4-mapped addresses
+  ['10.0.0.5', '198.51.100.99, garbage, 10.0.0.9', nil], ['10.0.0.5', '198.51.100.99, 203.0.113.7:notaport', nil],
+  ['10.0.0.5', '198.51.100.99, 203.0.113.7/32', nil], ['10.0.0.5', '198.51.100.99, ::ffff:10.0.0.9', nil],
+  ['10.0.0.5', '198.51.100.99, ::ffff:203.0.113.7', nil], ['10.0.0.5', '198.51.100.99, [::ffff:203.0.113.7]:443', nil],
+  # Client-Ip
+  ['127.0.0.1', nil, '198.51.100.8'], ['127.0.0.1', '198.51.100.7', '198.51.100.8'], ['10.0.0.5', nil, '198.51.100.8:1234'],
+  ['10.0.0.5', nil, '198.51.100.9, 198.51.100.8'],
+  # IPv6
+  ['10.0.0.5', '2001:db8::1', nil], ['::1', 'fd00::1, 2001:db8::2', nil], ['fd00::5', '2001:db8::7', nil],
+  # a peer that is not a trusted proxy, with and without headers of its own making
+  ['203.0.113.9', nil, nil], ['203.0.113.9', '198.51.100.7', nil], ['203.0.113.9', '198.51.100.7, 10.0.0.9', nil],
+  ['203.0.113.9', nil, '198.51.100.8'], ['2001:db8::9', '198.51.100.7', nil]
+].map do |addr, forwarded, client|
+  { 'remote_addr' => addr, 'forwarded_for' => forwarded, 'client_ip' => client, 'peer_trusted' => trusted_proxy.(addr),
+    'ip' => remote_ip.(addr, forwarded, client) }
+end
+vectors['tracker'] = {
+  'cash' => (Tracker::UnfundedCash::FIAT + Tracker::UnfundedCash::STABLECOINS).sort,
+  # User#show_cash? for what the tracker_settings column can hold.
+  'show_cash' => [nil, {}, { 'other' => true }, { 'show_cash' => true }, { 'show_cash' => false }, { 'show_cash' => nil },
+                  { 'show_cash' => '' }, { 'show_cash' => ' ' }, { 'show_cash' => 'false' }, { 'show_cash' => 0 }, { 'show_cash' => [] },
+                  { 'show_cash' => [1] }, { 'show_cash' => {} }].map do |settings|
+    { 'column' => settings&.to_json, 'shown' => User.new(tracker_settings: settings).show_cash? }
+  end
+}
+vectors['navbar'] = {
+  'bot_count' => [0, 1, 9, 10, 99, 100, 999, 1000, 12_345].map do |count|
+    size = helpers.send(:bot_count_font_size, count)
+    { 'count' => count, 'font_size' => size.to_s, 'baseline' => helpers.send(:bot_count_baseline, size).to_s }
+  end
+}
+vectors['rack_attack'] = {
+  'throttles' => Rack::Attack.throttles.slice('users/login', 'users/verify_two_factor').transform_values { |t| { 'limit' => t.limit, 'period' => t.period } },
+  'normalize' => ['/login', '/login/', '//login', '/de//login/', '/'].map { |p| [p, RackAttackPaths.normalize(p)] },
+  'body' => "#{I18n.t('errors.throttled')}\n"
+}
+vectors['devise'] = { 'maximum_attempts' => Devise.maximum_attempts, 'unlock_in' => Devise.unlock_in.to_i,
+                      'pending_ttl' => Users::SessionsController::PENDING_TTL.to_i, 'session_expire_after' => Rails.application.config.session_options[:expire_after].to_i }
+# users.time_zone holds one of these names; the crate embeds the table (src/web/time_zones.json).
+time_zones = ActiveSupport::TimeZone::MAPPING
+File.write(Rails.root.join('rust/src/web/time_zones.json'), "#{JSON.pretty_generate(time_zones)}\n")
 File.write(ARGV.fetch(0), "#{JSON.pretty_generate(vectors)}\n")
 puts "wrote #{ARGV.fetch(0)}"
