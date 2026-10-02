@@ -315,6 +315,95 @@ vectors['carry'] = Array.new(36) do |i|
   end
   c
 end
+# Alpaca crypto baskets (rust/src/engine/basket.rs), recorded on real rows inside a transaction that is rolled back,
+# so the development database keeps nothing. Members are V-prefixed so no real asset, ticker or order id is touched.
+Rails.cache = ActiveSupport::Cache::NullStore.new # metrics(force: true) recomputes; nothing is written to a cache store
+BASKET_PAIRS = {
+  'VBTC' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.000027', 'minimum_quote_size' => '1' },
+  'VETH' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 2, 'minimum_base_size' => '0.0005', 'minimum_quote_size' => '1' },
+  'VSOL' => { 'base_decimals' => 9, 'quote_decimals' => 2, 'price_decimals' => 3, 'minimum_base_size' => '0.01', 'minimum_quote_size' => '1' }
+}.freeze
+# A basket over `weights` on the development database's Alpaca exchange, saved as BotApi::Bots::Create saves one (its
+# after_save refresh_composition writes bot_index_assets), with `rows` inserted as REGULAR buys. Yields it and its assets
+# by symbol, returns the block's value, and rolls everything back.
+def with_basket(weights, settings: {}, rows: [])
+  out = nil
+  ActiveRecord::Base.transaction do
+    alpaca = Exchanges::Alpaca.first || Exchanges::Alpaca.create!(name: 'Alpaca', maker_fee: '0.15', taker_fee: '0.25')
+    usd = Asset.create!(external_id: 'rust-vector-usd', symbol: 'USD', name: 'US Dollar', category: 'Currency')
+    ExchangeAsset.create!(exchange: alpaca, asset: usd, available: true) # Ticker#exchange_matches_assets
+    assets = weights.keys.to_h do |sym|
+      asset = Asset.create!(external_id: "rust-vector-#{sym.downcase}", symbol: sym, name: sym, category: 'Cryptocurrency')
+      ExchangeAsset.create!(exchange: alpaca, asset:, available: true)
+      Ticker.create!(exchange: alpaca, ticker: "#{sym}/USD", base: sym, quote: 'USD', base_asset: asset, quote_asset: usd,
+                     **BASKET_PAIRS.fetch(sym).to_h { |k, v| [k.to_sym, v.is_a?(String) ? BigDecimal(v) : v] })
+      [sym, asset]
+    end
+    user = User.new(name: 'Vectors', email: 'rust-vectors@example.com', password: 'correct horse battery staple', confirmed_at: Time.current)
+    user.save!(validate: false)
+    bot = user.bots.new(type: 'Bots::DcaMultiAsset', exchange: alpaca, settings: {
+      'quote_asset_id' => usd.id, 'quote_amount' => 60.0, 'interval' => 'day', 'weighting' => 'manual',
+      'allocations' => weights.to_h { |sym, w| [assets.fetch(sym).id.to_s, w] }
+    }.merge(settings))
+    bot.set_missed_quote_amount
+    bot.save!
+    rows.each do |r|
+      Transaction.insert!(r.except('asset').merge('bot_id' => bot.id, 'exchange_id' => alpaca.id, 'base_asset_id' => assets.fetch(r['asset']).id,
+                                                  'quote_asset_id' => usd.id, 'base' => r['asset'], 'quote' => 'USD', 'side' => 0,
+                                                  'transaction_type' => 'REGULAR', 'bot_interval' => 'day', 'bot_quote_amount' => 60,
+                                                  'error_messages' => [], 'updated_at' => r['created_at']))
+    end
+    out = yield bot.reload, assets, alpaca
+    raise ActiveRecord::Rollback
+  end
+  out
+end
+vector_row_id = 0
+LEDGER_KINDS = %w[closed closed_nil_exec closed_zero_quote_exec open_partial open_unfilled unknown_market cancelled_partial abandoned failed skipped].freeze
+# One REGULAR buy of `sym` in the state `kind`, priced near the member's usual price. Every decimal is a string, as the
+# Rust test inserts it; Rails casts it to BigDecimal and binds it as a Float, as for any row.
+ledger_row = lambda do |rng, sym, kind|
+  vector_row_id += 1
+  p = ({ 'VBTC' => 64_000, 'VETH' => 2500, 'VSOL' => 150 }.fetch(sym) * (0.9 + (rng.rand(20) / 100.0))).round(2).to_d
+  q = (10 + rng.rand(200)).to_d
+  a = (q / p).round(9)
+  row = { 'asset' => sym, 'status' => 0, 'external_id' => "rust-vector-#{vector_row_id}", 'order_type' => 0, 'price' => p.to_s('F'),
+          'created_at' => "2026-08-#{10 + (vector_row_id % 18)} 10:00:00" }
+  case kind
+  when 'closed' then row.merge('external_status' => 2, 'quote_amount' => q.to_s('F'), 'amount_exec' => a.to_s('F'), 'quote_amount_exec' => (a * p).to_s('F'))
+  when 'closed_nil_exec' then row.merge('external_status' => 2, 'amount' => a.to_s('F'))
+  when 'closed_zero_quote_exec' then row.merge('external_status' => 2, 'quote_amount' => q.to_s('F'), 'amount_exec' => a.to_s('F'), 'quote_amount_exec' => '0')
+  when 'open_partial' then row.merge('external_status' => 1, 'order_type' => 1, 'amount' => a.to_s('F'), 'amount_exec' => (a / 3).round(9).to_s('F'),
+                                     'quote_amount_exec' => ((a / 3).round(9) * p).to_s('F'))
+  when 'open_unfilled' then row.merge('external_status' => 0, 'order_type' => 1, 'amount' => a.to_s('F'), 'amount_exec' => '0', 'quote_amount_exec' => '0')
+  when 'unknown_market' then row.merge('external_status' => 0, 'quote_amount' => q.to_s('F'))
+  when 'cancelled_partial' then row.merge('external_status' => 3, 'quote_amount' => q.to_s('F'), 'amount_exec' => (a / 2).round(9).to_s('F'),
+                                          'quote_amount_exec' => ((a / 2).round(9) * p).to_s('F'))
+  when 'abandoned' then row.merge('external_status' => 4, 'quote_amount' => q.to_s('F'))
+  when 'failed' then row.merge('status' => 1, 'external_id' => nil, 'quote_amount' => q.to_s('F'), 'amount_exec' => '0', 'quote_amount_exec' => '0')
+  when 'skipped' then row.merge('status' => 2, 'external_id' => nil, 'quote_amount' => q.to_s('F'), 'amount_exec' => '0', 'quote_amount_exec' => '0')
+  end
+end
+pairs_of = ->(weights) { BASKET_PAIRS.slice(*weights.keys) }
+# Bot::Composition::Measurable#metrics' asset_breakdown amounts and #reserved_waiting_amounts(:buy), by member symbol.
+ledger_rng = Random.new(2_202_610)
+ledger_cases = Array.new(40) do
+  members = %w[VBTC VETH VSOL].first(ledger_rng.rand(1..3))
+  weights = members.size == 1 ? { members[0] => 1.0 } : Bots::DcaMultiAsset.new.send(:normalize_allocations, members.to_h { |m| [m, 1.0] })
+  rows = members.flat_map { |sym| Array.new(ledger_rng.rand(0..4)) { ledger_row.(ledger_rng, sym, LEDGER_KINDS.sample(random: ledger_rng)) } }
+  { weights:, rows: }
+end
+vectors['basket_ledgers'] = ledger_cases.map do |c|
+  with_basket(c[:weights], rows: c[:rows]) do |bot, assets, _alpaca|
+    m = bot.metrics(force: true)
+    breakdown = m[:asset_breakdown] || {}
+    symbol_of = ->(id) { assets.find { |_, a| a.id == id }&.first }
+    { 'weights' => c[:weights], 'pairs' => pairs_of.(c[:weights]), 'rows' => c[:rows],
+      'holdings' => assets.filter_map { |sym, a| (h = breakdown.dig(bot.key_for(a.id, m), :amount)) && [sym, h.to_d.to_s('F')] }.to_h,
+      'reserved' => bot.send(:reserved_waiting_amounts, :buy).to_h { |id, amount| [symbol_of.(id), amount.to_d.to_s('F')] } }
+  end
+end
+
 # The web UI (rust/src/web). Everything below is what Rails itself answers, so the Rust port is held to it.
 helpers = ApplicationController.helpers
 shown = ->(value) { ERB::Util.html_escape(value).to_s } # what a view prints: escaped unless html_safe

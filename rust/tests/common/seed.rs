@@ -136,3 +136,20 @@ pub fn add_eth_sol(c: &Connection, s: &Seeded) -> (i64, i64) {
     let pair = json!({ "base_decimals": 9, "quote_decimals": 2, "price_decimals": 2, "minimum_base_size": "0.000027", "minimum_quote_size": "1" });
     (add_alpaca_crypto(c, s, "ETH", &pair).0, add_alpaca_crypto(c, s, "SOL", &pair).0)
 }
+
+/// One transactions row as a recorded case lists it (`status`, `external_status`, `external_id`, `order_type`, and the
+/// decimals `price`, `amount`, `quote_amount`, `amount_exec`, `quote_amount_exec` as strings; absent keys are NULL): a REGULAR
+/// buy of `asset`. Decimals are bound as the Float Rails binds (BigDecimal#to_f), never as text for SQLite to convert.
+pub fn insert_row(c: &Connection, s: &Seeded, bot_id: i64, asset: i64, row: &Value) -> i64 {
+    let text = |k: &str| row.get(k).and_then(Value::as_str).map(str::to_string);
+    let real = |k: &str| row.get(k).and_then(Value::as_str).map(|v| v.parse::<f64>().unwrap_or_else(|_| panic!("{k} {v}")));
+    let int = |k: &str| row.get(k).and_then(Value::as_i64);
+    c.execute(
+        "INSERT INTO transactions (bot_id, exchange_id, external_id, status, external_status, side, order_type, amount, quote_amount, price, \
+         amount_exec, quote_amount_exec, base, quote, base_asset_id, quote_asset_id, bot_interval, bot_quote_amount, transaction_type, \
+         error_messages, created_at, updated_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, 0, ?6, ?7, ?8, ?9, ?10, ?11, (SELECT symbol FROM assets WHERE id = ?12), 'USD', ?12, ?13, 'day', 60, 'REGULAR', '[]', ?14, ?14)",
+        params![bot_id, s.exchange_id, text("external_id"), int("status").unwrap_or(0), int("external_status"), int("order_type").unwrap_or(0),
+                real("amount"), real("quote_amount"), real("price"), real("amount_exec"), real("quote_amount_exec"), asset, s.quote, text("created_at")]).unwrap();
+    c.last_insert_rowid()
+}

@@ -48,6 +48,7 @@ pub mod model;
 pub mod eligibility;
 pub mod staleness;
 pub mod amount;
+pub mod basket;
 pub mod placement;
 pub mod polling;
 pub mod venue_rules;

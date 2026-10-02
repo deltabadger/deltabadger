@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"kqEsI/j8UMLTgcq2c+VpQcA=\",\"h\":{\"iv\":\"+7WZXjKTiGFm3C8f\",\"at\":\"S0YvCaLdIWpIPxHk4FyCFA==\"}}"
+      "cipher": "{\"p\":\"R3wF3At8DSSmnFOF62I6zUs=\",\"h\":{\"iv\":\"4vXMysm3ooHr7qT3\",\"at\":\"0hIcOhsIFZ1Rj4EKTVWKHQ==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"QZnxT9rz34U6q0gXdJ/U\",\"h\":{\"iv\":\"SUzEFrCaJPS0g4N6\",\"at\":\"q719anWr+Gop8zc25BaKug==\"}}"
+      "cipher": "{\"p\":\"UvoA0W1sZns/3KcEEQ+8\",\"h\":{\"iv\":\"GOOsBnwPsG/CCx1l\",\"at\":\"6w85DIN0ckdF6TDaHfbyvg==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"GcfVv+admpvDFExqSCD6KhUAiPDlMCaAJnn/9BoUCH8FEInNyWfg+X1jAUFg57AwwcjH+mC7W5cKZTppi35E1YlVkmnoJQ8iEErrZtE=\",\"h\":{\"iv\":\"SM+dqypmsOENBUcz\",\"at\":\"l6Jljb30Led7SRxOj0+D/A==\",\"c\":true}}"
+      "cipher": "{\"p\":\"0gWHtqj/WKfLRSOfCMH6vnMKcjvnQ82ce5j9910UzSGsuM0cQgfk/PgpSTEwoJ8ZI/s2Lok/LwVlyy0aFAcQCnbw3oDA3vZ2058XmSU=\",\"h\":{\"iv\":\"v0uLlg8OEQ10eXtG\",\"at\":\"rrw7qinpblpanZNbC7PbfQ==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "CJXFYXPYTFLFUX33XGUCI6HYHPY2XQSI",
-      "cipher": "{\"p\":\"TzYRZUxP78/Ri0IkzZRVbdep4St+J6mGhi7H4QRBowY=\",\"h\":{\"iv\":\"WnptEjrcmMBQHunk\",\"at\":\"lCoT7ytMYEvEXr/njRWiFA==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "S4DCR72FSFVD4GHFVUCU3UZZ3JEZTQJE",
+      "cipher": "{\"p\":\"Vhzt65gKVy9nHQhN9HHb0/MVXA3iZWuV4aeUdFtAqFs=\",\"h\":{\"iv\":\"L822QizDZZYROIKO\",\"at\":\"lGwZTKEmeYcwFYJYYWeusg==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"lePLLituRHhmvLYrAklOaiU=\",\"h\":{\"iv\":\"r3srUUP0SfF5tuyj\",\"at\":\"UH5MaJdM1mcpdBKDjID0vQ==\"}}"
+      "cipher": "{\"p\":\"2bCUwhgevDGOfI15+uH18rE=\",\"h\":{\"iv\":\"YWyXo0/dtgajoXjf\",\"at\":\"DHu3v99a01DGol494biT4g==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$/obs2uztIouZkN1wKTbiT.q9aZTJXkMuYDyl3ty6iG79Eqmj6uHaS"
+      "hash": "$2a$11$Vt6mUIyruKhdpDl64ROem..VbTHFvdnH.wAK3AwlKSzk4odEtTyJe"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$r2OPquYIOfncljMLbagITOV7Am3zVC2Fjxpjcb0g4iqxxl/0hY2Su"
+      "hash": "$2a$11$5bNMey/cLlkvfyuhovdolOw/pu7LLKsk9e99ZGm9a0vfQeybgQ.d6"
     }
   ],
   "totp": {
@@ -47979,6 +47979,3029 @@
       ],
       "now": "2026-09-10T10:00:01.000000Z",
       "pending": "100.01975"
+    }
+  ],
+  "basket_ledgers": [
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-1",
+          "order_type": 0,
+          "price": "62720.0",
+          "created_at": "2026-08-11 10:00:00",
+          "external_status": 2,
+          "quote_amount": "84.0",
+          "amount_exec": "0.001339286",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-2",
+          "order_type": 0,
+          "price": "67840.0",
+          "created_at": "2026-08-12 10:00:00",
+          "external_status": 0,
+          "quote_amount": "103.0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-3",
+          "order_type": 0,
+          "price": "64640.0",
+          "created_at": "2026-08-13 10:00:00",
+          "external_status": 4,
+          "quote_amount": "173.0"
+        }
+      ],
+      "holdings": {},
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-4",
+          "order_type": 0,
+          "price": "65280.0",
+          "created_at": "2026-08-14 10:00:00",
+          "external_status": 0,
+          "quote_amount": "107.0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-5",
+          "order_type": 1,
+          "price": "62080.0",
+          "created_at": "2026-08-15 10:00:00",
+          "external_status": 0,
+          "amount": "0.002400129",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-6",
+          "order_type": 0,
+          "price": "65920.0",
+          "created_at": "2026-08-16 10:00:00",
+          "external_status": 2,
+          "quote_amount": "25.0",
+          "amount_exec": "0.000379248",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-7",
+          "order_type": 0,
+          "price": "2700.0",
+          "created_at": "2026-08-17 10:00:00",
+          "external_status": 3,
+          "quote_amount": "122.0",
+          "amount_exec": "0.022592593",
+          "quote_amount_exec": "61.0000011"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-8",
+          "order_type": 0,
+          "price": "2350.0",
+          "created_at": "2026-08-18 10:00:00",
+          "external_status": 2,
+          "amount": "0.085957447"
+        },
+        {
+          "asset": "VSOL",
+          "status": 2,
+          "external_id": null,
+          "order_type": 0,
+          "price": "154.5",
+          "created_at": "2026-08-19 10:00:00",
+          "quote_amount": "128.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        }
+      ],
+      "holdings": {
+        "VETH": "0.10855004"
+      },
+      "reserved": {
+        "VBTC": "0.002400129"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-10",
+          "order_type": 0,
+          "price": "61440.0",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "66.0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-11",
+          "order_type": 1,
+          "price": "2300.0",
+          "created_at": "2026-08-21 10:00:00",
+          "external_status": 1,
+          "amount": "0.051304348",
+          "amount_exec": "0.017101449",
+          "quote_amount_exec": "39.3333327"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-12",
+          "order_type": 1,
+          "price": "2300.0",
+          "created_at": "2026-08-22 10:00:00",
+          "external_status": 0,
+          "amount": "0.03",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 2,
+          "external_id": null,
+          "order_type": 0,
+          "price": "2300.0",
+          "created_at": "2026-08-23 10:00:00",
+          "quote_amount": "204.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        }
+      ],
+      "holdings": {
+        "VETH": "0.017101449"
+      },
+      "reserved": {
+        "VETH": "0.064202899"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-14",
+          "order_type": 0,
+          "price": "58240.0",
+          "created_at": "2026-08-24 10:00:00",
+          "external_status": 2,
+          "quote_amount": "204.0",
+          "amount_exec": "0.003502747",
+          "quote_amount_exec": "203.99998528"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.003502747"
+      },
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-15",
+          "order_type": 1,
+          "price": "60800.0",
+          "created_at": "2026-08-25 10:00:00",
+          "external_status": 0,
+          "amount": "0.003305921",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-16",
+          "order_type": 1,
+          "price": "60160.0",
+          "created_at": "2026-08-26 10:00:00",
+          "external_status": 1,
+          "amount": "0.002360372",
+          "amount_exec": "0.000786791",
+          "quote_amount_exec": "47.33334656"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.000786791"
+      },
+      "reserved": {
+        "VBTC": "0.004879502"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-17",
+          "order_type": 1,
+          "price": "2600.0",
+          "created_at": "2026-08-27 10:00:00",
+          "external_status": 1,
+          "amount": "0.006923077",
+          "amount_exec": "0.002307692",
+          "quote_amount_exec": "5.9999992"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-18",
+          "order_type": 0,
+          "price": "2700.0",
+          "created_at": "2026-08-10 10:00:00",
+          "external_status": 0,
+          "quote_amount": "127.0"
+        }
+      ],
+      "holdings": {
+        "VETH": "0.002307692"
+      },
+      "reserved": {
+        "VETH": "0.004615385"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-19",
+          "order_type": 0,
+          "price": "62080.0",
+          "created_at": "2026-08-11 10:00:00",
+          "external_status": 2,
+          "amount": "0.001643041"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-20",
+          "order_type": 0,
+          "price": "65920.0",
+          "created_at": "2026-08-12 10:00:00",
+          "external_status": 2,
+          "amount": "0.002032767"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-21",
+          "order_type": 0,
+          "price": "68480.0",
+          "created_at": "2026-08-13 10:00:00",
+          "external_status": 2,
+          "quote_amount": "173.0",
+          "amount_exec": "0.002526285",
+          "quote_amount_exec": "172.9999968"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-22",
+          "order_type": 0,
+          "price": "62720.0",
+          "created_at": "2026-08-14 10:00:00",
+          "external_status": 0,
+          "quote_amount": "182.0"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.006202093"
+      },
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-23",
+          "order_type": 0,
+          "price": "59520.0",
+          "created_at": "2026-08-15 10:00:00",
+          "external_status": 4,
+          "quote_amount": "166.0"
+        }
+      ],
+      "holdings": {},
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 1,
+          "external_id": null,
+          "order_type": 0,
+          "price": "69760.0",
+          "created_at": "2026-08-16 10:00:00",
+          "quote_amount": "115.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 2,
+          "external_id": null,
+          "order_type": 0,
+          "price": "62720.0",
+          "created_at": "2026-08-17 10:00:00",
+          "quote_amount": "204.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-26",
+          "order_type": 0,
+          "price": "63360.0",
+          "created_at": "2026-08-18 10:00:00",
+          "external_status": 3,
+          "quote_amount": "162.0",
+          "amount_exec": "0.001278409",
+          "quote_amount_exec": "80.99999424"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-27",
+          "order_type": 0,
+          "price": "136.5",
+          "created_at": "2026-08-19 10:00:00",
+          "external_status": 2,
+          "quote_amount": "142.0",
+          "amount_exec": "1.04029304",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-28",
+          "order_type": 0,
+          "price": "148.5",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "186.0",
+          "amount_exec": "1.252525253",
+          "quote_amount_exec": "186.0000000705"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-29",
+          "order_type": 0,
+          "price": "157.5",
+          "created_at": "2026-08-21 10:00:00",
+          "external_status": 2,
+          "amount": "0.666666667"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.001278409",
+        "VSOL": "1.91919192"
+      },
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-30",
+          "order_type": 0,
+          "price": "66560.0",
+          "created_at": "2026-08-22 10:00:00",
+          "external_status": 4,
+          "quote_amount": "69.0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-31",
+          "order_type": 0,
+          "price": "60800.0",
+          "created_at": "2026-08-23 10:00:00",
+          "external_status": 0,
+          "quote_amount": "196.0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-32",
+          "order_type": 0,
+          "price": "2300.0",
+          "created_at": "2026-08-24 10:00:00",
+          "external_status": 2,
+          "amount": "0.044782609"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-33",
+          "order_type": 0,
+          "price": "2250.0",
+          "created_at": "2026-08-25 10:00:00",
+          "external_status": 2,
+          "quote_amount": "24.0",
+          "amount_exec": "0.010666667",
+          "quote_amount_exec": "24.00000075"
+        }
+      ],
+      "holdings": {
+        "VETH": "0.055449276"
+      },
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-34",
+          "order_type": 1,
+          "price": "61440.0",
+          "created_at": "2026-08-26 10:00:00",
+          "external_status": 0,
+          "amount": "0.000341797",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-35",
+          "order_type": 0,
+          "price": "58880.0",
+          "created_at": "2026-08-27 10:00:00",
+          "external_status": 2,
+          "quote_amount": "180.0",
+          "amount_exec": "0.003057065",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-36",
+          "order_type": 1,
+          "price": "2350.0",
+          "created_at": "2026-08-10 10:00:00",
+          "external_status": 1,
+          "amount": "0.03106383",
+          "amount_exec": "0.01035461",
+          "quote_amount_exec": "24.3333335"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-37",
+          "order_type": 0,
+          "price": "2600.0",
+          "created_at": "2026-08-11 10:00:00",
+          "external_status": 0,
+          "quote_amount": "110.0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-38",
+          "order_type": 0,
+          "price": "2525.0",
+          "created_at": "2026-08-12 10:00:00",
+          "external_status": 2,
+          "quote_amount": "29.0",
+          "amount_exec": "0.011485149",
+          "quote_amount_exec": "29.000001225"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-39",
+          "order_type": 0,
+          "price": "142.5",
+          "created_at": "2026-08-13 10:00:00",
+          "external_status": 3,
+          "quote_amount": "202.0",
+          "amount_exec": "0.70877193",
+          "quote_amount_exec": "101.000000025"
+        },
+        {
+          "asset": "VSOL",
+          "status": 1,
+          "external_id": null,
+          "order_type": 0,
+          "price": "135.0",
+          "created_at": "2026-08-14 10:00:00",
+          "quote_amount": "102.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-41",
+          "order_type": 0,
+          "price": "159.0",
+          "created_at": "2026-08-15 10:00:00",
+          "external_status": 4,
+          "quote_amount": "83.0"
+        }
+      ],
+      "holdings": {
+        "VETH": "0.021839759",
+        "VSOL": "0.70877193"
+      },
+      "reserved": {
+        "VETH": "0.02070922",
+        "VBTC": "0.000341797"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 2,
+          "external_id": null,
+          "order_type": 0,
+          "price": "62720.0",
+          "created_at": "2026-08-16 10:00:00",
+          "quote_amount": "38.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-43",
+          "order_type": 0,
+          "price": "65280.0",
+          "created_at": "2026-08-17 10:00:00",
+          "external_status": 2,
+          "quote_amount": "179.0",
+          "amount_exec": "0.002742034",
+          "quote_amount_exec": "178.99997952"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.002742034"
+      },
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-44",
+          "order_type": 1,
+          "price": "2275.0",
+          "created_at": "2026-08-18 10:00:00",
+          "external_status": 1,
+          "amount": "0.00967033",
+          "amount_exec": "0.003223443",
+          "quote_amount_exec": "7.333332825"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-45",
+          "order_type": 0,
+          "price": "2300.0",
+          "created_at": "2026-08-19 10:00:00",
+          "external_status": 4,
+          "quote_amount": "173.0"
+        },
+        {
+          "asset": "VSOL",
+          "status": 2,
+          "external_id": null,
+          "order_type": 0,
+          "price": "160.5",
+          "created_at": "2026-08-20 10:00:00",
+          "quote_amount": "135.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-47",
+          "order_type": 0,
+          "price": "144.0",
+          "created_at": "2026-08-21 10:00:00",
+          "external_status": 2,
+          "quote_amount": "135.0",
+          "amount_exec": "0.9375",
+          "quote_amount_exec": "135.0"
+        }
+      ],
+      "holdings": {
+        "VETH": "0.003223443",
+        "VSOL": "0.9375"
+      },
+      "reserved": {
+        "VETH": "0.006446887"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-48",
+          "order_type": 0,
+          "price": "57600.0",
+          "created_at": "2026-08-22 10:00:00",
+          "external_status": 2,
+          "quote_amount": "143.0",
+          "amount_exec": "0.002482639",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-49",
+          "order_type": 1,
+          "price": "61440.0",
+          "created_at": "2026-08-23 10:00:00",
+          "external_status": 1,
+          "amount": "0.000423177",
+          "amount_exec": "0.000141059",
+          "quote_amount_exec": "8.66666496"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-50",
+          "order_type": 0,
+          "price": "60160.0",
+          "created_at": "2026-08-24 10:00:00",
+          "external_status": 3,
+          "quote_amount": "196.0",
+          "amount_exec": "0.00162899",
+          "quote_amount_exec": "98.0000384"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-51",
+          "order_type": 0,
+          "price": "67200.0",
+          "created_at": "2026-08-25 10:00:00",
+          "external_status": 0,
+          "quote_amount": "117.0"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.001770049"
+      },
+      "reserved": {
+        "VBTC": "0.000282118"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [],
+      "holdings": {},
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-52",
+          "order_type": 1,
+          "price": "67840.0",
+          "created_at": "2026-08-26 10:00:00",
+          "external_status": 1,
+          "amount": "0.002579599",
+          "amount_exec": "0.000859866",
+          "quote_amount_exec": "58.33330944"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-53",
+          "order_type": 1,
+          "price": "62720.0",
+          "created_at": "2026-08-27 10:00:00",
+          "external_status": 0,
+          "amount": "0.001578444",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-54",
+          "order_type": 0,
+          "price": "61440.0",
+          "created_at": "2026-08-10 10:00:00",
+          "external_status": 2,
+          "quote_amount": "103.0",
+          "amount_exec": "0.001676432",
+          "quote_amount_exec": "102.99998208"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.002536298"
+      },
+      "reserved": {
+        "VBTC": "0.003298177"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-55",
+          "order_type": 1,
+          "price": "2725.0",
+          "created_at": "2026-08-11 10:00:00",
+          "external_status": 0,
+          "amount": "0.048073394",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-56",
+          "order_type": 1,
+          "price": "2600.0",
+          "created_at": "2026-08-12 10:00:00",
+          "external_status": 0,
+          "amount": "0.062692308",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        }
+      ],
+      "holdings": {},
+      "reserved": {
+        "VETH": "0.110765702"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-57",
+          "order_type": 0,
+          "price": "60160.0",
+          "created_at": "2026-08-13 10:00:00",
+          "external_status": 4,
+          "quote_amount": "57.0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-58",
+          "order_type": 0,
+          "price": "2475.0",
+          "created_at": "2026-08-14 10:00:00",
+          "external_status": 0,
+          "quote_amount": "31.0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-59",
+          "order_type": 1,
+          "price": "2400.0",
+          "created_at": "2026-08-15 10:00:00",
+          "external_status": 1,
+          "amount": "0.080833333",
+          "amount_exec": "0.026944444",
+          "quote_amount_exec": "64.6666656"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-60",
+          "order_type": 0,
+          "price": "150.0",
+          "created_at": "2026-08-16 10:00:00",
+          "external_status": 0,
+          "quote_amount": "135.0"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-61",
+          "order_type": 0,
+          "price": "144.0",
+          "created_at": "2026-08-17 10:00:00",
+          "external_status": 2,
+          "quote_amount": "138.0",
+          "amount_exec": "0.958333333",
+          "quote_amount_exec": "137.999999952"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-62",
+          "order_type": 0,
+          "price": "147.0",
+          "created_at": "2026-08-18 10:00:00",
+          "external_status": 3,
+          "quote_amount": "13.0",
+          "amount_exec": "0.044217687",
+          "quote_amount_exec": "6.499999989"
+        }
+      ],
+      "holdings": {
+        "VETH": "0.026944444",
+        "VSOL": "1.00255102"
+      },
+      "reserved": {
+        "VETH": "0.053888889"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-63",
+          "order_type": 0,
+          "price": "58240.0",
+          "created_at": "2026-08-19 10:00:00",
+          "external_status": 2,
+          "quote_amount": "38.0",
+          "amount_exec": "0.000652473",
+          "quote_amount_exec": "38.00002752"
+        },
+        {
+          "asset": "VBTC",
+          "status": 1,
+          "external_id": null,
+          "order_type": 0,
+          "price": "64640.0",
+          "created_at": "2026-08-20 10:00:00",
+          "quote_amount": "133.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-65",
+          "order_type": 1,
+          "price": "65920.0",
+          "created_at": "2026-08-21 10:00:00",
+          "external_status": 1,
+          "amount": "0.000652306",
+          "amount_exec": "0.000217435",
+          "quote_amount_exec": "14.3333152"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.000869908"
+      },
+      "reserved": {
+        "VBTC": "0.000434871"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-66",
+          "order_type": 1,
+          "price": "64000.0",
+          "created_at": "2026-08-22 10:00:00",
+          "external_status": 1,
+          "amount": "0.00115625",
+          "amount_exec": "0.000385417",
+          "quote_amount_exec": "24.666688"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-67",
+          "order_type": 1,
+          "price": "67840.0",
+          "created_at": "2026-08-23 10:00:00",
+          "external_status": 1,
+          "amount": "0.00103184",
+          "amount_exec": "0.000343947",
+          "quote_amount_exec": "23.33336448"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-68",
+          "order_type": 0,
+          "price": "62720.0",
+          "created_at": "2026-08-24 10:00:00",
+          "external_status": 4,
+          "quote_amount": "98.0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-69",
+          "order_type": 1,
+          "price": "2350.0",
+          "created_at": "2026-08-25 10:00:00",
+          "external_status": 1,
+          "amount": "0.023829787",
+          "amount_exec": "0.007943262",
+          "quote_amount_exec": "18.6666657"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.000729364",
+        "VETH": "0.007943262"
+      },
+      "reserved": {
+        "VBTC": "0.001458726",
+        "VETH": "0.015886525"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-70",
+          "order_type": 1,
+          "price": "61440.0",
+          "created_at": "2026-08-26 10:00:00",
+          "external_status": 1,
+          "amount": "0.000455729",
+          "amount_exec": "0.00015191",
+          "quote_amount_exec": "9.3333504"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-71",
+          "order_type": 1,
+          "price": "60160.0",
+          "created_at": "2026-08-27 10:00:00",
+          "external_status": 1,
+          "amount": "0.001728723",
+          "amount_exec": "0.000576241",
+          "quote_amount_exec": "34.66665856"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-72",
+          "order_type": 0,
+          "price": "2575.0",
+          "created_at": "2026-08-10 10:00:00",
+          "external_status": 2,
+          "quote_amount": "180.0",
+          "amount_exec": "0.069902913",
+          "quote_amount_exec": "180.000000975"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-73",
+          "order_type": 1,
+          "price": "2325.0",
+          "created_at": "2026-08-11 10:00:00",
+          "external_status": 1,
+          "amount": "0.072258065",
+          "amount_exec": "0.024086022",
+          "quote_amount_exec": "56.00000115"
+        },
+        {
+          "asset": "VETH",
+          "status": 2,
+          "external_id": null,
+          "order_type": 0,
+          "price": "2500.0",
+          "created_at": "2026-08-12 10:00:00",
+          "quote_amount": "202.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-75",
+          "order_type": 1,
+          "price": "2450.0",
+          "created_at": "2026-08-13 10:00:00",
+          "external_status": 0,
+          "amount": "0.052653061",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.000728151",
+        "VETH": "0.093988935"
+      },
+      "reserved": {
+        "VETH": "0.100825104",
+        "VBTC": "0.001456301"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-76",
+          "order_type": 0,
+          "price": "2300.0",
+          "created_at": "2026-08-14 10:00:00",
+          "external_status": 2,
+          "quote_amount": "87.0",
+          "amount_exec": "0.037826087",
+          "quote_amount_exec": "87.0000001"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-77",
+          "order_type": 0,
+          "price": "2500.0",
+          "created_at": "2026-08-15 10:00:00",
+          "external_status": 2,
+          "quote_amount": "73.0",
+          "amount_exec": "0.0292",
+          "quote_amount_exec": "73.0"
+        },
+        {
+          "asset": "VETH",
+          "status": 2,
+          "external_id": null,
+          "order_type": 0,
+          "price": "2275.0",
+          "created_at": "2026-08-16 10:00:00",
+          "quote_amount": "77.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-79",
+          "order_type": 1,
+          "price": "2525.0",
+          "created_at": "2026-08-17 10:00:00",
+          "external_status": 1,
+          "amount": "0.010693069",
+          "amount_exec": "0.003564356",
+          "quote_amount_exec": "8.9999989"
+        }
+      ],
+      "holdings": {
+        "VETH": "0.070590443"
+      },
+      "reserved": {
+        "VETH": "0.007128713"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 2,
+          "external_id": null,
+          "order_type": 0,
+          "price": "59520.0",
+          "created_at": "2026-08-18 10:00:00",
+          "quote_amount": "105.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-81",
+          "order_type": 0,
+          "price": "68480.0",
+          "created_at": "2026-08-19 10:00:00",
+          "external_status": 2,
+          "amount": "0.001139019"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-82",
+          "order_type": 0,
+          "price": "68480.0",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "quote_amount": "202.0"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-83",
+          "order_type": 0,
+          "price": "138.0",
+          "created_at": "2026-08-21 10:00:00",
+          "external_status": 4,
+          "quote_amount": "50.0"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.001139019"
+      },
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-84",
+          "order_type": 1,
+          "price": "66560.0",
+          "created_at": "2026-08-22 10:00:00",
+          "external_status": 1,
+          "amount": "0.000420673",
+          "amount_exec": "0.000140224",
+          "quote_amount_exec": "9.33330944"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-85",
+          "order_type": 1,
+          "price": "62080.0",
+          "created_at": "2026-08-23 10:00:00",
+          "external_status": 0,
+          "amount": "0.002448454",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-86",
+          "order_type": 0,
+          "price": "57600.0",
+          "created_at": "2026-08-24 10:00:00",
+          "external_status": 2,
+          "amount": "0.003055556"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-87",
+          "order_type": 0,
+          "price": "57600.0",
+          "created_at": "2026-08-25 10:00:00",
+          "external_status": 2,
+          "amount": "0.001284722"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.004480502"
+      },
+      "reserved": {
+        "VBTC": "0.002728903"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 1,
+          "external_id": null,
+          "order_type": 0,
+          "price": "60160.0",
+          "created_at": "2026-08-26 10:00:00",
+          "quote_amount": "154.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-89",
+          "order_type": 1,
+          "price": "57600.0",
+          "created_at": "2026-08-27 10:00:00",
+          "external_status": 1,
+          "amount": "0.001822917",
+          "amount_exec": "0.000607639",
+          "quote_amount_exec": "35.0000064"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-90",
+          "order_type": 0,
+          "price": "2400.0",
+          "created_at": "2026-08-10 10:00:00",
+          "external_status": 4,
+          "quote_amount": "71.0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-91",
+          "order_type": 0,
+          "price": "2725.0",
+          "created_at": "2026-08-11 10:00:00",
+          "external_status": 2,
+          "quote_amount": "167.0",
+          "amount_exec": "0.061284404",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-92",
+          "order_type": 0,
+          "price": "2425.0",
+          "created_at": "2026-08-12 10:00:00",
+          "external_status": 3,
+          "quote_amount": "141.0",
+          "amount_exec": "0.029072165",
+          "quote_amount_exec": "70.500000125"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-93",
+          "order_type": 1,
+          "price": "2250.0",
+          "created_at": "2026-08-13 10:00:00",
+          "external_status": 0,
+          "amount": "0.040444444",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.000607639",
+        "VETH": "0.029072165"
+      },
+      "reserved": {
+        "VETH": "0.040444444",
+        "VBTC": "0.001215278"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-94",
+          "order_type": 0,
+          "price": "63360.0",
+          "created_at": "2026-08-14 10:00:00",
+          "external_status": 4,
+          "quote_amount": "62.0"
+        }
+      ],
+      "holdings": {},
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-95",
+          "order_type": 0,
+          "price": "65280.0",
+          "created_at": "2026-08-15 10:00:00",
+          "external_status": 2,
+          "quote_amount": "113.0",
+          "amount_exec": "0.001731005",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-96",
+          "order_type": 0,
+          "price": "65280.0",
+          "created_at": "2026-08-16 10:00:00",
+          "external_status": 4,
+          "quote_amount": "158.0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-97",
+          "order_type": 1,
+          "price": "65920.0",
+          "created_at": "2026-08-17 10:00:00",
+          "external_status": 1,
+          "amount": "0.000166869",
+          "amount_exec": "0.000055623",
+          "quote_amount_exec": "3.66666816"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-98",
+          "order_type": 1,
+          "price": "2375.0",
+          "created_at": "2026-08-18 10:00:00",
+          "external_status": 0,
+          "amount": "0.026105263",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-99",
+          "order_type": 0,
+          "price": "2500.0",
+          "created_at": "2026-08-19 10:00:00",
+          "external_status": 3,
+          "quote_amount": "149.0",
+          "amount_exec": "0.0298",
+          "quote_amount_exec": "74.5"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.000055623",
+        "VETH": "0.0298"
+      },
+      "reserved": {
+        "VBTC": "0.000111246",
+        "VETH": "0.026105263"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-100",
+          "order_type": 0,
+          "price": "58880.0",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 2,
+          "quote_amount": "171.0",
+          "amount_exec": "0.002904212",
+          "quote_amount_exec": "171.00000256"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-101",
+          "order_type": 0,
+          "price": "63360.0",
+          "created_at": "2026-08-21 10:00:00",
+          "external_status": 3,
+          "quote_amount": "183.0",
+          "amount_exec": "0.001444129",
+          "quote_amount_exec": "91.50001344"
+        },
+        {
+          "asset": "VBTC",
+          "status": 1,
+          "external_id": null,
+          "order_type": 0,
+          "price": "63360.0",
+          "created_at": "2026-08-22 10:00:00",
+          "quote_amount": "177.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-103",
+          "order_type": 0,
+          "price": "2275.0",
+          "created_at": "2026-08-23 10:00:00",
+          "external_status": 2,
+          "quote_amount": "21.0",
+          "amount_exec": "0.009230769",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-104",
+          "order_type": 0,
+          "price": "2375.0",
+          "created_at": "2026-08-24 10:00:00",
+          "external_status": 4,
+          "quote_amount": "78.0"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.004348341"
+      },
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-105",
+          "order_type": 1,
+          "price": "65280.0",
+          "created_at": "2026-08-25 10:00:00",
+          "external_status": 0,
+          "amount": "0.000719975",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-106",
+          "order_type": 0,
+          "price": "2475.0",
+          "created_at": "2026-08-26 10:00:00",
+          "external_status": 3,
+          "quote_amount": "76.0",
+          "amount_exec": "0.015353536",
+          "quote_amount_exec": "38.0000016"
+        },
+        {
+          "asset": "VETH",
+          "status": 1,
+          "external_id": null,
+          "order_type": 0,
+          "price": "2325.0",
+          "created_at": "2026-08-27 10:00:00",
+          "quote_amount": "94.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-108",
+          "order_type": 1,
+          "price": "2500.0",
+          "created_at": "2026-08-10 10:00:00",
+          "external_status": 0,
+          "amount": "0.0424",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        }
+      ],
+      "holdings": {
+        "VETH": "0.015353536"
+      },
+      "reserved": {
+        "VETH": "0.0424",
+        "VBTC": "0.000719975"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-109",
+          "order_type": 0,
+          "price": "69760.0",
+          "created_at": "2026-08-11 10:00:00",
+          "external_status": 3,
+          "quote_amount": "70.0",
+          "amount_exec": "0.00050172",
+          "quote_amount_exec": "34.9999872"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-110",
+          "order_type": 0,
+          "price": "2500.0",
+          "created_at": "2026-08-12 10:00:00",
+          "external_status": 2,
+          "quote_amount": "59.0",
+          "amount_exec": "0.0236",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-111",
+          "order_type": 0,
+          "price": "2675.0",
+          "created_at": "2026-08-13 10:00:00",
+          "external_status": 2,
+          "quote_amount": "205.0",
+          "amount_exec": "0.076635514",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-112",
+          "order_type": 1,
+          "price": "2450.0",
+          "created_at": "2026-08-14 10:00:00",
+          "external_status": 1,
+          "amount": "0.078367347",
+          "amount_exec": "0.026122449",
+          "quote_amount_exec": "64.00000005"
+        },
+        {
+          "asset": "VSOL",
+          "status": 1,
+          "external_id": null,
+          "order_type": 0,
+          "price": "148.5",
+          "created_at": "2026-08-15 10:00:00",
+          "quote_amount": "28.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-114",
+          "order_type": 0,
+          "price": "160.5",
+          "created_at": "2026-08-16 10:00:00",
+          "external_status": 2,
+          "quote_amount": "205.0",
+          "amount_exec": "1.277258567",
+          "quote_amount_exec": "0"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.00050172",
+        "VETH": "0.026122449"
+      },
+      "reserved": {
+        "VETH": "0.052244898"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [],
+      "holdings": {},
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-115",
+          "order_type": 0,
+          "price": "65280.0",
+          "created_at": "2026-08-17 10:00:00",
+          "external_status": 0,
+          "quote_amount": "68.0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-116",
+          "order_type": 0,
+          "price": "57600.0",
+          "created_at": "2026-08-18 10:00:00",
+          "external_status": 3,
+          "quote_amount": "196.0",
+          "amount_exec": "0.001701389",
+          "quote_amount_exec": "98.0000064"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-117",
+          "order_type": 1,
+          "price": "64640.0",
+          "created_at": "2026-08-19 10:00:00",
+          "external_status": 0,
+          "amount": "0.001763614",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-118",
+          "order_type": 1,
+          "price": "57600.0",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 1,
+          "amount": "0.003020833",
+          "amount_exec": "0.001006944",
+          "quote_amount_exec": "57.9999744"
+        },
+        {
+          "asset": "VETH",
+          "status": 1,
+          "external_id": null,
+          "order_type": 0,
+          "price": "2450.0",
+          "created_at": "2026-08-21 10:00:00",
+          "quote_amount": "107.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-120",
+          "order_type": 0,
+          "price": "2525.0",
+          "created_at": "2026-08-22 10:00:00",
+          "external_status": 3,
+          "quote_amount": "70.0",
+          "amount_exec": "0.013861386",
+          "quote_amount_exec": "34.99999965"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-121",
+          "order_type": 0,
+          "price": "2600.0",
+          "created_at": "2026-08-23 10:00:00",
+          "external_status": 2,
+          "amount": "0.025"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-122",
+          "order_type": 0,
+          "price": "2300.0",
+          "created_at": "2026-08-24 10:00:00",
+          "external_status": 0,
+          "quote_amount": "18.0"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.002708333",
+        "VETH": "0.038861386"
+      },
+      "reserved": {
+        "VBTC": "0.003777503"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-123",
+          "order_type": 0,
+          "price": "62080.0",
+          "created_at": "2026-08-25 10:00:00",
+          "external_status": 4,
+          "quote_amount": "196.0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-124",
+          "order_type": 1,
+          "price": "66560.0",
+          "created_at": "2026-08-26 10:00:00",
+          "external_status": 0,
+          "amount": "0.001427284",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-125",
+          "order_type": 0,
+          "price": "63360.0",
+          "created_at": "2026-08-27 10:00:00",
+          "external_status": 2,
+          "quote_amount": "102.0",
+          "amount_exec": "0.001609848",
+          "quote_amount_exec": "101.99996928"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-126",
+          "order_type": 1,
+          "price": "64640.0",
+          "created_at": "2026-08-10 10:00:00",
+          "external_status": 0,
+          "amount": "0.001299505",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-127",
+          "order_type": 0,
+          "price": "2325.0",
+          "created_at": "2026-08-11 10:00:00",
+          "external_status": 2,
+          "amount": "0.04516129"
+        },
+        {
+          "asset": "VSOL",
+          "status": 1,
+          "external_id": null,
+          "order_type": 0,
+          "price": "154.5",
+          "created_at": "2026-08-12 10:00:00",
+          "quote_amount": "87.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-129",
+          "order_type": 0,
+          "price": "135.0",
+          "created_at": "2026-08-13 10:00:00",
+          "external_status": 2,
+          "quote_amount": "29.0",
+          "amount_exec": "0.214814815",
+          "quote_amount_exec": "29.000000025"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-130",
+          "order_type": 0,
+          "price": "160.5",
+          "created_at": "2026-08-14 10:00:00",
+          "external_status": 3,
+          "quote_amount": "206.0",
+          "amount_exec": "0.641744549",
+          "quote_amount_exec": "103.0000001145"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.001609848",
+        "VETH": "0.04516129",
+        "VSOL": "0.856559364"
+      },
+      "reserved": {
+        "VBTC": "0.002726789"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-131",
+          "order_type": 0,
+          "price": "65920.0",
+          "created_at": "2026-08-15 10:00:00",
+          "external_status": 2,
+          "quote_amount": "156.0",
+          "amount_exec": "0.002366505",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-132",
+          "order_type": 0,
+          "price": "2675.0",
+          "created_at": "2026-08-16 10:00:00",
+          "external_status": 2,
+          "amount": "0.025420561"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-133",
+          "order_type": 1,
+          "price": "2500.0",
+          "created_at": "2026-08-17 10:00:00",
+          "external_status": 1,
+          "amount": "0.0792",
+          "amount_exec": "0.0264",
+          "quote_amount_exec": "66.0"
+        },
+        {
+          "asset": "VETH",
+          "status": 2,
+          "external_id": null,
+          "order_type": 0,
+          "price": "2575.0",
+          "created_at": "2026-08-18 10:00:00",
+          "quote_amount": "59.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        }
+      ],
+      "holdings": {
+        "VETH": "0.051820561"
+      },
+      "reserved": {
+        "VETH": "0.0528"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 1,
+          "external_id": null,
+          "order_type": 0,
+          "price": "60160.0",
+          "created_at": "2026-08-19 10:00:00",
+          "quote_amount": "151.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 2,
+          "external_id": null,
+          "order_type": 0,
+          "price": "58240.0",
+          "created_at": "2026-08-20 10:00:00",
+          "quote_amount": "22.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-137",
+          "order_type": 0,
+          "price": "67840.0",
+          "created_at": "2026-08-21 10:00:00",
+          "external_status": 2,
+          "amount": "0.001945755"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.001945755"
+      },
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-138",
+          "order_type": 0,
+          "price": "60160.0",
+          "created_at": "2026-08-22 10:00:00",
+          "external_status": 4,
+          "quote_amount": "190.0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-139",
+          "order_type": 0,
+          "price": "58880.0",
+          "created_at": "2026-08-23 10:00:00",
+          "external_status": 2,
+          "quote_amount": "49.0",
+          "amount_exec": "0.000832201",
+          "quote_amount_exec": "48.99999488"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-140",
+          "order_type": 0,
+          "price": "58240.0",
+          "created_at": "2026-08-24 10:00:00",
+          "external_status": 4,
+          "quote_amount": "149.0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-141",
+          "order_type": 0,
+          "price": "2275.0",
+          "created_at": "2026-08-25 10:00:00",
+          "external_status": 2,
+          "amount": "0.044395604"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-142",
+          "order_type": 1,
+          "price": "2550.0",
+          "created_at": "2026-08-26 10:00:00",
+          "external_status": 1,
+          "amount": "0.060784314",
+          "amount_exec": "0.020261438",
+          "quote_amount_exec": "51.6666669"
+        },
+        {
+          "asset": "VETH",
+          "status": 2,
+          "external_id": null,
+          "order_type": 0,
+          "price": "2600.0",
+          "created_at": "2026-08-27 10:00:00",
+          "quote_amount": "68.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-144",
+          "order_type": 1,
+          "price": "2675.0",
+          "created_at": "2026-08-10 10:00:00",
+          "external_status": 1,
+          "amount": "0.025420561",
+          "amount_exec": "0.00847352",
+          "quote_amount_exec": "22.666666"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-145",
+          "order_type": 1,
+          "price": "162.0",
+          "created_at": "2026-08-11 10:00:00",
+          "external_status": 0,
+          "amount": "1.012345679",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-146",
+          "order_type": 0,
+          "price": "156.0",
+          "created_at": "2026-08-12 10:00:00",
+          "external_status": 2,
+          "quote_amount": "155.0",
+          "amount_exec": "0.993589744",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VSOL",
+          "status": 1,
+          "external_id": null,
+          "order_type": 0,
+          "price": "141.0",
+          "created_at": "2026-08-13 10:00:00",
+          "quote_amount": "116.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.000832201",
+        "VETH": "0.073130562"
+      },
+      "reserved": {
+        "VETH": "0.057469917",
+        "VSOL": "1.012345679"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-148",
+          "order_type": 0,
+          "price": "135.0",
+          "created_at": "2026-08-14 10:00:00",
+          "external_status": 4,
+          "quote_amount": "70.0"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-149",
+          "order_type": 0,
+          "price": "144.0",
+          "created_at": "2026-08-15 10:00:00",
+          "external_status": 0,
+          "quote_amount": "144.0"
+        }
+      ],
+      "holdings": {},
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-150",
+          "order_type": 0,
+          "price": "67200.0",
+          "created_at": "2026-08-16 10:00:00",
+          "external_status": 2,
+          "quote_amount": "204.0",
+          "amount_exec": "0.003035714",
+          "quote_amount_exec": "203.9999808"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-151",
+          "order_type": 0,
+          "price": "62720.0",
+          "created_at": "2026-08-17 10:00:00",
+          "external_status": 3,
+          "quote_amount": "164.0",
+          "amount_exec": "0.001307398",
+          "quote_amount_exec": "82.00000256"
+        },
+        {
+          "asset": "VBTC",
+          "status": 1,
+          "external_id": null,
+          "order_type": 0,
+          "price": "65920.0",
+          "created_at": "2026-08-18 10:00:00",
+          "quote_amount": "70.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 2,
+          "external_id": null,
+          "order_type": 0,
+          "price": "66560.0",
+          "created_at": "2026-08-19 10:00:00",
+          "quote_amount": "155.0",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.004343112"
+      },
+      "reserved": {}
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-154",
+          "order_type": 1,
+          "price": "62720.0",
+          "created_at": "2026-08-20 10:00:00",
+          "external_status": 0,
+          "amount": "0.001929209",
+          "amount_exec": "0",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-155",
+          "order_type": 0,
+          "price": "67200.0",
+          "created_at": "2026-08-21 10:00:00",
+          "external_status": 3,
+          "quote_amount": "41.0",
+          "amount_exec": "0.00030506",
+          "quote_amount_exec": "20.500032"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-156",
+          "order_type": 0,
+          "price": "63360.0",
+          "created_at": "2026-08-22 10:00:00",
+          "external_status": 2,
+          "amount": "0.002004419"
+        },
+        {
+          "asset": "VBTC",
+          "status": 0,
+          "external_id": "rust-vector-157",
+          "order_type": 0,
+          "price": "69120.0",
+          "created_at": "2026-08-23 10:00:00",
+          "external_status": 3,
+          "quote_amount": "153.0",
+          "amount_exec": "0.001106771",
+          "quote_amount_exec": "76.50001152"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-158",
+          "order_type": 0,
+          "price": "2250.0",
+          "created_at": "2026-08-24 10:00:00",
+          "external_status": 3,
+          "quote_amount": "42.0",
+          "amount_exec": "0.009333334",
+          "quote_amount_exec": "21.0000015"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-159",
+          "order_type": 0,
+          "price": "2250.0",
+          "created_at": "2026-08-25 10:00:00",
+          "external_status": 3,
+          "quote_amount": "21.0",
+          "amount_exec": "0.004666667",
+          "quote_amount_exec": "10.50000075"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-160",
+          "order_type": 0,
+          "price": "2375.0",
+          "created_at": "2026-08-26 10:00:00",
+          "external_status": 2,
+          "amount": "0.081684211"
+        },
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-161",
+          "order_type": 0,
+          "price": "2700.0",
+          "created_at": "2026-08-27 10:00:00",
+          "external_status": 2,
+          "amount": "0.076666667"
+        }
+      ],
+      "holdings": {
+        "VBTC": "0.00341625",
+        "VETH": "0.172350879"
+      },
+      "reserved": {
+        "VBTC": "0.001929209"
+      }
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "rows": [
+        {
+          "asset": "VETH",
+          "status": 0,
+          "external_id": "rust-vector-162",
+          "order_type": 0,
+          "price": "2275.0",
+          "created_at": "2026-08-10 10:00:00",
+          "external_status": 2,
+          "quote_amount": "96.0",
+          "amount_exec": "0.042197802",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-163",
+          "order_type": 0,
+          "price": "136.5",
+          "created_at": "2026-08-11 10:00:00",
+          "external_status": 2,
+          "amount": "1.179487179"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-164",
+          "order_type": 0,
+          "price": "160.5",
+          "created_at": "2026-08-12 10:00:00",
+          "external_status": 2,
+          "quote_amount": "91.0",
+          "amount_exec": "0.566978193",
+          "quote_amount_exec": "0"
+        },
+        {
+          "asset": "VSOL",
+          "status": 0,
+          "external_id": "rust-vector-165",
+          "order_type": 1,
+          "price": "153.0",
+          "created_at": "2026-08-13 10:00:00",
+          "external_status": 1,
+          "amount": "0.08496732",
+          "amount_exec": "0.02832244",
+          "quote_amount_exec": "4.33333332"
+        }
+      ],
+      "holdings": {
+        "VSOL": "1.207809619"
+      },
+      "reserved": {
+        "VSOL": "0.05664488"
+      }
     }
   ],
   "i18n": {
