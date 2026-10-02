@@ -3,11 +3,13 @@
 use crate::engine::polling;
 use crate::engine::tick::{self, Attempts, PriceCache, TickContext, TickOutcome};
 use crate::engine::{EngineError, FixedClock};
+use crate::crypto::{Cipher, EncryptionKeys};
+use crate::jobs::{self, data_api::{self, DataApi}, reference, Outcome};
 use crate::lease;
 use crate::store::{self, Paths};
 use crate::store::Opened;
 use crate::venue::alpaca::{AlpacaVenue, Urls};
-use crate::venue::http::ScriptedTransport;
+use crate::venue::http::{request_key, ScriptedTransport};
 use crate::venue::Venue;
 use crate::venue::fake::FakeVenue;
 use crate::venue::{NewOrder, OrderKind};
@@ -193,4 +195,87 @@ fn alpaca_copy_script(c: &Connection, bot: &crate::engine::model::Bot, pair: &st
             "filled_qty": "0", "filled_avg_price": null, "qty": null, "notional": null, "limit_price": null }));
     }
     Ok(json!({ "alpaca": a }))
+}
+
+const REFERENCE_TABLES: [&str; 6] = ["assets", "tickers", "exchange_assets", "indices", "bot_activity_logs", "app_configs"];
+const REFERENCE_JSON: [&str; 6] = ["top_coins", "top_coins_by_exchange", "available_exchanges", "weights", "withdrawal_chains", "details"];
+
+/// The reference-data tables as script/rust/reference_data.rb snapshots them: JSON columns parsed, app_configs values
+/// decrypted (the IV is random), and the runner's own `rust_job.*` rows left out.
+pub fn reference_snapshot(c: &Connection, cipher: &Cipher) -> Result<Value, EngineError> {
+    let mut out = Map::new();
+    for table in REFERENCE_TABLES {
+        let mut s = c.prepare(&format!("SELECT * FROM {table} ORDER BY id"))?;
+        let names: Vec<String> = s.column_names().iter().map(|n| n.to_string()).collect();
+        let mut rows = Map::new();
+        let mut q = s.query([])?;
+        while let Some(r) = q.next()? {
+            let mut row = Map::new();
+            for (i, name) in names.iter().enumerate() {
+                let mut v = raw(r.get_ref(i)?);
+                if REFERENCE_JSON.contains(&name.as_str()) { if let Value::String(s) = &v { v = serde_json::from_str(s).unwrap_or(v); } }
+                row.insert(name.clone(), v);
+            }
+            if table == "app_configs" {
+                if row["key"].as_str().is_some_and(|k| k.starts_with(jobs::state::PREFIX)) { continue; }
+                if let Some(v) = row["value"].as_str().map(String::from) {
+                    row.insert("value".into(), json!(cipher.decrypt(&v).map_err(|e| EngineError::Data(format!("app_configs value: {e:?}")))?));
+                }
+            }
+            // Configuration rows by key: an id depends on which rows each side inserted first (the runner's
+            // own `rust_job.*` rows take ids), and nothing refers to an app_configs id.
+            let id = if table == "app_configs" { row.remove("id"); row["key"].as_str().unwrap_or_default().to_string() } else { row["id"].to_string() };
+            rows.insert(id, Value::Object(row));
+        }
+        out.insert(table.into(), Value::Object(rows));
+    }
+    Ok(Value::Object(out))
+}
+
+/// Every row whose content changed, deletions included (`after: null`), in id order: Rails' `diff` in reference_data.rb.
+pub fn diff_tables(before: &Value, after: &Value, tables: &[&str]) -> Value {
+    let mut out = Map::new();
+    for table in tables {
+        let (b, a) = (&before[*table], &after[*table]);
+        let by_key = *table == "app_configs"; // keyed by `key`, not by id (reference_snapshot)
+        let mut ids: Vec<String> = b.as_object().into_iter().chain(a.as_object()).flat_map(|m| m.keys().cloned()).collect();
+        if by_key { ids.sort(); } else { ids.sort_by_key(|k| k.parse::<i64>().unwrap_or(0)); }
+        ids.dedup();
+        let changes: Vec<Value> = ids.into_iter().filter_map(|k| {
+            let (x, y) = (b.get(&k).cloned().unwrap_or(Value::Null), a.get(&k).cloned().unwrap_or(Value::Null));
+            let id = if by_key { json!(k) } else { json!(k.parse::<i64>().unwrap_or(0)) };
+            (x != y).then(|| json!({ "id": id, "before": x, "after": y }))
+        }).collect();
+        out.insert((*table).into(), Value::Array(changes));
+    }
+    Value::Object(out)
+}
+
+/// The Rust half of the reference-data parity (script/rust/reference_data.rb is the Rails half): the scenario's job, once,
+/// as the scheduler runs it, on a marked scratch copy, against the same scripted data-api bodies. Rails' shape.
+pub async fn reference(dir: &Path) -> Result<Value, EngineError> {
+    let read = std::fs::read_to_string(dir.join("scenario.json")).map_err(|e| EngineError::Data(e.to_string()))?;
+    let scenario: Value = serde_json::from_str(&read).map_err(|e| EngineError::Data(e.to_string()))?;
+    if scenario["parity_scratch"] != true {
+        return Err(EngineError::Data(format!("{} is not a parity scratch copy (no parity_scratch marker)", dir.display())));
+    }
+    let at: DateTime<Utc> = scenario["at"].as_str().and_then(|s| s.parse().ok()).ok_or_else(|| EngineError::Data("scenario.at".into()))?;
+    let job = scenario["job"].as_str().ok_or_else(|| EngineError::Data("scenario.job".into()))?;
+    let text = |v: &Value| v.as_str().map(String::from).ok_or_else(|| EngineError::Data("scenario.encryption".into()));
+    let keys = EncryptionKeys { primary_key: text(&scenario["encryption"]["primary_key"])?, key_derivation_salt: text(&scenario["encryption"]["key_derivation_salt"])? };
+    let paths = Paths::from_env(&|_| None, dir);
+    let _lock = lease::lock(&paths, chrono::Utc::now())?;
+    let o = store::open(&paths)?;
+    let cipher = Cipher::new(&keys);
+    let env_map = scenario["env"].clone();
+    let env = move |k: &str| env_map[k].as_str().map(String::from);
+    let before = reference_snapshot(&o.primary, &cipher)?;
+    let transport = ScriptedTransport::from_script(&scenario["script"]);
+    let api = data_api::config(&env, &o.primary, &cipher).map_err(EngineError::Data)?
+        .map(|c| DataApi::new(c, transport.clone(), transport.clone()));
+    let db = jobs::Db::new(store::open(&paths)?.primary, Cipher::new(&keys)); // the job's own connection, as in the process
+    let outcome = reference::run_once(job, api, jobs::Cx { db, clock: &FixedClock(at) }).await;
+    let requests: Vec<String> = transport.requests().iter().map(request_key).collect();
+    Ok(json!({ "requests": requests, "retry": matches!(outcome, Outcome::Transient(_) | Outcome::RateLimited(_)),
+               "changes": diff_tables(&before, &reference_snapshot(&o.primary, &cipher)?, &REFERENCE_TABLES) }))
 }
