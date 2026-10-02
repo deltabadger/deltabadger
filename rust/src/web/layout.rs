@@ -125,8 +125,9 @@ pub fn back(config: &super::Config, headers: &HeaderMap) -> Option<String> {
     let referer = header_text(headers, "referer")?;
     let rest = referer.strip_prefix(config.origin(headers)?.as_str())?;
     // "http://bot.example" is also how "http://bot.example.evil.test/" and "http://bot.example@evil.test/" begin.
-    // A browser reads a backslash in a Location as a slash, so `/\evil.test` would be `//evil.test`.
-    if !(rest.is_empty() || rest.starts_with(['/', '?'])) || rest.contains('\\') {
+    // A browser reads a backslash in a Location as a slash, so `/\evil.test` would be `//evil.test`,
+    // and it drops tabs and line breaks from a URL before reading it, so `/<tab>/evil.test` would be too.
+    if !(rest.is_empty() || rest.starts_with(['/', '?'])) || rest.contains(|c: char| c == '\\' || c.is_ascii_control()) {
         return None;
     }
     let (path, query) = rest.split_once('?').map_or((rest, None), |(path, query)| (path, Some(query)));

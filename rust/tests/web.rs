@@ -461,6 +461,11 @@ mod going_back {
         ] {
             assert_eq!(back(&https, foreign), None, "{foreign}");
         }
+        // A browser drops tabs and line breaks from a URL before it reads it, so `/\t/evil.test` in a
+        // Location is `//evil.test`. (A header cannot carry CR or LF; the tab is the one that can arrive.)
+        for control in ["https://bot.example/\t/evil.test", "https://bot.example/login\t", "https://bot.example/login?x=\t1", "https://bot.example\t/login"] {
+            assert_eq!(back(&https, control), None, "{control:?}");
+        }
         // Without APP_ROOT_URL the origin is the request's own: its Host, and http unless SSL is forced or a proxy forwarded another scheme.
         let plain = config(None);
         assert_eq!(back(&plain, "http://bot.example/bots").as_deref(), Some("/bots"));
