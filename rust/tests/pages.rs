@@ -129,7 +129,7 @@ fn users(dir: &Path) -> Value {
 fn before(dir: &Path, what: &str) {
     let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
     match what {
-        "change_password" => c.execute("UPDATE users SET encrypted_password = ?1 WHERE id = (SELECT min(id) FROM users)", [deltabadger::crypto::hash_password("Another-horse-7")]).unwrap(),
+        "change_password" => c.execute("UPDATE users SET encrypted_password = ?1 WHERE id = (SELECT min(id) FROM users)", [deltabadger::crypto::hash_password("Another-horse-7").unwrap()]).unwrap(),
         "unconfirm" => c.execute("UPDATE users SET confirmed_at = NULL WHERE id = (SELECT min(id) FROM users)", []).unwrap(),
         other => panic!("unknown step.before {other}"),
     };

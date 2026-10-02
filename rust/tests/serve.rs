@@ -160,7 +160,7 @@ async fn a_csp_report_is_accepted_without_a_session_or_a_token() {
 #[tokio::test(flavor = "current_thread")]
 async fn the_bots_page_refuses_an_account_it_cannot_render_yet() {
     let (dir, opened, seeded) = common::install();
-    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
     opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     let mut browser = Browser::default();
@@ -195,7 +195,7 @@ async fn the_bots_page_refuses_an_account_it_cannot_render_yet() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_late_answer_to_an_older_request_does_not_undo_a_sign_in() {
     let (dir, opened, seeded) = common::install();
-    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
     opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
     let clock = TestClock::at(NOW);
     let app = web::app(dir.path(), web::SECRET, clock.clone());
@@ -231,7 +231,7 @@ async fn a_late_answer_to_an_older_request_does_not_undo_a_sign_in() {
 #[tokio::test(flavor = "current_thread")]
 async fn an_old_anonymous_cookie_does_not_undo_a_sign_in() {
     let (dir, opened, seeded) = common::install();
-    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
     opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
     let clock = TestClock::at(NOW);
     let app = web::app(dir.path(), web::SECRET, clock.clone());
@@ -254,7 +254,7 @@ async fn an_old_anonymous_cookie_does_not_undo_a_sign_in() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_request_authenticated_before_logout_that_completes_after_it_does_not_restore_the_session() {
     let (dir, opened, seeded) = common::install();
-    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
     opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
     let clock = TestClock::at(NOW);
     let app = web::app(dir.path(), web::SECRET, clock.clone());
@@ -285,7 +285,7 @@ async fn a_request_authenticated_before_logout_that_completes_after_it_does_not_
 #[tokio::test(flavor = "current_thread")]
 async fn a_form_is_accepted_behind_a_tls_terminating_proxy_when_app_root_url_spells_the_default_port() {
     let (_dir, opened, seeded) = common::install();
-    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
     opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
     let env = |name: &str| match name {
         "SECRET_KEY_BASE" => Some(web::SECRET.to_string()),
@@ -317,7 +317,7 @@ async fn a_form_is_accepted_behind_a_tls_terminating_proxy_when_app_root_url_spe
 async fn signing_out_empties_this_browsers_session_and_cannot_revoke_a_copy_of_its_cookie() {
     let (dir, opened, seeded) = common::install();
     let password = |plain: &str| {
-        let hash = deltabadger::crypto::hash_password(plain);
+        let hash = deltabadger::crypto::hash_password(plain).unwrap();
         opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
     };
     password("Correct-horse-9");
@@ -348,7 +348,7 @@ async fn signing_out_empties_this_browsers_session_and_cannot_revoke_a_copy_of_i
 async fn a_planted_cookie_of_our_name_does_not_hide_the_real_session() {
     const NAME: &str = "_deltabadger_rust_session";
     let (dir, opened, seeded) = common::install();
-    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
     opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     let mut browser = Browser::default();
@@ -375,7 +375,7 @@ async fn a_planted_cookie_of_our_name_does_not_hide_the_real_session() {
 #[tokio::test(flavor = "current_thread")]
 async fn a_return_path_too_long_for_the_cookie_is_not_kept() {
     let (dir, opened, seeded) = common::install();
-    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
     opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
     let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
     for (length, kept) in [(2048, true), (2049, false), (3000, false)] {
@@ -398,6 +398,26 @@ async fn a_return_path_too_long_for_the_cookie_is_not_kept() {
     assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.header("location"), Some("/"));
 }
 
+/// Exactly one bcrypt computation per sign-in attempt, whether the email is known or not: how long a
+/// refusal takes must not say which. bcrypt at cost 11 is nearly all of either request, so an unknown
+/// email answered without it would be many times faster; a quarter is far outside any noise.
+#[tokio::test(flavor = "current_thread")]
+async fn a_sign_in_for_an_unknown_email_costs_what_a_wrong_password_costs() {
+    let (dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    let mut timed = async |email: &str| {
+        let started = Instant::now();
+        assert_eq!(browser.post(&app, "/login", &[("user[email]", email), ("user[password]", "wrong")]).await.status, 422);
+        started.elapsed()
+    };
+    let (known, unknown) = (timed("o@example.com").await, timed("nobody@example.com").await);
+    assert!(unknown * 4 > known, "an unknown email was refused in {unknown:?}, a wrong password in {known:?}");
+}
+
 /// What no in-process test can see: the first page after sign-in in a real browser, with the compiled
 /// JS and CSS (script/rust/browser_check.mjs drives headless Chrome). It needs Chrome and bun, so it
 /// is not part of `cargo test`: run it with `cargo test --test serve -- --ignored`.
@@ -405,7 +425,7 @@ async fn a_return_path_too_long_for_the_cookie_is_not_kept() {
 #[ignore = "needs Chrome and bun: cargo test --test serve -- --ignored"]
 fn a_real_browser_signs_in_and_sees_the_app_with_live_streams() {
     let (dir, opened, seeded) = common::install();
-    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
     opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
     drop(opened);
     let port = free_port();

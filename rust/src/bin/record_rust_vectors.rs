@@ -13,7 +13,7 @@ fn main() {
         ciphertexts.insert(name.clone(), json!({ "plain": plain, "cipher": cipher.encrypt(plain) }));
     }
     let bcrypt: Vec<Value> = ruby["bcrypt"].as_array().unwrap().iter()
-        .map(|b| json!({ "password": b["password"], "hash": hash_password(b["password"].as_str().unwrap()) }))
+        .map(|b| json!({ "password": b["password"], "hash": hash_password(b["password"].as_str().unwrap()).unwrap() }))
         .collect();
     let out = json!({ "secret_key_base": secret, "ciphertexts": ciphertexts, "bcrypt": bcrypt });
     std::fs::write("tests/fixtures/rust_vectors.json", serde_json::to_string_pretty(&out).unwrap() + "\n").unwrap();

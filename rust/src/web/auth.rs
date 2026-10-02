@@ -265,6 +265,7 @@ enum PasswordStage {
 /// including whether it has two-factor on (Rails verifies a two-factor account's wrong password twice).
 fn password_stage(c: &Connection, email: &str, password: &str, now: DateTime<Utc>) -> Result<PasswordStage, WebError> {
     let Some(mut user) = User::find_by_email(c, email)? else {
+        // Only the work counts. Without a salt from the system there is no hash: the same failed sign-in.
         let _ = hash_password(password);
         return Ok(PasswordStage::Invalid);
     };
