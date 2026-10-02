@@ -2,9 +2,31 @@ name: Rust engine
 
 on:
   push:
-    paths: ['rust/**', '.github/workflows/rust.yml']
+    paths:
+      - 'rust/**'
+      - '.github/workflows/rust.yml'
+      # Rails-side inputs the build and the drift tests read: build.rs and store.rs read db/migrate, codec.rs
+      # Gemfile.lock, venue_rules.rs hashes the ported Ruby (keep in sync with ruby_vectors.json "ported_sources").
+      - 'db/migrate/**'
+      - 'Gemfile.lock'
+      - 'app/models/client.rb'
+      - 'app/models/clients/alpaca.rb'
+      - 'app/models/exchange.rb'
+      - 'app/models/exchanges/alpaca.rb'
+      - 'app/models/exchanges/kraken.rb'
   pull_request:
-    paths: ['rust/**', '.github/workflows/rust.yml']
+    paths:
+      - 'rust/**'
+      - '.github/workflows/rust.yml'
+      # Rails-side inputs the build and the drift tests read: build.rs and store.rs read db/migrate, codec.rs
+      # Gemfile.lock, venue_rules.rs hashes the ported Ruby (keep in sync with ruby_vectors.json "ported_sources").
+      - 'db/migrate/**'
+      - 'Gemfile.lock'
+      - 'app/models/client.rb'
+      - 'app/models/clients/alpaca.rb'
+      - 'app/models/exchange.rb'
+      - 'app/models/exchanges/alpaca.rb'
+      - 'app/models/exchanges/kraken.rb'
 
 permissions:
   contents: read
