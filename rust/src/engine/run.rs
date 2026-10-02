@@ -35,15 +35,21 @@ pub struct Engine<F: VenueFactory> {
     /// Notified to make the loop step now (a stop request; Plan 3's UI after it starts or stops a bot).
     wake: Arc<Notify>,
     stop: Arc<AtomicBool>,
+    /// The awaitable side of `stop`, for the parts of `serve` beside the engine (`Shutdown::requested`).
+    stopped: Arc<tokio::sync::watch::Sender<bool>>,
+    /// Set by `supervisor::serve`: every other writer of `bots` in this process runs `eligibility::guard` before it
+    /// commits, so a pass that finds the install ineligible means one skipped it (spec amendment 2026-10-02).
+    pub(crate) writers_guarded: bool,
 }
 
 impl<F: VenueFactory> Engine<F> {
     pub fn new(primary: Connection, factory: F, cipher: Cipher, lock: EngineLock) -> Self {
         Self { primary, factory, cipher, lock, started: false, attempts: HashMap::new(), retry_at: HashMap::new(), polls: HashMap::new(), reconcile_at: HashMap::new(),
-               prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)) }
+               prices: PriceCache::default(), process_start: None, wake: Arc::new(Notify::new()), stop: Arc::new(AtomicBool::new(false)),
+               stopped: Arc::new(tokio::sync::watch::Sender::new(false)), writers_guarded: false }
     }
     pub fn wake_handle(&self) -> Arc<Notify> { self.wake.clone() }
-    pub fn stop_handle(&self) -> Shutdown { Shutdown { flag: self.stop.clone(), wake: self.wake.clone() } }
+    pub fn stop_handle(&self) -> Shutdown { Shutdown { flag: self.stop.clone(), wake: self.wake.clone(), stopped: self.stopped.clone() } }
     fn stopping(&self) -> bool { self.stop.load(Ordering::SeqCst) }
     #[doc(hidden)] pub fn inject_stale_retry(&mut self, bot: i64, at_us: i64) { self.retry_at.insert(bot, at_us); }
     fn venue_for(&self, bot: &model::Bot) -> Result<F::V, EngineError> {
@@ -52,13 +58,23 @@ impl<F: VenueFactory> Engine<F> {
 }
 
 /// A stop request for the loop: the tick in hand finishes, nothing new starts, and `run` returns `EngineError::Stopped`.
+/// The process's one stop signal (`serve`: the engine, the web and every background service).
 #[derive(Clone)]
-pub struct Shutdown { flag: Arc<AtomicBool>, wake: Arc<Notify> }
+pub struct Shutdown { flag: Arc<AtomicBool>, wake: Arc<Notify>, stopped: Arc<tokio::sync::watch::Sender<bool>> }
 
 impl Shutdown {
     pub fn request(&self) {
         self.flag.store(true, Ordering::SeqCst);
+        self.stopped.send_replace(true);
         self.wake.notify_one(); // a permit is stored if the loop is not asleep yet
+    }
+    pub fn is_requested(&self) -> bool { self.flag.load(Ordering::SeqCst) }
+    /// `true` once a stop is requested: for a service that selects on a `watch` (Plan 2f's scheduler).
+    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<bool> { self.stopped.subscribe() }
+    /// Resolves once a stop is requested, at once if it already was. It never takes the engine's wake permit.
+    pub async fn requested(&self) {
+        let mut rx = self.subscribe();
+        let _ = rx.wait_for(|stopped| *stopped).await;
     }
     /// Requests the stop on SIGTERM (`docker stop`) or SIGINT; off Unix, on Ctrl-C (the only signal Windows delivers).
     /// The handlers are registered before this returns, so a signal that arrives afterwards is never lost. Call inside
@@ -125,6 +141,10 @@ async fn reconcile_idle<F: VenueFactory>(e: &mut Engine<F>, id: i64, clock: &dyn
 pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Result<i64, EngineError> {
     e.process_start.get_or_insert(clock.now());
     let report = eligibility::check_install(&e.primary)?;
+    // R2(a): in one process every other writer of `bots` runs eligibility::guard, so this is a write that skipped it.
+    // Debug builds (every test) name the bot; release builds end the engine, and the process with it.
+    #[cfg(debug_assertions)]
+    if e.writers_guarded { assert_guarded(&e.primary, &report); }
     if !report.problems.is_empty() { return Err(EngineError::Ineligible(report.problems)); }
     for (id, err) in &report.unreadable { super::log(&format!("[engine] bot {id} is unreadable and skipped: {err}")); }
     // A bot that left the working set (stopped from the web UI) starts again as a fresh Rails job would: no retry
@@ -165,6 +185,19 @@ pub async fn step<F: VenueFactory>(e: &mut Engine<F>, clock: &dyn Clock) -> Resu
     for (_, at, _) in e.polls.values() { wake = wake.min(*at); }
     let now_us = clock.now().timestamp_micros();
     Ok(wake.max(now_us + 1))
+}
+
+/// W5: every bot a write that skipped `eligibility::guard` left behind, as the guard would have refused it: outside the
+/// slice, unreadable, or with an unresolved order its row no longer matches (stranded). Release builds skip the last two
+/// as before (unreadable rows are logged and skipped; a stranded intent waits for `resolve-placement`).
+#[cfg(debug_assertions)]
+fn assert_guarded(c: &Connection, report: &eligibility::Report) {
+    let mut named = report.problems.clone();
+    named.extend(report.unreadable.iter().map(|(id, err)| format!("bot {id}: unreadable ({err})")));
+    // An error here (a row it cannot load) is an unreadable bot, named above.
+    let stranded = placement::stranded(c).unwrap_or_default();
+    named.extend(stranded.iter().map(|id| format!("bot {id}: stranded: its unresolved order no longer matches its asset, exchange or quote")));
+    assert!(named.is_empty(), "a write to bots skipped eligibility::guard: {}", named.join("; "));
 }
 
 /// Due follow-up polls, for any bot whatever its status (a job Rails enqueued at placement runs even if the
