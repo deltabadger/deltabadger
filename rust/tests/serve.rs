@@ -760,6 +760,72 @@ async fn a_password_sign_in_ends_a_second_factor_step_left_open() {
     assert_eq!(session_of(&app, &browser).user.map(|(id, _)| id), Some(second), "still the account that signed in");
 }
 
+/// A session that holds only a second-factor step still owed is nobody's: the password was right,
+/// and that is all. No page of the app opens for it.
+#[tokio::test(flavor = "current_thread")]
+async fn a_session_with_only_a_second_factor_step_owed_is_not_signed_in() {
+    use deltabadger::web::session::{self, Pending, SessionData};
+    let (_dir, _db, app, owner, _) = two_accounts(true);
+    let pending = SessionData { pending: Some(Pending { user_id: owner, started_at: web::at(NOW).timestamp() }), ..SessionData::default() };
+    let mut browser = Browser { cookie: Some(session::seal(&app.keys.session, &pending, web::at(NOW))), ..Browser::default() };
+    let bots = browser.get(&app, "/bots").await;
+    assert_eq!((bots.status, bots.header("location")), (302, Some("/login")));
+    assert_eq!(browser.get(&app, "/").await.header("location"), Some("/login"), "the root sends it to the login page, not to the bots");
+    assert_eq!(browser.get(&app, "/verify_two_factor").await.status, 200, "the cookie is a live pending step, and still opens nothing else");
+    assert_eq!(session_of(&app, &browser).user, None);
+}
+
+/// A password sign-in gives the session a new CSRF token (Devise's
+/// clean_up_csrf_token_on_authentication): a token read from the login page is no use afterwards.
+/// With two-factor that change happens at the password stage, when the session is replaced; the
+/// code step then keeps the token its own form was rendered with.
+#[tokio::test(flavor = "current_thread")]
+async fn the_csrf_token_changes_at_the_password_and_is_kept_at_the_second_factor() {
+    let (_dir, _db, app, _, _) = two_accounts(true);
+    let token = |browser: &Browser| session_of(&app, browser).csrf;
+
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    let before = token(&browser).expect("the login page gave the session a token");
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "second@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    assert_eq!(token(&browser), None, "the old token went with the sign-in");
+    browser.get(&app, "/bots").await;
+    let after = token(&browser).expect("the first page gave the session a new one");
+    assert_ne!(before, after);
+
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    let before = token(&browser).unwrap();
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 302);
+    assert_eq!(token(&browser), None, "the password stage replaced the session");
+    browser.get(&app, "/verify_two_factor").await;
+    let at_code_form = token(&browser).unwrap();
+    assert_ne!(before, at_code_form);
+    let code = deltabadger::crypto::totp_at(OTP_SEED, web::at(NOW).timestamp() as u64).unwrap();
+    assert_eq!(browser.post(&app, "/verify_two_factor", &[("user[otp_code_token]", &code)]).await.status, 303);
+    assert_eq!(token(&browser).as_ref(), Some(&at_code_form), "the second factor keeps it");
+    browser.get(&app, "/bots").await;
+    assert_eq!(token(&browser), Some(at_code_form));
+}
+
+/// The rate limit is per address, and the address is the peer's: the server has to hand it to
+/// every request. Over a real connection from 127.0.0.1, the eleventh login POST of the minute is
+/// refused, and it is 127.0.0.1 that was counted, not the name used when no address is known.
+#[tokio::test(flavor = "current_thread")]
+async fn the_peer_address_reaches_the_rate_limit_through_the_server() {
+    let (_dir, app, address) = served_under(deltabadger::web::server::Limits::default()).await;
+    let post = b"POST /login HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/x-www-form-urlencoded\r\nContent-Length: 3\r\nConnection: close\r\n\r\na=1";
+    for n in 1..=10 {
+        let answer = web::until_closed(address, post, Duration::from_secs(5)).await.unwrap();
+        assert!(answer.starts_with("HTTP/1.1 302"), "request {n} has no CSRF token, and counts all the same: {answer}");
+    }
+    let eleventh = web::until_closed(address, post, Duration::from_secs(5)).await.unwrap();
+    assert!(eleventh.starts_with("HTTP/1.1 429") && eleventh.to_lowercase().contains("retry-after: 30"), "{eleventh}");
+    let post_method = axum::http::Method::POST;
+    assert_eq!(app.limiter.hit(&post_method, "/login", "unattributed", web::at(NOW)), None, "nothing was counted under the name for an unknown peer");
+    assert_eq!(app.limiter.hit(&post_method, "/login", "127.0.0.1", web::at(NOW)), Some(30), "the peer's own address is over its limit");
+}
+
 /// What no in-process test can see: the first page after sign-in in a real browser, with the compiled
 /// JS and CSS (script/rust/browser_check.mjs drives headless Chrome). It needs Chrome and bun, so it
 /// is not part of `cargo test`: run it with `cargo test --test serve -- --ignored`.

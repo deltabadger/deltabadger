@@ -322,6 +322,8 @@ async fn only_a_signed_in_browser_may_connect() {
     let signed_out = session::seal(&app.keys.session, &SessionData { csrf: Some("c3Jm".into()), ..SessionData::default() }, app.now());
     assert_eq!(open_as(address, origin, Some(&signed_out)).await.err(), Some(401), "a session, but nobody signed in (the login page's)");
     assert_eq!(open_as(address, origin, Some(&signed_in(&app, 99))).await.err(), Some(401), "no such user");
+    let owed = SessionData { pending: Some(session::Pending { user_id: SECOND, started_at: app.now().timestamp() }), ..SessionData::default() };
+    assert_eq!(open_as(address, origin, Some(&session::seal(&app.keys.session, &owed, app.now()))).await.err(), Some(401), "a second-factor step still owed is not a sign-in");
 
     // Devise's per-request check, as on a page: each of these ends a session that was signed in.
     let second = signed_in(&app, SECOND);
