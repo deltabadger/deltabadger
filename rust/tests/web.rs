@@ -190,3 +190,79 @@ mod sessions {
         assert!(Config::from_env(&|_| None).is_err(), "SECRET_KEY_BASE is required");
     }
 }
+
+mod csrf_tokens {
+    use super::common::web::header_map;
+    use axum::http::HeaderMap;
+    use deltabadger::web::{csrf, Config};
+
+    #[test]
+    fn a_masked_token_verifies_and_is_different_every_time() {
+        let token = csrf::new_token();
+        let (first, second) = (csrf::masked(&token), csrf::masked(&token));
+        assert_ne!(first, second);
+        assert_eq!(first.len(), 86, "64 bytes, base64url without padding, as Rails' tokens");
+        assert!(csrf::valid(&token, &first) && csrf::valid(&token, &second));
+        assert!(!csrf::valid(&csrf::new_token(), &first), "another session's token");
+        assert!(!csrf::valid(&token, &token), "the raw token is not accepted");
+        for junk in ["", "abc", "%%%"] { assert!(!csrf::valid(&token, junk)); }
+    }
+
+    #[test]
+    fn either_the_form_token_or_the_header_token_is_enough() {
+        let token = csrf::new_token();
+        let masked = csrf::masked(&token);
+        let ours = Some("http://localhost:3000");
+        let with_header = |value: &str| header_map(&[("x-csrf-token", value)]);
+        assert!(csrf::verified(Some(&token), &HeaderMap::new(), Some(&masked), ours));
+        assert!(csrf::verified(Some(&token), &with_header(&masked), None, ours));
+        assert!(csrf::verified(Some(&token), &with_header(&masked), Some("not-a-token"), ours), "an invalid field beside a valid header, as Rails");
+        assert!(csrf::verified(Some(&token), &with_header("not-a-token"), Some(&masked), ours));
+        assert!(!csrf::verified(Some(&token), &with_header("not-a-token"), Some("neither"), ours));
+        assert!(!csrf::verified(Some(&token), &HeaderMap::new(), None, ours));
+        assert!(!csrf::verified(None, &HeaderMap::new(), Some(&masked), ours), "a session with no token verifies nothing");
+    }
+
+    #[test]
+    fn an_origin_header_must_name_this_deployments_origin_exactly() {
+        let token = csrf::new_token();
+        let masked = csrf::masked(&token);
+        let check = |origin: &str, expected: Option<&str>| csrf::verified(Some(&token), &header_map(&[("origin", origin)]), Some(&masked), expected);
+        assert!(check("http://localhost:3000", Some("http://localhost:3000")));
+        for foreign in ["https://localhost:3000", "http://localhost:3001", "http://localhost", "http://evil.example", "null", "", "localhost:3000"] {
+            assert!(!check(foreign, Some("http://localhost:3000")), "{foreign:?} is another origin: scheme, host and port all count");
+        }
+        assert!(!check("http://localhost:3000", None), "with no origin of our own to compare, a stated origin cannot match");
+        let mut not_text = HeaderMap::new();
+        not_text.insert("origin", axum::http::HeaderValue::from_bytes(b"http://localhost:3000\xff").unwrap());
+        assert!(!csrf::verified(Some(&token), &not_text, Some(&masked), Some("http://localhost:3000")), "a malformed header is a mismatch, not an absent header");
+    }
+
+    #[test]
+    fn the_deployments_origin_is_app_root_url_or_else_the_requests() {
+        let config = |pairs: &'static [(&'static str, &'static str)]| {
+            Config::from_env(&move |name| pairs.iter().find(|(k, _)| *k == name).map(|(_, v)| v.to_string()).or((name == "SECRET_KEY_BASE").then(|| "s".to_string()))).unwrap()
+        };
+        let host = header_map(&[("host", "bot.example.com:8080")]);
+        assert_eq!(config(&[]).origin(&host).as_deref(), Some("http://bot.example.com:8080"));
+        assert_eq!(config(&[("FORCE_SSL", "1")]).origin(&host).as_deref(), Some("https://bot.example.com:8080"));
+        assert_eq!(config(&[("APP_ROOT_URL", "https://my.example.org/")]).origin(&host).as_deref(), Some("https://my.example.org"));
+        assert_eq!(config(&[("APP_ROOT_URL", "http://127.0.0.1:3000/some/path")]).origin(&host).as_deref(), Some("http://127.0.0.1:3000"));
+        assert_eq!(config(&[]).origin(&HeaderMap::new()), None);
+
+        // Canonical, as a browser writes an Origin: lower case, and no port that is the scheme's default.
+        let of = |pairs, host_header: &str| config(pairs).origin(&header_map(&[("host", host_header)]));
+        assert_eq!(of(&[("APP_ROOT_URL", "https://Bot.Example.com:443/")], "x").as_deref(), Some("https://bot.example.com"));
+        assert_eq!(of(&[("APP_ROOT_URL", "HTTP://bot.example.com:80")], "x").as_deref(), Some("http://bot.example.com"));
+        assert_eq!(of(&[("APP_ROOT_URL", "https://bot.example.com:8443/x?y")], "x").as_deref(), Some("https://bot.example.com:8443"));
+        assert_eq!(of(&[("APP_ROOT_URL", "https://bot.example.com:80")], "x").as_deref(), Some("https://bot.example.com:80"), "80 is not https' default");
+        assert_eq!(of(&[("FORCE_SSL", "1")], "BOT.Example.com:443").as_deref(), Some("https://bot.example.com"));
+        assert_eq!(of(&[], "bot.example.com:80").as_deref(), Some("http://bot.example.com"));
+        assert_eq!(of(&[], "[::1]:80").as_deref(), Some("http://[::1]"));
+        assert!(config(&[("APP_ROOT_URL", "HTTPS://bot.example.com")]).force_ssl);
+        // What that buys: a deployment configured with the default port spelled out accepts its own pages.
+        let configured = config(&[("APP_ROOT_URL", "https://Bot.Example.com:443/")]);
+        let from_the_browser = header_map(&[("host", "10.0.0.7:3000"), ("origin", "https://bot.example.com")]);
+        assert!(csrf::same_origin(&from_the_browser, configured.origin(&from_the_browser).as_deref()));
+    }
+}

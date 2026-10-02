@@ -2,6 +2,7 @@
 //! JavaScript and CSS the Rails app ships. Rails is the oracle: tests/pages.rs renders every page in
 //! both and compares.
 pub mod assets;
+pub mod csrf;
 pub mod i18n;
 pub mod layout;
 pub mod locale;
@@ -11,6 +12,7 @@ pub mod timezone;
 
 use crate::crypto::{Cipher, EncryptionKeys};
 use crate::engine::{Clock, EngineError};
+use axum::body::Body;
 use axum::extract::{Request, State};
 use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
 use axum::response::{IntoResponse, Response};
@@ -237,8 +239,13 @@ struct Entry {
     routes: Router,
 }
 
+/// The largest form body `entry` reads.
+const FORM_LIMIT: usize = 1024 * 1024;
+
 /// Everything that has to happen before a route is chosen:
 /// - a static file is answered at once, as Rails' static file server sits in front of the app;
+/// - a form POST is parsed, and its `_method` field (how Turbo and `button_to` send PATCH, PUT and
+///   DELETE) replaces the method, as Rack::MethodOverride does;
 /// - the path is normalised and its locale prefix taken off, so one set of routes serves `/login`
 ///   and `/de/login`.
 async fn entry(State(entry): State<Entry>, request: Request) -> Response {
@@ -250,7 +257,23 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
         }
     }
     let query = parts.uri.query().map(|q| pairs(q.as_bytes())).unwrap_or_default();
-    let form = Vec::new();
+    let form_post = parts.method == Method::POST && header_text(&parts.headers, "content-type").is_some_and(|t| t.starts_with("application/x-www-form-urlencoded"));
+    let (form, body) = if form_post {
+        match axum::body::to_bytes(body, FORM_LIMIT).await {
+            Ok(bytes) => (pairs(&bytes), Body::empty()),
+            Err(_) => return (StatusCode::PAYLOAD_TOO_LARGE, "Form too large\n").into_response(),
+        }
+    } else {
+        (Vec::new(), body)
+    };
+    if let Some((_, method)) = form.iter().find(|(name, _)| name == "_method") {
+        match method.to_ascii_uppercase().as_str() {
+            "PATCH" => parts.method = Method::PATCH,
+            "PUT" => parts.method = Method::PUT,
+            "DELETE" => parts.method = Method::DELETE,
+            _ => {}
+        }
+    }
     let with_query = |path: &str| parts.uri.query().map_or_else(|| path.to_string(), |q| format!("{path}?{q}"));
     let fullpath = with_query(&full_path);
     let (path_locale, route_path) = locale::split(&full_path);

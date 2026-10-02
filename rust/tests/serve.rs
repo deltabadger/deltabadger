@@ -117,3 +117,21 @@ async fn static_files_and_locale_prefixes_are_handled_before_routing() {
         assert!(answer.status == 501 && answer.body.contains(named), "{path}: {} {}", answer.status, answer.body);
     }
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_form_post_can_carry_another_method() {
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    for (given, routed) in [("patch", "PATCH"), ("PUT", "PUT"), ("Delete", "DELETE"), ("get", "POST"), ("trace", "POST")] {
+        let answer = browser.send(&app, "POST", "/up", Some(&[("a", "1"), ("_method", given)]), web::Csrf::None, &[]).await;
+        assert!(answer.status == 501 && answer.body.contains(&format!("{routed} /up")), "_method={given}: {}", answer.body);
+    }
+    let plain = browser.send(&app, "POST", "/up", None, web::Csrf::None, &[("content-type", "application/json")]).await;
+    assert!(plain.body.contains("POST /up"), "only a form body is read: {}", plain.body);
+    let get = browser.send(&app, "GET", "/up?_method=delete", None, web::Csrf::None, &[]).await;
+    assert_eq!(get.status, 200, "the query string cannot change the method");
+    let huge = "x".repeat(1024 * 1024);
+    assert_eq!(browser.send(&app, "POST", "/up", Some(&[("field", &huge)]), web::Csrf::None, &[]).await.status, 413);
+}
