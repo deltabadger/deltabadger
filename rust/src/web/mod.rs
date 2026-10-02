@@ -7,6 +7,7 @@
 pub mod assets;
 pub mod auth;
 pub mod bots;
+pub mod cable;
 pub mod csrf;
 pub mod flash;
 pub mod headers;
@@ -34,6 +35,7 @@ use rusqlite::Connection;
 use sha2::Sha256;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex, PoisonError};
+use std::time::Duration;
 use tower::ServiceExt;
 
 #[derive(Debug)]
@@ -142,6 +144,12 @@ pub struct Inner {
     pub cipher: Cipher,
     pub clock: Arc<dyn Clock + Send + Sync>,
     pub limiter: rate_limit::Limiter,
+    pub hub: cable::Hub,
+    /// Action Cable's BEAT_INTERVAL: 3 seconds. Shorter in tests.
+    pub cable_ping: Duration,
+    /// How often an open /cable connection is asked whether its session would still open one: 60
+    /// seconds. Shorter in tests.
+    pub cable_recheck: Duration,
     /// The web side's own connection (the engine owns another).
     /// ponytail: one connection behind a mutex; a small pool if one user's requests ever queue.
     db: Mutex<Connection>,
@@ -160,7 +168,17 @@ impl App {
     pub fn new(config: Config, env: &dyn Fn(&str) -> Option<String>, primary: Connection, clock: Arc<dyn Clock + Send + Sync>) -> Result<Self, WebError> {
         let encryption = EncryptionKeys::resolve(env, &config.secret_key_base).map_err(|e| WebError::Config(format!("{e:?}")))?;
         let keys = Keys { session: derive(&config.secret_key_base, "deltabadger rust session v1")?, streams: derive(&config.secret_key_base, "deltabadger rust turbo streams v1")? };
-        Ok(Self(Arc::new(Inner { config, keys, cipher: Cipher::new(&encryption), clock, limiter: rate_limit::Limiter::default(), db: Mutex::new(primary) })))
+        Ok(Self(Arc::new(Inner {
+            config, keys, cipher: Cipher::new(&encryption), clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
+            cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60), db: Mutex::new(primary),
+        })))
+    }
+
+    /// For tests: the same app with other /cable intervals. Only before the app is shared.
+    pub fn with_cable_timing(self, ping: Duration, recheck: Duration) -> Result<Self, WebError> {
+        let mut inner = Arc::try_unwrap(self.0).map_err(|_| WebError::Config("the app is already shared".into()))?;
+        (inner.cable_ping, inner.cable_recheck) = (ping, recheck);
+        Ok(Self(Arc::new(inner)))
     }
 
     pub fn now(&self) -> DateTime<Utc> { self.clock.now() }
@@ -212,6 +230,7 @@ fn routes(app: App) -> Router {
         // Outside the pipeline, as in Rails: no session, no CSRF check, no rate limit.
         .route("/up", only(get(up)))
         .route("/csp-report", only(post(csp_report)))
+        .route("/cable", get(cable::connect))
         .with_state(app)
 }
 
