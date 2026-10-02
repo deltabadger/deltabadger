@@ -1,3 +1,4 @@
+#![cfg(unix)] // shells out to bin/rails and sets Unix file modes, so it only builds and runs on Unix
 use std::path::{Path, PathBuf};
 use std::process::Command;
 

@@ -1,0 +1,86 @@
+name: Rust engine
+
+on:
+  push:
+    paths:
+      - 'rust/**'
+      - '.github/workflows/rust.yml'
+      # Rails-side inputs the build and the drift tests read: build.rs and store.rs read db/migrate, codec.rs
+      # Gemfile.lock, venue_rules.rs hashes the ported Ruby (keep in sync with ruby_vectors.json "ported_sources").
+      - 'db/migrate/**'
+      - 'Gemfile.lock'
+      - 'app/models/client.rb'
+      - 'app/models/clients/alpaca.rb'
+      - 'app/models/exchange.rb'
+      - 'app/models/exchanges/alpaca.rb'
+      - 'app/models/exchanges/kraken.rb'
+  pull_request:
+    paths:
+      - 'rust/**'
+      - '.github/workflows/rust.yml'
+      # Rails-side inputs the build and the drift tests read: build.rs and store.rs read db/migrate, codec.rs
+      # Gemfile.lock, venue_rules.rs hashes the ported Ruby (keep in sync with ruby_vectors.json "ported_sources").
+      - 'db/migrate/**'
+      - 'Gemfile.lock'
+      - 'app/models/client.rb'
+      - 'app/models/clients/alpaca.rb'
+      - 'app/models/exchange.rb'
+      - 'app/models/exchanges/alpaca.rb'
+      - 'app/models/exchanges/kraken.rb'
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rust:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x86_64, os: ubuntu-24.04 }
+          - { name: linux-arm64, os: ubuntu-24.04-arm }
+          - { name: macos-arm64, os: macos-15 }
+          - { name: macos-x86_64, os: macos-15-intel }
+          - { name: windows-x86_64, os: windows-2025 }
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      # venue_rules hashes the ported Ruby files byte for byte; Windows runners default to CRLF checkouts.
+      - name: Check out LF line endings
+        shell: bash
+        working-directory: .
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Rust 1.94.0
+        shell: bash
+        run: |
+          rustup toolchain install 1.94.0 --profile minimal --component clippy
+          rustup default 1.94.0
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust
+          key: ${{ matrix.name }}
+
+      - run: cargo build --release --locked
+
+      - run: cargo clippy --all-targets --locked -- -D warnings
+
+      # Rails-free tests. Rule: test files that build a Rails install (via common::install,
+      # common::rails_install, bin/rails or script/rust/prepare_install.rb) are excluded;
+      # add new Rails-free test files here.
+      - name: Test
+        run: >
+          cargo test --locked --lib --bins
+          --test codec --test crypto --test enums
+          --test ruby --test schedule --test venue_fake
+          --test http --test http_proxy_env --test venue_rules --test alpaca_live
+          --test lease_portable
