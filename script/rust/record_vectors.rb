@@ -404,6 +404,38 @@ vectors['basket_ledgers'] = ledger_cases.map do |c|
   end
 end
 
+# The weights a basket is derived with: settings sliders (Floats), renormalised in Float with Ruby's compensated Array#sum,
+# written into bot_index_assets.target_allocation decimal(10,6), and read back as BigDecimal, then #to_f.
+bits = ->(f) { [f].pack('G').unpack1('H*') }
+composition_rng = Random.new(2_202_640)
+weight_sets = [{ 'VBTC' => 1.0 }, { 'VBTC' => 0.5, 'VETH' => 0.5 }, { 'VBTC' => 0.7, 'VETH' => 0.3 },
+               { 'VBTC' => 0.334, 'VETH' => 0.333, 'VSOL' => 0.333 }, { 'VBTC' => 0.5, 'VETH' => 0.3, 'VSOL' => 0.2 },
+               { 'VBTC' => 0.1, 'VETH' => 0.2, 'VSOL' => 0.3 }, { 'VBTC' => 0.6, 'VETH' => 0.4, 'VSOL' => 0.0 }] +
+              Array.new(12) { Bots::DcaMultiAsset.new.send(:normalize_allocations, %w[VBTC VETH VSOL].to_h { |m| [m, composition_rng.rand(1..97).to_f] }) }
+vectors['float_sum'] = (weight_sets.map(&:values) + [[0.1, 0.2, 0.3], [1.0e16, 1.0, -1.0e16], [0.333, 0.333, 0.334]])
+                       .map { |values| [values.map(&bits), bits.(values.sum)] }
+target_type = BotIndexAsset.type_for_attribute(:target_allocation)
+derived = weight_sets.flat_map { |w| (t = w.values.sum).positive? ? w.values.map { |v| v / t } : [] }
+vectors['decimal_10_6'] = (derived + [1.0 / 3, 2.0 / 3, 0.3333335, 0.1234565, 0.0000005, 0.9999995, 1.0e-7, 0.12345649999999999])
+                          .map { |f| [bits.(f), target_type.cast(f).to_s('F')] }
+composition_cases = [[weight_sets[0], []], [weight_sets[1], []], [weight_sets[1], %w[VETH]], [weight_sets[1], %w[VBTC VETH]],
+                     [weight_sets[2], []], [weight_sets[2], %w[VBTC]], [weight_sets[3], []], [weight_sets[3], %w[VSOL]],
+                     [weight_sets[4], []], [weight_sets[4], %w[VETH]], [weight_sets[5], []], [weight_sets[6], []]] +
+                    weight_sets.drop(7).flat_map { |w| [[w, []], [w, [w.keys.sample(random: composition_rng)]]] }
+vectors['basket_compositions'] = composition_cases.map do |weights, untradable|
+  with_basket(weights) do |bot, assets, alpaca|
+    failure = nil
+    if untradable.any?
+      untradable.each { |sym| Ticker.find_by!(exchange: alpaca, base_asset: assets.fetch(sym)).update_columns(trading_enabled: false) }
+      result = bot.refresh_composition
+      failure = result.errors.to_sentence if result.failure?
+    end
+    { 'weights' => weights, 'pairs' => pairs_of.(weights), 'exchange' => alpaca.name, 'untradable' => untradable, 'failure' => failure,
+      'index_rows' => bot.bot_index_assets.order(:id).map { |b| [assets.key(b.asset), b.target_allocation&.to_s('F'), b.in_index] },
+      'members' => bot.send(:buyable_allocations).map { |a| [assets.key(a[:asset]), bits.(a[:target_allocation].to_f)] } }
+  end
+end
+
 # The web UI (rust/src/web). Everything below is what Rails itself answers, so the Rust port is held to it.
 helpers = ApplicationController.helpers
 shown = ->(value) { ERB::Util.html_escape(value).to_s } # what a view prints: escaped unless html_safe

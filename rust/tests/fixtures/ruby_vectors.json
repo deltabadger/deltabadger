@@ -5,33 +5,33 @@
   "ciphertexts": {
     "short": {
       "plain": "kR4k3n-s3cr3t/+==",
-      "cipher": "{\"p\":\"R3wF3At8DSSmnFOF62I6zUs=\",\"h\":{\"iv\":\"4vXMysm3ooHr7qT3\",\"at\":\"0hIcOhsIFZ1Rj4EKTVWKHQ==\"}}"
+      "cipher": "{\"p\":\"W0bpD9+97ZAeOZpu7jCop2o=\",\"h\":{\"iv\":\"acdkk6AbyqPQAzr0\",\"at\":\"qT0VXjdMjf8CRcyImtkDmA==\"}}"
     },
     "unicode": {
       "plain": "zażółć 🦡",
-      "cipher": "{\"p\":\"UvoA0W1sZns/3KcEEQ+8\",\"h\":{\"iv\":\"GOOsBnwPsG/CCx1l\",\"at\":\"6w85DIN0ckdF6TDaHfbyvg==\"}}"
+      "cipher": "{\"p\":\"OfyG4leGt16Laj3stNSM\",\"h\":{\"iv\":\"YQ9EJHf6kyF6xxza\",\"at\":\"nFpxVw3cDJrq1ULZILUpkg==\"}}"
     },
     "compressed": {
       "plain": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASCMIIEvQIBADANBgkqhkiG9w0BAQEFAASC\n-----END PRIVATE KEY-----",
-      "cipher": "{\"p\":\"0gWHtqj/WKfLRSOfCMH6vnMKcjvnQ82ce5j9910UzSGsuM0cQgfk/PgpSTEwoJ8ZI/s2Lok/LwVlyy0aFAcQCnbw3oDA3vZ2058XmSU=\",\"h\":{\"iv\":\"v0uLlg8OEQ10eXtG\",\"at\":\"rrw7qinpblpanZNbC7PbfQ==\",\"c\":true}}"
+      "cipher": "{\"p\":\"u93qLr3/YkMeSATOXfSkR6Kg4GlpKAzRcppe50qC9ff1TG4G7wq/K2VTzLdZ9Xx42XBXb7adLD1KHGzIDnjt0nvt7zgHrgDfBOeipVk=\",\"h\":{\"iv\":\"NrX8Spxl7g829BiU\",\"at\":\"QR9mJmUE20K9ZoOgheAI2Q==\",\"c\":true}}"
     },
     "otp_seed": {
-      "plain": "S4DCR72FSFVD4GHFVUCU3UZZ3JEZTQJE",
-      "cipher": "{\"p\":\"Vhzt65gKVy9nHQhN9HHb0/MVXA3iZWuV4aeUdFtAqFs=\",\"h\":{\"iv\":\"L822QizDZZYROIKO\",\"at\":\"lGwZTKEmeYcwFYJYYWeusg==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
+      "plain": "SM6FIHQRRH52CSFIQBKGLDJKQRKZFOCW",
+      "cipher": "{\"p\":\"ah3oUog2AHro1VuCLDz19I459IAObofP/Ep+wKuFfkM=\",\"h\":{\"iv\":\"IvGN5u0VvMUePVMq\",\"at\":\"YLS65sIrp2GjSwK+LsM7TQ==\",\"e\":\"QVNDSUktOEJJVA==\"}}"
     },
     "app_config": {
       "plain": "{\"engine\":\"rust\"}",
-      "cipher": "{\"p\":\"2bCUwhgevDGOfI15+uH18rE=\",\"h\":{\"iv\":\"YWyXo0/dtgajoXjf\",\"at\":\"DHu3v99a01DGol494biT4g==\"}}"
+      "cipher": "{\"p\":\"fkrfn3I+foPtYfmbdBYuqJ4=\",\"h\":{\"iv\":\"6Z5Rw55t7UPR7Hjh\",\"at\":\"Z+JBuEw2LnrY/oAcIqD7pA==\"}}"
     }
   },
   "bcrypt": [
     {
       "password": "correct horse ☃",
-      "hash": "$2a$11$Vt6mUIyruKhdpDl64ROem..VbTHFvdnH.wAK3AwlKSzk4odEtTyJe"
+      "hash": "$2a$11$qgfUqUdwGZh1.u0iyqI4o.cVDLnC.PmWaVUa5Y9JfF9w5h3aXpX3e"
     },
     {
       "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-      "hash": "$2a$11$5bNMey/cLlkvfyuhovdolOw/pu7LLKsk9e99ZGm9a0vfQeybgQ.d6"
+      "hash": "$2a$11$DZNjypZdU7LNw4p2G1Z9huHXJxoSzIcK7EI5tePZ2hJCwuxKkYvbO"
     }
   ],
   "totp": {
@@ -51002,6 +51002,2584 @@
       "reserved": {
         "VSOL": "0.05664488"
       }
+    }
+  ],
+  "float_sum": [
+    [
+      [
+        "3ff0000000000000"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fe0000000000000",
+        "3fe0000000000000"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fe6666666666666",
+        "3fd3333333333333"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fd5604189374bc7",
+        "3fd54fdf3b645a1d",
+        "3fd54fdf3b645a1d"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fe0000000000000",
+        "3fd3333333333333",
+        "3fc999999999999a"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fb999999999999a",
+        "3fc999999999999a",
+        "3fd3333333333333"
+      ],
+      "3fe3333333333333"
+    ],
+    [
+      [
+        "3fe3333333333333",
+        "3fd999999999999a",
+        "0000000000000000"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fb4bc6a7ef9db23",
+        "3fd0f5c28f5c28f6",
+        "3fe4ed916872b021"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fdd1eb851eb851f",
+        "3facac083126e979",
+        "3fdf4bc6a7ef9db2"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fe14fdf3b645a1d",
+        "3fc8d4fdf3b645a2",
+        "3fd0f5c28f5c28f6"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fe5f3b645a1cac1",
+        "3fc0c49ba5e353f8",
+        "3fc76c8b43958106"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fde147ae147ae14",
+        "3fd0a3d70a3d70a4",
+        "3fd147ae147ae148"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fd2b020c49ba5e3",
+        "3fd7ced916872b02",
+        "3fd5810624dd2f1b"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fe449ba5e353f7d",
+        "3f9cac083126e979",
+        "3fd5a1cac083126f"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fdced916872b021",
+        "3fd15810624dd2f2",
+        "3fd1ba5e353f7cee"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fe2d916872b020c",
+        "3fa0624dd2f1a9fc",
+        "3fd84189374bc6a8"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fc72b020c49ba5e",
+        "3fdae147ae147ae1",
+        "3fd989374bc6a7f0"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fb53f7ced916873",
+        "3fea4dd2f1a9fbe7",
+        "3fb851eb851eb852"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fd49ba5e353f7cf",
+        "3fe0b4395810624e",
+        "3fc3f7ced916872b"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fb999999999999a",
+        "3fc999999999999a",
+        "3fd3333333333333"
+      ],
+      "3fe3333333333333"
+    ],
+    [
+      [
+        "4341c37937e08000",
+        "3ff0000000000000",
+        "c341c37937e08000"
+      ],
+      "3ff0000000000000"
+    ],
+    [
+      [
+        "3fd54fdf3b645a1d",
+        "3fd54fdf3b645a1d",
+        "3fd5604189374bc7"
+      ],
+      "3ff0000000000000"
+    ]
+  ],
+  "decimal_10_6": [
+    [
+      "3ff0000000000000",
+      "1.0"
+    ],
+    [
+      "3fe0000000000000",
+      "0.5"
+    ],
+    [
+      "3fe0000000000000",
+      "0.5"
+    ],
+    [
+      "3fe6666666666666",
+      "0.7"
+    ],
+    [
+      "3fd3333333333333",
+      "0.3"
+    ],
+    [
+      "3fd5604189374bc7",
+      "0.334"
+    ],
+    [
+      "3fd54fdf3b645a1d",
+      "0.333"
+    ],
+    [
+      "3fd54fdf3b645a1d",
+      "0.333"
+    ],
+    [
+      "3fe0000000000000",
+      "0.5"
+    ],
+    [
+      "3fd3333333333333",
+      "0.3"
+    ],
+    [
+      "3fc999999999999a",
+      "0.2"
+    ],
+    [
+      "3fc5555555555556",
+      "0.166667"
+    ],
+    [
+      "3fd5555555555556",
+      "0.333333"
+    ],
+    [
+      "3fe0000000000000",
+      "0.5"
+    ],
+    [
+      "3fe3333333333333",
+      "0.6"
+    ],
+    [
+      "3fd999999999999a",
+      "0.4"
+    ],
+    [
+      "0000000000000000",
+      "0.0"
+    ],
+    [
+      "3fb4bc6a7ef9db23",
+      "0.081"
+    ],
+    [
+      "3fd0f5c28f5c28f6",
+      "0.265"
+    ],
+    [
+      "3fe4ed916872b021",
+      "0.654"
+    ],
+    [
+      "3fdd1eb851eb851f",
+      "0.455"
+    ],
+    [
+      "3facac083126e979",
+      "0.056"
+    ],
+    [
+      "3fdf4bc6a7ef9db2",
+      "0.489"
+    ],
+    [
+      "3fe14fdf3b645a1d",
+      "0.541"
+    ],
+    [
+      "3fc8d4fdf3b645a2",
+      "0.194"
+    ],
+    [
+      "3fd0f5c28f5c28f6",
+      "0.265"
+    ],
+    [
+      "3fe5f3b645a1cac1",
+      "0.686"
+    ],
+    [
+      "3fc0c49ba5e353f8",
+      "0.131"
+    ],
+    [
+      "3fc76c8b43958106",
+      "0.183"
+    ],
+    [
+      "3fde147ae147ae14",
+      "0.47"
+    ],
+    [
+      "3fd0a3d70a3d70a4",
+      "0.26"
+    ],
+    [
+      "3fd147ae147ae148",
+      "0.27"
+    ],
+    [
+      "3fd2b020c49ba5e3",
+      "0.292"
+    ],
+    [
+      "3fd7ced916872b02",
+      "0.372"
+    ],
+    [
+      "3fd5810624dd2f1b",
+      "0.336"
+    ],
+    [
+      "3fe449ba5e353f7d",
+      "0.634"
+    ],
+    [
+      "3f9cac083126e979",
+      "0.028"
+    ],
+    [
+      "3fd5a1cac083126f",
+      "0.338"
+    ],
+    [
+      "3fdced916872b021",
+      "0.452"
+    ],
+    [
+      "3fd15810624dd2f2",
+      "0.271"
+    ],
+    [
+      "3fd1ba5e353f7cee",
+      "0.277"
+    ],
+    [
+      "3fe2d916872b020c",
+      "0.589"
+    ],
+    [
+      "3fa0624dd2f1a9fc",
+      "0.032"
+    ],
+    [
+      "3fd84189374bc6a8",
+      "0.379"
+    ],
+    [
+      "3fc72b020c49ba5e",
+      "0.181"
+    ],
+    [
+      "3fdae147ae147ae1",
+      "0.42"
+    ],
+    [
+      "3fd989374bc6a7f0",
+      "0.399"
+    ],
+    [
+      "3fb53f7ced916873",
+      "0.083"
+    ],
+    [
+      "3fea4dd2f1a9fbe7",
+      "0.822"
+    ],
+    [
+      "3fb851eb851eb852",
+      "0.095"
+    ],
+    [
+      "3fd49ba5e353f7cf",
+      "0.322"
+    ],
+    [
+      "3fe0b4395810624e",
+      "0.522"
+    ],
+    [
+      "3fc3f7ced916872b",
+      "0.156"
+    ],
+    [
+      "3fd5555555555555",
+      "0.333333"
+    ],
+    [
+      "3fe5555555555555",
+      "0.666667"
+    ],
+    [
+      "3fd55556084a515d",
+      "0.333334"
+    ],
+    [
+      "3fbf9ad85dfa871a",
+      "0.123457"
+    ],
+    [
+      "3ea0c6f7a0b5ed8d",
+      "0.000001"
+    ],
+    [
+      "3feffffef39085f5",
+      "1.0"
+    ],
+    [
+      "3e7ad7f29abcaf48",
+      "0.0"
+    ],
+    [
+      "3fbf9ad85dfa871a",
+      "0.123457"
+    ]
+  ],
+  "basket_compositions": [
+    {
+      "weights": {
+        "VBTC": 1.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "1.0",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3ff0000000000000"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.5",
+          true
+        ],
+        [
+          "VETH",
+          "0.5",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe0000000000000"
+        ],
+        [
+          "VETH",
+          "3fe0000000000000"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VETH"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "1.0",
+          true
+        ],
+        [
+          "VETH",
+          "0.5",
+          false
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3ff0000000000000"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.5
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VBTC",
+        "VETH"
+      ],
+      "failure": "None of the portfolio's weighted assets trade on Alpaca",
+      "index_rows": [
+        [
+          "VBTC",
+          "0.5",
+          true
+        ],
+        [
+          "VETH",
+          "0.5",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe0000000000000"
+        ],
+        [
+          "VETH",
+          "3fe0000000000000"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.7,
+        "VETH": 0.3
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.7",
+          true
+        ],
+        [
+          "VETH",
+          "0.3",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe6666666666666"
+        ],
+        [
+          "VETH",
+          "3fd3333333333333"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.7,
+        "VETH": 0.3
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VBTC"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.7",
+          false
+        ],
+        [
+          "VETH",
+          "1.0",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VETH",
+          "3ff0000000000000"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.334",
+          true
+        ],
+        [
+          "VETH",
+          "0.333",
+          true
+        ],
+        [
+          "VSOL",
+          "0.333",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fd5604189374bc7"
+        ],
+        [
+          "VETH",
+          "3fd54fdf3b645a1d"
+        ],
+        [
+          "VSOL",
+          "3fd54fdf3b645a1d"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.334,
+        "VETH": 0.333,
+        "VSOL": 0.333
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VSOL"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.50075",
+          true
+        ],
+        [
+          "VETH",
+          "0.49925",
+          true
+        ],
+        [
+          "VSOL",
+          "0.333",
+          false
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe00624dd2f1aa0"
+        ],
+        [
+          "VETH",
+          "3fdff3b645a1cac1"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.3,
+        "VSOL": 0.2
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.5",
+          true
+        ],
+        [
+          "VETH",
+          "0.3",
+          true
+        ],
+        [
+          "VSOL",
+          "0.2",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe0000000000000"
+        ],
+        [
+          "VETH",
+          "3fd3333333333333"
+        ],
+        [
+          "VSOL",
+          "3fc999999999999a"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.5,
+        "VETH": 0.3,
+        "VSOL": 0.2
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VETH"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.714286",
+          true
+        ],
+        [
+          "VETH",
+          "0.3",
+          false
+        ],
+        [
+          "VSOL",
+          "0.285714",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe6db6e503fb374"
+        ],
+        [
+          "VSOL",
+          "3fd249235f809918"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.1,
+        "VETH": 0.2,
+        "VSOL": 0.3
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.166667",
+          true
+        ],
+        [
+          "VETH",
+          "0.333333",
+          true
+        ],
+        [
+          "VSOL",
+          "0.5",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VSOL",
+          "3fe0000000000000"
+        ],
+        [
+          "VETH",
+          "3fd55553ef6b5d46"
+        ],
+        [
+          "VBTC",
+          "3fc5555821294574"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.6,
+        "VETH": 0.4,
+        "VSOL": 0.0
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.6",
+          true
+        ],
+        [
+          "VETH",
+          "0.4",
+          true
+        ],
+        [
+          "VSOL",
+          "0.0",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe3333333333333"
+        ],
+        [
+          "VETH",
+          "3fd999999999999a"
+        ],
+        [
+          "VSOL",
+          "0000000000000000"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.081,
+        "VETH": 0.265,
+        "VSOL": 0.654
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.081",
+          true
+        ],
+        [
+          "VETH",
+          "0.265",
+          true
+        ],
+        [
+          "VSOL",
+          "0.654",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VSOL",
+          "3fe4ed916872b021"
+        ],
+        [
+          "VETH",
+          "3fd0f5c28f5c28f6"
+        ],
+        [
+          "VBTC",
+          "3fb4bc6a7ef9db23"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.081,
+        "VETH": 0.265,
+        "VSOL": 0.654
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VBTC"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.081",
+          false
+        ],
+        [
+          "VETH",
+          "0.288357",
+          true
+        ],
+        [
+          "VSOL",
+          "0.711643",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VSOL",
+          "3fe6c5c78a6dacac"
+        ],
+        [
+          "VETH",
+          "3fd27470eb24a6a8"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.455,
+        "VETH": 0.056,
+        "VSOL": 0.489
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.455",
+          true
+        ],
+        [
+          "VETH",
+          "0.056",
+          true
+        ],
+        [
+          "VSOL",
+          "0.489",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VSOL",
+          "3fdf4bc6a7ef9db2"
+        ],
+        [
+          "VBTC",
+          "3fdd1eb851eb851f"
+        ],
+        [
+          "VETH",
+          "3facac083126e979"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.455,
+        "VETH": 0.056,
+        "VSOL": 0.489
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VSOL"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.890411",
+          true
+        ],
+        [
+          "VETH",
+          "0.109589",
+          true
+        ],
+        [
+          "VSOL",
+          "0.489",
+          false
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fec7e3f359ff4fd"
+        ],
+        [
+          "VETH",
+          "3fbc0e0653005815"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.541,
+        "VETH": 0.194,
+        "VSOL": 0.265
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.541",
+          true
+        ],
+        [
+          "VETH",
+          "0.194",
+          true
+        ],
+        [
+          "VSOL",
+          "0.265",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe14fdf3b645a1d"
+        ],
+        [
+          "VSOL",
+          "3fd0f5c28f5c28f6"
+        ],
+        [
+          "VETH",
+          "3fc8d4fdf3b645a2"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.541,
+        "VETH": 0.194,
+        "VSOL": 0.265
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VBTC"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.541",
+          false
+        ],
+        [
+          "VETH",
+          "0.422658",
+          true
+        ],
+        [
+          "VSOL",
+          "0.577342",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VSOL",
+          "3fe27995ee136e72"
+        ],
+        [
+          "VETH",
+          "3fdb0cd423d9231c"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.686,
+        "VETH": 0.131,
+        "VSOL": 0.183
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.686",
+          true
+        ],
+        [
+          "VETH",
+          "0.131",
+          true
+        ],
+        [
+          "VSOL",
+          "0.183",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe5f3b645a1cac1"
+        ],
+        [
+          "VSOL",
+          "3fc76c8b43958106"
+        ],
+        [
+          "VETH",
+          "3fc0c49ba5e353f8"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.686,
+        "VETH": 0.131,
+        "VSOL": 0.183
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VBTC"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.686",
+          false
+        ],
+        [
+          "VETH",
+          "0.417197",
+          true
+        ],
+        [
+          "VSOL",
+          "0.582803",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VSOL",
+          "3fe2a6527a20578e"
+        ],
+        [
+          "VETH",
+          "3fdab35b0bbf50e3"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.47,
+        "VETH": 0.26,
+        "VSOL": 0.27
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.47",
+          true
+        ],
+        [
+          "VETH",
+          "0.26",
+          true
+        ],
+        [
+          "VSOL",
+          "0.27",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fde147ae147ae14"
+        ],
+        [
+          "VSOL",
+          "3fd147ae147ae148"
+        ],
+        [
+          "VETH",
+          "3fd0a3d70a3d70a4"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.47,
+        "VETH": 0.26,
+        "VSOL": 0.27
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VETH"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.635135",
+          true
+        ],
+        [
+          "VETH",
+          "0.26",
+          false
+        ],
+        [
+          "VSOL",
+          "0.364865",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe45306a2b17050"
+        ],
+        [
+          "VSOL",
+          "3fd759f2ba9d1f60"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.292,
+        "VETH": 0.372,
+        "VSOL": 0.336
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.292",
+          true
+        ],
+        [
+          "VETH",
+          "0.372",
+          true
+        ],
+        [
+          "VSOL",
+          "0.336",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VETH",
+          "3fd7ced916872b02"
+        ],
+        [
+          "VSOL",
+          "3fd5810624dd2f1b"
+        ],
+        [
+          "VBTC",
+          "3fd2b020c49ba5e3"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.292,
+        "VETH": 0.372,
+        "VSOL": 0.336
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VETH"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.464968",
+          true
+        ],
+        [
+          "VETH",
+          "0.372",
+          false
+        ],
+        [
+          "VSOL",
+          "0.535032",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VSOL",
+          "3fe11efb6dca07f6"
+        ],
+        [
+          "VBTC",
+          "3fddc209246bf013"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.634,
+        "VETH": 0.028,
+        "VSOL": 0.338
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.634",
+          true
+        ],
+        [
+          "VETH",
+          "0.028",
+          true
+        ],
+        [
+          "VSOL",
+          "0.338",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe449ba5e353f7d"
+        ],
+        [
+          "VSOL",
+          "3fd5a1cac083126f"
+        ],
+        [
+          "VETH",
+          "3f9cac083126e979"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.634,
+        "VETH": 0.028,
+        "VSOL": 0.338
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VSOL"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.957704",
+          true
+        ],
+        [
+          "VETH",
+          "0.042296",
+          true
+        ],
+        [
+          "VSOL",
+          "0.338",
+          false
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3feea582dbe7f2c3"
+        ],
+        [
+          "VETH",
+          "3fa5a7d24180d3d0"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.452,
+        "VETH": 0.271,
+        "VSOL": 0.277
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.452",
+          true
+        ],
+        [
+          "VETH",
+          "0.271",
+          true
+        ],
+        [
+          "VSOL",
+          "0.277",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fdced916872b021"
+        ],
+        [
+          "VSOL",
+          "3fd1ba5e353f7cee"
+        ],
+        [
+          "VETH",
+          "3fd15810624dd2f2"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.452,
+        "VETH": 0.271,
+        "VSOL": 0.277
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VBTC"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.452",
+          false
+        ],
+        [
+          "VETH",
+          "0.494526",
+          true
+        ],
+        [
+          "VSOL",
+          "0.505474",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VSOL",
+          "3fe02cd7cf5f4e44"
+        ],
+        [
+          "VETH",
+          "3fdfa65061416378"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.589,
+        "VETH": 0.032,
+        "VSOL": 0.379
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.589",
+          true
+        ],
+        [
+          "VETH",
+          "0.032",
+          true
+        ],
+        [
+          "VSOL",
+          "0.379",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe2d916872b020c"
+        ],
+        [
+          "VSOL",
+          "3fd84189374bc6a8"
+        ],
+        [
+          "VETH",
+          "3fa0624dd2f1a9fc"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.589,
+        "VETH": 0.032,
+        "VSOL": 0.379
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VBTC"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.589",
+          false
+        ],
+        [
+          "VETH",
+          "0.077859",
+          true
+        ],
+        [
+          "VSOL",
+          "0.922141",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VSOL",
+          "3fed822dd7a99fa1"
+        ],
+        [
+          "VETH",
+          "3fb3ee9142b302f7"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.181,
+        "VETH": 0.42,
+        "VSOL": 0.399
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.181",
+          true
+        ],
+        [
+          "VETH",
+          "0.42",
+          true
+        ],
+        [
+          "VSOL",
+          "0.399",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VETH",
+          "3fdae147ae147ae1"
+        ],
+        [
+          "VSOL",
+          "3fd989374bc6a7f0"
+        ],
+        [
+          "VBTC",
+          "3fc72b020c49ba5e"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.181,
+        "VETH": 0.42,
+        "VSOL": 0.399
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VETH"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.312069",
+          true
+        ],
+        [
+          "VETH",
+          "0.42",
+          false
+        ],
+        [
+          "VSOL",
+          "0.687931",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VSOL",
+          "3fe60387df5cf249"
+        ],
+        [
+          "VBTC",
+          "3fd3f8f041461b6d"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.083,
+        "VETH": 0.822,
+        "VSOL": 0.095
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.083",
+          true
+        ],
+        [
+          "VETH",
+          "0.822",
+          true
+        ],
+        [
+          "VSOL",
+          "0.095",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VETH",
+          "3fea4dd2f1a9fbe7"
+        ],
+        [
+          "VSOL",
+          "3fb851eb851eb852"
+        ],
+        [
+          "VBTC",
+          "3fb53f7ced916873"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.083,
+        "VETH": 0.822,
+        "VSOL": 0.095
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VSOL"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.091713",
+          true
+        ],
+        [
+          "VETH",
+          "0.908287",
+          true
+        ],
+        [
+          "VSOL",
+          "0.095",
+          false
+        ]
+      ],
+      "members": [
+        [
+          "VETH",
+          "3fed10afe60c38f3"
+        ],
+        [
+          "VBTC",
+          "3fb77a80cf9e3865"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.322,
+        "VETH": 0.522,
+        "VSOL": 0.156
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.322",
+          true
+        ],
+        [
+          "VETH",
+          "0.522",
+          true
+        ],
+        [
+          "VSOL",
+          "0.156",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VETH",
+          "3fe0b4395810624e"
+        ],
+        [
+          "VBTC",
+          "3fd49ba5e353f7cf"
+        ],
+        [
+          "VSOL",
+          "3fc3f7ced916872b"
+        ]
+      ]
+    },
+    {
+      "weights": {
+        "VBTC": 0.322,
+        "VETH": 0.522,
+        "VSOL": 0.156
+      },
+      "pairs": {
+        "VBTC": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.000027",
+          "minimum_quote_size": "1"
+        },
+        "VETH": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 2,
+          "minimum_base_size": "0.0005",
+          "minimum_quote_size": "1"
+        },
+        "VSOL": {
+          "base_decimals": 9,
+          "quote_decimals": 2,
+          "price_decimals": 3,
+          "minimum_base_size": "0.01",
+          "minimum_quote_size": "1"
+        }
+      },
+      "exchange": "Alpaca",
+      "untradable": [
+        "VETH"
+      ],
+      "failure": null,
+      "index_rows": [
+        [
+          "VBTC",
+          "0.67364",
+          true
+        ],
+        [
+          "VETH",
+          "0.522",
+          false
+        ],
+        [
+          "VSOL",
+          "0.32636",
+          true
+        ]
+      ],
+      "members": [
+        [
+          "VBTC",
+          "3fe58e757928e0ca"
+        ],
+        [
+          "VSOL",
+          "3fd4e3150dae3e6c"
+        ]
+      ]
     }
   ],
   "i18n": {

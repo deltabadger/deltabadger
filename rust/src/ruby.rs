@@ -153,3 +153,39 @@ pub fn to_sentence(items: &[String]) -> String {
 pub fn inspect(items: &[String]) -> String {
     format!("[{}]", items.iter().map(|s| format!("{s:?}")).collect::<Vec<_>>().join(", "))
 }
+
+/// Array#sum over Floats (array.c ary_sum): Kahan-Babuska compensated summation from Integer 0. Not a left fold:
+/// [0.1, 0.2, 0.3].sum is 0.6 in Ruby. Pinned by the float_sum vectors.
+pub fn float_sum(xs: &[f64]) -> f64 {
+    let (mut f, mut c) = (0.0f64, 0.0f64);
+    for &x in xs {
+        let t = f + x;
+        if f.abs() >= x.abs() { c += (f - t) + x; } else { c += (x - t) + f; }
+        f = t;
+    }
+    f + c
+}
+
+/// Float#round(ndigits) for 0 < ndigits <= 14 (float.c rb_float_round with round_half_up): `round(x * 10**n)`, raised by one
+/// when the halfway point divided back still lies at or below x, then divided by 10**n. A value already exact at this many
+/// digits (float_round_overflow) is returned unchanged, and a positive one too small for them (float_round_underflow) is 0.
+pub fn float_round(x: f64, ndigits: i32) -> f64 {
+    assert!((1..=14).contains(&ndigits), "Float#round({ndigits}) takes Ruby's rational path, not ported");
+    if x == 0.0 || !x.is_finite() || x.is_subnormal() { return x; }
+    let binexp = (((x.to_bits() >> 52) & 0x7ff) as i32) - 1022; // frexp's exponent: x = m × 2^binexp, 0.5 <= |m| < 1
+    if ndigits >= 17 - if binexp > 0 { binexp / 4 } else { binexp / 3 - 1 } { return x; }
+    if x > 0.0 && ndigits < -(if binexp > 0 { binexp / 3 + 1 } else { binexp / 4 }) { return 0.0; }
+    let s = 10f64.powi(ndigits);
+    let mut f = (x * s).round();
+    if x > 0.0 { if (f + 0.5) / s <= x { f += 1.0; } } else if (f - 0.5) / s >= x { f -= 1.0; }
+    f / s
+}
+
+/// ActiveModel::Type::Decimal#cast_value for a Float, on a column with precision and scale such as decimal(10,6):
+/// `BigDecimal(value.round(scale), float_precision)` (dtoa's correctly rounded significant digits, at most Float::DIG + 1),
+/// then `round(scale)` again, half up. The same cast reads a REAL back from SQLite. Pinned by the decimal_10_6 vectors.
+pub fn decimal_column(f: f64, precision: usize, scale: i32) -> Result<BigDec, CodecError> {
+    let rounded = float_round(f, scale);
+    if !rounded.is_finite() { return Err(CodecError::Decimal(format!("{f:e} is not finite"))); }
+    Ok(BigDec::parse(&format!("{:.*e}", precision.clamp(1, 16) - 1, rounded))?.round(scale as i64))
+}
