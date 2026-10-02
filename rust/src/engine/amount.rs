@@ -76,70 +76,74 @@ pub struct OrderPlan {
 #[derive(Debug)]
 pub enum Sizing { Nothing, Ignored(OrderPlan), BelowMinimum(OrderPlan), Place(OrderPlan), ZeroPrice { decimals: i64 } }
 
-pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, logic: MinimumLogic) -> Sizing {
-    if x.is_zero() { return Sizing::Nothing; }
+/// `Err` only for a ticker precision outside `ruby::MAX_SCALE`, which eligibility refuses before any tick.
+pub fn size(bot: &Bot, ticker: &Ticker, x: &BigDec, reference: &BigDec, logic: MinimumLogic) -> Result<Sizing, EngineError> {
+    if x.is_zero() { return Ok(Sizing::Nothing); }
+    let (base_decimals, quote_decimals, price_decimals) = ticker.scales().map_err(EngineError::Data)?;
     let distance = bot.limit_distance();
     // Bot::OrderSetter#order_price: a limit buy goes below the last trade, floored; a market buy sizes at the ask.
     let price = match &distance {
-        Some(d) => (reference * &(&BigDec::one() - d)).floor(ticker.price_decimals),
+        Some(d) => (reference * &(&BigDec::one() - d)).floor(price_decimals),
         None => reference.clone(),
     };
-    let Some(amount) = x.div(&price) else { return Sizing::ZeroPrice { decimals: ticker.price_decimals } };
+    let Some(amount) = x.div(&price) else { return Ok(Sizing::ZeroPrice { decimals: ticker.price_decimals }) };
     let (quote_type, below) = match logic {
         // Exchanges::Alpaca: :quote. Only the quote amount floored to quote_decimals is compared, with minimum_quote_size;
         // minimum_base_size is never checked for a buy (a limit qty under it is sent, and Alpaca rejects it).
-        MinimumLogic::Quote => (true, x.floor(ticker.quote_decimals) < ticker.minimum_quote_size),
+        MinimumLogic::Quote => (true, x.floor(quote_decimals) < ticker.minimum_quote_size),
         // Kraken minimum_amount_logic: anything but a market buy is :base.
-        MinimumLogic::KrakenBaseOrQuote if distance.is_some() => (false, amount.floor(ticker.base_decimals) < ticker.minimum_base_size),
+        MinimumLogic::KrakenBaseOrQuote if distance.is_some() => (false, amount.floor(base_decimals) < ticker.minimum_base_size),
         MinimumLogic::KrakenBaseOrQuote => {
             // :base_or_quote (Bot::OrderSetter#calculate_best_amount_info). Divisions are BigDecimal divisions.
-            let minimum_base_size_in_quote = (&ticker.minimum_base_size * &price).ceil(ticker.quote_decimals);
+            let minimum_base_size_in_quote = (&ticker.minimum_base_size * &price).ceil(quote_decimals);
             let minimum_quote_amount = minimum_base_size_in_quote.max(ticker.minimum_quote_size.clone());
             let minimum_quote_amount_in_base = minimum_quote_amount.div(&price).expect("price is non-zero");
-            let minimum_quote_size_in_base = ticker.minimum_quote_size.div(&price).expect("price is non-zero").ceil(ticker.base_decimals);
+            let minimum_quote_size_in_base = ticker.minimum_quote_size.div(&price).expect("price is non-zero").ceil(base_decimals);
             let minimum_base_amount = minimum_quote_size_in_base.max(ticker.minimum_base_size.clone());
             let quote = minimum_quote_amount_in_base < minimum_base_amount;
-            let below = if quote { x.floor(ticker.quote_decimals) < minimum_quote_amount } else { amount.floor(ticker.base_decimals) < minimum_base_amount };
+            let below = if quote { x.floor(quote_decimals) < minimum_quote_amount } else { amount.floor(base_decimals) < minimum_base_amount };
             (quote, below)
         }
     };
-    let volume = if quote_type { x.floor(ticker.quote_decimals) } else { amount.floor(ticker.base_decimals) };
+    let volume = if quote_type { x.floor(quote_decimals) } else { amount.floor(base_decimals) };
     let plan = OrderPlan { ticker: ticker.clone(), limit: distance.is_some(), price, amount: amount.clone(), quote_amount: x.clone(), quote_type, volume };
-    if amount.is_zero() { return Sizing::Ignored(plan); } // set_orders checks this before the minimums
-    if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) }
+    if amount.is_zero() { return Ok(Sizing::Ignored(plan)); } // set_orders checks this before the minimums
+    Ok(if below { Sizing::BelowMinimum(plan) } else { Sizing::Place(plan) })
 }
 
 /// Kernel#format('%.Nf', BigDecimal) for a value ALREADY floored to `places`: the value goes through Float, then is
 /// formatted at N places. Only for such input does this equal Ruby (0 differences in 32,000 cases; pinned by the
 /// alpaca_sizing vectors). On unfloored input they differ: format("%.4f", BigDecimal("0.00265")) is "0.0026" in Ruby
 /// 4.0.7, "0.0027" here. Callers floor first, as Exchanges::Alpaca does.
-pub fn printf(d: &BigDec, places: i64) -> String {
+pub fn printf(d: &BigDec, places: u8) -> String {
     debug_assert!(d.floor(places) == *d, "printf needs a value already floored to {places} places");
     float_format(d, places)
 }
 
 /// The raw Float formatter behind `printf`, without the precondition. Exposed so a test can pin the unfloored difference.
-pub fn float_format(d: &BigDec, places: i64) -> String { format!("{:.*}", places.max(0) as usize, d.to_f()) }
+pub fn float_format(d: &BigDec, places: u8) -> String { format!("{:.*}", usize::from(places), d.to_f()) }
 
 impl OrderPlan {
-    pub fn to_order(&self, cl_ord_id: String, deadline: DateTime<Utc>, wire: WireFormat) -> NewOrder {
+    /// `Err` only for a ticker precision outside `ruby::MAX_SCALE` (then `size` refused the plan already).
+    pub fn to_order(&self, cl_ord_id: String, deadline: DateTime<Utc>, wire: WireFormat) -> Result<NewOrder, String> {
         let t = &self.ticker;
+        let (base_decimals, quote_decimals, price_decimals) = t.scales()?;
         let (kind, volume, quote_volume) = match wire {
             // Exchanges::Kraken#set_limit_order floors the price again; floor is idempotent.
             WireFormat::Kraken => (
-                if self.limit { OrderKind::Limit { price: self.price.floor(t.price_decimals).to_s_f() } } else { OrderKind::Market },
+                if self.limit { OrderKind::Limit { price: self.price.floor(price_decimals).to_s_f() } } else { OrderKind::Market },
                 self.volume.to_s_f(), self.quote_type),
             // Exchanges::Alpaca#set_limit_order: qty = floor(quote, quote_decimals) / price, floored to base_decimals.
             WireFormat::Alpaca if self.limit => {
-                let price = self.price.floor(t.price_decimals);
-                let qty = self.volume.div(&price).map(|q| q.floor(t.base_decimals)).unwrap_or_else(BigDec::zero);
-                (OrderKind::Limit { price: printf(&price, t.price_decimals) }, printf(&qty, t.base_decimals), false)
+                let price = self.price.floor(price_decimals);
+                let qty = self.volume.div(&price).map(|q| q.floor(base_decimals)).unwrap_or_else(BigDec::zero);
+                (OrderKind::Limit { price: printf(&price, price_decimals) }, printf(&qty, base_decimals), false)
             }
             // #set_market_order: a :quote amount is `notional` at quote_decimals; a :base one would be `qty`.
             WireFormat::Alpaca => (OrderKind::Market,
-                printf(&self.volume, if self.quote_type { t.quote_decimals } else { t.base_decimals }), self.quote_type),
+                printf(&self.volume, if self.quote_type { quote_decimals } else { base_decimals }), self.quote_type),
         };
-        NewOrder { pair: t.ticker.clone(), kind, volume, quote_volume, cl_ord_id, deadline }
+        Ok(NewOrder { pair: t.ticker.clone(), kind, volume, quote_volume, cl_ord_id, deadline })
     }
     /// Bot::OrderSetter#order_log_details: BigDecimals serialise as `to_s('F')` strings.
     pub fn log_details(&self) -> Value {

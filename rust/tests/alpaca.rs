@@ -41,7 +41,7 @@ fn every_recorded_rails_order_parse_is_reproduced() {
     assert_eq!(cases.len(), 39);
     for c in cases {
         let (body, want) = (&c[0], &c[1]);
-        let s = alpaca::parse_order("O1", body);
+        let s = alpaca::parse_order("O1", body).unwrap();
         let status = match s.status { OrderStatus::Open => "open", OrderStatus::Closed => "closed", OrderStatus::Cancelled => "cancelled",
                                       OrderStatus::Failed => "failed", OrderStatus::Unknown => "unknown" };
         assert_eq!(status, want["status"], "status {c}");

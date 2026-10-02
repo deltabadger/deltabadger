@@ -25,11 +25,13 @@ pub const PLACEMENT_SAFE_TRANSIENT_ERRORS: [&str; 2] = ["Timestamp for this requ
 pub struct Intent { pub cl_ord_id: String, pub deadline: DateTime<Utc>, pub at: DateTime<Utc>, pub plan: OrderPlan }
 
 impl Intent {
-    fn to_json(&self) -> Value {
+    /// `Err` when a value would not read back through `from_json` (BigDec::to_persisted): such an intent is never written.
+    fn to_json(&self) -> Result<Value, EngineError> {
         let p = &self.plan;
-        json!({ "cl_ord_id": self.cl_ord_id, "deadline": self.deadline.to_rfc3339(), "at": self.at.to_rfc3339(), "ticker_id": p.ticker.id,
-                "limit": p.limit, "price": p.price.to_s_f(), "amount": p.amount.to_s_f(), "quote_amount": p.quote_amount.to_s_f(),
-                "quote_type": p.quote_type, "volume": p.volume.to_s_f() })
+        let d = |name: &str, v: &BigDec| v.to_persisted().map_err(|e| EngineError::Data(format!("the order's {name} {e:?}; not placed")));
+        Ok(json!({ "cl_ord_id": self.cl_ord_id, "deadline": self.deadline.to_rfc3339(), "at": self.at.to_rfc3339(), "ticker_id": p.ticker.id,
+                   "limit": p.limit, "price": d("price", &p.price)?, "amount": d("amount", &p.amount)?, "quote_amount": d("quote_amount", &p.quote_amount)?,
+                   "quote_type": p.quote_type, "volume": d("volume", &p.volume)? }))
     }
     fn from_json(c: &Connection, bot: &Bot, v: &Value) -> Result<Self, EngineError> {
         let bad = || EngineError::Data(format!("rust_placement {v}"));
@@ -81,7 +83,12 @@ pub fn begin(c: &Connection, bot: &Bot, plan: &OrderPlan, clock: &dyn Clock) -> 
     }
     let now = clock.now(); // the deadline must be in the future when Kraken receives the order
     let intent = Intent { cl_ord_id: uuid::Uuid::new_v4().to_string(), deadline: now + Duration::seconds(DEADLINE_SECONDS), at: now, plan: plan.clone() };
-    set_intent(&tx, bot.id, Some(&intent.to_json()))?;
+    // Before anything is committed or sent: an intent recovery or `resolve-placement` could not read back would strand the
+    // bot after a real order. Such a plan is refused as Rails fails a StandardError raised inside execute_action
+    // (execution_failed, no retry; the next checkpoint sizes afresh). Dropping `tx` rolls back.
+    let json = intent.to_json()?;
+    Intent::from_json(&tx, bot, &json)?;
+    set_intent(&tx, bot.id, Some(&json))?;
     tx.commit()?; // durable before the send
     Ok(intent)
 }
@@ -94,7 +101,11 @@ pub async fn send<V: Venue>(venue: &V, intent: &Intent, clock: &dyn Clock) -> Se
         return Sent::NotSent(format!("the order intent from {} is older than {SEND_WINDOW_SECONDS} s; not sent", intent.at.to_rfc3339()));
     }
     let rules = venue.rules();
-    match venue.add_order(&intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, rules.wire)).await {
+    let order = match intent.plan.to_order(intent.cl_ord_id.clone(), intent.deadline, rules.wire) {
+        Ok(o) => o,
+        Err(e) => return Sent::NotSent(format!("{e}; not sent")),
+    };
+    match venue.add_order(&order).await {
         Ok(txid) => Sent::Accepted(txid),
         Err(VenueError::Rejected(e)) if rules.add_outcome_unknown(&e) => Sent::Ambiguous(crate::ruby::to_sentence(&e)),
         Err(VenueError::Rejected(e)) => Sent::Rejected(e),

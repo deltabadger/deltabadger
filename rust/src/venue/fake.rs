@@ -33,7 +33,10 @@ pub struct FakeVenue { s: Rc<RefCell<State>> }
 const ASSET_MAP: [(&str, &str); 10] = [("ZUSD", "USD"), ("ZEUR", "EUR"), ("ZGBP", "GBP"), ("ZJPY", "JPY"), ("ZCHF", "CHF"),
     ("ZCAD", "CAD"), ("ZAUD", "AUD"), ("XXBT", "XBT"), ("XETH", "ETH"), ("XXDG", "XDG")];
 
-fn dec(v: &Value) -> Option<BigDec> { v.as_str().and_then(|s| BigDec::parse(s).ok()) }
+/// A Kraken decimal: absent or null is None (Ruby's nil). Anything present must be a finite decimal within BigDec's
+/// bounds, or the whole answer is unreadable — never a zero price, fill or balance. DIVERGES from Ruby on purpose
+/// (ruby::json_to_d): Rails' `.to_d` reads "garbage" as 0 and "NaN" as NaN.
+fn dec(v: &Value) -> Result<Option<BigDec>, VenueError> { crate::ruby::json_to_d(v).map_err(|_| unreadable()) }
 
 /// A raw Kraken QueryOrders/ClosedOrders order, parsed as Exchanges::Kraken#parse_order_data does.
 pub fn kraken_order(txid: &str, o: &Value) -> OrderState {
@@ -52,14 +55,14 @@ fn parse_order(txid: &str, o: &Value) -> Result<OrderState, VenueError> {
     }
     let viqc = o["oflags"].as_str().is_some_and(|f| f.split(',').any(|x| x == "viqc"));
     let limit = o["descr"]["ordertype"] == "limit";
-    let vol = dec(&o["vol"]);
-    let mut price = dec(&o["price"]).unwrap_or_else(BigDec::zero);
-    if price.is_zero() && limit { price = dec(&o["descr"]["price"]).unwrap_or_else(BigDec::zero); }
+    let vol = dec(&o["vol"])?;
+    let mut price = dec(&o["price"])?.unwrap_or_else(BigDec::zero);
+    if price.is_zero() && limit { price = dec(&o["descr"]["price"])?.unwrap_or_else(BigDec::zero); }
     Ok(OrderState {
         txid: txid.into(),
         status,
         price: (!price.is_zero()).then_some(price), amount: if viqc { None } else { vol.clone() }, quote_amount: if viqc { vol } else { None },
-        amount_exec: dec(&o["vol_exec"]).unwrap_or_else(BigDec::zero), quote_amount_exec: dec(&o["cost"]).unwrap_or_else(BigDec::zero), limit,
+        amount_exec: dec(&o["vol_exec"])?.unwrap_or_else(BigDec::zero), quote_amount_exec: dec(&o["cost"])?.unwrap_or_else(BigDec::zero), limit,
         sell: o["descr"]["type"] == "sell",
     })
 }
@@ -129,7 +132,7 @@ impl Venue for FakeVenue {
         check(&body)?;
         let (_, t) = body["result"].as_object().and_then(|m| m.iter().next()).ok_or_else(unreadable)?;
         let (key, label) = match side { PriceSide::Ask => ("a", "ask"), PriceSide::Last => ("c", "last") };
-        let p = dec(&t[key][0]).unwrap_or_else(BigDec::zero);
+        let p = dec(&t[key][0])?.unwrap_or_else(BigDec::zero);
         // Exchanges::Kraken#get_ask_price / #get_last_price raise on a zero book, naming the pair (kraken.rb:225, :255).
         if p.is_zero() { return Err(VenueError::Rejected(vec![format!("Wrong {label} price for {}: {}", ticker.ticker, p.to_s_f())])); }
         Ok(p)
@@ -230,7 +233,7 @@ impl Venue for FakeVenue {
         let mut by: Vec<(String, BigDec, BigDec, bool, bool)> = vec![];
         for trade in trades.iter() {
             let Some(o) = trade["ordertxid"].as_str().filter(|o| txids.iter().any(|t| t == o)) else { continue };
-            let (vol, cost) = (dec(&trade["vol"]).unwrap_or_else(BigDec::zero), dec(&trade["cost"]).unwrap_or_else(BigDec::zero));
+            let (vol, cost) = (dec(&trade["vol"])?.unwrap_or_else(BigDec::zero), dec(&trade["cost"])?.unwrap_or_else(BigDec::zero));
             match by.iter_mut().find(|(t, ..)| t == o) {
                 Some(e) => { e.1 = &e.1 + &vol; e.2 = &e.2 + &cost; }
                 None => by.push((o.to_string(), vol, cost, trade["ordertype"] == "limit", trade["type"] == "sell")),
@@ -251,7 +254,7 @@ impl Venue for FakeVenue {
             let head = code.split('.').next().unwrap_or(code);
             let name = ASSET_MAP.iter().find(|(k, _)| *k == head).map(|(_, v)| *v).unwrap_or(head);
             if name == asset_symbol {
-                free = &dec(&b["balance"]).unwrap_or_else(BigDec::zero) - &dec(&b["hold_trade"]).unwrap_or_else(BigDec::zero);
+                free = &dec(&b["balance"])?.unwrap_or_else(BigDec::zero) - &dec(&b["hold_trade"])?.unwrap_or_else(BigDec::zero);
             }
         }
         Ok(free)

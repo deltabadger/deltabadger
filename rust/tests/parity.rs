@@ -40,6 +40,11 @@ const DIVERGENCES: [&str; 1] = ["add_service_unavailable"];
 fn intent_kept(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value) -> Result<(), String> {
     let failed_rows = |out: &serde_json::Value| out["changes"]["transactions"].as_array().unwrap().iter().filter(|t| t["after"]["status"] == 1).count();
     if failed_rows(rails_out) == 0 { return Err(format!("Rails no longer writes a failed row: drop the listed divergence\n  rails: {rails_out}")); }
+    rust_kept_the_intent(dir, rust_out)
+}
+
+/// One AddOrder sent, no order row, the bot retrying with its intent kept and one placement_ambiguous log.
+fn rust_kept_the_intent(dir: &Path, rust_out: &serde_json::Value) -> Result<(), String> {
     if rust_out["sent"].as_array().map(Vec::len) != Some(1) { return Err(format!("Rust must send exactly one AddOrder: {rust_out}")); }
     if !rust_out["changes"]["transactions"].as_array().unwrap().is_empty() { return Err(format!("Rust wrote an order row: {rust_out}")); }
     let c = rusqlite::Connection::open(dir.join("production.sqlite3")).unwrap();
@@ -50,6 +55,47 @@ fn intent_kept(dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json:
     Ok(())
 }
 
+/// Both grids' `-unreadable_{price,placed,poll}_{nan,infinity,garbage}` variants: a venue number that is "NaN", "Infinity" or
+/// "garbage", in a price, in the placement's answer (Kraken: the placed order's first poll) and in a fill poll. Rust
+/// refuses every one as an unreadable answer (ruby::json_to_d): a price fails the tick with no order (retried); the Alpaca
+/// placement answer keeps the intent for recovery; a poll changes no row and records no fill. What Rails did, recorded
+/// from the grid (Kraken parses with honeymaker's strict BigDecimal(), Alpaca with String#to_d):
+/// - price, garbage: both venues read 0 and raise their own "Wrong ask/last price … 0.0": retried, no order (only the
+///   message differs from Rust's).
+/// - price, NaN or Infinity: both venues accept the non-finite price and sizing raises "comparison of BigDecimal with 0
+///   failed": execution_failed, no order.
+/// - placed, Kraken (the placed order's first poll): garbage raises in the follow-up job (the row stays waiting); NaN closes
+///   the order with amount_exec written as NULL (NaN); Infinity closes it with amount_exec +Inf.
+/// - placed, Alpaca (the POST answer): all three are ignored and the order is recorded as submitted.
+/// - poll, Kraken (the sweep): garbage raises (execution_failed, no order); NaN closes the waiting order with a NULL
+///   amount_exec and, where an amount is still owed, the same tick places another order; Infinity closes it with +Inf
+///   (and some ticks then fail "comparison of BigDecimal with 0 failed").
+/// - poll, Alpaca (the follow-up): garbage closes the order with a ZERO fill (amount_exec and quote_amount_exec 0, whose
+///   amount the next tick buys again); NaN closes it with NULL fills; Infinity closes it with +Inf fills.
+const UNREADABLE: &str = "-unreadable_";
+
+fn unreadable_number_refused(name: &str, dir: &Path, rails_out: &serde_json::Value, rust_out: &serde_json::Value, alpaca: bool) -> Result<(), String> {
+    if rails_out == rust_out { return Err("Rails now decides as Rust: drop the listed divergence".into()); }
+    let sent = rust_out["sent"].as_array().map_or(0, Vec::len);
+    let rows = rust_out["changes"]["transactions"].as_array().unwrap();
+    let logged_unreadable = rust_out["changes"]["bot_activity_logs"].to_string().contains("unreadable");
+    let ok = if name.contains("-unreadable_price_") {
+        sent == 0 && rows.is_empty() && logged_unreadable
+    } else if name.contains("-unreadable_placed_") && alpaca {
+        return rust_kept_the_intent(dir, rust_out);
+    } else if name.contains("-unreadable_placed_") {
+        // The order was placed and recorded at placement; its unreadable first poll records nothing on it.
+        sent == 1 && rows.len() == 1 && rows[0]["after"]["external_status"] == 0
+            && rows[0]["after"]["amount_exec"].is_null() && rows[0]["after"]["quote_amount_exec"].is_null()
+            && rust_out["poll_error"].as_str().is_some_and(|e| e.contains("unreadable"))
+    } else if alpaca {
+        sent == 0 && rows.is_empty() && rust_out["poll_error"].as_str().is_some_and(|e| e.contains("unreadable"))
+    } else {
+        sent == 0 && rows.is_empty() && logged_unreadable
+    };
+    if ok { Ok(()) } else { Err(format!("Rust must refuse the number as unreadable: {rust_out}")) }
+}
+
 #[tokio::test(flavor = "current_thread")]
 async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
     let rails_root = tempfile::tempdir().unwrap();
@@ -57,7 +103,7 @@ async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
     rails(&["grid", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 216, "the grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 297, "the grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -68,6 +114,10 @@ async fn rails_and_rust_decide_identically_across_the_scenario_grid() {
         let rust_out = deltabadger::parity::decide(&rust_root.path().join(&name)).await.unwrap();
         if DIVERGENCES.iter().any(|v| name.ends_with(&format!("-{v}"))) {
             if let Err(e) = intent_kept(&rust_root.path().join(&name), &rails_out, &rust_out) { failures.push(format!("{name} (listed divergence): {e}")); }
+            continue;
+        }
+        if name.contains(UNREADABLE) {
+            if let Err(e) = unreadable_number_refused(&name, &rust_root.path().join(&name), &rails_out, &rust_out, false) { failures.push(format!("{name} (listed divergence): {e}")); }
             continue;
         }
         if rails_out != rust_out { failures.push(format!("{name}\n  rails: {rails_out}\n  rust:  {rust_out}")); }
@@ -173,7 +223,7 @@ async fn rails_and_rust_decide_identically_across_the_alpaca_grid() {
     rails(&["grid-alpaca", rails_root.path().to_str().unwrap()]);
     let mut dirs: Vec<PathBuf> = std::fs::read_dir(rails_root.path()).unwrap().map(|e| e.unwrap().path()).filter(|p| p.is_dir()).collect();
     dirs.sort();
-    assert_eq!(dirs.len(), 288, "the Alpaca grid has {} scenarios", dirs.len());
+    assert_eq!(dirs.len(), 369, "the Alpaca grid has {} scenarios", dirs.len());
     for d in &dirs { copy_dir(d, &rust_root.path().join(d.file_name().unwrap())); } // before Rails writes to its copies
     rails(&["record", rails_root.path().to_str().unwrap()]);
 
@@ -183,7 +233,9 @@ async fn rails_and_rust_decide_identically_across_the_alpaca_grid() {
         let rails_out: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(d.join("rails.json")).unwrap()).unwrap();
         let rust_dir = rust_root.path().join(&name);
         let rust_out = deltabadger::parity::decide(&rust_dir).await.unwrap();
-        let listed = if name.ends_with("-untradable_clock_closed") {
+        let listed = if name.contains(UNREADABLE) {
+            Some(unreadable_number_refused(&name, &rust_dir, &rails_out, &rust_out, true))
+        } else if name.ends_with("-untradable_clock_closed") {
             Some(crypto_ignores_the_stock_clock(&rust_dir, &rails_out, &rust_out))
         } else if ALPACA_DIVERGENCES.iter().any(|v| name.ends_with(&format!("-{v}"))) {
             Some(intent_kept(&rust_dir, &rails_out, &rust_out))

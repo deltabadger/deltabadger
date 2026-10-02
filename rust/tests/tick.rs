@@ -250,3 +250,17 @@ async fn a_web_json_set_landing_while_addorder_awaits_survives_the_ticks_own_tra
     assert!(t.get("last_failure_kind").is_none(), "the engine's own write landed too (cleared, then compacted away)");
     assert!(t.get("last_action_job_at").is_some());
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_unreadable_balance_number_after_a_placement_fails_the_tick_without_a_retry_or_a_funds_notice() {
+    for bad in ["NaN", "Infinity", "garbage", "1e41"] {
+        let (_d, o, id) = setup(BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+        let v = FakeVenue::new().ticker("XXBTZEUR", "49990.1", "50000.0", "49995.0").balance_body("ZEUR", bad, "0").next_add(AddOutcome::Accept("OTX-1".into()));
+        let out = run(&o, &v, id, "2026-09-01T10:00:01Z").await;
+        assert!(matches!(out, TickOutcome::Rescheduled), "{bad}: {out:?}");
+        assert_eq!(v.sent().len(), 1, "{bad}: placed once, never replayed");
+        let details: String = one(&o, "SELECT details FROM bot_activity_logs WHERE event = 'execution_failed'");
+        assert!(details.contains("unreadable"), "{bad}: {details}");
+        assert_eq!(one::<i64>(&o, "SELECT count(*) FROM bots WHERE last_end_of_funds_notification IS NOT NULL"), 0, "{bad}: not a zero balance");
+    }
+}

@@ -217,7 +217,7 @@ async fn a_stop_during_recovery_starts_no_new_placement() {
     // An intent left by a crash before its send; at 10:05 the lookup proves it absent and the bot would tick next.
     let bot = model::load_bot(&e.primary, id).unwrap();
     let ticker = model::ticker_for(&e.primary, &bot).unwrap().unwrap();
-    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), KRAKEN.minimum_logic) else { panic!() };
+    let Sizing::Place(plan) = amount::size(&bot, &ticker, &BigDec::from_i64(60), &BigDec::from_i64(50_000), KRAKEN.minimum_logic).unwrap() else { panic!() };
     placement::begin(&e.primary, &bot, &plan, &at("2026-09-01T10:00:00.5Z")).unwrap();
     let stop = e.stop_handle();
     let _ = v.clone().on_lookup(move || stop.request()); // SIGTERM lands while the venue answers the lookup
