@@ -60,8 +60,10 @@ impl Shutdown {
         self.flag.store(true, Ordering::SeqCst);
         self.wake.notify_one(); // a permit is stored if the loop is not asleep yet
     }
-    /// Requests the stop on SIGTERM (`docker stop`) or SIGINT. The handlers are registered before this returns, so a
-    /// signal that arrives afterwards is never lost. Call inside the runtime.
+    /// Requests the stop on SIGTERM (`docker stop`) or SIGINT; off Unix, on Ctrl-C (the only signal Windows delivers).
+    /// The handlers are registered before this returns, so a signal that arrives afterwards is never lost. Call inside
+    /// the runtime.
+    #[cfg(unix)]
     pub fn on_signals(&self) {
         use tokio::signal::unix::{signal, SignalKind};
         let mut term = signal(SignalKind::terminate()).expect("a SIGTERM handler");
@@ -69,6 +71,16 @@ impl Shutdown {
         let me = self.clone();
         tokio::spawn(async move {
             tokio::select! { _ = term.recv() => {}, _ = int.recv() => {} }
+            me.request();
+        });
+    }
+    #[cfg(not(unix))]
+    pub fn on_signals(&self) {
+        // The same as `tokio::signal::ctrl_c()`, but this registers the console handler now, not on first poll.
+        let mut ctrl_c = tokio::signal::windows::ctrl_c().expect("a Ctrl-C handler");
+        let me = self.clone();
+        tokio::spawn(async move {
+            ctrl_c.recv().await;
             me.request();
         });
     }
