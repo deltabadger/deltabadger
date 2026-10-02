@@ -400,3 +400,15 @@ mod going_back {
         assert_eq!(back(&plain, "https://bot.example/bots"), None);
     }
 }
+
+mod sign_in_limits {
+    use super::common;
+    use deltabadger::web::auth;
+
+    #[test]
+    fn the_lock_is_devises() {
+        let recorded = &common::vectors()["devise"];
+        assert_eq!(auth::MAXIMUM_ATTEMPTS, recorded["maximum_attempts"].as_i64().unwrap());
+        assert_eq!(auth::UNLOCK_IN_SECONDS, recorded["unlock_in"].as_i64().unwrap());
+    }
+}

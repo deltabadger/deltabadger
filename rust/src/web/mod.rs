@@ -6,6 +6,7 @@
 //! then the routes, wrapped by `pipeline` (session, rate limits, who is signed in, CSRF, response headers).
 pub mod assets;
 pub mod auth;
+pub mod bots;
 pub mod csrf;
 pub mod flash;
 pub mod headers;
@@ -199,7 +200,9 @@ fn only(route: MethodRouter<App>) -> MethodRouter<App> {
 
 fn routes(app: App) -> Router {
     Router::new()
-        .route("/login", only(get(auth::new)))
+        .route("/", only(get(bots::home)))
+        .route("/login", only(get(auth::new).post(auth::create)))
+        .route("/bots", only(get(bots::index)))
         .fallback(layout::not_ported)
         .layer(middleware::from_fn_with_state(app.clone(), pipeline))
         // Outside the pipeline, as in Rails: no session, no CSRF check, no rate limit.
@@ -352,12 +355,19 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
     let before = session::cookie_value(request.headers()).and_then(|value| session::open(&app.keys.session, &value, now)).unwrap_or_default();
     let session = session::Session::new(before.clone());
 
-    let current = auth::Current::SignedOut;
+    let current = match auth::current_user(&app, &session, now).await {
+        Ok(current) => current,
+        Err(error) => return error.into_response(),
+    };
     let signed_in = matches!(current, auth::Current::SignedIn(_));
     let context = layout::Ctx::new(app.clone(), params, session.clone(), current, nonce.clone(), now, &request);
 
-    let response = if !matches!(*request.method(), Method::GET | Method::HEAD) && !context.csrf_verified(request.headers()) {
+    let response = if let Some(early) = auth::prepended_filters(&context) {
+        early
+    } else if !matches!(*request.method(), Method::GET | Method::HEAD) && !context.csrf_verified(request.headers()) {
         layout::unverified_request(&context, request.headers())
+    } else if let Some(inactive) = auth::inactive(&context) {
+        inactive
     } else {
         request.extensions_mut().insert(context);
         next.run(request).await

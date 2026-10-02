@@ -116,7 +116,15 @@ const PRIMARY: &[TableContract] = &[
         ("id", "integer", true), ("user_id", "bigint", true), ("exchange_id", "bigint", true), ("key", "varchar", false),
         ("secret", "varchar", false), ("passphrase", "varchar", false), ("status", "integer", true), ("key_type", "integer", true),
     ], unique_indexes: &[] },
-    TableContract { name: "users", columns: &[("id", "integer", true), ("wash_sale_enabled", "boolean", false), ("admin", "boolean", true)], unique_indexes: &[] },
+    // The web UI's sign-in (src/web/auth.rs) reads and writes the Devise columns; its layouts read the preferences.
+    TableContract { name: "users", columns: &[
+        ("id", "integer", true), ("wash_sale_enabled", "boolean", false), ("admin", "boolean", true), ("email", "varchar", true),
+        ("encrypted_password", "varchar", true), ("locale", "varchar", false), ("time_zone", "varchar", true),
+        ("display_currency", "varchar", true), ("hide_balances", "boolean", true), ("confirmed_at", "datetime", false),
+        ("failed_attempts", "integer", true), ("locked_at", "datetime(6)", false), ("otp_module", "integer", false),
+        ("otp_secret_key", "varchar", false), ("last_otp_at", "datetime", false), ("remember_created_at", "datetime", false),
+        ("updated_at", "datetime", true),
+    ], unique_indexes: &[&["email"]] },
     TableContract { name: "bot_index_assets", columns: &[("bot_id", "integer", true)], unique_indexes: &[] },
     TableContract { name: "rules", columns: &[("id", "integer", true), ("status", "integer", true)], unique_indexes: &[] },
     TableContract { name: "bot_activity_logs", columns: &[
