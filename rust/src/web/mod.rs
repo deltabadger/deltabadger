@@ -71,7 +71,7 @@ impl IntoResponse for WebError {
 }
 
 /// config/application.rb `env_boolean`: the spellings an operator may have written; anything else is no answer.
-fn env_boolean(value: Option<String>) -> Option<bool> {
+pub(crate) fn env_boolean(value: Option<String>) -> Option<bool> {
     match value?.trim().to_ascii_lowercase().as_str() {
         "1" | "t" | "true" | "y" | "yes" | "on" => Some(true),
         "0" | "f" | "false" | "n" | "no" | "off" => Some(false),

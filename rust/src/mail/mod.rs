@@ -6,6 +6,7 @@
 //!
 //! One rule is stricter than the gem's: no value that becomes a header may hold a control character (a line break in
 //! a display name or a label would otherwise write a header of its own). Such a message is refused, not repaired.
+pub mod render;
 pub mod smtp;
 
 use base64::Engine as _;

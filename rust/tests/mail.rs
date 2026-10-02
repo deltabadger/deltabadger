@@ -181,3 +181,51 @@ fn settings_never_print_their_password() {
     assert!(!printed.contains("s3cret-pw") && !printed.contains("alice"), "{printed}");
     // smtp::Env holds the password too and cannot be printed at all: it has no Debug.
 }
+
+// ---- The views (mail::render) ----
+use deltabadger::mail::render;
+use deltabadger::web::{i18n, locale};
+
+#[test]
+fn errors_are_humanised_as_exchange_humanize_error_does() {
+    let cases = vectors()["humanize"].as_array().unwrap().clone();
+    assert_eq!(cases.len(), 120);
+    for c in &cases {
+        let s = |k: &str| c[k].as_str().unwrap();
+        assert_eq!(render::humanize_error(s("exchange_type"), s("name"), s("locale"), s("message")), s("out"), "{} {} {:?}", s("exchange_type"), s("locale"), s("message"));
+    }
+}
+
+#[test]
+fn the_root_url_is_what_production_rb_derives() {
+    let cases = vectors()["urls"].as_array().unwrap().clone();
+    assert_eq!(cases.len(), 10);
+    for c in &cases { assert_eq!(render::Urls::from_env(&env_of(c)).root, c["root"].as_str().unwrap(), "{}", c["env"]); }
+}
+
+#[test]
+fn a_stored_locale_rails_does_not_know_is_english_and_a_missing_one_is_the_default() {
+    // A listed divergence: Rails raises I18n::InvalidLocale for the first and sends nothing.
+    assert_eq!((render::user_locale(Some("xx")), render::user_locale(None), render::user_locale(Some("pl"))), ("en", "en", "pl"));
+}
+
+#[test]
+fn every_text_a_mail_uses_exists_in_every_locale() {
+    let keys = ["mailer.greeting_name", "test_mailer.test_email.subject", "test_mailer.test_email.body",
+                "bot_alerts_mailer.end_of_funds.subject", "bot_alerts_mailer.end_of_funds.template_html",
+                "bot_alerts_mailer.notify_about_error.subject", "bot_alerts_mailer.notify_about_error.template_html",
+                "bot_alerts_mailer.stopped_by_error.subject", "bot_alerts_mailer.stopped_by_error.template_html",
+                "bot_alerts_mailer.stopped_by_amount_limit.subject", "bot_alerts_mailer.stopped_by_amount_limit.template_html",
+                "devise.mailer.confirmation_instructions.subject", "devise.mailer.confirmation_instructions.template_html",
+                "devise.mailer.confirmation_instructions.confirm_button", "devise.mailer.reset_password_instructions.subject",
+                "devise.mailer.reset_password_instructions.template_html", "devise.mailer.reset_password_instructions.change_password_button",
+                "devise.mailer.reset_password_instructions.ignore_mail_html", "devise.mailer.reset_password_instructions.wont_change_html",
+                "devise.mailer.email_already_taken.subject", "devise.mailer.email_already_taken.message",
+                "devise.mailer.email_already_taken.reset_password_message", "devise.mailer.email_already_taken.reset_password_button",
+                "errors.exchange.regional_restriction", "errors.exchange.transient_nonce", "errors.exchange.transient_unavailable",
+                "errors.exchange.insufficient_funds", "errors.exchange.invalid_key", "errors.exchange.permission_denied",
+                "errors.exchange.restricted", "errors.exchange.rate_limited"];
+    let table: std::collections::HashSet<&str> = i18n::all().iter().map(|(k, _)| *k).collect();
+    let missing: Vec<String> = locale::LOCALES.iter().flat_map(|l| keys.iter().map(move |k| format!("{l}.{k}"))).filter(|k| !table.contains(k.as_str())).collect();
+    assert!(missing.is_empty(), "a mail in these locales would fall back to English, which the parity grid does not cover: {missing:?}");
+}
