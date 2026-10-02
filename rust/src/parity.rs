@@ -103,11 +103,13 @@ pub async fn decide(dir: &Path) -> Result<Value, EngineError> {
                           "funds_notified": funds_notified, "poll_error": poll_error }));
     }
     let venue = FakeVenue::from_script(&scenario["script"]);
-    if let Some(e) = play(&o, &venue, &scenario, bot_id, start).await? {
-        return Err(EngineError::Data(format!("follow-up poll of {}: {e:?}", scenario["poll"])));
-    }
+    let poll = play(&o, &venue, &scenario, bot_id, start).await?;
     let sent: Vec<Value> = venue.sent().iter().map(wire).collect();
-    Ok(json!({ "sent": sent, "changes": diff(&before, &snapshot(&o.primary)?) }))
+    let mut out = json!({ "sent": sent, "changes": diff(&before, &snapshot(&o.primary)?) });
+    // A failed Kraken follow-up is reported, as the Rails harness reports one that raised (only the listed unreadable-number
+    // scenarios fail a Kraken poll; anywhere else the key's presence alone makes the outputs differ).
+    if let Some(e) = poll { out["poll_error"] = json!(format!("{e:?}")); }
+    Ok(out)
 }
 
 /// The scenario's tick (with Rails' retries) and the follow-up poll Rails enqueues for one order; returns how that poll failed.

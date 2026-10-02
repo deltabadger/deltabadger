@@ -246,6 +246,18 @@ module Decisions
                                                               'minimum_base_size' => '1', 'minimum_quote_size' => '5' },
                              'http' => { '/0/public/Ticker' => [ticker_body('9.9', '10.1', '10.0')] } }
       }
+      # Listed divergences (rust/tests/parity.rs UNREADABLE): a number Rust cannot read in a price, in the placed order's
+      # first poll (Kraken's AddOrder answer carries no number either side reads), and in the sweep's poll of a waiting order.
+      { 'nan' => 'NaN', 'infinity' => 'Infinity', 'garbage' => 'garbage' }.each do |label, bad|
+        variants["unreadable_price_#{label}"] = { 'at' => after.(1), 'http' => { '/0/public/Ticker' => [ticker_body('49990.1', bad, bad)] } }
+        variants["unreadable_placed_#{label}"] = { 'at' => after.(1), 'poll' => 'OTX-1',
+          'http' => ->(mode) { { '/0/private/QueryOrders' => [query_body('OTX-1' => raw_order(status: 'closed', vol: '0.0012', vol_exec: bad, cost: '59.99', price: '49991.7',
+                                                                                             viqc: false, limit_price: mode == 'limit' ? '49870.3' : '0'))] } } }
+        variants["unreadable_poll_#{label}"] = { 'at' => after.(1),
+          'transactions' => [{ 'status' => 0, 'external_status' => 0, 'external_id' => 'OMKT-8', 'order_type' => 0, 'quote_amount' => '60',
+                               'price' => '50000', 'created_at' => '2026-09-01 10:00:01' }],
+          'http' => { '/0/private/QueryOrders' => [query_body('OMKT-8' => raw_order(status: 'closed', vol: '60', vol_exec: bad, cost: '60', price: '50010.5', viqc: true))] } }
+      end
       modes.flat_map do |mode, settings|
         variants.map do |name, v|
           v_http = v.fetch('http', {})
@@ -375,6 +387,17 @@ module Decisions
             { 'GET /v2/orders/OTX-1' => [ok(filled)] }
           end }
       }
+      # Listed divergences (rust/tests/parity.rs UNREADABLE): a number Rust cannot read in a price, in the answer to the
+      # placement, and in the follow-up poll of a waiting order.
+      { 'nan' => 'NaN', 'infinity' => 'Infinity', 'garbage' => 'garbage' }.each do |label, bad|
+        variants["unreadable_price_#{label}"] = { 'at' => after.(1), 'http' => { 'GET /v1beta3/crypto/us/latest/quotes' => [quotes(bad)],
+                                                                                 'GET /v1beta3/crypto/us/latest/trades' => [trades(bad)] } }
+        variants["unreadable_placed_#{label}"] = { 'at' => after.(1),
+          'http' => { 'POST /v2/orders' => [ok(alpaca_order('OTX-1', 'filled', filled_qty: bad, filled_avg_price: '64321.5'))] } }
+        variants["unreadable_poll_#{label}"] = { 'at' => after.(1), 'tick' => false, 'poll' => 'OOPEN-7', 'transactions' => [waiting.('OOPEN-7', limit: true)],
+          'http' => { 'GET /v2/orders/OOPEN-7' => [ok(alpaca_order('OOPEN-7', 'filled', type: 'limit', notional: nil, qty: '0.000935',
+                                                                   filled_qty: bad, filled_avg_price: '64150', limit_price: '64150'))] } }
+      end
       modes.flat_map do |mode, settings|
         variants.map do |name, v|
           v_http = v.fetch('http', {})
@@ -444,7 +467,9 @@ module Decisions
         travel_to(Time.iso8601(sc['at']) + 5, with_usec: true) do
           Bot::FetchAndUpdateOrderJob.perform_now(order, update_missed_quote_amount: true)
         rescue StandardError => e
-          raise unless alpaca # a Kraken scenario must not fail its poll
+          # A Kraken scenario must not fail its poll, except a listed unreadable-number divergence (honeymaker's strict
+          # BigDecimal() raises on "garbage"): that raise is Rails' answer, recorded for rust/tests/parity.rs.
+          raise unless alpaca || File.basename(dir).include?('-unreadable_')
 
           poll_error = e.message # the job raised (a retry_on error is enqueued instead, and does not land here)
         end
@@ -452,6 +477,7 @@ module Decisions
       out = { 'sent' => alpaca ? ScriptedAlpaca.sent : ScriptedKraken.sent, 'changes' => diff(before, snapshot) }
       # Alpaca only: the funds notification (its column is excluded from the snapshot) and the follow-up's raise.
       out.merge!('funds_notified' => Bot.find(sc['bot_id']).last_end_of_funds_notification.present?, 'poll_error' => poll_error) if alpaca
+      out['poll_error'] = poll_error if !alpaca && poll_error
       File.write(File.join(dir, 'rails.json'), JSON.pretty_generate(out))
       travel_back
       ActiveRecord::Base.connection_pool.disconnect!
