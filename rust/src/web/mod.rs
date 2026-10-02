@@ -220,7 +220,8 @@ impl Params {
     }
 
     pub fn form(&self, name: &str) -> Option<&str> {
-        self.form.iter().find(|(k, _)| k == name).map(|(_, v)| v.as_str())
+        // The last value of a repeated name, as Rack: `check_box` sends a hidden "0" and then the box's "1".
+        self.form.iter().rfind(|(k, _)| k == name).map(|(_, v)| v.as_str())
     }
 
     /// `params[:locale].presence`: the path prefix, else the form field, else the query parameter.
@@ -246,6 +247,18 @@ pub fn normalize_path(path: &str) -> String {
 
 fn pairs(encoded: &[u8]) -> Vec<(String, String)> {
     form_urlencoded::parse(encoded).map(|(k, v)| (k.into_owned(), v.into_owned())).collect()
+}
+
+/// Rack::MethodOverride: the method a form's `_method` field asks for, when it is one a form may ask
+/// for. A repeated field is read as Rack reads it: the last value.
+pub fn method_override(form: &[(String, String)]) -> Option<Method> {
+    let (_, method) = form.iter().rfind(|(name, _)| name == "_method")?;
+    match method.to_ascii_uppercase().as_str() {
+        "PATCH" => Some(Method::PATCH),
+        "PUT" => Some(Method::PUT),
+        "DELETE" => Some(Method::DELETE),
+        _ => None,
+    }
 }
 
 #[derive(Clone)]
@@ -280,13 +293,8 @@ async fn entry(State(entry): State<Entry>, request: Request) -> Response {
     } else {
         (Vec::new(), body)
     };
-    if let Some((_, method)) = form.iter().find(|(name, _)| name == "_method") {
-        match method.to_ascii_uppercase().as_str() {
-            "PATCH" => parts.method = Method::PATCH,
-            "PUT" => parts.method = Method::PUT,
-            "DELETE" => parts.method = Method::DELETE,
-            _ => {}
-        }
+    if let Some(method) = method_override(&form) {
+        parts.method = method;
     }
     let with_query = |path: &str| parts.uri.query().map_or_else(|| path.to_string(), |q| format!("{path}?{q}"));
     let fullpath = with_query(&full_path);

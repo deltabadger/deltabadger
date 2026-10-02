@@ -100,6 +100,34 @@ mod locales {
     }
 }
 
+mod form_fields {
+    use axum::http::Method;
+    use deltabadger::web::{method_override, Params};
+
+    fn fields(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
+        pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+    }
+
+    /// Rack keeps the last value of a repeated key. Rails' `check_box` depends on it: a hidden "0",
+    /// then the checkbox's "1" under the same name.
+    #[test]
+    fn a_repeated_form_field_reads_its_last_value_as_rack_does() {
+        let form = fields(&[("user[remember_me]", "0"), ("a", "1"), ("user[remember_me]", "1")]);
+        let params = Params { full_path: "/login".into(), fullpath: "/login".into(), route_path: "/login".into(), path_locale: None, query: Vec::new(), form };
+        assert_eq!(params.form("user[remember_me]"), Some("1"));
+        assert_eq!(params.form("a"), Some("1"));
+        assert_eq!(params.form("b"), None);
+    }
+
+    #[test]
+    fn a_repeated_method_field_uses_its_last_value() {
+        assert_eq!(method_override(&fields(&[("_method", "delete"), ("_method", "patch")])), Some(Method::PATCH));
+        assert_eq!(method_override(&fields(&[("_method", "delete"), ("_method", "get")])), None, "the last one decides, also when it asks for nothing");
+        assert_eq!(method_override(&fields(&[("_method", "Put")])), Some(Method::PUT));
+        assert_eq!(method_override(&fields(&[("a", "1")])), None);
+    }
+}
+
 mod time_zones {
     use super::common::web::at;
     use deltabadger::web::timezone;
