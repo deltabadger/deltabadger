@@ -137,3 +137,15 @@ impl Browser {
         Answer { status, headers, body }
     }
 }
+
+/// Writes `sent` on a new connection and reads until the server closes it. `Err` when it is still
+/// open after `patience`.
+pub async fn until_closed(address: std::net::SocketAddr, sent: &'static [u8], patience: std::time::Duration) -> std::io::Result<String> {
+    tokio::task::spawn_blocking(move || {
+        let mut stream = std::net::TcpStream::connect(address)?;
+        stream.set_read_timeout(Some(patience))?;
+        std::io::Write::write_all(&mut stream, sent)?;
+        let mut answer = String::new();
+        std::io::Read::read_to_string(&mut stream, &mut answer).map(|_| answer)
+    }).await.unwrap()
+}

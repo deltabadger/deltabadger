@@ -668,6 +668,50 @@ async fn every_sign_in_attempt_costs_exactly_one_bcrypt() {
     assert_eq!((no_token.status, held.calls() - before), (302, 0), "no CSRF token: no bcrypt");
 }
 
+/// The app on a local port under `limits`, served by the same loop `deltabadger serve` runs.
+async fn served_under(limits: deltabadger::web::server::Limits) -> (tempfile::TempDir, deltabadger::web::App, std::net::SocketAddr) {
+    let (dir, opened, _) = common::install();
+    drop(opened);
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(deltabadger::web::server::serve_on(listener, app.clone(), limits));
+    (dir, app, address)
+}
+
+/// A client that opens a connection and never finishes its request's head holds a connection for
+/// as long as it likes, unless the server stops waiting: ten seconds outside tests.
+#[tokio::test(flavor = "current_thread")]
+async fn a_connection_that_does_not_finish_its_request_head_is_closed() {
+    use deltabadger::web::server::Limits;
+    assert_eq!((Limits::default().header_read_timeout, Limits::default().max_connections), (Duration::from_secs(10), 1024));
+    let (_dir, _app, address) = served_under(Limits { header_read_timeout: Duration::from_millis(300), ..Limits::default() }).await;
+    let started = Instant::now();
+    let half = web::until_closed(address, b"GET /up HT", Duration::from_secs(5)).await;
+    assert!(half.is_ok(), "half a request line, and the connection is still open after 5 s: {half:?}");
+    assert!(started.elapsed() >= Duration::from_millis(250), "closed by the timeout, not at once: {:?}", started.elapsed());
+    let headers = web::until_closed(address, b"GET /up HTTP/1.1\r\nHost: localhost\r\nX-Slow: ", Duration::from_secs(5)).await;
+    assert!(headers.is_ok(), "headers that never end: {headers:?}");
+    let whole = web::until_closed(address, b"GET /up HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n", Duration::from_secs(5)).await.unwrap();
+    assert!(whole.starts_with("HTTP/1.1 200") && whole.contains("background-color: green"), "{whole}");
+}
+
+/// At most `max_connections` connections are open at once (1,024 outside tests). One more waits to
+/// be accepted until a place is free; it is not served on the side.
+#[tokio::test(flavor = "current_thread")]
+async fn connections_beyond_the_cap_wait_for_a_place() {
+    use deltabadger::web::server::Limits;
+    let (_dir, _app, address) = served_under(Limits { header_read_timeout: Duration::from_secs(60), max_connections: 2 }).await;
+    let idle: Vec<std::net::TcpStream> = (0..2).map(|_| std::net::TcpStream::connect(address).unwrap()).collect();
+    tokio::time::sleep(Duration::from_millis(200)).await; // both are accepted and hold their places
+    let request = b"GET /up HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+    let waiting = web::until_closed(address, request, Duration::from_millis(500)).await;
+    assert!(waiting.is_err(), "a third connection was served while two were open: {waiting:?}");
+    drop(idle);
+    let served = web::until_closed(address, request, Duration::from_secs(5)).await.unwrap();
+    assert!(served.starts_with("HTTP/1.1 200"), "{served}");
+}
+
 /// What no in-process test can see: the first page after sign-in in a real browser, with the compiled
 /// JS and CSS (script/rust/browser_check.mjs drives headless Chrome). It needs Chrome and bun, so it
 /// is not part of `cargo test`: run it with `cargo test --test serve -- --ignored`.

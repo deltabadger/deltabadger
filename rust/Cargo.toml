@@ -26,6 +26,10 @@ flate2 = "1"
 form_urlencoded = "1"
 hex = "0.4"
 hmac = "0.12"
+# Both are axum's own dependencies, with the features it already turns on: named here because
+# web::server runs hyper's connection itself (axum::serve has no header-read timeout and no connection cap).
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
 pbkdf2 = { version = "0.12", features = ["hmac"] }
 rand = "0.8"
 rusqlite = { version = "0.37", features = ["bundled"] }

@@ -547,6 +547,8 @@ dependencies = [
  "futures-util",
  "hex",
  "hmac",
+ "hyper",
+ "hyper-util",
  "pbkdf2",
  "rand 0.8.8",
  "reqwest",

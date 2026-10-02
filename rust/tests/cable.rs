@@ -3,7 +3,7 @@
 mod common;
 use common::web::{self, TestClock};
 use deltabadger::web::session::{self, SessionData};
-use deltabadger::web::{cable, router, App, Config};
+use deltabadger::web::{cable, server, App, Config};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
 use std::net::SocketAddr;
@@ -39,16 +39,21 @@ async fn served() -> (tempfile::TempDir, App, SocketAddr) {
 /// An install with two confirmed users, OWNER and SECOND, served on a local port. `recheck` is how
 /// often an open connection's session is checked again (60 seconds outside tests).
 async fn served_with(recheck: Duration) -> (tempfile::TempDir, App, SocketAddr, std::sync::Arc<TestClock>) {
+    served_under(recheck, server::Limits::default(), Some("http://localhost:3000")).await
+}
+
+/// As `served_with`, under the server's `limits`, and with or without an APP_ROOT_URL.
+async fn served_under(recheck: Duration, limits: server::Limits, root_url: Option<&'static str>) -> (tempfile::TempDir, App, SocketAddr, std::sync::Arc<TestClock>) {
     let (dir, opened, seeded) = common::install();
     assert_eq!(seeded.user_id, OWNER);
     opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00'", [HASH]).unwrap();
     opened.primary.execute("INSERT INTO users (email, encrypted_password, name, admin, confirmed_at, created_at, updated_at) \
                             VALUES ('second@example.com', ?1, 'Second', 0, ?2, ?2, ?2)", (HASH, "2026-01-01 00:00:00")).unwrap();
     assert_eq!(opened.primary.last_insert_rowid(), SECOND);
-    // A deployment that names its own origin; the listener itself is 127.0.0.1:<port>.
+    // With `root_url`, a deployment that names its own origin; the listener itself is 127.0.0.1:<port>.
     let env = |name: &str| match name {
         "SECRET_KEY_BASE" => Some(web::SECRET.to_string()),
-        "APP_ROOT_URL" => Some("http://localhost:3000".to_string()),
+        "APP_ROOT_URL" => root_url.map(str::to_string),
         _ => None,
     };
     let clock = TestClock::at("2026-09-10T12:00:30Z");
@@ -57,8 +62,7 @@ async fn served_with(recheck: Duration) -> (tempfile::TempDir, App, SocketAddr, 
     OWNER_COOKIE.get_or_init(|| signed_in(&app, OWNER));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
-    let service = router(app.clone()).into_make_service_with_connect_info::<SocketAddr>();
-    tokio::spawn(async move { axum::serve(listener, service).await });
+    tokio::spawn(server::serve_on(listener, app.clone(), limits)); // the loop `deltabadger serve` runs
     (dir, app, address, clock)
 }
 
@@ -195,6 +199,21 @@ async fn only_this_sites_pages_may_connect() {
     assert_eq!(open_with(address, "http://bot.example", cookie, &[("x-forwarded-host", "bot.example")]).await.err(), Some(404));
     assert_eq!(open(address, "http://localhost:3000.evil.example").await.err(), Some(404));
     assert_eq!(open(address, "http://localhost:30001").await.err(), Some(404));
+}
+
+/// A WebSocket is a connection for as long as it is open: the upgrade does not give its place back.
+#[tokio::test(flavor = "current_thread")]
+async fn an_open_websocket_keeps_its_place_among_the_servers_connections() {
+    let limits = server::Limits { max_connections: 1, ..server::Limits::default() };
+    let (_dir, _app, address, _clock) = served_under(Duration::from_millis(100), limits, Some("http://localhost:3000")).await;
+    let (mut socket, _) = open(address, "http://localhost:3000").await.unwrap();
+    assert_eq!(next(&mut socket).await["type"], "welcome");
+    let request = b"GET /up HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
+    let waiting = web::until_closed(address, request, Duration::from_millis(500)).await;
+    assert!(waiting.is_err(), "a second connection was served while the socket held the only place: {waiting:?}");
+    socket.close(None).await.unwrap();
+    drop(socket);
+    assert!(web::until_closed(address, request, Duration::from_secs(5)).await.unwrap().starts_with("HTTP/1.1 200"));
 }
 
 /// Whether the server ends the connection within three seconds: pings may still arrive, then a
