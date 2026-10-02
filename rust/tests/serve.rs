@@ -341,6 +341,33 @@ async fn signing_out_empties_this_browsers_session_and_cannot_revoke_a_copy_of_i
     assert_eq!(copy().get(&app, "/bots").await.status, 302, "or until the password changes, which ends every session");
 }
 
+/// A page on a sibling subdomain can set a cookie of our name for the whole site with a longer Path.
+/// The browser then sends it before the real one. It opens nothing, and must not stand in the real
+/// one's way: the session is the first cookie of our exact name that opens.
+#[tokio::test(flavor = "current_thread")]
+async fn a_planted_cookie_of_our_name_does_not_hide_the_real_session() {
+    const NAME: &str = "_deltabadger_rust_session";
+    let (dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    let ours = browser.cookie.clone().unwrap();
+    let expired = deltabadger::web::session::seal(&app.keys.session, &Default::default(), web::at(NOW) - chrono::Duration::days(31));
+    let bots = |cookies: String| {
+        let app = app.clone();
+        async move { Browser::default().send(&app, "GET", "/bots", None, web::Csrf::None, &[("cookie", &cookies)]).await.status }
+    };
+    assert_eq!(bots(format!("{NAME}={ours}")).await, 200);
+    assert_eq!(bots(format!("{NAME}=junk; {NAME}={ours}")).await, 200, "junk first, then the real one");
+    assert_eq!(bots(format!("{NAME}=junk; other=1; {NAME}={expired}; {NAME}=; {NAME}={ours}")).await, 200, "nor does one of ours that has expired");
+    assert_eq!(bots(format!("{NAME}=junk; {NAME}=more-junk")).await, 302, "nothing opens: no session");
+    assert_eq!(bots(format!("{NAME}_x={ours}")).await, 302, "a longer name is another cookie");
+    assert_eq!(bots(format!("{NAME}_x={ours}; {NAME}=junk")).await, 302);
+}
+
 /// What no in-process test can see: the first page after sign-in in a real browser, with the compiled
 /// JS and CSS (script/rust/browser_check.mjs drives headless Chrome). It needs Chrome and bun, so it
 /// is not part of `cargo test`: run it with `cargo test --test serve -- --ignored`.

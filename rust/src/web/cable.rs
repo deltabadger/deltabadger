@@ -228,7 +228,7 @@ pub async fn connect(State(app): State<App>, headers: HeaderMap, upgrade: Result
     // The session cookie, read as the page pipeline reads it, and Devise's per-request check: a
     // locked or unconfirmed account, or a session from before a password change, is not signed in.
     let now = app.now();
-    let opened = session::cookie_value(&headers).and_then(|value| session::read(&app.keys.session, &value, now));
+    let opened = session::from_request(&app.keys.session, &headers, now);
     let (data, expires_at) = opened.map_or((SessionData::default(), 0), |opened| (opened.data, opened.expires_at));
     let salt = data.user.as_ref().map(|(_, salt)| salt.clone()).unwrap_or_default();
     let user_id = match auth::current_user(&app, &Session::new(data), now).await {

@@ -117,12 +117,19 @@ pub fn read(key: &[u8; 32], cookie: &str, now: DateTime<Utc>) -> Option<Opened> 
     Some(Opened { data: SessionData::from_json(&value["data"]), expires_at })
 }
 
-/// The value of our cookie in a request's `Cookie` headers.
-pub fn cookie_value(headers: &HeaderMap) -> Option<String> {
+/// Every value a request's `Cookie` headers give for our exact name, in the order they were sent.
+pub fn cookie_values(headers: &HeaderMap) -> impl Iterator<Item = &str> {
     headers.get_all(header::COOKIE).iter()
         .filter_map(|line| line.to_str().ok())
         .flat_map(|line| line.split(';'))
-        .find_map(|pair| pair.trim().strip_prefix(COOKIE)?.strip_prefix('=').map(str::to_string))
+        .filter_map(|pair| pair.trim().strip_prefix(COOKIE)?.strip_prefix('='))
+}
+
+/// The session a request carries: the first cookie of our name that opens. There can be several:
+/// any page on a sibling subdomain may set one for the whole site, and with a longer Path the browser
+/// sends it first. A value that does not open is passed over, so it cannot hide the real one.
+pub fn from_request(key: &[u8; 32], headers: &HeaderMap, now: DateTime<Utc>) -> Option<Opened> {
+    cookie_values(headers).find_map(|value| read(key, value, now))
 }
 
 /// `Set-Cookie` as Rails writes its session cookie, under our name.

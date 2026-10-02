@@ -241,6 +241,7 @@ async fn only_a_signed_in_browser_may_connect() {
     // Devise's per-request check, as on a page: each of these ends a session that was signed in.
     let second = signed_in(&app, SECOND);
     assert!(open_as(address, origin, Some(&second)).await.is_ok());
+    assert!(open_as(address, origin, Some(&format!("junk; _deltabadger_rust_session={second}"))).await.is_ok(), "a planted cookie of our name before the real one");
     let db = rusqlite::Connection::open(dir.path().join("production.sqlite3")).unwrap();
     for (what, change, undo) in [
         ("locked", "locked_at = '2026-09-10 12:00:00'", "locked_at = NULL"),

@@ -377,7 +377,7 @@ async fn pipeline(State(app): State<App>, mut request: Request, next: Next) -> R
     let Some(params) = request.extensions().get::<Arc<Params>>().cloned() else {
         return WebError::Config("a request reached the routes without passing web::router's entry".into()).into_response();
     };
-    let before = session::cookie_value(request.headers()).and_then(|value| session::open(&app.keys.session, &value, now)).unwrap_or_default();
+    let before = session::from_request(&app.keys.session, request.headers(), now).map(|opened| opened.data).unwrap_or_default();
     let session = session::Session::new(before.clone());
 
     // rack-attack: after the session middleware, before everything else.
