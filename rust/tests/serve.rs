@@ -156,3 +156,187 @@ async fn a_csp_report_is_accepted_without_a_session_or_a_token() {
     let answer = Browser::default().send(&app, "POST", "/csp-report", None, web::Csrf::None, &[("content-type", "application/csp-report")]).await;
     assert_eq!((answer.status, answer.header("set-cookie"), answer.header("location")), (204, None, None));
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_bots_page_refuses_an_account_it_cannot_render_yet() {
+    let (dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let app = web::app(dir.path(), web::SECRET, TestClock::at(NOW));
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    assert_eq!(browser.get(&app, "/bots").await.status, 200, "no bots, no balances: the empty page");
+
+    let hold = |asset_id: i64| {
+        opened.primary.execute("INSERT INTO account_balances (user_id, exchange_id, asset_id, free, locked, usd_value, synced_at, created_at, updated_at) \
+                                VALUES (?1, ?2, ?3, 1, 0, 50000.0, ?4, ?4, ?4)", (seeded.user_id, seeded.exchange_id, asset_id, "2026-01-01 00:00:00")).unwrap();
+    };
+    hold(seeded.quote); // the Kraken fixtures' quote asset is EUR: cash
+    assert_eq!(browser.get(&app, "/bots").await.status, 200, "cash only and cash not shown: Rails draws the plain circle, and so does this page");
+    opened.primary.execute("UPDATE users SET tracker_settings = '{\"show_cash\":true}' WHERE id = ?1", [seeded.user_id]).unwrap();
+    assert_eq!(browser.get(&app, "/bots").await.status, 501, "the tracker shows cash: the ring would be drawn");
+    opened.primary.execute("UPDATE users SET tracker_settings = '{}' WHERE id = ?1", [seeded.user_id]).unwrap();
+    hold(seeded.btc);
+    let with_holdings = browser.get(&app, "/bots").await;
+    assert!(with_holdings.status == 501 && with_holdings.body.contains("GET /bots"), "the tracker ring is not ported: {}", with_holdings.body);
+    opened.primary.execute("DELETE FROM account_balances", []).unwrap();
+
+    let bot = common::seed::insert_bot(&opened.primary, &seeded, &common::seed::BotSpec::weekly(60.0, "2026-09-01 10:00:00"));
+    assert_eq!(browser.get(&app, "/bots").await.status, 501, "the bot list is the next plan");
+    opened.primary.execute("UPDATE bots SET status = 3 WHERE id = ?1", [bot]).unwrap();
+    assert_eq!(browser.get(&app, "/bots").await.status, 200, "a deleted bot does not count");
+}
+
+/// The cookie is written when the session changed, not on every response. A request that left the
+/// browser before a sign-in and is answered after it (Chrome asks for the manifest's start_url in
+/// the background) therefore does not put the signed-out session back. With a cookie on every
+/// response, as Rails sends it, this sign-in was lost (Finding 18).
+#[tokio::test(flavor = "current_thread")]
+async fn a_late_answer_to_an_older_request_does_not_undo_a_sign_in() {
+    let (dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let clock = TestClock::at(NOW);
+    let app = web::app(dir.path(), web::SECRET, clock.clone());
+    let mut browser = Browser::default();
+    assert!(browser.get(&app, "/login").await.header("set-cookie").is_some(), "the first page gives the session its CSRF token");
+    let before_sign_in = browser.cookie.clone();
+    let signed_in = browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await;
+    assert!(signed_in.status == 303 && signed_in.header("set-cookie").is_some());
+
+    // The background request: sent with the cookie from before the sign-in, answered after it.
+    let mut late = Browser { cookie: before_sign_in, ..Browser::default() };
+    let root = late.get(&app, "/").await;
+    assert_eq!((root.status, root.header("location"), root.header("set-cookie")), (302, Some("/login"), None), "nothing changed, so no cookie");
+    let login = late.get(&app, "/login").await;
+    assert_eq!((login.status, login.header("set-cookie")), (200, None));
+    // No answer since the sign-in carried a cookie: the browser's jar still holds the signed-in one.
+    assert_eq!(browser.get(&app, "/").await.header("location"), Some("/bots"));
+
+    // An unchanged session is never written again, however old its cookie is: the 30 days run from
+    // the last change of its content, and then the session is over.
+    browser.get(&app, "/bots").await; // consumes the first-page flag: the session changes once more
+    for days in [0, 1, 29] {
+        clock.set(web::at(NOW) + chrono::Duration::days(days));
+        let page = browser.get(&app, "/bots").await;
+        assert_eq!((page.status, page.header("set-cookie")), (200, None), "day {days}");
+    }
+    clock.set(web::at(NOW) + chrono::Duration::days(30));
+    assert_eq!(browser.get(&app, "/bots").await.status, 302, "30 days after its last change the session has ended");
+}
+
+/// The cookie from before a sign-in may be days old. Its age gives no response a reason to send it
+/// again: only a change of content does.
+#[tokio::test(flavor = "current_thread")]
+async fn an_old_anonymous_cookie_does_not_undo_a_sign_in() {
+    let (dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let clock = TestClock::at(NOW);
+    let app = web::app(dir.path(), web::SECRET, clock.clone());
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    clock.set(web::at(NOW) + chrono::Duration::hours(25)); // the login page was left open overnight
+    assert_eq!(browser.get(&app, "/login").await.header("set-cookie"), None, "a day-old cookie with nothing new in it is left alone");
+    let anonymous = browser.cookie.clone();
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+
+    // A request that left with the old anonymous cookie is answered after the sign-in.
+    let mut late = Browser { cookie: anonymous, ..Browser::default() };
+    assert_eq!(late.get(&app, "/").await.header("set-cookie"), None);
+    assert_eq!(late.get(&app, "/login").await.header("set-cookie"), None);
+    assert_eq!(browser.get(&app, "/").await.header("location"), Some("/bots"), "still signed in");
+}
+
+/// Signing out while another request of the same browser is still on its way. That request was
+/// signed in when it left, so it is served; its answer must not hand the signed-in cookie back.
+#[tokio::test(flavor = "current_thread")]
+async fn a_request_authenticated_before_logout_that_completes_after_it_does_not_restore_the_session() {
+    let (dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let clock = TestClock::at(NOW);
+    let app = web::app(dir.path(), web::SECRET, clock.clone());
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    browser.get(&app, "/bots").await; // consumes the first-page flag
+    let in_flight = browser.cookie.clone(); // what a request sent now carries
+
+    // However old the session's cookie is when the sign-out happens. With a cookie that was sent
+    // again once it was a day old, the late answer below put the signed-in session back.
+    for days in [0, 1, 29] {
+        clock.set(web::at(NOW) + chrono::Duration::days(days));
+        let mut tab = Browser { cookie: in_flight.clone(), page: browser.page.clone() };
+        let signed_out = tab.post(&app, "/logout", &[("_method", "delete")]).await;
+        assert!(signed_out.status == 303 && signed_out.header("set-cookie").is_some(), "day {days}: signing out changes the session, so it is written");
+
+        let mut late = Browser { cookie: in_flight.clone(), ..Browser::default() };
+        let answer = late.get(&app, "/bots").await;
+        assert_eq!((answer.status, answer.header("set-cookie")), (200, None), "day {days}: served, and no cookie comes back with it");
+        assert_eq!(tab.get(&app, "/bots").await.status, 302, "day {days}: the browser holds what the sign-out gave it");
+    }
+}
+
+/// Behind a proxy that terminates TLS the request arrives over plain http, with the Host the proxy
+/// uses upstream. The browser's `Origin` is the public one, in its canonical spelling, and
+/// APP_ROOT_URL may spell the same origin with the default port and capitals.
+#[tokio::test(flavor = "current_thread")]
+async fn a_form_is_accepted_behind_a_tls_terminating_proxy_when_app_root_url_spells_the_default_port() {
+    let (_dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9");
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let env = |name: &str| match name {
+        "SECRET_KEY_BASE" => Some(web::SECRET.to_string()),
+        "APP_ROOT_URL" => Some("https://Bot.Example:443/".to_string()),
+        _ => None,
+    };
+    let app = deltabadger::web::App::new(deltabadger::web::Config::from_env(&env).unwrap(), &env, opened.primary, TestClock::at(NOW)).unwrap();
+    let form: [(&str, &str); 2] = [("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")];
+    let submit = |origin: &'static str| {
+        let app = app.clone();
+        async move {
+            let mut browser = Browser::default();
+            browser.get(&app, "/login").await;
+            browser.send(&app, "POST", "/login", Some(&form), web::Csrf::Form, &[("origin", origin), ("referer", "https://bot.example/login")]).await
+        }
+    };
+    let accepted = submit("https://bot.example").await;
+    assert_eq!((accepted.status, accepted.header("location")), (303, Some("/")), "the request's own Host is localhost:3000 over http");
+    assert!(accepted.header("set-cookie").is_some_and(|cookie| cookie.contains("; secure;")), "{:?}", accepted.header("set-cookie"));
+    for foreign in ["http://bot.example", "https://bot.example:8443", "https://bot.example.evil.test"] {
+        let refused = submit(foreign).await;
+        assert_eq!((refused.status, refused.header("location")), (302, Some("/login")), "{foreign}: back to the referer, which is ours");
+    }
+}
+
+/// The session is the cookie: nothing is kept on the server, so there is nothing to revoke
+/// (Rails' CookieStore is the same). Signing out replaces the browser's cookie and no more.
+#[tokio::test(flavor = "current_thread")]
+async fn signing_out_empties_this_browsers_session_and_cannot_revoke_a_copy_of_its_cookie() {
+    let (dir, opened, seeded) = common::install();
+    let password = |plain: &str| {
+        let hash = deltabadger::crypto::hash_password(plain);
+        opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    };
+    password("Correct-horse-9");
+    let clock = TestClock::at(NOW);
+    let app = web::app(dir.path(), web::SECRET, clock.clone());
+    let mut browser = Browser::default();
+    browser.get(&app, "/login").await;
+    assert_eq!(browser.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    assert_eq!(browser.get(&app, "/bots").await.status, 200);
+    let copied = browser.cookie.clone(); // what someone holds who read the cookie before the sign-out
+    let copy = || Browser { cookie: copied.clone(), ..Browser::default() };
+
+    assert_eq!(browser.post(&app, "/logout", &[("_method", "delete")]).await.status, 303, "the navbar's own form, with its own token");
+    assert_eq!(browser.get(&app, "/bots").await.status, 302, "this browser is signed out");
+
+    assert_eq!(copy().get(&app, "/bots").await.status, 200, "the copy still opens the app: sign-out revokes nothing");
+    clock.set(web::at(NOW) + chrono::Duration::days(30) + chrono::Duration::seconds(1));
+    assert_eq!(copy().get(&app, "/bots").await.status, 302, "until it expires, 30 days after it was issued");
+    clock.set(web::at(NOW));
+    password("Another-horse-7");
+    assert_eq!(copy().get(&app, "/bots").await.status, 302, "or until the password changes, which ends every session");
+}

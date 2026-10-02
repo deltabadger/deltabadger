@@ -4,7 +4,7 @@
 mod common;
 use common::html;
 use common::web::{self, Answer, Browser, Csrf, TestClock};
-use deltabadger::web::{csrf, session, App};
+use deltabadger::web::{cable, csrf, session, App};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -94,7 +94,9 @@ fn rust_answer(answer: &Answer) -> Value {
 /// Rails' the same way.)
 fn assert_genuine(app: &App, browser: &Browser, answer: &Answer, now: chrono::DateTime<chrono::Utc>, step: &str) {
     let html::Masked { tokens, streams, assets } = html::masked_values(&answer.body);
-    assert!(streams.is_empty(), "{step}: a stream source is rendered, and nothing here verifies its signed name yet");
+    for signed in &streams {
+        assert!(cable::verified_stream_name(&app.keys.streams, signed).is_some(), "{step}: a rendered signed stream name does not verify: {signed}");
+    }
     for path in &assets {
         assert!(deltabadger::web::assets::find(path).is_some(), "{step}: the page refers to {path}, which is not an embedded asset");
     }

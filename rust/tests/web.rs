@@ -492,3 +492,32 @@ mod rate_limits {
         assert_eq!(rate_limit::client_key(&config("false"), &forwarded, None), "unattributed", "never an empty key");
     }
 }
+
+mod navbar_numbers {
+    use super::common;
+    use deltabadger::web::{bots, shell};
+
+    #[test]
+    fn the_bot_count_icon_is_sized_as_rails_sizes_it() {
+        for case in common::vectors()["navbar"]["bot_count"].as_array().unwrap() {
+            let size = shell::bot_count_font_size(case["count"].as_i64().unwrap());
+            assert_eq!((size.to_string().as_str(), shell::bot_count_baseline(size).as_str()), (case["font_size"].as_str().unwrap(), case["baseline"].as_str().unwrap()), "{case}");
+        }
+    }
+
+    #[test]
+    fn the_tracker_icon_is_a_ring_exactly_when_rails_draws_one() {
+        let recorded = &common::vectors()["tracker"];
+        assert_eq!(serde_json::json!(bots::CASH), recorded["cash"], "Tracker::UnfundedCash's FIAT and STABLECOINS");
+        for case in recorded["show_cash"].as_array().unwrap() {
+            assert_eq!(bots::show_cash(case["column"].as_str()), case["shown"], "{case}");
+        }
+        let held = |symbols: &[&str]| symbols.iter().map(|s| Some(s.to_string())).collect::<Vec<_>>();
+        assert!(!bots::tracker_ring(&[], true), "nothing priced: the plain circle");
+        assert!(!bots::tracker_ring(&held(&["USD", "USDC"]), false), "cash only, cash not shown: the plain circle");
+        assert!(bots::tracker_ring(&held(&["USD", "USDC"]), true), "cash is drawn once the tracker shows it");
+        assert!(bots::tracker_ring(&held(&["USD", "BTC"]), false));
+        assert!(bots::tracker_ring(&held(&["usd"]), false), "the comparison is exact, as in Ruby");
+        assert!(bots::tracker_ring(&[None], false), "an asset without a symbol is not cash");
+    }
+}

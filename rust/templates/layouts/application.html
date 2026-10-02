@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="{{ v.locale }}">
+  <head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="ie=edge" http-equiv="X-UA-Compatible">
+    <meta name="color-scheme" content="dark light">
+    <meta name="theme-color" content="#f5f6f8" id="theme-color-meta">
+
+    <meta name="csrf-param" content="authenticity_token" />
+<meta name="csrf-token" content="{{ csrf }}" />
+    <meta name="csp-nonce" content="{{ v.nonce }}" />
+    <meta name="turbo-prefetch" content="false">
+
+    <title>{{ v.t("meta.title")|safe }}</title>
+    {% include "layouts/_favicon.html" %}
+
+    <link rel="stylesheet" href="{{ v.asset("application.css") }}" media="all" data-turbo-track="reload" />
+    <script src="{{ v.asset("application.js") }}" data-turbo-track="reload" type="module"></script>
+
+    
+  </head>
+
+  <body data-controller="hotwire-animations app-wake ticker-tooltips reveal-chrome coarse-slider" data-locale="{{ v.locale }}"{% if !body_class.is_empty() %} class="{{ body_class }}"{% endif %}>
+
+    <div data-tauri-drag-region class="titlebar-drag-region"></div>
+
+    <div class="flash-stack">
+      <div id="flash" data-turbo-permanent>
+        {{ flash|safe }}
+        {% if shell.syncing %}{{ v.stream_from("settings_sync")|safe }}
+<div id="flash-syncing" class="salert salert--syncing" role="alert">
+  <div class="loader--syncing"></div>
+  {{ v.t("setup.syncing_message")|safe }}
+</div>{% endif %}
+      </div>
+      
+    </div>
+
+    {{ navbar|safe }}
+
+    <main class="main">
+      <div class="main-content">
+        {{ body|safe }}
+      </div>
+    </main>
+
+    <turbo-frame id="modal"></turbo-frame>
+
+</body></html>

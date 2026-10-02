@@ -17,6 +17,7 @@ pub mod locale;
 pub mod rate_limit;
 pub mod server;
 pub mod session;
+pub mod shell;
 pub mod timezone;
 pub mod turbo;
 
@@ -27,7 +28,7 @@ use axum::extract::{ConnectInfo, Request, State};
 use axum::http::{header, HeaderMap, Method, StatusCode, Uri};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use axum::routing::{get, post, MethodRouter};
+use axum::routing::{delete, get, post, MethodRouter};
 use axum::Router;
 use chrono::{DateTime, Utc};
 use hmac::{Hmac, Mac};
@@ -223,6 +224,7 @@ fn routes(app: App) -> Router {
     Router::new()
         .route("/", only(get(bots::home)))
         .route("/login", only(get(auth::new).post(auth::create)))
+        .route("/logout", only(delete(auth::destroy)))
         .route("/verify_two_factor", only(get(auth::two_factor).post(auth::two_factor)))
         .route("/bots", only(get(bots::index)))
         .fallback(layout::not_ported)

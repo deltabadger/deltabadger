@@ -427,3 +427,17 @@ pub async fn two_factor(State(app): State<App>, Extension(ctx): Extension<Ctx>) 
         }
     }
 }
+
+/// DELETE /logout (signed in; the signed-out case is a prepended filter). Devise forgets every
+/// remember-me cookie Rails may have issued, clears the session, and the flash with it.
+pub async fn destroy(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> Result<Response, WebError> {
+    if let Some(user_id) = ctx.user().map(|u| u.id) {
+        let now = ctx.now;
+        app.db(move |c| {
+            c.execute("UPDATE users SET remember_created_at = NULL, updated_at = ?1 WHERE id = ?2 AND remember_created_at IS NOT NULL", (format_time(now), user_id))?;
+            Ok(())
+        }).await?;
+    }
+    *ctx.session.lock() = SessionData::default();
+    Ok(layout::redirect(StatusCode::SEE_OTHER, &ctx.path("/")))
+}

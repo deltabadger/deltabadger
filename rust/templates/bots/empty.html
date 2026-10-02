@@ -1,0 +1,11 @@
+{{ v.stream_from(preferences)|safe }}
+{{ v.stream_from(bot_updates)|safe }}
+
+  <div class="welcome-screen">
+    <p>{{ v.t("bot.welcome.pick_exchange_first")|safe }}</p>
+{% if ask_admin_for_stocks %}
+      <p>{{ v.t("bot.setup.stocks_ask_admin")|safe }}</p>
+{% endif %}
+    <form class="button_to" method="get" action="{{ v.path("/bots/new") }}"><button class="sbutton sbutton--sky" data-turbo-frame="modal" aria-label="{{ v.t("bot.new")|safe }}" type="submit">
+        {% include "svg/_24x24_plus.html" %}
+</button></form></div>

@@ -123,9 +123,13 @@ const PRIMARY: &[TableContract] = &[
         ("display_currency", "varchar", true), ("hide_balances", "boolean", true), ("confirmed_at", "datetime", false),
         ("failed_attempts", "integer", true), ("locked_at", "datetime(6)", false), ("otp_module", "integer", false),
         ("otp_secret_key", "varchar", false), ("last_otp_at", "datetime", false), ("remember_created_at", "datetime", false),
-        ("updated_at", "datetime", true),
+        ("updated_at", "datetime", true), ("tracker_settings", "json", false),
     ], unique_indexes: &[&["email"]] },
     TableContract { name: "bot_index_assets", columns: &[("bot_id", "integer", true)], unique_indexes: &[] },
+    // The bots page refuses an account whose navbar would need the tracker ring (src/web/bots.rs).
+    TableContract { name: "account_balances", columns: &[
+        ("user_id", "integer", true), ("asset_id", "integer", true), ("usd_value", "decimal(20,8)", false),
+    ], unique_indexes: &[] },
     TableContract { name: "rules", columns: &[("id", "integer", true), ("status", "integer", true)], unique_indexes: &[] },
     TableContract { name: "bot_activity_logs", columns: &[
         ("id", "integer", true), ("bot_id", "integer", true), ("event", "varchar", true), ("level", "integer", true),
