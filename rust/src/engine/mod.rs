@@ -46,6 +46,7 @@ impl From<crate::store::StoreError> for EngineError { fn from(e: crate::store::S
 pub mod schedule;
 pub mod model;
 pub mod eligibility;
+pub mod events;
 pub mod amount;
 pub mod placement;
 pub mod polling;
