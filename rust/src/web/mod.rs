@@ -21,7 +21,7 @@ pub mod shell;
 pub mod timezone;
 pub mod turbo;
 
-use crate::crypto::{Cipher, EncryptionKeys};
+use crate::crypto::{hash_password, verify_password, Cipher, EncryptionKeys};
 use crate::engine::{Clock, EngineError};
 use axum::body::Body;
 use axum::extract::{ConnectInfo, Request, State};
@@ -35,8 +35,10 @@ use hmac::{Hmac, Mac};
 use rusqlite::Connection;
 use sha2::Sha256;
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
+use tokio::sync::Semaphore;
 use tower::ServiceExt;
 
 #[derive(Debug)]
@@ -238,10 +240,25 @@ pub struct Inner {
     /// How often an open /cable connection is asked whether its session would still open one: 60
     /// seconds. Shorter in tests.
     pub cable_recheck: Duration,
+    /// The bcrypt computations of sign-in attempts in progress: `PASSWORD_CHECKS_AT_ONCE` at a time.
+    password_slots: Arc<Semaphore>,
+    /// Attempts waiting for one of those slots: at most `PASSWORD_CHECKS_WAITING`.
+    password_waiting: AtomicUsize,
+    /// For tests: called on the blocking thread before each bcrypt computation, so a test can count
+    /// them and hold one.
+    password_hook: Option<PasswordHook>,
     /// The web side's own connection (the engine owns another).
     /// ponytail: one connection behind a mutex; a small pool if one user's requests ever queue.
     db: Mutex<Connection>,
 }
+
+pub type PasswordHook = Arc<dyn Fn() + Send + Sync>;
+
+/// bcrypt at cost 11 keeps a core busy for a good part of a second. Two at a time leaves the rest of
+/// the blocking pool to the database work of every other request; eight more may wait (a few
+/// seconds at worst), and an attempt beyond that is refused at once instead of queueing without bound.
+pub const PASSWORD_CHECKS_AT_ONCE: usize = 2;
+pub const PASSWORD_CHECKS_WAITING: usize = 8;
 
 #[derive(Clone)]
 pub struct App(Arc<Inner>);
@@ -258,7 +275,9 @@ impl App {
         let keys = Keys { session: derive(&config.secret_key_base, "deltabadger rust session v1")?, streams: derive(&config.secret_key_base, "deltabadger rust turbo streams v1")? };
         Ok(Self(Arc::new(Inner {
             config, keys, cipher: Cipher::new(&encryption), clock, limiter: rate_limit::Limiter::default(), hub: cable::Hub::default(),
-            cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60), db: Mutex::new(primary),
+            cable_ping: Duration::from_secs(3), cable_recheck: Duration::from_secs(60),
+            password_slots: Arc::new(Semaphore::new(PASSWORD_CHECKS_AT_ONCE)), password_waiting: AtomicUsize::new(0), password_hook: None,
+            db: Mutex::new(primary),
         })))
     }
 
@@ -270,6 +289,52 @@ impl App {
     }
 
     pub fn now(&self) -> DateTime<Utc> { self.clock.now() }
+
+    /// For tests: the same app with a hook before each bcrypt computation. Only before the app is shared.
+    pub fn with_password_hook(self, hook: PasswordHook) -> Result<Self, WebError> {
+        let mut inner = Arc::try_unwrap(self.0).map_err(|_| WebError::Config("the app is already shared".into()))?;
+        inner.password_hook = Some(hook);
+        Ok(Self(Arc::new(inner)))
+    }
+
+    /// How many sign-in attempts are waiting for a bcrypt slot.
+    pub fn password_checks_waiting(&self) -> usize {
+        self.password_waiting.load(Ordering::SeqCst)
+    }
+
+    /// The one bcrypt computation of a sign-in attempt, off the runtime's thread and outside the
+    /// database lock: `password` against `stored_hash`, or, with no hash (an unknown email), a hash
+    /// computed and thrown away, so that both cost the same. `None` when `PASSWORD_CHECKS_WAITING`
+    /// attempts are already waiting: the caller refuses the request.
+    pub(crate) async fn password_check(&self, password: String, stored_hash: Option<String>) -> Result<Option<bool>, WebError> {
+        struct Waiting<'a>(&'a AtomicUsize);
+        impl Drop for Waiting<'_> {
+            fn drop(&mut self) { self.0.fetch_sub(1, Ordering::SeqCst); }
+        }
+        let permit = match self.password_slots.clone().try_acquire_owned() {
+            Ok(permit) => permit,
+            Err(_) => {
+                let ahead = self.password_waiting.fetch_add(1, Ordering::SeqCst);
+                let _waiting = Waiting(&self.password_waiting); // also when this request is dropped while it waits
+                if ahead >= PASSWORD_CHECKS_WAITING {
+                    return Ok(None);
+                }
+                self.password_slots.clone().acquire_owned().await.map_err(|e| WebError::Task(e.to_string()))?
+            }
+        };
+        let hook = self.password_hook.clone();
+        // The slot goes with the computation, not with this request: a client that hangs up does not free it early.
+        let work = move || {
+            let _permit = permit;
+            if let Some(hook) = hook { hook() }
+            match stored_hash {
+                Some(hash) => verify_password(&password, &hash),
+                // Only the work counts. Without a salt from the system there is no hash: the same failed sign-in.
+                None => { let _ = hash_password(&password); false }
+            }
+        };
+        tokio::task::spawn_blocking(work).await.map(Some).map_err(|e| WebError::Task(e.to_string()))
+    }
 
     /// Runs database work (and bcrypt) off the runtime's thread: rusqlite is synchronous, and a
     /// handler must not hold up the other tasks of this process, the engine loop among them.

@@ -6,12 +6,12 @@ use super::layout::{self, Ctx, Page};
 use super::session::{Pending, SessionData};
 use super::{flash, i18n, i18n::Arg, locale, App, WebError};
 use crate::codec::{format_time, parse_time};
-use crate::crypto::{hash_password, totp_at, verify_password, Cipher};
+use crate::crypto::{totp_at, Cipher};
 use crate::engine::EngineError;
 use askama::Template;
 use axum::extract::{Extension, State};
-use axum::http::{Method, StatusCode};
-use axum::response::Response;
+use axum::http::{header, Method, StatusCode};
+use axum::response::{IntoResponse, Response};
 use chrono::{DateTime, Utc};
 use rusqlite::{Connection, OptionalExtension};
 use std::sync::Arc;
@@ -260,16 +260,21 @@ enum PasswordStage {
     SecondFactorLocked,
 }
 
+/// What the password stage decides once the one bcrypt computation of the request is done
+/// (`App::password_check`, which runs outside the database lock; `correct` is its answer against
+/// `verified_against`, the hash the row held when the request arrived). The row is read again here,
+/// under the lock: the lock, the counter and the hash are what they are now, not what they were
+/// before the computation, so attempts that overlap each count, and the fifth locks. A row that
+/// has gone, or whose password changed meanwhile, is a failed sign-in that counts nothing: the
+/// answer was computed against a hash that is no longer the account's.
+///
 /// Exactly one bcrypt computation per request, on every path: a hash for an unknown email, one
 /// verification for a known one. How long the answer takes then says nothing about the account,
 /// including whether it has two-factor on (Rails verifies a two-factor account's wrong password twice).
-fn password_stage(c: &Connection, email: &str, password: &str, now: DateTime<Utc>) -> Result<PasswordStage, WebError> {
-    let Some(mut user) = User::find_by_email(c, email)? else {
-        // Only the work counts. Without a salt from the system there is no hash: the same failed sign-in.
-        let _ = hash_password(password);
+fn password_stage(c: &Connection, user_id: i64, verified_against: &str, correct: bool, password: &str, now: DateTime<Utc>) -> Result<PasswordStage, WebError> {
+    let Some(mut user) = User::find(c, user_id)?.filter(|user| user.encrypted_password == verified_against) else {
         return Ok(PasswordStage::Invalid);
     };
-    let correct = verify_password(password, &user.encrypted_password);
     if user.otp_enabled && correct {
         return Ok(if user.locked(now) { PasswordStage::SecondFactorLocked } else { PasswordStage::SecondFactor(user) });
     }
@@ -285,6 +290,15 @@ fn password_stage(c: &Connection, email: &str, password: &str, now: DateTime<Utc
     }
     user.reset_failed_attempts(c, now)?;
     Ok(PasswordStage::SignedIn(user))
+}
+
+/// The answer when too many sign-ins are already waiting for their bcrypt computation
+/// (`App::password_check`): try again in a second. Made below the controllers, as rack-attack's 429
+/// is; no attempt is spent and no row is touched.
+fn busy() -> Response {
+    let mut response = (StatusCode::SERVICE_UNAVAILABLE, [(header::CONTENT_TYPE, "text/plain; charset=utf-8"), (header::RETRY_AFTER, "1")], "Too many sign-ins at once. Try again in a moment.\n").into_response();
+    response.extensions_mut().insert(super::headers::BelowControllers);
+    response
 }
 
 /// continue_sign_in: the session now belongs to `user`; go where they were heading, else to the root.
@@ -309,7 +323,13 @@ pub async fn create(State(app): State<App>, Extension(ctx): Extension<Ctx>) -> R
     let email = ctx.params.form("user[email]").unwrap_or("").to_string();
     let password = ctx.params.form("user[password]").unwrap_or("").to_string();
     let now = ctx.now;
-    let stage = { let email = email.clone(); app.db(move |c| password_stage(c, &email, &password, now)).await? };
+    // The row under the lock, the bcrypt computation outside it, then the decision under the lock again.
+    let found = { let email = email.clone(); app.db(move |c| Ok(User::find_by_email(c, &email)?.map(|user| (user.id, user.encrypted_password)))).await? };
+    let Some(correct) = app.password_check(password.clone(), found.as_ref().map(|(_, hash)| hash.clone())).await? else { return Ok(busy()) };
+    let stage = match found {
+        Some((id, hash)) => app.db(move |c| password_stage(c, id, &hash, correct, &password, now)).await?,
+        None => PasswordStage::Invalid,
+    };
     match stage {
         PasswordStage::SignedIn(user) => Ok(continue_sign_in(&ctx, &user, true)),
         PasswordStage::SecondFactor(user) => {

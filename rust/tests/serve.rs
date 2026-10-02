@@ -474,6 +474,175 @@ async fn a_sign_in_for_an_unknown_email_costs_what_a_wrong_password_costs() {
     assert!(unknown * 4 > known, "an unknown email was refused in {unknown:?}, a wrong password in {known:?}");
 }
 
+/// A hook for `App::with_password_hook`: counts the bcrypt computations and, while `hold` is set,
+/// keeps each one where it is until the test lets it go.
+struct Gate {
+    calls: std::sync::atomic::AtomicUsize,
+    hold: std::sync::atomic::AtomicBool,
+    entered: tokio::sync::mpsc::UnboundedSender<()>,
+    release: std::sync::Mutex<std::sync::mpsc::Receiver<()>>,
+}
+
+/// The test's ends of a `Gate`. Dropping `release` lets every held computation go, so a failed
+/// assertion does not leave a thread waiting.
+struct Held {
+    gate: std::sync::Arc<Gate>,
+    entered: tokio::sync::mpsc::UnboundedReceiver<()>,
+    release: std::sync::mpsc::Sender<()>,
+}
+
+impl Held {
+    fn calls(&self) -> usize { self.gate.calls.load(std::sync::atomic::Ordering::SeqCst) }
+    fn hold(&self, on: bool) { self.gate.hold.store(on, std::sync::atomic::Ordering::SeqCst) }
+    /// Waits until one more bcrypt computation has started and is being held.
+    async fn in_flight(&mut self) {
+        tokio::time::timeout(Duration::from_secs(10), self.entered.recv()).await.expect("a bcrypt computation starts").unwrap();
+    }
+}
+
+/// An install whose owner signs in with "Correct-horse-9", behind a declared proxy (so each test
+/// browser can have its own address for the rate limit), with a `Gate` on its bcrypt computations.
+fn gated() -> (tempfile::TempDir, rusqlite::Connection, i64, deltabadger::web::App, Held) {
+    let (dir, opened, seeded) = common::install();
+    let hash = deltabadger::crypto::hash_password("Correct-horse-9").unwrap();
+    opened.primary.execute("UPDATE users SET encrypted_password = ?1, confirmed_at = '2026-01-01 00:00:00' WHERE id = ?2", (hash, seeded.user_id)).unwrap();
+    let env = |name: &str| match name {
+        "SECRET_KEY_BASE" => Some(web::SECRET.to_string()),
+        "BEHIND_PROXY" => Some("1".to_string()),
+        _ => None,
+    };
+    let own = deltabadger::store::open(&deltabadger::store::Paths::from_env(&|_| None, dir.path())).unwrap().primary;
+    let (entered_tx, entered) = tokio::sync::mpsc::unbounded_channel();
+    let (release, release_rx) = std::sync::mpsc::channel();
+    let gate = std::sync::Arc::new(Gate { calls: 0.into(), hold: false.into(), entered: entered_tx, release: std::sync::Mutex::new(release_rx) });
+    let hook = { let gate = gate.clone(); move || {
+        gate.calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if gate.hold.load(std::sync::atomic::Ordering::SeqCst) {
+            let _ = gate.entered.send(());
+            let _ = gate.release.lock().unwrap().recv();
+        }
+    } };
+    let app = deltabadger::web::App::new(deltabadger::web::Config::from_env(&env).unwrap(), &env, own, TestClock::at(NOW)).unwrap()
+        .with_password_hook(std::sync::Arc::new(hook)).unwrap();
+    (dir, opened.primary, seeded.user_id, app, Held { gate, entered, release })
+}
+
+/// One sign-in attempt by a browser of its own at 198.51.100.`n`: the login page, then the form. Its status.
+fn attempt(app: &deltabadger::web::App, n: u8, email: &'static str, password: &'static str) -> tokio::task::JoinHandle<u16> {
+    let app = app.clone();
+    tokio::spawn(async move {
+        let (mut browser, from) = (Browser::default(), format!("198.51.100.{n}"));
+        browser.send(&app, "GET", "/login", None, web::Csrf::None, &[("x-forwarded-for", &from)]).await;
+        browser.send(&app, "POST", "/login", Some(&[("user[email]", email), ("user[password]", password)]), web::Csrf::Form, &[("x-forwarded-for", &from)]).await.status
+    })
+}
+
+fn failed_attempts(db: &rusqlite::Connection, user: i64) -> (i64, Option<String>, String) {
+    db.query_row("SELECT failed_attempts, locked_at, updated_at FROM users WHERE id = ?1", [user], |r| Ok((r.get::<_, Option<i64>>(0)?.unwrap_or(0), r.get(1)?, r.get(2)?))).unwrap()
+}
+
+/// bcrypt takes a good part of a second, and the web side has one database connection behind a lock.
+/// The computation runs outside that lock: a sign-in in progress holds up no other request.
+#[tokio::test(flavor = "current_thread")]
+async fn a_sign_in_being_checked_does_not_hold_up_other_requests() {
+    let (_dir, _db, _user, app, mut held) = gated();
+    let mut signed_in = Browser::default();
+    signed_in.get(&app, "/login").await;
+    assert_eq!(signed_in.post(&app, "/login", &[("user[email]", "o@example.com"), ("user[password]", "Correct-horse-9")]).await.status, 303);
+    held.hold(true);
+    let checking = attempt(&app, 1, "o@example.com", "wrong");
+    held.in_flight().await;
+    let page = tokio::time::timeout(Duration::from_secs(2), Browser::default().get(&app, "/login")).await.expect("the login page waited for another request's bcrypt");
+    assert_eq!(page.status, 200);
+    let bots = tokio::time::timeout(Duration::from_secs(2), signed_in.get(&app, "/bots")).await.expect("a signed-in page waited for another request's bcrypt");
+    assert_eq!(bots.status, 200);
+    held.release.send(()).unwrap();
+    assert_eq!(checking.await.unwrap(), 422);
+}
+
+/// Two computations at a time, eight attempts waiting for their turn, and the one after that is
+/// refused at once: a 503 that spent no attempt and wrote nothing.
+#[tokio::test(flavor = "current_thread")]
+async fn a_sign_in_beyond_the_waiting_room_is_refused_and_counts_nothing() {
+    let (_dir, db, user, app, mut held) = gated();
+    held.hold(true);
+    let mut attempts: Vec<_> = (1..=2).map(|n| attempt(&app, n, "nobody@example.com", "wrong")).collect();
+    held.in_flight().await;
+    held.in_flight().await;
+    attempts.extend((3..=10).map(|n| attempt(&app, n, "nobody@example.com", "wrong")));
+    let started = Instant::now();
+    while app.password_checks_waiting() < 8 {
+        assert!(started.elapsed() < Duration::from_secs(10), "{} attempts are waiting", app.password_checks_waiting());
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    let before = failed_attempts(&db, user);
+    let (mut ninth, from) = (Browser::default(), [("x-forwarded-for", "198.51.100.11")]);
+    ninth.send(&app, "GET", "/login", None, web::Csrf::None, &from).await;
+    let refused = tokio::time::timeout(Duration::from_secs(2), ninth.send(&app, "POST", "/login", Some(&[("user[email]", "o@example.com"), ("user[password]", "wrong")]), web::Csrf::Form, &from))
+        .await.expect("the ninth to wait is answered at once");
+    assert_eq!((refused.status, refused.header("retry-after"), refused.header("x-frame-options"), refused.header("cache-control")), (503, Some("1"), None, Some("no-cache")),
+               "below the controllers, as the 429");
+    assert_eq!((held.calls(), app.password_checks_waiting(), failed_attempts(&db, user)), (2, 8, before.clone()), "no bcrypt, no place taken, no attempt spent");
+    for _ in 0..10 { held.release.send(()).unwrap(); }
+    for attempt in attempts { assert_eq!(attempt.await.unwrap(), 422); }
+    assert_eq!((held.calls(), app.password_checks_waiting(), failed_attempts(&db, user)), (10, 0, before));
+}
+
+/// The computation runs outside the lock, so two attempts on one account overlap. What each then
+/// does is decided on the row as it is after its own computation: both count, and the fifth locks.
+#[tokio::test(flavor = "current_thread")]
+async fn overlapping_wrong_passwords_for_one_account_all_count_and_the_fifth_locks() {
+    let (_dir, db, user, app, mut held) = gated();
+    held.hold(true);
+    for (already, locked) in [(0, false), (3, true)] {
+        db.execute("UPDATE users SET failed_attempts = ?1 WHERE id = ?2", (already, user)).unwrap();
+        let pair = [attempt(&app, 1 + already as u8, "o@example.com", "wrong"), attempt(&app, 2 + already as u8, "o@example.com", "wrong")];
+        held.in_flight().await;
+        held.in_flight().await; // both have read the row by now
+        held.release.send(()).unwrap();
+        held.release.send(()).unwrap();
+        for attempt in pair { assert_eq!(attempt.await.unwrap(), 422); }
+        let (count, locked_at, _) = failed_attempts(&db, user);
+        assert_eq!((count, locked_at.is_some()), (already + 2, locked), "after {already} earlier failures");
+    }
+    // The password changed while an attempt with the old one was being checked: refused, and not counted.
+    db.execute("UPDATE users SET failed_attempts = 0, locked_at = NULL WHERE id = ?1", [user]).unwrap();
+    let stale = attempt(&app, 9, "o@example.com", "Correct-horse-9");
+    held.in_flight().await;
+    db.execute("UPDATE users SET encrypted_password = ?1 WHERE id = ?2", (deltabadger::crypto::hash_password("Another-horse-7").unwrap(), user)).unwrap();
+    held.release.send(()).unwrap();
+    assert_eq!((stale.await.unwrap(), failed_attempts(&db, user).0), (422, 0));
+}
+
+/// Exactly one bcrypt computation for every sign-in attempt that reaches the controller, whatever
+/// the account is, so that how long the answer takes says nothing about it.
+#[tokio::test(flavor = "current_thread")]
+async fn every_sign_in_attempt_costs_exactly_one_bcrypt() {
+    let (_dir, db, user, app, held) = gated();
+    let mut n = 0;
+    let mut costs = async |email: &'static str, password: &'static str, status: u16, what: &str| {
+        n += 1;
+        let before = held.calls();
+        assert_eq!(attempt(&app, n, email, password).await.unwrap(), status, "{what}");
+        assert_eq!(held.calls() - before, 1, "{what}");
+    };
+    costs("o@example.com", "wrong", 422, "a known email, a wrong password").await;
+    costs("o@example.com", "Correct-horse-9", 303, "a known email, the right password").await;
+    costs("nobody@example.com", "wrong", 422, "an unknown email").await;
+    costs("o@example.com", "", 422, "a known email, no password").await;
+    costs("", "", 422, "nothing at all").await;
+    db.execute("UPDATE users SET failed_attempts = 5, locked_at = '2026-09-10 12:00:00' WHERE id = ?1", [user]).unwrap();
+    costs("o@example.com", "Correct-horse-9", 422, "a locked account, the right password").await;
+    costs("o@example.com", "wrong", 422, "a locked account, a wrong password").await;
+    db.execute("UPDATE users SET failed_attempts = 0, locked_at = NULL, otp_module = 1, otp_secret_key = 'JBSWY3DPEHPK3PXP' WHERE id = ?1", [user]).unwrap();
+    costs("o@example.com", "Correct-horse-9", 302, "two-factor, the right password").await;
+    costs("o@example.com", "wrong", 422, "two-factor, a wrong password").await;
+    // And none for a request that is refused before the controller.
+    let before = held.calls();
+    let no_token = Browser::default().send(&app, "POST", "/login", Some(&[("user[email]", "o@example.com"), ("user[password]", "wrong")]), web::Csrf::None, &[("x-forwarded-for", "198.51.100.99")]).await;
+    assert_eq!((no_token.status, held.calls() - before), (302, 0), "no CSRF token: no bcrypt");
+}
+
 /// What no in-process test can see: the first page after sign-in in a real browser, with the compiled
 /// JS and CSS (script/rust/browser_check.mjs drives headless Chrome). It needs Chrome and bun, so it
 /// is not part of `cargo test`: run it with `cargo test --test serve -- --ignored`.
